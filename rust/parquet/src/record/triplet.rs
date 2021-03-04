@@ -163,7 +163,7 @@ impl TripletIter {
             TripletIter::FixedLenByteArrayTripletIter(ref typed) => {
                 Field::convert_byte_array(
                     typed.column_descr(),
-                    typed.current_value().clone(),
+                    typed.current_value().clone().into(),
                 )
             }
         }
@@ -296,16 +296,10 @@ impl<T: DataType> TypedTripletIter<T> {
         if self.curr_triplet_index >= self.triplets_left {
             let (values_read, levels_read) = {
                 // Get slice of definition levels, if available
-                let def_levels = match self.def_levels {
-                    Some(ref mut vec) => Some(&mut vec[..]),
-                    None => None,
-                };
+                let def_levels = self.def_levels.as_mut().map(|vec| &mut vec[..]);
 
                 // Get slice of repetition levels, if available
-                let rep_levels = match self.rep_levels {
-                    Some(ref mut vec) => Some(&mut vec[..]),
-                    None => None,
-                };
+                let rep_levels = self.rep_levels.as_mut().map(|vec| &mut vec[..]);
 
                 // Buffer triplets
                 self.reader.read_batch(
@@ -373,14 +367,7 @@ mod tests {
     fn test_triplet_zero_batch_size() {
         let column_path =
             ColumnPath::from(vec!["b_struct".to_string(), "b_c_int".to_string()]);
-        test_column_in_file(
-            "nulls.snappy.parquet",
-            0,
-            &column_path,
-            &vec![],
-            &vec![],
-            &vec![],
-        );
+        test_column_in_file("nulls.snappy.parquet", 0, &column_path, &[], &[], &[]);
     }
 
     #[test]
@@ -518,8 +505,9 @@ mod tests {
     ) {
         let file = get_test_file(file_name);
         let file_reader = SerializedFileReader::new(file).unwrap();
+        let metadata = file_reader.metadata();
         // Get schema descriptor
-        let file_metadata = file_reader.metadata().file_metadata();
+        let file_metadata = metadata.file_metadata();
         let schema = file_metadata.schema_descr();
         // Get first row group
         let row_group_reader = file_reader.get_row_group(0).unwrap();

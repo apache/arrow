@@ -17,19 +17,19 @@
 
 // Adapted from Apache Impala
 
-#ifndef GANDIVA_DECIMAL_TYPE_SQL_H
-#define GANDIVA_DECIMAL_TYPE_SQL_H
+#pragma once
 
 #include <algorithm>
 #include <memory>
 
 #include "gandiva/arrow.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// @brief Handles conversion of scale/precision for operations on decimal types.
 /// TODO : do validations for all of these.
-class DecimalTypeUtil {
+class GANDIVA_EXPORT DecimalTypeUtil {
  public:
   enum Op {
     kOpAdd,
@@ -52,7 +52,7 @@ class DecimalTypeUtil {
   static constexpr int32_t kMaxScale = kMaxPrecision;
 
   // When operating on decimal inputs, the integer part of the output can exceed the
-  // max precision. In such cases, the scale can be reduced, upto a minimum of
+  // max precision. In such cases, the scale can be reduced, up to a minimum of
   // kMinAdjustedScale.
   // * There is no strong reason for 6, but both SQLServer and Impala use 6 too.
   static constexpr int32_t kMinAdjustedScale = 6;
@@ -62,29 +62,22 @@ class DecimalTypeUtil {
   static Status GetResultType(Op op, const Decimal128TypeVector& in_types,
                               Decimal128TypePtr* out_type);
 
-  static Decimal128TypePtr MakeType(int32_t precision, int32_t scale);
+  static Decimal128TypePtr MakeType(int32_t precision, int32_t scale) {
+    return std::dynamic_pointer_cast<arrow::Decimal128Type>(
+        arrow::decimal(precision, scale));
+  }
 
  private:
-  static Decimal128TypePtr MakeAdjustedType(int32_t precision, int32_t scale);
+  // Reduce the scale if possible so that precision stays <= kMaxPrecision
+  static Decimal128TypePtr MakeAdjustedType(int32_t precision, int32_t scale) {
+    if (precision > kMaxPrecision) {
+      int32_t min_scale = std::min(scale, kMinAdjustedScale);
+      int32_t delta = precision - kMaxPrecision;
+      precision = kMaxPrecision;
+      scale = std::max(scale - delta, min_scale);
+    }
+    return MakeType(precision, scale);
+  }
 };
 
-inline Decimal128TypePtr DecimalTypeUtil::MakeType(int32_t precision, int32_t scale) {
-  return std::dynamic_pointer_cast<arrow::Decimal128Type>(
-      arrow::decimal(precision, scale));
-}
-
-// Reduce the scale if possible so that precision stays <= kMaxPrecision
-inline Decimal128TypePtr DecimalTypeUtil::MakeAdjustedType(int32_t precision,
-                                                           int32_t scale) {
-  if (precision > kMaxPrecision) {
-    int32_t min_scale = std::min(scale, kMinAdjustedScale);
-    int32_t delta = precision - kMaxPrecision;
-    precision = kMaxPrecision;
-    scale = std::max(scale - delta, min_scale);
-  }
-  return MakeType(precision, scale);
-}
-
 }  // namespace gandiva
-
-#endif  // GANDIVA_DECIMAL_TYPE_SQL_H

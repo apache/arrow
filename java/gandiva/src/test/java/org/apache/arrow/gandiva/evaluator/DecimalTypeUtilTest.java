@@ -76,14 +76,14 @@ public class DecimalTypeUtilTest {
   @Test
   public void testOutputTypesForMod() {
     ArrowType.Decimal operand1 = getDecimal(30, 10);
-    ArrowType.Decimal operand2 = getDecimal(28  , 7);
+    ArrowType.Decimal operand2 = getDecimal(28, 7);
     ArrowType.Decimal resultType = DecimalTypeUtil.getResultTypeForOperation(DecimalTypeUtil
                     .OperationType.MOD, operand1, operand2);
     Assert.assertTrue(getDecimal(30, 10).equals(resultType));
   }
 
   private ArrowType.Decimal getDecimal(int precision, int scale) {
-    return new ArrowType.Decimal(precision, scale);
+    return new ArrowType.Decimal(precision, scale, 128);
   }
 
 }

@@ -33,9 +33,7 @@ gobject-introspection gem is a Ruby bindings of GObject Introspection. Red Gandi
 
 ## Install
 
-Install Gandiva GLib before install Red Gandiva. Use [packages.red-data-tools.org](https://github.com/red-data-tools/packages.red-data-tools.org) for installing Gandiva GLib.
-
-Note that the Gandiva GLib packages are "unofficial". "Official" packages will be released in the future.
+Install Gandiva GLib before install Red Gandiva. See [Apache Arrow install document](https://arrow.apache.org/install/) for details.
 
 Install Red Gandiva after you install Gandiva GLib:
 
@@ -48,18 +46,23 @@ Install Red Gandiva after you install Gandiva GLib:
 ```ruby
 require "gandiva"
 
-field1 = Arrow::Field.new("field1", Arrow::Int32DataType.new)
-field2 = Arrow::Field.new("field2", Arrow::Int32DataType.new)
-schema = Arrow::Schema.new([field1, field2])
-add_result = Arrow::Field.new("add_result", Arrow::Int32DataType.new)
-subtract_result = Arrow::Field.new("subtract_result", Arrow::Int32DataType.new)
-add_expression = Gandiva::Expression.new("add", [field1, field2], add_result)
-subtract_expression = Gandiva::Expression.new("subtract", [field1, field2], subtract_result)
-projector = Gandiva::Projector.new(schema, [add_expression, subtract_expression])
-input_arrays = [
-  Arrow::Int32Array.new([1, 2, 3, 4]),
-  Arrow::Int32Array.new([11, 13, 15, 17]),
-]
-record_batch = Arrow::RecordBatch.new(schema, 4, input_arrays)
-output_arrays = projector.evaluate(record_batch)
+table = Arrow::Table.new(:field1 => Arrow::Int32Array.new([1, 2, 3, 4]),
+                         :field2 => Arrow::Int32Array.new([11, 13, 15, 17]))
+schema = table.schema
+
+expression1 = schema.build_expression do |record|
+  record.field1 + record.field2
+end
+
+expression2 = schema.build_expression do |record, context|
+  context.if(record.field1 > record.field2)
+    .then(record.field1 / record.field2)
+    .else(record.field1)
+end
+
+projector = Gandiva::Projector.new(schema, [expression1, expression2])
+table.each_record_batch do |record_batch|
+  outputs = projector.evaluate(record_batch)
+  puts outputs.collect(&:values))
+end
 ```

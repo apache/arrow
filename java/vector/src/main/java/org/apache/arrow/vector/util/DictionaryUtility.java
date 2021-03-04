@@ -31,8 +31,11 @@ import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 
-
+/**
+ * Utility methods for working with Dictionaries used in Dictionary encodings.
+ */
 public class DictionaryUtility {
+  private DictionaryUtility() {}
 
   /**
    * Convert field and child fields that have a dictionary encoding to message format, so fields
@@ -42,21 +45,17 @@ public class DictionaryUtility {
    * in the memory format, they have the index type
    */
   public static Field toMessageFormat(Field field, DictionaryProvider provider, Set<Long> dictionaryIdsUsed) {
-    DictionaryEncoding encoding = field.getDictionary();
-    List<Field> children = field.getChildren();
-
-    if (encoding == null && children.isEmpty()) {
+    if (!needConvertToMessageFormat(field)) {
       return field;
     }
+    DictionaryEncoding encoding = field.getDictionary();
+    List<Field> children;
 
-    List<Field> updatedChildren = new ArrayList<>(children.size());
-    for (Field child : children) {
-      updatedChildren.add(toMessageFormat(child, provider, dictionaryIdsUsed));
-    }
 
     ArrowType type;
     if (encoding == null) {
       type = field.getType();
+      children = field.getChildren();
     } else {
       long id = encoding.getId();
       Dictionary dictionary = provider.lookup(id);
@@ -64,12 +63,41 @@ public class DictionaryUtility {
         throw new IllegalArgumentException("Could not find dictionary with ID " + id);
       }
       type = dictionary.getVectorType();
+      children = dictionary.getVector().getField().getChildren();
 
       dictionaryIdsUsed.add(id);
     }
 
+    final List<Field> updatedChildren = new ArrayList<>(children.size());
+    for (Field child : children) {
+      updatedChildren.add(toMessageFormat(child, provider, dictionaryIdsUsed));
+    }
+
     return new Field(field.getName(), new FieldType(field.isNullable(), type, encoding, field.getMetadata()),
       updatedChildren);
+  }
+
+  /**
+   * Checks if it is required to convert the field to message format.
+   * @param field the field to check.
+   * @return true if a conversion is required, and false otherwise.
+   */
+  public static boolean needConvertToMessageFormat(Field field) {
+    DictionaryEncoding encoding = field.getDictionary();
+
+    if (encoding != null) {
+      // when encoding is not null, the type must be determined from the
+      // dictionary, so conversion must be performed.
+      return true;
+    }
+
+    List<Field> children = field.getChildren();
+    for (Field child : children) {
+      if (needConvertToMessageFormat(child)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -90,8 +118,10 @@ public class DictionaryUtility {
     }
 
     ArrowType type;
+    List<Field> fieldChildren = null;
     if (encoding == null) {
       type = field.getType();
+      fieldChildren = updatedChildren;
     } else {
       // re-type the field for in-memory format
       type = encoding.getIndexType();
@@ -102,13 +132,14 @@ public class DictionaryUtility {
       if (!dictionaries.containsKey(encoding.getId())) {
         // create a new dictionary vector for the values
         String dictName = "DICT" + encoding.getId();
-        Field dictionaryField = new Field(dictName, new FieldType(false, field.getType(), null, null), children);
+        Field dictionaryField = new Field(dictName,
+            new FieldType(field.isNullable(), field.getType(), null, null), updatedChildren);
         FieldVector dictionaryVector = dictionaryField.createVector(allocator);
         dictionaries.put(encoding.getId(), new Dictionary(dictionaryVector, encoding));
       }
     }
 
     return new Field(field.getName(), new FieldType(field.isNullable(), type, encoding, field.getMetadata()),
-      updatedChildren);
+      fieldChildren);
   }
 }

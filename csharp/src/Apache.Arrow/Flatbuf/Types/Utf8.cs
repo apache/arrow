@@ -9,7 +9,7 @@ using global::System;
 using global::FlatBuffers;
 
 /// Unicode with UTF-8 encoding
-public struct Utf8 : IFlatbufferObject
+internal struct Utf8 : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }

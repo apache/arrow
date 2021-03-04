@@ -20,51 +20,21 @@
 #pragma once
 
 #include <arrow-glib/array.h>
+#include <arrow-glib/ipc-options.h>
 #include <arrow-glib/schema.h>
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_RECORD_BATCH                \
-  (garrow_record_batch_get_type())
-#define GARROW_RECORD_BATCH(obj)                        \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                    \
-                              GARROW_TYPE_RECORD_BATCH, \
-                              GArrowRecordBatch))
-#define GARROW_RECORD_BATCH_CLASS(klass)                \
-  (G_TYPE_CHECK_CLASS_CAST((klass),                     \
-                           GARROW_TYPE_RECORD_BATCH,    \
-                           GArrowRecordBatchClass))
-#define GARROW_IS_RECORD_BATCH(obj)                             \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                            \
-                              GARROW_TYPE_RECORD_BATCH))
-#define GARROW_IS_RECORD_BATCH_CLASS(klass)             \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),                     \
-                           GARROW_TYPE_RECORD_BATCH))
-#define GARROW_RECORD_BATCH_GET_CLASS(obj)              \
-  (G_TYPE_INSTANCE_GET_CLASS((obj),                     \
-                             GARROW_TYPE_RECORD_BATCH,  \
-                             GArrowRecordBatchClass))
-
-typedef struct _GArrowRecordBatch         GArrowRecordBatch;
-typedef struct _GArrowRecordBatchClass    GArrowRecordBatchClass;
-
-/**
- * GArrowRecordBatch:
- *
- * It wraps `arrow::RecordBatch`.
- */
-struct _GArrowRecordBatch
-{
-  /*< private >*/
-  GObject parent_instance;
-};
-
+#define GARROW_TYPE_RECORD_BATCH (garrow_record_batch_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowRecordBatch,
+                         garrow_record_batch,
+                         GARROW,
+                         RECORD_BATCH,
+                         GObject)
 struct _GArrowRecordBatchClass
 {
   GObjectClass parent_class;
 };
-
-GType garrow_record_batch_get_type(void) G_GNUC_CONST;
 
 GArrowRecordBatch *garrow_record_batch_new(GArrowSchema *schema,
                                            guint32 n_rows,
@@ -73,11 +43,16 @@ GArrowRecordBatch *garrow_record_batch_new(GArrowSchema *schema,
 
 gboolean garrow_record_batch_equal(GArrowRecordBatch *record_batch,
                                    GArrowRecordBatch *other_record_batch);
+GARROW_AVAILABLE_IN_0_17
+gboolean
+garrow_record_batch_equal_metadata(GArrowRecordBatch *record_batch,
+                                   GArrowRecordBatch *other_record_batch,
+                                   gboolean check_metadata);
 
 GArrowSchema *garrow_record_batch_get_schema     (GArrowRecordBatch *record_batch);
-GArrowArray  *garrow_record_batch_get_column     (GArrowRecordBatch *record_batch,
+GARROW_AVAILABLE_IN_0_15
+GArrowArray  *garrow_record_batch_get_column_data(GArrowRecordBatch *record_batch,
                                                   gint i);
-GList        *garrow_record_batch_get_columns    (GArrowRecordBatch *record_batch);
 const gchar  *garrow_record_batch_get_column_name(GArrowRecordBatch *record_batch,
                                                   gint i);
 guint         garrow_record_batch_get_n_columns  (GArrowRecordBatch *record_batch);
@@ -96,5 +71,42 @@ GArrowRecordBatch *garrow_record_batch_add_column(GArrowRecordBatch *record_batc
 GArrowRecordBatch *garrow_record_batch_remove_column(GArrowRecordBatch *record_batch,
                                                      guint i,
                                                      GError **error);
+GARROW_AVAILABLE_IN_1_0
+GArrowBuffer *
+garrow_record_batch_serialize(GArrowRecordBatch *record_batch,
+                              GArrowWriteOptions *options,
+                              GError **error);
+
+
+#define GARROW_TYPE_RECORD_BATCH_ITERATOR       \
+  (garrow_record_batch_iterator_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowRecordBatchIterator,
+                         garrow_record_batch_iterator,
+                         GARROW,
+                         RECORD_BATCH_ITERATOR,
+                         GObject)
+struct _GArrowRecordBatchIteratorClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_0_17
+GArrowRecordBatchIterator *
+garrow_record_batch_iterator_new(GList *record_batches);
+
+GARROW_AVAILABLE_IN_0_17
+GArrowRecordBatch *
+garrow_record_batch_iterator_next(GArrowRecordBatchIterator *iterator,
+                                  GError **error);
+
+GARROW_AVAILABLE_IN_0_17
+gboolean
+garrow_record_batch_iterator_equal(GArrowRecordBatchIterator *iterator,
+                                   GArrowRecordBatchIterator *other_iterator);
+
+GARROW_AVAILABLE_IN_0_17
+GList *
+garrow_record_batch_iterator_to_list(GArrowRecordBatchIterator *iterator,
+                                     GError **error);
 
 G_END_DECLS

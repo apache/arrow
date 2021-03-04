@@ -17,19 +17,24 @@
 
 // Implement Arrow streaming binary format
 
-#ifndef ARROW_IPC_WRITER_H
-#define ARROW_IPC_WRITER_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
 #include <vector>
 
+#include "arrow/ipc/dictionary.h"  // IWYU pragma: export
 #include "arrow/ipc/message.h"
+#include "arrow/ipc/options.h"
+#include "arrow/result.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
+class Array;
 class Buffer;
+class MemoryManager;
 class MemoryPool;
 class RecordBatch;
 class Schema;
@@ -46,6 +51,32 @@ class OutputStream;
 
 namespace ipc {
 
+/// \brief Intermediate data structure with metadata header, and zero
+/// or more buffers for the message body.
+struct IpcPayload {
+  MessageType type = MessageType::NONE;
+  std::shared_ptr<Buffer> metadata;
+  std::vector<std::shared_ptr<Buffer>> body_buffers;
+  int64_t body_length = 0;
+};
+
+struct WriteStats {
+  /// Number of IPC messages written.
+  int64_t num_messages = 0;
+  /// Number of record batches written.
+  int64_t num_record_batches = 0;
+  /// Number of dictionary batches written.
+  ///
+  /// Note: num_dictionary_batches >= num_dictionary_deltas + num_replaced_dictionaries
+  int64_t num_dictionary_batches = 0;
+
+  /// Number of dictionary deltas written.
+  int64_t num_dictionary_deltas = 0;
+  /// Number of replaced dictionaries (i.e. where a dictionary batch replaces
+  /// an existing dictionary with an unrelated new dictionary).
+  int64_t num_replaced_dictionaries = 0;
+};
+
 /// \class RecordBatchWriter
 /// \brief Abstract interface for writing a stream of record batches
 class ARROW_EXPORT RecordBatchWriter {
@@ -55,10 +86,8 @@ class ARROW_EXPORT RecordBatchWriter {
   /// \brief Write a record batch to the stream
   ///
   /// \param[in] batch the record batch to write to the stream
-  /// \param[in] allow_64bit if true, allow field lengths that don't fit
-  ///    in a signed 32-bit int
   /// \return Status
-  virtual Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) = 0;
+  virtual Status WriteRecordBatch(const RecordBatch& batch) = 0;
 
   /// \brief Write possibly-chunked table by creating sequence of record batches
   /// \param[in] table table to write
@@ -67,94 +96,93 @@ class ARROW_EXPORT RecordBatchWriter {
 
   /// \brief Write Table with a particular chunksize
   /// \param[in] table table to write
-  /// \param[in] max_chunksize maximum chunk size for table chunks
+  /// \param[in] max_chunksize maximum length of table chunks. To indicate
+  /// that no maximum should be enforced, pass -1.
   /// \return Status
-  Status WriteTable(const Table& table, int64_t max_chunksize);
+  virtual Status WriteTable(const Table& table, int64_t max_chunksize);
 
   /// \brief Perform any logic necessary to finish the stream
   ///
   /// \return Status
   virtual Status Close() = 0;
 
-  /// In some cases, writing may require memory allocation. We use the default
-  /// memory pool, but provide the option to override
-  ///
-  /// \param pool the memory pool to use for required allocations
-  virtual void set_memory_pool(MemoryPool* pool) = 0;
+  /// \brief Return current write statistics
+  virtual WriteStats stats() const = 0;
 };
 
-/// \class RecordBatchStreamWriter
-/// \brief Synchronous batch stream writer that writes the Arrow streaming
-/// format
-class ARROW_EXPORT RecordBatchStreamWriter : public RecordBatchWriter {
- public:
-  ~RecordBatchStreamWriter() override;
-
-  /// Create a new writer from stream sink and schema. User is responsible for
-  /// closing the actual OutputStream.
-  ///
-  /// \param[in] sink output stream to write to
-  /// \param[in] schema the schema of the record batches to be written
-  /// \param[out] out the created stream writer
-  /// \return Status
-  static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-                     std::shared_ptr<RecordBatchWriter>* out);
-
-  /// \brief Write a record batch to the stream
-  ///
-  /// \param[in] batch the record batch to write
-  /// \param[in] allow_64bit allow array lengths over INT32_MAX - 1
-  /// \return Status
-  Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
-
-  /// \brief Close the stream by writing a 4-byte int32 0 EOS market
-  /// \return Status
-  Status Close() override;
-
-  void set_memory_pool(MemoryPool* pool) override;
-
- protected:
-  RecordBatchStreamWriter();
-  class ARROW_NO_EXPORT RecordBatchStreamWriterImpl;
-  std::unique_ptr<RecordBatchStreamWriterImpl> impl_;
-};
-
-/// \brief Creates the Arrow record batch file format
+/// \defgroup record-batch-writer-factories Functions for creating RecordBatchWriter
+/// instances
 ///
-/// Implements the random access file format, which structurally is a record
-/// batch stream followed by a metadata footer at the end of the file. Magic
-/// numbers are written at the start and end of the file
-class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
- public:
-  ~RecordBatchFileWriter() override;
+/// @{
 
-  /// Create a new writer from stream sink and schema
-  ///
-  /// \param[in] sink output stream to write to
-  /// \param[in] schema the schema of the record batches to be written
-  /// \param[out] out the created stream writer
-  /// \return Status
-  static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-                     std::shared_ptr<RecordBatchWriter>* out);
+/// Create a new IPC stream writer from stream sink and schema. User is
+/// responsible for closing the actual OutputStream.
+///
+/// \param[in] sink output stream to write to
+/// \param[in] schema the schema of the record batches to be written
+/// \param[in] options options for serialization
+/// \return Result<std::shared_ptr<RecordBatchWriter>>
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatchWriter>> MakeStreamWriter(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+    const IpcWriteOptions& options = IpcWriteOptions::Defaults());
 
-  /// \brief Write a record batch to the file
-  ///
-  /// \param[in] batch the record batch to write
-  /// \param[in] allow_64bit allow array lengths over INT32_MAX - 1
-  /// \return Status
-  Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
+/// Create a new IPC stream writer from stream sink and schema. User is
+/// responsible for closing the actual OutputStream.
+///
+/// \param[in] sink output stream to write to
+/// \param[in] schema the schema of the record batches to be written
+/// \param[in] options options for serialization
+/// \return Result<std::shared_ptr<RecordBatchWriter>>
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatchWriter>> MakeStreamWriter(
+    std::shared_ptr<io::OutputStream> sink, const std::shared_ptr<Schema>& schema,
+    const IpcWriteOptions& options = IpcWriteOptions::Defaults());
 
-  /// \brief Close the file stream by writing the file footer and magic number
-  /// \return Status
-  Status Close() override;
+/// Create a new IPC file writer from stream sink and schema
+///
+/// \param[in] sink output stream to write to
+/// \param[in] schema the schema of the record batches to be written
+/// \param[in] options options for serialization, optional
+/// \param[in] metadata custom metadata for File Footer, optional
+/// \return Result<std::shared_ptr<RecordBatchWriter>>
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatchWriter>> MakeFileWriter(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+    const IpcWriteOptions& options = IpcWriteOptions::Defaults(),
+    const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
 
- private:
-  RecordBatchFileWriter();
-  class ARROW_NO_EXPORT RecordBatchFileWriterImpl;
-  std::unique_ptr<RecordBatchFileWriterImpl> file_impl_;
-};
+/// Create a new IPC file writer from stream sink and schema
+///
+/// \param[in] sink output stream to write to
+/// \param[in] schema the schema of the record batches to be written
+/// \param[in] options options for serialization, optional
+/// \param[in] metadata custom metadata for File Footer, optional
+/// \return Result<std::shared_ptr<RecordBatchWriter>>
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatchWriter>> MakeFileWriter(
+    std::shared_ptr<io::OutputStream> sink, const std::shared_ptr<Schema>& schema,
+    const IpcWriteOptions& options = IpcWriteOptions::Defaults(),
+    const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
 
-/// \brief Low-level API for writing a record batch (without schema) to an OutputStream
+/// @}
+
+ARROW_DEPRECATED("Use MakeStreamWriter")
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatchWriter>> NewStreamWriter(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+    const IpcWriteOptions& options = IpcWriteOptions::Defaults());
+
+ARROW_DEPRECATED("Use MakeFileWriter")
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatchWriter>> NewFileWriter(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+    const IpcWriteOptions& options = IpcWriteOptions::Defaults(),
+    const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
+
+/// \brief Low-level API for writing a record batch (without schema)
+/// to an OutputStream as encapsulated IPC message. See Arrow format
+/// documentation for more detail.
 ///
 /// \param[in] batch the record batch to write
 /// \param[in] buffer_start_offset the start offset to use in the buffer metadata,
@@ -163,74 +191,71 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
 /// \param[out] metadata_length the size of the length-prefixed flatbuffer
 /// including padding to a 64-byte boundary
 /// \param[out] body_length the size of the contiguous buffer block plus
-/// \param[in] pool the memory pool to allocate memory from
-/// \param[in] max_recursion_depth the maximum permitted nesting schema depth
-/// \param[in] allow_64bit permit field lengths exceeding INT32_MAX. May not be
-/// readable by other Arrow implementations
-/// padding bytes
+/// \param[in] options options for serialization
 /// \return Status
-///
-/// Write the RecordBatch (collection of equal-length Arrow arrays) to the
-/// output stream in a contiguous block. The record batch metadata is written as
-/// a flatbuffer (see format/Message.fbs -- the RecordBatch message type)
-/// prefixed by its size, followed by each of the memory buffers in the batch
-/// written end to end (with appropriate alignment and padding):
-///
-/// \code
-/// <int32: metadata size> <uint8*: metadata> <buffers ...>
-/// \endcode
-///
-/// Finally, the absolute offsets (relative to the start of the output stream)
-/// to the end of the body and end of the metadata / data header (suffixed by
-/// the header size) is returned in out-variables
 ARROW_EXPORT
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
                         io::OutputStream* dst, int32_t* metadata_length,
-                        int64_t* body_length, MemoryPool* pool,
-                        int max_recursion_depth = kMaxNestingDepth,
-                        bool allow_64bit = false);
+                        int64_t* body_length, const IpcWriteOptions& options);
 
 /// \brief Serialize record batch as encapsulated IPC message in a new buffer
 ///
 /// \param[in] batch the record batch
-/// \param[in] pool a MemoryPool to allocate memory from
-/// \param[out] out the serialized message
-/// \return Status
+/// \param[in] options the IpcWriteOptions to use for serialization
+/// \return the serialized message
 ARROW_EXPORT
-Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
-                            std::shared_ptr<Buffer>* out);
+Result<std::shared_ptr<Buffer>> SerializeRecordBatch(const RecordBatch& batch,
+                                                     const IpcWriteOptions& options);
+
+/// \brief Serialize record batch as encapsulated IPC message in a new buffer
+///
+/// \param[in] batch the record batch
+/// \param[in] mm a MemoryManager to allocate memory from
+/// \return the serialized message
+ARROW_EXPORT
+Result<std::shared_ptr<Buffer>> SerializeRecordBatch(const RecordBatch& batch,
+                                                     std::shared_ptr<MemoryManager> mm);
 
 /// \brief Write record batch to OutputStream
 ///
 /// \param[in] batch the record batch to write
-/// \param[in] pool a MemoryPool to use for temporary allocations, if needed
+/// \param[in] options the IpcWriteOptions to use for serialization
 /// \param[in] out the OutputStream to write the output to
 /// \return Status
 ///
 /// If writing to pre-allocated memory, you can use
 /// arrow::ipc::GetRecordBatchSize to compute how much space is required
 ARROW_EXPORT
-Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
+Status SerializeRecordBatch(const RecordBatch& batch, const IpcWriteOptions& options,
                             io::OutputStream* out);
 
-/// \brief Serialize schema using stream writer as a sequence of one or more
-/// IPC messages
+/// \brief Serialize schema as encapsulated IPC message
 ///
 /// \param[in] schema the schema to write
 /// \param[in] pool a MemoryPool to allocate memory from
-/// \param[out] out the serialized schema
-/// \return Status
+/// \return the serialized schema
 ARROW_EXPORT
-Status SerializeSchema(const Schema& schema, MemoryPool* pool,
-                       std::shared_ptr<Buffer>* out);
+Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema& schema,
+                                                MemoryPool* pool = default_memory_pool());
 
 /// \brief Write multiple record batches to OutputStream, including schema
 /// \param[in] batches a vector of batches. Must all have same schema
+/// \param[in] options options for serialization
 /// \param[out] dst an OutputStream
 /// \return Status
 ARROW_EXPORT
 Status WriteRecordBatchStream(const std::vector<std::shared_ptr<RecordBatch>>& batches,
-                              io::OutputStream* dst);
+                              const IpcWriteOptions& options, io::OutputStream* dst);
+
+/// \brief Compute the number of bytes needed to write an IPC payload
+///     including metadata
+///
+/// \param[in] payload the IPC payload to write
+/// \param[in] options write options
+/// \return the size of the complete encapsulated message
+ARROW_EXPORT
+int64_t GetPayloadSize(const IpcPayload& payload,
+                       const IpcWriteOptions& options = IpcWriteOptions::Defaults());
 
 /// \brief Compute the number of bytes needed to write a record batch including metadata
 ///
@@ -240,9 +265,19 @@ Status WriteRecordBatchStream(const std::vector<std::shared_ptr<RecordBatch>>& b
 ARROW_EXPORT
 Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size);
 
+/// \brief Compute the number of bytes needed to write a record batch including metadata
+///
+/// \param[in] batch the record batch to write
+/// \param[in] options options for serialization
+/// \param[out] size the size of the complete encapsulated message
+/// \return Status
+ARROW_EXPORT
+Status GetRecordBatchSize(const RecordBatch& batch, const IpcWriteOptions& options,
+                          int64_t* size);
+
 /// \brief Compute the number of bytes needed to write a tensor including metadata
 ///
-/// \param[in] tensor the tenseor to write
+/// \param[in] tensor the tensor to write
 /// \param[out] size the size of the complete encapsulated message
 /// \return Status
 ARROW_EXPORT
@@ -253,11 +288,9 @@ Status GetTensorSize(const Tensor& tensor, int64_t* size);
 ///
 /// \param[in] tensor the Tensor to write
 /// \param[in] pool MemoryPool to allocate space for metadata
-/// \param[out] out the resulting Message
-/// \return Status
+/// \return the resulting Message
 ARROW_EXPORT
-Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
-                        std::unique_ptr<Message>* out);
+Result<std::unique_ptr<Message>> GetTensorMessage(const Tensor& tensor, MemoryPool* pool);
 
 /// \brief Write arrow::Tensor as a contiguous message.
 ///
@@ -273,57 +306,154 @@ Status GetTensorMessage(const Tensor& tensor, MemoryPool* pool,
 /// \param[in] tensor the Tensor to write
 /// \param[in] dst the OutputStream to write to
 /// \param[out] metadata_length the actual metadata length, including padding
-/// \param[out] body_length the acutal message body length
+/// \param[out] body_length the actual message body length
 /// \return Status
 ARROW_EXPORT
 Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
                    int64_t* body_length);
 
-// \brief EXPERIMENTAL: Write arrow::SparseTensor as a contiguous mesasge. The metadata,
-// sparse index, and body are written assuming 64-byte alignment. It is the
-// user's responsibility to ensure that the OutputStream has been aligned
-// to a 64-byte multiple before writing the message.
-//
-// \param[in] tensor the SparseTensor to write
-// \param[in] dst the OutputStream to write to
-// \param[out] metadata_length the actual metadata length, including padding
-// \param[out] body_length the actual message body length
+/// \brief EXPERIMENTAL: Convert arrow::SparseTensor to a Message with minimal memory
+/// allocation
+///
+/// The message is written out as followed:
+/// \code
+/// <metadata size> <metadata> <sparse index> <sparse tensor body>
+/// \endcode
+///
+/// \param[in] sparse_tensor the SparseTensor to write
+/// \param[in] pool MemoryPool to allocate space for metadata
+/// \return the resulting Message
+ARROW_EXPORT
+Result<std::unique_ptr<Message>> GetSparseTensorMessage(const SparseTensor& sparse_tensor,
+                                                        MemoryPool* pool);
+
+/// \brief EXPERIMENTAL: Write arrow::SparseTensor as a contiguous message. The metadata,
+/// sparse index, and body are written assuming 64-byte alignment. It is the
+/// user's responsibility to ensure that the OutputStream has been aligned
+/// to a 64-byte multiple before writing the message.
+///
+/// \param[in] sparse_tensor the SparseTensor to write
+/// \param[in] dst the OutputStream to write to
+/// \param[out] metadata_length the actual metadata length, including padding
+/// \param[out] body_length the actual message body length
+/// \return Status
 ARROW_EXPORT
 Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* dst,
-                         int32_t* metadata_length, int64_t* body_length,
-                         MemoryPool* pool);
+                         int32_t* metadata_length, int64_t* body_length);
+
+/// \brief Compute IpcPayload for the given schema
+/// \param[in] schema the Schema that is being serialized
+/// \param[in] options options for serialization
+/// \param[in] mapper object mapping dictionary fields to dictionary ids
+/// \param[out] out the returned vector of IpcPayloads
+/// \return Status
+ARROW_EXPORT
+Status GetSchemaPayload(const Schema& schema, const IpcWriteOptions& options,
+                        const DictionaryFieldMapper& mapper, IpcPayload* out);
+
+/// \brief Compute IpcPayload for a dictionary
+/// \param[in] id the dictionary id
+/// \param[in] dictionary the dictionary values
+/// \param[in] options options for serialization
+/// \param[out] payload the output IpcPayload
+/// \return Status
+ARROW_EXPORT
+Status GetDictionaryPayload(int64_t id, const std::shared_ptr<Array>& dictionary,
+                            const IpcWriteOptions& options, IpcPayload* payload);
+
+/// \brief Compute IpcPayload for a dictionary
+/// \param[in] id the dictionary id
+/// \param[in] is_delta whether the dictionary is a delta dictionary
+/// \param[in] dictionary the dictionary values
+/// \param[in] options options for serialization
+/// \param[out] payload the output IpcPayload
+/// \return Status
+ARROW_EXPORT
+Status GetDictionaryPayload(int64_t id, bool is_delta,
+                            const std::shared_ptr<Array>& dictionary,
+                            const IpcWriteOptions& options, IpcPayload* payload);
+
+/// \brief Compute IpcPayload for the given record batch
+/// \param[in] batch the RecordBatch that is being serialized
+/// \param[in] options options for serialization
+/// \param[out] out the returned IpcPayload
+/// \return Status
+ARROW_EXPORT
+Status GetRecordBatchPayload(const RecordBatch& batch, const IpcWriteOptions& options,
+                             IpcPayload* out);
+
+/// \brief Write an IPC payload to the given stream.
+/// \param[in] payload the payload to write
+/// \param[in] options options for serialization
+/// \param[in] dst The stream to write the payload to.
+/// \param[out] metadata_length the length of the serialized metadata
+/// \return Status
+ARROW_EXPORT
+Status WriteIpcPayload(const IpcPayload& payload, const IpcWriteOptions& options,
+                       io::OutputStream* dst, int32_t* metadata_length);
+
+/// \brief Compute IpcPayload for the given sparse tensor
+/// \param[in] sparse_tensor the SparseTensor that is being serialized
+/// \param[in,out] pool for any required temporary memory allocations
+/// \param[out] out the returned IpcPayload
+/// \return Status
+ARROW_EXPORT
+Status GetSparseTensorPayload(const SparseTensor& sparse_tensor, MemoryPool* pool,
+                              IpcPayload* out);
 
 namespace internal {
 
 // These internal APIs may change without warning or deprecation
 
-// Intermediate data structure with metadata header plus zero or more buffers
-// for the message body. This data can either be written out directly as an
-// encapsulated IPC message or used with Flight RPCs
-struct IpcPayload {
-  Message::Type type;
-  std::shared_ptr<Buffer> metadata;
-  std::vector<std::shared_ptr<Buffer>> body_buffers;
-  int64_t body_length;
+class ARROW_EXPORT IpcPayloadWriter {
+ public:
+  virtual ~IpcPayloadWriter();
+
+  // Default implementation is a no-op
+  virtual Status Start();
+
+  virtual Status WritePayload(const IpcPayload& payload) = 0;
+
+  virtual Status Close() = 0;
 };
 
-/// \brief Extract IPC payloads from given schema for purposes of wire
-/// transport, separate from using the *StreamWriter classes
+/// Create a new IPC payload stream writer from stream sink. User is
+/// responsible for closing the actual OutputStream.
+///
+/// \param[in] sink output stream to write to
+/// \param[in] options options for serialization
+/// \return Result<std::shared_ptr<IpcPayloadWriter>>
 ARROW_EXPORT
-Status GetDictionaryPayloads(const Schema& schema,
-                             std::vector<std::unique_ptr<IpcPayload>>* out);
+Result<std::unique_ptr<IpcPayloadWriter>> MakePayloadStreamWriter(
+    io::OutputStream* sink, const IpcWriteOptions& options = IpcWriteOptions::Defaults());
 
-/// \brief Compute IpcPayload for the given record batch
-/// \param[in] batch the RecordBatch that is being serialized
-/// \param[in,out] pool for any required temporary memory allocations
-/// \param[out] out the returned IpcPayload
+/// Create a new IPC payload file writer from stream sink.
+///
+/// \param[in] sink output stream to write to
+/// \param[in] schema the schema of the record batches to be written
+/// \param[in] options options for serialization, optional
+/// \param[in] metadata custom metadata for File Footer, optional
 /// \return Status
 ARROW_EXPORT
-Status GetRecordBatchPayload(const RecordBatch& batch, MemoryPool* pool, IpcPayload* out);
+Result<std::unique_ptr<IpcPayloadWriter>> MakePayloadFileWriter(
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+    const IpcWriteOptions& options = IpcWriteOptions::Defaults(),
+    const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
+
+/// Create a new RecordBatchWriter from IpcPayloadWriter and schema.
+///
+/// The format is implicitly the IPC stream format (allowing dictionary
+/// replacement and deltas).
+///
+/// \param[in] sink the IpcPayloadWriter to write to
+/// \param[in] schema the schema of the record batches to be written
+/// \param[in] options options for serialization
+/// \return Result<std::unique_ptr<RecordBatchWriter>>
+ARROW_EXPORT
+Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
+    std::unique_ptr<IpcPayloadWriter> sink, const std::shared_ptr<Schema>& schema,
+    const IpcWriteOptions& options = IpcWriteOptions::Defaults());
 
 }  // namespace internal
-
 }  // namespace ipc
 }  // namespace arrow
-
-#endif  // ARROW_IPC_WRITER_H

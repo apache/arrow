@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_EXPR_TREE_BUILDER_H
-#define GANDIVA_EXPR_TREE_BUILDER_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -27,11 +26,12 @@
 #include "gandiva/condition.h"
 #include "gandiva/decimal_scalar.h"
 #include "gandiva/expression.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// \brief Tree Builder for a nested expression.
-class TreeExprBuilder {
+class GANDIVA_EXPORT TreeExprBuilder {
  public:
   /// \brief create a node on a literal.
   static NodePtr MakeLiteral(bool value);
@@ -125,5 +125,3 @@ class TreeExprBuilder {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_EXPR_TREE_BUILDER_H

@@ -18,7 +18,6 @@
 #pragma once
 
 #include <cstdint>
-#include <iostream>
 #include <string>
 #include "arrow/util/decimal.h"
 #include "gandiva/basic_decimal_scalar.h"
@@ -38,6 +37,10 @@ class DecimalScalar128 : public BasicDecimalScalar128 {
 
   DecimalScalar128(const std::string& value, int32_t precision, int32_t scale)
       : BasicDecimalScalar128(Decimal128(value), precision, scale) {}
+
+  /// \brief constructor creates a DecimalScalar128 from a BasicDecimalScalar128.
+  constexpr DecimalScalar128(const BasicDecimalScalar128& scalar) noexcept
+      : BasicDecimalScalar128(scalar) {}
 
   inline std::string ToString() const {
     Decimal128 dvalue(value());

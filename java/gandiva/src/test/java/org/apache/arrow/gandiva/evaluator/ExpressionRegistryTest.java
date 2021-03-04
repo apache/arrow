@@ -43,4 +43,23 @@ public class ExpressionRegistryTest {
     Set<FunctionSignature> functions = ExpressionRegistry.getInstance().getSupportedFunctions();
     Assert.assertTrue(functions.contains(signature));
   }
+
+  @Test
+  public void testFunctionAliases() throws GandivaException {
+    ArrowType.Int int64 = new ArrowType.Int(64, true);
+    FunctionSignature signature =
+        new FunctionSignature("modulo", int64, Lists.newArrayList(int64, int64));
+    Set<FunctionSignature> functions = ExpressionRegistry.getInstance().getSupportedFunctions();
+    Assert.assertTrue(functions.contains(signature));
+  }
+
+  @Test
+  public void testCaseInsensitiveFunctionName() throws GandivaException {
+    ArrowType.Utf8 utf8 = new ArrowType.Utf8();
+    ArrowType.Int int64 = new ArrowType.Int(64, true);
+    FunctionSignature signature =
+        new FunctionSignature("castvarchar", utf8, Lists.newArrayList(utf8, int64));
+    Set<FunctionSignature> functions = ExpressionRegistry.getInstance().getSupportedFunctions();
+    Assert.assertTrue(functions.contains(signature));
+  }
 }

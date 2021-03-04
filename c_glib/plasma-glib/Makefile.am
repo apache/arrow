@@ -40,8 +40,8 @@ PLASMA_GIR_ARROW_CUDA_SCANNER_LIBRARY_PATH_MACOS =
 PLASMA_GIR_ARROW_CUDA_LIBS =
 if HAVE_ARROW_CUDA
 PLASMA_ARROW_CUDA_LIBS +=				\
-	$(ARROW_CUDA_LIBS)				\
-	../arrow-cuda-glib/libarrow-cuda-glib.la
+	../arrow-cuda-glib/libarrow-cuda-glib.la	\
+	$(ARROW_CUDA_LIBS)
 PLASMA_INTROSPECTION_COMPILER_ARROW_CUDA_ARGS +=		\
 	--includedir=$(abs_top_builddir)/arrow-cuda-glib
 PLASMA_GIR_ARROW_CUDA_PACKAGE +=		\
@@ -62,7 +62,6 @@ lib_LTLIBRARIES =				\
 
 libplasma_glib_la_CXXFLAGS =			\
 	$(GLIB_CFLAGS)				\
-	$(ARROW_CFLAGS)				\
 	$(PLASMA_CFLAGS)			\
 	$(GARROW_CFLAGS)			\
 	$(GPLASMA_CFLAGS)
@@ -73,9 +72,8 @@ libplasma_glib_la_LDFLAGS =			\
 
 libplasma_glib_la_LIBADD =			\
 	$(GLIB_LIBS)				\
-	$(ARROW_LIBS)				\
-	$(PLASMA_LIBS)				\
 	../arrow-glib/libarrow-glib.la		\
+	$(PLASMA_LIBS)				\
 	$(PLASMA_ARROW_CUDA_LIBS)
 
 libplasma_glib_la_headers =			\

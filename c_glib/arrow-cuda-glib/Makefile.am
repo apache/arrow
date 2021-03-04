@@ -30,7 +30,6 @@ lib_LTLIBRARIES =				\
 
 libarrow_cuda_glib_la_CXXFLAGS =		\
 	$(GLIB_CFLAGS)				\
-	$(ARROW_CFLAGS)				\
 	$(ARROW_CUDA_CFLAGS)			\
 	$(GARROW_CXXFLAGS)
 
@@ -40,9 +39,8 @@ libarrow_cuda_glib_la_LDFLAGS =			\
 
 libarrow_cuda_glib_la_LIBADD =			\
 	$(GLIB_LIBS)				\
-	$(ARROW_LIBS)				\
-	$(ARROW_CUDA_LIBS)			\
-	../arrow-glib/libarrow-glib.la
+	../arrow-glib/libarrow-glib.la		\
+	$(ARROW_CUDA_LIBS)
 
 libarrow_cuda_glib_la_headers =			\
 	arrow-cuda-glib.h			\

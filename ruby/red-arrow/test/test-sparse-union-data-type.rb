@@ -28,12 +28,12 @@ class SparseUnionDataTypeTest < Test::Unit::TestCase
     end
 
     test("ordered arguments") do
-      assert_equal("union[sparse]<visible: bool=2, count: int32=9>",
+      assert_equal("sparse_union<visible: bool=2, count: int32=9>",
                    Arrow::SparseUnionDataType.new(@fields, [2, 9]).to_s)
     end
 
     test("description") do
-      assert_equal("union[sparse]<visible: bool=2, count: int32=9>",
+      assert_equal("sparse_union<visible: bool=2, count: int32=9>",
                    Arrow::SparseUnionDataType.new(fields: @fields,
                                                   type_codes: [2, 9]).to_s)
     end

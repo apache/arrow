@@ -16,18 +16,21 @@
 // under the License.
 
 import streamAdapters from './io/adapters';
+import { Builder } from './builder/index';
 import { RecordBatchReader } from './ipc/reader';
 import { RecordBatchWriter } from './ipc/writer';
-import { toDOMStream } from './ipc/whatwg/iterable';
-import { recordBatchReaderThroughDOMStream } from './ipc/whatwg/reader';
-import { recordBatchWriterThroughDOMStream } from './ipc/whatwg/writer';
+import { toDOMStream } from './io/whatwg/iterable';
+import { builderThroughDOMStream } from './io/whatwg/builder';
+import { recordBatchReaderThroughDOMStream } from './io/whatwg/reader';
+import { recordBatchWriterThroughDOMStream } from './io/whatwg/writer';
 
 streamAdapters.toDOMStream = toDOMStream;
+Builder['throughDOM'] = builderThroughDOMStream;
 RecordBatchReader['throughDOM'] = recordBatchReaderThroughDOMStream;
 RecordBatchWriter['throughDOM'] = recordBatchWriterThroughDOMStream;
 
 export {
-    ArrowType, DateUnit, IntervalUnit, MessageHeader, MetadataVersion, Precision, TimeUnit, Type, UnionMode, VectorType,
+    ArrowType, DateUnit, IntervalUnit, MessageHeader, MetadataVersion, Precision, TimeUnit, Type, UnionMode, BufferType,
     Data,
     DataType,
     Null,
@@ -82,5 +85,24 @@ export {
     ArrowJSONLike, FileHandle, Readable, Writable, ReadableWritable, ReadableDOMStreamOptions,
     DataFrame, FilteredDataFrame, CountByResult, BindFunc, NextFunc,
     predicate,
-    util
+    util,
+    Builder,
+    BinaryBuilder,
+    BoolBuilder,
+    DateBuilder, DateDayBuilder, DateMillisecondBuilder,
+    DecimalBuilder,
+    DictionaryBuilder,
+    FixedSizeBinaryBuilder,
+    FixedSizeListBuilder,
+    FloatBuilder, Float16Builder, Float32Builder, Float64Builder,
+    IntervalBuilder, IntervalDayTimeBuilder, IntervalYearMonthBuilder,
+    IntBuilder, Int8Builder, Int16Builder, Int32Builder, Int64Builder, Uint8Builder, Uint16Builder, Uint32Builder, Uint64Builder,
+    ListBuilder,
+    MapBuilder,
+    NullBuilder,
+    StructBuilder,
+    TimestampBuilder, TimestampSecondBuilder, TimestampMillisecondBuilder, TimestampMicrosecondBuilder, TimestampNanosecondBuilder,
+    TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecondBuilder, TimeNanosecondBuilder,
+    UnionBuilder, DenseUnionBuilder, SparseUnionBuilder,
+    Utf8Builder,
 } from './Arrow';

@@ -25,18 +25,20 @@
 #   to find infer
 #
 # This module defines
-#  INFER_BIN, The  path to the clang tidy binary
-#  INFER_FOUND, Whether clang tidy was found
+#  INFER_BIN, The  path to the infer binary
+#  INFER_FOUND, Whether infer was found
 
 find_program(INFER_BIN
-  NAMES infer
-  PATHS ${InferTools_PATH} $ENV{INFER_TOOLS_PATH} /usr/local/bin /usr/bin
-  /usr/local/homebrew/bin
-  /opt/local/bin
-  NO_DEFAULT_PATH
-)
+             NAMES infer
+             PATHS ${InferTools_PATH}
+                   $ENV{INFER_TOOLS_PATH}
+                   /usr/local/bin
+                   /usr/bin
+                   /usr/local/homebrew/bin
+                   /opt/local/bin
+             NO_DEFAULT_PATH)
 
-if ( "${INFER_BIN}" STREQUAL "INFER_BIN-NOTFOUND" )
+if("${INFER_BIN}" STREQUAL "INFER_BIN-NOTFOUND")
   set(INFER_FOUND 0)
   message(STATUS "infer not found")
 else()

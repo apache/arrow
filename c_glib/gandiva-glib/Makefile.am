@@ -36,7 +36,6 @@ lib_LTLIBRARIES =				\
 
 libgandiva_glib_la_CXXFLAGS =			\
 	$(GLIB_CFLAGS)				\
-	$(ARROW_CFLAGS)				\
 	$(GANDIVA_CFLAGS)			\
 	$(GARROW_CFLAGS)			\
 	$(GGANDIVA_CFLAGS)
@@ -47,25 +46,41 @@ libgandiva_glib_la_LDFLAGS =			\
 
 libgandiva_glib_la_LIBADD =			\
 	$(GLIB_LIBS)				\
-	$(ARROW_LIBS)				\
-	$(GANDIVA_LIBS)				\
-	../arrow-glib/libarrow-glib.la
+	../arrow-glib/libarrow-glib.la		\
+	$(GANDIVA_LIBS)
 
 libgandiva_glib_la_headers =			\
 	expression.h				\
+	function-registry.h			\
+	function-signature.h			\
 	gandiva-glib.h				\
+	native-function.h			\
 	node.h					\
 	projector.h
 
+libgandiva_glib_la_generated_headers =		\
+	enums.h					\
+	version.h
+
+libgandiva_glib_la_generated_sources =		\
+	enums.c					\
+	$(libgandiva_glib_la_generated_headers)
+
 libgandiva_glib_la_sources =			\
 	expression.cpp				\
+	function-registry.cpp			\
+	function-signature.cpp			\
 	node.cpp				\
+	native-function.cpp			\
 	projector.cpp				\
-	$(libgandiva_glib_la_headers)
+	$(libgandiva_glib_la_headers)		\
+	$(libgandiva_glib_la_generated_sources)
 
 libgandiva_glib_la_cpp_headers =		\
 	expression.hpp				\
+	function-signature.hpp			\
 	gandiva-glib.hpp			\
+	native-function.hpp			\
 	node.hpp				\
 	projector.hpp
 
@@ -73,10 +88,48 @@ libgandiva_glib_la_SOURCES =			\
 	$(libgandiva_glib_la_sources)		\
 	$(libgandiva_glib_la_cpp_headers)
 
+BUILT_SOURCES =					\
+	$(libgandiva_glib_la_generated_sources)	\
+	stamp-enums.c				\
+	stamp-enums.h
+
+DISTCLEANFILES +=				\
+	stamp-enums.c				\
+	stamp-enums.h
+
+EXTRA_DIST +=					\
+	enums.c.template			\
+	enums.h.template
+
+enums.h: stamp-enums.h
+	@true
+stamp-enums.h: $(libgandiva_glib_la_headers) enums.h.template
+	$(AM_V_GEN)					\
+	  (cd $(srcdir) &&				\
+	   $(GLIB_MKENUMS)				\
+	     --identifier-prefix GGandiva		\
+	     --symbol-prefix ggandiva			\
+	     --template enums.h.template		\
+	     $(libgandiva_glib_la_headers)) > enums.h
+	touch $@
+
+enums.c: stamp-enums.c
+	@true
+stamp-enums.c: $(libarrow_glib_la_headers) enums.c.template
+	$(AM_V_GEN)					\
+	  (cd $(srcdir) &&				\
+	   $(GLIB_MKENUMS)				\
+	     --identifier-prefix GGandiva		\
+	     --symbol-prefix ggandiva			\
+	     --template enums.c.template		\
+	     $(libgandiva_glib_la_headers)) > enums.c
+	touch $@
+
 gandiva_glib_includedir = $(includedir)/gandiva-glib
 gandiva_glib_include_HEADERS =			\
 	$(libgandiva_glib_la_headers)		\
-	$(libgandiva_glib_la_cpp_headers)
+	$(libgandiva_glib_la_cpp_headers)	\
+	$(libgandiva_glib_la_generated_headers)
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA =				\

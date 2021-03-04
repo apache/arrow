@@ -15,4 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARROW_INSTALL_ALL_HEADERS("arrow/adapters/tensorflow")
+arrow_install_all_headers("arrow/adapters/tensorflow")
+
+# pkg-config support
+arrow_add_pkg_config("arrow-tensorflow")

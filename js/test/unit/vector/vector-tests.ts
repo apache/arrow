@@ -74,8 +74,8 @@ describe(`DictionaryVector`, () => {
         const nullBitmap = util.packBools(validity);
         const nullCount = validity.reduce((acc, d) => acc + (d ? 0 : 1), 0);
         const values = Array.from(indices).map((d, i) => validity[i] ? dictionary[d] : null);
-        const type = new Dictionary(dictionary_vec.type, new Int32(), null, null, dictionary_vec);
-        const vector = Vector.new(Data.Dictionary(type, 0, indices.length, nullCount, nullBitmap, indices));
+        const type = new Dictionary(dictionary_vec.type, new Int32(), null, null);
+        const vector = Vector.new(Data.Dictionary(type, 0, indices.length, nullCount, nullBitmap, indices, dictionary_vec));
 
         basicVectorTests(vector, values, ['abc', '123']);
         describe(`sliced`, () => {

@@ -15,62 +15,163 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_types.h"
+#include "./arrow_types.h"
 
-using namespace Rcpp;
+#if defined(ARROW_R_WITH_ARROW)
 
-// [[Rcpp::export]]
-std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(List_ options) {
+#include <arrow/csv/reader.h>
+#include <arrow/util/value_parsing.h>
+
+// [[arrow::export]]
+std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(
+    cpp11::list options) {
   auto res =
       std::make_shared<arrow::csv::ReadOptions>(arrow::csv::ReadOptions::Defaults());
-  res->use_threads = options["use_threads"];
-  res->block_size = options["block_size"];
+  res->use_threads = cpp11::as_cpp<bool>(options["use_threads"]);
+  res->block_size = cpp11::as_cpp<int>(options["block_size"]);
+  res->skip_rows = cpp11::as_cpp<int>(options["skip_rows"]);
+  res->column_names = cpp11::as_cpp<std::vector<std::string>>(options["column_names"]);
+  res->autogenerate_column_names =
+      cpp11::as_cpp<bool>(options["autogenerate_column_names"]);
+
   return res;
 }
 
-inline char get_char(CharacterVector x) { return CHAR(STRING_ELT(x, 0))[0]; }
-
-// [[Rcpp::export]]
-std::shared_ptr<arrow::csv::ParseOptions> csv___ParseOptions__initialize(List_ options) {
+// [[arrow::export]]
+std::shared_ptr<arrow::csv::ParseOptions> csv___ParseOptions__initialize(
+    cpp11::list options) {
   auto res =
       std::make_shared<arrow::csv::ParseOptions>(arrow::csv::ParseOptions::Defaults());
-  res->delimiter = get_char(options["delimiter"]);
-  res->quoting = options["quoting"];
-  res->quote_char = get_char(options["quote_char"]);
-  res->double_quote = options["double_quote"];
-  res->escape_char = get_char(options["escape_char"]);
-  res->newlines_in_values = options["newlines_in_values"];
-  res->header_rows = options["header_rows"];
-  res->ignore_empty_lines = options["ignore_empty_lines"];
+  res->delimiter = cpp11::as_cpp<char>(options["delimiter"]);
+  res->quoting = cpp11::as_cpp<bool>(options["quoting"]);
+  res->quote_char = cpp11::as_cpp<char>(options["quote_char"]);
+  res->double_quote = cpp11::as_cpp<bool>(options["double_quote"]);
+  res->escape_char = cpp11::as_cpp<char>(options["escape_char"]);
+  res->newlines_in_values = cpp11::as_cpp<bool>(options["newlines_in_values"]);
+  res->ignore_empty_lines = cpp11::as_cpp<bool>(options["ignore_empty_lines"]);
   return res;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
+SEXP csv___ReadOptions__column_names(
+    const std::shared_ptr<arrow::csv::ReadOptions>& options) {
+  if (options->autogenerate_column_names) {
+    return R_NilValue;
+  }
+
+  return cpp11::as_sexp(options->column_names);
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
-    List_ options) {
+    cpp11::list options) {
   auto res = std::make_shared<arrow::csv::ConvertOptions>(
       arrow::csv::ConvertOptions::Defaults());
-  res->check_utf8 = options["check_utf8"];
+  res->check_utf8 = cpp11::as_cpp<bool>(options["check_utf8"]);
+  // Recognized spellings for null values
+  res->null_values = cpp11::as_cpp<std::vector<std::string>>(options["null_values"]);
+  // Whether string / binary columns can have null values.
+  // If true, then strings in "null_values" are considered null for string columns.
+  // If false, then all strings are valid string values.
+  res->strings_can_be_null = cpp11::as_cpp<bool>(options["strings_can_be_null"]);
+
+  res->true_values = cpp11::as_cpp<std::vector<std::string>>(options["true_values"]);
+  res->false_values = cpp11::as_cpp<std::vector<std::string>>(options["false_values"]);
+
+  SEXP col_types = options["col_types"];
+  if (Rf_inherits(col_types, "Schema")) {
+    auto schema = cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(col_types);
+    std::unordered_map<std::string, std::shared_ptr<arrow::DataType>> column_types;
+    for (const auto& field : schema->fields()) {
+      column_types.insert(std::make_pair(field->name(), field->type()));
+    }
+    res->column_types = column_types;
+  }
+
+  res->auto_dict_encode = cpp11::as_cpp<bool>(options["auto_dict_encode"]);
+  res->auto_dict_max_cardinality =
+      cpp11::as_cpp<int>(options["auto_dict_max_cardinality"]);
+  res->include_columns =
+      cpp11::as_cpp<std::vector<std::string>>(options["include_columns"]);
+  res->include_missing_columns = cpp11::as_cpp<bool>(options["include_missing_columns"]);
+
+  SEXP op_timestamp_parsers = options["timestamp_parsers"];
+  if (!Rf_isNull(op_timestamp_parsers)) {
+    std::vector<std::shared_ptr<arrow::TimestampParser>> timestamp_parsers;
+
+    // if we have a character vector, convert to arrow::TimestampParser
+    if (TYPEOF(op_timestamp_parsers) == STRSXP) {
+      cpp11::strings s_timestamp_parsers(op_timestamp_parsers);
+      for (cpp11::r_string s : s_timestamp_parsers) {
+        timestamp_parsers.push_back(arrow::TimestampParser::MakeStrptime(s));
+      }
+
+    } else if (TYPEOF(op_timestamp_parsers) == VECSXP) {
+      cpp11::list lst_parsers(op_timestamp_parsers);
+
+      for (SEXP x : lst_parsers) {
+        // handle scalar string and TimestampParser instances
+        if (TYPEOF(x) == STRSXP && XLENGTH(x) == 1) {
+          timestamp_parsers.push_back(
+              arrow::TimestampParser::MakeStrptime(CHAR(STRING_ELT(x, 0))));
+        } else if (Rf_inherits(x, "TimestampParser")) {
+          timestamp_parsers.push_back(
+              cpp11::as_cpp<std::shared_ptr<arrow::TimestampParser>>(x));
+        } else {
+          cpp11::stop(
+              "unsupported timestamp parser, must be a scalar string or a "
+              "<TimestampParser> object");
+        }
+      }
+
+    } else {
+      cpp11::stop(
+          "unsupported timestamp parser, must be character vector of strptime "
+          "specifications, or a list of <TimestampParser> objects");
+    }
+    res->timestamp_parsers = timestamp_parsers;
+  }
+
   return res;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(
     const std::shared_ptr<arrow::io::InputStream>& input,
     const std::shared_ptr<arrow::csv::ReadOptions>& read_options,
     const std::shared_ptr<arrow::csv::ParseOptions>& parse_options,
     const std::shared_ptr<arrow::csv::ConvertOptions>& convert_options) {
-  std::shared_ptr<arrow::csv::TableReader> table_reader;
-  STOP_IF_NOT_OK(arrow::csv::TableReader::Make(arrow::default_memory_pool(), input,
-                                               *read_options, *parse_options,
-                                               *convert_options, &table_reader));
-  return table_reader;
+  return ValueOrStop(arrow::csv::TableReader::Make(arrow::io::IOContext(gc_memory_pool()),
+                                                   input, *read_options, *parse_options,
+                                                   *convert_options));
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Table> csv___TableReader__Read(
     const std::shared_ptr<arrow::csv::TableReader>& table_reader) {
-  std::shared_ptr<arrow::Table> table;
-  STOP_IF_NOT_OK(table_reader->Read(&table));
-  return table;
+  return ValueOrStop(table_reader->Read());
 }
+
+// [[arrow::export]]
+std::string TimestampParser__kind(const std::shared_ptr<arrow::TimestampParser>& parser) {
+  return parser->kind();
+}
+
+// [[arrow::export]]
+std::string TimestampParser__format(
+    const std::shared_ptr<arrow::TimestampParser>& parser) {
+  return parser->format();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::TimestampParser> TimestampParser__MakeStrptime(
+    std::string format) {
+  return arrow::TimestampParser::MakeStrptime(format);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::TimestampParser> TimestampParser__MakeISO8601() {
+  return arrow::TimestampParser::MakeISO8601();
+}
+
+#endif

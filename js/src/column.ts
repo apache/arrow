@@ -15,14 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { Data } from './data';
 import { Field } from './schema';
-import { Vector } from './vector';
 import { DataType } from './type';
+import { Vector } from './vector';
 import { Clonable, Sliceable, Applicative } from './vector';
+import { VectorCtorArgs, VectorType as V } from './interfaces';
 import { Chunked, SearchContinuation } from './vector/chunked';
 
 export interface Column<T extends DataType = any> {
-    typeId: T['TType'];
     concat(...others: Vector<T>[]): Column<T>;
     slice(begin?: number, end?: number): Column<T>;
     clone(chunks?: Vector<T>[], offsets?: Uint32Array): Column<T>;
@@ -34,8 +35,40 @@ export class Column<T extends DataType = any>
                Sliceable<Column<T>>,
                Applicative<T, Column<T>> {
 
+    public static new<T extends DataType>(data: Data<T>, ...args: VectorCtorArgs<V<T>>): Column<T>;
+    public static new<T extends DataType>(field: string | Field<T>, ...chunks: (Vector<T> | Vector<T>[])[]): Column<T>;
+    public static new<T extends DataType>(field: string | Field<T>, data: Data<T>, ...args: VectorCtorArgs<V<T>>): Column<T>;
+    /** @nocollapse */
+    public static new<T extends DataType = any>(...args: any[]) {
+
+        let [field, data, ...rest] = args as [
+            string | Field<T>,
+            Data<T> | Vector<T> | (Data<T> | Vector<T>)[],
+            ...any[]
+        ];
+
+        if (typeof field !== 'string' && !(field instanceof Field)) {
+            data = <Data<T> | Vector<T> | (Data<T> | Vector<T>)[]> field;
+            field = '';
+        }
+
+        const chunks = Chunked.flatten<T>(
+            Array.isArray(data) ? [...data, ...rest] :
+            data instanceof Vector ? [data, ...rest] :
+            [Vector.new(data, ...rest)]
+        );
+
+        if (typeof field === 'string') {
+            const type = chunks[0].data.type;
+            field = new Field(field, type, true);
+        } else if (!field.nullable && chunks.some(({ nullCount }) => nullCount > 0)) {
+            field = field.clone({ nullable: true });
+        }
+        return new Column(field, chunks);
+    }
+
     constructor(field: Field<T>, vectors: Vector<T>[] = [], offsets?: Uint32Array) {
-        vectors = Chunked.flatten(...vectors);
+        vectors = Chunked.flatten<T>(...vectors);
         super(field.type, vectors, offsets);
         this._field = field;
         if (vectors.length === 1 && !(this instanceof SingleChunkColumn)) {
@@ -48,6 +81,8 @@ export class Column<T extends DataType = any>
 
     public get field() { return this._field; }
     public get name() { return this._field.name; }
+    public get nullable() { return this._field.nullable; }
+    public get metadata() { return this._field.metadata; }
 
     public clone(chunks = this._chunks) {
         return new Column(this._field, chunks);
@@ -74,6 +109,7 @@ export class Column<T extends DataType = any>
     }
 }
 
+/** @ignore */
 class SingleChunkColumn<T extends DataType = any> extends Column<T> {
     protected _chunk: Vector<T>;
     constructor(field: Field<T>, vector: Vector<T>, offsets?: Uint32Array) {

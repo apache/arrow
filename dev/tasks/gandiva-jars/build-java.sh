@@ -19,19 +19,46 @@
 
 set -e
 
-source arrow/ci/travis_env_common.sh
+CPP_BUILD_DIR=$GITHUB_WORKSPACE/arrow/dist/
 
-CPP_BUILD_DIR=$TRAVIS_BUILD_DIR/cpp/build/release
+pushd java
+  if [[ $OS_NAME == "linux" ]]; then
+    SO_DEP=ldd
+    GANDIVA_LIB="$CPP_BUILD_DIR"libgandiva_jni.so
+    WHITELIST=(linux-vdso libz librt libdl libpthread libstdc++ libm libgcc_s libc ld-linux-x86-64)
+  else
+    SO_DEP="otool -L"
+    GANDIVA_LIB="$CPP_BUILD_DIR"libgandiva_jni.dylib
+    WHITELIST=(libgandiva_jni libz libncurses libSystem libc++)
+  fi
 
-pushd arrow/java
-  if [ $TRAVIS_OS_NAME == "linux" ]; then
-    ldd $CPP_BUILD_DIR/libgandiva_jni.so
+  # print the shared library dependencies
+  eval "$SO_DEP" "$GANDIVA_LIB"
+
+  if [[ $CHECK_SHARED_DEPENDENCIES ]] ; then
+    # exit if any shared library not in whitelisted set is found
+    echo "Checking shared dependencies"
+    while read -r line
+    do
+      found=false
+      for item in "${WHITELIST[@]}"
+      do
+        if [[ "$line" == *"$item"* ]] ; then
+            found=true
+        fi
+      done
+      if [[ "$found" == false ]] ; then
+        echo "Unexpected shared dependency found"
+        exit 1
+      fi
+    done < <(eval "$SO_DEP" "$GANDIVA_LIB" | awk '{print $1}')
   fi
 
   # build the entire project
-  mvn clean install -DskipTests -P gandiva -Dgandiva.cpp.build.dir=$CPP_BUILD_DIR
+  mvn clean install -q -DskipTests -P arrow-jni -Darrow.cpp.build.dir=$CPP_BUILD_DIR
   # test only gandiva
-  mvn test -P gandiva -pl gandiva -Dgandiva.cpp.build.dir=$CPP_BUILD_DIR
+  mvn test -q -P arrow-jni -pl gandiva -Dgandiva.cpp.build.dir=$CPP_BUILD_DIR
+
   # copy the jars to distribution folder
-  find gandiva/target/ -name "*.jar" -not -name "*tests*" -exec cp  {} ../../dist/ \;
+  find gandiva/target/ -name "*.jar" -not -name "*tests*" -exec cp  {} $CPP_BUILD_DIR \;
 popd

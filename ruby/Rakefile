@@ -1,0 +1,56 @@
+# -*- ruby -*-
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+require "pkg-config"
+
+base_dir = File.join(__dir__)
+
+packages = []
+Dir.glob("#{base_dir}/*/*.gemspec") do |gemspec|
+  package = File.basename(File.dirname(gemspec))
+  glib_package_name = package.gsub(/\Ared-/, "") + "-glib"
+  next unless PKGConfig.exist?(glib_package_name)
+  packages << package
+end
+
+packages.each do |package|
+  desc "Run test for #{package}"
+  task package do
+    cd(File.join(base_dir, package)) do
+      if ENV["USE_BUNDLER"]
+        sh("bundle", "exec", "rake")
+      else
+        ruby("-S", "rake")
+      end
+    end
+  end
+end
+
+sorted_packages = packages.sort_by do |package|
+  if package == "red-arrow"
+    "000-#{package}"
+  else
+    package
+  end
+end
+
+desc "Run test for all packages"
+task all: sorted_packages
+
+task default: :all

@@ -1,0 +1,144 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Comment Bot
+
+on:
+  # TODO(kszucs): support pull_request_review_comment
+  issue_comment:
+    types:
+      - created
+      - edited
+
+jobs:
+  crossbow:
+    name: Listen!
+    if: startsWith(github.event.comment.body, '@github-actions crossbow')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          path: arrow
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Install Archery and Crossbow dependencies
+        run: pip install -e arrow/dev/archery[bot]
+      - name: Handle Github comment event
+        env:
+          ARROW_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CROSSBOW_GITHUB_TOKEN: ${{ secrets.CROSSBOW_GITHUB_TOKEN }}
+        run: |
+          archery trigger-bot \
+            --event-name ${{ github.event_name }} \
+            --event-payload ${{ github.event_path }}
+
+  autotune:
+    name: "Fix all the things"
+    if: startsWith(github.event.comment.body, '@github-actions autotune')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: r-lib/actions/pr-fetch@master
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: See what is different
+        run: |
+          set -ex
+          git remote add upstream https://github.com/apache/arrow
+          git fetch upstream
+          changed() {
+            git diff --name-only HEAD..upstream/master | grep -e "$1" >/dev/null 2>&1
+          }
+          if changed '^r/.*\.R$'; then
+            echo "R_DOCS=true" >> $GITHUB_ENV
+          fi
+          if changed 'cmake' || changed 'CMake'; then
+            echo "CMAKE_FORMAT=true" >> $GITHUB_ENV
+          fi
+          if changed '^cpp/src'; then
+            echo "CLANG_FORMAT_CPP=true" >> $GITHUB_ENV
+          fi
+          if changed '^r/src'; then
+            echo "CLANG_FORMAT_R=true" >> $GITHUB_ENV
+          fi
+      - name: Run cmake_format
+        if: env.CMAKE_FORMAT == 'true' || endsWith(github.event.comment.body, 'everything')
+        run: |
+          set -ex
+          export PATH=/home/runner/.local/bin:$PATH
+          python3 -m pip install --upgrade pip setuptools wheel
+          python3 -m pip install -r dev/archery/requirements-lint.txt
+          python3 run-cmake-format.py
+      - name: Run clang-format on cpp
+        if: env.CLANG_FORMAT_CPP == 'true' || endsWith(github.event.comment.body, 'everything')
+        run: |
+          . .env # To get the clang version we use
+          cpp/build-support/run_clang_format.py \
+              --clang_format_binary=clang-format-${CLANG_TOOLS} \
+              --exclude_glob=cpp/build-support/lint_exclusions.txt \
+              --source_dir=cpp/src --quiet --fix
+      - name: Run clang-format on r
+        if: env.CLANG_FORMAT_R == 'true' || endsWith(github.event.comment.body, 'everything')
+        run: |
+          . .env # To get the clang version we use
+          cpp/build-support/run_clang_format.py \
+              --clang_format_binary=clang-format-${CLANG_TOOLS} \
+              --exclude_glob=cpp/build-support/lint_exclusions.txt \
+              --source_dir=r/src --quiet --fix
+      - uses: r-lib/actions/setup-r@v1
+        if: env.R_DOCS == 'true' || endsWith(github.event.comment.body, 'everything')
+      - name: Update R docs
+        if: env.R_DOCS == 'true' || endsWith(github.event.comment.body, 'everything')
+        shell: Rscript {0}
+        run: |
+          source("ci/etc/rprofile")
+          install.packages(c("remotes", "roxygen2"))
+          remotes::install_deps("r")
+          roxygen2::roxygenize("r")
+      - name: Commit results
+        run: |
+          git config user.name "$(git log -1 --pretty=format:%an)"
+          git config user.email "$(git log -1 --pretty=format:%ae)"
+          git commit -a -m 'Autoformat/render all the things [automated commit]' || echo "No changes to commit"
+      - uses: r-lib/actions/pr-push@master
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+  rebase:
+    name: "Rebase"
+    if: startsWith(github.event.comment.body, '@github-actions rebase')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: r-lib/actions/pr-fetch@master
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Rebase on ${{ github.repository }} master
+        run: |
+          set -ex
+          git config user.name "$(git log -1 --pretty=format:%an)"
+          git config user.email "$(git log -1 --pretty=format:%ae)"
+          git remote add upstream https://github.com/${{ github.repository }}
+          git fetch --unshallow upstream master
+          git rebase upstream/master
+      - uses: r-lib/actions/pr-push@master
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          args: "--force"

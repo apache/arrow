@@ -20,8 +20,6 @@ import static org.apache.arrow.util.Preconditions.checkState;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 
-import io.netty.buffer.*;
-
 import org.apache.arrow.memory.*;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.types.Types;
@@ -54,13 +52,9 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-
-import org.joda.time.DateTime;
-import org.joda.time.LocalDateTime;
-import org.joda.time.Period;
-
-
-
-
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.Period;
+import java.time.ZonedDateTime;
 
 

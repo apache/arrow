@@ -15,155 +15,198 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include R6.R
-
-`arrow::ipc::feather::TableWriter` <- R6Class("arrow::ipc::feather::TableWriter", inherit = `arrow::Object`,
-  public = list(
-    SetDescription = function(description) ipc___feather___TableWriter__SetDescription(self, description),
-    SetNumRows = function(num_rows) ipc___feather___TableWriter__SetNumRows(self, num_rows),
-    Append = function(name, values) ipc___feather___TableWriter__Append(self, name, values),
-    Finalize = function() ipc___feather___TableWriter__Finalize(self)
-  )
-)
-
-`arrow::ipc::feather::TableReader` <- R6Class("arrow::ipc::feather::TableReader", inherit = `arrow::Object`,
-  public = list(
-    GetDescription = function() ipc___feather___TableReader__GetDescription(self),
-    HasDescription = function() ipc__feather___TableReader__HasDescription(self),
-    version = function() ipc___feather___TableReader__version(self),
-    num_rows = function() ipc___feather___TableReader__num_rows(self),
-    num_columns = function() ipc___feather___TableReader__num_columns(self),
-    GetColumnName = function(i) ipc___feather___TableReader__GetColumnName(self, i),
-    GetColumn = function(i) shared_ptr(`arrow::Column`, ipc___feather___TableReader__GetColumn(self, i)),
-    Read = function(columns) {
-      shared_ptr(`arrow::Table`, ipc___feather___TableReader__Read(self, columns))
+#' Write data in the Feather format
+#'
+#' Feather provides binary columnar serialization for data frames.
+#' It is designed to make reading and writing data frames efficient,
+#' and to make sharing data across data analysis languages easy.
+#' This function writes both the original, limited specification of the format
+#' and the version 2 specification, which is the Apache Arrow IPC file format.
+#'
+#' @param x `data.frame`, [RecordBatch], or [Table]
+#' @param sink A string file path, URI, or [OutputStream], or path in a file
+#' system (`SubTreeFileSystem`)
+#' @param version integer Feather file version. Version 2 is the current.
+#' Version 1 is the more limited legacy format.
+#' @param chunk_size For V2 files, the number of rows that each chunk of data
+#' should have in the file. Use a smaller `chunk_size` when you need faster
+#' random row access. Default is 64K. This option is not supported for V1.
+#' @param compression Name of compression codec to use, if any. Default is
+#' "lz4" if LZ4 is available in your build of the Arrow C++ library, otherwise
+#' "uncompressed". "zstd" is the other available codec and generally has better
+#' compression ratios in exchange for slower read and write performance
+#' See [codec_is_available()]. This option is not supported for V1.
+#' @param compression_level If `compression` is "zstd", you may
+#' specify an integer compression level. If omitted, the compression codec's
+#' default compression level is used.
+#'
+#' @return The input `x`, invisibly. Note that if `sink` is an [OutputStream],
+#' the stream will be left open.
+#' @export
+#' @seealso [RecordBatchWriter] for lower-level access to writing Arrow IPC data.
+#' @seealso [Schema] for information about schemas and metadata handling.
+#' @examples
+#' \donttest{
+#' tf <- tempfile()
+#' on.exit(unlink(tf))
+#' write_feather(mtcars, tf)
+#' }
+#' @include arrow-package.R
+write_feather <- function(x,
+                          sink,
+                          version = 2,
+                          chunk_size = 65536L,
+                          compression = c("default", "lz4", "uncompressed", "zstd"),
+                          compression_level = NULL) {
+  # Handle and validate options before touching data
+  version <- as.integer(version)
+  assert_that(version %in% 1:2)
+  compression <- match.arg(compression)
+  chunk_size <- as.integer(chunk_size)
+  assert_that(chunk_size > 0)
+  if (compression == "default") {
+    if (version == 2 && codec_is_available("lz4")) {
+      compression <- "lz4"
+    } else {
+      compression <- "uncompressed"
     }
-  )
-)
+  }
+  if (is.null(compression_level)) {
+    # Use -1 as sentinal for "default"
+    compression_level <- -1L
+  }
+  compression_level <- as.integer(compression_level)
+  # Now make sure that options make sense together
+  if (version == 1) {
+    if (chunk_size != 65536L) {
+      stop("Feather version 1 does not support the 'chunk_size' option", call. = FALSE)
+    }
+    if (compression != "uncompressed") {
+      stop("Feather version 1 does not support the 'compression' option", call. = FALSE)
+    }
+    if (compression_level != -1L) {
+      stop("Feather version 1 does not support the 'compression_level' option", call. = FALSE)
+    }
+  }
+  if (compression != "zstd" && compression_level != -1L) {
+    stop("Can only specify a 'compression_level' when 'compression' is 'zstd'", call. = FALSE)
+  }
+  # Finally, add 1 to version because 2 means V1 and 3 means V2 :shrug:
+  version <- version + 1L
 
-#' Create TableWriter that writes into a stream
+  # "lz4" is the convenience
+  if (compression == "lz4") {
+     compression <- "lz4_frame"
+  }
+
+  compression <- compression_from_name(compression)
+
+  x_out <- x
+  if (is.data.frame(x) || inherits(x, "RecordBatch")) {
+    x <- Table$create(x)
+  }
+  assert_is(x, "Table")
+
+  if (!inherits(sink, "OutputStream")) {
+    sink <- make_output_stream(sink)
+    on.exit(sink$close())
+  }
+  ipc___WriteFeather__Table(sink, x, version, chunk_size, compression, compression_level)
+  invisible(x_out)
+}
+
+#' Read a Feather file
 #'
-#' @param stream an OutputStream
+#' Feather provides binary columnar serialization for data frames.
+#' It is designed to make reading and writing data frames efficient,
+#' and to make sharing data across data analysis languages easy.
+#' This function reads both the original, limited specification of the format
+#' and the version 2 specification, which is the Apache Arrow IPC file format.
 #'
-#' @export
-FeatherTableWriter <- function(stream) {
-  UseMethod("FeatherTableWriter")
-}
-
-#' @export
-`FeatherTableWriter.arrow::io::OutputStream` <- function(stream){
-  unique_ptr(`arrow::ipc::feather::TableWriter`, ipc___feather___TableWriter__Open(stream))
-}
-
-#' Write data in the feather format
+#' @inheritParams read_ipc_stream
+#' @inheritParams read_delim_arrow
+#' @param ... additional parameters, passed to [FeatherReader$create()][FeatherReader]
 #'
-#' @param data frame or arrow::RecordBatch
-#' @param stream A file path or an arrow::io::OutputStream
-#'
-#' @export
-write_feather <- function(data, stream) {
-  UseMethod("write_feather", data)
-}
-
-#' @export
-write_feather.default <- function(data, stream) {
-  stop("unsupported")
-}
-
-#' @export
-write_feather.data.frame <- function(data, stream) {
-  write_feather(record_batch(data), stream)
-}
-
-#' @method write_feather arrow::RecordBatch
-#' @export
-`write_feather.arrow::RecordBatch` <- function(data, stream) {
-  write_feather_RecordBatch(data, stream)
-}
-
-#' @rdname write_feather
-#' @export
-write_feather_RecordBatch <- function(data, stream) {
-  UseMethod("write_feather_RecordBatch", stream)
-}
-
-#' @export
-#' @method write_feather_RecordBatch default
-`write_feather_RecordBatch.default` <- function(data, stream) {
-  stop("unsupported")
-}
-
-#' @export
-#' @method write_feather_RecordBatch character
-`write_feather_RecordBatch.character` <- function(data, stream) {
-  `write_feather_RecordBatch.fs_path`(data, fs::path_abs(stream))
-}
-
-#' @export
-#' @method write_feather_RecordBatch fs_path
-`write_feather_RecordBatch.fs_path` <- function(data, stream) {
-  file_stream <- close_on_exit(FileOutputStream(stream))
-  `write_feather_RecordBatch.arrow::io::OutputStream`(data, file_stream)
-}
-
-#' @export
-#' @method write_feather_RecordBatch arrow::io::OutputStream
-`write_feather_RecordBatch.arrow::io::OutputStream` <- function(data, stream) {
-  ipc___TableWriter__RecordBatch__WriteFeather(FeatherTableWriter(stream), data)
-}
-
-#' A arrow::ipc::feather::TableReader to read from a file
-#'
-#' @param file A file path, arrow::io::RandomAccessFile
-#' @param mmap Is the file memory mapped (applicable to the character and fs_path methods)
-#' @param ... extra parameters
+#' @return A `data.frame` if `as_data_frame` is `TRUE` (the default), or an
+#' Arrow [Table] otherwise
 #'
 #' @export
-FeatherTableReader <- function(file, mmap = TRUE, ...){
-  UseMethod("FeatherTableReader")
-}
+#' @seealso [FeatherReader] and [RecordBatchReader] for lower-level access to reading Arrow IPC data.
+#' @examples
+#' \donttest{
+#' tf <- tempfile()
+#' on.exit(unlink(tf))
+#' write_feather(mtcars, tf)
+#' df <- read_feather(tf)
+#' dim(df)
+#' # Can select columns
+#' df <- read_feather(tf, col_select = starts_with("d"))
+#' }
+read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
+  if (!inherits(file, "RandomAccessFile")) {
+    file <- make_readable_file(file)
+    on.exit(file$close())
+  }
+  reader <- FeatherReader$create(file, ...)
 
-#' @export
-FeatherTableReader.default <- function(file, mmap = TRUE, ...) {
-  stop("unsupported")
-}
+  col_select <- enquo(col_select)
+  columns <- if (!quo_is_null(col_select)) {
+    vars_select(names(reader), !!col_select)
+  }
 
-#' @export
-FeatherTableReader.character <- function(file, mmap = TRUE, ...) {
-  FeatherTableReader(fs::path_abs(file), mmap = mmap, ...)
-}
+  out <- reader$Read(columns)
 
-#' @export
-FeatherTableReader.fs_path <- function(file, mmap = TRUE, ...) {
-  stream <- if(isTRUE(mmap)) mmap_open(file, ...) else ReadableFile(file, ...)
-  FeatherTableReader(stream)
-}
-
-#' @export
-`FeatherTableReader.arrow::io::RandomAccessFile` <- function(file, mmap = TRUE, ...){
-  unique_ptr(`arrow::ipc::feather::TableReader`, ipc___feather___TableReader__Open(file))
-}
-
-#' @export
-`FeatherTableReader.arrow::ipc::feather::TableReader` <- function(file, mmap = TRUE, ...){
-  file
-}
-
-#' Read a feather file
-#'
-#' @param file a arrow::ipc::feather::TableReader or whatever the [FeatherTableReader()] function can handle
-#' @param columns names if the columns to read. The default `NULL` means all columns
-#' @param as_tibble should the [arrow::Table][arrow__Table] be converted to a tibble.
-#' @param use_threads Use threads when converting to a tibble.
-#' @param ... additional parameters
-#'
-#' @return a data frame if `as_tibble` is `TRUE` (the default), or a [arrow::Table][arrow__Table] otherwise
-#'
-#' @export
-read_feather <- function(file, columns = NULL, as_tibble = TRUE, use_threads = TRUE, ...){
-  out <- FeatherTableReader(file, ...)$Read(columns)
-  if (isTRUE(as_tibble)) {
-    out <- as_tibble(out, use_threads = use_threads)
+  if (isTRUE(as_data_frame)) {
+    out <- as.data.frame(out)
   }
   out
+}
+
+#' @title FeatherReader class
+#' @rdname FeatherReader
+#' @name FeatherReader
+#' @docType class
+#' @usage NULL
+#' @format NULL
+#' @description This class enables you to interact with Feather files. Create
+#' one to connect to a file or other InputStream, and call `Read()` on it to
+#' make an `arrow::Table`. See its usage in [`read_feather()`].
+#'
+#' @section Factory:
+#'
+#' The `FeatherReader$create()` factory method instantiates the object and
+#' takes the following arguments:
+#'
+#' - `file` an Arrow file connection object inheriting from `RandomAccessFile`.
+#' - `mmap` Logical: whether to memory-map the file (default `TRUE`)
+#' - `...` Additional arguments, currently ignored
+#'
+#' @section Methods:
+#'
+#' - `$Read(columns)`: Returns a `Table` of the selected columns, a vector of
+#'   integer indices
+#' - `$version`: Active binding, returns `1` or `2`, according to the Feather
+#'   file version
+#'
+#' @export
+#' @include arrow-package.R
+FeatherReader <- R6Class("FeatherReader", inherit = ArrowObject,
+  public = list(
+    Read = function(columns) {
+      ipc___feather___Reader__Read(self, columns)
+    }
+  ),
+  active = list(
+    # versions are officially 2 for V1 and 3 for V2 :shrug:
+    version = function() ipc___feather___Reader__version(self) - 1L,
+    column_names = function() ipc___feather___Reader__column_names(self)
+  )
+)
+
+#' @export
+names.FeatherReader <- function(x) x$column_names
+
+FeatherReader$create <- function(file, mmap = TRUE, ...) {
+  assert_is(file, "RandomAccessFile")
+  ipc___feather___Reader__Open(file)
 }

@@ -20,7 +20,7 @@ namespace Apache.Arrow.Ipc
 {
     public interface IArrowReader
     {
-        Task<RecordBatch> ReadNextRecordBatchAsync(
+        ValueTask<RecordBatch> ReadNextRecordBatchAsync(
             CancellationToken cancellationToken = default);
     }
 }

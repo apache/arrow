@@ -29,7 +29,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 
-// This is neccessary for Mac OS X, see http://www.apuebook.com/faqs2e.html
+// This is necessary for Mac OS X, see http://www.apuebook.com/faqs2e.html
 // (10).
 #if !defined(CMSG_SPACE) && !defined(CMSG_LEN)
 #define CMSG_SPACE(len) (__DARWIN_ALIGN32(sizeof(struct cmsghdr)) + __DARWIN_ALIGN32(len))
@@ -40,13 +40,13 @@ void init_msg(struct msghdr* msg, struct iovec* iov, char* buf, size_t buf_len);
 
 // Send a file descriptor over a unix domain socket.
 //
-// @param conn Unix domain socket to send the file descriptor over.
-// @param fd File descriptor to send over.
-// @return Status code which is < 0 on failure.
+// \param conn Unix domain socket to send the file descriptor over.
+// \param fd File descriptor to send over.
+// \return Status code which is < 0 on failure.
 int send_fd(int conn, int fd);
 
 // Receive a file descriptor over a unix domain socket.
 //
-// @param conn Unix domain socket to receive the file descriptor from.
-// @return File descriptor or a value < 0 on failure.
+// \param conn Unix domain socket to receive the file descriptor from.
+// \return File descriptor or a value < 0 on failure.
 int recv_fd(int conn);

@@ -15,24 +15,37 @@
 # specific language governing permissions and limitations
 # under the License.
 
+
 import os
-import inspect
 import posixpath
+import sys
+import urllib.parse
+import warnings
 
 from os.path import join as pjoin
-from six.moves.urllib.parse import urlparse
 
 import pyarrow as pa
-from pyarrow.util import implements, _stringify_path, _is_path_like
+from pyarrow.util import implements, _stringify_path, _is_path_like, _DEPR_MSG
 
 
-class FileSystem(object):
+_FS_DEPR_MSG = _DEPR_MSG.format(
+    "filesystem.LocalFileSystem", "2.0.0", "fs.LocalFileSystem"
+)
+
+
+class FileSystem:
     """
-    Abstract filesystem interface
+    Abstract filesystem interface.
     """
+
     def cat(self, path):
         """
-        Return contents of file as a bytes object
+        Return contents of file as a bytes object.
+
+        Parameters
+        ----------
+        path : str
+            File path to read content from.
 
         Returns
         -------
@@ -43,30 +56,36 @@ class FileSystem(object):
 
     def ls(self, path):
         """
-        Return list of file paths
+        Return list of file paths.
+
+        Parameters
+        ----------
+        path : str
+            Directory to list contents from.
         """
         raise NotImplementedError
 
     def delete(self, path, recursive=False):
         """
-        Delete the indicated file or directory
+        Delete the indicated file or directory.
 
         Parameters
         ----------
-        path : string
-        recursive : boolean, default False
-            If True, also delete child paths for directories
+        path : str
+            Path to delete.
+        recursive : bool, default False
+            If True, also delete child paths for directories.
         """
         raise NotImplementedError
 
     def disk_usage(self, path):
         """
-        Compute bytes used by all contents under indicated path in file tree
+        Compute bytes used by all contents under indicated path in file tree.
 
         Parameters
         ----------
-        path : string
-            Can be a file path or directory
+        path : str
+            Can be a file path or directory.
 
         Returns
         -------
@@ -90,6 +109,7 @@ class FileSystem(object):
 
     def stat(self, path):
         """
+        Information about a filesystem entry.
 
         Returns
         -------
@@ -99,44 +119,72 @@ class FileSystem(object):
 
     def rm(self, path, recursive=False):
         """
-        Alias for FileSystem.delete
+        Alias for FileSystem.delete.
         """
         return self.delete(path, recursive=recursive)
 
     def mv(self, path, new_path):
         """
-        Alias for FileSystem.rename
+        Alias for FileSystem.rename.
         """
         return self.rename(path, new_path)
 
     def rename(self, path, new_path):
         """
-        Rename file, like UNIX mv command
+        Rename file, like UNIX mv command.
 
         Parameters
         ----------
-        path : string
-            Path to alter
-        new_path : string
-            Path to move to
+        path : str
+            Path to alter.
+        new_path : str
+            Path to move to.
         """
         raise NotImplementedError('FileSystem.rename')
 
     def mkdir(self, path, create_parents=True):
+        """
+        Create a directory.
+
+        Parameters
+        ----------
+        path : str
+            Path to the directory.
+        create_parents : bool, default True
+            If the parent directories don't exists create them as well.
+        """
         raise NotImplementedError
 
     def exists(self, path):
+        """
+        Return True if path exists.
+
+        Parameters
+        ----------
+        path : str
+            Path to check.
+        """
         raise NotImplementedError
 
     def isdir(self, path):
         """
-        Return True if path is a directory
+        Return True if path is a directory.
+
+        Parameters
+        ----------
+        path : str
+            Path to check.
         """
         raise NotImplementedError
 
     def isfile(self, path):
         """
-        Return True if path is a file
+        Return True if path is a file.
+
+        Parameters
+        ----------
+        path : str
+            Path to check.
         """
         raise NotImplementedError
 
@@ -151,24 +199,24 @@ class FileSystem(object):
                      use_threads=True, use_pandas_metadata=False):
         """
         Read Parquet data from path in file system. Can read from a single file
-        or a directory of files
+        or a directory of files.
 
         Parameters
         ----------
         path : str
             Single file path or directory
         columns : List[str], optional
-            Subset of columns to read
+            Subset of columns to read.
         metadata : pyarrow.parquet.FileMetaData
-            Known metadata to validate files against
+            Known metadata to validate files against.
         schema : pyarrow.parquet.Schema
             Known schema to validate files against. Alternative to metadata
-            argument
-        use_threads : boolean, default True
-            Perform multi-threaded column reads
-        use_pandas_metadata : boolean, default False
+            argument.
+        use_threads : bool, default True
+            Perform multi-threaded column reads.
+        use_pandas_metadata : bool, default False
             If True and file has custom pandas schema metadata, ensure that
-            index columns are also loaded
+            index columns are also loaded.
 
         Returns
         -------
@@ -182,7 +230,7 @@ class FileSystem(object):
 
     def open(self, path, mode='rb'):
         """
-        Open file for reading or writing
+        Open file for reading or writing.
         """
         raise NotImplementedError
 
@@ -195,11 +243,22 @@ class LocalFileSystem(FileSystem):
 
     _instance = None
 
+    def __init__(self):
+        warnings.warn(_FS_DEPR_MSG, FutureWarning, stacklevel=2)
+        super().__init__()
+
+    @classmethod
+    def _get_instance(cls):
+        if cls._instance is None:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                cls._instance = LocalFileSystem()
+        return cls._instance
+
     @classmethod
     def get_instance(cls):
-        if cls._instance is None:
-            cls._instance = LocalFileSystem()
-        return cls._instance
+        warnings.warn(_FS_DEPR_MSG, FutureWarning, stacklevel=2)
+        return cls._get_instance()
 
     @implements(FileSystem.ls)
     def ls(self, path):
@@ -236,7 +295,7 @@ class LocalFileSystem(FileSystem):
     @implements(FileSystem.open)
     def open(self, path, mode='rb'):
         """
-        Open file for reading or writing
+        Open file for reading or writing.
         """
         path = _stringify_path(path)
         return open(path, mode=mode)
@@ -247,7 +306,7 @@ class LocalFileSystem(FileSystem):
 
     def walk(self, path):
         """
-        Directory tree generator, see os.walk
+        Directory tree generator, see os.walk.
         """
         path = _stringify_path(path)
         return os.walk(path)
@@ -259,6 +318,10 @@ class DaskFileSystem(FileSystem):
     """
 
     def __init__(self, fs):
+        warnings.warn(
+            "The pyarrow.filesystem.DaskFileSystem/S3FSWrapper are deprecated "
+            "as of pyarrow 3.0.0, and will be removed in a future version.",
+            FutureWarning, stacklevel=2)
         self.fs = fs
 
     @implements(FileSystem.isdir)
@@ -273,7 +336,7 @@ class DaskFileSystem(FileSystem):
     def _isfilestore(self):
         """
         Object Stores like S3 and GCSFS are based on key lookups, not true
-        file-paths
+        file-paths.
         """
         return False
 
@@ -298,7 +361,7 @@ class DaskFileSystem(FileSystem):
     @implements(FileSystem.open)
     def open(self, path, mode='rb'):
         """
-        Open file for reading or writing
+        Open file for reading or writing.
         """
         path = _stringify_path(path)
         return self.fs.open(path, mode=mode)
@@ -309,7 +372,7 @@ class DaskFileSystem(FileSystem):
 
     def walk(self, path):
         """
-        Directory tree generator, like os.walk
+        Directory tree generator, like os.walk.
         """
         path = _stringify_path(path)
         return self.fs.walk(path)
@@ -340,10 +403,10 @@ class S3FSWrapper(DaskFileSystem):
 
     def walk(self, path, refresh=False):
         """
-        Directory tree generator, like os.walk
+        Directory tree generator, like os.walk.
 
         Generator version of what is in s3fs, which yields a flattened list of
-        files
+        files.
         """
         path = _sanitize_s3(_stringify_path(path))
         directories = set()
@@ -367,8 +430,7 @@ class S3FSWrapper(DaskFileSystem):
         yield path, directories, files
 
         for directory in directories:
-            for tup in self.walk(directory, refresh=refresh):
-                yield tup
+            yield from self.walk(directory, refresh=refresh)
 
 
 def _sanitize_s3(path):
@@ -384,22 +446,23 @@ def _ensure_filesystem(fs):
     # If the arrow filesystem was subclassed, assume it supports the full
     # interface and return it
     if not issubclass(fs_type, FileSystem):
-        for mro in inspect.getmro(fs_type):
-            if mro.__name__ is 'S3FileSystem':
-                return S3FSWrapper(fs)
-            # In case its a simple LocalFileSystem (e.g. dask) use native arrow
-            # FS
-            elif mro.__name__ is 'LocalFileSystem':
-                return LocalFileSystem.get_instance()
+        if "fsspec" in sys.modules:
+            fsspec = sys.modules["fsspec"]
+            if isinstance(fs, fsspec.AbstractFileSystem):
+                # for recent fsspec versions that stop inheriting from
+                # pyarrow.filesystem.FileSystem, still allow fsspec
+                # filesystems (which should be compatible with our legacy fs)
+                return fs
 
-        raise IOError('Unrecognized filesystem: {0}'.format(fs_type))
+        raise OSError('Unrecognized filesystem: {}'.format(fs_type))
     else:
         return fs
 
 
 def resolve_filesystem_and_path(where, filesystem=None):
     """
-    return filesystem from path which could be an HDFS URI
+    Return filesystem from path which could be an HDFS URI, a local URI,
+    or a plain filesystem path.
     """
     if not _is_path_like(where):
         if filesystem is not None:
@@ -407,23 +470,42 @@ def resolve_filesystem_and_path(where, filesystem=None):
                              " there is nothing to open with filesystem.")
         return filesystem, where
 
-    # input can be hdfs URI such as hdfs://host:port/myfile.parquet
+    if filesystem is not None:
+        filesystem = _ensure_filesystem(filesystem)
+        if isinstance(filesystem, LocalFileSystem):
+            path = _stringify_path(where)
+        elif not isinstance(where, str):
+            raise TypeError(
+                "Expected string path; path-like objects are only allowed "
+                "with a local filesystem"
+            )
+        else:
+            path = where
+        return filesystem, path
+
     path = _stringify_path(where)
 
-    if filesystem is not None:
-        return _ensure_filesystem(filesystem), path
-
-    parsed_uri = urlparse(path)
-    if parsed_uri.scheme == 'hdfs':
+    parsed_uri = urllib.parse.urlparse(path)
+    if parsed_uri.scheme == 'hdfs' or parsed_uri.scheme == 'viewfs':
+        # Input is hdfs URI such as hdfs://host:port/myfile.parquet
         netloc_split = parsed_uri.netloc.split(':')
         host = netloc_split[0]
         if host == '':
             host = 'default'
+        else:
+            host = parsed_uri.scheme + "://" + host
         port = 0
         if len(netloc_split) == 2 and netloc_split[1].isnumeric():
             port = int(netloc_split[1])
-        fs = pa.hdfs.connect(host=host, port=port)
+        fs = pa.hdfs._connect(host=host, port=port)
+        fs_path = parsed_uri.path
+    elif parsed_uri.scheme == 'file':
+        # Input is local URI such as file:///home/user/myfile.parquet
+        fs = LocalFileSystem._get_instance()
+        fs_path = parsed_uri.path
     else:
-        fs = LocalFileSystem.get_instance()
+        # Input is local path such as /home/user/myfile.parquet
+        fs = LocalFileSystem._get_instance()
+        fs_path = path
 
-    return fs, parsed_uri.path
+    return fs, fs_path

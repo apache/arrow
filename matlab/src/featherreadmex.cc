@@ -27,8 +27,9 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
   const std::string filename{mxArrayToUTF8String(prhs[0])};
 
   // Read the given Feather file into memory.
-  std::shared_ptr<mlarrow::FeatherReader> feather_reader{nullptr};
-  mlarrow::util::HandleStatus(mlarrow::FeatherReader::Open(filename, &feather_reader));
+  std::shared_ptr<arrow::matlab::FeatherReader> feather_reader{nullptr};
+  arrow::matlab::util::HandleStatus(
+      arrow::matlab::FeatherReader::Open(filename, &feather_reader));
 
   // Return the Feather file table variables and table metadata to MATLAB.
   plhs[0] = feather_reader->ReadVariables();

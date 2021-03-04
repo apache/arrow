@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+/// DEPRECATED: Feather V2 is available starting in version 0.17.0 and does not
+/// use this file at all.
+
 namespace arrow.ipc.feather.fbs;
 
 /// Feather is an experimental serialization format implemented using
@@ -48,7 +51,10 @@ enum Type : byte {
 
   TIMESTAMP = 14,
   DATE = 15,
-  TIME = 16
+  TIME = 16,
+
+  LARGE_UTF8 = 17,
+  LARGE_BINARY = 18
 }
 
 enum Encoding : byte {
@@ -138,6 +144,9 @@ table CTable {
   columns: [Column];
 
   /// Version number of the Feather format
+  ///
+  /// Internal versions 0, 1, and 2: Implemented in Apache Arrow <= 0.16.0 and
+  /// wesm/feather. Uses "custom" metadata defined in this file.
   version: int;
 
   /// Table metadata (likely JSON), not yet used

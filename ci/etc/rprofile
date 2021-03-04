@@ -1,0 +1,51 @@
+.pick_cran <- function() {
+  # Return a CRAN repo URL, preferring RSPM binaries if available for this OS
+  rspm_template <- "https://packagemanager.rstudio.com/cran/__linux__/%s/latest"
+  supported_os <- c("xenial", "bionic", "centos7", "opensuse42", "opensuse15")
+
+  if (nzchar(Sys.which("lsb_release"))) {
+    os <- tolower(system("lsb_release -cs", intern = TRUE))
+    if (os %in% supported_os) {
+      return(sprintf(rspm_template, os))
+    }
+  }
+  if (file.exists("/etc/os-release")) {
+    os_release <- readLines("/etc/os-release")
+    vals <- sub("^.*=(.*)$", "\\1", os_release)
+    os <- intersect(vals, supported_os)
+    if (length(os)) {
+      # e.g. "bionic"
+      return(sprintf(rspm_template, os))
+    } else {
+      names(vals) <- sub("^(.*)=.*$", "\\1", os_release)
+      if (vals["ID"] == "opensuse") {
+        version <- sub('^"?([0-9]+).*"?.*$', "\\1", vals["VERSION_ID"])
+        os <- paste0("opensuse", version)
+        if (os %in% supported_os) {
+          return(sprintf(rspm_template, os))
+        }
+      }
+    }
+  }
+  if (file.exists("/etc/system-release")) {
+    # Something like "CentOS Linux release 7.7.1908 (Core)"
+    system_release <- tolower(utils::head(readLines("/etc/system-release"), 1))
+    # Extract from that the distro and the major version number
+    os <- sub("^([a-z]+) .* ([0-9]+).*$", "\\1\\2", system_release)
+    if (os %in% supported_os) {
+      return(sprintf(rspm_template, os))
+    }
+  }
+
+  return("https://cloud.r-project.org")
+}
+
+options(
+  Ncpus = parallel::detectCores(),
+  repos = tryCatch(.pick_cran(), error = function(e) "https://cloud.r-project.org"),
+  HTTPUserAgent = sprintf(
+    'R/%s R (%s)',
+    getRversion(),
+    paste(getRversion(), R.version$platform, R.version$arch, R.version$os)
+  )
+)

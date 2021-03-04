@@ -19,7 +19,8 @@
 
 #pragma once
 
-#include <arrow-glib/column.h>
+#include <arrow-glib/chunked-array.h>
+#include <arrow-glib/output-stream.h>
 #include <arrow-glib/record-batch.h>
 #include <arrow-glib/schema.h>
 #include <arrow-glib/version.h>
@@ -37,23 +38,17 @@ struct _GArrowTableClass
   GObjectClass parent_class;
 };
 
-#ifndef GARROW_DISABLE_DEPRECATED
-GARROW_DEPRECATED_IN_0_12_FOR(garrow_table_new_values)
-GArrowTable *
-garrow_table_new(GArrowSchema *schema,
-                 GList *columns);
-#endif
 GARROW_AVAILABLE_IN_0_12
 GArrowTable *
 garrow_table_new_values(GArrowSchema *schema,
                         GList *values,
                         GError **error);
-GARROW_AVAILABLE_IN_0_12
+GARROW_AVAILABLE_IN_0_15
 GArrowTable *
-garrow_table_new_columns(GArrowSchema *schema,
-                         GArrowColumn **columns,
-                         gsize n_columns,
-                         GError **error);
+garrow_table_new_chunked_arrays(GArrowSchema *schema,
+                                GArrowChunkedArray **chunked_arrays,
+                                gsize n_chunked_arrays,
+                                GError **error);
 GARROW_AVAILABLE_IN_0_12
 GArrowTable *
 garrow_table_new_arrays(GArrowSchema *schema,
@@ -69,25 +64,75 @@ garrow_table_new_record_batches(GArrowSchema *schema,
 
 gboolean        garrow_table_equal         (GArrowTable *table,
                                             GArrowTable *other_table);
+GARROW_AVAILABLE_IN_0_17
+gboolean
+garrow_table_equal_metadata(GArrowTable *table,
+                            GArrowTable *other_table,
+                            gboolean check_metadata);
 
 GArrowSchema   *garrow_table_get_schema    (GArrowTable *table);
-GArrowColumn   *garrow_table_get_column    (GArrowTable *table,
-                                            guint i);
+GARROW_AVAILABLE_IN_0_15
+GArrowChunkedArray *
+garrow_table_get_column_data(GArrowTable *table,
+                             gint i);
+
 guint           garrow_table_get_n_columns (GArrowTable *table);
 guint64         garrow_table_get_n_rows    (GArrowTable *table);
 
+GARROW_AVAILABLE_IN_0_15
 GArrowTable    *garrow_table_add_column    (GArrowTable *table,
                                             guint i,
-                                            GArrowColumn *column,
+                                            GArrowField *field,
+                                            GArrowChunkedArray *chunked_array,
                                             GError **error);
 GArrowTable    *garrow_table_remove_column (GArrowTable *table,
                                             guint i,
                                             GError **error);
+GARROW_AVAILABLE_IN_0_15
 GArrowTable    *garrow_table_replace_column(GArrowTable *table,
                                             guint i,
-                                            GArrowColumn *column,
+                                            GArrowField *field,
+                                            GArrowChunkedArray *chunked_array,
                                             GError **error);
 gchar          *garrow_table_to_string     (GArrowTable *table,
                                             GError **error);
+GARROW_AVAILABLE_IN_0_14
+GArrowTable *
+garrow_table_concatenate(GArrowTable *table,
+                         GList *other_tables,
+                         GError **error);
+GARROW_AVAILABLE_IN_0_14
+GArrowTable*
+garrow_table_slice(GArrowTable *table,
+                   gint64 offset,
+                   gint64 length);
+GARROW_AVAILABLE_IN_0_16
+GArrowTable*
+garrow_table_combine_chunks(GArrowTable *table,
+                            GError **error);
+
+
+#define GARROW_TYPE_FEATHER_WRITE_PROPERTIES    \
+  (garrow_feather_write_properties_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowFeatherWriteProperties,
+                         garrow_feather_write_properties,
+                         GARROW,
+                         FEATHER_WRITE_PROPERTIES,
+                         GObject)
+struct _GArrowFeatherWritePropertiesClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_0_17
+GArrowFeatherWriteProperties *
+garrow_feather_write_properties_new(void);
+
+GARROW_AVAILABLE_IN_0_17
+gboolean
+garrow_table_write_as_feather(GArrowTable *table,
+                              GArrowOutputStream *sink,
+                              GArrowFeatherWriteProperties *properties,
+                              GError **error);
 
 G_END_DECLS

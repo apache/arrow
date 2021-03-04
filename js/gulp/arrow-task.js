@@ -21,38 +21,40 @@ const {
 
 const del = require('del');
 const gulp = require('gulp');
-const { promisify } = require('util');
+const mkdirp = require('mkdirp');
 const gulpRename = require(`gulp-rename`);
 const { memoizeTask } = require('./memoize-task');
-const exec = promisify(require('child_process').exec);
 const { Observable, ReplaySubject } = require('rxjs');
+const pipeline = require('util').promisify(require('stream').pipeline);
 
 const arrowTask = ((cache) => memoizeTask(cache, function copyMain(target) {
     const out = targetDir(target);
-    const dtsGlob = `${targetDir(`es2015`, `cjs`)}/**/*.ts`;
-    const cjsGlob = `${targetDir(`es2015`, `cjs`)}/**/*.js`;
+    const dtsGlob = `${targetDir(`esnext`, `cjs`)}/**/*.ts`;
+    const cjsGlob = `${targetDir(`esnext`, `cjs`)}/**/*.js`;
     const esmGlob = `${targetDir(`esnext`, `esm`)}/**/*.js`;
     const es5UmdGlob = `${targetDir(`es5`, `umd`)}/*.js`;
-    const es5UmdMaps = `${targetDir(`es5`, `umd`)}/*.map`;
-    const es2015UmdGlob = `${targetDir(`es2015`, `umd`)}/*.js`;
-    const es2015UmdMaps = `${targetDir(`es2015`, `umd`)}/*.map`;
-    const ch_ext = (ext) => gulpRename((p) => { p.extname = ext; });
-    const append = (ap) => gulpRename((p) => { p.basename += ap; });
+    const esnextUmdGlob = `${targetDir(`esnext`, `umd`)}/*.js`;
+    const cjsSourceMapsGlob = `${targetDir(`esnext`, `cjs`)}/**/*.map`;
+    const esmSourceMapsGlob = `${targetDir(`esnext`, `esm`)}/**/*.map`;
+    const es5UmdSourceMapsGlob = `${targetDir(`es5`, `umd`)}/*.map`;
+    const esnextUmdSourceMapsGlob = `${targetDir(`esnext`, `umd`)}/*.map`;
     return Observable.forkJoin(
-      observableFromStreams(gulp.src(dtsGlob), gulp.dest(out)), // copy d.ts files
-      observableFromStreams(gulp.src(cjsGlob), gulp.dest(out)), // copy es2015 cjs files
-      observableFromStreams(gulp.src(esmGlob), ch_ext(`.mjs`), gulp.dest(out)), // copy es2015 esm files and rename to `.mjs`
-      observableFromStreams(gulp.src(es5UmdGlob), append(`.es5.min`), gulp.dest(out)), // copy es5 umd files and add `.min`
-      observableFromStreams(gulp.src(es5UmdMaps),                     gulp.dest(out)), // copy es5 umd sourcemap files, but don't rename
-      observableFromStreams(gulp.src(es2015UmdGlob), append(`.es2015.min`), gulp.dest(out)), // copy es2015 umd files and add `.es2015.min`
-      observableFromStreams(gulp.src(es2015UmdMaps),                        gulp.dest(out)), // copy es2015 umd sourcemap files, but don't rename
+        observableFromStreams(gulp.src(dtsGlob),                 gulp.dest(out)), // copy d.ts files
+        observableFromStreams(gulp.src(cjsGlob),                 gulp.dest(out)), // copy esnext cjs files
+        observableFromStreams(gulp.src(cjsSourceMapsGlob),       gulp.dest(out)), // copy esnext cjs sourcemaps
+        observableFromStreams(gulp.src(esmSourceMapsGlob),       gulp.dest(out)), // copy esnext esm sourcemaps
+        observableFromStreams(gulp.src(es5UmdSourceMapsGlob),    gulp.dest(out)), // copy es5 umd sourcemap files, but don't rename
+        observableFromStreams(gulp.src(esnextUmdSourceMapsGlob), gulp.dest(out)), // copy esnext umd sourcemap files, but don't rename
+        observableFromStreams(gulp.src(esmGlob),       gulpRename((p) => { p.extname = '.mjs'; }),          gulp.dest(out)), // copy esnext esm files and rename to `.mjs`
+        observableFromStreams(gulp.src(es5UmdGlob),    gulpRename((p) => { p.basename += `.es5.min`; }),    gulp.dest(out)), // copy es5 umd files and add `.min`
+        observableFromStreams(gulp.src(esnextUmdGlob), gulpRename((p) => { p.basename += `.esnext.min`; }), gulp.dest(out)), // copy esnext umd files and add `.esnext.min`
     ).publish(new ReplaySubject()).refCount();
 }))({});
 
 const arrowTSTask = ((cache) => memoizeTask(cache, async function copyTS(target, format) {
     const out = targetDir(target, format);
-    await exec(`mkdirp ${out}`);
-    await exec(`shx cp -r src/* ${out}`);
+    await mkdirp(out);
+    await pipeline(gulp.src(`src/*`), gulp.dest(out));
     await del(`${out}/**/*.js`);
 }))({});
   

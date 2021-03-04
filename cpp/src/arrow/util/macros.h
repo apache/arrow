@@ -15,10 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_MACROS_H
-#define ARROW_UTIL_MACROS_H
+#pragma once
 
+#include <cstdint>
+
+#define ARROW_EXPAND(x) x
 #define ARROW_STRINGIFY(x) #x
+#define ARROW_CONCAT(x, y) x##y
 
 // From Google gutil
 #ifndef ARROW_DISALLOW_COPY_AND_ASSIGN
@@ -27,7 +30,13 @@
   void operator=(const TypeName&) = delete
 #endif
 
-#define ARROW_UNUSED(x) (void)x
+#ifndef ARROW_DEFAULT_MOVE_AND_ASSIGN
+#define ARROW_DEFAULT_MOVE_AND_ASSIGN(TypeName) \
+  TypeName(TypeName&&) = default;               \
+  TypeName& operator=(TypeName&&) = default
+#endif
+
+#define ARROW_UNUSED(x) (void)(x)
 #define ARROW_ARG_UNUSED(x)
 //
 // GCC can be told that a certain branch is not likely to be taken (for
@@ -36,19 +45,21 @@
 // the absence of better information (ie. -fprofile-arcs).
 //
 #if defined(__GNUC__)
-#define ARROW_PREDICT_FALSE(x) (__builtin_expect(x, 0))
+#define ARROW_PREDICT_FALSE(x) (__builtin_expect(!!(x), 0))
 #define ARROW_PREDICT_TRUE(x) (__builtin_expect(!!(x), 1))
 #define ARROW_NORETURN __attribute__((noreturn))
+#define ARROW_NOINLINE __attribute__((noinline))
 #define ARROW_PREFETCH(addr) __builtin_prefetch(addr)
 #elif defined(_MSC_VER)
 #define ARROW_NORETURN __declspec(noreturn)
-#define ARROW_PREDICT_FALSE(x) x
-#define ARROW_PREDICT_TRUE(x) x
+#define ARROW_NOINLINE __declspec(noinline)
+#define ARROW_PREDICT_FALSE(x) (x)
+#define ARROW_PREDICT_TRUE(x) (x)
 #define ARROW_PREFETCH(addr)
 #else
 #define ARROW_NORETURN
-#define ARROW_PREDICT_FALSE(x) x
-#define ARROW_PREDICT_TRUE(x) x
+#define ARROW_PREDICT_FALSE(x) (x)
+#define ARROW_PREDICT_TRUE(x) (x)
 #define ARROW_PREFETCH(addr)
 #endif
 
@@ -58,6 +69,13 @@
 #define ARROW_MUST_USE_RESULT
 #else
 #define ARROW_MUST_USE_RESULT
+#endif
+
+#if defined(__clang__)
+// Only clang supports warn_unused_result as a type annotation.
+#define ARROW_MUST_USE_TYPE ARROW_MUST_USE_RESULT
+#else
+#define ARROW_MUST_USE_TYPE
 #endif
 
 // ----------------------------------------------------------------------
@@ -78,17 +96,25 @@
 // clang-format off
 // [[deprecated]] is only available in C++14, use this for the time being
 // This macro takes an optional deprecation message
-#if __cplusplus <= 201103L
+#ifdef __COVERITY__
+#  define ARROW_DEPRECATED(...)
+#  define ARROW_DEPRECATED_USING(...)
+#elif __cplusplus > 201103L
+#  define ARROW_DEPRECATED(...) [[deprecated(__VA_ARGS__)]]
+#  define ARROW_DEPRECATED_USING(...) ARROW_DEPRECATED(__VA_ARGS__)
+#else
 # ifdef __GNUC__
 #  define ARROW_DEPRECATED(...) __attribute__((deprecated(__VA_ARGS__)))
+#  define ARROW_DEPRECATED_USING(...) ARROW_DEPRECATED(__VA_ARGS__)
 # elif defined(_MSC_VER)
 #  define ARROW_DEPRECATED(...) __declspec(deprecated(__VA_ARGS__))
+#  define ARROW_DEPRECATED_USING(...)
 # else
 #  define ARROW_DEPRECATED(...)
+#  define ARROW_DEPRECATED_USING(...)
 # endif
-#else
-#  define ARROW_DEPRECATED(...) [[deprecated(__VA_ARGS__)]]
 #endif
+// clang-format on
 
 // ----------------------------------------------------------------------
 
@@ -123,6 +149,17 @@
 #endif
 
 // ----------------------------------------------------------------------
+// Machine information
+
+#if INTPTR_MAX == INT64_MAX
+#define ARROW_BITNESS 64
+#elif INTPTR_MAX == INT32_MAX
+#define ARROW_BITNESS 32
+#else
+#error Unexpected INTPTR_MAX
+#endif
+
+// ----------------------------------------------------------------------
 // From googletest
 // (also in parquet-cpp)
 
@@ -146,5 +183,3 @@
 
 #define FRIEND_TEST(test_case_name, test_name) \
   friend class test_case_name##_##test_name##_Test
-
-#endif  // ARROW_UTIL_MACROS_H

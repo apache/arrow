@@ -41,7 +41,7 @@ namespace Apache.Arrow
         }
 
         public bool IsValid(int index) =>
-            NullBitmapBuffer.IsEmpty || BitUtility.GetBit(NullBitmapBuffer.Span, index);
+            NullCount == 0 || NullBitmapBuffer.IsEmpty || BitUtility.GetBit(NullBitmapBuffer.Span, index + Offset);
 
         public bool IsNull(int index) => !IsValid(index);
 
@@ -57,6 +57,34 @@ namespace Apache.Arrow
                 default:
                     visitor.Visit(array);
                     break;
+            }
+        }
+
+        public Array Slice(int offset, int length)
+        {
+            if (offset > Length)
+            {
+                throw new ArgumentException($"Offset {offset} cannot be greater than Length {Length} for Array.Slice");
+            }
+
+            length = Math.Min(Data.Length - offset, length);
+            offset += Data.Offset;
+
+            ArrayData newData = Data.Slice(offset, length);
+            return ArrowArrayFactory.BuildArray(newData) as Array;
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                Data.Dispose();
             }
         }
     }

@@ -38,12 +38,8 @@
 #
 #============================================================================
 
-# Finding NumPy involves calling the Python interpreter
-if(NumPy_FIND_REQUIRED)
-    find_package(PythonInterp REQUIRED)
-else()
-    find_package(PythonInterp)
-endif()
+# Legacy code for CMake < 3.15.0.  The primary point of entry should be
+# FindPython3Alt.cmake.
 
 if(NOT PYTHONINTERP_FOUND)
     set(NUMPY_FOUND FALSE)

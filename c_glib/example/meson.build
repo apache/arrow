@@ -18,8 +18,19 @@
 # under the License.
 
 executable('build', 'build.c',
-	   dependencies: [arrow_glib])
+           dependencies: [arrow_glib])
+executable('extension-type', 'extension-type.c',
+           dependencies: [arrow_glib])
 executable('read-batch', 'read-batch.c',
-	   dependencies: [arrow_glib])
+           dependencies: [arrow_glib])
 executable('read-stream', 'read-stream.c',
-	   dependencies: [arrow_glib])
+           dependencies: [arrow_glib])
+
+install_data('README.md',
+             'build.c',
+             'extension-type.c',
+             'read-batch.c',
+             'read-stream.c',
+             install_dir: join_paths(data_dir, meson.project_name(), 'example'))
+
+subdir('lua')

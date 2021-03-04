@@ -15,14 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_NODE_VISITOR_H
-#define GANDIVA_NODE_VISITOR_H
+#pragma once
 
 #include <string>
 
 #include "arrow/status.h"
 
-#include "gandiva/logging.h"
+#include "arrow/util/logging.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
@@ -35,7 +35,7 @@ template <typename Type>
 class InExpressionNode;
 
 /// \brief Visitor for nodes in the expression tree.
-class NodeVisitor {
+class GANDIVA_EXPORT NodeVisitor {
  public:
   virtual ~NodeVisitor() = default;
 
@@ -50,5 +50,3 @@ class NodeVisitor {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_NODE_VISITOR_H

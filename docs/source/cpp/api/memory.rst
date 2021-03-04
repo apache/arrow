@@ -18,6 +18,31 @@
 Memory (management)
 ===================
 
+Devices
+-------
+
+.. doxygenclass:: arrow::Device
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::CPUDevice
+   :project: arrow_cpp
+   :members:
+
+.. doxygenfunction:: arrow::default_cpu_memory_manager
+   :project: arrow_cpp
+
+Memory Managers
+---------------
+
+.. doxygenclass:: arrow::MemoryManager
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::CPUMemoryManager
+   :project: arrow_cpp
+   :members:
+
 Buffers
 -------
 
@@ -37,6 +62,15 @@ Memory Pools
 ------------
 
 .. doxygenfunction:: arrow::default_memory_pool
+   :project: arrow_cpp
+
+.. doxygenfunction:: arrow::jemalloc_memory_pool
+   :project: arrow_cpp
+
+.. doxygenfunction:: arrow::mimalloc_memory_pool
+   :project: arrow_cpp
+
+.. doxygenfunction:: arrow::system_memory_pool
    :project: arrow_cpp
 
 .. doxygenclass:: arrow::MemoryPool
@@ -81,10 +115,10 @@ Buffer Builders
 STL Integration
 ---------------
 
-.. doxygenclass:: arrow::stl_allocator
+.. doxygenclass:: arrow::stl::allocator
    :project: arrow_cpp
    :members:
 
-.. doxygenclass:: arrow::STLMemoryPool
+.. doxygenclass:: arrow::stl::STLMemoryPool
    :project: arrow_cpp
    :members:

@@ -17,6 +17,7 @@
 
 package org.apache.arrow.gandiva.exceptions;
 
+/** Base class for all specialized exceptions this package uses. */
 public class GandivaException extends Exception {
 
   public GandivaException(String msg) {

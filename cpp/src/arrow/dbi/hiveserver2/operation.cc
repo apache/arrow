@@ -17,7 +17,7 @@
 
 #include "arrow/dbi/hiveserver2/operation.h"
 
-#include "arrow/dbi/hiveserver2/thrift-internal.h"
+#include "arrow/dbi/hiveserver2/thrift_internal.h"
 
 #include "arrow/dbi/hiveserver2/ImpalaService_types.h"
 #include "arrow/dbi/hiveserver2/TCLIService.h"
@@ -108,7 +108,7 @@ Status Operation::Fetch(int max_rows, FetchOrientation orientation,
     *has_more_rows = row_set_impl->resp.hasMoreRows;
   }
   Status status = TStatusToStatus(row_set_impl->resp.status);
-  DCHECK(status.ok());
+  RETURN_NOT_OK(status);
   results->reset(new ColumnarRowSet(row_set_impl.release()));
   return status;
 }

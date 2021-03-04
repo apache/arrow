@@ -23,13 +23,15 @@
 #include <vector>
 
 #include "arrow/buffer.h"
-#include "arrow/ipc/Message_generated.h"
+#include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
+
+#include "generated/Message_generated.h"
 
 #include "arrow/gpu/cuda_context.h"
 #include "arrow/gpu/cuda_memory.h"
@@ -40,69 +42,27 @@ namespace flatbuf = org::apache::arrow::flatbuf;
 
 namespace cuda {
 
-Status SerializeRecordBatch(const RecordBatch& batch, CudaContext* ctx,
-                            std::shared_ptr<CudaBuffer>* out) {
-  int64_t size = 0;
-  RETURN_NOT_OK(ipc::GetRecordBatchSize(batch, &size));
-
-  std::shared_ptr<CudaBuffer> buffer;
-  RETURN_NOT_OK(ctx->Allocate(size, &buffer));
-
-  CudaBufferWriter stream(buffer);
-
-  // Use 8MB buffering, which yields generally good performance
-  RETURN_NOT_OK(stream.SetBufferSize(1 << 23));
-
-  // We use the default memory pool here since any allocations are ephemeral
-  RETURN_NOT_OK(ipc::SerializeRecordBatch(batch, default_memory_pool(), &stream));
-  RETURN_NOT_OK(stream.Close());
-  *out = buffer;
-  return Status::OK();
+Result<std::shared_ptr<CudaBuffer>> SerializeRecordBatch(const RecordBatch& batch,
+                                                         CudaContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(auto buf,
+                        ipc::SerializeRecordBatch(batch, ctx->memory_manager()));
+  return CudaBuffer::FromBuffer(buf);
 }
 
-Status ReadMessage(CudaBufferReader* reader, MemoryPool* pool,
-                   std::unique_ptr<ipc::Message>* out) {
-  int32_t message_length = 0;
-  int64_t bytes_read = 0;
-
-  RETURN_NOT_OK(reader->Read(sizeof(int32_t), &bytes_read,
-                             reinterpret_cast<uint8_t*>(&message_length)));
-  if (bytes_read != sizeof(int32_t)) {
-    *out = nullptr;
-    return Status::OK();
-  }
-
-  if (message_length == 0) {
-    // Optional 0 EOS control message
-    *out = nullptr;
-    return Status::OK();
-  }
-
-  std::shared_ptr<Buffer> metadata;
-  RETURN_NOT_OK(AllocateBuffer(pool, message_length, &metadata));
-  RETURN_NOT_OK(reader->Read(message_length, &bytes_read, metadata->mutable_data()));
-  if (bytes_read != message_length) {
-    return Status::IOError("Expected ", message_length, " metadata bytes, but only got ",
-                           bytes_read);
-  }
-
-  return ipc::Message::ReadFrom(metadata, reader, out);
-}
-
-Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
-                       const std::shared_ptr<CudaBuffer>& buffer, MemoryPool* pool,
-                       std::shared_ptr<RecordBatch>* out) {
+Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
+    const std::shared_ptr<Schema>& schema, const ipc::DictionaryMemo* dictionary_memo,
+    const std::shared_ptr<CudaBuffer>& buffer, MemoryPool* pool) {
   CudaBufferReader cuda_reader(buffer);
 
-  std::unique_ptr<ipc::Message> message;
-  RETURN_NOT_OK(ReadMessage(&cuda_reader, pool, &message));
-
+  // The pool is only used for metadata allocation
+  ARROW_ASSIGN_OR_RAISE(auto message, ipc::ReadMessage(&cuda_reader, pool));
   if (!message) {
-    return Status::Invalid("Message is length 0");
+    return Status::Invalid("End of stream (message has length 0)");
   }
 
   // Zero-copy read on device memory
-  return ipc::ReadRecordBatch(*message, schema, out);
+  return ipc::ReadRecordBatch(*message, schema, dictionary_memo,
+                              ipc::IpcReadOptions::Defaults());
 }
 
 }  // namespace cuda

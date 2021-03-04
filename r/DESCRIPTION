@@ -1,72 +1,99 @@
 Package: arrow
-Title: R Integration to 'Apache' 'Arrow'
-Version: 0.12.0.9000
+Title: Integration to 'Apache' 'Arrow'
+Version: 3.0.0.9000
 Authors@R: c(
-    person("Romain", "François", email = "romain@rstudio.com", role = c("aut", "cre")),
+    person("Romain", "Fran\u00e7ois", email = "romain@rstudio.com", role = c("aut"), comment = c(ORCID = "0000-0002-2444-4226")),
+    person("Jeroen", "Ooms", email = "jeroen@berkeley.edu", role = c("aut")),
+    person("Neal", "Richardson", email = "neal@ursalabs.org", role = c("aut", "cre")),
     person("Javier", "Luraschi", email = "javier@rstudio.com", role = c("ctb")),
     person("Jeffrey", "Wong", email = "jeffreyw@netflix.com", role = c("ctb")),
     person("Apache Arrow", email = "dev@arrow.apache.org", role = c("aut", "cph"))
   )
-Description: R Integration to 'Apache' 'Arrow'.
-Depends: R (>= 3.5)
+Description: 'Apache' 'Arrow' <https://arrow.apache.org/> is a cross-language
+    development platform for in-memory data. It specifies a standardized
+    language-independent columnar memory format for flat and hierarchical data,
+    organized for efficient analytic operations on modern hardware. This
+    package provides an interface to the 'Arrow C++' library.
+Depends: R (>= 3.3)
 License: Apache License (>= 2.0)
+URL: https://github.com/apache/arrow/, https://arrow.apache.org/docs/r/
+BugReports: https://issues.apache.org/jira/projects/ARROW/issues
 Encoding: UTF-8
+Language: en-US
 LazyData: true
-SystemRequirements: C++11
-LinkingTo:
-    Rcpp (>= 0.12.18.2)
+SystemRequirements: C++11; for AWS S3 support on Linux, libcurl and openssl (optional)
+Biarch: true
 Imports:
-    Rcpp (>= 0.12.18.2),
-    rlang,
-    purrr,
     assertthat,
-    glue,
+    bit64 (>= 0.9-7),
+    methods,
+    purrr,
     R6,
-    vctrs (>= 0.0.0.9000),
-    fs,
-    tibble,
-    crayon,
-    withr,
-    bit64
-Remotes:
-    romainfrancois/vctrs@bit64, 
-    RcppCore/Rcpp, 
-    r-lib/withr
-Roxygen: list(markdown = TRUE)
-RoxygenNote: 6.1.1
+    rlang,
+    tidyselect,
+    utils,
+    vctrs
+Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
+RoxygenNote: 7.1.1
+VignetteBuilder: knitr
 Suggests:
+    decor,
+    distro,
+    dplyr,
+    hms,
+    knitr,
+    lubridate,
+    pkgload,
+    reticulate,
+    rmarkdown,
+    stringr,
     testthat,
-    lubridate, 
-    hms
+    tibble
+LinkingTo: cpp11 (>= 0.2.0)
 Collate:
     'enums.R'
-    'R6.R'
-    'ArrayData.R'
-    'ChunkedArray.R'
-    'Column.R'
-    'Field.R'
-    'List.R'
-    'RcppExports.R'
-    'RecordBatch.R'
-    'RecordBatchReader.R'
-    'RecordBatchWriter.R'
-    'Schema.R'
-    'Struct.R'
-    'Table.R'
+    'arrow-package.R'
+    'type.R'
+    'array-data.R'
+    'arrow-datum.R'
     'array.R'
+    'arrow-tabular.R'
+    'arrowExports.R'
     'buffer.R'
-    'compute.R'
-    'csv.R'
-    'dictionary.R'
-    'feather.R'
+    'chunked-array.R'
     'io.R'
-    'memory_pool.R'
+    'compression.R'
+    'scalar.R'
+    'compute.R'
+    'config.R'
+    'csv.R'
+    'dataset.R'
+    'dataset-factory.R'
+    'dataset-format.R'
+    'dataset-partition.R'
+    'dataset-scan.R'
+    'dataset-write.R'
+    'deprecated.R'
+    'dictionary.R'
+    'record-batch.R'
+    'table.R'
+    'expression.R'
+    'dplyr.R'
+    'feather.R'
+    'field.R'
+    'filesystem.R'
+    'flight.R'
+    'install-arrow.R'
+    'ipc_stream.R'
+    'json.R'
+    'memory-pool.R'
     'message.R'
-    'on_exit.R'
+    'metadata.R'
     'parquet.R'
-    'read_record_batch.R'
-    'read_table.R'
+    'python.R'
+    'record-batch-reader.R'
+    'record-batch-writer.R'
     'reexports-bit64.R'
-    'reexports-tibble.R'
-    'write_arrow.R'
-    'zzz.R'
+    'reexports-tidyselect.R'
+    'schema.R'
+    'util.R'

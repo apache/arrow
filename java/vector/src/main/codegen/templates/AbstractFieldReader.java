@@ -49,9 +49,9 @@ abstract class AbstractFieldReader extends AbstractBaseReader implements FieldRe
     return null;
   }
 
-  <#list ["Object", "BigDecimal", "Integer", "Long", "Boolean",
-          "Character", "LocalDateTime", "Period", "Double", "Float",
-          "Text", "String", "Byte", "Short", "byte[]"] as friendlyType>
+  <#list ["Object", "BigDecimal", "Short", "Integer", "Long", "Boolean",
+          "LocalDateTime", "Duration", "Period", "Double", "Float",
+          "Character", "Text", "String", "Byte", "byte[]"] as friendlyType>
   <#assign safeType=friendlyType />
   <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
   public ${friendlyType} read${safeType}(int arrayIndex) {

@@ -1,0 +1,4 @@
+{"a": {"b": true, "c": {"d": "text"}}}
+{"a": {"b": false, "c": null}}
+{"a": {"b": true, "c": {"d": "text"}}}
+{"a": 1}

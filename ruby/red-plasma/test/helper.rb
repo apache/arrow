@@ -21,4 +21,5 @@ require "tempfile"
 
 require "test-unit"
 
+require_relative "helper/omittable"
 require_relative "helper/plasma-store"

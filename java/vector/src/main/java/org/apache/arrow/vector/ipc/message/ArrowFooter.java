@@ -18,16 +18,22 @@
 package org.apache.arrow.vector.ipc.message;
 
 import static org.apache.arrow.vector.ipc.message.FBSerializables.writeAllStructsToVector;
+import static org.apache.arrow.vector.ipc.message.FBSerializables.writeKeyValues;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.arrow.flatbuf.Block;
 import org.apache.arrow.flatbuf.Footer;
+import org.apache.arrow.flatbuf.KeyValue;
+import org.apache.arrow.vector.types.MetadataVersion;
 import org.apache.arrow.vector.types.pojo.Schema;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 
+/** Footer metadata for the arrow file format. */
 public class ArrowFooter implements FBSerializable {
 
   private final Schema schema;
@@ -36,17 +42,62 @@ public class ArrowFooter implements FBSerializable {
 
   private final List<ArrowBlock> recordBatches;
 
+  private final Map<String, String> metaData;
+
+  private final MetadataVersion metadataVersion;
+
   public ArrowFooter(Schema schema, List<ArrowBlock> dictionaries, List<ArrowBlock> recordBatches) {
+    this(schema, dictionaries, recordBatches, null);
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param schema The schema for record batches in the file.
+   * @param dictionaries  The dictionaries relevant to the file.
+   * @param recordBatches  The recordBatches written to the file.
+   * @param metaData user-defined k-v meta data.
+   */
+  public ArrowFooter(
+      Schema schema,
+      List<ArrowBlock> dictionaries,
+      List<ArrowBlock> recordBatches,
+      Map<String, String> metaData) {
+    this(schema, dictionaries, recordBatches, metaData, MetadataVersion.DEFAULT);
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param schema The schema for record batches in the file.
+   * @param dictionaries  The dictionaries relevant to the file.
+   * @param recordBatches  The recordBatches written to the file.
+   * @param metaData user-defined k-v meta data.
+   * @param metadataVersion The Arrow metadata version.
+   */
+  public ArrowFooter(
+      Schema schema,
+      List<ArrowBlock> dictionaries,
+      List<ArrowBlock> recordBatches,
+      Map<String, String> metaData,
+      MetadataVersion metadataVersion) {
     this.schema = schema;
     this.dictionaries = dictionaries;
     this.recordBatches = recordBatches;
+    this.metaData = metaData;
+    this.metadataVersion = metadataVersion;
   }
 
+  /**
+   * Constructs from the corresponding Flatbuffer message.
+   */
   public ArrowFooter(Footer footer) {
     this(
         Schema.convertSchema(footer.schema()),
         dictionaries(footer),
-        recordBatches(footer)
+        recordBatches(footer),
+        metaData(footer),
+        MetadataVersion.fromFlatbufID(footer.version())
     );
   }
 
@@ -73,6 +124,18 @@ public class ArrowFooter implements FBSerializable {
     return dictionaries;
   }
 
+  private static Map<String, String> metaData(Footer footer) {
+    Map<String, String> metaData = new HashMap<>();
+
+    int metaDataLength = footer.customMetadataLength();
+    for (int i = 0; i < metaDataLength; i++) {
+      KeyValue kv = footer.customMetadata(i);
+      metaData.put(kv.key(), kv.value());
+    }
+
+    return metaData;
+  }
+
   public Schema getSchema() {
     return schema;
   }
@@ -85,6 +148,14 @@ public class ArrowFooter implements FBSerializable {
     return recordBatches;
   }
 
+  public Map<String, String> getMetaData() {
+    return metaData;
+  }
+
+  public MetadataVersion getMetadataVersion() {
+    return metadataVersion;
+  }
+
   @Override
   public int writeTo(FlatBufferBuilder builder) {
     int schemaIndex = schema.getSchema(builder);
@@ -92,10 +163,18 @@ public class ArrowFooter implements FBSerializable {
     int dicsOffset = writeAllStructsToVector(builder, dictionaries);
     Footer.startRecordBatchesVector(builder, recordBatches.size());
     int rbsOffset = writeAllStructsToVector(builder, recordBatches);
+
+    int metaDataOffset = 0;
+    if (metaData != null) {
+      metaDataOffset = writeKeyValues(builder, metaData);
+    }
+
     Footer.startFooter(builder);
     Footer.addSchema(builder, schemaIndex);
     Footer.addDictionaries(builder, dicsOffset);
     Footer.addRecordBatches(builder, rbsOffset);
+    Footer.addCustomMetadata(builder, metaDataOffset);
+    Footer.addVersion(builder, metadataVersion.toFlatbufID());
     return Footer.endFooter(builder);
   }
 

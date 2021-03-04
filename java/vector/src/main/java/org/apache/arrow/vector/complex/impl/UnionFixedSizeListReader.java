@@ -36,6 +36,9 @@ public class UnionFixedSizeListReader extends AbstractFieldReader {
 
   private int currentOffset;
 
+  /**
+   * Constructs a new instance that reads data in <code>vector</code>.
+   */
   public UnionFixedSizeListReader(FixedSizeListVector vector) {
     this.vector = vector;
     this.data = vector.getDataVector();

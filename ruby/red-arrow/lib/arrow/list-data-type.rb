@@ -53,16 +53,66 @@ module Arrow
     #
     #   @example Create a list data type with field description
     #     Arrow::ListDataType.new(field: {name: "visible", type: :boolean})
-    def initialize(field)
-      if field.is_a?(Hash) and field.key?(:field)
-        description = field
-        field = description[:field]
-      end
-      if field.is_a?(Hash)
-        field_description = field
-        field = Field.new(field_description)
+    #
+    # @overload initialize(data_type)
+    #
+    #   @param data_type [Arrow::DataType, String, Symbol,
+    #     ::Array<String>, ::Array<Symbol>, Hash] The element data
+    #     type of the list data type. A field is created with the
+    #     default name `"item"` from the data type automatically.
+    #
+    #     See {Arrow::DataType.resolve} how to specify data type.
+    #
+    #   @example Create a list data type with {Arrow::DataType}
+    #     Arrow::ListDataType.new(Arrow::BooleanDataType.new)
+    #
+    #   @example Create a list data type with data type name as String
+    #     Arrow::ListDataType.new("boolean")
+    #
+    #   @example Create a list data type with data type name as Symbol
+    #     Arrow::ListDataType.new(:boolean)
+    #
+    #   @example Create a list data type with data type as Array
+    #     Arrow::ListDataType.new([:time32, :milli])
+    def initialize(arg)
+      data_type = resolve_data_type(arg)
+      if data_type
+        field = Field.new(default_field_name, data_type)
+      else
+        field = resolve_field(arg)
       end
       initialize_raw(field)
+    end
+
+    private
+    def resolve_data_type(arg)
+      case arg
+      when DataType, String, Symbol, ::Array
+        DataType.resolve(arg)
+      when Hash
+        return nil if arg[:name]
+        return nil unless arg[:type]
+        DataType.resolve(arg)
+      else
+        nil
+      end
+    end
+
+    def default_field_name
+      "item"
+    end
+
+    def resolve_field(arg)
+      if arg.is_a?(Hash) and arg.key?(:field)
+        description = arg
+        arg = description[:field]
+      end
+      if arg.is_a?(Hash)
+        field_description = arg
+        Field.new(field_description)
+      else
+        arg
+      end
     end
   end
 end

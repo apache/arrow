@@ -73,30 +73,39 @@ describe(`BoolVector`, () => {
         validate(expected1);
     });
     test(`packs 0 values`, () => {
-        expect(BoolVector.from([]).values).toEqual(
-            new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0]));
+        const expected = new Uint8Array(64);
+        expect(BoolVector.from([]).values).toEqual(expected);
     });
     test(`packs 3 values`, () => {
+        const expected = new Uint8Array(64);
+        expected[0] = 5;
         expect(BoolVector.from([
             true, false, true
-        ]).values).toEqual(new Uint8Array([5, 0, 0, 0, 0, 0, 0, 0]));
+        ]).values).toEqual(expected);
     });
     test(`packs 8 values`, () => {
+        const expected = new Uint8Array(64);
+        expected[0] = 27;
         expect(BoolVector.from([
             true, true, false, true, true, false, false, false
-        ]).values).toEqual(new Uint8Array([27, 0, 0, 0, 0, 0, 0, 0]));
+        ]).values).toEqual(expected);
     });
     test(`packs 25 values`, () => {
+        const expected = new Uint8Array(64);
+        expected[0] = 27;
+        expected[1] = 216;
         expect(BoolVector.from([
             true, true, false, true, true, false, false, false,
             false, false, false, true, true, false, true, true,
             false
-        ]).values).toEqual(new Uint8Array([27, 216, 0, 0, 0, 0, 0, 0]));
+        ]).values).toEqual(expected);
     });
     test(`from with boolean Array packs values`, () => {
+        const expected = new Uint8Array(64);
+        expected[0] = 5;
         expect(BoolVector
             .from([true, false, true])
             .slice().values
-        ).toEqual(new Uint8Array([5, 0, 0, 0, 0, 0, 0, 0]));
+        ).toEqual(expected);
     });
 });

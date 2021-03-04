@@ -1,0 +1,66 @@
+# -*- ruby -*-
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+require_relative "../helper"
+require_relative "../package-task"
+
+class ApacheArrowReleasePackageTask < PackageTask
+  include Helper::ApacheArrow
+
+  def initialize
+    release_time = detect_release_time
+    super("apache-arrow-release",
+          detect_version(release_time),
+          release_time,
+          :rc_build_type => :release)
+  end
+
+  private
+  def repo_path
+    "#{yum_dir}/Apache-Arrow.repo"
+  end
+
+  def define_archive_task
+    file @archive_name => [repo_path] do
+      rm_rf(@archive_base_name)
+      mkdir(@archive_base_name)
+      download("https://downloads.apache.org/arrow/KEYS",
+               "#{@archive_base_name}/KEYS")
+      cp(repo_path, @archive_base_name)
+      sh("tar", "czf", @archive_name, @archive_base_name)
+      rm_rf(@archive_base_name)
+    end
+
+    if rpm_archive_name != @archive_name
+      file rpm_archive_name => @archive_name do
+        sh("tar", "xf", @archive_name)
+        rpm_archive_base_name = File.basename(rpm_archive_name, ".tar.gz")
+        mv(@archive_base_name, rpm_archive_base_name)
+        sh("tar", "czf", rpm_archive_name, rpm_archive_base_name)
+      end
+    end
+  end
+
+  def enable_apt?
+    false
+  end
+end
+
+task = ApacheArrowReleasePackageTask.new
+task.define

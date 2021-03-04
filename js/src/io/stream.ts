@@ -87,6 +87,8 @@ export class AsyncByteStream implements Readable<Uint8Array>, AsyncIterableItera
             this.source = new AsyncByteStreamSource(streamAdapters.fromAsyncIterable(source));
         } else if (isReadableNodeStream(source)) {
             this.source = new AsyncByteStreamSource(streamAdapters.fromNodeStream(source));
+        } else if (isReadableDOMStream<ArrayBufferViewInput>(source)) {
+            this.source = new AsyncByteStreamSource(streamAdapters.fromDOMStream(source));
         } else if (isFetchResponse(source)) {
             this.source = new AsyncByteStreamSource(streamAdapters.fromDOMStream(source.body!));
         } else if (isIterable<ArrayBufferViewInput>(source)) {
@@ -95,8 +97,6 @@ export class AsyncByteStream implements Readable<Uint8Array>, AsyncIterableItera
             this.source = new AsyncByteStreamSource(streamAdapters.fromAsyncIterable(source));
         } else if (isAsyncIterable<ArrayBufferViewInput>(source)) {
             this.source = new AsyncByteStreamSource(streamAdapters.fromAsyncIterable(source));
-        } else if (isReadableDOMStream<ArrayBufferViewInput>(source)) {
-            this.source = new AsyncByteStreamSource(streamAdapters.fromDOMStream(source));
         }
     }
     [Symbol.asyncIterator]() { return this; }
@@ -110,14 +110,9 @@ export class AsyncByteStream implements Readable<Uint8Array>, AsyncIterableItera
 }
 
 /** @ignore */
-interface ByteStreamSourceIterator<T> extends IterableIterator<T> {
-    next(value?: { cmd: 'peek' | 'read', size?: number | null }): IteratorResult<T>;
-}
-
+type ByteStreamSourceIterator<T> = Generator<T, null, { cmd: 'peek' | 'read', size?: number | null }>;
 /** @ignore */
-interface AsyncByteStreamSourceIterator<T> extends AsyncIterableIterator<T> {
-    next(value?: { cmd: 'peek' | 'read', size?: number | null }): Promise<IteratorResult<T>>;
-}
+type AsyncByteStreamSourceIterator<T> = AsyncGenerator<T, null, { cmd: 'peek' | 'read', size?: number | null }>;
 
 /** @ignore */
 class ByteStreamSource<T> {

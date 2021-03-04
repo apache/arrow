@@ -16,6 +16,8 @@
 # under the License.
 
 class SchemaTest < Test::Unit::TestCase
+  include Helper::Omittable
+
   def setup
     @count_field = Arrow::Field.new("count", :uint32)
     @visible_field = Arrow::Field.new("visible", :boolean)
@@ -98,6 +100,34 @@ class SchemaTest < Test::Unit::TestCase
         assert_raise(ArgumentError.new(message)) do
           @schema[invalid]
         end
+      end
+    end
+
+    sub_test_case("#==") do
+      test("Arrow::Schema") do
+        assert do
+          @schema == @schema
+        end
+      end
+
+      test("not Arrow::Schema") do
+        assert do
+          not (@schema == 29)
+        end
+      end
+    end
+
+    sub_test_case("#to_s") do
+      test("show_metadata") do
+        require_gi_bindings(3, 4, 2)
+
+        schema = @schema.with_metadata("key" => "value")
+        assert_equal(<<-SCHEMA.chomp, schema.to_s(show_metadata: true))
+count: uint32
+visible: bool
+-- metadata --
+key: value
+        SCHEMA
       end
     end
   end

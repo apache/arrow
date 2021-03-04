@@ -21,11 +21,9 @@
 
 import datetime
 import decimal as _pydecimal
-import multiprocessing
 import numpy as np
 import os
-import six
-from pyarrow.compat import frombytes, tobytes, PandasSeries, Categorical
+import sys
 
 from cython.operator cimport dereference as deref
 from pyarrow.includes.libarrow cimport *
@@ -33,8 +31,11 @@ from pyarrow.includes.common cimport PyObject_to_object
 cimport pyarrow.includes.libarrow as libarrow
 cimport cpython as cp
 
+# Initialize NumPy C API
 arrow_init_numpy()
-set_numpy_nan(np.nan)
+# Initialize PyArrow C++ API
+# (used from some of our C++ code, see e.g. ARROW-5260)
+import_pyarrow()
 
 
 def cpu_count():
@@ -44,7 +45,7 @@ def cpu_count():
     The number of threads is determined at startup by inspecting the
     ``OMP_NUM_THREADS`` and ``OMP_THREAD_LIMIT`` environment variables.
     If neither is present, it will default to the number of hardware threads
-    on the system.  It can be modified at runtime by calling
+    on the system. It can be modified at runtime by calling
     :func:`set_cpu_count()`.
     """
     return GetCpuThreadPoolCapacity()
@@ -72,26 +73,48 @@ Type_INT64 = _Type_INT64
 Type_HALF_FLOAT = _Type_HALF_FLOAT
 Type_FLOAT = _Type_FLOAT
 Type_DOUBLE = _Type_DOUBLE
-Type_DECIMAL = _Type_DECIMAL
+Type_DECIMAL128 = _Type_DECIMAL128
+Type_DECIMAL256 = _Type_DECIMAL256
 Type_DATE32 = _Type_DATE32
 Type_DATE64 = _Type_DATE64
 Type_TIMESTAMP = _Type_TIMESTAMP
 Type_TIME32 = _Type_TIME32
 Type_TIME64 = _Type_TIME64
+Type_DURATION = _Type_DURATION
 Type_BINARY = _Type_BINARY
 Type_STRING = _Type_STRING
+Type_LARGE_BINARY = _Type_LARGE_BINARY
+Type_LARGE_STRING = _Type_LARGE_STRING
 Type_FIXED_SIZE_BINARY = _Type_FIXED_SIZE_BINARY
 Type_LIST = _Type_LIST
-Type_STRUCT = _Type_STRUCT
-Type_UNION = _Type_UNION
-Type_DICTIONARY = _Type_DICTIONARY
+Type_LARGE_LIST = _Type_LARGE_LIST
 Type_MAP = _Type_MAP
+Type_FIXED_SIZE_LIST = _Type_FIXED_SIZE_LIST
+Type_STRUCT = _Type_STRUCT
+Type_SPARSE_UNION = _Type_SPARSE_UNION
+Type_DENSE_UNION = _Type_DENSE_UNION
+Type_DICTIONARY = _Type_DICTIONARY
 
 UnionMode_SPARSE = _UnionMode_SPARSE
 UnionMode_DENSE = _UnionMode_DENSE
 
-# Exception types
+
+def _pc():
+    import pyarrow.compute as pc
+    return pc
+
+
+# Assorted compatibility helpers
+include "compat.pxi"
+
+# Exception types and Status handling
 include "error.pxi"
+
+# Configuration information
+include "config.pxi"
+
+# pandas API shim
+include "pandas-shim.pxi"
 
 # Memory pools and allocation
 include "memory.pxi"
@@ -110,6 +133,9 @@ include "builder.pxi"
 
 # Column, Table, Record Batch
 include "table.pxi"
+
+# Tensors
+include "tensor.pxi"
 
 # File IO
 include "io.pxi"

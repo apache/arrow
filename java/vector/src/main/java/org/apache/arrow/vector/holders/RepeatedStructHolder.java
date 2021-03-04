@@ -17,6 +17,9 @@
 
 package org.apache.arrow.vector.holders;
 
+/**
+ * {@link ValueHolder} for a list of structs.
+ */
 public final class RepeatedStructHolder implements ValueHolder {
   public int start;
   public int end;

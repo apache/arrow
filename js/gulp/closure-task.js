@@ -29,10 +29,10 @@ const {
 const fs = require('fs');
 const gulp = require('gulp');
 const path = require('path');
+const mkdirp = require('mkdirp');
 const sourcemaps = require('gulp-sourcemaps');
 const { memoizeTask } = require('./memoize-task');
 const { compileBinFiles } = require('./typescript-task');
-const mkdirp = require('util').promisify(require('mkdirp'));
 const closureCompiler = require('google-closure-compiler').gulp();
 
 const closureTask = ((cache) => memoizeTask(cache, async function closure(target, format) {
@@ -58,7 +58,7 @@ const closureTask = ((cache) => memoizeTask(cache, async function closure(target
 
     await Promise.all([
         fs.promises.writeFile(externs, generateExternsFile(exportedImports)),
-        fs.promises.writeFile(entry_point, generateUMDExportAssignnent(srcAbsolute, exportedImports))
+        fs.promises.writeFile(entry_point, generateUMDExportAssignment(srcAbsolute, exportedImports))
     ]);
 
     return await Promise.all([
@@ -93,13 +93,12 @@ const createClosureArgs = (entry_point, externs) => ({
     entry_point,
     third_party: true,
     warning_level: `QUIET`,
-    dependency_mode: `STRICT`,
+    dependency_mode: `PRUNE`,
     rewrite_polyfills: false,
     module_resolution: `NODE`,
     // formatting: `PRETTY_PRINT`,
     // debug: true,
     compilation_level: `ADVANCED`,
-    allow_method_call_decomposing: true,
     package_json_entry_names: `module,jsnext:main,main`,
     assume_function_wrapper: true,
     js_output_file: `${mainExport}.js`,
@@ -108,12 +107,12 @@ const createClosureArgs = (entry_point, externs) => ({
     output_wrapper:`${apacheHeader()}
 (function (global, factory) {
     typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
-    typeof define === 'function' && define.amd ? define(['Arrow'], factory) :
+    typeof define === 'function' && define.amd ? define(['exports'], factory) :
     (factory(global.Arrow = global.Arrow || {}));
 }(this, (function (exports) {%output%}.bind(this))));`
 });
 
-function generateUMDExportAssignnent(src, exportedImports) {
+function generateUMDExportAssignment(src, exportedImports) {
     return [
         ...exportedImports.map(({ publicModulePath }, i) => {
             const p = publicModulePath.slice(src.length + 1);

@@ -18,6 +18,8 @@
 package org.apache.arrow.vector.complex;
 
 import static java.util.Collections.singletonList;
+import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
+import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 import static org.apache.arrow.util.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
@@ -25,15 +27,21 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import org.apache.arrow.memory.BaseAllocator;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
+import org.apache.arrow.memory.util.ArrowBufPointer;
+import org.apache.arrow.memory.util.ByteFunctionHelpers;
+import org.apache.arrow.memory.util.CommonUtil;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
+import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
@@ -50,41 +58,67 @@ import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 
-import io.netty.buffer.ArrowBuf;
-
-public class ListVector extends BaseRepeatedValueVector implements FieldVector, PromotableVector {
+/**
+ * A list vector contains lists of a specific type of elements.  Its structure contains 3 elements.
+ * <ol>
+ * <li>A validity buffer.</li>
+ * <li> An offset buffer, that denotes lists boundaries. </li>
+ * <li> A child data vector that contains the elements of lists. </li>
+ * </ol>
+ * The latter two are managed by its superclass.
+ */
+public class ListVector extends BaseRepeatedValueVector implements PromotableVector {
 
   public static ListVector empty(String name, BufferAllocator allocator) {
     return new ListVector(name, allocator, FieldType.nullable(ArrowType.List.INSTANCE), null);
   }
 
   protected ArrowBuf validityBuffer;
-  private UnionListReader reader;
+  protected UnionListReader reader;
   private CallBack callBack;
   private final FieldType fieldType;
   private int validityAllocationSizeInBytes;
+
+  /**
+   * The maximum index that is actually set.
+   */
   private int lastSet;
 
-  // deprecated, use FieldType or static constructor instead
+  /**
+   * Creates a ListVector.
+   *
+   * @deprecated Use FieldType or static constructor instead.
+   */
   @Deprecated
   public ListVector(String name, BufferAllocator allocator, CallBack callBack) {
     this(name, allocator, FieldType.nullable(ArrowType.List.INSTANCE), callBack);
   }
 
-  // deprecated, use FieldType or static constructor instead
+  /**
+   * Creates a ListVector.
+   *
+   * @deprecated Use FieldType or static constructor instead.
+   */
   @Deprecated
   public ListVector(String name, BufferAllocator allocator, DictionaryEncoding dictionary, CallBack callBack) {
     this(name, allocator, new FieldType(true, ArrowType.List.INSTANCE, dictionary, null), callBack);
   }
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param name The name of the instance.
+   * @param allocator The allocator to use for allocating/reallocating buffers.
+   * @param fieldType The type of this list.
+   * @param callBack A schema change callback.
+   */
   public ListVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     super(name, allocator, callBack);
     this.validityBuffer = allocator.getEmpty();
-    this.reader = new UnionListReader(this);
     this.fieldType = checkNotNull(fieldType);
     this.callBack = callBack;
     this.validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
-    this.lastSet = 0;
+    this.lastSet = -1;
   }
 
   @Override
@@ -171,15 +205,15 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     ArrowBuf bitBuffer = ownBuffers.get(0);
     ArrowBuf offBuffer = ownBuffers.get(1);
 
-    validityBuffer.release();
+    validityBuffer.getReferenceManager().release();
     validityBuffer = BitVectorHelper.loadValidityBuffer(fieldNode, bitBuffer, allocator);
-    offsetBuffer.release();
-    offsetBuffer = offBuffer.retain(allocator);
+    offsetBuffer.getReferenceManager().release();
+    offsetBuffer = offBuffer.getReferenceManager().retain(offBuffer, allocator);
 
-    validityAllocationSizeInBytes = validityBuffer.capacity();
+    validityAllocationSizeInBytes = checkedCastToInt(validityBuffer.capacity());
     offsetAllocationSizeInBytes = offsetBuffer.capacity();
 
-    lastSet = fieldNode.getLength();
+    lastSet = fieldNode.getLength() - 1;
     valueCount = fieldNode.getLength();
   }
 
@@ -283,15 +317,16 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   private void reallocValidityBuffer() {
-    final int currentBufferCapacity = validityBuffer.capacity();
-    long baseSize = validityAllocationSizeInBytes;
-
-    if (baseSize < (long) currentBufferCapacity) {
-      baseSize = (long) currentBufferCapacity;
+    final int currentBufferCapacity = checkedCastToInt(validityBuffer.capacity());
+    long newAllocationSize = currentBufferCapacity * 2;
+    if (newAllocationSize == 0) {
+      if (validityAllocationSizeInBytes > 0) {
+        newAllocationSize = validityAllocationSizeInBytes;
+      } else {
+        newAllocationSize = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION) * 2;
+      }
     }
-
-    long newAllocationSize = baseSize * 2L;
-    newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
+    newAllocationSize = CommonUtil.nextPowerOfTwo(newAllocationSize);
     assert newAllocationSize >= 1;
 
     if (newAllocationSize > MAX_ALLOCATION_SIZE) {
@@ -301,20 +336,21 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
     newBuf.setBytes(0, validityBuffer, 0, currentBufferCapacity);
     newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
-    validityBuffer.release(1);
+    validityBuffer.getReferenceManager().release(1);
     validityBuffer = newBuf;
     validityAllocationSizeInBytes = (int) newAllocationSize;
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, ListVector)} except that
+   * Same as {@link #copyFrom(int, int, ValueVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    * @param inIndex position to copy from in source vector
    * @param outIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFromSafe(int inIndex, int outIndex, ListVector from) {
+  @Override
+  public void copyFromSafe(int inIndex, int outIndex, ValueVector from) {
     copyFrom(inIndex, outIndex, from);
   }
 
@@ -325,7 +361,9 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
    * @param outIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFrom(int inIndex, int outIndex, ListVector from) {
+  @Override
+  public void copyFrom(int inIndex, int outIndex, ValueVector from) {
+    Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     FieldReader in = from.getReader();
     in.setPosition(inIndex);
     FieldWriter out = getWriter();
@@ -387,6 +425,30 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     return offsetBuffer;
   }
 
+  @Override
+  public int hashCode(int index) {
+    return hashCode(index, null);
+  }
+
+  @Override
+  public int hashCode(int index, ArrowBufHasher hasher) {
+    if (isSet(index) == 0) {
+      return ArrowBufPointer.NULL_HASH_CODE;
+    }
+    int hash = 0;
+    final int start = offsetBuffer.getInt(index * OFFSET_WIDTH);
+    final int end = offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);
+    for (int i = start; i < end; i++) {
+      hash = ByteFunctionHelpers.combineHash(hash, vector.hashCode(i, hasher));
+    }
+    return hash;
+  }
+
+  @Override
+  public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
+    return visitor.visit(this, value);
+  }
+
   private class TransferImpl implements TransferPair {
 
     ListVector to;
@@ -414,8 +476,8 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     public void transfer() {
       to.clear();
       dataTransferPair.transfer();
-      to.validityBuffer = validityBuffer.transferOwnership(to.allocator).buffer;
-      to.offsetBuffer = offsetBuffer.transferOwnership(to.allocator).buffer;
+      to.validityBuffer = transferBuffer(validityBuffer, to.allocator);
+      to.offsetBuffer = transferBuffer(offsetBuffer, to.allocator);
       to.lastSet = lastSet;
       if (valueCount > 0) {
         to.setValueCount(valueCount);
@@ -431,6 +493,8 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
      */
     @Override
     public void splitAndTransfer(int startIndex, int length) {
+      Preconditions.checkArgument(startIndex >= 0 && length >= 0 && startIndex + length <= valueCount,
+          "Invalid parameters startIndex: %s, length: %s for valueCount: %s", startIndex, length, valueCount);
       final int startPoint = offsetBuffer.getInt(startIndex * OFFSET_WIDTH);
       final int sliceLength = offsetBuffer.getInt((startIndex + length) * OFFSET_WIDTH) - startPoint;
       to.clear();
@@ -444,7 +508,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
       splitAndTransferValidityBuffer(startIndex, length, to);
       /* splitAndTransfer data buffer */
       dataTransferPair.splitAndTransfer(startPoint, sliceLength);
-      to.lastSet = length;
+      to.lastSet = length - 1;
       to.setValueCount(length);
     }
 
@@ -452,7 +516,6 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
      * transfer the validity.
      */
     private void splitAndTransferValidityBuffer(int startIndex, int length, ListVector target) {
-      assert startIndex + length <= valueCount;
       int firstByteSource = BitVectorHelper.byteIndex(startIndex);
       int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);
       int byteSizeTarget = getValidityBufferSizeFromCount(length);
@@ -462,10 +525,10 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
         if (offset == 0) {
           // slice
           if (target.validityBuffer != null) {
-            target.validityBuffer.release();
+            target.validityBuffer.getReferenceManager().release();
           }
           target.validityBuffer = validityBuffer.slice(firstByteSource, byteSizeTarget);
-          target.validityBuffer.retain(1);
+          target.validityBuffer.getReferenceManager().retain(1);
         } else {
           /* Copy data
            * When the first bit starts from the middle of a byte (offset != 0),
@@ -520,12 +583,16 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
 
   @Override
   public UnionListReader getReader() {
+    if (reader == null) {
+      reader = new UnionListReader(this);
+    }
     return reader;
   }
 
+  /** Initialize the child data vector to field type.  */
   public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType fieldType) {
     AddOrGetResult<T> result = super.addOrGetVector(fieldType);
-    reader = new UnionListReader(this);
+    invalidateReader();
     return result;
   }
 
@@ -545,8 +612,18 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   @Override
+  public int getBufferSizeFor(int valueCount) {
+    if (valueCount == 0) {
+      return 0;
+    }
+    final int validityBufferSize = getValidityBufferSizeFromCount(valueCount);
+
+    return super.getBufferSizeFor(valueCount) + validityBufferSize;
+  }
+
+  @Override
   public Field getField() {
-    return new Field(name, fieldType, Collections.singletonList(getDataVector().getField()));
+    return new Field(getName(), fieldType, Collections.singletonList(getDataVector().getField()));
   }
 
   @Override
@@ -558,14 +635,14 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   public void clear() {
     super.clear();
     validityBuffer = releaseBuffer(validityBuffer);
-    lastSet = 0;
+    lastSet = -1;
   }
 
   @Override
   public void reset() {
     super.reset();
     validityBuffer.setZero(0, validityBuffer.capacity());
-    lastSet = 0;
+    lastSet = -1;
   }
 
   /**
@@ -576,7 +653,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
    *
    * @param clear Whether to clear vector before returning; the buffers will still be refcounted
    *              but the returned array will be the only reference to them
-   * @return The underlying {@link io.netty.buffer.ArrowBuf buffers} that is used by this
+   * @return The underlying {@link ArrowBuf buffers} that is used by this
    *         vector instance.
    */
   @Override
@@ -594,7 +671,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     }
     if (clear) {
       for (ArrowBuf buffer : buffers) {
-        buffer.retain();
+        buffer.getReferenceManager().retain();
       }
       clear();
     }
@@ -605,11 +682,15 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   public UnionVector promoteToUnion() {
     UnionVector vector = new UnionVector("$data$", allocator, callBack);
     replaceDataVector(vector);
-    reader = new UnionListReader(this);
+    invalidateReader();
     if (callBack != null) {
       callBack.doWork();
     }
     return vector;
+  }
+
+  protected void invalidateReader() {
+    reader = null;
   }
 
   /**
@@ -636,12 +717,28 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   /**
    * Check if element at given index is null.
    *
-   * @param index  position of element
+   * @param index position of element
    * @return true if element at given index is null, false otherwise
    */
   @Override
   public boolean isNull(int index) {
     return (isSet(index) == 0);
+  }
+
+  /**
+   * Check if element at given index is empty list.
+   * @param index position of element
+   * @return true if element at given index is empty list or NULL, false otherwise
+   */
+  @Override
+  public boolean isEmpty(int index) {
+    if (isNull(index)) {
+      return true;
+    } else {
+      final int start = offsetBuffer.getInt(index * OFFSET_WIDTH);
+      final int end = offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);
+      return start == end;
+    }
   }
 
   /**
@@ -682,15 +779,37 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   private int getValidityBufferValueCapacity() {
-    return (int) (validityBuffer.capacity() * 8L);
+    return capAtMaxInt(validityBuffer.capacity() * 8);
   }
 
+  /**
+   * Sets the list at index to be not-null.  Reallocates validity buffer if index
+   * is larger than current capacity.
+   */
   public void setNotNull(int index) {
     while (index >= getValidityAndOffsetValueCapacity()) {
       reallocValidityAndOffsetBuffers();
     }
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
-    lastSet = index + 1;
+    BitVectorHelper.setBit(validityBuffer, index);
+    lastSet = index;
+  }
+
+  /**
+   * Sets list at index to be null.
+   * @param index position in vector
+   */
+  public void setNull(int index) {
+    while (index >= getValidityAndOffsetValueCapacity()) {
+      reallocValidityAndOffsetBuffers();
+    }
+    if (lastSet >= index) {
+      lastSet = index - 1;
+    }
+    for (int i = lastSet + 1; i <= index; i++) {
+      final int currentOffset = offsetBuffer.getInt(i * OFFSET_WIDTH);
+      offsetBuffer.setInt((i + 1) * OFFSET_WIDTH, currentOffset);
+    }
+    BitVectorHelper.unsetBit(validityBuffer, index);
   }
 
   /**
@@ -703,13 +822,16 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     while (index >= getValidityAndOffsetValueCapacity()) {
       reallocValidityAndOffsetBuffers();
     }
-    for (int i = lastSet; i <= index; i++) {
+    if (lastSet >= index) {
+      lastSet = index - 1;
+    }
+    for (int i = lastSet + 1; i <= index; i++) {
       final int currentOffset = offsetBuffer.getInt(i * OFFSET_WIDTH);
       offsetBuffer.setInt((i + 1) * OFFSET_WIDTH, currentOffset);
     }
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
-    lastSet = index + 1;
-    return offsetBuffer.getInt(lastSet * OFFSET_WIDTH);
+    BitVectorHelper.setBit(validityBuffer, index);
+    lastSet = index;
+    return offsetBuffer.getInt((lastSet + 1) * OFFSET_WIDTH);
   }
 
   /**
@@ -736,7 +858,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
         /* check if validity and offset buffers need to be re-allocated */
         reallocValidityAndOffsetBuffers();
       }
-      for (int i = lastSet; i < valueCount; i++) {
+      for (int i = lastSet + 1; i < valueCount; i++) {
         /* fill the holes with offsets */
         final int currentOffset = offsetBuffer.getInt(i * OFFSET_WIDTH);
         offsetBuffer.setInt((i + 1) * OFFSET_WIDTH, currentOffset);
@@ -744,7 +866,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     }
     /* valueCount for the data vector is the current end offset */
     final int childValueCount = (valueCount == 0) ? 0 :
-            offsetBuffer.getInt(valueCount * OFFSET_WIDTH);
+            offsetBuffer.getInt((lastSet + 1) * OFFSET_WIDTH);
     /* set the value count of data vector and this will take care of
      * checking whether data buffer needs to be reallocated.
      */
@@ -757,5 +879,15 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
 
   public int getLastSet() {
     return lastSet;
+  }
+
+  @Override
+  public int getElementStartIndex(int index) {
+    return offsetBuffer.getInt(index * OFFSET_WIDTH);
+  }
+
+  @Override
+  public int getElementEndIndex(int index) {
+    return offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);
   }
 }

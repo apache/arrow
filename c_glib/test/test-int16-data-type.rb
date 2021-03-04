@@ -21,6 +21,11 @@ class TestInt16DataType < Test::Unit::TestCase
     assert_equal(Arrow::Type::INT16, data_type.id)
   end
 
+  def test_name
+    data_type = Arrow::Int16DataType.new
+    assert_equal("int16", data_type.name)
+  end
+
   def test_to_s
     data_type = Arrow::Int16DataType.new
     assert_equal("int16", data_type.to_s)

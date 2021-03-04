@@ -11,7 +11,7 @@ using global::FlatBuffers;
 /// ----------------------------------------------------------------------
 /// Arrow File metadata
 ///
-public struct Footer : IFlatbufferObject
+internal struct Footer : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }

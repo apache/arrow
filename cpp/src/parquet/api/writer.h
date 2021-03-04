@@ -15,13 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_API_WRITER_H
-#define PARQUET_API_WRITER_H
+#pragma once
 
 #include "parquet/api/io.h"
 #include "parquet/api/schema.h"
 #include "parquet/column_writer.h"
 #include "parquet/exception.h"
 #include "parquet/file_writer.h"
-
-#endif  // PARQUET_API_WRITER_H
+#include "parquet/statistics.h"

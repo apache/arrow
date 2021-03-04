@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PYTHON_HELPERS_H
-#define ARROW_PYTHON_HELPERS_H
+#pragma once
 
 #include "arrow/python/platform.h"
 
@@ -24,6 +23,8 @@
 #include <memory>
 #include <string>
 #include <utility>
+
+#include "arrow/python/numpy_interop.h"
 
 #include <numpy/halffloat.h>
 
@@ -50,6 +51,10 @@ ARROW_PYTHON_EXPORT Status PyFloat_AsHalf(PyObject* obj, npy_half* out);
 
 namespace internal {
 
+// \brief Check that a Python module has been already imported
+// \param[in] module_name The name of the module
+Result<bool> IsModuleImported(const std::string& module_name);
+
 // \brief Import a Python module
 // \param[in] module_name The name of the module
 // \param[out] ref The OwnedRef containing the module PyObject*
@@ -62,27 +67,32 @@ Status ImportModule(const std::string& module_name, OwnedRef* ref);
 // \param[out] ref The OwnedRef containing the \c name attribute of the Python module \c
 // module
 ARROW_PYTHON_EXPORT
-Status ImportFromModule(const OwnedRef& module, const std::string& name, OwnedRef* ref);
+Status ImportFromModule(PyObject* module, const std::string& name, OwnedRef* ref);
 
 // \brief Check whether obj is an integer, independent of Python versions.
-inline bool IsPyInteger(PyObject* obj) {
-#if PYARROW_IS_PY2
-  return PyLong_Check(obj) || PyInt_Check(obj);
-#else
-  return PyLong_Check(obj);
-#endif
-}
+inline bool IsPyInteger(PyObject* obj) { return PyLong_Check(obj); }
+
+// \brief Import symbols from pandas that we need for various type-checking,
+// like pandas.NaT or pandas.NA
+void InitPandasStaticData();
 
 // \brief Use pandas missing value semantics to check if a value is null
 ARROW_PYTHON_EXPORT
 bool PandasObjectIsNull(PyObject* obj);
+
+// \brief Check that obj is a pandas.Timedelta instance
+ARROW_PYTHON_EXPORT
+bool IsPandasTimedelta(PyObject* obj);
+
+// \brief Check that obj is a pandas.Timestamp instance
+bool IsPandasTimestamp(PyObject* obj);
 
 // \brief Check whether obj is a floating-point NaN
 ARROW_PYTHON_EXPORT
 bool PyFloat_IsNaN(PyObject* obj);
 
 inline bool IsPyBinary(PyObject* obj) {
-  return PyBytes_Check(obj) || PyByteArray_Check(obj);
+  return PyBytes_Check(obj) || PyByteArray_Check(obj) || PyMemoryView_Check(obj);
 }
 
 // \brief Convert a Python integer into a C integer
@@ -119,18 +129,28 @@ inline Status CastSize(Py_ssize_t size, int32_t* out,
   return Status::OK();
 }
 
+inline Status CastSize(Py_ssize_t size, int64_t* out, const char* error_msg = NULLPTR) {
+  // size is assumed to be positive
+  *out = static_cast<int64_t>(size);
+  return Status::OK();
+}
+
 // \brief Print the Python object's __str__ form along with the passed error
 // message
 ARROW_PYTHON_EXPORT
 Status InvalidValue(PyObject* obj, const std::string& why);
 
 ARROW_PYTHON_EXPORT
+Status InvalidType(PyObject* obj, const std::string& why);
+
+ARROW_PYTHON_EXPORT
 Status IntegerScalarToDoubleSafe(PyObject* obj, double* result);
 ARROW_PYTHON_EXPORT
 Status IntegerScalarToFloat32Safe(PyObject* obj, float* result);
 
+// \brief Print Python object __repr__
+void DebugPrint(PyObject* obj);
+
 }  // namespace internal
 }  // namespace py
 }  // namespace arrow
-
-#endif  // ARROW_PYTHON_HELPERS_H

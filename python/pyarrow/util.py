@@ -17,26 +17,16 @@
 
 # Miscellaneous utility code
 
+import contextlib
 import functools
-import six
+import pathlib
+import socket
 import warnings
 
 
-try:
-    from textwrap import indent
-except ImportError:
-    def indent(text, prefix):
-        return ''.join(prefix + line for line in text.splitlines(True))
-
-try:
-    # pathlib might not be available
-    try:
-        import pathlib
-    except ImportError:
-        import pathlib2 as pathlib  # python 2 backport
-    _has_pathlib = True
-except ImportError:
-    _has_pathlib = False
+_DEPR_MSG = (
+    "pyarrow.{} is deprecated as of {}, please use pyarrow.{} instead."
+)
 
 
 def implements(f):
@@ -47,28 +37,44 @@ def implements(f):
 
 
 def _deprecate_api(old_name, new_name, api, next_version):
-    msg = ('pyarrow.{0} is deprecated as of {1}, please use {2} instead'
-           .format(old_name, next_version, new_name))
+    msg = _DEPR_MSG.format(old_name, next_version, new_name)
 
     def wrapper(*args, **kwargs):
         warnings.warn(msg, FutureWarning)
-        return api(*args)
+        return api(*args, **kwargs)
     return wrapper
+
+
+def _deprecate_class(old_name, new_class, next_version,
+                     instancecheck=True):
+    """
+    Raise warning if a deprecated class is used in an isinstance check.
+    """
+    class _DeprecatedMeta(type):
+        def __instancecheck__(self, other):
+            warnings.warn(
+                _DEPR_MSG.format(old_name, next_version, new_class.__name__),
+                FutureWarning,
+                stacklevel=2
+            )
+            return isinstance(other, new_class)
+
+    return _DeprecatedMeta(old_name, (new_class,), {})
 
 
 def _is_path_like(path):
     # PEP519 filesystem path protocol is available from python 3.6, so pathlib
     # doesn't implement __fspath__ for earlier versions
-    return (isinstance(path, six.string_types) or
+    return (isinstance(path, str) or
             hasattr(path, '__fspath__') or
-            (_has_pathlib and isinstance(path, pathlib.Path)))
+            isinstance(path, pathlib.Path))
 
 
 def _stringify_path(path):
     """
     Convert *path* to a string or unicode path if possible.
     """
-    if isinstance(path, six.string_types):
+    if isinstance(path, str):
         return path
 
     # checking whether path implements the filesystem protocol
@@ -76,7 +82,7 @@ def _stringify_path(path):
         return path.__fspath__()  # new in python 3.6
     except AttributeError:
         # fallback pathlib ckeck for earlier python versions than 3.6
-        if _has_pathlib and isinstance(path, pathlib.Path):
+        if isinstance(path, pathlib.Path):
             return str(path)
 
     raise TypeError("not a path-like object")
@@ -123,3 +129,16 @@ def get_contiguous_span(shape, strides, itemsize):
         if end - start != itemsize * product(shape):
             raise ValueError('array data is non-contiguous')
     return start, end
+
+
+def find_free_port():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    with contextlib.closing(sock) as sock:
+        sock.bind(('', 0))
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        return sock.getsockname()[1]
+
+
+def guid():
+    from uuid import uuid4
+    return uuid4().hex

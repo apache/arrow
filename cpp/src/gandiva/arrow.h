@@ -15,41 +15,36 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_EXPR_ARROW_H
-#define GANDIVA_EXPR_ARROW_H
+#pragma once
 
 #include <memory>
 #include <vector>
 
-#include <arrow/array.h>
-#include <arrow/builder.h>
-#include <arrow/pretty_print.h>
-#include <arrow/record_batch.h>
-#include <arrow/status.h>
-#include <arrow/type.h>
+#include "arrow/array.h"         // IWYU pragma: export
+#include "arrow/builder.h"       // IWYU pragma: export
+#include "arrow/pretty_print.h"  // IWYU pragma: export
+#include "arrow/record_batch.h"  // IWYU pragma: export
+#include "arrow/status.h"        // IWYU pragma: export
+#include "arrow/type.h"          // IWYU pragma: export
 
 namespace gandiva {
 
-using ArrayPtr = std::shared_ptr<arrow::Array>;
+using arrow::ArrayDataVector;
+using arrow::DataTypeVector;
+using arrow::FieldVector;
+using arrow::Result;
+using arrow::Status;
+using arrow::StatusCode;
 
+using ArrayPtr = std::shared_ptr<arrow::Array>;
+using ArrayDataPtr = std::shared_ptr<arrow::ArrayData>;
 using DataTypePtr = std::shared_ptr<arrow::DataType>;
-using DataTypeVector = std::vector<DataTypePtr>;
+using FieldPtr = std::shared_ptr<arrow::Field>;
+using RecordBatchPtr = std::shared_ptr<arrow::RecordBatch>;
+using SchemaPtr = std::shared_ptr<arrow::Schema>;
 
 using Decimal128TypePtr = std::shared_ptr<arrow::Decimal128Type>;
 using Decimal128TypeVector = std::vector<Decimal128TypePtr>;
-
-using FieldPtr = std::shared_ptr<arrow::Field>;
-using FieldVector = std::vector<FieldPtr>;
-
-using RecordBatchPtr = std::shared_ptr<arrow::RecordBatch>;
-
-using SchemaPtr = std::shared_ptr<arrow::Schema>;
-
-using ArrayDataPtr = std::shared_ptr<arrow::ArrayData>;
-using ArrayDataVector = std::vector<ArrayDataPtr>;
-
-using Status = arrow::Status;
-using StatusCode = arrow::StatusCode;
 
 static inline bool is_decimal_128(DataTypePtr type) {
   if (type->id() == arrow::Type::DECIMAL) {
@@ -60,5 +55,3 @@ static inline bool is_decimal_128(DataTypePtr type) {
   }
 }
 }  // namespace gandiva
-
-#endif  // GANDIVA_EXPR_ARROW_H

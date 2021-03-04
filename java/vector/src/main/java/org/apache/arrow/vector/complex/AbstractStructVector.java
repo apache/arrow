@@ -23,27 +23,86 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
-import org.apache.arrow.vector.util.MapWithOrdinal;
-
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.vector.util.PromotableMultiMapWithOrdinal;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 
 /**
  * Base class for StructVectors. Currently used by NonNullableStructVector
  */
 public abstract class AbstractStructVector extends AbstractContainerVector {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractContainerVector.class);
-
+  private static final String STRUCT_CONFLICT_POLICY_ENV = "ARROW_STRUCT_CONFLICT_POLICY";
+  private static final String STRUCT_CONFLICT_POLICY_JVM = "arrow.struct.conflict.policy";
+  private static final ConflictPolicy DEFAULT_CONFLICT_POLICY;
   // Maintains a map with key as field name and value is the vector itself
-  private final MapWithOrdinal<String, FieldVector> vectors = new MapWithOrdinal<>();
+  private final PromotableMultiMapWithOrdinal<String, FieldVector> vectors;
+  protected final boolean allowConflictPolicyChanges;
+  private ConflictPolicy conflictPolicy;
 
-  protected AbstractStructVector(String name, BufferAllocator allocator, CallBack callBack) {
+
+  static {
+    String conflictPolicyStr = System.getProperty(STRUCT_CONFLICT_POLICY_JVM,
+        ConflictPolicy.CONFLICT_REPLACE.toString());
+    if (conflictPolicyStr == null) {
+      conflictPolicyStr = System.getenv(STRUCT_CONFLICT_POLICY_ENV);
+    }
+    ConflictPolicy conflictPolicy;
+    try {
+      conflictPolicy = ConflictPolicy.valueOf(conflictPolicyStr.toUpperCase());
+    } catch (Exception e) {
+      conflictPolicy = ConflictPolicy.CONFLICT_REPLACE;
+    }
+    DEFAULT_CONFLICT_POLICY = conflictPolicy;
+  }
+
+  /**
+   * Policy to determine how to react when duplicate columns are encountered.
+   */
+  public enum ConflictPolicy {
+    // Ignore the conflict and append the field. This is the default behaviour
+    CONFLICT_APPEND,
+    // Keep the existing field and ignore the newer one.
+    CONFLICT_IGNORE,
+    // Replace the existing field with the newer one.
+    CONFLICT_REPLACE,
+    // Refuse the new field and error out.
+    CONFLICT_ERROR
+  }
+
+  /**
+   *  Base coonstructor that sets default conflict policy to APPEND.
+   */
+  protected AbstractStructVector(String name,
+                                 BufferAllocator allocator,
+                                 CallBack callBack,
+                                 ConflictPolicy conflictPolicy,
+                                 boolean allowConflictPolicyChanges) {
     super(name, allocator, callBack);
+    this.conflictPolicy = conflictPolicy == null ? DEFAULT_CONFLICT_POLICY : conflictPolicy;
+    this.vectors = new PromotableMultiMapWithOrdinal<>(allowConflictPolicyChanges, this.conflictPolicy);
+    this.allowConflictPolicyChanges = allowConflictPolicyChanges;
+  }
+
+  /**
+   * Set conflict policy and return last conflict policy state.
+   */
+  public ConflictPolicy setConflictPolicy(ConflictPolicy conflictPolicy) {
+    ConflictPolicy tmp = this.conflictPolicy;
+    this.conflictPolicy = conflictPolicy;
+    this.vectors.setConflictPolicy(conflictPolicy);
+    return tmp;
+  }
+
+  public ConflictPolicy getConflictPolicy() {
+    return conflictPolicy;
   }
 
   @Override
@@ -113,7 +172,6 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
    * @return resultant {@link org.apache.arrow.vector.ValueVector}
    * @throws java.lang.IllegalStateException raised if there is a hard schema change
    */
-  @Override
   public <T extends FieldVector> T addOrGet(String childName, FieldType fieldType, Class<T> clazz) {
     final ValueVector existing = getChild(childName);
     boolean create = false;
@@ -139,12 +197,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
   }
 
   private boolean nullFilled(ValueVector vector) {
-    for (int r = 0; r < vector.getValueCount(); r++) {
-      if (!vector.isNull(r)) {
-        return false;
-      }
-    }
-    return true;
+    return BitVectorHelper.checkAllBitsEqualTo(vector.getValidityBuffer(), vector.getValueCount(), false);
   }
 
   /**
@@ -161,25 +214,22 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
    * Returns a {@link org.apache.arrow.vector.ValueVector} instance of subtype of T corresponding to the given
    * field name if exists or null.
    *
+   * If there is more than one element for name this will return the first inserted.
+   *
    * @param name  the name of the child to return
    * @param clazz the expected type of the child
    * @return the child corresponding to this name
    */
   @Override
   public <T extends FieldVector> T getChild(String name, Class<T> clazz) {
-    final ValueVector v = vectors.get(name);
-    if (v == null) {
+    final FieldVector f = vectors.get(name);
+    if (f == null) {
       return null;
     }
-    return typeify(v, clazz);
+    return typeify(f, clazz);
   }
 
   protected ValueVector add(String childName, FieldType fieldType) {
-    final ValueVector existing = getChild(childName);
-    if (existing != null) {
-      throw new IllegalStateException(String.format("Vector already exists: Existing[%s], Requested[%s] ",
-        existing.getClass().getSimpleName(), fieldType));
-    }
     FieldVector vector = fieldType.createNewSingleVector(childName, allocator, callBack);
     putChild(childName, vector);
     if (callBack != null) {
@@ -200,21 +250,55 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
     putVector(name, vector);
   }
 
+  private void put(String name, FieldVector vector, boolean overwrite) {
+    final boolean old = vectors.put(
+        Preconditions.checkNotNull(name, "field name cannot be null"),
+        Preconditions.checkNotNull(vector, "vector cannot be null"),
+        overwrite
+    );
+    if (old) {
+      logger.debug("Field [{}] mutated to [{}] ", name,
+          vector.getClass().getSimpleName());
+    }
+  }
+
   /**
-   * Inserts the input vector into the map if it does not exist, replaces if it exists already.
+   * Inserts the input vector into the map if it does not exist.
+   *
+   * <p>
+   * If the field name already exists the conflict is handled according to the currently set ConflictPolicy
+   * </p>
    *
    * @param name   field name
    * @param vector vector to be inserted
    */
   protected void putVector(String name, FieldVector vector) {
-    final ValueVector old = vectors.put(
-        Preconditions.checkNotNull(name, "field name cannot be null"),
-        Preconditions.checkNotNull(vector, "vector cannot be null")
-    );
-    if (old != null && old != vector) {
-      logger.debug("Field [{}] mutated from [{}] to [{}]", name, old.getClass().getSimpleName(),
-          vector.getClass().getSimpleName());
+    switch (conflictPolicy) {
+      case CONFLICT_APPEND:
+        put(name, vector, false);
+        break;
+      case CONFLICT_IGNORE:
+        if (!vectors.containsKey(name)) {
+          put(name, vector, false);
+        }
+        break;
+      case CONFLICT_REPLACE:
+        if (vectors.containsKey(name)) {
+          vectors.removeAll(name);
+        }
+        put(name, vector, true);
+        break;
+      case CONFLICT_ERROR:
+        if (vectors.containsKey(name)) {
+          throw new IllegalStateException(String.format("Vector already exists: Existing[%s], Requested[%s] ",
+            vector.getClass().getSimpleName(), vector.getField().getFieldType()));
+        }
+        put(name, vector, false);
+        break;
+      default:
+        throw new IllegalStateException(String.format("%s type not a valid conflict state", conflictPolicy));
     }
+
   }
 
   /**
@@ -230,7 +314,10 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
     return children;
   }
 
-  protected List<String> getChildFieldNames() {
+  /**
+   * Get child field names.
+   */
+  public List<String> getChildFieldNames() {
     return getChildren().stream()
         .map(child -> child.getField().getName())
         .collect(Collectors.toList());
@@ -256,19 +343,36 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
    */
   public List<ValueVector> getPrimitiveVectors() {
     final List<ValueVector> primitiveVectors = new ArrayList<>();
-    for (final ValueVector v : vectors.values()) {
-      if (v instanceof AbstractStructVector) {
-        AbstractStructVector structVector = (AbstractStructVector) v;
-        primitiveVectors.addAll(structVector.getPrimitiveVectors());
-      } else {
-        primitiveVectors.add(v);
-      }
+    for (final FieldVector v : vectors.values()) {
+      primitiveVectors.addAll(getPrimitiveVectors(v));
     }
     return primitiveVectors;
   }
 
+  private List<ValueVector> getPrimitiveVectors(FieldVector v) {
+    final List<ValueVector> primitives = new ArrayList<>();
+    if (v instanceof AbstractStructVector) {
+      AbstractStructVector structVector = (AbstractStructVector) v;
+      primitives.addAll(structVector.getPrimitiveVectors());
+    } else if (v instanceof ListVector) {
+      ListVector listVector = (ListVector) v;
+      primitives.addAll(getPrimitiveVectors(listVector.getDataVector()));
+    } else if (v instanceof FixedSizeListVector) {
+      FixedSizeListVector listVector = (FixedSizeListVector) v;
+      primitives.addAll(getPrimitiveVectors(listVector.getDataVector()));
+    } else if (v instanceof UnionVector) {
+      UnionVector unionVector = (UnionVector) v;
+      for (final FieldVector vector : unionVector.getChildrenFromFields()) {
+        primitives.addAll(getPrimitiveVectors(vector));
+      }
+    } else {
+      primitives.add(v);
+    }
+    return primitives;
+  }
+
   /**
-   * Get a child vector by name.
+   * Get a child vector by name. If duplicate names this returns the first inserted.
    * @param name the name of the child to return
    * @return a vector with its corresponding ordinal mapping if field exists or null.
    */
@@ -290,7 +394,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
       for (final ArrowBuf buf : vector.getBuffers(false)) {
         buffers.add(buf);
         if (clear) {
-          buf.retain(1);
+          buf.getReferenceManager().retain(1);
         }
       }
       if (clear) {
@@ -312,4 +416,10 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
     }
     return actualBufSize;
   }
+
+  @Override
+  public String toString() {
+    return ValueVectorUtility.getToString(this, 0 , getValueCount());
+  }
+
 }

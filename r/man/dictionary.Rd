@@ -2,20 +2,23 @@
 % Please edit documentation in R/dictionary.R
 \name{dictionary}
 \alias{dictionary}
-\title{dictionary type factory}
+\title{Create a dictionary type}
 \usage{
-dictionary(type, values, ordered = FALSE)
+dictionary(index_type = int32(), value_type = utf8(), ordered = FALSE)
 }
 \arguments{
-\item{type}{indices type, e.g. \code{\link[=int32]{int32()}}}
+\item{index_type}{A DataType for the indices (default \code{\link[=int32]{int32()}})}
 
-\item{values}{values array, typically an arrow array of strings}
+\item{value_type}{A DataType for the values (default \code{\link[=utf8]{utf8()}})}
 
-\item{ordered}{Is this an ordered dictionary}
+\item{ordered}{Is this an ordered dictionary (default \code{FALSE})?}
 }
 \value{
-a \link[=arrow__DictionaryType]{arrow::DictionaryType}
+A \link{DictionaryType}
 }
 \description{
-dictionary type factory
+Create a dictionary type
+}
+\seealso{
+\link[=data-type]{Other Arrow data types}
 }

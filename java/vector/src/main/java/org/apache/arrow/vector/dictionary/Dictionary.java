@@ -20,9 +20,14 @@ package org.apache.arrow.vector.dictionary;
 import java.util.Objects;
 
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 
+/**
+ * A dictionary (integer to Value mapping) that is used to facilitate
+ * dictionary encoding compression.
+ */
 public class Dictionary {
 
   private final DictionaryEncoding encoding;
@@ -59,7 +64,8 @@ public class Dictionary {
       return false;
     }
     Dictionary that = (Dictionary) o;
-    return Objects.equals(encoding, that.encoding) && Objects.equals(dictionary, that.dictionary);
+    return Objects.equals(encoding, that.encoding) &&
+        new VectorEqualsVisitor().vectorEquals(that.dictionary, dictionary);
   }
 
   @Override

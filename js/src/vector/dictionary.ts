@@ -18,30 +18,43 @@
 import { Data } from '../data';
 import { Vector } from '../vector';
 import { BaseVector } from './base';
-import { Vector as V } from '../interfaces';
+import { VectorType as V } from '../interfaces';
+import { VectorBuilderOptions } from './index';
+import { vectorFromValuesWithType } from './index';
+import { VectorBuilderOptionsAsync } from './index';
 import { DataType, Dictionary, TKeys } from '../type';
 
+/** @ignore */
+type FromArgs<T extends DataType = any, TKey extends TKeys = TKeys> = [Vector<T>, TKey, ArrayLike<number> | TKey['TArray']];
+
+/** @ignore */
 export class DictionaryVector<T extends DataType = any, TKey extends TKeys = TKeys> extends BaseVector<Dictionary<T, TKey>> {
+    public static from<T extends DataType = any, TKey extends TKeys = TKeys>(...args: FromArgs<T, TKey>): V<Dictionary<T, TKey>>;
+    public static from<T extends DataType = any, TKey extends TKeys = TKeys>(input: VectorBuilderOptions<Dictionary<T, TKey>>): Vector<Dictionary<T, TKey>>;
+    public static from<T extends DataType = any, TKey extends TKeys = TKeys>(input: VectorBuilderOptionsAsync<Dictionary<T, TKey>>): Promise<Vector<Dictionary<T, TKey>>>;
     /** @nocollapse */
-    public static from<T extends DataType<any>, TKey extends TKeys = TKeys>(
-        values: Vector<T>, indices: TKey,
-        keys: ArrayLike<number> | TKey['TArray']
-    ) {
-        const type = new Dictionary(values.type, indices, null, null, values);
-        return Vector.new(Data.Dictionary(type, 0, keys.length, 0, null, keys));
+    public static from<T extends DataType = any, TKey extends TKeys = TKeys>(...args: any[]) {
+        if (args.length === 3) {
+            const [values, indices, keys] = args as FromArgs<T, TKey>;
+            const type = new Dictionary(values.type, indices, null, null);
+            return Vector.new(Data.Dictionary(type, 0, keys.length, 0, null, keys, values));
+        }
+        return vectorFromValuesWithType(() => args[0].type, args[0]);
     }
-    protected _indices: V<TKey>;
+
     constructor(data: Data<Dictionary<T, TKey>>) {
         super(data);
-        this._indices = Vector.new(data.clone(this.type.indices));
+        this.indices = Vector.new(data.clone(this.type.indices));
     }
-    // protected _bindDataAccessors() {}
-    public get indices() { return this._indices; }
-    public get dictionary() { return this.data.type.dictionaryVector; }
-    public isValid(index: number) { return this._indices.isValid(index); }
+
+    public readonly indices: V<TKey>;
+
+    public get dictionary() { return <Vector<T>> this.data.dictionary; }
     public reverseLookup(value: T) { return this.dictionary.indexOf(value); }
-    public getKey(idx: number): TKey['TValue'] | null { return this._indices.get(idx); }
+    public getKey(idx: number): TKey['TValue'] | null { return this.indices.get(idx); }
     public getValue(key: number): T['TValue'] | null { return this.dictionary.get(key); }
-    public setKey(idx: number, key: TKey['TValue'] | null) { return this._indices.set(idx, key); }
+    public setKey(idx: number, key: TKey['TValue'] | null) { return this.indices.set(idx, key); }
     public setValue(key: number, value: T['TValue'] | null) { return this.dictionary.set(key, value); }
 }
+
+(DictionaryVector.prototype as any).indices = null;

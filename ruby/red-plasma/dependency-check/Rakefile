@@ -19,6 +19,7 @@
 
 require "pkg-config"
 require "native-package-installer"
+require_relative "../lib/plasma/version"
 
 case RUBY_PLATFORM
 when /mingw|mswin/
@@ -33,7 +34,10 @@ end
 namespace :dependency do
   desc "Check dependency"
   task :check do
-    unless PKGConfig.check_version?("plasma-glib")
+    unless PKGConfig.check_version?("plasma-glib",
+                                    Plasma::Version::MAJOR,
+                                    Plasma::Version::MINOR,
+                                    Plasma::Version::MICRO)
       unless NativePackageInstaller.install(:debian => "libplasma-glib-dev",
                                             :redhat => "plasma-glib-devel")
         exit(false)

@@ -15,30 +15,151 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-File System Interfaces
-======================
+.. _filesystem:
 
-In this section, we discuss filesystem-like interfaces in PyArrow.
+.. currentmodule:: pyarrow.fs
 
-.. _hdfs:
+Filesystem Interface
+====================
+
+PyArrow comes with an abstract filesystem interface, as well as concrete
+implementations for various storage types.
+
+The filesystem interface provides input and output streams as well as
+directory operations.  A simplified view of the underlying data
+storage is exposed.  Data paths are represented as *abstract paths*, which
+are ``/``-separated, even on Windows, and shouldn't include special path
+components such as ``.`` and ``..``.  Symbolic links, if supported by the
+underlying storage, are automatically dereferenced.  Only basic
+:class:`metadata <FileInfo>` about file entries, such as the file size
+and modification time, is made available.
+
+The core interface is represented by the base class :class:`FileSystem`.
+Concrete subclasses are available for various kinds of storage, such as local
+filesystem access (:class:`LocalFileSystem`), HDFS (:class:`HadoopFileSystem`)
+and Amazon S3-compatible storage (:class:`S3FileSystem`).
+
+
+Usage
+-----
+
+A FileSystem object can be created with one of the constructors (and check the
+respective constructor for its options)::
+
+   >>> from pyarrow import fs
+   >>> local = fs.LocalFileSystem()
+
+or alternatively inferred from a URI::
+
+   >>> s3, path = fs.FileSystem.from_uri("s3://my-bucket")
+   >>> s3
+   <pyarrow._s3fs.S3FileSystem at 0x7f6760cbf4f0>
+   >>> path
+   'my-bucket'
+
+
+Reading and writing files
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Several of the IO-related functions in PyArrow accept either a URI (and infer
+the filesystem) or an explicit ``filesystem`` argument to specify the filesystem
+to read or write from. For example, the :meth:`pyarrow.parquet.read_table`
+function can be used in the following ways::
+
+   # using a URI -> filesystem is inferred
+   pq.read_table("s3://my-bucket/data.parquet")
+   # using a path and filesystem
+   s3 = fs.S3FileSystem(..)
+   pq.read_table("my-bucket/data.parquet", filesystem=s3)
+
+The filesystem interface further allows to open files for reading (input) or
+writing (output) directly, which can be combined with functions that work with
+file-like objects. For example::
+
+   local = fs.LocalFileSystem()
+
+   with local.open_output_stream("test.arrow") as file:
+      with pa.RecordBatchFileWriter(file, table.schema) as writer:
+         writer.write_table(table)
+
+
+Listing files
+~~~~~~~~~~~~~
+
+Inspecting the directories and files on a filesystem can be done with the
+:meth:`FileSystem.get_file_info` method. To list the contents of a directory,
+use the :class:`FileSelector` object to specify the selection::
+
+   >>> local.get_file_info(fs.FileSelector("dataset/", recursive=True))
+   [<FileInfo for 'dataset/part=B': type=FileType.Directory>,
+    <FileInfo for 'dataset/part=B/data0.parquet': type=FileType.File, size=1564>,
+    <FileInfo for 'dataset/part=A': type=FileType.Directory>,
+    <FileInfo for 'dataset/part=A/data0.parquet': type=FileType.File, size=1564>]
+
+This returns a list of :class:`FileInfo` objects, containing information about
+the type (file or directory), the size, the date last modified, etc.
+
+You can also get this information for a single explicit path (or list of
+paths)::
+
+   >>> local.get_file_info('test.arrow')
+   <FileInfo for 'test.arrow': type=FileType.File, size=3250>
+
+   >>> local.get_file_info('non_existent')
+   <FileInfo for 'non_existent': type=FileType.NotFound>
+
+S3
+--
+
+The :class:`S3FileSystem` constructor has several options to configure the S3
+connection (e.g. credentials, the region, an endpoint override, etc). In
+addition, the constructor will also inspect configured S3 credentials as
+supported by AWS (for example the ``AWS_ACCESS_KEY_ID`` and
+``AWS_SECRET_ACCESS_KEY`` environment variables).
+
+Example how you can read contents from a S3 bucket::
+
+   >>> from pyarrow import fs
+   >>> s3 = fs.S3FileSystem(region='eu-west-3')
+
+   # List all contents in a bucket, recursively
+   >>> s3.get_file_info(fs.FileSelector('my-test-bucket', recursive=True))
+   [<FileInfo for 'my-test-bucket/File1': type=FileType.File, size=10>,
+    <FileInfo for 'my-test-bucket/File5': type=FileType.File, size=10>,
+    <FileInfo for 'my-test-bucket/Dir1': type=FileType.Directory>,
+    <FileInfo for 'my-test-bucket/Dir2': type=FileType.Directory>,
+    <FileInfo for 'my-test-bucket/EmptyDir': type=FileType.Directory>,
+    <FileInfo for 'my-test-bucket/Dir1/File2': type=FileType.File, size=11>,
+    <FileInfo for 'my-test-bucket/Dir1/Subdir': type=FileType.Directory>,
+    <FileInfo for 'my-test-bucket/Dir2/Subdir': type=FileType.Directory>,
+    <FileInfo for 'my-test-bucket/Dir2/Subdir/File3': type=FileType.File, size=10>]
+
+   # Open a file for reading and download its contents
+   >>> f = s3.open_input_stream('my-test-bucket/Dir1/File2')
+   >>> f.readall()
+   b'some data'
+
+.. seealso::
+
+   See the `AWS docs <https://docs.aws.amazon.com/sdk-for-cpp/v1/developer-guide/credentials.html>`__
+   for the different ways to configure the AWS credentials.
+
 
 Hadoop File System (HDFS)
 -------------------------
 
-PyArrow comes with bindings to a C++-based interface to the Hadoop File
-System. You connect like so:
+PyArrow comes with bindings to the Hadoop File System (based on C++ bindings
+using ``libhdfs``, a JNI-based interface to the Java Hadoop client). You connect
+using the :class:`HadoopFileSystem` constructor:
 
 .. code-block:: python
 
-   import pyarrow as pa
-   fs = pa.hdfs.connect(host, port, user=user, kerb_ticket=ticket_cache_path)
-   with fs.open(path, 'rb') as f:
-       # Do something with f
+   from pyarrow import fs
+   hdfs = fs.HadoopFileSystem(host, port, user=user, kerb_ticket=ticket_cache_path)
 
-By default, ``pyarrow.hdfs.HadoopFileSystem`` uses libhdfs, a JNI-based
-interface to the Java Hadoop client. This library is loaded **at runtime**
-(rather than at link / library load time, since the library may not be in your
-LD_LIBRARY_PATH), and relies on some environment variables.
+The ``libhdfs`` library is loaded **at runtime** (rather than at link / library
+load time, since the library may not be in your LD_LIBRARY_PATH), and relies on
+some environment variables.
 
 * ``HADOOP_HOME``: the root of your installed Hadoop distribution. Often has
   `lib/native/libhdfs.so`.
@@ -50,44 +171,38 @@ LD_LIBRARY_PATH), and relies on some environment variables.
 
 * ``CLASSPATH``: must contain the Hadoop jars. You can set these using:
 
-.. code-block:: shell
+  .. code-block:: shell
 
-    export CLASSPATH=`$HADOOP_HOME/bin/hdfs classpath --glob`
+      export CLASSPATH=`$HADOOP_HOME/bin/hdfs classpath --glob`
 
-If ``CLASSPATH`` is not set, then it will be set automatically if the
-``hadoop`` executable is in your system path, or if ``HADOOP_HOME`` is set.
+  If ``CLASSPATH`` is not set, then it will be set automatically if the
+  ``hadoop`` executable is in your system path, or if ``HADOOP_HOME`` is set.
 
-You can also use libhdfs3, a thirdparty C++ library for HDFS from Pivotal Labs:
 
-.. code-block:: python
+Using fsspec-compatible filesystems
+-----------------------------------
 
-   fs = pa.hdfs.connect(host, port, user=user, kerb_ticket=ticket_cache_path,
-                       driver='libhdfs3')
+The filesystems mentioned above are natively supported by Arrow C++ / PyArrow.
+The Python ecosystem, however, also has several filesystem packages. Those
+packages following the
+`fsspec <https://filesystem-spec.readthedocs.io/en/latest/>`__ interface can be
+used in PyArrow as well.
 
-HDFS API
-~~~~~~~~
+Functions accepting a filesystem object will also accept an fsspec subclass.
+For example::
 
-.. currentmodule:: pyarrow
+   # creating an fsspec-based filesystem object for Google Cloud Storage
+   import gcsfs
+   fs = gcsfs.GCSFileSystem(project='my-google-project')
 
-.. autosummary::
-   :toctree: generated/
+   # using this to read a partitioned dataset
+   import pyarrow.dataset as ds
+   ds.dataset("data/", filesystem=fs)
 
-   hdfs.connect
-   HadoopFileSystem.cat
-   HadoopFileSystem.chmod
-   HadoopFileSystem.chown
-   HadoopFileSystem.delete
-   HadoopFileSystem.df
-   HadoopFileSystem.disk_usage
-   HadoopFileSystem.download
-   HadoopFileSystem.exists
-   HadoopFileSystem.get_capacity
-   HadoopFileSystem.get_space_used
-   HadoopFileSystem.info
-   HadoopFileSystem.ls
-   HadoopFileSystem.mkdir
-   HadoopFileSystem.open
-   HadoopFileSystem.rename
-   HadoopFileSystem.rm
-   HadoopFileSystem.upload
-   HdfsFile
+Under the hood, the fsspec filesystem object is wrapped into a python-based
+PyArrow filesystem (:class:`PyFileSystem`) using :class:`FSSpecHandler`.
+You can also manually do this to get an object with the PyArrow FileSystem
+interface::
+
+   from pyarrow.fs import PyFileSystem, FSSpecHandler
+   pa_fs = PyFileSystem(FSSpecHandler(fs))

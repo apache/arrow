@@ -15,17 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_VALUEVALIDITYPAIR_H
-#define GANDIVA_VALUEVALIDITYPAIR_H
+#pragma once
 
 #include <vector>
 
 #include "gandiva/gandiva_aliases.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// Pair of vector/validities generated after decomposing an expression tree/subtree.
-class ValueValidityPair {
+class GANDIVA_EXPORT ValueValidityPair {
  public:
   ValueValidityPair(const DexVector& validity_exprs, DexPtr value_expr)
       : validity_exprs_(validity_exprs), value_expr_(value_expr) {}
@@ -46,5 +46,3 @@ class ValueValidityPair {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_VALUEVALIDITYPAIR_H

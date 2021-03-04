@@ -23,6 +23,7 @@
 
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/field.hpp>
+#include <arrow-glib/internal-hash-table.hpp>
 
 G_BEGIN_DECLS
 
@@ -72,7 +73,7 @@ garrow_field_finalize(GObject *object)
 {
   auto priv = GARROW_FIELD_GET_PRIVATE(object);
 
-  priv->field = nullptr;
+  priv->field.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_field_parent_class)->finalize(object);
 }
@@ -83,9 +84,7 @@ garrow_field_set_property(GObject *object,
                           const GValue *value,
                           GParamSpec *pspec)
 {
-  GArrowFieldPrivate *priv;
-
-  priv = GARROW_FIELD_GET_PRIVATE(object);
+  auto priv = GARROW_FIELD_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_FIELD:
@@ -104,6 +103,8 @@ garrow_field_set_property(GObject *object,
 static void
 garrow_field_init(GArrowField *object)
 {
+  auto priv = GARROW_FIELD_GET_PRIVATE(object);
+  new(&priv->field) std::shared_ptr<arrow::Field>;
 }
 
 static void
@@ -237,6 +238,128 @@ garrow_field_to_string(GArrowField *field)
   return g_strdup(arrow_field->ToString().c_str());
 }
 
+/**
+ * garrow_field_to_string_metadata:
+ * @field: A #GArrowField.
+ * @show_metadata: Whether include metadata or not.
+ *
+ * Returns: The string representation of the field.
+ *
+ *   It should be freed with g_free() when no longer needed.
+ *
+ * Since: 3.0.0
+ */
+gchar *
+garrow_field_to_string_metadata(GArrowField *field, gboolean show_metadata)
+{
+  const auto arrow_field = garrow_field_get_raw(field);
+  return g_strdup(arrow_field->ToString(show_metadata).c_str());
+}
+
+/**
+ * garrow_field_has_metadata:
+ * @field: A #GArrowField.
+ *
+ * Returns: %TRUE if the field has metadata, %FALSE otherwise.
+ *
+ * Since: 3.0.0
+ */
+gboolean
+garrow_field_has_metadata(GArrowField *field)
+{
+  const auto arrow_field = garrow_field_get_raw(field);
+  return arrow_field->HasMetadata();
+}
+
+/**
+ * garrow_field_get_metadata:
+ * @field: A #GArrowField.
+ *
+ * Returns: (element-type utf8 utf8) (nullable) (transfer full): The
+ *   metadata in the field.
+ *
+ *   It should be freed with g_hash_table_unref() when no longer needed.
+ *
+ * Since: 3.0.0
+ */
+GHashTable *
+garrow_field_get_metadata(GArrowField *field)
+{
+  const auto arrow_field = garrow_field_get_raw(field);
+  if (!arrow_field->HasMetadata()) {
+    return NULL;
+  }
+
+  auto arrow_metadata = arrow_field->metadata();
+  auto metadata = g_hash_table_new(g_str_hash, g_str_equal);
+  const auto n = arrow_metadata->size();
+  for (int64_t i = 0; i < n; ++i) {
+    g_hash_table_insert(metadata,
+                        const_cast<gchar *>(arrow_metadata->key(i).c_str()),
+                        const_cast<gchar *>(arrow_metadata->value(i).c_str()));
+  }
+  return metadata;
+}
+
+/**
+ * garrow_field_with_metadata:
+ * @field: A #GArrowField.
+ * @metadata: (element-type utf8 utf8): A new associated metadata.
+ *
+ * Returns: (transfer full): The new field with the given metadata.
+ *
+ * Since: 3.0.0
+ */
+GArrowField *
+garrow_field_with_metadata(GArrowField *field,
+                           GHashTable *metadata)
+{
+  const auto arrow_field = garrow_field_get_raw(field);
+  auto arrow_metadata = garrow_internal_hash_table_to_metadata(metadata);
+  auto arrow_new_field = arrow_field->WithMetadata(arrow_metadata);
+  return garrow_field_new_raw(&arrow_new_field,
+                              garrow_field_get_data_type(field));
+}
+
+/**
+ * garrow_field_with_merged_metadata:
+ * @field: A #GArrowField.
+ * @metadata: (element-type utf8 utf8): An additional associated metadata.
+ *
+ * Returns: (transfer full): The new field that also has the given
+ *   metadata. If both of the existing metadata and the given metadata
+ *   have the same keys, the values in the given metadata are used.
+ *
+ * Since: 3.0.0
+ */
+GArrowField *
+garrow_field_with_merged_metadata(GArrowField *field,
+                                  GHashTable *metadata)
+{
+  const auto arrow_field = garrow_field_get_raw(field);
+  auto arrow_metadata = garrow_internal_hash_table_to_metadata(metadata);
+  auto arrow_new_field = arrow_field->WithMergedMetadata(arrow_metadata);
+  return garrow_field_new_raw(&arrow_new_field,
+                              garrow_field_get_data_type(field));
+}
+
+/**
+ * garrow_field_remove_metadata:
+ * @field: A #GArrowField.
+ *
+ * Returns: (transfer full): The new field that doesn't have metadata.
+ *
+ * Since: 3.0.0
+ */
+GArrowField *
+garrow_field_remove_metadata(GArrowField *field)
+{
+  const auto arrow_field = garrow_field_get_raw(field);
+  auto arrow_new_field = arrow_field->RemoveMetadata();
+  return garrow_field_new_raw(&arrow_new_field,
+                              garrow_field_get_data_type(field));
+}
+
 G_END_DECLS
 
 GArrowField *
@@ -262,8 +385,6 @@ garrow_field_new_raw(std::shared_ptr<arrow::Field> *arrow_field,
 std::shared_ptr<arrow::Field>
 garrow_field_get_raw(GArrowField *field)
 {
-  GArrowFieldPrivate *priv;
-
-  priv = GARROW_FIELD_GET_PRIVATE(field);
+  auto priv = GARROW_FIELD_GET_PRIVATE(field);
   return priv->field;
 }

@@ -20,6 +20,8 @@
 
 LANG=C
 
+set -u
+
 run()
 {
   "$@"
@@ -41,7 +43,7 @@ case "${distribution}" in
     component=universe
     ;;
 esac
-specific_debian_dir="debian.${distribution}-${code_name}"
+architecture=$(dpkg-architecture -q DEB_BUILD_ARCH)
 
 run mkdir -p build
 run cp /host/tmp/${PACKAGE}-${VERSION}.tar.gz \
@@ -59,12 +61,17 @@ case "${VERSION}" in
     ;;
 esac
 run cd ${PACKAGE}-${VERSION}/
-if [ -d "/host/tmp/${specific_debian_dir}" ]; then
-  run cp -rp "/host/tmp/${specific_debian_dir}" debian
+platform="${distribution}-${code_name}"
+if [ -d "/host/tmp/debian.${platform}-${architecture}" ]; then
+  run cp -rp "/host/tmp/debian.${platform}-${architecture}" debian
+elif [ -d "/host/tmp/debian.${platform}" ]; then
+  run cp -rp "/host/tmp/debian.${platform}" debian
 else
   run cp -rp "/host/tmp/debian" debian
 fi
-# export DEB_BUILD_OPTIONS=noopt
+: ${DEB_BUILD_OPTIONS:="parallel=$(nproc)"}
+# DEB_BUILD_OPTIONS="${DEB_BUILD_OPTIONS} noopt"
+export DEB_BUILD_OPTIONS
 if [ "${DEBUG:-no}" = "yes" ]; then
   run debuild -us -uc
 else
@@ -72,7 +79,14 @@ else
 fi
 run cd -
 
+repositories="/host/repositories"
 package_initial=$(echo "${PACKAGE}" | sed -e 's/\(.\).*/\1/')
-pool_dir="/host/repositories/${distribution}/pool/${code_name}/${component}/${package_initial}/${PACKAGE}"
+pool_dir="${repositories}/${distribution}/pool/${code_name}/${component}/${package_initial}/${PACKAGE}"
 run mkdir -p "${pool_dir}/"
-run cp *.tar.* *.dsc *.deb "${pool_dir}/"
+run cp \
+  *.*deb \
+  *.dsc \
+  *.tar.* \
+  "${pool_dir}/"
+
+run chown -R "$(stat --format "%u:%g" "${repositories}")" "${repositories}"

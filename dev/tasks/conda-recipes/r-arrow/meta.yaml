@@ -1,0 +1,66 @@
+{% set version = ARROW_VERSION %}
+{% set posix = 'm2-' if win else '' %}
+{% set native = 'm2w64-' if win else '' %}
+
+package:
+  name: r-arrow
+  version: {{ version|replace("-", "_") }}
+
+source:
+  path: ../../../../
+
+build:
+  merge_build_host: true  # [win]
+  number: 0
+  rpaths:
+    - lib/R/lib/
+    - lib/
+
+requirements:
+  build:
+    - {{ compiler('c') }}        # [not win]
+    - {{ compiler('cxx') }}      # [not win]
+    - {{ compiler('r_clang') }}  # [win]
+    - pkg-config                 # [not win]
+    - {{ posix }}make
+    - {{ posix }}sed         # [win]
+    - {{ posix }}coreutils   # [win]
+    - {{ posix }}filesystem  # [win]
+    - {{ posix }}zip         # [win]
+  host:
+    # Needs to be here, otherwise merge_build_host runs into issues
+    - pkg-config  # [win]
+    - r-base
+    - arrow-cpp {{ version }}
+    - r-cpp11
+    - r-r6
+    - r-assertthat
+    - r-bit64
+    - r-purrr
+    - r-rlang
+    - r-tidyselect
+  run:
+    - r-base
+    - r-r6
+    - r-assertthat
+    - r-bit64
+    - r-purrr
+    - r-rlang
+    - r-tidyselect
+
+test:
+  commands:
+    - $R -e "library('arrow')"           # [not win]
+    - "\"%R%\" -e \"library('arrow'); data(mtcars); write_parquet(mtcars, 'test.parquet')\""  # [win]
+
+about:
+  home: https://github.com/apache/arrow
+  license: Apache-2.0
+  license_file: LICENSE.txt
+  summary: R Integration to 'Apache' 'Arrow'.
+  license_family: APACHE
+
+extra:
+  recipe-maintainers:
+    - conda-forge/r
+    - conda-forge/arrow-cpp

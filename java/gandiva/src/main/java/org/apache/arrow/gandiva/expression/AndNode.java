@@ -22,6 +22,9 @@ import java.util.List;
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 
+/**
+ * Node representing a logical And expression.
+ */
 class AndNode implements TreeNode {
   private final List<TreeNode> children;
 

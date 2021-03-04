@@ -21,6 +21,11 @@ class TestDoubleDataType < Test::Unit::TestCase
     assert_equal(Arrow::Type::DOUBLE, data_type.id)
   end
 
+  def test_name
+    data_type = Arrow::DoubleDataType.new
+    assert_equal("double", data_type.name)
+  end
+
   def test_to_s
     data_type = Arrow::DoubleDataType.new
     assert_equal("double", data_type.to_s)

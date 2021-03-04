@@ -30,6 +30,20 @@ package org.apache.arrow.vector.complex.impl;
  */
 @SuppressWarnings("unused")
 abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWriter {
+
+  protected boolean addVectorAsNullable = true;
+
+  /**
+   * Set flag to control the FieldType.nullable property when a writer creates a new vector.
+   * If true then vectors created will be nullable, this is the default behavior. If false then
+   * vectors created will be non-nullable.
+   *
+   * @param nullable Whether or not to create nullable vectors (default behavior is true)
+   */
+  public void setAddVectorAsNullable(boolean nullable) {
+    addVectorAsNullable = nullable;
+  }
+
   @Override
   public void start() {
     throw new IllegalStateException(String.format("You tried to start when you are using a ValueWriter of type %s.", this.getClass().getSimpleName()));
@@ -62,12 +76,20 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
     fail("${name}");
   }
 
-  <#if minor.class == "Decimal">
+  <#if minor.class?starts_with("Decimal")>
   public void write${minor.class}(${friendlyType} value) {
     fail("${name}");
   }
 
-  public void writeBigEndianBytesToDecimal(byte[] value) {
+  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>, ArrowType arrowType) {
+    fail("${name}");
+  }
+
+  public void writeBigEndianBytesTo${minor.class}(byte[] value) {
+    fail("${name}");
+  }
+
+  public void writeBigEndianBytesTo${minor.class}(byte[] value, ArrowType arrowType) {
     fail("${name}");
   }
   </#if>

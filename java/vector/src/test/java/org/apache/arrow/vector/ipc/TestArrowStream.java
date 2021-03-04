@@ -27,11 +27,9 @@ import java.io.IOException;
 import java.nio.channels.Channels;
 import java.util.Collections;
 
-import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Assert;
 import org.junit.Test;
@@ -64,7 +62,7 @@ public class TestArrowStream extends BaseFileTest {
     ByteArrayOutputStream os = new ByteArrayOutputStream();
 
     try (IntVector vector = new IntVector("foo", allocator);) {
-      Schema schema = new Schema(Collections.singletonList(vector.getField()), null);
+      Schema schema = new Schema(Collections.singletonList(vector.getField()));
       try (VectorSchemaRoot root =
              new VectorSchemaRoot(schema, Collections.singletonList(vector), vector.getValueCount());
            ArrowStreamWriter writer = new ArrowStreamWriter(root, null, Channels.newChannel(os));) {
@@ -93,7 +91,7 @@ public class TestArrowStream extends BaseFileTest {
       int numBatches = 1;
 
       root.getFieldVectors().get(0).allocateNew();
-      TinyIntVector vector = (TinyIntVector)root.getFieldVectors().get(0);
+      TinyIntVector vector = (TinyIntVector) root.getFieldVectors().get(0);
       for (int i = 0; i < 16; i++) {
         vector.set(i, i < 8 ? 1 : 0, (byte) (i + 1));
       }
@@ -119,7 +117,7 @@ public class TestArrowStream extends BaseFileTest {
           assertTrue(reader.loadNextBatch());
         }
         // TODO figure out why reader isn't getting padding bytes
-        assertEquals(bytesWritten, reader.bytesRead() + 4);
+        assertEquals(bytesWritten, reader.bytesRead() + 8);
         assertFalse(reader.loadNextBatch());
         assertEquals(0, reader.getVectorSchemaRoot().getRowCount());
       }
@@ -131,7 +129,7 @@ public class TestArrowStream extends BaseFileTest {
     ByteArrayOutputStream os = new ByteArrayOutputStream();
 
     try (IntVector vector = new IntVector("foo", allocator);) {
-      Schema schema = new Schema(Collections.singletonList(vector.getField()), null);
+      Schema schema = new Schema(Collections.singletonList(vector.getField()));
       try (VectorSchemaRoot root =
              new VectorSchemaRoot(schema, Collections.singletonList(vector), vector.getValueCount());
            ArrowStreamWriter writer = new ArrowStreamWriter(root, null, Channels.newChannel(os));) {

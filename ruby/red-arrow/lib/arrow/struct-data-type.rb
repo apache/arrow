@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "arrow/field-containable"
-
 module Arrow
   class StructDataType
     include FieldContainable

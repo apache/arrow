@@ -19,10 +19,15 @@ package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.holders.NullableBitHolder;
@@ -30,12 +35,14 @@ import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.UnionMode;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
-import io.netty.buffer.ArrowBuf;
 
 public class TestUnionVector {
   private static final String EMPTY_SCHEMA_PATH = "";
@@ -75,12 +82,12 @@ public class TestUnionVector {
       assertEquals(false, unionVector.isNull(0));
       assertEquals(100, unionVector.getObject(0));
 
-      assertEquals(true, unionVector.isNull(1));
+      assertNull(unionVector.getObject(1));
 
       assertEquals(false, unionVector.isNull(2));
       assertEquals(100, unionVector.getObject(2));
 
-      assertEquals(true, unionVector.isNull(3));
+      assertNull(unionVector.getObject(3));
     }
   }
 
@@ -120,12 +127,12 @@ public class TestUnionVector {
         assertFalse(destVector.isNull(1));
         assertEquals(false, destVector.getObject(1));
 
-        assertTrue(destVector.isNull(2));
+        assertNull(destVector.getObject(2));
 
         assertFalse(destVector.isNull(3));
         assertEquals(10, destVector.getObject(3));
 
-        assertTrue(destVector.isNull(4));
+        assertNull(destVector.getObject(4));
 
         assertFalse(destVector.isNull(5));
         assertEquals(false, destVector.getObject(5));
@@ -301,6 +308,30 @@ public class TestUnionVector {
   }
 
   @Test
+  public void testGetFieldTypeInfo() throws Exception {
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("key1", "value1");
+
+    int[] typeIds = new int[2];
+    typeIds[0] = MinorType.INT.ordinal();
+    typeIds[1] = MinorType.VARCHAR.ordinal();
+
+    List<Field> children = new ArrayList<>();
+    children.add(new Field("int", FieldType.nullable(MinorType.INT.getType()), null));
+    children.add(new Field("varchar", FieldType.nullable(MinorType.VARCHAR.getType()), null));
+
+    final FieldType fieldType = new FieldType(false, new ArrowType.Union(UnionMode.Sparse, typeIds),
+        /*dictionary=*/null, metadata);
+    final Field field = new Field("union", fieldType, children);
+
+    MinorType minorType = MinorType.UNION;
+    UnionVector vector = (UnionVector) minorType.getNewVector(field, allocator, null);
+    vector.initializeChildrenFromFields(children);
+
+    assertTrue(vector.getField().equals(field));
+  }
+
+  @Test
   public void testGetBufferAddress() throws Exception {
     try (UnionVector vector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
       boolean error = false;
@@ -335,7 +366,6 @@ public class TestUnionVector {
 
       List<ArrowBuf> buffers = vector.getFieldBuffers();
 
-      long bitAddress = vector.getValidityBufferAddress();
 
       try {
         long offsetAddress = vector.getOffsetBufferAddress();
@@ -355,7 +385,28 @@ public class TestUnionVector {
       }
 
       assertEquals(1, buffers.size());
-      assertEquals(bitAddress, buffers.get(0).memoryAddress());
+    }
+  }
+
+  @Test
+  public void testSetGetNull() {
+    try (UnionVector srcVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+      srcVector.allocateNew();
+
+      final NullableIntHolder holder = new NullableIntHolder();
+      holder.isSet = 1;
+      holder.value = 5;
+
+      // write some data
+      srcVector.setType(0, MinorType.INT);
+      srcVector.setSafe(0, holder);
+
+      assertFalse(srcVector.isNull(0));
+
+      holder.isSet = 0;
+      srcVector.setSafe(0, holder);
+
+      assertNull(srcVector.getObject(0));
     }
   }
 

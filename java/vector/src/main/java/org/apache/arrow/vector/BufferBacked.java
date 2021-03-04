@@ -17,9 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * Content is backed by a buffer and can be loaded/unloaded.
@@ -29,5 +28,4 @@ public interface BufferBacked {
   void load(ArrowFieldNode fieldNode, ArrowBuf data);
 
   ArrowBuf unLoad();
-
 }

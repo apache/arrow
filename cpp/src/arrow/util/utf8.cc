@@ -15,10 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cstdint>
+#include <iterator>
 #include <mutex>
+#include <stdexcept>
+#include <utility>
 
+#include "arrow/result.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/utf8.h"
+#include "arrow/vendored/utfcpp/checked.h"
+
+// Can be defined by utfcpp
+#ifdef NOEXCEPT
+#undef NOEXCEPT
+#endif
 
 namespace arrow {
 namespace util {
@@ -64,12 +75,10 @@ static void InitializeLargeTable() {
   }
 }
 
-#ifndef NDEBUG
 ARROW_EXPORT void CheckUTF8Initialized() {
   DCHECK_EQ(utf8_large_table[0], 0)
       << "InitializeUTF8() must be called before calling UTF8 routines";
 }
-#endif
 
 }  // namespace internal
 
@@ -77,6 +86,72 @@ static std::once_flag utf8_initialized;
 
 void InitializeUTF8() {
   std::call_once(utf8_initialized, internal::InitializeLargeTable);
+}
+
+static const uint8_t kBOM[] = {0xEF, 0xBB, 0xBF};
+
+Result<const uint8_t*> SkipUTF8BOM(const uint8_t* data, int64_t size) {
+  int64_t i;
+  for (i = 0; i < static_cast<int64_t>(sizeof(kBOM)); ++i) {
+    if (size == 0) {
+      if (i == 0) {
+        // Empty string
+        return data;
+      } else {
+        return Status::Invalid("UTF8 string too short (truncated byte order mark?)");
+      }
+    }
+    if (data[i] != kBOM[i]) {
+      // BOM not found
+      return data;
+    }
+    --size;
+  }
+  // BOM found
+  return data + i;
+}
+
+namespace {
+
+// Some platforms (such as old MinGWs) don't have the <codecvt> header,
+// so call into a vendored utf8 implementation instead.
+
+std::wstring UTF8ToWideStringInternal(const std::string& source) {
+  std::wstring ws;
+#if WCHAR_MAX > 0xFFFF
+  ::utf8::utf8to32(source.begin(), source.end(), std::back_inserter(ws));
+#else
+  ::utf8::utf8to16(source.begin(), source.end(), std::back_inserter(ws));
+#endif
+  return ws;
+}
+
+std::string WideStringToUTF8Internal(const std::wstring& source) {
+  std::string s;
+#if WCHAR_MAX > 0xFFFF
+  ::utf8::utf32to8(source.begin(), source.end(), std::back_inserter(s));
+#else
+  ::utf8::utf16to8(source.begin(), source.end(), std::back_inserter(s));
+#endif
+  return s;
+}
+
+}  // namespace
+
+Result<std::wstring> UTF8ToWideString(const std::string& source) {
+  try {
+    return UTF8ToWideStringInternal(source);
+  } catch (std::exception& e) {
+    return Status::Invalid(e.what());
+  }
+}
+
+ARROW_EXPORT Result<std::string> WideStringToUTF8(const std::wstring& source) {
+  try {
+    return WideStringToUTF8Internal(source);
+  } catch (std::exception& e) {
+    return Status::Invalid(e.what());
+  }
 }
 
 }  // namespace util

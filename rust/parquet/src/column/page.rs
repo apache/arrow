@@ -20,6 +20,7 @@
 use crate::basic::{Encoding, PageType};
 use crate::errors::Result;
 use crate::file::{metadata::ColumnChunkMetaData, statistics::Statistics};
+use crate::schema::types::{ColumnDescPtr, SchemaDescPtr};
 use crate::util::memory::ByteBufferPtr;
 
 /// Parquet Page definition.
@@ -56,48 +57,48 @@ pub enum Page {
 }
 
 impl Page {
-    /// Returns [`PageType`](`::basic::PageType`) for this page.
+    /// Returns [`PageType`](crate::basic::PageType) for this page.
     pub fn page_type(&self) -> PageType {
         match self {
-            &Page::DataPage { .. } => PageType::DATA_PAGE,
-            &Page::DataPageV2 { .. } => PageType::DATA_PAGE_V2,
-            &Page::DictionaryPage { .. } => PageType::DICTIONARY_PAGE,
+            Page::DataPage { .. } => PageType::DATA_PAGE,
+            Page::DataPageV2 { .. } => PageType::DATA_PAGE_V2,
+            Page::DictionaryPage { .. } => PageType::DICTIONARY_PAGE,
         }
     }
 
     /// Returns internal byte buffer reference for this page.
     pub fn buffer(&self) -> &ByteBufferPtr {
         match self {
-            &Page::DataPage { ref buf, .. } => &buf,
-            &Page::DataPageV2 { ref buf, .. } => &buf,
-            &Page::DictionaryPage { ref buf, .. } => &buf,
+            Page::DataPage { ref buf, .. } => &buf,
+            Page::DataPageV2 { ref buf, .. } => &buf,
+            Page::DictionaryPage { ref buf, .. } => &buf,
         }
     }
 
     /// Returns number of values in this page.
     pub fn num_values(&self) -> u32 {
         match self {
-            &Page::DataPage { num_values, .. } => num_values,
-            &Page::DataPageV2 { num_values, .. } => num_values,
-            &Page::DictionaryPage { num_values, .. } => num_values,
+            Page::DataPage { num_values, .. } => *num_values,
+            Page::DataPageV2 { num_values, .. } => *num_values,
+            Page::DictionaryPage { num_values, .. } => *num_values,
         }
     }
 
-    /// Returns this page [`Encoding`](`::basic::Encoding`).
+    /// Returns this page [`Encoding`](crate::basic::Encoding).
     pub fn encoding(&self) -> Encoding {
         match self {
-            &Page::DataPage { encoding, .. } => encoding,
-            &Page::DataPageV2 { encoding, .. } => encoding,
-            &Page::DictionaryPage { encoding, .. } => encoding,
+            Page::DataPage { encoding, .. } => *encoding,
+            Page::DataPageV2 { encoding, .. } => *encoding,
+            Page::DictionaryPage { encoding, .. } => *encoding,
         }
     }
 
-    /// Returns optional [`Statistics`](`::file::metadata::Statistics`).
+    /// Returns optional [`Statistics`](crate::file::statistics::Statistics).
     pub fn statistics(&self) -> Option<&Statistics> {
         match self {
-            &Page::DataPage { ref statistics, .. } => statistics.as_ref(),
-            &Page::DataPageV2 { ref statistics, .. } => statistics.as_ref(),
-            &Page::DictionaryPage { .. } => None,
+            Page::DataPage { ref statistics, .. } => statistics.as_ref(),
+            Page::DataPageV2 { ref statistics, .. } => statistics.as_ref(),
+            Page::DictionaryPage { .. } => None,
         }
     }
 }
@@ -215,6 +216,15 @@ pub trait PageWriter {
     /// Closes resources and flushes underlying sink.
     /// Page writer should not be used after this method is called.
     fn close(&mut self) -> Result<()>;
+}
+
+/// An iterator over pages of some specific column in a parquet file.
+pub trait PageIterator: Iterator<Item = Result<Box<PageReader>>> {
+    /// Get schema of parquet file.
+    fn schema(&mut self) -> Result<SchemaDescPtr>;
+
+    /// Get column schema of this page iterator.
+    fn column_schema(&mut self) -> Result<ColumnDescPtr>;
 }
 
 #[cfg(test)]

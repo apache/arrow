@@ -31,11 +31,15 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Binary;
 import org.apache.arrow.vector.types.pojo.ArrowType.Bool;
 import org.apache.arrow.vector.types.pojo.ArrowType.Date;
 import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
+import org.apache.arrow.vector.types.pojo.ArrowType.Duration;
 import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeBinary;
 import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeList;
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Interval;
+import org.apache.arrow.vector.types.pojo.ArrowType.LargeBinary;
+import org.apache.arrow.vector.types.pojo.ArrowType.LargeUtf8;
+import org.apache.arrow.vector.types.pojo.ArrowType.Map;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.ArrowType.Time;
@@ -50,6 +54,9 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
  */
 public class TypeLayout {
 
+  /**
+   * Constructs a new {@TypeLayout} for the given <code>arrowType</code>.
+   */
   public static TypeLayout getTypeLayout(final ArrowType arrowType) {
     TypeLayout layout = arrowType.accept(new ArrowTypeVisitor<TypeLayout>() {
 
@@ -64,8 +71,6 @@ public class TypeLayout {
         switch (type.getMode()) {
           case Dense:
             vectors = asList(
-                // TODO: validate this
-                BufferLayout.validityVector(),
                 BufferLayout.typeBuffer(),
                 BufferLayout.offsetBuffer() // offset to find the vector
             );
@@ -104,9 +109,27 @@ public class TypeLayout {
       }
 
       @Override
+      public TypeLayout visit(ArrowType.LargeList type) {
+        List<BufferLayout> vectors = asList(
+            BufferLayout.validityVector(),
+            BufferLayout.largeOffsetBuffer()
+        );
+        return new TypeLayout(vectors);
+      }
+
+      @Override
       public TypeLayout visit(FixedSizeList type) {
         List<BufferLayout> vectors = asList(
             BufferLayout.validityVector()
+        );
+        return new TypeLayout(vectors);
+      }
+
+      @Override
+      public TypeLayout visit(Map type) {
+        List<BufferLayout> vectors = asList(
+            BufferLayout.validityVector(),
+            BufferLayout.offsetBuffer()
         );
         return new TypeLayout(vectors);
       }
@@ -132,7 +155,7 @@ public class TypeLayout {
 
       @Override
       public TypeLayout visit(Decimal type) {
-        return newFixedWidthTypeLayout(BufferLayout.dataBuffer(128));
+        return newFixedWidthTypeLayout(BufferLayout.dataBuffer(type.getBitWidth()));
       }
 
       @Override
@@ -155,9 +178,24 @@ public class TypeLayout {
         return newVariableWidthTypeLayout();
       }
 
+      @Override
+      public TypeLayout visit(LargeUtf8 type) {
+        return newLargeVariableWidthTypeLayout();
+      }
+
+      @Override
+      public TypeLayout visit(LargeBinary type) {
+        return newLargeVariableWidthTypeLayout();
+      }
+
       private TypeLayout newVariableWidthTypeLayout() {
         return newPrimitiveTypeLayout(BufferLayout.validityVector(), BufferLayout.offsetBuffer(),
           BufferLayout.byteVector());
+      }
+
+      private TypeLayout newLargeVariableWidthTypeLayout() {
+        return newPrimitiveTypeLayout(BufferLayout.validityVector(), BufferLayout.largeOffsetBuffer(),
+            BufferLayout.byteVector());
       }
 
       private TypeLayout newPrimitiveTypeLayout(BufferLayout... vectors) {
@@ -202,8 +240,152 @@ public class TypeLayout {
         }
       }
 
+      @Override
+      public TypeLayout visit(Duration type) {
+            return newFixedWidthTypeLayout(BufferLayout.dataBuffer(64));
+      }
+
     });
     return layout;
+  }
+
+  /**
+   * Gets the number of {@link BufferLayout}s for the given <code>arrowType</code>.
+   */
+  public static int getTypeBufferCount(final ArrowType arrowType) {
+    return arrowType.accept(new ArrowTypeVisitor<Integer>() {
+
+      /**
+       * All fixed width vectors have a common number of buffers 2: one validity buffer, plus a data buffer.
+       */
+      static final int FIXED_WIDTH_BUFFER_COUNT = 2;
+
+      /**
+       * All variable width vectors have a common number of buffers 3: a validity buffer,
+       * an offset buffer, and a data buffer.
+       */
+      static final int VARIABLE_WIDTH_BUFFER_COUNT = 3;
+
+      @Override
+      public Integer visit(Int type) {
+        return FIXED_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(Union type) {
+        switch (type.getMode()) {
+          case Dense:
+            // TODO: validate this
+            return 2;
+          case Sparse:
+            // type buffer
+            return 1;
+          default:
+            throw new UnsupportedOperationException("Unsupported Union Mode: " + type.getMode());
+        }
+      }
+
+      @Override
+      public Integer visit(Struct type) {
+        // validity buffer
+        return 1;
+      }
+
+      @Override
+      public Integer visit(Timestamp type) {
+        return FIXED_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(org.apache.arrow.vector.types.pojo.ArrowType.List type) {
+        // validity buffer + offset buffer
+        return 2;
+      }
+
+      @Override
+      public Integer visit(ArrowType.LargeList type) {
+        // validity buffer + offset buffer
+        return 2;
+      }
+
+      @Override
+      public Integer visit(FixedSizeList type) {
+        // validity buffer
+        return 1;
+      }
+
+      @Override
+      public Integer visit(Map type) {
+        // validity buffer + offset buffer
+        return 2;
+      }
+
+      @Override
+      public Integer visit(FloatingPoint type) {
+        return FIXED_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(Decimal type) {
+        return FIXED_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(FixedSizeBinary type) {
+        return FIXED_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(Bool type) {
+        return FIXED_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(Binary type) {
+        return VARIABLE_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(Utf8 type) {
+        return VARIABLE_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(LargeUtf8 type) {
+        return VARIABLE_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(LargeBinary type) {
+        return VARIABLE_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(Null type) {
+        return 0;
+      }
+
+      @Override
+      public Integer visit(Date type) {
+        return FIXED_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(Time type) {
+        return FIXED_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(Interval type) {
+        return FIXED_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(Duration type) {
+        return FIXED_WIDTH_BUFFER_COUNT;
+      }
+
+    });
   }
 
   private final List<BufferLayout> bufferLayouts;
@@ -217,11 +399,18 @@ public class TypeLayout {
     this(asList(bufferLayouts));
   }
 
-
+  /**
+   * Returns the individual {@linkplain BufferLayout}s for the given type.
+   */
   public List<BufferLayout> getBufferLayouts() {
     return bufferLayouts;
   }
 
+  /**
+   * Returns the types of each buffer for this layout.  A layout can consist
+   * of multiple buffers for example a validity bitmap buffer, a value buffer or
+   * an offset buffer.
+   */
   public List<BufferType> getBufferTypes() {
     List<BufferType> types = new ArrayList<>(bufferLayouts.size());
     for (BufferLayout vector : bufferLayouts) {

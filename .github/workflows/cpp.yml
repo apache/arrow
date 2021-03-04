@@ -1,0 +1,395 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: C++
+
+on:
+  push:
+    paths:
+      - '.github/workflows/cpp.yml'
+      - 'ci/docker/**'
+      - 'ci/scripts/cpp_*'
+      - 'ci/scripts/msys2_*'
+      - 'ci/scripts/util_*'
+      - 'cpp/**'
+      - 'format/Flight.proto'
+  pull_request:
+    paths:
+      - '.github/workflows/cpp.yml'
+      - 'ci/docker/**'
+      - 'ci/scripts/cpp_*'
+      - 'ci/scripts/msys2_*'
+      - 'ci/scripts/util_*'
+      - 'cpp/**'
+      - 'format/Flight.proto'
+
+env:
+  ARROW_ENABLE_TIMING_TESTS: OFF
+  DOCKER_VOLUME_PREFIX: ".docker/"
+  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+
+jobs:
+
+  docker:
+    name: ${{ matrix.title }}
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - conda-cpp
+          - ubuntu-cpp-sanitizer
+        include:
+          - image: conda-cpp
+            title: AMD64 Conda C++
+          - image: ubuntu-cpp-sanitizer
+            title: AMD64 Ubuntu 18.04 C++ ASAN UBSAN
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v2
+        with:
+          path: .docker
+          key: ${{ matrix.image }}-${{ hashFiles('cpp/**') }}
+          restore-keys: ${{ matrix.image }}-
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          archery docker run ${{ matrix.image }}
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        run: archery docker push ${{ matrix.image }}
+
+  docker-arm:
+    # NOTE: this job is specific for self-hosted runners
+    # CACHING: don't use the cache plugin because of various permission
+    #          issues and keep the cached docker volumes permanently on the
+    #          host
+    # PYTHON: no distributions are built for arm machines by the github
+    #         actions team, so python>3.6 must be preinstalled on the self
+    #         hosted machines
+    name: ${{ matrix.title }}
+    runs-on: ${{ matrix.runner }}
+    # TODO(kszucs): re-enable once the self-hosted workers are properly
+    # registered to github
+    if: false && github.event_name == 'push'
+    defaults:
+      # To use certain environment variables set by .bashrc, an interactive
+      # bash shell must be used
+      run:
+        shell: bash -i {0}
+    strategy:
+      fail-fast: false
+      matrix:
+        name:
+          - arm32v7-debian-10-cpp
+          - arm64v8-ubuntu-20.04-cpp
+        include:
+          - name: arm32v7-debian-10-cpp
+            debian: 10
+            title: ARM32v7 Debian 10 C++
+            image: |
+              -e CPP_MAKE_PARALLELISM=2 \
+              -e CXXFLAGS=-Wno-psabi \
+              -e ARROW_PARQUET=OFF \
+              -e ARROW_FLIGHT=OFF \
+              -e ARROW_GANDIVA=OFF \
+              -e ARROW_ORC=OFF \
+              -e CMAKE_ARGS=-DARROW_CPU_FLAG=armv7 \
+              debian-cpp
+            arch: 'arm32v7'
+            runner: [self-hosted, linux, ARM]
+          - name: arm64v8-ubuntu-20.04-cpp
+            ubuntu: 20.04
+            title: ARM64v8 Ubuntu 20.04 C++
+            image: |
+              -e CPP_MAKE_PARALLELISM=1 \
+              -e ARROW_PARQUET=OFF \
+              ubuntu-cpp
+            arch: 'arm64v8'
+            runner: [self-hosted, linux, ARM64]
+    env:
+      # the defaults here should correspond to the values in .env
+      ARCH: ${{ matrix.arch || 'arm64v8' }}
+      DEBIAN: ${{ matrix.debian || 10 }}
+      FEDORA: ${{ matrix.fedora || 32 }}
+      UBUNTU: ${{ matrix.ubuntu || 18.04 }}
+      LLVM: 8
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        run: ci/scripts/util_checkout.sh
+      - name: Setup Archery
+        run: pip install -U -e dev/archery[docker]
+      - name: Execute Docker Build
+        # parallelism is reduced because the ARM builders are low on memory
+        run: |
+          ulimit -c unlimited
+          archery docker run ${{ matrix.image }}
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        run: archery docker push ${{ matrix.image }}
+
+  build-example:
+    name: C++ Minimal Build Example
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    strategy:
+      fail-fast: false
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Run
+        run: |
+          cd cpp/examples/minimal_build
+          docker-compose run --rm minimal
+
+  macos:
+    name: AMD64 MacOS 10.15 C++
+    runs-on: macos-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    strategy:
+      fail-fast: false
+    env:
+      ARROW_BUILD_TESTS: ON
+      ARROW_DATASET: ON
+      ARROW_FLIGHT: ON
+      ARROW_GANDIVA: ON
+      ARROW_HDFS: ON
+      ARROW_HOME: /usr/local
+      ARROW_JEMALLOC: ON
+      # TODO(kszucs): link error in the tests
+      ARROW_ORC: OFF
+      ARROW_PARQUET: ON
+      ARROW_PLASMA: ON
+      ARROW_S3: ON
+      ARROW_WITH_BROTLI: ON
+      ARROW_WITH_BZ2: ON
+      ARROW_WITH_LZ4: ON
+      ARROW_WITH_SNAPPY: ON
+      ARROW_WITH_ZLIB: ON
+      ARROW_WITH_ZSTD: ON
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Install Dependencies
+        shell: bash
+        run: |
+          rm -f /usr/local/bin/2to3
+          brew update --preinstall
+          brew unlink gcc@8 gcc@9
+          brew bundle --file=cpp/Brewfile
+      - name: Build
+        shell: bash
+        run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      - name: Test
+        shell: bash
+        run: |
+          sudo sysctl -w kern.coredump=1
+          sudo sysctl -w kern.corefile=core.%N.%P
+          ulimit -c unlimited  # must enable within the same shell
+          ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
+
+  windows:
+    name: AMD64 ${{ matrix.name }} C++
+    runs-on: ${{ matrix.os }}
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+        include:
+          - os: windows-latest
+            name: Windows 2019
+            generator: Visual Studio 16 2019
+    env:
+      ARROW_BOOST_USE_SHARED: OFF
+      ARROW_BUILD_BENCHMARKS: ON
+      ARROW_BUILD_SHARED: ON
+      ARROW_BUILD_STATIC: OFF
+      ARROW_BUILD_TESTS: ON
+      ARROW_DATASET: ON
+      ARROW_FLIGHT: OFF
+      ARROW_HDFS: ON
+      ARROW_HOME: /usr
+      ARROW_JEMALLOC: OFF
+      ARROW_MIMALLOC: ON
+      ARROW_PARQUET: ON
+      ARROW_USE_GLOG: OFF
+      ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
+      ARROW_WITH_BROTLI: OFF
+      ARROW_WITH_BZ2: OFF
+      ARROW_WITH_LZ4: OFF
+      ARROW_WITH_SNAPPY: ON
+      ARROW_WITH_ZLIB: ON
+      ARROW_WITH_ZSTD: ON
+      BOOST_SOURCE: BUNDLED
+      CMAKE_ARGS: '-A x64 -DOPENSSL_ROOT_DIR=C:\Program Files\OpenSSL-Win64'
+      CMAKE_GENERATOR: ${{ matrix.generator }}
+      CMAKE_INSTALL_LIBDIR: bin
+      CMAKE_INSTALL_PREFIX: /usr
+      CMAKE_UNITY_BUILD: ON
+      NPROC: 2
+    steps:
+      - name: Disable Crash Dialogs
+        run: |
+          reg add `
+            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
+            /v DontShowUI `
+            /t REG_DWORD `
+            /d 1 `
+            /f
+      - name: Installed Packages
+        run: choco list -l
+      - name: Install Dependencies
+        run: choco install -y --no-progress openssl
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Build
+        shell: bash
+        run: |
+          ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      - name: Test
+        shell: bash
+        run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
+
+  windows-mingw:
+    name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} C++
+    runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        mingw-n-bits:
+          - 32
+          - 64
+    env:
+      ARROW_BUILD_SHARED: ON
+      ARROW_BUILD_STATIC: OFF
+      ARROW_BUILD_TESTS: ON
+      ARROW_BUILD_TYPE: release
+      ARROW_DATASET: ON
+      ARROW_FLIGHT: ON
+      ARROW_GANDIVA: ON
+      ARROW_HDFS: OFF
+      ARROW_HOME: /mingw${{ matrix.mingw-n-bits }}
+      ARROW_JEMALLOC: OFF
+      ARROW_PARQUET: ON
+      ARROW_PYTHON: ON
+      ARROW_S3: ON
+      ARROW_USE_GLOG: OFF
+      ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
+      ARROW_WITH_BROTLI: ON
+      ARROW_WITH_BZ2: ON
+      ARROW_WITH_LZ4: ON
+      ARROW_WITH_SNAPPY: ON
+      ARROW_WITH_ZLIB: ON
+      ARROW_WITH_ZSTD: ON
+      # Don't use preinstalled Boost by empty BOOST_ROOT and
+      # -DBoost_NO_BOOST_CMAKE=ON
+      BOOST_ROOT: ""
+      CMAKE_ARGS: >-
+        -DARROW_PACKAGE_PREFIX=/mingw${{ matrix.mingw-n-bits }}
+        -DBoost_NO_BOOST_CMAKE=ON
+      CMAKE_UNITY_BUILD: ON
+    steps:
+      - name: Disable Crash Dialogs
+        run: |
+          reg add `
+            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
+            /v DontShowUI `
+            /t REG_DWORD `
+            /d 1 `
+            /f
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW${{ matrix.mingw-n-bits }}
+          update: true
+      - name: Setup MSYS2
+        shell: msys2 {0}
+        run: |
+          ci/scripts/msys2_setup.sh cpp
+      - name: Cache ccache
+        uses: actions/cache@v2
+        with:
+          path: ccache
+          key: cpp-ccache-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-mingw${{ matrix.mingw-n-bits }}-
+      - name: Build
+        shell: msys2 {0}
+        run: |
+          export CMAKE_BUILD_PARALLEL_LEVEL=$NUMBER_OF_PROCESSORS
+          ci/scripts/cpp_build.sh "$(pwd)" "$(pwd)/build"
+      - name: Download MinIO
+        shell: msys2 {0}
+        run: |
+          mkdir -p /usr/local/bin
+          wget \
+            --output-document /usr/local/bin/minio.exe \
+            https://dl.min.io/server/minio/release/windows-amd64/minio.exe
+          chmod +x /usr/local/bin/minio.exe
+      - name: Test
+        shell: msys2 {0}
+        run: |
+          python_version=$(python -c "import sys; print('.'.join(map(str, sys.version_info[0:2])))")
+          export PYTHONHOME="$(cygpath --windows ${MINGW_PREFIX})\lib\python${python_version}"
+          PYTHONPATH="${PYTHONHOME}"
+          PYTHONPATH="${PYTHONPATH};${PYTHONHOME}\lib-dynload"
+          PYTHONPATH="${PYTHONPATH};${PYTHONHOME}\site-packages"
+          export PYTHONPATH
+          ci/scripts/cpp_test.sh "$(pwd)" "$(pwd)/build"

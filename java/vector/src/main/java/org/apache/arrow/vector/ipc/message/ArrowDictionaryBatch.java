@@ -18,17 +18,40 @@
 package org.apache.arrow.vector.ipc.message;
 
 import org.apache.arrow.flatbuf.DictionaryBatch;
+import org.apache.arrow.flatbuf.MessageHeader;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 
+/**
+ * POJO wrapper around a Dictionary Batch IPC messages
+ * (https://arrow.apache.org/docs/format/IPC.html#dictionary-batches)
+ */
 public class ArrowDictionaryBatch implements ArrowMessage {
 
   private final long dictionaryId;
   private final ArrowRecordBatch dictionary;
+  private final boolean isDelta;
 
+  @Deprecated
   public ArrowDictionaryBatch(long dictionaryId, ArrowRecordBatch dictionary) {
+    this (dictionaryId, dictionary, false);
+  }
+
+  /**
+   * Constructs new instance.
+   */
+  public ArrowDictionaryBatch(long dictionaryId, ArrowRecordBatch dictionary, boolean isDelta) {
     this.dictionaryId = dictionaryId;
     this.dictionary = dictionary;
+    this.isDelta = isDelta;
+  }
+
+  public boolean isDelta() {
+    return isDelta;
+  }
+
+  public byte getMessageType() {
+    return MessageHeader.DictionaryBatch;
   }
 
   public long getDictionaryId() {
@@ -45,11 +68,12 @@ public class ArrowDictionaryBatch implements ArrowMessage {
     DictionaryBatch.startDictionaryBatch(builder);
     DictionaryBatch.addId(builder, dictionaryId);
     DictionaryBatch.addData(builder, dataOffset);
+    DictionaryBatch.addIsDelta(builder, isDelta);
     return DictionaryBatch.endDictionaryBatch(builder);
   }
 
   @Override
-  public int computeBodyLength() {
+  public long computeBodyLength() {
     return dictionary.computeBodyLength();
   }
 

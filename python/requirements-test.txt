@@ -1,4 +1,7 @@
-pandas
-pytest
+cffi
 hypothesis
-pathlib2; python_version < "3.4"
+pandas
+pickle5; python_version == "3.6" or python_version == "3.7"
+pytest
+pytest-lazy-fixture
+pytz

@@ -17,16 +17,8 @@
 
 module Arrow
   class TimestampArray
-    class << self
-      def new(unit, values)
-        data_type = TimestampDataType.new(unit)
-        builder = TimestampArrayBuilder.new(data_type)
-        builder.build(values)
-      end
-    end
-
     def get_value(i)
-      to_time(get_raw_value(i))
+      cast_to_time(get_raw_value(i))
     end
 
     def unit
@@ -34,20 +26,16 @@ module Arrow
     end
 
     private
-    def unit_id
-      @unit_id ||= unit.nick.to_sym
-    end
-
-    def to_time(raw_value)
-      case unit_id
-      when :second
-        Time.at(raw_value)
-      when :milli
-        Time.at(*raw_value.divmod(1_000))
-      when :micro
-        Time.at(*raw_value.divmod(1_000_000))
+    def cast_to_time(raw_value)
+      case unit
+      when TimeUnit::SECOND
+        ::Time.at(raw_value)
+      when TimeUnit::MILLI
+        ::Time.at(*raw_value.divmod(1_000))
+      when TimeUnit::MICRO
+        ::Time.at(*raw_value.divmod(1_000_000))
       else
-        Time.at(raw_value / 1_000_000_000.0)
+        ::Time.at(raw_value / 1_000_000_000.0)
       end
     end
   end

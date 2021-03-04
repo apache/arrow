@@ -31,13 +31,17 @@ gplasma_object_id_get_raw(GPlasmaObjectID *id);
 GPlasmaCreatedObject *
 gplasma_created_object_new_raw(GPlasmaClient *client,
                                GPlasmaObjectID *id,
+                               std::shared_ptr<arrow::Buffer> *plasma_data,
                                GArrowBuffer *data,
+                               std::shared_ptr<arrow::Buffer> *plasma_metadata,
                                GArrowBuffer *metadata,
                                gint gpu_device);
 
 GPlasmaReferredObject *
 gplasma_referred_object_new_raw(GPlasmaClient *client,
                                 GPlasmaObjectID *id,
+                                std::shared_ptr<arrow::Buffer> *plasma_data,
                                 GArrowBuffer *data,
+                                std::shared_ptr<arrow::Buffer> *plasma_metadata,
                                 GArrowBuffer *metadata,
                                 gint gpu_device);

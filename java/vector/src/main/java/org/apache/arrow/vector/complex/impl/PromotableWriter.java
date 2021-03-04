@@ -19,14 +19,18 @@ package org.apache.arrow.vector.complex.impl;
 
 import java.math.BigDecimal;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.AbstractStructVector;
+import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
+import org.apache.arrow.vector.holders.Decimal256Holder;
 import org.apache.arrow.vector.holders.DecimalHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -34,57 +38,147 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
-import io.netty.buffer.ArrowBuf;
-
 /**
  * This FieldWriter implementation delegates all FieldWriter API calls to an inner FieldWriter. This inner field writer
  * can start as a specific type, and this class will promote the writer to a UnionWriter if a call is made that the
  * specifically typed writer cannot handle. A new UnionVector is created, wrapping the original vector, and replaces the
  * original vector in the parent vector, which can be either an AbstractStructVector or a ListVector.
+ *
+ * <p>The writer used can either be for single elements (struct) or lists.</p>
  */
 public class PromotableWriter extends AbstractPromotableFieldWriter {
 
   private final AbstractStructVector parentContainer;
   private final ListVector listVector;
+  private final FixedSizeListVector fixedListVector;
+  private final LargeListVector largeListVector;
   private final NullableStructWriterFactory nullableStructWriterFactory;
   private int position;
   private static final int MAX_DECIMAL_PRECISION = 38;
+  private static final int MAX_DECIMAL256_PRECISION = 76;
 
   private enum State {
     UNTYPED, SINGLE, UNION
   }
 
   private MinorType type;
-  private ArrowType arrowType;
   private ValueVector vector;
   private UnionVector unionVector;
   private State state;
   private FieldWriter writer;
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param v The vector to write.
+   * @param parentContainer The parent container for the vector.
+   */
   public PromotableWriter(ValueVector v, AbstractStructVector parentContainer) {
     this(v, parentContainer, NullableStructWriterFactory.getNullableStructWriterFactoryInstance());
   }
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param v The vector to initialize the writer with.
+   * @param parentContainer The parent container for the vector.
+   * @param nullableStructWriterFactory The factory to create the delegate writer.
+   */
   public PromotableWriter(
       ValueVector v,
       AbstractStructVector parentContainer,
       NullableStructWriterFactory nullableStructWriterFactory) {
     this.parentContainer = parentContainer;
     this.listVector = null;
+    this.fixedListVector = null;
+    this.largeListVector = null;
     this.nullableStructWriterFactory = nullableStructWriterFactory;
     init(v);
   }
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param v The vector to initialize the writer with.
+   * @param listVector The vector that serves as a parent of v.
+   */
   public PromotableWriter(ValueVector v, ListVector listVector) {
     this(v, listVector, NullableStructWriterFactory.getNullableStructWriterFactoryInstance());
   }
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param v The vector to initialize the writer with.
+   * @param fixedListVector The vector that serves as a parent of v.
+   */
+  public PromotableWriter(ValueVector v, FixedSizeListVector fixedListVector) {
+    this(v, fixedListVector, NullableStructWriterFactory.getNullableStructWriterFactoryInstance());
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param v The vector to initialize the writer with.
+   * @param largeListVector The vector that serves as a parent of v.
+   */
+  public PromotableWriter(ValueVector v, LargeListVector largeListVector) {
+    this(v, largeListVector, NullableStructWriterFactory.getNullableStructWriterFactoryInstance());
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param v The vector to initialize the writer with.
+   * @param listVector The vector that serves as a parent of v.
+   * @param nullableStructWriterFactory The factory to create the delegate writer.
+   */
   public PromotableWriter(
       ValueVector v,
       ListVector listVector,
       NullableStructWriterFactory nullableStructWriterFactory) {
     this.listVector = listVector;
     this.parentContainer = null;
+    this.fixedListVector = null;
+    this.largeListVector = null;
+    this.nullableStructWriterFactory = nullableStructWriterFactory;
+    init(v);
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param v The vector to initialize the writer with.
+   * @param fixedListVector The vector that serves as a parent of v.
+   * @param nullableStructWriterFactory The factory to create the delegate writer.
+   */
+  public PromotableWriter(
+      ValueVector v,
+      FixedSizeListVector fixedListVector,
+      NullableStructWriterFactory nullableStructWriterFactory) {
+    this.fixedListVector = fixedListVector;
+    this.parentContainer = null;
+    this.listVector = null;
+    this.largeListVector = null;
+    this.nullableStructWriterFactory = nullableStructWriterFactory;
+    init(v);
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param v The vector to initialize the writer with.
+   * @param largeListVector The vector that serves as a parent of v.
+   * @param nullableStructWriterFactory The factory to create the delegate writer.
+   */
+  public PromotableWriter(
+      ValueVector v,
+      LargeListVector largeListVector,
+      NullableStructWriterFactory nullableStructWriterFactory) {
+    this.largeListVector = largeListVector;
+    this.fixedListVector = null;
+    this.parentContainer = null;
+    this.listVector = null;
     this.nullableStructWriterFactory = nullableStructWriterFactory;
     init(v);
   }
@@ -94,22 +188,25 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       state = State.UNION;
       unionVector = (UnionVector) v;
       writer = new UnionWriter(unionVector, nullableStructWriterFactory);
-    } else if (v instanceof ZeroVector) {
+    } else if (v instanceof NullVector) {
       state = State.UNTYPED;
     } else {
       setWriter(v);
     }
   }
 
-  private void setWriter(ValueVector v) {
-    setWriter(v, null);
+  @Override
+  public void setAddVectorAsNullable(boolean nullable) {
+    super.setAddVectorAsNullable(nullable);
+    if (writer instanceof AbstractFieldWriter) {
+      ((AbstractFieldWriter) writer).setAddVectorAsNullable(nullable);
+    }
   }
 
-  private void setWriter(ValueVector v, ArrowType arrowType) {
+  private void setWriter(ValueVector v) {
     state = State.SINGLE;
     vector = v;
     type = v.getMinorType();
-    this.arrowType = arrowType;
     switch (type) {
       case STRUCT:
         writer = nullableStructWriterFactory.build((StructVector) vector);
@@ -124,6 +221,15 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
         writer = type.getNewFieldWriter(vector);
         break;
     }
+  }
+
+  @Override
+  public void writeNull() {
+    FieldWriter w = getWriter();
+    if (w != null) {
+      w.writeNull();
+    }
+    setPosition(idx() + 1);
   }
 
   @Override
@@ -143,7 +249,11 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
 
   protected FieldWriter getWriter(MinorType type, ArrowType arrowType) {
     if (state == State.UNION) {
-      ((UnionWriter) writer).getWriter(type);
+      if (type == MinorType.DECIMAL) {
+        ((UnionWriter) writer).getWriter(type, arrowType);
+      } else {
+        ((UnionWriter) writer).getWriter(type);
+      }
     } else if (state == State.UNTYPED) {
       if (type == null) {
         // ???
@@ -152,13 +262,25 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       if (arrowType == null) {
         arrowType = type.getType();
       }
-      ValueVector v = listVector.addOrGetVector(FieldType.nullable(arrowType)).getVector();
+      FieldType fieldType = new FieldType(addVectorAsNullable, arrowType, null, null);
+      ValueVector v;
+      if (listVector != null) {
+        v = listVector.addOrGetVector(fieldType).getVector();
+      } else if (fixedListVector != null) {
+        v = fixedListVector.addOrGetVector(fieldType).getVector();
+      } else {
+        v = largeListVector.addOrGetVector(fieldType).getVector();
+      }
       v.allocateNew();
-      setWriter(v, arrowType);
+      setWriter(v);
       writer.setPosition(position);
     } else if (type != this.type) {
       promoteToUnion();
-      ((UnionWriter) writer).getWriter(type);
+      if (type == MinorType.DECIMAL) {
+        ((UnionWriter) writer).getWriter(type, arrowType);
+      } else {
+        ((UnionWriter) writer).getWriter(type);
+      }
     }
     return writer;
   }
@@ -182,6 +304,10 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       unionVector.allocateNew();
     } else if (listVector != null) {
       unionVector = listVector.promoteToUnion();
+    } else if (fixedListVector != null) {
+      unionVector = fixedListVector.promoteToUnion();
+    } else if (largeListVector != null) {
+      unionVector = largeListVector.promoteToUnion();
     }
     unionVector.addVector((FieldVector) tp.getTo());
     writer = new UnionWriter(unionVector, nullableStructWriterFactory);
@@ -196,34 +322,54 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
 
   @Override
   public void write(DecimalHolder holder) {
-    // Infer decimal scale and precision
-    if (arrowType == null) {
-      arrowType = new ArrowType.Decimal(MAX_DECIMAL_PRECISION, holder.scale);
-    }
-
-    getWriter(MinorType.DECIMAL, arrowType).write(holder);
+    getWriter(MinorType.DECIMAL,
+              new ArrowType.Decimal(MAX_DECIMAL_PRECISION, holder.scale, /*bitWidth=*/128)).write(holder);
   }
 
   @Override
-  public void writeDecimal(int start, ArrowBuf buffer) {
-    // Cannot infer decimal scale and precision
-    if (arrowType == null) {
-      throw new IllegalStateException("Cannot infer decimal scale and precision");
-    }
-
-    getWriter(MinorType.DECIMAL, arrowType).writeDecimal(start, buffer);
+  public void writeDecimal(long start, ArrowBuf buffer, ArrowType arrowType) {
+    getWriter(MinorType.DECIMAL, new ArrowType.Decimal(MAX_DECIMAL_PRECISION,
+        ((ArrowType.Decimal) arrowType).getScale(), /*bitWidth=*/128)).writeDecimal(start, buffer, arrowType);
   }
 
   @Override
   public void writeDecimal(BigDecimal value) {
-    // Infer decimal scale and precision
-    if (arrowType == null) {
-      arrowType = new ArrowType.Decimal(MAX_DECIMAL_PRECISION, value.scale());
-    }
-
-    getWriter(MinorType.DECIMAL, arrowType).writeDecimal(value);
+    getWriter(MinorType.DECIMAL,
+      new ArrowType.Decimal(MAX_DECIMAL_PRECISION, value.scale(), /*bitWidth=*/128)).writeDecimal(value);
   }
 
+  @Override
+  public void writeBigEndianBytesToDecimal(byte[] value, ArrowType arrowType) {
+    getWriter(MinorType.DECIMAL, new ArrowType.Decimal(MAX_DECIMAL_PRECISION,
+        ((ArrowType.Decimal) arrowType).getScale(), /*bitWidth=*/128)).writeBigEndianBytesToDecimal(value, arrowType);
+  }
+
+  @Override
+  public void write(Decimal256Holder holder) {
+    getWriter(MinorType.DECIMAL256,
+              new ArrowType.Decimal(MAX_DECIMAL256_PRECISION, holder.scale, /*bitWidth=*/256)).write(holder);
+  }
+
+  @Override
+  public void writeDecimal256(long start, ArrowBuf buffer, ArrowType arrowType) {
+    getWriter(MinorType.DECIMAL256, new ArrowType.Decimal(MAX_DECIMAL256_PRECISION,
+        ((ArrowType.Decimal) arrowType).getScale(), /*bitWidth=*/256)).writeDecimal256(start, buffer, arrowType);
+  }
+
+  @Override
+  public void writeDecimal256(BigDecimal value) {
+    getWriter(MinorType.DECIMAL256,
+        new ArrowType.Decimal(MAX_DECIMAL256_PRECISION, value.scale(), /*bitWidth=*/256)).writeDecimal256(value);
+  }
+
+  @Override
+  public void writeBigEndianBytesToDecimal256(byte[] value, ArrowType arrowType) {
+    getWriter(MinorType.DECIMAL256, new ArrowType.Decimal(MAX_DECIMAL256_PRECISION,
+        ((ArrowType.Decimal) arrowType).getScale(),
+          /*bitWidth=*/256)).writeBigEndianBytesToDecimal256(value, arrowType);
+  }
+
+ 
   @Override
   public void allocate() {
     getWriter().allocate();

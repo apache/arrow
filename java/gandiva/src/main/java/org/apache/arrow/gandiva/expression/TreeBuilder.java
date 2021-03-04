@@ -19,11 +19,17 @@ package org.apache.arrow.gandiva.expression;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 
+/**
+ * Contains helper functions for constructing expression trees.
+ */
 public class TreeBuilder {
+  private TreeBuilder() {}
+
   /**
    * Helper functions to create literal constants.
    */
@@ -184,5 +190,25 @@ public class TreeBuilder {
 
     TreeNode root = makeFunction(function, children, new ArrowType.Bool());
     return makeCondition(root);
+  }
+
+  public static TreeNode makeInExpressionInt32(TreeNode resultNode,
+                                               Set<Integer> intValues) {
+    return InNode.makeIntInExpr(resultNode, intValues);
+  }
+
+  public static TreeNode makeInExpressionBigInt(TreeNode resultNode,
+                                               Set<Long> longValues) {
+    return InNode.makeLongInExpr(resultNode, longValues);
+  }
+
+  public static TreeNode makeInExpressionString(TreeNode resultNode,
+                                                Set<String> stringValues) {
+    return InNode.makeStringInExpr(resultNode, stringValues);
+  }
+
+  public static TreeNode makeInExpressionBinary(TreeNode resultNode,
+                                                Set<byte[]> binaryValues) {
+    return InNode.makeBinaryInExpr(resultNode, binaryValues);
   }
 }

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -26,7 +25,7 @@ import pyarrow as pa
 
 def dataframe_with_arrays(include_index=False):
     """
-    Dataframe with numpy arrays columns of every possible primtive type.
+    Dataframe with numpy arrays columns of every possible primitive type.
 
     Returns
     -------
@@ -53,10 +52,10 @@ def dataframe_with_arrays(include_index=False):
 
     fields.append(pa.field('str', pa.list_(pa.string())))
     arrays['str'] = [
-        np.array([u"1", u"ä"], dtype="object"),
+        np.array(["1", "ä"], dtype="object"),
         None,
-        np.array([u"1"], dtype="object"),
-        np.array([u"1", u"2", u"3"], dtype="object")
+        np.array(["1"], dtype="object"),
+        np.array(["1", "2", "3"], dtype="object")
     ]
 
     fields.append(pa.field('datetime64', pa.list_(pa.timestamp('ms'))))
@@ -83,7 +82,7 @@ def dataframe_with_arrays(include_index=False):
 
 def dataframe_with_lists(include_index=False, parquet_compatible=False):
     """
-    Dataframe with list columns of every possible primtive type.
+    Dataframe with list columns of every possible primitive type.
 
     Returns
     -------
@@ -123,10 +122,10 @@ def dataframe_with_lists(include_index=False, parquet_compatible=False):
     ]
     fields.append(pa.field('str_list', pa.list_(pa.string())))
     arrays['str_list'] = [
-        [u"1", u"ä"],
+        ["1", "ä"],
         None,
-        [u"1"],
-        [u"1", u"2", u"3"],
+        ["1"],
+        ["1", "2", "3"],
         [],
     ]
 

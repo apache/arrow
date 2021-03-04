@@ -20,7 +20,7 @@
 import pyarrow as pa
 import numpy as np
 import pandas as pd
-import pandas.util.testing as tm
+from pyarrow.tests.util import rands
 import memory_profiler
 import gc
 import io
@@ -85,7 +85,7 @@ def test_leak3():
                        for i in range(50)})
     table = pa.Table.from_pandas(df, preserve_index=False)
 
-    writer = pq.ParquetWriter('leak_test_' + tm.rands(5) + '.parquet',
+    writer = pq.ParquetWriter('leak_test_' + rands(5) + '.parquet',
                               table.schema)
 
     def func():
@@ -97,5 +97,14 @@ def test_leak3():
                          check_interval=50, tolerance=20)
 
 
+def test_ARROW_8801():
+    x = pd.to_datetime(np.random.randint(0, 2**32, size=2**20),
+                       unit='ms', utc=True)
+    table = pa.table(pd.DataFrame({'x': x}))
+
+    assert_does_not_leak(lambda: table.to_pandas(split_blocks=False),
+                         iterations=1000, check_interval=50, tolerance=1000)
+
+
 if __name__ == '__main__':
-    test_leak3()
+    test_ARROW_8801()

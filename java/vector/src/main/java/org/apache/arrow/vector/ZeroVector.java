@@ -17,28 +17,74 @@
 
 package org.apache.arrow.vector;
 
-import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.DATA_VECTOR_NAME;
-
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.OutOfMemoryException;
-import org.apache.arrow.vector.complex.impl.NullReader;
-import org.apache.arrow.vector.complex.reader.FieldReader;
-import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
-import org.apache.arrow.vector.types.Types.MinorType;
-import org.apache.arrow.vector.types.pojo.ArrowType.Null;
-import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.memory.util.ArrowBufPointer;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
 
-import io.netty.buffer.ArrowBuf;
-
-public class ZeroVector implements FieldVector {
+/**
+ * A zero length vector of any type.
+ */
+public final class ZeroVector extends NullVector {
   public static final ZeroVector INSTANCE = new ZeroVector();
+
+  public ZeroVector() {
+  }
+
+  @Override
+  public int getValueCount() {
+    return 0;
+  }
+
+  @Override
+  public void setValueCount(int valueCount) {
+  }
+
+  @Override
+  public int getNullCount() {
+    return 0;
+  }
+
+  @Override
+  public boolean isNull(int index) {
+    throw new IndexOutOfBoundsException();
+  }
+
+  @Override
+  public int hashCode(int index) {
+    return 0;
+  }
+
+  @Override
+  public int hashCode(int index, ArrowBufHasher hasher) {
+    return ArrowBufPointer.NULL_HASH_CODE;
+  }
+
+  @Override
+  public int getValueCapacity() {
+    return 0;
+  }
+
+  @Override
+  public TransferPair getTransferPair(BufferAllocator allocator) {
+    return defaultPair;
+  }
+
+  @Override
+  public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
+    return defaultPair;
+  }
+
+  @Override
+  public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
+    return defaultPair;
+  }
+
+  @Override
+  public TransferPair makeTransferPair(ValueVector target) {
+    return defaultPair;
+  }
 
   private final TransferPair defaultPair = new TransferPair() {
     @Override
@@ -58,187 +104,4 @@ public class ZeroVector implements FieldVector {
     public void copyValueSafe(int from, int to) {
     }
   };
-
-
-  public ZeroVector() {
-  }
-
-  @Override
-  public void close() {
-  }
-
-  @Override
-  public void clear() {
-  }
-
-  @Override
-  public void reset() {
-  }
-
-  @Override
-  public Field getField() {
-    return new Field(DATA_VECTOR_NAME, FieldType.nullable(new Null()), null);
-  }
-
-  @Override
-  public MinorType getMinorType() {
-    return MinorType.NULL;
-  }
-
-
-  @Override
-  public TransferPair getTransferPair(BufferAllocator allocator) {
-    return defaultPair;
-  }
-
-  @Override
-  public Iterator<ValueVector> iterator() {
-    return Collections.emptyIterator();
-  }
-
-  @Override
-  public int getBufferSize() {
-    return 0;
-  }
-
-  @Override
-  public int getBufferSizeFor(final int valueCount) {
-    return 0;
-  }
-
-  @Override
-  public ArrowBuf[] getBuffers(boolean clear) {
-    return new ArrowBuf[0];
-  }
-
-  @Override
-  public void allocateNew() throws OutOfMemoryException {
-    allocateNewSafe();
-  }
-
-  @Override
-  public boolean allocateNewSafe() {
-    return true;
-  }
-
-  @Override
-  public void reAlloc() {
-  }
-
-  @Override
-  public BufferAllocator getAllocator() {
-    throw new UnsupportedOperationException("Tried to get allocator from ZeroVector");
-  }
-
-  @Override
-  public void setInitialCapacity(int numRecords) {
-  }
-
-  @Override
-  public int getValueCapacity() {
-    return 0;
-  }
-
-  @Override
-  public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return defaultPair;
-  }
-
-  @Override
-  public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
-    return defaultPair;
-  }
-
-  @Override
-  public TransferPair makeTransferPair(ValueVector target) {
-    return defaultPair;
-  }
-
-  @Override
-  public FieldReader getReader() {
-    return NullReader.INSTANCE;
-  }
-
-  @Override
-  public void initializeChildrenFromFields(List<Field> children) {
-    if (!children.isEmpty()) {
-      throw new IllegalArgumentException("Zero vector has no children");
-    }
-  }
-
-  @Override
-  public List<FieldVector> getChildrenFromFields() {
-    return Collections.emptyList();
-  }
-
-  @Override
-  public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
-    if (!ownBuffers.isEmpty()) {
-      throw new IllegalArgumentException("Zero vector has no buffers");
-    }
-  }
-
-  @Override
-  public List<ArrowBuf> getFieldBuffers() {
-    return Collections.emptyList();
-  }
-
-  @Override
-  public List<BufferBacked> getFieldInnerVectors() {
-    return Collections.emptyList();
-  }
-
-  @Override
-  public long getValidityBufferAddress() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public long getDataBufferAddress() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public long getOffsetBufferAddress() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public ArrowBuf getValidityBuffer() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public ArrowBuf getDataBuffer() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public ArrowBuf getOffsetBuffer() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public int getValueCount() {
-    return 0;
-  }
-
-  @Override
-  public void setValueCount(int valueCount) {
-  }
-
-  @Override
-  public Object getObject(int index) {
-    return null;
-  }
-
-  @Override
-  public int getNullCount() {
-    return 0;
-  }
-
-  @Override
-  public boolean isNull(int index) {
-    return false;
-  }
 }

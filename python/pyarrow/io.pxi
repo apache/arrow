@@ -20,17 +20,15 @@
 
 from libc.stdlib cimport malloc, free
 
+import codecs
 import re
-import six
 import sys
 import threading
 import time
 import warnings
-from io import BufferedIOBase, IOBase, UnsupportedOperation
+from io import BufferedIOBase, IOBase, TextIOBase, UnsupportedOperation
 
-from pyarrow.util import _stringify_path
-from pyarrow.compat import (
-    builtin_pickle, frombytes, tobytes, encode_file_path, file_type)
+from pyarrow.util import _is_path_like, _stringify_path
 
 
 # 64K
@@ -43,7 +41,7 @@ cdef extern from "Python.h":
         char *v, Py_ssize_t len) except NULL
 
 
-cdef class NativeFile:
+cdef class NativeFile(_Weakrefable):
     """
     The base class for all Arrow streams.
 
@@ -53,6 +51,10 @@ cdef class NativeFile:
     While this class exposes methods to read or write data from Python, the
     primary intent of using a Arrow stream is to pass it to other Arrow
     facilities that will make use of it, such as Arrow IPC routines.
+
+    Be aware that there are subtle differences with regular Python files,
+    e.g. destroying a writable Arrow stream without closing it explicitly
+    will not flush any pending data.
     """
 
     def __cinit__(self):
@@ -129,35 +131,29 @@ cdef class NativeFile:
                 else:
                     check_status(self.output_stream.get().Close())
 
-    def flush(self):
-        """Flush the buffer stream, if applicable.
-
-        No-op to match the IOBase interface."""
-        self._assert_open()
-
-    cdef set_random_access_file(self, shared_ptr[RandomAccessFile] handle):
-        self.input_stream = <shared_ptr[InputStream]> handle
+    cdef set_random_access_file(self, shared_ptr[CRandomAccessFile] handle):
+        self.input_stream = <shared_ptr[CInputStream]> handle
         self.random_access = handle
         self.is_seekable = True
 
-    cdef set_input_stream(self, shared_ptr[InputStream] handle):
+    cdef set_input_stream(self, shared_ptr[CInputStream] handle):
         self.input_stream = handle
         self.random_access.reset()
         self.is_seekable = False
 
-    cdef set_output_stream(self, shared_ptr[OutputStream] handle):
+    cdef set_output_stream(self, shared_ptr[COutputStream] handle):
         self.output_stream = handle
 
-    cdef shared_ptr[RandomAccessFile] get_random_access_file(self) except *:
+    cdef shared_ptr[CRandomAccessFile] get_random_access_file(self) except *:
         self._assert_readable()
         self._assert_seekable()
         return self.random_access
 
-    cdef shared_ptr[InputStream] get_input_stream(self) except *:
+    cdef shared_ptr[CInputStream] get_input_stream(self) except *:
         self._assert_readable()
         return self.input_stream
 
-    cdef shared_ptr[OutputStream] get_output_stream(self) except *:
+    cdef shared_ptr[COutputStream] get_output_stream(self) except *:
         self._assert_writable()
         return self.output_stream
 
@@ -169,7 +165,7 @@ cdef class NativeFile:
         self._assert_open()
         if not self.is_readable:
             # XXX UnsupportedOperation
-            raise IOError("only valid on readonly files")
+            raise IOError("only valid on readable files")
 
     def _assert_writable(self):
         self._assert_open()
@@ -189,7 +185,8 @@ cdef class NativeFile:
 
         handle = self.get_random_access_file()
         with nogil:
-            check_status(handle.get().GetSize(&size))
+            size = GetResultValue(handle.get().GetSize())
+
         return size
 
     def tell(self):
@@ -201,11 +198,12 @@ cdef class NativeFile:
         if self.is_readable:
             rd_handle = self.get_random_access_file()
             with nogil:
-                check_status(rd_handle.get().Tell(&position))
+                position = GetResultValue(rd_handle.get().Tell())
         else:
             wr_handle = self.get_output_stream()
             with nogil:
-                check_status(wr_handle.get().Tell(&position))
+                position = GetResultValue(wr_handle.get().Tell())
+
         return position
 
     def seek(self, int64_t position, int whence=0):
@@ -237,10 +235,10 @@ cdef class NativeFile:
             if whence == 0:
                 offset = position
             elif whence == 1:
-                check_status(handle.get().Tell(&offset))
+                offset = GetResultValue(handle.get().Tell())
                 offset = offset + position
             elif whence == 2:
-                check_status(handle.get().GetSize(&offset))
+                offset = GetResultValue(handle.get().GetSize())
                 offset = offset + position
             else:
                 with gil:
@@ -249,6 +247,19 @@ cdef class NativeFile:
             check_status(handle.get().Seek(offset))
 
         return self.tell()
+
+    def flush(self):
+        """
+        Flush the stream, if applicable.
+
+        An error is raised if stream is not writable.
+        """
+        self._assert_open()
+        # For IOBase compatibility, flush() on an input stream is a no-op
+        if self.is_writable:
+            handle = self.get_output_stream()
+            with nogil:
+                check_status(handle.get().Flush())
 
     def write(self, data):
         """
@@ -264,16 +275,13 @@ cdef class NativeFile:
         nbytes : number of bytes written
         """
         self._assert_writable()
-
-        cdef Buffer arrow_buffer = py_buffer(data)
-
-        cdef const uint8_t* buf = arrow_buffer.buffer.get().data()
-        cdef int64_t bufsize = len(arrow_buffer)
         handle = self.get_output_stream()
 
+        cdef shared_ptr[CBuffer] buf = as_c_buffer(data)
+
         with nogil:
-            check_status(handle.get().Write(buf, bufsize))
-        return bufsize
+            check_status(handle.get().WriteBuffer(buf))
+        return buf.get().size()
 
     def read(self, nbytes=None):
         """
@@ -316,7 +324,45 @@ cdef class NativeFile:
 
         cdef uint8_t* buf = <uint8_t*> cp.PyBytes_AS_STRING(<object> obj)
         with nogil:
-            check_status(handle.get().Read(c_nbytes, &bytes_read, buf))
+            bytes_read = GetResultValue(handle.get().Read(c_nbytes, buf))
+
+        if bytes_read < c_nbytes:
+            cp._PyBytes_Resize(&obj, <Py_ssize_t> bytes_read)
+
+        return PyObject_to_object(obj)
+
+    def read_at(self, nbytes, offset):
+        """
+        Read indicated number of bytes at offset from the file
+
+        Parameters
+        ----------
+        nbytes : int
+        offset : int
+
+        Returns
+        -------
+        data : bytes
+        """
+        cdef:
+            int64_t c_nbytes
+            int64_t c_offset
+            int64_t bytes_read = 0
+            PyObject* obj
+
+        c_nbytes = nbytes
+
+        c_offset = offset
+
+        handle = self.get_random_access_file()
+
+        # Allocate empty write space
+        obj = PyBytes_FromStringAndSizeNative(NULL, c_nbytes)
+
+        cdef uint8_t* buf = <uint8_t*> cp.PyBytes_AS_STRING(<object> obj)
+        with nogil:
+            bytes_read = GetResultValue(handle.get().
+                                        ReadAt(c_offset, c_nbytes, buf))
 
         if bytes_read < c_nbytes:
             cp._PyBytes_Resize(&obj, <Py_ssize_t> bytes_read)
@@ -358,7 +404,7 @@ cdef class NativeFile:
         buf = py_buf.buffer.get().mutable_data()
 
         with nogil:
-            check_status(handle.get().Read(buf_len, &bytes_read, buf))
+            bytes_read = GetResultValue(handle.get().Read(buf_len, buf))
 
         return bytes_read
 
@@ -410,7 +456,7 @@ cdef class NativeFile:
             c_nbytes = nbytes
 
         with nogil:
-            check_status(handle.get().ReadB(c_nbytes, &output))
+            output = GetResultValue(handle.get().ReadBuffer(c_nbytes))
 
         return pyarrow_wrap_buffer(output)
 
@@ -487,8 +533,8 @@ cdef class NativeFile:
         try:
             while True:
                 with nogil:
-                    check_status(handle.get()
-                                 .Read(c_buffer_size, &bytes_read, buf))
+                    bytes_read = GetResultValue(
+                        handle.get().Read(c_buffer_size, buf))
 
                 total_bytes += bytes_read
 
@@ -617,23 +663,19 @@ cdef class PythonFile(NativeFile):
                 else:
                     if not handle.writable():
                         raise TypeError("writable file expected")
-            elif file_type is not None and isinstance(handle, file_type):
-                # Python 2 file type
-                if kind == 'r':
-                    if 'r' not in handle.mode and '+' not in handle.mode:
-                        raise TypeError("readable file expected")
-                else:
-                    if 'w' not in handle.mode and '+' not in handle.mode:
-                        raise TypeError("writable file expected")
             # (other duck-typed file-like objects are possible)
+
+        # If possible, check the file is a binary file
+        if isinstance(handle, TextIOBase):
+            raise TypeError("binary file expected, got text file")
 
         if kind == 'r':
             self.set_random_access_file(
-                shared_ptr[RandomAccessFile](new PyReadableFile(handle)))
+                shared_ptr[CRandomAccessFile](new PyReadableFile(handle)))
             self.is_readable = True
         else:
             self.set_output_stream(
-                shared_ptr[OutputStream](new PyOutputStream(handle)))
+                shared_ptr[COutputStream](new PyOutputStream(handle)))
             self.is_writable = True
 
     def truncate(self, pos=None):
@@ -664,14 +706,14 @@ cdef class MemoryMappedFile(NativeFile):
             int64_t c_size = size
 
         with nogil:
-            check_status(CMemoryMappedFile.Create(c_path, c_size, &handle))
+            handle = GetResultValue(CMemoryMappedFile.Create(c_path, c_size))
 
         cdef MemoryMappedFile result = MemoryMappedFile()
         result.path = path
         result.is_readable = True
         result.is_writable = True
-        result.set_output_stream(<shared_ptr[OutputStream]> handle)
-        result.set_random_access_file(<shared_ptr[RandomAccessFile]> handle)
+        result.set_output_stream(<shared_ptr[COutputStream]> handle)
+        result.set_random_access_file(<shared_ptr[CRandomAccessFile]> handle)
         result.handle = handle
 
         return result
@@ -698,10 +740,10 @@ cdef class MemoryMappedFile(NativeFile):
             raise ValueError('Invalid file mode: {0}'.format(mode))
 
         with nogil:
-            check_status(CMemoryMappedFile.Open(c_path, c_mode, &handle))
+            handle = GetResultValue(CMemoryMappedFile.Open(c_path, c_mode))
 
-        self.set_output_stream(<shared_ptr[OutputStream]> handle)
-        self.set_random_access_file(<shared_ptr[RandomAccessFile]> handle)
+        self.set_output_stream(<shared_ptr[COutputStream]> handle)
+        self.set_random_access_file(<shared_ptr[CRandomAccessFile]> handle)
         self.handle = handle
 
     def resize(self, new_size):
@@ -721,11 +763,11 @@ cdef class MemoryMappedFile(NativeFile):
 
 def memory_map(path, mode='r'):
     """
-    Open memory map at file path. Size of the memory map cannot change
+    Open memory map at file path. Size of the memory map cannot change.
 
     Parameters
     ----------
-    path : string
+    path : str
     mode : {'r', 'r+', 'w'}, default 'r'
         Whether the file is opened for reading ('r+'), writing ('w')
         or both ('r+').
@@ -734,9 +776,17 @@ def memory_map(path, mode='r'):
     -------
     mmap : MemoryMappedFile
     """
+    _check_is_file(path)
+
     cdef MemoryMappedFile mmap = MemoryMappedFile()
     mmap._open(path, mode)
     return mmap
+
+
+cdef _check_is_file(path):
+    if os.path.isdir(path):
+        raise IOError("Expected file path, but {0} is a directory"
+                      .format(path))
 
 
 def create_memory_map(path, size):
@@ -745,7 +795,7 @@ def create_memory_map(path, size):
 
     Parameters
     ----------
-    path : string
+    path : str
         The file path to create, on the local filesystem.
     size : int
         The file size to create.
@@ -765,6 +815,7 @@ cdef class OSFile(NativeFile):
         object path
 
     def __cinit__(self, path, mode='r', MemoryPool memory_pool=None):
+        _check_is_file(path)
         self.path = path
 
         cdef:
@@ -783,14 +834,14 @@ cdef class OSFile(NativeFile):
         cdef shared_ptr[ReadableFile] handle
 
         with nogil:
-            check_status(ReadableFile.Open(path, pool, &handle))
+            handle = GetResultValue(ReadableFile.Open(path, pool))
 
         self.is_readable = True
-        self.set_random_access_file(<shared_ptr[RandomAccessFile]> handle)
+        self.set_random_access_file(<shared_ptr[CRandomAccessFile]> handle)
 
     cdef _open_writable(self, c_string path):
         with nogil:
-            check_status(FileOutputStream.Open(path, &self.output_stream))
+            self.output_stream = GetResultValue(FileOutputStream.Open(path))
         self.is_writable = True
 
     def fileno(self):
@@ -827,7 +878,7 @@ cdef class FixedSizeBufferWriter(NativeFile):
 # Arrow buffers
 
 
-cdef class Buffer:
+cdef class Buffer(_Weakrefable):
     """
     The base class for all Arrow buffers.
 
@@ -861,8 +912,21 @@ cdef class Buffer:
     def address(self):
         """
         The buffer's address, as an integer.
+
+        The returned address may point to CPU or device memory.
+        Use `is_cpu()` to disambiguate.
         """
-        return <uintptr_t> self.buffer.get().data()
+        return self.buffer.get().address()
+
+    def hex(self):
+        """
+        Compute hexadecimal representation of the buffer.
+
+        Returns
+        -------
+        : bytes
+        """
+        return self.buffer.get().ToHexString()
 
     @property
     def is_mutable(self):
@@ -870,6 +934,13 @@ cdef class Buffer:
         Whether the buffer is mutable.
         """
         return self.buffer.get().is_mutable()
+
+    @property
+    def is_cpu(self):
+        """
+        Whether the buffer is CPU-accessible.
+        """
+        return self.buffer.get().is_cpu()
 
     @property
     def parent(self):
@@ -882,6 +953,8 @@ cdef class Buffer:
 
     def __getitem__(self, key):
         if PySlice_Check(key):
+            if (key.step or 1) != 1:
+                raise IndexError('only slices with step 1 supported')
             return _normalize_slice(self, key)
 
         return self.getitem(_normalize_index(key, self.size))
@@ -898,10 +971,10 @@ cdef class Buffer:
         Parameters
         ----------
         offset : int, default 0
-            Offset from start of buffer to slice
+            Offset from start of buffer to slice.
         length : int, default None
             Length of slice (default is until end of Buffer starting from
-            offset)
+            offset).
 
         Returns
         -------
@@ -941,7 +1014,7 @@ cdef class Buffer:
         if isinstance(other, Buffer):
             return self.equals(other)
         else:
-            return NotImplemented
+            return self.equals(py_buffer(other))
 
     def __reduce_ex__(self, protocol):
         if protocol >= 5:
@@ -951,7 +1024,7 @@ cdef class Buffer:
 
     def to_pybytes(self):
         """
-        Return this buffer as a Python bytes object.  Memory is copied.
+        Return this buffer as a Python bytes object. Memory is copied.
         """
         return cp.PyBytes_FromStringAndSize(
             <const char*>self.buffer.get().data(),
@@ -1013,8 +1086,8 @@ cdef class ResizableBuffer(Buffer):
         Parameters
         ----------
         new_size : int
-            New size of buffer (padding may be added internally)
-        shrink_to_fit : boolean, default False
+            New size of buffer (padding may be added internally).
+        shrink_to_fit : bool, default False
             If this is true, the buffer is shrunk when new_size is less
             than the current size.
             If this is false, the buffer is never shrunk.
@@ -1025,11 +1098,9 @@ cdef class ResizableBuffer(Buffer):
                          .Resize(new_size, c_shrink_to_fit))
 
 
-cdef shared_ptr[CResizableBuffer] _allocate_buffer(CMemoryPool* pool):
-    cdef shared_ptr[CResizableBuffer] result
+cdef shared_ptr[CResizableBuffer] _allocate_buffer(CMemoryPool* pool) except *:
     with nogil:
-        check_status(AllocateResizableBuffer(pool, 0, &result))
-    return result
+        return to_shared(GetResultValue(AllocateResizableBuffer(0, pool)))
 
 
 def allocate_buffer(int64_t size, MemoryPool memory_pool=None,
@@ -1044,7 +1115,7 @@ def allocate_buffer(int64_t size, MemoryPool memory_pool=None,
     memory_pool : MemoryPool, optional
         The pool to allocate memory from.
         If not given, the default memory pool is used.
-    resizable : boolean, default False
+    resizable : bool, default False
         If true, the returned buffer is resizable.
 
     Returns
@@ -1052,18 +1123,19 @@ def allocate_buffer(int64_t size, MemoryPool memory_pool=None,
     buffer : Buffer or ResizableBuffer
     """
     cdef:
-        shared_ptr[CBuffer] buffer
-        shared_ptr[CResizableBuffer] rz_buffer
         CMemoryPool* cpool = maybe_unbox_memory_pool(memory_pool)
+        shared_ptr[CResizableBuffer] c_rz_buffer
+        shared_ptr[CBuffer] c_buffer
 
     if resizable:
         with nogil:
-            check_status(AllocateResizableBuffer(cpool, size, &rz_buffer))
-        return pyarrow_wrap_resizable_buffer(rz_buffer)
+            c_rz_buffer = to_shared(GetResultValue(
+                AllocateResizableBuffer(size, cpool)))
+        return pyarrow_wrap_resizable_buffer(c_rz_buffer)
     else:
         with nogil:
-            check_status(AllocateBuffer(cpool, size, &buffer))
-        return pyarrow_wrap_buffer(buffer)
+            c_buffer = to_shared(GetResultValue(AllocateBuffer(size, cpool)))
+        return pyarrow_wrap_buffer(c_buffer)
 
 
 cdef class BufferOutputStream(NativeFile):
@@ -1103,7 +1175,7 @@ cdef class MockOutputStream(NativeFile):
 
 cdef class BufferReader(NativeFile):
     """
-    Zero-copy reader from objects convertible to Arrow buffer
+    Zero-copy reader from objects convertible to Arrow buffer.
 
     Parameters
     ----------
@@ -1114,7 +1186,7 @@ cdef class BufferReader(NativeFile):
 
     def __cinit__(self, object obj):
         self.buffer = as_buffer(obj)
-        self.set_random_access_file(shared_ptr[RandomAccessFile](
+        self.set_random_access_file(shared_ptr[CRandomAccessFile](
             new CBufferReader(self.buffer.buffer)))
         self.is_readable = True
 
@@ -1126,26 +1198,22 @@ cdef class CompressedInputStream(NativeFile):
     Parameters
     ----------
     stream : pa.NativeFile
+        Input stream object to wrap with the compression.
     compression : str
-        The compression type ("bz2", "brotli", "gzip", "lz4", "snappy"
-        or "zstd")
+        The compression type ("bz2", "brotli", "gzip", "lz4" or "zstd").
     """
-    def __init__(self, NativeFile stream, compression):
+
+    def __init__(self, NativeFile stream, str compression not None):
         cdef:
-            CompressionType compression_type
-            unique_ptr[CCodec] codec
+            Codec codec = Codec(compression)
             shared_ptr[CCompressedInputStream] compressed_stream
-
-        compression_type = _get_compression_type(compression)
-        if compression_type == CompressionType_UNCOMPRESSED:
-            raise ValueError('Invalid value for compression: {!r}'
-                             .format(compression))
-
-        check_status(CCodec.Create(compression_type, &codec))
-        check_status(CCompressedInputStream.Make(
-            codec.get(), stream.get_input_stream(), &compressed_stream))
-
-        self.set_input_stream(<shared_ptr[InputStream]> compressed_stream)
+        compressed_stream = GetResultValue(
+            CCompressedInputStream.Make(
+                codec.unwrap(),
+                stream.get_input_stream()
+            )
+        )
+        self.set_input_stream(<shared_ptr[CInputStream]> compressed_stream)
         self.is_readable = True
 
 
@@ -1156,28 +1224,28 @@ cdef class CompressedOutputStream(NativeFile):
     Parameters
     ----------
     stream : pa.NativeFile
+        Input stream object to wrap with the compression.
     compression : str
-        The compression type ("bz2", "brotli", "gzip", "lz4", "snappy"
-        or "zstd")
+        The compression type ("bz2", "brotli", "gzip", "lz4" or "zstd").
     """
 
-    def __init__(self, NativeFile stream, compression):
+    def __init__(self, NativeFile stream, str compression not None):
         cdef:
-            CompressionType compression_type
-            unique_ptr[CCodec] codec
+            Codec codec = Codec(compression)
             shared_ptr[CCompressedOutputStream] compressed_stream
-
-        compression_type = _get_compression_type(compression)
-        if compression_type == CompressionType_UNCOMPRESSED:
-            raise ValueError('Invalid value for compression: {!r}'
-                             .format(compression))
-
-        check_status(CCodec.Create(compression_type, &codec))
-        check_status(CCompressedOutputStream.Make(
-            codec.get(), stream.get_output_stream(), &compressed_stream))
-
-        self.set_output_stream(<shared_ptr[OutputStream]> compressed_stream)
+        compressed_stream = GetResultValue(
+            CCompressedOutputStream.Make(
+                codec.unwrap(),
+                stream.get_output_stream()
+            )
+        )
+        self.set_output_stream(<shared_ptr[COutputStream]> compressed_stream)
         self.is_writable = True
+
+
+ctypedef CBufferedInputStream* _CBufferedInputStreamPtr
+ctypedef CBufferedOutputStream* _CBufferedOutputStreamPtr
+ctypedef CRandomAccessFile* _RandomAccessFilePtr
 
 
 cdef class BufferedInputStream(NativeFile):
@@ -1188,12 +1256,46 @@ cdef class BufferedInputStream(NativeFile):
 
         if buffer_size <= 0:
             raise ValueError('Buffer size must be larger than zero')
-        check_status(CBufferedInputStream.Create(
+        buffered_stream = GetResultValue(CBufferedInputStream.Create(
             buffer_size, maybe_unbox_memory_pool(memory_pool),
-            stream.get_input_stream(), &buffered_stream))
+            stream.get_input_stream()))
 
-        self.set_input_stream(<shared_ptr[InputStream]> buffered_stream)
+        self.set_input_stream(<shared_ptr[CInputStream]> buffered_stream)
         self.is_readable = True
+
+    def detach(self):
+        """
+        Release the raw InputStream.
+        Further operations on this stream are invalid.
+
+        Returns
+        -------
+        raw : NativeFile
+            The underlying raw input stream
+        """
+        cdef:
+            shared_ptr[CInputStream] c_raw
+            _CBufferedInputStreamPtr buffered
+            NativeFile raw
+
+        buffered = dynamic_cast[_CBufferedInputStreamPtr](
+            self.input_stream.get())
+        assert buffered != nullptr
+
+        with nogil:
+            c_raw = GetResultValue(buffered.Detach())
+
+        raw = NativeFile()
+        raw.is_readable = True
+        # Find out whether the raw stream is a RandomAccessFile
+        # or a mere InputStream.  This helps us support seek() etc.
+        # selectively.
+        if dynamic_cast[_RandomAccessFilePtr](c_raw.get()) != nullptr:
+            raw.set_random_access_file(
+                static_pointer_cast[CRandomAccessFile, CInputStream](c_raw))
+        else:
+            raw.set_input_stream(c_raw)
+        return raw
 
 
 cdef class BufferedOutputStream(NativeFile):
@@ -1204,12 +1306,101 @@ cdef class BufferedOutputStream(NativeFile):
 
         if buffer_size <= 0:
             raise ValueError('Buffer size must be larger than zero')
-        check_status(CBufferedOutputStream.Create(
+        buffered_stream = GetResultValue(CBufferedOutputStream.Create(
             buffer_size, maybe_unbox_memory_pool(memory_pool),
-            stream.get_output_stream(), &buffered_stream))
+            stream.get_output_stream()))
 
-        self.set_output_stream(<shared_ptr[OutputStream]> buffered_stream)
+        self.set_output_stream(<shared_ptr[COutputStream]> buffered_stream)
         self.is_writable = True
+
+    def detach(self):
+        """
+        Flush any buffered writes and release the raw OutputStream.
+        Further operations on this stream are invalid.
+
+        Returns
+        -------
+        raw : NativeFile
+            The underlying raw output stream.
+        """
+        cdef:
+            shared_ptr[COutputStream] c_raw
+            _CBufferedOutputStreamPtr buffered
+            NativeFile raw
+
+        buffered = dynamic_cast[_CBufferedOutputStreamPtr](
+            self.output_stream.get())
+        assert buffered != nullptr
+
+        with nogil:
+            c_raw = GetResultValue(buffered.Detach())
+
+        raw = NativeFile()
+        raw.is_writable = True
+        raw.set_output_stream(c_raw)
+        return raw
+
+
+cdef void _cb_transform(transform_func, const shared_ptr[CBuffer]& src,
+                        shared_ptr[CBuffer]* dest) except *:
+    py_dest = transform_func(pyarrow_wrap_buffer(src))
+    dest[0] = pyarrow_unwrap_buffer(py_buffer(py_dest))
+
+
+cdef class TransformInputStream(NativeFile):
+
+    def __init__(self, NativeFile stream, transform_func):
+        self.set_input_stream(TransformInputStream.make_native(
+            stream.get_input_stream(), transform_func))
+        self.is_readable = True
+
+    @staticmethod
+    cdef shared_ptr[CInputStream] make_native(
+            shared_ptr[CInputStream] stream, transform_func) except *:
+        cdef:
+            shared_ptr[CInputStream] transform_stream
+            CTransformInputStreamVTable vtable
+
+        vtable.transform = _cb_transform
+        return MakeTransformInputStream(stream, move(vtable),
+                                        transform_func)
+
+
+class Transcoder:
+
+    def __init__(self, decoder, encoder):
+        self._decoder = decoder
+        self._encoder = encoder
+
+    def __call__(self, buf):
+        final = len(buf) == 0
+        return self._encoder.encode(self._decoder.decode(buf, final), final)
+
+
+def transcoding_input_stream(stream, src_encoding, dest_encoding):
+    src_codec = codecs.lookup(src_encoding)
+    dest_codec = codecs.lookup(dest_encoding)
+    if src_codec.name == dest_codec.name:
+        # Avoid losing performance on no-op transcoding
+        # (encoding errors won't be detected)
+        return stream
+    return TransformInputStream(stream,
+                                Transcoder(src_codec.incrementaldecoder(),
+                                           dest_codec.incrementalencoder()))
+
+
+cdef shared_ptr[CInputStream] native_transcoding_input_stream(
+        shared_ptr[CInputStream] stream, src_encoding,
+        dest_encoding) except *:
+    src_codec = codecs.lookup(src_encoding)
+    dest_codec = codecs.lookup(dest_encoding)
+    if src_codec.name == dest_codec.name:
+        # Avoid losing performance on no-op transcoding
+        # (encoding errors won't be detected)
+        return stream
+    return TransformInputStream.make_native(
+        stream, Transcoder(src_codec.incrementaldecoder(),
+                           dest_codec.incrementalencoder()))
 
 
 def py_buffer(object obj):
@@ -1217,18 +1408,18 @@ def py_buffer(object obj):
     Construct an Arrow buffer from a Python bytes-like or buffer-like object
     """
     cdef shared_ptr[CBuffer] buf
-    check_status(PyBuffer.FromPyObject(obj, &buf))
+    buf = GetResultValue(PyBuffer.FromPyObject(obj))
     return pyarrow_wrap_buffer(buf)
 
 
 def foreign_buffer(address, size, base=None):
     """
-    Construct an Arrow buffer with the given *address* and *size*,
-    optionally backed by the Python *base* object.
+    Construct an Arrow buffer with the given *address* and *size*.
 
-    The *base* object, if given, will be kept alive as long as this buffer
-    is alive, including accross language boundaries (for example if the
-    buffer is referenced by C++ code).
+    The buffer will be optionally backed by the Python *base* object, if given.
+    The *base* object will be kept alive as long as this buffer is alive,
+    including across language boundaries (for example if the buffer is
+    referenced by C++ code).
     """
     cdef:
         intptr_t c_addr = address
@@ -1246,7 +1437,18 @@ def as_buffer(object o):
     return py_buffer(o)
 
 
-cdef NativeFile _get_native_file(object source, c_bool use_memory_map):
+cdef shared_ptr[CBuffer] as_c_buffer(object o) except *:
+    cdef shared_ptr[CBuffer] buf
+    if isinstance(o, Buffer):
+        buf = (<Buffer> o).buffer
+        if buf == nullptr:
+            raise ValueError("got null buffer")
+    else:
+        buf = GetResultValue(PyBuffer.FromPyObject(o))
+    return buf
+
+
+cdef NativeFile get_native_file(object source, c_bool use_memory_map):
     try:
         source_path = _stringify_path(source)
     except TypeError:
@@ -1265,47 +1467,42 @@ cdef NativeFile _get_native_file(object source, c_bool use_memory_map):
 
 
 cdef get_reader(object source, c_bool use_memory_map,
-                shared_ptr[RandomAccessFile]* reader):
+                shared_ptr[CRandomAccessFile]* reader):
     cdef NativeFile nf
 
-    nf = _get_native_file(source, use_memory_map)
+    nf = get_native_file(source, use_memory_map)
     reader[0] = nf.get_random_access_file()
 
 
 cdef get_input_stream(object source, c_bool use_memory_map,
-                      shared_ptr[InputStream]* out):
+                      shared_ptr[CInputStream]* out):
     """
     Like get_reader(), but can automatically decompress, and returns
     an InputStream.
     """
     cdef:
         NativeFile nf
-        unique_ptr[CCodec] codec
-        shared_ptr[InputStream] input_stream
-        shared_ptr[CCompressedInputStream] compressed_stream
-        CompressionType compression_type
+        Codec codec
+        shared_ptr[CInputStream] input_stream
 
     try:
-        source_path = _stringify_path(source)
+        codec = Codec.detect(source)
     except TypeError:
-        compression = None
-    else:
-        compression = _detect_compression(source_path)
+        codec = None
 
-    compression_type = _get_compression_type(compression)
-    nf = _get_native_file(source, use_memory_map)
+    nf = get_native_file(source, use_memory_map)
     input_stream = nf.get_input_stream()
 
-    if compression_type != CompressionType_UNCOMPRESSED:
-        check_status(CCodec.Create(compression_type, &codec))
-        check_status(CCompressedInputStream.Make(codec.get(), input_stream,
-                                                 &compressed_stream))
-        input_stream = <shared_ptr[InputStream]> compressed_stream
+    # codec is None if compression can't be detected
+    if codec is not None:
+        input_stream = <shared_ptr[CInputStream]> GetResultValue(
+            CCompressedInputStream.Make(codec.unwrap(), input_stream)
+        )
 
     out[0] = input_stream
 
 
-cdef get_writer(object source, shared_ptr[OutputStream]* writer):
+cdef get_writer(object source, shared_ptr[COutputStream]* writer):
     cdef NativeFile nf
 
     try:
@@ -1327,27 +1524,9 @@ cdef get_writer(object source, shared_ptr[OutputStream]* writer):
 
 # ---------------------------------------------------------------------
 
-cdef CompressionType _get_compression_type(object name) except *:
-    if name is None or name == 'uncompressed':
-        return CompressionType_UNCOMPRESSED
-    elif name == 'bz2':
-        return CompressionType_BZ2
-    elif name == 'brotli':
-        return CompressionType_BROTLI
-    elif name == 'gzip':
-        return CompressionType_GZIP
-    elif name == 'lz4':
-        return CompressionType_LZ4
-    elif name == 'snappy':
-        return CompressionType_SNAPPY
-    elif name == 'zstd':
-        return CompressionType_ZSTD
-    else:
-        raise ValueError('Unrecognized compression type: {}'.format(name))
-
 
 def _detect_compression(path):
-    if isinstance(path, six.string_types):
+    if isinstance(path, str):
         if path.endswith('.bz2'):
             return 'bz2'
         elif path.endswith('.gz'):
@@ -1358,6 +1537,210 @@ def _detect_compression(path):
             return 'zstd'
 
 
+cdef CCompressionType _ensure_compression(str name) except *:
+    uppercase = name.upper()
+    if uppercase == 'BZ2':
+        return CCompressionType_BZ2
+    elif uppercase == 'GZIP':
+        return CCompressionType_GZIP
+    elif uppercase == 'BROTLI':
+        return CCompressionType_BROTLI
+    elif uppercase == 'LZ4' or uppercase == 'LZ4_FRAME':
+        return CCompressionType_LZ4_FRAME
+    elif uppercase == 'LZ4_RAW':
+        return CCompressionType_LZ4
+    elif uppercase == 'SNAPPY':
+        return CCompressionType_SNAPPY
+    elif uppercase == 'ZSTD':
+        return CCompressionType_ZSTD
+    else:
+        raise ValueError('Invalid value for compression: {!r}'.format(name))
+
+
+cdef class Codec(_Weakrefable):
+    """
+    Compression codec.
+
+    Parameters
+    ----------
+    compression : str
+        Type of compression codec to initialize, valid values are: 'gzip',
+        'bz2', 'brotli', 'lz4' (or 'lz4_frame'), 'lz4_raw', 'zstd' and
+        'snappy'.
+
+    Raises
+    ------
+    ValueError
+        If invalid compression value is passed.
+    """
+
+    def __init__(self, str compression not None):
+        cdef CCompressionType typ = _ensure_compression(compression)
+        self.wrapped = move(GetResultValue(CCodec.Create(typ)))
+
+    cdef inline CCodec* unwrap(self) nogil:
+        return self.wrapped.get()
+
+    @staticmethod
+    def detect(path):
+        """
+        Detect and instantiate compression codec based on file extension.
+
+        Parameters
+        ----------
+        path : str, path-like
+            File-path to detect compression from.
+
+        Raises
+        ------
+        TypeError
+            If the passed value is not path-like.
+        ValueError
+            If the compression can't be detected from the path.
+
+        Returns
+        -------
+        Codec
+        """
+        return Codec(_detect_compression(_stringify_path(path)))
+
+    @staticmethod
+    def is_available(str compression not None):
+        """
+        Returns whether the compression support has been built and enabled.
+
+        Parameters
+        ----------
+        compression: str
+             Type of compression codec, valid values are: gzip, bz2, brotli,
+             lz4, zstd and snappy.
+
+        Returns
+        -------
+        bool
+        """
+        cdef CCompressionType typ = _ensure_compression(compression)
+        return CCodec.IsAvailable(typ)
+
+    @property
+    def name(self):
+        return frombytes(self.unwrap().name())
+
+    def compress(self, object buf, asbytes=False, memory_pool=None):
+        """
+        Compress data from buffer-like object.
+
+        Parameters
+        ----------
+        buf : pyarrow.Buffer, bytes, or other object supporting buffer protocol
+        asbytes : bool, default False
+            Return result as Python bytes object, otherwise Buffer
+        memory_pool : MemoryPool, default None
+            Memory pool to use for buffer allocations, if any
+
+        Returns
+        -------
+        compressed : pyarrow.Buffer or bytes (if asbytes=True)
+        """
+        cdef:
+            shared_ptr[CBuffer] owned_buf
+            CBuffer* c_buf
+            PyObject* pyobj
+            ResizableBuffer out_buf
+            int64_t max_output_size
+            int64_t output_length
+            uint8_t* output_buffer = NULL
+
+        owned_buf = as_c_buffer(buf)
+        c_buf = owned_buf.get()
+
+        max_output_size = self.wrapped.get().MaxCompressedLen(
+            c_buf.size(), c_buf.data()
+        )
+
+        if asbytes:
+            pyobj = PyBytes_FromStringAndSizeNative(NULL, max_output_size)
+            output_buffer = <uint8_t*> cp.PyBytes_AS_STRING(<object> pyobj)
+        else:
+            out_buf = allocate_buffer(
+                max_output_size, memory_pool=memory_pool, resizable=True
+            )
+            output_buffer = out_buf.buffer.get().mutable_data()
+
+        with nogil:
+            output_length = GetResultValue(
+                self.unwrap().Compress(
+                    c_buf.size(),
+                    c_buf.data(),
+                    max_output_size,
+                    output_buffer
+                )
+            )
+
+        if asbytes:
+            cp._PyBytes_Resize(&pyobj, <Py_ssize_t> output_length)
+            return PyObject_to_object(pyobj)
+        else:
+            out_buf.resize(output_length)
+            return out_buf
+
+    def decompress(self, object buf, decompressed_size=None, asbytes=False,
+                   memory_pool=None):
+        """
+        Decompress data from buffer-like object.
+
+        Parameters
+        ----------
+        buf : pyarrow.Buffer, bytes, or memoryview-compatible object
+        decompressed_size : int64_t, default None
+            If not specified, will be computed if the codec is able to
+            determine the uncompressed buffer size.
+        asbytes : boolean, default False
+            Return result as Python bytes object, otherwise Buffer
+        memory_pool : MemoryPool, default None
+            Memory pool to use for buffer allocations, if any.
+
+        Returns
+        -------
+        uncompressed : pyarrow.Buffer or bytes (if asbytes=True)
+        """
+        cdef:
+            shared_ptr[CBuffer] owned_buf
+            CBuffer* c_buf
+            Buffer out_buf
+            int64_t output_size
+            uint8_t* output_buffer = NULL
+
+        owned_buf = as_c_buffer(buf)
+        c_buf = owned_buf.get()
+
+        if decompressed_size is None:
+            raise ValueError(
+                "Must pass decompressed_size for {} codec".format(self)
+            )
+
+        output_size = decompressed_size
+
+        if asbytes:
+            pybuf = cp.PyBytes_FromStringAndSize(NULL, output_size)
+            output_buffer = <uint8_t*> cp.PyBytes_AS_STRING(pybuf)
+        else:
+            out_buf = allocate_buffer(output_size, memory_pool=memory_pool)
+            output_buffer = out_buf.buffer.get().mutable_data()
+
+        with nogil:
+            GetResultValue(
+                self.unwrap().Decompress(
+                    c_buf.size(),
+                    c_buf.data(),
+                    output_size,
+                    output_buffer
+                )
+            )
+
+        return pybuf if asbytes else out_buf
+
+
 def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):
     """
     Compress data from buffer-like object.
@@ -1365,57 +1748,20 @@ def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):
     Parameters
     ----------
     buf : pyarrow.Buffer, bytes, or other object supporting buffer protocol
-    codec : string, default 'lz4'
+    codec : str, default 'lz4'
         Compression codec.
-        Supported types: {'brotli, 'gzip', 'lz4', 'snappy', 'zstd'}
-    asbytes : boolean, default False
-        Return result as Python bytes object, otherwise Buffer
+        Supported types: {'brotli, 'gzip', 'lz4', 'lz4_raw', 'snappy', 'zstd'}
+    asbytes : bool, default False
+        Return result as Python bytes object, otherwise Buffer.
     memory_pool : MemoryPool, default None
-        Memory pool to use for buffer allocations, if any
+        Memory pool to use for buffer allocations, if any.
 
     Returns
     -------
     compressed : pyarrow.Buffer or bytes (if asbytes=True)
     """
-    cdef:
-        CompressionType c_codec = _get_compression_type(codec)
-        unique_ptr[CCodec] compressor
-        cdef CBuffer* c_buf
-        cdef PyObject* pyobj
-        cdef ResizableBuffer out_buf
-
-    with nogil:
-        check_status(CCodec.Create(c_codec, &compressor))
-
-    buf = as_buffer(buf)
-    c_buf = (<Buffer> buf).buffer.get()
-
-    cdef int64_t max_output_size = (compressor.get()
-                                    .MaxCompressedLen(c_buf.size(),
-                                                      c_buf.data()))
-    cdef uint8_t* output_buffer = NULL
-
-    if asbytes:
-        pyobj = PyBytes_FromStringAndSizeNative(NULL, max_output_size)
-        output_buffer = <uint8_t*> cp.PyBytes_AS_STRING(<object> pyobj)
-    else:
-        out_buf = allocate_buffer(max_output_size, memory_pool=memory_pool,
-                                  resizable=True)
-        output_buffer = out_buf.buffer.get().mutable_data()
-
-    cdef int64_t output_length = 0
-    with nogil:
-        check_status(compressor.get()
-                     .Compress(c_buf.size(), c_buf.data(),
-                               max_output_size, output_buffer,
-                               &output_length))
-
-    if asbytes:
-        cp._PyBytes_Resize(&pyobj, <Py_ssize_t> output_length)
-        return PyObject_to_object(pyobj)
-    else:
-        out_buf.resize(output_length)
-        return out_buf
+    cdef Codec coder = Codec(codec)
+    return coder.compress(buf, asbytes=asbytes, memory_pool=memory_pool)
 
 
 def decompress(object buf, decompressed_size=None, codec='lz4',
@@ -1426,53 +1772,25 @@ def decompress(object buf, decompressed_size=None, codec='lz4',
     Parameters
     ----------
     buf : pyarrow.Buffer, bytes, or memoryview-compatible object
+        Input object to decompress data from.
     decompressed_size : int64_t, default None
         If not specified, will be computed if the codec is able to determine
-        the uncompressed buffer size
-    codec : string, default 'lz4'
+        the uncompressed buffer size.
+    codec : str, default 'lz4'
         Compression codec.
-        Supported types: {'brotli, 'gzip', 'lz4', 'snappy', 'zstd'}
-    asbytes : boolean, default False
-        Return result as Python bytes object, otherwise Buffer
+        Supported types: {'brotli, 'gzip', 'lz4', 'lz4_raw', 'snappy', 'zstd'}
+    asbytes : bool, default False
+        Return result as Python bytes object, otherwise Buffer.
     memory_pool : MemoryPool, default None
-        Memory pool to use for buffer allocations, if any
+        Memory pool to use for buffer allocations, if any.
 
     Returns
     -------
     uncompressed : pyarrow.Buffer or bytes (if asbytes=True)
     """
-    cdef:
-        CompressionType c_codec = _get_compression_type(codec)
-        unique_ptr[CCodec] compressor
-        cdef CBuffer* c_buf
-        cdef Buffer out_buf
-
-    with nogil:
-        check_status(CCodec.Create(c_codec, &compressor))
-
-    buf = as_buffer(buf)
-    c_buf = (<Buffer> buf).buffer.get()
-
-    if decompressed_size is None:
-        raise ValueError("Must pass decompressed_size for {0} codec"
-                         .format(codec))
-
-    cdef int64_t output_size = decompressed_size
-    cdef uint8_t* output_buffer = NULL
-
-    if asbytes:
-        pybuf = cp.PyBytes_FromStringAndSize(NULL, output_size)
-        output_buffer = <uint8_t*> cp.PyBytes_AS_STRING(pybuf)
-    else:
-        out_buf = allocate_buffer(output_size, memory_pool=memory_pool)
-        output_buffer = out_buf.buffer.get().mutable_data()
-
-    with nogil:
-        check_status(compressor.get()
-                     .Decompress(c_buf.size(), c_buf.data(),
-                                 output_size, output_buffer))
-
-    return pybuf if asbytes else out_buf
+    cdef Codec decoder = Codec(codec)
+    return decoder.decompress(buf, asbytes=asbytes, memory_pool=memory_pool,
+                              decompressed_size=decompressed_size)
 
 
 def input_stream(source, compression='detect', buffer_size=None):
@@ -1482,15 +1800,15 @@ def input_stream(source, compression='detect', buffer_size=None):
     Parameters
     ----------
     source: str, Path, buffer, file-like object, ...
-        The source to open for reading
-    compression: str or None
+        The source to open for reading.
+    compression: str optional, default 'detect'
         The compression algorithm to use for on-the-fly decompression.
         If "detect" and source is a file path, then compression will be
         chosen based on the file extension.
         If None, no compression will be applied.
-        Otherwise, a well-known algorithm name must be supplied (e.g. "gzip")
+        Otherwise, a well-known algorithm name must be supplied (e.g. "gzip").
     buffer_size: int, default None
-        If None or 0, no buffering will happen.  Otherwise the size of the
+        If None or 0, no buffering will happen. Otherwise the size of the
         temporary read buffer.
     """
     cdef NativeFile stream
@@ -1506,16 +1824,16 @@ def input_stream(source, compression='detect', buffer_size=None):
         stream = OSFile(source_path, 'r')
     elif isinstance(source, (Buffer, memoryview)):
         stream = BufferReader(as_buffer(source))
-    elif isinstance(source, BufferedIOBase):
-        stream = PythonFile(source, 'r')
-    elif file_type is not None and isinstance(source, file_type):
-        # Python 2 file type
+    elif (hasattr(source, 'read') and
+          hasattr(source, 'close') and
+          hasattr(source, 'closed')):
         stream = PythonFile(source, 'r')
     else:
         raise TypeError("pa.input_stream() called with instance of '{}'"
                         .format(source.__class__))
 
     if compression == 'detect':
+        # detect for OSFile too
         compression = _detect_compression(source_path)
 
     if buffer_size is not None and buffer_size != 0:
@@ -1534,15 +1852,15 @@ def output_stream(source, compression='detect', buffer_size=None):
     Parameters
     ----------
     source: str, Path, buffer, file-like object, ...
-        The source to open for writing
-    compression: str or None
+        The source to open for writing.
+    compression: str optional, default 'detect'
         The compression algorithm to use for on-the-fly compression.
         If "detect" and source is a file path, then compression will be
         chosen based on the file extension.
         If None, no compression will be applied.
-        Otherwise, a well-known algorithm name must be supplied (e.g. "gzip")
+        Otherwise, a well-known algorithm name must be supplied (e.g. "gzip").
     buffer_size: int, default None
-        If None or 0, no buffering will happen.  Otherwise the size of the
+        If None or 0, no buffering will happen. Otherwise the size of the
         temporary write buffer.
     """
     cdef NativeFile stream
@@ -1558,10 +1876,9 @@ def output_stream(source, compression='detect', buffer_size=None):
         stream = OSFile(source_path, 'w')
     elif isinstance(source, (Buffer, memoryview)):
         stream = FixedSizeBufferWriter(as_buffer(source))
-    elif isinstance(source, BufferedIOBase):
-        stream = PythonFile(source, 'w')
-    elif file_type is not None and isinstance(source, file_type):
-        # Python 2 file type
+    elif (hasattr(source, 'write') and
+          hasattr(source, 'close') and
+          hasattr(source, 'closed')):
         stream = PythonFile(source, 'w')
     else:
         raise TypeError("pa.output_stream() called with instance of '{}'"

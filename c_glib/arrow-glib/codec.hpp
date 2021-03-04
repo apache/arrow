@@ -29,6 +29,6 @@ arrow::Compression::type
 garrow_compression_type_to_raw(GArrowCompressionType type);
 
 GArrowCodec *
-garrow_codec_new_raw(arrow::util::Codec *arrow_codec);
-arrow::util::Codec *
+garrow_codec_new_raw(std::shared_ptr<arrow::util::Codec> *arrow_codec);
+std::shared_ptr<arrow::util::Codec>
 garrow_codec_get_raw(GArrowCodec *codec);

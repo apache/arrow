@@ -11,7 +11,7 @@ using global::FlatBuffers;
 /// Time type. The physical storage type depends on the unit
 /// - SECOND and MILLISECOND: 32 bits
 /// - MICROSECOND and NANOSECOND: 64 bits
-public struct Time : IFlatbufferObject
+internal struct Time : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }

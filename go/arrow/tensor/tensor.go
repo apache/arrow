@@ -52,6 +52,9 @@ type Interface interface {
 	// DimName returns the name of the i-th dimension.
 	DimName(i int) string
 
+	// DimNames returns the names for all dimensions
+	DimNames() []string
+
 	DataType() arrow.DataType
 	Data() *array.Data
 
@@ -104,6 +107,7 @@ func (tb *tensorBase) NumDims() int             { return len(tb.shape) }
 func (tb *tensorBase) DimName(i int) string     { return tb.names[i] }
 func (tb *tensorBase) DataType() arrow.DataType { return tb.dtype }
 func (tb *tensorBase) Data() *array.Data        { return tb.data }
+func (tb *tensorBase) DimNames() []string       { return tb.names }
 
 // IsMutable returns whether the underlying data buffer is mutable.
 func (tb *tensorBase) IsMutable() bool { return false } // FIXME(sbinet): implement it at the array.Data level
@@ -158,6 +162,10 @@ func New(data *array.Data, shape, strides []int64, names []string) Interface {
 		return NewFloat32(data, shape, strides, names)
 	case arrow.FLOAT64:
 		return NewFloat64(data, shape, strides, names)
+	case arrow.DATE32:
+		return NewDate32(data, shape, strides, names)
+	case arrow.DATE64:
+		return NewDate64(data, shape, strides, names)
 	default:
 		panic(fmt.Errorf("arrow/tensor: invalid data type %s", dt.Name()))
 	}

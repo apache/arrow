@@ -17,24 +17,24 @@ using System;
 
 namespace Apache.Arrow.Ipc
 {
-    internal class Block
+    internal readonly struct Block
     {
-        public long Offset { get; }
-        public int MetaDataLength { get; }
-        public long BodyLength { get; }
+        public readonly long Offset;
+        public readonly long BodyLength;
+        public readonly int MetadataLength;
 
-        public Block(long offset, int metadataLength, long bodyLength)
+        public Block(long offset, long length, int metadataLength)
         {
             Offset = offset;
-            MetaDataLength = metadataLength;
-            BodyLength = bodyLength;
+            BodyLength = length;
+            MetadataLength = metadataLength;
         }
 
         public Block(Flatbuf.Block block)
         {
-            Offset = Convert.ToInt32(block.Offset);
-            MetaDataLength = Convert.ToInt32(block.MetaDataLength);
-            BodyLength = Convert.ToInt32(block.BodyLength);
+            Offset = block.Offset;
+            BodyLength = block.BodyLength;
+            MetadataLength = block.MetaDataLength;
         }
     }
 }

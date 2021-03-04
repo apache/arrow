@@ -15,24 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_RECORD_BATCH_H
-#define ARROW_RECORD_BATCH_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "arrow/type.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Array;
-struct ArrayData;
-class Status;
-class Table;
 
 /// \class RecordBatch
 /// \brief Collection of equal-length arrays matching a particular Schema
@@ -47,38 +43,44 @@ class ARROW_EXPORT RecordBatch {
   /// \param[in] num_rows length of fields in the record batch. Each array
   /// should have the same length as num_rows
   /// \param[in] columns the record batch fields as vector of arrays
-  static std::shared_ptr<RecordBatch> Make(
-      const std::shared_ptr<Schema>& schema, int64_t num_rows,
-      const std::vector<std::shared_ptr<Array>>& columns);
-
-  /// \brief Move-based constructor for a vector of Array instances
-  static std::shared_ptr<RecordBatch> Make(const std::shared_ptr<Schema>& schema,
+  static std::shared_ptr<RecordBatch> Make(std::shared_ptr<Schema> schema,
                                            int64_t num_rows,
-                                           std::vector<std::shared_ptr<Array>>&& columns);
+                                           std::vector<std::shared_ptr<Array>> columns);
 
   /// \brief Construct record batch from vector of internal data structures
   /// \since 0.5.0
   ///
-  /// This class is only provided with an rvalue-reference for the input data,
-  /// and is intended for internal use, or advanced users.
+  /// This class is intended for internal use, or advanced users.
   ///
   /// \param schema the record batch schema
   /// \param num_rows the number of semantic rows in the record batch. This
   /// should be equal to the length of each field
   /// \param columns the data for the batch's columns
   static std::shared_ptr<RecordBatch> Make(
-      const std::shared_ptr<Schema>& schema, int64_t num_rows,
-      std::vector<std::shared_ptr<ArrayData>>&& columns);
+      std::shared_ptr<Schema> schema, int64_t num_rows,
+      std::vector<std::shared_ptr<ArrayData>> columns);
 
-  /// \brief Construct record batch by copying vector of array data
-  /// \since 0.5.0
-  static std::shared_ptr<RecordBatch> Make(
-      const std::shared_ptr<Schema>& schema, int64_t num_rows,
-      const std::vector<std::shared_ptr<ArrayData>>& columns);
+  /// \brief Convert record batch to struct array
+  ///
+  /// Create a struct array whose child arrays are the record batch's columns.
+  /// Note that the record batch's top-level field metadata cannot be reflected
+  /// in the resulting struct array.
+  Result<std::shared_ptr<StructArray>> ToStructArray() const;
+
+  /// \brief Construct record batch from struct array
+  ///
+  /// This constructs a record batch using the child arrays of the given
+  /// array, which must be a struct array.  Note that the struct array's own
+  /// null bitmap is not reflected in the resulting record batch.
+  static Result<std::shared_ptr<RecordBatch>> FromStructArray(
+      const std::shared_ptr<Array>& array);
 
   /// \brief Determine if two record batches are exactly equal
+  ///
+  /// \param[in] other the RecordBatch to compare with
+  /// \param[in] check_metadata if true, check that Schema metadata is the same
   /// \return true if batches are equal
-  bool Equals(const RecordBatch& other) const;
+  bool Equals(const RecordBatch& other, bool check_metadata = false) const;
 
   /// \brief Determine if two record batches are approximately equal
   bool ApproxEquals(const RecordBatch& other) const;
@@ -87,25 +89,35 @@ class ARROW_EXPORT RecordBatch {
   /// \return true if batches are equal
   std::shared_ptr<Schema> schema() const { return schema_; }
 
+  /// \brief Retrieve all columns at once
+  std::vector<std::shared_ptr<Array>> columns() const;
+
   /// \brief Retrieve an array from the record batch
   /// \param[in] i field index, does not boundscheck
   /// \return an Array object
   virtual std::shared_ptr<Array> column(int i) const = 0;
 
-  /// \brief Retrieve an array's internaldata from the record batch
+  /// \brief Retrieve an array from the record batch
+  /// \param[in] name field name
+  /// \return an Array or null if no field was found
+  std::shared_ptr<Array> GetColumnByName(const std::string& name) const;
+
+  /// \brief Retrieve an array's internal data from the record batch
   /// \param[in] i field index, does not boundscheck
   /// \return an internal ArrayData object
   virtual std::shared_ptr<ArrayData> column_data(int i) const = 0;
+
+  /// \brief Retrieve all arrays' internal data from the record batch.
+  virtual ArrayDataVector column_data() const = 0;
 
   /// \brief Add column to the record batch, producing a new RecordBatch
   ///
   /// \param[in] i field index, which will be boundschecked
   /// \param[in] field field to be added
   /// \param[in] column column to be added
-  /// \param[out] out record batch with column added
-  virtual Status AddColumn(int i, const std::shared_ptr<Field>& field,
-                           const std::shared_ptr<Array>& column,
-                           std::shared_ptr<RecordBatch>* out) const = 0;
+  virtual Result<std::shared_ptr<RecordBatch>> AddColumn(
+      int i, const std::shared_ptr<Field>& field,
+      const std::shared_ptr<Array>& column) const = 0;
 
   /// \brief Add new nullable column to the record batch, producing a new
   /// RecordBatch.
@@ -115,16 +127,18 @@ class ARROW_EXPORT RecordBatch {
   /// \param[in] i field index, which will be boundschecked
   /// \param[in] field_name name of field to be added
   /// \param[in] column column to be added
-  /// \param[out] out record batch with column added
-  virtual Status AddColumn(int i, const std::string& field_name,
-                           const std::shared_ptr<Array>& column,
-                           std::shared_ptr<RecordBatch>* out) const;
+  virtual Result<std::shared_ptr<RecordBatch>> AddColumn(
+      int i, std::string field_name, const std::shared_ptr<Array>& column) const;
+
+  /// \brief Replace a column in the table, producing a new Table
+  virtual Result<std::shared_ptr<RecordBatch>> SetColumn(
+      int i, const std::shared_ptr<Field>& field,
+      const std::shared_ptr<Array>& column) const = 0;
 
   /// \brief Remove column from the record batch, producing a new RecordBatch
   ///
   /// \param[in] i field index, does boundscheck
-  /// \param[out] out record batch with column removed
-  virtual Status RemoveColumn(int i, std::shared_ptr<RecordBatch>* out) const = 0;
+  virtual Result<std::shared_ptr<RecordBatch>> RemoveColumn(int i) const = 0;
 
   virtual std::shared_ptr<RecordBatch> ReplaceSchemaMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const = 0;
@@ -133,7 +147,7 @@ class ARROW_EXPORT RecordBatch {
   const std::string& column_name(int i) const;
 
   /// \return the number of columns in the table
-  int num_columns() const { return schema_->num_fields(); }
+  int num_columns() const;
 
   /// \return the number of rows (the corresponding length of each column)
   int64_t num_rows() const { return num_rows_; }
@@ -149,9 +163,24 @@ class ARROW_EXPORT RecordBatch {
   /// \return new record batch
   virtual std::shared_ptr<RecordBatch> Slice(int64_t offset, int64_t length) const = 0;
 
-  /// \brief Check for schema or length inconsistencies
+  /// \return PrettyPrint representation suitable for debugging
+  std::string ToString() const;
+
+  /// \brief Perform cheap validation checks to determine obvious inconsistencies
+  /// within the record batch's schema and internal data.
+  ///
+  /// This is O(k) where k is the total number of fields and array descendents.
+  ///
   /// \return Status
   virtual Status Validate() const;
+
+  /// \brief Perform extensive validation checks to determine inconsistencies
+  /// within the record batch's schema and internal data.
+  ///
+  /// This is potentially O(k*n) where n is the number of rows.
+  ///
+  /// \return Status
+  virtual Status ValidateFull() const;
 
  protected:
   RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows);
@@ -166,7 +195,7 @@ class ARROW_EXPORT RecordBatch {
 /// \brief Abstract interface for reading stream of record batches
 class ARROW_EXPORT RecordBatchReader {
  public:
-  virtual ~RecordBatchReader();
+  virtual ~RecordBatchReader() = default;
 
   /// \return the shared schema of the record batches in the stream
   virtual std::shared_ptr<Schema> schema() const = 0;
@@ -178,13 +207,26 @@ class ARROW_EXPORT RecordBatchReader {
   /// \return Status
   virtual Status ReadNext(std::shared_ptr<RecordBatch>* batch) = 0;
 
+  /// \brief Iterator interface
+  Result<std::shared_ptr<RecordBatch>> Next() {
+    std::shared_ptr<RecordBatch> batch;
+    ARROW_RETURN_NOT_OK(ReadNext(&batch));
+    return batch;
+  }
+
   /// \brief Consume entire stream as a vector of record batches
-  Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches);
+  Status ReadAll(RecordBatchVector* batches);
 
   /// \brief Read all batches and concatenate as arrow::Table
   Status ReadAll(std::shared_ptr<Table>* table);
+
+  /// \brief Create a RecordBatchReader from a vector of RecordBatch.
+  ///
+  /// \param[in] batches the vector of RecordBatch to read from
+  /// \param[in] schema schema to conform to. Will be inferred from the first
+  ///            element if not provided.
+  static Result<std::shared_ptr<RecordBatchReader>> Make(
+      RecordBatchVector batches, std::shared_ptr<Schema> schema = NULLPTR);
 };
 
 }  // namespace arrow
-
-#endif  // ARROW_RECORD_BATCH_H

@@ -11,38 +11,64 @@
 #  limitations under the License. See accompanying LICENSE file.
 
 # Clang does not support using ASAN and TSAN simultaneously.
-if ("${ARROW_USE_ASAN}" AND "${ARROW_USE_TSAN}")
+if("${ARROW_USE_ASAN}" AND "${ARROW_USE_TSAN}")
   message(SEND_ERROR "Can only enable one of ASAN or TSAN at a time")
 endif()
 
 # Flag to enable clang address sanitizer
 # This will only build if clang or a recent enough gcc is the chosen compiler
-if (${ARROW_USE_ASAN})
-  if(NOT (("${COMPILER_FAMILY}" STREQUAL "clang") OR
-          ("${COMPILER_FAMILY}" STREQUAL "gcc" AND "${COMPILER_VERSION}" VERSION_GREATER "4.8")))
+if(${ARROW_USE_ASAN})
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
+     OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
+     OR (CMAKE_CXX_COMPILER_ID
+         STREQUAL
+         "GNU"
+         AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "4.8"))
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -DADDRESS_SANITIZER")
+  else()
     message(SEND_ERROR "Cannot use ASAN without clang or gcc >= 4.8")
   endif()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -DADDRESS_SANITIZER")
 endif()
-
 
 # Flag to enable clang undefined behavior sanitizer
 # We explicitly don't enable all of the sanitizer flags:
-# - disable 'vptr' because it currently crashes somewhere in boost::intrusive::list code
+# - disable 'vptr' because of RTTI issues across shared libraries (?)
 # - disable 'alignment' because unaligned access is really OK on Nehalem and we do it
 #   all over the place.
-if (${ARROW_USE_UBSAN})
-  if(NOT (("${COMPILER_FAMILY}" STREQUAL "clang") OR
-          ("${COMPILER_FAMILY}" STREQUAL "gcc" AND "${COMPILER_VERSION}" VERSION_GREATER "4.9")))
-    message(SEND_ERROR "Cannot use UBSAN without clang or gcc >= 4.9")
+# - disable 'function' because it appears to give a false positive
+#   (https://github.com/google/sanitizers/issues/911)
+# - disable 'float-divide-by-zero' on clang, which considers it UB
+#   (https://bugs.llvm.org/show_bug.cgi?id=17000#c1)
+#   Note: GCC does not support the 'function' flag.
+if(${ARROW_USE_UBSAN})
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
+     OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    set(
+      CMAKE_CXX_FLAGS
+      "${CMAKE_CXX_FLAGS} -fsanitize=undefined -fno-sanitize=alignment,vptr,function,float-divide-by-zero -fno-sanitize-recover=all"
+      )
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU"
+         AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "5.1")
+    set(
+      CMAKE_CXX_FLAGS
+      "${CMAKE_CXX_FLAGS} -fsanitize=undefined -fno-sanitize=alignment,vptr -fno-sanitize-recover=all"
+      )
+  else()
+    message(SEND_ERROR "Cannot use UBSAN without clang or gcc >= 5.1")
   endif()
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined -fno-sanitize=alignment,vptr -fno-sanitize-recover=all")
-endif ()
+endif()
 
 # Flag to enable thread sanitizer (clang or gcc 4.8)
-if (${ARROW_USE_TSAN})
-  if(NOT (("${COMPILER_FAMILY}" STREQUAL "clang") OR
-          ("${COMPILER_FAMILY}" STREQUAL "gcc" AND "${COMPILER_VERSION}" VERSION_GREATER "4.8")))
+if(${ARROW_USE_TSAN})
+  if(NOT
+     (CMAKE_CXX_COMPILER_ID
+      STREQUAL
+      "AppleClang"
+      OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
+      OR (CMAKE_CXX_COMPILER_ID
+          STREQUAL
+          "GNU"
+          AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "4.8")))
     message(SEND_ERROR "Cannot use TSAN without clang or gcc >= 4.8")
   endif()
 
@@ -73,23 +99,35 @@ if (${ARROW_USE_TSAN})
   endif()
 endif()
 
+if(${ARROW_USE_COVERAGE})
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
+     OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    add_definitions(
+      "-fsanitize-coverage=pc-table,inline-8bit-counters,edge,no-prune,trace-cmp,trace-div,trace-gep"
+      )
 
-if (${ARROW_USE_COVERAGE})
-  if(NOT ("${COMPILER_FAMILY}" STREQUAL "clang"))
+    set(
+      CMAKE_CXX_FLAGS
+      "${CMAKE_CXX_FLAGS} -fsanitize-coverage=pc-table,inline-8bit-counters,edge,no-prune,trace-cmp,trace-div,trace-gep"
+      )
+  else()
     message(SEND_ERROR "You can only enable coverage with clang")
   endif()
-  add_definitions("-fsanitize-coverage=trace-pc-guard")
-
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize-coverage=trace-pc-guard")
 endif()
 
-
-if ("${ARROW_USE_UBSAN}" OR "${ARROW_USE_ASAN}" OR "${ARROW_USE_TSAN}")
-  # GCC 4.8 and 4.9 (latest as of this writing) don't allow you to specify a
-  # sanitizer blacklist.
-  if("${COMPILER_FAMILY}" STREQUAL "clang")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize-blacklist=${BUILD_SUPPORT_DIR}/sanitize-blacklist.txt")
+if("${ARROW_USE_UBSAN}" OR "${ARROW_USE_ASAN}" OR "${ARROW_USE_TSAN}")
+  # GCC 4.8 and 4.9 (latest as of this writing) don't allow you to specify
+  # disallowed entries for the sanitizer.
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
+     OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    set(
+      CMAKE_CXX_FLAGS
+      "${CMAKE_CXX_FLAGS} -fsanitize-blacklist=${BUILD_SUPPORT_DIR}/sanitizer-disallowed-entries.txt"
+      )
   else()
-    message(WARNING "GCC does not support specifying a sanitizer blacklist. Known sanitizer check failures will not be suppressed.")
+    message(
+      WARNING
+        "GCC does not support specifying a sanitizer disallowed entries list. Known sanitizer check failures will not be suppressed."
+      )
   endif()
 endif()

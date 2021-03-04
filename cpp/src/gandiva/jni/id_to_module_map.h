@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef JNI_ID_TO_MODULE_MAP_H
-#define JNI_ID_TO_MODULE_MAP_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -65,5 +64,3 @@ class IdToModuleMap {
 };
 
 }  // namespace gandiva
-
-#endif  // JNI_ID_TO_MODULE_MAP_H

@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace Apache.Arrow.Ipc
@@ -40,6 +41,24 @@ namespace Apache.Arrow.Ipc
 
             _dictionaries = dictionaries.ToList();
             _recordBatches = recordBatches.ToList();
+
+#if DEBUG
+            for (int i = 0; i < _dictionaries.Count; i++)
+            {
+                Block block = _dictionaries[i];
+                Debug.Assert(BitUtility.IsMultipleOf8(block.Offset));
+                Debug.Assert(BitUtility.IsMultipleOf8(block.MetadataLength));
+                Debug.Assert(BitUtility.IsMultipleOf8(block.BodyLength));
+            }
+
+            for (int i = 0; i < _recordBatches.Count; i++)
+            {
+                Block block = _recordBatches[i];
+                Debug.Assert(BitUtility.IsMultipleOf8(block.Offset));
+                Debug.Assert(BitUtility.IsMultipleOf8(block.MetadataLength));
+                Debug.Assert(BitUtility.IsMultipleOf8(block.BodyLength));
+            }
+#endif
         }
 
         public ArrowFooter(Flatbuf.Footer footer)
@@ -49,9 +68,9 @@ namespace Apache.Arrow.Ipc
 
         private static IEnumerable<Block> GetDictionaries(Flatbuf.Footer footer)
         {
-            for (var i = 0; i < footer.DictionariesLength; i++)
+            for (int i = 0; i < footer.DictionariesLength; i++)
             {
-                var block = footer.Dictionaries(i);
+                Flatbuf.Block? block = footer.Dictionaries(i);
 
                 if (block.HasValue)
                 {
@@ -62,9 +81,9 @@ namespace Apache.Arrow.Ipc
 
         private static IEnumerable<Block> GetRecordBatches(Flatbuf.Footer footer)
         {
-            for (var i = 0; i < footer.RecordBatchesLength; i++)
+            for (int i = 0; i < footer.RecordBatchesLength; i++)
             {
-                var block = footer.RecordBatches(i);
+                Flatbuf.Block? block = footer.RecordBatches(i);
 
                 if (block.HasValue)
                 {

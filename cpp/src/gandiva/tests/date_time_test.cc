@@ -19,6 +19,7 @@
 #include <math.h>
 #include <time.h>
 #include "arrow/memory_pool.h"
+#include "gandiva/precompiled/time_constants.h"
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
@@ -26,10 +27,12 @@
 namespace gandiva {
 
 using arrow::boolean;
+using arrow::date32;
 using arrow::date64;
 using arrow::float32;
 using arrow::int32;
 using arrow::int64;
+using arrow::timestamp;
 
 class TestProjector : public ::testing::Test {
  public:
@@ -38,6 +41,26 @@ class TestProjector : public ::testing::Test {
  protected:
   arrow::MemoryPool* pool_;
 };
+
+time_t Epoch() {
+  // HACK: MSVC mktime() fails on UTC times before 1970-01-01 00:00:00.
+  // But it first converts its argument from local time to UTC time,
+  // so we ask for 1970-01-02 to avoid failing in timezones ahead of UTC.
+  struct tm y1970;
+  memset(&y1970, 0, sizeof(struct tm));
+  y1970.tm_year = 70;
+  y1970.tm_mon = 0;
+  y1970.tm_mday = 2;
+  y1970.tm_hour = 0;
+  y1970.tm_min = 0;
+  y1970.tm_sec = 0;
+  time_t epoch = mktime(&y1970);
+  if (epoch == static_cast<time_t>(-1)) {
+    ARROW_LOG(FATAL) << "mktime() failed";
+  }
+  // Adjust for the 24h offset above.
+  return epoch - 24 * 3600;
+}
 
 int32_t MillisInDay(int32_t hh, int32_t mm, int32_t ss, int32_t millis) {
   int32_t mins = hh * 60 + mm;
@@ -57,7 +80,33 @@ int64_t MillisSince(time_t base_line, int32_t yy, int32_t mm, int32_t dd, int32_
   given_ts.tm_min = min;
   given_ts.tm_sec = sec;
 
-  return (lround(difftime(mktime(&given_ts), base_line)) * 1000 + millis);
+  time_t ts = mktime(&given_ts);
+  if (ts == static_cast<time_t>(-1)) {
+    ARROW_LOG(FATAL) << "mktime() failed";
+  }
+  // time_t is an arithmetic type on both POSIX and Windows, we can simply
+  // subtract to get a duration in seconds.
+  return static_cast<int64_t>(ts - base_line) * 1000 + millis;
+}
+
+int32_t DaysSince(time_t base_line, int32_t yy, int32_t mm, int32_t dd, int32_t hr,
+                  int32_t min, int32_t sec, int32_t millis) {
+  struct tm given_ts;
+  memset(&given_ts, 0, sizeof(struct tm));
+  given_ts.tm_year = (yy - 1900);
+  given_ts.tm_mon = (mm - 1);
+  given_ts.tm_mday = dd;
+  given_ts.tm_hour = hr;
+  given_ts.tm_min = min;
+  given_ts.tm_sec = sec;
+
+  time_t ts = mktime(&given_ts);
+  if (ts == static_cast<time_t>(-1)) {
+    ARROW_LOG(FATAL) << "mktime() failed";
+  }
+  // time_t is an arithmetic type on both POSIX and Windows, we can simply
+  // subtract to get a duration in seconds.
+  return static_cast<int32_t>(((ts - base_line) * 1000 + millis) / MILLIS_IN_DAY);
 }
 
 TEST_F(TestProjector, TestIsNull) {
@@ -104,16 +153,54 @@ TEST_F(TestProjector, TestIsNull) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_isnotnull, outputs.at(1));
 }
 
+TEST_F(TestProjector, TestDate32IsNull) {
+  auto d0 = field("d0", date32());
+  auto schema = arrow::schema({d0});
+
+  // output fields
+  auto b0 = field("isnull", boolean());
+
+  // isnull and isnotnull
+  auto isnull_expr = TreeExprBuilder::MakeExpression("isnull", {d0}, b0);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {isnull_expr}, TestConfiguration(), &projector);
+  ASSERT_TRUE(status.ok());
+
+  int num_records = 4;
+  std::vector<int32_t> d0_data = {0, 100, 0, 1000};
+  auto validity = {false, true, false, true};
+  auto d0_array =
+      MakeArrowTypeArray<arrow::Date32Type, int32_t>(date32(), d0_data, validity);
+
+  // expected output
+  auto exp_isnull =
+      MakeArrowArrayBool({true, false, true, false}, {true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {d0_array});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_isnull, outputs.at(0));
+}
+
 TEST_F(TestProjector, TestDateTime) {
   auto field0 = field("f0", date64());
+  auto field1 = field("f1", date32());
   auto field2 = field("f2", timestamp(arrow::TimeUnit::MILLI));
-  auto schema = arrow::schema({field0, field2});
+  auto schema = arrow::schema({field0, field1, field2});
 
   // output fields
   auto field_year = field("yy", int64());
   auto field_month = field("mm", int64());
   auto field_day = field("dd", int64());
   auto field_hour = field("hh", int64());
+  auto field_date64 = field("date64", date64());
 
   // extract year and month from date
   auto date2year_expr =
@@ -121,28 +208,34 @@ TEST_F(TestProjector, TestDateTime) {
   auto date2month_expr =
       TreeExprBuilder::MakeExpression("extractMonth", {field0}, field_month);
 
+  // extract year and month from date32, cast to date64 first
+  auto node_f1 = TreeExprBuilder::MakeField(field1);
+  auto date32_to_date64_func =
+      TreeExprBuilder::MakeFunction("castDATE", {node_f1}, date64());
+
+  auto date64_2year_func =
+      TreeExprBuilder::MakeFunction("extractYear", {date32_to_date64_func}, int64());
+  auto date64_2year_expr = TreeExprBuilder::MakeExpression(date64_2year_func, field_year);
+
+  auto date64_2month_func =
+      TreeExprBuilder::MakeFunction("extractMonth", {date32_to_date64_func}, int64());
+  auto date64_2month_expr =
+      TreeExprBuilder::MakeExpression(date64_2month_func, field_month);
+
   // extract month and day from timestamp
   auto ts2month_expr =
       TreeExprBuilder::MakeExpression("extractMonth", {field2}, field_month);
   auto ts2day_expr = TreeExprBuilder::MakeExpression("extractDay", {field2}, field_day);
 
   std::shared_ptr<Projector> projector;
-  auto status = Projector::Make(
-      schema, {date2year_expr, date2month_expr, ts2month_expr, ts2day_expr},
-      TestConfiguration(), &projector);
+  auto status = Projector::Make(schema,
+                                {date2year_expr, date2month_expr, date64_2year_expr,
+                                 date64_2month_expr, ts2month_expr, ts2day_expr},
+                                TestConfiguration(), &projector);
   ASSERT_TRUE(status.ok());
 
-  struct tm y1970;
-  memset(&y1970, 0, sizeof(struct tm));
-  y1970.tm_year = 70;
-  y1970.tm_mon = 0;
-  y1970.tm_mday = 1;
-  y1970.tm_hour = 0;
-  y1970.tm_min = 0;
-  y1970.tm_sec = 0;
-  time_t epoch = mktime(&y1970);
-
   // Create a row-batch with some sample data
+  time_t epoch = Epoch();
   int num_records = 4;
   auto validity = {true, true, true, true};
   std::vector<int64_t> field0_data = {MillisSince(epoch, 2000, 1, 1, 5, 0, 0, 0),
@@ -151,6 +244,13 @@ TEST_F(TestProjector, TestDateTime) {
                                       MillisSince(epoch, 2015, 7, 1, 20, 0, 0, 0)};
   auto array0 =
       MakeArrowTypeArray<arrow::Date64Type, int64_t>(date64(), field0_data, validity);
+
+  std::vector<int32_t> field1_data = {DaysSince(epoch, 2000, 1, 1, 5, 0, 0, 0),
+                                      DaysSince(epoch, 1999, 12, 31, 5, 0, 0, 0),
+                                      DaysSince(epoch, 2015, 6, 30, 20, 0, 0, 0),
+                                      DaysSince(epoch, 2015, 7, 1, 20, 0, 0, 0)};
+  auto array1 =
+      MakeArrowTypeArray<arrow::Date32Type, int32_t>(date32(), field1_data, validity);
 
   std::vector<int64_t> field2_data = {MillisSince(epoch, 1999, 12, 31, 5, 0, 0, 0),
                                       MillisSince(epoch, 2000, 1, 2, 5, 0, 0, 0),
@@ -161,16 +261,20 @@ TEST_F(TestProjector, TestDateTime) {
       arrow::timestamp(arrow::TimeUnit::MILLI), field2_data, validity);
 
   // expected output
-  // date 2 year and date 2 month
-  auto exp_yy_from_date = MakeArrowArrayInt64({2000, 1999, 2015, 2015}, validity);
-  auto exp_mm_from_date = MakeArrowArrayInt64({1, 12, 6, 7}, validity);
+  // date 2 year and date 2 month for date64
+  auto exp_yy_from_date64 = MakeArrowArrayInt64({2000, 1999, 2015, 2015}, validity);
+  auto exp_mm_from_date64 = MakeArrowArrayInt64({1, 12, 6, 7}, validity);
+
+  // date 2 year and date 2 month for date32
+  auto exp_yy_from_date32 = MakeArrowArrayInt64({2000, 1999, 2015, 2015}, validity);
+  auto exp_mm_from_date32 = MakeArrowArrayInt64({1, 12, 6, 7}, validity);
 
   // ts 2 month and ts 2 day
   auto exp_mm_from_ts = MakeArrowArrayInt64({12, 1, 7, 6}, validity);
   auto exp_dd_from_ts = MakeArrowArrayInt64({31, 2, 1, 29}, validity);
 
   // prepare input record batch
-  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array2});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2});
 
   // Evaluate expression
   arrow::ArrayVector outputs;
@@ -178,10 +282,12 @@ TEST_F(TestProjector, TestDateTime) {
   EXPECT_TRUE(status.ok());
 
   // Validate results
-  EXPECT_ARROW_ARRAY_EQUALS(exp_yy_from_date, outputs.at(0));
-  EXPECT_ARROW_ARRAY_EQUALS(exp_mm_from_date, outputs.at(1));
-  EXPECT_ARROW_ARRAY_EQUALS(exp_mm_from_ts, outputs.at(2));
-  EXPECT_ARROW_ARRAY_EQUALS(exp_dd_from_ts, outputs.at(3));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_yy_from_date64, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_mm_from_date64, outputs.at(1));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_yy_from_date32, outputs.at(2));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_mm_from_date32, outputs.at(3));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_mm_from_ts, outputs.at(4));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_dd_from_ts, outputs.at(5));
 }
 
 TEST_F(TestProjector, TestTime) {
@@ -270,15 +376,7 @@ TEST_F(TestProjector, TestTimestampDiff) {
   auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
   ASSERT_TRUE(status.ok());
 
-  struct tm y1970;
-  memset(&y1970, 0, sizeof(struct tm));
-  y1970.tm_year = 70;
-  y1970.tm_mon = 0;
-  y1970.tm_mday = 1;
-  y1970.tm_hour = 0;
-  y1970.tm_min = 0;
-  y1970.tm_sec = 0;
-  time_t epoch = mktime(&y1970);
+  time_t epoch = Epoch();
 
   // 2015-09-10T20:49:42.000
   auto start_millis = MillisSince(epoch, 2015, 9, 10, 20, 49, 42, 0);
@@ -328,6 +426,64 @@ TEST_F(TestProjector, TestTimestampDiff) {
   }
 }
 
+TEST_F(TestProjector, TestTimestampDiffMonth) {
+  auto f0 = field("f0", timestamp(arrow::TimeUnit::MILLI));
+  auto f1 = field("f1", timestamp(arrow::TimeUnit::MILLI));
+  auto schema = arrow::schema({f0, f1});
+
+  // output fields
+  auto diff_seconds = field("ss", int32());
+
+  auto diff_months_expr =
+      TreeExprBuilder::MakeExpression("timestampdiffMonth", {f0, f1}, diff_seconds);
+
+  std::shared_ptr<Projector> projector;
+  auto status =
+      Projector::Make(schema, {diff_months_expr}, TestConfiguration(), &projector);
+  std::cout << status.message();
+  ASSERT_TRUE(status.ok());
+
+  time_t epoch = Epoch();
+
+  // Create a row-batch with some sample data
+  std::vector<int64_t> f0_data = {MillisSince(epoch, 2019, 1, 31, 0, 0, 0, 0),
+                                  MillisSince(epoch, 2020, 1, 31, 0, 0, 0, 0),
+                                  MillisSince(epoch, 2020, 1, 31, 0, 0, 0, 0),
+                                  MillisSince(epoch, 2019, 3, 31, 0, 0, 0, 0),
+                                  MillisSince(epoch, 2020, 3, 30, 0, 0, 0, 0),
+                                  MillisSince(epoch, 2020, 5, 31, 0, 0, 0, 0)};
+  std::vector<int64_t> f1_data = {MillisSince(epoch, 2019, 2, 28, 0, 0, 0, 0),
+                                  MillisSince(epoch, 2020, 2, 28, 0, 0, 0, 0),
+                                  MillisSince(epoch, 2020, 2, 29, 0, 0, 0, 0),
+                                  MillisSince(epoch, 2019, 4, 30, 0, 0, 0, 0),
+                                  MillisSince(epoch, 2020, 2, 29, 0, 0, 0, 0),
+                                  MillisSince(epoch, 2020, 9, 30, 0, 0, 0, 0)};
+  int64_t num_records = f0_data.size();
+  std::vector<bool> validity(num_records, true);
+
+  auto array0 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
+      arrow::timestamp(arrow::TimeUnit::MILLI), f0_data, validity);
+  auto array1 = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
+      arrow::timestamp(arrow::TimeUnit::MILLI), f1_data, validity);
+
+  // expected output
+  std::vector<ArrayPtr> exp_output;
+  exp_output.push_back(MakeArrowArrayInt32({1, 0, 1, 1, -1, 4}, validity));
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  for (uint32_t i = 0; i < exp_output.size(); i++) {
+    EXPECT_ARROW_ARRAY_EQUALS(exp_output.at(i), outputs.at(i));
+  }
+}
+
 TEST_F(TestProjector, TestMonthsBetween) {
   auto f0 = field("f0", arrow::date64());
   auto f1 = field("f1", arrow::date64());
@@ -345,15 +501,7 @@ TEST_F(TestProjector, TestMonthsBetween) {
   std::cout << status.message();
   ASSERT_TRUE(status.ok());
 
-  struct tm y1970;
-  memset(&y1970, 0, sizeof(struct tm));
-  y1970.tm_year = 70;
-  y1970.tm_mon = 0;
-  y1970.tm_mday = 1;
-  y1970.tm_hour = 0;
-  y1970.tm_min = 0;
-  y1970.tm_sec = 0;
-  time_t epoch = mktime(&y1970);
+  time_t epoch = Epoch();
 
   // Create a row-batch with some sample data
   int num_records = 4;

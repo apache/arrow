@@ -15,39 +15,60 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_KEY_VALUE_METADATA_H
-#define ARROW_UTIL_KEY_VALUE_METADATA_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
+/// \brief A container for key-value pair type metadata. Not thread-safe
 class ARROW_EXPORT KeyValueMetadata {
  public:
   KeyValueMetadata();
-  KeyValueMetadata(const std::vector<std::string>& keys,
-                   const std::vector<std::string>& values);
+  KeyValueMetadata(std::vector<std::string> keys, std::vector<std::string> values);
   explicit KeyValueMetadata(const std::unordered_map<std::string, std::string>& map);
   virtual ~KeyValueMetadata() = default;
 
   void ToUnorderedMap(std::unordered_map<std::string, std::string>* out) const;
-
   void Append(const std::string& key, const std::string& value);
 
-  void reserve(int64_t n);
-  int64_t size() const;
+  Result<std::string> Get(const std::string& key) const;
+  bool Contains(const std::string& key) const;
+  // Note that deleting may invalidate known indices
+  Status Delete(const std::string& key);
+  Status Delete(int64_t index);
+  Status DeleteMany(std::vector<int64_t> indices);
+  Status Set(const std::string& key, const std::string& value);
 
-  std::string key(int64_t i) const;
-  std::string value(int64_t i) const;
+  void reserve(int64_t n);
+
+  int64_t size() const;
+  const std::string& key(int64_t i) const;
+  const std::string& value(int64_t i) const;
+  const std::vector<std::string>& keys() const { return keys_; }
+  const std::vector<std::string>& values() const { return values_; }
+
+  std::vector<std::pair<std::string, std::string>> sorted_pairs() const;
+
+  /// \brief Perform linear search for key, returning -1 if not found
+  int FindKey(const std::string& key) const;
 
   std::shared_ptr<KeyValueMetadata> Copy() const;
+
+  /// \brief Return a new KeyValueMetadata by combining the passed metadata
+  /// with this KeyValueMetadata. Colliding keys will be overridden by the
+  /// passed metadata. Assumes keys in both containers are unique
+  std::shared_ptr<KeyValueMetadata> Merge(const KeyValueMetadata& other) const;
 
   bool Equals(const KeyValueMetadata& other) const;
   std::string ToString() const;
@@ -65,6 +86,11 @@ class ARROW_EXPORT KeyValueMetadata {
 std::shared_ptr<KeyValueMetadata> ARROW_EXPORT
 key_value_metadata(const std::unordered_map<std::string, std::string>& pairs);
 
-}  // namespace arrow
+/// \brief Create a KeyValueMetadata instance
+///
+/// \param keys sequence of metadata keys
+/// \param values sequence of corresponding metadata values
+std::shared_ptr<KeyValueMetadata> ARROW_EXPORT
+key_value_metadata(std::vector<std::string> keys, std::vector<std::string> values);
 
-#endif  //  ARROW_UTIL_KEY_VALUE_METADATA_H
+}  // namespace arrow

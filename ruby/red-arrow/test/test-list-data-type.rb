@@ -23,7 +23,7 @@ class ListDataTypeTest < Test::Unit::TestCase
                    Arrow::ListDataType.new(field).to_s)
     end
 
-    test("Hash") do
+    test("name: String") do
       assert_equal("list<tag: string>",
                    Arrow::ListDataType.new(name: "tag", type: :string).to_s)
     end
@@ -38,6 +38,32 @@ class ListDataTypeTest < Test::Unit::TestCase
       field_description = {name: "tag", type: :string}
       assert_equal("list<tag: string>",
                    Arrow::ListDataType.new(field: field_description).to_s)
+    end
+
+    test("Arrow::DataType") do
+      data_type = Arrow::BooleanDataType.new
+      assert_equal("list<item: bool>",
+                   Arrow::ListDataType.new(data_type).to_s)
+    end
+
+    test("String") do
+      assert_equal("list<item: bool>",
+                   Arrow::ListDataType.new("boolean").to_s)
+    end
+
+    test("Symbol") do
+      assert_equal("list<item: bool>",
+                   Arrow::ListDataType.new(:boolean).to_s)
+    end
+
+    test("[data type name, additional information]") do
+      assert_equal("list<item: time32[ms]>",
+                   Arrow::ListDataType.new([:time32, :milli]).to_s)
+    end
+
+    test("type: Symbol") do
+      assert_equal("list<item: bool>",
+                   Arrow::ListDataType.new(type: :boolean).to_s)
     end
   end
 end

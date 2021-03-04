@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/compression_bz2.h"
+#include "arrow/util/compression_internal.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -23,29 +23,30 @@
 #include <limits>
 #include <memory>
 #include <sstream>
-#include <string>
 
 // Avoid defining max() macro
 #include "arrow/util/windows_compatibility.h"
 
 #include <bzlib.h>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
 namespace util {
+namespace internal {
 
-constexpr int kBZ2DefaultCompressionLevel = 9;
+namespace {
 
 // Max number of bytes the bz2 APIs accept at a time
-static constexpr auto kSizeLimit =
+constexpr auto kSizeLimit =
     static_cast<int64_t>(std::numeric_limits<unsigned int>::max());
 
 Status BZ2Error(const char* prefix_msg, int bz_result) {
-  DCHECK(bz_result != BZ_OK && bz_result != BZ_RUN_OK && bz_result != BZ_FLUSH_OK &&
-         bz_result != BZ_FINISH_OK && bz_result != BZ_STREAM_END);
+  ARROW_CHECK(bz_result != BZ_OK && bz_result != BZ_RUN_OK && bz_result != BZ_FLUSH_OK &&
+              bz_result != BZ_FINISH_OK && bz_result != BZ_STREAM_END);
   StatusCode code;
   std::stringstream ss;
   ss << prefix_msg;
@@ -108,9 +109,16 @@ class BZ2Decompressor : public Decompressor {
     return Status::OK();
   }
 
-  Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
-                    uint8_t* output, int64_t* bytes_read, int64_t* bytes_written,
-                    bool* need_more_output) override {
+  Status Reset() override {
+    if (initialized_) {
+      ARROW_UNUSED(BZ2_bzDecompressEnd(&stream_));
+      initialized_ = false;
+    }
+    return Init();
+  }
+
+  Result<DecompressResult> Decompress(int64_t input_len, const uint8_t* input,
+                                      int64_t output_len, uint8_t* output) override {
     stream_.next_in = const_cast<char*>(reinterpret_cast<const char*>(input));
     stream_.avail_in = static_cast<unsigned int>(std::min(input_len, kSizeLimit));
     stream_.next_out = reinterpret_cast<char*>(output);
@@ -119,11 +127,11 @@ class BZ2Decompressor : public Decompressor {
 
     ret = BZ2_bzDecompress(&stream_);
     if (ret == BZ_OK || ret == BZ_STREAM_END) {
-      *bytes_read = input_len - stream_.avail_in;
-      *bytes_written = output_len - stream_.avail_out;
       finished_ = (ret == BZ_STREAM_END);
-      *need_more_output = (!finished_ && *bytes_read == 0 && *bytes_written == 0);
-      return Status::OK();
+      int64_t bytes_read = input_len - stream_.avail_in;
+      int64_t bytes_written = output_len - stream_.avail_out;
+      return DecompressResult{bytes_read, bytes_written,
+                              (!finished_ && bytes_read == 0 && bytes_written == 0)};
     } else {
       return BZ2Error("bz2 decompress failed: ", ret);
     }
@@ -142,7 +150,8 @@ class BZ2Decompressor : public Decompressor {
 
 class BZ2Compressor : public Compressor {
  public:
-  BZ2Compressor() : initialized_(false) {}
+  explicit BZ2Compressor(int compression_level)
+      : initialized_(false), compression_level_(compression_level) {}
 
   ~BZ2Compressor() override {
     if (initialized_) {
@@ -154,7 +163,7 @@ class BZ2Compressor : public Compressor {
     DCHECK(!initialized_);
     memset(&stream_, 0, sizeof(stream_));
     int ret;
-    ret = BZ2_bzCompressInit(&stream_, kBZ2DefaultCompressionLevel, 0, 0);
+    ret = BZ2_bzCompressInit(&stream_, compression_level_, 0, 0);
     if (ret != BZ_OK) {
       return BZ2Error("bz2 compressor init failed: ", ret);
     }
@@ -162,8 +171,8 @@ class BZ2Compressor : public Compressor {
     return Status::OK();
   }
 
-  Status Compress(int64_t input_len, const uint8_t* input, int64_t output_len,
-                  uint8_t* output, int64_t* bytes_read, int64_t* bytes_written) override {
+  Result<CompressResult> Compress(int64_t input_len, const uint8_t* input,
+                                  int64_t output_len, uint8_t* output) override {
     stream_.next_in = const_cast<char*>(reinterpret_cast<const char*>(input));
     stream_.avail_in = static_cast<unsigned int>(std::min(input_len, kSizeLimit));
     stream_.next_out = reinterpret_cast<char*>(output);
@@ -172,16 +181,13 @@ class BZ2Compressor : public Compressor {
 
     ret = BZ2_bzCompress(&stream_, BZ_RUN);
     if (ret == BZ_RUN_OK) {
-      *bytes_read = input_len - stream_.avail_in;
-      *bytes_written = output_len - stream_.avail_out;
-      return Status::OK();
+      return CompressResult{input_len - stream_.avail_in, output_len - stream_.avail_out};
     } else {
       return BZ2Error("bz2 compress failed: ", ret);
     }
   }
 
-  Status Flush(int64_t output_len, uint8_t* output, int64_t* bytes_written,
-               bool* should_retry) override {
+  Result<FlushResult> Flush(int64_t output_len, uint8_t* output) override {
     stream_.next_in = nullptr;
     stream_.avail_in = 0;
     stream_.next_out = reinterpret_cast<char*>(output);
@@ -190,16 +196,13 @@ class BZ2Compressor : public Compressor {
 
     ret = BZ2_bzCompress(&stream_, BZ_FLUSH);
     if (ret == BZ_RUN_OK || ret == BZ_FLUSH_OK) {
-      *bytes_written = output_len - stream_.avail_out;
-      *should_retry = (ret == BZ_FLUSH_OK);
-      return Status::OK();
+      return FlushResult{output_len - stream_.avail_out, (ret == BZ_FLUSH_OK)};
     } else {
       return BZ2Error("bz2 compress failed: ", ret);
     }
   }
 
-  Status End(int64_t output_len, uint8_t* output, int64_t* bytes_written,
-             bool* should_retry) override {
+  Result<EndResult> End(int64_t output_len, uint8_t* output) override {
     stream_.next_in = nullptr;
     stream_.avail_in = 0;
     stream_.next_out = reinterpret_cast<char*>(output);
@@ -208,9 +211,7 @@ class BZ2Compressor : public Compressor {
 
     ret = BZ2_bzCompress(&stream_, BZ_FINISH);
     if (ret == BZ_STREAM_END || ret == BZ_FINISH_OK) {
-      *bytes_written = output_len - stream_.avail_out;
-      *should_retry = (ret == BZ_FINISH_OK);
-      return Status::OK();
+      return EndResult{output_len - stream_.avail_out, (ret == BZ_FINISH_OK)};
     } else {
       return BZ2Error("bz2 compress failed: ", ret);
     }
@@ -219,47 +220,62 @@ class BZ2Compressor : public Compressor {
  protected:
   bz_stream stream_;
   bool initialized_;
+  int compression_level_;
 };
 
 // ----------------------------------------------------------------------
 // bz2 codec implementation
 
-Status BZ2Codec::MakeCompressor(std::shared_ptr<Compressor>* out) {
-  auto ptr = std::make_shared<BZ2Compressor>();
-  RETURN_NOT_OK(ptr->Init());
-  *out = ptr;
-  return Status::OK();
+class BZ2Codec : public Codec {
+ public:
+  explicit BZ2Codec(int compression_level) : compression_level_(compression_level) {
+    compression_level_ = compression_level == kUseDefaultCompressionLevel
+                             ? kBZ2DefaultCompressionLevel
+                             : compression_level;
+  }
+
+  Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
+                             int64_t output_buffer_len, uint8_t* output_buffer) override {
+    return Status::NotImplemented("One-shot bz2 decompression not supported");
+  }
+
+  Result<int64_t> Compress(int64_t input_len, const uint8_t* input,
+                           int64_t output_buffer_len, uint8_t* output_buffer) override {
+    return Status::NotImplemented("One-shot bz2 compression not supported");
+  }
+
+  int64_t MaxCompressedLen(int64_t input_len,
+                           const uint8_t* ARROW_ARG_UNUSED(input)) override {
+    // Cannot determine upper bound for bz2-compressed data
+    return 0;
+  }
+
+  Result<std::shared_ptr<Compressor>> MakeCompressor() override {
+    auto ptr = std::make_shared<BZ2Compressor>(compression_level_);
+    RETURN_NOT_OK(ptr->Init());
+    return ptr;
+  }
+
+  Result<std::shared_ptr<Decompressor>> MakeDecompressor() override {
+    auto ptr = std::make_shared<BZ2Decompressor>();
+    RETURN_NOT_OK(ptr->Init());
+    return ptr;
+  }
+
+  Compression::type compression_type() const override { return Compression::BZ2; }
+
+  int compression_level() const override { return compression_level_; }
+
+ private:
+  int compression_level_;
+};
+
+}  // namespace
+
+std::unique_ptr<Codec> MakeBZ2Codec(int compression_level) {
+  return std::unique_ptr<Codec>(new BZ2Codec(compression_level));
 }
 
-Status BZ2Codec::MakeDecompressor(std::shared_ptr<Decompressor>* out) {
-  auto ptr = std::make_shared<BZ2Decompressor>();
-  RETURN_NOT_OK(ptr->Init());
-  *out = ptr;
-  return Status::OK();
-}
-
-Status BZ2Codec::Decompress(int64_t input_len, const uint8_t* input,
-                            int64_t output_buffer_len, uint8_t* output_buffer) {
-  return Status::NotImplemented("One-shot bz2 decompression not supported");
-}
-
-Status BZ2Codec::Decompress(int64_t input_len, const uint8_t* input,
-                            int64_t output_buffer_len, uint8_t* output_buffer,
-                            int64_t* output_len) {
-  return Status::NotImplemented("One-shot bz2 decompression not supported");
-}
-
-int64_t BZ2Codec::MaxCompressedLen(int64_t input_len,
-                                   const uint8_t* ARROW_ARG_UNUSED(input)) {
-  // Cannot determine upper bound for bz2-compressed data
-  return 0;
-}
-
-Status BZ2Codec::Compress(int64_t input_len, const uint8_t* input,
-                          int64_t output_buffer_len, uint8_t* output_buffer,
-                          int64_t* output_len) {
-  return Status::NotImplemented("One-shot bz2 compression not supported");
-}
-
+}  // namespace internal
 }  // namespace util
 }  // namespace arrow

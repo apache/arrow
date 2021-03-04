@@ -44,10 +44,12 @@ for (let { name, buffers } of require('./table_config')) {
 for (let {name, buffers, countBys, counts} of require('./table_config')) {
     const table = Table.from(buffers);
 
+    const tableIterateSuiteName = `Table Iterate "${name}"`;
     const dfCountBySuiteName = `DataFrame Count By "${name}"`;
     const dfFilterCountSuiteName = `DataFrame Filter-Scan Count "${name}"`;
     const dfDirectCountSuiteName = `DataFrame Direct Count "${name}"`;
 
+    suites.push(createTestSuite(tableIterateSuiteName, createTableIterateTest(table)));
     suites.push(...countBys.map((countBy) => createTestSuite(dfCountBySuiteName, createDataFrameCountByTest(table, countBy))));
     suites.push(...counts.map(({ col, test, value }) => createTestSuite(dfFilterCountSuiteName, createDataFrameFilterCountTest(table, col, test, value))));
     suites.push(...counts.map(({ col, test, value }) => createTestSuite(dfDirectCountSuiteName, createDataFrameDirectCountTest(table, col, test, value))));
@@ -132,6 +134,15 @@ function createGetByIndexTest(vector, name) {
                 value = vector.get(i);
             }
         }
+    };
+}
+
+function createTableIterateTest(table) {
+    let value;
+    return {
+        async: true,
+        name: `length: ${table.length}\n`,
+        fn() { for (value of table) {} }
     };
 }
 

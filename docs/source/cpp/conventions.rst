@@ -18,6 +18,8 @@
 .. default-domain:: cpp
 .. highlight:: cpp
 
+.. cpp:namespace:: arrow
+
 Conventions
 ===========
 
@@ -60,32 +62,46 @@ own, but third-party exceptions might propagate through, especially
 :class:`std::bad_alloc` (but Arrow doesn't use the standard allocators for
 large data).
 
-As a consequence, the result value of a function is generally passed as an
-out-pointer parameter, rather than as a function return value.
-
-(however, functions which always determiniscally succeed may eschew this
-convention and return their result directly)
+When an API can return either an error code or a successful value, it usually
+does so by returning the template class
+:class:`arrow::Result <template\<class T\> arrow::Result>`.  However,
+some APIs (usually deprecated) return :class:`arrow::Status` and pass the
+result value as an out-pointer parameter.
 
 Here is an example of checking the outcome of an operation::
 
    const int64_t buffer_size = 4096;
-   std::shared_ptr<arrow::Buffer> buffer;
 
-   auto status = arrow::AllocateBuffer(buffer_size, &buffer);
-   if (!status.ok()) {
+   auto maybe_buffer = arrow::AllocateBuffer(buffer_size, &buffer);
+   if (!maybe_buffer.ok()) {
       // ... handle error
+   } else {
+      std::shared_ptr<arrow::Buffer> buffer = *maybe_buffer;
+      // ... use allocated buffer
    }
 
-If the caller function itself returns a :class:`arrow::Status` and wants
-to propagate any non-successful outcomes, a convenience macro
-:cpp:func:`ARROW_RETURN_NON_OK` is available::
+If the caller function itself returns a :class:`arrow::Result` or
+:class:`arrow::Status` and wants to propagate any non-successful outcome, two
+convenience macros are available:
+
+* :c:macro:`ARROW_RETURN_NOT_OK` takes a :class:`arrow::Status` parameter
+  and returns it if not successful.
+
+* :c:macro:`ARROW_ASSIGN_OR_RAISE` takes a :class:`arrow::Result` parameter,
+  assigns its result to a *lvalue* if successful, or returns the corresponding
+  :class:`arrow::Status` on error.
+
+For example::
 
    arrow::Status DoSomething() {
       const int64_t buffer_size = 4096;
       std::shared_ptr<arrow::Buffer> buffer;
-      ARROW_RETURN_NON_OK(arrow::AllocateBuffer(buffer_size, &buffer));
+      ARROW_ASSIGN_OR_RAISE(buffer, arrow::AllocateBuffer(buffer_size));
       // ... allocation successful, do something with buffer below
 
       // return success at the end
       return Status::OK();
    }
+
+.. seealso::
+   :doc:`API reference for error reporting <api/support>`

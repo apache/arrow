@@ -1,0 +1,6 @@
+{"benchmark": "RegressionSumKernel/32768/10", "change": 0.0046756468886368545, "regression": false, "baseline": 13265442258.099466, "contender": 13327466781.91994, "unit": "bytes_per_second", "less_is_better": false, "suite": "arrow-compute-aggregate-benchmark"}
+{"benchmark": "RegressionSumKernel/32768/1", "change": 0.0025108399115900733, "regression": false, "baseline": 15181891659.539782, "contender": 15220010959.05199, "unit": "bytes_per_second", "less_is_better": false, "suite": "arrow-compute-aggregate-benchmark"}
+
+{"benchmark": "RegressionSumKernel/32768/50", "change": 0.00346735806287155, "regression": false, "baseline": 11471825667.817123, "contender": 11511602595.042286, "unit": "bytes_per_second", "less_is_better": false, "suite": "arrow-compute-aggregate-benchmark"}
+
+{"benchmark": "RegressionSumKernel/32768/0", "change": 0.010140954727954987, "regression": false, "baseline": 18316987019.994465, "contender": 18502738756.116768, "unit": "bytes_per_second", "less_is_better": false, "suite": "arrow-compute-aggregate-benchmark"}

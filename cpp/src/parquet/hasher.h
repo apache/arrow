@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_HASHER_H
-#define PARQUET_HASHER_H
+#pragma once
 
 #include <cstdint>
 #include "parquet/types.h"
@@ -71,5 +70,3 @@ class Hasher {
 };
 
 }  // namespace parquet
-
-#endif  // PARQUET_HASHER_H

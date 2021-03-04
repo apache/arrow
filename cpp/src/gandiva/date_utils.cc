@@ -16,6 +16,7 @@
 // under the License.
 
 #include <algorithm>
+#include <cstdint>
 #include <memory>
 #include <sstream>
 #include <vector>
@@ -57,7 +58,7 @@ Status DateUtils::ToInternalFormat(const std::string& format,
   std::stringstream buffer;
   bool is_in_quoted_text = false;
 
-  for (uint i = 0; i < format.length(); i++) {
+  for (size_t i = 0; i < format.size(); i++) {
     char currentChar = format[i];
 
     // logic before we append to the buffer

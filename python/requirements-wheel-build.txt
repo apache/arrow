@@ -1,0 +1,5 @@
+cython>=0.29.11
+numpy==1.16.6; python_version < "3.9"
+numpy==1.19.4; python_version >= "3.9"
+setuptools_scm
+wheel

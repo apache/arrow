@@ -15,16 +15,30 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#![feature(type_ascription)]
-#![feature(rustc_private)]
-#![feature(specialization)]
-#![feature(try_from)]
+#![allow(incomplete_features)]
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
+#![allow(bare_trait_objects)]
+#![allow(
+    clippy::approx_constant,
+    clippy::borrowed_box,
+    clippy::cast_ptr_alignment,
+    clippy::comparison_chain,
+    clippy::float_cmp,
+    clippy::float_equality_without_abs,
+    clippy::many_single_char_names,
+    clippy::needless_range_loop,
+    clippy::new_without_default,
+    clippy::or_fun_call,
+    clippy::same_item_push,
+    clippy::too_many_arguments,
+    clippy::transmute_ptr_to_ptr
+)]
 
 #[macro_use]
 pub mod errors;
 pub mod basic;
+#[macro_use]
 pub mod data_type;
 
 // Exported for external use, such as benchmarks
@@ -33,10 +47,11 @@ pub use self::util::memory;
 
 #[macro_use]
 mod util;
+#[cfg(any(feature = "arrow", test))]
+pub mod arrow;
 pub mod column;
 pub mod compression;
 mod encodings;
 pub mod file;
-pub mod reader;
 pub mod record;
 pub mod schema;

@@ -20,23 +20,23 @@ namespace Apache.Arrow
 {
     public static class ArrowTypeExtensions
     {
-        private static readonly ISet<ArrowTypeId> IntegralTypes = 
+        private static readonly ISet<ArrowTypeId> s_integralTypes = 
             new HashSet<ArrowTypeId>(new[]
             {
                 ArrowTypeId.Int8, ArrowTypeId.Int16, ArrowTypeId.Int32, ArrowTypeId.Int64,
                 ArrowTypeId.UInt8, ArrowTypeId.UInt16, ArrowTypeId.UInt32, ArrowTypeId.UInt64,
             });
 
-        private static readonly ISet<ArrowTypeId> FloatingPointTypes =
+        private static readonly ISet<ArrowTypeId> s_floatingPointTypes =
             new HashSet<ArrowTypeId>(new[]
             {
                 ArrowTypeId.HalfFloat, ArrowTypeId.Float, ArrowTypeId.Double
             });
 
         public static bool IsIntegral(this IArrowType type) 
-            => IntegralTypes.Contains(type.TypeId);
+            => s_integralTypes.Contains(type.TypeId);
 
         public static bool IsFloatingPoint(this IArrowType type)
-            => FloatingPointTypes.Contains(type.TypeId);
+            => s_floatingPointTypes.Contains(type.TypeId);
     }
 }

@@ -17,7 +17,7 @@
 
 // BitMap functions
 
-#include "arrow/util/bit-util.h"
+#include "arrow/util/bit_util.h"
 
 extern "C" {
 

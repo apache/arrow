@@ -15,9 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow.includes.libarrow cimport CStatus
+from pyarrow.includes.libarrow cimport CStatus, IsPyError, RestorePyError
 from pyarrow.includes.common cimport c_string
-from pyarrow.compat import frombytes
 
 
 class ArrowException(Exception):
@@ -32,12 +31,10 @@ class ArrowMemoryError(MemoryError, ArrowException):
     pass
 
 
-class ArrowIOError(IOError, ArrowException):
-    pass
-
-
 class ArrowKeyError(KeyError, ArrowException):
-    pass
+    def __str__(self):
+        # Override KeyError.__str__, as it uses the repr() of the key
+        return ArrowException.__str__(self)
 
 
 class ArrowTypeError(TypeError, ArrowException):
@@ -52,15 +49,7 @@ class ArrowCapacityError(ArrowException):
     pass
 
 
-class PlasmaObjectExists(ArrowException):
-    pass
-
-
-class PlasmaObjectNonexistent(ArrowException):
-    pass
-
-
-class PlasmaStoreFull(ArrowException):
+class ArrowIndexError(IndexError, ArrowException):
     pass
 
 
@@ -68,19 +57,46 @@ class ArrowSerializationError(ArrowException):
     pass
 
 
+# Compatibility alias
+ArrowIOError = IOError
+
+
+# This function could be written directly in C++ if we didn't
+# define Arrow-specific subclasses (ArrowInvalid etc.)
 cdef int check_status(const CStatus& status) nogil except -1:
     if status.ok():
         return 0
 
-    if status.IsPythonError():
-        return -1
-
     with gil:
-        message = frombytes(status.message())
+        if IsPyError(status):
+            RestorePyError(status)
+            return -1
+
+        # We don't use Status::ToString() as it would redundantly include
+        # the C++ class name.
+        message = frombytes(status.message(), safe=True)
+        detail = status.detail()
+        if detail != nullptr:
+            message += ". Detail: " + frombytes(detail.get().ToString(),
+                                                safe=True)
+
         if status.IsInvalid():
             raise ArrowInvalid(message)
         elif status.IsIOError():
-            raise ArrowIOError(message)
+            # Note: OSError constructor is
+            #   OSError(message)
+            # or
+            #   OSError(errno, message, filename=None)
+            # or (on Windows)
+            #   OSError(errno, message, filename, winerror)
+            errno = ErrnoFromStatus(status)
+            winerror = WinErrorFromStatus(status)
+            if winerror != 0:
+                raise IOError(errno, message, None, winerror)
+            elif errno != 0:
+                raise IOError(errno, message)
+            else:
+                raise IOError(message)
         elif status.IsOutOfMemory():
             raise ArrowMemoryError(message)
         elif status.IsKeyError():
@@ -91,14 +107,16 @@ cdef int check_status(const CStatus& status) nogil except -1:
             raise ArrowTypeError(message)
         elif status.IsCapacityError():
             raise ArrowCapacityError(message)
-        elif status.IsPlasmaObjectExists():
-            raise PlasmaObjectExists(message)
-        elif status.IsPlasmaObjectNonexistent():
-            raise PlasmaObjectNonexistent(message)
-        elif status.IsPlasmaStoreFull():
-            raise PlasmaStoreFull(message)
+        elif status.IsIndexError():
+            raise ArrowIndexError(message)
         elif status.IsSerializationError():
             raise ArrowSerializationError(message)
         else:
-            message = frombytes(status.ToString())
+            message = frombytes(status.ToString(), safe=True)
             raise ArrowException(message)
+
+
+# This is an API function for C++ PyArrow
+cdef api int pyarrow_internal_check_status(const CStatus& status) \
+        nogil except -1:
+    return check_status(status)

@@ -28,23 +28,32 @@ Inter-Process Communication
 .. autosummary::
    :toctree: ../generated/
 
+   ipc.new_file
    ipc.open_file
+   ipc.new_stream
    ipc.open_stream
-   Message
-   MessageReader
-   RecordBatchFileReader
-   RecordBatchFileWriter
-   RecordBatchStreamReader
-   RecordBatchStreamWriter
-   read_message
-   read_record_batch
-   get_record_batch_size
-   read_tensor
-   write_tensor
-   get_tensor_size
+   ipc.read_message
+   ipc.read_record_batch
+   ipc.get_record_batch_size
+   ipc.read_tensor
+   ipc.write_tensor
+   ipc.get_tensor_size
+   ipc.Message
+   ipc.MessageReader
+   ipc.RecordBatchFileReader
+   ipc.RecordBatchFileWriter
+   ipc.RecordBatchStreamReader
+   ipc.RecordBatchStreamWriter
 
 Serialization
 -------------
+
+.. warning::
+
+   The serialization functionality is deprecated in pyarrow 2.0, and will
+   be removed in a future version. Use the standard library ``pickle`` or
+   the IPC functionality of pyarrow (see :ref:`ipc`).
+
 
 .. autosummary::
    :toctree: ../generated/

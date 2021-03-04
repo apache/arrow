@@ -1,0 +1,120 @@
+# -*- ruby -*-
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+require_relative "../helper"
+require_relative "../package-task"
+
+class ApacheArrowPackageTask < PackageTask
+  include Helper::ApacheArrow
+
+  def initialize
+    release_time = detect_release_time
+    super("apache-arrow",
+          detect_version(release_time),
+          release_time,
+          :rc_build_type => :release)
+    @rpm_package = "arrow"
+  end
+
+  private
+  def define_archive_task
+    file @archive_name do
+      case @version
+      when /\A\d+\.\d+\.\d+-rc\d+\z/
+        download_rc_archive
+      when /\A\d+\.\d+\.\d+\z/
+        download_released_archive
+      else
+        build_archive
+      end
+    end
+
+    if deb_archive_name != @archive_name
+      file deb_archive_name => @archive_name do
+        cp(@archive_name, deb_archive_name)
+      end
+    end
+
+    if rpm_archive_name != @archive_name
+      file rpm_archive_name => @archive_name do
+        cp(@archive_name, rpm_archive_name)
+      end
+    end
+  end
+
+  def download_rc_archive
+    base_url = "https://dist.apache.org/repos/dist/dev/arrow"
+    archive_name_no_rc = @archive_name.gsub(/-rc\d+(\.tar\.gz)\z/, "\\1")
+    url = "#{base_url}/#{@package}-#{@version}/#{archive_name_no_rc}"
+    download(url, @archive_name)
+  end
+
+  def download_released_archive
+    mirror_base_url = "https://www.apache.org/dyn/closer.lua/arrow"
+    mirror_list_url = "#{mirror_base_url}/arrow-#{@version}/#{@archive_name}"
+    open(mirror_list_url) do |response|
+      if /href="(.+?\/#{Regexp.escape(@archive_name)})"/ =~ response.read
+        download($1, ".")
+      end
+    end
+  end
+
+  def build_archive
+    cd(arrow_source_dir) do
+      sh("git", "archive", "HEAD",
+         "--prefix", "#{@archive_base_name}/",
+         "--output", @full_archive_name)
+    end
+  end
+
+  def apt_arm64_cuda_available_target?(target)
+    # ubuntu-20.10 has navidia-cuda-toolkit but not libcuda1.
+    # ubuntu-21.04 may support this.
+    false
+  end
+
+  def apt_prepare_debian_control_cuda_architecture(control, target)
+    if apt_arm64_cuda_available_target?(target)
+      cuda_architecture = "any"
+    else
+      cuda_architecture = "i386 amd64"
+    end
+    control.gsub(/@CUDA_ARCHITECTURE@/, cuda_architecture)
+  end
+
+  def apt_prepare_debian_control_grpc(control, target)
+    case target
+    when /\Adebian-/, /\Aubuntu-(?:xenial|bionic|focal)/
+      use_system_grpc = "#"
+    else
+      use_system_grpc = ""
+    end
+    control.gsub(/@USE_SYSTEM_GRPC@/, use_system_grpc)
+  end
+
+  def apt_prepare_debian_control(control_in, target)
+    control = control_in.dup
+    control = apt_prepare_debian_control_cuda_architecture(control, target)
+    control = apt_prepare_debian_control_grpc(control, target)
+    control
+  end
+end
+
+task = ApacheArrowPackageTask.new
+task.define

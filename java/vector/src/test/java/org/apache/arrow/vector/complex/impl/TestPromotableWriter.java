@@ -19,16 +19,19 @@ package org.apache.arrow.vector.complex.impl;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNull;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.DirtyRootAllocator;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
+import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -90,7 +93,7 @@ public class TestPromotableWriter {
       assertFalse("2 shouldn't be null", uv.isNull(2));
       assertEquals(10, uv.getObject(2));
 
-      assertTrue("3 should be null", uv.isNull(3));
+      assertNull("3 should be null", uv.getObject(3));
 
       assertFalse("4 shouldn't be null", uv.isNull(4));
       assertEquals(100, uv.getObject(4));
@@ -113,6 +116,52 @@ public class TestPromotableWriter {
           childField1.getName(), ArrowTypeID.Union, childField1.getType().getTypeID());
       assertEquals("Child field should be decimal type: " +
           childField2.getName(), ArrowTypeID.Decimal, childField2.getType().getTypeID());
+    }
+  }
+
+  @Test
+  public void testNoPromoteToUnionWithNull() throws Exception {
+
+    try (final NonNullableStructVector container = NonNullableStructVector.empty(EMPTY_SCHEMA_PATH, allocator);
+         final StructVector v = container.addOrGetStruct("test");
+         final PromotableWriter writer = new PromotableWriter(v, container)) {
+
+      container.allocateNew();
+
+      writer.start();
+      writer.list("list").startList();
+      writer.list("list").endList();
+      writer.end();
+
+      FieldType childTypeOfListInContainer = container.getField().getChildren().get(0).getChildren().get(0)
+              .getChildren().get(0).getFieldType();
+
+
+      // create a listvector with same type as list in container to, say, hold a copy
+      // this will be a nullvector
+      ListVector lv = ListVector.empty("name", allocator);
+      lv.addOrGetVector(childTypeOfListInContainer);
+      assertEquals(childTypeOfListInContainer.getType(), Types.MinorType.NULL.getType());
+      assertEquals(lv.getChildrenFromFields().get(0).getMinorType().getType(), Types.MinorType.NULL.getType());
+
+      writer.start();
+      writer.list("list").startList();
+      writer.list("list").float4().writeFloat4(1.36f);
+      writer.list("list").endList();
+      writer.end();
+
+      container.setValueCount(2);
+
+      childTypeOfListInContainer = container.getField().getChildren().get(0).getChildren().get(0)
+              .getChildren().get(0).getFieldType();
+
+      // repeat but now the type in container has been changed from null to float
+      // we expect same behaviour from listvector
+      lv.addOrGetVector(childTypeOfListInContainer);
+      assertEquals(childTypeOfListInContainer.getType(), Types.MinorType.FLOAT4.getType());
+      assertEquals(lv.getChildrenFromFields().get(0).getMinorType().getType(), Types.MinorType.FLOAT4.getType());
+
+      lv.close();
     }
   }
 }

@@ -17,46 +17,89 @@
 
 //! Common Parquet errors and macros.
 
-use std::{cell, convert, io, result};
+use std::{cell, convert, io, result, str};
 
-use quick_error::quick_error;
-use snap;
-use thrift;
+#[cfg(any(feature = "arrow", test))]
+use arrow::error::ArrowError;
 
-quick_error! {
-  /// Set of errors that can be produced during different operations in Parquet.
-  #[derive(Debug, PartialEq)]
-  pub enum ParquetError {
-      /// General Parquet error.
-      /// Returned when code violates normal workflow of working with Parquet files.
-      General(message: String) {
-          display("Parquet error: {}", message)
-              description(message)
-              from(e: io::Error) -> (format!("underlying IO error: {}", e))
-              from(e: snap::Error) -> (format!("underlying snap error: {}", e))
-              from(e: thrift::Error) -> (format!("underlying Thrift error: {}", e))
-              from(e: cell::BorrowMutError) -> (format!("underlying borrow error: {}", e))
-      }
-      /// "Not yet implemented" Parquet error.
-      /// Returned when functionality is not yet available.
-      NYI(message: String) {
-          display("NYI: {}", message)
-              description(message)
-      }
-      /// "End of file" Parquet error.
-      /// Returned when IO related failures occur, e.g. when there are not enough bytes to
-      /// decode.
-      EOF(message: String) {
-          display("EOF: {}", message)
-              description(message)
-      }
-      /// Arrow error.
-      /// Returned when reading into arrow or writing from arrow.
-      ArrowError(message:  String) {
-          display("Arrow: {}", message)
-              description(message)
-      }
-  }
+#[derive(Debug, PartialEq)]
+pub enum ParquetError {
+    /// General Parquet error.
+    /// Returned when code violates normal workflow of working with Parquet files.
+    General(String),
+    /// "Not yet implemented" Parquet error.
+    /// Returned when functionality is not yet available.
+    NYI(String),
+    /// "End of file" Parquet error.
+    /// Returned when IO related failures occur, e.g. when there are not enough bytes to
+    /// decode.
+    EOF(String),
+    #[cfg(any(feature = "arrow", test))]
+    /// Arrow error.
+    /// Returned when reading into arrow or writing from arrow.
+    ArrowError(String),
+    IndexOutOfBound(usize, usize),
+}
+
+impl std::fmt::Display for ParquetError {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match *self {
+            ParquetError::General(ref message) => {
+                write!(fmt, "Parquet error: {}", message)
+            }
+            ParquetError::NYI(ref message) => write!(fmt, "NYI: {}", message),
+            ParquetError::EOF(ref message) => write!(fmt, "EOF: {}", message),
+            #[cfg(any(feature = "arrow", test))]
+            ParquetError::ArrowError(ref message) => write!(fmt, "Arrow: {}", message),
+            ParquetError::IndexOutOfBound(ref index, ref bound) => {
+                write!(fmt, "Index {} out of bound: {}", index, bound)
+            }
+        }
+    }
+}
+
+impl std::error::Error for ParquetError {
+    fn cause(&self) -> Option<&::std::error::Error> {
+        None
+    }
+}
+
+impl From<io::Error> for ParquetError {
+    fn from(e: io::Error) -> ParquetError {
+        ParquetError::General(format!("underlying IO error: {}", e))
+    }
+}
+
+#[cfg(any(feature = "snap", test))]
+impl From<snap::Error> for ParquetError {
+    fn from(e: snap::Error) -> ParquetError {
+        ParquetError::General(format!("underlying snap error: {}", e))
+    }
+}
+
+impl From<thrift::Error> for ParquetError {
+    fn from(e: thrift::Error) -> ParquetError {
+        ParquetError::General(format!("underlying Thrift error: {}", e))
+    }
+}
+
+impl From<cell::BorrowMutError> for ParquetError {
+    fn from(e: cell::BorrowMutError) -> ParquetError {
+        ParquetError::General(format!("underlying borrow error: {}", e))
+    }
+}
+
+impl From<str::Utf8Error> for ParquetError {
+    fn from(e: str::Utf8Error) -> ParquetError {
+        ParquetError::General(format!("underlying utf8 error: {}", e))
+    }
+}
+
+#[cfg(any(feature = "arrow", test))]
+impl From<ArrowError> for ParquetError {
+    fn from(e: ArrowError) -> ParquetError {
+        ParquetError::ArrowError(format!("underlying Arrow error: {}", e))
+    }
 }
 
 /// A specialized `Result` for Parquet errors.
@@ -90,4 +133,14 @@ macro_rules! nyi_err {
 macro_rules! eof_err {
     ($fmt:expr) => (ParquetError::EOF($fmt.to_owned()));
     ($fmt:expr, $($args:expr),*) => (ParquetError::EOF(format!($fmt, $($args),*)));
+}
+
+// ----------------------------------------------------------------------
+// Convert parquet error into other errors
+
+#[cfg(any(feature = "arrow", test))]
+impl Into<ArrowError> for ParquetError {
+    fn into(self) -> ArrowError {
+        ArrowError::ParquetError(format!("{}", self))
+    }
 }

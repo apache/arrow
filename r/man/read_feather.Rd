@@ -2,25 +2,49 @@
 % Please edit documentation in R/feather.R
 \name{read_feather}
 \alias{read_feather}
-\title{Read a feather file}
+\title{Read a Feather file}
 \usage{
-read_feather(file, columns = NULL, as_tibble = TRUE,
-  use_threads = TRUE, ...)
+read_feather(file, col_select = NULL, as_data_frame = TRUE, ...)
 }
 \arguments{
-\item{file}{a arrow::ipc::feather::TableReader or whatever the \code{\link[=FeatherTableReader]{FeatherTableReader()}} function can handle}
+\item{file}{A character file name or URI, \code{raw} vector, an Arrow input stream,
+or a \code{FileSystem} with path (\code{SubTreeFileSystem}).
+If a file name or URI, an Arrow \link{InputStream} will be opened and
+closed when finished. If an input stream is provided, it will be left
+open.}
 
-\item{columns}{names if the columns to read. The default \code{NULL} means all columns}
+\item{col_select}{A character vector of column names to keep, as in the
+"select" argument to \code{data.table::fread()}, or a
+\link[tidyselect:vars_select]{tidy selection specification}
+of columns, as used in \code{dplyr::select()}.}
 
-\item{as_tibble}{should the \link[=arrow__Table]{arrow::Table} be converted to a tibble.}
+\item{as_data_frame}{Should the function return a \code{data.frame} (default) or
+an Arrow \link{Table}?}
 
-\item{use_threads}{Use threads when converting to a tibble.}
-
-\item{...}{additional parameters}
+\item{...}{additional parameters, passed to \link[=FeatherReader]{FeatherReader$create()}}
 }
 \value{
-a data frame if \code{as_tibble} is \code{TRUE} (the default), or a \link[=arrow__Table]{arrow::Table} otherwise
+A \code{data.frame} if \code{as_data_frame} is \code{TRUE} (the default), or an
+Arrow \link{Table} otherwise
 }
 \description{
-Read a feather file
+Feather provides binary columnar serialization for data frames.
+It is designed to make reading and writing data frames efficient,
+and to make sharing data across data analysis languages easy.
+This function reads both the original, limited specification of the format
+and the version 2 specification, which is the Apache Arrow IPC file format.
+}
+\examples{
+\donttest{
+tf <- tempfile()
+on.exit(unlink(tf))
+write_feather(mtcars, tf)
+df <- read_feather(tf)
+dim(df)
+# Can select columns
+df <- read_feather(tf, col_select = starts_with("d"))
+}
+}
+\seealso{
+\link{FeatherReader} and \link{RecordBatchReader} for lower-level access to reading Arrow IPC data.
 }

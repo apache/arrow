@@ -17,17 +17,27 @@
 
 package org.apache.arrow.vector;
 
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.impl.UnionFixedSizeListReader;
+import org.apache.arrow.vector.complex.impl.UnionFixedSizeListWriter;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Assert;
@@ -66,11 +76,11 @@ public class TestFixedSizeListVector {
         reader.setPosition(i);
         Assert.assertTrue(reader.isSet());
         Assert.assertTrue(reader.next());
-        Assert.assertEquals(i, reader.reader().readInteger().intValue());
+        assertEquals(i, reader.reader().readInteger().intValue());
         Assert.assertTrue(reader.next());
-        Assert.assertEquals(i + 10, reader.reader().readInteger().intValue());
+        assertEquals(i + 10, reader.reader().readInteger().intValue());
         Assert.assertFalse(reader.next());
-        Assert.assertEquals(Arrays.asList(i, i + 10), reader.readObject());
+        assertEquals(Arrays.asList(i, i + 10), reader.readObject());
       }
     }
   }
@@ -97,11 +107,11 @@ public class TestFixedSizeListVector {
         if (i % 2 == 0) {
           Assert.assertTrue(reader.isSet());
           Assert.assertTrue(reader.next());
-          Assert.assertEquals(i + 0.1f, reader.reader().readFloat(), 0.00001);
+          assertEquals(i + 0.1f, reader.reader().readFloat(), 0.00001);
           Assert.assertTrue(reader.next());
-          Assert.assertEquals(i + 10.1f, reader.reader().readFloat(), 0.00001);
+          assertEquals(i + 10.1f, reader.reader().readFloat(), 0.00001);
           Assert.assertFalse(reader.next());
-          Assert.assertEquals(Arrays.asList(i + 0.1f, i + 10.1f), reader.readObject());
+          assertEquals(Arrays.asList(i + 0.1f, i + 10.1f), reader.readObject());
         } else {
           Assert.assertFalse(reader.isSet());
           Assert.assertNull(reader.readObject());
@@ -141,7 +151,7 @@ public class TestFixedSizeListVector {
             FieldReader innerListReader = reader.reader();
             for (int k = 0; k < 2; k++) {
               Assert.assertTrue(innerListReader.next());
-              Assert.assertEquals(k + j, innerListReader.reader().readInteger().intValue());
+              assertEquals(k + j, innerListReader.reader().readInteger().intValue());
             }
             Assert.assertFalse(innerListReader.next());
           }
@@ -188,29 +198,29 @@ public class TestFixedSizeListVector {
       reader.setPosition(1);
       Assert.assertTrue(reader.isSet());
       Assert.assertTrue(reader.next());
-      Assert.assertEquals(0.1f, reader.reader().readFloat(), 0.00001);
+      assertEquals(0.1f, reader.reader().readFloat(), 0.00001);
       Assert.assertTrue(reader.next());
-      Assert.assertEquals(10.1f, reader.reader().readFloat(), 0.00001);
+      assertEquals(10.1f, reader.reader().readFloat(), 0.00001);
       Assert.assertFalse(reader.next());
-      Assert.assertEquals(Arrays.asList(0.1f, 10.1f), reader.readObject());
+      assertEquals(Arrays.asList(0.1f, 10.1f), reader.readObject());
 
       reader.setPosition(2);
       Assert.assertTrue(reader.isSet());
       Assert.assertTrue(reader.next());
-      Assert.assertEquals(2.1f, reader.reader().readFloat(), 0.00001);
+      assertEquals(2.1f, reader.reader().readFloat(), 0.00001);
       Assert.assertTrue(reader.next());
-      Assert.assertEquals(12.1f, reader.reader().readFloat(), 0.00001);
+      assertEquals(12.1f, reader.reader().readFloat(), 0.00001);
       Assert.assertFalse(reader.next());
-      Assert.assertEquals(Arrays.asList(2.1f, 12.1f), reader.readObject());
+      assertEquals(Arrays.asList(2.1f, 12.1f), reader.readObject());
 
       reader.setPosition(3);
       Assert.assertTrue(reader.isSet());
       Assert.assertTrue(reader.next());
-      Assert.assertEquals(4.1f, reader.reader().readFloat(), 0.00001);
+      assertEquals(4.1f, reader.reader().readFloat(), 0.00001);
       Assert.assertTrue(reader.next());
-      Assert.assertEquals(14.1f, reader.reader().readFloat(), 0.00001);
+      assertEquals(14.1f, reader.reader().readFloat(), 0.00001);
       Assert.assertFalse(reader.next());
-      Assert.assertEquals(Arrays.asList(4.1f, 14.1f), reader.readObject());
+      assertEquals(Arrays.asList(4.1f, 14.1f), reader.readObject());
 
       for (int i = 4; i < 10; i++) {
         reader.setPosition(i);
@@ -230,6 +240,267 @@ public class TestFixedSizeListVector {
       String emptyVectorStr = listVector.getField().toString();
       Assert.assertTrue(emptyVectorStr.contains(ListVector.DATA_VECTOR_NAME));
     }
+  }
+
+  @Test
+  public void testUnionFixedSizeListWriterWithNulls() throws Exception {
+    /* Write to a decimal list vector
+     * each list of size 3 and having its data values alternating between null and a non-null.
+     * Read and verify
+     */
+    try (final FixedSizeListVector vector = FixedSizeListVector.empty("vector", /*listSize=*/3, allocator)) {
+
+      UnionFixedSizeListWriter writer = vector.getWriter();
+      writer.allocate();
+
+      final int valueCount = 100;
+
+      for (int i = 0; i < valueCount; i++) {
+        writer.startList();
+        writer.decimal().writeDecimal(new BigDecimal(i));
+        writer.writeNull();
+        writer.decimal().writeDecimal(new BigDecimal(i * 3));
+        writer.endList();
+      }
+      vector.setValueCount(valueCount);
+
+      for (int i = 0; i < valueCount; i++) {
+        List<BigDecimal> values = (List<BigDecimal>) vector.getObject(i);
+        assertEquals(3, values.size());
+        assertEquals(new BigDecimal(i), values.get(0));
+        assertEquals(null, values.get(1));
+        assertEquals(new BigDecimal(i * 3), values.get(2));
+      }
+    }
+  }
+
+  @Test
+  public void testUnionFixedSizeListWriter() throws Exception {
+    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", 3, allocator)) {
+
+      UnionFixedSizeListWriter writer1 = vector1.getWriter();
+      writer1.allocate();
+
+      int[] values1 = new int[] {1, 2, 3};
+      int[] values2 = new int[] {4, 5, 6};
+      int[] values3 = new int[] {7, 8, 9};
+
+      //set some values
+      writeListVector(vector1, writer1, values1);
+      writeListVector(vector1, writer1, values2);
+      writeListVector(vector1, writer1, values3);
+      writer1.setValueCount(3);
+
+      assertEquals(3, vector1.getValueCount());
+
+      int[] realValue1 = convertListToIntArray((JsonStringArrayList) vector1.getObject(0));
+      assertTrue(Arrays.equals(values1, realValue1));
+      int[] realValue2 = convertListToIntArray((JsonStringArrayList) vector1.getObject(1));
+      assertTrue(Arrays.equals(values2, realValue2));
+      int[] realValue3 = convertListToIntArray((JsonStringArrayList) vector1.getObject(2));
+      assertTrue(Arrays.equals(values3, realValue3));
+    }
+  }
+
+  @Test
+  public void testWriteDecimal() throws Exception {
+    try (final FixedSizeListVector vector = FixedSizeListVector.empty("vector", /*listSize=*/3, allocator)) {
+
+      UnionFixedSizeListWriter writer = vector.getWriter();
+      writer.allocate();
+
+      final int valueCount = 100;
+
+      for (int i = 0; i < valueCount; i++) {
+        writer.startList();
+        writer.decimal().writeDecimal(new BigDecimal(i));
+        writer.decimal().writeDecimal(new BigDecimal(i * 2));
+        writer.decimal().writeDecimal(new BigDecimal(i * 3));
+        writer.endList();
+      }
+      vector.setValueCount(valueCount);
+
+      for (int i = 0; i < valueCount; i++) {
+        List<BigDecimal> values = (List<BigDecimal>) vector.getObject(i);
+        assertEquals(3, values.size());
+        assertEquals(new BigDecimal(i), values.get(0));
+        assertEquals(new BigDecimal(i * 2), values.get(1));
+        assertEquals(new BigDecimal(i * 3), values.get(2));
+      }
+    }
+  }
+
+  @Test
+  public void testDecimalIndexCheck() throws Exception {
+    try (final FixedSizeListVector vector = FixedSizeListVector.empty("vector", /*listSize=*/3, allocator)) {
+
+      UnionFixedSizeListWriter writer = vector.getWriter();
+      writer.allocate();
+
+      IllegalStateException e = assertThrows(IllegalStateException.class, () -> {
+        writer.startList();
+        writer.decimal().writeDecimal(new BigDecimal(1));
+        writer.decimal().writeDecimal(new BigDecimal(2));
+        writer.decimal().writeDecimal(new BigDecimal(3));
+        writer.decimal().writeDecimal(new BigDecimal(4));
+        writer.endList();
+      });
+      assertEquals("values at index 0 is greater than listSize 3", e.getMessage());
+    }
+  }
+
+
+  @Test(expected = IllegalStateException.class)
+  public void testWriteIllegalData() throws Exception {
+    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", 3, allocator)) {
+
+      UnionFixedSizeListWriter writer1 = vector1.getWriter();
+      writer1.allocate();
+
+      int[] values1 = new int[] {1, 2, 3};
+      int[] values2 = new int[] {4, 5, 6, 7, 8};
+
+      //set some values
+      writeListVector(vector1, writer1, values1);
+      writeListVector(vector1, writer1, values2);
+      writer1.setValueCount(3);
+
+      assertEquals(3, vector1.getValueCount());
+      int[] realValue1 = convertListToIntArray((JsonStringArrayList) vector1.getObject(0));
+      assertTrue(Arrays.equals(values1, realValue1));
+      int[] realValue2 = convertListToIntArray((JsonStringArrayList) vector1.getObject(1));
+      assertTrue(Arrays.equals(values2, realValue2));
+    }
+  }
+
+  @Test
+  public void testSplitAndTransfer() throws Exception {
+    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", 3, allocator)) {
+
+      UnionFixedSizeListWriter writer1 = vector1.getWriter();
+      writer1.allocate();
+
+      int[] values1 = new int[] {1, 2, 3};
+      int[] values2 = new int[] {4, 5, 6};
+      int[] values3 = new int[] {7, 8, 9};
+
+      //set some values
+      writeListVector(vector1, writer1, values1);
+      writeListVector(vector1, writer1, values2);
+      writeListVector(vector1, writer1, values3);
+      writer1.setValueCount(3);
+
+      TransferPair transferPair = vector1.getTransferPair(allocator);
+      transferPair.splitAndTransfer(0, 2);
+      FixedSizeListVector targetVector = (FixedSizeListVector) transferPair.getTo();
+
+      assertEquals(2, targetVector.getValueCount());
+      int[] realValue1 = convertListToIntArray((JsonStringArrayList) targetVector.getObject(0));
+      assertTrue(Arrays.equals(values1, realValue1));
+      int[] realValue2 = convertListToIntArray((JsonStringArrayList) targetVector.getObject(1));
+      assertTrue(Arrays.equals(values2, realValue2));
+
+      targetVector.clear();
+    }
+  }
+
+  @Test
+  public void testZeroWidthVector() {
+    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", 0, allocator)) {
+
+      UnionFixedSizeListWriter writer1 = vector1.getWriter();
+      writer1.allocate();
+
+      int[] values1 = new int[] {};
+      int[] values2 = new int[] {};
+      int[] values3 = null;
+      int[] values4 = new int[] {};
+
+      //set some values
+      writeListVector(vector1, writer1, values1);
+      writeListVector(vector1, writer1, values2);
+      writeListVector(vector1, writer1, values3);
+      writeListVector(vector1, writer1, values4);
+      writer1.setValueCount(4);
+
+      assertEquals(4, vector1.getValueCount());
+
+      int[] realValue1 = convertListToIntArray((JsonStringArrayList) vector1.getObject(0));
+      assertArrayEquals(values1, realValue1);
+      int[] realValue2 = convertListToIntArray((JsonStringArrayList) vector1.getObject(1));
+      assertArrayEquals(values2, realValue2);
+      assertNull(vector1.getObject(2));
+      int[] realValue4 = convertListToIntArray((JsonStringArrayList) vector1.getObject(3));
+      assertArrayEquals(values4, realValue4);
+    }
+  }
+
+  @Test
+  public void testVectorWithNulls() {
+    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", 4, allocator)) {
+
+      UnionFixedSizeListWriter writer1 = vector1.getWriter();
+      writer1.allocate();
+
+      List<Integer> values1 = Arrays.asList(null, 1, 2, 3);
+      List<Integer> values2 = Arrays.asList(4, null, 5, 6);
+      List<Integer> values3 = null;
+      List<Integer> values4 = Arrays.asList(7, 8, null, 9);
+
+      //set some values
+      writeListVector(vector1, writer1, values1);
+      writeListVector(vector1, writer1, values2);
+      writeListVector(vector1, writer1, values3);
+      writeListVector(vector1, writer1, values4);
+      writer1.setValueCount(4);
+
+      assertEquals(4, vector1.getValueCount());
+
+      List realValue1 = (JsonStringArrayList) vector1.getObject(0);
+      assertEquals(values1, realValue1);
+      List realValue2 = (JsonStringArrayList) vector1.getObject(1);
+      assertEquals(values2, realValue2);
+      List realValue3 = (JsonStringArrayList) vector1.getObject(2);
+      assertEquals(values3, realValue3);
+      List realValue4 = (JsonStringArrayList) vector1.getObject(3);
+      assertEquals(values4, realValue4);
+    }
+  }
+
+  private int[] convertListToIntArray(JsonStringArrayList list) {
+    int[] values = new int[list.size()];
+    for (int i = 0; i < list.size(); i++) {
+      values[i] = (int) list.get(i);
+    }
+    return values;
+  }
+
+  private void writeListVector(FixedSizeListVector vector, UnionFixedSizeListWriter writer, int[] values) {
+    writer.startList();
+    if (values != null) {
+      for (int v : values) {
+        writer.integer().writeInt(v);
+      }
+    } else {
+      vector.setNull(writer.getPosition());
+    }
+    writer.endList();
+  }
+
+  private void writeListVector(FixedSizeListVector vector, UnionFixedSizeListWriter writer, List<Integer> values) {
+    writer.startList();
+    if (values != null) {
+      for (Integer v : values) {
+        if (v == null) {
+          writer.writeNull();
+        } else {
+          writer.integer().writeInt(v);
+        }
+      }
+    } else {
+      vector.setNull(writer.getPosition());
+    }
+    writer.endList();
   }
 
 }

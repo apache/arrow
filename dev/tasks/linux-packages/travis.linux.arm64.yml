@@ -1,0 +1,117 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+os: linux
+arch: arm64
+dist: bionic
+language: minimal
+
+addons:
+  apt:
+    packages:
+      - apt-utils
+      - createrepo
+      - devscripts
+      - gpg
+      - libgit2-dev
+      - python3-pip
+      - rake
+      - rpm
+
+services:
+  - docker
+
+# don't build twice
+if: tag IS blank
+
+env:
+  global:
+    - APT_TARGETS={{ target }}
+    - ARROW_VERSION={{ arrow.version }}
+    - BUILD_REF={{ arrow.head }}
+    - TRAVIS_TAG={{ task.tag }}
+    - YUM_TARGETS={{ target }}
+
+before_script:
+  - git clone --no-checkout {{ arrow.remote }} arrow
+  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+  - git -C arrow checkout FETCH_HEAD
+
+script:
+  # Build packages
+  - pushd arrow/dev/tasks/linux-packages
+  - rake version:update
+  - |
+      rake docker:pull || :
+  - pushd apache-arrow-archive-keyring/apt
+  - |
+      for target in debian-* ubuntu-*; do
+        cp -a ${target} ${target}-arm64
+      done
+  - popd
+  - pushd apache-arrow-release/yum
+  - |
+      for target in centos-*; do
+        cp -a ${target} ${target}-aarch64
+      done
+  - popd
+  - |
+      rake \
+        --trace \
+        {{ task_namespace }}:build \
+        BUILD_DIR=build \
+        DEB_BUILD_OPTIONS=parallel=2 \
+        RPM_BUILD_NCPUS=2
+  - sudo rm -rf */*/build
+  - popd
+  # Push Docker image
+  - pushd arrow/dev/tasks/linux-packages
+  - |
+      docker login -u "${DOCKERHUB_USER}" \
+                   -p "${DOCKERHUB_TOKEN}" || :
+  - |
+      rake docker:push || :
+  - popd
+  # Test built packages
+  - |
+      (echo "Key-Type: RSA"; \
+       echo "Key-Length: 4096"; \
+       echo "Name-Real: Test"; \
+       echo "Name-Email: test@example.com"; \
+       echo "%no-protection") | \
+        gpg --full-generate-key --batch
+  - |
+      GPG_KEY_ID=$(gpg --list-keys --with-colon test@example.com | grep fpr | cut -d: -f10)
+  - gpg --export --armor test@example.com > arrow/dev/tasks/linux-packages/KEYS
+  - pushd arrow/dev/tasks/linux-packages
+  - |
+      rake --trace {{ task_namespace }}:test GPG_KEY_ID=${GPG_KEY_ID}
+  - rm -rf {{ task_namespace }}/repositories
+  - popd
+
+after_success:
+  - sudo -H pip3 install --requirement arrow/dev/tasks/requirements-crossbow.txt
+  - |
+    python3 arrow/dev/tasks/crossbow.py \
+      --queue-path . \
+      --queue-remote {{ queue_remote_url }} \
+      upload-artifacts \
+    {%- for extension in upload_extensions %}
+      --pattern "arrow/dev/tasks/linux-packages/**/*{{ extension }}" \
+    {%- endfor %}
+      --sha {{ task.branch }} \
+      --tag {{ task.tag }}

@@ -17,9 +17,10 @@
 
 package org.apache.arrow.gandiva.evaluator;
 
-import org.apache.arrow.gandiva.ipc.GandivaTypes.SelectionVectorType;
+import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.gandiva.ipc.GandivaTypes.SelectionVectorType;
+import org.apache.arrow.memory.ArrowBuf;
 
 /**
  * A selection vector contains the indexes of "selected" records in a row batch. It is backed by an
@@ -42,7 +43,7 @@ public abstract class SelectionVector {
    * The maximum number of records that the selection vector can hold.
    */
   public final int getMaxRecords() {
-    return buffer.capacity() / getRecordSize();
+    return capAtMaxInt(buffer.capacity() / getRecordSize());
   }
 
   /*

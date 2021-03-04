@@ -15,14 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_IPC_API_H
-#define ARROW_IPC_API_H
+#pragma once
 
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/feather.h"
-#include "arrow/ipc/json.h"
+#include "arrow/ipc/json_simple.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
-
-#endif  // ARROW_IPC_API_H

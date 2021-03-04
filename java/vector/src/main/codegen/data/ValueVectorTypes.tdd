@@ -76,6 +76,10 @@
         { class: "UInt8" },
         { class: "Float8",           javaType: "double", boxedType: "Double", fields: [{name: "value", type: "double"}] },
         { class: "DateMilli",        javaType: "long",                      friendlyType: "LocalDateTime" },
+        { class: "Duration", javaType: "long", friendlyType: "Duration",
+          arrowType: "org.apache.arrow.vector.types.pojo.ArrowType.Duration",
+          typeParams: [ {name: "unit", type: "org.apache.arrow.vector.types.TimeUnit"} ],
+          arrowTypeConstructorParams: ["unit"]}
         { class: "TimeStampSec",     javaType: "long",   boxedType: "Long", friendlyType: "LocalDateTime" },
         { class: "TimeStampMilli",   javaType: "long",   boxedType: "Long", friendlyType: "LocalDateTime" },
         { class: "TimeStampMicro",   javaType: "long",   boxedType: "Long", friendlyType: "LocalDateTime" },
@@ -106,7 +110,23 @@
       javaType: "ArrowBuf",
       boxedType: "ArrowBuf",
       minor: [
-        { class: "IntervalDay", millisecondsOffset: 4, friendlyType: "Period", fields: [ {name: "days", type:"int"}, {name: "milliseconds", type:"int"}] }
+        { class: "IntervalDay", millisecondsOffset: 4, friendlyType: "Duration", fields: [ {name: "days", type:"int"}, {name: "milliseconds", type:"int"}] }
+      ]
+    },
+    {
+      major: "Fixed",
+      width: 32,
+      javaType: "ArrowBuf",
+      boxedType: "ArrowBuf",
+
+      minor: [
+        {
+          class: "Decimal256",
+          maxPrecisionDigits: 76, nDecimalDigits: 4, friendlyType: "BigDecimal",
+          typeParams: [ {name: "scale", type: "int"}, { name: "precision", type: "int"}],
+          arrowType: "org.apache.arrow.vector.types.pojo.ArrowType.Decimal",
+          fields: [{name: "start", type: "long"}, {name: "buffer", type: "ArrowBuf"}]
+        }
       ]
     },
     {
@@ -121,10 +141,11 @@
           maxPrecisionDigits: 38, nDecimalDigits: 4, friendlyType: "BigDecimal",
           typeParams: [ {name: "scale", type: "int"}, { name: "precision", type: "int"}],
           arrowType: "org.apache.arrow.vector.types.pojo.ArrowType.Decimal",
-          fields: [{name: "start", type: "int"}, {name: "buffer", type: "ArrowBuf"}]
+          fields: [{name: "start", type: "long"}, {name: "buffer", type: "ArrowBuf"}]
         }
       ]
     },
+
     {
       major: "Fixed",
       width: -1,
@@ -149,6 +170,17 @@
       minor: [
         { class: "VarBinary" , friendlyType: "byte[]" },
         { class: "VarChar" , friendlyType: "Text" }
+      ]
+    },
+    {
+      major: "VarLen",
+      width: 8,
+      javaType: "long",
+      boxedType: "ArrowBuf",
+      fields: [{name: "start", type: "long"}, {name: "end", type: "long"}, {name: "buffer", type: "ArrowBuf"}],
+      minor: [
+        { class: "LargeVarChar" , friendlyType: "Text" }
+        { class: "LargeVarBinary" , friendlyType: "byte[]" }
       ]
     },
     {

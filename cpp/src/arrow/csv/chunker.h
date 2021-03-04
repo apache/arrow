@@ -15,55 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_CSV_CHUNKER_H
-#define ARROW_CSV_CHUNKER_H
+#pragma once
 
 #include <cstdint>
+#include <memory>
 
 #include "arrow/csv/options.h"
 #include "arrow/status.h"
+#include "arrow/util/delimiting.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace csv {
 
-/// \class Chunker
-/// \brief A reusable block-based chunker for CSV data
-///
-/// The chunker takes a block of CSV data and finds a suitable place
-/// to cut it up without splitting a row.
-/// If the block is truncated (i.e. not all data can be chunked), it is up
-/// to the caller to arrange the next block to start with the trailing data.
-///
-/// Note: if the previous block ends with CR (0x0d) and a new block starts
-/// with LF (0x0a), the chunker will consider the leading newline as an empty line.
-class ARROW_EXPORT Chunker {
- public:
-  explicit Chunker(ParseOptions options);
-
-  /// \brief Carve up a chunk in a block of data
-  ///
-  /// Process a block of CSV data, reading up to size bytes.
-  /// The number of bytes in the chunk is returned in out_size.
-  Status Process(const char* data, uint32_t size, uint32_t* out_size);
-
- protected:
-  ARROW_DISALLOW_COPY_AND_ASSIGN(Chunker);
-
-  // Like Process(), but specialized for some parsing options
-  template <bool quoting, bool escaping>
-  Status ProcessSpecialized(const char* data, uint32_t size, uint32_t* out_size);
-
-  // Detect a single line from the data pointer.  Return the line end,
-  // or nullptr if the remaining line is truncated.
-  template <bool quoting, bool escaping>
-  inline const char* ReadLine(const char* data, const char* data_end);
-
-  ParseOptions options_;
-};
+ARROW_EXPORT
+std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options);
 
 }  // namespace csv
 }  // namespace arrow
-
-#endif  // ARROW_CSV_CHUNKER_H

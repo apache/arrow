@@ -54,13 +54,13 @@ export abstract class ArrowIOTestHelper {
             await testFn(await this.writer(this.table).toUint8Array());
         };
     }
-    iterable(testFn: (iterable: Iterable<Uint8Array>) => void | Promise<void>) {
+    iterable(testFn: (iterable: Generator<Uint8Array>) => void | Promise<void>) {
         return async () => {
             expect.hasAssertions();
             await testFn(chunkedIterable(await this.writer(this.table).toUint8Array()));
         };
     }
-    asyncIterable(testFn: (asyncIterable: AsyncIterable<Uint8Array>) => void | Promise<void>) {
+    asyncIterable(testFn: (asyncIterable: AsyncGenerator<Uint8Array>) => void | Promise<void>) {
         return async () => {
             expect.hasAssertions();
             await testFn(asyncChunkedIterable(await this.writer(this.table).toUint8Array()));

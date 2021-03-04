@@ -17,6 +17,9 @@
 
 package org.apache.arrow.plasma.exceptions;
 
+/**
+ * Thrown when attempting to place an object into the store for an ID that already exists.
+ */
 public class DuplicateObjectException extends RuntimeException {
 
   public DuplicateObjectException(String objectId) {

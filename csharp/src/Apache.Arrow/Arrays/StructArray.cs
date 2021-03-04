@@ -16,33 +16,44 @@
 using Apache.Arrow.Types;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 
 namespace Apache.Arrow
 {
     public class StructArray : Array
     {
-        private readonly List<Array> _fields;
+        private IReadOnlyList<IArrowArray> _fields;
 
-        public IEnumerable<Array> Fields => _fields;
+        public IReadOnlyList<IArrowArray> Fields =>
+            LazyInitializer.EnsureInitialized(ref _fields, () => InitializeFields());
 
         public StructArray(
             IArrowType dataType, int length,
-            IEnumerable<Array> children,
+            IEnumerable<IArrowArray> children,
             ArrowBuffer nullBitmapBuffer, int nullCount = 0, int offset = 0)
-        : this(new ArrayData(
-            dataType, length, nullCount, offset, new[] { nullBitmapBuffer }, 
-            children.Select(child => child.Data)))
-        { }
+            : this(new ArrayData(
+                dataType, length, nullCount, offset, new[] { nullBitmapBuffer },
+                children.Select(child => child.Data)))
+        {
+            _fields = children.ToArray();
+        }
 
         public StructArray(ArrayData data)
             : base(data)
         {
             data.EnsureDataType(ArrowTypeId.Struct);
-
-            _fields = new List<Array>();
         }
 
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
 
+        private IReadOnlyList<IArrowArray> InitializeFields()
+        {
+            IArrowArray[] result = new IArrowArray[Data.Children.Length];
+            for (int i = 0; i < Data.Children.Length; i++)
+            {
+                result[i] = ArrowArrayFactory.BuildArray(Data.Children[i]);
+            }
+            return result;
+        }
     }
 }

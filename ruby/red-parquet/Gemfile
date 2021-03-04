@@ -20,3 +20,5 @@
 source "https://rubygems.org/"
 
 gemspec
+
+gem "red-arrow", path: "../red-arrow"

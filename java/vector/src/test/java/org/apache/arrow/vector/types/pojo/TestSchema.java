@@ -18,10 +18,14 @@
 package org.apache.arrow.vector.types.pojo;
 
 import static java.util.Arrays.asList;
+import static org.apache.arrow.vector.types.pojo.Schema.METADATA_KEY;
+import static org.apache.arrow.vector.types.pojo.Schema.METADATA_VALUE;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
@@ -32,6 +36,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Binary;
 import org.apache.arrow.vector.types.pojo.ArrowType.Bool;
 import org.apache.arrow.vector.types.pojo.ArrowType.Date;
 import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
+import org.apache.arrow.vector.types.pojo.ArrowType.Duration;
 import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeBinary;
 import org.apache.arrow.vector.types.pojo.ArrowType.FloatingPoint;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
@@ -66,13 +71,14 @@ public class TestSchema {
         field("f", new FloatingPoint(FloatingPointPrecision.SINGLE)),
         field("g", new Timestamp(TimeUnit.MILLISECOND, "UTC")),
         field("h", new Timestamp(TimeUnit.MICROSECOND, null)),
-        field("i", new Interval(IntervalUnit.DAY_TIME))
+        field("i", new Interval(IntervalUnit.DAY_TIME)),
+        field("j", new ArrowType.Duration(TimeUnit.SECOND))
     ));
     roundTrip(schema);
     assertEquals(
         "Schema<a: Int(8, true) not null, b: Struct<c: Int(16, true), d: Utf8>, e: List<Date(MILLISECOND)>, " +
           "f: FloatingPoint(SINGLE), g: Timestamp(MILLISECOND, UTC), h: Timestamp(MICROSECOND, null), " +
-          "i: Interval(DAY_TIME)>",
+          "i: Interval(DAY_TIME), j: Duration(SECOND)>",
         schema.toString());
   }
 
@@ -88,7 +94,7 @@ public class TestSchema {
         field("g", new Utf8()),
         field("h", new Binary()),
         field("i", new Bool()),
-        field("j", new Decimal(5, 5)),
+        field("j", new Decimal(5, 5, 128)),
         field("k", new Date(DateUnit.DAY)),
         field("l", new Date(DateUnit.MILLISECOND)),
         field("m", new Time(TimeUnit.SECOND, 32)),
@@ -98,7 +104,9 @@ public class TestSchema {
         field("q", new Timestamp(TimeUnit.MILLISECOND, "UTC")),
         field("r", new Timestamp(TimeUnit.MICROSECOND, null)),
         field("s", new Interval(IntervalUnit.DAY_TIME)),
-        field("t", new FixedSizeBinary(100))
+        field("t", new FixedSizeBinary(100)),
+        field("u", new Duration(TimeUnit.SECOND)),
+        field("v", new Duration(TimeUnit.MICROSECOND))
     ));
     roundTrip(schema);
   }
@@ -169,6 +177,18 @@ public class TestSchema {
   }
 
   @Test
+  public void testRoundTripDurationInterval() throws IOException {
+    Schema schema = new Schema(asList(
+        field("a", new Duration(TimeUnit.SECOND)),
+        field("b", new Duration(TimeUnit.MILLISECOND)),
+        field("c", new Duration(TimeUnit.MICROSECOND)),
+        field("d", new Duration(TimeUnit.NANOSECOND))
+    ));
+    roundTrip(schema);
+    contains(schema, "SECOND", "MILLI", "MICRO", "NANO");
+  }
+
+  @Test
   public void testFP() throws IOException {
     Schema schema = new Schema(asList(
         field("a", new FloatingPoint(FloatingPointPrecision.HALF)),
@@ -177,6 +197,23 @@ public class TestSchema {
     ));
     roundTrip(schema);
     contains(schema, "HALF", "SINGLE", "DOUBLE");
+  }
+
+  @Test
+  public void testMetadata() throws IOException {
+    Map<String, String> metadata = new HashMap<>(1);
+    metadata.put("testKey", "testValue");
+
+    java.util.List<Field> fields = asList(
+        field("a", false, new Int(8, true)),
+        field("b", new Struct(),
+            field("c", new Int(16, true)),
+            field("d", new Utf8())),
+        field("e", new List(), field(null, new Date(DateUnit.MILLISECOND)))
+    );
+    Schema schema = new Schema(fields, metadata);
+    roundTrip(schema);
+    contains(schema, "\"" + METADATA_KEY + "\" : \"testKey\"", "\"" + METADATA_VALUE + "\" : \"testValue\"");
   }
 
   private void roundTrip(Schema schema) throws IOException {
@@ -207,7 +244,7 @@ public class TestSchema {
     assertEquals(o1 + " == " + o2, o1.hashCode(), o2.hashCode());
   }
 
-  private void contains(Schema schema, String... s) throws IOException {
+  private void contains(Schema schema, String... s) {
     String json = schema.toJson();
     for (String string : s) {
       assertTrue(json + " contains " + string, json.contains(string));

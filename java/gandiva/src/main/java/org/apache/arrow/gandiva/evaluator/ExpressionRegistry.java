@@ -28,6 +28,7 @@ import org.apache.arrow.gandiva.ipc.GandivaTypes.GandivaFunctions;
 import org.apache.arrow.gandiva.ipc.GandivaTypes.GandivaType;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
+import org.apache.arrow.vector.types.IntervalUnit;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
@@ -174,10 +175,11 @@ public class ExpressionRegistry {
       case GandivaType.NONE_VALUE:
         return new ArrowType.Null();
       case GandivaType.DECIMAL_VALUE:
-        return new ArrowType.Decimal(0,0);
+        return new ArrowType.Decimal(0, 0, 128);
+      case GandivaType.INTERVAL_VALUE:
+        return new ArrowType.Interval(mapArrowIntervalUnit(type.getIntervalType()));
       case GandivaType.FIXED_SIZE_BINARY_VALUE:
       case GandivaType.MAP_VALUE:
-      case GandivaType.INTERVAL_VALUE:
       case GandivaType.DICTIONARY_VALUE:
       case GandivaType.LIST_VALUE:
       case GandivaType.STRUCT_VALUE:
@@ -202,5 +204,17 @@ public class ExpressionRegistry {
         return null;
     }
   }
+
+  private static IntervalUnit mapArrowIntervalUnit(GandivaTypes.IntervalType intervalType) {
+    switch (intervalType.getNumber()) {
+      case GandivaTypes.IntervalType.YEAR_MONTH_VALUE:
+        return IntervalUnit.YEAR_MONTH;
+      case GandivaTypes.IntervalType.DAY_TIME_VALUE:
+        return IntervalUnit.DAY_TIME;
+      default:
+        return null;
+    }
+  }
+
 }
 

@@ -21,7 +21,7 @@ import (
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/internal/bitutil"
+	"github.com/apache/arrow/go/arrow/bitutil"
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
@@ -208,10 +208,11 @@ func (b *builder) UnsafeAppendBoolToBitmap(isValid bool) {
 	b.length++
 }
 
-func newBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
+func NewBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 	// FIXME(sbinet): use a type switch on dtype instead?
 	switch dtype.ID() {
 	case arrow.NULL:
+		return NewNullBuilder(mem)
 	case arrow.BOOL:
 		return NewBooleanBuilder(mem)
 	case arrow.UINT8:
@@ -230,7 +231,8 @@ func newBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 		return NewUint64Builder(mem)
 	case arrow.INT64:
 		return NewInt64Builder(mem)
-	case arrow.HALF_FLOAT:
+	case arrow.FLOAT16:
+		return NewFloat16Builder(mem)
 	case arrow.FLOAT32:
 		return NewFloat32Builder(mem)
 	case arrow.FLOAT64:
@@ -243,8 +245,12 @@ func newBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 		typ := dtype.(*arrow.FixedSizeBinaryType)
 		return NewFixedSizeBinaryBuilder(mem, typ)
 	case arrow.DATE32:
+		return NewDate32Builder(mem)
 	case arrow.DATE64:
+		return NewDate64Builder(mem)
 	case arrow.TIMESTAMP:
+		typ := dtype.(*arrow.TimestampType)
+		return NewTimestampBuilder(mem, typ)
 	case arrow.TIME32:
 		typ := dtype.(*arrow.Time32Type)
 		return NewTime32Builder(mem, typ)
@@ -252,7 +258,16 @@ func newBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 		typ := dtype.(*arrow.Time64Type)
 		return NewTime64Builder(mem, typ)
 	case arrow.INTERVAL:
+		switch dtype.(type) {
+		case *arrow.DayTimeIntervalType:
+			return NewDayTimeIntervalBuilder(mem)
+		case *arrow.MonthIntervalType:
+			return NewMonthIntervalBuilder(mem)
+		}
 	case arrow.DECIMAL:
+		if typ, ok := dtype.(*arrow.Decimal128Type); ok {
+			return NewDecimal128Builder(mem, typ)
+		}
 	case arrow.LIST:
 		typ := dtype.(*arrow.ListType)
 		return NewListBuilder(mem, typ.Elem())
@@ -262,6 +277,13 @@ func newBuilder(mem memory.Allocator, dtype arrow.DataType) Builder {
 	case arrow.UNION:
 	case arrow.DICTIONARY:
 	case arrow.MAP:
+	case arrow.EXTENSION:
+	case arrow.FIXED_SIZE_LIST:
+		typ := dtype.(*arrow.FixedSizeListType)
+		return NewFixedSizeListBuilder(mem, typ.Len(), typ.Elem())
+	case arrow.DURATION:
+		typ := dtype.(*arrow.DurationType)
+		return NewDurationBuilder(mem, typ)
 	}
 	panic(fmt.Errorf("arrow/array: unsupported builder for %T", dtype))
 }

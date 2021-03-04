@@ -1,0 +1,234 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: R
+
+on:
+  push:
+    paths:
+      - '.github/workflows/r.yml'
+      - 'ci/scripts/r_*.sh'
+      - 'ci/scripts/cpp_*.sh'
+      - 'ci/scripts/PKGBUILD'
+      - 'ci/etc/rprofile'
+      - 'ci/docker/**'
+      - 'cpp/**'
+      - 'r/**'
+  pull_request:
+    paths:
+      - '.github/workflows/r.yml'
+      - 'ci/scripts/r_*.sh'
+      - 'ci/scripts/cpp_*.sh'
+      - 'ci/scripts/PKGBUILD'
+      - 'ci/etc/rprofile'
+      - 'ci/docker/**'
+      - 'cpp/**'
+      - 'r/**'
+
+env:
+  DOCKER_VOLUME_PREFIX: ".docker/"
+  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+
+jobs:
+  ubuntu:
+    name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }}
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        r: ["3.6"]
+        ubuntu: [18.04]
+    env:
+      R: ${{ matrix.r }}
+      UBUNTU: ${{ matrix.ubuntu }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v2
+        with:
+          path: .docker
+          key: ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/**') }}
+          restore-keys: ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          archery docker run ubuntu-r
+      - name: Dump install logs
+        run: cat r/check/arrow.Rcheck/00install.out
+        if: always()
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        run: archery docker push ubuntu-r
+
+  bundled:
+    name: "${{ matrix.config.org }}/${{ matrix.config.image }}:${{ matrix.config.tag }}"
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {org: 'rstudio', image: 'r-base', tag: '4.0-centos7'}
+          - {org: 'rhub', image: 'debian-gcc-devel', tag: 'latest'}
+    env:
+      R_ORG: ${{ matrix.config.org }}
+      R_IMAGE: ${{ matrix.config.image }}
+      R_TAG: ${{ matrix.config.tag }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v2
+        with:
+          path: .docker
+          key: ${{ matrix.config.image }}-r-${{ hashFiles('cpp/**') }}
+          restore-keys: ${{ matrix.config.image }}-r-
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          archery docker run r
+      - name: Dump install logs
+        run: cat r/check/arrow.Rcheck/00install.out
+        if: always()
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        run: archery docker push r
+
+  windows:
+    name: AMD64 Windows RTools ${{ matrix.rtools }}
+    runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        rtools: [35, 40]
+    env:
+      TEST_R_WITH_ARROW: "TRUE"
+      ARROW_R_CXXFLAGS: '-Werror'
+      _R_CHECK_TESTS_NLINES_: 0
+    steps:
+      - run: git config --global core.autocrlf false
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Make R tests verbose
+        # If you get a segfault/mysterious test Execution halted,
+        # make this `true` to see where it dies.
+        if: false
+        shell: cmd
+        run: |
+          cd r/tests
+          sed -i.bak -E -e 's/"arrow"/"arrow", reporter = "location"/' testthat.R
+          rm -f testthat.R.bak
+      - name: Setup ccache
+        shell: bash
+        run: |
+          ci/scripts/ccache_setup.sh
+          echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
+      # We must enable actions/cache before r-lib/actions/setup-r to ensure
+      # using system tar instead of tar provided by Rtools.
+      # We can use tar provided by Rtools when we drop support for Rtools 3.5.
+      # Because Rtools 4.0 or later has zstd. actions/cache requires zstd
+      # when tar is GNU tar.
+      - name: Cache ccache
+        uses: actions/cache@v2
+        with:
+          path: ccache
+          key: r-${{ matrix.rtools }}-ccache-mingw-${{ hashFiles('cpp/**') }}
+          restore-keys: r-${{ matrix.rtools }}-ccache-mingw-
+      # We use the makepkg-mingw setup that is included in rtools40 even when
+      # we use the rtools35 compilers, so we always install R 4.0/Rtools40
+      - uses: r-lib/actions/setup-r@master
+        with:
+          rtools-version: 40
+          r-version: '4.0'
+          Ncpus: 2
+      - uses: r-lib/actions/setup-r@master
+        if: ${{ matrix.rtools == 35 }}
+        with:
+          rtools-version: 35
+          r-version: '3.6'
+          Ncpus: 2
+      - name: Build Arrow C++
+        shell: bash
+        env:
+          RTOOLS_VERSION: ${{ matrix.rtools }}
+        run: ci/scripts/r_windows_build.sh
+      - uses: actions/upload-artifact@v1
+        with:
+          name: Rtools ${{ matrix.rtools }} Arrow C++
+          path: libarrow.zip
+      - name: Install R package dependencies
+        shell: Rscript {0}
+        run: |
+          options(pkgType="win.binary")
+          install.packages(c("remotes", "rcmdcheck"))
+          remotes::install_deps("r", dependencies = TRUE)
+      - name: Check
+        shell: Rscript {0}
+        run: |
+          Sys.setenv(
+            RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "libarrow.zip"),
+            MAKEFLAGS = paste0("-j", parallel::detectCores())
+          )
+          rcmdcheck::rcmdcheck("r",
+            build_args = '--no-build-vignettes',
+            args = c('--no-manual', '--as-cran', '--ignore-vignettes', '--run-donttest'),
+            error_on = 'warning',
+            check_dir = 'check'
+          )
+      - name: Dump install logs
+        shell: cmd
+        run: cat check/arrow.Rcheck/00install.out
+        if: always()
+      # We can remove this when we drop support for Rtools 3.5.
+      - name: Ensure using system tar in actions/cache
+        run: |
+          Write-Output "${Env:windir}\System32" | `
+            Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append

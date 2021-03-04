@@ -37,11 +37,6 @@ package org.apache.arrow.vector.complex.impl;
 
 <#include "/@includes/vv_imports.ftl" />
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-
-import org.joda.time.Period;
-
 // Source code generated using FreeMarker template ${.template_name}
 
 @SuppressWarnings("unused")
@@ -107,22 +102,34 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
   </#if>
 
   <#if type.major == "VarLen">
+    <#if type.width == 4>
     int length = holder.end - holder.start;
+    <#elseif type.width == 8>
+    int length = (int) (holder.end - holder.start);
+    </#if>
     byte[] value = new byte [length];
     holder.buffer.getBytes(holder.start, value, 0, length);
-    <#if minor.class == "VarBinary">
+    <#if minor.class == "VarBinary" || minor.class == "LargeVarBinary">
     return value;
-    <#elseif minor.class == "VarChar">
+    <#elseif minor.class == "VarChar" || minor.class == "LargeVarChar">
     Text text = new Text();
     text.set(value);
     return text;
     </#if>
   <#elseif minor.class == "IntervalDay">
-    Period p = new Period();
-    return p.plusDays(holder.days).plusMillis(holder.milliseconds);
+    return Duration.ofDays(holder.days).plusMillis(holder.milliseconds);
+  <#elseif minor.class == "IntervalYear">
+    return Period.ofMonths(holder.value);
+  <#elseif minor.class == "Duration">
+    return DurationVector.toDuration(holder.value, holder.unit);
   <#elseif minor.class == "Bit" >
     return new Boolean(holder.value != 0);
   <#elseif minor.class == "Decimal">
+    byte[] bytes = new byte[${type.width}];
+    holder.buffer.getBytes(holder.start, bytes, 0, ${type.width});
+    ${friendlyType} value = new BigDecimal(new BigInteger(bytes), holder.scale);
+    return value;
+  <#elseif minor.class == "Decimal256">
     byte[] bytes = new byte[${type.width}];
     holder.buffer.getBytes(holder.start, bytes, 0, ${type.width});
     ${friendlyType} value = new BigDecimal(new BigInteger(bytes), holder.scale);
@@ -131,6 +138,15 @@ public class ${holderMode}${name}HolderReaderImpl extends AbstractFieldReader {
     byte[] value = new byte [holder.byteWidth];
     holder.buffer.getBytes(0, value, 0, holder.byteWidth);
     return value;
+  <#elseif minor.class == "TimeStampSec">
+    final long millis = java.util.concurrent.TimeUnit.SECONDS.toMillis(holder.value);
+    return DateUtility.getLocalDateTimeFromEpochMilli(millis);
+  <#elseif minor.class == "TimeStampMilli" || minor.class == "DateMilli" || minor.class == "TimeMilli">
+    return DateUtility.getLocalDateTimeFromEpochMilli(holder.value);
+  <#elseif minor.class == "TimeStampMicro">
+    return DateUtility.getLocalDateTimeFromEpochMicro(holder.value);
+  <#elseif minor.class == "TimeStampNano">
+    return DateUtility.getLocalDateTimeFromEpochNano(holder.value);
   <#else>
     ${friendlyType} value = new ${friendlyType}(this.holder.value);
     return value;

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_LLVMGENERATOR_H
-#define GANDIVA_LLVMGENERATOR_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -35,29 +34,46 @@
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/llvm_types.h"
 #include "gandiva/lvalue.h"
+#include "gandiva/selection_vector.h"
 #include "gandiva/value_validity_pair.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 class FunctionHolder;
 
 /// Builds an LLVM module and generates code for the specified set of expressions.
-class LLVMGenerator {
+class GANDIVA_EXPORT LLVMGenerator {
  public:
   /// \brief Factory method to initialize the generator.
   static Status Make(std::shared_ptr<Configuration> config,
                      std::unique_ptr<LLVMGenerator>* llvm_generator);
 
-  /// \brief Build the code for the expression trees. Each element in the vector
-  /// represents an expression tree
-  Status Build(const ExpressionVector& exprs);
+  /// \brief Build the code for the expression trees for default mode. Each
+  /// element in the vector represents an expression tree
+  Status Build(const ExpressionVector& exprs, SelectionVector::Mode mode);
 
-  /// \brief Execute the built expression against the provided arguments.
+  /// \brief Build the code for the expression trees for default mode. Each
+  /// element in the vector represents an expression tree
+  Status Build(const ExpressionVector& exprs) {
+    return Build(exprs, SelectionVector::Mode::MODE_NONE);
+  }
+
+  /// \brief Execute the built expression against the provided arguments for
+  /// default mode.
   Status Execute(const arrow::RecordBatch& record_batch,
                  const ArrayDataVector& output_vector);
 
+  /// \brief Execute the built expression against the provided arguments for
+  /// all modes. Only works on the records specified in the selection_vector.
+  Status Execute(const arrow::RecordBatch& record_batch,
+                 const SelectionVector* selection_vector,
+                 const ArrayDataVector& output_vector);
+
+  SelectionVector::Mode selection_vector_mode() { return selection_vector_mode_; }
   LLVMTypes* types() { return engine_->types(); }
   llvm::Module* module() { return engine_->module(); }
+  std::string DumpIR() { return engine_->DumpIR(); }
 
  private:
   LLVMGenerator();
@@ -74,8 +90,8 @@ class LLVMGenerator {
    public:
     Visitor(LLVMGenerator* generator, llvm::Function* function,
             llvm::BasicBlock* entry_block, llvm::Value* arg_addrs,
-            llvm::Value* arg_local_bitmaps, llvm::Value* arg_context_ptr,
-            llvm::Value* loop_var);
+            llvm::Value* arg_local_bitmaps, std::vector<llvm::Value*> slice_offsets,
+            llvm::Value* arg_context_ptr, llvm::Value* loop_var);
 
     void Visit(const VectorReadValidityDex& dex) override;
     void Visit(const VectorReadFixedLenValueDex& dex) override;
@@ -130,6 +146,9 @@ class LLVMGenerator {
     // Switch to the entry_block and get reference of the validity/value/offsets buffer
     llvm::Value* GetBufferReference(int idx, BufferType buffer_type, FieldPtr field);
 
+    // Get the slice offset of the validity/value/offsets buffer
+    llvm::Value* GetSliceOffset(int idx);
+
     // Switch to the entry_block and get reference to the local bitmap.
     llvm::Value* GetLocalBitMapReference(int idx);
 
@@ -142,13 +161,14 @@ class LLVMGenerator {
     llvm::BasicBlock* entry_block_;
     llvm::Value* arg_addrs_;
     llvm::Value* arg_local_bitmaps_;
+    std::vector<llvm::Value*> slice_offsets_;
     llvm::Value* arg_context_ptr_;
     llvm::Value* loop_var_;
     bool has_arena_allocs_;
   };
 
-  // Generate the code for one expression, with the output of the expression going to
-  // 'output'.
+  // Generate the code for one expression for default mode, with the output of
+  // the expression going to 'output'.
   Status Add(const ExpressionPtr expr, const FieldDescriptorPtr output);
 
   /// Generate code to load the vector at specified index in the 'arg_addrs' array.
@@ -164,9 +184,13 @@ class LLVMGenerator {
   /// Generate code to load the vector at specified index and cast it as offsets array.
   llvm::Value* GetOffsetsReference(llvm::Value* arg_addrs, int idx, FieldPtr field);
 
+  /// Generate code to load the vector at specified index and cast it as buffer pointer.
+  llvm::Value* GetDataBufferPtrReference(llvm::Value* arg_addrs, int idx, FieldPtr field);
+
   /// Generate code for the value array of one expression.
-  Status CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr output, int suffix_idx,
-                          llvm::Function** fn);
+  Status CodeGenExprValue(DexPtr value_expr, int num_buffers, FieldDescriptorPtr output,
+                          int suffix_idx, llvm::Function** fn,
+                          SelectionVector::Mode selection_vector_mode);
 
   /// Generate code to load the local bitmap specified index and cast it as bitmap.
   llvm::Value* GetLocalBitMapReference(llvm::Value* arg_bitmaps, int idx);
@@ -199,8 +223,10 @@ class LLVMGenerator {
   /// \param[in] compiled_expr the compiled expression (includes the bitmap indices to be
   ///            used for computing the validity bitmap of the result).
   /// \param[in] eval_batch (includes input/output buffer addresses)
+  /// \param[in] selection_vector the list of selected positions
   void ComputeBitMapsForExpr(const CompiledExpr& compiled_expr,
-                             const EvalBatch& eval_batch);
+                             const EvalBatch& eval_batch,
+                             const SelectionVector* selection_vector);
 
   /// Replace the %T in the trace msg with the correct type corresponding to 'type'
   /// eg. %d for int32, %ld for int64, ..
@@ -214,14 +240,11 @@ class LLVMGenerator {
   std::vector<std::unique_ptr<CompiledExpr>> compiled_exprs_;
   FunctionRegistry function_registry_;
   Annotator annotator_;
+  SelectionVector::Mode selection_vector_mode_;
 
   // used for debug
-  bool dump_ir_;
-  bool optimise_ir_;
   bool enable_ir_traces_;
   std::vector<std::string> trace_strings_;
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_LLVMGENERATOR_H

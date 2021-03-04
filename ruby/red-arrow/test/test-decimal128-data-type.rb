@@ -18,12 +18,12 @@
 class Decimal128DataTypeTest < Test::Unit::TestCase
   sub_test_case(".new") do
     test("ordered arguments") do
-      assert_equal("decimal(8, 2)",
+      assert_equal("decimal128(8, 2)",
                    Arrow::Decimal128DataType.new(8, 2).to_s)
     end
 
     test("description") do
-      assert_equal("decimal(8, 2)",
+      assert_equal("decimal128(8, 2)",
                    Arrow::Decimal128DataType.new(precision: 8,
                                                  scale: 2).to_s)
     end

@@ -19,84 +19,64 @@
 
 #include <mex.h>
 
-namespace mlarrow {
-
+namespace arrow {
+namespace matlab {
 namespace util {
 
-void HandleStatus(const arrow::Status& status) {
+void HandleStatus(const Status& status) {
   const char* arrow_error_message = "Arrow error: %s";
   switch (status.code()) {
-    case arrow::StatusCode::OK: {
+    case StatusCode::OK: {
       break;
     }
-    case arrow::StatusCode::OutOfMemory: {
+    case StatusCode::OutOfMemory: {
       mexErrMsgIdAndTxt("MATLAB:arrow:status:OutOfMemory", arrow_error_message,
                         status.ToString().c_str());
       break;
     }
-    case arrow::StatusCode::KeyError: {
+    case StatusCode::KeyError: {
       mexErrMsgIdAndTxt("MATLAB:arrow:status:KeyError", arrow_error_message,
                         status.ToString().c_str());
       break;
     }
-    case arrow::StatusCode::TypeError: {
+    case StatusCode::TypeError: {
       mexErrMsgIdAndTxt("MATLAB:arrow:status:TypeError", arrow_error_message,
                         status.ToString().c_str());
       break;
     }
-    case arrow::StatusCode::Invalid: {
+    case StatusCode::Invalid: {
       mexErrMsgIdAndTxt("MATLAB:arrow:status:Invalid", arrow_error_message,
                         status.ToString().c_str());
       break;
     }
-    case arrow::StatusCode::IOError: {
+    case StatusCode::IOError: {
       mexErrMsgIdAndTxt("MATLAB:arrow:status:IOError", arrow_error_message,
                         status.ToString().c_str());
       break;
     }
-    case arrow::StatusCode::CapacityError: {
+    case StatusCode::CapacityError: {
       mexErrMsgIdAndTxt("MATLAB:arrow:status:CapacityError", arrow_error_message,
                         status.ToString().c_str());
       break;
     }
-    case arrow::StatusCode::UnknownError: {
+    case StatusCode::IndexError: {
+      mexErrMsgIdAndTxt("MATLAB:arrow:status:IndexError", arrow_error_message,
+                        status.ToString().c_str());
+      break;
+    }
+    case StatusCode::UnknownError: {
       mexErrMsgIdAndTxt("MATLAB:arrow:status:UnknownError", arrow_error_message,
                         status.ToString().c_str());
       break;
     }
-    case arrow::StatusCode::NotImplemented: {
+    case StatusCode::NotImplemented: {
       mexErrMsgIdAndTxt("MATLAB:arrow:status:NotImplemented", arrow_error_message,
                         status.ToString().c_str());
       break;
     }
-    case arrow::StatusCode::SerializationError: {
+    case StatusCode::SerializationError: {
       mexErrMsgIdAndTxt("MATLAB:arrow:status:SerializationError", arrow_error_message,
                         status.ToString().c_str());
-      break;
-    }
-    case arrow::StatusCode::PythonError: {
-      mexErrMsgIdAndTxt("MATLAB:arrow:status:PythonError", arrow_error_message,
-                        status.ToString().c_str());
-      break;
-    }
-    case arrow::StatusCode::PlasmaObjectExists: {
-      mexErrMsgIdAndTxt("MATLAB:arrow:status:PlasmaObjectExists", arrow_error_message,
-                        status.ToString().c_str());
-      break;
-    }
-    case arrow::StatusCode::PlasmaObjectNonexistent: {
-      mexErrMsgIdAndTxt("MATLAB:arrow:status:PlasmaObjectNonexistent",
-                        arrow_error_message, status.ToString().c_str());
-      break;
-    }
-    case arrow::StatusCode::PlasmaStoreFull: {
-      mexErrMsgIdAndTxt("MATLAB:arrow:status:PlasmaStoreFull", arrow_error_message,
-                        status.ToString().c_str());
-      break;
-    }
-    case arrow::StatusCode::PlasmaObjectAlreadySealed: {
-      mexErrMsgIdAndTxt("MATLAB:arrow:status:PlasmaObjectAlreadySealed",
-                        arrow_error_message, status.ToString().c_str());
       break;
     }
     default: {
@@ -107,4 +87,5 @@ void HandleStatus(const arrow::Status& status) {
   }
 }
 }  // namespace util
-}  // namespace mlarrow
+}  // namespace matlab
+}  // namespace arrow

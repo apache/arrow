@@ -24,39 +24,16 @@
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_TENSOR \
-  (garrow_tensor_get_type())
-#define GARROW_TENSOR(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), GARROW_TYPE_TENSOR, GArrowTensor))
-#define GARROW_TENSOR_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass), GARROW_TYPE_TENSOR, GArrowTensorClass))
-#define GARROW_IS_TENSOR(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj), GARROW_TYPE_TENSOR))
-#define GARROW_IS_TENSOR_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass), GARROW_TYPE_TENSOR))
-#define GARROW_TENSOR_GET_CLASS(obj) \
-  (G_TYPE_INSTANCE_GET_CLASS((obj), GARROW_TYPE_TENSOR, GArrowTensorClass))
-
-typedef struct _GArrowTensor         GArrowTensor;
-typedef struct _GArrowTensorClass    GArrowTensorClass;
-
-/**
- * GArrowTensor:
- *
- * It wraps `arrow::Tensor`.
- */
-struct _GArrowTensor
-{
-  /*< private >*/
-  GObject parent_instance;
-};
-
+#define GARROW_TYPE_TENSOR (garrow_tensor_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowTensor,
+                         garrow_tensor,
+                         GARROW,
+                         TENSOR,
+                         GObject)
 struct _GArrowTensorClass
 {
   GObjectClass parent_class;
 };
-
-GType           garrow_tensor_get_type           (void) G_GNUC_CONST;
 
 GArrowTensor   *garrow_tensor_new                (GArrowDataType *data_type,
                                                   GArrowBuffer *data,
@@ -64,8 +41,8 @@ GArrowTensor   *garrow_tensor_new                (GArrowDataType *data_type,
                                                   gsize n_dimensions,
                                                   gint64 *strides,
                                                   gsize n_strides,
-                                                  gchar **dimention_names,
-                                                  gsize n_dimention_names);
+                                                  gchar **dimension_names,
+                                                  gsize n_dimension_names);
 gboolean        garrow_tensor_equal              (GArrowTensor *tensor,
                                                   GArrowTensor *other_tensor);
 GArrowDataType *garrow_tensor_get_value_data_type(GArrowTensor *tensor);

@@ -22,6 +22,7 @@ import (
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/memory"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestStringArray(t *testing.T) {
@@ -29,8 +30,9 @@ func TestStringArray(t *testing.T) {
 	defer mem.AssertSize(t, 0)
 
 	var (
-		want   = []string{"hello", "世界", "", "bye"}
-		valids = []bool{true, true, false, true}
+		want    = []string{"hello", "世界", "", "bye"}
+		valids  = []bool{true, true, false, true}
+		offsets = []int{0, 5, 11, 11, 14}
 	)
 
 	sb := array.NewStringBuilder(mem)
@@ -78,6 +80,13 @@ func TestStringArray(t *testing.T) {
 				t.Fatalf("arr[%d]: got=%q, want=%q", i, got, want[i])
 			}
 		}
+
+		if got, want := arr.ValueOffset(i), offsets[i]; got != want {
+			t.Fatalf("arr-offset-beg[%d]: got=%d, want=%d", i, got, want)
+		}
+		if got, want := arr.ValueOffset(i+1), offsets[i+1]; got != want {
+			t.Fatalf("arr-offset-end[%d]: got=%d, want=%d", i+1, got, want)
+		}
 	}
 
 	sub := array.MakeFromData(arr.Data())
@@ -94,4 +103,81 @@ func TestStringArray(t *testing.T) {
 	if got, want := arr.String(), `["hello" "世界" (null) "bye"]`; got != want {
 		t.Fatalf("got=%q, want=%q", got, want)
 	}
+	slice := array.NewSliceData(arr.Data(), 2, 4)
+	defer slice.Release()
+
+	sub1 := array.MakeFromData(slice)
+	defer sub1.Release()
+
+	v, ok := sub1.(*array.String)
+	if !ok {
+		t.Fatalf("could not type-assert to array.String")
+	}
+
+	if got, want := v.String(), `[(null) "bye"]`; got != want {
+		t.Fatalf("got=%q, want=%q", got, want)
+	}
+}
+
+func TestStringBuilder_Empty(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	want := []string{"hello", "世界", "", "bye"}
+
+	ab := array.NewStringBuilder(mem)
+	defer ab.Release()
+
+	stringValues := func(a *array.String) []string {
+		vs := make([]string, a.Len())
+		for i := range vs {
+			vs[i] = a.Value(i)
+		}
+		return vs
+	}
+
+	ab.AppendValues([]string{}, nil)
+	a := ab.NewStringArray()
+	assert.Zero(t, a.Len())
+	a.Release()
+
+	ab.AppendValues(nil, nil)
+	a = ab.NewStringArray()
+	assert.Zero(t, a.Len())
+	a.Release()
+
+	ab.AppendValues([]string{}, nil)
+	ab.AppendValues(want, nil)
+	a = ab.NewStringArray()
+	assert.Equal(t, want, stringValues(a))
+	a.Release()
+
+	ab.AppendValues(want, nil)
+	ab.AppendValues([]string{}, nil)
+	a = ab.NewStringArray()
+	assert.Equal(t, want, stringValues(a))
+	a.Release()
+}
+
+// TestStringReset tests the Reset() method on the String type by creating two different Strings and then
+// reseting the contents of string2 with the values from string1.
+func TestStringReset(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	sb1 := array.NewStringBuilder(mem)
+	sb2 := array.NewStringBuilder(mem)
+	defer sb1.Release()
+	defer sb2.Release()
+
+	sb1.Append("string1")
+	sb1.AppendNull()
+
+	var (
+		string1 = sb1.NewStringArray()
+		string2 = sb2.NewStringArray()
+
+		string1Data = string1.Data()
+	)
+	string2.Reset(string1Data)
+
+	assert.Equal(t, "string1", string2.Value(0))
 }

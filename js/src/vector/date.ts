@@ -15,29 +15,37 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../data';
-import { Vector } from '../vector';
 import { DateUnit } from '../enum';
+import { Chunked } from './chunked';
 import { BaseVector } from './base';
-import * as IntUtil from '../util/int';
+import { VectorType as V } from '../interfaces';
+import { VectorBuilderOptions } from './index';
+import { vectorFromValuesWithType } from './index';
+import { VectorBuilderOptionsAsync } from './index';
 import { Date_, DateDay, DateMillisecond  } from '../type';
 
+/** @ignore */
+type FromArgs<T extends Date_> = [Iterable<Date>, T['unit']];
+
+/** @ignore */
 export class DateVector<T extends Date_ = Date_> extends BaseVector<T> {
+    public static from<T extends DateUnit.DAY>(...args: FromArgs<DateDay>): V<DateDay>;
+    public static from<T extends DateUnit.MILLISECOND>(...args: FromArgs<DateMillisecond>): V<DateMillisecond>;
+    public static from<T extends Date_, TNull = any>(input: Iterable<Date | TNull>): V<T>;
+    public static from<T extends Date_, TNull = any>(input: AsyncIterable<Date | TNull>): Promise<V<T>>;
+    public static from<T extends Date_, TNull = any>(input: VectorBuilderOptions<T, Date | TNull>): Chunked<T>;
+    public static from<T extends Date_, TNull = any>(input: VectorBuilderOptionsAsync<T, Date | TNull>): Promise<Chunked<T>>;
     /** @nocollapse */
-    public static from<T extends Date_ = DateMillisecond>(data: Date[], unit: T['unit'] = DateUnit.MILLISECOND) {
-        switch (unit) {
-            case DateUnit.DAY: {
-                const values = Int32Array.from(data.map((d) => d.valueOf() / 86400000));
-                return Vector.new(Data.Date(new DateDay(), 0, data.length, 0, null, values));
-            }
-            case DateUnit.MILLISECOND: {
-                const values = IntUtil.Int64.convertArray(data.map((d) => d.valueOf()));
-                return Vector.new(Data.Date(new DateMillisecond(), 0, data.length, 0, null, values));
-            }
+    public static from<T extends Date_, TNull = any>(...args: FromArgs<T> | [Iterable<Date | TNull> | AsyncIterable<Date | TNull> | VectorBuilderOptions<T, Date | TNull> | VectorBuilderOptionsAsync<T, Date | TNull>]) {
+        if (args.length === 2) {
+            return vectorFromValuesWithType(() => args[1] === DateUnit.DAY ? new DateDay() : new DateMillisecond() as T, args[0]);
         }
-        throw new TypeError(`Unrecognized date unit "${DateUnit[unit]}"`);
+        return vectorFromValuesWithType(() => new DateMillisecond() as T, args[0]);
     }
 }
 
+/** @ignore */
 export class DateDayVector extends DateVector<DateDay> {}
+
+/** @ignore */
 export class DateMillisecondVector extends DateVector<DateMillisecond> {}

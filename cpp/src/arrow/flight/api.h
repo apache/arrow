@@ -18,5 +18,10 @@
 #pragma once
 
 #include "arrow/flight/client.h"
+#include "arrow/flight/client_auth.h"
+#include "arrow/flight/client_middleware.h"
+#include "arrow/flight/middleware.h"
 #include "arrow/flight/server.h"
+#include "arrow/flight/server_auth.h"
+#include "arrow/flight/server_middleware.h"
 #include "arrow/flight/types.h"

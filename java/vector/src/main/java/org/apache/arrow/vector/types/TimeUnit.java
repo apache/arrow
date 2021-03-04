@@ -17,6 +17,9 @@
 
 package org.apache.arrow.vector.types;
 
+/**
+ * Resolutions that times can be stored with.
+ */
 public enum TimeUnit {
   SECOND(org.apache.arrow.flatbuf.TimeUnit.SECOND),
   MILLISECOND(org.apache.arrow.flatbuf.TimeUnit.MILLISECOND),

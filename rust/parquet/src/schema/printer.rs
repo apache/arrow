@@ -51,16 +51,16 @@ use crate::file::metadata::{
 };
 use crate::schema::types::Type;
 
-/// Prints Parquet metadata [`ParquetMetaData`](`::file::metadata::ParquetMetaData`)
+/// Prints Parquet metadata [`ParquetMetaData`](crate::file::metadata::ParquetMetaData)
 /// information.
 #[allow(unused_must_use)]
 pub fn print_parquet_metadata(out: &mut io::Write, metadata: &ParquetMetaData) {
     print_file_metadata(out, &metadata.file_metadata());
-    writeln!(out, "");
-    writeln!(out, "");
+    writeln!(out);
+    writeln!(out);
     writeln!(out, "num of row groups: {}", metadata.num_row_groups());
     writeln!(out, "row groups:");
-    writeln!(out, "");
+    writeln!(out);
     for (i, rg) in metadata.row_groups().iter().enumerate() {
         writeln!(out, "row group {}:", i);
         print_dashes(out, 80);
@@ -68,7 +68,8 @@ pub fn print_parquet_metadata(out: &mut io::Write, metadata: &ParquetMetaData) {
     }
 }
 
-/// Prints file metadata [`FileMetaData`](`::file::metadata::FileMetaData`) information.
+/// Prints file metadata [`FileMetaData`](crate::file::metadata::FileMetaData)
+/// information.
 #[allow(unused_must_use)]
 pub fn print_file_metadata(out: &mut io::Write, file_metadata: &FileMetaData) {
     writeln!(out, "version: {}", file_metadata.version());
@@ -76,11 +77,22 @@ pub fn print_file_metadata(out: &mut io::Write, file_metadata: &FileMetaData) {
     if let Some(created_by) = file_metadata.created_by().as_ref() {
         writeln!(out, "created by: {}", created_by);
     }
+    if let Some(metadata) = file_metadata.key_value_metadata() {
+        writeln!(out, "metadata:");
+        for kv in metadata.iter() {
+            writeln!(
+                out,
+                "  {}: {}",
+                &kv.key,
+                kv.value.as_ref().unwrap_or(&"".to_owned())
+            );
+        }
+    }
     let schema = file_metadata.schema();
     print_schema(out, schema);
 }
 
-/// Prints Parquet [`Type`](`::schema::types::Type`) information.
+/// Prints Parquet [`Type`](crate::schema::types::Type) information.
 #[allow(unused_must_use)]
 pub fn print_schema(out: &mut io::Write, tp: &Type) {
     // TODO: better if we can pass fmt::Write to Printer.
@@ -97,11 +109,11 @@ pub fn print_schema(out: &mut io::Write, tp: &Type) {
 fn print_row_group_metadata(out: &mut io::Write, rg_metadata: &RowGroupMetaData) {
     writeln!(out, "total byte size: {}", rg_metadata.total_byte_size());
     writeln!(out, "num of rows: {}", rg_metadata.num_rows());
-    writeln!(out, "");
+    writeln!(out);
     writeln!(out, "num of columns: {}", rg_metadata.num_columns());
     writeln!(out, "columns: ");
     for (i, cc) in rg_metadata.columns().iter().enumerate() {
-        writeln!(out, "");
+        writeln!(out);
         writeln!(out, "column {}:", i);
         print_dashes(out, 80);
         print_column_chunk_metadata(out, cc);
@@ -151,7 +163,7 @@ fn print_column_chunk_metadata(out: &mut io::Write, cc_metadata: &ColumnChunkMet
         Some(stats) => stats.to_string(),
     };
     writeln!(out, "statistics: {}", statistics_str);
-    writeln!(out, "");
+    writeln!(out);
 }
 
 #[allow(unused_must_use)]
@@ -159,7 +171,7 @@ fn print_dashes(out: &mut io::Write, num: i32) {
     for _ in 0..num {
         write!(out, "-");
     }
-    writeln!(out, "");
+    writeln!(out);
 }
 
 const INDENT_WIDTH: i32 = 2;
@@ -187,8 +199,8 @@ impl<'a> Printer<'a> {
 impl<'a> Printer<'a> {
     pub fn print(&mut self, tp: &Type) {
         self.print_indent();
-        match tp {
-            &Type::PrimitiveType {
+        match *tp {
+            Type::PrimitiveType {
                 ref basic_info,
                 physical_type,
                 type_length,
@@ -227,7 +239,7 @@ impl<'a> Printer<'a> {
                     logical_type_str
                 );
             }
-            &Type::GroupType {
+            Type::GroupType {
                 ref basic_info,
                 ref fields,
             } => {
@@ -245,7 +257,7 @@ impl<'a> Printer<'a> {
                 self.indent += INDENT_WIDTH;
                 for c in fields {
                     self.print(&c);
-                    writeln!(self.output, "");
+                    writeln!(self.output);
                 }
                 self.indent -= INDENT_WIDTH;
                 self.print_indent();
@@ -259,7 +271,7 @@ impl<'a> Printer<'a> {
 mod tests {
     use super::*;
 
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     use crate::basic::{Repetition, Type as PhysicalType};
     use crate::schema::{parser::parse_message_type, types::Type};
@@ -279,14 +291,14 @@ mod tests {
         let mut s = String::new();
         {
             let mut p = Printer::new(&mut s);
-            let foo = Type::primitive_type_builder("foo", PhysicalType::INT32)
+            let field = Type::primitive_type_builder("field", PhysicalType::INT32)
                 .with_repetition(Repetition::REQUIRED)
                 .with_logical_type(LogicalType::INT_32)
                 .build()
                 .unwrap();
-            p.print(&foo);
+            p.print(&field);
         }
-        assert_eq!(&mut s, "REQUIRED INT32 foo (INT_32);");
+        assert_eq!(&mut s, "REQUIRED INT32 field (INT_32);");
     }
 
     #[test]
@@ -294,13 +306,13 @@ mod tests {
         let mut s = String::new();
         {
             let mut p = Printer::new(&mut s);
-            let foo = Type::primitive_type_builder("foo", PhysicalType::DOUBLE)
+            let field = Type::primitive_type_builder("field", PhysicalType::DOUBLE)
                 .with_repetition(Repetition::REQUIRED)
                 .build()
                 .unwrap();
-            p.print(&foo);
+            p.print(&field);
         }
-        assert_eq!(&mut s, "REQUIRED DOUBLE foo;");
+        assert_eq!(&mut s, "REQUIRED DOUBLE field;");
     }
 
     #[test]
@@ -325,17 +337,17 @@ mod tests {
                     .with_id(2)
                     .build();
             let mut struct_fields = Vec::new();
-            struct_fields.push(Rc::new(f1.unwrap()));
-            struct_fields.push(Rc::new(f2.unwrap()));
-            let foo = Type::group_type_builder("foo")
+            struct_fields.push(Arc::new(f1.unwrap()));
+            struct_fields.push(Arc::new(f2.unwrap()));
+            let field = Type::group_type_builder("field")
                 .with_repetition(Repetition::OPTIONAL)
                 .with_fields(&mut struct_fields)
                 .with_id(1)
                 .build()
                 .unwrap();
             let mut fields = Vec::new();
-            fields.push(Rc::new(foo));
-            fields.push(Rc::new(f3.unwrap()));
+            fields.push(Arc::new(field));
+            fields.push(Arc::new(f3.unwrap()));
             let message = Type::group_type_builder("schema")
                 .with_fields(&mut fields)
                 .with_id(2)
@@ -344,7 +356,7 @@ mod tests {
             p.print(&message);
         }
         let expected = "message schema {
-  OPTIONAL group foo {
+  OPTIONAL group field {
     REQUIRED INT32 f1 (INT_32);
     OPTIONAL BYTE_ARRAY f2 (UTF8);
   }
@@ -364,7 +376,7 @@ mod tests {
         let a1 = Type::group_type_builder("a1")
             .with_repetition(Repetition::OPTIONAL)
             .with_logical_type(LogicalType::LIST)
-            .with_fields(&mut vec![Rc::new(a2)])
+            .with_fields(&mut vec![Arc::new(a2)])
             .build()
             .unwrap();
 
@@ -381,25 +393,25 @@ mod tests {
         let b2 = Type::group_type_builder("b2")
             .with_repetition(Repetition::REPEATED)
             .with_logical_type(LogicalType::NONE)
-            .with_fields(&mut vec![Rc::new(b3), Rc::new(b4)])
+            .with_fields(&mut vec![Arc::new(b3), Arc::new(b4)])
             .build()
             .unwrap();
 
         let b1 = Type::group_type_builder("b1")
             .with_repetition(Repetition::OPTIONAL)
             .with_logical_type(LogicalType::LIST)
-            .with_fields(&mut vec![Rc::new(b2)])
+            .with_fields(&mut vec![Arc::new(b2)])
             .build()
             .unwrap();
 
         let a0 = Type::group_type_builder("a0")
             .with_repetition(Repetition::REQUIRED)
-            .with_fields(&mut vec![Rc::new(a1), Rc::new(b1)])
+            .with_fields(&mut vec![Arc::new(a1), Arc::new(b1)])
             .build()
             .unwrap();
 
         let message = Type::group_type_builder("root")
-            .with_fields(&mut vec![Rc::new(a0)])
+            .with_fields(&mut vec![Arc::new(a0)])
             .build()
             .unwrap();
 
@@ -420,9 +432,9 @@ mod tests {
             .build()
             .unwrap();
 
-        let foo = Type::group_type_builder("foo")
+        let field = Type::group_type_builder("field")
             .with_repetition(Repetition::OPTIONAL)
-            .with_fields(&mut vec![Rc::new(f1), Rc::new(f2)])
+            .with_fields(&mut vec![Arc::new(f1), Arc::new(f2)])
             .build()
             .unwrap();
 
@@ -434,7 +446,7 @@ mod tests {
             .unwrap();
 
         let message = Type::group_type_builder("schema")
-            .with_fields(&mut vec![Rc::new(foo), Rc::new(f3)])
+            .with_fields(&mut vec![Arc::new(field), Arc::new(f3)])
             .build()
             .unwrap();
 
@@ -460,7 +472,7 @@ mod tests {
             .unwrap();
 
         let message = Type::group_type_builder("schema")
-            .with_fields(&mut vec![Rc::new(f1), Rc::new(f2)])
+            .with_fields(&mut vec![Arc::new(f1), Arc::new(f2)])
             .build()
             .unwrap();
 

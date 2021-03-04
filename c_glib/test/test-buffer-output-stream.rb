@@ -16,6 +16,8 @@
 # under the License.
 
 class TestBufferOutputStream < Test::Unit::TestCase
+  include Helper::Buildable
+
   def test_new
     buffer = Arrow::ResizableBuffer.new(0)
     output_stream = Arrow::BufferOutputStream.new(buffer)
@@ -31,5 +33,28 @@ class TestBufferOutputStream < Test::Unit::TestCase
     output_stream.align(8)
     output_stream.close
     assert_equal("Hello\x00\x00\x00", buffer.data.to_s)
+  end
+
+  def test_write_record_batch
+    fields = [
+      Arrow::Field.new("visible", Arrow::BooleanDataType.new),
+      Arrow::Field.new("valid", Arrow::BooleanDataType.new),
+    ]
+    schema = Arrow::Schema.new(fields)
+    columns = [
+      build_boolean_array([true]),
+      build_boolean_array([false]),
+    ]
+    record_batch = Arrow::RecordBatch.new(schema, 1, columns)
+
+    buffer = Arrow::ResizableBuffer.new(0)
+    options = Arrow::WriteOptions.new
+    output_stream = Arrow::BufferOutputStream.new(buffer)
+    output_stream.write_record_batch(record_batch, options)
+    output_stream.close
+
+    input_stream = Arrow::BufferInputStream.new(buffer)
+    assert_equal(record_batch,
+                 input_stream.read_record_batch(schema))
   end
 end

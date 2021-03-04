@@ -17,88 +17,73 @@
 
 context("read-write")
 
-test_that("arrow::table round trip", {
+test_that("table round trip", {
   tbl <- tibble::tibble(
     int = 1:10,
     dbl = as.numeric(1:10),
     raw = as.raw(1:10)
   )
 
-  tab <- arrow::table(tbl)
+  tab <- Table$create(!!!tbl)
   expect_equal(tab$num_columns, 3L)
   expect_equal(tab$num_rows, 10L)
 
-  # arrow::Column
-  col_int <- tab$column(0)
-  expect_equal(col_int$length(), 10L)
-  expect_equal(col_int$null_count, 0L)
-  expect_equal(col_int$type, int32())
-
-  # arrow::ChunkedArray
-  chunked_array_int <- col_int$data()
+  # ChunkedArray
+  chunked_array_int <- tab$column(0)
   expect_equal(chunked_array_int$length(), 10L)
   expect_equal(chunked_array_int$null_count, 0L)
   expect_equal(chunked_array_int$as_vector(), tbl$int)
 
-  # arrow::Array
+  # Array
   chunks_int <- chunked_array_int$chunks
   expect_equal(length(chunks_int), chunked_array_int$num_chunks)
-  for( i in seq_along(chunks_int)){
+  for (i in seq_along(chunks_int)) {
     expect_equal(chunked_array_int$chunk(i-1L), chunks_int[[i]])
   }
 
-  # arrow::Column
-  col_dbl <- tab$column(1)
-  expect_equal(col_dbl$length(), 10L)
-  expect_equal(col_dbl$null_count, 0L)
-  expect_equal(col_dbl$type, float64())
-
-  # arrow::ChunkedArray
-  chunked_array_dbl <- col_dbl$data()
+  # ChunkedArray
+  chunked_array_dbl <- tab$column(1)
   expect_equal(chunked_array_dbl$length(), 10L)
   expect_equal(chunked_array_dbl$null_count, 0L)
   expect_equal(chunked_array_dbl$as_vector(), tbl$dbl)
 
-  # arrow::Array
+  # Array
   chunks_dbl <- chunked_array_dbl$chunks
   expect_equal(length(chunks_dbl), chunked_array_dbl$num_chunks)
-  for( i in seq_along(chunks_dbl)){
+  for (i in seq_along(chunks_dbl)) {
     expect_equal(chunked_array_dbl$chunk(i-1L), chunks_dbl[[i]])
   }
 
-  # arrow::Colmumn
-  col_raw <- tab$column(2)
-  expect_equal(col_raw$length(), 10L)
-  expect_equal(col_raw$null_count, 0L)
-  expect_equal(col_raw$type, int8())
-
-  # arrow::ChunkedArray
-  chunked_array_raw <- col_raw$data()
+  # ChunkedArray
+  chunked_array_raw <- tab$column(2)
   expect_equal(chunked_array_raw$length(), 10L)
   expect_equal(chunked_array_raw$null_count, 0L)
-  expect_equal(chunked_array_raw$as_vector(), tbl$raw)
+  expect_equal(chunked_array_raw$as_vector(), as.integer(tbl$raw))
 
-  # arrow::Array
+  # Array
   chunks_raw <- chunked_array_raw$chunks
   expect_equal(length(chunks_raw), chunked_array_raw$num_chunks)
-  for( i in seq_along(chunks_raw)){
+  for (i in seq_along(chunks_raw)) {
     expect_equal(chunked_array_raw$chunk(i-1L), chunks_raw[[i]])
   }
-  tf <- local_tempfile()
-  write_arrow(tbl, tf)
+  tf <- tempfile()
+  write_feather(tbl, tf)
 
-  res <- read_arrow(tf)
-  expect_identical(tbl, res)
+  res <- read_feather(tf)
+  expect_identical(tbl$int, res$int)
+  expect_identical(tbl$dbl, res$dbl)
+  expect_identical(as.integer(tbl$raw), res$raw)
+  unlink(tf)
 })
 
-test_that("arrow::table round trip handles NA in integer and numeric", {
+test_that("table round trip handles NA in integer and numeric", {
   tbl <- tibble::tibble(
     int = c(NA, 2:10),
     dbl = as.numeric(c(1:5, NA, 7:9, NA)),
     raw = as.raw(1:10)
   )
 
-  tab <- arrow::table(tbl)
+  tab <- Table$create(!!!tbl)
   expect_equal(tab$num_columns, 3L)
   expect_equal(tab$num_rows, 10L)
 
@@ -112,15 +97,30 @@ test_that("arrow::table round trip handles NA in integer and numeric", {
 
   expect_equal(tab$column(0)$type, int32())
   expect_equal(tab$column(1)$type, float64())
-  expect_equal(tab$column(2)$type, int8())
+  expect_equal(tab$column(2)$type, uint8())
 
-  tf <- local_tempfile()
-  write_arrow(tbl, tf)
+  tf <- tempfile()
+  write_feather(tbl, tf)
 
-  res <- read_arrow(tf)
-  expect_identical(tbl, res)
+  res <- read_feather(tf)
+  expect_identical(tbl$int, res$int)
+  expect_identical(tbl$dbl, res$dbl)
+  expect_identical(as.integer(tbl$raw), res$raw)
+
   expect_true(is.na(res$int[1]))
   expect_true(is.na(res$dbl[6]))
   expect_true(is.na(res$dbl[10]))
+  unlink(tf)
 })
 
+test_that("reading/writing a raw vector (sparklyr integration)", {
+  # These are effectively what sparklyr calls to get data to/from Spark
+  read_from_raw_test <- function(x) {
+    as.data.frame(RecordBatchStreamReader$create(x)$read_next_batch())
+  }
+  bytes <- write_to_raw(example_data)
+  expect_is(bytes, "raw")
+  expect_identical(read_from_raw_test(bytes), example_data)
+  # this could just be `read_ipc_stream(x)`; propose that
+  expect_identical(read_ipc_stream(bytes), example_data)
+})

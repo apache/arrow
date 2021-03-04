@@ -36,5 +36,14 @@ module Gandiva
         super
       end
     end
+
+    def post_load(repository, namespace)
+      require_libraries
+    end
+
+    def require_libraries
+      require "gandiva/arrow-schema"
+      require "gandiva/expression-builder"
+    end
   end
 end

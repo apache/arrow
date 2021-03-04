@@ -19,7 +19,9 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/python/datetime.h"
 #include "arrow/python/init.h"
+#include "arrow/python/pyarrow.h"
 
 int main(int argc, char** argv) {
   ::testing::InitGoogleTest(&argc, argv);
@@ -29,6 +31,7 @@ int main(int argc, char** argv) {
   if (ret != 0) {
     return ret;
   }
+  ::arrow::py::internal::InitDatetime();
 
   ret = RUN_ALL_TESTS();
 

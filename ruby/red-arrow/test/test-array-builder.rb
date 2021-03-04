@@ -60,6 +60,23 @@ class ArrayBuilderTest < Test::Unit::TestCase
                        DateTime.new(2018, 1, 5, 0, 23, 21),
                      ])
       end
+
+      test("list<boolean>s") do
+        assert_build(Arrow::ArrayBuilder,
+                     [
+                       [nil, true, false],
+                       nil,
+                       [false],
+                     ])
+      end
+
+      test("list<string>s") do
+        assert_build(Arrow::ArrayBuilder,
+                     [
+                       ["Hello", "World"],
+                       ["Apache Arrow"],
+                     ])
+      end
     end
 
     sub_test_case("specific builder") do

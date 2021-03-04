@@ -57,7 +57,7 @@ We support two build systems, GNU Autotools and Meson. If you find problems when
 
 ### Package
 
-See [install document](../site/install.md) for details.
+See [install document](https://arrow.apache.org/install/) for details.
 
 ### How to build by users
 
@@ -192,7 +192,7 @@ You can find example codes in the `example/` directory.
 
 ### Language bindings
 
-You can use Arrow GLib with non C languages with GObject Introspection
+You can use Arrow GLib with non-C languages with GObject Introspection
 based bindings. Here are languages that support GObject Introspection:
 
   * Ruby: [red-arrow gem](https://rubygems.org/gems/red-arrow) should be used.
@@ -297,7 +297,7 @@ gobject-introspection requires libffi, and it's automatically installed with gob
 
 ### build failed - /usr/bin/ld: cannot find -larrow
 
-Arrow C++ must be installed to build Arrow GLib. Run `make install` on Arrow C++ build directory. In addtion, on linux, you may need to run `sudo ldconfig`.
+Arrow C++ must be installed to build Arrow GLib. Run `make install` on Arrow C++ build directory. In addition, on linux, you may need to run `sudo ldconfig`.
 
 ### build failed - unable to load http://docbook.sourceforge.net/release/xsl/current/html/chunk.xsl
 

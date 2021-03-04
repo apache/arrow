@@ -17,22 +17,27 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
+
+import java.time.LocalDateTime;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.TimeStampNanoReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.NullableTimeStampNanoHolder;
 import org.apache.arrow.vector.holders.TimeStampNanoHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.DateUtility;
 import org.apache.arrow.vector.util.TransferPair;
-import org.joda.time.LocalDateTime;
 
 /**
  * TimeStampNanoVector implements a fixed width vector (8 bytes) of
  * timestamp (nanosecond resolution) values which could be null. A validity buffer
  * (bit vector) is maintained to track which elements in the vector are null.
  */
-public class TimeStampNanoVector extends TimeStampVector {
+public final class TimeStampNanoVector extends TimeStampVector {
   private final FieldReader reader;
 
   /**
@@ -56,6 +61,18 @@ public class TimeStampNanoVector extends TimeStampVector {
    */
   public TimeStampNanoVector(String name, FieldType fieldType, BufferAllocator allocator) {
     super(name, fieldType, allocator);
+    reader = new TimeStampNanoReaderImpl(TimeStampNanoVector.this);
+  }
+
+  /**
+   * Instantiate a TimeStampNanoVector. This doesn't allocate any memory for
+   * the data in vector.
+   *
+   * @param field Field materialized by this vector
+   * @param allocator allocator for memory management.
+   */
+  public TimeStampNanoVector(Field field, BufferAllocator allocator) {
+    super(field, allocator);
     reader = new TimeStampNanoReaderImpl(TimeStampNanoVector.this);
   }
 
@@ -96,12 +113,12 @@ public class TimeStampNanoVector extends TimeStampVector {
    * @param index   position of element
    */
   public void get(int index, NullableTimeStampNanoHolder holder) {
-    if (isSet(index) == 0) {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       holder.isSet = 0;
       return;
     }
     holder.isSet = 1;
-    holder.value = valueBuffer.getLong(index * TYPE_WIDTH);
+    holder.value = valueBuffer.getLong((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -114,11 +131,8 @@ public class TimeStampNanoVector extends TimeStampVector {
     if (isSet(index) == 0) {
       return null;
     } else {
-      final long nanos = valueBuffer.getLong(index * TYPE_WIDTH);
-      final long millis = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(nanos);
-      final org.joda.time.LocalDateTime localDateTime = new org.joda.time.LocalDateTime(millis,
-              org.joda.time.DateTimeZone.UTC);
-      return localDateTime;
+      final long nanos = valueBuffer.getLong((long) index * TYPE_WIDTH);
+      return DateUtility.getLocalDateTimeFromEpochNano(nanos);
     }
   }
 
@@ -142,10 +156,10 @@ public class TimeStampNanoVector extends TimeStampVector {
     if (holder.isSet < 0) {
       throw new IllegalArgumentException();
     } else if (holder.isSet > 0) {
-      BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+      BitVectorHelper.setBit(validityBuffer, index);
       setValue(index, holder.value);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.unsetBit(validityBuffer, index);
     }
   }
 
@@ -156,7 +170,7 @@ public class TimeStampNanoVector extends TimeStampVector {
    * @param holder  data holder for value of element
    */
   public void set(int index, TimeStampNanoHolder holder) {
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
     setValue(index, holder.value);
   }
 
@@ -195,7 +209,7 @@ public class TimeStampNanoVector extends TimeStampVector {
 
 
   /**
-   * Construct a TransferPair comprising of this and and a target vector of
+   * Construct a TransferPair comprising of this and a target vector of
    * the same type.
    *
    * @param ref name of the target vector

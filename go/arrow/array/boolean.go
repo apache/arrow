@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/internal/bitutil"
+	"github.com/apache/arrow/go/arrow/bitutil"
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
@@ -55,7 +55,7 @@ func (a *Boolean) Value(i int) bool {
 func (a *Boolean) String() string {
 	o := new(strings.Builder)
 	o.WriteString("[")
-	for i := range a.values {
+	for i := 0; i < a.Len(); i++ {
 		if i > 0 {
 			fmt.Fprintf(o, " ")
 		}
@@ -76,6 +76,18 @@ func (a *Boolean) setData(data *Data) {
 	if vals != nil {
 		a.values = vals.Bytes()
 	}
+}
+
+func arrayEqualBoolean(left, right *Boolean) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
 }
 
 var (

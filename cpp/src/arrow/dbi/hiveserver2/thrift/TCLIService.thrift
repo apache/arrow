@@ -445,7 +445,7 @@ enum TOperationState {
   // The operation is in an unrecognized state
   UKNOWN_STATE,
 
-  // The operation is in an pending state
+  // The operation is in a pending state
   PENDING_STATE,
 }
 
@@ -524,7 +524,7 @@ struct TOperationHandle {
   //
   // 2) 0 for operations that don't modify or add rows.
   //
-  // 3) < 0 if the operation is capable of modifiying rows,
+  // 3) < 0 if the operation is capable of modifying rows,
   //    but Hive is unable to determine how many rows were
   //    modified. For example, Hive's LOAD DATA command
   //    doesn't generate row count information because
@@ -652,7 +652,7 @@ union TGetInfoValue {
 // The function returns general information about the data source
 // using the same keys as ODBC.
 struct TGetInfoReq {
-  // The sesssion to run this request against
+  // The session to run this request against
   1: required TSessionHandle sessionHandle
 
   2: required TGetInfoType infoType
@@ -678,7 +678,7 @@ struct TExecuteStatementReq {
   // The statement to be executed (DML, DDL, SET, etc)
   2: required string statement
 
-  // Configuration properties that are overlayed on top of the
+  // Configuration properties that are overlaid on top of the
   // the existing session configuration before this statement
   // is executed. These properties apply to this statement
   // only and will not affect the subsequent state of the Session.

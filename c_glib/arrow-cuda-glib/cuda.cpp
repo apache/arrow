@@ -24,6 +24,7 @@
 #include <arrow-glib/buffer.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/input-stream.hpp>
+#include <arrow-glib/ipc-options.hpp>
 #include <arrow-glib/output-stream.hpp>
 #include <arrow-glib/readable.hpp>
 #include <arrow-glib/record-batch.hpp>
@@ -99,9 +100,8 @@ garrow_cuda_device_manager_class_init(GArrowCUDADeviceManagerClass *klass)
 GArrowCUDADeviceManager *
 garrow_cuda_device_manager_new(GError **error)
 {
-  arrow::cuda::CudaDeviceManager *manager;
-  auto status = arrow::cuda::CudaDeviceManager::GetInstance(&manager);
-  if (garrow_error_check(error, status, "[cuda][device-manager][new]")) {
+  auto arrow_manager = arrow::cuda::CudaDeviceManager::Instance();
+  if (garrow::check(error, arrow_manager, "[cuda][device-manager][new]")) {
     auto manager = g_object_new(GARROW_CUDA_TYPE_DEVICE_MANAGER,
                                 NULL);
     return GARROW_CUDA_DEVICE_MANAGER(manager);
@@ -127,13 +127,11 @@ garrow_cuda_device_manager_get_context(GArrowCUDADeviceManager *manager,
                                        gint gpu_number,
                                        GError **error)
 {
-  arrow::cuda::CudaDeviceManager *arrow_manager;
-  arrow::cuda::CudaDeviceManager::GetInstance(&arrow_manager);
-  std::shared_ptr<arrow::cuda::CudaContext> context;
-  auto status = arrow_manager->GetContext(gpu_number, &context);
-  if (garrow_error_check(error, status,
-                         "[cuda][device-manager][get-context]]")) {
-    return garrow_cuda_context_new_raw(&context);
+  auto arrow_manager = arrow::cuda::CudaDeviceManager::Instance();
+  auto arrow_cuda_context = (*arrow_manager)->GetContext(gpu_number);
+  if (garrow::check(error, arrow_cuda_context,
+                    "[cuda][device-manager][get-context]]")) {
+    return garrow_cuda_context_new_raw(&(*arrow_cuda_context));
   } else {
     return NULL;
   }
@@ -150,9 +148,8 @@ garrow_cuda_device_manager_get_context(GArrowCUDADeviceManager *manager,
 gsize
 garrow_cuda_device_manager_get_n_devices(GArrowCUDADeviceManager *manager)
 {
-  arrow::cuda::CudaDeviceManager *arrow_manager;
-  arrow::cuda::CudaDeviceManager::GetInstance(&arrow_manager);
-  return arrow_manager->num_devices();
+  auto arrow_manager = arrow::cuda::CudaDeviceManager::Instance();
+  return (*arrow_manager)->num_devices();
 }
 
 
@@ -178,7 +175,7 @@ garrow_cuda_context_finalize(GObject *object)
 {
   auto priv = GARROW_CUDA_CONTEXT_GET_PRIVATE(object);
 
-  priv->context = nullptr;
+  priv->context.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_cuda_context_parent_class)->finalize(object);
 }
@@ -218,6 +215,8 @@ garrow_cuda_context_get_property(GObject *object,
 static void
 garrow_cuda_context_init(GArrowCUDAContext *object)
 {
+  auto priv = GARROW_CUDA_CONTEXT_GET_PRIVATE(object);
+  new(&priv->context) std::shared_ptr<arrow::cuda::CudaContext>;
 }
 
 static void
@@ -291,10 +290,9 @@ garrow_cuda_buffer_new(GArrowCUDAContext *context,
                        GError **error)
 {
   auto arrow_context = garrow_cuda_context_get_raw(context);
-  std::shared_ptr<arrow::cuda::CudaBuffer> arrow_buffer;
-  auto status = arrow_context->Allocate(size, &arrow_buffer);
-  if (garrow_error_check(error, status, "[cuda][buffer][new]")) {
-    return garrow_cuda_buffer_new_raw(&arrow_buffer);
+  auto arrow_buffer = arrow_context->Allocate(size);
+  if (garrow::check(error, arrow_buffer, "[cuda][buffer][new]")) {
+    return garrow_cuda_buffer_new_raw(&(*arrow_buffer));
   } else {
     return NULL;
   }
@@ -318,11 +316,9 @@ garrow_cuda_buffer_new_ipc(GArrowCUDAContext *context,
 {
   auto arrow_context = garrow_cuda_context_get_raw(context);
   auto arrow_handle = garrow_cuda_ipc_memory_handle_get_raw(handle);
-  std::shared_ptr<arrow::cuda::CudaBuffer> arrow_buffer;
-  auto status = arrow_context->OpenIpcBuffer(*arrow_handle, &arrow_buffer);
-  if (garrow_error_check(error, status,
-                         "[cuda][buffer][new-ipc]")) {
-    return garrow_cuda_buffer_new_raw(&arrow_buffer);
+  auto arrow_buffer = arrow_context->OpenIpcBuffer(*arrow_handle);
+  if (garrow::check(error, arrow_buffer, "[cuda][buffer][new-ipc]")) {
+    return garrow_cuda_buffer_new_raw(&(*arrow_buffer));
   } else {
     return NULL;
   }
@@ -347,13 +343,10 @@ garrow_cuda_buffer_new_record_batch(GArrowCUDAContext *context,
 {
   auto arrow_context = garrow_cuda_context_get_raw(context);
   auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
-  std::shared_ptr<arrow::cuda::CudaBuffer> arrow_buffer;
-  auto status = arrow::cuda::SerializeRecordBatch(*arrow_record_batch,
-                                                  arrow_context.get(),
-                                                  &arrow_buffer);
-  if (garrow_error_check(error, status,
-                         "[cuda][buffer][new-record-batch]")) {
-    return garrow_cuda_buffer_new_raw(&arrow_buffer);
+  auto arrow_buffer = arrow::cuda::SerializeRecordBatch(*arrow_record_batch,
+                                                        arrow_context.get());
+  if (garrow::check(error, arrow_buffer, "[cuda][buffer][new-record-batch]")) {
+    return garrow_cuda_buffer_new_raw(&(*arrow_buffer));
   } else {
     return NULL;
   }
@@ -427,10 +420,9 @@ GArrowCUDAIPCMemoryHandle *
 garrow_cuda_buffer_export(GArrowCUDABuffer *buffer, GError **error)
 {
   auto arrow_buffer = garrow_cuda_buffer_get_raw(buffer);
-  std::shared_ptr<arrow::cuda::CudaIpcMemHandle> arrow_handle;
-  auto status = arrow_buffer->ExportForIpc(&arrow_handle);
-  if (garrow_error_check(error, status, "[cuda][buffer][export-for-ipc]")) {
-    return garrow_cuda_ipc_memory_handle_new_raw(&arrow_handle);
+  auto arrow_handle = arrow_buffer->ExportForIpc();
+  if (garrow::check(error, arrow_handle, "[cuda][buffer][export-for-ipc]")) {
+    return garrow_cuda_ipc_memory_handle_new_raw(&(*arrow_handle));
   } else {
     return NULL;
   }
@@ -457,6 +449,7 @@ garrow_cuda_buffer_get_context(GArrowCUDABuffer *buffer)
  * garrow_cuda_buffer_read_record_batch:
  * @buffer: A #GArrowCUDABuffer.
  * @schema: A #GArrowSchema for record batch.
+ * @options: (nullable): A #GArrowReadOptions.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (transfer full): A newly created #GArrowRecordBatch on
@@ -467,21 +460,40 @@ garrow_cuda_buffer_get_context(GArrowCUDABuffer *buffer)
 GArrowRecordBatch *
 garrow_cuda_buffer_read_record_batch(GArrowCUDABuffer *buffer,
                                      GArrowSchema *schema,
+                                     GArrowReadOptions *options,
                                      GError **error)
 {
   auto arrow_buffer = garrow_cuda_buffer_get_raw(buffer);
   auto arrow_schema = garrow_schema_get_raw(schema);
-  auto pool = arrow::default_memory_pool();
-  std::shared_ptr<arrow::RecordBatch> arrow_record_batch;
-  auto status = arrow::cuda::ReadRecordBatch(arrow_schema,
-                                             arrow_buffer,
-                                             pool,
-                                             &arrow_record_batch);
-  if (garrow_error_check(error, status,
-                         "[cuda][buffer][read-record-batch]")) {
-    return garrow_record_batch_new_raw(&arrow_record_batch);
+
+  if (options) {
+    auto arrow_options = garrow_read_options_get_raw(options);
+    auto arrow_dictionary_memo =
+      garrow_read_options_get_dictionary_memo_raw(options);
+    auto arrow_record_batch =
+      arrow::cuda::ReadRecordBatch(arrow_schema,
+                                   arrow_dictionary_memo,
+                                   arrow_buffer,
+                                   arrow_options->memory_pool);
+    if (garrow::check(error, arrow_record_batch,
+                      "[cuda][buffer][read-record-batch]")) {
+      return garrow_record_batch_new_raw(&(*arrow_record_batch));
+    } else {
+      return NULL;
+    }
   } else {
-    return NULL;
+    auto arrow_pool = arrow::default_memory_pool();
+    auto arrow_record_batch =
+      arrow::cuda::ReadRecordBatch(arrow_schema,
+                                   nullptr,
+                                   arrow_buffer,
+                                   arrow_pool);
+    if (garrow::check(error, arrow_record_batch,
+                      "[cuda][buffer][read-record-batch]")) {
+      return garrow_record_batch_new_raw(&(*arrow_record_batch));
+    } else {
+      return NULL;
+    }
   }
 }
 
@@ -515,12 +527,10 @@ garrow_cuda_host_buffer_class_init(GArrowCUDAHostBufferClass *klass)
 GArrowCUDAHostBuffer *
 garrow_cuda_host_buffer_new(gint gpu_number, gint64 size, GError **error)
 {
-  arrow::cuda::CudaDeviceManager *manager;
-  auto status = arrow::cuda::CudaDeviceManager::GetInstance(&manager);
-  std::shared_ptr<arrow::cuda::CudaHostBuffer> arrow_buffer;
-  status = manager->AllocateHost(gpu_number, size, &arrow_buffer);
-  if (garrow_error_check(error, status, "[cuda][host-buffer][new]")) {
-    return garrow_cuda_host_buffer_new_raw(&arrow_buffer);
+  auto arrow_manager = arrow::cuda::CudaDeviceManager::Instance();
+  auto arrow_buffer = (*arrow_manager)->AllocateHost(gpu_number, size);
+  if (garrow::check(error, arrow_buffer, "[cuda][host-buffer][new]")) {
+    return garrow_cuda_host_buffer_new_raw(&(*arrow_buffer));
   } else {
     return NULL;
   }
@@ -631,11 +641,9 @@ garrow_cuda_ipc_memory_handle_new(const guint8 *data,
                                   gsize size,
                                   GError **error)
 {
-  std::shared_ptr<arrow::cuda::CudaIpcMemHandle> arrow_handle;
-  auto status = arrow::cuda::CudaIpcMemHandle::FromBuffer(data, &arrow_handle);
-  if (garrow_error_check(error, status,
-                         "[cuda][ipc-memory-handle][new]")) {
-    return garrow_cuda_ipc_memory_handle_new_raw(&arrow_handle);
+  auto arrow_handle = arrow::cuda::CudaIpcMemHandle::FromBuffer(data);
+  if (garrow::check(error, arrow_handle, "[cuda][ipc-memory-handle][new]")) {
+    return garrow_cuda_ipc_memory_handle_new_raw(&(*arrow_handle));
   } else {
     return NULL;
   }
@@ -658,24 +666,22 @@ garrow_cuda_ipc_memory_handle_serialize(GArrowCUDAIPCMemoryHandle *handle,
                                         GError **error)
 {
   auto arrow_handle = garrow_cuda_ipc_memory_handle_get_raw(handle);
-  std::shared_ptr<arrow::Buffer> arrow_buffer;
-  auto status = arrow_handle->Serialize(arrow::default_memory_pool(),
-                                        &arrow_buffer);
-  if (garrow_error_check(error, status,
-                         "[cuda][ipc-memory-handle][serialize]")) {
-    return garrow_buffer_new_raw(&arrow_buffer);
+  auto arrow_buffer = arrow_handle->Serialize(arrow::default_memory_pool());
+  if (garrow::check(error, arrow_buffer,
+                    "[cuda][ipc-memory-handle][serialize]")) {
+    return garrow_buffer_new_raw(&(*arrow_buffer));
   } else {
     return NULL;
   }
 }
 
-GArrowBuffer *
-garrow_cuda_buffer_input_stream_new_raw_readable_interface(std::shared_ptr<arrow::Buffer> *arrow_buffer)
+static GArrowBuffer *
+garrow_cuda_buffer_input_stream_buffer_new_raw_readable_interface(std::shared_ptr<arrow::Buffer> *arrow_buffer)
 {
-  auto buffer = GARROW_BUFFER(g_object_new(GARROW_CUDA_TYPE_BUFFER,
-                                           "buffer", arrow_buffer,
-                                           NULL));
-  return buffer;
+  auto arrow_cuda_buffer =
+    reinterpret_cast<std::shared_ptr<arrow::cuda::CudaBuffer> *>(arrow_buffer);
+  auto cuda_buffer = garrow_cuda_buffer_new_raw(arrow_cuda_buffer);
+  return GARROW_BUFFER(cuda_buffer);
 }
 
 static std::shared_ptr<arrow::io::Readable>
@@ -689,8 +695,8 @@ garrow_cuda_buffer_input_stream_get_raw_readable_interface(GArrowReadable *reada
 static void
 garrow_cuda_buffer_input_stream_readable_interface_init(GArrowReadableInterface *iface)
 {
-  iface->new_raw =
-    garrow_cuda_buffer_input_stream_new_raw_readable_interface;
+  iface->buffer_new_raw =
+    garrow_cuda_buffer_input_stream_buffer_new_raw_readable_interface;
   iface->get_raw =
     garrow_cuda_buffer_input_stream_get_raw_readable_interface;
 }

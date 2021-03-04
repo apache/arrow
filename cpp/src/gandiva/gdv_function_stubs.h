@@ -15,10 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GDV_FUNCTION_STUBS_H
-#define GDV_FUNCTION_STUBS_H
+#pragma once
 
 #include <cstdint>
+
+#include "gandiva/visibility.h"
 
 /// Stub functions that can be accessed from LLVM.
 extern "C" {
@@ -43,6 +44,26 @@ bool in_expr_lookup_int32(int64_t ptr, int32_t value, bool in_validity);
 bool in_expr_lookup_int64(int64_t ptr, int64_t value, bool in_validity);
 
 bool in_expr_lookup_utf8(int64_t ptr, const char* data, int data_len, bool in_validity);
-}
 
-#endif  // GDV_FUNCTION_STUBS_H
+int gdv_fn_time_with_zone(int* time_fields, const char* zone, int zone_len,
+                          int64_t* ret_time);
+
+int32_t gdv_fn_dec_from_string(int64_t context, const char* in, int32_t in_length,
+                               int32_t* precision_from_str, int32_t* scale_from_str,
+                               int64_t* dec_high_from_str, uint64_t* dec_low_from_str);
+
+char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
+                           int32_t x_scale, int32_t* dec_str_len);
+
+GANDIVA_EXPORT
+int32_t gdv_fn_castINT_utf8(int64_t context, const char* data, int32_t data_len);
+
+GANDIVA_EXPORT
+int64_t gdv_fn_castBIGINT_utf8(int64_t context, const char* data, int32_t data_len);
+
+GANDIVA_EXPORT
+float gdv_fn_castFLOAT4_utf8(int64_t context, const char* data, int32_t data_len);
+
+GANDIVA_EXPORT
+double gdv_fn_castFLOAT8_utf8(int64_t context, const char* data, int32_t data_len);
+}

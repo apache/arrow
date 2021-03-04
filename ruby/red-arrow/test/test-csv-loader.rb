@@ -117,8 +117,83 @@ class CSVLoaderTest < Test::Unit::TestCase
   end
 
   sub_test_case("CSVReader") do
-    def load_csv(data, options)
-      Arrow::CSVLoader.load(data, options)
+    def load_csv(data, **options)
+      Arrow::CSVLoader.load(data, **options)
+    end
+
+    sub_test_case(":headers") do
+      test("true") do
+        values = Arrow::StringArray.new(["a", "b", "c"])
+        assert_equal(Arrow::Table.new(value: values),
+                     load_csv(<<-CSV, headers: true))
+value
+a
+b
+c
+                     CSV
+      end
+
+      test(":first_line") do
+        values = Arrow::StringArray.new(["a", "b", "c"])
+        assert_equal(Arrow::Table.new(value: values),
+                     load_csv(<<-CSV, headers: :first_line))
+value
+a
+b
+c
+                     CSV
+      end
+
+      test("truthy") do
+        values = Arrow::StringArray.new(["a", "b", "c"])
+        assert_equal(Arrow::Table.new(value: values),
+                     load_csv(<<-CSV, headers: 0))
+value
+a
+b
+c
+                     CSV
+      end
+
+      test("Array of column names") do
+        values = Arrow::StringArray.new(["a", "b", "c"])
+        assert_equal(Arrow::Table.new(column: values),
+                     load_csv(<<-CSV, headers: ["column"]))
+a
+b
+c
+                     CSV
+      end
+
+      test("false") do
+        values = Arrow::StringArray.new(["a", "b", "c"])
+        assert_equal(Arrow::Table.new(f0: values),
+                     load_csv(<<-CSV, headers: false))
+a
+b
+c
+                     CSV
+      end
+
+      test("nil") do
+        values = Arrow::StringArray.new(["a", "b", "c"])
+        assert_equal(Arrow::Table.new(f0: values),
+                     load_csv(<<-CSV, headers: nil))
+a
+b
+c
+                     CSV
+      end
+
+      test("string") do
+        values = Arrow::StringArray.new(["a", "b", "c"])
+        assert_equal(Arrow::Table.new(column: values),
+                     load_csv(<<-CSV, headers: "column"))
+a
+b
+c
+                     CSV
+      end
     end
 
     test(":column_types") do
@@ -140,6 +215,36 @@ count
 2
 4
                    CSV
+    end
+
+    test(":encoding") do
+      messages = [
+        "\u3042", # U+3042 HIRAGANA LETTER A
+        "\u3044", # U+3044 HIRAGANA LETTER I
+        "\u3046", # U+3046 HIRAGANA LETTER U
+      ]
+      table = Arrow::Table.new(:message => Arrow::StringArray.new(messages))
+      encoding = "cp932"
+      assert_equal(table,
+                   load_csv((["message"] + messages).join("\n").encode(encoding),
+                            schema: table.schema,
+                            encoding: encoding))
+    end
+
+    test(":encoding and :compression") do
+      messages = [
+        "\u3042", # U+3042 HIRAGANA LETTER A
+        "\u3044", # U+3044 HIRAGANA LETTER I
+        "\u3046", # U+3046 HIRAGANA LETTER U
+      ]
+      table = Arrow::Table.new(:message => Arrow::StringArray.new(messages))
+      encoding = "cp932"
+      csv = (["message"] + messages).join("\n").encode(encoding)
+      assert_equal(table,
+                   load_csv(Zlib::Deflate.deflate(csv),
+                            schema: table.schema,
+                            encoding: encoding,
+                            compression: :gzip))
     end
   end
 end

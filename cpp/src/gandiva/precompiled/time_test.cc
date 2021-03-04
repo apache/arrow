@@ -15,26 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gtest/gtest.h>
 #include <time.h>
 
-#include <gtest/gtest.h>
 #include "../execution_context.h"
+#include "gandiva/precompiled/testing.h"
 #include "gandiva/precompiled/types.h"
 
 namespace gandiva {
-
-timestamp StringToTimestamp(const char* buf) {
-  struct tm tm;
-  strptime(buf, "%Y-%m-%d %H:%M:%S", &tm);
-  return timegm(&tm) * 1000;  // to millis
-}
 
 TEST(TestTime, TestCastDate) {
   ExecutionContext context;
   int64_t context_ptr = reinterpret_cast<int64_t>(&context);
 
   EXPECT_EQ(castDATE_utf8(context_ptr, "1967-12-1", 9), -65836800000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "2067-12-1", 9), 3089923200000);
+
+  EXPECT_EQ(castDATE_utf8(context_ptr, "7-12-1", 6), 1196467200000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "67-12-1", 7), 3089923200000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "067-12-1", 8), 3089923200000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "0067-12-1", 9), -60023980800000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "00067-12-1", 10), -60023980800000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "167-12-1", 8), -56868307200000);
+
   EXPECT_EQ(castDATE_utf8(context_ptr, "1972-12-1", 9), 92016000000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "72-12-1", 7), 92016000000);
 
   EXPECT_EQ(castDATE_utf8(context_ptr, "1972222222", 10), 0);
   EXPECT_EQ(context.get_error(), "Not a valid date value 1972222222");
@@ -44,15 +49,132 @@ TEST(TestTime, TestCastDate) {
   EXPECT_EQ(castDATE_utf8(context_ptr, "1967-12-1bb", 11), -65836800000);
 
   EXPECT_EQ(castDATE_utf8(context_ptr, "67-12-1", 7), 3089923200000);
-  EXPECT_EQ(castDATE_utf8(context_ptr, "67-1-1", 7), 3061065600000);
-  EXPECT_EQ(castDATE_utf8(context_ptr, "71-1-1", 7), 31536000000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "67-1-1", 6), 3061065600000);
+  EXPECT_EQ(castDATE_utf8(context_ptr, "71-1-1", 6), 31536000000);
   EXPECT_EQ(castDATE_utf8(context_ptr, "71-45-1", 7), 0);
   EXPECT_EQ(castDATE_utf8(context_ptr, "71-12-XX", 8), 0);
+
+  EXPECT_EQ(castDATE_date32(1), 86400000);
 }
+
+TEST(TestTime, TestCastTimestamp) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "1967-12-1", 9), -65836800000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2067-12-1", 9), 3089923200000);
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "7-12-1", 6), 1196467200000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "67-12-1", 7), 3089923200000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "067-12-1", 8), 3089923200000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "0067-12-1", 9), -60023980800000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "00067-12-1", 10), -60023980800000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "167-12-1", 8), -56868307200000);
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "1972-12-1", 9), 92016000000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "72-12-1", 7), 92016000000);
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "1972-12-1", 9), 92016000000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "67-12-1", 7), 3089923200000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "67-1-1", 6), 3061065600000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "71-1-1", 6), 31536000000);
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30", 18), 969702330000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.920", 22), 969702330920);
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.920 +08:00", 29),
+            969673530920);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.920 -11:45", 29),
+            969744630920);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "65-03-04 00:20:40.920 +00:30", 28),
+            3003349840920);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "1932-05-18 11:30:00.920 +11:30", 30),
+            -1187308799080);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "1857-02-11 20:31:40.920 -05:30", 30),
+            -3562264699080);
+  EXPECT_EQ(castTIMESTAMP_date64(
+                castDATE_utf8(context_ptr, "2000-09-23 9:45:30.920 +08:00", 29)),
+            castTIMESTAMP_utf8(context_ptr, "2000-09-23 0:00:00.000 +00:00", 29));
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.1", 20),
+            castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30", 18) + 100);
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.10", 20),
+            castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30", 18) + 100);
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.100", 20),
+            castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30", 18) + 100);
+
+  // error cases
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 24:00:00", 19), 0);
+  EXPECT_EQ(context.get_error(),
+            "Not a valid time for timestamp value 2000-01-01 24:00:00");
+  context.Reset();
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:60:00", 19), 0);
+  EXPECT_EQ(context.get_error(),
+            "Not a valid time for timestamp value 2000-01-01 00:60:00");
+  context.Reset();
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:100", 20), 0);
+  EXPECT_EQ(context.get_error(),
+            "Not a valid time for timestamp value 2000-01-01 00:00:100");
+  context.Reset();
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.0001", 24), 0);
+  EXPECT_EQ(context.get_error(),
+            "Invalid millis for timestamp value 2000-01-01 00:00:00.0001");
+  context.Reset();
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.1000", 24), 0);
+  EXPECT_EQ(context.get_error(),
+            "Invalid millis for timestamp value 2000-01-01 00:00:00.1000");
+  context.Reset();
+}
+
+#ifndef _WIN32
+
+// TODO(wesm): ARROW-4495. Need to address TZ database issues on Windows
+
+TEST(TestTime, TestCastTimestampWithTZ) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.920 Canada/Pacific", 37),
+            969727530920);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2012-02-28 23:30:59 Asia/Kolkata", 32),
+            1330452059000);
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "1923-10-07 03:03:03 America/New_York", 36),
+            -1459094217000);
+}
+
+TEST(TestTime, TestCastTimestampErrors) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+
+  // error cases
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "20000923", 8), 0);
+  EXPECT_EQ(context.get_error(), "Not a valid day for timestamp value 20000923");
+  context.Reset();
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-2b", 10), 0);
+  EXPECT_EQ(context.get_error(),
+            "Invalid timestamp or unknown zone for timestamp value 2000-09-2b");
+  context.Reset();
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.920 Unknown/Zone", 35),
+            0);
+  EXPECT_EQ(context.get_error(),
+            "Invalid timestamp or unknown zone for timestamp value 2000-09-23 "
+            "9:45:30.920 Unknown/Zone");
+  context.Reset();
+}
+
+#endif
 
 TEST(TestTime, TestExtractTime) {
   // 10:20:33
-  int32 time_as_millis_in_day = 37233000;
+  gdv_int32 time_as_millis_in_day = 37233000;
 
   EXPECT_EQ(extractHour_time32(time_as_millis_in_day), 10);
   EXPECT_EQ(extractMinute_time32(time_as_millis_in_day), 20);
@@ -60,7 +182,7 @@ TEST(TestTime, TestExtractTime) {
 }
 
 TEST(TestTime, TestExtractTimestamp) {
-  timestamp ts = StringToTimestamp("1970-05-02 10:20:33");
+  gdv_timestamp ts = StringToTimestamp("1970-05-02 10:20:33");
 
   EXPECT_EQ(extractMillennium_timestamp(ts), 2);
   EXPECT_EQ(extractCentury_timestamp(ts), 20);
@@ -138,56 +260,59 @@ TEST(TestTime, TimeStampTrunc) {
 
 TEST(TestTime, TimeStampAdd) {
   EXPECT_EQ(
-      timestampaddSecond_timestamp_int32(StringToTimestamp("2000-05-01 10:20:34"), 30),
+      timestampaddSecond_int32_timestamp(30, StringToTimestamp("2000-05-01 10:20:34")),
       StringToTimestamp("2000-05-01 10:21:04"));
 
   EXPECT_EQ(
-      timestampaddMinute_timestamp_int64(StringToTimestamp("2000-05-01 10:20:34"), -30),
+      timestampaddMinute_int64_timestamp(-30, StringToTimestamp("2000-05-01 10:20:34")),
       StringToTimestamp("2000-05-01 09:50:34"));
 
   EXPECT_EQ(
-      timestampaddHour_timestamp_int32(StringToTimestamp("2000-05-01 10:20:34"), 20),
+      timestampaddHour_int32_timestamp(20, StringToTimestamp("2000-05-01 10:20:34")),
       StringToTimestamp("2000-05-02 06:20:34"));
 
   EXPECT_EQ(
-      timestampaddDay_timestamp_int64(StringToTimestamp("2000-05-01 10:20:34"), -35),
+      timestampaddDay_int64_timestamp(-35, StringToTimestamp("2000-05-01 10:20:34")),
       StringToTimestamp("2000-03-27 10:20:34"));
 
-  EXPECT_EQ(timestampaddWeek_timestamp_int32(StringToTimestamp("2000-05-01 10:20:34"), 4),
+  EXPECT_EQ(timestampaddWeek_int32_timestamp(4, StringToTimestamp("2000-05-01 10:20:34")),
             StringToTimestamp("2000-05-29 10:20:34"));
 
   EXPECT_EQ(
-      timestampaddMonth_timestamp_int64(StringToTimestamp("2000-05-01 10:20:34"), 10),
+      timestampaddMonth_int64_timestamp(10, StringToTimestamp("2000-05-01 10:20:34")),
       StringToTimestamp("2001-03-01 10:20:34"));
 
   EXPECT_EQ(
-      timestampaddQuarter_timestamp_int32(StringToTimestamp("2000-05-01 10:20:34"), -2),
+      timestampaddQuarter_int32_timestamp(-2, StringToTimestamp("2000-05-01 10:20:34")),
       StringToTimestamp("1999-11-01 10:20:34"));
 
-  EXPECT_EQ(timestampaddYear_timestamp_int64(StringToTimestamp("2000-05-01 10:20:34"), 2),
+  EXPECT_EQ(timestampaddYear_int64_timestamp(2, StringToTimestamp("2000-05-01 10:20:34")),
             StringToTimestamp("2002-05-01 10:20:34"));
 
   EXPECT_EQ(
-      timestampaddQuarter_timestamp_int32(StringToTimestamp("2000-05-01 10:20:34"), -5),
+      timestampaddQuarter_int32_timestamp(-5, StringToTimestamp("2000-05-01 10:20:34")),
       StringToTimestamp("1999-02-01 10:20:34"));
   EXPECT_EQ(
-      timestampaddQuarter_timestamp_int32(StringToTimestamp("2000-05-01 10:20:34"), -6),
+      timestampaddQuarter_int32_timestamp(-6, StringToTimestamp("2000-05-01 10:20:34")),
       StringToTimestamp("1998-11-01 10:20:34"));
 
   // date_add
-  EXPECT_EQ(date_add_timestamp_int32(StringToTimestamp("2000-05-01 00:00:00"), 7),
+  EXPECT_EQ(date_add_int32_timestamp(7, StringToTimestamp("2000-05-01 00:00:00")),
             StringToTimestamp("2000-05-08 00:00:00"));
 
   EXPECT_EQ(add_int32_timestamp(4, StringToTimestamp("2000-05-01 00:00:00")),
             StringToTimestamp("2000-05-05 00:00:00"));
 
-  EXPECT_EQ(add_timestamp_int64(StringToTimestamp("2000-05-01 00:00:00"), 7),
+  EXPECT_EQ(add_int64_timestamp(7, StringToTimestamp("2000-05-01 00:00:00")),
             StringToTimestamp("2000-05-08 00:00:00"));
 
   EXPECT_EQ(date_add_int64_timestamp(4, StringToTimestamp("2000-05-01 00:00:00")),
             StringToTimestamp("2000-05-05 00:00:00"));
 
   EXPECT_EQ(date_add_int64_timestamp(4, StringToTimestamp("2000-02-27 00:00:00")),
+            StringToTimestamp("2000-03-02 00:00:00"));
+
+  EXPECT_EQ(add_date64_int64(StringToTimestamp("2000-02-27 00:00:00"), 4),
             StringToTimestamp("2000-03-02 00:00:00"));
 
   // date_sub
@@ -513,8 +638,8 @@ TEST(TestTime, TestExtractWeek) {
   data.push_back("1");
 
   for (uint32_t i = 0; i < data.size(); i += 2) {
-    timestamp ts = StringToTimestamp(data.at(i).c_str());
-    int64 exp = atol(data.at(i + 1).c_str());
+    gdv_timestamp ts = StringToTimestamp(data.at(i).c_str());
+    gdv_int64 exp = atol(data.at(i + 1).c_str());
     EXPECT_EQ(extractWeek_timestamp(ts), exp);
   }
 }
@@ -534,8 +659,8 @@ TEST(TestTime, TestMonthsBetween) {
       "1995-02-02 10:00:00", "1995-01-01 11:00:00", "1.03091397"};
 
   for (uint32_t i = 0; i < testStrings.size();) {
-    timestamp endTs = StringToTimestamp(testStrings[i++].c_str());
-    timestamp startTs = StringToTimestamp(testStrings[i++].c_str());
+    gdv_timestamp endTs = StringToTimestamp(testStrings[i++].c_str());
+    gdv_timestamp startTs = StringToTimestamp(testStrings[i++].c_str());
 
     double expectedResult = atof(testStrings[i++].c_str());
     double actualResult = months_between_timestamp_timestamp(endTs, startTs);
@@ -547,6 +672,31 @@ TEST(TestTime, TestMonthsBetween) {
 
     EXPECT_TRUE(diff < 0.001);
   }
+}
+
+TEST(TestTime, castVarcharTimestamp) {
+  ExecutionContext context;
+  int64_t context_ptr = reinterpret_cast<int64_t>(&context);
+  gdv_int32 out_len;
+  gdv_timestamp ts = StringToTimestamp("2000-05-01 10:20:34");
+  const char* out = castVARCHAR_timestamp_int64(context_ptr, ts, 30L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2000-05-01 10:20:34.000");
+
+  out = castVARCHAR_timestamp_int64(context_ptr, ts, 19L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "2000-05-01 10:20:34");
+
+  out = castVARCHAR_timestamp_int64(context_ptr, ts, 0L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "");
+
+  ts = StringToTimestamp("2-5-1 00:00:04");
+  out = castVARCHAR_timestamp_int64(context_ptr, ts, 24L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "0002-05-01 00:00:04.000");
+}
+
+TEST(TestTime, TestCastTimestampToDate) {
+  gdv_timestamp ts = StringToTimestamp("2000-05-01 10:20:34");
+  auto out = castDATE_timestamp(ts);
+  EXPECT_EQ(StringToTimestamp("2000-05-01 00:00:00"), out);
 }
 
 }  // namespace gandiva

@@ -253,9 +253,9 @@ module Arrow
         case @value
         when nil
           if @column.n_nulls.zero?
-            raw_array = [true] * @column.length
+            raw_array = [true] * @column.n_rows
           else
-            raw_array = @column.length.times.collect do |i|
+            raw_array = @column.n_rows.times.collect do |i|
               @column.valid?(i)
             end
           end

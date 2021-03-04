@@ -12,6 +12,7 @@
     "declaration": true,
     "noEmitOnError": true,
     "removeComments": false,
+    "noErrorTruncation": true,
     "downlevelIteration": true,
 
     /* Create inline sourcemaps with sources */
@@ -21,16 +22,24 @@
 
     /* The most restrictive settings possible */
     "strict": true,
+    "noImplicitAny": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "strictBindCallApply": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictPropertyInitialization": true,
+    
     "skipLibCheck": false,
     "importHelpers": true,
     "noEmitHelpers": true,
-    "noImplicitAny": true,
     "noUnusedLocals": true,
     "noImplicitReturns": true,
-    "allowUnusedLabels": false,
     "noUnusedParameters": true,
+    "allowUnusedLabels": false,
     "allowUnreachableCode": false,
+    "noStrictGenericChecks": false,
     "noFallthroughCasesInSwitch": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
   }
 }

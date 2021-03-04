@@ -17,24 +17,28 @@
 
 // Coarse public API while the library is in development
 
-#ifndef ARROW_API_H
-#define ARROW_API_H
+#pragma once
 
-#include "arrow/array.h"          // IYWU pragma: export
-#include "arrow/buffer.h"         // IYWU pragma: export
-#include "arrow/builder.h"        // IYWU pragma: export
-#include "arrow/compare.h"        // IYWU pragma: export
-#include "arrow/memory_pool.h"    // IYWU pragma: export
-#include "arrow/pretty_print.h"   // IYWU pragma: export
-#include "arrow/record_batch.h"   // IYWU pragma: export
-#include "arrow/status.h"         // IYWU pragma: export
-#include "arrow/table.h"          // IYWU pragma: export
-#include "arrow/table_builder.h"  // IYWU pragma: export
-#include "arrow/tensor.h"         // IYWU pragma: export
-#include "arrow/type.h"           // IYWU pragma: export
-#include "arrow/visitor.h"        // IYWU pragma: export
+#include "arrow/array.h"                    // IYWU pragma: export
+#include "arrow/array/concatenate.h"        // IYWU pragma: export
+#include "arrow/buffer.h"                   // IYWU pragma: export
+#include "arrow/builder.h"                  // IYWU pragma: export
+#include "arrow/chunked_array.h"            // IYWU pragma: export
+#include "arrow/compare.h"                  // IYWU pragma: export
+#include "arrow/config.h"                   // IYWU pragma: export
+#include "arrow/datum.h"                    // IYWU pragma: export
+#include "arrow/extension_type.h"           // IYWU pragma: export
+#include "arrow/memory_pool.h"              // IYWU pragma: export
+#include "arrow/pretty_print.h"             // IYWU pragma: export
+#include "arrow/record_batch.h"             // IYWU pragma: export
+#include "arrow/result.h"                   // IYWU pragma: export
+#include "arrow/status.h"                   // IYWU pragma: export
+#include "arrow/table.h"                    // IYWU pragma: export
+#include "arrow/table_builder.h"            // IYWU pragma: export
+#include "arrow/tensor.h"                   // IYWU pragma: export
+#include "arrow/type.h"                     // IYWU pragma: export
+#include "arrow/util/key_value_metadata.h"  // IWYU pragma: export
+#include "arrow/visitor.h"                  // IYWU pragma: export
 
 /// \brief Top-level namespace for Apache Arrow C++ API
 namespace arrow {}
-
-#endif  // ARROW_API_H

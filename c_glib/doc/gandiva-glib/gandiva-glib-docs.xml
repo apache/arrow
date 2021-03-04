@@ -56,6 +56,30 @@
     </chapter>
   </part>
 
+  <part id="function">
+    <title>Function</title>
+    <chapter id="function-registry">
+      <title>Registry</title>
+      <xi:include href="xml/function-registry.xml"/>
+    </chapter>
+    <chapter id="function-signature">
+      <title>Signature</title>
+      <xi:include href="xml/function-signature.xml"/>
+    </chapter>
+    <chapter id="native-function">
+      <title>Native function</title>
+      <xi:include href="xml/native-function.xml"/>
+    </chapter>
+  </part>
+
+  <part id="misc">
+    <title>Misc</title>
+    <chapter id="version">
+      <title>Version</title>
+      <xi:include href="xml/version.xml"></xi:include>
+    </chapter>
+  </part>
+
   <chapter id="object-tree">
     <title>Object Hierarchy</title>
     <xi:include href="xml/tree_index.sgml"/>
@@ -67,6 +91,22 @@
   <index id="deprecated-api-index" role="deprecated">
     <title>Index of deprecated API</title>
     <xi:include href="xml/api-index-deprecated.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-1-0-0" role="1.0.0">
+    <title>Index of new symbols in 1.0.0</title>
+    <xi:include href="xml/api-index-1.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-17-0" role="0.17.0">
+    <title>Index of new symbols in 0.17.0</title>
+    <xi:include href="xml/api-index-0.17.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-15-0" role="0.15.0">
+    <title>Index of new symbols in 0.15.0</title>
+    <xi:include href="xml/api-index-0.15.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-14-0" role="0.14.0">
+    <title>Index of new symbols in 0.14.0</title>
+    <xi:include href="xml/api-index-0.14.0.xml"><xi:fallback /></xi:include>
   </index>
   <index id="api-index-0-12-0" role="0.12.0">
     <title>Index of new symbols in 0.12.0</title>

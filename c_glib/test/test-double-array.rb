@@ -52,4 +52,9 @@ class TestDoubleArray < Test::Unit::TestCase
     array = builder.finish
     assert_equal([1.5, 3.0, 4.5], array.values)
   end
+
+  def test_sum
+    array = build_float_array([1.5, 3.0, nil])
+    assert_in_delta(4.5, array.sum)
+  end
 end

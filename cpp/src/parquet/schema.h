@@ -18,19 +18,18 @@
 // This module contains the logical parquet-cpp types (independent of Thrift
 // structures), schema nodes, and related type tools
 
-#ifndef PARQUET_SCHEMA_TYPES_H
-#define PARQUET_SCHEMA_TYPES_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
 #include <ostream>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
+#include "parquet/platform.h"
 #include "parquet/types.h"
-#include "parquet/util/macros.h"
-#include "parquet/util/visibility.h"
 
 namespace parquet {
 
@@ -76,17 +75,11 @@ struct ListEncoding {
   enum type { ONE_LEVEL, TWO_LEVEL, THREE_LEVEL };
 };
 
-struct DecimalMetadata {
-  bool isset;
-  int32_t scale;
-  int32_t precision;
-};
-
 class PARQUET_EXPORT ColumnPath {
  public:
   ColumnPath() : path_() {}
   explicit ColumnPath(const std::vector<std::string>& path) : path_(path) {}
-  explicit ColumnPath(std::vector<std::string>&& path) : path_(path) {}
+  explicit ColumnPath(std::vector<std::string>&& path) : path_(std::move(path)) {}
 
   static std::shared_ptr<ColumnPath> FromDotString(const std::string& dotstring);
   static std::shared_ptr<ColumnPath> FromNode(const Node& node);
@@ -99,22 +92,11 @@ class PARQUET_EXPORT ColumnPath {
   std::vector<std::string> path_;
 };
 
-class GroupNode;
-
 // Base class for logical schema types. A type has a name, repetition level,
 // and optionally a logical type (ConvertedType in Parquet metadata parlance)
 class PARQUET_EXPORT Node {
  public:
   enum type { PRIMITIVE, GROUP };
-
-  Node(Node::type type, const std::string& name, Repetition::type repetition,
-       LogicalType::type logical_type = LogicalType::NONE, int id = -1)
-      : type_(type),
-        name_(name),
-        repetition_(repetition),
-        logical_type_(logical_type),
-        id_(id),
-        parent_(NULLPTR) {}
 
   virtual ~Node() {}
 
@@ -136,17 +118,23 @@ class PARQUET_EXPORT Node {
 
   Repetition::type repetition() const { return repetition_; }
 
-  LogicalType::type logical_type() const { return logical_type_; }
+  ConvertedType::type converted_type() const { return converted_type_; }
 
-  int id() const { return id_; }
+  const std::shared_ptr<const LogicalType>& logical_type() const { return logical_type_; }
+
+  /// \brief The field_id value for the serialized SchemaElement. If the
+  /// field_id is less than 0 (e.g. -1), it will not be set when serialized to
+  /// Thrift.
+  int field_id() const { return field_id_; }
+
+  PARQUET_DEPRECATED("id() is deprecated. Use field_id() instead")
+  int id() const { return field_id_; }
 
   const Node* parent() const { return parent_; }
 
   const std::shared_ptr<ColumnPath> path() const;
 
-  // ToParquet returns an opaque void* to avoid exporting
-  // parquet::SchemaElement into the public API
-  virtual void ToParquet(void* opaque_element) const = 0;
+  virtual void ToParquet(void* element) const = 0;
 
   // Node::Visitor abstract class for walking schemas with the visitor pattern
   class Visitor {
@@ -168,11 +156,30 @@ class PARQUET_EXPORT Node {
  protected:
   friend class GroupNode;
 
+  Node(Node::type type, const std::string& name, Repetition::type repetition,
+       ConvertedType::type converted_type = ConvertedType::NONE, int field_id = -1)
+      : type_(type),
+        name_(name),
+        repetition_(repetition),
+        converted_type_(converted_type),
+        field_id_(field_id),
+        parent_(NULLPTR) {}
+
+  Node(Node::type type, const std::string& name, Repetition::type repetition,
+       std::shared_ptr<const LogicalType> logical_type, int field_id = -1)
+      : type_(type),
+        name_(name),
+        repetition_(repetition),
+        logical_type_(std::move(logical_type)),
+        field_id_(field_id),
+        parent_(NULLPTR) {}
+
   Node::type type_;
   std::string name_;
   Repetition::type repetition_;
-  LogicalType::type logical_type_;
-  int id_;
+  ConvertedType::type converted_type_;
+  std::shared_ptr<const LogicalType> logical_type_;
+  int field_id_;
   // Nodes should not be shared, they have a single parent.
   const Node* parent_;
 
@@ -193,16 +200,27 @@ typedef std::vector<NodePtr> NodeVector;
 // parameters)
 class PARQUET_EXPORT PrimitiveNode : public Node {
  public:
-  // FromParquet accepts an opaque void* to avoid exporting
-  // parquet::SchemaElement into the public API
-  static std::unique_ptr<Node> FromParquet(const void* opaque_element, int id);
+  // The field_id here is the default to use if it is not set in the SchemaElement
+  static std::unique_ptr<Node> FromParquet(const void* opaque_element, int field_id = -1);
 
+  // A field_id -1 (or any negative value) will be serialized as null in Thrift
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,
                              Type::type type,
-                             LogicalType::type logical_type = LogicalType::NONE,
-                             int length = -1, int precision = -1, int scale = -1) {
-    return NodePtr(new PrimitiveNode(name, repetition, type, logical_type, length,
-                                     precision, scale));
+                             ConvertedType::type converted_type = ConvertedType::NONE,
+                             int length = -1, int precision = -1, int scale = -1,
+                             int field_id = -1) {
+    return NodePtr(new PrimitiveNode(name, repetition, type, converted_type, length,
+                                     precision, scale, field_id));
+  }
+
+  // If no logical type, pass LogicalType::None() or nullptr
+  // A field_id -1 (or any negative value) will be serialized as null in Thrift
+  static inline NodePtr Make(const std::string& name, Repetition::type repetition,
+                             std::shared_ptr<const LogicalType> logical_type,
+                             Type::type primitive_type, int primitive_length = -1,
+                             int field_id = -1) {
+    return NodePtr(new PrimitiveNode(name, repetition, logical_type, primitive_type,
+                                     primitive_length, field_id));
   }
 
   bool Equals(const Node* other) const override;
@@ -217,14 +235,18 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
 
   const DecimalMetadata& decimal_metadata() const { return decimal_metadata_; }
 
-  void ToParquet(void* opaque_element) const override;
+  void ToParquet(void* element) const override;
   void Visit(Visitor* visitor) override;
   void VisitConst(ConstVisitor* visitor) const override;
 
  private:
   PrimitiveNode(const std::string& name, Repetition::type repetition, Type::type type,
-                LogicalType::type logical_type = LogicalType::NONE, int length = -1,
-                int precision = -1, int scale = -1, int id = -1);
+                ConvertedType::type converted_type = ConvertedType::NONE, int length = -1,
+                int precision = -1, int scale = -1, int field_id = -1);
+
+  PrimitiveNode(const std::string& name, Repetition::type repetition,
+                std::shared_ptr<const LogicalType> logical_type,
+                Type::type primitive_type, int primitive_length = -1, int field_id = -1);
 
   Type::type physical_type_;
   int32_t type_length_;
@@ -233,12 +255,6 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
 
   // For FIXED_LEN_BYTE_ARRAY
   void SetTypeLength(int32_t length) { type_length_ = length; }
-
-  // For Decimal logical type: Precision and scale
-  void SetDecimalMetadata(int32_t scale, int32_t precision) {
-    decimal_metadata_.scale = scale;
-    decimal_metadata_.precision = precision;
-  }
 
   bool EqualsInternal(const PrimitiveNode* other) const;
 
@@ -250,15 +266,25 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
 
 class PARQUET_EXPORT GroupNode : public Node {
  public:
-  // Like PrimitiveNode, GroupNode::FromParquet accepts an opaque void* to avoid exporting
-  // parquet::SchemaElement into the public API
-  static std::unique_ptr<Node> FromParquet(const void* opaque_element, int id,
-                                           const NodeVector& fields);
+  // The field_id here is the default to use if it is not set in the SchemaElement
+  static std::unique_ptr<Node> FromParquet(const void* opaque_element,
+                                           NodeVector fields = {}, int field_id = -1);
 
+  // A field_id -1 (or any negative value) will be serialized as null in Thrift
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,
                              const NodeVector& fields,
-                             LogicalType::type logical_type = LogicalType::NONE) {
-    return NodePtr(new GroupNode(name, repetition, fields, logical_type));
+                             ConvertedType::type converted_type = ConvertedType::NONE,
+                             int field_id = -1) {
+    return NodePtr(new GroupNode(name, repetition, fields, converted_type, field_id));
+  }
+
+  // If no logical type, pass nullptr
+  // A field_id -1 (or any negative value) will be serialized as null in Thrift
+  static inline NodePtr Make(const std::string& name, Repetition::type repetition,
+                             const NodeVector& fields,
+                             std::shared_ptr<const LogicalType> logical_type,
+                             int field_id = -1) {
+    return NodePtr(new GroupNode(name, repetition, fields, logical_type, field_id));
   }
 
   bool Equals(const Node* other) const override;
@@ -273,22 +299,22 @@ class PARQUET_EXPORT GroupNode : public Node {
 
   int field_count() const { return static_cast<int>(fields_.size()); }
 
-  void ToParquet(void* opaque_element) const override;
+  void ToParquet(void* element) const override;
   void Visit(Visitor* visitor) override;
   void VisitConst(ConstVisitor* visitor) const override;
 
+  /// \brief Return true if this node or any child node has REPEATED repetition
+  /// type
+  bool HasRepeatedFields() const;
+
  private:
   GroupNode(const std::string& name, Repetition::type repetition,
-            const NodeVector& fields, LogicalType::type logical_type = LogicalType::NONE,
-            int id = -1)
-      : Node(Node::GROUP, name, repetition, logical_type, id), fields_(fields) {
-    field_name_to_idx_.clear();
-    auto field_idx = 0;
-    for (NodePtr& field : fields_) {
-      field->SetParent(this);
-      field_name_to_idx_.emplace(field->name(), field_idx++);
-    }
-  }
+            const NodeVector& fields,
+            ConvertedType::type converted_type = ConvertedType::NONE, int field_id = -1);
+
+  GroupNode(const std::string& name, Repetition::type repetition,
+            const NodeVector& fields, std::shared_ptr<const LogicalType> logical_type,
+            int field_id = -1);
 
   NodeVector fields_;
   bool EqualsInternal(const GroupNode* other) const;
@@ -305,19 +331,21 @@ class PARQUET_EXPORT GroupNode : public Node {
 // ----------------------------------------------------------------------
 // Convenience primitive type factory functions
 
-#define PRIMITIVE_FACTORY(FuncName, TYPE)                                              \
-  static inline NodePtr FuncName(const std::string& name,                              \
-                                 Repetition::type repetition = Repetition::OPTIONAL) { \
-    return PrimitiveNode::Make(name, repetition, Type::TYPE);                          \
+#define PRIMITIVE_FACTORY(FuncName, TYPE)                                                \
+  static inline NodePtr FuncName(const std::string& name,                                \
+                                 Repetition::type repetition = Repetition::OPTIONAL,     \
+                                 int field_id = -1) {                                    \
+    return PrimitiveNode::Make(name, repetition, Type::TYPE, ConvertedType::NONE,        \
+                               /*length=*/-1, /*precision=*/-1, /*scale=*/-1, field_id); \
   }
 
-PRIMITIVE_FACTORY(Boolean, BOOLEAN);
-PRIMITIVE_FACTORY(Int32, INT32);
-PRIMITIVE_FACTORY(Int64, INT64);
-PRIMITIVE_FACTORY(Int96, INT96);
-PRIMITIVE_FACTORY(Float, FLOAT);
-PRIMITIVE_FACTORY(Double, DOUBLE);
-PRIMITIVE_FACTORY(ByteArray, BYTE_ARRAY);
+PRIMITIVE_FACTORY(Boolean, BOOLEAN)
+PRIMITIVE_FACTORY(Int32, INT32)
+PRIMITIVE_FACTORY(Int64, INT64)
+PRIMITIVE_FACTORY(Int96, INT96)
+PRIMITIVE_FACTORY(Float, FLOAT)
+PRIMITIVE_FACTORY(Double, DOUBLE)
+PRIMITIVE_FACTORY(ByteArray, BYTE_ARRAY)
 
 void PARQUET_EXPORT PrintSchema(const schema::Node* schema, std::ostream& stream,
                                 int indent_width = 2);
@@ -331,7 +359,7 @@ void PARQUET_EXPORT PrintSchema(const schema::Node* schema, std::ostream& stream
 // definition levels.
 class PARQUET_EXPORT ColumnDescriptor {
  public:
-  ColumnDescriptor(const schema::NodePtr& node, int16_t max_definition_level,
+  ColumnDescriptor(schema::NodePtr node, int16_t max_definition_level,
                    int16_t max_repetition_level,
                    const SchemaDescriptor* schema_descr = NULLPTR);
 
@@ -343,12 +371,18 @@ class PARQUET_EXPORT ColumnDescriptor {
 
   Type::type physical_type() const { return primitive_node_->physical_type(); }
 
-  LogicalType::type logical_type() const { return primitive_node_->logical_type(); }
+  ConvertedType::type converted_type() const { return primitive_node_->converted_type(); }
+
+  const std::shared_ptr<const LogicalType>& logical_type() const {
+    return primitive_node_->logical_type();
+  }
 
   ColumnOrder column_order() const { return primitive_node_->column_order(); }
 
   SortOrder::type sort_order() const {
-    return GetSortOrder(logical_type(), physical_type());
+    auto la = logical_type();
+    auto pt = physical_type();
+    return la ? GetSortOrder(la, pt) : GetSortOrder(converted_type(), pt);
   }
 
   const std::string& name() const { return primitive_node_->name(); }
@@ -356,6 +390,8 @@ class PARQUET_EXPORT ColumnDescriptor {
   const std::shared_ptr<schema::ColumnPath> path() const;
 
   const schema::NodePtr& schema_node() const { return node_; }
+
+  std::string ToString() const;
 
   int type_length() const;
 
@@ -389,7 +425,7 @@ class PARQUET_EXPORT SchemaDescriptor {
 
   // Analyze the schema
   void Init(std::unique_ptr<schema::Node> schema);
-  void Init(const schema::NodePtr& schema);
+  void Init(schema::NodePtr schema);
 
   const ColumnDescriptor* Column(int i) const;
 
@@ -418,6 +454,14 @@ class PARQUET_EXPORT SchemaDescriptor {
 
   void updateColumnOrders(const std::vector<ColumnOrder>& column_orders);
 
+  /// \brief Return column index corresponding to a particular
+  /// PrimitiveNode. Returns -1 if not found
+  int GetColumnIndex(const schema::PrimitiveNode& node) const;
+
+  /// \brief Return true if any field or their children have REPEATED repetition
+  /// type
+  bool HasRepeatedFields() const;
+
  private:
   friend class ColumnDescriptor;
 
@@ -432,6 +476,8 @@ class PARQUET_EXPORT SchemaDescriptor {
   // Result of leaf node / tree analysis
   std::vector<ColumnDescriptor> leaves_;
 
+  std::unordered_map<const schema::PrimitiveNode*, int> node_to_leaf_index_;
+
   // Mapping between leaf nodes and root group of leaf (first node
   // below the schema's root group)
   //
@@ -441,12 +487,10 @@ class PARQUET_EXPORT SchemaDescriptor {
   // -- -- b     |
   // -- -- -- c  |
   // -- -- -- -- d
-  std::unordered_map<int, const schema::NodePtr> leaf_to_base_;
+  std::unordered_map<int, schema::NodePtr> leaf_to_base_;
 
   // Mapping between ColumnPath DotString to the leaf index
   std::unordered_multimap<std::string, int> leaf_to_idx_;
 };
 
 }  // namespace parquet
-
-#endif  // PARQUET_SCHEMA_TYPES_H

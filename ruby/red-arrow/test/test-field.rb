@@ -68,4 +68,24 @@ class FieldTest < Test::Unit::TestCase
                    Arrow::Field.new(description).to_s)
     end
   end
+
+  sub_test_case("instance methods") do
+    def setup
+      @field = Arrow::Field.new("count", :uint32)
+    end
+
+    sub_test_case("#==") do
+      test("Arrow::Field") do
+        assert do
+          @field == @field
+        end
+      end
+
+      test("not Arrow::Field") do
+        assert do
+          not (@field == 29)
+        end
+      end
+    end
+  end
 end

@@ -47,17 +47,13 @@
       <title>Array builder</title>
       <xi:include href="xml/array-builder.xml"/>
     </chapter>
-    <chapter id="compute">
-      <title>Compute</title>
-      <xi:include href="xml/compute.xml"/>
-    </chapter>
-    <chapter id="decimal">
-      <title>Decimal</title>
-      <xi:include href="xml/decimal128.xml"/>
-    </chapter>
     <chapter id="tensor">
       <title>Tensor</title>
       <xi:include href="xml/tensor.xml"/>
+    </chapter>
+    <chapter id="value">
+      <title>Value</title>
+      <xi:include href="xml/decimal.xml"/>
     </chapter>
     <chapter id="type">
       <title>Type</title>
@@ -74,12 +70,16 @@
       <title>Table</title>
       <xi:include href="xml/table.xml"/>
       <xi:include href="xml/record-batch.xml"/>
-      <xi:include href="xml/column.xml"/>
       <xi:include href="xml/chunked-array.xml"/>
     </chapter>
     <chapter id="table-builder">
       <title>Table builder</title>
       <xi:include href="xml/table-builder.xml"/>
+    </chapter>
+    <chapter id="computation">
+      <title>Computation</title>
+      <xi:include href="xml/compute.xml"/>
+      <xi:include href="xml/datum.xml"/>
     </chapter>
     <chapter id="buffer">
       <title>Buffer</title>
@@ -92,6 +92,18 @@
     <chapter id="error">
       <title>Error</title>
       <xi:include href="xml/error.xml"/>
+    </chapter>
+  </part>
+
+  <part id="file-system-api">
+    <title>File system API</title>
+    <chapter id="file-system">
+      <title>File system</title>
+      <xi:include href="xml/file-system.xml"/>
+    </chapter>
+    <chapter id="local-file-system">
+      <title>Local file system</title>
+      <xi:include href="xml/local-file-system.xml"/>
     </chapter>
   </part>
 
@@ -123,6 +135,10 @@
     <chapter id="metadata">
       <title>Metadata</title>
       <xi:include href="xml/metadata-version.xml"/>
+    </chapter>
+    <chapter id="ipc-options">
+      <title>Options</title>
+      <xi:include href="xml/ipc-options.xml"/>
     </chapter>
     <chapter id="reader">
       <title>Reader</title>
@@ -162,6 +178,38 @@
   <index id="deprecated-api-index" role="deprecated">
     <title>Index of deprecated API</title>
     <xi:include href="xml/api-index-deprecated.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-4-0-0" role="4.0.0">
+    <title>Index of new symbols in 4.0.0</title>
+    <xi:include href="xml/api-index-4.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-3-0-0" role="3.0.0">
+    <title>Index of new symbols in 3.0.0</title>
+    <xi:include href="xml/api-index-3.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-2-0-0" role="2.0.0">
+    <title>Index of new symbols in 2.0.0</title>
+    <xi:include href="xml/api-index-2.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-1-0-0" role="1.0.0">
+    <title>Index of new symbols in 1.0.0</title>
+    <xi:include href="xml/api-index-1.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-17-0" role="0.17.0">
+    <title>Index of new symbols in 0.17.0</title>
+    <xi:include href="xml/api-index-0.17.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-16-0" role="0.16.0">
+    <title>Index of new symbols in 0.16.0</title>
+    <xi:include href="xml/api-index-0.16.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-15-0" role="0.15.0">
+    <title>Index of new symbols in 0.15.0</title>
+    <xi:include href="xml/api-index-0.15.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-0-14-0" role="0.14.0">
+    <title>Index of new symbols in 0.14.0</title>
+    <xi:include href="xml/api-index-0.14.0.xml"><xi:fallback /></xi:include>
   </index>
   <index id="api-index-0-13-0" role="0.13.0">
     <title>Index of new symbols in 0.13.0</title>

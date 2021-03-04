@@ -32,7 +32,7 @@ using global::FlatBuffers;
 /// The metadata is structured so that Arrow systems without special handling
 /// for Map can make Map an alias for List. The "layout" attribute for the Map
 /// field must have the same contents as a List.
-public struct Map : IFlatbufferObject
+internal struct Map : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }

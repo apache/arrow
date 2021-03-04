@@ -17,13 +17,16 @@
 
 import { Data } from '../data';
 import { Field } from '../schema';
-import { Vector } from '../vector';
 import { clampRange } from '../util/vector';
 import { DataType, Dictionary } from '../type';
-import { Clonable, Sliceable, Applicative } from '../vector';
+import { selectChunkArgs } from '../util/args';
 import { DictionaryVector } from './dictionary';
+import { AbstractVector, Vector } from '../vector';
+import { Clonable, Sliceable, Applicative } from '../vector';
 
-type ChunkedDict<T extends DataType> = T extends Dictionary ? T['dictionaryVector'] : null | never;
+/** @ignore */
+type ChunkedDict<T extends DataType> = T extends Dictionary ? Vector<T['dictionary']> : null | never;
+/** @ignore */
 type ChunkedKeys<T extends DataType> = T extends Dictionary ? Vector<T['indices']> | Chunked<T['indices']> : null | never;
 
 /** @ignore */
@@ -31,21 +34,20 @@ export type SearchContinuation<T extends Chunked> = (column: T, chunkIndex: numb
 
 /** @ignore */
 export class Chunked<T extends DataType = any>
-    extends Vector<T>
+    extends AbstractVector<T>
     implements Clonable<Chunked<T>>,
                Sliceable<Chunked<T>>,
                Applicative<T, Chunked<T>> {
 
     /** @nocollapse */
-    public static flatten<T extends DataType>(...vectors: Vector<T>[]) {
-        return vectors.reduce(function flatten(xs: any[], x: any): any[] {
-            return x instanceof Chunked ? x.chunks.reduce(flatten, xs) : [...xs, x];
-        }, []).filter((x: any): x is Vector<T> => x instanceof Vector);
+    public static flatten<T extends DataType>(...vectors: (Vector<T> | Vector<T>[])[]) {
+        return selectChunkArgs<Vector<T>>(Vector, vectors);
     }
 
     /** @nocollapse */
-    public static concat<T extends DataType>(...chunks: Vector<T>[]): Chunked<T> {
-        return new Chunked(chunks[0].type, Chunked.flatten(...chunks));
+    public static concat<T extends DataType>(...vectors: (Vector<T> | Vector<T>[])[]) {
+        const chunks = Chunked.flatten<T>(...vectors);
+        return new Chunked<T>(chunks[0].type, chunks);
     }
 
     protected _type: T;
@@ -68,7 +70,8 @@ export class Chunked<T extends DataType = any>
     public get type() { return this._type; }
     public get length() { return this._length; }
     public get chunks() { return this._chunks; }
-    public get typeId() { return this._type.typeId; }
+    public get typeId(): T['TType'] { return this._type.typeId; }
+    public get VectorName() { return `Chunked<${this._type}>`; }
     public get data(): Data<T> {
         return this._chunks[0] ? this._chunks[0].data : <any> null;
     }
@@ -76,6 +79,9 @@ export class Chunked<T extends DataType = any>
     public get ArrayType() { return this._type.ArrayType; }
     public get numChildren() { return this._numChildren; }
     public get stride() { return this._chunks[0] ? this._chunks[0].stride : 1; }
+    public get byteLength(): number {
+        return this._chunks.reduce((byteLength, chunk) => byteLength + chunk.byteLength, 0);
+    }
     public get nullCount() {
         let nullCount = this._nullCount;
         if (nullCount < 0) {
@@ -99,7 +105,7 @@ export class Chunked<T extends DataType = any>
     }
     public get dictionary(): ChunkedDict<T> | null {
         if (DataType.isDictionary(this._type)) {
-            return (<any> this._type.dictionaryVector) as ChunkedDict<T>;
+            return this._chunks[this._chunks.length - 1].data.dictionary as ChunkedDict<T>;
         }
         return null;
     }
@@ -185,7 +191,7 @@ export class Chunked<T extends DataType = any>
     public toArray(): T['TArray'] {
         const { chunks } = this;
         const n = chunks.length;
-        let { ArrayType } = this._type;
+        let ArrayType: any = this._type.ArrayType;
         if (n <= 0) { return new ArrayType(0); }
         if (n <= 1) { return chunks[0].toArray(); }
         let len = 0, src = new Array(n);
@@ -195,7 +201,7 @@ export class Chunked<T extends DataType = any>
         if (ArrayType !== src[0].constructor) {
             ArrayType = src[0].constructor;
         }
-        let dst = new (ArrayType as any)(len);
+        let dst = new ArrayType(len);
         let set: any = ArrayType === Array ? arraySet : typedSet;
         for (let i = -1, idx = 0; ++i < n;) {
             idx = set(src[i], dst, idx);
@@ -236,7 +242,7 @@ export class Chunked<T extends DataType = any>
             }
             // If the child overlaps one of the slice boundaries, include that slice
             const from = Math.max(0, begin - chunkOffset);
-            const to = from + Math.min(chunkLength - from, end - chunkOffset);
+            const to = Math.min(end - chunkOffset, chunkLength);
             slices.push(chunk.slice(from, to) as Vector<T>);
         }
         return self.clone(slices);
@@ -261,9 +267,9 @@ const typedSet = (src: TypedArray, dst: TypedArray, offset: number) => {
 
 /** @ignore */
 const arraySet = (src: any[], dst: any[], offset: number) => {
-    let idx = offset - 1;
+    let idx = offset;
     for (let i = -1, n = src.length; ++i < n;) {
-        dst[++idx] = src[i];
+        dst[idx++] = src[i];
     }
     return idx;
 };

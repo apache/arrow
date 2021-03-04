@@ -28,12 +28,10 @@ from functools import partial
 
 # examine the output of clang-format and if changes are
 # present assemble a (unified)patch of the difference
-def _check_one_file(completed_processes, filename):
+def _check_one_file(filename, formatted):
     with open(filename, "rb") as reader:
         original = reader.read()
 
-    returncode, stdout, stderr = completed_processes[filename]
-    formatted = stdout
     if formatted != original:
         # Run the equivalent of diff -u
         diff = list(difflib.unified_diff(
@@ -76,8 +74,8 @@ if __name__ == "__main__":
 
     exclude_globs = []
     if arguments.exclude_globs:
-        for line in open(arguments.exclude_globs):
-            exclude_globs.append(line.strip())
+        with open(arguments.exclude_globs) as f:
+            exclude_globs.extend(line.strip() for line in f)
 
     formatted_filenames = []
     for path in lintutils.get_sources(arguments.source_dir, exclude_globs):
@@ -106,20 +104,21 @@ if __name__ == "__main__":
             [arguments.clang_format_binary, filename]
             for filename in formatted_filenames
         ], stdout=PIPE, stderr=PIPE)
-        for returncode, stdout, stderr in results:
+
+        checker_args = []
+        for filename, res in zip(formatted_filenames, results):
             # if any clang-format reported a parse error, bubble it
+            returncode, stdout, stderr = res
             if returncode != 0:
+                print(stderr)
                 sys.exit(returncode)
+            checker_args.append((filename, stdout))
 
         error = False
-        checker = partial(_check_one_file, {
-            filename: result
-            for filename, result in zip(formatted_filenames, results)
-        })
         pool = mp.Pool()
         try:
             # check the output from each invocation of clang-format in parallel
-            for filename, diff in pool.imap(checker, formatted_filenames):
+            for filename, diff in pool.starmap(_check_one_file, checker_args):
                 if not arguments.quiet:
                     print("Checking {}".format(filename))
                 if diff:

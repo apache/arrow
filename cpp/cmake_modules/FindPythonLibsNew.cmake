@@ -1,5 +1,5 @@
 # - Find python libraries
-# This module finds the libraries corresponding to the Python interpeter
+# This module finds the libraries corresponding to the Python interpreter
 # FindPythonInterp provides.
 # This code sets the following variables:
 #
@@ -56,6 +56,9 @@
 #=============================================================================
 # (To distribute this file outside of CMake, substitute the full
 #  License text for the above reference.)
+
+# Legacy code for CMake < 3.15.0.  The primary point of entry should be
+# FindPython3Alt.cmake.
 
 # Use the Python interpreter to find the libs.
 if(PythonLibsNew_FIND_REQUIRED)

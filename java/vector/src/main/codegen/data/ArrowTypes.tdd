@@ -31,6 +31,11 @@
       complex: true
     },
     {
+      name: "LargeList",
+      fields: [],
+      complex: true
+    },
+    {
       name: "FixedSizeList",
       fields: [{name: "listSize", type: int}],
       complex: true
@@ -38,6 +43,11 @@
     {
       name: "Union",
       fields: [{name: "mode", type: short, valueType: UnionMode}, {name: "typeIds", type: "int[]"}],
+      complex: true
+    },
+    {
+      name: "Map",
+      fields: [{name: "keysSorted", type: boolean}],
       complex: true
     },
     {
@@ -56,7 +66,17 @@
       complex: false
     },
     {
+      name: "LargeUtf8",
+      fields: [],
+      complex: false
+    },
+    {
       name: "Binary",
+      fields: [],
+      complex: false
+    },
+    {
+      name: "LargeBinary",
       fields: [],
       complex: false
     },
@@ -72,7 +92,7 @@
     },
     {
       name: "Decimal",
-      fields: [{name: "precision", type: int}, {name: "scale", type: int}],
+      fields: [{name: "precision", type: int}, {name: "scale", type: int}, {name: "bitWidth", type: int}],
       complex: false
     },
     {
@@ -94,6 +114,11 @@
       name: "Interval",
       fields: [{name: "unit", type: short, valueType: IntervalUnit}],
       complex: false
+    },
+     {
+       name: "Duration",
+       fields: [{name: "unit", type: short, valueType: TimeUnit}],
+       complex: false
     }
   ]
 }

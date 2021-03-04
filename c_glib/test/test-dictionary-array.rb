@@ -23,14 +23,16 @@ class TestDictionaryArray < Test::Unit::TestCase
     @dictionary = build_string_array(["C", "C++", "Ruby"])
     @ordered = false
     @data_type = Arrow::DictionaryDataType.new(@index_data_type,
-                                               @dictionary,
+                                               @dictionary.value_data_type,
                                                @ordered)
   end
 
   sub_test_case(".new") do
     def test_new
       indices = build_int32_array([0, 2, 2, 1, 0])
-      dictionary_array = Arrow::DictionaryArray.new(@data_type, indices)
+      dictionary_array = Arrow::DictionaryArray.new(@data_type,
+                                                    indices,
+                                                    @dictionary)
       assert_equal(<<-STRING.chomp, dictionary_array.to_s)
 
 -- dictionary:
@@ -55,7 +57,9 @@ class TestDictionaryArray < Test::Unit::TestCase
     def setup
       super
       @indices = build_int32_array([0, 2, 2, 1, 0])
-      @dictionary_array = Arrow::DictionaryArray.new(@data_type, @indices)
+      @dictionary_array = Arrow::DictionaryArray.new(@data_type,
+                                                     @indices,
+                                                     @dictionary)
     end
 
     def test_indices

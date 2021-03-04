@@ -18,24 +18,81 @@
 #include "gandiva/filter.h"
 
 #include <memory>
+#include <thread>
 #include <utility>
 #include <vector>
+
+#include "arrow/util/hash_util.h"
 
 #include "gandiva/bitmap_accumulator.h"
 #include "gandiva/cache.h"
 #include "gandiva/condition.h"
 #include "gandiva/expr_validator.h"
-#include "gandiva/filter_cache_key.h"
 #include "gandiva/llvm_generator.h"
 #include "gandiva/selection_vector_impl.h"
 
 namespace gandiva {
+
+FilterCacheKey::FilterCacheKey(SchemaPtr schema,
+                               std::shared_ptr<Configuration> configuration,
+                               Expression& expression)
+    : schema_(schema), configuration_(configuration), uniqifier_(0) {
+  static const int kSeedValue = 4;
+  size_t result = kSeedValue;
+  expression_as_string_ = expression.ToString();
+  UpdateUniqifier(expression_as_string_);
+  arrow::internal::hash_combine(result, expression_as_string_);
+  arrow::internal::hash_combine(result, configuration);
+  arrow::internal::hash_combine(result, schema_->ToString());
+  arrow::internal::hash_combine(result, uniqifier_);
+  hash_code_ = result;
+}
+
+bool FilterCacheKey::operator==(const FilterCacheKey& other) const {
+  // arrow schema does not overload equality operators.
+  if (!(schema_->Equals(*other.schema().get(), true))) {
+    return false;
+  }
+
+  if (configuration_ != other.configuration_) {
+    return false;
+  }
+
+  if (expression_as_string_ != other.expression_as_string_) {
+    return false;
+  }
+
+  if (uniqifier_ != other.uniqifier_) {
+    return false;
+  }
+  return true;
+}
+
+std::string FilterCacheKey::ToString() const {
+  std::stringstream ss;
+  // indent, window, indent_size, null_rep and skip new lines.
+  arrow::PrettyPrintOptions options{0, 10, 2, "null", true};
+  DCHECK_OK(PrettyPrint(*schema_.get(), options, &ss));
+
+  ss << "Condition: [" << expression_as_string_ << "]";
+  return ss.str();
+}
+
+void FilterCacheKey::UpdateUniqifier(const std::string& expr) {
+  // caching of expressions with re2 patterns causes lock contention. So, use
+  // multiple instances to reduce contention.
+  if (expr.find(" like(") != std::string::npos) {
+    uniqifier_ = std::hash<std::thread::id>()(std::this_thread::get_id()) % 16;
+  }
+}
 
 Filter::Filter(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
                std::shared_ptr<Configuration> configuration)
     : llvm_generator_(std::move(llvm_generator)),
       schema_(schema),
       configuration_(configuration) {}
+
+Filter::~Filter() {}
 
 Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
                     std::shared_ptr<Configuration> configuration,
@@ -61,7 +118,7 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   // Return if the expression is invalid since we will not be able to process further.
   ExprValidator expr_validator(llvm_gen->types(), schema);
   ARROW_RETURN_NOT_OK(expr_validator.Validate(condition));
-  ARROW_RETURN_NOT_OK(llvm_gen->Build({condition}));
+  ARROW_RETURN_NOT_OK(llvm_gen->Build({condition}, SelectionVector::Mode::MODE_NONE));
 
   // Instantiate the filter with the completely built llvm generator
   *filter = std::make_shared<Filter>(std::move(llvm_gen), schema, configuration);
@@ -96,9 +153,11 @@ Status Filter::Evaluate(const arrow::RecordBatch& batch,
   // Compute the intersection of the value and validity.
   auto result = bitmaps.GetLocalBitMap(2);
   BitMapAccumulator::IntersectBitMaps(
-      result, {bitmaps.GetLocalBitMap(0), bitmaps.GetLocalBitMap((1))}, num_rows);
+      result, {bitmaps.GetLocalBitMap(0), bitmaps.GetLocalBitMap((1))}, {0, 0}, num_rows);
 
   return out_selection->PopulateFromBitMap(result, bitmap_size, num_rows - 1);
 }
+
+std::string Filter::DumpIR() { return llvm_generator_->DumpIR(); }
 
 }  // namespace gandiva

@@ -126,9 +126,9 @@ public class NullReader extends AbstractBaseReader implements FieldReader{
     throw new IllegalArgumentException(String.format("You tried to read a %s type when you are using a ValueReader of type %s.", name, this.getClass().getSimpleName()));
   }
   
-  <#list ["Object", "BigDecimal", "Integer", "Long", "Boolean", 
-          "Character", "LocalDateTime", "Period", "Double", "Float",
-          "Text", "String", "Byte", "Short", "byte[]"] as friendlyType>
+  <#list ["Object", "BigDecimal", "Short", "Integer", "Long", "Boolean",
+          "LocalDateTime", "Duration", "Period", "Double", "Float",
+          "Character", "Text", "String", "Byte", "byte[]"] as friendlyType>
   <#assign safeType=friendlyType />
   <#if safeType=="byte[]"><#assign safeType="ByteArray" /></#if>
   

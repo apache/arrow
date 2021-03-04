@@ -14,7 +14,6 @@
 // limitations under the License.
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 
@@ -22,16 +21,24 @@ namespace Apache.Arrow.Tests
 {
     public class ArrowBufferBuilderTests
     {
+        [Fact]
+        public void ThrowsWhenIndexOutOfBounds()
+        {
+            Assert.Throws<IndexOutOfRangeException>(() =>
+            {
+                var builder = new ArrowBuffer.Builder<int>();
+                builder.Span[100] = 100;
+            });
+        }
+
         public class Append
         {
-
             [Fact]
             public void DoesNotThrowWithNullParameters()
             {
                 var builder = new ArrowBuffer.Builder<int>();
 
                 builder.AppendRange(null);
-                builder.Append((Func<IEnumerable<int>>) null);
             }
 
             [Fact]
@@ -129,7 +136,7 @@ namespace Apache.Arrow.Tests
                 var length = builder.Length;
                 var data = Enumerable.Range(0, 10).Select(x => x).ToArray();
                 var count = data.Length;
-                
+
                 builder.AppendRange(data);
 
                 Assert.Equal(length + count, builder.Length);
@@ -155,20 +162,53 @@ namespace Apache.Arrow.Tests
 
         public class Clear
         {
-            [Fact]
-            public void SetsAllValuesToDefault()
+            [Theory]
+            [InlineData(10)]
+            [InlineData(100)]
+            public void SetsAllValuesToDefault(int sizeBeforeClear)
             {
                 var builder = new ArrowBuffer.Builder<int>(1);
-                var data = Enumerable.Range(0, 10).Select(x => x).ToArray();
+                var data = Enumerable.Range(0, sizeBeforeClear).Select(x => x).ToArray();
 
                 builder.AppendRange(data);
                 builder.Clear();
+                builder.Append(0);
 
                 var buffer = builder.Build();
-                var zeros = Enumerable.Range(0, 10).Select(x => 0).ToArray();
-                var values = buffer.Span.CastTo<int>().Slice(0, 10).ToArray();
+                // No matter the sizeBeforeClear, we only appended a single 0,
+                // so the buffer length should be the smallest possible.
+                Assert.Equal(64, buffer.Length);
+
+                // check all 16 int elements are default
+                var zeros = Enumerable.Range(0, 16).Select(x => 0).ToArray();
+                var values = buffer.Span.CastTo<int>().Slice(0, 16).ToArray();
 
                 Assert.True(zeros.SequenceEqual(values));
+            }
+        }
+
+        public class Resize
+        {
+            [Fact]
+            public void LengthHasExpectedValueAfterResize()
+            {
+                var builder = new ArrowBuffer.Builder<int>();
+                builder.Resize(8);
+
+                Assert.True(builder.Capacity >= 8);
+                Assert.Equal(8, builder.Length);
+            }
+
+            [Fact]
+            public void NegativeLengthThrows()
+            {
+                // Arrange
+                var builder = new ArrowBuffer.Builder<int>();
+                builder.Append(10);
+                builder.Append(20);
+
+                // Act/Assert
+                Assert.Throws<ArgumentOutOfRangeException>(() => builder.Resize(-1));
             }
         }
 

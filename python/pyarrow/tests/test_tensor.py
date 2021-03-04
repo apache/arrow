@@ -18,9 +18,25 @@
 import os
 import sys
 import pytest
+import weakref
 
 import numpy as np
 import pyarrow as pa
+
+
+tensor_type_pairs = [
+    ('i1', pa.int8()),
+    ('i2', pa.int16()),
+    ('i4', pa.int32()),
+    ('i8', pa.int64()),
+    ('u1', pa.uint8()),
+    ('u2', pa.uint16()),
+    ('u4', pa.uint32()),
+    ('u8', pa.uint64()),
+    ('f2', pa.float16()),
+    ('f4', pa.float32()),
+    ('f8', pa.float64())
+]
 
 
 def test_tensor_attrs():
@@ -29,6 +45,7 @@ def test_tensor_attrs():
     tensor = pa.Tensor.from_numpy(data)
 
     assert tensor.ndim == 2
+    assert tensor.dim_names == []
     assert tensor.size == 40
     assert tensor.shape == data.shape
     assert tensor.strides == data.strides
@@ -42,6 +59,18 @@ def test_tensor_attrs():
     tensor = pa.Tensor.from_numpy(data2)
     assert not tensor.is_mutable
 
+    # With dim_names
+    tensor = pa.Tensor.from_numpy(data, dim_names=('x', 'y'))
+    assert tensor.ndim == 2
+    assert tensor.dim_names == ['x', 'y']
+    assert tensor.dim_name(0) == 'x'
+    assert tensor.dim_name(1) == 'y'
+
+    wr = weakref.ref(tensor)
+    assert wr() is not None
+    del tensor
+    assert wr() is None
+
 
 def test_tensor_base_object():
     tensor = pa.Tensor.from_numpy(np.random.randn(10, 4))
@@ -50,19 +79,7 @@ def test_tensor_base_object():
     assert sys.getrefcount(tensor) == n + 1
 
 
-@pytest.mark.parametrize('dtype_str,arrow_type', [
-    ('i1', pa.int8()),
-    ('i2', pa.int16()),
-    ('i4', pa.int32()),
-    ('i8', pa.int64()),
-    ('u1', pa.uint8()),
-    ('u2', pa.uint16()),
-    ('u4', pa.uint32()),
-    ('u8', pa.uint64()),
-    ('f2', pa.float16()),
-    ('f4', pa.float32()),
-    ('f8', pa.float64())
-])
+@pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
 def test_tensor_numpy_roundtrip(dtype_str, arrow_type):
     dtype = np.dtype(dtype_str)
     data = (100 * np.random.randn(10, 4)).astype(dtype)
@@ -76,15 +93,6 @@ def test_tensor_numpy_roundtrip(dtype_str, arrow_type):
     assert (data == result).all()
 
 
-def _try_delete(path):
-    import gc
-    gc.collect()
-    try:
-        os.remove(path)
-    except os.error:
-        pass
-
-
 def test_tensor_ipc_roundtrip(tmpdir):
     data = np.random.randn(10, 4)
     tensor = pa.Tensor.from_numpy(data)
@@ -92,11 +100,26 @@ def test_tensor_ipc_roundtrip(tmpdir):
     path = os.path.join(str(tmpdir), 'pyarrow-tensor-ipc-roundtrip')
     mmap = pa.create_memory_map(path, 1024)
 
-    pa.write_tensor(tensor, mmap)
+    pa.ipc.write_tensor(tensor, mmap)
 
     mmap.seek(0)
-    result = pa.read_tensor(mmap)
+    result = pa.ipc.read_tensor(mmap)
 
+    assert result.equals(tensor)
+
+
+def test_tensor_ipc_read_from_compressed(tempdir):
+    # ARROW-5910
+    data = np.random.randn(10, 4)
+    tensor = pa.Tensor.from_numpy(data)
+
+    path = tempdir / 'tensor-compressed-file'
+
+    out_stream = pa.output_stream(path, compression='gzip')
+    pa.ipc.write_tensor(tensor, out_stream)
+    out_stream.close()
+
+    result = pa.ipc.read_tensor(pa.input_stream(path, compression='gzip'))
     assert result.equals(tensor)
 
 
@@ -112,10 +135,10 @@ def test_tensor_ipc_strided(tmpdir):
 
     for tensor in [tensor1, tensor2]:
         mmap.seek(0)
-        pa.write_tensor(tensor, mmap)
+        pa.ipc.write_tensor(tensor, mmap)
 
         mmap.seek(0)
-        result = pa.read_tensor(mmap)
+        result = pa.ipc.read_tensor(mmap)
 
         assert result.equals(tensor)
 
@@ -150,25 +173,23 @@ def test_tensor_hashing():
 def test_tensor_size():
     data = np.random.randn(10, 4)
     tensor = pa.Tensor.from_numpy(data)
-    assert pa.get_tensor_size(tensor) > (data.size * 8)
+    assert pa.ipc.get_tensor_size(tensor) > (data.size * 8)
 
 
 def test_read_tensor(tmpdir):
     # Create and write tensor tensor
     data = np.random.randn(10, 4)
     tensor = pa.Tensor.from_numpy(data)
-    data_size = pa.get_tensor_size(tensor)
+    data_size = pa.ipc.get_tensor_size(tensor)
     path = os.path.join(str(tmpdir), 'pyarrow-tensor-ipc-read-tensor')
     write_mmap = pa.create_memory_map(path, data_size)
-    pa.write_tensor(tensor, write_mmap)
+    pa.ipc.write_tensor(tensor, write_mmap)
     # Try to read tensor
     read_mmap = pa.memory_map(path, mode='r')
-    array = pa.read_tensor(read_mmap).to_numpy()
+    array = pa.ipc.read_tensor(read_mmap).to_numpy()
     np.testing.assert_equal(data, array)
 
 
-@pytest.mark.skipif(sys.version_info < (3,),
-                    reason="requires Python 3+")
 def test_tensor_memoryview():
     # Tensors support the PEP 3118 buffer protocol
     for dtype, expected_format in [(np.int8, '=b'),

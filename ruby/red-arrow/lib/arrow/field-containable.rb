@@ -24,6 +24,9 @@ module Arrow
         get_field_by_name(name)
       when Integer
         index = name_or_index
+        raise if index < 0
+        index += n_fields if index < 0
+        return nil if index < 0 or index >= n_fields
         get_field(index)
       else
         message = "field name or index must be String, Symbol or Integer"

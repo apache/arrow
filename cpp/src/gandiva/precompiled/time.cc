@@ -19,11 +19,14 @@
 
 extern "C" {
 
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
 #include "./time_constants.h"
+#include "./time_fields.h"
 #include "./types.h"
 
 #define MINS_IN_HOUR 60
@@ -38,68 +41,68 @@ extern "C" {
   INNER(timestamp)
 
 // Extract millennium
-#define EXTRACT_MILLENNIUM(TYPE)                  \
-  FORCE_INLINE                                    \
-  int64 extractMillennium##_##TYPE(TYPE millis) { \
-    EpochTimePoint tp(millis);                    \
-    return (1900 + tp.TmYear() - 1) / 1000 + 1;   \
+#define EXTRACT_MILLENNIUM(TYPE)                            \
+  FORCE_INLINE                                              \
+  gdv_int64 extractMillennium##_##TYPE(gdv_##TYPE millis) { \
+    EpochTimePoint tp(millis);                              \
+    return (1900 + tp.TmYear() - 1) / 1000 + 1;             \
   }
 
 DATE_TYPES(EXTRACT_MILLENNIUM)
 
 // Extract century
-#define EXTRACT_CENTURY(TYPE)                  \
-  FORCE_INLINE                                 \
-  int64 extractCentury##_##TYPE(TYPE millis) { \
-    EpochTimePoint tp(millis);                 \
-    return (1900 + tp.TmYear() - 1) / 100 + 1; \
+#define EXTRACT_CENTURY(TYPE)                            \
+  FORCE_INLINE                                           \
+  gdv_int64 extractCentury##_##TYPE(gdv_##TYPE millis) { \
+    EpochTimePoint tp(millis);                           \
+    return (1900 + tp.TmYear() - 1) / 100 + 1;           \
   }
 
 DATE_TYPES(EXTRACT_CENTURY)
 
 // Extract  decade
-#define EXTRACT_DECADE(TYPE)                  \
-  FORCE_INLINE                                \
-  int64 extractDecade##_##TYPE(TYPE millis) { \
-    EpochTimePoint tp(millis);                \
-    return (1900 + tp.TmYear()) / 10;         \
+#define EXTRACT_DECADE(TYPE)                            \
+  FORCE_INLINE                                          \
+  gdv_int64 extractDecade##_##TYPE(gdv_##TYPE millis) { \
+    EpochTimePoint tp(millis);                          \
+    return (1900 + tp.TmYear()) / 10;                   \
   }
 
 DATE_TYPES(EXTRACT_DECADE)
 
 // Extract  year.
-#define EXTRACT_YEAR(TYPE)                  \
-  FORCE_INLINE                              \
-  int64 extractYear##_##TYPE(TYPE millis) { \
-    EpochTimePoint tp(millis);              \
-    return 1900 + tp.TmYear();              \
+#define EXTRACT_YEAR(TYPE)                            \
+  FORCE_INLINE                                        \
+  gdv_int64 extractYear##_##TYPE(gdv_##TYPE millis) { \
+    EpochTimePoint tp(millis);                        \
+    return 1900 + tp.TmYear();                        \
   }
 
 DATE_TYPES(EXTRACT_YEAR)
 
-#define EXTRACT_DOY(TYPE)                  \
-  FORCE_INLINE                             \
-  int64 extractDoy##_##TYPE(TYPE millis) { \
-    EpochTimePoint tp(millis);             \
-    return 1 + tp.TmYday();                \
+#define EXTRACT_DOY(TYPE)                            \
+  FORCE_INLINE                                       \
+  gdv_int64 extractDoy##_##TYPE(gdv_##TYPE millis) { \
+    EpochTimePoint tp(millis);                       \
+    return 1 + tp.TmYday();                          \
   }
 
 DATE_TYPES(EXTRACT_DOY)
 
-#define EXTRACT_QUARTER(TYPE)                  \
-  FORCE_INLINE                                 \
-  int64 extractQuarter##_##TYPE(TYPE millis) { \
-    EpochTimePoint tp(millis);                 \
-    return tp.TmMon() / 3 + 1;                 \
+#define EXTRACT_QUARTER(TYPE)                            \
+  FORCE_INLINE                                           \
+  gdv_int64 extractQuarter##_##TYPE(gdv_##TYPE millis) { \
+    EpochTimePoint tp(millis);                           \
+    return tp.TmMon() / 3 + 1;                           \
   }
 
 DATE_TYPES(EXTRACT_QUARTER)
 
-#define EXTRACT_MONTH(TYPE)                  \
-  FORCE_INLINE                               \
-  int64 extractMonth##_##TYPE(TYPE millis) { \
-    EpochTimePoint tp(millis);               \
-    return 1 + tp.TmMon();                   \
+#define EXTRACT_MONTH(TYPE)                            \
+  FORCE_INLINE                                         \
+  gdv_int64 extractMonth##_##TYPE(gdv_##TYPE millis) { \
+    EpochTimePoint tp(millis);                         \
+    return 1 + tp.TmMon();                             \
   }
 
 DATE_TYPES(EXTRACT_MONTH)
@@ -282,7 +285,7 @@ int getDecWeekOfYear(const EpochTimePoint& tp) {
 // If day is Jan 1-3, see getJanWeekOfYear
 // If day is Dec 29-21, see getDecWeekOfYear
 //
-int64 weekOfYear(const EpochTimePoint& tp) {
+gdv_int64 weekOfYear(const EpochTimePoint& tp) {
   if (tp.TmYday() < 3) {
     // Jan 1-3
     return getJanWeekOfYear(tp);
@@ -296,101 +299,101 @@ int64 weekOfYear(const EpochTimePoint& tp) {
   return weekOfCurrentYear(tp);
 }
 
-#define EXTRACT_WEEK(TYPE)                  \
-  FORCE_INLINE                              \
-  int64 extractWeek##_##TYPE(TYPE millis) { \
-    EpochTimePoint tp(millis);              \
-    return weekOfYear(tp);                  \
+#define EXTRACT_WEEK(TYPE)                            \
+  FORCE_INLINE                                        \
+  gdv_int64 extractWeek##_##TYPE(gdv_##TYPE millis) { \
+    EpochTimePoint tp(millis);                        \
+    return weekOfYear(tp);                            \
   }
 
 DATE_TYPES(EXTRACT_WEEK)
 
-#define EXTRACT_DOW(TYPE)                  \
-  FORCE_INLINE                             \
-  int64 extractDow##_##TYPE(TYPE millis) { \
-    EpochTimePoint tp(millis);             \
-    return 1 + tp.TmWday();                \
+#define EXTRACT_DOW(TYPE)                            \
+  FORCE_INLINE                                       \
+  gdv_int64 extractDow##_##TYPE(gdv_##TYPE millis) { \
+    EpochTimePoint tp(millis);                       \
+    return 1 + tp.TmWday();                          \
   }
 
 DATE_TYPES(EXTRACT_DOW)
 
-#define EXTRACT_DAY(TYPE)                  \
-  FORCE_INLINE                             \
-  int64 extractDay##_##TYPE(TYPE millis) { \
-    EpochTimePoint tp(millis);             \
-    return tp.TmMday();                    \
+#define EXTRACT_DAY(TYPE)                            \
+  FORCE_INLINE                                       \
+  gdv_int64 extractDay##_##TYPE(gdv_##TYPE millis) { \
+    EpochTimePoint tp(millis);                       \
+    return tp.TmMday();                              \
   }
 
 DATE_TYPES(EXTRACT_DAY)
 
-#define EXTRACT_HOUR(TYPE)                  \
-  FORCE_INLINE                              \
-  int64 extractHour##_##TYPE(TYPE millis) { \
-    EpochTimePoint tp(millis);              \
-    return tp.TmHour();                     \
+#define EXTRACT_HOUR(TYPE)                            \
+  FORCE_INLINE                                        \
+  gdv_int64 extractHour##_##TYPE(gdv_##TYPE millis) { \
+    EpochTimePoint tp(millis);                        \
+    return tp.TmHour();                               \
   }
 
 DATE_TYPES(EXTRACT_HOUR)
 
-#define EXTRACT_MINUTE(TYPE)                  \
-  FORCE_INLINE                                \
-  int64 extractMinute##_##TYPE(TYPE millis) { \
-    EpochTimePoint tp(millis);                \
-    return tp.TmMin();                        \
+#define EXTRACT_MINUTE(TYPE)                            \
+  FORCE_INLINE                                          \
+  gdv_int64 extractMinute##_##TYPE(gdv_##TYPE millis) { \
+    EpochTimePoint tp(millis);                          \
+    return tp.TmMin();                                  \
   }
 
 DATE_TYPES(EXTRACT_MINUTE)
 
-#define EXTRACT_SECOND(TYPE)                  \
-  FORCE_INLINE                                \
-  int64 extractSecond##_##TYPE(TYPE millis) { \
-    EpochTimePoint tp(millis);                \
-    return tp.TmSec();                        \
+#define EXTRACT_SECOND(TYPE)                            \
+  FORCE_INLINE                                          \
+  gdv_int64 extractSecond##_##TYPE(gdv_##TYPE millis) { \
+    EpochTimePoint tp(millis);                          \
+    return tp.TmSec();                                  \
   }
 
 DATE_TYPES(EXTRACT_SECOND)
 
 #define EXTRACT_EPOCH(TYPE) \
   FORCE_INLINE              \
-  int64 extractEpoch##_##TYPE(TYPE millis) { return MILLIS_TO_SEC(millis); }
+  gdv_int64 extractEpoch##_##TYPE(gdv_##TYPE millis) { return MILLIS_TO_SEC(millis); }
 
 DATE_TYPES(EXTRACT_EPOCH)
 
 // Functions that work on millis in a day
-#define EXTRACT_SECOND_TIME(TYPE)                   \
-  FORCE_INLINE                                      \
-  int64 extractSecond##_##TYPE(TYPE millis) {       \
-    int64 seconds_of_day = MILLIS_TO_SEC(millis);   \
-    int64 sec = seconds_of_day % SECONDS_IN_MINUTE; \
-    return sec;                                     \
+#define EXTRACT_SECOND_TIME(TYPE)                       \
+  FORCE_INLINE                                          \
+  gdv_int64 extractSecond##_##TYPE(gdv_##TYPE millis) { \
+    gdv_int64 seconds_of_day = MILLIS_TO_SEC(millis);   \
+    gdv_int64 sec = seconds_of_day % SECONDS_IN_MINUTE; \
+    return sec;                                         \
   }
 
 EXTRACT_SECOND_TIME(time32)
 
-#define EXTRACT_MINUTE_TIME(TYPE)             \
-  FORCE_INLINE                                \
-  int64 extractMinute##_##TYPE(TYPE millis) { \
-    TYPE mins = MILLIS_TO_MINS(millis);       \
-    return (mins % (MINS_IN_HOUR));           \
+#define EXTRACT_MINUTE_TIME(TYPE)                       \
+  FORCE_INLINE                                          \
+  gdv_int64 extractMinute##_##TYPE(gdv_##TYPE millis) { \
+    gdv_##TYPE mins = MILLIS_TO_MINS(millis);           \
+    return (mins % (MINS_IN_HOUR));                     \
   }
 
 EXTRACT_MINUTE_TIME(time32)
 
 #define EXTRACT_HOUR_TIME(TYPE) \
   FORCE_INLINE                  \
-  int64 extractHour##_##TYPE(TYPE millis) { return MILLIS_TO_HOUR(millis); }
+  gdv_int64 extractHour##_##TYPE(gdv_##TYPE millis) { return MILLIS_TO_HOUR(millis); }
 
 EXTRACT_HOUR_TIME(time32)
 
 #define DATE_TRUNC_FIXED_UNIT(NAME, TYPE, NMILLIS_IN_UNIT) \
   FORCE_INLINE                                             \
-  TYPE NAME##_##TYPE(TYPE millis) {                        \
+  gdv_##TYPE NAME##_##TYPE(gdv_##TYPE millis) {            \
     return ((millis / NMILLIS_IN_UNIT) * NMILLIS_IN_UNIT); \
   }
 
 #define DATE_TRUNC_WEEK(TYPE)                                               \
   FORCE_INLINE                                                              \
-  TYPE date_trunc_Week_##TYPE(TYPE millis) {                                \
+  gdv_##TYPE date_trunc_Week_##TYPE(gdv_##TYPE millis) {                    \
     EpochTimePoint tp(millis);                                              \
     int ndays_to_trunc = 0;                                                 \
     if (tp.TmWday() == 0) {                                                 \
@@ -405,7 +408,7 @@ EXTRACT_HOUR_TIME(time32)
 
 #define DATE_TRUNC_MONTH_UNITS(NAME, TYPE, NMONTHS_IN_UNIT)              \
   FORCE_INLINE                                                           \
-  TYPE NAME##_##TYPE(TYPE millis) {                                      \
+  gdv_##TYPE NAME##_##TYPE(gdv_##TYPE millis) {                          \
     EpochTimePoint tp(millis);                                           \
     int ndays_to_trunc = tp.TmMday() - 1;                                \
     int nmonths_to_trunc =                                               \
@@ -418,7 +421,7 @@ EXTRACT_HOUR_TIME(time32)
 
 #define DATE_TRUNC_YEAR_UNITS(NAME, TYPE, NYEARS_IN_UNIT, OFF_BY)        \
   FORCE_INLINE                                                           \
-  TYPE NAME##_##TYPE(TYPE millis) {                                      \
+  gdv_##TYPE NAME##_##TYPE(gdv_##TYPE millis) {                          \
     EpochTimePoint tp(millis);                                           \
     int ndays_to_trunc = tp.TmMday() - 1;                                \
     int nmonths_to_trunc = tp.TmMon();                                   \
@@ -449,13 +452,21 @@ DATE_TRUNC_FUNCTIONS(date64)
 DATE_TRUNC_FUNCTIONS(timestamp)
 
 FORCE_INLINE
-date64 castDATE_int64(int64 in) { return in; }
+gdv_date64 castDATE_int64(gdv_int64 in) { return in; }
+
+FORCE_INLINE
+gdv_date32 castDATE_int32(gdv_int32 in) { return in; }
+
+FORCE_INLINE
+gdv_date64 castDATE_date32(gdv_date32 days) {
+  return days * static_cast<gdv_date64>(MILLIS_IN_DAY);
+}
 
 static int days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
 bool IsLastDayOfMonth(const EpochTimePoint& tp) {
   if (tp.TmMon() != 1) {
-    // not February. Dont worry about leap year
+    // not February. Don't worry about leap year
     return (tp.TmMday() == days_in_month[tp.TmMon()]);
   }
 
@@ -471,6 +482,12 @@ bool IsLastDayOfMonth(const EpochTimePoint& tp) {
 
   // check if year is non-leap year
   return !IsLeapYear(tp.TmYear());
+}
+
+FORCE_INLINE
+bool is_valid_time(const int hours, const int minutes, const int seconds) {
+  return hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60 && seconds >= 0 &&
+         seconds < 60;
 }
 
 // MONTHS_BETWEEN returns number of months between dates date1 and date2.
@@ -508,7 +525,7 @@ bool IsLastDayOfMonth(const EpochTimePoint& tp) {
 DATE_TYPES(MONTHS_BETWEEN)
 
 FORCE_INLINE
-void set_error_for_date(int32 length, const char* input, const char* msg,
+void set_error_for_date(gdv_int32 length, const char* input, const char* msg,
                         int64_t execution_context) {
   int size = length + static_cast<int>(strlen(msg)) + 1;
   char* error = reinterpret_cast<char*>(malloc(size));
@@ -517,16 +534,26 @@ void set_error_for_date(int32 length, const char* input, const char* msg,
   free(error);
 }
 
-date64 castDATE_utf8(int64_t context, const char* input, int32 length) {
+gdv_date64 castDATE_utf8(int64_t context, const char* input, gdv_int32 length) {
+  using arrow_vendored::date::day;
+  using arrow_vendored::date::month;
+  using arrow_vendored::date::sys_days;
+  using arrow_vendored::date::year;
+  using arrow_vendored::date::year_month_day;
+  using gandiva::TimeFields;
   // format : 0 is year, 1 is month and 2 is day.
   int dateFields[3];
   int dateIndex = 0, index = 0, value = 0;
+  int year_str_len = 0;
   while (dateIndex < 3 && index < length) {
     if (!isdigit(input[index])) {
       dateFields[dateIndex++] = value;
       value = 0;
     } else {
       value = (value * 10) + (input[index] - '0');
+      if (dateIndex == TimeFields::kYear) {
+        year_str_len++;
+      }
     }
     index++;
   }
@@ -546,21 +573,231 @@ date64 castDATE_utf8(int64_t context, const char* input, int32 length) {
    * If range of two digits is between 70 - 99 then year = 1970 - 1999
    * Else if two digits is between 00 - 69 = 2000 - 2069
    */
-  if (dateFields[0] < 100) {
-    if (dateFields[0] < 70) {
-      dateFields[0] += 2000;
+  if (dateFields[TimeFields::kYear] < 100 && year_str_len < 4) {
+    if (dateFields[TimeFields::kYear] < 70) {
+      dateFields[TimeFields::kYear] += 2000;
     } else {
-      dateFields[0] += 1900;
+      dateFields[TimeFields::kYear] += 1900;
     }
   }
-  date::year_month_day day =
-      date::year(dateFields[0]) / date::month(dateFields[1]) / date::day(dateFields[2]);
-  if (!day.ok()) {
+  year_month_day date = year(dateFields[TimeFields::kYear]) /
+                        month(dateFields[TimeFields::kMonth]) /
+                        day(dateFields[TimeFields::kDay]);
+  if (!date.ok()) {
     set_error_for_date(length, input, msg, context);
     return 0;
   }
-  return std::chrono::time_point_cast<std::chrono::milliseconds>(date::sys_days(day))
+  return std::chrono::time_point_cast<std::chrono::milliseconds>(sys_days(date))
       .time_since_epoch()
       .count();
 }
+
+/*
+ * Input consists of mandatory and optional fields.
+ * Mandatory fields are year, month and day.
+ * Optional fields are time, displacement and zone.
+ * Format is <year-month-day>[ hours:minutes:seconds][.millis][ displacement|zone]
+ */
+gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 length) {
+  using arrow_vendored::date::day;
+  using arrow_vendored::date::month;
+  using arrow_vendored::date::sys_days;
+  using arrow_vendored::date::year;
+  using arrow_vendored::date::year_month_day;
+  using gandiva::TimeFields;
+  using std::chrono::hours;
+  using std::chrono::milliseconds;
+  using std::chrono::minutes;
+  using std::chrono::seconds;
+
+  int ts_fields[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+  gdv_boolean add_displacement = true;
+  gdv_boolean encountered_zone = false;
+  int year_str_len = 0, sub_seconds_len = 0;
+  int ts_field_index = TimeFields::kYear, index = 0, value = 0;
+  while (ts_field_index < TimeFields::kMax && index < length) {
+    if (isdigit(input[index])) {
+      value = (value * 10) + (input[index] - '0');
+      if (ts_field_index == TimeFields::kYear) {
+        year_str_len++;
+      }
+      if (ts_field_index == TimeFields::kSubSeconds) {
+        sub_seconds_len++;
+      }
+    } else {
+      ts_fields[ts_field_index] = value;
+      value = 0;
+
+      switch (input[index]) {
+        case '.':
+        case ':':
+        case ' ':
+          ts_field_index++;
+          break;
+        case '+':
+          // +08:00, means time zone is 8 hours ahead. Need to subtract.
+          add_displacement = false;
+          ts_field_index = TimeFields::kDisplacementHours;
+          break;
+        case '-':
+          // Overloaded as date separator and negative displacement.
+          ts_field_index = (ts_field_index < 3) ? (ts_field_index + 1)
+                                                : TimeFields::kDisplacementHours;
+          break;
+        default:
+          encountered_zone = true;
+          break;
+      }
+    }
+    if (encountered_zone) {
+      break;
+    }
+    index++;
+  }
+
+  // Store the last value
+  if (ts_field_index < TimeFields::kMax) {
+    ts_fields[ts_field_index++] = value;
+  }
+
+  // adjust the year
+  if (ts_fields[TimeFields::kYear] < 100 && year_str_len < 4) {
+    if (ts_fields[TimeFields::kYear] < 70) {
+      ts_fields[TimeFields::kYear] += 2000;
+    } else {
+      ts_fields[TimeFields::kYear] += 1900;
+    }
+  }
+
+  // adjust the milliseconds
+  if (sub_seconds_len > 0) {
+    if (sub_seconds_len > 3) {
+      const char* msg = "Invalid millis for timestamp value ";
+      set_error_for_date(length, input, msg, context);
+      return 0;
+    }
+    while (sub_seconds_len < 3) {
+      ts_fields[TimeFields::kSubSeconds] *= 10;
+      sub_seconds_len++;
+    }
+  }
+  // handle timezone
+  if (encountered_zone) {
+    int err = 0;
+    gdv_timestamp ret_time = 0;
+    err = gdv_fn_time_with_zone(&ts_fields[0], (input + index), (length - index),
+                                &ret_time);
+    if (err) {
+      const char* msg = "Invalid timestamp or unknown zone for timestamp value ";
+      set_error_for_date(length, input, msg, context);
+      return 0;
+    }
+    return ret_time;
+  }
+
+  year_month_day date = year(ts_fields[TimeFields::kYear]) /
+                        month(ts_fields[TimeFields::kMonth]) /
+                        day(ts_fields[TimeFields::kDay]);
+  if (!date.ok()) {
+    const char* msg = "Not a valid day for timestamp value ";
+    set_error_for_date(length, input, msg, context);
+    return 0;
+  }
+
+  if (!is_valid_time(ts_fields[TimeFields::kHours], ts_fields[TimeFields::kMinutes],
+                     ts_fields[TimeFields::kSeconds])) {
+    const char* msg = "Not a valid time for timestamp value ";
+    set_error_for_date(length, input, msg, context);
+    return 0;
+  }
+
+  auto date_time = sys_days(date) + hours(ts_fields[TimeFields::kHours]) +
+                   minutes(ts_fields[TimeFields::kMinutes]) +
+                   seconds(ts_fields[TimeFields::kSeconds]) +
+                   milliseconds(ts_fields[TimeFields::kSubSeconds]);
+  if (ts_fields[TimeFields::kDisplacementHours] ||
+      ts_fields[TimeFields::kDisplacementMinutes]) {
+    auto displacement_time = hours(ts_fields[TimeFields::kDisplacementHours]) +
+                             minutes(ts_fields[TimeFields::kDisplacementMinutes]);
+    date_time = (add_displacement) ? (date_time + displacement_time)
+                                   : (date_time - displacement_time);
+  }
+  return std::chrono::time_point_cast<milliseconds>(date_time).time_since_epoch().count();
+}
+
+gdv_timestamp castTIMESTAMP_date64(gdv_date64 date_in_millis) { return date_in_millis; }
+
+gdv_timestamp castTIMESTAMP_int64(gdv_int64 in) { return in; }
+
+gdv_date64 castDATE_timestamp(gdv_timestamp timestamp_in_millis) {
+  EpochTimePoint tp(timestamp_in_millis);
+  return tp.ClearTimeOfDay().MillisSinceEpoch();
+}
+
+const char* castVARCHAR_timestamp_int64(gdv_int64 context, gdv_timestamp in,
+                                        gdv_int64 length, gdv_int32* out_len) {
+  gdv_int64 year = extractYear_timestamp(in);
+  gdv_int64 month = extractMonth_timestamp(in);
+  gdv_int64 day = extractDay_timestamp(in);
+  gdv_int64 hour = extractHour_timestamp(in);
+  gdv_int64 minute = extractMinute_timestamp(in);
+  gdv_int64 second = extractSecond_timestamp(in);
+  gdv_int64 millis = in % MILLIS_IN_SEC;
+
+  static const int kTimeStampStringLen = 23;
+  const int char_buffer_length = kTimeStampStringLen + 1;  // snprintf adds \0
+  char char_buffer[char_buffer_length];
+
+  // yyyy-MM-dd hh:mm:ss.sss
+  int res = snprintf(char_buffer, char_buffer_length,
+                     "%04" PRId64 "-%02" PRId64 "-%02" PRId64 " %02" PRId64 ":%02" PRId64
+                     ":%02" PRId64 ".%03" PRId64,
+                     year, month, day, hour, minute, second, millis);
+  if (res < 0) {
+    gdv_fn_context_set_error_msg(context, "Could not format the timestamp");
+    return "";
+  }
+
+  *out_len = static_cast<gdv_int32>(length);
+  if (*out_len > kTimeStampStringLen) {
+    *out_len = kTimeStampStringLen;
+  }
+
+  if (*out_len <= 0) {
+    if (*out_len < 0) {
+      gdv_fn_context_set_error_msg(context, "Length of output string cannot be negative");
+    }
+    *out_len = 0;
+    return "";
+  }
+
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, char_buffer, *out_len);
+  return ret;
+}
+
+FORCE_INLINE
+gdv_int64 extractDay_daytimeinterval(gdv_day_time_interval in) {
+  gdv_int32 days = static_cast<gdv_int32>(in & 0x00000000FFFFFFFF);
+  return static_cast<gdv_int64>(days);
+}
+
+FORCE_INLINE
+gdv_int64 extractMillis_daytimeinterval(gdv_day_time_interval in) {
+  gdv_int32 millis = static_cast<gdv_int32>((in & 0xFFFFFFFF00000000) >> 32);
+  return static_cast<gdv_int64>(millis);
+}
+
+FORCE_INLINE
+gdv_int64 castBIGINT_daytimeinterval(gdv_day_time_interval in) {
+  return extractMillis_daytimeinterval(in) +
+         extractDay_daytimeinterval(in) * MILLIS_IN_DAY;
+}
+
 }  // extern "C"

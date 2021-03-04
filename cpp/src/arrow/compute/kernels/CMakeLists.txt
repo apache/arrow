@@ -15,8 +15,49 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARROW_INSTALL_ALL_HEADERS("arrow/compute/kernels")
+# ----------------------------------------------------------------------
+# Scalar kernels
 
-ADD_ARROW_TEST(boolean-test PREFIX "arrow-compute")
-ADD_ARROW_TEST(cast-test PREFIX "arrow-compute")
-ADD_ARROW_TEST(hash-test PREFIX "arrow-compute")
+add_arrow_compute_test(scalar_test
+                       SOURCES
+                       scalar_arithmetic_test.cc
+                       scalar_boolean_test.cc
+                       scalar_cast_test.cc
+                       scalar_compare_test.cc
+                       scalar_nested_test.cc
+                       scalar_set_lookup_test.cc
+                       scalar_string_test.cc
+                       scalar_validity_test.cc
+                       scalar_fill_null_test.cc
+                       test_util.cc)
+
+add_arrow_benchmark(scalar_arithmetic_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(scalar_boolean_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(scalar_cast_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(scalar_compare_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(scalar_set_lookup_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(scalar_string_benchmark PREFIX "arrow-compute")
+
+# ----------------------------------------------------------------------
+# Vector kernels
+
+add_arrow_compute_test(vector_test
+                       SOURCES
+                       vector_hash_test.cc
+                       vector_nested_test.cc
+                       vector_selection_test.cc
+                       vector_sort_test.cc
+                       test_util.cc)
+
+add_arrow_benchmark(vector_hash_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(vector_sort_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(vector_partition_benchmark PREFIX "arrow-compute")
+add_arrow_benchmark(vector_selection_benchmark PREFIX "arrow-compute")
+
+# ----------------------------------------------------------------------
+# Aggregate kernels
+
+# Aggregates
+
+add_arrow_compute_test(aggregate_test SOURCES aggregate_test.cc test_util.cc)
+add_arrow_benchmark(aggregate_benchmark PREFIX "arrow-compute")

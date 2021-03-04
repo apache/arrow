@@ -17,12 +17,17 @@
 
 package org.apache.arrow.gandiva.evaluator;
 
-import org.apache.arrow.vector.types.Types;
-import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
 
+/**
+ * Utility methods for working with {@link Decimal} values.
+ */
 public class DecimalTypeUtil {
+  private DecimalTypeUtil() {}
 
+  /**
+   * Enum for supported mathematical operations.
+   */
   public enum OperationType {
     ADD,
     SUBTRACT,
@@ -35,6 +40,9 @@ public class DecimalTypeUtil {
   /// The maximum precision representable by a 16-byte decimal
   private static final int MAX_PRECISION = 38;
 
+  /**
+   * Determines the scale and precision of applying the given operation to the operands.
+   */
   public static Decimal getResultTypeForOperation(OperationType operation, Decimal operand1, Decimal
           operand2) {
     int s1 = operand1.getScale();
@@ -79,7 +87,7 @@ public class DecimalTypeUtil {
       precision = MAX_PRECISION;
       scale = Math.max(scale - delta, minScale);
     }
-    return new Decimal(precision, scale);
+    return new Decimal(precision, scale, 128);
   }
 
 }

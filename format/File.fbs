@@ -31,6 +31,9 @@ table Footer {
   dictionaries: [ Block ];
 
   recordBatches: [ Block ];
+
+  /// User-defined metadata
+  custom_metadata: [ KeyValue ];
 }
 
 struct Block {
@@ -42,7 +45,7 @@ struct Block {
   metaDataLength: int;
 
   /// Length of the data (this is aligned so there can be a gap between this and
-  /// the metatdata).
+  /// the metadata).
   bodyLength: long;
 }
 

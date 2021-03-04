@@ -15,6 +15,8 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. _python-benchmarks:
+
 Benchmarks
 ==========
 
@@ -28,6 +30,10 @@ Running the benchmarks
 To run the benchmarks for a locally-built Arrow, run ``asv dev`` or
 ``asv run --python=same``.
 
+We use conda environments as part of running the benchmarks. To use the ``asv``
+setup, you must set the ``$CONDA_HOME`` environment variable to point to the
+root of your conda installation.
+
 Running for arbitrary Git revisions
 -----------------------------------
 
@@ -38,10 +44,6 @@ the project's evolution.  You need to have the latest development version of ASV
 
     pip install git+https://github.com/airspeed-velocity/asv
 
-The build scripts assume that Conda's ``activate`` script is on the PATH
-(the ``conda activate`` command unfortunately isn't available from
-non-interactive scripts).
-
 Now you should be ready to run ``asv run`` or whatever other command
 suits your needs.  Note that this can be quite long, as each Arrow needs
 to be rebuilt for each Git revision you're running the benchmarks for.
@@ -49,7 +51,6 @@ to be rebuilt for each Git revision you're running the benchmarks for.
 Compatibility
 -------------
 
-We only expect the benchmarking setup to work with Python 3.6 or later,
-on a Unix-like system with bash.
+We only expect the benchmarking setup to work on a Unix-like system with bash.
 
 .. _asv: https://asv.readthedocs.org/

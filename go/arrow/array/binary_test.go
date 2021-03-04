@@ -405,3 +405,26 @@ func TestBinaryValueBytes(t *testing.T) {
 
 	assert.Equal(t, []byte{'h', 'i', 'j', 'k', 'l', 'm', 'o', 'p', 'q'}, slice.ValueBytes())
 }
+
+func TestBinaryStringer(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	values := []string{"a", "bc", "", "é", "", "hijk", "lm", "", "opq", "", "tu"}
+	valids := []bool{true, true, false, true, false, true, true, true, true, false, true}
+
+	b := NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)
+	defer b.Release()
+
+	b.AppendStringValues(values, valids)
+
+	arr := b.NewArray().(*Binary)
+	defer arr.Release()
+
+	got := arr.String()
+	want := `["a" "bc" (null) "é" (null) "hijk" "lm" "" "opq" (null) "tu"]`
+
+	if got != want {
+		t.Fatalf("invalid stringer:\ngot= %s\nwant=%s\n", got, want)
+	}
+}

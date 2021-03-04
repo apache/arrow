@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_EXPR_FILTER_H
-#define GANDIVA_EXPR_FILTER_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -29,21 +28,49 @@
 #include "gandiva/condition.h"
 #include "gandiva/configuration.h"
 #include "gandiva/selection_vector.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 class LLVMGenerator;
 
+class FilterCacheKey {
+ public:
+  FilterCacheKey(SchemaPtr schema, std::shared_ptr<Configuration> configuration,
+                 Expression& expression);
+
+  std::size_t Hash() const { return hash_code_; }
+
+  bool operator==(const FilterCacheKey& other) const;
+
+  bool operator!=(const FilterCacheKey& other) const { return !(*this == other); }
+
+  SchemaPtr schema() const { return schema_; }
+
+  std::string ToString() const;
+
+ private:
+  void UpdateUniqifier(const std::string& expr);
+
+  const SchemaPtr schema_;
+  const std::shared_ptr<Configuration> configuration_;
+  std::string expression_as_string_;
+  size_t hash_code_;
+  uint32_t uniqifier_;
+};
+
 /// \brief filter records based on a condition.
 ///
 /// A filter is built for a specific schema and condition. Once the filter is built, it
 /// can be used to evaluate many row batches.
-class Filter {
+class GANDIVA_EXPORT Filter {
  public:
   Filter(std::unique_ptr<LLVMGenerator> llvm_generator, SchemaPtr schema,
          std::shared_ptr<Configuration> config);
 
-  ~Filter() = default;
+  // Inline dtor will attempt to resolve the destructor for
+  // LLVMGenerator on MSVC, so we compile the dtor in the object code
+  ~Filter();
 
   /// Build a filter for the given schema and condition, with the default configuration.
   ///
@@ -74,12 +101,12 @@ class Filter {
   Status Evaluate(const arrow::RecordBatch& batch,
                   std::shared_ptr<SelectionVector> out_selection);
 
+  std::string DumpIR();
+
  private:
-  const std::unique_ptr<LLVMGenerator> llvm_generator_;
-  const SchemaPtr schema_;
-  const std::shared_ptr<Configuration> configuration_;
+  std::unique_ptr<LLVMGenerator> llvm_generator_;
+  SchemaPtr schema_;
+  std::shared_ptr<Configuration> configuration_;
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_EXPR_FILTER_H

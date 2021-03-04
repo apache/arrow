@@ -21,6 +21,11 @@ class TestTime64DataType < Test::Unit::TestCase
     assert_equal(Arrow::Type::TIME64, data_type.id)
   end
 
+  def test_name
+    data_type = Arrow::Time64DataType.new(:micro)
+    assert_equal("time64", data_type.name)
+  end
+
   def test_invalid_unit
     message =
       "[time64-data-type][new] time unit must be micro or nano: <second>"

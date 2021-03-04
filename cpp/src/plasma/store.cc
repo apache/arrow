@@ -45,20 +45,26 @@
 
 #include <ctime>
 #include <deque>
+#include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
+#include <gflags/gflags.h>
+
 #include "arrow/status.h"
+#include "arrow/util/config.h"
 
 #include "plasma/common.h"
 #include "plasma/common_generated.h"
 #include "plasma/fling.h"
 #include "plasma/io.h"
 #include "plasma/malloc.h"
+#include "plasma/plasma_allocator.h"
 #include "plasma/protocol.h"
 
 #ifdef PLASMA_CUDA
@@ -76,12 +82,7 @@ namespace fb = plasma::flatbuf;
 
 namespace plasma {
 
-extern "C" {
-void* dlmalloc(size_t bytes);
-void* dlmemalign(size_t alignment, size_t bytes);
-void dlfree(void* mem);
-size_t dlmalloc_set_footprint_limit(size_t bytes);
-}
+void SetMallocGranularity(int value);
 
 struct GetRequest {
   GetRequest(Client* client, const std::vector<ObjectID>& object_ids);
@@ -114,15 +115,14 @@ GetRequest::GetRequest(Client* client, const std::vector<ObjectID>& object_ids)
 
 Client::Client(int fd) : fd(fd), notification_fd(-1) {}
 
-PlasmaStore::PlasmaStore(EventLoop* loop, int64_t system_memory, std::string directory,
-                         bool hugepages_enabled)
-    : loop_(loop), eviction_policy_(&store_info_) {
-  store_info_.memory_capacity = system_memory;
+PlasmaStore::PlasmaStore(EventLoop* loop, std::string directory, bool hugepages_enabled,
+                         const std::string& socket_name,
+                         std::shared_ptr<ExternalStore> external_store)
+    : loop_(loop),
+      eviction_policy_(&store_info_, PlasmaAllocator::GetFootprintLimit()),
+      external_store_(external_store) {
   store_info_.directory = directory;
   store_info_.hugepages_enabled = hugepages_enabled;
-#ifdef PLASMA_CUDA
-  DCHECK_OK(CudaDeviceManager::GetInstance(&manager_));
-#endif
 }
 
 // TODO(pcm): Get rid of this destructor by using RAII to clean up data.
@@ -142,9 +142,7 @@ void PlasmaStore::AddToClientObjectIds(const ObjectID& object_id, ObjectTableEnt
   // that the object is being used.
   if (entry->ref_count == 0) {
     // Tell the eviction policy that this object is being used.
-    std::vector<ObjectID> objects_to_evict;
-    eviction_policy_.BeginObjectAccess(object_id, &objects_to_evict);
-    DeleteObjects(objects_to_evict);
+    eviction_policy_.BeginObjectAccess(object_id);
   }
   // Increase reference count.
   entry->ref_count++;
@@ -153,65 +151,128 @@ void PlasmaStore::AddToClientObjectIds(const ObjectID& object_id, ObjectTableEnt
   client->object_ids.insert(object_id);
 }
 
-// Create a new object buffer in the hash table.
-PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_size,
-                                      int64_t metadata_size, int device_num,
-                                      Client* client, PlasmaObject* result) {
-  ARROW_LOG(DEBUG) << "creating object " << object_id.hex();
-  if (store_info_.objects.count(object_id) != 0) {
-    // There is already an object with the same ID in the Plasma Store, so
-    // ignore this requst.
-    return PlasmaError::ObjectExists;
+// Allocate memory
+uint8_t* PlasmaStore::AllocateMemory(size_t size, bool evict_if_full, int* fd,
+                                     int64_t* map_size, ptrdiff_t* offset, Client* client,
+                                     bool is_create) {
+  // First free up space from the client's LRU queue if quota enforcement is on.
+  if (evict_if_full) {
+    std::vector<ObjectID> client_objects_to_evict;
+    bool quota_ok = eviction_policy_.EnforcePerClientQuota(client, size, is_create,
+                                                           &client_objects_to_evict);
+    if (!quota_ok) {
+      return nullptr;
+    }
+    EvictObjects(client_objects_to_evict);
   }
+
   // Try to evict objects until there is enough space.
   uint8_t* pointer = nullptr;
-#ifdef PLASMA_CUDA
-  std::shared_ptr<CudaBuffer> gpu_handle;
-  std::shared_ptr<CudaContext> context_;
-  if (device_num != 0) {
-    DCHECK_OK(manager_->GetContext(device_num - 1, &context_));
-  }
-#endif
   while (true) {
-    // Allocate space for the new object. We use dlmemalign instead of dlmalloc
+    // Allocate space for the new object. We use memalign instead of malloc
     // in order to align the allocated region to a 64-byte boundary. This is not
     // strictly necessary, but it is an optimization that could speed up the
     // computation of a hash of the data (see compute_object_hash_parallel in
     // plasma_client.cc). Note that even though this pointer is 64-byte aligned,
     // it is not guaranteed that the corresponding pointer in the client will be
     // 64-byte aligned, but in practice it often will be.
-    if (device_num == 0) {
-      pointer =
-          reinterpret_cast<uint8_t*>(dlmemalign(kBlockSize, data_size + metadata_size));
-      if (pointer == nullptr) {
-        // Tell the eviction policy how much space we need to create this object.
-        std::vector<ObjectID> objects_to_evict;
-        bool success =
-            eviction_policy_.RequireSpace(data_size + metadata_size, &objects_to_evict);
-        DeleteObjects(objects_to_evict);
-        // Return an error to the client if not enough space could be freed to
-        // create the object.
-        if (!success) {
-          return PlasmaError::OutOfMemory;
-        }
-      } else {
-        break;
-      }
-    } else {
-#ifdef PLASMA_CUDA
-      DCHECK_OK(context_->Allocate(data_size + metadata_size, &gpu_handle));
+    pointer = reinterpret_cast<uint8_t*>(PlasmaAllocator::Memalign(kBlockSize, size));
+    if (pointer || !evict_if_full) {
+      // If we manage to allocate the memory, return the pointer. If we cannot
+      // allocate the space, but we are also not allowed to evict anything to
+      // make more space, return an error to the client.
       break;
-#endif
+    }
+    // Tell the eviction policy how much space we need to create this object.
+    std::vector<ObjectID> objects_to_evict;
+    bool success = eviction_policy_.RequireSpace(size, &objects_to_evict);
+    EvictObjects(objects_to_evict);
+    // Return an error to the client if not enough space could be freed to
+    // create the object.
+    if (!success) {
+      break;
     }
   }
+
+  if (pointer != nullptr) {
+    GetMallocMapinfo(pointer, fd, map_size, offset);
+    ARROW_CHECK(*fd != -1);
+  }
+  return pointer;
+}
+
+#ifdef PLASMA_CUDA
+arrow::Result<std::shared_ptr<CudaContext>> PlasmaStore::GetCudaContext(int device_num) {
+  DCHECK_NE(device_num, 0);
+  ARROW_ASSIGN_OR_RAISE(auto manager, CudaDeviceManager::Instance());
+  return manager->GetContext(device_num - 1);
+}
+
+Status PlasmaStore::AllocateCudaMemory(
+    int device_num, int64_t size, uint8_t** out_pointer,
+    std::shared_ptr<CudaIpcMemHandle>* out_ipc_handle) {
+  ARROW_ASSIGN_OR_RAISE(auto context, GetCudaContext(device_num));
+  ARROW_ASSIGN_OR_RAISE(auto cuda_buffer, context->Allocate(static_cast<int64_t>(size)));
+  *out_pointer = reinterpret_cast<uint8_t*>(cuda_buffer->address());
+  // The IPC handle will keep the buffer memory alive
+  return cuda_buffer->ExportForIpc().Value(out_ipc_handle);
+}
+
+Status PlasmaStore::FreeCudaMemory(int device_num, int64_t size, uint8_t* pointer) {
+  ARROW_ASSIGN_OR_RAISE(auto context, GetCudaContext(device_num));
+  RETURN_NOT_OK(context->Free(pointer, size));
+  return Status::OK();
+}
+#endif
+
+// Create a new object buffer in the hash table.
+PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, bool evict_if_full,
+                                      int64_t data_size, int64_t metadata_size,
+                                      int device_num, Client* client,
+                                      PlasmaObject* result) {
+  ARROW_LOG(DEBUG) << "creating object " << object_id.hex();
+
+  auto entry = GetObjectTableEntry(&store_info_, object_id);
+  if (entry != nullptr) {
+    // There is already an object with the same ID in the Plasma Store, so
+    // ignore this request.
+    return PlasmaError::ObjectExists;
+  }
+
   int fd = -1;
   int64_t map_size = 0;
   ptrdiff_t offset = 0;
+  uint8_t* pointer = nullptr;
+  auto total_size = data_size + metadata_size;
+
   if (device_num == 0) {
-    GetMallocMapinfo(pointer, &fd, &map_size, &offset);
-    assert(fd != -1);
+    pointer =
+        AllocateMemory(total_size, evict_if_full, &fd, &map_size, &offset, client, true);
+    if (!pointer) {
+      ARROW_LOG(ERROR) << "Not enough memory to create the object " << object_id.hex()
+                       << ", data_size=" << data_size
+                       << ", metadata_size=" << metadata_size
+                       << ", will send a reply of PlasmaError::OutOfMemory";
+      return PlasmaError::OutOfMemory;
+    }
+  } else {
+#ifdef PLASMA_CUDA
+    /// IPC GPU handle to share with clients.
+    std::shared_ptr<::arrow::cuda::CudaIpcMemHandle> ipc_handle;
+    auto st = AllocateCudaMemory(device_num, total_size, &pointer, &ipc_handle);
+    if (!st.ok()) {
+      ARROW_LOG(ERROR) << "Failed to allocate CUDA memory: " << st.ToString();
+      return PlasmaError::OutOfMemory;
+    }
+    result->ipc_handle = ipc_handle;
+#else
+    ARROW_LOG(ERROR) << "device_num != 0 but CUDA not enabled";
+    return PlasmaError::OutOfMemory;
+#endif
   }
-  auto entry = std::unique_ptr<ObjectTableEntry>(new ObjectTableEntry());
+
+  auto ptr = std::unique_ptr<ObjectTableEntry>(new ObjectTableEntry());
+  entry = store_info_.objects.emplace(object_id, std::move(ptr)).first->second.get();
   entry->data_size = data_size;
   entry->metadata_size = metadata_size;
   entry->pointer = pointer;
@@ -223,13 +284,11 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   entry->device_num = device_num;
   entry->create_time = std::time(nullptr);
   entry->construct_duration = -1;
+
 #ifdef PLASMA_CUDA
-  if (device_num != 0) {
-    DCHECK_OK(gpu_handle->ExportForIpc(&entry->ipc_handle));
-    result->ipc_handle = entry->ipc_handle;
-  }
+  entry->ipc_handle = result->ipc_handle;
 #endif
-  store_info_.objects[object_id] = std::move(entry);
+
   result->store_fd = fd;
   result->data_offset = offset;
   result->metadata_offset = offset + data_size;
@@ -239,7 +298,7 @@ PlasmaError PlasmaStore::CreateObject(const ObjectID& object_id, int64_t data_si
   // Notify the eviction policy that this object was created. This must be done
   // immediately before the call to AddToClientObjectIds so that the
   // eviction policy does not have an opportunity to evict the object.
-  eviction_policy_.ObjectCreated(object_id);
+  eviction_policy_.ObjectCreated(object_id, client, true);
   // Record that this client is using this object.
   AddToClientObjectIds(object_id, store_info_.objects[object_id].get(), client);
   return PlasmaError::OK;
@@ -394,7 +453,8 @@ void PlasmaStore::ProcessGetRequest(Client* client,
                                     int64_t timeout_ms) {
   // Create a get request for this object.
   auto get_req = new GetRequest(client, object_ids);
-
+  std::vector<ObjectID> evicted_ids;
+  std::vector<ObjectTableEntry*> evicted_entries;
   for (auto object_id : object_ids) {
     // Check if this object is already present locally. If so, record that the
     // object is being used and mark it as accounted for.
@@ -406,6 +466,26 @@ void PlasmaStore::ProcessGetRequest(Client* client,
       // If necessary, record that this client is using this object. In the case
       // where entry == NULL, this will be called from SealObject.
       AddToClientObjectIds(object_id, entry, client);
+    } else if (entry && entry->state == ObjectState::PLASMA_EVICTED) {
+      // Make sure the object pointer is not already allocated
+      ARROW_CHECK(!entry->pointer);
+
+      entry->pointer =
+          AllocateMemory(entry->data_size + entry->metadata_size, /*evict=*/true,
+                         &entry->fd, &entry->map_size, &entry->offset, client, false);
+      if (entry->pointer) {
+        entry->state = ObjectState::PLASMA_CREATED;
+        entry->create_time = std::time(nullptr);
+        eviction_policy_.ObjectCreated(object_id, client, false);
+        AddToClientObjectIds(object_id, store_info_.objects[object_id].get(), client);
+        evicted_ids.push_back(object_id);
+        evicted_entries.push_back(entry);
+      } else {
+        // We are out of memory and cannot allocate memory for this object.
+        // Change the state of the object back to PLASMA_EVICTED so some
+        // other request can try again.
+        entry->state = ObjectState::PLASMA_EVICTED;
+      }
     } else {
       // Add a placeholder plasma object to the get request to indicate that the
       // object is not present. This will be parsed by the client. We set the
@@ -413,6 +493,33 @@ void PlasmaStore::ProcessGetRequest(Client* client,
       get_req->objects[object_id].data_size = -1;
       // Add the get request to the relevant data structures.
       object_get_requests_[object_id].push_back(get_req);
+    }
+  }
+
+  if (!evicted_ids.empty()) {
+    unsigned char digest[kDigestSize] = {};
+    std::vector<std::shared_ptr<Buffer>> buffers;
+    for (size_t i = 0; i < evicted_ids.size(); ++i) {
+      ARROW_CHECK(evicted_entries[i]->pointer != nullptr);
+      buffers.emplace_back(new arrow::MutableBuffer(evicted_entries[i]->pointer,
+                                                    evicted_entries[i]->data_size));
+    }
+    if (external_store_->Get(evicted_ids, buffers).ok()) {
+      for (size_t i = 0; i < evicted_ids.size(); ++i) {
+        evicted_entries[i]->state = ObjectState::PLASMA_SEALED;
+        std::memcpy(&evicted_entries[i]->digest[0], &digest[0], kDigestSize);
+        evicted_entries[i]->construct_duration =
+            std::time(nullptr) - evicted_entries[i]->create_time;
+        PlasmaObject_init(&get_req->objects[evicted_ids[i]], evicted_entries[i]);
+        get_req->num_satisfied += 1;
+      }
+    } else {
+      // We tried to get the objects from the external store, but could not get them.
+      // Set the state of these objects back to PLASMA_EVICTED so some other request
+      // can try again.
+      for (size_t i = 0; i < evicted_ids.size(); ++i) {
+        evicted_entries[i]->state = ObjectState::PLASMA_EVICTED;
+      }
     }
   }
 
@@ -443,14 +550,12 @@ int PlasmaStore::RemoveFromClientObjectIds(const ObjectID& object_id,
     if (entry->ref_count == 0) {
       if (deletion_cache_.count(object_id) == 0) {
         // Tell the eviction policy that this object is no longer being used.
-        std::vector<ObjectID> objects_to_evict;
-        eviction_policy_.EndObjectAccess(object_id, &objects_to_evict);
-        DeleteObjects(objects_to_evict);
+        eviction_policy_.EndObjectAccess(object_id);
       } else {
         // Above code does not really delete an object. Instead, it just put an
         // object to LRU cache which will be cleaned when the memory is not enough.
         deletion_cache_.erase(object_id);
-        DeleteObjects({object_id});
+        EvictObjects({object_id});
       }
     }
     // Return 1 to indicate that the client was removed.
@@ -459,6 +564,19 @@ int PlasmaStore::RemoveFromClientObjectIds(const ObjectID& object_id,
     // Return 0 to indicate that the client was not removed.
     return 0;
   }
+}
+
+void PlasmaStore::EraseFromObjectTable(const ObjectID& object_id) {
+  auto& object = store_info_.objects[object_id];
+  auto buff_size = object->data_size + object->metadata_size;
+  if (object->device_num == 0) {
+    PlasmaAllocator::Free(object->pointer, buff_size);
+  } else {
+#ifdef PLASMA_CUDA
+    ARROW_CHECK_OK(FreeCudaMemory(object->device_num, buff_size, object->pointer));
+#endif
+  }
+  store_info_.objects.erase(object_id);
 }
 
 void PlasmaStore::ReleaseObject(const ObjectID& object_id, Client* client) {
@@ -471,33 +589,41 @@ void PlasmaStore::ReleaseObject(const ObjectID& object_id, Client* client) {
 // Check if an object is present.
 ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id) {
   auto entry = GetObjectTableEntry(&store_info_, object_id);
-  return entry && (entry->state == ObjectState::PLASMA_SEALED)
+  return entry && (entry->state == ObjectState::PLASMA_SEALED ||
+                   entry->state == ObjectState::PLASMA_EVICTED)
              ? ObjectStatus::OBJECT_FOUND
              : ObjectStatus::OBJECT_NOT_FOUND;
 }
 
-// Seal an object that has been created in the hash table.
-void PlasmaStore::SealObject(const ObjectID& object_id, unsigned char digest[]) {
-  ARROW_LOG(DEBUG) << "sealing object " << object_id.hex();
-  auto entry = GetObjectTableEntry(&store_info_, object_id);
-  ARROW_CHECK(entry != nullptr);
-  ARROW_CHECK(entry->state == ObjectState::PLASMA_CREATED);
-  // Set the state of object to SEALED.
-  entry->state = ObjectState::PLASMA_SEALED;
-  // Set the object digest.
-  std::memcpy(&entry->digest[0], &digest[0], kDigestSize);
-  // Set object construction duration.
-  entry->construct_duration = std::time(nullptr) - entry->create_time;
-  // Inform all subscribers that a new object has been sealed.
-  ObjectInfoT info;
-  info.object_id = object_id.binary();
-  info.data_size = entry->data_size;
-  info.metadata_size = entry->metadata_size;
-  info.digest = std::string(reinterpret_cast<char*>(&digest[0]), kDigestSize);
-  PushNotification(&info);
+void PlasmaStore::SealObjects(const std::vector<ObjectID>& object_ids,
+                              const std::vector<std::string>& digests) {
+  std::vector<ObjectInfoT> infos;
 
-  // Update all get requests that involve this object.
-  UpdateObjectGetRequests(object_id);
+  ARROW_LOG(DEBUG) << "sealing " << object_ids.size() << " objects";
+  for (size_t i = 0; i < object_ids.size(); ++i) {
+    ObjectInfoT object_info;
+    auto entry = GetObjectTableEntry(&store_info_, object_ids[i]);
+    ARROW_CHECK(entry != nullptr);
+    ARROW_CHECK(entry->state == ObjectState::PLASMA_CREATED);
+    // Set the state of object to SEALED.
+    entry->state = ObjectState::PLASMA_SEALED;
+    // Set the object digest.
+    std::memcpy(&entry->digest[0], digests[i].c_str(), kDigestSize);
+    // Set object construction duration.
+    entry->construct_duration = std::time(nullptr) - entry->create_time;
+
+    object_info.object_id = object_ids[i].binary();
+    object_info.data_size = entry->data_size;
+    object_info.metadata_size = entry->metadata_size;
+    object_info.digest = digests[i];
+    infos.push_back(object_info);
+  }
+
+  PushNotifications(infos);
+
+  for (size_t i = 0; i < object_ids.size(); ++i) {
+    UpdateObjectGetRequests(object_ids[i]);
+  }
 }
 
 int PlasmaStore::AbortObject(const ObjectID& object_id, Client* client) {
@@ -512,7 +638,8 @@ int PlasmaStore::AbortObject(const ObjectID& object_id, Client* client) {
     return 0;
   } else {
     // The client requesting the abort is the creator. Free the object.
-    store_info_.objects.erase(object_id);
+    EraseFromObjectTable(object_id);
+    client->object_ids.erase(it);
     return 1;
   }
 }
@@ -524,7 +651,7 @@ PlasmaError PlasmaStore::DeleteObject(ObjectID& object_id) {
   // created but not sealed.
   if (entry == nullptr) {
     // To delete an object it must be in the object table.
-    return PlasmaError::ObjectNonexistent;
+    return PlasmaError::ObjectNotFound;
   }
 
   if (entry->state != ObjectState::PLASMA_SEALED) {
@@ -542,8 +669,7 @@ PlasmaError PlasmaStore::DeleteObject(ObjectID& object_id) {
   }
 
   eviction_policy_.RemoveObject(object_id);
-
-  store_info_.objects.erase(object_id);
+  EraseFromObjectTable(object_id);
   // Inform all subscribers that the object has been deleted.
   fb::ObjectInfoT notification;
   notification.object_id = object_id.binary();
@@ -553,25 +679,51 @@ PlasmaError PlasmaStore::DeleteObject(ObjectID& object_id) {
   return PlasmaError::OK;
 }
 
-void PlasmaStore::DeleteObjects(const std::vector<ObjectID>& object_ids) {
+void PlasmaStore::EvictObjects(const std::vector<ObjectID>& object_ids) {
+  if (object_ids.size() == 0) {
+    return;
+  }
+
+  std::vector<std::shared_ptr<arrow::Buffer>> evicted_object_data;
+  std::vector<ObjectTableEntry*> evicted_entries;
   for (const auto& object_id : object_ids) {
-    ARROW_LOG(DEBUG) << "deleting object " << object_id.hex();
+    ARROW_LOG(DEBUG) << "evicting object " << object_id.hex();
     auto entry = GetObjectTableEntry(&store_info_, object_id);
     // TODO(rkn): This should probably not fail, but should instead throw an
     // error. Maybe we should also support deleting objects that have been
     // created but not sealed.
-    ARROW_CHECK(entry != nullptr)
-        << "To delete an object it must be in the object table.";
+    ARROW_CHECK(entry != nullptr) << "To evict an object it must be in the object table.";
     ARROW_CHECK(entry->state == ObjectState::PLASMA_SEALED)
-        << "To delete an object it must have been sealed.";
+        << "To evict an object it must have been sealed.";
     ARROW_CHECK(entry->ref_count == 0)
-        << "To delete an object, there must be no clients currently using it.";
-    store_info_.objects.erase(object_id);
-    // Inform all subscribers that the object has been deleted.
-    fb::ObjectInfoT notification;
-    notification.object_id = object_id.binary();
-    notification.is_deletion = true;
-    PushNotification(&notification);
+        << "To evict an object, there must be no clients currently using it.";
+
+    // If there is a backing external store, then mark object for eviction to
+    // external store, free the object data pointer and keep a placeholder
+    // entry in ObjectTable
+    if (external_store_) {
+      evicted_object_data.push_back(std::make_shared<arrow::Buffer>(
+          entry->pointer, entry->data_size + entry->metadata_size));
+      evicted_entries.push_back(entry);
+    } else {
+      // If there is no backing external store, just erase the object entry
+      // and send a deletion notification.
+      EraseFromObjectTable(object_id);
+      // Inform all subscribers that the object has been deleted.
+      fb::ObjectInfoT notification;
+      notification.object_id = object_id.binary();
+      notification.is_deletion = true;
+      PushNotification(&notification);
+    }
+  }
+
+  if (external_store_ && !object_ids.empty()) {
+    ARROW_CHECK_OK(external_store_->Put(object_ids, evicted_object_data));
+    for (auto entry : evicted_entries) {
+      PlasmaAllocator::Free(entry->pointer, entry->data_size + entry->metadata_size);
+      entry->pointer = nullptr;
+      entry->state = ObjectState::PLASMA_EVICTED;
+    }
   }
 }
 
@@ -602,6 +754,7 @@ void PlasmaStore::DisconnectClient(int client_fd) {
   ARROW_LOG(INFO) << "Disconnecting client on fd " << client_fd;
   // Release all the objects that the client was using.
   auto client = it->second.get();
+  eviction_policy_.ClientDisconnected(client);
   std::unordered_map<ObjectID, ObjectTableEntry*> sealed_objects;
   for (const auto& object_id : client->object_ids) {
     auto it = store_info_.objects.find(object_id);
@@ -615,7 +768,8 @@ void PlasmaStore::DisconnectClient(int client_fd) {
       sealed_objects[it->first] = it->second.get();
     } else {
       // Abort unsealed object.
-      AbortObject(it->first, client);
+      // Don't call AbortObject() because client->object_ids would be modified.
+      EraseFromObjectTable(object_id);
     }
   }
 
@@ -648,8 +802,8 @@ void PlasmaStore::DisconnectClient(int client_fd) {
 /// invalidated, which is why we return a valid iterator to the next client to
 /// be used in PushNotification.
 ///
-/// @param it Iterator that points to the client to send the notification to.
-/// @return Iterator pointing to the next client.
+/// \param it Iterator that points to the client to send the notification to.
+/// \return Iterator pointing to the next client.
 PlasmaStore::NotificationMap::iterator PlasmaStore::SendNotifications(
     PlasmaStore::NotificationMap::iterator it) {
   int client_fd = it->first;
@@ -711,8 +865,19 @@ PlasmaStore::NotificationMap::iterator PlasmaStore::SendNotifications(
 void PlasmaStore::PushNotification(fb::ObjectInfoT* object_info) {
   auto it = pending_notifications_.begin();
   while (it != pending_notifications_.end()) {
-    auto notification = CreateObjectInfoBuffer(object_info);
+    std::vector<fb::ObjectInfoT> info;
+    info.push_back(*object_info);
+    auto notification = CreatePlasmaNotificationBuffer(info);
     it->second.object_notifications.emplace_back(std::move(notification));
+    it = SendNotifications(it);
+  }
+}
+
+void PlasmaStore::PushNotifications(std::vector<fb::ObjectInfoT>& object_info) {
+  auto it = pending_notifications_.begin();
+  while (it != pending_notifications_.end()) {
+    auto notifications = CreatePlasmaNotificationBuffer(object_info);
+    it->second.object_notifications.emplace_back(std::move(notifications));
     it = SendNotifications(it);
   }
 }
@@ -720,7 +885,9 @@ void PlasmaStore::PushNotification(fb::ObjectInfoT* object_info) {
 void PlasmaStore::PushNotification(fb::ObjectInfoT* object_info, int client_fd) {
   auto it = pending_notifications_.find(client_fd);
   if (it != pending_notifications_.end()) {
-    auto notification = CreateObjectInfoBuffer(object_info);
+    std::vector<fb::ObjectInfoT> info;
+    info.push_back(*object_info);
+    auto notification = CreatePlasmaNotificationBuffer(info);
     it->second.object_notifications.emplace_back(std::move(notification));
     SendNotifications(it);
   }
@@ -770,20 +937,19 @@ Status PlasmaStore::ProcessMessage(Client* client) {
   uint8_t* input = input_buffer_.data();
   size_t input_size = input_buffer_.size();
   ObjectID object_id;
-  PlasmaObject object;
-  // TODO(pcm): Get rid of the following.
-  memset(&object, 0, sizeof(object));
+  PlasmaObject object = {};
 
   // Process the different types of requests.
   switch (type) {
     case fb::MessageType::PlasmaCreateRequest: {
+      bool evict_if_full;
       int64_t data_size;
       int64_t metadata_size;
       int device_num;
-      RETURN_NOT_OK(ReadCreateRequest(input, input_size, &object_id, &data_size,
-                                      &metadata_size, &device_num));
-      PlasmaError error_code =
-          CreateObject(object_id, data_size, metadata_size, device_num, client, &object);
+      RETURN_NOT_OK(ReadCreateRequest(input, input_size, &object_id, &evict_if_full,
+                                      &data_size, &metadata_size, &device_num));
+      PlasmaError error_code = CreateObject(object_id, evict_if_full, data_size,
+                                            metadata_size, device_num, client, &object);
       int64_t mmap_size = 0;
       if (error_code == PlasmaError::OK && device_num == 0) {
         mmap_size = GetMmapSize(object.store_fd);
@@ -800,18 +966,18 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       }
     } break;
     case fb::MessageType::PlasmaCreateAndSealRequest: {
+      bool evict_if_full;
       std::string data;
       std::string metadata;
-      unsigned char digest[kDigestSize];
-      RETURN_NOT_OK(ReadCreateAndSealRequest(input, input_size, &object_id, &data,
-                                             &metadata, &digest[0]));
+      std::string digest;
+      digest.reserve(kDigestSize);
+      RETURN_NOT_OK(ReadCreateAndSealRequest(input, input_size, &object_id,
+                                             &evict_if_full, &data, &metadata, &digest));
       // CreateAndSeal currently only supports device_num = 0, which corresponds
       // to the host.
       int device_num = 0;
-      PlasmaError error_code = CreateObject(object_id, data.size(), metadata.size(),
-                                            device_num, client, &object);
-      // Reply to the client.
-      HANDLE_SIGPIPE(SendCreateAndSealReply(client->fd, error_code), client->fd);
+      PlasmaError error_code = CreateObject(object_id, evict_if_full, data.size(),
+                                            metadata.size(), device_num, client, &object);
 
       // If the object was successfully created, fill out the object data and seal it.
       if (error_code == PlasmaError::OK) {
@@ -820,13 +986,68 @@ Status PlasmaStore::ProcessMessage(Client* client) {
         // Write the inlined data and metadata into the allocated object.
         std::memcpy(entry->pointer, data.data(), data.size());
         std::memcpy(entry->pointer + data.size(), metadata.data(), metadata.size());
-        SealObject(object_id, &digest[0]);
+        SealObjects({object_id}, {digest});
         // Remove the client from the object's array of clients because the
         // object is not being used by any client. The client was added to the
         // object's array of clients in CreateObject. This is analogous to the
         // Release call that happens in the client's Seal method.
         ARROW_CHECK(RemoveFromClientObjectIds(object_id, entry, client) == 1);
       }
+
+      // Reply to the client.
+      HANDLE_SIGPIPE(SendCreateAndSealReply(client->fd, error_code), client->fd);
+    } break;
+    case fb::MessageType::PlasmaCreateAndSealBatchRequest: {
+      bool evict_if_full;
+      std::vector<ObjectID> object_ids;
+      std::vector<std::string> data;
+      std::vector<std::string> metadata;
+      std::vector<std::string> digests;
+
+      RETURN_NOT_OK(ReadCreateAndSealBatchRequest(
+          input, input_size, &object_ids, &evict_if_full, &data, &metadata, &digests));
+
+      // CreateAndSeal currently only supports device_num = 0, which corresponds
+      // to the host.
+      int device_num = 0;
+      size_t i = 0;
+      PlasmaError error_code = PlasmaError::OK;
+      for (i = 0; i < object_ids.size(); i++) {
+        error_code = CreateObject(object_ids[i], evict_if_full, data[i].size(),
+                                  metadata[i].size(), device_num, client, &object);
+        if (error_code != PlasmaError::OK) {
+          break;
+        }
+      }
+
+      // if OK, seal all the objects,
+      // if error, abort the previous i objects immediately
+      if (error_code == PlasmaError::OK) {
+        for (i = 0; i < object_ids.size(); i++) {
+          auto entry = GetObjectTableEntry(&store_info_, object_ids[i]);
+          ARROW_CHECK(entry != nullptr);
+          // Write the inlined data and metadata into the allocated object.
+          std::memcpy(entry->pointer, data[i].data(), data[i].size());
+          std::memcpy(entry->pointer + data[i].size(), metadata[i].data(),
+                      metadata[i].size());
+        }
+
+        SealObjects(object_ids, digests);
+        // Remove the client from the object's array of clients because the
+        // object is not being used by any client. The client was added to the
+        // object's array of clients in CreateObject. This is analogous to the
+        // Release call that happens in the client's Seal method.
+        for (i = 0; i < object_ids.size(); i++) {
+          auto entry = GetObjectTableEntry(&store_info_, object_ids[i]);
+          ARROW_CHECK(RemoveFromClientObjectIds(object_ids[i], entry, client) == 1);
+        }
+      } else {
+        for (size_t j = 0; j < i; j++) {
+          AbortObject(object_ids[j], client);
+        }
+      }
+
+      HANDLE_SIGPIPE(SendCreateAndSealBatchReply(client->fd, error_code), client->fd);
     } break;
     case fb::MessageType::PlasmaAbortRequest: {
       RETURN_NOT_OK(ReadAbortRequest(input, input_size, &object_id));
@@ -868,9 +1089,10 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       HANDLE_SIGPIPE(SendListReply(client->fd, store_info_.objects), client->fd);
     } break;
     case fb::MessageType::PlasmaSealRequest: {
-      unsigned char digest[kDigestSize];
-      RETURN_NOT_OK(ReadSealRequest(input, input_size, &object_id, &digest[0]));
-      SealObject(object_id, &digest[0]);
+      std::string digest;
+      RETURN_NOT_OK(ReadSealRequest(input, input_size, &object_id, &digest));
+      SealObjects({object_id}, {digest});
+      HANDLE_SIGPIPE(SendSealReply(client->fd, object_id, PlasmaError::OK), client->fd);
     } break;
     case fb::MessageType::PlasmaEvictRequest: {
       // This code path should only be used for testing.
@@ -879,20 +1101,41 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       std::vector<ObjectID> objects_to_evict;
       int64_t num_bytes_evicted =
           eviction_policy_.ChooseObjectsToEvict(num_bytes, &objects_to_evict);
-      DeleteObjects(objects_to_evict);
+      EvictObjects(objects_to_evict);
       HANDLE_SIGPIPE(SendEvictReply(client->fd, num_bytes_evicted), client->fd);
+    } break;
+    case fb::MessageType::PlasmaRefreshLRURequest: {
+      std::vector<ObjectID> object_ids;
+      RETURN_NOT_OK(ReadRefreshLRURequest(input, input_size, &object_ids));
+      eviction_policy_.RefreshObjects(object_ids);
+      HANDLE_SIGPIPE(SendRefreshLRUReply(client->fd), client->fd);
     } break;
     case fb::MessageType::PlasmaSubscribeRequest:
       SubscribeToUpdates(client);
       break;
     case fb::MessageType::PlasmaConnectRequest: {
-      HANDLE_SIGPIPE(SendConnectReply(client->fd, store_info_.memory_capacity),
+      HANDLE_SIGPIPE(SendConnectReply(client->fd, PlasmaAllocator::GetFootprintLimit()),
                      client->fd);
     } break;
     case fb::MessageType::PlasmaDisconnectClient:
       ARROW_LOG(DEBUG) << "Disconnecting client on fd " << client->fd;
       DisconnectClient(client->fd);
       break;
+    case fb::MessageType::PlasmaSetOptionsRequest: {
+      std::string client_name;
+      int64_t output_memory_quota;
+      RETURN_NOT_OK(
+          ReadSetOptionsRequest(input, input_size, &client_name, &output_memory_quota));
+      client->name = client_name;
+      bool success = eviction_policy_.SetClientQuota(client, output_memory_quota);
+      HANDLE_SIGPIPE(SendSetOptionsReply(client->fd, success ? PlasmaError::OK
+                                                             : PlasmaError::OutOfMemory),
+                     client->fd);
+    } break;
+    case fb::MessageType::PlasmaGetDebugStringRequest: {
+      HANDLE_SIGPIPE(SendGetDebugStringReply(client->fd, eviction_policy_.DebugString()),
+                     client->fd);
+    } break;
     default:
       // This code should be unreachable.
       ARROW_CHECK(0);
@@ -904,22 +1147,25 @@ class PlasmaStoreRunner {
  public:
   PlasmaStoreRunner() {}
 
-  void Start(char* socket_name, int64_t system_memory, std::string directory,
-             bool hugepages_enabled, bool use_one_memory_mapped_file) {
+  void Start(char* socket_name, std::string directory, bool hugepages_enabled,
+             std::shared_ptr<ExternalStore> external_store) {
     // Create the event loop.
     loop_.reset(new EventLoop);
-    store_.reset(
-        new PlasmaStore(loop_.get(), system_memory, directory, hugepages_enabled));
+    store_.reset(new PlasmaStore(loop_.get(), directory, hugepages_enabled, socket_name,
+                                 external_store));
     plasma_config = store_->GetPlasmaStoreInfo();
 
-    // If the store is configured to use a single memory-mapped file, then we
-    // achieve that by mallocing and freeing a single large amount of space.
-    // that maximum allowed size up front.
-    if (use_one_memory_mapped_file) {
-      void* pointer = plasma::dlmemalign(kBlockSize, system_memory);
-      ARROW_CHECK(pointer != nullptr);
-      plasma::dlfree(pointer);
-    }
+    // We are using a single memory-mapped file by mallocing and freeing a single
+    // large amount of space up front. According to the documentation,
+    // dlmalloc might need up to 128*sizeof(size_t) bytes for internal
+    // bookkeeping.
+    void* pointer = plasma::PlasmaAllocator::Memalign(
+        kBlockSize, PlasmaAllocator::GetFootprintLimit() - 256 * sizeof(size_t));
+    ARROW_CHECK(pointer != nullptr);
+    // This will unmap the file, but the next one created will be as large
+    // as this one (this is an implementation detail of dlmalloc).
+    plasma::PlasmaAllocator::Free(
+        pointer, PlasmaAllocator::GetFootprintLimit() - 256 * sizeof(size_t));
 
     int socket = BindIpcSock(socket_name, true);
     // TODO(pcm): Check return value.
@@ -948,85 +1194,110 @@ static std::unique_ptr<PlasmaStoreRunner> g_runner = nullptr;
 
 void HandleSignal(int signal) {
   if (signal == SIGTERM) {
+    ARROW_LOG(INFO) << "SIGTERM Signal received, closing Plasma Server...";
     if (g_runner != nullptr) {
       g_runner->Stop();
     }
   }
 }
 
-void StartServer(char* socket_name, int64_t system_memory, std::string plasma_directory,
-                 bool hugepages_enabled, bool use_one_memory_mapped_file) {
+void StartServer(char* socket_name, std::string plasma_directory, bool hugepages_enabled,
+                 std::shared_ptr<ExternalStore> external_store) {
   // Ignore SIGPIPE signals. If we don't do this, then when we attempt to write
   // to a client that has already died, the store could die.
   signal(SIGPIPE, SIG_IGN);
 
   g_runner.reset(new PlasmaStoreRunner());
   signal(SIGTERM, HandleSignal);
-  g_runner->Start(socket_name, system_memory, plasma_directory, hugepages_enabled,
-                  use_one_memory_mapped_file);
+  g_runner->Start(socket_name, plasma_directory, hugepages_enabled, external_store);
+}
+
+// Function to use (instead of ARROW_LOG(FATAL)) for usage, etc. errors before
+// the main server loop starts, so users don't get a backtrace if they
+// simply forgot a command-line switch.
+void ExitWithUsageError(const char* error_msg) {
+  std::cerr << gflags::ProgramInvocationShortName() << ": " << error_msg << std::endl;
+  exit(1);
 }
 
 }  // namespace plasma
 
+#ifdef __linux__
+#define SHM_DEFAULT_PATH "/dev/shm"
+#else
+#define SHM_DEFAULT_PATH "/tmp"
+#endif
+
+// Command-line flags.
+DEFINE_string(d, SHM_DEFAULT_PATH, "directory where to create the memory-backed file");
+DEFINE_string(e, "",
+              "endpoint for external storage service, where objects "
+              "evicted from Plasma store can be written to, optional");
+DEFINE_bool(h, false, "whether to enable hugepage support");
+DEFINE_string(s, "",
+              "socket name where the Plasma store will listen for requests, required");
+DEFINE_string(m, "", "amount of memory in bytes to use for Plasma store, required");
+
 int main(int argc, char* argv[]) {
   ArrowLog::StartArrowLog(argv[0], ArrowLogLevel::ARROW_INFO);
   ArrowLog::InstallFailureSignalHandler();
+
+  gflags::SetUsageMessage("Shared-memory server for Arrow data.\nUsage: ");
+  gflags::SetVersionString(ARROW_VERSION_STRING);
+
   char* socket_name = nullptr;
   // Directory where plasma memory mapped files are stored.
   std::string plasma_directory;
+  std::string external_store_endpoint;
   bool hugepages_enabled = false;
-  // True if a single large memory-mapped file should be created at startup.
-  bool use_one_memory_mapped_file = false;
   int64_t system_memory = -1;
-  int c;
-  while ((c = getopt(argc, argv, "s:m:d:hf")) != -1) {
-    switch (c) {
-      case 'd':
-        plasma_directory = std::string(optarg);
-        break;
-      case 'h':
-        hugepages_enabled = true;
-        break;
-      case 's':
-        socket_name = optarg;
-        break;
-      case 'm': {
-        char extra;
-        int scanned = sscanf(optarg, "%" SCNd64 "%c", &system_memory, &extra);
-        ARROW_CHECK(scanned == 1);
-        ARROW_LOG(INFO) << "Allowing the Plasma store to use up to "
-                        << static_cast<double>(system_memory) / 1000000000
-                        << "GB of memory.";
-        break;
-      }
-      case 'f':
-        use_one_memory_mapped_file = true;
-        break;
-      default:
-        exit(-1);
+
+  gflags::ParseCommandLineFlags(&argc, &argv, /*remove_flags=*/true);
+  plasma_directory = FLAGS_d;
+  external_store_endpoint = FLAGS_e;
+  hugepages_enabled = FLAGS_h;
+  if (!FLAGS_s.empty()) {
+    // We only check below if socket_name is null, so don't set it if the flag was empty.
+    socket_name = const_cast<char*>(FLAGS_s.c_str());
+  }
+
+  if (!FLAGS_m.empty()) {
+    char extra;
+    int scanned = sscanf(FLAGS_m.c_str(), "%" SCNd64 "%c", &system_memory, &extra);
+    if (scanned != 1) {
+      plasma::ExitWithUsageError(
+          "-m switch takes memory in bytes, with no letter suffix allowed");
     }
+
+    // Set system memory capacity
+    plasma::PlasmaAllocator::SetFootprintLimit(static_cast<size_t>(system_memory));
+    ARROW_LOG(INFO) << "Allowing the Plasma store to use up to "
+                    << static_cast<double>(system_memory) / 1000000000 << "GB of memory.";
   }
+
   // Sanity check command line options.
-  if (!socket_name) {
-    ARROW_LOG(FATAL) << "please specify socket for incoming connections with -s switch";
-  }
-  if (system_memory == -1) {
-    ARROW_LOG(FATAL) << "please specify the amount of system memory with -m switch";
+  if (socket_name == nullptr && system_memory == -1) {
+    // Nicer error message for the case where the user ran the program without
+    // any of the required command-line switches.
+    plasma::ExitWithUsageError(
+        "please specify socket for incoming connections with -s, "
+        "and the amount of memory (in bytes) to use with -m");
+  } else if (socket_name == nullptr) {
+    plasma::ExitWithUsageError("please specify socket for incoming connections with -s");
+  } else if (system_memory == -1) {
+    plasma::ExitWithUsageError(
+        "please specify the amount of memory (in bytes) to use with -m");
   }
   if (hugepages_enabled && plasma_directory.empty()) {
-    ARROW_LOG(FATAL) << "if you want to use hugepages, please specify path to huge pages "
-                        "filesystem with -d";
+    plasma::ExitWithUsageError(
+        "if you want to use hugepages, please specify path to huge pages "
+        "filesystem with -d");
   }
-  if (plasma_directory.empty()) {
-#ifdef __linux__
-    plasma_directory = "/dev/shm";
-#else
-    plasma_directory = "/tmp";
-#endif
-  }
+  ARROW_CHECK(!plasma_directory.empty());
   ARROW_LOG(INFO) << "Starting object store with directory " << plasma_directory
                   << " and huge page support "
                   << (hugepages_enabled ? "enabled" : "disabled");
+
 #ifdef __linux__
   if (!hugepages_enabled) {
     // On Linux, check that the amount of memory available in /dev/shm is large
@@ -1038,28 +1309,45 @@ int main(int argc, char* argv[]) {
     // shm_vfs_stats.f_bavail is the number of available blocks.
     int64_t shm_mem_avail = shm_vfs_stats.f_bsize * shm_vfs_stats.f_bavail;
     close(shm_fd);
+    // Keep some safety margin for allocator fragmentation.
+    shm_mem_avail = 9 * shm_mem_avail / 10;
     if (system_memory > shm_mem_avail) {
-      ARROW_LOG(FATAL)
+      ARROW_LOG(WARNING)
           << "System memory request exceeds memory available in " << plasma_directory
           << ". The request is for " << system_memory
           << " bytes, and the amount available is " << shm_mem_avail
           << " bytes. You may be able to free up space by deleting files in "
              "/dev/shm. If you are inside a Docker container, you may need to "
              "pass an argument with the flag '--shm-size' to 'docker run'.";
+      system_memory = shm_mem_avail;
     }
   } else {
-    SetMallocGranularity(1024 * 1024 * 1024);  // 1 GB
+    plasma::SetMallocGranularity(1024 * 1024 * 1024);  // 1 GiB
   }
 #endif
-  // Make it so dlmalloc fails if we try to request more memory than is
-  // available.
-  plasma::dlmalloc_set_footprint_limit((size_t)system_memory);
+
+  // Get external store
+  std::shared_ptr<plasma::ExternalStore> external_store{nullptr};
+  if (!external_store_endpoint.empty()) {
+    std::string name;
+    ARROW_CHECK_OK(
+        plasma::ExternalStores::ExtractStoreName(external_store_endpoint, &name));
+    external_store = plasma::ExternalStores::GetStore(name);
+    if (external_store == nullptr) {
+      std::ostringstream error_msg;
+      error_msg << "no such external store \"" << name << "\"";
+      plasma::ExitWithUsageError(error_msg.str().c_str());
+    }
+    ARROW_LOG(DEBUG) << "connecting to external store...";
+    ARROW_CHECK_OK(external_store->Connect(external_store_endpoint));
+  }
+
   ARROW_LOG(DEBUG) << "starting server listening on " << socket_name;
-  plasma::StartServer(socket_name, system_memory, plasma_directory, hugepages_enabled,
-                      use_one_memory_mapped_file);
+  plasma::StartServer(socket_name, plasma_directory, hugepages_enabled, external_store);
   plasma::g_runner->Shutdown();
   plasma::g_runner = nullptr;
 
+  ArrowLog::UninstallSignalAction();
   ArrowLog::ShutDownArrowLog();
   return 0;
 }

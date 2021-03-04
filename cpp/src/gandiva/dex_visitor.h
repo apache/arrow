@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_DEX_DEXVISITOR_H
-#define GANDIVA_DEX_DEXVISITOR_H
+#pragma once
 
 #include <string>
 
-#include "gandiva/logging.h"
+#include "arrow/util/logging.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
@@ -41,7 +41,7 @@ template <typename Type>
 class InExprDexBase;
 
 /// \brief Visitor for decomposed expression.
-class DexVisitor {
+class GANDIVA_EXPORT DexVisitor {
  public:
   virtual ~DexVisitor() = default;
 
@@ -67,7 +67,7 @@ class DexVisitor {
 #define VISIT_DCHECK(DEX_CLASS) \
   void Visit(const DEX_CLASS& dex) override { DCHECK(0); }
 
-class DexDefaultVisitor : public DexVisitor {
+class GANDIVA_EXPORT DexDefaultVisitor : public DexVisitor {
   VISIT_DCHECK(VectorReadValidityDex)
   VISIT_DCHECK(VectorReadFixedLenValueDex)
   VISIT_DCHECK(VectorReadVarLenValueDex)
@@ -87,5 +87,3 @@ class DexDefaultVisitor : public DexVisitor {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_DEX_DEXVISITOR_H

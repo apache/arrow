@@ -41,7 +41,7 @@ G_BEGIN_DECLS
 
 typedef struct GArrowRecordBatchBuilderPrivate_ {
   arrow::RecordBatchBuilder *record_batch_builder;
-  GPtrArray *fields;
+  GPtrArray *column_builders;
 } GArrowRecordBatchBuilderPrivate;
 
 enum {
@@ -63,13 +63,13 @@ garrow_record_batch_builder_constructed(GObject *object)
 {
   auto priv = GARROW_RECORD_BATCH_BUILDER_GET_PRIVATE(object);
   auto arrow_builder = priv->record_batch_builder;
-  auto n_fields = arrow_builder->num_fields();
-  priv->fields = g_ptr_array_new_full(n_fields, g_object_unref);
-  for (int i = 0; i < n_fields; ++i) {
+  auto n_columns = arrow_builder->num_fields();
+  priv->column_builders = g_ptr_array_new_full(n_columns, g_object_unref);
+  for (int i = 0; i < n_columns; ++i) {
     auto arrow_array_builder = arrow_builder->GetField(i);
     auto array_builder = garrow_array_builder_new_raw(arrow_array_builder);
     garrow_array_builder_release_ownership(array_builder);
-    g_ptr_array_add(priv->fields, array_builder);
+    g_ptr_array_add(priv->column_builders, array_builder);
   }
 
   G_OBJECT_CLASS(garrow_record_batch_builder_parent_class)->constructed(object);
@@ -80,7 +80,7 @@ garrow_record_batch_builder_finalize(GObject *object)
 {
   auto priv = GARROW_RECORD_BATCH_BUILDER_GET_PRIVATE(object);
 
-  g_ptr_array_free(priv->fields, TRUE);
+  g_ptr_array_free(priv->column_builders, TRUE);
   delete priv->record_batch_builder;
 
   G_OBJECT_CLASS(garrow_record_batch_builder_parent_class)->finalize(object);
@@ -223,9 +223,26 @@ garrow_record_batch_builder_get_schema(GArrowRecordBatchBuilder *builder)
  * Returns: The number of fields.
  *
  * Since: 0.8.0
+ *
+ * Deprecated: 0.13.0:
+ *   Use garrow_record_batch_builder_get_n_columns() instead.
  */
 gint
 garrow_record_batch_builder_get_n_fields(GArrowRecordBatchBuilder *builder)
+{
+  return garrow_record_batch_builder_get_n_columns(builder);
+}
+
+/**
+ * garrow_record_batch_builder_get_n_columns:
+ * @builder: A #GArrowRecordBatchBuilder.
+ *
+ * Returns: The number of columns.
+ *
+ * Since: 0.13.0
+ */
+gint
+garrow_record_batch_builder_get_n_columns(GArrowRecordBatchBuilder *builder)
 {
   auto arrow_builder = garrow_record_batch_builder_get_raw(builder);
   return arrow_builder->num_fields();
@@ -241,23 +258,44 @@ garrow_record_batch_builder_get_n_fields(GArrowRecordBatchBuilder *builder)
  *   the `i`-th field on success, %NULL on out of index.
  *
  * Since: 0.8.0
+ *
+ * Deprecated: 0.13.0:
+ *   Use garrow_record_batch_builder_get_column_builder() instead.
  */
 GArrowArrayBuilder *
 garrow_record_batch_builder_get_field(GArrowRecordBatchBuilder *builder,
                                       gint i)
 {
+  return garrow_record_batch_builder_get_column_builder(builder, i);
+}
+
+/**
+ * garrow_record_batch_builder_get_column_builder:
+ * @builder: A #GArrowRecordBatchBuilder.
+ * @i: The column index. If it's negative, index is counted backward
+ *   from the end of the columns. `-1` means the last column.
+ *
+ * Returns: (transfer none) (nullable): The #GArrowArrayBuilder for
+ *   the `i`-th column on success, %NULL on out of index.
+ *
+ * Since: 0.13.0
+ */
+GArrowArrayBuilder *
+garrow_record_batch_builder_get_column_builder(GArrowRecordBatchBuilder *builder,
+                                               gint i)
+{
   auto priv = GARROW_RECORD_BATCH_BUILDER_GET_PRIVATE(builder);
   if (i < 0) {
-    i += priv->fields->len;
+    i += priv->column_builders->len;
   }
   if (i < 0) {
     return NULL;
   }
-  if (static_cast<guint>(i) >= priv->fields->len) {
+  if (static_cast<guint>(i) >= priv->column_builders->len) {
     return NULL;
   }
 
-  return GARROW_ARRAY_BUILDER(g_ptr_array_index(priv->fields, i));
+  return GARROW_ARRAY_BUILDER(g_ptr_array_index(priv->column_builders, i));
 }
 
 /**

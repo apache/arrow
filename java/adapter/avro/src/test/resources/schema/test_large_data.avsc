@@ -1,0 +1,75 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+{
+ "namespace": "org.apache.arrow.avro",
+ "type": "record",
+ "name": "testLargeData",
+ "fields": [
+    {
+        "name": "f0",
+        "type": {
+          "name" : "f0",
+          "type" : "enum",
+          "symbols" : ["value1", "value2", "value3", "value4", "value5"]
+        }
+    },
+    {
+        "name" : "f1",
+        "type" : {
+            "type" : "record",
+            "name" : "nestedRecord",
+            "fields": [
+                 {"name": "f1_0", "type": "string"},
+                 {"name": "f1_1", "type": "int"}
+            ]
+        }
+    },
+
+    {"name": "f2", "type": "string"},
+    {"name": "f3", "type": "int"},
+    {"name": "f4", "type": "boolean"},
+    {"name": "f5", "type": "float"},
+    {"name": "f6", "type": "double"},
+    {"name": "f7", "type": "bytes"},
+    {"name": "f8", "type": ["string", "int"]},
+    {
+        "name": "f9",
+        "type": {
+            "name" : "f9",
+            "type" : "array",
+            "items" : "string"
+        }
+    },
+    {
+        "name": "f10",
+        "type": {
+            "name" : "f10",
+            "type" : "map",
+            "values" : "string"
+        }
+    },
+    {
+      "name": "f11",
+      "type": {
+          "type" : "fixed",
+          "name" : "f11",
+          "size" : 5
+      }
+    }
+  ]
+}

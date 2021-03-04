@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_IO_HDFS
-#define ARROW_IO_HDFS
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -39,6 +38,34 @@ namespace io {
 class HdfsReadableFile;
 class HdfsOutputStream;
 
+/// DEPRECATED.  Use the FileSystem API in arrow::fs instead.
+struct ObjectType {
+  enum type { FILE, DIRECTORY };
+};
+
+/// DEPRECATED.  Use the FileSystem API in arrow::fs instead.
+struct ARROW_EXPORT FileStatistics {
+  /// Size of file, -1 if finding length is unsupported
+  int64_t size;
+  ObjectType::type kind;
+};
+
+class ARROW_EXPORT FileSystem {
+ public:
+  virtual ~FileSystem() = default;
+
+  virtual Status MakeDirectory(const std::string& path) = 0;
+
+  virtual Status DeleteDirectory(const std::string& path) = 0;
+
+  virtual Status GetChildren(const std::string& path,
+                             std::vector<std::string>* listing) = 0;
+
+  virtual Status Rename(const std::string& src, const std::string& dst) = 0;
+
+  virtual Status Stat(const std::string& path, FileStatistics* stat) = 0;
+};
+
 struct HdfsPathInfo {
   ObjectType::type kind;
 
@@ -57,15 +84,12 @@ struct HdfsPathInfo {
   int16_t permissions;
 };
 
-enum class HdfsDriver : char { LIBHDFS, LIBHDFS3 };
-
 struct HdfsConnectionConfig {
   std::string host;
   int port;
   std::string user;
   std::string kerb_ticket;
   std::unordered_map<std::string, std::string> extra_conf;
-  HdfsDriver driver;
 };
 
 class ARROW_EXPORT HadoopFileSystem : public FileSystem {
@@ -87,8 +111,8 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   Status MakeDirectory(const std::string& path) override;
 
   // Delete file or directory
-  // @param path: absolute path to data
-  // @param recursive: if path is a directory, delete contents as well
+  // @param path absolute path to data
+  // @param recursive if path is a directory, delete contents as well
   // @returns error status on failure
   Status Delete(const std::string& path, bool recursive = false);
 
@@ -118,7 +142,18 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
 
   Status GetChildren(const std::string& path, std::vector<std::string>* listing) override;
 
+  /// List directory contents
+  ///
+  /// If path is a relative path, returned values will be absolute paths or URIs
+  /// starting from the current working directory.
   Status ListDirectory(const std::string& path, std::vector<HdfsPathInfo>* listing);
+
+  /// Return the filesystem's current working directory.
+  ///
+  /// The working directory is the base path for all relative paths given to
+  /// other APIs.
+  /// NOTE: this actually returns a URI.
+  Status GetWorkingDirectory(std::string* out);
 
   /// Change
   ///
@@ -149,28 +184,26 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   Status OpenReadable(const std::string& path, int32_t buffer_size,
                       std::shared_ptr<HdfsReadableFile>* file);
 
+  Status OpenReadable(const std::string& path, int32_t buffer_size,
+                      const io::IOContext& io_context,
+                      std::shared_ptr<HdfsReadableFile>* file);
+
   Status OpenReadable(const std::string& path, std::shared_ptr<HdfsReadableFile>* file);
+
+  Status OpenReadable(const std::string& path, const io::IOContext& io_context,
+                      std::shared_ptr<HdfsReadableFile>* file);
 
   // FileMode::WRITE options
   // @param path complete file path
-  // @param buffer_size, 0 for default
-  // @param replication, 0 for default
-  // @param default_block_size, 0 for default
+  // @param buffer_size 0 by default
+  // @param replication 0 by default
+  // @param default_block_size 0 by default
   Status OpenWritable(const std::string& path, bool append, int32_t buffer_size,
                       int16_t replication, int64_t default_block_size,
                       std::shared_ptr<HdfsOutputStream>* file);
 
   Status OpenWritable(const std::string& path, bool append,
                       std::shared_ptr<HdfsOutputStream>* file);
-
-  ARROW_DEPRECATED("Use OpenWritable")
-  Status OpenWriteable(const std::string& path, bool append, int32_t buffer_size,
-                       int16_t replication, int64_t default_block_size,
-                       std::shared_ptr<HdfsOutputStream>* file);
-
-  ARROW_DEPRECATED("Use OpenWritable")
-  Status OpenWriteable(const std::string& path, bool append,
-                       std::shared_ptr<HdfsOutputStream>* file);
 
  private:
   friend class HdfsReadableFile;
@@ -191,26 +224,19 @@ class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
 
   bool closed() const override;
 
-  Status GetSize(int64_t* size) override;
-
   // NOTE: If you wish to read a particular range of a file in a multithreaded
   // context, you may prefer to use ReadAt to avoid locking issues
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* buffer) override;
-
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-
-  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                void* buffer) override;
-
-  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+  Result<int64_t> Read(int64_t nbytes, void* out) override;
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override;
+  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override;
+  Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) override;
 
   Status Seek(int64_t position) override;
-  Status Tell(int64_t* position) const override;
-
-  void set_memory_pool(MemoryPool* pool);
+  Result<int64_t> Tell() const override;
+  Result<int64_t> GetSize() override;
 
  private:
-  explicit HdfsReadableFile(MemoryPool* pool = NULLPTR);
+  explicit HdfsReadableFile(const io::IOContext&);
 
   class ARROW_NO_EXPORT HdfsReadableFileImpl;
   std::unique_ptr<HdfsReadableFileImpl> impl_;
@@ -230,13 +256,12 @@ class ARROW_EXPORT HdfsOutputStream : public OutputStream {
 
   bool closed() const override;
 
+  using OutputStream::Write;
   Status Write(const void* buffer, int64_t nbytes) override;
-
-  Status Write(const void* buffer, int64_t nbytes, int64_t* bytes_written);
 
   Status Flush() override;
 
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
 
  private:
   class ARROW_NO_EXPORT HdfsOutputStreamImpl;
@@ -250,9 +275,6 @@ class ARROW_EXPORT HdfsOutputStream : public OutputStream {
 };
 
 Status ARROW_EXPORT HaveLibHdfs();
-Status ARROW_EXPORT HaveLibHdfs3();
 
 }  // namespace io
 }  // namespace arrow
-
-#endif  // ARROW_IO_HDFS

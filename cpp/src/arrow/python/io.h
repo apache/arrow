@@ -15,23 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PYARROW_IO_H
-#define PYARROW_IO_H
+#pragma once
 
 #include <memory>
 
 #include "arrow/io/interfaces.h"
-#include "arrow/io/memory.h"
-#include "arrow/python/visibility.h"
-
-#include "arrow/python/config.h"
+#include "arrow/io/transform.h"
 
 #include "arrow/python/common.h"
+#include "arrow/python/visibility.h"
 
 namespace arrow {
-
-class MemoryPool;
-
 namespace py {
 
 class ARROW_NO_EXPORT PythonFile;
@@ -42,23 +36,23 @@ class ARROW_PYTHON_EXPORT PyReadableFile : public io::RandomAccessFile {
   ~PyReadableFile() override;
 
   Status Close() override;
+  Status Abort() override;
   bool closed() const override;
 
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) override;
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+  Result<int64_t> Read(int64_t nbytes, void* out) override;
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override;
 
   // Thread-safe version
-  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                void* out) override;
+  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override;
 
   // Thread-safe version
-  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+  Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) override;
 
-  Status GetSize(int64_t* size) override;
+  Result<int64_t> GetSize() override;
 
   Status Seek(int64_t position) override;
 
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
 
  private:
   std::unique_ptr<PythonFile> file_;
@@ -70,9 +64,11 @@ class ARROW_PYTHON_EXPORT PyOutputStream : public io::OutputStream {
   ~PyOutputStream() override;
 
   Status Close() override;
+  Status Abort() override;
   bool closed() const override;
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
   Status Write(const void* data, int64_t nbytes) override;
+  Status Write(const std::shared_ptr<Buffer>& buffer) override;
 
  private:
   std::unique_ptr<PythonFile> file_;
@@ -102,7 +98,19 @@ class ARROW_PYTHON_EXPORT PyForeignBuffer : public Buffer {
   OwnedRefNoGIL base_;
 };
 
+// All this rigamarole because Cython is really poor with std::function<>
+
+using TransformCallback = std::function<void(
+    PyObject*, const std::shared_ptr<Buffer>& src, std::shared_ptr<Buffer>* out)>;
+
+struct TransformInputStreamVTable {
+  TransformCallback transform;
+};
+
+ARROW_PYTHON_EXPORT
+std::shared_ptr<::arrow::io::InputStream> MakeTransformInputStream(
+    std::shared_ptr<::arrow::io::InputStream> wrapped, TransformInputStreamVTable vtable,
+    PyObject* arg);
+
 }  // namespace py
 }  // namespace arrow
-
-#endif  // PYARROW_IO_H

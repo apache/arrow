@@ -15,37 +15,70 @@
 // specific language governing permissions and limitations
 // under the License. template <typename T>
 
-#ifndef ARROW_UTIL_STRING_BUILDER_H
-#define ARROW_UTIL_STRING_BUILDER_H
+#pragma once
 
-#include <sstream>
+#include <memory>
+#include <ostream>
 #include <string>
 #include <utility>
+
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace util {
 
+namespace detail {
+
+class ARROW_EXPORT StringStreamWrapper {
+ public:
+  StringStreamWrapper();
+  ~StringStreamWrapper();
+
+  std::ostream& stream() { return ostream_; }
+  std::string str();
+
+ protected:
+  std::unique_ptr<std::ostringstream> sstream_;
+  std::ostream& ostream_;
+};
+
+}  // namespace detail
+
 template <typename Head>
-void StringBuilderRecursive(std::stringstream& stream, Head&& head) {
+void StringBuilderRecursive(std::ostream& stream, Head&& head) {
   stream << head;
 }
 
 template <typename Head, typename... Tail>
-void StringBuilderRecursive(std::stringstream& stream, Head&& head, Tail&&... tail) {
+void StringBuilderRecursive(std::ostream& stream, Head&& head, Tail&&... tail) {
   StringBuilderRecursive(stream, std::forward<Head>(head));
   StringBuilderRecursive(stream, std::forward<Tail>(tail)...);
 }
 
 template <typename... Args>
 std::string StringBuilder(Args&&... args) {
-  std::stringstream stream;
-
-  StringBuilderRecursive(stream, std::forward<Args>(args)...);
-
-  return stream.str();
+  detail::StringStreamWrapper ss;
+  StringBuilderRecursive(ss.stream(), std::forward<Args>(args)...);
+  return ss.str();
 }
+
+/// CRTP helper for declaring string representation. Defines operator<<
+template <typename T>
+class ToStringOstreamable {
+ public:
+  ~ToStringOstreamable() {
+    static_assert(
+        std::is_same<decltype(std::declval<const T>().ToString()), std::string>::value,
+        "ToStringOstreamable depends on the method T::ToString() const");
+  }
+
+ private:
+  const T& cast() const { return static_cast<const T&>(*this); }
+
+  friend inline std::ostream& operator<<(std::ostream& os, const ToStringOstreamable& t) {
+    return os << t.cast().ToString();
+  }
+};
 
 }  // namespace util
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_STRING_BUILDER_H

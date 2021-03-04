@@ -1,0 +1,3 @@
+{"machine": "a", "events": ["Elect Leader", "Do Ballot"]}
+{"machine": "b", "events": ["Do Ballot", "Send Data", "Elect Leader"]}
+{"machine": "c", "events": ["Send Data"]}

@@ -29,12 +29,4 @@ public interface RepeatedFixedWidthVectorLike {
    * @param innerValueCount Number of supported values in the vector.
    */
   void allocateNew(int valueCount, int innerValueCount);
-
-  /**
-   * Load the records in the provided buffer based on the given number of values.
-   * @param valueCount   Number of separate repeating groupings.
-   * @param innerValueCount Number atomic values the buffer contains.
-   * @param buf Incoming buffer.
-   * @return The number of bytes of the buffer that were consumed.
-   */
 }

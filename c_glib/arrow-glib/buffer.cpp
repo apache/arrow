@@ -45,12 +45,13 @@ G_BEGIN_DECLS
 typedef struct GArrowBufferPrivate_ {
   std::shared_ptr<arrow::Buffer> buffer;
   GBytes *data;
+  GArrowBuffer *parent;
 } GArrowBufferPrivate;
 
 enum {
-  PROP_0,
-  PROP_BUFFER,
-  PROP_DATA
+  PROP_BUFFER = 1,
+  PROP_DATA,
+  PROP_PARENT,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowBuffer, garrow_buffer, G_TYPE_OBJECT)
@@ -70,6 +71,11 @@ garrow_buffer_dispose(GObject *object)
     priv->data = nullptr;
   }
 
+  if (priv->parent) {
+    g_object_unref(priv->parent);
+    priv->parent = nullptr;
+  }
+
   G_OBJECT_CLASS(garrow_buffer_parent_class)->dispose(object);
 }
 
@@ -78,7 +84,7 @@ garrow_buffer_finalize(GObject *object)
 {
   auto priv = GARROW_BUFFER_GET_PRIVATE(object);
 
-  priv->buffer = nullptr;
+  priv->buffer.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_buffer_parent_class)->finalize(object);
 }
@@ -99,6 +105,9 @@ garrow_buffer_set_property(GObject *object,
   case PROP_DATA:
     priv->data = static_cast<GBytes *>(g_value_dup_boxed(value));
     break;
+  case PROP_PARENT:
+    priv->parent = GARROW_BUFFER(g_value_dup_object(value));
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -114,8 +123,8 @@ garrow_buffer_get_property(GObject *object,
   auto priv = GARROW_BUFFER_GET_PRIVATE(object);
 
   switch (prop_id) {
-  case PROP_DATA:
-    g_value_set_boxed(value, priv->data);
+  case PROP_PARENT:
+    g_value_set_object(value, priv->parent);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -126,6 +135,8 @@ garrow_buffer_get_property(GObject *object,
 static void
 garrow_buffer_init(GArrowBuffer *object)
 {
+  auto priv = GARROW_BUFFER_GET_PRIVATE(object);
+  new(&priv->buffer) std::shared_ptr<arrow::Buffer>;
 }
 
 static void
@@ -142,7 +153,7 @@ garrow_buffer_class_init(GArrowBufferClass *klass)
 
   spec = g_param_spec_pointer("buffer",
                               "Buffer",
-                              "The raw std::shared<arrow::Buffer> *",
+                              "The raw std::shared_ptr<arrow::Buffer> *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_BUFFER, spec);
@@ -151,9 +162,17 @@ garrow_buffer_class_init(GArrowBufferClass *klass)
                             "Data",
                             "The raw data passed as GBytes *",
                             G_TYPE_BYTES,
-                            static_cast<GParamFlags>(G_PARAM_READWRITE |
+                            static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                      G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_DATA, spec);
+
+  spec = g_param_spec_object("parent",
+                             "Parent",
+                             "The parent GArrowBuffer *",
+                             GARROW_TYPE_BUFFER,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_PARENT, spec);
 }
 
 /**
@@ -342,12 +361,16 @@ garrow_buffer_get_size(GArrowBuffer *buffer)
 GArrowBuffer *
 garrow_buffer_get_parent(GArrowBuffer *buffer)
 {
+  auto priv = GARROW_BUFFER_GET_PRIVATE(buffer);
+  if (priv->parent) {
+    g_object_ref(priv->parent);
+    return priv->parent;
+  }
+
   auto arrow_buffer = garrow_buffer_get_raw(buffer);
   auto arrow_parent_buffer = arrow_buffer->parent();
-
   if (arrow_parent_buffer) {
-    auto priv = GARROW_BUFFER_GET_PRIVATE(buffer);
-    return garrow_buffer_new_raw_bytes(&arrow_parent_buffer, priv->data);
+    return garrow_buffer_new_raw(&arrow_parent_buffer);
   } else {
     return NULL;
   }
@@ -372,10 +395,9 @@ garrow_buffer_copy(GArrowBuffer *buffer,
                    GError **error)
 {
   auto arrow_buffer = garrow_buffer_get_raw(buffer);
-  std::shared_ptr<arrow::Buffer> arrow_copied_buffer;
-  auto status = arrow_buffer->Copy(start, size, &arrow_copied_buffer);
-  if (garrow_error_check(error, status, "[buffer][copy]")) {
-    return garrow_buffer_new_raw(&arrow_copied_buffer);
+  auto maybe_copied_buffer = arrow_buffer->CopySlice(start, size);
+  if (garrow::check(error, maybe_copied_buffer, "[buffer][copy]")) {
+    return garrow_buffer_new_raw(&(*maybe_copied_buffer));
   } else {
     return NULL;
   }
@@ -401,8 +423,7 @@ garrow_buffer_slice(GArrowBuffer *buffer, gint64 offset, gint64 size)
   auto arrow_buffer = std::make_shared<arrow::Buffer>(arrow_parent_buffer,
                                                       offset,
                                                       size);
-  auto priv = GARROW_BUFFER_GET_PRIVATE(buffer);
-  return garrow_buffer_new_raw_bytes(&arrow_buffer, priv->data);
+  return garrow_buffer_new_raw_parent(&arrow_buffer, buffer);
 }
 
 
@@ -477,12 +498,15 @@ garrow_mutable_buffer_slice(GArrowMutableBuffer *buffer,
                             gint64 size)
 {
   auto arrow_parent_buffer = garrow_buffer_get_raw(GARROW_BUFFER(buffer));
-  auto arrow_buffer =
+  auto arrow_mutable_buffer =
     std::make_shared<arrow::MutableBuffer>(arrow_parent_buffer,
                                            offset,
                                            size);
-  auto priv = GARROW_BUFFER_GET_PRIVATE(buffer);
-  return garrow_mutable_buffer_new_raw_bytes(&arrow_buffer, priv->data);
+  auto arrow_buffer =
+    std::static_pointer_cast<arrow::Buffer>(arrow_mutable_buffer);
+  auto sliced_buffer = garrow_buffer_new_raw_parent(&arrow_buffer,
+                                                    GARROW_BUFFER(buffer));
+  return GARROW_MUTABLE_BUFFER(sliced_buffer);
 }
 
 /**
@@ -551,9 +575,10 @@ GArrowResizableBuffer *
 garrow_resizable_buffer_new(gint64 initial_size,
                             GError **error)
 {
-  std::shared_ptr<arrow::ResizableBuffer> arrow_buffer;
-  auto status = arrow::AllocateResizableBuffer(initial_size, &arrow_buffer);
-  if (garrow_error_check(error, status, "[resizable-buffer][new]")) {
+  auto maybe_buffer = arrow::AllocateResizableBuffer(initial_size);
+  if (garrow::check(error, maybe_buffer, "[resizable-buffer][new]")) {
+    auto arrow_buffer = std::shared_ptr<arrow::ResizableBuffer>(
+      *std::move(maybe_buffer));
     return garrow_resizable_buffer_new_raw(&arrow_buffer);
   } else {
     return NULL;
@@ -621,6 +646,17 @@ garrow_buffer_new_raw_bytes(std::shared_ptr<arrow::Buffer> *arrow_buffer,
   auto buffer = GARROW_BUFFER(g_object_new(GARROW_TYPE_BUFFER,
                                            "buffer", arrow_buffer,
                                            "data", data,
+                                           NULL));
+  return buffer;
+}
+
+GArrowBuffer *
+garrow_buffer_new_raw_parent(std::shared_ptr<arrow::Buffer> *arrow_buffer,
+                             GArrowBuffer *parent)
+{
+  auto buffer = GARROW_BUFFER(g_object_new(G_OBJECT_TYPE(parent),
+                                           "buffer", arrow_buffer,
+                                           "parent", parent,
                                            NULL));
   return buffer;
 }

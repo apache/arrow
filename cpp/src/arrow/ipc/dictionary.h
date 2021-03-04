@@ -17,65 +17,157 @@
 
 // Tools for dictionaries in IPC context
 
-#ifndef ARROW_IPC_DICTIONARY_H
-#define ARROW_IPC_DICTIONARY_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
-#include <unordered_map>
+#include <utility>
+#include <vector>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Array;
-class Field;
-
 namespace ipc {
 
-using DictionaryMap = std::unordered_map<int64_t, std::shared_ptr<Array>>;
-using DictionaryTypeMap = std::unordered_map<int64_t, std::shared_ptr<Field>>;
+namespace internal {
 
-/// \brief Memoization data structure for handling shared dictionaries
+class FieldPosition {
+ public:
+  FieldPosition() : parent_(NULLPTR), index_(-1), depth_(0) {}
+
+  FieldPosition child(int index) const { return {this, index}; }
+
+  std::vector<int> path() const {
+    std::vector<int> path(depth_);
+    const FieldPosition* cur = this;
+    for (int i = depth_ - 1; i >= 0; --i) {
+      path[i] = cur->index_;
+      cur = cur->parent_;
+    }
+    return path;
+  }
+
+ protected:
+  FieldPosition(const FieldPosition* parent, int index)
+      : parent_(parent), index_(index), depth_(parent->depth_ + 1) {}
+
+  const FieldPosition* parent_;
+  int index_;
+  int depth_;
+};
+
+}  // namespace internal
+
+/// \brief Map fields in a schema to dictionary ids
+///
+/// The mapping is structural, i.e. the field path (as a vector of indices)
+/// is associated to the dictionary id.  A dictionary id may be associated
+/// to multiple fields.
+class ARROW_EXPORT DictionaryFieldMapper {
+ public:
+  DictionaryFieldMapper();
+  explicit DictionaryFieldMapper(const Schema& schema);
+  ~DictionaryFieldMapper();
+
+  Status AddSchemaFields(const Schema& schema);
+  Status AddField(int64_t id, std::vector<int> field_path);
+
+  Result<int64_t> GetFieldId(std::vector<int> field_path) const;
+
+  int num_fields() const;
+
+ private:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
+using DictionaryVector = std::vector<std::pair<int64_t, std::shared_ptr<Array>>>;
+
+/// \brief Memoization data structure for reading dictionaries from IPC streams
+///
+/// This structure tracks the following associations:
+/// - field position (structural) -> dictionary id
+/// - dictionary id -> value type
+/// - dictionary id -> dictionary (value) data
+///
+/// Together, they allow resolving dictionary data when reading an IPC stream,
+/// using metadata recorded in the schema message and data recorded in the
+/// dictionary batch messages (see ResolveDictionaries).
+///
+/// This structure isn't useful for writing an IPC stream, where only
+/// DictionaryFieldMapper is necessary.
 class ARROW_EXPORT DictionaryMemo {
  public:
   DictionaryMemo();
+  ~DictionaryMemo();
 
-  /// \brief Returns KeyError if dictionary not found
-  Status GetDictionary(int64_t id, std::shared_ptr<Array>* dictionary) const;
+  DictionaryFieldMapper& fields();
+  const DictionaryFieldMapper& fields() const;
 
-  /// \brief Return id for dictionary, computing new id if necessary
-  int64_t GetId(const std::shared_ptr<Array>& dictionary);
+  /// \brief Return current dictionary corresponding to a particular
+  /// id. Returns KeyError if id not found
+  Result<std::shared_ptr<ArrayData>> GetDictionary(int64_t id, MemoryPool* pool) const;
 
-  /// \brief Return true if dictionary array object is in this memo
-  bool HasDictionary(const std::shared_ptr<Array>& dictionary) const;
+  /// \brief Return dictionary value type corresponding to a
+  /// particular dictionary id.
+  Result<std::shared_ptr<DataType>> GetDictionaryType(int64_t id) const;
 
   /// \brief Return true if we have a dictionary for the input id
-  bool HasDictionaryId(int64_t id) const;
+  bool HasDictionary(int64_t id) const;
+
+  /// \brief Add a dictionary value type to the memo with a particular id.
+  /// Returns KeyError if a different type is already registered with the same id.
+  Status AddDictionaryType(int64_t id, const std::shared_ptr<DataType>& type);
 
   /// \brief Add a dictionary to the memo with a particular id. Returns
   /// KeyError if that dictionary already exists
-  Status AddDictionary(int64_t id, const std::shared_ptr<Array>& dictionary);
+  Status AddDictionary(int64_t id, const std::shared_ptr<ArrayData>& dictionary);
 
-  const DictionaryMap& id_to_dictionary() const { return id_to_dictionary_; }
+  /// \brief Append a dictionary delta to the memo with a particular id. Returns
+  /// KeyError if that dictionary does not exists
+  Status AddDictionaryDelta(int64_t id, const std::shared_ptr<ArrayData>& dictionary);
 
-  /// \brief The number of dictionaries stored in the memo
-  int size() const { return static_cast<int>(id_to_dictionary_.size()); }
+  /// \brief Add a dictionary to the memo if it does not have one with the id,
+  /// otherwise, replace the dictionary with the new one.
+  ///
+  /// Return true if the dictionary was added, false if replaced.
+  Result<bool> AddOrReplaceDictionary(int64_t id,
+                                      const std::shared_ptr<ArrayData>& dictionary);
 
  private:
-  // Dictionary memory addresses, to track whether a dictionary has been seen
-  // before
-  std::unordered_map<intptr_t, int64_t> dictionary_to_id_;
-
-  // Map of dictionary id to dictionary array
-  DictionaryMap id_to_dictionary_;
-
-  ARROW_DISALLOW_COPY_AND_ASSIGN(DictionaryMemo);
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
 };
+
+// For writing: collect dictionary entries to write to the IPC stream, in order
+// (i.e. inner dictionaries before dependent outer dictionaries).
+ARROW_EXPORT
+Result<DictionaryVector> CollectDictionaries(const RecordBatch& batch,
+                                             const DictionaryFieldMapper& mapper);
+
+// For reading: resolve all dictionaries in columns, according to the field
+// mapping and dictionary arrays stored in memo.
+// Columns may be sparse, i.e. some entries may be left null
+// (e.g. if an inclusion mask was used).
+ARROW_EXPORT
+Status ResolveDictionaries(const ArrayDataVector& columns, const DictionaryMemo& memo,
+                           MemoryPool* pool);
+
+namespace internal {
+
+// Like CollectDictionaries above, but uses the memo's DictionaryFieldMapper
+// and all collected dictionaries are added to the memo using AddDictionary.
+//
+// This is used as a shortcut in some roundtripping tests (to avoid emitting
+// any actual dictionary batches).
+ARROW_EXPORT
+Status CollectDictionaries(const RecordBatch& batch, DictionaryMemo* memo);
+
+}  // namespace internal
 
 }  // namespace ipc
 }  // namespace arrow
-
-#endif  // ARROW_IPC_DICTIONARY_H

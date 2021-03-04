@@ -16,15 +16,10 @@
 // under the License.
 
 #include "gandiva/decimal_type_util.h"
-#include "gandiva/logging.h"
+#include "arrow/util/logging.h"
 
 namespace gandiva {
 
-constexpr int32_t DecimalTypeUtil::kMaxDecimal32Precision;
-constexpr int32_t DecimalTypeUtil::kMaxDecimal64Precision;
-constexpr int32_t DecimalTypeUtil::kMaxPrecision;
-
-constexpr int32_t DecimalTypeUtil::kMaxScale;
 constexpr int32_t DecimalTypeUtil::kMinAdjustedScale;
 
 #define DCHECK_TYPE(type)                        \

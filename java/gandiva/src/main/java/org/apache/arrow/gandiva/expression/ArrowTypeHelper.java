@@ -18,16 +18,23 @@
 package org.apache.arrow.gandiva.expression;
 
 import org.apache.arrow.flatbuf.DateUnit;
+import org.apache.arrow.flatbuf.IntervalUnit;
 import org.apache.arrow.flatbuf.TimeUnit;
 import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.exceptions.UnsupportedTypeException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
+/**
+ * Utility methods to convert between Arrow and Gandiva types.
+ */
 public class ArrowTypeHelper {
+  private ArrowTypeHelper() {}
+
   static final int WIDTH_8 = 8;
   static final int WIDTH_16 = 16;
   static final int WIDTH_32 = 32;
@@ -109,6 +116,9 @@ public class ArrowTypeHelper {
 
   private static void initArrowTypeDecimal(ArrowType.Decimal decimalType,
                                            GandivaTypes.ExtGandivaType.Builder builder) {
+    Preconditions.checkArgument(decimalType.getPrecision() > 0 &&
+            decimalType.getPrecision() <= 38, "Gandiva only supports decimals of upto 38 " +
+            "precision. Input precision : " + decimalType.getPrecision());
     builder.setPrecision(decimalType.getPrecision());
     builder.setScale(decimalType.getScale());
     builder.setType(GandivaTypes.GandivaType.DECIMAL);
@@ -193,6 +203,26 @@ public class ArrowTypeHelper {
     }
   }
 
+  private static void initArrowTypeInterval(ArrowType.Interval interval,
+                                             GandivaTypes.ExtGandivaType.Builder builder) {
+    short intervalUnit = interval.getUnit().getFlatbufID();
+    switch (intervalUnit) {
+      case IntervalUnit.YEAR_MONTH: {
+        builder.setType(GandivaTypes.GandivaType.INTERVAL);
+        builder.setIntervalType(GandivaTypes.IntervalType.YEAR_MONTH);
+        break;
+      }
+      case IntervalUnit.DAY_TIME: {
+        builder.setType(GandivaTypes.GandivaType.INTERVAL);
+        builder.setIntervalType(GandivaTypes.IntervalType.DAY_TIME);
+        break;
+      }
+      default: {
+        // not supported
+      }
+    }
+  }
+
   /**
    * Converts an arrow type into a protobuf.
    *
@@ -250,6 +280,7 @@ public class ArrowTypeHelper {
         break;
       }
       case Type.Interval: { // 11
+        ArrowTypeHelper.initArrowTypeInterval((ArrowType.Interval) arrowType, builder);
         break;
       }
       case Type.List: { // 12
@@ -278,7 +309,7 @@ public class ArrowTypeHelper {
     if (!builder.hasType()) {
       // type has not been set
       // throw an exception
-      throw new UnsupportedTypeException("Unsupported type" + arrowType.toString());
+      throw new UnsupportedTypeException("Unsupported type " + arrowType.toString());
     }
 
     return builder.build();

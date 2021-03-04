@@ -152,7 +152,10 @@ public class TestIntegration {
 
   @Test
   public void testJSONRoundTripWithVariableWidth() throws Exception {
-    File testJSONFile = new File("../../integration/data/simple.json");
+    File testJSONFile = new File("../../docs/source/format/integration_json_examples/simple.json").getCanonicalFile();
+    if (!testJSONFile.exists()) {
+      testJSONFile = new File("../docs/source/format/integration_json_examples/simple.json");
+    }
     File testOutFile = testFolder.newFile("testOut.arrow");
     File testRoundTripJSONFile = testFolder.newFile("testOut.json");
     testOutFile.delete();
@@ -183,7 +186,10 @@ public class TestIntegration {
 
   @Test
   public void testJSONRoundTripWithStruct() throws Exception {
-    File testJSONFile = new File("../../integration/data/struct_example.json");
+    File testJSONFile = new File("../../docs/source/format/integration_json_examples/struct.json").getCanonicalFile();
+    if (!testJSONFile.exists()) {
+      testJSONFile = new File("../docs/source/format/integration_json_examples/struct.json");
+    }
     File testOutFile = testFolder.newFile("testOutStruct.arrow");
     File testRoundTripJSONFile = testFolder.newFile("testOutStruct.json");
     testOutFile.delete();
@@ -213,7 +219,7 @@ public class TestIntegration {
   }
 
   private BufferedReader readNormalized(File f) throws IOException {
-    Map<?, ?> tree = om.readValue(f, Map.class);
+    Map<?, ?> tree = om.readValue(f.getCanonicalFile(), Map.class);
     String normalized = om.writeValueAsString(tree);
     return new BufferedReader(new StringReader(normalized));
   }

@@ -18,7 +18,7 @@ package array
 
 import (
 	"fmt"
-	"reflect"
+	"strings"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/arrow"
@@ -187,10 +187,10 @@ func (rec *simpleRecord) validate() error {
 				arr.Len(), rec.rows,
 			)
 		}
-		if !reflect.DeepEqual(f.Type, arr.DataType()) {
+		if !arrow.TypeEqual(f.Type, arr.DataType()) {
 			return fmt.Errorf("arrow/array: column %q type mismatch: got=%v, want=%v",
 				f.Name,
-				arr.DataType().Name(), f.Type.Name(),
+				arr.DataType(), f.Type,
 			)
 		}
 	}
@@ -243,6 +243,17 @@ func (rec *simpleRecord) NewSlice(i, j int64) Record {
 	return NewRecord(rec.schema, arrs, j-i)
 }
 
+func (rec *simpleRecord) String() string {
+	o := new(strings.Builder)
+	fmt.Fprintf(o, "record:\n  %v\n", rec.schema)
+	fmt.Fprintf(o, "  rows: %d\n", rec.rows)
+	for i, col := range rec.arrs {
+		fmt.Fprintf(o, "  col[%d][%s]: %v\n", i, rec.schema.Field(i).Name, col)
+	}
+
+	return o.String()
+}
+
 // RecordBuilder eases the process of building a Record, iteratively, from
 // a known Schema.
 type RecordBuilder struct {
@@ -262,7 +273,7 @@ func NewRecordBuilder(mem memory.Allocator, schema *arrow.Schema) *RecordBuilder
 	}
 
 	for i, f := range schema.Fields() {
-		b.fields[i] = newBuilder(b.mem, f.Type)
+		b.fields[i] = NewBuilder(b.mem, f.Type)
 	}
 
 	return b

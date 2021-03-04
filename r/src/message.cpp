@@ -15,81 +15,91 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_types.h"
+#include "./arrow_types.h"
 
-using namespace Rcpp;
+#if defined(ARROW_R_WITH_ARROW)
+#include <arrow/ipc/reader.h>
+#include <arrow/ipc/writer.h>
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int64_t ipc___Message__body_length(const std::unique_ptr<arrow::ipc::Message>& message) {
   return message->body_length();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Buffer> ipc___Message__metadata(
     const std::unique_ptr<arrow::ipc::Message>& message) {
   return message->metadata();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Buffer> ipc___Message__body(
     const std::unique_ptr<arrow::ipc::Message>& message) {
   return message->body();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int64_t ipc___Message__Verify(const std::unique_ptr<arrow::ipc::Message>& message) {
   return message->Verify();
 }
 
-// [[Rcpp::export]]
-arrow::ipc::Message::Type ipc___Message__type(
+// [[arrow::export]]
+arrow::ipc::MessageType ipc___Message__type(
     const std::unique_ptr<arrow::ipc::Message>& message) {
   return message->type();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 bool ipc___Message__Equals(const std::unique_ptr<arrow::ipc::Message>& x,
                            const std::unique_ptr<arrow::ipc::Message>& y) {
   return x->Equals(*y);
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> ipc___ReadRecordBatch__Message__Schema(
     const std::unique_ptr<arrow::ipc::Message>& message,
     const std::shared_ptr<arrow::Schema>& schema) {
-  std::shared_ptr<arrow::RecordBatch> batch;
-  STOP_IF_NOT_OK(arrow::ipc::ReadRecordBatch(*message, schema, &batch));
+  // TODO: perhaps this should come from the R side
+  arrow::ipc::DictionaryMemo memo;
+  auto batch = ValueOrStop(arrow::ipc::ReadRecordBatch(
+      *message, schema, &memo, arrow::ipc::IpcReadOptions::Defaults()));
   return batch;
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Schema> ipc___ReadSchema_InputStream(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
-  std::shared_ptr<arrow::Schema> schema;
-  STOP_IF_NOT_OK(arrow::ipc::ReadSchema(stream.get(), &schema));
-  return schema;
+  // TODO: promote to function argument
+  arrow::ipc::DictionaryMemo memo;
+  return ValueOrStop(arrow::ipc::ReadSchema(stream.get(), &memo));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Schema> ipc___ReadSchema_Message(
+    const std::unique_ptr<arrow::ipc::Message>& message) {
+  arrow::ipc::DictionaryMemo empty_memo;
+  return ValueOrStop(arrow::ipc::ReadSchema(*message, &empty_memo));
 }
 
 //--------- MessageReader
 
-// [[Rcpp::export]]
-std::unique_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(
+// [[arrow::export]]
+std::shared_ptr<arrow::ipc::MessageReader> ipc___MessageReader__Open(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
-  return arrow::ipc::MessageReader::Open(stream);
+  return std::shared_ptr<arrow::ipc::MessageReader>(
+      arrow::ipc::MessageReader::Open(stream));
 }
 
-// [[Rcpp::export]]
-std::unique_ptr<arrow::ipc::Message> ipc___MessageReader__ReadNextMessage(
+// [[arrow::export]]
+std::shared_ptr<arrow::ipc::Message> ipc___MessageReader__ReadNextMessage(
     const std::unique_ptr<arrow::ipc::MessageReader>& reader) {
-  std::unique_ptr<arrow::ipc::Message> message;
-  STOP_IF_NOT_OK(reader->ReadNextMessage(&message));
-  return message;
+  return ValueOrStop(reader->ReadNextMessage());
 }
 
-// [[Rcpp::export]]
-std::unique_ptr<arrow::ipc::Message> ipc___ReadMessage(
+// [[arrow::export]]
+std::shared_ptr<arrow::ipc::Message> ipc___ReadMessage(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
-  std::unique_ptr<arrow::ipc::Message> message;
-  STOP_IF_NOT_OK(arrow::ipc::ReadMessage(stream.get(), &message));
-  return message;
+  return ValueOrStop(arrow::ipc::ReadMessage(stream.get()));
 }
+
+#endif

@@ -15,21 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_LIKE_HOLDER_H
-#define GANDIVA_LIKE_HOLDER_H
+#pragma once
 
 #include <memory>
 #include <string>
 
 #include <re2/re2.h>
+
 #include "arrow/status.h"
+
 #include "gandiva/function_holder.h"
 #include "gandiva/node.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// Function Holder for SQL 'like'
-class LikeHolder : public FunctionHolder {
+class GANDIVA_EXPORT LikeHolder : public FunctionHolder {
  public:
   ~LikeHolder() override = default;
 
@@ -51,8 +53,7 @@ class LikeHolder : public FunctionHolder {
 
   static RE2 starts_with_regex_;  // pre-compiled pattern for matching starts_with
   static RE2 ends_with_regex_;    // pre-compiled pattern for matching ends_with
+  static RE2 is_substr_regex_;    // pre-compiled pattern for matching is_substr
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_LIKE_HOLDER_H

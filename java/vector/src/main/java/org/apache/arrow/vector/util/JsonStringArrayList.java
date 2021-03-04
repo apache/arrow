@@ -22,6 +22,12 @@ import java.util.ArrayList;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+/**
+ * Extension of {@link ArrayList} that {@link #toString()} method returns the serialized JSON
+ * version of its members (or throws an exception if they can't be converted to JSON).
+ *
+ * @param <E> Type of value held in the list.
+ */
 public class JsonStringArrayList<E> extends ArrayList<E> {
 
   private static ObjectMapper mapper;

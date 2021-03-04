@@ -1,0 +1,112 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Java
+
+on:
+  push:
+    paths:
+      - '.github/workflows/java.yml'
+      - 'ci/docker/*java*'
+      - 'ci/scripts/java*.sh'
+      - 'ci/scripts/util_*.sh'
+      - 'format/Flight.proto'
+      - 'java/**'
+  pull_request:
+    paths:
+      - '.github/workflows/java.yml'
+      - 'ci/docker/*java*'
+      - 'ci/scripts/java*.sh'
+      - 'ci/scripts/util_*.sh'
+      - 'format/Flight.proto'
+      - 'java/**'
+
+env:
+  DOCKER_VOLUME_PREFIX: ".docker/"
+  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+
+jobs:
+
+  debian:
+    name: AMD64 Debian 9 Java JDK ${{ matrix.jdk }} Maven ${{ matrix.maven }}
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        jdk: [11]
+        maven: [3.6.2]
+    env:
+      JDK: ${{ matrix.jdk }}
+      MAVEN: ${{ matrix.maven }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Free Up Disk Space
+        shell: bash
+        run: ci/scripts/util_cleanup.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v2
+        with:
+          path: .docker
+          key: maven-${{ hashFiles('java/**') }}
+          restore-keys: maven-
+      - name: Setup Python
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.8
+      - name: Setup Archery
+        run: pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        run: archery docker run debian-java
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        run: archery docker push debian-java
+
+  macos:
+    name: AMD64 MacOS 10.15 Java JDK ${{ matrix.jdk }}
+    runs-on: macos-latest
+    if: github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        jdk: [11]
+    steps:
+      - name: Set up Java
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ matrix.jdk }}
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Build
+        shell: bash
+        run: ci/scripts/java_build.sh $(pwd) $(pwd)/build
+      - name: Test
+        shell: bash
+        run: ci/scripts/java_test.sh $(pwd) $(pwd)/build

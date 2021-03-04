@@ -1,0 +1,32 @@
+[
+  {
+    "benchmark_name": "Benchmark 1",
+    "parameter_names": ["arg0", "arg1", "arg2"],
+    "benchmark_description": "First benchmark",
+    "benchmark_type": "Time",
+    "units": "miliseconds",
+    "lessisbetter": true,
+    "benchmark_version": "second version",
+    "benchmark_language": "Python"
+  },
+  {
+    "benchmark_name": "Benchmark 2",
+    "parameter_names": ["arg0", "arg1"],
+    "benchmark_description": "Description 2.",
+    "benchmark_type": "Time",
+    "units": "nanoseconds",
+    "lessisbetter": true,
+    "benchmark_version": "second version",
+    "benchmark_language": "Python"
+  },
+  {
+    "benchmark_name": "Benchmark 3",
+    "parameter_names": ["arg0"],
+    "benchmark_description": "Third benchmark",
+    "benchmark_type": "Memory",
+    "units": "kilobytes",
+    "lessisbetter": true,
+    "benchmark_version": "1",
+    "benchmark_language": "Python"
+  }
+]

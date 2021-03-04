@@ -22,6 +22,20 @@ class RecordBatchTest < Test::Unit::TestCase
                                   count: :uint32)
     end
 
+    test("[raw_table]") do
+      raw_table = {
+        visible: [true, nil, false],
+        count: [1, nil, 3],
+      }
+      record_batch = Arrow::RecordBatch.new(raw_table)
+      assert_equal([
+                     {"visible" => true,  "count" => 1},
+                     {"visible" => nil,   "count" => nil},
+                     {"visible" => false, "count" => 3},
+                   ],
+                   record_batch.each_record.collect(&:to_h))
+    end
+
     test("[Schema, records]") do
       records = [
         {visible: true, count: 1},
@@ -107,6 +121,20 @@ class RecordBatchTest < Test::Unit::TestCase
     test("#to_table") do
       assert_equal(Arrow::Table.new(@schema, [@counts]),
                    @record_batch.to_table)
+    end
+
+    sub_test_case("#==") do
+      test("Arrow::RecordBatch") do
+        assert do
+          @record_batch == @record_batch
+        end
+      end
+
+      test("not Arrow::RecordBatch") do
+        assert do
+          not (@record_batch == 29)
+        end
+      end
     end
   end
 end

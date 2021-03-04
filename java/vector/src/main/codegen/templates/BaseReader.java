@@ -36,6 +36,9 @@ public interface BaseReader extends Positionable{
   void read(UnionHolder holder);
   void read(int index, UnionHolder holder);
   void copyAsValue(UnionWriter writer);
+  void read(DenseUnionHolder holder);
+  void read(int index, DenseUnionHolder holder);
+  void copyAsValue(DenseUnionWriter writer);
   boolean isSet();
 
   public interface StructReader extends BaseReader, Iterable<String>{

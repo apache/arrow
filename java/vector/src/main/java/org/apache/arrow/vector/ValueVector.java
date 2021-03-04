@@ -19,15 +19,16 @@ package org.apache.arrow.vector;
 
 import java.io.Closeable;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * An abstraction that is used to store a sequence of values in an individual column.
@@ -178,7 +179,7 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    *
    * @param clear Whether to clear vector before returning; the buffers will still be refcounted;
    *              but the returned array will be the only reference to them
-   * @return The underlying {@link io.netty.buffer.ArrowBuf buffers} that is used by this vector instance.
+   * @return The underlying {@link ArrowBuf buffers} that is used by this vector instance.
    */
   ArrowBuf[] getBuffers(boolean clear);
 
@@ -237,4 +238,48 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    * @return true if element is null
    */
   boolean isNull(int index);
+
+  /**
+   * Returns hashCode of element in index with the default hasher.
+   */
+  int hashCode(int index);
+
+  /**
+   * Returns hashCode of element in index with the given hasher.
+   */
+  int hashCode(int index, ArrowBufHasher hasher);
+
+  /**
+   * Copy a cell value from a particular index in source vector to a particular
+   * position in this vector.
+   *
+   * @param fromIndex position to copy from in source vector
+   * @param thisIndex position to copy to in this vector
+   * @param from      source vector
+   */
+  void copyFrom(int fromIndex, int thisIndex, ValueVector from);
+
+  /**
+   * Same as {@link #copyFrom(int, int, ValueVector)} except that
+   * it handles the case when the capacity of the vector needs to be expanded
+   * before copy.
+   *
+   * @param fromIndex position to copy from in source vector
+   * @param thisIndex position to copy to in this vector
+   * @param from      source vector
+   */
+  void copyFromSafe(int fromIndex, int thisIndex, ValueVector from);
+
+  /**
+   * Accept a generic {@link VectorVisitor} and return the result.
+   * @param <OUT> the output result type.
+   * @param <IN> the input data together with visitor.
+   */
+  <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value);
+
+  /**
+   * Gets the name of the vector.
+   * @return the name of the vector.
+   */
+  String getName();
 }

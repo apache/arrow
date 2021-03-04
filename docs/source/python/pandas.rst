@@ -62,6 +62,10 @@ Conversion from a Table to a DataFrame is done by calling
     # Infer Arrow schema from pandas
     schema = pa.Schema.from_pandas(df)
 
+By default ``pyarrow`` tries to preserve and restore the ``.index``
+data as accurately as possible. See the section below for more about
+this, and how to disable this logic.
+
 Series
 ------
 
@@ -70,6 +74,29 @@ It is a vector that contains data of the same type as linear memory. You can
 convert a pandas Series to an Arrow Array using :meth:`pyarrow.Array.from_pandas`.
 As Arrow Arrays are always nullable, you can supply an optional mask using
 the ``mask`` parameter to mark all null-entries.
+
+Handling pandas Indexes
+-----------------------
+
+Methods like :meth:`pyarrow.Table.from_pandas` have a
+``preserve_index`` option which defines how to preserve (store) or not
+to preserve (to not store) the data in the ``index`` member of the
+corresponding pandas object. This data is tracked using schema-level
+metadata in the internal ``arrow::Schema`` object.
+
+The default of ``preserve_index`` is ``None``, which behaves as
+follows:
+
+* ``RangeIndex`` is stored as metadata-only, not requiring any extra
+  storage.
+* Other index types are stored as one or more physical data columns in
+  the resulting :class:`Table`
+
+To not store the index at all pass ``preserve_index=False``. Since
+storing a ``RangeIndex`` can cause issues in some limited scenarios
+(such as storing multiple DataFrame objects in a Parquet file), to
+force all index data to be serialized in the resulting table, pass
+``preserve_index=True``.
 
 Type differences
 ----------------
@@ -184,7 +211,85 @@ If you want to use NumPy's ``datetime64`` dtype instead, pass
    s2 = pd.Series(arr.to_pandas(date_as_object=False))
    s2.dtype
 
+.. warning::
+
+   As of Arrow ``0.13`` the parameter ``date_as_object`` is ``True``
+   by default. Older versions must pass ``date_as_object=True`` to
+   obtain this behavior
+
 Time types
 ~~~~~~~~~~
 
 TODO
+
+Memory Usage and Zero Copy
+--------------------------
+
+When converting from Arrow data structures to pandas objects using various
+``to_pandas`` methods, one must occasionally be mindful of issues related to
+performance and memory usage.
+
+Since pandas's internal data representation is generally different from the
+Arrow columnar format, zero copy conversions (where no memory allocation or
+computation is required) are only possible in certain limited cases.
+
+In the worst case scenario, calling ``to_pandas`` will result in two versions
+of the data in memory, one for Arrow and one for pandas, yielding approximately
+twice the memory footprint. We have implement some mitigations for this case,
+particularly when creating large ``DataFrame`` objects, that we describe below.
+
+Zero Copy Series Conversions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Zero copy conversions from ``Array`` or ``ChunkedArray`` to NumPy arrays or
+pandas Series are possible in certain narrow cases:
+
+* The Arrow data is stored in an integer (signed or unsigned ``int8`` through
+  ``int64``) or floating point type (``float16`` through ``float64``). This
+  includes many numeric types as well as timestamps.
+* The Arrow data has no null values (since these are represented using bitmaps
+  which are not supported by pandas).
+* For ``ChunkedArray``, the data consists of a single chunk,
+  i.e. ``arr.num_chunks == 1``. Multiple chunks will always require a copy
+  because of pandas's contiguousness requirement.
+
+In these scenarios, ``to_pandas`` or ``to_numpy`` will be zero copy. In all
+other scenarios, a copy will be required.
+
+Reducing Memory Use in ``Table.to_pandas``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+As of this writing, pandas applies a data management strategy called
+"consolidation" to collect like-typed DataFrame columns in two-dimensional
+NumPy arrays, referred to internally as "blocks". We have gone to great effort
+to construct the precise "consolidated" blocks so that pandas will not perform
+any further allocation or copies after we hand off the data to
+``pandas.DataFrame``. The obvious downside of this consolidation strategy is
+that it forces a "memory doubling".
+
+To try to limit the potential effects of "memory doubling" during
+``Table.to_pandas``, we provide a couple of options:
+
+* ``split_blocks=True``, when enabled ``Table.to_pandas`` produces one internal
+  DataFrame "block" for each column, skipping the "consolidation" step. Note
+  that many pandas operations will trigger consolidation anyway, but the peak
+  memory use may be less than the worst case scenario of a full memory
+  doubling. As a result of this option, we are able to do zero copy conversions
+  of columns in the same cases where we can do zero copy with ``Array`` and
+  ``ChunkedArray``.
+* ``self_destruct=True``, this destroys the internal Arrow memory buffers in
+  each column ``Table`` object as they are converted to the pandas-compatible
+  representation, potentially releasing memory to the operating system as soon
+  as a column is converted. Note that this renders the calling ``Table`` object
+  unsafe for further use, and any further methods called will cause your Python
+  process to crash.
+
+Used together, the call
+
+.. code-block:: python
+
+   df = table.to_pandas(split_blocks=True, self_destruct=True)
+   del table  # not necessary, but a good practice
+
+will yield significantly lower memory usage in some scenarios. Without these
+options, ``to_pandas`` will always double memory.

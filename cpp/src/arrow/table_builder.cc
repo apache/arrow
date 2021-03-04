@@ -20,8 +20,8 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/array.h"
-#include "arrow/builder.h"
+#include "arrow/array/array_base.h"
+#include "arrow/array/builder_base.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -62,7 +62,21 @@ Status RecordBatchBuilder::Flush(bool reset_builders,
     }
     length = fields[i]->length();
   }
-  *batch = RecordBatch::Make(schema_, length, std::move(fields));
+
+  // For certain types like dictionaries, types may not be fully
+  // determined before we have flushed. Make sure that the RecordBatch
+  // gets the correct types in schema.
+  // See: #ARROW-9969
+  std::vector<std::shared_ptr<Field>> schema_fields(schema_->fields());
+  for (int i = 0; i < this->num_fields(); ++i) {
+    if (!schema_fields[i]->type()->Equals(fields[i]->type())) {
+      schema_fields[i] = schema_fields[i]->WithType(fields[i]->type());
+    }
+  }
+  std::shared_ptr<Schema> schema =
+      std::make_shared<Schema>(schema_fields, schema_->metadata());
+
+  *batch = RecordBatch::Make(schema, length, std::move(fields));
   if (reset_builders) {
     return InitBuilders();
   } else {
@@ -75,7 +89,7 @@ Status RecordBatchBuilder::Flush(std::shared_ptr<RecordBatch>* batch) {
 }
 
 void RecordBatchBuilder::SetInitialCapacity(int64_t capacity) {
-  DCHECK_GT(capacity, 0) << "Initial capacity must be positive";
+  ARROW_CHECK_GT(capacity, 0) << "Initial capacity must be positive";
   initial_capacity_ = capacity;
 }
 

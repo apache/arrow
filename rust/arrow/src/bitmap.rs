@@ -18,10 +18,14 @@
 //! Defines a bitmap, which is used to track which values in an Arrow array are null.
 //! This is called a "validity bitmap" in the Arrow documentation.
 
-use super::buffer::Buffer;
+use crate::buffer::Buffer;
+use crate::error::Result;
 use crate::util::bit_util;
+use std::mem;
 
-#[derive(PartialEq, Debug)]
+use std::ops::{BitAnd, BitOr};
+
+#[derive(Debug, Clone)]
 pub struct Bitmap {
     pub(crate) bits: Buffer,
 }
@@ -35,12 +39,8 @@ impl Bitmap {
         } else {
             num_bytes + 64 - r
         };
-        let mut v = Vec::with_capacity(len);
-        for _ in 0..len {
-            v.push(255); // 1 is not null
-        }
         Bitmap {
-            bits: Buffer::from(&v[..]),
+            bits: Buffer::from(&vec![0xFF; len]),
         }
     }
 
@@ -48,15 +48,66 @@ impl Bitmap {
         self.bits.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.bits.is_empty()
+    }
+
     pub fn is_set(&self, i: usize) -> bool {
         assert!(i < (self.bits.len() << 3));
-        unsafe { bit_util::get_bit_raw(self.bits.raw_data(), i) }
+        unsafe { bit_util::get_bit_raw(self.bits.as_ptr(), i) }
+    }
+
+    pub fn buffer_ref(&self) -> &Buffer {
+        &self.bits
+    }
+
+    pub fn into_buffer(self) -> Buffer {
+        self.bits
+    }
+
+    /// Returns the total number of bytes of memory occupied by the buffers owned by this [Bitmap].
+    pub fn get_buffer_memory_size(&self) -> usize {
+        self.bits.capacity()
+    }
+
+    /// Returns the total number of bytes of memory occupied physically by this [Bitmap].
+    pub fn get_array_memory_size(&self) -> usize {
+        self.bits.capacity() + mem::size_of_val(self)
+    }
+}
+
+impl<'a, 'b> BitAnd<&'b Bitmap> for &'a Bitmap {
+    type Output = Result<Bitmap>;
+
+    fn bitand(self, rhs: &'b Bitmap) -> Result<Bitmap> {
+        Ok(Bitmap::from((&self.bits & &rhs.bits)?))
+    }
+}
+
+impl<'a, 'b> BitOr<&'b Bitmap> for &'a Bitmap {
+    type Output = Result<Bitmap>;
+
+    fn bitor(self, rhs: &'b Bitmap) -> Result<Bitmap> {
+        Ok(Bitmap::from((&self.bits | &rhs.bits)?))
     }
 }
 
 impl From<Buffer> for Bitmap {
     fn from(buf: Buffer) -> Self {
         Self { bits: buf }
+    }
+}
+
+impl PartialEq for Bitmap {
+    fn eq(&self, other: &Self) -> bool {
+        // buffer equality considers capacity, but here we want to only compare
+        // actual data contents
+        let self_len = self.bits.len();
+        let other_len = other.bits.len();
+        if self_len != other_len {
+            return false;
+        }
+        self.bits.as_slice()[..self_len] == other.bits.as_slice()[..self_len]
     }
 }
 
@@ -72,6 +123,26 @@ mod tests {
     }
 
     #[test]
+    fn test_bitwise_and() {
+        let bitmap1 = Bitmap::from(Buffer::from([0b01101010]));
+        let bitmap2 = Bitmap::from(Buffer::from([0b01001110]));
+        assert_eq!(
+            Bitmap::from(Buffer::from([0b01001010])),
+            (&bitmap1 & &bitmap2).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_bitwise_or() {
+        let bitmap1 = Bitmap::from(Buffer::from([0b01101010]));
+        let bitmap2 = Bitmap::from(Buffer::from([0b01001110]));
+        assert_eq!(
+            Bitmap::from(Buffer::from([0b01101110])),
+            (&bitmap1 | &bitmap2).unwrap()
+        );
+    }
+
+    #[test]
     fn test_bitmap_is_set() {
         let bitmap = Bitmap::from(Buffer::from([0b01001010]));
         assert_eq!(false, bitmap.is_set(0));
@@ -83,5 +154,4 @@ mod tests {
         assert_eq!(true, bitmap.is_set(6));
         assert_eq!(false, bitmap.is_set(7));
     }
-
 }

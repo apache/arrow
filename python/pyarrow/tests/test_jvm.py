@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -21,7 +20,6 @@ import os
 import pyarrow as pa
 import pyarrow.jvm as pa_jvm
 import pytest
-import six
 import sys
 import xml.etree.ElementTree as ET
 
@@ -32,9 +30,11 @@ jpype = pytest.importorskip("jpype")
 @pytest.fixture(scope="session")
 def root_allocator():
     # This test requires Arrow Java to be built in the same source tree
-    pom_path = os.path.join(
-        os.path.dirname(__file__), '..', '..', '..',
-        'java', 'pom.xml')
+    try:
+        arrow_dir = os.environ["ARROW_SOURCE_DIR"]
+    except KeyError:
+        arrow_dir = os.path.join(os.path.dirname(__file__), '..', '..', '..')
+    pom_path = os.path.join(arrow_dir, 'java', 'pom.xml')
     tree = ET.parse(pom_path)
     version = tree.getroot().find(
         'POM:version',
@@ -42,25 +42,46 @@ def root_allocator():
             'POM': 'http://maven.apache.org/POM/4.0.0'
         }).text
     jar_path = os.path.join(
-        os.path.dirname(__file__), '..', '..', '..',
-        'java', 'tools', 'target',
+        arrow_dir, 'java', 'tools', 'target',
         'arrow-tools-{}-jar-with-dependencies.jar'.format(version))
     jar_path = os.getenv("ARROW_TOOLS_JAR", jar_path)
-    jpype.startJVM(jpype.getDefaultJVMPath(), "-Djava.class.path=" + jar_path)
+    kwargs = {}
+    # This will be the default behaviour in jpype 0.8+
+    kwargs['convertStrings'] = False
+    jpype.startJVM(jpype.getDefaultJVMPath(), "-Djava.class.path=" + jar_path,
+                   **kwargs)
     return jpype.JPackage("org").apache.arrow.memory.RootAllocator(sys.maxsize)
 
 
 def test_jvm_buffer(root_allocator):
-    # Create a buffer
+    # Create a Java buffer
     jvm_buffer = root_allocator.buffer(8)
     for i in range(8):
         jvm_buffer.setByte(i, 8 - i)
+
+    orig_refcnt = jvm_buffer.refCnt()
 
     # Convert to Python
     buf = pa_jvm.jvm_buffer(jvm_buffer)
 
     # Check its content
     assert buf.to_pybytes() == b'\x08\x07\x06\x05\x04\x03\x02\x01'
+
+    # Check Java buffer lifetime is tied to PyArrow buffer lifetime
+    assert jvm_buffer.refCnt() == orig_refcnt + 1
+    del buf
+    assert jvm_buffer.refCnt() == orig_refcnt
+
+
+def test_jvm_buffer_released(root_allocator):
+    import jpype.imports  # noqa
+    from java.lang import IllegalArgumentException
+
+    jvm_buffer = root_allocator.buffer(8)
+    jvm_buffer.release()
+
+    with pytest.raises(IllegalArgumentException):
+        pa_jvm.jvm_buffer(jvm_buffer)
 
 
 def _jvm_field(jvm_spec):
@@ -76,7 +97,7 @@ def _jvm_schema(jvm_spec, metadata=None):
     fields.add(field)
     if metadata:
         dct = jpype.JClass('java.util.HashMap')()
-        for k, v in six.iteritems(metadata):
+        for k, v in metadata.items():
             dct.put(k, v)
         return schema_cls(fields, dct)
     else:
@@ -143,6 +164,8 @@ def _jvm_schema(jvm_spec, metadata=None):
 ])
 @pytest.mark.parametrize('nullable', [True, False])
 def test_jvm_types(root_allocator, pa_type, jvm_spec, nullable):
+    if pa_type == pa.null() and not nullable:
+        return
     spec = {
         'name': 'field_name',
         'nullable': nullable,
@@ -163,6 +186,14 @@ def test_jvm_types(root_allocator, pa_type, jvm_spec, nullable):
     jvm_schema = _jvm_schema(json.dumps(spec), {'meta': 'data'})
     result = pa_jvm.schema(jvm_schema)
     assert result == pa.schema([expected_field], {'meta': 'data'})
+
+    # Schema with custom field metadata
+    spec['metadata'] = [{'key': 'field meta', 'value': 'field data'}]
+    jvm_schema = _jvm_schema(json.dumps(spec))
+    result = pa_jvm.schema(jvm_schema)
+    expected_field = expected_field.with_metadata(
+        {'field meta': 'field data'})
+    assert result == pa.schema([expected_field])
 
 
 # These test parameters mostly use an integer range as an input as this is
@@ -195,6 +226,9 @@ def test_jvm_array(root_allocator, pa_type, py_data, jvm_type):
     jvm_vector = jpype.JClass(cls)("vector", root_allocator)
     jvm_vector.allocateNew(len(py_data))
     for i, val in enumerate(py_data):
+        # char and int are ambiguous overloads for these two setSafe calls
+        if jvm_type in {'UInt1Vector', 'UInt2Vector'}:
+            val = jpype.JInt(val)
         jvm_vector.setSafe(i, val)
     jvm_vector.setValueCount(len(py_data))
 
@@ -202,6 +236,15 @@ def test_jvm_array(root_allocator, pa_type, py_data, jvm_type):
     jvm_array = pa_jvm.array(jvm_vector)
 
     assert py_array.equals(jvm_array)
+
+
+def test_jvm_array_empty(root_allocator):
+    cls = "org.apache.arrow.vector.{}".format('IntVector')
+    jvm_vector = jpype.JClass(cls)("vector", root_allocator)
+    jvm_vector.allocateNew()
+    jvm_array = pa_jvm.array(jvm_vector)
+    assert len(jvm_array) == 0
+    assert jvm_array.type == pa.int32()
 
 
 # These test parameters mostly use an integer range as an input as this is
@@ -321,6 +364,8 @@ def test_jvm_record_batch(root_allocator, pa_type, py_data, jvm_type,
     jvm_vector = jpype.JClass(cls)("vector", root_allocator)
     jvm_vector.allocateNew(len(py_data))
     for i, val in enumerate(py_data):
+        if jvm_type in {'UInt1Vector', 'UInt2Vector'}:
+            val = jpype.JInt(val)
         jvm_vector.setSafe(i, val)
     jvm_vector.setValueCount(len(py_data))
 
@@ -372,7 +417,7 @@ def _string_to_varchar_holder(ra, string):
 @pytest.mark.xfail(reason="from_buffers is only supported for "
                           "primitive arrays yet")
 def test_jvm_string_array(root_allocator):
-    data = [u"string", None, u"töst"]
+    data = ["string", None, "töst"]
     cls = "org.apache.arrow.vector.VarCharVector"
     jvm_vector = jpype.JClass(cls)("vector", root_allocator)
     jvm_vector.allocateNew()

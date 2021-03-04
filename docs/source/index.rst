@@ -18,31 +18,65 @@
 Apache Arrow
 ============
 
-Apache Arrow is a cross-language development platform for in-memory data. It
-specifies a standardized language-independent columnar memory format for flat
-and hierarchical data, organized for efficient analytic operations on modern
-hardware. It also provides computational libraries and zero-copy streaming
-messaging and interprocess communication.
+Apache Arrow is a development platform for in-memory analytics. It contains a
+set of technologies that enable big data systems to process and move data
+fast. It specifies a standardized language-independent columnar memory format
+for flat and hierarchical data, organized for efficient analytic operations on
+modern hardware.
 
-.. toctree::
-   :maxdepth: 1
-   :caption: Memory Format
+The project is developing a multi-language collection of libraries for solving
+systems problems related to in-memory analytical data processing. This includes
+such topics as:
 
-   format/README
-   format/Guidelines
-   format/Layout
-   format/Metadata
-   format/IPC
+* Zero-copy shared memory and RPC-based data movement
+* Reading and writing file formats (like CSV, Apache ORC, and Apache Parquet)
+* In-memory analytics and query processing
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Languages
-
-   cpp/index
-   python/index
+.. _toc.columnar:
 
 .. toctree::
    :maxdepth: 2
-   :caption: Other Topics
+   :caption: Specifications and Protocols
 
-   building
+   format/Versioning
+   format/Columnar
+   format/Flight
+   format/Integration
+   format/CDataInterface
+   format/CStreamInterface
+   format/Other
+
+.. _toc.usage:
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Libraries
+
+   status
+   C/GLib <https://arrow.apache.org/docs/c_glib/>
+   C++ <cpp/index>
+   C# <https://github.com/apache/arrow/blob/master/csharp/README.md>
+   Go <https://godoc.org/github.com/apache/arrow/go/arrow>
+   Java <java/index>
+   JavaScript <https://arrow.apache.org/docs/js/>
+   Julia <https://github.com/apache/arrow/blob/master/julia/Arrow/README.md>
+   MATLAB <https://github.com/apache/arrow/blob/master/matlab/README.md>
+   Python <python/index>
+   R <https://arrow.apache.org/docs/r/>
+   Ruby <https://github.com/apache/arrow/blob/master/ruby/README.md>
+   Rust <https://docs.rs/crate/arrow/>
+
+.. _toc.development:
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Development
+
+   developers/contributing
+   developers/cpp/index
+   developers/python
+   developers/archery
+   developers/crossbow
+   developers/docker
+   developers/benchmarks
+   developers/documentation

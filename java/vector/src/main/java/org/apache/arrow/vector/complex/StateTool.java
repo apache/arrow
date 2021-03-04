@@ -19,9 +19,18 @@ package org.apache.arrow.vector.complex;
 
 import java.util.Arrays;
 
+/**
+ * Utility methods for state machines based on enums.
+ */
 public class StateTool {
+  private StateTool() {}
+
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(StateTool.class);
 
+  /**
+   * Verifies <code>currentState</code> is in one of <code>expectedStates</code>,
+   * throws an IllegalArgumentException if it isn't.
+   */
   public static <T extends Enum<?>> void check(T currentState, T... expectedStates) {
     for (T s : expectedStates) {
       if (s == currentState) {

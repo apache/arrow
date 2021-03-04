@@ -17,15 +17,26 @@
 
 package org.apache.arrow.vector.ipc.message;
 
+/**
+ * Interface for Arrow IPC messages (https://arrow.apache.org/docs/format/IPC.html).
+ */
 public interface ArrowMessage extends FBSerializable, AutoCloseable {
 
-  public int computeBodyLength();
+  long computeBodyLength();
 
-  public <T> T accepts(ArrowMessageVisitor<T> visitor);
+  <T> T accepts(ArrowMessageVisitor<T> visitor);
 
-  public static interface ArrowMessageVisitor<T> {
-    public T visit(ArrowDictionaryBatch message);
+  /** Returns the flatbuffer enum value indicating the type of the message. */
+  byte getMessageType();
 
-    public T visit(ArrowRecordBatch message);
+  /**
+   * Visitor interface for implementations of {@link ArrowMessage}.
+   *
+   * @param <T> The type of value to return after visiting.
+   */
+  interface ArrowMessageVisitor<T> {
+    T visit(ArrowDictionaryBatch message);
+
+    T visit(ArrowRecordBatch message);
   }
 }

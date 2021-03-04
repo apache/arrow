@@ -29,7 +29,7 @@ namespace gandiva {
 Decimal128TypePtr DoOp(DecimalTypeUtil::Op op, Decimal128TypePtr d1,
                        Decimal128TypePtr d2) {
   Decimal128TypePtr ret_type;
-  EXPECT_OK(DecimalTypeUtil::GetResultType(op, {d1, d2}, &ret_type));
+  ARROW_EXPECT_OK(DecimalTypeUtil::GetResultType(op, {d1, d2}, &ret_type));
   return ret_type;
 }
 

@@ -10,7 +10,7 @@ using global::FlatBuffers;
 
 /// ----------------------------------------------------------------------
 /// A Buffer represents a single contiguous memory segment
-public struct Buffer : IFlatbufferObject
+internal struct Buffer : IFlatbufferObject
 {
   private Struct __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }

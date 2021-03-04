@@ -20,14 +20,13 @@
 set -e
 set -u
 
-if [ "$#" -ne 3 ]; then
-  echo "Usage: $0 <previous-version> <version> <rc-num>"
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <version> <rc-num>"
   exit
 fi
 
-previous_version=$1
-version=$2
-rc=$3
+version=$1
+rc=$2
 
 tmp_dir=tmp-apache-arrow-dist
 
@@ -45,12 +44,22 @@ echo "Clone release dist repository"
 svn co https://dist.apache.org/repos/dist/release/arrow ${tmp_dir}/release
 
 echo "Copy ${version}-rc${rc} to release working copy"
-previous_release_version=arrow-${previous_version}
 release_version=arrow-${version}
 mkdir -p ${tmp_dir}/release/${release_version}
 cp -r ${tmp_dir}/dev/* ${tmp_dir}/release/${release_version}/
 svn add ${tmp_dir}/release/${release_version}
-svn delete ${tmp_dir}/release/${previous_release_version}
+
+echo "Keep only the three most recent versions"
+old_releases=$(
+  svn ls ${tmp_dir}/release/ | \
+  grep '^arrow-' | \
+  sort --version-sort --reverse | \
+  tail -n +4
+)
+for old_release_version in $old_releases; do
+  echo "Remove old release ${old_release_version}"
+  svn delete ${tmp_dir}/release/${old_release_version}
+done
 
 echo "Commit release"
 svn ci -m "Apache Arrow ${version}" ${tmp_dir}/release

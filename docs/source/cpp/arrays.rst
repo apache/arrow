@@ -22,6 +22,9 @@
 Arrays
 ======
 
+.. seealso::
+   :doc:`Array API reference <api/array>`
+
 The central type in Arrow is the class :class:`arrow::Array`.   An array
 represents a known-length sequence of values all having the same type.
 Internally, those values are represented by one or several buffers, the
@@ -67,7 +70,7 @@ The resulting Array (which can be casted to the concrete :class:`arrow::Int64Arr
 subclass if you want to access its values) then consists of two
 :class:`arrow::Buffer`\s.
 The first buffer holds the null bitmap, which consists here of a single byte with
-the bits ``0|0|0|0|1|0|0|0``. As we use  `least-significant bit (LSB) numbering`_.
+the bits ``1|1|1|1|0|1|1|1``. As we use  `least-significant bit (LSB) numbering`_.
 this indicates that the fourth entry in the array is null. The second
 buffer is simply an ``int64_t`` array containing all the above values.
 As the fourth entry is null, the value at that position in the buffer is
@@ -164,7 +167,7 @@ but unlike a simple array, a chunked array does not require the entire sequence
 to be physically contiguous in memory.  Also, the constituents of a chunked array
 need not have the same size, but they must all have the same data type.
 
-A chunked array is constructed by agregating any number of arrays.  Here we'll
+A chunked array is constructed by aggregating any number of arrays.  Here we'll
 build a chunked array with the same logical values as in the example above,
 but in two separate chunks::
 

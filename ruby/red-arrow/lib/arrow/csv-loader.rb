@@ -30,6 +30,9 @@ module Arrow
     def initialize(path_or_data, **options)
       @path_or_data = path_or_data
       @options = options
+      if @options.key?(:delimiter)
+        @options[:col_sep] = @options.delete(:delimiter)
+      end
       @compression = @options.delete(:compression)
     end
 
@@ -93,10 +96,17 @@ module Arrow
       @options.each do |key, value|
         case key
         when :headers
-          if value
-            options.n_header_rows = 1
+          case value
+          when ::Array
+            options.column_names = value
+          when String
+            return nil
           else
-            options.n_header_rows = 0
+            if value
+              options.generate_column_names = false
+            else
+              options.generate_column_names = true
+            end
           end
         when :column_types
           value.each do |name, type|
@@ -104,6 +114,10 @@ module Arrow
           end
         when :schema
           options.add_schema(value)
+        when :encoding
+          # process encoding on opening input
+        when :col_sep
+          options.delimiter = value
         else
           setter = "#{key}="
           if options.respond_to?(setter)
@@ -116,7 +130,7 @@ module Arrow
       options
     end
 
-    def open_input(raw_input)
+    def open_decompress_input(raw_input)
       if @compression
         codec = Codec.new(@compression)
         CompressedInputStream.open(codec, raw_input) do |input|
@@ -127,16 +141,36 @@ module Arrow
       end
     end
 
+    def open_encoding_convert_stream(raw_input, &block)
+      encoding = @options[:encoding]
+      if encoding
+        converter = Gio::CharsetConverter.new("UTF-8", encoding)
+        convert_input_stream =
+          Gio::ConverterInputStream.new(raw_input, converter)
+        GIOInputStream.open(convert_input_stream, &block)
+      else
+        yield(raw_input)
+      end
+    end
+
+    def wrap_input(raw_input)
+      open_decompress_input(raw_input) do |input_|
+        open_encoding_convert_stream(input_) do |input__|
+          yield(input__)
+        end
+      end
+    end
+
     def load_from_path(path)
       options = reader_options
       if options
         begin
-          MemoryMappedInputStream.open(path.to_s) do |raw_input|
-            open_input(raw_input) do |input|
+          MemoryMappedInputStream.open(path) do |raw_input|
+            wrap_input(raw_input) do |input|
               return CSVReader.new(input, options).read
             end
           end
-        rescue Arrow::Error::Invalid
+        rescue Arrow::Error::Invalid, Gio::Error
         end
       end
 
@@ -151,11 +185,11 @@ module Arrow
       if options
         begin
           BufferInputStream.open(Buffer.new(data)) do |raw_input|
-            open_input(raw_input) do |input|
+            wrap_input(raw_input) do |input|
               return CSVReader.new(input, options).read
             end
           end
-        rescue Arrow::Error::Invalid
+        rescue Arrow::Error::Invalid, Gio::Error
         end
       end
 
@@ -199,7 +233,7 @@ module Arrow
         field
       else
         begin
-          Time.iso8601(encoded_field)
+          ::Time.iso8601(encoded_field)
         rescue ArgumentError
           field
         end
@@ -295,7 +329,7 @@ module Arrow
             if current_column_type == :integer
               column_types[i] = candidate_type
             end
-          when Time
+          when ::Time
             candidate_type = :time
           when DateTime
             candidate_type = :date_time

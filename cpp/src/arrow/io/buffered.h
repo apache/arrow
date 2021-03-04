@@ -17,12 +17,12 @@
 
 // Buffered stream implementations
 
-#ifndef ARROW_IO_BUFFERED_H
-#define ARROW_IO_BUFFERED_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
 
+#include "arrow/io/concurrency.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
@@ -43,11 +43,9 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
   /// \param[in] buffer_size the size of the temporary write buffer
   /// \param[in] pool a MemoryPool to use for allocations
   /// \param[in] raw another OutputStream
-  /// \param[out] out the created BufferedOutputStream
-  /// \return Status
-  static Status Create(int64_t buffer_size, MemoryPool* pool,
-                       std::shared_ptr<OutputStream> raw,
-                       std::shared_ptr<BufferedOutputStream>* out);
+  /// \return the created BufferedOutputStream
+  static Result<std::shared_ptr<BufferedOutputStream>> Create(
+      int64_t buffer_size, MemoryPool* pool, std::shared_ptr<OutputStream> raw);
 
   /// \brief Resize internal buffer
   /// \param[in] new_buffer_size the new buffer size
@@ -57,22 +55,27 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
   /// \brief Return the current size of the internal buffer
   int64_t buffer_size() const;
 
+  /// \brief Return the number of remaining bytes that have not been flushed to
+  /// the raw OutputStream
+  int64_t bytes_buffered() const;
+
   /// \brief Flush any buffered writes and release the raw
   /// OutputStream. Further operations on this object are invalid
-  /// \param[out] raw the underlying OutputStream
-  /// \return Status
-  Status Detach(std::shared_ptr<OutputStream>* raw);
+  /// \return the underlying OutputStream
+  Result<std::shared_ptr<OutputStream>> Detach();
 
   // OutputStream interface
 
   /// \brief Close the buffered output stream.  This implicitly closes the
   /// underlying raw output stream.
   Status Close() override;
+  Status Abort() override;
   bool closed() const override;
 
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
   // Write bytes to the stream. Thread-safe
   Status Write(const void* data, int64_t nbytes) override;
+  Status Write(const std::shared_ptr<Buffer>& data) override;
 
   Status Flush() override;
 
@@ -90,7 +93,8 @@ class ARROW_EXPORT BufferedOutputStream : public OutputStream {
 /// \brief An InputStream that performs buffered reads from an unbuffered
 /// InputStream, which can mitigate the overhead of many small reads in some
 /// cases
-class ARROW_EXPORT BufferedInputStream : public InputStream {
+class ARROW_EXPORT BufferedInputStream
+    : public internal::InputStreamConcurrencyWrapper<BufferedInputStream> {
  public:
   ~BufferedInputStream() override;
 
@@ -98,10 +102,13 @@ class ARROW_EXPORT BufferedInputStream : public InputStream {
   /// \param[in] buffer_size the size of the temporary read buffer
   /// \param[in] pool a MemoryPool to use for allocations
   /// \param[in] raw a raw InputStream
-  /// \param[out] out the created BufferedInputStream
-  static Status Create(int64_t buffer_size, MemoryPool* pool,
-                       std::shared_ptr<InputStream> raw,
-                       std::shared_ptr<BufferedInputStream>* out);
+  /// \param[in] raw_read_bound a bound on the maximum number of bytes
+  /// to read from the raw input stream. The default -1 indicates that
+  /// it is unbounded
+  /// \return the created BufferedInputStream
+  static Result<std::shared_ptr<BufferedInputStream>> Create(
+      int64_t buffer_size, MemoryPool* pool, std::shared_ptr<InputStream> raw,
+      int64_t raw_read_bound = -1);
 
   /// \brief Resize internal read buffer; calls to Read(...) will read at least
   /// \param[in] new_buffer_size the new read buffer size
@@ -123,22 +130,31 @@ class ARROW_EXPORT BufferedInputStream : public InputStream {
   std::shared_ptr<InputStream> raw() const;
 
   // InputStream APIs
-  util::string_view Peek(int64_t nbytes) const override;
-  Status Close() override;
+
   bool closed() const override;
 
-  /// \brief Returns the position of the buffered stream, though the position
-  /// of the unbuffered stream may be further advanced
-  Status Tell(int64_t* position) const override;
-
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) override;
-
-  /// \brief Read into buffer. If the read is already buffered, then this will
-  /// return a slice into the buffer
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-
  private:
-  explicit BufferedInputStream(std::shared_ptr<InputStream> raw, MemoryPool* pool);
+  friend InputStreamConcurrencyWrapper<BufferedInputStream>;
+
+  explicit BufferedInputStream(std::shared_ptr<InputStream> raw, MemoryPool* pool,
+                               int64_t raw_total_bytes_bound);
+
+  Status DoClose();
+  Status DoAbort() override;
+
+  /// \brief Returns the position of the buffered stream, though the position
+  /// of the unbuffered stream may be further advanced.
+  Result<int64_t> DoTell() const;
+
+  Result<int64_t> DoRead(int64_t nbytes, void* out);
+
+  /// \brief Read into buffer.
+  Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes);
+
+  /// \brief Return a zero-copy string view referencing buffered data,
+  /// but do not advance the position of the stream. Buffers data and
+  /// expands the buffer size if necessary
+  Result<util::string_view> DoPeek(int64_t nbytes) override;
 
   class ARROW_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;
@@ -146,5 +162,3 @@ class ARROW_EXPORT BufferedInputStream : public InputStream {
 
 }  // namespace io
 }  // namespace arrow
-
-#endif  // ARROW_IO_BUFFERED_H

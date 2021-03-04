@@ -204,7 +204,7 @@ public class Table {
     this.rowCount = rowCount;
   }
 
-  private byte[][] getByteArray(String[] data) {
+  static byte[][] getByteArray(String[] data) {
     byte[][] byteArr = new byte[data.length][];
 
     for (int i = 0; i < data.length; i++) {
@@ -213,7 +213,7 @@ public class Table {
     return byteArr;
   }
 
-  private byte[][] getHexToByteArray(String[] data) {
+  static byte[][] getHexToByteArray(String[] data) {
     byte[][] byteArr = new byte[data.length][];
 
     for (int i = 0; i < data.length; i++) {
@@ -222,7 +222,7 @@ public class Table {
     return byteArr;
   }
 
-  private static byte[] hexStringToByteArray(String s) {
+  static byte[] hexStringToByteArray(String s) {
     int len = s.length();
     byte[] data = new byte[len / 2];
     for (int i = 0; i < len; i += 2) {

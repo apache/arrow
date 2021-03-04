@@ -17,10 +17,10 @@
 
 const del = require('del');
 const path = require('path');
+const mkdirp = require('mkdirp');
 const { argv } = require('./argv');
 const { promisify } = require('util');
 const glob = promisify(require('glob'));
-const mkdirp = promisify(require('mkdirp'));
 const rimraf = promisify(require('rimraf'));
 const child_process = require(`child_process`);
 const { memoizeTask } = require('./memoize-task');
@@ -32,7 +32,7 @@ const parseXML = promisify(require('xml2js').parseString);
 const jestArgv = [];
 argv.verbose && jestArgv.push(`--verbose`);
 argv.coverage
-    ? jestArgv.push(`-c`, `jest.coverage.config.js`, `--coverage`)
+    ? jestArgv.push(`-c`, `jest.coverage.config.js`, `--coverage`, `-i`)
     : jestArgv.push(`-c`, `jest.config.js`, `-i`)
 
 const jest = path.join(path.parse(require.resolve(`jest`)).dir, `../bin/jest.js`);

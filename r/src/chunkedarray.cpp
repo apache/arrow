@@ -15,60 +15,125 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow_types.h"
+#include "./arrow_types.h"
 
-using namespace Rcpp;
-using namespace arrow;
+#if defined(ARROW_R_WITH_ARROW)
 
-// [[Rcpp::export]]
+#include <arrow/builder.h>
+#include <arrow/chunked_array.h>
+
+// [[arrow::export]]
 int ChunkedArray__length(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
   return chunked_array->length();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int ChunkedArray__null_count(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
   return chunked_array->null_count();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 int ChunkedArray__num_chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
   return chunked_array->num_chunks();
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::Array> ChunkedArray__chunk(
     const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int i) {
+  arrow::r::validate_index(i, chunked_array->num_chunks());
   return chunked_array->chunk(i);
 }
 
-// [[Rcpp::export]]
-List ChunkedArray__chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
-  return wrap(chunked_array->chunks());
+// [[arrow::export]]
+cpp11::list ChunkedArray__chunks(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  return arrow::r::to_r_list(chunked_array->chunks());
 }
 
-// [[Rcpp::export]]
+// [[arrow::export]]
 std::shared_ptr<arrow::DataType> ChunkedArray__type(
     const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
   return chunked_array->type();
 }
 
-// [[Rcpp::export]]
-std::shared_ptr<arrow::ChunkedArray> ChunkArray__Slice1(
-    const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int offset) {
+// [[arrow::export]]
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Slice1(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array, R_xlen_t offset) {
+  arrow::r::validate_slice_offset(offset, chunked_array->length());
   return chunked_array->Slice(offset);
 }
 
-// [[Rcpp::export]]
-std::shared_ptr<arrow::ChunkedArray> ChunkArray__Slice2(
-    const std::shared_ptr<arrow::ChunkedArray>& chunked_array, int offset, int length) {
+// [[arrow::export]]
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Slice2(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array, R_xlen_t offset,
+    R_xlen_t length) {
+  arrow::r::validate_slice_offset(offset, chunked_array->length());
+  arrow::r::validate_slice_length(length, chunked_array->length() - offset);
   return chunked_array->Slice(offset, length);
 }
 
-// [[Rcpp::export]]
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(List chunks) {
+// [[arrow::export]]
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__View(
+    const std::shared_ptr<arrow::ChunkedArray>& array,
+    const std::shared_ptr<arrow::DataType>& type) {
+  return ValueOrStop(array->View(type));
+}
+
+// [[arrow::export]]
+void ChunkedArray__Validate(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  StopIfNotOk(chunked_array->Validate());
+}
+
+// [[arrow::export]]
+bool ChunkedArray__Equals(const std::shared_ptr<arrow::ChunkedArray>& x,
+                          const std::shared_ptr<arrow::ChunkedArray>& y) {
+  return x->Equals(y);
+}
+
+// [[arrow::export]]
+std::string ChunkedArray__ToString(const std::shared_ptr<arrow::ChunkedArray>& x) {
+  return x->ToString();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(cpp11::list chunks,
+                                                             SEXP s_type) {
   std::vector<std::shared_ptr<arrow::Array>> vec;
-  for (SEXP chunk : chunks) {
-    vec.push_back(Array__from_vector(chunk));
+
+  // the type might be NULL, in which case we need to infer it from the data
+  // we keep track of whether it was inferred or supplied
+  bool type_inferred = Rf_isNull(s_type);
+  R_xlen_t n = XLENGTH(chunks);
+
+  std::shared_ptr<arrow::DataType> type;
+  if (type_inferred) {
+    if (n == 0) {
+      cpp11::stop("type must be specified for empty list");
+    }
+    type = arrow::r::InferArrowType(VECTOR_ELT(chunks, 0));
+  } else {
+    type = cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(s_type);
   }
+
+  if (n == 0) {
+    std::shared_ptr<arrow::Array> array;
+    std::unique_ptr<arrow::ArrayBuilder> type_builder;
+    StopIfNotOk(arrow::MakeBuilder(gc_memory_pool(), type, &type_builder));
+    StopIfNotOk(type_builder->Finish(&array));
+    vec.push_back(array);
+  } else {
+    // the first - might differ from the rest of the loop
+    // because we might have inferred the type from the first element of the list
+    //
+    // this only really matters for dictionary arrays
+    vec.push_back(arrow::r::vec_to_arrow(chunks[0], type, type_inferred));
+
+    for (R_xlen_t i = 1; i < n; i++) {
+      vec.push_back(arrow::r::vec_to_arrow(chunks[i], type, false));
+    }
+  }
+
   return std::make_shared<arrow::ChunkedArray>(std::move(vec));
 }
+
+#endif

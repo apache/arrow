@@ -17,6 +17,9 @@
 
 package org.apache.arrow.vector.ipc;
 
+/**
+ * Exception indicating a problem with an Arrow File (https://arrow.apache.org/docs/format/IPC.html#file-format).
+ */
 public class InvalidArrowFileException extends RuntimeException {
   private static final long serialVersionUID = 1L;
 

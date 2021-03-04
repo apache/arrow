@@ -20,12 +20,12 @@ import { DataType } from './type';
 import { Chunked } from './vector/chunked';
 
 /** @ignore */
-export interface Clonable<R extends Vector> {
+export interface Clonable<R extends AbstractVector> {
     clone(...args: any[]): R;
 }
 
 /** @ignore */
-export interface Sliceable<R extends Vector> {
+export interface Sliceable<R extends AbstractVector> {
     slice(begin?: number, end?: number): R;
 }
 
@@ -35,9 +35,9 @@ export interface Applicative<T extends DataType, R extends Chunked> {
     readonly [Symbol.isConcatSpreadable]: boolean;
 }
 
-export interface Vector<T extends DataType = any>
-    extends Clonable<Vector<T>>,
-            Sliceable<Vector<T>>,
+export interface AbstractVector<T extends DataType = any>
+    extends Clonable<AbstractVector<T>>,
+            Sliceable<AbstractVector<T>>,
             Applicative<T, Chunked<T>> {
 
     readonly TType: T['TType'];
@@ -45,7 +45,7 @@ export interface Vector<T extends DataType = any>
     readonly TValue: T['TValue'];
 }
 
-export abstract class Vector<T extends DataType = any> implements Iterable<T['TValue'] | null> {
+export abstract class AbstractVector<T extends DataType = any> implements Iterable<T['TValue'] | null> {
 
     public abstract readonly data: Data<T>;
     public abstract readonly type: T;
@@ -53,6 +53,7 @@ export abstract class Vector<T extends DataType = any> implements Iterable<T['TV
     public abstract readonly length: number;
     public abstract readonly stride: number;
     public abstract readonly nullCount: number;
+    public abstract readonly byteLength: number;
     public abstract readonly numChildren: number;
 
     public abstract readonly ArrayType: T['ArrayType'];
@@ -66,3 +67,7 @@ export abstract class Vector<T extends DataType = any> implements Iterable<T['TV
     public abstract toArray(): T['TArray'];
     public abstract getChildAt<R extends DataType = any>(index: number): Vector<R> | null;
 }
+
+(AbstractVector.prototype as any).data = null;
+
+export { AbstractVector as Vector };

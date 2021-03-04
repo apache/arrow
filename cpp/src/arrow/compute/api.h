@@ -15,13 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_COMPUTE_API_H
-#define ARROW_COMPUTE_API_H
+// NOTE: API is EXPERIMENTAL and will change without going through a
+// deprecation cycle
 
-#include "arrow/compute/context.h"  // IWYU pragma: export
-#include "arrow/compute/kernel.h"   // IWYU pragma: export
+#pragma once
 
-#include "arrow/compute/kernels/cast.h"  // IWYU pragma: export
-#include "arrow/compute/kernels/hash.h"  // IWYU pragma: export
+/// \defgroup compute-concrete-options Concrete option classes for compute functions
+/// @{
+/// @}
 
-#endif  // ARROW_COMPUTE_API_H
+#include "arrow/compute/api_aggregate.h"  // IWYU pragma: export
+#include "arrow/compute/api_scalar.h"     // IWYU pragma: export
+#include "arrow/compute/api_vector.h"     // IWYU pragma: export
+#include "arrow/compute/cast.h"           // IWYU pragma: export
+#include "arrow/compute/exec.h"           // IWYU pragma: export
+#include "arrow/compute/function.h"       // IWYU pragma: export
+#include "arrow/compute/kernel.h"         // IWYU pragma: export
+#include "arrow/compute/registry.h"       // IWYU pragma: export
+#include "arrow/datum.h"                  // IWYU pragma: export

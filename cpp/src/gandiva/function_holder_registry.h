@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_FUNCTION_HOLDER_REGISTRY_H
-#define GANDIVA_FUNCTION_HOLDER_REGISTRY_H
+#pragma once
 
 #include <functional>
 #include <memory>
@@ -28,6 +27,7 @@
 #include "gandiva/function_holder.h"
 #include "gandiva/like_holder.h"
 #include "gandiva/node.h"
+#include "gandiva/random_generator_holder.h"
 #include "gandiva/to_date_holder.h"
 
 namespace gandiva {
@@ -63,11 +63,11 @@ class FunctionHolderRegistry {
     static map_type maker_map = {
         {"like", LAMBDA_MAKER(LikeHolder)},
         {"to_date", LAMBDA_MAKER(ToDateHolder)},
+        {"random", LAMBDA_MAKER(RandomGeneratorHolder)},
+        {"rand", LAMBDA_MAKER(RandomGeneratorHolder)},
     };
     return maker_map;
   }
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_FUNCTION_HOLDER_REGISTRY_H

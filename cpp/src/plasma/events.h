@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PLASMA_EVENTS
-#define PLASMA_EVENTS
+#pragma once
 
 #include <functional>
 #include <memory>
@@ -58,6 +57,8 @@ class EventLoop {
   using TimerCallback = std::function<int(int64_t)>;
 
   EventLoop();
+
+  ~EventLoop();
 
   /// Add a new file event handler to the event loop.
   ///
@@ -105,5 +106,3 @@ class EventLoop {
 };
 
 }  // namespace plasma
-
-#endif  // PLASMA_EVENTS

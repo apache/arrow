@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_DECIMAL_ADD_IR_BUILDER_H
-#define GANDIVA_DECIMAL_ADD_IR_BUILDER_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -36,6 +35,10 @@ class DecimalIR : public FunctionIRBuilder {
   static Status AddFunctions(Engine* engine);
 
   void EnableTraces() { enable_ir_traces_ = true; }
+
+  llvm::Value* CallDecimalFunction(const std::string& function_name,
+                                   llvm::Type* return_type,
+                                   const std::vector<llvm::Value*>& args);
 
  private:
   /// The intrinsic fn for divide with small divisors is about 10x slower, so not
@@ -143,6 +146,22 @@ class DecimalIR : public FunctionIRBuilder {
   // Build the function for adding decimals.
   Status BuildAdd();
 
+  // Build the function for decimal subtraction.
+  Status BuildSubtract();
+
+  // Build the function for decimal multiplication.
+  Status BuildMultiply();
+
+  // Build the function for decimal division/mod.
+  Status BuildDivideOrMod(const std::string& function_name,
+                          const std::string& internal_name);
+
+  Status BuildCompare(const std::string& function_name,
+                      llvm::ICmpInst::Predicate cmp_instruction);
+
+  Status BuildDecimalFunction(const std::string& function_name, llvm::Type* return_type,
+                              std::vector<NamedArg> in_types);
+
   // Add a trace in IR code.
   void AddTrace(const std::string& fmt, std::vector<llvm::Value*> args);
 
@@ -167,5 +186,3 @@ class DecimalIR : public FunctionIRBuilder {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_FUNCTION_IR_BUILDER_H

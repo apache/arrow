@@ -15,13 +15,20 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace Apache.Arrow
 {
     public partial class Schema
     {
-        public IReadOnlyDictionary<string, Field> Fields { get; }
+        public IReadOnlyDictionary<string, Field> Fields
+        {
+            get => _fieldsDictionary;
+        }
+
+        private readonly Dictionary<string, Field> _fieldsDictionary;
+
         public IReadOnlyDictionary<string, string> Metadata { get; }
 
         public bool HasMetadata =>
@@ -40,11 +47,25 @@ namespace Apache.Arrow
 
             _fields = fields.ToList();
 
-            Fields = fields.ToDictionary(
+            _fieldsDictionary = fields.ToDictionary(
                 field => field.Name, field => field,
                 StringComparer.OrdinalIgnoreCase);
 
             Metadata = metadata?.ToDictionary(kv => kv.Key, kv => kv.Value);
+        }
+
+        internal Schema(List<Field> fields, IReadOnlyDictionary<string, string> metadata, bool copyCollections)
+        {
+            Debug.Assert(fields != null);
+            Debug.Assert(copyCollections == false, "This internal constructor is to not copy the collections.");
+
+            _fields = fields;
+
+            _fieldsDictionary = fields.ToDictionary(
+                field => field.Name, field => field,
+                StringComparer.OrdinalIgnoreCase);
+
+            Metadata = metadata;
         }
 
         public Field GetFieldByIndex(int i)
@@ -53,7 +74,7 @@ namespace Apache.Arrow
         }
 
         public Field GetFieldByName(string name) =>
-            Fields.TryGetValue(name, out var field) ? field : null;
+            Fields.TryGetValue(name, out Field field) ? field : null;
 
         public int GetFieldIndex(string name, StringComparer comparer = default)
         {
@@ -62,6 +83,43 @@ namespace Apache.Arrow
 
             return _fields.IndexOf(
                 _fields.Single(x => comparer.Compare(x.Name, name) == 0));
+        }
+
+        public Schema RemoveField(int fieldIndex)
+        {
+            if (fieldIndex < 0 || fieldIndex >= _fields.Count)
+            {
+                throw new ArgumentException("Invalid fieldIndex", nameof(fieldIndex));
+            }
+
+            IList<Field> fields = Utility.DeleteListElement(_fields, fieldIndex);
+
+            return new Schema(fields, Metadata);
+        }
+
+        public Schema InsertField(int fieldIndex, Field newField)
+        {
+            newField = newField ?? throw new ArgumentNullException(nameof(newField));
+            if (fieldIndex < 0 || fieldIndex > _fields.Count)
+            {
+                throw new ArgumentException(nameof(fieldIndex), $"Invalid fieldIndex {fieldIndex} passed in to Schema.AddField");
+            }
+
+            IList<Field> fields = Utility.AddListElement(_fields, fieldIndex, newField);
+
+            return new Schema(fields, Metadata);
+        }
+
+        public Schema SetField(int fieldIndex, Field newField)
+        {
+            if (fieldIndex <0 || fieldIndex >= Fields.Count)
+            {
+                throw new ArgumentException($"Invalid fieldIndex {fieldIndex} passed in to Schema.SetColumn");
+            }
+
+            IList<Field> fields = Utility.SetListElement(_fields, fieldIndex, newField);
+
+            return new Schema(fields, Metadata);
         }
     }
 }

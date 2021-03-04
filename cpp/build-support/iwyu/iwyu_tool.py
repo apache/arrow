@@ -140,6 +140,7 @@ FORMATTERS = {
     'clang': clang_formatter
 }
 
+
 def get_output(cwd, command):
     """ Run the given command and return its output as a string. """
     process = subprocess.Popen(command,
@@ -203,6 +204,7 @@ def main(compilation_db_path, source_files, verbose, formatter, iwyu_args):
             if matches:
                 entries.extend(matches)
             else:
+                print("{} not in compilation database".format(source))
                 # TODO: As long as there is no complete compilation database available this check cannot be performed
                 pass
                 #print('WARNING: \'%s\' not found in compilation database.', source)

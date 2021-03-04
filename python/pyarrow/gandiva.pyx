@@ -17,6 +17,7 @@
 
 # cython: profile=False
 # distutils: language = c++
+# cython: language_level = 3
 # cython: embedsignature = True
 
 from libcpp cimport bool as c_bool, nullptr
@@ -27,15 +28,19 @@ from libcpp.unordered_set cimport unordered_set as c_unordered_set
 from libc.stdint cimport int64_t, int32_t, uint8_t, uintptr_t
 
 from pyarrow.includes.libarrow cimport *
-from pyarrow.compat import frombytes
 from pyarrow.lib cimport (Array, DataType, Field, MemoryPool, RecordBatch,
                           Schema, check_status, pyarrow_wrap_array,
-                          pyarrow_wrap_data_type, ensure_type)
+                          pyarrow_wrap_data_type, ensure_type, _Weakrefable)
+from pyarrow.lib import frombytes
 
 from pyarrow.includes.libgandiva cimport (
     CCondition, CExpression,
     CNode, CProjector, CFilter,
     CSelectionVector,
+    CSelectionVector_Mode,
+    _ensure_selection_mode,
+    CConfiguration,
+    CConfigurationBuilder,
     TreeExprBuilder_MakeExpression,
     TreeExprBuilder_MakeFunction,
     TreeExprBuilder_MakeBoolLiteral,
@@ -73,8 +78,7 @@ from pyarrow.includes.libgandiva cimport (
     CFunctionSignature,
     GetRegisteredFunctionSignatures)
 
-
-cdef class Node:
+cdef class Node(_Weakrefable):
     cdef:
         shared_ptr[CNode] node
 
@@ -89,14 +93,14 @@ cdef class Node:
         self.node = node
         return self
 
-cdef class Expression:
+cdef class Expression(_Weakrefable):
     cdef:
         shared_ptr[CExpression] expression
 
     cdef void init(self, shared_ptr[CExpression] expression):
         self.expression = expression
 
-cdef class Condition:
+cdef class Condition(_Weakrefable):
     cdef:
         shared_ptr[CCondition] condition
 
@@ -111,7 +115,7 @@ cdef class Condition:
         self.condition = condition
         return self
 
-cdef class SelectionVector:
+cdef class SelectionVector(_Weakrefable):
     cdef:
         shared_ptr[CSelectionVector] selection_vector
 
@@ -129,7 +133,7 @@ cdef class SelectionVector:
         cdef shared_ptr[CArray] result = self.selection_vector.get().ToArray()
         return pyarrow_wrap_array(result)
 
-cdef class Projector:
+cdef class Projector(_Weakrefable):
     cdef:
         shared_ptr[CProjector] projector
         MemoryPool pool
@@ -146,17 +150,27 @@ cdef class Projector:
         self.pool = pool
         return self
 
-    def evaluate(self, RecordBatch batch):
+    @property
+    def llvm_ir(self):
+        return self.projector.get().DumpIR().decode()
+
+    def evaluate(self, RecordBatch batch, SelectionVector selection=None):
         cdef vector[shared_ptr[CArray]] results
-        check_status(self.projector.get().Evaluate(
-            batch.sp_batch.get()[0], self.pool.pool, &results))
+        if selection is None:
+            check_status(self.projector.get().Evaluate(
+                batch.sp_batch.get()[0], self.pool.pool, &results))
+        else:
+            check_status(
+                self.projector.get().Evaluate(
+                    batch.sp_batch.get()[0], selection.selection_vector.get(),
+                    self.pool.pool, &results))
         cdef shared_ptr[CArray] result
         arrays = []
         for result in results:
             arrays.append(pyarrow_wrap_array(result))
         return arrays
 
-cdef class Filter:
+cdef class Filter(_Weakrefable):
     cdef:
         shared_ptr[CFilter] filter
 
@@ -170,6 +184,10 @@ cdef class Filter:
         cdef Filter self = Filter.__new__(Filter)
         self.filter = filter
         return self
+
+    @property
+    def llvm_ir(self):
+        return self.filter.get().DumpIR().decode()
 
     def evaluate(self, RecordBatch batch, MemoryPool pool, dtype='int32'):
         cdef:
@@ -194,7 +212,7 @@ cdef class Filter:
         return SelectionVector.create(selection)
 
 
-cdef class TreeExprBuilder:
+cdef class TreeExprBuilder(_Weakrefable):
 
     def make_literal(self, value, dtype):
         cdef:
@@ -386,22 +404,27 @@ cdef class TreeExprBuilder:
             condition.node)
         return Condition.create(r)
 
-cpdef make_projector(Schema schema, children, MemoryPool pool):
+cpdef make_projector(Schema schema, children, MemoryPool pool,
+                     str selection_mode="NONE"):
     cdef c_vector[shared_ptr[CExpression]] c_children
     cdef Expression child
     for child in children:
         c_children.push_back(child.expression)
     cdef shared_ptr[CProjector] result
-    check_status(Projector_Make(schema.sp_schema, c_children,
-                                &result))
+    check_status(
+        Projector_Make(schema.sp_schema, c_children,
+                       _ensure_selection_mode(selection_mode),
+                       CConfigurationBuilder.DefaultConfiguration(),
+                       &result))
     return Projector.create(result, pool)
 
 cpdef make_filter(Schema schema, Condition condition):
     cdef shared_ptr[CFilter] result
-    check_status(Filter_Make(schema.sp_schema, condition.condition, &result))
+    check_status(
+        Filter_Make(schema.sp_schema, condition.condition, &result))
     return Filter.create(result)
 
-cdef class FunctionSignature:
+cdef class FunctionSignature(_Weakrefable):
     """
     Signature of a Gandiva function including name, parameter types
     and return type.

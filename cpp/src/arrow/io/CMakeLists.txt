@@ -18,27 +18,22 @@
 # ----------------------------------------------------------------------
 # arrow_io : Arrow IO interfaces
 
-ADD_ARROW_TEST(buffered-test
-  PREFIX "arrow-io")
-ADD_ARROW_TEST(compressed-test
-  PREFIX "arrow-io")
-ADD_ARROW_TEST(file-test
-  PREFIX "arrow-io")
+add_arrow_test(buffered_test PREFIX "arrow-io")
+add_arrow_test(compressed_test PREFIX "arrow-io")
+add_arrow_test(file_test PREFIX "arrow-io")
 
-if (ARROW_HDFS AND NOT ARROW_BOOST_HEADER_ONLY)
-  ADD_ARROW_TEST(hdfs-test NO_VALGRIND
-    PREFIX "arrow-io")
+if(ARROW_HDFS)
+  add_arrow_test(hdfs_test NO_VALGRIND PREFIX "arrow-io")
 endif()
 
-ADD_ARROW_TEST(memory-test
-  PREFIX "arrow-io")
-ADD_ARROW_TEST(readahead-test
-  PREFIX "arrow-io")
+add_arrow_test(memory_test PREFIX "arrow-io")
 
-ADD_ARROW_BENCHMARK(file-benchmark
-  PREFIX "arrow-io")
-ADD_ARROW_BENCHMARK(memory-benchmark
-  PREFIX "arrow-io")
+add_arrow_benchmark(file_benchmark PREFIX "arrow-io")
+
+if(NOT (${ARROW_SIMD_LEVEL} STREQUAL "NONE"))
+  # This benchmark either requires SSE4.2 or ARMV8 SIMD to be enabled
+  add_arrow_benchmark(memory_benchmark PREFIX "arrow-io")
+endif()
 
 # Headers: top level
-ARROW_INSTALL_ALL_HEADERS("arrow/io")
+arrow_install_all_headers("arrow/io")

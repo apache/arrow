@@ -37,14 +37,15 @@ class TableTest < Test::Unit::TestCase
     ]
     @count_array = Arrow::ChunkedArray.new(count_arrays)
     @visible_array = Arrow::ChunkedArray.new(visible_arrays)
-    @count_column = Arrow::Column.new(@count_field, @count_array)
-    @visible_column = Arrow::Column.new(@visible_field, @visible_array)
-    @table = Arrow::Table.new(schema, [@count_column, @visible_column])
+    @table = Arrow::Table.new(schema, [@count_array, @visible_array])
   end
 
   test("#columns") do
-    assert_equal(["count", "visible"],
-                 @table.columns.collect(&:name))
+    assert_equal([
+                   Arrow::Column.new(@table, 0),
+                   Arrow::Column.new(@table, 1),
+                 ],
+                 @table.columns)
   end
 
   sub_test_case("#slice") do
@@ -53,11 +54,12 @@ class TableTest < Test::Unit::TestCase
       target_rows = Arrow::BooleanArray.new(target_rows_raw)
       assert_equal(<<-TABLE, @table.slice(target_rows).to_s)
 	count	visible
-0	    2	false  
-1	    4	       
-2	   16	true   
-3	   64	       
-4	  128	       
+0	     	       
+1	    2	false  
+2	    4	       
+3	   16	true   
+4	   64	       
+5	  128	       
       TABLE
     end
 
@@ -65,26 +67,34 @@ class TableTest < Test::Unit::TestCase
       target_rows_raw = [nil, true, true, false, true, false, true, true]
       assert_equal(<<-TABLE, @table.slice(target_rows_raw).to_s)
 	count	visible
-0	    2	false  
-1	    4	       
-2	   16	true   
-3	   64	       
-4	  128	       
+0	     	       
+1	    2	false  
+2	    4	       
+3	   16	true   
+4	   64	       
+5	  128	       
       TABLE
     end
 
     test("Integer: positive") do
-      assert_equal(<<-TABLE, @table.slice(2).to_s)
-	count	visible
-0	    4	       
-      TABLE
+      assert_equal({"count" => 128, "visible" => nil},
+                   @table.slice(@table.n_rows - 1).to_h)
     end
 
     test("Integer: negative") do
-      assert_equal(<<-TABLE, @table.slice(-1).to_s)
-	count	visible
-0	  128	       
-      TABLE
+      assert_equal({"count" => 1, "visible" => true},
+                   @table.slice(-@table.n_rows).to_h)
+    end
+
+    test("Integer: out of index") do
+      assert_equal([
+                     nil,
+                     nil,
+                   ],
+                   [
+                     @table.slice(@table.n_rows),
+                     @table.slice(-(@table.n_rows + 1)),
+                   ])
     end
 
     test("Range: positive: include end") do
@@ -145,17 +155,35 @@ class TableTest < Test::Unit::TestCase
         end
       end
 
-      test("too many arguments: with block") do
+      test("too many arguments") do
         message = "wrong number of arguments (given 3, expected 1..2)"
         assert_raise(ArgumentError.new(message)) do
           @table.slice(1, 2, 3)
         end
       end
 
-      test("too many arguments: without block") do
-        message = "wrong number of arguments (given 3, expected 0..2)"
+      test("arguments: with block") do
+        message = "must not specify both arguments and block"
         assert_raise(ArgumentError.new(message)) do
-          @table.slice(1, 2, 3) {}
+          @table.slice(1, 2) {}
+        end
+      end
+
+      test("offset: too small") do
+        n_rows = @table.n_rows
+        offset = -(n_rows + 1)
+        message = "offset is out of range (-#{n_rows + 1},#{n_rows}): #{offset}"
+        assert_raise(ArgumentError.new(message)) do
+          @table.slice(offset, 1)
+        end
+      end
+
+      test("offset: too large") do
+        n_rows = @table.n_rows
+        offset = n_rows
+        message = "offset is out of range (-#{n_rows + 1},#{n_rows}): #{offset}"
+        assert_raise(ArgumentError.new(message)) do
+          @table.slice(offset, 1)
         end
       end
     end
@@ -163,11 +191,18 @@ class TableTest < Test::Unit::TestCase
 
   sub_test_case("#[]") do
     test("[String]") do
-      assert_equal(@count_column, @table["count"])
+      assert_equal(Arrow::Column.new(@table, 0),
+                   @table["count"])
     end
 
     test("[Symbol]") do
-      assert_equal(@visible_column, @table[:visible])
+      assert_equal(Arrow::Column.new(@table, 1),
+                   @table[:visible])
+    end
+
+    test("[Integer]") do
+      assert_equal(Arrow::Column.new(@table, 1),
+                   @table[-1])
     end
   end
 
@@ -254,7 +289,8 @@ class TableTest < Test::Unit::TestCase
   end
 
   test("column name getter") do
-    assert_equal(@visible_column, @table.visible)
+    assert_equal(Arrow::Column.new(@table, 1),
+                 @table.visible)
   end
 
   sub_test_case("#remove_column") do
@@ -402,10 +438,22 @@ class TableTest < Test::Unit::TestCase
         assert_equal(@table, Arrow::Table.load(output))
       end
 
+      def test_arrow_file
+        output = create_output(".arrow")
+        @table.save(output, format: :arrow_file)
+        assert_equal(@table, Arrow::Table.load(output, format: :arrow_file))
+      end
+
       def test_batch
         output = create_output(".arrow")
         @table.save(output, format: :batch)
         assert_equal(@table, Arrow::Table.load(output, format: :batch))
+      end
+
+      def test_arrow_streaming
+        output = create_output(".arrow")
+        @table.save(output, format: :arrow_streaming)
+        assert_equal(@table, Arrow::Table.load(output, format: :arrow_streaming))
       end
 
       def test_stream
@@ -432,6 +480,15 @@ class TableTest < Test::Unit::TestCase
                      Arrow::Table.load(output,
                                        format: :csv,
                                        compression: :gzip,
+                                       schema: @table.schema))
+      end
+
+      def test_tsv
+        output = create_output(".tsv")
+        @table.save(output, format: :tsv)
+        assert_equal(@table,
+                     Arrow::Table.load(output,
+                                       format: :tsv,
                                        schema: @table.schema))
       end
     end
@@ -464,18 +521,27 @@ class TableTest < Test::Unit::TestCase
                                            compression: :gzip,
                                            schema: @table.schema))
           end
+
+          test("tsv") do
+            output = create_output(".tsv")
+            @table.save(output)
+            assert_equal(@table,
+                         Arrow::Table.load(output,
+                                           format: :tsv,
+                                           schema: @table.schema))
+          end
         end
 
         sub_test_case("load: auto detect") do
-          test("batch") do
+          test("arrow: file") do
             output = create_output(".arrow")
-            @table.save(output, format: :batch)
+            @table.save(output, format: :arrow_file)
             assert_equal(@table, Arrow::Table.load(output))
           end
 
-          test("stream") do
+          test("arrow: streaming") do
             output = create_output(".arrow")
-            @table.save(output, format: :stream)
+            @table.save(output, format: :arrow_streaming)
             assert_equal(@table, Arrow::Table.load(output))
           end
 
@@ -492,7 +558,8 @@ class TableTest < Test::Unit::TestCase
 
           test("csv.gz") do
             file = Tempfile.new(["red-arrow", ".csv.gz"])
-            Zlib::GzipWriter.wrap(file) do |gz|
+            file.close
+            Zlib::GzipWriter.open(file.path) do |gz|
               gz.write(<<-CSV)
 name,score
 alice,10
@@ -505,7 +572,25 @@ chris,-1
 0	alice	   10
 1	bob 	   29
 2	chris	   -1
-          TABLE
+            TABLE
+          end
+
+          test("tsv") do
+            file = Tempfile.new(["red-arrow", ".tsv"])
+            file.puts(<<-TSV)
+name\tscore
+alice\t10
+bob\t29
+chris\t-1
+            TSV
+            file.close
+            table = Arrow::Table.load(file.path)
+            assert_equal(<<-TABLE, table.to_s)
+	name	score
+0	alice	   10
+1	bob 	   29
+2	chris	   -1
+            TABLE
           end
         end
       end
@@ -595,6 +680,109 @@ visible: false
           @table.to_s(format: :invalid)
         end
       end
+    end
+
+    sub_test_case("#==") do
+      test("Arrow::Table") do
+        assert do
+          @table == @table
+        end
+      end
+
+      test("not Arrow::Table") do
+        assert do
+          not (@table == 29)
+        end
+      end
+    end
+  end
+
+  sub_test_case("#filter") do
+    def setup
+      super
+      @options = Arrow::FilterOptions.new
+      @options.null_selection_behavior = :emit_null
+    end
+
+    test("Array: boolean") do
+      filter = [nil, true, true, false, true, false, true, true]
+      assert_equal(<<-TABLE, @table.filter(filter, @options).to_s)
+	count	visible
+0	     	       
+1	    2	false  
+2	    4	       
+3	   16	true   
+4	   64	       
+5	  128	       
+      TABLE
+    end
+
+    test("Arrow::BooleanArray") do
+      array = [nil, true, true, false, true, false, true, true]
+      filter = Arrow::BooleanArray.new(array)
+      assert_equal(<<-TABLE, @table.filter(filter, @options).to_s)
+	count	visible
+0	     	       
+1	    2	false  
+2	    4	       
+3	   16	true   
+4	   64	       
+5	  128	       
+      TABLE
+    end
+
+    test("Arrow::ChunkedArray") do
+      filter_chunks = [
+        Arrow::BooleanArray.new([nil, true, true]),
+        Arrow::BooleanArray.new([false, true, false]),
+        Arrow::BooleanArray.new([true, true]),
+      ]
+      filter = Arrow::ChunkedArray.new(filter_chunks)
+      assert_equal(<<-TABLE, @table.filter(filter, @options).to_s)
+	count	visible
+0	     	       
+1	    2	false  
+2	    4	       
+3	   16	true   
+4	   64	       
+5	  128	       
+      TABLE
+    end
+  end
+
+  sub_test_case("#take") do
+    test("Arrow: boolean") do
+      indices = [1, 0, 2]
+      assert_equal(<<-TABLE, @table.take(indices).to_s)
+	count	visible
+0	    2	false  
+1	    1	true   
+2	    4	       
+      TABLE
+    end
+
+    test("Arrow::Array") do
+      indices = Arrow::Int16Array.new([1, 0, 2])
+      assert_equal(<<-TABLE, @table.take(indices).to_s)
+	count	visible
+0	    2	false  
+1	    1	true   
+2	    4	       
+      TABLE
+    end
+
+    test("Arrow::ChunkedArray") do
+      chunks = [
+        Arrow::Int16Array.new([1, 0]),
+        Arrow::Int16Array.new([2])
+      ]
+      indices = Arrow::ChunkedArray.new(chunks)
+      assert_equal(<<-TABLE, @table.take(indices).to_s)
+	count	visible
+0	    2	false  
+1	    1	true   
+2	    4	       
+      TABLE
     end
   end
 end

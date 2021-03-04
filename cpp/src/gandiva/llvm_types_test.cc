@@ -53,13 +53,9 @@ TEST_F(TestLLVMTypes, TestFound) {
 }
 
 TEST_F(TestLLVMTypes, TestNotFound) {
-  EXPECT_EQ(types_->IRType(arrow::Type::type::UNION), nullptr);
+  EXPECT_EQ(types_->IRType(arrow::Type::SPARSE_UNION), nullptr);
+  EXPECT_EQ(types_->IRType(arrow::Type::DENSE_UNION), nullptr);
   EXPECT_EQ(types_->DataVecType(arrow::null()), nullptr);
-}
-
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
 }
 
 }  // namespace gandiva

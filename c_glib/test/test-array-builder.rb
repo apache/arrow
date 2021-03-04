@@ -15,9 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
+module ArrayBuilderAppendValueBytesTests
+  def test_append
+    builder = create_builder
+    value = "\x00\xff"
+    builder.append_value_bytes(GLib::Bytes.new(value))
+    assert_equal(build_array([value]),
+                 builder.finish)
+  end
+end
+
 module ArrayBuilderAppendValuesTests
   def test_empty
-    require_gi(1, 42, 0)
     builder = create_builder
     builder.append_values([])
     assert_equal(build_array([]),
@@ -25,7 +34,6 @@ module ArrayBuilderAppendValuesTests
   end
 
   def test_values_only
-    require_gi(1, 42, 0)
     builder = create_builder
     builder.append_values(sample_values)
     assert_equal(build_array(sample_values),
@@ -35,6 +43,94 @@ module ArrayBuilderAppendValuesTests
   def test_with_is_valids
     builder = create_builder
     builder.append_values(sample_values, [true, true, false])
+    actual_sample_values = sample_values.dup
+    actual_sample_values[2] = nil
+    assert_equal(build_array(actual_sample_values),
+                 builder.finish)
+  end
+
+  def test_with_large_is_valids
+    builder = create_builder
+    n = 10000
+    large_sample_values = sample_values * n
+    large_is_valids = [true, true, false] * n
+    builder.append_values(large_sample_values, large_is_valids)
+    actual_sample_values = sample_values.dup
+    actual_sample_values[2] = nil
+    actual_large_sample_values = actual_sample_values * n
+    assert_equal(build_array(actual_large_sample_values),
+                 builder.finish)
+  end
+
+  def test_mismatch_length
+    builder = create_builder
+    message = "[#{builder_class_name}][append-values]: " +
+      "values length and is_valids length must be equal: <3> != <2>"
+    assert_raise(Arrow::Error::Invalid.new(message)) do
+      builder.append_values(sample_values, [true, true])
+    end
+  end
+end
+
+module ArrayBuilderAppendValuesWithNullTests
+  def test_values_only
+    builder = create_builder
+    builder.append_values(sample_values_with_null)
+    assert_equal(build_array(sample_values_with_null),
+                 builder.finish)
+  end
+
+  def test_large_values_only
+    builder = create_builder
+    n = 10000
+    large_sample_values_with_null = sample_values_with_null * n
+    builder.append_values(large_sample_values_with_null)
+    assert_equal(build_array(large_sample_values_with_null),
+                 builder.finish)
+  end
+
+  def test_with_is_valids
+    builder = create_builder
+    builder.append_values(sample_values_with_null, [true, true, false])
+    actual_sample_values = sample_values_with_null.dup
+    actual_sample_values[2] = nil
+    assert_equal(build_array(actual_sample_values),
+                 builder.finish)
+  end
+
+  def test_with_large_is_valids
+    builder = create_builder
+    n = 10000
+    large_sample_values = sample_values_with_null * n
+    large_is_valids = [true, true, false] * n
+    builder.append_values(large_sample_values, large_is_valids)
+    actual_sample_values = sample_values_with_null.dup
+    actual_sample_values[2] = nil
+    actual_large_sample_values = actual_sample_values * n
+    assert_equal(build_array(actual_large_sample_values),
+                 builder.finish)
+  end
+end
+
+module ArrayBuilderAppendValuesPackedTests
+  def test_empty
+    builder = create_builder
+    builder.append_values_packed("")
+    assert_equal(build_array([]),
+                 builder.finish)
+  end
+
+  def test_values_only
+    builder = create_builder
+    builder.append_values_packed(pack_values(sample_values))
+    assert_equal(build_array(sample_values),
+                 builder.finish)
+  end
+
+  def test_with_is_valids
+    builder = create_builder
+    builder.append_values_packed(pack_values(sample_values),
+                                 [true, true, false])
     sample_values_with_null = sample_values
     sample_values_with_null[2] = nil
     assert_equal(build_array(sample_values_with_null),
@@ -46,7 +142,8 @@ module ArrayBuilderAppendValuesTests
     n = 10000
     large_sample_values = sample_values * n
     large_is_valids = [true, true, false] * n
-    builder.append_values(large_sample_values, large_is_valids)
+    builder.append_values_packed(pack_values(large_sample_values),
+                                 large_is_valids)
     sample_values_with_null = sample_values
     sample_values_with_null[2] = nil
     large_sample_values_with_null = sample_values_with_null * n
@@ -56,10 +153,58 @@ module ArrayBuilderAppendValuesTests
 
   def test_mismatch_length
     builder = create_builder
-    message = "[#{builder_class_name}][append-values]: " +
+    message = "[fixed-size-binary-array-builder][append-values-packed]: " +
+      "the number of values and is_valids length must be equal: <3> != <2>"
+    assert_raise(Arrow::Error::Invalid.new(message)) do
+      builder.append_values_packed(pack_values(sample_values),
+                                   [true, true])
+    end
+  end
+end
+
+module ArrayBuilderAppendStringsTests
+  def test_empty
+    builder = create_builder
+    builder.append_strings([])
+    assert_equal(build_array([]),
+                 builder.finish)
+  end
+
+  def test_strings_only
+    builder = create_builder
+    builder.append_strings(sample_values)
+    assert_equal(build_array(sample_values),
+                 builder.finish)
+  end
+
+  def test_with_is_valids
+    builder = create_builder
+    builder.append_strings(sample_values, [true, true, false])
+    sample_values_with_null = sample_values
+    sample_values_with_null[2] = nil
+    assert_equal(build_array(sample_values_with_null),
+                 builder.finish)
+  end
+
+  def test_with_large_is_valids
+    builder = create_builder
+    n = 10000
+    large_sample_values = sample_values * n
+    large_is_valids = [true, true, false] * n
+    builder.append_strings(large_sample_values, large_is_valids)
+    sample_values_with_null = sample_values
+    sample_values_with_null[2] = nil
+    large_sample_values_with_null = sample_values_with_null * n
+    assert_equal(build_array(large_sample_values_with_null),
+                 builder.finish)
+  end
+
+  def test_mismatch_length
+    builder = create_builder
+    message = "[#{builder_class_name}][append-strings]: " +
       "values length and is_valids length must be equal: <3> != <2>"
     assert_raise(Arrow::Error::Invalid.new(message)) do
-      builder.append_values(sample_values, [true, true])
+      builder.append_strings(sample_values, [true, true])
     end
   end
 end
@@ -81,10 +226,44 @@ module ArrayBuilderAppendNullsTests
 
   def test_negative
     builder = create_builder
-    message = "[#{builder_class_name}][append-nulls]: " +
+    message = "[array-builder][append-nulls]: " +
       "the number of nulls must be 0 or larger: <-1>"
     assert_raise(Arrow::Error::Invalid.new(message)) do
       builder.append_nulls(-1)
+    end
+  end
+end
+
+module ArrayBuilderAppendEmptyValueTests
+  def test_append
+    builder = create_builder
+    builder.append_empty_value
+    assert_equal(build_array([empty_value]),
+                 builder.finish)
+  end
+end
+
+module ArrayBuilderAppendEmptyValuesTests
+  def test_zero
+    builder = create_builder
+    builder.append_empty_values(0)
+    assert_equal(build_array([]),
+                 builder.finish)
+  end
+
+  def test_positive
+    builder = create_builder
+    builder.append_empty_values(3)
+    assert_equal(build_array([empty_value] * 3),
+                 builder.finish)
+  end
+
+  def test_negative
+    builder = create_builder
+    message = "[array-builder][append-empty-values]: " +
+      "the number of empty values must be 0 or larger: <-1>"
+    assert_raise(Arrow::Error::Invalid.new(message)) do
+      builder.append_empty_values(-1)
     end
   end
 end
@@ -101,6 +280,70 @@ module ArrayBuilderValueTypeTests
   end
 end
 
+module ArrayBuilderCapacityControlTests
+  def test_resize
+    builder = create_builder
+    before_capacity = builder.capacity
+    builder.resize(before_capacity + 100)
+    after_capacity = builder.capacity
+
+    assert do
+      after_capacity >= before_capacity + 100
+    end
+  end
+
+  def test_reserve
+    builder = create_builder
+    before_capacity = builder.capacity
+    builder.reserve(100)
+    after_capacity = builder.capacity
+
+    assert do
+      after_capacity >= before_capacity + 100
+    end
+  end
+end
+
+module ArrayBuilderLengthTests
+  def test_length
+    builder = create_builder
+    sample_values_with_null = sample_values
+    sample_values_with_null[2, 0] = nil
+    lengths = [builder.length]
+    sample_values_with_null.each do |value|
+      if value.nil?
+        builder.append_null
+      else
+        builder.append_value(value)
+      end
+      lengths << builder.length
+    end
+    expected_lengths = [*0 ... (sample_values_with_null.length+1)]
+    assert_equal(expected_lengths,
+                 lengths)
+  end
+end
+
+module ArrayBuilderNNullsTests
+  def test_n_nulls
+    builder = create_builder
+    sample_values_with_null = sample_values
+    sample_values_with_null[2, 0] = nil
+    null_counts = [builder.n_nulls]
+    sample_values_with_null.each do |value|
+      if value.nil?
+        builder.append_null
+      else
+        builder.append_value(value)
+      end
+      null_counts << builder.n_nulls
+    end
+    expected_null_counts = [0, 0, 0] + [1] * (sample_values_with_null.length - 2)
+    assert_equal(expected_null_counts,
+                 null_counts)
+  end
+end
+
 class TestArrayBuilder < Test::Unit::TestCase
   include Helper::Buildable
   include Helper::Omittable
@@ -111,6 +354,73 @@ class TestArrayBuilder < Test::Unit::TestCase
 
   def build_array(values)
     super(create_builder, values)
+  end
+
+  sub_test_case("NullArrayBuilder") do
+    def create_builder
+      Arrow::NullArrayBuilder.new
+    end
+
+    def value_data_type
+      Arrow::NullDataType.new
+    end
+
+    def builder_class_name
+      "null-array-builder"
+    end
+
+    def sample_values
+      [nil, nil, nil]
+    end
+
+    def empty_value
+      nil
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
+    end
+
+    test("#append_null") do
+      builder = create_builder
+      builder.append_null
+      assert_equal(build_array([nil]),
+                   builder.finish)
+    end
+
+    sub_test_case("#append_nulls") do
+      include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    test("#length") do
+      builder = create_builder
+      before = builder.length
+      builder.append_null
+      after = builder.length
+      assert_equal(1,
+                   after - before)
+    end
+
+    test("#n_nulls") do
+      builder = create_builder
+      before = builder.length
+      builder.append_null
+      after = builder.length
+      assert_equal(1,
+                   after - before)
+    end
   end
 
   sub_test_case("BooleanArrayBuilder") do
@@ -130,6 +440,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       [true, false, true]
     end
 
+    def empty_value
+      false
+    end
+
     sub_test_case("value type") do
       include ArrayBuilderValueTypeTests
     end
@@ -140,6 +454,26 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
     end
   end
 
@@ -160,6 +494,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       [1, -2, 3]
     end
 
+    def empty_value
+      0
+    end
+
     sub_test_case("value type") do
       include ArrayBuilderValueTypeTests
     end
@@ -170,6 +508,26 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
     end
   end
 
@@ -190,6 +548,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       [1, 2, 3]
     end
 
+    def empty_value
+      0
+    end
+
     sub_test_case("value type") do
       include ArrayBuilderValueTypeTests
     end
@@ -200,6 +562,26 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
     end
   end
 
@@ -220,6 +602,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       [1, -2, 3]
     end
 
+    def empty_value
+      0
+    end
+
     sub_test_case("value type") do
       include ArrayBuilderValueTypeTests
     end
@@ -230,6 +616,26 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
     end
   end
 
@@ -250,6 +656,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       [1, 2, 3]
     end
 
+    def empty_value
+      0
+    end
+
     sub_test_case("value type") do
       include ArrayBuilderValueTypeTests
     end
@@ -260,6 +670,26 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
     end
   end
 
@@ -280,6 +710,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       [1, -2, 3]
     end
 
+    def empty_value
+      0
+    end
+
     sub_test_case("value type") do
       include ArrayBuilderValueTypeTests
     end
@@ -290,6 +724,26 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
     end
   end
 
@@ -310,6 +764,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       [1, 2, 3]
     end
 
+    def empty_value
+      0
+    end
+
     sub_test_case("value type") do
       include ArrayBuilderValueTypeTests
     end
@@ -320,6 +778,26 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
     end
   end
 
@@ -340,6 +818,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       [1, -2, 3]
     end
 
+    def empty_value
+      0
+    end
+
     sub_test_case("value type") do
       include ArrayBuilderValueTypeTests
     end
@@ -350,6 +832,26 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
     end
   end
 
@@ -370,6 +872,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       [1, 2, 3]
     end
 
+    def empty_value
+      0
+    end
+
     sub_test_case("value type") do
       include ArrayBuilderValueTypeTests
     end
@@ -380,6 +886,26 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
     end
   end
 
@@ -400,6 +926,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       [1, -2, 3]
     end
 
+    def empty_value
+      0
+    end
+
     sub_test_case("value type") do
       include ArrayBuilderValueTypeTests
     end
@@ -410,6 +940,26 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
     end
   end
 
@@ -430,6 +980,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       [1, 2, 3]
     end
 
+    def empty_value
+      0
+    end
+
     sub_test_case("value type") do
       include ArrayBuilderValueTypeTests
     end
@@ -440,6 +994,26 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
     end
   end
 
@@ -460,6 +1034,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       [1.1, -2.2, 3.3]
     end
 
+    def empty_value
+      0.0
+    end
+
     sub_test_case("value type") do
       include ArrayBuilderValueTypeTests
     end
@@ -470,6 +1048,26 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
     end
   end
 
@@ -490,6 +1088,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       [1.1, -2.2, 3.3]
     end
 
+    def empty_value
+      0.0
+    end
+
     sub_test_case("value type") do
       include ArrayBuilderValueTypeTests
     end
@@ -500,6 +1102,26 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
     end
   end
 
@@ -524,6 +1146,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       ]
     end
 
+    def empty_value
+      0
+    end
+
     sub_test_case("value type") do
       include ArrayBuilderValueTypeTests
     end
@@ -534,6 +1160,26 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
     end
   end
 
@@ -558,6 +1204,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       ]
     end
 
+    def empty_value
+      0
+    end
+
     sub_test_case("value type") do
       include ArrayBuilderValueTypeTests
     end
@@ -568,6 +1218,26 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
     end
   end
 
@@ -593,6 +1263,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       ]
     end
 
+    def empty_value
+      0
+    end
+
     sub_test_case("value type") do
       include ArrayBuilderValueTypeTests
     end
@@ -603,6 +1277,26 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
     end
   end
 
@@ -628,6 +1322,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       ]
     end
 
+    def empty_value
+      0
+    end
+
     sub_test_case("value type") do
       include ArrayBuilderValueTypeTests
     end
@@ -638,6 +1336,26 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
     end
   end
 
@@ -663,6 +1381,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       ]
     end
 
+    def empty_value
+      0
+    end
+
     sub_test_case("value type") do
       include ArrayBuilderValueTypeTests
     end
@@ -673,6 +1395,158 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_nulls") do
       include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
+    end
+  end
+
+  sub_test_case("BinaryArrayBuilder") do
+    def create_builder
+      Arrow::BinaryArrayBuilder.new
+    end
+
+    def value_data_type
+      Arrow::BinaryDataType.new
+    end
+
+    def builder_class_name
+      "binary-array-builder"
+    end
+
+    def sample_values
+      [
+        "\x00\x01",
+        "\xfe\xff",
+        "",
+      ]
+    end
+
+    def empty_value
+      ""
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
+    end
+
+    sub_test_case("#append_value_bytes") do
+      include ArrayBuilderAppendValueBytesTests
+    end
+
+    sub_test_case("#append_values") do
+      include ArrayBuilderAppendValuesTests
+
+      def setup
+        require_gi_bindings(3, 4, 1)
+      end
+    end
+
+    sub_test_case("#append_nulls") do
+      include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
+    end
+  end
+
+  sub_test_case("LargeBinaryArrayBuilder") do
+    def create_builder
+      Arrow::LargeBinaryArrayBuilder.new
+    end
+
+    def value_data_type
+      Arrow::LargeBinaryDataType.new
+    end
+
+    def builder_class_name
+      "large-binary-array-builder"
+    end
+
+    def sample_values
+      [
+        "\x00\x01",
+        "\xfe\xff",
+        "",
+      ]
+    end
+
+    def empty_value
+      ""
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
+    end
+
+    sub_test_case("#append_value_bytes") do
+      include ArrayBuilderAppendValueBytesTests
+    end
+
+    sub_test_case("#append_values") do
+      include ArrayBuilderAppendValuesTests
+
+      def setup
+        require_gi_bindings(3, 4, 1)
+      end
+    end
+
+    sub_test_case("#append_nulls") do
+      include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
     end
   end
 
@@ -697,12 +1571,374 @@ class TestArrayBuilder < Test::Unit::TestCase
       ]
     end
 
+    def empty_value
+      ""
+    end
+
     sub_test_case("value type") do
       include ArrayBuilderValueTypeTests
     end
 
     sub_test_case("#append_values") do
       include ArrayBuilderAppendValuesTests
+
+      def setup
+        require_gi_bindings(3, 4, 1)
+      end
+
+      def builder_class_name
+        "binary-array-builder"
+      end
+    end
+
+    sub_test_case("#append_strings") do
+      include ArrayBuilderAppendStringsTests
+    end
+
+    sub_test_case("#append_nulls") do
+      include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
+    end
+  end
+
+  sub_test_case("LargeStringArrayBuilder") do
+    def create_builder
+      Arrow::LargeStringArrayBuilder.new
+    end
+
+    def value_data_type
+      Arrow::LargeStringDataType.new
+    end
+
+    def builder_class_name
+      "large-string-array-builder"
+    end
+
+    def sample_values
+      [
+        "hello",
+        "world!!",
+        "",
+      ]
+    end
+
+    def empty_value
+      ""
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
+    end
+
+    sub_test_case("#append_values") do
+      include ArrayBuilderAppendValuesTests
+
+      def setup
+        require_gi_bindings(3, 4, 1)
+      end
+
+      def builder_class_name
+        "large-binary-array-builder"
+      end
+    end
+
+    sub_test_case("#append_strings") do
+      include ArrayBuilderAppendStringsTests
+    end
+
+    sub_test_case("#append_nulls") do
+      include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
+    end
+  end
+
+  sub_test_case("FixedSizeBinaryArrayBuilder") do
+    def create_builder
+      Arrow::FixedSizeBinaryArrayBuilder.new(value_data_type)
+    end
+
+    def value_data_type
+      Arrow::FixedSizeBinaryDataType.new(4)
+    end
+
+    def builder_class_name
+      "fixed-size-binary-array-builder"
+    end
+
+    def sample_values
+      [
+        "0123",
+        "abcd",
+        "\x0\x0\x0\x0".b,
+      ]
+    end
+
+    def sample_values_with_null
+      [
+        "0123",
+        nil,
+        "\x0\x0\x0\x0".b,
+      ]
+    end
+
+    def pack_values(values)
+      values.join("")
+    end
+
+    def empty_value
+      "\x0\x0\x0\x0"
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
+    end
+
+    sub_test_case("#append_value") do
+      test("nil") do
+        builder = create_builder
+        builder.append_value(nil)
+        assert_equal(build_array([nil]),
+                     builder.finish)
+      end
+    end
+
+    sub_test_case("#append_values") do
+      include ArrayBuilderAppendValuesTests
+      include ArrayBuilderAppendValuesWithNullTests
+    end
+
+    sub_test_case("#append_values_packed") do
+      include ArrayBuilderAppendValuesPackedTests
+    end
+
+    sub_test_case("#append_nulls") do
+      include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
+    end
+  end
+
+  sub_test_case("Decimal128ArrayBuilder") do
+    def create_builder
+      Arrow::Decimal128ArrayBuilder.new(value_data_type)
+    end
+
+    def value_data_type
+      Arrow::Decimal128DataType.new(8, 2)
+    end
+
+    def builder_class_name
+      "decimal128-array-builder"
+    end
+
+    def sample_values
+      [
+        Arrow::Decimal128.new("23423445"),
+        Arrow::Decimal128.new("00012345"),
+        Arrow::Decimal128.new("00000000"),
+      ]
+    end
+
+    def sample_values_with_null
+      [
+        Arrow::Decimal128.new("23423445"),
+        nil,
+        Arrow::Decimal128.new("00000000"),
+      ]
+    end
+
+    def pack_values(values)
+      values.collect(&:to_bytes).collect(&:to_s).join("")
+    end
+
+    def empty_value
+      Arrow::Decimal128.new("0")
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
+    end
+
+    sub_test_case("#append_value") do
+      test("nil") do
+        builder = create_builder
+        builder.append_value(nil)
+        assert_equal(build_array([nil]),
+                     builder.finish)
+      end
+    end
+
+    sub_test_case("#append_values") do
+      include ArrayBuilderAppendValuesTests
+      include ArrayBuilderAppendValuesWithNullTests
+    end
+
+    sub_test_case("#append_values_packed") do
+      include ArrayBuilderAppendValuesPackedTests
+    end
+
+    sub_test_case("#append_nulls") do
+      include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
+    end
+  end
+
+  sub_test_case("Decimal256ArrayBuilder") do
+    def create_builder
+      Arrow::Decimal256ArrayBuilder.new(value_data_type)
+    end
+
+    def value_data_type
+      Arrow::Decimal256DataType.new(38, 2)
+    end
+
+    def builder_class_name
+      "decimal256-array-builder"
+    end
+
+    def sample_values
+      [
+        Arrow::Decimal256.new("23423445"),
+        Arrow::Decimal256.new("00012345"),
+        Arrow::Decimal256.new("00000000"),
+      ]
+    end
+
+    def sample_values_with_null
+      [
+        Arrow::Decimal256.new("23423445"),
+        nil,
+        Arrow::Decimal256.new("00000000"),
+      ]
+    end
+
+    def pack_values(values)
+      values.collect(&:to_bytes).collect(&:to_s).join("")
+    end
+
+    def empty_value
+      Arrow::Decimal256.new("0")
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
+    end
+
+    sub_test_case("#append_value") do
+      test("nil") do
+        builder = create_builder
+        builder.append_value(nil)
+        assert_equal(build_array([nil]),
+                     builder.finish)
+      end
+    end
+
+    sub_test_case("#append_values") do
+      include ArrayBuilderAppendValuesTests
+      include ArrayBuilderAppendValuesWithNullTests
+    end
+
+    sub_test_case("#append_values_packed") do
+      include ArrayBuilderAppendValuesPackedTests
+    end
+
+    sub_test_case("#append_nulls") do
+      include ArrayBuilderAppendNullsTests
+    end
+
+    sub_test_case("#append_empty_value") do
+      include ArrayBuilderAppendEmptyValueTests
+    end
+
+    sub_test_case("#append_empty_values") do
+      include ArrayBuilderAppendEmptyValuesTests
+    end
+
+    sub_test_case("capacity control") do
+      include ArrayBuilderCapacityControlTests
+    end
+
+    sub_test_case("#length") do
+      include ArrayBuilderLengthTests
+    end
+
+    sub_test_case("#n_nulls") do
+      include ArrayBuilderNNullsTests
     end
   end
 end

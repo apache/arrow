@@ -17,38 +17,144 @@
 
 package org.apache.arrow.vector.dictionary;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.memory.util.hash.SimpleHasher;
+import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
+/**
+ * Encoder/decoder for Dictionary encoded {@link ValueVector}. Dictionary encoding produces an
+ * integer {@link ValueVector}. Each entry in the Vector is index into the dictionary which can hold
+ * values of any type.
+ */
 public class DictionaryEncoder {
 
-  // TODO recursively examine fields?
+  private final DictionaryHashTable hashTable;
+  private final Dictionary dictionary;
+  private final BufferAllocator allocator;
+
+  /**
+   * Construct an instance.
+   */
+  public DictionaryEncoder(Dictionary dictionary, BufferAllocator allocator) {
+    this (dictionary, allocator, SimpleHasher.INSTANCE);
+  }
+
+  /**
+   * Construct an instance.
+   */
+  public DictionaryEncoder(Dictionary dictionary, BufferAllocator allocator, ArrowBufHasher hasher) {
+    this.dictionary = dictionary;
+    this.allocator = allocator;
+    hashTable = new DictionaryHashTable(dictionary.getVector(), hasher);
+  }
 
   /**
    * Dictionary encodes a vector with a provided dictionary. The dictionary must contain all values in the vector.
    *
-   * @param vector     vector to encode
+   * @param vector vector to encode
    * @param dictionary dictionary used for encoding
    * @return dictionary encoded vector
    */
   public static ValueVector encode(ValueVector vector, Dictionary dictionary) {
-    validateType(vector.getMinorType());
-    // load dictionary values into a hashmap for lookup
-    Map<Object, Integer> lookUps = new HashMap<>(dictionary.getVector().getValueCount());
-    for (int i = 0; i < dictionary.getVector().getValueCount(); i++) {
-      // for primitive array types we need a wrapper that implements equals and hashcode appropriately
-      lookUps.put(dictionary.getVector().getObject(i), i);
+    DictionaryEncoder encoder = new DictionaryEncoder(dictionary, vector.getAllocator());
+    return encoder.encode(vector);
+  }
+
+  /**
+   * Decodes a dictionary encoded array using the provided dictionary.
+   *
+   * @param indices dictionary encoded values, must be int type
+   * @param dictionary dictionary used to decode the values
+   * @return vector with values restored from dictionary
+   */
+  public static ValueVector decode(ValueVector indices, Dictionary dictionary) {
+    DictionaryEncoder encoder = new DictionaryEncoder(dictionary, indices.getAllocator());
+    return encoder.decode(indices);
+  }
+
+  /**
+   * Get the indexType according to the dictionary vector valueCount.
+   * @param valueCount dictionary vector valueCount.
+   * @return index type.
+   */
+  public static ArrowType.Int getIndexType(int valueCount) {
+    Preconditions.checkArgument(valueCount >= 0);
+    if (valueCount <= Byte.MAX_VALUE) {
+      return new ArrowType.Int(8, true);
+    } else if (valueCount <= Character.MAX_VALUE) {
+      return new ArrowType.Int(16, true);
+    } else if (valueCount <= Integer.MAX_VALUE) {
+      return new ArrowType.Int(32, true);
+    } else {
+      return new ArrowType.Int(64, true);
     }
+  }
+
+  /**
+   * Populates indices between start and end with the encoded values of vector.
+   * @param vector the vector to encode
+   * @param indices the index vector
+   * @param encoding the hash table for encoding
+   * @param start the start index
+   * @param end the end index
+   */
+  static void buildIndexVector(
+      ValueVector vector,
+      BaseIntVector indices,
+      DictionaryHashTable encoding,
+      int start,
+      int end) {
+
+    for (int i = start; i < end; i++) {
+      if (!vector.isNull(i)) {
+        // if it's null leave it null
+        // note: this may fail if value was not included in the dictionary
+        int encoded = encoding.getIndex(i, vector);
+        if (encoded == -1) {
+          throw new IllegalArgumentException("Dictionary encoding not defined for value:" + vector.getObject(i));
+        }
+        indices.setWithPossibleTruncate(i, encoded);
+      }
+    }
+  }
+
+  /**
+   * Retrieve values to target vector from index vector.
+   * @param indices the index vector
+   * @param transfer the {@link TransferPair} to copy dictionary data into target vector.
+   * @param dictionaryCount the value count of dictionary vector.
+   * @param start the start index
+   * @param end the end index
+   */
+  static void retrieveIndexVector(
+      BaseIntVector indices,
+      TransferPair transfer,
+      int dictionaryCount,
+      int start,
+      int end) {
+    for (int i = start; i < end; i++) {
+      if (!indices.isNull(i)) {
+        int indexAsInt = (int) indices.getValueAsLong(i);
+        if (indexAsInt > dictionaryCount) {
+          throw new IllegalArgumentException("Provided dictionary does not contain value for index " + indexAsInt);
+        }
+        transfer.copyValueSafe(indexAsInt, i);
+      }
+    }
+  }
+
+  /**
+   * Encodes a vector with the built hash table in this encoder.
+   */
+  public ValueVector encode(ValueVector vector) {
 
     Field valueField = vector.getField();
     FieldType indexFieldType = new FieldType(valueField.isNullable(), dictionary.getEncoding().getIndexType(),
@@ -56,86 +162,35 @@ public class DictionaryEncoder {
     Field indexField = new Field(valueField.getName(), indexFieldType, null);
 
     // vector to hold our indices (dictionary encoded values)
-    FieldVector indices = indexField.createVector(vector.getAllocator());
-
-    // use reflection to pull out the set method
-    // TODO implement a common interface for int vectors
-    Method setter = null;
-    for (Class<?> c : Arrays.asList(int.class, long.class)) {
-      try {
-        setter = indices.getClass().getMethod("setSafe", int.class, c);
-        break;
-      } catch (NoSuchMethodException e) {
-        // ignore
-      }
-    }
-    if (setter == null) {
-      throw new IllegalArgumentException("Dictionary encoding does not have a valid int type:" + indices.getClass());
+    FieldVector createdVector = indexField.createVector(allocator);
+    if (! (createdVector instanceof BaseIntVector)) {
+      throw new IllegalArgumentException("Dictionary encoding does not have a valid int type:" +
+          createdVector.getClass());
     }
 
-    int count = vector.getValueCount();
-
+    BaseIntVector indices = (BaseIntVector) createdVector;
     indices.allocateNew();
 
-    try {
-      for (int i = 0; i < count; i++) {
-        Object value = vector.getObject(i);
-        if (value != null) { // if it's null leave it null
-          // note: this may fail if value was not included in the dictionary
-          Object encoded = lookUps.get(value);
-          if (encoded == null) {
-            throw new IllegalArgumentException("Dictionary encoding not defined for value:" + value);
-          }
-          setter.invoke(indices, i, encoded);
-        }
-      }
-    } catch (IllegalAccessException e) {
-      throw new RuntimeException("IllegalAccessException invoking vector mutator set():", e);
-    } catch (InvocationTargetException e) {
-      throw new RuntimeException("InvocationTargetException invoking vector mutator set():", e.getCause());
-    }
-
-    indices.setValueCount(count);
-
+    buildIndexVector(vector, indices, hashTable, 0, vector.getValueCount());
+    indices.setValueCount(vector.getValueCount());
     return indices;
   }
 
   /**
-   * Decodes a dictionary encoded array using the provided dictionary.
-   *
-   * @param indices    dictionary encoded values, must be int type
-   * @param dictionary dictionary used to decode the values
-   * @return vector with values restored from dictionary
+   * Decodes a vector with the built hash table in this encoder.
    */
-  public static ValueVector decode(ValueVector indices, Dictionary dictionary) {
+  public ValueVector decode(ValueVector indices) {
     int count = indices.getValueCount();
     ValueVector dictionaryVector = dictionary.getVector();
     int dictionaryCount = dictionaryVector.getValueCount();
     // copy the dictionary values into the decoded vector
-    TransferPair transfer = dictionaryVector.getTransferPair(indices.getAllocator());
+    TransferPair transfer = dictionaryVector.getTransferPair(allocator);
     transfer.getTo().allocateNewSafe();
-    for (int i = 0; i < count; i++) {
-      Object index = indices.getObject(i);
-      if (index != null) {
-        int indexAsInt = ((Number) index).intValue();
-        if (indexAsInt > dictionaryCount) {
-          throw new IllegalArgumentException("Provided dictionary does not contain value for index " + indexAsInt);
-        }
-        transfer.copyValueSafe(indexAsInt, i);
-      }
-    }
-    // TODO do we need to worry about the field?
+
+    BaseIntVector baseIntVector = (BaseIntVector) indices;
+    retrieveIndexVector(baseIntVector, transfer, dictionaryCount, 0, count);
     ValueVector decoded = transfer.getTo();
     decoded.setValueCount(count);
     return decoded;
-  }
-
-  private static void validateType(MinorType type) {
-    // byte arrays don't work as keys in our dictionary map - we could wrap them with something to
-    // implement equals and hashcode if we want that functionality
-    if (type == MinorType.VARBINARY || type == MinorType.FIXEDSIZEBINARY || type == MinorType.LIST ||
-        type == MinorType.STRUCT || type == MinorType.UNION) {
-      throw new IllegalArgumentException("Dictionary encoding for complex types not implemented: type " + type);
-    }
   }
 }

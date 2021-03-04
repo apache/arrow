@@ -23,14 +23,13 @@ namespace Apache.Arrow
     {
         public class Builder
         {
-            private readonly Dictionary<string, string> _metadata;
+            private Dictionary<string, string> _metadata;
             private string _name;
             private IArrowType _type;
             private bool _nullable;
 
             public Builder()
             {
-                _metadata = new Dictionary<string, string>();
                 _name = string.Empty;
                 _type = NullType.Default;
                 _nullable = true;
@@ -66,7 +65,22 @@ namespace Apache.Arrow
                     throw new ArgumentNullException(nameof(key));
                 }
 
+                _metadata ??= new Dictionary<string, string>();
+
                 _metadata[key] = value;
+                return this;
+            }
+
+            public Builder Metadata(IEnumerable<KeyValuePair<string, string>> dictionary)
+            {
+                if (dictionary == null)
+                {
+                    throw new ArgumentNullException(nameof(dictionary));
+                }
+                foreach (KeyValuePair<string, string> entry in dictionary)
+                {
+                    Metadata(entry.Key, entry.Value);
+                }
                 return this;
             }
 

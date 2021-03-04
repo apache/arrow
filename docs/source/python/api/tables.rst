@@ -28,9 +28,11 @@ Factory Functions
 .. autosummary::
    :toctree: ../generated/
 
-   column
    chunked_array
+   concat_arrays
    concat_tables
+   record_batch
+   table
 
 Classes
 -------
@@ -39,7 +41,6 @@ Classes
    :toctree: ../generated/
 
    ChunkedArray
-   Column
    RecordBatch
    Table
 

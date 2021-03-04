@@ -22,7 +22,7 @@ module Arrow
 
     # Creates a new {Arrow::DictionaryDataType}.
     #
-    # @overload initialize(index_data_type, dictionary, ordered)
+    # @overload initialize(index_data_type, value_data_type, ordered)
     #
     #   @param index_data_type [Arrow::DataType, Hash, String, Symbol]
     #     The index data type of the dictionary data type. It must be
@@ -39,18 +39,23 @@ module Arrow
     #     See {Arrow::DataType.resolve} how to specify data type
     #     description.
     #
-    #   @param dictionary [Arrow::Array] The real values of the
-    #     dictionary data type.
+    #   @param value_data_type [Arrow::DataType, Hash, String, Symbol]
+    #     The value data type of the dictionary data type.
+    #
+    #     You can specify data type as a description by `Hash`.
+    #
+    #     See {Arrow::DataType.resolve} how to specify data type
+    #     description.
     #
     #   @param ordered [Boolean] Whether dictionary contents are
     #     ordered or not.
     #
     #   @example Create a dictionary data type for {0: "Hello", 1: "World"}
     #     index_data_type = :int8
-    #     dictionary = Arrow::StringArray.new(["Hello", "World"])
+    #     value_data_type = :string
     #     ordered = true
     #     Arrow::DictionaryDataType.new(index_data_type,
-    #                                   dictionary,
+    #                                   value_data_type,
     #                                   ordered)
     #
     # @overload initialize(description)
@@ -74,16 +79,21 @@ module Arrow
     #     See {Arrow::DataType.resolve} how to specify data type
     #     description.
     #
-    #   @option description [Arrow::Array] :dictionary The real values
-    #     of the dictionary data type.
+    #   @option description [Arrow::DataType, Hash, String, Symbol]
+    #     :value_data_type
+    #     The value data type of the dictionary data type.
+    #
+    #     You can specify data type as a description by `Hash`.
+    #
+    #     See {Arrow::DataType.resolve} how to specify data type
+    #     description.
     #
     #   @option description [Boolean] :ordered Whether dictionary
     #     contents are ordered or not.
     #
     #   @example Create a dictionary data type for {0: "Hello", 1: "World"}
-    #     dictionary = Arrow::StringArray.new(["Hello", "World"])
     #     Arrow::DictionaryDataType.new(index_data_type: :int8,
-    #                                   dictionary: dictionary,
+    #                                   value_data_type: :string,
     #                                   ordered: true)
     def initialize(*args)
       n_args = args.size
@@ -91,16 +101,17 @@ module Arrow
       when 1
         description = args[0]
         index_data_type = description[:index_data_type]
-        dictionary = description[:dictionary]
+        value_data_type = description[:value_data_type]
         ordered = description[:ordered]
       when 3
-        index_data_type, dictionary, ordered = args
+        index_data_type, value_data_type, ordered = args
       else
         message = "wrong number of arguments (given, #{n_args}, expected 1 or 3)"
         raise ArgumentError, message
       end
       index_data_type = DataType.resolve(index_data_type)
-      initialize_raw(index_data_type, dictionary, ordered)
+      value_data_type = DataType.resolve(value_data_type)
+      initialize_raw(index_data_type, value_data_type, ordered)
     end
   end
 end

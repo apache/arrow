@@ -15,9 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include R6.R
+#' @include type.R
 
-#' @title class arrow::DictionaryType
+#' @title class DictionaryType
 #'
 #' @usage NULL
 #' @format NULL
@@ -27,32 +27,43 @@
 #'
 #' TODO
 #'
-#' @rdname arrow__DictionaryType
-#' @name arrow__DictionaryType
-`arrow::DictionaryType` <- R6Class("arrow::DictionaryType",
-  inherit = `arrow::FixedWidthType`,
-
+#' @rdname DictionaryType
+#' @name DictionaryType
+DictionaryType <- R6Class("DictionaryType",
+  inherit = FixedWidthType,
+  public = list(
+    ToString = function() {
+      prettier_dictionary_type(DataType__ToString(self))
+    }
+  ),
   active = list(
-    index_type = function() `arrow::DataType`$dispatch(DictionaryType__index_type(self)),
-    dictionary = function() shared_ptr(`arrow::Array`, DictionaryType__dictionary(self)),
+    index_type = function() DictionaryType__index_type(self),
+    value_type = function() DictionaryType__value_type(self),
     name = function() DictionaryType__name(self),
     ordered = function() DictionaryType__ordered(self)
   )
 )
+DictionaryType$create <- function(index_type = int32(),
+                                  value_type = utf8(),
+                                  ordered = FALSE) {
+  assert_is(index_type, "DataType")
+  assert_is(value_type, "DataType")
+  DictionaryType__initialize(index_type, value_type, ordered)
+}
 
-#' dictionary type factory
+#' Create a dictionary type
 #'
-#' @param type indices type, e.g. [int32()]
-#' @param values values array, typically an arrow array of strings
-#' @param ordered Is this an ordered dictionary
+#' @param index_type A DataType for the indices (default [int32()])
+#' @param value_type A DataType for the values (default [utf8()])
+#' @param ordered Is this an ordered dictionary (default `FALSE`)?
 #'
-#' @return a [arrow::DictionaryType][arrow__DictionaryType]
-#'
+#' @return A [DictionaryType]
+#' @seealso [Other Arrow data types][data-type]
 #' @export
-dictionary <- function(type, values, ordered = FALSE) {
-  assert_that(
-    inherits(type, "arrow::DataType"),
-    inherits(values, "arrow::Array")
-  )
-  shared_ptr(`arrow::DictionaryType`, DictionaryType__initialize(type, values, ordered))
+dictionary <- DictionaryType$create
+
+prettier_dictionary_type <- function(x) {
+  # Prettier format the "ordered" attribute
+  x <- sub(", ordered=0", "", x)
+  sub("ordered=1", "ordered", x)
 }

@@ -20,7 +20,7 @@ import (
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/arrow"
-	"github.com/apache/arrow/go/arrow/internal/bitutil"
+	"github.com/apache/arrow/go/arrow/bitutil"
 	"github.com/apache/arrow/go/arrow/internal/debug"
 	"github.com/apache/arrow/go/arrow/memory"
 )
@@ -83,6 +83,10 @@ func (b *BooleanBuilder) UnsafeAppend(v bool) {
 func (b *BooleanBuilder) AppendValues(v []bool, valid []bool) {
 	if len(v) != len(valid) && len(valid) != 0 {
 		panic("len(v) != len(valid) && len(valid) != 0")
+	}
+
+	if len(v) == 0 {
+		return
 	}
 
 	b.Reserve(len(v))

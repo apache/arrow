@@ -19,10 +19,12 @@ import * as type from '../type';
 import { Visitor } from '../visitor';
 import { ArrowType, Precision, DateUnit, TimeUnit, IntervalUnit, UnionMode } from '../enum';
 
+/** @ignore */
 export interface JSONTypeAssembler extends Visitor {
     visit<T extends type.DataType>(node: T): object | undefined;
 }
 
+/** @ignore */
 export class JSONTypeAssembler extends Visitor {
     public visit<T extends type.DataType>(node: T): object | undefined {
         return node == null ? undefined : super.visit(node);

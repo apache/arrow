@@ -23,19 +23,19 @@
 namespace gandiva {
 
 TEST(TestHash, TestHash32) {
-  int8 s8 = 0;
-  uint8 u8 = 0;
-  int16 s16 = 0;
-  uint16 u16 = 0;
-  int32 s32 = 0;
-  uint32 u32 = 0;
-  int64 s64 = 0;
-  uint64 u64 = 0;
-  float32 f32 = 0;
-  float64 f64 = 0;
+  gdv_int8 s8 = 0;
+  gdv_uint8 u8 = 0;
+  gdv_int16 s16 = 0;
+  gdv_uint16 u16 = 0;
+  gdv_int32 s32 = 0;
+  gdv_uint32 u32 = 0;
+  gdv_int64 s64 = 0;
+  gdv_uint64 u64 = 0;
+  gdv_float32 f32 = 0;
+  gdv_float64 f64 = 0;
 
   // hash of 0 should be non-zero (zero is the hash value for nulls).
-  int32 zero_hash = hash32(s8, 0);
+  gdv_int32 zero_hash = hash32(s8, 0);
   EXPECT_NE(zero_hash, 0);
 
   // for a given value, all numeric types must have the same hash.
@@ -60,19 +60,19 @@ TEST(TestHash, TestHash32) {
 }
 
 TEST(TestHash, TestHash64) {
-  int8 s8 = 0;
-  uint8 u8 = 0;
-  int16 s16 = 0;
-  uint16 u16 = 0;
-  int32 s32 = 0;
-  uint32 u32 = 0;
-  int64 s64 = 0;
-  uint64 u64 = 0;
-  float32 f32 = 0;
-  float64 f64 = 0;
+  gdv_int8 s8 = 0;
+  gdv_uint8 u8 = 0;
+  gdv_int16 s16 = 0;
+  gdv_uint16 u16 = 0;
+  gdv_int32 s32 = 0;
+  gdv_uint32 u32 = 0;
+  gdv_int64 s64 = 0;
+  gdv_uint64 u64 = 0;
+  gdv_float32 f32 = 0;
+  gdv_float64 f64 = 0;
 
   // hash of 0 should be non-zero (zero is the hash value for nulls).
-  int64 zero_hash = hash64(s8, 0);
+  gdv_int64 zero_hash = hash64(s8, 0);
   EXPECT_NE(zero_hash, 0);
   EXPECT_NE(hash64(u8, 0), hash32(u8, 0));
 
@@ -101,22 +101,22 @@ TEST(TestHash, TestHashBuf) {
   int buf_len = 5;
 
   // hash should be non-zero (zero is the hash value for nulls).
-  EXPECT_NE(hash32_buf((const uint8*)buf, buf_len, 0), 0);
-  EXPECT_NE(hash64_buf((const uint8*)buf, buf_len, 0), 0);
+  EXPECT_NE(hash32_buf((const gdv_uint8*)buf, buf_len, 0), 0);
+  EXPECT_NE(hash64_buf((const gdv_uint8*)buf, buf_len, 0), 0);
 
   // hash must change if the string is changed.
-  EXPECT_NE(hash32_buf((const uint8*)buf, buf_len, 0),
-            hash32_buf((const uint8*)buf, buf_len - 1, 0));
+  EXPECT_NE(hash32_buf((const gdv_uint8*)buf, buf_len, 0),
+            hash32_buf((const gdv_uint8*)buf, buf_len - 1, 0));
 
-  EXPECT_NE(hash64_buf((const uint8*)buf, buf_len, 0),
-            hash64_buf((const uint8*)buf, buf_len - 1, 0));
+  EXPECT_NE(hash64_buf((const gdv_uint8*)buf, buf_len, 0),
+            hash64_buf((const gdv_uint8*)buf, buf_len - 1, 0));
 
   // hash must change if the seed is changed.
-  EXPECT_NE(hash32_buf((const uint8*)buf, buf_len, 0),
-            hash32_buf((const uint8*)buf, buf_len, 1));
+  EXPECT_NE(hash32_buf((const gdv_uint8*)buf, buf_len, 0),
+            hash32_buf((const gdv_uint8*)buf, buf_len, 1));
 
-  EXPECT_NE(hash64_buf((const uint8*)buf, buf_len, 0),
-            hash64_buf((const uint8*)buf, buf_len, 1));
+  EXPECT_NE(hash64_buf((const gdv_uint8*)buf, buf_len, 0),
+            hash64_buf((const gdv_uint8*)buf, buf_len, 1));
 }
 
 }  // namespace gandiva

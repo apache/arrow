@@ -23,11 +23,13 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 import java.math.BigDecimal;
+import java.nio.charset.Charset;
+import java.time.Duration;
+import java.time.Period;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.types.Types.MinorType;
-import org.joda.time.Period;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -221,7 +223,7 @@ public class TestCopyFrom {
         final IntVector vector2 = new IntVector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
-      assertTrue(vector1.getValueCapacity() >= vector1.initialValueAllocation);
+      assertTrue(vector1.getValueCapacity() >= vector1.INITIAL_VALUE_ALLOCATION);
       assertEquals(0, vector1.getValueCount());
       int initialCapacity = vector1.getValueCapacity();
 
@@ -283,7 +285,7 @@ public class TestCopyFrom {
         final BigIntVector vector2 = new BigIntVector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
-      assertTrue(vector1.getValueCapacity() >= vector1.initialValueAllocation);
+      assertTrue(vector1.getValueCapacity() >= vector1.INITIAL_VALUE_ALLOCATION);
       assertEquals(0, vector1.getValueCount());
       int initialCapacity = vector1.getValueCapacity();
 
@@ -424,7 +426,7 @@ public class TestCopyFrom {
         final Float4Vector vector2 = new Float4Vector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
-      assertTrue(vector1.getValueCapacity() >= vector1.initialValueAllocation);
+      assertTrue(vector1.getValueCapacity() >= vector1.INITIAL_VALUE_ALLOCATION);
       assertEquals(0, vector1.getValueCount());
       int initialCapacity = vector1.getValueCapacity();
 
@@ -486,7 +488,7 @@ public class TestCopyFrom {
         final Float8Vector vector2 = new Float8Vector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
-      assertTrue(vector1.getValueCapacity() >= vector1.initialValueAllocation);
+      assertTrue(vector1.getValueCapacity() >= vector1.INITIAL_VALUE_ALLOCATION);
       assertEquals(0, vector1.getValueCount());
       int initialCapacity = vector1.getValueCapacity();
 
@@ -550,7 +552,7 @@ public class TestCopyFrom {
         final IntervalDayVector vector2 = new IntervalDayVector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
-      assertTrue(vector1.getValueCapacity() >= vector1.initialValueAllocation);
+      assertTrue(vector1.getValueCapacity() >= vector1.INITIAL_VALUE_ALLOCATION);
       assertEquals(0, vector1.getValueCount());
       int initialCapacity = vector1.getValueCapacity();
 
@@ -575,9 +577,9 @@ public class TestCopyFrom {
         if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
-          final Period p = vector1.getObject(i);
-          assertEquals(days + i, p.getDays());
-          assertEquals(milliseconds + i, p.getMillis());
+          final Duration d = vector1.getObject(i);
+          assertEquals(days + i, d.toDays());
+          assertEquals(milliseconds + i, d.minusDays(days + i).toMillis());
         }
       }
 
@@ -604,9 +606,9 @@ public class TestCopyFrom {
         if (((i & 1) == 0) || (i >= initialCapacity)) {
           assertNull(vector2.getObject(i));
         } else {
-          final Period p = vector2.getObject(i);
-          assertEquals(days + i, p.getDays());
-          assertEquals(milliseconds + i, p.getMillis());
+          final Duration d = vector2.getObject(i);
+          assertEquals(days + i, d.toDays());
+          assertEquals(milliseconds + i, d.minusDays(days + i).toMillis());
         }
       }
     }
@@ -618,7 +620,7 @@ public class TestCopyFrom {
         final IntervalYearVector vector2 = new IntervalYearVector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
-      assertTrue(vector1.getValueCapacity() >= vector1.initialValueAllocation);
+      assertTrue(vector1.getValueCapacity() >= vector1.INITIAL_VALUE_ALLOCATION);
       assertEquals(0, vector1.getValueCount());
       int initialCapacity = vector1.getValueCapacity();
 
@@ -629,11 +631,9 @@ public class TestCopyFrom {
           continue;
         }
         vector1.setSafe(i, interval + i);
-        final Period p = new Period();
         final int years = (interval + i) / org.apache.arrow.vector.util.DateUtility.yearsToMonths;
         final int months = (interval + i) % org.apache.arrow.vector.util.DateUtility.yearsToMonths;
-        periods[i] = p.plusYears(years).plusMonths(months);
-        ;
+        periods[i] = Period.ofYears(years).plusMonths(months).normalized();
       }
 
       vector1.setValueCount(initialCapacity);
@@ -648,7 +648,7 @@ public class TestCopyFrom {
         if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
-          final Period p = vector1.getObject(i);
+          final Period p = vector1.getObject(i).normalized();
           assertEquals(interval + i, vector1.get(i));
           assertEquals(periods[i], p);
         }
@@ -677,7 +677,7 @@ public class TestCopyFrom {
         if (((i & 1) == 0) || (i >= initialCapacity)) {
           assertNull(vector2.getObject(i));
         } else {
-          final Period p = vector2.getObject(i);
+          final Period p = vector2.getObject(i).normalized();
           assertEquals(periods[i], p);
         }
       }
@@ -690,7 +690,7 @@ public class TestCopyFrom {
         final SmallIntVector vector2 = new SmallIntVector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
-      assertTrue(vector1.getValueCapacity() >= vector1.initialValueAllocation);
+      assertTrue(vector1.getValueCapacity() >= vector1.INITIAL_VALUE_ALLOCATION);
       assertEquals(0, vector1.getValueCount());
       int initialCapacity = vector1.getValueCapacity();
 
@@ -753,7 +753,7 @@ public class TestCopyFrom {
         final TimeMicroVector vector2 = new TimeMicroVector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
-      assertTrue(vector1.getValueCapacity() >= vector1.initialValueAllocation);
+      assertTrue(vector1.getValueCapacity() >= vector1.INITIAL_VALUE_ALLOCATION);
       assertEquals(0, vector1.getValueCount());
       int initialCapacity = vector1.getValueCapacity();
 
@@ -816,7 +816,7 @@ public class TestCopyFrom {
         final TimeMilliVector vector2 = new TimeMilliVector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
-      assertTrue(vector1.getValueCapacity() >= vector1.initialValueAllocation);
+      assertTrue(vector1.getValueCapacity() >= vector1.INITIAL_VALUE_ALLOCATION);
       assertEquals(0, vector1.getValueCount());
       int initialCapacity = vector1.getValueCapacity();
 
@@ -879,7 +879,7 @@ public class TestCopyFrom {
         final TinyIntVector vector2 = new TinyIntVector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
-      assertTrue(vector1.getValueCapacity() >= vector1.initialValueAllocation);
+      assertTrue(vector1.getValueCapacity() >= vector1.INITIAL_VALUE_ALLOCATION);
       assertEquals(0, vector1.getValueCount());
       int initialCapacity = vector1.getValueCapacity();
 
@@ -946,7 +946,7 @@ public class TestCopyFrom {
         final DecimalVector vector2 = new DecimalVector(EMPTY_SCHEMA_PATH, allocator, 30, 16)) {
 
       vector1.allocateNew();
-      assertTrue(vector1.getValueCapacity() >= vector1.initialValueAllocation);
+      assertTrue(vector1.getValueCapacity() >= vector1.INITIAL_VALUE_ALLOCATION);
       assertEquals(0, vector1.getValueCount());
       int initialCapacity = vector1.getValueCapacity();
 
@@ -1014,7 +1014,7 @@ public class TestCopyFrom {
         final TimeStampVector vector2 = new TimeStampMicroVector(EMPTY_SCHEMA_PATH, allocator)) {
 
       vector1.allocateNew();
-      assertTrue(vector1.getValueCapacity() >= vector1.initialValueAllocation);
+      assertTrue(vector1.getValueCapacity() >= vector1.INITIAL_VALUE_ALLOCATION);
       assertEquals(0, vector1.getValueCount());
       int initialCapacity = vector1.getValueCapacity();
 
@@ -1070,4 +1070,35 @@ public class TestCopyFrom {
       }
     }
   }
+
+  @Test //https://issues.apache.org/jira/browse/ARROW-7837
+  public void testCopySafeArrow7837() {
+    // this test exposes a bug in `handleSafe` where
+    // it reads a stale index and as a result missed a required resize of the value vector.
+    try (VarCharVector vc1 = new VarCharVector("vc1", allocator);
+         VarCharVector vc2 = new VarCharVector("vc2", allocator);
+    ) {
+      //initial size is carefully set in order to force the second 'copyFromSafe' operation
+      // to trigger a reallocation of the vector.
+      vc2.setInitialCapacity(/*valueCount*/20, /*density*/0.5);
+
+      vc1.setSafe(0, "1234567890".getBytes(Charset.forName("utf-8")));
+      assertFalse(vc1.isNull(0));
+      assertEquals(vc1.getObject(0).toString(), "1234567890");
+
+      vc2.copyFromSafe(0, 0, vc1);
+      assertFalse(vc2.isNull(0));
+      assertEquals(vc2.getObject(0).toString(), "1234567890");
+
+      vc2.copyFromSafe(0, 5, vc1);
+      assertTrue(vc2.isNull(1));
+      assertTrue(vc2.isNull(2));
+      assertTrue(vc2.isNull(3));
+      assertTrue(vc2.isNull(4));
+      assertFalse(vc2.isNull(5));
+      assertEquals(vc2.getObject(5).toString(), "1234567890");
+    }
+  }
+
+
 }

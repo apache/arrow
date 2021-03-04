@@ -17,6 +17,8 @@
 
 // Internal header
 
+#pragma once
+
 #include "arrow/python/platform.h"
 
 #include <cstdint>
@@ -26,12 +28,15 @@
 
 #include <numpy/halffloat.h>
 
-#include "arrow/builder.h"
-#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
 namespace py {
+
+static constexpr int64_t kPandasTimestampNull = std::numeric_limits<int64_t>::min();
+constexpr int64_t kNanosecondsInDay = 86400000000000LL;
+
 namespace internal {
 
 //
@@ -86,6 +91,8 @@ struct npy_traits<NPY_FLOAT16> {
   using TypeClass = HalfFloatType;
   using BuilderClass = HalfFloatBuilder;
 
+  static constexpr npy_half na_sentinel = NPY_HALF_NAN;
+
   static constexpr bool supports_nulls = true;
 
   static inline bool isnull(npy_half v) { return v == NPY_HALF_NAN; }
@@ -97,6 +104,10 @@ struct npy_traits<NPY_FLOAT32> {
   using TypeClass = FloatType;
   using BuilderClass = FloatBuilder;
 
+  // We need to use quiet_NaN here instead of the NAN macro as on Windows
+  // the NAN macro leads to "division-by-zero" compile-time error with clang.
+  static constexpr float na_sentinel = std::numeric_limits<float>::quiet_NaN();
+
   static constexpr bool supports_nulls = true;
 
   static inline bool isnull(float v) { return v != v; }
@@ -107,6 +118,8 @@ struct npy_traits<NPY_FLOAT64> {
   typedef double value_type;
   using TypeClass = DoubleType;
   using BuilderClass = DoubleBuilder;
+
+  static constexpr double na_sentinel = std::numeric_limits<double>::quiet_NaN();
 
   static constexpr bool supports_nulls = true;
 
@@ -126,6 +139,20 @@ struct npy_traits<NPY_DATETIME> {
     // = -0x8000000000000000
     // = -9223372036854775808;
     // = std::numeric_limits<int64_t>::min()
+    return v == std::numeric_limits<int64_t>::min();
+  }
+};
+
+template <>
+struct npy_traits<NPY_TIMEDELTA> {
+  typedef int64_t value_type;
+  using TypeClass = DurationType;
+  using BuilderClass = DurationBuilder;
+
+  static constexpr bool supports_nulls = true;
+
+  static inline bool isnull(int64_t v) {
+    // NaT = -2**63 = std::numeric_limits<int64_t>::min()
     return v == std::numeric_limits<int64_t>::min();
   }
 };
@@ -152,13 +179,13 @@ struct arrow_traits<Type::BOOL> {
   typedef typename npy_traits<NPY_BOOL>::value_type T;
 };
 
-#define INT_DECL(TYPE)                                     \
-  template <>                                              \
-  struct arrow_traits<Type::TYPE> {                        \
-    static constexpr int npy_type = NPY_##TYPE;            \
-    static constexpr bool supports_nulls = false;          \
-    static constexpr double na_value = NAN;                \
-    typedef typename npy_traits<NPY_##TYPE>::value_type T; \
+#define INT_DECL(TYPE)                                                           \
+  template <>                                                                    \
+  struct arrow_traits<Type::TYPE> {                                              \
+    static constexpr int npy_type = NPY_##TYPE;                                  \
+    static constexpr bool supports_nulls = false;                                \
+    static constexpr double na_value = std::numeric_limits<double>::quiet_NaN(); \
+    typedef typename npy_traits<NPY_##TYPE>::value_type T;                       \
   };
 
 INT_DECL(INT8);
@@ -182,7 +209,7 @@ template <>
 struct arrow_traits<Type::FLOAT> {
   static constexpr int npy_type = NPY_FLOAT32;
   static constexpr bool supports_nulls = true;
-  static constexpr float na_value = NAN;
+  static constexpr float na_value = std::numeric_limits<float>::quiet_NaN();
   typedef typename npy_traits<NPY_FLOAT32>::value_type T;
 };
 
@@ -190,13 +217,9 @@ template <>
 struct arrow_traits<Type::DOUBLE> {
   static constexpr int npy_type = NPY_FLOAT64;
   static constexpr bool supports_nulls = true;
-  static constexpr double na_value = NAN;
+  static constexpr double na_value = std::numeric_limits<double>::quiet_NaN();
   typedef typename npy_traits<NPY_FLOAT64>::value_type T;
 };
-
-static constexpr int64_t kPandasTimestampNull = std::numeric_limits<int64_t>::min();
-
-constexpr int64_t kNanosecondsInDay = 86400000000000LL;
 
 template <>
 struct arrow_traits<Type::TIMESTAMP> {
@@ -206,6 +229,16 @@ struct arrow_traits<Type::TIMESTAMP> {
   static constexpr bool supports_nulls = true;
   static constexpr int64_t na_value = kPandasTimestampNull;
   typedef typename npy_traits<NPY_DATETIME>::value_type T;
+};
+
+template <>
+struct arrow_traits<Type::DURATION> {
+  static constexpr int npy_type = NPY_TIMEDELTA;
+  static constexpr int64_t npy_shift = 1;
+
+  static constexpr bool supports_nulls = true;
+  static constexpr int64_t na_value = kPandasTimestampNull;
+  typedef typename npy_traits<NPY_TIMEDELTA>::value_type T;
 };
 
 template <>
@@ -263,6 +296,21 @@ struct arrow_traits<Type::BINARY> {
   static constexpr bool supports_nulls = true;
 };
 
+static inline NPY_DATETIMEUNIT NumPyFrequency(TimeUnit::type unit) {
+  switch (unit) {
+    case TimestampType::Unit::SECOND:
+      return NPY_FR_s;
+    case TimestampType::Unit::MILLI:
+      return NPY_FR_ms;
+      break;
+    case TimestampType::Unit::MICRO:
+      return NPY_FR_us;
+    default:
+      // NANO
+      return NPY_FR_ns;
+  }
+}
+
 static inline int NumPyTypeSize(int npy_type) {
   npy_type = fix_numpy_type_num(npy_type);
 
@@ -291,7 +339,7 @@ static inline int NumPyTypeSize(int npy_type) {
     case NPY_OBJECT:
       return sizeof(void*);
     default:
-      DCHECK(false) << "unhandled numpy type";
+      ARROW_CHECK(false) << "unhandled numpy type";
       break;
   }
   return -1;

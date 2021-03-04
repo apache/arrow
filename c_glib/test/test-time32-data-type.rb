@@ -21,6 +21,11 @@ class TestTime32DataType < Test::Unit::TestCase
     assert_equal(Arrow::Type::TIME32, data_type.id)
   end
 
+  def test_name
+    data_type = Arrow::Time32DataType.new(:second)
+    assert_equal("time32", data_type.name)
+  end
+
   def test_invalid_unit
     message =
       "[time32-data-type][new] time unit must be second or milli: <micro>"

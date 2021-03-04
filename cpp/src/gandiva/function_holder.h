@@ -15,15 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_FUNCTION_HOLDER_H
-#define GANDIVA_FUNCTION_HOLDER_H
+#pragma once
 
 #include <memory>
+
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// Holder for a function that can be invoked from LLVM.
-class FunctionHolder {
+class GANDIVA_EXPORT FunctionHolder {
  public:
   virtual ~FunctionHolder() = default;
 };
@@ -31,5 +32,3 @@ class FunctionHolder {
 using FunctionHolderPtr = std::shared_ptr<FunctionHolder>;
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_FUNCTION_HOLDER_H

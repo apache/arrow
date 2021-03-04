@@ -5,7 +5,7 @@
 namespace Apache.Arrow.Flatbuf
 {
 
-public enum DateUnit : short
+internal enum DateUnit : short
 {
  DAY = 0,
  MILLISECOND = 1,

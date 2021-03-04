@@ -20,29 +20,23 @@
 #pragma once
 
 #include <arrow-glib/buffer.h>
+#include <arrow-glib/gobject-type.h>
+#include <arrow-glib/version.h>
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_READABLE                 \
-  (garrow_readable_get_type())
-#define GARROW_READABLE(obj)                                 \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),                            \
-                              GARROW_TYPE_READABLE,          \
-                              GArrowReadable))
-#define GARROW_IS_READABLE(obj)                      \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),                    \
-                              GARROW_TYPE_READABLE))
-#define GARROW_READABLE_GET_IFACE(obj)                       \
-  (G_TYPE_INSTANCE_GET_INTERFACE((obj),                         \
-                                 GARROW_TYPE_READABLE,       \
-                                 GArrowReadableInterface))
-
-typedef struct _GArrowReadable          GArrowReadable;
-typedef struct _GArrowReadableInterface GArrowReadableInterface;
-
-GType garrow_readable_get_type(void) G_GNUC_CONST;
+#define GARROW_TYPE_READABLE (garrow_readable_get_type())
+G_DECLARE_INTERFACE(GArrowReadable,
+                    garrow_readable,
+                    GARROW,
+                    READABLE,
+                    GObject)
 
 GArrowBuffer *garrow_readable_read(GArrowReadable *readable,
+                                   gint64 n_bytes,
+                                   GError **error);
+GARROW_AVAILABLE_IN_0_17
+GBytes *garrow_readable_read_bytes(GArrowReadable *readable,
                                    gint64 n_bytes,
                                    GError **error);
 

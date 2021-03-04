@@ -18,28 +18,16 @@
 # ----------------------------------------------------------------------
 # HDFS IO implementation
 
-_HDFS_PATH_RE = re.compile(r'hdfs://(.*):(\d+)(.*)')
+from queue import Queue, Empty as QueueEmpty, Full as QueueFull
 
-try:
-    # Python 3
-    from queue import Queue, Empty as QueueEmpty, Full as QueueFull
-except ImportError:
-    from Queue import Queue, Empty as QueueEmpty, Full as QueueFull
+
+_HDFS_PATH_RE = re.compile(r'hdfs://(.*):(\d+)(.*)')
 
 
 def have_libhdfs():
     try:
         with nogil:
             check_status(HaveLibHdfs())
-        return True
-    except Exception:
-        return False
-
-
-def have_libhdfs3():
-    try:
-        with nogil:
-            check_status(HaveLibHdfs3())
         return True
     except Exception:
         return False
@@ -53,20 +41,19 @@ def strip_hdfs_abspath(path):
         return path
 
 
-cdef class HadoopFileSystem:
+cdef class HadoopFileSystem(_Weakrefable):
     cdef:
-        shared_ptr[CHadoopFileSystem] client
+        shared_ptr[CIOHadoopFileSystem] client
 
     cdef readonly:
         bint is_open
-        str host
-        str user
-        str kerb_ticket
-        str driver
+        object host
+        object user
+        object kerb_ticket
         int port
         dict extra_conf
 
-    def _connect(self, host, port, user, kerb_ticket, driver, extra_conf):
+    def _connect(self, host, port, user, kerb_ticket, extra_conf):
         cdef HdfsConnectionConfig conf
 
         if host is not None:
@@ -84,17 +71,8 @@ cdef class HadoopFileSystem:
             conf.kerb_ticket = tobytes(kerb_ticket)
         self.kerb_ticket = kerb_ticket
 
-        if driver == 'libhdfs':
-            with nogil:
-                check_status(HaveLibHdfs())
-            conf.driver = HdfsDriver_LIBHDFS
-        elif driver == 'libhdfs3':
-            with nogil:
-                check_status(HaveLibHdfs3())
-            conf.driver = HdfsDriver_LIBHDFS3
-        else:
-            raise ValueError("unknown driver: %r" % driver)
-        self.driver = driver
+        with nogil:
+            check_status(HaveLibHdfs())
 
         if extra_conf is not None and isinstance(extra_conf, dict):
             conf.extra_conf = {tobytes(k): tobytes(v)
@@ -102,7 +80,7 @@ cdef class HadoopFileSystem:
         self.extra_conf = extra_conf
 
         with nogil:
-            check_status(CHadoopFileSystem.Connect(&conf, &self.client))
+            check_status(CIOHadoopFileSystem.Connect(&conf, &self.client))
         self.is_open = True
 
     @classmethod
@@ -424,7 +402,7 @@ cdef class HadoopFileSystem:
                                   c_replication, c_default_block_size,
                                   &wr_handle))
 
-            out.set_output_stream(<shared_ptr[OutputStream]> wr_handle)
+            out.set_output_stream(<shared_ptr[COutputStream]> wr_handle)
             out.is_writable = True
         else:
             with nogil:
@@ -432,7 +410,7 @@ cdef class HadoopFileSystem:
                              .OpenReadable(c_path, &rd_handle))
 
             out.set_random_access_file(
-                <shared_ptr[RandomAccessFile]> rd_handle)
+                <shared_ptr[CRandomAccessFile]> rd_handle)
             out.is_readable = True
 
         assert not out.closed
@@ -463,7 +441,7 @@ cdef class HadoopFileSystem:
 # client. During deallocation of the extension class, the attributes are
 # decref'd which can cause the client to get closed first if the file has the
 # last remaining reference
-cdef class _HdfsFileNanny:
+cdef class _HdfsFileNanny(_Weakrefable):
     cdef:
         object client
         object file_handle_ref

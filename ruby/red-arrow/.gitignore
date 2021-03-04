@@ -17,4 +17,6 @@
 
 /.yardoc/
 /doc/reference/
+/ext/arrow/Makefile
+/ext/arrow/mkmf.log
 /pkg/

@@ -23,6 +23,8 @@
 
 #include <arrow-glib/buffer.h>
 #include <arrow-glib/codec.h>
+#include <arrow-glib/ipc-options.h>
+#include <arrow-glib/record-batch.h>
 #include <arrow-glib/tensor.h>
 
 G_BEGIN_DECLS
@@ -32,10 +34,10 @@ G_DECLARE_DERIVABLE_TYPE(GArrowInputStream,
                          garrow_input_stream,
                          GARROW,
                          INPUT_STREAM,
-                         GObject)
+                         GInputStream)
 struct _GArrowInputStreamClass
 {
-  GObjectClass parent_class;
+  GInputStreamClass parent_class;
 };
 
 gboolean garrow_input_stream_advance(GArrowInputStream *input_stream,
@@ -46,6 +48,12 @@ gboolean garrow_input_stream_align(GArrowInputStream *input_stream,
                                    GError **error);
 GArrowTensor *garrow_input_stream_read_tensor(GArrowInputStream *input_stream,
                                               GError **error);
+GARROW_AVAILABLE_IN_1_0
+GArrowRecordBatch *
+garrow_input_stream_read_record_batch(GArrowInputStream *input_stream,
+                                      GArrowSchema *schema,
+                                      GArrowReadOptions *options,
+                                      GError **error);
 
 #define GARROW_TYPE_SEEKABLE_INPUT_STREAM       \
   (garrow_seekable_input_stream_get_type())
@@ -62,13 +70,21 @@ struct _GArrowSeekableInputStreamClass
 guint64 garrow_seekable_input_stream_get_size(GArrowSeekableInputStream *input_stream,
                                               GError **error);
 gboolean garrow_seekable_input_stream_get_support_zero_copy(GArrowSeekableInputStream *input_stream);
-GArrowBuffer *garrow_seekable_input_stream_read_at(GArrowSeekableInputStream *input_stream,
-                                                   gint64 position,
-                                                   gint64 n_bytes,
-                                                   GError **error);
+GArrowBuffer *
+garrow_seekable_input_stream_read_at(GArrowSeekableInputStream *input_stream,
+                                     gint64 position,
+                                     gint64 n_bytes,
+                                     GError **error);
+GARROW_AVAILABLE_IN_0_15
+GBytes *
+garrow_seekable_input_stream_read_at_bytes(GArrowSeekableInputStream *input_stream,
+                                           gint64 position,
+                                           gint64 n_bytes,
+                                           GError **error);
 GARROW_AVAILABLE_IN_0_12
 GBytes *garrow_seekable_input_stream_peek(GArrowSeekableInputStream *input_stream,
-                                          gint64 n_bytes);
+                                          gint64 n_bytes,
+                                          GError **error);
 
 
 #define GARROW_TYPE_BUFFER_INPUT_STREAM         \

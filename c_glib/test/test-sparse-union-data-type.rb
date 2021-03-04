@@ -33,11 +33,15 @@ class TestSparseUnionDataType < Test::Unit::TestCase
   end
 
   def test_type
-    assert_equal(Arrow::Type::UNION, @data_type.id)
+    assert_equal(Arrow::Type::SPARSE_UNION, @data_type.id)
+  end
+
+  def test_name
+    assert_equal("sparse_union", @data_type.name)
   end
 
   def test_to_s
-    assert_equal("union[sparse]<number: int32=2, text: string=9>",
+    assert_equal("sparse_union<number: int32=2, text: string=9>",
                  @data_type.to_s)
   end
 

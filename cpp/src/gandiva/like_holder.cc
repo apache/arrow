@@ -25,9 +25,10 @@ namespace gandiva {
 
 RE2 LikeHolder::starts_with_regex_(R"((\w|\s)*\.\*)");
 RE2 LikeHolder::ends_with_regex_(R"(\.\*(\w|\s)*)");
+RE2 LikeHolder::is_substr_regex_(R"(\.\*(\w|\s)*\.\*)");
 
-// Short-circuit pattern matches for the two common sub cases :
-// - starts_with and ends_with.
+// Short-circuit pattern matches for the following common sub cases :
+// - starts_with, ends_with and is_substr
 const FunctionNode LikeHolder::TryOptimize(const FunctionNode& node) {
   std::shared_ptr<LikeHolder> holder;
   auto status = Make(node, &holder);
@@ -46,6 +47,13 @@ const FunctionNode LikeHolder::TryOptimize(const FunctionNode& node) {
       auto suffix_node =
           std::make_shared<LiteralNode>(literal_type, LiteralHolder(suffix), false);
       return FunctionNode("ends_with", {node.children().at(0), suffix_node},
+                          node.return_type());
+    } else if (RE2::FullMatch(pattern, is_substr_regex_)) {
+      auto substr =
+          pattern.substr(2, pattern.length() - 4);  // trim starting and ending .*
+      auto substr_node =
+          std::make_shared<LiteralNode>(literal_type, LiteralHolder(substr), false);
+      return FunctionNode("is_substr", {node.children().at(0), substr_node},
                           node.return_type());
     }
   }
@@ -73,7 +81,7 @@ Status LikeHolder::Make(const FunctionNode& node, std::shared_ptr<LikeHolder>* h
       Status::Invalid(
           "'like' function requires a string literal as the second parameter"));
 
-  return Make(literal->holder().get<std::string>(), holder);
+  return Make(arrow::util::get<std::string>(literal->holder()), holder);
 }
 
 Status LikeHolder::Make(const std::string& sql_pattern,

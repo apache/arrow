@@ -21,6 +21,7 @@ import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
+/** An expression indicating a null value. */
 class NullNode implements TreeNode {
   private final ArrowType type;
 

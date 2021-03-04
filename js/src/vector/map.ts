@@ -15,18 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Row } from './row';
+import { MapRow } from './row';
+import { Field } from '../schema';
 import { Vector } from '../vector';
 import { BaseVector } from './base';
-import { DataType, Map_, Struct } from '../type';
+import { DataType, Map_, Struct, List } from '../type';
 
-export class MapVector<T extends { [key: string]: DataType } = any> extends BaseVector<Map_<T>> {
-    public asStruct() {
-        return Vector.new(this.data.clone(new Struct(this.type.children)));
+/** @ignore */
+export class MapVector<K extends DataType = any, V extends DataType = any> extends BaseVector<Map_<K, V>> {
+    public asList() {
+        const child = this.type.children[0] as Field<Struct<{ key: K, value: V }>>;
+        return Vector.new(this.data.clone(new List<Struct<{ key: K, value: V }>>(child)));
     }
-    // @ts-ignore
-    private _rowProxy: Row<T>;
-    public get rowProxy(): Row<T> {
-        return this._rowProxy || (this._rowProxy = Row.new<T>(this.type.children || [], true));
+    public bind(index: number): Map_<K, V>['TValue'] {
+        const child = this.getChildAt<Struct<{ key: K, value: V }>>(0);
+        const { [index]: begin, [index + 1]: end } = this.valueOffsets;
+        return new MapRow(child!.slice(begin, end));
     }
 }

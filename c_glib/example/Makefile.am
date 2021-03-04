@@ -40,11 +40,15 @@ endif
 
 noinst_PROGRAMS =				\
 	build					\
+	extension-type				\
 	read-batch				\
 	read-stream
 
 build_SOURCES =					\
 	build.c
+
+extension_type_SOURCES =			\
+	extension-type.c
 
 read_batch_SOURCES =				\
 	read-batch.c
@@ -55,5 +59,6 @@ read_stream_SOURCES =				\
 dist_example_DATA =				\
 	README.md				\
 	$(build_SOURCES)			\
+	$(extension_type_SOURCES)		\
 	$(read_batch_SOURCES)			\
 	$(read_stream_SOURCES)

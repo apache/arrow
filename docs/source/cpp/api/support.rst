@@ -15,8 +15,19 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+===================
 Programming Support
 ===================
+
+General information
+-------------------
+
+.. doxygenfunction:: arrow::GetBuildInfo
+   :project: arrow_cpp
+
+.. doxygenstruct:: arrow::BuildInfo
+   :project: arrow_cpp
+   :members:
 
 Error return and reporting
 --------------------------
@@ -25,5 +36,22 @@ Error return and reporting
    :project: arrow_cpp
    :members:
 
+.. doxygenclass:: arrow::StatusDetail
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::Result
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: parquet::ParquetException
+   :project: arrow_cpp
+   :members:
+
 .. doxygendefine:: ARROW_RETURN_NOT_OK
 
+.. doxygendefine:: ARROW_ASSIGN_OR_RAISE
+
+.. doxygendefine:: PARQUET_THROW_NOT_OK
+
+.. doxygendefine:: PARQUET_ASSIGN_OR_THROW

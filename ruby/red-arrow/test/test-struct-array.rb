@@ -27,8 +27,8 @@ class StructArrayTest < Test::Unit::TestCase
       ]
       array = Arrow::StructArray.new(data_type, values)
       assert_equal([
-                     [true, nil, false],
-                     [1, nil, 2],
+                     [true, false, false],
+                     [1, 0, 2],
                    ],
                    [
                      array.find_field(0).to_a,
@@ -49,9 +49,22 @@ class StructArrayTest < Test::Unit::TestCase
     end
 
     test("#[]") do
-      notify("TODO: Returns Arrow::Struct instead.")
-      assert_equal([[true, false], [1, 2]],
-                   [@array[0].to_a, @array[1].to_a])
+      assert_equal([
+                     {"visible" => true,  "count" => 1},
+                     {"visible" => false, "count" => 2},
+                   ],
+                   @array.to_a)
+    end
+
+    test("#get_value") do
+      assert_equal([
+                     {"visible" => true,  "count" => 1},
+                     {"visible" => false, "count" => 2},
+                   ],
+                   [
+                     @array.get_value(0),
+                     @array.get_value(1),
+                   ])
     end
 
     sub_test_case("#find_field") do

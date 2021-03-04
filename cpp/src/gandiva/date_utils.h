@@ -15,20 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef TO_DATE_HELPER_H
-#define TO_DATE_HELPER_H
+#pragma once
 
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/util/macros.h"
+
 #include "gandiva/arrow.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// \brief Utility class for converting sql date patterns to internal date patterns.
-class DateUtils {
+class GANDIVA_EXPORT DateUtils {
  public:
   static Status ToInternalFormat(const std::string& format,
                                  std::shared_ptr<std::string>* internal_format);
@@ -48,5 +50,3 @@ class DateUtils {
 };
 
 }  // namespace gandiva
-
-#endif  // TO_DATE_HELPER_H

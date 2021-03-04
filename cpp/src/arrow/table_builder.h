@@ -15,14 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TABLE_BUILDER_H
-#define ARROW_TABLE_BUILDER_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
 #include <vector>
 
-#include "arrow/builder.h"
+#include "arrow/array/builder_base.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
@@ -109,5 +108,3 @@ class ARROW_EXPORT RecordBatchBuilder {
 };
 
 }  // namespace arrow
-
-#endif  // ARROW_TABLE_BUILDER_H

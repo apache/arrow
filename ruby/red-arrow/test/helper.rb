@@ -24,3 +24,4 @@ require "zlib"
 require "test-unit"
 
 require_relative "helper/fixture"
+require_relative "helper/omittable"

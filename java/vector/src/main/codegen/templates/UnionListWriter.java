@@ -15,21 +15,26 @@
  * limitations under the License.
  */
 
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.vector.complex.writer.Decimal256Writer;
 import org.apache.arrow.vector.complex.writer.DecimalWriter;
+import org.apache.arrow.vector.holders.Decimal256Holder;
 import org.apache.arrow.vector.holders.DecimalHolder;
+
 
 import java.lang.UnsupportedOperationException;
 import java.math.BigDecimal;
 
 <@pp.dropOutputFile />
-<@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/UnionListWriter.java" />
+<#list ["List", "LargeList"] as listName>
 
+<@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/Union${listName}Writer.java" />
 
 <#include "/@includes/license.ftl" />
 
 package org.apache.arrow.vector.complex.impl;
 
+import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 <#include "/@includes/vv_imports.ftl" />
 
 /*
@@ -37,25 +42,29 @@ package org.apache.arrow.vector.complex.impl;
  */
 
 @SuppressWarnings("unused")
-public class UnionListWriter extends AbstractFieldWriter {
+public class Union${listName}Writer extends AbstractFieldWriter {
 
-  private ListVector vector;
-  private PromotableWriter writer;
+  protected ${listName}Vector vector;
+  protected PromotableWriter writer;
   private boolean inStruct = false;
+  private boolean listStarted = false;
   private String structName;
-  private int lastIndex = 0;
+  <#if listName == "LargeList">
+  private static final long OFFSET_WIDTH = 8;
+  <#else>
   private static final int OFFSET_WIDTH = 4;
+  </#if>
 
-  public UnionListWriter(ListVector vector) {
+  public Union${listName}Writer(${listName}Vector vector) {
     this(vector, NullableStructWriterFactory.getNullableStructWriterFactoryInstance());
   }
 
-  public UnionListWriter(ListVector vector, NullableStructWriterFactory nullableStructWriterFactory) {
+  public Union${listName}Writer(${listName}Vector vector, NullableStructWriterFactory nullableStructWriterFactory) {
     this.vector = vector;
     this.writer = new PromotableWriter(vector.getDataVector(), vector, nullableStructWriterFactory);
   }
 
-  public UnionListWriter(ListVector vector, AbstractFieldWriter parent) {
+  public Union${listName}Writer(${listName}Vector vector, AbstractFieldWriter parent) {
     this(vector);
   }
 
@@ -71,7 +80,7 @@ public class UnionListWriter extends AbstractFieldWriter {
 
   @Override
   public Field getField() {
-    return null;
+    return vector.getField();
   }
 
   public void setValueCount(int count) {
@@ -85,13 +94,15 @@ public class UnionListWriter extends AbstractFieldWriter {
 
   @Override
   public void close() throws Exception {
-
+    vector.close();
+    writer.close();
   }
 
   @Override
   public void setPosition(int index) {
     super.setPosition(index);
   }
+
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
   <#assign fields = minor.fields!type.fields />
   <#assign uncappedName = name?uncap_first/>
@@ -127,6 +138,22 @@ public class UnionListWriter extends AbstractFieldWriter {
   }
 
   @Override
+  public Decimal256Writer decimal256() {
+    return this;
+  }
+
+  @Override
+  public Decimal256Writer decimal256(String name, int scale, int precision) {
+    return writer.decimal256(name, scale, precision);
+  }
+
+  @Override
+  public Decimal256Writer decimal256(String name) {
+    return writer.decimal256(name);
+  }
+
+
+  @Override
   public StructWriter struct() {
     inStruct = true;
     return this;
@@ -149,17 +176,35 @@ public class UnionListWriter extends AbstractFieldWriter {
     return structWriter;
   }
 
+  <#if listName == "LargeList">
   @Override
   public void startList() {
     vector.startNewValue(idx());
-    writer.setPosition(vector.getOffsetBuffer().getInt((idx() + 1) * OFFSET_WIDTH));
+    writer.setPosition(checkedCastToInt(vector.getOffsetBuffer().getLong((idx() + 1L) * OFFSET_WIDTH)));
+    listStarted = true;
   }
 
   @Override
   public void endList() {
-    vector.getOffsetBuffer().setInt((idx() + 1) * OFFSET_WIDTH, writer.idx());
+    vector.getOffsetBuffer().setLong((idx() + 1L) * OFFSET_WIDTH, writer.idx());
     setPosition(idx() + 1);
+    listStarted = false;
   }
+  <#else>
+  @Override
+  public void startList() {
+    vector.startNewValue(idx());
+    writer.setPosition(vector.getOffsetBuffer().getInt((idx() + 1L) * OFFSET_WIDTH));
+    listStarted = true;
+  }
+
+  @Override
+  public void endList() {
+    vector.getOffsetBuffer().setInt((idx() + 1L) * OFFSET_WIDTH, writer.idx());
+    setPosition(idx() + 1);
+    listStarted = false;
+  }
+  </#if>
 
   @Override
   public void start() {
@@ -178,7 +223,27 @@ public class UnionListWriter extends AbstractFieldWriter {
     writer.setPosition(writer.idx()+1);
   }
 
-  public void writeDecimal(int start, ArrowBuf buffer) {
+  @Override
+  public void write(Decimal256Holder holder) {
+    writer.write(holder);
+    writer.setPosition(writer.idx()+1);
+  }
+
+  @Override
+  public void writeNull() {
+    if (!listStarted){
+      vector.setNull(idx());
+    } else {
+      writer.writeNull();
+    }
+  }
+
+  public void writeDecimal(long start, ArrowBuf buffer, ArrowType arrowType) {
+    writer.writeDecimal(start, buffer, arrowType);
+    writer.setPosition(writer.idx()+1);
+  }
+
+  public void writeDecimal(long start, ArrowBuf buffer) {
     writer.writeDecimal(start, buffer);
     writer.setPosition(writer.idx()+1);
   }
@@ -187,6 +252,32 @@ public class UnionListWriter extends AbstractFieldWriter {
     writer.writeDecimal(value);
     writer.setPosition(writer.idx()+1);
   }
+
+  public void writeBigEndianBytesToDecimal(byte[] value, ArrowType arrowType){
+    writer.writeBigEndianBytesToDecimal(value, arrowType);
+    writer.setPosition(writer.idx() + 1);
+  }
+
+  public void writeDecimal256(long start, ArrowBuf buffer, ArrowType arrowType) {
+    writer.writeDecimal256(start, buffer, arrowType);
+    writer.setPosition(writer.idx()+1);
+  }
+
+  public void writeDecimal256(long start, ArrowBuf buffer) {
+    writer.writeDecimal256(start, buffer);
+    writer.setPosition(writer.idx()+1);
+  }
+
+  public void writeDecimal256(BigDecimal value) {
+    writer.writeDecimal256(value);
+    writer.setPosition(writer.idx()+1);
+  }
+
+  public void writeBigEndianBytesToDecimal256(byte[] value, ArrowType arrowType){
+    writer.writeBigEndianBytesToDecimal256(value, arrowType);
+    writer.setPosition(writer.idx() + 1);
+  }
+
 
   <#list vv.types as type>
     <#list type.minor as minor>
@@ -209,3 +300,4 @@ public class UnionListWriter extends AbstractFieldWriter {
     </#list>
   </#list>
 }
+</#list>

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_EXPR_NODE_H
-#define GANDIVA_EXPR_NODE_H
+#pragma once
 
 #include <sstream>
 #include <string>
@@ -30,12 +29,13 @@
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/literal_holder.h"
 #include "gandiva/node_visitor.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// \brief Represents a node in the expression tree. Validity and value are
 /// in a joined state.
-class Node {
+class GANDIVA_EXPORT Node {
  public:
   explicit Node(DataTypePtr return_type) : return_type_(return_type) {}
 
@@ -53,7 +53,7 @@ class Node {
 };
 
 /// \brief Node in the expression tree, representing a literal.
-class LiteralNode : public Node {
+class GANDIVA_EXPORT LiteralNode : public Node {
  public:
   LiteralNode(DataTypePtr type, const LiteralHolder& holder, bool is_null)
       : Node(type), holder_(holder), is_null_(is_null) {}
@@ -72,16 +72,16 @@ class LiteralNode : public Node {
       return ss.str();
     }
 
-    ss << holder();
+    ss << gandiva::ToString(holder_);
     // The default formatter prints in decimal can cause a loss in precision. so,
     // print in hex. Can't use hexfloat since gcc 4.9 doesn't support it.
     if (return_type()->id() == arrow::Type::DOUBLE) {
-      double dvalue = holder_.get<double>();
+      double dvalue = arrow::util::get<double>(holder_);
       uint64_t bits;
       memcpy(&bits, &dvalue, sizeof(bits));
       ss << " raw(" << std::hex << bits << ")";
     } else if (return_type()->id() == arrow::Type::FLOAT) {
-      float fvalue = holder_.get<float>();
+      float fvalue = arrow::util::get<float>(holder_);
       uint32_t bits;
       memcpy(&bits, &fvalue, sizeof(bits));
       ss << " raw(" << std::hex << bits << ")";
@@ -95,7 +95,7 @@ class LiteralNode : public Node {
 };
 
 /// \brief Node in the expression tree, representing an arrow field.
-class FieldNode : public Node {
+class GANDIVA_EXPORT FieldNode : public Node {
  public:
   explicit FieldNode(FieldPtr field) : Node(field->type()), field_(field) {}
 
@@ -104,7 +104,7 @@ class FieldNode : public Node {
   const FieldPtr& field() const { return field_; }
 
   std::string ToString() const override {
-    return "(" + field()->type()->name() + ") " + field()->name();
+    return "(" + field()->type()->ToString() + ") " + field()->name();
   }
 
  private:
@@ -112,7 +112,7 @@ class FieldNode : public Node {
 };
 
 /// \brief Node in the expression tree, representing a function.
-class FunctionNode : public Node {
+class GANDIVA_EXPORT FunctionNode : public Node {
  public:
   FunctionNode(const std::string& name, const NodeVector& children, DataTypePtr retType);
 
@@ -123,7 +123,7 @@ class FunctionNode : public Node {
 
   std::string ToString() const override {
     std::stringstream ss;
-    ss << descriptor()->return_type()->name() << " " << descriptor()->name() << "(";
+    ss << descriptor()->return_type()->ToString() << " " << descriptor()->name() << "(";
     bool skip_comma = true;
     for (auto& child : children()) {
       if (skip_comma) {
@@ -154,7 +154,7 @@ inline FunctionNode::FunctionNode(const std::string& name, const NodeVector& chi
 }
 
 /// \brief Node in the expression tree, representing an if-else expression.
-class IfNode : public Node {
+class GANDIVA_EXPORT IfNode : public Node {
  public:
   IfNode(NodePtr condition, NodePtr then_node, NodePtr else_node, DataTypePtr result_type)
       : Node(result_type),
@@ -183,7 +183,7 @@ class IfNode : public Node {
 };
 
 /// \brief Node in the expression tree, representing an and/or boolean expression.
-class BooleanNode : public Node {
+class GANDIVA_EXPORT BooleanNode : public Node {
  public:
   enum ExprType : char { AND, OR };
 
@@ -253,5 +253,3 @@ class InExpressionNode : public Node {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_EXPR_NODE_H

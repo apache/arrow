@@ -1,0 +1,31 @@
+{
+    "url": "https://api.github.com/repos/ursa-labs/ursabot/issues/comments/480248726",
+    "html_url": "https://github.com/ursa-labs/ursabot/pull/26#issuecomment-480248726",
+    "issue_url": "https://api.github.com/repos/ursa-labs/ursabot/issues/26",
+    "id": 480248726,
+    "node_id": "MDEyOklzc3VlQ29tbWVudDQ4MDI0ODcyNg==",
+    "user": {
+        "login": "kszucs",
+        "id": 961747,
+        "node_id": "MDQ6VXNlcjk2MTc0Nw==",
+        "avatar_url": "https://avatars1.githubusercontent.com/u/961747?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/kszucs",
+        "html_url": "https://github.com/kszucs",
+        "followers_url": "https://api.github.com/users/kszucs/followers",
+        "following_url": "https://api.github.com/users/kszucs/following{/other_user}",
+        "gists_url": "https://api.github.com/users/kszucs/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/kszucs/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/kszucs/subscriptions",
+        "organizations_url": "https://api.github.com/users/kszucs/orgs",
+        "repos_url": "https://api.github.com/users/kszucs/repos",
+        "events_url": "https://api.github.com/users/kszucs/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/kszucs/received_events",
+        "type": "User",
+        "site_admin": false
+    },
+    "created_at": "2019-04-05T11:55:43Z",
+    "updated_at": "2019-04-05T11:55:43Z",
+    "author_association": "MEMBER",
+    "body": "@ursabot build"
+}

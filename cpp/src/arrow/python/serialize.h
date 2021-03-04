@@ -15,13 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PYTHON_PYTHON_TO_ARROW_H
-#define ARROW_PYTHON_PYTHON_TO_ARROW_H
+#pragma once
 
 #include <memory>
 #include <vector>
 
+#include "arrow/ipc/options.h"
 #include "arrow/python/visibility.h"
+#include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 
 // Forward declaring PyObject, see
@@ -50,8 +51,12 @@ namespace py {
 struct ARROW_PYTHON_EXPORT SerializedPyObject {
   std::shared_ptr<RecordBatch> batch;
   std::vector<std::shared_ptr<Tensor>> tensors;
+  std::vector<std::shared_ptr<SparseTensor>> sparse_tensors;
   std::vector<std::shared_ptr<Tensor>> ndarrays;
   std::vector<std::shared_ptr<Buffer>> buffers;
+  ipc::IpcWriteOptions ipc_options;
+
+  SerializedPyObject();
 
   /// \brief Write serialized Python object to OutputStream
   /// \param[in,out] dst an OutputStream
@@ -62,13 +67,14 @@ struct ARROW_PYTHON_EXPORT SerializedPyObject {
   /// components as Buffer instances with minimal memory allocation
   ///
   /// {
-  ///   'num_tensors': N,
+  ///   'num_tensors': M,
+  ///   'num_sparse_tensors': N,
   ///   'num_buffers': K,
   ///   'data': [Buffer]
   /// }
   ///
   /// Each tensor is written as two buffers, one for the metadata and one for
-  /// the body. Therefore, the number of buffers in 'data' is 2 * N + K + 1,
+  /// the body. Therefore, the number of buffers in 'data' is 2 * M + 2 * N + K + 1,
   /// with the first buffer containing the serialized record batch containing
   /// the UnionArray that describes the whole object
   Status GetComponents(MemoryPool* pool, PyObject** out);
@@ -99,7 +105,7 @@ Status SerializeTensor(std::shared_ptr<Tensor> tensor, py::SerializedPyObject* o
 /// \brief Write the Tensor metadata header to an OutputStream.
 /// \param[in] dtype DataType of the Tensor
 /// \param[in] shape The shape of the tensor
-/// \param[in] tensor_num_bytes The lengh of the Tensor data in bytes
+/// \param[in] tensor_num_bytes The length of the Tensor data in bytes
 /// \param[in] dst The OutputStream to write the Tensor header to
 /// \return Status
 ARROW_PYTHON_EXPORT
@@ -107,8 +113,33 @@ Status WriteNdarrayHeader(std::shared_ptr<DataType> dtype,
                           const std::vector<int64_t>& shape, int64_t tensor_num_bytes,
                           io::OutputStream* dst);
 
+struct PythonType {
+  enum type {
+    NONE,
+    BOOL,
+    INT,
+    PY2INT,  // Kept for compatibility
+    BYTES,
+    STRING,
+    HALF_FLOAT,
+    FLOAT,
+    DOUBLE,
+    DATE64,
+    LIST,
+    DICT,
+    TUPLE,
+    SET,
+    TENSOR,
+    NDARRAY,
+    BUFFER,
+    SPARSECOOTENSOR,
+    SPARSECSRMATRIX,
+    SPARSECSCMATRIX,
+    SPARSECSFTENSOR,
+    NUM_PYTHON_TYPES
+  };
+};
+
 }  // namespace py
 
 }  // namespace arrow
-
-#endif  // ARROW_PYTHON_PYTHON_TO_ARROW_H

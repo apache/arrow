@@ -21,6 +21,8 @@
 
 #include <arrow-glib/arrow-glib.h>
 
+#include <gandiva-glib/version.h>
+
 G_BEGIN_DECLS
 
 #define GGANDIVA_TYPE_NODE (ggandiva_node_get_type())
@@ -34,6 +36,8 @@ struct _GGandivaNodeClass
 {
   GObjectClass parent_class;
 };
+
+gchar *ggandiva_node_to_string(GGandivaNode *node);
 
 
 #define GGANDIVA_TYPE_FIELD_NODE (ggandiva_field_node_get_type())
@@ -338,5 +342,54 @@ ggandiva_if_node_new(GGandivaNode *condition_node,
                      GGandivaNode *else_node,
                      GArrowDataType *return_type,
                      GError **error);
+
+
+#define GGANDIVA_TYPE_BOOLEAN_NODE (ggandiva_boolean_node_get_type())
+G_DECLARE_DERIVABLE_TYPE(GGandivaBooleanNode,
+                         ggandiva_boolean_node,
+                         GGANDIVA,
+                         BOOLEAN_NODE,
+                         GGandivaNode)
+
+struct _GGandivaBooleanNodeClass
+{
+  GGandivaNodeClass parent_class;
+};
+
+GGANDIVA_AVAILABLE_IN_0_17
+GList *
+ggandiva_boolean_node_get_children(GGandivaBooleanNode *node);
+
+
+#define GGANDIVA_TYPE_AND_NODE (ggandiva_and_node_get_type())
+G_DECLARE_DERIVABLE_TYPE(GGandivaAndNode,
+                         ggandiva_and_node,
+                         GGANDIVA,
+                         AND_NODE,
+                         GGandivaBooleanNode)
+struct _GGandivaAndNodeClass
+{
+  GGandivaBooleanNodeClass parent_class;
+};
+
+GGANDIVA_AVAILABLE_IN_0_17
+GGandivaAndNode *
+ggandiva_and_node_new(GList *children);
+
+
+#define GGANDIVA_TYPE_OR_NODE (ggandiva_or_node_get_type())
+G_DECLARE_DERIVABLE_TYPE(GGandivaOrNode,
+                         ggandiva_or_node,
+                         GGANDIVA,
+                         OR_NODE,
+                         GGandivaBooleanNode)
+struct _GGandivaOrNodeClass
+{
+  GGandivaBooleanNodeClass parent_class;
+};
+
+GGANDIVA_AVAILABLE_IN_0_17
+GGandivaOrNode *
+ggandiva_or_node_new(GList *children);
 
 G_END_DECLS

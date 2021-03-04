@@ -28,11 +28,20 @@ module Arrow
     private
     def post_load(repository, namespace)
       require_libraries
+      require_extension_library
     end
 
     def require_libraries
+      require "arrow/column-containable"
+      require "arrow/field-containable"
+      require "arrow/generic-filterable"
+      require "arrow/generic-takeable"
+      require "arrow/record-containable"
+
       require "arrow/array"
       require "arrow/array-builder"
+      require "arrow/bigdecimal-extension"
+      require "arrow/buffer"
       require "arrow/chunked-array"
       require "arrow/column"
       require "arrow/compression-type"
@@ -43,19 +52,32 @@ module Arrow
       require "arrow/date32-array-builder"
       require "arrow/date64-array"
       require "arrow/date64-array-builder"
+      require "arrow/decimal128"
+      require "arrow/decimal128-array"
       require "arrow/decimal128-array-builder"
       require "arrow/decimal128-data-type"
+      require "arrow/decimal256"
+      require "arrow/decimal256-array"
+      require "arrow/decimal256-array-builder"
+      require "arrow/decimal256-data-type"
       require "arrow/dense-union-data-type"
+      require "arrow/dictionary-array"
       require "arrow/dictionary-data-type"
       require "arrow/field"
       require "arrow/file-output-stream"
+      require "arrow/fixed-size-binary-array"
+      require "arrow/fixed-size-binary-array-builder"
+      require "arrow/group"
       require "arrow/list-array-builder"
       require "arrow/list-data-type"
+      require "arrow/null-array"
+      require "arrow/null-array-builder"
       require "arrow/path-extension"
       require "arrow/record"
       require "arrow/record-batch"
       require "arrow/record-batch-builder"
       require "arrow/record-batch-file-reader"
+      require "arrow/record-batch-iterator"
       require "arrow/record-batch-stream-reader"
       require "arrow/rolling-window"
       require "arrow/schema"
@@ -71,12 +93,21 @@ module Arrow
       require "arrow/table-loader"
       require "arrow/table-saver"
       require "arrow/tensor"
+      require "arrow/time"
+      require "arrow/time32-array"
+      require "arrow/time32-array-builder"
       require "arrow/time32-data-type"
+      require "arrow/time64-array"
+      require "arrow/time64-array-builder"
       require "arrow/time64-data-type"
       require "arrow/timestamp-array"
       require "arrow/timestamp-array-builder"
       require "arrow/timestamp-data-type"
       require "arrow/writable"
+    end
+
+    def require_extension_library
+      require "arrow.so"
     end
 
     def load_object_info(info)
@@ -89,6 +120,14 @@ module Arrow
     end
 
     def load_method_info(info, klass, method_name)
+      case klass.name
+      when /Array\z/
+        case method_name
+        when "values"
+          method_name = "values_raw"
+        end
+      end
+
       case klass.name
       when /Builder\z/
         case method_name
@@ -105,10 +144,22 @@ module Arrow
           method_name = "get_value"
         end
         super(info, klass, method_name)
-      when "Arrow::TimestampArray", "Arrow::Date32Array", "Arrow::Date64Array"
+      when "Arrow::Date32Array",
+           "Arrow::Date64Array",
+           "Arrow::Decimal128Array",
+           "Arrow::Decimal256Array",
+           "Arrow::Time32Array",
+           "Arrow::Time64Array",
+           "Arrow::TimestampArray"
         case method_name
         when "get_value"
           method_name = "get_raw_value"
+        end
+        super(info, klass, method_name)
+      when "Arrow::Decimal128", "Arrow::Decimal256"
+        case method_name
+        when "copy"
+          method_name = "dup"
         end
         super(info, klass, method_name)
       else

@@ -20,7 +20,7 @@
 test_dir="$(cd $(dirname $0); pwd)"
 build_dir="$(cd .; pwd)"
 
-modules="arrow-glib arrow-cuda-glib gandiva-glib parquet-glib plasma-glib"
+modules="arrow-glib arrow-cuda-glib arrow-dataset-glib gandiva-glib parquet-glib plasma-glib"
 
 for module in ${modules}; do
   module_build_dir="${build_dir}/${module}"
@@ -35,8 +35,12 @@ for module in ${modules}; do
 done
 export LD_LIBRARY_PATH
 
-if [ -f "Makefile" -a "${NO_MAKE}" != "yes" ]; then
-  make -j8 > /dev/null || exit $?
+if [ "${BUILD}" != "no" ]; then
+  if [ -f "Makefile" ]; then
+    make -j8 > /dev/null || exit $?
+  elif [ -f "build.ninja" ]; then
+    ninja || exit $?
+  fi
 fi
 
 for module in ${modules}; do

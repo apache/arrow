@@ -18,20 +18,20 @@
 // Public API for the "Feather" file format, originally created at
 // http://github.com/wesm/feather
 
-#ifndef ARROW_IPC_FEATHER_H
-#define ARROW_IPC_FEATHER_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "arrow/type_fwd.h"
+#include "arrow/util/compression.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
-class Array;
-class Column;
+class Schema;
 class Status;
 class Table;
 
@@ -45,53 +45,29 @@ class RandomAccessFile;
 namespace ipc {
 namespace feather {
 
-static constexpr const int kFeatherVersion = 2;
+static constexpr const int kFeatherV1Version = 2;
+static constexpr const int kFeatherV2Version = 3;
 
 // ----------------------------------------------------------------------
 // Metadata accessor classes
 
-/// \class TableReader
+/// \class Reader
 /// \brief An interface for reading columns from Feather files
-class ARROW_EXPORT TableReader {
+class ARROW_EXPORT Reader {
  public:
-  TableReader();
-  ~TableReader();
+  virtual ~Reader() = default;
 
   /// \brief Open a Feather file from a RandomAccessFile interface
   ///
   /// \param[in] source a RandomAccessFile instance
-  /// \param[out] out the table reader
-  static Status Open(const std::shared_ptr<io::RandomAccessFile>& source,
-                     std::unique_ptr<TableReader>* out);
-
-  /// \brief Optional table description
-  ///
-  /// This does not return a const std::string& because a string has to be
-  /// copied from the flatbuffer to be able to return a non-flatbuffer type
-  std::string GetDescription() const;
-
-  /// \brief Return true if the table has a description field populated
-  bool HasDescription() const;
+  /// \return the table reader
+  static Result<std::shared_ptr<Reader>> Open(
+      const std::shared_ptr<io::RandomAccessFile>& source);
 
   /// \brief Return the version number of the Feather file
-  int version() const;
+  virtual int version() const = 0;
 
-  /// \brief Return the number of rows in the file
-  int64_t num_rows() const;
-
-  /// \brief Return the number of columns in the file
-  int64_t num_columns() const;
-
-  std::string GetColumnName(int i) const;
-
-  /// \brief Read a column from the file as an arrow::Column.
-  ///
-  /// \param[in] i the column index to read
-  /// \param[out] out the returned column
-  /// \return Status
-  ///
-  /// This function is zero-copy if the file source supports zero-copy reads
-  Status GetColumn(int i, std::shared_ptr<Column>* out);
+  virtual std::shared_ptr<Schema> schema() const = 0;
 
   /// \brief Read all columns from the file as an arrow::Table.
   ///
@@ -99,7 +75,7 @@ class ARROW_EXPORT TableReader {
   /// \return Status
   ///
   /// This function is zero-copy if the file source supports zero-copy reads
-  Status Read(std::shared_ptr<Table>* out);
+  virtual Status Read(std::shared_ptr<Table>* out) = 0;
 
   /// \brief Read only the specified columns from the file as an arrow::Table.
   ///
@@ -108,7 +84,7 @@ class ARROW_EXPORT TableReader {
   /// \return Status
   ///
   /// This function is zero-copy if the file source supports zero-copy reads
-  Status Read(const std::vector<int>& indices, std::shared_ptr<Table>* out);
+  virtual Status Read(const std::vector<int>& indices, std::shared_ptr<Table>* out) = 0;
 
   /// \brief Read only the specified columns from the file as an arrow::Table.
   ///
@@ -117,57 +93,48 @@ class ARROW_EXPORT TableReader {
   /// \return Status
   ///
   /// This function is zero-copy if the file source supports zero-copy reads
-  Status Read(const std::vector<std::string>& names, std::shared_ptr<Table>* out);
-
- private:
-  class ARROW_NO_EXPORT TableReaderImpl;
-  std::unique_ptr<TableReaderImpl> impl_;
+  virtual Status Read(const std::vector<std::string>& names,
+                      std::shared_ptr<Table>* out) = 0;
 };
 
-/// \class TableWriter
-/// \brief Interface for writing Feather files
-class ARROW_EXPORT TableWriter {
- public:
-  ~TableWriter();
+struct ARROW_EXPORT WriteProperties {
+  static WriteProperties Defaults();
 
-  /// \brief Create a new TableWriter that writes to an OutputStream
-  /// \param[in] stream an output stream
-  /// \param[out] out the returned table writer
-  /// \return Status
-  static Status Open(const std::shared_ptr<io::OutputStream>& stream,
-                     std::unique_ptr<TableWriter>* out);
+  static WriteProperties DefaultsV1() {
+    WriteProperties props = Defaults();
+    props.version = kFeatherV1Version;
+    return props;
+  }
 
-  /// \brief Set the description field in the file metadata
-  void SetDescription(const std::string& desc);
-
-  /// \brief Set the number of rows in the file
-  void SetNumRows(int64_t num_rows);
-
-  /// \brief Append a column to the file
+  /// Feather file version number
   ///
-  /// \param[in] name the column name
-  /// \param[in] values the column values as a contiguous arrow::Array
-  /// \return Status
-  Status Append(const std::string& name, const Array& values);
+  /// version 2: "Feather V1" Apache Arrow <= 0.16.0
+  /// version 3: "Feather V2" Apache Arrow > 0.16.0
+  int version = kFeatherV2Version;
 
-  /// \brief Write a table to the file
-  ///
-  /// \param[in] table the table to be written
-  /// \return Status
-  Status Write(const Table& table);
+  // Parameters for Feather V2 only
 
-  /// \brief Finalize the file by writing the file metadata and footer
-  /// \return Status
-  Status Finalize();
+  /// Number of rows per intra-file chunk. Use smaller chunksize when you need
+  /// faster random row access
+  int64_t chunksize = 1LL << 16;
 
- private:
-  TableWriter();
-  class ARROW_NO_EXPORT TableWriterImpl;
-  std::unique_ptr<TableWriterImpl> impl_;
+  /// Compression type to use. Only UNCOMPRESSED, LZ4_FRAME, and ZSTD are
+  /// supported. The default compression returned by Defaults() is LZ4 if the
+  /// project is built with support for it, otherwise
+  /// UNCOMPRESSED. UNCOMPRESSED is set as the object default here so that if
+  /// WriteProperties::Defaults() is not used, the default constructor for
+  /// WriteProperties will work regardless of the options used to build the C++
+  /// project.
+  Compression::type compression = Compression::UNCOMPRESSED;
+
+  /// Compressor-specific compression level
+  int compression_level = ::arrow::util::kUseDefaultCompressionLevel;
 };
+
+ARROW_EXPORT
+Status WriteTable(const Table& table, io::OutputStream* dst,
+                  const WriteProperties& properties = WriteProperties::Defaults());
 
 }  // namespace feather
 }  // namespace ipc
 }  // namespace arrow
-
-#endif  // ARROW_IPC_FEATHER_H

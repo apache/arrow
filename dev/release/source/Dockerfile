@@ -15,34 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM ubuntu:18.04
+FROM debian:buster
 
 ENV DEBIAN_FRONTEND noninteractive
 
-RUN \
-  apt update && \
+RUN apt update && \
   apt install -y -V \
     autoconf-archive \
-    bison \
-    clang-6.0 \
-    cmake \
-    flex \
-    g++ \
-    gcc \
     gtk-doc-tools \
-    libboost-filesystem-dev \
-    libboost-regex-dev \
-    libboost-system-dev \
     libgirepository1.0-dev \
     libglib2.0-doc \
-    libprotobuf-dev \
-    libprotoc-dev \
     libtool \
-    lsb-release \
-    make \
-    pkg-config \
-    protobuf-compiler && \
+    pkg-config && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*
-
-COPY build.sh /build.sh

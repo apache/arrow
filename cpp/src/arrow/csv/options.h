@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_CSV_OPTIONS_H
-#define ARROW_CSV_OPTIONS_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -24,68 +23,134 @@
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/csv/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
 class DataType;
+class TimestampParser;
 
 namespace csv {
+
+// Silly workaround for https://github.com/michaeljones/breathe/issues/453
+constexpr char kDefaultEscapeChar = '\\';
 
 struct ARROW_EXPORT ParseOptions {
   // Parsing options
 
-  // Field delimiter
+  /// Field delimiter
   char delimiter = ',';
-  // Whether quoting is used
+  /// Whether quoting is used
   bool quoting = true;
-  // Quoting character (if `quoting` is true)
+  /// Quoting character (if `quoting` is true)
   char quote_char = '"';
-  // Whether a quote inside a value is double-quoted
+  /// Whether a quote inside a value is double-quoted
   bool double_quote = true;
-  // Whether escaping is used
+  /// Whether escaping is used
   bool escaping = false;
-  // Escaping character (if `escaping` is true)
-  char escape_char = '\\';
-  // Whether values are allowed to contain CR (0x0d) and LF (0x0a) characters
+  /// Escaping character (if `escaping` is true)
+  char escape_char = kDefaultEscapeChar;
+  /// Whether values are allowed to contain CR (0x0d) and LF (0x0a) characters
   bool newlines_in_values = false;
-  // Whether empty lines are ignored.  If false, an empty line represents
-  // a single empty value (assuming a one-column CSV file).
+  /// Whether empty lines are ignored.  If false, an empty line represents
+  /// a single empty value (assuming a one-column CSV file).
   bool ignore_empty_lines = true;
 
-  // XXX Should this be in ReadOptions?
-  // Number of header rows to skip (including the first row containing column names)
-  int32_t header_rows = 1;
-
+  /// Create parsing options with default values
   static ParseOptions Defaults();
 };
 
 struct ARROW_EXPORT ConvertOptions {
   // Conversion options
 
-  // Whether to check UTF8 validity of string columns
+  /// Whether to check UTF8 validity of string columns
   bool check_utf8 = true;
-  // Optional per-column types (disabling type inference on those columns)
+  /// Optional per-column types (disabling type inference on those columns)
   std::unordered_map<std::string, std::shared_ptr<DataType>> column_types;
-  // Recognized spellings for null values
+  /// Recognized spellings for null values
   std::vector<std::string> null_values;
+  /// Recognized spellings for boolean true values
+  std::vector<std::string> true_values;
+  /// Recognized spellings for boolean false values
+  std::vector<std::string> false_values;
+  /// Whether string / binary columns can have null values.
+  ///
+  /// If true, then strings in "null_values" are considered null for string columns.
+  /// If false, then all strings are valid string values.
+  bool strings_can_be_null = false;
 
+  /// Whether to try to automatically dict-encode string / binary data.
+  /// If true, then when type inference detects a string or binary column,
+  /// it is dict-encoded up to `auto_dict_max_cardinality` distinct values
+  /// (per chunk), after which it switches to regular encoding.
+  ///
+  /// This setting is ignored for non-inferred columns (those in `column_types`).
+  bool auto_dict_encode = false;
+  int32_t auto_dict_max_cardinality = 50;
+
+  // XXX Should we have a separate FilterOptions?
+
+  /// If non-empty, indicates the names of columns from the CSV file that should
+  /// be actually read and converted (in the vector's order).
+  /// Columns not in this vector will be ignored.
+  std::vector<std::string> include_columns;
+  /// If false, columns in `include_columns` but not in the CSV file will error out.
+  /// If true, columns in `include_columns` but not in the CSV file will produce
+  /// a column of nulls (whose type is selected using `column_types`,
+  /// or null by default)
+  /// This option is ignored if `include_columns` is empty.
+  bool include_missing_columns = false;
+
+  /// User-defined timestamp parsers, using the virtual parser interface in
+  /// arrow/util/value_parsing.h. More than one parser can be specified, and
+  /// the CSV conversion logic will try parsing values starting from the
+  /// beginning of this vector. If no parsers are specified, we use the default
+  /// built-in ISO-8601 parser.
+  std::vector<std::shared_ptr<TimestampParser>> timestamp_parsers;
+
+  /// Create conversion options with default values, including conventional
+  /// values for `null_values`, `true_values` and `false_values`
   static ConvertOptions Defaults();
 };
 
 struct ARROW_EXPORT ReadOptions {
   // Reader options
 
-  // Whether to use the global CPU thread pool
+  /// Whether to use the global CPU thread pool
   bool use_threads = true;
-  // Block size we request from the IO layer; also determines the size of
-  // chunks when use_threads is true
+  /// Block size we request from the IO layer; also determines the size of
+  /// chunks when use_threads is true
   int32_t block_size = 1 << 20;  // 1 MB
 
+  /// Number of header rows to skip (not including the row of column names, if any)
+  int32_t skip_rows = 0;
+  /// Column names for the target table.
+  /// If empty, fall back on autogenerate_column_names.
+  std::vector<std::string> column_names;
+  /// Whether to autogenerate column names if `column_names` is empty.
+  /// If true, column names will be of the form "f0", "f1"...
+  /// If false, column names will be read from the first CSV row after `skip_rows`.
+  bool autogenerate_column_names = false;
+
+  /// Create read options with default values
   static ReadOptions Defaults();
+};
+
+/// Experimental
+struct ARROW_EXPORT WriteOptions {
+  /// Whether to write an initial header line with column names
+  bool include_header = true;
+
+  /// \brief Maximum number of rows processed at a time
+  ///
+  /// The CSV writer converts and writes data in batches of N rows.
+  /// This number can impact performance.
+  int32_t batch_size = 1024;
+
+  /// Create write options with default values
+  static WriteOptions Defaults();
 };
 
 }  // namespace csv
 }  // namespace arrow
-
-#endif  // ARROW_CSV_OPTIONS_H

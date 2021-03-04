@@ -1,0 +1,2 @@
+etc/apt/sources.list.d/*
+usr/share/keyrings/*

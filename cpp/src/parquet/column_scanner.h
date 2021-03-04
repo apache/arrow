@@ -15,23 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_COLUMN_SCANNER_H
-#define PARQUET_COLUMN_SCANNER_H
+#pragma once
 
 #include <stdio.h>
+
 #include <cstdint>
 #include <memory>
 #include <ostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "parquet/column_reader.h"
 #include "parquet/exception.h"
+#include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
-#include "parquet/util/macros.h"
-#include "parquet/util/memory.h"
-#include "parquet/util/visibility.h"
 
 namespace parquet {
 
@@ -48,7 +47,7 @@ class PARQUET_EXPORT Scanner {
         value_buffer_(AllocateBuffer(pool)),
         value_offset_(0),
         values_buffered_(0),
-        reader_(reader) {
+        reader_(std::move(reader)) {
     def_levels_.resize(descr()->max_definition_level() > 0 ? batch_size_ : 0);
     rep_levels_.resize(descr()->max_repetition_level() > 0 ? batch_size_ : 0);
   }
@@ -60,7 +59,7 @@ class PARQUET_EXPORT Scanner {
       int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
-  virtual void PrintNext(std::ostream& out, int width) = 0;
+  virtual void PrintNext(std::ostream& out, int width, bool with_levels = false) = 0;
 
   bool HasNext() { return level_offset_ < levels_buffered_ || reader_->HasNext(); }
 
@@ -81,21 +80,19 @@ class PARQUET_EXPORT Scanner {
   std::shared_ptr<ResizableBuffer> value_buffer_;
   int value_offset_;
   int64_t values_buffered_;
-
- private:
   std::shared_ptr<ColumnReader> reader_;
 };
 
 template <typename DType>
-class PARQUET_EXPORT TypedScanner : public Scanner {
+class PARQUET_TEMPLATE_CLASS_EXPORT TypedScanner : public Scanner {
  public:
   typedef typename DType::c_type T;
 
   explicit TypedScanner(std::shared_ptr<ColumnReader> reader,
                         int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE,
                         ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
-      : Scanner(reader, batch_size, pool) {
-    typed_reader_ = static_cast<TypedColumnReader<DType>*>(reader.get());
+      : Scanner(std::move(reader), batch_size, pool) {
+    typed_reader_ = static_cast<TypedColumnReader<DType>*>(reader_.get());
     int value_byte_size = type_traits<DType::type_num>::value_byte_size;
     PARQUET_THROW_NOT_OK(value_buffer_->Resize(batch_size_ * value_byte_size));
     values_ = reinterpret_cast<T*>(value_buffer_->mutable_data());
@@ -169,13 +166,22 @@ class PARQUET_EXPORT TypedScanner : public Scanner {
     return true;
   }
 
-  virtual void PrintNext(std::ostream& out, int width) {
-    T val;
+  virtual void PrintNext(std::ostream& out, int width, bool with_levels = false) {
+    T val{};
+    int16_t def_level = -1;
+    int16_t rep_level = -1;
     bool is_null = false;
-    char buffer[25];
+    char buffer[80];
 
-    if (!NextValue(&val, &is_null)) {
+    if (!Next(&val, &def_level, &rep_level, &is_null)) {
       throw ParquetException("No more values buffered");
+    }
+
+    if (with_levels) {
+      out << "  D:" << def_level << " R:" << rep_level << " ";
+      if (!is_null) {
+        out << "V:";
+      }
     }
 
     if (is_null) {
@@ -254,5 +260,3 @@ int64_t PARQUET_EXPORT ScanAllValues(int32_t batch_size, int16_t* def_levels,
                                      parquet::ColumnReader* reader);
 
 }  // namespace parquet
-
-#endif  // PARQUET_COLUMN_SCANNER_H

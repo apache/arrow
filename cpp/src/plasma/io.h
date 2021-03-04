@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PLASMA_IO_H
-#define PLASMA_IO_H
+#pragma once
 
 #include <inttypes.h>
 #include <sys/socket.h>
@@ -40,7 +39,7 @@ enum class MessageType : int64_t;
 }  // namespace flatbuf
 
 // TODO(pcm): Replace our own custom message header (message type,
-// message length, plasma protocol verion) with one that is serialized
+// message length, plasma protocol version) with one that is serialized
 // using flatbuffers.
 constexpr int64_t kPlasmaProtocolVersion = 0x0000000000000000;
 
@@ -66,5 +65,3 @@ int AcceptClient(int socket_fd);
 std::unique_ptr<uint8_t[]> ReadMessageAsync(int sock);
 
 }  // namespace plasma
-
-#endif  // PLASMA_IO_H

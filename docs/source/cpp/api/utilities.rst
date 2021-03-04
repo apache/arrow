@@ -25,3 +25,28 @@ Decimal Numbers
 .. doxygenclass:: arrow::Decimal128
    :project: arrow_cpp
    :members:
+
+Abstract Sequences
+==================
+
+.. doxygenclass:: arrow::Iterator
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::VectorIterator
+   :project: arrow_cpp
+   :members:
+
+Compression
+===========
+
+.. doxygenenum:: arrow::Compression::type
+
+.. doxygenclass:: arrow::util::Codec
+   :members:
+
+.. doxygenclass:: arrow::util::Compressor
+   :members:
+
+.. doxygenclass:: arrow::util::Decompressor
+   :members:

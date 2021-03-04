@@ -1,4 +1,4 @@
-//Compiler configuaration to build the ESNext ESModules target
+//Compiler configuration to build the ESNext ESModules target
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {

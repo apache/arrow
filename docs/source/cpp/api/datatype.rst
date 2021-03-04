@@ -122,6 +122,9 @@ Nested
 .. doxygenclass:: arrow::ListType
    :members:
 
+.. doxygenclass:: arrow::MapType
+   :members:
+
 .. doxygenclass:: arrow::StructType
    :members:
 

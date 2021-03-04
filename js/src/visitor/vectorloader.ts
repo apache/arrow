@@ -18,6 +18,7 @@
 import { Data } from '../data';
 import * as type from '../type';
 import { Field } from '../schema';
+import { Vector } from '../vector';
 import { DataType } from '../type';
 import { Visitor } from '../visitor';
 import { packBools } from '../util/bit';
@@ -27,29 +28,33 @@ import { UnionMode, DateUnit } from '../enum';
 import { toArrayBufferView } from '../util/buffer';
 import { BufferRegion, FieldNode } from '../ipc/metadata/message';
 
+/** @ignore */
 export interface VectorLoader extends Visitor {
     visit<T extends DataType>(node: Field<T> | T): Data<T>;
     visitMany<T extends DataType>(nodes: (Field<T> | T)[]): Data<T>[];
 }
 
+/** @ignore */
 export class VectorLoader extends Visitor {
     private bytes: Uint8Array;
     private nodes: FieldNode[];
     private nodesIndex: number = -1;
     private buffers: BufferRegion[];
     private buffersIndex: number = -1;
-    constructor(bytes: Uint8Array, nodes: FieldNode[], buffers: BufferRegion[]) {
+    private dictionaries: Map<number, Vector<any>>;
+    constructor(bytes: Uint8Array, nodes: FieldNode[], buffers: BufferRegion[], dictionaries: Map<number, Vector<any>>) {
         super();
         this.bytes = bytes;
         this.nodes = nodes;
         this.buffers = buffers;
+        this.dictionaries = dictionaries;
     }
 
     public visit<T extends DataType>(node: Field<T> | T): Data<T> {
         return super.visit(node instanceof Field ? node.type : node);
     }
 
-    public visitNull            <T extends type.Null>            (type: T, { length, nullCount } = this.nextFieldNode()) { return            Data.Null(type, 0, length, nullCount, this.readNullBitmap(type, nullCount));                                                                                }
+    public visitNull            <T extends type.Null>            (type: T, { length,           } = this.nextFieldNode()) { return            Data.Null(type, 0, length);                                                                                                                                 }
     public visitBool            <T extends type.Bool>            (type: T, { length, nullCount } = this.nextFieldNode()) { return            Data.Bool(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readData(type));                                                           }
     public visitInt             <T extends type.Int>             (type: T, { length, nullCount } = this.nextFieldNode()) { return             Data.Int(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readData(type));                                                           }
     public visitFloat           <T extends type.Float>           (type: T, { length, nullCount } = this.nextFieldNode()) { return           Data.Float(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readData(type));                                                           }
@@ -65,10 +70,10 @@ export class VectorLoader extends Visitor {
     public visitUnion           <T extends type.Union>           (type: T                                              ) { return type.mode === UnionMode.Sparse ? this.visitSparseUnion(type as type.SparseUnion) : this.visitDenseUnion(type as type.DenseUnion);                                      }
     public visitDenseUnion      <T extends type.DenseUnion>      (type: T, { length, nullCount } = this.nextFieldNode()) { return           Data.Union(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readTypeIds(type), this.readOffsets(type), this.visitMany(type.children)); }
     public visitSparseUnion     <T extends type.SparseUnion>     (type: T, { length, nullCount } = this.nextFieldNode()) { return           Data.Union(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readTypeIds(type), this.visitMany(type.children));                         }
-    public visitDictionary      <T extends type.Dictionary>      (type: T, { length, nullCount } = this.nextFieldNode()) { return      Data.Dictionary(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readData(type.indices));                                                   }
+    public visitDictionary      <T extends type.Dictionary>      (type: T, { length, nullCount } = this.nextFieldNode()) { return      Data.Dictionary(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readData(type.indices), this.readDictionary(type));                        }
     public visitInterval        <T extends type.Interval>        (type: T, { length, nullCount } = this.nextFieldNode()) { return        Data.Interval(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readData(type));                                                           }
     public visitFixedSizeList   <T extends type.FixedSizeList>   (type: T, { length, nullCount } = this.nextFieldNode()) { return   Data.FixedSizeList(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.visit(type.children[0]));                                                  }
-    public visitMap             <T extends type.Map_>            (type: T, { length, nullCount } = this.nextFieldNode()) { return             Data.Map(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.visitMany(type.children));                                                 }
+    public visitMap             <T extends type.Map_>            (type: T, { length, nullCount } = this.nextFieldNode()) { return             Data.Map(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readOffsets(type), this.visit(type.children[0]));                          }
 
     protected nextFieldNode() { return this.nodes[++this.nodesIndex]; }
     protected nextBufferRange() { return this.buffers[++this.buffersIndex]; }
@@ -80,12 +85,16 @@ export class VectorLoader extends Visitor {
     protected readData<T extends DataType>(_type: T, { length, offset } = this.nextBufferRange()) {
         return this.bytes.subarray(offset, offset + length);
     }
+    protected readDictionary<T extends type.Dictionary>(type: T): Vector<T['dictionary']> {
+        return this.dictionaries.get(type.id)!;
+    }
 }
 
+/** @ignore */
 export class JSONVectorLoader extends VectorLoader {
     private sources: any[][];
-    constructor(sources: any[][], nodes: FieldNode[], buffers: BufferRegion[]) {
-        super(new Uint8Array(0), nodes, buffers);
+    constructor(sources: any[][], nodes: FieldNode[], buffers: BufferRegion[], dictionaries: Map<number, Vector<any>>) {
+        super(new Uint8Array(0), nodes, buffers, dictionaries);
         this.sources = sources;
     }
     protected readNullBitmap<T extends DataType>(_type: T, nullCount: number, { offset } = this.nextBufferRange()) {

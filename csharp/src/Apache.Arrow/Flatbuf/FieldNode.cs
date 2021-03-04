@@ -17,7 +17,7 @@ using global::FlatBuffers;
 /// For example, a List<Int16> with values [[1, 2, 3], null, [4], [5, 6], null]
 /// would have {length: 5, null_count: 2} for its List node, and {length: 6,
 /// null_count: 0} for its Int16 node, as separate FieldNode structs
-public struct FieldNode : IFlatbufferObject
+internal struct FieldNode : IFlatbufferObject
 {
   private Struct __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }

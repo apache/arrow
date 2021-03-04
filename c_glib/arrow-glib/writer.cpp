@@ -47,9 +47,6 @@ G_BEGIN_DECLS
  *
  * #GArrowRecordBatchFileWriter is a class for writing record
  * batches in file format into output.
- *
- * #GArrowFeatherFileWriter is a class for writing arrays
- * in Feather file format into output.
  */
 
 typedef struct GArrowRecordBatchWriterPrivate_ {
@@ -73,11 +70,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowRecordBatchWriter,
 static void
 garrow_record_batch_writer_finalize(GObject *object)
 {
-  GArrowRecordBatchWriterPrivate *priv;
+  auto priv = GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(object);
 
-  priv = GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(object);
-
-  priv->record_batch_writer = nullptr;
+  priv->record_batch_writer.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_record_batch_writer_parent_class)->finalize(object);
 }
@@ -88,9 +83,7 @@ garrow_record_batch_writer_set_property(GObject *object,
                                         const GValue *value,
                                         GParamSpec *pspec)
 {
-  GArrowRecordBatchWriterPrivate *priv;
-
-  priv = GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(object);
+  auto priv = GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_RECORD_BATCH_WRITER:
@@ -119,6 +112,8 @@ garrow_record_batch_writer_get_property(GObject *object,
 static void
 garrow_record_batch_writer_init(GArrowRecordBatchWriter *object)
 {
+  auto priv = GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(object);
+  new(&priv->record_batch_writer) std::shared_ptr<arrow::ipc::RecordBatchWriter>;
 }
 
 static void
@@ -240,17 +235,15 @@ garrow_record_batch_stream_writer_new(GArrowOutputStream *sink,
                                       GArrowSchema *schema,
                                       GError **error)
 {
-  using BaseType = arrow::ipc::RecordBatchWriter;
-  using WriterType = arrow::ipc::RecordBatchStreamWriter;
-
-  auto arrow_sink = garrow_output_stream_get_raw(sink).get();
-  std::shared_ptr<BaseType> arrow_writer;
-  auto status = WriterType::Open(arrow_sink,
-                                 garrow_schema_get_raw(schema),
-                                 &arrow_writer);
-  if (garrow_error_check(error, status, "[record-batch-stream-writer][open]")) {
-    auto subtype = std::dynamic_pointer_cast<WriterType>(arrow_writer);
-    return garrow_record_batch_stream_writer_new_raw(&subtype);
+  auto arrow_sink = garrow_output_stream_get_raw(sink);
+  auto arrow_schema = garrow_schema_get_raw(schema);
+  auto arrow_writer_result =
+    arrow::ipc::MakeStreamWriter(arrow_sink, arrow_schema);
+  if (garrow::check(error,
+                    arrow_writer_result,
+                    "[record-batch-stream-writer][open]")) {
+    auto arrow_writer = *arrow_writer_result;
+    return garrow_record_batch_stream_writer_new_raw(&arrow_writer);
   } else {
     return NULL;
   }
@@ -287,234 +280,22 @@ garrow_record_batch_file_writer_new(GArrowOutputStream *sink,
                        GArrowSchema *schema,
                        GError **error)
 {
-  using BaseType = arrow::ipc::RecordBatchWriter;
-  using WriterType = arrow::ipc::RecordBatchFileWriter;
-
   auto arrow_sink = garrow_output_stream_get_raw(sink);
-  std::shared_ptr<BaseType> arrow_writer;
-  auto status = WriterType::Open(arrow_sink.get(),
-                                 garrow_schema_get_raw(schema),
-                                 &arrow_writer);
-  if (garrow_error_check(error, status, "[record-batch-file-writer][open]")) {
-    auto subtype = std::dynamic_pointer_cast<WriterType>(arrow_writer);
-    return garrow_record_batch_file_writer_new_raw(&subtype);
+  auto arrow_schema = garrow_schema_get_raw(schema);
+  std::shared_ptr<arrow::ipc::RecordBatchWriter> arrow_writer;
+  auto arrow_writer_result =
+    arrow::ipc::MakeFileWriter(arrow_sink, arrow_schema);
+  if (garrow::check(error,
+                    arrow_writer_result,
+                    "[record-batch-file-writer][open]")) {
+    auto arrow_writer = *arrow_writer_result;
+    return garrow_record_batch_file_writer_new_raw(&arrow_writer);
   } else {
     return NULL;
   }
-}
-
-
-typedef struct GArrowFeatherFileWriterPrivate_ {
-  arrow::ipc::feather::TableWriter *feather_table_writer;
-} GArrowFeatherFileWriterPrivate;
-
-enum {
-  PROP_0_,
-  PROP_FEATHER_TABLE_WRITER
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowFeatherFileWriter,
-                           garrow_feather_file_writer,
-                           G_TYPE_OBJECT);
-
-#define GARROW_FEATHER_FILE_WRITER_GET_PRIVATE(obj)             \
-  static_cast<GArrowFeatherFileWriterPrivate *>(                \
-    garrow_feather_file_writer_get_instance_private(            \
-      GARROW_FEATHER_FILE_WRITER(obj)))
-
-static void
-garrow_feather_file_writer_finalize(GObject *object)
-{
-  GArrowFeatherFileWriterPrivate *priv;
-
-  priv = GARROW_FEATHER_FILE_WRITER_GET_PRIVATE(object);
-
-  delete priv->feather_table_writer;
-
-  G_OBJECT_CLASS(garrow_feather_file_writer_parent_class)->finalize(object);
-}
-
-static void
-garrow_feather_file_writer_set_property(GObject *object,
-                                        guint prop_id,
-                                        const GValue *value,
-                                        GParamSpec *pspec)
-{
-  GArrowFeatherFileWriterPrivate *priv;
-
-  priv = GARROW_FEATHER_FILE_WRITER_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_FEATHER_TABLE_WRITER:
-    priv->feather_table_writer =
-      static_cast<arrow::ipc::feather::TableWriter *>(g_value_get_pointer(value));
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
-garrow_feather_file_writer_get_property(GObject *object,
-                                        guint prop_id,
-                                        GValue *value,
-                                        GParamSpec *pspec)
-{
-  switch (prop_id) {
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
-garrow_feather_file_writer_init(GArrowFeatherFileWriter *object)
-{
-}
-
-static void
-garrow_feather_file_writer_class_init(GArrowFeatherFileWriterClass *klass)
-{
-  GObjectClass *gobject_class;
-  GParamSpec *spec;
-
-  gobject_class = G_OBJECT_CLASS(klass);
-
-  gobject_class->finalize     = garrow_feather_file_writer_finalize;
-  gobject_class->set_property = garrow_feather_file_writer_set_property;
-  gobject_class->get_property = garrow_feather_file_writer_get_property;
-
-  spec = g_param_spec_pointer("feather-table-writer",
-                              "arrow::ipc::feather::TableWriter",
-                              "The raw std::shared<arrow::ipc::feather::TableWriter> *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_FEATHER_TABLE_WRITER, spec);
-}
-
-/**
- * garrow_feather_file_writer_new:
- * @sink: The output of the writer.
- * @error: (nullable): Return location for a #GError or %NULL.
- *
- * Returns: (nullable): A newly created #GArrowFeatherFileWriter
- *   or %NULL on error.
- *
- * Since: 0.4.0
- */
-GArrowFeatherFileWriter *
-garrow_feather_file_writer_new(GArrowOutputStream *sink,
-                               GError **error)
-{
-  auto arrow_sink = garrow_output_stream_get_raw(sink);
-  std::unique_ptr<arrow::ipc::feather::TableWriter> arrow_writer;
-  auto status = arrow::ipc::feather::TableWriter::Open(arrow_sink,
-                                                       &arrow_writer);
-  if (garrow_error_check(error, status, "[feature-file-writer][new]")) {
-    return garrow_feather_file_writer_new_raw(arrow_writer.release());
-  } else {
-    return NULL;
-  }
-}
-
-/**
- * garrow_feather_file_writer_set_description:
- * @writer: A #GArrowFeatherFileWriter.
- * @description: The description of the file.
- *
- * Since: 0.4.0
- */
-void
-garrow_feather_file_writer_set_description(GArrowFeatherFileWriter *writer,
-                                           const gchar *description)
-{
-  auto arrow_writer = garrow_feather_file_writer_get_raw(writer);
-  arrow_writer->SetDescription(std::string(description));
-}
-
-/**
- * garrow_feather_file_writer_set_n_rows:
- * @writer: A #GArrowFeatherFileWriter.
- * @n_rows: The number of rows in the file.
- *
- * Since: 0.4.0
- */
-void
-garrow_feather_file_writer_set_n_rows(GArrowFeatherFileWriter *writer,
-                                      gint64 n_rows)
-{
-  auto arrow_writer = garrow_feather_file_writer_get_raw(writer);
-  arrow_writer->SetNumRows(n_rows);
-}
-
-/**
- * garrow_feather_file_writer_append:
- * @writer: A #GArrowFeatherFileWriter.
- * @name: The name of the array to be appended.
- * @array: The array to be appended.
- * @error: (nullable): Return location for a #GError or %NULL.
- *
- * Returns: %TRUE on success, %FALSE if there was an error.
- *
- * Since: 0.4.0
- */
-gboolean
-garrow_feather_file_writer_append(GArrowFeatherFileWriter *writer,
-                                  const gchar *name,
-                                  GArrowArray *array,
-                                  GError **error)
-{
-  auto arrow_writer = garrow_feather_file_writer_get_raw(writer);
-  auto arrow_array = garrow_array_get_raw(array);
-
-  auto status = arrow_writer->Append(std::string(name), *arrow_array);
-  return garrow_error_check(error, status, "[feather-file-writer][append]");
-}
-
-/**
- * garrow_feather_file_writer_writer:
- * @writer: A #GArrowFeatherFileWriter.
- * @array: The table to be written.
- * @error: (nullable): Return location for a #GError or %NULL.
- *
- * Returns: %TRUE on success, %FALSE if there was an error.
- *
- * Since: 0.12.0
- */
-gboolean
-garrow_feather_file_writer_write(GArrowFeatherFileWriter *writer,
-                                 GArrowTable *table,
-                                 GError **error)
-{
-  auto arrow_writer = garrow_feather_file_writer_get_raw(writer);
-  auto arrow_table = garrow_table_get_raw(table);
-
-  auto status = arrow_writer->Write(*arrow_table);
-  return garrow_error_check(error, status, "[feather-file-writer][write]");
-}
-
-/**
- * garrow_feather_file_writer_close:
- * @writer: A #GArrowFeatherFileWriter.
- * @error: (nullable): Return location for a #GError or %NULL.
- *
- * Returns: %TRUE on success, %FALSE if there was an error.
- *
- * Since: 0.4.0
- */
-gboolean
-garrow_feather_file_writer_close(GArrowFeatherFileWriter *writer,
-                                 GError **error)
-{
-  auto arrow_writer = garrow_feather_file_writer_get_raw(writer);
-
-  auto status = arrow_writer->Finalize();
-  return garrow_error_check(error, status, "[feather-file-writer][close]");
 }
 
 G_END_DECLS
-
 
 GArrowRecordBatchWriter *
 garrow_record_batch_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchWriter> *arrow_writer)
@@ -530,14 +311,12 @@ garrow_record_batch_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchWriter
 std::shared_ptr<arrow::ipc::RecordBatchWriter>
 garrow_record_batch_writer_get_raw(GArrowRecordBatchWriter *writer)
 {
-  GArrowRecordBatchWriterPrivate *priv;
-
-  priv = GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(writer);
+  auto priv = GARROW_RECORD_BATCH_WRITER_GET_PRIVATE(writer);
   return priv->record_batch_writer;
 }
 
 GArrowRecordBatchStreamWriter *
-garrow_record_batch_stream_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchStreamWriter> *arrow_writer)
+garrow_record_batch_stream_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchWriter> *arrow_writer)
 {
   auto writer =
     GARROW_RECORD_BATCH_STREAM_WRITER(
@@ -548,7 +327,7 @@ garrow_record_batch_stream_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatc
 }
 
 GArrowRecordBatchFileWriter *
-garrow_record_batch_file_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchFileWriter> *arrow_writer)
+garrow_record_batch_file_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchWriter> *arrow_writer)
 {
   auto writer =
     GARROW_RECORD_BATCH_FILE_WRITER(
@@ -556,24 +335,4 @@ garrow_record_batch_file_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchF
                    "record-batch-writer", arrow_writer,
                    NULL));
   return writer;
-}
-
-GArrowFeatherFileWriter *
-garrow_feather_file_writer_new_raw(arrow::ipc::feather::TableWriter *arrow_writer)
-{
-  auto writer =
-    GARROW_FEATHER_FILE_WRITER(
-      g_object_new(GARROW_TYPE_FEATHER_FILE_WRITER,
-                   "feather-table-writer", arrow_writer,
-                   NULL));
-  return writer;
-}
-
-arrow::ipc::feather::TableWriter *
-garrow_feather_file_writer_get_raw(GArrowFeatherFileWriter *writer)
-{
-  GArrowFeatherFileWriterPrivate *priv;
-
-  priv = GARROW_FEATHER_FILE_WRITER_GET_PRIVATE(writer);
-  return priv->feather_table_writer;
 }

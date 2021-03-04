@@ -19,9 +19,9 @@ import { Table } from '../table';
 import { Vector } from '../vector';
 import { IntVector } from '../vector/int';
 import { Field, Schema } from '../schema';
-import { Vector as V } from '../interfaces';
 import { Predicate, Col } from './predicate';
 import { RecordBatch } from '../recordbatch';
+import { VectorType as V } from '../interfaces';
 import { DataType, Int, Struct, Dictionary } from '../type';
 
 /** @ignore */
@@ -31,6 +31,7 @@ export type NextFunc = (idx: number, batch: RecordBatch) => void;
 
 Table.prototype.countBy = function(this: Table, name: Col | string) { return new DataFrame(this.chunks).countBy(name); };
 Table.prototype.scan = function(this: Table, next: NextFunc, bind?: BindFunc) { return new DataFrame(this.chunks).scan(next, bind); };
+Table.prototype.scanReverse = function(this: Table, next: NextFunc, bind?: BindFunc) { return new DataFrame(this.chunks).scanReverse(next, bind); };
 Table.prototype.filter = function(this: Table, predicate: Predicate): FilteredDataFrame { return new DataFrame(this.chunks).filter(predicate); };
 
 export class DataFrame<T extends { [key: string]: DataType } = any> extends Table<T> {
@@ -49,6 +50,18 @@ export class DataFrame<T extends { [key: string]: DataType } = any> extends Tabl
             }
         }
     }
+    public scanReverse(next: NextFunc, bind?: BindFunc) {
+        const batches = this.chunks, numBatches = batches.length;
+        for (let batchIndex = numBatches; --batchIndex >= 0;) {
+            // load batches
+            const batch = batches[batchIndex];
+            if (bind) { bind(batch); }
+            // yield all indices
+            for (let index = batch.length; --index >= 0;) {
+                next(index, batch);
+            }
+        }
+    }
     public countBy(name: Col | string) {
         const batches = this.chunks, numBatches = batches.length;
         const count_by = typeof name === 'string' ? new Col(name) : name as Col;
@@ -60,7 +73,7 @@ export class DataFrame<T extends { [key: string]: DataType } = any> extends Tabl
             throw new Error('countBy currently only supports dictionary-encoded columns');
         }
 
-        const countByteLength = Math.ceil(Math.log(vector.dictionary.length) / Math.log(256));
+        const countByteLength = Math.ceil(Math.log(vector.length) / Math.log(256));
         const CountsArrayType = countByteLength == 4 ? Uint32Array :
                                 countByteLength >= 2 ? Uint16Array : Uint8Array;
 
@@ -81,13 +94,15 @@ export class DataFrame<T extends { [key: string]: DataType } = any> extends Tabl
     }
 }
 
+/** @ignore */
 export class CountByResult<T extends DataType = any, TCount extends Int = Int> extends Table<{ values: T,  counts: TCount }> {
     constructor(values: Vector<T>, counts: V<TCount>) {
-        const schema = new Schema<{ values: T, counts: TCount }>([
+        type R = { values: T, counts: TCount };
+        const schema = new Schema<R>([
             new Field('values', values.type),
             new Field('counts', counts.type)
         ]);
-        super(new RecordBatch(schema, counts.length, [values, counts]));
+        super(new RecordBatch<R>(schema, counts.length, [values, counts]));
     }
     public toJSON(): Object {
         const values = this.getColumnAt(0)!;
@@ -100,7 +115,8 @@ export class CountByResult<T extends DataType = any, TCount extends Int = Int> e
     }
 }
 
-export class FilteredDataFrame<T extends { [key: string]: DataType; } = any> extends DataFrame<T> {
+/** @ignore */
+export class FilteredDataFrame<T extends { [key: string]: DataType } = any> extends DataFrame<T> {
     private _predicate: Predicate;
     constructor (batches: RecordBatch<T>[], predicate: Predicate) {
         super(batches);
@@ -116,14 +132,41 @@ export class FilteredDataFrame<T extends { [key: string]: DataType; } = any> ext
         for (let batchIndex = -1; ++batchIndex < numBatches;) {
             // load batches
             const batch = batches[batchIndex];
-            // TODO: bind batches lazily
-            // If predicate doesn't match anything in the batch we don't need
-            // to bind the callback
-            if (bind) { bind(batch); }
             const predicate = this._predicate.bind(batch);
+            let isBound = false;
             // yield all indices
             for (let index = -1, numRows = batch.length; ++index < numRows;) {
-                if (predicate(index, batch)) { next(index, batch); }
+                if (predicate(index, batch)) {
+                    // bind batches lazily - if predicate doesn't match anything
+                    // in the batch we don't need to call bind on the batch
+                    if (bind && !isBound) {
+                        bind(batch);
+                        isBound = true;
+                    }
+                    next(index, batch);
+                }
+            }
+        }
+    }
+    public scanReverse(next: NextFunc, bind?: BindFunc) {
+        const batches = this._chunks;
+        const numBatches = batches.length;
+        for (let batchIndex = numBatches; --batchIndex >= 0;) {
+            // load batches
+            const batch = batches[batchIndex];
+            const predicate = this._predicate.bind(batch);
+            let isBound = false;
+            // yield all indices
+            for (let index = batch.length; --index >= 0;) {
+                if (predicate(index, batch)) {
+                    // bind batches lazily - if predicate doesn't match anything
+                    // in the batch we don't need to call bind on the batch
+                    if (bind && !isBound) {
+                        bind(batch);
+                        isBound = true;
+                    }
+                    next(index, batch);
+                }
             }
         }
     }
@@ -185,7 +228,7 @@ export class FilteredDataFrame<T extends { [key: string]: DataType; } = any> ext
             throw new Error('countBy currently only supports dictionary-encoded columns');
         }
 
-        const countByteLength = Math.ceil(Math.log(vector.dictionary.length) / Math.log(256));
+        const countByteLength = Math.ceil(Math.log(vector.length) / Math.log(256));
         const CountsArrayType = countByteLength == 4 ? Uint32Array :
                                 countByteLength >= 2 ? Uint16Array : Uint8Array;
 

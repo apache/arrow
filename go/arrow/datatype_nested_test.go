@@ -35,6 +35,7 @@ func TestListOf(t *testing.T) {
 		PrimitiveTypes.Float32,
 		PrimitiveTypes.Float64,
 		ListOf(PrimitiveTypes.Int32),
+		FixedSizeListOf(10, PrimitiveTypes.Int32),
 		StructOf(),
 	} {
 		t.Run(tc.Name(), func(t *testing.T) {
@@ -288,6 +289,68 @@ func TestFieldEqual(t *testing.T) {
 			if got != tc.want {
 				t.Fatalf("got=%v, want=%v", got, tc.want)
 			}
+		})
+	}
+}
+
+func TestFixedSizeListOf(t *testing.T) {
+	for _, tc := range []DataType{
+		FixedWidthTypes.Boolean,
+		PrimitiveTypes.Int8,
+		PrimitiveTypes.Int16,
+		PrimitiveTypes.Int32,
+		PrimitiveTypes.Int64,
+		PrimitiveTypes.Uint8,
+		PrimitiveTypes.Uint16,
+		PrimitiveTypes.Uint32,
+		PrimitiveTypes.Uint64,
+		PrimitiveTypes.Float32,
+		PrimitiveTypes.Float64,
+		ListOf(PrimitiveTypes.Int32),
+		FixedSizeListOf(10, PrimitiveTypes.Int32),
+		StructOf(),
+	} {
+		t.Run(tc.Name(), func(t *testing.T) {
+			const size = 3
+			got := FixedSizeListOf(size, tc)
+			want := &FixedSizeListType{elem: tc, n: size}
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("got=%#v, want=%#v", got, want)
+			}
+
+			if got, want := got.Name(), "fixed_size_list"; got != want {
+				t.Fatalf("got=%q, want=%q", got, want)
+			}
+
+			if got, want := got.ID(), FIXED_SIZE_LIST; got != want {
+				t.Fatalf("got=%v, want=%v", got, want)
+			}
+
+			if got, want := got.Elem(), tc; got != want {
+				t.Fatalf("got=%v, want=%v", got, want)
+			}
+
+			if got, want := got.Len(), int32(size); got != want {
+				t.Fatalf("got=%v, want=%v", got, want)
+			}
+		})
+	}
+
+	for _, dtype := range []DataType{
+		nil,
+		// (*Int32Type)(nil), // FIXME(sbinet): should we make sure this is actually caught?
+		// (*ListType)(nil), // FIXME(sbinet): should we make sure this is actually caught?
+		// (*StructType)(nil), // FIXME(sbinet): should we make sure this is actually caught?
+	} {
+		t.Run("invalid", func(t *testing.T) {
+			defer func() {
+				e := recover()
+				if e == nil {
+					t.Fatalf("test should have panicked but did not")
+				}
+			}()
+
+			_ = ListOf(dtype)
 		})
 	}
 }

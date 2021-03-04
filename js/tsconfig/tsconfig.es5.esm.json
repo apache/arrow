@@ -1,4 +1,4 @@
-//Compiler configuaration to build the ES5 ESModules target
+//Compiler configuration to build the ES5 ESModules target
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {

@@ -15,16 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_GPU_CUDA_MEMORY_H
-#define ARROW_GPU_CUDA_MEMORY_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
 
 #include "arrow/buffer.h"
-#include "arrow/io/memory.h"
-#include "arrow/memory_pool.h"
-#include "arrow/status.h"
+#include "arrow/io/concurrency.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow {
 namespace cuda {
@@ -38,7 +36,11 @@ class CudaIpcMemHandle;
 /// Be careful using this in any Arrow code which may not be GPU-aware
 class ARROW_EXPORT CudaBuffer : public Buffer {
  public:
+  // XXX deprecate?
   CudaBuffer(uint8_t* data, int64_t size, const std::shared_ptr<CudaContext>& context,
+             bool own_data = false, bool is_ipc = false);
+
+  CudaBuffer(uintptr_t address, int64_t size, const std::shared_ptr<CudaContext>& context,
              bool own_data = false, bool is_ipc = false);
 
   CudaBuffer(const std::shared_ptr<CudaBuffer>& parent, const int64_t offset,
@@ -48,13 +50,11 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
 
   /// \brief Convert back generic buffer into CudaBuffer
   /// \param[in] buffer buffer to convert
-  /// \param[out] out conversion result
-  /// \return Status
+  /// \return CudaBuffer or Status
   ///
   /// \note This function returns an error if the buffer isn't backed
   /// by GPU memory
-  static Status FromBuffer(std::shared_ptr<Buffer> buffer,
-                           std::shared_ptr<CudaBuffer>* out);
+  static Result<std::shared_ptr<CudaBuffer>> FromBuffer(std::shared_ptr<Buffer> buffer);
 
   /// \brief Copy memory from GPU device to CPU host
   /// \param[in] position start position inside buffer to copy bytes from
@@ -64,7 +64,7 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
   Status CopyToHost(const int64_t position, const int64_t nbytes, void* out) const;
 
   /// \brief Copy memory to device at position
-  /// \param[in] position start position to copy bytes
+  /// \param[in] position start position to copy bytes to
   /// \param[in] data the host data to copy
   /// \param[in] nbytes number of bytes to copy
   /// \return Status
@@ -80,15 +80,23 @@ class ARROW_EXPORT CudaBuffer : public Buffer {
   /// memories have been allocated within the same context.
   Status CopyFromDevice(const int64_t position, const void* data, int64_t nbytes);
 
-  /// \brief Expose this device buffer as IPC memory which can be used in other processes
-  /// \param[out] handle the exported IPC handle
+  /// \brief Copy memory from another device to device at position
+  /// \param[in] src_ctx context of the source device memory
+  /// \param[in] position start position inside buffer to copy bytes to
+  /// \param[in] data start address of the another device memory area to copy from
+  /// \param[in] nbytes number of bytes to copy
   /// \return Status
+  Status CopyFromAnotherDevice(const std::shared_ptr<CudaContext>& src_ctx,
+                               const int64_t position, const void* data, int64_t nbytes);
+
+  /// \brief Expose this device buffer as IPC memory which can be used in other processes
+  /// \return Handle or Status
   ///
   /// \note After calling this function, this device memory will not be freed
   /// when the CudaBuffer is destructed
-  virtual Status ExportForIpc(std::shared_ptr<CudaIpcMemHandle>* handle);
+  virtual Result<std::shared_ptr<CudaIpcMemHandle>> ExportForIpc();
 
-  std::shared_ptr<CudaContext> context() const { return context_; }
+  const std::shared_ptr<CudaContext>& context() const { return context_; }
 
  protected:
   std::shared_ptr<CudaContext> context_;
@@ -104,6 +112,9 @@ class ARROW_EXPORT CudaHostBuffer : public MutableBuffer {
  public:
   using MutableBuffer::MutableBuffer;
   ~CudaHostBuffer();
+
+  /// \brief Return a device address the GPU can read this memory from.
+  Result<uintptr_t> GetDeviceAddress(const std::shared_ptr<CudaContext>& ctx);
 };
 
 /// \class CudaIpcHandle
@@ -114,16 +125,14 @@ class ARROW_EXPORT CudaIpcMemHandle {
 
   /// \brief Create CudaIpcMemHandle from opaque buffer (e.g. from another process)
   /// \param[in] opaque_handle a CUipcMemHandle as a const void*
-  /// \param[out] handle the CudaIpcMemHandle instance
-  /// \return Status
-  static Status FromBuffer(const void* opaque_handle,
-                           std::shared_ptr<CudaIpcMemHandle>* handle);
+  /// \return Handle or Status
+  static Result<std::shared_ptr<CudaIpcMemHandle>> FromBuffer(const void* opaque_handle);
 
   /// \brief Write CudaIpcMemHandle to a Buffer
   /// \param[in] pool a MemoryPool to allocate memory from
-  /// \param[out] out the serialized buffer
-  /// \return Status
-  Status Serialize(MemoryPool* pool, std::shared_ptr<Buffer>* out) const;
+  /// \return Buffer or Status
+  Result<std::shared_ptr<Buffer>> Serialize(
+      MemoryPool* pool = default_memory_pool()) const;
 
  private:
   explicit CudaIpcMemHandle(const void* handle);
@@ -142,29 +151,49 @@ class ARROW_EXPORT CudaIpcMemHandle {
 /// \class CudaBufferReader
 /// \brief File interface for zero-copy read from CUDA buffers
 ///
-/// Note: Reads return pointers to device memory. This means you must be
-/// careful using this interface with any Arrow code which may expect to be
-/// able to do anything other than pointer arithmetic on the returned buffers
-class ARROW_EXPORT CudaBufferReader : public io::BufferReader {
+/// CAUTION: reading to a Buffer returns a Buffer pointing to device memory.
+/// It will generally not be compatible with Arrow code expecting a buffer
+/// pointing to CPU memory.
+/// Reading to a raw pointer, though, copies device memory into the host
+/// memory pointed to.
+class ARROW_EXPORT CudaBufferReader
+    : public ::arrow::io::internal::RandomAccessFileConcurrencyWrapper<CudaBufferReader> {
  public:
   explicit CudaBufferReader(const std::shared_ptr<Buffer>& buffer);
-  ~CudaBufferReader() override;
 
-  /// \brief Read bytes into pre-allocated host memory
-  /// \param[in] nbytes number of bytes to read
-  /// \param[out] bytes_read actual number of bytes read
-  /// \param[out] buffer pre-allocated memory to write into
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* buffer) override;
+  bool closed() const override;
 
-  /// \brief Zero-copy read from device memory
-  /// \param[in] nbytes number of bytes to read
-  /// \param[out] out a Buffer referencing device memory
-  /// \return Status
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+  bool supports_zero_copy() const override;
 
- private:
-  std::shared_ptr<CudaBuffer> cuda_buffer_;
+  std::shared_ptr<CudaBuffer> buffer() const { return buffer_; }
+
+ protected:
+  friend ::arrow::io::internal::RandomAccessFileConcurrencyWrapper<CudaBufferReader>;
+
+  Status DoClose();
+
+  Result<int64_t> DoRead(int64_t nbytes, void* buffer);
+  Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes);
+  Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, void* out);
+  Result<std::shared_ptr<Buffer>> DoReadAt(int64_t position, int64_t nbytes);
+
+  Result<int64_t> DoTell() const;
+  Status DoSeek(int64_t position);
+  Result<int64_t> DoGetSize();
+
+  Status CheckClosed() const {
+    if (!is_open_) {
+      return Status::Invalid("Operation forbidden on closed CudaBufferReader");
+    }
+    return Status::OK();
+  }
+
+  std::shared_ptr<CudaBuffer> buffer_;
   std::shared_ptr<CudaContext> context_;
+  const uintptr_t address_;
+  int64_t size_;
+  int64_t position_;
+  bool is_open_;
 };
 
 /// \class CudaBufferWriter
@@ -188,7 +217,7 @@ class ARROW_EXPORT CudaBufferWriter : public io::WritableFile {
 
   Status WriteAt(int64_t position, const void* data, int64_t nbytes) override;
 
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
 
   /// \brief Set CPU buffer size to limit calls to cudaMemcpy
   /// \param[in] buffer_size the size of CPU buffer to allocate
@@ -209,15 +238,23 @@ class ARROW_EXPORT CudaBufferWriter : public io::WritableFile {
 };
 
 /// \brief Allocate CUDA-accessible memory on CPU host
+///
+/// The GPU will benefit from fast access to this CPU-located buffer,
+/// including fast memory copy.
+///
 /// \param[in] device_number device to expose host memory
 /// \param[in] size number of bytes
-/// \param[out] out the allocated buffer
-/// \return Status
+/// \return Host buffer or Status
 ARROW_EXPORT
-Status AllocateCudaHostBuffer(int device_number, const int64_t size,
-                              std::shared_ptr<CudaHostBuffer>* out);
+Result<std::shared_ptr<CudaHostBuffer>> AllocateCudaHostBuffer(int device_number,
+                                                               const int64_t size);
+
+/// Low-level: get a device address through which the CPU data be accessed.
+Result<uintptr_t> GetDeviceAddress(const uint8_t* cpu_data,
+                                   const std::shared_ptr<CudaContext>& ctx);
+
+/// Low-level: get a CPU address through which the device data be accessed.
+Result<uint8_t*> GetHostAddress(uintptr_t device_ptr);
 
 }  // namespace cuda
 }  // namespace arrow
-
-#endif  // ARROW_GPU_CUDA_MEMORY_H

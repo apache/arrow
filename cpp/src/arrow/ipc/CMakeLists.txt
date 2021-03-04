@@ -15,109 +15,73 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Targets required for protocol integration testing
-add_custom_target(integration)
-add_dependencies(arrow-tests integration)
-
-#######################################
+#
 # Messaging and interprocess communication
 
-ADD_ARROW_TEST(feather-test)
-ADD_ARROW_TEST(read-write-test
-  PREFIX "arrow-ipc")
-ADD_ARROW_TEST(json-simple-test
-  PREFIX "arrow-ipc")
-ADD_ARROW_TEST(json-test
-  PREFIX "arrow-ipc")
+add_custom_target(arrow_ipc)
 
-if (NOT ARROW_BOOST_HEADER_ONLY)
-  ADD_ARROW_TEST(json-integration-test
-    EXTRA_LINK_LIBS gflags_static)
+function(ADD_ARROW_IPC_TEST REL_TEST_NAME)
+  set(options)
+  set(one_value_args PREFIX)
+  set(multi_value_args LABELS)
+  cmake_parse_arguments(ARG
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
 
-  # Test is being built
-  if (TARGET arrow-json-integration-test)
-    add_dependencies(integration arrow-json-integration-test)
-    if (UNIX)
-      if (APPLE)
-        set_target_properties(arrow-json-integration-test
-          PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
-      else()
-        target_link_libraries(arrow-json-integration-test PRIVATE pthread)
-      endif()
-    endif()
+  if(ARG_PREFIX)
+    set(PREFIX ${ARG_PREFIX})
+  else()
+    set(PREFIX "arrow-ipc")
   endif()
-endif()
 
-# make clean will delete the generated file
-set_source_files_properties(Message_generated.h PROPERTIES GENERATED TRUE)
-set_source_files_properties(feather_generated.h PROPERTIES GENERATED TRUE)
-set_source_files_properties(File_generated.h PROPERTIES GENERATED TRUE)
+  add_arrow_test(${REL_TEST_NAME}
+                 EXTRA_LINK_LIBS
+                 ${ARROW_DATASET_TEST_LINK_LIBS}
+                 PREFIX
+                 ${PREFIX}
+                 ${ARG_UNPARSED_ARGUMENTS})
+endfunction()
 
-set(OUTPUT_DIR ${ARROW_BINARY_DIR}/src/arrow/ipc)
-set(FBS_OUTPUT_FILES
-  "${OUTPUT_DIR}/File_generated.h"
-  "${OUTPUT_DIR}/Message_generated.h"
-  "${OUTPUT_DIR}/feather_generated.h")
-
-set(FBS_SRC
-  ${ARROW_SOURCE_DIR}/../format/Message.fbs
-  ${ARROW_SOURCE_DIR}/../format/File.fbs
-  ${ARROW_SOURCE_DIR}/../format/Schema.fbs
-  ${ARROW_SOURCE_DIR}/../format/Tensor.fbs
-  ${CMAKE_CURRENT_SOURCE_DIR}/feather.fbs)
-
-foreach(FIL ${FBS_SRC})
-  get_filename_component(ABS_FIL ${FIL} ABSOLUTE)
-  list(APPEND ABS_FBS_SRC ${ABS_FIL})
-endforeach()
-
-if(FLATBUFFERS_VENDORED)
-  set(FBS_DEPENDS ${ABS_FBS_SRC} flatbuffers_ep)
-else()
-  set(FBS_DEPENDS ${ABS_FBS_SRC})
-endif()
-
-add_custom_command(
-  OUTPUT ${FBS_OUTPUT_FILES}
-  COMMAND ${FLATBUFFERS_COMPILER} -c -o ${OUTPUT_DIR} ${ABS_FBS_SRC}
-  DEPENDS ${FBS_DEPENDS}
-  COMMENT "Running flatc compiler on ${ABS_FBS_SRC}"
-  VERBATIM
-)
-
-add_custom_target(metadata_fbs DEPENDS ${FBS_OUTPUT_FILES})
+add_arrow_test(feather_test)
+add_arrow_ipc_test(json_simple_test)
+add_arrow_ipc_test(read_write_test)
+add_arrow_ipc_test(tensor_test)
 
 # Headers: top level
-ARROW_INSTALL_ALL_HEADERS("arrow/ipc")
+arrow_install_all_headers("arrow/ipc")
 
-if (ARROW_BUILD_STATIC)
+if(ARROW_BUILD_STATIC)
   set(ARROW_UTIL_LIB arrow_static)
 else()
   set(ARROW_UTIL_LIB arrow_shared)
 endif()
 
-set(UTIL_LINK_LIBS
-  ${ARROW_UTIL_LIB}
-  ${BOOST_FILESYSTEM_LIBRARY}
-  ${BOOST_SYSTEM_LIBRARY})
+if(ARROW_BUILD_UTILITIES OR ARROW_BUILD_INTEGRATION)
+  add_executable(arrow-file-to-stream file_to_stream.cc)
+  target_link_libraries(arrow-file-to-stream ${ARROW_UTIL_LIB})
+  add_executable(arrow-stream-to-file stream_to_file.cc)
+  target_link_libraries(arrow-stream-to-file ${ARROW_UTIL_LIB})
 
-if(NOT WIN32)
-  set(UTIL_LINK_LIBS
-    ${UTIL_LINK_LIBS}
-    pthread
-    ${CMAKE_DL_LIBS})
+  if(ARROW_BUILD_INTEGRATION)
+    add_dependencies(arrow-integration arrow-file-to-stream)
+    add_dependencies(arrow-integration arrow-stream-to-file)
+  endif()
 endif()
 
-if (ARROW_BUILD_UTILITIES)
-  add_executable(arrow-file-to-stream file-to-stream.cc)
-  target_link_libraries(arrow-file-to-stream ${UTIL_LINK_LIBS})
-  add_executable(arrow-stream-to-file stream-to-file.cc)
-  target_link_libraries(arrow-stream-to-file ${UTIL_LINK_LIBS})
+add_arrow_benchmark(read_write_benchmark PREFIX "arrow-ipc")
 
-  add_dependencies(integration arrow-file-to-stream)
-  add_dependencies(integration arrow-stream-to-file)
+if(ARROW_FUZZING)
+  add_executable(arrow-ipc-generate-fuzz-corpus generate_fuzz_corpus.cc)
+  target_link_libraries(arrow-ipc-generate-fuzz-corpus ${ARROW_UTIL_LIB}
+                        ${ARROW_TEST_LINK_LIBS})
+
+  add_executable(arrow-ipc-generate-tensor-fuzz-corpus generate_tensor_fuzz_corpus.cc)
+  target_link_libraries(arrow-ipc-generate-tensor-fuzz-corpus ${ARROW_UTIL_LIB}
+                        ${ARROW_TEST_LINK_LIBS})
 endif()
 
-ADD_ARROW_BENCHMARK(read-write-benchmark
-  PREFIX "arrow-ipc")
-ADD_ARROW_FUZZING(ipc-fuzzing-test)
+add_arrow_fuzz_target(file_fuzz PREFIX "arrow-ipc")
+add_arrow_fuzz_target(stream_fuzz PREFIX "arrow-ipc")
+add_arrow_fuzz_target(tensor_stream_fuzz PREFIX "arrow-ipc")

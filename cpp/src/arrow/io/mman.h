@@ -5,21 +5,15 @@
 //
 // https://opensource.org/licenses/MIT
 
-#ifndef _MMAN_WIN32_H
-#define _MMAN_WIN32_H
-
-// Allow use of features specific to Windows XP or later.
-#ifndef _WIN32_WINNT
-// Change this to the appropriate value to target other versions of Windows.
-#define _WIN32_WINNT 0x0501
-
-#endif
+#pragma once
 
 #include "arrow/util/windows_compatibility.h"
 
 #include <errno.h>
 #include <io.h>
 #include <sys/types.h>
+
+#include <cstdint>
 
 #define PROT_NONE 0
 #define PROT_READ 1
@@ -45,13 +39,13 @@
 #define FILE_MAP_EXECUTE 0x0020
 #endif
 
-static int __map_mman_error(const DWORD err, const int deferr) {
+static inline int __map_mman_error(const DWORD err, const int deferr) {
   if (err == 0) return 0;
   // TODO: implement
   return err;
 }
 
-static DWORD __map_mmap_prot_page(const int prot) {
+static inline DWORD __map_mmap_prot_page(const int prot) {
   DWORD protect = 0;
 
   if (prot == PROT_NONE) return protect;
@@ -65,7 +59,7 @@ static DWORD __map_mmap_prot_page(const int prot) {
   return protect;
 }
 
-static DWORD __map_mmap_prot_file(const int prot) {
+static inline DWORD __map_mmap_prot_file(const int prot) {
   DWORD desiredAccess = 0;
 
   if (prot == PROT_NONE) return desiredAccess;
@@ -77,38 +71,28 @@ static DWORD __map_mmap_prot_file(const int prot) {
   return desiredAccess;
 }
 
-static void* mmap(void* addr, size_t len, int prot, int flags, int fildes, off_t off) {
+static inline void* mmap(void* addr, size_t len, int prot, int flags, int fildes,
+                         off_t off) {
   HANDLE fm, h;
 
   void* map = MAP_FAILED;
+  const uint64_t off64 = static_cast<uint64_t>(off);
+  const uint64_t maxSize = off64 + len;
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4293)
-#endif
+  const DWORD dwFileOffsetLow = static_cast<DWORD>(off64 & 0xFFFFFFFFUL);
+  const DWORD dwFileOffsetHigh = static_cast<DWORD>((off64 >> 32) & 0xFFFFFFFFUL);
+  const DWORD dwMaxSizeLow = static_cast<DWORD>(maxSize & 0xFFFFFFFFUL);
+  const DWORD dwMaxSizeHigh = static_cast<DWORD>((maxSize >> 32) & 0xFFFFFFFFUL);
 
-  const DWORD dwFileOffsetLow =
-      (sizeof(off_t) <= sizeof(DWORD)) ? (DWORD)off : (DWORD)(off & 0xFFFFFFFFL);
-  const DWORD dwFileOffsetHigh =
-      (sizeof(off_t) <= sizeof(DWORD)) ? (DWORD)0 : (DWORD)((off >> 32) & 0xFFFFFFFFL);
   const DWORD protect = __map_mmap_prot_page(prot);
   const DWORD desiredAccess = __map_mmap_prot_file(prot);
-
-  const size_t maxSize = off + len;
-
-  const DWORD dwMaxSizeLow = static_cast<DWORD>(maxSize & 0xFFFFFFFFL);
-  const DWORD dwMaxSizeHigh = static_cast<DWORD>((maxSize >> 32) & 0xFFFFFFFFL);
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
   errno = 0;
 
   if (len == 0
       /* Unsupported flag combinations */
       || (flags & MAP_FIXED) != 0
-      /* Usupported protection combinations */
+      /* Unsupported protection combinations */
       || prot == PROT_EXEC) {
     errno = EINVAL;
     return MAP_FAILED;
@@ -141,7 +125,7 @@ static void* mmap(void* addr, size_t len, int prot, int flags, int fildes, off_t
   return map;
 }
 
-static int munmap(void* addr, size_t len) {
+static inline int munmap(void* addr, size_t len) {
   if (UnmapViewOfFile(addr)) return 0;
 
   errno = __map_mman_error(GetLastError(), EPERM);
@@ -149,7 +133,7 @@ static int munmap(void* addr, size_t len) {
   return -1;
 }
 
-static int mprotect(void* addr, size_t len, int prot) {
+static inline int mprotect(void* addr, size_t len, int prot) {
   DWORD newProtect = __map_mmap_prot_page(prot);
   DWORD oldProtect = 0;
 
@@ -160,7 +144,7 @@ static int mprotect(void* addr, size_t len, int prot) {
   return -1;
 }
 
-static int msync(void* addr, size_t len, int flags) {
+static inline int msync(void* addr, size_t len, int flags) {
   if (FlushViewOfFile(addr, len)) return 0;
 
   errno = __map_mman_error(GetLastError(), EPERM);
@@ -168,7 +152,7 @@ static int msync(void* addr, size_t len, int flags) {
   return -1;
 }
 
-static int mlock(const void* addr, size_t len) {
+static inline int mlock(const void* addr, size_t len) {
   if (VirtualLock((LPVOID)addr, len)) return 0;
 
   errno = __map_mman_error(GetLastError(), EPERM);
@@ -176,12 +160,10 @@ static int mlock(const void* addr, size_t len) {
   return -1;
 }
 
-static int munlock(const void* addr, size_t len) {
+static inline int munlock(const void* addr, size_t len) {
   if (VirtualUnlock((LPVOID)addr, len)) return 0;
 
   errno = __map_mman_error(GetLastError(), EPERM);
 
   return -1;
 }
-
-#endif

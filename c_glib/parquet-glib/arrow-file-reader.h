@@ -21,6 +21,8 @@
 
 #include <arrow-glib/arrow-glib.h>
 
+#include <parquet-glib/version.h>
+
 G_BEGIN_DECLS
 
 #define GPARQUET_TYPE_ARROW_FILE_READER (gparquet_arrow_file_reader_get_type())
@@ -45,19 +47,22 @@ GArrowTable *
 gparquet_arrow_file_reader_read_table(GParquetArrowFileReader *reader,
                                       GError **error);
 
+GPARQUET_AVAILABLE_IN_1_0
+GArrowTable *
+gparquet_arrow_file_reader_read_row_group(GParquetArrowFileReader *reader,
+                                          gint row_group_index,
+                                          gint *column_indices,
+                                          gsize n_column_indices,
+                                          GError **error);
+
 GArrowSchema *
 gparquet_arrow_file_reader_get_schema(GParquetArrowFileReader *reader,
                                       GError **error);
-GArrowSchema *
-gparquet_arrow_file_reader_select_schema(GParquetArrowFileReader *reader,
-                                         gint *column_indexes,
-                                         gsize n_column_indexes,
-                                         GError **error);
 
-GArrowColumn *
-gparquet_arrow_file_reader_read_column(GParquetArrowFileReader *reader,
-                                       gint column_index,
-                                       GError **error);
+GArrowChunkedArray *
+gparquet_arrow_file_reader_read_column_data(GParquetArrowFileReader *reader,
+                                            gint i,
+                                            GError **error);
 
 gint
 gparquet_arrow_file_reader_get_n_row_groups(GParquetArrowFileReader *reader);

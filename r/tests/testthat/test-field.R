@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("arrow::Field")
+context("Field")
 
 test_that("field() factory", {
   x <- field("x", int32())
@@ -23,4 +23,16 @@ test_that("field() factory", {
   expect_equal(x$name, "x")
   expect_true(x == x)
   expect_false(x == field("x", int64()))
+})
+
+test_that("Field validation", {
+  expect_error(schema(b = 32), "b must be a DataType, not numeric")
+})
+
+test_that("Print method for field", {
+  expect_output(print(field("x", int32())), "Field\nx: int32")
+  expect_output(
+    print(field("zz", dictionary())),
+    "Field\nzz: dictionary<values=string, indices=int32>"
+  )
 })

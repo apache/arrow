@@ -1,8 +1,25 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 import { Data } from '../../src/data';
 import { Field } from '../../src/schema';
 import { Column } from '../../src/column';
 import { Vector } from '../../src/vector';
-import { Bool, Int8, Utf8, List, Dictionary, Struct, Map_ } from '../../src/type';
+import { Bool, Int8, Utf8, List, Dictionary, Struct } from '../../src/type';
 
 const boolType = new Bool();
 const boolVector = Vector.new(Data.Bool(boolType, 0, 10, 0, null, new Uint8Array(2)));
@@ -16,36 +33,9 @@ const boolColumn = new Column(new Field('bool', boolType), [
 expect(typeof boolVector.get(0) === 'boolean').toBe(true);
 expect(typeof boolColumn.get(0) === 'boolean').toBe(true);
 
-type NamedSchema = {
-    a: Int8,
-    b: Utf8,
-    c: Dictionary<List<Bool>>;
-};
-
-const mapChildFields = [
-    { name: 'a', type: new Int8() },
-    { name: 'b', type: new Utf8() },
-    { name: 'c', type: new Dictionary<List<Bool>>(null!, null!) }
-].map(({ name, type }) => new Field(name, type));
-
-const mapType = new Map_<NamedSchema>(mapChildFields);
-
-const mapVector = Vector.new(Data.Map(mapType, 0, 0, 0, null, []));
-const mapColumn = new Column(new Field('map', mapType, false), [
-    Vector.new(Data.Map(mapType, 0, 0, 0, null, [])),
-    Vector.new(Data.Map(mapType, 0, 0, 0, null, [])),
-    Vector.new(Data.Map(mapType, 0, 0, 0, null, [])),
-]);
-
-const { a: a1, b: b1, c: c1 } = mapVector.get(0)!;
-const { a: a2, b: b2, c: c2 } = mapColumn.get(0)!;
-
-console.log(a1, b1, c1);
-console.log(a2, b2, c2);
-
 type IndexSchema = {
-    0: Int8,
-    1: Utf8,
+    0: Int8;
+    1: Utf8;
     2: Dictionary<List<Bool>>;
 };
 

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_VISIBILITY_H
-#define ARROW_UTIL_VISIBILITY_H
+#pragma once
 
 #if defined(_WIN32) || defined(__CYGWIN__)
 #if defined(_MSC_VER)
@@ -34,23 +33,13 @@
 #endif
 
 #define ARROW_NO_EXPORT
+#define ARROW_FORCE_INLINE __forceinline
 #else  // Not Windows
 #ifndef ARROW_EXPORT
 #define ARROW_EXPORT __attribute__((visibility("default")))
 #endif
 #ifndef ARROW_NO_EXPORT
 #define ARROW_NO_EXPORT __attribute__((visibility("hidden")))
+#define ARROW_FORCE_INLINE
 #endif
 #endif  // Non-Windows
-
-// This is a complicated topic, some reading on it:
-// http://www.codesynthesis.com/~boris/blog/2010/01/18/dll-export-cxx-templates/
-#if defined(_MSC_VER) || defined(__clang__)
-#define ARROW_TEMPLATE_CLASS_EXPORT
-#define ARROW_TEMPLATE_EXPORT ARROW_EXPORT
-#else
-#define ARROW_TEMPLATE_CLASS_EXPORT ARROW_EXPORT
-#define ARROW_TEMPLATE_EXPORT
-#endif
-
-#endif  // ARROW_UTIL_VISIBILITY_H

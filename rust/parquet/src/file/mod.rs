@@ -27,7 +27,7 @@
 //! # Example of writing a new file
 //!
 //! ```rust,no_run
-//! use std::{fs, path::Path, rc::Rc};
+//! use std::{fs, path::Path, sync::Arc};
 //!
 //! use parquet::{
 //!     file::{
@@ -44,8 +44,8 @@
 //!     REQUIRED INT32 b;
 //!   }
 //! ";
-//! let schema = Rc::new(parse_message_type(message_type).unwrap());
-//! let props = Rc::new(WriterProperties::builder().build());
+//! let schema = Arc::new(parse_message_type(message_type).unwrap());
+//! let props = Arc::new(WriterProperties::builder().build());
 //! let file = fs::File::create(&path).unwrap();
 //! let mut writer = SerializedFileWriter::new(file, schema, props).unwrap();
 //! let mut row_group_writer = writer.next_row_group().unwrap();
@@ -67,7 +67,6 @@
 //!
 //! let path = Path::new("/path/to/sample.parquet");
 //! if let Ok(file) = File::open(&path) {
-//!     let file = File::open(&path).unwrap();
 //!     let reader = SerializedFileReader::new(file).unwrap();
 //!
 //!     let parquet_metadata = reader.metadata();
@@ -77,12 +76,35 @@
 //!     assert_eq!(row_group_reader.num_columns(), 1);
 //! }
 //! ```
-
+//! # Example of reading multiple files
+//!
+//! ```rust,no_run
+//! use parquet::file::reader::SerializedFileReader;
+//! use std::convert::TryFrom;
+//!
+//! let paths = vec![
+//!     "/path/to/sample.parquet/part-1.snappy.parquet",
+//!     "/path/to/sample.parquet/part-2.snappy.parquet"
+//! ];
+//! // Create a reader for each file and flat map rows
+//! let rows = paths.iter()
+//!     .map(|p| SerializedFileReader::try_from(*p).unwrap())
+//!     .flat_map(|r| r.into_iter());
+//!
+//! for row in rows {
+//!     println!("{}", row);
+//! }
+//! ```
+pub mod footer;
 pub mod metadata;
 pub mod properties;
 pub mod reader;
+pub mod serialized_reader;
 pub mod statistics;
 pub mod writer;
 
 const FOOTER_SIZE: usize = 8;
 const PARQUET_MAGIC: [u8; 4] = [b'P', b'A', b'R', b'1'];
+
+/// The number of bytes read at the end of the parquet file on first read
+const DEFAULT_FOOTER_READ_SIZE: usize = 64 * 1024;

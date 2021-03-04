@@ -15,18 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_FUNCTION_REGISTRY_H
-#define GANDIVA_FUNCTION_REGISTRY_H
+#pragma once
 
 #include <vector>
 #include "gandiva/function_registry_common.h"
 #include "gandiva/gandiva_aliases.h"
 #include "gandiva/native_function.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 ///\brief Registry of pre-compiled IR functions.
-class FunctionRegistry {
+class GANDIVA_EXPORT FunctionRegistry {
  public:
   using iterator = const NativeFunction*;
 
@@ -35,6 +35,7 @@ class FunctionRegistry {
 
   iterator begin() const;
   iterator end() const;
+  iterator back() const;
 
  private:
   static SignatureMap InitPCMap();
@@ -44,5 +45,3 @@ class FunctionRegistry {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_FUNCTION_REGISTRY_H

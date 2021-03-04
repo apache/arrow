@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef TO_DATE_HOLDER_H
-#define TO_DATE_HOLDER_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -27,11 +26,12 @@
 #include "gandiva/execution_context.h"
 #include "gandiva/function_holder.h"
 #include "gandiva/node.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// Function Holder for SQL 'to_date'
-class ToDateHolder : public FunctionHolder {
+class GANDIVA_EXPORT ToDateHolder : public FunctionHolder {
  public:
   ~ToDateHolder() override = default;
 
@@ -41,14 +41,14 @@ class ToDateHolder : public FunctionHolder {
                      std::shared_ptr<ToDateHolder>* holder);
 
   /// Return true if the data matches the pattern.
-  int64_t operator()(ExecutionContext* context, const std::string& data, bool in_valid,
-                     bool* out_valid);
+  int64_t operator()(ExecutionContext* context, const char* data, int data_len,
+                     bool in_valid, bool* out_valid);
 
  private:
   ToDateHolder(const std::string& pattern, int32_t suppress_errors)
       : pattern_(pattern), suppress_errors_(suppress_errors) {}
 
-  void return_error(ExecutionContext* context, const std::string& data);
+  void return_error(ExecutionContext* context, const char* data, int data_len);
 
   std::string pattern_;  // date format string
 
@@ -56,4 +56,3 @@ class ToDateHolder : public FunctionHolder {
 };
 
 }  // namespace gandiva
-#endif  // TO_DATE_HOLDER_H

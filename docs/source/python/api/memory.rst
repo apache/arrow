@@ -63,6 +63,10 @@ Memory Pools
 
    MemoryPool
    default_memory_pool
-   total_allocated_bytes
+   jemalloc_memory_pool
+   mimalloc_memory_pool
+   system_memory_pool
+   jemalloc_set_decay_ms
    set_memory_pool
    log_memory_allocations
+   total_allocated_bytes

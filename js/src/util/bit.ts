@@ -37,11 +37,10 @@ export function truncateBitmap(offset: number, length: number, bitmap: Uint8Arra
     const alignedSize = (bitmap.byteLength + 7) & ~7;
     if (offset > 0 || bitmap.byteLength < alignedSize) {
         const bytes = new Uint8Array(alignedSize);
-        bytes.set((offset % 8 === 0)
-            // If the offset is a multiple of 8 bits, it's safe to slice the bitmap
-            ? bitmap.subarray(offset >> 3)
+        // If the offset is a multiple of 8 bits, it's safe to slice the bitmap
+        bytes.set(offset % 8 === 0 ? bitmap.subarray(offset >> 3) :
             // Otherwise iterate each bit from the offset and return a new one
-            : packBools(iterateBits(bitmap, offset, length, null, getBool)));
+            packBools(iterateBits(bitmap, offset, length, null, getBool)).subarray(0, alignedSize));
         return bytes;
     }
     return bitmap;
@@ -49,9 +48,8 @@ export function truncateBitmap(offset: number, length: number, bitmap: Uint8Arra
 
 /** @ignore */
 export function packBools(values: Iterable<any>) {
-    let n = 0, i = 0;
     let xs: number[] = [];
-    let bit = 0, byte = 0;
+    let i = 0, bit = 0, byte = 0;
     for (const value of values) {
         value && (byte |= 1 << bit);
         if (++bit === 8) {
@@ -60,10 +58,9 @@ export function packBools(values: Iterable<any>) {
         }
     }
     if (i === 0 || bit > 0) { xs[i++] = byte; }
-    if (i % 8 && (n = i + 8 - i % 8)) {
-        do { xs[i] = 0; } while (++i < n);
-    }
-    return new Uint8Array(xs);
+    let b = new Uint8Array((xs.length + 7) & ~7);
+    b.set(xs);
+    return b;
 }
 
 /** @ignore */

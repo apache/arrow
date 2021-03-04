@@ -15,8 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_STRING_VIEW_H
-#define ARROW_UTIL_STRING_VIEW_H
+#pragma once
+
+#define nssv_CONFIG_SELECT_STRING_VIEW nssv_STRING_VIEW_NONSTD
+
+#include <cstdint>
+#include <string>
 
 #include "arrow/vendored/string_view.hpp"  // IWYU pragma: export
 
@@ -25,7 +29,10 @@ namespace util {
 
 using nonstd::string_view;
 
+template <class Char, class Traits = std::char_traits<Char>>
+using basic_string_view = nonstd::basic_string_view<Char, Traits>;
+
+using bytes_view = basic_string_view<uint8_t>;
+
 }  // namespace util
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_STRING_VIEW_H

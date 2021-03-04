@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_EXPORTED_FUNCS_H
-#define GANDIVA_EXPORTED_FUNCS_H
+#pragma once
 
 #include <gandiva/exported_funcs_registry.h>
 #include <vector>
@@ -45,6 +44,16 @@ class ExportedContextFunctions : public ExportedFuncsBase {
 };
 REGISTER_EXPORTED_FUNCS(ExportedContextFunctions);
 
-}  // namespace gandiva
+// Class for exporting Time functions
+class ExportedTimeFunctions : public ExportedFuncsBase {
+  void AddMappings(Engine* engine) const override;
+};
+REGISTER_EXPORTED_FUNCS(ExportedTimeFunctions);
 
-#endif  // GANDIVA_EXPORTED_FUNCS_H
+// Class for exporting Decimal functions
+class ExportedDecimalFunctions : public ExportedFuncsBase {
+  void AddMappings(Engine* engine) const override;
+};
+REGISTER_EXPORTED_FUNCS(ExportedDecimalFunctions);
+
+}  // namespace gandiva

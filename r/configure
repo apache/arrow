@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -26,72 +26,201 @@
 # R CMD INSTALL --configure-vars='INCLUDE_DIR=/.../include LIB_DIR=/.../lib'
 
 # Library settings
-PKG_CONFIG_NAME="arrow parquet"
-PKG_DEB_NAME="arrow"
-PKG_RPM_NAME="arrow"
-PKG_CSW_NAME="arrow"
+PKG_CONFIG_NAME="arrow parquet arrow-dataset"
+PKG_DEB_NAME="(unsuppored)"
+PKG_RPM_NAME="(unsuppored)"
 PKG_BREW_NAME="apache-arrow"
 PKG_TEST_HEADER="<arrow/api.h>"
-PKG_LIBS="-larrow -lparquet"
+# These must be the same order as $(pkg-config --libs arrow-dataset)
+PKG_LIBS="-larrow_dataset -lparquet -larrow"
 
-# Use pkg-config if available
-pkg-config --version >/dev/null 2>&1
-if [ $? -eq 0 ]; then
-  PKGCONFIG_CFLAGS=`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}`
-  PKGCONFIG_LIBS=`pkg-config --libs ${PKG_CONFIG_NAME}`
+# Make some env vars case-insensitive
+ARROW_R_DEV=`echo $ARROW_R_DEV | tr '[:upper:]' '[:lower:]'`
+FORCE_AUTOBREW=`echo $FORCE_AUTOBREW | tr '[:upper:]' '[:lower:]'`
+ARROW_USE_PKG_CONFIG=`echo $ARROW_USE_PKG_CONFIG | tr '[:upper:]' '[:lower:]'`
+
+VERSION=`grep '^Version' DESCRIPTION | sed s/Version:\ //`
+UNAME=`uname -s`
+
+# generate code
+if [ "$ARROW_R_DEV" = "true" ] && [ -f "data-raw/codegen.R" ]; then
+  echo "*** Generating code with data-raw/codegen.R"
+  ${R_HOME}/bin/Rscript data-raw/codegen.R
+fi
+
+if [ -f "tools/apache-arrow.rb" ]; then
+  # If you want to use a local apache-arrow.rb formula, do
+  # $ cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb tools/apache-arrow.rb
+  # before R CMD build or INSTALL (assuming a local checkout of the apache/arrow repository)
+  cp tools/autobrew .
+  if [ "$FORCE_AUTOBREW" != "false" ]; then
+    # It is possible to turn off forced autobrew if the formula is included,
+    # but most likely you shouldn't because the included formula will reference
+    # the C++ library at the version that matches the R package.
+    FORCE_AUTOBREW="true"
+  fi
+fi
+
+if [ "$FORCE_AUTOBREW" = "true" ]; then
+  ARROW_USE_PKG_CONFIG="false"
 fi
 
 # Note that cflags may be empty in case of success
 if [ "$INCLUDE_DIR" ] || [ "$LIB_DIR" ]; then
-  echo "Found INCLUDE_DIR and/or LIB_DIR!"
+  echo "*** Using INCLUDE_DIR/LIB_DIR"
   PKG_CFLAGS="-I$INCLUDE_DIR $PKG_CFLAGS"
   PKG_LIBS="-L$LIB_DIR $PKG_LIBS"
-elif [ "$PKGCONFIG_CFLAGS" ] || [ "$PKGCONFIG_LIBS" ]; then
-  echo "Found pkg-config cflags and libs!"
-  PKG_CFLAGS=${PKGCONFIG_CFLAGS}
-  PKG_LIBS=${PKGCONFIG_LIBS}
-elif [[ "$OSTYPE" == "darwin"* ]]; then
-  if [ "$(command -v brew)" ]; then
-    BREWDIR=$(brew --prefix)
-  else
-    curl -sfL "https://jeroen.github.io/autobrew/default" > autobrew
-    source autobrew
+else
+  # Use pkg-config if available and allowed
+  pkg-config --version >/dev/null 2>&1
+  if [ "$ARROW_USE_PKG_CONFIG" != "false" ] && [ $? -eq 0 ]; then
+    PKGCONFIG_CFLAGS=`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}`
+    PKGCONFIG_LIBS=`pkg-config --libs --silence-errors ${PKG_CONFIG_NAME}`
   fi
-  PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
-  PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
+
+  if [ "$PKGCONFIG_CFLAGS" ] || [ "$PKGCONFIG_LIBS" ]; then
+    echo "*** Arrow C++ libraries found via pkg-config"
+    PKG_CFLAGS="$PKGCONFIG_CFLAGS"
+    PKG_LIBS=${PKGCONFIG_LIBS}
+
+    # Check for version mismatch
+    PC_LIB_VERSION=`pkg-config --modversion arrow`
+    echo $PC_LIB_VERSION | grep -e 'SNAPSHOT$' >/dev/null 2>&1
+    # If on a release (i.e. not SNAPSHOT) and version != R package version, warn
+    if [ $? -eq 1 ] && [ "$PC_LIB_VERSION" != "$VERSION" ]; then
+      echo "**** Warning: library version mismatch"
+      echo "**** C++ is $PC_LIB_VERSION but R is $VERSION"
+      echo "**** If installation fails, upgrade the C++ library to match"
+      echo "**** or retry with ARROW_USE_PKG_CONFIG=false"
+    fi
+  else
+    if [ "$UNAME" = "Darwin" ]; then
+      if [ "$FORCE_AUTOBREW" != "true" ] && [ "`command -v brew`" ] && [ "`brew ls --versions ${PKG_BREW_NAME}`" != "" ]; then
+        echo "*** Using Homebrew ${PKG_BREW_NAME}"
+        BREWDIR=`brew --prefix`
+        PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS -larrow_bundled_dependencies"
+        PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
+      else
+        echo "*** Downloading ${PKG_BREW_NAME}"
+        if [ -f "autobrew" ]; then
+          echo "**** Using local manifest for ${PKG_BREW_NAME}"
+        else
+          curl -sfL "https://autobrew.github.io/scripts/$PKG_BREW_NAME" > autobrew
+          if [ $? -ne 0 ]; then
+            echo "Failed to download manifest for ${PKG_BREW_NAME}"
+          fi
+        fi
+        . autobrew
+        if [ $? -ne 0 ]; then
+          echo "Failed to retrieve binary for ${PKG_BREW_NAME}"
+        fi
+        # autobrew sets `PKG_LIBS` and `PKG_CFLAGS`
+      fi
+    else
+      # Set some default values/backwards compatibility
+      if [ "${LIBARROW_DOWNLOAD}" = "" ] && [ "${NOT_CRAN}" != "" ]; then
+        LIBARROW_DOWNLOAD=$NOT_CRAN; export LIBARROW_DOWNLOAD
+      fi
+      if [ "${LIBARROW_BINARY}" = "" ] && [ "${LIBARROW_DOWNLOAD}" != "" ]; then
+        LIBARROW_BINARY=$LIBARROW_DOWNLOAD; export LIBARROW_BINARY
+      fi
+      if [ "${LIBARROW_MINIMAL}" = "" ] && [ "${LIBARROW_DOWNLOAD}" = "true" ]; then
+        LIBARROW_MINIMAL=false; export LIBARROW_MINIMAL
+      fi
+      if [ "${LIBARROW_MINIMAL}" = "" ] && [ "${NOT_CRAN}" = "true" ]; then
+        LIBARROW_MINIMAL=false; export LIBARROW_MINIMAL
+      fi
+      ${R_HOME}/bin/Rscript tools/linuxlibs.R $VERSION
+      PKG_CFLAGS="-I$(pwd)/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
+
+      LIB_DIR="libarrow/arrow-${VERSION}/lib"
+      if [ -d "$LIB_DIR" ]; then
+        # Enumerate the static libs and add to PKG_LIBS
+        # (technically repeating arrow libs so they're in the right order)
+        #
+        # If tools/linuxlibs.R fails to produce libs, this dir won't exist
+        # so don't try (the error message from `ls` would be misleading)
+        # Assume linuxlibs.R has handled and messaged about its failure already
+        #
+        # TODO: what about non-bundled deps?
+        BUNDLED_LIBS=`cd $LIB_DIR && ls *.a`
+        BUNDLED_LIBS=`echo $BUNDLED_LIBS | sed -E "s/lib(.*)\.a/-l\1/" | sed -e "s/\\.a lib/ -l/g"`
+        PKG_LIBS="-L$(pwd)/$LIB_DIR $PKG_LIBS $BUNDLED_LIBS"
+      fi
+    fi
+  fi
 fi
 
-# For debugging
-echo "PKG_CFLAGS=$PKG_CFLAGS"
-echo "PKG_LIBS=$PKG_LIBS"
+# If libarrow uses the old GLIBCXX ABI, so we have to use it too
+if [ "$ARROW_USE_OLD_CXXABI" ]; then
+  PKG_CFLAGS="$PKG_CFLAGS -D_GLIBCXX_USE_CXX11_ABI=0"
+fi
 
-# Find compiler
-CXXCPP=$("${R_HOME}"/bin/R CMD config CXXCPP)
-CXX11FLAGS=$("${R_HOME}"/bin/R CMD config CXX11FLAGS)
-CXX11STD=$("${R_HOME}"/bin/R CMD config CXX11STD)
-CPPFLAGS=$("${R_HOME}"/bin/R CMD config CPPFLAGS)
+# Set any user-defined CXXFLAGS
+if [ "$ARROW_R_CXXFLAGS" ]; then
+  PKG_CFLAGS="$PKG_CFLAGS $ARROW_R_CXXFLAGS"
+fi
 
 # Test configuration
-echo "#include $PKG_TEST_HEADER" | ${CXXCPP} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX11FLAGS} ${CXX11STD} -xc++ - >/dev/null 2>&1
+CXXCPP="`${R_HOME}/bin/R CMD config CXX11` -E"
+if [ $? -eq 0 ]; then
+  # Great, CXX11 exists for this version of R (current);
+  # now let's set the other two variables
+  CXX11FLAGS=`"${R_HOME}"/bin/R CMD config CXX11FLAGS`
+  CXX11STD=`"${R_HOME}"/bin/R CMD config CXX11STD`
+else
+  # For compatibility with R < 3.4, when these were called CXX1X
+  CXXCPP="`${R_HOME}/bin/R CMD config CXX1X` -E"
+  CXX11FLAGS=`"${R_HOME}"/bin/R CMD config CXX1XFLAGS`
+  CXX11STD=`"${R_HOME}"/bin/R CMD config CXX1XSTD`
+fi
+CPPFLAGS=`"${R_HOME}"/bin/R CMD config CPPFLAGS`
+TEST_CMD="${CXXCPP} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX11FLAGS} ${CXX11STD} -xc++ -"
+echo "#include $PKG_TEST_HEADER" | ${TEST_CMD} >/dev/null 2>&1
 
-# Customize the error
-if [ $? -ne 0 ]; then
-  echo "------------------------- ANTICONF ERROR ---------------------------"
-  echo "Configuration failed because $PKG_CONFIG_NAME was not found. Try installing:"
-  echo " * deb: $PKG_DEB_NAME (Debian, Ubuntu, etc)"
-  echo " * rpm: $PKG_RPM_NAME (Fedora, CentOS, RHEL)"
-  echo " * csw: $PKG_CSW_NAME (Solaris)"
-  echo " * brew: $PKG_BREW_NAME (Mac OSX)"
-  echo "If $PKG_CONFIG_NAME is already installed, check that 'pkg-config' is in your"
-  echo "PATH and PKG_CONFIG_PATH contains a $PKG_CONFIG_NAME.pc file. If pkg-config"
-  echo "is unavailable you can set INCLUDE_DIR and LIB_DIR manually via:"
-  echo "R CMD INSTALL --configure-vars='INCLUDE_DIR=... LIB_DIR=...'"
-  echo "--------------------------------------------------------------------"
-  exit 1;
+if [ $? -eq 0 ] || [ "$UNAME" = "Darwin" ]; then
+  # Always build with arrow on macOS
+  PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_ARROW"
+  # Check for features
+  LIB_DIR=`echo $PKG_LIBS | sed -e 's/ -l.*//' | sed -e 's/^-L//'`
+  grep 'set(ARROW_S3 "ON")' $LIB_DIR/cmake/arrow/ArrowOptions.cmake >/dev/null 2>&1
+  if [ $? -eq 0 ]; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_S3"
+    if [ "$BUNDLED_LIBS" != "" ]; then
+      # We're depending on openssl/curl from the system, so they're not in the bundled deps
+      PKG_LIBS="$PKG_LIBS -lssl -lcrypto -lcurl"
+    fi
+  fi
+  echo "PKG_CFLAGS=$PKG_CFLAGS"
+  echo "PKG_LIBS=$PKG_LIBS"
+else
+  if [ "$UNAME" = "Darwin" ]; then
+    # Just for debugging: is this possible?
+    echo "Test to load header failed. Command:"
+    echo "$TEST_CMD"
+  fi
+  echo "------------------------- NOTE ---------------------------"
+  echo "See https://arrow.apache.org/docs/r/articles/install.html"
+  echo "for help installing Arrow C++ libraries"
+  echo "---------------------------------------------------------"
+  PKG_LIBS=""
+  PKG_CFLAGS=""
 fi
 
 # Write to Makevars
-sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" -e "s|@visibility@|$C_VISIBILITY|" src/Makevars.in > src/Makevars
+sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" src/Makevars.in > src/Makevars
+
+# This is removed because a (bad?) CRAN check fails when arrow.so is stripped
+# # Add stripping
+# if [ "$R_STRIP_SHARED_LIB" != "" ]; then
+#   # R_STRIP_SHARED_LIB is set in the global Renviron and should be available here
+#   echo "
+# strip: \$(SHLIB)
+# 	$R_STRIP_SHARED_LIB \$(SHLIB) >/dev/null 2>&1 || true
+#
+# .phony: strip
+# " >> src/Makevars
+# fi
 
 # Success
 exit 0

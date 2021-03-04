@@ -28,6 +28,9 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 
+/**
+ * {@link FieldReader} for a single {@link org.apache.arrow.vector.complex.NonNullableStructVector}.
+ */
 @SuppressWarnings("unused")
 public class SingleStructReaderImpl extends AbstractFieldReader {
 

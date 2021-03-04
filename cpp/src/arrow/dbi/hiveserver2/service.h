@@ -88,7 +88,7 @@ class ARROW_EXPORT Service {
   // column oriented. Only column oriented protocols are currently supported.
   //
   // The client calling Connect has ownership of the new Service that is created.
-  // Executing RPCs with an Session or Operation corresponding to a particular
+  // Executing RPCs with a Session or Operation corresponding to a particular
   // Service after that Service has been closed or deleted in undefined.
   static Status Connect(const std::string& host, int port, int conn_timeout,
                         ProtocolVersion protocol_version,

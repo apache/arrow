@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PYARROW_NUMPY_INTEROP_H
-#define PYARROW_NUMPY_INTEROP_H
+#pragma once
 
 #include "arrow/python/platform.h"  // IWYU pragma: export
 
@@ -33,7 +32,7 @@
 #endif
 
 // This is required to be able to access the NumPy C API properly in C++ files
-// other than this main one
+// other than init.cc.
 #define PY_ARRAY_UNIQUE_SYMBOL arrow_ARRAY_API
 #ifndef NUMPY_IMPORT_ARRAY
 #define NO_IMPORT_ARRAY
@@ -95,5 +94,3 @@ inline int fix_numpy_type_num(int type_num) {
 
 }  // namespace py
 }  // namespace arrow
-
-#endif  // PYARROW_NUMPY_INTEROP_H

@@ -20,6 +20,7 @@ ACLOCAL_AMFLAGS = -I m4 ${ACLOCAL_FLAGS}
 SUBDIRS =					\
 	arrow-glib				\
 	arrow-cuda-glib				\
+	arrow-dataset-glib			\
 	gandiva-glib				\
 	parquet-glib				\
 	plasma-glib				\
@@ -36,4 +37,5 @@ EXTRA_DIST =					\
 
 arrow_glib_docdir = ${datarootdir}/doc/arrow-glib
 arrow_glib_doc_DATA =				\
+	../LICENSE.txt				\
 	README.md

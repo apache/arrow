@@ -20,6 +20,10 @@ package org.apache.arrow.vector;
 import org.apache.arrow.vector.util.CallBack;
 
 
+/**
+ * Callback for when the Schema for the Vector changes (generally happens when a vector is promoted to a union type
+ * from a single value type).
+ */
 public class SchemaChangeCallBack implements CallBack {
   private boolean schemaChanged = false;
 

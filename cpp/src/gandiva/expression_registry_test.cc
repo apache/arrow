@@ -43,10 +43,11 @@ TEST_F(TestExpressionRegistry, VerifySupportedFunctions) {
     functions.push_back((*iter));
   }
   for (auto& iter : registry_) {
-    auto function = iter.signature();
-    auto element = std::find(functions.begin(), functions.end(), function);
-    EXPECT_NE(element, functions.end())
-        << "function " << iter.pc_name() << " missing in supported functions.\n";
+    for (auto& func_iter : iter.signatures()) {
+      auto element = std::find(functions.begin(), functions.end(), func_iter);
+      EXPECT_NE(element, functions.end()) << "function signature " << func_iter.ToString()
+                                          << " missing in supported functions.\n";
+    }
   }
 }
 

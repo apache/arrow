@@ -1,0 +1,4 @@
+usr/include/arrow-dataset-glib/
+usr/lib/*/libarrow-dataset-glib.so
+usr/lib/*/pkgconfig/arrow-dataset-glib.pc
+usr/share/gir-1.0/ArrowDataset-1.0.gir

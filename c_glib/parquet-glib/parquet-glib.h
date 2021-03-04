@@ -19,5 +19,7 @@
 
 #pragma once
 
+#include <parquet-glib/version.h>
+
 #include <parquet-glib/arrow-file-reader.h>
 #include <parquet-glib/arrow-file-writer.h>

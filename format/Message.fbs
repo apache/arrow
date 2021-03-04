@@ -16,6 +16,7 @@
 // under the License.
 
 include "Schema.fbs";
+include "SparseTensor.fbs";
 include "Tensor.fbs";
 
 namespace org.apache.arrow.flatbuf;
@@ -27,7 +28,7 @@ namespace org.apache.arrow.flatbuf;
 /// Metadata about a field at some level of a nested type tree (but not
 /// its children).
 ///
-/// For example, a List<Int16> with values [[1, 2, 3], null, [4], [5, 6], null]
+/// For example, a List<Int16> with values `[[1, 2, 3], null, [4], [5, 6], null]`
 /// would have {length: 5, null_count: 2} for its List node, and {length: 6,
 /// null_count: 0} for its Int16 node, as separate FieldNode structs
 struct FieldNode {
@@ -39,6 +40,41 @@ struct FieldNode {
   /// to write their physical validity bitmap out as a materialized buffer,
   /// instead setting the length of the bitmap buffer to 0.
   null_count: long;
+}
+
+enum CompressionType:byte {
+  // LZ4 frame format, for portability, as provided by lz4frame.h or wrappers
+  // thereof. Not to be confused with "raw" (also called "block") format
+  // provided by lz4.h
+  LZ4_FRAME,
+
+  // Zstandard
+  ZSTD
+}
+
+/// Provided for forward compatibility in case we need to support different
+/// strategies for compressing the IPC message body (like whole-body
+/// compression rather than buffer-level) in the future
+enum BodyCompressionMethod:byte {
+  /// Each constituent buffer is first compressed with the indicated
+  /// compressor, and then written with the uncompressed length in the first 8
+  /// bytes as a 64-bit little-endian signed integer followed by the compressed
+  /// buffer bytes (and then padding as required by the protocol). The
+  /// uncompressed length may be set to -1 to indicate that the data that
+  /// follows is not compressed, which can be useful for cases where
+  /// compression does not yield appreciable savings.
+  BUFFER
+}
+
+/// Optional compression for the memory buffers constituting IPC message
+/// bodies. Intended for use with RecordBatch but could be used for other
+/// message types
+table BodyCompression {
+  /// Compressor library
+  codec: CompressionType = LZ4_FRAME;
+
+  /// Indicates the way the record batch body was compressed
+  method: BodyCompressionMethod = BUFFER;
 }
 
 /// A data header describing the shared memory layout of a "record" or "row"
@@ -59,6 +95,9 @@ table RecordBatch {
   /// bitmap and 1 for the values. For struct arrays, there will only be a
   /// single buffer for the validity (nulls) bitmap
   buffers: [Buffer];
+
+  /// Optional compression of the message body
+  compression: BodyCompression;
 }
 
 /// For sending dictionary encoding information. Any Field can be
@@ -73,7 +112,8 @@ table DictionaryBatch {
   data: RecordBatch;
 
   /// If isDelta is true the values in the dictionary are to be appended to a
-  /// dictionary with the indicated id
+  /// dictionary with the indicated id. If isDelta is false this dictionary
+  /// should replace the existing dictionary.
   isDelta: bool = false;
 }
 
@@ -94,6 +134,7 @@ table Message {
   version: org.apache.arrow.flatbuf.MetadataVersion;
   header: MessageHeader;
   bodyLength: long;
+  custom_metadata: [ KeyValue ];
 }
 
 root_type Message;

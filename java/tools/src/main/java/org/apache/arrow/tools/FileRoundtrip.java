@@ -37,6 +37,9 @@ import org.apache.commons.cli.PosixParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Application that verifies data can be round-tripped through a file.
+ */
 public class FileRoundtrip {
   private static final Logger LOGGER = LoggerFactory.getLogger(FileRoundtrip.class);
   private final Options options;

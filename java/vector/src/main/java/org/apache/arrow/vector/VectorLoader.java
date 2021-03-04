@@ -23,12 +23,13 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.util.Collections2;
+import org.apache.arrow.vector.compression.CompressionCodec;
+import org.apache.arrow.vector.compression.CompressionUtil;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Field;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * Loads buffers into vectors.
@@ -55,8 +56,9 @@ public class VectorLoader {
   public void load(ArrowRecordBatch recordBatch) {
     Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
     Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
+    CompressionCodec codec = CompressionUtil.createCodec(recordBatch.getBodyCompression().getCodec());
     for (FieldVector fieldVector : root.getFieldVectors()) {
-      loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes);
+      loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes, codec);
     }
     root.setRowCount(recordBatch.getLength());
     if (nodes.hasNext() || buffers.hasNext()) {
@@ -69,14 +71,15 @@ public class VectorLoader {
       FieldVector vector,
       Field field,
       Iterator<ArrowBuf> buffers,
-      Iterator<ArrowFieldNode> nodes) {
-    checkArgument(nodes.hasNext(),
-        "no more field nodes for for field " + field + " and vector " + vector);
+      Iterator<ArrowFieldNode> nodes,
+      CompressionCodec codec) {
+    checkArgument(nodes.hasNext(), "no more field nodes for for field %s and vector %s", field, vector);
     ArrowFieldNode fieldNode = nodes.next();
-    List<BufferLayout> bufferLayouts = TypeLayout.getTypeLayout(field.getType()).getBufferLayouts();
-    List<ArrowBuf> ownBuffers = new ArrayList<>(bufferLayouts.size());
-    for (int j = 0; j < bufferLayouts.size(); j++) {
-      ownBuffers.add(buffers.next());
+    int bufferLayoutCount = TypeLayout.getTypeBufferCount(field.getType());
+    List<ArrowBuf> ownBuffers = new ArrayList<>(bufferLayoutCount);
+    for (int j = 0; j < bufferLayoutCount; j++) {
+      ArrowBuf nextBuf = buffers.next();
+      ownBuffers.add(codec.decompress(vector.getAllocator(), nextBuf));
     }
     try {
       vector.loadFieldBuffers(fieldNode, ownBuffers);
@@ -87,12 +90,13 @@ public class VectorLoader {
     List<Field> children = field.getChildren();
     if (children.size() > 0) {
       List<FieldVector> childrenFromFields = vector.getChildrenFromFields();
-      checkArgument(children.size() == childrenFromFields.size(), "should have as many children as in the schema: " +
-          "found " + childrenFromFields.size() + " expected " + children.size());
+      checkArgument(children.size() == childrenFromFields.size(),
+          "should have as many children as in the schema: found %s expected %s",
+          childrenFromFields.size(), children.size());
       for (int i = 0; i < childrenFromFields.size(); i++) {
         Field child = children.get(i);
         FieldVector fieldVector = childrenFromFields.get(i);
-        loadBuffers(fieldVector, child, buffers, nodes);
+        loadBuffers(fieldVector, child, buffers, nodes, codec);
       }
     }
   }

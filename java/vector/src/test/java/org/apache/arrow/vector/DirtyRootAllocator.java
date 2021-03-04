@@ -17,10 +17,9 @@
 
 package org.apache.arrow.vector;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferManager;
 import org.apache.arrow.memory.RootAllocator;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * Root allocator that returns buffers pre-filled with a given value.<br>
@@ -36,12 +35,12 @@ public class DirtyRootAllocator extends RootAllocator {
   }
 
   @Override
-  public ArrowBuf buffer(int size) {
+  public ArrowBuf buffer(long size) {
     return buffer(size, null);
   }
 
   @Override
-  public ArrowBuf buffer(int size, BufferManager manager) {
+  public ArrowBuf buffer(long size, BufferManager manager) {
     ArrowBuf buffer = super.buffer(size, manager);
     // contaminate the buffer
     for (int i = 0; i < buffer.capacity(); i++) {

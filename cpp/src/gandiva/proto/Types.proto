@@ -65,9 +65,15 @@ enum TimeUnit {
   NANOSEC = 3;
 }
 
+enum IntervalType {
+  YEAR_MONTH = 0;
+  DAY_TIME = 1;
+}
+
 enum SelectionVectorType {
-  SV_INT16 = 0;
-  SV_INT32 = 1;
+  SV_NONE = 0;
+  SV_INT16 = 1;
+  SV_INT32 = 2;
 }
 
 message ExtGandivaType {
@@ -78,6 +84,7 @@ message ExtGandivaType {
   optional DateUnit dateUnit = 5;  // used by DATE32/DATE64
   optional TimeUnit timeUnit = 6;  // used by TIME32/TIME64
   optional string timeZone = 7; // used by TIMESTAMP
+  optional IntervalType intervalType = 8; // used by INTERVAL
 }
 
 message Field {
@@ -172,6 +179,9 @@ message TreeNode {
   optional StringNode stringNode = 17;
   optional BinaryNode binaryNode = 18;
   optional DecimalNode decimalNode = 19;
+
+  // in expr
+  optional InNode inNode = 21;
 }
 
 message ExpressionRoot {
@@ -203,4 +213,28 @@ message FunctionSignature {
   optional string name = 1;
   optional ExtGandivaType returnType = 2;
   repeated ExtGandivaType paramTypes = 3;
+}
+
+message InNode {
+  optional TreeNode node = 1;
+  optional IntConstants intValues = 2;
+  optional LongConstants longValues = 3;
+  optional StringConstants stringValues = 4;
+  optional BinaryConstants binaryValues = 5;
+}
+
+message IntConstants {
+  repeated IntNode intValues = 1;
+}
+
+message LongConstants {
+  repeated LongNode longValues = 1;
+}
+
+message StringConstants {
+  repeated StringNode stringValues = 1;
+}
+
+message BinaryConstants {
+  repeated BinaryNode binaryValues = 1;
 }

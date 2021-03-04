@@ -55,7 +55,7 @@ func NewColumn(field arrow.Field, chunks *Chunked) *Column {
 	}
 	col.data.Retain()
 
-	if col.data.DataType() != col.field.Type {
+	if !arrow.TypeEqual(col.data.DataType(), col.field.Type) {
 		col.data.Release()
 		panic("arrow/array: inconsistent data type")
 	}
@@ -98,9 +98,9 @@ func (col *Column) NewSlice(i, j int64) *Column {
 
 // Chunked manages a collection of primitives arrays as one logical large array.
 type Chunked struct {
+	refCount int64 // refCount must be first in the struct for 64 bit alignment and sync/atomic (https://github.com/golang/go/issues/37262)
+	
 	chunks []Interface
-
-	refCount int64
 
 	length int
 	nulls  int
@@ -117,7 +117,7 @@ func NewChunked(dtype arrow.DataType, chunks []Interface) *Chunked {
 		dtype:    dtype,
 	}
 	for i, chunk := range chunks {
-		if chunk.DataType() != dtype {
+		if !arrow.TypeEqual(chunk.DataType(), dtype) {
 			panic("arrow/array: mismatch data type")
 		}
 		chunk.Retain()

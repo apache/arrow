@@ -16,6 +16,7 @@
  */
 
 import org.apache.arrow.vector.complex.impl.NullableStructWriterFactory;
+import org.apache.arrow.vector.types.Types;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/UnionWriter.java" />
@@ -110,6 +111,10 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   }
 
   BaseWriter getWriter(MinorType minorType) {
+    return getWriter(minorType, null);
+  }
+
+  BaseWriter getWriter(MinorType minorType, ArrowType arrowType) {
     switch (minorType) {
     case STRUCT:
       return getStructWriter();
@@ -120,9 +125,9 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
         <#assign name = minor.class?cap_first />
         <#assign fields = minor.fields!type.fields />
         <#assign uncappedName = name?uncap_first/>
-        <#if !minor.typeParams??>
+        <#if !minor.typeParams?? || minor.class?starts_with("Decimal")>
     case ${name?upper_case}:
-      return get${name}Writer();
+      return get${name}Writer(<#if minor.class?starts_with("Decimal") >arrowType</#if>);
         </#if>
       </#list>
     </#list>
@@ -135,36 +140,52 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
       <#assign name = minor.class?cap_first />
       <#assign fields = minor.fields!type.fields />
       <#assign uncappedName = name?uncap_first/>
-      <#if !minor.typeParams?? >
+      <#assign friendlyType = (minor.friendlyType!minor.boxedType!type.boxedType) />
+      <#if !minor.typeParams?? || minor.class?starts_with("Decimal") >
 
   private ${name}Writer ${name?uncap_first}Writer;
 
-  private ${name}Writer get${name}Writer() {
+  private ${name}Writer get${name}Writer(<#if minor.class?starts_with("Decimal")>ArrowType arrowType</#if>) {
     if (${uncappedName}Writer == null) {
-      ${uncappedName}Writer = new ${name}WriterImpl(data.get${name}Vector());
+      ${uncappedName}Writer = new ${name}WriterImpl(data.get${name}Vector(<#if minor.class?starts_with("Decimal")>arrowType</#if>));
       ${uncappedName}Writer.setPosition(idx());
       writers.add(${uncappedName}Writer);
     }
     return ${uncappedName}Writer;
   }
 
-  public ${name}Writer as${name}() {
+  public ${name}Writer as${name}(<#if minor.class?starts_with("Decimal")>ArrowType arrowType</#if>) {
     data.setType(idx(), MinorType.${name?upper_case});
-    return get${name}Writer();
+    return get${name}Writer(<#if minor.class?starts_with("Decimal")>arrowType</#if>);
   }
 
   @Override
   public void write(${name}Holder holder) {
     data.setType(idx(), MinorType.${name?upper_case});
-    get${name}Writer().setPosition(idx());
-    get${name}Writer().write${name}(<#list fields as field>holder.${field.name}<#if field_has_next>, </#if></#list>);
+    <#if minor.class?starts_with("Decimal")>ArrowType arrowType = new ArrowType.Decimal(holder.precision, holder.scale, ${name}Holder.WIDTH * 8);</#if>
+    get${name}Writer(<#if minor.class?starts_with("Decimal")>arrowType</#if>).setPosition(idx());
+    get${name}Writer(<#if minor.class?starts_with("Decimal")>arrowType</#if>).write${name}(<#list fields as field>holder.${field.name}<#if field_has_next>, </#if></#list><#if minor.class?starts_with("Decimal")>, arrowType</#if>);
   }
 
-  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
+  public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list><#if minor.class?starts_with("Decimal")>, ArrowType arrowType</#if>) {
     data.setType(idx(), MinorType.${name?upper_case});
-    get${name}Writer().setPosition(idx());
-    get${name}Writer().write${name}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
+    get${name}Writer(<#if minor.class?starts_with("Decimal")>arrowType</#if>).setPosition(idx());
+    get${name}Writer(<#if minor.class?starts_with("Decimal")>arrowType</#if>).write${name}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list><#if minor.class?starts_with("Decimal")>, arrowType</#if>);
   }
+  <#if minor.class?starts_with("Decimal")>
+  public void write${name}(${friendlyType} value) {
+    data.setType(idx(), MinorType.${name?upper_case});
+    ArrowType arrowType = new ArrowType.Decimal(value.precision(), value.scale(), ${name}Vector.TYPE_WIDTH * 8);
+    get${name}Writer(arrowType).setPosition(idx());
+    get${name}Writer(arrowType).write${name}(value);
+  }
+
+  public void writeBigEndianBytesTo${name}(byte[] value, ArrowType arrowType) {
+    data.setType(idx(), MinorType.${name?upper_case});
+    get${name}Writer(arrowType).setPosition(idx());
+    get${name}Writer(arrowType).writeBigEndianBytesTo${name}(value, arrowType);
+  }
+  </#if>
       </#if>
     </#list>
   </#list>
@@ -205,7 +226,7 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
   <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
   <#assign upperName = minor.class?upper_case />
   <#assign capName = minor.class?cap_first />
-  <#if !minor.typeParams?? >
+  <#if !minor.typeParams?? || minor.class?starts_with("Decimal") >
   @Override
   public ${capName}Writer ${lowerName}(String name) {
     data.setType(idx(), MinorType.STRUCT);
@@ -218,6 +239,14 @@ public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
     data.setType(idx(), MinorType.LIST);
     getListWriter().setPosition(idx());
     return getListWriter().${lowerName}();
+  }
+  </#if>
+  <#if minor.class?starts_with("Decimal")>
+  @Override
+  public ${capName}Writer ${lowerName}(String name<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
+    data.setType(idx(), MinorType.STRUCT);
+    getStructWriter().setPosition(idx());
+    return getStructWriter().${lowerName}(name<#list minor.typeParams as typeParam>, ${typeParam.name}</#list>);
   }
   </#if>
   </#list></#list>

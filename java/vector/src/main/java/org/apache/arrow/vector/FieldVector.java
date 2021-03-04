@@ -19,10 +19,9 @@ package org.apache.arrow.vector;
 
 import java.util.List;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
-
-import io.netty.buffer.ArrowBuf;
 
 /**
  * A vector corresponding to a Field in the schema.
@@ -73,19 +72,19 @@ public interface FieldVector extends ValueVector {
    *
    * @return buffer address
    */
-  public long getValidityBufferAddress();
+  long getValidityBufferAddress();
 
   /**
    * Gets the starting address of the underlying buffer associated with data vector.
    *
    * @return buffer address
    */
-  public long getDataBufferAddress();
+  long getDataBufferAddress();
 
   /**
    * Gets the starting address of the underlying buffer associated with offset vector.
    *
    * @return buffer address
    */
-  public long getOffsetBufferAddress();
+  long getOffsetBufferAddress();
 }

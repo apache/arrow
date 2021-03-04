@@ -21,35 +21,37 @@
 #include <vector>
 
 #include <gtest/gtest.h>
+
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
+#include "arrow/util/bitmap_ops.h"
+
 #include "gandiva/dex.h"
 
 namespace gandiva {
 
 class TestBitMapAccumulator : public ::testing::Test {
  protected:
-  void FillBitMap(uint8_t* bmap, int nrecords);
+  void FillBitMap(uint8_t* bmap, uint32_t seed, int nrecords);
   void ByteWiseIntersectBitMaps(uint8_t* dst, const std::vector<uint8_t*>& srcs,
-                                int nrecords);
+                                const std::vector<int64_t>& srcOffsets, int nrecords);
 };
 
-void TestBitMapAccumulator::FillBitMap(uint8_t* bmap, int nbytes) {
-  unsigned int cur = 0;
-
-  for (int i = 0; i < nbytes; ++i) {
-    rand_r(&cur);
-    bmap[i] = static_cast<uint8_t>(cur % UINT8_MAX);
-  }
+void TestBitMapAccumulator::FillBitMap(uint8_t* bmap, uint32_t seed, int nbytes) {
+  ::arrow::random_bytes(nbytes, seed, bmap);
 }
 
-void TestBitMapAccumulator::ByteWiseIntersectBitMaps(uint8_t* dst,
-                                                     const std::vector<uint8_t*>& srcs,
-                                                     int nrecords) {
-  int nbytes = nrecords / 8;
-  for (int i = 0; i < nbytes; ++i) {
-    dst[i] = 0xff;
-    for (uint32_t j = 0; j < srcs.size(); ++j) {
-      dst[i] = dst[i] & srcs[j][i];
-    }
+void TestBitMapAccumulator::ByteWiseIntersectBitMaps(
+    uint8_t* dst, const std::vector<uint8_t*>& srcs,
+    const std::vector<int64_t>& srcOffsets, int nrecords) {
+  if (srcs.empty()) {
+    arrow::BitUtil::SetBitsTo(dst, 0, nrecords, true);
+    return;
+  }
+
+  arrow::internal::CopyBitmap(srcs[0], srcOffsets[0], nrecords, dst, 0);
+  for (uint32_t j = 1; j < srcs.size(); ++j) {
+    arrow::internal::BitmapAnd(dst, 0, srcs[j], srcOffsets[j], nrecords, 0, dst);
   }
 }
 
@@ -61,24 +63,50 @@ TEST_F(TestBitMapAccumulator, TestIntersectBitMaps) {
   uint8_t expected_bitmap[length];
 
   for (int i = 0; i < 4; i++) {
-    FillBitMap(src_bitmaps[i], length);
+    FillBitMap(src_bitmaps[i], i, length);
   }
 
   for (int i = 0; i < 4; i++) {
     std::vector<uint8_t*> src_bitmap_ptrs;
+    std::vector<int64_t> src_bitmap_offsets(i, 0);
     for (int j = 0; j < i; ++j) {
       src_bitmap_ptrs.push_back(src_bitmaps[j]);
     }
 
-    BitMapAccumulator::IntersectBitMaps(dst_bitmap, src_bitmap_ptrs, nrecords);
-    ByteWiseIntersectBitMaps(expected_bitmap, src_bitmap_ptrs, nrecords);
+    BitMapAccumulator::IntersectBitMaps(dst_bitmap, src_bitmap_ptrs, src_bitmap_offsets,
+                                        nrecords);
+    ByteWiseIntersectBitMaps(expected_bitmap, src_bitmap_ptrs, src_bitmap_offsets,
+                             nrecords);
     EXPECT_EQ(memcmp(dst_bitmap, expected_bitmap, length), 0);
   }
 }
 
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
+TEST_F(TestBitMapAccumulator, TestIntersectBitMapsWithOffset) {
+  const int length = 128;
+  uint8_t src_bitmaps[4][length];
+  uint8_t dst_bitmap[length];
+  uint8_t expected_bitmap[length];
+
+  for (int i = 0; i < 4; i++) {
+    FillBitMap(src_bitmaps[i], i, length);
+  }
+
+  for (int i = 0; i < 4; i++) {
+    std::vector<uint8_t*> src_bitmap_ptrs;
+    std::vector<int64_t> src_bitmap_offsets;
+    for (int j = 0; j < i; ++j) {
+      src_bitmap_ptrs.push_back(src_bitmaps[j]);
+      src_bitmap_offsets.push_back(j);  // offset j
+    }
+    const int nrecords = (i == 0) ? length * 8 : length * 8 - i + 1;
+
+    BitMapAccumulator::IntersectBitMaps(dst_bitmap, src_bitmap_ptrs, src_bitmap_offsets,
+                                        nrecords);
+    ByteWiseIntersectBitMaps(expected_bitmap, src_bitmap_ptrs, src_bitmap_offsets,
+                             nrecords);
+    EXPECT_TRUE(
+        arrow::internal::BitmapEquals(dst_bitmap, 0, expected_bitmap, 0, nrecords));
+  }
 }
 
 }  // namespace gandiva

@@ -26,8 +26,8 @@
 #include <arrow-glib/buffer.hpp>
 #include <arrow-glib/chunked-array.hpp>
 #include <arrow-glib/codec.hpp>
-#include <arrow-glib/column.hpp>
 #include <arrow-glib/data-type.hpp>
+#include <arrow-glib/datum.hpp>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/field.hpp>
 #include <arrow-glib/record-batch.hpp>
@@ -45,6 +45,7 @@
 #include <arrow-glib/writable.hpp>
 #include <arrow-glib/writable-file.hpp>
 
+#include <arrow-glib/ipc-options.hpp>
 #include <arrow-glib/metadata-version.hpp>
 #include <arrow-glib/reader.hpp>
 #include <arrow-glib/writer.hpp>

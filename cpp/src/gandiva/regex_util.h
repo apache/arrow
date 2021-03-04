@@ -15,19 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_REGEX_UTIL_H
-#define GANDIVA_REGEX_UTIL_H
+#pragma once
 
 #include <set>
 #include <sstream>
 #include <string>
 
 #include "gandiva/arrow.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// \brief Utility class for converting sql patterns to pcre patterns.
-class RegexUtil {
+class GANDIVA_EXPORT RegexUtil {
  public:
   // Convert an sql pattern to a pcre pattern
   static Status SqlLikePatternToPcre(const std::string& like_pattern, char escape_char,
@@ -43,5 +43,3 @@ class RegexUtil {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_REGEX_UTIL_H

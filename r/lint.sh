@@ -17,13 +17,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# This script requires Python 3 and clang-format, which should already be
+# on your system. See r/README.md for further guidance
+
+set -e
+
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 CPP_BUILD_SUPPORT=$SOURCE_DIR/../cpp/build-support
 
-LLVM_VERSION=6.0
-CLANG_FORMAT=clang-format-$LLVM_VERSION
-
+# Run clang-format
+: ${CLANG_FORMAT:=$(. "${SOURCE_DIR}/../.env" && echo clang-format-${CLANG_TOOLS})}
 $CPP_BUILD_SUPPORT/run_clang_format.py \
     --clang_format_binary=$CLANG_FORMAT \
     --exclude_glob=$CPP_BUILD_SUPPORT/lint_exclusions.txt \
     --source_dir=$SOURCE_DIR/src --quiet $1
+
+
+# Run cpplint
+CPPLINT=$CPP_BUILD_SUPPORT/cpplint.py
+$CPP_BUILD_SUPPORT/run_cpplint.py \
+    --cpplint_binary=$CPPLINT \
+    --exclude_glob=$CPP_BUILD_SUPPORT/lint_exclusions.txt \
+    --source_dir=$SOURCE_DIR/src --quiet

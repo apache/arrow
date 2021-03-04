@@ -21,6 +21,9 @@ import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
+/**
+ * Node representing a if-then-else block expression.
+ */
 class IfNode implements TreeNode {
   private final TreeNode condition;
   private final TreeNode thenNode;

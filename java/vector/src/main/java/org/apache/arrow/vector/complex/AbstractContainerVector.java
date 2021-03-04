@@ -23,6 +23,8 @@ import org.apache.arrow.vector.DensityAwareVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeList;
 import org.apache.arrow.vector.types.pojo.ArrowType.List;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -82,7 +84,7 @@ public abstract class AbstractContainerVector implements ValueVector, DensityAwa
       return clazz.cast(v);
     }
     throw new IllegalStateException(String.format("Vector requested [%s] was different than type stored [%s]. Arrow " +
-      "doesn't yet support heterogenous types.", clazz.getSimpleName(), v.getClass().getSimpleName()));
+      "doesn't yet support heterogeneous types.", clazz.getSimpleName(), v.getClass().getSimpleName()));
   }
 
   protected boolean supportsDirectRead() {
@@ -111,5 +113,28 @@ public abstract class AbstractContainerVector implements ValueVector, DensityAwa
 
   public UnionVector addOrGetUnion(String name) {
     return addOrGet(name, FieldType.nullable(MinorType.UNION.getType()), UnionVector.class);
+  }
+
+  public FixedSizeListVector addOrGetFixedSizeList(String name, int listSize) {
+    return addOrGet(name, FieldType.nullable(new FixedSizeList(listSize)), FixedSizeListVector.class);
+  }
+
+  public MapVector addOrGetMap(String name, boolean keysSorted) {
+    return addOrGet(name, FieldType.nullable(new ArrowType.Map(keysSorted)), MapVector.class);
+  }
+
+  @Override
+  public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void copyFromSafe(int fromIndex, int thisIndex, ValueVector from) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public String getName() {
+    return name;
   }
 }

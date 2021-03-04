@@ -64,8 +64,12 @@ garrow_type_from_raw(arrow::Type::type type)
     return GARROW_TYPE_DOUBLE;
   case arrow::Type::type::STRING:
     return GARROW_TYPE_STRING;
+  case arrow::Type::type::LARGE_STRING:
+    return GARROW_TYPE_LARGE_STRING;
   case arrow::Type::type::BINARY:
     return GARROW_TYPE_BINARY;
+  case arrow::Type::type::LARGE_BINARY:
+    return GARROW_TYPE_LARGE_BINARY;
   case arrow::Type::type::FIXED_SIZE_BINARY:
     return GARROW_TYPE_FIXED_SIZE_BINARY;
   case arrow::Type::type::DATE32:
@@ -78,16 +82,28 @@ garrow_type_from_raw(arrow::Type::type type)
     return GARROW_TYPE_TIME32;
   case arrow::Type::type::TIME64:
     return GARROW_TYPE_TIME64;
-  case arrow::Type::type::INTERVAL:
-    return GARROW_TYPE_INTERVAL;
-  case arrow::Type::type::DECIMAL:
-    return GARROW_TYPE_DECIMAL;
+  case arrow::Type::type::INTERVAL_MONTHS:
+    return GARROW_TYPE_INTERVAL_MONTHS;
+  case arrow::Type::type::INTERVAL_DAY_TIME:
+    return GARROW_TYPE_INTERVAL_DAY_TIME;
+  case arrow::Type::type::DECIMAL128:
+    return GARROW_TYPE_DECIMAL128;
+  case arrow::Type::type::DECIMAL256:
+    return GARROW_TYPE_DECIMAL256;
   case arrow::Type::type::LIST:
     return GARROW_TYPE_LIST;
+  case arrow::Type::type::LARGE_LIST:
+    return GARROW_TYPE_LARGE_LIST;
   case arrow::Type::type::STRUCT:
     return GARROW_TYPE_STRUCT;
-  case arrow::Type::type::UNION:
-    return GARROW_TYPE_UNION;
+  case arrow::Type::type::MAP:
+    return GARROW_TYPE_MAP;
+  case arrow::Type::type::EXTENSION:
+    return GARROW_TYPE_EXTENSION;
+  case arrow::Type::type::SPARSE_UNION:
+    return GARROW_TYPE_SPARSE_UNION;
+  case arrow::Type::type::DENSE_UNION:
+    return GARROW_TYPE_DENSE_UNION;
   case arrow::Type::type::DICTIONARY:
     return GARROW_TYPE_DICTIONARY;
   default:

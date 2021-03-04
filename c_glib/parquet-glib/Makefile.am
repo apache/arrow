@@ -36,7 +36,6 @@ lib_LTLIBRARIES =				\
 
 libparquet_glib_la_CXXFLAGS =			\
 	$(GLIB_CFLAGS)				\
-	$(ARROW_CFLAGS)				\
 	$(PARQUET_CFLAGS)			\
 	$(GARROW_CFLAGS)			\
 	$(GPARQUET_CXXFLAGS)
@@ -47,19 +46,22 @@ libparquet_glib_la_LDFLAGS =			\
 
 libparquet_glib_la_LIBADD =			\
 	$(GLIB_LIBS)				\
-	$(ARROW_LIBS)				\
-	$(PARQUET_LIBS)				\
-	../arrow-glib/libarrow-glib.la
+	../arrow-glib/libarrow-glib.la		\
+	$(PARQUET_LIBS)
 
 libparquet_glib_la_headers =			\
 	arrow-file-reader.h			\
 	arrow-file-writer.h			\
 	parquet-glib.h
 
+libparquet_glib_la_generated_headers =		\
+	version.h
+
 libparquet_glib_la_sources =			\
 	arrow-file-reader.cpp			\
 	arrow-file-writer.cpp			\
-	$(libparquet_glib_la_headers)
+	$(libparquet_glib_la_headers)		\
+	$(libparquet_glib_la_generated_headers)
 
 libparquet_glib_la_cpp_headers =		\
 	arrow-file-reader.hpp			\
@@ -69,6 +71,9 @@ libparquet_glib_la_cpp_headers =		\
 libparquet_glib_la_SOURCES =			\
 	$(libparquet_glib_la_sources)		\
 	$(libparquet_glib_la_cpp_headers)
+
+BUILT_SOURCES =					\
+	$(libparquet_glib_la_generated_headers)
 
 parquet_glib_includedir = $(includedir)/parquet-glib
 parquet_glib_include_HEADERS =			\

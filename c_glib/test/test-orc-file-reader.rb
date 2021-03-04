@@ -45,7 +45,6 @@ map: list<item: struct<key: string, value: struct<int1: int32, string1: string>>
   end
 
   def test_field_indices
-    require_gi(1, 42, 0)
     require_gi_bindings(3, 2, 6)
     assert_nil(@reader.field_indices)
     @reader.field_indices = [1, 3]
@@ -64,7 +63,7 @@ map: list<item: struct<key: string, value: struct<int1: int32, string1: string>>
   end
 
   def build_items_array(items_array)
-    build_list_array(item_data_type, items_array)
+    build_list_array(item_data_type, items_array, field_name: "item")
   end
 
   def items_data_type
@@ -93,7 +92,7 @@ map: list<item: struct<key: string, value: struct<int1: int32, string1: string>>
   end
 
   def build_key_value_array(key_value_array)
-    build_list_array(key_value_data_type, key_value_array)
+    build_list_array(key_value_data_type, key_value_array, field_name: "item")
   end
 
   def middle_array

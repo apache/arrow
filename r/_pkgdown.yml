@@ -1,0 +1,161 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# NPR: uncomment this to build docs for release
+# destination: ../../arrow-site/asf-site/docs/r/
+url: https://arrow.apache.org/docs/r/
+title: Arrow R Package
+template:
+  params:
+    bootswatch: cosmo
+    ganalytics: UA-107500873-1
+navbar:
+  structure:
+    left:
+    - home
+    - intro
+    - reference
+    - articles
+    - news
+    - project
+    right: github
+  components:
+    home:
+      text: ❯❯❯
+      href: https://arrow.apache.org/
+    reference:
+      text: Reference
+      href: reference/index.html
+    project:
+      text: Project docs
+      menu:
+        - text: Specification
+          href: https://arrow.apache.org/docs/format/README.html
+        - text: C GLib
+          href: https://arrow.apache.org/docs/c_glib
+        - text: C++
+          href: https://arrow.apache.org/docs/cpp
+        - text: Java
+          href: https://arrow.apache.org/docs/java
+        - text: JavaScript
+          href: https://arrow.apache.org/docs/js
+        - text: Python
+          href: https://arrow.apache.org/docs/python
+        - text: R
+          href: index.html
+reference:
+- title: Multi-file datasets
+  contents:
+  - open_dataset
+  - write_dataset
+  - dataset_factory
+  - hive_partition
+  - Dataset
+  - Partitioning
+  - Expression
+  - Scanner
+  - FileFormat
+  - FileWriteOptions
+  - map_batches
+- title: Reading and writing files
+  contents:
+  - read_feather
+  - read_ipc_stream
+  - read_parquet
+  - read_delim_arrow
+  - read_json_arrow
+  - write_feather
+  - write_ipc_stream
+  - write_to_raw
+  - write_parquet
+- title: C++ reader/writer interface
+  contents:
+  - ParquetFileReader
+  - ParquetArrowReaderProperties
+  - ParquetFileWriter
+  - ParquetWriterProperties
+  - FeatherReader
+  - CsvTableReader
+  - RecordBatchReader
+  - RecordBatchWriter
+  - CsvReadOptions
+- title: Arrow data containers
+  contents:
+  - buffer
+  - array
+  - ArrayData
+  - chunked_array
+  - ChunkedArray
+  - record_batch
+  - RecordBatch
+  - Table
+  - Scalar
+  - read_message
+- title: Arrow data types and schema
+  contents:
+  - Schema
+  - unify_schemas
+  - type
+  - dictionary
+  - Field
+  - read_schema
+  - data-type
+  - DataType
+  - DictionaryType
+  - FixedWidthType
+- title: Flight
+  contents:
+  - load_flight_server
+  - flight_connect
+  - flight_get
+  - flight_put
+  - list_flights
+- title: File systems
+  contents:
+  - s3_bucket
+  - FileSystem
+  - FileInfo
+  - FileSelector
+  - copy_files
+- title: Input/Output
+  contents:
+  - InputStream
+  - mmap_open
+  - mmap_create
+  - OutputStream
+  - Message
+  - MessageReader
+  - compression
+  - Codec
+  - codec_is_available
+- title: Computation
+  contents:
+  - match_arrow
+  - value_counts
+- title: Configuration
+  contents:
+  - arrow_info
+  - cpu_count
+  - arrow_available
+  - install_arrow
+  - install_pyarrow
+
+repo:
+  jira_projects: [ARROW]
+  url:
+    source: https://github.com/apache/arrow/blob/master/r/
+    issue: https://issues.apache.org/jira/browse/

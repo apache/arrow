@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_TRIE_H
-#define ARROW_UTIL_TRIE_H
+#pragma once
 
 #include <cassert>
 #include <cstdint>
 #include <cstring>
+#include <iosfwd>
 #include <limits>
 #include <string>
 #include <utility>
@@ -103,9 +103,7 @@ class SmallString {
   uint8_t length_;
   char data_[N];
 
-#ifndef NDEBUG
   void CheckSize(size_t n) { assert(n <= N); }
-#endif
 };
 
 template <uint8_t N>
@@ -118,6 +116,7 @@ std::ostream& operator<<(std::ostream& os, const SmallString<N>& str) {
 class ARROW_EXPORT Trie {
   using index_type = int16_t;
   using fast_index_type = int_fast16_t;
+  static constexpr auto kMaxIndex = std::numeric_limits<index_type>::max();
 
  public:
   Trie() : size_(0) {}
@@ -127,6 +126,9 @@ class ARROW_EXPORT Trie {
   int32_t Find(util::string_view s) const {
     const Node* node = &nodes_[0];
     fast_index_type pos = 0;
+    if (s.length() > static_cast<size_t>(kMaxIndex)) {
+      return -1;
+    }
     fast_index_type remaining = static_cast<fast_index_type>(s.length());
 
     while (remaining > 0) {
@@ -241,5 +243,3 @@ class ARROW_EXPORT TrieBuilder {
 
 }  // namespace internal
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_TRIE_H

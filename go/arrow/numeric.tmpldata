@@ -125,5 +125,17 @@
     "InternalType": "int64",
     "Default": "0",
     "Size": "8"
+  },
+  {
+    "Name": "Duration",
+    "name": "duration",
+    "Type": "Duration",
+    "QualifiedType": "arrow.Duration",
+    "InternalType": "int64",
+    "Default": "0",
+    "Size": "8",
+    "Opt": {
+      "Parametric": true
+    }
   }
 ]

@@ -22,9 +22,17 @@ from pyarrow.lib cimport *
 
 
 def get_array_length(obj):
-    # Just an example function accessing both the pyarrow Cython API
+    # An example function accessing both the pyarrow Cython API
     # and the Arrow C++ API
     cdef shared_ptr[CArray] arr = pyarrow_unwrap_array(obj)
     if arr.get() == NULL:
         raise TypeError("not an array")
     return arr.get().length()
+
+
+def make_null_array(length):
+    # An example function that returns a PyArrow object without PyArrow
+    # being imported explicitly at the Python level.
+    cdef shared_ptr[CArray] null_array
+    null_array.reset(new CNullArray(length))
+    return pyarrow_wrap_array(null_array)

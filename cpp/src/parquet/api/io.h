@@ -15,10 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_API_IO_H
-#define PARQUET_API_IO_H
+#pragma once
 
+#include "parquet/deprecated_io.h"
 #include "parquet/exception.h"
-#include "parquet/util/memory.h"
-
-#endif  // PARQUET_API_IO_H

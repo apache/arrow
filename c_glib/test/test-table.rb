@@ -30,31 +30,19 @@ class TestTable < Test::Unit::TestCase
 
     def dump_table(table)
       table.n_columns.times.collect do |i|
-        column = table.get_column(i)
+        field = table.schema.get_field(i)
+        chunked_array = table.get_column_data(i)
         values = []
-        column.data.chunks.each do |chunk|
+        chunked_array.chunks.each do |chunk|
           chunk.length.times do |j|
             values << chunk.get_value(j)
           end
         end
         [
-          column.name,
+          field.name,
           values,
         ]
       end
-    end
-
-    def test_columns
-      columns = [
-        Arrow::Column.new(@fields[0], build_boolean_array([true])),
-        Arrow::Column.new(@fields[1], build_boolean_array([false])),
-      ]
-      table = Arrow::Table.new(@schema, columns)
-      assert_equal([
-                     ["visible", [true]],
-                     ["valid", [false]],
-                   ],
-                   dump_table(table))
     end
 
     def test_arrays
@@ -67,6 +55,22 @@ class TestTable < Test::Unit::TestCase
       assert_equal([
                      ["visible", [true]],
                      ["valid", [false]],
+                   ],
+                   dump_table(table))
+    end
+
+    def test_chunked_arrays
+      require_gi_bindings(3, 3, 1)
+      arrays = [
+        Arrow::ChunkedArray.new([build_boolean_array([true]),
+                                 build_boolean_array([false])]),
+        Arrow::ChunkedArray.new([build_boolean_array([false]),
+                                 build_boolean_array([true])]),
+      ]
+      table = Arrow::Table.new(@schema, arrays)
+      assert_equal([
+                     ["visible", [true, false]],
+                     ["valid", [false, true]],
                    ],
                    dump_table(table))
     end
@@ -95,30 +99,28 @@ class TestTable < Test::Unit::TestCase
 
   sub_test_case("instance methods") do
     def setup
-      fields = [
+      @fields = [
         Arrow::Field.new("visible", Arrow::BooleanDataType.new),
         Arrow::Field.new("valid", Arrow::BooleanDataType.new),
       ]
-      schema = Arrow::Schema.new(fields)
-      columns = [
-        Arrow::Column.new(fields[0], build_boolean_array([true])),
-        Arrow::Column.new(fields[1], build_boolean_array([false])),
+      @schema = Arrow::Schema.new(@fields)
+      @columns = [
+        build_boolean_array([true]),
+        build_boolean_array([false]),
       ]
-      @table = Arrow::Table.new(schema, columns)
+      @table = Arrow::Table.new(@schema, @columns)
     end
 
     def test_equal
-      fields = [
-        Arrow::Field.new("visible", Arrow::BooleanDataType.new),
-        Arrow::Field.new("valid", Arrow::BooleanDataType.new),
-      ]
-      schema = Arrow::Schema.new(fields)
-      columns = [
-        Arrow::Column.new(fields[0], build_boolean_array([true])),
-        Arrow::Column.new(fields[1], build_boolean_array([false])),
-      ]
-      other_table = Arrow::Table.new(schema, columns)
+      other_table = Arrow::Table.new(@schema, @columns)
       assert_equal(@table, other_table)
+    end
+
+    def test_equal_metadata
+      other_table = Arrow::Table.new(@schema, @columns)
+      assert do
+        @table.equal_metadata(other_table, true)
+      end
     end
 
     def test_schema
@@ -126,8 +128,15 @@ class TestTable < Test::Unit::TestCase
                    @table.schema.fields.collect(&:name))
     end
 
-    def test_column
-      assert_equal("valid", @table.get_column(1).name)
+    def test_column_data
+      assert_equal([
+                     Arrow::ChunkedArray.new([build_boolean_array([true])]),
+                     Arrow::ChunkedArray.new([build_boolean_array([false])]),
+                   ],
+                   [
+                     @table.get_column_data(0),
+                     @table.get_column_data(-1),
+                   ])
     end
 
     def test_n_columns
@@ -140,8 +149,8 @@ class TestTable < Test::Unit::TestCase
 
     def test_add_column
       field = Arrow::Field.new("added", Arrow::BooleanDataType.new)
-      column = Arrow::Column.new(field, build_boolean_array([true]))
-      new_table = @table.add_column(1, column)
+      chunked_array = Arrow::ChunkedArray.new([build_boolean_array([true])])
+      new_table = @table.add_column(1, field, chunked_array)
       assert_equal(["visible", "added", "valid"],
                    new_table.schema.fields.collect(&:name))
     end
@@ -154,8 +163,8 @@ class TestTable < Test::Unit::TestCase
 
     def test_replace_column
       field = Arrow::Field.new("added", Arrow::BooleanDataType.new)
-      column = Arrow::Column.new(field, build_boolean_array([true]))
-      new_table = @table.replace_column(0, column)
+      chunked_array = Arrow::ChunkedArray.new([build_boolean_array([true])])
+      new_table = @table.replace_column(0, field, chunked_array)
       assert_equal(["added", "valid"],
                    new_table.schema.fields.collect(&:name))
     end
@@ -174,6 +183,91 @@ valid:
     ]
   ]
       TABLE
+    end
+
+    def test_concatenate
+      table = build_table("visible" => build_boolean_array([true, false, true, false]))
+      table1 = build_table("visible" => build_boolean_array([true]))
+      table2 = build_table("visible" => build_boolean_array([false, true]))
+      table3 = build_table("visible" => build_boolean_array([false]))
+      assert_equal(table, table1.concatenate([table2, table3]))
+    end
+
+    sub_test_case("#slice") do
+      test("offset: positive") do
+        visibles = [true, false, true]
+        table = build_table("visible" => build_boolean_array(visibles))
+        assert_equal(build_table("visible" => build_boolean_array([false, true])),
+                     table.slice(1, 2))
+      end
+
+      test("offset: negative") do
+        visibles = [true, false, true]
+        table = build_table("visible" => build_boolean_array(visibles))
+        assert_equal(build_table("visible" => build_boolean_array([false, true])),
+                     table.slice(-2, 2))
+      end
+    end
+
+    def test_combine_chunks
+      table = build_table(
+        "visible" => Arrow::ChunkedArray::new([build_boolean_array([true, false, true]),
+                                               build_boolean_array([false, true]),
+                                               build_boolean_array([false])])
+      )
+      combined_table = table.combine_chunks
+      all_values = combined_table.n_columns.times.collect do |i|
+        column = combined_table.get_column_data(i)
+        column.n_chunks.times.collect do |j|
+          column.get_chunk(j).values
+        end
+      end
+      assert_equal([[[true, false, true, false, true, false]]],
+                   all_values)
+    end
+
+    sub_test_case("#write_as_feather") do
+      def setup
+        super
+        @tempfile = Tempfile.open("arrow-table-write-as-feather")
+        begin
+          yield
+        ensure
+          @tempfile.close!
+        end
+      end
+
+      def read_feather
+        input = Arrow::MemoryMappedInputStream.new(@tempfile.path)
+        reader = Arrow::FeatherFileReader.new(input)
+        begin
+          yield(reader.read)
+        ensure
+          input.close
+        end
+      end
+
+      test("default") do
+        output = Arrow::FileOutputStream.new(@tempfile.path, false)
+        @table.write_as_feather(output)
+        output.close
+
+        read_feather do |read_table|
+          assert_equal(@table, read_table)
+        end
+      end
+
+      test("compression") do
+        output = Arrow::FileOutputStream.new(@tempfile.path, false)
+        properties = Arrow::FeatherWriteProperties.new
+        properties.compression = :zstd
+        @table.write_as_feather(output, properties)
+        output.close
+
+        read_feather do |read_table|
+          assert_equal(@table, read_table)
+        end
+      end
     end
   end
 end

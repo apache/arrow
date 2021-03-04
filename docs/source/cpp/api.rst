@@ -26,7 +26,16 @@ API Reference
    api/memory
    api/datatype
    api/array
+   api/scalar
    api/builder
    api/table
+   api/c_abi
+   api/compute
+   api/tensor
    api/utilities
+   api/io
+   api/ipc
+   api/formats
    api/cuda
+   api/flight
+   api/filesystem

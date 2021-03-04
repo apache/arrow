@@ -33,8 +33,8 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Look for installed packages the system
-find_package(Arrow)
-find_package(Parquet)
+find_package(Arrow REQUIRED)
+find_package(Parquet REQUIRED)
 
 include_directories(SYSTEM ${ARROW_INCLUDE_DIR} ${PARQUET_INCLUDE_DIR})
 

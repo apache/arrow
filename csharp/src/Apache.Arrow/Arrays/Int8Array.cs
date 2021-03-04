@@ -19,6 +19,14 @@ namespace Apache.Arrow
 {
     public class Int8Array : PrimitiveArray<sbyte>
     {
+        public class Builder : PrimitiveArrayBuilder<sbyte, Int8Array, Builder>
+        {
+            protected override Int8Array Build(
+                ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
+                int length, int nullCount, int offset) =>
+                new Int8Array(valueBuffer, nullBitmapBuffer, length, nullCount, offset);
+        }
+
         public Int8Array(
             ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
             int length, int nullCount, int offset)

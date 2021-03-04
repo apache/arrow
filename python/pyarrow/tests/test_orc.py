@@ -19,19 +19,23 @@ import pytest
 import decimal
 import datetime
 
-import pandas as pd
 import pyarrow as pa
-
-from pandas.util.testing import assert_frame_equal
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not orc'
 pytestmark = pytest.mark.orc
 
 
+try:
+    from pandas.testing import assert_frame_equal
+    import pandas as pd
+except ImportError:
+    pass
+
+
 @pytest.fixture(scope='module')
-def datadir(datadir):
-    return datadir / 'orc'
+def datadir(base_datadir):
+    return base_datadir / 'orc'
 
 
 def fix_example_values(actual_cols, expected_cols):
@@ -43,11 +47,7 @@ def fix_example_values(actual_cols, expected_cols):
         expected = expected_cols[name]
         actual = actual_cols[name]
         typ = actual[0].__class__
-        if typ is bytes:
-            # bytes fields are represented as lists of ints in JSON files
-            # (Python 2: need to use bytearray, not bytes)
-            expected = [bytearray(v) for v in expected]
-        elif issubclass(typ, datetime.datetime):
+        if issubclass(typ, datetime.datetime):
             # timestamp fields are represented as strings in JSON files
             expected = pd.to_datetime(expected)
         elif issubclass(typ, datetime.date):
@@ -83,7 +83,7 @@ def check_example_file(orc_path, expected_df, need_fix=False):
     # Exercise ORCFile.read()
     table = orc_file.read()
     assert isinstance(table, pa.Table)
-    table._validate()
+    table.validate()
 
     # This workaround needed because of ARROW-3080
     orc_df = pd.DataFrame(table.to_pydict())
@@ -110,6 +110,7 @@ def check_example_file(orc_path, expected_df, need_fix=False):
     assert json_pos == orc_file.nrows
 
 
+@pytest.mark.pandas
 @pytest.mark.parametrize('filename', [
     'TestOrcFile.test1.orc',
     'TestOrcFile.testDate1900.orc',
@@ -147,18 +148,18 @@ def test_orcfile_empty(datadir):
             ('list', pa.list_(pa.struct([
                 ('int1', pa.int32()),
                 ('string1', pa.string()),
-                ]))),
-            ])),
+            ]))),
+        ])),
         ('list', pa.list_(pa.struct([
             ('int1', pa.int32()),
             ('string1', pa.string()),
-            ]))),
+        ]))),
         ('map', pa.list_(pa.struct([
             ('key', pa.string()),
             ('value', pa.struct([
                 ('int1', pa.int32()),
                 ('string1', pa.string()),
-                ])),
-            ]))),
-        ])
+            ])),
+        ]))),
+    ])
     assert table.schema == expected_schema

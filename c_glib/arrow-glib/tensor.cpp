@@ -74,7 +74,7 @@ garrow_tensor_finalize(GObject *object)
 {
   auto priv = GARROW_TENSOR_GET_PRIVATE(object);
 
-  priv->tensor = nullptr;
+  priv->tensor.~shared_ptr();
 
   G_OBJECT_CLASS(garrow_tensor_parent_class)->finalize(object);
 }
@@ -122,6 +122,8 @@ garrow_tensor_get_property(GObject *object,
 static void
 garrow_tensor_init(GArrowTensor *object)
 {
+  auto priv = GARROW_TENSOR_GET_PRIVATE(object);
+  new(&priv->tensor) std::shared_ptr<arrow::Tensor>;
 }
 
 static void
@@ -162,9 +164,9 @@ garrow_tensor_class_init(GArrowTensorClass *klass)
  * @strides: (array length=n_strides) (nullable): A list of the number of
  *   bytes in each dimension.
  * @n_strides: The number of strides.
- * @dimention_names: (array length=n_dimention_names) (nullable): A list of
+ * @dimension_names: (array length=n_dimension_names) (nullable): A list of
  *   dimension names.
- * @n_dimention_names: The number of dimension names
+ * @n_dimension_names: The number of dimension names
  *
  * Returns: The newly created #GArrowTensor.
  *

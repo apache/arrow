@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <sstream>
@@ -27,159 +28,523 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/csv/chunker.h"
-#include "arrow/csv/column-builder.h"
+#include "arrow/csv/column_builder.h"
+#include "arrow/csv/column_decoder.h"
 #include "arrow/csv/options.h"
 #include "arrow/csv/parser.h"
-#include "arrow/io/readahead.h"
+#include "arrow/io/interfaces.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/async_generator.h"
+#include "arrow/util/future.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/task-group.h"
-#include "arrow/util/thread-pool.h"
+#include "arrow/util/optional.h"
+#include "arrow/util/task_group.h"
+#include "arrow/util/thread_pool.h"
+#include "arrow/util/utf8.h"
 
 namespace arrow {
-
-class MemoryPool;
-
-namespace io {
-
-class InputStream;
-
-}  // namespace io
-
 namespace csv {
 
-using internal::GetCpuThreadPool;
-using internal::ThreadPool;
-using io::internal::ReadaheadBuffer;
-using io::internal::ReadaheadSpooler;
+using internal::Executor;
 
-static constexpr int64_t kDefaultLeftPadding = 2048;  // 2 kB
-static constexpr int64_t kDefaultRightPadding = 16;
+namespace {
+
+struct ConversionSchema {
+  struct Column {
+    std::string name;
+    // Physical column index in CSV file
+    int32_t index;
+    // If true, make a column of nulls
+    bool is_missing;
+    // If set, convert the CSV column to this type
+    // If unset (and is_missing is false), infer the type from the CSV column
+    std::shared_ptr<DataType> type;
+  };
+
+  static Column NullColumn(std::string col_name, std::shared_ptr<DataType> type) {
+    return Column{std::move(col_name), -1, true, std::move(type)};
+  }
+
+  static Column TypedColumn(std::string col_name, int32_t col_index,
+                            std::shared_ptr<DataType> type) {
+    return Column{std::move(col_name), col_index, false, std::move(type)};
+  }
+
+  static Column InferredColumn(std::string col_name, int32_t col_index) {
+    return Column{std::move(col_name), col_index, false, nullptr};
+  }
+
+  std::vector<Column> columns;
+};
+
+// An iterator of Buffers that makes sure there is no straddling CRLF sequence.
+class CSVBufferIterator {
+ public:
+  static Iterator<std::shared_ptr<Buffer>> Make(
+      Iterator<std::shared_ptr<Buffer>> buffer_iterator) {
+    Transformer<std::shared_ptr<Buffer>, std::shared_ptr<Buffer>> fn =
+        CSVBufferIterator();
+    return MakeTransformedIterator(std::move(buffer_iterator), fn);
+  }
+
+  static AsyncGenerator<std::shared_ptr<Buffer>> MakeAsync(
+      AsyncGenerator<std::shared_ptr<Buffer>> buffer_iterator) {
+    Transformer<std::shared_ptr<Buffer>, std::shared_ptr<Buffer>> fn =
+        CSVBufferIterator();
+    return MakeAsyncGenerator(std::move(buffer_iterator), fn);
+  }
+
+  Result<TransformFlow<std::shared_ptr<Buffer>>> operator()(std::shared_ptr<Buffer> buf) {
+    if (buf == nullptr) {
+      // EOF
+      return TransformFinish();
+    }
+
+    int64_t offset = 0;
+    if (first_buffer_) {
+      ARROW_ASSIGN_OR_RAISE(auto data, util::SkipUTF8BOM(buf->data(), buf->size()));
+      offset += data - buf->data();
+      DCHECK_GE(offset, 0);
+      first_buffer_ = false;
+    }
+
+    if (trailing_cr_ && buf->data()[offset] == '\n') {
+      // Skip '\r\n' line separator that started at the end of previous buffer
+      ++offset;
+    }
+
+    trailing_cr_ = (buf->data()[buf->size() - 1] == '\r');
+    buf = SliceBuffer(buf, offset);
+    if (buf->size() == 0) {
+      // EOF
+      return TransformFinish();
+    } else {
+      return TransformYield(buf);
+    }
+  }
+
+ protected:
+  bool first_buffer_ = true;
+  // Whether there was a trailing CR at the end of last received buffer
+  bool trailing_cr_ = false;
+};
+
+struct CSVBlock {
+  // (partial + completion + buffer) is an entire delimited CSV buffer.
+  std::shared_ptr<Buffer> partial;
+  std::shared_ptr<Buffer> completion;
+  std::shared_ptr<Buffer> buffer;
+  int64_t block_index;
+  bool is_final;
+  std::function<Status(int64_t)> consume_bytes;
+};
+
+}  // namespace
+}  // namespace csv
+
+template <>
+struct IterationTraits<csv::CSVBlock> {
+  static csv::CSVBlock End() { return csv::CSVBlock{{}, {}, {}, -1, true, {}}; }
+};
+
+namespace csv {
+namespace {
+
+// The == operator must be defined to be used as T in Iterator<T>
+bool operator==(const CSVBlock& left, const CSVBlock& right) {
+  return left.block_index == right.block_index;
+}
+bool operator!=(const CSVBlock& left, const CSVBlock& right) {
+  return left.block_index != right.block_index;
+}
+
+// This is a callable that can be used to transform an iterator.  The source iterator
+// will contain buffers of data and the output iterator will contain delimited CSV
+// blocks.  util::optional is used so that there is an end token (required by the
+// iterator APIs (e.g. Visit)) even though an empty optional is never used in this code.
+class BlockReader {
+ public:
+  BlockReader(std::unique_ptr<Chunker> chunker, std::shared_ptr<Buffer> first_buffer)
+      : chunker_(std::move(chunker)),
+        partial_(std::make_shared<Buffer>("")),
+        buffer_(std::move(first_buffer)) {}
+
+ protected:
+  std::unique_ptr<Chunker> chunker_;
+  std::shared_ptr<Buffer> partial_, buffer_;
+  int64_t block_index_ = 0;
+  // Whether there was a trailing CR at the end of last received buffer
+  bool trailing_cr_ = false;
+};
+
+// An object that reads delimited CSV blocks for serial use.
+// The number of bytes consumed should be notified after each read,
+// using CSVBlock::consume_bytes.
+class SerialBlockReader : public BlockReader {
+ public:
+  using BlockReader::BlockReader;
+
+  static Iterator<CSVBlock> MakeIterator(
+      Iterator<std::shared_ptr<Buffer>> buffer_iterator, std::unique_ptr<Chunker> chunker,
+      std::shared_ptr<Buffer> first_buffer) {
+    auto block_reader =
+        std::make_shared<SerialBlockReader>(std::move(chunker), first_buffer);
+    // Wrap shared pointer in callable
+    Transformer<std::shared_ptr<Buffer>, CSVBlock> block_reader_fn =
+        [block_reader](std::shared_ptr<Buffer> buf) {
+          return (*block_reader)(std::move(buf));
+        };
+    return MakeTransformedIterator(std::move(buffer_iterator), block_reader_fn);
+  }
+
+  Result<TransformFlow<CSVBlock>> operator()(std::shared_ptr<Buffer> next_buffer) {
+    if (buffer_ == nullptr) {
+      return TransformFinish();
+    }
+
+    std::shared_ptr<Buffer> completion;
+    bool is_final = (next_buffer == nullptr);
+
+    if (is_final) {
+      // End of file reached => compute completion from penultimate block
+      RETURN_NOT_OK(chunker_->ProcessFinal(partial_, buffer_, &completion, &buffer_));
+    } else {
+      // Get completion of partial from previous block.
+      RETURN_NOT_OK(
+          chunker_->ProcessWithPartial(partial_, buffer_, &completion, &buffer_));
+    }
+    int64_t bytes_before_buffer = partial_->size() + completion->size();
+
+    auto consume_bytes = [this, bytes_before_buffer,
+                          next_buffer](int64_t nbytes) -> Status {
+      DCHECK_GE(nbytes, 0);
+      auto offset = nbytes - bytes_before_buffer;
+      if (offset < 0) {
+        // Should not happen
+        return Status::Invalid("CSV parser got out of sync with chunker");
+      }
+      partial_ = SliceBuffer(buffer_, offset);
+      buffer_ = next_buffer;
+      return Status::OK();
+    };
+
+    return TransformYield<CSVBlock>(CSVBlock{partial_, completion, buffer_,
+                                             block_index_++, is_final,
+                                             std::move(consume_bytes)});
+  }
+};
+
+// An object that reads delimited CSV blocks for threaded use.
+class ThreadedBlockReader : public BlockReader {
+ public:
+  using BlockReader::BlockReader;
+
+  static Iterator<CSVBlock> MakeIterator(
+      Iterator<std::shared_ptr<Buffer>> buffer_iterator, std::unique_ptr<Chunker> chunker,
+      std::shared_ptr<Buffer> first_buffer) {
+    auto block_reader =
+        std::make_shared<ThreadedBlockReader>(std::move(chunker), first_buffer);
+    // Wrap shared pointer in callable
+    Transformer<std::shared_ptr<Buffer>, CSVBlock> block_reader_fn =
+        [block_reader](std::shared_ptr<Buffer> next) { return (*block_reader)(next); };
+    return MakeTransformedIterator(std::move(buffer_iterator), block_reader_fn);
+  }
+
+  static AsyncGenerator<CSVBlock> MakeAsyncIterator(
+      AsyncGenerator<std::shared_ptr<Buffer>> buffer_generator,
+      std::unique_ptr<Chunker> chunker, std::shared_ptr<Buffer> first_buffer) {
+    auto block_reader =
+        std::make_shared<ThreadedBlockReader>(std::move(chunker), first_buffer);
+    // Wrap shared pointer in callable
+    Transformer<std::shared_ptr<Buffer>, CSVBlock> block_reader_fn =
+        [block_reader](std::shared_ptr<Buffer> next) { return (*block_reader)(next); };
+    return MakeAsyncGenerator(std::move(buffer_generator), block_reader_fn);
+  }
+
+  Result<TransformFlow<CSVBlock>> operator()(std::shared_ptr<Buffer> next_buffer) {
+    if (buffer_ == nullptr) {
+      // EOF
+      return TransformFinish();
+    }
+
+    std::shared_ptr<Buffer> whole, completion, next_partial;
+    bool is_final = (next_buffer == nullptr);
+
+    auto current_partial = std::move(partial_);
+    auto current_buffer = std::move(buffer_);
+
+    if (is_final) {
+      // End of file reached => compute completion from penultimate block
+      RETURN_NOT_OK(
+          chunker_->ProcessFinal(current_partial, current_buffer, &completion, &whole));
+    } else {
+      // Get completion of partial from previous block.
+      std::shared_ptr<Buffer> starts_with_whole;
+      // Get completion of partial from previous block.
+      RETURN_NOT_OK(chunker_->ProcessWithPartial(current_partial, current_buffer,
+                                                 &completion, &starts_with_whole));
+
+      // Get a complete CSV block inside `partial + block`, and keep
+      // the rest for the next iteration.
+      RETURN_NOT_OK(chunker_->Process(starts_with_whole, &whole, &next_partial));
+    }
+
+    partial_ = std::move(next_partial);
+    buffer_ = std::move(next_buffer);
+
+    return TransformYield<CSVBlock>(
+        CSVBlock{current_partial, completion, whole, block_index_++, is_final, {}});
+  }
+};
 
 /////////////////////////////////////////////////////////////////////////
 // Base class for common functionality
 
-class BaseTableReader : public csv::TableReader {
+class ReaderMixin {
  public:
-  BaseTableReader(MemoryPool* pool, const ReadOptions& read_options,
-                  const ParseOptions& parse_options,
-                  const ConvertOptions& convert_options)
+  ReaderMixin(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
+              const ReadOptions& read_options, const ParseOptions& parse_options,
+              const ConvertOptions& convert_options)
       : pool_(pool),
         read_options_(read_options),
         parse_options_(parse_options),
-        convert_options_(convert_options) {}
+        convert_options_(convert_options),
+        input_(std::move(input)) {}
 
  protected:
-  // Read a next data block, stitch it to trailing data
-  Status ReadNextBlock() {
-    bool trailing_data = cur_size_ > 0;
-    ReadaheadBuffer rh;
+  // Read header and column names from buffer, create column builders
+  Status ProcessHeader(const std::shared_ptr<Buffer>& buf,
+                       std::shared_ptr<Buffer>* rest) {
+    const uint8_t* data = buf->data();
+    const auto data_end = data + buf->size();
+    DCHECK_GT(data_end - data, 0);
 
-    if (trailing_data) {
-      if (readahead_->GetLeftPadding() < cur_size_) {
-        // Growth heuristic to try and ensure sufficient left padding
-        // in subsequent reads
-        readahead_->SetLeftPadding(cur_size_ * 3 / 2);
+    if (read_options_.skip_rows) {
+      // Skip initial rows (potentially invalid CSV data)
+      auto num_skipped_rows = SkipRows(data, static_cast<uint32_t>(data_end - data),
+                                       read_options_.skip_rows, &data);
+      if (num_skipped_rows < read_options_.skip_rows) {
+        return Status::Invalid(
+            "Could not skip initial ", read_options_.skip_rows,
+            " rows from CSV file, "
+            "either file is too short or header is larger than block size");
       }
     }
 
-    RETURN_NOT_OK(readahead_->Read(&rh));
-    if (!rh.buffer) {
-      // EOF, let caller finish with existing data
-      eof_ = true;
-      return Status::OK();
-    }
+    if (read_options_.column_names.empty()) {
+      // Parse one row (either to read column names or to know the number of columns)
+      BlockParser parser(pool_, parse_options_, num_csv_cols_, 1);
+      uint32_t parsed_size = 0;
+      RETURN_NOT_OK(parser.Parse(
+          util::string_view(reinterpret_cast<const char*>(data), data_end - data),
+          &parsed_size));
+      if (parser.num_rows() != 1) {
+        return Status::Invalid(
+            "Could not read first row from CSV file, either "
+            "file is too short or header is larger than block size");
+      }
+      if (parser.num_cols() == 0) {
+        return Status::Invalid("No columns in CSV file");
+      }
 
-    std::shared_ptr<Buffer> new_block = rh.buffer;
-    uint8_t* new_data = rh.buffer->mutable_data() + rh.left_padding;
-    int64_t new_size = rh.buffer->size() - rh.left_padding - rh.right_padding;
-    DCHECK_GT(new_size, 0);  // ensured by ReadaheadSpooler
-
-    if (trailing_cr_ && new_data[0] == '\n') {
-      // Skip '\r\n' line separator that started at the end of previous block
-      ++new_data;
-      --new_size;
-    }
-    trailing_cr_ = (new_data[new_size - 1] == '\r');
-
-    if (trailing_data) {
-      // Try to copy trailing data at the beginning of new block
-      if (cur_size_ <= rh.left_padding) {
-        // Can left-extend new block inside padding area
-        new_data -= cur_size_;
-        new_size += cur_size_;
-        std::memcpy(new_data, cur_data_, cur_size_);
+      if (read_options_.autogenerate_column_names) {
+        column_names_ = GenerateColumnNames(parser.num_cols());
       } else {
-        // Need to allocate bigger block and concatenate trailing + present data
-        RETURN_NOT_OK(
-            AllocateBuffer(pool_, cur_size_ + new_size + rh.right_padding, &new_block));
-        std::memcpy(new_block->mutable_data(), cur_data_, cur_size_);
-        std::memcpy(new_block->mutable_data() + cur_size_, new_data, new_size);
-        std::memset(new_block->mutable_data() + cur_size_ + new_size, 0,
-                    rh.right_padding);
-        new_data = new_block->mutable_data();
-        new_size = cur_size_ + new_size;
+        // Read column names from header row
+        auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+          column_names_.emplace_back(reinterpret_cast<const char*>(data), size);
+          return Status::OK();
+        };
+        RETURN_NOT_OK(parser.VisitLastRow(visit));
+        DCHECK_EQ(static_cast<size_t>(parser.num_cols()), column_names_.size());
+        // Skip parsed header row
+        data += parsed_size;
+      }
+    } else {
+      column_names_ = read_options_.column_names;
+    }
+    *rest = SliceBuffer(buf, data - buf->data());
+
+    num_csv_cols_ = static_cast<int32_t>(column_names_.size());
+    DCHECK_GT(num_csv_cols_, 0);
+
+    return MakeConversionSchema();
+  }
+
+  std::vector<std::string> GenerateColumnNames(int32_t num_cols) {
+    std::vector<std::string> res;
+    res.reserve(num_cols);
+    for (int32_t i = 0; i < num_cols; ++i) {
+      std::stringstream ss;
+      ss << "f" << i;
+      res.push_back(ss.str());
+    }
+    return res;
+  }
+
+  // Make conversion schema from options and parsed CSV header
+  Status MakeConversionSchema() {
+    // Append a column converted from CSV data
+    auto append_csv_column = [&](std::string col_name, int32_t col_index) {
+      // Does the named column have a fixed type?
+      auto it = convert_options_.column_types.find(col_name);
+      if (it == convert_options_.column_types.end()) {
+        conversion_schema_.columns.push_back(
+            ConversionSchema::InferredColumn(std::move(col_name), col_index));
+      } else {
+        conversion_schema_.columns.push_back(
+            ConversionSchema::TypedColumn(std::move(col_name), col_index, it->second));
+      }
+    };
+
+    // Append a column of nulls
+    auto append_null_column = [&](std::string col_name) {
+      // If the named column has a fixed type, use it, otherwise use null()
+      std::shared_ptr<DataType> type;
+      auto it = convert_options_.column_types.find(col_name);
+      if (it == convert_options_.column_types.end()) {
+        type = null();
+      } else {
+        type = it->second;
+      }
+      conversion_schema_.columns.push_back(
+          ConversionSchema::NullColumn(std::move(col_name), std::move(type)));
+    };
+
+    if (convert_options_.include_columns.empty()) {
+      // Include all columns in CSV file order
+      for (int32_t col_index = 0; col_index < num_csv_cols_; ++col_index) {
+        append_csv_column(column_names_[col_index], col_index);
+      }
+    } else {
+      // Include columns from `include_columns` (in that order)
+      // Compute indices of columns in the CSV file
+      std::unordered_map<std::string, int32_t> col_indices;
+      col_indices.reserve(column_names_.size());
+      for (int32_t i = 0; i < static_cast<int32_t>(column_names_.size()); ++i) {
+        col_indices.emplace(column_names_[i], i);
+      }
+
+      for (const auto& col_name : convert_options_.include_columns) {
+        auto it = col_indices.find(col_name);
+        if (it != col_indices.end()) {
+          append_csv_column(col_name, it->second);
+        } else if (convert_options_.include_missing_columns) {
+          append_null_column(col_name);
+        } else {
+          return Status::KeyError("Column '", col_name,
+                                  "' in include_columns "
+                                  "does not exist in CSV file");
+        }
       }
     }
-    cur_block_ = new_block;
-    cur_data_ = new_data;
-    cur_size_ = new_size;
     return Status::OK();
   }
 
-  // Read header and column names from current block, create column builders
-  Status ProcessHeader() {
-    DCHECK_GT(cur_size_, 0);
-    if (parse_options_.header_rows == 0) {
-      // TODO allow passing names and/or generate column numbers?
-      return Status::Invalid("header_rows == 0 needs explicit column names");
-    }
+  struct ParseResult {
+    std::shared_ptr<BlockParser> parser;
+    int64_t parsed_bytes;
+  };
 
-    BlockParser parser(pool_, parse_options_, num_cols_, parse_options_.header_rows);
+  Result<ParseResult> Parse(const std::shared_ptr<Buffer>& partial,
+                            const std::shared_ptr<Buffer>& completion,
+                            const std::shared_ptr<Buffer>& block, int64_t block_index,
+                            bool is_final) {
+    static constexpr int32_t max_num_rows = std::numeric_limits<int32_t>::max();
+    auto parser =
+        std::make_shared<BlockParser>(pool_, parse_options_, num_csv_cols_, max_num_rows);
 
-    uint32_t parsed_size = 0;
-    RETURN_NOT_OK(parser.Parse(reinterpret_cast<const char*>(cur_data_),
-                               static_cast<uint32_t>(cur_size_), &parsed_size));
-    if (parser.num_rows() != parse_options_.header_rows) {
-      return Status::Invalid(
-          "Could not read header rows from CSV file, either "
-          "file is too short or header is larger than block size");
-    }
-    if (parser.num_cols() == 0) {
-      return Status::Invalid("No columns in CSV file");
-    }
-    num_cols_ = parser.num_cols();
-    DCHECK_GT(num_cols_, 0);
-
-    for (int32_t col_index = 0; col_index < num_cols_; ++col_index) {
-      auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-        DCHECK_EQ(column_names_.size(), static_cast<uint32_t>(col_index));
-        column_names_.emplace_back(reinterpret_cast<const char*>(data), size);
-        return Status::OK();
-      };
-      RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
-      std::shared_ptr<ColumnBuilder> builder;
-      // Does the named column have a fixed type?
-      auto it = convert_options_.column_types.find(column_names_[col_index]);
-      if (it == convert_options_.column_types.end()) {
-        RETURN_NOT_OK(
-            ColumnBuilder::Make(col_index, convert_options_, task_group_, &builder));
+    std::shared_ptr<Buffer> straddling;
+    std::vector<util::string_view> views;
+    if (partial->size() != 0 || completion->size() != 0) {
+      if (partial->size() == 0) {
+        straddling = completion;
+      } else if (completion->size() == 0) {
+        straddling = partial;
       } else {
-        RETURN_NOT_OK(ColumnBuilder::Make(it->second, col_index, convert_options_,
-                                          task_group_, &builder));
+        ARROW_ASSIGN_OR_RAISE(straddling,
+                              ConcatenateBuffers({partial, completion}, pool_));
       }
-      column_builders_.push_back(builder);
+      views = {util::string_view(*straddling), util::string_view(*block)};
+    } else {
+      views = {util::string_view(*block)};
     }
+    uint32_t parsed_size;
+    if (is_final) {
+      RETURN_NOT_OK(parser->ParseFinal(views, &parsed_size));
+    } else {
+      RETURN_NOT_OK(parser->Parse(views, &parsed_size));
+    }
+    return ParseResult{std::move(parser), static_cast<int64_t>(parsed_size)};
+  }
 
-    // Skip parsed header rows
-    cur_data_ += parsed_size;
-    cur_size_ -= parsed_size;
+  MemoryPool* pool_;
+  ReadOptions read_options_;
+  ParseOptions parse_options_;
+  ConvertOptions convert_options_;
+
+  // Number of columns in the CSV file
+  int32_t num_csv_cols_ = -1;
+  // Column names in the CSV file
+  std::vector<std::string> column_names_;
+  ConversionSchema conversion_schema_;
+
+  std::shared_ptr<io::InputStream> input_;
+  std::shared_ptr<internal::TaskGroup> task_group_;
+};
+
+/////////////////////////////////////////////////////////////////////////
+// Base class for one-shot table readers
+
+class BaseTableReader : public ReaderMixin, public csv::TableReader {
+ public:
+  using ReaderMixin::ReaderMixin;
+
+  virtual Status Init() = 0;
+
+  Future<std::shared_ptr<Table>> ReadAsync() override {
+    return Future<std::shared_ptr<Table>>::MakeFinished(Read());
+  }
+
+ protected:
+  // Make column builders from conversion schema
+  Status MakeColumnBuilders() {
+    for (const auto& column : conversion_schema_.columns) {
+      std::shared_ptr<ColumnBuilder> builder;
+      if (column.is_missing) {
+        ARROW_ASSIGN_OR_RAISE(builder,
+                              ColumnBuilder::MakeNull(pool_, column.type, task_group_));
+      } else if (column.type != nullptr) {
+        ARROW_ASSIGN_OR_RAISE(builder,
+                              ColumnBuilder::Make(pool_, column.type, column.index,
+                                                  convert_options_, task_group_));
+      } else {
+        ARROW_ASSIGN_OR_RAISE(
+            builder,
+            ColumnBuilder::Make(pool_, column.index, convert_options_, task_group_));
+      }
+      column_builders_.push_back(std::move(builder));
+    }
     return Status::OK();
+  }
+
+  Result<int64_t> ParseAndInsert(const std::shared_ptr<Buffer>& partial,
+                                 const std::shared_ptr<Buffer>& completion,
+                                 const std::shared_ptr<Buffer>& block,
+                                 int64_t block_index, bool is_final) {
+    ARROW_ASSIGN_OR_RAISE(auto result,
+                          Parse(partial, completion, block, block_index, is_final));
+    RETURN_NOT_OK(ProcessData(result.parser, block_index));
+    return result.parsed_bytes;
   }
 
   // Trigger conversion of parsed block data
@@ -190,47 +555,219 @@ class BaseTableReader : public csv::TableReader {
     return Status::OK();
   }
 
-  Status MakeTable(std::shared_ptr<Table>* out) {
-    DCHECK_GT(num_cols_, 0);
-    DCHECK_EQ(column_names_.size(), static_cast<uint32_t>(num_cols_));
-    DCHECK_EQ(column_builders_.size(), static_cast<uint32_t>(num_cols_));
+  Result<std::shared_ptr<Table>> MakeTable() {
+    DCHECK_EQ(column_builders_.size(), conversion_schema_.columns.size());
 
     std::vector<std::shared_ptr<Field>> fields;
-    std::vector<std::shared_ptr<Column>> columns;
+    std::vector<std::shared_ptr<ChunkedArray>> columns;
 
-    for (int32_t i = 0; i < num_cols_; ++i) {
-      std::shared_ptr<ChunkedArray> array;
-      RETURN_NOT_OK(column_builders_[i]->Finish(&array));
-      columns.push_back(std::make_shared<Column>(column_names_[i], array));
-      fields.push_back(columns.back()->field());
+    for (int32_t i = 0; i < static_cast<int32_t>(column_builders_.size()); ++i) {
+      const auto& column = conversion_schema_.columns[i];
+      ARROW_ASSIGN_OR_RAISE(auto array, column_builders_[i]->Finish());
+      fields.push_back(::arrow::field(column.name, array->type()));
+      columns.emplace_back(std::move(array));
     }
-    *out = Table::Make(schema(fields), columns);
+    return Table::Make(schema(fields), columns);
+  }
+
+  // Column builders for target Table (in ConversionSchema order)
+  std::vector<std::shared_ptr<ColumnBuilder>> column_builders_;
+};
+
+/////////////////////////////////////////////////////////////////////////
+// Base class for streaming readers
+
+class BaseStreamingReader : public ReaderMixin, public csv::StreamingReader {
+ public:
+  using ReaderMixin::ReaderMixin;
+
+  virtual Status Init() = 0;
+
+  std::shared_ptr<Schema> schema() const override { return schema_; }
+
+  Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
+    do {
+      RETURN_NOT_OK(ReadNext().Value(batch));
+    } while (*batch != nullptr && (*batch)->num_rows() == 0);
     return Status::OK();
   }
 
-  MemoryPool* pool_;
-  ReadOptions read_options_;
-  ParseOptions parse_options_;
-  ConvertOptions convert_options_;
+ protected:
+  virtual Result<std::shared_ptr<RecordBatch>> ReadNext() = 0;
 
-  int32_t num_cols_ = -1;
-  std::shared_ptr<ReadaheadSpooler> readahead_;
-  // Column names
-  std::vector<std::string> column_names_;
-  std::shared_ptr<internal::TaskGroup> task_group_;
-  std::vector<std::shared_ptr<ColumnBuilder>> column_builders_;
+  // Make column decoders from conversion schema
+  Status MakeColumnDecoders() {
+    for (const auto& column : conversion_schema_.columns) {
+      std::shared_ptr<ColumnDecoder> decoder;
+      if (column.is_missing) {
+        ARROW_ASSIGN_OR_RAISE(decoder,
+                              ColumnDecoder::MakeNull(pool_, column.type, task_group_));
+      } else if (column.type != nullptr) {
+        ARROW_ASSIGN_OR_RAISE(decoder,
+                              ColumnDecoder::Make(pool_, column.type, column.index,
+                                                  convert_options_, task_group_));
+      } else {
+        ARROW_ASSIGN_OR_RAISE(
+            decoder,
+            ColumnDecoder::Make(pool_, column.index, convert_options_, task_group_));
+      }
+      column_decoders_.push_back(std::move(decoder));
+    }
+    return Status::OK();
+  }
 
-  // Current block and data pointer
-  std::shared_ptr<Buffer> cur_block_;
-  const uint8_t* cur_data_ = nullptr;
-  int64_t cur_size_ = 0;
-  // Index of current block inside data stream
-  int64_t cur_block_index_ = 0;
-  // Whether there was a trailing CR at the end of last parsed line
-  bool trailing_cr_ = false;
-  // Whether we reached input stream EOF.  There may still be data left to
-  // process in current block.
+  Result<int64_t> ParseAndInsert(const std::shared_ptr<Buffer>& partial,
+                                 const std::shared_ptr<Buffer>& completion,
+                                 const std::shared_ptr<Buffer>& block,
+                                 int64_t block_index, bool is_final) {
+    ARROW_ASSIGN_OR_RAISE(auto result,
+                          Parse(partial, completion, block, block_index, is_final));
+    RETURN_NOT_OK(ProcessData(result.parser, block_index));
+    return result.parsed_bytes;
+  }
+
+  // Trigger conversion of parsed block data
+  Status ProcessData(const std::shared_ptr<BlockParser>& parser, int64_t block_index) {
+    for (auto& decoder : column_decoders_) {
+      decoder->Insert(block_index, parser);
+    }
+    return Status::OK();
+  }
+
+  Result<std::shared_ptr<RecordBatch>> DecodeNextBatch() {
+    DCHECK(!column_decoders_.empty());
+    ArrayVector arrays;
+    arrays.reserve(column_decoders_.size());
+    Status st;
+    for (auto& decoder : column_decoders_) {
+      auto maybe_array = decoder->NextChunk();
+      if (!maybe_array.ok()) {
+        // If there's an error, still fetch results from other decoders to
+        // keep them in sync.
+        st &= maybe_array.status();
+      } else {
+        arrays.push_back(*std::move(maybe_array));
+      }
+    }
+    RETURN_NOT_OK(st);
+    DCHECK_EQ(arrays.size(), column_decoders_.size());
+    const bool is_null = (arrays[0] == nullptr);
+#ifndef NDEBUG
+    for (const auto& array : arrays) {
+      DCHECK_EQ(array == nullptr, is_null);
+    }
+#endif
+    if (is_null) {
+      eof_ = true;
+      return nullptr;
+    }
+
+    if (schema_ == nullptr) {
+      FieldVector fields(arrays.size());
+      for (size_t i = 0; i < arrays.size(); ++i) {
+        fields[i] = field(conversion_schema_.columns[i].name, arrays[i]->type());
+      }
+      schema_ = arrow::schema(std::move(fields));
+    }
+    const auto n_rows = arrays[0]->length();
+    return RecordBatch::Make(schema_, n_rows, std::move(arrays));
+  }
+
+  // Column decoders (in ConversionSchema order)
+  std::vector<std::shared_ptr<ColumnDecoder>> column_decoders_;
+  std::shared_ptr<Schema> schema_;
+  std::shared_ptr<RecordBatch> pending_batch_;
+  Iterator<std::shared_ptr<Buffer>> buffer_iterator_;
   bool eof_ = false;
+};
+
+/////////////////////////////////////////////////////////////////////////
+// Serial StreamingReader implementation
+
+class SerialStreamingReader : public BaseStreamingReader {
+ public:
+  using BaseStreamingReader::BaseStreamingReader;
+
+  Status Init() override {
+    ARROW_ASSIGN_OR_RAISE(auto istream_it,
+                          io::MakeInputStreamIterator(input_, read_options_.block_size));
+
+    // Since we're converting serially, no need to readahead more than one block
+    int32_t block_queue_size = 1;
+    ARROW_ASSIGN_OR_RAISE(auto rh_it,
+                          MakeReadaheadIterator(std::move(istream_it), block_queue_size));
+    buffer_iterator_ = CSVBufferIterator::Make(std::move(rh_it));
+    task_group_ = internal::TaskGroup::MakeSerial();
+
+    // Read schema from first batch
+    ARROW_ASSIGN_OR_RAISE(pending_batch_, ReadNext());
+    DCHECK_NE(schema_, nullptr);
+    return Status::OK();
+  }
+
+ protected:
+  Result<std::shared_ptr<RecordBatch>> ReadNext() override {
+    if (eof_) {
+      return nullptr;
+    }
+    if (!block_iterator_) {
+      Status st = SetupReader();
+      if (!st.ok()) {
+        // Can't setup reader => bail out
+        eof_ = true;
+        return st;
+      }
+    }
+    auto batch = std::move(pending_batch_);
+    if (batch != nullptr) {
+      return batch;
+    }
+
+    if (!source_eof_) {
+      ARROW_ASSIGN_OR_RAISE(auto maybe_block, block_iterator_.Next());
+      if (maybe_block != IterationTraits<CSVBlock>::End()) {
+        last_block_index_ = maybe_block.block_index;
+        auto maybe_parsed = ParseAndInsert(maybe_block.partial, maybe_block.completion,
+                                           maybe_block.buffer, maybe_block.block_index,
+                                           maybe_block.is_final);
+        if (!maybe_parsed.ok()) {
+          // Parse error => bail out
+          eof_ = true;
+          return maybe_parsed.status();
+        }
+        RETURN_NOT_OK(maybe_block.consume_bytes(*maybe_parsed));
+      } else {
+        source_eof_ = true;
+        for (auto& decoder : column_decoders_) {
+          decoder->SetEOF(last_block_index_ + 1);
+        }
+      }
+    }
+
+    auto maybe_batch = DecodeNextBatch();
+    if (schema_ == nullptr && maybe_batch.ok()) {
+      schema_ = (*maybe_batch)->schema();
+    }
+    return maybe_batch;
+  };
+
+  Status SetupReader() {
+    ARROW_ASSIGN_OR_RAISE(auto first_buffer, buffer_iterator_.Next());
+    if (first_buffer == nullptr) {
+      return Status::Invalid("Empty CSV file");
+    }
+    RETURN_NOT_OK(ProcessHeader(first_buffer, &first_buffer));
+    RETURN_NOT_OK(MakeColumnDecoders());
+
+    block_iterator_ = SerialBlockReader::MakeIterator(std::move(buffer_iterator_),
+                                                      MakeChunker(parse_options_),
+                                                      std::move(first_buffer));
+    return Status::OK();
+  }
+
+  bool source_eof_ = false;
+  int64_t last_block_index_ = 0;
+  Iterator<CSVBlock> block_iterator_;
 };
 
 /////////////////////////////////////////////////////////////////////////
@@ -238,84 +775,71 @@ class BaseTableReader : public csv::TableReader {
 
 class SerialTableReader : public BaseTableReader {
  public:
-  SerialTableReader(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
-                    const ReadOptions& read_options, const ParseOptions& parse_options,
-                    const ConvertOptions& convert_options)
-      : BaseTableReader(pool, read_options, parse_options, convert_options) {
+  using BaseTableReader::BaseTableReader;
+
+  Status Init() override {
+    ARROW_ASSIGN_OR_RAISE(auto istream_it,
+                          io::MakeInputStreamIterator(input_, read_options_.block_size));
+
     // Since we're converting serially, no need to readahead more than one block
     int32_t block_queue_size = 1;
-    readahead_ = std::make_shared<ReadaheadSpooler>(
-        pool_, input, read_options_.block_size, block_queue_size, kDefaultLeftPadding,
-        kDefaultRightPadding);
+    ARROW_ASSIGN_OR_RAISE(auto rh_it,
+                          MakeReadaheadIterator(std::move(istream_it), block_queue_size));
+    buffer_iterator_ = CSVBufferIterator::Make(std::move(rh_it));
+    return Status::OK();
   }
 
-  Status Read(std::shared_ptr<Table>* out) {
+  Result<std::shared_ptr<Table>> Read() override {
     task_group_ = internal::TaskGroup::MakeSerial();
 
     // First block
-    RETURN_NOT_OK(ReadNextBlock());
-    if (eof_) {
+    ARROW_ASSIGN_OR_RAISE(auto first_buffer, buffer_iterator_.Next());
+    if (first_buffer == nullptr) {
       return Status::Invalid("Empty CSV file");
     }
-    RETURN_NOT_OK(ProcessHeader());
+    RETURN_NOT_OK(ProcessHeader(first_buffer, &first_buffer));
+    RETURN_NOT_OK(MakeColumnBuilders());
 
-    static constexpr int32_t max_num_rows = std::numeric_limits<int32_t>::max();
-    auto parser =
-        std::make_shared<BlockParser>(pool_, parse_options_, num_cols_, max_num_rows);
-    while (!eof_) {
-      // Consume current block
-      uint32_t parsed_size = 0;
-      RETURN_NOT_OK(parser->Parse(reinterpret_cast<const char*>(cur_data_),
-                                  static_cast<uint32_t>(cur_size_), &parsed_size));
-      if (parser->num_rows() > 0) {
-        // Got some data
-        RETURN_NOT_OK(ProcessData(parser, cur_block_index_++));
-        cur_data_ += parsed_size;
-        cur_size_ -= parsed_size;
-        if (!task_group_->ok()) {
-          // Conversion error => early exit
-          break;
-        }
-      } else {
-        // Need to fetch more data to get at least one row
-        RETURN_NOT_OK(ReadNextBlock());
+    auto block_iterator = SerialBlockReader::MakeIterator(std::move(buffer_iterator_),
+                                                          MakeChunker(parse_options_),
+                                                          std::move(first_buffer));
+    while (true) {
+      ARROW_ASSIGN_OR_RAISE(auto maybe_block, block_iterator.Next());
+      if (maybe_block == IterationTraits<CSVBlock>::End()) {
+        // EOF
+        break;
       }
+      ARROW_ASSIGN_OR_RAISE(
+          int64_t parsed_bytes,
+          ParseAndInsert(maybe_block.partial, maybe_block.completion, maybe_block.buffer,
+                         maybe_block.block_index, maybe_block.is_final));
+      RETURN_NOT_OK(maybe_block.consume_bytes(parsed_bytes));
     }
-    if (eof_ && cur_size_ > 0) {
-      // Parse remaining data
-      uint32_t parsed_size = 0;
-      RETURN_NOT_OK(parser->ParseFinal(reinterpret_cast<const char*>(cur_data_),
-                                       static_cast<uint32_t>(cur_size_), &parsed_size));
-      if (parser->num_rows() > 0) {
-        RETURN_NOT_OK(ProcessData(parser, cur_block_index_++));
-      }
-    }
-
     // Finish conversion, create schema and table
     RETURN_NOT_OK(task_group_->Finish());
-    return MakeTable(out);
+    return MakeTable();
   }
+
+ protected:
+  Iterator<std::shared_ptr<Buffer>> buffer_iterator_;
 };
 
-/////////////////////////////////////////////////////////////////////////
-// Parallel TableReader implementation
-
-class ThreadedTableReader : public BaseTableReader {
+class AsyncThreadedTableReader
+    : public BaseTableReader,
+      public std::enable_shared_from_this<AsyncThreadedTableReader> {
  public:
-  ThreadedTableReader(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
-                      ThreadPool* thread_pool, const ReadOptions& read_options,
-                      const ParseOptions& parse_options,
-                      const ConvertOptions& convert_options)
-      : BaseTableReader(pool, read_options, parse_options, convert_options),
-        thread_pool_(thread_pool) {
-    // Readahead one block per worker thread
-    int32_t block_queue_size = thread_pool->GetCapacity();
-    readahead_ = std::make_shared<ReadaheadSpooler>(
-        pool_, input, read_options_.block_size, block_queue_size, kDefaultLeftPadding,
-        kDefaultRightPadding);
-  }
+  using BaseTableReader::BaseTableReader;
 
-  ~ThreadedTableReader() {
+  AsyncThreadedTableReader(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
+                           const ReadOptions& read_options,
+                           const ParseOptions& parse_options,
+                           const ConvertOptions& convert_options, Executor* cpu_executor,
+                           Executor* io_executor)
+      : BaseTableReader(pool, input, read_options, parse_options, convert_options),
+        cpu_executor_(cpu_executor),
+        io_executor_(io_executor) {}
+
+  ~AsyncThreadedTableReader() override {
     if (task_group_) {
       // In case of error, make sure all pending tasks are finished before
       // we start destroying BaseTableReader members
@@ -323,104 +847,141 @@ class ThreadedTableReader : public BaseTableReader {
     }
   }
 
-  Status Read(std::shared_ptr<Table>* out) {
-    task_group_ = internal::TaskGroup::MakeThreaded(thread_pool_);
-    static constexpr int32_t max_num_rows = std::numeric_limits<int32_t>::max();
-    Chunker chunker(parse_options_);
+  Status Init() override {
+    ARROW_ASSIGN_OR_RAISE(auto istream_it,
+                          io::MakeInputStreamIterator(input_, read_options_.block_size));
 
-    // Get first block and process header serially
-    RETURN_NOT_OK(ReadNextBlock());
-    if (eof_) {
-      return Status::Invalid("Empty CSV file");
-    }
-    RETURN_NOT_OK(ProcessHeader());
+    // TODO: use io_executor_ here, see ARROW-11590
+    ARROW_ASSIGN_OR_RAISE(auto background_executor, internal::ThreadPool::Make(1));
+    ARROW_ASSIGN_OR_RAISE(auto bg_it, MakeBackgroundGenerator(std::move(istream_it),
+                                                              background_executor.get()));
+    AsyncGenerator<std::shared_ptr<Buffer>> wrapped_bg_it =
+        [bg_it, background_executor]() { return bg_it(); };
 
-    while (!eof_ && task_group_->ok()) {
-      // Consume current chunk
-      uint32_t chunk_size = 0;
-      RETURN_NOT_OK(chunker.Process(reinterpret_cast<const char*>(cur_data_),
-                                    static_cast<uint32_t>(cur_size_), &chunk_size));
-      if (chunk_size > 0) {
-        // Got a chunk of rows
-        const uint8_t* chunk_data = cur_data_;
-        std::shared_ptr<Buffer> chunk_buffer = cur_block_;
-        int64_t chunk_index = cur_block_index_;
+    auto transferred_it =
+        MakeTransferredGenerator(std::move(wrapped_bg_it), cpu_executor_);
 
-        // "mutable" allows to modify captured by-copy chunk_buffer
-        task_group_->Append([=]() mutable -> Status {
-          auto parser = std::make_shared<BlockParser>(pool_, parse_options_, num_cols_,
-                                                      max_num_rows);
-          uint32_t parsed_size = 0;
-          RETURN_NOT_OK(parser->Parse(reinterpret_cast<const char*>(chunk_data),
-                                      chunk_size, &parsed_size));
-          if (parsed_size != chunk_size) {
-            DCHECK_EQ(parsed_size, chunk_size);
-            return Status::Invalid("Chunker and parser disagree on block size: ",
-                                   chunk_size, " vs ", parsed_size);
-          }
-          RETURN_NOT_OK(ProcessData(parser, chunk_index));
-          // Keep chunk buffer alive within closure and release it at the end
-          chunk_buffer.reset();
-          return Status::OK();
+    int32_t block_queue_size = cpu_executor_->GetCapacity();
+    auto rh_it = MakeReadaheadGenerator(std::move(transferred_it), block_queue_size);
+    buffer_generator_ = CSVBufferIterator::MakeAsync(std::move(rh_it));
+    return Status::OK();
+  }
+
+  Result<std::shared_ptr<Table>> Read() override { return ReadAsync().result(); }
+
+  Future<std::shared_ptr<Table>> ReadAsync() override {
+    task_group_ = internal::TaskGroup::MakeThreaded(cpu_executor_);
+
+    auto self = shared_from_this();
+    return ProcessFirstBuffer().Then([self](std::shared_ptr<Buffer> first_buffer) {
+      auto block_generator = ThreadedBlockReader::MakeAsyncIterator(
+          self->buffer_generator_, MakeChunker(self->parse_options_),
+          std::move(first_buffer));
+
+      std::function<Status(CSVBlock)> block_visitor =
+          [self](CSVBlock maybe_block) -> Status {
+        // The logic in VisitAsyncGenerator ensures that we will never be
+        // passed an empty block (visit does not call with the end token) so
+        // we can be assured maybe_block has a value.
+        DCHECK_GE(maybe_block.block_index, 0);
+        DCHECK(!maybe_block.consume_bytes);
+
+        // Launch parse task
+        self->task_group_->Append([self, maybe_block] {
+          return self
+              ->ParseAndInsert(maybe_block.partial, maybe_block.completion,
+                               maybe_block.buffer, maybe_block.block_index,
+                               maybe_block.is_final)
+              .status();
         });
-        cur_data_ += chunk_size;
-        cur_size_ -= chunk_size;
-        cur_block_index_++;
-      } else {
-        // Need to fetch more data to get at least one row
-        RETURN_NOT_OK(ReadNextBlock());
-      }
-    }
+        return Status::OK();
+      };
 
-    // Finish all pending parallel tasks
-    RETURN_NOT_OK(task_group_->Finish());
-
-    if (eof_ && cur_size_ > 0) {
-      // Parse remaining data (serial)
-      task_group_ = internal::TaskGroup::MakeSerial();
-      for (auto& builder : column_builders_) {
-        builder->SetTaskGroup(task_group_);
-      }
-      auto parser =
-          std::make_shared<BlockParser>(pool_, parse_options_, num_cols_, max_num_rows);
-      uint32_t parsed_size = 0;
-      RETURN_NOT_OK(parser->ParseFinal(reinterpret_cast<const char*>(cur_data_),
-                                       static_cast<uint32_t>(cur_size_), &parsed_size));
-      if (parser->num_rows() > 0) {
-        RETURN_NOT_OK(ProcessData(parser, cur_block_index_++));
-      }
-      RETURN_NOT_OK(task_group_->Finish());
-    }
-
-    // Create schema and table
-    return MakeTable(out);
+      return VisitAsyncGenerator(std::move(block_generator), block_visitor)
+          .Then([self](...) -> Future<> {
+            // By this point we've added all top level tasks so it is safe to call
+            // FinishAsync
+            return self->task_group_->FinishAsync();
+          })
+          .Then([self](...) -> Result<std::shared_ptr<Table>> {
+            // Finish conversion, create schema and table
+            return self->MakeTable();
+          });
+    });
   }
 
  protected:
-  ThreadPool* thread_pool_;
+  Future<std::shared_ptr<Buffer>> ProcessFirstBuffer() {
+    // First block
+    auto first_buffer_future = buffer_generator_();
+    return first_buffer_future.Then([this](const std::shared_ptr<Buffer>& first_buffer)
+                                        -> Result<std::shared_ptr<Buffer>> {
+      if (first_buffer == nullptr) {
+        return Status::Invalid("Empty CSV file");
+      }
+      std::shared_ptr<Buffer> first_buffer_processed;
+      RETURN_NOT_OK(ProcessHeader(first_buffer, &first_buffer_processed));
+      RETURN_NOT_OK(MakeColumnBuilders());
+      return first_buffer_processed;
+    });
+  }
+
+  Executor* cpu_executor_;
+  Executor* io_executor_;
+  AsyncGenerator<std::shared_ptr<Buffer>> buffer_generator_;
 };
 
-/////////////////////////////////////////////////////////////////////////
-// TableReader factory function
-
-Status TableReader::Make(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
-                         const ReadOptions& read_options,
-                         const ParseOptions& parse_options,
-                         const ConvertOptions& convert_options,
-                         std::shared_ptr<TableReader>* out) {
-  std::shared_ptr<TableReader> result;
+Result<std::shared_ptr<TableReader>> MakeTableReader(
+    MemoryPool* pool, io::IOContext io_context, std::shared_ptr<io::InputStream> input,
+    const ReadOptions& read_options, const ParseOptions& parse_options,
+    const ConvertOptions& convert_options) {
+  std::shared_ptr<BaseTableReader> reader;
   if (read_options.use_threads) {
-    result = std::make_shared<ThreadedTableReader>(
-        pool, input, GetCpuThreadPool(), read_options, parse_options, convert_options);
-    *out = result;
-    return Status::OK();
+    auto cpu_executor = internal::GetCpuThreadPool();
+    auto io_executor = io_context.executor();
+    reader = std::make_shared<AsyncThreadedTableReader>(pool, input, read_options,
+                                                        parse_options, convert_options,
+                                                        cpu_executor, io_executor);
   } else {
-    result = std::make_shared<SerialTableReader>(pool, input, read_options, parse_options,
+    reader = std::make_shared<SerialTableReader>(pool, input, read_options, parse_options,
                                                  convert_options);
-    *out = result;
-    return Status::OK();
   }
+  RETURN_NOT_OK(reader->Init());
+  return reader;
+}
+
+}  // namespace
+
+/////////////////////////////////////////////////////////////////////////
+// Factory functions
+
+Result<std::shared_ptr<TableReader>> TableReader::Make(
+    io::IOContext io_context, std::shared_ptr<io::InputStream> input,
+    const ReadOptions& read_options, const ParseOptions& parse_options,
+    const ConvertOptions& convert_options) {
+  return MakeTableReader(io_context.pool(), io_context, std::move(input), read_options,
+                         parse_options, convert_options);
+}
+
+Result<std::shared_ptr<TableReader>> TableReader::Make(
+    MemoryPool* pool, io::IOContext io_context, std::shared_ptr<io::InputStream> input,
+    const ReadOptions& read_options, const ParseOptions& parse_options,
+    const ConvertOptions& convert_options) {
+  return MakeTableReader(pool, io_context, std::move(input), read_options, parse_options,
+                         convert_options);
+}
+
+Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
+    MemoryPool* pool, std::shared_ptr<io::InputStream> input,
+    const ReadOptions& read_options, const ParseOptions& parse_options,
+    const ConvertOptions& convert_options) {
+  std::shared_ptr<BaseStreamingReader> reader;
+  reader = std::make_shared<SerialStreamingReader>(pool, input, read_options,
+                                                   parse_options, convert_options);
+  RETURN_NOT_OK(reader->Init());
+  return reader;
 }
 
 }  // namespace csv
+
 }  // namespace arrow

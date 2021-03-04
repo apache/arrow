@@ -17,7 +17,18 @@
 
 package org.apache.arrow.plasma.exceptions;
 
+/**
+ * Indicates no more memory is available in Plasma.
+ */
 public class PlasmaOutOfMemoryException extends RuntimeException {
+
+  public PlasmaOutOfMemoryException(String message) {
+    super("The plasma store ran out of memory." + message);
+  }
+
+  public PlasmaOutOfMemoryException(String message, Throwable t) {
+    super("The plasma store ran out of memory." + message, t);
+  }
 
   public PlasmaOutOfMemoryException() {
     super("The plasma store ran out of memory.");

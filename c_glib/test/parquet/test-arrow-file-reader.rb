@@ -26,7 +26,7 @@ class TestParquetArrowFileReader < Test::Unit::TestCase
     @table = build_table("a" => @a_array,
                          "b" => @b_array)
     writer = Parquet::ArrowFileWriter.new(@table.schema, @file.path)
-    chunk_size = 2
+    chunk_size = 1
     writer.write_table(@table, chunk_size)
     writer.close
     @reader = Parquet::ArrowFileReader.new(@file.path)
@@ -39,38 +39,27 @@ b: int32
     SCHEMA
   end
 
-  def test_select_schema
-    assert_equal(<<-SCHEMA.chomp, @reader.select_schema([0]).to_s)
-a: string
-    SCHEMA
-    assert_equal(<<-SCHEMA.chomp, @reader.select_schema([1]).to_s)
-b: int32
-    SCHEMA
-    assert_equal(<<-SCHEMA.chomp, @reader.select_schema([0, 1]).to_s)
-a: string
-b: int32
-    SCHEMA
+  sub_test_case("#read_row_group") do
+    test("with column indices") do
+      assert_equal(build_table("b" => @b_array.slice(0, 1)),
+                   @reader.read_row_group(0, [-1]))
+    end
+
+    test("without column indices") do
+      assert_equal(build_table("a" => @a_array.slice(1, 1),
+                               "b" => @b_array.slice(1, 1)),
+                   @reader.read_row_group(1))
+    end
   end
 
   def test_read_column
-    a = @reader.read_column(0)
     assert_equal([
-                   "a: string",
-                   Arrow::ChunkedArray.new([@a_array]).to_s,
+                   Arrow::ChunkedArray.new([@a_array]),
+                   Arrow::ChunkedArray.new([@b_array]),
                  ],
                  [
-                   a.field.to_s,
-                   a.data.to_s,
-                 ])
-
-    b = @reader.read_column(1)
-    assert_equal([
-                   "b: int32",
-                   Arrow::ChunkedArray.new([@b_array]).to_s,
-                 ],
-                 [
-                   b.field.to_s,
-                   b.data.to_s,
+                   @reader.read_column_data(0),
+                   @reader.read_column_data(-1),
                  ])
   end
 end

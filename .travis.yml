@@ -15,385 +15,151 @@
 # specific language governing permissions and limitations
 # under the License.
 
-sudo: required
-dist: xenial
+dist: bionic
+
+language: minimal
+
+cache:
+  directories:
+    - $TRAVIS_BUILD_DIR/.docker
+
+addons:
+  apt:
+    packages:
+      - python3-pip
 
 services:
   - docker
 
-cache:
-  ccache: true
-  directories:
-    - $HOME/.m2  # Maven
+# Note that the global "env" setting isn't inherited automatically by
+# matrix entries with their own "env", so we have to insert it explicitly.
+env: &global_env
+  ARROW_ENABLE_TIMING_TESTS: "OFF"
+  COMPOSE_DOCKER_CLI_BUILD: 1
+  DOCKER_BUILDKIT: 0
+  DOCKER_VOLUME_PREFIX: $TRAVIS_BUILD_DIR/.docker/
 
-git:
-  # ARROW-3083: We use a higher clone depth to also have the latest tag in the cloned history.
-  depth: 250
+jobs:
+  include:
+    - name: "C++ on ARM"
+      os: linux
+      arch: arm64
+      env:
+        <<: *global_env
+        ARCH: arm64v8
+        ARROW_CI_MODULES: "CPP"
+        DOCKER_IMAGE_ID: ubuntu-cpp
+        # ARROW_USE_GLOG=OFF is needed to avoid build error caused by
+        # glog and CMAKE_UNITY_BUILD=ON.
+        #
+        # Disable ARROW_S3 because it often causes "No output has
+        # been received in the last 10m0s, this potentially indicates
+        # a stalled build or something wrong with the build itself."
+        # on Travis CI.
+        #
+        # Limiting CPP_MAKE_PARALLELISM is required to avoid random compiler
+        # crashes.
+        DOCKER_RUN_ARGS: >-
+          "
+          -e ARROW_BUILD_STATIC=OFF
+          -e ARROW_ORC=OFF
+          -e ARROW_S3=OFF
+          -e ARROW_USE_GLOG=OFF
+          -e CMAKE_UNITY_BUILD=ON
+          -e CPP_MAKE_PARALLELISM=4
+          "
+        # The LLVM's APT repository provides only arm64 binaries.
+        # We should use LLVM provided by Ubuntu.
+        LLVM: "10"
+        UBUNTU: "20.04"
 
+    - name: "C++ on s390x"
+      os: linux
+      arch: s390x
+      env:
+        <<: *global_env
+        ARCH: s390x
+        ARROW_CI_MODULES: "CPP"
+        DOCKER_IMAGE_ID: ubuntu-cpp
+        # Can't enable ARROW_MIMALLOC because of failures in memory pool tests.
+        # Can't enable ARROW_S3 because compiler is killed while compiling
+        # aws-sdk-cpp.
+        DOCKER_RUN_ARGS: >-
+          "
+          -e ARROW_BUILD_STATIC=OFF
+          -e ARROW_FLIGHT=ON
+          -e ARROW_MIMALLOC=OFF
+          -e ARROW_ORC=OFF
+          -e ARROW_PARQUET=OFF
+          -e ARROW_S3=OFF
+          -e CMAKE_UNITY_BUILD=ON
+          -e CPP_MAKE_PARALLELISM=4
+          -e PARQUET_BUILD_EXAMPLES=OFF
+          -e PARQUET_BUILD_EXECUTABLES=OFF
+          -e Protobuf_SOURCE=BUNDLED
+          -e cares_SOURCE=BUNDLED
+          -e gRPC_SOURCE=BUNDLED
+          "
+        # The LLVM's APT repository provides only arm64 binaries.
+        # We should use LLVM provided by Ubuntu.
+        LLVM: "10"
+        UBUNTU: "20.04"
+
+    - name: "Go on s390x"
+      os: linux
+      arch: s390x
+      env:
+        <<: *global_env
+        ARCH: s390x
+        ARROW_CI_MODULES: "GO"
+        DOCKER_IMAGE_ID: debian-go
+
+    - name: "Java on s390x"
+      os: linux
+      arch: s390x
+      env:
+        <<: *global_env
+        ARCH: s390x
+        ARROW_CI_MODULES: "JAVA"
+        DOCKER_IMAGE_ID: debian-java
+        JDK: 11
+
+  allow_failures:
+    - name: "Go on s390x"
+    - name: "Java on s390x"
 
 before_install:
-  # Common pre-install steps for all builds
-  - eval "${MATRIX_EVAL}"
-  - ulimit -c unlimited -S
+  - eval "$(python ci/detect-changes.py)"
   - |
-      if [ $TRAVIS_OS_NAME == "linux" ]; then
-        sudo bash -c "echo -e 'Acquire::Retries 10; Acquire::http::Timeout \"20\";' > /etc/apt/apt.conf.d/99-travis-retry"
-        sudo apt-get update -qq
+    arrow_ci_affected=no
+    for arrow_ci_module in ${ARROW_CI_MODULES}; do
+      arrow_ci_affected_variable=ARROW_CI_${arrow_ci_module}_AFFECTED
+      if [ "$(eval "echo \$${arrow_ci_affected_variable}")" = "1" ]; then
+        arrow_ci_affected=yes
       fi
-  - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
-
-
-matrix:
-  fast_finish: true
-  allow_failures:
-  - jdk: oraclejdk9
-  include:
-  - name: "Lint C++, Python, R"
-    os: linux
-    language: python
-    python: "3.6"
-    env:
-    - ARROW_TRAVIS_CLANG_FORMAT=1
-    before_script:
-    # Always run RAT checks, in case another build in matrix breaks RAT
-    - $TRAVIS_BUILD_DIR/ci/travis_release_audit.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
-  - name: "C++ unit tests w/ Valgrind, clang 6.0"
-    language: cpp
-    os: linux
-    env:
-    - ARROW_TRAVIS_VALGRIND=1
-    - ARROW_TRAVIS_USE_TOOLCHAIN=1
-    - ARROW_TRAVIS_PLASMA=1
-    - ARROW_TRAVIS_ORC=1
-    - ARROW_TRAVIS_PARQUET=1
-    - ARROW_TRAVIS_GANDIVA=1
-    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
-    before_script:
-    - if [ $ARROW_CI_CPP_AFFECTED != "1" ]; then exit; fi
-    - export CC="clang-6.0"
-    - export CXX="clang++-6.0"
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    # If either C++ or Python changed, we must install the C++ libraries
-    - git submodule update --init
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
-  # Separating Valgrind and C++ coverage makes individual jobs shorter
-  - name: "C++ unit tests w/ gcc 5.4, coverage"
-    compiler: gcc
-    language: cpp
-    os: linux
-    jdk: openjdk8
-    env:
-    - ARROW_TRAVIS_USE_TOOLCHAIN=1
-    - ARROW_TRAVIS_PLASMA=1
-    - ARROW_TRAVIS_ORC=1
-    - ARROW_TRAVIS_COVERAGE=1
-    - ARROW_TRAVIS_PARQUET=1
-    - ARROW_TRAVIS_GANDIVA=1
-    - ARROW_TRAVIS_GANDIVA_JAVA=1
-    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
-    before_script:
-    - if [ $ARROW_CI_CPP_AFFECTED != "1" ] && [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    # If either C++ or Python changed, we must install the C++ libraries
-    - git submodule update --init
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
-    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh || travis_terminate 1
-    - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh || travis_terminate 1
-  - name: "C++ unit tests w/ gcc 4.8, trusty"
-    dist: trusty
-    compiler: gcc
-    language: cpp
-    os: linux
-    jdk: openjdk8
-    env:
-    - ARROW_TRAVIS_USE_TOOLCHAIN=1
-    - ARROW_TRAVIS_PLASMA=1
-    - ARROW_TRAVIS_ORC=1
-    - ARROW_TRAVIS_PARQUET=1
-    - ARROW_TRAVIS_GANDIVA=1
-    - ARROW_TRAVIS_GANDIVA_JAVA=1
-    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
-    before_install:
-    - ulimit -c unlimited -S
-    - |
-        if [ $TRAVIS_OS_NAME == "linux" ]; then
-          sudo bash -c "echo -e 'Acquire::Retries 10; Acquire::http::Timeout \"20\";' > /etc/apt/apt.conf.d/99-travis-retry"
-          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-          sudo apt-get update -qq
-        fi
-    - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
-    before_script:
-    - if [ $ARROW_CI_CPP_AFFECTED != "1" ] && [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    # If either C++ or Python changed, we must install the C++ libraries
-    - git submodule update --init
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
-    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh || travis_terminate 1
-  - name: "Python 2.7 and 3.6 unit tests w/ Valgrind, gcc 5.4, coverage"
-    compiler: gcc
-    language: cpp
-    os: linux
-    jdk: openjdk8
-    env:
-    # Valgrind is needed for the Plasma store tests
-    - ARROW_TRAVIS_VALGRIND=1
-    - ARROW_TRAVIS_USE_TOOLCHAIN=1
-    - ARROW_TRAVIS_COVERAGE=1
-    - ARROW_TRAVIS_PYTHON_DOCS=1
-    - ARROW_TRAVIS_PYTHON_JVM=1
-    - ARROW_TRAVIS_OPTIONAL_INSTALL=1
-    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
-    # TODO(wesm): Run the benchmarks outside of Travis
-    # - ARROW_TRAVIS_PYTHON_BENCHMARKS=1
-    before_script:
-    - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ] && [ $ARROW_CI_DOCS_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_install_toolchain.sh
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh || travis_terminate 1
-    - ARROW_TRAVIS_PYTHON_GANDIVA=1
-    # Only run Plasma tests with valgrind in one of the Python builds because
-    # they are slow
-    - export PLASMA_VALGRIND=0
-    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7 || travis_terminate 1
-    - export PLASMA_VALGRIND=1
-    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6 || travis_terminate 1
-    - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh
-  - name: "[OS X] C++ w/ XCode 8.3"
-    compiler: clang
-    language: cpp
-    osx_image: xcode8.3
-    os: osx
-    cache:
-    addons:
-    env:
-    - ARROW_TRAVIS_USE_TOOLCHAIN=1
-    - ARROW_TRAVIS_PLASMA=1
-    - ARROW_TRAVIS_ORC=1
-    - ARROW_TRAVIS_PARQUET=1
-    - ARROW_TRAVIS_GANDIVA=1
-    - ARROW_TRAVIS_GANDIVA_JAVA=1
-    - ARROW_TRAVIS_OPTIONAL_INSTALL=1
-    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
-    # ARROW-3803: The Xcode 8.3 image has Boost libraries in /usr/local/lib
-    # which can get loaded before the toolchain Boost libraries. These seem to
-    # get loaded even though we are modifying LD_LIBRARY_PATH. We build our own
-    # Boost and statically link to get around the issue until this can be
-    # investigated further
-    - ARROW_TRAVIS_VENDORED_BOOST=1
-    before_script:
-    - if [ $ARROW_CI_CPP_AFFECTED != "1" ] && [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
-    # If either C++ or Python changed, we must install the C++ libraries
-    - git submodule update --init
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
-    - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh
-  - name: "[OS X] Python w/ XCode 7.3"
-    compiler: clang
-    language: cpp
-    osx_image: xcode7.3
-    os: osx
-    cache:
-    addons:
-    env:
-    - ARROW_TRAVIS_USE_TOOLCHAIN=1
-    - ARROW_BUILD_WARNING_LEVEL=CHECKIN
-    - ARROW_TRAVIS_OPTIONAL_INSTALL=1
-    - MACOSX_DEPLOYMENT_TARGET="10.9"
-    before_script:
-    script:
-    - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_toolchain.sh || travis_terminate 1
-    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 2.7 || travis_terminate 1
-    - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
-  - name: "[manylinux1] Python"
-    language: cpp
-    before_script:
-    - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then docker pull quay.io/xhochy/arrow_manylinux1_x86_64_base:latest; fi
-    script:
-    - if [ $ARROW_CI_PYTHON_AFFECTED == "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_manylinux.sh; fi
-  - name: "Java w/ OpenJDK 8"
-    language: java
-    os: linux
-    jdk: openjdk8
-    before_script:
-    - if [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_script_javadoc.sh
-  - name: "Java w/ Oracle JDK 9"
-    language: java
-    os: linux
-    jdk: oraclejdk9
-    before_script:
-    - if [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh
-    addons:
-      apt:
-        packages:
-          - oracle-java9-installer
-  - name: "Integration w/ OpenJDK 8"
-    language: java
-    os: linux
-    env: ARROW_TEST_GROUP=integration
-    jdk: openjdk8
-    env:
-    - ARROW_TRAVIS_PLASMA=1
-    - ARROW_TRAVIS_PLASMA_JAVA_CLIENT=1
-    before_script:
-    - if [ $ARROW_CI_INTEGRATION_AFFECTED != "1" ]; then exit; fi
-    - export CC="clang-6.0"
-    - export CXX="clang++-6.0"
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    - nvm install 11.6
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_script_plasma_java_client.sh
-  - name: "NodeJS"
-    language: node_js
-    os: linux
-    node_js:
-    - '11.6'
-    before_script:
-    - if [ $ARROW_CI_JS_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_js.sh
-  - name: "C++ & GLib & Ruby w/ gcc 5.4"
-    compiler: gcc
-    language: cpp
-    os: linux
-    env:
-    - ARROW_TRAVIS_ORC=1
-    - ARROW_TRAVIS_GANDIVA=1
-    - ARROW_TRAVIS_USE_VENDORED_BOOST=1
-    - ARROW_TRAVIS_PARQUET=1
-    - ARROW_TRAVIS_PLASMA=1
-    before_script:
-    - if [ $ARROW_CI_RUBY_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_ruby.sh
-    script:
-    - if [ $ARROW_CI_C_GLIB_AFFECTED = "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_script_ruby.sh
-  - name: "[OS X] C++ & GLib & Ruby w/ XCode 8.3 & homebrew"
-    compiler: clang
-    osx_image: xcode8.3
-    os: osx
-    env:
-    - ARROW_TRAVIS_ORC=1
-    - ARROW_TRAVIS_GANDIVA=1
-    - ARROW_TRAVIS_PARQUET=1
-    - ARROW_TRAVIS_PLASMA=1
-    cache:
-    addons:
-    before_script:
-    - if [ $ARROW_CI_RUBY_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_osx.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library --homebrew
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_c_glib.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_ruby.sh
-    script:
-    - if [ $ARROW_CI_C_GLIB_AFFECTED = "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_script_ruby.sh
-  - name: Rust
-    language: rust
-    cache: cargo
-    addons:
-      apt:
-        packages:
-          - libcurl4-openssl-dev
-          - libelf-dev
-          - libdw-dev
-          - binutils-dev
-          - cmake
-    before_script:
-    - if [ $ARROW_CI_RUST_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_cargo.sh
-    script:
-    - RUSTUP_TOOLCHAIN=nightly $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh
-    after_success:
-    - pushd ${TRAVIS_BUILD_DIR}/rust
-    # Run coverage for codecov.io
-    - mkdir -p target/kcov
-    - RUST_BACKTRACE=1 RUSTUP_TOOLCHAIN=nightly cargo coverage --verbose
-    - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
-  - name: Go
-    language: go
-    go_import_path: github.com/apache/arrow
-    os: linux
-    go:
-    - 1.11.x
-    before_script:
-    - if [ $ARROW_CI_GO_AFFECTED != "1" ]; then exit; fi
-    script:
-    - $TRAVIS_BUILD_DIR/ci/travis_script_go.sh
-    after_success:
-    - pushd ${TRAVIS_BUILD_DIR}/go/arrow
-    - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
-  - name: R
-    language: r
-    cache: packages
-    latex: false
-    dist: trusty
-    env:
-    - ARROW_TRAVIS_PARQUET=1
-    before_install:
-    # Have to copy-paste this here because of how R's build steps work
-    - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
-    - if [ $ARROW_CI_R_AFFECTED != "1" ]; then exit; fi
-    - |
-        if [ $TRAVIS_OS_NAME == "linux" ]; then
-          sudo bash -c "echo -e 'Acquire::Retries 10; Acquire::http::Timeout \"20\";' > /etc/apt/apt.conf.d/99-travis-retry"
-          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-          sudo apt-get update -qq
-        fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
-    - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh --only-library
-    - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$TRAVIS_BUILD_DIR/cpp-install/lib
-    - export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$TRAVIS_BUILD_DIR/cpp-install/lib/pkgconfig
-    - pushd ${TRAVIS_BUILD_DIR}/r
-
-
-after_failure:
-- |
-    if [ "$TRAVIS_OS_NAME" = "osx" ]; then
-      COREFILE=$(find /cores -maxdepth 1 -type f -name "core.*" | head -n 1)
-      if [[ -f "$COREFILE" ]]; then
-        lldb -c "$COREFILE" --batch --one-line "thread backtrace all -e true"
-      fi
-      ls -la ~/Library/Logs/DiagnosticReports/
-      cat ~/Library/Logs/DiagnosticReports/*.crash
-    else
-      COREFILE=$(find . -maxdepth 2 -name "core*" | head -n 1)
-      if [[ -f "$COREFILE" ]]; then
-        gdb -c "$COREFILE" example -ex "thread apply all bt" -ex "set pagination 0" -batch
-      fi
+    done
+    if [ "${arrow_ci_affected}" = "no" ]; then
+      travis_terminate 0
     fi
 
-env:
-  global:
-  - secure: "GcrPtsKUCgNY7HKYjWlHQo8SiFrShDvdZSU8t1m1FJrE+UfK0Dgh9zXmAausM8GmhqSwkF0q4UbLQf2uCnSITWKeEPAL8Mo9eu4ib+ikJx/b3Sk81frgW5ADoHfW1Eyqd8xJNIMwMegJOtRLSDqiXh1CvMlKnY8PyTOGM2DgN9ona/v6p9OFH9Qs0JhBRVXAn0S4ztjumck8E56+01hqRfxbZ88pTfpKghBxYp9PJaMjtGdomjVWlqPaWaWJj+KptT8inV9NK+TVYKx0dXWD+S1Vgr1PytQnLdILOYV23gsOBYqn33ByF/yADl4m3hUjU/qeT0Fi7aWxmVpj+oTJISOSH5N8nIsuNH8mQk2ZzzXHfV7btFvP+cOPRczadoKkT6D6cHA8nQ7b0dphC6bl6SAeSfc/cbhRT+fYnIjg8jFXC8jlyWBr7LR6GXVpc0bND7i300ITo0FuRJhy2OxqPtGo3dKLE7eAcv78tuO0OYJ/kol1PEqFdFkbYbNVbg/cFpbGqiCXDsOtPDbAGBv69YnXdVowSxxs8cRGjSkDydv6ZSytb/Zd4lH/KAomcFNk8adx12O1Lk4sbmVav1cGig5P6OcQKS0jC5IiRb4THcQzVzAkXXbaafKm5sru/NoYxhzmkyhkOc11nTYHKVng+XKWzLCNn7pTTSLitp5+xa4="
+install:
+  - pip3 install -e dev/archery[docker]
+
+script:
+  - sudo sysctl -w kernel.core_pattern="core.%e.%p"
+  # This isn't allowed on Travis CI:
+  #   /home/travis/.travis/functions: line 109: ulimit: core file size: cannot modify limit: Operation not permitted
+  - |
+    ulimit -c unlimited || :
+  - |
+    archery docker run \
+      ${DOCKER_RUN_ARGS} \
+      --volume ${PWD}/build:/build \
+      ${DOCKER_IMAGE_ID}
+
+after_success:
+  - |
+    if [ "${TRAVIS_EVENT_TYPE}" = "push" -a \
+         "${TRAVIS_REPO_SLUG}" = "apache/arrow" ]; then
+      archery docker push ${DOCKER_IMAGE_ID} || :
+    fi

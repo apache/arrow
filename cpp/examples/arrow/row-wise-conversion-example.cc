@@ -39,12 +39,12 @@ struct data_row {
 
 // Transforming a vector of structs into a columnar Table.
 //
-// The final representation should be an `arrow::Table` which in turn is made up of
-// an `arrow::Schema` and a list of `arrow::Column`. An `arrow::Column` is again a
-// named collection of one or more `arrow::Array` instances. As the first step, we
-// will iterate over the data and build up the arrays incrementally. For this task,
-// we provide `arrow::ArrayBuilder` classes that help in the construction of the
-// final `arrow::Array` instances.
+// The final representation should be an `arrow::Table` which in turn
+// is made up of an `arrow::Schema` and a list of
+// `arrow::ChunkedArray` instances. As the first step, we will iterate
+// over the data and build up the arrays incrementally.  For this
+// task, we provide `arrow::ArrayBuilder` classes that help in the
+// construction of the final `arrow::Array` instances.
 //
 // For each type, Arrow has a specially typed builder class. For the primitive
 // values `id` and `cost` we can use the respective `arrow::Int64Builder` and
@@ -78,7 +78,7 @@ arrow::Status VectorToColumnarTable(const std::vector<struct data_row>& rows,
     // Indicate the start of a new list row. This will memorise the current
     // offset in the values builder.
     ARROW_RETURN_NOT_OK(components_builder.Append());
-    // Store the actual values. The final nullptr argument tells the underyling
+    // Store the actual values. The final nullptr argument tells the underlying
     // builder that all added values are valid, i.e. non-null.
     ARROW_RETURN_NOT_OK(cost_components_builder.AppendValues(row.cost_components.data(),
                                                              row.cost_components.size()));
@@ -139,11 +139,11 @@ arrow::Status ColumnarTableToVector(const std::shared_ptr<arrow::Table>& table,
   // border would be inside a byte.
 
   auto ids =
-      std::static_pointer_cast<arrow::Int64Array>(table->column(0)->data()->chunk(0));
+      std::static_pointer_cast<arrow::Int64Array>(table->column(0)->chunk(0));
   auto costs =
-      std::static_pointer_cast<arrow::DoubleArray>(table->column(1)->data()->chunk(0));
+      std::static_pointer_cast<arrow::DoubleArray>(table->column(1)->chunk(0));
   auto cost_components =
-      std::static_pointer_cast<arrow::ListArray>(table->column(2)->data()->chunk(0));
+      std::static_pointer_cast<arrow::ListArray>(table->column(2)->chunk(0));
   auto cost_components_values =
       std::static_pointer_cast<arrow::DoubleArray>(cost_components->values());
   // To enable zero-copy slices, the native values pointer might need to account

@@ -48,9 +48,10 @@
 //! );
 //! ```
 
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, sync::Arc};
 
 use crate::basic::{Compression, Encoding};
+use crate::file::metadata::KeyValue;
 use crate::schema::types::ColumnPath;
 
 const DEFAULT_PAGE_SIZE: usize = 1024 * 1024;
@@ -84,12 +85,12 @@ impl WriterVersion {
 }
 
 /// Reference counted writer properties.
-pub type WriterPropertiesPtr = Rc<WriterProperties>;
+pub type WriterPropertiesPtr = Arc<WriterProperties>;
 
 /// Writer properties.
 ///
-/// It is created as an immutable data structure, use [`WriterPropertiesBuilder`] to
-/// assemble the properties.
+/// All properties except the key-value metadata are immutable,
+/// use [`WriterPropertiesBuilder`] to assemble these properties.
 #[derive(Debug, Clone)]
 pub struct WriterProperties {
     data_pagesize_limit: usize,
@@ -98,6 +99,7 @@ pub struct WriterProperties {
     max_row_group_size: usize,
     writer_version: WriterVersion,
     created_by: String,
+    pub(crate) key_value_metadata: Option<Vec<KeyValue>>,
     default_column_properties: ColumnProperties,
     column_properties: HashMap<ColumnPath, ColumnProperties>,
 }
@@ -140,6 +142,11 @@ impl WriterProperties {
     /// Returns `created_by` string.
     pub fn created_by(&self) -> &str {
         &self.created_by
+    }
+
+    /// Returns `key_value_metadata` KeyValue pairs.
+    pub fn key_value_metadata(&self) -> &Option<Vec<KeyValue>> {
+        &self.key_value_metadata
     }
 
     /// Returns encoding for a data page, when dictionary encoding is enabled.
@@ -218,6 +225,7 @@ pub struct WriterPropertiesBuilder {
     max_row_group_size: usize,
     writer_version: WriterVersion,
     created_by: String,
+    key_value_metadata: Option<Vec<KeyValue>>,
     default_column_properties: ColumnProperties,
     column_properties: HashMap<ColumnPath, ColumnProperties>,
 }
@@ -232,6 +240,7 @@ impl WriterPropertiesBuilder {
             max_row_group_size: DEFAULT_MAX_ROW_GROUP_SIZE,
             writer_version: DEFAULT_WRITER_VERSION,
             created_by: DEFAULT_CREATED_BY.to_string(),
+            key_value_metadata: None,
             default_column_properties: ColumnProperties::new(),
             column_properties: HashMap::new(),
         }
@@ -246,13 +255,14 @@ impl WriterPropertiesBuilder {
             max_row_group_size: self.max_row_group_size,
             writer_version: self.writer_version,
             created_by: self.created_by,
+            key_value_metadata: self.key_value_metadata,
             default_column_properties: self.default_column_properties,
             column_properties: self.column_properties,
         }
     }
 
     // ----------------------------------------------------------------------
-    // Writer properies related to a file
+    // Writer properties related to a file
 
     /// Sets writer version.
     pub fn set_writer_version(mut self, value: WriterVersion) -> Self {
@@ -290,6 +300,12 @@ impl WriterPropertiesBuilder {
         self
     }
 
+    /// Sets "key_value_metadata" property.
+    pub fn set_key_value_metadata(mut self, value: Option<Vec<KeyValue>>) -> Self {
+        self.key_value_metadata = value;
+        self
+    }
+
     // ----------------------------------------------------------------------
     // Setters for any column (global)
 
@@ -299,7 +315,7 @@ impl WriterPropertiesBuilder {
     /// columns. In case when dictionary is enabled for any column, this value is
     /// considered to be a fallback encoding for that column.
     ///
-    /// Panics if user tries to set dictionary encoding here, regardless of dictinoary
+    /// Panics if user tries to set dictionary encoding here, regardless of dictionary
     /// encoding flag being set.
     pub fn set_encoding(mut self, value: Encoding) -> Self {
         self.default_column_properties.set_encoding(value);
@@ -354,7 +370,7 @@ impl WriterPropertiesBuilder {
     /// global defaults or explicitly, this value is considered to be a fallback
     /// encoding for this column.
     ///
-    /// Panics if user tries to set dictionary encoding here, regardless of dictinoary
+    /// Panics if user tries to set dictionary encoding here, regardless of dictionary
     /// encoding flag being set.
     pub fn set_column_encoding(mut self, col: ColumnPath, value: Encoding) -> Self {
         self.get_mut_props(col).set_encoding(value);
@@ -425,7 +441,7 @@ impl ColumnProperties {
     /// In case when dictionary is enabled for a column, this value is considered to
     /// be a fallback encoding.
     ///
-    /// Panics if user tries to set dictionary encoding here, regardless of dictinoary
+    /// Panics if user tries to set dictionary encoding here, regardless of dictionary
     /// encoding flag being set. Use `set_dictionary_enabled` method to enable dictionary
     /// for a column.
     fn set_encoding(&mut self, value: Encoding) {
@@ -506,6 +522,7 @@ mod tests {
         assert_eq!(props.max_row_group_size(), DEFAULT_MAX_ROW_GROUP_SIZE);
         assert_eq!(props.writer_version(), DEFAULT_WRITER_VERSION);
         assert_eq!(props.created_by(), DEFAULT_CREATED_BY);
+        assert_eq!(props.key_value_metadata(), &None);
         assert_eq!(props.encoding(&ColumnPath::from("col")), None);
         assert_eq!(
             props.compression(&ColumnPath::from("col")),
@@ -529,9 +546,9 @@ mod tests {
     fn test_writer_properties_dictionary_encoding() {
         // dictionary encoding is not configurable, and it should be the same for both
         // writer version 1 and 2.
-        for version in vec![WriterVersion::PARQUET_1_0, WriterVersion::PARQUET_2_0] {
+        for version in &[WriterVersion::PARQUET_1_0, WriterVersion::PARQUET_2_0] {
             let props = WriterProperties::builder()
-                .set_writer_version(version)
+                .set_writer_version(*version)
                 .build();
             assert_eq!(props.dictionary_page_encoding(), Encoding::PLAIN);
             assert_eq!(
@@ -587,6 +604,10 @@ mod tests {
             .set_write_batch_size(30)
             .set_max_row_group_size(40)
             .set_created_by("default".to_owned())
+            .set_key_value_metadata(Some(vec![KeyValue::new(
+                "key".to_string(),
+                "value".to_string(),
+            )]))
             // global column settings
             .set_encoding(Encoding::DELTA_BINARY_PACKED)
             .set_compression(Compression::GZIP)
@@ -607,6 +628,10 @@ mod tests {
         assert_eq!(props.write_batch_size(), 30);
         assert_eq!(props.max_row_group_size(), 40);
         assert_eq!(props.created_by(), "default");
+        assert_eq!(
+            props.key_value_metadata(),
+            &Some(vec![KeyValue::new("key".to_string(), "value".to_string(),)])
+        );
 
         assert_eq!(
             props.encoding(&ColumnPath::from("a")),

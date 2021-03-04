@@ -20,6 +20,21 @@ namespace Apache.Arrow.Tests
 {
     public class BitUtilityTests
     {
+        public class ByteCount
+        {
+            [Theory]
+            [InlineData(0, 0)]
+            [InlineData(1, 1)]
+            [InlineData(8, 1)]
+            [InlineData(9, 2)]
+            [InlineData(32, 4)]
+            public void HasExpectedResult(int n, int expected)
+            {
+                var count = BitUtility.ByteCount(n);
+                Assert.Equal(expected, count);
+            }
+        }
+
         public class CountBits
         {
             [Theory]
@@ -42,6 +57,24 @@ namespace Apache.Arrow.Tests
             {
                 Assert.Equal(expectedCount,
                     BitUtility.CountBits(data, offset));
+            }
+
+            [Theory]
+            [InlineData(new byte[] { 0b11111111 }, 0, 8, 8)]
+            [InlineData(new byte[] { 0b11111111 }, 0, 4, 4)]
+            [InlineData(new byte[] { 0b11111111 }, 3, 2, 2)]
+            [InlineData(new byte[] { 0b11111111 }, 3, 5, 5)]
+            [InlineData(new byte[] { 0b11111111, 0b11111111 }, 9, 7, 7)]
+            [InlineData(new byte[] { 0b11111111, 0b11111111 }, 7, 2, 2)]
+            [InlineData(new byte[] { 0b11111111, 0b11111111, 0b11111111 }, 0, 24, 24)]
+            [InlineData(new byte[] { 0b11111111, 0b11111111, 0b11111111 }, 8, 16, 16)]
+            [InlineData(new byte[] { 0b11111111, 0b11111111, 0b11111111 }, 0, 16, 16)]
+            [InlineData(new byte[] { 0b11111111, 0b11111111, 0b11111111 }, 3, 18, 18)]
+            [InlineData(new byte[] { 0b11111111 }, -1, 0, 0)]
+            public void CountsAllOneBitsFromOffsetWithinLength(byte[] data, int offset, int length, int expectedCount)
+            {
+                var actualCount = BitUtility.CountBits(data, offset, length);
+                Assert.Equal(expectedCount, actualCount);
             }
 
             [Fact]

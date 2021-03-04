@@ -1,0 +1,10 @@
+cffi
+cython
+hypothesis
+numpy==1.19.4
+pandas<1.1.0; python_version < "3.8"
+pandas; python_version >= "3.8"
+pickle5; (python_version == "3.6" or python_version == "3.7") and sys_platform != 'win32'
+pytest
+pytest-lazy-fixture
+pytz

@@ -59,7 +59,7 @@ module Arrow
     #     There is a shortcut for convenience. If field description
     #     doesn't have `:data_type`, all keys except `:name` are
     #     processes as data type description. For example, the
-    #     following field descrptions are the same:
+    #     following field descriptions are the same:
     #
     #     ```ruby
     #     {name: "visible", data_type: {type: :boolean}}

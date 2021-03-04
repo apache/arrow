@@ -17,12 +17,16 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
+
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.UInt2ReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.NullableUInt2Holder;
 import org.apache.arrow.vector.holders.UInt2Holder;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
@@ -31,7 +35,13 @@ import org.apache.arrow.vector.util.TransferPair;
  * integer values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class UInt2Vector extends BaseFixedWidthVector {
+public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVector {
+
+  /**
+   * The maximum 16-bit unsigned integer.
+   */
+  public static final char MAX_UINT2 = (char) 0XFFFF;
+
   private static final byte TYPE_WIDTH = 2;
   private final FieldReader reader;
 
@@ -40,7 +50,11 @@ public class UInt2Vector extends BaseFixedWidthVector {
   }
 
   public UInt2Vector(String name, FieldType fieldType, BufferAllocator allocator) {
-    super(name, allocator, fieldType, TYPE_WIDTH);
+    this(new Field(name, fieldType, null), allocator);
+  }
+
+  public UInt2Vector(Field field, BufferAllocator allocator) {
+    super(field, allocator, TYPE_WIDTH);
     reader = new UInt2ReaderImpl(UInt2Vector.this);
   }
 
@@ -60,7 +74,19 @@ public class UInt2Vector extends BaseFixedWidthVector {
    |          vector value retrieval methods                        |
    |                                                                |
    *----------------------------------------------------------------*/
-
+  /**
+   * Given a data buffer, get the value stored at a particular position
+   * in the vector.
+   *
+   * <p>This method is mainly meant for integration tests.
+   *
+   * @param buffer data buffer
+   * @param index position of the element.
+   * @return value stored at the index.
+   */
+  public static char get(final ArrowBuf buffer, final int index) {
+    return buffer.getChar((long) index * TYPE_WIDTH);
+  }
 
   /**
    * Get the element at the given index from the vector.
@@ -69,10 +95,10 @@ public class UInt2Vector extends BaseFixedWidthVector {
    * @return element at given index
    */
   public char get(int index) throws IllegalStateException {
-    if (isSet(index) == 0) {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       throw new IllegalStateException("Value at index is null");
     }
-    return valueBuffer.getChar(index * TYPE_WIDTH);
+    return valueBuffer.getChar((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -88,7 +114,7 @@ public class UInt2Vector extends BaseFixedWidthVector {
       return;
     }
     holder.isSet = 1;
-    holder.value = valueBuffer.getChar(index * TYPE_WIDTH);
+    holder.value = valueBuffer.getChar((long) index * TYPE_WIDTH);
   }
 
   /**
@@ -101,19 +127,8 @@ public class UInt2Vector extends BaseFixedWidthVector {
     if (isSet(index) == 0) {
       return null;
     } else {
-      return valueBuffer.getChar(index * TYPE_WIDTH);
+      return valueBuffer.getChar((long) index * TYPE_WIDTH);
     }
-  }
-
-  public void copyFrom(int fromIndex, int thisIndex, UInt2Vector from) {
-    BitVectorHelper.setValidityBit(validityBuffer, thisIndex, from.isSet(fromIndex));
-    final char value = from.valueBuffer.getChar(fromIndex * TYPE_WIDTH);
-    valueBuffer.setChar(thisIndex * TYPE_WIDTH, value);
-  }
-
-  public void copyFromSafe(int fromIndex, int thisIndex, UInt2Vector from) {
-    handleSafe(thisIndex);
-    copyFrom(fromIndex, thisIndex, from);
   }
 
 
@@ -125,11 +140,11 @@ public class UInt2Vector extends BaseFixedWidthVector {
 
 
   private void setValue(int index, int value) {
-    valueBuffer.setChar(index * TYPE_WIDTH, value);
+    valueBuffer.setChar((long) index * TYPE_WIDTH, value);
   }
 
   private void setValue(int index, char value) {
-    valueBuffer.setChar(index * TYPE_WIDTH, value);
+    valueBuffer.setChar((long) index * TYPE_WIDTH, value);
   }
 
   /**
@@ -139,7 +154,7 @@ public class UInt2Vector extends BaseFixedWidthVector {
    * @param value   value of element
    */
   public void set(int index, int value) {
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
     setValue(index, value);
   }
 
@@ -150,7 +165,7 @@ public class UInt2Vector extends BaseFixedWidthVector {
    * @param value   value of element
    */
   public void set(int index, char value) {
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
     setValue(index, value);
   }
 
@@ -166,10 +181,10 @@ public class UInt2Vector extends BaseFixedWidthVector {
     if (holder.isSet < 0) {
       throw new IllegalArgumentException();
     } else if (holder.isSet > 0) {
-      BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+      BitVectorHelper.setBit(validityBuffer, index);
       setValue(index, holder.value);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.unsetBit(validityBuffer, index);
     }
   }
 
@@ -180,7 +195,7 @@ public class UInt2Vector extends BaseFixedWidthVector {
    * @param holder  data holder for value of element
    */
   public void set(int index, UInt2Holder holder) {
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
     setValue(index, holder.value);
   }
 
@@ -237,25 +252,21 @@ public class UInt2Vector extends BaseFixedWidthVector {
   }
 
   /**
-   * Set the element at the given index to null.
-   *
-   * @param index   position of element
+   * Sets the given index to value is isSet is positive, otherwise sets
+   * the position as invalid/null.
    */
-  public void setNull(int index) {
-    handleSafe(index);
-    // not really needed to set the bit to 0 as long as
-    // the buffer always starts from 0.
-    BitVectorHelper.setValidityBit(validityBuffer, index, 0);
-  }
-
   public void set(int index, int isSet, char value) {
     if (isSet > 0) {
       set(index, value);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.unsetBit(validityBuffer, index);
     }
   }
 
+  /**
+   * Same as {@link #set(int, int, char)} but will reallocate the buffer if index
+   * is larger than current capacity.
+   */
   public void setSafe(int index, int isSet, char value) {
     handleSafe(index);
     set(index, isSet, value);
@@ -277,6 +288,21 @@ public class UInt2Vector extends BaseFixedWidthVector {
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
     return new TransferImpl((UInt2Vector) to);
+  }
+
+  @Override
+  public void setWithPossibleTruncate(int index, long value) {
+    this.setSafe(index, (int) value);
+  }
+
+  @Override
+  public void setUnsafeWithPossibleTruncate(int index, long value) {
+    this.set(index, (int) value);
+  }
+
+  @Override
+  public long getValueAsLong(int index) {
+    return this.get(index);
   }
 
   private class TransferImpl implements TransferPair {

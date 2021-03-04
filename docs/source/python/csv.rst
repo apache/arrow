@@ -21,7 +21,7 @@
 Reading CSV files
 =================
 
-Arrow provides preliminary support for reading data from CSV files.
+Arrow supports reading columnar data from CSV files.
 The features currently offered are the following:
 
 * multi-threaded or single-threaded reading
@@ -29,7 +29,9 @@ The features currently offered are the following:
   such as ``my_data.csv.gz``)
 * fetching column names from the first row in the CSV file
 * column-wise type inference and conversion to one of ``null``, ``int64``,
-  ``float64``, ``timestamp[s]``, ``string`` or ``binary`` data
+  ``float64``, ``date32``, ``timestamp[s]``, ``string`` or ``binary`` data
+* opportunistic dictionary encoding of ``string`` and ``binary`` columns
+  (disabled by default)
 * detecting various spellings of null values such as ``NaN`` or ``#N/A``
 
 Usage
@@ -75,18 +77,35 @@ Customized conversion
 To alter how CSV data is converted to Arrow types and data, you should create
 a :class:`ConvertOptions` instance and pass it to :func:`read_csv`.
 
+Incremental reading
+-------------------
+
+For memory-constrained environments, it is also possible to read a CSV file
+one batch at a time, using :func:`open_csv`.  It currently doesn't support
+parallel reading.
+
+Character encoding
+------------------
+
+By default, CSV files are expected to be encoded in UTF8.  Non-UTF8 data
+is accepted for ``binary`` columns.  The encoding can be changed using
+the :class:`ReadOptions` class.
+
 Performance
 -----------
 
 Due to the structure of CSV files, one cannot expect the same levels of
 performance as when reading dedicated binary formats like
 :ref:`Parquet <Parquet>`.  Nevertheless, Arrow strives to reduce the
-overhead of reading CSV files.
+overhead of reading CSV files.  A reasonable expectation is at least
+100 MB/s per core on a performant desktop or laptop computer (measured
+in source CSV bytes, not target Arrow data bytes).
 
 Performance options can be controlled through the :class:`ReadOptions` class.
 Multi-threaded reading is the default for highest performance, distributing
 the workload efficiently over all available cores.
 
 .. note::
-   The number of threads to use concurrently is automatically inferred by Arrow
-   and can be inspected using the :func:`~pyarrow.cpu_count()` function.
+   The number of concurrent threads is automatically inferred by Arrow.
+   You can inspect and change it using the :func:`~pyarrow.cpu_count()`
+   and :func:`~pyarrow.set_cpu_count()` functions, respectively.

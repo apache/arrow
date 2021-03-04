@@ -43,6 +43,15 @@ cdef extern from "gandiva/selection_vector.h" namespace "gandiva" nogil:
 
         shared_ptr[CArray] ToArray()
 
+    enum CSelectionVector_Mode" gandiva::SelectionVector::Mode":
+        CSelectionVector_Mode_NONE" gandiva::SelectionVector::Mode::MODE_NONE"
+        CSelectionVector_Mode_UINT16" \
+                gandiva::SelectionVector::Mode::MODE_UINT16"
+        CSelectionVector_Mode_UINT32" \
+                gandiva::SelectionVector::Mode::MODE_UINT32"
+        CSelectionVector_Mode_UINT64" \
+                gandiva::SelectionVector::Mode::MODE_UINT64"
+
     cdef CStatus SelectionVector_MakeInt16\
         "gandiva::SelectionVector::MakeInt16"(
             int64_t max_slots, CMemoryPool* pool,
@@ -57,6 +66,31 @@ cdef extern from "gandiva/selection_vector.h" namespace "gandiva" nogil:
         "gandiva::SelectionVector::MakeInt64"(
             int64_t max_slots, CMemoryPool* pool,
             shared_ptr[CSelectionVector]* selection_vector)
+
+cdef inline CSelectionVector_Mode _ensure_selection_mode(str name) except *:
+    uppercase = name.upper()
+    if uppercase == 'NONE':
+        return CSelectionVector_Mode_NONE
+    elif uppercase == 'UINT16':
+        return CSelectionVector_Mode_UINT16
+    elif uppercase == 'UINT32':
+        return CSelectionVector_Mode_UINT32
+    elif uppercase == 'UINT64':
+        return CSelectionVector_Mode_UINT64
+    else:
+        raise ValueError('Invalid value for Selection Mode: {!r}'.format(name))
+
+cdef inline str _selection_mode_name(CSelectionVector_Mode ctype):
+    if ctype == CSelectionVector_Mode_NONE:
+        return 'NONE'
+    elif ctype == CSelectionVector_Mode_UINT16:
+        return 'UINT16'
+    elif ctype == CSelectionVector_Mode_UINT32:
+        return 'UINT32'
+    elif ctype == CSelectionVector_Mode_UINT64:
+        return 'UINT64'
+    else:
+        raise RuntimeError('Unexpected CSelectionVector_Mode value')
 
 cdef extern from "gandiva/condition.h" namespace "gandiva" nogil:
 
@@ -172,11 +206,6 @@ cdef extern from "gandiva/tree_expr_builder.h" namespace "gandiva" nogil:
         "gandiva::TreeExprBuilder::MakeInExpressionBinary"(
             shared_ptr[CNode] node, const c_unordered_set[c_string]& values)
 
-    cdef CStatus Projector_Make \
-        "gandiva::Projector::Make"(
-            shared_ptr[CSchema] schema, const CExpressionVector& children,
-            shared_ptr[CProjector]* projector)
-
 cdef extern from "gandiva/projector.h" namespace "gandiva" nogil:
 
     cdef cppclass CProjector" gandiva::Projector":
@@ -185,6 +214,26 @@ cdef extern from "gandiva/projector.h" namespace "gandiva" nogil:
             const CRecordBatch& batch, CMemoryPool* pool,
             const CArrayVector* output)
 
+        CStatus Evaluate(
+            const CRecordBatch& batch,
+            const CSelectionVector* selection,
+            CMemoryPool* pool,
+            const CArrayVector* output)
+
+        c_string DumpIR()
+
+    cdef CStatus Projector_Make \
+        "gandiva::Projector::Make"(
+            shared_ptr[CSchema] schema, const CExpressionVector& children,
+            shared_ptr[CProjector]* projector)
+
+    cdef CStatus Projector_Make \
+        "gandiva::Projector::Make"(
+            shared_ptr[CSchema] schema, const CExpressionVector& children,
+            CSelectionVector_Mode mode,
+            shared_ptr[CConfiguration] configuration,
+            shared_ptr[CProjector]* projector)
+
 cdef extern from "gandiva/filter.h" namespace "gandiva" nogil:
 
     cdef cppclass CFilter" gandiva::Filter":
@@ -192,6 +241,8 @@ cdef extern from "gandiva/filter.h" namespace "gandiva" nogil:
         CStatus Evaluate(
             const CRecordBatch& batch,
             shared_ptr[CSelectionVector] out_selection)
+
+        c_string DumpIR()
 
     cdef CStatus Filter_Make \
         "gandiva::Filter::Make"(
@@ -218,3 +269,13 @@ cdef extern from "gandiva/expression_registry.h" namespace "gandiva" nogil:
 
     cdef vector[shared_ptr[CFunctionSignature]] \
         GetRegisteredFunctionSignatures()
+
+cdef extern from "gandiva/configuration.h" namespace "gandiva" nogil:
+
+    cdef cppclass CConfiguration" gandiva::Configuration":
+        pass
+
+    cdef cppclass CConfigurationBuilder \
+            " gandiva::ConfigurationBuilder":
+        @staticmethod
+        shared_ptr[CConfiguration] DefaultConfiguration()

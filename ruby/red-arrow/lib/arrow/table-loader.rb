@@ -18,14 +18,14 @@
 module Arrow
   class TableLoader
     class << self
-      def load(output, options={})
-        new(output, options).load
+      def load(input, options={})
+        new(input, options).load
       end
     end
 
-    def initialize(output, options={})
-      output = output.to_path if output.respond_to?(:to_path)
-      @output = output
+    def initialize(input, options={})
+      input = input.to_path if input.respond_to?(:to_path)
+      @input = input
       @options = options
       fill_options
     end
@@ -41,6 +41,8 @@ module Arrow
             available_formats << match_data.post_match
           end
         end
+        deprecated_formats = ["batch", "stream"]
+        available_formats -= deprecated_formats
         message = "Arrow::Table load format must be one of ["
         message << available_formats.join(", ")
         message << "]: #{format.inspect}"
@@ -50,7 +52,7 @@ module Arrow
         __send__(custom_load_method)
       else
         # For backward compatibility.
-        __send__(custom_load_method, @output)
+        __send__(custom_load_method, @input)
       end
     end
 
@@ -60,10 +62,10 @@ module Arrow
         return
       end
 
-      if @output.is_a?(Buffer)
+      if @input.is_a?(Buffer)
         info = {}
       else
-        extension = PathExtension.new(@output)
+        extension = PathExtension.new(@input)
         info = extension.extract
       end
       format = info[:format]
@@ -79,26 +81,20 @@ module Arrow
     end
 
     def open_input_stream
-      if @output.is_a?(Buffer)
-        BufferInputStream.new(@output)
+      if @input.is_a?(Buffer)
+        BufferInputStream.new(@input)
       else
-        MemoryMappedInputStream.new(@output)
+        MemoryMappedInputStream.new(@input)
       end
     end
 
     def load_raw(input, reader)
       schema = reader.schema
-      chunked_arrays = []
+      record_batches = []
       reader.each do |record_batch|
-        record_batch.columns.each_with_index do |array, i|
-          chunked_array = (chunked_arrays[i] ||= [])
-          chunked_array << array
-        end
+        record_batches << record_batch
       end
-      columns = schema.fields.collect.with_index do |field, i|
-        Column.new(field, ChunkedArray.new(chunked_arrays[i]))
-      end
-      table = Table.new(schema, columns)
+      table = Table.new(schema, record_batches)
       table.instance_variable_set(:@input, input)
       table
     end
@@ -125,16 +121,28 @@ module Arrow
       load_raw(input, reader)
     end
 
-    def load_as_batch
+    # @since 1.0.0
+    def load_as_arrow_file
       input = open_input_stream
       reader = RecordBatchFileReader.new(input)
       load_raw(input, reader)
     end
 
-    def load_as_stream
+    # @deprecated Use `format: :arrow_file` instead.
+    def load_as_batch
+      load_as_arrow_file
+    end
+
+    # @since 1.0.0
+    def load_as_arrow_streaming
       input = open_input_stream
       reader = RecordBatchStreamReader.new(input)
       load_raw(input, reader)
+    end
+
+    # @deprecated Use `format: :arrow_streaming` instead.
+    def load_as_stream
+      load_as_arrow_streaming
     end
 
     if Arrow.const_defined?(:ORCFileReader)
@@ -149,14 +157,23 @@ module Arrow
       end
     end
 
-    def load_as_csv
-      options = @options.dup
+    def csv_load(options)
       options.delete(:format)
-      if @output.is_a?(Buffer)
-        CSVLoader.load(@output.data.to_s, options)
+      if @input.is_a?(Buffer)
+        CSVLoader.load(@input.data.to_s, **options)
       else
-        CSVLoader.load(Pathname.new(@output), options)
+        CSVLoader.load(Pathname.new(@input), **options)
       end
+    end
+
+    def load_as_csv
+      csv_load(@options.dup)
+    end
+
+    def load_as_tsv
+      options = @options.dup
+      options[:delimiter] = "\t"
+      csv_load(options.dup)
     end
 
     def load_as_feather

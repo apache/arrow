@@ -15,6 +15,13 @@
  * limitations under the License.
  */
 
+import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.impl.UnionMapReader;
+import org.apache.arrow.vector.complex.impl.UnionMapWriter;
+import org.apache.arrow.vector.complex.reader.FieldReader;
+import org.apache.arrow.vector.complex.writer.FieldWriter;
+import org.apache.arrow.vector.types.Types;
+
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/ComplexCopier.java" />
 
@@ -46,41 +53,81 @@ public class ComplexCopier {
       switch (mt) {
 
       case LIST:
+      case LARGELIST:
+      case FIXED_SIZE_LIST:
         if (reader.isSet()) {
           writer.startList();
           while (reader.next()) {
-            writeValue(reader.reader(), getListWriterForReader(reader.reader(), writer));
+            FieldReader childReader = reader.reader();
+            FieldWriter childWriter = getListWriterForReader(childReader, writer);
+            if (childReader.isSet()) {
+              writeValue(childReader, childWriter);
+            } else {
+              childWriter.writeNull();
+            }
           }
           writer.endList();
+        } else {
+          writer.writeNull();
         }
         break;
-      case FIXED_SIZE_LIST:
-        throw new UnsupportedOperationException("Copy fixed size list");
+      case MAP:
+        if (reader.isSet()) {
+          UnionMapWriter mapWriter = (UnionMapWriter) writer;
+          UnionMapReader mapReader = (UnionMapReader) reader;
+
+          mapWriter.startMap();
+          while (mapReader.next()) {
+            FieldReader structReader = reader.reader();
+            UnionMapWriter structWriter = (UnionMapWriter) writer.struct();
+            if (structReader.isSet()) {
+              mapWriter.startEntry();
+              writeValue(mapReader.key(), getStructWriterForReader(mapReader.key(), structWriter.key(), MapVector.KEY_NAME));
+              writeValue(mapReader.value(), getStructWriterForReader(mapReader.value(), structWriter.value(), MapVector.VALUE_NAME));
+              mapWriter.endEntry();
+            } else {
+              structWriter.writeNull();
+            }
+          }
+          mapWriter.endMap();
+        } else {
+          writer.writeNull();
+        }
+        break;
       case STRUCT:
         if (reader.isSet()) {
           writer.start();
           for(String name : reader){
             FieldReader childReader = reader.reader(name);
-            if(childReader.isSet()){
-              writeValue(childReader, getStructWriterForReader(childReader, writer, name));
+            if (childReader.getMinorType() != Types.MinorType.NULL) {
+              FieldWriter childWriter = getStructWriterForReader(childReader, writer, name);
+              if (childReader.isSet()) {
+                writeValue(childReader, childWriter);
+              } else {
+                childWriter.writeNull();
+              }
             }
           }
           writer.end();
+        } else {
+          writer.writeNull();
         }
         break;
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
   <#assign fields = minor.fields!type.fields />
   <#assign uncappedName = name?uncap_first/>
 
-  <#if !minor.typeParams?? >
+  <#if !minor.typeParams?? || minor.class?starts_with("Decimal") >
 
       case ${name?upper_case}:
         if (reader.isSet()) {
           Nullable${name}Holder ${uncappedName}Holder = new Nullable${name}Holder();
           reader.read(${uncappedName}Holder);
           if (${uncappedName}Holder.isSet == 1) {
-            writer.write${name}(<#list fields as field>${uncappedName}Holder.${field.name}<#if field_has_next>, </#if></#list>);
+            writer.write${name}(<#list fields as field>${uncappedName}Holder.${field.name}<#if field_has_next>, </#if></#list><#if minor.class?starts_with("Decimal")>, new ArrowType.Decimal(${uncappedName}Holder.precision, ${uncappedName}Holder.scale, ${name}Holder.WIDTH * 8)</#if>);
           }
+        } else {
+          writer.writeNull();
         }
         break;
 
@@ -94,14 +141,26 @@ public class ComplexCopier {
     <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
     <#assign fields = minor.fields!type.fields />
     <#assign uncappedName = name?uncap_first/>
-    <#if !minor.typeParams?? >
+    <#if !minor.typeParams??>
     case ${name?upper_case}:
       return (FieldWriter) writer.<#if name == "Int">integer<#else>${uncappedName}</#if>(name);
     </#if>
+    <#if minor.class?starts_with("Decimal")>
+    case ${name?upper_case}:
+      if (reader.getField().getType() instanceof ArrowType.Decimal) {
+        ArrowType.Decimal type = (ArrowType.Decimal) reader.getField().getType();
+        return (FieldWriter) writer.${uncappedName}(name, type.getScale(), type.getPrecision());
+      } else {
+        return (FieldWriter) writer.${uncappedName}(name);
+      }
+    </#if>
+    
     </#list></#list>
     case STRUCT:
       return (FieldWriter) writer.struct(name);
+    case FIXED_SIZE_LIST:
     case LIST:
+    case MAP:
       return (FieldWriter) writer.list(name);
     default:
       throw new UnsupportedOperationException(reader.getMinorType().toString());
@@ -113,14 +172,17 @@ public class ComplexCopier {
     <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
     <#assign fields = minor.fields!type.fields />
     <#assign uncappedName = name?uncap_first/>
-    <#if !minor.typeParams?? >
+    <#if !minor.typeParams?? || minor.class?starts_with("Decimal") >
     case ${name?upper_case}:
     return (FieldWriter) writer.<#if name == "Int">integer<#else>${uncappedName}</#if>();
     </#if>
     </#list></#list>
     case STRUCT:
       return (FieldWriter) writer.struct();
+    case FIXED_SIZE_LIST:
     case LIST:
+    case MAP:
+    case NULL:
       return (FieldWriter) writer.list();
     default:
       throw new UnsupportedOperationException(reader.getMinorType().toString());

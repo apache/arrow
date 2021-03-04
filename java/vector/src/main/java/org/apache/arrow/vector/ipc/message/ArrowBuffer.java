@@ -21,11 +21,18 @@ import org.apache.arrow.flatbuf.Buffer;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 
+/** Metadata for a buffer written to a channel. */
 public class ArrowBuffer implements FBSerializable {
 
   private long offset;
   private long size;
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param offset The offset to the start of the buffer in the channel.
+   * @param size The size of the buffer.
+   */
   public ArrowBuffer(long offset, long size) {
     super();
     this.offset = offset;

@@ -64,7 +64,7 @@ advanced optimizer and generate PLAN9 assembly functions from C/C++ code. The
 arrow package can be compiled without these optimizations using the `noasm`
 build tag. Alternatively, by configuring an environment variable, it is
 possible to dynamically configure which architecture optimizations are used at
-runtime.  See the `cpu` package [README](internal/cpu/README.md) for a
+runtime.  See the `cpu` package [README](arrow/internal/cpu/README.md) for a
 description of this environment variable.
 
 ### Example Usage

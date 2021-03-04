@@ -22,9 +22,14 @@ import java.util.Iterator;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
+import org.apache.arrow.vector.holders.DenseUnionHolder;
 import org.apache.arrow.vector.holders.UnionHolder;
 
-
+/**
+ * Base class providing common functionality for {@link FieldReader} implementations.
+ *
+ * <p>This includes tracking the current index and throwing implementations of optional methods.
+ */
 abstract class AbstractBaseReader implements FieldReader {
 
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractBaseReader.class);
@@ -82,6 +87,22 @@ abstract class AbstractBaseReader implements FieldReader {
   @Override
   public void copyAsValue(UnionWriter writer) {
     throw new IllegalStateException("The current reader doesn't support reading union type");
+  }
+
+  @Override
+  public void read(DenseUnionHolder holder) {
+    holder.reader = this;
+    holder.isSet = this.isSet() ? 1 : 0;
+  }
+
+  @Override
+  public void read(int index, DenseUnionHolder holder) {
+    throw new IllegalStateException("The current reader doesn't support reading dense union type");
+  }
+
+  @Override
+  public void copyAsValue(DenseUnionWriter writer) {
+    throw new IllegalStateException("The current reader doesn't support reading dense union type");
   }
 
   @Override

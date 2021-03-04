@@ -37,18 +37,31 @@
                 // "TEST_MODULE": "umd"
             },
             "args": [
-                // "-i",
+                "-i",
                 "test/unit/",
+                // "test/unit/builders/",
 
                 // Uncomment any of these to run individual test suites
+                // "test/unit/builders/builder-tests.ts",
+                // "test/unit/builders/int64-tests.ts",
+                // "test/unit/builders/uint64-tests.ts",
+                // "test/unit/builders/date-tests.ts",
+                // "test/unit/builders/primitive-tests.ts",
+                // "test/unit/builders/dictionary-tests.ts",
+                // "test/unit/builders/utf8-tests.ts",
+
                 // "test/unit/int-tests.ts",
+                // "test/unit/math-tests.ts",
                 // "test/unit/table-tests.ts",
                 // "test/unit/generated-data-tests.ts",
+
+                // "test/unit/table/assign-tests.ts",
+                // "test/unit/table/serialize-tests.ts",
+                // "test/unit/recordbatch/record-batch-tests.ts",
 
                 // "test/unit/vector/vector-tests.ts",
                 // "test/unit/vector/bool-vector-tests.ts",
                 // "test/unit/vector/date-vector-tests.ts",
-                // "test/unit/vector/float16-vector-tests.ts",
                 // "test/unit/vector/numeric-vector-tests.ts",
 
                 // "test/unit/visitor-tests.ts",

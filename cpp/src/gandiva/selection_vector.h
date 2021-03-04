@@ -15,23 +15,34 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_SELECTION_VECTOR__H
-#define GANDIVA_SELECTION_VECTOR__H
+#pragma once
 
 #include <memory>
 
 #include "arrow/status.h"
 
+#include "arrow/util/logging.h"
 #include "gandiva/arrow.h"
-#include "gandiva/logging.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// \brief Selection Vector : vector of indices in a row-batch for a selection,
 /// backed by an arrow-array.
-class SelectionVector {
+class GANDIVA_EXPORT SelectionVector {
  public:
   virtual ~SelectionVector() = default;
+
+  enum Mode : int {
+    MODE_NONE,
+    MODE_UINT16,
+    MODE_UINT32,
+    MODE_UINT64,
+    MODE_MAX = MODE_UINT64,  // dummy
+  };
+  static constexpr int kNumModes = static_cast<int>(MODE_MAX) + 1;
+  static constexpr Mode kAllModes[kNumModes] = {MODE_NONE, MODE_UINT16, MODE_UINT32,
+                                                MODE_UINT64};
 
   /// Get the value at a given index.
   virtual uint64_t GetIndex(int64_t index) const = 0;
@@ -54,6 +65,12 @@ class SelectionVector {
   /// Convert to arrow-array.
   virtual ArrayPtr ToArray() const = 0;
 
+  /// Get the underlying arrow buffer.
+  virtual arrow::Buffer& GetBuffer() const = 0;
+
+  /// Mode of SelectionVector
+  virtual Mode GetMode() const = 0;
+
   /// \brief populate selection vector for all the set bits in the bitmap.
   ///
   /// \param[in] bitmap the bitmap
@@ -66,7 +83,7 @@ class SelectionVector {
   /// \brief make selection vector with int16 type records.
   ///
   /// \param[in] max_slots max number of slots
-  /// \param[in] buffer buffer sized to accomodate max_slots
+  /// \param[in] buffer buffer sized to accommodate max_slots
   /// \param[out] selection_vector selection vector backed by 'buffer'
   static Status MakeInt16(int64_t max_slots, std::shared_ptr<arrow::Buffer> buffer,
                           std::shared_ptr<SelectionVector>* selection_vector);
@@ -78,10 +95,19 @@ class SelectionVector {
   static Status MakeInt16(int64_t max_slots, arrow::MemoryPool* pool,
                           std::shared_ptr<SelectionVector>* selection_vector);
 
+  /// \brief creates a selection vector with pre populated buffer.
+  ///
+  /// \param[in] num_slots size of the selection vector
+  /// \param[in] buffer pre-populated buffer
+  /// \param[out] selection_vector selection vector backed by 'buffer'
+  static Status MakeImmutableInt16(int64_t num_slots,
+                                   std::shared_ptr<arrow::Buffer> buffer,
+                                   std::shared_ptr<SelectionVector>* selection_vector);
+
   /// \brief make selection vector with int32 type records.
   ///
   /// \param[in] max_slots max number of slots
-  /// \param[in] buffer buffer sized to accomodate max_slots
+  /// \param[in] buffer buffer sized to accommodate max_slots
   /// \param[out] selection_vector selection vector backed by 'buffer'
   static Status MakeInt32(int64_t max_slots, std::shared_ptr<arrow::Buffer> buffer,
                           std::shared_ptr<SelectionVector>* selection_vector);
@@ -95,10 +121,19 @@ class SelectionVector {
   static Status MakeInt32(int64_t max_slots, arrow::MemoryPool* pool,
                           std::shared_ptr<SelectionVector>* selection_vector);
 
+  /// \brief creates a selection vector with pre populated buffer.
+  ///
+  /// \param[in] num_slots size of the selection vector
+  /// \param[in] buffer pre-populated buffer
+  /// \param[out] selection_vector selection vector backed by 'buffer'
+  static Status MakeImmutableInt32(int64_t num_slots,
+                                   std::shared_ptr<arrow::Buffer> buffer,
+                                   std::shared_ptr<SelectionVector>* selection_vector);
+
   /// \brief make selection vector with int64 type records.
   ///
   /// \param[in] max_slots max number of slots
-  /// \param[in] buffer buffer sized to accomodate max_slots
+  /// \param[in] buffer buffer sized to accommodate max_slots
   /// \param[out] selection_vector selection vector backed by 'buffer'
   static Status MakeInt64(int64_t max_slots, std::shared_ptr<arrow::Buffer> buffer,
                           std::shared_ptr<SelectionVector>* selection_vector);
@@ -114,5 +149,3 @@ class SelectionVector {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_SELECTION_VECTOR__H

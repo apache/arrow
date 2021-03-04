@@ -20,7 +20,7 @@
 # cython: embedsignature = True
 
 
-cdef class MemoryPool:
+cdef class MemoryPool(_Weakrefable):
     """
     Base class for memory allocation.
 
@@ -53,6 +53,13 @@ cdef class MemoryPool:
         """
         ret = self.pool.max_memory()
         return ret if ret >= 0 else None
+
+    @property
+    def backend_name(self):
+        """
+        The name of the backend used by this MemoryPool (e.g. "jemalloc").
+        """
+        return frombytes(self.pool.backend_name())
 
 
 cdef CMemoryPool* maybe_unbox_memory_pool(MemoryPool memory_pool):
@@ -120,6 +127,44 @@ def logging_memory_pool(MemoryPool parent):
     return out
 
 
+def system_memory_pool():
+    """
+    Return a memory pool based on the C malloc heap.
+    """
+    cdef:
+        MemoryPool pool = MemoryPool.__new__(MemoryPool)
+    pool.init(c_system_memory_pool())
+    return pool
+
+
+def jemalloc_memory_pool():
+    """
+    Return a memory pool based on the jemalloc heap.
+
+    NotImplementedError is raised if jemalloc support is not enabled.
+    """
+    cdef:
+        CMemoryPool* c_pool
+        MemoryPool pool = MemoryPool.__new__(MemoryPool)
+    check_status(c_jemalloc_memory_pool(&c_pool))
+    pool.init(c_pool)
+    return pool
+
+
+def mimalloc_memory_pool():
+    """
+    Return a memory pool based on the mimalloc heap.
+
+    NotImplementedError is raised if mimalloc support is not enabled.
+    """
+    cdef:
+        CMemoryPool* c_pool
+        MemoryPool pool = MemoryPool.__new__(MemoryPool)
+    check_status(c_mimalloc_memory_pool(&c_pool))
+    pool.init(c_pool)
+    return pool
+
+
 def set_memory_pool(MemoryPool pool):
     c_set_default_memory_pool(pool.pool)
 
@@ -135,7 +180,7 @@ def log_memory_allocations(enable=True):
 
     Parameters
     ----------
-    enable : boolean, default True
+    enable : bool, default True
         Pass False to disable logging
     """
     if enable:
@@ -151,3 +196,21 @@ def total_allocated_bytes():
     """
     cdef CMemoryPool* pool = c_get_memory_pool()
     return pool.bytes_allocated()
+
+
+def jemalloc_set_decay_ms(decay_ms):
+    """
+    Set arenas.dirty_decay_ms and arenas.muzzy_decay_ms to indicated number of
+    milliseconds. A value of 0 (the default) results in dirty / muzzy memory
+    pages being released right away to the OS, while a higher value will result
+    in a time-based decay. See the jemalloc docs for more information
+
+    It's best to set this at the start of your application.
+
+    Parameters
+    ----------
+    decay_ms : int
+        Number of milliseconds to set for jemalloc decay conf parameters. Note
+        that this change will only affect future memory arenas
+    """
+    check_status(c_jemalloc_set_decay_ms(decay_ms))

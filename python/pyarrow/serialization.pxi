@@ -17,20 +17,28 @@
 
 from cpython.ref cimport PyObject
 
-import six
+import warnings
 
-from pyarrow.compat import pickle
+
+def _deprecate_serialization(name):
+    msg = (
+        "'pyarrow.{}' is deprecated as of 2.0.0 and will be removed in a "
+        "future version. Use pickle or the pyarrow IPC functionality instead."
+    ).format(name)
+    warnings.warn(msg, FutureWarning, stacklevel=3)
 
 
 def is_named_tuple(cls):
-    """Return True if cls is a namedtuple and False otherwise."""
+    """
+    Return True if cls is a namedtuple and False otherwise.
+    """
     b = cls.__bases__
     if len(b) != 1 or b[0] != tuple:
         return False
     f = getattr(cls, "_fields", None)
     if not isinstance(f, tuple):
         return False
-    return all(isinstance(n, six.string_types) for n in f)
+    return all(isinstance(n, str) for n in f)
 
 
 class SerializationCallbackError(ArrowSerializationError):
@@ -45,7 +53,7 @@ class DeserializationCallbackError(ArrowSerializationError):
         self.type_id = type_id
 
 
-cdef class SerializationContext:
+cdef class SerializationContext(_Weakrefable):
     cdef:
         object type_to_type_id
         object whitelisted_types
@@ -82,7 +90,7 @@ cdef class SerializationContext:
 
     def clone(self):
         """
-        Return copy of this SerializationContext
+        Return copy of this SerializationContext.
 
         Returns
         -------
@@ -101,11 +109,12 @@ cdef class SerializationContext:
 
     def register_type(self, type_, type_id, pickle=False,
                       custom_serializer=None, custom_deserializer=None):
-        """EXPERIMENTAL: Add type to the list of types we can serialize.
+        r"""
+        EXPERIMENTAL: Add type to the list of types we can serialize.
 
         Parameters
         ----------
-        type_ : TypeType
+        type\_ : type
             The type that we can serialize.
         type_id : string
             A string used to identify the type.
@@ -119,7 +128,7 @@ cdef class SerializationContext:
             This argument is optional, but can be provided to
             deserialize objects of the class in a particular way.
         """
-        if not isinstance(type_id, six.string_types):
+        if not isinstance(type_id, str):
             raise TypeError("The type_id argument must be a string. The value "
                             "passed in has type {}.".format(type(type_id)))
 
@@ -165,6 +174,9 @@ cdef class SerializationContext:
 
     def _deserialize_callback(self, serialized_obj):
         type_id = serialized_obj["_pytype_"]
+        if isinstance(type_id, bytes):
+            # ARROW-4675: Python 2 serialized, read in Python 3
+            type_id = frombytes(type_id)
 
         if "pickle" in serialized_obj:
             # The object was pickled, so unpickle it.
@@ -193,35 +205,46 @@ cdef class SerializationContext:
 
     def serialize(self, obj):
         """
-        Call pyarrow.serialize and pass this SerializationContext
+        Call pyarrow.serialize and pass this SerializationContext.
         """
         return serialize(obj, context=self)
 
     def serialize_to(self, object value, sink):
         """
-        Call pyarrow.serialize_to and pass this SerializationContext
+        Call pyarrow.serialize_to and pass this SerializationContext.
         """
         return serialize_to(value, sink, context=self)
 
     def deserialize(self, what):
         """
-        Call pyarrow.deserialize and pass this SerializationContext
+        Call pyarrow.deserialize and pass this SerializationContext.
         """
         return deserialize(what, context=self)
 
     def deserialize_components(self, what):
         """
-        Call pyarrow.deserialize_components and pass this SerializationContext
+        Call pyarrow.deserialize_components and pass this SerializationContext.
         """
         return deserialize_components(what, context=self)
 
 
 _default_serialization_context = SerializationContext()
+_default_context_initialized = False
 
 
-cdef class SerializedPyObject:
+def _get_default_context():
+    global _default_context_initialized
+    from pyarrow.serialization import _register_default_serialization_handlers
+    if not _default_context_initialized:
+        _register_default_serialization_handlers(
+            _default_serialization_context)
+        _default_context_initialized = True
+    return _default_serialization_context
+
+
+cdef class SerializedPyObject(_Weakrefable):
     """
-    Arrow-serialized representation of Python object
+    Arrow-serialized representation of Python object.
     """
     cdef:
         CSerializedPyObject data
@@ -239,24 +262,24 @@ cdef class SerializedPyObject:
 
     def write_to(self, sink):
         """
-        Write serialized object to a sink
+        Write serialized object to a sink.
         """
-        cdef shared_ptr[OutputStream] stream
+        cdef shared_ptr[COutputStream] stream
         get_writer(sink, &stream)
         self._write_to(stream.get())
 
-    cdef _write_to(self, OutputStream* stream):
+    cdef _write_to(self, COutputStream* stream):
         with nogil:
             check_status(self.data.WriteTo(stream))
 
     def deserialize(self, SerializationContext context=None):
         """
-        Convert back to Python object
+        Convert back to Python object.
         """
         cdef PyObject* result
 
         if context is None:
-            context = _default_serialization_context
+            context = _get_default_context()
 
         with nogil:
             check_status(DeserializeObject(context, self.data,
@@ -268,7 +291,7 @@ cdef class SerializedPyObject:
 
     def to_buffer(self, nthreads=1):
         """
-        Write serialized data as Buffer
+        Write serialized data as Buffer.
         """
         cdef Buffer output = allocate_buffer(self.total_bytes)
         sink = FixedSizeBufferWriter(output)
@@ -281,17 +304,27 @@ cdef class SerializedPyObject:
     def from_components(components):
         """
         Reconstruct SerializedPyObject from output of
-        SerializedPyObject.to_components
+        SerializedPyObject.to_components.
         """
         cdef:
             int num_tensors = components['num_tensors']
             int num_ndarrays = components['num_ndarrays']
             int num_buffers = components['num_buffers']
             list buffers = components['data']
+            SparseTensorCounts num_sparse_tensors = SparseTensorCounts()
             SerializedPyObject result = SerializedPyObject()
 
+        num_sparse_tensors.coo = components['num_sparse_tensors']['coo']
+        num_sparse_tensors.csr = components['num_sparse_tensors']['csr']
+        num_sparse_tensors.csc = components['num_sparse_tensors']['csc']
+        num_sparse_tensors.csf = components['num_sparse_tensors']['csf']
+        num_sparse_tensors.ndim_csf = \
+            components['num_sparse_tensors']['ndim_csf']
+
         with nogil:
-            check_status(GetSerializedFromComponents(num_tensors, num_ndarrays,
+            check_status(GetSerializedFromComponents(num_tensors,
+                                                     num_sparse_tensors,
+                                                     num_ndarrays,
                                                      num_buffers,
                                                      buffers, &result.data))
 
@@ -301,12 +334,12 @@ cdef class SerializedPyObject:
         """
         Return the decomposed dict representation of the serialized object
         containing a collection of Buffer objects which maximize opportunities
-        for zero-copy
+        for zero-copy.
 
         Parameters
         ----------
         memory_pool : MemoryPool default None
-            Pool to use for necessary allocations
+            Pool to use for necessary allocations.
 
         Returns
 
@@ -321,7 +354,18 @@ cdef class SerializedPyObject:
 
 
 def serialize(object value, SerializationContext context=None):
-    """EXPERIMENTAL: Serialize a Python sequence
+    """
+    EXPERIMENTAL: Serialize a general Python sequence for transient storage
+    and transport.
+
+    This may have better performance and memory efficiency than Python pickle.
+
+    Notes
+    -----
+    This function produces data that is incompatible with the standard
+    Arrow IPC binary protocol, i.e. it cannot be used with ipc.open_stream or
+    ipc.open_file. You can use deserialize, deserialize_from, or
+    deserialize_components to read it.
 
     Parameters
     ----------
@@ -329,17 +373,23 @@ def serialize(object value, SerializationContext context=None):
         Python object for the sequence that is to be serialized.
     context : SerializationContext
         Custom serialization and deserialization context, uses a default
-        context with some standard type handlers if not specified
+        context with some standard type handlers if not specified.
 
     Returns
     -------
     serialized : SerializedPyObject
+
     """
+    _deprecate_serialization("serialize")
+    return _serialize(value, context)
+
+
+def _serialize(object value, SerializationContext context=None):
     cdef SerializedPyObject serialized = SerializedPyObject()
     wrapped_value = [value]
 
     if context is None:
-        context = _default_serialization_context
+        context = _get_default_context()
 
     with nogil:
         check_status(SerializeObject(context, wrapped_value, &serialized.data))
@@ -347,7 +397,8 @@ def serialize(object value, SerializationContext context=None):
 
 
 def serialize_to(object value, sink, SerializationContext context=None):
-    """EXPERIMENTAL: Serialize a Python sequence to a file.
+    """
+    EXPERIMENTAL: Serialize a Python sequence to a file.
 
     Parameters
     ----------
@@ -357,14 +408,16 @@ def serialize_to(object value, sink, SerializationContext context=None):
         File the sequence will be written to.
     context : SerializationContext
         Custom serialization and deserialization context, uses a default
-        context with some standard type handlers if not specified
+        context with some standard type handlers if not specified.
     """
-    serialized = serialize(value, context)
+    _deprecate_serialization("serialize_to")
+    serialized = _serialize(value, context)
     serialized.write_to(sink)
 
 
 def read_serialized(source, base=None):
-    """EXPERIMENTAL: Read serialized Python sequence from file-like object
+    """
+    EXPERIMENTAL: Read serialized Python sequence from file-like object.
 
     Parameters
     ----------
@@ -378,7 +431,12 @@ def read_serialized(source, base=None):
     -------
     serialized : the serialized data
     """
-    cdef shared_ptr[RandomAccessFile] stream
+    _deprecate_serialization("read_serialized")
+    return _read_serialized(source, base=base)
+
+
+def _read_serialized(source, base=None):
+    cdef shared_ptr[CRandomAccessFile] stream
     get_reader(source, True, &stream)
 
     cdef SerializedPyObject serialized = SerializedPyObject()
@@ -390,7 +448,11 @@ def read_serialized(source, base=None):
 
 
 def deserialize_from(source, object base, SerializationContext context=None):
-    """EXPERIMENTAL: Deserialize a Python sequence from a file.
+    """
+    EXPERIMENTAL: Deserialize a Python sequence from a file.
+
+    This only can interact with data produced by pyarrow.serialize or
+    pyarrow.serialize_to.
 
     Parameters
     ----------
@@ -400,20 +462,21 @@ def deserialize_from(source, object base, SerializationContext context=None):
         This object will be the base object of all the numpy arrays
         contained in the sequence.
     context : SerializationContext
-        Custom serialization and deserialization context
+        Custom serialization and deserialization context.
 
     Returns
     -------
     object
         Python object for the deserialized sequence.
     """
-    serialized = read_serialized(source, base=base)
+    _deprecate_serialization("deserialize_from")
+    serialized = _read_serialized(source, base=base)
     return serialized.deserialize(context)
 
 
 def deserialize_components(components, SerializationContext context=None):
     """
-    Reconstruct Python object from output of SerializedPyObject.to_components
+    Reconstruct Python object from output of SerializedPyObject.to_components.
 
     Parameters
     ----------
@@ -425,24 +488,34 @@ def deserialize_components(components, SerializationContext context=None):
     -------
     object : the Python object that was originally serialized
     """
+    _deprecate_serialization("deserialize_components")
     serialized = SerializedPyObject.from_components(components)
     return serialized.deserialize(context)
 
 
 def deserialize(obj, SerializationContext context=None):
     """
-    EXPERIMENTAL: Deserialize Python object from Buffer or other Python object
-    supporting the buffer protocol
+    EXPERIMENTAL: Deserialize Python object from Buffer or other Python
+    object supporting the buffer protocol.
+
+    This only can interact with data produced by pyarrow.serialize or
+    pyarrow.serialize_to.
 
     Parameters
     ----------
     obj : pyarrow.Buffer or Python object supporting buffer protocol
     context : SerializationContext
-        Custom serialization and deserialization context
+        Custom serialization and deserialization context.
 
     Returns
     -------
     deserialized : object
     """
+    _deprecate_serialization("deserialize")
+    return _deserialize(obj, context=context)
+
+
+def _deserialize(obj, SerializationContext context=None):
     source = BufferReader(obj)
-    return deserialize_from(source, obj, context)
+    serialized = _read_serialized(source, base=obj)
+    return serialized.deserialize(context)

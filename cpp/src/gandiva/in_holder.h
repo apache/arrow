@@ -15,13 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_IN_HOLDER_H
-#define GANDIVA_IN_HOLDER_H
+#pragma once
 
-#include <iostream>
 #include <string>
 #include <unordered_set>
 
+#include "arrow/util/hashing.h"
 #include "gandiva/arrow.h"
 #include "gandiva/gandiva_aliases.h"
 
@@ -44,6 +43,30 @@ class InHolder {
   std::unordered_set<Type> values_;
 };
 
-}  // namespace gandiva
+template <>
+class InHolder<std::string> {
+ public:
+  explicit InHolder(std::unordered_set<std::string> values) : values_(std::move(values)) {
+    values_lookup_.max_load_factor(0.25f);
+    for (const std::string& value : values_) {
+      values_lookup_.emplace(value);
+    }
+  }
 
-#endif  // GANDIVA_IN_HOLDER_H
+  bool HasValue(arrow::util::string_view value) const {
+    return values_lookup_.count(value) == 1;
+  }
+
+ private:
+  struct string_view_hash {
+   public:
+    std::size_t operator()(arrow::util::string_view v) const {
+      return arrow::internal::ComputeStringHash<0>(v.data(), v.length());
+    }
+  };
+
+  std::unordered_set<arrow::util::string_view, string_view_hash> values_lookup_;
+  const std::unordered_set<std::string> values_;
+};
+
+}  // namespace gandiva

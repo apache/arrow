@@ -26,6 +26,48 @@
 gboolean garrow_error_check(GError **error,
                             const arrow::Status &status,
                             const char *context);
+GArrowError garrow_error_from_status(const arrow::Status &status);
+arrow::StatusCode
+garrow_error_to_status_code(GError *error,
+                            arrow::StatusCode default_code);
 arrow::Status garrow_error_to_status(GError *error,
-                                     arrow::StatusCode code,
+                                     arrow::StatusCode default_code,
                                      const char *context);
+
+namespace garrow {
+  gboolean check(GError **error,
+                 const arrow::Status &status,
+                 const char *context);
+
+  template <typename CONTEXT_FUNC>
+  gboolean check(GError **error,
+                 const arrow::Status &status,
+                 CONTEXT_FUNC &&context_func) {
+    if (status.ok()) {
+      return TRUE;
+    } else {
+      std::string context = std::move(context_func());
+      g_set_error(error,
+                  GARROW_ERROR,
+                  garrow_error_from_status(status),
+                  "%s: %s",
+                  context.c_str(),
+                  status.ToString().c_str());
+      return FALSE;
+    }
+  }
+
+  template <typename TYPE>
+  gboolean check(GError **error,
+                 const arrow::Result<TYPE> &result,
+                 const char *context) {
+    return check(error, result.status(), context);
+  }
+
+  template <typename TYPE, typename CONTEXT_FUNC>
+  gboolean check(GError **error,
+                 const arrow::Result<TYPE> &result,
+                 CONTEXT_FUNC &&context_func) {
+    return check(error, result.status(), context_func);
+  }
+}

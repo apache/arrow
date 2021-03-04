@@ -21,8 +21,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import java.util.stream.IntStream;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.memory.util.hash.MurmurHasher;
+import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Assert;
@@ -201,7 +205,7 @@ public class TestBitVector {
       try (final BitVector toVector = new BitVector("toVector", allocator)) {
         final TransferPair transferPair = sourceVector.makeTransferPair(toVector);
 
-        final int[][] transferLengths = {{5,22}, {5,24}, {5,25}, {5,27}, {0,31}, {5,7}, {2,3}};
+        final int[][] transferLengths = {{5, 22}, {5, 24}, {5, 25}, {5, 27}, {0, 31}, {5, 7}, {2, 3}};
 
         for (final int[] transferLength : transferLengths) {
           final int start = transferLength[0];
@@ -281,7 +285,7 @@ public class TestBitVector {
       /* now transfer the vector */
       TransferPair transferPair = vector.getTransferPair(allocator);
       transferPair.transfer();
-      final BitVector toVector = (BitVector)transferPair.getTo();
+      final BitVector toVector = (BitVector) transferPair.getTo();
 
       assertEquals(valueCapacity * 4, toVector.getValueCapacity());
 
@@ -365,7 +369,7 @@ public class TestBitVector {
       /* now transfer the vector */
       TransferPair transferPair = vector.getTransferPair(allocator);
       transferPair.transfer();
-      final BitVector toVector = (BitVector)transferPair.getTo();
+      final BitVector toVector = (BitVector) transferPair.getTo();
 
       assertEquals(valueCapacity * 4, toVector.getValueCapacity());
 
@@ -503,6 +507,37 @@ public class TestBitVector {
       for (int i = start + count; i < length; i++) {
         Assert.assertTrue(desc + i, bitVector.isNull(i));
       }
+    }
+  }
+
+  @Test
+  public void testBitVectorHashCode() {
+    final int size = 6;
+    try (final BitVector vector = new BitVector(EMPTY_SCHEMA_PATH, allocator)) {
+      ValueVectorDataPopulator.setVector(vector, 0, 1, null, 0, 1, null);
+
+      int[] hashCodes = new int[size];
+      IntStream.range(0, size).forEach(i -> hashCodes[i] = vector.hashCode(i));
+
+      assertTrue(hashCodes[0] == hashCodes[3]);
+      assertTrue(hashCodes[1] == hashCodes[4]);
+      assertTrue(hashCodes[2] == hashCodes[5]);
+
+      assertFalse(hashCodes[0] == hashCodes[1]);
+      assertFalse(hashCodes[0] == hashCodes[2]);
+      assertFalse(hashCodes[1] == hashCodes[2]);
+
+      MurmurHasher hasher = new MurmurHasher();
+
+      IntStream.range(0, size).forEach(i -> hashCodes[i] = vector.hashCode(i, hasher));
+
+      assertTrue(hashCodes[0] == hashCodes[3]);
+      assertTrue(hashCodes[1] == hashCodes[4]);
+      assertTrue(hashCodes[2] == hashCodes[5]);
+
+      assertFalse(hashCodes[0] == hashCodes[1]);
+      assertFalse(hashCodes[0] == hashCodes[2]);
+      assertFalse(hashCodes[1] == hashCodes[2]);
     }
   }
 }

@@ -33,7 +33,7 @@ module Arrow
     def format_column_name(column)
       case column.data_type
       when TimestampDataType
-        "%*s" % [Time.now.iso8601.size, column.name]
+        "%*s" % [::Time.now.iso8601.size, column.name]
       when FloatDataType, DoubleDataType
         "%*s" % [FLOAT_N_DIGITS, column.name]
       else
@@ -55,7 +55,7 @@ module Arrow
 
     def format_column_value(column, value)
       case value
-      when Time
+      when ::Time
         value.iso8601
       when Float
         "%*f" % [[column.name.size, FLOAT_N_DIGITS].max, value]

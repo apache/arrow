@@ -15,14 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef LRU_CACHE_H
-#define LRU_CACHE_H
+#pragma once
 
 #include <list>
 #include <unordered_map>
 #include <utility>
 
-#include <boost/optional.hpp>
+#include "arrow/util/optional.h"
 
 // modified from boost LRU cache -> the boost cache supported only an
 // ordered map.
@@ -71,26 +70,26 @@ class LruCache {
     }
   }
 
-  boost::optional<value_type> get(const key_type& key) {
+  arrow::util::optional<value_type> get(const key_type& key) {
     // lookup value in the cache
     typename map_type::iterator value_for_key = map_.find(key);
     if (value_for_key == map_.end()) {
       // value not in cache
-      return boost::none;
+      return arrow::util::nullopt;
     }
 
     // return the value, but first update its place in the most
     // recently used list
-    typename list_type::iterator postition_in_lru_list = value_for_key->second.second;
-    if (postition_in_lru_list != lru_list_.begin()) {
+    typename list_type::iterator position_in_lru_list = value_for_key->second.second;
+    if (position_in_lru_list != lru_list_.begin()) {
       // move item to the front of the most recently used list
-      lru_list_.erase(postition_in_lru_list);
+      lru_list_.erase(position_in_lru_list);
       lru_list_.push_front(key);
 
       // update iterator in map
-      postition_in_lru_list = lru_list_.begin();
+      position_in_lru_list = lru_list_.begin();
       const value_type& value = value_for_key->second.first;
-      map_[key] = std::make_pair(value, postition_in_lru_list);
+      map_[key] = std::make_pair(value, position_in_lru_list);
 
       // return the value
       return value;
@@ -120,4 +119,3 @@ class LruCache {
   size_t cache_capacity_;
 };
 }  // namespace gandiva
-#endif  // LRU_CACHE_H

@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PLASMA_PLASMA_H
-#define PLASMA_PLASMA_H
+#pragma once
 
 #include <errno.h>
 #include <inttypes.h>
@@ -31,6 +30,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 #include "plasma/compat.h"
 
@@ -69,7 +69,25 @@ struct ObjectInfoT;
 /// Allocation granularity used in plasma for object allocation.
 constexpr int64_t kBlockSize = 64;
 
-struct Client;
+/// Contains all information that is associated with a Plasma store client.
+struct Client {
+  explicit Client(int fd);
+
+  /// The file descriptor used to communicate with the client.
+  int fd;
+
+  /// Object ids that are used by this client.
+  std::unordered_set<ObjectID> object_ids;
+
+  /// File descriptors that are used by this client.
+  std::unordered_set<int> used_fds;
+
+  /// The file descriptor used to push notifications to client. This is only valid
+  /// if client subscribes to plasma store. -1 indicates invalid.
+  int notification_fd;
+
+  std::string name = "anonymous_client";
+};
 
 // TODO(pcm): Replace this by the flatbuffers message PlasmaObjectSpec.
 struct PlasmaObject {
@@ -91,6 +109,16 @@ struct PlasmaObject {
   int64_t metadata_size;
   /// Device number object is on.
   int device_num;
+
+  bool operator==(const PlasmaObject& other) const {
+    return (
+#ifdef PLASMA_CUDA
+        (ipc_handle == other.ipc_handle) &&
+#endif
+        (store_fd == other.store_fd) && (data_offset == other.data_offset) &&
+        (metadata_offset == other.metadata_offset) && (data_size == other.data_size) &&
+        (metadata_size == other.metadata_size) && (device_num == other.device_num));
+  }
 };
 
 enum class ObjectStatus : int {
@@ -104,9 +132,6 @@ enum class ObjectStatus : int {
 struct PlasmaStoreInfo {
   /// Objects that are in the Plasma store.
   ObjectTable objects;
-  /// The amount of memory (in bytes) that we allow to be allocated in the
-  /// store.
-  int64_t memory_capacity;
   /// Boolean flag indicating whether to start the object store with hugepages
   /// support enabled. Huge pages are substantially larger than normal memory
   /// pages (e.g. 2MB or 1GB instead of 4KB) and using them can reduce
@@ -119,9 +144,9 @@ struct PlasmaStoreInfo {
 /// Get an entry from the object table and return NULL if the object_id
 /// is not present.
 ///
-/// @param store_info The PlasmaStoreInfo that contains the object table.
-/// @param object_id The object_id of the entry we are looking for.
-/// @return The entry associated with the object_id or NULL if the object_id
+/// \param store_info The PlasmaStoreInfo that contains the object table.
+/// \param object_id The object_id of the entry we are looking for.
+/// \return The entry associated with the object_id or NULL if the object_id
 ///         is not present.
 ObjectTableEntry* GetObjectTableEntry(PlasmaStoreInfo* store_info,
                                       const ObjectID& object_id);
@@ -135,15 +160,16 @@ ObjectTableEntry* GetObjectTableEntry(PlasmaStoreInfo* store_info,
 /// have not, then we should get a SIGPIPE. If we write to a TCP socket that
 /// isn't connected yet, then we should get an ECONNRESET.
 ///
-/// @param status The status to check. If it is less less than zero, we will
+/// \param status The status to check. If it is less less than zero, we will
 ///        print a warning.
-/// @param client_sock The client socket. This is just used to print some extra
+/// \param client_sock The client socket. This is just used to print some extra
 ///        information.
-/// @return The errno set.
+/// \return The errno set.
 int WarnIfSigpipe(int status, int client_sock);
 
 std::unique_ptr<uint8_t[]> CreateObjectInfoBuffer(flatbuf::ObjectInfoT* object_info);
 
-}  // namespace plasma
+std::unique_ptr<uint8_t[]> CreatePlasmaNotificationBuffer(
+    std::vector<flatbuf::ObjectInfoT>& object_info);
 
-#endif  // PLASMA_PLASMA_H
+}  // namespace plasma

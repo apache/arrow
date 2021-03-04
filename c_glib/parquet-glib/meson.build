@@ -36,6 +36,16 @@ cpp_headers = files(
   'parquet-glib.hpp',
 )
 
+version_h_conf = configuration_data()
+version_h_conf.set('GPARQUET_VERSION_MAJOR', version_major)
+version_h_conf.set('GPARQUET_VERSION_MINOR', version_minor)
+version_h_conf.set('GPARQUET_VERSION_MICRO', version_micro)
+version_h_conf.set('GPARQUET_VERSION_TAG', version_tag)
+version_h = configure_file(input: 'version.h.in',
+                           output: 'version.h',
+                           configuration: version_h_conf)
+c_headers += version_h
+
 headers = c_headers + cpp_headers
 install_headers(headers, subdir: project_name)
 
@@ -56,26 +66,28 @@ parquet_glib = declare_dependency(link_with: libparquet_glib,
                                   include_directories: base_include_directories,
                                   dependencies: dependencies)
 
-pkgconfig.generate(filebase: project_name,
+pkgconfig.generate(libparquet_glib,
+                   filebase: project_name,
                    name: 'Apache Parquet GLib',
                    description: 'C API for Apache Parquet based on GLib',
                    version: version,
-                   requires: ['parquet', 'arrow-glib'],
-                   libraries: [libparquet_glib])
+                   requires: ['parquet', 'arrow-glib'])
 
-gnome.generate_gir(libparquet_glib,
-                   dependencies: declare_dependency(sources: arrow_glib_gir),
-                   sources: sources + c_headers,
-                   namespace: 'Parquet',
-                   nsversion: api_version,
-                   identifier_prefix: 'GParquet',
-                   symbol_prefix: 'gparquet',
-                   export_packages: 'parquet-glib',
-                   includes: [
-		     'Arrow-1.0',
-                   ],
-                   install: true,
-                   extra_args: [
-		     '--warn-all',
-		     '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
-                   ])
+if have_gi
+  gnome.generate_gir(libparquet_glib,
+                     dependencies: declare_dependency(sources: arrow_glib_gir),
+                     sources: sources + c_headers,
+                     namespace: 'Parquet',
+                     nsversion: api_version,
+                     identifier_prefix: 'GParquet',
+                     symbol_prefix: 'gparquet',
+                     export_packages: 'parquet-glib',
+                     includes: [
+                       'Arrow-1.0',
+                     ],
+                     install: true,
+                     extra_args: [
+                       '--warn-all',
+                       '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
+                     ])
+endif

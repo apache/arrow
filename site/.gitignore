@@ -1,9 +1,0 @@
-_site
-.sass-cache
-.jekyll-cache
-.jekyll-metadata
-Gemfile.lock
-asf-site
-build/
-.bundle/
-ruby/

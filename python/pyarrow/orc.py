@@ -15,18 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
+
 from itertools import count
 from numbers import Integral
 
-from pyarrow import _orc
 from pyarrow import types
 from pyarrow.lib import Schema
+import pyarrow._orc as _orc
 
 
 def _is_map(typ):
     return (types.is_list(typ) and
             types.is_struct(typ.value_type) and
-            typ.value_type.num_children == 2 and
+            typ.value_type.num_fields == 2 and
             typ.value_type[0].name == 'key' and
             typ.value_type[1].name == 'value')
 
@@ -39,14 +40,12 @@ def _traverse(typ, counter):
             for sub, c in _traverse(field.type, counter):
                 yield path + sub, c
     elif _is_map(typ):
-        for sub_c in _traverse(typ.value_type, counter):
-            yield sub_c
+        yield from _traverse(typ.value_type, counter)
     elif types.is_list(typ):
         # Skip one index for list type, since this can never be selected
         # directly
         next(counter)
-        for sub_c in _traverse(typ.value_type, counter):
-            yield sub_c
+        yield from _traverse(typ.value_type, counter)
     elif types.is_union(typ):
         # Union types not supported, just skip the indexes
         for dtype in typ:
@@ -59,7 +58,7 @@ def _schema_to_indices(schema):
     return {'.'.join(i): c for i, c in _traverse(schema, count(1))}
 
 
-class ORCFile(object):
+class ORCFile:
     """
     Reader interface for a single ORC file
 
@@ -69,6 +68,7 @@ class ORCFile(object):
         Readable source. For passing Python file objects or byte buffers,
         see pyarrow.io.PythonFileInterface or pyarrow.io.BufferReader.
     """
+
     def __init__(self, source):
         self.reader = _orc.ORCReader()
         self.reader.open(source)

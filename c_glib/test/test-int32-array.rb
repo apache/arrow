@@ -50,4 +50,9 @@ class TestInt32Array < Test::Unit::TestCase
     array = builder.finish
     assert_equal([-1, 2, -4], array.values)
   end
+
+  def test_sum
+    array = build_int32_array([2, -4, nil])
+    assert_equal(-2, array.sum)
+  end
 end

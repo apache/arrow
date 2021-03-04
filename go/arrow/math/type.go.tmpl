@@ -32,6 +32,9 @@ var (
 
 // Sum returns the summation of all elements in a.
 func (f {{.Name}}Funcs) Sum(a *array.{{.Name}}) {{.Type}} {
+	if a.Len() == 0 {
+		return {{.Type}}(0)
+	}
 	return f.sum(a)
 }
 

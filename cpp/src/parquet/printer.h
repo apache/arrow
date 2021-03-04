@@ -15,19 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PARQUET_FILE_PRINTER_H
-#define PARQUET_FILE_PRINTER_H
+#pragma once
 
-#include <cstdint>
 #include <iosfwd>
 #include <list>
-#include <memory>
-#include <string>
-#include <vector>
 
-#include "parquet/file_reader.h"
+#include "parquet/platform.h"
 
 namespace parquet {
+
+class ParquetFileReader;
 
 class PARQUET_EXPORT ParquetFilePrinter {
  private:
@@ -38,7 +35,8 @@ class PARQUET_EXPORT ParquetFilePrinter {
   ~ParquetFilePrinter() {}
 
   void DebugPrint(std::ostream& stream, std::list<int> selected_columns,
-                  bool print_values = true, bool print_key_value_metadata = false,
+                  bool print_values = false, bool format_dump = false,
+                  bool print_key_value_metadata = false,
                   const char* filename = "No Name");
 
   void JSONPrint(std::ostream& stream, std::list<int> selected_columns,
@@ -46,5 +44,3 @@ class PARQUET_EXPORT ParquetFilePrinter {
 };
 
 }  // namespace parquet
-
-#endif  // PARQUET_FILE_PRINTER_H

@@ -17,6 +17,10 @@
 
 package org.apache.arrow.vector.complex;
 
+/**
+ * A {@link org.apache.arrow.vector.ValueVector} mix-in that can be used in conjunction with
+ * variable {@link RepeatedValueVector} subtypes (e.g. Strings, Lists, etc).
+ */
 public interface RepeatedVariableWidthVectorLike {
   /**
    * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.

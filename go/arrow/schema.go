@@ -19,6 +19,7 @@ package arrow
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 type Metadata struct {
@@ -64,17 +65,41 @@ func (md Metadata) Len() int         { return len(md.keys) }
 func (md Metadata) Keys() []string   { return md.keys }
 func (md Metadata) Values() []string { return md.values }
 
-func (kv Metadata) clone() Metadata {
-	if len(kv.keys) == 0 {
+func (md Metadata) String() string {
+	o := new(strings.Builder)
+	fmt.Fprintf(o, "[")
+	for i := range md.keys {
+		if i > 0 {
+			fmt.Fprintf(o, ", ")
+		}
+		fmt.Fprintf(o, "%q: %q", md.keys[i], md.values[i])
+	}
+	fmt.Fprintf(o, "]")
+	return o.String()
+}
+
+// FindKey returns the index of the key-value pair with the provided key name,
+// or -1 if such a key does not exist.
+func (md Metadata) FindKey(k string) int {
+	for i, v := range md.keys {
+		if v == k {
+			return i
+		}
+	}
+	return -1
+}
+
+func (md Metadata) clone() Metadata {
+	if len(md.keys) == 0 {
 		return Metadata{}
 	}
 
 	o := Metadata{
-		keys:   make([]string, len(kv.keys)),
-		values: make([]string, len(kv.values)),
+		keys:   make([]string, len(md.keys)),
+		values: make([]string, len(md.values)),
 	}
-	copy(o.keys, kv.keys)
-	copy(o.values, kv.values)
+	copy(o.keys, md.keys)
+	copy(o.values, md.values)
 
 	return o
 }
@@ -83,18 +108,17 @@ func (kv Metadata) clone() Metadata {
 // a record batch.
 type Schema struct {
 	fields []Field
-	index  map[string]int
+	index  map[string][]int
 	meta   Metadata
 }
 
 // NewSchema returns a new Schema value from the slice of fields and metadata.
 //
-// NewSchema panics if there are duplicated fields.
 // NewSchema panics if there is a field with an invalid DataType.
 func NewSchema(fields []Field, metadata *Metadata) *Schema {
 	sc := &Schema{
 		fields: make([]Field, 0, len(fields)),
-		index:  make(map[string]int, len(fields)),
+		index:  make(map[string][]int, len(fields)),
 	}
 	if metadata != nil {
 		sc.meta = metadata.clone()
@@ -104,10 +128,7 @@ func NewSchema(fields []Field, metadata *Metadata) *Schema {
 			panic("arrow: field with nil DataType")
 		}
 		sc.fields = append(sc.fields, field)
-		if _, dup := sc.index[field.Name]; dup {
-			panic(fmt.Errorf("arrow: duplicate field with name %q", field.Name))
-		}
-		sc.index[field.Name] = i
+		sc.index[field.Name] = append(sc.index[field.Name], i)
 	}
 	return sc
 }
@@ -116,39 +137,35 @@ func (sc *Schema) Metadata() Metadata { return sc.meta }
 func (sc *Schema) Fields() []Field    { return sc.fields }
 func (sc *Schema) Field(i int) Field  { return sc.fields[i] }
 
-func (sc *Schema) FieldByName(n string) (Field, bool) {
-	i, ok := sc.index[n]
+func (sc *Schema) FieldsByName(n string) ([]Field, bool) {
+	indices, ok := sc.index[n]
 	if !ok {
-		return Field{}, ok
+		return nil, ok
 	}
-	return sc.fields[i], ok
-}
-
-// FieldIndex returns the index of the named field or -1.
-func (sc *Schema) FieldIndex(n string) int {
-	i, ok := sc.index[n]
-	if !ok {
-		return -1
+	fields := make([]Field, 0, len(indices))
+	for _, v := range indices {
+		fields = append(fields, sc.fields[v])
 	}
-	return i
+	return fields, ok
 }
 
-func (sc *Schema) HasField(n string) bool {
-	return sc.FieldIndex(n) >= 0
+// FieldIndices returns the indices of the named field or nil.
+func (sc *Schema) FieldIndices(n string) []int {
+	return sc.index[n]
 }
 
-func (sc *Schema) HasMetadata() bool { return len(sc.meta.keys) > 0 }
+func (sc *Schema) HasField(n string) bool { return len(sc.FieldIndices(n)) > 0 }
+func (sc *Schema) HasMetadata() bool      { return len(sc.meta.keys) > 0 }
 
 // Equal returns whether two schema are equal.
 // Equal does not compare the metadata.
 func (sc *Schema) Equal(o *Schema) bool {
-	if sc == o {
+	switch {
+	case sc == o:
 		return true
-	}
-	if sc == nil || o == nil {
+	case sc == nil || o == nil:
 		return false
-	}
-	if len(sc.fields) != len(o.fields) {
+	case len(sc.fields) != len(o.fields):
 		return false
 	}
 
@@ -158,4 +175,19 @@ func (sc *Schema) Equal(o *Schema) bool {
 		}
 	}
 	return true
+}
+
+func (s *Schema) String() string {
+	o := new(strings.Builder)
+	fmt.Fprintf(o, "schema:\n  fields: %d\n", len(s.Fields()))
+	for i, f := range s.Fields() {
+		if i > 0 {
+			o.WriteString("\n")
+		}
+		fmt.Fprintf(o, "    - %v", f)
+	}
+	if meta := s.Metadata(); meta.Len() > 0 {
+		fmt.Fprintf(o, "\n  metadata: %v", meta)
+	}
+	return o.String()
 }

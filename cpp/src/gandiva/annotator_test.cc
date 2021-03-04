@@ -18,6 +18,7 @@
 #include "gandiva/annotator.h"
 
 #include <memory>
+#include <utility>
 
 #include <arrow/memory_pool.h>
 #include <gtest/gtest.h>
@@ -33,16 +34,12 @@ class TestAnnotator : public ::testing::Test {
 ArrayPtr TestAnnotator::MakeInt32Array(int length) {
   arrow::Status status;
 
-  std::shared_ptr<arrow::Buffer> validity;
-  status =
-      arrow::AllocateBuffer(arrow::default_memory_pool(), (length + 63) / 8, &validity);
-  DCHECK_EQ(status.ok(), true);
+  auto validity = *arrow::AllocateBuffer((length + 63) / 8);
 
-  std::shared_ptr<arrow::Buffer> value;
-  status = AllocateBuffer(arrow::default_memory_pool(), length * sizeof(int32_t), &value);
-  DCHECK_EQ(status.ok(), true);
+  auto values = *arrow::AllocateBuffer(length * sizeof(int32_t));
 
-  auto array_data = arrow::ArrayData::Make(arrow::int32(), length, {validity, value});
+  auto array_data = arrow::ArrayData::Make(arrow::int32(), length,
+                                           {std::move(validity), std::move(values)});
   return arrow::MakeArray(array_data);
 }
 
@@ -73,6 +70,7 @@ TEST_F(TestAnnotator, TestAdd) {
   EXPECT_EQ(desc_sum->field(), field_sum);
   EXPECT_EQ(desc_sum->data_idx(), 4);
   EXPECT_EQ(desc_sum->validity_idx(), 5);
+  EXPECT_EQ(desc_sum->data_buffer_ptr_idx(), 6);
 
   // prepare record batch
   int num_records = 100;
@@ -85,7 +83,7 @@ TEST_F(TestAnnotator, TestAdd) {
 
   auto arrow_sum = MakeInt32Array(num_records);
   EvalBatchPtr batch = annotator.PrepareEvalBatch(*record_batch, {arrow_sum->data()});
-  EXPECT_EQ(batch->GetNumBuffers(), 6);
+  EXPECT_EQ(batch->GetNumBuffers(), 7);
 
   auto buffers = batch->GetBufferArray();
   EXPECT_EQ(buffers[desc_a->validity_idx()], arrow_v0->data()->buffers.at(0)->data());
@@ -94,6 +92,8 @@ TEST_F(TestAnnotator, TestAdd) {
   EXPECT_EQ(buffers[desc_b->data_idx()], arrow_v1->data()->buffers.at(1)->data());
   EXPECT_EQ(buffers[desc_sum->validity_idx()], arrow_sum->data()->buffers.at(0)->data());
   EXPECT_EQ(buffers[desc_sum->data_idx()], arrow_sum->data()->buffers.at(1)->data());
+  EXPECT_EQ(buffers[desc_sum->data_buffer_ptr_idx()],
+            reinterpret_cast<uint8_t*>(arrow_sum->data()->buffers.at(1).get()));
 
   auto bitmaps = batch->GetLocalBitMapArray();
   EXPECT_EQ(bitmaps, nullptr);

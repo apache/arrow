@@ -27,7 +27,11 @@ you need to have linked your GitHub and ASF accounts on
 https://gitbox.apache.org/setup/ to be able to push to GitHub as the main
 remote.
 
-* How to merge a Pull request:
+NOTE: It may take some time (a few hours) between when you complete
+the setup at GitBox, and when your GitHub account will be added as a
+committer.
+
+## How to merge a Pull request
 
 ```
 git remote add apache git@github.com:apache/arrow.git
@@ -39,13 +43,21 @@ run the following command
 dev/merge_arrow_pr.py
 ```
 
+This script uses requests and jira libraries.  Before running this script,
+run the following command to prepare them:
+
+```
+pip install requests jira
+```
+
 This uses the GitHub REST API; if you encounter rate limit issues, you may set
 a `ARROW_GITHUB_API_TOKEN` environment variable to use a Personal Access Token.
 
-Note:
+You can specify the username and the password of your JIRA account in
+`APACHE_JIRA_USERNAME` and `APACHE_JIRA_PASSWORD` environment variables.
+If these aren't supplied, the script will ask you the values of them.
 
-* The directory name of your Arrow git clone must be called arrow
-* Without jira-python installed you'll have to close the JIRA manually
+Note that the directory name of your Arrow git clone must be called arrow.
 
 example output:
 ```
@@ -126,6 +138,7 @@ For JavaScript-specific releases, use a different verification script:
 ```shell
 bash dev/release/js-verify-release-candidate.sh 0.7.0 0
 ```
+
 # Integration testing
 
 Build the following base image used by multiple tests:
@@ -137,7 +150,10 @@ docker build -t arrow_integration_xenial_base -f docker_common/Dockerfile.xenial
 ## HDFS C++ / Python support
 
 ```shell
-run_docker_compose.sh hdfs_integration
+docker-compose build conda-cpp
+docker-compose build conda-python
+docker-compose build conda-python-hdfs
+docker-compose run --rm conda-python-hdfs
 ```
 
 ## Apache Spark Integration Tests
@@ -145,23 +161,24 @@ run_docker_compose.sh hdfs_integration
 Tests can be run to ensure that the current snapshot of Java and Python Arrow
 works with Spark. This will run a docker image to build Arrow C++
 and Python in a Conda environment, build and install Arrow Java to the local
-Maven repositiory, build Spark with the new Arrow artifact, and run Arrow
+Maven repository, build Spark with the new Arrow artifact, and run Arrow
 related unit tests in Spark for Java and Python. Any errors will exit with a
 non-zero value. To run, use the following command:
 
 ```shell
-./run_docker_compose.sh spark_integration
-
+docker-compose build conda-cpp
+docker-compose build conda-python
+docker-compose build conda-python-spark
+docker-compose run --rm conda-python-spark
 ```
 
-Alternatively, you can build and run the Docker images seperately. If you
-already are building Spark, these commands will map your local Maven repo
-to the image and save time by not having to download all dependencies. These
-should be run in a directory one level up from your Arrow repository:
+If you already are building Spark, these commands will map your local Maven
+repo to the image and save time by not having to download all dependencies.
+Be aware, that docker write files as root, which can cause problems for maven
+on the host.
 
 ```shell
-docker build -f arrow/dev/spark_integration/Dockerfile -t spark-arrow .
-docker run -v $HOME/.m2:/root/.m2 spark-arrow
+docker-compose run --rm -v $HOME/.m2:/root/.m2 conda-python-spark
 ```
 
 NOTE: If the Java API has breaking changes, a patched version of Spark might

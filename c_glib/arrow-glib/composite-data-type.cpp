@@ -38,7 +38,11 @@ G_BEGIN_DECLS
  *
  * #GArrowListDataType is a class for list data type.
  *
+ * #GArrowLargeListDataType is a class for 64-bit offsets list data type.
+ *
  * #GArrowStructDataType is a class for struct data type.
+ *
+ * #GArrowMapDataType is a class for map data type.
  *
  * #GArrowUnionDataType is a base class for union data types.
  *
@@ -119,6 +123,63 @@ garrow_list_data_type_get_field(GArrowListDataType *list_data_type)
 }
 
 
+G_DEFINE_TYPE(GArrowLargeListDataType,
+              garrow_large_list_data_type,
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_large_list_data_type_init(GArrowLargeListDataType *object)
+{
+}
+
+static void
+garrow_large_list_data_type_class_init(GArrowLargeListDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_large_list_data_type_new:
+ * @field: The field of elements
+ *
+ * Returns: The newly created large list data type.
+ *
+ * Since: 0.16.0
+ */
+GArrowLargeListDataType *
+garrow_large_list_data_type_new(GArrowField *field)
+{
+  auto arrow_field = garrow_field_get_raw(field);
+  auto arrow_data_type =
+    std::make_shared<arrow::LargeListType>(arrow_field);
+
+  GArrowLargeListDataType *data_type =
+    GARROW_LARGE_LIST_DATA_TYPE(g_object_new(GARROW_TYPE_LARGE_LIST_DATA_TYPE,
+                                             "data-type", &arrow_data_type,
+                                             NULL));
+  return data_type;
+}
+
+/**
+ * garrow_large_list_data_type_get_field:
+ * @large_list_data_type: A #GArrowLargeListDataType.
+ *
+ * Returns: (transfer full): The field of value.
+ *
+ * Since: 0.16.0
+ */
+GArrowField *
+garrow_large_list_data_type_get_field(GArrowLargeListDataType *large_list_data_type)
+{
+  auto data_type = GARROW_DATA_TYPE(large_list_data_type);
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  auto arrow_large_list_data_type =
+    static_cast<arrow::LargeListType *>(arrow_data_type.get());
+
+  auto arrow_field = arrow_large_list_data_type->value_field();
+  return garrow_field_new_raw(&arrow_field, nullptr);
+}
+
+
 G_DEFINE_TYPE(GArrowStructDataType,
               garrow_struct_data_type,
               GARROW_TYPE_DATA_TYPE)
@@ -168,7 +229,7 @@ gint
 garrow_struct_data_type_get_n_fields(GArrowStructDataType *struct_data_type)
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(struct_data_type));
-  return arrow_data_type->num_children();
+  return arrow_data_type->num_fields();
 }
 
 /**
@@ -185,7 +246,7 @@ garrow_struct_data_type_get_fields(GArrowStructDataType *struct_data_type)
 {
   auto data_type = GARROW_DATA_TYPE(struct_data_type);
   auto arrow_data_type = garrow_data_type_get_raw(data_type);
-  auto arrow_fields = arrow_data_type->children();
+  auto arrow_fields = arrow_data_type->fields();
 
   GList *fields = NULL;
   for (auto arrow_field : arrow_fields) {
@@ -212,16 +273,16 @@ garrow_struct_data_type_get_field(GArrowStructDataType *struct_data_type,
   auto arrow_data_type = garrow_data_type_get_raw(data_type);
 
   if (i < 0) {
-    i += arrow_data_type->num_children();
+    i += arrow_data_type->num_fields();
   }
   if (i < 0) {
     return NULL;
   }
-  if (i >= arrow_data_type->num_children()) {
+  if (i >= arrow_data_type->num_fields()) {
     return NULL;
   }
 
-  auto arrow_field = arrow_data_type->child(i);
+  auto arrow_field = arrow_data_type->field(i);
   if (arrow_field) {
     return garrow_field_new_raw(&arrow_field, nullptr);
   } else {
@@ -278,6 +339,82 @@ garrow_struct_data_type_get_field_index(GArrowStructDataType *struct_data_type,
 }
 
 
+G_DEFINE_TYPE(GArrowMapDataType,
+              garrow_map_data_type,
+              GARROW_TYPE_LIST_DATA_TYPE)
+
+static void
+garrow_map_data_type_init(GArrowMapDataType *object)
+{
+}
+
+static void
+garrow_map_data_type_class_init(GArrowMapDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_map_data_type_new:
+ * @key_type: The key type of the map.
+ * @item_type: The item type of the map.
+ *
+ * Returns: The newly created map data type.
+ *
+ * Since: 0.17.0
+ */
+GArrowMapDataType *
+garrow_map_data_type_new(GArrowDataType *key_type,
+                         GArrowDataType *item_type)
+{
+  auto arrow_key_type = garrow_data_type_get_raw(key_type);
+  auto arrow_item_type = garrow_data_type_get_raw(item_type);
+  auto arrow_data_type = std::make_shared<arrow::MapType>(arrow_key_type,
+                                                          arrow_item_type);
+  auto data_type = g_object_new(GARROW_TYPE_MAP_DATA_TYPE,
+                                "data-type", &arrow_data_type,
+                                NULL);
+  return GARROW_MAP_DATA_TYPE(data_type);
+}
+
+/**
+ * garrow_map_data_type_get_key_type:
+ * @map_data_type: A #GArrowMapDataType.
+ *
+ * Return: (transfer full): The key type of the map.
+ *
+ * Since: 0.17.0
+ */
+GArrowDataType *
+garrow_map_data_type_get_key_type(GArrowMapDataType *map_data_type)
+{
+  auto data_type = GARROW_DATA_TYPE(map_data_type);
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  auto arrow_map_data_type =
+    std::static_pointer_cast<arrow::MapType>(arrow_data_type);
+  auto arrow_key_type = arrow_map_data_type->key_type();
+  return garrow_data_type_new_raw(&arrow_key_type);
+}
+
+/**
+ * garrow_map_data_type_get_item_type:
+ * @map_data_type: A #GArrowMapDataType.
+ *
+ * Return: (transfer full): The item type of the map.
+ *
+ * Since: 0.17.0
+ */
+GArrowDataType *
+garrow_map_data_type_get_item_type(GArrowMapDataType *map_data_type)
+{
+  auto data_type = GARROW_DATA_TYPE(map_data_type);
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  auto arrow_map_data_type =
+    std::static_pointer_cast<arrow::MapType>(arrow_data_type);
+  auto arrow_item_type = arrow_map_data_type->item_type();
+  return garrow_data_type_new_raw(&arrow_item_type);
+}
+
+
 G_DEFINE_ABSTRACT_TYPE(GArrowUnionDataType,
                        garrow_union_data_type,
                        GARROW_TYPE_DATA_TYPE)
@@ -304,7 +441,7 @@ gint
 garrow_union_data_type_get_n_fields(GArrowUnionDataType *union_data_type)
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(union_data_type));
-  return arrow_data_type->num_children();
+  return arrow_data_type->num_fields();
 }
 
 /**
@@ -321,7 +458,7 @@ garrow_union_data_type_get_fields(GArrowUnionDataType *union_data_type)
 {
   auto data_type = GARROW_DATA_TYPE(union_data_type);
   auto arrow_data_type = garrow_data_type_get_raw(data_type);
-  auto arrow_fields = arrow_data_type->children();
+  auto arrow_fields = arrow_data_type->fields();
 
   GList *fields = NULL;
   for (auto arrow_field : arrow_fields) {
@@ -348,16 +485,16 @@ garrow_union_data_type_get_field(GArrowUnionDataType *union_data_type,
   auto arrow_data_type = garrow_data_type_get_raw(data_type);
 
   if (i < 0) {
-    i += arrow_data_type->num_children();
+    i += arrow_data_type->num_fields();
   }
   if (i < 0) {
     return NULL;
   }
-  if (i >= arrow_data_type->num_children()) {
+  if (i >= arrow_data_type->num_fields()) {
     return NULL;
   }
 
-  auto arrow_field = arrow_data_type->child(i);
+  auto arrow_field = arrow_data_type->field(i);
   if (arrow_field) {
     return garrow_field_new_raw(&arrow_field, nullptr);
   } else {
@@ -377,7 +514,7 @@ garrow_union_data_type_get_field(GArrowUnionDataType *union_data_type,
  *
  * Since: 0.12.0
  */
-guint8 *
+gint8 *
 garrow_union_data_type_get_type_codes(GArrowUnionDataType *union_data_type,
                                       gsize *n_type_codes)
 {
@@ -387,7 +524,7 @@ garrow_union_data_type_get_type_codes(GArrowUnionDataType *union_data_type,
 
   const auto arrow_type_codes = arrow_union_data_type->type_codes();
   const auto n = arrow_type_codes.size();
-  auto type_codes = static_cast<guint8 *>(g_new(guint8, n));
+  auto type_codes = static_cast<gint8 *>(g_new(gint8, n));
   for (size_t i = 0; i < n; ++i) {
     type_codes[i] = arrow_type_codes[i];
   }
@@ -420,7 +557,7 @@ garrow_sparse_union_data_type_class_init(GArrowSparseUnionDataTypeClass *klass)
  */
 GArrowSparseUnionDataType *
 garrow_sparse_union_data_type_new(GList *fields,
-                                  guint8 *type_codes,
+                                  gint8 *type_codes,
                                   gsize n_type_codes)
 {
   std::vector<std::shared_ptr<arrow::Field>> arrow_fields;
@@ -430,15 +567,14 @@ garrow_sparse_union_data_type_new(GList *fields,
     arrow_fields.push_back(arrow_field);
   }
 
-  std::vector<uint8_t> arrow_type_codes;
+  std::vector<int8_t> arrow_type_codes;
   for (gsize i = 0; i < n_type_codes; ++i) {
     arrow_type_codes.push_back(type_codes[i]);
   }
 
   auto arrow_data_type =
-    std::make_shared<arrow::UnionType>(arrow_fields,
-                                       arrow_type_codes,
-                                       arrow::UnionMode::SPARSE);
+    std::make_shared<arrow::SparseUnionType>(arrow_fields,
+                                             arrow_type_codes);
   auto data_type = g_object_new(GARROW_TYPE_SPARSE_UNION_DATA_TYPE,
                                 "data-type", &arrow_data_type,
                                 NULL);
@@ -470,7 +606,7 @@ garrow_dense_union_data_type_class_init(GArrowDenseUnionDataTypeClass *klass)
  */
 GArrowDenseUnionDataType *
 garrow_dense_union_data_type_new(GList *fields,
-                                 guint8 *type_codes,
+                                 gint8 *type_codes,
                                  gsize n_type_codes)
 {
   std::vector<std::shared_ptr<arrow::Field>> arrow_fields;
@@ -480,15 +616,14 @@ garrow_dense_union_data_type_new(GList *fields,
     arrow_fields.push_back(arrow_field);
   }
 
-  std::vector<uint8_t> arrow_type_codes;
+  std::vector<int8_t> arrow_type_codes;
   for (gsize i = 0; i < n_type_codes; ++i) {
     arrow_type_codes.push_back(type_codes[i]);
   }
 
   auto arrow_data_type =
-    std::make_shared<arrow::UnionType>(arrow_fields,
-                                       arrow_type_codes,
-                                       arrow::UnionMode::DENSE);
+    std::make_shared<arrow::DenseUnionType>(arrow_fields,
+                                            arrow_type_codes);
   auto data_type = g_object_new(GARROW_TYPE_DENSE_UNION_DATA_TYPE,
                                 "data-type", &arrow_data_type,
                                 NULL);
@@ -513,7 +648,7 @@ garrow_dictionary_data_type_class_init(GArrowDictionaryDataTypeClass *klass)
 /**
  * garrow_dictionary_data_type_new:
  * @index_data_type: The data type of index.
- * @dictionary: The dictionary.
+ * @value_data_type: The data type of dictionary values.
  * @ordered: Whether dictionary contents are ordered or not.
  *
  * Returns: The newly created dictionary data type.
@@ -522,13 +657,13 @@ garrow_dictionary_data_type_class_init(GArrowDictionaryDataTypeClass *klass)
  */
 GArrowDictionaryDataType *
 garrow_dictionary_data_type_new(GArrowDataType *index_data_type,
-                                GArrowArray *dictionary,
+                                GArrowDataType *value_data_type,
                                 gboolean ordered)
 {
   auto arrow_index_data_type = garrow_data_type_get_raw(index_data_type);
-  auto arrow_dictionary = garrow_array_get_raw(dictionary);
+  auto arrow_value_data_type = garrow_data_type_get_raw(value_data_type);
   auto arrow_data_type = arrow::dictionary(arrow_index_data_type,
-                                           arrow_dictionary,
+                                           arrow_value_data_type,
                                            ordered);
   return GARROW_DICTIONARY_DATA_TYPE(garrow_data_type_new_raw(&arrow_data_type));
 }
@@ -552,21 +687,21 @@ garrow_dictionary_data_type_get_index_data_type(GArrowDictionaryDataType *dictio
 }
 
 /**
- * garrow_dictionary_data_type_get_dictionary:
+ * garrow_dictionary_data_type_get_value_data_type:
  * @dictionary_data_type: The #GArrowDictionaryDataType.
  *
- * Returns: (transfer full): The dictionary as #GArrowArray.
+ * Returns: (transfer full): The #GArrowDataType of dictionary values.
  *
- * Since: 0.8.0
+ * Since: 0.14.0
  */
-GArrowArray *
-garrow_dictionary_data_type_get_dictionary(GArrowDictionaryDataType *dictionary_data_type)
+GArrowDataType *
+garrow_dictionary_data_type_get_value_data_type(GArrowDictionaryDataType *dictionary_data_type)
 {
   auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(dictionary_data_type));
   auto arrow_dictionary_data_type =
     std::static_pointer_cast<arrow::DictionaryType>(arrow_data_type);
-  auto arrow_dictionary = arrow_dictionary_data_type->dictionary();
-  return garrow_array_new_raw(&arrow_dictionary);
+  auto arrow_value_data_type = arrow_dictionary_data_type->value_type();
+  return garrow_data_type_new_raw(&arrow_value_data_type);
 }
 
 /**

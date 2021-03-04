@@ -15,15 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ENV_HELPER_H
-#define ENV_HELPER_H
+#pragma once
 
 #include <jni.h>
 
 // class references
 extern jclass configuration_builder_class_;
-
-// method references
-extern jmethodID byte_code_accessor_method_id_;
-
-#endif  // ENV_HELPER_H

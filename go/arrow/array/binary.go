@@ -17,6 +17,9 @@
 package array
 
 import (
+	"bytes"
+	"fmt"
+	"strings"
 	"unsafe"
 
 	"github.com/apache/arrow/go/arrow"
@@ -80,6 +83,24 @@ func (a *Binary) ValueBytes() []byte {
 	return a.valueBytes[a.valueOffsets[beg]:a.valueOffsets[end]]
 }
 
+func (a *Binary) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i := 0; i < a.Len(); i++ {
+		if i > 0 {
+			o.WriteString(" ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString("(null)")
+		default:
+			fmt.Fprintf(o, "%q", a.ValueString(i))
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
+
 func (a *Binary) setData(data *Data) {
 	if len(data.buffers) != 3 {
 		panic("len(data.buffers) != 3")
@@ -95,3 +116,19 @@ func (a *Binary) setData(data *Data) {
 		a.valueOffsets = arrow.Int32Traits.CastFromBytes(valueOffsets.Bytes())
 	}
 }
+
+func arrayEqualBinary(left, right *Binary) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if bytes.Compare(left.Value(i), right.Value(i)) != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+var (
+	_ Interface = (*Binary)(nil)
+)

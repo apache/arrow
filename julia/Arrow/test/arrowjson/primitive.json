@@ -1,0 +1,1890 @@
+{
+  "schema": {
+    "fields": [
+      {
+        "name": "bool_nullable",
+        "type": {
+          "name": "bool"
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "bool_nonnullable",
+        "type": {
+          "name": "bool"
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "int8_nullable",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 8
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "int8_nonnullable",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 8
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "int16_nullable",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 16
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "int16_nonnullable",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 16
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "int32_nullable",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 32
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "int32_nonnullable",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 32
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "int64_nullable",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 64
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "int64_nonnullable",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 64
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "uint8_nullable",
+        "type": {
+          "name": "int",
+          "isSigned": false,
+          "bitWidth": 8
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "uint8_nonnullable",
+        "type": {
+          "name": "int",
+          "isSigned": false,
+          "bitWidth": 8
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "uint16_nullable",
+        "type": {
+          "name": "int",
+          "isSigned": false,
+          "bitWidth": 16
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "uint16_nonnullable",
+        "type": {
+          "name": "int",
+          "isSigned": false,
+          "bitWidth": 16
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "uint32_nullable",
+        "type": {
+          "name": "int",
+          "isSigned": false,
+          "bitWidth": 32
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "uint32_nonnullable",
+        "type": {
+          "name": "int",
+          "isSigned": false,
+          "bitWidth": 32
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "uint64_nullable",
+        "type": {
+          "name": "int",
+          "isSigned": false,
+          "bitWidth": 64
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "uint64_nonnullable",
+        "type": {
+          "name": "int",
+          "isSigned": false,
+          "bitWidth": 64
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "float32_nullable",
+        "type": {
+          "name": "floatingpoint",
+          "precision": "SINGLE"
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "float32_nonnullable",
+        "type": {
+          "name": "floatingpoint",
+          "precision": "SINGLE"
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "float64_nullable",
+        "type": {
+          "name": "floatingpoint",
+          "precision": "DOUBLE"
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "float64_nonnullable",
+        "type": {
+          "name": "floatingpoint",
+          "precision": "DOUBLE"
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "binary_nullable",
+        "type": {
+          "name": "binary"
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "binary_nonnullable",
+        "type": {
+          "name": "binary"
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "utf8_nullable",
+        "type": {
+          "name": "utf8"
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "utf8_nonnullable",
+        "type": {
+          "name": "utf8"
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "fixedsizebinary_19_nullable",
+        "type": {
+          "name": "fixedsizebinary",
+          "byteWidth": 19
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "fixedsizebinary_19_nonnullable",
+        "type": {
+          "name": "fixedsizebinary",
+          "byteWidth": 19
+        },
+        "nullable": false,
+        "children": []
+      },
+      {
+        "name": "fixedsizebinary_120_nullable",
+        "type": {
+          "name": "fixedsizebinary",
+          "byteWidth": 120
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "fixedsizebinary_120_nonnullable",
+        "type": {
+          "name": "fixedsizebinary",
+          "byteWidth": 120
+        },
+        "nullable": false,
+        "children": []
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 7,
+      "columns": [
+        {
+          "name": "bool_nullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            true,
+            false,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "name": "bool_nonnullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            true,
+            true,
+            false,
+            false,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "name": "int8_nullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            0,
+            0,
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            -128,
+            127,
+            -122,
+            28,
+            -83,
+            84,
+            6
+          ]
+        },
+        {
+          "name": "int8_nonnullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            -128,
+            127,
+            70,
+            -103,
+            82,
+            -1,
+            32
+          ]
+        },
+        {
+          "name": "int16_nullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            0,
+            0,
+            1,
+            0,
+            0
+          ],
+          "DATA": [
+            -32768,
+            32767,
+            -28794,
+            -4798,
+            -9144,
+            -6471,
+            -28809
+          ]
+        },
+        {
+          "name": "int16_nonnullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            -32768,
+            32767,
+            -29297,
+            -8851,
+            -7684,
+            22714,
+            16282
+          ]
+        },
+        {
+          "name": "int32_nullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            -2147483648,
+            2147483647,
+            -279511779,
+            789939398,
+            1566952883,
+            459144944,
+            112645645
+          ]
+        },
+        {
+          "name": "int32_nonnullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            -2147483648,
+            2147483647,
+            1460305573,
+            -781342537,
+            -894485209,
+            -611261236,
+            -1733393626
+          ]
+        },
+        {
+          "name": "int64_nullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            "-2147483648",
+            "2147483647",
+            "-1338619198",
+            "1195898730",
+            "-196833435",
+            "65722453",
+            "227331787"
+          ]
+        },
+        {
+          "name": "int64_nonnullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            "-2147483648",
+            "2147483647",
+            "134673412",
+            "-1352599527",
+            "799755210",
+            "-1393335016",
+            "-1401944839"
+          ]
+        },
+        {
+          "name": "uint8_nullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            0,
+            255,
+            120,
+            36,
+            174,
+            74,
+            109
+          ]
+        },
+        {
+          "name": "uint8_nonnullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            0,
+            255,
+            0,
+            157,
+            120,
+            198,
+            153
+          ]
+        },
+        {
+          "name": "uint16_nullable",
+          "count": 7,
+          "VALIDITY": [
+            0,
+            0,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            0,
+            65535,
+            58782,
+            40076,
+            39160,
+            7864,
+            28844
+          ]
+        },
+        {
+          "name": "uint16_nonnullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            0,
+            65535,
+            19124,
+            52442,
+            22182,
+            56048,
+            17204
+          ]
+        },
+        {
+          "name": "uint32_nullable",
+          "count": 7,
+          "VALIDITY": [
+            0,
+            0,
+            1,
+            1,
+            1,
+            0,
+            1
+          ],
+          "DATA": [
+            0,
+            2147483647,
+            919579300,
+            484217231,
+            723422877,
+            219335907,
+            1153201262
+          ]
+        },
+        {
+          "name": "uint32_nonnullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            0,
+            2147483647,
+            1433308719,
+            68323683,
+            1195265875,
+            2106315800,
+            348904267
+          ]
+        },
+        {
+          "name": "uint64_nullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            "0",
+            "2147483647",
+            "731435646",
+            "90213947",
+            "1630338070",
+            "1558676470",
+            "1207455205"
+          ]
+        },
+        {
+          "name": "uint64_nonnullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            "0",
+            "2147483647",
+            "1521875652",
+            "1531293596",
+            "277775570",
+            "618952130",
+            "1948103139"
+          ]
+        },
+        {
+          "name": "float32_nullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            0,
+            0,
+            1,
+            0
+          ],
+          "DATA": [
+            138.786,
+            335.978,
+            868.094,
+            -252.928,
+            433.858,
+            -1044.852,
+            -540.461
+          ]
+        },
+        {
+          "name": "float32_nonnullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            -1645.756,
+            -1634.941,
+            -469.511,
+            489.177,
+            89.502,
+            -1068.882,
+            -1212.052
+          ]
+        },
+        {
+          "name": "float64_nullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            0,
+            1,
+            0
+          ],
+          "DATA": [
+            915.264,
+            45.397,
+            1247.676,
+            724.292,
+            -78.253,
+            -751.91,
+            1169.159
+          ]
+        },
+        {
+          "name": "float64_nonnullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            -404.256,
+            -348.975,
+            273.1,
+            691.512,
+            -448.703,
+            632.765,
+            -1195.87
+          ]
+        },
+        {
+          "name": "binary_nullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            0,
+            0
+          ],
+          "OFFSET": [
+            0,
+            0,
+            5,
+            7,
+            8,
+            14,
+            14,
+            14
+          ],
+          "DATA": [
+            "",
+            "51D99B869B",
+            "F442",
+            "83",
+            "7C2BEBE65E6C",
+            "",
+            ""
+          ]
+        },
+        {
+          "name": "binary_nonnullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "OFFSET": [
+            0,
+            10,
+            14,
+            15,
+            16,
+            17,
+            26,
+            26
+          ],
+          "DATA": [
+            "D6DDC948702117DC0840",
+            "533708DF",
+            "FB",
+            "EA",
+            "44",
+            "BCCD4C61F06C883F73",
+            ""
+          ]
+        },
+        {
+          "name": "utf8_nullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1
+          ],
+          "OFFSET": [
+            0,
+            12,
+            12,
+            12,
+            12,
+            20,
+            27,
+            35
+          ],
+          "DATA": [
+            "\u00b0\u00c2mgw\u20ac\u00b0",
+            "",
+            "",
+            "",
+            "iah6c\u00a36",
+            "rokidwr",
+            "6ja\u00b5fa1"
+          ]
+        },
+        {
+          "name": "utf8_nonnullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "OFFSET": [
+            0,
+            10,
+            19,
+            28,
+            36,
+            44,
+            52,
+            59
+          ],
+          "DATA": [
+            "g\u77e2\u00a3k4c2",
+            "orfbb\u77e2a",
+            "m2k23\u00a3\u00b5",
+            "5rl6\u00f45d",
+            "egijr\u00b0b",
+            "jple\u00b0ch",
+            "rkiw42p"
+          ]
+        },
+        {
+          "name": "fixedsizebinary_19_nullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            "50243F2281B31338EF651FCF9256388A319101",
+            "9BECDDC65F62CFAB152F965E8C5311662E972F",
+            "C7599811DDB43DFD35EAD3D3FB7FAF0AAFB9F2",
+            "619D0F38B15A69CEA060657758CD9F6820C3DE",
+            "C977E16BB93CFE804EB187E0DB4FB5C7E5E613",
+            "2339A0EE888B27EFC693DF65DD717AB624DF0F",
+            "F8F3629704844DAEF6E952A498504192D33913"
+          ]
+        },
+        {
+          "name": "fixedsizebinary_19_nonnullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            "9AD533F0DD44FC7229F465337FDAC9BEF5FACA",
+            "E0EC91C117CC0C3E82BF9B288D7C3A7CB48A2E",
+            "CC930B39BCAA159A659588751DC6EEA7F3F933",
+            "2B236ECB372BF9606EC626C1CFA6928D7D0CE2",
+            "DDF3F3C8D9DAA76406FCF6D6BEA375FF474C0E",
+            "828A465C7EF01C9341782A7421C877718F2282",
+            "FC34EC8BFEEF50D51F04B14DA64D1CD180757A"
+          ]
+        },
+        {
+          "name": "fixedsizebinary_120_nullable",
+          "count": 7,
+          "VALIDITY": [
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            "8B96BE80C69B5CEA1C7535D822E8E8B93D22836318AD95BD33F2502084DF803C94735559F3191BB6D44DCE09BB77F9AF48E1851C0483B47A8EAE37ED92ABC071E46975F17685E9DD44640414E24F9C9F150BD29B0E2CABD4FB235A6D2CD5655D647724520C47AB1FE4DC7D418CDF3F55459E6DDF5B46F726",
+            "ED0007F8435C9848C5F886245DC9C0AF5CA5796136146A967771E50DE82CA664B3C94C5AF0B10C8A6AB36B51D88E761181CEC6B8729FD6EB781255084F3A19F2CE1B0B2469B1E5B41468C125A391AED7313F8D088CB50C1B4090BA34BE96532377215DB8D02740C3577AEAB769CDC11F5C45EEFA54607F95",
+            "E8253141328AE443B2DBC4217FFC251D7C8501924A54071DDEDF06D249F88119161DE1B4CFA929868E965E2EA102BBECA7908180C867F24E5CE1519DD734BC1E8EC77F12D9BF2876077B2A497E03B46B0203FB7BB9173B5A401B4A9D8DA152A13CC5AC218B0BED3131DE47F99909103754CB890104DCB4CD",
+            "EE2CA14099A48D8E69A3EF6FBC20389F83F39692BD5E2490D25542EACB623FB79578CDD66C40A26B7732D1EFD5B5930E851F9E8C1E18C18455DA76D8BDB1562F7C6704F071B7707863AB91C9B3D10B5DB17BB451F3EF1FF1F1F2DD4AC2FB10FE6CB43E8F00EDDC5AF4785E7C4EED05BC5FEA73B9D08FDFB8",
+            "277EB8E2CDCE71E471B8AF106BC682F76FA50F580EA09031E797D68464736EA29C50326845A935E1E8EFE77387B4DC4424DC1AA84834BB07779869BF50059953020034FF201E10CC710C76F87366435FD20AE6292712BB4A746ED0B8D263D3BE2A8E8DE8AF54E0667D04B1F8B3147206C74BECFD010320FC",
+            "784E3DF66A677FD1D5D30EC37B3A9D8E77D876D1FE23EB4EDA9B721CF62D0C1AACBAEE2A4AF953547E472AF6D5F78BAE10D6FA7A2ED19F0C3D716F9C955157245EA7BAED58F6473DD03B6891CAA7AD551B1847A5C196A98716782C4C8479F0ED5BF5E505F01C0A772FA1805E2E7A81BC1409AC4D33CA25C7",
+            "51BD3890033C88951DE28101F9A5B90D77083C4342065B86B5D7057F0E07827E70F398DAD0CF60AEAF30CADF988F6CD096F1B58AC48DBB4928BB0831A10D6180F300CBE31AF3D8388C8AF52EEA5DD317A213DFE69F53516DD90A2EDC015B29E73C07ED04C2DABC2EB63C42C474D26DCC4CBAD785D39533D3"
+          ]
+        },
+        {
+          "name": "fixedsizebinary_120_nonnullable",
+          "count": 7,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            "E6439C34B42D20E636A6263B095E98EE7BFE0B33DFFF009EA4B9A14E15E5C7898D0408BB4FB41E73E50A25DE7210FDAF36B1DC57ACD9516236DE6C2B1D6B22618EE24EE657C4DE5001CF05088BCBDFD3B9B1048329DF8A9DF6AAF7A4747461A11E1A425D9007217C9542B7F93DAA9766338C4276A5D00B79",
+            "D721489C85BF19A80DB99F84C529B900677A8647FFB6704A33914E8A80448E50143E2F7805F54D52B4B5C6920D57023D1B7FC4B8C4720F8768A9455D35F28097709CB8BE7EED669F20FFF7D8A11903AD66C61F1FC4D3761A487010F8164A20C02F7381F08C335DF4EF28E7E07E8CD1956B73C3805728CCF7",
+            "D29C90A96829D519E24EA6E91C59CA3484BCD7E3E7ABD9FEA6358355C67A6F1E903466D1DCCF99ED5205E19C0B3E744827B1F1F4BF1F1438F818482591EC4CED55A21B0F8FE49E18E6CF8BC17920F62710F193A9D7CE786D4FFEA5AB2F86FC375B25239203F9CEF85144252D8D51D953A0AD549D82FF24E1",
+            "665D643C48F33A6DC1C6D2A182F693BE49729C1976886AA5709E10B47992D4AC81682FD815447EC072852A112C5E056B21ACA45C4259DC6101893EF693CC83AB8023D431FD226C30DD9D543004D4655F18F1176B0A216FA425482244AB58E7B35C98E87A67D24723E17FB6009CD7520C1DDD6965F028CECF",
+            "B6F739AA817BF09B1D324D2ED41CAC7BF2BB48DFA36539661EB015619365D109D56DD3B0FC0D6D1F88A3C14D20E130CE3F2AC7544983145B33D0F431556093958077967AC3420545A786C18F3C3C8A3358D5EB4EFE6829F4A7E989810578C9A1B2CEDC6A4154DE1138497E7EF69DCBCC96FC28DD50CAB9B2",
+            "FF506B98BF6FB212E31A785A4B31BF897BBA4043C90FA9BE028183FB7A00B27055D4524EA9996A5CBC8C1A1EFC85D24A88385064245D9F694B504FCAB55A6DA2462FA3A0238990C3EBED78291272520D8C4DF6A8AB930562A0372C15CE02C89CF157819C8C8C1D39767BC413B64587EE41B95145B4C458E3",
+            "EF0D024C1652A39F750EEEDC0C116634A844F238724C6825D30D228DA51CC7CFFA0F249B46A72B3A50C80593D070C91424625A738F810238EBE5DB26B3ED0D3358E3E762EDB538FB7A6CEBEDAA0EC2606061DC7AFD2F2707AC1EE64D25053BCE5351F15C297CC17382C81C1F6AEBBACBB54C6452E0B28F94"
+          ]
+        }
+      ]
+    },
+    {
+      "count": 10,
+      "columns": [
+        {
+          "name": "bool_nullable",
+          "count": 10,
+          "VALIDITY": [
+            0,
+            1,
+            1,
+            1,
+            1,
+            0,
+            1,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            false,
+            false,
+            false,
+            true,
+            true,
+            false,
+            true,
+            true,
+            true,
+            false
+          ]
+        },
+        {
+          "name": "bool_nonnullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            true,
+            true,
+            false,
+            false,
+            true,
+            true,
+            false,
+            true,
+            false,
+            true
+          ]
+        },
+        {
+          "name": "int8_nullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            -128,
+            127,
+            -65,
+            89,
+            -62,
+            -22,
+            -34,
+            65,
+            120,
+            15
+          ]
+        },
+        {
+          "name": "int8_nonnullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            -128,
+            127,
+            123,
+            70,
+            100,
+            -36,
+            113,
+            -108,
+            -6,
+            86
+          ]
+        },
+        {
+          "name": "int16_nullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0
+          ],
+          "DATA": [
+            -32768,
+            32767,
+            9740,
+            -7733,
+            2637,
+            -2516,
+            -17569,
+            11730,
+            -2908,
+            -8593
+          ]
+        },
+        {
+          "name": "int16_nonnullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            -32768,
+            32767,
+            11718,
+            15880,
+            -6679,
+            -22888,
+            23270,
+            18088,
+            20637,
+            -15533
+          ]
+        },
+        {
+          "name": "int32_nullable",
+          "count": 10,
+          "VALIDITY": [
+            0,
+            0,
+            1,
+            1,
+            0,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            -2147483648,
+            2147483647,
+            477524758,
+            -606134564,
+            393807314,
+            -128112077,
+            717176459,
+            -1600977792,
+            978954235,
+            1860414687
+          ]
+        },
+        {
+          "name": "int32_nonnullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            -2147483648,
+            2147483647,
+            -829757574,
+            -578351845,
+            -1348186787,
+            1890352675,
+            1086502698,
+            855304232,
+            181164543,
+            1057305604
+          ]
+        },
+        {
+          "name": "int64_nullable",
+          "count": 10,
+          "VALIDITY": [
+            0,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            0,
+            1,
+            0
+          ],
+          "DATA": [
+            "-2147483648",
+            "2147483647",
+            "794060722",
+            "198709512",
+            "-8995664",
+            "-620701969",
+            "1130202008",
+            "415910253",
+            "-84549711",
+            "1106943323"
+          ]
+        },
+        {
+          "name": "int64_nonnullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            "-2147483648",
+            "2147483647",
+            "674480972",
+            "1486723112",
+            "633112390",
+            "245208998",
+            "-1174152026",
+            "-321990725",
+            "-902510995",
+            "2067119255"
+          ]
+        },
+        {
+          "name": "uint8_nullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            1,
+            0,
+            0,
+            0,
+            1,
+            1,
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            0,
+            255,
+            239,
+            62,
+            105,
+            206,
+            159,
+            158,
+            131,
+            187
+          ]
+        },
+        {
+          "name": "uint8_nonnullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            0,
+            255,
+            228,
+            195,
+            119,
+            246,
+            233,
+            73,
+            227,
+            240
+          ]
+        },
+        {
+          "name": "uint16_nullable",
+          "count": 10,
+          "VALIDITY": [
+            0,
+            1,
+            0,
+            1,
+            0,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            0,
+            65535,
+            45066,
+            6178,
+            34711,
+            47964,
+            27512,
+            44887,
+            24908,
+            55701
+          ]
+        },
+        {
+          "name": "uint16_nonnullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            0,
+            65535,
+            34339,
+            47690,
+            52236,
+            13,
+            16102,
+            11524,
+            57102,
+            29731
+          ]
+        },
+        {
+          "name": "uint32_nullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            0,
+            1,
+            1,
+            0,
+            0
+          ],
+          "DATA": [
+            0,
+            2147483647,
+            1647048552,
+            2065866351,
+            1252022470,
+            1848990303,
+            16726832,
+            597785424,
+            1240213577,
+            867494515
+          ]
+        },
+        {
+          "name": "uint32_nonnullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            0,
+            2147483647,
+            1852519148,
+            672549034,
+            1636451193,
+            2103372287,
+            680709579,
+            969728024,
+            959488127,
+            712543217
+          ]
+        },
+        {
+          "name": "uint64_nullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            1,
+            0,
+            1,
+            0,
+            0,
+            1,
+            1,
+            0,
+            0
+          ],
+          "DATA": [
+            "0",
+            "2147483647",
+            "706989612",
+            "89417634",
+            "753617711",
+            "863868960",
+            "844763261",
+            "1277577256",
+            "520788201",
+            "1438973022"
+          ]
+        },
+        {
+          "name": "uint64_nonnullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            "0",
+            "2147483647",
+            "343654149",
+            "1874151572",
+            "1405305125",
+            "1695099154",
+            "1823719899",
+            "1099199355",
+            "649954155",
+            "1371446104"
+          ]
+        },
+        {
+          "name": "float32_nullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0
+          ],
+          "DATA": [
+            -1963.405,
+            -521.792,
+            -1054.599,
+            -908.552,
+            478.058,
+            689.984,
+            -728.344,
+            -328.966,
+            -992.419,
+            357.03
+          ]
+        },
+        {
+          "name": "float32_nonnullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            -3537.833,
+            887.934,
+            -844.73,
+            -564.775,
+            -1264.466,
+            45.573,
+            -1352.096,
+            -1115.417,
+            62.628,
+            19.499
+          ]
+        },
+        {
+          "name": "float64_nullable",
+          "count": 10,
+          "VALIDITY": [
+            0,
+            1,
+            1,
+            1,
+            0,
+            1,
+            0,
+            1,
+            1,
+            0
+          ],
+          "DATA": [
+            2290.58,
+            1382.481,
+            304.522,
+            919.074,
+            -224.893,
+            941.403,
+            746.143,
+            -945.379,
+            -335.496,
+            -92.736
+          ]
+        },
+        {
+          "name": "float64_nonnullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            1537.239,
+            1200.259,
+            900.506,
+            -183.952,
+            1331.255,
+            2447.965,
+            -394.255,
+            -1930.895,
+            -85.89,
+            -67.091
+          ]
+        },
+        {
+          "name": "binary_nullable",
+          "count": 10,
+          "VALIDITY": [
+            0,
+            1,
+            1,
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            0
+          ],
+          "OFFSET": [
+            0,
+            0,
+            9,
+            11,
+            11,
+            11,
+            13,
+            13,
+            13,
+            13,
+            13
+          ],
+          "DATA": [
+            "",
+            "EA766EF95797A0C9B8",
+            "84D5",
+            "",
+            "",
+            "AD57",
+            "",
+            "",
+            "",
+            ""
+          ]
+        },
+        {
+          "name": "binary_nonnullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "OFFSET": [
+            0,
+            0,
+            1,
+            3,
+            4,
+            6,
+            7,
+            10,
+            12,
+            13,
+            14
+          ],
+          "DATA": [
+            "",
+            "3D",
+            "9E86",
+            "EA",
+            "C091",
+            "AD",
+            "2D3828",
+            "3EE2",
+            "84",
+            "F8"
+          ]
+        },
+        {
+          "name": "utf8_nullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            1,
+            0,
+            1,
+            1,
+            1,
+            1
+          ],
+          "OFFSET": [
+            0,
+            10,
+            10,
+            19,
+            28,
+            39,
+            39,
+            49,
+            59,
+            73,
+            83
+          ],
+          "DATA": [
+            "f5\u77e2jnm\u00a3",
+            "",
+            "lnc\u77e2bbe",
+            "a\u77e2r2pd1",
+            "2d\u00f4\u00c2e\u20acg",
+            "",
+            "\u00b5\u00c2rh\u00c2rn",
+            "g\u00b5e\u00f4h\u00f4r",
+            "\u00a32\u77e2a\u77e2\u00b5\u00c2",
+            "m\u00f4\u00f4\u00b56in"
+          ]
+        },
+        {
+          "name": "utf8_nonnullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "OFFSET": [
+            0,
+            10,
+            19,
+            26,
+            37,
+            46,
+            57,
+            65,
+            77,
+            86,
+            95
+          ],
+          "DATA": [
+            "5j\u00a3n\u77e265",
+            "pdwf\u00f4\u00f45",
+            "ifwnble",
+            "1g\u00c2\u00b0h\u00b0\u00c2",
+            "4e\u00c2fkb\u00c2",
+            "\u00a3\u20ac\u00b55omr",
+            "4f36\u00a3rp",
+            "jhw\u20ac\u20ac\u00f4c",
+            "5r\u77e2wl2h",
+            "6\u77e2bnin1"
+          ]
+        },
+        {
+          "name": "fixedsizebinary_19_nullable",
+          "count": 10,
+          "VALIDITY": [
+            0,
+            0,
+            1,
+            1,
+            1,
+            0,
+            1,
+            0,
+            0,
+            1
+          ],
+          "DATA": [
+            "C85E25A3CCE5865762DCFC6E07E23481189581",
+            "833BACCDA190F764DEDB416EE08B8BC302AB63",
+            "D7573E24B94D3B70E23743918DBE9BA3272FA5",
+            "E3AE2D60B3E7513863A71E78874BE0B714524A",
+            "833E27429BC71A6CBCC0A1349F58112AA5307E",
+            "CB3F3571BCA366F6DA6AD3B182452529BDEA1C",
+            "5B4F8DD3A1694411902AAF6C0087143581B2CB",
+            "D7C308DBC4A59CCD176076941788705CFDA2ED",
+            "D5C307EEE12A6E4D0B2AD848DC52EB252ECDEF",
+            "D778B9EB37E4D5FFC1BF753ABAEB069A5E45E2"
+          ]
+        },
+        {
+          "name": "fixedsizebinary_19_nonnullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            "C75F1645509DC011AB32AC2F576CAE7ECA7B16",
+            "CB8E1A1F0A4B75B4E8E199EE6959E2C0CC64B6",
+            "9D53CFDBD99B04F4FB034256CDDAAC86CD134A",
+            "0B78B4D2F163FC63BF2F36FEC8E9466B79A3C8",
+            "D89F13F6448B6E7FD84B2E19A460AD8E105E31",
+            "CE7121C392A8560257CB0F36A3D4CEFEAA120D",
+            "540FE8D61D90A7B5984B45A082BF2842126253",
+            "97EC73B3236B90B522AAC15817626E0566780D",
+            "3A8B546C8FE7624CD4E1EE8B3E0D77D89D5EC1",
+            "3E601ED2EA586F69F56387556D17512A482A08"
+          ]
+        },
+        {
+          "name": "fixedsizebinary_120_nullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            0,
+            1,
+            1,
+            1,
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            "D49D31D22EB091811343B3B583AE276D5DF5BC8EA636000DE72FCBB3031FBA4D05F433EBC75124D60C56656F5411B3A0E6EECDA4346CF3105F87E7B1DEBF3C6FCF938F07B3C470DDE33436D19C07D9BA128B47554E5276D47C21C715BEF67E3802ECA55BB6759E50F130590ADEDDCD86A958F56C9D077C70",
+            "6AC6110369AFA04648213B52CD109586E85CD77D5B3F262576BC3FF98A9EC90761912FC88940F798CDA6163F3E3D7994285A903470365243F551111621F6350B078CA055001EB406B5A7C07706F2E04B2730A2335D87C151368A160EDBC0C26201EA6441990354ED302894B8ACC1A257D6DE9E17B2564898",
+            "DCE126B0DCB6195E93DC878CAF5F064BAE1184A6DBC06C2C8A1628D019BCEC17411521E3BC58A8ACBC73FCCE887B9D6E45645B7C2100AD624FF6734241676C747A3C6DC61C52D605A379F906C662215DCE3115A7BD1213B6E7F5C9AFF2D6221BFE4C0C4FF4AF9B18BA2E7D425BD8D98C0D7BDA249EA37BA8",
+            "4B18DD4F1927AD7AF60F7C11C982FCCCFD42A17849EA8654A30DDC58C1CBD641C1B70A924EA1F3D2DCF750DBF87B16CBC4E00D9617E88737A22B9F9B7D20F779381A71879FC46D591A7C0426A2BC5FF563C6F33CA0566A6E7D471033961D45F685D403F4E9D3164FE8CF5ECBF131D3EFBA371DAE1C6C2E6B",
+            "33C9DE972AD49D58C52F895B0F81EEE1E819BA427E9197F2DC3F37FD9D6B31E847016B4590BC72C60BA40C89D0647A0064C5192FD917CCBC7351650885DAA03217E8FFA1B568582AC2354499852CDCC17967F3301DE60EAB044A66AD0A0175DCE71229D5ECD83325B0D2A4D75169A38DC11F6504A8CF9F92",
+            "943EA9C4927C15AB07594F7FABFAE47061670FF75663C9B3AF5F08C8EE1523AACA9E631996D3A17644B23DC1CC6FB3157A177340CA9F93FC7D0E2C3BF907EB74AB4C5DE8B49319B86BB9457649360DA39B66BC145721A6BAF056961172EC6C93CB7CBFC9A2C682DBE8A74F8CDC20324CDAB7388480908F18",
+            "00FA841BCDD7C5D584C9C27E3577C7CC3FD1AC6C760B1914D1CBF765418EF21005AB7E065AF3C08424F7CEF98EECAE1694939728B71F750A096B3FF8F78843AC768C37FC7712A075786C7F1FC90AD316D20838693002DEA9B32B5864948709B200FF3E278B578E0B47A1E63583DAB18AABED963207642992",
+            "4DCB937A9E3144A2383FFF5C3EF93EFFD128FC3C131DD9469A2CB0E59DA7EBDBA77AD01A0979B99FBA10055567EDA3CFCA77A515BD1D4D632C6BA9B698813F1C0AFFBEFF227D140407BF5728EC943F9D3833DA1B8D2B5B60398CB219500022B1AB9312273C5275D6282EC4A4E648B6491212B954470CA6BE",
+            "A0BBC95D4894952D2E4945538AF4CE60828A1B94949143EEA065C0917BD5CDDBD68AA838AA1F75EFED37DC7256618C0CA762EE7CF75A287D529ADBFC81FD11A5F75CE23BF27940150E737E73992ACF085F52AE14E02BCEE2D229F20AEB862A8CC3D5881AE4E6267CC8B1EEF1D2AC97D4769CAD14DD4BFB96",
+            "F54B84661C426B3D0E37A455738000E50EF024258EBCE2AA3FEC5AA4E2EC3C48150B56BD44E96658C7CCB6267DB8C5484DA153FBFE0478073720BCBB65927681B36C17AE976568129E3C2FD1CBBDE89DBEE1D461FD7C6DBA455D80DC02A107855C5D04808AA164D85CF1F72EDB153685B2046E12968DB052"
+          ]
+        },
+        {
+          "name": "fixedsizebinary_120_nonnullable",
+          "count": 10,
+          "VALIDITY": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            "383BB0920976B030D92B51AA60DC74922A0EB112955D1D934E19EC0CDE12CAB87C6E069439EB4F9FC105F7250BFE7DD983CC10728B8445735A7E52720FBDCD4AB7113BF52B797A05B187F572A330DABEA5E8DB5698168538775825001E7EB6CA0468F06F623A77AD99E5BB63D90A267AF243D7840B099F2C",
+            "074AC397B235ADA4A90B56B3B37D5148BEA22D6A6746B308DEA7E81A7294AEF6F3C6097A0941CA8DF01147B27040A672D5DCCF073DEB5DC0AC360E083BFB8378D7364EB2E4A09D629264BC9ED28D967184A6710424DC36D80E7D4FF499FA3CF1C0D77117CFB3E5783735F8B00D52A1243521A598F44A139F",
+            "0612AE357E65463291258B15782DA04D8B8F004F4360EB1DAB17FB57B5A5772ECCF419EE132FC94A1C0D00A2C731B887C25CDAF192BE78E6C94145421884243B234DC7A80592E70D6ECCCAEA8C08AEAE2A1AD70D786B039DA894B6FE7996F5BF6EC6670FCBBE7042430D0174D5CA9043DB7B79899A360C94",
+            "FE0A6A2B3A475AF6AA63CE24997BCAFA096B9269DA9368CEBD03444223F2497907FBD66CA071A7BEAA68D76CFD9A507280BF6108303F16558225883351E2FDF88E425DBE6ACEBE29E69CF57E41B74952391DF1B04F80363E3879A1326B9DD2D4AD94092D1FDD8EE574AC69D1F22A1BC1EC7F04BBAEC32AB7",
+            "588F15533772FD3C26415F6DC5DDB98264BEB79868908B6CB216D59A3A227E75F443A448B0D7A405AA248F6A6F049EB247B1826A02DA6F2624E16B0A899056B1D0565429434006CB11D5E3D224CA4AE7A4C19817685CB46DC0BF789AC94BF755A47B4668EBA8898CF85CD0C4F2309E97F0FE25EFB508B635",
+            "5351D21576971DFFDF48693B65895450FC098F21722B44E4CE583E969ACDF47A686AA849B265CECEAAD67CD122C10FBA7069E52326B64FD146054EE8C3F621AF28FFB2127E75FFC99B0E72B72BC615C4E9B7310C088CE5883CF41AC717DABCDF6F140B9933C831CB828EF9C02E02DC35501B527E46B1933C",
+            "6B7D83AB9AC067A38C0F2A95A4B4A3CE63C4731C729C9ED568FDA35D750262B5E7B44809D131F9F7996B2630C6075C083F31736EBA9CBB1CC62A257EBE294C55B750154E004F768EB670F648E17EB5DA40E28350B19070E924001F16846F6BC197897F189E31F30C93D43098DBE39F0EBF2E4A7FD7A25A55",
+            "26C342B09B0D6D690753743D15F78B9F2CDBAF14B95DF0D5BC9D7E1AC0C4416F3852AD0CD3D51610A6B7B6BEC766672E274C971E5692FA9AB982C3C828EA9A270BFB524EDCA50D0E8444540B82752201BDC9BA56CE6A01A04E25D5514C045515FDE12AE0B0A0533AAFD5E5FF18ABD22312DFEC854C496391",
+            "7C6D76970A57EFEC88857971E84675A3EDC47F0B2E1AA20B916601842394BC674F3CF10729DF32D10BC7BE05B74B8F68E24884637F0553A7EC84353C43B4640AC5582EBAF0827D247CE49BC95B74D842E2EE25D80741F80C3019D7EDF58CCB47112C70835F32E538F3664B5625C5FC3C761FE96E329AF03C",
+            "3A97DD53C812EBB096458C9B8E382F9404BB5F1F29FFF7973E15FB547A06F32DAFD300719AEE30E11DF794603B5D196AAAB5BE44A127590388E420367C3F542E6288A1505D83283B63417F9DBD5E2609D436773106940756DDB71910ACFD5FEF8A1F92AD3366E778FD1849C1CB2C0439B6D5719299E59D96"
+          ]
+        }
+      ]
+    }
+  ]
+}

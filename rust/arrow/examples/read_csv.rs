@@ -20,9 +20,10 @@ extern crate arrow;
 use std::fs::File;
 use std::sync::Arc;
 
-use arrow::array::{BinaryArray, Float64Array};
 use arrow::csv;
 use arrow::datatypes::{DataType, Field, Schema};
+#[cfg(feature = "prettyprint")]
+use arrow::util::pretty::print_batches;
 
 fn main() {
     let schema = Schema::new(vec![
@@ -33,39 +34,10 @@ fn main() {
 
     let file = File::open("test/data/uk_cities.csv").unwrap();
 
-    let mut csv = csv::Reader::new(file, Arc::new(schema), false, 1024, None);
-    let batch = csv.next().unwrap().unwrap();
-
-    println!(
-        "Loaded {} rows containing {} columns",
-        batch.num_rows(),
-        batch.num_columns()
-    );
-
-    let city = batch
-        .column(0)
-        .as_any()
-        .downcast_ref::<BinaryArray>()
-        .unwrap();
-    let lat = batch
-        .column(1)
-        .as_any()
-        .downcast_ref::<Float64Array>()
-        .unwrap();
-    let lng = batch
-        .column(2)
-        .as_any()
-        .downcast_ref::<Float64Array>()
-        .unwrap();
-
-    for i in 0..batch.num_rows() {
-        let city_name: String = String::from_utf8(city.value(i).to_vec()).unwrap();
-
-        println!(
-            "City: {}, Latitude: {}, Longitude: {}",
-            city_name,
-            lat.value(i),
-            lng.value(i)
-        );
+    let mut csv = csv::Reader::new(file, Arc::new(schema), false, None, 1024, None, None);
+    let _batch = csv.next().unwrap().unwrap();
+    #[cfg(feature = "prettyprint")]
+    {
+        print_batches(&[_batch]).unwrap();
     }
 }

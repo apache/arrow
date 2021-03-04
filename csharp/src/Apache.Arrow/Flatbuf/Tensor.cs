@@ -8,7 +8,7 @@ namespace Apache.Arrow.Flatbuf
 using global::System;
 using global::FlatBuffers;
 
-public struct Tensor : IFlatbufferObject
+internal struct Tensor : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
@@ -27,7 +27,12 @@ public struct Tensor : IFlatbufferObject
   /// Non-negative byte offsets to advance one value cell along each dimension
   public long Strides(int j) { int o = __p.__offset(10); return o != 0 ? __p.bb.GetLong(__p.__vector(o) + j * 8) : (long)0; }
   public int StridesLength { get { int o = __p.__offset(10); return o != 0 ? __p.__vector_len(o) : 0; } }
+#if ENABLE_SPAN_T
+  public Span<byte> GetStridesBytes() { return __p.__vector_as_span(10); }
+#else
   public ArraySegment<byte>? GetStridesBytes() { return __p.__vector_as_arraysegment(10); }
+#endif
+  public long[] GetStridesArray() { return __p.__vector_as_array<long>(10); }
   /// The location and size of the tensor's data
   public Buffer? Data { get { int o = __p.__offset(12); return o != 0 ? (Buffer?)(new Buffer()).__assign(o + __p.bb_pos, __p.bb) : null; } }
 
@@ -36,9 +41,11 @@ public struct Tensor : IFlatbufferObject
   public static void AddType(FlatBufferBuilder builder, int typeOffset) { builder.AddOffset(1, typeOffset, 0); }
   public static void AddShape(FlatBufferBuilder builder, VectorOffset shapeOffset) { builder.AddOffset(2, shapeOffset.Value, 0); }
   public static VectorOffset CreateShapeVector(FlatBufferBuilder builder, Offset<TensorDim>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
+  public static VectorOffset CreateShapeVectorBlock(FlatBufferBuilder builder, Offset<TensorDim>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
   public static void StartShapeVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
   public static void AddStrides(FlatBufferBuilder builder, VectorOffset stridesOffset) { builder.AddOffset(3, stridesOffset.Value, 0); }
   public static VectorOffset CreateStridesVector(FlatBufferBuilder builder, long[] data) { builder.StartVector(8, data.Length, 8); for (int i = data.Length - 1; i >= 0; i--) builder.AddLong(data[i]); return builder.EndVector(); }
+  public static VectorOffset CreateStridesVectorBlock(FlatBufferBuilder builder, long[] data) { builder.StartVector(8, data.Length, 8); builder.Add(data); return builder.EndVector(); }
   public static void StartStridesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(8, numElems, 8); }
   public static void AddData(FlatBufferBuilder builder, Offset<Buffer> dataOffset) { builder.AddStruct(4, dataOffset.Value, 0); }
   public static Offset<Tensor> EndTensor(FlatBufferBuilder builder) {

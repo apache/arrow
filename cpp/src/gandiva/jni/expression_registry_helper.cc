@@ -20,6 +20,7 @@
 #include <memory>
 
 #include "Types.pb.h"
+#include "arrow/util/logging.h"
 #include "gandiva/arrow.h"
 #include "gandiva/expression_registry.h"
 
@@ -37,61 +38,61 @@ types::TimeUnit MapTimeUnit(arrow::TimeUnit::type& unit) {
     case arrow::TimeUnit::NANO:
       return types::TimeUnit::NANOSEC;
   }
-  // satifsy gcc. should be unreachable.
+  // satisfy gcc. should be unreachable.
   return types::TimeUnit::SEC;
 }
 
 void ArrowToProtobuf(DataTypePtr type, types::ExtGandivaType* gandiva_data_type) {
   switch (type->id()) {
-    case arrow::Type::type::BOOL:
+    case arrow::Type::BOOL:
       gandiva_data_type->set_type(types::GandivaType::BOOL);
       break;
-    case arrow::Type::type::UINT8:
+    case arrow::Type::UINT8:
       gandiva_data_type->set_type(types::GandivaType::UINT8);
       break;
-    case arrow::Type::type::INT8:
+    case arrow::Type::INT8:
       gandiva_data_type->set_type(types::GandivaType::INT8);
       break;
-    case arrow::Type::type::UINT16:
+    case arrow::Type::UINT16:
       gandiva_data_type->set_type(types::GandivaType::UINT16);
       break;
-    case arrow::Type::type::INT16:
+    case arrow::Type::INT16:
       gandiva_data_type->set_type(types::GandivaType::INT16);
       break;
-    case arrow::Type::type::UINT32:
+    case arrow::Type::UINT32:
       gandiva_data_type->set_type(types::GandivaType::UINT32);
       break;
-    case arrow::Type::type::INT32:
+    case arrow::Type::INT32:
       gandiva_data_type->set_type(types::GandivaType::INT32);
       break;
-    case arrow::Type::type::UINT64:
+    case arrow::Type::UINT64:
       gandiva_data_type->set_type(types::GandivaType::UINT64);
       break;
-    case arrow::Type::type::INT64:
+    case arrow::Type::INT64:
       gandiva_data_type->set_type(types::GandivaType::INT64);
       break;
-    case arrow::Type::type::HALF_FLOAT:
+    case arrow::Type::HALF_FLOAT:
       gandiva_data_type->set_type(types::GandivaType::HALF_FLOAT);
       break;
-    case arrow::Type::type::FLOAT:
+    case arrow::Type::FLOAT:
       gandiva_data_type->set_type(types::GandivaType::FLOAT);
       break;
-    case arrow::Type::type::DOUBLE:
+    case arrow::Type::DOUBLE:
       gandiva_data_type->set_type(types::GandivaType::DOUBLE);
       break;
-    case arrow::Type::type::STRING:
+    case arrow::Type::STRING:
       gandiva_data_type->set_type(types::GandivaType::UTF8);
       break;
-    case arrow::Type::type::BINARY:
+    case arrow::Type::BINARY:
       gandiva_data_type->set_type(types::GandivaType::BINARY);
       break;
-    case arrow::Type::type::DATE32:
+    case arrow::Type::DATE32:
       gandiva_data_type->set_type(types::GandivaType::DATE32);
       break;
-    case arrow::Type::type::DATE64:
+    case arrow::Type::DATE64:
       gandiva_data_type->set_type(types::GandivaType::DATE64);
       break;
-    case arrow::Type::type::TIMESTAMP: {
+    case arrow::Type::TIMESTAMP: {
       gandiva_data_type->set_type(types::GandivaType::TIMESTAMP);
       std::shared_ptr<arrow::TimestampType> cast_time_stamp_type =
           std::dynamic_pointer_cast<arrow::TimestampType>(type);
@@ -100,7 +101,7 @@ void ArrowToProtobuf(DataTypePtr type, types::ExtGandivaType* gandiva_data_type)
       gandiva_data_type->set_timeunit(time_unit);
       break;
     }
-    case arrow::Type::type::TIME32: {
+    case arrow::Type::TIME32: {
       gandiva_data_type->set_type(types::GandivaType::TIME32);
       std::shared_ptr<arrow::Time32Type> cast_time_32_type =
           std::dynamic_pointer_cast<arrow::Time32Type>(type);
@@ -109,7 +110,7 @@ void ArrowToProtobuf(DataTypePtr type, types::ExtGandivaType* gandiva_data_type)
       gandiva_data_type->set_timeunit(time_unit);
       break;
     }
-    case arrow::Type::type::TIME64: {
+    case arrow::Type::TIME64: {
       gandiva_data_type->set_type(types::GandivaType::TIME32);
       std::shared_ptr<arrow::Time64Type> cast_time_64_type =
           std::dynamic_pointer_cast<arrow::Time64Type>(type);
@@ -118,22 +119,24 @@ void ArrowToProtobuf(DataTypePtr type, types::ExtGandivaType* gandiva_data_type)
       gandiva_data_type->set_timeunit(time_unit);
       break;
     }
-    case arrow::Type::type::NA:
+    case arrow::Type::NA:
       gandiva_data_type->set_type(types::GandivaType::NONE);
       break;
-    case arrow::Type::type::DECIMAL: {
+    case arrow::Type::DECIMAL: {
       gandiva_data_type->set_type(types::GandivaType::DECIMAL);
       gandiva_data_type->set_precision(0);
       gandiva_data_type->set_scale(0);
       break;
     }
-    case arrow::Type::type::FIXED_SIZE_BINARY:
-    case arrow::Type::type::MAP:
-    case arrow::Type::type::INTERVAL:
-    case arrow::Type::type::LIST:
-    case arrow::Type::type::STRUCT:
-    case arrow::Type::type::UNION:
-    case arrow::Type::type::DICTIONARY:
+    case arrow::Type::INTERVAL_MONTHS:
+      gandiva_data_type->set_type(types::GandivaType::INTERVAL);
+      gandiva_data_type->set_intervaltype(types::IntervalType::YEAR_MONTH);
+      break;
+    case arrow::Type::INTERVAL_DAY_TIME:
+      gandiva_data_type->set_type(types::GandivaType::INTERVAL);
+      gandiva_data_type->set_intervaltype(types::IntervalType::DAY_TIME);
+      break;
+    default:
       // un-supported types. test ensures that
       // when one of these are added build breaks.
       DCHECK(false);
@@ -149,7 +152,7 @@ Java_org_apache_arrow_gandiva_evaluator_ExpressionRegistryJniHelper_getGandivaSu
     types::ExtGandivaType* gandiva_data_type = gandiva_data_types.add_datatype();
     ArrowToProtobuf(type, gandiva_data_type);
   }
-  int size = static_cast<int>(gandiva_data_types.ByteSizeLong());
+  auto size = gandiva_data_types.ByteSizeLong();
   std::unique_ptr<jbyte[]> buffer{new jbyte[size]};
   gandiva_data_types.SerializeToArray(reinterpret_cast<void*>(buffer.get()), size);
   jbyteArray ret = env->NewByteArray(size);
@@ -178,7 +181,7 @@ Java_org_apache_arrow_gandiva_evaluator_ExpressionRegistryJniHelper_getGandivaSu
       ArrowToProtobuf(param_type, proto_param_type);
     }
   }
-  int size = static_cast<int>(gandiva_functions.ByteSizeLong());
+  auto size = gandiva_functions.ByteSizeLong();
   std::unique_ptr<jbyte[]> buffer{new jbyte[size]};
   gandiva_functions.SerializeToArray(reinterpret_cast<void*>(buffer.get()), size);
   jbyteArray ret = env->NewByteArray(size);

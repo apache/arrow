@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_SIMPLE_ARENA_H
-#define GANDIVA_SIMPLE_ARENA_H
+#pragma once
 
 #include <algorithm>
 #include <memory>
@@ -87,7 +86,7 @@ class SimpleArena {
   // buffer from current chunk.
   uint8_t* avail_buf_;
 
-  // List of alloced chunks.
+  // List of allocated chunks.
   std::vector<Chunk> chunks_;
 };
 
@@ -159,5 +158,3 @@ inline void SimpleArena::ReleaseChunks(bool retain_first) {
 }
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_SIMPLE_ARENA_H

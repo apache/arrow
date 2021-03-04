@@ -15,10 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_PRETTY_PRINT_H
-#define ARROW_PRETTY_PRINT_H
+#pragma once
 
-#include <ostream>
+#include <iosfwd>
 #include <string>
 
 #include "arrow/util/visibility.h"
@@ -26,7 +25,6 @@
 namespace arrow {
 
 class Array;
-class Column;
 class ChunkedArray;
 class RecordBatch;
 class Schema;
@@ -34,33 +32,53 @@ class Status;
 class Table;
 
 struct PrettyPrintOptions {
+  PrettyPrintOptions() = default;
+
   PrettyPrintOptions(int indent_arg, int window_arg = 10, int indent_size_arg = 2,
-                     std::string null_rep_arg = "null", bool skip_new_lines_arg = false)
+                     std::string null_rep_arg = "null", bool skip_new_lines_arg = false,
+                     bool truncate_metadata_arg = true)
       : indent(indent_arg),
         indent_size(indent_size_arg),
         window(window_arg),
         null_rep(null_rep_arg),
-        skip_new_lines(skip_new_lines_arg) {}
+        skip_new_lines(skip_new_lines_arg),
+        truncate_metadata(truncate_metadata_arg) {}
+
+  static PrettyPrintOptions Defaults() { return PrettyPrintOptions(); }
 
   /// Number of spaces to shift entire formatted object to the right
-  int indent;
+  int indent = 0;
 
   /// Size of internal indents
-  int indent_size;
+  int indent_size = 2;
 
   /// Maximum number of elements to show at the beginning and at the end.
-  int window;
+  int window = 10;
 
   /// String to use for representing a null value, defaults to "null"
-  std::string null_rep;
+  std::string null_rep = "null";
 
   /// Skip new lines between elements, defaults to false
-  bool skip_new_lines;
+  bool skip_new_lines = false;
+
+  /// Limit display of each KeyValueMetadata key/value pair to a single line at
+  /// 80 character width
+  bool truncate_metadata = true;
+
+  /// If true, display field metadata when pretty-printing a Schema
+  bool show_field_metadata = true;
+
+  /// If true, display schema metadata when pretty-printing a Schema
+  bool show_schema_metadata = true;
 };
 
 /// \brief Print human-readable representation of RecordBatch
 ARROW_EXPORT
 Status PrettyPrint(const RecordBatch& batch, int indent, std::ostream* sink);
+
+ARROW_EXPORT
+Status PrettyPrint(const RecordBatch& batch, const PrettyPrintOptions& options,
+                   std::ostream* sink);
 
 /// \brief Print human-readable representation of Table
 ARROW_EXPORT
@@ -91,11 +109,6 @@ ARROW_EXPORT
 Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& options,
                    std::string* result);
 
-/// \brief Print human-readable representation of Column
-ARROW_EXPORT
-Status PrettyPrint(const Column& column, const PrettyPrintOptions& options,
-                   std::ostream* sink);
-
 ARROW_EXPORT
 Status PrettyPrint(const Schema& schema, const PrettyPrintOptions& options,
                    std::ostream* sink);
@@ -108,5 +121,3 @@ ARROW_EXPORT
 Status DebugPrint(const Array& arr, int indent);
 
 }  // namespace arrow
-
-#endif  // ARROW_PRETTY_PRINT_H

@@ -24,14 +24,17 @@ ParseOptions ParseOptions::Defaults() { return ParseOptions(); }
 
 ConvertOptions ConvertOptions::Defaults() {
   auto options = ConvertOptions();
-  // The default list of possible null spellings is taken from Pandas' read_csv().
+  // Same default null / true / false spellings as in Pandas.
   options.null_values = {"",     "#N/A", "#N/A N/A", "#NA",     "-1.#IND", "-1.#QNAN",
                          "-NaN", "-nan", "1.#IND",   "1.#QNAN", "N/A",     "NA",
                          "NULL", "NaN",  "n/a",      "nan",     "null"};
+  options.true_values = {"1", "True", "TRUE", "true"};
+  options.false_values = {"0", "False", "FALSE", "false"};
   return options;
 }
 
 ReadOptions ReadOptions::Defaults() { return ReadOptions(); }
+WriteOptions WriteOptions::Defaults() { return WriteOptions(); }
 
 }  // namespace csv
 }  // namespace arrow

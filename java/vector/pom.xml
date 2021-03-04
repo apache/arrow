@@ -14,10 +14,11 @@
   <parent>
     <groupId>org.apache.arrow</groupId>
     <artifactId>arrow-java-root</artifactId>
-    <version>0.13.0-SNAPSHOT</version>
+    <version>4.0.0-SNAPSHOT</version>
   </parent>
   <artifactId>arrow-vector</artifactId>
   <name>Arrow Vectors</name>
+  <description>An off-heap reference implementation for Arrow columnar data format.</description>
 
   <dependencies>
 
@@ -28,13 +29,8 @@
     </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
-      <artifactId>arrow-memory</artifactId>
+      <artifactId>arrow-memory-core</artifactId>
       <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>joda-time</groupId>
-      <artifactId>joda-time</artifactId>
-      <version>2.9.9</version>
     </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
@@ -49,18 +45,21 @@
       <artifactId>jackson-databind</artifactId>
     </dependency>
     <dependency>
-      <groupId>com.carrotsearch</groupId>
-      <artifactId>hppc</artifactId>
-      <version>0.7.2</version>
-    </dependency>
-    <dependency>
       <groupId>commons-codec</groupId>
       <artifactId>commons-codec</artifactId>
       <version>1.10</version>
     </dependency>
     <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-buffer</artifactId>
+      <groupId>org.apache.arrow</groupId>
+      <artifactId>arrow-memory-netty</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.arrow</groupId>
+      <artifactId>arrow-memory-unsafe</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
@@ -69,6 +68,7 @@
     <dependency>
       <groupId>com.google.flatbuffers</groupId>
       <artifactId>flatbuffers-java</artifactId>
+      <version>${dep.fbs.version}</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
@@ -76,19 +76,19 @@
     </dependency>
   </dependencies>
 
-    <pluginRepositories>
-        <pluginRepository>
-            <id>apache</id>
-            <name>apache</name>
-            <url>https://repo.maven.apache.org/maven2/</url>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </pluginRepository>
-    </pluginRepositories>
+  <pluginRepositories>
+    <pluginRepository>
+      <id>apache</id>
+      <name>apache</name>
+      <url>https://repo.maven.apache.org/maven2/</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </pluginRepository>
+  </pluginRepositories>
 
   <build>
 
@@ -102,6 +102,47 @@
     </resources>
 
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <enableAssertions>true</enableAssertions>
+          <childDelegation>true</childDelegation>
+          <forkCount>${forkCount}</forkCount>
+          <reuseForks>true</reuseForks>
+          <systemPropertyVariables>
+            <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
+            <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
+            <user.timezone>UTC</user.timezone>
+          </systemPropertyVariables>
+          <!-- Note: changing the below configuration might increase the max allocation size for a vector
+          which in turn can cause OOM. -->
+          <argLine>-Darrow.vector.max_allocation_bytes=1048576</argLine>
+        </configuration>
+        <executions>
+          <execution>
+            <id>default-test</id>
+            <phase>test</phase>
+            <configuration>
+              <classpathDependencyExcludes>
+                <classpathDependencyExclude>org.apache.arrow:arrow-memory-unsafe</classpathDependencyExclude>
+              </classpathDependencyExcludes>
+            </configuration>
+          </execution>
+          <execution>
+            <id>run-unsafe</id>
+            <phase>test</phase>
+            <goals>
+              <goal>test</goal>
+            </goals>
+            <configuration>
+              <classpathDependencyExcludes>
+                <classpathDependencyExclude>org.apache.arrow:arrow-memory-netty</classpathDependencyExclude>
+              </classpathDependencyExcludes>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <artifactId>maven-resources-plugin</artifactId>
         <executions>
@@ -138,6 +179,37 @@
               <config>src/main/codegen/config.fmpp</config>
               <output>${project.build.directory}/generated-sources</output>
               <templates>${project.build.directory}/codegen/templates</templates>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.1.1</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <artifactSet>
+                <includes>
+                  <include>org.apache.arrow:arrow-format</include>
+                  <include>com.google.flatbuffers:*</include>
+                </includes>
+              </artifactSet>
+              <shadedArtifactAttached>true</shadedArtifactAttached>
+              <shadedClassifierName>shade-format-flatbuffers</shadedClassifierName>
+              <keepDependenciesWithProvidedScope>true</keepDependenciesWithProvidedScope>
+              <promoteTransitiveDependencies>true</promoteTransitiveDependencies>
+              <relocations>
+                <relocation>
+                  <pattern>com.google.flatbuffers</pattern>
+                  <shadedPattern>arrow.vector.com.google.flatbuffers</shadedPattern>
+                </relocation>
+              </relocations>
             </configuration>
           </execution>
         </executions>
@@ -181,5 +253,39 @@
   </build>
 
 
+  <profiles>
+    <profile>
+      <!-- This profile turns on integration testing. It activates the failsafe plugin and will run any tests
+      with the 'IT' prefix. This should be run in a separate CI build or on developers machines as it potentially
+      uses quite a bit of memory. Activate the tests by adding -Pintegration-tests to your maven command line -->
+      <id>integration-tests</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <configuration>
+              <forkedProcessTimeoutInSeconds>3600</forkedProcessTimeoutInSeconds>
+              <systemPropertyVariables>
+                <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
+                <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
+                <arrow.memory.debug.allocator>false</arrow.memory.debug.allocator>
+                <user.timezone>UTC</user.timezone>
+              </systemPropertyVariables>
+              <argLine />
+            </configuration>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>integration-test</goal>
+                  <goal>verify</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 
 </project>

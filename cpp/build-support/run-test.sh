@@ -60,24 +60,15 @@ rm -f $LOGFILE $LOGFILE.gz
 
 pipe_cmd=cat
 
-# Allow for collecting core dumps.
-ARROW_TEST_ULIMIT_CORE=${ARROW_TEST_ULIMIT_CORE:-0}
-ulimit -c $ARROW_TEST_ULIMIT_CORE
-
-
 function setup_sanitizers() {
   # Sets environment variables for different sanitizers (it configures how) the run_tests. Function works.
 
   # Configure TSAN (ignored if this isn't a TSAN build).
   #
-  # Deadlock detection (new in clang 3.5) is disabled because:
-  # 1. The clang 3.5 deadlock detector crashes in some unit tests. It
-  #    needs compiler-rt commits c4c3dfd, 9a8efe3, and possibly others.
-  # 2. Many unit tests report lock-order-inversion warnings; they should be
-  #    fixed before reenabling the detector.
-  TSAN_OPTIONS="$TSAN_OPTIONS detect_deadlocks=0"
   TSAN_OPTIONS="$TSAN_OPTIONS suppressions=$ROOT/build-support/tsan-suppressions.txt"
   TSAN_OPTIONS="$TSAN_OPTIONS history_size=7"
+  # Some tests deliberately fail allocating memory
+  TSAN_OPTIONS="$TSAN_OPTIONS allocator_may_return_null=1"
   export TSAN_OPTIONS
 
   UBSAN_OPTIONS="$UBSAN_OPTIONS print_stacktrace=1"
@@ -101,12 +92,14 @@ function run_test() {
   # even when retries are successful.
   rm -f $XMLFILE
 
-  $TEST_EXECUTABLE "$@" 2>&1 \
-    | $ROOT/build-support/asan_symbolize.py \
-    | c++filt \
+  $TEST_EXECUTABLE "$@" > $LOGFILE.raw 2>&1
+  STATUS=$?
+  cat $LOGFILE.raw \
+    | ${PYTHON:-python} $ROOT/build-support/asan_symbolize.py \
+    | ${CXXFILT:-c++filt} \
     | $ROOT/build-support/stacktrace_addr2line.pl $TEST_EXECUTABLE \
     | $pipe_cmd 2>&1 | tee $LOGFILE
-  STATUS=$?
+  rm -f $LOGFILE.raw
 
   # TSAN doesn't always exit with a non-zero exit code due to a bug:
   # mutex errors don't get reported through the normal error reporting infrastructure.
@@ -121,6 +114,42 @@ function run_test() {
     echo ThreadSanitizer or leak check failures in $LOGFILE
     STATUS=1
     rm -f $XMLFILE
+  fi
+}
+
+function print_coredumps() {
+  # The script expects core files relative to the build directory with unique
+  # names per test executable because of the parallel running. So the corefile
+  # patterns must be set with prefix `core.{test-executable}*`:
+  #
+  # In case of macOS:
+  #   sudo sysctl -w kern.corefile=core.%N.%P
+  # On Linux:
+  #   sudo sysctl -w kernel.core_pattern=core.%e.%p
+  #
+  # and the ulimit must be increased:
+  #   ulimit -c unlimited
+
+  # filename is truncated to the first 15 characters in case of linux, so limit
+  # the pattern for the first 15 characters
+  FILENAME=$(basename "${TEST_EXECUTABLE}")
+  FILENAME=$(echo ${FILENAME} | cut -c-15)
+  PATTERN="^core\.${FILENAME}"
+
+  COREFILES=$(ls | grep $PATTERN)
+  if [ -n "$COREFILES" ]; then
+    echo "Found core dump, printing backtrace:"
+
+    for COREFILE in $COREFILES; do
+      # Print backtrace
+      if [ "$(uname)" == "Darwin" ]; then
+        lldb -c "${COREFILE}" --batch --one-line "thread backtrace all -e true"
+      else
+        gdb -c "${COREFILE}" $TEST_EXECUTABLE -ex "thread apply all bt" -ex "set pagination 0" -batch
+      fi
+      # Remove the coredump, regenerate it via running the test case directly
+      rm "${COREFILE}"
+    done
   fi
 }
 
@@ -148,7 +177,7 @@ function run_other() {
 }
 
 if [ $RUN_TYPE = "test" ]; then
-    setup_sanitizers
+  setup_sanitizers
 fi
 
 # Run the actual test.
@@ -200,20 +229,7 @@ if [ $RUN_TYPE = "test" ]; then
   post_process_tests
 fi
 
-# Capture and compress core file and binary.
-COREFILES=$(ls | grep ^core)
-if [ -n "$COREFILES" ]; then
-  echo Found core dump. Saving executable and core files.
-  gzip < $TEST_EXECUTABLE > "$TEST_DEBUGDIR/$TEST_NAME.gz" || exit $?
-  for COREFILE in $COREFILES; do
-    gzip < $COREFILE > "$TEST_DEBUGDIR/$TEST_NAME.$COREFILE.gz" || exit $?
-  done
-  # Pull in any .so files as well.
-  for LIB in $(ldd $TEST_EXECUTABLE | grep $ROOT | awk '{print $3}'); do
-    LIB_NAME=$(basename $LIB)
-    gzip < $LIB > "$TEST_DEBUGDIR/$LIB_NAME.gz" || exit $?
-  done
-fi
+print_coredumps
 
 popd
 rm -Rf $TEST_WORKDIR

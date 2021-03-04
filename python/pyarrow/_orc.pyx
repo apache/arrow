@@ -23,17 +23,16 @@ from cython.operator cimport dereference as deref
 from libcpp.vector cimport vector as std_vector
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.lib cimport (check_status,
+from pyarrow.lib cimport (check_status, _Weakrefable,
                           MemoryPool, maybe_unbox_memory_pool,
                           Schema, pyarrow_wrap_schema,
                           pyarrow_wrap_batch,
                           RecordBatch,
                           pyarrow_wrap_table,
                           get_reader)
-import six
 
 
-cdef class ORCReader:
+cdef class ORCReader(_Weakrefable):
     cdef:
         object source
         CMemoryPool* allocator
@@ -44,7 +43,7 @@ cdef class ORCReader:
 
     def open(self, object source, c_bool use_memory_map=True):
         cdef:
-            shared_ptr[RandomAccessFile] rd_handle
+            shared_ptr[CRandomAccessFile] rd_handle
 
         self.source = source
 

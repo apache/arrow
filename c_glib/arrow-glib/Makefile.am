@@ -55,11 +55,11 @@ libarrow_glib_la_headers =			\
 	buffer.h				\
 	chunked-array.h				\
 	codec.h					\
-	column.h				\
 	composite-array.h			\
 	composite-data-type.h			\
 	data-type.h				\
-	decimal128.h				\
+	datum.h					\
+	decimal.h				\
 	error.h					\
 	field.h					\
 	gobject-type.h				\
@@ -80,12 +80,17 @@ libarrow_glib_la_headers +=			\
 	writable-file.h
 
 libarrow_glib_la_headers +=			\
+	ipc-options.h				\
 	metadata-version.h			\
 	reader.h				\
 	writer.h
 
 libarrow_glib_la_headers +=			\
 	compute.h
+
+libarrow_glib_la_headers +=			\
+	file-system.h				\
+	local-file-system.h
 
 if HAVE_ARROW_ORC
 libarrow_glib_la_headers +=			\
@@ -107,10 +112,10 @@ libarrow_glib_la_sources =			\
 	buffer.cpp				\
 	chunked-array.cpp			\
 	codec.cpp				\
-	column.cpp				\
 	composite-array.cpp			\
 	composite-data-type.cpp			\
-	decimal128.cpp				\
+	datum.cpp				\
+	decimal.cpp				\
 	error.cpp				\
 	field.cpp				\
 	record-batch.cpp			\
@@ -132,12 +137,17 @@ libarrow_glib_la_sources +=			\
 	writable-file.cpp
 
 libarrow_glib_la_sources +=			\
+	ipc-options.cpp				\
 	metadata-version.cpp			\
 	reader.cpp				\
 	writer.cpp
 
 libarrow_glib_la_sources +=			\
 	compute.cpp
+
+libarrow_glib_la_sources +=			\
+	file-system.cpp				\
+	local-file-system.cpp
 
 if HAVE_ARROW_ORC
 libarrow_glib_la_sources +=			\
@@ -153,9 +163,9 @@ libarrow_glib_la_cpp_headers =			\
 	buffer.hpp				\
 	chunked-array.hpp			\
 	codec.hpp				\
-	column.hpp				\
 	data-type.hpp				\
-	decimal128.hpp				\
+	datum.hpp				\
+	decimal.hpp				\
 	error.hpp				\
 	field.hpp				\
 	record-batch.hpp			\
@@ -175,6 +185,7 @@ libarrow_glib_la_cpp_headers +=			\
 	writable-file.hpp
 
 libarrow_glib_la_cpp_headers +=			\
+	ipc-options.hpp				\
 	metadata-version.hpp			\
 	reader.hpp				\
 	writer.hpp
@@ -182,18 +193,27 @@ libarrow_glib_la_cpp_headers +=			\
 libarrow_glib_la_cpp_headers +=			\
 	compute.hpp
 
+libarrow_glib_la_cpp_headers +=			\
+	file-system.hpp				\
+	local-file-system.hpp
+
 if HAVE_ARROW_ORC
 libarrow_glib_la_cpp_headers +=			\
 	orc-file-reader.hpp
 endif
 
+libarrow_glib_la_cpp_internal_headers =		\
+	internal-hash-table.hpp			\
+	internal-index.hpp
+
 libarrow_glib_la_SOURCES =			\
 	$(libarrow_glib_la_sources)		\
-	$(libarrow_glib_la_cpp_headers)
+	$(libarrow_glib_la_cpp_headers)		\
+	$(libarrow_glib_la_cpp_internal_headers)
 
 BUILT_SOURCES =					\
-	$(libarrow_glib_la_genearted_headers)	\
-	$(libarrow_glib_la_genearted_sources)	\
+	$(libarrow_glib_la_generated_headers)	\
+	$(libarrow_glib_la_generated_sources)	\
 	stamp-enums.c				\
 	stamp-enums.h
 

@@ -25,28 +25,48 @@ through jpype. Modules that talk to a remote JVM like py4j will not work as the
 memory addresses reported by them are not reachable in the python process.
 """
 
-
 import pyarrow as pa
 
 
-def jvm_buffer(arrowbuf):
+class _JvmBufferNanny:
     """
-    Construct an Arrow buffer from io.netty.buffer.ArrowBuf
+    An object that keeps a org.apache.arrow.memory.ArrowBuf's underlying
+    memory alive.
+    """
+    ref_manager = None
+
+    def __init__(self, jvm_buf):
+        ref_manager = jvm_buf.getReferenceManager()
+        # Will raise a java.lang.IllegalArgumentException if the buffer
+        # is already freed.  It seems that exception cannot easily be
+        # caught...
+        ref_manager.retain()
+        self.ref_manager = ref_manager
+
+    def __del__(self):
+        if self.ref_manager is not None:
+            self.ref_manager.release()
+
+
+def jvm_buffer(jvm_buf):
+    """
+    Construct an Arrow buffer from org.apache.arrow.memory.ArrowBuf
 
     Parameters
     ----------
 
-    arrowbuf: io.netty.buffer.ArrowBuf
-        Arrow Buffer representation on the JVM
+    jvm_buf: org.apache.arrow.memory.ArrowBuf
+        Arrow Buffer representation on the JVM.
 
     Returns
     -------
     pyarrow.Buffer
-        Python Buffer that references the JVM memory
+        Python Buffer that references the JVM memory.
     """
-    address = arrowbuf.memoryAddress()
-    size = arrowbuf.capacity()
-    return pa.foreign_buffer(address, size, arrowbuf.unwrap())
+    nanny = _JvmBufferNanny(jvm_buf)
+    address = jvm_buf.memoryAddress()
+    size = jvm_buf.capacity()
+    return pa.foreign_buffer(address, size, base=nanny)
 
 
 def _from_jvm_int_type(jvm_type):
@@ -55,29 +75,31 @@ def _from_jvm_int_type(jvm_type):
 
     Parameters
     ----------
-    jvm_type: org.apache.arrow.vector.types.pojo.ArrowType$Int
+    jvm_type : org.apache.arrow.vector.types.pojo.ArrowType$Int
 
     Returns
     -------
-    typ: pyarrow.DataType
+    typ : pyarrow.DataType
     """
-    if jvm_type.isSigned:
-        if jvm_type.bitWidth == 8:
+
+    bit_width = jvm_type.getBitWidth()
+    if jvm_type.getIsSigned():
+        if bit_width == 8:
             return pa.int8()
-        elif jvm_type.bitWidth == 16:
+        elif bit_width == 16:
             return pa.int16()
-        elif jvm_type.bitWidth == 32:
+        elif bit_width == 32:
             return pa.int32()
-        elif jvm_type.bitWidth == 64:
+        elif bit_width == 64:
             return pa.int64()
     else:
-        if jvm_type.bitWidth == 8:
+        if bit_width == 8:
             return pa.uint8()
-        elif jvm_type.bitWidth == 16:
+        elif bit_width == 16:
             return pa.uint16()
-        elif jvm_type.bitWidth == 32:
+        elif bit_width == 32:
             return pa.uint32()
-        elif jvm_type.bitWidth == 64:
+        elif bit_width == 64:
             return pa.uint64()
 
 
@@ -116,16 +138,16 @@ def _from_jvm_time_type(jvm_type):
     """
     time_unit = jvm_type.getUnit().toString()
     if time_unit == 'SECOND':
-        assert jvm_type.bitWidth == 32
+        assert jvm_type.getBitWidth() == 32
         return pa.time32('s')
     elif time_unit == 'MILLISECOND':
-        assert jvm_type.bitWidth == 32
+        assert jvm_type.getBitWidth() == 32
         return pa.time32('ms')
     elif time_unit == 'MICROSECOND':
-        assert jvm_type.bitWidth == 64
+        assert jvm_type.getBitWidth() == 64
         return pa.time64('us')
     elif time_unit == 'NANOSECOND':
-        assert jvm_type.bitWidth == 64
+        assert jvm_type.getBitWidth() == 64
         return pa.time64('ns')
 
 
@@ -143,6 +165,8 @@ def _from_jvm_timestamp_type(jvm_type):
     """
     time_unit = jvm_type.getUnit().toString()
     timezone = jvm_type.getTimezone()
+    if timezone is not None:
+        timezone = str(timezone)
     if time_unit == 'SECOND':
         return pa.timestamp('s', tz=timezone)
     elif time_unit == 'MILLISECOND':
@@ -185,7 +209,7 @@ def field(jvm_field):
     -------
     pyarrow.Field
     """
-    name = jvm_field.getName()
+    name = str(jvm_field.getName())
     jvm_type = jvm_field.getType()
 
     typ = None
@@ -223,10 +247,12 @@ def field(jvm_field):
             "JVM field conversion only implemented for primitive types.")
 
     nullable = jvm_field.isNullable()
-    if jvm_field.getMetadata().isEmpty():
+    jvm_metadata = jvm_field.getMetadata()
+    if jvm_metadata.isEmpty():
         metadata = None
     else:
-        metadata = dict(jvm_field.getMetadata())
+        metadata = {str(entry.getKey()): str(entry.getValue())
+                    for entry in jvm_metadata.entrySet()}
     return pa.field(name, typ, nullable, metadata)
 
 
@@ -245,12 +271,13 @@ def schema(jvm_schema):
     """
     fields = jvm_schema.getFields()
     fields = [field(f) for f in fields]
-    metadata = jvm_schema.getCustomMetadata()
-    if metadata.isEmpty():
-        meta = None
+    jvm_metadata = jvm_schema.getCustomMetadata()
+    if jvm_metadata.isEmpty():
+        metadata = None
     else:
-        meta = {k: metadata[k] for k in metadata.keySet()}
-    return pa.schema(fields, meta)
+        metadata = {str(entry.getKey()): str(entry.getValue())
+                    for entry in jvm_metadata.entrySet()}
+    return pa.schema(fields, metadata)
 
 
 def array(jvm_array):
@@ -271,9 +298,14 @@ def array(jvm_array):
             "Cannot convert JVM Arrow array of type {},"
             " complex types not yet implemented.".format(minor_type_str))
     dtype = field(jvm_array.getField()).type
-    length = jvm_array.getValueCount()
     buffers = [jvm_buffer(buf)
                for buf in list(jvm_array.getBuffers(False))]
+
+    # If JVM has an empty Vector, buffer list will be empty so create manually
+    if len(buffers) == 0:
+        return pa.array([], type=dtype)
+
+    length = jvm_array.getValueCount()
     null_count = jvm_array.getNullCount()
     return pa.Array.from_buffers(dtype, length, buffers, null_count)
 

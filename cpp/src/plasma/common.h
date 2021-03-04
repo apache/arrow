@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef PLASMA_COMMON_H
-#define PLASMA_COMMON_H
+#pragma once
 
 #include <stddef.h>
 
@@ -39,7 +38,24 @@
 
 namespace plasma {
 
-enum class ObjectLocation : int32_t { Local, Remote, Nonexistent };
+enum class ObjectLocation : int32_t { Local, Remote, NotFound };
+
+enum class PlasmaErrorCode : int8_t {
+  PlasmaObjectExists = 1,
+  PlasmaObjectNotFound = 2,
+  PlasmaStoreFull = 3,
+  PlasmaObjectAlreadySealed = 4,
+};
+
+ARROW_EXPORT arrow::Status MakePlasmaError(PlasmaErrorCode code, std::string message);
+/// Return true iff the status indicates an already existing Plasma object.
+ARROW_EXPORT bool IsPlasmaObjectExists(const arrow::Status& status);
+/// Return true iff the status indicates a nonexistent Plasma object.
+ARROW_EXPORT bool IsPlasmaObjectNotFound(const arrow::Status& status);
+/// Return true iff the status indicates an already sealed Plasma object.
+ARROW_EXPORT bool IsPlasmaObjectAlreadySealed(const arrow::Status& status);
+/// Return true iff the status indicates the Plasma store reached its capacity limit.
+ARROW_EXPORT bool IsPlasmaStoreFull(const arrow::Status& status);
 
 constexpr int64_t kUniqueIDSize = 20;
 
@@ -69,7 +85,9 @@ enum class ObjectState : int {
   /// Object was created but not sealed in the local Plasma Store.
   PLASMA_CREATED = 1,
   /// Object is sealed and stored in the local Plasma Store.
-  PLASMA_SEALED
+  PLASMA_SEALED = 2,
+  /// Object is evicted to external store.
+  PLASMA_EVICTED = 3,
 };
 
 namespace internal {
@@ -135,5 +153,3 @@ struct hash<::plasma::UniqueID> {
   size_t operator()(const ::plasma::UniqueID& id) const { return id.hash(); }
 };
 }  // namespace std
-
-#endif  // PLASMA_COMMON_H

@@ -20,17 +20,16 @@
 
 #include "arrow/python/helpers.h"
 
+#include <cmath>
 #include <limits>
 #include <sstream>
 #include <type_traits>
-#include <typeinfo>
 
 #include "arrow/python/common.h"
 #include "arrow/python/decimal.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-
-#include <arrow/api.h>
 
 namespace arrow {
 
@@ -62,6 +61,8 @@ std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
       GET_PRIMITIVE_TYPE(DOUBLE, float64);
       GET_PRIMITIVE_TYPE(BINARY, binary);
       GET_PRIMITIVE_TYPE(STRING, utf8);
+      GET_PRIMITIVE_TYPE(LARGE_BINARY, large_binary);
+      GET_PRIMITIVE_TYPE(LARGE_STRING, large_utf8);
     default:
       return nullptr;
   }
@@ -94,23 +95,15 @@ std::string PyBytes_AsStdString(PyObject* obj) {
 
 Status PyUnicode_AsStdString(PyObject* obj, std::string* out) {
   DCHECK(PyUnicode_Check(obj));
-#if PY_MAJOR_VERSION >= 3
   Py_ssize_t size;
   // The utf-8 representation is cached on the unicode object
   const char* data = PyUnicode_AsUTF8AndSize(obj, &size);
   RETURN_IF_PYERROR();
   *out = std::string(data, size);
   return Status::OK();
-#else
-  OwnedRef bytes_ref(PyUnicode_AsUTF8String(obj));
-  RETURN_IF_PYERROR();
-  *out = PyBytes_AsStdString(bytes_ref.obj());
-  return Status::OK();
-#endif
 }
 
 std::string PyObject_StdStringRepr(PyObject* obj) {
-#if PY_MAJOR_VERSION >= 3
   OwnedRef unicode_ref(PyObject_Repr(obj));
   OwnedRef bytes_ref;
 
@@ -118,44 +111,39 @@ std::string PyObject_StdStringRepr(PyObject* obj) {
     bytes_ref.reset(
         PyUnicode_AsEncodedString(unicode_ref.obj(), "utf8", "backslashreplace"));
   }
-#else
-  OwnedRef bytes_ref(PyObject_Repr(obj));
   if (!bytes_ref) {
     PyErr_Clear();
     std::stringstream ss;
     ss << "<object of type '" << Py_TYPE(obj)->tp_name << "' repr() failed>";
     return ss.str();
   }
-#endif
   return PyBytes_AsStdString(bytes_ref.obj());
 }
 
 Status PyObject_StdStringStr(PyObject* obj, std::string* out) {
   OwnedRef string_ref(PyObject_Str(obj));
   RETURN_IF_PYERROR();
-#if PY_MAJOR_VERSION >= 3
   return PyUnicode_AsStdString(string_ref.obj(), out);
-#else
-  *out = PyBytes_AsStdString(string_ref.obj());
-  return Status::OK();
-#endif
+}
+
+Result<bool> IsModuleImported(const std::string& module_name) {
+  // PyImport_GetModuleDict returns with a borrowed reference
+  OwnedRef key(PyUnicode_FromString(module_name.c_str()));
+  auto is_imported = PyDict_Contains(PyImport_GetModuleDict(), key.obj());
+  RETURN_IF_PYERROR();
+  return is_imported;
 }
 
 Status ImportModule(const std::string& module_name, OwnedRef* ref) {
   PyObject* module = PyImport_ImportModule(module_name.c_str());
   RETURN_IF_PYERROR();
-  DCHECK_NE(module, nullptr) << "unable to import the " << module_name << " module";
   ref->reset(module);
   return Status::OK();
 }
 
-Status ImportFromModule(const OwnedRef& module, const std::string& name, OwnedRef* ref) {
-  /// Assumes that ImportModule was called first
-  DCHECK_NE(module.obj(), nullptr) << "Cannot import from nullptr Python module";
-
-  PyObject* attr = PyObject_GetAttrString(module.obj(), name.c_str());
+Status ImportFromModule(PyObject* module, const std::string& name, OwnedRef* ref) {
+  PyObject* attr = PyObject_GetAttrString(module, name.c_str());
   RETURN_IF_PYERROR();
-  DCHECK_NE(attr, nullptr) << "unable to import the " << name << " object";
   ref->reset(attr);
   return Status::OK();
 }
@@ -174,8 +162,7 @@ Status IntegerOverflowStatus(PyObject* obj, const std::string& overflow_message)
 }
 
 // Extract C signed int from Python object
-template <typename Int,
-          typename std::enable_if<std::is_signed<Int>::value, Int>::type = 0>
+template <typename Int, enable_if_t<std::is_signed<Int>::value, Int> = 0>
 Status CIntFromPythonImpl(PyObject* obj, Int* out, const std::string& overflow_message) {
   static_assert(sizeof(Int) <= sizeof(long long),  // NOLINT
                 "integer type larger than long long");
@@ -205,8 +192,7 @@ Status CIntFromPythonImpl(PyObject* obj, Int* out, const std::string& overflow_m
 }
 
 // Extract C unsigned int from Python object
-template <typename Int,
-          typename std::enable_if<std::is_unsigned<Int>::value, Int>::type = 0>
+template <typename Int, enable_if_t<std::is_unsigned<Int>::value, Int> = 0>
 Status CIntFromPythonImpl(PyObject* obj, Int* out, const std::string& overflow_message) {
   static_assert(sizeof(Int) <= sizeof(unsigned long long),  // NOLINT
                 "integer type larger than unsigned long long");
@@ -264,23 +250,78 @@ template Status CIntFromPython(PyObject*, uint64_t*, const std::string&);
 
 inline bool MayHaveNaN(PyObject* obj) {
   // Some core types can be very quickly type-checked and do not allow NaN values
-#if PYARROW_IS_PY2
-  const int64_t non_nan_tpflags = Py_TPFLAGS_INT_SUBCLASS | Py_TPFLAGS_LONG_SUBCLASS |
-                                  Py_TPFLAGS_LIST_SUBCLASS | Py_TPFLAGS_TUPLE_SUBCLASS |
-                                  Py_TPFLAGS_STRING_SUBCLASS |
-                                  Py_TPFLAGS_UNICODE_SUBCLASS | Py_TPFLAGS_DICT_SUBCLASS |
-                                  Py_TPFLAGS_BASE_EXC_SUBCLASS | Py_TPFLAGS_TYPE_SUBCLASS;
-#else
   const int64_t non_nan_tpflags = Py_TPFLAGS_LONG_SUBCLASS | Py_TPFLAGS_LIST_SUBCLASS |
                                   Py_TPFLAGS_TUPLE_SUBCLASS | Py_TPFLAGS_BYTES_SUBCLASS |
                                   Py_TPFLAGS_UNICODE_SUBCLASS | Py_TPFLAGS_DICT_SUBCLASS |
                                   Py_TPFLAGS_BASE_EXC_SUBCLASS | Py_TPFLAGS_TYPE_SUBCLASS;
-#endif
   return !PyType_HasFeature(Py_TYPE(obj), non_nan_tpflags);
 }
 
 bool PyFloat_IsNaN(PyObject* obj) {
   return PyFloat_Check(obj) && std::isnan(PyFloat_AsDouble(obj));
+}
+
+namespace {
+
+static bool pandas_static_initialized = false;
+
+// Once initialized, these variables hold borrowed references to Pandas static data.
+// We should not use OwnedRef here because Python destructors would be
+// called on a finalized interpreter.
+static PyObject* pandas_NA = nullptr;
+static PyObject* pandas_NaT = nullptr;
+static PyObject* pandas_Timedelta = nullptr;
+static PyObject* pandas_Timestamp = nullptr;
+static PyTypeObject* pandas_NaTType = nullptr;
+
+}  // namespace
+
+void InitPandasStaticData() {
+  // NOTE: This is called with the GIL held.  We needn't (and shouldn't,
+  // to avoid deadlocks) use an additional C++ lock (ARROW-10519).
+  if (pandas_static_initialized) {
+    return;
+  }
+
+  OwnedRef pandas;
+
+  // Import pandas
+  Status s = ImportModule("pandas", &pandas);
+  if (!s.ok()) {
+    return;
+  }
+
+  // Since ImportModule can release the GIL, another thread could have
+  // already initialized the static data.
+  if (pandas_static_initialized) {
+    return;
+  }
+  OwnedRef ref;
+
+  // set NaT sentinel and its type
+  if (ImportFromModule(pandas.obj(), "NaT", &ref).ok()) {
+    pandas_NaT = ref.obj();
+    // PyObject_Type returns a new reference but we trust that pandas.NaT will
+    // outlive our use of this PyObject*
+    pandas_NaTType = Py_TYPE(ref.obj());
+  }
+
+  // retain a reference to Timedelta
+  if (ImportFromModule(pandas.obj(), "Timedelta", &ref).ok()) {
+    pandas_Timedelta = ref.obj();
+  }
+
+  // retain a reference to Timestamp
+  if (ImportFromModule(pandas.obj(), "Timestamp", &ref).ok()) {
+    pandas_Timestamp = ref.obj();
+  }
+
+  // if pandas.NA exists, retain a reference to it
+  if (ImportFromModule(pandas.obj(), "NA", &ref).ok()) {
+    pandas_NA = ref.obj();
+  }
+
+  pandas_static_initialized = true;
 }
 
 bool PandasObjectIsNull(PyObject* obj) {
@@ -290,11 +331,20 @@ bool PandasObjectIsNull(PyObject* obj) {
   if (obj == Py_None) {
     return true;
   }
-  if (PyFloat_IsNaN(obj) ||
+  if (PyFloat_IsNaN(obj) || (pandas_NA && obj == pandas_NA) ||
+      (pandas_NaTType && PyObject_TypeCheck(obj, pandas_NaTType)) ||
       (internal::PyDecimal_Check(obj) && internal::PyDecimal_ISNAN(obj))) {
     return true;
   }
   return false;
+}
+
+bool IsPandasTimedelta(PyObject* obj) {
+  return pandas_Timedelta && PyObject_IsInstance(obj, pandas_Timedelta);
+}
+
+bool IsPandasTimestamp(PyObject* obj) {
+  return pandas_Timestamp && PyObject_IsInstance(obj, pandas_Timestamp);
 }
 
 Status InvalidValue(PyObject* obj, const std::string& why) {
@@ -304,6 +354,13 @@ Status InvalidValue(PyObject* obj, const std::string& why) {
                          Py_TYPE(obj)->tp_name, ": ", why);
 }
 
+Status InvalidType(PyObject* obj, const std::string& why) {
+  std::string obj_as_str;
+  RETURN_NOT_OK(internal::PyObject_StdStringStr(obj, &obj_as_str));
+  return Status::TypeError("Could not convert ", obj_as_str, " with type ",
+                           Py_TYPE(obj)->tp_name, ": ", why);
+}
+
 Status UnboxIntegerAsInt64(PyObject* obj, int64_t* out) {
   if (PyLong_Check(obj)) {
     int overflow = 0;
@@ -311,10 +368,8 @@ Status UnboxIntegerAsInt64(PyObject* obj, int64_t* out) {
     if (overflow) {
       return Status::Invalid("PyLong is too large to fit int64");
     }
-#if PY_MAJOR_VERSION < 3
-  } else if (PyInt_Check(obj)) {
-    *out = static_cast<int64_t>(PyInt_AS_LONG(obj));
-#endif
+  } else if (PyArray_IsScalar(obj, Byte)) {
+    *out = reinterpret_cast<PyByteScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, UByte)) {
     *out = reinterpret_cast<PyUByteScalarObject*>(obj)->obval;
   } else if (PyArray_IsScalar(obj, Short)) {
@@ -371,6 +426,11 @@ Status IntegerScalarToFloat32Safe(PyObject* obj, float* out) {
   }
   *out = static_cast<float>(value);
   return Status::OK();
+}
+
+void DebugPrint(PyObject* obj) {
+  std::string repr = PyObject_StdStringRepr(obj);
+  PySys_WriteStderr("%s\n", repr.c_str());
 }
 
 }  // namespace internal

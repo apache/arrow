@@ -36,7 +36,7 @@ func TestTensor{{.Name}}(t *testing.T) {
 	bld := array.New{{.Name}}Builder(mem)
 	defer bld.Release()
 
-	raw := []{{.Type}}{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+	raw := []{{or .QualifiedType .Type}}{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 	bld.AppendValues(raw, nil)
 
 	arr := bld.New{{.Name}}Array()
@@ -102,7 +102,7 @@ func TestTensor{{.Name}}(t *testing.T) {
 
 	for _, tc := range []struct {
 		i []int64
-		v {{.Type}}
+		v {{or .QualifiedType .Type}}
 	}{
 		{i: []int64{0, 0}, v: 1},
 		{i: []int64{0, 1}, v: 2},

@@ -15,16 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import six
 
-from pyarrow.compat import tobytes
-
-
-cdef class StringBuilder:
+cdef class StringBuilder(_Weakrefable):
     """
-    Builder class for UTF8 strings. This class exposes facilities for
-    incrementally adding string values and building the null bitmap
-    for a pyarrow.Array (type='string').
+    Builder class for UTF8 strings.
+
+    This class exposes facilities for incrementally adding string values and
+    building the null bitmap for a pyarrow.Array (type='string').
     """
     cdef:
         unique_ptr[CStringBuilder] builder
@@ -35,30 +32,31 @@ cdef class StringBuilder:
 
     def append(self, value):
         """
-        Append a single value to the builder. The value can either be a
-        string/bytes object or a null value (np.nan or None).
+        Append a single value to the builder.
+
+        The value can either be a string/bytes object or a null value
+        (np.nan or None).
 
         Parameters
         ----------
         value : string/bytes or np.nan/None
-            The value to append to the string array builder
+            The value to append to the string array builder.
         """
         if value is None or value is np.nan:
             self.builder.get().AppendNull()
-        elif isinstance(value, (six.string_types, six.binary_type)):
+        elif isinstance(value, (bytes, str)):
             self.builder.get().Append(tobytes(value))
         else:
             raise TypeError('StringBuilder only accepts string objects')
 
     def append_values(self, values):
         """
-        Append all the values in an iterable to the string array builder
-        object.
+        Append all the values from an iterable.
 
         Parameters
         ----------
         values : iterable of string/bytes or np.nan/None values
-            The values to append to the string array builder
+            The values to append to the string array builder.
         """
         for value in values:
             self.append(value)

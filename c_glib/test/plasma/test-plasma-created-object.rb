@@ -16,9 +16,12 @@
 # under the License.
 
 class TestPlasmaCreatedObject < Test::Unit::TestCase
+  include Helper::Omittable
+
   def setup
     @store = nil
     omit("Plasma is required") unless defined?(::Plasma)
+    require_gi_bindings(3, 3, 9)
     @store = Helper::PlasmaStore.new
     @store.start
     @client = Plasma::Client.new(@store.socket_path, nil)
@@ -45,7 +48,7 @@ class TestPlasmaCreatedObject < Test::Unit::TestCase
 
   test("#abort") do
     @object.data.set_data(0, @data)
-    assert_raise(Arrow::Error::PlasmaObjectExists) do
+    assert_raise(Arrow::Error::AlreadyExists) do
       @client.create(@id, @data.bytesize, @options)
     end
     @object.abort

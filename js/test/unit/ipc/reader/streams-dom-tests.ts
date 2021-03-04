@@ -110,6 +110,43 @@ import { ArrowIOTestHelper, readableDOMStreamToAsyncIterator } from '../helpers'
         });
     }
 
+    it('readAll() should pipe to separate WhatWG WritableStreams', async () => {
+
+        expect.hasAssertions();
+
+        const tables = [...generateRandomTables([10, 20, 30])];
+
+        const stream = concatStream(tables.map((table, i) =>
+            RecordBatchStreamWriter.writeAll(table).toDOMStream({
+                // Alternate between bytes mode and regular mode because code coverage
+                type: i % 2 === 0 ? 'bytes' : undefined
+            })
+        )) as ReadableStream<Uint8Array>;
+
+        let tableIndex = -1;
+        let reader: RecordBatchReader | undefined;
+
+        for await (reader of RecordBatchReader.readAll(stream)) {
+
+            validateStreamState(reader, stream, false);
+
+            const output = reader
+                .pipeThrough(RecordBatchStreamWriter.throughDOM())
+                .pipeThrough(new TransformStream());
+
+            validateStreamState(reader, output, false, false);
+
+            const sourceTable = tables[++tableIndex];
+            const streamTable = await Table.from(output);
+            expect(streamTable).toEqualTable(sourceTable);
+            expect(output.locked).toBe(false);
+        }
+
+        expect(reader).toBeDefined();
+        validateStreamState(reader!, stream, true);
+        expect(tableIndex).toBe(tables.length - 1);
+    });
+
     it('should not close the underlying WhatWG ReadableStream when reading multiple tables to completion', async () => {
 
         expect.hasAssertions();
@@ -183,7 +220,7 @@ import { ArrowIOTestHelper, readableDOMStreamToAsyncIterator } from '../helpers'
     });
 })();
 
-function validateStreamState(reader: RecordBatchReader, stream: ReadableStream, closed: boolean) {
+function validateStreamState(reader: RecordBatchReader, stream: ReadableStream, closed: boolean, locked = !closed) {
     expect(reader.closed).toBe(closed);
-    expect(stream.locked).toBe(!closed);
+    expect(stream.locked).toBe(locked);
 }

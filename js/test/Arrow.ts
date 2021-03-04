@@ -18,7 +18,7 @@
 /* tslint:disable */
 // Dynamically load an Arrow target build based on command line arguments
 
-import '@mattiasbuelens/web-streams-polyfill';
+import 'web-streams-polyfill';
 
 /* tslint:disable */
 // import this before assigning window global since it does a `typeof window` check
@@ -27,6 +27,13 @@ require('web-stream-tools');
 (<any> global).window = (<any> global).window || global;
 
 // Fix for Jest in node v10.x
+Object.defineProperty(Object, Symbol.hasInstance, {
+    writable: true,
+    configurable: true,
+    value(inst: any) {
+        return inst && inst.constructor && inst.constructor.name === 'Object';
+    }
+});
 Object.defineProperty(ArrayBuffer, Symbol.hasInstance, {
     writable: true,
     configurable: true,

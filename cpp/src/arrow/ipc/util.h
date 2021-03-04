@@ -15,14 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_IPC_UTIL_H
-#define ARROW_IPC_UTIL_H
+#pragma once
 
 #include <cstdint>
-
-#include "arrow/array.h"
-#include "arrow/io/interfaces.h"
-#include "arrow/status.h"
 
 namespace arrow {
 namespace ipc {
@@ -44,5 +39,3 @@ static inline int64_t PaddedLength(int64_t nbytes, int32_t alignment = kArrowAli
 
 }  // namespace ipc
 }  // namespace arrow
-
-#endif  // ARROW_IPC_UTIL_H

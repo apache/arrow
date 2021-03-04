@@ -16,24 +16,124 @@
 # under the License.
 
 #' @include array.R
+#' @include chunked-array.R
+#' @include scalar.R
 
-`arrow::compute::CastOptions` <- R6Class("arrow::compute::CastOptions", inherit = `arrow::Object`)
+call_function <- function(function_name, ..., args = list(...), options = empty_named_list()) {
+  assert_that(is.string(function_name))
+  assert_that(is.list(options), !is.null(names(options)))
+
+  datum_classes <- c("Array", "ChunkedArray", "RecordBatch", "Table", "Scalar")
+  valid_args <- map_lgl(args, ~inherits(., datum_classes))
+  if (!all(valid_args)) {
+    # Lame, just pick one to report
+    first_bad <- min(which(!valid_args))
+    stop("Argument ", first_bad, " is of class ", head(class(args[[first_bad]]), 1), " but it must be one of ", oxford_paste(datum_classes, "or"), call. = FALSE)
+  }
+
+  compute__CallFunction(function_name, args, options)
+}
+
+#' @export
+sum.ArrowDatum <- function(..., na.rm = FALSE) scalar_aggregate("sum", ..., na.rm = na.rm)
+
+#' @export
+mean.ArrowDatum <- function(..., na.rm = FALSE) scalar_aggregate("mean", ..., na.rm = na.rm)
+
+#' @export
+min.ArrowDatum <- function(..., na.rm = FALSE) {
+  scalar_aggregate("min_max", ..., na.rm = na.rm)$GetFieldByName("min")
+}
+
+#' @export
+max.ArrowDatum <- function(..., na.rm = FALSE) {
+  scalar_aggregate("min_max", ..., na.rm = na.rm)$GetFieldByName("max")
+}
+
+scalar_aggregate <- function(FUN, ..., na.rm = FALSE) {
+  a <- collect_arrays_from_dots(list(...))
+  if (!na.rm && a$null_count > 0 && (FUN %in% c("mean", "sum"))) {
+    # Arrow sum/mean function always drops NAs so handle that here
+    # https://issues.apache.org/jira/browse/ARROW-9054
+    return(Scalar$create(NA_real_))
+  }
+
+  call_function(FUN, a, options = list(na.rm = na.rm))
+}
+
+collect_arrays_from_dots <- function(dots) {
+  # Given a list that may contain both Arrays and ChunkedArrays,
+  # return a single ChunkedArray containing all of those chunks
+  # (may return a regular Array if there is only one element in dots)
+  assert_that(all(map_lgl(dots, is.Array)))
+  if (length(dots) == 1) {
+    return(dots[[1]])
+  }
+
+  arrays <- unlist(lapply(dots, function(x) {
+    if (inherits(x, "ChunkedArray")) {
+      x$chunks
+    } else {
+      x
+    }
+  }))
+  ChunkedArray$create(!!!arrays)
+}
+
+#' @export
+unique.ArrowDatum <- function(x, incomparables = FALSE, ...) {
+  call_function("unique", x)
+}
+
+#' `match` for Arrow objects
+#'
+#' `base::match()` is not a generic, so we can't just define Arrow methods for
+#' it. This function exposes the analogous function in the Arrow C++ library.
+#'
+#' @param x `Array` or `ChunkedArray`
+#' @param table `Array`, `ChunkedArray`, or R vector lookup table.
+#' @param ... additional arguments, ignored
+#' @return An `int32`-type `Array` of the same length as `x` with the
+#' (0-based) indexes into `table`.
+#' @export
+match_arrow <- function(x, table, ...) UseMethod("match_arrow")
+
+#' @export
+match_arrow.default <- function(x, table, ...) match(x, table, ...)
+
+#' @export
+match_arrow.ArrowDatum <- function(x, table, ...) {
+  if (!inherits(table, c("Array", "ChunkedArray"))) {
+    table <- Array$create(table)
+  }
+  call_function("index_in_meta_binary", x, table)
+}
+
+#' `table` for Arrow objects
+#'
+#' This function tabulates the values in the array and returns a table of counts.
+#' @param x `Array` or `ChunkedArray`
+#' @return A `StructArray` containing "values" (same type as `x`) and "counts"
+#' `Int64`.
+#' @export
+value_counts <- function(x) {
+  call_function("value_counts", x)
+}
 
 #' Cast options
 #'
-#' @param safe enforce safe conversion
-#' @param allow_int_overflow allow int conversion, `!safe` by default
-#' @param allow_time_truncate allow time truncate, `!safe` by default
-#' @param allow_float_truncate allow float truncate, `!safe` by default
-#'
+#' @param safe logical: enforce safe conversion? Default `TRUE`
+#' @param ... additional cast options, such as `allow_int_overflow`,
+#' `allow_time_truncate`, and `allow_float_truncate`, which are set to `!safe`
+#' by default
+#' @return A list
 #' @export
-cast_options <- function(
-  safe = TRUE,
-  allow_int_overflow = !safe,
-  allow_time_truncate = !safe,
-  allow_float_truncate = !safe
-){
-  shared_ptr(`arrow::compute::CastOptions`,
-    compute___CastOptions__initialize(allow_int_overflow, allow_time_truncate, allow_float_truncate)
+#' @keywords internal
+cast_options <- function(safe = TRUE, ...) {
+  opts <- list(
+    allow_int_overflow = !safe,
+    allow_time_truncate = !safe,
+    allow_float_truncate = !safe
   )
+  modifyList(opts, list(...))
 }

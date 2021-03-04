@@ -17,50 +17,20 @@
 
 extern crate arrow;
 
-use arrow::array::{BinaryArray, Float64Array};
 use arrow::csv;
+#[cfg(feature = "prettyprint")]
+use arrow::util::pretty::print_batches;
 use std::fs::File;
 
 fn main() {
     let file = File::open("test/data/uk_cities_with_headers.csv").unwrap();
     let builder = csv::ReaderBuilder::new()
-        .has_headers(true)
+        .has_header(true)
         .infer_schema(Some(100));
     let mut csv = builder.build(file).unwrap();
-    let batch = csv.next().unwrap().unwrap();
-
-    println!(
-        "Loaded {} rows containing {} columns",
-        batch.num_rows(),
-        batch.num_columns()
-    );
-
-    println!("Inferred schema: {:?}", batch.schema());
-
-    let city = batch
-        .column(0)
-        .as_any()
-        .downcast_ref::<BinaryArray>()
-        .unwrap();
-    let lat = batch
-        .column(1)
-        .as_any()
-        .downcast_ref::<Float64Array>()
-        .unwrap();
-    let lng = batch
-        .column(2)
-        .as_any()
-        .downcast_ref::<Float64Array>()
-        .unwrap();
-
-    for i in 0..batch.num_rows() {
-        let city_name: String = String::from_utf8(city.value(i).to_vec()).unwrap();
-
-        println!(
-            "City: {}, Latitude: {}, Longitude: {}",
-            city_name,
-            lat.value(i),
-            lng.value(i)
-        );
+    let _batch = csv.next().unwrap().unwrap();
+    #[cfg(feature = "prettyprint")]
+    {
+        print_batches(&[_batch]).unwrap();
     }
 }

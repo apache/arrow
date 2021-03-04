@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.arrow.util.VisibleForTesting;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -29,9 +30,14 @@ import org.apache.arrow.vector.ipc.message.ArrowBlock;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowFooter;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.ipc.message.IpcOption;
+import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * {@link ArrowWriter} that writes out a Arrow files (https://arrow.apache.org/docs/format/IPC.html#file-format).
+ */
 public class ArrowFileWriter extends ArrowWriter {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowFileWriter.class);
@@ -40,8 +46,27 @@ public class ArrowFileWriter extends ArrowWriter {
   private final List<ArrowBlock> dictionaryBlocks = new ArrayList<>();
   private final List<ArrowBlock> recordBlocks = new ArrayList<>();
 
+  private Map<String, String> metaData;
+
   public ArrowFileWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
     super(root, provider, out);
+  }
+
+  public ArrowFileWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
+      Map<String, String> metaData) {
+    super(root, provider, out);
+    this.metaData = metaData;
+  }
+
+  public ArrowFileWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
+      IpcOption option) {
+    super(root, provider, out, option);
+  }
+
+  public ArrowFileWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out,
+                         Map<String, String> metaData, IpcOption option) {
+    super(root, provider, out, option);
+    this.metaData = metaData;
   }
 
   @Override
@@ -65,8 +90,13 @@ public class ArrowFileWriter extends ArrowWriter {
 
   @Override
   protected void endInternal(WriteChannel out) throws IOException {
+    if (!option.write_legacy_ipc_format) {
+      out.writeIntLittleEndian(MessageSerializer.IPC_CONTINUATION_TOKEN);
+    }
+    out.writeIntLittleEndian(0);
+
     long footerStart = out.getCurrentPosition();
-    out.write(new ArrowFooter(schema, dictionaryBlocks, recordBlocks), false);
+    out.write(new ArrowFooter(schema, dictionaryBlocks, recordBlocks, metaData, option.metadataVersion), false);
     int footerLength = (int) (out.getCurrentPosition() - footerStart);
     if (footerLength <= 0) {
       throw new InvalidArrowFileException("invalid footer");

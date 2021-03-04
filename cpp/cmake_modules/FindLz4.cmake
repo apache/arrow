@@ -15,39 +15,71 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# - Find LZ4 (lz4.h, liblz4.a, liblz4.so, and liblz4.so.0)
-# This module defines
-#  LZ4_INCLUDE_DIR, directory containing headers
-#  LZ4_SHARED_LIB, path to liblz4 shared library
-#  LZ4_STATIC_LIB, path to liblz4 static library
-#  LZ4_FOUND, whether lz4 has been found
+if(MSVC_TOOLCHAIN AND NOT DEFINED LZ4_MSVC_LIB_PREFIX)
+  set(LZ4_MSVC_LIB_PREFIX "lib")
+endif()
+set(LZ4_LIB_NAME_BASE "${LZ4_MSVC_LIB_PREFIX}lz4")
 
-if( NOT "${LZ4_HOME}" STREQUAL "")
-    file( TO_CMAKE_PATH "${LZ4_HOME}" _native_path )
-    list( APPEND _lz4_roots ${_native_path} )
-elseif ( Lz4_HOME )
-    list( APPEND _lz4_roots ${Lz4_HOME} )
+if(ARROW_LZ4_USE_SHARED)
+  set(LZ4_LIB_NAMES)
+  if(CMAKE_IMPORT_LIBRARY_SUFFIX)
+    list(
+      APPEND
+        LZ4_LIB_NAMES
+        "${CMAKE_IMPORT_LIBRARY_PREFIX}${LZ4_LIB_NAME_BASE}${CMAKE_IMPORT_LIBRARY_SUFFIX}"
+      )
+  endif()
+  list(
+    APPEND
+      LZ4_LIB_NAMES
+      "${CMAKE_SHARED_LIBRARY_PREFIX}${LZ4_LIB_NAME_BASE}${CMAKE_SHARED_LIBRARY_SUFFIX}")
+else()
+  if(MSVC AND NOT DEFINED LZ4_MSVC_STATIC_LIB_SUFFIX)
+    set(LZ4_MSVC_STATIC_LIB_SUFFIX "_static")
+  endif()
+  set(LZ4_STATIC_LIB_SUFFIX "${LZ4_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(LZ4_LIB_NAMES
+      "${CMAKE_STATIC_LIBRARY_PREFIX}${LZ4_LIB_NAME_BASE}${LZ4_STATIC_LIB_SUFFIX}")
 endif()
 
-if (MSVC AND NOT DEFINED LZ4_MSVC_STATIC_LIB_SUFFIX)
-  set(LZ4_MSVC_STATIC_LIB_SUFFIX "_static")
+if(LZ4_ROOT)
+  find_library(LZ4_LIB
+               NAMES ${LZ4_LIB_NAMES}
+               PATHS ${LZ4_ROOT}
+               PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES}
+               NO_DEFAULT_PATH)
+  find_path(LZ4_INCLUDE_DIR
+            NAMES lz4.h
+            PATHS ${LZ4_ROOT}
+            NO_DEFAULT_PATH
+            PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
+
+else()
+  find_package(PkgConfig QUIET)
+  pkg_check_modules(LZ4_PC liblz4)
+  if(LZ4_PC_FOUND)
+    set(LZ4_INCLUDE_DIR "${LZ4_PC_INCLUDEDIR}")
+
+    list(APPEND LZ4_PC_LIBRARY_DIRS "${LZ4_PC_LIBDIR}")
+    find_library(LZ4_LIB
+                 NAMES ${LZ4_LIB_NAMES}
+                 PATHS ${LZ4_PC_LIBRARY_DIRS}
+                 NO_DEFAULT_PATH
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
+  else()
+    find_library(LZ4_LIB
+                 NAMES ${LZ4_LIB_NAMES}
+                 PATH_SUFFIXES ${ARROW_LIBRARY_PATH_SUFFIXES})
+    find_path(LZ4_INCLUDE_DIR NAMES lz4.h PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
+  endif()
 endif()
 
-set(LZ4_STATIC_LIB_SUFFIX
-  "${LZ4_MSVC_STATIC_LIB_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+find_package_handle_standard_args(Lz4 REQUIRED_VARS LZ4_LIB LZ4_INCLUDE_DIR)
 
-set(LZ4_STATIC_LIB_NAME
-  ${CMAKE_STATIC_LIBRARY_PREFIX}lz4${LZ4_STATIC_LIB_SUFFIX})
-
-find_path(LZ4_INCLUDE_DIR NAMES lz4.h
-  PATHS ${_lz4_roots}
-  NO_DEFAULT_PATH
-  PATH_SUFFIXES "include" )
-find_library(LZ4_STATIC_LIB NAMES ${LZ4_STATIC_LIB_NAME} lib${LZ4_STATIC_LIB_NAME}
-  PATHS ${_lz4_roots}
-  NO_DEFAULT_PATH
-  PATH_SUFFIXES "lib" )
-
-include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(LZ4 REQUIRED_VARS
-  LZ4_STATIC_LIB LZ4_INCLUDE_DIR)
+if(Lz4_FOUND)
+  set(Lz4_FOUND TRUE)
+  add_library(LZ4::lz4 UNKNOWN IMPORTED)
+  set_target_properties(LZ4::lz4
+                        PROPERTIES IMPORTED_LOCATION "${LZ4_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${LZ4_INCLUDE_DIR}")
+endif()

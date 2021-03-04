@@ -1,0 +1,121 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: C#
+
+on:
+  push:
+    paths:
+      - '.github/workflows/csharp.yml'
+      - 'ci/scripts/csharp_*'
+      - 'csharp/**'
+  pull_request:
+    paths:
+      - '.github/workflows/csharp.yml'
+      - 'ci/scripts/csharp_*'
+      - 'csharp/**'
+
+jobs:
+
+  ubuntu:
+    name: AMD64 Ubuntu 18.04 C# ${{ matrix.dotnet }}
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        dotnet: ['3.1.x']
+    steps:
+      - name: Install C#
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{ matrix.dotnet }}
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Install Source Link
+        shell: bash
+        run: dotnet tool install --global sourcelink
+      - name: Build
+        shell: bash
+        run: ci/scripts/csharp_build.sh $(pwd)
+      - name: Test
+        shell: bash
+        run: ci/scripts/csharp_test.sh $(pwd)
+
+  windows:
+    name: AMD64 Windows 2019 18.04 C# ${{ matrix.dotnet }}
+    runs-on: windows-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        dotnet: ['3.1.x']
+    steps:
+      - name: Install C#
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{ matrix.dotnet }}
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Install Source Link
+        run: dotnet tool install --global sourcelink
+      - name: Build
+        shell: bash
+        run: ci/scripts/csharp_build.sh $(pwd)
+      - name: Test
+        shell: bash
+        run: ci/scripts/csharp_test.sh $(pwd)
+
+  macos:
+    name: AMD64 MacOS 10.15 C# ${{ matrix.dotnet }}
+    runs-on: macos-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    strategy:
+      fail-fast: false
+      matrix:
+        dotnet: ['3.1.x']
+    steps:
+      - name: Install C#
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{ matrix.dotnet }}
+      - name: Checkout Arrow
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Install Source Link
+        shell: bash
+        run: dotnet tool install --global sourcelink
+      - name: Fetch Submodules and Tags
+        shell: bash
+        run: ci/scripts/util_checkout.sh
+      - name: Build
+        shell: bash
+        run: ci/scripts/csharp_build.sh $(pwd)
+      - name: Test
+        shell: bash
+        run: ci/scripts/csharp_test.sh $(pwd)

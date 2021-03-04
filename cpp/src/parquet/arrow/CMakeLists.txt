@@ -15,10 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ADD_PARQUET_TEST(arrow-schema-test)
-ADD_PARQUET_TEST(arrow-reader-writer-test)
+arrow_install_all_headers("parquet/arrow")
 
-ADD_PARQUET_BENCHMARK(reader-writer-benchmark
-  PREFIX "parquet-arrow")
+if(ARROW_FUZZING)
+  add_executable(parquet-arrow-generate-fuzz-corpus generate_fuzz_corpus.cc)
+  if(ARROW_BUILD_STATIC)
+    target_link_libraries(parquet-arrow-generate-fuzz-corpus parquet_static
+                          arrow_testing_static)
+  else()
+    target_link_libraries(parquet-arrow-generate-fuzz-corpus parquet_shared
+                          arrow_testing_shared)
+  endif()
+endif()
 
-ARROW_INSTALL_ALL_HEADERS("parquet/arrow")
+add_parquet_fuzz_target(fuzz PREFIX "parquet-arrow")

@@ -16,4 +16,11 @@
 # under the License.
 
 [build-system]
-requires = ["setuptools", "wheel", "setuptools_scm", "cython >= 0.27"]
+requires = [
+    "cython >= 0.29",
+    "numpy==1.16.6; python_version<'3.9'",
+    "numpy==1.19.4; python_version>='3.9'",
+    "setuptools",
+    "setuptools_scm",
+    "wheel"
+]

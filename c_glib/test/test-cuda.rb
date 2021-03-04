@@ -17,6 +17,7 @@
 
 class TestCUDA < Test::Unit::TestCase
   include Helper::Buildable
+  include Helper::Omittable
 
   def setup
     omit("Arrow CUDA is required") unless defined?(::ArrowCUDA)
@@ -47,6 +48,7 @@ class TestCUDA < Test::Unit::TestCase
     end
 
     def test_export
+      require_gi_bindings(3, 3, 9)
       @buffer.copy_from_host("Hello World")
       handle = @buffer.export
       serialized_handle = handle.serialize.data
@@ -77,18 +79,31 @@ end
                    @buffer.context.allocated_size)
     end
 
-    def test_record_batch
-      field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
-      schema = Arrow::Schema.new([field])
-      columns = [
-        build_boolean_array([true]),
-      ]
-      cpu_record_batch = Arrow::RecordBatch.new(schema, 1, columns)
+    sub_test_case("#read_record_batch") do
+      def setup
+        super
+        @field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
+        @schema = Arrow::Schema.new([@field])
+        @columns = [
+          build_boolean_array([true]),
+        ]
+        @cpu_record_batch = Arrow::RecordBatch.new(@schema, 1, @columns)
 
-      buffer = ArrowCUDA::Buffer.new(@context, cpu_record_batch)
-      gpu_record_batch = buffer.read_record_batch(schema)
-      assert_equal(cpu_record_batch.n_rows,
-                   gpu_record_batch.n_rows)
+        @buffer = ArrowCUDA::Buffer.new(@context, @cpu_record_batch)
+      end
+
+      def test_default
+        gpu_record_batch = @buffer.read_record_batch(@schema)
+        assert_equal(@cpu_record_batch.n_rows,
+                     gpu_record_batch.n_rows)
+      end
+
+      def test_options
+        options = Arrow::ReadOptions.new
+        gpu_record_batch = @buffer.read_record_batch(@schema, options)
+        assert_equal(@cpu_record_batch.n_rows,
+                     gpu_record_batch.n_rows)
+      end
     end
   end
 

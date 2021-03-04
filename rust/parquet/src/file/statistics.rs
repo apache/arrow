@@ -44,6 +44,7 @@ use parquet_format::Statistics as TStatistics;
 
 use crate::basic::Type;
 use crate::data_type::*;
+use crate::util::bit_util::from_ne_slice;
 
 // Macro to generate methods create Statistics.
 macro_rules! statistics_new_func {
@@ -148,23 +149,11 @@ pub fn from_thrift(
                     // min/max statistics for INT96 columns.
                     let min = min.map(|data| {
                         assert_eq!(data.len(), 12);
-                        unsafe {
-                            let raw = ::std::slice::from_raw_parts(
-                                data.as_ptr() as *mut u32,
-                                3,
-                            );
-                            Int96::from(Vec::from(raw))
-                        }
+                        from_ne_slice::<Int96>(&data)
                     });
                     let max = max.map(|data| {
                         assert_eq!(data.len(), 12);
-                        unsafe {
-                            let raw = ::std::slice::from_raw_parts(
-                                data.as_ptr() as *mut u32,
-                                3,
-                            );
-                            Int96::from(Vec::from(raw))
-                        }
+                        from_ne_slice::<Int96>(&data)
                     });
                     Statistics::int96(min, max, distinct_count, null_count, old_format)
                 }
@@ -183,15 +172,15 @@ pub fn from_thrift(
                     old_format,
                 ),
                 Type::BYTE_ARRAY => Statistics::byte_array(
-                    min.map(|data| ByteArray::from(data)),
-                    max.map(|data| ByteArray::from(data)),
+                    min.map(ByteArray::from),
+                    max.map(ByteArray::from),
                     distinct_count,
                     null_count,
                     old_format,
                 ),
                 Type::FIXED_LEN_BYTE_ARRAY => Statistics::fixed_len_byte_array(
-                    min.map(|data| ByteArray::from(data)),
-                    max.map(|data| ByteArray::from(data)),
+                    min.map(ByteArray::from).map(FixedLenByteArray::from),
+                    max.map(ByteArray::from).map(FixedLenByteArray::from),
                     distinct_count,
                     null_count,
                     old_format,
@@ -206,11 +195,7 @@ pub fn from_thrift(
 
 // Convert Statistics into Thrift definition.
 pub fn to_thrift(stats: Option<&Statistics>) -> Option<TStatistics> {
-    if stats.is_none() {
-        return None;
-    }
-
-    let stats = stats.unwrap();
+    let stats = stats?;
 
     let mut thrift_stats = TStatistics {
         max: None,
@@ -247,7 +232,7 @@ pub fn to_thrift(stats: Option<&Statistics>) -> Option<TStatistics> {
 }
 
 /// Statistics for a column chunk and data page.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Statistics {
     Boolean(TypedStatistics<BoolType>),
     Int32(TypedStatistics<Int32Type>),
@@ -274,14 +259,18 @@ impl Statistics {
 
     statistics_new_func![byte_array, Option<ByteArray>, ByteArray];
 
-    statistics_new_func![fixed_len_byte_array, Option<ByteArray>, FixedLenByteArray];
+    statistics_new_func![
+        fixed_len_byte_array,
+        Option<FixedLenByteArray>,
+        FixedLenByteArray
+    ];
 
     /// Returns `true` if statistics have old `min` and `max` fields set.
     /// This means that the column order is likely to be undefined, which, for old files
     /// could mean a signed sort order of values.
     ///
-    /// Refer to [`ColumnOrder`](`::basic::ColumnOrder`) and
-    /// [`SortOrder`](`::basic::SortOrder`) for more information.
+    /// Refer to [`ColumnOrder`](crate::basic::ColumnOrder) and
+    /// [`SortOrder`](crate::basic::SortOrder) for more information.
     pub fn is_min_max_deprecated(&self) -> bool {
         statistics_enum_func![self, is_min_max_deprecated]
     }
@@ -352,6 +341,7 @@ impl fmt::Display for Statistics {
 }
 
 /// Typed implementation for [`Statistics`].
+#[derive(Clone)]
 pub struct TypedStatistics<T: DataType> {
     min: Option<T::T>,
     max: Option<T::T>,
@@ -438,12 +428,12 @@ impl<T: DataType> fmt::Display for TypedStatistics<T> {
         write!(f, "{{")?;
         write!(f, "min: ")?;
         match self.min {
-            Some(ref value) => self.value_fmt(f, value)?,
+            Some(ref value) => write!(f, "{}", value)?,
             None => write!(f, "N/A")?,
         }
         write!(f, ", max: ")?;
         match self.max {
-            Some(ref value) => self.value_fmt(f, value)?,
+            Some(ref value) => write!(f, "{}", value)?,
             None => write!(f, "N/A")?,
         }
         write!(f, ", distinct_count: ")?;
@@ -479,37 +469,6 @@ impl<T: DataType> cmp::PartialEq for TypedStatistics<T> {
             && self.distinct_count == other.distinct_count
             && self.null_count == other.null_count
             && self.is_min_max_deprecated == other.is_min_max_deprecated
-    }
-}
-
-/// Trait to provide a specific write format for values.
-/// For example, we should display vector slices for byte array types, and original
-/// values for other types.
-trait ValueDisplay<T: DataType> {
-    fn value_fmt(&self, f: &mut fmt::Formatter, value: &T::T) -> fmt::Result;
-}
-
-impl<T: DataType> ValueDisplay<T> for TypedStatistics<T> {
-    default fn value_fmt(&self, f: &mut fmt::Formatter, value: &T::T) -> fmt::Result {
-        write!(f, "{:?}", value)
-    }
-}
-
-impl ValueDisplay<Int96Type> for TypedStatistics<Int96Type> {
-    fn value_fmt(&self, f: &mut fmt::Formatter, value: &Int96) -> fmt::Result {
-        write!(f, "{:?}", value.data())
-    }
-}
-
-impl ValueDisplay<ByteArrayType> for TypedStatistics<ByteArrayType> {
-    fn value_fmt(&self, f: &mut fmt::Formatter, value: &ByteArray) -> fmt::Result {
-        write!(f, "{:?}", value.data())
-    }
-}
-
-impl ValueDisplay<FixedLenByteArrayType> for TypedStatistics<FixedLenByteArrayType> {
-    fn value_fmt(&self, f: &mut fmt::Formatter, value: &ByteArray) -> fmt::Result {
-        write!(f, "{:?}", value.data())
     }
 }
 
@@ -643,8 +602,8 @@ mod tests {
                 0,
                 true
             ) != Statistics::fixed_len_byte_array(
-                Some(ByteArray::from(vec![1, 2, 3])),
-                Some(ByteArray::from(vec![1, 2, 3])),
+                Some(ByteArray::from(vec![1, 2, 3]).into()),
+                Some(ByteArray::from(vec![1, 2, 3]).into()),
                 None,
                 0,
                 true
@@ -694,8 +653,8 @@ mod tests {
         check_stats(Statistics::byte_array(None, None, None, 7, true));
 
         check_stats(Statistics::fixed_len_byte_array(
-            Some(ByteArray::from(vec![1, 2, 3])),
-            Some(ByteArray::from(vec![3, 4, 5])),
+            Some(ByteArray::from(vec![1, 2, 3]).into()),
+            Some(ByteArray::from(vec![3, 4, 5]).into()),
             None,
             7,
             true,

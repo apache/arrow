@@ -15,18 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Row } from './row';
-import { Vector } from '../vector';
+import { StructRow } from './row';
 import { BaseVector } from './base';
-import { DataType, Map_, Struct } from '../type';
+import { DataType, Struct } from '../type';
 
+/** @ignore */ const kRowIndex = Symbol.for('rowIndex');
+/** @ignore */
 export class StructVector<T extends { [key: string]: DataType } = any> extends BaseVector<Struct<T>> {
-    public asMap(keysSorted: boolean = false) {
-        return Vector.new(this.data.clone(new Map_(this.type.children, keysSorted)));
-    }
     // @ts-ignore
-    private _rowProxy: Row<T>;
-    public get rowProxy(): Row<T> {
-        return this._rowProxy || (this._rowProxy = Row.new<T>(this.type.children || [], false));
+    private _row: StructRow<T>;
+    public bind(index: number): Struct<T>['TValue'] {
+        const proto = this._row || (this._row = new StructRow<T>(this));
+        const bound = Object.create(proto);
+        bound[kRowIndex] = index;
+        return bound;
     }
 }

@@ -46,6 +46,9 @@ import org.apache.commons.cli.PosixParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Application for cross language integration testing.
+ */
 public class Integration {
   private static final Logger LOGGER = LoggerFactory.getLogger(Integration.class);
   private final Options options;
@@ -58,6 +61,9 @@ public class Integration {
         .values()));
   }
 
+  /**
+   *  Main method.
+   */
   public static void main(String[] args) {
     try {
       new Integration().run(args);
@@ -121,6 +127,9 @@ public class Integration {
     }
   }
 
+  /**
+   * Commands (actions) the application can perform.
+   */
   enum Command {
     ARROW_TO_JSON(true, false) {
       @Override

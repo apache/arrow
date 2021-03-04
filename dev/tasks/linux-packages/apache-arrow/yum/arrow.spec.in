@@ -1,0 +1,828 @@
+# -*- sh-shell: rpm -*-
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+%define _centos_ver %{?centos_ver:%{centos_ver}}%{!?centos_ver:8}
+
+%define boost_version %( \
+  if [ "%{_centos_ver}" = 7 ]; then \
+    echo 169; \
+  fi)
+%define cmake_version %( \
+  if [ "%{_centos_ver}" -lt 8 ]; then \
+    echo 3; \
+  fi)
+%define python_version %( \
+  if [ "%{_centos_ver}" = 7 ]; then \
+    echo 36; \
+  else \
+    echo 3; \
+  fi)
+
+%define use_flight (%{_centos_ver} >= 8)
+%define use_gandiva (%{_centos_ver} >= 8 && %{_arch} != "aarch64")
+%define use_mimalloc (%{_centos_ver} >= 8)
+%define use_ninja (%{_centos_ver} >= 8)
+# TODO: Enable this. This works on local but is fragile on GitHub Actions and
+# Travis CI.
+# %define use_s3 (%{_centos_ver} >= 8)
+%define use_s3 0
+
+%define use_meson (%{_centos_ver} >= 8)
+
+%define have_rapidjson (%{_centos_ver} == 7)
+%define have_re2 (%{_centos_ver} >= 8)
+%define have_utf8proc (%{_centos_ver} == 7)
+
+Name:		@PACKAGE@
+Version:	@VERSION@
+Release:	@RELEASE@%{?dist}
+Summary:	Apache Arrow is a data processing library for analysis
+
+License:	Apache-2.0
+URL:		https://arrow.apache.org/
+Source0:	https://dist.apache.org/repos/dist/release/@PACKAGE@/@PACKAGE@-%{version}/apache-@PACKAGE@-%{version}.tar.gz
+
+BuildRequires:	bison
+BuildRequires:	boost%{boost_version}-devel
+BuildRequires:	brotli-devel
+BuildRequires:	bzip2-devel
+BuildRequires:	cmake%{cmake_version}
+%if %{use_s3}
+BuildRequires:	curl-devel
+%endif
+BuildRequires:	flex
+BuildRequires:	gcc-c++
+BuildRequires:	gflags-devel
+BuildRequires:	git
+BuildRequires:	glog-devel
+BuildRequires:	libzstd-devel
+BuildRequires:	lz4-devel
+BuildRequires:	openssl-devel
+BuildRequires:	pkgconfig
+BuildRequires:	python%{python_version}-devel
+BuildRequires:	python%{python_version}-numpy
+%if %{have_rapidjson}
+BuildRequires:	rapidjson-devel
+%endif
+%if %{have_re2}
+BuildRequires:	re2-devel
+%endif
+BuildRequires:	snappy-devel
+%if %{have_utf8proc}
+BuildRequires:	utf8proc-devel
+%endif
+BuildRequires:	zlib-devel
+
+%if %{use_gandiva}
+BuildRequires:	llvm-devel
+BuildRequires:	ncurses-devel
+%endif
+
+%if !%{use_meson}
+BuildRequires:	autoconf-archive
+%endif
+BuildRequires:	gobject-introspection-devel
+BuildRequires:	gtk-doc
+
+%description
+Apache Arrow is a data processing library for analysis.
+
+%prep
+%setup -q -n apache-@PACKAGE@-%{version}
+
+%build
+cpp_build_type=release
+mkdir cpp/build
+cd cpp/build
+%cmake3 .. \
+%if %{use_flight}
+  -DARROW_FLIGHT=ON \
+%endif
+%if %{use_gandiva}
+  -DARROW_GANDIVA=ON \
+%endif
+%if %{use_mimalloc}
+  -DARROW_MIMALLOC=ON \
+%endif
+  -DARROW_ORC=ON \
+  -DARROW_PARQUET=ON \
+  -DARROW_PLASMA=ON \
+  -DARROW_PYTHON=ON \
+%if %{use_s3}
+  -DARROW_S3=ON \
+%endif
+  -DARROW_WITH_BROTLI=ON \
+  -DARROW_WITH_BZ2=ON \
+  -DARROW_WITH_LZ4=ON \
+  -DARROW_WITH_SNAPPY=ON \
+  -DARROW_WITH_ZLIB=ON \
+  -DARROW_WITH_ZSTD=ON \
+  -DCMAKE_BUILD_TYPE=$cpp_build_type \
+  -DCMAKE_UNITY_BUILD=ON \
+  -DPARQUET_REQUIRE_ENCRYPTION=ON \
+  -DPythonInterp_FIND_VERSION=ON \
+  -DPythonInterp_FIND_VERSION_MAJOR=3 \
+%if %{use_ninja}
+  -GNinja
+%endif
+
+%if %{use_ninja}
+ninja %{?_smp_mflags}
+%else
+make %{?_smp_mflags}
+%endif
+cd -
+
+cd c_glib
+%if %{use_meson}
+pip3 install meson
+meson setup build \
+  --default-library=both \
+  --libdir=%{_libdir} \
+  --prefix=%{_prefix} \
+  -Darrow_cpp_build_dir=../cpp/build \
+  -Darrow_cpp_build_type=$cpp_build_type \
+  -Dgtk_doc=true
+LD_LIBRARY_PATH=$PWD/../cpp/build/$cpp_build_type ninja -C build %{?_smp_mflags}
+%else
+./autogen.sh
+%configure \
+  --with-arrow-cpp-build-dir=$PWD/../cpp/build \
+  --with-arrow-cpp-build-type=$cpp_build_type \
+  --enable-gtk-doc
+sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
+sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
+ld_library_path=$PWD/arrow-glib/.libs/
+ld_library_path=$ld_library_path:$PWD/arrow-dataset-glib/.libs/
+ld_library_path=$ld_library_path:$PWD/parquet-glib/.libs/
+ld_library_path=$ld_library_path:$PWD/plasma-glib/.libs/
+ld_library_path=$ld_library_path:$PWD/../cpp/build/$cpp_build_type
+LD_LIBRARY_PATH=$ld_library_path make %{?_smp_mflags}
+%endif
+cd -
+
+%install
+cpp_build_type=release
+
+cd c_glib
+%if %{use_meson}
+DESTDIR=$RPM_BUILD_ROOT ninja -C build install
+ninja -C build clean
+%else
+make install DESTDIR=$RPM_BUILD_ROOT
+rm $RPM_BUILD_ROOT%{_libdir}/*.la
+make clean
+%endif
+cd -
+
+cd cpp/build
+%if %{use_ninja}
+DESTDIR=$RPM_BUILD_ROOT ninja install
+ninja clean
+%else
+make install DESTDIR=$RPM_BUILD_ROOT
+make clean
+%endif
+cd -
+
+%package libs
+Summary:	Runtime libraries for Apache Arrow C++
+License:	Apache-2.0
+Requires:	boost%{boost_version}-system
+Requires:	boost%{boost_version}-filesystem
+Requires:	brotli
+Requires:	gflags
+Requires:	glog
+Requires:	libzstd
+Requires:	lz4
+%if %{have_re2}
+Requires:	re2
+%endif
+Requires:	snappy
+%if %{have_utf8proc}
+Requires:	utf8proc
+%endif
+Requires:	zlib
+
+%description libs
+This package contains the libraries for Apache Arrow C++.
+
+%files libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_docdir}/arrow/
+%{_libdir}/libarrow.so.*
+
+%package devel
+Summary:	Libraries and header files for Apache Arrow C++
+License:	Apache-2.0
+Requires:	%{name}-libs = %{version}-%{release}
+Requires:	brotli-devel
+Requires:	bzip2-devel
+Requires:	libzstd-devel
+Requires:	lz4-devel
+Requires:	openssl-devel
+%if %{have_rapidjson}
+Requires:	rapidjson-devel
+%endif
+%if %{have_re2}
+Requires:	re2-devel
+%endif
+Requires:	snappy-devel
+%if %{have_utf8proc}
+Requires:	utf8proc-devel
+%endif
+Requires:	zlib-devel
+
+%description devel
+Libraries and header files for Apache Arrow C++.
+
+%files devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/arrow/
+%exclude %{_includedir}/arrow/dataset/
+%if %{use_flight}
+%exclude %{_includedir}/arrow/flight/
+%endif
+%exclude %{_includedir}/arrow/python/
+%{_libdir}/cmake/arrow/ArrowConfig*.cmake
+%{_libdir}/cmake/arrow/ArrowOptions.cmake
+%{_libdir}/cmake/arrow/ArrowTargets*.cmake
+%{_libdir}/cmake/arrow/FindArrow.cmake
+%{_libdir}/cmake/arrow/FindBrotli.cmake
+%{_libdir}/cmake/arrow/FindLz4.cmake
+%{_libdir}/cmake/arrow/FindSnappy.cmake
+%if %{have_re2}
+%{_libdir}/cmake/arrow/Findre2Alt.cmake
+%endif
+%if %{have_utf8proc}
+%{_libdir}/cmake/arrow/Findutf8proc.cmake
+%endif
+%{_libdir}/cmake/arrow/Findzstd.cmake
+%{_libdir}/cmake/arrow/arrow-config.cmake
+%{_libdir}/libarrow.a
+%{_libdir}/libarrow.so
+%{_libdir}/libarrow_bundled_dependencies.a
+%{_libdir}/pkgconfig/arrow-compute.pc
+%{_libdir}/pkgconfig/arrow-csv.pc
+%{_libdir}/pkgconfig/arrow-filesystem.pc
+%{_libdir}/pkgconfig/arrow-json.pc
+%{_libdir}/pkgconfig/arrow-orc.pc
+%{_libdir}/pkgconfig/arrow.pc
+
+%package dataset-libs
+Summary:	C++ library to read and write semantic datasets stored in different locations and formats
+License:	Apache-2.0
+Requires:	%{name}-libs = %{version}-%{release}
+
+%description dataset-libs
+This package contains the libraries for Apache Arrow dataset.
+
+%files dataset-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow_dataset.so.*
+
+%package dataset-devel
+Summary:	Libraries and header files for Apache Arrow dataset.
+License:	Apache-2.0
+Requires:	%{name}-dataset-libs = %{version}-%{release}
+
+%description dataset-devel
+Libraries and header files for Apache Arrow dataset.
+
+%files dataset-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/arrow/dataset/
+%{_libdir}/cmake/arrow/ArrowDatasetConfig*.cmake
+%{_libdir}/cmake/arrow/ArrowDatasetTargets*.cmake
+%{_libdir}/cmake/arrow/FindArrowDataset.cmake
+%{_libdir}/libarrow_dataset.a
+%{_libdir}/libarrow_dataset.so
+%{_libdir}/pkgconfig/arrow-dataset.pc
+
+%if %{use_flight}
+%package flight-libs
+Summary:	C++ library for fast data transport.
+License:	Apache-2.0
+Requires:	%{name}-libs = %{version}-%{release}
+Requires:	openssl
+
+%description flight-libs
+This package contains the libraries for Apache Arrow Flight.
+
+%files flight-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow_flight.so.*
+
+%package flight-devel
+Summary:	Libraries and header files for Apache Arrow Flight.
+License:	Apache-2.0
+Requires:	%{name}-flight-libs = %{version}-%{release}
+
+%description flight-devel
+Libraries and header files for Apache Arrow Flight.
+
+%files flight-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/arrow/flight/
+%{_libdir}/cmake/arrow/ArrowFlightConfig*.cmake
+%{_libdir}/cmake/arrow/ArrowFlightTargets*.cmake
+%{_libdir}/cmake/arrow/FindArrowFlight.cmake
+%{_libdir}/libarrow_flight.a
+%{_libdir}/libarrow_flight.so
+%{_libdir}/pkgconfig/arrow-flight.pc
+%endif
+
+%if %{use_gandiva}
+%package -n gandiva-libs
+Summary:	C++ library for compiling and evaluating expressions on Apache Arrow data.
+License:	Apache-2.0
+Requires:	%{name}-libs = %{version}-%{release}
+Requires:	ncurses-libs
+
+%description -n gandiva-libs
+This package contains the libraries for Gandiva.
+
+%files -n gandiva-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libgandiva.so.*
+
+%package -n gandiva-devel
+Summary:	Libraries and header files for Gandiva.
+License:	Apache-2.0
+Requires:	gandiva-libs = %{version}-%{release}
+Requires:	llvm-devel
+
+%description -n gandiva-devel
+Libraries and header files for Gandiva.
+
+%files -n gandiva-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/gandiva/
+%{_libdir}/cmake/arrow/GandivaConfig*.cmake
+%{_libdir}/cmake/arrow/GandivaTargets*.cmake
+%{_libdir}/cmake/arrow/FindGandiva.cmake
+%{_libdir}/libgandiva.a
+%{_libdir}/libgandiva.so
+%{_libdir}/pkgconfig/gandiva.pc
+%endif
+
+%package python-libs
+Summary:	Python integration library for Apache Arrow
+License:	Apache-2.0
+Requires:	%{name}-libs = %{version}-%{release}
+Requires:	python%{python_version}-numpy
+
+%description python-libs
+This package contains the Python integration library for Apache Arrow.
+
+%files python-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow_python.so.*
+
+%package python-devel
+Summary:	Libraries and header files for Python integration library for Apache Arrow
+License:	Apache-2.0
+Requires:	%{name}-devel = %{version}-%{release}
+Requires:	%{name}-libs = %{version}-%{release}
+Requires:	python%{python_version}-devel
+
+%description python-devel
+Libraries and header files for Python integration library for Apache Arrow.
+
+%files python-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/arrow/python/
+%exclude %{_includedir}/arrow/python/flight.h
+%{_libdir}/cmake/arrow/ArrowPythonConfig*.cmake
+%{_libdir}/cmake/arrow/ArrowPythonTargets*.cmake
+%{_libdir}/cmake/arrow/FindArrowPython.cmake
+%{_libdir}/libarrow_python.a
+%{_libdir}/libarrow_python.so
+%{_libdir}/pkgconfig/arrow-python.pc
+
+%if %{use_flight}
+%package python-flight-libs
+Summary:	Python integration library for Apache Arrow Flight
+License:	Apache-2.0
+Requires:	%{name}-flight-libs = %{version}-%{release}
+Requires:	%{name}-python-libs = %{version}-%{release}
+
+%description python-flight-libs
+This package contains the Python integration library for Apache Arrow Flight.
+
+%files python-flight-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow_python_flight.so.*
+
+%package python-flight-devel
+Summary:	Libraries and header files for Python integration library for Apache Arrow Flight.
+License:	Apache-2.0
+Requires:	%{name}-flight-devel = %{version}-%{release}
+Requires:	%{name}-python-devel = %{version}-%{release}
+Requires:	%{name}-python-flight-libs = %{version}-%{release}
+
+%description python-flight-devel
+Libraries and header files for Python integration library for
+Apache Arrow Flight.
+
+%files python-flight-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/arrow/python/flight.h
+%{_libdir}/cmake/arrow/ArrowPythonFlightConfig*.cmake
+%{_libdir}/cmake/arrow/ArrowPythonFlightTargets*.cmake
+%{_libdir}/cmake/arrow/FindArrowPythonFlight.cmake
+%{_libdir}/libarrow_python_flight.a
+%{_libdir}/libarrow_python_flight.so
+%{_libdir}/pkgconfig/arrow-python-flight.pc
+%endif
+
+%package -n plasma-libs
+Summary:	Runtime libraries for Plasma in-memory object store
+License:	Apache-2.0
+Requires:	%{name}-libs = %{version}-%{release}
+
+%description -n plasma-libs
+This package contains the libraries for Plasma in-memory object store.
+
+%files -n plasma-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libplasma.so.*
+
+%package -n plasma-store-server
+Summary:	Server for Plasma in-memory object store
+License:	Apache-2.0
+Requires:	plasma-libs = %{version}-%{release}
+
+%description -n plasma-store-server
+This package contains the server for Plasma in-memory object store.
+
+%files -n plasma-store-server
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_bindir}/plasma-store-server
+
+%package -n plasma-devel
+Summary:	Libraries and header files for Plasma in-memory object store
+License:	Apache-2.0
+Requires:	plasma-libs = %{version}-%{release}
+
+%description -n plasma-devel
+Libraries and header files for Plasma in-memory object store.
+
+%files -n plasma-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/plasma/
+%{_libdir}/cmake/arrow/PlasmaConfig*.cmake
+%{_libdir}/cmake/arrow/PlasmaTargets*.cmake
+%{_libdir}/cmake/arrow/FindPlasma.cmake
+%{_libdir}/libplasma.a
+%{_libdir}/libplasma.so
+%{_libdir}/pkgconfig/plasma*.pc
+
+%package -n parquet-libs
+Summary:	Runtime libraries for Apache Parquet C++
+License:	Apache-2.0
+Requires:	boost%{boost_version}-program-options
+Requires:	%{name}-libs = %{version}-%{release}
+Requires:	openssl
+
+%description -n parquet-libs
+This package contains the libraries for Apache Parquet C++.
+
+%files -n parquet-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libparquet.so.*
+
+%package -n parquet-devel
+Summary:	Libraries and header files for Apache Parquet C++
+License:	Apache-2.0
+Requires:	parquet-libs = %{version}-%{release}
+Requires:	zlib-devel
+
+%description -n parquet-devel
+Libraries and header files for Apache Parquet C++.
+
+%files -n parquet-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/parquet/
+%{_libdir}/cmake/arrow/ParquetConfig*.cmake
+%{_libdir}/cmake/arrow/ParquetTargets*.cmake
+%{_libdir}/cmake/arrow/FindParquet.cmake
+%{_libdir}/libparquet.a
+%{_libdir}/libparquet.so
+%{_libdir}/pkgconfig/parquet*.pc
+
+%package glib-libs
+Summary:	Runtime libraries for Apache Arrow GLib
+License:	Apache-2.0
+Requires:	%{name}-libs = %{version}-%{release}
+Requires:	glib2
+
+%description glib-libs
+This package contains the libraries for Apache Arrow GLib.
+
+%files glib-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow-glib.so.*
+%{_datadir}/gir-1.0/Arrow-1.0.gir
+
+%package glib-devel
+Summary:	Libraries and header files for Apache Arrow GLib
+License:	Apache-2.0
+Requires:	%{name}-devel = %{version}-%{release}
+Requires:	glib2-devel
+Requires:	gobject-introspection-devel
+
+%description glib-devel
+Libraries and header files for Apache Arrow GLib.
+
+%files glib-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/arrow-glib/
+%{_libdir}/libarrow-glib.a
+%{_libdir}/libarrow-glib.so
+%{_libdir}/pkgconfig/arrow-glib.pc
+%{_libdir}/pkgconfig/arrow-orc-glib.pc
+%{_libdir}/girepository-1.0/Arrow-1.0.typelib
+%{_datadir}/arrow-glib/example/
+
+%package glib-doc
+Summary:	Documentation for Apache Arrow GLib
+License:	Apache-2.0
+
+%description glib-doc
+Documentation for Apache Arrow GLib.
+
+%files glib-doc
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_docdir}/arrow-glib/
+%{_datadir}/gtk-doc/html/arrow-glib/
+
+%package dataset-glib-libs
+Summary:	Runtime libraries for Apache Arrow dataset GLib
+License:	Apache-2.0
+Requires:	%{name}-dataset-libs = %{version}-%{release}
+Requires:	%{name}-glib-libs = %{version}-%{release}
+
+%description dataset-glib-libs
+This package contains the libraries for Apache Arrow dataset GLib.
+
+%files dataset-glib-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow-dataset-glib.so.*
+%{_datadir}/gir-1.0/ArrowDataset-1.0.gir
+
+%package dataset-glib-devel
+Summary:	Libraries and header files for Apache Arrow dataset GLib
+License:	Apache-2.0
+Requires:	%{name}-dataset-devel = %{version}-%{release}
+Requires:	%{name}-glib-devel = %{version}-%{release}
+
+%description dataset-glib-devel
+Libraries and header files for Apache Arrow dataset GLib.
+
+%files dataset-glib-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/arrow-dataset-glib/
+%{_libdir}/libarrow-dataset-glib.a
+%{_libdir}/libarrow-dataset-glib.so
+%{_libdir}/pkgconfig/arrow-dataset-glib.pc
+%{_libdir}/girepository-1.0/ArrowDataset-1.0.typelib
+
+%package dataset-glib-doc
+Summary:	Documentation for Apache Arrow dataset GLib
+License:	Apache-2.0
+
+%description dataset-glib-doc
+Documentation for Apache Arrow dataset GLib.
+
+%files dataset-glib-doc
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_datadir}/gtk-doc/html/arrow-dataset-glib/
+
+%if %{use_gandiva}
+%package -n gandiva-glib-libs
+Summary:	Runtime libraries for Gandiva GLib
+License:	Apache-2.0
+Requires:	gandiva-libs = %{version}-%{release}
+Requires:	%{name}-glib-libs = %{version}-%{release}
+
+%description -n gandiva-glib-libs
+This package contains the libraries for Gandiva GLib.
+
+%files -n gandiva-glib-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libgandiva-glib.so.*
+%{_datadir}/gir-1.0/Gandiva-1.0.gir
+
+%package -n gandiva-glib-devel
+Summary:	Libraries and header files for Gandiva GLib
+License:	Apache-2.0
+Requires:	gandiva-devel = %{version}-%{release}
+Requires:	%{name}-glib-devel = %{version}-%{release}
+
+%description -n gandiva-glib-devel
+Libraries and header files for Gandiva GLib.
+
+%files -n gandiva-glib-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/gandiva-glib/
+%{_libdir}/libgandiva-glib.a
+%{_libdir}/libgandiva-glib.so
+%{_libdir}/pkgconfig/gandiva-glib.pc
+%{_libdir}/girepository-1.0/Gandiva-1.0.typelib
+
+%package -n gandiva-glib-doc
+Summary:	Documentation for Gandiva GLib
+License:	Apache-2.0
+
+%description -n gandiva-glib-doc
+Documentation for Gandiva GLib.
+
+%files -n gandiva-glib-doc
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_datadir}/gtk-doc/html/gandiva-glib/
+%endif
+
+%package -n plasma-glib-libs
+Summary:	Runtime libraries for Plasma GLib
+License:	Apache-2.0
+Requires:	plasma-libs = %{version}-%{release}
+Requires:	%{name}-glib-libs = %{version}-%{release}
+
+%description -n plasma-glib-libs
+This package contains the libraries for Plasma GLib.
+
+%files -n plasma-glib-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libplasma-glib.so.*
+%{_datadir}/gir-1.0/Plasma-1.0.gir
+
+%package -n plasma-glib-devel
+Summary:	Libraries and header files for Plasma GLib
+License:	Apache-2.0
+Requires:	plasma-devel = %{version}-%{release}
+Requires:	%{name}-glib-devel = %{version}-%{release}
+
+%description -n plasma-glib-devel
+Libraries and header files for Plasma GLib.
+
+%files -n plasma-glib-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/plasma-glib/
+%{_libdir}/libplasma-glib.a
+%{_libdir}/libplasma-glib.so
+%{_libdir}/pkgconfig/plasma-glib.pc
+%{_libdir}/girepository-1.0/Plasma-1.0.typelib
+
+%package -n plasma-glib-doc
+Summary:	Documentation for Plasma GLib
+License:	Apache-2.0
+
+%description -n plasma-glib-doc
+Documentation for Plasma GLib.
+
+%files -n plasma-glib-doc
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_datadir}/gtk-doc/html/plasma-glib/
+
+%package -n parquet-glib-libs
+Summary:	Runtime libraries for Apache Parquet GLib
+License:	Apache-2.0
+Requires:	parquet-libs = %{version}-%{release}
+Requires:	%{name}-glib-libs = %{version}-%{release}
+
+%description -n parquet-glib-libs
+This package contains the libraries for Apache Parquet GLib.
+
+%files -n parquet-glib-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libparquet-glib.so.*
+%{_datadir}/gir-1.0/Parquet-1.0.gir
+
+%package -n parquet-glib-devel
+Summary:	Libraries and header files for Apache Parquet GLib
+License:	Apache-2.0
+Requires:	parquet-devel = %{version}-%{release}
+Requires:	%{name}-glib-devel = %{version}-%{release}
+
+%description -n parquet-glib-devel
+Libraries and header files for Apache Parquet GLib.
+
+%files -n parquet-glib-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/parquet-glib/
+%{_libdir}/libparquet-glib.a
+%{_libdir}/libparquet-glib.so
+%{_libdir}/pkgconfig/parquet-glib.pc
+%{_libdir}/girepository-1.0/Parquet-1.0.typelib
+
+%package -n parquet-glib-doc
+Summary:	Documentation for Apache Parquet GLib
+License:	Apache-2.0
+
+%description -n parquet-glib-doc
+Documentation for Apache Parquet GLib.
+
+%files -n parquet-glib-doc
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_datadir}/gtk-doc/html/parquet-glib/
+
+%changelog
+* Mon Jan 18 2021 Krisztián Szűcs <szucs.krisztian@gmail.com> - 3.0.0-1
+- New upstream release.
+
+* Mon Oct 12 2020 Krisztián Szűcs <szucs.krisztian@gmail.com> - 2.0.0-1
+- New upstream release.
+
+* Mon Jul 20 2020 Krisztián Szűcs <szucs.krisztian@gmail.com> - 1.0.0-1
+- New upstream release.
+
+* Thu Apr 16 2020 Krisztián Szűcs <szucs.krisztian@gmail.com> - 0.17.0-1
+- New upstream release.
+
+* Thu Jan 30 2020 Krisztián Szűcs <szucs.krisztian@gmail.com> - 0.16.0-1
+- New upstream release.
+
+* Mon Sep 30 2019 Krisztián Szűcs <szucs.krisztian@gmail.com> - 0.15.0-1
+- New upstream release.
+
+* Fri Jun 28 2019 Sutou Kouhei <kou@clear-code.com> - 0.14.0-1
+- New upstream release.
+
+* Thu Mar 28 2019 Kouhei Sutou <kou@clear-code.com> - 0.13.0-1
+- New upstream release.
+
+* Wed Jan 16 2019 Krisztián Szűcs <szucs.krisztian@gmail.com> - 0.12.0-1
+- New upstream release.
+
+* Thu Oct 04 2018 Kouhei Sutou <kou@clear-code.com> - 0.11.0-1
+- New upstream release.
+
+* Thu Aug 02 2018 Phillip Cloud <cpcloud@gmail.com> - 0.10.0-1
+- New upstream release.
+
+* Fri Mar 16 2018 Kouhei Sutou <kou@clear-code.com> - 0.9.0-1
+- New upstream release.
+
+* Sun Dec 17 2017 Uwe Korn <uwelk@xhochy.com> - 0.8.0-1
+- New upstream release.
+
+* Wed Sep 27 2017 Kouhei Sutou <kou@clear-code.com> - 0.7.1-1
+- New upstream release.
+
+* Tue Sep 12 2017 Wes McKinney <wes.mckinney@twosigma.com> - 0.7.0-1
+- New upstream release.
+
+* Fri Aug 11 2017 Kouhei Sutou <kou@clear-code.com> - 0.6.0-1
+- New upstream release.
+
+* Wed Aug 02 2017 Kouhei Sutou <kou@clear-code.com> - 0.6.0.20170802-1
+- New upstream release.

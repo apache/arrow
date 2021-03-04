@@ -1,0 +1,56 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# NOTE: must set "Crossbow" as name to have the badge links working in the
+# github comment reports!
+name: Crossbow
+
+on:
+  push:
+    branches:
+      - "*-github-*"
+
+jobs:
+  autobrew:
+    name: "Autobrew"
+    runs-on: macOS-latest
+    steps:
+      - name: Checkout Arrow
+        run: |
+          git clone --no-checkout {{ arrow.remote }} arrow
+          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+          git -C arrow checkout FETCH_HEAD
+          git -C arrow submodule update --init --recursive
+      - name: Configure homebrew formula for testing
+        env:
+          ARROW_FORMULA: ./arrow/dev/tasks/homebrew-formulae/{{ formula }}
+        run: |
+          # Pin the current commit in the formula to test so that we're not always pulling from master
+          sed -i.bak -E -e 's@https://github.com/apache/arrow.git"$@{{ arrow.remote }}.git", revision: "{{ arrow.head }}"@' $ARROW_FORMULA && rm -f $ARROW_FORMULA.bak
+          # Sometimes crossbow gives a remote URL with .git and sometimes not. Make sure there's only one
+          sed -i.bak -E -e 's@.git.git@.git@' $ARROW_FORMULA && rm -f $ARROW_FORMULA.bak
+          brew update
+          brew --version
+          brew unlink python@2 || true
+          brew config
+          brew doctor || true
+          cp $ARROW_FORMULA $(brew --repository homebrew/core)/Formula/apache-arrow.rb
+      - name: Test formula
+        run: |
+          brew install -v --HEAD apache-arrow
+          brew test apache-arrow
+          brew audit --strict apache-arrow

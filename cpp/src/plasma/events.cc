@@ -22,7 +22,7 @@
 #include <errno.h>
 
 extern "C" {
-#include "ae/ae.h"
+#include "plasma/thirdparty/ae/ae.h"
 }
 
 namespace plasma {
@@ -80,7 +80,14 @@ void EventLoop::Start() { aeMain(loop_); }
 
 void EventLoop::Stop() { aeStop(loop_); }
 
-void EventLoop::Shutdown() { aeDeleteEventLoop(loop_); }
+void EventLoop::Shutdown() {
+  if (loop_ != nullptr) {
+    aeDeleteEventLoop(loop_);
+    loop_ = nullptr;
+  }
+}
+
+EventLoop::~EventLoop() { Shutdown(); }
 
 int64_t EventLoop::AddTimer(int64_t timeout, const TimerCallback& callback) {
   auto data = std::unique_ptr<TimerCallback>(new TimerCallback(callback));

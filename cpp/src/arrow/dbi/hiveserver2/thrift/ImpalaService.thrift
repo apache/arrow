@@ -159,7 +159,7 @@ enum TImpalaQueryOptions {
   APPX_COUNT_DISTINCT,
 
   // If true, allows Impala to internally disable spilling for potentially
-  // disastrous query plans. Impala will excercise this option if a query
+  // disastrous query plans. Impala will exercise this option if a query
   // has no plan hints, and at least one table is missing relevant stats.
   DISABLE_UNSAFE_SPILLS,
 
@@ -172,7 +172,7 @@ enum TImpalaQueryOptions {
   // produce different results than the scan based approach in some edge cases.
   OPTIMIZE_PARTITION_KEY_SCANS,
 
-  // Prefered memory distance of replicas. This parameter determines the pool of replicas
+  // Preferred memory distance of replicas. This parameter determines the pool of replicas
   // among which scans will be scheduled in terms of the distance of the replica storage
   // from the impalad.
   REPLICA_PREFERENCE,

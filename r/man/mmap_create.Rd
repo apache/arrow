@@ -12,7 +12,7 @@ mmap_create(path, size)
 \item{size}{size in bytes}
 }
 \value{
-a \link[=arrow__io__MemoryMappedFile]{arrow::io::MemoryMappedFile}
+a \link[=MemoryMappedFile]{arrow::io::MemoryMappedFile}
 }
 \description{
 Create a new read/write memory mapped file of a given size

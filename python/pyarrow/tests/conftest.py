@@ -16,63 +16,110 @@
 # under the License.
 
 import os
+import pathlib
+import subprocess
+from tempfile import TemporaryDirectory
+
 import pytest
 import hypothesis as h
 
-try:
-    import pathlib
-except ImportError:
-    import pathlib2 as pathlib  # py2 compat
+from pyarrow.util import find_free_port
 
 
 # setup hypothesis profiles
 h.settings.register_profile('ci', max_examples=1000)
-h.settings.register_profile('dev', max_examples=10)
+h.settings.register_profile('dev', max_examples=50)
 h.settings.register_profile('debug', max_examples=10,
                             verbosity=h.Verbosity.verbose)
 
 # load default hypothesis profile, either set HYPOTHESIS_PROFILE environment
 # variable or pass --hypothesis-profile option to pytest, to see the generated
-# examples try: pytest pyarrow -sv --only-hypothesis --hypothesis-profile=debug
-h.settings.load_profile(os.environ.get('HYPOTHESIS_PROFILE', 'default'))
+# examples try:
+# pytest pyarrow -sv --enable-hypothesis --hypothesis-profile=debug
+h.settings.load_profile(os.environ.get('HYPOTHESIS_PROFILE', 'dev'))
+
+# Set this at the beginning before the AWS SDK was loaded to avoid reading in
+# user configuration values.
+os.environ['AWS_CONFIG_FILE'] = "/dev/null"
 
 
 groups = [
+    'cython',
+    'dataset',
     'hypothesis',
+    'fastparquet',
     'gandiva',
     'hdfs',
     'large_memory',
+    'memory_leak',
+    'nopandas',
     'orc',
+    'pandas',
     'parquet',
     'plasma',
     's3',
-    'tensorflow'
+    'tensorflow',
+    'flight',
+    'slow',
+    'requires_testing_data',
 ]
 
-
 defaults = {
+    'cython': False,
+    'dataset': False,
+    'fastparquet': False,
     'hypothesis': False,
     'gandiva': False,
     'hdfs': False,
     'large_memory': False,
+    'memory_leak': False,
     'orc': False,
+    'nopandas': False,
+    'pandas': False,
     'parquet': False,
     'plasma': False,
     's3': False,
-    'tensorflow': False
+    'tensorflow': False,
+    'flight': False,
+    'slow': False,
+    'requires_testing_data': True,
 }
 
 try:
-    import pyarrow.gandiva # noqa
+    import cython  # noqa
+    defaults['cython'] = True
+except ImportError:
+    pass
+
+try:
+    import fastparquet  # noqa
+    defaults['fastparquet'] = True
+except ImportError:
+    pass
+
+try:
+    import pyarrow.gandiva  # noqa
     defaults['gandiva'] = True
 except ImportError:
     pass
 
 try:
-    import pyarrow.orc # noqa
+    import pyarrow.dataset  # noqa
+    defaults['dataset'] = True
+except ImportError:
+    pass
+
+try:
+    import pyarrow.orc  # noqa
     defaults['orc'] = True
 except ImportError:
     pass
+
+try:
+    import pandas  # noqa
+    defaults['pandas'] = True
+except ImportError:
+    defaults['nopandas'] = True
 
 try:
     import pyarrow.parquet  # noqa
@@ -81,11 +128,10 @@ except ImportError:
     pass
 
 try:
-    import pyarrow.plasma as plasma  # noqa
+    import pyarrow.plasma  # noqa
     defaults['plasma'] = True
 except ImportError:
     pass
-
 
 try:
     import tensorflow  # noqa
@@ -93,12 +139,27 @@ try:
 except ImportError:
     pass
 
+try:
+    import pyarrow.flight  # noqa
+    defaults['flight'] = True
+except ImportError:
+    pass
 
-def pytest_configure(config):
+try:
+    from pyarrow.fs import S3FileSystem  # noqa
+    defaults['s3'] = True
+except ImportError:
+    pass
+
+try:
+    from pyarrow.fs import HadoopFileSystem  # noqa
+    defaults['hdfs'] = True
+except ImportError:
     pass
 
 
 def pytest_addoption(parser):
+    # Create options to selectively enable test groups
     def bool_env(name, default=None):
         value = os.environ.get(name.upper())
         if value is None:
@@ -113,65 +174,50 @@ def pytest_addoption(parser):
                              .format(name.upper(), value))
 
     for group in groups:
-        for flag, envvar in [('--{}', 'PYARROW_TEST_{}'),
-                             ('--enable-{}', 'PYARROW_TEST_ENABLE_{}')]:
-            default = bool_env(envvar.format(group), defaults[group])
-            parser.addoption(flag.format(group),
-                             action='store_true', default=default,
-                             help=('Enable the {} test group'.format(group)))
-
-        default = bool_env('PYARROW_TEST_DISABLE_{}'.format(group), False)
-        parser.addoption('--disable-{}'.format(group),
+        default = bool_env('PYARROW_TEST_{}'.format(group), defaults[group])
+        parser.addoption('--enable-{}'.format(group),
                          action='store_true', default=default,
+                         help=('Enable the {} test group'.format(group)))
+        parser.addoption('--disable-{}'.format(group),
+                         action='store_true', default=False,
                          help=('Disable the {} test group'.format(group)))
 
-        default = bool_env('PYARROW_TEST_ONLY_{}'.format(group), False)
-        parser.addoption('--only-{}'.format(group),
-                         action='store_true', default=default,
-                         help=('Run only the {} test group'.format(group)))
 
-    parser.addoption('--runslow', action='store_true',
-                     default=False, help='run slow tests')
+class PyArrowConfig:
+    def __init__(self):
+        self.is_enabled = {}
+
+    def apply_mark(self, mark):
+        group = mark.name
+        if group in groups:
+            self.requires(group)
+
+    def requires(self, group):
+        if not self.is_enabled[group]:
+            pytest.skip('{} NOT enabled'.format(group))
 
 
-def pytest_collection_modifyitems(config, items):
-    if not config.getoption('--runslow'):
-        skip_slow = pytest.mark.skip(reason='need --runslow option to run')
+def pytest_configure(config):
+    # Apply command-line options to initialize PyArrow-specific config object
+    config.pyarrow = PyArrowConfig()
 
-        for item in items:
-            if 'slow' in item.keywords:
-                item.add_marker(skip_slow)
+    for mark in groups:
+        config.addinivalue_line(
+            "markers", mark,
+        )
+
+        enable_flag = '--enable-{}'.format(mark)
+        disable_flag = '--disable-{}'.format(mark)
+
+        is_enabled = (config.getoption(enable_flag) and not
+                      config.getoption(disable_flag))
+        config.pyarrow.is_enabled[mark] = is_enabled
 
 
 def pytest_runtest_setup(item):
-    only_set = False
-
-    item_marks = {mark.name: mark for mark in item.iter_markers()}
-
-    for group in groups:
-        flag = '--{0}'.format(group)
-        only_flag = '--only-{0}'.format(group)
-        enable_flag = '--enable-{0}'.format(group)
-        disable_flag = '--disable-{0}'.format(group)
-
-        if item.config.getoption(only_flag):
-            only_set = True
-        elif group in item_marks:
-            is_enabled = (item.config.getoption(flag) or
-                          item.config.getoption(enable_flag))
-            is_disabled = item.config.getoption(disable_flag)
-            if is_disabled or not is_enabled:
-                pytest.skip('{0} NOT enabled'.format(flag))
-
-    if only_set:
-        skip_item = True
-        for group in groups:
-            only_flag = '--only-{0}'.format(group)
-            if group in item_marks and item.config.getoption(only_flag):
-                skip_item = False
-
-        if skip_item:
-            pytest.skip('Only running some groups with only flags')
+    # Apply test markers to skip tests selectively
+    for mark in item.iter_markers():
+        item.config.pyarrow.apply_mark(mark)
 
 
 @pytest.fixture
@@ -181,5 +227,51 @@ def tempdir(tmpdir):
 
 
 @pytest.fixture(scope='session')
-def datadir():
+def base_datadir():
     return pathlib.Path(__file__).parent / 'data'
+
+
+# TODO(kszucs): move the following fixtures to test_fs.py once the previous
+# parquet dataset implementation and hdfs implementation are removed.
+
+@pytest.mark.hdfs
+@pytest.fixture(scope='session')
+def hdfs_connection():
+    host = os.environ.get('ARROW_HDFS_TEST_HOST', 'default')
+    port = int(os.environ.get('ARROW_HDFS_TEST_PORT', 0))
+    user = os.environ.get('ARROW_HDFS_TEST_USER', 'hdfs')
+    return host, port, user
+
+
+@pytest.mark.s3
+@pytest.fixture(scope='session')
+def s3_connection():
+    host, port = 'localhost', find_free_port()
+    access_key, secret_key = 'arrow', 'apachearrow'
+    return host, port, access_key, secret_key
+
+
+@pytest.fixture(scope='session')
+def s3_server(s3_connection):
+    host, port, access_key, secret_key = s3_connection
+
+    address = '{}:{}'.format(host, port)
+    env = os.environ.copy()
+    env.update({
+        'MINIO_ACCESS_KEY': access_key,
+        'MINIO_SECRET_KEY': secret_key
+    })
+
+    with TemporaryDirectory() as tempdir:
+        args = ['minio', '--compat', 'server', '--quiet', '--address',
+                address, tempdir]
+        proc = None
+        try:
+            proc = subprocess.Popen(args, env=env)
+        except OSError:
+            pytest.skip('`minio` command cannot be located')
+        else:
+            yield proc
+        finally:
+            if proc is not None:
+                proc.kill()

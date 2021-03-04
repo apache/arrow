@@ -15,18 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef GANDIVA_FUNCDESCRIPTOR_H
-#define GANDIVA_FUNCDESCRIPTOR_H
+#pragma once
 
 #include <string>
 #include <vector>
 
 #include "gandiva/arrow.h"
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// Descriptor for a function in the expression.
-class FuncDescriptor {
+class GANDIVA_EXPORT FuncDescriptor {
  public:
   FuncDescriptor(const std::string& name, const DataTypeVector& params,
                  DataTypePtr return_type)
@@ -48,5 +48,3 @@ class FuncDescriptor {
 };
 
 }  // namespace gandiva
-
-#endif  // GANDIVA_FUNCDESCRIPTOR_H

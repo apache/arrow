@@ -17,32 +17,31 @@
 
 class TestProjector < Test::Unit::TestCase
   def test_evaluate
-    table = Arrow::Table.new(:field1 => Arrow::Int32Array.new([1, 2, 3, 4]),
-                             :field2 => Arrow::Int32Array.new([11, 13, 15, 17]))
+    table = Arrow::Table.new(:field1 => Arrow::Int32Array.new([1, 13, 3, 17]),
+                             :field2 => Arrow::Int32Array.new([11, 2, 15, 17]),
+                             :field3 => Arrow::Int32Array.new([1, 10, 2, 2]))
     schema = table.schema
-    field1 = schema[:field1]
-    field2 = schema[:field2]
-    field_node1 = Gandiva::FieldNode.new(field1)
-    field_node2 = Gandiva::FieldNode.new(field2)
-    add_function_node = Gandiva::FunctionNode.new("add",
-                                                  [field_node1, field_node2],
-                                                  Arrow::Int32DataType.new)
-    add_result = Arrow::Field.new("add_result", :int32)
-    add_expression = Gandiva::Expression.new(add_function_node,
-                                             add_result)
-    subtract_function_node = Gandiva::FunctionNode.new("subtract",
-                                                       [field_node1, field_node2],
-                                                       Arrow::Int32DataType.new)
-    subtract_result = Arrow::Field.new("subtract_result", :int32)
-    subtract_expression = Gandiva::Expression.new(subtract_function_node,
-                                                  subtract_result)
+
+    expression1 = schema.build_expression do |record|
+      record.field1 + record.field2
+    end
+
+    expression2 = schema.build_expression do |record, context|
+      context.if(record.field1 > record.field2)
+        .then(record.field1 + record.field2 * record.field3)
+        .elsif(record.field1 == record.field2)
+        .then(record.field1 - record.field2 / record.field3)
+        .else(record.field2)
+    end
+
     projector = Gandiva::Projector.new(schema,
-                                       [add_expression, subtract_expression])
+                                       [expression1, expression2])
+
     table.each_record_batch do |record_batch|
       outputs = projector.evaluate(record_batch)
       assert_equal([
-                     [12, 15, 18, 21],
-                     [-10, -11, -12, -13],
+                     [12, 15, 18, 34],
+                     [11, 33, 15, 9]
                    ],
                    outputs.collect(&:values))
     end
