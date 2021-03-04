@@ -79,6 +79,7 @@ class ARROW_EXPORT DictionaryFieldMapper {
   Result<int64_t> GetFieldId(std::vector<int> field_path) const;
 
   int num_fields() const;
+  int num_dicts() const;
 
  private:
   struct Impl;

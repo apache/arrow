@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <fstream>
 #include <limits>
 #include <memory>
 #include <ostream>
@@ -1742,6 +1743,117 @@ TEST(TestRecordBatchStreamReader, NotEnoughDictionaries) {
       ("IPC stream did not have the expected number (3) of dictionaries "
        "at the start of the stream");
   AssertFailsWith(truncated_stream, ex_message);
+}
+
+std::vector<uint8_t> readSharedDictionaryTestData(std::string testPath) {
+  std::ifstream file(testPath, std::ios::binary);
+  auto data = std::vector<uint8_t>(std::istreambuf_iterator<char>(file),
+                                   std::istreambuf_iterator<char>());
+  return data;
+}
+
+void verifySharedDictionaryData(std::shared_ptr<Array> col,
+                                std::vector<std::string> dictionaryExpectedValues,
+                                std::vector<int16_t> indexExpectedValues) {
+  ASSERT_EQ(col->type_id(), arrow::Type::DICTIONARY);
+  auto& dictArray = arrow::internal::checked_cast<arrow::DictionaryArray&>(*col);
+  auto& dict =
+      arrow::internal::checked_cast<arrow::StringArray&>(*dictArray.dictionary());
+  auto& indices = arrow::internal::checked_cast<arrow::NumericArray<arrow::Int16Type>&>(
+      *dictArray.indices());
+
+  ASSERT_EQ(dict.length(), dictionaryExpectedValues.size());
+  for (int i = 0; i < dict.length(); i++) {
+    ASSERT_EQ(dict.GetString(i), dictionaryExpectedValues.at(i));
+  }
+
+  ASSERT_EQ(indices.length(), indexExpectedValues.size());
+  for (int i = 0; i < indices.length(); i++) {
+    ASSERT_EQ(indices.Value(i), indexExpectedValues.at(i));
+  }
+}
+
+// ARROW-11838: Verify IPC data with dictionaries shared across columns.
+// Until these can be written from C++, we use golden test data generated
+// from Java. Once they can be written, this should be set-up as a roundtrip.
+TEST(TestRecordBatchStreamReader, SharedDictionary) {
+  std::string root;
+  ASSERT_OK(GetTestResourceRoot(&root));
+  std::stringstream testPath;
+  testPath << root
+           << "/arrow-ipc-stream/shared-dicts-one-batch-one-dict-two-cols.arrow.stream";
+
+  const auto data = readSharedDictionaryTestData(testPath.str());
+  Buffer buffer(&(data[0]), data.size());
+  arrow::io::BufferReader bufferReader(buffer);
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<RecordBatchReader> reader,
+                       RecordBatchStreamReader::Open(&bufferReader));
+  std::shared_ptr<RecordBatch> chunk;
+  ASSERT_OK(reader->ReadNext(&chunk));
+
+  verifySharedDictionaryData(chunk->GetColumnByName("col1"),
+                             std::vector<std::string>({"foo", "bar", "baz"}),
+                             std::vector<int16_t>({0, 1}));
+  verifySharedDictionaryData(chunk->GetColumnByName("col2"),
+                             std::vector<std::string>({"foo", "bar", "baz"}),
+                             std::vector<int16_t>({1, 2}));
+}
+
+TEST(TestRecordBatchStreamReader, SharedDictionaryWithReplacement) {
+  std::string root;
+  ASSERT_OK(GetTestResourceRoot(&root));
+  std::stringstream testPath;
+  testPath << root
+           << "/arrow-ipc-stream/shared-dicts-two-batch-one-dict-two-cols.arrow.stream";
+
+  const auto data = readSharedDictionaryTestData(testPath.str());
+
+  Buffer buffer(&(data[0]), data.size());
+  arrow::io::BufferReader bufferReader(buffer);
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<RecordBatchReader> reader,
+                       RecordBatchStreamReader::Open(&bufferReader));
+  std::shared_ptr<RecordBatch> chunk1;
+  std::shared_ptr<RecordBatch> chunk2;
+  ASSERT_OK(reader->ReadNext(&chunk1));
+  ASSERT_OK(reader->ReadNext(&chunk2));
+
+  verifySharedDictionaryData(chunk1->GetColumnByName("col1"),
+                             std::vector<std::string>({"foo", "bar", "baz"}),
+                             std::vector<int16_t>({0, 1}));
+  verifySharedDictionaryData(chunk1->GetColumnByName("col2"),
+                             std::vector<std::string>({"foo", "bar", "baz"}),
+                             std::vector<int16_t>({1, 2}));
+  verifySharedDictionaryData(chunk2->GetColumnByName("col1"),
+                             std::vector<std::string>({"foo", "bar", "quux"}),
+                             std::vector<int16_t>({2, 1}));
+  verifySharedDictionaryData(chunk2->GetColumnByName("col2"),
+                             std::vector<std::string>({"foo", "bar", "quux"}),
+                             std::vector<int16_t>({1, 0}));
+}
+
+TEST(TestRecordBatchFileReader, SharedDictionary) {
+  std::string root;
+  ASSERT_OK(GetTestResourceRoot(&root));
+  std::stringstream testPath;
+  testPath << root
+           << "/arrow-ipc-file/shared-dicts-one-batch-one-dict-two-cols.arrow.file";
+  const auto data = readSharedDictionaryTestData(testPath.str());
+
+  Buffer buffer(&(data[0]), data.size());
+  arrow::io::BufferReader bufferReader(buffer);
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<RecordBatchFileReader> reader,
+                       RecordBatchFileReader::Open(&bufferReader));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<RecordBatch> chunk, reader->ReadRecordBatch(0));
+
+  verifySharedDictionaryData(chunk->GetColumnByName("col1"),
+                             std::vector<std::string>({"foo", "bar", "baz"}),
+                             std::vector<int16_t>({0, 1}));
+  verifySharedDictionaryData(chunk->GetColumnByName("col2"),
+                             std::vector<std::string>({"foo", "bar", "baz"}),
+                             std::vector<int16_t>({1, 2}));
 }
 
 TEST(TestRecordBatchStreamReader, MalformedInput) {
