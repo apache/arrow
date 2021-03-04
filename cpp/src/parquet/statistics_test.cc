@@ -70,24 +70,42 @@ static FLBA FLBAFromString(const std::string& s) {
 
 TEST(Comparison, SignedByteArray) {
   auto comparator = MakeComparator<ByteArrayType>(Type::BYTE_ARRAY, SortOrder::SIGNED);
+  struct Case {
+    std::vector<uint8_t> bytes;
+    int order;
+    ByteArray ToByteArray() const {
+      return ByteArray(static_cast<int>(bytes.size()), bytes.data());
+    }
+  };
 
-  std::vector<uint8_t> byte_values[] = {
-      {0x80, 0x80, 0, 0},       {/*0xFF,*/ 0x80, 0, 0},     {/*0xFF,*/ 0xFF, 0x01, 0},
-      {/*0xFF,0xFF,*/ 0x80, 0}, {/*0xFF,0xFF,0xFF,*/ 0x80}, {/*0xFF, 0xFF, 0xFF,*/ 0xFF},
-      {/*0, 0,*/ 0x01, 0x01},   {/*0,*/ 0x01, 0x01, 0},     {0x01, 0x01, 0, 0}};
-  std::vector<ByteArray> values_to_compare = {ByteArray()};
-  for (const auto& bytes : byte_values) {
-    values_to_compare.emplace_back(
-        ByteArray(static_cast<int>(bytes.size()), bytes.data()));
-  }
+  std::vector<Case> cases = {
+      {{0x80, 0x80, 0, 0}, 0},           {{/*0xFF,*/ 0x80, 0, 0}, 1},
+      {{0xFF, 0x80, 0, 0}, 1},           {{/*0xFF,*/ 0xFF, 0x01, 0}, 2},
+      {{/*0xFF,  0xFF,*/ 0x80, 0}, 3},   {{/*0xFF,*/ 0xFF, 0x80, 0}, 3},
+      {{0xFF, 0xFF, 0x80, 0}, 3},        {{/*0xFF,0xFF,0xFF,*/ 0x80}, 4},
+      {{/*0xFF, 0xFF, 0xFF,*/ 0xFF}, 5}, {{/*0, 0,*/ 0x01, 0x01}, 6},
+      {{/*0,*/ 0, 0x01, 0x01}, 6},       {{0, 0, 0x01, 0x01}, 6},
+      {{/*0,*/ 0x01, 0x01, 0}, 7},       {{0x01, 0x01, 0, 0}, 8}};
 
-  for (size_t x = 0; x < values_to_compare.size(); x++) {
-    EXPECT_FALSE(comparator->Compare(values_to_compare[x], values_to_compare[x])) << x;
-    for (size_t y = x + 1; y < values_to_compare.size(); y++) {
-      EXPECT_TRUE(comparator->Compare(values_to_compare[x], values_to_compare[y]))
-          << x << " " << y;
-      EXPECT_FALSE(comparator->Compare(values_to_compare[y], values_to_compare[x]))
-          << y << " " << x;
+  for (size_t x = 0; x < cases.size(); x++) {
+    const auto& case1 = cases[x];
+    // Empty array is always the smallest values
+    EXPECT_TRUE(comparator->Compare(ByteArray(), case1.ToByteArray())) << x;
+    EXPECT_FALSE(comparator->Compare(case1.ToByteArray(), ByteArray())) << x;
+    // Equals is always false.
+    EXPECT_FALSE(comparator->Compare(case1.ToByteArray(), case1.ToByteArray())) << x;
+
+    for (size_t y = 0; y < cases.size(); y++) {
+      const auto& case2 = cases[y];
+      if (case1.order < case2.order) {
+        EXPECT_TRUE(comparator->Compare(case1.ToByteArray(), case2.ToByteArray()))
+            << x << " (order: " << case1.order << ") " << y << " (order: " << case2.order
+            << ")";
+      } else {
+        EXPECT_FALSE(comparator->Compare(case1.ToByteArray(), case2.ToByteArray()))
+            << x << " (order: " << case1.order << ") " << y << " (order: " << case2.order
+            << ")";
+      }
     }
   }
 }

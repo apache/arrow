@@ -169,12 +169,16 @@ struct BinaryLikeComparer<T, /*is_signed=*/true> {
     int8_t first_b = *b.ptr;
     // We can short circuit for different signed numbers or
     // for equal length bytes arrays that have different first bytes.
+    // The equality requirement is necessary for sign extension cases.
+    // 0xFF10 should be eqaul to 0x10 (due to big endian sign extension).
     if ((0x80 & first_a) != (0x80 & first_b) ||
         (a_length == b_length && first_a != first_b)) {
       return first_a < first_b;
     }
     // When the lengths are unequal and the numbers are of the same
-    // sign we need to extend the digits.
+    // sign we need to do comparison by sign extending the shorter
+    // value first, and once we get to equal sized arrays, lexicographical
+    // unsigned comparison of everything but the first byte is sufficient.
     const uint8_t* a_start = a.ptr;
     const uint8_t* b_start = b.ptr;
     if (a_length != b_length) {
@@ -195,15 +199,26 @@ struct BinaryLikeComparer<T, /*is_signed=*/true> {
       // Compare extra bytes to the sign extension of the first
       // byte of the other number.
       uint8_t extension = first_a < 0 ? 0xFF : 0;
-      for (; lead_start != lead_end; lead_start++) {
-        if (*lead_start < extension) {
-          // The first bytes of the long value are less
-          // then the extended short one.  So if a is the long value
-          // we can return true.
-          return a_length > b_length;
-        } else if (*lead_start > extension) {
-          return a_length < b_length;
-        }
+      bool not_equal = std::any_of(lead_start, lead_end,
+                                   [extension](uint8_t a) { return extension != a; });
+      if (not_equal) {
+        // Since sign extension are extrema values for unsigned bytes:
+        //
+        // Four cases exist:
+        //    negative values:
+        //      b is the longer value.
+        //        b must be the lesser value: return false
+        //      else:
+        //        a must be the lesser value: return true
+        //
+        //    positive values:
+        //      b  is the longer value.
+        //        values in b must be greater than a: return true
+        //      else:
+        //        values in a must be greater than b: return false
+        bool negative_values = first_a < 0;
+        bool b_longer = a_length < b_length;
+        return negative_values != b_longer;
       }
     } else {
       a_start++;
