@@ -2697,10 +2697,8 @@ TEST(ArrowReadWrite, DecimalStats) {
   std::shared_ptr<Scalar> expected_min, expected_max;
   ASSERT_OK_AND_ASSIGN(expected_min, array->GetScalar(array->length() - 1));
   ASSERT_OK_AND_ASSIGN(expected_max, array->GetScalar(0));
-  ASSERT_TRUE(expected_min->Equals(*min))
-      << expected_min->ToString() << " != (actual) " << min->ToString();
-  ASSERT_TRUE(expected_max->Equals(*max))
-      << expected_max->ToString() << " != (actual) " << max->ToString();
+  ::arrow::AssertScalarsEqual(*expected_min, *min, /*verbose=*/true);
+  ::arrow::AssertScalarsEqual(*expected_max, *max, /*verbose=*/true);
 }
 
 TEST(ArrowReadWrite, NestedNullableField) {
