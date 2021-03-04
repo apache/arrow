@@ -27,6 +27,8 @@ on:
 jobs:
   autobrew:
     name: "Autobrew"
+    env: 
+      NO_AUTOBREW: {{ NO_AUTOBREW|default("false") }}
     runs-on: macOS-latest
     steps:
       - name: Checkout Arrow
@@ -46,12 +48,12 @@ jobs:
           sed -i.bak -E -e 's@.git.git@.git@' tools/apache-arrow.rb && rm -f tools/apache-arrow.rb.bak
           # Get minio for S3 testing
           brew install minio
-        if: not {{ NO_AUTOBREW }}
+        if: ${{ env.NO_AUTOBREW }} == false
       - name: Configure non-autobrew dependencies
         run: |
           cd arrow/r
           brew install openssl
-        if: {{ NO_AUTOBREW }}
+        if: ${{ env.NO_AUTOBREW }}
       - uses: r-lib/actions/setup-r@v1
       - name: Install dependencies
         run: |
@@ -69,8 +71,8 @@ jobs:
         env:
           _R_CHECK_CRAN_INCOMING_: false
           ARROW_USE_PKG_CONFIG: false
-          FORCE_TOOLS_LIBS_SCRIPT: "${{ {{ NO_AUTOBREW }} && true || false }}"
-          LIBARROW_MINIMAL: "${{ {{ NO_AUTOBREW }} && true || false }}"
+          FORCE_TOOLS_LIBS_SCRIPT: "${{ env.NO_AUTOBREW && true || false }}"
+          LIBARROW_MINIMAL: "${{ env.NO_AUTOBREW && true || false }}"
         run: arrow/ci/scripts/r_test.sh arrow
       - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
