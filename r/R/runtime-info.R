@@ -34,12 +34,3 @@ RuntimeInfo <- R6Class("RuntimeInfo",
                         detected_simd_level = function() RuntimeInfo__detected_simd_level(self)
                       )
 )
-
-#' Arrow's default [RuntimeInfo]
-#'
-#' @return the default [RuntimeInfo]
-#' @export
-#' @keywords internal
-default_runtime_info <- function() {
-  RuntimeInfo__default()
-}
