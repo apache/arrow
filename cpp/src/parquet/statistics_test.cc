@@ -78,6 +78,8 @@ TEST(Comparison, SignedByteArray) {
     }
   };
 
+  // Test a mix of big-endian comparison values that are both equal and
+  // unequal after sign extension.
   std::vector<Case> cases = {
       {{0x80, 0x80, 0, 0}, 0},           {{/*0xFF,*/ 0x80, 0, 0}, 1},
       {{0xFF, 0x80, 0, 0}, 1},           {{/*0xFF,*/ 0xFF, 0x01, 0}, 2},
