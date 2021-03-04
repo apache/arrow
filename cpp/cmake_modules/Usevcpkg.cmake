@@ -109,7 +109,7 @@ if(NOT DEFINED VCPKG_MANIFEST_MODE AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg
   message(STATUS "vcpkg.json manifest found. Using VCPKG_MANIFEST_MODE: ON")
 endif()
 # vcpkg can install packages in two different places
-set(_INST_BUILD_DIR "${CMAKE_CURRENT_BUILD_DIR}/vcpkg_installed") # try here first
+set(_INST_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/vcpkg_installed") # try here first
 set(_INST_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed") # try here second
 set(_INST_VCPKG_ROOT "${VCPKG_ROOT}/installed")
 # Iterate over the places
