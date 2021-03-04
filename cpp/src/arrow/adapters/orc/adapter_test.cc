@@ -51,14 +51,6 @@ const int64_t kSecondMin = std::ceil(kMilliMin / 1000);
 
 static constexpr random::SeedType kRandomSeed = 0x0ff1ce;
 
-using ArrayBuilderVector = std::vector<std::shared_ptr<ArrayBuilder>>;
-using ArrayBuilderMatrix = std::vector<ArrayBuilderVector>;
-using ArrayMatrix = std::vector<ArrayVector>;
-using BufferVector = std::vector<std::shared_ptr<Buffer>>;
-using BufferMatrix = std::vector<BufferVector>;
-using BufferBuilderVector = std::vector<std::shared_ptr<BufferBuilder>>;
-using BufferBuilderMatrix = std::vector<BufferBuilderVector>;
-
 class MemoryOutputStream : public liborc::OutputStream {
  public:
   explicit MemoryOutputStream(ssize_t capacity)
