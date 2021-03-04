@@ -16,7 +16,6 @@
 // under the License.
 
 //! Crypto expressions
-
 use std::sync::Arc;
 
 use md5::Md5;

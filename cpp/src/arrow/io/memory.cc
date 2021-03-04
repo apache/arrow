@@ -320,7 +320,7 @@ Status BufferReader::WillNeed(const std::vector<ReadRange>& ranges) {
   return st;
 }
 
-Future<std::shared_ptr<Buffer>> BufferReader::ReadAsync(const AsyncContext&,
+Future<std::shared_ptr<Buffer>> BufferReader::ReadAsync(const IOContext&,
                                                         int64_t position,
                                                         int64_t nbytes) {
   return Future<std::shared_ptr<Buffer>>::MakeFinished(DoReadAt(position, nbytes));

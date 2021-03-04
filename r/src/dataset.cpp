@@ -292,13 +292,17 @@ std::shared_ptr<ds::PartitioningFactory> dataset___DirectoryPartitioning__MakeFa
 
 // [[arrow::export]]
 std::shared_ptr<ds::HivePartitioning> dataset___HivePartitioning(
-    const std::shared_ptr<arrow::Schema>& schm) {
-  return std::make_shared<ds::HivePartitioning>(schm);
+    const std::shared_ptr<arrow::Schema>& schm, const std::string& null_fallback) {
+  std::vector<std::shared_ptr<arrow::Array>> dictionaries;
+  return std::make_shared<ds::HivePartitioning>(schm, dictionaries, null_fallback);
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::PartitioningFactory> dataset___HivePartitioning__MakeFactory() {
-  return ds::HivePartitioning::MakeFactory();
+std::shared_ptr<ds::PartitioningFactory> dataset___HivePartitioning__MakeFactory(
+    const std::string& null_fallback) {
+  ds::HivePartitioningFactoryOptions options;
+  options.null_fallback = null_fallback;
+  return ds::HivePartitioning::MakeFactory(options);
 }
 
 // ScannerBuilder, Scanner

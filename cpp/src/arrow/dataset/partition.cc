@@ -70,23 +70,6 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
   return std::make_shared<DefaultPartitioning>();
 }
 
-Status KeyValuePartitioning::SetDefaultValuesFromKeys(const Expression& expr,
-                                                      RecordBatchProjector* projector) {
-  ARROW_ASSIGN_OR_RAISE(auto known_values, ExtractKnownFieldValues(expr));
-  for (const auto& ref_value : known_values) {
-    if (!ref_value.second.is_scalar()) {
-      return Status::Invalid("non-scalar partition key ", ref_value.second.ToString());
-    }
-
-    ARROW_ASSIGN_OR_RAISE(auto match,
-                          ref_value.first.FindOneOrNone(*projector->schema()));
-
-    if (match.empty()) continue;
-    RETURN_NOT_OK(projector->SetDefaultValue(match, ref_value.second.scalar()));
-  }
-  return Status::OK();
-}
-
 inline Expression ConjunctionFromGroupingRow(Scalar* row) {
   ScalarVector* values = &checked_cast<StructScalar*>(row)->value;
   std::vector<Expression> equality_expressions(values->size());

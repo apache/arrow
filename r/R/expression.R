@@ -143,7 +143,14 @@ cast_array_expression <- function(x, to_type, safe = TRUE, ...) {
 
 .array_function_map <- c(.unary_function_map, .binary_function_map)
 
-eval_array_expression <- function(x) {
+eval_array_expression <- function(x, data = NULL) {
+  if (!is.null(data)) {
+    x <- bind_array_refs(x, data)
+  }
+  if (!inherits(x, "array_expression")) {
+    # Nothing to evaluate
+    return(x)
+  }
   x$args <- lapply(x$args, function (a) {
     if (inherits(a, "array_expression")) {
       eval_array_expression(a)
@@ -152,6 +159,27 @@ eval_array_expression <- function(x) {
     }
   })
   call_function(x$fun, args = x$args, options = x$options %||% empty_named_list())
+}
+
+find_array_refs <- function(x) {
+  if (identical(x$fun, "array_ref")) {
+    out <- x$args$field_name
+  } else {
+    out <- lapply(x$args, find_array_refs)
+  }
+  unlist(out)
+}
+
+# Take an array_expression and replace array_refs with arrays/chunkedarrays from data
+bind_array_refs <- function(x, data) {
+  if (inherits(x, "array_expression")) {
+    if (identical(x$fun, "array_ref")) {
+      x <- data[[x$args$field_name]]
+    } else {
+      x$args <- lapply(x$args, bind_array_refs, data)
+    }
+  }
+  x
 }
 
 #' @export
@@ -181,9 +209,13 @@ print.array_expression <- function(x, ...) {
       deparse(arg)
     }
   })
-  # Prune this for readability
-  function_name <- sub("_kleene", "", x$fun)
-  paste0(function_name, "(", paste(printed_args, collapse = ", "), ")")
+  if (identical(x$fun, "array_ref")) {
+    x$args$field_name
+  } else {
+    # Prune this for readability
+    function_name <- sub("_kleene", "", x$fun)
+    paste0(function_name, "(", paste(printed_args, collapse = ", "), ")")
+  }
 }
 
 ###########
@@ -217,6 +249,9 @@ Expression <- R6Class("Expression", inherit = ArrowObject,
       )
       Expression$create("cast", self, options = modifyList(opts, list(...)))
     }
+  ),
+  active = list(
+    field_name = function() dataset___expr__get_field_ref_name(self)
   )
 )
 Expression$create <- function(function_name,

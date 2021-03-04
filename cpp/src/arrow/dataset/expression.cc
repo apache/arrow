@@ -752,22 +752,27 @@ Result<Expression> ReplaceFieldsWithKnownValues(
           auto it = known_values.find(*ref);
           if (it != known_values.end()) {
             Datum lit = it->second;
-            if (expr.type()->id() == Type::DICTIONARY) {
-              if (lit.is_scalar()) {
-                // FIXME the "right" way to support this is adding support for scalars to
-                // dictionary_encode and support for casting between index types to cast
-                ARROW_ASSIGN_OR_RAISE(
-                    auto index,
-                    Int32Scalar(0).CastTo(
-                        checked_cast<const DictionaryType&>(*expr.type()).index_type()));
+            if (lit.descr() == expr.descr()) return literal(std::move(lit));
+            // type mismatch, try casting the known value to the correct type
 
+            if (expr.type()->id() == Type::DICTIONARY &&
+                lit.type()->id() != Type::DICTIONARY) {
+              // the known value must be dictionary encoded
+
+              const auto& dict_type = checked_cast<const DictionaryType&>(*expr.type());
+              if (!lit.type()->Equals(dict_type.value_type())) {
+                ARROW_ASSIGN_OR_RAISE(lit, compute::Cast(lit, dict_type.value_type()));
+              }
+
+              if (lit.is_scalar()) {
                 ARROW_ASSIGN_OR_RAISE(auto dictionary,
                                       MakeArrayFromScalar(*lit.scalar(), 1));
 
-                return literal(
-                    DictionaryScalar::Make(std::move(index), std::move(dictionary)));
+                lit = Datum{DictionaryScalar::Make(MakeScalar<int32_t>(0),
+                                                   std::move(dictionary))};
               }
             }
+
             ARROW_ASSIGN_OR_RAISE(lit, compute::Cast(lit, expr.type()));
             return literal(std::move(lit));
           }

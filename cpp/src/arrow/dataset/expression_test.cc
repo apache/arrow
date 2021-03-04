@@ -455,7 +455,7 @@ TEST(Expression, BindNestedCall) {
 }
 
 TEST(Expression, ExecuteFieldRef) {
-  auto AssertRefIs = [](FieldRef ref, Datum in, Datum expected) {
+  auto ExpectRefIs = [](FieldRef ref, Datum in, Datum expected) {
     auto expr = field_ref(ref);
 
     ASSERT_OK_AND_ASSIGN(expr, expr.Bind(in.descr()));
@@ -464,7 +464,7 @@ TEST(Expression, ExecuteFieldRef) {
     AssertDatumsEqual(actual, expected, /*verbose=*/true);
   };
 
-  AssertRefIs("a", ArrayFromJSON(struct_({field("a", float64())}), R"([
+  ExpectRefIs("a", ArrayFromJSON(struct_({field("a", float64())}), R"([
     {"a": 6.125},
     {"a": 0.0},
     {"a": -1}
@@ -472,7 +472,7 @@ TEST(Expression, ExecuteFieldRef) {
               ArrayFromJSON(float64(), R"([6.125, 0.0, -1])"));
 
   // more nested:
-  AssertRefIs(FieldRef{"a", "a"},
+  ExpectRefIs(FieldRef{"a", "a"},
               ArrayFromJSON(struct_({field("a", struct_({field("a", float64())}))}), R"([
     {"a": {"a": 6.125}},
     {"a": {"a": 0.0}},
@@ -481,7 +481,7 @@ TEST(Expression, ExecuteFieldRef) {
               ArrayFromJSON(float64(), R"([6.125, 0.0, -1])"));
 
   // absent fields are resolved as a null scalar:
-  AssertRefIs(FieldRef{"b"}, ArrayFromJSON(struct_({field("a", float64())}), R"([
+  ExpectRefIs(FieldRef{"b"}, ArrayFromJSON(struct_({field("a", float64())}), R"([
     {"a": 6.125},
     {"a": 0.0},
     {"a": -1}
@@ -520,7 +520,7 @@ Result<Datum> NaiveExecuteScalarExpression(const Expression& expr, const Datum& 
   return function->Execute(arguments, call->options.get(), &exec_context);
 }
 
-void AssertExecute(Expression expr, Datum in, Datum* actual_out = NULLPTR) {
+void ExpectExecute(Expression expr, Datum in, Datum* actual_out = NULLPTR) {
   if (in.is_value()) {
     ASSERT_OK_AND_ASSIGN(expr, expr.Bind(in.descr()));
   } else {
@@ -539,14 +539,14 @@ void AssertExecute(Expression expr, Datum in, Datum* actual_out = NULLPTR) {
 }
 
 TEST(Expression, ExecuteCall) {
-  AssertExecute(call("add", {field_ref("a"), literal(3.5)}),
+  ExpectExecute(call("add", {field_ref("a"), literal(3.5)}),
                 ArrayFromJSON(struct_({field("a", float64())}), R"([
     {"a": 6.125},
     {"a": 0.0},
     {"a": -1}
   ])"));
 
-  AssertExecute(
+  ExpectExecute(
       call("add", {field_ref("a"), call("subtract", {literal(3.5), field_ref("b")})}),
       ArrayFromJSON(struct_({field("a", float64()), field("b", float64())}), R"([
     {"a": 6.125, "b": 3.375},
@@ -554,7 +554,7 @@ TEST(Expression, ExecuteCall) {
     {"a": -1,    "b": 4.75}
   ])"));
 
-  AssertExecute(call("strptime", {field_ref("a")},
+  ExpectExecute(call("strptime", {field_ref("a")},
                      compute::StrptimeOptions("%m/%d/%Y", TimeUnit::MICRO)),
                 ArrayFromJSON(struct_({field("a", utf8())}), R"([
     {"a": "5/1/2020"},
@@ -562,7 +562,7 @@ TEST(Expression, ExecuteCall) {
     {"a": "12/11/1900"}
   ])"));
 
-  AssertExecute(project({call("add", {field_ref("a"), literal(3.5)})}, {"a + 3.5"}),
+  ExpectExecute(project({call("add", {field_ref("a"), literal(3.5)})}, {"a + 3.5"}),
                 ArrayFromJSON(struct_({field("a", float64())}), R"([
     {"a": 6.125},
     {"a": 0.0},
@@ -571,13 +571,37 @@ TEST(Expression, ExecuteCall) {
 }
 
 TEST(Expression, ExecuteDictionaryTransparent) {
-  AssertExecute(
+  ExpectExecute(
       equal(field_ref("a"), field_ref("b")),
       ArrayFromJSON(
           struct_({field("a", dictionary(int32(), utf8())), field("b", utf8())}), R"([
     {"a": "hi", "b": "hi"},
     {"a": "",   "b": ""},
     {"a": "hi", "b": "hello"}
+  ])"));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto expr, project({field_ref("i32"), field_ref("dict_str")}, {"i32", "dict_str"})
+                     .Bind(*kBoringSchema));
+
+  ASSERT_OK_AND_ASSIGN(
+      expr, SimplifyWithGuarantee(expr, equal(field_ref("dict_str"), literal("eh"))));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto res,
+      ExecuteScalarExpression(expr, ArrayFromJSON(struct_({field("i32", int32())}), R"([
+    {"i32": 0},
+    {"i32": 1},
+    {"i32": 2}
+  ])")));
+
+  AssertDatumsEqual(
+      res, ArrayFromJSON(struct_({field("i32", int32()),
+                                  field("dict_str", dictionary(int32(), utf8()))}),
+                         R"([
+    {"i32": 0, "dict_str": "eh"},
+    {"i32": 1, "dict_str": "eh"},
+    {"i32": 2, "dict_str": "eh"}
   ])"));
 }
 
@@ -756,6 +780,10 @@ TEST(Expression, ReplaceFieldsWithKnownValues) {
   ExpectReplacesTo(equal(field_ref("i32"), literal(1)), i32_is_3,
                    equal(literal(3), literal(1)));
 
+  Datum dict_str{
+      DictionaryScalar::Make(MakeScalar(0), ArrayFromJSON(utf8(), R"(["3"])"))};
+  ExpectReplacesTo(field_ref("dict_str"), {{"dict_str", dict_str}}, literal(dict_str));
+
   ExpectReplacesTo(call("add",
                         {
                             call("subtract",
@@ -787,6 +815,18 @@ TEST(Expression, ReplaceFieldsWithKnownValues) {
 
   ExpectReplacesTo(is_valid(field_ref("str")), i32_valid_str_null,
                    is_valid(null_literal(utf8())));
+
+  ASSERT_OK_AND_ASSIGN(auto expr, field_ref("dict_str").Bind(*kBoringSchema));
+  Datum dict_i32{
+      DictionaryScalar::Make(MakeScalar<int32_t>(0), ArrayFromJSON(int32(), R"([3])"))};
+  // Unsupported cast dictionary(int32(), int32()) -> dictionary(int32(), utf8())
+  ASSERT_RAISES(NotImplemented,
+                ReplaceFieldsWithKnownValues({{"dict_str", dict_i32}}, expr));
+  // Unsupported cast dictionary(int8(), utf8()) -> dictionary(int32(), utf8())
+  dict_str = Datum{
+      DictionaryScalar::Make(MakeScalar<int8_t>(0), ArrayFromJSON(utf8(), R"(["a"])"))};
+  ASSERT_RAISES(NotImplemented,
+                ReplaceFieldsWithKnownValues({{"dict_str", dict_str}}, expr));
 }
 
 struct {
@@ -1075,8 +1115,8 @@ TEST(Expression, SimplifyThenExecute) {
   ])");
 
   Datum evaluated, simplified_evaluated;
-  AssertExecute(filter, input, &evaluated);
-  AssertExecute(simplified, input, &simplified_evaluated);
+  ExpectExecute(filter, input, &evaluated);
+  ExpectExecute(simplified, input, &simplified_evaluated);
   AssertDatumsEqual(evaluated, simplified_evaluated, /*verbose=*/true);
 }
 
@@ -1171,6 +1211,71 @@ TEST(Expression, SerializationRoundTrips) {
                          equal(field_ref("hour"), literal(int8_t(0))),
                          equal(field_ref("alpha"), literal(int32_t(0))),
                          equal(field_ref("beta"), literal(3.25f))}));
+}
+
+TEST(Projection, AugmentWithNull) {
+  // NB: input contains *no columns* except i32
+  auto input = ArrayFromJSON(struct_({kBoringSchema->GetFieldByName("i32")}),
+                             R"([{"i32": 0}, {"i32": 1}, {"i32": 2}])");
+
+  auto ExpectProject = [&](Expression proj, Datum expected) {
+    ASSERT_OK_AND_ASSIGN(proj, proj.Bind(*kBoringSchema));
+    ASSERT_OK_AND_ASSIGN(auto actual, ExecuteScalarExpression(proj, input));
+    AssertDatumsEqual(Datum(expected), actual);
+  };
+
+  ExpectProject(project({field_ref("f64"), field_ref("i32")},
+                        {"projected double", "projected int"}),
+                // "projected double" is materialized as a column of nulls
+                ArrayFromJSON(struct_({field("projected double", float64()),
+                                       field("projected int", int32())}),
+                              R"([
+                                  [null, 0],
+                                  [null, 1],
+                                  [null, 2]
+                              ])"));
+
+  ExpectProject(
+      project({field_ref("f64")}, {"projected double"}),
+      // NB: only a scalar was projected, this is *not* automatically broadcast
+      // to an array. "projected double" is materialized as a null scalar
+      Datum(*StructScalar::Make({MakeNullScalar(float64())}, {"projected double"})));
+}
+
+TEST(Projection, AugmentWithKnownValues) {
+  auto input = ArrayFromJSON(struct_({kBoringSchema->GetFieldByName("i32")}),
+                             R"([{"i32": 0}, {"i32": 1}, {"i32": 2}])");
+
+  auto ExpectSimplifyAndProject = [&](Expression proj, Datum expected,
+                                      Expression guarantee) {
+    ASSERT_OK_AND_ASSIGN(proj, proj.Bind(*kBoringSchema));
+    ASSERT_OK_AND_ASSIGN(proj, SimplifyWithGuarantee(proj, guarantee));
+    ASSERT_OK_AND_ASSIGN(auto actual, ExecuteScalarExpression(proj, input));
+    AssertDatumsEqual(Datum(expected), actual);
+  };
+
+  ExpectSimplifyAndProject(
+      project({field_ref("str"), field_ref("f64"), field_ref("i64"), field_ref("i32")},
+              {"str", "f64", "i64", "i32"}),
+      ArrayFromJSON(struct_({
+                        field("str", utf8()),
+                        field("f64", float64()),
+                        field("i64", int64()),
+                        field("i32", int32()),
+                    }),
+                    // str is explicitly null
+                    // f64 is explicitly 3.5
+                    // i64 is not specified in the guarantee and implicitly null
+                    // i32 is present in the input and passed through
+                    R"([
+                        {"str": null, "f64": 3.5, "i64": null, "i32": 0},
+                        {"str": null, "f64": 3.5, "i64": null, "i32": 1},
+                        {"str": null, "f64": 3.5, "i64": null, "i32": 2}
+                    ])"),
+      and_({
+          equal(field_ref("f64"), literal(3.5)),
+          is_null(field_ref("str")),
+      }));
 }
 
 }  // namespace dataset

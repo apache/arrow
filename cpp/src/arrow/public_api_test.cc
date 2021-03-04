@@ -22,12 +22,18 @@
 #include "arrow/io/api.h"   // IWYU pragma: keep
 #include "arrow/ipc/api.h"  // IWYU pragma: keep
 
+// TODO: should exercise more public APIs (compute etc.)
+
 #ifdef DCHECK
 #error "DCHECK should not be visible from Arrow public headers."
 #endif
 
 #ifdef ASSIGN_OR_RAISE
 #error "ASSIGN_OR_RAISE should not be visible from Arrow public headers."
+#endif
+
+#ifdef XSIMD_VERSION_MAJOR
+#error "xsimd should not be visible from Arrow public headers."
 #endif
 
 #include <gmock/gmock-matchers.h>

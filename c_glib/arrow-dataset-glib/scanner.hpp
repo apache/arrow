@@ -21,6 +21,7 @@
 
 #include <arrow/dataset/api.h>
 
+#include <arrow-dataset-glib/fragment.h>
 #include <arrow-dataset-glib/scanner.h>
 
 GADScanContext *
@@ -36,4 +37,5 @@ gad_scan_options_get_raw(GADScanOptions *scan_options);
 GADInMemoryScanTask *
 gad_in_memory_scan_task_new_raw(std::shared_ptr<arrow::dataset::InMemoryScanTask> *arrow_in_memory_scan_task,
                                 GADScanOptions *scan_options,
-                                GADScanContext *scan_context);
+                                GADScanContext *scan_context,
+                                GADInMemoryFragment *fragment);

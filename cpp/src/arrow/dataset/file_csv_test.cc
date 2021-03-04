@@ -36,14 +36,6 @@ namespace dataset {
 
 class TestCsvFileFormat : public testing::Test {
  public:
-  std::unique_ptr<FileSource> GetFileSource() {
-    return GetFileSource(R"(f64
-1.0
-
-N/A
-2)");
-  }
-
   std::unique_ptr<FileSource> GetFileSource(std::string csv) {
     return internal::make_unique<FileSource>(Buffer::FromString(std::move(csv)));
   }
@@ -59,17 +51,24 @@ N/A
     return Batches(std::move(scan_task_it));
   }
 
- protected:
+  void SetSchema(std::vector<std::shared_ptr<Field>> fields) {
+    opts_ = std::make_shared<ScanOptions>();
+    opts_->dataset_schema = schema(std::move(fields));
+    ASSERT_OK(SetProjection(opts_.get(), opts_->dataset_schema->field_names()));
+  }
+
   std::shared_ptr<CsvFileFormat> format_ = std::make_shared<CsvFileFormat>();
   std::shared_ptr<ScanOptions> opts_;
   std::shared_ptr<ScanContext> ctx_ = std::make_shared<ScanContext>();
-  std::shared_ptr<Schema> schema_ = schema({field("f64", float64())});
 };
 
 TEST_F(TestCsvFileFormat, ScanRecordBatchReader) {
-  auto source = GetFileSource();
+  auto source = GetFileSource(R"(f64
+1.0
 
-  opts_ = ScanOptions::Make(schema_);
+N/A
+2)");
+  SetSchema({field("f64", float64())});
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
   int64_t row_count = 0;
@@ -83,16 +82,23 @@ TEST_F(TestCsvFileFormat, ScanRecordBatchReader) {
 }
 
 TEST_F(TestCsvFileFormat, ScanRecordBatchReaderWithVirtualColumn) {
-  auto source = GetFileSource();
+  auto source = GetFileSource(R"(f64
+1.0
 
-  opts_ = ScanOptions::Make(schema({schema_->field(0), field("virtual", int32())}));
+N/A
+2)");
+  // NB: dataset_schema includes a column not present in the file
+  SetSchema({field("f64", float64()), field("virtual", int32())});
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+
+  ASSERT_OK_AND_ASSIGN(auto physical_schema, fragment->ReadPhysicalSchema());
+  AssertSchemaEqual(Schema({field("f64", float64())}), *physical_schema);
 
   int64_t row_count = 0;
 
   for (auto maybe_batch : Batches(fragment.get())) {
     ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-    AssertSchemaEqual(*batch->schema(), *schema_);
+    AssertSchemaEqual(*batch->schema(), *physical_schema);
     row_count += batch->num_rows();
   }
 
@@ -112,10 +118,13 @@ TEST_F(TestCsvFileFormat, OpenFailureWithRelevantError) {
 }
 
 TEST_F(TestCsvFileFormat, Inspect) {
-  auto source = GetFileSource();
+  auto source = GetFileSource(R"(f64
+1.0
 
+N/A
+2)");
   ASSERT_OK_AND_ASSIGN(auto actual, format_->Inspect(*source.get()));
-  EXPECT_EQ(*actual, *schema_);
+  EXPECT_EQ(*actual, Schema({field("f64", float64())}));
 }
 
 TEST_F(TestCsvFileFormat, IsSupported) {
@@ -130,24 +139,40 @@ TEST_F(TestCsvFileFormat, IsSupported) {
   ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(*source));
   ASSERT_EQ(supported, false);
 
-  source = GetFileSource();
+  source = GetFileSource(R"(f64
+1.0
+
+N/A
+2)");
   ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(*source));
   EXPECT_EQ(supported, true);
 }
 
-TEST_F(TestCsvFileFormat, DISABLED_NonMaterializedFieldWithDifferingTypeFromInferred) {
-  auto source = GetFileSource(R"(f64,str
+TEST_F(TestCsvFileFormat, NonProjectedFieldWithDifferingTypeFromInferred) {
+  auto source = GetFileSource(R"(betrayal_not_really_f64,str
 1.0,foo
 ,
 N/A,bar
 2,baz)");
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+  ASSERT_OK_AND_ASSIGN(auto physical_schema, fragment->ReadPhysicalSchema());
+  AssertSchemaEqual(
+      Schema({field("betrayal_not_really_f64", float64()), field("str", utf8())}),
+      *physical_schema);
 
-  // a valid schema for source:
-  schema_ = schema({field("f64", utf8()), field("str", utf8())});
-  ScannerBuilder builder(schema_, fragment, ctx_);
-  // filter expression validated against declared schema
-  ASSERT_OK(builder.Filter(equal(field_ref("f64"), field_ref("str"))));
+  // CSV is a text format, so it is valid to read column betrayal_not_really_f64 as string
+  // rather than double
+  auto not_float64 = utf8();
+  auto dataset_schema =
+      schema({field("betrayal_not_really_f64", not_float64), field("str", utf8())});
+
+  ScannerBuilder builder(dataset_schema, fragment, ctx_);
+
+  // This filter is valid with declared schema, but would *not* be valid
+  // if betrayal_not_really_f64 were read as double rather than string.
+  ASSERT_OK(
+      builder.Filter(equal(field_ref("betrayal_not_really_f64"), field_ref("str"))));
+
   // project only "str"
   ASSERT_OK(builder.Project({"str"}));
   ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
@@ -157,9 +182,10 @@ N/A,bar
     ASSERT_OK_AND_ASSIGN(auto scan_task, maybe_scan_task);
     ASSERT_OK_AND_ASSIGN(auto batch_it, scan_task->Execute());
     for (auto maybe_batch : batch_it) {
-      // ERROR: "f64" is not projected and reverts to inferred type,
-      // breaking the comparison expression
       ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      // Run through the scan checking for errors to ensure that "f64" is read with the
+      // specified type and does not revert to the inferred type (if it reverts to
+      // inferring float64 then evaluation of the comparison expression should break)
     }
   }
 }

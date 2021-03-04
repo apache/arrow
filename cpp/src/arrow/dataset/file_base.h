@@ -137,9 +137,9 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 
   /// \brief Open a FileFragment for scanning.
   /// May populate lazy properties of the FileFragment.
-  virtual Result<ScanTaskIterator> ScanFile(std::shared_ptr<ScanOptions> options,
-                                            std::shared_ptr<ScanContext> context,
-                                            FileFragment* file) const = 0;
+  virtual Result<ScanTaskIterator> ScanFile(
+      std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
+      const std::shared_ptr<FileFragment>& file) const = 0;
 
   /// \brief Open a fragment
   virtual Result<std::shared_ptr<FileFragment>> MakeFragment(
@@ -166,6 +166,7 @@ class ARROW_DS_EXPORT FileFragment : public Fragment {
                                 std::shared_ptr<ScanContext> context) override;
 
   std::string type_name() const override { return format_->type_name(); }
+  std::string ToString() const override { return source_.path(); };
   bool splittable() const override { return format_->splittable(); }
 
   const FileSource& source() const { return source_; }
@@ -268,18 +269,24 @@ class ARROW_DS_EXPORT FileWriter {
 
   Status Write(RecordBatchReader* batches);
 
-  virtual Status Finish() = 0;
+  Status Finish();
 
   const std::shared_ptr<FileFormat>& format() const { return options_->format(); }
   const std::shared_ptr<Schema>& schema() const { return schema_; }
   const std::shared_ptr<FileWriteOptions>& options() const { return options_; }
 
  protected:
-  FileWriter(std::shared_ptr<Schema> schema, std::shared_ptr<FileWriteOptions> options)
-      : schema_(std::move(schema)), options_(std::move(options)) {}
+  FileWriter(std::shared_ptr<Schema> schema, std::shared_ptr<FileWriteOptions> options,
+             std::shared_ptr<io::OutputStream> destination)
+      : schema_(std::move(schema)),
+        options_(std::move(options)),
+        destination_(destination) {}
+
+  virtual Status FinishInternal() = 0;
 
   std::shared_ptr<Schema> schema_;
   std::shared_ptr<FileWriteOptions> options_;
+  std::shared_ptr<io::OutputStream> destination_;
 };
 
 struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {

@@ -47,6 +47,9 @@ enum class MessageType {
   SPARSE_TENSOR
 };
 
+struct IpcReadOptions;
+struct IpcWriteOptions;
+
 class MessageReader;
 
 class RecordBatchStreamReader;

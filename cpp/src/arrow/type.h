@@ -913,7 +913,7 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
  public:
   static constexpr Type::type type_id = Type::DECIMAL128;
 
-  static constexpr const char* type_name() { return "decimal"; }
+  static constexpr const char* type_name() { return "decimal128"; }
 
   /// Decimal128Type constructor that aborts on invalid input.
   explicit Decimal128Type(int32_t precision, int32_t scale);
@@ -922,7 +922,7 @@ class ARROW_EXPORT Decimal128Type : public DecimalType {
   static Result<std::shared_ptr<DataType>> Make(int32_t precision, int32_t scale);
 
   std::string ToString() const override;
-  std::string name() const override { return "decimal"; }
+  std::string name() const override { return "decimal128"; }
 
   static constexpr int32_t kMinPrecision = 1;
   static constexpr int32_t kMaxPrecision = 38;
@@ -1674,10 +1674,10 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
                             public util::EqualityComparable<Schema>,
                             public util::ToStringOstreamable<Schema> {
  public:
-  explicit Schema(std::vector<std::shared_ptr<Field>> fields, Endianness endianness,
+  explicit Schema(FieldVector fields, Endianness endianness,
                   std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
-  explicit Schema(std::vector<std::shared_ptr<Field>> fields,
+  explicit Schema(FieldVector fields,
                   std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
   Schema(const Schema&);
@@ -1705,7 +1705,7 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   /// Return the ith schema element. Does not boundscheck
   const std::shared_ptr<Field>& field(int i) const;
 
-  const std::vector<std::shared_ptr<Field>>& fields() const;
+  const FieldVector& fields() const;
 
   std::vector<std::string> field_names() const;
 
@@ -1713,7 +1713,7 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
 
   /// \brief Return the indices of all fields having this name in sorted order
-  std::vector<std::shared_ptr<Field>> GetAllFieldsByName(const std::string& name) const;
+  FieldVector GetAllFieldsByName(const std::string& name) const;
 
   /// Returns -1 if name not found
   int GetFieldIndex(const std::string& name) const;

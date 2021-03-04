@@ -193,6 +193,8 @@ using IntegralArrowTypes = ::testing::Types<UInt8Type, UInt16Type, UInt32Type, U
 using TemporalArrowTypes =
     ::testing::Types<Date32Type, Date64Type, TimestampType, Time32Type, Time64Type>;
 
+using DecimalArrowTypes = ::testing::Types<Decimal128Type, Decimal256Type>;
+
 class Array;
 class ChunkedArray;
 class RecordBatch;

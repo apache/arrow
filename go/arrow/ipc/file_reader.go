@@ -244,6 +244,23 @@ func (f *FileReader) Close() error {
 // The returned value is valid until the next call to Record.
 // Users need to call Retain on that Record to keep it valid for longer.
 func (f *FileReader) Record(i int) (array.Record, error) {
+	record, err := f.RecordAt(i)
+	if err != nil {
+		return nil, err
+	}
+
+	if f.record != nil {
+		f.record.Release()
+	}
+
+	f.record = record
+	return record, nil
+}
+
+// Record returns the i-th record from the file. Ownership is transferred to the
+// caller and must call Release() to free the memory. This method is safe to
+// call concurrently.
+func (f *FileReader) RecordAt(i int) (array.Record, error) {
 	if i < 0 || i > f.NumRecords() {
 		panic("arrow/ipc: record index out of bounds")
 	}
@@ -271,12 +288,7 @@ func (f *FileReader) Record(i int) (array.Record, error) {
 		return nil, xerrors.Errorf("arrow/ipc: message %d is not a Record", i)
 	}
 
-	if f.record != nil {
-		f.record.Release()
-	}
-
-	f.record = newRecord(f.schema, msg.meta, bytes.NewReader(msg.body.Bytes()))
-	return f.record, nil
+	return newRecord(f.schema, msg.meta, bytes.NewReader(msg.body.Bytes())), nil
 }
 
 // Read reads the current record from the underlying stream and an error, if any.

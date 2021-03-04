@@ -128,9 +128,6 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
     util::optional<std::string> value;
   };
 
-  static Status SetDefaultValuesFromKeys(const Expression& expr,
-                                         RecordBatchProjector* projector);
-
   Result<PartitionedBatches> Partition(
       const std::shared_ptr<RecordBatch>& batch) const override;
 

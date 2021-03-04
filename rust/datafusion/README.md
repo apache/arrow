@@ -64,8 +64,12 @@ DataFusion includes a simple command-line interactive SQL utility. See the [CLI 
   - [x] concat
   - [x] concat_ws
   - [x] length
+  - [x] left
+  - [x] lpad
   - [x] ltrim
   - [x] octet_length
+  - [x] right
+  - [x] rpad
   - [x] rtrim
   - [x] substr
   - [x] trim

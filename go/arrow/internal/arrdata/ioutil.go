@@ -17,8 +17,10 @@
 package arrdata // import "github.com/apache/arrow/go/arrow/internal/arrdata"
 
 import (
+	"fmt"
 	"io"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/apache/arrow/go/arrow"
@@ -57,6 +59,54 @@ func CheckArrowFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arro
 		t.Fatal(err)
 	}
 
+}
+
+func CheckArrowConcurrentFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
+	t.Helper()
+
+	_, err := f.Seek(0, io.SeekStart)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r, err := ipc.NewFileReader(f, ipc.WithSchema(schema), ipc.WithAllocator(mem))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+
+	var g sync.WaitGroup
+	errs := make(chan error, r.NumRecords())
+	checkRecord := func(i int) {
+		defer g.Done()
+		rec, err := r.RecordAt(i)
+		if err != nil {
+			errs <- fmt.Errorf("could not read record %d: %v", i, err)
+			return
+		}
+		if !array.RecordEqual(rec, recs[i]) {
+			errs <- fmt.Errorf("records[%d] differ", i)
+		}
+	}
+
+	for i := 0; i < r.NumRecords(); i++ {
+		g.Add(1)
+		go checkRecord(i)
+	}
+
+	g.Wait()
+	close(errs)
+
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	err = r.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 // CheckArrowStream checks whether a given ARROW stream contains the expected list of records.

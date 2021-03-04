@@ -1669,7 +1669,7 @@ TEST(TypesTest, TestDecimal128Small) {
   EXPECT_EQ(t1.precision(), 8);
   EXPECT_EQ(t1.scale(), 4);
 
-  EXPECT_EQ(t1.ToString(), std::string("decimal(8, 4)"));
+  EXPECT_EQ(t1.ToString(), std::string("decimal128(8, 4)"));
 
   // Test properties
   EXPECT_EQ(t1.byte_width(), 16);
@@ -1683,7 +1683,7 @@ TEST(TypesTest, TestDecimal128Medium) {
   EXPECT_EQ(t1.precision(), 12);
   EXPECT_EQ(t1.scale(), 5);
 
-  EXPECT_EQ(t1.ToString(), std::string("decimal(12, 5)"));
+  EXPECT_EQ(t1.ToString(), std::string("decimal128(12, 5)"));
 
   // Test properties
   EXPECT_EQ(t1.byte_width(), 16);
@@ -1697,7 +1697,7 @@ TEST(TypesTest, TestDecimal128Large) {
   EXPECT_EQ(t1.precision(), 27);
   EXPECT_EQ(t1.scale(), 7);
 
-  EXPECT_EQ(t1.ToString(), std::string("decimal(27, 7)"));
+  EXPECT_EQ(t1.ToString(), std::string("decimal128(27, 7)"));
 
   // Test properties
   EXPECT_EQ(t1.byte_width(), 16);

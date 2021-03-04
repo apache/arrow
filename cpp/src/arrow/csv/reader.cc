@@ -40,6 +40,7 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
@@ -51,18 +52,11 @@
 #include "arrow/util/utf8.h"
 
 namespace arrow {
-
-class MemoryPool;
-
-namespace io {
-
-class InputStream;
-
-}  // namespace io
-
 namespace csv {
 
 using internal::Executor;
+
+namespace {
 
 struct ConversionSchema {
   struct Column {
@@ -154,6 +148,7 @@ struct CSVBlock {
   std::function<Status(int64_t)> consume_bytes;
 };
 
+}  // namespace
 }  // namespace csv
 
 template <>
@@ -162,6 +157,7 @@ struct IterationTraits<csv::CSVBlock> {
 };
 
 namespace csv {
+namespace {
 
 // The == operator must be defined to be used as T in Iterator<T>
 bool operator==(const CSVBlock& left, const CSVBlock& right) {
@@ -935,24 +931,44 @@ class AsyncThreadedTableReader
   AsyncGenerator<std::shared_ptr<Buffer>> buffer_generator_;
 };
 
-/////////////////////////////////////////////////////////////////////////
-// Factory functions
-
-Result<std::shared_ptr<TableReader>> TableReader::Make(
-    MemoryPool* pool, io::AsyncContext async_context,
-    std::shared_ptr<io::InputStream> input, const ReadOptions& read_options,
-    const ParseOptions& parse_options, const ConvertOptions& convert_options) {
+Result<std::shared_ptr<TableReader>> MakeTableReader(
+    MemoryPool* pool, io::IOContext io_context, std::shared_ptr<io::InputStream> input,
+    const ReadOptions& read_options, const ParseOptions& parse_options,
+    const ConvertOptions& convert_options) {
   std::shared_ptr<BaseTableReader> reader;
   if (read_options.use_threads) {
-    reader = std::make_shared<AsyncThreadedTableReader>(
-        pool, input, read_options, parse_options, convert_options, async_context.executor,
-        internal::GetCpuThreadPool());
+    auto cpu_executor = internal::GetCpuThreadPool();
+    auto io_executor = io_context.executor();
+    reader = std::make_shared<AsyncThreadedTableReader>(pool, input, read_options,
+                                                        parse_options, convert_options,
+                                                        cpu_executor, io_executor);
   } else {
     reader = std::make_shared<SerialTableReader>(pool, input, read_options, parse_options,
                                                  convert_options);
   }
   RETURN_NOT_OK(reader->Init());
   return reader;
+}
+
+}  // namespace
+
+/////////////////////////////////////////////////////////////////////////
+// Factory functions
+
+Result<std::shared_ptr<TableReader>> TableReader::Make(
+    io::IOContext io_context, std::shared_ptr<io::InputStream> input,
+    const ReadOptions& read_options, const ParseOptions& parse_options,
+    const ConvertOptions& convert_options) {
+  return MakeTableReader(io_context.pool(), io_context, std::move(input), read_options,
+                         parse_options, convert_options);
+}
+
+Result<std::shared_ptr<TableReader>> TableReader::Make(
+    MemoryPool* pool, io::IOContext io_context, std::shared_ptr<io::InputStream> input,
+    const ReadOptions& read_options, const ParseOptions& parse_options,
+    const ConvertOptions& convert_options) {
+  return MakeTableReader(pool, io_context, std::move(input), read_options, parse_options,
+                         convert_options);
 }
 
 Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(

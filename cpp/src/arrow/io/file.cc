@@ -699,7 +699,7 @@ Result<std::shared_ptr<Buffer>> MemoryMappedFile::Read(int64_t nbytes) {
   return buffer;
 }
 
-Future<std::shared_ptr<Buffer>> MemoryMappedFile::ReadAsync(const AsyncContext&,
+Future<std::shared_ptr<Buffer>> MemoryMappedFile::ReadAsync(const IOContext&,
                                                             int64_t position,
                                                             int64_t nbytes) {
   return Future<std::shared_ptr<Buffer>>::MakeFinished(ReadAt(position, nbytes));

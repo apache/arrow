@@ -188,6 +188,16 @@ struct GetViewType<Decimal128Type> {
   }
 };
 
+template <>
+struct GetViewType<Decimal256Type> {
+  using T = Decimal256;
+  using PhysicalType = util::string_view;
+
+  static T LogicalValue(PhysicalType value) {
+    return Decimal256(reinterpret_cast<const uint8_t*>(value.data()));
+  }
+};
+
 template <typename Type, typename Enable = void>
 struct GetOutputType;
 
@@ -204,6 +214,11 @@ struct GetOutputType<Type, enable_if_t<is_string_like_type<Type>::value>> {
 template <>
 struct GetOutputType<Decimal128Type> {
   using T = Decimal128;
+};
+
+template <>
+struct GetOutputType<Decimal256Type> {
+  using T = Decimal256;
 };
 
 // ----------------------------------------------------------------------
@@ -396,6 +411,7 @@ const std::vector<std::shared_ptr<DataType>>& SignedIntTypes();
 const std::vector<std::shared_ptr<DataType>>& UnsignedIntTypes();
 const std::vector<std::shared_ptr<DataType>>& IntTypes();
 const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes();
+const std::vector<Type::type>& DecimalTypeIds();
 
 ARROW_EXPORT
 const std::vector<TimeUnit::type>& AllTimeUnits();
@@ -1179,6 +1195,22 @@ ArrayKernelExec GenerateTemporal(detail::GetTypeId get_id) {
       return Generator<Type0, Time64Type, Args...>::Exec;
     case Type::TIMESTAMP:
       return Generator<Type0, TimestampType, Args...>::Exec;
+    default:
+      DCHECK(false);
+      return ExecFail;
+  }
+}
+
+// Generate a kernel given a templated functor for decimal types
+//
+// See "Numeric" above for description of the generator functor
+template <template <typename...> class Generator, typename Type0, typename... Args>
+ArrayKernelExec GenerateDecimal(detail::GetTypeId get_id) {
+  switch (get_id.id) {
+    case Type::DECIMAL128:
+      return Generator<Type0, Decimal128Type, Args...>::Exec;
+    case Type::DECIMAL256:
+      return Generator<Type0, Decimal256Type, Args...>::Exec;
     default:
       DCHECK(false);
       return ExecFail;

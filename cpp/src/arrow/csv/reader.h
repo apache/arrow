@@ -46,12 +46,16 @@ class ARROW_EXPORT TableReader {
   virtual Future<std::shared_ptr<Table>> ReadAsync() = 0;
 
   /// Create a TableReader instance
-  static Result<std::shared_ptr<TableReader>> Make(MemoryPool* pool,
-                                                   io::AsyncContext async_context,
+  static Result<std::shared_ptr<TableReader>> Make(io::IOContext io_context,
                                                    std::shared_ptr<io::InputStream> input,
                                                    const ReadOptions&,
                                                    const ParseOptions&,
                                                    const ConvertOptions&);
+
+  ARROW_DEPRECATED("Use MemoryPool-less overload (the IOContext holds a pool already)")
+  static Result<std::shared_ptr<TableReader>> Make(
+      MemoryPool* pool, io::IOContext io_context, std::shared_ptr<io::InputStream> input,
+      const ReadOptions&, const ParseOptions&, const ConvertOptions&);
 };
 
 /// Experimental

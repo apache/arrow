@@ -631,8 +631,13 @@ Result<S3Model::GetObjectResult> GetObjectRange(Aws::S3::S3Client* client,
 class ObjectInputFile final : public io::RandomAccessFile {
  public:
   ObjectInputFile(std::shared_ptr<FileSystem> fs, Aws::S3::S3Client* client,
-                  const S3Path& path, int64_t size = kNoSize)
-      : fs_(std::move(fs)), client_(client), path_(path), content_length_(size) {}
+                  const io::IOContext& io_context, const S3Path& path,
+                  int64_t size = kNoSize)
+      : fs_(std::move(fs)),
+        client_(client),
+        io_context_(io_context),
+        path_(path),
+        content_length_(size) {}
 
   Status Init() {
     // Issue a HEAD Object to get the content-length and ensure any
@@ -735,7 +740,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
     // No need to allocate more than the remaining number of bytes
     nbytes = std::min(nbytes, content_length_ - position);
 
-    ARROW_ASSIGN_OR_RAISE(auto buf, AllocateResizableBuffer(nbytes));
+    ARROW_ASSIGN_OR_RAISE(auto buf, AllocateResizableBuffer(nbytes, io_context_.pool()));
     if (nbytes > 0) {
       ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
                             ReadAt(position, nbytes, buf->mutable_data()));
@@ -760,7 +765,9 @@ class ObjectInputFile final : public io::RandomAccessFile {
  protected:
   std::shared_ptr<FileSystem> fs_;  // Owner of S3Client
   Aws::S3::S3Client* client_;
+  const io::IOContext io_context_;
   S3Path path_;
+
   bool closed_ = false;
   int64_t pos_ = 0;
   int64_t content_length_ = kNoSize;
@@ -779,8 +786,13 @@ class ObjectOutputStream final : public io::OutputStream {
 
  public:
   ObjectOutputStream(std::shared_ptr<FileSystem> fs, Aws::S3::S3Client* client,
-                     const S3Path& path, const S3Options& options)
-      : fs_(std::move(fs)), client_(client), path_(path), options_(options) {}
+                     const io::IOContext& io_context, const S3Path& path,
+                     const S3Options& options)
+      : fs_(std::move(fs)),
+        client_(client),
+        io_context_(io_context),
+        path_(path),
+        options_(options) {}
 
   ~ObjectOutputStream() override {
     // For compliance with the rest of the IO stack, Close rather than Abort,
@@ -910,8 +922,9 @@ class ObjectOutputStream final : public io::OutputStream {
     }
     // Can't upload data on its own, need to buffer it
     if (!current_part_) {
-      ARROW_ASSIGN_OR_RAISE(current_part_,
-                            io::BufferOutputStream::Create(part_upload_threshold_));
+      ARROW_ASSIGN_OR_RAISE(
+          current_part_,
+          io::BufferOutputStream::Create(part_upload_threshold_, io_context_.pool()));
       current_part_size_ = 0;
     }
     RETURN_NOT_OK(current_part_->Write(data, nbytes));
@@ -974,7 +987,7 @@ class ObjectOutputStream final : public io::OutputStream {
 
       // If the data isn't owned, make an immutable copy for the lifetime of the closure
       if (owned_buffer == nullptr) {
-        ARROW_ASSIGN_OR_RAISE(owned_buffer, AllocateBuffer(nbytes));
+        ARROW_ASSIGN_OR_RAISE(owned_buffer, AllocateBuffer(nbytes, io_context_.pool()));
         memcpy(owned_buffer->mutable_data(), data, nbytes);
       } else {
         DCHECK_EQ(data, owned_buffer->data());
@@ -1048,8 +1061,10 @@ class ObjectOutputStream final : public io::OutputStream {
  protected:
   std::shared_ptr<FileSystem> fs_;  // Owner of S3Client
   Aws::S3::S3Client* client_;
+  const io::IOContext io_context_;
   S3Path path_;
   const S3Options& options_;
+
   Aws::String upload_id_;
   bool closed_ = true;
   int64_t pos_ = 0;
@@ -1586,8 +1601,8 @@ class S3FileSystem::Impl {
     ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
     RETURN_NOT_OK(ValidateFilePath(path));
 
-    auto ptr =
-        std::make_shared<ObjectInputFile>(fs->shared_from_this(), client_.get(), path);
+    auto ptr = std::make_shared<ObjectInputFile>(fs->shared_from_this(), client_.get(),
+                                                 fs->io_context(), path);
     RETURN_NOT_OK(ptr->Init());
     return ptr;
   }
@@ -1605,20 +1620,22 @@ class S3FileSystem::Impl {
     RETURN_NOT_OK(ValidateFilePath(path));
 
     auto ptr = std::make_shared<ObjectInputFile>(fs->shared_from_this(), client_.get(),
-                                                 path, info.size());
+                                                 fs->io_context(), path, info.size());
     RETURN_NOT_OK(ptr->Init());
     return ptr;
   }
 };
 
-S3FileSystem::S3FileSystem(const S3Options& options) : impl_(new Impl{options}) {}
+S3FileSystem::S3FileSystem(const S3Options& options, const io::IOContext& io_context)
+    : FileSystem(io_context), impl_(new Impl{options}) {}
 
 S3FileSystem::~S3FileSystem() {}
 
-Result<std::shared_ptr<S3FileSystem>> S3FileSystem::Make(const S3Options& options) {
+Result<std::shared_ptr<S3FileSystem>> S3FileSystem::Make(
+    const S3Options& options, const io::IOContext& io_context) {
   RETURN_NOT_OK(CheckS3Initialized());
 
-  std::shared_ptr<S3FileSystem> ptr(new S3FileSystem(options));
+  std::shared_ptr<S3FileSystem> ptr(new S3FileSystem(options, io_context));
   RETURN_NOT_OK(ptr->impl_->Init());
   return ptr;
 }
@@ -1890,7 +1907,7 @@ Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenOutputStream(
   RETURN_NOT_OK(ValidateFilePath(path));
 
   auto ptr = std::make_shared<ObjectOutputStream>(
-      shared_from_this(), impl_->client_.get(), path, impl_->options());
+      shared_from_this(), impl_->client_.get(), io_context(), path, impl_->options());
   RETURN_NOT_OK(ptr->Init());
   return ptr;
 }

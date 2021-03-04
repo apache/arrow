@@ -42,9 +42,13 @@ class TestDatasetInMemoryScanTask < Test::Unit::TestCase
 
     @scan_context = ArrowDataset::ScanContext.new
 
+    @fragment = ArrowDataset::InMemoryFragment.new(@schema,
+                                                   @record_batches)
+
     @scan_task = ArrowDataset::InMemoryScanTask.new(@record_batches,
                                                     @scan_options,
-                                                    @scan_context)
+                                                    @scan_context,
+                                                    @fragment)
   end
 
   def test_scan_options

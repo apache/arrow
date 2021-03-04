@@ -194,6 +194,12 @@ test_that("Hive partitioning", {
   )
 })
 
+test_that("input validation", {
+  expect_error(
+    open_dataset(hive_dir, hive_partition(other = utf8(), group = uint8()))
+  )
+})
+
 test_that("Partitioning inference", {
   # These are the same tests as above, just using the *PartitioningFactory
   ds1 <- open_dataset(dataset_dir, partitioning = "part")
@@ -1055,6 +1061,24 @@ test_that("Writing a dataset: Parquet->Parquet (default)", {
   )
 })
 
+test_that("Writing a dataset: no format specified", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  dst_dir <- make_temp_dir()
+  write_dataset(mtcars, dst_dir)
+  new_ds <- open_dataset(dst_dir)
+  expect_equal(
+    list.files(dst_dir, pattern = "parquet"),
+    "part-0.parquet"
+  )
+  expect_true(
+    inherits(new_ds$format, "ParquetFileFormat")
+  )
+  expect_equivalent(
+    new_ds %>% collect(),
+    mtcars
+  )
+})
+
 test_that("Dataset writing: dplyr methods", {
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(hive_dir)
@@ -1108,6 +1132,36 @@ test_that("Dataset writing: no partitioning", {
   write_dataset(ds, dst_dir, format = "feather", partitioning = NULL)
   expect_true(dir.exists(dst_dir))
   expect_true(length(dir(dst_dir)) > 0)
+})
+
+test_that("Dataset writing: partition on null", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  ds <- open_dataset(hive_dir)
+  
+  dst_dir <- tempfile()
+  partitioning = hive_partition(lgl = boolean())
+  write_dataset(ds, dst_dir, partitioning = partitioning)
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), c("lgl=__HIVE_DEFAULT_PARTITION__", "lgl=false", "lgl=true"))
+
+  dst_dir <- tempfile()
+  partitioning = hive_partition(lgl = boolean(), null_fallback="xyz")
+  write_dataset(ds, dst_dir, partitioning = partitioning)
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), c("lgl=false", "lgl=true", "lgl=xyz"))
+
+  ds_readback <- open_dataset(dst_dir, partitioning = hive_partition(lgl = boolean(), null_fallback="xyz"))
+
+  expect_identical(
+    ds %>%
+      select(int, lgl) %>%
+      collect() %>%
+      arrange(lgl, int),
+    ds_readback %>%
+      select(int, lgl) %>%
+      collect() %>%
+      arrange(lgl, int)
+  )
 })
 
 test_that("Dataset writing: from data.frame", {

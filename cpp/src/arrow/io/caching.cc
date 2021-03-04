@@ -131,7 +131,7 @@ struct RangeCacheEntry {
 
 struct ReadRangeCache::Impl {
   std::shared_ptr<RandomAccessFile> file;
-  AsyncContext ctx;
+  IOContext ctx;
   CacheOptions options;
 
   // Ordered by offset (so as to find a matching region by binary search)
@@ -150,7 +150,7 @@ struct ReadRangeCache::Impl {
   }
 };
 
-ReadRangeCache::ReadRangeCache(std::shared_ptr<RandomAccessFile> file, AsyncContext ctx,
+ReadRangeCache::ReadRangeCache(std::shared_ptr<RandomAccessFile> file, IOContext ctx,
                                CacheOptions options)
     : impl_(new Impl()) {
   impl_->file = std::move(file);

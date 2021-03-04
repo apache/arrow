@@ -298,42 +298,6 @@ BEGIN_CPP11
 	return cpp11::as_sexp(LargeListArray__raw_value_offsets(array));
 END_CPP11
 }
-// array_from_vector.cpp
-std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x);
-extern "C" SEXP _arrow_Array__infer_type(SEXP x_sexp){
-BEGIN_CPP11
-	arrow::r::Input<SEXP>::type x(x_sexp);
-	return cpp11::as_sexp(Array__infer_type(x));
-END_CPP11
-}
-// array_from_vector.cpp
-std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP s_type);
-extern "C" SEXP _arrow_Array__from_vector(SEXP x_sexp, SEXP s_type_sexp){
-BEGIN_CPP11
-	arrow::r::Input<SEXP>::type x(x_sexp);
-	arrow::r::Input<SEXP>::type s_type(s_type_sexp);
-	return cpp11::as_sexp(Array__from_vector(x, s_type));
-END_CPP11
-}
-// array_from_vector.cpp
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(cpp11::list chunks, SEXP s_type);
-extern "C" SEXP _arrow_ChunkedArray__from_list(SEXP chunks_sexp, SEXP s_type_sexp){
-BEGIN_CPP11
-	arrow::r::Input<cpp11::list>::type chunks(chunks_sexp);
-	arrow::r::Input<SEXP>::type s_type(s_type_sexp);
-	return cpp11::as_sexp(ChunkedArray__from_list(chunks, s_type));
-END_CPP11
-}
-// array_from_vector.cpp
-std::shared_ptr<arrow::Array> DictionaryArray__FromArrays(const std::shared_ptr<arrow::DataType>& type, const std::shared_ptr<arrow::Array>& indices, const std::shared_ptr<arrow::Array>& dict);
-extern "C" SEXP _arrow_DictionaryArray__FromArrays(SEXP type_sexp, SEXP indices_sexp, SEXP dict_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
-	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type indices(indices_sexp);
-	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type dict(dict_sexp);
-	return cpp11::as_sexp(DictionaryArray__FromArrays(type, indices, dict));
-END_CPP11
-}
 // array_to_vector.cpp
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
 extern "C" SEXP _arrow_Array__as_vector(SEXP array_sexp){
@@ -567,6 +531,15 @@ extern "C" SEXP _arrow_ChunkedArray__ToString(SEXP x_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type x(x_sexp);
 	return cpp11::as_sexp(ChunkedArray__ToString(x));
+END_CPP11
+}
+// chunkedarray.cpp
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(cpp11::list chunks, SEXP s_type);
+extern "C" SEXP _arrow_ChunkedArray__from_list(SEXP chunks_sexp, SEXP s_type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::list>::type chunks(chunks_sexp);
+	arrow::r::Input<SEXP>::type s_type(s_type_sexp);
+	return cpp11::as_sexp(ChunkedArray__from_list(chunks, s_type));
 END_CPP11
 }
 // compression.cpp
@@ -980,18 +953,20 @@ BEGIN_CPP11
 END_CPP11
 }
 // dataset.cpp
-std::shared_ptr<ds::HivePartitioning> dataset___HivePartitioning(const std::shared_ptr<arrow::Schema>& schm);
-extern "C" SEXP _arrow_dataset___HivePartitioning(SEXP schm_sexp){
+std::shared_ptr<ds::HivePartitioning> dataset___HivePartitioning(const std::shared_ptr<arrow::Schema>& schm, const std::string& null_fallback);
+extern "C" SEXP _arrow_dataset___HivePartitioning(SEXP schm_sexp, SEXP null_fallback_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
-	return cpp11::as_sexp(dataset___HivePartitioning(schm));
+	arrow::r::Input<const std::string&>::type null_fallback(null_fallback_sexp);
+	return cpp11::as_sexp(dataset___HivePartitioning(schm, null_fallback));
 END_CPP11
 }
 // dataset.cpp
-std::shared_ptr<ds::PartitioningFactory> dataset___HivePartitioning__MakeFactory();
-extern "C" SEXP _arrow_dataset___HivePartitioning__MakeFactory(){
+std::shared_ptr<ds::PartitioningFactory> dataset___HivePartitioning__MakeFactory(const std::string& null_fallback);
+extern "C" SEXP _arrow_dataset___HivePartitioning__MakeFactory(SEXP null_fallback_sexp){
 BEGIN_CPP11
-	return cpp11::as_sexp(dataset___HivePartitioning__MakeFactory());
+	arrow::r::Input<const std::string&>::type null_fallback(null_fallback_sexp);
+	return cpp11::as_sexp(dataset___HivePartitioning__MakeFactory(null_fallback));
 END_CPP11
 }
 // dataset.cpp
@@ -1566,6 +1541,14 @@ extern "C" SEXP _arrow_dataset___expr__field_ref(SEXP name_sexp){
 BEGIN_CPP11
 	arrow::r::Input<std::string>::type name(name_sexp);
 	return cpp11::as_sexp(dataset___expr__field_ref(name));
+END_CPP11
+}
+// expression.cpp
+std::string dataset___expr__get_field_ref_name(const std::shared_ptr<ds::Expression>& ref);
+extern "C" SEXP _arrow_dataset___expr__get_field_ref_name(SEXP ref_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::Expression>&>::type ref(ref_sexp);
+	return cpp11::as_sexp(dataset___expr__get_field_ref_name(ref));
 END_CPP11
 }
 // expression.cpp
@@ -2780,6 +2763,25 @@ BEGIN_CPP11
 	return R_NilValue;
 END_CPP11
 }
+// r_to_arrow.cpp
+SEXP vec_to_arrow(SEXP x, SEXP s_type);
+extern "C" SEXP _arrow_vec_to_arrow(SEXP x_sexp, SEXP s_type_sexp){
+BEGIN_CPP11
+	arrow::r::Input<SEXP>::type x(x_sexp);
+	arrow::r::Input<SEXP>::type s_type(s_type_sexp);
+	return cpp11::as_sexp(vec_to_arrow(x, s_type));
+END_CPP11
+}
+// r_to_arrow.cpp
+std::shared_ptr<arrow::Array> DictionaryArray__FromArrays(const std::shared_ptr<arrow::DataType>& type, const std::shared_ptr<arrow::Array>& indices, const std::shared_ptr<arrow::Array>& dict);
+extern "C" SEXP _arrow_DictionaryArray__FromArrays(SEXP type_sexp, SEXP indices_sexp, SEXP dict_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::DataType>&>::type type(type_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type indices(indices_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type dict(dict_sexp);
+	return cpp11::as_sexp(DictionaryArray__FromArrays(type, indices, dict));
+END_CPP11
+}
 // recordbatch.cpp
 int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x);
 extern "C" SEXP _arrow_RecordBatch__num_columns(SEXP x_sexp){
@@ -3480,6 +3482,14 @@ BEGIN_CPP11
 	return R_NilValue;
 END_CPP11
 }
+// type_infer.cpp
+std::shared_ptr<arrow::DataType> Array__infer_type(SEXP x);
+extern "C" SEXP _arrow_Array__infer_type(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<SEXP>::type x(x_sexp);
+	return cpp11::as_sexp(Array__infer_type(x));
+END_CPP11
+}
 extern "C" SEXP _arrow_Table__Reset(SEXP r6) {
 BEGIN_CPP11
 arrow::r::r6_reset_pointer<arrow::Table>(r6);
@@ -3550,10 +3560,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FixedSizeListArray__value_offset", (DL_FUNC) &_arrow_FixedSizeListArray__value_offset, 2}, 
 		{ "_arrow_ListArray__raw_value_offsets", (DL_FUNC) &_arrow_ListArray__raw_value_offsets, 1}, 
 		{ "_arrow_LargeListArray__raw_value_offsets", (DL_FUNC) &_arrow_LargeListArray__raw_value_offsets, 1}, 
-		{ "_arrow_Array__infer_type", (DL_FUNC) &_arrow_Array__infer_type, 1}, 
-		{ "_arrow_Array__from_vector", (DL_FUNC) &_arrow_Array__from_vector, 2}, 
-		{ "_arrow_ChunkedArray__from_list", (DL_FUNC) &_arrow_ChunkedArray__from_list, 2}, 
-		{ "_arrow_DictionaryArray__FromArrays", (DL_FUNC) &_arrow_DictionaryArray__FromArrays, 3}, 
 		{ "_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1}, 
 		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1}, 
 		{ "_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2}, 
@@ -3582,6 +3588,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ChunkedArray__Validate", (DL_FUNC) &_arrow_ChunkedArray__Validate, 1}, 
 		{ "_arrow_ChunkedArray__Equals", (DL_FUNC) &_arrow_ChunkedArray__Equals, 2}, 
 		{ "_arrow_ChunkedArray__ToString", (DL_FUNC) &_arrow_ChunkedArray__ToString, 1}, 
+		{ "_arrow_ChunkedArray__from_list", (DL_FUNC) &_arrow_ChunkedArray__from_list, 2}, 
 		{ "_arrow_util___Codec__Create", (DL_FUNC) &_arrow_util___Codec__Create, 2}, 
 		{ "_arrow_util___Codec__name", (DL_FUNC) &_arrow_util___Codec__name, 1}, 
 		{ "_arrow_util___Codec__IsAvailable", (DL_FUNC) &_arrow_util___Codec__IsAvailable, 1}, 
@@ -3629,8 +3636,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___CsvFileFormat__Make", (DL_FUNC) &_arrow_dataset___CsvFileFormat__Make, 1}, 
 		{ "_arrow_dataset___DirectoryPartitioning", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning, 1}, 
 		{ "_arrow_dataset___DirectoryPartitioning__MakeFactory", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning__MakeFactory, 1}, 
-		{ "_arrow_dataset___HivePartitioning", (DL_FUNC) &_arrow_dataset___HivePartitioning, 1}, 
-		{ "_arrow_dataset___HivePartitioning__MakeFactory", (DL_FUNC) &_arrow_dataset___HivePartitioning__MakeFactory, 0}, 
+		{ "_arrow_dataset___HivePartitioning", (DL_FUNC) &_arrow_dataset___HivePartitioning, 2}, 
+		{ "_arrow_dataset___HivePartitioning__MakeFactory", (DL_FUNC) &_arrow_dataset___HivePartitioning__MakeFactory, 1}, 
 		{ "_arrow_dataset___ScannerBuilder__Project", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Project, 2}, 
 		{ "_arrow_dataset___ScannerBuilder__Filter", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Filter, 2}, 
 		{ "_arrow_dataset___ScannerBuilder__UseThreads", (DL_FUNC) &_arrow_dataset___ScannerBuilder__UseThreads, 2}, 
@@ -3702,6 +3709,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FixedSizeListType__list_size", (DL_FUNC) &_arrow_FixedSizeListType__list_size, 1}, 
 		{ "_arrow_dataset___expr__call", (DL_FUNC) &_arrow_dataset___expr__call, 3}, 
 		{ "_arrow_dataset___expr__field_ref", (DL_FUNC) &_arrow_dataset___expr__field_ref, 1}, 
+		{ "_arrow_dataset___expr__get_field_ref_name", (DL_FUNC) &_arrow_dataset___expr__get_field_ref_name, 1}, 
 		{ "_arrow_dataset___expr__scalar", (DL_FUNC) &_arrow_dataset___expr__scalar, 1}, 
 		{ "_arrow_dataset___expr__ToString", (DL_FUNC) &_arrow_dataset___expr__ToString, 1}, 
 		{ "_arrow_ipc___WriteFeather__Table", (DL_FUNC) &_arrow_ipc___WriteFeather__Table, 6}, 
@@ -3835,6 +3843,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExportSchema", (DL_FUNC) &_arrow_ExportSchema, 2}, 
 		{ "_arrow_ExportArray", (DL_FUNC) &_arrow_ExportArray, 3}, 
 		{ "_arrow_ExportRecordBatch", (DL_FUNC) &_arrow_ExportRecordBatch, 3}, 
+		{ "_arrow_vec_to_arrow", (DL_FUNC) &_arrow_vec_to_arrow, 2}, 
+		{ "_arrow_DictionaryArray__FromArrays", (DL_FUNC) &_arrow_DictionaryArray__FromArrays, 3}, 
 		{ "_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1}, 
 		{ "_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1}, 
 		{ "_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1}, 
@@ -3915,6 +3925,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__from_dots", (DL_FUNC) &_arrow_Table__from_dots, 2}, 
 		{ "_arrow_GetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_GetCpuThreadPoolCapacity, 0}, 
 		{ "_arrow_SetCpuThreadPoolCapacity", (DL_FUNC) &_arrow_SetCpuThreadPoolCapacity, 1}, 
+		{ "_arrow_Array__infer_type", (DL_FUNC) &_arrow_Array__infer_type, 1}, 
 		{ "_arrow_Table__Reset", (DL_FUNC) &_arrow_Table__Reset, 1}, 
 		{ "_arrow_RecordBatch__Reset", (DL_FUNC) &_arrow_RecordBatch__Reset, 1}, 
 		{NULL, NULL, 0}

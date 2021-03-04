@@ -167,7 +167,9 @@ Result<std::shared_ptr<io::RandomAccessFile>> FileSystem::OpenInputFile(
 
 SubTreeFileSystem::SubTreeFileSystem(const std::string& base_path,
                                      std::shared_ptr<FileSystem> base_fs)
-    : base_path_(NormalizeBasePath(base_path, base_fs).ValueOrDie()), base_fs_(base_fs) {}
+    : FileSystem(base_fs->io_context()),
+      base_path_(NormalizeBasePath(base_path, base_fs).ValueOrDie()),
+      base_fs_(base_fs) {}
 
 SubTreeFileSystem::~SubTreeFileSystem() {}
 
@@ -344,15 +346,19 @@ Result<std::shared_ptr<io::OutputStream>> SubTreeFileSystem::OpenAppendStream(
 
 SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
                                std::shared_ptr<io::LatencyGenerator> latencies)
-    : base_fs_(base_fs), latencies_(latencies) {}
+    : FileSystem(base_fs->io_context()), base_fs_(base_fs), latencies_(latencies) {}
 
 SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
                                double average_latency)
-    : base_fs_(base_fs), latencies_(io::LatencyGenerator::Make(average_latency)) {}
+    : FileSystem(base_fs->io_context()),
+      base_fs_(base_fs),
+      latencies_(io::LatencyGenerator::Make(average_latency)) {}
 
 SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
                                double average_latency, int32_t seed)
-    : base_fs_(base_fs), latencies_(io::LatencyGenerator::Make(average_latency, seed)) {}
+    : FileSystem(base_fs->io_context()),
+      base_fs_(base_fs),
+      latencies_(io::LatencyGenerator::Make(average_latency, seed)) {}
 
 bool SlowFileSystem::Equals(const FileSystem& other) const { return this == &other; }
 
@@ -443,34 +449,37 @@ Result<std::shared_ptr<io::OutputStream>> SlowFileSystem::OpenAppendStream(
 }
 
 Status CopyFiles(const std::vector<FileLocator>& sources,
-                 const std::vector<FileLocator>& destinations, int64_t chunk_size,
-                 bool use_threads) {
+                 const std::vector<FileLocator>& destinations,
+                 const io::IOContext& io_context, int64_t chunk_size, bool use_threads) {
   if (sources.size() != destinations.size()) {
     return Status::Invalid("Trying to copy ", sources.size(), " files into ",
                            destinations.size(), " paths.");
   }
 
+  auto copy_one_file = [&](int i) {
+    if (sources[i].filesystem->Equals(destinations[i].filesystem)) {
+      return sources[i].filesystem->CopyFile(sources[i].path, destinations[i].path);
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto source,
+                          sources[i].filesystem->OpenInputStream(sources[i].path));
+
+    ARROW_ASSIGN_OR_RAISE(auto destination, destinations[i].filesystem->OpenOutputStream(
+                                                destinations[i].path));
+    RETURN_NOT_OK(internal::CopyStream(source, destination, chunk_size, io_context));
+    return destination->Close();
+  };
+
   return ::arrow::internal::OptionalParallelFor(
-      use_threads, static_cast<int>(sources.size()), [&](int i) {
-        if (sources[i].filesystem->Equals(destinations[i].filesystem)) {
-          return sources[i].filesystem->CopyFile(sources[i].path, destinations[i].path);
-        }
-
-        ARROW_ASSIGN_OR_RAISE(auto source,
-                              sources[i].filesystem->OpenInputStream(sources[i].path));
-
-        ARROW_ASSIGN_OR_RAISE(
-            auto destination,
-            destinations[i].filesystem->OpenOutputStream(destinations[i].path));
-        return internal::CopyStream(source, destination, chunk_size);
-      });
+      use_threads, static_cast<int>(sources.size()), std::move(copy_one_file),
+      io_context.executor());
 }
 
 Status CopyFiles(const std::shared_ptr<FileSystem>& source_fs,
                  const FileSelector& source_sel,
                  const std::shared_ptr<FileSystem>& destination_fs,
-                 const std::string& destination_base_dir, int64_t chunk_size,
-                 bool use_threads) {
+                 const std::string& destination_base_dir, const io::IOContext& io_context,
+                 int64_t chunk_size, bool use_threads) {
   ARROW_ASSIGN_OR_RAISE(auto source_infos, source_fs->GetFileInfo(source_sel));
   if (source_infos.empty()) {
     return Status::OK();
@@ -497,12 +506,14 @@ Status CopyFiles(const std::shared_ptr<FileSystem>& source_fs,
     }
   }
 
+  auto create_one_dir = [&](int i) { return destination_fs->CreateDir(dirs[i]); };
+
   dirs = internal::MinimalCreateDirSet(std::move(dirs));
   RETURN_NOT_OK(::arrow::internal::OptionalParallelFor(
-      use_threads, static_cast<int>(dirs.size()),
-      [&](int i) { return destination_fs->CreateDir(dirs[i]); }));
+      use_threads, static_cast<int>(dirs.size()), std::move(create_one_dir),
+      io_context.executor()));
 
-  return CopyFiles(sources, destinations, chunk_size, use_threads);
+  return CopyFiles(sources, destinations, io_context, chunk_size, use_threads);
 }
 
 namespace {
@@ -526,6 +537,7 @@ Result<Uri> ParseFileSystemUri(const std::string& uri_string) {
 
 Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
                                                           const std::string& uri_string,
+                                                          const io::IOContext& io_context,
                                                           std::string* out_path) {
   const auto scheme = uri.scheme();
 
@@ -535,7 +547,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
     if (out_path != nullptr) {
       *out_path = path;
     }
-    return std::make_shared<LocalFileSystem>(options);
+    return std::make_shared<LocalFileSystem>(options, io_context);
   }
   if (scheme == "hdfs" || scheme == "viewfs") {
 #ifdef ARROW_HDFS
@@ -543,7 +555,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
     if (out_path != nullptr) {
       *out_path = uri.path();
     }
-    ARROW_ASSIGN_OR_RAISE(auto hdfs, HadoopFileSystem::Make(options));
+    ARROW_ASSIGN_OR_RAISE(auto hdfs, HadoopFileSystem::Make(options, io_context));
     return hdfs;
 #else
     return Status::NotImplemented("Got HDFS URI but Arrow compiled without HDFS support");
@@ -553,7 +565,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
 #ifdef ARROW_S3
     RETURN_NOT_OK(EnsureS3Initialized());
     ARROW_ASSIGN_OR_RAISE(auto options, S3Options::FromUri(uri, out_path));
-    ARROW_ASSIGN_OR_RAISE(auto s3fs, S3FileSystem::Make(options));
+    ARROW_ASSIGN_OR_RAISE(auto s3fs, S3FileSystem::Make(options, io_context));
     return s3fs;
 #else
     return Status::NotImplemented("Got S3 URI but Arrow compiled without S3 support");
@@ -566,7 +578,8 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
     if (out_path != nullptr) {
       *out_path = std::string(RemoveLeadingSlash(uri.path()));
     }
-    return std::make_shared<internal::MockFileSystem>(internal::CurrentTimePoint());
+    return std::make_shared<internal::MockFileSystem>(internal::CurrentTimePoint(),
+                                                      io_context);
   }
 
   return Status::Invalid("Unrecognized filesystem type in URI: ", uri_string);
@@ -576,12 +589,24 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
 
 Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri_string,
                                                       std::string* out_path) {
+  return FileSystemFromUri(uri_string, io::default_io_context(), out_path);
+}
+
+Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri_string,
+                                                      const io::IOContext& io_context,
+                                                      std::string* out_path) {
   ARROW_ASSIGN_OR_RAISE(auto fsuri, ParseFileSystemUri(uri_string));
-  return FileSystemFromUriReal(fsuri, uri_string, out_path);
+  return FileSystemFromUriReal(fsuri, uri_string, io_context, out_path);
 }
 
 Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(const std::string& uri_string,
                                                             std::string* out_path) {
+  return FileSystemFromUriOrPath(uri_string, io::default_io_context(), out_path);
+}
+
+Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
+    const std::string& uri_string, const io::IOContext& io_context,
+    std::string* out_path) {
   if (internal::DetectAbsolutePath(uri_string)) {
     // Normalize path separators
     if (out_path != nullptr) {
@@ -589,7 +614,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(const std::string& u
     }
     return std::make_shared<LocalFileSystem>();
   }
-  return FileSystemFromUri(uri_string, out_path);
+  return FileSystemFromUri(uri_string, io_context, out_path);
 }
 
 Status FileSystemFromUri(const std::string& uri, std::shared_ptr<FileSystem>* out_fs,

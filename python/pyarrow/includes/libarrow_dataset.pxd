@@ -55,12 +55,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef CResult[CExpression] CDeserializeExpression \
         "arrow::dataset::Deserialize"(shared_ptr[CBuffer])
 
-    cdef cppclass CRecordBatchProjector "arrow::dataset::RecordBatchProjector":
-        pass
-
     cdef cppclass CScanOptions "arrow::dataset::ScanOptions":
-        CRecordBatchProjector projector
-
         @staticmethod
         shared_ptr[CScanOptions] Make(shared_ptr[CSchema] schema)
 
@@ -309,11 +304,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             shared_ptr[CPartitioningFactory])
         shared_ptr[CPartitioning] partitioning() const
         shared_ptr[CPartitioningFactory] factory() const
-
-    cdef CStatus CSetPartitionKeysInProjector \
-        "arrow::dataset::KeyValuePartitioning::SetDefaultValuesFromKeys"(
-            const CExpression& partition_expression,
-            CRecordBatchProjector* projector)
 
     cdef CResult[unordered_map[CFieldRef, CDatum, CFieldRefHash]] \
         CExtractKnownFieldValues "arrow::dataset::ExtractKnownFieldValues"(

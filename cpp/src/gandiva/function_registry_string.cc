@@ -84,6 +84,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "gdv_fn_castFLOAT8_utf8",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
+      NativeFunction("castVARCHAR", {}, DataTypeVector{boolean(), int64()}, utf8(),
+                     kResultNullIfNull, "castVARCHAR_bool_int64",
+                     NativeFunction::kNeedsContext),
+
       NativeFunction("castVARCHAR", {}, DataTypeVector{utf8(), int64()}, utf8(),
                      kResultNullIfNull, "castVARCHAR_utf8_int64",
                      NativeFunction::kNeedsContext),

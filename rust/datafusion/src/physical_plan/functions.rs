@@ -34,7 +34,6 @@ use super::{
     ColumnarValue, PhysicalExpr,
 };
 use crate::physical_plan::array_expressions;
-use crate::physical_plan::crypto_expressions;
 use crate::physical_plan::datetime_expressions;
 use crate::physical_plan::expressions::{nullif_func, SUPPORTED_NULLIF_TYPES};
 use crate::physical_plan::math_expressions;
@@ -139,6 +138,10 @@ pub enum BuiltinScalarFunction {
     DatePart,
     /// Date truncate
     DateTrunc,
+    /// left
+    Left,
+    /// lpad
+    Lpad,
     /// lower
     Lower,
     /// trim left
@@ -149,6 +152,10 @@ pub enum BuiltinScalarFunction {
     NullIf,
     /// octet_length
     OctetLength,
+    /// right
+    Right,
+    /// rpad
+    Rpad,
     /// trim right
     Rtrim,
     /// SHA224
@@ -209,12 +216,16 @@ impl FromStr for BuiltinScalarFunction {
             "concat_ws" => BuiltinScalarFunction::ConcatWithSeparator,
             "date_part" => BuiltinScalarFunction::DatePart,
             "date_trunc" => BuiltinScalarFunction::DateTrunc,
+            "left" => BuiltinScalarFunction::Left,
             "length" => BuiltinScalarFunction::CharacterLength,
             "lower" => BuiltinScalarFunction::Lower,
+            "lpad" => BuiltinScalarFunction::Lpad,
             "ltrim" => BuiltinScalarFunction::Ltrim,
             "md5" => BuiltinScalarFunction::MD5,
             "nullif" => BuiltinScalarFunction::NullIf,
             "octet_length" => BuiltinScalarFunction::OctetLength,
+            "right" => BuiltinScalarFunction::Right,
+            "rpad" => BuiltinScalarFunction::Rpad,
             "rtrim" => BuiltinScalarFunction::Rtrim,
             "sha224" => BuiltinScalarFunction::SHA224,
             "sha256" => BuiltinScalarFunction::SHA256,
@@ -298,6 +309,16 @@ pub fn return_type(
         BuiltinScalarFunction::DateTrunc => {
             Ok(DataType::Timestamp(TimeUnit::Nanosecond, None))
         }
+        BuiltinScalarFunction::Left => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The left function can only accept strings.".to_string(),
+                ));
+            }
+        }),
         BuiltinScalarFunction::Lower => Ok(match arg_types[0] {
             DataType::LargeUtf8 => DataType::LargeUtf8,
             DataType::Utf8 => DataType::Utf8,
@@ -305,6 +326,16 @@ pub fn return_type(
                 // this error is internal as `data_types` should have captured this.
                 return Err(DataFusionError::Internal(
                     "The upper function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Lpad => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The lpad function can only accept strings.".to_string(),
                 ));
             }
         }),
@@ -340,6 +371,26 @@ pub fn return_type(
                 // this error is internal as `data_types` should have captured this.
                 return Err(DataFusionError::Internal(
                     "The octet_length function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Right => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The right function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Rpad => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The rpad function can only accept strings.".to_string(),
                 ));
             }
         }),
@@ -447,6 +498,26 @@ pub fn return_type(
     }
 }
 
+#[cfg(feature = "crypto_expressions")]
+macro_rules! invoke_if_crypto_expressions_feature_flag {
+    ($FUNC:ident, $NAME:expr) => {{
+        use crate::physical_plan::crypto_expressions;
+        crypto_expressions::$FUNC
+    }};
+}
+
+#[cfg(not(feature = "crypto_expressions"))]
+macro_rules! invoke_if_crypto_expressions_feature_flag {
+    ($FUNC:ident, $NAME:expr) => {
+        |_: &[ColumnarValue]| -> Result<ColumnarValue> {
+            Err(DataFusionError::Internal(format!(
+                "function {} requires compilation with feature flag: crypto_expressions.",
+                $NAME
+            )))
+        }
+    };
+}
+
 /// Create a physical (function) expression.
 /// This function errors when `args`' can't be coerced to a valid argument type of the function.
 pub fn create_physical_expr(
@@ -518,7 +589,27 @@ pub fn create_physical_expr(
         }
         BuiltinScalarFunction::DatePart => datetime_expressions::date_part,
         BuiltinScalarFunction::DateTrunc => datetime_expressions::date_trunc,
+        BuiltinScalarFunction::Left => |args| match args[0].data_type() {
+            DataType::Utf8 => make_scalar_function(string_expressions::left::<i32>)(args),
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::left::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function left",
+                other,
+            ))),
+        },
         BuiltinScalarFunction::Lower => string_expressions::lower,
+        BuiltinScalarFunction::Lpad => |args| match args[0].data_type() {
+            DataType::Utf8 => make_scalar_function(string_expressions::lpad::<i32>)(args),
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::lpad::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function lpad",
+                other,
+            ))),
+        },
         BuiltinScalarFunction::Ltrim => |args| match args[0].data_type() {
             DataType::Utf8 => {
                 make_scalar_function(string_expressions::ltrim::<i32>)(args)
@@ -531,7 +622,9 @@ pub fn create_physical_expr(
                 other,
             ))),
         },
-        BuiltinScalarFunction::MD5 => crypto_expressions::md5,
+        BuiltinScalarFunction::MD5 => {
+            invoke_if_crypto_expressions_feature_flag!(md5, "md5")
+        }
         BuiltinScalarFunction::NullIf => nullif_func,
         BuiltinScalarFunction::OctetLength => |args| match &args[0] {
             ColumnarValue::Array(v) => Ok(ColumnarValue::Array(length(v.as_ref())?)),
@@ -545,6 +638,28 @@ pub fn create_physical_expr(
                 _ => unreachable!(),
             },
         },
+        BuiltinScalarFunction::Right => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::right::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::right::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function right",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Rpad => |args| match args[0].data_type() {
+            DataType::Utf8 => make_scalar_function(string_expressions::rpad::<i32>)(args),
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::rpad::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function rpad",
+                other,
+            ))),
+        },
         BuiltinScalarFunction::Rtrim => |args| match args[0].data_type() {
             DataType::Utf8 => {
                 make_scalar_function(string_expressions::rtrim::<i32>)(args)
@@ -557,10 +672,18 @@ pub fn create_physical_expr(
                 other,
             ))),
         },
-        BuiltinScalarFunction::SHA224 => crypto_expressions::sha224,
-        BuiltinScalarFunction::SHA256 => crypto_expressions::sha256,
-        BuiltinScalarFunction::SHA384 => crypto_expressions::sha384,
-        BuiltinScalarFunction::SHA512 => crypto_expressions::sha512,
+        BuiltinScalarFunction::SHA224 => {
+            invoke_if_crypto_expressions_feature_flag!(sha224, "sha224")
+        }
+        BuiltinScalarFunction::SHA256 => {
+            invoke_if_crypto_expressions_feature_flag!(sha256, "sha256")
+        }
+        BuiltinScalarFunction::SHA384 => {
+            invoke_if_crypto_expressions_feature_flag!(sha384, "sha384")
+        }
+        BuiltinScalarFunction::SHA512 => {
+            invoke_if_crypto_expressions_feature_flag!(sha512, "sha512")
+        }
         BuiltinScalarFunction::Substr => |args| match args[0].data_type() {
             DataType::Utf8 => {
                 make_scalar_function(string_expressions::substr::<i32>)(args)
@@ -635,6 +758,34 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
             Signature::Exact(vec![DataType::Utf8]),
             Signature::Exact(vec![DataType::Utf8, DataType::Utf8]),
         ]),
+        BuiltinScalarFunction::Lpad | BuiltinScalarFunction::Rpad => {
+            Signature::OneOf(vec![
+                Signature::Exact(vec![DataType::Utf8, DataType::Int64]),
+                Signature::Exact(vec![DataType::LargeUtf8, DataType::Int64]),
+                Signature::Exact(vec![DataType::Utf8, DataType::Int64, DataType::Utf8]),
+                Signature::Exact(vec![
+                    DataType::LargeUtf8,
+                    DataType::Int64,
+                    DataType::Utf8,
+                ]),
+                Signature::Exact(vec![
+                    DataType::Utf8,
+                    DataType::Int64,
+                    DataType::LargeUtf8,
+                ]),
+                Signature::Exact(vec![
+                    DataType::LargeUtf8,
+                    DataType::Int64,
+                    DataType::LargeUtf8,
+                ]),
+            ])
+        }
+        BuiltinScalarFunction::Left | BuiltinScalarFunction::Right => {
+            Signature::OneOf(vec![
+                Signature::Exact(vec![DataType::Utf8, DataType::Int64]),
+                Signature::Exact(vec![DataType::LargeUtf8, DataType::Int64]),
+            ])
+        }
         BuiltinScalarFunction::ToTimestamp => Signature::Uniform(1, vec![DataType::Utf8]),
         BuiltinScalarFunction::DateTrunc => Signature::Exact(vec![
             DataType::Utf8,
@@ -825,8 +976,8 @@ mod tests {
     };
     use arrow::{
         array::{
-            Array, ArrayRef, FixedSizeListArray, Float64Array, Int32Array, StringArray,
-            UInt32Array, UInt64Array,
+            Array, ArrayRef, BinaryArray, FixedSizeListArray, Float64Array, Int32Array,
+            StringArray, UInt32Array, UInt64Array,
         },
         datatypes::Field,
         record_batch::RecordBatch,
@@ -1137,6 +1288,500 @@ mod tests {
             Float64Array
         );
         test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int8(Some(2))),
+            ],
+            Ok(Some("ab")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(200))),
+            ],
+            Ok(Some("abcde")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(-2))),
+            ],
+            Ok(Some("abc")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(-200))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(0))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(2))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            MD5,
+            &[lit(ScalarValue::Utf8(Some("tom".to_string())))],
+            Ok(Some("34b7da764b21d298ef307d04d8152dc5")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            MD5,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some("d41d8cd98f00b204e9800998ecf8427e")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            MD5,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(not(feature = "crypto_expressions"))]
+        test_function!(
+            MD5,
+            &[lit(ScalarValue::Utf8(Some("tom".to_string())))],
+            Err(DataFusionError::Internal(
+                "function md5 requires compilation with feature flag: crypto_expressions.".to_string()
+            )),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some("joséé")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Int64(Some(-3))),
+            ],
+            Ok(Some("joséé")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA224,
+            &[lit(ScalarValue::Utf8(Some("tom".to_string())))],
+            Ok(Some(&[
+                11u8, 246u8, 203u8, 98u8, 100u8, 156u8, 66u8, 169u8, 174u8, 56u8, 118u8,
+                171u8, 111u8, 109u8, 146u8, 173u8, 54u8, 203u8, 84u8, 20u8, 228u8, 149u8,
+                248u8, 135u8, 50u8, 146u8, 190u8, 77u8
+            ])),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA224,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some(&[
+                209u8, 74u8, 2u8, 140u8, 42u8, 58u8, 43u8, 201u8, 71u8, 97u8, 2u8, 187u8,
+                40u8, 130u8, 52u8, 196u8, 21u8, 162u8, 176u8, 31u8, 130u8, 142u8, 166u8,
+                42u8, 197u8, 179u8, 228u8, 47u8
+            ])),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA224,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(not(feature = "crypto_expressions"))]
+        test_function!(
+            SHA224,
+            &[lit(ScalarValue::Utf8(Some("tom".to_string())))],
+            Err(DataFusionError::Internal(
+                "function sha224 requires compilation with feature flag: crypto_expressions.".to_string()
+            )),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA256,
+            &[lit(ScalarValue::Utf8(Some("tom".to_string())))],
+            Ok(Some(&[
+                225u8, 96u8, 143u8, 117u8, 197u8, 215u8, 129u8, 63u8, 61u8, 64u8, 49u8,
+                203u8, 48u8, 191u8, 183u8, 134u8, 80u8, 125u8, 152u8, 19u8, 117u8, 56u8,
+                255u8, 142u8, 18u8, 138u8, 111u8, 247u8, 78u8, 132u8, 230u8, 67u8
+            ])),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA256,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some(&[
+                227u8, 176u8, 196u8, 66u8, 152u8, 252u8, 28u8, 20u8, 154u8, 251u8, 244u8,
+                200u8, 153u8, 111u8, 185u8, 36u8, 39u8, 174u8, 65u8, 228u8, 100u8, 155u8,
+                147u8, 76u8, 164u8, 149u8, 153u8, 27u8, 120u8, 82u8, 184u8, 85u8
+            ])),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA256,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(not(feature = "crypto_expressions"))]
+        test_function!(
+            SHA256,
+            &[lit(ScalarValue::Utf8(Some("tom".to_string())))],
+            Err(DataFusionError::Internal(
+                "function sha256 requires compilation with feature flag: crypto_expressions.".to_string()
+            )),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA384,
+            &[lit(ScalarValue::Utf8(Some("tom".to_string())))],
+            Ok(Some(&[
+                9u8, 111u8, 91u8, 104u8, 170u8, 119u8, 132u8, 142u8, 79u8, 223u8, 92u8,
+                28u8, 11u8, 53u8, 13u8, 226u8, 219u8, 250u8, 214u8, 15u8, 253u8, 124u8,
+                37u8, 217u8, 234u8, 7u8, 198u8, 193u8, 155u8, 138u8, 77u8, 85u8, 169u8,
+                24u8, 126u8, 177u8, 23u8, 197u8, 87u8, 136u8, 63u8, 88u8, 193u8, 109u8,
+                250u8, 195u8, 227u8, 67u8
+            ])),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA384,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some(&[
+                56u8, 176u8, 96u8, 167u8, 81u8, 172u8, 150u8, 56u8, 76u8, 217u8, 50u8,
+                126u8, 177u8, 177u8, 227u8, 106u8, 33u8, 253u8, 183u8, 17u8, 20u8, 190u8,
+                7u8, 67u8, 76u8, 12u8, 199u8, 191u8, 99u8, 246u8, 225u8, 218u8, 39u8,
+                78u8, 222u8, 191u8, 231u8, 111u8, 101u8, 251u8, 213u8, 26u8, 210u8,
+                241u8, 72u8, 152u8, 185u8, 91u8
+            ])),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA384,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(not(feature = "crypto_expressions"))]
+        test_function!(
+            SHA384,
+            &[lit(ScalarValue::Utf8(Some("tom".to_string())))],
+            Err(DataFusionError::Internal(
+                "function sha384 requires compilation with feature flag: crypto_expressions.".to_string()
+            )),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA512,
+            &[lit(ScalarValue::Utf8(Some("tom".to_string())))],
+            Ok(Some(&[
+                110u8, 27u8, 155u8, 63u8, 232u8, 64u8, 104u8, 14u8, 55u8, 5u8, 31u8,
+                122u8, 213u8, 233u8, 89u8, 214u8, 243u8, 154u8, 208u8, 248u8, 136u8,
+                93u8, 133u8, 81u8, 102u8, 245u8, 92u8, 101u8, 148u8, 105u8, 211u8, 200u8,
+                183u8, 129u8, 24u8, 196u8, 74u8, 42u8, 73u8, 199u8, 45u8, 219u8, 72u8,
+                28u8, 214u8, 216u8, 115u8, 16u8, 52u8, 225u8, 28u8, 192u8, 48u8, 7u8,
+                11u8, 168u8, 67u8, 169u8, 11u8, 52u8, 149u8, 203u8, 141u8, 62u8
+            ])),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA512,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some(&[
+                207u8, 131u8, 225u8, 53u8, 126u8, 239u8, 184u8, 189u8, 241u8, 84u8, 40u8,
+                80u8, 214u8, 109u8, 128u8, 7u8, 214u8, 32u8, 228u8, 5u8, 11u8, 87u8,
+                21u8, 220u8, 131u8, 244u8, 169u8, 33u8, 211u8, 108u8, 233u8, 206u8, 71u8,
+                208u8, 209u8, 60u8, 93u8, 133u8, 242u8, 176u8, 255u8, 131u8, 24u8, 210u8,
+                135u8, 126u8, 236u8, 47u8, 99u8, 185u8, 49u8, 189u8, 71u8, 65u8, 122u8,
+                129u8, 165u8, 56u8, 50u8, 122u8, 249u8, 39u8, 218u8, 62u8
+            ])),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA512,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(not(feature = "crypto_expressions"))]
+        test_function!(
+            SHA512,
+            &[lit(ScalarValue::Utf8(Some("tom".to_string())))],
+            Err(DataFusionError::Internal(
+                "function sha512 requires compilation with feature flag: crypto_expressions.".to_string()
+            )),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some(" josé")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some("   hi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(0))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(Some("xyxhi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(21))),
+                lit(ScalarValue::Utf8(Some("abcdef".to_string()))),
+            ],
+            Ok(Some("abcdefabcdefabcdefahi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some(" ".to_string()))),
+            ],
+            Ok(Some("   hi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("".to_string()))),
+            ],
+            Ok(Some("hi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(None)),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(10))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(Some("xyxyxyjosé")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(10))),
+                lit(ScalarValue::Utf8(Some("éñ".to_string()))),
+            ],
+            Ok(Some("éñéñéñjosé")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
             Ltrim,
             &[lit(ScalarValue::Utf8(Some(" trim".to_string())))],
             Ok(Some("trim")),
@@ -1215,6 +1860,316 @@ mod tests {
             i32,
             Int32,
             Int32Array
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int8(Some(2))),
+            ],
+            Ok(Some("de")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(200))),
+            ],
+            Ok(Some("abcde")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(-2))),
+            ],
+            Ok(Some("cde")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(-200))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(0))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(2))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some("éésoj")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Int64(Some(-3))),
+            ],
+            Ok(Some("éésoj")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some("josé ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some("hi   ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(0))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(Some("hixyx")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(21))),
+                lit(ScalarValue::Utf8(Some("abcdef".to_string()))),
+            ],
+            Ok(Some("hiabcdefabcdefabcdefa")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some(" ".to_string()))),
+            ],
+            Ok(Some("hi   ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("".to_string()))),
+            ],
+            Ok(Some("hi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(None)),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(10))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(Some("joséxyxyxy")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(10))),
+                lit(ScalarValue::Utf8(Some("éñ".to_string()))),
+            ],
+            Ok(Some("josééñéñéñ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(Some("trim ".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(Some(" trim ".to_string())))],
+            Ok(Some(" trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(Some(" trim \n".to_string())))],
+            Ok(Some(" trim \n")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(Some(" trim".to_string())))],
+            Ok(Some(" trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(Some("trim".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
         );
         test_function!(
             Substr,
@@ -1374,54 +2329,6 @@ mod tests {
                 lit(ScalarValue::Int64(Some(2))),
             ],
             Ok(Some("és")),
-            &str,
-            Utf8,
-            StringArray
-        );
-        test_function!(
-            Rtrim,
-            &[lit(ScalarValue::Utf8(Some("trim ".to_string())))],
-            Ok(Some("trim")),
-            &str,
-            Utf8,
-            StringArray
-        );
-        test_function!(
-            Rtrim,
-            &[lit(ScalarValue::Utf8(Some(" trim ".to_string())))],
-            Ok(Some(" trim")),
-            &str,
-            Utf8,
-            StringArray
-        );
-        test_function!(
-            Rtrim,
-            &[lit(ScalarValue::Utf8(Some(" trim \n".to_string())))],
-            Ok(Some(" trim \n")),
-            &str,
-            Utf8,
-            StringArray
-        );
-        test_function!(
-            Rtrim,
-            &[lit(ScalarValue::Utf8(Some(" trim".to_string())))],
-            Ok(Some(" trim")),
-            &str,
-            Utf8,
-            StringArray
-        );
-        test_function!(
-            Rtrim,
-            &[lit(ScalarValue::Utf8(Some("trim".to_string())))],
-            Ok(Some("trim")),
-            &str,
-            Utf8,
-            StringArray
-        );
-        test_function!(
-            Rtrim,
-            &[lit(ScalarValue::Utf8(None))],
-            Ok(None),
             &str,
             Utf8,
             StringArray

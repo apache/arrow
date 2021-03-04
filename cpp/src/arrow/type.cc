@@ -2248,7 +2248,7 @@ std::shared_ptr<DataType> decimal256(int32_t precision, int32_t scale) {
 
 std::string Decimal128Type::ToString() const {
   std::stringstream s;
-  s << "decimal(" << precision_ << ", " << scale_ << ")";
+  s << "decimal128(" << precision_ << ", " << scale_ << ")";
   return s.str();
 }
 

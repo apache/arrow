@@ -488,6 +488,49 @@ impl Field {
 
         Ok(())
     }
+
+    /// Check to see if `self` is a superset of `other` field. Superset is defined as:
+    ///
+    /// * if nullability doesn't match, self needs to be nullable
+    /// * self.metadata is a superset of other.metadata
+    /// * all other fields are equal
+    pub fn contains(&self, other: &Field) -> bool {
+        if self.name != other.name
+            || self.data_type != other.data_type
+            || self.dict_id != other.dict_id
+            || self.dict_is_ordered != other.dict_is_ordered
+        {
+            return false;
+        }
+
+        if self.nullable != other.nullable && !self.nullable {
+            return false;
+        }
+
+        // make sure self.metadata is a superset of other.metadata
+        match (&self.metadata, &other.metadata) {
+            (None, Some(_)) => {
+                return false;
+            }
+            (Some(self_meta), Some(other_meta)) => {
+                for (k, v) in other_meta.iter() {
+                    match self_meta.get(k) {
+                        Some(s) => {
+                            if s != v {
+                                return false;
+                            }
+                        }
+                        None => {
+                            return false;
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        true
+    }
 }
 
 // TODO: improve display with crate https://crates.io/crates/derive_more ?

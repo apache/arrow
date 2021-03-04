@@ -21,6 +21,8 @@
 
 //! String expressions
 
+use std::cmp::Ordering;
+use std::str::from_utf8;
 use std::sync::Arc;
 
 use crate::{
@@ -308,6 +310,192 @@ pub fn concat_ws(args: &[ArrayRef]) -> Result<ArrayRef> {
     Ok(Arc::new(result) as ArrayRef)
 }
 
+/// Returns first n characters in the string, or when n is negative, returns all but last |n| characters.
+/// left('abcde', 2) = 'ab'
+pub fn left<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
+    let string_array: &GenericStringArray<T> = args[0]
+        .as_any()
+        .downcast_ref::<GenericStringArray<T>>()
+        .ok_or_else(|| {
+            DataFusionError::Internal("could not cast string to StringArray".to_string())
+        })?;
+
+    let n_array: &Int64Array =
+        args[1]
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .ok_or_else(|| {
+                DataFusionError::Internal("could not cast n to Int64Array".to_string())
+            })?;
+
+    let result = string_array
+        .iter()
+        .zip(n_array.iter())
+        .map(|(string, n)| match (string, n) {
+            (None, _) => None,
+            (_, None) => None,
+            (Some(string), Some(n)) => match n.cmp(&0) {
+                Ordering::Equal => Some(""),
+                Ordering::Greater => Some(
+                    string
+                        .grapheme_indices(true)
+                        .nth(n as usize)
+                        .map_or(string, |(i, _)| {
+                            &from_utf8(&string.as_bytes()[..i]).unwrap()
+                        }),
+                ),
+                Ordering::Less => Some(
+                    string
+                        .grapheme_indices(true)
+                        .rev()
+                        .nth(n.abs() as usize - 1)
+                        .map_or("", |(i, _)| {
+                            &from_utf8(&string.as_bytes()[..i]).unwrap()
+                        }),
+                ),
+            },
+        })
+        .collect::<GenericStringArray<T>>();
+
+    Ok(Arc::new(result) as ArrayRef)
+}
+
+/// Converts the string to all lower case.
+/// lower('TOM') = 'tom'
+pub fn lower(args: &[ColumnarValue]) -> Result<ColumnarValue> {
+    handle(args, |x| x.to_ascii_lowercase(), "lower")
+}
+
+/// Extends the string to length length by prepending the characters fill (a space by default). If the string is already longer than length then it is truncated (on the right).
+/// lpad('hi', 5, 'xy') = 'xyxhi'
+pub fn lpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
+    match args.len() {
+        2 => {
+            let string_array: &GenericStringArray<T> = args[0]
+                .as_any()
+                .downcast_ref::<GenericStringArray<T>>()
+                .ok_or_else(|| {
+                    DataFusionError::Internal(
+                        "could not cast string to StringArray".to_string(),
+                    )
+                })?;
+
+            let length_array: &Int64Array = args[1]
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .ok_or_else(|| {
+                    DataFusionError::Internal(
+                        "could not cast length to Int64Array".to_string(),
+                    )
+                })?;
+
+            let result = string_array
+                .iter()
+                .zip(length_array.iter())
+                .map(|(string, length)| match (string, length) {
+                    (None, _) => None,
+                    (_, None) => None,
+                    (Some(string), Some(length)) => {
+                        let length = length as usize;
+                        if length == 0 {
+                            Some("".to_string())
+                        } else {
+                            let graphemes = string.graphemes(true).collect::<Vec<&str>>();
+                            if length < graphemes.len() {
+                                Some(graphemes[..length].concat())
+                            } else {
+                                let mut s = string.to_string();
+                                s.insert_str(
+                                    0,
+                                    " ".repeat(length - graphemes.len()).as_str(),
+                                );
+                                Some(s)
+                            }
+                        }
+                    }
+                })
+                .collect::<GenericStringArray<T>>();
+
+            Ok(Arc::new(result) as ArrayRef)
+        }
+        3 => {
+            let string_array: &GenericStringArray<T> = args[0]
+                .as_any()
+                .downcast_ref::<GenericStringArray<T>>()
+                .ok_or_else(|| {
+                    DataFusionError::Internal(
+                        "could not cast string to StringArray".to_string(),
+                    )
+                })?;
+
+            let length_array: &Int64Array = args[1]
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .ok_or_else(|| {
+                    DataFusionError::Internal(
+                        "could not cast length to Int64Array".to_string(),
+                    )
+                })?;
+
+            let fill_array: &GenericStringArray<T> = args[2]
+                .as_any()
+                .downcast_ref::<GenericStringArray<T>>()
+                .ok_or_else(|| {
+                    DataFusionError::Internal(
+                        "could not cast fill to StringArray".to_string(),
+                    )
+                })?;
+
+            let result = string_array
+                .iter()
+                .zip(length_array.iter())
+                .zip(fill_array.iter())
+                .map(|((string, length), fill)| match (string, length, fill) {
+                    (None, _, _) => None,
+                    (_, None, _) => None,
+                    (_, _, None) => None,
+                    (Some(string), Some(length), Some(fill)) => {
+                        let length = length as usize;
+
+                        if length == 0 {
+                            Some("".to_string())
+                        } else {
+                            let graphemes = string.graphemes(true).collect::<Vec<&str>>();
+                            let fill_chars = fill.chars().collect::<Vec<char>>();
+
+                            if length < graphemes.len() {
+                                Some(graphemes[..length].concat())
+                            } else if fill_chars.is_empty() {
+                                Some(string.to_string())
+                            } else {
+                                let mut s = string.to_string();
+                                let mut char_vector =
+                                    Vec::<char>::with_capacity(length - graphemes.len());
+                                for l in 0..length - graphemes.len() {
+                                    char_vector.push(
+                                        *fill_chars.get(l % fill_chars.len()).unwrap(),
+                                    );
+                                }
+                                s.insert_str(
+                                    0,
+                                    char_vector.iter().collect::<String>().as_str(),
+                                );
+                                Some(s)
+                            }
+                        }
+                    }
+                })
+                .collect::<GenericStringArray<T>>();
+
+            Ok(Arc::new(result) as ArrayRef)
+        }
+        other => Err(DataFusionError::Internal(format!(
+            "lpad was called with {} arguments. It requires at least 2 and at most 3.",
+            other
+        ))),
+    }
+}
+
 /// Removes the longest string containing only characters in characters (a space by default) from the start of string.
 /// ltrim('zzzytest', 'xyz') = 'test'
 pub fn ltrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
@@ -316,7 +504,11 @@ pub fn ltrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
             let string_array: &GenericStringArray<T> = args[0]
                 .as_any()
                 .downcast_ref::<GenericStringArray<T>>()
-                .unwrap();
+                .ok_or_else(|| {
+                    DataFusionError::Internal(
+                        "could not cast string to StringArray".to_string(),
+                    )
+                })?;
 
             let result = string_array
                 .iter()
@@ -329,25 +521,30 @@ pub fn ltrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
             let string_array: &GenericStringArray<T> = args[0]
                 .as_any()
                 .downcast_ref::<GenericStringArray<T>>()
-                .unwrap();
+                .ok_or_else(|| {
+                    DataFusionError::Internal(
+                        "could not cast string to StringArray".to_string(),
+                    )
+                })?;
 
             let characters_array: &GenericStringArray<T> = args[1]
                 .as_any()
                 .downcast_ref::<GenericStringArray<T>>()
-                .unwrap();
+                .ok_or_else(|| {
+                    DataFusionError::Internal(
+                        "could not cast characters to StringArray".to_string(),
+                    )
+                })?;
 
             let result = string_array
                 .iter()
-                .enumerate()
-                .map(|(i, x)| {
-                    if characters_array.is_null(i) {
-                        None
-                    } else {
-                        x.map(|x: &str| {
-                            let chars: Vec<char> =
-                                characters_array.value(i).chars().collect();
-                            x.trim_start_matches(&chars[..])
-                        })
+                .zip(characters_array.iter())
+                .map(|(string, characters)| match (string, characters) {
+                    (None, _) => None,
+                    (_, None) => None,
+                    (Some(string), Some(characters)) => {
+                        let chars: Vec<char> = characters.chars().collect();
+                        Some(string.trim_start_matches(&chars[..]))
                     }
                 })
                 .collect::<GenericStringArray<T>>();
@@ -355,16 +552,178 @@ pub fn ltrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
             Ok(Arc::new(result) as ArrayRef)
         }
         other => Err(DataFusionError::Internal(format!(
-            "ltrim was called with {} arguments. It requires at most 2.",
+            "ltrim was called with {} arguments. It requires at least 1 and at most 2.",
             other
         ))),
     }
 }
 
-/// Converts the string to all lower case.
-/// lower('TOM') = 'tom'
-pub fn lower(args: &[ColumnarValue]) -> Result<ColumnarValue> {
-    handle(args, |x| x.to_ascii_lowercase(), "lower")
+/// Returns last n characters in the string, or when n is negative, returns all but first |n| characters.
+/// right('abcde', 2) = 'de'
+pub fn right<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
+    let string_array: &GenericStringArray<T> = args[0]
+        .as_any()
+        .downcast_ref::<GenericStringArray<T>>()
+        .ok_or_else(|| {
+            DataFusionError::Internal("could not cast string to StringArray".to_string())
+        })?;
+
+    let n_array: &Int64Array =
+        args[1]
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .ok_or_else(|| {
+                DataFusionError::Internal("could not cast n to Int64Array".to_string())
+            })?;
+
+    let result = string_array
+        .iter()
+        .zip(n_array.iter())
+        .map(|(string, n)| match (string, n) {
+            (None, _) => None,
+            (_, None) => None,
+            (Some(string), Some(n)) => match n.cmp(&0) {
+                Ordering::Equal => Some(""),
+                Ordering::Greater => Some(
+                    string
+                        .grapheme_indices(true)
+                        .rev()
+                        .nth(n as usize - 1)
+                        .map_or(string, |(i, _)| {
+                            &from_utf8(&string.as_bytes()[i..]).unwrap()
+                        }),
+                ),
+                Ordering::Less => Some(
+                    string
+                        .grapheme_indices(true)
+                        .nth(n.abs() as usize)
+                        .map_or("", |(i, _)| {
+                            &from_utf8(&string.as_bytes()[i..]).unwrap()
+                        }),
+                ),
+            },
+        })
+        .collect::<GenericStringArray<T>>();
+
+    Ok(Arc::new(result) as ArrayRef)
+}
+
+/// Extends the string to length length by appending the characters fill (a space by default). If the string is already longer than length then it is truncated.
+/// rpad('hi', 5, 'xy') = 'hixyx'
+pub fn rpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
+    match args.len() {
+        2 => {
+            let string_array: &GenericStringArray<T> = args[0]
+                .as_any()
+                .downcast_ref::<GenericStringArray<T>>()
+                .ok_or_else(|| {
+                    DataFusionError::Internal(
+                        "could not cast string to StringArray".to_string(),
+                    )
+                })?;
+
+            let length_array: &Int64Array = args[1]
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .ok_or_else(|| {
+                    DataFusionError::Internal(
+                        "could not cast length to Int64Array".to_string(),
+                    )
+                })?;
+
+            let result = string_array
+                .iter()
+                .zip(length_array.iter())
+                .map(|(string, length)| match (string, length) {
+                    (None, _) => None,
+                    (_, None) => None,
+                    (Some(string), Some(length)) => {
+                        let length = length as usize;
+                        if length == 0 {
+                            Some("".to_string())
+                        } else {
+                            let graphemes = string.graphemes(true).collect::<Vec<&str>>();
+                            if length < graphemes.len() {
+                                Some(graphemes[..length].concat())
+                            } else {
+                                let mut s = string.to_string();
+                                s.push_str(" ".repeat(length - graphemes.len()).as_str());
+                                Some(s)
+                            }
+                        }
+                    }
+                })
+                .collect::<GenericStringArray<T>>();
+
+            Ok(Arc::new(result) as ArrayRef)
+        }
+        3 => {
+            let string_array: &GenericStringArray<T> = args[0]
+                .as_any()
+                .downcast_ref::<GenericStringArray<T>>()
+                .ok_or_else(|| {
+                    DataFusionError::Internal(
+                        "could not cast string to StringArray".to_string(),
+                    )
+                })?;
+
+            let length_array: &Int64Array = args[1]
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .ok_or_else(|| {
+                    DataFusionError::Internal(
+                        "could not cast length to Int64Array".to_string(),
+                    )
+                })?;
+
+            let fill_array: &GenericStringArray<T> = args[2]
+                .as_any()
+                .downcast_ref::<GenericStringArray<T>>()
+                .ok_or_else(|| {
+                    DataFusionError::Internal(
+                        "could not cast fill to StringArray".to_string(),
+                    )
+                })?;
+
+            let result = string_array
+                .iter()
+                .zip(length_array.iter())
+                .zip(fill_array.iter())
+                .map(|((string, length), fill)| match (string, length, fill) {
+                    (None, _, _) => None,
+                    (_, None, _) => None,
+                    (_, _, None) => None,
+                    (Some(string), Some(length), Some(fill)) => {
+                        let length = length as usize;
+                        let graphemes = string.graphemes(true).collect::<Vec<&str>>();
+                        let fill_chars = fill.chars().collect::<Vec<char>>();
+
+                        if length < graphemes.len() {
+                            Some(graphemes[..length].concat())
+                        } else if fill_chars.is_empty() {
+                            Some(string.to_string())
+                        } else {
+                            let mut s = string.to_string();
+                            let mut char_vector =
+                                Vec::<char>::with_capacity(length - graphemes.len());
+                            for l in 0..length - graphemes.len() {
+                                char_vector
+                                    .push(*fill_chars.get(l % fill_chars.len()).unwrap());
+                            }
+                            s.push_str(char_vector.iter().collect::<String>().as_str());
+                            Some(s)
+                        }
+                    }
+                })
+                .collect::<GenericStringArray<T>>();
+
+            Ok(Arc::new(result) as ArrayRef)
+        }
+        other => Err(DataFusionError::Internal(format!(
+            "rpad was called with {} arguments. It requires at least 2 and at most 3.",
+            other
+        ))),
+    }
 }
 
 /// Removes the longest string containing only characters in characters (a space by default) from the end of string.
@@ -375,11 +734,15 @@ pub fn rtrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
             let string_array: &GenericStringArray<T> = args[0]
                 .as_any()
                 .downcast_ref::<GenericStringArray<T>>()
-                .unwrap();
+                .ok_or_else(|| {
+                    DataFusionError::Internal(
+                        "could not cast string to StringArray".to_string(),
+                    )
+                })?;
 
             let result = string_array
                 .iter()
-                .map(|x| x.map(|x: &str| x.trim_end_matches(' ')))
+                .map(|string| string.map(|string: &str| string.trim_end_matches(' ')))
                 .collect::<GenericStringArray<T>>();
 
             Ok(Arc::new(result) as ArrayRef)
@@ -388,25 +751,30 @@ pub fn rtrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
             let string_array: &GenericStringArray<T> = args[0]
                 .as_any()
                 .downcast_ref::<GenericStringArray<T>>()
-                .unwrap();
+                .ok_or_else(|| {
+                    DataFusionError::Internal(
+                        "could not cast string to StringArray".to_string(),
+                    )
+                })?;
 
             let characters_array: &GenericStringArray<T> = args[1]
                 .as_any()
                 .downcast_ref::<GenericStringArray<T>>()
-                .unwrap();
+                .ok_or_else(|| {
+                    DataFusionError::Internal(
+                        "could not cast characters to StringArray".to_string(),
+                    )
+                })?;
 
             let result = string_array
                 .iter()
-                .enumerate()
-                .map(|(i, x)| {
-                    if characters_array.is_null(i) {
-                        None
-                    } else {
-                        x.map(|x: &str| {
-                            let chars: Vec<char> =
-                                characters_array.value(i).chars().collect();
-                            x.trim_end_matches(&chars[..])
-                        })
+                .zip(characters_array.iter())
+                .map(|(string, characters)| match (string, characters) {
+                    (None, _) => None,
+                    (_, None) => None,
+                    (Some(string), Some(characters)) => {
+                        let chars: Vec<char> = characters.chars().collect();
+                        Some(string.trim_end_matches(&chars[..]))
                     }
                 })
                 .collect::<GenericStringArray<T>>();
@@ -414,7 +782,7 @@ pub fn rtrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
             Ok(Arc::new(result) as ArrayRef)
         }
         other => Err(DataFusionError::Internal(format!(
-            "rtrim was called with {} arguments. It requires at most two.",
+            "rtrim was called with {} arguments. It requires at least 1 and at most 2.",
             other
         ))),
     }
@@ -446,26 +814,22 @@ pub fn substr<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
 
             let result = string_array
                 .iter()
-                .enumerate()
-                .map(|(i, x)| {
-                    if start_array.is_null(i) {
-                        None
-                    } else {
-                        x.map(|x: &str| {
-                            let start: i64 = start_array.value(i);
-
-                            if start <= 0 {
-                                x.to_string()
+                .zip(start_array.iter())
+                .map(|(string, start)| match (string, start) {
+                    (None, _) => None,
+                    (_, None) => None,
+                    (Some(string), Some(start)) => {
+                        if start <= 0 {
+                            Some(string.to_string())
+                        } else {
+                            let graphemes = string.graphemes(true).collect::<Vec<&str>>();
+                            let start_pos = start as usize - 1;
+                            if graphemes.len() < start_pos {
+                                Some("".to_string())
                             } else {
-                                let graphemes = x.graphemes(true).collect::<Vec<&str>>();
-                                let start_pos = start as usize - 1;
-                                if graphemes.len() < start_pos {
-                                    "".to_string()
-                                } else {
-                                    graphemes[start_pos..].concat()
-                                }
+                                Some(graphemes[start_pos..].concat())
                             }
-                        })
+                        }
                     }
                 })
                 .collect::<GenericStringArray<T>>();
@@ -502,36 +866,34 @@ pub fn substr<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
 
             let result = string_array
                 .iter()
-                .enumerate()
-                .map(|(i, x)| {
-                    if start_array.is_null(i) || count_array.is_null(i) {
-                        Ok(None)
-                    } else {
-                        x.map(|x: &str| {
-                            let start: i64 = start_array.value(i);
-                            let count = count_array.value(i);
-
-                            if count < 0 {
-                                Err(DataFusionError::Execution(
-                                    "negative substring length not allowed".to_string(),
-                                ))
-                            } else if start <= 0 {
-                                Ok(x.to_string())
+                .zip(start_array.iter())
+                .zip(count_array.iter())
+                .map(|((string, start), count)| match (string, start, count) {
+                    (None, _, _) => Ok(None),
+                    (_, None, _) => Ok(None),
+                    (_, _, None) => Ok(None),
+                    (Some(string), Some(start), Some(count)) => {
+                        if count < 0 {
+                            Err(DataFusionError::Execution(
+                                "negative substring length not allowed".to_string(),
+                            ))
+                        } else if start <= 0 {
+                            Ok(Some(string.to_string()))
+                        } else {
+                            let graphemes = string.graphemes(true).collect::<Vec<&str>>();
+                            let start_pos = start as usize - 1;
+                            let count_usize = count as usize;
+                            if graphemes.len() < start_pos {
+                                Ok(Some("".to_string()))
+                            } else if graphemes.len() < start_pos + count_usize {
+                                Ok(Some(graphemes[start_pos..].concat()))
                             } else {
-                                let graphemes = x.graphemes(true).collect::<Vec<&str>>();
-                                let start_pos = start as usize - 1;
-                                let count_usize = count as usize;
-                                if graphemes.len() < start_pos {
-                                    Ok("".to_string())
-                                } else if graphemes.len() < start_pos + count_usize {
-                                    Ok(graphemes[start_pos..].concat())
-                                } else {
-                                    Ok(graphemes[start_pos..start_pos + count_usize]
-                                        .concat())
-                                }
+                                Ok(Some(
+                                    graphemes[start_pos..start_pos + count_usize]
+                                        .concat(),
+                                ))
                             }
-                        })
-                        .transpose()
+                        }
                     }
                 })
                 .collect::<Result<GenericStringArray<T>>>()?;

@@ -36,7 +36,8 @@ import numpy as np
 
 import pyarrow as pa
 from pyarrow.csv import (
-    open_csv, read_csv, ReadOptions, ParseOptions, ConvertOptions, ISO8601)
+    open_csv, read_csv, ReadOptions, ParseOptions, ConvertOptions, ISO8601,
+    write_csv, WriteOptions)
 
 
 def generate_col_names():
@@ -201,6 +202,21 @@ def test_convert_options():
     assert opts.true_values == ['T', 'tt']
     assert opts.auto_dict_max_cardinality == 999
     assert opts.timestamp_parsers == [ISO8601, '%Y-%m-%d']
+
+
+def test_write_options():
+    cls = WriteOptions
+    opts = cls()
+
+    check_options_class(
+        cls, include_header=[True, False])
+
+    assert opts.batch_size > 0
+    opts.batch_size = 12345
+    assert opts.batch_size == 12345
+
+    opts = cls(batch_size=9876)
+    assert opts.batch_size == 9876
 
 
 class BaseTestCSVRead:
@@ -1257,3 +1273,22 @@ def test_read_csv_does_not_close_passed_file_handles():
     buf = io.BytesIO(b"a,b,c\n1,2,3\n4,5,6")
     read_csv(buf)
     assert not buf.closed
+
+
+def test_write_read_round_trip():
+    t = pa.Table.from_arrays([[1, 2, 3], ["a", "b", "c"]], ["c1", "c2"])
+    record_batch = t.to_batches(max_chunksize=4)[0]
+    for data in [t, record_batch]:
+        # Test with header
+        buf = io.BytesIO()
+        write_csv(data, buf, WriteOptions(include_header=True))
+        buf.seek(0)
+        assert t == read_csv(buf)
+
+        # Test without header
+        buf = io.BytesIO()
+        write_csv(data, buf, WriteOptions(include_header=False))
+        buf.seek(0)
+
+        read_options = ReadOptions(column_names=t.column_names)
+        assert t == read_csv(buf, read_options=read_options)

@@ -34,6 +34,7 @@ ConvertOptions ConvertOptions::Defaults() {
 }
 
 ReadOptions ReadOptions::Defaults() { return ReadOptions(); }
+WriteOptions WriteOptions::Defaults() { return WriteOptions(); }
 
 }  // namespace csv
 }  // namespace arrow
