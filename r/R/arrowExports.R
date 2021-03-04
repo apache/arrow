@@ -440,12 +440,12 @@ dataset___DirectoryPartitioning__MakeFactory <- function(field_names){
     .Call(`_arrow_dataset___DirectoryPartitioning__MakeFactory`, field_names)
 }
 
-dataset___HivePartitioning <- function(schm){
-    .Call(`_arrow_dataset___HivePartitioning`, schm)
+dataset___HivePartitioning <- function(schm, null_fallback){
+    .Call(`_arrow_dataset___HivePartitioning`, schm, null_fallback)
 }
 
-dataset___HivePartitioning__MakeFactory <- function(){
-    .Call(`_arrow_dataset___HivePartitioning__MakeFactory`)
+dataset___HivePartitioning__MakeFactory <- function(null_fallback){
+    .Call(`_arrow_dataset___HivePartitioning__MakeFactory`, null_fallback)
 }
 
 dataset___ScannerBuilder__Project <- function(sb, cols){

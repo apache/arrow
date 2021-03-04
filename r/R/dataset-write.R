@@ -51,6 +51,8 @@
 #'   which case it will be V4.
 #' - `codec`: A [Codec] which will be used to compress body buffers of written
 #'   files. Default (NULL) will not compress body buffers.
+#' - `null_fallback`: character to be used in place of missing values (`NA` or
+#' `NULL`) when using Hive-style partitioning. See [hive_partition()].
 #' @return The input `dataset`, invisibly
 #' @export
 write_dataset <- function(dataset,
@@ -83,7 +85,7 @@ write_dataset <- function(dataset,
   if (!inherits(partitioning, "Partitioning")) {
     partition_schema <- scanner$schema[partitioning]
     if (isTRUE(hive_style)) {
-      partitioning <- HivePartitioning$create(partition_schema)
+      partitioning <- HivePartitioning$create(partition_schema, null_fallback = list(...)$null_fallback)
     } else {
       partitioning <- DirectoryPartitioning$create(partition_schema)
     }

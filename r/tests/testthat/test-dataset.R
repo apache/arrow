@@ -1134,6 +1134,36 @@ test_that("Dataset writing: no partitioning", {
   expect_true(length(dir(dst_dir)) > 0)
 })
 
+test_that("Dataset writing: partition on null", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  ds <- open_dataset(hive_dir)
+  
+  dst_dir <- tempfile()
+  partitioning = hive_partition(lgl = boolean())
+  write_dataset(ds, dst_dir, partitioning = partitioning)
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), c("lgl=__HIVE_DEFAULT_PARTITION__", "lgl=false", "lgl=true"))
+
+  dst_dir <- tempfile()
+  partitioning = hive_partition(lgl = boolean(), null_fallback="xyz")
+  write_dataset(ds, dst_dir, partitioning = partitioning)
+  expect_true(dir.exists(dst_dir))
+  expect_identical(dir(dst_dir), c("lgl=false", "lgl=true", "lgl=xyz"))
+
+  ds_readback <- open_dataset(dst_dir, partitioning = hive_partition(lgl = boolean(), null_fallback="xyz"))
+
+  expect_identical(
+    ds %>%
+      select(int, lgl) %>%
+      collect() %>%
+      arrange(lgl, int),
+    ds_readback %>%
+      select(int, lgl) %>%
+      collect() %>%
+      arrange(lgl, int)
+  )
+})
+
 test_that("Dataset writing: from data.frame", {
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   dst_dir <- tempfile()
