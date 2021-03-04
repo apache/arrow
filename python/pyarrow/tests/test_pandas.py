@@ -2272,6 +2272,30 @@ class TestConvertStructTypes:
         series = pd.Series(arr.to_pandas())
         tm.assert_series_equal(series, expected)
 
+    def test_to_pandas_multiple_chunks(self):
+        # ARROW-11855
+        bytes_start = pa.total_allocated_bytes()
+        ints = pa.array([1], type=pa.int64())
+        arr1 = pa.StructArray.from_arrays([ints], ['ints'])
+        arr2 = pa.StructArray.from_arrays([ints], ['ints'])
+        arr = pa.chunked_array([arr1, arr2])
+
+        expected = pd.Series([
+            {'ints': 1},
+            {'ints': 1}
+        ])
+
+        series = pd.Series(arr.to_pandas())
+        tm.assert_series_equal(series, expected)
+
+        del series
+        del arr
+        del arr1
+        del arr2
+        del ints
+        bytes_end = pa.total_allocated_bytes()
+        assert bytes_end == bytes_start
+
     def test_from_numpy(self):
         dt = np.dtype([('x', np.int32),
                        (('y_title', 'y'), np.bool_)])
