@@ -87,8 +87,14 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
         // pointer alignment & location is ensured by RawPtrBox
         // buffer bounds/offset is ensured by the value_offset invariants
         // ISSUE: utf-8 well formedness is not checked
+
+        // Safety of `to_isize().unwrap()`
+        // `start` and `end` are &OffsetSize, which is a generic type that implements the
+        // OffsetSizeTrait. Currently, only i32 and i64 implement OffsetSizeTrait,
+        // both of which should cleanly cast to isize on an architecture that supports
+        // 32/64-bit offsets
         let slice = std::slice::from_raw_parts(
-            self.value_data.as_ptr().offset(start.to_isize()),
+            self.value_data.as_ptr().offset(start.to_isize().unwrap()),
             (*end - *start).to_usize().unwrap(),
         );
         std::str::from_utf8_unchecked(slice)
@@ -106,8 +112,13 @@ impl<OffsetSize: StringOffsetSizeTrait> GenericStringArray<OffsetSize> {
         // buffer bounds/offset is ensured by the value_offset invariants
         // ISSUE: utf-8 well formedness is not checked
         unsafe {
+            // Safety of `to_isize().unwrap()`
+            // `start` and `end` are &OffsetSize, which is a generic type that implements the
+            // OffsetSizeTrait. Currently, only i32 and i64 implement OffsetSizeTrait,
+            // both of which should cleanly cast to isize on an architecture that supports
+            // 32/64-bit offsets
             let slice = std::slice::from_raw_parts(
-                self.value_data.as_ptr().offset(start.to_isize()),
+                self.value_data.as_ptr().offset(start.to_isize().unwrap()),
                 (*end - *start).to_usize().unwrap(),
             );
             std::str::from_utf8_unchecked(slice)
