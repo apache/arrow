@@ -154,18 +154,11 @@ struct CSVBlock {
 template <>
 struct IterationTraits<csv::CSVBlock> {
   static csv::CSVBlock End() { return csv::CSVBlock{{}, {}, {}, -1, true, {}}; }
+  static bool IsEnd(const csv::CSVBlock& val) { return val.block_index < 0; }
 };
 
 namespace csv {
 namespace {
-
-// The == operator must be defined to be used as T in Iterator<T>
-bool operator==(const CSVBlock& left, const CSVBlock& right) {
-  return left.block_index == right.block_index;
-}
-bool operator!=(const CSVBlock& left, const CSVBlock& right) {
-  return left.block_index != right.block_index;
-}
 
 // This is a callable that can be used to transform an iterator.  The source iterator
 // will contain buffers of data and the output iterator will contain delimited CSV
@@ -731,7 +724,7 @@ class SerialStreamingReader : public BaseStreamingReader {
 
     if (!source_eof_) {
       ARROW_ASSIGN_OR_RAISE(auto maybe_block, block_iterator_.Next());
-      if (maybe_block != IterationTraits<CSVBlock>::End()) {
+      if (!IsIterationEnd(maybe_block)) {
         last_block_index_ = maybe_block.block_index;
         auto maybe_parsed = ParseAndInsert(maybe_block.partial, maybe_block.completion,
                                            maybe_block.buffer, maybe_block.block_index,
@@ -813,7 +806,7 @@ class SerialTableReader : public BaseTableReader {
       RETURN_NOT_OK(stop_token_.Poll());
 
       ARROW_ASSIGN_OR_RAISE(auto maybe_block, block_iterator.Next());
-      if (maybe_block == IterationTraits<CSVBlock>::End()) {
+      if (IsIterationEnd(maybe_block)) {
         // EOF
         break;
       }
@@ -865,7 +858,7 @@ class AsyncThreadedTableReader
 
     auto transferred_it = MakeTransferredGenerator(bg_it, cpu_executor_);
 
-    int32_t block_queue_size = std::max(2, cpu_executor_->GetCapacity());
+    int32_t block_queue_size = cpu_executor_->GetCapacity();
     auto rh_it =
         MakeSerialReadaheadGenerator(std::move(transferred_it), block_queue_size);
     buffer_generator_ = CSVBufferIterator::MakeAsync(std::move(rh_it));

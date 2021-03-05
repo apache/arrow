@@ -35,11 +35,11 @@
 #define ASSERT_FINISHES_OK(expr)                                              \
   do {                                                                        \
     auto&& _fut = (expr);                                                     \
-    ASSERT_TRUE(_fut.Wait(10));                                               \
+    ASSERT_TRUE(_fut.Wait(300));                                              \
     if (!_fut.is_finished()) {                                                \
       FAIL() << "Future did not finish in a timely fashion";                  \
     }                                                                         \
-    auto _st = _fut.status();                                                 \
+    auto& _st = _fut.status();                                                \
     if (!_st.ok()) {                                                          \
       FAIL() << "'" ARROW_STRINGIFY(expr) "' failed with " << _st.ToString(); \
     }                                                                         \

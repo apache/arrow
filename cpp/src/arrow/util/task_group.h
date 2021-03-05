@@ -21,6 +21,7 @@
 #include <utility>
 
 #include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/cancel.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
