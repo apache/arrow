@@ -54,6 +54,7 @@ jobs:
           -e ARROW_DATASET={{ arrow_dataset|default("ON") }} \
           -e ARROW_PARQUET={{ arrow_parquet|default("ON") }} \
           -e ARROW_S3={{ arrow_s3|default("ON") }} \
+          -e LIBARROW_MINIMAL={{ libarrow_minimal|default("") }} \
           r
       displayName: Docker run
 
