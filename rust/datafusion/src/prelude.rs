@@ -28,9 +28,9 @@
 pub use crate::dataframe::DataFrame;
 pub use crate::execution::context::{ExecutionConfig, ExecutionContext};
 pub use crate::logical_plan::{
-    array, avg, bit_length, btrim, character_length, col, concat, concat_ws, count,
-    create_udf, in_list, left, length, lit, lower, lpad, ltrim, max, md5, min,
-    octet_length, right, rpad, rtrim, sha224, sha256, sha384, sha512, substr, sum, trim,
-    upper, JoinType, Partitioning,
+    array, ascii, avg, bit_length, btrim, character_length, chr, col, concat, concat_ws,
+    count, create_udf, in_list, initcap, left, length, lit, lower, lpad, ltrim, max, md5,
+    min, octet_length, repeat, reverse, right, rpad, rtrim, sha224, sha256, sha384,
+    sha512, substr, sum, to_hex, trim, upper, JoinType, Partitioning,
 };
 pub use crate::physical_plan::csv::CsvReadOptions;
