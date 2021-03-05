@@ -2274,6 +2274,7 @@ class TestConvertStructTypes:
 
     def test_to_pandas_multiple_chunks(self):
         # ARROW-11855
+        gc.collect()
         bytes_start = pa.total_allocated_bytes()
         ints1 = pa.array([1], type=pa.int64())
         ints2 = pa.array([2], type=pa.int64())
@@ -2295,7 +2296,6 @@ class TestConvertStructTypes:
         del arr2
         del ints1
         del ints2
-        gc.collect()
         bytes_end = pa.total_allocated_bytes()
         assert bytes_end == bytes_start
 
