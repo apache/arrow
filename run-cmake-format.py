@@ -61,6 +61,7 @@ patterns = [
     'cpp/cmake_modules/ThirdpartyToolchain.cmake',
     'cpp/cmake_modules/san-config.cmake',
     'cpp/cmake_modules/UseCython.cmake',
+    'cpp/cmake_modules/Usevcpkg.cmake',
     'cpp/src/**/CMakeLists.txt',
     'cpp/tools/**/CMakeLists.txt',
     'java/gandiva/CMakeLists.txt',
