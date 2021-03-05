@@ -31,6 +31,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -169,6 +170,12 @@ class ARROW_EXPORT RecordBatchFileReader {
 
   /// \brief Return current read statistics
   virtual ReadStats stats() const = 0;
+
+  /// \brief Get a reentrant generator of record batches.
+  ///
+  /// This RecordBatchFileReader must outlive the generator.
+  virtual Result<AsyncGenerator<std::shared_ptr<RecordBatch>>>
+  GetRecordBatchGenerator() = 0;
 };
 
 /// \brief A general listener class to receive events.

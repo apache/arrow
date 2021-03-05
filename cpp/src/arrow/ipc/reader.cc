@@ -51,6 +51,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/parallel.h"
 #include "arrow/util/string.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visitor_inline.h"
 
@@ -962,6 +963,24 @@ static inline FileBlock FileBlockFromFlatbuffer(const flatbuf::Block* block) {
   return FileBlock{block->offset(), block->metaDataLength(), block->bodyLength()};
 }
 
+class RecordBatchFileReaderImpl;
+class ARROW_EXPORT RecordBatchGenerator {
+ public:
+  explicit RecordBatchGenerator(RecordBatchFileReaderImpl* reader,
+                                Future<> read_dictionaries)
+      : reader_(reader), index_(0), read_dictionaries_(read_dictionaries) {}
+
+  Future<std::shared_ptr<RecordBatch>> operator()();
+
+  static Result<std::shared_ptr<RecordBatch>> ReadOneRecordBatch(
+      RecordBatchFileReaderImpl* reader, int index, Future<> read_dictionaries);
+
+ private:
+  RecordBatchFileReaderImpl* reader_;
+  int index_;
+  Future<> read_dictionaries_;
+};
+
 class RecordBatchFileReaderImpl : public RecordBatchFileReader {
  public:
   RecordBatchFileReaderImpl() : file_(NULLPTR), footer_offset_(0), footer_(NULLPTR) {}
@@ -1021,6 +1040,17 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
   std::shared_ptr<const KeyValueMetadata> metadata() const override { return metadata_; }
 
   ReadStats stats() const override { return stats_; }
+
+  Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> GetRecordBatchGenerator()
+      override {
+    ARROW_ASSIGN_OR_RAISE(Future<> read_dictionaries,
+                          arrow::internal::GetCpuThreadPool()->Submit([this]() {
+                            RETURN_NOT_OK(ReadDictionaries());
+                            read_dictionaries_ = true;
+                            return Status::OK();
+                          }));
+    return RecordBatchGenerator(this, read_dictionaries);
+  }
 
  private:
   FileBlock GetRecordBatchBlock(int i) const {
@@ -1147,6 +1177,26 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
 
   bool swap_endian_;
 };
+
+Result<std::shared_ptr<RecordBatch>> RecordBatchGenerator::ReadOneRecordBatch(
+    RecordBatchFileReaderImpl* reader, int index, Future<> read_dictionaries) {
+  // Wait for dictionaries to be read
+  RETURN_NOT_OK(read_dictionaries.result());
+  return reader->ReadRecordBatch(index);
+}
+
+Future<std::shared_ptr<RecordBatch>> RecordBatchGenerator::operator()() {
+  if (index_ >= reader_->num_record_batches()) {
+    return Future<std::shared_ptr<RecordBatch>>::MakeFinished(
+        arrow::IterationTraits<std::shared_ptr<RecordBatch>>::End());
+  }
+  // N.B. this clobbers ReadStats. But we can't change that to use atomic fields
+  // without also heap-allocating it.
+  ARROW_ASSIGN_OR_RAISE(auto fut,
+                        arrow::internal::GetCpuThreadPool()->Submit(
+                            &ReadOneRecordBatch, reader_, index_++, read_dictionaries_));
+  return fut;
+}
 
 Result<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::Open(
     io::RandomAccessFile* file, const IpcReadOptions& options) {
