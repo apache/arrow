@@ -3101,7 +3101,7 @@ BEGIN_CPP11
 END_CPP11
 }
 // runtimeinfo.cpp
-auto runtime_info();
+std::vector<std::string> runtime_info();
 extern "C" SEXP _arrow_runtime_info(){
 BEGIN_CPP11
 	return cpp11::as_sexp(runtime_info());

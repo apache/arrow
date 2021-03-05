@@ -21,8 +21,9 @@
 // #include <arrow/util/visibility.h>
 
 // [[arrow::export]]
-auto runtime_info() {
-  return arrow::RuntimeInfo();
+std::vector<std::string> runtime_info() {
+  auto info = arrow::GetRuntimeInfo();
+  return {info.simd_level, info.detected_simd_level};
 }
 
 #endif
