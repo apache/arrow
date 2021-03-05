@@ -796,6 +796,17 @@ test_that("mutate() with scalar (length 1) literal inputs", {
   )
 })
 
+test_that("mutate() with NULL inputs", {
+  expect_equal(
+    ds %>%
+      mutate(int = NULL) %>%
+      collect(),
+    ds %>%
+      select(-int) %>%
+      collect()
+  )
+})
+
 test_that("filter scalar validation doesn't crash (ARROW-7772)", {
   expect_error(
     ds %>%

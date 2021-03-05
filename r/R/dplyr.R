@@ -537,7 +537,9 @@ mutate.arrow_dplyr_query <- function(.data,
     if (inherits(results[[new_var]], "try-error")) {
       msg <- paste('Expression', as_label(exprs[[i]]), 'not supported in Arrow')
       return(abandon_ship(call, .data, msg))
-    } else if (is_dataset && !inherits(results[[new_var]], "Expression")) {
+    } else if (is_dataset &&
+               !inherits(results[[new_var]], "Expression") &&
+               !is.null(results[[new_var]])) {
       # We need some wrapping to handle literal values
       if (length(results[[new_var]]) != 1) {
         msg <- paste0('In ', new_var, " = ", as_label(exprs[[i]]), ", only values of size one are recycled")
