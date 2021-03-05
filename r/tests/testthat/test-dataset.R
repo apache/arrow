@@ -779,6 +779,23 @@ test_that("mutate() features not yet implemented", {
   )
 })
 
+
+test_that("mutate() with scalar (length 1) literal inputs", {
+  expect_equal(
+    ds %>%
+      mutate(the_answer = 42) %>%
+      collect() %>%
+      pull(the_answer),
+    rep(42, nrow(ds))
+  )
+
+  expect_error(
+    ds %>% mutate(the_answer = c(42, 42)),
+    "In the_answer = c(42, 42), only values of size one are recycled\nCall collect() first to pull data into R.",
+    fixed = TRUE
+  )
+})
+
 test_that("filter scalar validation doesn't crash (ARROW-7772)", {
   expect_error(
     ds %>%

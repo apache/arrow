@@ -526,6 +526,7 @@ mutate.arrow_dplyr_query <- function(.data,
   # Deparse and take the first element in case they're long expressions
   names(exprs)[unnamed] <- map_chr(exprs[unnamed], as_label)
 
+  is_dataset <- query_on_dataset(.data)
   mask <- arrow_mask(.data)
   results <- list()
   for (i in seq_along(exprs)) {
@@ -536,6 +537,13 @@ mutate.arrow_dplyr_query <- function(.data,
     if (inherits(results[[new_var]], "try-error")) {
       msg <- paste('Expression', as_label(exprs[[i]]), 'not supported in Arrow')
       return(abandon_ship(call, .data, msg))
+    } else if (is_dataset && !inherits(results[[new_var]], "Expression")) {
+      # We need some wrapping to handle literal values
+      if (length(results[[new_var]]) != 1) {
+        msg <- paste0('In ', new_var, " = ", as_label(exprs[[i]]), ", only values of size one are recycled")
+        return(abandon_ship(call, .data, msg))
+      }
+      results[[new_var]] <- Expression$scalar(results[[new_var]])
     }
     # Put it in the data mask too
     mask[[new_var]] <- mask$.data[[new_var]] <- results[[new_var]]
