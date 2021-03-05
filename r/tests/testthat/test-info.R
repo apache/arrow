@@ -15,12 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-test_that("default_memory_pool and its attributes", {
-  pool <- default_memory_pool()
-  # Not integer bc can be >2gb, so we cast to double
-  expect_is(pool$bytes_allocated, "numeric")
-  expect_is(pool$max_memory, "numeric")
-  expect_true(pool$backend_name %in% c("system", "jemalloc", "mimalloc"))
-
-  expect_true(all(supported_memory_backends() %in% c("system", "jemalloc", "mimalloc")))
+# the rest of the function is covered in test-memory-pool
+test_that("arrow_info()", {
+  arrow_info_output <- arrow_info()
+  expect_is(arrow_info_output, "arrow_info")
+  expect_output(print(arrow_info_output), "Arrow package version")
+  expect_true(all(names(arrow_info_output$capabilities) %in%
+                    c("s3", "snappy", "gzip", "brotli", "zstd", "lz4", "lz4_frame", "lzo", "bz2")))
+  expect_true(all(names(arrow_info_output$runtime_info) %in%
+                    c("simd_level", "detected_simd_level")))
+  options(arrow.foo=FALSE)
+  expect_output(print(arrow_info_output), "arrow.foo")
 })
