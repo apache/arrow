@@ -70,6 +70,6 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: test-output
-          path: arrow/r/arrow-test/testthat.Rout*
+          path: arrow/r/arrow-tests/testthat.Rout*
         if: always()
 
