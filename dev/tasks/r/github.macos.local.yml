@@ -62,6 +62,7 @@ jobs:
           ARROW_R_DEV: TRUE
         run: |
           cd arrow/r
+          export SDKROOT="$(xcrun --show-sdk-path)"
           R CMD INSTALL . --install-tests
       - name: Run the tests
         run: R -e 'tools::testInstalledPackage("arrow")'
