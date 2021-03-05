@@ -56,8 +56,8 @@ jobs:
         env:
           _R_CHECK_CRAN_INCOMING_: false
           ARROW_USE_PKG_CONFIG: false
-          FORCE_TOOLS_LIBS_SCRIPT: false
-          LIBARROW_MINIMAL: true 
+          FORCE_TOOLS_LIBS_SCRIPT: true
+          LIBARROW_MINIMAL: false 
           TEST_R_WITH_ARROW: TRUE
           ARROW_R_DEV: TRUE
         run: |
