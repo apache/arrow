@@ -47,16 +47,14 @@ jobs:
         export R_ORG={{ r_org }}
         export R_IMAGE={{ r_image }}
         export R_TAG={{ r_tag }}
-        export ARROW_DATASET={{ arrow_dataset|default("ON") }}
-        export ARROW_PARQUET={{ arrow_parquet|default("ON") }}
-        export ARROW_S3={{ arrow_s3|default("ON") }}
         # we have to export this (right?) because we need it in the build env
         export ARROW_R_DEV={{ not_cran }}
         # Note that ci/scripts/r_test.sh sets NOT_CRAN=true if ARROW_R_DEV=TRUE
-        cp .env temp.env
-        grep '^ARROW_' <(printenv) >>temp.env
-        docker-compose --env-file temp.env run r
-        rm temp.env
+        docker-compose run \
+          -e ARROW_DATASET={{ arrow_dataset|default("ON") }} \
+          -e ARROW_PARQUET={{ arrow_parquet|default("ON") }} \
+          -e ARROW_S3={{ arrow_s3|default("ON") }} \
+          r
       displayName: Docker run
 
     - script: |
