@@ -92,7 +92,7 @@ else()
   endif()
   set(CMAKE_TOOLCHAIN_FILE
       "${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
-      CACHE STRING "Path to vcpkg CMake toolchain file")
+      CACHE FILEPATH "Path to vcpkg CMake toolchain file")
 endif()
 message(STATUS "Using CMAKE_TOOLCHAIN_FILE: ${CMAKE_TOOLCHAIN_FILE}")
 message(STATUS "Using VCPKG_ROOT: ${VCPKG_ROOT}")
