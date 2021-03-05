@@ -1633,8 +1633,6 @@ tasks:
   test-r-install-macos:
     ci: github
     template: r/github.macos.local.yml
-    params:
-      NO_AUTOBREW: "true"
 
   test-r-rhub-ubuntu-gcc-release:
     ci: azure
