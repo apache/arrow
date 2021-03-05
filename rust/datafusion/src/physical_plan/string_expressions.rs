@@ -35,6 +35,7 @@ use arrow::{
         Array, ArrayRef, GenericStringArray, Int32Array, Int64Array, PrimitiveArray,
         StringArray, StringOffsetSizeTrait,
     },
+    compute,
     datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType},
 };
 use unicode_segmentation::UnicodeSegmentation;
@@ -600,6 +601,24 @@ pub fn ltrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
             other
         ))),
     }
+}
+
+/// extract a specific group from a string column, using a regular expression
+pub fn regexp_extract(args: &[ArrayRef]) -> Result<ArrayRef> {
+    let pattern_expr = args[1].as_any().downcast_ref::<StringArray>().unwrap();
+    let pattern = pattern_expr.value(0);
+    let idx_expr = args[2].as_any().downcast_ref::<Int64Array>().unwrap();
+    let idx = idx_expr.value(0) as usize;
+    compute::regexp_extract(args[0].as_ref(), pattern, idx)
+        .map_err(DataFusionError::ArrowError)
+}
+
+/// extract a specific group from a string column, using a regular expression
+pub fn regexp_match(args: &[ArrayRef]) -> Result<ArrayRef> {
+    let pattern_expr = args[1].as_any().downcast_ref::<StringArray>().unwrap();
+    let pattern = pattern_expr.value(0);
+    compute::regexp_match(args[0].as_ref(), pattern)
+        .map_err(DataFusionError::ArrowError)
 }
 
 /// Repeats string the specified number of times.

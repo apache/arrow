@@ -186,6 +186,9 @@ pub enum BuiltinScalarFunction {
     Trim,
     /// upper
     Upper,
+    /// regex_extract,
+    RegexpExtract,
+    RegexpMatch,
 }
 
 impl fmt::Display for BuiltinScalarFunction {
@@ -253,7 +256,8 @@ impl FromStr for BuiltinScalarFunction {
             "to_timestamp" => BuiltinScalarFunction::ToTimestamp,
             "trim" => BuiltinScalarFunction::Trim,
             "upper" => BuiltinScalarFunction::Upper,
-
+            "regexp_extract" => BuiltinScalarFunction::RegexpExtract,
+            "regexp_match" => BuiltinScalarFunction::RegexpMatch,
             _ => {
                 return Err(DataFusionError::Plan(format!(
                     "There is no built-in function named {}",
@@ -538,6 +542,34 @@ pub fn return_type(
                 ));
             }
         }),
+        BuiltinScalarFunction::RegexpExtract => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                                        "The regexp_extract function can only accept strings.".to_string(),
+                ));
+            }
+            }),
+            BuiltinScalarFunction::RegexpMatch => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::List(Box::new(Field::new(
+                "item",
+                DataType::LargeUtf8,
+                true,
+            ))),
+            DataType::Utf8 => DataType::List(Box::new(Field::new(
+                "item",
+                DataType::Utf8,
+                true,
+            ))),
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The regexp_extract function can only accept strings.".to_string(),
+                ));
+            }
+            }),
 
         BuiltinScalarFunction::Abs
         | BuiltinScalarFunction::Acos
@@ -725,6 +757,22 @@ pub fn create_physical_expr(
                 )),
                 _ => unreachable!(),
             },
+        },
+        BuiltinScalarFunction::RegexpExtract => |args| match args[0].data_type() {
+            DataType::Utf8 => make_scalar_function(string_expressions::regexp_extract)(args),
+            DataType::LargeUtf8 => make_scalar_function(string_expressions::regexp_extract)(args),
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function regexp_extract",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::RegexpMatch => |args| match args[0].data_type() {
+            DataType::Utf8 => make_scalar_function(string_expressions::regexp_match)(args),
+            DataType::LargeUtf8 => make_scalar_function(string_expressions::regexp_match)(args),
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function regexp_match",
+                other,
+            ))),
         },
         BuiltinScalarFunction::Repeat => |args| match args[0].data_type() {
             DataType::Utf8 => {
@@ -950,6 +998,8 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
         BuiltinScalarFunction::NullIf => {
             Signature::Uniform(2, SUPPORTED_NULLIF_TYPES.to_vec())
         }
+        BuiltinScalarFunction::RegexpExtract => Signature::Any(3),
+        BuiltinScalarFunction::RegexpMatch => Signature::Any(2),
         // math expressions expect 1 argument of type f64 or f32
         // priority is given to f64 because e.g. `sqrt(1i32)` is in IR (real numbers) and thus we
         // return the best approximation for it (in f64).
@@ -2781,5 +2831,38 @@ mod tests {
             DataType::UInt64,
             "PrimitiveArray<UInt64>\n[\n  1,\n  1,\n]",
         )
+    }
+
+    #[test]
+    fn test_regexp_extract() -> Result<()> {
+        // any type works here: we evaluate against a literal of `value`
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+        let columns: Vec<ArrayRef> = vec![Arc::new(Int32Array::from(vec![1]))];
+
+        // concat(value, value)
+        let col_value = lit(ScalarValue::Utf8(Some("aaa-555".to_string())));
+        let pattern = lit(ScalarValue::Utf8(Some(r".*-(\d*)".to_string())));
+        let idx = lit(ScalarValue::Int64(Some(1)));
+        let expr = create_physical_expr(
+            &BuiltinScalarFunction::RegexpExtract,
+            &[col_value, pattern, idx],
+            &schema,
+        )?;
+
+        // type is correct
+        assert_eq!(expr.data_type(&schema)?, DataType::Utf8);
+
+        // evaluate works
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), columns)?;
+        let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
+
+        // downcast works
+        let result = result.as_any().downcast_ref::<StringArray>().unwrap();
+
+        // value is correct
+        let expected = "555".to_string();
+        assert_eq!(result.value(0).to_string(), expected);
+
+        Ok(())
     }
 }
