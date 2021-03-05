@@ -71,3 +71,5 @@ jobs:
         with:
           name: test-output
           path: arrow/r/arrow-test/testthat.Rout*
+        if: always()
+
