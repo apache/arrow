@@ -26,9 +26,7 @@ on:
 
 jobs:
   autobrew:
-    name: "Autobrew"
-    env: 
-      NO_AUTOBREW: {{ NO_AUTOBREW|default("false") }}
+    name: "macOS install from local source"
     runs-on: macOS-latest
     steps:
       - name: Checkout Arrow
@@ -37,23 +35,10 @@ jobs:
           git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
           git -C arrow checkout FETCH_HEAD
           git -C arrow submodule update --init --recursive
-      - name: Configure autobrew script
-        run: |
-          cd arrow/r
-          # Put the formula inside r/ so that it's included in the package build
-          cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb tools/apache-arrow.rb
-          # Pin the current commit in the formula to test so that we're not always pulling from master
-          sed -i.bak -E -e 's@https://github.com/apache/arrow.git"$@{{ arrow.remote }}.git", :revision => "{{ arrow.head }}"@' tools/apache-arrow.rb && rm -f tools/apache-arrow.rb.bak
-          # Sometimes crossbow gives a remote URL with .git and sometimes not. Make sure there's only one
-          sed -i.bak -E -e 's@.git.git@.git@' tools/apache-arrow.rb && rm -f tools/apache-arrow.rb.bak
-          # Get minio for S3 testing
-          brew install minio
-        if: {{ '${{ env.NO_AUTOBREW }} == false' }}
       - name: Configure non-autobrew dependencies
         run: |
           cd arrow/r
           brew install openssl
-        if: {{ '${{ env.NO_AUTOBREW }}' }}
       - uses: r-lib/actions/setup-r@v1
       - name: Install dependencies
         run: |
@@ -67,13 +52,14 @@ jobs:
           pkgs <- installed.packages()[, "Package"]
           sessioninfo::session_info(pkgs, include_base = TRUE)
         shell: Rscript {0}
-      - name: Check
+      - name: Install
         env:
           _R_CHECK_CRAN_INCOMING_: false
           ARROW_USE_PKG_CONFIG: false
-          FORCE_TOOLS_LIBS_SCRIPT: {{ '${{ env.NO_AUTOBREW && true || false }}' }}
-          LIBARROW_MINIMAL: {{ '${{ env.NO_AUTOBREW && true || false }}' }}
-        run: arrow/ci/scripts/r_test.sh arrow
-      - name: Dump install logs
-        run: cat arrow/r/check/arrow.Rcheck/00install.out
-        if: always()
+          FORCE_TOOLS_LIBS_SCRIPT: false
+          LIBARROW_MINIMAL: true 
+          TEST_R_WITH_ARROW: TRUE
+          ARROW_R_DEV: TRUE
+        run: R CMD INSTALL . --install-tests
+      - name: Run the tests
+        run: R -e 'tools::testInstalledPackage("arrow")'

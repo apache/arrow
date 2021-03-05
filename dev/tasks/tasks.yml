@@ -1197,7 +1197,7 @@ tasks:
   homebrew-r-autobrew:
     # This tests that the autobrew formula + script work in practice
     ci: github
-    template: r/github.macos.yml
+    template: r/github.macos.autobrew.yml
 
   ############################## Gandiva Tasks ################################
 
@@ -1632,7 +1632,7 @@ tasks:
 
   test-r-install-macos:
     ci: github
-    template: r/github.macos.yml
+    template: r/github.macos.local.yml
     params:
       NO_AUTOBREW: "true"
 
