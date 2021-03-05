@@ -40,6 +40,7 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/testing/extension_type.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
@@ -1009,6 +1010,47 @@ struct FileWriterHelper {
   int64_t footer_offset_;
 };
 
+struct FileGeneratorWriterHelper : public FileWriterHelper {
+  Status ReadBatches(const IpcReadOptions& options, RecordBatchVector* out_batches,
+                     ReadStats* out_stats = nullptr) override {
+    auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
+    AsyncGenerator<std::shared_ptr<RecordBatch>> generator;
+
+    {
+      auto fut =
+          RecordBatchFileReader::OpenAsync(buf_reader.get(), footer_offset_, options);
+      RETURN_NOT_OK(fut.status());
+      EXPECT_FINISHES_OK_AND_ASSIGN(auto reader, fut);
+      EXPECT_EQ(num_batches_written_, reader->num_record_batches());
+      // Generator's lifetime is independent of the reader's
+      ARROW_ASSIGN_OR_RAISE(generator, reader->GetRecordBatchGenerator());
+    }
+
+    // Generator is async-reentrant
+    std::vector<Future<std::shared_ptr<RecordBatch>>> futures;
+    for (int i = 0; i < num_batches_written_; ++i) {
+      futures.push_back(generator());
+    }
+    auto fut = generator();
+    EXPECT_FINISHES_OK_AND_ASSIGN(auto extra_read, fut);
+    EXPECT_EQ(nullptr, extra_read);
+    for (auto& future : futures) {
+      EXPECT_FINISHES_OK_AND_ASSIGN(auto batch, future);
+      out_batches->push_back(batch);
+    }
+
+    // The generator doesn't track stats.
+    EXPECT_EQ(nullptr, out_stats);
+
+    return Status::OK();
+  }
+
+  Status Read(const IpcReadOptions& options, RecordBatchVector* out_batches,
+              ReadStats* out_stats = nullptr) override {
+    return ReadBatches(options, out_batches, out_stats);
+  }
+};
+
 struct StreamWriterHelper {
   static constexpr bool kIsFileFormat = false;
 
@@ -1342,6 +1384,9 @@ class ReaderWriterMixin : public ExtensionTypesMixin {
 class TestFileFormat : public ReaderWriterMixin<FileWriterHelper>,
                        public ::testing::TestWithParam<MakeRecordBatch*> {};
 
+class TestFileFormatGenerator : public ReaderWriterMixin<FileGeneratorWriterHelper>,
+                                public ::testing::TestWithParam<MakeRecordBatch*> {};
+
 class TestStreamFormat : public ReaderWriterMixin<StreamWriterHelper>,
                          public ::testing::TestWithParam<MakeRecordBatch*> {};
 
@@ -1357,6 +1402,16 @@ class TestStreamDecoderLargeChunks
       public ::testing::TestWithParam<MakeRecordBatch*> {};
 
 TEST_P(TestFileFormat, RoundTrip) {
+  TestRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
+  TestZeroLengthRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
+
+  IpcWriteOptions options;
+  options.write_legacy_ipc_format = true;
+  TestRoundTrip(*GetParam(), options);
+  TestZeroLengthRoundTrip(*GetParam(), options);
+}
+
+TEST_P(TestFileFormatGenerator, RoundTrip) {
   TestRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
   TestZeroLengthRoundTrip(*GetParam(), IpcWriteOptions::Defaults());
 
@@ -1571,6 +1626,8 @@ INSTANTIATE_TEST_SUITE_P(GenericIpcRoundTripTests, TestIpcRoundTrip,
                          ::testing::ValuesIn(kBatchCases));
 INSTANTIATE_TEST_SUITE_P(FileRoundTripTests, TestFileFormat,
                          ::testing::ValuesIn(kBatchCases));
+INSTANTIATE_TEST_SUITE_P(FileRoundTripTests, TestFileFormatGenerator,
+                         ::testing::ValuesIn(kBatchCases));
 INSTANTIATE_TEST_SUITE_P(StreamRoundTripTests, TestStreamFormat,
                          ::testing::ValuesIn(kBatchCases));
 INSTANTIATE_TEST_SUITE_P(StreamDecoderDataRoundTripTests, TestStreamDecoderData,
@@ -1635,17 +1692,25 @@ TEST_F(TestStreamFormat, DictionaryRoundTrip) { TestDictionaryRoundtrip(); }
 
 TEST_F(TestFileFormat, DictionaryRoundTrip) { TestDictionaryRoundtrip(); }
 
+TEST_F(TestFileFormatGenerator, DictionaryRoundTrip) { TestDictionaryRoundtrip(); }
+
 TEST_F(TestStreamFormat, DifferentSchema) { TestWriteDifferentSchema(); }
 
 TEST_F(TestFileFormat, DifferentSchema) { TestWriteDifferentSchema(); }
+
+TEST_F(TestFileFormatGenerator, DifferentSchema) { TestWriteDifferentSchema(); }
 
 TEST_F(TestStreamFormat, NoRecordBatches) { TestWriteNoRecordBatches(); }
 
 TEST_F(TestFileFormat, NoRecordBatches) { TestWriteNoRecordBatches(); }
 
+TEST_F(TestFileFormatGenerator, NoRecordBatches) { TestWriteNoRecordBatches(); }
+
 TEST_F(TestStreamFormat, ReadFieldSubset) { TestReadSubsetOfFields(); }
 
 TEST_F(TestFileFormat, ReadFieldSubset) { TestReadSubsetOfFields(); }
+
+TEST_F(TestFileFormatGenerator, ReadFieldSubset) { TestReadSubsetOfFields(); }
 
 TEST(TestRecordBatchStreamReader, EmptyStreamWithDictionaries) {
   // ARROW-6006

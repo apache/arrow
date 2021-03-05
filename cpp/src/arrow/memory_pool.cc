@@ -28,12 +28,14 @@
 #include <stdlib.h>
 #endif
 
+#include "arrow/io/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"  // IWYU pragma: keep
 #include "arrow/util/optional.h"
 #include "arrow/util/string.h"
+#include "arrow/util/thread_pool.h"
 
 #ifdef __GLIBC__
 #include <malloc.h>
@@ -500,6 +502,28 @@ static JemallocMemoryPool jemalloc_pool;
 #endif
 #ifdef ARROW_MIMALLOC
 static MimallocMemoryPool mimalloc_pool;
+#endif
+
+/// Force shutdown of thread pools before destruction of memory pools.
+///
+/// If the program completes quickly enough, we may run the memory pool
+/// destructor before/concurrently with a thread pool task destructor; if the
+/// task holds a reference to a Buffer anywhere, when the Buffer goes to call
+/// Free, we'll get a "pure virtual method called" error.
+///
+/// By declaring this after the static memory pools, we can force shutdown of the
+/// thread pools first. This is only a workaround, and not a general solution
+/// (there could be other resources for which destruction order matters).
+#ifndef _WIN32
+class ShutdownThreadPools {
+ public:
+  ~ShutdownThreadPools() {
+    ARROW_UNUSED(io::internal::GetIOThreadPool()->Shutdown(true));
+    ARROW_UNUSED(internal::GetCpuThreadPool()->Shutdown(true));
+  }
+};
+
+static ShutdownThreadPools handle;
 #endif
 
 MemoryPool* system_memory_pool() { return &system_pool; }
