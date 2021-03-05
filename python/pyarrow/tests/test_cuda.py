@@ -744,6 +744,35 @@ def test_table_deserialize():
     ).read_all())
 
 
+def test_create_table_with_device_buffers():
+    # ARROW-11872: make sure that we can create an Arrow Table from GPU-located Arrays without crashing.
+    htable = make_table(10)
+    # Serialize the host table to bytes
+    sink = pa.BufferOutputStream()
+    with pa.ipc.new_stream(sink, htable.schema) as out:
+        out.write_table(htable)
+    hbuf = pa.py_buffer(sink.getvalue().to_pybytes())
+
+    # Copy the host bytes to a device buffer
+    dbuf = global_context.new_buffer(len(hbuf))
+    dbuf.copy_from_host(hbuf, nbytes=len(hbuf))
+    # Deserialize the device buffer into a Table
+    dtable = pa.ipc.open_stream(cuda.BufferReader(dbuf)).read_all()
+    # Construct a new Table from the device Table
+    dtable2 = pa.Table.from_arrays(dtable.columns, dtable.column_names)
+
+    # Assert basic fields the same between host and device tables
+    assert htable.schema == dtable2.schema
+    assert htable.num_rows == dtable2.num_rows
+    assert htable.num_columns == dtable2.num_columns
+    # Assert byte-level equality
+    assert hbuf.equals(dbuf.copy_to_host())
+    # Copy DtoH and assert the tables are still equivalent
+    assert htable.equals(pa.ipc.open_stream(
+        dbuf.copy_to_host()
+    ).read_all())
+
+
 def other_process_for_test_IPC(handle_buffer, expected_arr):
     other_context = pa.cuda.Context(0)
     ipc_handle = pa.cuda.IpcMemHandle.from_buffer(handle_buffer)
