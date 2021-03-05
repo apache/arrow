@@ -192,7 +192,7 @@ message(STATUS "Using VCPKG_LIBRARY_LINKAGE: ${VCPKG_LIBRARY_LINKAGE}")
 
 set(ARROW_VCPKG_PREFIX
     "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}"
-    CACHE STRING "Path to target triplet subdirectory in vcpkg installed directory")
+    CACHE PATH "Path to target triplet subdirectory in vcpkg installed directory")
 
 set(ARROW_VCPKG ON CACHE BOOL "Use vcpkg for dependencies")
 
