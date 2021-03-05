@@ -745,7 +745,8 @@ def test_table_deserialize():
 
 
 def test_create_table_with_device_buffers():
-    # ARROW-11872: make sure that we can create an Arrow Table from GPU-located Arrays without crashing.
+    # ARROW-11872: make sure that we can create an Arrow Table from
+    # GPU-located Arrays without crashing.
     htable = make_table(10)
     # Serialize the host table to bytes
     sink = pa.BufferOutputStream()
