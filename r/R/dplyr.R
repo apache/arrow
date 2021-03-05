@@ -580,7 +580,7 @@ abandon_ship <- function(call, .data, msg = NULL) {
       # Default message: function not implemented
       not_implemented_for_dataset(paste0(dplyr_fun_name, "()"))
     } else {
-      stop(msg, call. = FALSE)
+      stop(msg, "\nCall collect() first to pull data into R.", call. = FALSE)
     }
   }
 

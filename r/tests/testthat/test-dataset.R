@@ -769,6 +769,16 @@ test_that("transmute()", {
   )
 })
 
+test_that("mutate() features not yet implemented", {
+  expect_error(
+    ds %>%
+      group_by(int) %>%
+      mutate(avg = mean(int)),
+    "mutate() on grouped data not supported in Arrow\nCall collect() first to pull data into R.",
+    fixed = TRUE
+  )
+})
+
 test_that("filter scalar validation doesn't crash (ARROW-7772)", {
   expect_error(
     ds %>%
