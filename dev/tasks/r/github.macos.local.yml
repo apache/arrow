@@ -60,6 +60,8 @@ jobs:
           LIBARROW_MINIMAL: true 
           TEST_R_WITH_ARROW: TRUE
           ARROW_R_DEV: TRUE
-        run: R CMD INSTALL . --install-tests
+        run: |
+          cd arrow/r
+          R CMD INSTALL . --install-tests
       - name: Run the tests
         run: R -e 'tools::testInstalledPackage("arrow")'
