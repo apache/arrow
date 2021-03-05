@@ -123,7 +123,7 @@ impl ExecutionContext {
 
     /// Creates a dataframe that will execute a SQL query.
     pub fn sql(&mut self, sql: &str) -> Result<Arc<dyn DataFrame>> {
-        let plan = self.optimize(&self.create_logical_plan(sql)?)?;
+        let plan = self.create_logical_plan(sql)?;
         match plan {
             LogicalPlan::CreateExternalTable {
                 ref schema,
@@ -154,7 +154,10 @@ impl ExecutionContext {
                 ))),
             },
 
-            plan => Ok(Arc::new(DataFrameImpl::new(self.state.clone(), &plan))),
+            plan => Ok(Arc::new(DataFrameImpl::new(
+                self.state.clone(),
+                &self.optimize(&plan)?,
+            ))),
         }
     }
 
