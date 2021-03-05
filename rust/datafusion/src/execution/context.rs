@@ -1712,8 +1712,6 @@ mod tests {
 
         let plan2 = ctx.sql("SELECT * FROM (SELECT 1) WHERE TRUE AND TRUE")?;
 
-        println!("{:?}", plan2.to_logical_plan());
-
         assert_eq!(
             format!("{:?}", opt_plan1),
             format!("{:?}", plan2.to_logical_plan())
