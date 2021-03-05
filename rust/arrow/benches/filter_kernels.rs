@@ -100,6 +100,17 @@ fn add_benchmark(c: &mut Criterion) {
     c.bench_function("filter context string low selectivity", |b| {
         b.iter(|| bench_built_filter(&sparse_filter, &data_array))
     });
+
+    let binary_array = BinaryArray::from(
+        data_array
+            .into_iter()
+            .map(|x| x.map(|x| x.as_bytes()))
+            .collect::<Vec<Option<&[u8]>>>(),
+    );
+
+    c.bench_function("filter context binary high selectivity", |b| {
+        b.iter(|| bench_built_filter(&dense_filter, &binary_array))
+    });
 }
 
 criterion_group!(benches, add_benchmark);
