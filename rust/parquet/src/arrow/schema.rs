@@ -388,10 +388,7 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
         DataType::Timestamp(time_unit, zone) => {
             Type::primitive_type_builder(name, PhysicalType::INT64)
                 .with_logical_type(Some(LogicalType::TIMESTAMP(TimestampType {
-                    is_adjusted_to_u_t_c: match zone {
-                        Some(z) if z.as_str() == "UTC" => true,
-                        _ => false,
-                    },
+                    is_adjusted_to_u_t_c: matches!(zone, Some(z) if z.as_str() == "UTC"),
                     unit: match time_unit {
                         TimeUnit::Second => ParquetTimeUnit::MILLIS(Default::default()),
                         TimeUnit::Millisecond => {
@@ -686,9 +683,9 @@ impl ParquetTypeConverter<'_> {
                 }
             }
             (Some(LogicalType::TIME(t)), _) => match t.unit {
-                ParquetTimeUnit::MILLIS(_) => Err(ArrowError(format!(
-                    "Cannot create INT64 from MILLIS time unit"
-                ))),
+                ParquetTimeUnit::MILLIS(_) => Err(ArrowError(
+                    "Cannot create INT64 from MILLIS time unit".to_string(),
+                )),
                 ParquetTimeUnit::MICROS(_) => Ok(DataType::Time64(TimeUnit::Microsecond)),
                 ParquetTimeUnit::NANOS(_) => Ok(DataType::Time64(TimeUnit::Nanosecond)),
             },
