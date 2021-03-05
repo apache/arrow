@@ -19,8 +19,8 @@
 //! expression of a \[Large\]StringArray
 
 use crate::array::{
-    Array, ArrayRef, GenericStringArray, GenericStringBuilder,
-    LargeStringArray, ListBuilder, StringArray, StringOffsetSizeTrait,
+    Array, ArrayRef, GenericStringArray, GenericStringBuilder, LargeStringArray,
+    ListBuilder, StringArray, StringOffsetSizeTrait,
 };
 use crate::datatypes::DataType;
 use crate::error::{ArrowError, Result};
@@ -155,18 +155,6 @@ mod tests {
         let pattern = r".*-(\d*)-.*";
         let actual = regexp_extract(&array, pattern, 1)?;
         let expected = StringArray::from(vec![Some("005"), Some("7"), None]);
-        let result = actual.as_any().downcast_ref::<StringArray>().unwrap();
-        assert_eq!(&expected, result);
-        Ok(())
-    }
-
-    #[test]
-    fn no_matches() -> Result<()> {
-        let values = vec!["abc", "X::50::00", "X545"];
-        let array = StringArray::from(values);
-        let pattern = r".*-(\d*)-.*";
-        let actual = regexp_extract(&array, pattern, 1)?;
-        let expected = StringArray::from(vec![None, None, None]);
         let result = actual.as_any().downcast_ref::<StringArray>().unwrap();
         assert_eq!(&expected, result);
         Ok(())

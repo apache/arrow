@@ -188,6 +188,7 @@ pub enum BuiltinScalarFunction {
     Upper,
     /// regex_extract,
     RegexpExtract,
+    /// regexp_match
     RegexpMatch,
 }
 
