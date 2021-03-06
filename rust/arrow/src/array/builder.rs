@@ -2693,6 +2693,8 @@ mod tests {
 
         let binary_array = builder.finish();
 
+        let a = binary_array.data();
+
         assert_eq!(3, binary_array.len());
         assert_eq!(0, binary_array.null_count());
         assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.value(0));

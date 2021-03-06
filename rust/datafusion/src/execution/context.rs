@@ -503,9 +503,9 @@ pub struct ExecutionConfig {
     /// Default batch size when reading data sources
     pub batch_size: usize,
     /// Will function names be searched using case-sensitive matching.
-    /// If `false` both `"SELECT COUNT(*) FROM t;` and "`SELECT count(*) FROM t;` 
+    /// If `false` both `"SELECT COUNT(*) FROM t;` and "`SELECT count(*) FROM t;`
     /// can be used to compute the `COUNT` aggregate. If `true` then only
-    /// `"SELECT count(*) FROM t"` can be used. 
+    /// `"SELECT count(*) FROM t"` can be used.
     /// Defaults to `true`
     pub case_sensitive: bool,
     /// Responsible for optimizing a logical plan
@@ -1906,9 +1906,9 @@ mod tests {
 
     #[tokio::test]
     async fn custom_query_planner() -> Result<()> {
-        let mut ctx = ExecutionContext::with_config(
-            Arc::new(ExecutionConfig::new().with_query_planner(Arc::new(MyQueryPlanner {}))),
-        );
+        let mut ctx = ExecutionContext::with_config(Arc::new(
+            ExecutionConfig::new().with_query_planner(Arc::new(MyQueryPlanner {})),
+        ));
 
         let df = ctx.sql("SELECT 1")?;
         df.collect().await.expect_err("query not supported");

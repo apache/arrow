@@ -63,7 +63,9 @@ pub async fn main() {
         .unwrap_or(1_048_576);
 
     let mut ctx =
-        ExecutionContext::with_config(Arc::new(ExecutionConfig::new().with_batch_size(batch_size)));
+        ExecutionContext::with_config(Arc::new(
+            ExecutionConfig::new().with_batch_size(batch_size),
+        ));
 
     let mut rl = Editor::<()>::new();
     rl.load_history(".history").ok();
