@@ -41,9 +41,9 @@ pub struct Statistics {
 pub struct ColumnStatistics {
     /// Number of null values on column
     pub null_count: Option<usize>,
-    /// Minimum value of column
-    pub max_value: Option<ScalarValue>,
     /// Maximum value of column
+    pub max_value: Option<ScalarValue>,
+    /// Minimum value of column
     pub min_value: Option<ScalarValue>,
     /// Number of distinct values
     pub distinct_count: Option<usize>,
