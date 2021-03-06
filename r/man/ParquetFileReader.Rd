@@ -45,7 +45,7 @@ The optional \verb{column_indices=} argument is a 0-based integer vector indicat
 }
 
 \examples{
-\donttest{
+\dontrun{
 f <- system.file("v0.7.1.parquet", package="arrow")
 pq <- ParquetFileReader$create(f)
 pq$GetSchema()

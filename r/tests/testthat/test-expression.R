@@ -46,6 +46,7 @@ test_that("array_refs", {
 })
 
 test_that("C++ expressions", {
+  skip_if_not_available("dataset")
   f <- Expression$field_ref("f")
   expect_identical(f$field_name, "f")
   g <- Expression$field_ref("g")
