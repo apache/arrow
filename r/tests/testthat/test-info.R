@@ -16,8 +16,11 @@
 # under the License.
 
 test_that("arrow_info()", {
-  expect_is(arrow_info(), "arrow_info")
-  expect_output(print(arrow_info()), "Arrow package version")
+  ai <- arrow_info()
+  expect_is(ai, "arrow_info")
+  expect_output(print(ai), "Arrow package version")
+  as.character(ai$runtime_info)
+
   options(arrow.foo=FALSE)
   expect_output(print(arrow_info()), "arrow.foo")
 })
