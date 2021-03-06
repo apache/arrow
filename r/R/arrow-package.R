@@ -89,7 +89,8 @@ arrow_info <- function() {
   out <- list(
     version = packageVersion("arrow"),
     libarrow = arrow_available(),
-    options = opts[grep("^arrow\\.", names(opts))]
+    options = opts[grep("^arrow\\.", names(opts))],
+    runtime = runtime_info()
   )
   if (out$libarrow) {
     pool <- default_memory_pool()
@@ -103,6 +104,10 @@ arrow_info <- function() {
         bytes_allocated = pool$bytes_allocated,
         max_memory = pool$max_memory,
         available_backends = supported_memory_backends()
+      ),
+      runtime_info = list(
+        simd_level = out$runtime[1],
+        detected_simd_level = out$runtime[2]
       )
     ))
   }
@@ -140,6 +145,10 @@ print.arrow_info <- function(x, ...) {
       # utils:::format.object_size is not properly vectorized
       Current = format_bytes(x$memory_pool$bytes_allocated, ...),
       Max = format_bytes(x$memory_pool$max_memory, ...)
+    ))
+    print_key_values("Runtime", c(
+      `SIMD Level` = x$runtime_info$simd_level,
+      `Detected SIMD Level` = x$runtime_info$simd_level
     ))
   } else {
     cat("Arrow C++ library not available\n")
