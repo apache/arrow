@@ -18,7 +18,7 @@
 //! Projection Push Down optimizer rule ensures that only referenced columns are
 //! loaded into memory
 
-use crate::error::{DataFusionError, Result};
+use crate::error::Result;
 use crate::logical_plan::{DFField, DFSchema, DFSchemaRef, LogicalPlan, ToDFSchema};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
@@ -57,16 +57,9 @@ impl ProjectionPushDown {
 
 fn get_projected_schema(
     schema: &Schema,
-    projection: &Option<Vec<usize>>,
     required_columns: &HashSet<String>,
     has_projection: bool,
 ) -> Result<(Vec<usize>, DFSchemaRef)> {
-    if projection.is_some() {
-        return Err(DataFusionError::Internal(
-            "Cannot run projection push-down rule more than once".to_string(),
-        ));
-    }
-
     // once we reach the table scan, we can use the accumulated set of column
     // names to construct the set of column indexes in the scan
     //
@@ -242,13 +235,11 @@ fn optimize_plan(
         LogicalPlan::TableScan {
             table_name,
             source,
-            projection,
             filters,
             ..
         } => {
             let (projection, projected_schema) = get_projected_schema(
                 &source.schema(),
-                projection,
                 required_columns,
                 has_projection,
             )?;
