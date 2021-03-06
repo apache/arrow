@@ -77,6 +77,7 @@ Result<ScanTaskIterator> InMemoryFragment::Scan(std::shared_ptr<ScanOptions> opt
 
   auto batch_size = options->batch_size;
   // RecordBatch -> ScanTask
+  auto self = shared_from_this();
   auto fn = [=](std::shared_ptr<RecordBatch> batch) -> std::shared_ptr<ScanTask> {
     RecordBatchVector batches;
 
@@ -86,7 +87,7 @@ Result<ScanTaskIterator> InMemoryFragment::Scan(std::shared_ptr<ScanOptions> opt
     }
 
     return ::arrow::internal::make_unique<InMemoryScanTask>(
-        std::move(batches), std::move(options), std::move(context));
+        std::move(batches), std::move(options), std::move(context), self);
   };
 
   return MakeMapIterator(fn, std::move(batches_it));

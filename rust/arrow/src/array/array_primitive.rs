@@ -223,21 +223,21 @@ impl<T: ArrowPrimitiveType> fmt::Debug for PrimitiveArray<T> {
         write!(f, "PrimitiveArray<{:?}>\n[\n", T::DATA_TYPE)?;
         print_long_array(self, f, |array, index, f| match T::DATA_TYPE {
             DataType::Date32 | DataType::Date64 => {
-                let v = self.value(index).to_usize().unwrap() as i64;
+                let v = self.value(index).to_isize().unwrap() as i64;
                 match as_date::<T>(v) {
                     Some(date) => write!(f, "{:?}", date),
                     None => write!(f, "null"),
                 }
             }
             DataType::Time32(_) | DataType::Time64(_) => {
-                let v = self.value(index).to_usize().unwrap() as i64;
+                let v = self.value(index).to_isize().unwrap() as i64;
                 match as_time::<T>(v) {
                     Some(time) => write!(f, "{:?}", time),
                     None => write!(f, "null"),
                 }
             }
             DataType::Timestamp(_, _) => {
-                let v = self.value(index).to_usize().unwrap() as i64;
+                let v = self.value(index).to_isize().unwrap() as i64;
                 match as_datetime::<T>(v) {
                     Some(datetime) => write!(f, "{:?}", datetime),
                     None => write!(f, "null"),
@@ -794,18 +794,21 @@ mod tests {
     #[test]
     fn test_timestamp_fmt_debug() {
         let arr: PrimitiveArray<TimestampMillisecondType> =
-            TimestampMillisecondArray::from_vec(vec![1546214400000, 1546214400000], None);
+            TimestampMillisecondArray::from_vec(
+                vec![1546214400000, 1546214400000, -1546214400000],
+                None,
+            );
         assert_eq!(
-            "PrimitiveArray<Timestamp(Millisecond, None)>\n[\n  2018-12-31T00:00:00,\n  2018-12-31T00:00:00,\n]",
+            "PrimitiveArray<Timestamp(Millisecond, None)>\n[\n  2018-12-31T00:00:00,\n  2018-12-31T00:00:00,\n  1921-01-02T00:00:00,\n]",
             format!("{:?}", arr)
         );
     }
 
     #[test]
     fn test_date32_fmt_debug() {
-        let arr: PrimitiveArray<Date32Type> = vec![12356, 13548].into();
+        let arr: PrimitiveArray<Date32Type> = vec![12356, 13548, -365].into();
         assert_eq!(
-            "PrimitiveArray<Date32>\n[\n  2003-10-31,\n  2007-02-04,\n]",
+            "PrimitiveArray<Date32>\n[\n  2003-10-31,\n  2007-02-04,\n  1969-01-01,\n]",
             format!("{:?}", arr)
         );
     }
@@ -817,6 +820,14 @@ mod tests {
             "PrimitiveArray<Time32(Second)>\n[\n  02:00:01,\n  16:40:54,\n]",
             format!("{:?}", arr)
         );
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid time")]
+    fn test_time32second_invalid_neg() {
+        // The panic should come from chrono, not from arrow
+        let arr: PrimitiveArray<Time32SecondType> = vec![-7201, -60054].into();
+        println!("{:?}", arr);
     }
 
     #[test]
@@ -841,13 +852,36 @@ mod tests {
     #[test]
     fn test_primitive_from_iter_values() {
         // Test building a primitive array with from_iter_values
-
         let arr: PrimitiveArray<Int32Type> = PrimitiveArray::from_iter_values(0..10);
         assert_eq!(10, arr.len());
         assert_eq!(0, arr.null_count());
         for i in 0..10i32 {
             assert_eq!(i, arr.value(i as usize));
         }
+    }
+
+    #[test]
+    fn test_primitive_array_from_unbound_iter() {
+        // iterator that doesn't declare (upper) size bound
+        let value_iter = (0..)
+            .scan(0usize, |pos, i| {
+                if *pos < 10 {
+                    *pos += 1;
+                    Some(Some(i))
+                } else {
+                    // actually returns up to 10 values
+                    None
+                }
+            })
+            // limited using take()
+            .take(100);
+
+        let (_, upper_size_bound) = value_iter.size_hint();
+        // the upper bound, defined by take above, is 100
+        assert_eq!(upper_size_bound, Some(100));
+        let primitive_array: PrimitiveArray<Int32Type> = value_iter.collect();
+        // but the actual number of items in the array should be 10
+        assert_eq!(primitive_array.len(), 10);
     }
 
     #[test]

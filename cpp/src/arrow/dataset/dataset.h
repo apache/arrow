@@ -43,7 +43,7 @@ namespace dataset {
 /// Note that Fragments have well defined physical schemas which are reconciled by
 /// the Datasets which contain them; these physical schemas may differ from a parent
 /// Dataset's schema and the physical schemas of sibling Fragments.
-class ARROW_DS_EXPORT Fragment {
+class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
  public:
   /// \brief Return the physical schema of the Fragment.
   ///
@@ -69,6 +69,7 @@ class ARROW_DS_EXPORT Fragment {
   virtual bool splittable() const = 0;
 
   virtual std::string type_name() const = 0;
+  virtual std::string ToString() const { return type_name(); }
 
   /// \brief An expression which evaluates to true for all data viewed by this
   /// Fragment.

@@ -27,6 +27,7 @@
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
 
+#include <arrow-dataset-glib/fragment.hpp>
 #include <arrow-dataset-glib/scanner.hpp>
 
 G_BEGIN_DECLS
@@ -334,12 +335,14 @@ typedef struct GADScanTaskPrivate_ {
   std::shared_ptr<arrow::dataset::ScanTask> scan_task;
   GADScanOptions *options;
   GADScanContext *context;
+  GADFragment *fragment;
 } GADScanTaskPrivate;
 
 enum {
   PROP_SCAN_TASK = 1,
   PROP_OPTIONS,
   PROP_CONTEXT,
+  PROP_FRAGMENT,
 };
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GADScanTask,
@@ -364,6 +367,11 @@ gad_scan_task_dispose(GObject *object)
   if (priv->context) {
     g_object_unref(priv->context);
     priv->context = NULL;
+  }
+
+  if (priv->fragment) {
+    g_object_unref(priv->fragment);
+    priv->fragment = NULL;
   }
 
   G_OBJECT_CLASS(gad_scan_task_parent_class)->dispose(object);
@@ -398,6 +406,9 @@ gad_scan_task_set_property(GObject *object,
   case PROP_CONTEXT:
     priv->context = GAD_SCAN_CONTEXT(g_value_dup_object(value));
     break;
+  case PROP_FRAGMENT:
+    priv->fragment = GAD_FRAGMENT(g_value_dup_object(value));
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -418,6 +429,9 @@ gad_scan_task_get_property(GObject *object,
     break;
   case PROP_CONTEXT:
     g_value_set_object(value, priv->context);
+    break;
+  case PROP_FRAGMENT:
+    g_value_set_object(value, priv->fragment);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -479,6 +493,21 @@ gad_scan_task_class_init(GADScanTaskClass *klass)
                              static_cast<GParamFlags>(G_PARAM_READWRITE |
                                                       G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_CONTEXT, spec);
+
+  /**
+   * GADScanTask:fragment:
+   *
+   * The fragment of the scan task.
+   *
+   * Since: 4.0.0
+   */
+  spec = g_param_spec_object("fragment",
+                             "Fragment",
+                             "The fragment of the scan task",
+                             GAD_TYPE_FRAGMENT,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_FRAGMENT, spec);
 }
 
 /**
@@ -521,6 +550,27 @@ gad_scan_task_get_context(GADScanTask *scan_task)
 
   auto arrow_context = priv->scan_task->context();
   return gad_scan_context_new_raw(&arrow_context);
+}
+
+/**
+ * gad_scan_task_get_fragment:
+ * @scan_task: A #GADFragment.
+ *
+ * Returns: (transfer full): A #GADFragment.
+ *
+ * Since: 4.0.0
+ */
+GADFragment *
+gad_scan_task_get_fragment(GADScanTask *scan_task)
+{
+  auto priv = GAD_SCAN_TASK_GET_PRIVATE(scan_task);
+  if (priv->fragment) {
+    g_object_ref(priv->fragment);
+    return priv->fragment;
+  }
+
+  auto arrow_fragment = priv->scan_task->fragment();
+  return gad_fragment_new_raw(&arrow_fragment);
 }
 
 /**
@@ -569,6 +619,7 @@ gad_in_memory_scan_task_class_init(GADInMemoryScanTaskClass *klass)
  * @n_record_batches: The number of record batches.
  * @options: A #GADScanOptions.
  * @context: A #GADScanContext.
+ * @fragment: A #GADInMemoryFragment.
  *
  * Returns: A newly created #GADInMemoryScanTask.
  *
@@ -578,7 +629,8 @@ GADInMemoryScanTask *
 gad_in_memory_scan_task_new(GArrowRecordBatch **record_batches,
                             gsize n_record_batches,
                             GADScanOptions *options,
-                            GADScanContext *context)
+                            GADScanContext *context,
+                            GADInMemoryFragment *fragment)
 {
   std::vector<std::shared_ptr<arrow::RecordBatch>> arrow_record_batches;
   arrow_record_batches.reserve(n_record_batches);
@@ -588,13 +640,16 @@ gad_in_memory_scan_task_new(GArrowRecordBatch **record_batches,
   }
   auto arrow_options = gad_scan_options_get_raw(options);
   auto arrow_context = gad_scan_context_get_raw(context);
+  auto arrow_fragment = gad_fragment_get_raw(GAD_FRAGMENT(fragment));
   auto arrow_in_memory_scan_task =
     std::make_shared<arrow::dataset::InMemoryScanTask>(arrow_record_batches,
                                                        arrow_options,
-                                                       arrow_context);
+                                                       arrow_context,
+                                                       arrow_fragment);
   return gad_in_memory_scan_task_new_raw(&arrow_in_memory_scan_task,
                                          options,
-                                         context);
+                                         context,
+                                         fragment);
 }
 
 G_END_DECLS
@@ -636,13 +691,15 @@ gad_scan_options_get_raw(GADScanOptions *scan_options)
 GADInMemoryScanTask *
 gad_in_memory_scan_task_new_raw(std::shared_ptr<arrow::dataset::InMemoryScanTask> *arrow_in_memory_scan_task,
                                 GADScanOptions *options,
-                                GADScanContext *context)
+                                GADScanContext *context,
+                                GADInMemoryFragment *fragment)
 {
   auto in_memory_scan_task =
     GAD_IN_MEMORY_SCAN_TASK(g_object_new(GAD_TYPE_IN_MEMORY_SCAN_TASK,
                                          "scan-task", arrow_in_memory_scan_task,
                                          "options", options,
                                          "context", context,
+                                         "fragment", fragment,
                                          NULL));
   return in_memory_scan_task;
 }

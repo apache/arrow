@@ -369,6 +369,9 @@ const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
                        const char* splitter, gdv_int32 split_len, gdv_int32 index,
                        gdv_int32* out_len);
 
+const char* castVARCHAR_bool_int64(gdv_int64 context, gdv_boolean value,
+                                   gdv_int64 out_len, gdv_int32* out_length);
+
 const char* castVARCHAR_int32_int64(int64_t context, int32_t value, int64_t len,
                                     int32_t* out_len);
 

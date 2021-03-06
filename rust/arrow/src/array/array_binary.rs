@@ -88,8 +88,14 @@ impl<OffsetSize: BinaryOffsetSizeTrait> GenericBinaryArray<OffsetSize> {
         // Soundness
         // pointer alignment & location is ensured by RawPtrBox
         // buffer bounds/offset is ensured by the value_offset invariants
+
+        // Safety of `to_isize().unwrap()`
+        // `start` and `end` are &OffsetSize, which is a generic type that implements the
+        // OffsetSizeTrait. Currently, only i32 and i64 implement OffsetSizeTrait,
+        // both of which should cleanly cast to isize on an architecture that supports
+        // 32/64-bit offsets
         std::slice::from_raw_parts(
-            self.value_data.as_ptr().offset(start.to_isize()),
+            self.value_data.as_ptr().offset(start.to_isize().unwrap()),
             (end - start).to_usize().unwrap(),
         )
     }
@@ -104,9 +110,15 @@ impl<OffsetSize: BinaryOffsetSizeTrait> GenericBinaryArray<OffsetSize> {
         // Soundness
         // pointer alignment & location is ensured by RawPtrBox
         // buffer bounds/offset is ensured by the value_offset invariants
+
+        // Safety of `to_isize().unwrap()`
+        // `start` and `end` are &OffsetSize, which is a generic type that implements the
+        // OffsetSizeTrait. Currently, only i32 and i64 implement OffsetSizeTrait,
+        // both of which should cleanly cast to isize on an architecture that supports
+        // 32/64-bit offsets
         unsafe {
             std::slice::from_raw_parts(
-                self.value_data.as_ptr().offset(start.to_isize()),
+                self.value_data.as_ptr().offset(start.to_isize().unwrap()),
                 (*end - *start).to_usize().unwrap(),
             )
         }
@@ -258,6 +270,8 @@ where
             }
         }
 
+        // calculate actual data_len, which may be different from the iterator's upper bound
+        let data_len = offsets.len() - 1;
         let array_data = ArrayData::builder(OffsetSize::DATA_TYPE)
             .len(data_len)
             .add_buffer(Buffer::from_slice_ref(&offsets))
@@ -869,6 +883,30 @@ mod tests {
     #[test]
     fn test_binary_array_from_opt_vec() {
         test_generic_binary_array_from_opt_vec::<i32>()
+    }
+
+    #[test]
+    fn test_binary_array_from_unbound_iter() {
+        // iterator that doesn't declare (upper) size bound
+        let value_iter = (0..)
+            .scan(0usize, |pos, i| {
+                if *pos < 10 {
+                    *pos += 1;
+                    Some(Some(format!("value {}", i)))
+                } else {
+                    // actually returns up to 10 values
+                    None
+                }
+            })
+            // limited using take()
+            .take(100);
+
+        let (_, upper_size_bound) = value_iter.size_hint();
+        // the upper bound, defined by take above, is 100
+        assert_eq!(upper_size_bound, Some(100));
+        let binary_array: BinaryArray = value_iter.collect();
+        // but the actual number of items in the array should be 10
+        assert_eq!(binary_array.len(), 10);
     }
 
     #[test]

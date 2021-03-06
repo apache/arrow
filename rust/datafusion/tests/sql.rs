@@ -2034,6 +2034,9 @@ macro_rules! test_expression {
 
 #[tokio::test]
 async fn test_string_expressions() -> Result<()> {
+    test_expression!("ascii('')", "0");
+    test_expression!("ascii('x')", "120");
+    test_expression!("ascii(NULL)", "NULL");
     test_expression!("bit_length('')", "0");
     test_expression!("bit_length('chars')", "40");
     test_expression!("bit_length('josé')", "40");
@@ -2051,6 +2054,9 @@ async fn test_string_expressions() -> Result<()> {
     test_expression!("character_length('chars')", "5");
     test_expression!("character_length('josé')", "4");
     test_expression!("character_length(NULL)", "NULL");
+    test_expression!("chr(CAST(120 AS int))", "x");
+    test_expression!("chr(CAST(128175 AS int))", "💯");
+    test_expression!("chr(CAST(NULL AS int))", "NULL");
     test_expression!("concat('a','b','c')", "abc");
     test_expression!("concat('abcde', 2, NULL, 22)", "abcde222");
     test_expression!("concat(NULL)", "");
@@ -2058,17 +2064,62 @@ async fn test_string_expressions() -> Result<()> {
     test_expression!("concat_ws('|','a','b','c')", "a|b|c");
     test_expression!("concat_ws('|',NULL)", "");
     test_expression!("concat_ws(NULL,'a',NULL,'b','c')", "NULL");
+    test_expression!("initcap('')", "");
+    test_expression!("initcap('hi THOMAS')", "Hi Thomas");
+    test_expression!("initcap(NULL)", "NULL");
+    test_expression!("left('abcde', -2)", "abc");
+    test_expression!("left('abcde', -200)", "");
+    test_expression!("left('abcde', 0)", "");
+    test_expression!("left('abcde', 2)", "ab");
+    test_expression!("left('abcde', 200)", "abcde");
+    test_expression!("left('abcde', CAST(NULL AS INT))", "NULL");
+    test_expression!("left(NULL, 2)", "NULL");
+    test_expression!("left(NULL, CAST(NULL AS INT))", "NULL");
+    test_expression!("lower('')", "");
+    test_expression!("lower('TOM')", "tom");
+    test_expression!("lower(NULL)", "NULL");
+    test_expression!("lpad('hi', 5, 'xy')", "xyxhi");
+    test_expression!("lpad('hi', 0)", "");
+    test_expression!("lpad('hi', 21, 'abcdef')", "abcdefabcdefabcdefahi");
+    test_expression!("lpad('hi', 5, 'xy')", "xyxhi");
+    test_expression!("lpad('hi', 5, NULL)", "NULL");
+    test_expression!("lpad('hi', 5)", "   hi");
+    test_expression!("lpad('hi', CAST(NULL AS INT), 'xy')", "NULL");
+    test_expression!("lpad('hi', CAST(NULL AS INT))", "NULL");
+    test_expression!("lpad('xyxhi', 3)", "xyx");
+    test_expression!("lpad(NULL, 0)", "NULL");
+    test_expression!("lpad(NULL, 5, 'xy')", "NULL");
     test_expression!("ltrim(' zzzytest ', NULL)", "NULL");
     test_expression!("ltrim(' zzzytest ')", "zzzytest ");
     test_expression!("ltrim('zzzytest', 'xyz')", "test");
     test_expression!("ltrim(NULL, 'xyz')", "NULL");
-    test_expression!("lower('')", "");
-    test_expression!("lower('TOM')", "tom");
-    test_expression!("lower(NULL)", "NULL");
     test_expression!("octet_length('')", "0");
     test_expression!("octet_length('chars')", "5");
     test_expression!("octet_length('josé')", "5");
     test_expression!("octet_length(NULL)", "NULL");
+    test_expression!("repeat('Pg', 4)", "PgPgPgPg");
+    test_expression!("repeat('Pg', CAST(NULL AS INT))", "NULL");
+    test_expression!("repeat(NULL, 4)", "NULL");
+    test_expression!("reverse('abcde')", "edcba");
+    test_expression!("reverse('loẅks')", "skẅol");
+    test_expression!("reverse(NULL)", "NULL");
+    test_expression!("right('abcde', -2)", "cde");
+    test_expression!("right('abcde', -200)", "");
+    test_expression!("right('abcde', 0)", "");
+    test_expression!("right('abcde', 2)", "de");
+    test_expression!("right('abcde', 200)", "abcde");
+    test_expression!("right('abcde', CAST(NULL AS INT))", "NULL");
+    test_expression!("right(NULL, 2)", "NULL");
+    test_expression!("right(NULL, CAST(NULL AS INT))", "NULL");
+    test_expression!("rpad('hi', 5, 'xy')", "hixyx");
+    test_expression!("rpad('hi', 0)", "");
+    test_expression!("rpad('hi', 21, 'abcdef')", "hiabcdefabcdefabcdefa");
+    test_expression!("rpad('hi', 5, 'xy')", "hixyx");
+    test_expression!("rpad('hi', 5, NULL)", "NULL");
+    test_expression!("rpad('hi', 5)", "hi   ");
+    test_expression!("rpad('hi', CAST(NULL AS INT), 'xy')", "NULL");
+    test_expression!("rpad('hi', CAST(NULL AS INT))", "NULL");
+    test_expression!("rpad('xyxhi', 3)", "xyx");
     test_expression!("rtrim(' testxxzx ')", " testxxzx");
     test_expression!("rtrim(' zzzytest ', NULL)", "NULL");
     test_expression!("rtrim('testxxzx', 'xyz')", "test");
@@ -2084,6 +2135,9 @@ async fn test_string_expressions() -> Result<()> {
     test_expression!("substr('alphabet', 3, 20)", "phabet");
     test_expression!("substr('alphabet', CAST(NULL AS int), 20)", "NULL");
     test_expression!("substr('alphabet', 3, CAST(NULL AS int))", "NULL");
+    test_expression!("to_hex(2147483647)", "7fffffff");
+    test_expression!("to_hex(9223372036854775807)", "7fffffffffffffff");
+    test_expression!("to_hex(CAST(NULL AS int))", "NULL");
     test_expression!("trim(' tom ')", "tom");
     test_expression!("trim(' tom')", "tom");
     test_expression!("trim('')", "");
@@ -2219,6 +2273,7 @@ async fn test_interval_expressions() -> Result<()> {
 }
 
 #[tokio::test]
+#[cfg_attr(not(feature = "crypto_expressions"), ignore)]
 async fn test_crypto_expressions() -> Result<()> {
     test_expression!("md5('tom')", "34b7da764b21d298ef307d04d8152dc5");
     test_expression!("md5('')", "d41d8cd98f00b204e9800998ecf8427e");
@@ -2249,6 +2304,7 @@ async fn test_crypto_expressions() -> Result<()> {
     test_expression!("sha512(NULL)", "NULL");
     Ok(())
 }
+
 #[tokio::test]
 async fn test_extract_date_part() -> Result<()> {
     test_expression!("date_part('hour', CAST('2020-01-01' AS DATE))", "0");

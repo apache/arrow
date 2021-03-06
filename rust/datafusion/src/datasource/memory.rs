@@ -88,7 +88,7 @@ impl MemTable {
         if partitions
             .iter()
             .flatten()
-            .all(|batches| batches.schema() == schema)
+            .all(|batches| schema.contains(&batches.schema()))
         {
             let statistics = calculate_statistics(&schema, &partitions);
             debug!("MemTable statistics: {:?}", statistics);
@@ -220,6 +220,7 @@ mod tests {
     use arrow::array::Int32Array;
     use arrow::datatypes::{DataType, Field, Schema};
     use futures::StreamExt;
+    use std::collections::HashMap;
 
     #[tokio::test]
     async fn test_with_projection() -> Result<()> {
@@ -333,7 +334,7 @@ mod tests {
     }
 
     #[test]
-    fn test_schema_validation() -> Result<()> {
+    fn test_schema_validation_incompatible_column() -> Result<()> {
         let schema1 = Arc::new(Schema::new(vec![
             Field::new("a", DataType::Int32, false),
             Field::new("b", DataType::Int32, false),
@@ -362,6 +363,93 @@ mod tests {
             ),
             _ => panic!("MemTable::new should have failed due to schema mismatch"),
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_schema_validation_different_column_count() -> Result<()> {
+        let schema1 = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new("c", DataType::Int32, false),
+        ]));
+
+        let schema2 = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new("b", DataType::Int32, false),
+            Field::new("c", DataType::Int32, false),
+        ]));
+
+        let batch = RecordBatch::try_new(
+            schema1,
+            vec![
+                Arc::new(Int32Array::from(vec![1, 2, 3])),
+                Arc::new(Int32Array::from(vec![7, 5, 9])),
+            ],
+        )?;
+
+        match MemTable::try_new(schema2, vec![vec![batch]]) {
+            Err(DataFusionError::Plan(e)) => assert_eq!(
+                "\"Mismatch between schema and batches\"",
+                format!("{:?}", e)
+            ),
+            _ => panic!("MemTable::new should have failed due to schema mismatch"),
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_merged_schema() -> Result<()> {
+        let mut metadata = HashMap::new();
+        metadata.insert("foo".to_string(), "bar".to_string());
+
+        let schema1 = Schema::new_with_metadata(
+            vec![
+                Field::new("a", DataType::Int32, false),
+                Field::new("b", DataType::Int32, false),
+                Field::new("c", DataType::Int32, false),
+            ],
+            // test for comparing metadata
+            metadata,
+        );
+
+        let schema2 = Schema::new(vec![
+            // test for comparing nullability
+            Field::new("a", DataType::Int32, true),
+            Field::new("b", DataType::Int32, false),
+            Field::new("c", DataType::Int32, false),
+        ]);
+
+        let merged_schema = Schema::try_merge(vec![schema1.clone(), schema2.clone()])?;
+
+        let batch1 = RecordBatch::try_new(
+            Arc::new(schema1),
+            vec![
+                Arc::new(Int32Array::from(vec![1, 2, 3])),
+                Arc::new(Int32Array::from(vec![4, 5, 6])),
+                Arc::new(Int32Array::from(vec![7, 8, 9])),
+            ],
+        )?;
+
+        let batch2 = RecordBatch::try_new(
+            Arc::new(schema2),
+            vec![
+                Arc::new(Int32Array::from(vec![1, 2, 3])),
+                Arc::new(Int32Array::from(vec![4, 5, 6])),
+                Arc::new(Int32Array::from(vec![7, 8, 9])),
+            ],
+        )?;
+
+        let provider =
+            MemTable::try_new(Arc::new(merged_schema), vec![vec![batch1, batch2]])?;
+
+        let exec = provider.scan(&None, 1024, &[])?;
+        let mut it = exec.execute(0).await?;
+        let batch1 = it.next().await.unwrap()?;
+        assert_eq!(3, batch1.schema().fields().len());
+        assert_eq!(3, batch1.num_columns());
+        assert_eq!(provider.statistics().num_rows, Some(6));
 
         Ok(())
     }

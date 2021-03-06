@@ -450,6 +450,18 @@ impl Expr {
         }
     }
 
+    /// Return `IsNull(Box(self))
+    #[allow(clippy::wrong_self_convention)]
+    pub fn is_null(self) -> Expr {
+        Expr::IsNull(Box::new(self))
+    }
+
+    /// Return `IsNotNull(Box(self))
+    #[allow(clippy::wrong_self_convention)]
+    pub fn is_not_null(self) -> Expr {
+        Expr::IsNotNull(Box::new(self))
+    }
+
     /// Create a sort expression from an existing expression.
     ///
     /// ```
@@ -1096,22 +1108,32 @@ unary_scalar_expr!(Log2, log2);
 unary_scalar_expr!(Log10, log10);
 
 // string functions
+unary_scalar_expr!(Ascii, ascii);
 unary_scalar_expr!(BitLength, bit_length);
 unary_scalar_expr!(Btrim, btrim);
 unary_scalar_expr!(CharacterLength, character_length);
 unary_scalar_expr!(CharacterLength, length);
+unary_scalar_expr!(Chr, chr);
 unary_scalar_expr!(Concat, concat);
 unary_scalar_expr!(ConcatWithSeparator, concat_ws);
+unary_scalar_expr!(InitCap, initcap);
+unary_scalar_expr!(Left, left);
 unary_scalar_expr!(Lower, lower);
+unary_scalar_expr!(Lpad, lpad);
 unary_scalar_expr!(Ltrim, ltrim);
 unary_scalar_expr!(MD5, md5);
 unary_scalar_expr!(OctetLength, octet_length);
+unary_scalar_expr!(Repeat, repeat);
+unary_scalar_expr!(Reverse, reverse);
+unary_scalar_expr!(Right, right);
+unary_scalar_expr!(Rpad, rpad);
 unary_scalar_expr!(Rtrim, rtrim);
 unary_scalar_expr!(SHA224, sha224);
 unary_scalar_expr!(SHA256, sha256);
 unary_scalar_expr!(SHA384, sha384);
 unary_scalar_expr!(SHA512, sha512);
 unary_scalar_expr!(Substr, substr);
+unary_scalar_expr!(ToHex, to_hex);
 unary_scalar_expr!(Trim, trim);
 unary_scalar_expr!(Upper, upper);
 
@@ -1422,6 +1444,17 @@ mod tests {
                 "Mutated #state Eq Utf8(\"CO\")"
             ]
         )
+    }
+
+    #[test]
+    fn filter_is_null_and_is_not_null() {
+        let col_null = Expr::Column("col1".to_string());
+        let col_not_null = Expr::Column("col2".to_string());
+        assert_eq!(format!("{:?}", col_null.is_null()), "#col1 IS NULL");
+        assert_eq!(
+            format!("{:?}", col_not_null.is_not_null()),
+            "#col2 IS NOT NULL"
+        );
     }
 
     #[derive(Default)]

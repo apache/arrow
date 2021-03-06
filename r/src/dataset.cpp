@@ -292,21 +292,38 @@ std::shared_ptr<ds::PartitioningFactory> dataset___DirectoryPartitioning__MakeFa
 
 // [[arrow::export]]
 std::shared_ptr<ds::HivePartitioning> dataset___HivePartitioning(
-    const std::shared_ptr<arrow::Schema>& schm) {
-  return std::make_shared<ds::HivePartitioning>(schm);
+    const std::shared_ptr<arrow::Schema>& schm, const std::string& null_fallback) {
+  std::vector<std::shared_ptr<arrow::Array>> dictionaries;
+  return std::make_shared<ds::HivePartitioning>(schm, dictionaries, null_fallback);
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::PartitioningFactory> dataset___HivePartitioning__MakeFactory() {
-  return ds::HivePartitioning::MakeFactory();
+std::shared_ptr<ds::PartitioningFactory> dataset___HivePartitioning__MakeFactory(
+    const std::string& null_fallback) {
+  ds::HivePartitioningFactoryOptions options;
+  options.null_fallback = null_fallback;
+  return ds::HivePartitioning::MakeFactory(options);
 }
 
 // ScannerBuilder, Scanner
 
 // [[arrow::export]]
-void dataset___ScannerBuilder__Project(const std::shared_ptr<ds::ScannerBuilder>& sb,
-                                       const std::vector<std::string>& cols) {
+void dataset___ScannerBuilder__ProjectNames(const std::shared_ptr<ds::ScannerBuilder>& sb,
+                                            const std::vector<std::string>& cols) {
   StopIfNotOk(sb->Project(cols));
+}
+
+// [[arrow::export]]
+void dataset___ScannerBuilder__ProjectExprs(
+    const std::shared_ptr<ds::ScannerBuilder>& sb,
+    const std::vector<std::shared_ptr<ds::Expression>>& exprs,
+    const std::vector<std::string>& names) {
+  // We have shared_ptrs of expressions but need the Expressions
+  std::vector<ds::Expression> expressions;
+  for (auto expr : exprs) {
+    expressions.push_back(*expr);
+  }
+  StopIfNotOk(sb->Project(expressions, names));
 }
 
 // [[arrow::export]]

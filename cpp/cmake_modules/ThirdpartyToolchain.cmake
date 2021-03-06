@@ -69,6 +69,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     Snappy
     Thrift
     utf8proc
+    xsimd
     ZLIB
     zstd)
 
@@ -170,6 +171,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_thrift()
   elseif("${DEPENDENCY_NAME}" STREQUAL "utf8proc")
     build_utf8proc()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "xsimd")
+    build_xsimd()
   elseif("${DEPENDENCY_NAME}" STREQUAL "ZLIB")
     build_zlib()
   elseif("${DEPENDENCY_NAME}" STREQUAL "zstd")
@@ -567,6 +570,14 @@ else()
     "https://github.com/ursa-labs/thirdparty/releases/download/latest/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
     "https://dl.bintray.com/ursalabs/arrow-thrift/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
     )
+endif()
+
+if(DEFINED ENV{ARROW_XSIMD_URL})
+  set(XSIMD_SOURCE_URL "$ENV{ARROW_XSIMD_URL}")
+else()
+  set_urls(
+    XSIMD_SOURCE_URL
+    "https://github.com/xtensor-stack/xsimd/archive/${ARROW_XSIMD_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_ZLIB_URL})
@@ -1634,6 +1645,10 @@ macro(build_gtest)
     GTEST_MAIN_SHARED_LIB
     "${_GTEST_LIBRARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${_GTEST_LIBRARY_SUFFIX}"
     )
+  set(GTEST_INSTALL_NAME_DIR "$<INSTALL_PREFIX$<ANGLE-R>/lib")
+  # Fix syntax highlighting mess introduced by unclosed bracket above
+  set(dummy ">")
+
   set(GTEST_CMAKE_ARGS
       ${EP_COMMON_TOOLCHAIN}
       -DBUILD_SHARED_LIBS=ON
@@ -1641,7 +1656,7 @@ macro(build_gtest)
       -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS}
       -DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${GTEST_CMAKE_CXX_FLAGS}
       -DCMAKE_INSTALL_LIBDIR=lib
-      -DCMAKE_INSTALL_NAME_DIR=$<INSTALL_PREFIX$<ANGLE-R>/lib
+      -DCMAKE_INSTALL_NAME_DIR=${GTEST_INSTALL_NAME_DIR}
       -DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}
       -DCMAKE_MACOSX_RPATH=OFF)
   set(GMOCK_INCLUDE_DIR "${GTEST_PREFIX}/include")
@@ -1902,6 +1917,33 @@ if(ARROW_WITH_RAPIDJSON)
 
   # TODO: Don't use global includes but rather target_include_directories
   include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
+endif()
+
+macro(build_xsimd)
+  message(STATUS "Building xsimd from source")
+  set(XSIMD_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/xsimd_ep/src/xsimd_ep-install")
+  set(XSIMD_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${XSIMD_PREFIX}")
+
+  externalproject_add(xsimd_ep
+                      ${EP_LOG_OPTIONS}
+                      PREFIX "${CMAKE_BINARY_DIR}"
+                      URL ${XSIMD_SOURCE_URL}
+                      CMAKE_ARGS ${XSIMD_CMAKE_ARGS})
+
+  set(XSIMD_INCLUDE_DIR "${XSIMD_PREFIX}/include")
+
+  add_dependencies(toolchain xsimd_ep)
+  add_dependencies(toolchain-tests xsimd_ep)
+
+  set(XSIMD_VENDORED TRUE)
+endmacro()
+
+# For now xsimd is always bundled from upstream
+if(1)
+  set(xsimd_SOURCE "BUNDLED")
+  resolve_dependency(xsimd)
+  # TODO: Don't use global includes but rather target_include_directories
+  include_directories(SYSTEM ${XSIMD_INCLUDE_DIR})
 endif()
 
 macro(build_zlib)

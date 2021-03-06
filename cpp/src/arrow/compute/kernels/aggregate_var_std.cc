@@ -30,6 +30,97 @@ namespace internal {
 namespace {
 
 using arrow::internal::int128_t;
+using arrow::internal::VisitSetBitRunsVoid;
+
+// non-recursive pairwise summation for floating points
+// https://en.wikipedia.org/wiki/Pairwise_summation
+template <typename ValueType, typename SumType, typename ValueFunc>
+enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
+    const ArrayData& data, ValueFunc&& func) {
+  const int64_t data_size = data.length - data.GetNullCount();
+  if (data_size == 0) {
+    return 0;
+  }
+
+  // number of inputs to accumulate before merging with another block
+  constexpr int kBlockSize = 16;  // same as numpy
+  // levels (tree depth) = ceil(log2(len)) + 1, a bit larger than necessary
+  const int levels = BitUtil::Log2(static_cast<uint64_t>(data_size)) + 1;
+  // temporary summation per level
+  std::vector<SumType> sum(levels);
+  // whether two summations are ready and should be reduced to upper level
+  // one bit for each level, bit0 -> level0, ...
+  uint64_t mask = 0;
+  // level of root node holding the final summation
+  int root_level = 0;
+
+  // reduce summation of one block (may be smaller than kBlockSize) from leaf node
+  // continue reducing to upper level if two summations are ready for non-leaf node
+  auto reduce = [&](SumType block_sum) {
+    int cur_level = 0;
+    uint64_t cur_level_mask = 1ULL;
+    sum[cur_level] += block_sum;
+    mask ^= cur_level_mask;
+    while ((mask & cur_level_mask) == 0) {
+      block_sum = sum[cur_level];
+      sum[cur_level] = 0;
+      ++cur_level;
+      DCHECK_LT(cur_level, levels);
+      cur_level_mask <<= 1;
+      sum[cur_level] += block_sum;
+      mask ^= cur_level_mask;
+    }
+    root_level = std::max(root_level, cur_level);
+  };
+
+  const ValueType* values = data.GetValues<ValueType>(1);
+  VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
+                      [&](int64_t pos, int64_t len) {
+                        const ValueType* v = &values[pos];
+                        // unsigned division by constant is cheaper than signed one
+                        const uint64_t blocks = static_cast<uint64_t>(len) / kBlockSize;
+                        const uint64_t remains = static_cast<uint64_t>(len) % kBlockSize;
+
+                        for (uint64_t i = 0; i < blocks; ++i) {
+                          SumType block_sum = 0;
+                          for (int j = 0; j < kBlockSize; ++j) {
+                            block_sum += func(v[j]);
+                          }
+                          reduce(block_sum);
+                          v += kBlockSize;
+                        }
+
+                        if (remains > 0) {
+                          SumType block_sum = 0;
+                          for (uint64_t i = 0; i < remains; ++i) {
+                            block_sum += func(v[i]);
+                          }
+                          reduce(block_sum);
+                        }
+                      });
+
+  // reduce intermediate summations from all non-leaf nodes
+  for (int i = 1; i <= root_level; ++i) {
+    sum[i] += sum[i - 1];
+  }
+
+  return sum[root_level];
+}
+
+// naive summation is faster for integrals
+template <typename ValueType, typename SumType, typename ValueFunc>
+enable_if_t<!std::is_floating_point<SumType>::value, SumType> SumArray(
+    const ArrayData& data, ValueFunc&& func) {
+  SumType sum = 0;
+  const ValueType* values = data.GetValues<ValueType>(1);
+  VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
+                      [&](int64_t pos, int64_t len) {
+                        for (int64_t i = 0; i < len; ++i) {
+                          sum += func(values[pos + i]);
+                        }
+                      });
+  return sum;
+}
 
 template <typename ArrowType>
 struct VarStdState {
@@ -49,25 +140,14 @@ struct VarStdState {
 
     using SumType =
         typename std::conditional<is_floating_type<T>::value, double, int128_t>::type;
-    SumType sum = 0;
+    SumType sum = SumArray<CType, SumType>(
+        *array.data(), [](CType value) { return static_cast<SumType>(value); });
 
-    const ArrayData& data = *array.data();
-    const CType* values = data.GetValues<CType>(1);
-    arrow::internal::VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
-                                         [&](int64_t pos, int64_t len) {
-                                           for (int64_t i = 0; i < len; ++i) {
-                                             sum += static_cast<SumType>(values[pos + i]);
-                                           }
-                                         });
-
-    double mean = static_cast<double>(sum) / count, m2 = 0;
-    arrow::internal::VisitSetBitRunsVoid(
-        data.buffers[0], data.offset, data.length, [&](int64_t pos, int64_t len) {
-          for (int64_t i = 0; i < len; ++i) {
-            const double v = static_cast<double>(values[pos + i]);
-            m2 += (v - mean) * (v - mean);
-          }
-        });
+    const double mean = static_cast<double>(sum) / count;
+    const double m2 = SumArray<CType, double>(*array.data(), [mean](CType value) {
+      const double v = static_cast<double>(value);
+      return (v - mean) * (v - mean);
+    });
 
     this->count = count;
     this->mean = mean;
@@ -98,14 +178,14 @@ struct VarStdState {
         int128_t square_sum = 0;
         const ArrayData& data = *slice->data();
         const CType* values = data.GetValues<CType>(1);
-        arrow::internal::VisitSetBitRunsVoid(
-            data.buffers[0], data.offset, data.length, [&](int64_t pos, int64_t len) {
-              for (int64_t i = 0; i < len; ++i) {
-                const auto value = values[pos + i];
-                sum += value;
-                square_sum += static_cast<uint64_t>(value) * value;
-              }
-            });
+        VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
+                            [&](int64_t pos, int64_t len) {
+                              for (int64_t i = 0; i < len; ++i) {
+                                const auto value = values[pos + i];
+                                sum += value;
+                                square_sum += static_cast<uint64_t>(value) * value;
+                              }
+                            });
 
         const double mean = static_cast<double>(sum) / count;
         // calculate m2 = square_sum - sum * sum / count
