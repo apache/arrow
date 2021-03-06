@@ -19,13 +19,13 @@
 
 use std::sync::{Arc, Mutex};
 
-use crate::arrow::record_batch::RecordBatch;
 use crate::error::Result;
 use crate::execution::context::{ExecutionContext, ExecutionContextState};
 use crate::logical_plan::{
     col, DFSchema, Expr, FunctionRegistry, JoinType, LogicalPlan, LogicalPlanBuilder,
     Partitioning,
 };
+use crate::{arrow::record_batch::RecordBatch, physical_plan::ExecutionPlan};
 use crate::{
     dataframe::*,
     physical_plan::{collect, collect_partitioned},
@@ -165,6 +165,13 @@ impl DataFrame for DataFrameImpl {
     fn registry(&self) -> Arc<dyn FunctionRegistry> {
         let registry = self.ctx_state.lock().unwrap().clone();
         Arc::new(registry)
+    }
+
+    fn to_physical_plan(&self) -> Result<Arc<dyn ExecutionPlan>> {
+        let state = self.ctx_state.lock().unwrap().clone();
+        let ctx = ExecutionContext::from(Arc::new(Mutex::new(state)));
+
+        ctx.create_physical_plan(&self.to_logical_plan())
     }
 }
 
