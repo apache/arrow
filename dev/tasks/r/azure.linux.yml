@@ -51,9 +51,9 @@ jobs:
         export ARROW_R_DEV={{ not_cran }}
         # Note that ci/scripts/r_test.sh sets NOT_CRAN=true if ARROW_R_DEV=TRUE
         docker-compose run \
-          -e ARROW_DATASET={{ arrow_dataset|default("ON") }} \
-          -e ARROW_PARQUET={{ arrow_parquet|default("ON") }} \
-          -e ARROW_S3={{ arrow_s3|default("ON") }} \
+          -e ARROW_DATASET={{ arrow_dataset|default("") }} \
+          -e ARROW_PARQUET={{ arrow_parquet|default("") }} \
+          -e ARROW_S3={{ arrow_s3|default("") }} \
           -e LIBARROW_MINIMAL={{ libarrow_minimal|default("") }} \
           r
       displayName: Docker run
