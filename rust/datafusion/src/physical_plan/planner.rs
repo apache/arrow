@@ -758,7 +758,7 @@ mod tests {
             scalar_functions: HashMap::new(),
             var_provider: HashMap::new(),
             aggregate_functions: HashMap::new(),
-            config: Arc::new(ExecutionConfig::new()),
+            config: ExecutionConfig::new(),
         }
     }
 

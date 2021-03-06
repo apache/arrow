@@ -24,7 +24,6 @@ use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
 use rustyline::Editor;
 use std::env;
 use std::path::Path;
-use std::sync::Arc;
 use std::time::Instant;
 
 #[tokio::main]
@@ -62,9 +61,8 @@ pub async fn main() {
         .map(|size| size.parse::<usize>().unwrap())
         .unwrap_or(1_048_576);
 
-    let mut ctx = ExecutionContext::with_config(Arc::new(
-        ExecutionConfig::new().with_batch_size(batch_size),
-    ));
+    let mut ctx =
+        ExecutionContext::with_config(ExecutionConfig::new().with_batch_size(batch_size));
 
     let mut rl = Editor::<()>::new();
     rl.load_history(".history").ok();

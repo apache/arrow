@@ -20,7 +20,6 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process;
-use std::sync::Arc;
 use std::time::Instant;
 
 use arrow::datatypes::{DataType, Field, Schema};
@@ -72,7 +71,7 @@ async fn main() -> Result<()> {
     let config = ExecutionConfig::new()
         .with_concurrency(opt.concurrency)
         .with_batch_size(opt.batch_size);
-    let mut ctx = ExecutionContext::with_config(Arc::new(config));
+    let mut ctx = ExecutionContext::with_config(config);
 
     let path = opt.path.to_str().unwrap();
 

@@ -324,7 +324,7 @@ impl RowGroupPredicateBuilder {
             scalar_functions: HashMap::new(),
             var_provider: HashMap::new(),
             aggregate_functions: HashMap::new(),
-            config: Arc::new(ExecutionConfig::new()),
+            config: ExecutionConfig::new(),
         };
         let predicate_expr = DefaultPhysicalPlanner::default().create_physical_expr(
             &logical_predicate_expr,
