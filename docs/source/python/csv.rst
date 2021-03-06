@@ -81,10 +81,10 @@ a :class:`ConvertOptions` instance and pass it to :func:`read_csv`::
    import pyarrow.csv as csv
 
    table = csv.read_csv('tips.csv.gz', convert_options=pa.csv.ConvertOptions(
-    column_types={
-        'total_bill': pa.decimal128(precision=10, scale=2),
-        'tip': pa.decimal128(precision=10, scale=2),
-    }
+       column_types={
+           'total_bill': pa.decimal128(precision=10, scale=2),
+           'tip': pa.decimal128(precision=10, scale=2),
+       }
    ))
 
 
