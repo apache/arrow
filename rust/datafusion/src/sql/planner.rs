@@ -2476,9 +2476,8 @@ mod tests {
             unimplemented!()
         }
 
-        fn config(&self) -> Arc<ExecutionConfig> {
-            let ec = ExecutionConfig::new();
-            Arc::new(ec)
+        fn config(&self) -> ExecutionConfig {
+            ExecutionConfig::new()
         }
     }
 }
