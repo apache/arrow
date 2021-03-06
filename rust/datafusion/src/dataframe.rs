@@ -240,9 +240,6 @@ pub trait DataFrame: Send + Sync {
     /// Return the logical plan represented by this DataFrame.
     fn to_logical_plan(&self) -> LogicalPlan;
 
-    /// Return the physical plan represented by this DataFrame.
-    fn to_physical_plan(&self) -> Result<Arc<dyn ExecutionPlan>>;
-
     /// Return a DataFrame with the explanation of its plan so far.
     ///
     /// ```

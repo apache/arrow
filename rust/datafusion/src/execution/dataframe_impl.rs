@@ -166,13 +166,6 @@ impl DataFrame for DataFrameImpl {
         let registry = self.ctx_state.lock().unwrap().clone();
         Arc::new(registry)
     }
-
-    fn to_physical_plan(&self) -> Result<Arc<dyn ExecutionPlan>> {
-        let state = self.ctx_state.lock().unwrap().clone();
-        let ctx = ExecutionContext::from(Arc::new(Mutex::new(state)));
-
-        ctx.create_physical_plan(&self.to_logical_plan())
-    }
 }
 
 #[cfg(test)]
