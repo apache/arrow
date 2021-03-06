@@ -724,7 +724,7 @@ mod tests {
 
     #[test]
     fn test_file_writer_v2_with_metadata() {
-        let file = get_temp_file("test_file_writer_write_with_metadata", &[]);
+        let file = get_temp_file("test_file_writer_v2_write_with_metadata", &[]);
         let field_logical_type = Some(LogicalType::INTEGER(IntType {
             bit_width: 8,
             is_signed: false,
