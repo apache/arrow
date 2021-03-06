@@ -1159,7 +1159,7 @@ BEGIN_CPP11
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___HivePartitioning(SEXP schm_sexp){
+extern "C" SEXP _arrow_dataset___HivePartitioning(SEXP schm_sexp, SEXP null_fallback_sexp){
 	Rf_error("Cannot call dataset___HivePartitioning(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -1174,7 +1174,7 @@ BEGIN_CPP11
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___HivePartitioning__MakeFactory(){
+extern "C" SEXP _arrow_dataset___HivePartitioning__MakeFactory(SEXP null_fallback_sexp){
 	Rf_error("Cannot call dataset___HivePartitioning__MakeFactory(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -1190,7 +1190,14 @@ BEGIN_CPP11
 	return R_NilValue;
 END_CPP11
 }
+#else
+extern "C" SEXP _arrow_dataset___ScannerBuilder__ProjectNames(SEXP sb_sexp, SEXP cols_sexp){
+	Rf_error("Cannot call dataset___ScannerBuilder__ProjectNames(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
 void dataset___ScannerBuilder__ProjectExprs(const std::shared_ptr<ds::ScannerBuilder>& sb, const std::vector<std::shared_ptr<ds::Expression>>& exprs, const std::vector<std::string>& names);
 extern "C" SEXP _arrow_dataset___ScannerBuilder__ProjectExprs(SEXP sb_sexp, SEXP exprs_sexp, SEXP names_sexp){
 BEGIN_CPP11
@@ -1202,8 +1209,8 @@ BEGIN_CPP11
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___ScannerBuilder__Project(SEXP sb_sexp, SEXP cols_sexp){
-	Rf_error("Cannot call dataset___ScannerBuilder__Project(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_dataset___ScannerBuilder__ProjectExprs(SEXP sb_sexp, SEXP exprs_sexp, SEXP names_sexp){
+	Rf_error("Cannot call dataset___ScannerBuilder__ProjectExprs(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4052,7 +4059,6 @@ arrow::r::r6_reset_pointer<arrow::RecordBatch>(r6);
 END_CPP11
 return R_NilValue;
 }
-
 extern "C" SEXP _arrow_available() {
 return Rf_ScalarLogical(
 #if defined(ARROW_R_WITH_ARROW)
@@ -4062,7 +4068,6 @@ return Rf_ScalarLogical(
 #endif
 );
 }
-
 extern "C" SEXP _dataset_available() {
 return Rf_ScalarLogical(
 #if defined(ARROW_R_WITH_DATASET)
@@ -4072,7 +4077,6 @@ return Rf_ScalarLogical(
 #endif
 );
 }
-
 extern "C" SEXP _parquet_available() {
 return Rf_ScalarLogical(
 #if defined(ARROW_R_WITH_PARQUET)
@@ -4082,7 +4086,6 @@ return Rf_ScalarLogical(
 #endif
 );
 }
-
 extern "C" SEXP _s3_available() {
 return Rf_ScalarLogical(
 #if defined(ARROW_R_WITH_S3)
@@ -4092,7 +4095,6 @@ return Rf_ScalarLogical(
 #endif
 );
 }
-
 static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_available", (DL_FUNC)& _arrow_available, 0 },
 		{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
@@ -4503,9 +4505,9 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatch__Reset", (DL_FUNC) &_arrow_RecordBatch__Reset, 1}, 
 		{NULL, NULL, 0}
 };
-
 extern "C" void R_init_arrow(DllInfo* dll){
   R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
   R_useDynamicSymbols(dll, FALSE);
 }
+
 
