@@ -736,14 +736,13 @@ class ReentrantChecker {
   explicit ReentrantChecker(AsyncGenerator<T> source)
       : state_(std::make_shared<State>(std::move(source))) {}
 
-  Future<TestInt> operator()() {
+  Future<T> operator()() {
     if (state_->in.load()) {
       state_->valid.store(false);
     }
     state_->in.store(true);
     auto result = state_->source();
-    result.AddCallback(Callback{state_});
-    return result;
+    return result.Then(Callback{state_});
   }
 
   void AssertValid() {
@@ -761,7 +760,10 @@ class ReentrantChecker {
     std::atomic<bool> valid;
   };
   struct Callback {
-    void operator()(const Result<T>& result) { state_->in.store(false); }
+    Future<T> operator()(const Result<T>& result) {
+      state_->in.store(false);
+      return result;
+    }
     std::shared_ptr<State> state_;
   };
 
