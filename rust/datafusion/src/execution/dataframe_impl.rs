@@ -19,13 +19,13 @@
 
 use std::sync::{Arc, Mutex};
 
+use crate::arrow::record_batch::RecordBatch;
 use crate::error::Result;
 use crate::execution::context::{ExecutionContext, ExecutionContextState};
 use crate::logical_plan::{
     col, DFSchema, Expr, FunctionRegistry, JoinType, LogicalPlan, LogicalPlanBuilder,
     Partitioning,
 };
-use crate::{arrow::record_batch::RecordBatch, physical_plan::ExecutionPlan};
 use crate::{
     dataframe::*,
     physical_plan::{collect, collect_partitioned},
