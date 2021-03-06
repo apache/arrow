@@ -238,11 +238,8 @@ fn optimize_plan(
             filters,
             ..
         } => {
-            let (projection, projected_schema) = get_projected_schema(
-                &source.schema(),
-                required_columns,
-                has_projection,
-            )?;
+            let (projection, projected_schema) =
+                get_projected_schema(&source.schema(), required_columns, has_projection)?;
 
             // return the table scan with projection
             Ok(LogicalPlan::TableScan {
@@ -479,6 +476,26 @@ mod tests {
 
         assert_optimized_plan_eq(&plan, expected);
 
+        Ok(())
+    }
+
+    /// tests that optimizing twice yields same plan
+    #[test]
+    fn test_double_optimization() -> Result<()> {
+        let table_scan = test_table_scan()?;
+
+        let plan = LogicalPlanBuilder::from(&table_scan)
+            .project(&[col("b")])?
+            .project(&[lit(1).alias("a")])?
+            .build()?;
+
+        let optimized_plan1 = optimize(&plan).expect("failed to optimize plan");
+        let optimized_plan2 =
+            optimize(&optimized_plan1).expect("failed to optimize plan");
+
+        let formatted_plan1 = format!("{:?}", optimized_plan1);
+        let formatted_plan2 = format!("{:?}", optimized_plan2);
+        assert_eq!(formatted_plan1, formatted_plan2);
         Ok(())
     }
 
