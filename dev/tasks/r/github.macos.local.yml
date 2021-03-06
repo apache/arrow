@@ -66,7 +66,7 @@ jobs:
           R CMD INSTALL . --install-tests
       - name: Run the tests
         run: R -e 'if(tools::testInstalledPackage("arrow") != 0L) stop("There was a test failure.")'
-      - name: Dump install logs
+      - name: Dump test logs
         run: cat arrow-tests/testthat.Rout*
         if: failure()
       - name: Save the test output
