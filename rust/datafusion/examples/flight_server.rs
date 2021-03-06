@@ -94,20 +94,20 @@ impl FlightService for FlightServiceImpl {
                     "alltypes_plain",
                     &format!("{}/alltypes_plain.parquet", testdata),
                 )
-                .map_err(|e| to_tonic_err(&e))?;
+                .map_err(to_tonic_err)?;
 
                 // create the DataFrame
-                let df = ctx.sql(sql).map_err(|e| to_tonic_err(&e))?;
+                let df = ctx.sql(sql).map_err(to_tonic_err)?;
 
                 // execute the query
-                let results = df.collect().await.map_err(|e| to_tonic_err(&e))?;
+                let results = df.collect().await.map_err(to_tonic_err)?;
                 if results.is_empty() {
                     return Err(Status::internal("There were no results from ticket"));
                 }
 
                 let physical_plan = ctx
                     .create_physical_plan(&df.to_logical_plan())
-                    .map_err(|e| to_tonic_err(&e))?;
+                    .map_err(to_tonic_err)?;
 
                 // add an initial FlightData message that sends schema
                 let options = arrow::ipc::writer::IpcWriteOptions::default();
@@ -195,7 +195,7 @@ impl FlightService for FlightServiceImpl {
     }
 }
 
-fn to_tonic_err(e: &datafusion::error::DataFusionError) -> Status {
+fn to_tonic_err(e: datafusion::error::DataFusionError) -> Status {
     Status::internal(format!("{:?}", e))
 }
 
