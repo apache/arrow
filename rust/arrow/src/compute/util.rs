@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Common utilities for computation kernels.
+//! Common utilities for computation kernel
 
 use crate::array::*;
 use crate::buffer::{buffer_bin_and, buffer_bin_or, Buffer};
