@@ -189,7 +189,7 @@ module Helper
       if value.nil?
         builder.append_null
       else
-        data_type = builder.value_type
+        data_type = builder.value_data_type
         case data_type
         when Arrow::ListDataType, Arrow::LargeListDataType
           builder.append_value
@@ -206,10 +206,9 @@ module Helper
             append_to_builder(item_builder, v)
           end
         when Arrow::StructDataType
-          data_value_type = builder.data_value_type
           builder.append_value
           value.each do |name, v|
-            field_index = data_value_type.get_field_index(name)
+            field_index = data_type.get_field_index(name)
             field_builder = builder.get_field_builder(field_index)
             append_to_builder(field_builder, v)
           end
