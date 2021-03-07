@@ -110,16 +110,33 @@ jobs:
           export CARGO_TARGET_DIR="/github/home/target"
           cd rust
           # run tests on all workspace members with default feature list
-          cargo test
-          # test datafusion examples
-          cd datafusion
-          cargo test --no-default-features --features cli
+          cargo test --tests
+      - name: Run doc tests
+        run: |
+          export CARGO_HOME="/github/home/.cargo"
+          export CARGO_TARGET_DIR="/github/home/target"
+          cd rust
+          # run only doc tests (using single thread to avoid linker OOMs)
+          cargo test --doc -- --test-threads=1
+      - name: Run datafusion tests
+        run: |
+          export CARGO_HOME="/github/home/.cargo"
+          export CARGO_TARGET_DIR="/github/home/target"
+          cd rust/datafusion
+          cargo test --tests --no-default-features --features cli
+          # run only doc tests (using single thread to avoid linker OOMs)
+          cargo test --doc --no-default-features --features cli -- --test-threads
           cargo run --example csv_sql
           cargo run --example parquet_sql
-          cd ..
-          cd arrow
+      - name: Run datafusion tests
+        run: |
+          export CARGO_HOME="/github/home/.cargo"
+          export CARGO_TARGET_DIR="/github/home/target"
+          cd rust/arrow
           # re-run tests on arrow workspace with additional features
-          cargo test --features=prettyprint
+          cargo test --tests --features=prettyprint
+          # run doc tests (using single thread to avoid linker OOMs)
+          cargo test --docs --features=prettyprint -- --test-threads=1
           cargo run --example builders
           cargo run --example dynamic_types
           cargo run --example read_csv
