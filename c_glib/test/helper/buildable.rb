@@ -199,13 +199,11 @@ module Helper
           end
         when Arrow::MapDataType
           builder.append_value
-          value_builder = builder.value_builder
-          value.each do |v|
-            v.each do |name, sub_v|
-              field_index = data_type.get_field_index(name)
-              field_builder = value_builder.get_field_builder(field_index)
-              append_to_builder(field_builder, sub_v)
-            end
+          key_builder = builder.key_builder
+          item_builder = builder.item_builder
+          value.each do |k, v|
+            append_to_builder(key_builder, k)
+            append_to_builder(item_builder, v)
           end
         when Arrow::StructDataType
           builder.append_value
