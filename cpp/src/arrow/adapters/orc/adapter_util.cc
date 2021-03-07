@@ -509,10 +509,43 @@ arrow::Status WriteFixedSizeBinaryBatch(liborc::ColumnVectorBatch* column_vector
 }
 
 // If Arrow supports 256-bit decimals we can not support it unless ORC does it
-arrow::Status WriteDecimalBatch(liborc::ColumnVectorBatch* column_vector_batch,
-                                int64_t* arrow_offset, int64_t* orc_offset,
-                                const int64_t& length, const arrow::Array& array,
-                                const std::vector<bool>* incoming_mask) {
+arrow::Status WriteDecimal64Batch(liborc::ColumnVectorBatch* column_vector_batch,
+                                  int64_t* arrow_offset, int64_t* orc_offset,
+                                  const int64_t& length, const arrow::Array& array,
+                                  const std::vector<bool>* incoming_mask) {
+  const arrow::Decimal128Array& decimal128_array(
+      checked_cast<const arrow::Decimal128Array&>(array));
+  auto batch = checked_cast<liborc::Decimal64VectorBatch*>(column_vector_batch);
+  // Arrow uses 128 bits for decimal type and in the future, 256 bits will also be
+  // supported.
+  int64_t arrow_length = array.length();
+  if (!arrow_length) {
+    return arrow::Status::OK();
+  }
+  if (array.null_count() || incoming_mask) {
+    batch->hasNulls = true;
+  }
+  for (; *orc_offset < length && *arrow_offset < arrow_length;
+       (*orc_offset)++, (*arrow_offset)++) {
+    if (array.IsNull(*arrow_offset) ||
+        (incoming_mask && !(*incoming_mask)[*orc_offset])) {
+      batch->notNull[*orc_offset] = false;
+    } else {
+      batch->notNull[*orc_offset] = true;
+      uint8_t* raw_int128 =
+          const_cast<uint8_t*>(decimal128_array.GetValue(*arrow_offset));
+      int64_t* lower_bits = reinterpret_cast<int64_t*>(raw_int128);
+      batch->values[*orc_offset] = *lower_bits;
+    }
+  }
+  batch->numElements = *orc_offset;
+  return arrow::Status::OK();
+}
+
+arrow::Status WriteDecimal128Batch(liborc::ColumnVectorBatch* column_vector_batch,
+                                   int64_t* arrow_offset, int64_t* orc_offset,
+                                   const int64_t& length, const arrow::Array& array,
+                                   const std::vector<bool>* incoming_mask) {
   const arrow::Decimal128Array& decimal128_array(
       checked_cast<const arrow::Decimal128Array&>(array));
   auto batch = checked_cast<liborc::Decimal128VectorBatch*>(column_vector_batch);
@@ -759,9 +792,18 @@ arrow::Status WriteBatch(liborc::ColumnVectorBatch* column_vector_batch,
                                         array.type()->ToString());
       }
     }
-    case arrow::Type::type::DECIMAL128:
-      return WriteDecimalBatch(column_vector_batch, arrow_offset, orc_offset, length,
-                               array, incoming_mask);
+    case arrow::Type::type::DECIMAL128: {
+      auto arrow_decimal_type =
+          std::static_pointer_cast<arrow::DecimalType>(array.type());
+      int32_t precision = arrow_decimal_type->precision();
+      if (precision > 18) {
+        return WriteDecimal128Batch(column_vector_batch, arrow_offset, orc_offset, length,
+                                    array, incoming_mask);
+      } else {
+        return WriteDecimal64Batch(column_vector_batch, arrow_offset, orc_offset, length,
+                                   array, incoming_mask);
+      }
+    }
     case arrow::Type::type::STRUCT:
       return WriteStructBatch(column_vector_batch, arrow_offset, orc_offset, length,
                               array, incoming_mask);
@@ -864,9 +906,9 @@ Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
       const int scale = static_cast<int>(type->getScale());
       if (precision == 0) {
         // In HIVE 0.11/0.12 precision is set as 0, but means max precision
-        *out = decimal(38, 6);
+        *out = decimal128(38, 6);
       } else {
-        *out = decimal(precision, scale);
+        *out = decimal128(precision, scale);
       }
       break;
     }

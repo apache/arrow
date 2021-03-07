@@ -366,8 +366,8 @@ class TestORCWriterTrivialNoConversion : public ::testing::Test {
     table_schema = schema(
         {field("bool", boolean()), field("int8", int8()), field("int16", int16()),
          field("int32", int32()), field("int64", int64()), field("float", float32()),
-         field("double", float64()), field("decimal128nz", decimal(25, 6)),
-         field("decimal128z", decimal(32, 0)), field("date32", date32()),
+         field("double", float64()), field("decimal128nz", decimal128(25, 6)),
+         field("decimal128z", decimal128(32, 0)), field("date32", date32()),
          field("ts3", timestamp(TimeUnit::NANO)), field("string", utf8()),
          field("binary", binary()),
          field("struct", struct_({field("a", utf8()), field("b", int64())})),
@@ -425,14 +425,15 @@ TEST_F(TestORCWriterTrivialWithConversion, writeChunkless) {
 }
 
 // General
+
 class TestORCWriterNoConversion : public ::testing::Test {
  public:
   TestORCWriterNoConversion() {
     table_schema = schema(
         {field("bool", boolean()), field("int8", int8()), field("int16", int16()),
          field("int32", int32()), field("int64", int64()), field("float", float32()),
-         field("double", float64()), field("decimal128nz", decimal(18, 4)),
-         field("decimal128z", decimal(18, 0)), field("date32", date32()),
+         field("double", float64()), field("date32", date32()),
+         field("decimal64", decimal128(18, 4)), field("decimal64z", decimal128(18, 0)),
          field("ts3", timestamp(TimeUnit::NANO)), field("string", utf8()),
          field("binary", binary())});
   }
@@ -546,8 +547,6 @@ TEST_F(TestORCWriterSingleArray, WriteStructOfStruct) {
       field("int16", int16()),
       field("int32", int32()),
       field("int64", int64()),
-      field("decimal128nz", decimal(38, 6)),
-      field("decimal128z", decimal(38, 0)),
       field("date32", date32()),
       field("ts3", timestamp(TimeUnit::NANO)),
       field("string", utf8()),
