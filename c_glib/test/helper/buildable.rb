@@ -189,15 +189,15 @@ module Helper
       if value.nil?
         builder.append_null
       else
-        data_type = builder.value_data_type
-        case data_type
-        when Arrow::ListDataType, Arrow::LargeListDataType
+        data_type_id = builder.value_data_type.id
+        case data_type_id
+        when Arrow::Type::LIST, Arrow::Type::LARGE_LIST
           builder.append_value
           value_builder = builder.value_builder
           value.each do |v|
             append_to_builder(value_builder, v)
           end
-        when Arrow::MapDataType
+        when Arrow::Type::MAP
           builder.append_value
           key_builder = builder.key_builder
           item_builder = builder.item_builder
@@ -205,10 +205,10 @@ module Helper
             append_to_builder(key_builder, k)
             append_to_builder(item_builder, v)
           end
-        when Arrow::StructDataType
+        when Arrow::Type::STRUCT
           builder.append_value
           value.each do |name, v|
-            field_index = data_type.get_field_index(name)
+            field_index = builder.value_data_type.get_field_index(name)
             field_builder = builder.get_field_builder(field_index)
             append_to_builder(field_builder, v)
           end
