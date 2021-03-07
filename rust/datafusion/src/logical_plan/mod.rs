@@ -33,13 +33,13 @@ pub use builder::LogicalPlanBuilder;
 pub use dfschema::{DFField, DFSchema, DFSchemaRef, ToDFSchema};
 pub use display::display_schema;
 pub use expr::{
-    abs, acos, and, array, asin, atan, avg, binary_expr, bit_length, btrim, case, ceil,
-    character_length, col, combine_filters, concat, concat_ws, cos, count,
+    abs, acos, and, array, ascii, asin, atan, avg, binary_expr, bit_length, btrim, case,
+    ceil, character_length, chr, col, combine_filters, concat, concat_ws, cos, count,
     count_distinct, create_udaf, create_udf, exp, exprlist_to_fields, floor, in_list,
-    left, length, lit, ln, log10, log2, lower, lpad, ltrim, max, md5, min, octet_length,
-    or, right, round, rpad, rtrim, sha224, sha256, sha384, sha512, signum, sin, sqrt,
-    substr, sum, tan, trim, trunc, upper, when, Expr, ExprRewriter, ExpressionVisitor,
-    Literal, Recursion,
+    initcap, left, length, lit, ln, log10, log2, lower, lpad, ltrim, max, md5, min,
+    octet_length, or, repeat, reverse, right, round, rpad, rtrim, sha224, sha256, sha384,
+    sha512, signum, sin, sqrt, substr, sum, tan, to_hex, trim, trunc, upper, when, Expr,
+    ExprRewriter, ExpressionVisitor, Literal, Recursion,
 };
 pub use extension::UserDefinedLogicalNode;
 pub use operators::Operator;

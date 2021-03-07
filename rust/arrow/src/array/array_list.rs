@@ -34,8 +34,6 @@ pub trait OffsetSizeTrait: ArrowNativeType + Num + Ord + std::ops::AddAssign {
     fn is_large() -> bool;
 
     fn prefix() -> &'static str;
-
-    fn to_isize(&self) -> isize;
 }
 
 impl OffsetSizeTrait for i32 {
@@ -47,10 +45,6 @@ impl OffsetSizeTrait for i32 {
     fn prefix() -> &'static str {
         ""
     }
-
-    fn to_isize(&self) -> isize {
-        num::ToPrimitive::to_isize(self).unwrap()
-    }
 }
 
 impl OffsetSizeTrait for i64 {
@@ -61,10 +55,6 @@ impl OffsetSizeTrait for i64 {
 
     fn prefix() -> &'static str {
         "Large"
-    }
-
-    fn to_isize(&self) -> isize {
-        num::ToPrimitive::to_isize(self).unwrap()
     }
 }
 

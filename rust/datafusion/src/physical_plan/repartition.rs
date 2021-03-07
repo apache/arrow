@@ -163,7 +163,9 @@ impl ExecutionPlan for RepartitionExec {
                                     })
                                     .collect::<Result<Vec<_>>>()?;
                                 // Hash arrays and compute buckets based on number of partitions
-                                let hashes = create_hashes(&arrays, &random_state)?;
+                                let hashes_buf = &mut vec![0; arrays[0].len()];
+                                let hashes =
+                                    create_hashes(&arrays, &random_state, hashes_buf)?;
                                 let mut indices = vec![vec![]; num_output_partitions];
                                 for (index, hash) in hashes.iter().enumerate() {
                                     indices

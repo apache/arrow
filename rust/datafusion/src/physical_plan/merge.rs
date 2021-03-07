@@ -121,7 +121,7 @@ impl ExecutionPlan for MergeExec {
 
                 // spawn independent tasks whose resulting streams (of batches)
                 // are sent to the channel for consumption.
-                for part_i in (0..input_partitions) {
+                for part_i in 0..input_partitions {
                     let input = self.input.clone();
                     let mut sender = sender.clone();
                     tokio::spawn(async move {
