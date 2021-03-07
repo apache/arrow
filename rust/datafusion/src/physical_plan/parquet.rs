@@ -252,6 +252,8 @@ impl ParquetExec {
         // sum the statistics
         let mut num_rows: Option<usize> = None;
         let mut total_byte_size: Option<usize> = None;
+        let mut null_counts: Vec<usize> = vec![0; schema.fields().len()];
+        let mut has_null_counts = false;
         for part in &partitions {
             if let Some(n) = part.statistics.num_rows {
                 num_rows = Some(num_rows.unwrap_or(0) + n)
@@ -259,11 +261,36 @@ impl ParquetExec {
             if let Some(n) = part.statistics.total_byte_size {
                 total_byte_size = Some(total_byte_size.unwrap_or(0) + n)
             }
+            if let Some(x) = &part.statistics.column_statistics {
+                let part_nulls: Vec<Option<usize>> =
+                    x.iter().map(|c| c.null_count).collect();
+                has_null_counts = true;
+
+                for &i in projection.iter() {
+                    null_counts[i] = part_nulls[i].unwrap_or(0);
+                }
+            }
         }
+        let column_stats = if has_null_counts {
+            Some(
+                null_counts
+                    .iter()
+                    .map(|null_count| ColumnStatistics {
+                        null_count: Some(*null_count),
+                        distinct_count: None,
+                        max_value: None,
+                        min_value: None,
+                    })
+                    .collect(),
+            )
+        } else {
+            None
+        };
+
         let statistics = Statistics {
             num_rows,
             total_byte_size,
-            column_statistics: None,
+            column_statistics: column_stats,
         };
         Self {
             partitions,
