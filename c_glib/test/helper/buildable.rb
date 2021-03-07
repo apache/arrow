@@ -203,7 +203,11 @@ module Helper
           builder.append_value
           value_builder = builder.value_builder
           value.each do |v|
-            append_to_builder(value_builder, v)
+            v.each do |name, sub_v|
+              field_index = data_type.get_field_index(name)
+              field_builder = value_builder.get_field_builder(field_index)
+              append_to_builder(field_builder, sub_v)
+            end
           end
         when Arrow::StructDataType
           builder.append_value

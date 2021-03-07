@@ -80,12 +80,8 @@ map: map<string, struct<int1: int32, string1: string>>
     build_struct_array(middle_fields, middles)
   end
 
-  def map_data_type
-    Arrow::MapDataType.new(Arrow::StringDataType.new,item_data_type)
-  end
-
   def build_key_value_array(map_array)
-    build_map_array(map_data_type, map_array)
+    build_map_array(Arrow::StringDataType.new, item_data_type, map_array)
   end
 
   def middle_array
