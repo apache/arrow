@@ -533,11 +533,11 @@ mod tests {
 
     use std::{fs::File, io::Cursor};
 
-    use crate::basic::{Compression, Encoding, Repetition, Type};
+    use crate::basic::{Compression, Encoding, IntType, LogicalType, Repetition, Type};
     use crate::column::page::PageReader;
     use crate::compression::{create_codec, Codec};
     use crate::file::{
-        properties::WriterProperties,
+        properties::{WriterProperties, WriterVersion},
         reader::{FileReader, SerializedFileReader, SerializedPageReader},
         statistics::{from_thrift, to_thrift, Statistics},
     };
@@ -720,6 +720,59 @@ mod tests {
                 .len(),
             1
         );
+    }
+
+    #[test]
+    fn test_file_writer_v2_with_metadata() {
+        let file = get_temp_file("test_file_writer_v2_write_with_metadata", &[]);
+        let field_logical_type = Some(LogicalType::INTEGER(IntType {
+            bit_width: 8,
+            is_signed: false,
+        }));
+        let field = Arc::new(
+            types::Type::primitive_type_builder("col1", Type::INT32)
+                .with_logical_type(field_logical_type.clone())
+                .with_converted_type(field_logical_type.into())
+                .build()
+                .unwrap(),
+        );
+        let schema = Arc::new(
+            types::Type::group_type_builder("schema")
+                .with_fields(&mut vec![field.clone()])
+                .build()
+                .unwrap(),
+        );
+        let props = Arc::new(
+            WriterProperties::builder()
+                .set_key_value_metadata(Some(vec![KeyValue::new(
+                    "key".to_string(),
+                    "value".to_string(),
+                )]))
+                .set_writer_version(WriterVersion::PARQUET_2_0)
+                .build(),
+        );
+        let mut writer =
+            SerializedFileWriter::new(file.try_clone().unwrap(), schema, props).unwrap();
+        writer.close().unwrap();
+
+        let reader = SerializedFileReader::new(file).unwrap();
+
+        assert_eq!(
+            reader
+                .metadata()
+                .file_metadata()
+                .key_value_metadata()
+                .to_owned()
+                .unwrap()
+                .len(),
+            1
+        );
+
+        // ARROW-11803: Test that the converted and logical types have been populated
+        let fields = reader.metadata().file_metadata().schema().get_fields();
+        assert_eq!(fields.len(), 1);
+        let read_field = fields.get(0).unwrap();
+        assert_eq!(read_field, &field);
     }
 
     #[test]
