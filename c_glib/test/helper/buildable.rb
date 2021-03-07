@@ -159,10 +159,8 @@ module Helper
       builder.finish
     end
 
-    def build_map_array(key_data_type, item_data_type, values_list, key_name: "key", item_name: "item")
-      key_field = Arrow::Field.new(key_name, key_data_type)
-      item_field = Arrow::Field.new(item_name, item_data_type)
-      data_type = Arrow::MapDataType.new(key_field, item_field)
+    def build_map_array(key_data_type, item_data_type, values_list)
+      data_type = Arrow::MapDataType.new(key_data_type, item_data_type)
       builder = Arrow::MapArrayBuilder.new(data_type)
       values_list.each do |values|
         if values.nil?
