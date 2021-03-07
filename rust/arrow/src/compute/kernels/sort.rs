@@ -1471,8 +1471,19 @@ mod tests {
                 descending: false,
                 nulls_first: true,
             }),
-            Some(4),
-            vec![Some(1.0), Some(f64::NAN), Some(f64::NAN), Some(f64::NAN)],
+            Some(2),
+            vec![Some(1.0), Some(f64::NAN)],
+        );
+
+        // limit with actual value
+        test_sort_primitive_arrays::<Float64Type>(
+            vec![Some(2.0), Some(4.0), Some(3.0), Some(1.0)],
+            Some(SortOptions {
+                descending: false,
+                nulls_first: true,
+            }),
+            Some(3),
+            vec![Some(1.0), Some(2.0), Some(3.0)],
         );
     }
 
