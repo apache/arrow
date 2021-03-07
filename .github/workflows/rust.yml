@@ -108,6 +108,8 @@ jobs:
         run: |
           export CARGO_HOME="/github/home/.cargo"
           export CARGO_TARGET_DIR="/github/home/target"
+          # do not produce debug symbols to keep memory usage down
+          export RUSTFLAGS="-C debuginfo=0"
           cd rust
           # run tests on all workspace members with default feature list
           cargo test
