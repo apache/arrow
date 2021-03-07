@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Computation kernels on Arrow Arrays
+//! Computation kernels on Arrow Arrays.
 
 pub mod kernels;
 
