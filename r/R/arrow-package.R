@@ -94,6 +94,7 @@ arrow_info <- function() {
   )
   if (out$libarrow) {
     pool <- default_memory_pool()
+    runtimeinfo <- runtime_info()
     out <- c(out, list(
       capabilities = c(
         s3 = arrow_with_s3(),
@@ -106,8 +107,8 @@ arrow_info <- function() {
         available_backends = supported_memory_backends()
       ),
       runtime_info = list(
-        simd_level = runtime_info()[1],
-        detected_simd_level = runtime_info()[2]
+        simd_level = runtimeinfo[1],
+        detected_simd_level = runtimeinfo[2]
       )
     ))
   }
