@@ -1003,8 +1003,14 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
         BuiltinScalarFunction::NullIf => {
             Signature::Uniform(2, SUPPORTED_NULLIF_TYPES.to_vec())
         }
-        BuiltinScalarFunction::RegexpExtract => Signature::Any(3),
-        BuiltinScalarFunction::RegexpMatch => Signature::Any(2),
+        BuiltinScalarFunction::RegexpExtract => Signature::OneOf(vec![
+            Signature::Exact(vec![DataType::Utf8, DataType::Utf8, DataType::Int64]),
+            Signature::Exact(vec![DataType::LargeUtf8, DataType::Utf8, DataType::Int64]),
+        ]),
+        BuiltinScalarFunction::RegexpMatch => Signature::OneOf(vec![
+            Signature::Exact(vec![DataType::Utf8, DataType::Utf8]),
+            Signature::Exact(vec![DataType::LargeUtf8, DataType::Utf8]),
+        ]),
         // math expressions expect 1 argument of type f64 or f32
         // priority is given to f64 because e.g. `sqrt(1i32)` is in IR (real numbers) and thus we
         // return the best approximation for it (in f64).
