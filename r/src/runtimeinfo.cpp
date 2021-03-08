@@ -16,9 +16,10 @@
 // under the License.
 
 #include "./arrow_types.h"
+
 #if defined(ARROW_R_WITH_ARROW)
+
 #include <arrow/config.h>
-// #include <arrow/util/visibility.h>
 
 // [[arrow::export]]
 std::vector<std::string> runtime_info() {
@@ -27,4 +28,3 @@ std::vector<std::string> runtime_info() {
 }
 
 #endif
-
