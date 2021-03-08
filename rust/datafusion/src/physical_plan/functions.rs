@@ -549,28 +549,24 @@ pub fn return_type(
             _ => {
                 // this error is internal as `data_types` should have captured this.
                 return Err(DataFusionError::Internal(
-                                        "The regexp_extract function can only accept strings.".to_string(),
+                    "The regexp_extract function can only accept strings.".to_string(),
                 ));
             }
-            }),
-            BuiltinScalarFunction::RegexpMatch => Ok(match arg_types[0] {
-            DataType::LargeUtf8 => DataType::List(Box::new(Field::new(
-                "item",
-                DataType::LargeUtf8,
-                true,
-            ))),
-            DataType::Utf8 => DataType::List(Box::new(Field::new(
-                "item",
-                DataType::Utf8,
-                true,
-            ))),
+        }),
+        BuiltinScalarFunction::RegexpMatch => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => {
+                DataType::List(Box::new(Field::new("item", DataType::LargeUtf8, true)))
+            }
+            DataType::Utf8 => {
+                DataType::List(Box::new(Field::new("item", DataType::Utf8, true)))
+            }
             _ => {
                 // this error is internal as `data_types` should have captured this.
                 return Err(DataFusionError::Internal(
                     "The regexp_extract function can only accept strings.".to_string(),
                 ));
             }
-            }),
+        }),
 
         BuiltinScalarFunction::Abs
         | BuiltinScalarFunction::Acos
@@ -760,16 +756,24 @@ pub fn create_physical_expr(
             },
         },
         BuiltinScalarFunction::RegexpExtract => |args| match args[0].data_type() {
-            DataType::Utf8 => make_scalar_function(string_expressions::regexp_extract)(args),
-            DataType::LargeUtf8 => make_scalar_function(string_expressions::regexp_extract)(args),
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::regexp_extract)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::regexp_extract)(args)
+            }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?} for function regexp_extract",
                 other,
             ))),
         },
         BuiltinScalarFunction::RegexpMatch => |args| match args[0].data_type() {
-            DataType::Utf8 => make_scalar_function(string_expressions::regexp_match)(args),
-            DataType::LargeUtf8 => make_scalar_function(string_expressions::regexp_match)(args),
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::regexp_match)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::regexp_match)(args)
+            }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?} for function regexp_match",
                 other,

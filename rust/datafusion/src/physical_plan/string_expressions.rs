@@ -617,8 +617,7 @@ pub fn regexp_extract(args: &[ArrayRef]) -> Result<ArrayRef> {
 pub fn regexp_match(args: &[ArrayRef]) -> Result<ArrayRef> {
     let pattern_expr = args[1].as_any().downcast_ref::<StringArray>().unwrap();
     let pattern = pattern_expr.value(0);
-    compute::regexp_match(args[0].as_ref(), pattern)
-        .map_err(DataFusionError::ArrowError)
+    compute::regexp_match(args[0].as_ref(), pattern).map_err(DataFusionError::ArrowError)
 }
 
 /// Repeats string the specified number of times.
