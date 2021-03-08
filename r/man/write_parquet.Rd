@@ -95,7 +95,7 @@ disable compression, set \code{compression = "uncompressed"}.
 Note that "uncompressed" columns may still have dictionary encoding.
 }
 \examples{
-\donttest{
+\dontrun{
 tf1 <- tempfile(fileext = ".parquet")
 write_parquet(data.frame(x = 1:5), tf1)
 

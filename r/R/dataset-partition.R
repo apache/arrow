@@ -89,7 +89,7 @@ HivePartitioning$create <- function(schm, null_fallback = NULL) {
 #' @return A [HivePartitioning][Partitioning], or a `HivePartitioningFactory` if
 #' calling `hive_partition()` with no arguments.
 #' @examples
-#' \donttest{
+#' \dontrun{
 #' hive_partition(year = int16(), month = int8())
 #' }
 #' @export

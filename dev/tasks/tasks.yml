@@ -1789,6 +1789,19 @@ tasks:
       r_image: r-base
       r_tag: 3.6-opensuse42
       not_cran: "TRUE"
+  
+  test-r-minimal-build:
+    ci: azure
+    template: r/azure.linux.yml
+    params:
+      r_org: rocker
+      r_image: r-base
+      r_tag: latest
+      not_cran: "TRUE"
+      arrow_dataset: "OFF"
+      arrow_parquet: "OFF"
+      arrow_s3: "OFF"
+      libarrow_minimal: "TRUE"
 
   test-ubuntu-18.04-r-sanitizer:
     ci: azure

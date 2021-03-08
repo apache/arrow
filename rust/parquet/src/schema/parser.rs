@@ -44,7 +44,7 @@
 
 use std::sync::Arc;
 
-use crate::basic::{LogicalType, Repetition, Type as PhysicalType};
+use crate::basic::{ConvertedType, Repetition, Type as PhysicalType};
 use crate::errors::{ParquetError, Result};
 use crate::schema::types::{Type, TypePtr};
 
@@ -223,17 +223,17 @@ impl<'a> Parser<'a> {
             .ok_or_else(|| general_err!("Expected name, found None"))?;
 
         // Parse logical type if exists
-        let logical_type = if let Some("(") = self.tokenizer.next() {
+        let converted_type = if let Some("(") = self.tokenizer.next() {
             let tpe = self
                 .tokenizer
                 .next()
                 .ok_or_else(|| general_err!("Expected logical type, found None"))
-                .and_then(|v| v.to_uppercase().parse::<LogicalType>())?;
+                .and_then(|v| v.to_uppercase().parse::<ConvertedType>())?;
             assert_token(self.tokenizer.next(), ")")?;
             tpe
         } else {
             self.tokenizer.backtrack();
-            LogicalType::NONE
+            ConvertedType::NONE
         };
 
         // Parse optional id
@@ -246,7 +246,7 @@ impl<'a> Parser<'a> {
 
         let mut fields = self.parse_child_types()?;
         let mut builder = Type::group_type_builder(name)
-            .with_logical_type(logical_type)
+            .with_converted_type(converted_type)
             .with_fields(&mut fields);
         if let Some(rep) = repetition {
             builder = builder.with_repetition(rep);
@@ -281,18 +281,19 @@ impl<'a> Parser<'a> {
             .ok_or_else(|| general_err!("Expected name, found None"))?;
 
         // Parse logical type
-        let (logical_type, precision, scale) = if let Some("(") = self.tokenizer.next() {
+        let (converted_type, precision, scale) = if let Some("(") = self.tokenizer.next()
+        {
             let tpe = self
                 .tokenizer
                 .next()
                 .ok_or_else(|| general_err!("Expected logical type, found None"))
-                .and_then(|v| v.to_uppercase().parse::<LogicalType>())?;
+                .and_then(|v| v.to_uppercase().parse::<ConvertedType>())?;
 
             // Parse precision and scale for decimals
             let mut precision: i32 = -1;
             let mut scale: i32 = -1;
 
-            if tpe == LogicalType::DECIMAL {
+            if tpe == ConvertedType::DECIMAL {
                 if let Some("(") = self.tokenizer.next() {
                     // Parse precision
                     precision = parse_i32(
@@ -324,7 +325,7 @@ impl<'a> Parser<'a> {
             (tpe, precision, scale)
         } else {
             self.tokenizer.backtrack();
-            (LogicalType::NONE, -1, -1)
+            (ConvertedType::NONE, -1, -1)
         };
 
         // Parse optional id
@@ -338,7 +339,7 @@ impl<'a> Parser<'a> {
 
         let mut builder = Type::primitive_type_builder(name, physical_type)
             .with_repetition(repetition)
-            .with_logical_type(logical_type)
+            .with_converted_type(converted_type)
             .with_length(length)
             .with_precision(precision)
             .with_scale(scale);
@@ -597,7 +598,7 @@ mod tests {
                         "f1",
                         PhysicalType::FIXED_LEN_BYTE_ARRAY,
                     )
-                    .with_logical_type(LogicalType::DECIMAL)
+                    .with_converted_type(ConvertedType::DECIMAL)
                     .with_length(5)
                     .with_precision(9)
                     .with_scale(3)
@@ -609,7 +610,7 @@ mod tests {
                         "f2",
                         PhysicalType::FIXED_LEN_BYTE_ARRAY,
                     )
-                    .with_logical_type(LogicalType::DECIMAL)
+                    .with_converted_type(ConvertedType::DECIMAL)
                     .with_length(16)
                     .with_precision(38)
                     .with_scale(18)
@@ -656,14 +657,14 @@ mod tests {
                         Arc::new(
                             Type::group_type_builder("a1")
                                 .with_repetition(Repetition::OPTIONAL)
-                                .with_logical_type(LogicalType::LIST)
+                                .with_converted_type(ConvertedType::LIST)
                                 .with_fields(&mut vec![Arc::new(
                                     Type::primitive_type_builder(
                                         "a2",
                                         PhysicalType::BYTE_ARRAY,
                                     )
                                     .with_repetition(Repetition::REPEATED)
-                                    .with_logical_type(LogicalType::UTF8)
+                                    .with_converted_type(ConvertedType::UTF8)
                                     .build()
                                     .unwrap(),
                                 )])
@@ -673,7 +674,7 @@ mod tests {
                         Arc::new(
                             Type::group_type_builder("b1")
                                 .with_repetition(Repetition::OPTIONAL)
-                                .with_logical_type(LogicalType::LIST)
+                                .with_converted_type(ConvertedType::LIST)
                                 .with_fields(&mut vec![Arc::new(
                                     Type::group_type_builder("b2")
                                         .with_repetition(Repetition::REPEATED)
@@ -734,14 +735,14 @@ mod tests {
             Arc::new(
                 Type::primitive_type_builder("_1", PhysicalType::INT32)
                     .with_repetition(Repetition::REQUIRED)
-                    .with_logical_type(LogicalType::INT_8)
+                    .with_converted_type(ConvertedType::INT_8)
                     .build()
                     .unwrap(),
             ),
             Arc::new(
                 Type::primitive_type_builder("_2", PhysicalType::INT32)
                     .with_repetition(Repetition::REQUIRED)
-                    .with_logical_type(LogicalType::INT_16)
+                    .with_converted_type(ConvertedType::INT_16)
                     .build()
                     .unwrap(),
             ),
@@ -759,13 +760,13 @@ mod tests {
             ),
             Arc::new(
                 Type::primitive_type_builder("_5", PhysicalType::INT32)
-                    .with_logical_type(LogicalType::DATE)
+                    .with_converted_type(ConvertedType::DATE)
                     .build()
                     .unwrap(),
             ),
             Arc::new(
                 Type::primitive_type_builder("_6", PhysicalType::BYTE_ARRAY)
-                    .with_logical_type(LogicalType::UTF8)
+                    .with_converted_type(ConvertedType::UTF8)
                     .build()
                     .unwrap(),
             ),
