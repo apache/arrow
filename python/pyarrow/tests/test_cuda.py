@@ -690,7 +690,7 @@ def test_batch_serialize():
     assert batch.equals(batch2)
 
 
-def make_table(length):
+def make_table():
     a0 = pa.array([0, 1, 42, None], type=pa.int16())
     a1 = pa.array([[0, 1], [2], [], None], type=pa.list_(pa.int32()))
     a2 = pa.array([("ab", True), ("cde", False), (None, None), None],
@@ -716,10 +716,8 @@ def make_table(length):
     return table
 
 
-def test_table_deserialize():
-    # ARROW-9659: make sure that we can deserialize a GPU-located table
-    # without crashing when initializing or validating the underlying arrays.
-    htable = make_table(10)
+def make_table_cuda():
+    htable = make_table()
     # Serialize the host table to bytes
     sink = pa.BufferOutputStream()
     with pa.ipc.new_stream(sink, htable.schema) as out:
@@ -731,7 +729,13 @@ def test_table_deserialize():
     dbuf.copy_from_host(hbuf, nbytes=len(hbuf))
     # Deserialize the device buffer into a Table
     dtable = pa.ipc.open_stream(cuda.BufferReader(dbuf)).read_all()
+    return hbuf, htable, dbuf, dtable
 
+
+def test_table_deserialize():
+    # ARROW-9659: make sure that we can deserialize a GPU-located table
+    # without crashing when initializing or validating the underlying arrays.
+    hbuf, htable, dbuf, dtable = make_table_cuda()
     # Assert basic fields the same between host and device tables
     assert htable.schema == dtable.schema
     assert htable.num_rows == dtable.num_rows
@@ -747,21 +751,9 @@ def test_table_deserialize():
 def test_create_table_with_device_buffers():
     # ARROW-11872: make sure that we can create an Arrow Table from
     # GPU-located Arrays without crashing.
-    htable = make_table(10)
-    # Serialize the host table to bytes
-    sink = pa.BufferOutputStream()
-    with pa.ipc.new_stream(sink, htable.schema) as out:
-        out.write_table(htable)
-    hbuf = pa.py_buffer(sink.getvalue().to_pybytes())
-
-    # Copy the host bytes to a device buffer
-    dbuf = global_context.new_buffer(len(hbuf))
-    dbuf.copy_from_host(hbuf, nbytes=len(hbuf))
-    # Deserialize the device buffer into a Table
-    dtable = pa.ipc.open_stream(cuda.BufferReader(dbuf)).read_all()
+    hbuf, htable, dbuf, dtable = make_table_cuda()
     # Construct a new Table from the device Table
     dtable2 = pa.Table.from_arrays(dtable.columns, dtable.column_names)
-
     # Assert basic fields the same between host and device tables
     assert htable.schema == dtable2.schema
     assert htable.num_rows == dtable2.num_rows
