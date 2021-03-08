@@ -180,9 +180,7 @@ struct ValidateArrayImpl {
   bool IsBufferValid(int index) { return IsBufferValid(data, index); }
 
   static bool IsBufferValid(const ArrayData& data, int index) {
-    return data.buffers[index] != nullptr &&
-           (data.buffers[index]->is_cpu() ? data.buffers[index]->data() != nullptr
-                                          : true);
+    return data.buffers[index] != nullptr && data.buffers[index]->address();
   }
 
   template <typename BinaryType>
