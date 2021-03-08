@@ -173,9 +173,12 @@ class ARROW_EXPORT RecordBatchFileReader {
 
   /// \brief Get a reentrant generator of record batches.
   ///
-  /// This RecordBatchFileReader must outlive the generator.
-  virtual Result<AsyncGenerator<std::shared_ptr<RecordBatch>>>
-  GetRecordBatchGenerator() = 0;
+  /// \param[in] readahead_messages The number of messages to read ahead.
+  /// \param[in] io_context The IOContext to use (controls which thread pool
+  ///     is used for I/O).
+  virtual Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> GetRecordBatchGenerator(
+      int readahead_messages = 0,
+      const io::IOContext& io_context = io::default_io_context()) = 0;
 };
 
 /// \brief A general listener class to receive events.

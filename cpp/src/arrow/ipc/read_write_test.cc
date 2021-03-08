@@ -1013,12 +1013,16 @@ struct FileGeneratorWriterHelper : public FileWriterHelper {
   Status ReadBatches(const IpcReadOptions& options, RecordBatchVector* out_batches,
                      ReadStats* out_stats = nullptr) override {
     auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
-    ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchFileReader::Open(
-                                           buf_reader.get(), footer_offset_, options));
+    AsyncGenerator<std::shared_ptr<RecordBatch>> generator;
 
-    EXPECT_EQ(num_batches_written_, reader->num_record_batches());
+    {
+      ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchFileReader::Open(
+          buf_reader.get(), footer_offset_, options));
+      EXPECT_EQ(num_batches_written_, reader->num_record_batches());
+      // Generator's lifetime is independent of the reader's
+      ARROW_ASSIGN_OR_RAISE(generator, reader->GetRecordBatchGenerator());
+    }
 
-    ARROW_ASSIGN_OR_RAISE(auto generator, reader->GetRecordBatchGenerator());
     std::vector<Future<std::shared_ptr<RecordBatch>>> futures;
     for (int i = 0; i < num_batches_written_; ++i) {
       futures.push_back(generator());
@@ -1033,9 +1037,9 @@ struct FileGeneratorWriterHelper : public FileWriterHelper {
       out_batches->push_back(batch);
     }
 
-    if (out_stats) {
-      *out_stats = reader->stats();
-    }
+    // The generator doesn't track stats.
+    EXPECT_EQ(nullptr, out_stats);
+
     return Status::OK();
   }
 

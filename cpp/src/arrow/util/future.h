@@ -631,8 +631,8 @@ Future<std::vector<Result<T>>> All(std::vector<Future<T>> futures) {
     std::atomic<size_t> n_remaining;
   };
 
-  if (futures.size() == 0) {
-    return {std::vector<Result<T>>{}};
+  if (futures.empty()) {
+    return Future<std::vector<Result<T>>>::MakeFinished(std::vector<Result<T>>());
   }
 
   auto state = std::make_shared<State>(std::move(futures));
