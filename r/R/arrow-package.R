@@ -81,7 +81,8 @@ option_use_threads <- function() {
 #' This function summarizes a number of build-time configurations and run-time
 #' settings for the Arrow package. It may be useful for diagnostics.
 #' @return A list including version information, boolean "capabilities", and
-#' statistics from Arrow's memory allocator.
+#' statistics from Arrow's memory allocator, and also Arrow's run-time
+#' information.
 #' @export
 #' @importFrom utils packageVersion
 arrow_info <- function() {
@@ -89,8 +90,7 @@ arrow_info <- function() {
   out <- list(
     version = packageVersion("arrow"),
     libarrow = arrow_available(),
-    options = opts[grep("^arrow\\.", names(opts))],
-    runtime = runtime_info()
+    options = opts[grep("^arrow\\.", names(opts))]
   )
   if (out$libarrow) {
     pool <- default_memory_pool()
@@ -106,8 +106,8 @@ arrow_info <- function() {
         available_backends = supported_memory_backends()
       ),
       runtime_info = list(
-        simd_level = out$runtime[1],
-        detected_simd_level = out$runtime[2]
+        simd_level = runtime_info()[1],
+        detected_simd_level = runtime_info()[2]
       )
     ))
   }
