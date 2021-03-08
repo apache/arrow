@@ -1632,7 +1632,7 @@ tasks:
 
   test-r-install-macos:
     ci: github
-    template: r/github.macos.local.yml
+    template: r/github.macos-linux.local.yml
 
   test-r-rhub-ubuntu-gcc-release:
     ci: azure
