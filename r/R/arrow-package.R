@@ -149,7 +149,7 @@ print.arrow_info <- function(x, ...) {
     ))
     print_key_values("Runtime", c(
       `SIMD Level` = x$runtime_info$simd_level,
-      `Detected SIMD Level` = x$runtime_info$simd_level
+      `Detected SIMD Level` = x$runtime_info$detected_simd_level
     ))
   } else {
     cat("Arrow C++ library not available\n")
