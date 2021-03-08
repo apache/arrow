@@ -194,14 +194,14 @@ public class ArrowRecordBatch implements ArrowMessage {
     RecordBatch.startBuffersVector(builder, buffers.size());
     int buffersOffset = FBSerializables.writeAllStructsToVector(builder, buffersLayout);
     int compressOffset = 0;
-    if (bodyCompression != null && bodyCompression != NoCompressionCodec.DEFAULT_BODY_COMPRESSION) {
+    if (bodyCompression.getCodec() != NoCompressionCodec.COMPRESSION_TYPE) {
       compressOffset = bodyCompression.writeTo(builder);
     }
     RecordBatch.startRecordBatch(builder);
     RecordBatch.addLength(builder, length);
     RecordBatch.addNodes(builder, nodesOffset);
     RecordBatch.addBuffers(builder, buffersOffset);
-    if (bodyCompression != null && bodyCompression != NoCompressionCodec.DEFAULT_BODY_COMPRESSION) {
+    if (bodyCompression.getCodec() != NoCompressionCodec.COMPRESSION_TYPE) {
       RecordBatch.addCompression(builder, compressOffset);
     }
     return RecordBatch.endRecordBatch(builder);

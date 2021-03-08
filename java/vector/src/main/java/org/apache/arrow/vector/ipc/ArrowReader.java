@@ -213,13 +213,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
     try {
       loader.load(batch);
     } finally {
-      // if decompression performed, the buffer has been released during
-      // decompression, so there is no need to release again
-      if (!loader.isDecompressionPerformed()) {
-        batch.close();
-      } else {
-        loader.releaseDecompressedBuffers();
-      }
+      batch.close();
     }
   }
 

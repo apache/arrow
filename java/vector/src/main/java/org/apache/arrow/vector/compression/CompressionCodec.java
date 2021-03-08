@@ -30,7 +30,7 @@ public interface CompressionCodec {
    * @param allocator the allocator for allocating memory for compressed buffer.
    * @param uncompressedBuffer the buffer to compress.
    *                           Implementation of this method should take care of releasing this buffer.
-   * @return the compressed buffer.
+   * @return the compressed buffer
    */
   ArrowBuf compress(BufferAllocator allocator, ArrowBuf uncompressedBuffer);
 
@@ -57,6 +57,6 @@ public interface CompressionCodec {
     /**
      * Creates the codec based on the codec type.
      */
-    CompressionCodec createCodec(byte codecType);
+    CompressionCodec createCodec(CompressionUtil.CodecType codecType);
   }
 }

@@ -61,7 +61,7 @@ public class Lz4CompressionCodec implements CompressionCodec {
       if (compressedLength > uncompressedBuffer.writerIndex()) {
         // compressed buffer is larger, send the raw buffer
         compressedBuffer.close();
-        compressedBuffer = CompressionUtil.compressRawBuffer(allocator, uncompressedBuffer);
+        compressedBuffer = CompressionUtil.packageRawBuffer(allocator, uncompressedBuffer);
       }
 
       uncompressedBuffer.close();
@@ -88,8 +88,7 @@ public class Lz4CompressionCodec implements CompressionCodec {
     if (!MemoryUtil.LITTLE_ENDIAN) {
       uncompressedLength = Long.reverseBytes(uncompressedLength);
     }
-    // first 8 bytes reserved for uncompressed length, to be consistent with the
-    // C++ implementation.
+    // first 8 bytes reserved for uncompressed length, according to the specification
     compressedBuffer.setLong(0, uncompressedLength);
 
     PlatformDependent.copyMemory(
@@ -119,7 +118,7 @@ public class Lz4CompressionCodec implements CompressionCodec {
 
     if (decompressedLength == CompressionUtil.NO_COMPRESSION_LENGTH) {
       // no compression
-      return CompressionUtil.decompressRawBuffer(compressedBuffer);
+      return CompressionUtil.extractUncompressedBuffer(compressedBuffer);
     }
 
     try {

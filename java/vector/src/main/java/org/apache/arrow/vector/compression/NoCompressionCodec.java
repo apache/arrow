@@ -49,7 +49,7 @@ public class NoCompressionCodec implements CompressionCodec {
 
   @Override
   public String getCodecName() {
-    return "default";
+    return "NO_COMPRESSION";
   }
 
   /**
@@ -60,7 +60,7 @@ public class NoCompressionCodec implements CompressionCodec {
     public static final NoCompressionCodec.Factory INSTANCE = new NoCompressionCodec.Factory();
 
     @Override
-    public CompressionCodec createCodec(byte codecType) {
+    public CompressionCodec createCodec(CompressionUtil.CodecType codecType) {
       return NoCompressionCodec.INSTANCE;
     }
   }

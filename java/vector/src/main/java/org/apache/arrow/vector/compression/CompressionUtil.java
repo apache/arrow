@@ -28,6 +28,40 @@ import org.apache.arrow.vector.ipc.message.ArrowBodyCompression;
  */
 public class CompressionUtil {
 
+  /**
+   * Compression codec types corresponding to flat buffer implementation in {@link CompressionType}.
+   */
+  public enum CodecType {
+
+    NO_COMPRESSION(NoCompressionCodec.COMPRESSION_TYPE),
+
+    LZ4_FRAME(org.apache.arrow.flatbuf.CompressionType.LZ4_FRAME),
+
+    ZSTD(org.apache.arrow.flatbuf.CompressionType.ZSTD);
+
+    private final byte type;
+
+    CodecType(byte type) {
+      this.type = type;
+    }
+
+    public byte getType() {
+      return type;
+    }
+
+    /**
+     * Gets the codec type from the compression type defined in {@link CompressionType}.
+     */
+    public static CodecType fromCompressionType(byte type) {
+      for (CodecType codecType : values()) {
+        if (codecType.type == type) {
+          return codecType;
+        }
+      }
+      return NO_COMPRESSION;
+    }
+  }
+
   public static final long SIZE_OF_UNCOMPRESSED_LENGTH = 8L;
 
   /**
@@ -41,25 +75,18 @@ public class CompressionUtil {
 
   /**
    * Creates the {@link ArrowBodyCompression} object, given the {@link CompressionCodec}.
-   * The implementation of this method should depend on the values of {@link CompressionType#names}.
+   * The implementation of this method should depend on the values of
+   * {@link org.apache.arrow.flatbuf.CompressionType#names}.
    */
   public static ArrowBodyCompression createBodyCompression(CompressionCodec codec) {
-    switch (codec.getCodecName()) {
-      case "default":
-        return NoCompressionCodec.DEFAULT_BODY_COMPRESSION;
-      case "LZ4_FRAME":
-        return new ArrowBodyCompression(CompressionType.LZ4_FRAME, BodyCompressionMethod.BUFFER);
-      case "ZSTD":
-        return new ArrowBodyCompression(CompressionType.ZSTD, BodyCompressionMethod.BUFFER);
-      default:
-        throw new IllegalArgumentException("Unknown codec: " + codec.getCodecName());
-    }
+    CodecType type = CodecType.valueOf(codec.getCodecName());
+    return new ArrowBodyCompression(type.getType(), BodyCompressionMethod.BUFFER);
   }
 
   /**
    * Process compression by compressing the buffer as is.
    */
-  public static ArrowBuf compressRawBuffer(BufferAllocator allocator, ArrowBuf inputBuffer) {
+  public static ArrowBuf packageRawBuffer(BufferAllocator allocator, ArrowBuf inputBuffer) {
     ArrowBuf compressedBuffer = allocator.buffer(SIZE_OF_UNCOMPRESSED_LENGTH + inputBuffer.writerIndex());
     compressedBuffer.setLong(0, NO_COMPRESSION_LENGTH);
     compressedBuffer.setBytes(SIZE_OF_UNCOMPRESSED_LENGTH, inputBuffer, 0, inputBuffer.writerIndex());
@@ -70,7 +97,7 @@ public class CompressionUtil {
   /**
    * Process decompression by decompressing the buffer as is.
    */
-  public static ArrowBuf decompressRawBuffer(ArrowBuf inputBuffer) {
+  public static ArrowBuf extractUncompressedBuffer(ArrowBuf inputBuffer) {
     return inputBuffer.slice(SIZE_OF_UNCOMPRESSED_LENGTH,
         inputBuffer.writerIndex() - SIZE_OF_UNCOMPRESSED_LENGTH);
   }
