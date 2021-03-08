@@ -2434,7 +2434,7 @@ async fn query_regexp_extract() -> Result<()> {
     let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
-    ctx.register_table("test", Box::new(table));
+    ctx.register_table("test", Arc::new(table));
     let sql = r"SELECT regexp_extract(c1, '.*-(\d)', 1) FROM test";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![vec!["0"], vec!["1"], vec!["NULL"]];
@@ -2454,7 +2454,7 @@ async fn query_regexp_match() -> Result<()> {
     let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
-    ctx.register_table("test", Box::new(table));
+    ctx.register_table("test", Arc::new(table));
     let sql = r"SELECT regexp_match(c1, '.*-(\d)') FROM test";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![vec!["[0]"], vec!["[1]"], vec!["[]"]];
