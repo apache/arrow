@@ -26,8 +26,8 @@ namespace util {
 TEST(TestQueue, TestMoveOnly) {
   SpscQueue<MoveOnlyDataType> queue(2);
   MoveOnlyDataType in(42);
-  queue.write(std::move(in));
-  MoveOnlyDataType out = std::move(*queue.frontPtr());
+  queue.Write(std::move(in));
+  MoveOnlyDataType out = std::move(*queue.FrontPtr());
   ASSERT_EQ(42, *out.data);
 }
 

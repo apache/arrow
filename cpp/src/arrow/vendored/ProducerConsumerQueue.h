@@ -19,6 +19,9 @@
 // @author Bo Hu (bhu@fb.com)
 // @author Jordan DeLong (delong.j@fb.com)
 
+// This file has been modified as part of Apache Arrow to conform to
+// Apache Arrow's coding conventions
+
 #pragma once
 
 #include <atomic>
@@ -73,7 +76,7 @@ struct ProducerConsumerQueue {
   //
   // Also, note that the number of usable slots in the queue at any
   // given time is actually (size-1), so if you start with an empty queue,
-  // isFull() will return true after size-1 insertions.
+  // IsFull() will return true after size-1 insertions.
   explicit ProducerConsumerQueue(uint32_t size)
       : size_(size),
         records_(static_cast<T*>(std::malloc(sizeof(T) * size))),
@@ -104,7 +107,7 @@ struct ProducerConsumerQueue {
   }
 
   template <class... Args>
-  bool write(Args&&... recordArgs) {
+  bool Write(Args&&... recordArgs) {
     auto const currentWrite = writeIndex_.load(std::memory_order_relaxed);
     auto nextRecord = currentWrite + 1;
     if (nextRecord == size_) {
@@ -121,7 +124,7 @@ struct ProducerConsumerQueue {
   }
 
   // move (or copy) the value at the front of the queue to given variable
-  bool read(T& record) {
+  bool Read(T& record) {
     auto const currentRead = readIndex_.load(std::memory_order_relaxed);
     if (currentRead == writeIndex_.load(std::memory_order_acquire)) {
       // queue is empty
@@ -140,7 +143,7 @@ struct ProducerConsumerQueue {
 
   // pointer to the value at the front of the queue (for use in-place) or
   // nullptr if empty.
-  T* frontPtr() {
+  T* FrontPtr() {
     auto const currentRead = readIndex_.load(std::memory_order_relaxed);
     if (currentRead == writeIndex_.load(std::memory_order_acquire)) {
       // queue is empty
@@ -150,7 +153,7 @@ struct ProducerConsumerQueue {
   }
 
   // queue must not be empty
-  void popFront() {
+  void PopFront() {
     auto const currentRead = readIndex_.load(std::memory_order_relaxed);
     assert(currentRead != writeIndex_.load(std::memory_order_acquire));
 
@@ -162,12 +165,12 @@ struct ProducerConsumerQueue {
     readIndex_.store(nextRecord, std::memory_order_release);
   }
 
-  bool isEmpty() const {
+  bool IsEmpty() const {
     return readIndex_.load(std::memory_order_acquire) ==
            writeIndex_.load(std::memory_order_acquire);
   }
 
-  bool isFull() const {
+  bool IsFull() const {
     auto nextRecord = writeIndex_.load(std::memory_order_acquire) + 1;
     if (nextRecord == size_) {
       nextRecord = 0;
@@ -184,7 +187,7 @@ struct ProducerConsumerQueue {
   // * If called by producer, then true size may be less (because consumer may
   //   be removing items concurrently).
   // * It is undefined to call this from any other thread.
-  size_t sizeGuess() const {
+  size_t SizeGuess() const {
     int ret = writeIndex_.load(std::memory_order_acquire) -
               readIndex_.load(std::memory_order_acquire);
     if (ret < 0) {

@@ -52,7 +52,7 @@ void throughput(benchmark::State& state) {
       auto itr = std::make_move_iterator(source->begin());
       auto end = std::make_move_iterator(source->end());
       while (itr != end) {
-        while (!queue.write(*itr)) {
+        while (!queue.Write(*itr)) {
         }
         itr++;
       }
@@ -62,10 +62,10 @@ void throughput(benchmark::State& state) {
       auto itr = sink->begin();
       auto end = sink->end();
       while (itr != end) {
-        auto next = queue.frontPtr();
+        auto next = queue.FrontPtr();
         if (next != nullptr) {
           (*itr).swap(*next);
-          queue.popFront();
+          queue.PopFront();
           itr++;
         }
       }
