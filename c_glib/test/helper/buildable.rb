@@ -189,8 +189,8 @@ module Helper
       if value.nil?
         builder.append_null
       else
-        data_type_id = builder.value_data_type.id
-        case data_type_id
+        data_type = builder.value_data_type
+        case data_type.id
         when Arrow::Type::LIST, Arrow::Type::LARGE_LIST
           builder.append_value
           value_builder = builder.value_builder
@@ -208,7 +208,7 @@ module Helper
         when Arrow::Type::STRUCT
           builder.append_value
           value.each do |name, v|
-            field_index = builder.value_data_type.get_field_index(name)
+            field_index = data_type.get_field_index(name)
             field_builder = builder.get_field_builder(field_index)
             append_to_builder(field_builder, v)
           end
