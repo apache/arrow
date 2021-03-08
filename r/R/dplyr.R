@@ -282,16 +282,14 @@ arrow_eval <- function (expr, mask) {
 build_function_list <- function(FUN) {
   wrapper <- function(operator) {
     force(operator)
-    function(e1, e2) FUN(operator, e1, e2)
+    function(...) FUN(operator, ...)
   }
+  all_arrow_funs <- list_compute_functions()
 
   c(
+    # Include mappings from R function name spellings
     lapply(set_names(names(.array_function_map)), wrapper),
-    # TODO: lapply also for the arrow spellings?
-    # See list_compute_functions()
-    # (would want to do these first, and then modifyList with the R ones
-    # in case of name collision)
-    # Would need to generalize FUN to accept ... args
+    # Plus some special handling where it's not 1:1
     str_trim = function(string, side = c("both", "left", "right")) {
       side <- match.arg(side)
       switch(
@@ -300,20 +298,29 @@ build_function_list <- function(FUN) {
         right = FUN("utf8_rtrim_whitespace", string),
         both = FUN("utf8_trim_whitespace", string)
       )
-    }
+    },
+    # Now also include all available Arrow Compute functions,
+    # namespaced as arrow_fun
+    set_names(
+      lapply(all_arrow_funs, wrapper),
+      paste0("arrow_", all_arrow_funs)
+    )
   )
 }
 
-# Create these once, at package build time
-dataset_function_list <- build_function_list(build_dataset_expression)
-array_function_list <- build_function_list(build_array_expression)
+# We'll populate these at package load time.
+dplyr_functions <- NULL
+init_env <- function () {
+  dplyr_functions <<- new.env(hash = TRUE)
+}
+init_env()
 
 # Create a data mask for evaluating a dplyr expression
 arrow_mask <- function(.data) {
   if (query_on_dataset(.data)) {
-    f_env <- new_environment(dataset_function_list)
+    f_env <- new_environment(dplyr_functions$dataset)
   } else {
-    f_env <- new_environment(array_function_list)
+    f_env <- new_environment(dplyr_functions$array)
   }
 
   # Add functions that need to error hard and clear.
