@@ -1627,7 +1627,9 @@ class S3FileSystem::Impl {
 };
 
 S3FileSystem::S3FileSystem(const S3Options& options, const io::IOContext& io_context)
-    : FileSystem(io_context), impl_(new Impl{options}) {}
+    : FileSystem(io_context), impl_(new Impl{options}) {
+  default_async_is_sync_ = false;
+}
 
 S3FileSystem::~S3FileSystem() {}
 
