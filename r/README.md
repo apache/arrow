@@ -178,28 +178,6 @@ For any other build/configuration challenges, see the [C++ developer
 guide](https://arrow.apache.org/docs/developers/cpp/building.html) and
 `vignette("install", package = "arrow")`.
 
-### Using `remotes::install_github(...)` 
-
-If you need an Arrow installation from a specific repository or at a specific ref, `remotes::install_github()` should work on most platforms. This method is helpful if you need a full install of arrow that is separate from another install (e.g. we use this in [arrowbench](https://github.com/ursacomputing/arrowbench) to install development versions of arrow isolated from the system install). However there are some caveats to be aware of:
-
-* Setting the environment variable `FORCE_TOOLS_LIBS_SCRIPT` to `true` will avoid linking to any arrow libraries already installed and attempt to build arrow from the same source at the repository+ref given.
-* If you are using the `FORCE_TOOLS_LIBS_SCRIPT` you must also set `build = FALSE` in the `remotes::install_github()` call. This is similar to checking out the repository and calling `R CMD INSTALL .` in the `arrow/r` directory (as opposed to first calling `R CMD BUILD .` and then installing the tar.gz file that produces, which is the default for `remotes::install_github()`).
-* Specify `subdir = "r"` to get the R package.
-* On macOS you may need to also specify the environment variable `SDKROOT` to an appropriate location (typically something like `/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk`). This is most easily and reliably done using `xcrun --show-sdk-path` (to set the environment variable inside of R you can `Sys.setenv(SDKROOT=system("xcrun --show-sdk-path", intern = TRUE))`).
-* If you have arrow installed already, you may want to change your Makevars `CPPFLAGS` and `LDFLAGS` to `""` in order to prevent the installation process from attempting to link to already installed system versions of arrow. One way to do this temporarily is wrapping your `remotes::install_github()` call like so: `withr::with_makevars(list(CPPFLAGS = "", LDFLAGS = ""), remotes::install_github(...))`. 
-
-As with other installation methods setting the environment variables `LIBARROW_MINIMAL=false` and `ARROW_R_DEV=true` will provide a more full-featured version of Arrow and provide more verbose output respectively.
-
-For example, to install from the (fictional) branch `bugfix` from `apache/arrow` one could:
-
-```r
-Sys.setenv(FORCE_TOOLS_LIBS_SCRIPT="true")
-Sys.setenv(LIBARROW_MINIMAL="false")
-remotes::install_github("apache/arrow", ref = "bugfix", subdir = "r", build = FALSE)
-```
-
-This feature is experimental and might not work on all platforms.
-
 ### Editing C++ code
 
 The `arrow` package uses some customized tools on top of `cpp11` to

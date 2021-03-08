@@ -165,9 +165,9 @@ else
         PKG_DIRS="-L$(pwd)/$LIB_DIR"
         # TODO, deal with: PKG_LIBS="-L$(pwd)/$LIB_DIR $PKG_LIBS $BUNDLED_LIBS"
 
-        # openssl is not bundled, and so we must add the lib path to PKG_LIBS if
-        # we are using it. Note the order is important, this must be after the
-        # arrow lib path + the pkg and bundled libs above.
+        # When using brew's openssl it is not bundled, and so we must add the
+        # lib path to PKG_LIBS if we are using it. Note the order is important,
+        # this must be after the arrow lib path + the pkg and bundled libs above
         if [ $OPENSSL_ROOT_DIR != "" ]; then
           PKG_DIRS="PKG_DIRS -L$OPENSSL_ROOT_DIR/lib"
         fi
