@@ -2312,7 +2312,7 @@ mod tests {
             "a", "cat", "mat", "on", "sat", "the", "xxx", "xxxx", "fdadfdsf",
         ];
         let mut d = before.clone();
-        d.sort();
+        d.sort_unstable();
 
         for last in 0..before.len() {
             before.partial_sort(last, |a, b| a.cmp(b));
@@ -2327,7 +2327,7 @@ mod tests {
         let mut before: Vec<u32> = (0..size).map(|_| rng.gen::<u32>()).collect();
         let mut d = before.clone();
         let last = (rng.next_u32() % size) as usize;
-        d.sort();
+        d.sort_unstable();
 
         before.partial_sort(last, |a, b| a.cmp(b));
         assert_eq!(&d[0..last], &before[0..last]);
