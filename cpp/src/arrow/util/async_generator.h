@@ -196,13 +196,13 @@ class SerialReadaheadGenerator {
     // This generator is not async-reentrant.  We won't be called until the last
     // future finished so we know there is something in the queue
     auto finished = state_->finished.load();
-    if (finished && state_->readahead_queue.isEmpty()) {
+    if (finished && state_->readahead_queue.IsEmpty()) {
       return Future<T>::MakeFinished(IterationTraits<T>::End());
     }
 
-    auto next_ptr = state_->readahead_queue.frontPtr();
+    auto next_ptr = state_->readahead_queue.FrontPtr();
     auto next = std::move(**next_ptr);
-    state_->readahead_queue.popFront();
+    state_->readahead_queue.PopFront();
 
     auto last_available = state_->spaces_available.fetch_add(1);
     if (last_available == 0 && !finished) {
@@ -226,7 +226,7 @@ class SerialReadaheadGenerator {
       // callback might run immediately and add itself to the queue before this gets added
       // to the queue messing up the order
       auto next_slot = std::make_shared<Future<T>>();
-      auto written = readahead_queue.write(next_slot);
+      auto written = readahead_queue.Write(next_slot);
       if (!written) {
         return Status::UnknownError("Could not write to readahead_queue");
       }
