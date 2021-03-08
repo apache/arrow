@@ -1239,7 +1239,8 @@ endif()
 
 macro(build_thrift)
   if(CMAKE_VERSION VERSION_LESS 3.10)
-    message(FATAL_ERROR "Building thrift using ExternalProject requires at least CMake 3.10")
+    message(
+      FATAL_ERROR "Building thrift using ExternalProject requires at least CMake 3.10")
   endif()
   message("Building Apache Thrift from source")
   set(THRIFT_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/thrift_ep-install")
