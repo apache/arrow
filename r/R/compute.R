@@ -109,6 +109,21 @@ match_arrow.ArrowDatum <- function(x, table, ...) {
   call_function("index_in_meta_binary", x, table)
 }
 
+#' `is_in` for Arrow objects
+#'
+#' TODO
+#'
+#' @export
+is_in <- function(x, table, ...) UseMethod("is_in")
+
+#' @export
+is_in.ArrowDatum <- function(x, table, ...) {
+  if (!inherits(table, c("Array", "DictionaryArray", "ChunkedArray"))) {
+    table <- Array$create(table)
+  }
+  call_function("is_in_meta_binary", x, table)
+}
+
 #' `table` for Arrow objects
 #'
 #' This function tabulates the values in the array and returns a table of counts.
