@@ -80,10 +80,6 @@ map: map<string, struct<int1: int32, string1: string>>
     build_struct_array(middle_fields, middles)
   end
 
-  def build_key_value_array(map_array)
-    build_map_array(Arrow::StringDataType.new, item_data_type, map_array)
-  end
-
   def middle_array
     build_middle_array([
                          {
@@ -143,19 +139,21 @@ map: map<string, struct<int1: int32, string1: string>>
   end
 
   def map_array
-    build_key_value_array([
-                            {},
-                              {
-                                "chani" => {
-                                  "int1" => 5,
-                                  "string1" => "chani",
-                                },
-                              "mauddib" => {
-                                  "int1" => 1,
-                                  "string1" => "mauddib",
-                                },
-                              },
-                          ])
+    build_map_array(Arrow::StringDataType.new,
+                    item_data_type,
+                    [
+                      {},
+                      {
+                        "chani" => {
+                          "int1" => 5,
+                          "string1" => "chani",
+                        },
+                        "mauddib" => {
+                          "int1" => 1,
+                          "string1" => "mauddib",
+                        },
+                      },
+                    ])
   end
 
   def all_columns
