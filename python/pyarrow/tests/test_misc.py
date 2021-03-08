@@ -17,6 +17,7 @@
 
 import os
 import subprocess
+import sys
 
 import pytest
 
@@ -69,10 +70,10 @@ def test_runtime_info():
 
             info = pa.runtime_info()
             assert info.simd_level == 'none', info.simd_level
-            assert info.detected_simd_level == f{info.detected_simd_level!r},\
+            assert info.detected_simd_level == {info.detected_simd_level!r},\
                 info.detected_simd_level
             """
-        subprocess.check_call(["python", "-c", code], env=env)
+        subprocess.check_call([sys.executable, "-c", code], env=env)
 
 
 @pytest.mark.parametrize('klass', [
