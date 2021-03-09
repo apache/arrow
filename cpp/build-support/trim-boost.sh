@@ -46,7 +46,7 @@ BOOST_LIBS="$BOOST_LIBS config build boost_install headers log predef"
 # Gandiva needs these (and some Arrow tests do too)
 BOOST_LIBS="$BOOST_LIBS multiprecision/cpp_int.hpp"
 # These are for Thrift when Thrift_SOURCE=BUNDLED
-BOOST_LIBS="$BOOST_LIBS locale.hpp"
+BOOST_LIBS="$BOOST_LIBS locale.hpp scope_exit.hpp"
 
 if [ ! -d ${BOOST_FILE} ]; then
   curl -L "${BOOST_URL}" > ${BOOST_FILE}.tar.gz
