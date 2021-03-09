@@ -26,7 +26,11 @@
 #
 #     set(BOOST_SOURCE_URL /path/to/arrow/cpp/build-support/boost_1_75_0/boost_1_75_0.tar.gz)
 #
-# to the beginning of the build_boost() macro in ThirdpartyToolchain.cmake
+# to the beginning of the build_boost() macro in ThirdpartyToolchain.cmake,
+#
+# or set the env var ARROW_BOOST_URL before calling cmake, like:
+#
+#     ARROW_BOOST_URL=/path/to/arrow/cpp/build-support/boost_1_75_0/boost_1_75_0.tar.gz cmake ...
 #
 # After running this script, upload the bundle to
 # https://github.com/ursa-labs/thirdparty/releases/edit/latest
