@@ -411,7 +411,7 @@ with_s3_support <- function(env_vars) {
       cat("**** S3 support requires libcurl-devel (rpm) or libcurl4-openssl-dev (deb); building with ARROW_S3=OFF\n")
       arrow_s3 <- FALSE
     } else if (!cmake_find_package("OpenSSL", "1.0.2", env_vars)) {
-      cat("**** S3 support requires openssl-devel (rpm), libssl-dev (deb), openssl (brew), version >= 1.0.2; building with ARROW_S3=OFF\n")
+      cat("**** S3 support requires version >= 1.0.2 of openssl-devel (rpm), libssl-dev (deb), or openssl (brew); building with ARROW_S3=OFF\n")
       arrow_s3 <- FALSE
     }
   }
