@@ -506,9 +506,6 @@ mutate.arrow_dplyr_query <- function(.data,
   }
 
   .data <- arrow_dplyr_query(.data)
-  if (query_on_dataset(.data)) {
-    not_implemented_for_dataset("mutate()")
-  }
 
   .keep <- match.arg(.keep)
   .before <- enquo(.before)
@@ -529,6 +526,7 @@ mutate.arrow_dplyr_query <- function(.data,
   # Deparse and take the first element in case they're long expressions
   names(exprs)[unnamed] <- map_chr(exprs[unnamed], as_label)
 
+  is_dataset <- query_on_dataset(.data)
   mask <- arrow_mask(.data)
   results <- list()
   for (i in seq_along(exprs)) {
@@ -539,6 +537,15 @@ mutate.arrow_dplyr_query <- function(.data,
     if (inherits(results[[new_var]], "try-error")) {
       msg <- paste('Expression', as_label(exprs[[i]]), 'not supported in Arrow')
       return(abandon_ship(call, .data, msg))
+    } else if (is_dataset &&
+               !inherits(results[[new_var]], "Expression") &&
+               !is.null(results[[new_var]])) {
+      # We need some wrapping to handle literal values
+      if (length(results[[new_var]]) != 1) {
+        msg <- paste0('In ', new_var, " = ", as_label(exprs[[i]]), ", only values of size one are recycled")
+        return(abandon_ship(call, .data, msg))
+      }
+      results[[new_var]] <- Expression$scalar(results[[new_var]])
     }
     # Put it in the data mask too
     mask[[new_var]] <- mask$.data[[new_var]] <- results[[new_var]]
@@ -583,7 +590,7 @@ abandon_ship <- function(call, .data, msg = NULL) {
       # Default message: function not implemented
       not_implemented_for_dataset(paste0(dplyr_fun_name, "()"))
     } else {
-      stop(msg, call. = FALSE)
+      stop(msg, "\nCall collect() first to pull data into R.", call. = FALSE)
     }
   }
 

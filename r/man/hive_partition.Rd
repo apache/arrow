@@ -26,7 +26,7 @@ Because fields are named in the path segments, order of fields passed to
 \code{hive_partition()} does not matter.
 }
 \examples{
-\donttest{
+\dontrun{
 hive_partition(year = int16(), month = int8())
 }
 }

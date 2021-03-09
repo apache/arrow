@@ -2034,6 +2034,9 @@ macro_rules! test_expression {
 
 #[tokio::test]
 async fn test_string_expressions() -> Result<()> {
+    test_expression!("ascii('')", "0");
+    test_expression!("ascii('x')", "120");
+    test_expression!("ascii(NULL)", "NULL");
     test_expression!("bit_length('')", "0");
     test_expression!("bit_length('chars')", "40");
     test_expression!("bit_length('josé')", "40");
@@ -2051,6 +2054,9 @@ async fn test_string_expressions() -> Result<()> {
     test_expression!("character_length('chars')", "5");
     test_expression!("character_length('josé')", "4");
     test_expression!("character_length(NULL)", "NULL");
+    test_expression!("chr(CAST(120 AS int))", "x");
+    test_expression!("chr(CAST(128175 AS int))", "💯");
+    test_expression!("chr(CAST(NULL AS int))", "NULL");
     test_expression!("concat('a','b','c')", "abc");
     test_expression!("concat('abcde', 2, NULL, 22)", "abcde222");
     test_expression!("concat(NULL)", "");
@@ -2058,6 +2064,9 @@ async fn test_string_expressions() -> Result<()> {
     test_expression!("concat_ws('|','a','b','c')", "a|b|c");
     test_expression!("concat_ws('|',NULL)", "");
     test_expression!("concat_ws(NULL,'a',NULL,'b','c')", "NULL");
+    test_expression!("initcap('')", "");
+    test_expression!("initcap('hi THOMAS')", "Hi Thomas");
+    test_expression!("initcap(NULL)", "NULL");
     test_expression!("left('abcde', -2)", "abc");
     test_expression!("left('abcde', -200)", "");
     test_expression!("left('abcde', 0)", "");
@@ -2088,6 +2097,12 @@ async fn test_string_expressions() -> Result<()> {
     test_expression!("octet_length('chars')", "5");
     test_expression!("octet_length('josé')", "5");
     test_expression!("octet_length(NULL)", "NULL");
+    test_expression!("repeat('Pg', 4)", "PgPgPgPg");
+    test_expression!("repeat('Pg', CAST(NULL AS INT))", "NULL");
+    test_expression!("repeat(NULL, 4)", "NULL");
+    test_expression!("reverse('abcde')", "edcba");
+    test_expression!("reverse('loẅks')", "skẅol");
+    test_expression!("reverse(NULL)", "NULL");
     test_expression!("right('abcde', -2)", "cde");
     test_expression!("right('abcde', -200)", "");
     test_expression!("right('abcde', 0)", "");
@@ -2120,6 +2135,9 @@ async fn test_string_expressions() -> Result<()> {
     test_expression!("substr('alphabet', 3, 20)", "phabet");
     test_expression!("substr('alphabet', CAST(NULL AS int), 20)", "NULL");
     test_expression!("substr('alphabet', 3, CAST(NULL AS int))", "NULL");
+    test_expression!("to_hex(2147483647)", "7fffffff");
+    test_expression!("to_hex(9223372036854775807)", "7fffffffffffffff");
+    test_expression!("to_hex(CAST(NULL AS int))", "NULL");
     test_expression!("trim(' tom ')", "tom");
     test_expression!("trim(' tom')", "tom");
     test_expression!("trim('')", "");

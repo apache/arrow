@@ -1238,6 +1238,10 @@ endif()
 # Thrift
 
 macro(build_thrift)
+  if(CMAKE_VERSION VERSION_LESS 3.10)
+    message(
+      FATAL_ERROR "Building thrift using ExternalProject requires at least CMake 3.10")
+  endif()
   message("Building Apache Thrift from source")
   set(THRIFT_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/thrift_ep-install")
   set(THRIFT_INCLUDE_DIR "${THRIFT_PREFIX}/include")
@@ -1247,8 +1251,6 @@ macro(build_thrift)
       "-DCMAKE_INSTALL_RPATH=${THRIFT_PREFIX}/lib"
       -DBUILD_COMPILER=OFF
       -DBUILD_SHARED_LIBS=OFF
-      # DWITH_SHARED_LIB is removed in 0.13
-      -DWITH_SHARED_LIB=OFF
       -DBUILD_TESTING=OFF
       -DBUILD_EXAMPLES=OFF
       -DBUILD_TUTORIALS=OFF

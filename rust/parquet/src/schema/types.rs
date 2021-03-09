@@ -21,7 +21,7 @@ use std::{collections::HashMap, convert::From, fmt, sync::Arc};
 
 use parquet_format::SchemaElement;
 
-use crate::basic::{LogicalType, Repetition, Type as PhysicalType};
+use crate::basic::{ConvertedType, LogicalType, Repetition, Type as PhysicalType};
 use crate::errors::{ParquetError, Result};
 
 // ----------------------------------------------------------------------
@@ -192,7 +192,8 @@ pub struct PrimitiveTypeBuilder<'a> {
     name: &'a str,
     repetition: Repetition,
     physical_type: PhysicalType,
-    logical_type: LogicalType,
+    converted_type: ConvertedType,
+    logical_type: Option<LogicalType>,
     length: i32,
     precision: i32,
     scale: i32,
@@ -206,7 +207,8 @@ impl<'a> PrimitiveTypeBuilder<'a> {
             name,
             repetition: Repetition::OPTIONAL,
             physical_type,
-            logical_type: LogicalType::NONE,
+            converted_type: ConvertedType::NONE,
+            logical_type: None,
             length: -1,
             precision: -1,
             scale: -1,
@@ -220,8 +222,14 @@ impl<'a> PrimitiveTypeBuilder<'a> {
         self
     }
 
+    /// Sets [`ConvertedType`](crate::basic::ConvertedType) for this field and returns itself.
+    pub fn with_converted_type(mut self, converted_type: ConvertedType) -> Self {
+        self.converted_type = converted_type;
+        self
+    }
+
     /// Sets [`LogicalType`](crate::basic::LogicalType) for this field and returns itself.
-    pub fn with_logical_type(mut self, logical_type: LogicalType) -> Self {
+    pub fn with_logical_type(mut self, logical_type: Option<LogicalType>) -> Self {
         self.logical_type = logical_type;
         self
     }
@@ -261,6 +269,7 @@ impl<'a> PrimitiveTypeBuilder<'a> {
         let basic_info = BasicTypeInfo {
             name: String::from(self.name),
             repetition: Some(self.repetition),
+            converted_type: self.converted_type,
             logical_type: self.logical_type,
             id: self.id,
         };
@@ -273,17 +282,17 @@ impl<'a> PrimitiveTypeBuilder<'a> {
             ));
         }
 
-        match self.logical_type {
-            LogicalType::NONE => {}
-            LogicalType::UTF8 | LogicalType::BSON | LogicalType::JSON => {
+        match self.converted_type {
+            ConvertedType::NONE => {}
+            ConvertedType::UTF8 | ConvertedType::BSON | ConvertedType::JSON => {
                 if self.physical_type != PhysicalType::BYTE_ARRAY {
                     return Err(general_err!(
                         "{} can only annotate BYTE_ARRAY fields",
-                        self.logical_type
+                        self.converted_type
                     ));
                 }
             }
-            LogicalType::DECIMAL => {
+            ConvertedType::DECIMAL => {
                 match self.physical_type {
                     PhysicalType::INT32
                     | PhysicalType::INT64
@@ -353,34 +362,34 @@ impl<'a> PrimitiveTypeBuilder<'a> {
                     _ => (), // For BYTE_ARRAY precision is not limited
                 }
             }
-            LogicalType::DATE
-            | LogicalType::TIME_MILLIS
-            | LogicalType::UINT_8
-            | LogicalType::UINT_16
-            | LogicalType::UINT_32
-            | LogicalType::INT_8
-            | LogicalType::INT_16
-            | LogicalType::INT_32 => {
+            ConvertedType::DATE
+            | ConvertedType::TIME_MILLIS
+            | ConvertedType::UINT_8
+            | ConvertedType::UINT_16
+            | ConvertedType::UINT_32
+            | ConvertedType::INT_8
+            | ConvertedType::INT_16
+            | ConvertedType::INT_32 => {
                 if self.physical_type != PhysicalType::INT32 {
                     return Err(general_err!(
                         "{} can only annotate INT32",
-                        self.logical_type
+                        self.converted_type
                     ));
                 }
             }
-            LogicalType::TIME_MICROS
-            | LogicalType::TIMESTAMP_MILLIS
-            | LogicalType::TIMESTAMP_MICROS
-            | LogicalType::UINT_64
-            | LogicalType::INT_64 => {
+            ConvertedType::TIME_MICROS
+            | ConvertedType::TIMESTAMP_MILLIS
+            | ConvertedType::TIMESTAMP_MICROS
+            | ConvertedType::UINT_64
+            | ConvertedType::INT_64 => {
                 if self.physical_type != PhysicalType::INT64 {
                     return Err(general_err!(
                         "{} can only annotate INT64",
-                        self.logical_type
+                        self.converted_type
                     ));
                 }
             }
-            LogicalType::INTERVAL => {
+            ConvertedType::INTERVAL => {
                 if self.physical_type != PhysicalType::FIXED_LEN_BYTE_ARRAY
                     || self.length != 12
                 {
@@ -389,7 +398,7 @@ impl<'a> PrimitiveTypeBuilder<'a> {
                     ));
                 }
             }
-            LogicalType::ENUM => {
+            ConvertedType::ENUM => {
                 if self.physical_type != PhysicalType::BYTE_ARRAY {
                     return Err(general_err!("ENUM can only annotate BYTE_ARRAY fields"));
                 }
@@ -397,7 +406,7 @@ impl<'a> PrimitiveTypeBuilder<'a> {
             _ => {
                 return Err(general_err!(
                     "{} cannot be applied to a primitive type",
-                    self.logical_type
+                    self.converted_type
                 ));
             }
         }
@@ -418,7 +427,8 @@ impl<'a> PrimitiveTypeBuilder<'a> {
 pub struct GroupTypeBuilder<'a> {
     name: &'a str,
     repetition: Option<Repetition>,
-    logical_type: LogicalType,
+    converted_type: ConvertedType,
+    logical_type: Option<LogicalType>,
     fields: Vec<TypePtr>,
     id: Option<i32>,
 }
@@ -429,7 +439,8 @@ impl<'a> GroupTypeBuilder<'a> {
         Self {
             name,
             repetition: None,
-            logical_type: LogicalType::NONE,
+            converted_type: ConvertedType::NONE,
+            logical_type: None,
             fields: Vec::new(),
             id: None,
         }
@@ -441,8 +452,14 @@ impl<'a> GroupTypeBuilder<'a> {
         self
     }
 
+    /// Sets [`ConvertedType`](crate::basic::ConvertedType) for this field and returns itself.
+    pub fn with_converted_type(mut self, converted_type: ConvertedType) -> Self {
+        self.converted_type = converted_type;
+        self
+    }
+
     /// Sets [`LogicalType`](crate::basic::LogicalType) for this field and returns itself.
-    pub fn with_logical_type(mut self, logical_type: LogicalType) -> Self {
+    pub fn with_logical_type(mut self, logical_type: Option<LogicalType>) -> Self {
         self.logical_type = logical_type;
         self
     }
@@ -465,6 +482,7 @@ impl<'a> GroupTypeBuilder<'a> {
         let basic_info = BasicTypeInfo {
             name: String::from(self.name),
             repetition: self.repetition,
+            converted_type: self.converted_type,
             logical_type: self.logical_type,
             id: self.id,
         };
@@ -481,7 +499,8 @@ impl<'a> GroupTypeBuilder<'a> {
 pub struct BasicTypeInfo {
     name: String,
     repetition: Option<Repetition>,
-    logical_type: LogicalType,
+    converted_type: ConvertedType,
+    logical_type: Option<LogicalType>,
     id: Option<i32>,
 }
 
@@ -504,9 +523,15 @@ impl BasicTypeInfo {
         self.repetition.unwrap()
     }
 
+    /// Returns [`ConvertedType`](crate::basic::ConvertedType) value for the type.
+    pub fn converted_type(&self) -> ConvertedType {
+        self.converted_type
+    }
+
     /// Returns [`LogicalType`](crate::basic::LogicalType) value for the type.
-    pub fn logical_type(&self) -> LogicalType {
-        self.logical_type
+    pub fn logical_type(&self) -> Option<LogicalType> {
+        // Unlike ConvertedType, LogicalType cannot implement Copy, thus we clone it
+        self.logical_type.clone()
     }
 
     /// Returns `true` if id is set, `false` otherwise.
@@ -665,8 +690,13 @@ impl ColumnDescriptor {
         self.primitive_type.name()
     }
 
+    /// Returns [`ConvertedType`](crate::basic::ConvertedType) for this column.
+    pub fn converted_type(&self) -> ConvertedType {
+        self.primitive_type.get_basic_info().converted_type()
+    }
+
     /// Returns [`LogicalType`](crate::basic::LogicalType) for this column.
-    pub fn logical_type(&self) -> LogicalType {
+    pub fn logical_type(&self) -> Option<LogicalType> {
         self.primitive_type.get_basic_info().logical_type()
     }
 
@@ -906,7 +936,14 @@ fn from_thrift_helper(
             elements.len()
         ));
     }
-    let logical_type = LogicalType::from(elements[index].converted_type);
+    let element = &elements[index];
+    let converted_type = ConvertedType::from(element.converted_type);
+    // LogicalType is only present in v2 Parquet files. ConvertedType is always
+    // populated, regardless of the version of the file (v1 or v2).
+    let logical_type = element
+        .logical_type
+        .as_ref()
+        .map(|value| LogicalType::from(value.clone()));
     let field_id = elements[index].field_id;
     match elements[index].num_children {
         // From parquet-format:
@@ -929,6 +966,7 @@ fn from_thrift_helper(
             let name = &elements[index].name;
             let mut builder = Type::primitive_type_builder(name, physical_type)
                 .with_repetition(repetition)
+                .with_converted_type(converted_type)
                 .with_logical_type(logical_type)
                 .with_length(length)
                 .with_precision(precision)
@@ -949,6 +987,7 @@ fn from_thrift_helper(
             }
 
             let mut builder = Type::group_type_builder(&elements[index].name)
+                .with_converted_type(converted_type)
                 .with_logical_type(logical_type)
                 .with_fields(&mut fields);
             if let Some(rep) = repetition {
@@ -1002,7 +1041,7 @@ fn to_thrift_helper(schema: &Type, elements: &mut Vec<SchemaElement>) {
                 repetition_type: Some(basic_info.repetition().into()),
                 name: basic_info.name().to_owned(),
                 num_children: None,
-                converted_type: basic_info.logical_type().into(),
+                converted_type: basic_info.converted_type().into(),
                 scale: if scale >= 0 { Some(scale) } else { None },
                 precision: if precision >= 0 {
                     Some(precision)
@@ -1014,7 +1053,7 @@ fn to_thrift_helper(schema: &Type, elements: &mut Vec<SchemaElement>) {
                 } else {
                     None
                 },
-                logical_type: None,
+                logical_type: basic_info.logical_type().map(|value| value.into()),
             };
 
             elements.push(element);
@@ -1035,7 +1074,7 @@ fn to_thrift_helper(schema: &Type, elements: &mut Vec<SchemaElement>) {
                 repetition_type: repetition,
                 name: basic_info.name().to_owned(),
                 num_children: Some(fields.len() as i32),
-                converted_type: basic_info.logical_type().into(),
+                converted_type: basic_info.converted_type().into(),
                 scale: None,
                 precision: None,
                 field_id: if basic_info.has_id() {
@@ -1043,7 +1082,7 @@ fn to_thrift_helper(schema: &Type, elements: &mut Vec<SchemaElement>) {
                 } else {
                     None
                 },
-                logical_type: None,
+                logical_type: basic_info.logical_type().map(|value| value.into()),
             };
 
             elements.push(element);
@@ -1062,10 +1101,12 @@ mod tests {
 
     use crate::schema::parser::parse_message_type;
 
+    // TODO: add tests for v2 types
+
     #[test]
     fn test_primitive_type() {
         let mut result = Type::primitive_type_builder("foo", PhysicalType::INT32)
-            .with_logical_type(LogicalType::INT_32)
+            .with_converted_type(ConvertedType::INT_32)
             .with_id(0)
             .build();
         assert!(result.is_ok());
@@ -1075,7 +1116,7 @@ mod tests {
             assert!(!tp.is_group());
             let basic_info = tp.get_basic_info();
             assert_eq!(basic_info.repetition(), Repetition::OPTIONAL);
-            assert_eq!(basic_info.logical_type(), LogicalType::INT_32);
+            assert_eq!(basic_info.converted_type(), ConvertedType::INT_32);
             assert_eq!(basic_info.id(), 0);
             match tp {
                 Type::PrimitiveType { physical_type, .. } => {
@@ -1088,7 +1129,7 @@ mod tests {
         // Test illegal inputs
         result = Type::primitive_type_builder("foo", PhysicalType::INT64)
             .with_repetition(Repetition::REPEATED)
-            .with_logical_type(LogicalType::BSON)
+            .with_converted_type(ConvertedType::BSON)
             .build();
         assert!(result.is_err());
         if let Err(e) = result {
@@ -1100,7 +1141,7 @@ mod tests {
 
         result = Type::primitive_type_builder("foo", PhysicalType::INT96)
             .with_repetition(Repetition::REQUIRED)
-            .with_logical_type(LogicalType::DECIMAL)
+            .with_converted_type(ConvertedType::DECIMAL)
             .with_precision(-1)
             .with_scale(-1)
             .build();
@@ -1114,7 +1155,7 @@ mod tests {
 
         result = Type::primitive_type_builder("foo", PhysicalType::BYTE_ARRAY)
             .with_repetition(Repetition::REQUIRED)
-            .with_logical_type(LogicalType::DECIMAL)
+            .with_converted_type(ConvertedType::DECIMAL)
             .with_precision(-1)
             .with_scale(-1)
             .build();
@@ -1128,7 +1169,7 @@ mod tests {
 
         result = Type::primitive_type_builder("foo", PhysicalType::BYTE_ARRAY)
             .with_repetition(Repetition::REQUIRED)
-            .with_logical_type(LogicalType::DECIMAL)
+            .with_converted_type(ConvertedType::DECIMAL)
             .with_precision(0)
             .with_scale(-1)
             .build();
@@ -1142,7 +1183,7 @@ mod tests {
 
         result = Type::primitive_type_builder("foo", PhysicalType::BYTE_ARRAY)
             .with_repetition(Repetition::REQUIRED)
-            .with_logical_type(LogicalType::DECIMAL)
+            .with_converted_type(ConvertedType::DECIMAL)
             .with_precision(1)
             .with_scale(-1)
             .build();
@@ -1153,7 +1194,7 @@ mod tests {
 
         result = Type::primitive_type_builder("foo", PhysicalType::BYTE_ARRAY)
             .with_repetition(Repetition::REQUIRED)
-            .with_logical_type(LogicalType::DECIMAL)
+            .with_converted_type(ConvertedType::DECIMAL)
             .with_precision(1)
             .with_scale(2)
             .build();
@@ -1167,7 +1208,7 @@ mod tests {
 
         result = Type::primitive_type_builder("foo", PhysicalType::INT32)
             .with_repetition(Repetition::REQUIRED)
-            .with_logical_type(LogicalType::DECIMAL)
+            .with_converted_type(ConvertedType::DECIMAL)
             .with_precision(18)
             .with_scale(2)
             .build();
@@ -1181,7 +1222,7 @@ mod tests {
 
         result = Type::primitive_type_builder("foo", PhysicalType::INT64)
             .with_repetition(Repetition::REQUIRED)
-            .with_logical_type(LogicalType::DECIMAL)
+            .with_converted_type(ConvertedType::DECIMAL)
             .with_precision(32)
             .with_scale(2)
             .build();
@@ -1195,7 +1236,7 @@ mod tests {
 
         result = Type::primitive_type_builder("foo", PhysicalType::FIXED_LEN_BYTE_ARRAY)
             .with_repetition(Repetition::REQUIRED)
-            .with_logical_type(LogicalType::DECIMAL)
+            .with_converted_type(ConvertedType::DECIMAL)
             .with_length(5)
             .with_precision(12)
             .with_scale(2)
@@ -1210,7 +1251,7 @@ mod tests {
 
         result = Type::primitive_type_builder("foo", PhysicalType::INT64)
             .with_repetition(Repetition::REQUIRED)
-            .with_logical_type(LogicalType::UINT_8)
+            .with_converted_type(ConvertedType::UINT_8)
             .build();
         assert!(result.is_err());
         if let Err(e) = result {
@@ -1222,7 +1263,7 @@ mod tests {
 
         result = Type::primitive_type_builder("foo", PhysicalType::INT32)
             .with_repetition(Repetition::REQUIRED)
-            .with_logical_type(LogicalType::TIME_MICROS)
+            .with_converted_type(ConvertedType::TIME_MICROS)
             .build();
         assert!(result.is_err());
         if let Err(e) = result {
@@ -1234,7 +1275,7 @@ mod tests {
 
         result = Type::primitive_type_builder("foo", PhysicalType::BYTE_ARRAY)
             .with_repetition(Repetition::REQUIRED)
-            .with_logical_type(LogicalType::INTERVAL)
+            .with_converted_type(ConvertedType::INTERVAL)
             .build();
         assert!(result.is_err());
         if let Err(e) = result {
@@ -1246,7 +1287,7 @@ mod tests {
 
         result = Type::primitive_type_builder("foo", PhysicalType::FIXED_LEN_BYTE_ARRAY)
             .with_repetition(Repetition::REQUIRED)
-            .with_logical_type(LogicalType::INTERVAL)
+            .with_converted_type(ConvertedType::INTERVAL)
             .with_length(1)
             .build();
         assert!(result.is_err());
@@ -1259,7 +1300,7 @@ mod tests {
 
         result = Type::primitive_type_builder("foo", PhysicalType::INT32)
             .with_repetition(Repetition::REQUIRED)
-            .with_logical_type(LogicalType::ENUM)
+            .with_converted_type(ConvertedType::ENUM)
             .build();
         assert!(result.is_err());
         if let Err(e) = result {
@@ -1271,7 +1312,7 @@ mod tests {
 
         result = Type::primitive_type_builder("foo", PhysicalType::INT32)
             .with_repetition(Repetition::REQUIRED)
-            .with_logical_type(LogicalType::MAP)
+            .with_converted_type(ConvertedType::MAP)
             .build();
         assert!(result.is_err());
         if let Err(e) = result {
@@ -1283,7 +1324,7 @@ mod tests {
 
         result = Type::primitive_type_builder("foo", PhysicalType::FIXED_LEN_BYTE_ARRAY)
             .with_repetition(Repetition::REQUIRED)
-            .with_logical_type(LogicalType::DECIMAL)
+            .with_converted_type(ConvertedType::DECIMAL)
             .with_length(-1)
             .build();
         assert!(result.is_err());
@@ -1298,12 +1339,12 @@ mod tests {
     #[test]
     fn test_group_type() {
         let f1 = Type::primitive_type_builder("f1", PhysicalType::INT32)
-            .with_logical_type(LogicalType::INT_32)
+            .with_converted_type(ConvertedType::INT_32)
             .with_id(0)
             .build();
         assert!(f1.is_ok());
         let f2 = Type::primitive_type_builder("f2", PhysicalType::BYTE_ARRAY)
-            .with_logical_type(LogicalType::UTF8)
+            .with_converted_type(ConvertedType::UTF8)
             .with_id(1)
             .build();
         assert!(f2.is_ok());
@@ -1324,7 +1365,7 @@ mod tests {
         assert!(tp.is_group());
         assert!(!tp.is_primitive());
         assert_eq!(basic_info.repetition(), Repetition::REPEATED);
-        assert_eq!(basic_info.logical_type(), LogicalType::NONE);
+        assert_eq!(basic_info.converted_type(), ConvertedType::NONE);
         assert_eq!(basic_info.id(), 1);
         assert_eq!(tp.get_fields().len(), 2);
         assert_eq!(tp.get_fields()[0].name(), "f1");
@@ -1343,13 +1384,13 @@ mod tests {
 
     fn test_column_descriptor_helper() -> Result<()> {
         let tp = Type::primitive_type_builder("name", PhysicalType::BYTE_ARRAY)
-            .with_logical_type(LogicalType::UTF8)
+            .with_converted_type(ConvertedType::UTF8)
             .build()?;
 
         let descr = ColumnDescriptor::new(Arc::new(tp), 4, 1, ColumnPath::from("name"));
 
         assert_eq!(descr.path(), &ColumnPath::from("name"));
-        assert_eq!(descr.logical_type(), LogicalType::UTF8);
+        assert_eq!(descr.converted_type(), ConvertedType::UTF8);
         assert_eq!(descr.physical_type(), PhysicalType::BYTE_ARRAY);
         assert_eq!(descr.max_def_level(), 4);
         assert_eq!(descr.max_rep_level(), 1);
@@ -1377,33 +1418,33 @@ mod tests {
 
         let inta = Type::primitive_type_builder("a", PhysicalType::INT32)
             .with_repetition(Repetition::REQUIRED)
-            .with_logical_type(LogicalType::INT_32)
+            .with_converted_type(ConvertedType::INT_32)
             .build()?;
         fields.push(Arc::new(inta));
         let intb = Type::primitive_type_builder("b", PhysicalType::INT64)
-            .with_logical_type(LogicalType::INT_64)
+            .with_converted_type(ConvertedType::INT_64)
             .build()?;
         fields.push(Arc::new(intb));
         let intc = Type::primitive_type_builder("c", PhysicalType::BYTE_ARRAY)
             .with_repetition(Repetition::REPEATED)
-            .with_logical_type(LogicalType::UTF8)
+            .with_converted_type(ConvertedType::UTF8)
             .build()?;
         fields.push(Arc::new(intc));
 
         // 3-level list encoding
         let item1 = Type::primitive_type_builder("item1", PhysicalType::INT64)
             .with_repetition(Repetition::REQUIRED)
-            .with_logical_type(LogicalType::INT_64)
+            .with_converted_type(ConvertedType::INT_64)
             .build()?;
         let item2 =
             Type::primitive_type_builder("item2", PhysicalType::BOOLEAN).build()?;
         let item3 = Type::primitive_type_builder("item3", PhysicalType::INT32)
             .with_repetition(Repetition::REPEATED)
-            .with_logical_type(LogicalType::INT_32)
+            .with_converted_type(ConvertedType::INT_32)
             .build()?;
         let list = Type::group_type_builder("records")
             .with_repetition(Repetition::REPEATED)
-            .with_logical_type(LogicalType::LIST)
+            .with_converted_type(ConvertedType::LIST)
             .with_fields(&mut vec![Arc::new(item1), Arc::new(item2), Arc::new(item3)])
             .build()?;
         let bag = Type::group_type_builder("bag")
@@ -1522,11 +1563,11 @@ mod tests {
 
         // OK: different logical type does not affect check_contains
         let f1 = Type::primitive_type_builder("f", PhysicalType::INT32)
-            .with_logical_type(LogicalType::UINT_8)
+            .with_converted_type(ConvertedType::UINT_8)
             .build()
             .unwrap();
         let f2 = Type::primitive_type_builder("f", PhysicalType::INT32)
-            .with_logical_type(LogicalType::UINT_16)
+            .with_converted_type(ConvertedType::UINT_16)
             .build()
             .unwrap();
         assert!(f1.check_contains(&f2));

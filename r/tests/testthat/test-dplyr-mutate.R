@@ -131,7 +131,7 @@ test_that("dplyr::mutate's examples", {
         mass2_squared = mass2 * mass2
       ) %>%
       collect(),
-    starwars # this is a test dataset that ships with dplyr
+    starwars # this is a test tibble that ships with dplyr
   )
 
   # As well as adding new variables, you can use mutate() to
@@ -272,7 +272,7 @@ test_that("handle bad expressions", {
   )
 })
 
-test_that("print a mutated dataset", {
+test_that("print a mutated table", {
   expect_output(
     Table$create(tbl) %>%
       select(int) %>%
@@ -300,6 +300,7 @@ See $.data for the source Arrow object',
 })
 
 test_that("mutate and write_dataset", {
+  skip_if_not_available("dataset")
   # See related test in test-dataset.R
 
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651

@@ -141,6 +141,7 @@ test_that("RecordBatch R metadata", {
 })
 
 test_that("R metadata roundtrip via parquet", {
+  skip_if_not_available("parquet")
   tf <- tempfile()
   on.exit(unlink(tf))
 

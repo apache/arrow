@@ -140,7 +140,7 @@ In the tables, entries with a `-` are not currently implemented.
 | large_binary      | arrow_large_binary ^5^       |
 | large_list        | arrow_large_list ^6^         |
 
-^3^: These integer types may contain values that exceed the range of R's `integer` type (32-bit signed integer). When they do, `uint32` and `uint64` are converted to `double` ("numeric") and `int64` is converted to `bit64::integer64`.
+^3^: These integer types may contain values that exceed the range of R's `integer` type (32-bit signed integer). When they do, `uint32` and `uint64` are converted to `double` ("numeric") and `int64` is converted to `bit64::integer64`. This conversion can be disabled (so that `int64` always yields a `bit64::integer64` vector) by setting `options(arrow.int64_downcast = FALSE)`.
 
 ^4^: Due to the limitation of R `factor`s, Arrow `dictionary` values are coerced to string when translated to R if they are not already strings.
 

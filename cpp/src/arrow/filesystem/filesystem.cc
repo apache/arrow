@@ -43,6 +43,7 @@
 
 namespace arrow {
 
+using internal::TaskHints;
 using internal::Uri;
 
 namespace fs {
@@ -132,6 +133,38 @@ Result<std::vector<FileInfo>> FileSystem::GetFileInfo(
   return res;
 }
 
+namespace {
+
+template <typename DeferredFunc>
+auto FileSystemDefer(FileSystem* fs, bool synchronous, DeferredFunc&& func)
+    -> decltype(DeferNotOk(
+        fs->io_context().executor()->Submit(func, std::shared_ptr<FileSystem>{}))) {
+  auto self = fs->shared_from_this();
+  if (synchronous) {
+    return std::forward<DeferredFunc>(func)(std::move(self));
+  }
+  TaskHints hints;
+  hints.external_id = fs->io_context().external_id();
+  // TODO pass StopToken
+  return DeferNotOk(fs->io_context().executor()->Submit(
+      hints, std::forward<DeferredFunc>(func), std::move(self)));
+}
+
+}  // namespace
+
+Future<std::vector<FileInfo>> FileSystem::GetFileInfoAsync(
+    const std::vector<std::string>& paths) {
+  return FileSystemDefer(
+      this, default_async_is_sync_,
+      [paths](std::shared_ptr<FileSystem> self) { return self->GetFileInfo(paths); });
+}
+
+Future<std::vector<FileInfo>> FileSystem::GetFileInfoAsync(const FileSelector& select) {
+  return FileSystemDefer(
+      this, default_async_is_sync_,
+      [select](std::shared_ptr<FileSystem> self) { return self->GetFileInfo(select); });
+}
+
 Status FileSystem::DeleteFiles(const std::vector<std::string>& paths) {
   Status st = Status::OK();
   for (const auto& path : paths) {
@@ -140,26 +173,60 @@ Status FileSystem::DeleteFiles(const std::vector<std::string>& paths) {
   return st;
 }
 
-Result<std::shared_ptr<io::InputStream>> FileSystem::OpenInputStream(
-    const FileInfo& info) {
+namespace {
+
+Status ValidateInputFileInfo(const FileInfo& info) {
   if (info.type() == FileType::NotFound) {
     return internal::PathNotFound(info.path());
   }
   if (info.type() != FileType::File && info.type() != FileType::Unknown) {
     return internal::NotAFile(info.path());
   }
+  return Status::OK();
+}
+
+}  // namespace
+
+Result<std::shared_ptr<io::InputStream>> FileSystem::OpenInputStream(
+    const FileInfo& info) {
+  RETURN_NOT_OK(ValidateInputFileInfo(info));
   return OpenInputStream(info.path());
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> FileSystem::OpenInputFile(
     const FileInfo& info) {
-  if (info.type() == FileType::NotFound) {
-    return internal::PathNotFound(info.path());
-  }
-  if (info.type() != FileType::File && info.type() != FileType::Unknown) {
-    return internal::NotAFile(info.path());
-  }
+  RETURN_NOT_OK(ValidateInputFileInfo(info));
   return OpenInputFile(info.path());
+}
+
+Future<std::shared_ptr<io::InputStream>> FileSystem::OpenInputStreamAsync(
+    const std::string& path) {
+  return FileSystemDefer(
+      this, default_async_is_sync_,
+      [path](std::shared_ptr<FileSystem> self) { return self->OpenInputStream(path); });
+}
+
+Future<std::shared_ptr<io::InputStream>> FileSystem::OpenInputStreamAsync(
+    const FileInfo& info) {
+  RETURN_NOT_OK(ValidateInputFileInfo(info));
+  return FileSystemDefer(
+      this, default_async_is_sync_,
+      [info](std::shared_ptr<FileSystem> self) { return self->OpenInputStream(info); });
+}
+
+Future<std::shared_ptr<io::RandomAccessFile>> FileSystem::OpenInputFileAsync(
+    const std::string& path) {
+  return FileSystemDefer(
+      this, default_async_is_sync_,
+      [path](std::shared_ptr<FileSystem> self) { return self->OpenInputFile(path); });
+}
+
+Future<std::shared_ptr<io::RandomAccessFile>> FileSystem::OpenInputFileAsync(
+    const FileInfo& info) {
+  RETURN_NOT_OK(ValidateInputFileInfo(info));
+  return FileSystemDefer(
+      this, default_async_is_sync_,
+      [info](std::shared_ptr<FileSystem> self) { return self->OpenInputFile(info); });
 }
 
 //////////////////////////////////////////////////////////////////////////

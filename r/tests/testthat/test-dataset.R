@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+skip_if_not_available("dataset")
+
 context("Dataset")
 
 library(dplyr)
@@ -52,17 +54,19 @@ df2 <- tibble(
 )
 
 test_that("Setup (putting data in the dir)", {
-  dir.create(file.path(dataset_dir, 1))
-  dir.create(file.path(dataset_dir, 2))
-  write_parquet(df1, file.path(dataset_dir, 1, "file1.parquet"))
-  write_parquet(df2, file.path(dataset_dir, 2, "file2.parquet"))
-  expect_length(dir(dataset_dir, recursive = TRUE), 2)
+  if (arrow_with_parquet()) {
+    dir.create(file.path(dataset_dir, 1))
+    dir.create(file.path(dataset_dir, 2))
+    write_parquet(df1, file.path(dataset_dir, 1, "file1.parquet"))
+    write_parquet(df2, file.path(dataset_dir, 2, "file2.parquet"))
+    expect_length(dir(dataset_dir, recursive = TRUE), 2)
 
-  dir.create(file.path(hive_dir, "subdir", "group=1", "other=xxx"), recursive = TRUE)
-  dir.create(file.path(hive_dir, "subdir", "group=2", "other=yyy"), recursive = TRUE)
-  write_parquet(df1, file.path(hive_dir, "subdir", "group=1", "other=xxx", "file1.parquet"))
-  write_parquet(df2, file.path(hive_dir, "subdir", "group=2", "other=yyy", "file2.parquet"))
-  expect_length(dir(hive_dir, recursive = TRUE), 2)
+    dir.create(file.path(hive_dir, "subdir", "group=1", "other=xxx"), recursive = TRUE)
+    dir.create(file.path(hive_dir, "subdir", "group=2", "other=yyy"), recursive = TRUE)
+    write_parquet(df1, file.path(hive_dir, "subdir", "group=1", "other=xxx", "file1.parquet"))
+    write_parquet(df2, file.path(hive_dir, "subdir", "group=2", "other=yyy", "file2.parquet"))
+    expect_length(dir(hive_dir, recursive = TRUE), 2)
+  }
 
   # Now, an IPC format dataset
   dir.create(file.path(ipc_dir, 3))
@@ -87,6 +91,7 @@ test_that("Setup (putting data in the dir)", {
 })
 
 test_that("Simple interface for datasets", {
+  skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_is(ds$format, "ParquetFileFormat")
   expect_is(ds$filesystem, "LocalFileSystem")
@@ -123,12 +128,14 @@ test_that("Simple interface for datasets", {
 })
 
 test_that("dim method returns the correct number of rows and columns", {
+  skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_identical(dim(ds), c(20L, 7L))
 })
 
 
 test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_query object", {
+  skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
 
   expect_warning(
@@ -158,6 +165,7 @@ test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_
 
 test_that("dataset from URI", {
   skip_on_os("windows")
+  skip_if_not_available("parquet")
   uri <- paste0("file://", dataset_dir)
   ds <- open_dataset(uri, partitioning = schema(part = uint8()))
   expect_is(ds, "Dataset")
@@ -175,12 +183,14 @@ test_that("dataset from URI", {
 })
 
 test_that("Simple interface for datasets (custom ParquetFileFormat)", {
+  skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()),
                      format = FileFormat$create("parquet", dict_columns = c("chr")))
   expect_type_equal(ds$schema$GetFieldByName("chr")$type, dictionary())
 })
 
 test_that("Hive partitioning", {
+  skip_if_not_available("parquet")
   ds <- open_dataset(hive_dir, partitioning = hive_partition(other = utf8(), group = uint8()))
   expect_is(ds, "Dataset")
   expect_equivalent(
@@ -195,12 +205,14 @@ test_that("Hive partitioning", {
 })
 
 test_that("input validation", {
+  skip_if_not_available("parquet")
   expect_error(
     open_dataset(hive_dir, hive_partition(other = utf8(), group = uint8()))
   )
 })
 
 test_that("Partitioning inference", {
+  skip_if_not_available("parquet")
   # These are the same tests as above, just using the *PartitioningFactory
   ds1 <- open_dataset(dataset_dir, partitioning = "part")
   expect_identical(names(ds1), c(names(df1), "part"))
@@ -381,6 +393,7 @@ test_that("readr parse options", {
 
 test_that("Dataset with multiple file formats", {
   skip("https://issues.apache.org/jira/browse/ARROW-7653")
+  skip_if_not_available("parquet")
   ds <- open_dataset(list(
     open_dataset(dataset_dir, format = "parquet", partitioning = "part"),
     open_dataset(ipc_dir, format = "arrow", partitioning = "part")
@@ -399,6 +412,7 @@ test_that("Dataset with multiple file formats", {
 })
 
 test_that("Creating UnionDataset", {
+  skip_if_not_available("parquet")
   ds1 <- open_dataset(file.path(dataset_dir, 1))
   ds2 <- open_dataset(file.path(dataset_dir, 2))
   union1 <- open_dataset(list(ds1, ds2))
@@ -451,6 +465,7 @@ test_that("InMemoryDataset", {
 })
 
 test_that("map_batches", {
+  skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = "part")
   expect_equivalent(
     ds %>%
@@ -462,11 +477,13 @@ test_that("map_batches", {
 })
 
 test_that("partitioning = NULL to ignore partition information (but why?)", {
+  skip_if_not_available("parquet")
   ds <- open_dataset(hive_dir, partitioning = NULL)
   expect_identical(names(ds), names(df1)) # i.e. not c(names(df1), "group", "other")
 })
 
 test_that("filter() with is.na()", {
+  skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_equivalent(
     ds %>%
@@ -478,6 +495,7 @@ test_that("filter() with is.na()", {
 })
 
 test_that("filter() with is.nan()", {
+  skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_equivalent(
     ds %>%
@@ -489,6 +507,7 @@ test_that("filter() with is.nan()", {
 })
 
 test_that("filter() with %in%", {
+  skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_equivalent(
     ds %>%
@@ -510,6 +529,7 @@ test_that("filter() with %in%", {
 })
 
 test_that("filter() with strings", {
+  skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_equivalent(
     ds %>%
@@ -529,6 +549,7 @@ test_that("filter() with strings", {
 })
 
 test_that("filter() with .data", {
+  skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_equivalent(
     ds %>%
@@ -558,6 +579,7 @@ test_that("filter() with .data", {
 })
 
 test_that("filter() on timestamp columns", {
+  skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_equivalent(
     ds %>%
@@ -591,6 +613,7 @@ test_that("filter() on timestamp columns", {
 })
 
 test_that("filter() on date32 columns", {
+  skip_if_not_available("parquet")
   tmp <- tempfile()
   dir.create(tmp)
   df <- data.frame(date = as.Date(c("2020-02-02", "2020-02-03")))
@@ -615,6 +638,7 @@ test_that("filter() on date32 columns", {
 })
 
 test_that("filter() with expressions", {
+  skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_is(ds$format, "ParquetFileFormat")
   expect_is(ds$filesystem, "LocalFileSystem")
@@ -717,6 +741,96 @@ test_that("filter() with expressions", {
   )
 })
 
+test_that("mutate()", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  mutated <- ds %>%
+    select(chr, dbl, int) %>%
+    filter(dbl * 2 > 14 & dbl - 50 < 3L) %>%
+    mutate(twice = int * 2)
+  expect_output(
+    print(mutated),
+"FileSystemDataset (query)
+chr: string
+dbl: double
+int: int32
+twice: expr
+
+* Filter: ((multiply_checked(dbl, 2) > 14) and (subtract_checked(dbl, 50) < 3))
+See $.data for the source Arrow object",
+    fixed = TRUE
+  )
+  expect_equivalent(
+    mutated %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl", "int")],
+      df2[1:2, c("chr", "dbl", "int")]
+    ) %>%
+      mutate(
+        twice = int * 2
+      )
+  )
+})
+
+test_that("transmute()", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  mutated <-
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl, int) %>%
+      filter(dbl * 2 > 14 & dbl - 50 < 3L) %>%
+      transmute(twice = int * 2) %>%
+      collect() %>%
+      arrange(twice),
+    rbind(
+      df1[8:10, "int", drop = FALSE],
+      df2[1:2, "int", drop = FALSE]
+    ) %>%
+      transmute(
+        twice = int * 2
+      )
+  )
+})
+
+test_that("mutate() features not yet implemented", {
+  expect_error(
+    ds %>%
+      group_by(int) %>%
+      mutate(avg = mean(int)),
+    "mutate() on grouped data not supported in Arrow\nCall collect() first to pull data into R.",
+    fixed = TRUE
+  )
+})
+
+
+test_that("mutate() with scalar (length 1) literal inputs", {
+  expect_equal(
+    ds %>%
+      mutate(the_answer = 42) %>%
+      collect() %>%
+      pull(the_answer),
+    rep(42, nrow(ds))
+  )
+
+  expect_error(
+    ds %>% mutate(the_answer = c(42, 42)),
+    "In the_answer = c(42, 42), only values of size one are recycled\nCall collect() first to pull data into R.",
+    fixed = TRUE
+  )
+})
+
+test_that("mutate() with NULL inputs", {
+  expect_equal(
+    ds %>%
+      mutate(int = NULL) %>%
+      collect(),
+    ds %>%
+      select(-int) %>%
+      collect()
+  )
+})
+
 test_that("filter scalar validation doesn't crash (ARROW-7772)", {
   expect_error(
     ds %>%
@@ -727,6 +841,7 @@ test_that("filter scalar validation doesn't crash (ARROW-7772)", {
 })
 
 test_that("collect() on Dataset works (if fits in memory)", {
+  skip_if_not_available("parquet")
   expect_equal(
     collect(open_dataset(dataset_dir)),
     rbind(df1, df2)
@@ -734,6 +849,7 @@ test_that("collect() on Dataset works (if fits in memory)", {
 })
 
 test_that("count()", {
+  skip_if_not_available("parquet")
   skip("count() is not a generic so we have to get here through summarize()")
   ds <- open_dataset(dataset_dir)
   df <- rbind(df1, df2)
@@ -748,6 +864,7 @@ test_that("count()", {
 })
 
 test_that("head/tail", {
+  skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir)
   expect_equal(as.data.frame(head(ds)), head(df1))
   expect_equal(
@@ -777,6 +894,7 @@ test_that("head/tail", {
 })
 
 test_that("Dataset [ (take by index)", {
+  skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir)
   # Taking only from one file
   expect_equal(
@@ -814,6 +932,7 @@ test_that("Dataset [ (take by index)", {
 })
 
 test_that("dplyr method not implemented messages", {
+  skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir)
   # This one is more nuanced
   expect_error(
@@ -832,11 +951,11 @@ test_that("dplyr method not implemented messages", {
     expect_error(x, "is not currently implemented for Arrow Datasets")
   }
   expect_not_implemented(ds %>% arrange(int))
-  expect_not_implemented(ds %>% mutate(int = int + 2))
   expect_not_implemented(ds %>% filter(int == 1) %>% summarize(n()))
 })
 
 test_that("Dataset and query print methods", {
+  skip_if_not_available("parquet")
   ds <- open_dataset(hive_dir)
   expect_output(
     print(ds),
@@ -905,12 +1024,15 @@ expect_scan_result <- function(ds, schm) {
   )
 }
 
-files <- c(
-  file.path(dataset_dir, 1, "file1.parquet", fsep = "/"),
-  file.path(dataset_dir, 2, "file2.parquet", fsep = "/")
-)
+if(arrow_with_parquet()) {
+  files <- c(
+    file.path(dataset_dir, 1, "file1.parquet", fsep = "/"),
+    file.path(dataset_dir, 2, "file2.parquet", fsep = "/")
+  )
+}
 
 test_that("Assembling a Dataset manually and getting a Table", {
+  skip_if_not_available("parquet")
   fs <- LocalFileSystem$create()
   selector <- FileSelector$create(dataset_dir, recursive = TRUE)
   partitioning <- DirectoryPartitioning$create(schema(part = double()))
@@ -938,6 +1060,7 @@ test_that("Assembling a Dataset manually and getting a Table", {
 })
 
 test_that("Assembling multiple DatasetFactories with DatasetFactory", {
+  skip_if_not_available("parquet")
   factory1 <- dataset_factory(file.path(dataset_dir, 1), format = "parquet")
   expect_is(factory1, "FileSystemDatasetFactory")
   factory2 <- dataset_factory(file.path(dataset_dir, 2), format = "parquet")
@@ -993,6 +1116,7 @@ test_that("Writing a dataset: CSV->IPC", {
 })
 
 test_that("Writing a dataset: Parquet->IPC", {
+  skip_if_not_available("parquet")
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(hive_dir)
   dst_dir <- make_temp_dir()
@@ -1016,6 +1140,7 @@ test_that("Writing a dataset: Parquet->IPC", {
 })
 
 test_that("Writing a dataset: CSV->Parquet", {
+  skip_if_not_available("parquet")
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   dst_dir <- make_temp_dir()
@@ -1039,6 +1164,7 @@ test_that("Writing a dataset: CSV->Parquet", {
 })
 
 test_that("Writing a dataset: Parquet->Parquet (default)", {
+  skip_if_not_available("parquet")
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(hive_dir)
   dst_dir <- make_temp_dir()
@@ -1080,6 +1206,7 @@ test_that("Writing a dataset: no format specified", {
 })
 
 test_that("Dataset writing: dplyr methods", {
+  skip_if_not_available("parquet")
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(hive_dir)
   dst_dir <- tempfile()
@@ -1118,6 +1245,7 @@ test_that("Dataset writing: dplyr methods", {
 
 test_that("Dataset writing: non-hive", {
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  skip_if_not_available("parquet")
   ds <- open_dataset(hive_dir)
   dst_dir <- tempfile()
   write_dataset(ds, dst_dir, format = "feather", partitioning = "int", hive_style = FALSE)
@@ -1127,6 +1255,7 @@ test_that("Dataset writing: non-hive", {
 
 test_that("Dataset writing: no partitioning", {
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  skip_if_not_available("parquet")
   ds <- open_dataset(hive_dir)
   dst_dir <- tempfile()
   write_dataset(ds, dst_dir, format = "feather", partitioning = NULL)
@@ -1137,7 +1266,7 @@ test_that("Dataset writing: no partitioning", {
 test_that("Dataset writing: partition on null", {
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
   ds <- open_dataset(hive_dir)
-  
+
   dst_dir <- tempfile()
   partitioning = hive_partition(lgl = boolean())
   write_dataset(ds, dst_dir, partitioning = partitioning)
@@ -1243,6 +1372,7 @@ test_that("Writing a dataset: Ipc format options & compression", {
 
 test_that("Writing a dataset: Parquet format options", {
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651
+  skip_if_not_available("parquet")
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   dst_dir <- make_temp_dir()
   dst_dir_no_truncated_timestamps <- make_temp_dir()
@@ -1284,6 +1414,7 @@ test_that("Writing a dataset: Parquet format options", {
 })
 
 test_that("Dataset writing: unsupported features/input validation", {
+  skip_if_not_available("parquet")
   expect_error(write_dataset(4), 'dataset must be a "Dataset"')
 
   ds <- open_dataset(hive_dir)

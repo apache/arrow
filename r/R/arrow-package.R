@@ -53,17 +53,34 @@
 #' You won't generally need to call these function, but they're made available
 #' for diagnostic purposes.
 #' @return `TRUE` or `FALSE` depending on whether the package was installed
-#' with the Arrow C++ library (check with `arrow_available()`) or with S3
-#' support enabled (check with `arrow_with_s3()`).
+#' with:
+#' * The Arrow C++ library (check with `arrow_available()`)
+#' * Arrow Dataset support enabled (check with `arrow_with_dataset()`)
+#' * Parquet support enabled (check with `arrow_with_parquet()`)
+#' * Amazon S3 support enabled (check with `arrow_with_s3()`)
 #' @export
 #' @examples
 #' arrow_available()
+#' arrow_with_dataset()
+#' arrow_with_parquet()
 #' arrow_with_s3()
-#' @seealso If either of these are `FALSE`, see
+#' @seealso If any of these are `FALSE`, see
 #' `vignette("install", package = "arrow")` for guidance on reinstalling the
 #' package.
 arrow_available <- function() {
   .Call(`_arrow_available`)
+}
+
+#' @rdname arrow_available
+#' @export
+arrow_with_dataset <- function() {
+  .Call(`_dataset_available`)
+}
+
+#' @rdname arrow_available
+#' @export
+arrow_with_parquet <- function() {
+  .Call(`_parquet_available`)
 }
 
 #' @rdname arrow_available
@@ -81,7 +98,8 @@ option_use_threads <- function() {
 #' This function summarizes a number of build-time configurations and run-time
 #' settings for the Arrow package. It may be useful for diagnostics.
 #' @return A list including version information, boolean "capabilities", and
-#' statistics from Arrow's memory allocator.
+#' statistics from Arrow's memory allocator, and also Arrow's run-time
+#' information.
 #' @export
 #' @importFrom utils packageVersion
 arrow_info <- function() {
@@ -93,8 +111,11 @@ arrow_info <- function() {
   )
   if (out$libarrow) {
     pool <- default_memory_pool()
+    runtimeinfo <- runtime_info()
     out <- c(out, list(
       capabilities = c(
+        dataset = arrow_with_dataset(),
+        parquet = arrow_with_parquet(),
         s3 = arrow_with_s3(),
         vapply(tolower(names(CompressionType)[-1]), codec_is_available, logical(1))
       ),
@@ -103,6 +124,10 @@ arrow_info <- function() {
         bytes_allocated = pool$bytes_allocated,
         max_memory = pool$max_memory,
         available_backends = supported_memory_backends()
+      ),
+      runtime_info = list(
+        simd_level = runtimeinfo[1],
+        detected_simd_level = runtimeinfo[2]
       )
     ))
   }
@@ -140,6 +165,10 @@ print.arrow_info <- function(x, ...) {
       # utils:::format.object_size is not properly vectorized
       Current = format_bytes(x$memory_pool$bytes_allocated, ...),
       Max = format_bytes(x$memory_pool$max_memory, ...)
+    ))
+    print_key_values("Runtime", c(
+      `SIMD Level` = x$runtime_info$simd_level,
+      `Detected SIMD Level` = x$runtime_info$detected_simd_level
     ))
   } else {
     cat("Arrow C++ library not available\n")

@@ -26,7 +26,6 @@
 #include "arrow/util/queue.h"
 
 namespace arrow {
-
 namespace util {
 
 static constexpr int64_t kSize = 100000;
