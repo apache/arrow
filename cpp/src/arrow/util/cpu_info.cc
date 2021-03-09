@@ -353,6 +353,7 @@ void CpuInfo::Init() {
     int64_t flag;
   };
   for (auto feature : std::vector<SysCtlCpuFeature>{
+           // x86
            {"hw.optional.sse4_2", SSSE3 | SSE4_1 | SSE4_2 | POPCNT},
            {"hw.optional.avx1_0", AVX},
            {"hw.optional.avx2_0", AVX2},
@@ -363,6 +364,8 @@ void CpuInfo::Init() {
            {"hw.optional.avx512dq", AVX512DQ},
            {"hw.optional.avx512bw", AVX512BW},
            {"hw.optional.avx512vl", AVX512VL},
+           // ARM64
+           {"hw.optional.neon", ASIMD},
        }) {
     auto v = IntegerSysCtlByName(feature.name);
     if (v.value_or(0)) {
