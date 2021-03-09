@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <sstream>
 #include <set>
 
 #include "arrow/io/interfaces.h"
@@ -31,6 +32,8 @@ namespace adapters {
 
 namespace orc {
 // Components of ORC Writer Options
+
+struct WriterOptionsPrivate;
 
 enum CompressionKind {
   CompressionKind_NONE = 0,
@@ -95,10 +98,6 @@ class ARROW_EXPORT FileVersion {
  * Options for creating a Writer.
  */
 class ARROW_EXPORT WriterOptions {
- private:
-  class WriterOptionsPrivate;
-  std::unique_ptr<WriterOptionsPrivate> private_bits_;
-
  public:
   WriterOptions();
   WriterOptions(const WriterOptions&);
@@ -259,6 +258,9 @@ class ARROW_EXPORT WriterOptions {
    * Get version of BloomFilter
    */
   BloomFilterVersion bloom_filter_version() const;
+ private:
+  std::unique_ptr<WriterOptionsPrivate> private_bits_;
+
 };
 
 liborc::WriterOptions* AdaptWriterOptions(const WriterOptions& arrow_writer_options);

@@ -44,7 +44,7 @@ const FileVersion& FileVersion::v_0_12() {
   return version;
 }
 
-class WriterOptions::WriterOptionsPrivate {
+struct WriterOptionsPrivate {
   uint64_t stripe_size_;
   uint64_t compression_block_size_;
   uint64_t row_index_stride_;
@@ -77,14 +77,14 @@ class WriterOptions::WriterOptionsPrivate {
 };
 
 WriterOptions::WriterOptions()
-    : private_bits(std::unique_ptr<WriterOptions::WriterOptionsPrivate>(
-          new WriterOptions::WriterOptionsPrivate())) {
+    : private_bits_(std::unique_ptr<WriterOptionsPrivate>(
+          new WriterOptionsPrivate())) {
   // PASS
 }
 
 WriterOptions::WriterOptions(const WriterOptions& rhs)
-    : private_bits(std::unique_ptr<WriterOptions::WriterOptionsPrivate>(
-          new WriterOptions::WriterOptionsPrivate(*(rhs.private_bits_.get())))) {
+    : private_bits_(std::unique_ptr<WriterOptionsPrivate>(
+          new WriterOptionsPrivate(*(rhs.private_bits_.get())))) {
   // PASS
 }
 
@@ -96,7 +96,7 @@ WriterOptions::WriterOptions(WriterOptions& rhs) {
 WriterOptions& WriterOptions::operator=(const WriterOptions& rhs) {
   if (this != &rhs) {
     private_bits_.reset(
-        new WriterOptions::WriterOptionsPrivate(*(rhs.private_bits_.get())));
+        new WriterOptionsPrivate(*(rhs.private_bits_.get())));
   }
   return *this;
 }
@@ -233,13 +233,13 @@ BloomFilterVersion WriterOptions::bloom_filter_version() const {
 }  // namespace adapters
 }  // namespace arrow
 namespace {
-  liborc::CompressionKind AdaptCompressionKind(arrow::adapters::orc::CompressionKind arrow_compression_kind) const {
+  liborc::CompressionKind AdaptCompressionKind(arrow::adapters::orc::CompressionKind arrow_compression_kind){
     return static_cast<liborc::CompressionKind>(static_cast<int8_t>(arrow_compression_kind));
   }
-  liborc::CompressionStrategy AdaptCompressionStrategy(arrow::adapters::orc::CompressionStrategy arrow_compression_strategy) const {
+  liborc::CompressionStrategy AdaptCompressionStrategy(arrow::adapters::orc::CompressionStrategy arrow_compression_strategy){
     return static_cast<liborc::CompressionStrategy>(static_cast<int8_t>(arrow_compression_strategy));
   }
-  liborc::FileVersion AdaptFileVersion(arrow::adapters::orc::FileVersion arrow_file_version) const {
+  liborc::FileVersion AdaptFileVersion(arrow::adapters::orc::FileVersion arrow_file_version){
     return liborc::FileVersion(arrow_file_version.major(), arrow_file_version.minor());
   }
 }
@@ -259,7 +259,7 @@ liborc::WriterOptions* AdaptWriterOptions(const WriterOptions& arrow_writer_opti
   orc_writer_options->setCompression(AdaptCompressionKind(arrow_writer_options.compression()));
   orc_writer_options->setCompressionStrategy(AdaptCompressionStrategy(arrow_writer_options.compression_strategy()));
   orc_writer_options->setPaddingTolerance(arrow_writer_options.padding_tolerance());
-  orc_writer_options->setErrorStream(arrow_writer_options.error_stream());
+  orc_writer_options->setErrorStream(*(arrow_writer_options.error_stream()));
   orc_writer_options->setBloomFilterFPP(arrow_writer_options.bloom_filter_fpp());
   orc_writer_options->setColumnsUseBloomFilter(arrow_writer_options.columns_use_bloom_filter());
   return orc_writer_options;
