@@ -79,7 +79,9 @@ where
         .iter()
         .map(|string| {
             string.map(|string: &str| {
-                T::Native::from_usize(string.graphemes(true).count()).unwrap()
+                T::Native::from_usize(string.graphemes(true).count()).expect(
+                    "should not fail as graphemes.count will always return integer",
+                )
             })
         })
         .collect::<PrimitiveArray<T>>();
@@ -97,35 +99,38 @@ pub fn left<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
         .iter()
         .zip(n_array.iter())
         .map(|(string, n)| match (string, n) {
-            (None, _) => None,
-            (_, None) => None,
             (Some(string), Some(n)) => match n.cmp(&0) {
-                Ordering::Equal => Some(""),
+                Ordering::Less => {
+                    let graphemes = string.graphemes(true);
+                    let len = graphemes.clone().count() as i64;
+                    match n.abs().cmp(&len) {
+                        Ordering::Less => Some(
+                            graphemes
+                                .take((len + n) as usize)
+                                .collect::<Vec<&str>>()
+                                .concat(),
+                        ),
+                        Ordering::Equal => Some("".to_string()),
+                        Ordering::Greater => Some("".to_string()),
+                    }
+                }
+                Ordering::Equal => Some("".to_string()),
                 Ordering::Greater => Some(
                     string
-                        .grapheme_indices(true)
-                        .nth(n as usize)
-                        .map_or(string, |(i, _)| {
-                            &from_utf8(&string.as_bytes()[..i]).unwrap()
-                        }),
-                ),
-                Ordering::Less => Some(
-                    string
-                        .grapheme_indices(true)
-                        .rev()
-                        .nth(n.abs() as usize - 1)
-                        .map_or("", |(i, _)| {
-                            &from_utf8(&string.as_bytes()[..i]).unwrap()
-                        }),
+                        .graphemes(true)
+                        .take(n as usize)
+                        .collect::<Vec<&str>>()
+                        .concat(),
                 ),
             },
+            _ => None,
         })
         .collect::<GenericStringArray<T>>();
 
     Ok(Arc::new(result) as ArrayRef)
 }
 
-/// Extends the string to length length by prepending the characters fill (a space by default). If the string is already longer than length then it is truncated (on the right).
+/// Extends the string to length 'length' by prepending the characters fill (a space by default). If the string is already longer than length then it is truncated (on the right).
 /// lpad('hi', 5, 'xy') = 'xyxhi'
 pub fn lpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
     match args.len() {
@@ -137,8 +142,6 @@ pub fn lpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
                 .iter()
                 .zip(length_array.iter())
                 .map(|(string, length)| match (string, length) {
-                    (None, _) => None,
-                    (_, None) => None,
                     (Some(string), Some(length)) => {
                         let length = length as usize;
                         if length == 0 {
@@ -157,6 +160,7 @@ pub fn lpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
                             }
                         }
                     }
+                    _ => None,
                 })
                 .collect::<GenericStringArray<T>>();
 
@@ -172,9 +176,6 @@ pub fn lpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
                 .zip(length_array.iter())
                 .zip(fill_array.iter())
                 .map(|((string, length), fill)| match (string, length, fill) {
-                    (None, _, _) => None,
-                    (_, None, _) => None,
-                    (_, _, None) => None,
                     (Some(string), Some(length), Some(fill)) => {
                         let length = length as usize;
 
@@ -205,6 +206,7 @@ pub fn lpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
                             }
                         }
                     }
+                    _ => None,
                 })
                 .collect::<GenericStringArray<T>>();
 
@@ -242,8 +244,6 @@ pub fn right<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
         .iter()
         .zip(n_array.iter())
         .map(|(string, n)| match (string, n) {
-            (None, _) => None,
-            (_, None) => None,
             (Some(string), Some(n)) => match n.cmp(&0) {
                 Ordering::Equal => Some(""),
                 Ordering::Greater => Some(
@@ -252,25 +252,28 @@ pub fn right<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
                         .rev()
                         .nth(n as usize - 1)
                         .map_or(string, |(i, _)| {
-                            &from_utf8(&string.as_bytes()[i..]).unwrap()
+                            &from_utf8(&string.as_bytes()[i..])
+                                .expect("should not fail as input string is utf8")
                         }),
                 ),
-                Ordering::Less => Some(
-                    string
-                        .grapheme_indices(true)
-                        .nth(n.abs() as usize)
-                        .map_or("", |(i, _)| {
-                            &from_utf8(&string.as_bytes()[i..]).unwrap()
-                        }),
-                ),
+                Ordering::Less => {
+                    Some(string.grapheme_indices(true).nth(n.abs() as usize).map_or(
+                        "",
+                        |(i, _)| {
+                            &from_utf8(&string.as_bytes()[i..])
+                                .expect("should not fail as input string is utf8")
+                        },
+                    ))
+                }
             },
+            _ => None,
         })
         .collect::<GenericStringArray<T>>();
 
     Ok(Arc::new(result) as ArrayRef)
 }
 
-/// Extends the string to length length by appending the characters fill (a space by default). If the string is already longer than length then it is truncated.
+/// Extends the string to length 'length' by appending the characters fill (a space by default). If the string is already longer than length then it is truncated.
 /// rpad('hi', 5, 'xy') = 'hixyx'
 pub fn rpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
     match args.len() {
@@ -282,8 +285,6 @@ pub fn rpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
                 .iter()
                 .zip(length_array.iter())
                 .map(|(string, length)| match (string, length) {
-                    (None, _) => None,
-                    (_, None) => None,
                     (Some(string), Some(length)) => {
                         let length = length as usize;
                         if length == 0 {
@@ -299,6 +300,7 @@ pub fn rpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
                             }
                         }
                     }
+                    _ => None,
                 })
                 .collect::<GenericStringArray<T>>();
 
@@ -314,9 +316,6 @@ pub fn rpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
                 .zip(length_array.iter())
                 .zip(fill_array.iter())
                 .map(|((string, length), fill)| match (string, length, fill) {
-                    (None, _, _) => None,
-                    (_, None, _) => None,
-                    (_, _, None) => None,
                     (Some(string), Some(length), Some(fill)) => {
                         let length = length as usize;
                         let graphemes = string.graphemes(true).collect::<Vec<&str>>();
@@ -338,6 +337,7 @@ pub fn rpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
                             Some(s)
                         }
                     }
+                    _ => None,
                 })
                 .collect::<GenericStringArray<T>>();
 
@@ -376,8 +376,6 @@ where
         .iter()
         .zip(substring_array.iter())
         .map(|(string, substring)| match (string, substring) {
-            (None, _) => None,
-            (_, None) => None,
             (Some(string), Some(substring)) => {
                 // the rfind method returns the byte index of the substring which may or may not be the same as the character index due to UTF8 encoding
                 // this method first finds the matching byte using rfind
@@ -395,14 +393,15 @@ where
                                 .map(|(index, _)| index)
                                 .collect::<Vec<usize>>()
                                 .first()
-                                .unwrap()
+                                .expect("should not fail as grapheme_indices and byte offsets are tightly coupled")
                                 .to_owned()
                                 + 1
                         },
                     ))
-                    .unwrap(),
+                    .expect("should not fail due to map_or default value")
                 )
             }
+            _ => None,
         })
         .collect::<PrimitiveArray<T>>();
 
@@ -422,8 +421,6 @@ pub fn substr<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
                 .iter()
                 .zip(start_array.iter())
                 .map(|(string, start)| match (string, start) {
-                    (None, _) => None,
-                    (_, None) => None,
                     (Some(string), Some(start)) => {
                         if start <= 0 {
                             Some(string.to_string())
@@ -437,6 +434,7 @@ pub fn substr<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
                             }
                         }
                     }
+                    _ => None,
                 })
                 .collect::<GenericStringArray<T>>();
 
@@ -452,9 +450,6 @@ pub fn substr<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
                 .zip(start_array.iter())
                 .zip(count_array.iter())
                 .map(|((string, start), count)| match (string, start, count) {
-                    (None, _, _) => Ok(None),
-                    (_, None, _) => Ok(None),
-                    (_, _, None) => Ok(None),
                     (Some(string), Some(start), Some(count)) => {
                         if count < 0 {
                             Err(DataFusionError::Execution(
@@ -478,6 +473,7 @@ pub fn substr<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
                             }
                         }
                     }
+                    _ => Ok(None),
                 })
                 .collect::<Result<GenericStringArray<T>>>()?;
 
@@ -502,9 +498,6 @@ pub fn translate<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef
         .zip(from_array.iter())
         .zip(to_array.iter())
         .map(|((string, from), to)| match (string, from, to) {
-            (None, _, _) => None,
-            (_, None, _) => None,
-            (_, _, None) => None,
             (Some(string), Some(from), Some(to)) => {
                 // create a hashmap of [char, index] to change from O(n) to O(1) for from list
                 let from_map: HashMap<&str, usize> = from
@@ -530,6 +523,7 @@ pub fn translate<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef
                         .concat(),
                 )
             }
+            _ => None,
         })
         .collect::<GenericStringArray<T>>();
 

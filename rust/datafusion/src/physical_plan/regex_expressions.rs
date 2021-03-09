@@ -71,9 +71,6 @@ pub fn regexp_replace<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<Arr
             .zip(pattern_array.iter())
             .zip(replacement_array.iter())
             .map(|((string, pattern), replacement)| match (string, pattern, replacement) {
-                (None, _, _) => Ok(None),
-                (_, None, _) => Ok(None),
-                (_, _, None) => Ok(None),
                 (Some(string), Some(pattern), Some(replacement)) => {
                     let replacement = regex_replace_posix_groups(replacement);
 
@@ -93,6 +90,7 @@ pub fn regexp_replace<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<Arr
 
                     Some(re.map(|re| re.replace(string, replacement.as_str()))).transpose()
                 }
+            _ => Ok(None)
             })
             .collect::<Result<GenericStringArray<T>>>()?;
 
@@ -110,10 +108,6 @@ pub fn regexp_replace<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<Arr
             .zip(replacement_array.iter())
             .zip(flags_array.iter())
             .map(|(((string, pattern), replacement), flags)| match (string, pattern, replacement, flags) {
-                (None, _, _, _) => Ok(None),
-                (_, None, _, _) => Ok(None),
-                (_, _, None, _) => Ok(None),
-                (_, _, _, None) => Ok(None),
                 (Some(string), Some(pattern), Some(replacement), Some(flags)) => {
                     let replacement = regex_replace_posix_groups(replacement);
 
@@ -148,6 +142,7 @@ pub fn regexp_replace<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<Arr
                         }
                     })).transpose()
                 }
+            _ => Ok(None)
             })
             .collect::<Result<GenericStringArray<T>>>()?;
 

@@ -426,12 +426,11 @@ pub fn ltrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
                 .iter()
                 .zip(characters_array.iter())
                 .map(|(string, characters)| match (string, characters) {
-                    (None, _) => None,
-                    (_, None) => None,
                     (Some(string), Some(characters)) => {
                         let chars: Vec<char> = characters.chars().collect();
                         Some(string.trim_start_matches(&chars[..]))
                     }
+                    _ => None,
                 })
                 .collect::<GenericStringArray<T>>();
 
@@ -454,9 +453,8 @@ pub fn repeat<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
         .iter()
         .zip(number_array.iter())
         .map(|(string, number)| match (string, number) {
-            (None, _) => None,
-            (_, None) => None,
             (Some(string), Some(number)) => Some(string.repeat(number as usize)),
+            _ => None,
         })
         .collect::<GenericStringArray<T>>();
 
@@ -475,10 +473,8 @@ pub fn replace<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> 
         .zip(from_array.iter())
         .zip(to_array.iter())
         .map(|((string, from), to)| match (string, from, to) {
-            (None, _, _) => None,
-            (_, None, _) => None,
-            (_, _, None) => None,
             (Some(string), Some(from), Some(to)) => Some(string.replace(from, to)),
+            _ => None,
         })
         .collect::<GenericStringArray<T>>();
 
@@ -507,12 +503,11 @@ pub fn rtrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
                 .iter()
                 .zip(characters_array.iter())
                 .map(|(string, characters)| match (string, characters) {
-                    (None, _) => None,
-                    (_, None) => None,
                     (Some(string), Some(characters)) => {
                         let chars: Vec<char> = characters.chars().collect();
                         Some(string.trim_end_matches(&chars[..]))
                     }
+                    _ => None,
                 })
                 .collect::<GenericStringArray<T>>();
 
@@ -537,9 +532,6 @@ pub fn split_part<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRe
         .zip(delimiter_array.iter())
         .zip(n_array.iter())
         .map(|((string, delimiter), n)| match (string, delimiter, n) {
-            (None, _, _) => Ok(None),
-            (_, None, _) => Ok(None),
-            (_, _, None) => Ok(None),
             (Some(string), Some(delimiter), Some(n)) => {
                 if n <= 0 {
                     Err(DataFusionError::Execution(
@@ -553,6 +545,7 @@ pub fn split_part<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRe
                     }
                 }
             }
+            _ => Ok(None),
         })
         .collect::<Result<GenericStringArray<T>>>()?;
 
@@ -569,9 +562,8 @@ pub fn starts_with<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayR
         .iter()
         .zip(prefix_array.iter())
         .map(|(string, prefix)| match (string, prefix) {
-            (None, _) => None,
-            (_, None) => None,
             (Some(string), Some(prefix)) => Some(string.starts_with(prefix)),
+            _ => None,
         })
         .collect::<BooleanArray>();
 
