@@ -498,8 +498,10 @@ impl QueryPlanner for DefaultQueryPlanner {
 /// The style of case display
 #[derive(Clone, PartialEq)]
 pub enum CaseStyle {
+    /// Case style like MySQL, SELECT mD5("a") will output SELECT mD5("a")
     LikeMySQL,
-    LikePostgreSQL
+    /// Case style like PostgreSQL, SELECT mD5("a") will output SELECT md5("a")
+    LikePostgreSQL,
 }
 
 /// Configuration options for execution context
