@@ -188,10 +188,91 @@ static void DecodeStream(benchmark::State& state) {  // NOLINT non-const referen
   state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize);
 }
 
+static void ReadCompressedFile(benchmark::State& state) {  // NOLINT non-const reference
+  // 1MB
+  constexpr int64_t kTotalSize = 1 << 20;
+  constexpr int64_t kBatches = 128;
+  auto options = ipc::IpcWriteOptions::Defaults();
+  ASSIGN_OR_ABORT(options.codec,
+                  arrow::util::Codec::Create(arrow::Compression::type::ZSTD));
+
+  std::shared_ptr<ResizableBuffer> buffer = *AllocateResizableBuffer(1024);
+  {
+    // Make Arrow IPC file
+    auto record_batch = MakeRecordBatch(kTotalSize, state.range(0));
+
+    io::BufferOutputStream stream(buffer);
+
+    auto writer = *ipc::MakeFileWriter(&stream, record_batch->schema(), options);
+    for (int i = 0; i < kBatches; i++) {
+      ABORT_NOT_OK(writer->WriteRecordBatch(*record_batch));
+    }
+    ABORT_NOT_OK(writer->Close());
+    ABORT_NOT_OK(stream.Close());
+  }
+
+  ipc::DictionaryMemo empty_memo;
+  for (auto _ : state) {
+    io::BufferReader input(buffer);
+    auto reader =
+        *ipc::RecordBatchFileReader::Open(&input, ipc::IpcReadOptions::Defaults());
+    const int num_batches = reader->num_record_batches();
+    for (int i = 0; i < num_batches; ++i) {
+      auto batch = *reader->ReadRecordBatch(i);
+    }
+  }
+  state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize * kBatches);
+}
+
+static void ReadaheadCompressedFile(
+    benchmark::State& state) {  // NOLINT non-const reference
+  // 1MB
+  constexpr int64_t kTotalSize = 1 << 20;
+  constexpr int64_t kBatches = 128;
+  auto options = ipc::IpcWriteOptions::Defaults();
+  ASSIGN_OR_ABORT(options.codec,
+                  arrow::util::Codec::Create(arrow::Compression::type::ZSTD));
+
+  std::shared_ptr<ResizableBuffer> buffer = *AllocateResizableBuffer(1024);
+  {
+    // Make Arrow IPC file
+    auto record_batch = MakeRecordBatch(kTotalSize, state.range(0));
+
+    io::BufferOutputStream stream(buffer);
+
+    auto writer = *ipc::MakeFileWriter(&stream, record_batch->schema(), options);
+    for (int i = 0; i < kBatches; i++) {
+      ABORT_NOT_OK(writer->WriteRecordBatch(*record_batch));
+    }
+    ABORT_NOT_OK(writer->Close());
+    ABORT_NOT_OK(stream.Close());
+  }
+
+  ipc::DictionaryMemo empty_memo;
+  for (auto _ : state) {
+    io::BufferReader input(buffer);
+    auto reader =
+        *ipc::RecordBatchFileReader::Open(&input, ipc::IpcReadOptions::Defaults());
+    ASSIGN_OR_ABORT(auto generator,
+                    reader->GetRecordBatchGenerator(/*readahead_messages=*/4,
+                                                    io::default_io_context(),
+                                                    arrow::internal::GetCpuThreadPool()));
+    generator = MakeReadaheadGenerator(std::move(generator), /*readahead=*/4);
+    const int num_batches = reader->num_record_batches();
+    for (int i = 0; i < num_batches; ++i) {
+      auto batch = *generator().result();
+    }
+  }
+  state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize * kBatches);
+}
+
 BENCHMARK(WriteRecordBatch)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
 BENCHMARK(ReadRecordBatch)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
 BENCHMARK(ReadFile)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
 BENCHMARK(ReadStream)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
 BENCHMARK(DecodeStream)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
+
+BENCHMARK(ReadCompressedFile)->RangeMultiplier(4)->Range(1, 1 << 10)->UseRealTime();
+BENCHMARK(ReadaheadCompressedFile)->RangeMultiplier(4)->Range(1, 1 << 10)->UseRealTime();
 
 }  // namespace arrow
