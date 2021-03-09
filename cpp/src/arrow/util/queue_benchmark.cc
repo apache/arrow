@@ -23,33 +23,31 @@
 #include <benchmark/benchmark.h>
 
 #include "arrow/buffer.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/queue.h"
 
 namespace arrow {
+
 namespace util {
 
 static constexpr int64_t kSize = 100000;
 
-void SpscQueueThroughput(benchmark::State& state) {
+void Throughput(benchmark::State& state) {
   SpscQueue<std::shared_ptr<Buffer>> queue(16);
 
-  std::vector<std::shared_ptr<Buffer>> one;
-  std::vector<std::shared_ptr<Buffer>> two;
-  one.reserve(kSize);
-  two.resize(kSize);
+  std::vector<std::shared_ptr<Buffer>> source;
+  std::vector<std::shared_ptr<Buffer>> sink;
+  source.reserve(kSize);
+  sink.resize(kSize);
   const uint8_t data[1] = {0};
   for (int64_t i = 0; i < kSize; i++) {
-    one.push_back(std::make_shared<Buffer>(data, 1));
+    source.push_back(std::make_shared<Buffer>(data, 1));
   }
 
-  std::vector<std::shared_ptr<Buffer>>* source = &one;
-  std::vector<std::shared_ptr<Buffer>>* sink = &two;
-  std::vector<std::shared_ptr<Buffer>>* swap = &one;
-
   for (auto _ : state) {
-    std::thread producer([&queue, source] {
-      auto itr = std::make_move_iterator(source->begin());
-      auto end = std::make_move_iterator(source->end());
+    std::thread producer([&] {
+      auto itr = std::make_move_iterator(source.begin());
+      auto end = std::make_move_iterator(source.end());
       while (itr != end) {
         while (!queue.Write(*itr)) {
         }
@@ -57,9 +55,9 @@ void SpscQueueThroughput(benchmark::State& state) {
       }
     });
 
-    std::thread consumer([&queue, sink] {
-      auto itr = sink->begin();
-      auto end = sink->end();
+    std::thread consumer([&] {
+      auto itr = sink.begin();
+      auto end = sink.end();
       while (itr != end) {
         auto next = queue.FrontPtr();
         if (next != nullptr) {
@@ -72,15 +70,16 @@ void SpscQueueThroughput(benchmark::State& state) {
 
     producer.join();
     consumer.join();
-    swap = source;
-    source = sink;
-    sink = swap;
+    std::swap(source, sink);
   }
 
+  for (const auto& buf : source) {
+    ARROW_CHECK(buf && buf->size() == 1);
+  }
   state.SetItemsProcessed(state.iterations() * kSize);
 }
 
-BENCHMARK(SpscQueueThroughput)->UseRealTime();
+BENCHMARK(Throughput)->UseRealTime();
 
 }  // namespace util
 }  // namespace arrow

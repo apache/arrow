@@ -23,12 +23,32 @@
 namespace arrow {
 namespace util {
 
-TEST(TestQueue, TestMoveOnly) {
-  SpscQueue<MoveOnlyDataType> queue(2);
+TEST(TestSpscQueue, TestMoveOnly) {
+  SpscQueue<MoveOnlyDataType> queue(3);
+  ASSERT_TRUE(queue.IsEmpty());
+  ASSERT_FALSE(queue.IsFull());
+  ASSERT_EQ(queue.SizeGuess(), 0);
+
   MoveOnlyDataType in(42);
   queue.Write(std::move(in));
+  ASSERT_FALSE(queue.IsEmpty());
+  ASSERT_FALSE(queue.IsFull());
+  ASSERT_EQ(queue.SizeGuess(), 1);
+
+  queue.Write(43);
+  ASSERT_FALSE(queue.IsEmpty());
+  ASSERT_TRUE(queue.IsFull());
+  ASSERT_EQ(queue.SizeGuess(), 2);
+
   MoveOnlyDataType out = std::move(*queue.FrontPtr());
   ASSERT_EQ(42, *out.data);
+  queue.PopFront();
+  ASSERT_TRUE(queue.Read(out));
+  ASSERT_EQ(43, *out.data);
+
+  ASSERT_TRUE(queue.IsEmpty());
+  ASSERT_FALSE(queue.IsFull());
+  ASSERT_EQ(queue.SizeGuess(), 0);
 }
 
 }  // namespace util
