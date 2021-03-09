@@ -1017,7 +1017,7 @@ struct FileGeneratorWriterHelper : public FileWriterHelper {
 
     {
       ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchFileReader::Open(
-          buf_reader.get(), footer_offset_, options));
+                                             buf_reader.get(), footer_offset_, options));
       EXPECT_EQ(num_batches_written_, reader->num_record_batches());
       // Generator's lifetime is independent of the reader's
       ARROW_ASSIGN_OR_RAISE(generator, reader->GetRecordBatchGenerator());
