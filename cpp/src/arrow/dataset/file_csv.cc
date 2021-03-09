@@ -119,8 +119,9 @@ static inline Result<std::shared_ptr<csv::StreamingReader>> OpenReader(
                           GetConvertOptions(format, scan_options, *first_block, pool));
   }
 
-  auto maybe_reader = csv::StreamingReader::Make(pool, std::move(input), reader_options,
-                                                 parse_options, convert_options);
+  auto maybe_reader =
+      csv::StreamingReader::Make(io::IOContext(pool), std::move(input), reader_options,
+                                 parse_options, convert_options);
   if (!maybe_reader.ok()) {
     return maybe_reader.status().WithMessage("Could not open CSV input source '",
                                              source.path(), "': ", maybe_reader.status());

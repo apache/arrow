@@ -52,7 +52,7 @@ class ARROW_EXPORT TableReader {
                                                    const ParseOptions&,
                                                    const ConvertOptions&);
 
-  ARROW_DEPRECATED("Use MemoryPool-less overload (the IOContext holds a pool already)")
+  ARROW_DEPRECATED("Use MemoryPool-less variant (the IOContext holds a pool already)")
   static Result<std::shared_ptr<TableReader>> Make(
       MemoryPool* pool, io::IOContext io_context, std::shared_ptr<io::InputStream> input,
       const ReadOptions&, const ParseOptions&, const ConvertOptions&);
@@ -67,6 +67,11 @@ class ARROW_EXPORT StreamingReader : public RecordBatchReader {
   ///
   /// Currently, the StreamingReader is always single-threaded (parallel
   /// readahead is not supported).
+  static Result<std::shared_ptr<StreamingReader>> Make(
+      io::IOContext io_context, std::shared_ptr<io::InputStream> input,
+      const ReadOptions&, const ParseOptions&, const ConvertOptions&);
+
+  ARROW_DEPRECATED("Use IOContext-based overload")
   static Result<std::shared_ptr<StreamingReader>> Make(
       MemoryPool* pool, std::shared_ptr<io::InputStream> input, const ReadOptions&,
       const ParseOptions&, const ConvertOptions&);
