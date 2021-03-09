@@ -23,7 +23,6 @@
 
 use std::any::type_name;
 use std::cmp::Ordering;
-use std::str::from_utf8;
 use std::sync::Arc;
 
 use crate::error::{DataFusionError, Result};
@@ -104,24 +103,17 @@ pub fn left<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
                     let graphemes = string.graphemes(true);
                     let len = graphemes.clone().count() as i64;
                     match n.abs().cmp(&len) {
-                        Ordering::Less => Some(
-                            graphemes
-                                .take((len + n) as usize)
-                                .collect::<Vec<&str>>()
-                                .concat(),
-                        ),
+                        Ordering::Less => {
+                            Some(graphemes.take((len + n) as usize).collect::<String>())
+                        }
                         Ordering::Equal => Some("".to_string()),
                         Ordering::Greater => Some("".to_string()),
                     }
                 }
                 Ordering::Equal => Some("".to_string()),
-                Ordering::Greater => Some(
-                    string
-                        .graphemes(true)
-                        .take(n as usize)
-                        .collect::<Vec<&str>>()
-                        .concat(),
-                ),
+                Ordering::Greater => {
+                    Some(string.graphemes(true).take(n as usize).collect::<String>())
+                }
             },
             _ => None,
         })
@@ -245,26 +237,35 @@ pub fn right<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
         .zip(n_array.iter())
         .map(|(string, n)| match (string, n) {
             (Some(string), Some(n)) => match n.cmp(&0) {
-                Ordering::Equal => Some(""),
+                Ordering::Less => {
+                    let graphemes = string.graphemes(true).rev();
+                    let len = graphemes.clone().count() as i64;
+                    match n.abs().cmp(&len) {
+                        Ordering::Less => Some(
+                            graphemes
+                                .take((len + n) as usize)
+                                .collect::<Vec<&str>>()
+                                .iter()
+                                .rev()
+                                .copied()
+                                .collect::<String>(),
+                        ),
+                        Ordering::Equal => Some("".to_string()),
+                        Ordering::Greater => Some("".to_string()),
+                    }
+                }
+                Ordering::Equal => Some("".to_string()),
                 Ordering::Greater => Some(
                     string
-                        .grapheme_indices(true)
+                        .graphemes(true)
                         .rev()
-                        .nth(n as usize - 1)
-                        .map_or(string, |(i, _)| {
-                            &from_utf8(&string.as_bytes()[i..])
-                                .expect("should not fail as input string is utf8")
-                        }),
+                        .take(n as usize)
+                        .collect::<Vec<&str>>()
+                        .iter()
+                        .rev()
+                        .copied()
+                        .collect::<String>(),
                 ),
-                Ordering::Less => {
-                    Some(string.grapheme_indices(true).nth(n.abs() as usize).map_or(
-                        "",
-                        |(i, _)| {
-                            &from_utf8(&string.as_bytes()[i..])
-                                .expect("should not fail as input string is utf8")
-                        },
-                    ))
-                }
             },
             _ => None,
         })
