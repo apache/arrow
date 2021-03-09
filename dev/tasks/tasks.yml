@@ -1630,7 +1630,7 @@ tasks:
     params:
       MATRIX: "${{ matrix.r_version }}"
 
-  test-r-install-macos:
+  test-r-install-local:
     ci: github
     template: r/github.macos-linux.local.yml
 
