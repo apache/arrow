@@ -32,7 +32,7 @@ namespace util {
 
 static constexpr int64_t kSize = 100000;
 
-void SpscQueueThroughput(benchmark::State& state) {
+void Throughput(benchmark::State& state) {
   SpscQueue<std::shared_ptr<Buffer>> queue(16);
 
   std::vector<std::shared_ptr<Buffer>> source;
@@ -79,7 +79,7 @@ void SpscQueueThroughput(benchmark::State& state) {
   state.SetItemsProcessed(state.iterations() * kSize);
 }
 
-BENCHMARK(SpscQueueThroughput)->UseRealTime();
+BENCHMARK(Throughput)->UseRealTime();
 
 }  // namespace util
 }  // namespace arrow
