@@ -43,6 +43,7 @@ cpp/src/plasma/thirdparty/dlmalloc.c
 cpp/thirdparty/flatbuffers/include/flatbuffers/base.h
 cpp/thirdparty/flatbuffers/include/flatbuffers/flatbuffers.h
 cpp/thirdparty/flatbuffers/include/flatbuffers/stl_emulation.h
+dev/requirements*.txt
 dev/archery/MANIFEST.in
 dev/archery/requirements*.txt
 dev/archery/archery/tests/fixtures/*
