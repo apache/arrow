@@ -388,6 +388,7 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
 collect.ArrowTabular <- as.data.frame.ArrowTabular
 collect.Dataset <- function(x, ...) dplyr::collect(arrow_dplyr_query(x), ...)
 
+#' @importFrom rlang .data
 ensure_group_vars <- function(x) {
   if (inherits(x, "arrow_dplyr_query")) {
     # Before pulling data from Arrow, make sure all group vars are in the projection
@@ -514,7 +515,7 @@ mutate.arrow_dplyr_query <- function(.data,
   if (!quo_is_null(.before) || !quo_is_null(.after)) {
     # TODO(ARROW-11701)
     return(abandon_ship(call, .data, '.before and .after arguments are not supported in Arrow'))
-  } else if (length(group_vars(.data)) > 0) {
+  } else if (length(dplyr::group_vars(.data)) > 0) {
     # mutate() on a grouped dataset does calculations within groups
     # This doesn't matter on scalar ops (arithmetic etc.) but it does
     # for things with aggregations (e.g. subtracting the mean)
