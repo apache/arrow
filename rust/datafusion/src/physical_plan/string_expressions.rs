@@ -614,10 +614,10 @@ pub fn regexp_extract(args: &[ArrayRef]) -> Result<ArrayRef> {
 }
 
 /// extract a specific group from a string column, using a regular expression
-pub fn regexp_match(args: &[ArrayRef]) -> Result<ArrayRef> {
-    let pattern_expr = args[1].as_any().downcast_ref::<StringArray>().unwrap();
-    let pattern = pattern_expr.value(0);
-    compute::regexp_match(args[0].as_ref(), pattern).map_err(DataFusionError::ArrowError)
+pub fn regexp_match(col: &ArrayRef, pattern: &str) -> Result<ArrayRef> {
+    // let pattern_expr = args[1].as_any().downcast_ref::<StringArray>().unwrap();
+    // let pattern = pattern_expr.value(0);
+    compute::regexp_match(col.as_ref(), pattern).map_err(DataFusionError::ArrowError)
 }
 
 /// Repeats string the specified number of times.

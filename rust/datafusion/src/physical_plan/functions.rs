@@ -767,17 +767,30 @@ pub fn create_physical_expr(
                 other,
             ))),
         },
-        BuiltinScalarFunction::RegexpMatch => |args| match args[0].data_type() {
-            DataType::Utf8 => {
-                make_scalar_function(string_expressions::regexp_match)(args)
+        BuiltinScalarFunction::RegexpMatch => |args| match (&args[0], &args[1]) {
+            (c, ColumnarValue::Scalar(ScalarValue::Utf8(Some(pattern))))
+                if c.data_type() == DataType::Utf8
+                    || c.data_type() == DataType::LargeUtf8 =>
+            {
+                let arr = match c {
+                    ColumnarValue::Array(col) => col.clone(),
+                    ColumnarValue::Scalar(_) => c.clone().into_array(1),
+                };
+
+                Ok(ColumnarValue::Array(string_expressions::regexp_match(
+                    &arr,
+                    pattern.as_str(),
+                )?))
             }
-            DataType::LargeUtf8 => {
-                make_scalar_function(string_expressions::regexp_match)(args)
+            (c, ColumnarValue::Scalar(ScalarValue::Utf8(Some(_)))) => {
+                Err(DataFusionError::Internal(format!(
+                    "Unsupported data type {:?} for function regexp_match",
+                    c.data_type(),
+                )))
             }
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function regexp_match",
-                other,
-            ))),
+            (_, _) => Err(DataFusionError::Internal(
+                "regexp_match expects a literal string as second argument".to_string(),
+            )),
         },
         BuiltinScalarFunction::Repeat => |args| match args[0].data_type() {
             DataType::Utf8 => {
@@ -1168,7 +1181,7 @@ mod tests {
     use arrow::{
         array::{
             Array, ArrayRef, BinaryArray, FixedSizeListArray, Float64Array, Int32Array,
-            StringArray, UInt32Array, UInt64Array,
+            ListArray, StringArray, UInt32Array, UInt64Array,
         },
         datatypes::Field,
         record_batch::RecordBatch,
@@ -2873,6 +2886,43 @@ mod tests {
         // value is correct
         let expected = "555".to_string();
         assert_eq!(result.value(0).to_string(), expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_regexp_match() -> Result<()> {
+        // any type works here: we evaluate against a literal of `value`
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+        let columns: Vec<ArrayRef> = vec![Arc::new(Int32Array::from(vec![1]))];
+
+        // concat(value, value)
+        let col_value = lit(ScalarValue::Utf8(Some("aaa-555".to_string())));
+        let pattern = lit(ScalarValue::Utf8(Some(r".*-(\d*)".to_string())));
+        let expr = create_physical_expr(
+            &BuiltinScalarFunction::RegexpMatch,
+            &[col_value, pattern],
+            &schema,
+        )?;
+
+        // type is correct
+        assert_eq!(
+            expr.data_type(&schema)?,
+            DataType::List(Box::new(Field::new("item", DataType::Utf8, true)))
+        );
+
+        // evaluate works
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), columns)?;
+        let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
+
+        // downcast works
+        let result = result.as_any().downcast_ref::<ListArray>().unwrap();
+        let first_row = result.value(0);
+        let first_row = first_row.as_any().downcast_ref::<StringArray>().unwrap();
+
+        // value is correct
+        let expected = "555".to_string();
+        assert_eq!(first_row.value(0), expected);
 
         Ok(())
     }
