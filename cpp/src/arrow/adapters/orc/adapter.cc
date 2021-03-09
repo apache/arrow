@@ -513,9 +513,9 @@ class ORCFileWriter::Impl {
         static_cast<liborc::OutputStream*>(new ArrowOutputStream(output_stream)));
     return Status::OK();
   }
-  Status Write(const Table& table) {
+  Status Write(const Table& table, const WriterOptions& writer_options) {
     std::unique_ptr<liborc::WriterOptions> orc_options =
-        std::unique_ptr<liborc::WriterOptions>(new liborc::WriterOptions());
+        std::unique_ptr<liborc::WriterOptions>(AdaptWriterOptions(writer_options));
     std::unique_ptr<liborc::Type> orc_schema = GetORCType(*(table.schema())).ValueOrDie();
     try {
       writer_ = createWriter(*orc_schema, out_stream_.get(), *orc_options);
@@ -567,7 +567,7 @@ Result<std::unique_ptr<ORCFileWriter>> ORCFileWriter::Open(
   return result;
 }
 
-Status ORCFileWriter::Write(const Table& table) { return impl_->Write(table); }
+Status ORCFileWriter::Write(const Table& table, const WriterOptions& writer_options) { return impl_->Write(table, writer_options); }
 
 Status ORCFileWriter::Close() { return impl_->Close(); }
 

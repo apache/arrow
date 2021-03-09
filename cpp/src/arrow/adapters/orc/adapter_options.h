@@ -17,8 +17,13 @@
 
 #pragma once
 
+#include <set>
+
 #include "arrow/io/interfaces.h"
 #include "arrow/util/visibility.h"
+#include "orc/OrcFile.hh"
+
+namespace liborc = orc;
 
 namespace arrow {
 
@@ -235,6 +240,12 @@ class ARROW_EXPORT WriterOptions {
   bool is_column_use_bloom_filter(uint64_t column) const;
 
   /**
+   * Get columns that use BloomFilter 
+   * @return The set of columns that use BloomFilter
+   */
+  std::set<uint64_t> columns_use_bloom_filter() const;
+
+  /**
    * Set false positive probability of BloomFilter
    */
   WriterOptions& set_bloom_filter_fpp(double fpp);
@@ -249,6 +260,9 @@ class ARROW_EXPORT WriterOptions {
    */
   BloomFilterVersion bloom_filter_version() const;
 };
+
+liborc::WriterOptions* AdaptWriterOptions(const WriterOptions& arrow_writer_options);
+
 }  // namespace orc
 }  // namespace adapters
 }  // namespace arrow

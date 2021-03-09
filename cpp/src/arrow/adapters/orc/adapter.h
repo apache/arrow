@@ -21,6 +21,7 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/adapters/orc/adapter_options.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
@@ -157,8 +158,9 @@ class ARROW_EXPORT ORCFileWriter {
   /// \brief Write a table
   ///
   /// \param[in] table the Arrow table from which data is extracted
+  /// \param[in] writer_options options for the ORCWriter, based on orc::WriterOptions
   /// \return Status
-  Status Write(const Table& table);
+  Status Write(const Table& table, const WriterOptions& writer_options = WriterOptions());
 
   /// \brief Close a file
   ///
