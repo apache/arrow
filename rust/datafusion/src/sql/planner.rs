@@ -21,7 +21,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::datasource::TableProvider;
-use crate::execution::context::ExecutionConfig;
+use crate::execution::context::{ExecutionConfig, CaseStyle};
 use crate::logical_plan::Expr::Alias;
 use crate::logical_plan::{
     and, lit, DFSchema, Expr, LogicalPlan, LogicalPlanBuilder, Operator, PlanType,
@@ -931,8 +931,10 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             }
 
             SQLExpr::Function(function) => {
-                let input_name = function.name.to_string();
                 let case_sensitive = self.schema_provider.config().case_sensitive;
+                let case_style = self.schema_provider.config().case_style;
+
+                let mut input_name = function.name.to_string();
                 let name = if !case_sensitive {
                     input_name.to_lowercase()
                 } else {
@@ -946,6 +948,10 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                         .iter()
                         .map(|a| self.sql_fn_arg_to_logical_expr(a))
                         .collect::<Result<Vec<Expr>>>()?;
+
+                    if let CaseStyle::LikePostgreSQL = case_style {
+                        input_name = input_name.to_lowercase();
+                    }
 
                     return Ok(Expr::ScalarFunction {
                         input_name,
@@ -976,6 +982,10 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                             .map(|a| self.sql_fn_arg_to_logical_expr(a))
                             .collect::<Result<Vec<Expr>>>()?
                     };
+
+                    if let CaseStyle::LikePostgreSQL = case_style {
+                        input_name = input_name.to_uppercase();
+                    }
 
                     return Ok(Expr::AggregateFunction {
                         input_name,

@@ -495,6 +495,13 @@ impl QueryPlanner for DefaultQueryPlanner {
     }
 }
 
+/// The style of case display
+#[derive(Clone, PartialEq)]
+pub enum CaseStyle {
+    LikeMySQL,
+    LikePostgreSQL
+}
+
 /// Configuration options for execution context
 #[derive(Clone)]
 pub struct ExecutionConfig {
@@ -508,6 +515,8 @@ pub struct ExecutionConfig {
     /// `"SELECT count(*) FROM t"` can be used.
     /// Defaults to `true`
     pub case_sensitive: bool,
+    /// Default to like PostgreSQL
+    pub case_style: CaseStyle,
     /// Responsible for optimizing a logical plan
     optimizers: Vec<Arc<dyn OptimizerRule + Send + Sync>>,
     /// Responsible for planning `LogicalPlan`s, and `ExecutionPlan`
@@ -521,6 +530,7 @@ impl ExecutionConfig {
             concurrency: num_cpus::get(),
             batch_size: 32768,
             case_sensitive: true,
+            case_style: CaseStyle::LikePostgreSQL,
             optimizers: vec![
                 Arc::new(ConstantFolding::new()),
                 Arc::new(ProjectionPushDown::new()),
@@ -550,6 +560,12 @@ impl ExecutionConfig {
     /// Customize case sensitive
     pub fn with_case_sensitive(mut self, cs: bool) -> Self {
         self.case_sensitive = cs;
+        self
+    }
+
+    /// Customize case style
+    pub fn with_case_style(mut self, cs: CaseStyle) -> Self {
+        self.case_style = cs;
         self
     }
 
@@ -1376,7 +1392,7 @@ mod tests {
 
             let results = plan_and_collect(
                 &mut ctx,
-                "SELECT dict, COUNT(val) FROM t GROUP BY dict",
+                "SELECT dict, count(val) FROM t GROUP BY dict",
             )
             .await
             .expect("ran plan correctly");
@@ -1394,7 +1410,7 @@ mod tests {
 
             // Now, use dict as an aggregate
             let results =
-                plan_and_collect(&mut ctx, "SELECT val, COUNT(dict) FROM t GROUP BY val")
+                plan_and_collect(&mut ctx, "SELECT val, count(dict) FROM t GROUP BY val")
                     .await
                     .expect("ran plan correctly");
 
