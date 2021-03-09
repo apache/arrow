@@ -111,8 +111,14 @@ match_arrow.ArrowDatum <- function(x, table, ...) {
 
 #' `is_in` for Arrow objects
 #'
-#' TODO
+#' `%in%` is not a generic so, so we can't just define Arrow methods for
+#' it. This function exposes the analogous function in the Arrow C++ library.
 #'
+#' @param x `Array` or `ChunkedArray`
+#' @param table `Array`, `ChunkedArray`, or R vector lookup table.
+#' @param ... additional arguments, ignored
+#' @return An `boolean`-type `Array` of the same length as `x` with
+#' values indicating per element of `x` it it is present in `table`.
 #' @export
 is_in <- function(x, table, ...) UseMethod("is_in")
 

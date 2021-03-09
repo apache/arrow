@@ -144,6 +144,7 @@ reference:
   - codec_is_available
 - title: Computation
   contents:
+  - is_in
   - match_arrow
   - value_counts
 - title: Configuration
