@@ -359,9 +359,9 @@ test_that("table() auto splices (ARROW-5718)", {
 })
 
 test_that("Validation when creating table with schema (ARROW-10953)", {
-  tab <- Table$create(data.frame(), schema = schema(a = int32()))
-  skip("This segfaults")
-  expect_identical(dim(as.data.frame(tab)), c(0L, 1L))
+  expect_error(Table$create(data.frame(), schema = schema(a = int32())))
+  expect_error(Table$create(data.frame(b = 1), schema = schema(a = int32())))
+  expect_error(Table$create(data.frame(b = 2, c = 3), schema = schema(a = int32())))
 })
 
 test_that("==.Table", {
