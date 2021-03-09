@@ -87,7 +87,9 @@ util::optional<int64_t> IntegerSysCtlByName(const char* name) {
   if (sysctlbyname(name, &data, &len, nullptr, 0) == 0) {
     return data;
   }
-  if (errno != ENOENT) {
+  // ENOENT is the official errno value for non-existing sysctl's,
+  // but EINVAL and ENOTSUP have been seen in the wild.
+  if (errno != ENOENT && errno != EINVAL && errno != ENOTSUP) {
     auto st = IOErrorFromErrno(errno, "sysctlbyname failed for '", name, "'");
     ARROW_LOG(WARNING) << st.ToString();
   }
@@ -352,21 +354,25 @@ void CpuInfo::Init() {
     const char* name;
     int64_t flag;
   };
-  for (auto feature : std::vector<SysCtlCpuFeature>{
-           // x86
-           {"hw.optional.sse4_2", SSSE3 | SSE4_1 | SSE4_2 | POPCNT},
-           {"hw.optional.avx1_0", AVX},
-           {"hw.optional.avx2_0", AVX2},
-           {"hw.optional.bmi1", BMI1},
-           {"hw.optional.bmi2", BMI2},
-           {"hw.optional.avx512f", AVX512F},
-           {"hw.optional.avx512cd", AVX512CD},
-           {"hw.optional.avx512dq", AVX512DQ},
-           {"hw.optional.avx512bw", AVX512BW},
-           {"hw.optional.avx512vl", AVX512VL},
-           // ARM64
-           {"hw.optional.neon", ASIMD},
-       }) {
+  std::vector<SysCtlCpuFeature> features = {
+#if defined(__aarch64__)
+    // ARM64 (note that this is exposed under Rosetta as well)
+    {"hw.optional.neon", ASIMD},
+#else
+    // x86
+    {"hw.optional.sse4_2", SSSE3 | SSE4_1 | SSE4_2 | POPCNT},
+    {"hw.optional.avx1_0", AVX},
+    {"hw.optional.avx2_0", AVX2},
+    {"hw.optional.bmi1", BMI1},
+    {"hw.optional.bmi2", BMI2},
+    {"hw.optional.avx512f", AVX512F},
+    {"hw.optional.avx512cd", AVX512CD},
+    {"hw.optional.avx512dq", AVX512DQ},
+    {"hw.optional.avx512bw", AVX512BW},
+    {"hw.optional.avx512vl", AVX512VL},
+#endif
+  };
+  for (const auto& feature : features) {
     auto v = IntegerSysCtlByName(feature.name);
     if (v.value_or(0)) {
       hardware_flags_ |= feature.flag;
