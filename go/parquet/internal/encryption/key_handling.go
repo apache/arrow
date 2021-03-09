@@ -14,23 +14,40 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module github.com/apache/arrow/go/parquet
+package encryption
 
-go 1.15
+import (
+	"encoding/binary"
+	"unsafe"
 
-require (
-	github.com/andybalholm/brotli v1.0.1
-	github.com/apache/arrow/go/arrow v0.0.0-20210310173904-5de02e3697aa
-	github.com/apache/thrift/lib/go/thrift v0.0.0-20210120171102-e27e82c46ba4
-	github.com/golang/snappy v0.0.3
-	github.com/klauspost/asmfmt v1.2.3
-	github.com/klauspost/compress v1.11.12
-	github.com/minio/asm2plan9s v0.0.0-20200509001527-cdd76441f9d8
-	github.com/minio/c2goasm v0.0.0-20190812172519-36a3d3bbc4f3
-	github.com/pierrec/lz4/v4 v4.1.3
-	github.com/stretchr/testify v1.7.0
-	golang.org/x/exp v0.0.0-20210220032938-85be41e4509f
-	golang.org/x/sys v0.0.0-20210309074719-68d13333faf2
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
-	gonum.org/v1/gonum v0.8.2
+	"golang.org/x/xerrors"
 )
+
+type StringKeyIDRetriever map[string]string
+
+func (s StringKeyIDRetriever) PutKey(keyID, key string) {
+	s[keyID] = key
+}
+
+func (s StringKeyIDRetriever) GetKey(keyMetadata []byte) string {
+	k, ok := s[*(*string)(unsafe.Pointer(&keyMetadata))]
+	if !ok {
+		panic(xerrors.Errorf("parquet: key missing for id %s", keyMetadata))
+	}
+	return k
+}
+
+type IntegerKeyIDRetriever map[uint]string
+
+func (i IntegerKeyIDRetriever) PutKey(keyID uint, key string) {
+	i[keyID] = key
+}
+
+func (i IntegerKeyIDRetriever) GetKey(keyMetadata []byte) string {
+	keyID := binary.LittleEndian.Uint32(keyMetadata)
+	k, ok := i[uint(keyID)]
+	if !ok {
+		panic(xerrors.Errorf("parquet: key missing for id %d", keyID))
+	}
+	return k
+}

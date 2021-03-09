@@ -19,8 +19,12 @@ package parquet
 import (
 	"encoding/binary"
 	"reflect"
+	"strings"
 	"time"
 	"unsafe"
+
+	"github.com/apache/arrow/go/arrow"
+	format "github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
 )
 
 const (
@@ -164,4 +168,187 @@ func (fixedLenByteArrayTraits) CastFromBytes(b []byte) []FixedLenByteArray {
 	s.Cap = h.Cap / FixedLenByteArraySizeBytes
 
 	return res
+}
+
+// Creating our own enums allows avoiding the transitive dependency on the
+// compiled thrift definitions in the public API, allowing us to not export
+// the entire Thrift definitions, while making everything a simple cast between.
+//
+// It also let's us add special values like NONE to distinguish between values
+// that are set or not set
+type (
+	// Type is the physical type as in parquet.thrift
+	Type format.Type
+	// Cipher is the parquet Cipher Algorithms
+	Cipher int
+	// ColumnOrder is the Column Order from the parquet.thrift
+	ColumnOrder *format.ColumnOrder
+	// Version is the parquet version type
+	Version int8
+	// DataPageVersion is the version of the Parquet Data Pages
+	DataPageVersion int8
+	// Encoding is the parquet Encoding type
+	Encoding format.Encoding
+	// Repetition is the underlying parquet field repetition type as in parquet.thrift
+	Repetition format.FieldRepetitionType
+	// ColumnPath is the path from the root of the schema to a given column
+	ColumnPath []string
+)
+
+func (c ColumnPath) String() string {
+	if c == nil {
+		return ""
+	}
+	return strings.Join(c, ".")
+}
+
+// Extend creates a new ColumnPath from an existing one, with the new ColumnPath having s appended to the end.
+func (c ColumnPath) Extend(s string) ColumnPath {
+	p := make([]string, len(c), len(c)+1)
+	copy(p, c)
+	return append(p, s)
+}
+
+// ColumnPathFromString constructs a ColumnPath from a dot separated string
+func ColumnPathFromString(s string) ColumnPath {
+	return strings.Split(s, ".")
+}
+
+// constants for choosing the Aes Algorithm to use for encryption/decryption
+const (
+	AesGcm Cipher = iota
+	AesCtr
+)
+
+// Constants for the parquet Version
+const (
+	V1 Version = 1
+	V2 Version = 2
+)
+
+// constants for the parquet DataPage Version to use
+const (
+	DataPageV1 DataPageVersion = iota
+	DataPageV2
+)
+
+func (e Encoding) String() string {
+	return format.Encoding(e).String()
+}
+
+var (
+	// Types contains constants for the Physical Types that are used in the Parquet Spec
+	//
+	// They can be specified when needed as such: `parquet.Types.Int32` etc. The values
+	// all correspond to the values in parquet.thrift
+	Types = struct {
+		Boolean           Type
+		Int32             Type
+		Int64             Type
+		Int96             Type
+		Float             Type
+		Double            Type
+		ByteArray         Type
+		FixedLenByteArray Type
+		// this only exists as a convienence so we can denote it when necessary
+		// nearly all functions that take a parquet.Type will error/panic if given
+		// Undefined
+		Undefined Type
+	}{
+		Boolean:           Type(format.Type_BOOLEAN),
+		Int32:             Type(format.Type_INT32),
+		Int64:             Type(format.Type_INT64),
+		Int96:             Type(format.Type_INT96),
+		Float:             Type(format.Type_FLOAT),
+		Double:            Type(format.Type_DOUBLE),
+		ByteArray:         Type(format.Type_BYTE_ARRAY),
+		FixedLenByteArray: Type(format.Type_FIXED_LEN_BYTE_ARRAY),
+		Undefined:         Type(format.Type_FIXED_LEN_BYTE_ARRAY + 1),
+	}
+
+	// Encodings contains constants for the encoding types of the column data
+	//
+	// The values used all correspond to the values in parquet.thrift for the
+	// corresponding encoding type.
+	Encodings = struct {
+		Plain                Encoding
+		PlainDict            Encoding
+		RLE                  Encoding
+		RLEDict              Encoding
+		BitPacked            Encoding // deprecated, not implemented
+		DeltaByteArray       Encoding
+		DeltaBinaryPacked    Encoding
+		DeltaLengthByteArray Encoding
+	}{
+		Plain:                Encoding(format.Encoding_PLAIN),
+		PlainDict:            Encoding(format.Encoding_PLAIN_DICTIONARY),
+		RLE:                  Encoding(format.Encoding_RLE),
+		RLEDict:              Encoding(format.Encoding_RLE_DICTIONARY),
+		BitPacked:            Encoding(format.Encoding_BIT_PACKED),
+		DeltaByteArray:       Encoding(format.Encoding_DELTA_BYTE_ARRAY),
+		DeltaBinaryPacked:    Encoding(format.Encoding_DELTA_BINARY_PACKED),
+		DeltaLengthByteArray: Encoding(format.Encoding_DELTA_LENGTH_BYTE_ARRAY),
+	}
+
+	// ColumnOrders contains constants for the Column Ordering fields
+	ColumnOrders = struct {
+		Undefined        ColumnOrder
+		TypeDefinedOrder ColumnOrder
+	}{
+		Undefined:        format.NewColumnOrder(),
+		TypeDefinedOrder: &format.ColumnOrder{TYPE_ORDER: format.NewTypeDefinedOrder()},
+	}
+
+	// DefaultColumnOrder is to use TypeDefinedOrder
+	DefaultColumnOrder = ColumnOrders.TypeDefinedOrder
+
+	// Repetitions contains the constants for Field Repetition Types
+	Repetitions = struct {
+		Required  Repetition
+		Optional  Repetition
+		Repeated  Repetition
+		Undefined Repetition // convenience value
+	}{
+		Required:  Repetition(format.FieldRepetitionType_REQUIRED),
+		Optional:  Repetition(format.FieldRepetitionType_OPTIONAL),
+		Repeated:  Repetition(format.FieldRepetitionType_REPEATED),
+		Undefined: Repetition(format.FieldRepetitionType_REPEATED + 1),
+	}
+)
+
+func (t Type) String() string {
+	switch t {
+	case Types.Undefined:
+		return "UNDEFINED"
+	default:
+		return format.Type(t).String()
+	}
+}
+
+func (r Repetition) String() string {
+	return strings.ToLower(format.FieldRepetitionType(r).String())
+}
+
+// ByteSize returns the number of bytes required to store a single value of
+// the given parquet.Type in memory.
+func (t Type) ByteSize() int {
+	switch t {
+	case Types.Boolean:
+		return 1
+	case Types.Int32:
+		return arrow.Int32SizeBytes
+	case Types.Int64:
+		return arrow.Int64SizeBytes
+	case Types.Int96:
+		return Int96SizeBytes
+	case Types.Float:
+		return arrow.Float32SizeBytes
+	case Types.Double:
+		return arrow.Float64SizeBytes
+	case Types.ByteArray:
+		return ByteArraySizeBytes
+	case Types.FixedLenByteArray:
+		return FixedLenByteArraySizeBytes
+	}
+	panic("no bytesize info for type")
 }
