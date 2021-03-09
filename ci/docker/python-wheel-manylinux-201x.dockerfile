@@ -72,6 +72,7 @@ ENV CMAKE_BUILD_TYPE=${build_type} \
 # from the windows image and potentially in a future macos wheel build
 RUN vcpkg install --clean-after-build \
         abseil \
+        aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
         boost-build:${arch_short_alias}-linux \
         boost-filesystem \
         brotli \
