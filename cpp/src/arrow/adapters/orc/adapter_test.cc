@@ -358,6 +358,70 @@ TEST(TestAdapterRead, readIntAndStringFileMultipleStripes) {
 }
 
 // WriteORC tests
+class TestORCWriterOptions : public ::testing::Test {
+ public:
+  TestORCWriterOptions() { arrow_writer_options = arrow::adapters::orc::WriterOptions(); }
+  void DefaultOptions() {
+    orc_writer_options = arrow::adapters::orc::AdaptWriterOptions(arrow_writer_options);
+  }
+  void SetWriterOptions() {
+    arrow_writer_options.set_file_version(arrow::adapters::orc::FileVersion(0, 11));
+    arrow_writer_options.set_stripe_size(1024);
+    arrow_writer_options.set_compression_block_size(1024 * 1024);
+    arrow_writer_options.set_row_index_stride(0);
+    arrow_writer_options.set_compression(
+        arrow::adapters::orc::CompressionKind::CompressionKind_LZO);
+    arrow_writer_options.set_compression_strategy(
+        arrow::adapters::orc::CompressionStrategy::CompressionStrategy_COMPRESSION);
+    arrow_writer_options.set_padding_tolerance(0.05);
+    arrow_writer_options.set_dictionary_key_size_threshold(0.1);
+    arrow_writer_options.set_bloom_filter_fpp(0.1);
+    arrow_writer_options.set_columns_use_bloom_filter({0, 2});
+    orc_writer_options = arrow::adapters::orc::AdaptWriterOptions(arrow_writer_options);
+  }
+
+ protected:
+  arrow::adapters::orc::WriterOptions arrow_writer_options;
+  liborc::WriterOptions* orc_writer_options;
+};
+
+TEST_F(TestORCWriterOptions, DefaultOptions) {
+  DefaultOptions();
+  ASSERT_EQ(orc_writer_options->getFileVersion(), liborc::FileVersion(0, 12));
+  ASSERT_EQ(orc_writer_options->getStripeSize(), 64 * 1024 * 1024);
+  ASSERT_EQ(orc_writer_options->getCompressionBlockSize(), 64 * 1024);
+  ASSERT_EQ(orc_writer_options->getRowIndexStride(), 10000);
+  ASSERT_EQ(orc_writer_options->getCompression(),
+            liborc::CompressionKind::CompressionKind_ZLIB);
+  ASSERT_EQ(orc_writer_options->getCompressionStrategy(),
+            liborc::CompressionStrategy::CompressionStrategy_SPEED);
+  ASSERT_DOUBLE_EQ(orc_writer_options->getPaddingTolerance(), 0.0);
+  ASSERT_DOUBLE_EQ(orc_writer_options->getDictionaryKeySizeThreshold(), 0.0);
+  ASSERT_DOUBLE_EQ(orc_writer_options->getBloomFilterFPP(), 0.05);
+  for (uint64_t i = 0; i < 4; i++) {
+    ASSERT_FALSE(orc_writer_options->isColumnUseBloomFilter(i));
+  }
+}
+
+TEST_F(TestORCWriterOptions, ModifiedOptions) {
+  SetWriterOptions();
+  ASSERT_EQ(orc_writer_options->getFileVersion(), liborc::FileVersion(0, 11));
+  ASSERT_EQ(orc_writer_options->getStripeSize(), 1024);
+  ASSERT_EQ(orc_writer_options->getCompressionBlockSize(), 1024 * 1024);
+  ASSERT_EQ(orc_writer_options->getRowIndexStride(), 0);
+  ASSERT_EQ(orc_writer_options->getCompression(),
+            liborc::CompressionKind::CompressionKind_LZO);
+  ASSERT_EQ(orc_writer_options->getCompressionStrategy(),
+            liborc::CompressionStrategy::CompressionStrategy_COMPRESSION);
+  ASSERT_DOUBLE_EQ(orc_writer_options->getPaddingTolerance(), 0.05);
+  ASSERT_DOUBLE_EQ(orc_writer_options->getDictionaryKeySizeThreshold(), 0.1);
+  ASSERT_DOUBLE_EQ(orc_writer_options->getBloomFilterFPP(), 0.1);
+  for (uint64_t i = 0; i < 2; i++) {
+    ASSERT_TRUE(orc_writer_options->isColumnUseBloomFilter(2 * i));
+    ASSERT_FALSE(orc_writer_options->isColumnUseBloomFilter(2 * i + 1));
+  }
+}
+
 // Trivial
 
 class TestORCWriterTrivialNoConversion : public ::testing::Test {
