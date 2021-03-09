@@ -257,8 +257,16 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
 arrow::Status CollectTableColumns(
     SEXP lst, const std::shared_ptr<arrow::Schema>& schema, int num_fields, bool inferred,
     std::vector<std::shared_ptr<arrow::ChunkedArray>>& columns) {
+  if (!inferred && schema->num_fields() != num_fields) {
+    cpp11::stop("incompatible. schema has %d fields, and %d columns are supplied",
+                schema->num_fields(), num_fields);
+  }
   auto extract_one_column = [&columns, &schema, inferred](int j, SEXP x,
-                                                          cpp11::r_string) {
+                                                          std::string name) {
+    if (!inferred && schema->field(j)->name() != name) {
+      cpp11::stop("field at index %d has name '%s' != '%s'", j + 1,
+                  schema->field(j)->name().c_str(), name.c_str());
+    }
     if (Rf_inherits(x, "ChunkedArray")) {
       columns[j] = cpp11::as_cpp<std::shared_ptr<arrow::ChunkedArray>>(x);
     } else if (Rf_inherits(x, "Array")) {
