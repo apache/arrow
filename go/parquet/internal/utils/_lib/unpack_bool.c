@@ -18,10 +18,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-void FULL_NAME(bytes_to_bools)(const uint8_t* bytes, const int len, bool* out) {
+void FULL_NAME(bytes_to_bools)(const uint8_t bytes[], const int len, bool out[], const int outlen) {
   for (int i = 0; i < len; i++) {
     for (int j = 0; j < 8; j++) {
-      out[8*i+j] = (bytes[i] & (1 << j)) != 0;
+      int idx = 8*i+j;
+      if (idx >= outlen) { break; }
+      out[idx] = (bytes[i] & (1 << j)) != 0;
     }
   }
 }

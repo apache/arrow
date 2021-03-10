@@ -31,13 +31,13 @@ LBB0_1:
 LBB0_6:
 	WORD $0x8945; BYTE $0xc3       // mov    r11d, r8d
 	LONG $0xe0e38341               // and    r11d, -32
-	LONG $0xe0738d49               // lea    rsi, [r11 - 32]
-	WORD $0x8948; BYTE $0xf0       // mov    rax, rsi
-	LONG $0x05e8c148               // shr    rax, 5
-	LONG $0x01c08348               // add    rax, 1
-	WORD $0x8941; BYTE $0xc1       // mov    r9d, eax
+	LONG $0xe0438d49               // lea    rax, [r11 - 32]
+	WORD $0x8949; BYTE $0xc2       // mov    r10, rax
+	LONG $0x05eac149               // shr    r10, 5
+	LONG $0x01c28349               // add    r10, 1
+	WORD $0x8945; BYTE $0xd1       // mov    r9d, r10d
 	LONG $0x03e18341               // and    r9d, 3
-	LONG $0x60fe8348               // cmp    rsi, 96
+	LONG $0x60f88348               // cmp    rax, 96
 	JAE  LBB0_8
 	LONG $0x587de2c4; WORD $0x0045 // vpbroadcastd    ymm0, dword 0[rbp] /* [rip + .LCPI0_0] */
 	LONG $0x587de2c4; WORD $0x044d // vpbroadcastd    ymm1, dword 4[rbp] /* [rip + .LCPI0_1] */
@@ -51,9 +51,9 @@ LBB0_6:
 	JMP  LBB0_10
 
 LBB0_8:
-	WORD $0x894d; BYTE $0xca       // mov    r10, r9
+	LONG $0xfce28349               // and    r10, -4
 	LONG $0x587de2c4; WORD $0x0045 // vpbroadcastd    ymm0, dword 0[rbp] /* [rip + .LCPI0_0] */
-	WORD $0x2949; BYTE $0xc2       // sub    r10, rax
+	WORD $0xf749; BYTE $0xda       // neg    r10
 	LONG $0x587de2c4; WORD $0x044d // vpbroadcastd    ymm1, dword 4[rbp] /* [rip + .LCPI0_1] */
 	WORD $0xc031                   // xor    eax, eax
 	LONG $0xd16ffdc5               // vmovdqa    ymm2, ymm1
@@ -211,13 +211,13 @@ LBB1_1:
 LBB1_6:
 	WORD $0x8945; BYTE $0xc3 // mov    r11d, r8d
 	LONG $0xe0e38341         // and    r11d, -32
-	LONG $0xe0738d49         // lea    rsi, [r11 - 32]
-	WORD $0x8948; BYTE $0xf0 // mov    rax, rsi
-	LONG $0x05e8c148         // shr    rax, 5
-	LONG $0x01c08348         // add    rax, 1
-	WORD $0x8941; BYTE $0xc1 // mov    r9d, eax
+	LONG $0xe0438d49         // lea    rax, [r11 - 32]
+	WORD $0x8949; BYTE $0xc2 // mov    r10, rax
+	LONG $0x05eac149         // shr    r10, 5
+	LONG $0x01c28349         // add    r10, 1
+	WORD $0x8945; BYTE $0xd1 // mov    r9d, r10d
 	LONG $0x03e18341         // and    r9d, 3
-	LONG $0x60fe8348         // cmp    rsi, 96
+	LONG $0x60f88348         // cmp    rax, 96
 	JAE  LBB1_8
 	LONG $0xc0eff9c5         // vpxor    xmm0, xmm0, xmm0
 	LONG $0xc976f5c5         // vpcmpeqd    ymm1, ymm1, ymm1
@@ -231,8 +231,8 @@ LBB1_6:
 	JMP  LBB1_10
 
 LBB1_8:
-	WORD $0x894d; BYTE $0xca // mov    r10, r9
-	WORD $0x2949; BYTE $0xc2 // sub    r10, rax
+	LONG $0xfce28349         // and    r10, -4
+	WORD $0xf749; BYTE $0xda // neg    r10
 	LONG $0xc0eff9c5         // vpxor    xmm0, xmm0, xmm0
 	LONG $0xc976f5c5         // vpcmpeqd    ymm1, ymm1, ymm1
 	WORD $0xc031             // xor    eax, eax
@@ -384,8 +384,8 @@ TEXT ·_int64_max_min_avx2(SB), $232-32
 	WORD $0x8941; BYTE $0xf0               // mov    r8d, esi
 	WORD $0xfe83; BYTE $0x1f               // cmp    esi, 31
 	JA   LBB2_6
-	WORD $0x3145; BYTE $0xdb               // xor    r11d, r11d
 	LONG $0x01718d49                       // lea    rsi, [r9 + 1]
+	WORD $0x3145; BYTE $0xdb               // xor    r11d, r11d
 	JMP  LBB2_4
 
 LBB2_1:
@@ -395,13 +395,13 @@ LBB2_1:
 LBB2_6:
 	WORD $0x8945; BYTE $0xc3       // mov    r11d, r8d
 	LONG $0xe0e38341               // and    r11d, -32
-	LONG $0xe0738d49               // lea    rsi, [r11 - 32]
-	WORD $0x8948; BYTE $0xf0       // mov    rax, rsi
-	LONG $0x05e8c148               // shr    rax, 5
-	LONG $0x01c08348               // add    rax, 1
-	WORD $0x8941; BYTE $0xc1       // mov    r9d, eax
+	LONG $0xe0438d49               // lea    rax, [r11 - 32]
+	WORD $0x8949; BYTE $0xc2       // mov    r10, rax
+	LONG $0x05eac149               // shr    r10, 5
+	LONG $0x01c28349               // add    r10, 1
+	WORD $0x8945; BYTE $0xd1       // mov    r9d, r10d
 	LONG $0x03e18341               // and    r9d, 3
-	LONG $0x60fe8348               // cmp    rsi, 96
+	LONG $0x60f88348               // cmp    rax, 96
 	JAE  LBB2_8
 	LONG $0x597d62c4; WORD $0x007d // vpbroadcastq    ymm15, qword 0[rbp] /* [rip + .LCPI2_0] */
 	LONG $0x597d62c4; WORD $0x085d // vpbroadcastq    ymm11, qword 8[rbp] /* [rip + .LCPI2_1] */
@@ -423,9 +423,9 @@ LBB2_6:
 	JMP  LBB2_10
 
 LBB2_8:
-	WORD $0x894d; BYTE $0xca       // mov    r10, r9
+	LONG $0xfce28349               // and    r10, -4
 	LONG $0x597d62c4; WORD $0x007d // vpbroadcastq    ymm15, qword 0[rbp] /* [rip + .LCPI2_0] */
-	WORD $0x2949; BYTE $0xc2       // sub    r10, rax
+	WORD $0xf749; BYTE $0xda       // neg    r10
 	LONG $0x597d62c4; WORD $0x085d // vpbroadcastq    ymm11, qword 8[rbp] /* [rip + .LCPI2_1] */
 	WORD $0xc031                   // xor    eax, eax
 	LONG $0x5c7f7dc5; WORD $0x2024 // vmovdqa    yword [rsp + 32], ymm11
@@ -794,13 +794,13 @@ LBB3_1:
 LBB3_6:
 	WORD $0x8945; BYTE $0xc3       // mov    r11d, r8d
 	LONG $0xe0e38341               // and    r11d, -32
-	LONG $0xe0738d49               // lea    rsi, [r11 - 32]
-	WORD $0x8948; BYTE $0xf0       // mov    rax, rsi
-	LONG $0x05e8c148               // shr    rax, 5
-	LONG $0x01c08348               // add    rax, 1
-	WORD $0x8941; BYTE $0xc1       // mov    r9d, eax
+	LONG $0xe0438d49               // lea    rax, [r11 - 32]
+	WORD $0x8949; BYTE $0xc2       // mov    r10, rax
+	LONG $0x05eac149               // shr    r10, 5
+	LONG $0x01c28349               // add    r10, 1
+	WORD $0x8945; BYTE $0xd1       // mov    r9d, r10d
 	LONG $0x03e18341               // and    r9d, 3
-	LONG $0x60fe8348               // cmp    rsi, 96
+	LONG $0x60f88348               // cmp    rax, 96
 	JAE  LBB3_8
 	LONG $0xe4efd9c5               // vpxor    xmm4, xmm4, xmm4
 	LONG $0xc076fdc5               // vpcmpeqd    ymm0, ymm0, ymm0
@@ -826,8 +826,8 @@ LBB3_6:
 	JMP  LBB3_10
 
 LBB3_8:
-	WORD $0x894d; BYTE $0xca       // mov    r10, r9
-	WORD $0x2949; BYTE $0xc2       // sub    r10, rax
+	LONG $0xfce28349               // and    r10, -4
+	WORD $0xf749; BYTE $0xda       // neg    r10
 	LONG $0xe4efd9c5               // vpxor    xmm4, xmm4, xmm4
 	LONG $0xc076fdc5               // vpcmpeqd    ymm0, ymm0, ymm0
 	LONG $0x447ffdc5; WORD $0x4024 // vmovdqa    yword [rsp + 64], ymm0

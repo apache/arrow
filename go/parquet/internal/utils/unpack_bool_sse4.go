@@ -21,8 +21,8 @@ package utils
 import "unsafe"
 
 //go:noescape
-func _bytes_to_bools_sse4(in unsafe.Pointer, len int, out unsafe.Pointer)
+func _bytes_to_bools_sse4(in unsafe.Pointer, len int, out unsafe.Pointer, outlen int)
 
 func bytesToBoolsSSE4(in []byte, out []bool) {
-	_bytes_to_bools_sse4(unsafe.Pointer(&in[0]), len(in), unsafe.Pointer(&out[0]))
+	_bytes_to_bools_sse4(unsafe.Pointer(&in[0]), len(in), unsafe.Pointer(&out[0]), len(out))
 }

@@ -2,17 +2,17 @@
 	.intel_syntax noprefix
 	.file	"min_max.c"
 	.section	.rodata.cst16,"aM",@progbits,16
-	.p2align	4               # -- Begin function int32_max_min_sse4
+	.p2align	4                               # -- Begin function int32_max_min_sse4
 .LCPI0_0:
-	.long	2147483648              # 0x80000000
-	.long	2147483648              # 0x80000000
-	.long	2147483648              # 0x80000000
-	.long	2147483648              # 0x80000000
+	.long	2147483648                      # 0x80000000
+	.long	2147483648                      # 0x80000000
+	.long	2147483648                      # 0x80000000
+	.long	2147483648                      # 0x80000000
 .LCPI0_1:
-	.long	2147483647              # 0x7fffffff
-	.long	2147483647              # 0x7fffffff
-	.long	2147483647              # 0x7fffffff
-	.long	2147483647              # 0x7fffffff
+	.long	2147483647                      # 0x7fffffff
+	.long	2147483647                      # 0x7fffffff
+	.long	2147483647                      # 0x7fffffff
+	.long	2147483647                      # 0x7fffffff
 	.text
 	.globl	int32_max_min_sse4
 	.p2align	4, 0x90
@@ -40,17 +40,16 @@ int32_max_min_sse4:                     # @int32_max_min_sse4
 .LBB0_6:
 	mov	r11d, r9d
 	and	r11d, -8
-	lea	rsi, [r11 - 8]
-	mov	rax, rsi
-	shr	rax, 3
-	add	rax, 1
-	mov	r8d, eax
-	and	r8d, 1
-	test	rsi, rsi
+	lea	rax, [r11 - 8]
+	mov	r8, rax
+	shr	r8, 3
+	add	r8, 1
+	test	rax, rax
 	je	.LBB0_7
 # %bb.8:
 	mov	r10, r8
-	sub	r10, rax
+	and	r10, -2
+	neg	r10
 	movdqa	xmm1, xmmword ptr [rip + .LCPI0_0] # xmm1 = [2147483648,2147483648,2147483648,2147483648]
 	movdqa	xmm0, xmmword ptr [rip + .LCPI0_1] # xmm0 = [2147483647,2147483647,2147483647,2147483647]
 	xor	eax, eax
@@ -74,7 +73,7 @@ int32_max_min_sse4:                     # @int32_max_min_sse4
 	add	r10, 2
 	jne	.LBB0_9
 # %bb.10:
-	test	r8, r8
+	test	r8b, 1
 	je	.LBB0_12
 .LBB0_11:
 	movdqu	xmm4, xmmword ptr [rdi + 4*rax]
@@ -86,14 +85,14 @@ int32_max_min_sse4:                     # @int32_max_min_sse4
 .LBB0_12:
 	pminsd	xmm0, xmm2
 	pmaxsd	xmm1, xmm3
-	pshufd	xmm2, xmm1, 78          # xmm2 = xmm1[2,3,0,1]
+	pshufd	xmm2, xmm1, 78                  # xmm2 = xmm1[2,3,0,1]
 	pmaxsd	xmm2, xmm1
-	pshufd	xmm1, xmm2, 229         # xmm1 = xmm2[1,1,2,3]
+	pshufd	xmm1, xmm2, 229                 # xmm1 = xmm2[1,1,2,3]
 	pmaxsd	xmm1, xmm2
 	movd	eax, xmm1
-	pshufd	xmm1, xmm0, 78          # xmm1 = xmm0[2,3,0,1]
+	pshufd	xmm1, xmm0, 78                  # xmm1 = xmm0[2,3,0,1]
 	pminsd	xmm1, xmm0
-	pshufd	xmm0, xmm1, 229         # xmm0 = xmm1[1,1,2,3]
+	pshufd	xmm0, xmm1, 229                 # xmm0 = xmm1[1,1,2,3]
 	pminsd	xmm0, xmm1
 	movd	r8d, xmm0
 	cmp	r11, r9
@@ -123,13 +122,13 @@ int32_max_min_sse4:                     # @int32_max_min_sse4
 	xor	eax, eax
 	movdqa	xmm2, xmm0
 	movdqa	xmm3, xmm1
-	test	r8, r8
+	test	r8b, 1
 	jne	.LBB0_11
 	jmp	.LBB0_12
 .Lfunc_end0:
 	.size	int32_max_min_sse4, .Lfunc_end0-int32_max_min_sse4
                                         # -- End function
-	.globl	uint32_max_min_sse4     # -- Begin function uint32_max_min_sse4
+	.globl	uint32_max_min_sse4             # -- Begin function uint32_max_min_sse4
 	.p2align	4, 0x90
 	.type	uint32_max_min_sse4,@function
 uint32_max_min_sse4:                    # @uint32_max_min_sse4
@@ -155,17 +154,16 @@ uint32_max_min_sse4:                    # @uint32_max_min_sse4
 .LBB1_6:
 	mov	r11d, r9d
 	and	r11d, -8
-	lea	rsi, [r11 - 8]
-	mov	rax, rsi
-	shr	rax, 3
-	add	rax, 1
-	mov	r8d, eax
-	and	r8d, 1
-	test	rsi, rsi
+	lea	rax, [r11 - 8]
+	mov	r8, rax
+	shr	r8, 3
+	add	r8, 1
+	test	rax, rax
 	je	.LBB1_7
 # %bb.8:
 	mov	r10, r8
-	sub	r10, rax
+	and	r10, -2
+	neg	r10
 	pxor	xmm1, xmm1
 	pcmpeqd	xmm0, xmm0
 	xor	eax, eax
@@ -189,7 +187,7 @@ uint32_max_min_sse4:                    # @uint32_max_min_sse4
 	add	r10, 2
 	jne	.LBB1_9
 # %bb.10:
-	test	r8, r8
+	test	r8b, 1
 	je	.LBB1_12
 .LBB1_11:
 	movdqu	xmm4, xmmword ptr [rdi + 4*rax]
@@ -201,14 +199,14 @@ uint32_max_min_sse4:                    # @uint32_max_min_sse4
 .LBB1_12:
 	pminud	xmm0, xmm2
 	pmaxud	xmm1, xmm3
-	pshufd	xmm2, xmm1, 78          # xmm2 = xmm1[2,3,0,1]
+	pshufd	xmm2, xmm1, 78                  # xmm2 = xmm1[2,3,0,1]
 	pmaxud	xmm2, xmm1
-	pshufd	xmm1, xmm2, 229         # xmm1 = xmm2[1,1,2,3]
+	pshufd	xmm1, xmm2, 229                 # xmm1 = xmm2[1,1,2,3]
 	pmaxud	xmm1, xmm2
 	movd	esi, xmm1
-	pshufd	xmm1, xmm0, 78          # xmm1 = xmm0[2,3,0,1]
+	pshufd	xmm1, xmm0, 78                  # xmm1 = xmm0[2,3,0,1]
 	pminud	xmm1, xmm0
-	pshufd	xmm0, xmm1, 229         # xmm0 = xmm1[1,1,2,3]
+	pshufd	xmm0, xmm1, 229                 # xmm0 = xmm1[1,1,2,3]
 	pminud	xmm0, xmm1
 	movd	r8d, xmm0
 	cmp	r11, r9
@@ -238,20 +236,20 @@ uint32_max_min_sse4:                    # @uint32_max_min_sse4
 	xor	eax, eax
 	pcmpeqd	xmm2, xmm2
 	pxor	xmm3, xmm3
-	test	r8, r8
+	test	r8b, 1
 	jne	.LBB1_11
 	jmp	.LBB1_12
 .Lfunc_end1:
 	.size	uint32_max_min_sse4, .Lfunc_end1-uint32_max_min_sse4
                                         # -- End function
 	.section	.rodata.cst16,"aM",@progbits,16
-	.p2align	4               # -- Begin function int64_max_min_sse4
+	.p2align	4                               # -- Begin function int64_max_min_sse4
 .LCPI2_0:
-	.quad	-9223372036854775808    # 0x8000000000000000
-	.quad	-9223372036854775808    # 0x8000000000000000
+	.quad	-9223372036854775808            # 0x8000000000000000
+	.quad	-9223372036854775808            # 0x8000000000000000
 .LCPI2_1:
-	.quad	9223372036854775807     # 0x7fffffffffffffff
-	.quad	9223372036854775807     # 0x7fffffffffffffff
+	.quad	9223372036854775807             # 0x7fffffffffffffff
+	.quad	9223372036854775807             # 0x7fffffffffffffff
 	.text
 	.globl	int64_max_min_sse4
 	.p2align	4, 0x90
@@ -261,34 +259,33 @@ int64_max_min_sse4:                     # @int64_max_min_sse4
 	push	rbp
 	mov	rbp, rsp
 	and	rsp, -8
-	movabs	r9, 9223372036854775807
+	movabs	r8, 9223372036854775807
 	test	esi, esi
 	jle	.LBB2_1
 # %bb.2:
-	mov	r8d, esi
+	mov	r9d, esi
 	cmp	esi, 3
 	ja	.LBB2_6
 # %bb.3:
+	lea	rsi, [r8 + 1]
 	xor	r11d, r11d
-	lea	rsi, [r9 + 1]
 	jmp	.LBB2_4
 .LBB2_1:
-	lea	rsi, [r9 + 1]
+	lea	rsi, [r8 + 1]
 	jmp	.LBB2_13
 .LBB2_6:
-	mov	r11d, r8d
+	mov	r11d, r9d
 	and	r11d, -4
-	lea	rsi, [r11 - 4]
-	mov	rax, rsi
-	shr	rax, 2
-	add	rax, 1
-	mov	r9d, eax
-	and	r9d, 1
-	test	rsi, rsi
+	lea	rax, [r11 - 4]
+	mov	r8, rax
+	shr	r8, 2
+	add	r8, 1
+	test	rax, rax
 	je	.LBB2_7
 # %bb.8:
-	mov	r10, r9
-	sub	r10, rax
+	mov	r10, r8
+	and	r10, -2
+	neg	r10
 	movdqa	xmm9, xmmword ptr [rip + .LCPI2_0] # xmm9 = [9223372036854775808,9223372036854775808]
 	movdqa	xmm8, xmmword ptr [rip + .LCPI2_1] # xmm8 = [9223372036854775807,9223372036854775807]
 	xor	eax, eax
@@ -334,7 +331,7 @@ int64_max_min_sse4:                     # @int64_max_min_sse4
 	add	r10, 2
 	jne	.LBB2_9
 # %bb.10:
-	test	r9, r9
+	test	r8b, 1
 	je	.LBB2_12
 .LBB2_11:
 	movdqu	xmm1, xmmword ptr [rdi + 8*rax + 16]
@@ -361,7 +358,7 @@ int64_max_min_sse4:                     # @int64_max_min_sse4
 	movapd	xmm0, xmm3
 	pcmpgtq	xmm0, xmm4
 	blendvpd	xmm4, xmm3, xmm0
-	pshufd	xmm1, xmm4, 78          # xmm1 = xmm4[2,3,0,1]
+	pshufd	xmm1, xmm4, 78                  # xmm1 = xmm4[2,3,0,1]
 	movdqa	xmm0, xmm4
 	pcmpgtq	xmm0, xmm1
 	blendvpd	xmm1, xmm4, xmm0
@@ -369,29 +366,29 @@ int64_max_min_sse4:                     # @int64_max_min_sse4
 	movdqa	xmm0, xmm2
 	pcmpgtq	xmm0, xmm8
 	blendvpd	xmm2, xmm8, xmm0
-	pshufd	xmm1, xmm2, 78          # xmm1 = xmm2[2,3,0,1]
+	pshufd	xmm1, xmm2, 78                  # xmm1 = xmm2[2,3,0,1]
 	movdqa	xmm0, xmm1
 	pcmpgtq	xmm0, xmm2
 	blendvpd	xmm1, xmm2, xmm0
-	movq	r9, xmm1
-	cmp	r11, r8
+	movq	r8, xmm1
+	cmp	r11, r9
 	je	.LBB2_13
 .LBB2_4:
 	mov	rax, rsi
 	.p2align	4, 0x90
 .LBB2_5:                                # =>This Inner Loop Header: Depth=1
 	mov	rsi, qword ptr [rdi + 8*r11]
-	cmp	r9, rsi
-	cmovg	r9, rsi
+	cmp	r8, rsi
+	cmovg	r8, rsi
 	cmp	rax, rsi
 	cmovge	rsi, rax
 	add	r11, 1
 	mov	rax, rsi
-	cmp	r8, r11
+	cmp	r9, r11
 	jne	.LBB2_5
 .LBB2_13:
 	mov	qword ptr [rcx], rsi
-	mov	qword ptr [rdx], r9
+	mov	qword ptr [rdx], r8
 	mov	rsp, rbp
 	pop	rbp
 	ret
@@ -401,17 +398,17 @@ int64_max_min_sse4:                     # @int64_max_min_sse4
 	xor	eax, eax
 	movdqa	xmm2, xmm8
 	movapd	xmm4, xmm3
-	test	r9, r9
+	test	r8b, 1
 	jne	.LBB2_11
 	jmp	.LBB2_12
 .Lfunc_end2:
 	.size	int64_max_min_sse4, .Lfunc_end2-int64_max_min_sse4
                                         # -- End function
 	.section	.rodata.cst16,"aM",@progbits,16
-	.p2align	4               # -- Begin function uint64_max_min_sse4
+	.p2align	4                               # -- Begin function uint64_max_min_sse4
 .LCPI3_0:
-	.quad	-9223372036854775808    # 0x8000000000000000
-	.quad	-9223372036854775808    # 0x8000000000000000
+	.quad	-9223372036854775808            # 0x8000000000000000
+	.quad	-9223372036854775808            # 0x8000000000000000
 	.text
 	.globl	uint64_max_min_sse4
 	.p2align	4, 0x90
@@ -439,17 +436,16 @@ uint64_max_min_sse4:                    # @uint64_max_min_sse4
 .LBB3_6:
 	mov	r11d, r9d
 	and	r11d, -4
-	lea	rsi, [r11 - 4]
-	mov	rax, rsi
-	shr	rax, 2
-	add	rax, 1
-	mov	r8d, eax
-	and	r8d, 1
-	test	rsi, rsi
+	lea	rax, [r11 - 4]
+	mov	r8, rax
+	shr	r8, 2
+	add	r8, 1
+	test	rax, rax
 	je	.LBB3_7
 # %bb.8:
 	mov	r10, r8
-	sub	r10, rax
+	and	r10, -2
+	neg	r10
 	pxor	xmm9, xmm9
 	pcmpeqd	xmm10, xmm10
 	xor	eax, eax
@@ -516,7 +512,7 @@ uint64_max_min_sse4:                    # @uint64_max_min_sse4
 	add	r10, 2
 	jne	.LBB3_9
 # %bb.10:
-	test	r8, r8
+	test	r8b, 1
 	je	.LBB3_12
 .LBB3_11:
 	movupd	xmm4, xmmword ptr [rdi + 8*rax]
@@ -557,7 +553,7 @@ uint64_max_min_sse4:                    # @uint64_max_min_sse4
 	xorpd	xmm0, xmm1
 	pcmpgtq	xmm0, xmm2
 	blendvpd	xmm6, xmm13, xmm0
-	pshufd	xmm2, xmm6, 78          # xmm2 = xmm6[2,3,0,1]
+	pshufd	xmm2, xmm6, 78                  # xmm2 = xmm6[2,3,0,1]
 	movapd	xmm0, xmm6
 	xorpd	xmm0, xmm1
 	movdqa	xmm3, xmm2
@@ -571,7 +567,7 @@ uint64_max_min_sse4:                    # @uint64_max_min_sse4
 	pxor	xmm0, xmm1
 	pcmpgtq	xmm0, xmm2
 	blendvpd	xmm11, xmm10, xmm0
-	pshufd	xmm2, xmm11, 78         # xmm2 = xmm11[2,3,0,1]
+	pshufd	xmm2, xmm11, 78                 # xmm2 = xmm11[2,3,0,1]
 	movdqa	xmm0, xmm11
 	pxor	xmm0, xmm1
 	pxor	xmm1, xmm2
@@ -606,12 +602,12 @@ uint64_max_min_sse4:                    # @uint64_max_min_sse4
 	xor	eax, eax
 	pcmpeqd	xmm11, xmm11
 	xorpd	xmm6, xmm6
-	test	r8, r8
+	test	r8b, 1
 	jne	.LBB3_11
 	jmp	.LBB3_12
 .Lfunc_end3:
 	.size	uint64_max_min_sse4, .Lfunc_end3-uint64_max_min_sse4
                                         # -- End function
-	.ident	"clang version 10.0.0-4ubuntu1 "
+	.ident	"Ubuntu clang version 11.1.0-++20210204121720+1fdec59bffc1-1~exp1~20210203232336.162"
 	.section	".note.GNU-stack","",@progbits
 	.addrsig
