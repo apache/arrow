@@ -255,7 +255,7 @@ void FileSystemDataset::SetupSubtreePruning() {
     }
   }
 
-  forest_ = fs::Forest(static_cast<int>(encoded.size()), [&](int l, int r) {
+  forest_ = Forest(static_cast<int>(encoded.size()), [&](int l, int r) {
     if (encoded[l].fragment_index) {
       // Fragment: not an ancestor.
       return false;
@@ -272,11 +272,16 @@ void FileSystemDataset::SetupSubtreePruning() {
 }
 
 Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(Expression predicate) {
+  if (predicate == literal(true)) {
+    // trivial predicate; skip subtree pruning
+    return MakeVectorIterator(FragmentVector(fragments_.begin(), fragments_.end()));
+  }
+
   std::vector<int> fragment_indices;
 
   std::vector<Expression> predicates{predicate};
   RETURN_NOT_OK(forest_.Visit(
-      [&](fs::Forest::Ref ref) -> Result<bool> {
+      [&](Forest::Ref ref) -> Result<bool> {
         if (auto fragment_index = util::get_if<int>(&fragments_and_subtrees_[ref.i])) {
           fragment_indices.push_back(*fragment_index);
           return false;
@@ -293,14 +298,13 @@ Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(Expression predicat
         predicates.push_back(std::move(simplified));
         return true;
       },
-      [&](fs::Forest::Ref ref) { predicates.pop_back(); }));
+      [&](Forest::Ref ref) { predicates.pop_back(); }));
 
   std::sort(fragment_indices.begin(), fragment_indices.end());
 
-  FragmentVector fragments;
-  for (int i : fragment_indices) {
-    fragments.push_back(fragments_[i]);
-  }
+  FragmentVector fragments(fragment_indices.size());
+  std::transform(fragment_indices.begin(), fragment_indices.end(), fragments.begin(),
+                 [this](int i) { return fragments_[i]; });
 
   return MakeVectorIterator(std::move(fragments));
 }

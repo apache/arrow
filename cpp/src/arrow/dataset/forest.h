@@ -17,20 +17,21 @@
 
 #pragma once
 
-#include "arrow/filesystem/filesystem.h"
-
-#include <algorithm>
-#include <functional>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
-#include "arrow/result.h"
-#include "arrow/status.h"
-#include "arrow/util/macros.h"
+#include "arrow/dataset/dataset.h"
+#include "arrow/dataset/file_base.h"
+#include "arrow/dataset/type_fwd.h"
+#include "arrow/record_batch.h"
+#include "arrow/scalar.h"
+#include "arrow/type.h"
+#include "arrow/util/iterator.h"
 
 namespace arrow {
-namespace fs {
+namespace dataset {
 
 /// A Forest is a view of a sorted range which carries an ancestry relation in addition
 /// to an ordering relation: each element's descendants appear directly after it.
@@ -126,5 +127,5 @@ class ARROW_EXPORT Forest {
   std::shared_ptr<std::vector<int>> descendant_counts_;
 };
 
-}  // namespace fs
+}  // namespace dataset
 }  // namespace arrow
