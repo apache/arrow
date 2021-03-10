@@ -738,7 +738,7 @@ services:
     command: /arrow/ci/scripts/python_wheel_manylinux_build.sh
 
   python-wheel-manylinux-test:
-    image: ${ARCH_ALIAS}/python:${PYTHON}
+    image: ${ARCH}/python:${PYTHON}
     shm_size: 2G
     volumes:
       - .:/arrow:delegated
