@@ -124,6 +124,7 @@ go/arrow/internal/cpu/*
 go/arrow/type_string.go
 go/*.tmpldata
 go/*.s
+go/parquet/go.sum
 js/.npmignore
 js/closure-compiler-scripts/*
 js/src/fb/*.ts
