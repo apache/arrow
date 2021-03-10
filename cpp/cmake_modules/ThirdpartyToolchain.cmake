@@ -383,14 +383,12 @@ else()
     BOOST_SOURCE_URL
     # These are trimmed boost bundles we maintain.
     # See cpp/build-support/trim-boost.sh
-    "https://dl.bintray.com/ursalabs/arrow-boost/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
-    "https://sourceforge.net/projects/boost/files/boost/${ARROW_BOOST_BUILD_VERSION}/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
-    "https://github.com/boostorg/boost/archive/boost-${ARROW_BOOST_BUILD_VERSION}.tar.gz"
     # FIXME(ARROW-6407) automate uploading this archive to ensure it reflects
     # our currently used packages and doesn't fall out of sync with
     # ${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}
     "https://github.com/ursa-labs/thirdparty/releases/download/latest/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
-    )
+    "https://sourceforge.net/projects/boost/files/boost/${ARROW_BOOST_BUILD_VERSION}/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
+    "https://github.com/boostorg/boost/archive/boost-${ARROW_BOOST_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_BROTLI_URL})
@@ -721,7 +719,7 @@ macro(build_boost)
       set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh")
     endif()
 
-    set(BOOST_BUILD_WITH_LIBRARIES "filesystem" "regex" "system")
+    set(BOOST_BUILD_WITH_LIBRARIES "filesystem" "system")
     string(REPLACE ";" "," BOOST_CONFIGURE_LIBRARIES "${BOOST_BUILD_WITH_LIBRARIES}")
     list(APPEND BOOST_CONFIGURE_COMMAND "--prefix=${BOOST_PREFIX}"
                 "--with-libraries=${BOOST_CONFIGURE_LIBRARIES}")
@@ -762,10 +760,6 @@ macro(build_boost)
       BOOST_STATIC_FILESYSTEM_LIBRARY
       "${BOOST_LIB_DIR}/libboost_filesystem${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
-    set(
-      BOOST_STATIC_REGEX_LIBRARY
-      "${BOOST_LIB_DIR}/libboost_regex${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
     set(BOOST_SYSTEM_LIBRARY boost_system_static)
     set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
     set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
@@ -775,8 +769,6 @@ macro(build_boost)
 
     add_thirdparty_lib(boost_filesystem STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
 
-    add_thirdparty_lib(boost_regex STATIC_LIB "${BOOST_STATIC_REGEX_LIBRARY}")
-
     externalproject_add(boost_ep
                         URL ${BOOST_SOURCE_URL}
                         BUILD_BYPRODUCTS ${BOOST_BUILD_PRODUCTS}
@@ -784,8 +776,7 @@ macro(build_boost)
                         CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
                         BUILD_COMMAND ${BOOST_BUILD_COMMAND}
                         INSTALL_COMMAND "" ${EP_LOG_OPTIONS})
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS boost_system_static boost_filesystem_static
-                boost_regex_static)
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS boost_system_static boost_filesystem_static)
   else()
     externalproject_add(boost_ep
                         ${EP_LOG_OPTIONS}
