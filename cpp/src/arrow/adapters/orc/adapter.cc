@@ -47,6 +47,8 @@
 #include "arrow/util/visibility.h"
 #include "orc/Exceptions.hh"
 
+constexpr uint64_t kOrcWriterBatchSize = 64 * 1024;
+
 // alias to not interfere with nested orc namespace
 namespace liborc = orc;
 
@@ -524,23 +526,22 @@ class ORCFileWriter::Impl {
     }
     int64_t num_rows = table.num_rows();
     const int num_cols_ = table.num_columns();
-    constexpr uint64_t batch_size = 1;  // Doesn't matter what it is
     std::vector<int64_t> arrow_index_offset(num_cols_, 0);
     std::vector<int> arrow_chunk_offset(num_cols_, 0);
     std::unique_ptr<liborc::ColumnVectorBatch> batch =
-        writer_->createRowBatch(batch_size);
+        writer_->createRowBatch(kOrcWriterBatchSize);
     liborc::StructVectorBatch* root =
         internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
     while (num_rows > 0) {
       for (int i = 0; i < num_cols_; i++) {
         RETURN_NOT_OK(adapters::orc::WriteBatch(
             (root->fields)[i], &(arrow_index_offset[i]), &(arrow_chunk_offset[i]),
-            batch_size, *(table.column(i))));
+            kOrcWriterBatchSize, *(table.column(i))));
       }
       root->numElements = (root->fields)[0]->numElements;
       writer_->add(*batch);
       batch->clear();
-      num_rows -= batch_size;
+      num_rows -= kOrcWriterBatchSize;
     }
     return Status::OK();
   }
