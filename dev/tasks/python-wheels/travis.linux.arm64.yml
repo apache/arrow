@@ -15,9 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-os: linux
 arch: arm64
-dist: bionic
+os: linux
+dist: focal
 language: minimal
 
 addons:
@@ -49,7 +49,7 @@ script:
   # Install Archery and Crossbow dependencies
   - sudo -H pip3 install --upgrade pip
   - sudo -H pip3 install -e arrow/dev/archery[docker]
-  - sudo -H pip3 install -r arrow/dev/tasks/requirements-crossbow.txt pygit2==0.26
+  - sudo -H pip3 install -r arrow/dev/tasks/requirements-crossbow.txt pygit2==1.0
 
   # Docker Login:
   - echo "${DOCKERHUB_TOKEN}" | docker login --username "${DOCKERHUB_USER}" --password-stdin

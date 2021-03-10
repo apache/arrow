@@ -48,6 +48,7 @@ rm -rf /arrow/python/pyarrow/*.so
 rm -rf /arrow/python/pyarrow/*.so.*
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
+: ${ARCH_ALIAS:=x86_64}
 : ${ARROW_DATASET:=ON}
 : ${ARROW_FLIGHT:=ON}
 : ${ARROW_GANDIVA:=OFF}
@@ -70,10 +71,6 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${CMAKE_GENERATOR:=Ninja}
 : ${VCPKG_FEATURE_FLAGS:=-manifests}
 : ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-linux-static-${CMAKE_BUILD_TYPE}}}
-
-# FIXME(kszucs): without Thrift_ROOT defined cmake is unable to locate thrift installed
-# by vcpkg, on the other hand if an arbitrary path is provided it manages to locate the
-# vcpkg package
 
 mkdir /tmp/arrow-build
 pushd /tmp/arrow-build
@@ -142,7 +139,7 @@ python setup.py bdist_wheel
 
 echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux${MANYLINUX_VERSION} ==="
 auditwheel repair \
-    --plat "manylinux${MANYLINUX_VERSION}_x86_64" \
+    --plat "manylinux${MANYLINUX_VERSION}_${ARCH_ALIAS}" \
     -L . dist/pyarrow-*.whl \
     -w repaired_wheels
 popd
