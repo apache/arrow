@@ -1012,6 +1012,34 @@ TEST(FutureAllTest, Failure) {
   AssertFinished(after_assert);
 }
 
+TEST(FutureAllCompleteTest, Simple) {
+  auto f1 = Future<int>::Make();
+  auto f2 = Future<int>::Make();
+  std::vector<Future<>> futures = {Future<>(f1), Future<>(f2)};
+  auto combined = arrow::AllComplete(futures);
+  AssertNotFinished(combined);
+  f2.MarkFinished(2);
+  AssertNotFinished(combined);
+  f1.MarkFinished(1);
+  AssertSuccessful(combined);
+}
+
+TEST(FutureAllCompleteTest, Failure) {
+  auto f1 = Future<int>::Make();
+  auto f2 = Future<int>::Make();
+  auto f3 = Future<int>::Make();
+  std::vector<Future<>> futures = {Future<>(f1), Future<>(f2), Future<>(f3)};
+  auto combined = arrow::AllComplete(futures);
+  AssertNotFinished(combined);
+  f1.MarkFinished(1);
+  AssertNotFinished(combined);
+  f2.MarkFinished(Status::IOError("XYZ"));
+  AssertFinished(combined);
+  f3.MarkFinished(3);
+  AssertFinished(combined);
+  ASSERT_EQ(Status::IOError("XYZ"), combined.status());
+}
+
 TEST(FutureLoopTest, Sync) {
   struct {
     int i = 0;
