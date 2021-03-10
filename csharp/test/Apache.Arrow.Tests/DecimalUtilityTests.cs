@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System;
+using Apache.Arrow.Types;
 using Xunit;
 
 namespace Apache.Arrow.Tests
@@ -32,16 +33,15 @@ namespace Apache.Arrow.Tests
             [InlineData(100.123, 6, 3, false)]
             public void HasExpectedResultOrThrows(decimal d, int precision , int scale, bool shouldThrow)
             {
-                var bytes = new byte[16];
+                var builder = new Decimal128Array.Builder(new Decimal128Type(precision, scale));
+
                 if (shouldThrow)
                 {
-                    Assert.Throws<OverflowException>(() =>
-                        DecimalUtility.GetBytes(d, precision, scale, 16, bytes));
+                   Assert.Throws<OverflowException>(() => builder.Append(d));
                 }
                 else
                 {
-                    DecimalUtility.GetBytes(d, precision, scale, 16, bytes);
-                    Assert.NotEqual(new byte[16], bytes);
+                    builder.Append(d);
                 }
             }
         }

@@ -21,7 +21,7 @@ namespace Apache.Arrow
     /// <summary>
     /// This is semi-optimised best attempt at converting to / from decimal and the buffers
     /// </summary>
-    public static class DecimalUtility
+    internal static class DecimalUtility
     {
         private static readonly BigInteger _maxDecimal = new BigInteger(decimal.MaxValue);
         private static readonly BigInteger _minDecimal = new BigInteger(decimal.MinValue);
@@ -34,8 +34,7 @@ namespace Apache.Arrow
 
         private static int PowersOfTenLength => s_powersOfTen.Length - 1;
 
-        public static decimal GetDecimal(in ArrowBuffer valueBuffer, int index, int scale, int byteWidth,
-            bool isUnsigned = false)
+        internal static decimal GetDecimal(in ArrowBuffer valueBuffer, int index, int scale, int byteWidth)
         {
             int startIndex = index * byteWidth;
             ReadOnlySpan<byte> value = valueBuffer.Span.Slice(startIndex, byteWidth);
@@ -77,7 +76,7 @@ namespace Apache.Arrow
             return result;
         }
 
-        public static void GetBytes(decimal value, int precision, int scale, int byteWidth, Span<byte> bytes)
+        internal static void GetBytes(decimal value, int precision, int scale, int byteWidth, Span<byte> bytes)
         {
             // create BigInteger from decimal
             byte[] bigIntBytes = new byte[12];
