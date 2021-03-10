@@ -421,42 +421,6 @@ tasks:
 
   # ARM64v8
 
-  wheel-manylinux2010-cp36m-arm64:
-    ci: travis
-    template: python-wheels/travis.linux.arm64.yml
-    params:
-      python_version: 3.6
-      manylinux_version: 2010
-    artifacts:
-      - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2010_aarch64.whl
-
-  wheel-manylinux2010-cp37m-arm64:
-    ci: travis
-    template: python-wheels/travis.linux.arm64.yml
-    params:
-      python_version: 3.7
-      manylinux_version: 2010
-    artifacts:
-      - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2010_aarch64.whl
-
-  wheel-manylinux2010-cp38-arm64:
-    ci: travis
-    template: python-wheels/travis.linux.arm64.yml
-    params:
-      python_version: 3.8
-      manylinux_version: 2010
-    artifacts:
-      - pyarrow-{no_rc_version}-cp38-cp38-manylinux2010_aarch64.whl
-
-  wheel-manylinux2010-cp39-arm64:
-    ci: travis
-    template: python-wheels/travis.linux.arm64.yml
-    params:
-      python_version: 3.9
-      manylinux_version: 2010
-    artifacts:
-      - pyarrow-{no_rc_version}-cp39-cp39-manylinux2010_aarch64.whl
-
   wheel-manylinux2014-cp36m-arm64:
     ci: travis
     template: python-wheels/travis.linux.arm64.yml

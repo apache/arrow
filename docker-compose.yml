@@ -696,18 +696,16 @@ services:
   # See available versions at:
   #    https://quay.io/repository/pypa/manylinux2010_x86_64?tab=tags
   python-wheel-manylinux-2010:
-    image: ${REPO}:python-${PYTHON}-wheel-manylinux-2010
+    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2010
     build:
       args:
-        arch_alias: ${ARCH_ALIAS}
-        arch_short_alias: ${ARCH_SHORT_ALIAS}
-        base: quay.io/pypa/manylinux2010_${ARCH_ALIAS}:2020-12-03-912b0de
+        base: quay.io/pypa/manylinux2010_x86_64:2020-12-03-912b0de
         vcpkg: ${VCPKG}
         python: ${PYTHON}
       context: .
       dockerfile: ci/docker/python-wheel-manylinux-201x.dockerfile
       cache_from:
-        - ${REPO}:python-${PYTHON}-wheel-manylinux-2010
+        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2010
     environment:
       <<: *ccache
       MANYLINUX_VERSION: 2010
@@ -719,7 +717,7 @@ services:
   # See available versions at:
   #    https://quay.io/repository/pypa/manylinux2014_x86_64?tab=tags
   python-wheel-manylinux-2014:
-    image: ${REPO}:python-${PYTHON}-wheel-manylinux-2014
+    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014
     build:
       args:
         arch_alias: ${ARCH_ALIAS}
@@ -730,7 +728,7 @@ services:
       context: .
       dockerfile: ci/docker/python-wheel-manylinux-201x.dockerfile
       cache_from:
-        - ${REPO}:python-${PYTHON}-wheel-manylinux-2014
+        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014
     environment:
       <<: *ccache
       MANYLINUX_VERSION: 2014
@@ -740,7 +738,7 @@ services:
     command: /arrow/ci/scripts/python_wheel_manylinux_build.sh
 
   python-wheel-manylinux-test:
-    image: ${ARCH}/python:${PYTHON}
+    image: python:${PYTHON}
     shm_size: 2G
     volumes:
       - .:/arrow:delegated
