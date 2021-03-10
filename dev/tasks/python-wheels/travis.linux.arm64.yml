@@ -23,6 +23,10 @@ language: minimal
 addons:
   apt:
     packages:
+      - devscripts
+      - gpg
+      - libgit2-dev
+      - python3-pip
       - libgit2-dev
 
 services:
@@ -46,7 +50,8 @@ before_script:
 
 script:
   # Install Archery and Crossbow dependencies
-  - sudo -H pip3 install -e arrow/dev/archery[all]
+  - sudo -H pip3 install -e arrow/dev/archery[docker]
+  - sudo -H pip3 install -r arrow/dev/tasks/requirements-crossbow.txt
 
   # Docker Login:
   - echo "${DOCKERHUB_TOKEN}" | docker login "${DOCKERHUB_USER}" --password-stdin

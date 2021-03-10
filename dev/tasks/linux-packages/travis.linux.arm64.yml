@@ -104,7 +104,7 @@ script:
   - popd
 
 after_success:
-  - sudo -H pip3 install --requirement arrow/dev/tasks/requirements-crossbow.txt
+  - sudo -H pip3 install -r arrow/dev/tasks/requirements-crossbow.txt
   - |
     python3 arrow/dev/tasks/crossbow.py \
       --queue-path . \

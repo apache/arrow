@@ -1,5 +1,5 @@
 click>=7.1
-github3.py
+github3.py==1.3
 jinja2
 pygit2
 ruamel.yaml
