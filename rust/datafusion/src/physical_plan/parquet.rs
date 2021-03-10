@@ -157,10 +157,13 @@ impl ParquetExec {
         let mut num_rows = 0;
         let mut total_byte_size = 0;
         let mut null_counts = Vec::new();
-
+        let mut limit_exhausted = false;
         for chunk in chunks {
-            let filenames: Vec<String> = chunk.iter().map(|x| x.to_string()).collect();
+            let mut filenames: Vec<String> =
+                chunk.iter().map(|x| x.to_string()).collect();
+            let mut total_files = 0;
             for filename in &filenames {
+                total_files += 1;
                 let file = File::open(filename)?;
                 let file_reader = Arc::new(SerializedFileReader::new(file)?);
                 let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
@@ -186,6 +189,10 @@ impl ParquetExec {
                     for (i, cnt) in columns_null_counts.enumerate() {
                         null_counts[i] += cnt
                     }
+                    if limit.map(|x| num_rows >= x as i64).unwrap_or(false) {
+                        limit_exhausted = true;
+                        break;
+                    }
                 }
             }
 
@@ -204,10 +211,15 @@ impl ParquetExec {
                 total_byte_size: Some(total_byte_size as usize),
                 column_statistics: Some(column_stats),
             };
+            // remove files that are not needed in case of limit
+            filenames.truncate(total_files);
             partitions.push(ParquetPartition {
                 filenames,
                 statistics,
             });
+            if limit_exhausted {
+                break;
+            }
         }
 
         // we currently get the schema information from the first file rather than do
@@ -885,7 +897,7 @@ fn read_files(
     limit: Option<usize>,
 ) -> Result<()> {
     let mut total_rows = 0;
-    for filename in filenames {
+    'outer: for filename in filenames {
         let file = File::open(&filename)?;
         let mut file_reader = SerializedFileReader::new(file)?;
         if let Some(predicate_builder) = predicate_builder {
@@ -903,7 +915,7 @@ fn read_files(
                     total_rows += batch.num_rows();
                     send_result(&response_tx, Ok(batch))?;
                     if limit.map(|l| total_rows > l).unwrap_or(false) {
-                        break;
+                        break 'outer;
                     }
                 }
                 None => {
