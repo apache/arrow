@@ -96,10 +96,6 @@ RUN vcpkg install --clean-after-build \
         zlib \
         zstd
 
-# Temporary workaround to test the rest of the features
-# aws-sdk fails to compile static libs
-# RUN vcpkg install aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
-
 ARG python=3.6
 ENV PYTHON_VERSION=${python}
 RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-*) && \
