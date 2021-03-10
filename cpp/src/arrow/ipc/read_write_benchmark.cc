@@ -211,7 +211,6 @@ static void ReadCompressedFile(benchmark::State& state) {  // NOLINT non-const r
     ABORT_NOT_OK(stream.Close());
   }
 
-  ipc::DictionaryMemo empty_memo;
   for (auto _ : state) {
     io::BufferReader input(buffer);
     auto reader =
@@ -248,13 +247,12 @@ static void ReadaheadCompressedFile(
     ABORT_NOT_OK(stream.Close());
   }
 
-  ipc::DictionaryMemo empty_memo;
   for (auto _ : state) {
     io::BufferReader input(buffer);
     auto reader =
         *ipc::RecordBatchFileReader::Open(&input, ipc::IpcReadOptions::Defaults());
     ASSIGN_OR_ABORT(auto generator,
-                    reader->GetRecordBatchGenerator(/*readahead_messages=*/4,
+                    reader->GetRecordBatchGenerator(/*readahead_messages=*/0,
                                                     io::default_io_context(),
                                                     arrow::internal::GetCpuThreadPool()));
     generator = MakeReadaheadGenerator(std::move(generator), /*readahead=*/4);

@@ -1297,13 +1297,15 @@ Future<IpcFileRecordBatchGenerator::Item> IpcFileRecordBatchGenerator::operator(
     for (int i = 0; i < state_->num_dictionaries(); i++) {
       dictionary_messages[i] = message_generator_();
     }
-    auto dictionaries_read = arrow::All(std::move(dictionary_messages));
+    auto dictionary_messages_read = arrow::All(std::move(dictionary_messages));
     // We may not have an executor; just run the continuation on the original pool in
     // that case. Often OK since decoding a batch is cheap, unless lots of columns or
     // compression are involved.
-    if (executor_) dictionaries_read = executor_->Transfer(dictionaries_read);
+    if (executor_) {
+      dictionary_messages_read = executor_->Transfer(dictionary_messages_read);
+    }
     auto state = state_;
-    read_dictionaries_ = dictionaries_read.Then(
+    read_dictionaries_ = dictionary_messages_read.Then(
         [state](const std::vector<Result<std::shared_ptr<Message>>>& messages)
             -> Result<std::shared_ptr<Message>> {
           std::vector<std::shared_ptr<Message>> dictionary_messages;

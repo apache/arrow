@@ -1028,11 +1028,11 @@ struct FileGeneratorWriterHelper : public FileWriterHelper {
       futures.push_back(generator());
     }
     auto fut = generator();
-    ARROW_ASSIGN_OR_RAISE(auto extra_read, fut.result());
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto extra_read, fut);
     EXPECT_EQ(nullptr, extra_read);
 
     for (auto& future : futures) {
-      ARROW_ASSIGN_OR_RAISE(auto batch, future.result());
+      ASSERT_FINISHES_OK_AND_ASSIGN(auto batch, future);
       EXPECT_NE(nullptr, batch);
       out_batches->push_back(batch);
     }
