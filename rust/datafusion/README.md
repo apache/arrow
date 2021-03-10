@@ -71,15 +71,20 @@ DataFusion includes a simple command-line interactive SQL utility. See the [CLI 
   - [x] lpad
   - [x] ltrim
   - [x] octet_length
+  - [x] regexp_replace
   - [x] repeat
+  - [x] replace
   - [x] reverse
   - [x] right
   - [x] rpad
   - [x] rtrim
+  - [x] split_part
+  - [x] starts_with
+  - [x] strpos
   - [x] substr
   - [x] to_hex
+  - [x] translate
   - [x] trim
-
 - Miscellaneous/Boolean functions
   - [x] nullif
 - Common date/time functions
