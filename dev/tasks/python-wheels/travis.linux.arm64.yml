@@ -57,10 +57,10 @@ script:
   # Build and Test packages
 
   # output something every minutes to prevent travis from killing the build
-  - while sleep 1m; do echo "=====[ $SECONDS seconds still running ]====="; done &
-  - archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} -e CMAKE_UNITY_BUILD=OFF python-wheel-manylinux-{{ manylinux_version }}
-  # stop background echo loop
-  - kill %1
+  - |
+    while sleep 1m; do echo "=====[ $SECONDS seconds still running ]====="; done &
+    archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} -e CMAKE_UNITY_BUILD=OFF python-wheel-manylinux-{{ manylinux_version }}
+    kill %1
 
   - archery docker run python-wheel-manylinux-test
 
