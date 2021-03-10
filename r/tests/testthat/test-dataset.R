@@ -556,7 +556,10 @@ test_that("filter() with arrow compute functions by name", {
       select(part, lgl) %>%
       filter(arrow_is_valid(lgl), arrow_equal(part, 1)) %>%
       collect(),
-    tibble(part = 1L, lgl = df1$lgl[!is.na(df1$lgl)])
+    ds %>%
+       select(part, lgl) %>%
+       filter(!is.na(lgl), part == 1L) %>%
+       collect()
   )
 })
 
