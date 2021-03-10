@@ -164,8 +164,7 @@ test_that("filter() with string ops", {
   #    (presumably legitimate) places
   # 2) Wrap the test in expect_warning(expr, NA) to catch the warning
 
-  skip_if(as.numeric(sessionInfo()$R.version$minor) < 3.4,
-          "R < 3.4")
+  skip_if(getRversion() < "3.4.0", "R < 3.4")
 
   with_no_as_character <- function(expr) {
     trace(
