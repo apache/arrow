@@ -35,6 +35,7 @@ export ARROW_TEST_DATA=/arrow/testing/data
 export PARQUET_TEST_DATA=/arrow/submodules/parquet-testing/data
 
 # Install the built wheels
+pip install --upgrade pip
 pip install /arrow/python/repaired_wheels/*.whl
 
 # Test that the modules are importable
