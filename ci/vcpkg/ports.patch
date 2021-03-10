@@ -38,3 +38,26 @@ index 75dd13302..84345c7ca 100644
  )
  
  vcpkg_configure_cmake(
+diff --git a/ports/snappy/snappy-disable-bmi.patch b/ports/snappy/snappy-disable-bmi.patch
+new file mode 100644
+index 000000000..2cbb1533a
+--- /dev/null
++++ b/ports/snappy/snappy-disable-bmi.patch
+@@ -0,0 +1,17 @@
++--- snappy.cc  2020-06-27 17:38:49.718993748 -0500
+++++ snappy.cc  2020-06-27 17:37:57.543268213 -0500
++@@ -717,14 +717,10 @@
++ static inline uint32 ExtractLowBytes(uint32 v, int n) {
++   assert(n >= 0);
++   assert(n <= 4);
++-#if SNAPPY_HAVE_BMI2
++-  return _bzhi_u32(v, 8 * n);
++-#else
++   // This needs to be wider than uint32 otherwise `mask << 32` will be
++   // undefined.
++   uint64 mask = 0xffffffff;
++   return v & ~(mask << (8 * n));
++-#endif
++ }
++
++ static inline bool LeftShiftOverflows(uint8 value, uint32 shift) {
