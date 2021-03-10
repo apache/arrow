@@ -79,20 +79,39 @@ namespace Apache.Arrow
         internal static void GetBytes(decimal value, int precision, int scale, int byteWidth, Span<byte> bytes)
         {
             // create BigInteger from decimal
-            byte[] bigIntBytes = new byte[12];
+            BigInteger bigInt;
             int[] decimalBits = decimal.GetBits(value);
             int decScale = (decimalBits[3] >> 16) & 0x7F;
-            for (int i = 0; i < 3; i++)
-            {
-                int bit = decimalBits[i];
-                byte[] intBytes = BitConverter.GetBytes(bit);
-                for (int j = 0; j < intBytes.Length; j++)
-                {
-                    bigIntBytes[4*i+j] =intBytes[j];
-                }
-            }
+#if NETCOREAPP
+            Span<byte> bigIntBytes = stackalloc byte[12];
 
-            BigInteger bigInt = new BigInteger(bigIntBytes);
+                for (int i = 0; i < 3; i++)
+                {
+                    int bit = decimalBits[i];
+                    Span<byte> intBytes = stackalloc byte[4];
+                    if (!BitConverter.TryWriteBytes(intBytes, bit))
+                        throw new OverflowException($"Could not extract bytes from int {bit}");
+
+                    for (int j = 0; j < 4; j++)
+                    {
+                        bigIntBytes[4 * i + j] = intBytes[j];
+                    }
+                }
+                bigInt = new BigInteger(bigIntBytes);
+#else
+            byte[] bigIntBytes = new byte[12];
+                for (int i = 0; i < 3; i++)
+                {
+                    int bit = decimalBits[i];
+                    byte[] intBytes = BitConverter.GetBytes(bit);
+                    for (int j = 0; j < intBytes.Length; j++)
+                    {
+                        bigIntBytes[4 * i + j] = intBytes[j];
+                    }
+                }
+                bigInt = new BigInteger(bigIntBytes);
+#endif
+
             if (value < 0)
             {
                 bigInt = -bigInt;
