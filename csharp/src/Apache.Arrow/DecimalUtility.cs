@@ -53,7 +53,7 @@ namespace Apache.Arrow
                 BigInteger integerPart = BigInteger.DivRem(integerValue, scaleBy, out BigInteger fractionalPart);
                 if (integerPart > _maxDecimal || integerPart < _minDecimal) // decimal overflow, not much we can do here - C# needs a BigDecimal
                 {
-                    throw new OverflowException("Value: " + integerPart + " too big or too small to be represented as a decimal");
+                    throw new OverflowException($"Value: {integerPart} too big or too small to be represented as a decimal");
                 }
                 return (decimal)integerPart + DivideByScale(fractionalPart, scale);
             }
@@ -101,10 +101,10 @@ namespace Apache.Arrow
 
             // validate precision and scale
             if (decScale > scale)
-                throw new OverflowException("Decimal scale can not be greater than that in the Arrow vector: " + decScale + " != " + scale);
+                throw new OverflowException($"Decimal scale cannot be greater than that in the Arrow vector: {decScale} != {scale}");
 
             if (bigInt >= BigInteger.Pow(10, precision))
-                throw new OverflowException("Decimal precision can not be greater than that in the Arrow vector: " + value + " has precision > " + precision);
+                throw new OverflowException($"Decimal precision cannot be greater than that in the Arrow vector: {value} has precision > {precision}");
 
             if (decScale < scale) // pad with trailing zeros
             {
@@ -114,7 +114,7 @@ namespace Apache.Arrow
             // extract bytes from BigInteger
             if (bytes.Length != byteWidth)
             {
-                throw new OverflowException("ValueBuffer size not equal to " + byteWidth + " byte width: " + bytes.Length);
+                throw new OverflowException($"ValueBuffer size not equal to {byteWidth} byte width: {bytes.Length}");
             }
 
             int bytesWritten;
@@ -129,7 +129,7 @@ namespace Apache.Arrow
 
             if (bytes.Length > byteWidth)
             {
-                throw new OverflowException("Decimal size greater than " + byteWidth + " bytes: " + bytes.Length);
+                throw new OverflowException($"Decimal size greater than {byteWidth} bytes: {bytes.Length}");
             }
 
             if (bigInt.Sign == -1)
