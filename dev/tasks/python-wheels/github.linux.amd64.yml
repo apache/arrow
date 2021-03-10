@@ -32,8 +32,6 @@ jobs:
       # archery uses these environment variables
       ARCH: amd64
       PYTHON: {{ python_version }}
-      # prefer the docker cli over docker-compose
-      ARCHERY_USE_DOCKER_CLI: 1
 
     steps:
       ############################ Checkout ###################################

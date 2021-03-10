@@ -20,6 +20,11 @@ arch: arm64
 dist: bionic
 language: minimal
 
+addons:
+  apt:
+    packages:
+      - libgit2-dev
+
 services:
   - docker
 
@@ -33,8 +38,6 @@ env:
     # archery uses these environment variables
     - ARCH=arm64v8
     - PYTHON={{ python_version }}
-    # prefer the docker cli over docker-compose
-    - ARCHERY_USE_DOCKER_CLI=1
 
 before_script:
   - git clone --no-checkout {{ arrow.remote }} arrow
@@ -43,7 +46,7 @@ before_script:
 
 script:
   # Install Archery and Crossbow dependencies
-  - sudo -H pip3 install arrow/dev/archery[all]
+  - sudo -H pip3 install -e arrow/dev/archery[all]
 
   # Docker Login:
   - echo "${DOCKERHUB_TOKEN}" | docker login "${DOCKERHUB_USER}" --password-stdin
