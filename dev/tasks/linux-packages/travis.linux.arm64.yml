@@ -104,7 +104,7 @@ script:
   - popd
 
 after_success:
-  - sudo -H pip3 install -r arrow/dev/tasks/requirements-crossbow.txt
+  - sudo -H pip3 install -r arrow/dev/tasks/requirements-crossbow.txt pygit2==0.26
   - |
     python3 arrow/dev/tasks/crossbow.py \
       --queue-path . \

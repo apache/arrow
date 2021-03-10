@@ -37,8 +37,8 @@ env:
     - BUILD_REF={{ arrow.head }}
     - TRAVIS_TAG={{ task.tag }}
     # archery uses these environment variables
-    - ARCH=arm64v8
-    - PYTHON={{ python_version }}
+    # - ARCH=arm64v8
+    # - PYTHON={{ python_version }}
 
 before_script:
   - git clone --no-checkout {{ arrow.remote }} arrow
@@ -48,14 +48,14 @@ before_script:
 script:
   # Install Archery and Crossbow dependencies
   - sudo -H pip3 install -e arrow/dev/archery[docker]
-  - sudo -H pip3 install -r arrow/dev/tasks/requirements-crossbow.txt
+  - sudo -H pip3 install -r arrow/dev/tasks/requirements-crossbow.txt pygit2==0.26
 
   # Docker Login:
   - echo "${DOCKERHUB_TOKEN}" | docker login "${DOCKERHUB_USER}" --password-stdin
 
   # Build and Test packages
-  - archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-manylinux-{{ manylinux_version }}
-  - archery docker run python-wheel-manylinux-test
+  - ARCH=arm64v8 PYTHON={{ python_version }} archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-manylinux-{{ manylinux_version }}
+  - ARCH=arm64v8 PYTHON={{ python_version }} archery docker run python-wheel-manylinux-test
 
 after_success:
   # Upload wheel as github artifact
