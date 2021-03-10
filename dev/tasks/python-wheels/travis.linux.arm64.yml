@@ -23,11 +23,8 @@ language: minimal
 addons:
   apt:
     packages:
-      - devscripts
-      - gpg
       - libgit2-dev
       - python3-pip
-      - libgit2-dev
 
 services:
   - docker
