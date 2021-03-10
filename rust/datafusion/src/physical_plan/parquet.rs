@@ -81,6 +81,8 @@ pub struct ParquetExec {
     statistics: Statistics,
     /// Optional predicate builder
     predicate_builder: Option<RowGroupPredicateBuilder>,
+    /// Optional limit of the number of rows
+    limit: Option<usize>,
 }
 
 /// Represents one partition of a Parquet data set and this currently means one Parquet file.
@@ -109,6 +111,7 @@ impl ParquetExec {
         predicate: Option<Expr>,
         batch_size: usize,
         max_concurrency: usize,
+        limit: Option<usize>,
     ) -> Result<Self> {
         // build a list of filenames from the specified path, which could be a single file or
         // a directory containing one or more parquet files
@@ -130,6 +133,7 @@ impl ParquetExec {
                 predicate,
                 batch_size,
                 max_concurrency,
+                limit,
             )
         }
     }
@@ -142,6 +146,7 @@ impl ParquetExec {
         predicate: Option<Expr>,
         batch_size: usize,
         max_concurrency: usize,
+        limit: Option<usize>,
     ) -> Result<Self> {
         // build a list of Parquet partitions with statistics and gather all unique schemas
         // used in this data set
@@ -226,6 +231,7 @@ impl ParquetExec {
             projection,
             predicate_builder,
             batch_size,
+            limit,
         ))
     }
 
@@ -236,6 +242,7 @@ impl ParquetExec {
         projection: Option<Vec<usize>>,
         predicate_builder: Option<RowGroupPredicateBuilder>,
         batch_size: usize,
+        limit: Option<usize>,
     ) -> Self {
         let projection = match projection {
             Some(p) => p,
@@ -299,6 +306,7 @@ impl ParquetExec {
             predicate_builder,
             batch_size,
             statistics,
+            limit,
         }
     }
 
@@ -835,6 +843,7 @@ impl ExecutionPlan for ParquetExec {
         let projection = self.projection.clone();
         let predicate_builder = self.predicate_builder.clone();
         let batch_size = self.batch_size;
+        let limit = self.limit;
 
         task::spawn_blocking(move || {
             if let Err(e) = read_files(
@@ -843,6 +852,7 @@ impl ExecutionPlan for ParquetExec {
                 &predicate_builder,
                 batch_size,
                 response_tx,
+                limit,
             ) {
                 println!("Parquet reader thread terminated due to error: {:?}", e);
             }
@@ -872,7 +882,9 @@ fn read_files(
     predicate_builder: &Option<RowGroupPredicateBuilder>,
     batch_size: usize,
     response_tx: Sender<ArrowResult<RecordBatch>>,
+    limit: Option<usize>,
 ) -> Result<()> {
+    let mut total_rows = 0;
     for filename in filenames {
         let file = File::open(&filename)?;
         let mut file_reader = SerializedFileReader::new(file)?;
@@ -888,7 +900,11 @@ fn read_files(
             match batch_reader.next() {
                 Some(Ok(batch)) => {
                     //println!("ParquetExec got new batch from {}", filename);
-                    send_result(&response_tx, Ok(batch))?
+                    total_rows += batch.num_rows();
+                    send_result(&response_tx, Ok(batch))?;
+                    if limit.map(|l| total_rows > l).unwrap_or(false) {
+                        break;
+                    }
                 }
                 None => {
                     break;
@@ -994,8 +1010,14 @@ mod tests {
     async fn test() -> Result<()> {
         let testdata = arrow::util::test_util::parquet_test_data();
         let filename = format!("{}/alltypes_plain.parquet", testdata);
-        let parquet_exec =
-            ParquetExec::try_from_path(&filename, Some(vec![0, 1, 2]), None, 1024, 4)?;
+        let parquet_exec = ParquetExec::try_from_path(
+            &filename,
+            Some(vec![0, 1, 2]),
+            None,
+            1024,
+            4,
+            None,
+        )?;
         assert_eq!(parquet_exec.output_partitioning().partition_count(), 1);
 
         let mut results = parquet_exec.execute(0).await?;

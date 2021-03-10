@@ -56,19 +56,30 @@ fn limit_push_down(
             projected_schema,
         } => {
             if let Some(n) = upper_limit {
-                return Ok(LogicalPlan::TableScan {
+                Ok(LogicalPlan::TableScan {
                     table_name: table_name.clone(),
                     source: source.clone(),
                     projection: projection.clone(),
                     filters: filters.clone(),
                     limit: limit.map(|x| std::cmp::min(x, n)).or(Some(n)),
                     projected_schema: projected_schema.clone(),
-                });
+                })
             } else {
-                return Ok(plan.clone());
+                limit_push_down(None, plan)
             }
         }
-
+        LogicalPlan::Projection {
+            expr,
+            input,
+            schema,
+        } => {
+            // Push down limit directly (projection doesn't change number of rows)
+            Ok(LogicalPlan::Projection {
+                expr: expr.clone(),
+                input: Arc::new(limit_push_down(upper_limit, input.as_ref())?),
+                schema: schema.clone(),
+            })
+        }
         _ => {
             let expr = plan.expressions();
 
@@ -97,7 +108,7 @@ impl OptimizerRule for LimitPushDown {
 mod test {
     use super::*;
     use crate::{
-        logical_plan::{LogicalPlan, LogicalPlanBuilder},
+        logical_plan::{col, LogicalPlan, LogicalPlanBuilder},
         test::*,
     };
 
@@ -109,15 +120,19 @@ mod test {
     }
 
     #[test]
-    fn limit_pushdown_table_provider() -> Result<()> {
+    fn limit_pushdown_projection_table_provider() -> Result<()> {
         let table_scan = test_table_scan()?;
 
-        let plan = LogicalPlanBuilder::from(&table_scan).limit(1000)?.build()?;
+        let plan = LogicalPlanBuilder::from(&table_scan)
+            .project(&[col("a")])?
+            .limit(1000)?
+            .build()?;
 
-        // Pushes the limit down to table provider
-        // TableScan returns at least the limit nr. of rows (if it has rows)
+        // Should push the limit down to table provider
+        // When it has a select
         let expected = "Limit: 1000\
-        \n  TableScan: test projection=None, limit=1000";
+        \n  Projection: #a\
+        \n    TableScan: test projection=None, limit=1000";
 
         assert_optimized_plan_eq(&plan, expected);
 

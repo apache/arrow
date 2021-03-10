@@ -43,7 +43,7 @@ pub struct ParquetTable {
 impl ParquetTable {
     /// Attempt to initialize a new `ParquetTable` from a file path.
     pub fn try_new(path: &str, max_concurrency: usize) -> Result<Self> {
-        let parquet_exec = ParquetExec::try_from_path(path, None, None, 0, 1)?;
+        let parquet_exec = ParquetExec::try_from_path(path, None, None, 0, 1, None)?;
         let schema = parquet_exec.schema();
         Ok(Self {
             path: path.to_string(),
@@ -83,7 +83,7 @@ impl TableProvider for ParquetTable {
         projection: &Option<Vec<usize>>,
         batch_size: usize,
         filters: &[Expr],
-        _limit: Option<usize>,
+        limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         let predicate = combine_filters(filters);
         Ok(Arc::new(ParquetExec::try_from_path(
@@ -92,6 +92,7 @@ impl TableProvider for ParquetTable {
             predicate,
             batch_size,
             self.max_concurrency,
+            limit,
         )?))
     }
 
