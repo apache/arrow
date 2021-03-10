@@ -45,6 +45,10 @@
     s3_register("reticulate::r_to_py", cl)
   }
 
+  # Create these once, at package build time
+  dplyr_functions$dataset <- build_function_list(build_dataset_expression)
+  dplyr_functions$array <- build_function_list(build_array_expression)
+
   invisible()
 }
 
