@@ -346,7 +346,7 @@ fn optimize(plan: &LogicalPlan, mut state: State) -> Result<LogicalPlan> {
             filters,
             projection,
             table_name,
-            limit
+            limit,
         } => {
             let mut used_columns = HashSet::new();
             let mut new_filters = filters.clone();
@@ -377,7 +377,7 @@ fn optimize(plan: &LogicalPlan, mut state: State) -> Result<LogicalPlan> {
                     projected_schema: projected_schema.clone(),
                     table_name: table_name.clone(),
                     filters: new_filters,
-                    limit: *limit
+                    limit: *limit,
                 },
             )
         }
@@ -942,7 +942,7 @@ mod tests {
             _: &Option<Vec<usize>>,
             _: usize,
             _: &[Expr],
-            _: Option<usize>
+            _: Option<usize>,
         ) -> Result<Arc<dyn ExecutionPlan>> {
             unimplemented!()
         }

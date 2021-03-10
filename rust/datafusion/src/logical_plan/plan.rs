@@ -133,7 +133,7 @@ pub enum LogicalPlan {
         /// Optional expressions to be used as filters by the table provider
         filters: Vec<Expr>,
         /// Optional limit to skip reading
-        limit: Option<usize>
+        limit: Option<usize>,
     },
     /// Produces no rows: An empty relation with an empty schema
     EmptyRelation {

@@ -81,7 +81,7 @@ pub trait TableProvider {
         projection: &Option<Vec<usize>>,
         batch_size: usize,
         filters: &[Expr],
-        limit: Option<usize>
+        limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>>;
 
     /// Returns the table Statistics

@@ -83,7 +83,7 @@ impl TableProvider for ParquetTable {
         projection: &Option<Vec<usize>>,
         batch_size: usize,
         filters: &[Expr],
-        _limit: Option<usize>
+        _limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         let predicate = combine_filters(filters);
         Ok(Arc::new(ParquetExec::try_from_path(

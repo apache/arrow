@@ -177,7 +177,7 @@ impl TableProvider for MemTable {
         projection: &Option<Vec<usize>>,
         _batch_size: usize,
         _filters: &[Expr],
-        _limit: Option<usize>
+        _limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         let columns: Vec<usize> = match projection {
             Some(p) => p.clone(),
