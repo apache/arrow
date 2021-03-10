@@ -332,4 +332,13 @@ class InExprDex<std::string> : public InExprDexBase<std::string> {
   }
 };
 
+template <>
+class InExprDex<arrow::Date64Type> : public InExprDexBase<arrow::Date64Type> {
+ public:
+  InExprDex(const ValueValidityPairVector& args,
+            const std::unordered_set<arrow::Date64Type>& values)
+      : InExprDexBase(args, values) {
+    runtime_function_ = "gdv_fn_in_expr_lookup_date64";
+  }
+};
 }  // namespace gandiva

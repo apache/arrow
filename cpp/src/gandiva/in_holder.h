@@ -69,4 +69,6 @@ class InHolder<std::string> {
   const std::unordered_set<std::string> values_;
 };
 
+template<>
+
 }  // namespace gandiva

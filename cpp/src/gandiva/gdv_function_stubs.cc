@@ -97,6 +97,15 @@ bool gdv_fn_in_expr_lookup_utf8(int64_t ptr, const char* data, int data_len,
   return holder->HasValue(arrow::util::string_view(data, data_len));
 }
 
+bool gdv_fn_in_expr_lookup_date64(int64_t ptr, int64_t value, bool in_validity) {
+  if (!in_validity) {
+    return false;
+  }
+  gandiva::InHolder<arrow::Date64Type>* holder =
+      reinterpret_cast<gandiva::InHolder<arrow::Date64Type>*>(ptr);
+  return holder->HasValue(value);
+}
+
 int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
                                       int32_t* offsets, int64_t slot,
                                       const char* entry_buf, int32_t entry_len) {
@@ -269,6 +278,15 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_in_expr_lookup_int32",
                                   types->i1_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_in_expr_lookup_int32));
+
+    // gdv_fn_in_expr_lookup_date64
+  args = {types->i64_type(),  // int64_t in holder ptr
+          types->i64_type(),  // int64 value
+          types->i1_type()};  // bool in_validity
+
+  engine->AddGlobalMappingForFunc("gdv_fn_in_expr_lookup_date64",
+                                  types->i1_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_in_expr_lookup_date64));                             
 
   // gdv_fn_in_expr_lookup_int64
   args = {types->i64_type(),  // int64_t in holder ptr

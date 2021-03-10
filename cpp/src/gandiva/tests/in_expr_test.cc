@@ -114,6 +114,44 @@ TEST_F(TestIn, TestInString) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
 }
 
+TEST_F(TestIn, TestInDate) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::date64());
+  auto schema = arrow::schema({field0});
+
+  auto node_f0 = TreeExprBuilder::MakeField(field0);
+  std::unordered_set<int64_t> in_constants({1234, 5678});
+  auto in_expr = TreeExprBuilder::MakeInExpressionDate64(node_f0, in_constants);
+
+  auto condition = TreeExprBuilder::MakeCondition(in_expr);
+
+  std::shared_ptr<Filter> filter;
+  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 5;
+  std::vector<int64_t> d0_data = {1234, 5678, 1234, 5678, 1234};
+  auto validity = {true, true, false, false, true};
+  auto array_a = MakeArrowTypeArray<arrow::Date64Type, int64_t>(arrow::date64(), d0_data, validity);
+  // expected output (indices for which condition matches)
+  auto exp = MakeArrowArrayUint16({0, 1, 4});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
+
+  std::shared_ptr<SelectionVector> selection_vector;
+  status = SelectionVector::MakeInt16(num_records, pool_, &selection_vector);
+  EXPECT_TRUE(status.ok());
+
+  // Evaluate expression
+  status = filter->Evaluate(*in_batch, selection_vector);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
+}
+
 TEST_F(TestIn, TestInStringValidationError) {
   // schema for input fields
   auto field0 = field("f0", arrow::int32());

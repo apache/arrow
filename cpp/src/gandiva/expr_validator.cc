@@ -162,6 +162,11 @@ Status ExprValidator::Visit(const InExpressionNode<std::string>& node) {
                               arrow::utf8());
 }
 
+Status ExprValidator::Visit(const InExpressionNode<arrow::Date64Type>& node) {
+  return ValidateInExpression(node.values().size(), node.eval_expr()->return_type(),
+                              arrow::date64());
+}
+
 Status ExprValidator::ValidateInExpression(size_t number_of_values,
                                            DataTypePtr in_expr_return_type,
                                            DataTypePtr type_of_values) {

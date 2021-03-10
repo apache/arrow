@@ -67,6 +67,7 @@ class GANDIVA_EXPORT ExprDecomposer : public NodeVisitor {
   Status Visit(const InExpressionNode<int32_t>& node) override;
   Status Visit(const InExpressionNode<int64_t>& node) override;
   Status Visit(const InExpressionNode<std::string>& node) override;
+  Status Visit(const InExpressionNode<arrow::Date64Type>& node) override;
 
   // Optimize a function node, if possible.
   const FunctionNode TryOptimize(const FunctionNode& node);
