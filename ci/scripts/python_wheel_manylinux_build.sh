@@ -48,7 +48,6 @@ rm -rf /arrow/python/pyarrow/*.so
 rm -rf /arrow/python/pyarrow/*.so.*
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
-: ${ARCH_ALIAS:=x86_64}
 : ${ARROW_DATASET:=ON}
 : ${ARROW_FLIGHT:=ON}
 : ${ARROW_GANDIVA:=OFF}
@@ -138,8 +137,5 @@ pushd /arrow/python
 python setup.py bdist_wheel
 
 echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux${MANYLINUX_VERSION} ==="
-auditwheel repair \
-    --plat "manylinux${MANYLINUX_VERSION}_${ARCH_ALIAS}" \
-    -L . dist/pyarrow-*.whl \
-    -w repaired_wheels
+auditwheel repair -L . dist/pyarrow-*.whl -w repaired_wheels
 popd
