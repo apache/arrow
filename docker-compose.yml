@@ -699,6 +699,8 @@ services:
     image: ${REPO}:python-${PYTHON}-wheel-manylinux-2010
     build:
       args:
+        arch_alias: ${ARCH_ALIAS}
+        arch_short_alias: ${ARCH_SHORT_ALIAS}
         base: quay.io/pypa/manylinux2010_x86_64:2020-12-03-912b0de
         vcpkg: ${VCPKG}
         python: ${PYTHON}
@@ -738,7 +740,7 @@ services:
     command: /arrow/ci/scripts/python_wheel_manylinux_build.sh
 
   python-wheel-manylinux-test:
-    image: python:${PYTHON}
+    image: ${ARCH}/python:${PYTHON}
     shm_size: 2G
     volumes:
       - .:/arrow:delegated
