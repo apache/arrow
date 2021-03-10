@@ -65,7 +65,7 @@ fn limit_push_down(
                     projected_schema: projected_schema.clone(),
                 })
             } else {
-                limit_push_down(None, plan)
+                Ok(plan.clone())
             }
         }
         LogicalPlan::Projection {
