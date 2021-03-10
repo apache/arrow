@@ -24,117 +24,80 @@ use crate::array::{
 };
 use crate::datatypes::DataType;
 use crate::error::{ArrowError, Result};
+use std::collections::HashMap;
 
 use std::sync::Arc;
 
 use regex::Regex;
 
-fn generic_regexp_extract<OffsetSize: StringOffsetSizeTrait>(
-    array: &GenericStringArray<OffsetSize>,
-    re: &Regex,
-    idx: usize,
-) -> Result<ArrayRef> {
-    let mut builder: GenericStringBuilder<OffsetSize> = GenericStringBuilder::new(0);
-
-    for maybe_value in array.iter() {
-        match maybe_value {
-            Some(value) => match re.captures(value) {
-                Some(caps) => {
-                    let m = caps.get(idx).ok_or_else(|| {
-                        ArrowError::ComputeError(format!(
-                            "Regexp has no group with index {}",
-                            idx
-                        ))
-                    })?;
-                    builder.append_value(m.as_str())?
-                }
-                None => builder.append_null()?,
-            },
-            None => builder.append_null()?,
-        }
-    }
-    Ok(Arc::new(builder.finish()))
-}
-
 fn generic_regexp_match<OffsetSize: StringOffsetSizeTrait>(
     array: &GenericStringArray<OffsetSize>,
-    re: &Regex,
+    regex_array: &StringArray,
 ) -> Result<ArrayRef> {
+    let mut patterns: HashMap<&str, Regex> = HashMap::new();
     let builder: GenericStringBuilder<OffsetSize> = GenericStringBuilder::new(0);
     let mut list_builder = ListBuilder::new(builder);
 
-    for maybe_value in array.iter() {
-        match maybe_value {
-            Some(value) => match re.captures(value) {
-                Some(caps) => {
-                    for m in caps.iter().skip(1) {
-                        if let Some(v) = m {
-                            list_builder.values().append_value(v.as_str())?;
-                        }
+    for (maybe_value, maybe_pattern) in array.iter().zip(regex_array) {
+        match (maybe_value, maybe_pattern) {
+            (Some(value), Some(pattern)) => {
+                let existing_pattern = patterns.get(pattern);
+                let re = match existing_pattern {
+                    Some(re) => re.clone(),
+                    None => {
+                        let re = Regex::new(pattern).map_err(|e| {
+                            ArrowError::ComputeError(format!(
+                                "Regular expression did not compile: {:?}",
+                                e
+                            ))
+                        })?;
+                        patterns.insert(pattern, re.clone());
+                        re
                     }
-                    list_builder.append(true)?
+                };
+                match re.captures(value) {
+                    Some(caps) => {
+                        for m in caps.iter().skip(1) {
+                            if let Some(v) = m {
+                                list_builder.values().append_value(v.as_str())?;
+                            }
+                        }
+                        list_builder.append(true)?
+                    }
+                    None => {
+                        list_builder.values().append_value("")?;
+                        list_builder.append(true)?
+                    }
                 }
-                None => {
-                    list_builder.values().append_value("")?;
-                    list_builder.append(true)?
-                }
-            },
-            None => list_builder.append(false)?,
+            }
+            _ => list_builder.append(false)?,
         }
     }
     Ok(Arc::new(list_builder.finish()))
 }
 
-/// Extracts a specific group matched by a regular expression for a given String array.
-/// Group index 0 returns the whole match, index 1 returns the first group and so on. Please
-/// refer to regex crate for details on pattern specifics.
-pub fn regexp_extract(array: &Array, pattern: &str, idx: usize) -> Result<ArrayRef> {
-    let re = Regex::new(pattern).map_err(|e| {
-        ArrowError::ComputeError(format!("Regular expression did not compile: {:?}", e))
-    })?;
-    match array.data_type() {
-        DataType::LargeUtf8 => generic_regexp_extract(
-            array
-                .as_any()
-                .downcast_ref::<LargeStringArray>()
-                .expect("A large string is expected"),
-            &re,
-            idx,
-        ),
-        DataType::Utf8 => generic_regexp_extract(
-            array
-                .as_any()
-                .downcast_ref::<StringArray>()
-                .expect("A string is expected"),
-            &re,
-            idx,
-        ),
-        _ => Err(ArrowError::ComputeError(format!(
-            "regexp_extract does not support type {:?}",
-            array.data_type()
-        ))),
-    }
-}
-
 /// Extract all groups matched by a regular expression for a given String array.
-pub fn regexp_match(array: &Array, pattern: &str) -> Result<ArrayRef> {
-    let re = Regex::new(pattern).map_err(|e| {
-        ArrowError::ComputeError(format!("Regular expression did not compile: {:?}", e))
-    })?;
+pub fn regexp_match(array: &Array, pattern: &Array) -> Result<ArrayRef> {
     match array.data_type() {
         DataType::LargeUtf8 => generic_regexp_match(
             array
                 .as_any()
                 .downcast_ref::<LargeStringArray>()
                 .expect("A large string is expected"),
-            &re,
+            pattern
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .expect("A string is expected"),
         ),
         DataType::Utf8 => generic_regexp_match(
             array
                 .as_any()
                 .downcast_ref::<StringArray>()
                 .expect("A string is expected"),
-            &re,
+            pattern
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .expect("A string is expected"),
         ),
         _ => Err(ArrowError::ComputeError(format!(
             "regexp_match does not support type {:?}",
@@ -149,23 +112,11 @@ mod tests {
     use crate::array::ListArray;
 
     #[test]
-    fn extract_single_group() -> Result<()> {
-        let values = vec!["abc-005-def", "X-7-5", "X545"];
-        let array = StringArray::from(values);
-        let pattern = r".*-(\d*)-.*";
-        let actual = regexp_extract(&array, pattern, 1)?;
-        let expected = StringArray::from(vec![Some("005"), Some("7"), None]);
-        let result = actual.as_any().downcast_ref::<StringArray>().unwrap();
-        assert_eq!(&expected, result);
-        Ok(())
-    }
-
-    #[test]
     fn match_single_group() -> Result<()> {
         let values = vec![Some("abc-005-def"), Some("X-7-5"), Some("X545"), None];
         let array = StringArray::from(values);
-        let pattern = r".*-(\d*)-.*";
-        let actual = regexp_match(&array, pattern)?;
+        let pattern = StringArray::from(vec![r".*-(\d*)-.*"; 4]);
+        let actual = regexp_match(&array, &pattern)?;
         let elem_builder: GenericStringBuilder<i32> = GenericStringBuilder::new(0);
         let mut expected_builder = ListBuilder::new(elem_builder);
         expected_builder.values().append_value("005")?;

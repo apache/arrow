@@ -2423,26 +2423,6 @@ async fn inner_join_qualified_names() -> Result<()> {
 }
 
 #[tokio::test]
-async fn query_regexp_extract() -> Result<()> {
-    let schema = Arc::new(Schema::new(vec![Field::new("c1", DataType::Utf8, false)]));
-
-    let data = RecordBatch::try_new(
-        schema.clone(),
-        vec![Arc::new(StringArray::from(vec!["aaa-0", "bb-1", "aa"]))],
-    )?;
-
-    let table = MemTable::try_new(schema, vec![vec![data]])?;
-
-    let mut ctx = ExecutionContext::new();
-    ctx.register_table("test", Arc::new(table));
-    let sql = r"SELECT regexp_extract(c1, '.*-(\d)', 1) FROM test";
-    let actual = execute(&mut ctx, sql).await;
-    let expected = vec![vec!["0"], vec!["1"], vec!["NULL"]];
-    assert_eq!(expected, actual);
-    Ok(())
-}
-
-#[tokio::test]
 async fn query_regexp_match() -> Result<()> {
     let schema = Arc::new(Schema::new(vec![Field::new("c1", DataType::Utf8, false)]));
 

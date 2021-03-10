@@ -186,8 +186,6 @@ pub enum BuiltinScalarFunction {
     Trim,
     /// upper
     Upper,
-    /// regex_extract,
-    RegexpExtract,
     /// regexp_match
     RegexpMatch,
 }
@@ -257,7 +255,6 @@ impl FromStr for BuiltinScalarFunction {
             "to_timestamp" => BuiltinScalarFunction::ToTimestamp,
             "trim" => BuiltinScalarFunction::Trim,
             "upper" => BuiltinScalarFunction::Upper,
-            "regexp_extract" => BuiltinScalarFunction::RegexpExtract,
             "regexp_match" => BuiltinScalarFunction::RegexpMatch,
             _ => {
                 return Err(DataFusionError::Plan(format!(
@@ -543,16 +540,6 @@ pub fn return_type(
                 ));
             }
         }),
-        BuiltinScalarFunction::RegexpExtract => Ok(match arg_types[0] {
-            DataType::LargeUtf8 => DataType::LargeUtf8,
-            DataType::Utf8 => DataType::Utf8,
-            _ => {
-                // this error is internal as `data_types` should have captured this.
-                return Err(DataFusionError::Internal(
-                    "The regexp_extract function can only accept strings.".to_string(),
-                ));
-            }
-        }),
         BuiltinScalarFunction::RegexpMatch => Ok(match arg_types[0] {
             DataType::LargeUtf8 => {
                 DataType::List(Box::new(Field::new("item", DataType::LargeUtf8, true)))
@@ -755,42 +742,17 @@ pub fn create_physical_expr(
                 _ => unreachable!(),
             },
         },
-        BuiltinScalarFunction::RegexpExtract => |args| match args[0].data_type() {
+        BuiltinScalarFunction::RegexpMatch => |args| match args[0].data_type() {
             DataType::Utf8 => {
-                make_scalar_function(string_expressions::regexp_extract)(args)
+                make_scalar_function(string_expressions::regexp_match)(args)
             }
             DataType::LargeUtf8 => {
-                make_scalar_function(string_expressions::regexp_extract)(args)
+                make_scalar_function(string_expressions::regexp_match)(args)
             }
             other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function regexp_extract",
+                "Unsupported data type {:?} for function repeat",
                 other,
             ))),
-        },
-        BuiltinScalarFunction::RegexpMatch => |args| match (&args[0], &args[1]) {
-            (c, ColumnarValue::Scalar(ScalarValue::Utf8(Some(pattern))))
-                if c.data_type() == DataType::Utf8
-                    || c.data_type() == DataType::LargeUtf8 =>
-            {
-                let arr = match c {
-                    ColumnarValue::Array(col) => col.clone(),
-                    ColumnarValue::Scalar(_) => c.clone().into_array(1),
-                };
-
-                Ok(ColumnarValue::Array(string_expressions::regexp_match(
-                    &arr,
-                    pattern.as_str(),
-                )?))
-            }
-            (c, ColumnarValue::Scalar(ScalarValue::Utf8(Some(_)))) => {
-                Err(DataFusionError::Internal(format!(
-                    "Unsupported data type {:?} for function regexp_match",
-                    c.data_type(),
-                )))
-            }
-            (_, _) => Err(DataFusionError::Internal(
-                "regexp_match expects a literal string as second argument".to_string(),
-            )),
         },
         BuiltinScalarFunction::Repeat => |args| match args[0].data_type() {
             DataType::Utf8 => {
@@ -1016,10 +978,6 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
         BuiltinScalarFunction::NullIf => {
             Signature::Uniform(2, SUPPORTED_NULLIF_TYPES.to_vec())
         }
-        BuiltinScalarFunction::RegexpExtract => Signature::OneOf(vec![
-            Signature::Exact(vec![DataType::Utf8, DataType::Utf8, DataType::Int64]),
-            Signature::Exact(vec![DataType::LargeUtf8, DataType::Utf8, DataType::Int64]),
-        ]),
         BuiltinScalarFunction::RegexpMatch => Signature::OneOf(vec![
             Signature::Exact(vec![DataType::Utf8, DataType::Utf8]),
             Signature::Exact(vec![DataType::LargeUtf8, DataType::Utf8]),
@@ -2858,50 +2816,16 @@ mod tests {
     }
 
     #[test]
-    fn test_regexp_extract() -> Result<()> {
-        // any type works here: we evaluate against a literal of `value`
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-        let columns: Vec<ArrayRef> = vec![Arc::new(Int32Array::from(vec![1]))];
-
-        // concat(value, value)
-        let col_value = lit(ScalarValue::Utf8(Some("aaa-555".to_string())));
-        let pattern = lit(ScalarValue::Utf8(Some(r".*-(\d*)".to_string())));
-        let idx = lit(ScalarValue::Int64(Some(1)));
-        let expr = create_physical_expr(
-            &BuiltinScalarFunction::RegexpExtract,
-            &[col_value, pattern, idx],
-            &schema,
-        )?;
-
-        // type is correct
-        assert_eq!(expr.data_type(&schema)?, DataType::Utf8);
-
-        // evaluate works
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), columns)?;
-        let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
-
-        // downcast works
-        let result = result.as_any().downcast_ref::<StringArray>().unwrap();
-
-        // value is correct
-        let expected = "555".to_string();
-        assert_eq!(result.value(0).to_string(), expected);
-
-        Ok(())
-    }
-
-    #[test]
     fn test_regexp_match() -> Result<()> {
-        // any type works here: we evaluate against a literal of `value`
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-        let columns: Vec<ArrayRef> = vec![Arc::new(Int32Array::from(vec![1]))];
+        let schema = Schema::new(vec![Field::new("a", DataType::Utf8, false)]);
 
         // concat(value, value)
-        let col_value = lit(ScalarValue::Utf8(Some("aaa-555".to_string())));
+        let col_value: ArrayRef = Arc::new(StringArray::from(vec!["aaa-555"]));
         let pattern = lit(ScalarValue::Utf8(Some(r".*-(\d*)".to_string())));
+        let columns: Vec<ArrayRef> = vec![col_value];
         let expr = create_physical_expr(
             &BuiltinScalarFunction::RegexpMatch,
-            &[col_value, pattern],
+            &[col("a"), pattern],
             &schema,
         )?;
 
