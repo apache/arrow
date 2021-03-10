@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! Optimizer rule to push down LIMIT in the query plan
 use super::utils;
 use crate::error::Result;
 use crate::logical_plan::LogicalPlan;
@@ -26,7 +27,7 @@ pub struct LimitPushdown {}
 
 fn limit_push_down(n: Option<usize>, plan: &LogicalPlan) -> Result<LogicalPlan> {
     match plan {
-        expr => {
+        _ => {
             let expr = plan.expressions();
 
             // apply the optimization to all inputs of the plan

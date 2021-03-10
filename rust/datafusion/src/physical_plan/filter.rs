@@ -200,7 +200,7 @@ mod tests {
         let path = test::create_partitioned_csv("aggregate_test_100.csv", partitions)?;
 
         let csv =
-            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
+            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024, None)?;
 
         let predicate: Arc<dyn PhysicalExpr> = binary(
             binary(

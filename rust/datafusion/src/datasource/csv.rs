@@ -121,7 +121,7 @@ impl TableProvider for CsvFile {
         projection: &Option<Vec<usize>>,
         batch_size: usize,
         _filters: &[Expr],
-        _limit: Option<usize>,
+        limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         Ok(Arc::new(CsvExec::try_new(
             &self.path,
@@ -132,6 +132,7 @@ impl TableProvider for CsvFile {
                 .file_extension(self.file_extension.as_str()),
             projection.clone(),
             batch_size,
+            limit,
         )?))
     }
 
