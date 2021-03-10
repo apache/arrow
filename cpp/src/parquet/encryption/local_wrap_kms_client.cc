@@ -33,10 +33,10 @@ constexpr const char LocalWrapKmsClient::kLocalWrapNoKeyVersion[];
 constexpr const char LocalWrapKmsClient::LocalKeyWrap::kLocalWrapKeyVersionField[];
 constexpr const char LocalWrapKmsClient::LocalKeyWrap::kLocalWrapEncryptedKeyField[];
 
-LocalWrapKmsClient::LocalKeyWrap::LocalKeyWrap(const std::string& master_key_version,
-                                               const std::string& encrypted_encoded_key)
-    : encrypted_encoded_key_(encrypted_encoded_key),
-      master_key_version_(master_key_version) {}
+LocalWrapKmsClient::LocalKeyWrap::LocalKeyWrap(std::string master_key_version,
+                                               std::string encrypted_encoded_key)
+    : encrypted_encoded_key_(std::move(encrypted_encoded_key)),
+      master_key_version_(std::move(master_key_version)) {}
 
 std::string LocalWrapKmsClient::LocalKeyWrap::CreateSerialized(
     const std::string& encrypted_encoded_key) {
@@ -51,19 +51,18 @@ std::string LocalWrapKmsClient::LocalKeyWrap::CreateSerialized(
 LocalWrapKmsClient::LocalKeyWrap LocalWrapKmsClient::LocalKeyWrap::Parse(
     const std::string& wrapped_key) {
   ObjectParser json_parser;
-  ::arrow::Status status = json_parser.Parse(wrapped_key);
+  auto status = json_parser.Parse(wrapped_key);
   if (!status.ok()) {
     throw ParquetException("Failed to parse local key wrap json " + wrapped_key);
   }
-  std::string master_key_version;
-  PARQUET_ASSIGN_OR_THROW(master_key_version,
+  PARQUET_ASSIGN_OR_THROW(const auto master_key_version,
                           json_parser.GetString(kLocalWrapKeyVersionField));
 
-  std::string encrypted_encoded_key;
-  PARQUET_ASSIGN_OR_THROW(encrypted_encoded_key,
+  PARQUET_ASSIGN_OR_THROW(const auto encrypted_encoded_key,
                           json_parser.GetString(kLocalWrapEncryptedKeyField));
 
-  return LocalWrapKmsClient::LocalKeyWrap(master_key_version, encrypted_encoded_key);
+  return LocalWrapKmsClient::LocalKeyWrap(std::move(master_key_version),
+                                          std::move(encrypted_encoded_key));
 }
 
 LocalWrapKmsClient::LocalWrapKmsClient(const KmsConnectionConfig& kms_connection_config)
@@ -73,13 +72,13 @@ LocalWrapKmsClient::LocalWrapKmsClient(const KmsConnectionConfig& kms_connection
 
 std::string LocalWrapKmsClient::WrapKey(const std::string& key_bytes,
                                         const std::string& master_key_identifier) {
-  std::string master_key = master_key_cache_.GetOrInsert(
+  const auto master_key = master_key_cache_.GetOrInsert(
       master_key_identifier, [this, master_key_identifier]() -> std::string {
         return this->GetKeyFromServer(master_key_identifier);
       });
-  std::string aad = master_key_identifier;
+  const auto& aad = master_key_identifier;
 
-  std::string encrypted_encoded_key =
+  const auto encrypted_encoded_key =
       internal::EncryptKeyLocally(key_bytes, master_key, aad);
   return LocalKeyWrap::CreateSerialized(encrypted_encoded_key);
 }
@@ -93,11 +92,11 @@ std::string LocalWrapKmsClient::UnwrapKey(const std::string& wrapped_key,
                            master_key_version);
   }
   const std::string& encrypted_encoded_key = key_wrap.encrypted_encoded_key();
-  std::string master_key = master_key_cache_.GetOrInsert(
+  const std::string master_key = master_key_cache_.GetOrInsert(
       master_key_identifier, [this, master_key_identifier]() -> std::string {
         return this->GetKeyFromServer(master_key_identifier);
       });
-  std::string aad = master_key_identifier;
+  const std::string& aad = master_key_identifier;
 
   return internal::DecryptKeyLocally(encrypted_encoded_key, master_key, aad);
 }

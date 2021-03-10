@@ -70,8 +70,7 @@ class PARQUET_EXPORT LocalWrapKmsClient : public KmsClient {
     static constexpr const char kLocalWrapKeyVersionField[] = "masterKeyVersion";
     static constexpr const char kLocalWrapEncryptedKeyField[] = "encryptedKey";
 
-    LocalKeyWrap(const std::string& master_key_version,
-                 const std::string& encrypted_encoded_key);
+    LocalKeyWrap(std::string master_key_version, std::string encrypted_encoded_key);
 
     static std::string CreateSerialized(const std::string& encrypted_encoded_key);
 

@@ -30,31 +30,30 @@ using ::arrow::util::ConcurrentMap;
 
 namespace internal {
 
-// in miliseconds
-using TimePoint = std::chrono::system_clock::time_point;
+using TimePoint =
+    std::chrono::time_point<std::chrono::system_clock, std::chrono::duration<double>>;
 
-static inline TimePoint CurrentTimePoint() { return std::chrono::system_clock::now(); }
+inline TimePoint CurrentTimePoint() { return std::chrono::system_clock::now(); }
 
 template <typename E>
 class ExpiringCacheEntry {
  public:
   ExpiringCacheEntry() = default;
 
-  ExpiringCacheEntry(const E& cached_item, uint64_t expiration_interval_seconds)
-      : cached_item_(cached_item) {
-    expiration_timestamp_ =
-        CurrentTimePoint() + std::chrono::seconds(expiration_interval_seconds);
-  }
+  ExpiringCacheEntry(E cached_item, double expiration_interval_seconds)
+      : expiration_timestamp_(CurrentTimePoint() +
+                              std::chrono::duration<double>(expiration_interval_seconds)),
+        cached_item_(std::move(cached_item)) {}
 
-  bool IsExpired() {
-    auto now = CurrentTimePoint();
+  bool IsExpired() const {
+    const auto now = CurrentTimePoint();
     return (now > expiration_timestamp_);
   }
 
   E cached_item() { return cached_item_; }
 
  private:
-  TimePoint expiration_timestamp_;
+  const TimePoint expiration_timestamp_;
   E cached_item_;
 };
 
@@ -67,7 +66,7 @@ class ExpiringCacheMapEntry {
 
   explicit ExpiringCacheMapEntry(
       std::shared_ptr<ConcurrentMap<std::string, V>> cached_item,
-      uint64_t expiration_interval_seconds)
+      double expiration_interval_seconds)
       : map_cache_(cached_item, expiration_interval_seconds) {}
 
   bool IsExpired() { return map_cache_.IsExpired(); }
@@ -98,7 +97,7 @@ class TwoLevelCacheWithExpiration {
   }
 
   std::shared_ptr<ConcurrentMap<std::string, V>> GetOrCreateInternalCache(
-      const std::string& access_token, uint64_t cache_entry_lifetime_seconds) {
+      const std::string& access_token, double cache_entry_lifetime_seconds) {
     auto lock = mutex_.Lock();
 
     auto external_cache_entry = cache_.find(access_token);
@@ -113,16 +112,15 @@ class TwoLevelCacheWithExpiration {
     return cache_[access_token].cached_item();
   }
 
-  void CheckCacheForExpiredTokens(uint64_t cache_cleanup_period_seconds) {
+  void CheckCacheForExpiredTokens(double cache_cleanup_period_seconds) {
     auto lock = mutex_.Lock();
 
-    internal::TimePoint now = internal::CurrentTimePoint();
-
+    const auto now = internal::CurrentTimePoint();
     if (now > (last_cache_cleanup_timestamp_ +
-               std::chrono::seconds(cache_cleanup_period_seconds))) {
+               std::chrono::duration<double>(cache_cleanup_period_seconds))) {
       RemoveExpiredEntriesNoMutex();
       last_cache_cleanup_timestamp_ =
-          now + std::chrono::seconds(cache_cleanup_period_seconds);
+          now + std::chrono::duration<double>(cache_cleanup_period_seconds);
     }
   }
 

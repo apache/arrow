@@ -52,9 +52,7 @@ std::string data_file(const char* file);
 extern std::unique_ptr<TemporaryDir> temp_dir;
 
 inline ::arrow::Result<std::unique_ptr<TemporaryDir>> temp_data_dir() {
-  ::arrow::Result<std::unique_ptr<TemporaryDir>> dir;
-  ARROW_ASSIGN_OR_RAISE(dir, TemporaryDir::Make("parquet-encryption-test-"));
-  return dir;
+  return TemporaryDir::Make("parquet-encryption-test-");
 }
 
 const char kDoubleFieldName[] = "double_field";

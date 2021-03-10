@@ -37,7 +37,7 @@ FileKeyUnwrapper::FileKeyUnwrapper(KeyToolkit* key_toolkit,
       kms_connection_config.key_access_token(), cache_entry_lifetime_seconds_);
 }
 
-std::string FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) const {
+std::string FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) {
   // key_metadata is expected to be in UTF8 encoding
   ::arrow::util::InitializeUTF8();
   if (!::arrow::util::ValidateUTF8(
@@ -56,8 +56,7 @@ std::string FileKeyUnwrapper::GetKey(const std::string& key_metadata_bytes) cons
   return GetDataEncryptionKey(key_material).data_key();
 }
 
-KeyWithMasterId FileKeyUnwrapper::GetDataEncryptionKey(
-    const KeyMaterial& key_material) const {
+KeyWithMasterId FileKeyUnwrapper::GetDataEncryptionKey(const KeyMaterial& key_material) {
   auto kms_client = GetKmsClientFromConfigOrKeyMaterial(key_material);
 
   bool double_wrapping = key_material.is_double_wrapped();
@@ -86,7 +85,7 @@ KeyWithMasterId FileKeyUnwrapper::GetDataEncryptionKey(
 }
 
 std::shared_ptr<KmsClient> FileKeyUnwrapper::GetKmsClientFromConfigOrKeyMaterial(
-    const KeyMaterial& key_material) const {
+    const KeyMaterial& key_material) {
   std::string& kms_instance_id = kms_connection_config_.kms_instance_id;
   if (kms_instance_id.empty()) {
     kms_instance_id = key_material.kms_instance_id();

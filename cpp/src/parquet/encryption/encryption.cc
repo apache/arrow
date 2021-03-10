@@ -33,7 +33,7 @@ void IntegerKeyIdRetriever::PutKey(uint32_t key_id, const std::string& key) {
   key_map_.insert({key_id, key});
 }
 
-std::string IntegerKeyIdRetriever::GetKey(const std::string& key_metadata) const {
+std::string IntegerKeyIdRetriever::GetKey(const std::string& key_metadata) {
   uint32_t key_id;
   memcpy(reinterpret_cast<uint8_t*>(&key_id), key_metadata.c_str(), 4);
 
@@ -45,7 +45,7 @@ void StringKeyIdRetriever::PutKey(const std::string& key_id, const std::string& 
   key_map_.insert({key_id, key});
 }
 
-std::string StringKeyIdRetriever::GetKey(const std::string& key_id) const {
+std::string StringKeyIdRetriever::GetKey(const std::string& key_id) {
   return key_map_.at(key_id);
 }
 

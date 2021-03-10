@@ -15,13 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <sstream>
-
+#include "arrow/json/object_parser.h"
 #include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 
 #include <rapidjson/document.h>
-
-#include "arrow/json/object_parser.h"
 
 namespace arrow {
 namespace json {
@@ -36,43 +33,33 @@ class ObjectParser::Impl {
                     static_cast<size_t>(json.size()));
 
     if (document_.HasParseError()) {
-      std::ostringstream ss;
-      ss << "Json parse error (offset " << (unsigned)document_.GetErrorOffset()
-         << "): " << document_.GetParseError();
-      return Status(StatusCode::TypeError, ss.str());
+      return Status::Invalid("Json parse error (offset ", document_.GetErrorOffset(),
+                             "): ", document_.GetParseError());
     }
-
     if (!document_.IsObject()) {
-      return Status(StatusCode::TypeError, "Not a json object.");
+      return Status::TypeError("Not a json object");
     }
-
     return Status::OK();
   }
 
   Result<std::string> GetString(const char* key) const {
-    std::ostringstream ss;
     if (!document_.HasMember(key)) {
-      ss << key << " does not exist";
-      return Result<std::string>(Status(StatusCode::KeyError, ss.str()));
+      return Status::KeyError("Key '", key, "' does not exist");
     }
     if (!document_[key].IsString()) {
-      ss << key << " is not a string";
-      return Result<std::string>(Status(StatusCode::TypeError, ss.str()));
+      return Status::TypeError("Key '", key, "' is not a string");
     }
-    return Result<std::string>(document_[key].GetString());
+    return document_[key].GetString();
   }
 
   Result<bool> GetBool(const char* key) const {
-    std::ostringstream ss;
     if (!document_.HasMember(key)) {
-      ss << key << " does not exist";
-      return Result<bool>(Status(StatusCode::KeyError, ss.str()));
+      return Status::KeyError("Key '", key, "' does not exist");
     }
     if (!document_[key].IsBool()) {
-      ss << key << " is not a boolean";
-      return Result<bool>(Status(StatusCode::TypeError, ss.str()));
+      return Status::TypeError("Key '", key, "' is not a boolean");
     }
-    return Result<bool>(document_[key].GetBool());
+    return document_[key].GetBool();
   }
 
  private:

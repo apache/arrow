@@ -46,7 +46,7 @@ using ColumnPathToEncryptionPropertiesMap =
 
 class PARQUET_EXPORT DecryptionKeyRetriever {
  public:
-  virtual std::string GetKey(const std::string& key_metadata) const = 0;
+  virtual std::string GetKey(const std::string& key_metadata) = 0;
   virtual ~DecryptionKeyRetriever() {}
 };
 
@@ -54,7 +54,7 @@ class PARQUET_EXPORT DecryptionKeyRetriever {
 class PARQUET_EXPORT IntegerKeyIdRetriever : public DecryptionKeyRetriever {
  public:
   void PutKey(uint32_t key_id, const std::string& key);
-  std::string GetKey(const std::string& key_metadata) const;
+  std::string GetKey(const std::string& key_metadata) override;
 
  private:
   std::map<uint32_t, std::string> key_map_;
@@ -64,7 +64,7 @@ class PARQUET_EXPORT IntegerKeyIdRetriever : public DecryptionKeyRetriever {
 class PARQUET_EXPORT StringKeyIdRetriever : public DecryptionKeyRetriever {
  public:
   void PutKey(const std::string& key_id, const std::string& key);
-  std::string GetKey(const std::string& key_metadata) const;
+  std::string GetKey(const std::string& key_metadata) override;
 
  private:
   std::map<std::string, std::string> key_map_;

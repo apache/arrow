@@ -23,6 +23,7 @@
 #include <unordered_map>
 
 #include "arrow/testing/util.h"
+#include "arrow/util/logging.h"
 
 #include "parquet/encryption/crypto_factory.h"
 #include "parquet/encryption/key_toolkit.h"
@@ -36,13 +37,14 @@ namespace test {
 
 std::unique_ptr<TemporaryDir> temp_dir;
 
-class TestEncrytionKeyManagement : public ::testing::Test {
+class TestEncryptionKeyManagement : public ::testing::Test {
  public:
   void SetUp() {
     key_list_ = BuildKeyMap(kColumnMasterKeyIds, kColumnMasterKeys, kFooterMasterKeyId,
                             kFooterMasterKey);
     column_key_mapping_ = BuildColumnKeyMapping();
   }
+
   static void SetUpTestCase();
 
  protected:
@@ -87,51 +89,49 @@ class TestEncrytionKeyManagement : public ::testing::Test {
     return file_name;
   }
 
-  std::shared_ptr<EncryptionConfiguration> GetEncryptionConfiguration(
-      bool double_wrapping, int encryption_no) {
-    std::shared_ptr<EncryptionConfiguration> encryption =
-        std::make_shared<EncryptionConfiguration>(kFooterMasterKeyId);
-    encryption->double_wrapping = double_wrapping;
+  EncryptionConfiguration GetEncryptionConfiguration(bool double_wrapping,
+                                                     int encryption_no) {
+    EncryptionConfiguration encryption(kFooterMasterKeyId);
+    encryption.double_wrapping = double_wrapping;
 
     switch (encryption_no) {
       case 0:
         // encrypt some columns and footer, different keys
-        encryption->column_keys = column_key_mapping_;
+        encryption.column_keys = column_key_mapping_;
         break;
       case 1:
         // encrypt columns, plaintext footer, different keys
-        encryption->column_keys = column_key_mapping_;
-        encryption->plaintext_footer = true;
+        encryption.column_keys = column_key_mapping_;
+        encryption.plaintext_footer = true;
         break;
       case 2:
         // encrypt some columns and footer, same key
-        encryption->uniform_encryption = true;
+        encryption.uniform_encryption = true;
         break;
       case 3:
         // Encrypt two columns and the footer, with different keys.
         // Use AES_GCM_CTR_V1 algorithm.
-        encryption->column_keys = column_key_mapping_;
-        encryption->encryption_algorithm = ParquetCipher::AES_GCM_CTR_V1;
+        encryption.column_keys = column_key_mapping_;
+        encryption.encryption_algorithm = ParquetCipher::AES_GCM_CTR_V1;
         break;
       default:
         // no encryption
-        return NULL;
+        ARROW_LOG(FATAL) << "Invalid encryption_no";
     }
 
     return encryption;
   }
 
-  std::shared_ptr<DecryptionConfiguration> GetDecryptionConfiguration() {
-    return std::make_shared<DecryptionConfiguration>();
+  DecryptionConfiguration GetDecryptionConfiguration() {
+    return DecryptionConfiguration();
   }
 
   void WriteEncryptedParquetFile(bool double_wrapping, int encryption_no) {
     std::string file_name = GetFileName(double_wrapping, wrap_locally_, encryption_no);
     auto encryption_config = GetEncryptionConfiguration(double_wrapping, encryption_no);
 
-    std::shared_ptr<FileEncryptionProperties> file_encryption_properties =
-        crypto_factory_.GetFileEncryptionProperties(kms_connection_config_,
-                                                    encryption_config);
+    auto file_encryption_properties = crypto_factory_.GetFileEncryptionProperties(
+        kms_connection_config_, encryption_config);
     std::string file = temp_dir->path().ToString() + file_name;
 
     encryptor_.EncryptFile(file, file_encryption_properties);
@@ -141,85 +141,75 @@ class TestEncrytionKeyManagement : public ::testing::Test {
     auto decryption_config = GetDecryptionConfiguration();
     std::string file_name = GetFileName(double_wrapping, wrap_locally_, encryption_no);
 
-    std::shared_ptr<FileDecryptionProperties> file_decryption_properties =
-        crypto_factory_.GetFileDecryptionProperties(kms_connection_config_,
-                                                    decryption_config);
+    auto file_decryption_properties = crypto_factory_.GetFileDecryptionProperties(
+        kms_connection_config_, decryption_config);
     std::string file = temp_dir->path().ToString() + file_name;
 
     decryptor_.DecryptFile(file, file_decryption_properties);
   }
 };
 
-class TestEncrytionKeyManagementMultiThread : public TestEncrytionKeyManagement {
+class TestEncryptionKeyManagementMultiThread : public TestEncryptionKeyManagement {
  protected:
   void WriteEncryptedParquetFiles() {
     std::vector<std::thread> write_threads;
-    for (int j = 0; j < 2; j++) {
-      bool double_wrapping = (j == 0);
-      for (int encryption_no = 0; encryption_no < 5; encryption_no++) {
-        auto encryption_config =
-            GetEncryptionConfiguration(double_wrapping, encryption_no);
-
+    for (const bool double_wrapping : {false, true}) {
+      for (int encryption_no = 0; encryption_no < 4; encryption_no++) {
         write_threads.push_back(std::thread([this, double_wrapping, encryption_no]() {
           this->WriteEncryptedParquetFile(double_wrapping, encryption_no);
         }));
       }
     }
-
-    for (size_t i = 0; i < write_threads.size(); i++) {
-      write_threads[i].join();
+    for (auto& th : write_threads) {
+      th.join();
     }
   }
 
   void ReadEncryptedParquetFiles() {
     std::vector<std::thread> read_threads;
-    for (int j = 0; j < 2; j++) {
-      bool double_wrapping = (j == 0);
-      for (int encryption_no = 0; encryption_no < 5; encryption_no++) {
+    for (const bool double_wrapping : {false, true}) {
+      for (int encryption_no = 0; encryption_no < 4; encryption_no++) {
         read_threads.push_back(std::thread([this, double_wrapping, encryption_no]() {
           this->ReadEncryptedParquetFile(double_wrapping, encryption_no);
         }));
       }
     }
-
-    for (size_t i = 0; i < read_threads.size(); i++) {
-      read_threads[i].join();
+    for (auto& th : read_threads) {
+      th.join();
     }
   }
 };
 
-TEST_F(TestEncrytionKeyManagement, WrapLocally) {
+TEST_F(TestEncryptionKeyManagement, WrapLocally) {
   this->SetupCryptoFactory(true);
 
-  for (int j = 0; j < 2; j++) {
-    bool double_wrapping = (j == 0);
-    for (int encryption_no = 0; encryption_no < 5; encryption_no++) {
+  for (const bool double_wrapping : {false, true}) {
+    for (int encryption_no = 0; encryption_no < 4; encryption_no++) {
       this->WriteEncryptedParquetFile(double_wrapping, encryption_no);
       this->ReadEncryptedParquetFile(double_wrapping, encryption_no);
     }
   }
 }
 
-TEST_F(TestEncrytionKeyManagement, WrapOnServer) {
+TEST_F(TestEncryptionKeyManagement, WrapOnServer) {
   this->SetupCryptoFactory(false);
 
-  for (int j = 0; j < 2; j++) {
-    bool double_wrapping = (j == 0);
-    for (int encryption_no = 0; encryption_no < 5; encryption_no++) {
+  for (const bool double_wrapping : {false, true}) {
+    for (int encryption_no = 0; encryption_no < 4; encryption_no++) {
       this->WriteEncryptedParquetFile(double_wrapping, encryption_no);
       this->ReadEncryptedParquetFile(double_wrapping, encryption_no);
     }
   }
 }
 
-TEST_F(TestEncrytionKeyManagementMultiThread, WrapLocally) {
+TEST_F(TestEncryptionKeyManagementMultiThread, WrapLocally) {
   this->SetupCryptoFactory(true);
 
   this->WriteEncryptedParquetFiles();
   this->ReadEncryptedParquetFiles();
 }
 
-TEST_F(TestEncrytionKeyManagementMultiThread, WrapOnServer) {
+TEST_F(TestEncryptionKeyManagementMultiThread, WrapOnServer) {
   this->SetupCryptoFactory(false);
 
   this->WriteEncryptedParquetFiles();
@@ -228,7 +218,7 @@ TEST_F(TestEncrytionKeyManagementMultiThread, WrapOnServer) {
 
 // Set temp_dir before running the write/read tests. The encrypted files will
 // be written/read from this directory.
-void TestEncrytionKeyManagement::SetUpTestCase() { temp_dir = *temp_data_dir(); }
+void TestEncryptionKeyManagement::SetUpTestCase() { temp_dir = *temp_data_dir(); }
 
 }  // namespace test
 }  // namespace encryption

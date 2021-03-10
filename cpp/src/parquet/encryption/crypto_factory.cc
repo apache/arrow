@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <sstream>
-
 #include "arrow/result.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
@@ -38,30 +36,27 @@ void CryptoFactory::RegisterKmsClientFactory(
 
 std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProperties(
     const KmsConnectionConfig& kms_connection_config,
-    std::shared_ptr<EncryptionConfiguration> encryption_config) {
-  if (encryption_config == NULL) {
-    return NULL;
-  }
-  if (!encryption_config->uniform_encryption && encryption_config->column_keys.empty()) {
+    const EncryptionConfiguration& encryption_config) {
+  if (!encryption_config.uniform_encryption && encryption_config.column_keys.empty()) {
     throw ParquetException("Either column_keys or uniform_encryption must be set");
-  } else if (encryption_config->uniform_encryption &&
-             !encryption_config->column_keys.empty()) {
+  } else if (encryption_config.uniform_encryption &&
+             !encryption_config.column_keys.empty()) {
     throw ParquetException("Cannot set both column_keys and uniform_encryption");
   }
-  const std::string& footer_key_id = encryption_config->footer_key;
-  const std::string& column_key_str = encryption_config->column_keys;
+  const std::string& footer_key_id = encryption_config.footer_key;
+  const std::string& column_key_str = encryption_config.column_keys;
 
   std::shared_ptr<FileKeyMaterialStore> key_material_store = NULL;
-  if (!encryption_config->internal_key_material) {
+  if (!encryption_config.internal_key_material) {
     // TODO: using external key material store with Hadoop file system
     throw ParquetException("External key material store is not supported yet.");
   }
 
   FileKeyWrapper key_wrapper(&key_toolkit_, kms_connection_config, key_material_store,
-                             encryption_config->cache_lifetime_seconds,
-                             encryption_config->double_wrapping);
+                             encryption_config.cache_lifetime_seconds,
+                             encryption_config.double_wrapping);
 
-  int32_t dek_length_bits = encryption_config->data_key_length_bits;
+  int32_t dek_length_bits = encryption_config.data_key_length_bits;
   if (!internal::ValidateKeyLength(dek_length_bits)) {
     std::ostringstream ss;
     ss << "Wrong data key length : " << dek_length_bits;
@@ -80,14 +75,14 @@ std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProper
   FileEncryptionProperties::Builder properties_builder =
       FileEncryptionProperties::Builder(footer_key);
   properties_builder.footer_key_metadata(footer_key_metadata);
-  properties_builder.algorithm(encryption_config->encryption_algorithm);
+  properties_builder.algorithm(encryption_config.encryption_algorithm);
 
-  if (!encryption_config->uniform_encryption) {
+  if (!encryption_config.uniform_encryption) {
     ColumnPathToEncryptionPropertiesMap encrypted_columns =
-        GetColumnEncryptionProperties(dek_length, column_key_str, key_wrapper);
+        GetColumnEncryptionProperties(dek_length, column_key_str, &key_wrapper);
     properties_builder.encrypted_columns(encrypted_columns);
 
-    if (encryption_config->plaintext_footer) {
+    if (encryption_config.plaintext_footer) {
       properties_builder.set_plaintext_footer();
     }
   }
@@ -96,7 +91,7 @@ std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProper
 }
 
 ColumnPathToEncryptionPropertiesMap CryptoFactory::GetColumnEncryptionProperties(
-    int dek_length, const std::string column_keys, FileKeyWrapper& key_wrapper) {
+    int dek_length, const std::string& column_keys, FileKeyWrapper* key_wrapper) {
   ColumnPathToEncryptionPropertiesMap encrypted_columns;
 
   std::vector<::arrow::util::string_view> key_to_columns =
@@ -147,7 +142,7 @@ ColumnPathToEncryptionPropertiesMap CryptoFactory::GetColumnEncryptionProperties
       RandBytes(reinterpret_cast<uint8_t*>(&column_key[0]),
                 static_cast<int>(column_key.size()));
       std::string column_key_key_metadata =
-          key_wrapper.GetEncryptionKeyMetadata(column_key, column_key_id, false);
+          key_wrapper->GetEncryptionKeyMetadata(column_key, column_key_id, false);
 
       std::shared_ptr<ColumnEncryptionProperties> cmd =
           ColumnEncryptionProperties::Builder(column_name)
@@ -166,9 +161,9 @@ ColumnPathToEncryptionPropertiesMap CryptoFactory::GetColumnEncryptionProperties
 
 std::shared_ptr<FileDecryptionProperties> CryptoFactory::GetFileDecryptionProperties(
     const KmsConnectionConfig& kms_connection_config,
-    std::shared_ptr<DecryptionConfiguration> decryption_config) {
+    const DecryptionConfiguration& decryption_config) {
   std::shared_ptr<DecryptionKeyRetriever> key_retriever(new FileKeyUnwrapper(
-      &key_toolkit_, kms_connection_config, decryption_config->cache_lifetime_seconds));
+      &key_toolkit_, kms_connection_config, decryption_config.cache_lifetime_seconds));
 
   return FileDecryptionProperties::Builder()
       .key_retriever(key_retriever)

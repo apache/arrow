@@ -107,7 +107,7 @@ class PARQUET_EXPORT CryptoFactory {
 
   std::shared_ptr<FileEncryptionProperties> GetFileEncryptionProperties(
       const KmsConnectionConfig& kms_connection_config,
-      std::shared_ptr<EncryptionConfiguration> encryption_config);
+      const EncryptionConfiguration& encryption_config);
 
   /// The returned FileDecryptionProperties object will use the cache inside this
   /// CryptoFactory object, so please keep this
@@ -115,7 +115,7 @@ class PARQUET_EXPORT CryptoFactory {
   /// FileDecryptionProperties object.
   std::shared_ptr<FileDecryptionProperties> GetFileDecryptionProperties(
       const KmsConnectionConfig& kms_connection_config,
-      std::shared_ptr<DecryptionConfiguration> decryption_config);
+      const DecryptionConfiguration& decryption_config);
 
   void RemoveCacheEntriesForToken(const std::string& access_token) {
     key_toolkit_.RemoveCacheEntriesForToken(access_token);
@@ -125,7 +125,7 @@ class PARQUET_EXPORT CryptoFactory {
 
  private:
   ColumnPathToEncryptionPropertiesMap GetColumnEncryptionProperties(
-      int dek_length, const std::string column_keys, FileKeyWrapper& key_wrapper);
+      int dek_length, const std::string& column_keys, FileKeyWrapper* key_wrapper);
 
   /// Key utilities object for kms client initialization and cache control
   KeyToolkit key_toolkit_;

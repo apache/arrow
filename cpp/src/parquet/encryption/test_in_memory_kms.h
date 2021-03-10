@@ -30,7 +30,7 @@ namespace encryption {
 
 // This is a mock class, built for testing only. Don't use it as an example of
 // LocalWrapKmsClient implementation.
-class PARQUET_EXPORT TestOnlyLocalWrapInMemoryKms : public LocalWrapKmsClient {
+class TestOnlyLocalWrapInMemoryKms : public LocalWrapKmsClient {
  public:
   explicit TestOnlyLocalWrapInMemoryKms(const KmsConnectionConfig& kms_connection_config);
 
@@ -46,7 +46,7 @@ class PARQUET_EXPORT TestOnlyLocalWrapInMemoryKms : public LocalWrapKmsClient {
 
 // This is a mock class, built for testing only. Don't use it as an example of KmsClient
 // implementation.
-class PARQUET_EXPORT TestOnlyInServerWrapKms : public KmsClient {
+class TestOnlyInServerWrapKms : public KmsClient {
  public:
   static void InitializeMasterKeys(
       const std::unordered_map<std::string, std::string>& master_keys_map);
@@ -65,7 +65,7 @@ class PARQUET_EXPORT TestOnlyInServerWrapKms : public KmsClient {
 
 // This is a mock class, built for testing only. Don't use it as an example of
 // KmsClientFactory implementation.
-class PARQUET_EXPORT TestOnlyInMemoryKmsClientFactory : public KmsClientFactory {
+class TestOnlyInMemoryKmsClientFactory : public KmsClientFactory {
  public:
   TestOnlyInMemoryKmsClientFactory(
       bool wrap_locally,

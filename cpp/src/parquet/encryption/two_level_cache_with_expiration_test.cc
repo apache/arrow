@@ -20,6 +20,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/concurrent_map.h"
 
 #include "parquet/encryption/two_level_cache_with_expiration.h"
@@ -28,40 +29,41 @@ namespace parquet {
 namespace encryption {
 namespace test {
 
+using ::arrow::SleepFor;
+
 class TwoLevelCacheWithExpirationTest : public ::testing::Test {
  public:
   void SetUp() {
-    // lifetime is 1s
-    std::shared_ptr<ConcurrentMap<std::string, int>> lifetime_1s =
-        cache_.GetOrCreateInternalCache("lifetime1s", 1);
-    lifetime_1s->Insert("item1", 1);
-    lifetime_1s->Insert("item2", 2);
+    // lifetime is 0.2s
+    std::shared_ptr<ConcurrentMap<std::string, int>> lifetime1 =
+        cache_.GetOrCreateInternalCache("lifetime1", 0.2);
+    lifetime1->Insert("item1", 1);
+    lifetime1->Insert("item2", 2);
 
-    // lifetime is 3s
-    std::shared_ptr<ConcurrentMap<std::string, int>> lifetime_3s =
-        cache_.GetOrCreateInternalCache("lifetime3s", 3);
-    lifetime_3s->Insert("item21", 21);
-    lifetime_3s->Insert("item22", 22);
+    // lifetime is 0.5s
+    std::shared_ptr<ConcurrentMap<std::string, int>> lifetime2 =
+        cache_.GetOrCreateInternalCache("lifetime2", 0.5);
+    lifetime2->Insert("item21", 21);
+    lifetime2->Insert("item22", 22);
   }
 
  protected:
   void TaskInsert(int thread_no) {
     for (int i = 0; i < 20; i++) {
-      std::string token = i % 2 == 0 ? "lifetime1s" : "lifetime3s";
-      uint64_t lifetime_ms = i % 2 == 0 ? 1 : 3;
-      std::shared_ptr<ConcurrentMap<std::string, int>> internal_cache =
-          cache_.GetOrCreateInternalCache(token, lifetime_ms);
+      std::string token = (i % 2 == 0) ? "lifetime1" : "lifetime2";
+      double lifetime = (i % 2 == 0) ? 0.2 : 0.5;
+      auto internal_cache = cache_.GetOrCreateInternalCache(token, lifetime);
       std::stringstream ss;
       ss << "item_" << thread_no << "_" << i;
       internal_cache->Insert(ss.str(), i);
-      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      SleepFor(0.005);
     }
   }
 
   void TaskClean() {
     for (int i = 0; i < 20; i++) {
       cache_.Clear();
-      std::this_thread::sleep_for(std::chrono::milliseconds(20));
+      SleepFor(0.008);
     }
   }
 
@@ -69,75 +71,68 @@ class TwoLevelCacheWithExpirationTest : public ::testing::Test {
 };
 
 TEST_F(TwoLevelCacheWithExpirationTest, RemoveExpiration) {
-  std::shared_ptr<ConcurrentMap<std::string, int>> lifetime_1s_before_expiration =
-      cache_.GetOrCreateInternalCache("lifetime1s", 1);
-  ASSERT_EQ(lifetime_1s_before_expiration->size(), 2);
+  auto lifetime1_before_expiration = cache_.GetOrCreateInternalCache("lifetime1", 1);
+  ASSERT_EQ(lifetime1_before_expiration->size(), 2);
 
-  // wait for 2s, we expect:
-  // lifetime_1s will be expired
-  // lifetime_3s will not be expired
-  std::this_thread::sleep_for(std::chrono::seconds(2));
+  // wait for 0.3s, we expect:
+  // lifetime1 will be expired
+  // lifetime2 will not be expired
+  SleepFor(0.3);
   // now clear expired items from the cache
   cache_.RemoveExpiredEntriesFromCache();
 
-  // lifetime_1s (with 2 items) is expired and has been removed from the cache.
+  // lifetime1 (with 2 items) is expired and has been removed from the cache.
   // Now the cache create a new object which has no item.
-  std::shared_ptr<ConcurrentMap<std::string, int>> lifetime_1s =
-      cache_.GetOrCreateInternalCache("lifetime1s", 1);
-  ASSERT_EQ(lifetime_1s->size(), 0);
+  auto lifetime1 = cache_.GetOrCreateInternalCache("lifetime1", 1);
+  ASSERT_EQ(lifetime1->size(), 0);
 
-  // However, lifetime_1s_before_expiration can still access normally and independently
+  // However, lifetime1_before_expiration can still access normally and independently
   // from the one in cache
-  lifetime_1s_before_expiration->Insert("item3", 3);
-  ASSERT_EQ(lifetime_1s_before_expiration->size(), 3);
-  ASSERT_EQ(lifetime_1s->size(), 0);
+  lifetime1_before_expiration->Insert("item3", 3);
+  ASSERT_EQ(lifetime1_before_expiration->size(), 3);
+  ASSERT_EQ(lifetime1->size(), 0);
 
-  // lifetime_3s is not expired and still contains 2 items.
-  std::shared_ptr<ConcurrentMap<std::string, int>> lifetime_3s =
-      cache_.GetOrCreateInternalCache("lifetime3s", 3);
-  ASSERT_EQ(lifetime_3s->size(), 2);
+  // lifetime2 is not expired and still contains 2 items.
+  std::shared_ptr<ConcurrentMap<std::string, int>> lifetime2 =
+      cache_.GetOrCreateInternalCache("lifetime2", 3);
+  ASSERT_EQ(lifetime2->size(), 2);
 }
 
 TEST_F(TwoLevelCacheWithExpirationTest, CleanupPeriodOk) {
-  // wait for 2s, now:
-  // lifetime_1s is expired
-  // lifetime_3s isn't expired
-  std::this_thread::sleep_for(std::chrono::seconds(2));
+  // wait for 0.3s, now:
+  // lifetime1 is expired
+  // lifetime2 isn't expired
+  SleepFor(0.3);
 
-  // cleanup_period is 1s, less than or equals lifetime of both items, so the expired
+  // cleanup_period is 0.2s, less than or equals lifetime of both items, so the expired
   // items will be removed from cache.
-  cache_.CheckCacheForExpiredTokens(1);
+  cache_.CheckCacheForExpiredTokens(0.2);
 
-  // lifetime_1s (with 2 items) is expired and has been removed from the cache.
+  // lifetime1 (with 2 items) is expired and has been removed from the cache.
   // Now the cache create a new object which has no item.
-  std::shared_ptr<ConcurrentMap<std::string, int>> lifetime_1s =
-      cache_.GetOrCreateInternalCache("lifetime1s", 1);
-  ASSERT_EQ(lifetime_1s->size(), 0);
+  auto lifetime1 = cache_.GetOrCreateInternalCache("lifetime1", 1);
+  ASSERT_EQ(lifetime1->size(), 0);
 
-  // lifetime_3s is not expired and still contains 2 items.
-  std::shared_ptr<ConcurrentMap<std::string, int>> lifetime_3s =
-      cache_.GetOrCreateInternalCache("lifetime3s", 3);
-  ASSERT_EQ(lifetime_3s->size(), 2);
+  // lifetime2 is not expired and still contains 2 items.
+  auto lifetime2 = cache_.GetOrCreateInternalCache("lifetime2", 3);
+  ASSERT_EQ(lifetime2->size(), 2);
 }
 
 TEST_F(TwoLevelCacheWithExpirationTest, RemoveByToken) {
-  cache_.Remove("lifetime1s");
+  cache_.Remove("lifetime1");
 
-  // lifetime_1s (with 2 items) has been removed from the cache.
+  // lifetime1 (with 2 items) has been removed from the cache.
   // Now the cache create a new object which has no item.
-  std::shared_ptr<ConcurrentMap<std::string, int>> lifetime_1s =
-      cache_.GetOrCreateInternalCache("lifetime1s", 1);
-  ASSERT_EQ(lifetime_1s->size(), 0);
+  auto lifetime1 = cache_.GetOrCreateInternalCache("lifetime1", 1);
+  ASSERT_EQ(lifetime1->size(), 0);
 
-  // lifetime_3s is still contains 2 items.
-  std::shared_ptr<ConcurrentMap<std::string, int>> lifetime_3s =
-      cache_.GetOrCreateInternalCache("lifetime3s", 3);
-  ASSERT_EQ(lifetime_3s->size(), 2);
+  // lifetime2 is still contains 2 items.
+  auto lifetime2 = cache_.GetOrCreateInternalCache("lifetime2", 3);
+  ASSERT_EQ(lifetime2->size(), 2);
 
-  cache_.Remove("lifetime3s");
-  std::shared_ptr<ConcurrentMap<std::string, int>> lifetime_3s_after_removed =
-      cache_.GetOrCreateInternalCache("lifetime3s", 3);
-  ASSERT_EQ(lifetime_3s_after_removed->size(), 0);
+  cache_.Remove("lifetime2");
+  auto lifetime2_after_removed = cache_.GetOrCreateInternalCache("lifetime2", 3);
+  ASSERT_EQ(lifetime2_after_removed->size(), 0);
 }
 
 TEST_F(TwoLevelCacheWithExpirationTest, RemoveAllTokens) {
@@ -145,13 +140,11 @@ TEST_F(TwoLevelCacheWithExpirationTest, RemoveAllTokens) {
 
   // All tokens has been removed from the cache.
   // Now the cache create a new object which has no item.
-  std::shared_ptr<ConcurrentMap<std::string, int>> lifetime_1s =
-      cache_.GetOrCreateInternalCache("lifetime1s", 1);
-  ASSERT_EQ(lifetime_1s->size(), 0);
+  auto lifetime1 = cache_.GetOrCreateInternalCache("lifetime1", 1);
+  ASSERT_EQ(lifetime1->size(), 0);
 
-  std::shared_ptr<ConcurrentMap<std::string, int>> lifetime_3s =
-      cache_.GetOrCreateInternalCache("lifetime3s", 3);
-  ASSERT_EQ(lifetime_3s->size(), 0);
+  auto lifetime2 = cache_.GetOrCreateInternalCache("lifetime2", 3);
+  ASSERT_EQ(lifetime2->size(), 0);
 }
 
 TEST_F(TwoLevelCacheWithExpirationTest, Clear) {
@@ -159,24 +152,22 @@ TEST_F(TwoLevelCacheWithExpirationTest, Clear) {
 
   // All tokens has been removed from the cache.
   // Now the cache create a new object which has no item.
-  std::shared_ptr<ConcurrentMap<std::string, int>> lifetime_1s =
-      cache_.GetOrCreateInternalCache("lifetime1s", 1);
-  ASSERT_EQ(lifetime_1s->size(), 0);
+  auto lifetime1 = cache_.GetOrCreateInternalCache("lifetime1", 1);
+  ASSERT_EQ(lifetime1->size(), 0);
 
-  std::shared_ptr<ConcurrentMap<std::string, int>> lifetime_3s =
-      cache_.GetOrCreateInternalCache("lifetime3s", 3);
-  ASSERT_EQ(lifetime_3s->size(), 0);
+  auto lifetime2 = cache_.GetOrCreateInternalCache("lifetime2", 3);
+  ASSERT_EQ(lifetime2->size(), 0);
 }
 
 TEST_F(TwoLevelCacheWithExpirationTest, MultiThread) {
   std::vector<std::thread> insert_threads;
   for (int i = 0; i < 10; i++) {
-    insert_threads.push_back(std::thread([this, i]() { this->TaskInsert(i); }));
+    insert_threads.emplace_back([this, i]() { this->TaskInsert(i); });
   }
   std::thread clean_thread([this]() { this->TaskClean(); });
 
-  for (size_t i = 0; i < insert_threads.size(); i++) {
-    insert_threads[i].join();
+  for (auto& th : insert_threads) {
+    th.join();
   }
   clean_thread.join();
 }

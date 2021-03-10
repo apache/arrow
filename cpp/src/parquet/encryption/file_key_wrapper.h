@@ -35,15 +35,15 @@ namespace encryption {
 // This class will generate "key metadata" from "data encryption key" and "master key",
 // following these steps:
 // 1. Wrap "data encryption key". There are 2 modes:
-// 1.1. single wrapping: encrypt "data encryption key" directly with "master encryption
-// key" 1.2. double wrapping: 2 steps: 1.2.1. "key encryption key" is randomized (see
-// structure of KeyEncryptionKey class) 1.2.2. "data encryption key" is encrypted with the
-// above "key encryption key"
+//   1.1. single wrapping: encrypt "data encryption key" directly with "master encryption
+//        key"
+//   1.2. double wrapping: 2 steps:
+//     1.2.1. "key encryption key" is randomized (see KeyEncryptionKey class)
+//     1.2.2. "data encryption key" is encrypted with the above "key encryption key"
 // 2. Create "key material" (see structure in KeyMaterial class)
 // 3. Create "key metadata" with "key material" inside or a reference to outside "key
-// material" (see structure in KeyMetadata class).
-// Currently we don't support the case "key material" stores outside "key metadata"
-// yet.
+//    material" (see structure in KeyMetadata class).
+//    We don't support the case "key material" stores outside "key metadata" yet.
 class PARQUET_EXPORT FileKeyWrapper {
  public:
   static constexpr int kKeyEncryptionKeyLength = 16;

@@ -48,18 +48,17 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
                    const KmsConnectionConfig& kms_connection_config,
                    uint64_t cache_lifetime_seconds);
 
-  std::string GetKey(const std::string& key_metadata) const override;
+  std::string GetKey(const std::string& key_metadata) override;
 
  private:
-  internal::KeyWithMasterId GetDataEncryptionKey(const KeyMaterial& key_material) const;
+  internal::KeyWithMasterId GetDataEncryptionKey(const KeyMaterial& key_material);
   std::shared_ptr<KmsClient> GetKmsClientFromConfigOrKeyMaterial(
-      const KeyMaterial& key_material) const;
+      const KeyMaterial& key_material);
 
   /// A map of Key Encryption Key (KEK) ID -> KEK bytes, for the current token
-  mutable std::shared_ptr<::arrow::util::ConcurrentMap<std::string, std::string>>
-      kek_per_kek_id_;
+  std::shared_ptr<::arrow::util::ConcurrentMap<std::string, std::string>> kek_per_kek_id_;
   KeyToolkit* key_toolkit_;
-  mutable KmsConnectionConfig kms_connection_config_;
+  KmsConnectionConfig kms_connection_config_;
   const uint64_t cache_entry_lifetime_seconds_;
 };
 

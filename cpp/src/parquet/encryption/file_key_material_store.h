@@ -17,9 +17,6 @@
 
 #pragma once
 
-#include <set>
-#include <string>
-
 namespace parquet {
 namespace encryption {
 

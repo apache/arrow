@@ -15,13 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/json/object_writer.h"
 #include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
-
-#include "arrow/json/object_writer.h"
 
 namespace rj = arrow::rapidjson;
 

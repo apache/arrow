@@ -43,9 +43,8 @@ std::string EncryptKeyLocally(const std::string& key_bytes, const std::string& m
       static_cast<int>(master_key.size()), reinterpret_cast<const uint8_t*>(aad.data()),
       static_cast<int>(aad.size()), reinterpret_cast<uint8_t*>(&encrypted_key[0]));
 
-  std::string encoded_encrypted_key = ::arrow::util::base64_encode(
-      reinterpret_cast<const uint8_t*>(&encrypted_key[0]), encrypted_key_len);
-  return encoded_encrypted_key;
+  return ::arrow::util::base64_encode(reinterpret_cast<const uint8_t*>(&encrypted_key[0]),
+                                      encrypted_key_len);
 }
 
 std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
@@ -58,6 +57,7 @@ std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
   int decrypted_key_len =
       static_cast<int>(encrypted_key.size()) - key_decryptor.CiphertextSizeDelta();
   std::string decrypted_key(decrypted_key_len, '\0');
+
   decrypted_key_len = key_decryptor.Decrypt(
       reinterpret_cast<const uint8_t*>(encrypted_key.data()),
       static_cast<int>(encrypted_key.size()),
