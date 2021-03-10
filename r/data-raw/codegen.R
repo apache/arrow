@@ -41,6 +41,8 @@
 # #if defined(ARROW_R_WITH_FEATURE)
 # and each feature is written to its own set of export files.
 
+Sys.setlocale("LC_COLLATE", "C")
+
 features <- c("arrow", "dataset", "parquet", "s3")
 
 suppressPackageStartupMessages({
