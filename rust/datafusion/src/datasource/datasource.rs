@@ -20,10 +20,10 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use crate::arrow::datatypes::SchemaRef;
 use crate::error::Result;
 use crate::logical_plan::Expr;
 use crate::physical_plan::ExecutionPlan;
+use crate::{arrow::datatypes::SchemaRef, scalar::ScalarValue};
 
 /// This table statistics are estimates.
 /// It can not be used directly in the precise compute
@@ -41,6 +41,12 @@ pub struct Statistics {
 pub struct ColumnStatistics {
     /// Number of null values on column
     pub null_count: Option<usize>,
+    /// Maximum value of column
+    pub max_value: Option<ScalarValue>,
+    /// Minimum value of column
+    pub min_value: Option<ScalarValue>,
+    /// Number of distinct values
+    pub distinct_count: Option<usize>,
 }
 
 /// Indicates whether and how a filter expression can be handled by a

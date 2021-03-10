@@ -111,12 +111,6 @@ class PrepareTest < Test::Unit::TestCase
         ],
       },
       {
-        path: "#{base_dir}/apache-arrow/debian.ubuntu-xenial/changelog",
-        sampled_hunks: [
-          "+apache-arrow (#{@release_version}-1) unstable; urgency=low",
-        ],
-      },
-      {
         path: "#{base_dir}/apache-arrow/debian/changelog",
         sampled_hunks: [
           "+apache-arrow (#{@release_version}-1) unstable; urgency=low",
@@ -650,17 +644,10 @@ class PrepareTest < Test::Unit::TestCase
     expected_changes = [
       {
         sampled_diff: [
-          "-dev/tasks/linux-packages/apache-arrow/debian.ubuntu-xenial/libarrow-glib#{@so_version}.install",
-          "+dev/tasks/linux-packages/apache-arrow/debian.ubuntu-xenial/libarrow-glib#{@next_so_version}.install",
+          "-dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib#{@so_version}.install",
+          "+dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib#{@next_so_version}.install",
         ],
         path: "dev/release/rat_exclude_files.txt"
-      },
-      {
-        sampled_diff: [
-          "-Package: libarrow#{@so_version}",
-          "+Package: libarrow#{@next_so_version}",
-        ],
-        path: "dev/tasks/linux-packages/apache-arrow/debian.ubuntu-xenial/control"
       },
       {
         sampled_diff: [

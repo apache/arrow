@@ -85,16 +85,18 @@ unique.ArrowDatum <- function(x, incomparables = FALSE, ...) {
   call_function("unique", x)
 }
 
-#' `match` for Arrow objects
+#' `match` and `%in%` for Arrow objects
 #'
 #' `base::match()` is not a generic, so we can't just define Arrow methods for
-#' it. This function exposes the analogous function in the Arrow C++ library.
+#' it. This function exposes the analogous functions in the Arrow C++ library.
 #'
 #' @param x `Array` or `ChunkedArray`
 #' @param table `Array`, `ChunkedArray`, or R vector lookup table.
 #' @param ... additional arguments, ignored
-#' @return An `int32`-type `Array` of the same length as `x` with the
-#' (0-based) indexes into `table`.
+#' @return `match_arrow()` returns an `int32`-type `Array` of the same length
+#' as `x` with the (0-based) indexes into `table`. `is_in()` returns a
+#' `boolean`-type `Array` of the same length as `x` with values indicating
+#' per element of `x` it it is present in `table`.
 #' @export
 match_arrow <- function(x, table, ...) UseMethod("match_arrow")
 
@@ -107,6 +109,21 @@ match_arrow.ArrowDatum <- function(x, table, ...) {
     table <- Array$create(table)
   }
   call_function("index_in_meta_binary", x, table)
+}
+
+#' @rdname match_arrow
+#' @export
+is_in <- function(x, table, ...) UseMethod("is_in")
+
+#' @export
+is_in.default <- function(x, table, ...) x %in% table
+
+#' @export
+is_in.ArrowDatum <- function(x, table, ...) {
+  if (!inherits(table, c("Array", "DictionaryArray", "ChunkedArray"))) {
+    table <- Array$create(table)
+  }
+  call_function("is_in_meta_binary", x, table)
 }
 
 #' `table` for Arrow objects

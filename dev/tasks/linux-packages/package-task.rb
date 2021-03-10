@@ -249,8 +249,6 @@ class PackageTask
     [
       "debian-buster",
       # "debian-stretch-arm64",
-      "ubuntu-xenial",
-      # "ubuntu-xenial-arm64",
       "ubuntu-bionic",
       # "ubuntu-bionic-arm64",
       "ubuntu-focal",

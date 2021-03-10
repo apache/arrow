@@ -19,7 +19,7 @@ args <- commandArgs(TRUE)
 VERSION <- args[1]
 dst_dir <- paste0("libarrow/arrow-", VERSION)
 
-arrow_repo <- "https://dl.bintray.com/ursalabs/arrow-r/libarrow/"
+arrow_repo <- "https://arrow-r-nightly.s3.amazonaws.com/libarrow/"
 
 if (getRversion() < 3.4 && is.null(getOption("download.file.method"))) {
   # default method doesn't work on R 3.3, nor does libcurl
@@ -368,7 +368,7 @@ ensure_cmake <- function() {
   cmake
 }
 
-find_cmake <- function(paths, version_required = 3.2) {
+find_cmake <- function(paths, version_required = 3.10) {
   # Given a list of possible cmake paths, return the first one that exists and is new enough
   for (path in paths) {
     if (nzchar(path) && cmake_version(path) >= version_required) {

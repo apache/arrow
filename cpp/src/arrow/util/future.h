@@ -645,6 +645,14 @@ Future<std::vector<Result<T>>> All(std::vector<Future<T>> futures) {
   return out;
 }
 
+/// \brief Create a Future which completes when all of `futures` complete.
+///
+/// The future will be marked complete if all `futures` complete
+/// successfully. Otherwise, it will be marked failed with the status of
+/// the first failing future.
+ARROW_EXPORT
+Future<> AllComplete(const std::vector<Future<>>& futures);
+
 /// \brief Wait for one of the futures to end, or for the given timeout to expire.
 ///
 /// The indices of all completed futures are returned.  Note that some futures

@@ -54,6 +54,7 @@ add_arrow_test(utility-test
                ${IO_UTIL_TEST_SOURCES}
                iterator_test.cc
                logging_test.cc
+               queue_test.cc
                range_test.cc
                rle_encoding_test.cc
                stl_util_test.cc
@@ -68,9 +69,10 @@ add_arrow_test(utility-test
 
 add_arrow_test(threading-utility-test
                SOURCES
-               future_test
-               task_group_test
-               thread_pool_test)
+               cancel_test.cc
+               future_test.cc
+               task_group_test.cc
+               thread_pool_test.cc)
 
 add_arrow_benchmark(bit_block_counter_benchmark)
 add_arrow_benchmark(bit_util_benchmark)
@@ -80,6 +82,7 @@ add_arrow_benchmark(decimal_benchmark)
 add_arrow_benchmark(hashing_benchmark)
 add_arrow_benchmark(int_util_benchmark)
 add_arrow_benchmark(machine_benchmark)
+add_arrow_benchmark(queue_benchmark)
 add_arrow_benchmark(range_benchmark)
 add_arrow_benchmark(tdigest_benchmark)
 add_arrow_benchmark(thread_pool_benchmark)

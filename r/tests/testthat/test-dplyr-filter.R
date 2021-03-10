@@ -250,6 +250,30 @@ test_that("Filtering with a function that doesn't have an Array/expr method stil
   )
 })
 
+test_that("Calling Arrow compute functions 'directly'", {
+  expect_equal(
+    tbl %>%
+      record_batch() %>%
+      filter(arrow_add(dbl, 1) > 3L) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl %>%
+      filter(dbl + 1 > 3L) %>%
+      select(string = chr, int, dbl)
+  )
+
+  expect_dplyr_equal(
+    tbl %>%
+      record_batch() %>%
+      filter(arrow_greater(arrow_add(dbl, 1), 3L)) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl %>%
+      filter(dbl + 1 > 3L) %>%
+      select(string = chr, int, dbl)
+  )
+})
+
 test_that("filter() with .data pronoun", {
   expect_dplyr_equal(
     input %>%

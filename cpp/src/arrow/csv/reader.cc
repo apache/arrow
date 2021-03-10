@@ -313,12 +313,13 @@ class ReaderMixin {
  public:
   ReaderMixin(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
               const ReadOptions& read_options, const ParseOptions& parse_options,
-              const ConvertOptions& convert_options)
+              const ConvertOptions& convert_options, StopToken stop_token)
       : pool_(pool),
         read_options_(read_options),
         parse_options_(parse_options),
         convert_options_(convert_options),
-        input_(std::move(input)) {}
+        input_(std::move(input)),
+        stop_token_(std::move(stop_token)) {}
 
  protected:
   // Read header and column names from buffer, create column builders
@@ -500,6 +501,7 @@ class ReaderMixin {
 
   std::shared_ptr<io::InputStream> input_;
   std::shared_ptr<internal::TaskGroup> task_group_;
+  StopToken stop_token_;
 };
 
 /////////////////////////////////////////////////////////////////////////
@@ -697,7 +699,7 @@ class SerialStreamingReader : public BaseStreamingReader {
     ARROW_ASSIGN_OR_RAISE(auto rh_it,
                           MakeReadaheadIterator(std::move(istream_it), block_queue_size));
     buffer_iterator_ = CSVBufferIterator::Make(std::move(rh_it));
-    task_group_ = internal::TaskGroup::MakeSerial();
+    task_group_ = internal::TaskGroup::MakeSerial(stop_token_);
 
     // Read schema from first batch
     ARROW_ASSIGN_OR_RAISE(pending_batch_, ReadNext());
@@ -709,6 +711,10 @@ class SerialStreamingReader : public BaseStreamingReader {
   Result<std::shared_ptr<RecordBatch>> ReadNext() override {
     if (eof_) {
       return nullptr;
+    }
+    if (stop_token_.IsStopRequested()) {
+      eof_ = true;
+      return stop_token_.Poll();
     }
     if (!block_iterator_) {
       Status st = SetupReader();
@@ -790,7 +796,7 @@ class SerialTableReader : public BaseTableReader {
   }
 
   Result<std::shared_ptr<Table>> Read() override {
-    task_group_ = internal::TaskGroup::MakeSerial();
+    task_group_ = internal::TaskGroup::MakeSerial(stop_token_);
 
     // First block
     ARROW_ASSIGN_OR_RAISE(auto first_buffer, buffer_iterator_.Next());
@@ -804,6 +810,8 @@ class SerialTableReader : public BaseTableReader {
                                                           MakeChunker(parse_options_),
                                                           std::move(first_buffer));
     while (true) {
+      RETURN_NOT_OK(stop_token_.Poll());
+
       ARROW_ASSIGN_OR_RAISE(auto maybe_block, block_iterator.Next());
       if (maybe_block == IterationTraits<CSVBlock>::End()) {
         // EOF
@@ -833,9 +841,10 @@ class AsyncThreadedTableReader
   AsyncThreadedTableReader(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
                            const ReadOptions& read_options,
                            const ParseOptions& parse_options,
-                           const ConvertOptions& convert_options, Executor* cpu_executor,
-                           Executor* io_executor)
-      : BaseTableReader(pool, input, read_options, parse_options, convert_options),
+                           const ConvertOptions& convert_options, StopToken stop_token,
+                           Executor* cpu_executor, Executor* io_executor)
+      : BaseTableReader(pool, input, read_options, parse_options, convert_options,
+                        std::move(stop_token)),
         cpu_executor_(cpu_executor),
         io_executor_(io_executor) {}
 
@@ -870,7 +879,7 @@ class AsyncThreadedTableReader
   Result<std::shared_ptr<Table>> Read() override { return ReadAsync().result(); }
 
   Future<std::shared_ptr<Table>> ReadAsync() override {
-    task_group_ = internal::TaskGroup::MakeThreaded(cpu_executor_);
+    task_group_ = internal::TaskGroup::MakeThreaded(cpu_executor_, stop_token_);
 
     auto self = shared_from_this();
     return ProcessFirstBuffer().Then([self](std::shared_ptr<Buffer> first_buffer) {
@@ -939,13 +948,26 @@ Result<std::shared_ptr<TableReader>> MakeTableReader(
   if (read_options.use_threads) {
     auto cpu_executor = internal::GetCpuThreadPool();
     auto io_executor = io_context.executor();
-    reader = std::make_shared<AsyncThreadedTableReader>(pool, input, read_options,
-                                                        parse_options, convert_options,
-                                                        cpu_executor, io_executor);
+    reader = std::make_shared<AsyncThreadedTableReader>(
+        pool, input, read_options, parse_options, convert_options,
+        io_context.stop_token(), cpu_executor, io_executor);
   } else {
-    reader = std::make_shared<SerialTableReader>(pool, input, read_options, parse_options,
-                                                 convert_options);
+    reader =
+        std::make_shared<SerialTableReader>(pool, input, read_options, parse_options,
+                                            convert_options, io_context.stop_token());
   }
+  RETURN_NOT_OK(reader->Init());
+  return reader;
+}
+
+Result<std::shared_ptr<StreamingReader>> MakeStreamingReader(
+    io::IOContext io_context, std::shared_ptr<io::InputStream> input,
+    const ReadOptions& read_options, const ParseOptions& parse_options,
+    const ConvertOptions& convert_options) {
+  std::shared_ptr<BaseStreamingReader> reader;
+  reader = std::make_shared<SerialStreamingReader>(io_context.pool(), input, read_options,
+                                                   parse_options, convert_options,
+                                                   io_context.stop_token());
   RETURN_NOT_OK(reader->Init());
   return reader;
 }
@@ -975,13 +997,17 @@ Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
     MemoryPool* pool, std::shared_ptr<io::InputStream> input,
     const ReadOptions& read_options, const ParseOptions& parse_options,
     const ConvertOptions& convert_options) {
-  std::shared_ptr<BaseStreamingReader> reader;
-  reader = std::make_shared<SerialStreamingReader>(pool, input, read_options,
-                                                   parse_options, convert_options);
-  RETURN_NOT_OK(reader->Init());
-  return reader;
+  return MakeStreamingReader(io::IOContext(pool), std::move(input), read_options,
+                             parse_options, convert_options);
+}
+
+Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
+    io::IOContext io_context, std::shared_ptr<io::InputStream> input,
+    const ReadOptions& read_options, const ParseOptions& parse_options,
+    const ConvertOptions& convert_options) {
+  return MakeStreamingReader(io_context, std::move(input), read_options, parse_options,
+                             convert_options);
 }
 
 }  // namespace csv
-
 }  // namespace arrow

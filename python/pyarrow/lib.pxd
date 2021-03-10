@@ -504,6 +504,14 @@ cdef class Codec(_Weakrefable):
     cdef inline CCodec* unwrap(self) nogil
 
 
+# This class is only used internally for now
+cdef class StopToken:
+    cdef:
+        CStopToken stop_token
+
+    cdef void init(self, CStopToken stop_token)
+
+
 cdef get_input_stream(object source, c_bool use_memory_map,
                       shared_ptr[CInputStream]* reader)
 cdef get_reader(object source, c_bool use_memory_map,

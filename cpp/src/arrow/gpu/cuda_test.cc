@@ -577,6 +577,8 @@ TEST_F(TestCudaArrowIpc, BasicWriteRead) {
   ASSERT_OK_AND_ASSIGN(device_batch,
                        ReadRecordBatch(batch->schema(), &unused_memo, device_serialized));
 
+  ASSERT_OK(device_batch->Validate());
+
   // Copy data from device, read batch, and compare
   int64_t size = device_serialized->size();
   ASSERT_OK_AND_ASSIGN(auto host_buffer, AllocateBuffer(size, pool_));

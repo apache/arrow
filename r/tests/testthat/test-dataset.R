@@ -548,6 +548,21 @@ test_that("filter() with strings", {
   )
 })
 
+test_that("filter() with arrow compute functions by name", {
+  skip_if_not_available("parquet")
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_equivalent(
+    ds %>%
+      select(part, lgl) %>%
+      filter(arrow_is_valid(lgl), arrow_equal(part, 1)) %>%
+      collect(),
+    ds %>%
+       select(part, lgl) %>%
+       filter(!is.na(lgl), part == 1L) %>%
+       collect()
+  )
+})
+
 test_that("filter() with .data", {
   skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))

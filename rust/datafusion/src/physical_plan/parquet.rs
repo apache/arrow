@@ -62,7 +62,7 @@ use tokio::{
 };
 use tokio_stream::wrappers::ReceiverStream;
 
-use crate::datasource::datasource::Statistics;
+use crate::datasource::datasource::{ColumnStatistics, Statistics};
 use async_trait::async_trait;
 use futures::stream::{Stream, StreamExt};
 
@@ -151,6 +151,8 @@ impl ParquetExec {
         let chunks = split_files(&filenames, max_concurrency);
         let mut num_rows = 0;
         let mut total_byte_size = 0;
+        let mut null_counts = Vec::new();
+
         for chunk in chunks {
             let filenames: Vec<String> = chunk.iter().map(|x| x.to_string()).collect();
             for filename in &filenames {
@@ -160,19 +162,42 @@ impl ParquetExec {
                 let meta_data = arrow_reader.get_metadata();
                 // collect all the unique schemas in this data set
                 let schema = arrow_reader.get_schema()?;
+                let num_fields = schema.fields().len();
                 if schemas.is_empty() || schema != schemas[0] {
                     schemas.push(schema);
+                    null_counts = vec![0; num_fields]
                 }
-                for i in 0..meta_data.num_row_groups() {
-                    let row_group_meta = meta_data.row_group(i);
+                for row_group_meta in meta_data.row_groups() {
                     num_rows += row_group_meta.num_rows();
                     total_byte_size += row_group_meta.total_byte_size();
+
+                    // Currently assumes every Parquet file has same schema
+                    // https://issues.apache.org/jira/browse/ARROW-11017
+                    let columns_null_counts = row_group_meta
+                        .columns()
+                        .iter()
+                        .flat_map(|c| c.statistics().map(|stats| stats.null_count()));
+
+                    for (i, cnt) in columns_null_counts.enumerate() {
+                        null_counts[i] += cnt
+                    }
                 }
             }
+
+            let column_stats = null_counts
+                .iter()
+                .map(|null_count| ColumnStatistics {
+                    null_count: Some(*null_count as usize),
+                    max_value: None,
+                    min_value: None,
+                    distinct_count: None,
+                })
+                .collect();
+
             let statistics = Statistics {
                 num_rows: Some(num_rows as usize),
                 total_byte_size: Some(total_byte_size as usize),
-                column_statistics: None,
+                column_statistics: Some(column_stats),
             };
             partitions.push(ParquetPartition {
                 filenames,
@@ -227,6 +252,8 @@ impl ParquetExec {
         // sum the statistics
         let mut num_rows: Option<usize> = None;
         let mut total_byte_size: Option<usize> = None;
+        let mut null_counts: Vec<usize> = vec![0; schema.fields().len()];
+        let mut has_null_counts = false;
         for part in &partitions {
             if let Some(n) = part.statistics.num_rows {
                 num_rows = Some(num_rows.unwrap_or(0) + n)
@@ -234,11 +261,36 @@ impl ParquetExec {
             if let Some(n) = part.statistics.total_byte_size {
                 total_byte_size = Some(total_byte_size.unwrap_or(0) + n)
             }
+            if let Some(x) = &part.statistics.column_statistics {
+                let part_nulls: Vec<Option<usize>> =
+                    x.iter().map(|c| c.null_count).collect();
+                has_null_counts = true;
+
+                for &i in projection.iter() {
+                    null_counts[i] = part_nulls[i].unwrap_or(0);
+                }
+            }
         }
+        let column_stats = if has_null_counts {
+            Some(
+                null_counts
+                    .iter()
+                    .map(|null_count| ColumnStatistics {
+                        null_count: Some(*null_count),
+                        distinct_count: None,
+                        max_value: None,
+                        min_value: None,
+                    })
+                    .collect(),
+            )
+        } else {
+            None
+        };
+
         let statistics = Statistics {
             num_rows,
             total_byte_size,
-            column_statistics: None,
+            column_statistics: column_stats,
         };
         Self {
             partitions,

@@ -79,7 +79,7 @@ brew install apache-arrow --HEAD
 ```
 
 On Windows, you can download a .zip file with the arrow dependencies from the
-[nightly repository](https://dl.bintray.com/ursalabs/arrow-r/libarrow/bin/windows/),
+[nightly repository](https://arrow-r-nightly.s3.amazonaws.com/libarrow/bin/windows/),
 and then set the `RWINLIB_LOCAL` environment variable to point to that
 zip file before installing the `arrow` R package. Version numbers in that
 repository correspond to dates, and you will likely want the most recent.
@@ -163,9 +163,9 @@ If the package fails to install/load with an error like this:
     unable to load shared object '/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so':
     dlopen(/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so, 6): Library not loaded: @rpath/libarrow.14.dylib
 
-ensure that `-DARROW_INSTALL_NAME_RPATH=OFF` was passed (this is important on 
-macOS to prevent problems at link time and is a no-op on other platforms). 
-Alternativelly, try setting the environment variable `R_LD_LIBRARY_PATH` to 
+ensure that `-DARROW_INSTALL_NAME_RPATH=OFF` was passed (this is important on
+macOS to prevent problems at link time and is a no-op on other platforms).
+Alternativelly, try setting the environment variable `R_LD_LIBRARY_PATH` to
 wherever Arrow C++ was put in `make install`, e.g. `export
 R_LD_LIBRARY_PATH=/usr/local/lib`, and retry installing the R package.
 

@@ -181,6 +181,7 @@ set(ARROW_SRCS
     util/bitmap_builders.cc
     util/bitmap_ops.cc
     util/bpacking.cc
+    util/cancel.cc
     util/compression.cc
     util/cpu_info.cc
     util/decimal.cc
