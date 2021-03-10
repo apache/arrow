@@ -914,7 +914,7 @@ fn read_files(
                     //println!("ParquetExec got new batch from {}", filename);
                     total_rows += batch.num_rows();
                     send_result(&response_tx, Ok(batch))?;
-                    if limit.map(|l| total_rows > l).unwrap_or(false) {
+                    if limit.map(|l| total_rows >= l).unwrap_or(false) {
                         break 'outer;
                     }
                 }
