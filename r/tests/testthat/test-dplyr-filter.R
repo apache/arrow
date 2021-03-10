@@ -155,6 +155,15 @@ test_that("filter() with %in%", {
   )
 })
 
+test_that("filter() with between()", {
+  expect_dplyr_equal(
+    input %>%
+      filter(between(dbl, 1, 2)) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("filter() with string ops", {
   # Extra instrumentation to ensure that we're calling Arrow compute here
   # because many base R string functions implicitly call as.character,

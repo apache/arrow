@@ -299,6 +299,15 @@ build_function_list <- function(FUN) {
         both = FUN("utf8_trim_whitespace", string)
       )
     },
+    between = function(x, left, right) {
+      if (length(left) != 1) {
+        rlang::abort("`left` must be length 1")
+      }
+      if (length(right) != 1) {
+        rlang::abort("`right` must be length 1")
+      }
+      x >= left & x <= right
+    },
     # Now also include all available Arrow Compute functions,
     # namespaced as arrow_fun
     set_names(
