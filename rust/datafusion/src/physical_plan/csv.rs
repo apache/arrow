@@ -302,8 +302,8 @@ impl CsvStream {
         limit: Option<usize>,
     ) -> Result<Self> {
         let file = File::open(filename)?;
-
-        let bounds = limit.map(|x| (0, x));
+        let start_line = if has_header { 1 } else { 0 };
+        let bounds = limit.map(|x| (start_line, x + start_line));
 
         let reader = csv::Reader::new(
             file,
