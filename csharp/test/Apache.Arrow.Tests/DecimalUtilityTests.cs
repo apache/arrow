@@ -42,6 +42,8 @@ namespace Apache.Arrow.Tests
                 else
                 {
                     builder.Append(d);
+                    var result = builder.Build(new TestMemoryAllocator());
+                    Assert.Equal(d, result.GetValue(0));
                 }
             }
         }
