@@ -586,6 +586,7 @@ impl LogicalPlan {
                         ref table_name,
                         ref projection,
                         ref filters,
+                        ref limit,
                         ..
                     } => {
                         let sep = " ".repeat(min(1, table_name.len()));
@@ -597,6 +598,10 @@ impl LogicalPlan {
 
                         if !filters.is_empty() {
                             write!(f, ", filters={:?}", filters)?;
+                        }
+
+                        if let Some(n) = limit {
+                            write!(f, ", limit={}", n)?;
                         }
 
                         Ok(())
