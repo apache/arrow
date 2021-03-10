@@ -14,6 +14,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package encryption contains the internal helpers for the parquet AES encryption/decryption handling.
+//
+// Testing for this is done via integration testing at the top level parquet package via attempting to
+// read and write encrypted files with different configurations to match test files in parquet-testing
 package encryption
 
 import (
