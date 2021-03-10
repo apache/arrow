@@ -731,8 +731,8 @@ test_that("%in% works on dictionary arrays", {
   b1 <- Array$create("B")
   b2 <- Array$create(5.4)
 
-  expect_equal(c1, is_in(a1, b1))
-  expect_equal(c2, is_in(a2, b2))
+  expect_equal(is_in(a1, b1), c1)
+  expect_equal(is_in(a2, b2), c2)
   expect_error(is_in(a1, b2))
 })
 
