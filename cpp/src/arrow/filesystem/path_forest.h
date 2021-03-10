@@ -20,137 +20,111 @@
 #include "arrow/filesystem/filesystem.h"
 
 #include <algorithm>
-#include <iosfwd>
+#include <functional>
 #include <memory>
-#include <string>
 #include <utility>
 #include <vector>
 
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/util/compare.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/sort.h"
 
 namespace arrow {
 namespace fs {
 
-/// \brief A PathForest is a utility to transform a vector of FileInfo into a
-/// forest representation for tree traversal purposes. Note: there is no guarantee of a
-/// shared root. Each node in the graph wraps a FileInfo. Files are expected to be found
-/// only at leaves of the tree.
-class ARROW_EXPORT PathForest : public util::EqualityComparable<PathForest> {
+/// A Forest is a view of a sorted range which carries an ancestry relation in addition
+/// to an ordering relation: each element's descendants appear directly after it.
+/// This can be used to efficiently skip subtrees when iterating through the range.
+class ARROW_EXPORT Forest {
  public:
-  /// \brief Transforms a FileInfo vector into a forest. The caller should ensure that
-  /// infos does not contain duplicates.
-  ///
-  /// Vector(s) of associated objects (IE associated[i] is associated with infos[i]) may
-  /// be passed for reordering. (After construction, associated[i] is associated with
-  /// forest[i]).
-  template <typename... Associated>
-  static Result<PathForest> Make(std::vector<FileInfo> infos,
-                                 std::vector<Associated>*... associated) {
-    if (sizeof...(associated) == 0) {
-      std::sort(infos.begin(), infos.end(), FileInfo::ByPath{});
-    } else {
-      auto indices = arrow::internal::ArgSort(infos, FileInfo::ByPath{});
-      size_t _[] = {arrow::internal::Permute(indices, &infos),
-                    arrow::internal::Permute(indices, associated)...};
-      static_cast<void>(_);
+  Forest() = default;
+
+  /// \brief Construct a Forest viewing the range [0, size).
+  Forest(int size, std::function<bool(int, int)> is_ancestor) : size_(size) {
+    std::vector<int> descendant_counts(size, 0);
+
+    std::vector<int> parent_stack;
+
+    for (int i = 0; i < size; ++i) {
+      while (parent_stack.size() != 0) {
+        if (is_ancestor(parent_stack.back(), i)) break;
+
+        // parent_stack.back() has no more descendants; finalize count and pop
+        descendant_counts[parent_stack.back()] = i - 1 - parent_stack.back();
+        parent_stack.pop_back();
+      }
+
+      parent_stack.push_back(i);
     }
 
-    return MakeFromPreSorted(std::move(infos));
-  }
+    // finalize descendant_counts for anything left in the stack
+    while (parent_stack.size() != 0) {
+      descendant_counts[parent_stack.back()] = size - 1 - parent_stack.back();
+      parent_stack.pop_back();
+    }
 
-  /// Make a PathForest from a FileInfo vector which is already sorted in a
-  /// depth first visitation order.
-  static Result<PathForest> MakeFromPreSorted(std::vector<FileInfo> sorted_infos);
+    descendant_counts_ = std::make_shared<std::vector<int>>(std::move(descendant_counts));
+  }
 
   /// \brief Returns the number of nodes in this forest.
   int size() const { return size_; }
 
-  bool Equals(const PathForest& other) const;
+  bool Equals(const Forest& other) const {
+    auto it = descendant_counts_->begin();
+    return size_ == other.size_ &&
+           std::equal(it, it + size_, other.descendant_counts_->begin());
+  }
 
-  std::string ToString() const;
-
-  /// Reference to a node in the forest
   struct ARROW_EXPORT Ref {
-    const FileInfo& info() const;
+    int num_descendants() const { return forest->descendant_counts_->at(i); }
 
-    int num_descendants() const;
-
-    /// Returns a PathForest containing only nodes which are descendants of this node
-    PathForest descendants() const;
-
-    /// This node's parent or Ref{nullptr, 0} if this node has no parent
-    Ref parent() const;
+    bool IsAncestorOf(const Ref& ref) const {
+      return i < ref.i && i + 1 + num_descendants() > ref.i;
+    }
 
     explicit operator bool() const { return forest != NULLPTR; }
 
-    const PathForest* forest;
+    const Forest* forest;
     int i;
   };
 
-  Ref operator[](int i) const { return Ref{this, i}; }
+  /// \brief Visit with eager pruning. Visitors must return Result<bool>, using
+  /// true to indicate a subtree should be visited and false to indicate that the
+  /// subtree should be skipped.
+  template <typename PreVisitor, typename PostVisitor>
+  Status Visit(PreVisitor&& pre, PostVisitor&& post) const {
+    std::vector<Ref> parent_stack;
 
-  std::vector<Ref> roots() const;
-
-  std::vector<FileInfo>& infos() & { return *infos_; }
-  const std::vector<FileInfo>& infos() const& { return *infos_; }
-  std::vector<FileInfo> infos() && { return std::move(*infos_); }
-
-  enum { Continue, Prune };
-  using MaybePrune = Result<decltype(Prune)>;
-
-  /// Visitors may return MaybePrune to enable eager pruning. Visitors will be called with
-  /// the FileInfo of the currently visited node and the index of that node in depth
-  /// first visitation order (useful for accessing parallel vectors of associated data).
-  template <typename Visitor>
-  Status Visit(Visitor&& v) const {
-    static std::is_same<decltype(v(std::declval<Ref>())), MaybePrune> with_pruning;
-    return VisitImpl(std::forward<Visitor>(v), with_pruning);
-  }
-
- protected:
-  PathForest(int offset, int size, std::shared_ptr<std::vector<FileInfo>> infos,
-             std::shared_ptr<std::vector<int>> descendant_counts,
-             std::shared_ptr<std::vector<int>> parents)
-      : offset_(offset),
-        size_(size),
-        infos_(std::move(infos)),
-        descendant_counts_(std::move(descendant_counts)),
-        parents_(std::move(parents)) {}
-
-  /// \brief Visit with eager pruning.
-  template <typename Visitor>
-  Status VisitImpl(Visitor&& v, std::true_type) const {
     for (int i = 0; i < size_; ++i) {
       Ref ref = {this, i};
-      ARROW_ASSIGN_OR_RAISE(auto action, v(ref));
 
-      if (action == Prune) {
+      while (parent_stack.size() > 0) {
+        if (parent_stack.back().IsAncestorOf(ref)) break;
+
+        post(parent_stack.back());
+        parent_stack.pop_back();
+      }
+
+      ARROW_ASSIGN_OR_RAISE(bool visit_subtree, pre(ref));
+
+      if (!visit_subtree) {
         // skip descendants
         i += ref.num_descendants();
+        continue;
       }
+
+      parent_stack.push_back(ref);
     }
 
     return Status::OK();
   }
 
-  template <typename Visitor>
-  Status VisitImpl(Visitor&& v, std::false_type) const {
-    return Visit([&](Ref ref) -> MaybePrune {
-      ARROW_RETURN_NOT_OK(v(ref));
-      return Continue;
-    });
-  }
+  Ref operator[](int i) const { return Ref{this, i}; }
 
-  int offset_, size_;
-  std::shared_ptr<std::vector<FileInfo>> infos_;
-  std::shared_ptr<std::vector<int>> descendant_counts_, parents_;
+ private:
+  int size_ = 0;
+  std::shared_ptr<std::vector<int>> descendant_counts_;
 };
-
-ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const PathForest& tree);
 
 }  // namespace fs
 }  // namespace arrow

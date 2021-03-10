@@ -28,15 +28,12 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/range.h"
 
 using testing::ContainerEq;
 
 namespace arrow {
 namespace fs {
-
-struct TestPathTree;
-bool operator==(const std::vector<PathForest::Ref>& roots,
-                const std::vector<TestPathTree>& test_trees);
 
 struct TestPathTree {
   FileInfo info;
@@ -47,97 +44,88 @@ struct TestPathTree {
   TestPathTree(std::string dir_path, std::vector<TestPathTree> subtrees)
       : info(Dir(std::move(dir_path))), subtrees(std::move(subtrees)) {}
 
-  template <typename Visitor>
-  void Visit(const Visitor& visitor) const {
-    visitor(info);
-    for (const auto& tree : subtrees) {
-      tree.Visit(visitor);
+  TestPathTree(Forest::Ref ref, const std::vector<FileInfo>& infos) : info(infos[ref.i]) {
+    const Forest& forest = *ref.forest;
+
+    int begin = ref.i + 1;
+    int end = begin + ref.num_descendants();
+
+    for (int i = begin; i < end; ++i) {
+      subtrees.emplace_back(forest[i], infos);
+      i += forest[i].num_descendants();
     }
+  }
+
+  bool operator==(const TestPathTree& other) const {
+    return info == other.info && subtrees == other.subtrees;
+  }
+
+  std::string ToString() const {
+    auto out = "\n" + info.path();
+    if (info.IsDirectory()) out += "/";
+
+    for (const auto& subtree : subtrees) {
+      out += subtree.ToString();
+    }
+    return out;
   }
 
   friend std::ostream& operator<<(std::ostream& os, const TestPathTree& tree) {
-    os << "TestPathTree:";
-
-    auto visitor = [&](const fs::FileInfo& info) {
-      auto segments = fs::internal::SplitAbstractPath(info.path());
-      os << "\n" << info.path();
-    };
-
-    tree.Visit(visitor);
-    return os;
-  }
-
-  friend bool operator==(PathForest::Ref actual, const TestPathTree& expected) {
-    if (actual.info() != expected.info) {
-      return false;
-    }
-
-    return actual.descendants().roots() == expected.subtrees;
+    return os << tree.ToString();
   }
 };
 
-bool operator==(const std::vector<PathForest::Ref>& roots,
-                const std::vector<TestPathTree>& test_trees) {
-  return roots.size() == test_trees.size() &&
-         std::equal(roots.begin(), roots.end(), test_trees.begin());
-}
-
 using PT = TestPathTree;
 
-void AssertMakePathTree(std::vector<FileInfo> infos, std::vector<PT> expected) {
-  ASSERT_OK_AND_ASSIGN(auto forest, PathForest::Make(infos));
-  EXPECT_EQ(forest.roots(), expected);
-  ASSERT_OK(forest.Visit([](PathForest::Ref ref) {
-    auto p = ref.parent();
-    if (p.forest == nullptr) {
-      return Status::OK();
-    }
+Forest MakeForest(std::vector<FileInfo>* infos) {
+  std::sort(infos->begin(), infos->end(), FileInfo::ByPath{});
 
-    EXPECT_GE(p.i + p.num_descendants(), ref.i);
-    return Status::OK();
-  }));
+  return Forest(static_cast<int>(infos->size()), [&](int i, int j) {
+    return internal::IsAncestorOf(infos->at(i).path(), infos->at(j).path());
+  });
 }
 
-TEST(TestPathForest, Basic) {
-  AssertMakePathTree({}, {});
+void ExpectForestIs(std::vector<FileInfo> infos, std::vector<PT> expected_roots) {
+  auto forest = MakeForest(&infos);
 
-  AssertMakePathTree({File("aa")}, {PT("aa")});
-  AssertMakePathTree({Dir("AA")}, {PT("AA", {})});
-  AssertMakePathTree({Dir("AA"), File("AA/aa")}, {PT("AA", {PT("AA/aa")})});
-  AssertMakePathTree({Dir("AA"), Dir("AA/BB"), File("AA/BB/0")},
-                     {PT("AA", {PT("AA/BB", {PT("AA/BB/0")})})});
+  std::vector<PT> actual_roots;
+  ASSERT_OK(forest.Visit(
+      [&](Forest::Ref ref) -> Result<bool> {
+        actual_roots.emplace_back(ref, infos);
+        return false;  // only vist roots
+      },
+      [](Forest::Ref) {}));
+
+  // visit expected and assert equality
+  EXPECT_THAT(actual_roots, ContainerEq(expected_roots));
+}
+
+TEST(Forest, Basic) {
+  ExpectForestIs({}, {});
+
+  ExpectForestIs({File("aa")}, {PT("aa")});
+  ExpectForestIs({Dir("AA")}, {PT("AA", {})});
+  ExpectForestIs({Dir("AA"), File("AA/aa")}, {PT("AA", {PT("AA/aa")})});
+  ExpectForestIs({Dir("AA"), Dir("AA/BB"), File("AA/BB/0")},
+                 {PT("AA", {PT("AA/BB", {PT("AA/BB/0")})})});
 
   // Missing parent can still find ancestor.
-  AssertMakePathTree({Dir("AA"), File("AA/BB/bb")}, {PT("AA", {PT("AA/BB/bb")})});
+  ExpectForestIs({Dir("AA"), File("AA/BB/bb")}, {PT("AA", {PT("AA/BB/bb")})});
 
   // Ancestors should link to parent regardless of ordering.
-  AssertMakePathTree({File("AA/aa"), Dir("AA")}, {PT("AA", {PT("AA/aa")})});
+  ExpectForestIs({File("AA/aa"), Dir("AA")}, {PT("AA", {PT("AA/aa")})});
 
   // Multiple roots are supported.
-  AssertMakePathTree({File("aa"), File("bb")}, {PT("aa"), PT("bb")});
-  AssertMakePathTree({File("00"), Dir("AA"), File("AA/aa"), File("BB/bb")},
-                     {PT("00"), PT("AA", {PT("AA/aa")}), PT("BB/bb")});
-  AssertMakePathTree({Dir("AA"), Dir("AA/BB"), File("AA/BB/0"), Dir("CC"), Dir("CC/BB"),
-                      File("CC/BB/0")},
-                     {PT("AA", {PT("AA/BB", {PT("AA/BB/0")})}),
-                      PT("CC", {PT("CC/BB", {PT("CC/BB/0")})})});
+  ExpectForestIs({File("aa"), File("bb")}, {PT("aa"), PT("bb")});
+  ExpectForestIs({File("00"), Dir("AA"), File("AA/aa"), File("BB/bb")},
+                 {PT("00"), PT("AA", {PT("AA/aa")}), PT("BB/bb")});
+  ExpectForestIs({Dir("AA"), Dir("AA/BB"), File("AA/BB/0"), Dir("CC"), Dir("CC/BB"),
+                  File("CC/BB/0")},
+                 {PT("AA", {PT("AA/BB", {PT("AA/BB/0")})}),
+                  PT("CC", {PT("CC/BB", {PT("CC/BB/0")})})});
 }
 
-TEST(TestPathForest, AssociatedObjects) {
-  std::vector<FileInfo> infos = {File("aa/1"), File("bb/2"), File("aa/3"), File("bb/4")};
-  std::vector<std::string> dirnames = {"aa", "bb", "aa", "bb"};
-  std::vector<std::string> basenames = {"1", "2", "3", "4"};
-
-  ASSERT_OK_AND_ASSIGN(auto forest, PathForest::Make(infos, &dirnames, &basenames));
-
-  ASSERT_OK(forest.Visit([&](PathForest::Ref ref) {
-    EXPECT_THAT(ref.info().path(), ::testing::StartsWith(dirnames[ref.i]));
-    EXPECT_THAT(ref.info().path(), ::testing::EndsWith(basenames[ref.i]));
-    return Status::OK();
-  }));
-}
-
-TEST(TestPathForest, HourlyETL) {
+TEST(Forest, HourlyETL) {
   // This test mimics a scenario where an ETL dumps hourly files in a structure
   // `$year/$month/$day/$hour/*.parquet`.
 
@@ -191,7 +179,7 @@ TEST(TestPathForest, HourlyETL) {
             auto file_str = join({hour_str, numbers[file] + ".parquet"});
             auto file_fd = File(file_str);
             infos.push_back(file_fd);
-            files.push_back(PT(file_str));
+            files.emplace_back(file_str);
           }
 
           auto hour_pt = PT(hour_str, std::move(files));
@@ -210,39 +198,62 @@ TEST(TestPathForest, HourlyETL) {
     forest.push_back(year_pt);
   }
 
-  AssertMakePathTree(infos, forest);
+  ExpectForestIs(infos, forest);
 }
 
-TEST(TestPathForest, Visit) {
-  ASSERT_OK_AND_ASSIGN(auto forest, PathForest::Make({Dir("A"), File("A/a")}));
+TEST(Forest, Visit) {
+  using Infos = std::vector<FileInfo>;
+  for (auto infos : {Infos{}, Infos{Dir("A"), File("A/a")},
+                     Infos{Dir("AA"), Dir("AA/BB"), File("AA/BB/0"), Dir("CC"),
+                           Dir("CC/BB"), File("CC/BB/0")}}) {
+    ASSERT_TRUE(std::is_sorted(infos.begin(), infos.end(), FileInfo::ByPath{}));
 
-  // Should propagate failure
-  auto visit_noop = [](PathForest::Ref) { return Status::OK(); };
-  ASSERT_OK(forest.Visit(visit_noop));
-  auto visit_fail = [](PathForest::Ref) { return Status::Invalid(""); };
-  ASSERT_RAISES(Invalid, forest.Visit(visit_fail));
+    auto forest = MakeForest(&infos);
 
-  std::vector<FileInfo> collection;
-  auto visit_collect = [&collection](PathForest::Ref ref) {
-    collection.push_back(ref.info());
-    return Status::OK();
-  };
-  ASSERT_OK(forest.Visit(visit_collect));
+    auto ignore_post = [](Forest::Ref) {};
 
-  // Ensure basic visit of all nodes
-  EXPECT_THAT(collection, ContainerEq(std::vector<FileInfo>{Dir("A"), File("A/a")}));
+    // noop is fine
+    ASSERT_OK(
+        forest.Visit([](Forest::Ref) -> Result<bool> { return false; }, ignore_post));
 
-  collection = {};
-  auto visit_collect_directories =
-      [&collection](PathForest::Ref ref) -> PathForest::MaybePrune {
-    if (!ref.info().IsDirectory()) {
-      return PathForest::Prune;
+    // Should propagate failure
+    if (forest.size() != 0) {
+      ASSERT_RAISES(
+          Invalid,
+          forest.Visit([](Forest::Ref) -> Result<bool> { return Status::Invalid(""); },
+                       ignore_post));
     }
-    collection.push_back(ref.info());
-    return PathForest::Continue;
-  };
-  ASSERT_OK(forest.Visit(visit_collect_directories));
-  EXPECT_THAT(collection, ContainerEq(std::vector<FileInfo>{Dir("A")}));
+
+    // Ensure basic visit of all nodes
+    int i = 0;
+    ASSERT_OK(forest.Visit(
+        [&](Forest::Ref ref) -> Result<bool> {
+          EXPECT_EQ(ref.i, i);
+          ++i;
+          return true;
+        },
+        ignore_post));
+
+    // Visit only directories
+    Infos actual_dirs;
+    ASSERT_OK(forest.Visit(
+        [&](Forest::Ref ref) -> Result<bool> {
+          if (!infos[ref.i].IsDirectory()) {
+            return false;
+          }
+          actual_dirs.push_back(infos[ref.i]);
+          return true;
+        },
+        ignore_post));
+
+    Infos expected_dirs;
+    for (const auto& info : infos) {
+      if (info.IsDirectory()) {
+        expected_dirs.push_back(info);
+      }
+    }
+    EXPECT_THAT(actual_dirs, ContainerEq(expected_dirs));
+  }
 }
 
 }  // namespace fs
