@@ -4,40 +4,6 @@
 
 #include "./arrow_types.h"
 
-// array_to_vector.cpp
-SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
-extern "C" SEXP _arrow_Array__as_vector(SEXP array_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
-	return cpp11::as_sexp(Array__as_vector(array));
-END_CPP11
-}
-// array_to_vector.cpp
-SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
-extern "C" SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_array_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
-	return cpp11::as_sexp(ChunkedArray__as_vector(chunked_array));
-END_CPP11
-}
-// array_to_vector.cpp
-cpp11::writable::list RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch, bool use_threads);
-extern "C" SEXP _arrow_RecordBatch__to_dataframe(SEXP batch_sexp, SEXP use_threads_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
-	arrow::r::Input<bool>::type use_threads(use_threads_sexp);
-	return cpp11::as_sexp(RecordBatch__to_dataframe(batch, use_threads));
-END_CPP11
-}
-// array_to_vector.cpp
-cpp11::writable::list Table__to_dataframe(const std::shared_ptr<arrow::Table>& table, bool use_threads);
-extern "C" SEXP _arrow_Table__to_dataframe(SEXP table_sexp, SEXP use_threads_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	arrow::r::Input<bool>::type use_threads(use_threads_sexp);
-	return cpp11::as_sexp(Table__to_dataframe(table, use_threads));
-END_CPP11
-}
 // array.cpp
 std::shared_ptr<arrow::Array> Array__Slice1(const std::shared_ptr<arrow::Array>& array, R_xlen_t offset);
 extern "C" SEXP _arrow_Array__Slice1(SEXP array_sexp, SEXP offset_sexp){
@@ -330,6 +296,40 @@ extern "C" SEXP _arrow_LargeListArray__raw_value_offsets(SEXP array_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::LargeListArray>&>::type array(array_sexp);
 	return cpp11::as_sexp(LargeListArray__raw_value_offsets(array));
+END_CPP11
+}
+// array_to_vector.cpp
+SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
+extern "C" SEXP _arrow_Array__as_vector(SEXP array_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
+	return cpp11::as_sexp(Array__as_vector(array));
+END_CPP11
+}
+// array_to_vector.cpp
+SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
+extern "C" SEXP _arrow_ChunkedArray__as_vector(SEXP chunked_array_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::ChunkedArray>&>::type chunked_array(chunked_array_sexp);
+	return cpp11::as_sexp(ChunkedArray__as_vector(chunked_array));
+END_CPP11
+}
+// array_to_vector.cpp
+cpp11::writable::list RecordBatch__to_dataframe(const std::shared_ptr<arrow::RecordBatch>& batch, bool use_threads);
+extern "C" SEXP _arrow_RecordBatch__to_dataframe(SEXP batch_sexp, SEXP use_threads_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type batch(batch_sexp);
+	arrow::r::Input<bool>::type use_threads(use_threads_sexp);
+	return cpp11::as_sexp(RecordBatch__to_dataframe(batch, use_threads));
+END_CPP11
+}
+// array_to_vector.cpp
+cpp11::writable::list Table__to_dataframe(const std::shared_ptr<arrow::Table>& table, bool use_threads);
+extern "C" SEXP _arrow_Table__to_dataframe(SEXP table_sexp, SEXP use_threads_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<bool>::type use_threads(use_threads_sexp);
+	return cpp11::as_sexp(Table__to_dataframe(table, use_threads));
 END_CPP11
 }
 // arraydata.cpp
@@ -4107,10 +4107,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_dataset_available", (DL_FUNC)& _dataset_available, 0 },
 		{ "_parquet_available", (DL_FUNC)& _parquet_available, 0 },
 		{ "_s3_available", (DL_FUNC)& _s3_available, 0 },
-		{ "_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1}, 
-		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1}, 
-		{ "_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2}, 
-		{ "_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 2}, 
 		{ "_arrow_Array__Slice1", (DL_FUNC) &_arrow_Array__Slice1, 2}, 
 		{ "_arrow_Array__Slice2", (DL_FUNC) &_arrow_Array__Slice2, 3}, 
 		{ "_arrow_Array__IsNull", (DL_FUNC) &_arrow_Array__IsNull, 2}, 
@@ -4145,6 +4141,10 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_FixedSizeListArray__value_offset", (DL_FUNC) &_arrow_FixedSizeListArray__value_offset, 2}, 
 		{ "_arrow_ListArray__raw_value_offsets", (DL_FUNC) &_arrow_ListArray__raw_value_offsets, 1}, 
 		{ "_arrow_LargeListArray__raw_value_offsets", (DL_FUNC) &_arrow_LargeListArray__raw_value_offsets, 1}, 
+		{ "_arrow_Array__as_vector", (DL_FUNC) &_arrow_Array__as_vector, 1}, 
+		{ "_arrow_ChunkedArray__as_vector", (DL_FUNC) &_arrow_ChunkedArray__as_vector, 1}, 
+		{ "_arrow_RecordBatch__to_dataframe", (DL_FUNC) &_arrow_RecordBatch__to_dataframe, 2}, 
+		{ "_arrow_Table__to_dataframe", (DL_FUNC) &_arrow_Table__to_dataframe, 2}, 
 		{ "_arrow_ArrayData__get_type", (DL_FUNC) &_arrow_ArrayData__get_type, 1}, 
 		{ "_arrow_ArrayData__get_length", (DL_FUNC) &_arrow_ArrayData__get_length, 1}, 
 		{ "_arrow_ArrayData__get_null_count", (DL_FUNC) &_arrow_ArrayData__get_null_count, 1}, 
