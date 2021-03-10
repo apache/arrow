@@ -36,7 +36,7 @@ class KeyWrappingTest : public ::testing::Test {
  protected:
   void WrapThenUnwrap(std::shared_ptr<FileKeyMaterialStore> key_material_store,
                       bool double_wrapping, bool is_wrap_locally) {
-    uint64_t cache_entry_lifetime_seconds = 600;
+    double cache_entry_lifetime_seconds = 600;
 
     KeyToolkit key_toolkit;
     key_toolkit.RegisterKmsClientFactory(
@@ -62,7 +62,7 @@ class KeyWrappingTest : public ::testing::Test {
   // TODO: this method will be removed when material external storage is supported
   void WrapThenUnwrapWithUnsupportedExternalStorage(bool double_wrapping,
                                                     bool is_wrap_locally) {
-    uint64_t cache_entry_lifetime_seconds = 600;
+    double cache_entry_lifetime_seconds = 600;
 
     KeyToolkit key_toolkit;
     key_toolkit.RegisterKmsClientFactory(

@@ -32,7 +32,7 @@ static constexpr ParquetCipher::type kDefaultEncryptionAlgorithm =
     ParquetCipher::AES_GCM_V1;
 static constexpr bool kDefaultPlaintextFooter = false;
 static constexpr bool kDefaultDoubleWrapping = true;
-static constexpr uint64_t kDefaultCacheLifetimeSeconds = 600;  // 10 minutes
+static constexpr double kDefaultCacheLifetimeSeconds = 600;  // 10 minutes
 static constexpr bool kDefaultInternalKeyMaterial = true;
 static constexpr bool kDefaultUniformEncryption = false;
 static constexpr int32_t kDefaultDataKeyLengthBits = 128;
@@ -73,7 +73,7 @@ struct PARQUET_EXPORT EncryptionConfiguration {
   /// Lifetime of cached entities (key encryption keys, local wrapping keys, KMS client
   /// objects).
   /// The default is 600 (10 minutes).
-  uint64_t cache_lifetime_seconds = kDefaultCacheLifetimeSeconds;
+  double cache_lifetime_seconds = kDefaultCacheLifetimeSeconds;
 
   /// Store key material inside Parquet file footers; this mode doesn’t produce
   /// additional files. By default, true. If set to false, key material is stored in
@@ -91,7 +91,7 @@ struct PARQUET_EXPORT DecryptionConfiguration {
   /// Lifetime of cached entities (key encryption keys, local wrapping keys, KMS client
   /// objects).
   /// The default is 600 (10 minutes).
-  uint64_t cache_lifetime_seconds = kDefaultCacheLifetimeSeconds;
+  double cache_lifetime_seconds = kDefaultCacheLifetimeSeconds;
 };
 
 /// This is a core class, that translates the parameters of high level encryption (like

@@ -28,8 +28,7 @@ namespace encryption {
 FileKeyWrapper::FileKeyWrapper(KeyToolkit* key_toolkit,
                                const KmsConnectionConfig& kms_connection_config,
                                std::shared_ptr<FileKeyMaterialStore> key_material_store,
-                               uint64_t cache_entry_lifetime_seconds,
-                               bool double_wrapping)
+                               double cache_entry_lifetime_seconds, bool double_wrapping)
     : kms_connection_config_(kms_connection_config),
       key_material_store_(key_material_store),
       cache_entry_lifetime_seconds_(cache_entry_lifetime_seconds),

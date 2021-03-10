@@ -29,7 +29,7 @@ using internal::KeyWithMasterId;
 
 FileKeyUnwrapper::FileKeyUnwrapper(KeyToolkit* key_toolkit,
                                    const KmsConnectionConfig& kms_connection_config,
-                                   uint64_t cache_lifetime_seconds)
+                                   double cache_lifetime_seconds)
     : key_toolkit_(key_toolkit),
       kms_connection_config_(kms_connection_config),
       cache_entry_lifetime_seconds_(cache_lifetime_seconds) {

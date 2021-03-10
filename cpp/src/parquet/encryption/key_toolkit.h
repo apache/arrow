@@ -51,7 +51,7 @@ class PARQUET_EXPORT KeyToolkit {
   }
 
   std::shared_ptr<KmsClient> GetKmsClient(
-      const KmsConnectionConfig& kms_connection_config, uint64_t cache_entry_lifetime_ms);
+      const KmsConnectionConfig& kms_connection_config, double cache_entry_lifetime_ms);
 
   /// Flush any caches that are tied to the (compromised) access_token
   void RemoveCacheEntriesForToken(const std::string& access_token);
