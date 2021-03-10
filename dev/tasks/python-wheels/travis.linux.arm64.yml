@@ -24,7 +24,6 @@ addons:
   apt:
     packages:
       - libgit2-dev
-      - python3-pip
 
 services:
   - docker
@@ -47,6 +46,7 @@ before_script:
 
 script:
   # Install Archery and Crossbow dependencies
+  - sudo -H python3 -m ensurepip --upgrade
   - sudo -H pip3 install -e arrow/dev/archery[docker]
   - sudo -H pip3 install -r arrow/dev/tasks/requirements-crossbow.txt pygit2==0.26
 

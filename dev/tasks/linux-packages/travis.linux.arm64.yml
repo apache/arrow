@@ -28,7 +28,6 @@ addons:
       - devscripts
       - gpg
       - libgit2-dev
-      - python3-pip
       - rake
       - rpm
 
@@ -104,6 +103,7 @@ script:
   - popd
 
 after_success:
+  - sudo -H python3 -m ensurepip --upgrade
   - sudo -H pip3 install -r arrow/dev/tasks/requirements-crossbow.txt pygit2==0.26
   - |
     python3 arrow/dev/tasks/crossbow.py \
