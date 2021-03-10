@@ -71,9 +71,10 @@ ENV CMAKE_BUILD_TYPE=${build_type} \
 # TODO(kszucs): factor out the package enumeration to a text file and reuse it
 # from the windows image and potentially in a future macos wheel build
 RUN vcpkg install --clean-after-build \
+        boost-build:${arch_short_alias}-linux && \
+    vcpkg install --clean-after-build \
         abseil \
         aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
-        boost-build:${arch_short_alias}-linux \
         boost-filesystem \
         brotli \
         bzip2 \

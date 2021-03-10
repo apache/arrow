@@ -345,77 +345,153 @@ tasks:
 
   ############################## Wheel Linux ##################################
 
-  wheel-manylinux2010-cp36m:
+  # AMD64
+
+  wheel-manylinux2010-cp36m-amd64:
     ci: github
-    template: python-wheels/github.linux.yml
+    template: python-wheels/github.linux.amd64.yml
     params:
       python_version: 3.6
       manylinux_version: 2010
     artifacts:
       - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2010_x86_64.whl
 
-  wheel-manylinux2010-cp37m:
+  wheel-manylinux2010-cp37m-amd64:
     ci: github
-    template: python-wheels/github.linux.yml
+    template: python-wheels/github.linux.amd64.yml
     params:
       python_version: 3.7
       manylinux_version: 2010
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2010_x86_64.whl
 
-  wheel-manylinux2010-cp38:
+  wheel-manylinux2010-cp38-amd64:
     ci: github
-    template: python-wheels/github.linux.yml
+    template: python-wheels/github.linux.amd64.yml
     params:
       python_version: 3.8
       manylinux_version: 2010
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-manylinux2010_x86_64.whl
 
-  wheel-manylinux2010-cp39:
+  wheel-manylinux2010-cp39-amd64:
     ci: github
-    template: python-wheels/github.linux.yml
+    template: python-wheels/github.linux.amd64.yml
     params:
       python_version: 3.9
       manylinux_version: 2010
     artifacts:
       - pyarrow-{no_rc_version}-cp39-cp39-manylinux2010_x86_64.whl
 
-  wheel-manylinux2014-cp36m:
+  wheel-manylinux2014-cp36m-amd64:
     ci: github
-    template: python-wheels/github.linux.yml
+    template: python-wheels/github.linux.amd64.yml
     params:
       python_version: 3.6
       manylinux_version: 2014
     artifacts:
       - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2014_x86_64.whl
 
-  wheel-manylinux2014-cp37m:
+  wheel-manylinux2014-cp37m-amd64:
     ci: github
-    template: python-wheels/github.linux.yml
+    template: python-wheels/github.linux.amd64.yml
     params:
       python_version: 3.7
       manylinux_version: 2014
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2014_x86_64.whl
 
-  wheel-manylinux2014-cp38:
+  wheel-manylinux2014-cp38-amd64:
     ci: github
-    template: python-wheels/github.linux.yml
+    template: python-wheels/github.linux.amd64.yml
     params:
       python_version: 3.8
       manylinux_version: 2014
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-manylinux2014_x86_64.whl
 
-  wheel-manylinux2014-cp39:
+  wheel-manylinux2014-cp39-amd64:
     ci: github
-    template: python-wheels/github.linux.yml
+    template: python-wheels/github.linux.amd64.yml
     params:
       python_version: 3.9
       manylinux_version: 2014
     artifacts:
       - pyarrow-{no_rc_version}-cp39-cp39-manylinux2014_x86_64.whl
+
+  # ARM64v8
+
+  wheel-manylinux2010-cp36m-arm64:
+    ci: travis
+    template: python-wheels/travis.linux.arm64.yml
+    params:
+      python_version: 3.6
+      manylinux_version: 2010
+    artifacts:
+      - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2010_aarch64.whl
+
+  wheel-manylinux2010-cp37m-arm64:
+    ci: travis
+    template: python-wheels/travis.linux.arm64.yml
+    params:
+      python_version: 3.7
+      manylinux_version: 2010
+    artifacts:
+      - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2010_aarch64.whl
+
+  wheel-manylinux2010-cp38-arm64:
+    ci: travis
+    template: python-wheels/travis.linux.arm64.yml
+    params:
+      python_version: 3.8
+      manylinux_version: 2010
+    artifacts:
+      - pyarrow-{no_rc_version}-cp38-cp38-manylinux2010_aarch64.whl
+
+  wheel-manylinux2010-cp39-arm64:
+    ci: travis
+    template: python-wheels/travis.linux.arm64.yml
+    params:
+      python_version: 3.9
+      manylinux_version: 2010
+    artifacts:
+      - pyarrow-{no_rc_version}-cp39-cp39-manylinux2010_aarch64.whl
+
+  wheel-manylinux2014-cp36m-arm64:
+    ci: travis
+    template: python-wheels/travis.linux.arm64.yml
+    params:
+      python_version: 3.6
+      manylinux_version: 2014
+    artifacts:
+      - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2014_aarch64.whl
+
+  wheel-manylinux2014-cp37m-arm64:
+    ci: travis
+    template: python-wheels/travis.linux.arm64.yml
+    params:
+      python_version: 3.7
+      manylinux_version: 2014
+    artifacts:
+      - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2014_aarch64.whl
+
+  wheel-manylinux2014-cp38-arm64:
+    ci: travis
+    template: python-wheels/travis.linux.arm64.yml
+    params:
+      python_version: 3.8
+      manylinux_version: 2014
+    artifacts:
+      - pyarrow-{no_rc_version}-cp38-cp38-manylinux2014_aarch64.whl
+
+  wheel-manylinux2014-cp39-arm64:
+    ci: travis
+    template: python-wheels/travis.linux.arm64.yml
+    params:
+      python_version: 3.9
+      manylinux_version: 2014
+    artifacts:
+      - pyarrow-{no_rc_version}-cp39-cp39-manylinux2014_aarch64.whl
 
   ############################## Wheel OSX ####################################
 
@@ -1688,7 +1764,7 @@ tasks:
       r_image: r-base
       r_tag: 3.6-opensuse42
       not_cran: "TRUE"
-  
+
   test-r-minimal-build:
     ci: azure
     template: r/azure.linux.yml
