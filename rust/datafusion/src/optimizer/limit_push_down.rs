@@ -39,17 +39,14 @@ fn limit_push_down(
     plan: &LogicalPlan,
 ) -> Result<LogicalPlan> {
     match plan {
-        LogicalPlan::Limit { n, input } => {
-            println!("limit");
-            return Ok(LogicalPlan::Limit {
-                n: *n,
-                // push down limit to plan (minimum of upper limit and current limit)
-                input: Arc::new(limit_push_down(
-                    upper_limit.map(|x| std::cmp::min(x, *n)).or(Some(*n)),
-                    input.as_ref(),
-                )?),
-            });
-        }
+        LogicalPlan::Limit { n, input } => Ok(LogicalPlan::Limit {
+            n: *n,
+            // push down limit to plan (minimum of upper limit and current limit)
+            input: Arc::new(limit_push_down(
+                upper_limit.map(|x| std::cmp::min(x, *n)).or(Some(*n)),
+                input.as_ref(),
+            )?),
+        }),
         LogicalPlan::TableScan {
             table_name,
             source,
