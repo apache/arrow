@@ -121,6 +121,7 @@ impl TableProvider for CsvFile {
         projection: &Option<Vec<usize>>,
         batch_size: usize,
         _filters: &[Expr],
+        _limit: Option<usize>
     ) -> Result<Arc<dyn ExecutionPlan>> {
         Ok(Arc::new(CsvExec::try_new(
             &self.path,

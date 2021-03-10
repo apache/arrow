@@ -23,4 +23,6 @@ pub mod filter_push_down;
 pub mod hash_build_probe_order;
 pub mod optimizer;
 pub mod projection_push_down;
+pub mod limit_push_down;
+
 pub mod utils;

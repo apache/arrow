@@ -83,6 +83,7 @@ impl TableProvider for ParquetTable {
         projection: &Option<Vec<usize>>,
         batch_size: usize,
         filters: &[Expr],
+        _limit: Option<usize>
     ) -> Result<Arc<dyn ExecutionPlan>> {
         let predicate = combine_filters(filters);
         Ok(Arc::new(ParquetExec::try_from_path(
@@ -113,7 +114,7 @@ mod tests {
     async fn read_small_batches() -> Result<()> {
         let table = load_table("alltypes_plain.parquet")?;
         let projection = None;
-        let exec = table.scan(&projection, 2, &[])?;
+        let exec = table.scan(&projection, 2, &[], None)?;
         let stream = exec.execute(0).await?;
 
         let count = stream
@@ -337,7 +338,7 @@ mod tests {
         table: Arc<dyn TableProvider>,
         projection: &Option<Vec<usize>>,
     ) -> Result<RecordBatch> {
-        let exec = table.scan(projection, 1024, &[])?;
+        let exec = table.scan(projection, 1024, &[], None)?;
         let mut it = exec.execute(0).await?;
         it.next()
             .await

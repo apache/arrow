@@ -244,6 +244,7 @@ impl ExecutionContext {
             projected_schema: schema.to_dfschema_ref()?,
             projection: None,
             filters: vec![],
+            limit: None,
         };
         Ok(Arc::new(DataFrameImpl::new(
             self.state.clone(),
@@ -316,6 +317,7 @@ impl ExecutionContext {
                     projected_schema: schema.to_dfschema_ref()?,
                     projection: None,
                     filters: vec![],
+                    limit: None,
                 };
                 Ok(Arc::new(DataFrameImpl::new(
                     self.state.clone(),
