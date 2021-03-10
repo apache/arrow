@@ -571,16 +571,16 @@ class ARROW_TESTING_EXPORT GatingTask {
   /// \brief During destruction we wait for all pending tasks to finish
   ~GatingTask();
 
-  /// \brief Creates a new waiting task (presumably to spawn on a thread).  It will return
-  /// invalid if the timeout arrived before the unlock.  The task will not complete until
-  /// unlocked or timed out
+  /// \brief Creates a new waiting task (presumably to spawn on a thread).  It will
+  /// return invalid if the timeout arrived before the unlock.  The task will not
+  /// complete until unlocked or timed out
   ///
   /// Note: The GatingTask must outlive any Task instances
   std::function<void()> Task();
   /// \brief Waits until at least count tasks are running.
   Status WaitForRunning(int count);
-  /// \brief Unlocks all waiting tasks.  Returns an invalid status if any waiting task has
-  /// timed out
+  /// \brief Unlocks all waiting tasks.  Returns an invalid status if any waiting
+  /// task has timed out
   Status Unlock();
 
   static std::shared_ptr<GatingTask> Make(double timeout_seconds = 10);
