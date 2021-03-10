@@ -55,7 +55,13 @@ script:
   - echo "${DOCKERHUB_TOKEN}" | docker login --username "${DOCKERHUB_USER}" --password-stdin
 
   # Build and Test packages
-  - travis_wait 30 archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-manylinux-{{ manylinux_version }}
+
+  # output something every minutes to prevent travis from killing the build
+  - while sleep 1m; do echo "=====[ $SECONDS seconds still running ]====="; done &
+  - archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} -e CMAKE_UNITY_BUILD=OFF python-wheel-manylinux-{{ manylinux_version }}
+  # stop background echo loop
+  - kill %1
+
   - archery docker run python-wheel-manylinux-test
 
 after_success:
