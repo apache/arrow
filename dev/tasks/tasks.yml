@@ -1688,7 +1688,7 @@ tasks:
       r_image: r-base
       r_tag: 3.6-opensuse42
       not_cran: "TRUE"
-  
+
   test-r-minimal-build:
     ci: azure
     template: r/azure.linux.yml
@@ -1708,12 +1708,12 @@ tasks:
     params:
       run: ubuntu-r-sanitizer
 
-  test-debian-10-go-1.12:
+  test-debian-10-go-1.15:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
-        GO: 1.12
+        GO: 1.15
       run: debian-go
 
   test-ubuntu-18.04-docs:
