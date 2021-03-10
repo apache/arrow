@@ -19,7 +19,7 @@ args <- commandArgs(TRUE)
 VERSION <- args[1]
 dst_dir <- paste0("libarrow/arrow-", VERSION)
 
-arrow_repo <- "https://dl.bintray.com/ursalabs/arrow-r/libarrow/"
+arrow_repo <- "https://arrow-r-nightly.s3.amazonaws.com/libarrow/"
 
 if (getRversion() < 3.4 && is.null(getOption("download.file.method"))) {
   # default method doesn't work on R 3.3, nor does libcurl
