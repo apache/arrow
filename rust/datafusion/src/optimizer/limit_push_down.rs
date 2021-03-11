@@ -111,7 +111,7 @@ impl OptimizerRule for LimitPushDown {
 mod test {
     use super::*;
     use crate::{
-        logical_plan::{col, LogicalPlan, LogicalPlanBuilder},
+        logical_plan::{col, max, LogicalPlan, LogicalPlanBuilder},
         test::*,
     };
 
@@ -156,6 +156,46 @@ mod test {
         let expected = "Limit: 10\
         \n  Limit: 10\
         \n    TableScan: test projection=None, limit=10";
+
+        assert_optimized_plan_eq(&plan, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn limit_doesnt_push_down_aggregation() -> Result<()> {
+        let table_scan = test_table_scan()?;
+
+        let plan = LogicalPlanBuilder::from(&table_scan)
+            .aggregate(&[col("a")], &[max(col("b"))])?
+            .limit(1000)?
+            .build()?;
+
+        // Limit should *not* push down aggregate node
+        let expected = "Limit: 1000\
+        \n  Aggregate: groupBy=[[#a]], aggr=[[MAX(#b)]]\
+        \n    TableScan: test projection=None";
+
+        assert_optimized_plan_eq(&plan, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn multi_stage_limit_recurses_to_deeper_limit() -> Result<()> {
+        let table_scan = test_table_scan()?;
+
+        let plan = LogicalPlanBuilder::from(&table_scan)
+            .limit(1000)?
+            .aggregate(&[col("a")], &[max(col("b"))])?
+            .limit(10)?
+            .build()?;
+
+        // Limit should use deeper LIMIT 1000, but Limit 10 shouldn't push down aggregation
+        let expected = "Limit: 10\
+        \n  Aggregate: groupBy=[[#a]], aggr=[[MAX(#b)]]\
+        \n    Limit: 1000\
+        \n      TableScan: test projection=None, limit=1000";
 
         assert_optimized_plan_eq(&plan, expected);
 
