@@ -107,7 +107,7 @@ script:
 
 after_success:
   - sudo -H pip3 install --upgrade pip
-  - sudo -H pip3 install -r arrow/dev/tasks/requirements-crossbow.txt pygit2==1.0
+  - sudo -H pip3 install -r arrow/dev/tasks/requirements-crossbow.txt pygit2==0.26
   - |
     python3 arrow/dev/tasks/crossbow.py \
       --queue-path . \
