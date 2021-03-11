@@ -24,7 +24,6 @@
 #include <vector>
 
 #include "arrow/dataset/dataset_internal.h"
-#include "arrow/dataset/expression_internal.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/dataset/scanner_internal.h"
 #include "arrow/filesystem/filesystem.h"
@@ -37,7 +36,6 @@
 #include "arrow/util/make_unique.h"
 #include "arrow/util/map.h"
 #include "arrow/util/mutex.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/string.h"
 #include "arrow/util/task_group.h"
 
@@ -131,111 +129,6 @@ std::string FileSystemDataset::ToString() const {
 
   return repr;
 }
-
-namespace {
-
-// Helper class for efficiently detecting subtrees given fragment partition expressions.
-// Partition expressions are broken into conjunction members and each member dictionary
-// encoded to impose a sortable ordering. In addition, subtrees are generated which span
-// groups of fragments and nested subtrees. After encoding each fragment is guaranteed to
-// be a descendant of at least one subtree. For example, given fragments in a
-// HivePartitioning with paths:
-//
-//   /num=0/al=eh/dat.par
-//   /num=0/al=be/dat.par
-//   /num=1/al=eh/dat.par
-//   /num=1/al=be/dat.par
-//
-// The following subtrees will be introduced:
-//
-//   /num=0/
-//   /num=0/al=eh/
-//   /num=0/al=eh/dat.par
-//   /num=0/al=be/
-//   /num=0/al=be/dat.par
-//   /num=1/
-//   /num=1/al=eh/
-//   /num=1/al=eh/dat.par
-//   /num=1/al=be/
-//   /num=1/al=be/dat.par
-struct SubtreeImpl {
-  using expression_code = char32_t;
-  using expression_codes = std::basic_string<expression_code>;
-
-  std::unordered_map<Expression, expression_code, Expression::Hash> expr_to_code_;
-  std::vector<Expression> code_to_expr_;
-  std::unordered_set<expression_codes> subtree_exprs_;
-
-  // An encoded fragment (if fragment_index is set) or subtree.
-  struct Encoded {
-    util::optional<int> fragment_index;
-    expression_codes partition_expression;
-  };
-
-  expression_code GetOrInsert(const Expression& expr) {
-    auto next_code = static_cast<int>(expr_to_code_.size());
-    auto it_success = expr_to_code_.emplace(expr, next_code);
-
-    if (it_success.second) {
-      code_to_expr_.push_back(expr);
-    }
-    return it_success.first->second;
-  }
-
-  void EncodeConjunctionMembers(const Expression& expr, expression_codes* codes) {
-    if (auto call = expr.call()) {
-      if (call->function_name == "and_kleene") {
-        // expr is a conjunction, encode its arguments
-        EncodeConjunctionMembers(call->arguments[0], codes);
-        EncodeConjunctionMembers(call->arguments[1], codes);
-        return;
-      }
-    }
-    // expr is not a conjunction, encode it whole
-    codes->push_back(GetOrInsert(expr));
-  }
-
-  Expression GetSubtreeExpression(const Encoded& encoded_subtree) {
-    // Filters will already be simplified by all of a subtree's ancestors, so
-    // we only need to simplify the filter by the trailing conjunction member
-    // of each subtree.
-    return code_to_expr_[encoded_subtree.partition_expression.back()];
-  }
-
-  void GenerateSubtrees(expression_codes partition_expression,
-                        std::vector<Encoded>* encoded) {
-    while (!partition_expression.empty()) {
-      if (subtree_exprs_.insert(partition_expression).second) {
-        Encoded encoded_subtree{/*fragment_index=*/util::nullopt, partition_expression};
-        encoded->push_back(std::move(encoded_subtree));
-      }
-      partition_expression.resize(partition_expression.size() - 1);
-    }
-  }
-
-  void EncodeOneFragment(int fragment_index, const Fragment& fragment,
-                         std::vector<Encoded>* encoded) {
-    Encoded encoded_fragment{fragment_index, {}};
-
-    EncodeConjunctionMembers(fragment.partition_expression(),
-                             &encoded_fragment.partition_expression);
-
-    GenerateSubtrees(encoded_fragment.partition_expression, encoded);
-
-    encoded->push_back(std::move(encoded_fragment));
-  }
-
-  template <typename Fragments>
-  std::vector<Encoded> EncodeFragments(const Fragments& fragments) {
-    std::vector<Encoded> encoded;
-    for (size_t i = 0; i < fragments.size(); ++i) {
-      EncodeOneFragment(static_cast<int>(i), *fragments[i], &encoded);
-    }
-    return encoded;
-  }
-};
-
-}  // namespace
 
 void FileSystemDataset::SetupSubtreePruning() {
   SubtreeImpl impl;

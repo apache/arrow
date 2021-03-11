@@ -18,17 +18,10 @@
 #pragma once
 
 #include <memory>
-#include <string>
 #include <utility>
 #include <vector>
 
-#include "arrow/dataset/dataset.h"
-#include "arrow/dataset/file_base.h"
-#include "arrow/dataset/type_fwd.h"
-#include "arrow/record_batch.h"
-#include "arrow/scalar.h"
-#include "arrow/type.h"
-#include "arrow/util/iterator.h"
+#include "arrow/dataset/visibility.h"
 
 namespace arrow {
 namespace dataset {
@@ -36,7 +29,7 @@ namespace dataset {
 /// A Forest is a view of a sorted range which carries an ancestry relation in addition
 /// to an ordering relation: each element's descendants appear directly after it.
 /// This can be used to efficiently skip subtrees when iterating through the range.
-class ARROW_EXPORT Forest {
+class ARROW_DS_EXPORT Forest {
  public:
   Forest() = default;
 
@@ -76,7 +69,7 @@ class ARROW_EXPORT Forest {
            std::equal(it, it + size_, other.descendant_counts_->begin());
   }
 
-  struct ARROW_EXPORT Ref {
+  struct ARROW_DS_EXPORT Ref {
     int num_descendants() const { return forest->descendant_counts_->at(i); }
 
     bool IsAncestorOf(const Ref& ref) const {

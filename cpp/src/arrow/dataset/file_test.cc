@@ -472,5 +472,69 @@ TEST(Forest, Visit) {
   }
 }
 
+TEST(Subtree, EncodeExpression) {
+  SubtreeImpl tree;
+  ASSERT_EQ(0, tree.GetOrInsert(equal(field_ref("a"), literal("1"))));
+  // Should be idempotent
+  ASSERT_EQ(0, tree.GetOrInsert(equal(field_ref("a"), literal("1"))));
+  ASSERT_EQ(equal(field_ref("a"), literal("1")), tree.code_to_expr_[0]);
+
+  SubtreeImpl::expression_codes codes;
+  auto conj =
+      and_(equal(field_ref("a"), literal("1")), equal(field_ref("b"), literal("2")));
+  tree.EncodeConjunctionMembers(conj, &codes);
+  ASSERT_EQ(SubtreeImpl::expression_codes({0, 1}), codes);
+
+  codes.clear();
+  conj = or_(equal(field_ref("a"), literal("1")), equal(field_ref("b"), literal("2")));
+  tree.EncodeConjunctionMembers(conj, &codes);
+  ASSERT_EQ(SubtreeImpl::expression_codes({2}), codes);
+}
+
+TEST(Subtree, GetSubtreeExpression) {
+  SubtreeImpl tree;
+  const auto expr_a = equal(field_ref("a"), literal("1"));
+  const auto expr_b = equal(field_ref("b"), literal("2"));
+  const auto code_a = tree.GetOrInsert(expr_a);
+  const auto code_b = tree.GetOrInsert(expr_b);
+  ASSERT_EQ(expr_a,
+            tree.GetSubtreeExpression(SubtreeImpl::Encoded{util::nullopt, {code_a}}));
+  ASSERT_EQ(expr_b, tree.GetSubtreeExpression(
+                        SubtreeImpl::Encoded{util::nullopt, {code_a, code_b}}));
+}
+
+TEST(Subtree, EncodeFragments) {
+  auto fragment_schema = schema({});
+  const auto expr_a =
+      and_(equal(field_ref("a"), literal("1")), equal(field_ref("b"), literal("2")));
+  const auto expr_b =
+      and_(equal(field_ref("a"), literal("2")), equal(field_ref("b"), literal("3")));
+  std::vector<std::shared_ptr<InMemoryFragment>> fragments;
+  fragments.push_back(std::make_shared<InMemoryFragment>(
+      fragment_schema, arrow::RecordBatchVector(), expr_a));
+  fragments.push_back(std::make_shared<InMemoryFragment>(
+      fragment_schema, arrow::RecordBatchVector(), expr_b));
+
+  SubtreeImpl tree;
+  auto encoded = tree.EncodeFragments(fragments);
+  EXPECT_THAT(
+      tree.code_to_expr_,
+      ContainerEq(std::vector<Expression>{
+          equal(field_ref("a"), literal("1")), equal(field_ref("b"), literal("2")),
+          equal(field_ref("a"), literal("2")), equal(field_ref("b"), literal("3"))}));
+  EXPECT_THAT(
+      encoded,
+      testing::UnorderedElementsAreArray({
+          SubtreeImpl::Encoded{util::make_optional<int>(0),
+                               SubtreeImpl::expression_codes({0, 1})},
+          SubtreeImpl::Encoded{util::make_optional<int>(1),
+                               SubtreeImpl::expression_codes({2, 3})},
+          SubtreeImpl::Encoded{util::nullopt, SubtreeImpl::expression_codes({0})},
+          SubtreeImpl::Encoded{util::nullopt, SubtreeImpl::expression_codes({2})},
+          SubtreeImpl::Encoded{util::nullopt, SubtreeImpl::expression_codes({0, 1})},
+          SubtreeImpl::Encoded{util::nullopt, SubtreeImpl::expression_codes({2, 3})},
+      }));
+}
+
 }  // namespace dataset
 }  // namespace arrow
