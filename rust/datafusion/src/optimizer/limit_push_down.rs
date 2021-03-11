@@ -16,6 +16,7 @@
 // under the License.
 
 //! Optimizer rule to push down LIMIT in the query plan
+//! It will push down through projection, limits (taking the smaller limit)
 use std::sync::Arc;
 
 use super::utils;
@@ -24,7 +25,7 @@ use crate::logical_plan::LogicalPlan;
 use crate::optimizer::optimizer::OptimizerRule;
 
 /// Optimization rule that tries pushes down LIMIT n
-/// where applicable to reduce the scanned or necessary in outer join
+/// where applicable to reduce the amount of scanned / processed data
 pub struct LimitPushDown {}
 
 impl LimitPushDown {
@@ -39,14 +40,14 @@ fn limit_push_down(
     plan: &LogicalPlan,
 ) -> Result<LogicalPlan> {
     match plan {
-        LogicalPlan::Limit { n, input } => Ok(LogicalPlan::Limit {
-            n: *n,
-            // push down limit to plan (minimum of upper limit and current limit)
-            input: Arc::new(limit_push_down(
-                upper_limit.map(|x| std::cmp::min(x, *n)).or(Some(*n)),
-                input.as_ref(),
-            )?),
-        }),
+        LogicalPlan::Limit { n, input } => {
+            let smallest = upper_limit.map(|x| std::cmp::min(x, *n)).unwrap_or(*n);
+            Ok(LogicalPlan::Limit {
+                n: smallest,
+                // push down limit to plan (minimum of upper limit and current limit)
+                input: Arc::new(limit_push_down(Some(smallest), input.as_ref())?),
+            })
+        }
         LogicalPlan::TableScan {
             table_name,
             source,
@@ -80,6 +81,8 @@ fn limit_push_down(
                 schema: schema.clone(),
             })
         }
+        // For other nodes we can't push down the limit
+        // But try to recurse and find other limit nodes to push down
         _ => {
             let expr = plan.expressions();
 
@@ -133,6 +136,26 @@ mod test {
         let expected = "Limit: 1000\
         \n  Projection: #a\
         \n    TableScan: test projection=None, limit=1000";
+
+        assert_optimized_plan_eq(&plan, expected);
+
+        Ok(())
+    }
+    #[test]
+    fn limit_push_down_take_smaller_limit() -> Result<()> {
+        let table_scan = test_table_scan()?;
+
+        let plan = LogicalPlanBuilder::from(&table_scan)
+            .limit(1000)?
+            .limit(10)?
+            .build()?;
+
+        // Should push down the smallest limit
+        // Towards table scan
+        // This rule doesn't replace multiple limits
+        let expected = "Limit: 10\
+        \n  Limit: 10\
+        \n    TableScan: test projection=None, limit=10";
 
         assert_optimized_plan_eq(&plan, expected);
 
