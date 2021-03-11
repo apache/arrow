@@ -131,7 +131,9 @@ impl TableProvider for CsvFile {
                 .delimiter(self.delimiter)
                 .file_extension(self.file_extension.as_str()),
             projection.clone(),
-            batch_size,
+            limit
+                .map(|l| std::cmp::min(l, batch_size))
+                .unwrap_or(batch_size),
             limit,
         )?))
     }
