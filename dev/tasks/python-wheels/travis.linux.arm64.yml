@@ -15,10 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-arch: arm64
+arch: arm64-graviton2
 virt: vm
 os: linux
 dist: focal
+group: edge
 language: minimal
 
 addons:
@@ -49,6 +50,7 @@ before_script:
 script:
   # Install Archery and Crossbow dependencies
   - sudo -H pip3 install --upgrade pip
+  - sudo -H pip3 install docker-compose
   - sudo -H pip3 install -e arrow/dev/archery[docker]
   - sudo -H pip3 install -r arrow/dev/tasks/requirements-crossbow.txt pygit2==1.0
 
@@ -58,14 +60,12 @@ script:
   # Build and Test packages
 
   # output something every minutes to prevent travis from killing the build
-  - |
-    while sleep 1m; do echo "=====[ $SECONDS seconds still running ]====="; done &
-    archery docker run \
-       -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} \
-       -e CMAKE_UNITY_BUILD=OFF \
-       python-wheel-manylinux-{{ manylinux_version }}
-    archery docker run python-wheel-manylinux-test
-    kill %1
+  - while sleep 30s; do echo "=====[ $SECONDS seconds still running ]====="; done &
+  - archery docker build python-wheel-manylinux-{{ manylinux_version }}
+  - archery docker push python-wheel-manylinux-{{ manylinux_version }}
+  - archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} -e CMAKE_UNITY_BUILD=OFF python-wheel-manylinux-{{ manylinux_version }}
+  - archery docker run python-wheel-manylinux-test
+  - kill %1
 
 after_success:
   # Upload wheel as github artifact
