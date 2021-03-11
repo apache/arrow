@@ -354,7 +354,7 @@ class KeyValuePartitioningFactory : public PartitioningFactory {
         }
         current_field = field(name, std::move(type));
       }
-      fields[index] = current_field;
+      fields[index] = std::move(current_field);
       dictionaries_[index] = std::move(dict);
     }
 

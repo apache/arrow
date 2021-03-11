@@ -93,7 +93,7 @@ struct PartitioningFactoryOptions {
   /// Optionally, an expected schema can be provided, in which case inference
   /// will only check discovered fields against the schema and update internal
   /// state (such as dictionaries).
-  std::shared_ptr<Schema> schema = nullptr;
+  std::shared_ptr<Schema> schema;
 };
 
 struct HivePartitioningFactoryOptions : PartitioningFactoryOptions {

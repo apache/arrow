@@ -33,7 +33,6 @@
 #include "arrow/util/optional.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
-#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
