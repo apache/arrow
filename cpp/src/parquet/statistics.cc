@@ -48,6 +48,9 @@ namespace {
 // ----------------------------------------------------------------------
 // Comparator implementations
 
+constexpr int value_length(int value_length, const ByteArray& value) { return value.len; }
+constexpr int value_length(int type_length, const FLBA& value) { return type_length; }
+
 template <typename DType, bool is_signed>
 struct CompareHelper {
   using T = typename DType::c_type;
@@ -133,56 +136,110 @@ struct CompareHelper<Int96Type, is_signed> {
   static T Max(int type_length, const T& a, const T& b) {
     return Compare(0, a, b) ? b : a;
   }
-};  // namespace parquet
+};
 
-template <typename DType, bool is_signed>
-struct ByteLikeCompareHelperBase {
-  using T = ByteArrayType::c_type;
-  using PtrType = typename std::conditional<is_signed, int8_t, uint8_t>::type;
+template <typename T, bool is_signed>
+struct BinaryLikeComparer {};
 
-  static T DefaultMin() { return {}; }
-  static T DefaultMax() { return {}; }
-  static T Coalesce(T val, T fallback) { return val; }
-
-  static inline bool Compare(int type_length, const T& a, const T& b) {
-    const auto* aptr = reinterpret_cast<const PtrType*>(a.ptr);
-    const auto* bptr = reinterpret_cast<const PtrType*>(b.ptr);
-    return std::lexicographical_compare(aptr, aptr + a.len, bptr, bptr + b.len);
+template <typename T>
+struct BinaryLikeComparer<T, /*is_signed=*/false> {
+  static bool Compare(int type_length, const T& a, const T& b) {
+    int a_length = value_length(type_length, a);
+    int b_length = value_length(type_length, b);
+    // Unsigned comparison is used for non-numeric types so straight
+    // lexiographic comparison makes sense. (a.ptr is always unsigned)....
+    return std::lexicographical_compare(a.ptr, a.ptr + a_length, b.ptr, b.ptr + b_length);
   }
+};
 
-  static T Min(int type_length, const T& a, const T& b) {
-    if (a.ptr == nullptr) return b;
-    if (b.ptr == nullptr) return a;
-    return Compare(type_length, a, b) ? a : b;
-  }
+template <typename T>
+struct BinaryLikeComparer<T, /*is_signed=*/true> {
+  static bool Compare(int type_length, const T& a, const T& b) {
+    // Is signed is used for integers encoded as big-endian twos
+    // complement integers. (e.g. decimals).
+    int a_length = value_length(type_length, a);
+    int b_length = value_length(type_length, b);
 
-  static T Max(int type_length, const T& a, const T& b) {
-    if (a.ptr == nullptr) return b;
-    if (b.ptr == nullptr) return a;
-    return Compare(type_length, a, b) ? b : a;
+    // At least of the lengths is zero.
+    if (a_length == 0 || b_length == 0) {
+      return a_length == 0 && b_length > 0;
+    }
+
+    int8_t first_a = *a.ptr;
+    int8_t first_b = *b.ptr;
+    // We can short circuit for different signed numbers or
+    // for equal length bytes arrays that have different first bytes.
+    // The equality requirement is necessary for sign extension cases.
+    // 0xFF10 should be eqaul to 0x10 (due to big endian sign extension).
+    if ((0x80 & first_a) != (0x80 & first_b) ||
+        (a_length == b_length && first_a != first_b)) {
+      return first_a < first_b;
+    }
+    // When the lengths are unequal and the numbers are of the same
+    // sign we need to do comparison by sign extending the shorter
+    // value first, and once we get to equal sized arrays, lexicographical
+    // unsigned comparison of everything but the first byte is sufficient.
+    const uint8_t* a_start = a.ptr;
+    const uint8_t* b_start = b.ptr;
+    if (a_length != b_length) {
+      const uint8_t* lead_start = nullptr;
+      const uint8_t* lead_end = nullptr;
+      if (a_length > b_length) {
+        int lead_length = a_length - b_length;
+        lead_start = a.ptr;
+        lead_end = a.ptr + lead_length;
+        a_start += lead_length;
+      } else {
+        DCHECK_LT(a_length, b_length);
+        int lead_length = b_length - a_length;
+        lead_start = b.ptr;
+        lead_end = b.ptr + lead_length;
+        b_start += lead_length;
+      }
+      // Compare extra bytes to the sign extension of the first
+      // byte of the other number.
+      uint8_t extension = first_a < 0 ? 0xFF : 0;
+      bool not_equal = std::any_of(lead_start, lead_end,
+                                   [extension](uint8_t a) { return extension != a; });
+      if (not_equal) {
+        // Since sign extension are extrema values for unsigned bytes:
+        //
+        // Four cases exist:
+        //    negative values:
+        //      b is the longer value.
+        //        b must be the lesser value: return false
+        //      else:
+        //        a must be the lesser value: return true
+        //
+        //    positive values:
+        //      b  is the longer value.
+        //        values in b must be greater than a: return true
+        //      else:
+        //        values in a must be greater than b: return false
+        bool negative_values = first_a < 0;
+        bool b_longer = a_length < b_length;
+        return negative_values != b_longer;
+      }
+    } else {
+      a_start++;
+      b_start++;
+    }
+    return std::lexicographical_compare(a_start, a.ptr + a_length, b_start,
+                                        b.ptr + b_length);
   }
 };
 
 template <typename DType, bool is_signed>
 struct BinaryLikeCompareHelperBase {
   using T = typename DType::c_type;
-  using PtrType = typename std::conditional<is_signed, int8_t, uint8_t>::type;
 
   static T DefaultMin() { return {}; }
   static T DefaultMax() { return {}; }
   static T Coalesce(T val, T fallback) { return val; }
 
-  static int value_length(int value_length, const ByteArray& value) { return value.len; }
-
-  static int value_length(int type_length, const FLBA& value) { return type_length; }
-
   static inline bool Compare(int type_length, const T& a, const T& b) {
-    const auto* aptr = reinterpret_cast<const PtrType*>(a.ptr);
-    const auto* bptr = reinterpret_cast<const PtrType*>(b.ptr);
-    return std::lexicographical_compare(aptr, aptr + value_length(type_length, a), bptr,
-                                        bptr + value_length(type_length, b));
+    return BinaryLikeComparer<T, is_signed>::Compare(type_length, a, b);
   }
-
   static T Min(int type_length, const T& a, const T& b) {
     if (a.ptr == nullptr) return b;
     if (b.ptr == nullptr) return a;

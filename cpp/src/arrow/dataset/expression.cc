@@ -95,6 +95,8 @@ namespace {
 
 std::string PrintDatum(const Datum& datum) {
   if (datum.is_scalar()) {
+    if (!datum.scalar()->is_valid) return "null";
+
     switch (datum.type()->id()) {
       case Type::STRING:
       case Type::LARGE_STRING:
@@ -110,6 +112,7 @@ std::string PrintDatum(const Datum& datum) {
       default:
         break;
     }
+
     return datum.scalar()->ToString();
   }
   return datum.ToString();
@@ -698,16 +701,25 @@ Status ExtractKnownFieldValuesImpl(
                          return !(ref && lit);
                        }
 
+                       if (call->function_name == "is_null") {
+                         auto ref = call->arguments[0].field_ref();
+                         return !ref;
+                       }
+
                        return true;
                      });
 
   for (auto it = unconsumed_end; it != conjunction_members->end(); ++it) {
     auto call = CallNotNull(*it);
 
-    auto ref = call->arguments[0].field_ref();
-    auto lit = call->arguments[1].literal();
-
-    known_values->emplace(*ref, *lit);
+    if (call->function_name == "equal") {
+      auto ref = call->arguments[0].field_ref();
+      auto lit = call->arguments[1].literal();
+      known_values->emplace(*ref, *lit);
+    } else if (call->function_name == "is_null") {
+      auto ref = call->arguments[0].field_ref();
+      known_values->emplace(*ref, Datum(std::make_shared<NullScalar>()));
+    }
   }
 
   conjunction_members->erase(unconsumed_end, conjunction_members->end());
@@ -740,23 +752,28 @@ Result<Expression> ReplaceFieldsWithKnownValues(
           auto it = known_values.find(*ref);
           if (it != known_values.end()) {
             Datum lit = it->second;
-            if (expr.type()->id() == Type::DICTIONARY) {
-              if (lit.is_scalar()) {
-                // FIXME the "right" way to support this is adding support for scalars to
-                // dictionary_encode and support for casting between index types to cast
-                ARROW_ASSIGN_OR_RAISE(
-                    auto index,
-                    Int32Scalar(0).CastTo(
-                        checked_cast<const DictionaryType&>(*expr.type()).index_type()));
+            if (lit.descr() == expr.descr()) return literal(std::move(lit));
+            // type mismatch, try casting the known value to the correct type
 
+            if (expr.type()->id() == Type::DICTIONARY &&
+                lit.type()->id() != Type::DICTIONARY) {
+              // the known value must be dictionary encoded
+
+              const auto& dict_type = checked_cast<const DictionaryType&>(*expr.type());
+              if (!lit.type()->Equals(dict_type.value_type())) {
+                ARROW_ASSIGN_OR_RAISE(lit, compute::Cast(lit, dict_type.value_type()));
+              }
+
+              if (lit.is_scalar()) {
                 ARROW_ASSIGN_OR_RAISE(auto dictionary,
                                       MakeArrayFromScalar(*lit.scalar(), 1));
 
-                return literal(
-                    DictionaryScalar::Make(std::move(index), std::move(dictionary)));
+                lit = Datum{DictionaryScalar::Make(MakeScalar<int32_t>(0),
+                                                   std::move(dictionary))};
               }
             }
-            ARROW_ASSIGN_OR_RAISE(lit, compute::Cast(it->second, expr.type()));
+
+            ARROW_ASSIGN_OR_RAISE(lit, compute::Cast(lit, expr.type()));
             return literal(std::move(lit));
           }
         }
@@ -1221,6 +1238,10 @@ Expression greater(Expression lhs, Expression rhs) {
 Expression greater_equal(Expression lhs, Expression rhs) {
   return call("greater_equal", {std::move(lhs), std::move(rhs)});
 }
+
+Expression is_null(Expression lhs) { return call("is_null", {std::move(lhs)}); }
+
+Expression is_valid(Expression lhs) { return call("is_valid", {std::move(lhs)}); }
 
 Expression and_(Expression lhs, Expression rhs) {
   return call("and_kleene", {std::move(lhs), std::move(rhs)});

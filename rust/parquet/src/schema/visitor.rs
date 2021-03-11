@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::basic::{LogicalType, Repetition};
+use crate::basic::{ConvertedType, Repetition};
 use crate::errors::ParquetError::General;
 use crate::errors::Result;
 use crate::schema::types::{Type, TypePtr};
@@ -100,9 +100,9 @@ pub trait TypeVisitor<R, C> {
         if cur_type.is_primitive() {
             self.visit_primitive(cur_type, context)
         } else {
-            match cur_type.get_basic_info().logical_type() {
-                LogicalType::LIST => self.visit_list(cur_type, context),
-                LogicalType::MAP | LogicalType::MAP_KEY_VALUE => {
+            match cur_type.get_basic_info().converted_type() {
+                ConvertedType::LIST => self.visit_list(cur_type, context),
+                ConvertedType::MAP | ConvertedType::MAP_KEY_VALUE => {
                     self.visit_map(cur_type, context)
                 }
                 _ => self.visit_struct(cur_type, context),

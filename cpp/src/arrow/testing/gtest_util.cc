@@ -539,6 +539,24 @@ EnvVarGuard::~EnvVarGuard() {
   }
 }
 
+struct SignalHandlerGuard::Impl {
+  int signum_;
+  internal::SignalHandler old_handler_;
+
+  Impl(int signum, const internal::SignalHandler& handler)
+      : signum_(signum), old_handler_(*internal::SetSignalHandler(signum, handler)) {}
+
+  ~Impl() { ARROW_EXPECT_OK(internal::SetSignalHandler(signum_, old_handler_)); }
+};
+
+SignalHandlerGuard::SignalHandlerGuard(int signum, Callback cb)
+    : SignalHandlerGuard(signum, internal::SignalHandler(cb)) {}
+
+SignalHandlerGuard::SignalHandlerGuard(int signum, const internal::SignalHandler& handler)
+    : impl_(new Impl{signum, handler}) {}
+
+SignalHandlerGuard::~SignalHandlerGuard() = default;
+
 namespace {
 
 // Used to prevent compiler optimizing away side-effect-less statements
@@ -574,6 +592,13 @@ void TestInitialized(const Array& array) {
 void SleepFor(double seconds) {
   std::this_thread::sleep_for(
       std::chrono::nanoseconds(static_cast<int64_t>(seconds * 1e9)));
+}
+
+void BusyWait(double seconds, std::function<bool()> predicate) {
+  const double period = 0.001;
+  for (int i = 0; !predicate() && i * period < seconds; ++i) {
+    SleepFor(period);
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////

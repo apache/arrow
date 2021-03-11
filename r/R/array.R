@@ -150,7 +150,7 @@ Array$create <- function(x, type = NULL) {
   if (!is.null(type)) {
     type <- as_type(type)
   }
-  Array__from_vector(x, type)
+  vec_to_arrow(x, type)
 }
 
 #' @rdname array

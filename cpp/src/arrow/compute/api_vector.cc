@@ -74,8 +74,9 @@ Result<std::shared_ptr<Array>> Unique(const Datum& value, ExecContext* ctx) {
   return result.make_array();
 }
 
-Result<Datum> DictionaryEncode(const Datum& value, ExecContext* ctx) {
-  return CallFunction("dictionary_encode", {value}, ctx);
+Result<Datum> DictionaryEncode(const Datum& value, const DictionaryEncodeOptions& options,
+                               ExecContext* ctx) {
+  return CallFunction("dictionary_encode", {value}, &options, ctx);
 }
 
 const char kValuesFieldName[] = "values";

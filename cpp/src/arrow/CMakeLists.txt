@@ -181,6 +181,7 @@ set(ARROW_SRCS
     util/bitmap_builders.cc
     util/bitmap_ops.cc
     util/bpacking.cc
+    util/cancel.cc
     util/compression.cc
     util/cpu_info.cc
     util/decimal.cc
@@ -349,6 +350,9 @@ if(ARROW_CSV)
               csv/options.cc
               csv/parser.cc
               csv/reader.cc)
+  if(ARROW_COMPUTE)
+    list(APPEND ARROW_SRCS csv/writer.cc)
+  endif()
 
   list(APPEND ARROW_TESTING_SRCS csv/test_common.cc)
 endif()
@@ -366,6 +370,7 @@ if(ARROW_COMPUTE)
               compute/kernels/aggregate_basic.cc
               compute/kernels/aggregate_mode.cc
               compute/kernels/aggregate_quantile.cc
+              compute/kernels/aggregate_tdigest.cc
               compute/kernels/aggregate_var_std.cc
               compute/kernels/codegen_internal.cc
               compute/kernels/scalar_arithmetic.cc

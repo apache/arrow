@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/io/interfaces.h"
+#include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -82,11 +83,11 @@ class ARROW_EXPORT ReadRangeCache {
   static constexpr int64_t kDefaultRangeSizeLimit = 32 * 1024 * 1024;
 
   /// Construct a read cache with default
-  explicit ReadRangeCache(std::shared_ptr<RandomAccessFile> file, AsyncContext ctx)
+  explicit ReadRangeCache(std::shared_ptr<RandomAccessFile> file, IOContext ctx)
       : ReadRangeCache(file, std::move(ctx), CacheOptions::Defaults()) {}
 
   /// Construct a read cache with given options
-  explicit ReadRangeCache(std::shared_ptr<RandomAccessFile> file, AsyncContext ctx,
+  explicit ReadRangeCache(std::shared_ptr<RandomAccessFile> file, IOContext ctx,
                           CacheOptions options);
   ~ReadRangeCache();
 
@@ -98,6 +99,9 @@ class ARROW_EXPORT ReadRangeCache {
 
   /// \brief Read a range previously given to Cache().
   Result<std::shared_ptr<Buffer>> Read(ReadRange range);
+
+  /// \brief Wait until all ranges added so far have been cached.
+  Future<> Wait();
 
  protected:
   struct Impl;

@@ -137,8 +137,6 @@ test_binary() {
 test_apt() {
   for target in "debian:buster" \
                 "arm64v8/debian:buster" \
-                "ubuntu:xenial" \
-                "arm64v8/ubuntu:xenial" \
                 "ubuntu:bionic" \
                 "arm64v8/ubuntu:bionic" \
                 "ubuntu:focal" \

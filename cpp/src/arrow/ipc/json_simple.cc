@@ -43,6 +43,7 @@
 #include <rapidjson/error/en.h>
 #include <rapidjson/rapidjson.h>
 #include <rapidjson/reader.h>
+#include <rapidjson/writer.h>
 
 namespace rj = arrow::rapidjson;
 
@@ -652,8 +653,11 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
         }
       }
       if (remaining > 0) {
+        rj::StringBuffer sb;
+        rj::Writer<rj::StringBuffer> writer(sb);
+        json_obj.Accept(writer);
         return Status::Invalid("Unexpected members in JSON object for type ",
-                               type_->ToString());
+                               type_->ToString(), " Object: ", sb.GetString());
       }
       return builder_->Append();
     }

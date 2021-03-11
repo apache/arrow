@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+skip_if_not_available("parquet")
+
 context("Parquet file reading/writing")
 
 pq_file <- system.file("v0.7.1.parquet", package = "arrow")

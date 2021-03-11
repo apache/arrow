@@ -141,6 +141,14 @@ way of creating a \code{float64()}
 
 \code{date32()} creates a datetime type with a "day" unit, like the R \code{Date}
 class. \code{date64()} has a "ms" unit.
+
+\code{uint32} (32 bit unsigned integer), \code{uint64} (64 bit unsigned integer), and
+\code{int64} (64-bit signed integer) types may contain values that exceed the
+range of R's \code{integer} type (32-bit signed integer). When these arrow objects
+are translated to R objects, \code{uint32} and \code{uint64} are converted to \code{double}
+("numeric") and \code{int64} is converted to \code{bit64::integer64}. For \code{int64}
+types, this conversion can be disabled (so that \code{int64} always yields a
+\code{bit64::integer64} object) by setting \code{options(arrow.int64_downcast = FALSE)}.
 }
 \examples{
 \donttest{

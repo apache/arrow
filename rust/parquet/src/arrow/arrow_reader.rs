@@ -649,4 +649,23 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_read_structs() {
+        // This particular test file has columns of struct types where there is
+        // a column that has the same name as one of the struct fields
+        // (see: ARROW-11452)
+        let testdata = arrow::util::test_util::parquet_test_data();
+        let path = format!("{}/nested_structs.rust.parquet", testdata);
+        let parquet_file_reader =
+            SerializedFileReader::try_from(File::open(&path).unwrap()).unwrap();
+        let mut arrow_reader = ParquetFileArrowReader::new(Arc::new(parquet_file_reader));
+        let record_batch_reader = arrow_reader
+            .get_record_reader(60)
+            .expect("Failed to read into array!");
+
+        for batch in record_batch_reader {
+            batch.unwrap();
+        }
+    }
 }

@@ -43,7 +43,8 @@ using internal::RemoveLeadingSlash;
 
 class HadoopFileSystem::Impl {
  public:
-  explicit Impl(HdfsOptions options) : options_(std::move(options)) {}
+  Impl(HdfsOptions options, const io::IOContext& io_context)
+      : options_(std::move(options)), io_context_(io_context) {}
 
   ~Impl() {
     Status st = Close();
@@ -205,13 +206,13 @@ class HadoopFileSystem::Impl {
 
   Result<std::shared_ptr<io::InputStream>> OpenInputStream(const std::string& path) {
     std::shared_ptr<io::HdfsReadableFile> file;
-    RETURN_NOT_OK(client_->OpenReadable(path, &file));
+    RETURN_NOT_OK(client_->OpenReadable(path, io_context_, &file));
     return file;
   }
 
   Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(const std::string& path) {
     std::shared_ptr<io::HdfsReadableFile> file;
-    RETURN_NOT_OK(client_->OpenReadable(path, &file));
+    RETURN_NOT_OK(client_->OpenReadable(path, io_context_, &file));
     return file;
   }
 
@@ -226,7 +227,8 @@ class HadoopFileSystem::Impl {
   }
 
  protected:
-  HdfsOptions options_;
+  const HdfsOptions options_;
+  const io::IOContext io_context_;
   std::shared_ptr<::arrow::io::HadoopFileSystem> client_;
 
   void PathInfoToFileInfo(const io::HdfsPathInfo& info, FileInfo* out) {
@@ -393,14 +395,17 @@ Result<HdfsOptions> HdfsOptions::FromUri(const std::string& uri_string) {
   return FromUri(uri);
 }
 
-HadoopFileSystem::HadoopFileSystem(const HdfsOptions& options)
-    : impl_(new Impl{options}) {}
+HadoopFileSystem::HadoopFileSystem(const HdfsOptions& options,
+                                   const io::IOContext& io_context)
+    : FileSystem(io_context), impl_(new Impl{options, io_context_}) {
+  default_async_is_sync_ = false;
+}
 
 HadoopFileSystem::~HadoopFileSystem() {}
 
 Result<std::shared_ptr<HadoopFileSystem>> HadoopFileSystem::Make(
-    const HdfsOptions& options) {
-  std::shared_ptr<HadoopFileSystem> ptr(new HadoopFileSystem(options));
+    const HdfsOptions& options, const io::IOContext& io_context) {
+  std::shared_ptr<HadoopFileSystem> ptr(new HadoopFileSystem(options, io_context));
   RETURN_NOT_OK(ptr->impl_->Init());
   return ptr;
 }

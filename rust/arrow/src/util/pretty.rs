@@ -18,7 +18,7 @@
 //! Utilities for printing record batches. Note this module is not
 //! available unless `feature = "prettyprint"` is enabled.
 
-use crate::record_batch::RecordBatch;
+use crate::{array::ArrayRef, record_batch::RecordBatch};
 
 use prettytable::format;
 use prettytable::{Cell, Row, Table};
@@ -32,9 +32,20 @@ pub fn pretty_format_batches(results: &[RecordBatch]) -> Result<String> {
     Ok(create_table(results)?.to_string())
 }
 
+///! Create a visual representation of columns
+pub fn pretty_format_columns(col_name: &str, results: &[ArrayRef]) -> Result<String> {
+    Ok(create_column(col_name, results)?.to_string())
+}
+
 ///! Prints a visual representation of record batches to stdout
 pub fn print_batches(results: &[RecordBatch]) -> Result<()> {
     create_table(results)?.printstd();
+    Ok(())
+}
+
+///! Prints a visual representation of a list of column to stdout
+pub fn print_columns(col_name: &str, results: &[ArrayRef]) -> Result<()> {
+    create_column(col_name, results)?.printstd();
     Ok(())
 }
 
@@ -62,6 +73,28 @@ fn create_table(results: &[RecordBatch]) -> Result<Table> {
                 let column = batch.column(col);
                 cells.push(Cell::new(&array_value_to_string(&column, row)?));
             }
+            table.add_row(Row::new(cells));
+        }
+    }
+
+    Ok(table)
+}
+
+fn create_column(field: &str, columns: &[ArrayRef]) -> Result<Table> {
+    let mut table = Table::new();
+    table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+
+    if columns.is_empty() {
+        return Ok(table);
+    }
+
+    let header = vec![Cell::new(field)];
+    table.set_titles(Row::new(header));
+
+    for col in columns {
+        for row in 0..col.len() {
+            let mut cells = Vec::new();
+            cells.push(Cell::new(&array_value_to_string(&col, row)?));
             table.add_row(Row::new(cells));
         }
     }
@@ -123,6 +156,32 @@ mod tests {
             "|   | 10  |",
             "| d | 100 |",
             "+---+-----+",
+        ];
+
+        let actual: Vec<&str> = table.lines().collect();
+
+        assert_eq!(expected, actual, "Actual result:\n{}", table);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_pretty_format_columns() -> Result<()> {
+        let columns = vec![
+            Arc::new(array::StringArray::from(vec![
+                Some("a"),
+                Some("b"),
+                None,
+                Some("d"),
+            ])) as ArrayRef,
+            Arc::new(array::StringArray::from(vec![Some("e"), None, Some("g")])),
+        ];
+
+        let table = pretty_format_columns("a", &columns)?;
+
+        let expected = vec![
+            "+---+", "| a |", "+---+", "| a |", "| b |", "|   |", "| d |", "| e |",
+            "|   |", "| g |", "+---+",
         ];
 
         let actual: Vec<&str> = table.lines().collect();

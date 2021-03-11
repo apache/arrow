@@ -69,6 +69,10 @@ Scanner$create <- function(dataset,
                            batch_size = NULL,
                            ...) {
   if (inherits(dataset, "arrow_dplyr_query")) {
+    if (inherits(dataset$.data, "ArrowTabular")) {
+      # To handle mutate() on Table/RecordBatch, we need to collect(as_data_frame=FALSE) now
+      dataset <- dplyr::collect(dataset, as_data_frame = FALSE)
+    }
     return(Scanner$create(
       dataset$.data,
       dataset$selected_columns,
@@ -152,8 +156,20 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
 ScannerBuilder <- R6Class("ScannerBuilder", inherit = ArrowObject,
   public = list(
     Project = function(cols) {
-      assert_is(cols, "character")
-      dataset___ScannerBuilder__Project(self, cols)
+      # cols is either a character vector or a named list of Expressions
+      if (is.character(cols)) {
+        dataset___ScannerBuilder__ProjectNames(self, cols)
+      } else {
+        # If we have expressions, but they all turn out to be field_refs,
+        # we can still call the simple method
+        field_names <- get_field_names(cols)
+        if (all(nzchar(field_names))) {
+          dataset___ScannerBuilder__ProjectNames(self, field_names)
+        } else {
+          # Else, we are projecting/mutating
+          dataset___ScannerBuilder__ProjectExprs(self, cols, names(cols))
+        }
+      }
       self
     },
     Filter = function(expr) {

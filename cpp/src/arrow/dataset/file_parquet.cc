@@ -29,6 +29,7 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
@@ -56,18 +57,18 @@ class ParquetScanTask : public ScanTask {
   ParquetScanTask(int row_group, std::vector<int> column_projection,
                   std::shared_ptr<parquet::arrow::FileReader> reader,
                   std::shared_ptr<std::once_flag> pre_buffer_once,
-                  std::vector<int> pre_buffer_row_groups,
-                  arrow::io::AsyncContext async_context,
+                  std::vector<int> pre_buffer_row_groups, arrow::io::IOContext io_context,
                   arrow::io::CacheOptions cache_options,
                   std::shared_ptr<ScanOptions> options,
-                  std::shared_ptr<ScanContext> context)
-      : ScanTask(std::move(options), std::move(context)),
+                  std::shared_ptr<ScanContext> context,
+                  std::shared_ptr<Fragment> fragment)
+      : ScanTask(std::move(options), std::move(context), std::move(fragment)),
         row_group_(row_group),
         column_projection_(std::move(column_projection)),
         reader_(std::move(reader)),
         pre_buffer_once_(std::move(pre_buffer_once)),
         pre_buffer_row_groups_(std::move(pre_buffer_row_groups)),
-        async_context_(async_context),
+        io_context_(io_context),
         cache_options_(cache_options) {}
 
   Result<RecordBatchIterator> Execute() override {
@@ -105,8 +106,10 @@ class ParquetScanTask : public ScanTask {
     if (pre_buffer_once_) {
       BEGIN_PARQUET_CATCH_EXCEPTIONS
       std::call_once(*pre_buffer_once_, [this]() {
-        reader_->parquet_reader()->PreBuffer(pre_buffer_row_groups_, column_projection_,
-                                             async_context_, cache_options_);
+        // Ignore the future here - don't wait for pre-buffering (the reader itself will
+        // block as necessary)
+        ARROW_UNUSED(reader_->parquet_reader()->PreBuffer(
+            pre_buffer_row_groups_, column_projection_, io_context_, cache_options_));
       });
       END_PARQUET_CATCH_EXCEPTIONS
     }
@@ -121,7 +124,7 @@ class ParquetScanTask : public ScanTask {
   // to be done. We assume all scan tasks have the same column projection.
   std::shared_ptr<std::once_flag> pre_buffer_once_;
   std::vector<int> pre_buffer_row_groups_;
-  arrow::io::AsyncContext async_context_;
+  arrow::io::IOContext io_context_;
   arrow::io::CacheOptions cache_options_;
 };
 
@@ -317,10 +320,10 @@ Result<std::unique_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
   return std::move(arrow_reader);
 }
 
-Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions> options,
-                                                     std::shared_ptr<ScanContext> context,
-                                                     FileFragment* fragment) const {
-  auto* parquet_fragment = checked_cast<ParquetFileFragment*>(fragment);
+Result<ScanTaskIterator> ParquetFileFormat::ScanFile(
+    std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
+    const std::shared_ptr<FileFragment>& fragment) const {
+  auto* parquet_fragment = checked_cast<ParquetFileFragment*>(fragment.get());
   std::vector<int> row_groups;
 
   bool pre_filtered = false;
@@ -362,7 +365,8 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions
   for (size_t i = 0; i < row_groups.size(); ++i) {
     tasks[i] = std::make_shared<ParquetScanTask>(
         row_groups[i], column_projection, reader, pre_buffer_once, row_groups,
-        reader_options.async_context, reader_options.cache_options, options, context);
+        reader_options.io_context, reader_options.cache_options, options, context,
+        fragment);
   }
 
   return MakeVectorIterator(std::move(tasks));
@@ -410,13 +414,14 @@ Result<std::shared_ptr<FileWriter>> ParquetFileFormat::MakeWriter(
       *schema, default_memory_pool(), destination, parquet_options->writer_properties,
       parquet_options->arrow_writer_properties, &parquet_writer));
 
-  return std::shared_ptr<FileWriter>(
-      new ParquetFileWriter(std::move(parquet_writer), std::move(parquet_options)));
+  return std::shared_ptr<FileWriter>(new ParquetFileWriter(
+      std::move(destination), std::move(parquet_writer), std::move(parquet_options)));
 }
 
-ParquetFileWriter::ParquetFileWriter(std::shared_ptr<parquet::arrow::FileWriter> writer,
+ParquetFileWriter::ParquetFileWriter(std::shared_ptr<io::OutputStream> destination,
+                                     std::shared_ptr<parquet::arrow::FileWriter> writer,
                                      std::shared_ptr<ParquetFileWriteOptions> options)
-    : FileWriter(writer->schema(), std::move(options)),
+    : FileWriter(writer->schema(), std::move(options), std::move(destination)),
       parquet_writer_(std::move(writer)) {}
 
 Status ParquetFileWriter::Write(const std::shared_ptr<RecordBatch>& batch) {
@@ -424,7 +429,7 @@ Status ParquetFileWriter::Write(const std::shared_ptr<RecordBatch>& batch) {
   return parquet_writer_->WriteTable(*table, batch->num_rows());
 }
 
-Status ParquetFileWriter::Finish() { return parquet_writer_->Close(); }
+Status ParquetFileWriter::FinishInternal() { return parquet_writer_->Close(); }
 
 //
 // ParquetFileFragment

@@ -34,7 +34,6 @@ use super::{
     ColumnarValue, PhysicalExpr,
 };
 use crate::physical_plan::array_expressions;
-use crate::physical_plan::crypto_expressions;
 use crate::physical_plan::datetime_expressions;
 use crate::physical_plan::expressions::{nullif_func, SUPPORTED_NULLIF_TYPES};
 use crate::physical_plan::math_expressions;
@@ -86,78 +85,119 @@ pub type ReturnTypeFunction =
 /// Enum of all built-in scalar functions
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum BuiltinScalarFunction {
-    /// sqrt
-    Sqrt,
-    /// sin
-    Sin,
-    /// cos
-    Cos,
-    /// tan
-    Tan,
-    /// asin
-    Asin,
-    /// acos
-    Acos,
-    /// atan
-    Atan,
-    /// exp
-    Exp,
-    /// log, also known as ln
-    Log,
-    /// log2
-    Log2,
-    /// log10
-    Log10,
-    /// floor
-    Floor,
-    /// ceil
-    Ceil,
-    /// round
-    Round,
-    /// trunc
-    Trunc,
+    // math functions
     /// abs
     Abs,
+    /// acos
+    Acos,
+    /// asin
+    Asin,
+    /// atan
+    Atan,
+    /// ceil
+    Ceil,
+    /// cos
+    Cos,
+    /// exp
+    Exp,
+    /// floor
+    Floor,
+    /// log, also known as ln
+    Log,
+    /// log10
+    Log10,
+    /// log2
+    Log2,
+    /// round
+    Round,
     /// signum
     Signum,
-    /// concat
-    Concat,
-    /// lower
-    Lower,
-    /// upper
-    Upper,
-    /// trim
-    Trim,
-    /// trim left
-    Ltrim,
-    /// trim right
-    Rtrim,
-    /// to_timestamp
-    ToTimestamp,
+    /// sin
+    Sin,
+    /// sqrt
+    Sqrt,
+    /// tan
+    Tan,
+    /// trunc
+    Trunc,
+
+    // string functions
     /// construct an array from columns
     Array,
-    /// SQL NULLIF()
-    NullIf,
-    /// Date truncate
-    DateTrunc,
-    /// Date part
-    DatePart,
-    /// MD5
-    MD5,
-    /// SHA224
-    SHA224,
-    /// SHA256,
-    SHA256,
-    /// SHA384
-    SHA384,
-    /// SHA512,
-    SHA512,
+    /// ascii
+    Ascii,
     /// bit_length
     BitLength,
+    /// btrim
+    Btrim,
     /// character_length
     CharacterLength,
+    /// chr
+    Chr,
+    /// concat
+    Concat,
+    /// concat_ws
+    ConcatWithSeparator,
+    /// date_part
+    DatePart,
+    /// date_trunc
+    DateTrunc,
+    /// initcap
+    InitCap,
+    /// left
+    Left,
+    /// lpad
+    Lpad,
+    /// lower
+    Lower,
+    /// ltrim
+    Ltrim,
+    /// md5
+    MD5,
+    /// nullif
+    NullIf,
     /// octet_length
     OctetLength,
+    /// regexp_replace
+    RegexpReplace,
+    /// repeat
+    Repeat,
+    /// replace
+    Replace,
+    /// reverse
+    Reverse,
+    /// right
+    Right,
+    /// rpad
+    Rpad,
+    /// rtrim
+    Rtrim,
+    /// sha224
+    SHA224,
+    /// sha256
+    SHA256,
+    /// sha384
+    SHA384,
+    /// Sha512
+    SHA512,
+    /// split_part
+    SplitPart,
+    /// starts_with
+    StartsWith,
+    /// strpos
+    Strpos,
+    /// substr
+    Substr,
+    /// to_hex
+    ToHex,
+    /// to_timestamp
+    ToTimestamp,
+    /// translate
+    Translate,
+    /// trim
+    Trim,
+    /// upper
+    Upper,
 }
 
 impl fmt::Display for BuiltinScalarFunction {
@@ -171,44 +211,67 @@ impl FromStr for BuiltinScalarFunction {
     type Err = DataFusionError;
     fn from_str(name: &str) -> Result<BuiltinScalarFunction> {
         Ok(match name {
-            "sqrt" => BuiltinScalarFunction::Sqrt,
-            "sin" => BuiltinScalarFunction::Sin,
-            "cos" => BuiltinScalarFunction::Cos,
-            "tan" => BuiltinScalarFunction::Tan,
-            "asin" => BuiltinScalarFunction::Asin,
-            "acos" => BuiltinScalarFunction::Acos,
-            "atan" => BuiltinScalarFunction::Atan,
-            "exp" => BuiltinScalarFunction::Exp,
-            "log" => BuiltinScalarFunction::Log,
-            "log2" => BuiltinScalarFunction::Log2,
-            "log10" => BuiltinScalarFunction::Log10,
-            "floor" => BuiltinScalarFunction::Floor,
-            "ceil" => BuiltinScalarFunction::Ceil,
-            "round" => BuiltinScalarFunction::Round,
-            "truc" => BuiltinScalarFunction::Trunc,
+            // math functions
             "abs" => BuiltinScalarFunction::Abs,
+            "acos" => BuiltinScalarFunction::Acos,
+            "asin" => BuiltinScalarFunction::Asin,
+            "atan" => BuiltinScalarFunction::Atan,
+            "ceil" => BuiltinScalarFunction::Ceil,
+            "cos" => BuiltinScalarFunction::Cos,
+            "exp" => BuiltinScalarFunction::Exp,
+            "floor" => BuiltinScalarFunction::Floor,
+            "log" => BuiltinScalarFunction::Log,
+            "log10" => BuiltinScalarFunction::Log10,
+            "log2" => BuiltinScalarFunction::Log2,
+            "round" => BuiltinScalarFunction::Round,
             "signum" => BuiltinScalarFunction::Signum,
-            "concat" => BuiltinScalarFunction::Concat,
-            "lower" => BuiltinScalarFunction::Lower,
-            "trim" => BuiltinScalarFunction::Trim,
-            "ltrim" => BuiltinScalarFunction::Ltrim,
-            "rtrim" => BuiltinScalarFunction::Rtrim,
-            "upper" => BuiltinScalarFunction::Upper,
-            "to_timestamp" => BuiltinScalarFunction::ToTimestamp,
-            "date_trunc" => BuiltinScalarFunction::DateTrunc,
-            "date_part" => BuiltinScalarFunction::DatePart,
+            "sin" => BuiltinScalarFunction::Sin,
+            "sqrt" => BuiltinScalarFunction::Sqrt,
+            "tan" => BuiltinScalarFunction::Tan,
+            "trunc" => BuiltinScalarFunction::Trunc,
+
+            // string functions
             "array" => BuiltinScalarFunction::Array,
-            "nullif" => BuiltinScalarFunction::NullIf,
+            "ascii" => BuiltinScalarFunction::Ascii,
+            "bit_length" => BuiltinScalarFunction::BitLength,
+            "btrim" => BuiltinScalarFunction::Btrim,
+            "char_length" => BuiltinScalarFunction::CharacterLength,
+            "character_length" => BuiltinScalarFunction::CharacterLength,
+            "concat" => BuiltinScalarFunction::Concat,
+            "concat_ws" => BuiltinScalarFunction::ConcatWithSeparator,
+            "chr" => BuiltinScalarFunction::Chr,
+            "date_part" => BuiltinScalarFunction::DatePart,
+            "date_trunc" => BuiltinScalarFunction::DateTrunc,
+            "initcap" => BuiltinScalarFunction::InitCap,
+            "left" => BuiltinScalarFunction::Left,
+            "length" => BuiltinScalarFunction::CharacterLength,
+            "lower" => BuiltinScalarFunction::Lower,
+            "lpad" => BuiltinScalarFunction::Lpad,
+            "ltrim" => BuiltinScalarFunction::Ltrim,
             "md5" => BuiltinScalarFunction::MD5,
+            "nullif" => BuiltinScalarFunction::NullIf,
+            "octet_length" => BuiltinScalarFunction::OctetLength,
+            "regexp_replace" => BuiltinScalarFunction::RegexpReplace,
+            "repeat" => BuiltinScalarFunction::Repeat,
+            "replace" => BuiltinScalarFunction::Replace,
+            "reverse" => BuiltinScalarFunction::Reverse,
+            "right" => BuiltinScalarFunction::Right,
+            "rpad" => BuiltinScalarFunction::Rpad,
+            "rtrim" => BuiltinScalarFunction::Rtrim,
             "sha224" => BuiltinScalarFunction::SHA224,
             "sha256" => BuiltinScalarFunction::SHA256,
             "sha384" => BuiltinScalarFunction::SHA384,
             "sha512" => BuiltinScalarFunction::SHA512,
-            "bit_length" => BuiltinScalarFunction::BitLength,
-            "octet_length" => BuiltinScalarFunction::OctetLength,
-            "length" => BuiltinScalarFunction::CharacterLength,
-            "char_length" => BuiltinScalarFunction::CharacterLength,
-            "character_length" => BuiltinScalarFunction::CharacterLength,
+            "split_part" => BuiltinScalarFunction::SplitPart,
+            "starts_with" => BuiltinScalarFunction::StartsWith,
+            "strpos" => BuiltinScalarFunction::Strpos,
+            "substr" => BuiltinScalarFunction::Substr,
+            "to_hex" => BuiltinScalarFunction::ToHex,
+            "to_timestamp" => BuiltinScalarFunction::ToTimestamp,
+            "translate" => BuiltinScalarFunction::Translate,
+            "trim" => BuiltinScalarFunction::Trim,
+            "upper" => BuiltinScalarFunction::Upper,
+
             _ => {
                 return Err(DataFusionError::Plan(format!(
                     "There is no built-in function named {}",
@@ -242,7 +305,68 @@ pub fn return_type(
     // the return type of the built in function.
     // Some built-in functions' return type depends on the incoming type.
     match fun {
+        BuiltinScalarFunction::Array => Ok(DataType::FixedSizeList(
+            Box::new(Field::new("item", arg_types[0].clone(), true)),
+            arg_types.len() as i32,
+        )),
+        BuiltinScalarFunction::Ascii => Ok(DataType::Int32),
+        BuiltinScalarFunction::BitLength => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::Int64,
+            DataType::Utf8 => DataType::Int32,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The bit_length function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Btrim => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The btrim function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::CharacterLength => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::Int64,
+            DataType::Utf8 => DataType::Int32,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The character_length function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Chr => Ok(DataType::Utf8),
         BuiltinScalarFunction::Concat => Ok(DataType::Utf8),
+        BuiltinScalarFunction::ConcatWithSeparator => Ok(DataType::Utf8),
+        BuiltinScalarFunction::DatePart => Ok(DataType::Int32),
+        BuiltinScalarFunction::DateTrunc => {
+            Ok(DataType::Timestamp(TimeUnit::Nanosecond, None))
+        }
+        BuiltinScalarFunction::InitCap => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The initcap function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Left => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The left function can only accept strings.".to_string(),
+                ));
+            }
+        }),
         BuiltinScalarFunction::Lower => Ok(match arg_types[0] {
             DataType::LargeUtf8 => DataType::LargeUtf8,
             DataType::Utf8 => DataType::Utf8,
@@ -250,6 +374,16 @@ pub fn return_type(
                 // this error is internal as `data_types` should have captured this.
                 return Err(DataFusionError::Internal(
                     "The upper function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Lpad => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The lpad function can only accept strings.".to_string(),
                 ));
             }
         }),
@@ -263,52 +397,6 @@ pub fn return_type(
                 ));
             }
         }),
-        BuiltinScalarFunction::Rtrim => Ok(match arg_types[0] {
-            DataType::LargeUtf8 => DataType::LargeUtf8,
-            DataType::Utf8 => DataType::Utf8,
-            _ => {
-                // this error is internal as `data_types` should have captured this.
-                return Err(DataFusionError::Internal(
-                    "The rtrim function can only accept strings.".to_string(),
-                ));
-            }
-        }),
-        BuiltinScalarFunction::Trim => Ok(match arg_types[0] {
-            DataType::LargeUtf8 => DataType::LargeUtf8,
-            DataType::Utf8 => DataType::Utf8,
-            _ => {
-                // this error is internal as `data_types` should have captured this.
-                return Err(DataFusionError::Internal(
-                    "The trim function can only accept strings.".to_string(),
-                ));
-            }
-        }),
-        BuiltinScalarFunction::Upper => Ok(match arg_types[0] {
-            DataType::LargeUtf8 => DataType::LargeUtf8,
-            DataType::Utf8 => DataType::Utf8,
-            _ => {
-                // this error is internal as `data_types` should have captured this.
-                return Err(DataFusionError::Internal(
-                    "The upper function can only accept strings.".to_string(),
-                ));
-            }
-        }),
-        BuiltinScalarFunction::ToTimestamp => {
-            Ok(DataType::Timestamp(TimeUnit::Nanosecond, None))
-        }
-        BuiltinScalarFunction::DateTrunc => {
-            Ok(DataType::Timestamp(TimeUnit::Nanosecond, None))
-        }
-        BuiltinScalarFunction::DatePart => Ok(DataType::Int32),
-        BuiltinScalarFunction::Array => Ok(DataType::FixedSizeList(
-            Box::new(Field::new("item", arg_types[0].clone(), true)),
-            arg_types.len() as i32,
-        )),
-        BuiltinScalarFunction::NullIf => {
-            // NULLIF has two args and they might get coerced, get a preview of this
-            let coerced_types = data_types(arg_types, &signature(fun));
-            coerced_types.map(|typs| typs[0].clone())
-        }
         BuiltinScalarFunction::MD5 => Ok(match arg_types[0] {
             DataType::LargeUtf8 => DataType::LargeUtf8,
             DataType::Utf8 => DataType::Utf8,
@@ -316,6 +404,91 @@ pub fn return_type(
                 // this error is internal as `data_types` should have captured this.
                 return Err(DataFusionError::Internal(
                     "The md5 function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::NullIf => {
+            // NULLIF has two args and they might get coerced, get a preview of this
+            let coerced_types = data_types(arg_types, &signature(fun));
+            coerced_types.map(|typs| typs[0].clone())
+        }
+        BuiltinScalarFunction::OctetLength => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::Int64,
+            DataType::Utf8 => DataType::Int32,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The octet_length function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::RegexpReplace => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The regexp_replace function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Repeat => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The repeat function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Replace => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The replace function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Reverse => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The reverse function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Right => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The right function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Rpad => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The rpad function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Rtrim => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The rtrim function can only accept strings.".to_string(),
                 ));
             }
         }),
@@ -359,38 +532,160 @@ pub fn return_type(
                 ));
             }
         }),
-        BuiltinScalarFunction::BitLength => Ok(match arg_types[0] {
+        BuiltinScalarFunction::SplitPart => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The split_part function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::StartsWith => Ok(DataType::Boolean),
+        BuiltinScalarFunction::Strpos => Ok(match arg_types[0] {
             DataType::LargeUtf8 => DataType::Int64,
             DataType::Utf8 => DataType::Int32,
             _ => {
                 // this error is internal as `data_types` should have captured this.
                 return Err(DataFusionError::Internal(
-                    "The bit_length function can only accept strings.".to_string(),
+                    "The strpos function can only accept strings.".to_string(),
                 ));
             }
         }),
-        BuiltinScalarFunction::CharacterLength => Ok(match arg_types[0] {
-            DataType::LargeUtf8 => DataType::Int64,
-            DataType::Utf8 => DataType::Int32,
+        BuiltinScalarFunction::Substr => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
             _ => {
                 // this error is internal as `data_types` should have captured this.
                 return Err(DataFusionError::Internal(
-                    "The character_length function can only accept strings.".to_string(),
+                    "The substr function can only accept strings.".to_string(),
                 ));
             }
         }),
-        BuiltinScalarFunction::OctetLength => Ok(match arg_types[0] {
-            DataType::LargeUtf8 => DataType::Int64,
-            DataType::Utf8 => DataType::Int32,
+        BuiltinScalarFunction::ToHex => Ok(match arg_types[0] {
+            DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => {
+                DataType::Utf8
+            }
             _ => {
                 // this error is internal as `data_types` should have captured this.
                 return Err(DataFusionError::Internal(
-                    "The octet_length function can only accept strings.".to_string(),
+                    "The to_hex function can only accept integers.".to_string(),
                 ));
             }
         }),
-        _ => Ok(DataType::Float64),
+        BuiltinScalarFunction::ToTimestamp => {
+            Ok(DataType::Timestamp(TimeUnit::Nanosecond, None))
+        }
+        BuiltinScalarFunction::Translate => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The translate function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Trim => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The trim function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+        BuiltinScalarFunction::Upper => Ok(match arg_types[0] {
+            DataType::LargeUtf8 => DataType::LargeUtf8,
+            DataType::Utf8 => DataType::Utf8,
+            _ => {
+                // this error is internal as `data_types` should have captured this.
+                return Err(DataFusionError::Internal(
+                    "The upper function can only accept strings.".to_string(),
+                ));
+            }
+        }),
+
+        BuiltinScalarFunction::Abs
+        | BuiltinScalarFunction::Acos
+        | BuiltinScalarFunction::Asin
+        | BuiltinScalarFunction::Atan
+        | BuiltinScalarFunction::Ceil
+        | BuiltinScalarFunction::Cos
+        | BuiltinScalarFunction::Exp
+        | BuiltinScalarFunction::Floor
+        | BuiltinScalarFunction::Log
+        | BuiltinScalarFunction::Log10
+        | BuiltinScalarFunction::Log2
+        | BuiltinScalarFunction::Round
+        | BuiltinScalarFunction::Signum
+        | BuiltinScalarFunction::Sin
+        | BuiltinScalarFunction::Sqrt
+        | BuiltinScalarFunction::Tan
+        | BuiltinScalarFunction::Trunc => Ok(DataType::Float64),
     }
+}
+
+#[cfg(feature = "crypto_expressions")]
+macro_rules! invoke_if_crypto_expressions_feature_flag {
+    ($FUNC:ident, $NAME:expr) => {{
+        use crate::physical_plan::crypto_expressions;
+        crypto_expressions::$FUNC
+    }};
+}
+
+#[cfg(not(feature = "crypto_expressions"))]
+macro_rules! invoke_if_crypto_expressions_feature_flag {
+    ($FUNC:ident, $NAME:expr) => {
+        |_: &[ColumnarValue]| -> Result<ColumnarValue> {
+            Err(DataFusionError::Internal(format!(
+                "function {} requires compilation with feature flag: crypto_expressions.",
+                $NAME
+            )))
+        }
+    };
+}
+
+#[cfg(feature = "regex_expressions")]
+macro_rules! invoke_if_regex_expressions_feature_flag {
+    ($FUNC:ident, $T:tt, $NAME:expr) => {{
+        use crate::physical_plan::regex_expressions;
+        regex_expressions::$FUNC::<$T>
+    }};
+}
+
+#[cfg(not(feature = "regex_expressions"))]
+macro_rules! invoke_if_regex_expressions_feature_flag {
+    ($FUNC:ident, $T:tt, $NAME:expr) => {
+        |_: &[ArrayRef]| -> Result<ArrayRef> {
+            Err(DataFusionError::Internal(format!(
+                "function {} requires compilation with feature flag: regex_expressions.",
+                $NAME
+            )))
+        }
+    };
+}
+
+#[cfg(feature = "unicode_expressions")]
+macro_rules! invoke_if_unicode_expressions_feature_flag {
+    ($FUNC:ident, $T:tt, $NAME:expr) => {{
+        use crate::physical_plan::unicode_expressions;
+        unicode_expressions::$FUNC::<$T>
+    }};
+}
+
+#[cfg(not(feature = "unicode_expressions"))]
+macro_rules! invoke_if_unicode_expressions_feature_flag {
+    ($FUNC:ident, $T:tt, $NAME:expr) => {
+        |_: &[ArrayRef]| -> Result<ArrayRef> {
+            Err(DataFusionError::Internal(format!(
+                "function {} requires compilation with feature flag: unicode_expressions.",
+                $NAME
+            )))
+        }
+    };
 }
 
 /// Create a physical (function) expression.
@@ -401,38 +696,39 @@ pub fn create_physical_expr(
     input_schema: &Schema,
 ) -> Result<Arc<dyn PhysicalExpr>> {
     let fun_expr: ScalarFunctionImplementation = Arc::new(match fun {
-        BuiltinScalarFunction::Sqrt => math_expressions::sqrt,
-        BuiltinScalarFunction::Sin => math_expressions::sin,
-        BuiltinScalarFunction::Cos => math_expressions::cos,
-        BuiltinScalarFunction::Tan => math_expressions::tan,
-        BuiltinScalarFunction::Asin => math_expressions::asin,
-        BuiltinScalarFunction::Acos => math_expressions::acos,
-        BuiltinScalarFunction::Atan => math_expressions::atan,
-        BuiltinScalarFunction::Exp => math_expressions::exp,
-        BuiltinScalarFunction::Log => math_expressions::ln,
-        BuiltinScalarFunction::Log2 => math_expressions::log2,
-        BuiltinScalarFunction::Log10 => math_expressions::log10,
-        BuiltinScalarFunction::Floor => math_expressions::floor,
-        BuiltinScalarFunction::Ceil => math_expressions::ceil,
-        BuiltinScalarFunction::Round => math_expressions::round,
-        BuiltinScalarFunction::Trunc => math_expressions::trunc,
+        // math functions
         BuiltinScalarFunction::Abs => math_expressions::abs,
+        BuiltinScalarFunction::Acos => math_expressions::acos,
+        BuiltinScalarFunction::Asin => math_expressions::asin,
+        BuiltinScalarFunction::Atan => math_expressions::atan,
+        BuiltinScalarFunction::Ceil => math_expressions::ceil,
+        BuiltinScalarFunction::Cos => math_expressions::cos,
+        BuiltinScalarFunction::Exp => math_expressions::exp,
+        BuiltinScalarFunction::Floor => math_expressions::floor,
+        BuiltinScalarFunction::Log => math_expressions::ln,
+        BuiltinScalarFunction::Log10 => math_expressions::log10,
+        BuiltinScalarFunction::Log2 => math_expressions::log2,
+        BuiltinScalarFunction::Round => math_expressions::round,
         BuiltinScalarFunction::Signum => math_expressions::signum,
-        BuiltinScalarFunction::NullIf => nullif_func,
-        BuiltinScalarFunction::MD5 => crypto_expressions::md5,
-        BuiltinScalarFunction::SHA224 => crypto_expressions::sha224,
-        BuiltinScalarFunction::SHA256 => crypto_expressions::sha256,
-        BuiltinScalarFunction::SHA384 => crypto_expressions::sha384,
-        BuiltinScalarFunction::SHA512 => crypto_expressions::sha512,
-        BuiltinScalarFunction::Concat => string_expressions::concatenate,
-        BuiltinScalarFunction::Lower => string_expressions::lower,
-        BuiltinScalarFunction::Trim => string_expressions::trim,
-        BuiltinScalarFunction::Ltrim => string_expressions::ltrim,
-        BuiltinScalarFunction::Rtrim => string_expressions::rtrim,
-        BuiltinScalarFunction::Upper => string_expressions::upper,
-        BuiltinScalarFunction::ToTimestamp => datetime_expressions::to_timestamp,
-        BuiltinScalarFunction::DateTrunc => datetime_expressions::date_trunc,
+        BuiltinScalarFunction::Sin => math_expressions::sin,
+        BuiltinScalarFunction::Sqrt => math_expressions::sqrt,
+        BuiltinScalarFunction::Tan => math_expressions::tan,
+        BuiltinScalarFunction::Trunc => math_expressions::trunc,
+
+        // string functions
         BuiltinScalarFunction::Array => array_expressions::array,
+        BuiltinScalarFunction::Ascii => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::ascii::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::ascii::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function ascii",
+                other,
+            ))),
+        },
         BuiltinScalarFunction::BitLength => |args| match &args[0] {
             ColumnarValue::Array(v) => Ok(ColumnarValue::Array(bit_length(v.as_ref())?)),
             ColumnarValue::Scalar(v) => match v {
@@ -445,18 +741,106 @@ pub fn create_physical_expr(
                 _ => unreachable!(),
             },
         },
+        BuiltinScalarFunction::Btrim => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::btrim::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::btrim::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function btrim",
+                other,
+            ))),
+        },
         BuiltinScalarFunction::CharacterLength => |args| match args[0].data_type() {
-            DataType::Utf8 => make_scalar_function(
-                string_expressions::character_length::<Int32Type>,
-            )(args),
-            DataType::LargeUtf8 => make_scalar_function(
-                string_expressions::character_length::<Int64Type>,
-            )(args),
+            DataType::Utf8 => {
+                let func = invoke_if_unicode_expressions_feature_flag!(
+                    character_length,
+                    Int32Type,
+                    "character_length"
+                );
+                make_scalar_function(func)(args)
+            }
+            DataType::LargeUtf8 => {
+                let func = invoke_if_unicode_expressions_feature_flag!(
+                    character_length,
+                    Int64Type,
+                    "character_length"
+                );
+                make_scalar_function(func)(args)
+            }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?} for function character_length",
                 other,
             ))),
         },
+        BuiltinScalarFunction::Chr => {
+            |args| make_scalar_function(string_expressions::chr)(args)
+        }
+        BuiltinScalarFunction::Concat => string_expressions::concat,
+        BuiltinScalarFunction::ConcatWithSeparator => {
+            |args| make_scalar_function(string_expressions::concat_ws)(args)
+        }
+        BuiltinScalarFunction::DatePart => datetime_expressions::date_part,
+        BuiltinScalarFunction::DateTrunc => datetime_expressions::date_trunc,
+        BuiltinScalarFunction::InitCap => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::initcap::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::initcap::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function initcap",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Left => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                let func = invoke_if_unicode_expressions_feature_flag!(left, i32, "left");
+                make_scalar_function(func)(args)
+            }
+            DataType::LargeUtf8 => {
+                let func = invoke_if_unicode_expressions_feature_flag!(left, i64, "left");
+                make_scalar_function(func)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function left",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Lower => string_expressions::lower,
+        BuiltinScalarFunction::Lpad => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                let func = invoke_if_unicode_expressions_feature_flag!(lpad, i32, "lpad");
+                make_scalar_function(func)(args)
+            }
+            DataType::LargeUtf8 => {
+                let func = invoke_if_unicode_expressions_feature_flag!(lpad, i64, "lpad");
+                make_scalar_function(func)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function lpad",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Ltrim => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::ltrim::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::ltrim::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function ltrim",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::MD5 => {
+            invoke_if_crypto_expressions_feature_flag!(md5, "md5")
+        }
+        BuiltinScalarFunction::NullIf => nullif_func,
         BuiltinScalarFunction::OctetLength => |args| match &args[0] {
             ColumnarValue::Array(v) => Ok(ColumnarValue::Array(length(v.as_ref())?)),
             ColumnarValue::Scalar(v) => match v {
@@ -469,7 +853,228 @@ pub fn create_physical_expr(
                 _ => unreachable!(),
             },
         },
-        BuiltinScalarFunction::DatePart => datetime_expressions::date_part,
+        BuiltinScalarFunction::RegexpReplace => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                let func = invoke_if_regex_expressions_feature_flag!(
+                    regexp_replace,
+                    i32,
+                    "regexp_replace"
+                );
+                make_scalar_function(func)(args)
+            }
+            DataType::LargeUtf8 => {
+                let func = invoke_if_regex_expressions_feature_flag!(
+                    regexp_replace,
+                    i64,
+                    "regexp_replace"
+                );
+                make_scalar_function(func)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function regexp_replace",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Repeat => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::repeat::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::repeat::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function repeat",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Replace => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::replace::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::replace::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function replace",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Reverse => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                let func =
+                    invoke_if_unicode_expressions_feature_flag!(reverse, i32, "reverse");
+                make_scalar_function(func)(args)
+            }
+            DataType::LargeUtf8 => {
+                let func =
+                    invoke_if_unicode_expressions_feature_flag!(reverse, i64, "reverse");
+                make_scalar_function(func)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function reverse",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Right => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                let func =
+                    invoke_if_unicode_expressions_feature_flag!(right, i32, "right");
+                make_scalar_function(func)(args)
+            }
+            DataType::LargeUtf8 => {
+                let func =
+                    invoke_if_unicode_expressions_feature_flag!(right, i64, "right");
+                make_scalar_function(func)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function right",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Rpad => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                let func = invoke_if_unicode_expressions_feature_flag!(rpad, i32, "rpad");
+                make_scalar_function(func)(args)
+            }
+            DataType::LargeUtf8 => {
+                let func = invoke_if_unicode_expressions_feature_flag!(rpad, i64, "rpad");
+                make_scalar_function(func)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function rpad",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Rtrim => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::rtrim::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::rtrim::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function rtrim",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::SHA224 => {
+            invoke_if_crypto_expressions_feature_flag!(sha224, "sha224")
+        }
+        BuiltinScalarFunction::SHA256 => {
+            invoke_if_crypto_expressions_feature_flag!(sha256, "sha256")
+        }
+        BuiltinScalarFunction::SHA384 => {
+            invoke_if_crypto_expressions_feature_flag!(sha384, "sha384")
+        }
+        BuiltinScalarFunction::SHA512 => {
+            invoke_if_crypto_expressions_feature_flag!(sha512, "sha512")
+        }
+        BuiltinScalarFunction::SplitPart => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::split_part::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::split_part::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function split_part",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::StartsWith => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::starts_with::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::starts_with::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function starts_with",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Strpos => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                let func = invoke_if_unicode_expressions_feature_flag!(
+                    strpos, Int32Type, "strpos"
+                );
+                make_scalar_function(func)(args)
+            }
+            DataType::LargeUtf8 => {
+                let func = invoke_if_unicode_expressions_feature_flag!(
+                    strpos, Int64Type, "strpos"
+                );
+                make_scalar_function(func)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function strpos",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Substr => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                let func =
+                    invoke_if_unicode_expressions_feature_flag!(substr, i32, "substr");
+                make_scalar_function(func)(args)
+            }
+            DataType::LargeUtf8 => {
+                let func =
+                    invoke_if_unicode_expressions_feature_flag!(substr, i64, "substr");
+                make_scalar_function(func)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function substr",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::ToHex => |args| match args[0].data_type() {
+            DataType::Int32 => {
+                make_scalar_function(string_expressions::to_hex::<Int32Type>)(args)
+            }
+            DataType::Int64 => {
+                make_scalar_function(string_expressions::to_hex::<Int64Type>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function to_hex",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::ToTimestamp => datetime_expressions::to_timestamp,
+        BuiltinScalarFunction::Translate => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                let func = invoke_if_unicode_expressions_feature_flag!(
+                    translate,
+                    i32,
+                    "translate"
+                );
+                make_scalar_function(func)(args)
+            }
+            DataType::LargeUtf8 => {
+                let func = invoke_if_unicode_expressions_feature_flag!(
+                    translate,
+                    i64,
+                    "translate"
+                );
+                make_scalar_function(func)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function translate",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Trim => |args| match args[0].data_type() {
+            DataType::Utf8 => {
+                make_scalar_function(string_expressions::btrim::<i32>)(args)
+            }
+            DataType::LargeUtf8 => {
+                make_scalar_function(string_expressions::btrim::<i64>)(args)
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function trim",
+                other,
+            ))),
+        },
+        BuiltinScalarFunction::Upper => string_expressions::upper,
     });
     // coerce
     let args = coerce(args, input_schema, &signature(fun))?;
@@ -493,22 +1098,65 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
 
     // for now, the list is small, as we do not have many built-in functions.
     match fun {
-        BuiltinScalarFunction::Concat => Signature::Variadic(vec![DataType::Utf8]),
-        BuiltinScalarFunction::Upper
-        | BuiltinScalarFunction::Lower
+        BuiltinScalarFunction::Array => {
+            Signature::Variadic(array_expressions::SUPPORTED_ARRAY_TYPES.to_vec())
+        }
+        BuiltinScalarFunction::Concat | BuiltinScalarFunction::ConcatWithSeparator => {
+            Signature::Variadic(vec![DataType::Utf8])
+        }
+        BuiltinScalarFunction::Ascii
         | BuiltinScalarFunction::BitLength
         | BuiltinScalarFunction::CharacterLength
-        | BuiltinScalarFunction::OctetLength
-        | BuiltinScalarFunction::Trim
-        | BuiltinScalarFunction::Ltrim
-        | BuiltinScalarFunction::Rtrim
+        | BuiltinScalarFunction::InitCap
+        | BuiltinScalarFunction::Lower
         | BuiltinScalarFunction::MD5
+        | BuiltinScalarFunction::OctetLength
+        | BuiltinScalarFunction::Reverse
         | BuiltinScalarFunction::SHA224
         | BuiltinScalarFunction::SHA256
         | BuiltinScalarFunction::SHA384
-        | BuiltinScalarFunction::SHA512 => {
+        | BuiltinScalarFunction::SHA512
+        | BuiltinScalarFunction::Trim
+        | BuiltinScalarFunction::Upper => {
             Signature::Uniform(1, vec![DataType::Utf8, DataType::LargeUtf8])
         }
+        BuiltinScalarFunction::Btrim
+        | BuiltinScalarFunction::Ltrim
+        | BuiltinScalarFunction::Rtrim => Signature::OneOf(vec![
+            Signature::Exact(vec![DataType::Utf8]),
+            Signature::Exact(vec![DataType::Utf8, DataType::Utf8]),
+        ]),
+        BuiltinScalarFunction::Chr | BuiltinScalarFunction::ToHex => {
+            Signature::Uniform(1, vec![DataType::Int64])
+        }
+        BuiltinScalarFunction::Lpad | BuiltinScalarFunction::Rpad => {
+            Signature::OneOf(vec![
+                Signature::Exact(vec![DataType::Utf8, DataType::Int64]),
+                Signature::Exact(vec![DataType::LargeUtf8, DataType::Int64]),
+                Signature::Exact(vec![DataType::Utf8, DataType::Int64, DataType::Utf8]),
+                Signature::Exact(vec![
+                    DataType::LargeUtf8,
+                    DataType::Int64,
+                    DataType::Utf8,
+                ]),
+                Signature::Exact(vec![
+                    DataType::Utf8,
+                    DataType::Int64,
+                    DataType::LargeUtf8,
+                ]),
+                Signature::Exact(vec![
+                    DataType::LargeUtf8,
+                    DataType::Int64,
+                    DataType::LargeUtf8,
+                ]),
+            ])
+        }
+        BuiltinScalarFunction::Left
+        | BuiltinScalarFunction::Repeat
+        | BuiltinScalarFunction::Right => Signature::OneOf(vec![
+            Signature::Exact(vec![DataType::Utf8, DataType::Int64]),
+            Signature::Exact(vec![DataType::LargeUtf8, DataType::Int64]),
+        ]),
         BuiltinScalarFunction::ToTimestamp => Signature::Uniform(1, vec![DataType::Utf8]),
         BuiltinScalarFunction::DateTrunc => Signature::Exact(vec![
             DataType::Utf8,
@@ -534,9 +1182,50 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
                 DataType::Timestamp(TimeUnit::Nanosecond, None),
             ]),
         ]),
-        BuiltinScalarFunction::Array => {
-            Signature::Variadic(array_expressions::SUPPORTED_ARRAY_TYPES.to_vec())
+        BuiltinScalarFunction::SplitPart => Signature::OneOf(vec![
+            Signature::Exact(vec![DataType::Utf8, DataType::Utf8, DataType::Int64]),
+            Signature::Exact(vec![DataType::LargeUtf8, DataType::Utf8, DataType::Int64]),
+            Signature::Exact(vec![DataType::Utf8, DataType::LargeUtf8, DataType::Int64]),
+            Signature::Exact(vec![
+                DataType::LargeUtf8,
+                DataType::LargeUtf8,
+                DataType::Int64,
+            ]),
+        ]),
+
+        BuiltinScalarFunction::Strpos | BuiltinScalarFunction::StartsWith => {
+            Signature::OneOf(vec![
+                Signature::Exact(vec![DataType::Utf8, DataType::Utf8]),
+                Signature::Exact(vec![DataType::Utf8, DataType::LargeUtf8]),
+                Signature::Exact(vec![DataType::LargeUtf8, DataType::Utf8]),
+                Signature::Exact(vec![DataType::LargeUtf8, DataType::LargeUtf8]),
+            ])
         }
+
+        BuiltinScalarFunction::Substr => Signature::OneOf(vec![
+            Signature::Exact(vec![DataType::Utf8, DataType::Int64]),
+            Signature::Exact(vec![DataType::LargeUtf8, DataType::Int64]),
+            Signature::Exact(vec![DataType::Utf8, DataType::Int64, DataType::Int64]),
+            Signature::Exact(vec![DataType::LargeUtf8, DataType::Int64, DataType::Int64]),
+        ]),
+
+        BuiltinScalarFunction::Replace | BuiltinScalarFunction::Translate => {
+            Signature::OneOf(vec![Signature::Exact(vec![
+                DataType::Utf8,
+                DataType::Utf8,
+                DataType::Utf8,
+            ])])
+        }
+        BuiltinScalarFunction::RegexpReplace => Signature::OneOf(vec![
+            Signature::Exact(vec![DataType::Utf8, DataType::Utf8, DataType::Utf8]),
+            Signature::Exact(vec![
+                DataType::Utf8,
+                DataType::Utf8,
+                DataType::Utf8,
+                DataType::Utf8,
+            ]),
+        ]),
+
         BuiltinScalarFunction::NullIf => {
             Signature::Uniform(2, SUPPORTED_NULLIF_TYPES.to_vec())
         }
@@ -696,8 +1385,8 @@ mod tests {
     };
     use arrow::{
         array::{
-            Array, ArrayRef, FixedSizeListArray, Float64Array, Int32Array, StringArray,
-            UInt32Array, UInt64Array,
+            Array, ArrayRef, BinaryArray, BooleanArray, FixedSizeListArray, Float64Array,
+            Int32Array, StringArray, UInt32Array, UInt64Array,
         },
         datatypes::Field,
         record_batch::RecordBatch,
@@ -754,6 +1443,155 @@ mod tests {
     #[test]
     fn test_functions() -> Result<()> {
         test_function!(
+            Ascii,
+            &[lit(ScalarValue::Utf8(Some("x".to_string())))],
+            Ok(Some(120)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            Ascii,
+            &[lit(ScalarValue::Utf8(Some("ésoj".to_string())))],
+            Ok(Some(233)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            Ascii,
+            &[lit(ScalarValue::Utf8(Some("💯".to_string())))],
+            Ok(Some(128175)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            Ascii,
+            &[lit(ScalarValue::Utf8(Some("💯a".to_string())))],
+            Ok(Some(128175)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            Ascii,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some(0)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            Ascii,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            BitLength,
+            &[lit(ScalarValue::Utf8(Some("chars".to_string())))],
+            Ok(Some(40)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            BitLength,
+            &[lit(ScalarValue::Utf8(Some("josé".to_string())))],
+            Ok(Some(40)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            BitLength,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some(0)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            Btrim,
+            &[lit(ScalarValue::Utf8(Some(" trim ".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Btrim,
+            &[lit(ScalarValue::Utf8(Some(" trim".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Btrim,
+            &[lit(ScalarValue::Utf8(Some("trim ".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Btrim,
+            &[lit(ScalarValue::Utf8(Some("\n trim \n".to_string())))],
+            Ok(Some("\n trim \n")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Btrim,
+            &[
+                lit(ScalarValue::Utf8(Some("xyxtrimyyx".to_string()))),
+                lit(ScalarValue::Utf8(Some("xyz".to_string()))),
+            ],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Btrim,
+            &[
+                lit(ScalarValue::Utf8(Some("\nxyxtrimyyx\n".to_string()))),
+                lit(ScalarValue::Utf8(Some("xyz\n".to_string()))),
+            ],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Btrim,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("xyz".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Btrim,
+            &[
+                lit(ScalarValue::Utf8(Some("xyxtrimyyx".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
             CharacterLength,
             &[lit(ScalarValue::Utf8(Some("chars".to_string())))],
             Ok(Some(5)),
@@ -761,6 +1599,7 @@ mod tests {
             Int32,
             Int32Array
         );
+        #[cfg(feature = "unicode_expressions")]
         test_function!(
             CharacterLength,
             &[lit(ScalarValue::Utf8(Some("josé".to_string())))],
@@ -769,6 +1608,7 @@ mod tests {
             Int32,
             Int32Array
         );
+        #[cfg(feature = "unicode_expressions")]
         test_function!(
             CharacterLength,
             &[lit(ScalarValue::Utf8(Some("".to_string())))],
@@ -777,6 +1617,7 @@ mod tests {
             Int32,
             Int32Array
         );
+        #[cfg(feature = "unicode_expressions")]
         test_function!(
             CharacterLength,
             &[lit(ScalarValue::Utf8(None))],
@@ -784,6 +1625,159 @@ mod tests {
             i32,
             Int32,
             Int32Array
+        );
+        #[cfg(not(feature = "unicode_expressions"))]
+        test_function!(
+            CharacterLength,
+            &[lit(ScalarValue::Utf8(Some("josé".to_string())))],
+            Err(DataFusionError::Internal(
+                "function character_length requires compilation with feature flag: unicode_expressions.".to_string()
+            )),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            Chr,
+            &[lit(ScalarValue::Int64(Some(128175)))],
+            Ok(Some("💯")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Chr,
+            &[lit(ScalarValue::Int64(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Chr,
+            &[lit(ScalarValue::Int64(Some(120)))],
+            Ok(Some("x")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Chr,
+            &[lit(ScalarValue::Int64(Some(128175)))],
+            Ok(Some("💯")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Chr,
+            &[lit(ScalarValue::Int64(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Chr,
+            &[lit(ScalarValue::Int64(Some(0)))],
+            Err(DataFusionError::Execution(
+                "null character not permitted.".to_string(),
+            )),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Chr,
+            &[lit(ScalarValue::Int64(Some(i64::MAX)))],
+            Err(DataFusionError::Execution(
+                "requested character too large for encoding.".to_string(),
+            )),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Concat,
+            &[
+                lit(ScalarValue::Utf8(Some("aa".to_string()))),
+                lit(ScalarValue::Utf8(Some("bb".to_string()))),
+                lit(ScalarValue::Utf8(Some("cc".to_string()))),
+            ],
+            Ok(Some("aabbcc")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Concat,
+            &[
+                lit(ScalarValue::Utf8(Some("aa".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("cc".to_string()))),
+            ],
+            Ok(Some("aacc")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Concat,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            ConcatWithSeparator,
+            &[
+                lit(ScalarValue::Utf8(Some("|".to_string()))),
+                lit(ScalarValue::Utf8(Some("aa".to_string()))),
+                lit(ScalarValue::Utf8(Some("bb".to_string()))),
+                lit(ScalarValue::Utf8(Some("cc".to_string()))),
+            ],
+            Ok(Some("aa|bb|cc")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            ConcatWithSeparator,
+            &[
+                lit(ScalarValue::Utf8(Some("|".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            ConcatWithSeparator,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("aa".to_string()))),
+                lit(ScalarValue::Utf8(Some("bb".to_string()))),
+                lit(ScalarValue::Utf8(Some("cc".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            ConcatWithSeparator,
+            &[
+                lit(ScalarValue::Utf8(Some("|".to_string()))),
+                lit(ScalarValue::Utf8(Some("aa".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("cc".to_string()))),
+            ],
+            Ok(Some("aa|cc")),
+            &str,
+            Utf8,
+            StringArray
         );
         test_function!(
             Exp,
@@ -825,40 +1819,1752 @@ mod tests {
             Float64,
             Float64Array
         );
+        test_function!(
+            InitCap,
+            &[lit(ScalarValue::Utf8(Some("hi THOMAS".to_string())))],
+            Ok(Some("Hi Thomas")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            InitCap,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            InitCap,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            InitCap,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int8(Some(2))),
+            ],
+            Ok(Some("ab")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(200))),
+            ],
+            Ok(Some("abcde")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(-2))),
+            ],
+            Ok(Some("abc")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(-200))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(0))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(2))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some("joséé")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Int64(Some(-3))),
+            ],
+            Ok(Some("joséé")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(not(feature = "unicode_expressions"))]
+        test_function!(
+            Left,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int8(Some(2))),
+            ],
+            Err(DataFusionError::Internal(
+                "function left requires compilation with feature flag: unicode_expressions.".to_string()
+            )),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some(" josé")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some("   hi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(0))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(Some("xyxhi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(21))),
+                lit(ScalarValue::Utf8(Some("abcdef".to_string()))),
+            ],
+            Ok(Some("abcdefabcdefabcdefahi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some(" ".to_string()))),
+            ],
+            Ok(Some("   hi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("".to_string()))),
+            ],
+            Ok(Some("hi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(None)),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(10))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(Some("xyxyxyjosé")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(10))),
+                lit(ScalarValue::Utf8(Some("éñ".to_string()))),
+            ],
+            Ok(Some("éñéñéñjosé")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(not(feature = "unicode_expressions"))]
+        test_function!(
+            Lpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Err(DataFusionError::Internal(
+                "function lpad requires compilation with feature flag: unicode_expressions.".to_string()
+            )),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Ltrim,
+            &[lit(ScalarValue::Utf8(Some(" trim".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Ltrim,
+            &[lit(ScalarValue::Utf8(Some(" trim ".to_string())))],
+            Ok(Some("trim ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Ltrim,
+            &[lit(ScalarValue::Utf8(Some("trim ".to_string())))],
+            Ok(Some("trim ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Ltrim,
+            &[lit(ScalarValue::Utf8(Some("trim".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Ltrim,
+            &[lit(ScalarValue::Utf8(Some("\n trim ".to_string())))],
+            Ok(Some("\n trim ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Ltrim,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            MD5,
+            &[lit(ScalarValue::Utf8(Some("tom".to_string())))],
+            Ok(Some("34b7da764b21d298ef307d04d8152dc5")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            MD5,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some("d41d8cd98f00b204e9800998ecf8427e")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            MD5,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(not(feature = "crypto_expressions"))]
+        test_function!(
+            MD5,
+            &[lit(ScalarValue::Utf8(Some("tom".to_string())))],
+            Err(DataFusionError::Internal(
+                "function md5 requires compilation with feature flag: crypto_expressions.".to_string()
+            )),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            OctetLength,
+            &[lit(ScalarValue::Utf8(Some("chars".to_string())))],
+            Ok(Some(5)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            OctetLength,
+            &[lit(ScalarValue::Utf8(Some("josé".to_string())))],
+            Ok(Some(5)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            OctetLength,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some(0)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        test_function!(
+            OctetLength,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            i32,
+            Int32,
+            Int32Array
+        );
+        #[cfg(feature = "regex_expressions")]
+        test_function!(
+            RegexpReplace,
+            &[
+                lit(ScalarValue::Utf8(Some("Thomas".to_string()))),
+                lit(ScalarValue::Utf8(Some(".[mN]a.".to_string()))),
+                lit(ScalarValue::Utf8(Some("M".to_string()))),
+            ],
+            Ok(Some("ThM")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "regex_expressions")]
+        test_function!(
+            RegexpReplace,
+            &[
+                lit(ScalarValue::Utf8(Some("foobarbaz".to_string()))),
+                lit(ScalarValue::Utf8(Some("b..".to_string()))),
+                lit(ScalarValue::Utf8(Some("X".to_string()))),
+            ],
+            Ok(Some("fooXbaz")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "regex_expressions")]
+        test_function!(
+            RegexpReplace,
+            &[
+                lit(ScalarValue::Utf8(Some("foobarbaz".to_string()))),
+                lit(ScalarValue::Utf8(Some("b..".to_string()))),
+                lit(ScalarValue::Utf8(Some("X".to_string()))),
+                lit(ScalarValue::Utf8(Some("g".to_string()))),
+            ],
+            Ok(Some("fooXX")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "regex_expressions")]
+        test_function!(
+            RegexpReplace,
+            &[
+                lit(ScalarValue::Utf8(Some("foobarbaz".to_string()))),
+                lit(ScalarValue::Utf8(Some("b(..)".to_string()))),
+                lit(ScalarValue::Utf8(Some("X\\1Y".to_string()))),
+                lit(ScalarValue::Utf8(Some("g".to_string()))),
+            ],
+            Ok(Some("fooXarYXazY")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "regex_expressions")]
+        test_function!(
+            RegexpReplace,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("b(..)".to_string()))),
+                lit(ScalarValue::Utf8(Some("X\\1Y".to_string()))),
+                lit(ScalarValue::Utf8(Some("g".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "regex_expressions")]
+        test_function!(
+            RegexpReplace,
+            &[
+                lit(ScalarValue::Utf8(Some("foobarbaz".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("X\\1Y".to_string()))),
+                lit(ScalarValue::Utf8(Some("g".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "regex_expressions")]
+        test_function!(
+            RegexpReplace,
+            &[
+                lit(ScalarValue::Utf8(Some("foobarbaz".to_string()))),
+                lit(ScalarValue::Utf8(Some("b(..)".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("g".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "regex_expressions")]
+        test_function!(
+            RegexpReplace,
+            &[
+                lit(ScalarValue::Utf8(Some("foobarbaz".to_string()))),
+                lit(ScalarValue::Utf8(Some("b(..)".to_string()))),
+                lit(ScalarValue::Utf8(Some("X\\1Y".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "regex_expressions")]
+        test_function!(
+            RegexpReplace,
+            &[
+                lit(ScalarValue::Utf8(Some("ABCabcABC".to_string()))),
+                lit(ScalarValue::Utf8(Some("(abc)".to_string()))),
+                lit(ScalarValue::Utf8(Some("X".to_string()))),
+                lit(ScalarValue::Utf8(Some("gi".to_string()))),
+            ],
+            Ok(Some("XXX")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "regex_expressions")]
+        test_function!(
+            RegexpReplace,
+            &[
+                lit(ScalarValue::Utf8(Some("ABCabcABC".to_string()))),
+                lit(ScalarValue::Utf8(Some("(abc)".to_string()))),
+                lit(ScalarValue::Utf8(Some("X".to_string()))),
+                lit(ScalarValue::Utf8(Some("i".to_string()))),
+            ],
+            Ok(Some("XabcABC")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(not(feature = "regex_expressions"))]
+        test_function!(
+            RegexpReplace,
+            &[
+                lit(ScalarValue::Utf8(Some("foobarbaz".to_string()))),
+                lit(ScalarValue::Utf8(Some("b..".to_string()))),
+                lit(ScalarValue::Utf8(Some("X".to_string()))),
+            ],
+            Err(DataFusionError::Internal(
+                "function regexp_replace requires compilation with feature flag: regex_expressions.".to_string()
+            )),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Repeat,
+            &[
+                lit(ScalarValue::Utf8(Some("Pg".to_string()))),
+                lit(ScalarValue::Int64(Some(4))),
+            ],
+            Ok(Some("PgPgPgPg")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Repeat,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(4))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Repeat,
+            &[
+                lit(ScalarValue::Utf8(Some("Pg".to_string()))),
+                lit(ScalarValue::Int64(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Reverse,
+            &[lit(ScalarValue::Utf8(Some("abcde".to_string())))],
+            Ok(Some("edcba")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Reverse,
+            &[lit(ScalarValue::Utf8(Some("loẅks".to_string())))],
+            Ok(Some("skẅol")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Reverse,
+            &[lit(ScalarValue::Utf8(Some("loẅks".to_string())))],
+            Ok(Some("skẅol")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Reverse,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(not(feature = "unicode_expressions"))]
+        test_function!(
+            Reverse,
+            &[lit(ScalarValue::Utf8(Some("abcde".to_string())))],
+            Err(DataFusionError::Internal(
+                "function reverse requires compilation with feature flag: unicode_expressions.".to_string()
+            )),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int8(Some(2))),
+            ],
+            Ok(Some("de")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(200))),
+            ],
+            Ok(Some("abcde")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(-2))),
+            ],
+            Ok(Some("cde")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(-200))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(Some(0))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(2))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int64(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some("éésoj")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Int64(Some(-3))),
+            ],
+            Ok(Some("éésoj")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(not(feature = "unicode_expressions"))]
+        test_function!(
+            Right,
+            &[
+                lit(ScalarValue::Utf8(Some("abcde".to_string()))),
+                lit(ScalarValue::Int8(Some(2))),
+            ],
+            Err(DataFusionError::Internal(
+                "function right requires compilation with feature flag: unicode_expressions.".to_string()
+            )),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some("josé ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some("hi   ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(0))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(Some("hixyx")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(21))),
+                lit(ScalarValue::Utf8(Some("abcdef".to_string()))),
+            ],
+            Ok(Some("hiabcdefabcdefabcdefa")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some(" ".to_string()))),
+            ],
+            Ok(Some("hi   ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("".to_string()))),
+            ],
+            Ok(Some("hi")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(None)),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("hi".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Utf8(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(10))),
+                lit(ScalarValue::Utf8(Some("xy".to_string()))),
+            ],
+            Ok(Some("joséxyxyxy")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(10))),
+                lit(ScalarValue::Utf8(Some("éñ".to_string()))),
+            ],
+            Ok(Some("josééñéñéñ")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(not(feature = "unicode_expressions"))]
+        test_function!(
+            Rpad,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Err(DataFusionError::Internal(
+                "function rpad requires compilation with feature flag: unicode_expressions.".to_string()
+            )),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(Some("trim ".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(Some(" trim ".to_string())))],
+            Ok(Some(" trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(Some(" trim \n".to_string())))],
+            Ok(Some(" trim \n")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(Some(" trim".to_string())))],
+            Ok(Some(" trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(Some("trim".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Rtrim,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA224,
+            &[lit(ScalarValue::Utf8(Some("tom".to_string())))],
+            Ok(Some(&[
+                11u8, 246u8, 203u8, 98u8, 100u8, 156u8, 66u8, 169u8, 174u8, 56u8, 118u8,
+                171u8, 111u8, 109u8, 146u8, 173u8, 54u8, 203u8, 84u8, 20u8, 228u8, 149u8,
+                248u8, 135u8, 50u8, 146u8, 190u8, 77u8
+            ])),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA224,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some(&[
+                209u8, 74u8, 2u8, 140u8, 42u8, 58u8, 43u8, 201u8, 71u8, 97u8, 2u8, 187u8,
+                40u8, 130u8, 52u8, 196u8, 21u8, 162u8, 176u8, 31u8, 130u8, 142u8, 166u8,
+                42u8, 197u8, 179u8, 228u8, 47u8
+            ])),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA224,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(not(feature = "crypto_expressions"))]
+        test_function!(
+            SHA224,
+            &[lit(ScalarValue::Utf8(Some("tom".to_string())))],
+            Err(DataFusionError::Internal(
+                "function sha224 requires compilation with feature flag: crypto_expressions.".to_string()
+            )),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA256,
+            &[lit(ScalarValue::Utf8(Some("tom".to_string())))],
+            Ok(Some(&[
+                225u8, 96u8, 143u8, 117u8, 197u8, 215u8, 129u8, 63u8, 61u8, 64u8, 49u8,
+                203u8, 48u8, 191u8, 183u8, 134u8, 80u8, 125u8, 152u8, 19u8, 117u8, 56u8,
+                255u8, 142u8, 18u8, 138u8, 111u8, 247u8, 78u8, 132u8, 230u8, 67u8
+            ])),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA256,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some(&[
+                227u8, 176u8, 196u8, 66u8, 152u8, 252u8, 28u8, 20u8, 154u8, 251u8, 244u8,
+                200u8, 153u8, 111u8, 185u8, 36u8, 39u8, 174u8, 65u8, 228u8, 100u8, 155u8,
+                147u8, 76u8, 164u8, 149u8, 153u8, 27u8, 120u8, 82u8, 184u8, 85u8
+            ])),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA256,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(not(feature = "crypto_expressions"))]
+        test_function!(
+            SHA256,
+            &[lit(ScalarValue::Utf8(Some("tom".to_string())))],
+            Err(DataFusionError::Internal(
+                "function sha256 requires compilation with feature flag: crypto_expressions.".to_string()
+            )),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA384,
+            &[lit(ScalarValue::Utf8(Some("tom".to_string())))],
+            Ok(Some(&[
+                9u8, 111u8, 91u8, 104u8, 170u8, 119u8, 132u8, 142u8, 79u8, 223u8, 92u8,
+                28u8, 11u8, 53u8, 13u8, 226u8, 219u8, 250u8, 214u8, 15u8, 253u8, 124u8,
+                37u8, 217u8, 234u8, 7u8, 198u8, 193u8, 155u8, 138u8, 77u8, 85u8, 169u8,
+                24u8, 126u8, 177u8, 23u8, 197u8, 87u8, 136u8, 63u8, 88u8, 193u8, 109u8,
+                250u8, 195u8, 227u8, 67u8
+            ])),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA384,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some(&[
+                56u8, 176u8, 96u8, 167u8, 81u8, 172u8, 150u8, 56u8, 76u8, 217u8, 50u8,
+                126u8, 177u8, 177u8, 227u8, 106u8, 33u8, 253u8, 183u8, 17u8, 20u8, 190u8,
+                7u8, 67u8, 76u8, 12u8, 199u8, 191u8, 99u8, 246u8, 225u8, 218u8, 39u8,
+                78u8, 222u8, 191u8, 231u8, 111u8, 101u8, 251u8, 213u8, 26u8, 210u8,
+                241u8, 72u8, 152u8, 185u8, 91u8
+            ])),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA384,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(not(feature = "crypto_expressions"))]
+        test_function!(
+            SHA384,
+            &[lit(ScalarValue::Utf8(Some("tom".to_string())))],
+            Err(DataFusionError::Internal(
+                "function sha384 requires compilation with feature flag: crypto_expressions.".to_string()
+            )),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA512,
+            &[lit(ScalarValue::Utf8(Some("tom".to_string())))],
+            Ok(Some(&[
+                110u8, 27u8, 155u8, 63u8, 232u8, 64u8, 104u8, 14u8, 55u8, 5u8, 31u8,
+                122u8, 213u8, 233u8, 89u8, 214u8, 243u8, 154u8, 208u8, 248u8, 136u8,
+                93u8, 133u8, 81u8, 102u8, 245u8, 92u8, 101u8, 148u8, 105u8, 211u8, 200u8,
+                183u8, 129u8, 24u8, 196u8, 74u8, 42u8, 73u8, 199u8, 45u8, 219u8, 72u8,
+                28u8, 214u8, 216u8, 115u8, 16u8, 52u8, 225u8, 28u8, 192u8, 48u8, 7u8,
+                11u8, 168u8, 67u8, 169u8, 11u8, 52u8, 149u8, 203u8, 141u8, 62u8
+            ])),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA512,
+            &[lit(ScalarValue::Utf8(Some("".to_string())))],
+            Ok(Some(&[
+                207u8, 131u8, 225u8, 53u8, 126u8, 239u8, 184u8, 189u8, 241u8, 84u8, 40u8,
+                80u8, 214u8, 109u8, 128u8, 7u8, 214u8, 32u8, 228u8, 5u8, 11u8, 87u8,
+                21u8, 220u8, 131u8, 244u8, 169u8, 33u8, 211u8, 108u8, 233u8, 206u8, 71u8,
+                208u8, 209u8, 60u8, 93u8, 133u8, 242u8, 176u8, 255u8, 131u8, 24u8, 210u8,
+                135u8, 126u8, 236u8, 47u8, 99u8, 185u8, 49u8, 189u8, 71u8, 65u8, 122u8,
+                129u8, 165u8, 56u8, 50u8, 122u8, 249u8, 39u8, 218u8, 62u8
+            ])),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(feature = "crypto_expressions")]
+        test_function!(
+            SHA512,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        #[cfg(not(feature = "crypto_expressions"))]
+        test_function!(
+            SHA512,
+            &[lit(ScalarValue::Utf8(Some("tom".to_string())))],
+            Err(DataFusionError::Internal(
+                "function sha512 requires compilation with feature flag: crypto_expressions.".to_string()
+            )),
+            &[u8],
+            Binary,
+            BinaryArray
+        );
+        test_function!(
+            SplitPart,
+            &[
+                lit(ScalarValue::Utf8(Some("abc~@~def~@~ghi".to_string()))),
+                lit(ScalarValue::Utf8(Some("~@~".to_string()))),
+                lit(ScalarValue::Int64(Some(2))),
+            ],
+            Ok(Some("def")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            SplitPart,
+            &[
+                lit(ScalarValue::Utf8(Some("abc~@~def~@~ghi".to_string()))),
+                lit(ScalarValue::Utf8(Some("~@~".to_string()))),
+                lit(ScalarValue::Int64(Some(20))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            SplitPart,
+            &[
+                lit(ScalarValue::Utf8(Some("abc~@~def~@~ghi".to_string()))),
+                lit(ScalarValue::Utf8(Some("~@~".to_string()))),
+                lit(ScalarValue::Int64(Some(-1))),
+            ],
+            Err(DataFusionError::Execution(
+                "field position must be greater than zero".to_string(),
+            )),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            StartsWith,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Utf8(Some("alph".to_string()))),
+            ],
+            Ok(Some(true)),
+            bool,
+            Boolean,
+            BooleanArray
+        );
+        test_function!(
+            StartsWith,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Utf8(Some("blph".to_string()))),
+            ],
+            Ok(Some(false)),
+            bool,
+            Boolean,
+            BooleanArray
+        );
+        test_function!(
+            StartsWith,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("alph".to_string()))),
+            ],
+            Ok(None),
+            bool,
+            Boolean,
+            BooleanArray
+        );
+        test_function!(
+            StartsWith,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+            ],
+            Ok(None),
+            bool,
+            Boolean,
+            BooleanArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Strpos,
+            &[
+                lit(ScalarValue::Utf8(Some("abc".to_string()))),
+                lit(ScalarValue::Utf8(Some("c".to_string()))),
+            ],
+            Ok(Some(3)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Strpos,
+            &[
+                lit(ScalarValue::Utf8(Some("josé".to_string()))),
+                lit(ScalarValue::Utf8(Some("é".to_string()))),
+            ],
+            Ok(Some(4)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Strpos,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Utf8(Some("so".to_string()))),
+            ],
+            Ok(Some(6)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Strpos,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Utf8(Some("abc".to_string()))),
+            ],
+            Ok(Some(0)),
+            i32,
+            Int32,
+            Int32Array
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Strpos,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("abc".to_string()))),
+            ],
+            Ok(None),
+            i32,
+            Int32,
+            Int32Array
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Strpos,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+            ],
+            Ok(None),
+            i32,
+            Int32,
+            Int32Array
+        );
+        #[cfg(not(feature = "unicode_expressions"))]
+        test_function!(
+            Strpos,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+            ],
+            Err(DataFusionError::Internal(
+                "function strpos requires compilation with feature flag: unicode_expressions.".to_string()
+            )),
+            i32,
+            Int32,
+            Int32Array
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(Some(0))),
+            ],
+            Ok(Some("alphabet")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+            ],
+            Ok(Some("ésoj")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(Some(1))),
+            ],
+            Ok(Some("alphabet")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(Some(2))),
+            ],
+            Ok(Some("lphabet")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(Some(3))),
+            ],
+            Ok(Some("phabet")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(Some(-3))),
+            ],
+            Ok(Some("alphabet")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(Some(30))),
+            ],
+            Ok(Some("")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(Some(3))),
+                lit(ScalarValue::Int64(Some(2))),
+            ],
+            Ok(Some("ph")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(Some(3))),
+                lit(ScalarValue::Int64(Some(20))),
+            ],
+            Ok(Some("phabet")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(None)),
+                lit(ScalarValue::Int64(Some(20))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(Some(3))),
+                lit(ScalarValue::Int64(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(Some(1))),
+                lit(ScalarValue::Int64(Some(-1))),
+            ],
+            Err(DataFusionError::Execution(
+                "negative substring length not allowed".to_string(),
+            )),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("joséésoj".to_string()))),
+                lit(ScalarValue::Int64(Some(5))),
+                lit(ScalarValue::Int64(Some(2))),
+            ],
+            Ok(Some("és")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(not(feature = "unicode_expressions"))]
+        test_function!(
+            Substr,
+            &[
+                lit(ScalarValue::Utf8(Some("alphabet".to_string()))),
+                lit(ScalarValue::Int64(Some(0))),
+            ],
+            Err(DataFusionError::Internal(
+                "function substr requires compilation with feature flag: unicode_expressions.".to_string()
+            )),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Translate,
+            &[
+                lit(ScalarValue::Utf8(Some("12345".to_string()))),
+                lit(ScalarValue::Utf8(Some("143".to_string()))),
+                lit(ScalarValue::Utf8(Some("ax".to_string()))),
+            ],
+            Ok(Some("a2x5")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Translate,
+            &[
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("143".to_string()))),
+                lit(ScalarValue::Utf8(Some("ax".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Translate,
+            &[
+                lit(ScalarValue::Utf8(Some("12345".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+                lit(ScalarValue::Utf8(Some("ax".to_string()))),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Translate,
+            &[
+                lit(ScalarValue::Utf8(Some("12345".to_string()))),
+                lit(ScalarValue::Utf8(Some("143".to_string()))),
+                lit(ScalarValue::Utf8(None)),
+            ],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(feature = "unicode_expressions")]
+        test_function!(
+            Translate,
+            &[
+                lit(ScalarValue::Utf8(Some("é2íñ5".to_string()))),
+                lit(ScalarValue::Utf8(Some("éñí".to_string()))),
+                lit(ScalarValue::Utf8(Some("óü".to_string()))),
+            ],
+            Ok(Some("ó2ü5")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        #[cfg(not(feature = "unicode_expressions"))]
+        test_function!(
+            Translate,
+            &[
+                lit(ScalarValue::Utf8(Some("12345".to_string()))),
+                lit(ScalarValue::Utf8(Some("143".to_string()))),
+                lit(ScalarValue::Utf8(Some("ax".to_string()))),
+            ],
+            Err(DataFusionError::Internal(
+                "function translate requires compilation with feature flag: unicode_expressions.".to_string()
+            )),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Trim,
+            &[lit(ScalarValue::Utf8(Some(" trim ".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Trim,
+            &[lit(ScalarValue::Utf8(Some("trim ".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Trim,
+            &[lit(ScalarValue::Utf8(Some(" trim".to_string())))],
+            Ok(Some("trim")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Trim,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Upper,
+            &[lit(ScalarValue::Utf8(Some("upper".to_string())))],
+            Ok(Some("UPPER")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Upper,
+            &[lit(ScalarValue::Utf8(Some("UPPER".to_string())))],
+            Ok(Some("UPPER")),
+            &str,
+            Utf8,
+            StringArray
+        );
+        test_function!(
+            Upper,
+            &[lit(ScalarValue::Utf8(None))],
+            Ok(None),
+            &str,
+            Utf8,
+            StringArray
+        );
         Ok(())
-    }
-
-    fn test_concat(value: ScalarValue, expected: &str) -> Result<()> {
-        // any type works here: we evaluate against a literal of `value`
-        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
-        let columns: Vec<ArrayRef> = vec![Arc::new(Int32Array::from(vec![1]))];
-
-        // concat(value, value)
-        let expr = create_physical_expr(
-            &BuiltinScalarFunction::Concat,
-            &[lit(value.clone()), lit(value)],
-            &schema,
-        )?;
-
-        // type is correct
-        assert_eq!(expr.data_type(&schema)?, DataType::Utf8);
-
-        // evaluate works
-        let batch = RecordBatch::try_new(Arc::new(schema.clone()), columns)?;
-        let result = expr.evaluate(&batch)?.into_array(batch.num_rows());
-
-        // downcast works
-        let result = result.as_any().downcast_ref::<StringArray>().unwrap();
-
-        // value is correct
-        assert_eq!(result.value(0).to_string(), expected);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_concat_utf8() -> Result<()> {
-        test_concat(ScalarValue::Utf8(Some("aa".to_string())), "aaaa")
     }
 
     #[test]

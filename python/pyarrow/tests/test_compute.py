@@ -1199,3 +1199,21 @@ def test_quantile():
         pc.quantile(arr, q=1.1)
     with pytest.raises(ValueError, match="'zzz' is not a valid interpolation"):
         pc.quantile(arr, interpolation='zzz')
+
+
+def test_tdigest():
+    arr = pa.array([1, 2, 3, 4])
+    result = pc.tdigest(arr)
+    assert result.to_pylist() == [2.5]
+
+    arr = pa.chunked_array([pa.array([1, 2]), pa.array([3, 4])])
+    result = pc.tdigest(arr)
+    assert result.to_pylist() == [2.5]
+
+    arr = pa.array([1, 2, 3, 4])
+    result = pc.tdigest(arr, q=[0, 0.5, 1])
+    assert result.to_pylist() == [1, 2.5, 4]
+
+    arr = pa.chunked_array([pa.array([1, 2]), pa.array([3, 4])])
+    result = pc.tdigest(arr, q=[0, 0.5, 1])
+    assert result.to_pylist() == [1, 2.5, 4]

@@ -26,10 +26,11 @@
 #include <vector>
 
 #include "arrow/filesystem/type_fwd.h"
-#include "arrow/io/type_fwd.h"
+#include "arrow/io/interfaces.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 #include "arrow/util/windows_fixup.h"
 
@@ -147,6 +148,9 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
 
   virtual std::string type_name() const = 0;
 
+  /// EXPERIMENTAL: The IOContext associated with this filesystem.
+  const io::IOContext& io_context() const { return io_context_; }
+
   /// Normalize path for the given filesystem
   ///
   /// The default implementation of this method is a no-op, but subclasses
@@ -175,6 +179,12 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   /// it exists.
   /// If it doesn't exist, see `FileSelector::allow_not_found`.
   virtual Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) = 0;
+
+  /// EXPERIMENTAL: async version of GetFileInfo
+  virtual Future<std::vector<FileInfo>> GetFileInfoAsync(
+      const std::vector<std::string>& paths);
+  /// EXPERIMENTAL: async version of GetFileInfo
+  virtual Future<std::vector<FileInfo>> GetFileInfoAsync(const FileSelector& select);
 
   /// Create a directory and subdirectories.
   ///
@@ -239,6 +249,20 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   virtual Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
       const FileInfo& info);
 
+  /// EXPERIMENTAL: async version of OpenInputStream
+  virtual Future<std::shared_ptr<io::InputStream>> OpenInputStreamAsync(
+      const std::string& path);
+  /// EXPERIMENTAL: async version of OpenInputStream
+  virtual Future<std::shared_ptr<io::InputStream>> OpenInputStreamAsync(
+      const FileInfo& info);
+
+  /// EXPERIMENTAL: async version of OpenInputFile
+  virtual Future<std::shared_ptr<io::RandomAccessFile>> OpenInputFileAsync(
+      const std::string& path);
+  /// EXPERIMENTAL: async version of OpenInputFile
+  virtual Future<std::shared_ptr<io::RandomAccessFile>> OpenInputFileAsync(
+      const FileInfo& info);
+
   /// Open an output stream for sequential writing.
   ///
   /// If the target already exists, existing data is truncated.
@@ -250,6 +274,16 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   /// If the target doesn't exist, a new empty file is created.
   virtual Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
       const std::string& path) = 0;
+
+ protected:
+  explicit FileSystem(const io::IOContext& io_context = io::default_io_context())
+      : io_context_(io_context) {}
+
+  io::IOContext io_context_;
+  // Whether metadata operations (such as GetFileInfo or OpenInputStream)
+  // are cheap enough that the default async variants don't bother with
+  // a thread pool.
+  bool default_async_is_sync_ = true;
 };
 
 /// \brief A FileSystem implementation that delegates to another
@@ -382,6 +416,19 @@ ARROW_EXPORT
 Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
                                                       std::string* out_path = NULLPTR);
 
+/// \brief Create a new FileSystem by URI with a custom IO context
+///
+/// Recognized schemes are "file", "mock", "hdfs" and "s3fs".
+///
+/// \param[in] uri a URI-based path, ex: file:///some/local/path
+/// \param[in] io_context an IOContext which will be associated with the filesystem
+/// \param[out] out_path (optional) Path inside the filesystem.
+/// \return out_fs FileSystem instance.
+ARROW_EXPORT
+Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
+                                                      const io::IOContext& io_context,
+                                                      std::string* out_path = NULLPTR);
+
 /// \brief Create a new FileSystem by URI
 ///
 /// Same as FileSystemFromUri, but in addition also recognize non-URIs
@@ -390,6 +437,16 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
 ARROW_EXPORT
 Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
     const std::string& uri, std::string* out_path = NULLPTR);
+
+/// \brief Create a new FileSystem by URI with a custom IO context
+///
+/// Same as FileSystemFromUri, but in addition also recognize non-URIs
+/// and treat them as local filesystem paths.  Only absolute local filesystem
+/// paths are allowed.
+ARROW_EXPORT
+Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
+    const std::string& uri, const io::IOContext& io_context,
+    std::string* out_path = NULLPTR);
 
 /// @}
 
@@ -401,6 +458,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriOrPath(
 ARROW_EXPORT
 Status CopyFiles(const std::vector<FileLocator>& sources,
                  const std::vector<FileLocator>& destinations,
+                 const io::IOContext& io_context = io::default_io_context(),
                  int64_t chunk_size = 1024 * 1024, bool use_threads = true);
 
 /// \brief Copy selected files, including from one FileSystem to another
@@ -411,6 +469,7 @@ Status CopyFiles(const std::shared_ptr<FileSystem>& source_fs,
                  const FileSelector& source_sel,
                  const std::shared_ptr<FileSystem>& destination_fs,
                  const std::string& destination_base_dir,
+                 const io::IOContext& io_context = io::default_io_context(),
                  int64_t chunk_size = 1024 * 1024, bool use_threads = true);
 
 struct FileSystemGlobalOptions {

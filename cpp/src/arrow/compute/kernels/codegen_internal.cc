@@ -48,6 +48,7 @@ std::vector<std::shared_ptr<DataType>> g_numeric_types;
 std::vector<std::shared_ptr<DataType>> g_base_binary_types;
 std::vector<std::shared_ptr<DataType>> g_temporal_types;
 std::vector<std::shared_ptr<DataType>> g_primitive_types;
+std::vector<Type::type> g_decimal_type_ids;
 static std::once_flag codegen_static_initialized;
 
 template <typename T>
@@ -70,6 +71,9 @@ static void InitStaticData() {
 
   // Floating point types
   g_floating_types = {float32(), float64()};
+
+  // Decimal types
+  g_decimal_type_ids = {Type::DECIMAL128, Type::DECIMAL256};
 
   // Numeric types
   Extend(g_int_types, &g_numeric_types);
@@ -130,6 +134,11 @@ const std::vector<std::shared_ptr<DataType>>& IntTypes() {
 const std::vector<std::shared_ptr<DataType>>& FloatingPointTypes() {
   std::call_once(codegen_static_initialized, InitStaticData);
   return g_floating_types;
+}
+
+const std::vector<Type::type>& DecimalTypeIds() {
+  std::call_once(codegen_static_initialized, InitStaticData);
+  return g_decimal_type_ids;
 }
 
 const std::vector<TimeUnit::type>& AllTimeUnits() {

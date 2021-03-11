@@ -842,11 +842,12 @@ cdef class Array(_PandasConvertible):
         """
         return _pc().call_function('unique', [self])
 
-    def dictionary_encode(self):
+    def dictionary_encode(self, null_encoding='mask'):
         """
         Compute dictionary-encoded representation of array.
         """
-        return _pc().call_function('dictionary_encode', [self])
+        options = _pc().DictionaryEncodeOptions(null_encoding)
+        return _pc().call_function('dictionary_encode', [self], options)
 
     def value_counts(self):
         """

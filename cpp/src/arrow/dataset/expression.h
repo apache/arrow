@@ -236,6 +236,10 @@ ARROW_DS_EXPORT Expression greater(Expression lhs, Expression rhs);
 
 ARROW_DS_EXPORT Expression greater_equal(Expression lhs, Expression rhs);
 
+ARROW_DS_EXPORT Expression is_null(Expression lhs);
+
+ARROW_DS_EXPORT Expression is_valid(Expression lhs);
+
 ARROW_DS_EXPORT Expression and_(Expression lhs, Expression rhs);
 ARROW_DS_EXPORT Expression and_(const std::vector<Expression>&);
 ARROW_DS_EXPORT Expression or_(Expression lhs, Expression rhs);

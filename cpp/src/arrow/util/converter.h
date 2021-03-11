@@ -52,7 +52,15 @@ class Converter {
     return Init(pool);
   }
 
-  virtual Status Append(InputType value) = 0;
+  virtual Status Append(InputType value) { return Status::NotImplemented("Append"); }
+
+  virtual Status Extend(InputType values, int64_t size) {
+    return Status::NotImplemented("Extend");
+  }
+
+  virtual Status ExtendMasked(InputType values, InputType mask, int64_t size) {
+    return Status::NotImplemented("ExtendMasked");
+  }
 
   const std::shared_ptr<ArrayBuilder>& builder() const { return builder_; }
 
@@ -291,6 +299,34 @@ class Chunker {
       return Append(value);
     }
     ++length_;
+    return status;
+  }
+
+  // we could get bit smarter here since the whole batch of appendable values
+  // will be rejected if a capacity error is raised
+  Status Extend(InputType values, int64_t size) {
+    auto status = converter_->Extend(values, size);
+    if (ARROW_PREDICT_FALSE(status.IsCapacityError())) {
+      if (converter_->builder()->length() == 0) {
+        return status;
+      }
+      ARROW_RETURN_NOT_OK(FinishChunk());
+      return Extend(values, size);
+    }
+    length_ += size;
+    return status;
+  }
+
+  Status ExtendMasked(InputType values, InputType mask, int64_t size) {
+    auto status = converter_->ExtendMasked(values, mask, size);
+    if (ARROW_PREDICT_FALSE(status.IsCapacityError())) {
+      if (converter_->builder()->length() == 0) {
+        return status;
+      }
+      ARROW_RETURN_NOT_OK(FinishChunk());
+      return ExtendMasked(values, mask, size);
+    }
+    length_ += size;
     return status;
   }
 

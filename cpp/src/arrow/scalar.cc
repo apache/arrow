@@ -90,9 +90,13 @@ struct ScalarHashImpl {
     return Status::OK();
   }
 
+  Status Visit(const DictionaryScalar& s) {
+    AccumulateHashFrom(*s.value.index);
+    return Status::OK();
+  }
+
   // TODO(bkietz) implement less wimpy hashing when these have ValueType
   Status Visit(const UnionScalar& s) { return Status::OK(); }
-  Status Visit(const DictionaryScalar& s) { return Status::OK(); }
   Status Visit(const ExtensionScalar& s) { return Status::OK(); }
 
   template <typename T>
@@ -127,14 +131,18 @@ struct ScalarHashImpl {
     return Status::OK();
   }
 
-  explicit ScalarHashImpl(const Scalar& scalar) { AccumulateHashFrom(scalar); }
+  explicit ScalarHashImpl(const Scalar& scalar) : hash_(scalar.type->Hash()) {
+    if (scalar.is_valid) {
+      AccumulateHashFrom(scalar);
+    }
+  }
 
   void AccumulateHashFrom(const Scalar& scalar) {
     DCHECK_OK(StdHash(scalar.type->fingerprint()));
     DCHECK_OK(VisitScalarInline(scalar, this));
   }
 
-  size_t hash_ = 0;
+  size_t hash_;
 };
 
 size_t Scalar::Hash::hash(const Scalar& scalar) { return ScalarHashImpl(scalar).hash_; }

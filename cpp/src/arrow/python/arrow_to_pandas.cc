@@ -657,7 +657,7 @@ Status ConvertStruct(PandasOptions options, const ChunkedArray& data,
   // Use it to cache the struct type and number of fields for all chunks
   int32_t num_fields = arr->num_fields();
   auto array_type = arr->type();
-  std::vector<OwnedRef> fields_data(num_fields);
+  std::vector<OwnedRef> fields_data(num_fields * data.num_chunks());
   OwnedRef dict_item;
 
   // See notes in MakeInnerOptions.
@@ -666,12 +666,14 @@ Status ConvertStruct(PandasOptions options, const ChunkedArray& data,
   options.timestamp_as_object = true;
 
   for (int c = 0; c < data.num_chunks(); c++) {
+    auto fields_data_offset = c * num_fields;
     auto arr = checked_cast<const StructArray*>(data.chunk(c).get());
     // Convert the struct arrays first
     for (int32_t i = 0; i < num_fields; i++) {
       const auto field = arr->field(static_cast<int>(i));
-      RETURN_NOT_OK(ConvertArrayToPandas(options, field, nullptr, fields_data[i].ref()));
-      DCHECK(PyArray_Check(fields_data[i].obj()));
+      RETURN_NOT_OK(ConvertArrayToPandas(options, field, nullptr,
+                                         fields_data[i + fields_data_offset].ref()));
+      DCHECK(PyArray_Check(fields_data[i + fields_data_offset].obj()));
     }
 
     // Construct a dictionary for each row
@@ -689,7 +691,8 @@ Status ConvertStruct(PandasOptions options, const ChunkedArray& data,
           auto name = array_type->field(static_cast<int>(field_idx))->name();
           if (!arr->field(static_cast<int>(field_idx))->IsNull(i)) {
             // Value exists in child array, obtain it
-            auto array = reinterpret_cast<PyArrayObject*>(fields_data[field_idx].obj());
+            auto array = reinterpret_cast<PyArrayObject*>(
+                fields_data[field_idx + fields_data_offset].obj());
             auto ptr = reinterpret_cast<const char*>(PyArray_GETPTR1(array, i));
             field_value.reset(PyArray_GETITEM(array, ptr));
             RETURN_IF_PYERROR();
@@ -2183,7 +2186,9 @@ Status ConvertCategoricals(const PandasOptions& options, ChunkedArrayVector* arr
                              "only zero-copy conversions allowed");
     }
     compute::ExecContext ctx(options.pool);
-    ARROW_ASSIGN_OR_RAISE(Datum out, DictionaryEncode((*arrays)[i], &ctx));
+    ARROW_ASSIGN_OR_RAISE(
+        Datum out, DictionaryEncode((*arrays)[i],
+                                    compute::DictionaryEncodeOptions::Defaults(), &ctx));
     (*arrays)[i] = out.chunked_array();
     (*fields)[i] = (*fields)[i]->WithType((*arrays)[i]->type());
     return Status::OK();
@@ -2232,7 +2237,9 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
                              "only zero-copy conversions allowed");
     }
     compute::ExecContext ctx(options.pool);
-    ARROW_ASSIGN_OR_RAISE(Datum out, DictionaryEncode(arr, &ctx));
+    ARROW_ASSIGN_OR_RAISE(
+        Datum out,
+        DictionaryEncode(arr, compute::DictionaryEncodeOptions::Defaults(), &ctx));
     arr = out.chunked_array();
   }
 

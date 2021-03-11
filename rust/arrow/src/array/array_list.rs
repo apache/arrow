@@ -31,28 +31,30 @@ use crate::datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType, Field};
 
 /// trait declaring an offset size, relevant for i32 vs i64 array types.
 pub trait OffsetSizeTrait: ArrowNativeType + Num + Ord + std::ops::AddAssign {
-    fn prefix() -> &'static str;
+    fn is_large() -> bool;
 
-    fn to_isize(&self) -> isize;
+    fn prefix() -> &'static str;
 }
 
 impl OffsetSizeTrait for i32 {
-    fn prefix() -> &'static str {
-        ""
+    #[inline]
+    fn is_large() -> bool {
+        false
     }
 
-    fn to_isize(&self) -> isize {
-        num::ToPrimitive::to_isize(self).unwrap()
+    fn prefix() -> &'static str {
+        ""
     }
 }
 
 impl OffsetSizeTrait for i64 {
-    fn prefix() -> &'static str {
-        "Large"
+    #[inline]
+    fn is_large() -> bool {
+        true
     }
 
-    fn to_isize(&self) -> isize {
-        num::ToPrimitive::to_isize(self).unwrap()
+    fn prefix() -> &'static str {
+        "Large"
     }
 }
 
@@ -115,6 +117,21 @@ impl<OffsetSize: OffsetSizeTrait> GenericListArray<OffsetSize> {
     /// constructs a new iterator
     pub fn iter<'a>(&'a self) -> GenericListArrayIter<'a, OffsetSize> {
         GenericListArrayIter::<'a, OffsetSize>::new(&self)
+    }
+
+    #[inline]
+    fn get_type(data_type: &DataType) -> Option<&DataType> {
+        if OffsetSize::is_large() {
+            if let DataType::LargeList(child) = data_type {
+                Some(child.data_type())
+            } else {
+                None
+            }
+        } else if let DataType::List(child) = data_type {
+            Some(child.data_type())
+        } else {
+            None
+        }
     }
 
     /// Creates a [`GenericListArray`] from an iterator of primitive values
@@ -193,7 +210,19 @@ impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericListArray<Offset
             1,
             "ListArray should contain a single child array (values array)"
         );
-        let values = make_array(data.child_data()[0].clone());
+
+        let values = data.child_data()[0].clone();
+
+        if let Some(child) = Self::get_type(data.data_type()) {
+            assert_eq!(values.data_type(), child, "[Large]ListArray's child datatype does not correspond to the List's datatype");
+        } else {
+            panic!(
+                "[Large]ListArray's datatype must be [Large]ListArray(). It is {:?}",
+                data.data_type()
+            );
+        }
+
+        let values = make_array(values);
         let value_offsets = data.buffers()[0].as_ptr();
 
         let value_offsets = unsafe { RawPtrBox::<OffsetSize>::new(value_offsets) };
@@ -378,12 +407,12 @@ impl fmt::Debug for FixedSizeListArray {
 #[cfg(test)]
 mod tests {
     use crate::{
+        alloc,
         array::ArrayData,
         array::Int32Array,
         buffer::Buffer,
         datatypes::Field,
         datatypes::{Int32Type, ToByteSlice},
-        memory,
         util::bit_util,
     };
 
@@ -993,7 +1022,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "memory is not aligned")]
     fn test_primitive_array_alignment() {
-        let ptr = memory::allocate_aligned(8);
+        let ptr = alloc::allocate_aligned::<u8>(8);
         let buf = unsafe { Buffer::from_raw_parts(ptr, 8, 8) };
         let buf2 = buf.slice(1);
         let array_data = ArrayData::builder(DataType::Int32).add_buffer(buf2).build();
@@ -1003,7 +1032,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "memory is not aligned")]
     fn test_list_array_alignment() {
-        let ptr = memory::allocate_aligned(8);
+        let ptr = alloc::allocate_aligned::<u8>(8);
         let buf = unsafe { Buffer::from_raw_parts(ptr, 8, 8) };
         let buf2 = buf.slice(1);
 

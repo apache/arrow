@@ -16,8 +16,10 @@
 // under the License.
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <utility>
+#include <vector>
 
 #include "arrow/buffer.h"
 #include "arrow/io/caching.h"
@@ -131,7 +133,7 @@ struct RangeCacheEntry {
 
 struct ReadRangeCache::Impl {
   std::shared_ptr<RandomAccessFile> file;
-  AsyncContext ctx;
+  IOContext ctx;
   CacheOptions options;
 
   // Ordered by offset (so as to find a matching region by binary search)
@@ -150,7 +152,7 @@ struct ReadRangeCache::Impl {
   }
 };
 
-ReadRangeCache::ReadRangeCache(std::shared_ptr<RandomAccessFile> file, AsyncContext ctx,
+ReadRangeCache::ReadRangeCache(std::shared_ptr<RandomAccessFile> file, IOContext ctx,
                                CacheOptions options)
     : impl_(new Impl()) {
   impl_->file = std::move(file);
@@ -191,6 +193,14 @@ Result<std::shared_ptr<Buffer>> ReadRangeCache::Read(ReadRange range) {
     return SliceBuffer(std::move(buf), range.offset - it->range.offset, range.length);
   }
   return Status::Invalid("ReadRangeCache did not find matching cache entry");
+}
+
+Future<> ReadRangeCache::Wait() {
+  std::vector<Future<>> futures;
+  for (const auto& entry : impl_->entries) {
+    futures.emplace_back(entry.future);
+  }
+  return AllComplete(futures);
 }
 
 }  // namespace internal

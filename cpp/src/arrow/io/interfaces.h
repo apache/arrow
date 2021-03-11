@@ -24,6 +24,7 @@
 
 #include "arrow/io/type_fwd.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/cancel.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/type_fwd.h"
@@ -48,15 +49,55 @@ struct ReadRange {
   }
 };
 
-// EXPERIMENTAL
-struct ARROW_EXPORT AsyncContext {
-  ::arrow::internal::Executor* executor;
-  // An application-specific ID, forwarded to executor task submissions
-  int64_t external_id = -1;
+/// EXPERIMENTAL: options provider for IO tasks
+///
+/// Includes an Executor (which will be used to execute asynchronous reads),
+/// a MemoryPool (which will be used to allocate buffers when zero copy reads
+/// are not possible), and an external id (in case the executor receives tasks from
+/// multiple sources and must distinguish tasks associated with this IOContext).
+struct ARROW_EXPORT IOContext {
+  // No specified executor: will use a global IO thread pool
+  IOContext() : IOContext(default_memory_pool(), StopToken::Unstoppable()) {}
 
-  // Set `executor` to a global IO-specific thread pool.
-  AsyncContext();
-  explicit AsyncContext(::arrow::internal::Executor* executor);
+  explicit IOContext(StopToken stop_token)
+      : IOContext(default_memory_pool(), std::move(stop_token)) {}
+
+  explicit IOContext(MemoryPool* pool, StopToken stop_token = StopToken::Unstoppable());
+
+  explicit IOContext(MemoryPool* pool, ::arrow::internal::Executor* executor,
+                     StopToken stop_token = StopToken::Unstoppable(),
+                     int64_t external_id = -1)
+      : pool_(pool),
+        executor_(executor),
+        external_id_(external_id),
+        stop_token_(std::move(stop_token)) {}
+
+  explicit IOContext(::arrow::internal::Executor* executor,
+                     StopToken stop_token = StopToken::Unstoppable(),
+                     int64_t external_id = -1)
+      : pool_(default_memory_pool()),
+        executor_(executor),
+        external_id_(external_id),
+        stop_token_(std::move(stop_token)) {}
+
+  MemoryPool* pool() const { return pool_; }
+
+  ::arrow::internal::Executor* executor() const { return executor_; }
+
+  // An application-specific ID, forwarded to executor task submissions
+  int64_t external_id() const { return external_id_; }
+
+  StopToken stop_token() const { return stop_token_; }
+
+ private:
+  MemoryPool* pool_;
+  ::arrow::internal::Executor* executor_;
+  int64_t external_id_;
+  StopToken stop_token_;
+};
+
+struct ARROW_DEPRECATED("renamed to IOContext in 4.0.0") AsyncContext : public IOContext {
+  using IOContext::IOContext;
 };
 
 class ARROW_EXPORT FileInterface {
@@ -127,7 +168,7 @@ class ARROW_EXPORT Writable {
   /// \brief Flush buffered bytes, if any
   virtual Status Flush();
 
-  Status Write(const std::string& data);
+  Status Write(util::string_view data);
 };
 
 class ARROW_EXPORT Readable {
@@ -148,6 +189,12 @@ class ARROW_EXPORT Readable {
   /// In some cases (e.g. a memory-mapped file), this method may avoid a
   /// memory copy.
   virtual Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) = 0;
+
+  /// EXPERIMENTAL: The IOContext associated with this file.
+  ///
+  /// By default, this is the same as default_io_context(), but it may be
+  /// overriden by subclasses.
+  virtual const IOContext& io_context() const;
 };
 
 class ARROW_EXPORT OutputStream : virtual public FileInterface, public Writable {
@@ -234,8 +281,11 @@ class ARROW_EXPORT RandomAccessFile
   virtual Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes);
 
   /// EXPERIMENTAL: Read data asynchronously.
-  virtual Future<std::shared_ptr<Buffer>> ReadAsync(const AsyncContext&, int64_t position,
+  virtual Future<std::shared_ptr<Buffer>> ReadAsync(const IOContext&, int64_t position,
                                                     int64_t nbytes);
+
+  /// EXPERIMENTAL: Read data asynchronously, using the file's IOContext.
+  Future<std::shared_ptr<Buffer>> ReadAsync(int64_t position, int64_t nbytes);
 
   /// EXPERIMENTAL: Inform that the given ranges may be read soon.
   ///
@@ -248,8 +298,8 @@ class ARROW_EXPORT RandomAccessFile
   RandomAccessFile();
 
  private:
-  struct ARROW_NO_EXPORT RandomAccessFileImpl;
-  std::unique_ptr<RandomAccessFileImpl> interface_impl_;
+  struct ARROW_NO_EXPORT Impl;
+  std::unique_ptr<Impl> interface_impl_;
 };
 
 class ARROW_EXPORT WritableFile : public OutputStream, public Seekable {

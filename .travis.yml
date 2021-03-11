@@ -125,7 +125,8 @@ jobs:
         JDK: 11
 
   allow_failures:
-    - arch: s390x
+    - name: "Go on s390x"
+    - name: "Java on s390x"
 
 before_install:
   - eval "$(python ci/detect-changes.py)"

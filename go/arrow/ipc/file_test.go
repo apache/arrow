@@ -45,6 +45,7 @@ func TestFile(t *testing.T) {
 
 			arrdata.WriteFile(t, f, mem, recs[0].Schema(), recs)
 			arrdata.CheckArrowFile(t, f, mem, recs[0].Schema(), recs)
+			arrdata.CheckArrowConcurrentFile(t, f, mem, recs[0].Schema(), recs)
 		})
 	}
 }

@@ -136,22 +136,6 @@ LargeListArray__raw_value_offsets <- function(array){
     .Call(`_arrow_LargeListArray__raw_value_offsets`, array)
 }
 
-Array__infer_type <- function(x){
-    .Call(`_arrow_Array__infer_type`, x)
-}
-
-Array__from_vector <- function(x, s_type){
-    .Call(`_arrow_Array__from_vector`, x, s_type)
-}
-
-ChunkedArray__from_list <- function(chunks, s_type){
-    .Call(`_arrow_ChunkedArray__from_list`, chunks, s_type)
-}
-
-DictionaryArray__FromArrays <- function(type, indices, dict){
-    .Call(`_arrow_DictionaryArray__FromArrays`, type, indices, dict)
-}
-
 Array__as_vector <- function(array){
     .Call(`_arrow_Array__as_vector`, array)
 }
@@ -262,6 +246,10 @@ ChunkedArray__Equals <- function(x, y){
 
 ChunkedArray__ToString <- function(x){
     .Call(`_arrow_ChunkedArray__ToString`, x)
+}
+
+ChunkedArray__from_list <- function(chunks, s_type){
+    .Call(`_arrow_ChunkedArray__from_list`, chunks, s_type)
 }
 
 util___Codec__Create <- function(codec, compression_level){
@@ -452,16 +440,20 @@ dataset___DirectoryPartitioning__MakeFactory <- function(field_names){
     .Call(`_arrow_dataset___DirectoryPartitioning__MakeFactory`, field_names)
 }
 
-dataset___HivePartitioning <- function(schm){
-    .Call(`_arrow_dataset___HivePartitioning`, schm)
+dataset___HivePartitioning <- function(schm, null_fallback){
+    .Call(`_arrow_dataset___HivePartitioning`, schm, null_fallback)
 }
 
-dataset___HivePartitioning__MakeFactory <- function(){
-    .Call(`_arrow_dataset___HivePartitioning__MakeFactory`)
+dataset___HivePartitioning__MakeFactory <- function(null_fallback){
+    .Call(`_arrow_dataset___HivePartitioning__MakeFactory`, null_fallback)
 }
 
-dataset___ScannerBuilder__Project <- function(sb, cols){
-    invisible(.Call(`_arrow_dataset___ScannerBuilder__Project`, sb, cols))
+dataset___ScannerBuilder__ProjectNames <- function(sb, cols){
+    invisible(.Call(`_arrow_dataset___ScannerBuilder__ProjectNames`, sb, cols))
+}
+
+dataset___ScannerBuilder__ProjectExprs <- function(sb, exprs, names){
+    invisible(.Call(`_arrow_dataset___ScannerBuilder__ProjectExprs`, sb, exprs, names))
 }
 
 dataset___ScannerBuilder__Filter <- function(sb, expr){
@@ -742,6 +734,10 @@ dataset___expr__call <- function(func_name, argument_list, options){
 
 dataset___expr__field_ref <- function(name){
     .Call(`_arrow_dataset___expr__field_ref`, name)
+}
+
+dataset___expr__get_field_ref_name <- function(ref){
+    .Call(`_arrow_dataset___expr__get_field_ref_name`, ref)
 }
 
 dataset___expr__scalar <- function(x){
@@ -1276,6 +1272,14 @@ ExportRecordBatch <- function(batch, array_ptr, schema_ptr){
     invisible(.Call(`_arrow_ExportRecordBatch`, batch, array_ptr, schema_ptr))
 }
 
+vec_to_arrow <- function(x, s_type){
+    .Call(`_arrow_vec_to_arrow`, x, s_type)
+}
+
+DictionaryArray__FromArrays <- function(type, indices, dict){
+    .Call(`_arrow_DictionaryArray__FromArrays`, type, indices, dict)
+}
+
 RecordBatch__num_columns <- function(x){
     .Call(`_arrow_RecordBatch__num_columns`, x)
 }
@@ -1418,6 +1422,10 @@ ipc___RecordBatchFileWriter__Open <- function(stream, schema, use_legacy_format,
 
 ipc___RecordBatchStreamWriter__Open <- function(stream, schema, use_legacy_format, metadata_version){
     .Call(`_arrow_ipc___RecordBatchStreamWriter__Open`, stream, schema, use_legacy_format, metadata_version)
+}
+
+runtime_info <- function(){
+    .Call(`_arrow_runtime_info`)
 }
 
 Array__GetScalar <- function(x, i){
@@ -1594,6 +1602,10 @@ GetCpuThreadPoolCapacity <- function(){
 
 SetCpuThreadPoolCapacity <- function(threads){
     invisible(.Call(`_arrow_SetCpuThreadPoolCapacity`, threads))
+}
+
+Array__infer_type <- function(x){
+    .Call(`_arrow_Array__infer_type`, x)
 }
 
 

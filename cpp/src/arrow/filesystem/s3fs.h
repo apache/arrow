@@ -199,10 +199,11 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
       const std::string& path) override;
 
   /// Create a S3FileSystem instance from the given options.
-  static Result<std::shared_ptr<S3FileSystem>> Make(const S3Options& options);
+  static Result<std::shared_ptr<S3FileSystem>> Make(
+      const S3Options& options, const io::IOContext& = io::default_io_context());
 
  protected:
-  explicit S3FileSystem(const S3Options& options);
+  explicit S3FileSystem(const S3Options& options, const io::IOContext&);
 
   class Impl;
   std::unique_ptr<Impl> impl_;

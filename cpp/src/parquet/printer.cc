@@ -215,7 +215,8 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
   int c = 0;
   for (auto i : selected_columns) {
     const ColumnDescriptor* descr = file_metadata->schema()->Column(i);
-    stream << "     { \"Id\": \"" << i << "\", \"Name\": \"" << descr->name() << "\","
+    stream << "     { \"Id\": \"" << i << "\","
+           << " \"Name\": \"" << descr->path()->ToDotString() << "\","
            << " \"PhysicalType\": \"" << TypeToString(descr->physical_type()) << "\","
            << " \"ConvertedType\": \"" << ConvertedTypeToString(descr->converted_type())
            << "\","

@@ -280,12 +280,12 @@ fn optimize_plan(
         | LogicalPlan::Sort { .. }
         | LogicalPlan::CreateExternalTable { .. }
         | LogicalPlan::Extension { .. } => {
-            let expr = utils::expressions(plan);
+            let expr = plan.expressions();
             // collect all required columns by this plan
             utils::exprlist_to_column_names(&expr, &mut new_required_columns)?;
 
             // apply the optimization to all inputs of the plan
-            let inputs = utils::inputs(plan);
+            let inputs = plan.inputs();
             let new_inputs = inputs
                 .iter()
                 .map(|plan| {

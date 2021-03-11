@@ -17,7 +17,7 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
+#if defined(ARROW_R_WITH_DATASET)
 
 #include <arrow/compute/api_scalar.h>
 #include <arrow/dataset/api.h>
@@ -26,7 +26,7 @@ namespace ds = ::arrow::dataset;
 std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     std::string func_name, cpp11::list options);
 
-// [[arrow::export]]
+// [[dataset::export]]
 std::shared_ptr<ds::Expression> dataset___expr__call(std::string func_name,
                                                      cpp11::list argument_list,
                                                      cpp11::list options) {
@@ -42,18 +42,28 @@ std::shared_ptr<ds::Expression> dataset___expr__call(std::string func_name,
       ds::call(std::move(func_name), std::move(arguments), std::move(options_ptr)));
 }
 
-// [[arrow::export]]
+// [[dataset::export]]
 std::shared_ptr<ds::Expression> dataset___expr__field_ref(std::string name) {
   return std::make_shared<ds::Expression>(ds::field_ref(std::move(name)));
 }
 
-// [[arrow::export]]
+// [[dataset::export]]
+std::string dataset___expr__get_field_ref_name(
+    const std::shared_ptr<ds::Expression>& ref) {
+  auto field_ref = ref->field_ref();
+  if (field_ref == nullptr) {
+    return "";
+  }
+  return *field_ref->name();
+}
+
+// [[dataset::export]]
 std::shared_ptr<ds::Expression> dataset___expr__scalar(
     const std::shared_ptr<arrow::Scalar>& x) {
   return std::make_shared<ds::Expression>(ds::literal(std::move(x)));
 }
 
-// [[arrow::export]]
+// [[dataset::export]]
 std::string dataset___expr__ToString(const std::shared_ptr<ds::Expression>& x) {
   return x->ToString();
 }

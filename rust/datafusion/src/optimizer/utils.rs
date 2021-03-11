@@ -26,7 +26,7 @@ use crate::logical_plan::{
     Expr, LogicalPlan, Operator, Partitioning, PlanType, Recursion, StringifiedPlan,
     ToDFSchema,
 };
-use crate::prelude::{col, lit};
+use crate::prelude::lit;
 use crate::scalar::ScalarValue;
 use crate::{
     error::{DataFusionError, Result},
@@ -144,67 +144,14 @@ pub fn optimize_children(
         );
     }
 
-    let new_exprs = expressions(&plan);
-    let new_inputs = inputs(&plan)
+    let new_exprs = plan.expressions();
+    let new_inputs = plan
+        .inputs()
         .into_iter()
         .map(|plan| optimizer.optimize(plan))
         .collect::<Result<Vec<_>>>()?;
 
     from_plan(plan, &new_exprs, &new_inputs)
-}
-
-/// returns all expressions (non-recursively) in the current logical plan node.
-pub fn expressions(plan: &LogicalPlan) -> Vec<Expr> {
-    match plan {
-        LogicalPlan::Projection { expr, .. } => expr.clone(),
-        LogicalPlan::Filter { predicate, .. } => vec![predicate.clone()],
-        LogicalPlan::Repartition {
-            partitioning_scheme,
-            ..
-        } => match partitioning_scheme {
-            Partitioning::Hash(expr, _) => expr.clone(),
-            _ => vec![],
-        },
-        LogicalPlan::Aggregate {
-            group_expr,
-            aggr_expr,
-            ..
-        } => {
-            let mut result = group_expr.clone();
-            result.extend(aggr_expr.clone());
-            result
-        }
-        LogicalPlan::Join { on, .. } => {
-            on.iter().flat_map(|(l, r)| vec![col(l), col(r)]).collect()
-        }
-        LogicalPlan::Sort { expr, .. } => expr.clone(),
-        LogicalPlan::Extension { node } => node.expressions(),
-        // plans without expressions
-        LogicalPlan::TableScan { .. }
-        | LogicalPlan::EmptyRelation { .. }
-        | LogicalPlan::Limit { .. }
-        | LogicalPlan::CreateExternalTable { .. }
-        | LogicalPlan::Explain { .. } => vec![],
-    }
-}
-
-/// returns all inputs in the logical plan
-pub fn inputs(plan: &LogicalPlan) -> Vec<&LogicalPlan> {
-    match plan {
-        LogicalPlan::Projection { input, .. } => vec![input],
-        LogicalPlan::Filter { input, .. } => vec![input],
-        LogicalPlan::Repartition { input, .. } => vec![input],
-        LogicalPlan::Aggregate { input, .. } => vec![input],
-        LogicalPlan::Sort { input, .. } => vec![input],
-        LogicalPlan::Join { left, right, .. } => vec![left, right],
-        LogicalPlan::Limit { input, .. } => vec![input],
-        LogicalPlan::Extension { node } => node.inputs(),
-        // plans without inputs
-        LogicalPlan::TableScan { .. }
-        | LogicalPlan::EmptyRelation { .. }
-        | LogicalPlan::CreateExternalTable { .. }
-        | LogicalPlan::Explain { .. } => vec![],
-    }
 }
 
 /// Returns a new logical plan based on the original one with inputs and expressions replaced

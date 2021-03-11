@@ -30,8 +30,7 @@ use super::{
     planner::DefaultPhysicalPlanner, ColumnarValue, PhysicalExpr, RecordBatchStream,
     SendableRecordBatchStream,
 };
-use crate::physical_plan::ExecutionPlan;
-use crate::physical_plan::{common, Partitioning};
+use crate::physical_plan::{common, ExecutionPlan, Partitioning};
 use crate::{
     error::{DataFusionError, Result},
     execution::context::ExecutionContextState,
@@ -55,14 +54,17 @@ use parquet::file::{
     statistics::Statistics as ParquetStatistics,
 };
 
-use crossbeam::channel::{bounded, Receiver, RecvError, Sender};
 use fmt::Debug;
 use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
-use tokio::task;
+use tokio::{
+    sync::mpsc::{channel, Receiver, Sender},
+    task,
+};
+use tokio_stream::wrappers::ReceiverStream;
 
-use crate::datasource::datasource::Statistics;
+use crate::datasource::datasource::{ColumnStatistics, Statistics};
 use async_trait::async_trait;
-use futures::stream::Stream;
+use futures::stream::{Stream, StreamExt};
 
 /// Execution plan for scanning one or more Parquet partitions
 #[derive(Debug, Clone)]
@@ -149,6 +151,8 @@ impl ParquetExec {
         let chunks = split_files(&filenames, max_concurrency);
         let mut num_rows = 0;
         let mut total_byte_size = 0;
+        let mut null_counts = Vec::new();
+
         for chunk in chunks {
             let filenames: Vec<String> = chunk.iter().map(|x| x.to_string()).collect();
             for filename in &filenames {
@@ -158,19 +162,42 @@ impl ParquetExec {
                 let meta_data = arrow_reader.get_metadata();
                 // collect all the unique schemas in this data set
                 let schema = arrow_reader.get_schema()?;
+                let num_fields = schema.fields().len();
                 if schemas.is_empty() || schema != schemas[0] {
                     schemas.push(schema);
+                    null_counts = vec![0; num_fields]
                 }
-                for i in 0..meta_data.num_row_groups() {
-                    let row_group_meta = meta_data.row_group(i);
+                for row_group_meta in meta_data.row_groups() {
                     num_rows += row_group_meta.num_rows();
                     total_byte_size += row_group_meta.total_byte_size();
+
+                    // Currently assumes every Parquet file has same schema
+                    // https://issues.apache.org/jira/browse/ARROW-11017
+                    let columns_null_counts = row_group_meta
+                        .columns()
+                        .iter()
+                        .flat_map(|c| c.statistics().map(|stats| stats.null_count()));
+
+                    for (i, cnt) in columns_null_counts.enumerate() {
+                        null_counts[i] += cnt
+                    }
                 }
             }
+
+            let column_stats = null_counts
+                .iter()
+                .map(|null_count| ColumnStatistics {
+                    null_count: Some(*null_count as usize),
+                    max_value: None,
+                    min_value: None,
+                    distinct_count: None,
+                })
+                .collect();
+
             let statistics = Statistics {
                 num_rows: Some(num_rows as usize),
                 total_byte_size: Some(total_byte_size as usize),
-                column_statistics: None,
+                column_statistics: Some(column_stats),
             };
             partitions.push(ParquetPartition {
                 filenames,
@@ -225,6 +252,8 @@ impl ParquetExec {
         // sum the statistics
         let mut num_rows: Option<usize> = None;
         let mut total_byte_size: Option<usize> = None;
+        let mut null_counts: Vec<usize> = vec![0; schema.fields().len()];
+        let mut has_null_counts = false;
         for part in &partitions {
             if let Some(n) = part.statistics.num_rows {
                 num_rows = Some(num_rows.unwrap_or(0) + n)
@@ -232,11 +261,36 @@ impl ParquetExec {
             if let Some(n) = part.statistics.total_byte_size {
                 total_byte_size = Some(total_byte_size.unwrap_or(0) + n)
             }
+            if let Some(x) = &part.statistics.column_statistics {
+                let part_nulls: Vec<Option<usize>> =
+                    x.iter().map(|c| c.null_count).collect();
+                has_null_counts = true;
+
+                for &i in projection.iter() {
+                    null_counts[i] = part_nulls[i].unwrap_or(0);
+                }
+            }
         }
+        let column_stats = if has_null_counts {
+            Some(
+                null_counts
+                    .iter()
+                    .map(|null_count| ColumnStatistics {
+                        null_count: Some(*null_count),
+                        distinct_count: None,
+                        max_value: None,
+                        min_value: None,
+                    })
+                    .collect(),
+            )
+        } else {
+            None
+        };
+
         let statistics = Statistics {
             num_rows,
             total_byte_size,
-            column_statistics: None,
+            column_statistics: column_stats,
         };
         Self {
             partitions,
@@ -773,9 +827,9 @@ impl ExecutionPlan for ParquetExec {
         // because the parquet implementation is not thread-safe, it is necessary to execute
         // on a thread and communicate with channels
         let (response_tx, response_rx): (
-            Sender<Option<ArrowResult<RecordBatch>>>,
-            Receiver<Option<ArrowResult<RecordBatch>>>,
-        ) = bounded(2);
+            Sender<ArrowResult<RecordBatch>>,
+            Receiver<ArrowResult<RecordBatch>>,
+        ) = channel(2);
 
         let filenames = self.partitions[partition].filenames.clone();
         let projection = self.projection.clone();
@@ -796,17 +850,18 @@ impl ExecutionPlan for ParquetExec {
 
         Ok(Box::pin(ParquetStream {
             schema: self.schema.clone(),
-            response_rx,
+            inner: ReceiverStream::new(response_rx),
         }))
     }
 }
 
 fn send_result(
-    response_tx: &Sender<Option<ArrowResult<RecordBatch>>>,
-    result: Option<ArrowResult<RecordBatch>>,
+    response_tx: &Sender<ArrowResult<RecordBatch>>,
+    result: ArrowResult<RecordBatch>,
 ) -> Result<()> {
+    // Note this function is running on its own blockng tokio thread so blocking here is ok.
     response_tx
-        .send(result)
+        .blocking_send(result)
         .map_err(|e| DataFusionError::Execution(e.to_string()))?;
     Ok(())
 }
@@ -816,7 +871,7 @@ fn read_files(
     projection: &[usize],
     predicate_builder: &Option<RowGroupPredicateBuilder>,
     batch_size: usize,
-    response_tx: Sender<Option<ArrowResult<RecordBatch>>>,
+    response_tx: Sender<ArrowResult<RecordBatch>>,
 ) -> Result<()> {
     for filename in filenames {
         let file = File::open(&filename)?;
@@ -833,7 +888,7 @@ fn read_files(
             match batch_reader.next() {
                 Some(Ok(batch)) => {
                     //println!("ParquetExec got new batch from {}", filename);
-                    send_result(&response_tx, Some(Ok(batch)))?
+                    send_result(&response_tx, Ok(batch))?
                 }
                 None => {
                     break;
@@ -847,7 +902,7 @@ fn read_files(
                     // send error to operator
                     send_result(
                         &response_tx,
-                        Some(Err(ArrowError::ParquetError(err_msg.clone()))),
+                        Err(ArrowError::ParquetError(err_msg.clone())),
                     )?;
                     // terminate thread with error
                     return Err(DataFusionError::Execution(err_msg));
@@ -856,9 +911,8 @@ fn read_files(
         }
     }
 
-    // finished reading files
-    send_result(&response_tx, None)?;
-
+    // finished reading files (dropping response_tx will close
+    // channel)
     Ok(())
 }
 
@@ -872,21 +926,17 @@ fn split_files(filenames: &[String], n: usize) -> Vec<&[String]> {
 
 struct ParquetStream {
     schema: SchemaRef,
-    response_rx: Receiver<Option<ArrowResult<RecordBatch>>>,
+    inner: ReceiverStream<ArrowResult<RecordBatch>>,
 }
 
 impl Stream for ParquetStream {
     type Item = ArrowResult<RecordBatch>;
 
     fn poll_next(
-        self: std::pin::Pin<&mut Self>,
-        _: &mut Context<'_>,
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
-        match self.response_rx.recv() {
-            Ok(batch) => Poll::Ready(batch),
-            // RecvError means receiver has exited and closed the channel
-            Err(RecvError) => Poll::Ready(None),
-        }
+        self.inner.poll_next_unpin(cx)
     }
 }
 

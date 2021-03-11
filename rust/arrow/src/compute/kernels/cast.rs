@@ -82,10 +82,16 @@ pub fn can_cast_types(from_type: &DataType, to_type: &DataType) -> bool {
         (_, Boolean) => DataType::is_numeric(from_type),
         (Boolean, _) => DataType::is_numeric(to_type) || to_type == &Utf8,
 
+        (Utf8, LargeUtf8) => true,
+        (LargeUtf8, Utf8) => true,
         (Utf8, Date32) => true,
         (Utf8, Date64) => true,
         (Utf8, Timestamp(TimeUnit::Nanosecond, None)) => true,
         (Utf8, _) => DataType::is_numeric(to_type),
+        (LargeUtf8, Date32) => true,
+        (LargeUtf8, Date64) => true,
+        (LargeUtf8, Timestamp(TimeUnit::Nanosecond, None)) => true,
+        (LargeUtf8, _) => DataType::is_numeric(to_type),
         (_, Utf8) | (_, LargeUtf8) => {
             DataType::is_numeric(from_type) || from_type == &Binary
         }
@@ -262,8 +268,10 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         (_, Struct(_)) => Err(ArrowError::ComputeError(
             "Cannot cast to struct from other types".to_string(),
         )),
-        (List(_), List(ref to)) => cast_list_inner::<i32>(&**array, to),
-        (LargeList(_), LargeList(ref to)) => cast_list_inner::<i64>(&**array, to),
+        (List(_), List(ref to)) => cast_list_inner::<i32>(&**array, to, to_type),
+        (LargeList(_), LargeList(ref to)) => {
+            cast_list_inner::<i64>(&**array, to, to_type)
+        }
         (List(list_from), LargeList(list_to)) => {
             if list_to.data_type() != list_from.data_type() {
                 Err(ArrowError::ComputeError(
@@ -285,8 +293,8 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         (List(_), _) => Err(ArrowError::ComputeError(
             "Cannot cast list to non-list data types".to_string(),
         )),
-        (_, List(ref to)) => cast_primitive_to_list::<i32>(array, to),
-        (_, LargeList(ref to)) => cast_primitive_to_list::<i64>(array, to),
+        (_, List(ref to)) => cast_primitive_to_list::<i32>(array, to, to_type),
+        (_, LargeList(ref to)) => cast_primitive_to_list::<i64>(array, to, to_type),
         (Dictionary(index_type, _), _) => match **index_type {
             DataType::Int8 => dictionary_cast::<Int8Type>(array, to_type),
             DataType::Int16 => dictionary_cast::<Int16Type>(array, to_type),
@@ -361,66 +369,21 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             ))),
         },
         (Utf8, _) => match to_type {
-            UInt8 => cast_string_to_numeric::<UInt8Type>(array),
-            UInt16 => cast_string_to_numeric::<UInt16Type>(array),
-            UInt32 => cast_string_to_numeric::<UInt32Type>(array),
-            UInt64 => cast_string_to_numeric::<UInt64Type>(array),
-            Int8 => cast_string_to_numeric::<Int8Type>(array),
-            Int16 => cast_string_to_numeric::<Int16Type>(array),
-            Int32 => cast_string_to_numeric::<Int32Type>(array),
-            Int64 => cast_string_to_numeric::<Int64Type>(array),
-            Float32 => cast_string_to_numeric::<Float32Type>(array),
-            Float64 => cast_string_to_numeric::<Float64Type>(array),
-            Date32 => {
-                use chrono::Datelike;
-                let string_array = array.as_any().downcast_ref::<StringArray>().unwrap();
-                let mut builder = PrimitiveBuilder::<Date32Type>::new(string_array.len());
-                for i in 0..string_array.len() {
-                    if string_array.is_null(i) {
-                        builder.append_null()?;
-                    } else {
-                        match string_array.value(i).parse::<chrono::NaiveDate>() {
-                            Ok(date) => builder.append_value(
-                                date.num_days_from_ce() - EPOCH_DAYS_FROM_CE,
-                            )?,
-                            Err(_) => builder.append_null()?, // not a valid date
-                        };
-                    }
-                }
-                Ok(Arc::new(builder.finish()) as ArrayRef)
-            }
-            Date64 => {
-                let string_array = array.as_any().downcast_ref::<StringArray>().unwrap();
-                let mut builder = PrimitiveBuilder::<Date64Type>::new(string_array.len());
-                for i in 0..string_array.len() {
-                    if string_array.is_null(i) {
-                        builder.append_null()?;
-                    } else {
-                        match string_array.value(i).parse::<chrono::NaiveDateTime>() {
-                            Ok(date_time) => {
-                                builder.append_value(date_time.timestamp_millis())?
-                            }
-                            Err(_) => builder.append_null()?, // not a valid date
-                        };
-                    }
-                }
-                Ok(Arc::new(builder.finish()) as ArrayRef)
-            }
+            LargeUtf8 => cast_str_container::<i32, i64>(&**array),
+            UInt8 => cast_string_to_numeric::<UInt8Type, i32>(array),
+            UInt16 => cast_string_to_numeric::<UInt16Type, i32>(array),
+            UInt32 => cast_string_to_numeric::<UInt32Type, i32>(array),
+            UInt64 => cast_string_to_numeric::<UInt64Type, i32>(array),
+            Int8 => cast_string_to_numeric::<Int8Type, i32>(array),
+            Int16 => cast_string_to_numeric::<Int16Type, i32>(array),
+            Int32 => cast_string_to_numeric::<Int32Type, i32>(array),
+            Int64 => cast_string_to_numeric::<Int64Type, i32>(array),
+            Float32 => cast_string_to_numeric::<Float32Type, i32>(array),
+            Float64 => cast_string_to_numeric::<Float64Type, i32>(array),
+            Date32 => cast_string_to_date32::<i32>(&**array),
+            Date64 => cast_string_to_date64::<i32>(&**array),
             Timestamp(TimeUnit::Nanosecond, None) => {
-                let string_array = array.as_any().downcast_ref::<StringArray>().unwrap();
-                let mut builder =
-                    PrimitiveBuilder::<TimestampNanosecondType>::new(string_array.len());
-                for i in 0..string_array.len() {
-                    if string_array.is_null(i) {
-                        builder.append_null()?;
-                    } else {
-                        match string_to_timestamp_nanos(string_array.value(i)) {
-                            Ok(nanos) => builder.append_value(nanos)?,
-                            Err(_) => builder.append_null()?, // not a valid date
-                        };
-                    }
-                }
-                Ok(Arc::new(builder.finish()) as ArrayRef)
+                cast_string_to_timestamp_ns::<i32>(&**array)
             }
             _ => Err(ArrowError::ComputeError(format!(
                 "Casting from {:?} to {:?} not supported",
@@ -428,6 +391,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             ))),
         },
         (_, Utf8) => match from_type {
+            LargeUtf8 => cast_str_container::<i64, i32>(&**array),
             UInt8 => cast_numeric_to_string::<UInt8Type, i32>(array),
             UInt16 => cast_numeric_to_string::<UInt16Type, i32>(array),
             UInt32 => cast_numeric_to_string::<UInt32Type, i32>(array),
@@ -475,6 +439,27 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                         })
                         .collect::<LargeStringArray>(),
                 ))
+            }
+            _ => Err(ArrowError::ComputeError(format!(
+                "Casting from {:?} to {:?} not supported",
+                from_type, to_type,
+            ))),
+        },
+        (LargeUtf8, _) => match to_type {
+            UInt8 => cast_string_to_numeric::<UInt8Type, i64>(array),
+            UInt16 => cast_string_to_numeric::<UInt16Type, i64>(array),
+            UInt32 => cast_string_to_numeric::<UInt32Type, i64>(array),
+            UInt64 => cast_string_to_numeric::<UInt64Type, i64>(array),
+            Int8 => cast_string_to_numeric::<Int8Type, i64>(array),
+            Int16 => cast_string_to_numeric::<Int16Type, i64>(array),
+            Int32 => cast_string_to_numeric::<Int32Type, i64>(array),
+            Int64 => cast_string_to_numeric::<Int64Type, i64>(array),
+            Float32 => cast_string_to_numeric::<Float32Type, i64>(array),
+            Float64 => cast_string_to_numeric::<Float64Type, i64>(array),
+            Date32 => cast_string_to_date32::<i64>(&**array),
+            Date64 => cast_string_to_date64::<i64>(&**array),
+            Timestamp(TimeUnit::Nanosecond, None) => {
+                cast_string_to_timestamp_ns::<i64>(&**array)
             }
             _ => Err(ArrowError::ComputeError(format!(
                 "Casting from {:?} to {:?} not supported",
@@ -943,17 +928,23 @@ where
 
 /// Cast numeric types to Utf8
 #[allow(clippy::unnecessary_wraps)]
-fn cast_string_to_numeric<T>(from: &ArrayRef) -> Result<ArrayRef>
+fn cast_string_to_numeric<T, Offset: StringOffsetSizeTrait>(
+    from: &ArrayRef,
+) -> Result<ArrayRef>
 where
     T: ArrowNumericType,
     <T as ArrowPrimitiveType>::Native: lexical_core::FromLexical,
 {
-    Ok(Arc::new(string_to_numeric_cast::<T>(
-        from.as_any().downcast_ref::<StringArray>().unwrap(),
+    Ok(Arc::new(string_to_numeric_cast::<T, Offset>(
+        from.as_any()
+            .downcast_ref::<GenericStringArray<Offset>>()
+            .unwrap(),
     )))
 }
 
-fn string_to_numeric_cast<T>(from: &StringArray) -> PrimitiveArray<T>
+fn string_to_numeric_cast<T, Offset: StringOffsetSizeTrait>(
+    from: &GenericStringArray<Offset>,
+) -> PrimitiveArray<T>
 where
     T: ArrowNumericType,
     <T as ArrowPrimitiveType>::Native: lexical_core::FromLexical,
@@ -970,6 +961,93 @@ where
     // Soundness:
     //     The iterator is trustedLen because it comes from an `StringArray`.
     unsafe { PrimitiveArray::<T>::from_trusted_len_iter(iter) }
+}
+
+/// Casts generic string arrays to Date32Array
+#[allow(clippy::unnecessary_wraps)]
+fn cast_string_to_date32<Offset: StringOffsetSizeTrait>(
+    array: &dyn Array,
+) -> Result<ArrayRef> {
+    use chrono::Datelike;
+    let string_array = array
+        .as_any()
+        .downcast_ref::<GenericStringArray<Offset>>()
+        .unwrap();
+
+    let iter = (0..string_array.len()).map(|i| {
+        if string_array.is_null(i) {
+            None
+        } else {
+            string_array
+                .value(i)
+                .parse::<chrono::NaiveDate>()
+                .map(|date| date.num_days_from_ce() - EPOCH_DAYS_FROM_CE)
+                .ok()
+        }
+    });
+
+    // Benefit:
+    //     20% performance improvement
+    // Soundness:
+    //     The iterator is trustedLen because it comes from an `StringArray`.
+    let array = unsafe { Date32Array::from_trusted_len_iter(iter) };
+    Ok(Arc::new(array) as ArrayRef)
+}
+
+/// Casts generic string arrays to Date64Array
+#[allow(clippy::unnecessary_wraps)]
+fn cast_string_to_date64<Offset: StringOffsetSizeTrait>(
+    array: &dyn Array,
+) -> Result<ArrayRef> {
+    let string_array = array
+        .as_any()
+        .downcast_ref::<GenericStringArray<Offset>>()
+        .unwrap();
+
+    let iter = (0..string_array.len()).map(|i| {
+        if string_array.is_null(i) {
+            None
+        } else {
+            string_array
+                .value(i)
+                .parse::<chrono::NaiveDateTime>()
+                .map(|datetime| datetime.timestamp_millis())
+                .ok()
+        }
+    });
+
+    // Benefit:
+    //     20% performance improvement
+    // Soundness:
+    //     The iterator is trustedLen because it comes from an `StringArray`.
+    let array = unsafe { Date64Array::from_trusted_len_iter(iter) };
+    Ok(Arc::new(array) as ArrayRef)
+}
+
+/// Casts generic string arrays to TimeStampNanosecondArray
+#[allow(clippy::unnecessary_wraps)]
+fn cast_string_to_timestamp_ns<Offset: StringOffsetSizeTrait>(
+    array: &dyn Array,
+) -> Result<ArrayRef> {
+    let string_array = array
+        .as_any()
+        .downcast_ref::<GenericStringArray<Offset>>()
+        .unwrap();
+
+    let iter = (0..string_array.len()).map(|i| {
+        if string_array.is_null(i) {
+            None
+        } else {
+            string_to_timestamp_nanos(string_array.value(i)).ok()
+        }
+    });
+
+    // Benefit:
+    //     20% performance improvement
+    // Soundness:
+    //     The iterator is trustedLen because it comes from an `StringArray`.
+    let array = unsafe { TimestampNanosecondArray::from_trusted_len_iter(iter) };
+    Ok(Arc::new(array) as ArrayRef)
 }
 
 /// Cast numeric types to Boolean
@@ -1239,6 +1317,7 @@ where
 fn cast_primitive_to_list<OffsetSize: OffsetSizeTrait + NumCast>(
     array: &ArrayRef,
     to: &Field,
+    to_type: &DataType,
 ) -> Result<ArrayRef> {
     // cast primitive to list's primitive
     let cast_array = cast(array, to.data_type())?;
@@ -1253,7 +1332,7 @@ fn cast_primitive_to_list<OffsetSize: OffsetSizeTrait + NumCast>(
     };
 
     let list_data = ArrayData::new(
-        to.data_type().clone(),
+        to_type.clone(),
         array.len(),
         Some(cast_array.null_count()),
         cast_array
@@ -1275,12 +1354,13 @@ fn cast_primitive_to_list<OffsetSize: OffsetSizeTrait + NumCast>(
 fn cast_list_inner<OffsetSize: OffsetSizeTrait>(
     array: &dyn Array,
     to: &Field,
+    to_type: &DataType,
 ) -> Result<ArrayRef> {
     let data = array.data_ref();
     let underlying_array = make_array(data.child_data()[0].clone());
     let cast_array = cast(&underlying_array, to.data_type())?;
     let array_data = ArrayData::new(
-        to.data_type().clone(),
+        to_type.clone(),
         array.len(),
         Some(cast_array.null_count()),
         cast_array
@@ -1295,6 +1375,53 @@ fn cast_list_inner<OffsetSize: OffsetSizeTrait>(
     );
     let list = GenericListArray::<OffsetSize>::from(Arc::new(array_data));
     Ok(Arc::new(list) as ArrayRef)
+}
+
+/// Helper function to cast from `Utf8` to `LargeUtf8` and vice versa. If the `LargeUtf8` is too large for
+/// a `Utf8` array it will return an Error.
+fn cast_str_container<OffsetSizeFrom, OffsetSizeTo>(array: &dyn Array) -> Result<ArrayRef>
+where
+    OffsetSizeFrom: StringOffsetSizeTrait + ToPrimitive,
+    OffsetSizeTo: StringOffsetSizeTrait + NumCast + ArrowNativeType,
+{
+    let str_array = array
+        .as_any()
+        .downcast_ref::<GenericStringArray<OffsetSizeFrom>>()
+        .unwrap();
+    let list_data = array.data();
+    let str_values_buf = str_array.value_data();
+
+    let offsets = unsafe { list_data.buffers()[0].typed_data::<OffsetSizeFrom>() };
+
+    let mut offset_builder = BufferBuilder::<OffsetSizeTo>::new(offsets.len());
+    offsets.iter().try_for_each::<_, Result<_>>(|offset| {
+        let offset = OffsetSizeTo::from(*offset).ok_or_else(|| {
+            ArrowError::ComputeError(
+                "large-utf8 array too large to cast to utf8-array".into(),
+            )
+        })?;
+        offset_builder.append(offset);
+        Ok(())
+    })?;
+
+    let offset_buffer = offset_builder.finish();
+
+    let dtype = if matches!(std::mem::size_of::<OffsetSizeTo>(), 8) {
+        DataType::LargeUtf8
+    } else {
+        DataType::Utf8
+    };
+
+    let mut builder = ArrayData::builder(dtype)
+        .len(array.len())
+        .add_buffer(offset_buffer)
+        .add_buffer(str_values_buf);
+
+    if let Some(buf) = list_data.null_buffer() {
+        builder = builder.null_bit_buffer(buf.clone())
+    }
+    let data = builder.build();
+    Ok(Arc::new(GenericStringArray::<OffsetSizeTo>::from(data)))
 }
 
 /// Cast the container type of List/Largelist array but not the inner types.
@@ -1664,20 +1791,27 @@ mod tests {
 
     #[test]
     fn test_cast_string_to_timestamp() {
-        let a = StringArray::from(vec![
+        let a1 = Arc::new(StringArray::from(vec![
             Some("2020-09-08T12:00:00+00:00"),
             Some("Not a valid date"),
             None,
-        ]);
-        let array = Arc::new(a) as ArrayRef;
-        let b = cast(&array, &DataType::Timestamp(TimeUnit::Nanosecond, None)).unwrap();
-        let c = b
-            .as_any()
-            .downcast_ref::<TimestampNanosecondArray>()
-            .unwrap();
-        assert_eq!(1599566400000000000, c.value(0));
-        assert!(c.is_null(1));
-        assert!(c.is_null(2));
+        ])) as ArrayRef;
+        let a2 = Arc::new(LargeStringArray::from(vec![
+            Some("2020-09-08T12:00:00+00:00"),
+            Some("Not a valid date"),
+            None,
+        ])) as ArrayRef;
+        for array in &[a1, a2] {
+            let b =
+                cast(array, &DataType::Timestamp(TimeUnit::Nanosecond, None)).unwrap();
+            let c = b
+                .as_any()
+                .downcast_ref::<TimestampNanosecondArray>()
+                .unwrap();
+            assert_eq!(1599566400000000000, c.value(0));
+            assert!(c.is_null(1));
+            assert!(c.is_null(2));
+        }
     }
 
     #[test]
@@ -1776,6 +1910,46 @@ mod tests {
             .into_iter()
             .collect::<Vec<_>>();
         assert_eq!(out, vec![Some("1"), Some("2"), Some("3")]);
+    }
+
+    #[test]
+    fn test_str_to_str_casts() {
+        for data in vec![
+            vec![Some("foo"), Some("bar"), Some("ham")],
+            vec![Some("foo"), None, Some("bar")],
+        ] {
+            let a = Arc::new(LargeStringArray::from(data.clone())) as ArrayRef;
+            let to = cast(&a, &DataType::Utf8).unwrap();
+            let expect = a
+                .as_any()
+                .downcast_ref::<LargeStringArray>()
+                .unwrap()
+                .into_iter()
+                .collect::<Vec<_>>();
+            let out = to
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .unwrap()
+                .into_iter()
+                .collect::<Vec<_>>();
+            assert_eq!(expect, out);
+
+            let a = Arc::new(StringArray::from(data)) as ArrayRef;
+            let to = cast(&a, &DataType::LargeUtf8).unwrap();
+            let expect = a
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .unwrap()
+                .into_iter()
+                .collect::<Vec<_>>();
+            let out = to
+                .as_any()
+                .downcast_ref::<LargeStringArray>()
+                .unwrap()
+                .into_iter()
+                .collect::<Vec<_>>();
+            assert_eq!(expect, out);
+        }
     }
 
     #[test]

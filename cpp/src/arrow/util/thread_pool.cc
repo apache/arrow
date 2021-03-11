@@ -34,6 +34,16 @@ namespace internal {
 
 Executor::~Executor() = default;
 
+namespace {
+
+struct Task {
+  FnOnce<void()> callable;
+  StopToken stop_token;
+  Executor::StopCallback stop_callback;
+};
+
+}  // namespace
+
 struct ThreadPool::State {
   State() = default;
 
@@ -47,7 +57,7 @@ struct ThreadPool::State {
   std::list<std::thread> workers_;
   // Trashcan for finished threads
   std::vector<std::thread> finished_workers_;
-  std::deque<FnOnce<void()>> pending_tasks_;
+  std::deque<Task> pending_tasks_;
 
   // Desired number of threads
   int desired_capacity_ = 0;
@@ -91,12 +101,20 @@ static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
       --state->ready_count_;
       DCHECK_GE(state->ready_count_, 0);
       {
-        FnOnce<void()> task = std::move(state->pending_tasks_.front());
+        Task task = std::move(state->pending_tasks_.front());
         state->pending_tasks_.pop_front();
+        StopToken* stop_token = &task.stop_token;
         lock.unlock();
-        std::move(task)();
+        if (!stop_token->IsStopRequested()) {
+          std::move(task.callable)();
+        } else {
+          if (task.stop_callback) {
+            std::move(task.stop_callback)(stop_token->Poll());
+          }
+        }
+        ARROW_UNUSED(std::move(task));  // release resources before waiting for lock
+        lock.lock();
       }
-      lock.lock();
       ++state->ready_count_;
     }
     // Now either the queue is empty *or* a quick shutdown was requested
@@ -242,7 +260,8 @@ void ThreadPool::LaunchWorkersUnlocked(int threads) {
   }
 }
 
-Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task) {
+Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken stop_token,
+                             StopCallback&& stop_callback) {
   {
     ProtectAgainstFork();
     std::lock_guard<std::mutex> lock(state_->mutex_);
@@ -256,7 +275,8 @@ Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task) {
       // spawn one more thread.
       LaunchWorkersUnlocked(/*threads=*/1);
     }
-    state_->pending_tasks_.push_back(std::move(task));
+    state_->pending_tasks_.push_back(
+        {std::move(task), std::move(stop_token), std::move(stop_callback)});
   }
   state_->cv_.notify_one();
   return Status::OK();

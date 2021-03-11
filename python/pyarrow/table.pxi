@@ -276,7 +276,7 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         return _pc().cast(self, target_type, safe=safe)
 
-    def dictionary_encode(self):
+    def dictionary_encode(self, null_encoding='mask'):
         """
         Compute dictionary-encoded representation of array
 
@@ -285,7 +285,8 @@ cdef class ChunkedArray(_PandasConvertible):
         pyarrow.ChunkedArray
             Same chunking as the input, all chunks share a common dictionary.
         """
-        return _pc().call_function('dictionary_encode', [self])
+        options = _pc().DictionaryEncodeOptions(null_encoding)
+        return _pc().call_function('dictionary_encode', [self], options)
 
     def flatten(self, MemoryPool memory_pool=None):
         """

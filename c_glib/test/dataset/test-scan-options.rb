@@ -34,11 +34,4 @@ class TestDatasetScanOptions < Test::Unit::TestCase
     assert_equal(42,
                  @scan_options.batch_size)
   end
-
-  def test_replace_schema
-    other_schema = Arrow::Schema.new([Arrow::Field.new("visible", Arrow::BooleanDataType.new)])
-    other_scan_options = @scan_options.replace_schema(other_schema)
-    assert_not_equal(@schema, other_scan_options.schema)
-    assert_equal(other_schema, other_scan_options.schema)
-  end
 end
