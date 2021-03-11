@@ -36,6 +36,7 @@ PKG_LIBS="-larrow"
 # Make some env vars case-insensitive
 ARROW_R_DEV=`echo $ARROW_R_DEV | tr '[:upper:]' '[:lower:]'`
 FORCE_AUTOBREW=`echo $FORCE_AUTOBREW | tr '[:upper:]' '[:lower:]'`
+FORCE_TOOLS_LIBS_SCRIPT=`echo $FORCE_TOOLS_LIBS_SCRIPT | tr '[:upper:]' '[:lower:]'`
 ARROW_USE_PKG_CONFIG=`echo $ARROW_USE_PKG_CONFIG | tr '[:upper:]' '[:lower:]'`
 
 VERSION=`grep '^Version' DESCRIPTION | sed s/Version:\ //`
