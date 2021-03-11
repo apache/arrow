@@ -695,11 +695,14 @@ services:
 
   # See available versions at:
   #    https://quay.io/repository/pypa/manylinux2010_x86_64?tab=tags
+  #    only amd64 arch is supported
   python-wheel-manylinux-2010:
     image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2010
     build:
       args:
-        base: quay.io/pypa/manylinux2010_x86_64:2020-12-03-912b0de
+        arch_alias: ${ARCH_ALIAS}
+        arch_short_alias: ${ARCH_SHORT_ALIAS}
+        base: quay.io/pypa/manylinux2010_${ARCH_ALIAS}:2020-12-03-912b0de
         vcpkg: ${VCPKG}
         python: ${PYTHON}
       context: .
