@@ -18,7 +18,7 @@
 arch: arm64-graviton2
 virt: vm
 os: linux
-dist: focal
+dist: bionic
 group: edge
 language: minimal
 
@@ -26,6 +26,7 @@ addons:
   apt:
     packages:
       - apt-utils
+      - createrepo
       - devscripts
       - gpg
       - libgit2-dev
