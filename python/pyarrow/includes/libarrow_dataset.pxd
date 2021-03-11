@@ -268,11 +268,13 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CPartitioningFactoryOptions \
             "arrow::dataset::PartitioningFactoryOptions":
         c_bool infer_dictionary
+        shared_ptr[CSchema] schema
 
     cdef cppclass CHivePartitioningFactoryOptions \
             "arrow::dataset::HivePartitioningFactoryOptions":
         c_bool infer_dictionary,
         c_string null_fallback
+        shared_ptr[CSchema] schema
 
     cdef cppclass CPartitioningFactory "arrow::dataset::PartitioningFactory":
         pass
