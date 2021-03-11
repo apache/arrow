@@ -205,16 +205,17 @@ class SerialReadaheadGenerator {
       return AsyncGeneratorEnd<T>();
     }
 
-    auto next_ptr = state_->readahead_queue_.FrontPtr();
-    auto next = std::move(**next_ptr);
-    state_->readahead_queue_.PopFront();
+    std::shared_ptr<Future<T>> next;
+    if (!state_->readahead_queue_.Read(next)) {
+      return Status::UnknownError("Could not read from readahead_queue");
+    }
 
     auto last_available = state_->spaces_available_.fetch_add(1);
     if (last_available == 0 && !finished) {
       // Reader idled out, we need to restart it
       ARROW_RETURN_NOT_OK(state_->Pump(state_));
     }
-    return next;
+    return *next;
   }
 
  private:
@@ -235,6 +236,12 @@ class SerialReadaheadGenerator {
       if (!written) {
         return Status::UnknownError("Could not write to readahead_queue");
       }
+      // If this Pump is being called from a callback it is possible for the source to
+      // poll and read from the queue between the Write and this spot where we fill the
+      // value in. However, it is not possible for the future to read this value we are
+      // writing.  That is because this callback (the callback for future X) must be
+      // finished before future X is marked complete and this source is not pulled
+      // reentrantly so it will not poll for future X+1 until this callback has completed.
       *next_slot = source_().Then(Callback{self});
       return Status::OK();
     }
@@ -246,7 +253,8 @@ class SerialReadaheadGenerator {
     std::atomic<bool> finished_;
     // The queue has a size but it is not atomic.  We keep track of how many spaces are
     // left in the queue here so we know if we've just written the last value and we need
-    // to stop reading ahead.
+    // to stop reading ahead or if we've just read from a full queue and we need to
+    // restart reading ahead
     std::atomic<uint32_t> spaces_available_;
     // Needs to be a queue of shared_ptr and not Future because we set the value of the
     // future after we add it to the queue
