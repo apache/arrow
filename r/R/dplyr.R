@@ -508,16 +508,18 @@ mutate.arrow_dplyr_query <- function(.data,
                                      .after = NULL) {
   call <- match.call()
   exprs <- quos(...)
-  if (length(exprs) == 0) {
+
+  .keep <- match.arg(.keep)
+  .before <- enquo(.before)
+  .after <- enquo(.after)
+
+  if (.keep %in% c("all", "unused") && length(exprs) == 0) {
     # Nothing to do
     return(.data)
   }
 
   .data <- arrow_dplyr_query(.data)
 
-  .keep <- match.arg(.keep)
-  .before <- enquo(.before)
-  .after <- enquo(.after)
   # Restrict the cases we support for now
   if (!quo_is_null(.before) || !quo_is_null(.after)) {
     # TODO(ARROW-11701)
