@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/dataset/dataset_internal.h"
+#include "arrow/dataset/forest_internal.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/dataset/scanner_internal.h"
 #include "arrow/filesystem/filesystem.h"
@@ -38,6 +39,7 @@
 #include "arrow/util/mutex.h"
 #include "arrow/util/string.h"
 #include "arrow/util/task_group.h"
+#include "arrow/util/variant.h"
 
 namespace arrow {
 namespace dataset {
@@ -81,6 +83,13 @@ Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanOptions> options
   auto self = std::dynamic_pointer_cast<FileFragment>(shared_from_this());
   return format_->ScanFile(std::move(options), std::move(context), self);
 }
+
+struct FileSystemDataset::FragmentSubtrees {
+  // Forest for skipping fragments based on extracted subtree expressions
+  Forest forest;
+  // fragment indices and subtree expressions in forest order
+  std::vector<util::Variant<int, Expression>> fragments_and_subtrees;
+};
 
 Result<std::shared_ptr<FileSystemDataset>> FileSystemDataset::Make(
     std::shared_ptr<Schema> schema, Expression root_partition,
@@ -131,6 +140,7 @@ std::string FileSystemDataset::ToString() const {
 }
 
 void FileSystemDataset::SetupSubtreePruning() {
+  subtrees_ = std::make_shared<FragmentSubtrees>();
   SubtreeImpl impl;
 
   auto encoded = impl.EncodeFragments(fragments_);
@@ -142,13 +152,13 @@ void FileSystemDataset::SetupSubtreePruning() {
 
   for (const auto& e : encoded) {
     if (e.fragment_index) {
-      fragments_and_subtrees_.emplace_back(*e.fragment_index);
+      subtrees_->fragments_and_subtrees.emplace_back(*e.fragment_index);
     } else {
-      fragments_and_subtrees_.emplace_back(impl.GetSubtreeExpression(e));
+      subtrees_->fragments_and_subtrees.emplace_back(impl.GetSubtreeExpression(e));
     }
   }
 
-  forest_ = Forest(static_cast<int>(encoded.size()), [&](int l, int r) {
+  subtrees_->forest = Forest(static_cast<int>(encoded.size()), [&](int l, int r) {
     if (encoded[l].fragment_index) {
       // Fragment: not an ancestor.
       return false;
@@ -173,14 +183,16 @@ Result<FragmentIterator> FileSystemDataset::GetFragmentsImpl(Expression predicat
   std::vector<int> fragment_indices;
 
   std::vector<Expression> predicates{predicate};
-  RETURN_NOT_OK(forest_.Visit(
+  RETURN_NOT_OK(subtrees_->forest.Visit(
       [&](Forest::Ref ref) -> Result<bool> {
-        if (auto fragment_index = util::get_if<int>(&fragments_and_subtrees_[ref.i])) {
+        if (auto fragment_index =
+                util::get_if<int>(&subtrees_->fragments_and_subtrees[ref.i])) {
           fragment_indices.push_back(*fragment_index);
           return false;
         }
 
-        const auto& subtree_expr = util::get<Expression>(fragments_and_subtrees_[ref.i]);
+        const auto& subtree_expr =
+            util::get<Expression>(subtrees_->fragments_and_subtrees[ref.i]);
         ARROW_ASSIGN_OR_RAISE(auto simplified,
                               SimplifyWithGuarantee(predicates.back(), subtree_expr));
 

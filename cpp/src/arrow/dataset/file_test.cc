@@ -24,6 +24,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/dataset/api.h"
+#include "arrow/dataset/forest_internal.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/filesystem/path_util.h"

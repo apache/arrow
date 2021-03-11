@@ -27,7 +27,6 @@
 
 #include "arrow/buffer.h"
 #include "arrow/dataset/dataset.h"
-#include "arrow/dataset/forest.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/dataset/type_fwd.h"
@@ -234,6 +233,8 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   std::string ToString() const;
 
  protected:
+  struct FragmentSubtrees;
+
   explicit FileSystemDataset(std::shared_ptr<Schema> schema)
       : Dataset(std::move(schema)) {}
 
@@ -248,10 +249,7 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   std::shared_ptr<fs::FileSystem> filesystem_;
   std::vector<std::shared_ptr<FileFragment>> fragments_;
 
-  // Forest for skipping fragments based on extracted subtree expressions
-  Forest forest_;
-  // fragment indices and subtree expressions in forest order
-  std::vector<util::Variant<int, Expression>> fragments_and_subtrees_;
+  std::shared_ptr<FragmentSubtrees> subtrees_;
 };
 
 class ARROW_DS_EXPORT FileWriteOptions {
