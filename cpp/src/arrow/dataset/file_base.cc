@@ -147,7 +147,13 @@ void FileSystemDataset::SetupSubtreePruning() {
 
   std::sort(encoded.begin(), encoded.end(),
             [](const SubtreeImpl::Encoded& l, const SubtreeImpl::Encoded& r) {
-              return l.partition_expression < r.partition_expression;
+              const auto cmp = l.partition_expression.compare(r.partition_expression);
+              if (cmp != 0) {
+                return cmp < 0;
+              }
+              // Equal partition expressions; sort encodings with fragment indices after
+              // encodings without
+              return (l.fragment_index ? 1 : 0) < (r.fragment_index ? 1 : 0);
             });
 
   for (const auto& e : encoded) {
