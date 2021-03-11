@@ -464,10 +464,10 @@ class TestS3FS : public S3TestMixin {
     std::weak_ptr<S3FileSystem> weak_fs(fs_);
     ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/newfile5"));
     fs_.reset();
-    ASSERT_FALSE(weak_fs.expired());
-    ASSERT_OK(stream->Write("some data"));
+    ASSERT_OK(stream->Write("some other data"));
     ASSERT_OK(stream->Close());
     ASSERT_TRUE(weak_fs.expired());
+    AssertObjectContents(client_.get(), "bucket", "newfile5", "some other data");
   }
 
   void TestOpenOutputStreamAbort() {
@@ -802,7 +802,6 @@ TEST_F(TestS3FS, OpenInputStream) {
   std::weak_ptr<S3FileSystem> weak_fs(fs_);
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream("bucket/somefile"));
   fs_.reset();
-  ASSERT_FALSE(weak_fs.expired());
   ASSERT_OK_AND_ASSIGN(buf, stream->Read(10));
   AssertBufferEqual(*buf, "some data");
   ASSERT_OK(stream->Close());
