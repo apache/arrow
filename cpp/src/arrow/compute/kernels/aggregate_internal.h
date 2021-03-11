@@ -139,8 +139,6 @@ enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
 }
 
 // naive summation for integers
-// TODO(yibo): much worse performance than BitBlockCounter,
-//             why compiler failed to vectorize the trivial loop?
 template <typename ValueType, typename SumType, typename ValueFunc>
 enable_if_t<!std::is_floating_point<SumType>::value, SumType> SumArray(
     const ArrayData& data, ValueFunc&& func) {
