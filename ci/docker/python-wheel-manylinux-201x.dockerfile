@@ -54,7 +54,7 @@ RUN mkdir /tmp/ccache && \
 ARG vcpkg
 RUN git clone https://github.com/microsoft/vcpkg /opt/vcpkg && \
     git -C /opt/vcpkg checkout ${vcpkg} && \
-    /opt/vcpkg/bootstrap-vcpkg.sh --useSystemBinaries --disableMetrics && \
+    /opt/vcpkg/bootstrap-vcpkg.sh -useSystemBinaries -disableMetrics && \
     ln -s /opt/vcpkg/vcpkg /usr/bin/vcpkg
 
 # Patch ports files as needed
