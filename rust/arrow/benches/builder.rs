@@ -56,7 +56,7 @@ fn bench_primitive_nulls(c: &mut Criterion) {
     group.bench_function("bench_primitive_nulls", |b| {
         b.iter(|| {
             let mut builder = UInt8Builder::new(64);
-            for _ in 0..NUM_BATCHES*BATCH_SIZE {
+            for _ in 0..NUM_BATCHES * BATCH_SIZE {
                 let _ = black_box(builder.append_null());
             }
             black_box(builder.finish());
@@ -106,5 +106,11 @@ fn bench_string(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_primitive, bench_primitive_nulls, bench_bool, bench_string);
+criterion_group!(
+    benches,
+    bench_primitive,
+    bench_primitive_nulls,
+    bench_bool,
+    bench_string
+);
 criterion_main!(benches);
