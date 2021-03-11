@@ -69,5 +69,5 @@ import pyarrow.parquet
 import pyarrow.plasma"
 elif [ "${KIND}" == "unittests" ]; then
   # Execute unittest, test dependencies must be installed
-  pytest -v -r s --pyargs pyarrow
+  pytest -r s --pyargs pyarrow
 fi
