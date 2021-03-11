@@ -73,7 +73,6 @@ jobs:
           sudo apt update
           sudo apt install -y \
             apt-utils \
-            createrepo \
             devscripts \
             gpg \
             rpm

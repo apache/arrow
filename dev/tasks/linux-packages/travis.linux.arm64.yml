@@ -15,16 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
+arch: arm64-graviton2
+virt: vm
 os: linux
-arch: arm64
-dist: bionic
+dist: focal
+group: edge
 language: minimal
 
 addons:
   apt:
     packages:
       - apt-utils
-      - createrepo
       - devscripts
       - gpg
       - libgit2-dev
@@ -105,7 +106,7 @@ script:
 
 after_success:
   - sudo -H pip3 install --upgrade pip
-  - sudo -H pip3 install -r arrow/dev/tasks/requirements-crossbow.txt pygit2==0.26
+  - sudo -H pip3 install -r arrow/dev/tasks/requirements-crossbow.txt pygit2==1.0
   - |
     python3 arrow/dev/tasks/crossbow.py \
       --queue-path . \
