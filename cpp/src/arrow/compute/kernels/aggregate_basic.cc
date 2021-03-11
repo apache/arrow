@@ -22,6 +22,7 @@
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/bit_run_reader.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/make_unique.h"
 
@@ -238,7 +239,7 @@ struct GroupedSumImpl : public GroupedAggregator {
               }
             });
       };
-      out_type = boolean();
+      out_type = uint64();
       return Status::OK();
     }
 
@@ -313,6 +314,8 @@ struct GroupedSumImpl : public GroupedAggregator {
 
   std::shared_ptr<DataType> out_type() const override { return out_type_; }
 
+  // NB: counts are used here instead of a simple "has_values_" bitmap since
+  // we expect to reuse this kernel to handle Mean
   std::shared_ptr<ResizableBuffer> sums_, counts_;
   std::shared_ptr<DataType> out_type_;
   ConsumeImpl consume_impl_;
@@ -329,44 +332,24 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
     enable_if_number<T, Status> Visit(const T&) {
       consume_impl = [](const std::shared_ptr<ArrayData>& input,
                         const uint32_t* group_ids, BufferVector* buffers) {
-        auto raw_inputs = reinterpret_cast<const CType*>(input->buffers[1]->data());
-
         auto raw_mins = reinterpret_cast<CType*>(buffers->at(0)->mutable_data());
         auto raw_maxes = reinterpret_cast<CType*>(buffers->at(1)->mutable_data());
 
         auto raw_has_nulls = buffers->at(2)->mutable_data();
         auto raw_has_values = buffers->at(3)->mutable_data();
 
-        for (int64_t i = 0, input_i = input->offset; i < input->length; ++i, ++input_i) {
-          auto g = group_ids[i];
-          bool is_valid = BitUtil::GetBit(input->buffers[0]->data(), input_i);
-          if (is_valid) {
-            raw_maxes[g] = std::max(raw_maxes[g], raw_inputs[input_i]);
-            raw_mins[g] = std::min(raw_mins[g], raw_inputs[input_i]);
-            BitUtil::SetBit(raw_has_values, g);
-          } else {
-            BitUtil::SetBit(raw_has_nulls, g);
-          }
-        }
+        auto g = group_ids;
+        VisitArrayDataInline<T>(
+            *input,
+            [&](CType val) {
+              raw_maxes[*g] = std::max(raw_maxes[*g], val);
+              raw_mins[*g] = std::min(raw_mins[*g], val);
+              BitUtil::SetBit(raw_has_values, *g++);
+            },
+            [&] { BitUtil::SetBit(raw_has_nulls, *g++); });
       };
 
-      for (auto pair :
-           {std::make_pair(&resize_min_impl, std::numeric_limits<CType>::max()),
-            std::make_pair(&resize_max_impl, std::numeric_limits<CType>::min())}) {
-        *pair.first = [pair](Buffer* vals, int64_t new_num_groups) {
-          int64_t old_num_groups = vals->size() / sizeof(CType);
-
-          int64_t new_size = new_num_groups * sizeof(CType);
-          RETURN_NOT_OK(checked_cast<ResizableBuffer*>(vals)->Resize(new_size));
-
-          auto raw_vals = reinterpret_cast<CType*>(vals->mutable_data());
-          for (int64_t i = old_num_groups; i != new_num_groups; ++i) {
-            raw_vals[i] = pair.second;
-          }
-          return Status::OK();
-        };
-      }
-
+      GetResizeImpls<T>();
       return Status::OK();
     }
 
@@ -380,6 +363,36 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
 
     Status Visit(const DataType& type) {
       return Status::NotImplemented("Grouped MinMax data of type ", type);
+    }
+
+    template <typename CType>
+    ResizeImpl MakeResizeImpl(CType anti_extreme) {
+      // resize a min or max buffer, storing the correct anti extreme
+      return [anti_extreme](Buffer* vals, int64_t new_num_groups) {
+        int64_t old_num_groups = vals->size() / sizeof(CType);
+
+        int64_t new_size = new_num_groups * sizeof(CType);
+        RETURN_NOT_OK(checked_cast<ResizableBuffer*>(vals)->Resize(new_size));
+
+        auto raw_vals = reinterpret_cast<CType*>(vals->mutable_data());
+        for (int64_t i = old_num_groups; i != new_num_groups; ++i) {
+          raw_vals[i] = anti_extreme;
+        }
+        return Status::OK();
+      };
+    }
+
+    template <typename T, typename CType = typename TypeTraits<T>::CType>
+    enable_if_floating_point<T> GetResizeImpls() {
+      auto inf = std::numeric_limits<CType>::infinity();
+      resize_min_impl = MakeResizeImpl(inf);
+      resize_max_impl = MakeResizeImpl(-inf);
+    }
+
+    template <typename T, typename CType = typename TypeTraits<T>::CType>
+    enable_if_integer<T> GetResizeImpls() {
+      resize_max_impl = MakeResizeImpl(std::numeric_limits<CType>::min());
+      resize_min_impl = MakeResizeImpl(std::numeric_limits<CType>::max());
     }
 
     ConsumeImpl consume_impl;
@@ -435,11 +448,8 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
 
     if (options_.null_handling == MinMaxOptions::EMIT_NULL) {
       // ... and there were no nulls in that group
-      for (int64_t i = 0; i < num_groups(); ++i) {
-        if (BitUtil::GetBit(buffers_[2]->data(), i)) {
-          BitUtil::ClearBit(null_bitmap->mutable_data(), i);
-        }
-      }
+      arrow::internal::BitmapAndNot(null_bitmap->data(), 0, buffers_[2]->data(), 0,
+                                    num_groups(), 0, null_bitmap->mutable_data());
     }
 
     auto mins =

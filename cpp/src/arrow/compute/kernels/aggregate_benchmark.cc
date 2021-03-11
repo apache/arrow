@@ -318,7 +318,6 @@ static void BenchmarkGroupBy(benchmark::State& state,
 
   GroupByOptions options;
   options.aggregates = aggregates;
-  options.key_names.resize(keys.size(), "ignored");
 
   for (auto _ : state) {
     ABORT_NOT_OK(CallFunction("group_by", arguments, &options).status());
@@ -347,7 +346,7 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallStringSet, [&] {
                                    /*min_length=*/3,
                                    /*max_length=*/32);
 
-  BenchmarkGroupBy(state, {{"sum", NULLPTR, "summed f64"}}, {summand}, {key});
+  BenchmarkGroupBy(state, {{"sum", NULLPTR}}, {summand}, {key});
 });
 
 GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallIntegerSet, [&] {
@@ -361,7 +360,7 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallIntegerSet, [&] {
                        /*min=*/0,
                        /*max=*/15);
 
-  BenchmarkGroupBy(state, {{"sum", NULLPTR, "summed f64"}}, {summand}, {key});
+  BenchmarkGroupBy(state, {{"sum", NULLPTR}}, {summand}, {key});
 });
 
 //
