@@ -1,7 +1,7 @@
 cffi
 cython
 hypothesis
-numpy==1.19.4; not (python_version == "3.9" and platform_machine == "aarch64")
+numpy==1.19.4; python_version != "3.9" or platform_machine != "aarch64"
 numpy==1.20.1; python_version == "3.9" and platform_machine == "aarch64"
 pandas<1.1.0; python_version < "3.8" and platform_machine != "aarch64"
 pandas; python_version >= "3.8" or platform_machine == "aarch64"
