@@ -123,7 +123,7 @@ struct ProducerConsumerQueue {
     return false;
   }
 
-  // move (or copy) the value at the front of the queue to given variable
+  // move the value at the front of the queue to given variable
   bool Read(T& record) {
     auto const currentRead = readIndex_.load(std::memory_order_relaxed);
     if (currentRead == writeIndex_.load(std::memory_order_acquire)) {
