@@ -244,6 +244,7 @@ fn optimize_plan(
             source,
             projection,
             filters,
+            limit,
             ..
         } => {
             let (projection, projected_schema) = get_projected_schema(
@@ -260,6 +261,7 @@ fn optimize_plan(
                 projection: Some(projection),
                 projected_schema,
                 filters: filters.clone(),
+                limit: *limit,
             })
         }
         LogicalPlan::Explain {

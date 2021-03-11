@@ -42,6 +42,7 @@ use crate::logical_plan::{
 };
 use crate::optimizer::constant_folding::ConstantFolding;
 use crate::optimizer::filter_push_down::FilterPushDown;
+use crate::optimizer::limit_push_down::LimitPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
 use crate::physical_plan::csv::CsvReadOptions;
@@ -244,6 +245,7 @@ impl ExecutionContext {
             projected_schema: schema.to_dfschema_ref()?,
             projection: None,
             filters: vec![],
+            limit: None,
         };
         Ok(Arc::new(DataFrameImpl::new(
             self.state.clone(),
@@ -316,6 +318,7 @@ impl ExecutionContext {
                     projected_schema: schema.to_dfschema_ref()?,
                     projection: None,
                     filters: vec![],
+                    limit: None,
                 };
                 Ok(Arc::new(DataFrameImpl::new(
                     self.state.clone(),
@@ -519,6 +522,7 @@ impl ExecutionConfig {
                 Arc::new(ProjectionPushDown::new()),
                 Arc::new(FilterPushDown::new()),
                 Arc::new(HashBuildProbeOrder::new()),
+                Arc::new(LimitPushDown::new()),
             ],
             query_planner: Arc::new(DefaultQueryPlanner {}),
         }
