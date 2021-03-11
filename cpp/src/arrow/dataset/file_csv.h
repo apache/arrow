@@ -26,6 +26,7 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/status.h"
+#include "arrow/util/compression.h"
 
 namespace arrow {
 namespace dataset {
@@ -37,6 +38,8 @@ class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
  public:
   /// Options affecting the parsing of CSV files
   csv::ParseOptions parse_options = csv::ParseOptions::Defaults();
+  /// The kind of compression used on the CSV file.
+  Compression::type compression = Compression::UNCOMPRESSED;
 
   std::string type_name() const override { return kCsvTypeName; }
 
