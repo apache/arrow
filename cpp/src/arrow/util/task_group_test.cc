@@ -29,6 +29,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/status.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
