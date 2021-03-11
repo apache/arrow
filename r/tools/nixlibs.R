@@ -366,7 +366,7 @@ ensure_cmake <- function() {
     options(.arrow.cleanup = c(getOption(".arrow.cleanup"), cmake_dir))
     cmake <- paste0(
       cmake_dir,
-      "/cmake-", CMAKE_VERSION, "-Linux-x86_64",
+      "/cmake-", CMAKE_VERSION, sub(".tar.gz", "", postfix, fixed = TRUE),
       "/bin/cmake"
     )
   }
