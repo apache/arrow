@@ -122,7 +122,8 @@ x-hierarchy:
   - postgres
   - python-wheel-manylinux-2010
   - python-wheel-manylinux-2014
-  - python-wheel-manylinux-test
+  - python-wheel-manylinux-test-imports
+  - python-wheel-manylinux-test-unittests
   - python-wheel-windows-vs2017
   - python-wheel-windows-test
 
@@ -740,12 +741,27 @@ services:
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
     command: /arrow/ci/scripts/python_wheel_manylinux_build.sh
 
-  python-wheel-manylinux-test:
+  python-wheel-manylinux-test-imports:
     image: ${ARCH}/python:${PYTHON}
     shm_size: 2G
     volumes:
       - .:/arrow:delegated
-    command: /arrow/ci/scripts/python_wheel_manylinux_test.sh
+    command: /arrow/ci/scripts/python_wheel_manylinux_test.sh imports
+
+  python-wheel-manylinux-test-unittests:
+    image: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-test
+    build:
+      args:
+        arch: ${ARCH}
+        python: ${PYTHON}
+      context: .
+      dockerfile: ci/docker/python-wheel-manylinux-test.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-test
+    shm_size: 2G
+    volumes:
+      - .:/arrow:delegated
+    command: /arrow/ci/scripts/python_wheel_manylinux_test.sh unittests
 
   python-wheel-windows-vs2017:
     image: ${REPO}:python-${PYTHON}-wheel-windows-vs2017

@@ -17,7 +17,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+set -e
+set -x
+set -o pipefail
+
+case $# in
+  1) KIND="$1"
+     case $KIND in
+       imports|unittests) ;;
+       *) echo "Invalid argument: '${KIND}', valid options are 'imports', 'unittests'"
+          exit 1
+          ;;
+     esac
+     ;;
+  *) echo "Usage: $0 imports|unittests"
+     exit 1
+     ;;
+esac
 
 export PYARROW_TEST_CYTHON=OFF
 export PYARROW_TEST_DATASET=ON
@@ -35,11 +51,11 @@ export ARROW_TEST_DATA=/arrow/testing/data
 export PARQUET_TEST_DATA=/arrow/submodules/parquet-testing/data
 
 # Install the built wheels
-pip install --upgrade pip
 pip install /arrow/python/repaired_wheels/*.whl
 
-# Test that the modules are importable
-python -c "
+if [ "${KIND}" == "imports" ]; then
+  # Test that the modules are importable
+  python -c "
 import pyarrow
 import pyarrow._hdfs
 import pyarrow._s3fs
@@ -50,11 +66,8 @@ import pyarrow.fs
 import pyarrow.json
 import pyarrow.orc
 import pyarrow.parquet
-import pyarrow.plasma
-"
-
-# Install testing dependencies
-pip install -r /arrow/python/requirements-wheel-test.txt
-
-# Execute unittest
-pytest -v -r s --pyargs pyarrow
+import pyarrow.plasma"
+elif [ "${KIND}" == "unittests" ]; then
+  # Execute unittest, test dependencies must be installed
+  pytest -v -r s --pyargs pyarrow
+fi

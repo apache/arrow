@@ -69,7 +69,9 @@ jobs:
       # TODO(kszucs): auditwheel show
       - name: Test wheel
         shell: bash
-        run: archery docker run python-wheel-manylinux-test
+        run: |
+          archery docker run python-wheel-manylinux-test-imports
+          archery docker run python-wheel-manylinux-test-unittests
 
       ############################ Artifact Uploading #########################
       - name: Upload artifacts
@@ -91,9 +93,11 @@ jobs:
         run: archery docker push python-wheel-manylinux-{{ manylinux_version }}
 
       {% if arrow.branch == 'master' %}
-      # - name: Push the docker image
-      #   shell: bash
-      #   run: archery docker push python-wheel-manylinux-{{ manylinux_version }}
+      - name: Push the docker image
+        shell: bash
+        run: |
+          archery docker push python-wheel-manylinux-{{ manylinux_version }}
+          archery docker push python-wheel-manylinux-test-unittests
 
       - name: Upload to gemfury
         shell: bash

@@ -46,6 +46,7 @@ before_script:
   - git clone --no-checkout {{ arrow.remote }} arrow
   - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
   - git -C arrow checkout FETCH_HEAD
+  - git -C arrow submodule update --init --recursive
 
 script:
   # Install Archery and Crossbow dependencies
@@ -61,10 +62,14 @@ script:
 
   # output something every minutes to prevent travis from killing the build
   - while sleep 30s; do echo "=====[ $SECONDS seconds still running ]====="; done &
-  - archery docker build python-wheel-manylinux-{{ manylinux_version }}
-  - archery docker push python-wheel-manylinux-{{ manylinux_version }}
+
   - archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} -e CMAKE_UNITY_BUILD=OFF python-wheel-manylinux-{{ manylinux_version }}
-  - archery docker run python-wheel-manylinux-test
+  - archery docker run python-wheel-manylinux-test-imports
+  - archery docker run python-wheel-manylinux-test-unittests
+
+  - archery docker push python-wheel-manylinux-{{ manylinux_version }}
+  - archery docker push python-wheel-manylinux-test-unittests
+
   - kill %1
 
 after_success:
@@ -82,6 +87,13 @@ after_success:
   - archery docker push python-wheel-manylinux-{{ manylinux_version }}
 
   {% if arrow.branch == 'master' %}
-  # Push the docker image
+  # Push the docker image to dockerhub
+  - archery docker push python-wheel-manylinux-{{ manylinux_version }}
+  - archery docker push python-wheel-manylinux-test-unittests
   # Upload as nightly wheel to gemfury
+  - |
+    WHEEL_PATH=$(echo arrow/python/repaired_wheels/*.whl)
+    curl \
+      -F "package=@${WHEEL_PATH}" \
+      "https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/"
   {% endif %}
