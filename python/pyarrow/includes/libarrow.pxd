@@ -2260,6 +2260,9 @@ cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
         @staticmethod
         c_bool IsAvailable(CCompressionType codec)
 
+        @staticmethod
+        c_string& GetCodecAsString(CCompressionType t)
+
         CResult[int64_t] Decompress(int64_t input_len, const uint8_t* input,
                                     int64_t output_len,
                                     uint8_t* output_buffer)
@@ -2268,6 +2271,7 @@ cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
                                   uint8_t* output_buffer)
         c_string name() const
         int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input)
+        CCompressionType compression_type() const
 
 
 cdef extern from 'arrow/util/io_util.h' namespace 'arrow::internal' nogil:

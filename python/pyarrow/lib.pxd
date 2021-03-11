@@ -504,6 +504,9 @@ cdef class Codec(_Weakrefable):
     cdef inline CCodec* unwrap(self) nogil
 
 
+cdef CCompressionType _ensure_compression(str name) except *
+
+
 # This class is only used internally for now
 cdef class StopToken:
     cdef:

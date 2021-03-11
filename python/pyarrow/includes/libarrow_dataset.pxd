@@ -251,6 +251,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CCsvFileFormat "arrow::dataset::CsvFileFormat"(
             CFileFormat):
         CCSVParseOptions parse_options
+        CCompressionType compression
 
     cdef cppclass CPartitioning "arrow::dataset::Partitioning":
         c_string type_name() const
