@@ -2319,7 +2319,7 @@ _DEFAULT_BATCH_SIZE = 2**20
 
 
 cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
-                            list columns=None, Expression filter=None,
+                            object columns=None, Expression filter=None,
                             int batch_size=_DEFAULT_BATCH_SIZE,
                             bint use_threads=True,
                             MemoryPool memory_pool=None,
@@ -2327,13 +2327,28 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
         except *:
     cdef:
         CScannerBuilder *builder
+        vector[CExpression] c_exprs
+
     builder = ptr.get()
 
     check_status(builder.Filter(_bind(
         filter, pyarrow_wrap_schema(builder.schema()))))
 
     if columns is not None:
-        check_status(builder.Project([tobytes(c) for c in columns]))
+        if isinstance(columns, dict):
+            for expr in columns.values():
+                c_exprs.push_back((<Expression> expr).unwrap())
+
+            check_status(
+                builder.Project(c_exprs, [tobytes(c) for c in columns.keys()])
+            )
+        elif isinstance(columns, list):
+            check_status(builder.ProjectColumns([tobytes(c) for c in columns]))
+        else:
+            raise ValueError(
+                "Expected a list or a dict for 'columns', "
+                "got {} instead.".format(type(columns))
+            )
 
     check_status(builder.BatchSize(batch_size))
     check_status(builder.UseThreads(use_threads))
@@ -2403,7 +2418,7 @@ cdef class Scanner(_Weakrefable):
     @staticmethod
     def from_dataset(Dataset dataset not None,
                      bint use_threads=True, MemoryPool memory_pool=None,
-                     list columns=None, Expression filter=None,
+                     object columns=None, Expression filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE,
                      FragmentScanOptions fragment_scan_options=None):
         cdef:
@@ -2423,7 +2438,7 @@ cdef class Scanner(_Weakrefable):
     @staticmethod
     def from_fragment(Fragment fragment not None, Schema schema=None,
                       bint use_threads=True, MemoryPool memory_pool=None,
-                      list columns=None, Expression filter=None,
+                      object columns=None, Expression filter=None,
                       int batch_size=_DEFAULT_BATCH_SIZE,
                       FragmentScanOptions fragment_scan_options=None):
         cdef:
