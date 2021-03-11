@@ -846,6 +846,38 @@ test_that("mutate() with NULL inputs", {
   )
 })
 
+test_that("empty mutate()", {
+  expect_equal(
+    ds %>%
+      mutate() %>%
+      collect(),
+    ds %>%
+      collect()
+  )
+})
+
+test_that("transmute() with NULL inputs", {
+  expect_equal(
+    ds %>%
+      transmute(int = NULL) %>%
+      collect(),
+    ds %>%
+      select() %>%
+      collect()
+  )
+})
+
+test_that("empty transmute()", {
+  expect_equal(
+    ds %>%
+      transmute() %>%
+      collect(),
+    ds %>%
+      select() %>%
+      collect()
+  )
+})
+
 test_that("filter scalar validation doesn't crash (ARROW-7772)", {
   expect_error(
     ds %>%
