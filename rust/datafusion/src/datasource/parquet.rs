@@ -91,7 +91,7 @@ impl TableProvider for ParquetTable {
             projection.clone(),
             predicate,
             limit
-                .map(|l|std::cmp::min(l, batch_size))
+                .map(|l| std::cmp::min(l, batch_size))
                 .unwrap_or(batch_size),
             self.max_concurrency,
             limit,
