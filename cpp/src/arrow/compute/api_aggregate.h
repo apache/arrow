@@ -149,26 +149,6 @@ struct ARROW_EXPORT TDigestOptions : public FunctionOptions {
   uint32_t buffer_size;
 };
 
-/// \brief Configure a grouped aggregation
-struct ARROW_EXPORT GroupByOptions : public FunctionOptions {
-  struct Aggregate {
-    /// the name of the aggregation function
-    std::string function;
-
-    /// options for the aggregation function
-    const FunctionOptions* options;
-  };
-
-  GroupByOptions() = default;
-
-  GroupByOptions(std::initializer_list<Aggregate> aggregates) : aggregates(aggregates) {}
-
-  explicit GroupByOptions(std::vector<Aggregate> aggregates)
-      : aggregates(std::move(aggregates)) {}
-
-  std::vector<Aggregate> aggregates;
-};
-
 /// @}
 
 /// \brief Count non-null (or null) values in an array.
@@ -324,35 +304,6 @@ Result<Datum> Quantile(const Datum& value,
 ARROW_EXPORT
 Result<Datum> TDigest(const Datum& value,
                       const TDigestOptions& options = TDigestOptions::Defaults(),
-                      ExecContext* ctx = NULLPTR);
-
-/// \brief Calculate multiple aggregations grouped on multiple keys
-///
-/// \param[in] aggregands datums to which aggregations will be applied
-/// \param[in] keys datums which will be used to group the aggregations
-/// \param[in] options GroupByOptions, encapsulating the names and options of aggregate
-///            functions to be applied and the field names for results in the output.
-/// \return a StructArray with len(aggregands) + len(keys) fields. The first
-///         len(aggregands) fields are the results of the aggregations for the group
-///         specified by keys in the final len(keys) fields.
-///
-/// For example:
-///   GroupByOptions options = {
-///     .aggregates = {
-///       {"sum", nullptr, "sum result"},
-///       {"mean", nullptr, "mean result"},
-///     },
-///     .key_names = {"str key", "date key"},
-///   };
-/// assert(*GroupBy({[2, 5, 8], [1.5, 2.0, 3.0]},
-///                 {["a", "b", "a"], [today, today, today]},
-///                 options).Equals([
-///   {"sum result": 10, "mean result": 2.25, "str key": "a", "date key": today},
-///   {"sum result": 5,  "mean result": 2.0,  "str key": "b", "date key": today},
-/// ]))
-ARROW_EXPORT
-Result<Datum> GroupBy(const std::vector<Datum>& aggregands,
-                      const std::vector<Datum>& keys, const GroupByOptions& options,
                       ExecContext* ctx = NULLPTR);
 
 }  // namespace compute

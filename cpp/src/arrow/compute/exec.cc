@@ -838,12 +838,6 @@ class ScalarAggExecutor : public KernelExecutorImpl<ScalarAggregateKernel> {
 
  private:
   Status Consume(const ExecBatch& batch) {
-    if (kernel_->nomerge) {
-      kernel_->consume(kernel_ctx_, batch);
-      ARROW_CTX_RETURN_IF_ERROR(kernel_ctx_);
-      return Status::OK();
-    }
-
     // FIXME(ARROW-11840) don't merge *any* aggegates for every batch
     auto batch_state = kernel_->init(kernel_ctx_, {kernel_, *input_descrs_, options_});
     ARROW_CTX_RETURN_IF_ERROR(kernel_ctx_);

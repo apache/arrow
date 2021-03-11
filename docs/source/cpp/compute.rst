@@ -90,16 +90,16 @@ exact semantics of the function::
    min_max_options.null_handling = MinMaxOptions::EMIT_NULL;
 
    std::shared_ptr<arrow::Array> array = ...;
-   arrow::Datum min_max_datum;
+   arrow::Datum min_max;
 
    ARROW_ASSIGN_OR_RAISE(min_max,
                          arrow::compute::CallFunction("min_max", {array},
                                                       &min_max_options));
 
    // Unpack struct scalar result (a two-field {"min", "max"} scalar)
-   const auto& min_max_scalar = min_max.scalar_as<arrow::StructScalar>();
-   std::shared_ptr<arrow::Scalar> min_value = min_max_scalar.value[0];
-   std::shared_ptr<arrow::Scalar> max_value = min_max_scalar.value[1];
+   std::shared_ptr<arrow::Scalar> min_value, max_value;
+   min_value = min_max.scalar_as<arrow::StructScalar>().value[0];
+   max_value = min_max.scalar_as<arrow::StructScalar>().value[1];
 
 .. seealso::
    :doc:`Compute API reference <api/compute>`
@@ -212,8 +212,6 @@ Aggregations
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | variance                 | Unary      | Numeric            | Scalar Float64        | :struct:`VarianceOptions`                  |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
-| group_by                 | VarArgs    | Any                | Array Struct          | :struct:`GroupByOptions`                   |
-+--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 
 Notes:
 
@@ -229,49 +227,6 @@ Notes:
 * \(3) Output is Float64 or input type, depending on QuantileOptions.
 
 * \(4) Output is Int64, UInt64 or Float64, depending on the input type.
-
-Grouped Aggregations
-~~~~~~~~~~~~~~~~~~~~
-
-Aggregations can be grouped by one or more keys using the ``group_by``
-function. :member:`GroupByOptions::aggregates` is a vector specifying which
-aggregations will be performed: each element is a
-:struct:`GroupByOptions::Aggregate` containing the name of an aggregate
-function and a pointer to a :class:`FunctionOptions`. The first arguments to
-``group_by`` are interpreted as the corresponding aggregands and the remainder
-will be used as grouping keys. The output will be an array with the same
-number of fields where each slot contains the aggregation result and keys
-for a group::
-
-    GroupByOptions options{
-        {"sum", nullptr},  // first argument will be summed
-        {"min_max",
-         &min_max_options},  // second argument's extrema will be found
-    };
-
-    std::shared_ptr<arrow::Array> needs_sum = ...;
-    std::shared_ptr<arrow::Array> needs_min_max = ...;
-    std::shared_ptr<arrow::Array> key_0 = ...;
-    std::shared_ptr<arrow::Array> key_1 = ...;
-
-    ARROW_ASSIGN_OR_RAISE(arrow::Datum out,
-                          arrow::compute::CallFunction("group_by",
-                                                       {
-                                                           needs_sum,
-                                                           needs_min_max,
-                                                           key_0,
-                                                           key_1,
-                                                       },
-                                                       &options));
-
-    // Unpack struct array result (a four-field array)
-    auto out_array = out.array_as<StructArray>();
-    std::shared_ptr<arrow::Array> sums = out_array->field(0);
-    std::shared_ptr<arrow::Array> mins_and_maxes = out_array->field(1);
-    std::shared_ptr<arrow::Array> group_key_0 = out_array->field(2);
-    std::shared_ptr<arrow::Array> group_key_1 = out_array->field(3);
-
-The output fields' names are empty.
 
 Element-wise ("scalar") functions
 ---------------------------------

@@ -57,7 +57,7 @@ struct ScalarAggregator : public KernelState {
 
 void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                   ScalarAggregateFunction* func,
-                  SimdLevel::type simd_level = SimdLevel::NONE, bool nomerge = false);
+                  SimdLevel::type simd_level = SimdLevel::NONE);
 
 namespace detail {
 
