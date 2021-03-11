@@ -19,13 +19,15 @@
 
 #include <string>
 
+#include "parquet/platform.h"
+
 namespace parquet {
 namespace encryption {
 namespace internal {
 
 // "data encryption key" and "master key identifier" are paired together as output when
 // parsing from "key material"
-class KeyWithMasterId {
+class PARQUET_EXPORT KeyWithMasterId {
  public:
   KeyWithMasterId(std::string key_bytes, std::string master_id)
       : key_bytes_(std::move(key_bytes)), master_id_(std::move(master_id)) {}
@@ -39,13 +41,16 @@ class KeyWithMasterId {
 };
 
 /// Encrypts "key" with "master_key", using AES-GCM and the "aad"
+PARQUET_EXPORT
 std::string EncryptKeyLocally(const std::string& key, const std::string& master_key,
                               const std::string& aad);
 
 /// Decrypts encrypted key with "master_key", using AES-GCM and the "aad"
+PARQUET_EXPORT
 std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
                               const std::string& master_key, const std::string& aad);
 
+PARQUET_EXPORT
 bool ValidateKeyLength(int32_t key_length_bits);
 
 }  // namespace internal
