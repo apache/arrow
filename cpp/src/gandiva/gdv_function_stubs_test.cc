@@ -173,13 +173,6 @@ TEST(TestGdvFnStubs, TestSha256Numeric) {
   EXPECT_STRNE(zero_hash, zero_one_hash);
   EXPECT_STREQ(double_zero_hash,zero_hash);
 
-  // tests double limits
-  const char *double_positive_limit = gdv_fn_sha256_from_numeric(ctx_ptr, 1.7976931348623158e+308);
-
-  const char *expected_hash = "b57cccce96b74638b9f9b8a8e1ab45a534954412b6aedf5b329a85f31da6f305";
-
-  EXPECT_STREQ(expected_hash, double_positive_limit);
-
   // tests minus zero cases
   const char *double_minus_zero_hash = gdv_fn_sha256_from_numeric(ctx_ptr, -0.0);
   const char *minus_zero_hash = gdv_fn_sha256_from_numeric(ctx_ptr, -0);
@@ -218,6 +211,10 @@ TEST(TestGdvFnStubs, TestSha256String) {
   EXPECT_STREQ(expected_second_hash,second_sha_hash);
   EXPECT_STRNE(second_sha_hash, first_sha_hash);
 
+  const char *empty_string_hash = gdv_fn_hash_sha256_from_string(ctx_ptr, "", strlen(""));
+
+  EXPECT_STREQ("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",empty_string_hash);
+
   gdv_fn_hash_sha256_from_string(ctx_ptr, nullptr, 0);
 
   EXPECT_THAT(ctx.get_error(),
@@ -235,13 +232,6 @@ TEST(TestGdvFnStubs, TestSha128Numeric) {
   const char *zero_one_hash = gdv_fn_sha128_from_numeric(ctx_ptr, 0.1);
 
   EXPECT_STRNE(zero_hash, zero_one_hash);
-
-  // tests double limits
-  const char *double_positive_limit = gdv_fn_sha128_from_numeric(ctx_ptr, 1.7976931348623158e+308);
-
-  const char *expected_hash = "f6efec8fc6498a89ea8ec4fa8a4a0800d57f2c2e";
-
-  EXPECT_STREQ(expected_hash, double_positive_limit);
 
   // tests minus zero case
   const char *minus_zero_hash = gdv_fn_sha128_from_numeric(ctx_ptr, -0.0);
@@ -278,6 +268,10 @@ TEST(TestGdvFnStubs, TestSha128String) {
 
   EXPECT_STREQ(expected_second_hash,second_sha_hash);
   EXPECT_STRNE(second_sha_hash, first_sha_hash);
+
+  const char *empty_string_hash = gdv_fn_hash_sha128_from_string(ctx_ptr, "", strlen(""));
+
+  EXPECT_STREQ("da39a3ee5e6b4b0d3255bfef95601890afd80709",empty_string_hash);
 
   gdv_fn_hash_sha256_from_string(ctx_ptr, nullptr, 0);
 
