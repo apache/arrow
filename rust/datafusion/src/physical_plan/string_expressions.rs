@@ -605,10 +605,16 @@ pub fn ltrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
 
 /// extract a specific group from a string column, using a regular expression
 pub fn regexp_match(args: &[ArrayRef]) -> Result<ArrayRef> {
-    // let pattern_expr = args[1].as_any().downcast_ref::<StringArray>().unwrap();
-    // let pattern = pattern_expr.value(0);
-    compute::regexp_match(args[0].as_ref(), args[1].as_ref())
-        .map_err(DataFusionError::ArrowError)
+    match args.len() {
+        2 => compute::regexp_match(args[0].as_ref(), args[1].as_ref(), None)
+        .map_err(DataFusionError::ArrowError),
+        3 => compute::regexp_match(args[0].as_ref(), args[1].as_ref(), Some(args[2].as_ref()))
+        .map_err(DataFusionError::ArrowError),
+        other => Err(DataFusionError::Internal(format!(
+            "regexp_match was called with {} arguments. It requires at least 2 and at most 3.",
+            other
+        ))),
+    }
 }
 
 /// Repeats string the specified number of times.

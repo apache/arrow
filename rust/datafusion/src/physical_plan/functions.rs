@@ -981,6 +981,8 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
         BuiltinScalarFunction::RegexpMatch => Signature::OneOf(vec![
             Signature::Exact(vec![DataType::Utf8, DataType::Utf8]),
             Signature::Exact(vec![DataType::LargeUtf8, DataType::Utf8]),
+            Signature::Exact(vec![DataType::Utf8, DataType::Utf8, DataType::Utf8]),
+            Signature::Exact(vec![DataType::LargeUtf8, DataType::Utf8, DataType::Utf8]),
         ]),
         // math expressions expect 1 argument of type f64 or f32
         // priority is given to f64 because e.g. `sqrt(1i32)` is in IR (real numbers) and thus we
