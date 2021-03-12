@@ -1520,7 +1520,8 @@ struct ExtractRE2 {
 
     if (batch[0].kind() == Datum::ARRAY) {
       std::unique_ptr<ArrayBuilder> array_builder_tmp;
-      MakeBuilder(ctx->memory_pool(), type, &array_builder_tmp);
+      KERNEL_RETURN_IF_ERROR(ctx,
+                             MakeBuilder(ctx->memory_pool(), type, &array_builder_tmp));
       std::shared_ptr<StructBuilder> struct_builder;
       struct_builder.reset(checked_cast<StructBuilder*>(array_builder_tmp.release()));
 
