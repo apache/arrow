@@ -124,13 +124,14 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
 }
 
 GANDIVA_EXPORT
-char* gdv_fn_sha256_from_numeric(int64_t context, double value){
+const char * gdv_fn_sha256_from_numeric(int64_t context, double value){
   uint64_t value_as_long = gandiva::HashUtils::double_to_long(value);
 
   return gandiva::HashUtils::hash_using_SHA256(context, &value_as_long, sizeof(value_as_long));
 }
 
-char* gdv_fn_hash_sha256_from_string(int64_t context, const char* value, uint64_t value_length){
+GANDIVA_EXPORT
+const char * gdv_fn_hash_sha256_from_string(int64_t context, const char* value, uint64_t value_length){
   return gandiva::HashUtils::hash_using_SHA256(context, value, value_length);
 }
 
@@ -226,6 +227,17 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_sha256_from_numeric",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void *>(gdv_fn_sha256_from_numeric));
+
+  // gdv_fn_hash_sha256_from_string
+  args = {
+      types->i64_type(),      // context
+      types->i8_ptr_type(),   // const char*
+      types->i64_type()       // value_length
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_hash_sha256_from_string",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void *>(gdv_fn_hash_sha256_from_string));
 
   // gdv_fn_dec_to_string
   args = {

@@ -1,9 +1,15 @@
 #include <cstring>
 #include "gandiva/hash_utils.h"
 #include "openssl/evp.h"
+#include "execution_context.h"
 
 namespace gandiva {
-  char* HashUtils::hash_using_SHA256(int64_t context, const void *message, size_t message_length) {
+  const char * HashUtils::hash_using_SHA256(int64_t context, const void *message, size_t message_length) {
+    if(message == nullptr){
+      HashUtils::error_message(context, "A null value was given to be hashed.");
+      return "";
+    }
+
     EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
 
     EVP_DigestInit_ex(md_ctx, EVP_sha256(), nullptr);
@@ -49,5 +55,10 @@ namespace gandiva {
 
   void HashUtils::clean_char_array(char *buffer) {
     buffer[0] = '\0';
+  }
+
+  void HashUtils::error_message(int64_t context_ptr, char const *err_msg){
+    auto context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+    context->set_error_msg(err_msg);
   }
 }  // namespace gandiva

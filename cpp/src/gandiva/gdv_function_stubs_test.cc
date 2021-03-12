@@ -165,10 +165,38 @@ TEST(TestGdvFnStubs, TestSha256Numeric) {
 
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
-  char *zero_hash = gdv_fn_sha256_from_numeric(ctx_ptr, 0.0);
+  const char *zero_hash = gdv_fn_sha256_from_numeric(ctx_ptr, 0.0);
 
   EXPECT_STRNE(zero_hash, "");
   
+  ctx.Reset();
+}
+
+TEST(TestGdvFnStubs, TestSha256String) {
+  gandiva::ExecutionContext ctx;
+
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  const char *zero_hash = gdv_fn_sha256_from_numeric(ctx_ptr, 0.0);
+
+  const char *test_string = "hello world";
+
+  const char *first_sha_hash = gdv_fn_hash_sha256_from_string(ctx_ptr, test_string, strlen(test_string));
+  
+  EXPECT_STRNE(first_sha_hash, zero_hash);
+
+  const char *test_string_modified = "hello worlD";
+
+  const char
+      *second_sha_hash = gdv_fn_hash_sha256_from_string(ctx_ptr, test_string_modified, strlen(test_string_modified));
+
+  EXPECT_STRNE(second_sha_hash, first_sha_hash);
+
+  gdv_fn_hash_sha256_from_string(ctx_ptr, nullptr, 0);
+
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("A null value was given to be hashed."));
+
   ctx.Reset();
 }
 
