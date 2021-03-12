@@ -46,6 +46,11 @@ namespace gandiva {
 
     return result_buffer;
   }
+  const char * HashUtils::hash_using_SHA128(int64_t context, const void *message, size_t message_length) {
+    char* result_buffer = new char[65];
+    return result_buffer;
+  }
+
 
   uint64_t HashUtils::double_to_long(double value) {
     uint64_t result;
