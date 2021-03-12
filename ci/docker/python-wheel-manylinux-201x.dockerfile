@@ -68,6 +68,8 @@ ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_DEFAULT_TRIPLET=${arch_short_alias}-linux-static-${build_type} \
     VCPKG_FEATURE_FLAGS=-manifests
 
+# Need to install the boost-build prior installing the boost packages, otherwise
+# vcpkg will raise an error.
 # TODO(kszucs): factor out the package enumeration to a text file and reuse it
 # from the windows image and potentially in a future macos wheel build
 RUN vcpkg install --clean-after-build \
