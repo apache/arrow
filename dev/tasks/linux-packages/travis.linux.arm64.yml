@@ -135,7 +135,9 @@ script:
   - gpg --export --armor test@example.com > arrow/dev/tasks/linux-packages/KEYS
   - pushd arrow/dev/tasks/linux-packages
   - |
-      rake --trace {{ task_namespace }}:test GPG_KEY_ID=${GPG_KEY_ID}
+      rake --trace {{ task_namespace }}:test \
+        CREATEREPO=createrepo_c \
+        GPG_KEY_ID=${GPG_KEY_ID}
   - rm -rf {{ task_namespace }}/repositories
   - popd
 
