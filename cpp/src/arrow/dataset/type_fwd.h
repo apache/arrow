@@ -76,7 +76,6 @@ class PartitioningOrFactory;
 class DirectoryPartitioning;
 class HivePartitioning;
 
-struct ScanContext;
 struct ScanOptions;
 
 class Scanner;

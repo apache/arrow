@@ -2163,14 +2163,6 @@ cdef class ScanTask(_Weakrefable):
                     yield pyarrow_wrap_batch(record_batch)
 
 
-cdef shared_ptr[CScanContext] _build_scan_context():
-    cdef:
-        shared_ptr[CScanContext] context
-
-    context = make_shared[CScanContext]()
-    return context
-
-
 _DEFAULT_BATCH_SIZE = 2**20
 
 
@@ -2257,12 +2249,11 @@ cdef class Scanner(_Weakrefable):
                      list columns=None, Expression filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE):
         cdef:
-            shared_ptr[CScanContext] context
+            shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
             shared_ptr[CScannerBuilder] builder
             shared_ptr[CScanner] scanner
 
-        context = _build_scan_context()
-        builder = make_shared[CScannerBuilder](dataset.unwrap(), context)
+        builder = make_shared[CScannerBuilder](dataset.unwrap(), options)
         _populate_builder(builder, columns=columns, filter=filter,
                           batch_size=batch_size, use_threads=use_threads,
                           memory_pool=memory_pool)
@@ -2276,16 +2267,14 @@ cdef class Scanner(_Weakrefable):
                       list columns=None, Expression filter=None,
                       int batch_size=_DEFAULT_BATCH_SIZE):
         cdef:
-            shared_ptr[CScanContext] context
+            shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
             shared_ptr[CScannerBuilder] builder
             shared_ptr[CScanner] scanner
-
-        context = _build_scan_context()
 
         schema = schema or fragment.physical_schema
 
         builder = make_shared[CScannerBuilder](pyarrow_unwrap_schema(schema),
-                                               fragment.unwrap(), context)
+                                               fragment.unwrap(), options)
         _populate_builder(builder, columns=columns, filter=filter,
                           batch_size=batch_size, use_threads=use_threads,
                           memory_pool=memory_pool)

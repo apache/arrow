@@ -77,48 +77,39 @@ Result<ScanTaskIterator> Scanner::Scan() {
   // Iterator<ScanTask>. The first Iterator::Next invocation is going to do
   // all the work of unwinding the chained iterators.
   ARROW_ASSIGN_OR_RAISE(auto fragment_it, GetFragments());
-  return GetScanTaskIterator(std::move(fragment_it), scan_options_, scan_context_);
+  return GetScanTaskIterator(std::move(fragment_it), scan_options_);
 }
 
 Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
     std::vector<std::shared_ptr<RecordBatch>> batches,
-    std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context) {
+    std::shared_ptr<ScanOptions> options) {
   if (batches.empty()) {
     return MakeVectorIterator(ScanTaskVector());
   }
   auto schema = batches[0]->schema();
   auto fragment =
       std::make_shared<InMemoryFragment>(std::move(schema), std::move(batches));
-  return fragment->Scan(std::move(options), std::move(context));
+  return fragment->Scan(std::move(options));
 }
+
+ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset)
+    : ScannerBuilder(std::move(dataset), std::make_shared<ScanOptions>()) {}
 
 ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,
                                std::shared_ptr<ScanOptions> scan_options)
     : dataset_(std::move(dataset)),
       fragment_(nullptr),
-      scan_options_(std::move(scan_options)),
-      scan_context_(std::make_shared<ScanContext>()) {
-  scan_options_->dataset_schema = dataset_->schema();
-  DCHECK_OK(Filter(literal(true)));
-}
-
-ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,
-                               std::shared_ptr<ScanContext> scan_context)
-    : dataset_(std::move(dataset)),
-      fragment_(nullptr),
-      scan_options_(std::make_shared<ScanOptions>()),
-      scan_context_(std::move(scan_context)) {
+      scan_options_(std::move(scan_options)) {
   scan_options_->dataset_schema = dataset_->schema();
   DCHECK_OK(Filter(literal(true)));
 }
 
 ScannerBuilder::ScannerBuilder(std::shared_ptr<Schema> schema,
                                std::shared_ptr<Fragment> fragment,
-                               std::shared_ptr<ScanContext> scan_context)
+                               std::shared_ptr<ScanOptions> scan_options)
     : dataset_(nullptr),
       fragment_(std::move(fragment)),
-      scan_options_(std::make_shared<ScanOptions>()),
-      scan_context_(std::move(scan_context)) {
+      scan_options_(std::move(scan_options)) {
   scan_options_->dataset_schema = std::move(schema);
   DCHECK_OK(Filter(literal(true)));
 }
@@ -164,9 +155,9 @@ Result<std::shared_ptr<Scanner>> ScannerBuilder::Finish() {
   }
 
   if (dataset_ == nullptr) {
-    return std::make_shared<Scanner>(fragment_, scan_options_, scan_context_);
+    return std::make_shared<Scanner>(fragment_, scan_options_);
   }
-  return std::make_shared<Scanner>(dataset_, scan_options_, scan_context_);
+  return std::make_shared<Scanner>(dataset_, scan_options_);
 }
 
 static inline RecordBatchVector FlattenRecordBatchVector(

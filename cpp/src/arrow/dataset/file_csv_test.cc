@@ -47,19 +47,17 @@ class TestCsvFileFormat : public testing::Test {
   }
 
   RecordBatchIterator Batches(Fragment* fragment) {
-    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_, ctx_));
+    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
     return Batches(std::move(scan_task_it));
   }
 
   void SetSchema(std::vector<std::shared_ptr<Field>> fields) {
-    opts_ = std::make_shared<ScanOptions>();
     opts_->dataset_schema = schema(std::move(fields));
     ASSERT_OK(SetProjection(opts_.get(), opts_->dataset_schema->field_names()));
   }
 
   std::shared_ptr<CsvFileFormat> format_ = std::make_shared<CsvFileFormat>();
-  std::shared_ptr<ScanOptions> opts_;
-  std::shared_ptr<ScanContext> ctx_ = std::make_shared<ScanContext>();
+  std::shared_ptr<ScanOptions> opts_ = std::make_shared<ScanOptions>();
 };
 
 TEST_F(TestCsvFileFormat, ScanRecordBatchReader) {
@@ -188,7 +186,7 @@ N/A,bar
   auto dataset_schema =
       schema({field("betrayal_not_really_f64", not_float64), field("str", utf8())});
 
-  ScannerBuilder builder(dataset_schema, fragment, ctx_);
+  ScannerBuilder builder(dataset_schema, fragment, opts_);
 
   // This filter is valid with declared schema, but would *not* be valid
   // if betrayal_not_really_f64 were read as double rather than string.

@@ -140,7 +140,7 @@ class DatasetFixtureMixin : public ::testing::Test {
   /// record batches yielded by the data fragment.
   void AssertFragmentEquals(RecordBatchReader* expected, Fragment* fragment,
                             bool ensure_drained = true) {
-    ASSERT_OK_AND_ASSIGN(auto it, fragment->Scan(options_, ctx_));
+    ASSERT_OK_AND_ASSIGN(auto it, fragment->Scan(options_));
 
     ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<ScanTask> task) -> Status {
       AssertScanTaskEquals(expected, task.get(), false);
@@ -213,7 +213,6 @@ class DatasetFixtureMixin : public ::testing::Test {
 
   std::shared_ptr<Schema> schema_;
   std::shared_ptr<ScanOptions> options_;
-  std::shared_ptr<ScanContext> ctx_ = std::make_shared<ScanContext>();
 };
 
 /// \brief A dummy FileFormat implementation
@@ -237,7 +236,7 @@ class DummyFileFormat : public FileFormat {
 
   /// \brief Open a file for scanning (always returns an empty iterator)
   Result<ScanTaskIterator> ScanFile(
-      std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
+      std::shared_ptr<ScanOptions> options,
       const std::shared_ptr<FileFragment>& fragment) const override {
     return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
   }
@@ -277,7 +276,7 @@ class JSONRecordBatchFileFormat : public FileFormat {
 
   /// \brief Open a file for scanning
   Result<ScanTaskIterator> ScanFile(
-      std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
+      std::shared_ptr<ScanOptions> options,
       const std::shared_ptr<FileFragment>& fragment) const override {
     ARROW_ASSIGN_OR_RAISE(auto file, fragment->source().Open());
     ARROW_ASSIGN_OR_RAISE(int64_t size, file->GetSize());
@@ -287,8 +286,7 @@ class JSONRecordBatchFileFormat : public FileFormat {
 
     ARROW_ASSIGN_OR_RAISE(auto schema, Inspect(fragment->source()));
     std::shared_ptr<RecordBatch> batch = RecordBatchFromJSON(schema, view);
-    return ScanTaskIteratorFromRecordBatch({batch}, std::move(options),
-                                           std::move(context));
+    return ScanTaskIteratorFromRecordBatch({batch}, std::move(options));
   }
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
@@ -585,7 +583,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
 
   void DoWrite(std::shared_ptr<Partitioning> desired_partitioning) {
     write_options_.partitioning = desired_partitioning;
-    auto scanner = std::make_shared<Scanner>(dataset_, scan_options_, scan_context_);
+    auto scanner = std::make_shared<Scanner>(dataset_, scan_options_);
     ASSERT_OK(FileSystemDataset::Write(write_options_, scanner));
 
     // re-discover the written dataset
@@ -753,7 +751,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
       }
 
       ASSERT_OK_AND_ASSIGN(auto scanner, ScannerBuilder(actual_physical_schema, fragment,
-                                                        std::make_shared<ScanContext>())
+                                                        std::make_shared<ScanOptions>())
                                              .Finish());
       ASSERT_OK_AND_ASSIGN(auto actual_table, scanner->ToTable());
       ASSERT_OK_AND_ASSIGN(actual_table, actual_table->CombineChunks());
@@ -780,7 +778,6 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
   std::shared_ptr<Dataset> written_;
   FileSystemDatasetWriteOptions write_options_;
   std::shared_ptr<ScanOptions> scan_options_;
-  std::shared_ptr<ScanContext> scan_context_ = std::make_shared<ScanContext>();
 };
 
 }  // namespace dataset

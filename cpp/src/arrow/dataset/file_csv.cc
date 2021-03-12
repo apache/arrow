@@ -140,9 +140,9 @@ static inline Result<std::shared_ptr<csv::StreamingReader>> OpenReader(
 class CsvScanTask : public ScanTask {
  public:
   CsvScanTask(std::shared_ptr<const CsvFileFormat> format,
-              std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
+              std::shared_ptr<ScanOptions> options,
               std::shared_ptr<FileFragment> fragment)
-      : ScanTask(std::move(options), std::move(context), fragment),
+      : ScanTask(std::move(options), fragment),
         format_(std::move(format)),
         source_(fragment->source()) {}
 
@@ -184,11 +184,11 @@ Result<std::shared_ptr<Schema>> CsvFileFormat::Inspect(const FileSource& source)
 }
 
 Result<ScanTaskIterator> CsvFileFormat::ScanFile(
-    std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
+    std::shared_ptr<ScanOptions> options,
     const std::shared_ptr<FileFragment>& fragment) const {
   auto this_ = checked_pointer_cast<const CsvFileFormat>(shared_from_this());
   auto task = std::make_shared<CsvScanTask>(std::move(this_), std::move(options),
-                                            std::move(context), std::move(fragment));
+                                            std::move(fragment));
 
   return MakeVectorIterator<std::shared_ptr<ScanTask>>({std::move(task)});
 }

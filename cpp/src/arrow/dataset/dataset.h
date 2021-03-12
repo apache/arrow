@@ -62,8 +62,7 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
   /// columns may be absent if they were not present in this fragment.
   ///
   /// To receive a record batch stream which is fully filtered and projected, use Scanner.
-  virtual Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options,
-                                        std::shared_ptr<ScanContext> context) = 0;
+  virtual Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) = 0;
 
   /// \brief Return true if the fragment can benefit from parallel scanning.
   virtual bool splittable() const = 0;
@@ -110,8 +109,7 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
                    Expression = literal(true));
   explicit InMemoryFragment(RecordBatchVector record_batches, Expression = literal(true));
 
-  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options,
-                                std::shared_ptr<ScanContext> context) override;
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override;
 
   bool splittable() const override { return false; }
 
@@ -132,7 +130,6 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
  public:
   /// \brief Begin to build a new Scan operation against this Dataset
   Result<std::shared_ptr<ScannerBuilder>> NewScan(std::shared_ptr<ScanOptions> options);
-  Result<std::shared_ptr<ScannerBuilder>> NewScan(std::shared_ptr<ScanContext> context);
   Result<std::shared_ptr<ScannerBuilder>> NewScan();
 
   /// \brief GetFragments returns an iterator of Fragments given a predicate.

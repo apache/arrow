@@ -60,9 +60,8 @@ class ParquetScanTask : public ScanTask {
                   std::vector<int> pre_buffer_row_groups, arrow::io::IOContext io_context,
                   arrow::io::CacheOptions cache_options,
                   std::shared_ptr<ScanOptions> options,
-                  std::shared_ptr<ScanContext> context,
                   std::shared_ptr<Fragment> fragment)
-      : ScanTask(std::move(options), std::move(context), std::move(fragment)),
+      : ScanTask(std::move(options), std::move(fragment)),
         row_group_(row_group),
         column_projection_(std::move(column_projection)),
         reader_(std::move(reader)),
@@ -290,7 +289,7 @@ Result<std::shared_ptr<Schema>> ParquetFileFormat::Inspect(
 }
 
 Result<std::unique_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader(
-    const FileSource& source, ScanOptions* options, ScanContext* context) const {
+    const FileSource& source, ScanOptions* options) const {
   MemoryPool* pool = options ? options->pool : default_memory_pool();
   auto properties = MakeReaderProperties(*this, pool);
 
@@ -321,7 +320,7 @@ Result<std::unique_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
 }
 
 Result<ScanTaskIterator> ParquetFileFormat::ScanFile(
-    std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
+    std::shared_ptr<ScanOptions> options,
     const std::shared_ptr<FileFragment>& fragment) const {
   auto* parquet_fragment = checked_cast<ParquetFileFragment*>(fragment.get());
   std::vector<int> row_groups;
@@ -342,7 +341,7 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(
 
   // Open the reader and pay the real IO cost.
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<parquet::arrow::FileReader> reader,
-                        GetReader(fragment->source(), options.get(), context.get()));
+                        GetReader(fragment->source(), options.get()));
 
   // Ensure that parquet_fragment has FileMetaData
   RETURN_NOT_OK(parquet_fragment->EnsureCompleteMetadata(reader.get()));
@@ -365,8 +364,7 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(
   for (size_t i = 0; i < row_groups.size(); ++i) {
     tasks[i] = std::make_shared<ParquetScanTask>(
         row_groups[i], column_projection, reader, pre_buffer_once, row_groups,
-        reader_options.io_context, reader_options.cache_options, options, context,
-        fragment);
+        reader_options.io_context, reader_options.cache_options, options, fragment);
   }
 
   return MakeVectorIterator(std::move(tasks));
