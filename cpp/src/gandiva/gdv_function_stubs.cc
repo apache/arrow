@@ -122,6 +122,15 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
   return 0;
 }
 
+char* gdv_fn_sha256_from_numeric(int64_t context, double value){
+
+
+}
+
+char* hash_sha256_from_string(int64_t context, const char* value){
+
+}
+
 int32_t gdv_fn_dec_from_string(int64_t context, const char* in, int32_t in_length,
                                int32_t* precision_from_str, int32_t* scale_from_str,
                                int64_t* dec_high_from_str, uint64_t* dec_low_from_str) {

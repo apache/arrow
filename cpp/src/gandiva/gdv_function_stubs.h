@@ -48,6 +48,10 @@ bool in_expr_lookup_utf8(int64_t ptr, const char* data, int data_len, bool in_va
 int gdv_fn_time_with_zone(int* time_fields, const char* zone, int zone_len,
                           int64_t* ret_time);
 
+char* gdv_fn_sha256_from_numeric(int64_t context, double value);
+
+char* hash_sha256_from_string(int64_t context, const char* value, int32_t value_length);
+
 int32_t gdv_fn_dec_from_string(int64_t context, const char* in, int32_t in_length,
                                int32_t* precision_from_str, int32_t* scale_from_str,
                                int64_t* dec_high_from_str, uint64_t* dec_low_from_str);
