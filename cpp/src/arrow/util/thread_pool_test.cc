@@ -294,16 +294,16 @@ TEST_F(TestThreadPool, SetCapacity) {
   auto gating_task = GatingTask::Make();
 
   ASSERT_OK(pool->Spawn(gating_task->Task()));
-  gating_task->WaitForRunning(1);
+  ASSERT_OK(gating_task->WaitForRunning(1));
   ASSERT_EQ(pool->GetActualCapacity(), 1);
-  gating_task->Unlock();
+  ASSERT_OK(gating_task->Unlock());
 
   gating_task = GatingTask::Make();
   // Spawn more tasks than the pool capacity
   for (int i = 0; i < 6; ++i) {
     ASSERT_OK(pool->Spawn(gating_task->Task()));
   }
-  gating_task->WaitForRunning(3);
+  ASSERT_OK(gating_task->WaitForRunning(3));
   SleepFor(0.001);  // Sleep a bit just to make sure it isn't making any threads
   ASSERT_EQ(pool->GetActualCapacity(), 3);  // maxxed out
 
@@ -318,7 +318,7 @@ TEST_F(TestThreadPool, SetCapacity) {
   ASSERT_EQ(pool->GetCapacity(), 2);
 
   // Wait for workers to wake up and secede
-  gating_task->Unlock();
+  ASSERT_OK(gating_task->Unlock());
   BusyWait(0.5, [&] { return pool->GetActualCapacity() == 2; });
   ASSERT_EQ(pool->GetActualCapacity(), 2);
 

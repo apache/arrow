@@ -588,7 +588,7 @@ struct MoveOnlyDataType {
 };
 
 // A task that blocks until unlocked.  Useful for timing tests.
-class GatingTask {
+class ARROW_TESTING_EXPORT GatingTask {
  public:
   explicit GatingTask(double timeout_seconds = 10);
   /// \brief During destruction we wait for all pending tasks to finish
