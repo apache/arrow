@@ -123,6 +123,7 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
   return 0;
 }
 
+GANDIVA_EXPORT
 char* gdv_fn_sha256_from_numeric(int64_t context, double value){
   uint64_t value_as_long = gandiva::HashUtils::double_to_long(value);
 

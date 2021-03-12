@@ -40,6 +40,9 @@ endif()
 
 add_definitions(-DGANDIVA_LLVM_VERSION=${LLVM_VERSION_MAJOR})
 
+find_package(OpenSSL REQUIRED)
+set(GANDIVA_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
+
 # Set the path where the bitcode file generated, see precompiled/CMakeLists.txt
 set(GANDIVA_PRECOMPILED_BC_PATH "${CMAKE_CURRENT_BINARY_DIR}/irhelpers.bc")
 set(GANDIVA_PRECOMPILED_CC_PATH "${CMAKE_CURRENT_BINARY_DIR}/precompiled_bitcode.cc")
@@ -90,9 +93,9 @@ set(SRC_FILES
     random_generator_holder.cc
     ${GANDIVA_PRECOMPILED_CC_PATH})
 
-set(GANDIVA_SHARED_PRIVATE_LINK_LIBS arrow_shared LLVM::LLVM_INTERFACE)
+set(GANDIVA_SHARED_PRIVATE_LINK_LIBS arrow_shared LLVM::LLVM_INTERFACE ${GANDIVA_OPENSSL_LIBS})
 
-set(GANDIVA_STATIC_LINK_LIBS arrow_static LLVM::LLVM_INTERFACE)
+set(GANDIVA_STATIC_LINK_LIBS arrow_static LLVM::LLVM_INTERFACE ${GANDIVA_OPENSSL_LIBS})
 
 if(ARROW_GANDIVA_STATIC_LIBSTDCPP
    AND (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX))
@@ -205,7 +208,7 @@ endfunction()
 
 set(GANDIVA_INTERNALS_TEST_ARGUMENTS)
 if(WIN32)
-  list(APPEND GANDIVA_INTERNALS_TEST_ARGUMENTS EXTRA_LINK_LIBS LLVM::LLVM_INTERFACE)
+  list(APPEND GANDIVA_INTERNALS_TEST_ARGUMENTS EXTRA_LINK_LIBS LLVM::LLVM_INTERFACE ${GANDIVA_OPENSSL_LIBS})
 endif()
 add_gandiva_test(internals-test
                  SOURCES
@@ -229,6 +232,7 @@ add_gandiva_test(internals-test
                  gdv_function_stubs_test.cc
                  EXTRA_DEPENDENCIES
                  LLVM::LLVM_INTERFACE
+                 ${GANDIVA_OPENSSL_LIBS}
                  EXTRA_INCLUDES
                  $<TARGET_PROPERTY:LLVM::LLVM_INTERFACE,INTERFACE_INCLUDE_DIRECTORIES>
                  ${GANDIVA_INTERNALS_TEST_ARGUMENTS})

@@ -160,4 +160,16 @@ TEST(TestGdvFnStubs, TestCastFloat8) {
   ctx.Reset();
 }
 
+TEST(TestGdvFnStubs, TestSha256Numeric) {
+  gandiva::ExecutionContext ctx;
+
+  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+
+  char *zero_hash = gdv_fn_sha256_from_numeric(ctx_ptr, 0.0);
+
+  EXPECT_STRNE(zero_hash, "");
+  
+  ctx.Reset();
+}
+
 }  // namespace gandiva
