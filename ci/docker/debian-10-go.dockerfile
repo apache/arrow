@@ -16,7 +16,7 @@
 # under the License.
 
 ARG arch=amd64
-ARG go=1.12
+ARG go=1.15
 FROM ${arch}/golang:${go}
 
 # TODO(kszucs):
