@@ -74,7 +74,7 @@ after_success:
       --queue-path . \
       --queue-remote {{ queue_remote_url }} \
       upload-artifacts \
-      --pattern "arrow/python/repaired_wheels/*.whl"
+      --pattern "arrow/python/repaired_wheels/*.whl" \
       --sha {{ task.branch }} \
       --tag {{ task.tag }}
 
