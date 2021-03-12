@@ -27,13 +27,11 @@ on:
 jobs:
   autobrew:
     name: "install from local source"
-    runs-on: {{ '${{ matrix.os }}' }}
+    runs-on: { { "${{ matrix.os }}" } }
     strategy:
       fail-fast: false
       matrix:
         os: [macOS-latest, ubuntu-20.04]
-
-   
 
     steps:
       - name: Checkout Arrow
@@ -69,8 +67,8 @@ jobs:
         env:
           _R_CHECK_CRAN_INCOMING_: false
           ARROW_USE_PKG_CONFIG: false
-          FORCE_TOOLS_LIBS_SCRIPT: true
-          LIBARROW_MINIMAL: false 
+          FORCE_BUNDLED_BUILD: true
+          LIBARROW_MINIMAL: false
           TEST_R_WITH_ARROW: TRUE
           ARROW_R_DEV: TRUE
         run: |
@@ -87,4 +85,3 @@ jobs:
           name: test-output
           path: arrow-tests/testthat.Rout*
         if: always()
-

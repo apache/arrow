@@ -171,21 +171,21 @@ If the C++ library is built from source, `inst/build_arrow_static.sh` is execute
 This build script is also what is used to generate the prebuilt binaries.
 
 
-# Using `remotes::install_github(...)` 
+# Using `remotes::install_github(...)`
 
 If you need an Arrow installation from a specific repository or at a specific ref, `remotes::install_github("apache/arrow/r", build = FALSE)` should work on most platforms (with the notable exception of windows). This method is helpful if you need a full install of arrow that is separate from another install (e.g. we use this in [arrowbench](https://github.com/ursacomputing/arrowbench) to install development versions of arrow isolated from the system install). However there are some caveats to be aware of:
 
-* Setting the environment variable `FORCE_TOOLS_LIBS_SCRIPT` to `true` will avoid linking to any arrow libraries already installed and attempt to build arrow from the same source at the repository+ref given.
+* Setting the environment variable `FORCE_BUNDLED_BUILD` to `true` will avoid linking to any arrow libraries already installed and attempt to build arrow from the same source at the repository+ref given.
 * You should also set `build = FALSE` in the `remotes::install_github()` call. This is similar to checking out the repository and calling `R CMD INSTALL .` in the `arrow/r` directory (as opposed to first calling `R CMD BUILD .` and then installing the tar.gz file that produces, which is the default for `remotes::install_github()`).
 * Specify `subdir = "r"` to get the R package (or use `/r` after `username/repo` e.g. `apache/arrow/r`).
-* If you are using the `FORCE_TOOLS_LIBS_SCRIPT` and you have arrow installed already, you may want to change your Makevars `CPPFLAGS` and `LDFLAGS` to `""` in order to prevent the installation process from attempting to link to already installed system versions of arrow. One way to do this temporarily is wrapping your `remotes::install_github()` call like so: `withr::with_makevars(list(CPPFLAGS = "", LDFLAGS = ""), remotes::install_github(...))`.
+* If you are using the `FORCE_BUNDLED_BUILD` and you have arrow installed already, you may want to change your Makevars `CPPFLAGS` and `LDFLAGS` to `""` in order to prevent the installation process from attempting to link to already installed system versions of arrow. One way to do this temporarily is wrapping your `remotes::install_github()` call like so: `withr::with_makevars(list(CPPFLAGS = "", LDFLAGS = ""), remotes::install_github(...))`.
 
 As with other installation methods setting the environment variables `LIBARROW_MINIMAL=false` and `ARROW_R_DEV=true` will provide a more full-featured version of Arrow and provide more verbose output respectively.
 
 For example, to install from the (fictional) branch `bugfix` from `apache/arrow` one could:
 
 ```r
-Sys.setenv(FORCE_TOOLS_LIBS_SCRIPT="true")
+Sys.setenv(FORCE_BUNDLED_BUILD="true")
 Sys.setenv(LIBARROW_MINIMAL="false")
 remotes::install_github("apache/arrow/r@bugfix", build = FALSE)
 ```
@@ -354,7 +354,7 @@ By default, these are all unset. All boolean variables are case-insensitive.
   Use this if you want to avoid compiling the C++ library, which may be slow
   and resource-intensive, and ensure that you only use a prebuilt binary.
 * `LIBARROW_MINIMAL`: If set to `false`, the build script
-  will enable some optional features, including compression libraries, S3 
+  will enable some optional features, including compression libraries, S3
   support, and additional alternative memory allocators. This will increase the
   source build time but results in a more fully functional library.
 * `NOT_CRAN`: If this variable is set to `true`, as the `devtools` package does,
