@@ -335,3 +335,28 @@ def test_read_encrypted_column_keys():
     f = pq.ParquetFile(bio.getvalue(), low_level_decryption=decryption_props)
     assert f.reader.read_column(0).to_pylist() == [4, 5]
     assert f.reader.read_column(1).to_pylist() == ["foo", "bar"]
+
+
+def test_read_encrypted_with_plaintext_file():
+    """
+    Plain text files are optionally supported when specifying decryption
+    properties.
+    """
+    table = pa.table([pa.array([4, 5]), pa.array(["foo", "bar"])],
+                     names=['ints', 'strs'])
+    bio = pa.BufferOutputStream()
+    pq.write_table(table, bio)
+
+    footer_key = b"foot!abcd\xff\x0012356"
+
+    # Without allowing plain text files, they don't work.
+    decryption_props = pq.LowLevelDecryptionProperties(footer_key)
+    with pytest.raises(IOError, match="Applying decryption properties on plaintext file"):
+        f = pq.ParquetFile(bio.getvalue(), low_level_decryption=decryption_props)
+
+    # When allowed, we can read it:
+    decryption_props = pq.LowLevelDecryptionProperties(
+        footer_key, plaintext_files_allowed=True)
+    f = pq.ParquetFile(bio.getvalue(), low_level_decryption=decryption_props)
+    assert f.reader.read_column(0).to_pylist() == [4, 5]
+
