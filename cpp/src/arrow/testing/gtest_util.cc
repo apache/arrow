@@ -721,7 +721,7 @@ ExtensionTypeGuard::~ExtensionTypeGuard() {
 
 class GatingTask::Impl {
  public:
-  Impl(double timeout_seconds)
+  explicit Impl(double timeout_seconds)
       : timeout_seconds_(timeout_seconds), status_(), unlocked_(false) {}
 
   ~Impl() {
@@ -790,10 +790,7 @@ class GatingTask::Impl {
   std::condition_variable finished_cv_;
 };
 
-GatingTask::GatingTask(double timeout_seconds)
-    : impl_(new Impl(timeout_seconds)){
-
-      };
+GatingTask::GatingTask(double timeout_seconds) : impl_(new Impl(timeout_seconds)) {}
 
 std::function<void()> GatingTask::Task() { return impl_->Task(); }
 Status GatingTask::Unlock() { return impl_->Unlock(); }
