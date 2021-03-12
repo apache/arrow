@@ -63,7 +63,7 @@ before_script:
   - git clone --depth 1 https://github.com/rpm-software-management/createrepo_c.git
   - pushd createrepo_c
   - |
-      cmake \
+      /usr/bin/cmake \
         -DENABLE_DRPM=OFF \
         -DWITH_ZCHUNK=OFF \
         -DENABLE_PYTHON=OFF \
