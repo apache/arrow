@@ -360,3 +360,39 @@ def test_read_encrypted_with_plaintext_file():
     f = pq.ParquetFile(bio.getvalue(), low_level_decryption=decryption_props)
     assert f.reader.read_column(0).to_pylist() == [4, 5]
 
+
+def test_read_encrypted_disable_footer_signature_verification():
+    """
+    It's possible to disable footer signature verification when reading
+    encrypted files.
+    """
+    footer_key = b"foot!abcd\xff\x0012356"
+    column_key1 = b"col1!abcd\xff\x0012356"
+    column_key2 = b"col2!abcd\xff\x0012356"
+    table = pa.table([pa.array([4, 5]), pa.array(["foo", "bar"])],
+                     names=['ints', 'strs'])
+    bio = pa.BufferOutputStream()
+
+    # The encryption APIs are private for now, exposed only to allow testing.
+    from pyarrow import _parquet
+    encryption_props = _parquet.LowLevelEncryptionProperties(
+        footer_key, {"ints": column_key1, "strs": column_key2},
+        plaintext_footer=True)
+
+    pq.write_table(table, bio, lowlevel_encryption_properties=encryption_props)
+
+    # Footer is plaintext, but lacking key Parquet still complains:
+    decryption_props = pq.LowLevelDecryptionProperties(
+        None, {"ints": column_key1, "strs": column_key2},
+    )
+    with pytest.raises(IOError, match="No footer key or key metadata"):
+        f = pq.ParquetFile(bio.getvalue(), low_level_decryption=decryption_props)
+
+    # But if we tell it it's OK for footer to be unencrypted, that's OK:
+    decryption_props = pq.LowLevelDecryptionProperties(
+        None, {"ints": column_key1, "strs": column_key2},
+        disable_footer_signature_verification=True,
+    )
+    f = pq.ParquetFile(bio.getvalue(), low_level_decryption=decryption_props)
+    assert f.reader.read_column(0).to_pylist() == [4, 5]
+    assert f.reader.read_column(1).to_pylist() == ["foo", "bar"]

@@ -1215,17 +1215,22 @@ cdef class LowLevelEncryptionProperties(_Weakrefable):
     cdef:
        shared_ptr[FileEncryptionProperties] encryption_properties
 
-    def __cinit__(self, footer_key, column_keys=None):  # TODO more options?
+    def __cinit__(self, footer_key, column_keys=None, plaintext_footer=False):  # TODO more options?
         cdef FileEncryptionProperties.Builder* builder
         cdef c_string column
         cdef c_map[c_string,shared_ptr[ColumnEncryptionProperties]] c_column_keys
         builder = new FileEncryptionProperties.Builder(footer_key)
+
         if column_keys is not None:
             for pycolumn, key in column_keys.items():
                 column = pycolumn.encode("utf-8")
                 c_column_keys[column] = ColumnEncryptionProperties.Builder(
                     column).key(key).build()
             builder.encrypted_columns(c_column_keys)
+
+        if plaintext_footer:
+            builder.set_plaintext_footer()
+
         self.encryption_properties = builder.build()
         del builder
 
