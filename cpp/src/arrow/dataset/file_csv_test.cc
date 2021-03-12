@@ -81,6 +81,28 @@ N/A
   ASSERT_EQ(row_count, 3);
 }
 
+TEST_F(TestCsvFileFormat, CustomConvertOptions) {
+  auto source = GetFileSource(R"(str
+foo
+MYNULL
+N/A
+bar)");
+  SetSchema({field("str", utf8())});
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+  auto fragment_scan_options = std::make_shared<CsvFragmentScanOptions>();
+  fragment_scan_options->convert_options.null_values = {"MYNULL"};
+  fragment_scan_options->convert_options.strings_can_be_null = true;
+  ctx_->fragment_scan_options = fragment_scan_options;
+
+  int64_t null_count = 0;
+  for (auto maybe_batch : Batches(fragment.get())) {
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+    null_count += batch->GetColumnByName("str")->null_count();
+  }
+
+  ASSERT_EQ(null_count, 1);
+}
+
 TEST_F(TestCsvFileFormat, ScanRecordBatchReaderWithVirtualColumn) {
   auto source = GetFileSource(R"(f64
 1.0

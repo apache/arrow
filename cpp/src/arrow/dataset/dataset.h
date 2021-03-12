@@ -89,6 +89,19 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
   std::shared_ptr<Schema> physical_schema_;
 };
 
+/// \brief Per-scan options for fragment(s) in a dataset.
+///
+/// These options are not intrinsic to the format or fragment itself, but do affect
+/// the results of a scan. These are options which make sense to change between
+/// repeated reads of the same dataset, such as format-specific conversion options
+/// (that do not affect the schema).
+class ARROW_DS_EXPORT FragmentScanOptions {
+ public:
+  virtual std::string type_name() const = 0;
+  virtual std::string ToString() const { return type_name(); }
+  virtual ~FragmentScanOptions() = default;
+};
+
 /// \brief A trivial Fragment that yields ScanTask out of a fixed set of
 /// RecordBatch.
 class ARROW_DS_EXPORT InMemoryFragment : public Fragment {

@@ -76,12 +76,19 @@ Result<std::unordered_set<std::string>> GetColumnNames(
 
 static inline Result<csv::ConvertOptions> GetConvertOptions(
     const CsvFileFormat& format, const std::shared_ptr<ScanOptions>& scan_options,
-    const Buffer& first_block, MemoryPool* pool) {
+    const std::shared_ptr<ScanContext>& scan_context, const Buffer& first_block,
+    MemoryPool* pool) {
   ARROW_ASSIGN_OR_RAISE(
       auto column_names,
       GetColumnNames(format.parse_options, util::string_view{first_block}, pool));
 
   auto convert_options = csv::ConvertOptions::Defaults();
+  if (scan_context && scan_context->fragment_scan_options &&
+      scan_context->fragment_scan_options->type_name() == kCsvTypeName) {
+    auto csv_scan_options = internal::checked_pointer_cast<CsvFragmentScanOptions>(
+        scan_context->fragment_scan_options);
+    convert_options = csv_scan_options->convert_options;
+  }
 
   for (FieldRef ref : scan_options->MaterializedFields()) {
     ARROW_ASSIGN_OR_RAISE(auto field, ref.GetOne(*scan_options->dataset_schema));
@@ -104,6 +111,7 @@ static inline csv::ReadOptions GetReadOptions(const CsvFileFormat& format) {
 static inline Result<std::shared_ptr<csv::StreamingReader>> OpenReader(
     const FileSource& source, const CsvFileFormat& format,
     const std::shared_ptr<ScanOptions>& scan_options = nullptr,
+    const std::shared_ptr<ScanContext>& scan_context = nullptr,
     MemoryPool* pool = default_memory_pool()) {
   ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
 
@@ -115,8 +123,9 @@ static inline Result<std::shared_ptr<csv::StreamingReader>> OpenReader(
 
   auto convert_options = csv::ConvertOptions::Defaults();
   if (scan_options != nullptr) {
-    ARROW_ASSIGN_OR_RAISE(convert_options,
-                          GetConvertOptions(format, scan_options, *first_block, pool));
+    ARROW_ASSIGN_OR_RAISE(
+        convert_options,
+        GetConvertOptions(format, scan_options, scan_context, *first_block, pool));
   }
 
   auto maybe_reader =
@@ -141,8 +150,8 @@ class CsvScanTask : public ScanTask {
         source_(fragment->source()) {}
 
   Result<RecordBatchIterator> Execute() override {
-    ARROW_ASSIGN_OR_RAISE(auto reader,
-                          OpenReader(source_, *format_, options(), context()->pool));
+    ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source_, *format_, options(), context(),
+                                                  context()->pool));
     return IteratorFromReader(std::move(reader));
   }
 
