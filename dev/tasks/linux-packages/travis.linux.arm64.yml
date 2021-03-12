@@ -76,11 +76,12 @@ before_script:
   - pushd createrepo_c
   - |
       /usr/bin/cmake \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DENABLE_BASHCOMP=OFF \
         -DENABLE_DRPM=OFF \
-        -DWITH_ZCHUNK=OFF \
         -DENABLE_PYTHON=OFF \
         -DWITH_LIBMODULEMD=OFF \
-        -DENABLE_BASHCOMP=OFF \
+        -DWITH_ZCHUNK=OFF \
         .
   - make -j$(nproc)
   - sudo make install
