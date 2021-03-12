@@ -1539,11 +1539,21 @@ struct ExtractRE2 {
                   }
                   RETURN_NOT_OK(struct_builder->Append());
                 } else {
+                  for (int i = 0; i < group_count; i++) {
+                    BuilderType* builder =
+                        static_cast<BuilderType*>(struct_builder->field_builder(i));
+                    RETURN_NOT_OK(builder->Append(""));
+                  }
                   RETURN_NOT_OK(struct_builder->AppendNull());
                 }
                 return Status::OK();
               },
               [&]() {
+                for (int i = 0; i < group_count; i++) {
+                  BuilderType* builder =
+                      static_cast<BuilderType*>(struct_builder->field_builder(i));
+                  RETURN_NOT_OK(builder->Append(""));
+                }
                 RETURN_NOT_OK(struct_builder->AppendNull());
                 return Status::OK();
               }));
