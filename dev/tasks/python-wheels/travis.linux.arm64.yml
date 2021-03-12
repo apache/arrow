@@ -62,14 +62,9 @@ script:
 
   # output something every minutes to prevent travis from killing the build
   - while sleep 1m; do echo "=====[ $SECONDS seconds still running ]====="; done &
-
   - archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-manylinux-{{ manylinux_version }}
   - archery docker run python-wheel-manylinux-test-imports
   - archery docker run python-wheel-manylinux-test-unittests
-
-  - archery docker push python-wheel-manylinux-{{ manylinux_version }}
-  - archery docker push python-wheel-manylinux-test-unittests
-
   - kill %1
 
 after_success:
@@ -83,10 +78,7 @@ after_success:
       --sha {{ task.branch }} \
       --tag {{ task.tag }}
 
-  # Push the docker image
-  - archery docker push python-wheel-manylinux-{{ manylinux_version }}
-
-  {% if arrow.branch == 'master' %}
+  {% if True or arrow.branch == 'master' %}
   # Push the docker image to dockerhub
   - archery docker push python-wheel-manylinux-{{ manylinux_version }}
   - archery docker push python-wheel-manylinux-test-unittests

@@ -87,12 +87,7 @@ jobs:
         env:
           CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN }}' }}
 
-      # TODO(kszucs): only push from master branch
-      - name: Push the docker image
-        shell: bash
-        run: archery docker push python-wheel-manylinux-{{ manylinux_version }}
-
-      {% if arrow.branch == 'master' %}
+      {% if True or arrow.branch == 'master' %}
       - name: Push the docker image
         shell: bash
         run: |
