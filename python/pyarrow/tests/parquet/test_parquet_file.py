@@ -290,3 +290,48 @@ def test_read_encrypted_footer_key_only():
     f = pq.ParquetFile(bio.getvalue(), low_level_decryption=decryption_props)
     assert f.reader.read_column(0).to_pylist() == [4, 5]
     assert f.reader.read_column(1).to_pylist() == ["foo", "bar"]
+
+
+def test_read_encrypted_column_keys():
+    """
+    It's possible to decrypt Parquet files with different column keys per
+    column.
+    """
+    footer_key = b"foot!abcd\xff\x0012356"
+    column_key1 = b"col1!abcd\xff\x0012356"
+    column_key2 = b"col2!abcd\xff\x0012356"
+    table = pa.table([pa.array([4, 5]), pa.array(["foo", "bar"])],
+                     names=['ints', 'strs'])
+    bio = pa.BufferOutputStream()
+
+    # The encryption APIs are private for now, exposed only to allow testing.
+    from pyarrow import _parquet
+    encryption_props = _parquet.LowLevelEncryptionProperties(
+        footer_key, {"ints": column_key1, "strs": column_key2})
+
+    pq.write_table(table, bio, lowlevel_encryption_properties=encryption_props)
+
+    # Without column key, decryption fails:
+    decryption_props = pq.LowLevelDecryptionProperties(footer_key)
+    f = pq.ParquetFile(
+        bio.getvalue(), low_level_decryption=decryption_props
+    )
+    with pytest.raises(IOError, match="HiddenColumnException"):
+        f.reader.read_column(0)
+
+    # With wrong key, decryption fails:
+    decryption_props = pq.LowLevelDecryptionProperties(
+        footer_key, {"ints": b"a" * 16})
+    f = pq.ParquetFile(
+        bio.getvalue(), low_level_decryption=decryption_props
+    )
+    with pytest.raises(IOError, match="Failed decryption"):
+        f.reader.read_column(0)
+
+    # With correct keys, decryption succeeds:
+    decryption_props = pq.LowLevelDecryptionProperties(
+        footer_key, {"ints": column_key1, "strs": column_key2}
+    )
+    f = pq.ParquetFile(bio.getvalue(), low_level_decryption=decryption_props)
+    assert f.reader.read_column(0).to_pylist() == [4, 5]
+    assert f.reader.read_column(1).to_pylist() == ["foo", "bar"]

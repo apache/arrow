@@ -1225,7 +1225,7 @@ cdef class LowLevelEncryptionProperties(_Weakrefable):
                 column = pycolumn.encode("utf-8")
                 c_column_keys[column] = ColumnEncryptionProperties.Builder(
                     column).key(key).build()
-                builder.encrypted_columns(c_column_keys)
+            builder.encrypted_columns(c_column_keys)
         self.encryption_properties = builder.build()
         del builder
 
