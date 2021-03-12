@@ -17,7 +17,6 @@
 
 //! Defines sort kernel for `ArrayRef`
 
-use core::{mem, ptr};
 use std::cmp::Ordering;
 use std::sync::Arc;
 
@@ -60,7 +59,7 @@ where
     if array.len() == limit {
         array.sort_by(cmp);
     } else {
-        array.partial_sort(limit, cmp);
+        partial_sort(array, limit, cmp);
     }
 }
 
@@ -831,146 +830,12 @@ pub fn lexsort_to_indices(
     ))
 }
 
-/// partial_sort is Rust version of [std::partial_sort](https://en.cppreference.com/w/cpp/algorithm/partial_sort)
-///
-/// # Example
-//  ```
-/// let mut vec = vec![4, 4, 3, 3, 1, 1, 2, 2];
-/// vec.partial_sort(4, |a, b| a.cmp(b));
-/// println!("{:?}", vec);
-/// ```
-
-pub trait PartialSort {
-    type Item;
-
-    fn partial_sort<F>(&mut self, _: usize, _: F)
-    where
-        F: FnMut(&Self::Item, &Self::Item) -> Ordering;
-}
-
-impl<T> PartialSort for [T] {
-    type Item = T;
-
-    fn partial_sort<F>(&mut self, limit: usize, mut cmp: F)
-    where
-        F: FnMut(&Self::Item, &Self::Item) -> Ordering,
-    {
-        partial_sort(self, limit, |a, b| cmp(a, b) == Ordering::Less);
-    }
-}
-
 pub fn partial_sort<T, F>(v: &mut [T], limit: usize, mut is_less: F)
 where
-    F: FnMut(&T, &T) -> bool,
+    F: FnMut(&T, &T) -> Ordering,
 {
-    debug_assert!(limit <= v.len());
-    make_heap(v, limit, &mut is_less);
-
-    // unsafe because we use `get_unchecked`
-    unsafe {
-        for i in limit..v.len() {
-            if is_less(v.get_unchecked(i), v.get_unchecked(0)) {
-                v.swap(0, i);
-                adjust_heap(v, 0, limit, &mut is_less);
-            }
-        }
-        sort_heap(v, limit, &mut is_less);
-    }
-}
-
-/// make a heap with last limit size elements
-#[inline]
-fn make_heap<T, F>(v: &mut [T], limit: usize, is_less: &mut F)
-where
-    F: FnMut(&T, &T) -> bool,
-{
-    if limit < 2 {
-        return;
-    }
-
-    let len = limit;
-    let mut parent = (len - 2) / 2;
-
-    loop {
-        adjust_heap(v, parent, len, is_less);
-        if parent == 0 {
-            return;
-        }
-        parent -= 1;
-    }
-}
-
-/// adjust_heap is a sift down adjust operation for the heap
-#[inline]
-fn adjust_heap<T, F>(v: &mut [T], hole_index: usize, len: usize, is_less: &mut F)
-where
-    F: FnMut(&T, &T) -> bool,
-{
-    let mut left_child = hole_index * 2 + 1;
-
-    // Panic safety:
-    //
-    // If `is_less` panics at any point during the process, `hole` will get dropped and
-    // fill the hole in `v` with `tmp`, thus ensuring that `v` still holds every object it
-    // initially held exactly once.
-    let mut tmp = mem::ManuallyDrop::new(unsafe { ptr::read(&v[hole_index]) });
-    let mut hole = InsertionHole {
-        src: &mut *tmp,
-        dest: &mut v[hole_index],
-    };
-
-    unsafe {
-        while left_child < len {
-            if left_child + 1 < len
-                && is_less(v.get_unchecked(left_child), v.get_unchecked(left_child + 1))
-            {
-                left_child += 1;
-            }
-
-            if is_less(&*tmp, v.get_unchecked(left_child)) {
-                ptr::copy_nonoverlapping(&v[left_child], hole.dest, 1);
-                hole.dest = &mut v[left_child];
-            } else {
-                break;
-            }
-
-            left_child = left_child * 2 + 1;
-        }
-        // `hole` gets dropped and thus copies `tmp` into the remaining hole in `v`.
-    }
-
-    // This code is copy from std library `src/slice.rs`
-    // When dropped, copies from `src` into `dest`.
-    struct InsertionHole<T> {
-        src: *mut T,
-        dest: *mut T,
-    }
-
-    impl<T> Drop for InsertionHole<T> {
-        fn drop(&mut self) {
-            // SAFETY:
-            // we ensure src/dest point to a properly initialized value of type T
-            // src is valid for reads of `count * size_of::<T>()` bytes.
-            // dest is valid for reads of `count * size_of::<T>()` bytes.
-            // Both `src` and `dst` are properly aligned.
-            unsafe {
-                ptr::copy_nonoverlapping(self.src, self.dest, 1);
-            }
-        }
-    }
-}
-
-#[inline]
-fn sort_heap<T, F>(v: &mut [T], last: usize, is_less: &mut F)
-where
-    F: FnMut(&T, &T) -> bool,
-{
-    let mut last = last;
-    while last > 1 {
-        v.swap(0, last - 1);
-        adjust_heap(v, 0, last - 1, is_less);
-        last -= 1;
-    }
+    let (before, _mid, _after) = v.select_nth_unstable_by(limit, &mut is_less);
+    before.sort_unstable_by(is_less);
 }
 
 #[cfg(test)]
@@ -2315,7 +2180,7 @@ mod tests {
         d.sort_unstable();
 
         for last in 0..before.len() {
-            before.partial_sort(last, |a, b| a.cmp(b));
+            partial_sort(&mut before, last, |a, b| a.cmp(b));
             assert_eq!(&d[0..last], &before.as_slice()[0..last]);
         }
     }
@@ -2329,7 +2194,7 @@ mod tests {
         let last = (rng.next_u32() % size) as usize;
         d.sort_unstable();
 
-        before.partial_sort(last, |a, b| a.cmp(b));
+        partial_sort(&mut before, last, |a, b| a.cmp(b));
         assert_eq!(&d[0..last], &before[0..last]);
     }
 }
