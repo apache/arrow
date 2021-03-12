@@ -300,12 +300,6 @@ build_function_list <- function(FUN) {
       )
     },
     between = function(x, left, right) {
-      if (length(left) != 1) {
-        abort("`left` must be length 1")
-      }
-      if (length(right) != 1) {
-        abort("`right` must be length 1")
-      }
       x >= left & x <= right
     },
     # Now also include all available Arrow Compute functions,
