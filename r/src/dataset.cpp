@@ -66,9 +66,9 @@ const char* r6_class_name<ds::FileFormat>::get(
 // [[dataset::export]]
 std::shared_ptr<ds::ScannerBuilder> dataset___Dataset__NewScan(
     const std::shared_ptr<ds::Dataset>& ds) {
-  auto context = std::make_shared<ds::ScanContext>();
-  context->pool = gc_memory_pool();
-  return ValueOrStop(ds->NewScan(std::move(context)));
+  auto options = std::make_shared<ds::ScanOptions>();
+  options->pool = gc_memory_pool();
+  return ValueOrStop(ds->NewScan(std::move(options)));
 }
 
 // [[dataset::export]]

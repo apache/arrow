@@ -140,13 +140,13 @@ TEST_F(TestScanner, ToTable) {
   auto scanner = MakeScanner(batch);
   std::shared_ptr<Table> actual;
 
-  ctx_->use_threads = false;
+  options_->use_threads = false;
   ASSERT_OK_AND_ASSIGN(actual, scanner.ToTable());
   AssertTablesEqual(*expected, *actual);
 
   // There is no guarantee on the ordering when using multiple threads, but
   // since the RecordBatch is always the same it will pass.
-  ctx_->use_threads = true;
+  options_->use_threads = true;
   ASSERT_OK_AND_ASSIGN(actual, scanner.ToTable());
   AssertTablesEqual(*expected, *actual);
 }

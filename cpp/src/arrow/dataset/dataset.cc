@@ -98,6 +98,11 @@ Dataset::Dataset(std::shared_ptr<Schema> schema, Expression partition_expression
       partition_expression_(std::move(partition_expression)) {}
 
 Result<std::shared_ptr<ScannerBuilder>> Dataset::NewScan(
+    std::shared_ptr<ScanOptions> options) {
+  return std::make_shared<ScannerBuilder>(this->shared_from_this(), options);
+}
+
+Result<std::shared_ptr<ScannerBuilder>> Dataset::NewScan(
     std::shared_ptr<ScanContext> context) {
   return std::make_shared<ScannerBuilder>(this->shared_from_this(), context);
 }

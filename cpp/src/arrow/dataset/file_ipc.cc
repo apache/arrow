@@ -108,7 +108,7 @@ class IpcScanTask : public ScanTask {
       int i_;
     };
 
-    return Impl::Make(source_, options_->MaterializedFields(), context_->pool);
+    return Impl::Make(source_, options_->MaterializedFields(), options_->pool);
   }
 
  private:

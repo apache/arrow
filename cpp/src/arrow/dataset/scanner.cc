@@ -47,6 +47,16 @@ std::vector<std::string> ScanOptions::MaterializedFields() const {
   return fields;
 }
 
+using arrow::internal::TaskGroup;
+
+std::shared_ptr<TaskGroup> ScanOptions::TaskGroup() const {
+  if (use_threads) {
+    auto* thread_pool = arrow::internal::GetCpuThreadPool();
+    return TaskGroup::MakeThreaded(thread_pool);
+  }
+  return TaskGroup::MakeSerial();
+}
+
 Result<RecordBatchIterator> InMemoryScanTask::Execute() {
   return MakeVectorIterator(record_batches_);
 }
@@ -80,6 +90,16 @@ Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
   auto fragment =
       std::make_shared<InMemoryFragment>(std::move(schema), std::move(batches));
   return fragment->Scan(std::move(options), std::move(context));
+}
+
+ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,
+                               std::shared_ptr<ScanOptions> scan_options)
+    : dataset_(std::move(dataset)),
+      fragment_(nullptr),
+      scan_options_(std::move(scan_options)),
+      scan_context_(std::make_shared<ScanContext>()) {
+  scan_options_->dataset_schema = dataset_->schema();
+  DCHECK_OK(Filter(literal(true)));
 }
 
 ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,
@@ -121,7 +141,7 @@ Status ScannerBuilder::Filter(const Expression& filter) {
 }
 
 Status ScannerBuilder::UseThreads(bool use_threads) {
-  scan_context_->use_threads = use_threads;
+  scan_options_->use_threads = use_threads;
   return Status::OK();
 }
 
@@ -130,6 +150,11 @@ Status ScannerBuilder::BatchSize(int64_t batch_size) {
     return Status::Invalid("BatchSize must be greater than 0, got ", batch_size);
   }
   scan_options_->batch_size = batch_size;
+  return Status::OK();
+}
+
+Status ScannerBuilder::Pool(MemoryPool* pool) {
+  scan_options_->pool = pool;
   return Status::OK();
 }
 
@@ -142,16 +167,6 @@ Result<std::shared_ptr<Scanner>> ScannerBuilder::Finish() {
     return std::make_shared<Scanner>(fragment_, scan_options_, scan_context_);
   }
   return std::make_shared<Scanner>(dataset_, scan_options_, scan_context_);
-}
-
-using arrow::internal::TaskGroup;
-
-std::shared_ptr<TaskGroup> ScanContext::TaskGroup() const {
-  if (use_threads) {
-    auto* thread_pool = arrow::internal::GetCpuThreadPool();
-    return TaskGroup::MakeThreaded(thread_pool);
-  }
-  return TaskGroup::MakeSerial();
 }
 
 static inline RecordBatchVector FlattenRecordBatchVector(
@@ -183,7 +198,7 @@ struct TableAssemblyState {
 
 Result<std::shared_ptr<Table>> Scanner::ToTable() {
   ARROW_ASSIGN_OR_RAISE(auto scan_task_it, Scan());
-  auto task_group = scan_context_->TaskGroup();
+  auto task_group = scan_options_->TaskGroup();
 
   /// Wraps the state in a shared_ptr to ensure that failing ScanTasks don't
   /// invalidate concurrently running tasks when Finish() early returns

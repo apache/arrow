@@ -100,10 +100,10 @@ class FilterAndProjectScanTask : public ScanTask {
                           SimplifyWithGuarantee(options()->projection, partition_));
 
     RecordBatchIterator filter_it =
-        FilterRecordBatch(std::move(it), simplified_filter, context_->pool);
+        FilterRecordBatch(std::move(it), simplified_filter, options_->pool);
 
     return ProjectRecordBatch(std::move(filter_it), simplified_projection,
-                              context_->pool);
+                              options_->pool);
   }
 
  private:

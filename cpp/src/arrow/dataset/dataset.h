@@ -131,6 +131,7 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
 class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
  public:
   /// \brief Begin to build a new Scan operation against this Dataset
+  Result<std::shared_ptr<ScannerBuilder>> NewScan(std::shared_ptr<ScanOptions> options);
   Result<std::shared_ptr<ScannerBuilder>> NewScan(std::shared_ptr<ScanContext> context);
   Result<std::shared_ptr<ScannerBuilder>> NewScan();
 

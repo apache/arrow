@@ -291,7 +291,7 @@ Result<std::shared_ptr<Schema>> ParquetFileFormat::Inspect(
 
 Result<std::unique_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader(
     const FileSource& source, ScanOptions* options, ScanContext* context) const {
-  MemoryPool* pool = context ? context->pool : default_memory_pool();
+  MemoryPool* pool = options ? options->pool : default_memory_pool();
   auto properties = MakeReaderProperties(*this, pool);
 
   ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
@@ -310,7 +310,7 @@ Result<std::unique_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
     arrow_properties.set_batch_size(options->batch_size);
   }
 
-  if (context && !context->use_threads) {
+  if (options && !options->use_threads) {
     arrow_properties.set_use_threads(reader_options.enable_parallel_column_conversion);
   }
 

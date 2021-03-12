@@ -92,7 +92,7 @@ bar)");
   auto fragment_scan_options = std::make_shared<CsvFragmentScanOptions>();
   fragment_scan_options->convert_options.null_values = {"MYNULL"};
   fragment_scan_options->convert_options.strings_can_be_null = true;
-  ctx_->fragment_scan_options = fragment_scan_options;
+  opts_->fragment_scan_options = fragment_scan_options;
 
   int64_t null_count = 0;
   for (auto maybe_batch : Batches(fragment.get())) {

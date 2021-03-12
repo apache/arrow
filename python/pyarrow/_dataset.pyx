@@ -2163,16 +2163,11 @@ cdef class ScanTask(_Weakrefable):
                     yield pyarrow_wrap_batch(record_batch)
 
 
-cdef shared_ptr[CScanContext] _build_scan_context(bint use_threads=True,
-                                                  MemoryPool memory_pool=None):
+cdef shared_ptr[CScanContext] _build_scan_context():
     cdef:
         shared_ptr[CScanContext] context
 
     context = make_shared[CScanContext]()
-    context.get().pool = maybe_unbox_memory_pool(memory_pool)
-    if use_threads is not None:
-        context.get().use_threads = use_threads
-
     return context
 
 
@@ -2181,7 +2176,9 @@ _DEFAULT_BATCH_SIZE = 2**20
 
 cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
                             list columns=None, Expression filter=None,
-                            int batch_size=_DEFAULT_BATCH_SIZE) except *:
+                            int batch_size=_DEFAULT_BATCH_SIZE,
+                            bint use_threads=True,
+                            MemoryPool memory_pool=None) except *:
     cdef:
         CScannerBuilder *builder
     builder = ptr.get()
@@ -2193,6 +2190,9 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
         check_status(builder.Project([tobytes(c) for c in columns]))
 
     check_status(builder.BatchSize(batch_size))
+    check_status(builder.UseThreads(use_threads))
+    if memory_pool:
+        check_status(builder.Pool(maybe_unbox_memory_pool(memory_pool)))
 
 
 cdef class Scanner(_Weakrefable):
@@ -2261,11 +2261,11 @@ cdef class Scanner(_Weakrefable):
             shared_ptr[CScannerBuilder] builder
             shared_ptr[CScanner] scanner
 
-        context = _build_scan_context(use_threads=use_threads,
-                                      memory_pool=memory_pool)
+        context = _build_scan_context()
         builder = make_shared[CScannerBuilder](dataset.unwrap(), context)
         _populate_builder(builder, columns=columns, filter=filter,
-                          batch_size=batch_size)
+                          batch_size=batch_size, use_threads=use_threads,
+                          memory_pool=memory_pool)
 
         scanner = GetResultValue(builder.get().Finish())
         return Scanner.wrap(scanner)
@@ -2280,15 +2280,15 @@ cdef class Scanner(_Weakrefable):
             shared_ptr[CScannerBuilder] builder
             shared_ptr[CScanner] scanner
 
-        context = _build_scan_context(use_threads=use_threads,
-                                      memory_pool=memory_pool)
+        context = _build_scan_context()
 
         schema = schema or fragment.physical_schema
 
         builder = make_shared[CScannerBuilder](pyarrow_unwrap_schema(schema),
                                                fragment.unwrap(), context)
         _populate_builder(builder, columns=columns, filter=filter,
-                          batch_size=batch_size)
+                          batch_size=batch_size, use_threads=use_threads,
+                          memory_pool=memory_pool)
 
         scanner = GetResultValue(builder.get().Finish())
         return Scanner.wrap(scanner)
