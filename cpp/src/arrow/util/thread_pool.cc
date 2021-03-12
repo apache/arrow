@@ -267,7 +267,7 @@ Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken sto
     }
     CollectFinishedWorkersUnlocked();
     state_->tasks_queued_or_running_++;
-    if (state_->workers_.size() < state_->tasks_queued_or_running_ &&
+    if (static_cast<int>(state_->workers_.size()) < state_->tasks_queued_or_running_ &&
         state_->desired_capacity_ > static_cast<int>(state_->workers_.size())) {
       // We can still spin up more workers so spin up a new worker
       LaunchWorkersUnlocked(/*threads=*/1);
