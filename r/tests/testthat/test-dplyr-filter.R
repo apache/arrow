@@ -165,13 +165,6 @@ test_that("filter() with between()", {
 
   expect_dplyr_equal(
     input %>%
-      filter(between(dbl, 1, NULL)) %>%
-      collect(),
-    tbl
-  )
-
-  expect_dplyr_equal(
-    input %>%
       filter(between(dbl, 0.5, 2)) %>%
       collect(),
     tbl
@@ -194,6 +187,13 @@ test_that("filter() with between()", {
   expect_dplyr_error(
     input %>%
       filter(between(dbl, 1, NA)) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_error(
+    input %>%
+      filter(between(dbl, 1, NULL)) %>%
       collect(),
     tbl
   )
