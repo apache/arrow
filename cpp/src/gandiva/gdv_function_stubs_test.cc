@@ -165,9 +165,23 @@ TEST(TestGdvFnStubs, TestSha256Numeric) {
 
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
+  // test zero boundaries
   const char *zero_hash = gdv_fn_sha256_from_numeric(ctx_ptr, 0.0);
+  const char *zero_one_hash = gdv_fn_sha256_from_numeric(ctx_ptr, 0.1);
 
-  EXPECT_STRNE(zero_hash, "");
+  EXPECT_STRNE(zero_hash, zero_one_hash);
+
+  // tests double limits
+  const char *double_positive_limit = gdv_fn_sha256_from_numeric(ctx_ptr, 1.7976931348623158e+308);
+
+  const char *expected_hash = "b57cccce96b74638b9f9b8a8e1ab45a534954412b6aedf5b329a85f31da6f305";
+
+  EXPECT_STREQ(expected_hash, double_positive_limit);
+
+  // tests minus zero case
+  const char *minus_zero_hash = gdv_fn_sha256_from_numeric(ctx_ptr, -0.0);
+
+  EXPECT_STREQ(zero_hash, minus_zero_hash);
   
   ctx.Reset();
 }
@@ -179,17 +193,25 @@ TEST(TestGdvFnStubs, TestSha256String) {
 
   const char *zero_hash = gdv_fn_sha256_from_numeric(ctx_ptr, 0.0);
 
-  const char *test_string = "hello world";
+  const char *test_string = "ði ıntəˈnæʃənəl fəˈnɛtık əsoʊsiˈeıʃn\n"
+                            "Y [ˈʏpsilɔn], Yen [jɛn], Yoga [ˈjoːgɑ]";
 
   const char *first_sha_hash = gdv_fn_hash_sha256_from_string(ctx_ptr, test_string, strlen(test_string));
+
+  const char *expected_first_hash ="55aeb2e789871dbd289edae94d4c1c82a1c25ca0bcd5a873924da2fefdd57acb";
   
   EXPECT_STRNE(first_sha_hash, zero_hash);
+  EXPECT_STREQ(expected_first_hash, first_sha_hash);
 
-  const char *test_string_modified = "hello worlD";
+  const char *test_string_modified = "ði ıntəˈnæʃənəl fəˈnɛtık əsoʊsiˈeın\n"
+                                     "Y [ˈʏpsilɔn], Yen [jɛn], Yoga [ˈjoːgɑ] コンニチハ";
 
   const char
       *second_sha_hash = gdv_fn_hash_sha256_from_string(ctx_ptr, test_string_modified, strlen(test_string_modified));
 
+  const char *expected_second_hash ="86b29c13d0d0e26ea8f85bfa649dc9b8622ae59a4da2409d7d9b463e86e796f2";
+
+  EXPECT_STREQ(expected_second_hash,second_sha_hash);
   EXPECT_STRNE(second_sha_hash, first_sha_hash);
 
   gdv_fn_hash_sha256_from_string(ctx_ptr, nullptr, 0);
