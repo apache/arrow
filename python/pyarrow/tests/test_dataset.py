@@ -1313,6 +1313,8 @@ def test_partitioning_function():
     # default DirectoryPartitioning
     part = ds.partitioning(schema)
     assert isinstance(part, ds.DirectoryPartitioning)
+    part = ds.partitioning(schema, dictionaries="infer")
+    assert isinstance(part, ds.PartitioningFactory)
     part = ds.partitioning(field_names=names)
     assert isinstance(part, ds.PartitioningFactory)
     # needs schema or list of names
@@ -1326,6 +1328,8 @@ def test_partitioning_function():
     # Hive partitioning
     part = ds.partitioning(schema, flavor="hive")
     assert isinstance(part, ds.HivePartitioning)
+    part = ds.partitioning(schema, dictionaries="infer", flavor="hive")
+    assert isinstance(part, ds.PartitioningFactory)
     part = ds.partitioning(flavor="hive")
     assert isinstance(part, ds.PartitioningFactory)
     # cannot pass list of names
