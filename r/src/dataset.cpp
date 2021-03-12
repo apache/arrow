@@ -25,6 +25,7 @@
 #include <arrow/table.h>
 #include <arrow/util/checked_cast.h>
 #include <arrow/util/iterator.h>
+#include <arrow/util/type_fwd.h>
 
 namespace ds = ::arrow::dataset;
 namespace fs = ::arrow::fs;
@@ -272,9 +273,11 @@ std::shared_ptr<ds::IpcFileFormat> dataset___IpcFileFormat__Make() {
 
 // [[dataset::export]]
 std::shared_ptr<ds::CsvFileFormat> dataset___CsvFileFormat__Make(
-    const std::shared_ptr<arrow::csv::ParseOptions>& parse_options) {
+    const std::shared_ptr<arrow::csv::ParseOptions>& parse_options,
+    arrow::Compression::type compression) {
   auto format = std::make_shared<ds::CsvFileFormat>();
   format->parse_options = *parse_options;
+  format->compression = compression;
   return format;
 }
 

@@ -428,8 +428,8 @@ dataset___IpcFileFormat__Make <- function(){
     .Call(`_arrow_dataset___IpcFileFormat__Make`)
 }
 
-dataset___CsvFileFormat__Make <- function(parse_options){
-    .Call(`_arrow_dataset___CsvFileFormat__Make`, parse_options)
+dataset___CsvFileFormat__Make <- function(parse_options, compression){
+    .Call(`_arrow_dataset___CsvFileFormat__Make`, parse_options, compression)
 }
 
 dataset___DirectoryPartitioning <- function(schm){

@@ -1105,15 +1105,16 @@ extern "C" SEXP _arrow_dataset___IpcFileFormat__Make(){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::CsvFileFormat> dataset___CsvFileFormat__Make(const std::shared_ptr<arrow::csv::ParseOptions>& parse_options);
-extern "C" SEXP _arrow_dataset___CsvFileFormat__Make(SEXP parse_options_sexp){
+std::shared_ptr<ds::CsvFileFormat> dataset___CsvFileFormat__Make(const std::shared_ptr<arrow::csv::ParseOptions>& parse_options, arrow::Compression::type compression);
+extern "C" SEXP _arrow_dataset___CsvFileFormat__Make(SEXP parse_options_sexp, SEXP compression_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::csv::ParseOptions>&>::type parse_options(parse_options_sexp);
-	return cpp11::as_sexp(dataset___CsvFileFormat__Make(parse_options));
+	arrow::r::Input<arrow::Compression::type>::type compression(compression_sexp);
+	return cpp11::as_sexp(dataset___CsvFileFormat__Make(parse_options, compression));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___CsvFileFormat__Make(SEXP parse_options_sexp){
+extern "C" SEXP _arrow_dataset___CsvFileFormat__Make(SEXP parse_options_sexp, SEXP compression_sexp){
 	Rf_error("Cannot call dataset___CsvFileFormat__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -4222,7 +4223,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___IpcFileWriteOptions__update2", (DL_FUNC) &_arrow_dataset___IpcFileWriteOptions__update2, 4}, 
 		{ "_arrow_dataset___IpcFileWriteOptions__update1", (DL_FUNC) &_arrow_dataset___IpcFileWriteOptions__update1, 3}, 
 		{ "_arrow_dataset___IpcFileFormat__Make", (DL_FUNC) &_arrow_dataset___IpcFileFormat__Make, 0}, 
-		{ "_arrow_dataset___CsvFileFormat__Make", (DL_FUNC) &_arrow_dataset___CsvFileFormat__Make, 1}, 
+		{ "_arrow_dataset___CsvFileFormat__Make", (DL_FUNC) &_arrow_dataset___CsvFileFormat__Make, 2}, 
 		{ "_arrow_dataset___DirectoryPartitioning", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning, 1}, 
 		{ "_arrow_dataset___DirectoryPartitioning__MakeFactory", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning__MakeFactory, 1}, 
 		{ "_arrow_dataset___HivePartitioning", (DL_FUNC) &_arrow_dataset___HivePartitioning, 2}, 
