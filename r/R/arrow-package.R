@@ -47,9 +47,10 @@
   }
 
   # Create these once, at package build time
-  dplyr_functions$dataset <- build_function_list(build_dataset_expression)
-  dplyr_functions$array <- build_function_list(build_array_expression)
-
+  if (arrow_available()) {
+    dplyr_functions$dataset <- build_function_list(build_dataset_expression)
+    dplyr_functions$array <- build_function_list(build_array_expression)
+  }
   invisible()
 }
 
@@ -73,25 +74,25 @@
 #' `vignette("install", package = "arrow")` for guidance on reinstalling the
 #' package.
 arrow_available <- function() {
-  .Call(`_arrow_available`)
+  tryCatch(.Call(`_arrow_available`), error = function(e) return(FALSE))
 }
 
 #' @rdname arrow_available
 #' @export
 arrow_with_dataset <- function() {
-  .Call(`_dataset_available`)
+  tryCatch(.Call(`_dataset_available`), error = function(e) return(FALSE))
 }
 
 #' @rdname arrow_available
 #' @export
 arrow_with_parquet <- function() {
-  .Call(`_parquet_available`)
+  tryCatch(.Call(`_parquet_available`), error = function(e) return(FALSE))
 }
 
 #' @rdname arrow_available
 #' @export
 arrow_with_s3 <- function() {
-  .Call(`_s3_available`)
+  tryCatch(.Call(`_s3_available`), error = function(e) return(FALSE))
 }
 
 option_use_threads <- function() {
