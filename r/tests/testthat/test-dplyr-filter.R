@@ -162,6 +162,50 @@ test_that("filter() with between()", {
       collect(),
     tbl
   )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(between(dbl, 1, NULL)) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(between(dbl, 0.5, 2)) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(between(dbl, int, dbl2)) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_error(
+    input %>%
+      filter(between(dbl, 1, "2")) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_error(
+    input %>%
+      filter(between(dbl, 1, NA)) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_error(
+    input %>%
+      filter(between(chr, 1, 2)) %>%
+      collect(),
+    tbl
+  )
+
+
 })
 
 test_that("filter() with string ops", {
