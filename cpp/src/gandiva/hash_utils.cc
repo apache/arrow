@@ -1,8 +1,9 @@
+#include <cstring>
 #include "hash_utils.h"
 #include "openssl/evp.h"
 
 namespace gandiva {
-  char* HashUtils::hash_using_SHA256(const void *message, const size_t message_length) {
+  char * HashUtils::hash_using_SHA256(int64_t context, const void *message, size_t message_length) {
     EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
 
     EVP_DigestInit_ex(md_ctx, EVP_sha256(), nullptr);
@@ -11,7 +12,7 @@ namespace gandiva {
 
     int sha256_hash_size = EVP_MD_size(EVP_sha256());
 
-    auto* result = (unsigned char*) OPENSSL_malloc(sha256_hash_size);
+    auto* result = static_cast<unsigned char*>(OPENSSL_malloc(sha256_hash_size));
 
     unsigned int result_length;
 
@@ -34,7 +35,7 @@ namespace gandiva {
 
     // free the resources to avoid memory leaks
     EVP_MD_CTX_free(md_ctx);
-    free(hex_buffer);
+    delete[] hex_buffer;
     free(result);
 
     return result_buffer;
@@ -43,4 +44,4 @@ namespace gandiva {
   void HashUtils::clean_char_array(char *buffer) {
     buffer[0] = '\0';
   }
-}
+}  // namespace gandiva
