@@ -1,9 +1,9 @@
 #include <cstring>
-#include "hash_utils.h"
+#include "gandiva/hash_utils.h"
 #include "openssl/evp.h"
 
 namespace gandiva {
-  char * HashUtils::hash_using_SHA256(int64_t context, const void *message, size_t message_length) {
+  char* HashUtils::hash_using_SHA256(int64_t context, const void *message, size_t message_length) {
     EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
 
     EVP_DigestInit_ex(md_ctx, EVP_sha256(), nullptr);
@@ -39,6 +39,12 @@ namespace gandiva {
     free(result);
 
     return result_buffer;
+  }
+
+  uint64_t HashUtils::double_to_long(double value) {
+    uint64_t result;
+    memcpy(&result, &value, sizeof(result));
+    return result;
   }
 
   void HashUtils::clean_char_array(char *buffer) {
