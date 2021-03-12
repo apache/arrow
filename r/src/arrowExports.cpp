@@ -3710,6 +3710,14 @@ BEGIN_CPP11
 END_CPP11
 }
 // scalar.cpp
+std::shared_ptr<arrow::Array> MakeArrayFromScalar(const std::shared_ptr<arrow::Scalar>& scalar);
+extern "C" SEXP _arrow_MakeArrayFromScalar(SEXP scalar_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Scalar>&>::type scalar(scalar_sexp);
+	return cpp11::as_sexp(MakeArrayFromScalar(scalar));
+END_CPP11
+}
+// scalar.cpp
 bool Scalar__is_valid(const std::shared_ptr<arrow::Scalar>& s);
 extern "C" SEXP _arrow_Scalar__is_valid(SEXP s_sexp){
 BEGIN_CPP11
@@ -4469,6 +4477,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_StructScalar__field", (DL_FUNC) &_arrow_StructScalar__field, 2}, 
 		{ "_arrow_StructScalar__GetFieldByName", (DL_FUNC) &_arrow_StructScalar__GetFieldByName, 2}, 
 		{ "_arrow_Scalar__as_vector", (DL_FUNC) &_arrow_Scalar__as_vector, 1}, 
+		{ "_arrow_MakeArrayFromScalar", (DL_FUNC) &_arrow_MakeArrayFromScalar, 1}, 
 		{ "_arrow_Scalar__is_valid", (DL_FUNC) &_arrow_Scalar__is_valid, 1}, 
 		{ "_arrow_Scalar__type", (DL_FUNC) &_arrow_Scalar__type, 1}, 
 		{ "_arrow_schema_", (DL_FUNC) &_arrow_schema_, 1}, 
