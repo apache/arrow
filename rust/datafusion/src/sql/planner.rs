@@ -68,7 +68,7 @@ pub trait ContextProvider {
     /// Getter for a UDAF description
     fn get_aggregate_meta(&self, name: &str) -> Option<Arc<AggregateUDF>>;
     /// Getter for a config
-    fn config(&self) -> ExecutionConfig;
+    fn get_config(&self) -> ExecutionConfig;
 }
 
 /// SQL query planner
@@ -931,8 +931,8 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             }
 
             SQLExpr::Function(function) => {
-                let case_sensitive = self.schema_provider.config().case_sensitive;
-                let case_style = self.schema_provider.config().case_style;
+                let case_sensitive = self.schema_provider.get_config().case_sensitive;
+                let case_style = self.schema_provider.get_config().case_style;
 
                 let mut input_name = function.name.to_string();
                 let name = if !case_sensitive {
@@ -984,7 +984,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                     };
 
                     if let CaseStyle::LikePostgreSQL = case_style {
-                        input_name = input_name.to_uppercase();
+                        input_name = input_name.to_lowercase();
                     }
 
                     return Ok(Expr::AggregateFunction {
@@ -2486,7 +2486,7 @@ mod tests {
             unimplemented!()
         }
 
-        fn config(&self) -> ExecutionConfig {
+        fn get_config(&self) -> ExecutionConfig {
             ExecutionConfig::new()
         }
     }

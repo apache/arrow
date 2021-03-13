@@ -501,9 +501,13 @@ impl QueryPlanner for DefaultQueryPlanner {
 /// The style of case display
 #[derive(Clone, PartialEq)]
 pub enum CaseStyle {
-    /// Case style like MySQL, SELECT mD5("a") will output SELECT mD5("a")
-    LikeMySQL,
-    /// Case style like PostgreSQL, SELECT mD5("a") will output SELECT md5("a")
+    /// function names in the output are displayed as they were provided:
+    /// 'mD5("a")' will appear in the results as `mD5("a")`. This
+    /// mimics MySQL behavior
+    PreserveCase,
+    /// function names in the output are displayed in lower case:
+    /// `mD5("a")` will appear in the results as  `md5("a")`This
+    /// mimics PostgreSQL behavior
     LikePostgreSQL,
 }
 
@@ -514,7 +518,7 @@ pub struct ExecutionConfig {
     pub concurrency: usize,
     /// Default batch size when reading data sources
     pub batch_size: usize,
-    /// Will function names be searched using case-sensitive matching.
+    /// Whether to use case-sensitive matching for function names.
     /// If `false` both `"SELECT COUNT(*) FROM t;` and "`SELECT count(*) FROM t;`
     /// can be used to compute the `COUNT` aggregate. If `true` then only
     /// `"SELECT count(*) FROM t"` can be used.
@@ -625,7 +629,7 @@ impl ContextProvider for ExecutionContextState {
         self.aggregate_functions.get(name).cloned()
     }
 
-    fn config(&self) -> ExecutionConfig {
+    fn get_config(&self) -> ExecutionConfig {
         self.config.clone()
     }
 }
