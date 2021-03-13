@@ -4,14 +4,24 @@
 #include "execution_context.h"
 
 namespace gandiva {
-  const char * HashUtils::hash_using_SHA256(int64_t context, const void *message, size_t message_length) {
-    return HashUtils::get_hash(context, message, message_length, EVP_sha256());
+  const char* HashUtils::hash_using_SHA256(int64_t context,
+                                            const void* message,
+                                            size_t message_length,
+                                            u_int32_t* out_length) {
+    return HashUtils::get_hash(context, message, message_length, EVP_sha256(), out_length);
   }
-  const char * HashUtils::hash_using_SHA128(int64_t context, const void *message, size_t message_length) {
-    return HashUtils::get_hash(context, message, message_length, EVP_sha1());
+  const char* HashUtils::hash_using_SHA128(int64_t context,
+                                            const void* message,
+                                            size_t message_length,
+                                            u_int32_t* out_length) {
+    return HashUtils::get_hash(context, message, message_length, EVP_sha1(), out_length);
   }
 
-  const char* HashUtils::get_hash(int64_t context, const void *message, size_t message_length, const EVP_MD *hash_type){
+  const char * HashUtils::get_hash(int64_t context,
+                                   const void* message,
+                                   size_t message_length,
+                                   const EVP_MD *hash_type,
+                                   u_int32_t* out_length) {
     if(message == nullptr){
       HashUtils::error_message(context, "A null value was given to be hashed.");
       return "";
@@ -50,6 +60,8 @@ namespace gandiva {
     EVP_MD_CTX_free(md_ctx);
     delete[] hex_buffer;
     free(result);
+
+    *out_length = strlen(result_buffer);
 
     return result_buffer;
   }
