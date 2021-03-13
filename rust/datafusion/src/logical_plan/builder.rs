@@ -178,6 +178,23 @@ impl LogicalPlanBuilder {
         }))
     }
 
+    /// Apply a union
+    pub fn union(&self, plan: LogicalPlan) -> Result<Self> {
+        let schema = self.plan.schema();
+
+        if plan.schema() != schema {
+            return Err(DataFusionError::Plan(
+                "Schema's for union should be the same ".to_string(),
+            ));
+        }
+
+        Ok(Self::from(&LogicalPlan::Union {
+            inputs: vec![self.plan.clone(), plan],
+            schema: schema.clone(),
+            alias: None,
+        }))
+    }
+
     /// Apply a join
     pub fn join(
         &self,
