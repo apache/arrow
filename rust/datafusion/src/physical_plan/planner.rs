@@ -176,8 +176,9 @@ impl DefaultPhysicalPlanner {
                 source,
                 projection,
                 filters,
+                limit,
                 ..
-            } => source.scan(projection, batch_size, filters),
+            } => source.scan(projection, batch_size, filters, *limit),
             LogicalPlan::Aggregate {
                 input,
                 group_expr,

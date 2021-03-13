@@ -359,9 +359,21 @@ test_that("table() auto splices (ARROW-5718)", {
 })
 
 test_that("Validation when creating table with schema (ARROW-10953)", {
-  tab <- Table$create(data.frame(), schema = schema(a = int32()))
-  skip("This segfaults")
-  expect_identical(dim(as.data.frame(tab)), c(0L, 1L))
+  expect_error(
+    Table$create(data.frame(), schema = schema(a = int32())),
+    "incompatible. schema has 1 fields, and 0 columns are supplied",
+    fixed = TRUE
+  )
+  expect_error(
+    Table$create(data.frame(b = 1), schema = schema(a = int32())),
+    "field at index 1 has name 'a' != 'b'",
+    fixed = TRUE
+  )
+  expect_error(
+    Table$create(data.frame(b = 2, c = 3), schema = schema(a = int32())),
+    "incompatible. schema has 1 fields, and 2 columns are supplied",
+    fixed = TRUE
+  )
 })
 
 test_that("==.Table", {

@@ -120,6 +120,7 @@ impl LogicalPlanBuilder {
             projected_schema,
             projection,
             filters: vec![],
+            limit: None,
         };
 
         Ok(Self::from(&table_scan))
