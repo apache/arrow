@@ -159,7 +159,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                     Ok(LogicalPlan::Union {
                         schema: inputs[0].schema().clone(),
                         inputs,
-                        alias: alias.clone(),
+                        alias,
                     })
                 }
                 _ => Err(DataFusionError::NotImplemented(format!(
