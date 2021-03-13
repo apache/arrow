@@ -1370,11 +1370,11 @@ fn create_name(e: &Expr, input_schema: &DFSchema) -> Result<String> {
 }
 
 /// Create field meta-data from an expression, for use in a result set schema
-pub fn exprlist_to_fields(
-    expr: &[Expr],
+pub fn exprlist_to_fields<'a>(
+    expr: impl IntoIterator<Item = &'a Expr>,
     input_schema: &DFSchema,
 ) -> Result<Vec<DFField>> {
-    expr.iter().map(|e| e.to_field(input_schema)).collect()
+    expr.into_iter().map(|e| e.to_field(input_schema)).collect()
 }
 
 #[cfg(test)]

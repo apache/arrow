@@ -153,7 +153,7 @@ mod test {
         let table_scan = test_table_scan()?;
 
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(&[col("a")])?
+            .project(vec![col("a")])?
             .limit(1000)?
             .build()?;
 
@@ -193,7 +193,7 @@ mod test {
         let table_scan = test_table_scan()?;
 
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .aggregate(&[col("a")], &[max(col("b"))])?
+            .aggregate(vec![col("a")], vec![max(col("b"))])?
             .limit(1000)?
             .build()?;
 
@@ -235,7 +235,7 @@ mod test {
 
         let plan = LogicalPlanBuilder::from(&table_scan)
             .limit(1000)?
-            .aggregate(&[col("a")], &[max(col("b"))])?
+            .aggregate(vec![col("a")], vec![max(col("b"))])?
             .limit(10)?
             .build()?;
 

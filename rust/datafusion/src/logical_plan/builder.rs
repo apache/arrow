@@ -39,6 +39,43 @@ use crate::logical_plan::{DFField, DFSchema, DFSchemaRef, Partitioning};
 use std::collections::HashSet;
 
 /// Builder for logical plans
+///
+/// ```
+/// # use datafusion::prelude::*;
+/// # use datafusion::logical_plan::LogicalPlanBuilder;
+/// # use datafusion::error::Result;
+/// # use arrow::datatypes::{Schema, DataType, Field};
+/// #
+/// # fn main() -> Result<()> {
+/// #
+/// # fn employee_schema() -> Schema {
+/// #    Schema::new(vec![
+/// #           Field::new("id", DataType::Int32, false),
+/// #           Field::new("first_name", DataType::Utf8, false),
+/// #           Field::new("last_name", DataType::Utf8, false),
+/// #           Field::new("state", DataType::Utf8, false),
+/// #           Field::new("salary", DataType::Int32, false),
+/// #       ])
+/// #   }
+/// #
+/// // Create a plan similar to
+/// // SELECT last_name
+/// // FROM employees
+/// // WHERE salary < 1000
+/// let plan = LogicalPlanBuilder::scan_empty(
+///              "employee.csv",
+///              &employee_schema(),
+///              None,
+///            )?
+///            // Keep only rows where salary < 1000
+///            .filter(col("salary").lt_eq(lit(1000)))?
+///            // only show "last_name" in the final results
+///            .project(vec![col("last_name")])?
+///            .build()?;
+///
+/// # Ok(())
+/// # }
+/// ```
 pub struct LogicalPlanBuilder {
     plan: LogicalPlan,
 }
@@ -132,18 +169,21 @@ impl LogicalPlanBuilder {
     /// This function errors under any of the following conditions:
     /// * Two or more expressions have the same name
     /// * An invalid expression is used (e.g. a `sort` expression)
-    pub fn project(&self, expr: &[Expr]) -> Result<Self> {
+    pub fn project(&self, expr: impl IntoIterator<Item = Expr>) -> Result<Self> {
         let input_schema = self.plan.schema();
         let mut projected_expr = vec![];
-        (0..expr.len()).for_each(|i| match &expr[i] {
-            Expr::Wildcard => {
-                (0..input_schema.fields().len())
-                    .for_each(|i| projected_expr.push(col(input_schema.field(i).name())));
-            }
-            _ => projected_expr.push(expr[i].clone()),
-        });
+        for e in expr {
+            match e {
+                Expr::Wildcard => {
+                    (0..input_schema.fields().len()).for_each(|i| {
+                        projected_expr.push(col(input_schema.field(i).name()))
+                    });
+                }
+                _ => projected_expr.push(e),
+            };
+        }
 
-        validate_unique_names("Projections", &projected_expr, input_schema)?;
+        validate_unique_names("Projections", projected_expr.iter(), input_schema)?;
 
         let schema = DFSchema::new(exprlist_to_fields(&projected_expr, input_schema)?)?;
 
@@ -171,9 +211,9 @@ impl LogicalPlanBuilder {
     }
 
     /// Apply a sort
-    pub fn sort(&self, expr: &[Expr]) -> Result<Self> {
+    pub fn sort(&self, expr: impl IntoIterator<Item = Expr>) -> Result<Self> {
         Ok(Self::from(&LogicalPlan::Sort {
-            expr: expr.to_vec(),
+            expr: expr.into_iter().collect(),
             input: Arc::new(self.plan.clone()),
         }))
     }
@@ -243,20 +283,28 @@ impl LogicalPlanBuilder {
         }))
     }
 
-    /// Apply an aggregate
-    pub fn aggregate(&self, group_expr: &[Expr], aggr_expr: &[Expr]) -> Result<Self> {
-        let mut all_expr = group_expr.to_vec();
-        all_expr.extend_from_slice(aggr_expr);
+    /// Apply an aggregate: grouping on the `group_expr` expressions
+    /// and calculating `aggr_expr` aggregates for each distinct
+    /// value of the `group_expr`;
+    pub fn aggregate(
+        &self,
+        group_expr: impl IntoIterator<Item = Expr>,
+        aggr_expr: impl IntoIterator<Item = Expr>,
+    ) -> Result<Self> {
+        let group_expr = group_expr.into_iter().collect::<Vec<Expr>>();
+        let aggr_expr = aggr_expr.into_iter().collect::<Vec<Expr>>();
 
-        validate_unique_names("Aggregations", &all_expr, self.plan.schema())?;
+        let all_expr = group_expr.iter().chain(aggr_expr.iter());
+
+        validate_unique_names("Aggregations", all_expr.clone(), self.plan.schema())?;
 
         let aggr_schema =
-            DFSchema::new(exprlist_to_fields(&all_expr, self.plan.schema())?)?;
+            DFSchema::new(exprlist_to_fields(all_expr, self.plan.schema())?)?;
 
         Ok(Self::from(&LogicalPlan::Aggregate {
             input: Arc::new(self.plan.clone()),
-            group_expr: group_expr.to_vec(),
-            aggr_expr: aggr_expr.to_vec(),
+            group_expr: group_expr,
+            aggr_expr: aggr_expr,
             schema: DFSchemaRef::new(aggr_schema),
         }))
     }
@@ -334,13 +382,13 @@ fn build_join_schema(
 }
 
 /// Errors if one or more expressions have equal names.
-fn validate_unique_names(
+fn validate_unique_names<'a>(
     node_name: &str,
-    expressions: &[Expr],
+    expressions: impl IntoIterator<Item = &'a Expr>,
     input_schema: &DFSchema,
 ) -> Result<()> {
     let mut unique_names = HashMap::new();
-    expressions.iter().enumerate().try_for_each(|(position, expr)| {
+    expressions.into_iter().enumerate().try_for_each(|(position, expr)| {
         let name = expr.name(input_schema)?;
         match unique_names.get(&name) {
             None => {
@@ -375,7 +423,7 @@ mod tests {
             Some(vec![0, 3]),
         )?
         .filter(col("state").eq(lit("CO")))?
-        .project(&[col("id")])?
+        .project(vec![col("id")])?
         .build()?;
 
         let expected = "Projection: #id\
@@ -394,8 +442,11 @@ mod tests {
             &employee_schema(),
             Some(vec![3, 4]),
         )?
-        .aggregate(&[col("state")], &[sum(col("salary")).alias("total_salary")])?
-        .project(&[col("state"), col("total_salary")])?
+        .aggregate(
+            vec![col("state")],
+            vec![sum(col("salary")).alias("total_salary")],
+        )?
+        .project(vec![col("state"), col("total_salary")])?
         .build()?;
 
         let expected = "Projection: #state, #total_salary\
@@ -414,7 +465,7 @@ mod tests {
             &employee_schema(),
             Some(vec![3, 4]),
         )?
-        .sort(&[
+        .sort(vec![
             Expr::Sort {
                 expr: Box::new(col("state")),
                 asc: true,
@@ -470,7 +521,7 @@ mod tests {
             Some(vec![0, 3]),
         )?
         // two columns with the same name => error
-        .project(&[col("id"), col("first_name").alias("id")]);
+        .project(vec![col("id"), col("first_name").alias("id")]);
 
         match plan {
             Err(DataFusionError::Plan(e)) => {
@@ -496,7 +547,7 @@ mod tests {
             Some(vec![0, 3]),
         )?
         // two columns with the same name => error
-        .aggregate(&[col("state")], &[sum(col("salary")).alias("state")]);
+        .aggregate(vec![col("state")], vec![sum(col("salary")).alias("state")]);
 
         match plan {
             Err(DataFusionError::Plan(e)) => {

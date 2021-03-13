@@ -48,7 +48,7 @@
 //!
 //! // create a plan
 //! let df = df.filter(col("a").lt_eq(col("b")))?
-//!            .aggregate(&[col("a")], &[min(col("b"))])?
+//!            .aggregate(vec![col("a")], vec![min(col("b"))])?
 //!            .limit(100)?;
 //!
 //! // execute the plan
