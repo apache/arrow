@@ -24,6 +24,25 @@
 /// Stub functions that can be accessed from LLVM.
 extern "C" {
 
+using gdv_boolean = bool;
+using gdv_int8 = int8_t;
+using gdv_int16 = int16_t;
+using gdv_int32 = int32_t;
+using gdv_int64 = int64_t;
+using gdv_uint8 = uint8_t;
+using gdv_uint16 = uint16_t;
+using gdv_uint32 = uint32_t;
+using gdv_uint64 = uint64_t;
+using gdv_float32 = float;
+using gdv_float64 = double;
+using gdv_date64 = int64_t;
+using gdv_date32 = int32_t;
+using gdv_time32 = int32_t;
+using gdv_timestamp = int64_t;
+using gdv_utf8 = char*;
+using gdv_binary = char*;
+using gdv_day_time_interval = int64_t;
+
 bool gdv_fn_like_utf8_utf8(int64_t ptr, const char* data, int data_len,
                            const char* pattern, int pattern_len);
 
