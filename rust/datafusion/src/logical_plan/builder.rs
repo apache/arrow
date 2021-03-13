@@ -132,16 +132,19 @@ impl LogicalPlanBuilder {
     /// This function errors under any of the following conditions:
     /// * Two or more expressions have the same name
     /// * An invalid expression is used (e.g. a `sort` expression)
-    pub fn project(&self, expr: &[Expr]) -> Result<Self> {
+    pub fn project(&self, expr: Vec<Expr>) -> Result<Self> {
         let input_schema = self.plan.schema();
         let mut projected_expr = vec![];
-        (0..expr.len()).for_each(|i| match &expr[i] {
-            Expr::Wildcard => {
-                (0..input_schema.fields().len())
-                    .for_each(|i| projected_expr.push(col(input_schema.field(i).name())));
-            }
-            _ => projected_expr.push(expr[i].clone()),
-        });
+        for e in expr {
+            match e {
+                Expr::Wildcard => {
+                    (0..input_schema.fields().len()).for_each(|i| {
+                        projected_expr.push(col(input_schema.field(i).name()))
+                    });
+                }
+                _ => projected_expr.push(e),
+            };
+        }
 
         validate_unique_names("Projections", &projected_expr, input_schema)?;
 
@@ -352,7 +355,7 @@ mod tests {
             Some(vec![0, 3]),
         )?
         .filter(col("state").eq(lit("CO")))?
-        .project(&[col("id")])?
+        .project(vec![col("id")])?
         .build()?;
 
         let expected = "Projection: #id\
@@ -372,7 +375,7 @@ mod tests {
             Some(vec![3, 4]),
         )?
         .aggregate(&[col("state")], &[sum(col("salary")).alias("total_salary")])?
-        .project(&[col("state"), col("total_salary")])?
+        .project(vec![col("state"), col("total_salary")])?
         .build()?;
 
         let expected = "Projection: #state, #total_salary\
@@ -421,7 +424,7 @@ mod tests {
             Some(vec![0, 3]),
         )?
         // two columns with the same name => error
-        .project(&[col("id"), col("first_name").alias("id")]);
+        .project(vec![col("id"), col("first_name").alias("id")]);
 
         match plan {
             Err(DataFusionError::Plan(e)) => {

@@ -778,7 +778,7 @@ mod tests {
         let logical_plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
             // filter clause needs the type coercion rule applied
             .filter(col("c7").lt(lit(5_u8)))?
-            .project(&[col("c1"), col("c2")])?
+            .project(vec![col("c1"), col("c2")])?
             .aggregate(&[col("c1")], &[sum(col("c2"))])?
             .sort(&[col("c1").sort(true, true)])?
             .limit(10)?
@@ -851,7 +851,7 @@ mod tests {
         ];
         for case in cases {
             let logical_plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
-                .project(&[case.clone()]);
+                .project(vec![case.clone()]);
             let message = format!(
                 "Expression {:?} expected to error due to impossible coercion",
                 case
@@ -941,7 +941,7 @@ mod tests {
         let logical_plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
             // filter clause needs the type coercion rule applied
             .filter(col("c12").lt(lit(0.05)))?
-            .project(&[col("c1").in_list(list, false)])?
+            .project(vec![col("c1").in_list(list, false)])?
             .build()?;
         let execution_plan = plan(&logical_plan)?;
         // verify that the plan correctly adds cast from Int64(1) to Utf8
@@ -956,7 +956,7 @@ mod tests {
         let logical_plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
             // filter clause needs the type coercion rule applied
             .filter(col("c12").lt(lit(0.05)))?
-            .project(&[col("c12").lt_eq(lit(0.025)).in_list(list, false)])?
+            .project(vec![col("c12").lt_eq(lit(0.025)).in_list(list, false)])?
             .build()?;
         let execution_plan = plan(&logical_plan);
 

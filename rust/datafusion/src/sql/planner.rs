@@ -501,7 +501,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             plan
         };
 
-        self.project(&plan, &select_exprs_post_aggr, false)
+        self.project(&plan, select_exprs_post_aggr, false)
     }
 
     /// Returns the `Expr`'s corresponding to a SQL query's SELECT expressions.
@@ -532,7 +532,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     fn project(
         &self,
         input: &LogicalPlan,
-        expr: &[Expr],
+        expr: Vec<Expr>,
         force: bool,
     ) -> Result<LogicalPlan> {
         self.validate_schema_satisfies_exprs(&input.schema(), &expr)?;

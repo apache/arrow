@@ -75,11 +75,11 @@ pub trait DataFrame: Send + Sync {
     /// # fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
     /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
-    /// let df = df.select(&[col("a") * col("b"), col("c")])?;
+    /// let df = df.select(vec![col("a") * col("b"), col("c")])?;
     /// # Ok(())
     /// # }
     /// ```
-    fn select(&self, expr: &[Expr]) -> Result<Arc<dyn DataFrame>>;
+    fn select(&self, expr: Vec<Expr>) -> Result<Arc<dyn DataFrame>>;
 
     /// Filter a DataFrame to only include rows that match the specified filter expression.
     ///
@@ -157,7 +157,7 @@ pub trait DataFrame: Send + Sync {
     /// let mut ctx = ExecutionContext::new();
     /// let left = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
     /// let right = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?
-    ///   .select(&[
+    ///   .select(vec![
     ///     col("a").alias("a2"),
     ///     col("b").alias("b2"),
     ///     col("c").alias("c2")])?;

@@ -58,11 +58,11 @@ impl DataFrame for DataFrameImpl {
             .map(|name| self.plan.schema().field_with_unqualified_name(name))
             .collect::<Result<Vec<_>>>()?;
         let expr: Vec<Expr> = fields.iter().map(|f| col(f.name())).collect();
-        self.select(&expr)
+        self.select(expr)
     }
 
     /// Create a projection based on arbitrary expressions
-    fn select(&self, expr_list: &[Expr]) -> Result<Arc<dyn DataFrame>> {
+    fn select(&self, expr_list: Vec<Expr>) -> Result<Arc<dyn DataFrame>> {
         let plan = LogicalPlanBuilder::from(&self.plan)
             .project(expr_list)?
             .build()?;
@@ -197,7 +197,7 @@ mod tests {
     fn select_expr() -> Result<()> {
         // build plan using Table API
         let t = test_table()?;
-        let t2 = t.select(&[col("c1"), col("c2"), col("c11")])?;
+        let t2 = t.select(vec![col("c1"), col("c2"), col("c11")])?;
         let plan = t2.to_logical_plan();
 
         // build query using SQL
@@ -315,7 +315,7 @@ mod tests {
 
         let f = df.registry();
 
-        let df = df.select(&[f.udf("my_fn")?.call(vec![col("c12")])])?;
+        let df = df.select(vec![f.udf("my_fn")?.call(vec![col("c12")])])?;
         let plan = df.to_logical_plan();
 
         // build query using SQL

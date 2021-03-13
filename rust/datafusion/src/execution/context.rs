@@ -834,7 +834,7 @@ mod tests {
 
         let table = ctx.table("test")?;
         let logical_plan = LogicalPlanBuilder::from(&table.to_logical_plan())
-            .project(&[col("c2")])?
+            .project(vec![col("c2")])?
             .build()?;
 
         let optimized_plan = ctx.optimize(&logical_plan)?;
@@ -886,7 +886,7 @@ mod tests {
         assert_eq!(schema.field_with_name("c1")?.is_nullable(), false);
 
         let plan = LogicalPlanBuilder::scan_empty("", schema.as_ref(), None)?
-            .project(&[col("c1")])?
+            .project(vec![col("c1")])?
             .build()?;
 
         let plan = ctx.optimize(&plan)?;
@@ -917,7 +917,7 @@ mod tests {
         )?]];
 
         let plan = LogicalPlanBuilder::scan_memory(partitions, schema, None)?
-            .project(&[col("b")])?
+            .project(vec![col("b")])?
             .build()?;
         assert_fields_eq(&plan, vec!["b"]);
 
@@ -1548,7 +1548,7 @@ mod tests {
 
         let plan = LogicalPlanBuilder::scan_empty("", schema.as_ref(), None)?
             .aggregate(&[col("c1")], &[sum(col("c2"))])?
-            .project(&[col("c1"), col("SUM(c2)").alias("total_salary")])?
+            .project(vec![col("c1"), col("SUM(c2)").alias("total_salary")])?
             .build()?;
 
         let plan = ctx.optimize(&plan)?;
@@ -1773,7 +1773,7 @@ mod tests {
         let t = ctx.table("t")?;
 
         let plan = LogicalPlanBuilder::from(&t.to_logical_plan())
-            .project(&[
+            .project(vec![
                 col("a"),
                 col("b"),
                 ctx.udf("my_add")?.call(vec![col("a"), col("b")]),

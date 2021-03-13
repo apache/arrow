@@ -127,7 +127,7 @@ mod test {
         let table_scan = test_table_scan()?;
 
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(&[col("a")])?
+            .project(vec![col("a")])?
             .limit(1000)?
             .build()?;
 
