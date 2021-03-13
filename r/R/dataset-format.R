@@ -34,17 +34,19 @@
 #' * `...`: Additional format-specific options
 #'
 #'   `format = "csv"``:
-#'   * `compression`: Assume CSV files have been compressed with this codec.
-#'   Any options from [CsvParseOptions] may also be passed.
+
 #'
-#'   `format = "parquet"``:
+#'   `format = "parquet"`:
 #'   * `use_buffered_stream`: Read files through buffered input streams rather than
 #'                            loading entire row groups at once. This may be enabled
 #'                            to reduce memory overhead. Disabled by default.
 #'   * `buffer_size`: Size of buffered stream, if enabled. Default is 8KB.
 #'   * `dict_columns`: Names of columns which should be read as dictionaries.
 #'
-#'   `format = "text"`: see [CsvReadOptions]. Note that you can specify them either
+#'   `format = "text"`:
+#'   * `compression`: Assume CSV files have been compressed with this codec.
+#'                    See [Codec] for available compression libraries.
+#'   * [CsvParseOptions] may also be passed. Note that you can specify them either
 #'   with the Arrow C++ library naming ("delimiter", "quoting", etc.) or the
 #'   `readr`-style naming used in [read_csv_arrow()] ("delim", "quote", etc.).
 #'   Not all `readr` options are currently supported; please file an issue if

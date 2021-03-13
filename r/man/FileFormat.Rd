@@ -26,7 +26,9 @@ delimiter for text files
 }
 \item \code{...}: Additional format-specific options
 
-`format = "parquet"``:
+`format = "csv"``:
+
+\code{format = "parquet"}:
 \itemize{
 \item \code{use_buffered_stream}: Read files through buffered input streams rather than
 loading entire row groups at once. This may be enabled
@@ -35,11 +37,16 @@ to reduce memory overhead. Disabled by default.
 \item \code{dict_columns}: Names of columns which should be read as dictionaries.
 }
 
-\code{format = "text"}: see \link{CsvReadOptions}. Note that you can specify them either
+\code{format = "text"}:
+\itemize{
+\item \code{compression}: Assume CSV files have been compressed with this codec.
+See \link{Codec} for available compression libraries.
+\item \link{CsvParseOptions} may also be passed. Note that you can specify them either
 with the Arrow C++ library naming ("delimiter", "quoting", etc.) or the
 \code{readr}-style naming used in \code{\link[=read_csv_arrow]{read_csv_arrow()}} ("delim", "quote", etc.).
 Not all \code{readr} options are currently supported; please file an issue if
 you encounter one that \code{arrow} should support.
+}
 }
 
 It returns the appropriate subclass of \code{FileFormat} (e.g. \code{ParquetFileFormat})
