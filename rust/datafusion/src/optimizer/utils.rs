@@ -217,7 +217,7 @@ pub fn from_plan(
         LogicalPlan::Union { schema, alias, .. } => Ok(LogicalPlan::Union {
             inputs: inputs.to_vec(),
             schema: schema.clone(),
-            alias,
+            alias: alias.clone(),
         }),
         LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::TableScan { .. }
