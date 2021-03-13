@@ -356,7 +356,7 @@ impl ExecutionContext {
         for optimizer in optimizers {
             new_plan = optimizer.optimize(&new_plan)?;
         }
-        debug!("Optimized logical plan:\n {:?}", plan);
+        debug!("Optimized logical plan:\n {:?}", new_plan);
         Ok(new_plan)
     }
 
