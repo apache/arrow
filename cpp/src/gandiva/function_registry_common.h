@@ -208,6 +208,16 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
                  DataTypeVector{TYPE(), int64()}, int64(), kResultNullNever, \
                  ARROW_STRINGIFY(NAME##WithSeed_##TYPE))
 
+// HashSHA256 functions that :
+// - NULL handling is of type NULL_NEVER
+//
+// The function name includes the base name & input type name. gdv_fn_sha256_from_float64
+#define HASH_SHA256_SAFE_NULL_NEVER(NAME, ALIASES, TYPE)                     \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES,                    \
+                 DataTypeVector{TYPE()}, utf8(), kResultNullNever,           \
+                 ARROW_STRINGIFY(gdv_fn_sha256_from_##TYPE),                 \
+                 NativeFunction::kNeedsContext)
+
 // Iterate the inner macro over all numeric types
 #define NUMERIC_TYPES(INNER, NAME, ALIASES)                                             \
   INNER(NAME, ALIASES, int8), INNER(NAME, ALIASES, int16), INNER(NAME, ALIASES, int32), \

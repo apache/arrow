@@ -190,20 +190,20 @@ TEST_F(TestHash, TestSha256Simple) {
 
 
   // Create a row-batch with some sample data
-  int num_records = 4;
-  auto validity_array = {false, true, true, true};
+  int num_records = 2;
+  auto validity_array = {false, true};
 
   auto array_int32 =
-      MakeArrowArrayInt32({1, 2, 3, 4}, validity_array);
+      MakeArrowArrayInt32({1, 0}, validity_array);
 
   auto array_int64 =
-      MakeArrowArrayInt64({1, 2, 3, 4}, validity_array);
+      MakeArrowArrayInt64({1, 0}, validity_array);
 
   auto array_float32 =
-      MakeArrowArrayFloat32({1.0, 2.0, 3.0, 4.0}, validity_array);
+      MakeArrowArrayFloat32({1.0, 0.0}, validity_array);
 
   auto array_float64 =
-      MakeArrowArrayFloat64({1.0, 2.0, 3.0, 4.0}, validity_array);
+      MakeArrowArrayFloat64({1.0, 0.0}, validity_array);
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_int32, array_int64,
@@ -213,6 +213,10 @@ TEST_F(TestHash, TestSha256Simple) {
   arrow::ArrayVector outputs;
   status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
+
+  EXPECT_ARROW_ARRAY_EQUALS(outputs.at(0), outputs.at(1));
+  EXPECT_ARROW_ARRAY_EQUALS(outputs.at(1), outputs.at(2));
+  EXPECT_ARROW_ARRAY_EQUALS(outputs.at(2), outputs.at(3));
 }
 
 }  // namespace gandiva
