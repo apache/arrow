@@ -949,7 +949,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                         .map(|a| self.sql_fn_arg_to_logical_expr(a))
                         .collect::<Result<Vec<Expr>>>()?;
 
-                    if CaseStyle::LikePostgreSQL = case_style {
+                    if CaseStyle::LikePostgreSQL == case_style {
                         input_name = input_name.to_lowercase();
                     }
 
@@ -983,7 +983,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                             .collect::<Result<Vec<Expr>>>()?
                     };
 
-                    if CaseStyle::LikePostgreSQL = case_style {
+                    if CaseStyle::LikePostgreSQL == case_style {
                         input_name = input_name.to_uppercase();
                     }
 
