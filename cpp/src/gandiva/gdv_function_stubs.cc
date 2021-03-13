@@ -145,11 +145,11 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
 
 #define SHA256_HASH_FUNCTION_BUF(TYPE)                                                       \
   GANDIVA_EXPORT                                                                             \
-  const char *gdv_fn_hash_sha256_from_##TYPE(int64_t context,                                \
-                                             gdv_##TYPE value,                               \
-                                             uint64_t value_length,                          \
-                                             bool value_validity,                            \
-                                             uint32_t *out_length) {                         \
+  const char *gdv_fn_sha256_from_##TYPE(int64_t context,                                     \
+                                        gdv_##TYPE value,                                    \
+                                        int32_t value_length,                                \
+                                        bool value_validity,                                 \
+                                        u_int32_t *out_length) {                             \
     if(!value_validity){                                                                     \
       *out_length = 0;                                                                       \
       return "";                                                                             \
@@ -586,23 +586,27 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   args = {
       types->i64_type(),      // context
       types->i8_ptr_type(),   // const char*
-      types->i64_type()       // value_length
+      types->i32_type(),      // value_length
+      types->i1_type(),       // validity
+      types->i32_ptr_type()       // out
   };
 
-  engine->AddGlobalMappingForFunc("gdv_fn_hash_sha256_from_utf8",
+  engine->AddGlobalMappingForFunc("gdv_fn_sha256_from_utf8",
                                   types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void *>(gdv_fn_hash_sha256_from_utf8));
+                                  reinterpret_cast<void *>(gdv_fn_sha256_from_utf8));
 
   // gdv_fn_hash_sha256_from_binary
   args = {
       types->i64_type(),      // context
       types->i8_ptr_type(),   // const char*
-      types->i64_type()       // value_length
+      types->i32_type(),      // value_length
+      types->i1_type(),       // validity
+      types->i32_ptr_type()       // out
   };
 
-  engine->AddGlobalMappingForFunc("gdv_fn_hash_sha256_from_binary",
+  engine->AddGlobalMappingForFunc("gdv_fn_sha256_from_binary",
                                   types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void *>(gdv_fn_hash_sha256_from_binary));
+                                  reinterpret_cast<void *>(gdv_fn_sha256_from_binary));
 
 }
 

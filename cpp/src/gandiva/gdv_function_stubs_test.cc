@@ -160,68 +160,6 @@ TEST(TestGdvFnStubs, TestCastFloat8) {
   ctx.Reset();
 }
 
-TEST(TestGdvFnStubs, TestSha256Numeric) {
-  gandiva::ExecutionContext ctx;
-
-  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
-
-  // test zero boundaries
-  const char *double_zero_hash = gdv_fn_sha256_from_numeric(ctx_ptr, 0.0);
-  const char *zero_hash = gdv_fn_sha256_from_numeric(ctx_ptr, 0);
-  const char *zero_one_hash = gdv_fn_sha256_from_numeric(ctx_ptr, 0.1);
-
-  EXPECT_STRNE(zero_hash, zero_one_hash);
-  EXPECT_STREQ(double_zero_hash,zero_hash);
-
-  // tests minus zero cases
-  const char *double_minus_zero_hash = gdv_fn_sha256_from_numeric(ctx_ptr, -0.0);
-  const char *minus_zero_hash = gdv_fn_sha256_from_numeric(ctx_ptr, -0);
-
-  EXPECT_STREQ(zero_hash, minus_zero_hash);
-  EXPECT_STREQ(zero_hash, double_minus_zero_hash);
-  
-  ctx.Reset();
-}
-
-TEST(TestGdvFnStubs, TestSha256String) {
-  gandiva::ExecutionContext ctx;
-
-  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
-
-  const char *zero_hash = gdv_fn_sha256_from_numeric(ctx_ptr, 0.0);
-
-  const char *test_string = "ði ıntəˈnæʃənəl fəˈnɛtık əsoʊsiˈeıʃn\n"
-                            "Y [ˈʏpsilɔn], Yen [jɛn], Yoga [ˈjoːgɑ]";
-
-  const char *first_sha_hash = gdv_fn_hash_sha256_from_string(ctx_ptr, test_string, strlen(test_string));
-
-  const char *expected_first_hash ="55aeb2e789871dbd289edae94d4c1c82a1c25ca0bcd5a873924da2fefdd57acb";
-  
-  EXPECT_STRNE(first_sha_hash, zero_hash);
-  EXPECT_STREQ(expected_first_hash, first_sha_hash);
-
-  const char *test_string_modified = "ði ıntəˈnæʃənəl fəˈnɛtık əsoʊsiˈeın\n"
-                                     "Y [ˈʏpsilɔn], Yen [jɛn], Yoga [ˈjoːgɑ] コンニチハ";
-
-  const char
-      *second_sha_hash = gdv_fn_hash_sha256_from_string(ctx_ptr, test_string_modified, strlen(test_string_modified));
-
-  const char *expected_second_hash ="86b29c13d0d0e26ea8f85bfa649dc9b8622ae59a4da2409d7d9b463e86e796f2";
-
-  EXPECT_STREQ(expected_second_hash,second_sha_hash);
-  EXPECT_STRNE(second_sha_hash, first_sha_hash);
-
-  const char *empty_string_hash = gdv_fn_hash_sha256_from_string(ctx_ptr, "", strlen(""));
-
-  EXPECT_STREQ("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",empty_string_hash);
-
-  gdv_fn_hash_sha256_from_string(ctx_ptr, nullptr, 0);
-
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("A null value was given to be hashed."));
-
-  ctx.Reset();
-}
 TEST(TestGdvFnStubs, TestSha128Numeric) {
   gandiva::ExecutionContext ctx;
 
@@ -273,7 +211,7 @@ TEST(TestGdvFnStubs, TestSha128String) {
 
   EXPECT_STREQ("da39a3ee5e6b4b0d3255bfef95601890afd80709",empty_string_hash);
 
-  gdv_fn_hash_sha256_from_string(ctx_ptr, nullptr, 0);
+  gdv_fn_hash_sha128_from_string(ctx_ptr, nullptr, 0);
 
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr("A null value was given to be hashed."));

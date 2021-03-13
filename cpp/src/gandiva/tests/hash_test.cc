@@ -219,4 +219,50 @@ TEST_F(TestHash, TestSha256Simple) {
   EXPECT_ARROW_ARRAY_EQUALS(outputs.at(2), outputs.at(3));
 }
 
+TEST_F(TestHash, TestSha256Varlen) {
+  // schema for input fields
+  auto field_a = field("a", utf8());
+  auto schema = arrow::schema({field_a});
+
+  // output fields
+  auto res_0 = field("res0", utf8());
+
+  // build expressions.
+  // hashSHA256(a)
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto hashSha256 = TreeExprBuilder::MakeFunction("hashSHA256", {node_a}, utf8());
+  auto expr_0 = TreeExprBuilder::MakeExpression(hashSha256, res_0);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  auto status =
+      Projector::Make(schema, {expr_0}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 3;
+
+  std::string first_string = "ði ıntəˈnæʃənəl fəˈnɛtık əsoʊsiˈeıʃn\nY [ˈʏpsilɔn], Yen [jɛn], Yoga [ˈjoːgɑ]";
+  std::string second_string = "ði ıntəˈnæʃənəl fəˈnɛtık əsoʊsiˈeın\nY [ˈʏpsilɔn], Yen [jɛn], Yoga [ˈjoːgɑ] コンニチハ";
+
+  auto array_a =
+      MakeArrowArrayUtf8({"foo", first_string, second_string}, {false, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  auto response = outputs.at(0);
+  EXPECT_EQ(response->null_count(), 0);
+  EXPECT_EQ(response->GetScalar(0).ValueOrDie()->ToString(), "");
+  for (int i = 1; i < num_records; ++i) {
+    const auto &value_at_position = response->GetScalar(i).ValueOrDie()->ToString();
+    EXPECT_NE(value_at_position, response->GetScalar(i - 1).ValueOrDie()->ToString());
+  }
+}
+
 }  // namespace gandiva
