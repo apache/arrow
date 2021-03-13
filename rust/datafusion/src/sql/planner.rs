@@ -984,7 +984,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                     };
 
                     if let CaseStyle::LikePostgreSQL = case_style {
-                        input_name = input_name.to_lowercase();
+                        input_name = input_name.to_uppercase();
                     }
 
                     return Ok(Expr::AggregateFunction {
