@@ -182,6 +182,12 @@ class SystemAllocator {
     if (!*out) {
       return Status::OutOfMemory("malloc of size ", size, " failed");
     }
+#elif defined(sun) || defined(__sun)
+#include <stdlib.h>
+    *out = reinterpret_cast<uint8_t*>(memalign(static_cast<size_t>(size), kAlignment));
+    if (!*out) {
+      return Status::OutOfMemory("malloc of size ", size, " failed");
+    }
 #else
     const int result = posix_memalign(reinterpret_cast<void**>(out), kAlignment,
                                       static_cast<size_t>(size));
