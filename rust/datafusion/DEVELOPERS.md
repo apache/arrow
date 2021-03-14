@@ -1,0 +1,79 @@
+# Developer's guide
+
+This section describes how you can get started at developing DataFusion.
+
+### Bootstrap environment
+
+DataFusion is written in Rust and it uses a standard rust toolkit:
+
+* `cargo build`
+* `cargo fmt` to format the code
+* `cargo test` to test
+* etc.
+
+### Architecture Overview
+
+* (March 2021): The DataFusion architecture is described in *Query Engine Design and the Rust-Based DataFusion in Apache Arrow*: [recording](https://www.youtube.com/watch?v=K6eCAVEk4kU) (DataFusion content starts ~ 15 minutes in) and [slides](https://www.slideshare.net/influxdata/influxdb-iox-tech-talks-query-engine-design-and-the-rustbased-datafusion-in-apache-arrow-244161934)
+* (Feburary 2021): How DataFusion is used within the Ballista Project is described in *Ballista: Distributed Compute with Rust and Apache Arrow: [recording](https://www.youtube.com/watch?v=ZZHQaOap9pQ)
+
+
+## How to add a new scalar function
+
+Below is a checklist of what you need to do to add a new scalar function to DataFusion:
+
+* Add the actual implementation of the function:
+  * [here](src/physical_plan/string_expressions.rs) for string functions
+  * [here](src/physical_plan/math_expressions.rs) for math functions
+  * [here](src/physical_plan/datetime_expressions.rs) for datetime functions
+  * create a new module [here](src/physical_plan) for other functions
+* In [src/physical_plan/functions](src/physical_plan/functions.rs), add:
+  * a new variant to `BuiltinScalarFunction`
+  * a new entry to `FromStr` with the name of the function as called by SQL
+  * a new line in `return_type` with the expected return type of the function, given an incoming type
+  * a new line in `signature` with the signature of the function (number and types of its arguments)
+  * a new line in `create_physical_expr` mapping the built-in to the implementation
+  * tests to the function.
+* In [tests/sql.rs](tests/sql.rs), add a new test where the function is called through SQL against well known data and returns the expected result.
+* In [src/logical_plan/expr](src/logical_plan/expr.rs), add:
+  * a new entry of the `unary_scalar_expr!` macro for the new function.
+* In [src/logical_plan/mod](src/logical_plan/mod.rs), add:
+  * a new entry in the `pub use expr::{}` set.
+
+## How to add a new aggregate function
+
+Below is a checklist of what you need to do to add a new aggregate function to DataFusion:
+
+* Add the actual implementation of an `Accumulator` and `AggregateExpr`:
+  * [here](src/physical_plan/string_expressions.rs) for string functions
+  * [here](src/physical_plan/math_expressions.rs) for math functions
+  * [here](src/physical_plan/datetime_expressions.rs) for datetime functions
+  * create a new module [here](src/physical_plan) for other functions
+* In [src/physical_plan/aggregates](src/physical_plan/aggregates.rs), add:
+  * a new variant to `BuiltinAggregateFunction`
+  * a new entry to `FromStr` with the name of the function as called by SQL
+  * a new line in `return_type` with the expected return type of the function, given an incoming type
+  * a new line in `signature` with the signature of the function (number and types of its arguments)
+  * a new line in `create_aggregate_expr` mapping the built-in to the implementation
+  * tests to the function.
+* In [tests/sql.rs](tests/sql.rs), add a new test where the function is called through SQL against well known data and returns the expected result.
+
+## How to display plans graphically
+
+The query plans represented by `LogicalPlan` nodes can be graphically
+rendered using [Graphviz](http://www.graphviz.org/).
+
+To do so, save the output of the `display_graphviz` function to a file.:
+
+```rust
+// Create plan somehow...
+let mut output = File::create("/tmp/plan.dot")?;
+write!(output, "{}", plan.display_graphviz());
+```
+
+Then, use the `dot` command line tool to render it into a file that
+can be displayed. For example, the following command creates a
+`/tmp/plan.pdf` file:
+
+```bash
+dot -Tpdf < /tmp/plan.dot > /tmp/plan.pdf
+```
