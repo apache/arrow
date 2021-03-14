@@ -18,7 +18,7 @@
 //! Projection Push Down optimizer rule ensures that only referenced columns are
 //! loaded into memory
 
-use crate::error::{DataFusionError, Result};
+use crate::error::Result;
 use crate::logical_plan::{DFField, DFSchema, DFSchemaRef, LogicalPlan, ToDFSchema};
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::utils;
@@ -57,16 +57,9 @@ impl ProjectionPushDown {
 
 fn get_projected_schema(
     schema: &Schema,
-    projection: &Option<Vec<usize>>,
     required_columns: &HashSet<String>,
     has_projection: bool,
 ) -> Result<(Vec<usize>, DFSchemaRef)> {
-    if projection.is_some() {
-        return Err(DataFusionError::Internal(
-            "Cannot run projection push-down rule more than once".to_string(),
-        ));
-    }
-
     // once we reach the table scan, we can use the accumulated set of column
     // names to construct the set of column indexes in the scan
     //
@@ -242,17 +235,12 @@ fn optimize_plan(
         LogicalPlan::TableScan {
             table_name,
             source,
-            projection,
             filters,
             limit,
             ..
         } => {
-            let (projection, projected_schema) = get_projected_schema(
-                &source.schema(),
-                projection,
-                required_columns,
-                has_projection,
-            )?;
+            let (projection, projected_schema) =
+                get_projected_schema(&source.schema(), required_columns, has_projection)?;
 
             // return the table scan with projection
             Ok(LogicalPlan::TableScan {
@@ -490,6 +478,26 @@ mod tests {
 
         assert_optimized_plan_eq(&plan, expected);
 
+        Ok(())
+    }
+
+    /// tests that optimizing twice yields same plan
+    #[test]
+    fn test_double_optimization() -> Result<()> {
+        let table_scan = test_table_scan()?;
+
+        let plan = LogicalPlanBuilder::from(&table_scan)
+            .project(&[col("b")])?
+            .project(&[lit(1).alias("a")])?
+            .build()?;
+
+        let optimized_plan1 = optimize(&plan).expect("failed to optimize plan");
+        let optimized_plan2 =
+            optimize(&optimized_plan1).expect("failed to optimize plan");
+
+        let formatted_plan1 = format!("{:?}", optimized_plan1);
+        let formatted_plan2 = format!("{:?}", optimized_plan2);
+        assert_eq!(formatted_plan1, formatted_plan2);
         Ok(())
     }
 
