@@ -35,18 +35,6 @@ from pyarrow.lib cimport (check_status, _Weakrefable,
                           get_reader,
                           get_writer)
 
-cdef dict _compression_kinds = {'none': _CompressionKind_NONE,
-                                'zlib': _CompressionKind_ZLIB, 'snappy': _CompressionKind_SNAPPY,
-                                'lz0': _CompressionKind_LZO, 'lz4': _CompressionKind_LZ4,
-                                'zstd': _CompressionKind_ZSTD}
-
-
-cdef CompressionKind _convert_compression_kind(object compression_kind):
-    if compression_kind not in _compression_kinds.keys():
-        raise ValueError('Unknown compression_kind')
-    else:
-        return _compression_kinds[compression_kind]
-
 cdef compression_kind_from_enum(CompressionKind compression_kind_):
     return {
         _CompressionKind_NONE: 'NONE',
@@ -75,6 +63,58 @@ cdef bloom_filter_version_from_enum(BloomFilterVersion bloom_filter_version_):
         _BloomFilterVersion_UTF8: 'UTF8',
         _BloomFilterVersion_FUTURE: 'FUTURE',
     }.get(type_, 'UNKNOWN')
+
+cdef file_version_from_class(FileVersion file_version_):
+    cdef object file_version = file_version_.ToString()
+    return file_version
+
+cdef class ORCWriterOptions(_Weakrefable):
+    cdef:
+        unique_ptr[WriterOptions] options
+    
+    def __cinit__(self):
+        self.options = unique_ptr[WriterOptions](WriterOptions())
+    
+    def set_stripe_size(self, size):
+        deref(self.options).set_stripe_size(size)
+    
+    def get_stripe_size(self):
+        return deref(self.options).stripe_size()
+
+    def set_compression_block_size(self, size):
+        deref(self.options).set_compression_block_size(size)
+    
+    def get_compression_block_size(self):
+        return deref(self.options).compression_block_size()
+
+    def set_row_index_stride(self, stride):
+        deref(self.options).set_row_index_stride(stride)
+    
+    def get_row_index_stride(self):
+        return deref(self.options).row_index_stride()
+    
+    def set_dictionary_key_size_threshold(self, val):
+        deref(self.options).set_dictionary_key_size_threshold(val)
+    
+    def get_dictionary_key_size_threshold(self):
+        return deref(self.options).dictionary_key_size_threshold()
+        
+    def set_file_version(self, file_version):
+        cdef:
+            FileVersion c_file_version
+            uint32_t c_major, c_minor
+            object major, minor
+        major, minor = str(file_version).split('.')
+        c_major = major
+        c_minor = minor
+        deref(self.options).set_file_version(FileVersion(c_major, c_minor))
+
+    def get_file_version(self):
+        return file_version_from_class(deref(self.options).file_version())
+    
+    def set_compression(self, comp):
+
+
 
 cdef class ORCReader(_Weakrefable):
     cdef:

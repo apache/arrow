@@ -51,9 +51,11 @@ cdef extern from "arrow/adapters/orc/adapter_options.h" \
 
     enum CompressionStrategy" arrow::adapters::orc::CompressionStrategy":
         _CompressionStrategy_SPEED \
-            " arrow::adapters::orc::CompressionStrategy::CompressionStrategy_SPEED"
+            " arrow::adapters::orc::CompressionStrategy"\
+            "::CompressionStrategy_SPEED"
         _CompressionStrategy_COMPRESSION \
-            " arrow::adapters::orc::CompressionStrategy::CompressionStrategy_COMPRESSION"
+            " arrow::adapters::orc::CompressionStrategy"\
+            "::CompressionStrategy_COMPRESSION"
 
     enum RleVersion" arrow::adapters::orc::RleVersion":
         _RleVersion_1" arrow::adapters::orc::RleVersion::RleVersion_1"
@@ -71,6 +73,7 @@ cdef extern from "arrow/adapters/orc/adapter_options.h" \
         FileVersion(uint32_t major, uint32_t minor)
         uint32_t major()
         uint32_t minor()
+        c_string ToString()
 
     cdef cppclass WriterOptions" arrow::adapters::orc::WriterOptions":
         WriterOptions()
