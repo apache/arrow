@@ -297,7 +297,7 @@ impl<'a> ExprRewriter for ConstantRewriter<'a> {
                     let res = cast(&lit.to_array(), &data_type)?;
                     Expr::Literal(ScalarValue::try_from_array(&res, 0)?)
                 }
-                expr => expr.clone(),
+                expr => expr,
             },
             expr => {
                 // no rewrite possible
