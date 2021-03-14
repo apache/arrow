@@ -451,14 +451,21 @@ impl RowGroupPredicateBuilder {
         };
 
         let predicate_array = predicate_array.as_any().downcast_ref::<BooleanArray>();
+
         match predicate_array {
             // return row group predicate function
             Some(array) => {
                 // when the result of the predicate expression for a row group is null / undefined,
                 // e.g. due to missing statistics, this row group can't be filtered out,
                 // so replace with true
+
                 let predicate_values =
                     array.iter().map(|x| x.unwrap_or(true)).collect::<Vec<_>>();
+                debug!(
+                    "Filtered out {:?} parquet row groups",
+                    predicate_values.iter().filter(|x| !*x).count()
+                );
+
                 Box::new(move |_, i| predicate_values[i])
             }
             // predicate result is not a BooleanArray
@@ -771,6 +778,10 @@ fn build_statistics_array(
         }
         _ => {
             // type of statistics not supported
+            debug!(
+                "Type of statistics {:?} not supported in ParquetExec",
+                first_group_stats
+            );
             return new_null_array(data_type, statistics_count);
         }
     };
