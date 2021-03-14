@@ -32,8 +32,6 @@ use crate::datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType, Field};
 /// trait declaring an offset size, relevant for i32 vs i64 array types.
 pub trait OffsetSizeTrait: ArrowNativeType + Num + Ord + std::ops::AddAssign {
     fn is_large() -> bool;
-
-    fn prefix() -> &'static str;
 }
 
 impl OffsetSizeTrait for i32 {
@@ -41,20 +39,12 @@ impl OffsetSizeTrait for i32 {
     fn is_large() -> bool {
         false
     }
-
-    fn prefix() -> &'static str {
-        ""
-    }
 }
 
 impl OffsetSizeTrait for i64 {
     #[inline]
     fn is_large() -> bool {
         true
-    }
-
-    fn prefix() -> &'static str {
-        "Large"
     }
 }
 
@@ -183,7 +173,7 @@ impl<OffsetSize: OffsetSizeTrait> GenericListArray<OffsetSize> {
             .collect();
 
         let field = Box::new(Field::new("item", T::DATA_TYPE, true));
-        let data_type = if OffsetSize::prefix() == "Large" {
+        let data_type = if OffsetSize::is_large() {
             DataType::LargeList(field)
         } else {
             DataType::List(field)
@@ -266,7 +256,9 @@ impl<OffsetSize: 'static + OffsetSizeTrait> Array for GenericListArray<OffsetSiz
 
 impl<OffsetSize: OffsetSizeTrait> fmt::Debug for GenericListArray<OffsetSize> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}ListArray\n[\n", OffsetSize::prefix())?;
+        let prefix = if OffsetSize::is_large() { "Large" } else { "" };
+
+        write!(f, "{}ListArray\n[\n", prefix)?;
         print_long_array(self, f, |array, index, f| {
             fmt::Debug::fmt(&array.value(index), f)
         })?;

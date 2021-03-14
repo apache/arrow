@@ -268,7 +268,9 @@ impl<'a, T: StringOffsetSizeTrait> GenericStringArray<T> {
 
 impl<OffsetSize: StringOffsetSizeTrait> fmt::Debug for GenericStringArray<OffsetSize> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}StringArray\n[\n", OffsetSize::prefix())?;
+        let prefix = if OffsetSize::is_large() { "Large" } else { "" };
+
+        write!(f, "{}StringArray\n[\n", prefix)?;
         print_long_array(self, f, |array, index, f| {
             fmt::Debug::fmt(&array.value(index), f)
         })?;
