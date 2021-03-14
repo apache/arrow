@@ -187,9 +187,15 @@ impl LogicalPlanBuilder {
                 "Schema's for union should be the same ".to_string(),
             ));
         }
+        // Add plan to existing union if possible
+        let mut inputs = match &self.plan {
+            LogicalPlan::Union { inputs, .. } => inputs.clone(),
+            _ => vec![self.plan.clone()],
+        };
+        inputs.push(plan);
 
         Ok(Self::from(&LogicalPlan::Union {
-            inputs: vec![self.plan.clone(), plan],
+            inputs,
             schema: schema.clone(),
             alias: None,
         }))

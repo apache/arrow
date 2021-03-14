@@ -152,8 +152,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                     }
                     if !inputs.iter().all(|s| s.schema() == inputs[0].schema()) {
                         return Err(DataFusionError::Execution(
-                            "UNION ALL schemas are expected to be the same"
-                                .to_string(),
+                            "UNION ALL schemas are expected to be the same".to_string(),
                         ));
                     }
                     Ok(LogicalPlan::Union {
@@ -2425,6 +2424,24 @@ mod tests {
     fn union() {
         let sql = "SELECT order_id from orders UNION ALL SELECT order_id FROM orders";
         let expected = "Union\
+            \n  Projection: #order_id\
+            \n    TableScan: orders projection=None\
+            \n  Projection: #order_id\
+            \n    TableScan: orders projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn union_4_combined_in_one() {
+        let sql = "SELECT order_id from orders
+                    UNION ALL SELECT order_id FROM orders
+                    UNION ALL SELECT order_id FROM orders
+                    UNION ALL SELECT order_id FROM orders";
+        let expected = "Union\
+            \n  Projection: #order_id\
+            \n    TableScan: orders projection=None\
+            \n  Projection: #order_id\
+            \n    TableScan: orders projection=None\
             \n  Projection: #order_id\
             \n    TableScan: orders projection=None\
             \n  Projection: #order_id\
