@@ -51,229 +51,49 @@ void AddMinMaxAvx512AggKernels(ScalarAggregateFunction* func);
 // ----------------------------------------------------------------------
 // Sum implementation
 
-template <int64_t kRoundSize, typename ArrowType, SimdLevel::type SimdLevel>
-struct SumState {
-  using SumType = typename FindAccumulatorType<ArrowType>::Type;
-  using ThisType = SumState<kRoundSize, ArrowType, SimdLevel>;
-  using T = typename TypeTraits<ArrowType>::CType;
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-
-  ThisType operator+(const ThisType& rhs) const {
-    return ThisType(this->count + rhs.count, this->sum + rhs.sum);
-  }
-
-  ThisType& operator+=(const ThisType& rhs) {
-    this->count += rhs.count;
-    this->sum += rhs.sum;
-
-    return *this;
-  }
-
- public:
-  void Consume(const Array& input) {
-    const ArrayType& array = static_cast<const ArrayType&>(input);
-    if (input.null_count() == 0) {
-      (*this) += ConsumeNoNulls(array);
-    } else {
-      (*this) += ConsumeWithNulls(array);
-    }
-  }
-
-  size_t count = 0;
-  typename SumType::c_type sum = 0;
-
- private:
-  template <int64_t kNoNullsRoundSize>
-  ThisType ConsumeNoNulls(const T* values, const int64_t length) const {
-    ThisType local;
-    const int64_t length_rounded = BitUtil::RoundDown(length, kNoNullsRoundSize);
-    typename SumType::c_type sum_rounded[kNoNullsRoundSize] = {0};
-
-    // Unroll the loop to add the results in parallel
-    for (int64_t i = 0; i < length_rounded; i += kNoNullsRoundSize) {
-      for (int64_t k = 0; k < kNoNullsRoundSize; k++) {
-        sum_rounded[k] += values[i + k];
-      }
-    }
-    for (int64_t k = 0; k < kNoNullsRoundSize; k++) {
-      local.sum += sum_rounded[k];
-    }
-
-    // The trailing part
-    for (int64_t i = length_rounded; i < length; ++i) {
-      local.sum += values[i];
-    }
-
-    local.count = length;
-    return local;
-  }
-
-  ThisType ConsumeNoNulls(const ArrayType& array) const {
-    const auto values = array.raw_values();
-    const int64_t length = array.length();
-
-    return ConsumeNoNulls<kRoundSize>(values, length);
-  }
-
-  // While this is not branchless, gcc needs this to be in a different function
-  // for it to generate cmov which tends to be slightly faster than
-  // multiplication but safe for handling NaN with doubles.
-  inline T MaskedValue(bool valid, T value) const { return valid ? value : 0; }
-
-  inline ThisType UnrolledSum(uint8_t bits, const T* values) const {
-    ThisType local;
-
-    if (bits < 0xFF) {
-      // Some nulls
-      for (size_t i = 0; i < 8; i++) {
-        local.sum += MaskedValue(bits & (1U << i), values[i]);
-      }
-      local.count += BitUtil::kBytePopcount[bits];
-    } else {
-      // No nulls
-      for (size_t i = 0; i < 8; i++) {
-        local.sum += values[i];
-      }
-      local.count += 8;
-    }
-
-    return local;
-  }
-
-  ThisType ConsumeWithNulls(const ArrayType& array) const {
-    ThisType local;
-    const T* values = array.raw_values();
-    const int64_t length = array.length();
-    int64_t offset = array.offset();
-    const uint8_t* bitmap = array.null_bitmap_data();
-    int64_t idx = 0;
-
-    const auto p = arrow::internal::BitmapWordAlign<1>(bitmap, offset, length);
-    // First handle the leading bits
-    const int64_t leading_bits = p.leading_bits;
-    while (idx < leading_bits) {
-      if (BitUtil::GetBit(bitmap, offset)) {
-        local.sum += values[idx];
-        local.count++;
-      }
-      idx++;
-      offset++;
-    }
-
-    // The aligned parts scanned with BitBlockCounter
-    constexpr int64_t kBatchSize = arrow::internal::BitBlockCounter::kWordBits;
-    arrow::internal::BitBlockCounter data_counter(bitmap, offset, length - leading_bits);
-    auto current_block = data_counter.NextWord();
-    while (idx < length) {
-      if (current_block.AllSet()) {  // All true values
-        int run_length = 0;
-        // Scan forward until a block that has some false values (or the end)
-        while (current_block.length > 0 && current_block.AllSet()) {
-          run_length += current_block.length;
-          current_block = data_counter.NextWord();
-        }
-        // Aggregate the no nulls parts
-        if (run_length >= kRoundSize * 8) {
-          local += ConsumeNoNulls<kRoundSize>(&values[idx], run_length);
-        } else {
-          local += ConsumeNoNulls<8>(&values[idx], run_length);
-        }
-        idx += run_length;
-        offset += run_length;
-        // The current_block already computed, advance to next loop
-        continue;
-      } else if (!current_block.NoneSet()) {  // Some values are null
-        const int64_t idx_byte = BitUtil::BytesForBits(offset);
-        const uint8_t* aligned_bitmap = &bitmap[idx_byte];
-        const T* aligned_values = &values[idx];
-
-        if (kBatchSize == current_block.length) {
-          for (int64_t i = 0; i < kBatchSize / 8; i++) {
-            local += UnrolledSum(aligned_bitmap[i], &aligned_values[i * 8]);
-          }
-        } else {  // The end part
-          for (int64_t i = 0; i < current_block.length; i++) {
-            if (BitUtil::GetBit(bitmap, offset)) {
-              local.sum += values[idx];
-              local.count++;
-            }
-            idx++;
-            offset++;
-          }
-        }
-
-        idx += current_block.length;
-        offset += current_block.length;
-      } else {  // All null values
-        idx += current_block.length;
-        offset += current_block.length;
-      }
-      current_block = data_counter.NextWord();
-    }
-
-    return local;
-  }
-};
-
-template <int64_t kRoundSize, SimdLevel::type SimdLevel>
-struct SumState<kRoundSize, BooleanType, SimdLevel> {
-  using SumType = typename FindAccumulatorType<BooleanType>::Type;
-  using ThisType = SumState<kRoundSize, BooleanType, SimdLevel>;
-
-  ThisType& operator+=(const ThisType& rhs) {
-    this->count += rhs.count;
-    this->sum += rhs.sum;
-    return *this;
-  }
-
- public:
-  void Consume(const Array& input) {
-    const BooleanArray& array = static_cast<const BooleanArray&>(input);
-    count += array.length() - array.null_count();
-    sum += array.true_count();
-  }
-
-  size_t count = 0;
-  typename SumType::c_type sum = 0;
-};
-
-template <uint64_t kRoundSize, typename ArrowType, SimdLevel::type SimdLevel>
+template <typename ArrowType, SimdLevel::type SimdLevel>
 struct SumImpl : public ScalarAggregator {
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using ThisType = SumImpl<kRoundSize, ArrowType, SimdLevel>;
+  using ThisType = SumImpl<ArrowType, SimdLevel>;
+  using CType = typename ArrowType::c_type;
   using SumType = typename FindAccumulatorType<ArrowType>::Type;
   using OutputType = typename TypeTraits<SumType>::ScalarType;
 
   void Consume(KernelContext*, const ExecBatch& batch) override {
-    this->state.Consume(ArrayType(batch[0].array()));
+    const auto& data = batch[0].array();
+    this->count = data->length - data->GetNullCount();
+    if (is_boolean_type<ArrowType>::value) {
+      this->sum = static_cast<typename SumType::c_type>(BooleanArray(data).true_count());
+    } else {
+      this->sum =
+          arrow::compute::detail::SumArray<CType, typename SumType::c_type>(*data);
+    }
   }
 
   void MergeFrom(KernelContext*, KernelState&& src) override {
     const auto& other = checked_cast<const ThisType&>(src);
-    this->state += other.state;
+    this->count += other.count;
+    this->sum += other.sum;
   }
 
   void Finalize(KernelContext*, Datum* out) override {
-    if (state.count == 0) {
+    if (this->count == 0) {
       out->value = std::make_shared<OutputType>();
     } else {
-      out->value = MakeScalar(state.sum);
+      out->value = MakeScalar(this->sum);
     }
   }
 
-  SumState<kRoundSize, ArrowType, SimdLevel> state;
+  size_t count = 0;
+  typename SumType::c_type sum = 0;
 };
 
-template <int64_t kRoundSize, typename ArrowType, SimdLevel::type SimdLevel>
-struct MeanImpl : public SumImpl<kRoundSize, ArrowType, SimdLevel> {
+template <typename ArrowType, SimdLevel::type SimdLevel>
+struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
   void Finalize(KernelContext*, Datum* out) override {
-    const bool is_valid = this->state.count > 0;
-    const double divisor = static_cast<double>(is_valid ? this->state.count : 1UL);
-    const double mean = static_cast<double>(this->state.sum) / divisor;
-
-    if (!is_valid) {
+    if (this->count == 0) {
       out->value = std::make_shared<DoubleScalar>();
     } else {
+      const double mean = static_cast<double>(this->sum) / this->count;
       out->value = std::make_shared<DoubleScalar>(mean);
     }
   }

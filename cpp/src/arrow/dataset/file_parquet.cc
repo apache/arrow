@@ -29,6 +29,7 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
@@ -105,8 +106,10 @@ class ParquetScanTask : public ScanTask {
     if (pre_buffer_once_) {
       BEGIN_PARQUET_CATCH_EXCEPTIONS
       std::call_once(*pre_buffer_once_, [this]() {
-        reader_->parquet_reader()->PreBuffer(pre_buffer_row_groups_, column_projection_,
-                                             io_context_, cache_options_);
+        // Ignore the future here - don't wait for pre-buffering (the reader itself will
+        // block as necessary)
+        ARROW_UNUSED(reader_->parquet_reader()->PreBuffer(
+            pre_buffer_row_groups_, column_projection_, io_context_, cache_options_));
       });
       END_PARQUET_CATCH_EXCEPTIONS
     }

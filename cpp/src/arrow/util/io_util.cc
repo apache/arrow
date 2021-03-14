@@ -304,6 +304,26 @@ class WinErrorDetail : public StatusDetail {
 };
 #endif
 
+const char kSignalDetailTypeId[] = "arrow::SignalDetail";
+
+class SignalDetail : public StatusDetail {
+ public:
+  explicit SignalDetail(int signum) : signum_(signum) {}
+
+  const char* type_id() const override { return kSignalDetailTypeId; }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << "received signal " << signum_;
+    return ss.str();
+  }
+
+  int signum() const { return signum_; }
+
+ protected:
+  int signum_;
+};
+
 }  // namespace
 
 std::shared_ptr<StatusDetail> StatusDetailFromErrno(int errnum) {
@@ -315,6 +335,10 @@ std::shared_ptr<StatusDetail> StatusDetailFromWinError(int errnum) {
   return std::make_shared<WinErrorDetail>(errnum);
 }
 #endif
+
+std::shared_ptr<StatusDetail> StatusDetailFromSignal(int signum) {
+  return std::make_shared<SignalDetail>(signum);
+}
 
 int ErrnoFromStatus(const Status& status) {
   const auto detail = status.detail();
@@ -331,6 +355,14 @@ int WinErrorFromStatus(const Status& status) {
     return checked_cast<const WinErrorDetail&>(*detail).errnum();
   }
 #endif
+  return 0;
+}
+
+int SignalFromStatus(const Status& status) {
+  const auto detail = status.detail();
+  if (detail != nullptr && detail->type_id() == kSignalDetailTypeId) {
+    return checked_cast<const SignalDetail&>(*detail).signum();
+  }
   return 0;
 }
 
@@ -1606,6 +1638,39 @@ Result<SignalHandler> SetSignalHandler(int signum, const SignalHandler& handler)
   return SignalHandler(cb);
 #endif
   return Status::OK();
+}
+
+void ReinstateSignalHandler(int signum, SignalHandler::Callback handler) {
+#if !ARROW_HAVE_SIGACTION
+  // Cannot report any errors from signal() (but there shouldn't be any)
+  signal(signum, handler);
+#endif
+}
+
+Status SendSignal(int signum) {
+  if (raise(signum) == 0) {
+    return Status::OK();
+  }
+  if (errno == EINVAL) {
+    return Status::Invalid("Invalid signal number ", signum);
+  }
+  return IOErrorFromErrno(errno, "Failed to raise signal");
+}
+
+Status SendSignalToThread(int signum, uint64_t thread_id) {
+#ifdef _WIN32
+  return Status::NotImplemented("Cannot send signal to specific thread on Windows");
+#else
+  // Have to use a C-style cast because pthread_t can be a pointer *or* integer type
+  int r = pthread_kill((pthread_t)thread_id, signum);  // NOLINT readability-casting
+  if (r == 0) {
+    return Status::OK();
+  }
+  if (r == EINVAL) {
+    return Status::Invalid("Invalid signal number ", signum);
+  }
+  return IOErrorFromErrno(r, "Failed to raise signal");
+#endif
 }
 
 namespace {

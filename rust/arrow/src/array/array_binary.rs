@@ -183,7 +183,9 @@ impl<'a, T: BinaryOffsetSizeTrait> GenericBinaryArray<T> {
 
 impl<OffsetSize: BinaryOffsetSizeTrait> fmt::Debug for GenericBinaryArray<OffsetSize> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}BinaryArray\n[\n", OffsetSize::prefix())?;
+        let prefix = if OffsetSize::is_large() { "Large" } else { "" };
+
+        write!(f, "{}BinaryArray\n[\n", prefix)?;
         print_long_array(self, f, |array, index, f| {
             fmt::Debug::fmt(&array.value(index), f)
         })?;

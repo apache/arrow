@@ -24,37 +24,11 @@ namespace aggregate {
 // ----------------------------------------------------------------------
 // Sum implementation
 
-// Round size optimized based on data type and compiler
-template <typename T>
-struct RoundSizeAvx2 {
-  static constexpr int64_t size = 32;
-};
-
-// Round size set to 64 for float/int32_t/uint32_t
-template <>
-struct RoundSizeAvx2<float> {
-  static constexpr int64_t size = 64;
-};
-
-template <>
-struct RoundSizeAvx2<int32_t> {
-  static constexpr int64_t size = 64;
-};
-
-template <>
-struct RoundSizeAvx2<uint32_t> {
-  static constexpr int64_t size = 64;
-};
+template <typename ArrowType>
+struct SumImplAvx2 : public SumImpl<ArrowType, SimdLevel::AVX2> {};
 
 template <typename ArrowType>
-struct SumImplAvx2
-    : public SumImpl<RoundSizeAvx2<typename TypeTraits<ArrowType>::CType>::size,
-                     ArrowType, SimdLevel::AVX2> {};
-
-template <typename ArrowType>
-struct MeanImplAvx2
-    : public MeanImpl<RoundSizeAvx2<typename TypeTraits<ArrowType>::CType>::size,
-                      ArrowType, SimdLevel::AVX2> {};
+struct MeanImplAvx2 : public MeanImpl<ArrowType, SimdLevel::AVX2> {};
 
 std::unique_ptr<KernelState> SumInitAvx2(KernelContext* ctx, const KernelInitArgs& args) {
   SumLikeInit<SumImplAvx2> visitor(ctx, *args.inputs[0].type);

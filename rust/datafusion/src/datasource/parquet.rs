@@ -43,7 +43,7 @@ pub struct ParquetTable {
 impl ParquetTable {
     /// Attempt to initialize a new `ParquetTable` from a file path.
     pub fn try_new(path: &str, max_concurrency: usize) -> Result<Self> {
-        let parquet_exec = ParquetExec::try_from_path(path, None, None, 0, 1)?;
+        let parquet_exec = ParquetExec::try_from_path(path, None, None, 0, 1, None)?;
         let schema = parquet_exec.schema();
         Ok(Self {
             path: path.to_string(),
@@ -83,14 +83,18 @@ impl TableProvider for ParquetTable {
         projection: &Option<Vec<usize>>,
         batch_size: usize,
         filters: &[Expr],
+        limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         let predicate = combine_filters(filters);
         Ok(Arc::new(ParquetExec::try_from_path(
             &self.path,
             projection.clone(),
             predicate,
-            batch_size,
+            limit
+                .map(|l| std::cmp::min(l, batch_size))
+                .unwrap_or(batch_size),
             self.max_concurrency,
+            limit,
         )?))
     }
 
@@ -113,7 +117,7 @@ mod tests {
     async fn read_small_batches() -> Result<()> {
         let table = load_table("alltypes_plain.parquet")?;
         let projection = None;
-        let exec = table.scan(&projection, 2, &[])?;
+        let exec = table.scan(&projection, 2, &[], None)?;
         let stream = exec.execute(0).await?;
 
         let count = stream
@@ -337,7 +341,7 @@ mod tests {
         table: Arc<dyn TableProvider>,
         projection: &Option<Vec<usize>>,
     ) -> Result<RecordBatch> {
-        let exec = table.scan(projection, 1024, &[])?;
+        let exec = table.scan(projection, 1024, &[], None)?;
         let mut it = exec.execute(0).await?;
         it.next()
             .await

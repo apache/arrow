@@ -723,6 +723,19 @@ test_that("[ accepts Arrays and otherwise handles bad input", {
   )
 })
 
+test_that("%in% works on dictionary arrays", {
+  a1 <- Array$create(as.factor(c("A", "B", "C")))
+  a2 <- DictionaryArray$create(c(0L, 1L, 2L), c(4.5, 3.2, 1.1))
+  c1 <- Array$create(c(FALSE, TRUE, FALSE))
+  c2 <- Array$create(c(FALSE, FALSE, FALSE))
+  b1 <- Array$create("B")
+  b2 <- Array$create(5.4)
+
+  expect_equal(is_in(a1, b1), c1)
+  expect_equal(is_in(a2, b2), c2)
+  expect_error(is_in(a1, b2))
+})
+
 test_that("[ accepts Expressions", {
   vec <- 11:20
   a <- Array$create(vec)

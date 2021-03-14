@@ -3659,6 +3659,13 @@ BEGIN_CPP11
 	return cpp11::as_sexp(ipc___RecordBatchStreamWriter__Open(stream, schema, use_legacy_format, metadata_version));
 END_CPP11
 }
+// runtimeinfo.cpp
+std::vector<std::string> runtime_info();
+extern "C" SEXP _arrow_runtime_info(){
+BEGIN_CPP11
+	return cpp11::as_sexp(runtime_info());
+END_CPP11
+}
 // scalar.cpp
 std::shared_ptr<arrow::Scalar> Array__GetScalar(const std::shared_ptr<arrow::Array>& x, int64_t i);
 extern "C" SEXP _arrow_Array__GetScalar(SEXP x_sexp, SEXP i_sexp){
@@ -4456,6 +4463,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___RecordBatchWriter__Close", (DL_FUNC) &_arrow_ipc___RecordBatchWriter__Close, 1}, 
 		{ "_arrow_ipc___RecordBatchFileWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchFileWriter__Open, 4}, 
 		{ "_arrow_ipc___RecordBatchStreamWriter__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamWriter__Open, 4}, 
+		{ "_arrow_runtime_info", (DL_FUNC) &_arrow_runtime_info, 0}, 
 		{ "_arrow_Array__GetScalar", (DL_FUNC) &_arrow_Array__GetScalar, 2}, 
 		{ "_arrow_Scalar__ToString", (DL_FUNC) &_arrow_Scalar__ToString, 1}, 
 		{ "_arrow_StructScalar__field", (DL_FUNC) &_arrow_StructScalar__field, 2}, 

@@ -33,31 +33,35 @@ committer.
 
 ## How to merge a Pull request
 
+Please don't merge PRs using the Github Web interface.  Instead, set up
+your git clone such as to have a remote named ``apache`` pointing to the
+official Arrow repository:
 ```
 git remote add apache git@github.com:apache/arrow.git
 ```
 
-run the following command
-
+and then run the following command:
 ```
-dev/merge_arrow_pr.py
-```
-
-This script uses requests and jira libraries.  Before running this script,
-run the following command to prepare them:
-
-```
-pip install requests jira
+./dev/merge_arrow_pr.sh
 ```
 
-This uses the GitHub REST API; if you encounter rate limit issues, you may set
-a `ARROW_GITHUB_API_TOKEN` environment variable to use a Personal Access Token.
+This creates a new Python virtual environment under `dev/.venv[PY_VERSION]`
+and installs all the necessary dependencies to run the Arrow merge script.
+After installed, it runs the merge script.
+
+(we don't provide a wrapper script for Windows yet, so under Windows you'll
+have to install Python dependencies yourself and then run `dev/merge_arrow_pr.py`
+directly)
+
+The merge script uses the GitHub REST API; if you encounter rate limit issues,
+you may set a `ARROW_GITHUB_API_TOKEN` environment variable to use a Personal
+Access Token.
 
 You can specify the username and the password of your JIRA account in
 `APACHE_JIRA_USERNAME` and `APACHE_JIRA_PASSWORD` environment variables.
 If these aren't supplied, the script will ask you the values of them.
 
-Note that the directory name of your Arrow git clone must be called arrow.
+Note that the directory name of your Arrow git clone must be called `arrow`.
 
 example output:
 ```

@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -472,6 +473,10 @@ inline void BitmapFromVector(const std::vector<T>& is_valid,
 ARROW_TESTING_EXPORT
 void SleepFor(double seconds);
 
+// Wait until predicate is true or timeout in seconds expires.
+ARROW_TESTING_EXPORT
+void BusyWait(double seconds, std::function<bool()> predicate);
+
 template <typename T>
 std::vector<T> IteratorToVector(Iterator<T> iterator) {
   EXPECT_OK_AND_ASSIGN(auto out, iterator.ToVector());
@@ -504,6 +509,23 @@ class ARROW_TESTING_EXPORT EnvVarGuard {
   bool was_set_;
 };
 
+namespace internal {
+class SignalHandler;
+}
+
+class ARROW_TESTING_EXPORT SignalHandlerGuard {
+ public:
+  typedef void (*Callback)(int);
+
+  SignalHandlerGuard(int signum, Callback cb);
+  SignalHandlerGuard(int signum, const internal::SignalHandler& handler);
+  ~SignalHandlerGuard();
+
+ protected:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
 #ifndef ARROW_LARGE_MEMORY_TESTS
 #define LARGE_MEMORY_TEST(name) DISABLED_##name
 #else
@@ -520,6 +542,50 @@ void PrintTo(const Result<T>& result, std::ostream* os) {
     *os << result.status();
   }
 }
+
+// A data type with only move constructors.
+struct MoveOnlyDataType {
+  explicit MoveOnlyDataType(int x) : data(new int(x)) {}
+
+  MoveOnlyDataType(const MoveOnlyDataType& other) = delete;
+  MoveOnlyDataType& operator=(const MoveOnlyDataType& other) = delete;
+
+  MoveOnlyDataType(MoveOnlyDataType&& other) { MoveFrom(&other); }
+  MoveOnlyDataType& operator=(MoveOnlyDataType&& other) {
+    MoveFrom(&other);
+    return *this;
+  }
+
+  ~MoveOnlyDataType() { Destroy(); }
+
+  void Destroy() {
+    if (data != nullptr) {
+      delete data;
+      data = nullptr;
+      moves = -1;
+    }
+  }
+
+  void MoveFrom(MoveOnlyDataType* other) {
+    Destroy();
+    data = other->data;
+    other->data = nullptr;
+    moves = other->moves + 1;
+  }
+
+  int ToInt() const { return data == nullptr ? -42 : *data; }
+
+  bool operator==(int other) const { return data != nullptr && *data == other; }
+  bool operator==(const MoveOnlyDataType& other) const {
+    return data != nullptr && other.data != nullptr && *data == *other.data;
+  }
+  friend bool operator==(int left, const MoveOnlyDataType& right) {
+    return right == left;
+  }
+
+  int* data = nullptr;
+  int moves = 0;
+};
 
 }  // namespace arrow
 

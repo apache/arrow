@@ -340,4 +340,30 @@ bool FutureImpl::TryAddCallback(const std::function<Callback()>& callback_factor
   return GetConcreteFuture(this)->TryAddCallback(callback_factory);
 }
 
+Future<> AllComplete(const std::vector<Future<>>& futures) {
+  struct State {
+    explicit State(int64_t n_futures) : mutex(), n_remaining(n_futures) {}
+
+    std::mutex mutex;
+    std::atomic<size_t> n_remaining;
+  };
+
+  auto state = std::make_shared<State>(futures.size());
+  auto out = Future<>::Make();
+  for (const auto& future : futures) {
+    future.AddCallback([state, out](const Result<detail::Empty>& result) mutable {
+      if (!result.ok()) {
+        std::unique_lock<std::mutex> lock(state->mutex);
+        if (!out.is_finished()) {
+          out.MarkFinished(result);
+        }
+        return;
+      }
+      if (state->n_remaining.fetch_sub(1) != 1) return;
+      out.MarkFinished(Status::OK());
+    });
+  }
+  return out;
+}
+
 }  // namespace arrow

@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/io/interfaces.h"
+#include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -98,6 +99,9 @@ class ARROW_EXPORT ReadRangeCache {
 
   /// \brief Read a range previously given to Cache().
   Result<std::shared_ptr<Buffer>> Read(ReadRange range);
+
+  /// \brief Wait until all ranges added so far have been cached.
+  Future<> Wait();
 
  protected:
   struct Impl;

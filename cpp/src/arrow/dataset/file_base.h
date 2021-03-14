@@ -32,7 +32,6 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/filesystem/filesystem.h"
-#include "arrow/filesystem/path_forest.h"
 #include "arrow/io/file.h"
 #include "arrow/util/compression.h"
 
@@ -234,16 +233,23 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   std::string ToString() const;
 
  protected:
+  struct FragmentSubtrees;
+
+  explicit FileSystemDataset(std::shared_ptr<Schema> schema)
+      : Dataset(std::move(schema)) {}
+
+  FileSystemDataset(std::shared_ptr<Schema> schema, Expression partition_expression)
+      : Dataset(std::move(schema), partition_expression) {}
+
   Result<FragmentIterator> GetFragmentsImpl(Expression predicate) override;
 
-  FileSystemDataset(std::shared_ptr<Schema> schema, Expression root_partition,
-                    std::shared_ptr<FileFormat> format,
-                    std::shared_ptr<fs::FileSystem> filesystem,
-                    std::vector<std::shared_ptr<FileFragment>> fragments);
+  void SetupSubtreePruning();
 
   std::shared_ptr<FileFormat> format_;
   std::shared_ptr<fs::FileSystem> filesystem_;
   std::vector<std::shared_ptr<FileFragment>> fragments_;
+
+  std::shared_ptr<FragmentSubtrees> subtrees_;
 };
 
 class ARROW_DS_EXPORT FileWriteOptions {

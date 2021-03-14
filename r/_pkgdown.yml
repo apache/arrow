@@ -26,12 +26,12 @@ template:
 navbar:
   structure:
     left:
-    - home
-    - intro
-    - reference
-    - articles
-    - news
-    - project
+      - home
+      - intro
+      - reference
+      - articles
+      - news
+      - project
     right: github
   components:
     home:
@@ -58,101 +58,101 @@ navbar:
         - text: R
           href: index.html
 reference:
-- title: Multi-file datasets
-  contents:
-  - open_dataset
-  - write_dataset
-  - dataset_factory
-  - hive_partition
-  - Dataset
-  - Partitioning
-  - Expression
-  - Scanner
-  - FileFormat
-  - FileWriteOptions
-  - map_batches
-- title: Reading and writing files
-  contents:
-  - read_feather
-  - read_ipc_stream
-  - read_parquet
-  - read_delim_arrow
-  - read_json_arrow
-  - write_feather
-  - write_ipc_stream
-  - write_to_raw
-  - write_parquet
-- title: C++ reader/writer interface
-  contents:
-  - ParquetFileReader
-  - ParquetArrowReaderProperties
-  - ParquetFileWriter
-  - ParquetWriterProperties
-  - FeatherReader
-  - CsvTableReader
-  - RecordBatchReader
-  - RecordBatchWriter
-  - CsvReadOptions
-- title: Arrow data containers
-  contents:
-  - buffer
-  - array
-  - ArrayData
-  - chunked_array
-  - ChunkedArray
-  - record_batch
-  - RecordBatch
-  - Table
-  - Scalar
-  - read_message
-- title: Arrow data types and schema
-  contents:
-  - Schema
-  - unify_schemas
-  - type
-  - dictionary
-  - Field
-  - read_schema
-  - data-type
-  - DataType
-  - DictionaryType
-  - FixedWidthType
-- title: Flight
-  contents:
-  - load_flight_server
-  - flight_connect
-  - flight_get
-  - flight_put
-  - list_flights
-- title: File systems
-  contents:
-  - s3_bucket
-  - FileSystem
-  - FileInfo
-  - FileSelector
-  - copy_files
-- title: Input/Output
-  contents:
-  - InputStream
-  - mmap_open
-  - mmap_create
-  - OutputStream
-  - Message
-  - MessageReader
-  - compression
-  - Codec
-  - codec_is_available
-- title: Computation
-  contents:
-  - match_arrow
-  - value_counts
-- title: Configuration
-  contents:
-  - arrow_info
-  - cpu_count
-  - arrow_available
-  - install_arrow
-  - install_pyarrow
+  - title: Multi-file datasets
+    contents:
+      - open_dataset
+      - write_dataset
+      - dataset_factory
+      - hive_partition
+      - Dataset
+      - Partitioning
+      - Expression
+      - Scanner
+      - FileFormat
+      - FileWriteOptions
+      - map_batches
+  - title: Reading and writing files
+    contents:
+      - read_feather
+      - read_ipc_stream
+      - read_parquet
+      - read_delim_arrow
+      - read_json_arrow
+      - write_feather
+      - write_ipc_stream
+      - write_to_raw
+      - write_parquet
+  - title: C++ reader/writer interface
+    contents:
+      - ParquetFileReader
+      - ParquetArrowReaderProperties
+      - ParquetFileWriter
+      - ParquetWriterProperties
+      - FeatherReader
+      - CsvTableReader
+      - RecordBatchReader
+      - RecordBatchWriter
+      - CsvReadOptions
+  - title: Arrow data containers
+    contents:
+      - buffer
+      - array
+      - ArrayData
+      - chunked_array
+      - ChunkedArray
+      - record_batch
+      - RecordBatch
+      - Table
+      - Scalar
+      - read_message
+  - title: Arrow data types and schema
+    contents:
+      - Schema
+      - unify_schemas
+      - type
+      - dictionary
+      - Field
+      - read_schema
+      - data-type
+      - DataType
+      - DictionaryType
+      - FixedWidthType
+  - title: Flight
+    contents:
+      - load_flight_server
+      - flight_connect
+      - flight_get
+      - flight_put
+      - list_flights
+  - title: File systems
+    contents:
+      - s3_bucket
+      - FileSystem
+      - FileInfo
+      - FileSelector
+      - copy_files
+  - title: Input/Output
+    contents:
+      - InputStream
+      - mmap_open
+      - mmap_create
+      - OutputStream
+      - Message
+      - MessageReader
+      - compression
+      - Codec
+      - codec_is_available
+  - title: Computation
+    contents:
+      - match_arrow
+      - value_counts
+  - title: Configuration
+    contents:
+      - arrow_info
+      - cpu_count
+      - arrow_available
+      - install_arrow
+      - install_pyarrow
 
 repo:
   jira_projects: [ARROW]

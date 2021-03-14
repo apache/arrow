@@ -21,7 +21,7 @@
 //!
 //! ```rust
 //! use parquet::{
-//!     basic::{LogicalType, Repetition, Type as PhysicalType},
+//!     basic::{ConvertedType, Repetition, Type as PhysicalType},
 //!     schema::{parser, printer, types::Type},
 //! };
 //! use std::sync::Arc;
@@ -34,7 +34,7 @@
 //! // }
 //!
 //! let field_a = Type::primitive_type_builder("a", PhysicalType::BYTE_ARRAY)
-//!     .with_logical_type(LogicalType::UTF8)
+//!     .with_converted_type(ConvertedType::UTF8)
 //!     .with_repetition(Repetition::OPTIONAL)
 //!     .build()
 //!     .unwrap();

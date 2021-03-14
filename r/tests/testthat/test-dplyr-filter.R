@@ -164,6 +164,8 @@ test_that("filter() with string ops", {
   #    (presumably legitimate) places
   # 2) Wrap the test in expect_warning(expr, NA) to catch the warning
 
+  skip_if(getRversion() < "3.4.0", "R < 3.4")
+
   with_no_as_character <- function(expr) {
     trace(
       "as.character",
@@ -247,6 +249,30 @@ test_that("Filtering with a function that doesn't have an Array/expr method stil
     ),
     'Filter expression not implemented in Arrow: pnorm(dbl) > 0.99; pulling data into R',
     fixed = TRUE
+  )
+})
+
+test_that("Calling Arrow compute functions 'directly'", {
+  expect_equal(
+    tbl %>%
+      record_batch() %>%
+      filter(arrow_add(dbl, 1) > 3L) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl %>%
+      filter(dbl + 1 > 3L) %>%
+      select(string = chr, int, dbl)
+  )
+
+  expect_dplyr_equal(
+    tbl %>%
+      record_batch() %>%
+      filter(arrow_greater(arrow_add(dbl, 1), 3L)) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl %>%
+      filter(dbl + 1 > 3L) %>%
+      select(string = chr, int, dbl)
   )
 })
 

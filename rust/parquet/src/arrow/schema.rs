@@ -33,7 +33,7 @@ use crate::errors::{ParquetError::ArrowError, Result};
 use crate::file::{metadata::KeyValue, properties::WriterProperties};
 use crate::schema::types::{ColumnDescriptor, SchemaDescriptor, Type, TypePtr};
 use crate::{
-    basic::{LogicalType, Repetition, Type as PhysicalType},
+    basic::{ConvertedType, Repetition, Type as PhysicalType},
     errors::ParquetError,
 };
 
@@ -321,18 +321,18 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
     // create type from field
     match field.data_type() {
         DataType::Null => Type::primitive_type_builder(name, PhysicalType::INT32)
-            .with_logical_type(LogicalType::NONE)
+            .with_converted_type(ConvertedType::NONE)
             .with_repetition(repetition)
             .build(),
         DataType::Boolean => Type::primitive_type_builder(name, PhysicalType::BOOLEAN)
             .with_repetition(repetition)
             .build(),
         DataType::Int8 => Type::primitive_type_builder(name, PhysicalType::INT32)
-            .with_logical_type(LogicalType::INT_8)
+            .with_converted_type(ConvertedType::INT_8)
             .with_repetition(repetition)
             .build(),
         DataType::Int16 => Type::primitive_type_builder(name, PhysicalType::INT32)
-            .with_logical_type(LogicalType::INT_16)
+            .with_converted_type(ConvertedType::INT_16)
             .with_repetition(repetition)
             .build(),
         DataType::Int32 => Type::primitive_type_builder(name, PhysicalType::INT32)
@@ -342,19 +342,19 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
             .with_repetition(repetition)
             .build(),
         DataType::UInt8 => Type::primitive_type_builder(name, PhysicalType::INT32)
-            .with_logical_type(LogicalType::UINT_8)
+            .with_converted_type(ConvertedType::UINT_8)
             .with_repetition(repetition)
             .build(),
         DataType::UInt16 => Type::primitive_type_builder(name, PhysicalType::INT32)
-            .with_logical_type(LogicalType::UINT_16)
+            .with_converted_type(ConvertedType::UINT_16)
             .with_repetition(repetition)
             .build(),
         DataType::UInt32 => Type::primitive_type_builder(name, PhysicalType::INT32)
-            .with_logical_type(LogicalType::UINT_32)
+            .with_converted_type(ConvertedType::UINT_32)
             .with_repetition(repetition)
             .build(),
         DataType::UInt64 => Type::primitive_type_builder(name, PhysicalType::INT64)
-            .with_logical_type(LogicalType::UINT_64)
+            .with_converted_type(ConvertedType::UINT_64)
             .with_repetition(repetition)
             .build(),
         DataType::Float16 => Err(ArrowError("Float16 arrays not supported".to_string())),
@@ -366,30 +366,30 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
             .build(),
         DataType::Timestamp(time_unit, _) => {
             Type::primitive_type_builder(name, PhysicalType::INT64)
-                .with_logical_type(match time_unit {
-                    TimeUnit::Second => LogicalType::TIMESTAMP_MILLIS,
-                    TimeUnit::Millisecond => LogicalType::TIMESTAMP_MILLIS,
-                    TimeUnit::Microsecond => LogicalType::TIMESTAMP_MICROS,
-                    TimeUnit::Nanosecond => LogicalType::TIMESTAMP_MICROS,
+                .with_converted_type(match time_unit {
+                    TimeUnit::Second => ConvertedType::TIMESTAMP_MILLIS,
+                    TimeUnit::Millisecond => ConvertedType::TIMESTAMP_MILLIS,
+                    TimeUnit::Microsecond => ConvertedType::TIMESTAMP_MICROS,
+                    TimeUnit::Nanosecond => ConvertedType::TIMESTAMP_MICROS,
                 })
                 .with_repetition(repetition)
                 .build()
         }
         DataType::Date32 => Type::primitive_type_builder(name, PhysicalType::INT32)
-            .with_logical_type(LogicalType::DATE)
+            .with_converted_type(ConvertedType::DATE)
             .with_repetition(repetition)
             .build(),
         // date64 is cast to date32
         DataType::Date64 => Type::primitive_type_builder(name, PhysicalType::INT32)
-            .with_logical_type(LogicalType::DATE)
+            .with_converted_type(ConvertedType::DATE)
             .with_repetition(repetition)
             .build(),
         DataType::Time32(_) => Type::primitive_type_builder(name, PhysicalType::INT32)
-            .with_logical_type(LogicalType::TIME_MILLIS)
+            .with_converted_type(ConvertedType::TIME_MILLIS)
             .with_repetition(repetition)
             .build(),
         DataType::Time64(_) => Type::primitive_type_builder(name, PhysicalType::INT64)
-            .with_logical_type(LogicalType::TIME_MICROS)
+            .with_converted_type(ConvertedType::TIME_MICROS)
             .with_repetition(repetition)
             .build(),
         DataType::Duration(_) => Err(ArrowError(
@@ -397,7 +397,7 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
         )),
         DataType::Interval(_) => {
             Type::primitive_type_builder(name, PhysicalType::FIXED_LEN_BYTE_ARRAY)
-                .with_logical_type(LogicalType::INTERVAL)
+                .with_converted_type(ConvertedType::INTERVAL)
                 .with_repetition(repetition)
                 .with_length(12)
                 .build()
@@ -417,14 +417,14 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
             Type::primitive_type_builder(name, PhysicalType::FIXED_LEN_BYTE_ARRAY)
                 .with_repetition(repetition)
                 .with_length(decimal_length_from_precision(*precision) as i32)
-                .with_logical_type(LogicalType::DECIMAL)
+                .with_converted_type(ConvertedType::DECIMAL)
                 .with_precision(*precision as i32)
                 .with_scale(*scale as i32)
                 .build()
         }
         DataType::Utf8 | DataType::LargeUtf8 => {
             Type::primitive_type_builder(name, PhysicalType::BYTE_ARRAY)
-                .with_logical_type(LogicalType::UTF8)
+                .with_converted_type(ConvertedType::UTF8)
                 .with_repetition(repetition)
                 .build()
         }
@@ -436,7 +436,7 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
                         .with_repetition(Repetition::REPEATED)
                         .build()?,
                 )])
-                .with_logical_type(LogicalType::LIST)
+                .with_converted_type(ConvertedType::LIST)
                 .with_repetition(repetition)
                 .build()
         }
@@ -583,17 +583,17 @@ impl ParquetTypeConverter<'_> {
     }
 
     fn from_int32(&self) -> Result<DataType> {
-        match self.schema.get_basic_info().logical_type() {
-            LogicalType::NONE => Ok(DataType::Int32),
-            LogicalType::UINT_8 => Ok(DataType::UInt8),
-            LogicalType::UINT_16 => Ok(DataType::UInt16),
-            LogicalType::UINT_32 => Ok(DataType::UInt32),
-            LogicalType::INT_8 => Ok(DataType::Int8),
-            LogicalType::INT_16 => Ok(DataType::Int16),
-            LogicalType::INT_32 => Ok(DataType::Int32),
-            LogicalType::DATE => Ok(DataType::Date32),
-            LogicalType::TIME_MILLIS => Ok(DataType::Time32(TimeUnit::Millisecond)),
-            LogicalType::DECIMAL => Ok(self.to_decimal()),
+        match self.schema.get_basic_info().converted_type() {
+            ConvertedType::NONE => Ok(DataType::Int32),
+            ConvertedType::UINT_8 => Ok(DataType::UInt8),
+            ConvertedType::UINT_16 => Ok(DataType::UInt16),
+            ConvertedType::UINT_32 => Ok(DataType::UInt32),
+            ConvertedType::INT_8 => Ok(DataType::Int8),
+            ConvertedType::INT_16 => Ok(DataType::Int16),
+            ConvertedType::INT_32 => Ok(DataType::Int32),
+            ConvertedType::DATE => Ok(DataType::Date32),
+            ConvertedType::TIME_MILLIS => Ok(DataType::Time32(TimeUnit::Millisecond)),
+            ConvertedType::DECIMAL => Ok(self.to_decimal()),
             other => Err(ArrowError(format!(
                 "Unable to convert parquet INT32 logical type {}",
                 other
@@ -602,18 +602,18 @@ impl ParquetTypeConverter<'_> {
     }
 
     fn from_int64(&self) -> Result<DataType> {
-        match self.schema.get_basic_info().logical_type() {
-            LogicalType::NONE => Ok(DataType::Int64),
-            LogicalType::INT_64 => Ok(DataType::Int64),
-            LogicalType::UINT_64 => Ok(DataType::UInt64),
-            LogicalType::TIME_MICROS => Ok(DataType::Time64(TimeUnit::Microsecond)),
-            LogicalType::TIMESTAMP_MILLIS => {
+        match self.schema.get_basic_info().converted_type() {
+            ConvertedType::NONE => Ok(DataType::Int64),
+            ConvertedType::INT_64 => Ok(DataType::Int64),
+            ConvertedType::UINT_64 => Ok(DataType::UInt64),
+            ConvertedType::TIME_MICROS => Ok(DataType::Time64(TimeUnit::Microsecond)),
+            ConvertedType::TIMESTAMP_MILLIS => {
                 Ok(DataType::Timestamp(TimeUnit::Millisecond, None))
             }
-            LogicalType::TIMESTAMP_MICROS => {
+            ConvertedType::TIMESTAMP_MICROS => {
                 Ok(DataType::Timestamp(TimeUnit::Microsecond, None))
             }
-            LogicalType::DECIMAL => Ok(self.to_decimal()),
+            ConvertedType::DECIMAL => Ok(self.to_decimal()),
             other => Err(ArrowError(format!(
                 "Unable to convert parquet INT64 logical type {}",
                 other
@@ -622,9 +622,9 @@ impl ParquetTypeConverter<'_> {
     }
 
     fn from_fixed_len_byte_array(&self) -> Result<DataType> {
-        match self.schema.get_basic_info().logical_type() {
-            LogicalType::DECIMAL => Ok(self.to_decimal()),
-            LogicalType::INTERVAL => {
+        match self.schema.get_basic_info().converted_type() {
+            ConvertedType::DECIMAL => Ok(self.to_decimal()),
+            ConvertedType::INTERVAL => {
                 // There is currently no reliable way of determining which IntervalUnit
                 // to return. Thus without the original Arrow schema, the results
                 // would be incorrect if all 12 bytes of the interval are populated
@@ -656,9 +656,9 @@ impl ParquetTypeConverter<'_> {
     }
 
     fn from_byte_array(&self) -> Result<DataType> {
-        match self.schema.get_basic_info().logical_type() {
-            LogicalType::NONE => Ok(DataType::Binary),
-            LogicalType::UTF8 => Ok(DataType::Utf8),
+        match self.schema.get_basic_info().converted_type() {
+            ConvertedType::NONE => Ok(DataType::Binary),
+            ConvertedType::UTF8 => Ok(DataType::Utf8),
             other => Err(ArrowError(format!(
                 "Unable to convert parquet BYTE_ARRAY logical type {}",
                 other
@@ -683,8 +683,8 @@ impl ParquetTypeConverter<'_> {
                 })
             })
         } else {
-            match self.schema.get_basic_info().logical_type() {
-                LogicalType::LIST => self.to_list(),
+            match self.schema.get_basic_info().converted_type() {
+                ConvertedType::LIST => self.to_list(),
                 _ => self.to_struct(),
             }
         }

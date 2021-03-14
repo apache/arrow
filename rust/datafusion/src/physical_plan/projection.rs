@@ -197,8 +197,13 @@ mod tests {
         let partitions = 4;
         let path = test::create_partitioned_csv("aggregate_test_100.csv", partitions)?;
 
-        let csv =
-            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
+        let csv = CsvExec::try_new(
+            &path,
+            CsvReadOptions::new().schema(&schema),
+            None,
+            1024,
+            None,
+        )?;
 
         // pick column c1 and name it column c1 in the output schema
         let projection =

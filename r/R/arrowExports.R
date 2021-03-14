@@ -1424,6 +1424,10 @@ ipc___RecordBatchStreamWriter__Open <- function(stream, schema, use_legacy_forma
     .Call(`_arrow_ipc___RecordBatchStreamWriter__Open`, stream, schema, use_legacy_format, metadata_version)
 }
 
+runtime_info <- function(){
+    .Call(`_arrow_runtime_info`)
+}
+
 Array__GetScalar <- function(x, i){
     .Call(`_arrow_Array__GetScalar`, x, i)
 }

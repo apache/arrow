@@ -51,6 +51,20 @@ fn bench_primitive(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_primitive_nulls(c: &mut Criterion) {
+    let mut group = c.benchmark_group("bench_primitive_nulls");
+    group.bench_function("bench_primitive_nulls", |b| {
+        b.iter(|| {
+            let mut builder = UInt8Builder::new(64);
+            for _ in 0..NUM_BATCHES * BATCH_SIZE {
+                let _ = black_box(builder.append_null());
+            }
+            black_box(builder.finish());
+        })
+    });
+    group.finish();
+}
+
 fn bench_bool(c: &mut Criterion) {
     let data: Vec<bool> = seedable_rng()
         .sample_iter(&Standard)
@@ -74,5 +88,29 @@ fn bench_bool(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_primitive, bench_bool);
+fn bench_string(c: &mut Criterion) {
+    const SAMPLE_STRING: &str = "sample string";
+    let mut group = c.benchmark_group("bench_primitive");
+    group.throughput(Throughput::Bytes(
+        ((BATCH_SIZE * NUM_BATCHES * SAMPLE_STRING.len()) as u32).into(),
+    ));
+    group.bench_function("bench_string", |b| {
+        b.iter(|| {
+            let mut builder = StringBuilder::new(64);
+            for _ in 0..NUM_BATCHES * BATCH_SIZE {
+                let _ = black_box(builder.append_value(SAMPLE_STRING));
+            }
+            black_box(builder.finish());
+        })
+    });
+    group.finish();
+}
+
+criterion_group!(
+    benches,
+    bench_primitive,
+    bench_primitive_nulls,
+    bench_bool,
+    bench_string
+);
 criterion_main!(benches);
