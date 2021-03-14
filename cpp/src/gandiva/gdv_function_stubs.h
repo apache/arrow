@@ -75,9 +75,13 @@ const char *gdv_fn_sha256_from_utf8(int64_t context,
                                     bool value_validity,
                                     uint32_t *out_length);
 
-const char * gdv_fn_sha128_from_numeric(int64_t context, double value);
+const char *gdv_fn_sha128_from_float64(int64_t context, double value, bool validity, unsigned int *out_length);
 
-const char * gdv_fn_hash_sha128_from_string(int64_t context, const char* value, uint64_t value_length);
+const char *gdv_fn_sha128_from_utf8(int64_t context,
+                                    char *value,
+                                    int32_t value_length,
+                                    bool value_validity,
+                                    uint32_t *out_length);
 
 int32_t gdv_fn_dec_from_string(int64_t context, const char* in, int32_t in_length,
                                int32_t* precision_from_str, int32_t* scale_from_str,
