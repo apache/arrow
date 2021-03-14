@@ -41,6 +41,7 @@ pub fn sort(values: &ArrayRef, options: Option<SortOptions>) -> Result<ArrayRef>
 }
 
 /// Sort the `ArrayRef` partially.
+/// It's unstable_sort, may not preserve the order of equal elements
 /// Return an sorted `ArrayRef`, discarding the data after limit.
 pub fn sort_limit(
     values: &ArrayRef,
@@ -830,6 +831,7 @@ pub fn lexsort_to_indices(
     ))
 }
 
+/// It's unstable_sort, may not preserve the order of equal elements
 pub fn partial_sort<T, F>(v: &mut [T], limit: usize, mut is_less: F)
 where
     F: FnMut(&T, &T) -> Ordering,
