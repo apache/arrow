@@ -46,6 +46,9 @@ using gdv_day_time_interval = int64_t;
 bool gdv_fn_like_utf8_utf8(int64_t ptr, const char* data, int data_len,
                            const char* pattern, int pattern_len);
 
+bool gdv_fn_like_utf8_utf8_int8(int64_t ptr, const char* data, int data_len,
+                                const char* pattern, int pattern_len, int8_t escape_char);
+
 int64_t gdv_fn_to_date_utf8_utf8_int32(int64_t context, int64_t ptr, const char* data,
                                        int data_len, bool in1_validity,
                                        const char* pattern, int pattern_len,
