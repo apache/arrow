@@ -25,14 +25,16 @@ namespace gandiva {
                                             const void* message,
                                             size_t message_length,
                                             u_int32_t* out_length) {
-    const int sha256_result_length = 65;
+    // The buffer size is the hash size + null character
+    int sha256_result_length = 65;
     return HashUtils::GetHash(context, message, message_length, EVP_sha256(), sha256_result_length, out_length);
   }
   const char* HashUtils::HashUsingSha128(int64_t context,
                                             const void* message,
                                             size_t message_length,
                                             u_int32_t* out_length) {
-    const int sha128_result_length = 41;
+    // The buffer size is the hash size + null character
+    int sha128_result_length = 41;
     return HashUtils::GetHash(context, message, message_length, EVP_sha1(), sha128_result_length, out_length);
   }
 
@@ -40,7 +42,7 @@ namespace gandiva {
                                  const void* message,
                                  size_t message_length,
                                  const EVP_MD *hash_type,
-                                 const int result_buffer_size,
+                                 int result_buffer_size,
                                  u_int32_t* out_length) {
     EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
 
@@ -49,11 +51,16 @@ namespace gandiva {
       return "";
     }
 
-    int evp_sucess_status = 1;
+    int evp_success_status = 1;
 
-    if(EVP_DigestInit_ex(md_ctx, hash_type, nullptr) != evp_sucess_status &&
-          EVP_DigestUpdate(md_ctx, message, message_length) != evp_sucess_status){
-      HashUtils::ErrorMessage(context, "Error while retrieving SHA for a value.");
+    if(EVP_DigestInit_ex(md_ctx, hash_type, nullptr) != evp_success_status){
+      HashUtils::ErrorMessage(context, "Could not obtain the hash for the defined value.");
+      EVP_MD_CTX_free(md_ctx);
+      return "";
+    }
+
+    if(EVP_DigestUpdate(md_ctx, message, message_length) != evp_success_status){
+      HashUtils::ErrorMessage(context, "Could not obtain the hash for the defined value.");
       EVP_MD_CTX_free(md_ctx);
       return "";
     }
@@ -63,6 +70,7 @@ namespace gandiva {
 
     if(result == nullptr){
       HashUtils::ErrorMessage(context, "Could not allocate memory for SHA processing.");
+      EVP_MD_CTX_free(md_ctx);
       return "";
     }
 
