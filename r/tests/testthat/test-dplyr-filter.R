@@ -170,12 +170,14 @@ test_that("filter() with between()", {
     tbl
   )
 
-  expect_dplyr_equal(
-    input %>%
+  expect_identical(
+    tbl %>%
+      record_batch() %>%
       filter(between(dbl, int, dbl2)) %>%
       collect(),
-    tbl
-  )
+    tbl %>%
+      filter(dbl >= int, dbl <= dbl2)
+    )
 
   expect_dplyr_error(
     input %>%
