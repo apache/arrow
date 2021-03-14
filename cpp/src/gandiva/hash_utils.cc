@@ -17,7 +17,7 @@ namespace gandiva {
     return HashUtils::get_hash(context, message, message_length, EVP_sha1(), out_length);
   }
 
-  const char * HashUtils::get_hash(int64_t context,
+  const char* HashUtils::get_hash(int64_t context,
                                    const void* message,
                                    size_t message_length,
                                    const EVP_MD *hash_type,
@@ -28,9 +28,7 @@ namespace gandiva {
     }
 
     EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
-
     EVP_DigestInit_ex(md_ctx, hash_type, nullptr);
-
     EVP_DigestUpdate(md_ctx, message, message_length);
 
     int hash_size = EVP_MD_size(hash_type);
@@ -50,7 +48,6 @@ namespace gandiva {
     for (unsigned int j = 0; j < result_length; j++) {
       unsigned char hex_number = result[j];
       sprintf(hex_buffer, "%02x", hex_number);
-
       strcat(result_buffer, hex_buffer);
     }
 
