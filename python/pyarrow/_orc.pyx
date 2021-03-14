@@ -35,6 +35,46 @@ from pyarrow.lib cimport (check_status, _Weakrefable,
                           get_reader,
                           get_writer)
 
+cdef dict _compression_kinds = {'none': _CompressionKind_NONE,
+                                'zlib': _CompressionKind_ZLIB, 'snappy': _CompressionKind_SNAPPY,
+                                'lz0': _CompressionKind_LZO, 'lz4': _CompressionKind_LZ4,
+                                'zstd': _CompressionKind_ZSTD}
+
+
+cdef CompressionKind _convert_compression_kind(object compression_kind):
+    if compression_kind not in _compression_kinds.keys():
+        raise ValueError('Unknown compression_kind')
+    else:
+        return _compression_kinds[compression_kind]
+
+cdef compression_kind_from_enum(CompressionKind compression_kind_):
+    return {
+        _CompressionKind_NONE: 'NONE',
+        _CompressionKind_ZLIB: 'ZLIB',
+        _CompressionKind_SNAPPY: 'SNAPPY',
+        _CompressionKind_LZO: 'LZO',
+        _CompressionKind_LZ4: 'LZ4',
+        _CompressionKind_ZSTD: 'ZSTD',
+    }.get(type_, 'UNKNOWN')
+
+cdef compression_strategy_from_enum(CompressionStrategy compression_strategy_):
+    return {
+        _CompressionStrategy_SPEED: 'SPEED',
+        _CompressionStrategy_COMPRESSION: 'COMPRESSION',
+    }.get(type_, 'UNKNOWN')
+
+cdef rle_version_from_enum(RleVersion rle_version_):
+    return {
+        _RleVersion_1: '1',
+        _RleVersion_2: '2',
+    }.get(type_, 'UNKNOWN')
+
+cdef bloom_filter_version_from_enum(BloomFilterVersion bloom_filter_version_):
+    return {
+        _BloomFilterVersion_ORIGINAL: 'ORIGINAL',
+        _BloomFilterVersion_UTF8: 'UTF8',
+        _BloomFilterVersion_FUTURE: 'FUTURE',
+    }.get(type_, 'UNKNOWN')
 
 cdef class ORCReader(_Weakrefable):
     cdef:
