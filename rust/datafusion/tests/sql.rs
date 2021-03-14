@@ -777,6 +777,17 @@ async fn union_all() -> Result<()> {
 }
 
 #[tokio::test]
+async fn csv_union_all() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx)?;
+    let sql =
+        "SELECT c1 FROM aggregate_test_100 UNION ALL SELECT c1 FROM aggregate_test_100";
+    let actual = execute(&mut ctx, sql).await;
+    assert_eq!(actual.len(), 200);
+    Ok(())
+}
+
+#[tokio::test]
 async fn csv_query_limit() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx)?;
