@@ -44,6 +44,7 @@ namespace gandiva {
                                const void *message,
                                size_t message_length,
                                const EVP_MD *hash_type,
+                               const int result_buffer_size,
                                u_int32_t *out_length);
 
     static void ErrorMessage(int64_t context_ptr, char const *err_msg);

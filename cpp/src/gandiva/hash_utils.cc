@@ -25,39 +25,54 @@ namespace gandiva {
                                             const void* message,
                                             size_t message_length,
                                             u_int32_t* out_length) {
-    return HashUtils::GetHash(context, message, message_length, EVP_sha256(), out_length);
+    const int sha256_result_length = 65;
+    return HashUtils::GetHash(context, message, message_length, EVP_sha256(), sha256_result_length, out_length);
   }
   const char* HashUtils::HashUsingSha128(int64_t context,
                                             const void* message,
                                             size_t message_length,
                                             u_int32_t* out_length) {
-    return HashUtils::GetHash(context, message, message_length, EVP_sha1(), out_length);
+    const int sha128_result_length = 41;
+    return HashUtils::GetHash(context, message, message_length, EVP_sha1(), sha128_result_length, out_length);
   }
 
   const char* HashUtils::GetHash(int64_t context,
                                  const void* message,
                                  size_t message_length,
                                  const EVP_MD *hash_type,
+                                 const int result_buffer_size,
                                  u_int32_t* out_length) {
-    if(message == nullptr){
-      HashUtils::ErrorMessage(context, "A null value was given to be hashed.");
+    EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
+
+    if(md_ctx == nullptr){
+      HashUtils::ErrorMessage(context, "Could not allocate memory for SHA processing.");
       return "";
     }
 
-    EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
-    EVP_DigestInit_ex(md_ctx, hash_type, nullptr);
-    EVP_DigestUpdate(md_ctx, message, message_length);
+    int evp_sucess_status = 1;
+
+    if(EVP_DigestInit_ex(md_ctx, hash_type, nullptr) != evp_sucess_status &&
+          EVP_DigestUpdate(md_ctx, message, message_length) != evp_sucess_status){
+      HashUtils::ErrorMessage(context, "Error while retrieving SHA for a value.");
+      EVP_MD_CTX_free(md_ctx);
+      return "";
+    }
 
     int hash_size = EVP_MD_size(hash_type);
-
     auto* result = static_cast<unsigned char*>(OPENSSL_malloc(hash_size));
 
-    unsigned int result_length;
+    if(result == nullptr){
+      HashUtils::ErrorMessage(context, "Could not allocate memory for SHA processing.");
+      return "";
+    }
 
+    unsigned int result_length;
     EVP_DigestFinal_ex(md_ctx, result, &result_length);
 
-    char* hex_buffer = new char[4];
-    char* result_buffer = new char[65];
+    int temporary_buffer_length = 4;
+
+    char* hex_buffer = new char[temporary_buffer_length];
+    char* result_buffer = new char[result_buffer_size];
 
     CleanCharArray(hex_buffer);
     CleanCharArray(result_buffer);
@@ -65,10 +80,11 @@ namespace gandiva {
     for (unsigned int j = 0; j < result_length; j++) {
       unsigned char hex_number = result[j];
       sprintf(hex_buffer, "%02x", hex_number);
-      strcat(result_buffer, hex_buffer);
+      strncat(result_buffer, hex_buffer, temporary_buffer_length);
     }
 
-    result_buffer[64] = '\0';
+    // Add the NULL character to shows the end of the string
+    result_buffer[result_buffer_size - 1] = '\0';
 
     // free the resources to avoid memory leaks
     EVP_MD_CTX_free(md_ctx);
