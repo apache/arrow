@@ -19,7 +19,7 @@
 // or implementation to ensure compatibility and are subject to
 // the Postgres license.
 
-//! Unicode expressions
+//! The Union operator combines multiple inputs with the same schema
 
 use std::{any::Any, sync::Arc};
 
