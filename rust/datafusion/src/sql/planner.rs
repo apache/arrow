@@ -2422,6 +2422,17 @@ mod tests {
     }
 
     #[test]
+    fn union() {
+        let sql = "SELECT order_id from orders UNION ALL SELECT order_id FROM orders";
+        let expected = "Union\
+            \n  Projection: #order_id\
+            \n    TableScan: orders projection=None\
+            \n  Projection: #order_id\
+            \n    TableScan: orders projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
     fn select_typedstring() {
         let sql = "SELECT date '2020-12-10' AS date FROM person";
         let expected = "Projection: CAST(Utf8(\"2020-12-10\") AS Date32) AS date\
