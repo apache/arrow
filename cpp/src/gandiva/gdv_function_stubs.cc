@@ -132,9 +132,9 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
       return "";                                                                         \
     }                                                                                    \
                                                                                          \
-    auto value_as_long = gandiva::HashUtils::double_to_long((double)value);              \
+    auto value_as_long = gandiva::HashUtils::DoubleToLong((double)value);              \
                                                                                          \
-    const char *result = gandiva::HashUtils::hash_using_SHA128(context,                  \
+    const char *result = gandiva::HashUtils::HashUsingSha128(context,                  \
                                                                &value_as_long,           \
                                                                sizeof(value_as_long),    \
                                                                out_length);              \
@@ -154,7 +154,7 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
       return "";                                                                             \
     }                                                                                        \
                                                                                              \
-    return gandiva::HashUtils::hash_using_SHA128(context, value, value_length, out_length);  \
+    return gandiva::HashUtils::HashUsingSha128(context, value, value_length, out_length);  \
   }
 
 #define SHA256_HASH_FUNCTION(TYPE)                                                       \
@@ -166,9 +166,9 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
       return "";                                                                         \
     }                                                                                    \
                                                                                          \
-    auto value_as_long = gandiva::HashUtils::double_to_long((double)value);              \
+    auto value_as_long = gandiva::HashUtils::DoubleToLong((double)value);              \
                                                                                          \
-    const char *result = gandiva::HashUtils::hash_using_SHA256(context,                  \
+    const char *result = gandiva::HashUtils::HashUsingSha256(context,                  \
                                                                &value_as_long,           \
                                                                sizeof(value_as_long),    \
                                                                out_length);              \
@@ -188,7 +188,7 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
       return "";                                                                             \
     }                                                                                        \
                                                                                              \
-    return gandiva::HashUtils::hash_using_SHA256(context, value, value_length, out_length);  \
+    return gandiva::HashUtils::HashUsingSha256(context, value, value_length, out_length);  \
   }
 
 // Expand inner macro for all numeric types.

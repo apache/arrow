@@ -21,26 +21,26 @@
 #include "execution_context.h"
 
 namespace gandiva {
-  const char* HashUtils::hash_using_SHA256(int64_t context,
+  const char* HashUtils::HashUsingSha256(int64_t context,
                                             const void* message,
                                             size_t message_length,
                                             u_int32_t* out_length) {
-    return HashUtils::get_hash(context, message, message_length, EVP_sha256(), out_length);
+    return HashUtils::GetHash(context, message, message_length, EVP_sha256(), out_length);
   }
-  const char* HashUtils::hash_using_SHA128(int64_t context,
+  const char* HashUtils::HashUsingSha128(int64_t context,
                                             const void* message,
                                             size_t message_length,
                                             u_int32_t* out_length) {
-    return HashUtils::get_hash(context, message, message_length, EVP_sha1(), out_length);
+    return HashUtils::GetHash(context, message, message_length, EVP_sha1(), out_length);
   }
 
-  const char* HashUtils::get_hash(int64_t context,
-                                   const void* message,
-                                   size_t message_length,
-                                   const EVP_MD *hash_type,
-                                   u_int32_t* out_length) {
+  const char* HashUtils::GetHash(int64_t context,
+                                 const void* message,
+                                 size_t message_length,
+                                 const EVP_MD *hash_type,
+                                 u_int32_t* out_length) {
     if(message == nullptr){
-      HashUtils::error_message(context, "A null value was given to be hashed.");
+      HashUtils::ErrorMessage(context, "A null value was given to be hashed.");
       return "";
     }
 
@@ -59,8 +59,8 @@ namespace gandiva {
     char* hex_buffer = new char[4];
     char* result_buffer = new char[65];
 
-    clean_char_array(hex_buffer);
-    clean_char_array(result_buffer);
+    CleanCharArray(hex_buffer);
+    CleanCharArray(result_buffer);
 
     for (unsigned int j = 0; j < result_length; j++) {
       unsigned char hex_number = result[j];
@@ -80,17 +80,17 @@ namespace gandiva {
     return result_buffer;
   }
 
-  uint64_t HashUtils::double_to_long(double value) {
+  uint64_t HashUtils::DoubleToLong(double value) {
     uint64_t result;
     memcpy(&result, &value, sizeof(result));
     return result;
   }
 
-  void HashUtils::clean_char_array(char *buffer) {
+  void HashUtils::CleanCharArray(char *buffer) {
     buffer[0] = '\0';
   }
 
-  void HashUtils::error_message(int64_t context_ptr, char const *err_msg){
+  void HashUtils::ErrorMessage(int64_t context_ptr, char const *err_msg){
     auto context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
     context->set_error_msg(err_msg);
   }
