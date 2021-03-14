@@ -40,8 +40,7 @@ endif()
 
 add_definitions(-DGANDIVA_LLVM_VERSION=${LLVM_VERSION_MAJOR})
 
-find_package(OpenSSL REQUIRED)
-set(GANDIVA_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
+find_package(OpenSSLAlt REQUIRED)
 
 # Set the path where the bitcode file generated, see precompiled/CMakeLists.txt
 set(GANDIVA_PRECOMPILED_BC_PATH "${CMAKE_CURRENT_BINARY_DIR}/irhelpers.bc")
