@@ -105,15 +105,11 @@ impl FlightService for FlightServiceImpl {
                     return Err(Status::internal("There were no results from ticket"));
                 }
 
-                let physical_plan = ctx
-                    .create_physical_plan(&df.to_logical_plan())
-                    .map_err(to_tonic_err)?;
-
                 // add an initial FlightData message that sends schema
                 let options = arrow::ipc::writer::IpcWriteOptions::default();
                 let schema_flight_data =
                     arrow_flight::utils::flight_data_from_arrow_schema(
-                        physical_plan.schema().as_ref(),
+                        &df.schema().clone().into(),
                         &options,
                     );
 
