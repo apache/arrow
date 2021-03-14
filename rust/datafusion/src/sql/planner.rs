@@ -152,7 +152,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                     }
                     if !inputs.iter().all(|s| s.schema() == inputs[0].schema()) {
                         return Err(DataFusionError::Execution(
-                            "UNION ALL schema expected to be the same across selects"
+                            "UNION ALL schemas are expected to be the same"
                                 .to_string(),
                         ));
                     }
