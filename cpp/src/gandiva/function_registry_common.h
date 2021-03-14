@@ -206,7 +206,17 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
 #define HASH64_SEED_SAFE_NULL_NEVER(NAME, ALIASES, TYPE)                     \
   NativeFunction(#NAME, std::vector<std::string> ALIASES,                    \
                  DataTypeVector{TYPE(), int64()}, int64(), kResultNullNever, \
-                 ARROW_STRINGIFY(NAME##WithSeed_##TYPE))
+                 ARROW_STRINGIFY(NAME##WithSeed_##TYPE)
+
+// HashSHA128 functions that :
+// - NULL handling is of type NULL_NEVER
+//
+// The function name includes the base name & input type name. gdv_fn_sha128_from_float64
+#define HASH_SHA128_SAFE_NULL_NEVER(NAME, ALIASES, TYPE)                     \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES,                    \
+                 DataTypeVector{TYPE()}, utf8(), kResultNullNever,           \
+                 ARROW_STRINGIFY(gdv_fn_sha128_from_##TYPE),                 \
+                 NativeFunction::kNeedsContext)
 
 // HashSHA256 functions that :
 // - NULL handling is of type NULL_NEVER
