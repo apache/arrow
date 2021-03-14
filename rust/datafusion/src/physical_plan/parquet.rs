@@ -54,6 +54,8 @@ use parquet::file::{
     statistics::Statistics as ParquetStatistics,
 };
 
+use log::debug;
+
 use fmt::Debug;
 use parquet::arrow::{ArrowReader, ParquetFileArrowReader};
 use tokio::{
@@ -645,8 +647,29 @@ fn build_predicate_expression(
     use crate::logical_plan;
     // predicate expression can only be a binary expression
     let (left, op, right) = match expr {
-        Expr::BinaryExpr { left, op, right } => (left, *op, right),
+        Expr::BinaryExpr { left, op, right } => (left.clone(), *op, right.clone()),
+        Expr::Between {
+            expr,
+            negated,
+            low,
+            high,
+        } if !negated // NOT BETWEEN not supported
+            => {
+            let left = Box::new(Expr::BinaryExpr {
+                left: expr.clone(),
+                op: Operator::GtEq,
+                right: low.clone(),
+            });
+            let right = Box::new(Expr::BinaryExpr {
+                left: expr.clone(),
+                op: Operator::LtEq,
+                right: high.clone(),
+            });
+
+            (left, Operator::And, right)
+        }
         _ => {
+            debug!("Filter expression not supported in ParquetExec {:?}", expr);
             // unsupported expression - replace with TRUE
             // this can still be useful when multiple conditions are joined using AND
             // such as: column > 10 AND TRUE
@@ -656,15 +679,15 @@ fn build_predicate_expression(
 
     if op == Operator::And || op == Operator::Or {
         let left_expr =
-            build_predicate_expression(left, parquet_schema, stat_column_req)?;
+            build_predicate_expression(&left, parquet_schema, stat_column_req)?;
         let right_expr =
-            build_predicate_expression(right, parquet_schema, stat_column_req)?;
+            build_predicate_expression(&right, parquet_schema, stat_column_req)?;
         return Ok(logical_plan::binary_expr(left_expr, op, right_expr));
     }
 
     let expr_builder = StatisticsExpressionBuilder::try_new(
-        left,
-        right,
+        &left,
+        &right,
         parquet_schema,
         stat_column_req,
     );

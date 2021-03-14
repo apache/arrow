@@ -20,7 +20,7 @@
 
 use std::sync::Arc;
 
-use arrow::datatypes::DataType;
+use arrow::{compute::cast, datatypes::DataType};
 
 use crate::error::Result;
 use crate::logical_plan::{DFSchemaRef, Expr, ExprRewriter, LogicalPlan, Operator};
@@ -188,6 +188,97 @@ impl<'a> ExprRewriter for ConstantRewriter<'a> {
                         right,
                     },
                 },
+                Operator::Plus => match (left.as_ref(), right.as_ref()) {
+                    (
+                        Expr::Literal(ScalarValue::Float64(l)),
+                        Expr::Literal(ScalarValue::Float64(r)),
+                    ) => match (l, r) {
+                        (Some(l), Some(r)) => {
+                            Expr::Literal(ScalarValue::Float64(Some(l + r)))
+                        }
+                        _ => Expr::Literal(ScalarValue::Float64(None)),
+                    },
+                    (
+                        Expr::Literal(ScalarValue::Int64(l)),
+                        Expr::Literal(ScalarValue::Int64(r)),
+                    ) => match (l, r) {
+                        (Some(l), Some(r)) => {
+                            Expr::Literal(ScalarValue::Int64(Some(l + r)))
+                        }
+                        _ => Expr::Literal(ScalarValue::Int64(None)),
+                    },
+                    (
+                        Expr::Literal(ScalarValue::Int32(l)),
+                        Expr::Literal(ScalarValue::Int32(r)),
+                    ) => match (l, r) {
+                        (Some(l), Some(r)) => {
+                            Expr::Literal(ScalarValue::Int32(Some(l + r)))
+                        }
+                        _ => Expr::Literal(ScalarValue::Int64(None)),
+                    },
+                    _ => Expr::BinaryExpr { left, op, right },
+                },
+                Operator::Minus => match (left.as_ref(), right.as_ref()) {
+                    (
+                        Expr::Literal(ScalarValue::Float64(l)),
+                        Expr::Literal(ScalarValue::Float64(r)),
+                    ) => match (l, r) {
+                        (Some(l), Some(r)) => {
+                            Expr::Literal(ScalarValue::Float64(Some(l - r)))
+                        }
+                        _ => Expr::Literal(ScalarValue::Float64(None)),
+                    },
+                    (
+                        Expr::Literal(ScalarValue::Int64(l)),
+                        Expr::Literal(ScalarValue::Int64(r)),
+                    ) => match (l, r) {
+                        (Some(l), Some(r)) => {
+                            Expr::Literal(ScalarValue::Int64(Some(l - r)))
+                        }
+                        _ => Expr::Literal(ScalarValue::Int64(None)),
+                    },
+                    (
+                        Expr::Literal(ScalarValue::Int32(l)),
+                        Expr::Literal(ScalarValue::Int32(r)),
+                    ) => match (l, r) {
+                        (Some(l), Some(r)) => {
+                            Expr::Literal(ScalarValue::Int32(Some(l - r)))
+                        }
+                        _ => Expr::Literal(ScalarValue::Int32(None)),
+                    },
+                    _ => Expr::BinaryExpr { left, op, right },
+                },
+                Operator::Multiply => match (left.as_ref(), right.as_ref()) {
+                    (
+                        Expr::Literal(ScalarValue::Float64(l)),
+                        Expr::Literal(ScalarValue::Float64(r)),
+                    ) => match (l, r) {
+                        (Some(l), Some(r)) => {
+                            Expr::Literal(ScalarValue::Float64(Some(l * r)))
+                        }
+                        _ => Expr::Literal(ScalarValue::Float64(None)),
+                    },
+                    (
+                        Expr::Literal(ScalarValue::Int64(l)),
+                        Expr::Literal(ScalarValue::Int64(r)),
+                    ) => match (l, r) {
+                        (Some(l), Some(r)) => {
+                            Expr::Literal(ScalarValue::Int64(Some(l * r)))
+                        }
+                        _ => Expr::Literal(ScalarValue::Int64(None)),
+                    },
+                    (
+                        Expr::Literal(ScalarValue::Int32(l)),
+                        Expr::Literal(ScalarValue::Int32(r)),
+                    ) => match (l, r) {
+                        (Some(l), Some(r)) => {
+                            Expr::Literal(ScalarValue::Int32(Some(l * r)))
+                        }
+                        _ => Expr::Literal(ScalarValue::Int32(None)),
+                    },
+
+                    _ => Expr::BinaryExpr { left, op, right },
+                },
                 _ => Expr::BinaryExpr { left, op, right },
             },
             Expr::Not(inner) => {
@@ -198,6 +289,16 @@ impl<'a> ExprRewriter for ConstantRewriter<'a> {
                     Expr::Not(inner)
                 }
             }
+            Expr::Cast {
+                expr: cast_expr,
+                data_type,
+            } => match *cast_expr {
+                Expr::Literal(lit) => {
+                    let res = cast(&lit.to_array(), &data_type)?;
+                    Expr::Literal(ScalarValue::try_from_array(&res, 0)?)
+                }
+                expr => expr.clone(),
+            },
             expr => {
                 // no rewrite possible
                 expr
@@ -548,6 +649,51 @@ mod tests {
         Projection: #a\
         \n  Filter: #b\
         \n    TableScan: test projection=None";
+
+        assert_optimized_plan_eq(&plan, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn optimize_plan_plus() -> Result<()> {
+        let table_scan = test_table_scan()?;
+        let plan = LogicalPlanBuilder::from(&table_scan)
+            .project(&[(lit(1) + lit(1)).alias("a")])?
+            .build()?;
+
+        let expected = "\
+        Projection: Int32(2) AS a\
+        \n  TableScan: test projection=None";
+
+        assert_optimized_plan_eq(&plan, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn optimize_plan_minus() -> Result<()> {
+        let table_scan = test_table_scan()?;
+        let plan = LogicalPlanBuilder::from(&table_scan)
+            .project(&[(lit(3) - lit(1)).alias("a")])?
+            .build()?;
+
+        let expected = "\
+        Projection: Int32(2) AS a\
+        \n  TableScan: test projection=None";
+
+        assert_optimized_plan_eq(&plan, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn optimize_plan_multiply() -> Result<()> {
+        let table_scan = test_table_scan()?;
+        let plan = LogicalPlanBuilder::from(&table_scan)
+            .project(&[(lit(3) * lit(7)).alias("a")])?
+            .build()?;
+
+        let expected = "\
+        Projection: Int32(21) AS a\
+        \n  TableScan: test projection=None";
 
         assert_optimized_plan_eq(&plan, expected);
         Ok(())
