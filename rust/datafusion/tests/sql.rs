@@ -769,13 +769,9 @@ async fn csv_query_cast_literal() -> Result<()> {
 #[tokio::test]
 async fn union_all() -> Result<()> {
     let mut ctx = ExecutionContext::new();
-    let sql =
-        "SELECT 1 as x UNION ALL SELECT 2 as x";
+    let sql = "SELECT 1 as x UNION ALL SELECT 2 as x";
     let actual = execute(&mut ctx, sql).await;
-    let expected = vec![
-        vec!["1"],
-        vec!["2"],
-    ];
+    let expected = vec![vec!["1"], vec!["2"]];
     assert_eq!(expected, actual);
     Ok(())
 }

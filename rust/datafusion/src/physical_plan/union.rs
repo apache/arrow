@@ -37,7 +37,7 @@ pub struct UnionExec {
 }
 
 impl UnionExec {
-    /// Create a new MergeExec
+    /// Create a new UnionExec
     pub fn new(inputs: Vec<Arc<dyn ExecutionPlan>>) -> Self {
         UnionExec { inputs }
     }
@@ -60,7 +60,14 @@ impl ExecutionPlan for UnionExec {
 
     /// Get the output partitioning of this plan
     fn output_partitioning(&self) -> Partitioning {
-        Partitioning::UnknownPartitioning(self.inputs.len())
+        // Sums all the output partitions
+        let num_partitions = self
+            .inputs
+            .iter()
+            .map(|plan| plan.output_partitioning().partition_count())
+            .sum();
+        // TODO: this loses partitioning info in case of same partitioning scheme
+        Partitioning::UnknownPartitioning(num_partitions)
     }
 
     fn with_new_children(
@@ -70,7 +77,20 @@ impl ExecutionPlan for UnionExec {
         Ok(Arc::new(UnionExec::new(children)))
     }
 
-    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
-        self.inputs[partition].execute(0).await
+    async fn execute(&self, mut partition: usize) -> Result<SendableRecordBatchStream> {
+        // find partition to execute
+        for input in self.inputs.iter() {
+            // Calculate whether partition belongs to the current partition
+            if partition < input.output_partitioning().partition_count() {
+                return input.execute(partition).await;
+            } else {
+                partition -= input.output_partitioning().partition_count();
+            }
+        }
+
+        Err(crate::error::DataFusionError::Execution(format!(
+            "Partition {} not found in Union",
+            partition
+        )))
     }
 }

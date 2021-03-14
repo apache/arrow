@@ -275,9 +275,7 @@ impl DefaultPhysicalPlanner {
                     .iter()
                     .map(|input| self.create_physical_plan(input, ctx_state))
                     .collect::<Result<Vec<_>>>()?;
-                Ok(Arc::new(MergeExec::new(Arc::new(UnionExec::new(
-                    physical_plans,
-                )))))
+                Ok(Arc::new(UnionExec::new(physical_plans)))
             }
             LogicalPlan::Repartition {
                 input,
