@@ -140,7 +140,7 @@ pub trait DataFrame: Send + Sync {
     /// # fn main() -> Result<()> {
     /// let mut ctx = ExecutionContext::new();
     /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
-    /// let df = df.union(df)?;
+    /// let df = df.union(df.clone())?;
     /// # Ok(())
     /// # }
     /// ```
