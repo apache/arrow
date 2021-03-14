@@ -168,7 +168,7 @@ TEST_F(TestLikeHolder, TestMatchManyEscape) {
 
   auto& like = *like_holder;
 
-  EXPECT_TRUE(like("ab_"));
+  EXPECT_TRUE(like("ab%"));
 
   EXPECT_FALSE(like("abc"));
   EXPECT_FALSE(like("abd"));
