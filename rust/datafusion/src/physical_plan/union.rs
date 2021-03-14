@@ -94,3 +94,49 @@ impl ExecutionPlan for UnionExec {
         )))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::physical_plan::{
+        collect,
+        csv::{CsvExec, CsvReadOptions},
+    };
+    use crate::test;
+    use arrow::record_batch::RecordBatch;
+
+    #[tokio::test]
+    async fn test_union_partitions() -> Result<()> {
+        let schema = test::aggr_test_schema();
+
+        // Create csv's with different partitioning
+        let path = test::create_partitioned_csv("aggregate_test_100.csv", 4)?;
+        let path2 = test::create_partitioned_csv("aggregate_test_100.csv", 5)?;
+
+        let csv = CsvExec::try_new(
+            &path,
+            CsvReadOptions::new().schema(&schema),
+            None,
+            1024,
+            None,
+        )?;
+
+        let csv2 = CsvExec::try_new(
+            &path2,
+            CsvReadOptions::new().schema(&schema),
+            None,
+            1024,
+            None,
+        )?;
+
+        let union_exec = Arc::new(UnionExec::new(vec![Arc::new(csv), Arc::new(csv2)]));
+
+        // Should have 9 partitions and 9 output batches
+        assert_eq!(union_exec.output_partitioning().partition_count(), 9);
+
+        let result: Vec<RecordBatch> = collect(union_exec).await?;
+        assert_eq!(result.len(), 9);
+
+        Ok(())
+    }
+}
