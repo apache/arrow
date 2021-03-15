@@ -24,6 +24,7 @@ tbl$verses <- verses[[1]]
 # c(" a ", "  b  ", "   c   ", ...) increasing padding
 # nchar =   3  5  7  9 11 13 15 17 19 21
 tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2*(1:10)+1, side = "both")
+tbl$some_negative <- tbl$int * (-1)^(1:nrow(tbl))
 
 test_that("filter() on is.na()", {
   expect_dplyr_equal(
@@ -150,6 +151,28 @@ test_that("filter() with %in%", {
   expect_dplyr_equal(
     input %>%
       filter(dbl > 2, chr %in% c("d", "f")) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("Negative scalar values", {
+  expect_dplyr_equal(
+    input %>%
+      filter(some_negative > -2) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      filter(some_negative %in% -1) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(int == -some_negative) %>%
       collect(),
     tbl
   )

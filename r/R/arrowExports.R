@@ -1448,6 +1448,10 @@ Scalar__as_vector <- function(scalar){
     .Call(`_arrow_Scalar__as_vector`, scalar)
 }
 
+MakeArrayFromScalar <- function(scalar){
+    .Call(`_arrow_MakeArrayFromScalar`, scalar)
+}
+
 Scalar__is_valid <- function(s){
     .Call(`_arrow_Scalar__is_valid`, s)
 }

@@ -528,6 +528,37 @@ test_that("filter() with %in%", {
   )
 })
 
+test_that("filter() with negative scalar", {
+  skip_if_not_available("parquet")
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_equivalent(
+    ds %>%
+      filter(part == 1) %>%
+      select(chr, int) %>%
+      filter(int > -2) %>%
+      collect(),
+    df1[, c("chr", "int")]
+  )
+
+  expect_equivalent(
+    ds %>%
+      filter(part == 1) %>%
+      select(chr, int) %>%
+      filter(int %in% -2) %>%
+      collect(),
+    df1[FALSE, c("chr", "int")]
+  )
+
+  expect_equivalent(
+    ds %>%
+      filter(part == 1) %>%
+      select(chr, int) %>%
+      filter(-int < -2) %>%
+      collect(),
+    df1[df1$int > 2, c("chr", "int")]
+  )
+})
+
 test_that("filter() with strings", {
   skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
