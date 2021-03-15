@@ -2217,18 +2217,10 @@ def test_csv_format(tempdir):
 
 @pytest.mark.pandas
 @pytest.mark.parametrize("compression", [
-    pytest.param(
-        "bz2", marks=pytest.mark.xfail(
-            raises=pa.lib.ArrowNotImplementedError)
-    ),
-    "brotli",
+    "bz2",
     "gzip",
     "lz4",
     "zstd",
-    pytest.param(
-        "snappy", marks=pytest.mark.xfail(
-            raises=pa.lib.ArrowNotImplementedError)
-    ),
 ])
 def test_csv_format_compressed(tempdir, compression):
     if not pyarrow.Codec.is_available(compression):
@@ -2236,7 +2228,8 @@ def test_csv_format_compressed(tempdir, compression):
     table = pa.table({'a': pa.array([1, 2, 3], type="int64"),
                       'b': pa.array([.1, .2, .3], type="float64")})
     filesystem = fs.LocalFileSystem()
-    path = str(tempdir / 'test.csv')
+    suffix = compression if compression != 'gzip' else 'gz'
+    path = str(tempdir / f'test.csv.{suffix}')
     with filesystem.open_output_stream(path, compression=compression) as sink:
         # https://github.com/pandas-dev/pandas/issues/23854
         # With CI version of Pandas (anything < 1.2), Pandas tries to write
@@ -2244,9 +2237,7 @@ def test_csv_format_compressed(tempdir, compression):
         csv_str = table.to_pandas().to_csv(index=False)
         sink.write(csv_str.encode('utf-8'))
 
-    csv_format = ds.CsvFileFormat(compression=compression)
-    assert csv_format.compression == compression
-    dataset = ds.dataset(path, format=csv_format)
+    dataset = ds.dataset(path, format=ds.CsvFileFormat())
     result = dataset.to_table()
     assert result.equals(table)
 

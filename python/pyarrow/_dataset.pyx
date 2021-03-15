@@ -1363,11 +1363,10 @@ cdef class CsvFileFormat(FileFormat):
     cdef:
         CCsvFileFormat* csv_format
 
-    def __init__(self, ParseOptions parse_options=None, compression=None):
+    def __init__(self, ParseOptions parse_options=None):
         self.init(shared_ptr[CFileFormat](new CCsvFileFormat()))
         if parse_options is not None:
             self.parse_options = parse_options
-        self.compression = compression
 
     cdef void init(self, const shared_ptr[CFileFormat]& sp):
         FileFormat.init(self, sp)
@@ -1384,27 +1383,8 @@ cdef class CsvFileFormat(FileFormat):
     def parse_options(self, ParseOptions parse_options not None):
         self.csv_format.parse_options = parse_options.options
 
-    @property
-    def compression(self):
-        return frombytes(CCodec.GetCodecAsString(self.csv_format.compression))
-
-    @compression.setter
-    def compression(self, compression):
-        if compression is None:
-            self.csv_format.compression = CCompressionType_UNCOMPRESSED
-        elif isinstance(compression, str):
-            self.csv_format.compression = _ensure_compression(compression)
-            compression = Codec(compression)
-        elif isinstance(compression, Codec):
-            self.csv_format.compression = \
-                (<Codec> compression).unwrap().compression_type()
-        else:
-            raise TypeError(f'Cannot set compression with value '
-                            f'of type {type(compression)}')
-
     def equals(self, CsvFileFormat other):
-        return self.parse_options.equals(other.parse_options) and \
-            self.compression == other.compression
+        return self.parse_options.equals(other.parse_options)
 
     def __reduce__(self):
         return CsvFileFormat, (self.parse_options,)
