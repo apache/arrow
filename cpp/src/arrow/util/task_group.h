@@ -17,11 +17,12 @@
 
 #pragma once
 
-#include <functional>
 #include <memory>
 #include <utility>
 
 #include "arrow/status.h"
+#include "arrow/util/cancel.h"
+#include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
@@ -87,8 +88,9 @@ class ARROW_EXPORT TaskGroup : public std::enable_shared_from_this<TaskGroup> {
   /// This is only a hint, useful for testing or debugging.
   virtual int parallelism() = 0;
 
-  static std::shared_ptr<TaskGroup> MakeSerial();
-  static std::shared_ptr<TaskGroup> MakeThreaded(internal::Executor*);
+  static std::shared_ptr<TaskGroup> MakeSerial(StopToken = StopToken::Unstoppable());
+  static std::shared_ptr<TaskGroup> MakeThreaded(internal::Executor*,
+                                                 StopToken = StopToken::Unstoppable());
 
   virtual ~TaskGroup() = default;
 
@@ -96,7 +98,7 @@ class ARROW_EXPORT TaskGroup : public std::enable_shared_from_this<TaskGroup> {
   TaskGroup() = default;
   ARROW_DISALLOW_COPY_AND_ASSIGN(TaskGroup);
 
-  virtual void AppendReal(std::function<Status()> task) = 0;
+  virtual void AppendReal(FnOnce<Status()> task) = 0;
 };
 
 }  // namespace internal

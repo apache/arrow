@@ -45,6 +45,10 @@
     s3_register("reticulate::r_to_py", cl)
   }
 
+  # Create these once, at package build time
+  dplyr_functions$dataset <- build_function_list(build_dataset_expression)
+  dplyr_functions$array <- build_function_list(build_array_expression)
+
   invisible()
 }
 
@@ -98,7 +102,8 @@ option_use_threads <- function() {
 #' This function summarizes a number of build-time configurations and run-time
 #' settings for the Arrow package. It may be useful for diagnostics.
 #' @return A list including version information, boolean "capabilities", and
-#' statistics from Arrow's memory allocator.
+#' statistics from Arrow's memory allocator, and also Arrow's run-time
+#' information.
 #' @export
 #' @importFrom utils packageVersion
 arrow_info <- function() {
@@ -110,6 +115,7 @@ arrow_info <- function() {
   )
   if (out$libarrow) {
     pool <- default_memory_pool()
+    runtimeinfo <- runtime_info()
     out <- c(out, list(
       capabilities = c(
         dataset = arrow_with_dataset(),
@@ -122,6 +128,10 @@ arrow_info <- function() {
         bytes_allocated = pool$bytes_allocated,
         max_memory = pool$max_memory,
         available_backends = supported_memory_backends()
+      ),
+      runtime_info = list(
+        simd_level = runtimeinfo[1],
+        detected_simd_level = runtimeinfo[2]
       )
     ))
   }
@@ -159,6 +169,10 @@ print.arrow_info <- function(x, ...) {
       # utils:::format.object_size is not properly vectorized
       Current = format_bytes(x$memory_pool$bytes_allocated, ...),
       Max = format_bytes(x$memory_pool$max_memory, ...)
+    ))
+    print_key_values("Runtime", c(
+      `SIMD Level` = x$runtime_info$simd_level,
+      `Detected SIMD Level` = x$runtime_info$detected_simd_level
     ))
   } else {
     cat("Arrow C++ library not available\n")

@@ -45,7 +45,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.12]
+        go: [1.15]
     env:
       GO: ${{ matrix.go }}
     steps:
@@ -77,7 +77,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.12]
+        go: [1.15]
     steps:
       - name: Install go
         uses: actions/setup-go@v1
@@ -104,7 +104,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.12]
+        go: [1.15]
     steps:
       - name: Install go
         uses: actions/setup-go@v1

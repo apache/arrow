@@ -271,8 +271,13 @@ mod tests {
         let schema = test::aggr_test_schema();
         let partitions = 4;
         let path = test::create_partitioned_csv("aggregate_test_100.csv", partitions)?;
-        let csv =
-            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
+        let csv = CsvExec::try_new(
+            &path,
+            CsvReadOptions::new().schema(&schema),
+            None,
+            1024,
+            None,
+        )?;
 
         let sort_exec = Arc::new(SortExec::try_new(
             vec![

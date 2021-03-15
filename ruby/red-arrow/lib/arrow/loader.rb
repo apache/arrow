@@ -82,6 +82,8 @@ module Arrow
       require "arrow/rolling-window"
       require "arrow/schema"
       require "arrow/slicer"
+      require "arrow/sort-key"
+      require "arrow/sort-options"
       require "arrow/sparse-union-data-type"
       require "arrow/struct-array"
       require "arrow/struct-array-builder"

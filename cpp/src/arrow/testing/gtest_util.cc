@@ -26,12 +26,14 @@
 
 #include <algorithm>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
 #include <limits>
 #include <locale>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -539,6 +541,24 @@ EnvVarGuard::~EnvVarGuard() {
   }
 }
 
+struct SignalHandlerGuard::Impl {
+  int signum_;
+  internal::SignalHandler old_handler_;
+
+  Impl(int signum, const internal::SignalHandler& handler)
+      : signum_(signum), old_handler_(*internal::SetSignalHandler(signum, handler)) {}
+
+  ~Impl() { ARROW_EXPECT_OK(internal::SetSignalHandler(signum_, old_handler_)); }
+};
+
+SignalHandlerGuard::SignalHandlerGuard(int signum, Callback cb)
+    : SignalHandlerGuard(signum, internal::SignalHandler(cb)) {}
+
+SignalHandlerGuard::SignalHandlerGuard(int signum, const internal::SignalHandler& handler)
+    : impl_(new Impl{signum, handler}) {}
+
+SignalHandlerGuard::~SignalHandlerGuard() = default;
+
 namespace {
 
 // Used to prevent compiler optimizing away side-effect-less statements
@@ -574,6 +594,13 @@ void TestInitialized(const Array& array) {
 void SleepFor(double seconds) {
   std::this_thread::sleep_for(
       std::chrono::nanoseconds(static_cast<int64_t>(seconds * 1e9)));
+}
+
+void BusyWait(double seconds, std::function<bool()> predicate) {
+  const double period = 0.001;
+  for (int i = 0; !predicate() && i * period < seconds; ++i) {
+    SleepFor(period);
+  }
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -690,6 +717,87 @@ ExtensionTypeGuard::~ExtensionTypeGuard() {
   if (!extension_name_.empty()) {
     ARROW_CHECK_OK(UnregisterExtensionType(extension_name_));
   }
+}
+
+class GatingTask::Impl {
+ public:
+  explicit Impl(double timeout_seconds)
+      : timeout_seconds_(timeout_seconds), status_(), unlocked_(false) {}
+
+  ~Impl() {
+    std::unique_lock<std::mutex> lk(mx_);
+    if (!finished_cv_.wait_for(
+            lk, std::chrono::nanoseconds(static_cast<int64_t>(timeout_seconds_ * 1e9)),
+            [this] { return num_finished_ == num_launched_; })) {
+      ADD_FAILURE()
+          << "A GatingTask instance was destroyed but the underlying tasks did not "
+             "finish running"
+          << std::endl;
+    }
+  }
+
+  std::function<void()> Task() {
+    num_launched_++;
+    return [this] {
+      std::unique_lock<std::mutex> lk(mx_);
+      num_running_++;
+      lk.unlock();
+      running_cv_.notify_all();
+      lk.lock();
+      if (!unlocked_cv_.wait_for(
+              lk, std::chrono::nanoseconds(static_cast<int64_t>(timeout_seconds_ * 1e9)),
+              [this] { return unlocked_; })) {
+        status_ &=
+            Status::Invalid("Timed out (" + std::to_string(timeout_seconds_) + "," +
+                            std::to_string(unlocked_) +
+                            " seconds) waiting for the gating task to be unlocked");
+      }
+      num_finished_++;
+      lk.unlock();
+      finished_cv_.notify_all();
+    };
+  }
+
+  Status WaitForRunning(int count) {
+    std::unique_lock<std::mutex> lk(mx_);
+    if (running_cv_.wait_for(
+            lk, std::chrono::nanoseconds(static_cast<int64_t>(timeout_seconds_ * 1e9)),
+            [this, count] { return num_running_ >= count; })) {
+      return Status::OK();
+    }
+    return Status::Invalid("Timed out waiting for tasks to launch");
+  }
+
+  Status Unlock() {
+    {
+      std::lock_guard<std::mutex> lk(mx_);
+      unlocked_ = true;
+    }
+    unlocked_cv_.notify_all();
+    return status_;
+  }
+
+ private:
+  double timeout_seconds_;
+  Status status_;
+  bool unlocked_;
+  int num_launched_ = 0;
+  int num_running_ = 0;
+  int num_finished_ = 0;
+  std::mutex mx_;
+  std::condition_variable running_cv_;
+  std::condition_variable unlocked_cv_;
+  std::condition_variable finished_cv_;
+};
+
+GatingTask::GatingTask(double timeout_seconds) : impl_(new Impl(timeout_seconds)) {}
+
+std::function<void()> GatingTask::Task() { return impl_->Task(); }
+Status GatingTask::Unlock() { return impl_->Unlock(); }
+Status GatingTask::WaitForRunning(int count) { return impl_->WaitForRunning(count); }
+GatingTask::~GatingTask() {}
+std::shared_ptr<GatingTask> GatingTask::Make(double timeout_seconds) {
+  return std::make_shared<GatingTask>(timeout_seconds);
 }
 
 }  // namespace arrow

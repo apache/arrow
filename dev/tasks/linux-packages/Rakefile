@@ -202,7 +202,6 @@ class LocalBinaryTask < BinaryTask
     # because they require some setups on host.
     [
       "centos-7",
-      # "centos-7-aarch64",
       "centos-8",
       # "centos-8-aarch64",
     ]

@@ -33,7 +33,8 @@ namespace arrow {
 namespace csv {
 
 struct TestParams {
-  std::shared_ptr<RecordBatch> record_batch;
+  std::shared_ptr<Schema> schema;
+  std::string batch_data;
   WriteOptions options;
   std::string expected_output;
 };
@@ -51,19 +52,12 @@ std::vector<TestParams> GenerateTestCases() {
       {field("b\"", utf8())},
       {field("c ", int32())},
   });
-  auto empty_batch =
-      RecordBatch::Make(abc_schema, /*num_rows=*/0,
-                        {
-                            ArrayFromJSON(abc_schema->field(0)->type(), "[]"),
-                            ArrayFromJSON(abc_schema->field(1)->type(), "[]"),
-                            ArrayFromJSON(abc_schema->field(2)->type(), "[]"),
-                        });
-  auto populated_batch = RecordBatchFromJSON(abc_schema, R"([{"a": 1, "c ": -1},
-                                                         { "a": 1, "b\"": "abc\"efg", "c ": 2324},
-                                                         { "b\"": "abcd", "c ": 5467},
-                                                         { },
-                                                         { "a": 546, "b\"": "", "c ": 517 },
-                                                         { "a": 124, "b\"": "a\"\"b\"" }])");
+  auto populated_batch = R"([{"a": 1, "c ": -1},
+                             { "a": 1, "b\"": "abc\"efg", "c ": 2324},
+                             { "b\"": "abcd", "c ": 5467},
+                             { },
+                             { "a": 546, "b\"": "", "c ": 517 },
+                             { "a": 124, "b\"": "a\"\"b\"" }])";
   std::string expected_without_header = std::string("1,,-1") + "\n" +     // line 1
                                         +R"(1,"abc""efg",2324)" + "\n" +  // line 2
                                         R"(,"abcd",5467)" + "\n" +        // line 3
@@ -73,10 +67,11 @@ std::vector<TestParams> GenerateTestCases() {
   std::string expected_header = std::string(R"("a","b""","c ")") + "\n";
 
   return std::vector<TestParams>{
-      {empty_batch, DefaultTestOptions(/*header=*/false), ""},
-      {empty_batch, DefaultTestOptions(/*header=*/true), expected_header},
-      {populated_batch, DefaultTestOptions(/*header=*/false), expected_without_header},
-      {populated_batch, DefaultTestOptions(/*header=*/true),
+      {abc_schema, "[]", DefaultTestOptions(/*header=*/false), ""},
+      {abc_schema, "[]", DefaultTestOptions(/*header=*/true), expected_header},
+      {abc_schema, populated_batch, DefaultTestOptions(/*header=*/false),
+       expected_without_header},
+      {abc_schema, populated_batch, DefaultTestOptions(/*header=*/true),
        expected_header + expected_without_header}};
 }
 
@@ -98,17 +93,18 @@ TEST_P(TestWriteCSV, TestWrite) {
                        io::BufferOutputStream::Create());
   WriteOptions options = GetParam().options;
   std::string csv;
-  ASSERT_OK_AND_ASSIGN(csv, ToCsvString(*GetParam().record_batch, options));
+  auto record_batch = RecordBatchFromJSON(GetParam().schema, GetParam().batch_data);
+  ASSERT_OK_AND_ASSIGN(csv, ToCsvString(*record_batch, options));
   EXPECT_EQ(csv, GetParam().expected_output);
 
   // Batch size shouldn't matter.
   options.batch_size /= 2;
-  ASSERT_OK_AND_ASSIGN(csv, ToCsvString(*GetParam().record_batch, options));
+  ASSERT_OK_AND_ASSIGN(csv, ToCsvString(*record_batch, options));
   EXPECT_EQ(csv, GetParam().expected_output);
 
   // Table and Record batch should work identically.
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> table,
-                       Table::FromRecordBatches({GetParam().record_batch}));
+                       Table::FromRecordBatches({record_batch}));
   ASSERT_OK_AND_ASSIGN(csv, ToCsvString(*table, options));
   EXPECT_EQ(csv, GetParam().expected_output);
 }
@@ -116,14 +112,12 @@ TEST_P(TestWriteCSV, TestWrite) {
 INSTANTIATE_TEST_SUITE_P(MultiColumnWriteCSVTest, TestWriteCSV,
                          ::testing::ValuesIn(GenerateTestCases()));
 
-INSTANTIATE_TEST_SUITE_P(
-    SingleColumnWriteCSVTest, TestWriteCSV,
-    ::testing::Values(TestParams{
-        RecordBatchFromJSON(schema({field("int64", int64())}),
-                            R"([{ "int64": 9999}, {}, { "int64": -15}])"),
-        WriteOptions(),
-        R"("int64")"
-        "\n9999\n\n-15\n"}));
+INSTANTIATE_TEST_SUITE_P(SingleColumnWriteCSVTest, TestWriteCSV,
+                         ::testing::Values(TestParams{
+                             schema({field("int64", int64())}),
+                             R"([{ "int64": 9999}, {}, { "int64": -15}])", WriteOptions(),
+                             R"("int64")"
+                             "\n9999\n\n-15\n"}));
 
 }  // namespace csv
 }  // namespace arrow

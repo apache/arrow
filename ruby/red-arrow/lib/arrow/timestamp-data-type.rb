@@ -27,7 +27,7 @@ module Arrow
     #   @param unit [Arrow::TimeUnit, Symbol] The unit of the
     #     timestamp data type.
     #
-    #   @example Create a timestamp data type with {Arrow::TimeUnit}
+    #   @example Create a timestamp data type with Arrow::TimeUnit
     #     Arrow::TimestampDataType.new(Arrow::TimeUnit::MILLI)
     #
     #   @example Create a timestamp data type with Symbol
@@ -41,7 +41,7 @@ module Arrow
     #   @option description [Arrow::TimeUnit, Symbol] :unit The unit of
     #     the timestamp data type.
     #
-    #   @example Create a timestamp data type with {Arrow::TimeUnit}
+    #   @example Create a timestamp data type with Arrow::TimeUnit
     #     Arrow::TimestampDataType.new(unit: Arrow::TimeUnit::MILLI)
     #
     #   @example Create a timestamp data type with Symbol

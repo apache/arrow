@@ -106,6 +106,7 @@ impl TableProvider for CustomProvider {
         _: &Option<Vec<usize>>,
         _: usize,
         filters: &[Expr],
+        _: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         match &filters[0] {
             Expr::BinaryExpr { right, .. } => {

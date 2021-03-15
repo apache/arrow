@@ -204,6 +204,7 @@ mod tests {
             _projection: &Option<Vec<usize>>,
             _batch_size: usize,
             _filters: &[Expr],
+            _limit: Option<usize>,
         ) -> Result<std::sync::Arc<dyn crate::physical_plan::ExecutionPlan>> {
             unimplemented!()
         }
@@ -233,6 +234,7 @@ mod tests {
             source: Arc::new(TestTableProvider { num_rows: 1000 }),
             projected_schema: Arc::new(DFSchema::empty()),
             filters: vec![],
+            limit: None,
         };
 
         let lp_right = LogicalPlan::TableScan {
@@ -241,6 +243,7 @@ mod tests {
             source: Arc::new(TestTableProvider { num_rows: 100 }),
             projected_schema: Arc::new(DFSchema::empty()),
             filters: vec![],
+            limit: None,
         };
 
         assert!(should_swap_join_order(&lp_left, &lp_right));
