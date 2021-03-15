@@ -405,7 +405,8 @@ impl LogicalPlan {
                         return Ok(false);
                     }
                 }
-                true            }
+                true
+            }
             LogicalPlan::Limit { input, .. } => input.accept(visitor)?,
             LogicalPlan::Extension { node } => {
                 for input in node.inputs() {
