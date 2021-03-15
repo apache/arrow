@@ -385,27 +385,21 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
         DataType::Float64 => Type::primitive_type_builder(name, PhysicalType::DOUBLE)
             .with_repetition(repetition)
             .build(),
-        DataType::Timestamp(time_unit, _) => {
-            Type::primitive_type_builder(name, PhysicalType::INT64)
-                .with_logical_type(Some(LogicalType::TIMESTAMP(TimestampType {
-                    // Logic to adjust timestamps not yet implemented
-                    is_adjusted_to_u_t_c: false,
-                    unit: match time_unit {
-                        TimeUnit::Second => ParquetTimeUnit::MILLIS(Default::default()),
-                        TimeUnit::Millisecond => {
-                            ParquetTimeUnit::MILLIS(Default::default())
-                        }
-                        TimeUnit::Microsecond => {
-                            ParquetTimeUnit::MICROS(Default::default())
-                        }
-                        TimeUnit::Nanosecond => {
-                            ParquetTimeUnit::NANOS(Default::default())
-                        }
-                    },
-                })))
-                .with_repetition(repetition)
-                .build()
-        }
+        DataType::Timestamp(time_unit, zone) => Type::primitive_type_builder(
+            name,
+            PhysicalType::INT64,
+        )
+        .with_logical_type(Some(LogicalType::TIMESTAMP(TimestampType {
+            is_adjusted_to_u_t_c: matches!(zone, Some(z) if !z.as_str().is_empty()),
+            unit: match time_unit {
+                TimeUnit::Second => ParquetTimeUnit::MILLIS(Default::default()),
+                TimeUnit::Millisecond => ParquetTimeUnit::MILLIS(Default::default()),
+                TimeUnit::Microsecond => ParquetTimeUnit::MICROS(Default::default()),
+                TimeUnit::Nanosecond => ParquetTimeUnit::NANOS(Default::default()),
+            },
+        })))
+        .with_repetition(repetition)
+        .build(),
         DataType::Date32 => Type::primitive_type_builder(name, PhysicalType::INT32)
             .with_logical_type(Some(LogicalType::DATE(Default::default())))
             .with_repetition(repetition)
