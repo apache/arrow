@@ -39,7 +39,7 @@ the convenience of an SQL interface or a DataFrame API.
 
 ## Why DataFusion?
 
-* *High Performance*: Leveraging Rust and Arrow's memory model, DataFusion achieves superior performance
+* *High Performance*: Leveraging Rust and Arrow's memory model, DataFusion achieves very high performance
 * *Easy to Connect*: Being part of the Apache Arrow ecosystem (Arrow, Parquet and Flight), DataFusion works well with the rest of the big data ecosystem
 * *Easy to Embed*: Allowing extension at almost any point in its design, DataFusion can be tailored for your specific usecase
 * *High Quality*:  Extensively tested, both by itself and with the rest of the Arrow ecosystem, DataFusion can be used as the foundation for production systems.
@@ -51,6 +51,7 @@ Here are some of the projects known to use DataFusion:
 * [Ballista](https://github.com/ballista-compute/ballista) Distributed Compute Platform
 * [Cloudfuse Buzz](https://github.com/cloudfuse-io/buzz-rust)
 * [Cube.js](https://github.com/cube-js/cube.js)
+* [datafusion-python](https://pypi.org/project/datafusion)
 * [delta-rs](https://github.com/delta-io/delta-rs)
 * [InfluxDB IOx](https://github.com/influxdata/influxdb_iox) Time Series Database
 * [ROAPI](https://github.com/roapi/roapi)
@@ -215,6 +216,15 @@ are mapped to Arrow types according to the following table
 | `CUSTOM`        | *Not yet supported*              |
 | `ARRAY`         | *Not yet supported*              |
 
+
+# Architecture Overview
+
+There is no formal document describing DataFusion's architecture yet, but the following presentations offer a good overview of its different components and how they interact together.
+
+* (March 2021): The DataFusion architecture is described in *Query Engine Design and the Rust-Based DataFusion in Apache Arrow*: [recording](https://www.youtube.com/watch?v=K6eCAVEk4kU) (DataFusion content starts ~ 15 minutes in) and [slides](https://www.slideshare.net/influxdata/influxdb-iox-tech-talks-query-engine-design-and-the-rustbased-datafusion-in-apache-arrow-244161934)
+* (Feburary 2021): How DataFusion is used within the Ballista Project is described in *Ballista: Distributed Compute with Rust and Apache Arrow: [recording](https://www.youtube.com/watch?v=ZZHQaOap9pQ)
+
+
 # Developer's guide
 
-Please see [Developers Guide](DEVELOPERS.md)
+Please see [Developers Guide](DEVELOPERS.md) for information about developing DataFusion.

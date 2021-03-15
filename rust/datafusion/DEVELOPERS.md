@@ -30,12 +30,6 @@ DataFusion is written in Rust and it uses a standard rust toolkit:
 * `cargo test` to test
 * etc.
 
-### Architecture Overview
-
-* (March 2021): The DataFusion architecture is described in *Query Engine Design and the Rust-Based DataFusion in Apache Arrow*: [recording](https://www.youtube.com/watch?v=K6eCAVEk4kU) (DataFusion content starts ~ 15 minutes in) and [slides](https://www.slideshare.net/influxdata/influxdb-iox-tech-talks-query-engine-design-and-the-rustbased-datafusion-in-apache-arrow-244161934)
-* (Feburary 2021): How DataFusion is used within the Ballista Project is described in *Ballista: Distributed Compute with Rust and Apache Arrow: [recording](https://www.youtube.com/watch?v=ZZHQaOap9pQ)
-
-
 ## How to add a new scalar function
 
 Below is a checklist of what you need to do to add a new scalar function to DataFusion:
