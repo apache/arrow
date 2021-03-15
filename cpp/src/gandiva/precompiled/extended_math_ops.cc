@@ -103,6 +103,123 @@ LOG_WITH_BASE(uint64, uint64, float64)
 LOG_WITH_BASE(float32, float32, float64)
 LOG_WITH_BASE(float64, float64, float64)
 
+// Sin
+#define SIN(IN_TYPE)                                           \
+  FORCE_INLINE                                                            \
+  gdv_float64 sin_##IN_TYPE(gdv_##IN_TYPE in) {                       \
+    return static_cast<gdv_float64>(sin(static_cast<long double>(in))); \
+  }
+SIN(float32)
+SIN(float64)
+
+// Asin
+#define ASIN(IN_TYPE)                                           \
+  FORCE_INLINE                                                            \
+  gdv_float64 asin_##IN_TYPE(gdv_##IN_TYPE in) {                       \
+    return static_cast<gdv_float64>(asin(static_cast<long double>(in))); \
+  }
+ASIN(float32)
+ASIN(float64)
+
+// Cos
+#define COS(IN_TYPE)                                           \
+  FORCE_INLINE                                                            \
+  gdv_float64 cos_##IN_TYPE(gdv_##IN_TYPE in) {                       \
+    return static_cast<gdv_float64>(cos(static_cast<long double>(in))); \
+  }
+COS(float32)
+COS(float64)
+
+// Acos
+#define ACOS(IN_TYPE)                                           \
+  FORCE_INLINE                                                            \
+  gdv_float64 acos_##IN_TYPE(gdv_##IN_TYPE in) {                       \
+    return static_cast<gdv_float64>(acos(static_cast<long double>(in))); \
+  }
+ACOS(float32)
+ACOS(float64)
+
+// Tan
+#define TAN(IN_TYPE)                                           \
+  FORCE_INLINE                                                            \
+  gdv_float64 tan_##IN_TYPE(gdv_##IN_TYPE in) {                       \
+    return static_cast<gdv_float64>(tan(static_cast<long double>(in))); \
+  }
+TAN(float32)
+TAN(float64)
+
+// Atan
+#define ATAN(IN_TYPE)                                           \
+  FORCE_INLINE                                                            \
+  gdv_float64 atan_##IN_TYPE(gdv_##IN_TYPE in) {                       \
+    return static_cast<gdv_float64>(atan(static_cast<long double>(in))); \
+  }
+ATAN(float32)
+ATAN(float64)
+
+// Sinh
+#define SINH(IN_TYPE)                                           \
+  FORCE_INLINE                                                            \
+  gdv_float64 sinh_##IN_TYPE(gdv_##IN_TYPE in) {                       \
+    return static_cast<gdv_float64>(sinh(static_cast<long double>(in))); \
+  }
+SINH(float32)
+SINH(float64)
+
+// Sinh
+#define COSH(IN_TYPE)                                           \
+  FORCE_INLINE                                                            \
+  gdv_float64 cosh_##IN_TYPE(gdv_##IN_TYPE in) {                       \
+    return static_cast<gdv_float64>(cosh(static_cast<long double>(in))); \
+  }
+COSH(float32)
+COSH(float64)
+
+// Tanh
+#define TANH(IN_TYPE)                                           \
+  FORCE_INLINE                                                            \
+  gdv_float64 tanh_##IN_TYPE(gdv_##IN_TYPE in) {                       \
+    return static_cast<gdv_float64>(tanh(static_cast<long double>(in))); \
+  }
+TANH(float32)
+TANH(float64)
+
+// Atan2
+#define ATAN2(IN_TYPE)                                           \
+  FORCE_INLINE                                                            \
+  gdv_float64 atan2_##IN_TYPE(gdv_##IN_TYPE in1, gdv_##IN_TYPE in2) {                       \
+    return static_cast<gdv_float64>(atan2(static_cast<long double>(in1), static_cast<long double>(in2))); \
+  }
+ATAN2(float32)
+ATAN2(float64)
+
+// Cot
+#define COT(IN_TYPE)                                           \
+  FORCE_INLINE                                                            \
+  gdv_float64 cot_##IN_TYPE(gdv_##IN_TYPE in) {                       \
+    return static_cast<gdv_float64>(tan(M_PI_2l - static_cast<long double>(in))); \
+  }
+COT(float32)
+COT(float64)
+
+// Radians
+#define RADIANS(IN_TYPE)                                           \
+  FORCE_INLINE                                                            \
+  gdv_float64 radians_##IN_TYPE(gdv_##IN_TYPE in) {                       \
+    return static_cast<gdv_float64>(static_cast<long double>(in) * M_PI / 180.0); \
+  }
+RADIANS(float32)
+RADIANS(float64)
+
+// Degrees
+#define DEGREES(IN_TYPE)                                           \
+  FORCE_INLINE                                                            \
+  gdv_float64 degrees_##IN_TYPE(gdv_##IN_TYPE in) {                       \
+    return static_cast<gdv_float64>(static_cast<long double>(in) *  180.0 / M_PI); \
+  }
+DEGREES(float32)
+DEGREES(float64)
+
 // power
 #define POWER(IN_TYPE1, IN_TYPE2, OUT_TYPE)                                              \
   FORCE_INLINE                                                                           \
