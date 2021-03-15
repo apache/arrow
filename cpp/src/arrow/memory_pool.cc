@@ -24,7 +24,7 @@
 #include <limits>
 #include <memory>
 
-if defined(sun) || defined(__sun)
+#if defined(sun) || defined(__sun)
 #include <stdlib.h>
 #endif
 
