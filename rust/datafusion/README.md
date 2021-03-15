@@ -141,7 +141,7 @@ DataFusion also includes a simple command-line interactive SQL utility. See the 
 - [x] Joins
  - [x] INNER JOIN
  - [ ] CROSS JOIN
- - [] OUTER JOIN
+ - [ ] OUTER JOIN
 - [ ] Window
 
 ## Data Sources
@@ -165,7 +165,7 @@ DataFusion is designed to be extensible at all points. To that end, you can prov
 
 # Supported SQL
 
-This library currently supports the following SQL constructs:
+This library currently supports many SQL constructs, including
 
 * `CREATE EXTERNAL TABLE X STORED AS PARQUET LOCATION '...';` to register a table's locations
 * `SELECT ... FROM ...` together with any expression
