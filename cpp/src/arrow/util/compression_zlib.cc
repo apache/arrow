@@ -246,7 +246,9 @@ class GZipCompressor : public Compressor {
     //  again with the same value of the flush parameter and more output space
     //  (updated avail_out), until the flush is complete (deflate returns
     //  with non-zero avail_out)."
-    return FlushResult{bytes_written, (bytes_written == 0)};
+    // "Note that Z_BUF_ERROR is not fatal, and deflate() can be called again
+    //  with more input and more output space to continue compressing."
+    return FlushResult{bytes_written, stream_.avail_out == 0};
   }
 
   Result<EndResult> End(int64_t output_len, uint8_t* output) override {

@@ -170,3 +170,7 @@ pub mod variable;
 
 #[cfg(test)]
 pub mod test;
+
+#[macro_use]
+#[cfg(feature = "regex_expressions")]
+extern crate lazy_static;

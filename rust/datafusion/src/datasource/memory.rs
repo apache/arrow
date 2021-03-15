@@ -115,7 +115,7 @@ impl MemTable {
         output_partitions: Option<usize>,
     ) -> Result<Self> {
         let schema = t.schema();
-        let exec = t.scan(&None, batch_size, &[])?;
+        let exec = t.scan(&None, batch_size, &[], None)?;
         let partition_count = exec.output_partitioning().partition_count();
 
         let tasks = (0..partition_count)
@@ -177,6 +177,7 @@ impl TableProvider for MemTable {
         projection: &Option<Vec<usize>>,
         _batch_size: usize,
         _filters: &[Expr],
+        _limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         let columns: Vec<usize> = match projection {
             Some(p) => p.clone(),
@@ -278,7 +279,7 @@ mod tests {
         );
 
         // scan with projection
-        let exec = provider.scan(&Some(vec![2, 1]), 1024, &[])?;
+        let exec = provider.scan(&Some(vec![2, 1]), 1024, &[], None)?;
         let mut it = exec.execute(0).await?;
         let batch2 = it.next().await.unwrap()?;
         assert_eq!(2, batch2.schema().fields().len());
@@ -308,7 +309,7 @@ mod tests {
 
         let provider = MemTable::try_new(schema, vec![vec![batch]])?;
 
-        let exec = provider.scan(&None, 1024, &[])?;
+        let exec = provider.scan(&None, 1024, &[], None)?;
         let mut it = exec.execute(0).await?;
         let batch1 = it.next().await.unwrap()?;
         assert_eq!(3, batch1.schema().fields().len());
@@ -338,7 +339,7 @@ mod tests {
 
         let projection: Vec<usize> = vec![0, 4];
 
-        match provider.scan(&Some(projection), 1024, &[]) {
+        match provider.scan(&Some(projection), 1024, &[], None) {
             Err(DataFusionError::Internal(e)) => {
                 assert_eq!("\"Projection index out of range\"", format!("{:?}", e))
             }
@@ -459,7 +460,7 @@ mod tests {
         let provider =
             MemTable::try_new(Arc::new(merged_schema), vec![vec![batch1, batch2]])?;
 
-        let exec = provider.scan(&None, 1024, &[])?;
+        let exec = provider.scan(&None, 1024, &[], None)?;
         let mut it = exec.execute(0).await?;
         let batch1 = it.next().await.unwrap()?;
         assert_eq!(3, batch1.schema().fields().len());

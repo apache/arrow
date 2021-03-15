@@ -40,10 +40,12 @@ name = "datafusion-cli"
 path = "src/bin/main.rs"
 
 [features]
-default = ["cli", "crypto_expressions"]
+default = ["cli", "crypto_expressions", "regex_expressions", "unicode_expressions"]
 cli = ["rustyline"]
 simd = ["arrow/simd"]
 crypto_expressions = ["md-5", "sha2"]
+regex_expressions = ["regex", "lazy_static"]
+unicode_expressions = ["unicode-segmentation"]
 
 [dependencies]
 ahash = "0.7"
@@ -65,7 +67,9 @@ log = "^0.4"
 md-5 = { version = "^0.9.1", optional = true }
 sha2 = { version = "^0.9.1", optional = true }
 ordered-float = "2.0"
-unicode-segmentation = "^1.7.1"
+unicode-segmentation = { version = "^1.7.1", optional = true }
+regex = { version = "^1.4.3", optional = true }
+lazy_static = { version = "^1.4.0", optional = true }
 
 [dev-dependencies]
 rand = "0.8"

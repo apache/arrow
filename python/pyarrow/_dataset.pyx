@@ -1528,8 +1528,9 @@ cdef class DirectoryPartitioning(Partitioning):
         self.directory_partitioning = <CDirectoryPartitioning*> sp.get()
 
     @staticmethod
-    def discover(field_names, infer_dictionary=False,
-                 max_partition_dictionary_size=0):
+    def discover(field_names=None, infer_dictionary=False,
+                 max_partition_dictionary_size=0,
+                 schema=None):
         """
         Discover a DirectoryPartitioning.
 
@@ -1537,6 +1538,7 @@ cdef class DirectoryPartitioning(Partitioning):
         ----------
         field_names : list of str
             The names to associate with the values from the subdirectory names.
+            If schema is given, will be populated from the schema.
         infer_dictionary : bool, default False
             When inferring a schema for partition fields, yield dictionary
             encoded types instead of plain types. This can be more efficient
@@ -1547,6 +1549,10 @@ cdef class DirectoryPartitioning(Partitioning):
             Synonymous with infer_dictionary for backwards compatibility with
             1.0: setting this to -1 or None is equivalent to passing
             infer_dictionary=True.
+        schema : Schema, default None
+            Use this schema instead of inferring a schema from partition
+            values. Partition values will be validated against this schema
+            before accumulation into the Partitioning's dictionary.
 
         Returns
         -------
@@ -1566,7 +1572,15 @@ cdef class DirectoryPartitioning(Partitioning):
         if infer_dictionary:
             c_options.infer_dictionary = True
 
-        c_field_names = [tobytes(s) for s in field_names]
+        if schema:
+            c_options.schema = pyarrow_unwrap_schema(schema)
+            c_field_names = [tobytes(f.name) for f in schema]
+        elif not field_names:
+            raise ValueError(
+                "Neither field_names nor schema was passed; "
+                "cannot infer field_names")
+        else:
+            c_field_names = [tobytes(s) for s in field_names]
         return PartitioningFactory.wrap(
             CDirectoryPartitioning.MakeFactory(c_field_names, c_options))
 
@@ -1637,7 +1651,8 @@ cdef class HivePartitioning(Partitioning):
     @staticmethod
     def discover(infer_dictionary=False,
                  max_partition_dictionary_size=0,
-                 null_fallback="__HIVE_DEFAULT_PARTITION__"):
+                 null_fallback="__HIVE_DEFAULT_PARTITION__",
+                 schema=None):
         """
         Discover a HivePartitioning.
 
@@ -1657,6 +1672,10 @@ cdef class HivePartitioning(Partitioning):
             When inferring a schema for partition fields this value will be
             replaced by null.  The default is set to __HIVE_DEFAULT_PARTITION__
             for compatibility with Spark
+        schema : Schema, default None
+            Use this schema instead of inferring a schema from partition
+            values. Partition values will be validated against this schema
+            before accumulation into the Partitioning's dictionary.
 
         Returns
         -------
@@ -1676,6 +1695,9 @@ cdef class HivePartitioning(Partitioning):
             c_options.infer_dictionary = True
 
         c_options.null_fallback = tobytes(null_fallback)
+
+        if schema:
+            c_options.schema = pyarrow_unwrap_schema(schema)
 
         return PartitioningFactory.wrap(
             CHivePartitioning.MakeFactory(c_options))

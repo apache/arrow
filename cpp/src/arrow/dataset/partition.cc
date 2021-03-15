@@ -145,8 +145,8 @@ Result<Expression> KeyValuePartitioning::ConvertKey(const Key& key) const {
     DictionaryScalar::ValueType value;
     value.dictionary = dictionaries_[field_index];
 
-    if (!value.dictionary->type()->Equals(
-            checked_cast<const DictionaryType&>(*field->type()).value_type())) {
+    const auto& dictionary_type = checked_cast<const DictionaryType&>(*field->type());
+    if (!value.dictionary->type()->Equals(dictionary_type.value_type())) {
       return Status::TypeError("Dictionary supplied for field ", field->ToString(),
                                " had incorrect type ",
                                value.dictionary->type()->ToString());
@@ -155,6 +155,8 @@ Result<Expression> KeyValuePartitioning::ConvertKey(const Key& key) const {
     // look up the partition value in the dictionary
     ARROW_ASSIGN_OR_RAISE(converted, Scalar::Parse(value.dictionary->type(), *key.value));
     ARROW_ASSIGN_OR_RAISE(auto index, compute::IndexIn(converted, value.dictionary));
+    auto to_index_type = compute::CastOptions::Safe(dictionary_type.index_type());
+    ARROW_ASSIGN_OR_RAISE(index, compute::Cast(index, to_index_type));
     value.index = index.scalar();
     if (!value.index->is_valid) {
       return Status::Invalid("Dictionary supplied for field ", field->ToString(),
@@ -300,10 +302,18 @@ class KeyValuePartitioningFactory : public PartitioningFactory {
     return repr_memos_[index]->GetOrInsert<StringType>(repr, &dummy);
   }
 
-  Result<std::shared_ptr<Schema>> DoInpsect() {
+  Result<std::shared_ptr<Schema>> DoInspect() {
     dictionaries_.assign(name_to_index_.size(), nullptr);
 
     std::vector<std::shared_ptr<Field>> fields(name_to_index_.size());
+    if (options_.schema) {
+      const auto requested_size = options_.schema->fields().size();
+      const auto inferred_size = fields.size();
+      if (inferred_size != requested_size) {
+        return Status::Invalid("Requested schema has ", requested_size,
+                               " fields, but only ", inferred_size, " were detected");
+      }
+    }
 
     for (const auto& name_index : name_to_index_) {
       const auto& name = name_index.first;
@@ -317,15 +327,34 @@ class KeyValuePartitioningFactory : public PartitioningFactory {
                                "'; couldn't infer type");
       }
 
-      // try casting to int32, otherwise bail and just use the string reprs
-      auto dict = compute::Cast(reprs, int32()).ValueOr(reprs).make_array();
-      auto type = dict->type();
-      if (options_.infer_dictionary) {
-        // wrap the inferred type in dictionary()
-        type = dictionary(int32(), std::move(type));
+      std::shared_ptr<Field> current_field;
+      std::shared_ptr<Array> dict;
+      if (options_.schema) {
+        // if we have a schema, use the schema type.
+        current_field = options_.schema->field(index);
+        auto cast_target = current_field->type();
+        if (is_dictionary(cast_target->id())) {
+          cast_target = checked_pointer_cast<DictionaryType>(cast_target)->value_type();
+        }
+        auto maybe_dict = compute::Cast(reprs, cast_target);
+        if (!maybe_dict.ok()) {
+          return Status::Invalid("Could not cast segments for partition field ",
+                                 current_field->name(), " to requested type ",
+                                 current_field->type()->ToString(),
+                                 " because: ", maybe_dict.status());
+        }
+        dict = maybe_dict.ValueOrDie().make_array();
+      } else {
+        // try casting to int32, otherwise bail and just use the string reprs
+        dict = compute::Cast(reprs, int32()).ValueOr(reprs).make_array();
+        auto type = dict->type();
+        if (options_.infer_dictionary) {
+          // wrap the inferred type in dictionary()
+          type = dictionary(int32(), std::move(type));
+        }
+        current_field = field(name, std::move(type));
       }
-
-      fields[index] = field(name, std::move(type));
+      fields[index] = std::move(current_field);
       dictionaries_[index] = std::move(dict);
     }
 
@@ -379,7 +408,7 @@ class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
       }
     }
 
-    return DoInpsect();
+    return DoInspect();
   }
 
   Result<std::shared_ptr<Partitioning>> Finish(
@@ -480,7 +509,7 @@ class HivePartitioningFactory : public KeyValuePartitioningFactory {
     }
 
     field_names_ = FieldNames();
-    return DoInpsect();
+    return DoInspect();
   }
 
   Result<std::shared_ptr<Partitioning>> Finish(

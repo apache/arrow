@@ -48,3 +48,9 @@ test_that("Creating Scalars of a different type and casting them", {
   expect_type_equal(Scalar$create(4L, int8())$type, int8())
   expect_type_equal(Scalar$create(4L)$cast(float32())$type, float32())
 })
+
+test_that("Scalar to Array", {
+  a <- Scalar$create(42)
+  expect_equal(a$as_array(), Array$create(42))
+  expect_equal(Array$create(a), Array$create(42))
+})

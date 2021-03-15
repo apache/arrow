@@ -43,12 +43,48 @@ test_that("basic mutate", {
   )
 })
 
+test_that("mutate() with NULL inputs", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(int = NULL) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("empty mutate()", {
+  expect_dplyr_equal(
+    input %>%
+      mutate() %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("transmute", {
   expect_dplyr_equal(
     input %>%
       select(int, chr) %>%
       filter(int > 5) %>%
       transmute(int = int + 6L) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("transmute() with NULL inputs", {
+  expect_dplyr_equal(
+    input %>%
+      transmute(int = NULL) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("empty transmute()", {
+  expect_dplyr_equal(
+    input %>%
+      transmute() %>%
       collect(),
     tbl
   )

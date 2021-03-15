@@ -15,4 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-arm64v8/centos:7
+ARG arch
+ARG python
+FROM ${arch}/python:${python}
+
+# RUN pip install --upgrade pip
+
+# pandas doesn't provide wheel for aarch64 yet, so cache the compiled
+# test dependencies in a docker image
+COPY python/requirements-wheel-test.txt /arrow/python/
+RUN pip install -r /arrow/python/requirements-wheel-test.txt

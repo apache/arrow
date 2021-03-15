@@ -132,6 +132,8 @@ pub enum LogicalPlan {
         projected_schema: DFSchemaRef,
         /// Optional expressions to be used as filters by the table provider
         filters: Vec<Expr>,
+        /// Optional limit to skip reading
+        limit: Option<usize>,
     },
     /// Produces no rows: An empty relation with an empty schema
     EmptyRelation {
@@ -584,6 +586,7 @@ impl LogicalPlan {
                         ref table_name,
                         ref projection,
                         ref filters,
+                        ref limit,
                         ..
                     } => {
                         let sep = " ".repeat(min(1, table_name.len()));
@@ -595,6 +598,10 @@ impl LogicalPlan {
 
                         if !filters.is_empty() {
                             write!(f, ", filters={:?}", filters)?;
+                        }
+
+                        if let Some(n) = limit {
+                            write!(f, ", limit={}", n)?;
                         }
 
                         Ok(())

@@ -66,8 +66,10 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_WITH_ZLIB:=ON}
 : ${ARROW_WITH_ZSTD:=ON}
 : ${CMAKE_BUILD_TYPE:=release}
+: ${CMAKE_UNITY_BUILD:=ON}
 : ${CMAKE_GENERATOR:=Ninja}
 : ${VCPKG_FEATURE_FLAGS:=-manifests}
+: ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-linux-static-${CMAKE_BUILD_TYPE}}}
 
 mkdir /tmp/arrow-build
 pushd /tmp/arrow-build
@@ -103,10 +105,10 @@ cmake \
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_INSTALL_PREFIX=/tmp/arrow-dist \
-    -DCMAKE_UNITY_BUILD=ON \
+    -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
     -DOPENSSL_USE_STATIC_LIBS=ON \
     -DVCPKG_MANIFEST_MODE=OFF \
-    -DVCPKG_TARGET_TRIPLET=x64-linux-static-${CMAKE_BUILD_TYPE} \
+    -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
     -G ${CMAKE_GENERATOR} \
     /arrow/cpp
 cmake --build . --target install
@@ -135,8 +137,5 @@ pushd /arrow/python
 python setup.py bdist_wheel
 
 echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux${MANYLINUX_VERSION} ==="
-auditwheel repair \
-    --plat "manylinux${MANYLINUX_VERSION}_x86_64" \
-    -L . dist/pyarrow-*.whl \
-    -w repaired_wheels
+auditwheel repair -L . dist/pyarrow-*.whl -w repaired_wheels
 popd
