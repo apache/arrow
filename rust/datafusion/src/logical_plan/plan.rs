@@ -400,12 +400,12 @@ impl LogicalPlan {
                 left.accept(visitor)? && right.accept(visitor)?
             }
             LogicalPlan::Union { inputs, .. } => {
-                let mut accept = true;
-                for i in inputs {
-                    accept &= i.accept(visitor)?;
+                for input in inputs {
+                    if !input.accept(visitor)? {
+                        return Ok(false);
+                    }
                 }
-                accept
-            }
+                true            }
             LogicalPlan::Limit { input, .. } => input.accept(visitor)?,
             LogicalPlan::Extension { node } => {
                 for input in node.inputs() {
