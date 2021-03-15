@@ -249,6 +249,10 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
                                  double null_probability = 0,
                                  bool force_empty_nulls = false);
 
+  std::shared_ptr<Array> LargeOffsets(int64_t size, int64_t first_offset,
+                                      int64_t last_offset, double null_probability = 0,
+                                      bool force_empty_nulls = false);
+
   /// \brief Generate a random StringArray
   ///
   /// \param[in] size the size of the array to generate
@@ -357,6 +361,10 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::uniform_int_distribution<SeedType> seed_distribution_;
   std::default_random_engine seed_rng_;
 };
+
+ARROW_TESTING_EXPORT
+std::shared_ptr<arrow::RecordBatch> Generate(const FieldVector& fields, int64_t size,
+                                             SeedType seed);
 
 }  // namespace random
 
