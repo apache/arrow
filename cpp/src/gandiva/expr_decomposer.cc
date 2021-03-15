@@ -22,6 +22,7 @@
 #include <string>
 #include <unordered_set>
 #include <vector>
+#include <cmath>
 
 #include "gandiva/annotator.h"
 #include "gandiva/dex.h"
@@ -209,6 +210,8 @@ Status ExprDecomposer::Visit(const InExpressionNode<gandiva::DecimalScalar128>& 
 
 MAKE_VISIT_IN(int32_t);
 MAKE_VISIT_IN(int64_t);
+MAKE_VISIT_IN(float_t);
+MAKE_VISIT_IN(double_t);
 MAKE_VISIT_IN(std::string);
 
 Status ExprDecomposer::Visit(const LiteralNode& node) {

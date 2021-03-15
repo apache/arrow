@@ -21,6 +21,7 @@
 #include <string>
 #include <unordered_set>
 #include <vector>
+#include <cmath>
 
 #include "arrow/type.h"
 #include "gandiva/condition.h"
@@ -106,6 +107,14 @@ class GANDIVA_EXPORT TreeExprBuilder {
   static NodePtr MakeInExpressionBinary(NodePtr node,
                                         const std::unordered_set<std::string>& constants);
 
+  /// \brief creates an in expression for float
+  static NodePtr MakeInExpressionFloat(NodePtr node,
+                                       const std::unordered_set<float_t>& constants);
+
+  /// \brief creates an in expression for double
+  static NodePtr MakeInExpressionDouble(NodePtr node,
+                                       const std::unordered_set<double_t>& constants);
+
   /// \brief Date as s/millis since epoch.
   static NodePtr MakeInExpressionDate32(NodePtr node,
                                         const std::unordered_set<int32_t>& constants);
@@ -125,6 +134,7 @@ class GANDIVA_EXPORT TreeExprBuilder {
   /// \brief Timestamp as millis since epoch.
   static NodePtr MakeInExpressionTimeStamp(NodePtr node,
                                            const std::unordered_set<int64_t>& constants);
+
 };
 
 }  // namespace gandiva
