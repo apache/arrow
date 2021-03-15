@@ -38,8 +38,6 @@ class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
  public:
   /// Options affecting the parsing of CSV files
   csv::ParseOptions parse_options = csv::ParseOptions::Defaults();
-  /// The kind of compression used on the CSV file.
-  Compression::type compression = Compression::UNCOMPRESSED;
 
   std::string type_name() const override { return kCsvTypeName; }
 

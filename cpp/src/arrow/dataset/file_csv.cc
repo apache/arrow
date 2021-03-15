@@ -114,25 +114,12 @@ static inline Result<std::shared_ptr<csv::StreamingReader>> OpenReader(
     MemoryPool* pool = default_memory_pool()) {
   auto reader_options = GetReadOptions(format);
 
-  std::shared_ptr<io::InputStream> input;
-  // If applicable, the buffer that backs first_block
-  std::shared_ptr<Buffer> first_block_buf;
   util::string_view first_block;
-  ARROW_ASSIGN_OR_RAISE(auto file, source.Open());
-  if (format.compression == Compression::UNCOMPRESSED) {
-    input = file;
-    ARROW_ASSIGN_OR_RAISE(first_block_buf, file->ReadAt(0, reader_options.block_size));
-    RETURN_NOT_OK(file->Seek(0));
-    first_block = util::string_view{*first_block_buf};
-  } else {
-    ARROW_ASSIGN_OR_RAISE(auto codec, util::Codec::Create(format.compression));
-    ARROW_ASSIGN_OR_RAISE(input,
-                          io::CompressedInputStream::Make(codec.get(), std::move(file)));
-    ARROW_ASSIGN_OR_RAISE(
-        input, io::BufferedInputStream::Create(reader_options.block_size,
-                                               default_memory_pool(), std::move(input)));
-    ARROW_ASSIGN_OR_RAISE(first_block, input->Peek(reader_options.block_size));
-  }
+  ARROW_ASSIGN_OR_RAISE(auto input, source.OpenCompressed());
+  ARROW_ASSIGN_OR_RAISE(
+      input, io::BufferedInputStream::Create(reader_options.block_size,
+                                             default_memory_pool(), std::move(input)));
+  ARROW_ASSIGN_OR_RAISE(first_block, input->Peek(reader_options.block_size));
 
   const auto& parse_options = format.parse_options;
   auto convert_options = csv::ConvertOptions::Defaults();

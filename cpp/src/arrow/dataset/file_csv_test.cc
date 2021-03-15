@@ -25,6 +25,7 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util.h"
+#include "arrow/filesystem/mockfs.h"
 #include "arrow/io/compressed.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/writer.h"
@@ -43,14 +44,33 @@ class TestCsvFileFormat : public testing::TestWithParam<Compression::type> {
     if (GetCompression() == Compression::UNCOMPRESSED) {
       return internal::make_unique<FileSource>(Buffer::FromString(std::move(csv)));
     }
+    std::string path = "test.csv";
+    switch (GetCompression()) {
+      case Compression::type::GZIP:
+        path += ".gz";
+        break;
+      case Compression::type::ZSTD:
+        path += ".zstd";
+        break;
+      case Compression::type::LZ4_FRAME:
+        path += ".lz4";
+        break;
+      case Compression::type::BZ2:
+        path += ".bz2";
+        break;
+      default:
+        // No known extension
+        break;
+    }
+    EXPECT_OK_AND_ASSIGN(auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {}));
     EXPECT_OK_AND_ASSIGN(auto codec, util::Codec::Create(GetCompression()));
-    EXPECT_OK_AND_ASSIGN(auto buffer_writer, io::BufferOutputStream::Create());
+    EXPECT_OK_AND_ASSIGN(auto buffer_writer, fs->OpenOutputStream(path));
     EXPECT_OK_AND_ASSIGN(auto stream,
                          io::CompressedOutputStream::Make(codec.get(), buffer_writer));
     ARROW_EXPECT_OK(stream->Write(csv));
     ARROW_EXPECT_OK(stream->Close());
-    EXPECT_OK_AND_ASSIGN(auto compressed, buffer_writer->Finish());
-    return internal::make_unique<FileSource>(compressed);
+    EXPECT_OK_AND_ASSIGN(auto info, fs->GetFileInfo(path));
+    return internal::make_unique<FileSource>(info, fs, GetCompression());
   }
 
   RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {
@@ -69,12 +89,7 @@ class TestCsvFileFormat : public testing::TestWithParam<Compression::type> {
     ASSERT_OK(SetProjection(opts_.get(), opts_->dataset_schema->field_names()));
   }
 
-  std::shared_ptr<CsvFileFormat> Format() {
-    auto result = std::make_shared<CsvFileFormat>();
-    result->compression = GetCompression();
-    return result;
-  }
-
+  std::shared_ptr<CsvFileFormat> format_ = std::make_shared<CsvFileFormat>();
   std::shared_ptr<ScanOptions> opts_ = std::make_shared<ScanOptions>();
 };
 
@@ -85,7 +100,7 @@ TEST_P(TestCsvFileFormat, ScanRecordBatchReader) {
 N/A
 2)");
   SetSchema({field("f64", float64())});
-  ASSERT_OK_AND_ASSIGN(auto fragment, Format()->MakeFragment(*source));
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
   int64_t row_count = 0;
 
@@ -127,7 +142,7 @@ N/A
 2)");
   // NB: dataset_schema includes a column not present in the file
   SetSchema({field("f64", float64()), field("virtual", int32())});
-  ASSERT_OK_AND_ASSIGN(auto fragment, Format()->MakeFragment(*source));
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
   ASSERT_OK_AND_ASSIGN(auto physical_schema, fragment->ReadPhysicalSchema());
   AssertSchemaEqual(Schema({field("f64", float64())}), *physical_schema);
@@ -144,15 +159,18 @@ N/A
 }
 
 TEST_P(TestCsvFileFormat, OpenFailureWithRelevantError) {
+  if (GetCompression() != Compression::type::UNCOMPRESSED) {
+    GTEST_SKIP() << "File source name is different with compression";
+  }
   auto source = GetFileSource("");
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("<Buffer>"),
-                                  Format()->Inspect(*source).status());
+                                  format_->Inspect(*source).status());
 
   constexpr auto file_name = "herp/derp";
   ASSERT_OK_AND_ASSIGN(
       auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {fs::File(file_name)}));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr(file_name),
-                                  Format()->Inspect({file_name, fs}).status());
+                                  format_->Inspect({file_name, fs}).status());
 }
 
 TEST_P(TestCsvFileFormat, Inspect) {
@@ -161,7 +179,7 @@ TEST_P(TestCsvFileFormat, Inspect) {
 
 N/A
 2)");
-  ASSERT_OK_AND_ASSIGN(auto actual, Format()->Inspect(*source.get()));
+  ASSERT_OK_AND_ASSIGN(auto actual, format_->Inspect(*source.get()));
   EXPECT_EQ(*actual, Schema({field("f64", float64())}));
 }
 
@@ -169,12 +187,12 @@ TEST_P(TestCsvFileFormat, IsSupported) {
   bool supported;
 
   auto source = GetFileSource("");
-  ASSERT_OK_AND_ASSIGN(supported, Format()->IsSupported(*source));
+  ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(*source));
   ASSERT_EQ(supported, false);
 
   source = GetFileSource(R"(declare,two
   1,2,3)");
-  ASSERT_OK_AND_ASSIGN(supported, Format()->IsSupported(*source));
+  ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(*source));
   ASSERT_EQ(supported, false);
 
   source = GetFileSource(R"(f64
@@ -182,7 +200,7 @@ TEST_P(TestCsvFileFormat, IsSupported) {
 
 N/A
 2)");
-  ASSERT_OK_AND_ASSIGN(supported, Format()->IsSupported(*source));
+  ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(*source));
   EXPECT_EQ(supported, true);
 }
 
@@ -192,7 +210,7 @@ TEST_P(TestCsvFileFormat, NonProjectedFieldWithDifferingTypeFromInferred) {
 ,
 N/A,bar
 2,baz)");
-  ASSERT_OK_AND_ASSIGN(auto fragment, Format()->MakeFragment(*source));
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
   ASSERT_OK_AND_ASSIGN(auto physical_schema, fragment->ReadPhysicalSchema());
   AssertSchemaEqual(
       Schema({field("betrayal_not_really_f64", float64()), field("str", utf8())}),
@@ -230,10 +248,6 @@ N/A,bar
 
 INSTANTIATE_TEST_SUITE_P(TestUncompressedCsv, TestCsvFileFormat,
                          ::testing::Values(Compression::UNCOMPRESSED));
-#ifdef ARROW_WITH_BROTLI
-INSTANTIATE_TEST_SUITE_P(TestBrotliCsv, TestCsvFileFormat,
-                         ::testing::Values(Compression::BROTLI));
-#endif
 #ifdef ARROW_WITH_BZ2
 INSTANTIATE_TEST_SUITE_P(TestBZ2Csv, TestCsvFileFormat,
                          ::testing::Values(Compression::BZ2));
