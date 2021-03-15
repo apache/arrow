@@ -792,7 +792,6 @@ impl ParquetTypeConverter<'_> {
     /// This function takes care of logical type and repetition.
     fn to_group_type(&self) -> Result<Option<DataType>> {
         if self.is_repeated() {
-            dbg!(self.schema.get_basic_info());
             self.to_struct().map(|opt| {
                 opt.map(|dt| {
                     DataType::List(Box::new(Field::new(
