@@ -58,6 +58,49 @@ Here are some of the projects known to use DataFusion:
 
 (if you know of another project, please submit a PR to add a link!)
 
+## Example Usage
+
+Run a SQL query against data stored in a CSV:
+
+```rust
+  let mut ctx = ExecutionContext::new();
+  ctx.register_csv("example", "tests/example.csv", CsvReadOptions::new())?;
+
+  // Create a plan to run a SQL query
+  let df = ctx.sql("SELECT a, MIN(b) FROM example GROUP BY a LIMIT 100")?;
+
+  // execute and print results
+  let results: Vec<RecordBatch> = df.collect().await?;
+  print_batches(&results)?;
+```
+
+Use the DataFrame API to process data stored in a CSV:
+
+```rust
+  let mut ctx = ExecutionContext::new();
+  // create the dataframe
+  let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
+
+  let df = df.filter(col("a").lt_eq(col("b")))?
+           .aggregate(&[col("a")], &[min(col("b"))])?
+           .limit(100)?
+           .collect().await?;
+
+  let results: Vec<RecordBatch> = df.collect().await?;
+  print_batches(&results)?;
+```
+
+Both of these examples will produce
+
+```
++---+--------+
+| a | MIN(b) |
++---+--------+
+| 1 | 2      |
++---+--------+
+```
+
+
 
 ## Using DataFusion as a library
 
