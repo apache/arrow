@@ -204,6 +204,70 @@ fn print_timeunit(unit: &TimeUnit) -> &str {
     }
 }
 
+#[inline]
+fn print_logical_and_converted(
+    logical_type: &Option<LogicalType>,
+    converted_type: ConvertedType,
+    precision: i32,
+    scale: i32,
+) -> String {
+    match logical_type {
+        Some(logical_type) => match logical_type {
+            LogicalType::INTEGER(t) => {
+                format!("INTEGER({},{})", t.bit_width, t.is_signed)
+            }
+            LogicalType::DECIMAL(t) => {
+                format!("DECIMAL({},{})", t.precision, t.scale)
+            }
+            LogicalType::TIMESTAMP(t) => {
+                format!(
+                    "TIMESTAMP({},{})",
+                    print_timeunit(&t.unit),
+                    t.is_adjusted_to_u_t_c
+                )
+            }
+            LogicalType::TIME(t) => {
+                format!(
+                    "TIME({},{})",
+                    print_timeunit(&t.unit),
+                    t.is_adjusted_to_u_t_c
+                )
+            }
+            LogicalType::DATE(_) => "DATE".to_string(),
+            LogicalType::BSON(_) => "BSON".to_string(),
+            LogicalType::JSON(_) => "JSON".to_string(),
+            LogicalType::STRING(_) => "STRING".to_string(),
+            LogicalType::UUID(_) => "UUID".to_string(),
+            LogicalType::ENUM(_) => "ENUM".to_string(),
+            LogicalType::LIST(_) => "LIST".to_string(),
+            LogicalType::MAP(_) => "MAP".to_string(),
+            LogicalType::UNKNOWN(_) => "UNKNOWN".to_string(),
+        },
+        None => {
+            // Also print converted type if it is available
+            match converted_type {
+                ConvertedType::NONE => format!(""),
+                decimal @ ConvertedType::DECIMAL => {
+                    // For decimal type we should print precision and scale if they
+                    // are > 0, e.g. DECIMAL(9, 2) -
+                    // DECIMAL(9) - DECIMAL
+                    let precision_scale = match (precision, scale) {
+                        (p, s) if p > 0 && s > 0 => {
+                            format!("{}, {}", p, s)
+                        }
+                        (p, 0) if p > 0 => format!("{}", p),
+                        _ => format!(""),
+                    };
+                    format!("{}{}", decimal, precision_scale)
+                }
+                other_converted_type => {
+                    format!("{}", other_converted_type)
+                }
+            }
+        }
+    }
+}
+
 #[allow(unused_must_use)]
 impl<'a> Printer<'a> {
     pub fn print(&mut self, tp: &Type) {
@@ -225,69 +289,30 @@ impl<'a> Printer<'a> {
                 };
                 // Also print logical type if it is available
                 // If there is a logical type, do not print converted type
-                let logical_type_str = match basic_info.logical_type() {
-                    Some(logical_type) => match logical_type {
-                        LogicalType::INTEGER(t) => {
-                            format!(" (INTEGER({},{}))", t.bit_width, t.is_signed)
-                        }
-                        LogicalType::DECIMAL(t) => {
-                            format!(" (DECIMAL({},{}))", t.precision, t.scale)
-                        }
-                        LogicalType::TIMESTAMP(t) => {
-                            format!(
-                                " (TIMESTAMP({},{}))",
-                                print_timeunit(&t.unit),
-                                t.is_adjusted_to_u_t_c
-                            )
-                        }
-                        LogicalType::TIME(t) => {
-                            format!(
-                                " (TIME({},{}))",
-                                print_timeunit(&t.unit),
-                                t.is_adjusted_to_u_t_c
-                            )
-                        }
-                        LogicalType::DATE(_) => " (DATE)".to_string(),
-                        LogicalType::BSON(_) => " (BSON)".to_string(),
-                        LogicalType::JSON(_) => " (JSON)".to_string(),
-                        LogicalType::STRING(_) => " (STRING)".to_string(),
-                        LogicalType::UUID(_) => " (UUID)".to_string(),
-                        LogicalType::ENUM(_) => " (ENUM)".to_string(),
-                        LogicalType::LIST(_) => " (LIST)".to_string(),
-                        LogicalType::MAP(_) => " (MAP)".to_string(),
-                        LogicalType::UNKNOWN(_) => " (UNKNOWN)".to_string(),
-                    },
-                    None => {
-                        // Also print converted type if it is available
-                        match basic_info.converted_type() {
-                            ConvertedType::NONE => format!(""),
-                            decimal @ ConvertedType::DECIMAL => {
-                                // For decimal type we should print precision and scale if they
-                                // are > 0, e.g. DECIMAL(9, 2) -
-                                // DECIMAL(9) - DECIMAL
-                                let precision_scale = match (precision, scale) {
-                                    (p, s) if p > 0 && s > 0 => {
-                                        format!(" ({}, {})", p, s)
-                                    }
-                                    (p, 0) if p > 0 => format!(" ({})", p),
-                                    _ => format!(""),
-                                };
-                                format!(" ({}{})", decimal, precision_scale)
-                            }
-                            other_converted_type => {
-                                format!(" ({})", other_converted_type)
-                            }
-                        }
-                    }
-                };
-                write!(
-                    self.output,
-                    "{} {} {}{};",
-                    basic_info.repetition(),
-                    phys_type_str,
-                    basic_info.name(),
-                    logical_type_str
+                let logical_type_str = print_logical_and_converted(
+                    &basic_info.logical_type(),
+                    basic_info.converted_type(),
+                    scale,
+                    precision,
                 );
+                if logical_type_str.is_empty() {
+                    write!(
+                        self.output,
+                        "{} {} {};",
+                        basic_info.repetition(),
+                        phys_type_str,
+                        basic_info.name()
+                    );
+                } else {
+                    write!(
+                        self.output,
+                        "{} {} {} ({});",
+                        basic_info.repetition(),
+                        phys_type_str,
+                        basic_info.name(),
+                        logical_type_str
+                    );
+                }
             }
             Type::GroupType {
                 ref basic_info,
@@ -296,10 +321,14 @@ impl<'a> Printer<'a> {
                 if basic_info.has_repetition() {
                     let r = basic_info.repetition();
                     write!(self.output, "{} group {} ", r, basic_info.name());
-                    if let Some(logical_type) = basic_info.logical_type() {
-                        write!(self.output, "({:?}) ", logical_type);
-                    } else if basic_info.converted_type() != ConvertedType::NONE {
-                        write!(self.output, "({}) ", basic_info.converted_type());
+                    let logical_str = print_logical_and_converted(
+                        &basic_info.logical_type(),
+                        basic_info.converted_type(),
+                        0,
+                        0,
+                    );
+                    if !logical_str.is_empty() {
+                        write!(self.output, "({}) ", logical_str);
                     }
                     writeln!(self.output, "{{");
                 } else {
@@ -338,6 +367,7 @@ mod tests {
             let mut p = Printer::new(&mut s);
             p.print(&message);
         }
+        println!("{}", &s);
         let parsed = parse_message_type(&s).unwrap();
         assert_eq!(message, parsed);
     }
@@ -678,6 +708,7 @@ mod tests {
 
         let a1 = Type::group_type_builder("a1")
             .with_repetition(Repetition::OPTIONAL)
+            .with_logical_type(Some(LogicalType::LIST(Default::default())))
             .with_converted_type(ConvertedType::LIST)
             .with_fields(&mut vec![Arc::new(a2)])
             .build()
@@ -702,6 +733,7 @@ mod tests {
 
         let b1 = Type::group_type_builder("b1")
             .with_repetition(Repetition::OPTIONAL)
+            .with_logical_type(Some(LogicalType::LIST(Default::default())))
             .with_converted_type(ConvertedType::LIST)
             .with_fields(&mut vec![Arc::new(b2)])
             .build()
@@ -760,6 +792,10 @@ mod tests {
     fn test_print_and_parse_decimal() {
         let f1 = Type::primitive_type_builder("f1", PhysicalType::INT32)
             .with_repetition(Repetition::OPTIONAL)
+            .with_logical_type(Some(LogicalType::DECIMAL(DecimalType {
+                precision: 9,
+                scale: 2,
+            })))
             .with_converted_type(ConvertedType::DECIMAL)
             .with_precision(9)
             .with_scale(2)
@@ -768,6 +804,10 @@ mod tests {
 
         let f2 = Type::primitive_type_builder("f2", PhysicalType::INT32)
             .with_repetition(Repetition::OPTIONAL)
+            .with_logical_type(Some(LogicalType::DECIMAL(DecimalType {
+                precision: 9,
+                scale: 0,
+            })))
             .with_converted_type(ConvertedType::DECIMAL)
             .with_precision(9)
             .with_scale(0)
