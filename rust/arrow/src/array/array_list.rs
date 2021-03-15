@@ -16,7 +16,6 @@
 // under the License.
 
 use std::any::Any;
-use std::convert::From;
 use std::fmt;
 use std::mem;
 
@@ -26,8 +25,11 @@ use super::{
     array::print_long_array, make_array, raw_pointer::RawPtrBox, Array, ArrayData,
     ArrayDataRef, ArrayRef, BooleanBufferBuilder, GenericListArrayIter, PrimitiveArray,
 };
-use crate::buffer::MutableBuffer;
-use crate::datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType, Field};
+use crate::{
+    buffer::MutableBuffer,
+    datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType, Field},
+    error::ArrowError,
+};
 
 /// trait declaring an offset size, relevant for i32 vs i64 array types.
 pub trait OffsetSizeTrait: ArrowNativeType + Num + Ord + std::ops::AddAssign {
@@ -190,26 +192,43 @@ impl<OffsetSize: OffsetSizeTrait> GenericListArray<OffsetSize> {
 
 impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericListArray<OffsetSize> {
     fn from(data: ArrayDataRef) -> Self {
-        assert_eq!(
-            data.buffers().len(),
-            1,
-            "ListArray data should contain a single buffer only (value offsets)"
-        );
-        assert_eq!(
-            data.child_data().len(),
-            1,
-            "ListArray should contain a single child array (values array)"
-        );
+        Self::try_new_from_array_data(data).expect(
+            "Expected infallable creation of GenericListArray from ArrayDataRef failed",
+        )
+    }
+}
+
+impl<OffsetSize: OffsetSizeTrait> GenericListArray<OffsetSize> {
+    fn try_new_from_array_data(data: ArrayDataRef) -> Result<Self, ArrowError> {
+        if data.buffers().len() != 1 {
+            return Err(ArrowError::InvalidArgumentError(
+                format!("ListArray data should contain a single buffer only (value offsets), had {}",
+                        data.len())));
+        }
+
+        if data.child_data().len() != 1 {
+            return Err(ArrowError::InvalidArgumentError(format!(
+                "ListArray should contain a single child array (values array), had {}",
+                data.child_data().len()
+            )));
+        }
 
         let values = data.child_data()[0].clone();
 
-        if let Some(child) = Self::get_type(data.data_type()) {
-            assert_eq!(values.data_type(), child, "[Large]ListArray's child datatype does not correspond to the List's datatype");
+        if let Some(child_data_type) = Self::get_type(data.data_type()) {
+            if values.data_type() != child_data_type {
+                return Err(ArrowError::InvalidArgumentError(format!(
+                    "[Large]ListArray's child datatype {:?} does not \
+                             correspond to the List's datatype {:?}",
+                    values.data_type(),
+                    child_data_type
+                )));
+            }
         } else {
-            panic!(
+            return Err(ArrowError::InvalidArgumentError(format!(
                 "[Large]ListArray's datatype must be [Large]ListArray(). It is {:?}",
                 data.data_type()
-            );
+            )));
         }
 
         let values = make_array(values);
@@ -217,16 +236,17 @@ impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericListArray<Offset
 
         let value_offsets = unsafe { RawPtrBox::<OffsetSize>::new(value_offsets) };
         unsafe {
-            assert!(
-                (*value_offsets.as_ptr().offset(0)).is_zero(),
-                "offsets do not start at zero"
-            );
+            if !(*value_offsets.as_ptr().offset(0)).is_zero() {
+                return Err(ArrowError::InvalidArgumentError(String::from(
+                    "offsets do not start at zero",
+                )));
+            }
         }
-        Self {
+        Ok(Self {
             data,
             values,
             value_offsets,
-        }
+        })
     }
 }
 
