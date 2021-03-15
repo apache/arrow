@@ -916,7 +916,8 @@ cdef class LowLevelDecryptionProperties(_Weakrefable):
                   column_keys=None,
                   disable_footer_signature_verification=False,
                   plaintext_files_allowed=False):
-        cdef c_map[c_string,shared_ptr[ColumnDecryptionProperties]] c_column_keys
+        cdef c_map[c_string, shared_ptr[
+            ColumnDecryptionProperties]] c_column_keys
         cdef FileDecryptionProperties.Builder builder
         cdef c_string column, key
 
@@ -1213,12 +1214,13 @@ cdef class LowLevelEncryptionProperties(_Weakrefable):
     enable testing of low-level decryption.
     """
     cdef:
-       shared_ptr[FileEncryptionProperties] encryption_properties
+        shared_ptr[FileEncryptionProperties] encryption_properties
 
-    def __cinit__(self, footer_key, column_keys=None, plaintext_footer=False):  # TODO more options?
+    def __cinit__(self, footer_key, column_keys=None, plaintext_footer=False):
         cdef FileEncryptionProperties.Builder* builder
         cdef c_string column
-        cdef c_map[c_string,shared_ptr[ColumnEncryptionProperties]] c_column_keys
+        cdef c_map[c_string, shared_ptr[
+            ColumnEncryptionProperties]] c_column_keys
         builder = new FileEncryptionProperties.Builder(footer_key)
 
         if column_keys is not None:

@@ -334,7 +334,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         void disable_buffered_stream()
         void set_buffer_size(int64_t buf_size)
         int64_t buffer_size() const
-        void file_decryption_properties(shared_ptr[FileDecryptionProperties] decryption)
+        void file_decryption_properties(
+            shared_ptr[FileDecryptionProperties] decryption)
     CReaderProperties default_reader_properties()
 
     cdef cppclass ArrowReaderProperties:
@@ -372,7 +373,9 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* encoding(const c_string& path,
                               ParquetEncoding encoding)
             Builder* write_batch_size(int64_t batch_size)
-            Builder* encryption(shared_ptr[FileEncryptionProperties] file_encryption_properties)
+            Builder* encryption(
+                shared_ptr[FileEncryptionProperties] file_encryption_properties
+            )
             shared_ptr[WriterProperties] build()
 
     cdef cppclass ArrowWriterProperties:
@@ -418,19 +421,24 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* footer_key_metadata(const c_string& footer_key_metadata)
             Builder* aad_prefix(const c_string& aad_prefix)
             Builder* disable_aad_prefix_storage()
-            Builder* encrypted_columns(const c_map[c_string,shared_ptr[ColumnEncryptionProperties]]& encrypted_columns)
+            Builder* encrypted_columns(
+                const c_map[c_string, shared_ptr[
+                    ColumnEncryptionProperties]]& encrypted_columns)
             shared_ptr[FileEncryptionProperties] build()
         c_bool encrypted_footer()
         # EncryptionAlgorithm algorithm()
         c_string footer_key()
         c_string footer_key_metadata()
         c_string file_aad()
-        shared_ptr[c_map[c_string,shared_ptr[ColumnEncryptionProperties]]] column_encryption_properties(const c_string& column_path)
+        shared_ptr[c_map[c_string, shared_ptr[
+            ColumnEncryptionProperties]]] column_encryption_properties(
+                const c_string& column_path)
         c_bool is_utilized()
         set_utilized()
         WipeOutEncryptionKeys()
         shared_ptr[FileEncryptionProperties] DeepClone(c_string new_aad_prefix)
-        c_map[c_string,shared_ptr[ColumnEncryptionProperties]] encrypted_columns()
+        c_map[c_string, shared_ptr[
+            ColumnEncryptionProperties]] encrypted_columns()
 
 
 cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
@@ -519,11 +527,14 @@ cdef extern from "parquet/encryption.h" namespace "parquet" nogil:
         cppclass Builder:
             Builder()
             Builder* footer_key(const c_string footer_key)
-            Builder* column_keys(const c_map[c_string,shared_ptr[ColumnDecryptionProperties]]& column_decryption_properties)
-            Builder* key_retriever(const shared_ptr[DecryptionKeyRetriever]& key_retriever)
+            Builder* column_keys(const c_map[c_string, shared_ptr[
+                ColumnDecryptionProperties]]& column_decryption_properties)
+            Builder* key_retriever(
+                const shared_ptr[DecryptionKeyRetriever]& key_retriever)
             Builder* disable_footer_signature_verification()
             Builder* aad_prefix(const c_string& aad_prefix)
-            # TODO Builder* aad_prefix_verifier(shared_ptr[AADPrefixVerifier] aad_prefix_verifier]
+            # Builder* aad_prefix_verifier(shared_ptr[
+            #    AADPrefixVerifier] aad_prefix_verifier]
             Builder* plaintext_files_allowed()
             shared_ptr[FileDecryptionProperties] build()
         c_string column_key()
@@ -532,7 +543,7 @@ cdef extern from "parquet/encryption.h" namespace "parquet" nogil:
         const shared_ptr[DecryptionKeyRetriever]& key_retriever()
         c_bool check_plaintext_footer_integrity()
         c_bool plaintext_files_allowed()
-        # TODO shared_ptr[AADPrefixVerifier]& aad_prefix_verifier()
+        # shared_ptr[AADPrefixVerifier]& aad_prefix_verifier()
         WipeOutDecryptionKeys()
         c_bool is_utilized()
         set_utilized()

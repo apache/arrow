@@ -351,8 +351,10 @@ def test_read_encrypted_with_plaintext_file():
 
     # Without allowing plain text files, they don't work.
     decryption_props = pq.LowLevelDecryptionProperties(footer_key)
-    with pytest.raises(IOError, match="Applying decryption properties on plaintext file"):
-        f = pq.ParquetFile(bio.getvalue(), low_level_decryption=decryption_props)
+    with pytest.raises(
+            IOError, match="Applying decryption properties on plaintext file"):
+        f = pq.ParquetFile(
+            bio.getvalue(), low_level_decryption=decryption_props)
 
     # When allowed, we can read it:
     decryption_props = pq.LowLevelDecryptionProperties(
@@ -386,7 +388,8 @@ def test_read_encrypted_disable_footer_signature_verification():
         None, {"ints": column_key1, "strs": column_key2},
     )
     with pytest.raises(IOError, match="No footer key or key metadata"):
-        f = pq.ParquetFile(bio.getvalue(), low_level_decryption=decryption_props)
+        f = pq.ParquetFile(
+            bio.getvalue(), low_level_decryption=decryption_props)
 
     # But if we tell it it's OK for footer to be unencrypted, that's OK:
     decryption_props = pq.LowLevelDecryptionProperties(
