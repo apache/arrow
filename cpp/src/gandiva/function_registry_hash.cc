@@ -32,10 +32,10 @@ namespace gandiva {
 #define HASH64_SEED_SAFE_NULL_NEVER_FN(name, ALIASES) \
   NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH64_SEED_SAFE_NULL_NEVER, name, ALIASES)
 
-#define HASH_SHA128_SAFE_NULL_NEVER_FN(name, ALIASES) \
+#define HASH_SHA128_NULL_NEVER_FN(name, ALIASES) \
   NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH_SHA128_NULL_NEVER, name, ALIASES)
 
-#define HASH_SHA256_SAFE_NULL_NEVER_FN(name, ALIASES) \
+#define HASH_SHA256_NULL_NEVER_FN(name, ALIASES) \
   NUMERIC_BOOL_DATE_VAR_LEN_TYPES(HASH_SHA256_NULL_NEVER, name, ALIASES)
 
 std::vector<NativeFunction> GetHashFunctionRegistry() {
@@ -53,9 +53,9 @@ std::vector<NativeFunction> GetHashFunctionRegistry() {
       HASH64_SEED_SAFE_NULL_NEVER_FN(hash64, {}),
       HASH64_SEED_SAFE_NULL_NEVER_FN(hash64AsDouble, {}),
 
-      HASH_SHA128_SAFE_NULL_NEVER_FN(hashSHA128, {}),
+      HASH_SHA128_NULL_NEVER_FN(hashSHA128, {}),
 
-      HASH_SHA256_SAFE_NULL_NEVER_FN(hashSHA256, {})};
+      HASH_SHA256_NULL_NEVER_FN(hashSHA256, {})};
 
   return hash_fn_registry_;
 }
