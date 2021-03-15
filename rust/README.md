@@ -53,7 +53,7 @@ You can find more details about each crate in their respective READMEs.
 ## Arrow Rust Community
 
 We use the official [ASF Slack](https://s.apache.org/slack-invite) for informal discussions and coordination. This is 
-a great place to meet other contributors and get guidance on where to contribute.
+a great place to meet other contributors and get guidance on where to contribute. Join us in the `arrow-rust` channel.
 
 We use [ASF JIRA](https://issues.apache.org/jira/secure/Dashboard.jspa) as the system of record for new features
 and bug fixes and this plays a critical role in the release process.
