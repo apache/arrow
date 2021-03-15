@@ -48,9 +48,11 @@ the convenience of an SQL interface or a DataFrame API.
 
 Here are some of the projects known to use DataFusion:
 
-* [InfluxDB IOx](https://github.com/influxdata/influxdb_iox) Time Series Database
 * [Ballista](https://github.com/ballista-compute/ballista) Distributed Compute Platform
 * [Cloudfuse Buzz](https://github.com/cloudfuse-io/buzz-rust)
+* [Cube.js](https://github.com/cube-js/cube.js)
+* [delta-rs](https://github.com/delta-io/delta-rs)
+* [InfluxDB IOx](https://github.com/influxdata/influxdb_iox) Time Series Database
 * [ROAPI](https://github.com/roapi/roapi)
 
 (if you know of another project, please submit a PR to add a link!)
@@ -78,10 +80,11 @@ DataFusion also includes a simple command-line interactive SQL utility. See the 
 - [x] SQL Parser
 - [x] SQL Query Planner
 - [x] Query Optimizer
+ - [x] Constant folding
+ - [x] Join Reordering
+ - [x] Limit Pushdown
  - [x] Projection push down
  - [x] Predicate push down
- - [x] Constant folding
- - [x] Limit Pushdown
 - [x] Type coercion
 - [x] Parallel query execution
 
@@ -135,6 +138,9 @@ DataFusion also includes a simple command-line interactive SQL utility. See the 
 - [ ] Lists
 - [x] Subqueries
 - [x] Joins
+ - [x] INNER JOIN
+ - [ ] CROSS JOIN
+ - [] OUTER JOIN
 - [ ] Window
 
 ## Data Sources
