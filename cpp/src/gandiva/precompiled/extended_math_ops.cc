@@ -166,7 +166,7 @@ ATAN(float64)
 SINH(float32)
 SINH(float64)
 
-// Sinh
+// Cosh
 #define COSH(IN_TYPE)                                           \
   FORCE_INLINE                                                            \
   gdv_float64 cosh_##IN_TYPE(gdv_##IN_TYPE in) {                       \
@@ -187,7 +187,7 @@ TANH(float64)
 // Atan2
 #define ATAN2(IN_TYPE)                                           \
   FORCE_INLINE                                                            \
-  gdv_float64 atan2_##IN_TYPE(gdv_##IN_TYPE in1, gdv_##IN_TYPE in2) {                       \
+  gdv_float64 atan2_##IN_TYPE##_##IN_TYPE(gdv_##IN_TYPE in1, gdv_##IN_TYPE in2) {                       \
     return static_cast<gdv_float64>(atan2(static_cast<long double>(in1), static_cast<long double>(in2))); \
   }
 ATAN2(float32)
