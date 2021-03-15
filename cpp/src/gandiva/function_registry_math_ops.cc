@@ -44,7 +44,9 @@ namespace gandiva {
 
 std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
   static std::vector<NativeFunction> math_fn_registry_ = {
-      MATH_UNARY_OPS(cbrt, {}), MATH_UNARY_OPS(exp, {}), MATH_UNARY_OPS(log, {}),
+      MATH_UNARY_OPS(cbrt, {}),
+      MATH_UNARY_OPS(exp, {}),
+      MATH_UNARY_OPS(log, {}),
       MATH_UNARY_OPS(log10, {}),
 
       MATH_BINARY_UNSAFE(log, {}),
@@ -58,6 +60,21 @@ std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
 
       BINARY_SAFE_NULL_NEVER_BOOL_FN(is_distinct_from, {}),
       BINARY_SAFE_NULL_NEVER_BOOL_FN(is_not_distinct_from, {}),
+
+      // trigonometry functions
+      MATH_UNARY_OPS(sin, {}),
+      MATH_UNARY_OPS(cos, {}),
+      MATH_UNARY_OPS(asin, {}),
+      MATH_UNARY_OPS(acos, {}),
+      MATH_UNARY_OPS(tan, {}),
+      MATH_UNARY_OPS(atan, {}),
+      MATH_UNARY_OPS(sinh, {}),
+      MATH_UNARY_OPS(cosh, {}),
+      MATH_UNARY_OPS(tanh, {}),
+      MATH_UNARY_OPS(atan2, {}),
+      MATH_UNARY_OPS(cot, {}),
+      MATH_UNARY_OPS(radians, {}),
+      MATH_UNARY_OPS(degrees, {}),
 
       // decimal functions
       UNARY_SAFE_NULL_IF_NULL(abs, {}, decimal128, decimal128),
