@@ -302,11 +302,19 @@ test_that("filter environment scope", {
 })
 
 test_that("Filtering on a column that doesn't exist errors correctly", {
-  skip("Error handling in arrow_eval() needs to be internationalized (ARROW-11700)")
-  expect_error(
-    batch %>% filter(not_a_col == 42) %>% collect(),
-    "object 'not_a_col' not found"
-  )
+  withr::with_envvar(c(LANGUAGE = "FR_fr"), {
+    # expect_warning(., NA) because the usual behavior when it hits a filter
+    # that it can't evaluate is to raise a warning, collect() to R, and retry
+    # the filter. But we want this to error the first time because it's
+    # a user error, not solvable by retrying in R
+    expect_warning(
+      expect_error(
+        tbl %>% record_batch() %>% filter(not_a_col == 42) %>% collect(),
+        "objet 'not_a_col' introuvable"
+      ),
+      NA
+    )
+  })
 })
 
 test_that("Filtering with a function that doesn't have an Array/expr method still works", {
