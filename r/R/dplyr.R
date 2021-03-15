@@ -299,6 +299,9 @@ build_function_list <- function(FUN) {
         both = FUN("utf8_trim_whitespace", string)
       )
     },
+    between = function(x, left, right) {
+      x >= left & x <= right
+    },
     # Now also include all available Arrow Compute functions,
     # namespaced as arrow_fun
     set_names(
