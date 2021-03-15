@@ -221,13 +221,8 @@ test_that("filter() with between()", {
       record_batch() %>%
       filter(between(chr, 1, 2)) %>%
       collect()
-
-  expect_dplyr_equal(
-    input %>%
-      filter(int == -some_negative) %>%
-      collect(),
-    tbl
   )
+
 })
 
 test_that("filter() with string ops", {
