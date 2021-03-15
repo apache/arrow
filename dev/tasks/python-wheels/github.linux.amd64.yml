@@ -87,7 +87,7 @@ jobs:
         env:
           CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN }}' }}
 
-      {% if True or arrow.branch == 'master' %}
+      {% if arrow.branch == 'master' %}
       - name: Push the docker image
         shell: bash
         run: |

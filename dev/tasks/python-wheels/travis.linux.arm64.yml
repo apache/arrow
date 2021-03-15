@@ -78,7 +78,7 @@ after_success:
       --sha {{ task.branch }} \
       --tag {{ task.tag }}
 
-  {% if True or arrow.branch == 'master' %}
+  {% if arrow.branch == 'master' %}
   # Push the docker image to dockerhub
   - archery docker push python-wheel-manylinux-{{ manylinux_version }}
   - archery docker push python-wheel-manylinux-test-unittests
