@@ -385,10 +385,11 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
         DataType::Float64 => Type::primitive_type_builder(name, PhysicalType::DOUBLE)
             .with_repetition(repetition)
             .build(),
-        DataType::Timestamp(time_unit, zone) => {
+        DataType::Timestamp(time_unit, _) => {
             Type::primitive_type_builder(name, PhysicalType::INT64)
                 .with_logical_type(Some(LogicalType::TIMESTAMP(TimestampType {
-                    is_adjusted_to_u_t_c: matches!(zone, Some(z) if z.as_str() == "UTC"),
+                    // Logic to adjust timestamps not yet implemented
+                    is_adjusted_to_u_t_c: false,
                     unit: match time_unit {
                         TimeUnit::Second => ParquetTimeUnit::MILLIS(Default::default()),
                         TimeUnit::Millisecond => {
@@ -784,7 +785,6 @@ impl ParquetTypeConverter<'_> {
     /// This function takes care of logical type and repetition.
     fn to_group_type(&self) -> Result<Option<DataType>> {
         if self.is_repeated() {
-            dbg!(self.schema.get_basic_info());
             self.to_struct().map(|opt| {
                 opt.map(|dt| {
                     DataType::List(Box::new(Field::new(

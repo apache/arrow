@@ -329,7 +329,7 @@ impl<'a> PrimitiveTypeBuilder<'a> {
                                 self.precision
                             ));
                         }
-                        self.test_decimal_precision_scale()?;
+                        self.check_decimal_precision_scale()?;
                     }
                     (LogicalType::DATE(_), PhysicalType::INT32) => {}
                     (
@@ -380,7 +380,7 @@ impl<'a> PrimitiveTypeBuilder<'a> {
                 }
             }
             ConvertedType::DECIMAL => {
-                self.test_decimal_precision_scale()?;
+                self.check_decimal_precision_scale()?;
             }
             ConvertedType::DATE
             | ConvertedType::TIME_MILLIS
@@ -441,7 +441,7 @@ impl<'a> PrimitiveTypeBuilder<'a> {
     }
 
     #[inline]
-    fn test_decimal_precision_scale(&self) -> Result<()> {
+    fn check_decimal_precision_scale(&self) -> Result<()> {
         match self.physical_type {
             PhysicalType::INT32
             | PhysicalType::INT64
