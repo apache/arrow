@@ -33,20 +33,14 @@
 #'   * "tsv", equivalent to passing `format = "text", delimiter = "\t"`
 #' * `...`: Additional format-specific options
 #'
-#'   `format = "csv"``:
-
-#'
-#'   `format = "parquet"`:
+#'   `format = "parquet"``:
 #'   * `use_buffered_stream`: Read files through buffered input streams rather than
 #'                            loading entire row groups at once. This may be enabled
 #'                            to reduce memory overhead. Disabled by default.
 #'   * `buffer_size`: Size of buffered stream, if enabled. Default is 8KB.
 #'   * `dict_columns`: Names of columns which should be read as dictionaries.
 #'
-#'   `format = "text"`:
-#'   * `compression`: Assume CSV files have been compressed with this codec.
-#'                    See [Codec] for available compression libraries.
-#'   * [CsvParseOptions] may also be passed. Note that you can specify them either
+#'   `format = "text"`: see [CsvReadOptions]. Note that you can specify them either
 #'   with the Arrow C++ library naming ("delimiter", "quoting", etc.) or the
 #'   `readr`-style naming used in [read_csv_arrow()] ("delim", "quote", etc.).
 #'   Not all `readr` options are currently supported; please file an issue if
@@ -107,10 +101,8 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' @rdname FileFormat
 #' @export
 CsvFileFormat <- R6Class("CsvFileFormat", inherit = FileFormat)
-CsvFileFormat$create <- function(...,
-                                 opts = csv_file_format_parse_options(...),
-                                 compression = "uncompressed") {
-  dataset___CsvFileFormat__Make(opts, compression_from_name(compression))
+CsvFileFormat$create <- function(..., opts = csv_file_format_parse_options(...)) {
+  dataset___CsvFileFormat__Make(opts)
 }
 
 # Support both readr-style option names and Arrow C++ option names

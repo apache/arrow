@@ -300,7 +300,7 @@ test_that("compressed CSV dataset", {
   dst_dir <- make_temp_dir()
   dst_file <- file.path(dst_dir, "data.csv.gz")
   write.csv(df1, gzfile(dst_file), row.names = FALSE, quote = FALSE)
-  format <- FileFormat$create("csv", compression = "gzip")
+  format <- FileFormat$create("csv")
   ds <- open_dataset(dst_dir, format = format)
   expect_is(ds$format, "CsvFileFormat")
   expect_is(ds$filesystem, "LocalFileSystem")
