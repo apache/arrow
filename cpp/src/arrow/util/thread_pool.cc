@@ -62,8 +62,8 @@ struct ThreadPool::State {
   // Desired number of threads
   int desired_capacity_ = 0;
 
-  // Number of threads ready to execute a task immediately
-  int ready_count_ = 0;
+  // Total number of tasks that are either queued or running
+  int tasks_queued_or_running_ = 0;
 
   // Are we shutting down?
   bool please_shutdown_ = false;
@@ -85,7 +85,6 @@ static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
     return state->workers_.size() > static_cast<size_t>(state->desired_capacity_);
   };
 
-  ++state->ready_count_;
   while (true) {
     // By the time this thread is started, some tasks may have been pushed
     // or shutdown could even have been requested.  So we only wait on the
@@ -98,8 +97,8 @@ static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
       if (should_secede()) {
         break;
       }
-      --state->ready_count_;
-      DCHECK_GE(state->ready_count_, 0);
+
+      DCHECK_GE(state->tasks_queued_or_running_, 0);
       {
         Task task = std::move(state->pending_tasks_.front());
         state->pending_tasks_.pop_front();
@@ -115,7 +114,7 @@ static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
         ARROW_UNUSED(std::move(task));  // release resources before waiting for lock
         lock.lock();
       }
-      ++state->ready_count_;
+      state->tasks_queued_or_running_--;
     }
     // Now either the queue is empty *or* a quick shutdown was requested
     if (state->please_shutdown_ || should_secede()) {
@@ -124,8 +123,7 @@ static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
     // Wait for next wakeup
     state->cv_.wait(lock);
   }
-  --state->ready_count_;
-  DCHECK_GE(state->ready_count_, 0);
+  DCHECK_GE(state->tasks_queued_or_running_, 0);
 
   // We're done.  Move our thread object to the trashcan of finished
   // workers.  This has two motivations:
@@ -238,7 +236,6 @@ Status ThreadPool::Shutdown(bool wait) {
     state_->pending_tasks_.clear();
   }
   CollectFinishedWorkersUnlocked();
-  DCHECK_EQ(state_->ready_count_, 0);
   return Status::OK();
 }
 
@@ -269,10 +266,10 @@ Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken sto
       return Status::Invalid("operation forbidden during or after shutdown");
     }
     CollectFinishedWorkersUnlocked();
-    if (state_->desired_capacity_ > static_cast<int>(state_->workers_.size()) &&
-        state_->ready_count_ == 0) {
-      // Pool capacity is not full and no workers are ready to execute the task,
-      // spawn one more thread.
+    state_->tasks_queued_or_running_++;
+    if (static_cast<int>(state_->workers_.size()) < state_->tasks_queued_or_running_ &&
+        state_->desired_capacity_ > static_cast<int>(state_->workers_.size())) {
+      // We can still spin up more workers so spin up a new worker
       LaunchWorkersUnlocked(/*threads=*/1);
     }
     state_->pending_tasks_.push_back(
