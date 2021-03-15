@@ -80,6 +80,21 @@ class ComposeConfig:
         # override the defaults passed as parameters
         self.env.update(self.params)
 
+        # translate docker's architecture notation to a more widely used one
+        arch = self.env.get('ARCH', 'amd64')
+        arch_aliases = {
+            'amd64': 'x86_64',
+            'arm64v8': 'aarch64',
+            's390x': 's390x'
+        }
+        arch_short_aliases = {
+            'amd64': 'x64',
+            'arm64v8': 'arm64',
+            's390x': 's390x'
+        }
+        self.env['ARCH_ALIAS'] = arch_aliases.get(arch, arch)
+        self.env['ARCH_SHORT_ALIAS'] = arch_short_aliases.get(arch, arch)
+
     def _read_config(self, config_path, compose_bin):
         """
         Validate and read the docker-compose.yml

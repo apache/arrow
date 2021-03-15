@@ -29,18 +29,9 @@ jobs:
     name: "Build wheel for Manylinux {{ manylinux_version }}"
     runs-on: ubuntu-latest
     env:
-      # archery uses this environment variable
+      # archery uses these environment variables
+      ARCH: amd64
       PYTHON: {{ python_version }}
-      # this is a private repository at the moment (mostly because of licensing
-      # consideration of windows images with visual studio), but anyone can
-      # recreate the image by manually building it via:
-      # `archery build python-wheel-manylinux-2010|2014`
-      # note that we don't run docker build since there wouldn't be a cache hit
-      # and rebuilding the dependencies takes a fair amount of time
-      # (in case of linux multi-host caching works much better with buildkit)
-      REPO: ghcr.io/ursacomputing/arrow
-      # prefer the docker cli over docker-compose
-      ARCHERY_USE_DOCKER_CLI: 1
 
     steps:
       ############################ Checkout ###################################
@@ -60,9 +51,8 @@ jobs:
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v1
         with:
-          registry: ghcr.io
-          username: {{ '${{ github.repository_owner }}' }}
-          password: {{ '${{ secrets.CROSSBOW_GHCR_TOKEN }}' }}
+          username: {{ '${{ secrets.DOCKERHUB_USER }}' }}
+          password: {{ '${{ secrets.DOCKERHUB_TOKEN }}' }}
 
       ############################ Archery Installation #######################
       - name: Set up Python
@@ -75,11 +65,13 @@ jobs:
       ############################ Build & Test ###############################
       - name: Build wheel
         shell: bash
-        run: archery docker run --no-build -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-manylinux-{{ manylinux_version }}
+        run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-manylinux-{{ manylinux_version }}
       # TODO(kszucs): auditwheel show
       - name: Test wheel
         shell: bash
-        run: archery docker run python-wheel-manylinux-test
+        run: |
+          archery docker run python-wheel-manylinux-test-imports
+          archery docker run python-wheel-manylinux-test-unittests
 
       ############################ Artifact Uploading #########################
       - name: Upload artifacts
@@ -96,6 +88,12 @@ jobs:
           CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN }}' }}
 
       {% if arrow.branch == 'master' %}
+      - name: Push the docker image
+        shell: bash
+        run: |
+          archery docker push python-wheel-manylinux-{{ manylinux_version }}
+          archery docker push python-wheel-manylinux-test-unittests
+
       - name: Upload to gemfury
         shell: bash
         run: |
