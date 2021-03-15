@@ -39,7 +39,7 @@ class TestProjector : public ::testing::Test {
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
  protected:
-  arrow::MemoryPool* pool_;
+  arrow::MemoryPool *pool_;
 };
 
 time_t Epoch() {
@@ -371,7 +371,7 @@ TEST_F(TestProjector, TestTimestampDiff) {
       TreeExprBuilder::MakeExpression("timestampdiffYear", {f0, f1}, diff_seconds);
 
   std::shared_ptr<Projector> projector;
-  auto exprs = {diff_secs_expr,  diff_mins_expr,   diff_hours_expr,    diff_days_expr,
+  auto exprs = {diff_secs_expr, diff_mins_expr, diff_hours_expr, diff_days_expr,
                 diff_weeks_expr, diff_months_expr, diff_quarters_expr, diff_years_expr};
   auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
   ASSERT_TRUE(status.ok());
@@ -383,14 +383,14 @@ TEST_F(TestProjector, TestTimestampDiff) {
   // 2017-03-30T22:50:59.050
   auto end_millis = MillisSince(epoch, 2017, 3, 30, 22, 50, 59, 50);
   std::vector<int64_t> f0_data = {start_millis, end_millis,
-                                  // 2015-09-10T20:49:42.999
+      // 2015-09-10T20:49:42.999
                                   start_millis + 999,
-                                  // 2015-09-10T20:49:42.999
+      // 2015-09-10T20:49:42.999
                                   MillisSince(epoch, 2015, 9, 10, 20, 49, 42, 999)};
   std::vector<int64_t> f1_data = {end_millis, start_millis,
-                                  // 2015-09-10T20:49:42.999
+      // 2015-09-10T20:49:42.999
                                   start_millis + 999,
-                                  // 2015-09-9T21:49:42.999 (23 hours behind)
+      // 2015-09-9T21:49:42.999 (23 hours behind)
                                   MillisSince(epoch, 2015, 9, 9, 21, 49, 42, 999)};
 
   int64_t num_records = f0_data.size();
@@ -539,47 +539,47 @@ TEST_F(TestProjector, TestMonthsBetween) {
 
 TEST_F(TestProjector, TestLastDay) {
   auto f0 = field("f0", arrow::date64());
-  auto f1 = field("f1", arrow::date64());
-  auto schema = arrow::schema({f0, f1});
+  auto schema = arrow::schema({f0});
 
   // output fields
-  auto output = field("out", arrow::float64());
+  auto output = field("out", arrow::date64());
 
-  auto months_between_expr =
-      TreeExprBuilder::MakeExpression("months_between", {f0, f1}, output);
+  auto last_day_expr =
+      TreeExprBuilder::MakeExpression("last_day", {f0}, output);
 
   std::shared_ptr<Projector> projector;
   auto status =
-      Projector::Make(schema, {months_between_expr}, TestConfiguration(), &projector);
+      Projector::Make(schema, {last_day_expr}, TestConfiguration(), &projector);
   std::cout << status.message();
   ASSERT_TRUE(status.ok());
 
   time_t epoch = Epoch();
 
   // Create a row-batch with some sample data
-  int num_records = 4;
-  auto validity = {true, true, true, true};
-  std::vector<int64_t> f0_data = {MillisSince(epoch, 1995, 3, 2, 0, 0, 0, 0),
-                                  MillisSince(epoch, 1995, 2, 2, 0, 0, 0, 0),
-                                  MillisSince(epoch, 1995, 3, 31, 0, 0, 0, 0),
-                                  MillisSince(epoch, 1996, 3, 31, 0, 0, 0, 0)};
+  // Used a leap year as example.
+  int num_records = 5;
+  auto validity = {true, true, true, true, true};
+  std::vector<int64_t> f0_data = {MillisSince(epoch, 2016, 2, 3, 8, 20, 10, 34),
+                                  MillisSince(epoch, 2016, 2, 29, 23, 59, 59, 59),
+                                  MillisSince(epoch, 2016, 1, 30, 1, 15, 20, 0),
+                                  MillisSince(epoch, 2017, 2, 3, 23, 15, 20, 0),
+                                  MillisSince(epoch, 2015, 12, 30, 22, 50, 11, 0)};
 
   auto array0 =
       MakeArrowTypeArray<arrow::Date64Type, int64_t>(date64(), f0_data, validity);
 
-  std::vector<int64_t> f1_data = {MillisSince(epoch, 1995, 2, 2, 0, 0, 0, 0),
-                                  MillisSince(epoch, 1995, 3, 2, 0, 0, 0, 0),
-                                  MillisSince(epoch, 1995, 2, 28, 0, 0, 0, 0),
-                                  MillisSince(epoch, 1996, 2, 29, 0, 0, 0, 0)};
+  std::vector<int64_t> f0_output_data = {MillisSince(epoch, 2016, 2, 29, 0, 0, 0, 0),
+                                         MillisSince(epoch, 2016, 2, 29, 0, 0, 0, 0),
+                                         MillisSince(epoch, 2016, 1, 31, 0, 0, 0, 0),
+                                         MillisSince(epoch, 2017, 2, 28, 0, 0, 0, 0),
+                                         MillisSince(epoch, 2015, 12, 31, 0, 0, 0, 0)};
 
-  auto array1 =
-      MakeArrowTypeArray<arrow::Date64Type, int64_t>(date64(), f1_data, validity);
 
   // expected output
-  auto exp_output = MakeArrowArrayFloat64({1.0, -1.0, 1.0, 1.0}, validity);
+  auto exp_output = MakeArrowArrayDate64(f0_output_data, validity);
 
   // prepare input record batch
-  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
 
   // Evaluate expression
   arrow::ArrayVector outputs;
