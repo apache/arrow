@@ -33,7 +33,6 @@ use arrow::{
         Array, ArrayRef, BooleanArray, GenericStringArray, Int32Array, Int64Array,
         PrimitiveArray, StringArray, StringOffsetSizeTrait,
     },
-    compute,
     datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType},
 };
 
@@ -439,20 +438,6 @@ pub fn ltrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
         }
         other => Err(DataFusionError::Internal(format!(
             "ltrim was called with {} arguments. It requires at least 1 and at most 2.",
-            other
-        ))),
-    }
-}
-
-/// extract a specific group from a string column, using a regular expression
-pub fn regexp_match(args: &[ArrayRef]) -> Result<ArrayRef> {
-    match args.len() {
-        2 => compute::regexp_match(args[0].as_ref(), args[1].as_ref(), None)
-        .map_err(DataFusionError::ArrowError),
-        3 => compute::regexp_match(args[0].as_ref(), args[1].as_ref(), Some(args[2].as_ref()))
-        .map_err(DataFusionError::ArrowError),
-        other => Err(DataFusionError::Internal(format!(
-            "regexp_match was called with {} arguments. It requires at least 2 and at most 3.",
             other
         ))),
     }

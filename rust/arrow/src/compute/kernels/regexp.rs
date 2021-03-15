@@ -19,10 +19,9 @@
 //! expression of a \[Large\]StringArray
 
 use crate::array::{
-    Array, ArrayRef, GenericStringArray, GenericStringBuilder, LargeStringArray,
-    ListBuilder, StringArray, StringOffsetSizeTrait,
+    ArrayRef, GenericStringArray, GenericStringBuilder, ListBuilder,
+    StringOffsetSizeTrait,
 };
-use crate::datatypes::DataType;
 use crate::error::{ArrowError, Result};
 use std::collections::HashMap;
 
@@ -30,10 +29,11 @@ use std::sync::Arc;
 
 use regex::Regex;
 
-fn generic_regexp_match<OffsetSize: StringOffsetSizeTrait>(
+/// Extract all groups matched by a regular expression for a given String array.
+pub fn regexp_match<OffsetSize: StringOffsetSizeTrait>(
     array: &GenericStringArray<OffsetSize>,
-    regex_array: &StringArray,
-    flags_array: Option<&StringArray>,
+    regex_array: &GenericStringArray<OffsetSize>,
+    flags_array: Option<&GenericStringArray<OffsetSize>>,
 ) -> Result<ArrayRef> {
     let mut patterns: HashMap<String, Regex> = HashMap::new();
     let builder: GenericStringBuilder<OffsetSize> = GenericStringBuilder::new(0);
@@ -97,54 +97,10 @@ fn generic_regexp_match<OffsetSize: StringOffsetSizeTrait>(
     Ok(Arc::new(list_builder.finish()))
 }
 
-/// Extract all groups matched by a regular expression for a given String array.
-pub fn regexp_match(
-    array: &Array,
-    pattern: &Array,
-    flags: Option<&Array>,
-) -> Result<ArrayRef> {
-    match array.data_type() {
-        DataType::LargeUtf8 => generic_regexp_match(
-            array
-                .as_any()
-                .downcast_ref::<LargeStringArray>()
-                .expect("A large string is expected"),
-            pattern
-                .as_any()
-                .downcast_ref::<StringArray>()
-                .expect("A string is expected"),
-            flags.map(|x| {
-                x.as_any()
-                    .downcast_ref::<StringArray>()
-                    .expect("A string is expected")
-            }),
-        ),
-        DataType::Utf8 => generic_regexp_match(
-            array
-                .as_any()
-                .downcast_ref::<StringArray>()
-                .expect("A string is expected"),
-            pattern
-                .as_any()
-                .downcast_ref::<StringArray>()
-                .expect("A string is expected"),
-            flags.map(|x| {
-                x.as_any()
-                    .downcast_ref::<StringArray>()
-                    .expect("A string is expected")
-            }),
-        ),
-        _ => Err(ArrowError::ComputeError(format!(
-            "regexp_match does not support type {:?}",
-            array.data_type()
-        ))),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::array::ListArray;
+    use crate::array::{ListArray, StringArray};
 
     #[test]
     fn match_single_group() -> Result<()> {
