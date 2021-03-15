@@ -21,13 +21,20 @@
 #include "arrow/util/functional.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/optional.h"
+#include "arrow/util/queue.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
 
 template <typename T>
 using AsyncGenerator = std::function<Future<T>()>;
+
+template <typename T>
+Future<T> AsyncGeneratorEnd() {
+  return Future<T>::MakeFinished(IterationTraits<T>::End());
+}
 
 /// Iterates through a generator of futures, visiting the result of each one and
 /// returning a future that completes when all have been visited
@@ -70,7 +77,7 @@ Future<std::vector<T>> CollectAsyncGenerator(AsyncGenerator<T> generator) {
   auto vec = std::make_shared<std::vector<T>>();
   struct LoopBody {
     Future<ControlFlow<std::vector<T>>> operator()() {
-      auto next = generator();
+      auto next = generator_();
       auto vec = vec_;
       return next.Then([vec](const T& result) -> Result<ControlFlow<std::vector<T>>> {
         if (result == IterationTraits<T>::End()) {
@@ -81,7 +88,7 @@ Future<std::vector<T>> CollectAsyncGenerator(AsyncGenerator<T> generator) {
         }
       });
     }
-    AsyncGenerator<T> generator;
+    AsyncGenerator<T> generator_;
     std::shared_ptr<std::vector<T>> vec_;
   };
   return Loop(LoopBody{std::move(generator), std::move(vec)});
@@ -178,6 +185,107 @@ class TransformingGenerator {
 };
 
 template <typename T>
+class SerialReadaheadGenerator {
+ public:
+  SerialReadaheadGenerator(AsyncGenerator<T> source_generator, int max_readahead)
+      : state_(std::make_shared<State>(std::move(source_generator), max_readahead)) {}
+
+  Future<T> operator()() {
+    if (state_->first_) {
+      // Lazy generator, need to wait for the first ask to prime the pump
+      state_->first_ = false;
+      auto next = state_->source_();
+      return next.Then(Callback{state_});
+    }
+
+    // This generator is not async-reentrant.  We won't be called until the last
+    // future finished so we know there is something in the queue
+    auto finished = state_->finished_.load();
+    if (finished && state_->readahead_queue_.IsEmpty()) {
+      return AsyncGeneratorEnd<T>();
+    }
+
+    std::shared_ptr<Future<T>> next;
+    if (!state_->readahead_queue_.Read(next)) {
+      return Status::UnknownError("Could not read from readahead_queue");
+    }
+
+    auto last_available = state_->spaces_available_.fetch_add(1);
+    if (last_available == 0 && !finished) {
+      // Reader idled out, we need to restart it
+      ARROW_RETURN_NOT_OK(state_->Pump(state_));
+    }
+    return *next;
+  }
+
+ private:
+  struct State {
+    State(AsyncGenerator<T> source, int max_readahead)
+        : first_(true),
+          source_(std::move(source)),
+          finished_(false),
+          spaces_available_(max_readahead),
+          readahead_queue_(max_readahead) {}
+
+    Status Pump(const std::shared_ptr<State>& self) {
+      // Can't do readahead_queue.write(source().Then(Callback{self})) because then the
+      // callback might run immediately and add itself to the queue before this gets added
+      // to the queue messing up the order.
+      auto next_slot = std::make_shared<Future<T>>();
+      auto written = readahead_queue_.Write(next_slot);
+      if (!written) {
+        return Status::UnknownError("Could not write to readahead_queue");
+      }
+      // If this Pump is being called from a callback it is possible for the source to
+      // poll and read from the queue between the Write and this spot where we fill the
+      // value in. However, it is not possible for the future to read this value we are
+      // writing.  That is because this callback (the callback for future X) must be
+      // finished before future X is marked complete and this source is not pulled
+      // reentrantly so it will not poll for future X+1 until this callback has completed.
+      *next_slot = source_().Then(Callback{self});
+      return Status::OK();
+    }
+
+    // Only accessed by the consumer end
+    bool first_;
+    // Accessed by both threads
+    AsyncGenerator<T> source_;
+    std::atomic<bool> finished_;
+    // The queue has a size but it is not atomic.  We keep track of how many spaces are
+    // left in the queue here so we know if we've just written the last value and we need
+    // to stop reading ahead or if we've just read from a full queue and we need to
+    // restart reading ahead
+    std::atomic<uint32_t> spaces_available_;
+    // Needs to be a queue of shared_ptr and not Future because we set the value of the
+    // future after we add it to the queue
+    util::SpscQueue<std::shared_ptr<Future<T>>> readahead_queue_;
+  };
+
+  struct Callback {
+    Result<T> operator()(const Result<T>& maybe_next) {
+      if (!maybe_next.ok()) {
+        state_->finished_.store(true);
+        return maybe_next;
+      }
+      const auto& next = *maybe_next;
+      if (next == IterationTraits<T>::End()) {
+        state_->finished_.store(true);
+        return maybe_next;
+      }
+      auto last_available = state_->spaces_available_.fetch_sub(1);
+      if (last_available > 1) {
+        ARROW_RETURN_NOT_OK(state_->Pump(state_));
+      }
+      return maybe_next;
+    }
+
+    std::shared_ptr<State> state_;
+  };
+
+  std::shared_ptr<State> state_;
+};
+
+template <typename T>
 class ReadaheadGenerator {
  public:
   ReadaheadGenerator(AsyncGenerator<T> source_generator, int max_readahead)
@@ -209,7 +317,7 @@ class ReadaheadGenerator {
     auto result = readahead_queue_.front();
     readahead_queue_.pop();
     if (finished_->load()) {
-      readahead_queue_.push(Future<T>::MakeFinished(IterationTraits<T>::End()));
+      readahead_queue_.push(AsyncGeneratorEnd<T>());
     } else {
       auto back_of_queue = source_generator_();
       back_of_queue.AddCallback(mark_finished_if_done_);
@@ -239,6 +347,18 @@ template <typename T>
 AsyncGenerator<T> MakeReadaheadGenerator(AsyncGenerator<T> source_generator,
                                          int max_readahead) {
   return ReadaheadGenerator<T>(std::move(source_generator), max_readahead);
+}
+
+/// \brief Creates a generator that will pull from the source into a queue.  Unlike
+/// MakeReadaheadGenerator this will not pull reentrantly from the source.
+///
+/// The source generator does not need to be async-reentrant
+///
+/// This generator is not async-reentrant (even if the source is)
+template <typename T>
+AsyncGenerator<T> MakeSerialReadaheadGenerator(AsyncGenerator<T> source_generator,
+                                               int max_readahead) {
+  return SerialReadaheadGenerator<T>(std::move(source_generator), max_readahead);
 }
 
 /// \brief Transforms an async generator using a transformer function returning a new
