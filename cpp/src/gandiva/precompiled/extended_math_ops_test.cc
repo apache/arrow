@@ -217,10 +217,10 @@ TEST(TestExtendedMathOps, TestTrigonometricFunctions) {
     VerifyFuzzyEquals(tanh_float64(-M_PI), tanh(-M_PI));
 
     // Atan2
-    VerifyFuzzyEquals(atan2_float32(1, 0), atan2(1, 0));
-    VerifyFuzzyEquals(atan2_float32(-1.0, 0), atan2(-1, 0));
-    VerifyFuzzyEquals(atan2_float64(1.0, 0.0), atan2(1, 0));
-    VerifyFuzzyEquals(atan2_float64(-1, 0), atan2(-1, 0));
+    VerifyFuzzyEquals(atan2_float32_float32(1, 0), atan2(1, 0));
+    VerifyFuzzyEquals(atan2_float32_float32(-1.0, 0), atan2(-1, 0));
+    VerifyFuzzyEquals(atan2_float64_float64(1.0, 0.0), atan2(1, 0));
+    VerifyFuzzyEquals(atan2_float64_float64(-1, 0), atan2(-1, 0));
 
     // Radians
     VerifyFuzzyEquals(radians_float32(0), 0);
