@@ -132,7 +132,7 @@ pub trait DataFrame: Send + Sync {
     /// ```
     fn limit(&self, n: usize) -> Result<Arc<dyn DataFrame>>;
 
-    /// Calculate the union two dataframes.
+    /// Calculate the union two [`DataFrame`]s.  The two [`DataFrame`]s must have exactly the same schema
     ///
     /// ```
     /// # use datafusion::prelude::*;
