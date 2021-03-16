@@ -28,10 +28,6 @@ namespace gandiva {
       UNARY_SAFE_NULL_IF_NULL(name, ALIASES, float32, float64), \
       UNARY_SAFE_NULL_IF_NULL(name, ALIASES, float64, float64)
 
-#define MATH_UNARY_FLOAT_OPS(name, ALIASES)                           \
-      UNARY_SAFE_NULL_IF_NULL(name, ALIASES, float32, float64), \
-      UNARY_SAFE_NULL_IF_NULL(name, ALIASES, float64, float64)
-
 #define MATH_BINARY_UNSAFE(name, ALIASES)                          \
   BINARY_UNSAFE_NULL_IF_NULL(name, ALIASES, int32, float64),       \
       BINARY_UNSAFE_NULL_IF_NULL(name, ALIASES, int64, float64),   \
@@ -66,18 +62,18 @@ std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
       BINARY_SAFE_NULL_NEVER_BOOL_FN(is_not_distinct_from, {}),
 
       // trigonometry functions
-      MATH_UNARY_FLOAT_OPS(sin, {}),
-      MATH_UNARY_FLOAT_OPS(cos, {}),
-      MATH_UNARY_FLOAT_OPS(asin, {}),
-      MATH_UNARY_FLOAT_OPS(acos, {}),
-      MATH_UNARY_FLOAT_OPS(tan, {}),
-      MATH_UNARY_FLOAT_OPS(atan, {}),
-      MATH_UNARY_FLOAT_OPS(sinh, {}),
-      MATH_UNARY_FLOAT_OPS(cosh, {}),
-      MATH_UNARY_FLOAT_OPS(tanh, {}),
-      MATH_UNARY_FLOAT_OPS(cot, {}),
-      MATH_UNARY_FLOAT_OPS(radians, {}),
-      MATH_UNARY_FLOAT_OPS(degrees, {}),
+	  MATH_UNARY_OPS(sin, {}),
+	  MATH_UNARY_OPS(cos, {}),
+	  MATH_UNARY_OPS(asin, {}),
+	  MATH_UNARY_OPS(acos, {}),
+	  MATH_UNARY_OPS(tan, {}),
+	  MATH_UNARY_OPS(atan, {}),
+	  MATH_UNARY_OPS(sinh, {}),
+	  MATH_UNARY_OPS(cosh, {}),
+	  MATH_UNARY_OPS(tanh, {}),
+	  MATH_UNARY_OPS(cot, {}),
+	  MATH_UNARY_OPS(radians, {}),
+	  MATH_UNARY_OPS(degrees, {}),
       BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(atan2, {}, float64),
 
       // decimal functions
