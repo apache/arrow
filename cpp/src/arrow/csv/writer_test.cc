@@ -32,12 +32,17 @@
 namespace arrow {
 namespace csv {
 
-struct TestParams {
+struct WriterTestParams {
   std::shared_ptr<Schema> schema;
   std::string batch_data;
   WriteOptions options;
   std::string expected_output;
 };
+
+// Avoid Valgrind failures with GTest trying to represent a WriterTestParams
+void PrintTo(const WriterTestParams& p, std::ostream* os) {
+  *os << "WriterTestParams(" << reinterpret_cast<const void*>(&p) << ")";
+}
 
 WriteOptions DefaultTestOptions(bool include_header) {
   WriteOptions options;
@@ -46,7 +51,7 @@ WriteOptions DefaultTestOptions(bool include_header) {
   return options;
 }
 
-std::vector<TestParams> GenerateTestCases() {
+std::vector<WriterTestParams> GenerateTestCases() {
   auto abc_schema = schema({
       {field("a", uint64())},
       {field("b\"", utf8())},
@@ -66,7 +71,7 @@ std::vector<TestParams> GenerateTestCases() {
                                         R"(124,"a""""b""",)" + "\n";      // line 6
   std::string expected_header = std::string(R"("a","b""","c ")") + "\n";
 
-  return std::vector<TestParams>{
+  return std::vector<WriterTestParams>{
       {abc_schema, "[]", DefaultTestOptions(/*header=*/false), ""},
       {abc_schema, "[]", DefaultTestOptions(/*header=*/true), expected_header},
       {abc_schema, populated_batch, DefaultTestOptions(/*header=*/false),
@@ -75,7 +80,7 @@ std::vector<TestParams> GenerateTestCases() {
        expected_header + expected_without_header}};
 }
 
-class TestWriteCSV : public ::testing::TestWithParam<TestParams> {
+class TestWriteCSV : public ::testing::TestWithParam<WriterTestParams> {
  protected:
   template <typename Data>
   Result<std::string> ToCsvString(const Data& data, const WriteOptions& options) {
@@ -113,7 +118,7 @@ INSTANTIATE_TEST_SUITE_P(MultiColumnWriteCSVTest, TestWriteCSV,
                          ::testing::ValuesIn(GenerateTestCases()));
 
 INSTANTIATE_TEST_SUITE_P(SingleColumnWriteCSVTest, TestWriteCSV,
-                         ::testing::Values(TestParams{
+                         ::testing::Values(WriterTestParams{
                              schema({field("int64", int64())}),
                              R"([{ "int64": 9999}, {}, { "int64": -15}])", WriteOptions(),
                              R"("int64")"
