@@ -19,56 +19,30 @@ package bmi
 import "unsafe"
 
 //go:noescape
-func _extract_bits(bitmap, selectBitmap uint64, res unsafe.Pointer)
+func _extract_bits(bitmap, selectBitmap uint64) (res uint64)
 
+// extractBitsBMI2 uses BMI2 to call the pext instruction, Parallel Bits Extract
+// in order to quickly and efficiently extract the bits selected in a parallel
+// fashion. See the definition of the PEXT instruction for x86/x86-64 cpus
 func extractBitsBMI2(bitmap, selectBitmap uint64) uint64 {
-	var (
-		res uint64
-	)
-
-	_extract_bits(bitmap, selectBitmap, unsafe.Pointer(&res))
-	return res
+	return _extract_bits(bitmap, selectBitmap)
 }
 
 //go:noescape
-func _popcount64(bitmap uint64, res unsafe.Pointer)
+func _levels_to_bitmap(levels unsafe.Pointer, numLevels int, rhs int16) (res uint64)
 
-func popCount64BMI2(bitmap uint64) uint64 {
-	var (
-		res uint64
-	)
-
-	_popcount64(bitmap, unsafe.Pointer(&res))
-	return res
-}
-
-//go:noescape
-func _popcount32(bitmap uint32, res unsafe.Pointer)
-
-func popCount32BMI2(bitmap uint32) uint32 {
-	var (
-		res uint32
-	)
-
-	_popcount32(bitmap, unsafe.Pointer(&res))
-	return res
-}
-
-//go:noescape
-func _levels_to_bitmap(levels unsafe.Pointer, numLevels int, rhs int16, res unsafe.Pointer)
-
+// greaterThanBitmapBMI2 builds a bitmap where each set bit indicates the corresponding level
+// is greater than the rhs value.
 func greaterThanBitmapBMI2(levels []int16, rhs int16) uint64 {
 	if levels == nil || len(levels) == 0 {
 		return 0
 	}
 
 	var (
-		p1  = unsafe.Pointer(&levels[0])
-		p2  = len(levels)
-		p3  = rhs
-		res uint64
+		p1 = unsafe.Pointer(&levels[0])
+		p2 = len(levels)
+		p3 = rhs
 	)
 
-	_levels_to_bitmap(p1, p2, p3, unsafe.Pointer(&res))
-	return res
+	return _levels_to_bitmap(p1, p2, p3)
 }

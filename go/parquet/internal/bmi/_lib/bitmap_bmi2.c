@@ -17,22 +17,14 @@
 #include <stdint.h>
 #include <x86intrin.h>
 
-void extract_bits(uint64_t bitmap, uint64_t select_bitmap, uint64_t* res) {
-   *res = _pext_u64(bitmap, select_bitmap);
+uint64_t extract_bits(uint64_t bitmap, uint64_t select_bitmap) {
+   return (uint64_t)(_pext_u64(bitmap, select_bitmap));
 }
 
-void popcount64(uint64_t bitmap, uint64_t* res) {
-  *res = __builtin_popcountll(bitmap);
-}
-
-void popcount32(uint32_t bitmap, uint32_t* res) {
-  *res = __builtin_popcount(bitmap);
-}
-
-void levels_to_bitmap(const int16_t* levels, const int num_levels, const int16_t rhs, uint64_t* res) {
+uint64_t levels_to_bitmap(const int16_t* levels, const int num_levels, const int16_t rhs) {
   uint64_t mask = 0;
   for (int x = 0; x < num_levels; x++) {
     mask |= (uint64_t)(levels[x] > rhs ? 1 : 0) << x;
   }
-  *res = mask;
+  return mask;
 }

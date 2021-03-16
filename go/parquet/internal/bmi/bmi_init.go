@@ -22,21 +22,12 @@ import (
 
 type funcs struct {
 	extractBits func(uint64, uint64) uint64
-	popcount64  func(uint64) uint64
-	popcount32  func(uint32) uint32
 	gtbitmap    func([]int16, int16) uint64
 }
 
 var funclist funcs
 
 func init() {
-	if cpu.X86.HasPOPCNT {
-		funclist.popcount64 = popCount64BMI2
-		funclist.popcount32 = popCount32BMI2
-	} else {
-		funclist.popcount64 = popCount64Go
-		funclist.popcount32 = popCount32Go
-	}
 	if cpu.X86.HasBMI2 {
 		funclist.extractBits = extractBitsBMI2
 	} else {
@@ -49,18 +40,18 @@ func init() {
 	}
 }
 
+// ExtractBits performs a Parallel Bit extract as per the PEXT instruction for
+// x86/x86-64 cpus to use the second parameter as a mask to extract the bits from
+// the first argument into a new bitmap.
+//
+// For each bit Set in selectBitmap, the corresponding bits are extracted from bitmap
+// and written to contiguous lower bits of the result, the remaining upper bits are zeroed.
 func ExtractBits(bitmap, selectBitmap uint64) uint64 {
 	return funclist.extractBits(bitmap, selectBitmap)
 }
 
-func PopCount64(bitmap uint64) uint64 {
-	return funclist.popcount64(bitmap)
-}
-
-func PopCount32(bitmap uint32) uint32 {
-	return funclist.popcount32(bitmap)
-}
-
+// GreaterThanBitmap builds a bitmap where each bit corresponds to whether or not
+// the level in that index is greater than the value of rhs.
 func GreaterThanBitmap(levels []int16, rhs int16) uint64 {
 	return funclist.gtbitmap(levels, rhs)
 }

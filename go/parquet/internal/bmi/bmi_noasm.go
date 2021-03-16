@@ -18,14 +18,6 @@ package bmi
 
 import "math/bits"
 
-func popCount64Go(bitmap uint64) uint64 {
-	return uint64(bits.OnesCount64(bitmap))
-}
-
-func popCount32Go(bitmap uint32) uint32 {
-	return uint32(bits.OnesCount32(bitmap))
-}
-
 /* Python code to generate lookup table:
 kLookupBits = 5
 count = 0
@@ -234,10 +226,10 @@ func extractBitsGo(bitmap, selectBitmap uint64) uint64 {
 	const lookupMask = uint64((uint(1) << lookupBits) - 1)
 
 	for selectBitmap != 0 {
-		maskLen := funclist.popcount32(uint32(selectBitmap & lookupMask))
+		maskLen := bits.OnesCount32(uint32(selectBitmap & lookupMask))
 		value := pextTable[selectBitmap&lookupMask][bitmap&lookupMask]
 		bitValue |= uint64(value << bitLen)
-		bitLen += int(maskLen)
+		bitLen += maskLen
 		bitmap >>= lookupBits
 		selectBitmap >>= lookupBits
 	}
