@@ -44,8 +44,9 @@ arrow_dplyr_query <- function(.data) {
       # in the data. They will be kept when data is pulled into R.
       group_by_vars = character(),
       # drop_empty_groups is a logical value indicating whether to drop
-      # groups formed by factor levels that don't appear in the data
-      drop_empty_groups = TRUE
+      # groups formed by factor levels that don't appear in the data. It
+      # should be non-null only when the data is grouped.
+      drop_empty_groups = NULL
     ),
     class = "arrow_dplyr_query"
   )
@@ -490,7 +491,7 @@ group_by.arrow_dplyr_query <- function(.data,
     gv <- dplyr::group_by_prepare(.data, ..., add = add)$group_names
   }
   .data$group_by_vars <- gv
-  .data$drop_empty_groups <- ifelse(length(gv), .drop, TRUE)
+  .data$drop_empty_groups <- ifelse(length(gv), .drop, group_by_drop_default(.data))
   .data
 }
 group_by.Dataset <- group_by.ArrowTabular <- group_by.arrow_dplyr_query
@@ -501,6 +502,8 @@ groups.Dataset <- groups.ArrowTabular <- function(x) NULL
 group_vars.arrow_dplyr_query <- function(x) x$group_by_vars
 group_vars.Dataset <- group_vars.ArrowTabular <- function(x) NULL
 
+# the logical literal in the two functions below controls the default value of
+# the .drop argument to group_by()
 group_by_drop_default.arrow_dplyr_query <-
   function(.tbl) .tbl$drop_empty_groups %||% TRUE
 group_by_drop_default.Dataset <- group_by_drop_default.ArrowTabular <-
@@ -508,7 +511,7 @@ group_by_drop_default.Dataset <- group_by_drop_default.ArrowTabular <-
 
 ungroup.arrow_dplyr_query <- function(x, ...) {
   x$group_by_vars <- character()
-  x$drop_empty_groups <- TRUE
+  x$drop_empty_groups <- NULL
   x
 }
 ungroup.Dataset <- ungroup.ArrowTabular <- force
