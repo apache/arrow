@@ -16,6 +16,7 @@
 
 package utils
 
+// pure go implementation of converting a bitmap to a slice of bools
 func bytesToBoolsGo(in []byte, out []bool) {
 	for i, b := range in {
 		for j := 0; j < 8; j++ {

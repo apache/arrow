@@ -23,6 +23,9 @@ import "golang.org/x/sys/cpu"
 var byteToBoolFunc func([]byte, []bool)
 
 func init() {
+	// if the cpu supports AVX2 or SSE4 then use SIMD to accelerate the conversion
+	// of a bitmap to a slice of bools in an optimized fashion, otherwise fallback
+	// to the pure go implementation
 	if cpu.X86.HasAVX2 {
 		byteToBoolFunc = bytesToBoolsAVX2
 	} else if cpu.X86.HasSSE42 {
@@ -32,6 +35,7 @@ func init() {
 	}
 }
 
+// BytesToBools efficiently populates a slice of booleans from an input bitmap
 func BytesToBools(in []byte, out []bool) {
 	byteToBoolFunc(in, out)
 }

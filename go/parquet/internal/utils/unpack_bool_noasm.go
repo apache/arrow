@@ -18,6 +18,8 @@
 
 package utils
 
+// BytesToBools when built with the noasm tag will direct to the pure go implementation
+// for converting a bitmap to a slice of bools
 func BytesToBools(in []byte, out []bool) {
 	bytesToBoolsGo(in, out)
 }

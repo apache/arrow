@@ -23,6 +23,7 @@ import "unsafe"
 //go:noescape
 func _bytes_to_bools_avx2(in unsafe.Pointer, len int, out unsafe.Pointer, outlen int)
 
+// use AVX2 to SIMD accelerate the conversion of bitmap to boolean slice
 func bytesToBoolsAVX2(in []byte, out []bool) {
 	_bytes_to_bools_avx2(unsafe.Pointer(&in[0]), len(in), unsafe.Pointer(&out[0]), len(out))
 }
