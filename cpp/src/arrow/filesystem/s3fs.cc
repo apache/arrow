@@ -19,7 +19,6 @@
 
 #include <algorithm>
 #include <atomic>
-#include <condition_variable>
 #include <functional>
 #include <mutex>
 #include <sstream>
@@ -939,10 +938,11 @@ class ObjectOutputStream final : public io::OutputStream {
       return Status::Invalid("Operation on closed stream");
     }
     // Wait for background writes to finish
-    std::unique_lock<std::mutex> lock(upload_state_->mutex);
-    upload_state_->cv.wait(lock,
-                           [this]() { return upload_state_->parts_in_progress == 0; });
-    return upload_state_->status;
+    if (options_.background_writes) {
+      return upload_state_->completion_fut.status();
+    } else {
+      return upload_state_->current_status;
+    }
   }
 
   // Upload-related helpers
@@ -1030,18 +1030,18 @@ class ObjectOutputStream final : public io::OutputStream {
                                   const Result<S3Model::UploadPartOutcome>& result) {
     std::unique_lock<std::mutex> lock(state->mutex);
     if (!result.ok()) {
-      state->status &= result.status();
+      state->current_status &= result.status();
     } else {
       const auto& outcome = *result;
       if (!outcome.IsSuccess()) {
-        state->status &= UploadPartError(req, outcome);
+        state->current_status &= UploadPartError(req, outcome);
       } else {
         AddCompletedPart(state, part_number, outcome.GetResult());
       }
     }
-    // Notify completion, regardless of success / error status
+    // Notify completion
     if (--state->parts_in_progress == 0) {
-      state->cv.notify_all();
+      state->completion_fut.MarkFinished(state->current_status);
     }
   }
 
@@ -1086,12 +1086,12 @@ class ObjectOutputStream final : public io::OutputStream {
   // in the completion handler.
   struct UploadState {
     std::mutex mutex;
-    std::condition_variable cv;
     Aws::Vector<S3Model::CompletedPart> completed_parts;
     int64_t parts_in_progress = 0;
-    Status status;
+    Status current_status;
+    Future<> completion_fut;
 
-    UploadState() : status(Status::OK()) {}
+    UploadState() : completion_fut(Future<>::Make()) {}
   };
   std::shared_ptr<UploadState> upload_state_;
 };
@@ -1524,7 +1524,8 @@ class S3FileSystem::Impl {
   }
 
   // Delete multiple objects at once
-  Status DeleteObjects(const std::string& bucket, const std::vector<std::string>& keys) {
+  Future<> DeleteObjectsAsync(const std::string& bucket,
+                              const std::vector<std::string>& keys) {
     struct DeleteCallback {
       const std::string bucket;
 
@@ -1575,7 +1576,11 @@ class S3FileSystem::Impl {
       futures.push_back(std::move(fut).Then(delete_cb));
     }
 
-    return AllComplete(futures).status();
+    return AllComplete(futures);
+  }
+
+  Status DeleteObjects(const std::string& bucket, const std::vector<std::string>& keys) {
+    return DeleteObjectsAsync(bucket, keys).status();
   }
 
   Status DeleteDirContents(const std::string& bucket, const std::string& key) {
