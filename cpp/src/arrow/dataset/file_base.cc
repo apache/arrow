@@ -78,10 +78,9 @@ Result<std::shared_ptr<Schema>> FileFragment::ReadPhysicalSchemaImpl() {
   return format_->Inspect(source_);
 }
 
-Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanOptions> options,
-                                            std::shared_ptr<ScanContext> context) {
+Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanOptions> options) {
   auto self = std::dynamic_pointer_cast<FileFragment>(shared_from_this());
-  return format_->ScanFile(std::move(options), std::move(context), self);
+  return format_->ScanFile(std::move(options), self);
 }
 
 struct FileSystemDataset::FragmentSubtrees {
@@ -339,7 +338,7 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
                                 std::shared_ptr<Scanner> scanner) {
   RETURN_NOT_OK(ValidateBasenameTemplate(write_options.basename_template));
 
-  auto task_group = scanner->context()->TaskGroup();
+  auto task_group = scanner->options()->TaskGroup();
 
   // Things we'll un-lazy for the sake of simplicity, with the tradeoff they represent:
   //
@@ -356,14 +355,12 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   ARROW_ASSIGN_OR_RAISE(FragmentVector fragments, fragment_it.ToVector());
   ScanTaskVector scan_tasks;
 
-  // Avoid contention with multithreaded readers
-  auto context = std::make_shared<ScanContext>(*scanner->context());
-  context->use_threads = false;
-
   for (const auto& fragment : fragments) {
     auto options = std::make_shared<ScanOptions>(*scanner->options());
+    // Avoid contention with multithreaded readers
+    options->use_threads = false;
     ARROW_ASSIGN_OR_RAISE(auto scan_task_it,
-                          Scanner(fragment, std::move(options), context).Scan());
+                          Scanner(fragment, std::move(options)).Scan());
     for (auto maybe_scan_task : scan_task_it) {
       ARROW_ASSIGN_OR_RAISE(auto scan_task, maybe_scan_task);
       scan_tasks.push_back(std::move(scan_task));
@@ -434,7 +431,7 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   }
   RETURN_NOT_OK(task_group->Finish());
 
-  task_group = scanner->context()->TaskGroup();
+  task_group = scanner->options()->TaskGroup();
   for (const auto& part_queue : queues) {
     task_group->Append([&] { return part_queue.second->writer()->Finish(); });
   }

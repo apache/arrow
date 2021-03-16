@@ -102,7 +102,7 @@ class TestIpcFileFormat : public ArrowIpcWriterMixin {
   }
 
   RecordBatchIterator Batches(Fragment* fragment) {
-    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_, ctx_));
+    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
     return Batches(std::move(scan_task_it));
   }
 
@@ -115,7 +115,6 @@ class TestIpcFileFormat : public ArrowIpcWriterMixin {
  protected:
   std::shared_ptr<IpcFileFormat> format_ = std::make_shared<IpcFileFormat>();
   std::shared_ptr<ScanOptions> opts_;
-  std::shared_ptr<ScanContext> ctx_ = std::make_shared<ScanContext>();
 };
 
 TEST_F(TestIpcFileFormat, ScanRecordBatchReader) {
@@ -238,7 +237,7 @@ TEST_F(TestIpcFileSystemDataset, WriteExceedsMaxPartitions) {
   // require that no batch be grouped into more than 2 written batches:
   write_options_.max_partitions = 2;
 
-  auto scanner = std::make_shared<Scanner>(dataset_, scan_options_, scan_context_);
+  auto scanner = std::make_shared<Scanner>(dataset_, scan_options_);
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("This exceeds the maximum"),
                                   FileSystemDataset::Write(write_options_, scanner));
 }

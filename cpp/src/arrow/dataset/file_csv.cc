@@ -82,6 +82,12 @@ static inline Result<csv::ConvertOptions> GetConvertOptions(
       GetColumnNames(format.parse_options, util::string_view{first_block}, pool));
 
   auto convert_options = csv::ConvertOptions::Defaults();
+  if (scan_options && scan_options->fragment_scan_options &&
+      scan_options->fragment_scan_options->type_name() == kCsvTypeName) {
+    auto csv_scan_options = internal::checked_pointer_cast<CsvFragmentScanOptions>(
+        scan_options->fragment_scan_options);
+    convert_options = csv_scan_options->convert_options;
+  }
 
   for (FieldRef ref : scan_options->MaterializedFields()) {
     ARROW_ASSIGN_OR_RAISE(auto field, ref.GetOne(*scan_options->dataset_schema));
@@ -134,15 +140,15 @@ static inline Result<std::shared_ptr<csv::StreamingReader>> OpenReader(
 class CsvScanTask : public ScanTask {
  public:
   CsvScanTask(std::shared_ptr<const CsvFileFormat> format,
-              std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
+              std::shared_ptr<ScanOptions> options,
               std::shared_ptr<FileFragment> fragment)
-      : ScanTask(std::move(options), std::move(context), fragment),
+      : ScanTask(std::move(options), fragment),
         format_(std::move(format)),
         source_(fragment->source()) {}
 
   Result<RecordBatchIterator> Execute() override {
     ARROW_ASSIGN_OR_RAISE(auto reader,
-                          OpenReader(source_, *format_, options(), context()->pool));
+                          OpenReader(source_, *format_, options(), options()->pool));
     return IteratorFromReader(std::move(reader));
   }
 
@@ -178,11 +184,11 @@ Result<std::shared_ptr<Schema>> CsvFileFormat::Inspect(const FileSource& source)
 }
 
 Result<ScanTaskIterator> CsvFileFormat::ScanFile(
-    std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
+    std::shared_ptr<ScanOptions> options,
     const std::shared_ptr<FileFragment>& fragment) const {
   auto this_ = checked_pointer_cast<const CsvFileFormat>(shared_from_this());
   auto task = std::make_shared<CsvScanTask>(std::move(this_), std::move(options),
-                                            std::move(context), std::move(fragment));
+                                            std::move(fragment));
 
   return MakeVectorIterator<std::shared_ptr<ScanTask>>({std::move(task)});
 }

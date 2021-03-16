@@ -59,10 +59,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         @staticmethod
         shared_ptr[CScanOptions] Make(shared_ptr[CSchema] schema)
 
-    cdef cppclass CScanContext "arrow::dataset::ScanContext":
-        c_bool use_threads
-        CMemoryPool * pool
-
     ctypedef CIterator[shared_ptr[CScanTask]] CScanTaskIterator \
         "arrow::dataset::ScanTaskIterator"
 
@@ -71,8 +67,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CFragment "arrow::dataset::Fragment":
         CResult[shared_ptr[CSchema]] ReadPhysicalSchema()
-        CResult[CScanTaskIterator] Scan(
-            shared_ptr[CScanOptions] options, shared_ptr[CScanContext] context)
+        CResult[CScanTaskIterator] Scan(shared_ptr[CScanOptions] options)
         c_bool splittable() const
         c_string type_name() const
         const CExpression& partition_expression() const
@@ -89,10 +84,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
                           CExpression partition_expression)
 
     cdef cppclass CScanner "arrow::dataset::Scanner":
-        CScanner(shared_ptr[CDataset], shared_ptr[CScanOptions],
-                 shared_ptr[CScanContext])
-        CScanner(shared_ptr[CFragment], shared_ptr[CScanOptions],
-                 shared_ptr[CScanContext])
+        CScanner(shared_ptr[CDataset], shared_ptr[CScanOptions])
+        CScanner(shared_ptr[CFragment], shared_ptr[CScanOptions])
         CResult[CScanTaskIterator] Scan()
         CResult[shared_ptr[CTable]] ToTable()
         CResult[CFragmentIterator] GetFragments()
@@ -100,12 +93,13 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CScannerBuilder "arrow::dataset::ScannerBuilder":
         CScannerBuilder(shared_ptr[CDataset],
-                        shared_ptr[CScanContext] scan_context)
+                        shared_ptr[CScanOptions] scan_options)
         CScannerBuilder(shared_ptr[CSchema], shared_ptr[CFragment],
-                        shared_ptr[CScanContext] scan_context)
+                        shared_ptr[CScanOptions] scan_options)
         CStatus Project(const vector[c_string]& columns)
         CStatus Filter(CExpression filter)
         CStatus UseThreads(c_bool use_threads)
+        CStatus Pool(CMemoryPool* pool)
         CStatus BatchSize(int64_t batch_size)
         CResult[shared_ptr[CScanner]] Finish()
         shared_ptr[CSchema] schema() const
@@ -122,8 +116,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
         CResult[shared_ptr[CDataset]] ReplaceSchema(shared_ptr[CSchema])
 
-        CResult[shared_ptr[CScannerBuilder]] NewScanWithContext "NewScan"(
-            shared_ptr[CScanContext] context)
         CResult[shared_ptr[CScannerBuilder]] NewScan()
 
     cdef cppclass CUnionDataset "arrow::dataset::UnionDataset"(
