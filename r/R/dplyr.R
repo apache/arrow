@@ -490,7 +490,7 @@ group_by.arrow_dplyr_query <- function(.data,
     gv <- dplyr::group_by_prepare(.data, ..., add = add)$group_names
   }
   .data$group_by_vars <- gv
-  .data$drop_empty_groups <- .drop
+  .data$drop_empty_groups <- ifelse(length(gv), .drop, TRUE)
   .data
 }
 group_by.Dataset <- group_by.ArrowTabular <- group_by.arrow_dplyr_query

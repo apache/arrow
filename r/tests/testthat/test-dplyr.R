@@ -236,6 +236,12 @@ test_that("group_by with .drop", {
   )
   expect_dplyr_equal(
     input %>%
+      group_by(.drop = FALSE) %>% # no group by vars
+      group_by_drop_default(),
+    example_with_logical_factors
+  )
+  expect_dplyr_equal(
+    input %>%
       group_by_drop_default(),
     example_with_logical_factors
   )
