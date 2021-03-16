@@ -1,0 +1,17 @@
+[package]
+name = "ballista"
+description = "Ballista Distributed Compute"
+license = "Apache-2.0"
+version = "0.4.2-SNAPSHOT"
+homepage = "https://github.com/ballista-compute/ballista"
+repository = "https://github.com/ballista-compute/ballista"
+authors = ["Andy Grove <andygrove73@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+ballista-core = { path = "../core" }
+futures = "0.3"
+log = "0.4"
+tokio = "1.0"
+arrow = { git = "https://github.com/apache/arrow", rev="46161d2" }
+datafusion = { git = "https://github.com/apache/arrow", rev="46161d2" }

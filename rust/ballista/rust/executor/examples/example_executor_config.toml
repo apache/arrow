@@ -1,0 +1,5 @@
+# the default configuration location is "/etc/ballista/scheduler.toml"
+# if you include a specifc conf file using "--config-file = my_config_file.toml"
+# then that file will override environment variables, but not command line arguments
+namespace = "my_name_space"
+bind_host = "1.2.3.4"

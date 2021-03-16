@@ -1,0 +1,62 @@
+[general]
+name = "Ballista Executor"
+env_prefix = "BALLISTA_EXECUTOR"
+conf_file_param = "config_file"
+
+[[switch]]
+name = "version"
+doc = "Print version of this executable"
+
+[[param]]
+abbr = "n"
+name = "namespace"
+type = "String"
+doc = "Namespace for the ballista cluster that this executor will join. yippee"
+default = "std::string::String::from(\"ballista\")"
+
+[[param]]
+name = "scheduler_host"
+type = "String"
+default = "std::string::String::from(\"localhost\")"
+doc = "Scheduler host"
+
+[[param]]
+name = "scheduler_port"
+type = "u16"
+default = "50050"
+doc = "scheduler port"
+
+[[switch]]
+name = "local"
+doc = "Running in local mode will launch a standalone scheduler inside the executor process. This will create a single-executor cluster, and is useful for development scenarios."
+
+[[param]]
+name = "bind_host"
+type = "String"
+default = "std::string::String::from(\"0.0.0.0\")"
+doc = "Local IP address to bind to."
+
+[[param]]
+name = "external_host"
+type = "String"
+default = "std::string::String::from(\"localhost\")"
+doc = "Host name or IP address to register with scheduler so that other executors can connect to this executor."
+
+[[param]]
+abbr = "p"
+name = "port"
+type = "u16"
+default = "50051"
+doc = "bind port"
+
+[[param]]
+name = "work_dir"
+type = "String"
+doc = "Directory for temporary IPC files"
+
+[[param]]
+abbr = "c"
+name = "concurrent_tasks"
+type = "usize"
+default = "4"
+doc = "Max concurrent tasks."

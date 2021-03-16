@@ -1,0 +1,32 @@
+[package]
+name = "ballista-core"
+description = "Ballista Distributed Compute"
+license = "Apache-2.0"
+version = "0.4.2-SNAPSHOT"
+homepage = "https://github.com/ballista-compute/ballista"
+repository = "https://github.com/ballista-compute/ballista"
+authors = ["Andy Grove <andygrove73@gmail.com>"]
+edition = "2018"
+build = "build.rs"
+
+[features]
+simd = ["datafusion/simd"]
+
+[dependencies]
+async-trait = "0.1.36"
+futures = "0.3"
+log = "0.4"
+prost = "0.7"
+sqlparser = "0.8"
+tokio = "1.0"
+tonic = "0.4"
+uuid = { version = "0.8", features = ["v4"] }
+arrow = { git = "https://github.com/apache/arrow", rev="46161d2" }
+arrow-flight = { git = "https://github.com/apache/arrow", rev="46161d2" }
+datafusion = { git = "https://github.com/apache/arrow", rev="46161d2" }
+
+
+[dev-dependencies]
+
+[build-dependencies]
+tonic-build = { version = "0.4" }
