@@ -58,7 +58,7 @@ impl ExecutionPlan for UnionExec {
         self.inputs.clone()
     }
 
-    /// Get the output partitioning of this plan
+    /// Output of the union is the combination of all output partitions of the inputs
     fn output_partitioning(&self) -> Partitioning {
         // Sums all the output partitions
         let num_partitions = self
@@ -66,7 +66,8 @@ impl ExecutionPlan for UnionExec {
             .iter()
             .map(|plan| plan.output_partitioning().partition_count())
             .sum();
-        // TODO: this loses partitioning info in case of same partitioning scheme
+        // TODO: this loses partitioning info in case of same partitioning scheme (for example `Partitioning::Hash`)
+        // https://issues.apache.org/jira/browse/ARROW-11991
         Partitioning::UnknownPartitioning(num_partitions)
     }
 
