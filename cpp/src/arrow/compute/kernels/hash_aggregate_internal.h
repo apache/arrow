@@ -30,7 +30,7 @@ namespace arrow {
 namespace compute {
 
 /// \brief Configure a grouped aggregation
-struct ARROW_EXPORT GroupByOptions : public FunctionOptions {
+struct ARROW_EXPORT GroupByOptions {
   struct Aggregate {
     /// the name of the aggregation function
     std::string function;
@@ -49,41 +49,12 @@ struct ARROW_EXPORT GroupByOptions : public FunctionOptions {
   std::vector<Aggregate> aggregates;
 };
 
+/// Internal use only: helper function for testing HashAggregateKernels.
+/// This will be replaced by streaming execution operators.
 ARROW_EXPORT
 Result<Datum> GroupBy(const std::vector<Datum>& aggregands,
                       const std::vector<Datum>& keys, const GroupByOptions& options,
                       ExecContext* ctx = nullptr);
-
-struct GroupedAggregator {
-  virtual ~GroupedAggregator() = default;
-
-  virtual void Init(KernelContext*, const FunctionOptions*,
-                    const std::shared_ptr<DataType>&) = 0;
-
-  virtual void Consume(KernelContext*, const Datum& aggregand,
-                       const uint32_t* group_ids) = 0;
-
-  virtual void Finalize(KernelContext* ctx, Datum* out) = 0;
-
-  virtual void Resize(KernelContext* ctx, int64_t new_num_groups) = 0;
-
-  virtual int64_t num_groups() const = 0;
-
-  void MaybeResize(KernelContext* ctx, int64_t length, const uint32_t* group_ids) {
-    if (length == 0) return;
-
-    // maybe a batch of group_ids should include the min/max group id
-    int64_t max_group = *std::max_element(group_ids, group_ids + length);
-    auto old_size = num_groups();
-
-    if (max_group >= old_size) {
-      auto new_size = BufferBuilder::GrowByFactor(old_size, max_group + 1);
-      Resize(ctx, new_size);
-    }
-  }
-
-  virtual std::shared_ptr<DataType> out_type() const = 0;
-};
 
 }  // namespace compute
 }  // namespace arrow

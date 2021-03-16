@@ -133,6 +133,10 @@ class ARROW_EXPORT Function {
     /// A function that computes scalar summary statistics from array input.
     SCALAR_AGGREGATE,
 
+    /// A function that computes grouped summary statistics from array input
+    /// and an array of group identifiers.
+    HASH_AGGREGATE,
+
     /// A function that dispatches to other functions and does not contain its
     /// own kernels.
     META
