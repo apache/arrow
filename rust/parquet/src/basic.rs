@@ -59,6 +59,8 @@ pub enum Type {
 /// Common types (converted types) used by frameworks when using Parquet.
 /// This helps map between types in those frameworks to the base types in Parquet.
 /// This is only metadata and not needed to read or write the data.
+///
+/// *Upgrade Note*: This struct was renamed from `LogicalType` in version 4.0.0.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ConvertedType {
     NONE,
@@ -156,6 +158,12 @@ pub enum ConvertedType {
 // Mirrors `parquet::LogicalType`
 
 /// Logical types used by version 2 of the Parquet format.
+///
+/// *Upgrade Note*: This is an *entirely new* struct as of version
+/// 4.0.0. The struct previously known as `LogicalType` was renamed to
+/// `ConvertedType`. If you used version 3.0 or previous of this
+/// crate, you should likely change your code to refer to
+/// [`ConvertedType`] rather than [`LogicalType`].
 #[derive(Debug, Clone, PartialEq)]
 pub enum LogicalType {
     STRING(StringType),
