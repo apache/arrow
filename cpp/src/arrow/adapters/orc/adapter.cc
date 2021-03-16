@@ -510,9 +510,9 @@ class ArrowOutputStream : public liborc::OutputStream {
 
 class ORCFileWriter::Impl {
  public:
-  Status Open(arrow::io::OutputStream& output_stream) {
+  Status Open(arrow::io::OutputStream* output_stream) {
     out_stream_ = std::unique_ptr<liborc::OutputStream>(
-        static_cast<liborc::OutputStream*>(new ArrowOutputStream(output_stream)));
+        static_cast<liborc::OutputStream*>(new ArrowOutputStream(*output_stream)));
     return Status::OK();
   }
   Status Write(const Table& table) {
@@ -560,7 +560,7 @@ ORCFileWriter::~ORCFileWriter() {}
 ORCFileWriter::ORCFileWriter() { impl_.reset(new ORCFileWriter::Impl()); }
 
 Result<std::unique_ptr<ORCFileWriter>> ORCFileWriter::Open(
-    io::OutputStream& output_stream) {
+    io::OutputStream* output_stream) {
   std::unique_ptr<ORCFileWriter> result =
       std::unique_ptr<ORCFileWriter>(new ORCFileWriter());
   Status status = result->impl_->Open(output_stream);

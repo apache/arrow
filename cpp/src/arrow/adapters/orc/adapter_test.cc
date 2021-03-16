@@ -222,7 +222,7 @@ void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
   std::shared_ptr<io::BufferOutputStream> buffer_output_stream =
       io::BufferOutputStream::Create(max_size).ValueOrDie();
   std::unique_ptr<adapters::orc::ORCFileWriter> writer =
-      adapters::orc::ORCFileWriter::Open(*buffer_output_stream).ValueOrDie();
+      adapters::orc::ORCFileWriter::Open(buffer_output_stream.get()).ValueOrDie();
   ARROW_EXPECT_OK(writer->Write(*input_table));
   ARROW_EXPECT_OK(writer->Close());
   std::shared_ptr<Buffer> buffer = buffer_output_stream->Finish().ValueOrDie();
