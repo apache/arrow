@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <condition_variable>
 #include <functional>
 #include <mutex>
 #include <sstream>
@@ -938,11 +939,10 @@ class ObjectOutputStream final : public io::OutputStream {
       return Status::Invalid("Operation on closed stream");
     }
     // Wait for background writes to finish
-    if (options_.background_writes) {
-      return upload_state_->completion_fut.status();
-    } else {
-      return upload_state_->current_status;
-    }
+    std::unique_lock<std::mutex> lock(upload_state_->mutex);
+    upload_state_->cv.wait(lock,
+                           [this]() { return upload_state_->parts_in_progress == 0; });
+    return upload_state_->status;
   }
 
   // Upload-related helpers
@@ -1030,18 +1030,18 @@ class ObjectOutputStream final : public io::OutputStream {
                                   const Result<S3Model::UploadPartOutcome>& result) {
     std::unique_lock<std::mutex> lock(state->mutex);
     if (!result.ok()) {
-      state->current_status &= result.status();
+      state->status &= result.status();
     } else {
       const auto& outcome = *result;
       if (!outcome.IsSuccess()) {
-        state->current_status &= UploadPartError(req, outcome);
+        state->status &= UploadPartError(req, outcome);
       } else {
         AddCompletedPart(state, part_number, outcome.GetResult());
       }
     }
     // Notify completion
     if (--state->parts_in_progress == 0) {
-      state->completion_fut.MarkFinished(state->current_status);
+      state->cv.notify_all();
     }
   }
 
@@ -1086,12 +1086,10 @@ class ObjectOutputStream final : public io::OutputStream {
   // in the completion handler.
   struct UploadState {
     std::mutex mutex;
+    std::condition_variable cv;
     Aws::Vector<S3Model::CompletedPart> completed_parts;
     int64_t parts_in_progress = 0;
-    Status current_status;
-    Future<> completion_fut;
-
-    UploadState() : completion_fut(Future<>::Make()) {}
+    Status status;
   };
   std::shared_ptr<UploadState> upload_state_;
 };
