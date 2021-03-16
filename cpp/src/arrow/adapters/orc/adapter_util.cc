@@ -53,7 +53,7 @@ arrow::Status AppendStructBatch(const liborc::Type* type,
   auto builder = checked_cast<arrow::StructBuilder*>(abuilder);
   auto batch = checked_cast<liborc::StructVectorBatch*>(column_vector_batch);
 
-  const uint8_t* valid_bytes = NULLPTR;
+  const uint8_t* valid_bytes = nullptr;
   if (batch->hasNulls) {
     valid_bytes = reinterpret_cast<const uint8_t*>(batch->notNull.data()) + offset;
   }
@@ -129,7 +129,7 @@ arrow::Status AppendNumericBatch(liborc::ColumnVectorBatch* column_vector_batch,
   if (length == 0) {
     return arrow::Status::OK();
   }
-  const uint8_t* valid_bytes = NULLPTR;
+  const uint8_t* valid_bytes = nullptr;
   if (batch->hasNulls) {
     valid_bytes = reinterpret_cast<const uint8_t*>(batch->notNull.data()) + offset;
   }
@@ -149,7 +149,7 @@ arrow::Status AppendNumericBatchCast(liborc::ColumnVectorBatch* column_vector_ba
     return arrow::Status::OK();
   }
 
-  const uint8_t* valid_bytes = NULLPTR;
+  const uint8_t* valid_bytes = nullptr;
   if (batch->hasNulls) {
     valid_bytes = reinterpret_cast<const uint8_t*>(batch->notNull.data()) + offset;
   }
@@ -173,7 +173,7 @@ arrow::Status AppendBoolBatch(liborc::ColumnVectorBatch* column_vector_batch,
     return arrow::Status::OK();
   }
 
-  const uint8_t* valid_bytes = NULLPTR;
+  const uint8_t* valid_bytes = nullptr;
   if (batch->hasNulls) {
     valid_bytes = reinterpret_cast<const uint8_t*>(batch->notNull.data()) + offset;
   }
@@ -197,7 +197,7 @@ arrow::Status AppendTimestampBatch(liborc::ColumnVectorBatch* column_vector_batc
     return arrow::Status::OK();
   }
 
-  const uint8_t* valid_bytes = NULLPTR;
+  const uint8_t* valid_bytes = nullptr;
   if (batch->hasNulls) {
     valid_bytes = reinterpret_cast<const uint8_t*>(batch->notNull.data()) + offset;
   }
@@ -292,7 +292,7 @@ namespace orc {
 
 Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
                    int64_t offset, int64_t length, arrow::ArrayBuilder* builder) {
-  if (type == NULLPTR) {
+  if (type == nullptr) {
     return arrow::Status::OK();
   }
   liborc::TypeKind kind = type->getKind();
@@ -367,7 +367,7 @@ using arrow::internal::checked_cast;
 arrow::Status WriteBatch(liborc::ColumnVectorBatch* column_vector_batch,
                          int64_t* arrow_offset, int64_t* orc_offset,
                          const int64_t& length, const arrow::Array& parray,
-                         const std::vector<bool>* incoming_mask = NULLPTR);
+                         const std::vector<bool>* incoming_mask = nullptr);
 
 // incoming_mask is exclusively used by FillStructBatch. The cause is that ORC is much
 // stricter than Arrow in terms of consistency. In this case if a struct scalar is null
@@ -464,10 +464,12 @@ arrow::Status WriteBinaryBatch(liborc::ColumnVectorBatch* column_vector_batch,
     } else {
       batch->notNull[*orc_offset] = true;
       OffsetType data_length = 0;
-      const uint8_t* data = binary_array.GetValue(*arrow_offset, &data_length);
-      if (batch->data[*orc_offset]) delete batch->data[*orc_offset];
-      batch->data[*orc_offset] = new char[data_length];  // Do not include null
-      memcpy(batch->data[*orc_offset], data, data_length);
+      batch->data[*orc_offset] = reinterpret_cast<char*>(
+          const_cast<uint8_t*>(binary_array.GetValue(*arrow_offset, &data_length)));
+      // const uint8_t* data = binary_array.GetValue(*arrow_offset, &data_length);
+      // if (batch->data[*orc_offset]) delete batch->data[*orc_offset];
+      // batch->data[*orc_offset] = new char[data_length];  // Do not include null
+      // memcpy(batch->data[*orc_offset], data, data_length);
       batch->length[*orc_offset] = data_length;
     }
   }
@@ -497,10 +499,12 @@ arrow::Status WriteFixedSizeBinaryBatch(liborc::ColumnVectorBatch* column_vector
       batch->notNull[*orc_offset] = false;
     } else {
       batch->notNull[*orc_offset] = true;
-      const uint8_t* data = fixed_size_binary_array.GetValue(*arrow_offset);
-      if (batch->data[*orc_offset]) delete batch->data[*orc_offset];
-      batch->data[*orc_offset] = new char[data_length];  // Do not include null
-      memcpy(batch->data[*orc_offset], data, data_length);
+      // const uint8_t* data = fixed_size_binary_array.GetValue(*arrow_offset);
+      // if (batch->data[*orc_offset]) delete batch->data[*orc_offset];
+      // batch->data[*orc_offset] = new char[data_length];  // Do not include null
+      // memcpy(batch->data[*orc_offset], data, data_length);
+      batch->data[*orc_offset] = reinterpret_cast<char*>(
+          const_cast<uint8_t*>(fixed_size_binary_array.GetValue(*arrow_offset)));
       batch->length[*orc_offset] = data_length;
     }
   }
@@ -854,9 +858,9 @@ Status WriteBatch(liborc::ColumnVectorBatch* column_vector_batch,
 }
 
 Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out) {
-  // When subselecting fields on read, liborc will set some nodes to NULLPTR,
-  // so we need to check for NULLPTR before progressing
-  if (type == NULLPTR) {
+  // When subselecting fields on read, liborc will set some nodes to nullptr,
+  // so we need to check for nullptr before progressing
+  if (type == nullptr) {
     *out = null();
     return arrow::Status::OK();
   }

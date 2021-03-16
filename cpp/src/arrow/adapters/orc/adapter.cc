@@ -47,7 +47,7 @@
 #include "arrow/util/visibility.h"
 #include "orc/Exceptions.hh"
 
-constexpr uint64_t kOrcWriterBatchSize = 64 * 1024;
+constexpr uint64_t kOrcWriterBatchSize = 1;
 
 // alias to not interfere with nested orc namespace
 namespace liborc = orc;
