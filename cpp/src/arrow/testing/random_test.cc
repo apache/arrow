@@ -141,16 +141,16 @@ using NumericTypes =
 TYPED_TEST_SUITE(RandomNumericArrayTest, NumericTypes);
 
 TYPED_TEST(RandomNumericArrayTest, GenerateMinMax) {
-  auto field =
-      this->GetField()->WithMetadata(key_value_metadata({{"min", "0"}, {"max", "127"}}));
+  auto field = this->GetField()->WithMetadata(
+      key_value_metadata({{"min", "0"}, {"max", "127"}, {"nan_probability", "0.0"}}));
   auto batch = Generate({field}, 128, 0xDEADBEEF);
   AssertSchemaEqual(schema({field}), batch->schema());
   auto array = this->Downcast(batch->column(0));
   auto it = array->begin();
   while (it != array->end()) {
-    if ((*it).has_value() && !std::isnan(**it)) {
-      ASSERT_GE(**it, 0);
-      ASSERT_LE(**it, 128);
+    if ((*it).has_value()) {
+      ASSERT_GE(**it, typename TypeParam::c_type(0));
+      ASSERT_LE(**it, typename TypeParam::c_type(127));
     }
     it++;
   }

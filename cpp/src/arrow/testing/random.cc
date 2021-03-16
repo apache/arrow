@@ -620,7 +620,7 @@ Result<std::shared_ptr<Array>> GenerateArray(const Field& field, int64_t length,
     const ARROW_TYPE::c_type max_value = GetMetadata<ARROW_TYPE>(                       \
         field.metadata().get(), "max", std::numeric_limits<ARROW_TYPE::c_type>::max()); \
     const double nan_probability =                                                      \
-        GetMetadata<DoubleType>(field.metadata().get(), "nan_probability", 10);         \
+        GetMetadata<DoubleType>(field.metadata().get(), "nan_probability", 0);          \
     return generator->GENERATOR_FUNC(length, min_value, max_value, null_probability,    \
                                      nan_probability);                                  \
   }
@@ -689,8 +689,8 @@ Result<std::shared_ptr<Array>> GenerateArray(const Field& field, int64_t length,
       GENERATE_INTEGRAL_CASE_VIEW(Int64Type, DayTimeIntervalType);
 
     case Type::type::LIST: {
-      const int32_t values_length =
-          GetMetadata<Int32Type>(field.metadata().get(), "values", length);
+      const int32_t values_length = GetMetadata<Int32Type>(
+          field.metadata().get(), "values", static_cast<int32_t>(length));
       const bool force_empty_nulls =
           GetMetadata<BooleanType>(field.metadata().get(), "force_empty_nulls", false);
       auto values = GenerateArray(
@@ -744,8 +744,8 @@ Result<std::shared_ptr<Array>> GenerateArray(const Field& field, int64_t length,
     }
 
     case Type::type::MAP: {
-      const int32_t values_length =
-          GetMetadata<Int32Type>(field.metadata().get(), "values", length);
+      const int32_t values_length = GetMetadata<Int32Type>(
+          field.metadata().get(), "values", static_cast<int32_t>(length));
       const bool force_empty_nulls =
           GetMetadata<BooleanType>(field.metadata().get(), "force_empty_nulls", false);
       auto map_type = internal::checked_pointer_cast<MapType>(field.type());
