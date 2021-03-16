@@ -33,308 +33,315 @@ namespace arrow {
 namespace compute {
 namespace aggregate {
 
+struct KeyEncoder {
+  // the first byte of an encoded key is used to indicate nullity
+  static constexpr bool kExtraByteForNull = true;
+
+  virtual ~KeyEncoder() = default;
+
+  virtual void AddLength(const ArrayData&, int32_t* lengths) = 0;
+
+  virtual void Encode(const ArrayData&, uint8_t** encoded_bytes) = 0;
+
+  virtual Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes,
+                                                    int32_t length, MemoryPool*) = 0;
+
+  // extract the null bitmap from the leading nullity bytes of encoded keys
+  static Status DecodeNulls(MemoryPool* pool, int32_t length, uint8_t** encoded_bytes,
+                            std::shared_ptr<Buffer>* null_buf, int32_t* null_count) {
+    // first count nulls to determine if a null bitmap is necessary
+    *null_count = 0;
+    for (int32_t i = 0; i < length; ++i) {
+      *null_count += encoded_bytes[i][0];
+    }
+
+    if (*null_count > 0) {
+      ARROW_ASSIGN_OR_RAISE(*null_buf, AllocateBitmap(length, pool));
+
+      uint8_t* nulls = (*null_buf)->mutable_data();
+      for (int32_t i = 0; i < length; ++i) {
+        BitUtil::SetBitTo(nulls, i, !encoded_bytes[i][0]);
+        encoded_bytes[i] += 1;
+      }
+    } else {
+      for (int32_t i = 0; i < length; ++i) {
+        encoded_bytes[i] += 1;
+      }
+    }
+    return Status ::OK();
+  }
+};
+
+struct BooleanKeyEncoder : KeyEncoder {
+  static constexpr int kByteWidth = 1;
+
+  void AddLength(const ArrayData& data, int32_t* lengths) override {
+    for (int64_t i = 0; i < data.length; ++i) {
+      lengths[i] += kByteWidth + kExtraByteForNull;
+    }
+  }
+
+  void Encode(const ArrayData& data, uint8_t** encoded_bytes) override {
+    VisitArrayDataInline<BooleanType>(
+        data,
+        [&](bool value) {
+          auto& encoded_ptr = *encoded_bytes++;
+          *encoded_ptr++ = 0;
+          *encoded_ptr++ = value;
+        },
+        [&] {
+          auto& encoded_ptr = *encoded_bytes++;
+          *encoded_ptr++ = 1;
+          *encoded_ptr++ = 0;
+        });
+  }
+
+  Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
+                                            MemoryPool* pool) override {
+    std::shared_ptr<Buffer> null_buf;
+    int32_t null_count;
+    RETURN_NOT_OK(DecodeNulls(pool, length, encoded_bytes, &null_buf, &null_count));
+
+    ARROW_ASSIGN_OR_RAISE(auto key_buf, AllocateBitmap(length, pool));
+
+    uint8_t* raw_output = key_buf->mutable_data();
+    for (int32_t i = 0; i < length; ++i) {
+      auto& encoded_ptr = encoded_bytes[i];
+      BitUtil::SetBitTo(raw_output, i, encoded_ptr[0] != 0);
+      encoded_ptr += 1;
+    }
+
+    return ArrayData::Make(boolean(), length, {std::move(null_buf), std::move(key_buf)},
+                           null_count);
+  }
+};
+
+struct FixedWidthKeyEncoder : KeyEncoder {
+  FixedWidthKeyEncoder(int byte_width, std::shared_ptr<DataType> type)
+      : byte_width_(byte_width), type_(std::move(type)) {}
+
+  void AddLength(const ArrayData& data, int32_t* lengths) override {
+    for (int64_t i = 0; i < data.length; ++i) {
+      lengths[i] += byte_width_ + kExtraByteForNull;
+    }
+  }
+
+  void Encode(const ArrayData& data, uint8_t** encoded_bytes) override {
+    ArrayData viewed(fixed_size_binary(byte_width_), data.length, data.buffers,
+                     data.null_count, data.offset);
+
+    VisitArrayDataInline<FixedSizeBinaryType>(
+        viewed,
+        [&](util::string_view bytes) {
+          auto& encoded_ptr = *encoded_bytes++;
+          *encoded_ptr++ = 0;
+          memcpy(encoded_ptr, bytes.data(), byte_width_);
+          encoded_ptr += byte_width_;
+        },
+        [&] {
+          auto& encoded_ptr = *encoded_bytes++;
+          *encoded_ptr++ = 1;
+          memset(encoded_ptr, 0, byte_width_);
+          encoded_ptr += byte_width_;
+        });
+  }
+
+  Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
+                                            MemoryPool* pool) override {
+    std::shared_ptr<Buffer> null_buf;
+    int32_t null_count;
+    RETURN_NOT_OK(DecodeNulls(pool, length, encoded_bytes, &null_buf, &null_count));
+
+    ARROW_ASSIGN_OR_RAISE(auto key_buf, AllocateBuffer(length * byte_width_, pool));
+
+    uint8_t* raw_output = key_buf->mutable_data();
+    for (int32_t i = 0; i < length; ++i) {
+      auto& encoded_ptr = encoded_bytes[i];
+      std::memcpy(raw_output, encoded_ptr, byte_width_);
+      encoded_ptr += byte_width_;
+      raw_output += byte_width_;
+    }
+
+    return ArrayData::Make(type_, length, {std::move(null_buf), std::move(key_buf)},
+                           null_count);
+  }
+
+  int byte_width_;
+  std::shared_ptr<DataType> type_;
+};
+
+template <typename T>
+struct VarLengthKeyEncoder : KeyEncoder {
+  using Offset = typename T::offset_type;
+
+  void AddLength(const ArrayData& data, int32_t* lengths) override {
+    int64_t i = 0;
+    VisitArrayDataInline<T>(
+        data,
+        [&](util::string_view bytes) {
+          lengths[i++] += kExtraByteForNull + sizeof(Offset) + bytes.size();
+        },
+        [&] { lengths[i++] += kExtraByteForNull + sizeof(Offset); });
+  }
+
+  void Encode(const ArrayData& data, uint8_t** encoded_bytes) override {
+    return VisitArrayDataInline<T>(
+        data,
+        [&](util::string_view bytes) {
+          auto& encoded_ptr = *encoded_bytes++;
+          *encoded_ptr++ = 0;
+          util::SafeStore(encoded_ptr, static_cast<Offset>(bytes.size()));
+          encoded_ptr += sizeof(Offset);
+          memcpy(encoded_ptr, bytes.data(), bytes.size());
+          encoded_ptr += bytes.size();
+        },
+        [&] {
+          auto& encoded_ptr = *encoded_bytes++;
+          *encoded_ptr++ = 1;
+          util::SafeStore(encoded_ptr, static_cast<Offset>(0));
+          encoded_ptr += sizeof(Offset);
+        });
+  }
+
+  Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
+                                            MemoryPool* pool) override {
+    std::shared_ptr<Buffer> null_buf;
+    int32_t null_count;
+    RETURN_NOT_OK(DecodeNulls(pool, length, encoded_bytes, &null_buf, &null_count));
+
+    Offset length_sum = 0;
+    for (int32_t i = 0; i < length; ++i) {
+      length_sum += reinterpret_cast<Offset*>(encoded_bytes)[0];
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto offset_buf,
+                          AllocateBuffer(sizeof(Offset) * (1 + length), pool));
+    ARROW_ASSIGN_OR_RAISE(auto key_buf, AllocateBuffer(length_sum));
+
+    auto raw_offsets = reinterpret_cast<Offset*>(offset_buf->mutable_data());
+    auto raw_keys = key_buf->mutable_data();
+
+    int32_t current_offset = 0;
+    for (int32_t i = 0; i < length; ++i) {
+      auto key_length = util::SafeLoadAs<Offset>(encoded_bytes[i]);
+      raw_offsets[i] = current_offset;
+      encoded_bytes[i] += sizeof(Offset);
+      memcpy(raw_keys + current_offset, encoded_bytes[i], key_length);
+      encoded_bytes[i] += key_length;
+      current_offset += key_length;
+    }
+    raw_offsets[length] = current_offset;
+
+    return ArrayData::Make(
+        type_, length, {std::move(null_buf), std::move(offset_buf), std::move(key_buf)},
+        null_count);
+  }
+
+  explicit VarLengthKeyEncoder(std::shared_ptr<DataType> type) : type_(std::move(type)) {}
+
+  std::shared_ptr<DataType> type_;
+};
+
+Result<HashAggregateKernel> MakeKernel(GroupByOptions::Aggregate);
+
 struct GroupByImpl {
-  using AddLengthImpl = std::function<void(const std::shared_ptr<ArrayData>&, int32_t*)>;
+  static Result<GroupByImpl> Make(ExecContext* ctx, const std::vector<Datum>& aggregands,
+                                  const std::vector<Datum>& keys,
+                                  const GroupByOptions& options) {
+    GroupByImpl impl;
+    impl.options_ = options;
+    const auto& aggregates = impl.options_.aggregates;
 
-  struct GetAddLengthImpl {
-    static constexpr int32_t null_extra_byte = 1;
+    impl.num_groups_ = 0;
+    impl.offsets_.push_back(0);
 
-    static void AddFixedLength(int32_t fixed_length, int64_t num_repeats,
-                               int32_t* lengths) {
-      for (int64_t i = 0; i < num_repeats; ++i) {
-        lengths[i] += fixed_length + null_extra_byte;
-      }
+    if (aggregates.size() != aggregands.size()) {
+      return Status::Invalid(aggregates.size(),
+                             " aggregate functions were specified but ",
+                             aggregands.size(), " aggregands were provided.");
     }
 
-    template <typename T>
-    static void AddVarLength(const std::shared_ptr<ArrayData>& data, int32_t* lengths) {
-      using offset_type = typename T::offset_type;
-      constexpr int32_t length_extra_bytes = sizeof(offset_type);
+    FieldVector out_fields;
 
-      int64_t i = 0;
-      return VisitArrayDataInline<T>(
-          *data,
-          [&](util::string_view bytes) {
-            lengths[i++] += null_extra_byte + length_extra_bytes + bytes.size();
-          },
-          [&] { lengths[i++] += null_extra_byte + length_extra_bytes; });
-    }
+    impl.aggregators_.resize(aggregates.size());
+    impl.aggregator_states_.resize(aggregates.size());
 
-    template <typename T>
-    enable_if_base_binary<T, Status> Visit(const T&) {
-      add_length_impl = [](const std::shared_ptr<ArrayData>& data, int32_t* lengths) {
-        AddVarLength<T>(data, lengths);
-      };
-      return Status::OK();
-    }
+    for (size_t i = 0; i < aggregates.size(); ++i) {
+      auto a = aggregates[i];
 
-    Status Visit(const FixedWidthType& type) {
-      int32_t num_bytes = BitUtil::BytesForBits(type.bit_width());
-      add_length_impl = [num_bytes](const std::shared_ptr<ArrayData>& data,
-                                    int32_t* lengths) {
-        AddFixedLength(num_bytes, data->length, lengths);
-      };
-      return Status::OK();
-    }
-
-    Status Visit(const DataType& type) {
-      return Status::NotImplemented("Computing encoded key lengths for type ", type);
-    }
-
-    AddLengthImpl add_length_impl;
-  };
-
-  using EncodeNextImpl =
-      std::function<void(const std::shared_ptr<ArrayData>&, uint8_t**)>;
-
-  struct GetEncodeNextImpl {
-    static void EncodeBoolean(const std::shared_ptr<ArrayData>& data,
-                              uint8_t** encoded_bytes) {
-      VisitArrayDataInline<BooleanType>(
-          *data,
-          [&](bool value) {
-            auto& encoded_ptr = *encoded_bytes++;
-            *encoded_ptr++ = 0;
-            *encoded_ptr++ = value;
-          },
-          [&] {
-            auto& encoded_ptr = *encoded_bytes++;
-            *encoded_ptr++ = 1;
-            *encoded_ptr++ = 0;
-          });
-    }
-
-    static void EncodeFixed(const std::shared_ptr<ArrayData>& data,
-                            uint8_t** encoded_bytes) {
-      auto num_bytes = checked_cast<const FixedWidthType&>(*data->type).bit_width() / 8;
-
-      ArrayData viewed(fixed_size_binary(num_bytes), data->length, data->buffers,
-                       data->null_count, data->offset);
-
-      return VisitArrayDataInline<FixedSizeBinaryType>(
-          viewed,
-          [&](util::string_view bytes) {
-            auto& encoded_ptr = *encoded_bytes++;
-            *encoded_ptr++ = 0;
-            memcpy(encoded_ptr, bytes.data(), num_bytes);
-            encoded_ptr += num_bytes;
-          },
-          [&] {
-            auto& encoded_ptr = *encoded_bytes++;
-            *encoded_ptr++ = 1;
-            memset(encoded_ptr, 0, num_bytes);
-            encoded_ptr += num_bytes;
-          });
-    }
-
-    template <typename T>
-    static void EncodeVarLength(const std::shared_ptr<ArrayData>& data,
-                                uint8_t** encoded_bytes) {
-      using offset_type = typename T::offset_type;
-
-      return VisitArrayDataInline<T>(
-          *data,
-          [&](util::string_view bytes) {
-            auto& encoded_ptr = *encoded_bytes++;
-            *encoded_ptr++ = 0;
-            util::SafeStore(encoded_ptr, static_cast<offset_type>(bytes.size()));
-            encoded_ptr += sizeof(offset_type);
-            memcpy(encoded_ptr, bytes.data(), bytes.size());
-            encoded_ptr += bytes.size();
-          },
-          [&] {
-            auto& encoded_ptr = *encoded_bytes++;
-            *encoded_ptr++ = 1;
-            util::SafeStore(encoded_ptr, static_cast<offset_type>(0));
-            encoded_ptr += sizeof(offset_type);
-          });
-    }
-
-    Status Visit(const BooleanType&) {
-      encode_next_impl = [](const std::shared_ptr<ArrayData>& data,
-                            uint8_t** encoded_bytes) {
-        EncodeBoolean(data, encoded_bytes);
-      };
-      return Status::OK();
-    }
-
-    Status Visit(const FixedWidthType&) {
-      encode_next_impl = [](const std::shared_ptr<ArrayData>& data,
-                            uint8_t** encoded_bytes) {
-        EncodeFixed(data, encoded_bytes);
-      };
-      return Status::OK();
-    }
-
-    template <typename T>
-    enable_if_base_binary<T, Status> Visit(const T&) {
-      encode_next_impl = [](const std::shared_ptr<ArrayData>& data,
-                            uint8_t** encoded_bytes) {
-        EncodeVarLength<T>(data, encoded_bytes);
-      };
-      return Status::OK();
-    }
-
-    Status Visit(const DataType& type) {
-      return Status::NotImplemented("encoding hashes for type ", type);
-    }
-
-    EncodeNextImpl encode_next_impl;
-  };
-
-  using DecodeNextImpl = std::function<void(KernelContext*, int32_t, uint8_t**,
-                                            std::shared_ptr<ArrayData>*)>;
-
-  struct GetDecodeNextImpl {
-    static Status DecodeNulls(MemoryPool* pool, int32_t length, uint8_t** encoded_bytes,
-                              std::shared_ptr<Buffer>* null_buf, int32_t* null_count) {
-      // Do we have nulls?
-      *null_count = 0;
-      for (int32_t i = 0; i < length; ++i) {
-        *null_count += encoded_bytes[i][0];
-      }
-      if (*null_count > 0) {
-        ARROW_ASSIGN_OR_RAISE(*null_buf, AllocateBitmap(length, pool));
-
-        uint8_t* nulls = (*null_buf)->mutable_data();
-        for (int32_t i = 0; i < length; ++i) {
-          BitUtil::SetBitTo(nulls, i, !encoded_bytes[i][0]);
-          encoded_bytes[i] += 1;
-        }
-      } else {
-        for (int32_t i = 0; i < length; ++i) {
-          encoded_bytes[i] += 1;
+      if (a.options == nullptr) {
+        // use known default options for the named function if possible
+        auto maybe_function = ctx->func_registry()->GetFunction(a.function);
+        if (maybe_function.ok()) {
+          a.options = maybe_function.ValueOrDie()->default_options();
         }
       }
-      return Status ::OK();
+
+      ARROW_ASSIGN_OR_RAISE(impl.aggregators_[i], MakeKernel(a));
+
+      KernelContext kernel_ctx{ctx};
+      impl.aggregator_states_[i] = impl.aggregators_[i].init(
+          &kernel_ctx,
+          KernelInitArgs{&impl.aggregators_[i], {aggregands[i].type()}, a.options});
+      if (kernel_ctx.HasError()) return kernel_ctx.status();
+
+      kernel_ctx.SetState(impl.aggregator_states_[i].get());
+      ARROW_ASSIGN_OR_RAISE(auto descr,
+                            impl.aggregators_[i].signature->out_type().Resolve(
+                                &kernel_ctx, {
+                                                 aggregands[i].type(),
+                                                 uint32(),
+                                                 uint32(),
+                                             }));
+      out_fields.push_back(field("", descr.type));
     }
 
-    static void DecodeBoolean(KernelContext* ctx, int32_t length, uint8_t** encoded_bytes,
-                              std::shared_ptr<ArrayData>* out) {
-      std::shared_ptr<Buffer> null_buf;
-      int32_t null_count;
-      KERNEL_RETURN_IF_ERROR(ctx, DecodeNulls(ctx->memory_pool(), length, encoded_bytes,
-                                              &null_buf, &null_count));
+    impl.encoders_.resize(keys.size());
+    for (size_t i = 0; i < keys.size(); ++i) {
+      const auto& key = keys[i].type();
 
-      KERNEL_ASSIGN_OR_RAISE(auto key_buf, ctx, ctx->AllocateBitmap(length));
+      out_fields.push_back(field("", key));
 
-      uint8_t* raw_output = key_buf->mutable_data();
-      for (int32_t i = 0; i < length; ++i) {
-        auto& encoded_ptr = encoded_bytes[i];
-        BitUtil::SetBitTo(raw_output, i, encoded_ptr[0] != 0);
-        encoded_ptr += 1;
+      if (key->id() == Type::BOOL) {
+        impl.encoders_[i] = ::arrow::internal::make_unique<BooleanKeyEncoder>();
+        continue;
       }
 
-      *out = ArrayData::Make(boolean(), length, {std::move(null_buf), std::move(key_buf)},
-                             null_count);
-    }
-
-    static void DecodeFixed(KernelContext* ctx, std::shared_ptr<DataType> output_type,
-                            int32_t length, uint8_t** encoded_bytes,
-                            std::shared_ptr<ArrayData>* out) {
-      std::shared_ptr<Buffer> null_buf;
-      int32_t null_count;
-      KERNEL_RETURN_IF_ERROR(ctx, DecodeNulls(ctx->memory_pool(), length, encoded_bytes,
-                                              &null_buf, &null_count));
-
-      auto num_bytes = checked_cast<const FixedWidthType&>(*output_type).bit_width() / 8;
-      KERNEL_ASSIGN_OR_RAISE(auto key_buf, ctx, ctx->Allocate(num_bytes * length));
-
-      uint8_t* raw_output = key_buf->mutable_data();
-      for (int32_t i = 0; i < length; ++i) {
-        auto& encoded_ptr = encoded_bytes[i];
-        std::memcpy(raw_output, encoded_ptr, num_bytes);
-        encoded_ptr += num_bytes;
-        raw_output += num_bytes;
+      if (auto byte_width = bit_width(key->id()) / 8) {
+        impl.encoders_[i] =
+            ::arrow::internal::make_unique<FixedWidthKeyEncoder>(byte_width, key);
+        continue;
       }
 
-      *out = ArrayData::Make(std::move(output_type), length,
-                             {std::move(null_buf), std::move(key_buf)}, null_count);
-    }
-
-    template <typename T>
-    static void DecodeVarLength(KernelContext* ctx, std::shared_ptr<DataType> output_type,
-                                int32_t length, uint8_t** encoded_bytes,
-                                std::shared_ptr<ArrayData>* out) {
-      std::shared_ptr<Buffer> null_buf;
-      int32_t null_count;
-      KERNEL_RETURN_IF_ERROR(ctx, DecodeNulls(ctx->memory_pool(), length, encoded_bytes,
-                                              &null_buf, &null_count));
-
-      using offset_type = typename T::offset_type;
-
-      offset_type length_sum = 0;
-      for (int32_t i = 0; i < length; ++i) {
-        length_sum += reinterpret_cast<offset_type*>(encoded_bytes)[0];
+      if (is_binary_like(key->id())) {
+        impl.encoders_[i] =
+            ::arrow::internal::make_unique<VarLengthKeyEncoder<BinaryType>>(key);
+        continue;
       }
 
-      KERNEL_ASSIGN_OR_RAISE(auto offset_buf, ctx,
-                             ctx->Allocate(sizeof(offset_type) * (1 + length)));
-      KERNEL_ASSIGN_OR_RAISE(auto key_buf, ctx, ctx->Allocate(length_sum));
-
-      auto raw_offsets = reinterpret_cast<offset_type*>(offset_buf->mutable_data());
-      auto raw_keys = key_buf->mutable_data();
-
-      int32_t current_offset = 0;
-      for (int32_t i = 0; i < length; ++i) {
-        offset_type key_length = reinterpret_cast<offset_type*>(encoded_bytes[i])[0];
-        raw_offsets[i] = current_offset;
-        encoded_bytes[i] += sizeof(offset_type);
-        memcpy(raw_keys + current_offset, encoded_bytes[i], key_length);
-        encoded_bytes[i] += key_length;
-        current_offset += key_length;
+      if (is_large_binary_like(key->id())) {
+        impl.encoders_[i] =
+            ::arrow::internal::make_unique<VarLengthKeyEncoder<LargeBinaryType>>(key);
+        continue;
       }
-      raw_offsets[length] = current_offset;
 
-      *out = ArrayData::Make(
-          std::move(output_type), length,
-          {std::move(null_buf), std::move(offset_buf), std::move(key_buf)}, null_count);
+      return Status::NotImplemented("Keys of type ", *key);
     }
 
-    Status Visit(const BooleanType&) {
-      decode_next_impl = [](KernelContext* ctx, int32_t length, uint8_t** encoded_bytes,
-                            std::shared_ptr<ArrayData>* out) {
-        DecodeBoolean(ctx, length, encoded_bytes, out);
-      };
-      return Status::OK();
-    }
+    impl.out_type_ = struct_(std::move(out_fields));
+    return impl;
+  }
 
-    Status Visit(const FixedWidthType&) {
-      auto output_type = out_type;
-      decode_next_impl = [=](KernelContext* ctx, int32_t length, uint8_t** encoded_bytes,
-                             std::shared_ptr<ArrayData>* out) {
-        DecodeFixed(ctx, output_type, length, encoded_bytes, out);
-      };
-      return Status::OK();
-    }
-
-    template <typename T>
-    enable_if_base_binary<T, Status> Visit(const T&) {
-      auto output_type = out_type;
-      decode_next_impl = [=](KernelContext* ctx, int32_t length, uint8_t** encoded_bytes,
-                             std::shared_ptr<ArrayData>* out) {
-        DecodeVarLength<T>(ctx, output_type, length, encoded_bytes, out);
-      };
-      return Status::OK();
-    }
-
-    Status Visit(const DataType& type) {
-      return Status::NotImplemented("decoding keys for type ", type);
-    }
-
-    std::shared_ptr<DataType> out_type;
-    DecodeNextImpl decode_next_impl;
-  };
-
-  // TODO(bkietz) Here I'd like to make it clear that Consume produces a batch of
-  // group_ids; extract the immediate pass-to-HashAggregateKernel.
+  // TODO(bkietz) Here I'd like to make this clearly a node which classifies keys; extract
+  // the immediate pass-to-HashAggregateKernel.
   void Consume(KernelContext* ctx, const ExecBatch& batch) {
     ArrayDataVector aggregands, keys;
 
     size_t i;
-    for (i = 0; i < aggregators.size(); ++i) {
+    for (i = 0; i < aggregators_.size(); ++i) {
       aggregands.push_back(batch[i].array());
     }
+
     while (i < static_cast<size_t>(batch.num_values())) {
       keys.push_back(batch[i++].array());
     }
@@ -344,8 +351,9 @@ struct GroupByImpl {
     offsets_batch_[0] = 0;
     memset(offsets_batch_.data(), 0, sizeof(offsets_batch_[0]) * offsets_batch_.size());
     for (size_t i = 0; i < keys.size(); ++i) {
-      add_length_impl[i].add_length_impl(keys[i], offsets_batch_.data());
+      encoders_[i]->AddLength(*keys[i], offsets_batch_.data());
     }
+
     int32_t total_length = 0;
     for (int64_t i = 0; i < batch.length; ++i) {
       auto total_length_before = total_length;
@@ -361,8 +369,9 @@ struct GroupByImpl {
     for (int64_t i = 0; i < batch.length; ++i) {
       key_buf_ptrs_[i] = key_bytes_batch_.data() + offsets_batch_[i];
     }
+
     for (size_t i = 0; i < keys.size(); ++i) {
-      encode_next_impl[i].encode_next_impl(keys[i], key_buf_ptrs_.data());
+      encoders_[i]->Encode(*keys[i], key_buf_ptrs_.data());
     }
 
     group_ids_batch_.clear();
@@ -372,58 +381,59 @@ struct GroupByImpl {
       std::string key(
           reinterpret_cast<const char*>(key_bytes_batch_.data() + offsets_batch_[i]),
           key_length);
-      auto iter = map_.find(key);
-      if (iter == map_.end()) {
-        group_ids_batch_[i] = n_groups++;
+
+      auto it_success = map_.emplace(key, num_groups_);
+      if (it_success.second) {
+        // new key; update offsets and key_bytes
+        ++num_groups_;
         auto next_key_offset = static_cast<int32_t>(key_bytes_.size());
         key_bytes_.resize(next_key_offset + key_length);
         offsets_.push_back(next_key_offset + key_length);
         memcpy(key_bytes_.data() + next_key_offset, key.c_str(), key_length);
-        map_.insert(std::make_pair(key, group_ids_batch_[i]));
-      } else {
-        group_ids_batch_[i] = iter->second;
       }
+      group_ids_batch_[i] = it_success.first->second;
     }
 
     UInt32Array group_ids(batch.length, Buffer::Wrap(group_ids_batch_));
-    for (size_t i = 0; i < aggregators.size(); ++i) {
+    for (size_t i = 0; i < aggregators_.size(); ++i) {
       KernelContext batch_ctx{ctx->exec_context()};
-      batch_ctx.SetState(aggregator_states[i].get());
-      ExecBatch batch({aggregands[i], group_ids, Datum(n_groups)}, group_ids.length());
-      aggregators[i].consume(&batch_ctx, batch);
+      batch_ctx.SetState(aggregator_states_[i].get());
+      ExecBatch batch({aggregands[i], group_ids, Datum(num_groups_)}, group_ids.length());
+      aggregators_[i].consume(&batch_ctx, batch);
       ctx->SetStatus(batch_ctx.status());
       if (ctx->HasError()) return;
     }
   }
 
   void Finalize(KernelContext* ctx, Datum* out) {
-    size_t n_keys = decode_next_impl.size();
-    ArrayDataVector out_columns(aggregators.size() + n_keys);
-    for (size_t i = 0; i < aggregators.size(); ++i) {
+    size_t n_keys = encoders_.size();
+    ArrayDataVector out_columns(aggregators_.size() + n_keys);
+    for (size_t i = 0; i < aggregators_.size(); ++i) {
       KernelContext batch_ctx{ctx->exec_context()};
-      batch_ctx.SetState(aggregator_states[i].get());
+      batch_ctx.SetState(aggregator_states_[i].get());
       Datum aggregated;
-      aggregators[i].finalize(&batch_ctx, &aggregated);
+      aggregators_[i].finalize(&batch_ctx, &aggregated);
       ctx->SetStatus(batch_ctx.status());
       if (ctx->HasError()) return;
       out_columns[i] = aggregated.array();
     }
 
     key_buf_ptrs_.clear();
-    key_buf_ptrs_.resize(n_groups);
-    for (int64_t i = 0; i < n_groups; ++i) {
+    key_buf_ptrs_.resize(num_groups_);
+    for (int64_t i = 0; i < num_groups_; ++i) {
       key_buf_ptrs_[i] = key_bytes_.data() + offsets_[i];
     }
 
-    int64_t length = n_groups;
+    int64_t length = num_groups_;
     for (size_t i = 0; i < n_keys; ++i) {
-      std::shared_ptr<ArrayData> key_array;
-      decode_next_impl[i].decode_next_impl(ctx, static_cast<int32_t>(length),
-                                           key_buf_ptrs_.data(), &key_array);
-      out_columns[aggregators.size() + i] = std::move(key_array);
+      KERNEL_ASSIGN_OR_RAISE(
+          auto key_array, ctx,
+          encoders_[i]->Decode(key_buf_ptrs_.data(), static_cast<int32_t>(length),
+                               ctx->memory_pool()));
+      out_columns[aggregators_.size() + i] = std::move(key_array);
     }
 
-    *out = ArrayData::Make(std::move(out_type), length, {/*null_bitmap=*/nullptr},
+    *out = ArrayData::Make(std::move(out_type_), length, {/*null_bitmap=*/nullptr},
                            std::move(out_columns));
   }
 
@@ -435,106 +445,15 @@ struct GroupByImpl {
   std::unordered_map<std::string, uint32_t> map_;
   std::vector<int32_t> offsets_;
   std::vector<uint8_t> key_bytes_;
-  uint32_t n_groups;
+  uint32_t num_groups_;
 
-  std::shared_ptr<DataType> out_type;
-  GroupByOptions options;
-  std::vector<HashAggregateKernel> aggregators;
-  std::vector<std::unique_ptr<KernelState>> aggregator_states;
+  std::shared_ptr<DataType> out_type_;
+  GroupByOptions options_;
+  std::vector<HashAggregateKernel> aggregators_;
+  std::vector<std::unique_ptr<KernelState>> aggregator_states_;
 
-  std::vector<GetAddLengthImpl> add_length_impl;
-  std::vector<GetEncodeNextImpl> encode_next_impl;
-  std::vector<GetDecodeNextImpl> decode_next_impl;
+  std::vector<std::unique_ptr<KeyEncoder>> encoders_;
 };
-
-Result<HashAggregateKernel> MakeKernel(GroupByOptions::Aggregate);
-
-Result<GroupByImpl> GroupByInit(ExecContext* ctx, const std::vector<Datum>& aggregands,
-                                const std::vector<Datum>& keys,
-                                const GroupByOptions& options) {
-  GroupByImpl impl;
-  impl.options = options;
-  const auto& aggregates = impl.options.aggregates;
-
-  impl.n_groups = 0;
-  impl.offsets_.push_back(0);
-
-  if (aggregates.size() != aggregands.size()) {
-    return Status::Invalid(aggregates.size(), " aggregate functions were specified but ",
-                           aggregands.size(), " aggregands were provided.");
-  }
-
-  FieldVector out_fields;
-
-  impl.aggregators.resize(aggregates.size());
-  impl.aggregator_states.resize(aggregates.size());
-
-  for (size_t i = 0; i < aggregates.size(); ++i) {
-    auto a = aggregates[i];
-
-    if (a.options == nullptr) {
-      // use known default options for the named function if possible
-      auto maybe_function = ctx->func_registry()->GetFunction(a.function);
-      if (maybe_function.ok()) {
-        a.options = maybe_function.ValueOrDie()->default_options();
-      }
-    }
-
-    ARROW_ASSIGN_OR_RAISE(impl.aggregators[i], MakeKernel(a));
-
-    KernelContext kernel_ctx{ctx};
-    impl.aggregator_states[i] = impl.aggregators[i].init(
-        &kernel_ctx,
-        KernelInitArgs{&impl.aggregators[i], {aggregands[i].type()}, a.options});
-    if (kernel_ctx.HasError()) return kernel_ctx.status();
-
-    kernel_ctx.SetState(impl.aggregator_states[i].get());
-    ARROW_ASSIGN_OR_RAISE(auto descr, impl.aggregators[i].signature->out_type().Resolve(
-                                          &kernel_ctx, {
-                                                           aggregands[i].type(),
-                                                           uint32(),
-                                                           uint32(),
-                                                       }));
-    out_fields.push_back(field("", descr.type));
-  }
-
-  for (const auto& key : keys) {
-    const auto& key_type = key.type();
-    switch (key_type->id()) {
-      // Supported types of keys
-      case Type::BOOL:
-      case Type::UINT8:
-      case Type::INT8:
-      case Type::UINT16:
-      case Type::INT16:
-      case Type::UINT32:
-      case Type::INT32:
-      case Type::UINT64:
-      case Type::INT64:
-      case Type::STRING:
-      case Type::BINARY:
-      case Type::FIXED_SIZE_BINARY:
-        break;
-      default:
-        return Status::NotImplemented("Key of type ", key_type->ToString());
-    }
-    out_fields.push_back(field("", key_type));
-  }
-
-  impl.add_length_impl.resize(keys.size());
-  impl.encode_next_impl.resize(keys.size());
-  impl.decode_next_impl.resize(keys.size());
-  for (size_t i = 0; i < keys.size(); ++i) {
-    const auto& key_type = keys[i].type();
-    RETURN_NOT_OK(VisitTypeInline(*key_type, &impl.add_length_impl[i]));
-    RETURN_NOT_OK(VisitTypeInline(*key_type, &impl.encode_next_impl[i]));
-    impl.decode_next_impl[i].out_type = key_type;
-    RETURN_NOT_OK(VisitTypeInline(*key_type, &impl.decode_next_impl[i]));
-  }
-
-  impl.out_type = struct_(std::move(out_fields));
-  return impl;
-}
 
 /// C++ abstract base class for the HashAggregateKernel interface.
 /// Implementations should be default constructible and perform initialization in
@@ -927,7 +846,7 @@ Result<Datum> GroupBy(const std::vector<Datum>& aggregands,
   }
 
   ARROW_ASSIGN_OR_RAISE(auto impl,
-                        aggregate::GroupByInit(ctx, aggregands, keys, options));
+                        aggregate::GroupByImpl::Make(ctx, aggregands, keys, options));
 
   ARROW_ASSIGN_OR_RAISE(auto batch_iterator,
                         detail::ExecBatchIterator::Make(args, ctx->exec_chunksize()));
