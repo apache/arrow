@@ -15,6 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 #include "arrow/util/logging.h"
 #include "gandiva/precompiled/decimal_ops.h"
 
@@ -188,7 +192,7 @@ ENUMERIC_TYPES_UNARY(ATAN2, float64)
 #define COT(IN_TYPE, OUT_TYPE)                                           \
   FORCE_INLINE                                                            \
   gdv_##OUT_TYPE cot_##IN_TYPE(gdv_##IN_TYPE in) {                       \
-    return static_cast<gdv_##OUT_TYPE>(tan(M_PI_2l - static_cast<long double>(in))); \
+    return static_cast<gdv_##OUT_TYPE>(tan(M_PI/2 - static_cast<long double>(in))); \
   }
 ENUMERIC_TYPES_UNARY(COT, float64)
 

@@ -15,6 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 #include "gandiva/projector.h"
 
 #include <gtest/gtest.h>
@@ -446,7 +450,7 @@ TEST_F(TestProjector, TestExtendedMath) {
     cosh_vals.push_back(static_cast<double>(cosh(input0[i])));
     tanh_vals.push_back(static_cast<double>(tanh(input0[i])));
     atan2_vals.push_back(static_cast<double>(atan2(input0[i], input1[i])));
-    cot_vals.push_back(static_cast<double>(tan(M_PI_2 - input0[i])));
+    cot_vals.push_back(static_cast<double>(tan(M_PI/2 - input0[i])));
     radians_vals.push_back(static_cast<double>(input0[i] *  M_PI / 180.0));
     degrees_vals.push_back(static_cast<double>(input0[i] *  180.0 / M_PI));
   }
