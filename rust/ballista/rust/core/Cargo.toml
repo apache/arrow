@@ -3,9 +3,9 @@ name = "ballista-core"
 description = "Ballista Distributed Compute"
 license = "Apache-2.0"
 version = "0.4.2-SNAPSHOT"
-homepage = "https://github.com/ballista-compute/ballista"
-repository = "https://github.com/ballista-compute/ballista"
-authors = ["Andy Grove <andygrove73@gmail.com>"]
+homepage = "https://github.com/apache/arrow"
+repository = "https://github.com/apache/arrow"
+authors = ["Apache Arrow <dev@arrow.apache.org>"]
 edition = "2018"
 build = "build.rs"
 
