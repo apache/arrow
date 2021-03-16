@@ -114,149 +114,130 @@ struct GroupByImpl {
     template <int NumBits>
     static void EncodeSmallFixed(const std::shared_ptr<ArrayData>& data,
                                  uint8_t** encoded_bytes) {
-      auto raw_input = data->buffers[1]->data();
-      auto offset = data->offset;
-      if (data->MayHaveNulls()) {
-        const uint8_t* nulls = data->buffers[0]->data();
-        for (int64_t i = 0; i < data->length; ++i) {
-          auto& encoded_ptr = encoded_bytes[i];
-          bool is_null = !BitUtil::GetBit(nulls, offset + i);
-          encoded_ptr[0] = is_null ? 1 : 0;
-          encoded_ptr += 1;
-          uint64_t null_multiplier = is_null ? 0 : 1;
-          if (NumBits == 1) {
-            encoded_ptr[0] = static_cast<uint8_t>(
-                null_multiplier * (BitUtil::GetBit(raw_input, offset + i) ? 1 : 0));
-            encoded_ptr += 1;
-          }
-          if (NumBits == 8) {
-            encoded_ptr[0] =
-                static_cast<uint8_t>(null_multiplier * reinterpret_cast<const uint8_t*>(
-                                                           raw_input)[offset + i]);
-            encoded_ptr += 1;
-          }
-          if (NumBits == 16) {
-            reinterpret_cast<uint16_t*>(encoded_ptr)[0] =
-                static_cast<uint16_t>(null_multiplier * reinterpret_cast<const uint16_t*>(
-                                                            raw_input)[offset + i]);
-            encoded_ptr += 2;
-          }
-          if (NumBits == 32) {
-            reinterpret_cast<uint32_t*>(encoded_ptr)[0] =
-                static_cast<uint32_t>(null_multiplier * reinterpret_cast<const uint32_t*>(
-                                                            raw_input)[offset + i]);
-            encoded_ptr += 4;
-          }
-          if (NumBits == 64) {
-            reinterpret_cast<uint64_t*>(encoded_ptr)[0] =
-                static_cast<uint64_t>(null_multiplier * reinterpret_cast<const uint64_t*>(
-                                                            raw_input)[offset + i]);
-            encoded_ptr += 8;
-          }
-        }
-      } else {
-        for (int64_t i = 0; i < data->length; ++i) {
-          auto& encoded_ptr = encoded_bytes[i];
-          encoded_ptr[0] = 0;
-          encoded_ptr += 1;
-          if (NumBits == 1) {
-            encoded_ptr[0] = (BitUtil::GetBit(raw_input, offset + i) ? 1 : 0);
-            encoded_ptr += 1;
-          }
-          if (NumBits == 8) {
-            encoded_ptr[0] = reinterpret_cast<const uint8_t*>(raw_input)[offset + i];
-            encoded_ptr += 1;
-          }
-          if (NumBits == 16) {
-            reinterpret_cast<uint16_t*>(encoded_ptr)[0] =
-                reinterpret_cast<const uint16_t*>(raw_input)[offset + i];
-            encoded_ptr += 2;
-          }
-          if (NumBits == 32) {
-            reinterpret_cast<uint32_t*>(encoded_ptr)[0] =
-                reinterpret_cast<const uint32_t*>(raw_input)[offset + i];
-            encoded_ptr += 4;
-          }
-          if (NumBits == 64) {
-            reinterpret_cast<uint64_t*>(encoded_ptr)[0] =
-                reinterpret_cast<const uint64_t*>(raw_input)[offset + i];
-            encoded_ptr += 8;
-          }
-        }
+      switch (NumBits) {
+        case 1:
+          return VisitArrayDataInline<BooleanType>(
+              *data,
+              [&](bool bit) {
+                auto& encoded_ptr = *encoded_bytes++;
+                *encoded_ptr++ = 0;
+                *encoded_ptr++ = bit;
+              },
+              [&] {
+                auto& encoded_ptr = *encoded_bytes++;
+                *encoded_ptr++ = 1;
+                *encoded_ptr++ = 0;
+              });
+
+        case 8:
+          return VisitArrayDataInline<UInt8Type>(
+              *data,
+              [&](uint8_t byte) {
+                auto& encoded_ptr = *encoded_bytes++;
+                *encoded_ptr++ = 0;
+                *encoded_ptr++ = byte;
+              },
+              [&] {
+                auto& encoded_ptr = *encoded_bytes++;
+                *encoded_ptr++ = 1;
+                *encoded_ptr++ = 0;
+              });
+
+        case 16:
+          return VisitArrayDataInline<UInt16Type>(
+              *data,
+              [&](uint16_t word) {
+                auto& encoded_ptr = *encoded_bytes++;
+                *encoded_ptr++ = 0;
+                util::SafeStore(encoded_ptr, word);
+                encoded_ptr += sizeof(uint16_t);
+              },
+              [&] {
+                auto& encoded_ptr = *encoded_bytes++;
+                *encoded_ptr++ = 1;
+                util::SafeStore(encoded_ptr, uint16_t(0));
+                encoded_ptr += sizeof(uint16_t);
+              });
+
+        case 32:
+          return VisitArrayDataInline<UInt32Type>(
+              *data,
+              [&](uint32_t quad) {
+                auto& encoded_ptr = *encoded_bytes++;
+                *encoded_ptr++ = 0;
+                util::SafeStore(encoded_ptr, quad);
+                encoded_ptr += sizeof(uint32_t);
+              },
+              [&] {
+                auto& encoded_ptr = *encoded_bytes++;
+                *encoded_ptr++ = 1;
+                util::SafeStore(encoded_ptr, uint32_t(0));
+                encoded_ptr += sizeof(uint32_t);
+              });
+
+        case 64:
+          return VisitArrayDataInline<UInt64Type>(
+              *data,
+              [&](uint64_t oct) {
+                auto& encoded_ptr = *encoded_bytes++;
+                *encoded_ptr++ = 0;
+                util::SafeStore(encoded_ptr, oct);
+                encoded_ptr += sizeof(uint64_t);
+              },
+              [&] {
+                auto& encoded_ptr = *encoded_bytes++;
+                *encoded_ptr++ = 1;
+                util::SafeStore(encoded_ptr, uint64_t(0));
+                encoded_ptr += sizeof(uint64_t);
+              });
       }
     }
 
-    static void EncodeBigFixed(int num_bytes, const std::shared_ptr<ArrayData>& data,
+    static void EncodeBigFixed(const std::shared_ptr<ArrayData>& data,
                                uint8_t** encoded_bytes) {
-      auto raw_input = data->buffers[1]->data();
-      auto offset = data->offset;
-      if (data->MayHaveNulls()) {
-        const uint8_t* nulls = data->buffers[0]->data();
-        for (int64_t i = 0; i < data->length; ++i) {
-          auto& encoded_ptr = encoded_bytes[i];
-          bool is_null = !BitUtil::GetBit(nulls, offset + i);
-          encoded_ptr[0] = is_null ? 1 : 0;
-          encoded_ptr += 1;
-          if (is_null) {
-            memset(encoded_ptr, 0, num_bytes);
-          } else {
-            memcpy(encoded_ptr, raw_input + num_bytes * (offset + i), num_bytes);
-          }
-          encoded_ptr += num_bytes;
-        }
-      } else {
-        for (int64_t i = 0; i < data->length; ++i) {
-          auto& encoded_ptr = encoded_bytes[i];
-          encoded_ptr[0] = 0;
-          encoded_ptr += 1;
-          memcpy(encoded_ptr, raw_input + num_bytes * (offset + i), num_bytes);
-          encoded_ptr += num_bytes;
-        }
-      }
-    }
-
-    static void EncodeVarLength(const std::shared_ptr<ArrayData>& data,
-                                uint8_t** encoded_bytes) {
-      using offset_type = typename StringType::offset_type;
-      auto offset = data->offset;
-      const auto offsets = data->GetValues<offset_type>(1);
-      auto raw_input = data->buffers[2]->data();
-      if (data->MayHaveNulls()) {
-        const uint8_t* nulls = data->buffers[0]->data();
-        for (int64_t i = 0; i < data->length; ++i) {
-          auto& encoded_ptr = encoded_bytes[i];
-          bool is_null = !BitUtil::GetBit(nulls, offset + i);
-          if (is_null) {
-            encoded_ptr[0] = 1;
-            encoded_ptr++;
-            reinterpret_cast<offset_type*>(encoded_ptr)[0] = 0;
-            encoded_ptr += sizeof(offset_type);
-          } else {
-            encoded_ptr[0] = 0;
-            encoded_ptr++;
-            size_t num_bytes = offsets[offset + i + 1] - offsets[offset + i];
-            reinterpret_cast<offset_type*>(encoded_ptr)[0] = num_bytes;
-            encoded_ptr += sizeof(offset_type);
-            memcpy(encoded_ptr, raw_input + offsets[offset + i], num_bytes);
+      auto num_bytes = checked_cast<const FixedSizeBinaryType&>(*data->type).byte_width();
+      return VisitArrayDataInline<FixedSizeBinaryType>(
+          *data,
+          [&](util::string_view bytes) {
+            auto& encoded_ptr = *encoded_bytes++;
+            *encoded_ptr++ = 0;
+            memcpy(encoded_ptr, bytes.data(), num_bytes);
             encoded_ptr += num_bytes;
-          }
-        }
-      } else {
-        for (int64_t i = 0; i < data->length; ++i) {
-          auto& encoded_ptr = encoded_bytes[i];
-          encoded_ptr[0] = 0;
-          encoded_ptr++;
-          size_t num_bytes = offsets[offset + i + 1] - offsets[offset + i];
-          reinterpret_cast<offset_type*>(encoded_ptr)[0] = num_bytes;
-          encoded_ptr += sizeof(offset_type);
-          memcpy(encoded_ptr, raw_input + offsets[offset + i], num_bytes);
-          encoded_ptr += num_bytes;
-        }
-      }
+          },
+          [&] {
+            auto& encoded_ptr = *encoded_bytes++;
+            *encoded_ptr++ = 1;
+            memset(encoded_ptr, 0, num_bytes);
+            encoded_ptr += num_bytes;
+          });
     }
 
     template <typename T>
-    Status Visit(const T& input_type) {
+    static void EncodeVarLength(const std::shared_ptr<ArrayData>& data,
+                                uint8_t** encoded_bytes) {
+      using offset_type = typename T::offset_type;
+
+      return VisitArrayDataInline<T>(
+          *data,
+          [&](util::string_view bytes) {
+            auto& encoded_ptr = *encoded_bytes++;
+            *encoded_ptr++ = 0;
+            util::SafeStore(encoded_ptr, static_cast<offset_type>(bytes.size()));
+            encoded_ptr += sizeof(offset_type);
+            memcpy(encoded_ptr, bytes.data(), bytes.size());
+            encoded_ptr += bytes.size();
+          },
+          [&] {
+            auto& encoded_ptr = *encoded_bytes++;
+            *encoded_ptr++ = 1;
+            util::SafeStore(encoded_ptr, static_cast<offset_type>(0));
+            encoded_ptr += sizeof(offset_type);
+          });
+    }
+
+    template <typename T, typename CType = typename T::c_type>
+    typename std::enable_if<sizeof(CType) <= sizeof(uint64_t), Status>::type Visit(
+        const T& input_type) {
       int32_t num_bits = bit_width(input_type.id());
       switch (num_bits) {
         case 1:
@@ -293,29 +274,25 @@ struct GroupByImpl {
       return Status::OK();
     }
 
-    Status Visit(const StringType&) {
+    template <typename T>
+    enable_if_base_binary<T, Status> Visit(const T&) {
       encode_next_impl = [](const std::shared_ptr<ArrayData>& data,
                             uint8_t** encoded_bytes) {
-        EncodeVarLength(data, encoded_bytes);
+        EncodeVarLength<T>(data, encoded_bytes);
       };
       return Status::OK();
     }
 
-    Status Visit(const BinaryType&) {
+    Status Visit(const FixedSizeBinaryType&) {
       encode_next_impl = [](const std::shared_ptr<ArrayData>& data,
                             uint8_t** encoded_bytes) {
-        EncodeVarLength(data, encoded_bytes);
+        EncodeBigFixed(data, encoded_bytes);
       };
       return Status::OK();
     }
 
-    Status Visit(const FixedSizeBinaryType& type) {
-      int32_t num_bytes = type.byte_width();
-      encode_next_impl = [num_bytes](const std::shared_ptr<ArrayData>& data,
-                                     uint8_t** encoded_bytes) {
-        EncodeBigFixed(num_bytes, data, encoded_bytes);
-      };
-      return Status::OK();
+    Status Visit(const DataType& type) {
+      return Status::NotImplemented("encoding hashes for type ", type);
     }
 
     EncodeNextImpl encode_next_impl;
@@ -585,11 +562,11 @@ struct GroupByImpl {
       }
     }
 
-    UInt32Array group_ids(group_ids_batch_.size(), Buffer::Wrap(group_ids_batch_));
+    UInt32Array group_ids(batch.length, Buffer::Wrap(group_ids_batch_));
     for (size_t i = 0; i < aggregators.size(); ++i) {
       KernelContext batch_ctx{ctx->exec_context()};
       batch_ctx.SetState(aggregator_states[i].get());
-      ExecBatch batch({aggregands[i], group_ids}, group_ids.length());
+      ExecBatch batch({aggregands[i], group_ids, Datum(n_groups)}, group_ids.length());
       aggregators[i].consume(&batch_ctx, batch);
       ctx->SetStatus(batch_ctx.status());
       if (ctx->HasError()) return;
@@ -693,6 +670,7 @@ Result<GroupByImpl> GroupByInit(ExecContext* ctx, const std::vector<Datum>& aggr
                                           &kernel_ctx, {
                                                            aggregands[i].type(),
                                                            uint32(),
+                                                           uint32(),
                                                        }));
     out_fields.push_back(field("", descr.type));
   }
@@ -738,29 +716,31 @@ Result<GroupByImpl> GroupByInit(ExecContext* ctx, const std::vector<Datum>& aggr
 /// Implementations should be default constructible and perform initialization in
 /// Init().
 struct GroupedAggregator : KernelState {
-  virtual void Init(KernelContext*, const FunctionOptions*,
-                    const std::shared_ptr<DataType>&) = 0;
+  virtual Status Init(ExecContext*, const FunctionOptions*,
+                      const std::shared_ptr<DataType>&) = 0;
 
-  virtual void Consume(KernelContext*, const Datum& aggregand,
-                       const uint32_t* group_ids) = 0;
+  virtual Status Consume(const ExecBatch& batch) = 0;
 
-  virtual void Finalize(KernelContext* ctx, Datum* out) = 0;
+  virtual Result<Datum> Finalize() = 0;
 
-  virtual void Resize(KernelContext* ctx, int64_t new_num_groups) = 0;
-
-  virtual int64_t num_groups() const = 0;
-
-  void MaybeResize(KernelContext* ctx, int64_t length, const uint32_t* group_ids) {
-    if (length == 0) return;
-
-    // maybe a batch of group_ids should include the min/max group id
-    int64_t max_group = *std::max_element(group_ids, group_ids + length);
-    auto old_size = num_groups();
-
-    if (max_group >= old_size) {
-      auto new_size = BufferBuilder::GrowByFactor(old_size, max_group + 1);
-      Resize(ctx, new_size);
+  template <typename Reserve>
+  Status MaybeReserve(int64_t old_num_groups, const ExecBatch& batch,
+                      const Reserve& reserve) {
+    int64_t new_num_groups = batch[2].scalar_as<UInt32Scalar>().value;
+    if (new_num_groups <= old_num_groups) {
+      return Status::OK();
     }
+    return reserve(new_num_groups - old_num_groups);
+  }
+
+  template <typename Resize>
+  Status MaybeResize(int64_t old_num_groups, const ExecBatch& batch,
+                     const Resize& resize) {
+    int64_t new_num_groups = batch[2].scalar_as<UInt32Scalar>().value;
+    if (new_num_groups <= old_num_groups) {
+      return Status::OK();
+    }
+    return resize(old_num_groups, new_num_groups);
   }
 
   virtual std::shared_ptr<DataType> out_type() const = 0;
@@ -770,38 +750,30 @@ struct GroupedAggregator : KernelState {
 // Count implementation
 
 struct GroupedCountImpl : public GroupedAggregator {
-  void Init(KernelContext* ctx, const FunctionOptions* options,
-            const std::shared_ptr<DataType>&) override {
+  Status Init(ExecContext* ctx, const FunctionOptions* options,
+              const std::shared_ptr<DataType>&) override {
     options_ = checked_cast<const CountOptions&>(*options);
-    KERNEL_RETURN_IF_ERROR(ctx, ctx->Allocate(0).Value(&counts_));
+    counts_ = BufferBuilder(ctx->memory_pool());
+    return Status::OK();
   }
 
-  void Resize(KernelContext* ctx, int64_t new_num_groups) override {
-    auto old_size = num_groups();
-    KERNEL_RETURN_IF_ERROR(ctx, counts_->TypedResize<int64_t>(new_num_groups));
-    auto new_size = num_groups();
+  Status Consume(const ExecBatch& batch) override {
+    RETURN_NOT_OK(MaybeReserve(counts_.length(), batch, [&](int64_t added_groups) {
+      num_groups_ += added_groups;
+      return counts_.Append(added_groups * sizeof(int64_t), 0);
+    }));
 
-    auto raw_counts = reinterpret_cast<int64_t*>(counts_->mutable_data());
-    for (auto i = old_size; i < new_size; ++i) {
-      raw_counts[i] = 0;
-    }
-  }
+    auto group_ids = batch[1].array()->GetValues<uint32_t>(1);
+    auto raw_counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
 
-  void Consume(KernelContext* ctx, const Datum& aggregand,
-               const uint32_t* group_ids) override {
-    MaybeResize(ctx, aggregand.length(), group_ids);
-    if (ctx->HasError()) return;
-
-    auto raw_counts = reinterpret_cast<int64_t*>(counts_->mutable_data());
-
-    const auto& input = aggregand.array();
+    const auto& input = batch[0].array();
 
     if (options_.count_mode == CountOptions::COUNT_NULL) {
       for (int64_t i = 0, input_i = input->offset; i < input->length; ++i, ++input_i) {
         auto g = group_ids[i];
         raw_counts[g] += !BitUtil::GetBit(input->buffers[0]->data(), input_i);
       }
-      return;
+      return Status::OK();
     }
 
     arrow::internal::VisitSetBitRunsVoid(
@@ -813,19 +785,19 @@ struct GroupedCountImpl : public GroupedAggregator {
             raw_counts[g] += 1;
           }
         });
+    return Status::OK();
   }
 
-  void Finalize(KernelContext* ctx, Datum* out) override {
-    auto length = num_groups();
-    *out = std::make_shared<Int64Array>(length, std::move(counts_));
+  Result<Datum> Finalize() override {
+    ARROW_ASSIGN_OR_RAISE(auto counts, counts_.Finish());
+    return std::make_shared<Int64Array>(num_groups_, std::move(counts));
   }
-
-  int64_t num_groups() const override { return counts_->size() / sizeof(int64_t); }
 
   std::shared_ptr<DataType> out_type() const override { return int64(); }
 
+  int64_t num_groups_ = 0;
   CountOptions options_;
-  std::shared_ptr<ResizableBuffer> counts_;
+  BufferBuilder counts_;
 };
 
 // ----------------------------------------------------------------------
@@ -837,54 +809,25 @@ struct GroupedSumImpl : public GroupedAggregator {
   static constexpr size_t kSumSize = sizeof(int64_t);
 
   using ConsumeImpl = std::function<void(const std::shared_ptr<ArrayData>&,
-                                         const uint32_t*, Buffer*, Buffer*)>;
+                                         const uint32_t*, void*, int64_t*)>;
 
   struct GetConsumeImpl {
-    template <typename T,
-              typename AccumulatorType = typename FindAccumulatorType<T>::Type>
+    template <typename T, typename AccType = typename FindAccumulatorType<T>::Type>
     Status Visit(const T&) {
-      consume_impl = [](const std::shared_ptr<ArrayData>& input,
-                        const uint32_t* group_ids, Buffer* sums, Buffer* counts) {
-        auto raw_input = reinterpret_cast<const typename TypeTraits<T>::CType*>(
-            input->buffers[1]->data());
-        auto raw_sums = reinterpret_cast<typename TypeTraits<AccumulatorType>::CType*>(
-            sums->mutable_data());
-        auto raw_counts = reinterpret_cast<int64_t*>(counts->mutable_data());
+      consume_impl = [](const std::shared_ptr<ArrayData>& input, const uint32_t* group,
+                        void* boxed_sums, int64_t* counts) {
+        auto sums = reinterpret_cast<typename TypeTraits<AccType>::CType*>(boxed_sums);
 
-        arrow::internal::VisitSetBitRunsVoid(
-            input->buffers[0], input->offset, input->length,
-            [&](int64_t begin, int64_t length) {
-              for (int64_t input_i = begin, i = begin - input->offset;
-                   input_i < begin + length; ++input_i, ++i) {
-                auto g = group_ids[i];
-                raw_sums[g] += raw_input[input_i];
-                raw_counts[g] += 1;
-              }
-            });
+        VisitArrayDataInline<T>(
+            *input,
+            [&](typename TypeTraits<T>::CType value) {
+              sums[*group] += value;
+              counts[*group] += 1;
+              ++group;
+            },
+            [&] { ++group; });
       };
-      out_type = TypeTraits<AccumulatorType>::type_singleton();
-      return Status::OK();
-    }
-
-    Status Visit(const BooleanType&) {
-      consume_impl = [](const std::shared_ptr<ArrayData>& input,
-                        const uint32_t* group_ids, Buffer* sums, Buffer* counts) {
-        auto raw_input = input->buffers[1]->data();
-        auto raw_sums = reinterpret_cast<uint64_t*>(sums->mutable_data());
-        auto raw_counts = reinterpret_cast<int64_t*>(counts->mutable_data());
-
-        arrow::internal::VisitSetBitRunsVoid(
-            input->buffers[0], input->offset, input->length,
-            [&](int64_t begin, int64_t length) {
-              for (int64_t input_i = begin, i = begin - input->offset;
-                   input_i < begin + length; ++input_i) {
-                auto g = group_ids[i];
-                raw_sums[g] += BitUtil::GetBit(raw_input, input_i);
-                raw_counts[g] += 1;
-              }
-            });
-      };
-      out_type = uint64();
+      out_type = TypeTraits<AccType>::type_singleton();
       return Status::OK();
     }
 
@@ -900,94 +843,106 @@ struct GroupedSumImpl : public GroupedAggregator {
     std::shared_ptr<DataType> out_type;
   };
 
-  void Init(KernelContext* ctx, const FunctionOptions*,
-            const std::shared_ptr<DataType>& input_type) override {
-    KERNEL_RETURN_IF_ERROR(ctx, ctx->Allocate(0).Value(&sums_));
-    KERNEL_RETURN_IF_ERROR(ctx, ctx->Allocate(0).Value(&counts_));
+  Status Init(ExecContext* ctx, const FunctionOptions*,
+              const std::shared_ptr<DataType>& input_type) override {
+    pool_ = ctx->memory_pool();
+    sums_ = BufferBuilder(pool_);
+    counts_ = BufferBuilder(pool_);
 
     GetConsumeImpl get_consume_impl;
-    KERNEL_RETURN_IF_ERROR(ctx, VisitTypeInline(*input_type, &get_consume_impl));
+    RETURN_NOT_OK(VisitTypeInline(*input_type, &get_consume_impl));
 
     consume_impl_ = std::move(get_consume_impl.consume_impl);
     out_type_ = std::move(get_consume_impl.out_type);
+
+    return Status::OK();
   }
 
-  void Resize(KernelContext* ctx, int64_t new_num_groups) override {
-    auto old_size = num_groups() * kSumSize;
-    KERNEL_RETURN_IF_ERROR(ctx, sums_->Resize(new_num_groups * kSumSize));
-    KERNEL_RETURN_IF_ERROR(ctx, counts_->Resize(new_num_groups * sizeof(int64_t)));
-    auto new_size = num_groups() * kSumSize;
-    std::memset(sums_->mutable_data() + old_size, 0, new_size - old_size);
-    std::memset(counts_->mutable_data() + old_size, 0, new_size - old_size);
+  Status Consume(const ExecBatch& batch) override {
+    RETURN_NOT_OK(MaybeReserve(num_groups_, batch, [&](int64_t added_groups) {
+      num_groups_ += added_groups;
+      RETURN_NOT_OK(sums_.Append(added_groups * kSumSize, 0));
+      RETURN_NOT_OK(counts_.Append(added_groups * sizeof(int64_t), 0));
+      return Status::OK();
+    }));
+
+    auto group_ids = batch[1].array()->GetValues<uint32_t>(1);
+    consume_impl_(batch[0].array(), group_ids, sums_.mutable_data(),
+                  reinterpret_cast<int64_t*>(counts_.mutable_data()));
+    return Status::OK();
   }
 
-  void Consume(KernelContext* ctx, const Datum& aggregand,
-               const uint32_t* group_ids) override {
-    MaybeResize(ctx, aggregand.length(), group_ids);
-    if (ctx->HasError()) return;
-    consume_impl_(aggregand.array(), group_ids, sums_.get(), counts_.get());
-  }
-
-  void Finalize(KernelContext* ctx, Datum* out) override {
+  Result<Datum> Finalize() override {
     std::shared_ptr<Buffer> null_bitmap;
     int64_t null_count = 0;
 
-    for (int64_t i = 0; i < num_groups(); ++i) {
-      if (reinterpret_cast<const int64_t*>(counts_->data())[i] > 0) continue;
+    for (int64_t i = 0; i < num_groups_; ++i) {
+      if (reinterpret_cast<const int64_t*>(counts_.data())[i] > 0) continue;
 
       if (null_bitmap == nullptr) {
-        KERNEL_ASSIGN_OR_RAISE(null_bitmap, ctx, ctx->AllocateBitmap(num_groups()));
-        BitUtil::SetBitsTo(null_bitmap->mutable_data(), 0, num_groups(), true);
+        ARROW_ASSIGN_OR_RAISE(null_bitmap, AllocateBitmap(num_groups_, pool_));
+        BitUtil::SetBitsTo(null_bitmap->mutable_data(), 0, num_groups_, true);
       }
 
       null_count += 1;
       BitUtil::SetBitTo(null_bitmap->mutable_data(), i, false);
     }
 
-    *out = ArrayData::Make(std::move(out_type_), num_groups(),
-                           {std::move(null_bitmap), std::move(sums_)}, null_count);
-  }
+    ARROW_ASSIGN_OR_RAISE(auto sums, sums_.Finish());
 
-  int64_t num_groups() const override { return counts_->size() / sizeof(int64_t); }
+    return ArrayData::Make(std::move(out_type_), num_groups_,
+                           {std::move(null_bitmap), std::move(sums)}, null_count);
+  }
 
   std::shared_ptr<DataType> out_type() const override { return out_type_; }
 
   // NB: counts are used here instead of a simple "has_values_" bitmap since
   // we expect to reuse this kernel to handle Mean
-  std::shared_ptr<ResizableBuffer> sums_, counts_;
+  int64_t num_groups_ = 0;
+  BufferBuilder sums_, counts_;
   std::shared_ptr<DataType> out_type_;
   ConsumeImpl consume_impl_;
+  MemoryPool* pool_;
 };
 
 // ----------------------------------------------------------------------
 // MinMax implementation
 
 struct GroupedMinMaxImpl : public GroupedAggregator {
-  using ConsumeImpl = std::function<void(const std::shared_ptr<ArrayData>&,
-                                         const uint32_t*, BufferVector*)>;
+  using ConsumeImpl =
+      std::function<void(const std::shared_ptr<ArrayData>&, const uint32_t*, void*, void*,
+                         uint8_t*, uint8_t*)>;
 
-  using ResizeImpl = std::function<Status(Buffer*, int64_t)>;
+  using ResizeImpl = std::function<Status(BufferBuilder*, int64_t)>;
+
+  template <typename CType>
+  static ResizeImpl MakeResizeImpl(CType anti_extreme) {
+    // resize a min or max buffer, storing the correct anti extreme
+    return [anti_extreme](BufferBuilder* builder, int64_t added_groups) {
+      TypedBufferBuilder<CType> typed_builder(std::move(*builder));
+      RETURN_NOT_OK(typed_builder.Append(added_groups, anti_extreme));
+      *builder = std::move(typed_builder.bytes_builder());
+      return Status::OK();
+    };
+  }
 
   struct GetImpl {
     template <typename T, typename CType = typename TypeTraits<T>::CType>
     enable_if_number<T, Status> Visit(const T&) {
-      consume_impl = [](const std::shared_ptr<ArrayData>& input,
-                        const uint32_t* group_ids, BufferVector* buffers) {
-        auto raw_mins = reinterpret_cast<CType*>(buffers->at(0)->mutable_data());
-        auto raw_maxes = reinterpret_cast<CType*>(buffers->at(1)->mutable_data());
+      consume_impl = [](const std::shared_ptr<ArrayData>& input, const uint32_t* group,
+                        void* mins, void* maxes, uint8_t* has_values,
+                        uint8_t* has_nulls) {
+        auto raw_mins = reinterpret_cast<CType*>(mins);
+        auto raw_maxes = reinterpret_cast<CType*>(maxes);
 
-        auto raw_has_nulls = buffers->at(2)->mutable_data();
-        auto raw_has_values = buffers->at(3)->mutable_data();
-
-        auto g = group_ids;
         VisitArrayDataInline<T>(
             *input,
             [&](CType val) {
-              raw_maxes[*g] = std::max(raw_maxes[*g], val);
-              raw_mins[*g] = std::min(raw_mins[*g], val);
-              BitUtil::SetBit(raw_has_values, *g++);
+              raw_maxes[*group] = std::max(raw_maxes[*group], val);
+              raw_mins[*group] = std::min(raw_mins[*group], val);
+              BitUtil::SetBit(has_values, *group++);
             },
-            [&] { BitUtil::SetBit(raw_has_nulls, *g++); });
+            [&] { BitUtil::SetBit(has_nulls, *group++); });
       };
 
       GetResizeImpls<T>();
@@ -1004,23 +959,6 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
 
     Status Visit(const DataType& type) {
       return Status::NotImplemented("Grouped MinMax data of type ", type);
-    }
-
-    template <typename CType>
-    ResizeImpl MakeResizeImpl(CType anti_extreme) {
-      // resize a min or max buffer, storing the correct anti extreme
-      return [anti_extreme](Buffer* vals, int64_t new_num_groups) {
-        int64_t old_num_groups = vals->size() / sizeof(CType);
-
-        int64_t new_size = new_num_groups * sizeof(CType);
-        RETURN_NOT_OK(checked_cast<ResizableBuffer*>(vals)->Resize(new_size));
-
-        auto raw_vals = reinterpret_cast<CType*>(vals->mutable_data());
-        for (int64_t i = old_num_groups; i != new_num_groups; ++i) {
-          raw_vals[i] = anti_extreme;
-        }
-        return Status::OK();
-      };
     }
 
     template <typename T, typename CType = typename TypeTraits<T>::CType>
@@ -1040,76 +978,73 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
     ResizeImpl resize_min_impl, resize_max_impl;
   };
 
-  void Init(KernelContext* ctx, const FunctionOptions* options,
-            const std::shared_ptr<DataType>& input_type) override {
+  Status Init(ExecContext* ctx, const FunctionOptions* options,
+              const std::shared_ptr<DataType>& input_type) override {
     options_ = *checked_cast<const MinMaxOptions*>(options);
     type_ = input_type;
 
-    buffers_.resize(4);
-    for (auto& buf : buffers_) {
-      KERNEL_RETURN_IF_ERROR(ctx, ctx->Allocate(0).Value(&buf));
-    }
+    mins_ = BufferBuilder(ctx->memory_pool());
+    maxes_ = BufferBuilder(ctx->memory_pool());
+    has_values_ = BufferBuilder(ctx->memory_pool());
+    has_nulls_ = BufferBuilder(ctx->memory_pool());
 
     GetImpl get_impl;
-    KERNEL_RETURN_IF_ERROR(ctx, VisitTypeInline(*input_type, &get_impl));
+    RETURN_NOT_OK(VisitTypeInline(*input_type, &get_impl));
 
     consume_impl_ = std::move(get_impl.consume_impl);
     resize_min_impl_ = std::move(get_impl.resize_min_impl);
     resize_max_impl_ = std::move(get_impl.resize_max_impl);
+    resize_bitmap_impl_ = MakeResizeImpl(false);
+
+    return Status::OK();
   }
 
-  void Resize(KernelContext* ctx, int64_t new_num_groups) override {
-    auto old_num_groups = num_groups_;
-    num_groups_ = new_num_groups;
+  Status Consume(const ExecBatch& batch) override {
+    RETURN_NOT_OK(MaybeReserve(num_groups_, batch, [&](int64_t added_groups) {
+      num_groups_ += added_groups;
+      RETURN_NOT_OK(resize_min_impl_(&mins_, added_groups));
+      RETURN_NOT_OK(resize_max_impl_(&maxes_, added_groups));
+      RETURN_NOT_OK(resize_bitmap_impl_(&has_values_, added_groups));
+      RETURN_NOT_OK(resize_bitmap_impl_(&has_nulls_, added_groups));
+      return Status::OK();
+    }));
 
-    KERNEL_RETURN_IF_ERROR(ctx, resize_min_impl_(buffers_[0].get(), new_num_groups));
-    KERNEL_RETURN_IF_ERROR(ctx, resize_max_impl_(buffers_[1].get(), new_num_groups));
-
-    for (auto buffer : {buffers_[2].get(), buffers_[3].get()}) {
-      KERNEL_RETURN_IF_ERROR(ctx, checked_cast<ResizableBuffer*>(buffer)->Resize(
-                                      BitUtil::BytesForBits(new_num_groups)));
-      BitUtil::SetBitsTo(buffer->mutable_data(), old_num_groups, new_num_groups, false);
-    }
+    auto group_ids = batch[1].array()->GetValues<uint32_t>(1);
+    consume_impl_(batch[0].array(), group_ids, mins_.mutable_data(),
+                  maxes_.mutable_data(), has_values_.mutable_data(),
+                  has_nulls_.mutable_data());
+    return Status::OK();
   }
 
-  void Consume(KernelContext* ctx, const Datum& aggregand,
-               const uint32_t* group_ids) override {
-    MaybeResize(ctx, aggregand.length(), group_ids);
-    if (ctx->HasError()) return;
-    consume_impl_(aggregand.array(), group_ids, &buffers_);
-  }
-
-  void Finalize(KernelContext* ctx, Datum* out) override {
+  Result<Datum> Finalize() override {
     // aggregation for group is valid if there was at least one value in that group
-    std::shared_ptr<Buffer> null_bitmap = std::move(buffers_[3]);
+    ARROW_ASSIGN_OR_RAISE(auto null_bitmap, has_values_.Finish());
 
     if (options_.null_handling == MinMaxOptions::EMIT_NULL) {
       // ... and there were no nulls in that group
-      arrow::internal::BitmapAndNot(null_bitmap->data(), 0, buffers_[2]->data(), 0,
-                                    num_groups(), 0, null_bitmap->mutable_data());
+      ARROW_ASSIGN_OR_RAISE(auto has_nulls, has_nulls_.Finish());
+      arrow::internal::BitmapAndNot(null_bitmap->data(), 0, has_nulls->data(), 0,
+                                    num_groups_, 0, null_bitmap->mutable_data());
     }
 
-    auto mins =
-        ArrayData::Make(type_, num_groups(), {null_bitmap, std::move(buffers_[0])});
+    auto mins = ArrayData::Make(type_, num_groups_, {null_bitmap, nullptr});
+    auto maxes = ArrayData::Make(type_, num_groups_, {std::move(null_bitmap), nullptr});
+    ARROW_ASSIGN_OR_RAISE(mins->buffers[1], mins_.Finish());
+    ARROW_ASSIGN_OR_RAISE(maxes->buffers[1], maxes_.Finish());
 
-    auto maxes = ArrayData::Make(type_, num_groups(),
-                                 {std::move(null_bitmap), std::move(buffers_[1])});
-
-    *out = ArrayData::Make(out_type(), num_groups(), {nullptr},
+    return ArrayData::Make(out_type(), num_groups_, {nullptr},
                            {std::move(mins), std::move(maxes)});
   }
-
-  int64_t num_groups() const override { return num_groups_; }
 
   std::shared_ptr<DataType> out_type() const override {
     return struct_({field("min", type_), field("max", type_)});
   }
 
   int64_t num_groups_;
-  BufferVector buffers_;
+  BufferBuilder mins_, maxes_, has_values_, has_nulls_;
   std::shared_ptr<DataType> type_;
   ConsumeImpl consume_impl_;
-  ResizeImpl resize_min_impl_, resize_max_impl_;
+  ResizeImpl resize_min_impl_, resize_max_impl_, resize_bitmap_impl_;
   MinMaxOptions options_;
 };
 
@@ -1118,7 +1053,7 @@ KernelInit MakeInit(GroupByOptions::Aggregate a) {
   return [a](KernelContext* ctx,
              const KernelInitArgs& args) -> std::unique_ptr<KernelState> {
     auto impl = ::arrow::internal::make_unique<A>();
-    impl->Init(ctx, a.options, args.inputs[0].type);
+    ctx->SetStatus(impl->Init(ctx->exec_context(), a.options, args.inputs[0].type));
     if (ctx->HasError()) return nullptr;
     return impl;
   };
@@ -1140,14 +1075,13 @@ Result<HashAggregateKernel> MakeKernel(GroupByOptions::Aggregate a) {
   // this isn't really in the spirit of things, but I'll get around to defining
   // HashAggregateFunctions later
   kernel.signature = KernelSignature::Make(
-      {{}, {}}, OutputType([](KernelContext* ctx,
-                              const std::vector<ValueDescr>&) -> Result<ValueDescr> {
+      {{}, {}, {}}, OutputType([](KernelContext* ctx,
+                                  const std::vector<ValueDescr>&) -> Result<ValueDescr> {
         return checked_cast<GroupedAggregator*>(ctx->state())->out_type();
       }));
 
   kernel.consume = [](KernelContext* ctx, const ExecBatch& batch) {
-    auto group_ids = batch[1].array()->GetValues<uint32_t>(1);
-    checked_cast<GroupedAggregator*>(ctx->state())->Consume(ctx, batch[0], group_ids);
+    ctx->SetStatus(checked_cast<GroupedAggregator*>(ctx->state())->Consume(batch));
   };
 
   kernel.merge = [](KernelContext* ctx, KernelState&&, KernelState*) {
@@ -1156,7 +1090,8 @@ Result<HashAggregateKernel> MakeKernel(GroupByOptions::Aggregate a) {
   };
 
   kernel.finalize = [](KernelContext* ctx, Datum* out) {
-    checked_cast<GroupedAggregator*>(ctx->state())->Finalize(ctx, out);
+    KERNEL_ASSIGN_OR_RAISE(*out, ctx,
+                           checked_cast<GroupedAggregator*>(ctx->state())->Finalize());
   };
 
   return kernel;

@@ -398,6 +398,52 @@ void ValidateGroupBy(GroupByOptions options, std::vector<Datum> aggregands,
 }  // namespace
 }  // namespace group_helpers
 
+TEST(GroupBy, SumOnly8bitKey) {
+  auto aggregand = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
+  auto key = ArrayFromJSON(int8(), "[1, 2, 3, 1, 2, 2, null]");
+
+  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped, GroupBy({aggregand}, {key},
+                                                             GroupByOptions{
+                                                                 {"sum", nullptr},
+                                                             }));
+
+  AssertDatumsEqual(ArrayFromJSON(struct_({
+                                      field("", float64()),
+                                      field("", int8()),
+                                  }),
+                                  R"([
+    [4.25,   1],
+    [-0.125, 2],
+    [null,   3],
+    [0.75,   null]
+  ])"),
+                    aggregated_and_grouped,
+                    /*verbose=*/true);
+}
+
+TEST(GroupBy, SumOnly32bitKey) {
+  auto aggregand = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
+  auto key = ArrayFromJSON(int32(), "[1, 2, 3, 1, 2, 2, null]");
+
+  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped, GroupBy({aggregand}, {key},
+                                                             GroupByOptions{
+                                                                 {"sum", nullptr},
+                                                             }));
+
+  AssertDatumsEqual(ArrayFromJSON(struct_({
+                                      field("", float64()),
+                                      field("", int32()),
+                                  }),
+                                  R"([
+    [4.25,   1],
+    [-0.125, 2],
+    [null,   3],
+    [0.75,   null]
+  ])"),
+                    aggregated_and_grouped,
+                    /*verbose=*/true);
+}
+
 TEST(GroupBy, SumOnly) {
   auto aggregand = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
   auto key = ArrayFromJSON(int64(), "[1, 2, 3, 1, 2, 2, null]");
