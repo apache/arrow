@@ -429,10 +429,10 @@ restore_dplyr_features <- function(df, query) {
     # Preserve groupings, if present
     if (is.data.frame(df)) {
       df <- dplyr::grouped_df(
-          df,
-          dplyr::group_vars(query),
-          drop = group_by_drop_default(query)
-        )
+        df,
+        dplyr::group_vars(query),
+        drop = group_by_drop_default(query)
+      )
     } else {
       # This is a Table, via collect(as_data_frame = FALSE)
       df <- arrow_dplyr_query(df)
