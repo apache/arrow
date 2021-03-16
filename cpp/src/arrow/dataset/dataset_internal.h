@@ -185,5 +185,14 @@ inline bool operator==(const SubtreeImpl::Encoded& l, const SubtreeImpl::Encoded
          l.partition_expression == r.partition_expression;
 }
 
+template <typename T>
+std::shared_ptr<T> DowncastFragmentScanOptions(
+    const std::shared_ptr<ScanOptions>& scan_options, const std::string& type_name) {
+  if (!scan_options) return nullptr;
+  if (!scan_options->fragment_scan_options) return nullptr;
+  if (scan_options->fragment_scan_options->type_name() != type_name) return nullptr;
+  return internal::checked_pointer_cast<T>(scan_options->fragment_scan_options);
+}
+
 }  // namespace dataset
 }  // namespace arrow

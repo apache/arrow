@@ -38,6 +38,11 @@ class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
  public:
   /// Options affecting the parsing of CSV files
   csv::ParseOptions parse_options = csv::ParseOptions::Defaults();
+  /// Options affecting how CSV files are read.
+  ///
+  /// Note use_threads is ignored (it is always considered false) and block_size
+  /// should be set on CsvFragmentScanOptions.
+  csv::ReadOptions read_options = csv::ReadOptions::Defaults();
 
   std::string type_name() const override { return kCsvTypeName; }
 
@@ -67,6 +72,9 @@ class ARROW_DS_EXPORT CsvFragmentScanOptions : public FragmentScanOptions {
   std::string type_name() const override { return kCsvTypeName; }
 
   csv::ConvertOptions convert_options = csv::ConvertOptions::Defaults();
+
+  /// Block size for reading (arrow::csv::ReadOptions::block_size)
+  int32_t block_size = 1 << 20;  // 1 MB
 };
 
 }  // namespace dataset
