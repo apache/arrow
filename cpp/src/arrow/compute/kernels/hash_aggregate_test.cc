@@ -398,6 +398,28 @@ void ValidateGroupBy(GroupByOptions options, std::vector<Datum> aggregands,
 }  // namespace
 }  // namespace group_helpers
 
+TEST(GroupBy, SumOnlyBooleanKey) {
+  auto aggregand = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
+  auto key = ArrayFromJSON(boolean(), "[1, 0, 1, 0, null, 0, null]");
+
+  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped, GroupBy({aggregand}, {key},
+                                                             GroupByOptions{
+                                                                 {"sum", nullptr},
+                                                             }));
+
+  AssertDatumsEqual(ArrayFromJSON(struct_({
+                                      field("", float64()),
+                                      field("", boolean()),
+                                  }),
+                                  R"([
+    [1,     true],
+    [3,    false],
+    [0.875, null]
+  ])"),
+                    aggregated_and_grouped,
+                    /*verbose=*/true);
+}
+
 TEST(GroupBy, SumOnly8bitKey) {
   auto aggregand = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
   auto key = ArrayFromJSON(int8(), "[1, 2, 3, 1, 2, 2, null]");
@@ -406,6 +428,8 @@ TEST(GroupBy, SumOnly8bitKey) {
                                                              GroupByOptions{
                                                                  {"sum", nullptr},
                                                              }));
+
+  ASSERT_OK(aggregated_and_grouped.array_as<StructArray>()->ValidateFull());
 
   AssertDatumsEqual(ArrayFromJSON(struct_({
                                       field("", float64()),

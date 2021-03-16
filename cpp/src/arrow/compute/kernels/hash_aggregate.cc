@@ -46,34 +46,30 @@ struct GroupByImpl {
       }
     }
 
+    template <typename T>
     static void AddVarLength(const std::shared_ptr<ArrayData>& data, int32_t* lengths) {
-      using offset_type = typename StringType::offset_type;
+      using offset_type = typename T::offset_type;
       constexpr int32_t length_extra_bytes = sizeof(offset_type);
-      auto offset = data->offset;
-      const auto offsets = data->GetValues<offset_type>(1);
-      if (data->MayHaveNulls()) {
-        const uint8_t* nulls = data->buffers[0]->data();
 
-        for (int64_t i = 0; i < data->length; ++i) {
-          bool is_null = !BitUtil::GetBit(nulls, offset + i);
-          if (is_null) {
-            lengths[i] += null_extra_byte + length_extra_bytes;
-          } else {
-            lengths[i] += null_extra_byte + length_extra_bytes + offsets[offset + i + 1] -
-                          offsets[offset + i];
-          }
-        }
-      } else {
-        for (int64_t i = 0; i < data->length; ++i) {
-          lengths[i] += null_extra_byte + length_extra_bytes + offsets[offset + i + 1] -
-                        offsets[offset + i];
-        }
-      }
+      int64_t i = 0;
+      return VisitArrayDataInline<T>(
+          *data,
+          [&](util::string_view bytes) {
+            lengths[i++] += null_extra_byte + length_extra_bytes + bytes.size();
+          },
+          [&] { lengths[i++] += null_extra_byte + length_extra_bytes; });
     }
 
     template <typename T>
-    Status Visit(const T& input_type) {
-      int32_t num_bytes = (bit_width(input_type.id()) + 7) / 8;
+    enable_if_base_binary<T, Status> Visit(const T&) {
+      add_length_impl = [](const std::shared_ptr<ArrayData>& data, int32_t* lengths) {
+        AddVarLength<T>(data, lengths);
+      };
+      return Status::OK();
+    }
+
+    Status Visit(const FixedWidthType& type) {
+      int32_t num_bytes = BitUtil::BytesForBits(type.bit_width());
       add_length_impl = [num_bytes](const std::shared_ptr<ArrayData>& data,
                                     int32_t* lengths) {
         AddFixedLength(num_bytes, data->length, lengths);
@@ -81,27 +77,8 @@ struct GroupByImpl {
       return Status::OK();
     }
 
-    Status Visit(const StringType&) {
-      add_length_impl = [](const std::shared_ptr<ArrayData>& data, int32_t* lengths) {
-        AddVarLength(data, lengths);
-      };
-      return Status::OK();
-    }
-
-    Status Visit(const BinaryType&) {
-      add_length_impl = [](const std::shared_ptr<ArrayData>& data, int32_t* lengths) {
-        AddVarLength(data, lengths);
-      };
-      return Status::OK();
-    }
-
-    Status Visit(const FixedSizeBinaryType& type) {
-      int32_t num_bytes = type.byte_width();
-      add_length_impl = [num_bytes](const std::shared_ptr<ArrayData>& data,
-                                    int32_t* lengths) {
-        AddFixedLength(num_bytes, data->length, lengths);
-      };
-      return Status::OK();
+    Status Visit(const DataType& type) {
+      return Status::NotImplemented("Computing encoded key lengths for type ", type);
     }
 
     AddLengthImpl add_length_impl;
@@ -111,93 +88,31 @@ struct GroupByImpl {
       std::function<void(const std::shared_ptr<ArrayData>&, uint8_t**)>;
 
   struct GetEncodeNextImpl {
-    template <int NumBits>
-    static void EncodeSmallFixed(const std::shared_ptr<ArrayData>& data,
-                                 uint8_t** encoded_bytes) {
-      switch (NumBits) {
-        case 1:
-          return VisitArrayDataInline<BooleanType>(
-              *data,
-              [&](bool bit) {
-                auto& encoded_ptr = *encoded_bytes++;
-                *encoded_ptr++ = 0;
-                *encoded_ptr++ = bit;
-              },
-              [&] {
-                auto& encoded_ptr = *encoded_bytes++;
-                *encoded_ptr++ = 1;
-                *encoded_ptr++ = 0;
-              });
-
-        case 8:
-          return VisitArrayDataInline<UInt8Type>(
-              *data,
-              [&](uint8_t byte) {
-                auto& encoded_ptr = *encoded_bytes++;
-                *encoded_ptr++ = 0;
-                *encoded_ptr++ = byte;
-              },
-              [&] {
-                auto& encoded_ptr = *encoded_bytes++;
-                *encoded_ptr++ = 1;
-                *encoded_ptr++ = 0;
-              });
-
-        case 16:
-          return VisitArrayDataInline<UInt16Type>(
-              *data,
-              [&](uint16_t word) {
-                auto& encoded_ptr = *encoded_bytes++;
-                *encoded_ptr++ = 0;
-                util::SafeStore(encoded_ptr, word);
-                encoded_ptr += sizeof(uint16_t);
-              },
-              [&] {
-                auto& encoded_ptr = *encoded_bytes++;
-                *encoded_ptr++ = 1;
-                util::SafeStore(encoded_ptr, uint16_t(0));
-                encoded_ptr += sizeof(uint16_t);
-              });
-
-        case 32:
-          return VisitArrayDataInline<UInt32Type>(
-              *data,
-              [&](uint32_t quad) {
-                auto& encoded_ptr = *encoded_bytes++;
-                *encoded_ptr++ = 0;
-                util::SafeStore(encoded_ptr, quad);
-                encoded_ptr += sizeof(uint32_t);
-              },
-              [&] {
-                auto& encoded_ptr = *encoded_bytes++;
-                *encoded_ptr++ = 1;
-                util::SafeStore(encoded_ptr, uint32_t(0));
-                encoded_ptr += sizeof(uint32_t);
-              });
-
-        case 64:
-          return VisitArrayDataInline<UInt64Type>(
-              *data,
-              [&](uint64_t oct) {
-                auto& encoded_ptr = *encoded_bytes++;
-                *encoded_ptr++ = 0;
-                util::SafeStore(encoded_ptr, oct);
-                encoded_ptr += sizeof(uint64_t);
-              },
-              [&] {
-                auto& encoded_ptr = *encoded_bytes++;
-                *encoded_ptr++ = 1;
-                util::SafeStore(encoded_ptr, uint64_t(0));
-                encoded_ptr += sizeof(uint64_t);
-              });
-      }
+    static void EncodeBoolean(const std::shared_ptr<ArrayData>& data,
+                              uint8_t** encoded_bytes) {
+      VisitArrayDataInline<BooleanType>(
+          *data,
+          [&](bool value) {
+            auto& encoded_ptr = *encoded_bytes++;
+            *encoded_ptr++ = 0;
+            *encoded_ptr++ = value;
+          },
+          [&] {
+            auto& encoded_ptr = *encoded_bytes++;
+            *encoded_ptr++ = 1;
+            *encoded_ptr++ = 0;
+          });
     }
 
-    static void EncodeBigFixed(const std::shared_ptr<ArrayData>& data,
-                               uint8_t** encoded_bytes) {
-      auto num_bytes = checked_cast<const FixedSizeBinaryType&>(*data->type).byte_width();
+    static void EncodeFixed(const std::shared_ptr<ArrayData>& data,
+                            uint8_t** encoded_bytes) {
+      auto num_bytes = checked_cast<const FixedWidthType&>(*data->type).bit_width() / 8;
+
+      ArrayData viewed(fixed_size_binary(num_bytes), data->length, data->buffers,
+                       data->null_count, data->offset);
+
       return VisitArrayDataInline<FixedSizeBinaryType>(
-          *data,
+          viewed,
           [&](util::string_view bytes) {
             auto& encoded_ptr = *encoded_bytes++;
             *encoded_ptr++ = 0;
@@ -235,42 +150,19 @@ struct GroupByImpl {
           });
     }
 
-    template <typename T, typename CType = typename T::c_type>
-    typename std::enable_if<sizeof(CType) <= sizeof(uint64_t), Status>::type Visit(
-        const T& input_type) {
-      int32_t num_bits = bit_width(input_type.id());
-      switch (num_bits) {
-        case 1:
-          encode_next_impl = [](const std::shared_ptr<ArrayData>& data,
-                                uint8_t** encoded_bytes) {
-            EncodeSmallFixed<1>(data, encoded_bytes);
-          };
-          break;
-        case 8:
-          encode_next_impl = [](const std::shared_ptr<ArrayData>& data,
-                                uint8_t** encoded_bytes) {
-            EncodeSmallFixed<8>(data, encoded_bytes);
-          };
-          break;
-        case 16:
-          encode_next_impl = [](const std::shared_ptr<ArrayData>& data,
-                                uint8_t** encoded_bytes) {
-            EncodeSmallFixed<16>(data, encoded_bytes);
-          };
-          break;
-        case 32:
-          encode_next_impl = [](const std::shared_ptr<ArrayData>& data,
-                                uint8_t** encoded_bytes) {
-            EncodeSmallFixed<32>(data, encoded_bytes);
-          };
-          break;
-        case 64:
-          encode_next_impl = [](const std::shared_ptr<ArrayData>& data,
-                                uint8_t** encoded_bytes) {
-            EncodeSmallFixed<64>(data, encoded_bytes);
-          };
-          break;
-      }
+    Status Visit(const BooleanType&) {
+      encode_next_impl = [](const std::shared_ptr<ArrayData>& data,
+                            uint8_t** encoded_bytes) {
+        EncodeBoolean(data, encoded_bytes);
+      };
+      return Status::OK();
+    }
+
+    Status Visit(const FixedWidthType&) {
+      encode_next_impl = [](const std::shared_ptr<ArrayData>& data,
+                            uint8_t** encoded_bytes) {
+        EncodeFixed(data, encoded_bytes);
+      };
       return Status::OK();
     }
 
@@ -279,14 +171,6 @@ struct GroupByImpl {
       encode_next_impl = [](const std::shared_ptr<ArrayData>& data,
                             uint8_t** encoded_bytes) {
         EncodeVarLength<T>(data, encoded_bytes);
-      };
-      return Status::OK();
-    }
-
-    Status Visit(const FixedSizeBinaryType&) {
-      encode_next_impl = [](const std::shared_ptr<ArrayData>& data,
-                            uint8_t** encoded_bytes) {
-        EncodeBigFixed(data, encoded_bytes);
       };
       return Status::OK();
     }
@@ -302,22 +186,19 @@ struct GroupByImpl {
                                             std::shared_ptr<ArrayData>*)>;
 
   struct GetDecodeNextImpl {
-    static Status DecodeNulls(KernelContext* ctx, int32_t length, uint8_t** encoded_bytes,
-                              std::shared_ptr<ResizableBuffer>* null_buf,
-                              int32_t* null_count) {
+    static Status DecodeNulls(MemoryPool* pool, int32_t length, uint8_t** encoded_bytes,
+                              std::shared_ptr<Buffer>* null_buf, int32_t* null_count) {
       // Do we have nulls?
       *null_count = 0;
       for (int32_t i = 0; i < length; ++i) {
         *null_count += encoded_bytes[i][0];
       }
       if (*null_count > 0) {
-        ARROW_ASSIGN_OR_RAISE(*null_buf, ctx->AllocateBitmap(length));
+        ARROW_ASSIGN_OR_RAISE(*null_buf, AllocateBitmap(length, pool));
+
         uint8_t* nulls = (*null_buf)->mutable_data();
-        memset(nulls, 0, (*null_buf)->size());
         for (int32_t i = 0; i < length; ++i) {
-          if (!encoded_bytes[i][0]) {
-            BitUtil::SetBit(nulls, i);
-          }
+          BitUtil::SetBitTo(nulls, i, !encoded_bytes[i][0]);
           encoded_bytes[i] += 1;
         }
       } else {
@@ -328,80 +209,61 @@ struct GroupByImpl {
       return Status ::OK();
     }
 
-    template <int NumBits>
-    static void DecodeSmallFixed(KernelContext* ctx, const Type::type& output_type,
-                                 int32_t length, uint8_t** encoded_bytes,
-                                 std::shared_ptr<ArrayData>* out) {
-      std::shared_ptr<ResizableBuffer> null_buf;
+    static void DecodeBoolean(KernelContext* ctx, int32_t length, uint8_t** encoded_bytes,
+                              std::shared_ptr<ArrayData>* out) {
+      std::shared_ptr<Buffer> null_buf;
       int32_t null_count;
-      KERNEL_RETURN_IF_ERROR(
-          ctx, DecodeNulls(ctx, length, encoded_bytes, &null_buf, &null_count));
+      KERNEL_RETURN_IF_ERROR(ctx, DecodeNulls(ctx->memory_pool(), length, encoded_bytes,
+                                              &null_buf, &null_count));
 
-      KERNEL_ASSIGN_OR_RAISE(
-          auto key_buf, ctx,
-          ctx->Allocate(NumBits == 1 ? (length + 7) / 8 : (NumBits / 8) * length));
+      KERNEL_ASSIGN_OR_RAISE(auto key_buf, ctx, ctx->AllocateBitmap(length));
 
       uint8_t* raw_output = key_buf->mutable_data();
       for (int32_t i = 0; i < length; ++i) {
         auto& encoded_ptr = encoded_bytes[i];
-        if (NumBits == 1) {
-          BitUtil::SetBitTo(raw_output, i, encoded_ptr[0] != 0);
-          encoded_ptr += 1;
-        }
-        if (NumBits == 8) {
-          raw_output[i] = encoded_ptr[0];
-          encoded_ptr += 1;
-        }
-        if (NumBits == 16) {
-          reinterpret_cast<uint16_t*>(raw_output)[i] =
-              reinterpret_cast<const uint16_t*>(encoded_bytes[i])[0];
-          encoded_ptr += 2;
-        }
-        if (NumBits == 32) {
-          reinterpret_cast<uint32_t*>(raw_output)[i] =
-              reinterpret_cast<const uint32_t*>(encoded_bytes[i])[0];
-          encoded_ptr += 4;
-        }
-        if (NumBits == 64) {
-          reinterpret_cast<uint64_t*>(raw_output)[i] =
-              reinterpret_cast<const uint64_t*>(encoded_bytes[i])[0];
-          encoded_ptr += 8;
-        }
+        BitUtil::SetBitTo(raw_output, i, encoded_ptr[0] != 0);
+        encoded_ptr += 1;
       }
 
-      DCHECK(is_integer(output_type) || output_type == Type::BOOL);
-      *out = ArrayData::Make(int64(), length, {null_buf, key_buf}, null_count);
-    }
-
-    static void DecodeBigFixed(KernelContext* ctx, int num_bytes, int32_t length,
-                               uint8_t** encoded_bytes, std::shared_ptr<ArrayData>* out) {
-      std::shared_ptr<ResizableBuffer> null_buf;
-      int32_t null_count;
-      KERNEL_RETURN_IF_ERROR(
-          ctx, DecodeNulls(ctx, length, encoded_bytes, &null_buf, &null_count));
-
-      KERNEL_ASSIGN_OR_RAISE(auto key_buf, ctx, ctx->Allocate(num_bytes * length));
-      auto raw_output = key_buf->mutable_data();
-      for (int32_t i = 0; i < length; ++i) {
-        memcpy(raw_output + i * num_bytes, encoded_bytes[i], num_bytes);
-        encoded_bytes[i] += num_bytes;
-      }
-
-      *out = ArrayData::Make(fixed_size_binary(num_bytes), length, {null_buf, key_buf},
+      *out = ArrayData::Make(boolean(), length, {std::move(null_buf), std::move(key_buf)},
                              null_count);
     }
 
-    static void DecodeVarLength(KernelContext* ctx, bool is_string, int32_t length,
-                                uint8_t** encoded_bytes,
-                                std::shared_ptr<ArrayData>* out) {
-      std::shared_ptr<ResizableBuffer> null_buf;
+    static void DecodeFixed(KernelContext* ctx, std::shared_ptr<DataType> output_type,
+                            int32_t length, uint8_t** encoded_bytes,
+                            std::shared_ptr<ArrayData>* out) {
+      std::shared_ptr<Buffer> null_buf;
       int32_t null_count;
-      KERNEL_RETURN_IF_ERROR(
-          ctx, DecodeNulls(ctx, length, encoded_bytes, &null_buf, &null_count));
+      KERNEL_RETURN_IF_ERROR(ctx, DecodeNulls(ctx->memory_pool(), length, encoded_bytes,
+                                              &null_buf, &null_count));
 
-      using offset_type = typename StringType::offset_type;
+      auto num_bytes = checked_cast<const FixedWidthType&>(*output_type).bit_width() / 8;
+      KERNEL_ASSIGN_OR_RAISE(auto key_buf, ctx, ctx->Allocate(num_bytes * length));
 
-      int32_t length_sum = 0;
+      uint8_t* raw_output = key_buf->mutable_data();
+      for (int32_t i = 0; i < length; ++i) {
+        auto& encoded_ptr = encoded_bytes[i];
+        std::memcpy(raw_output, encoded_ptr, num_bytes);
+        encoded_ptr += num_bytes;
+        raw_output += num_bytes;
+      }
+
+      *out = ArrayData::Make(std::move(output_type), length,
+                             {std::move(null_buf), std::move(key_buf)}, null_count);
+    }
+
+    template <typename T>
+    static void DecodeVarLength(KernelContext* ctx, std::shared_ptr<DataType> output_type,
+                                int32_t length, uint8_t** encoded_bytes,
+                                std::shared_ptr<ArrayData>* out) {
+      std::shared_ptr<Buffer> null_buf;
+      int32_t null_count;
+      KERNEL_RETURN_IF_ERROR(ctx, DecodeNulls(ctx->memory_pool(), length, encoded_bytes,
+                                              &null_buf, &null_count));
+
+      using offset_type = typename T::offset_type;
+
+      offset_type length_sum = 0;
       for (int32_t i = 0; i < length; ++i) {
         length_sum += reinterpret_cast<offset_type*>(encoded_bytes)[0];
       }
@@ -410,101 +272,62 @@ struct GroupByImpl {
                              ctx->Allocate(sizeof(offset_type) * (1 + length)));
       KERNEL_ASSIGN_OR_RAISE(auto key_buf, ctx, ctx->Allocate(length_sum));
 
-      auto raw_offsets = offset_buf->mutable_data();
+      auto raw_offsets = reinterpret_cast<offset_type*>(offset_buf->mutable_data());
       auto raw_keys = key_buf->mutable_data();
+
       int32_t current_offset = 0;
       for (int32_t i = 0; i < length; ++i) {
         offset_type key_length = reinterpret_cast<offset_type*>(encoded_bytes[i])[0];
-        reinterpret_cast<offset_type*>(raw_offsets)[i] = current_offset;
+        raw_offsets[i] = current_offset;
         encoded_bytes[i] += sizeof(offset_type);
         memcpy(raw_keys + current_offset, encoded_bytes[i], key_length);
         encoded_bytes[i] += key_length;
         current_offset += key_length;
       }
-      reinterpret_cast<offset_type*>(raw_offsets)[length] = current_offset;
+      raw_offsets[length] = current_offset;
 
-      if (is_string) {
-        *out = ArrayData::Make(utf8(), length, {null_buf, offset_buf, key_buf},
-                               null_count, 0);
-      } else {
-        *out = ArrayData::Make(binary(), length, {null_buf, offset_buf, key_buf},
-                               null_count, 0);
-      }
+      *out = ArrayData::Make(
+          std::move(output_type), length,
+          {std::move(null_buf), std::move(offset_buf), std::move(key_buf)}, null_count);
+    }
+
+    Status Visit(const BooleanType&) {
+      decode_next_impl = [](KernelContext* ctx, int32_t length, uint8_t** encoded_bytes,
+                            std::shared_ptr<ArrayData>* out) {
+        DecodeBoolean(ctx, length, encoded_bytes, out);
+      };
+      return Status::OK();
+    }
+
+    Status Visit(const FixedWidthType&) {
+      auto output_type = out_type;
+      decode_next_impl = [=](KernelContext* ctx, int32_t length, uint8_t** encoded_bytes,
+                             std::shared_ptr<ArrayData>* out) {
+        DecodeFixed(ctx, output_type, length, encoded_bytes, out);
+      };
+      return Status::OK();
     }
 
     template <typename T>
-    Status Visit(const T& input_type) {
-      int32_t num_bits = bit_width(input_type.id());
-      auto type_id = input_type.id();
-      switch (num_bits) {
-        case 1:
-          decode_next_impl = [type_id](KernelContext* ctx, int32_t length,
-                                       uint8_t** encoded_bytes,
-                                       std::shared_ptr<ArrayData>* out) {
-            DecodeSmallFixed<1>(ctx, type_id, length, encoded_bytes, out);
-          };
-          break;
-        case 8:
-          decode_next_impl = [type_id](KernelContext* ctx, int32_t length,
-                                       uint8_t** encoded_bytes,
-                                       std::shared_ptr<ArrayData>* out) {
-            DecodeSmallFixed<8>(ctx, type_id, length, encoded_bytes, out);
-          };
-          break;
-        case 16:
-          decode_next_impl = [type_id](KernelContext* ctx, int32_t length,
-                                       uint8_t** encoded_bytes,
-                                       std::shared_ptr<ArrayData>* out) {
-            DecodeSmallFixed<16>(ctx, type_id, length, encoded_bytes, out);
-          };
-          break;
-        case 32:
-          decode_next_impl = [type_id](KernelContext* ctx, int32_t length,
-                                       uint8_t** encoded_bytes,
-                                       std::shared_ptr<ArrayData>* out) {
-            DecodeSmallFixed<32>(ctx, type_id, length, encoded_bytes, out);
-          };
-          break;
-        case 64:
-          decode_next_impl = [type_id](KernelContext* ctx, int32_t length,
-                                       uint8_t** encoded_bytes,
-                                       std::shared_ptr<ArrayData>* out) {
-            DecodeSmallFixed<64>(ctx, type_id, length, encoded_bytes, out);
-          };
-          break;
-      }
-      return Status::OK();
-    }
-
-    Status Visit(const StringType&) {
-      decode_next_impl = [](KernelContext* ctx, int32_t length, uint8_t** encoded_bytes,
-                            std::shared_ptr<ArrayData>* out) {
-        DecodeVarLength(ctx, true, length, encoded_bytes, out);
+    enable_if_base_binary<T, Status> Visit(const T&) {
+      auto output_type = out_type;
+      decode_next_impl = [=](KernelContext* ctx, int32_t length, uint8_t** encoded_bytes,
+                             std::shared_ptr<ArrayData>* out) {
+        DecodeVarLength<T>(ctx, output_type, length, encoded_bytes, out);
       };
       return Status::OK();
     }
 
-    Status Visit(const BinaryType&) {
-      decode_next_impl = [](KernelContext* ctx, int32_t length, uint8_t** encoded_bytes,
-                            std::shared_ptr<ArrayData>* out) {
-        DecodeVarLength(ctx, false, length, encoded_bytes, out);
-      };
-      return Status::OK();
+    Status Visit(const DataType& type) {
+      return Status::NotImplemented("decoding keys for type ", type);
     }
 
-    Status Visit(const FixedSizeBinaryType& type) {
-      int32_t num_bytes = type.byte_width();
-      decode_next_impl = [num_bytes](KernelContext* ctx, int32_t length,
-                                     uint8_t** encoded_bytes,
-                                     std::shared_ptr<ArrayData>* out) {
-        DecodeBigFixed(ctx, num_bytes, length, encoded_bytes, out);
-      };
-      return Status::OK();
-    }
-
+    std::shared_ptr<DataType> out_type;
     DecodeNextImpl decode_next_impl;
   };
 
+  // TODO(bkietz) Here I'd like to make it clear that Consume produces a batch of
+  // group_ids; extract the immediate pass-to-HashAggregateKernel.
   void Consume(KernelContext* ctx, const ExecBatch& batch) {
     ArrayDataVector aggregands, keys;
 
@@ -693,7 +516,7 @@ Result<GroupByImpl> GroupByInit(ExecContext* ctx, const std::vector<Datum>& aggr
       case Type::FIXED_SIZE_BINARY:
         break;
       default:
-        return Status::NotImplemented("Key of type", key_type->ToString());
+        return Status::NotImplemented("Key of type ", key_type->ToString());
     }
     out_fields.push_back(field("", key_type));
   }
@@ -705,6 +528,7 @@ Result<GroupByImpl> GroupByInit(ExecContext* ctx, const std::vector<Datum>& aggr
     const auto& key_type = keys[i].type();
     RETURN_NOT_OK(VisitTypeInline(*key_type, &impl.add_length_impl[i]));
     RETURN_NOT_OK(VisitTypeInline(*key_type, &impl.encode_next_impl[i]));
+    impl.decode_next_impl[i].out_type = key_type;
     RETURN_NOT_OK(VisitTypeInline(*key_type, &impl.decode_next_impl[i]));
   }
 
@@ -731,16 +555,6 @@ struct GroupedAggregator : KernelState {
       return Status::OK();
     }
     return reserve(new_num_groups - old_num_groups);
-  }
-
-  template <typename Resize>
-  Status MaybeResize(int64_t old_num_groups, const ExecBatch& batch,
-                     const Resize& resize) {
-    int64_t new_num_groups = batch[2].scalar_as<UInt32Scalar>().value;
-    if (new_num_groups <= old_num_groups) {
-      return Status::OK();
-    }
-    return resize(old_num_groups, new_num_groups);
   }
 
   virtual std::shared_ptr<DataType> out_type() const = 0;
