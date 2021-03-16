@@ -386,7 +386,7 @@ arrow::Status WriteNumericBatch(liborc::ColumnVectorBatch* column_vector_batch,
   const ArrayType& numeric_array(checked_cast<const ArrayType&>(array));
   auto batch = checked_cast<BatchType*>(column_vector_batch);
   int64_t arrow_length = array.length();
-  if (!arrow_length) {
+  if (arrow_length == 0) {
     return arrow::Status::OK();
   }
   if (array.null_count() || incoming_mask) {
@@ -417,7 +417,7 @@ arrow::Status WriteTimestampBatch(liborc::ColumnVectorBatch* column_vector_batch
   const ArrayType& timestamp_array(checked_cast<const ArrayType&>(array));
   auto batch = checked_cast<liborc::TimestampVectorBatch*>(column_vector_batch);
   int64_t arrow_length = array.length();
-  if (!arrow_length) {
+  if (arrow_length == 0) {
     return arrow::Status::OK();
   }
   if (array.null_count() || incoming_mask) {
@@ -450,7 +450,7 @@ arrow::Status WriteBinaryBatch(liborc::ColumnVectorBatch* column_vector_batch,
   const ArrayType& binary_array(checked_cast<const ArrayType&>(array));
   auto batch = checked_cast<liborc::StringVectorBatch*>(column_vector_batch);
   int64_t arrow_length = array.length();
-  if (!arrow_length) {
+  if (arrow_length == 0) {
     return arrow::Status::OK();
   }
   if (array.null_count() || incoming_mask) {
@@ -481,7 +481,7 @@ arrow::Status WriteFixedSizeBinaryBatch(liborc::ColumnVectorBatch* column_vector
       checked_cast<const arrow::FixedSizeBinaryArray&>(array));
   auto batch = checked_cast<liborc::StringVectorBatch*>(column_vector_batch);
   int64_t arrow_length = array.length();
-  if (!arrow_length) {
+  if (arrow_length == 0) {
     return arrow::Status::OK();
   }
   const int32_t data_length = fixed_size_binary_array.byte_width();
@@ -515,7 +515,7 @@ arrow::Status WriteDecimal64Batch(liborc::ColumnVectorBatch* column_vector_batch
   // Arrow uses 128 bits for decimal type and in the future, 256 bits will also be
   // supported.
   int64_t arrow_length = array.length();
-  if (!arrow_length) {
+  if (arrow_length == 0) {
     return arrow::Status::OK();
   }
   if (array.null_count() || incoming_mask) {
@@ -548,7 +548,7 @@ arrow::Status WriteDecimal128Batch(liborc::ColumnVectorBatch* column_vector_batc
   // Arrow uses 128 bits for decimal type and in the future, 256 bits will also be
   // supported.
   int64_t arrow_length = array.length();
-  if (!arrow_length) {
+  if (arrow_length == 0) {
     return arrow::Status::OK();
   }
   if (array.null_count() || incoming_mask) {
@@ -581,7 +581,7 @@ arrow::Status WriteStructBatch(liborc::ColumnVectorBatch* column_vector_batch,
   std::shared_ptr<std::vector<bool>> outgoing_mask;
   std::size_t size = array.type()->fields().size();
   int64_t arrow_length = array.length();
-  if (!arrow_length) {
+  if (arrow_length == 0) {
     return arrow::Status::OK();
   }
   const int64_t init_orc_offset = *orc_offset;
@@ -624,7 +624,7 @@ arrow::Status WriteListBatch(liborc::ColumnVectorBatch* column_vector_batch,
   auto batch = checked_cast<liborc::ListVectorBatch*>(column_vector_batch);
   liborc::ColumnVectorBatch* element_batch = (batch->elements).get();
   int64_t arrow_length = array.length();
-  if (!arrow_length) {
+  if (arrow_length == 0) {
     return arrow::Status::OK();
   }
   if (*orc_offset == 0) {
@@ -668,7 +668,7 @@ arrow::Status WriteMapBatch(liborc::ColumnVectorBatch* column_vector_batch,
   std::shared_ptr<arrow::Array> key_array = map_array.keys();
   std::shared_ptr<arrow::Array> element_array = map_array.items();
   int64_t arrow_length = array.length();
-  if (!arrow_length) {
+  if (arrow_length == 0) {
     return arrow::Status::OK();
   }
   if (*orc_offset == 0) {
