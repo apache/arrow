@@ -123,72 +123,68 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
   return 0;
 }
 
-#define SHA128_HASH_FUNCTION(TYPE)                                                       \
-  GANDIVA_EXPORT                                                                         \
-  const char *gdv_fn_sha128_from_##TYPE(int64_t context, gdv_##TYPE value,               \
-                                        bool validity, u_int32_t *out_length) {          \
-    if(!validity){                                                                       \
-      *out_length = 0;                                                                   \
-      return "";                                                                         \
-    }                                                                                    \
-                                                                                         \
-    auto value_as_long = gandiva::HashUtils::DoubleToLong((double)value);              \
-                                                                                         \
-    const char *result = gandiva::HashUtils::HashUsingSha128(context,                  \
-                                                               &value_as_long,           \
-                                                               sizeof(value_as_long),    \
-                                                               out_length);              \
-                                                                                         \
-    return result;                                                                       \
-  }                                                                                      \
+#define SHA128_HASH_FUNCTION(TYPE)                                                    \
+  GANDIVA_EXPORT                                                                      \
+  const char *gdv_fn_sha128_from_##TYPE(int64_t context, gdv_##TYPE value,            \
+                                        bool validity, u_int32_t *out_length) {       \
+    if(!validity){                                                                    \
+      *out_length = 0;                                                                \
+      return "";                                                                      \
+    }                                                                                 \
+    auto value_as_long = gandiva::HashUtils::DoubleToLong((double)value);             \
+    const char *result = gandiva::HashUtils::HashUsingSha128(context,                 \
+                                                               &value_as_long,        \
+                                                               sizeof(value_as_long), \
+                                                               out_length);           \
+                                                               \
+    return result;                                                                    \
+  }                                                                                   \
 
-#define SHA128_HASH_FUNCTION_BUF(TYPE)                                                       \
-  GANDIVA_EXPORT                                                                             \
-  const char *gdv_fn_sha128_from_##TYPE(int64_t context,                                     \
-                                        gdv_##TYPE value,                                    \
-                                        int32_t value_length,                                \
-                                        bool value_validity,                                 \
-                                        u_int32_t *out_length) {                             \
-    if(!value_validity){                                                                     \
-      *out_length = 0;                                                                       \
-      return "";                                                                             \
-    }                                                                                        \
-                                                                                             \
-    return gandiva::HashUtils::HashUsingSha128(context, value, value_length, out_length);  \
+#define SHA128_HASH_FUNCTION_BUF(TYPE)                                             \
+  GANDIVA_EXPORT                                                                   \
+  const char *gdv_fn_sha128_from_##TYPE(int64_t context,                           \
+                                        gdv_##TYPE value,                           \
+                                        int32_t value_length,                      \
+                                        bool value_validity,                       \
+                                        u_int32_t *out_length) {                   \
+    if(!value_validity){                                                           \
+      *out_length = 0;                                                             \
+      return "";                                                                   \
+    }                                                                             \
+    return gandiva::HashUtils::HashUsingSha128(context, value,                     \
+    value_length, out_length);                                                     \
   }
 
-#define SHA256_HASH_FUNCTION(TYPE)                                                       \
-  GANDIVA_EXPORT                                                                         \
-  const char *gdv_fn_sha256_from_##TYPE(int64_t context, gdv_##TYPE value,               \
-                                        bool validity, u_int32_t *out_length) {          \
-    if(!validity){                                                                       \
-      *out_length = 0;                                                                   \
-      return "";                                                                         \
-    }                                                                                    \
-                                                                                         \
-    auto value_as_long = gandiva::HashUtils::DoubleToLong((double)value);              \
-                                                                                         \
-    const char *result = gandiva::HashUtils::HashUsingSha256(context,                  \
-                                                               &value_as_long,           \
-                                                               sizeof(value_as_long),    \
-                                                               out_length);              \
-                                                                                         \
-    return result;                                                                       \
-  }                                                                                      \
+#define SHA256_HASH_FUNCTION(TYPE)                                                  \
+  GANDIVA_EXPORT                                                                    \
+  const char *gdv_fn_sha256_from_##TYPE(int64_t context, gdv_##TYPE value,          \
+                                        bool validity, u_int32_t *out_length) {     \
+    if(!validity){                                                                  \
+      *out_length = 0;                                                              \
+      return "";                                                                    \
+    }                                                                               \
+    auto value_as_long = gandiva::HashUtils::DoubleToLong((double)value);           \
+    const char *result = gandiva::HashUtils::HashUsingSha256(context,               \
+                                                               &value_as_long,      \
+                                                               sizeof(value_as_long),\
+                                                               out_length);          \
+    return result;                                                                  \
+  }                                                                                \
 
-#define SHA256_HASH_FUNCTION_BUF(TYPE)                                                       \
-  GANDIVA_EXPORT                                                                             \
-  const char *gdv_fn_sha256_from_##TYPE(int64_t context,                                     \
-                                        gdv_##TYPE value,                                    \
-                                        int32_t value_length,                                \
-                                        bool value_validity,                                 \
-                                        u_int32_t *out_length) {                             \
-    if(!value_validity){                                                                     \
-      *out_length = 0;                                                                       \
-      return "";                                                                             \
-    }                                                                                        \
-                                                                                             \
-    return gandiva::HashUtils::HashUsingSha256(context, value, value_length, out_length);  \
+#define SHA256_HASH_FUNCTION_BUF(TYPE)                                           \
+  GANDIVA_EXPORT                                                                 \
+  const char *gdv_fn_sha256_from_##TYPE(int64_t context,                     \
+                                        gdv_##TYPE value,                   \
+                                        int32_t value_length,                  \
+                                        bool value_validity,                    \
+                                        u_int32_t *out_length) {                \
+    if(!value_validity){                                                      \
+      *out_length = 0;                                                     \
+      return "";                                                            \
+    }                                                                      \
+                                                               \
+    return gandiva::HashUtils::HashUsingSha256(context, value,               \
+    value_length, out_length);  \
   }
 
 // Expand inner macro for all numeric types.
@@ -582,7 +578,8 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
     };
     engine->AddGlobalMappingForFunc("gdv_fn_sha128_from_date32",
                                     types->i8_ptr_type() /*return_type*/, args,
-                                    reinterpret_cast<void *>(gdv_fn_sha128_from_date32));
+                                    reinterpret_cast<void *>(gdv_fn_sha128_from_date32)
+                                    );
 
     // gdv_fn_sha128_from_time32
     args = {
@@ -593,7 +590,8 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
     };
     engine->AddGlobalMappingForFunc("gdv_fn_sha128_from_time32",
                                     types->i8_ptr_type() /*return_type*/, args,
-                                    reinterpret_cast<void *>(gdv_fn_sha128_from_time32));
+                                    reinterpret_cast<void *>(gdv_fn_sha128_from_time32)
+                                    );
 
     // gdv_fn_sha128_from_timestamp
     args = {
@@ -604,7 +602,9 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
     };
     engine->AddGlobalMappingForFunc("gdv_fn_sha128_from_timestamp",
                                     types->i8_ptr_type() /*return_type*/, args,
-                                    reinterpret_cast<void *>(gdv_fn_sha128_from_timestamp));
+                                    reinterpret_cast<void *>(
+                                    		gdv_fn_sha128_from_timestamp
+                                    		));
 
     // gdv_fn_hash_sha128_from_utf8
     args = {
@@ -630,7 +630,8 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
 
     engine->AddGlobalMappingForFunc("gdv_fn_sha128_from_binary",
                                     types->i8_ptr_type() /*return_type*/, args,
-                                    reinterpret_cast<void *>(gdv_fn_sha128_from_binary));
+                                    reinterpret_cast<void *>(gdv_fn_sha128_from_binary)
+                                    );
 
   // gdv_fn_sha256_from_int8
   args = {
@@ -822,7 +823,5 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_sha256_from_binary",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void *>(gdv_fn_sha256_from_binary));
-
 }
-
 }  // namespace gandiva

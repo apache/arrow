@@ -49,6 +49,6 @@ namespace gandiva {
 
     static void ErrorMessage(int64_t context_ptr, char const *err_msg);
   };
-}
+}  // namespace gandiva
 
 #endif //ARROW_SRC_HASH_UTILS_H_

@@ -67,7 +67,8 @@ bool in_expr_lookup_utf8(int64_t ptr, const char* data, int data_len, bool in_va
 int gdv_fn_time_with_zone(int* time_fields, const char* zone, int zone_len,
                           int64_t* ret_time);
 
-const char *gdv_fn_sha256_from_float64(int64_t context, double value, bool validity, unsigned int *out_length);
+const char *gdv_fn_sha256_from_float64(int64_t context, double value, bool validity,
+									   unsigned int *out_length);
 
 const char *gdv_fn_sha256_from_utf8(int64_t context,
                                     char *value,
@@ -75,7 +76,8 @@ const char *gdv_fn_sha256_from_utf8(int64_t context,
                                     bool value_validity,
                                     uint32_t *out_length);
 
-const char *gdv_fn_sha128_from_float64(int64_t context, double value, bool validity, unsigned int *out_length);
+const char *gdv_fn_sha128_from_float64(int64_t context, double value, bool validity,
+									   unsigned int *out_length);
 
 const char *gdv_fn_sha128_from_utf8(int64_t context,
                                     char *value,

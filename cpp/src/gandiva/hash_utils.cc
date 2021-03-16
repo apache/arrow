@@ -27,7 +27,8 @@ namespace gandiva {
                                             u_int32_t* out_length) {
     // The buffer size is the hash size + null character
     int sha256_result_length = 65;
-    return HashUtils::GetHash(context, message, message_length, EVP_sha256(), sha256_result_length, out_length);
+    return HashUtils::GetHash(context, message, message_length, EVP_sha256(),
+							  sha256_result_length, out_length);
   }
   const char* HashUtils::HashUsingSha128(int64_t context,
                                             const void* message,
@@ -35,7 +36,8 @@ namespace gandiva {
                                             u_int32_t* out_length) {
     // The buffer size is the hash size + null character
     int sha128_result_length = 41;
-    return HashUtils::GetHash(context, message, message_length, EVP_sha1(), sha128_result_length, out_length);
+    return HashUtils::GetHash(context, message, message_length, EVP_sha1(),
+							  sha128_result_length, out_length);
   }
 
   const char* HashUtils::GetHash(int64_t context,
@@ -46,21 +48,24 @@ namespace gandiva {
                                  u_int32_t* out_length) {
     EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
 
-    if(md_ctx == nullptr){
-      HashUtils::ErrorMessage(context, "Could not allocate memory for SHA processing.");
+    if (md_ctx == nullptr) {
+      HashUtils::ErrorMessage(context, "Could not allocate memory "
+									   "for SHA processing.");
       return "";
     }
 
     int evp_success_status = 1;
 
-    if(EVP_DigestInit_ex(md_ctx, hash_type, nullptr) != evp_success_status){
-      HashUtils::ErrorMessage(context, "Could not obtain the hash for the defined value.");
+    if (EVP_DigestInit_ex(md_ctx, hash_type, nullptr) != evp_success_status) {
+      HashUtils::ErrorMessage(context, "Could not obtain the hash "
+									   "for the defined value.");
       EVP_MD_CTX_free(md_ctx);
       return "";
     }
 
-    if(EVP_DigestUpdate(md_ctx, message, message_length) != evp_success_status){
-      HashUtils::ErrorMessage(context, "Could not obtain the hash for the defined value.");
+    if (EVP_DigestUpdate(md_ctx, message, message_length) != evp_success_status) {
+      HashUtils::ErrorMessage(context, "Could not obtain the hash for "
+									   "the defined value.");
       EVP_MD_CTX_free(md_ctx);
       return "";
     }
@@ -68,8 +73,9 @@ namespace gandiva {
     int hash_size = EVP_MD_size(hash_type);
     auto* result = static_cast<unsigned char*>(OPENSSL_malloc(hash_size));
 
-    if(result == nullptr){
-      HashUtils::ErrorMessage(context, "Could not allocate memory for SHA processing.");
+    if (result == nullptr) {
+      HashUtils::ErrorMessage(context, "Could not allocate memory "
+									   "for SHA processing.");
       EVP_MD_CTX_free(md_ctx);
       return "";
     }
@@ -114,7 +120,7 @@ namespace gandiva {
     buffer[0] = '\0';
   }
 
-  void HashUtils::ErrorMessage(int64_t context_ptr, char const *err_msg){
+  void HashUtils::ErrorMessage(int64_t context_ptr, char const *err_msg) {
     auto context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
     context->set_error_msg(err_msg);
   }
