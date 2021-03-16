@@ -454,7 +454,7 @@ DATE_TRUNC_FUNCTIONS(timestamp)
 #define LAST_DAY_FUNC(TYPE)                                                                                    \
   FORCE_INLINE                                                                                                 \
   gdv_date64 last_day_from_##TYPE(gdv_date64 millis) {                                                         \
-  EpochTimePoint received_day(millis);                                                                         \
+    EpochTimePoint received_day(millis);                                                                       \
     const auto &day_without_hours_and_sec = received_day.ClearTimeOfDay();                                     \
                                                                                                                \
     int received_day_in_month = day_without_hours_and_sec.TmMday();                                            \
