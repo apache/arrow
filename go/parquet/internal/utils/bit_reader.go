@@ -17,7 +17,6 @@
 package utils
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -30,14 +29,18 @@ import (
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
+// masks for grabbing the trailing bits based on the number of trailing bits desired
 var trailingMask [64]uint64
 
 func init() {
+	// generate the masks at init so we don't have to hard code them.
 	for i := 0; i < 64; i++ {
 		trailingMask[i] = (math.MaxUint64 >> (64 - i))
 	}
 }
 
+// trailingBits returns a value constructed from the bits trailing bits of
+// the value v that is passed in. If bits >= 64, then we just return v.
 func trailingBits(v uint64, bits uint) uint64 {
 	if bits >= 64 {
 		return v
@@ -45,14 +48,22 @@ func trailingBits(v uint64, bits uint) uint64 {
 	return v & trailingMask[bits]
 }
 
+// reader is a useful interface to define the functionality we need for implementation
 type reader interface {
 	io.Reader
 	io.ReaderAt
 	io.Seeker
 }
 
+// default buffer length
 const buflen = 1024
 
+// BitReader implements functionality for reading bits or bytes buffering up to a uint64
+// at a time from the reader in order to improve efficiency. It also provides
+// methods to read multiple bytes in one read such as encoded ints/values.
+//
+// This BitReader is the basis for the other utility classes like RLE decoding
+// and such, providing the necessary functions for interpreting the values.
 type BitReader struct {
 	reader     reader
 	buffer     uint64
@@ -63,21 +74,30 @@ type BitReader struct {
 	unpackBuf [buflen]uint32
 }
 
-func NewBitReader(r *bytes.Reader) *BitReader {
+// NewBitReader takes in a reader that implements io.Reader, io.ReaderAt and io.Seeker
+// interfaces and returns a BitReader for use with various bit level manipulations.
+func NewBitReader(r reader) *BitReader {
 	return &BitReader{reader: r}
 }
 
+// CurOffset returns the current Byte offset into the data that the reader is at.
 func (b *BitReader) CurOffset() int64 {
 	return b.byteoffset + bitutil.BytesForBits(int64(b.bitoffset))
 }
 
-func (b *BitReader) Reset(r *bytes.Reader) {
+// Reset allows reusing a BitReader by setting a new reader and resetting the internal
+// state back to zeros.
+func (b *BitReader) Reset(r reader) {
 	b.reader = r
 	b.buffer = 0
 	b.byteoffset = 0
 	b.bitoffset = 0
 }
 
+// GetVlqInt reads a Vlq encoded int from the stream. The encoded value must start
+// at the beginning of a byte and this returns false if there weren't enough bytes
+// in the buffer or reader. This will call `ReadByte` which in turn retrieves byte
+// aligned values from the reader
 func (b *BitReader) GetVlqInt() (uint64, bool) {
 	tmp, err := binary.ReadUvarint(b)
 	if err != nil {
@@ -86,6 +106,8 @@ func (b *BitReader) GetVlqInt() (uint64, bool) {
 	return tmp, true
 }
 
+// GetZigZagVlqInt reads a zigzag encoded integer, returning false if there weren't
+// enough bytes remaining.
 func (b *BitReader) GetZigZagVlqInt() (int64, bool) {
 	u, ok := b.GetVlqInt()
 	if !ok {
@@ -95,6 +117,8 @@ func (b *BitReader) GetZigZagVlqInt() (int64, bool) {
 	return int64(u>>1) ^ -int64(u&1), true
 }
 
+// ReadByte reads a single aligned byte from the underlying stream, or populating
+// error if there aren't enough bytes left.
 func (b *BitReader) ReadByte() (byte, error) {
 	var tmp byte
 	if ok := b.GetAligned(1, &tmp); !ok {
@@ -104,7 +128,14 @@ func (b *BitReader) ReadByte() (byte, error) {
 	return tmp, nil
 }
 
+// GetAligned reads nbytes from the underlying stream into the passed interface value.
+// Returning false if there aren't enough bytes remaining in the stream or if an invalid
+// type is passed. The bytes are read aligned to byte boundaries.
+//
+// v must be a pointer to a byte or sized uint type (*byte, *uint16, *uint32, *uint64).
+// encoded values are assumed to be little endian.
 func (b *BitReader) GetAligned(nbytes int, v interface{}) bool {
+	// figure out the number of bytes to represent v
 	typBytes := int(reflect.TypeOf(v).Elem().Size())
 	if nbytes > typBytes {
 		return false
@@ -120,7 +151,7 @@ func (b *BitReader) GetAligned(nbytes int, v interface{}) bool {
 	if n != nbytes {
 		return false
 	}
-
+	// zero pad the the bytes
 	memory.Set(b.raw[n:typBytes], 0)
 
 	switch v := v.(type) {
@@ -132,6 +163,8 @@ func (b *BitReader) GetAligned(nbytes int, v interface{}) bool {
 		*v = binary.LittleEndian.Uint32(b.raw[:typBytes])
 	case *uint16:
 		*v = binary.LittleEndian.Uint16(b.raw[:typBytes])
+	default:
+		return false
 	}
 
 	b.byteoffset += int64(nbytes)
@@ -141,6 +174,7 @@ func (b *BitReader) GetAligned(nbytes int, v interface{}) bool {
 	return true
 }
 
+// fillbuffer fills the uint64 buffer with bytes from the underlying stream
 func (b *BitReader) fillbuffer() error {
 	n, err := b.reader.ReadAt(b.raw[:], b.byteoffset)
 	if err != nil && n == 0 && err != io.EOF {
@@ -153,9 +187,11 @@ func (b *BitReader) fillbuffer() error {
 	return nil
 }
 
+// next reads an integral value from the next bits in the buffer
 func (b *BitReader) next(bits uint) (v uint64, err error) {
 	v = trailingBits(b.buffer, b.bitoffset+bits) >> b.bitoffset
 	b.bitoffset += bits
+	// if we need more bits to get what was requested then refill the buffer
 	if b.bitoffset >= 64 {
 		b.byteoffset += 8
 		b.bitoffset -= 64
@@ -167,6 +203,7 @@ func (b *BitReader) next(bits uint) (v uint64, err error) {
 	return
 }
 
+// GetBatchIndex is like GetBatch but for IndexType (used for dictionary decoding)
 func (b *BitReader) GetBatchIndex(bits uint, out []IndexType) (i int, err error) {
 	if bits > 32 {
 		return 0, errors.New("must be 32 bits or less per read")
@@ -175,6 +212,7 @@ func (b *BitReader) GetBatchIndex(bits uint, out []IndexType) (i int, err error)
 	var val uint64
 
 	length := len(out)
+	// if we're not currently byte-aligned, read bits until we are byte-aligned.
 	for ; i < length && b.bitoffset != 0; i++ {
 		val, err = b.next(bits)
 		out[i] = IndexType(val)
@@ -184,13 +222,16 @@ func (b *BitReader) GetBatchIndex(bits uint, out []IndexType) (i int, err error)
 	}
 
 	b.reader.Seek(b.byteoffset, io.SeekStart)
-	if i < length {
+	// grab as many 32 byte chunks as possible in one shot
+	if i < length { // IndexType should be a 32 bit value so we can do quick unpacking right into the output
 		numUnpacked := unpack32(b.reader, (*(*[]uint32)(unsafe.Pointer(&out)))[i:], int(bits))
 		i += numUnpacked
 		b.byteoffset += int64(numUnpacked * int(bits) / 8)
 	}
 
+	// re-fill our buffer just in case.
 	b.fillbuffer()
+	// grab the remaining values that aren't 32 byte aligned
 	for ; i < length; i++ {
 		val, err = b.next(bits)
 		out[i] = IndexType(val)
@@ -201,11 +242,13 @@ func (b *BitReader) GetBatchIndex(bits uint, out []IndexType) (i int, err error)
 	return
 }
 
+// GetBatchBools is like GetBatch but optimized for reading bits as boolean values
 func (b *BitReader) GetBatchBools(out []bool) (int, error) {
 	bits := uint(1)
 	length := len(out)
 
 	i := 0
+	// read until we are byte-aligned
 	for ; i < length && b.bitoffset != 0; i++ {
 		val, err := b.next(bits)
 		out[i] = val != 0
@@ -218,6 +261,8 @@ func (b *BitReader) GetBatchBools(out []bool) (int, error) {
 	buf := arrow.Uint32Traits.CastToBytes(b.unpackBuf[:])
 	blen := buflen * 8
 	for i < length {
+		// grab byte-aligned bits in a loop since it's more efficient than going
+		// bit by bit when you can grab 8 bools at a time.
 		unpackSize := MinInt(blen, length-i) / 8 * 8
 		n, err := b.reader.Read(buf[:bitutil.BytesForBits(int64(unpackSize))])
 		if err != nil {
@@ -229,6 +274,7 @@ func (b *BitReader) GetBatchBools(out []bool) (int, error) {
 	}
 
 	b.fillbuffer()
+	// grab the trailing bits
 	for ; i < length; i++ {
 		val, err := b.next(bits)
 		out[i] = val != 0
@@ -240,6 +286,9 @@ func (b *BitReader) GetBatchBools(out []bool) (int, error) {
 	return i, nil
 }
 
+// GetBatch fills out by decoding values repeated from the stream that are encoded
+// using bits as the number of bits per value. The values are expected to be bit packed
+// so we will unpack the values to populate.
 func (b *BitReader) GetBatch(bits uint, out []uint64) (int, error) {
 	if bits > 64 {
 		return 0, errors.New("must be 64 bits or less per read")
@@ -248,6 +297,7 @@ func (b *BitReader) GetBatch(bits uint, out []uint64) (int, error) {
 	length := len(out)
 
 	i := 0
+	// read until we are byte aligned
 	for ; i < length && b.bitoffset != 0; i++ {
 		val, err := b.next(bits)
 		out[i] = val
@@ -258,6 +308,7 @@ func (b *BitReader) GetBatch(bits uint, out []uint64) (int, error) {
 
 	b.reader.Seek(b.byteoffset, io.SeekStart)
 	for i < length {
+		// unpack groups of 32 bytes at a time into a buffer since it's more efficient
 		unpackSize := MinInt(buflen, length-i)
 		numUnpacked := unpack32(b.reader, b.unpackBuf[:unpackSize], int(bits))
 		if numUnpacked == 0 {
@@ -272,6 +323,7 @@ func (b *BitReader) GetBatch(bits uint, out []uint64) (int, error) {
 	}
 
 	b.fillbuffer()
+	// and then the remaining trailing values
 	for ; i < length; i++ {
 		val, err := b.next(bits)
 		out[i] = val
@@ -283,6 +335,8 @@ func (b *BitReader) GetBatch(bits uint, out []uint64) (int, error) {
 	return i, nil
 }
 
+// GetValue returns a single value that is bit packed using width as the number of bits
+// and returns false if there weren't enough bits remaining.
 func (b *BitReader) GetValue(width int) (uint64, bool) {
 	v := make([]uint64, 1)
 	n, _ := b.GetBatch(uint(width), v)

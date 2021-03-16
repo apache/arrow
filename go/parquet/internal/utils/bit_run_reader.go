@@ -26,11 +26,17 @@ import (
 	"github.com/apache/arrow/go/arrow/bitutil"
 )
 
+// BitRun represents a run of bits with the same value of length Len
+// with Set representing if the group of bits were 1 or 0.
 type BitRun struct {
 	Len int64
 	Set bool
 }
 
+// BitRunReader is an interface that is usable by multiple callers to provide
+// multiple types of bit run readers such as a reverse reader and so on.
+//
+// It's a convenience interface for counting contiguous set/unset bits in a bitmap.
 type BitRunReader interface {
 	NextRun() BitRun
 }
@@ -47,6 +53,8 @@ type bitRunReader struct {
 	curRunBitSet bool
 }
 
+// NewBitRunReader returns a reader for the given bitmap, offset and length that
+// grabs runs of the same value bit at a time for easy iteration.
 func NewBitRunReader(bitmap []byte, offset int64, length int64) BitRunReader {
 	ret := &bitRunReader{
 		bitmap: bitmap[offset/8:],
@@ -65,6 +73,8 @@ func NewBitRunReader(bitmap []byte, offset int64, length int64) BitRunReader {
 	return ret
 }
 
+// NextRun returns a new BitRun containing the number of contiguous bits with the
+// same value. Len == 0 indicates the end of the bitmap.
 func (b *bitRunReader) NextRun() BitRun {
 	if b.pos >= b.length {
 		return BitRun{0, false}

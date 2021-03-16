@@ -29,6 +29,8 @@ func LeastSignificantBitMask(index int64) uint64 {
 	return (uint64(1) << index) - 1
 }
 
+// SetBitRun describes a run of contiguous set bits in a bitmap with Pos being
+// the starting position of the run and Length being the number of bits.
 type SetBitRun struct {
 	Pos    int64
 	Length int64
@@ -42,9 +44,18 @@ func (s SetBitRun) Equal(rhs SetBitRun) bool {
 	return s.Pos == rhs.Pos && s.Length == rhs.Length
 }
 
+// SetBitRunReader is an interface for reading groups of contiguous set bits
+// from a bitmap. The interface allows us to create different reader implementations
+// that share the same interface easily such as a reverse set reader.
 type SetBitRunReader interface {
+	// NextRun will return the next run of contiguous set bits in the bitmap
 	NextRun() SetBitRun
+	// Reset allows re-using the reader by providing a new bitmap, offset and length. The arguments
+	// match the New function for the reader being used.
 	Reset([]byte, int64, int64)
+	// VisitSetBitRuns calls visitFn for each set in a loop starting from the current position
+	// it's roughly equivalent to simply looping, calling NextRun and calling visitFn on the run
+	// for each run.
 	VisitSetBitRuns(visitFn VisitFn) error
 }
 
@@ -60,10 +71,17 @@ type baseSetBitRunReader struct {
 	firstBit uint64
 }
 
+// NewSetBitRunReader returns a SetBitRunReader for the bitmap starting at startOffset which will read
+// numvalues bits.
 func NewSetBitRunReader(validBits []byte, startOffset, numValues int64) SetBitRunReader {
 	return newBaseSetBitRunReader(validBits, startOffset, numValues, false)
 }
 
+// NewReverseSetBitRunReader returns a SetBitRunReader like NewSetBitRunReader, except it will
+// return runs starting from the end of the bitmap until it reaches startOffset rather than starting
+// at startOffset and reading from there. The SetBitRuns will still operate the same, so Pos
+// will still be the position of the "left-most" bit of the run or the "start" of the run. It
+// just returns runs starting from the end instead of starting from the beginning.
 func NewReverseSetBitRunReader(validBits []byte, startOffset, numValues int64) SetBitRunReader {
 	return newBaseSetBitRunReader(validBits, startOffset, numValues, true)
 }
@@ -299,6 +317,7 @@ func (br *baseSetBitRunReader) VisitSetBitRuns(visitFn VisitFn) error {
 	return nil
 }
 
+// VisitSetBitRuns is just a convenience function for calling NewSetBitRunReader and then VisitSetBitRuns
 func VisitSetBitRuns(bitmap []byte, bitmapOffset int64, length int64, visitFn VisitFn) error {
 	if bitmap == nil {
 		return visitFn(0, length)

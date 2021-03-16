@@ -23,6 +23,16 @@ import (
 	"golang.org/x/exp/rand"
 )
 
+// RandomNonNull generates a random arrow array of the requested type with length size with no nulls.
+// Accepts float32, float64, all integer primitives, Date32, date64, string, binary, fixed_size_binary, bool and decimal.
+//
+// Always uses 0 as the seed with the following min/max restrictions:
+// int16, uint16, int8, and uint8 will be min 0, max 64
+// Date32 and Date64 will be between 0 and 24 * 86400000 in increments of 86400000
+// String will all have the value "test-string"
+// binary will have each value between length 2 and 12 but random bytes that are not limited to ascii
+// fixed size binary will all be of length 10, random bytes are not limited to ascii
+// bool will be approximately half false and half true randomly.
 func RandomNonNull(dt arrow.DataType, size int) array.Interface {
 	switch dt.ID() {
 	case arrow.FLOAT32:
@@ -169,6 +179,9 @@ func RandomNonNull(dt arrow.DataType, size int) array.Interface {
 	return nil
 }
 
+// RandomNullable generates a random arrow array of length size with approximately numNulls,
+// at most there can be size/2 nulls. Other than there being nulls, the values follow the same rules
+// as described in the docs for RandomNonNull.
 func RandomNullable(dt arrow.DataType, size int, numNulls int) array.Interface {
 	switch dt.ID() {
 	case arrow.FLOAT32:

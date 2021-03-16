@@ -43,11 +43,8 @@ func unpack32_avx2(in io.Reader, out []uint32, nbits int) int {
 	buffer.Reset()
 	buffer.Grow(n)
 	io.CopyN(buffer, in, int64(n))
-	// buffer := make([]byte, batch*nbits/8)
-	// io.ReadFull(in, buffer)
 
 	var (
-		// input  = unsafe.Pointer(&buffer[0])
 		input  = unsafe.Pointer(&buffer.Bytes()[0])
 		output = unsafe.Pointer(&out[0])
 	)

@@ -23,7 +23,6 @@ import (
 
 	"github.com/apache/arrow/go/arrow/bitutil"
 	"github.com/apache/arrow/go/arrow/endian"
-	"github.com/apache/arrow/go/parquet/internal/bmi"
 )
 
 var toLEFunc func(uint64) uint64
@@ -47,19 +46,26 @@ func shiftWord(current, next uint64, shift int64) uint64 {
 	return (current >> shift) | (next << (64 - shift))
 }
 
+// BitBlockCount is returned by the various bit block counter utilities
+// in order to return a length of bits and the population count of that
+// slice of bits.
 type BitBlockCount struct {
 	Len    int16
 	Popcnt int16
 }
 
+// NoneSet returns true if ALL the bits were 0 in this set, ie: Popcnt == 0
 func (b BitBlockCount) NoneSet() bool {
 	return b.Popcnt == 0
 }
 
+// AllSet returns true if ALL the bits were 1 in this set, ie: Popcnt == Len
 func (b BitBlockCount) AllSet() bool {
 	return b.Len == b.Popcnt
 }
 
+// BitBlockCounter is a utility for grabbing chunks of a bitmap at a time and efficiently
+// counting the number of bits which are 1.
 type BitBlockCounter struct {
 	bitmap        []byte
 	bitsRemaining int64
@@ -71,6 +77,8 @@ const (
 	FourWordsBits int64 = WordBits * 4
 )
 
+// NewBitBlockCounter returns a BitBlockCounter for the passed bitmap starting at startOffset
+// of length nbits.
 func NewBitBlockCounter(bitmap []byte, startOffset, nbits int64) *BitBlockCounter {
 	return &BitBlockCounter{
 		bitmap:        bitmap[startOffset/8:],
@@ -79,6 +87,8 @@ func NewBitBlockCounter(bitmap []byte, startOffset, nbits int64) *BitBlockCounte
 	}
 }
 
+// getBlockSlow is for returning a block of the requested size when there aren't
+// enough bits remaining to do a full word computation.
 func (b *BitBlockCounter) getBlockSlow(blockSize int64) BitBlockCount {
 	runlen := int16(Min(b.bitsRemaining, blockSize))
 	popcnt := int16(bitutil.CountSetBits(b.bitmap, int(b.bitOffset), int(runlen)))
@@ -97,15 +107,17 @@ func (b *BitBlockCounter) NextFourWords() BitBlockCount {
 		return BitBlockCount{0, 0}
 	}
 
-	totalPopcnt := int64(0)
+	totalPopcnt := 0
 	if b.bitOffset == 0 {
+		// if we're aligned at 0 bitoffset, then we can easily just jump from
+		// word to word nice and easy.
 		if b.bitsRemaining < FourWordsBits {
 			return b.getBlockSlow(FourWordsBits)
 		}
-		totalPopcnt += int64(bmi.PopCount64(loadWord(b.bitmap)))
-		totalPopcnt += int64(bmi.PopCount64(loadWord(b.bitmap[8:])))
-		totalPopcnt += int64(bmi.PopCount64(loadWord(b.bitmap[16:])))
-		totalPopcnt += int64(bmi.PopCount64(loadWord(b.bitmap[24:])))
+		totalPopcnt += bits.OnesCount64(loadWord(b.bitmap))
+		totalPopcnt += bits.OnesCount64(loadWord(b.bitmap[8:]))
+		totalPopcnt += bits.OnesCount64(loadWord(b.bitmap[16:]))
+		totalPopcnt += bits.OnesCount64(loadWord(b.bitmap[24:]))
 	} else {
 		// When the offset is > 0, we need there to be a word beyond the last
 		// aligned word in the bitmap for the bit shifting logic.
@@ -115,19 +127,19 @@ func (b *BitBlockCounter) NextFourWords() BitBlockCount {
 
 		current := loadWord(b.bitmap)
 		next := loadWord(b.bitmap[8:])
-		totalPopcnt += int64(bmi.PopCount64(shiftWord(current, next, int64(b.bitOffset))))
+		totalPopcnt += bits.OnesCount64(shiftWord(current, next, int64(b.bitOffset)))
 
 		current = next
 		next = loadWord(b.bitmap[16:])
-		totalPopcnt += int64(bmi.PopCount64(shiftWord(current, next, int64(b.bitOffset))))
+		totalPopcnt += bits.OnesCount64(shiftWord(current, next, int64(b.bitOffset)))
 
 		current = next
 		next = loadWord(b.bitmap[24:])
-		totalPopcnt += int64(bmi.PopCount64(shiftWord(current, next, int64(b.bitOffset))))
+		totalPopcnt += bits.OnesCount64(shiftWord(current, next, int64(b.bitOffset)))
 
 		current = next
 		next = loadWord(b.bitmap[32:])
-		totalPopcnt += int64(bmi.PopCount64(shiftWord(current, next, int64(b.bitOffset))))
+		totalPopcnt += bits.OnesCount64(shiftWord(current, next, int64(b.bitOffset)))
 	}
 	b.bitmap = b.bitmap[bitutil.BytesForBits(FourWordsBits):]
 	b.bitsRemaining -= FourWordsBits
@@ -143,25 +155,28 @@ func (b *BitBlockCounter) NextWord() BitBlockCount {
 	if b.bitsRemaining == 0 {
 		return BitBlockCount{0, 0}
 	}
-	popcnt := int64(0)
+	popcnt := 0
 	if b.bitOffset == 0 {
 		if b.bitsRemaining < WordBits {
 			return b.getBlockSlow(WordBits)
 		}
-		popcnt = int64(bmi.PopCount64(loadWord(b.bitmap)))
+		popcnt = bits.OnesCount64(loadWord(b.bitmap))
 	} else {
 		// When the offset is > 0, we need there to be a word beyond the last
 		// aligned word in the bitmap for the bit shifting logic.
 		if b.bitsRemaining < 2*WordBits-int64(b.bitOffset) {
 			return b.getBlockSlow(WordBits)
 		}
-		popcnt = int64(bmi.PopCount64(shiftWord(loadWord(b.bitmap), loadWord(b.bitmap[8:]), int64(b.bitOffset))))
+		popcnt = bits.OnesCount64(shiftWord(loadWord(b.bitmap), loadWord(b.bitmap[8:]), int64(b.bitOffset)))
 	}
 	b.bitmap = b.bitmap[WordBits/8:]
 	b.bitsRemaining -= WordBits
 	return BitBlockCount{64, int16(popcnt)}
 }
 
+// OptionalBitBlockCounter is a useful counter to iterate through a possibly
+// non-existent validity bitmap to allow us to write one code path for both
+// the with-nulls and no-nulls cases without giving up a lot of performance.
 type OptionalBitBlockCounter struct {
 	hasBitmap bool
 	pos       int64
@@ -214,6 +229,11 @@ func (obc *OptionalBitBlockCounter) NextWord() BitBlockCount {
 	return BitBlockCount{blockSize, blockSize}
 }
 
+// VisitBitBlocks is a utility for easily iterating through the blocks of bits in a bitmap,
+// calling the appropriate visitValid/visitInvalid function as we iterate through the bits.
+// visitValid is called with the bitoffset of the valid bit. Don't use this inside a tight
+// loop when performance is needed and instead prefer manually constructing these loops
+// in that scenario.
 func VisitBitBlocks(bitmap []byte, offset, length int64, visitValid func(pos int64), visitInvalid func()) {
 	counter := NewOptionalBitBlockCounter(bitmap, offset, length)
 	pos := int64(0)
