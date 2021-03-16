@@ -126,5 +126,17 @@ class FnOnce<R(A...)> {
   std::unique_ptr<Impl> impl_;
 };
 
+/// A callable object that simply forwards to T's constructor.
+///
+/// This allows passing `Constructor<T>()` as a callable argument for applying
+/// the T constructor without hand-writing a lambda.
+template <typename T>
+struct Constructor {
+  template <typename... Values>
+  T operator()(Values&&... values) {
+    return T(std::forward<Values>(values)...);
+  }
+};
+
 }  // namespace internal
 }  // namespace arrow

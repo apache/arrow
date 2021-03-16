@@ -81,5 +81,43 @@ std::vector<T> FilterVector(std::vector<T> values, Predicate&& predicate) {
   return values;
 }
 
+template <typename T, typename Fn>
+void MapEmplaceBack(std::vector<T>* out, Fn&& fn) {}
+
+template <typename T, typename Fn, typename Head, typename... Values>
+void MapEmplaceBack(std::vector<T>* out, Fn&& fn, Head&& value, Values&&... tail_values) {
+  out->emplace_back(fn(std::forward<Head>(value)));
+  MapEmplaceBack(out, std::forward<Fn>(fn), std::forward<Values>(tail_values)...);
+}
+
+template <typename T>
+void EmplaceBack(std::vector<T>* out) {}
+
+template <typename T, typename Head, typename... Values>
+void EmplaceBack(std::vector<T>* out, Head&& value, Values&&... tail_values) {
+  out->emplace_back(std::forward<Head>(value));
+  EmplaceBack(out, std::forward<Values>(tail_values)...);
+}
+
+// Construct a vector by emplacing with each of the provided values.
+// Note this is less flexible than manual calls to emplace_back(), since
+// only 1-argument constructors can be invoked.
+template <typename T, typename... Values>
+std::vector<T> EmplacedVector(Values&&... values) {
+  std::vector<T> result;
+  result.reserve(sizeof...(values));
+  EmplaceBack(&result, std::forward<Values>(values)...);
+  return result;
+}
+
+// Like EmplacedVector, but emplace the result of calling `Fn` on the `values`.
+template <typename T, typename Fn, typename... Values>
+std::vector<T> EmplacedMappedVector(Fn&& fn, Values&&... values) {
+  std::vector<T> result;
+  result.reserve(sizeof...(values));
+  MapEmplaceBack(&result, std::forward<Fn>(fn), std::forward<Values>(values)...);
+  return result;
+}
+
 }  // namespace internal
 }  // namespace arrow
