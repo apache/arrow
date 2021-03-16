@@ -126,7 +126,7 @@ pub enum LogicalPlan {
         inputs: Vec<LogicalPlan>,
         /// Union schema. Should be the same for all inputs.
         schema: DFSchemaRef,
-        /// Union output relation alias 
+        /// Union output relation alias
         alias: Option<String>,
     },
     /// Produces rows from a table provider by reference or from the context
