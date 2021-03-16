@@ -272,112 +272,138 @@ func (r *RleDecoder) getspaced(dc DictionaryConverter, vals interface{}, batchSi
 	case []parquet.Int96:
 		return r.getspacedInt96(dc, vals, batchSize, nullCount, validBits, validBitsOffset)
 	case []uint64:
-		if nullCount == batchSize {
-			dc.FillZero(vals[:batchSize])
-			return batchSize, nil
-		}
-
-		read := 0
-		remain := batchSize - nullCount
-
-		const bufferSize = 1024
-		var indexbuffer [bufferSize]IndexType
-
-		// assume no bits to start
-		bitReader := NewBitRunReader(validBits, validBitsOffset, int64(batchSize))
-		validRun := bitReader.NextRun()
-		for read < batchSize {
-			if validRun.Len == 0 {
-				validRun = bitReader.NextRun()
-			}
-
-			if validRun.Set {
-				if r.repCount == 0 && r.litCount == 0 {
-					if !r.Next() {
-						return read, nil
-					}
-				}
-
-				switch {
-				case r.repCount > 0:
-					repeatBatch := 0
-					// Consume the entire repeat counts incrementing repeat_batch to
-					// be the total of nulls + values consumed, we only need to
-					// get the total count because we can fill in the same value for
-					// nulls and non-nulls. This proves to be a big efficiency win.
-					for r.repCount > 0 && (read+repeatBatch) < batchSize {
-						if validRun.Set {
-							updateSize := int(Min(validRun.Len, int64(r.repCount)))
-							r.repCount -= int32(updateSize)
-							repeatBatch += updateSize
-							validRun.Len -= int64(updateSize)
-							remain -= updateSize
-						} else {
-							repeatBatch += int(validRun.Len)
-							validRun.Len = 0
-						}
-
-						if validRun.Len == 0 {
-							validRun = bitReader.NextRun()
-						}
-					}
-					current := IndexType(r.curVal)
-					if !dc.IsValid(current) {
-						return read, nil
-					}
-					dc.Fill(vals[:repeatBatch], current)
-					vals = vals[repeatBatch:]
-					read += repeatBatch
-				case r.litCount > 0:
-					literalBatch := MinInt(remain, int(r.litCount))
-					literalBatch = MinInt(literalBatch, bufferSize)
-
-					buf := indexbuffer[:literalBatch]
-					n, _ := r.r.GetBatchIndex(uint(r.bitWidth), buf)
-					if n != literalBatch {
-						return read, nil
-					}
-
-					if !dc.IsValid(buf...) {
-						return read, nil
-					}
-
-					skipped := 0
-					litread := 0
-					for litread < literalBatch {
-						if validRun.Set {
-							updateSize := MinInt(literalBatch-litread, int(validRun.Len))
-							if err := dc.Copy(vals, buf[litread:litread+updateSize]); err != nil {
-								return read, err
-							}
-							litread += updateSize
-							vals = vals[updateSize:]
-							validRun.Len -= int64(updateSize)
-						} else {
-							dc.FillZero(vals[:int(validRun.Len)])
-							vals = vals[int(validRun.Len):]
-							skipped += int(validRun.Len)
-							validRun.Len = 0
-						}
-						if validRun.Len == 0 {
-							validRun = bitReader.NextRun()
-						}
-					}
-					r.litCount -= int32(literalBatch)
-					remain -= literalBatch
-					read += literalBatch + skipped
-				}
-			} else {
-				dc.FillZero(vals[:int(validRun.Len)])
-				vals = vals[int(validRun.Len):]
-				read += int(validRun.Len)
-				validRun.Len = 0
-			}
-		}
-		return read, nil
+		return r.getspacedUint64(dc, vals, batchSize, nullCount, validBits, validBitsOffset)
 	default:
 		return 0, xerrors.New("parquet/rle: getspaced invalid type")
 	}
+}
+
+func (r *RleDecoder) getspacedUint64(dc DictionaryConverter, vals []uint64, batchSize, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
+	if nullCount == batchSize {
+		dc.FillZero(vals[:batchSize])
+		return batchSize, nil
+	}
+
+	read := 0
+	remain := batchSize - nullCount
+
+	const bufferSize = 1024
+	var indexbuffer [bufferSize]IndexType
+
+	// assume no bits to start
+	bitReader := NewBitRunReader(validBits, validBitsOffset, int64(batchSize))
+	validRun := bitReader.NextRun()
+	for read < batchSize {
+		if validRun.Len == 0 {
+			validRun = bitReader.NextRun()
+		}
+
+		if !validRun.Set {
+			dc.FillZero(vals[:int(validRun.Len)])
+			vals = vals[int(validRun.Len):]
+			read += int(validRun.Len)
+			validRun.Len = 0
+			continue
+		}
+
+		if r.repCount == 0 && r.litCount == 0 {
+			if !r.Next() {
+				return read, nil
+			}
+		}
+
+		var batch int
+		switch {
+		case r.repCount > 0:
+			batch, remain, validRun = r.consumeRepeatCounts(read, batchSize, remain, validRun, bitReader)
+			current := IndexType(r.curVal)
+			if !dc.IsValid(current) {
+				return read, nil
+			}
+			dc.Fill(vals[:batch], current)
+		case r.litCount > 0:
+			var (
+				litread int
+				skipped int
+				err     error
+			)
+			litread, skipped, validRun, err = r.consumeLiteralsUint64(dc, vals, remain, indexbuffer[:], validRun, bitReader)
+			if err != nil {
+				return read, err
+			}
+			batch = litread + skipped
+			remain -= litread
+		}
+
+		vals = vals[batch:]
+		read += batch
+	}
+	return read, nil
+}
+
+func (r *RleDecoder) consumeRepeatCounts(read, batchSize, remain int, run BitRun, bitRdr BitRunReader) (int, int, BitRun) {
+	// Consume the entire repeat counts incrementing repeat_batch to
+	// be the total of nulls + values consumed, we only need to
+	// get the total count because we can fill in the same value for
+	// nulls and non-nulls. This proves to be a big efficiency win.
+	repeatBatch := 0
+	for r.repCount > 0 && (read+repeatBatch) < batchSize {
+		if run.Set {
+			updateSize := int(Min(run.Len, int64(r.repCount)))
+			r.repCount -= int32(updateSize)
+			repeatBatch += updateSize
+			run.Len -= int64(updateSize)
+			remain -= updateSize
+		} else {
+			repeatBatch += int(run.Len)
+			run.Len = 0
+		}
+
+		if run.Len == 0 {
+			run = bitRdr.NextRun()
+		}
+	}
+	return repeatBatch, remain, run
+}
+
+func (r *RleDecoder) consumeLiteralsUint64(dc DictionaryConverter, vals []uint64, remain int, buf []IndexType, run BitRun, bitRdr BitRunReader) (int, int, BitRun, error) {
+	batch := MinInt(MinInt(remain, int(r.litCount)), len(buf))
+	buf = buf[:batch]
+
+	n, _ := r.r.GetBatchIndex(uint(r.bitWidth), buf)
+	if n != batch {
+		return 0, 0, run, xerrors.New("was not able to retrieve correct number of indexes")
+	}
+
+	if !dc.IsValid(buf...) {
+		return 0, 0, run, xerrors.New("invalid index values found for dictionary converter")
+	}
+
+	var (
+		read    int
+		skipped int
+	)
+	for read < batch {
+		if run.Set {
+			updateSize := MinInt(batch-read, int(run.Len))
+			if err := dc.Copy(vals, buf[read:read+updateSize]); err != nil {
+				return 0, 0, run, err
+			}
+			read += updateSize
+			vals = vals[updateSize:]
+			run.Len -= int64(updateSize)
+		} else {
+			dc.FillZero(vals[:int(run.Len)])
+			vals = vals[int(run.Len):]
+			skipped += int(run.Len)
+			run.Len = 0
+		}
+		if run.Len == 0 {
+			run = bitRdr.NextRun()
+		}
+	}
+	r.litCount -= int32(batch)
+	return read, skipped, run, nil
 }
 
 func (r *RleDecoder) GetBatchWithDict(dc DictionaryConverter, vals interface{}) (int, error) {
