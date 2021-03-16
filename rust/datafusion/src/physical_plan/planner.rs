@@ -310,6 +310,7 @@ impl DefaultPhysicalPlanner {
                             SortOptions {
                                 descending: !*asc,
                                 nulls_first: *nulls_first,
+                                ..Default::default()
                             },
                             ctx_state,
                         ),

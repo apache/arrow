@@ -363,6 +363,7 @@ mod tests {
                     options: SortOptions {
                         descending: true,
                         nulls_first: true,
+                        ..Default::default()
                     },
                 },
                 PhysicalSortExpr {
@@ -370,6 +371,7 @@ mod tests {
                     options: SortOptions {
                         descending: false,
                         nulls_first: false,
+                        ..Default::default()
                     },
                 },
             ],
