@@ -145,13 +145,13 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                         })
                         .collect::<Vec<_>>();
                     if inputs.is_empty() {
-                        return Err(DataFusionError::Execution(format!(
+                        return Err(DataFusionError::Plan(format!(
                             "Empty UNION: {}",
                             set_expr
                         )));
                     }
                     if !inputs.iter().all(|s| s.schema() == inputs[0].schema()) {
-                        return Err(DataFusionError::Execution(
+                        return Err(DataFusionError::Plan(
                             "UNION ALL schemas are expected to be the same".to_string(),
                         ));
                     }
@@ -163,7 +163,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                 }
                 _ => Err(DataFusionError::NotImplemented(format!(
                     "Only UNION ALL is supported, found {}",
-                    set_expr
+                    op
                 ))),
             },
             _ => Err(DataFusionError::NotImplemented(format!(
@@ -2447,6 +2447,26 @@ mod tests {
             \n  Projection: #order_id\
             \n    TableScan: orders projection=None";
         quick_test(sql, expected);
+    }
+
+    #[test]
+    fn union_schemas_should_be_same() {
+        let sql = "SELECT order_id from orders UNION ALL SELECT customer_id FROM orders";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "Plan(\"UNION ALL schemas are expected to be the same\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn only_union_all_supported() {
+        let sql = "SELECT order_id from orders EXCEPT SELECT order_id FROM orders";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "Plan(\"Only UNION ALL is supported, found EXCEPT\")",
+            format!("{:?}", err)
+        );
     }
 
     #[test]
