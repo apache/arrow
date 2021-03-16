@@ -23,12 +23,15 @@
 #include <string>
 
 #include "arrow/adapters/orc/adapter_util.h"
-#include "arrow/api.h"
 #include "arrow/array.h"
+#include "arrow/buffer.h"
+#include "arrow/buffer_builder.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/cast.h"
-#include "arrow/io/api.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
+#include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"

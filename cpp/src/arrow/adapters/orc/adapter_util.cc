@@ -466,10 +466,6 @@ arrow::Status WriteBinaryBatch(liborc::ColumnVectorBatch* column_vector_batch,
       OffsetType data_length = 0;
       batch->data[*orc_offset] = reinterpret_cast<char*>(
           const_cast<uint8_t*>(binary_array.GetValue(*arrow_offset, &data_length)));
-      // const uint8_t* data = binary_array.GetValue(*arrow_offset, &data_length);
-      // if (batch->data[*orc_offset]) delete batch->data[*orc_offset];
-      // batch->data[*orc_offset] = new char[data_length];  // Do not include null
-      // memcpy(batch->data[*orc_offset], data, data_length);
       batch->length[*orc_offset] = data_length;
     }
   }
@@ -499,10 +495,6 @@ arrow::Status WriteFixedSizeBinaryBatch(liborc::ColumnVectorBatch* column_vector
       batch->notNull[*orc_offset] = false;
     } else {
       batch->notNull[*orc_offset] = true;
-      // const uint8_t* data = fixed_size_binary_array.GetValue(*arrow_offset);
-      // if (batch->data[*orc_offset]) delete batch->data[*orc_offset];
-      // batch->data[*orc_offset] = new char[data_length];  // Do not include null
-      // memcpy(batch->data[*orc_offset], data, data_length);
       batch->data[*orc_offset] = reinterpret_cast<char*>(
           const_cast<uint8_t*>(fixed_size_binary_array.GetValue(*arrow_offset)));
       batch->length[*orc_offset] = data_length;

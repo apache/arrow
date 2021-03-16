@@ -32,5 +32,5 @@ def test_orcfile_readwrite():
     table = pa.table({"int64": a, "utf8": b})
     orc.write_table(buffer_output_stream, table)
     buffer_reader = pa.BufferReader(buffer_output_stream.getvalue())
-    outputTable = orc.ORCFile(buffer_reader).read()
-    assert table.equals(outputTable)
+    output_table = orc.ORCFile(buffer_reader).read()
+    assert table.equals(output_table)
