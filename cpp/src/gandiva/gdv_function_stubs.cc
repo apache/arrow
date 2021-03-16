@@ -188,7 +188,7 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
   }
 
 // Expand inner macro for all numeric types.
-#define NUMERIC_BOOL_DATE_TYPES(INNER) \
+#define SHA_NUMERIC_BOOL_DATE_PARAMS(INNER) \
   INNER(int8)                          \
   INNER(int16)                         \
   INNER(int32)                         \
@@ -207,19 +207,19 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
 
 
 // Expand inner macro for all numeric types.
-#define VAR_LEN_TYPES(INNER) \
+#define SHA_VAR_LEN_PARAMS(INNER) \
   INNER(utf8)                \
   INNER(binary)
 
 
-NUMERIC_BOOL_DATE_TYPES(SHA256_HASH_FUNCTION)
-VAR_LEN_TYPES(SHA256_HASH_FUNCTION_BUF)
+SHA_NUMERIC_BOOL_DATE_PARAMS(SHA256_HASH_FUNCTION)
+SHA_VAR_LEN_PARAMS(SHA256_HASH_FUNCTION_BUF)
 
-NUMERIC_BOOL_DATE_TYPES(SHA128_HASH_FUNCTION)
-VAR_LEN_TYPES(SHA128_HASH_FUNCTION_BUF)
+SHA_NUMERIC_BOOL_DATE_PARAMS(SHA128_HASH_FUNCTION)
+SHA_VAR_LEN_PARAMS(SHA128_HASH_FUNCTION_BUF)
 
-#undef NUMERIC_BOOL_DATE_TYPES
-#undef VAR_LEN_TYPES
+#undef SHA_NUMERIC_BOOL_DATE_PARAMS
+#undef SHA_VAR_LEN_PARAMS
 
 int32_t gdv_fn_dec_from_string(int64_t context, const char* in, int32_t in_length,
                                int32_t* precision_from_str, int32_t* scale_from_str,
