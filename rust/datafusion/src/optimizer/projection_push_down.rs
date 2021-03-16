@@ -487,8 +487,8 @@ mod tests {
         let table_scan = test_table_scan()?;
 
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(&[col("b")])?
-            .project(&[lit(1).alias("a")])?
+            .project(vec![col("b")])?
+            .project(vec![lit(1).alias("a")])?
             .build()?;
 
         let optimized_plan1 = optimize(&plan).expect("failed to optimize plan");
