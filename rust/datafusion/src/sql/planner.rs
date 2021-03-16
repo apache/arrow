@@ -162,7 +162,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                     })
                 }
                 _ => Err(DataFusionError::NotImplemented(format!(
-                    "Only UNION ALL is supported: {}",
+                    "Only UNION ALL is supported, found {}",
                     set_expr
                 ))),
             },
