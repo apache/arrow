@@ -73,10 +73,6 @@ cdef class ReadOptions(_Weakrefable):
         The character encoding of the CSV data.  Columns that cannot
         decode using this encoding can still be read as Binary.
     """
-    cdef:
-        CCSVReadOptions options
-        public object encoding
-
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
@@ -160,6 +156,13 @@ cdef class ReadOptions(_Weakrefable):
     @autogenerate_column_names.setter
     def autogenerate_column_names(self, value):
         self.options.autogenerate_column_names = value
+
+    @staticmethod
+    cdef ReadOptions wrap(CCSVReadOptions options):
+        out = ReadOptions()
+        out.options = options
+        out.encoding = 'utf8'
+        return out
 
 
 cdef class ParseOptions(_Weakrefable):
@@ -391,9 +394,6 @@ cdef class ConvertOptions(_Weakrefable):
         `column_types`, or null by default).
         This option is ignored if `include_columns` is empty.
     """
-    cdef:
-        CCSVConvertOptions options
-
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
@@ -602,6 +602,12 @@ cdef class ConvertOptions(_Weakrefable):
                 raise TypeError("Expected list of str or ISO8601 objects")
 
         self.options.timestamp_parsers = move(c_parsers)
+
+    @staticmethod
+    cdef ConvertOptions wrap(CCSVConvertOptions options):
+        out = ConvertOptions()
+        out.options = options
+        return out
 
 
 cdef _get_reader(input_file, ReadOptions read_options,

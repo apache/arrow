@@ -2242,6 +2242,33 @@ def test_csv_format_compressed(tempdir, compression):
     assert result.equals(table)
 
 
+def test_csv_format_options(tempdir):
+    path = str(tempdir / 'test.csv')
+    with open(path, 'w') as sink:
+        sink.write('skipped\ncol0\nfoo\nbar\n')
+    dataset = ds.dataset(path, format='csv')
+    result = dataset.to_table()
+    assert result.equals(
+        pa.table({'skipped': pa.array(['col0', 'foo', 'bar'])}))
+
+    dataset = ds.dataset(path, format=ds.CsvFileFormat(
+        read_options=pyarrow.csv.ReadOptions(skip_rows=1)))
+    result = dataset.to_table()
+    assert result.equals(pa.table({'col0': pa.array(['foo', 'bar'])}))
+
+
+def test_csv_fragment_options(tempdir):
+    path = str(tempdir / 'test.csv')
+    with open(path, 'w') as sink:
+        sink.write('col0\nfoo\nspam\nMYNULL\n')
+    dataset = ds.dataset(path, format='csv')
+    convert_options = pyarrow.csv.ConvertOptions(null_values=['MYNULL'],
+                                                 strings_can_be_null=True)
+    options = ds.CsvFragmentScanOptions(convert_options=convert_options)
+    result = dataset.to_table(fragment_scan_options=options)
+    assert result.equals(pa.table({'col0': pa.array(['foo', 'spam', None])}))
+
+
 def test_feather_format(tempdir):
     from pyarrow.feather import write_feather
 
