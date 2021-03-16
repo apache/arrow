@@ -18,6 +18,9 @@ package utils
 
 import "unsafe"
 
+// This file contains convenience functions for utilizing SSE4 intrinsics to quickly
+// and efficiently get the min and max from an integral slice.
+
 //go:noescape
 func _int32_max_min_sse4(values unsafe.Pointer, length int, minout, maxout unsafe.Pointer)
 

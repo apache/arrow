@@ -26,11 +26,15 @@ import (
 )
 
 var (
+	// PrecedingBitmask is a convenience set of values as bitmasks for checking
+	// prefix bits of a byte
 	PrecedingBitmask = [8]byte{0, 1, 3, 7, 15, 31, 63, 127}
-	// the bitwise complement version of kPrecedingBitmask
+	// TrailingBitmask is the bitwise complement version of kPrecedingBitmask
 	TrailingBitmask = [8]byte{255, 254, 252, 248, 240, 224, 192, 128}
 )
 
+// SetBitsTo is a convenience function to quickly set or unset all the bits
+// in a bitmap starting at startOffset for length bits.
 func SetBitsTo(bits []byte, startOffset, length int64, areSet bool) {
 	if length == 0 {
 		return
@@ -46,11 +50,13 @@ func SetBitsTo(bits []byte, startOffset, length int64, areSet bool) {
 	byteBeg := beg / 8
 	byteEnd := end/8 + 1
 
+	// don't modify bits before the startOffset by using this mask
 	firstByteMask := PrecedingBitmask[beg%8]
+	// don't modify bits past the length by using this mask
 	lastByteMask := TrailingBitmask[end%8]
 
 	if byteEnd == byteBeg+1 {
-		// set bits withina single byte
+		// set bits within a single byte
 		onlyByteMask := firstByteMask
 		if end%8 != 0 {
 			onlyByteMask = firstByteMask | lastByteMask
@@ -77,13 +83,23 @@ func SetBitsTo(bits []byte, startOffset, length int64, areSet bool) {
 	bits[byteEnd-1] |= fill &^ lastByteMask
 }
 
+// BitmapWriter is an interface for bitmap writers so that we can use multiple
+// implementations or swap if necessary.
 type BitmapWriter interface {
+	// Set sets the current bit that will be written
 	Set()
+	// Clear clears the current bit that will be written
 	Clear()
+	// Next advances to the next bit for the writer
 	Next()
+	// Finish flushes the current byte out to the bitmap slice
 	Finish()
-	AppendWord(uint64, int64)
+	// AppendWord takes nbits from word which should be an LSB bitmap and appends them to the bitmap.
+	AppendWord(word uint64, nbits int64)
+	// Pos is the current position that will be written next
 	Pos() int64
+	// Reset allows reusing the bitmapwriter by resetting Pos to start with length as
+	// the number of bits that the writer can write.
 	Reset(start, length int64)
 }
 
@@ -97,6 +113,8 @@ type bitmapWriter struct {
 	byteOffset int64
 }
 
+// NewBitmapWriter returns a sequential bitwise writer that preserves surrounding
+// bit values as it writes.
 func NewBitmapWriter(bitmap []byte, start, length int64) BitmapWriter {
 	ret := &bitmapWriter{
 		buf:        bitmap,
@@ -157,7 +175,10 @@ type firstTimeBitmapWriter struct {
 	byteOffset int64
 }
 
-func NewFirstTimeBitmapWriter(buf []byte, start, length int64) *firstTimeBitmapWriter {
+// NewFirstTimeBitmapWriter creates a bitmap writer that might clobber any bit values
+// following the bits written to the bitmap, as such it is faster than the bitmapwriter
+// that is created with NewBitmapWriter
+func NewFirstTimeBitmapWriter(buf []byte, start, length int64) BitmapWriter {
 	ret := &firstTimeBitmapWriter{
 		buf:        buf,
 		byteOffset: start / 8,
@@ -188,21 +209,29 @@ func (bw *firstTimeBitmapWriter) AppendWord(word uint64, nbits int64) {
 		return
 	}
 
+	// location that the first byte needs to be written to for appending
 	appslice := bw.buf[int(bw.byteOffset):]
 
+	// update everything but curByte
 	bw.pos += nbits
 	bitOffset := bits.TrailingZeros32(uint32(bw.bitMask))
 	bw.bitMask = bitutil.BitMask[(int64(bitOffset)+nbits)%8]
 	bw.byteOffset += (int64(bitOffset) + nbits) / 8
 
 	if bitOffset != 0 {
+		// we're in the middle of the byte. Update the byte and shift bits appropriately
+		// so we can just copy the bytes.
 		carry := 8 - bitOffset
+		// Carry over bits from word to curByte. We assume any extra bits in word are unset
+		// so no additional accounting is needed for when nbits < carry
 		bw.curByte |= uint8((word & uint64(PrecedingBitmask[carry])) << bitOffset)
+		// check everything was transferred to curByte
 		if nbits < int64(carry) {
 			return
 		}
 		appslice[0] = bw.curByte
 		appslice = appslice[1:]
+		// move the carry bits off of word
 		word = word >> carry
 		nbits -= int64(carry)
 	}
@@ -210,6 +239,9 @@ func (bw *firstTimeBitmapWriter) AppendWord(word uint64, nbits int64) {
 	binary.LittleEndian.PutUint64(endianBuffer[:], word)
 	copy(appslice, endianBuffer[:bytesForWord])
 
+	// at this point, the previous curByte has been written, the new curByte
+	// is either the last relevant byte in word or cleared if the new position
+	// is byte aligned (ie. a fresh byte)
 	if bw.bitMask == 0x1 {
 		bw.curByte = 0
 	} else {
@@ -227,6 +259,7 @@ func (bw *firstTimeBitmapWriter) Next() {
 	bw.bitMask = uint8(bw.bitMask << 1)
 	bw.pos++
 	if bw.bitMask == 0 {
+		// byte finished, advance to the next one
 		bw.bitMask = 0x1
 		bw.buf[int(bw.byteOffset)] = bw.curByte
 		bw.byteOffset++
@@ -235,6 +268,7 @@ func (bw *firstTimeBitmapWriter) Next() {
 }
 
 func (bw *firstTimeBitmapWriter) Finish() {
+	// store curByte into the bitmap
 	if bw.length > 0 && bw.bitMask != 0x01 || bw.pos < bw.length {
 		bw.buf[int(bw.byteOffset)] = bw.curByte
 	}

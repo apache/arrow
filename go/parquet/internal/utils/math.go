@@ -16,6 +16,7 @@
 
 package utils
 
+// Min is a convenience Min function for int64
 func Min(a, b int64) int64 {
 	if a < b {
 		return a
@@ -23,6 +24,7 @@ func Min(a, b int64) int64 {
 	return b
 }
 
+// Min is a convenience Min function for int
 func MinInt(a, b int) int {
 	if a < b {
 		return a
@@ -30,6 +32,7 @@ func MinInt(a, b int) int {
 	return b
 }
 
+// Max is a convenience Max function for int64
 func Max(a, b int64) int64 {
 	if a > b {
 		return a
@@ -37,6 +40,7 @@ func Max(a, b int64) int64 {
 	return b
 }
 
+// Max is a convenience Max function for int
 func MaxInt(a, b int) int {
 	if a > b {
 		return a

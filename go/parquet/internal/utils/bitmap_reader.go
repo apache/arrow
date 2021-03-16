@@ -26,6 +26,7 @@ type BitmapReader struct {
 	bitOffset  int64
 }
 
+// NewBitmapReader creates and returns a new bitmap reader for the given bitmap
 func NewBitmapReader(bitmap []byte, offset, length int64) *BitmapReader {
 	curbyte := byte(0)
 	if length > 0 && bitmap != nil {
@@ -40,14 +41,17 @@ func NewBitmapReader(bitmap []byte, offset, length int64) *BitmapReader {
 	}
 }
 
+// Set returns true if the current bit is set
 func (b *BitmapReader) Set() bool {
 	return (b.current & (1 << b.bitOffset)) != 0
 }
 
+// NotSet returns true if the current bit is not set
 func (b *BitmapReader) NotSet() bool {
 	return (b.current & (1 << b.bitOffset)) == 0
 }
 
+// Next advances the reader to the next bit in the bitmap.
 func (b *BitmapReader) Next() {
 	b.bitOffset++
 	b.pos++
@@ -60,5 +64,8 @@ func (b *BitmapReader) Next() {
 	}
 }
 
+// Pos returns the current bit position in the bitmap that the reader is looking at
 func (b *BitmapReader) Pos() int64 { return b.pos }
+
+// Len returns the total number of bits in the bitmap
 func (b *BitmapReader) Len() int64 { return b.len }

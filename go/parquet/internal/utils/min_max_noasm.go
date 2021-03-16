@@ -18,6 +18,7 @@
 
 package utils
 
+// if building with the 'noasm' tag, then point to the pure go implementations
 func init() {
 	minmaxFuncs.i32 = int32MinMax
 	minmaxFuncs.ui32 = uint32MinMax

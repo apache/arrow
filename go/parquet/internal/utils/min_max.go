@@ -20,6 +20,10 @@ import (
 	"math"
 )
 
+// this file contains pure go implementations of the min_max functions that are
+// SIMD accelerated so that we can fallback to these if the cpu doesn't support
+// AVX2 or SSE4 instructions.
+
 func int32MinMax(values []int32) (min, max int32) {
 	min = math.MaxInt32
 	max = math.MinInt32

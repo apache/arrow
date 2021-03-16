@@ -22,6 +22,9 @@ import (
 	"unsafe"
 )
 
+// This file contains convenience functions for utilizing AVX2 intrinsics to quickly
+// and efficiently get the min and max from an integral slice.
+
 //go:noescape
 func _int32_max_min_avx2(values unsafe.Pointer, length int, minout, maxout unsafe.Pointer)
 

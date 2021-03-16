@@ -24,6 +24,8 @@ import (
 	"github.com/apache/arrow/go/arrow/bitutil"
 )
 
+// WriterAtBuffer is a convenience struct for providing a WriteAt function
+// to a byte slice for use with things that want an io.WriterAt
 type WriterAtBuffer struct {
 	buf []byte
 }
@@ -48,11 +50,14 @@ func (w *WriterAtBuffer) WriteAt(p []byte, off int64) (n int, err error) {
 	return
 }
 
+// WriterAtWithLen is an interface for an io.WriterAt with a Len function
 type WriterAtWithLen interface {
 	io.WriterAt
 	Len() int
 }
 
+// BitWriter is a utility for writing values of specific bit widths to a stream
+// using a uint64 as a buffer to build up between flushing for efficiency.
 type BitWriter struct {
 	wr         io.WriterAt
 	buffer     uint64
@@ -65,10 +70,9 @@ func NewBitWriter(w io.WriterAt) *BitWriter {
 	return &BitWriter{wr: w}
 }
 
-// func (b *BitWriter) Len() int {
-// 	return b.wr.Len()
-// }
-
+// ReserveBytes reserves the next aligned nbytes, skipping them and returning
+// the offset to use with WriteAt to write to those reserved bytes. Used for
+// RLE encoding to fill in the indicators after encoding.
 func (b *BitWriter) ReserveBytes(nbytes int) int {
 	b.Flush(true)
 	ret := b.byteoffset
@@ -80,10 +84,15 @@ func (b *BitWriter) WriteAt(val []byte, off int64) (int, error) {
 	return b.wr.WriteAt(val, off)
 }
 
+// Written returns the number of bytes that have been written to the BitWriter,
+// not how many bytes have been flushed. Use Flush to ensure that all data is flushed
+// to the underlying writer.
 func (b *BitWriter) Written() int {
 	return b.byteoffset + int(bitutil.BytesForBits(int64(b.bitoffset)))
 }
 
+// WriteValue writes the value v using nbits to pack it, returning false if it fails
+// for some reason.
 func (b *BitWriter) WriteValue(v uint64, nbits uint) bool {
 	b.buffer |= v << b.bitoffset
 	b.bitoffset += nbits
@@ -102,6 +111,8 @@ func (b *BitWriter) WriteValue(v uint64, nbits uint) bool {
 	return true
 }
 
+// Flush will flush any buffered data to the underlying writer, pass true if
+// the next write should be byte-aligned after this flush.
 func (b *BitWriter) Flush(align bool) {
 	var nbytes int64
 	if b.bitoffset > 0 {
@@ -117,6 +128,9 @@ func (b *BitWriter) Flush(align bool) {
 	}
 }
 
+// WriteAligned writes the value val as a little endian value in exactly nbytes
+// byte-aligned to the underlying writer, flushing via Flush(true) before writing nbytes
+// without buffering.
 func (b *BitWriter) WriteAligned(val uint64, nbytes int) bool {
 	b.Flush(true)
 	binary.LittleEndian.PutUint64(b.raw[:], val)
@@ -128,6 +142,8 @@ func (b *BitWriter) WriteAligned(val uint64, nbytes int) bool {
 	return true
 }
 
+// WriteVlqInt writes v as a vlq encoded integer byte-aligned to the underlying writer
+// without buffering.
 func (b *BitWriter) WriteVlqInt(v uint64) bool {
 	b.Flush(true)
 	var buf [binary.MaxVarintLen64]byte
@@ -140,10 +156,14 @@ func (b *BitWriter) WriteVlqInt(v uint64) bool {
 	return true
 }
 
+// WriteZigZagVlqInt writes a zigzag encoded integer byte-aligned to the underlying writer
+// without buffering.
 func (b *BitWriter) WriteZigZagVlqInt(v int64) bool {
 	return b.WriteVlqInt(uint64((v << 1) ^ (v >> 63)))
 }
 
+// Clear resets the writer so that subsequent writes will start from offset 0,
+// allowing reuse of the underlying buffer and writer.
 func (b *BitWriter) Clear() {
 	b.byteoffset = 0
 	b.bitoffset = 0

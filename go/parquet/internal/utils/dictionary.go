@@ -21,17 +21,28 @@ import (
 	"reflect"
 )
 
-type IndexType int32
+// IndexType is the type we're going to use for Dictionary indexes, currently
+// an alias to int32
+type IndexType = int32
 
 const (
 	MaxIndexType = math.MaxInt32
 	MinIndexType = math.MinInt32
 )
 
+// DictionaryConverter is an interface used for dealing with RLE decoding and encoding
+// when working with dictionaries to get values from indexes.
 type DictionaryConverter interface {
+	// Copy takes an interface{} which must be a slice of the appropriate type, and will be populated
+	// by the dictionary values at the indexes from the IndexType slice
 	Copy(interface{}, []IndexType) error
+	// Fill fills interface{} which must be a slice of the appropriate type, with the value
+	// specified by the dictionary index passed in.
 	Fill(interface{}, IndexType) error
+	// FillZero fills interface{}, which must be a slice of the appropriate type, with the zero value
+	// for the given type.
 	FillZero(interface{})
+	// IsValid validates that all of the indexes passed in are valid indexes for the dictionary
 	IsValid(...IndexType) bool
 }
 
