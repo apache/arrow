@@ -148,6 +148,7 @@ TEST(TestExtendedMathOps, TestTruncate) {
 TEST(TestExtendedMathOps, TestTrigonometricFunctions) {
     // Sin functions
     VerifyFuzzyEquals(sin_float32(0), sin(0));
+    VerifyFuzzyEquals(sin_float32(0), sin(0));
     VerifyFuzzyEquals(sin_float32(M_PI_2), sin(M_PI_2));
     VerifyFuzzyEquals(sin_float32(M_PI), sin(M_PI));
     VerifyFuzzyEquals(sin_float32(-M_PI_2), sin(-M_PI_2));
@@ -155,6 +156,8 @@ TEST(TestExtendedMathOps, TestTrigonometricFunctions) {
     VerifyFuzzyEquals(sin_float64(M_PI_2), sin(M_PI_2));
     VerifyFuzzyEquals(sin_float64(M_PI), sin(M_PI));
     VerifyFuzzyEquals(sin_float64(-M_PI_2), sin(-M_PI_2));
+    VerifyFuzzyEquals(sin_int32(0), sin(0));
+    VerifyFuzzyEquals(sin_int64(0), sin(0));
 
     // Cos functions
     VerifyFuzzyEquals(cos_float32(0), cos(0));
@@ -165,30 +168,40 @@ TEST(TestExtendedMathOps, TestTrigonometricFunctions) {
     VerifyFuzzyEquals(cos_float64(M_PI_2), cos(M_PI_2));
     VerifyFuzzyEquals(cos_float64(M_PI), cos(M_PI));
     VerifyFuzzyEquals(cos_float64(-M_PI_2), cos(-M_PI_2));
+    VerifyFuzzyEquals(cos_int32(0), cos(0));
+    VerifyFuzzyEquals(cos_int64(0), cos(0));
 
     // Asin functions
     VerifyFuzzyEquals(asin_float32(-1.0), asin(-1.0));
     VerifyFuzzyEquals(asin_float32(1.0), asin(1.0));
     VerifyFuzzyEquals(asin_float64(-1.0), asin(-1.0));
     VerifyFuzzyEquals(asin_float64(1.0), asin(1.0));
+    VerifyFuzzyEquals(asin_int32(0), asin(0));
+    VerifyFuzzyEquals(asin_int64(0), asin(0));
 
     // Acos functions
     VerifyFuzzyEquals(acos_float32(-1.0), acos(-1.0));
     VerifyFuzzyEquals(acos_float32(1.0), acos(1.0));
     VerifyFuzzyEquals(acos_float64(-1.0), acos(-1.0));
     VerifyFuzzyEquals(acos_float64(1.0), acos(1.0));
+    VerifyFuzzyEquals(acos_int32(0), acos(0));
+    VerifyFuzzyEquals(acos_int64(0), acos(0));
 
     // Tan
     VerifyFuzzyEquals(tan_float32(M_PI), tan(M_PI));
     VerifyFuzzyEquals(tan_float32(-M_PI), tan(-M_PI));
     VerifyFuzzyEquals(tan_float64(M_PI), tan(M_PI));
     VerifyFuzzyEquals(tan_float64(-M_PI), tan(-M_PI));
+    VerifyFuzzyEquals(tan_int32(0), tan(0));
+    VerifyFuzzyEquals(tan_int64(0), tan(0));
 
     // Atan
     VerifyFuzzyEquals(atan_float32(M_PI), atan(M_PI));
     VerifyFuzzyEquals(atan_float32(-M_PI), atan(-M_PI));
     VerifyFuzzyEquals(atan_float64(M_PI), atan(M_PI));
     VerifyFuzzyEquals(atan_float64(-M_PI), atan(-M_PI));
+    VerifyFuzzyEquals(atan_int32(0), atan(0));
+    VerifyFuzzyEquals(atan_int64(0), atan(0));
 
     // Sinh functions
     VerifyFuzzyEquals(sinh_float32(0), sinh(0));
@@ -199,6 +212,9 @@ TEST(TestExtendedMathOps, TestTrigonometricFunctions) {
     VerifyFuzzyEquals(sinh_float64(M_PI_2), sinh(M_PI_2));
     VerifyFuzzyEquals(sinh_float64(M_PI), sinh(M_PI));
     VerifyFuzzyEquals(sinh_float64(-M_PI_2), sinh(-M_PI_2));
+    VerifyFuzzyEquals(sinh_int32(0), sinh(0));
+    VerifyFuzzyEquals(sinh_int64(0), sinh(0));
+
 
     // Cosh functions
     VerifyFuzzyEquals(cosh_float32(0), cosh(0));
@@ -209,18 +225,24 @@ TEST(TestExtendedMathOps, TestTrigonometricFunctions) {
     VerifyFuzzyEquals(cosh_float64(M_PI_2), cosh(M_PI_2));
     VerifyFuzzyEquals(cosh_float64(M_PI), cosh(M_PI));
     VerifyFuzzyEquals(cosh_float64(-M_PI_2), cosh(-M_PI_2));
+    VerifyFuzzyEquals(cosh_int32(0), cosh(0));
+    VerifyFuzzyEquals(cosh_int64(0), cosh(0));
 
     // Tanh
     VerifyFuzzyEquals(tanh_float32(M_PI), tanh(M_PI));
     VerifyFuzzyEquals(tanh_float32(-M_PI), tanh(-M_PI));
     VerifyFuzzyEquals(tanh_float64(M_PI), tanh(M_PI));
     VerifyFuzzyEquals(tanh_float64(-M_PI), tanh(-M_PI));
+    VerifyFuzzyEquals(tanh_int32(0), tanh(0));
+    VerifyFuzzyEquals(tanh_int64(0), tanh(0));
 
     // Atan2
     VerifyFuzzyEquals(atan2_float32_float32(1, 0), atan2(1, 0));
     VerifyFuzzyEquals(atan2_float32_float32(-1.0, 0), atan2(-1, 0));
     VerifyFuzzyEquals(atan2_float64_float64(1.0, 0.0), atan2(1, 0));
     VerifyFuzzyEquals(atan2_float64_float64(-1, 0), atan2(-1, 0));
+    VerifyFuzzyEquals(atan2_int32_int32(1, 0), atan2(1, 0));
+    VerifyFuzzyEquals(atan2_int64_int64(-1, 0), atan2(-1, 0));
 
     // Radians
     VerifyFuzzyEquals(radians_float32(0), 0);
@@ -229,6 +251,8 @@ TEST(TestExtendedMathOps, TestTrigonometricFunctions) {
     VerifyFuzzyEquals(radians_float64(0), 0);
     VerifyFuzzyEquals(radians_float64(180.0), M_PI);
     VerifyFuzzyEquals(radians_float64(90.0), M_PI_2);
+    VerifyFuzzyEquals(radians_int32(180), M_PI);
+    VerifyFuzzyEquals(radians_int64(90), M_PI_2);
 
     // Degrees
     VerifyFuzzyEquals(degrees_float32(0), 0.0);
@@ -237,13 +261,12 @@ TEST(TestExtendedMathOps, TestTrigonometricFunctions) {
     VerifyFuzzyEquals(degrees_float64(0), 0.0);
     VerifyFuzzyEquals(degrees_float64(M_PI), 180.0);
     VerifyFuzzyEquals(degrees_float64(M_PI_2), 90.0);
+    VerifyFuzzyEquals(degrees_int32(1), 57.2958);
+    VerifyFuzzyEquals(degrees_int64(1), 57.2958);
 
     // Cot
-    // TODO: fix cotangent tests
-//    VerifyFuzzyEquals(cot_float32(M_PI_2), tan(0.0));
-//    VerifyFuzzyEquals(cot_float32(M_PI), static_cast<gdv_float64>(tan(M_PI_2 - M_PI)));
-//    VerifyFuzzyEquals(cot_float64(M_PI_2), tan(0.0));
-//    VerifyFuzzyEquals(cot_float64(M_PI), static_cast<gdv_float64>(tan(M_PI_2 - M_PI)));
+    VerifyFuzzyEquals(cot_float32(M_PI_2), tan(M_PI_2 - M_PI_2));
+    VerifyFuzzyEquals(cot_float64(M_PI_2), tan(M_PI_2 - M_PI_2));
 }
 
 }  // namespace gandiva
