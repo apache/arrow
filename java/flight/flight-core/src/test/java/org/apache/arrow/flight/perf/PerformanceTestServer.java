@@ -68,7 +68,7 @@ public class PerformanceTestServer implements AutoCloseable {
 
       @Override
       public WaitResult waitForListener(long timeout) {
-        while (!listener.isReady()) {
+        while (!listener.isReady() && !listener.isCancelled()) {
           // busy wait
         }
         return WaitResult.READY;
@@ -120,6 +120,7 @@ public class PerformanceTestServer implements AutoCloseable {
           BigIntVector b = (BigIntVector) root.getVector("b");
           BigIntVector c = (BigIntVector) root.getVector("c");
           BigIntVector d = (BigIntVector) root.getVector("d");
+          listener.setUseZeroCopy(true);
           listener.start(root);
           root.allocateNew();
 
