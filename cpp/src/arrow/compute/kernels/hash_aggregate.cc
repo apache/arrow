@@ -17,21 +17,30 @@
 
 #include "arrow/compute/kernels/hash_aggregate_internal.h"
 
+#include <memory>
+#include <string>
 #include <unordered_map>
+#include <vector>
 
+#include "arrow/buffer_builder.h"
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/exec_internal.h"
-#include "arrow/compute/kernels/aggregate_basic_internal.h"
+#include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bitmap_ops.h"
-#include "arrow/util/cpu_info.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace compute {
-namespace aggregate {
+namespace internal {
+namespace {
 
 struct KeyEncoder {
   // the first byte of an encoded key is used to indicate nullity
@@ -242,50 +251,46 @@ struct VarLengthKeyEncoder : KeyEncoder {
   std::shared_ptr<DataType> type_;
 };
 
-struct GroupByImpl {
-  static Result<GroupByImpl> Make(ExecContext* ctx, const std::vector<ValueDescr>& keys,
-                                  const GroupByOptions& options) {
-    GroupByImpl impl;
-    impl.encoders_.resize(keys.size());
-    impl.ctx_ = ctx;
+struct GroupIdentifierImpl : GroupIdentifier {
+  static Result<std::unique_ptr<GroupIdentifierImpl>> Make(
+      ExecContext* ctx, const std::vector<ValueDescr>& keys) {
+    auto impl = ::arrow::internal::make_unique<GroupIdentifierImpl>();
 
-    FieldVector out_fields(keys.size());
+    impl->encoders_.resize(keys.size());
+    impl->ctx_ = ctx;
 
     for (size_t i = 0; i < keys.size(); ++i) {
       const auto& key = keys[i].type;
-      out_fields[i] = field("", key);
 
       if (key->id() == Type::BOOL) {
-        impl.encoders_[i] = ::arrow::internal::make_unique<BooleanKeyEncoder>();
+        impl->encoders_[i] = ::arrow::internal::make_unique<BooleanKeyEncoder>();
         continue;
       }
 
       if (auto byte_width = bit_width(key->id()) / 8) {
-        impl.encoders_[i] =
+        impl->encoders_[i] =
             ::arrow::internal::make_unique<FixedWidthKeyEncoder>(byte_width, key);
         continue;
       }
 
       if (is_binary_like(key->id())) {
-        impl.encoders_[i] =
+        impl->encoders_[i] =
             ::arrow::internal::make_unique<VarLengthKeyEncoder<BinaryType>>(key);
         continue;
       }
 
       if (is_large_binary_like(key->id())) {
-        impl.encoders_[i] =
+        impl->encoders_[i] =
             ::arrow::internal::make_unique<VarLengthKeyEncoder<LargeBinaryType>>(key);
         continue;
       }
 
       return Status::NotImplemented("Keys of type ", *key);
     }
-
-    impl.out_type_ = struct_(std::move(out_fields));
     return impl;
   }
 
-  Result<ExecBatch> Consume(const ExecBatch& batch) {
+  Result<ExecBatch> Consume(const ExecBatch& batch) override {
     std::vector<int32_t> offsets_batch(batch.length + 1);
     for (int i = 0; i < batch.num_values(); ++i) {
       encoders_[i]->AddLength(*batch[i].array(), offsets_batch.data());
@@ -336,23 +341,23 @@ struct GroupByImpl {
         batch.length);
   }
 
-  Result<Datum> Finalize(ExecContext* ctx) {
-    ArrayDataVector out_columns(encoders_.size());
+  Result<ExecBatch> GetUniqueKeys() override {
+    ExecBatch out({}, num_groups_);
 
     std::vector<uint8_t*> key_buf_ptrs(num_groups_);
     for (int64_t i = 0; i < num_groups_; ++i) {
       key_buf_ptrs[i] = key_bytes_.data() + offsets_[i];
     }
 
+    out.values.resize(encoders_.size());
     for (size_t i = 0; i < encoders_.size(); ++i) {
       ARROW_ASSIGN_OR_RAISE(
-          out_columns[i],
+          out.values[i],
           encoders_[i]->Decode(key_buf_ptrs.data(), static_cast<int32_t>(num_groups_),
-                               ctx->memory_pool()));
+                               ctx_->memory_pool()));
     }
 
-    return ArrayData::Make(std::move(out_type_), num_groups_, {/*null_bitmap=*/nullptr},
-                           std::move(out_columns));
+    return out;
   }
 
   ExecContext* ctx_;
@@ -360,9 +365,6 @@ struct GroupByImpl {
   std::vector<int32_t> offsets_ = {0};
   std::vector<uint8_t> key_bytes_;
   uint32_t num_groups_ = 0;
-
-  std::shared_ptr<DataType> out_type_;
-
   std::vector<std::unique_ptr<KeyEncoder>> encoders_;
 };
 
@@ -742,8 +744,7 @@ Result<HashAggregateKernel> MakeKernel(const std::string& function_name) {
 }
 
 Result<std::vector<HashAggregateKernel>> MakeKernels(
-    const std::vector<GroupByOptions::Aggregate>& aggregates,
-    const std::vector<ValueDescr>& in_descrs) {
+    const std::vector<Aggregate>& aggregates, const std::vector<ValueDescr>& in_descrs) {
   if (aggregates.size() != in_descrs.size()) {
     return Status::Invalid(aggregates.size(), " aggregate functions were specified but ",
                            in_descrs.size(), " aggregands were provided.");
@@ -759,8 +760,7 @@ Result<std::vector<HashAggregateKernel>> MakeKernels(
 
 Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
     const std::vector<HashAggregateKernel>& kernels, ExecContext* ctx,
-    const std::vector<GroupByOptions::Aggregate>& aggregates,
-    const std::vector<ValueDescr>& in_descrs) {
+    const std::vector<Aggregate>& aggregates, const std::vector<ValueDescr>& in_descrs) {
   std::vector<std::unique_ptr<KernelState>> states(kernels.size());
 
   for (size_t i = 0; i < aggregates.size(); ++i) {
@@ -803,49 +803,53 @@ Result<FieldVector> ResolveKernels(
   return fields;
 }
 
-}  // namespace aggregate
+}  // namespace
+
+Result<std::unique_ptr<GroupIdentifier>> GroupIdentifier::Make(
+    ExecContext* ctx, const std::vector<ValueDescr>& descrs) {
+  return GroupIdentifierImpl::Make(ctx, descrs);
+}
 
 Result<Datum> GroupBy(const std::vector<Datum>& aggregands,
-                      const std::vector<Datum>& keys, const GroupByOptions& options,
-                      ExecContext* ctx) {
+                      const std::vector<Datum>& keys,
+                      const std::vector<Aggregate>& aggregates, ExecContext* ctx) {
   if (ctx == nullptr) {
     ExecContext default_ctx;
-    return GroupBy(aggregands, keys, options, &default_ctx);
+    return GroupBy(aggregands, keys, aggregates, &default_ctx);
   }
 
+  // Construct and initialize HashAggregateKernels
   ARROW_ASSIGN_OR_RAISE(auto aggregand_descrs,
                         ExecBatch::Make(aggregands).Map([](ExecBatch batch) {
                           return batch.GetDescriptors();
                         }));
 
-  ARROW_ASSIGN_OR_RAISE(auto kernels,
-                        aggregate::MakeKernels(options.aggregates, aggregand_descrs));
+  ARROW_ASSIGN_OR_RAISE(auto kernels, MakeKernels(aggregates, aggregand_descrs));
 
-  ARROW_ASSIGN_OR_RAISE(
-      auto states,
-      aggregate::InitKernels(kernels, ctx, options.aggregates, aggregand_descrs));
+  ARROW_ASSIGN_OR_RAISE(auto states,
+                        InitKernels(kernels, ctx, aggregates, aggregand_descrs));
 
-  ARROW_ASSIGN_OR_RAISE(
-      FieldVector out_fields,
-      aggregate::ResolveKernels(kernels, states, ctx, aggregand_descrs));
+  ARROW_ASSIGN_OR_RAISE(FieldVector out_fields,
+                        ResolveKernels(kernels, states, ctx, aggregand_descrs));
 
-  ARROW_ASSIGN_OR_RAISE(
-      auto aggregand_batch_iterator,
-      detail::ExecBatchIterator::Make(aggregands, ctx->exec_chunksize()));
+  using arrow::compute::detail::ExecBatchIterator;
 
+  ARROW_ASSIGN_OR_RAISE(auto aggregand_batch_iterator,
+                        ExecBatchIterator::Make(aggregands, ctx->exec_chunksize()));
+
+  // Construct GroupIdentifier
   ARROW_ASSIGN_OR_RAISE(auto key_descrs, ExecBatch::Make(keys).Map([](ExecBatch batch) {
     return batch.GetDescriptors();
   }));
 
-  ARROW_ASSIGN_OR_RAISE(auto impl,
-                        aggregate::GroupByImpl::Make(ctx, key_descrs, options));
+  ARROW_ASSIGN_OR_RAISE(auto group_identifier, GroupIdentifier::Make(ctx, key_descrs));
 
   for (ValueDescr& key_descr : key_descrs) {
     out_fields.push_back(field("", std::move(key_descr.type)));
   }
 
   ARROW_ASSIGN_OR_RAISE(auto key_batch_iterator,
-                        detail::ExecBatchIterator::Make(keys, ctx->exec_chunksize()));
+                        ExecBatchIterator::Make(keys, ctx->exec_chunksize()));
 
   // start "streaming" execution
   ExecBatch key_batch, aggregand_batch;
@@ -854,7 +858,7 @@ Result<Datum> GroupBy(const std::vector<Datum>& aggregands,
     if (key_batch.length == 0) continue;
 
     // compute a batch of group ids
-    ARROW_ASSIGN_OR_RAISE(ExecBatch id_batch, impl.Consume(key_batch));
+    ARROW_ASSIGN_OR_RAISE(ExecBatch id_batch, group_identifier->Consume(key_batch));
 
     // consume group ids with HashAggregateKernels
     for (size_t i = 0; i < kernels.size(); ++i) {
@@ -867,19 +871,23 @@ Result<Datum> GroupBy(const std::vector<Datum>& aggregands,
     }
   }
 
+  // Finalize output
   ArrayDataVector out_data(aggregands.size() + keys.size());
+  auto it = out_data.begin();
+
   for (size_t i = 0; i < kernels.size(); ++i) {
     KernelContext batch_ctx{ctx};
     batch_ctx.SetState(states[i].get());
     Datum out;
     kernels[i].finalize(&batch_ctx, &out);
     if (batch_ctx.HasError()) return batch_ctx.status();
-    out_data[i] = out.array();
+    *it++ = out.array();
   }
 
-  ARROW_ASSIGN_OR_RAISE(Datum out_keys, impl.Finalize(ctx));
-  std::move(out_keys.array()->child_data.begin(), out_keys.array()->child_data.end(),
-            out_data.begin() + aggregands.size());
+  ARROW_ASSIGN_OR_RAISE(ExecBatch out_keys, group_identifier->GetUniqueKeys());
+  for (const auto& key : out_keys.values) {
+    *it++ = key.array();
+  }
 
   int64_t length = out_data[0]->length;
   return ArrayData::Make(struct_(std::move(out_fields)), length,
@@ -887,5 +895,6 @@ Result<Datum> GroupBy(const std::vector<Datum>& aggregands,
                          /*null_count=*/0);
 }
 
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

@@ -15,46 +15,52 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <unordered_map>
+#include <memory>
+#include <string>
+#include <vector>
 
-#include "arrow/compute/api_aggregate.h"
-#include "arrow/compute/kernels/aggregate_basic_internal.h"
-#include "arrow/compute/kernels/aggregate_internal.h"
-#include "arrow/compute/kernels/common.h"
-#include "arrow/util/bit_run_reader.h"
-#include "arrow/util/bitmap_ops.h"
-#include "arrow/util/cpu_info.h"
-#include "arrow/util/make_unique.h"
+#include "arrow/compute/function.h"
+#include "arrow/datum.h"
 
 namespace arrow {
 namespace compute {
+namespace internal {
+
+/// Internal use only: streaming group identifier.
+/// Consumes batches of keys and yields batches of the group ids.
+class ARROW_EXPORT GroupIdentifier {
+ public:
+  virtual ~GroupIdentifier() = default;
+
+  /// Construct a GroupIdentifier which receives the specified key types
+  static Result<std::unique_ptr<GroupIdentifier>> Make(
+      ExecContext* ctx, const std::vector<ValueDescr>& descrs);
+
+  /// Consume a batch of keys, producing an array of the corresponding
+  /// group ids as an integer column.
+  virtual Result<ExecBatch> Consume(const ExecBatch& batch) = 0;
+
+  /// Get current unique keys. May be called repeatedly.
+  virtual Result<ExecBatch> GetUniqueKeys() = 0;
+};
 
 /// \brief Configure a grouped aggregation
-struct ARROW_EXPORT GroupByOptions {
-  struct Aggregate {
-    /// the name of the aggregation function
-    std::string function;
+struct ARROW_EXPORT Aggregate {
+  /// the name of the aggregation function
+  std::string function;
 
-    /// options for the aggregation function
-    const FunctionOptions* options;
-  };
-
-  GroupByOptions() = default;
-
-  GroupByOptions(std::initializer_list<Aggregate> aggregates) : aggregates(aggregates) {}
-
-  explicit GroupByOptions(std::vector<Aggregate> aggregates)
-      : aggregates(std::move(aggregates)) {}
-
-  std::vector<Aggregate> aggregates;
+  /// options for the aggregation function
+  const FunctionOptions* options;
 };
 
 /// Internal use only: helper function for testing HashAggregateKernels.
 /// This will be replaced by streaming execution operators.
 ARROW_EXPORT
 Result<Datum> GroupBy(const std::vector<Datum>& aggregands,
-                      const std::vector<Datum>& keys, const GroupByOptions& options,
+                      const std::vector<Datum>& keys,
+                      const std::vector<Aggregate>& aggregates,
                       ExecContext* ctx = nullptr);
 
+}  // namespace internal
 }  // namespace compute
 }  // namespace arrow
