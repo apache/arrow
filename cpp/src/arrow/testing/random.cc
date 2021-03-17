@@ -31,6 +31,7 @@
 #include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/buffer.h"
+#include "arrow/compute/api_aggregate.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
@@ -421,6 +422,57 @@ std::shared_ptr<Array> GenerateOffsets(SeedType seed, int64_t size,
       std::make_shared<typename OffsetArrayType::TypeClass>(), size, buffers, null_count);
   return std::make_shared<OffsetArrayType>(array_data);
 }
+
+template <typename OffsetArrayType>
+std::shared_ptr<Array> OffsetsFromLengthsArray(OffsetArrayType* lengths,
+                                               bool force_empty_nulls) {
+  // TODO: length 0 arrays (need test case)
+  DCHECK(!lengths->IsNull(0));
+  DCHECK(!lengths->IsNull(lengths->length() - 1));
+  // Need N + 1 offsets for N items
+  int64_t size = lengths->length() + 1;
+  BufferVector buffers{2};
+
+  int64_t null_count = 0;
+
+  buffers[0] = *AllocateEmptyBitmap(size);
+  uint8_t* null_bitmap = buffers[0]->mutable_data();
+  // Make sure the first and last entry are non-null
+  arrow::BitUtil::SetBit(null_bitmap, 0);
+  arrow::BitUtil::SetBit(null_bitmap, size - 1);
+
+  buffers[1] = *AllocateBuffer(sizeof(typename OffsetArrayType::value_type) * size);
+  auto data =
+      reinterpret_cast<typename OffsetArrayType::value_type*>(buffers[1]->mutable_data());
+  data[0] = 0;
+  int index = 1;
+  for (const auto& length : *lengths) {
+    if (length.has_value()) {
+      arrow::BitUtil::SetBit(null_bitmap, index);
+      data[index] = data[index - 1] + *length;
+      DCHECK_GE(*length, 0);
+    } else {
+      data[index] = data[index - 1];
+    }
+    index++;
+  }
+
+  if (force_empty_nulls) {
+    arrow::internal::BitmapReader reader(null_bitmap, 0, size);
+    for (int64_t i = 0; i < size; ++i) {
+      if (reader.IsNotSet()) {
+        // Ensure a null entry corresponds to a 0-sized list extent
+        // (note this can be neither the first nor the last list entry, see above)
+        data[i + 1] = data[i];
+      }
+      reader.Next();
+    }
+  }
+
+  auto array_data = ArrayData::Make(
+      std::make_shared<typename OffsetArrayType::TypeClass>(), size, buffers, null_count);
+  return std::make_shared<OffsetArrayType>(array_data);
+}
 }  // namespace
 
 std::shared_ptr<Array> RandomArrayGenerator::Offsets(int64_t size, int32_t first_offset,
@@ -639,6 +691,27 @@ Result<std::shared_ptr<Array>> GenerateArray(const Field& field, int64_t length,
     return generator->GENERATOR_FUNC(length, min_value, max_value, null_probability,    \
                                      nan_probability);                                  \
   }
+#define GENERATE_LIST_CASE(ARRAY_TYPE)                                                  \
+  case ARRAY_TYPE::TypeClass::type_id: {                                                \
+    const auto min_length = GetMetadata<ARRAY_TYPE::TypeClass::offset_type>(            \
+        field.metadata().get(), "min", 0);                                              \
+    const auto max_length = GetMetadata<ARRAY_TYPE::TypeClass::offset_type>(            \
+        field.metadata().get(), "max", 1024);                                           \
+    const auto lengths = internal::checked_pointer_cast<                                \
+        CTypeTraits<ARRAY_TYPE::TypeClass::offset_type>::ArrayType>(                    \
+        generator->Numeric<CTypeTraits<ARRAY_TYPE::TypeClass::offset_type>::ArrowType>( \
+            length, min_length, max_length, null_probability));                         \
+    ARROW_ASSIGN_OR_RAISE(const auto values_datum, compute::Sum(lengths));              \
+    const auto values_length = values_datum.scalar_as<Int64Scalar>().value;             \
+    const auto force_empty_nulls =                                                      \
+        GetMetadata<bool>(field.metadata().get(), "force_empty_nulls", false);          \
+    const auto values = GenerateArray(                                                  \
+        *internal::checked_pointer_cast<ARRAY_TYPE::TypeClass>(field.type())            \
+             ->value_field(),                                                           \
+        values_length, generator);                                                      \
+    const auto offsets = OffsetsFromLengthsArray(lengths.get(), force_empty_nulls);     \
+    return ARRAY_TYPE::FromArrays(*offsets, **values);                                  \
+  }
 
   const double null_probability =
       field.nullable()
@@ -704,19 +777,7 @@ Result<std::shared_ptr<Array>> GenerateArray(const Field& field, int64_t length,
       // type means it's not a (useful) composition of other generators
       GENERATE_INTEGRAL_CASE_VIEW(Int64Type, DayTimeIntervalType);
 
-    case Type::type::LIST: {
-      const auto values_length = GetMetadata<int32_t>(field.metadata().get(), "values",
-                                                      static_cast<int32_t>(length));
-      const auto force_empty_nulls =
-          GetMetadata<bool>(field.metadata().get(), "force_empty_nulls", false);
-      auto values = GenerateArray(
-          *internal::checked_pointer_cast<ListType>(field.type())->value_field(),
-          values_length, generator);
-      // need N + 1 offsets to have N values
-      auto offsets = generator->Offsets(length + 1, 0, values_length, null_probability,
-                                        force_empty_nulls);
-      return ListArray::FromArrays(*offsets, **values);
-    }
+      GENERATE_LIST_CASE(ListArray);
 
     case Type::type::STRUCT: {
       ArrayVector child_arrays(field.type()->num_fields());
@@ -804,19 +865,7 @@ Result<std::shared_ptr<Array>> GenerateArray(const Field& field, int64_t length,
           ->View(field.type());
     }
 
-    case Type::type::LARGE_LIST: {
-      const auto values_length =
-          GetMetadata<int64_t>(field.metadata().get(), "values", length);
-      const auto force_empty_nulls =
-          GetMetadata<bool>(field.metadata().get(), "force_empty_nulls", false);
-      auto values = GenerateArray(
-          *internal::checked_pointer_cast<LargeListType>(field.type())->value_field(),
-          values_length, generator);
-      // need N + 1 offsets to have N values
-      auto offsets = generator->LargeOffsets(length + 1, 0, values_length,
-                                             null_probability, force_empty_nulls);
-      return LargeListArray::FromArrays(*offsets, **values);
-    }
+      GENERATE_LIST_CASE(LargeListArray);
 
     default:
       break;
@@ -824,6 +873,9 @@ Result<std::shared_ptr<Array>> GenerateArray(const Field& field, int64_t length,
 #undef GENERATE_INTEGRAL_CASE_VIEW
 #undef GENERATE_INTEGRAL_CASE
 #undef GENERATE_FLOATING_CASE
+#undef GENERATE_LIST_CASE
+#undef VALIDATE_RANGE
+#undef VALIDATE_MIN_MAX
 
   ABORT_NOT_OK(
       Status::NotImplemented("Generating random array for field ", field.ToString()));

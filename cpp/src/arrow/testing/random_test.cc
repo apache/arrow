@@ -14,7 +14,6 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -26,6 +25,9 @@
 
 namespace arrow {
 namespace random {
+
+// Use short arrays since especially in debug mode, generating list(list()) is slow
+constexpr int64_t kExpectedLength = 24;
 
 class RandomArrayTest : public ::testing::TestWithParam<std::shared_ptr<Field>> {
  protected:
@@ -44,18 +46,18 @@ class RandomNumericArrayTest : public ::testing::Test {
 
 TEST_P(RandomArrayTest, GenerateArray) {
   auto field = GetField();
-  auto array = GenerateArray(*field, 128, 0xDEADBEEF);
+  auto array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
   AssertTypeEqual(field->type(), array->type());
-  ASSERT_EQ(128, array->length());
+  ASSERT_EQ(kExpectedLength, array->length());
   ASSERT_OK(array->ValidateFull());
 }
 
 TEST_P(RandomArrayTest, GenerateBatch) {
   auto field = GetField();
-  auto batch = GenerateBatch({field}, 128, 0xDEADBEEF);
+  auto batch = GenerateBatch({field}, kExpectedLength, 0xDEADBEEF);
   AssertSchemaEqual(schema({field}), batch->schema());
   auto array = batch->column(0);
-  ASSERT_EQ(128, array->length());
+  ASSERT_EQ(kExpectedLength, array->length());
   ASSERT_OK(array->ValidateFull());
 }
 
@@ -65,7 +67,7 @@ TEST_P(RandomArrayTest, GenerateArrayWithZeroNullProbability) {
   if (field->type()->id() == Type::type::NA) {
     GTEST_SKIP() << "Cannot generate non-null null arrays";
   }
-  auto batch = GenerateBatch({field}, 128, 0xDEADBEEF);
+  auto batch = GenerateBatch({field}, kExpectedLength, 0xDEADBEEF);
   AssertSchemaEqual(schema({field}), batch->schema());
   auto array = batch->column(0);
   ASSERT_OK(array->ValidateFull());
@@ -77,7 +79,7 @@ TEST_P(RandomArrayTest, GenerateNonNullableArray) {
   if (field->type()->id() == Type::type::NA) {
     GTEST_SKIP() << "Cannot generate non-null null arrays";
   }
-  auto batch = GenerateBatch({field}, 128, 0xDEADBEEF);
+  auto batch = GenerateBatch({field}, kExpectedLength, 0xDEADBEEF);
   AssertSchemaEqual(schema({field}), batch->schema());
   auto array = batch->column(0);
   ASSERT_OK(array->ValidateFull());
@@ -144,7 +146,7 @@ TYPED_TEST_SUITE(RandomNumericArrayTest, NumericTypes);
 TYPED_TEST(RandomNumericArrayTest, GenerateMinMax) {
   auto field = this->GetField()->WithMetadata(
       key_value_metadata({{"min", "0"}, {"max", "127"}, {"nan_probability", "0.0"}}));
-  auto batch = GenerateBatch({field}, 128, 0xDEADBEEF);
+  auto batch = GenerateBatch({field}, kExpectedLength, 0xDEADBEEF);
   AssertSchemaEqual(schema({field}), batch->schema());
   auto array = this->Downcast(batch->column(0));
   for (auto slot : *array) {
@@ -157,7 +159,7 @@ TYPED_TEST(RandomNumericArrayTest, GenerateMinMax) {
 TEST(TypeSpecificTests, FloatNan) {
   auto field = arrow::field("float32", float32())
                    ->WithMetadata(key_value_metadata({{"nan_probability", "1.0"}}));
-  auto batch = GenerateBatch({field}, 128, 0xDEADBEEF);
+  auto batch = GenerateBatch({field}, kExpectedLength, 0xDEADBEEF);
   AssertSchemaEqual(schema({field}), batch->schema());
   auto array = internal::checked_pointer_cast<NumericArray<FloatType>>(batch->column(0));
   auto it = array->begin();
@@ -172,7 +174,7 @@ TEST(TypeSpecificTests, FloatNan) {
 TEST(TypeSpecificTests, RepeatedStrings) {
   auto field =
       arrow::field("string", utf8())->WithMetadata(key_value_metadata({{"unique", "1"}}));
-  auto batch = GenerateBatch({field}, 128, 0xDEADBEEF);
+  auto batch = GenerateBatch({field}, kExpectedLength, 0xDEADBEEF);
   AssertSchemaEqual(schema({field}), batch->schema());
   auto array = internal::checked_pointer_cast<StringArray>(batch->column(0));
   util::string_view singular_value = array->GetView(0);
