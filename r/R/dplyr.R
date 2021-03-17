@@ -434,7 +434,7 @@ restore_dplyr_features <- function(df, query) {
       df <- dplyr::grouped_df(
         df,
         dplyr::group_vars(query),
-        drop = group_by_drop_default(query)
+        drop = dplyr::group_by_drop_default(query)
       )
     } else {
       # This is a Table, via collect(as_data_frame = FALSE)
@@ -475,7 +475,7 @@ group_by.arrow_dplyr_query <- function(.data,
                                        ...,
                                        .add = FALSE,
                                        add = .add,
-                                       .drop = group_by_drop_default(.data)) {
+                                       .drop = dplyr::group_by_drop_default(.data)) {
   .data <- arrow_dplyr_query(.data)
   # ... can contain expressions (i.e. can add (or rename?) columns)
   # Check for those (they show up as named expressions)
@@ -494,7 +494,7 @@ group_by.arrow_dplyr_query <- function(.data,
     gv <- dplyr::group_by_prepare(.data, ..., add = add)$group_names
   }
   .data$group_by_vars <- gv
-  .data$drop_empty_groups <- ifelse(length(gv), .drop, group_by_drop_default(.data))
+  .data$drop_empty_groups <- ifelse(length(gv), .drop, dplyr::group_by_drop_default(.data))
   .data
 }
 group_by.Dataset <- group_by.ArrowTabular <- group_by.arrow_dplyr_query
