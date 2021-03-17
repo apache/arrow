@@ -154,25 +154,25 @@ TEST(TestExtendedMathOps, TestTrigonometricFunctions) {
   // Sin functions
   VerifyFuzzyEquals(sin_float32(0), sin(0));
   VerifyFuzzyEquals(sin_float32(0), sin(0));
-  VerifyFuzzyEquals(sin_float32(pi_float/2), sin(M_PI/2));
+  VerifyFuzzyEquals(sin_float32(pi_float / 2), sin(M_PI / 2));
   VerifyFuzzyEquals(sin_float32(pi_float), sin(M_PI));
-  VerifyFuzzyEquals(sin_float32(-pi_float/2), sin(-M_PI/2));
+  VerifyFuzzyEquals(sin_float32(-pi_float / 2), sin(-M_PI / 2));
   VerifyFuzzyEquals(sin_float64(0), sin(0));
-  VerifyFuzzyEquals(sin_float64(M_PI/2), sin(M_PI/2));
+  VerifyFuzzyEquals(sin_float64(M_PI / 2), sin(M_PI / 2));
   VerifyFuzzyEquals(sin_float64(M_PI), sin(M_PI));
-  VerifyFuzzyEquals(sin_float64(-M_PI/2), sin(-M_PI/2));
+  VerifyFuzzyEquals(sin_float64(-M_PI / 2), sin(-M_PI / 2));
   VerifyFuzzyEquals(sin_int32(0), sin(0));
   VerifyFuzzyEquals(sin_int64(0), sin(0));
 
   // Cos functions
   VerifyFuzzyEquals(cos_float32(0), cos(0));
-  VerifyFuzzyEquals(cos_float32(pi_float/2), cos(M_PI/2));
+  VerifyFuzzyEquals(cos_float32(pi_float / 2), cos(M_PI / 2));
   VerifyFuzzyEquals(cos_float32(pi_float), cos(M_PI));
-  VerifyFuzzyEquals(cos_float32(-pi_float/2), cos(-M_PI/2));
+  VerifyFuzzyEquals(cos_float32(-pi_float / 2), cos(-M_PI / 2));
   VerifyFuzzyEquals(cos_float64(0), cos(0));
-  VerifyFuzzyEquals(cos_float64(M_PI/2), cos(M_PI/2));
+  VerifyFuzzyEquals(cos_float64(M_PI / 2), cos(M_PI / 2));
   VerifyFuzzyEquals(cos_float64(M_PI), cos(M_PI));
-  VerifyFuzzyEquals(cos_float64(-M_PI/2), cos(-M_PI/2));
+  VerifyFuzzyEquals(cos_float64(-M_PI / 2), cos(-M_PI / 2));
   VerifyFuzzyEquals(cos_int32(0), cos(0));
   VerifyFuzzyEquals(cos_int64(0), cos(0));
 
@@ -210,25 +210,25 @@ TEST(TestExtendedMathOps, TestTrigonometricFunctions) {
 
   // Sinh functions
   VerifyFuzzyEquals(sinh_float32(0), sinh(0));
-  VerifyFuzzyEquals(sinh_float32(pi_float/2), sinh(M_PI/2));
+  VerifyFuzzyEquals(sinh_float32(pi_float / 2), sinh(M_PI / 2));
   VerifyFuzzyEquals(sinh_float32(pi_float), sinh(M_PI));
-  VerifyFuzzyEquals(sinh_float32(-pi_float/2), sinh(-M_PI/2));
+  VerifyFuzzyEquals(sinh_float32(-pi_float / 2), sinh(-M_PI / 2));
   VerifyFuzzyEquals(sinh_float64(0), sinh(0));
-  VerifyFuzzyEquals(sinh_float64(M_PI/2), sinh(M_PI/2));
+  VerifyFuzzyEquals(sinh_float64(M_PI / 2), sinh(M_PI / 2));
   VerifyFuzzyEquals(sinh_float64(M_PI), sinh(M_PI));
-  VerifyFuzzyEquals(sinh_float64(-M_PI/2), sinh(-M_PI/2));
+  VerifyFuzzyEquals(sinh_float64(-M_PI / 2), sinh(-M_PI / 2));
   VerifyFuzzyEquals(sinh_int32(0), sinh(0));
   VerifyFuzzyEquals(sinh_int64(0), sinh(0));
 
   // Cosh functions
   VerifyFuzzyEquals(cosh_float32(0), cosh(0));
-  VerifyFuzzyEquals(cosh_float32(pi_float/2), cosh(M_PI/2));
+  VerifyFuzzyEquals(cosh_float32(pi_float / 2), cosh(M_PI / 2));
   VerifyFuzzyEquals(cosh_float32(pi_float), cosh(M_PI));
-  VerifyFuzzyEquals(cosh_float32(-pi_float/2), cosh(-M_PI/2));
+  VerifyFuzzyEquals(cosh_float32(-pi_float / 2), cosh(-M_PI / 2));
   VerifyFuzzyEquals(cosh_float64(0), cosh(0));
-  VerifyFuzzyEquals(cosh_float64(M_PI/2), cosh(M_PI/2));
+  VerifyFuzzyEquals(cosh_float64(M_PI / 2), cosh(M_PI / 2));
   VerifyFuzzyEquals(cosh_float64(M_PI), cosh(M_PI));
-  VerifyFuzzyEquals(cosh_float64(-M_PI/2), cosh(-M_PI/2));
+  VerifyFuzzyEquals(cosh_float64(-M_PI / 2), cosh(-M_PI / 2));
   VerifyFuzzyEquals(cosh_int32(0), cosh(0));
   VerifyFuzzyEquals(cosh_int64(0), cosh(0));
 
@@ -251,26 +251,26 @@ TEST(TestExtendedMathOps, TestTrigonometricFunctions) {
   // Radians
   VerifyFuzzyEquals(radians_float32(0), 0);
   VerifyFuzzyEquals(radians_float32(180.0), M_PI);
-  VerifyFuzzyEquals(radians_float32(90.0), M_PI/2);
+  VerifyFuzzyEquals(radians_float32(90.0), M_PI / 2);
   VerifyFuzzyEquals(radians_float64(0), 0);
   VerifyFuzzyEquals(radians_float64(180.0), M_PI);
-  VerifyFuzzyEquals(radians_float64(90.0), M_PI/2);
+  VerifyFuzzyEquals(radians_float64(90.0), M_PI / 2);
   VerifyFuzzyEquals(radians_int32(180), M_PI);
-  VerifyFuzzyEquals(radians_int64(90), M_PI/2);
+  VerifyFuzzyEquals(radians_int64(90), M_PI / 2);
 
   // Degrees
   VerifyFuzzyEquals(degrees_float32(0), 0.0);
   VerifyFuzzyEquals(degrees_float32(pi_float), 180.0);
-  VerifyFuzzyEquals(degrees_float32(pi_float/2), 90.0);
+  VerifyFuzzyEquals(degrees_float32(pi_float / 2), 90.0);
   VerifyFuzzyEquals(degrees_float64(0), 0.0);
   VerifyFuzzyEquals(degrees_float64(M_PI), 180.0);
-  VerifyFuzzyEquals(degrees_float64(M_PI/2), 90.0);
+  VerifyFuzzyEquals(degrees_float64(M_PI / 2), 90.0);
   VerifyFuzzyEquals(degrees_int32(1), 57.2958);
   VerifyFuzzyEquals(degrees_int64(1), 57.2958);
 
   // Cot
-  VerifyFuzzyEquals(cot_float32(pi_float/2), tan(M_PI/2 - M_PI/2));
-  VerifyFuzzyEquals(cot_float64(M_PI/2), tan(M_PI/2 - M_PI/2));
+  VerifyFuzzyEquals(cot_float32(pi_float / 2), tan(M_PI / 2 - M_PI / 2));
+  VerifyFuzzyEquals(cot_float64(M_PI / 2), tan(M_PI / 2 - M_PI / 2));
 }
 
 }  // namespace gandiva

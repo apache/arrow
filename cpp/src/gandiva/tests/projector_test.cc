@@ -399,9 +399,10 @@ TEST_F(TestProjector, TestExtendedMath) {
 
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(
-      schema, {cbrt_expr, exp_expr, log_expr, log10_expr, logb_expr, power_expr, sin_expr,
-			   cos_expr, asin_expr, acos_expr, tan_expr, atan_expr, sinh_expr, cosh_expr,
-			   tanh_expr, atan2_expr, cot_expr, radians_expr, degrees_expr},
+      schema,
+      {cbrt_expr, exp_expr, log_expr, log10_expr, logb_expr, power_expr, sin_expr,
+			 cos_expr, asin_expr, acos_expr, tan_expr, atan_expr, sinh_expr, cosh_expr,
+			 tanh_expr, atan2_expr, cot_expr, radians_expr, degrees_expr},
       TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
@@ -452,8 +453,8 @@ TEST_F(TestProjector, TestExtendedMath) {
     tanh_vals.push_back(static_cast<double>(tanh(input0[i])));
     atan2_vals.push_back(static_cast<double>(atan2(input0[i], input1[i])));
     cot_vals.push_back(static_cast<double>(tan(M_PI / 2 - input0[i])));
-	radians_vals.push_back(static_cast<double>(input0[i] * M_PI / 180.0));
-	degrees_vals.push_back(static_cast<double>(input0[i] * 180.0 / M_PI));
+    radians_vals.push_back(static_cast<double>(input0[i] * M_PI / 180.0));
+    degrees_vals.push_back(static_cast<double>(input0[i] * 180.0 / M_PI));
   }
   auto expected_cbrt = MakeArrowArray<arrow::DoubleType, double>(cbrt_vals, validity);
   auto expected_exp = MakeArrowArray<arrow::DoubleType, double>(exp_vals, validity);
