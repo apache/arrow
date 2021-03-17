@@ -1134,6 +1134,11 @@ def test_concat_tables():
     assert result.equals(expected)
 
 
+def test_concat_tables_none_table():
+    with pytest.raises(TypeError):
+        pa.concat_tables([None])
+
+
 @pytest.mark.pandas
 def test_concat_tables_with_different_schema_metadata():
     import pandas as pd
