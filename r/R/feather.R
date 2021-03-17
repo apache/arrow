@@ -96,7 +96,7 @@ write_feather <- function(x,
 
   # "lz4" is the convenience
   if (compression == "lz4") {
-     compression <- "lz4_frame"
+    compression <- "lz4_frame"
   }
 
   compression <- compression_from_name(compression)
@@ -154,7 +154,15 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
     vars_select(names(reader), !!col_select)
   }
 
-  out <- reader$Read(columns)
+  out <- tryCatch(
+    reader$Read(columns),
+    error = function (e) {
+      if (grepl("Support for codec", conditionMessage(e))) {
+        msg <- "Unsupported compressed format: We suggest either setting the right environment variable to install binaries or setting LIBARROW_MINIMAL=false and then reinstall the package."
+        stop(msg, call. = FALSE)
+      }
+    }
+  )
 
   if (isTRUE(as_data_frame)) {
     out <- as.data.frame(out)
@@ -191,16 +199,16 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
 #' @export
 #' @include arrow-package.R
 FeatherReader <- R6Class("FeatherReader", inherit = ArrowObject,
-  public = list(
-    Read = function(columns) {
-      ipc___feather___Reader__Read(self, columns)
-    }
-  ),
-  active = list(
-    # versions are officially 2 for V1 and 3 for V2 :shrug:
-    version = function() ipc___feather___Reader__version(self) - 1L,
-    column_names = function() ipc___feather___Reader__column_names(self)
-  )
+                         public = list(
+                           Read = function(columns) {
+                             ipc___feather___Reader__Read(self, columns)
+                           }
+                         ),
+                         active = list(
+                           # versions are officially 2 for V1 and 3 for V2 :shrug:
+                           version = function() ipc___feather___Reader__version(self) - 1L,
+                           column_names = function() ipc___feather___Reader__column_names(self)
+                         )
 )
 
 #' @export

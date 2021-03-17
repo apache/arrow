@@ -52,10 +52,26 @@ read_parquet <- function(file,
     schema <- reader$GetSchema()
     names <- names(schema)
     indices <- match(vars_select(names, !!col_select), names) - 1L
-    tab <- reader$ReadTable(indices)
+    tab <- tryCatch(
+      reader$ReadTable(indices),
+      error = function (e) {
+        if (grepl("Support for codec", conditionMessage(e))) {
+          msg <- "Unsupported compressed format: We suggest either setting the right environment variable to install binaries or setting LIBARROW_MINIMAL=false and then reinstall the package."
+          stop(msg, call. = FALSE)
+        }
+      }
+    )
   } else {
     # read all columns
-    tab <- reader$ReadTable()
+    tab <- tryCatch(
+      reader$ReadTable(),
+      error = function (e) {
+        if (grepl("Support for codec", conditionMessage(e))) {
+          msg <- "Unsupported compressed format: We suggest either setting the right environment variable to install binaries or setting LIBARROW_MINIMAL=false and then reinstall the package."
+          stop(msg, call. = FALSE)
+        }
+      }
+    )
   }
 
   if (as_data_frame) {
@@ -209,7 +225,7 @@ ParquetArrowWriterProperties$create <- function(use_deprecated_int96_timestamps 
     timestamp_unit <- -1L # null sentinel value
   } else {
     timestamp_unit <- make_valid_time_unit(coerce_timestamps,
-      c("ms" = TimeUnit$MILLI, "us" = TimeUnit$MICRO)
+                                           c("ms" = TimeUnit$MILLI, "us" = TimeUnit$MICRO)
     )
   }
   parquet___ArrowWriterProperties___create(
@@ -280,62 +296,62 @@ make_valid_version <- function(version, valid_versions = valid_parquet_version) 
 #' @export
 ParquetWriterProperties <- R6Class("ParquetWriterProperties", inherit = ArrowObject)
 ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inherit = ArrowObject,
-  public = list(
-    set_version = function(version) {
-      parquet___WriterProperties___Builder__version(self, make_valid_version(version))
-    },
-    set_compression = function(table, compression) {
-      compression <- compression_from_name(compression)
-      assert_that(is.integer(compression))
-      private$.set(table, compression,
-        parquet___ArrowWriterProperties___Builder__set_compressions
-      )
-    },
-    set_compression_level = function(table, compression_level){
-      # cast to integer but keep names
-      compression_level <- set_names(as.integer(compression_level), names(compression_level))
-      private$.set(table, compression_level,
-        parquet___ArrowWriterProperties___Builder__set_compression_levels
-      )
-    },
-    set_dictionary = function(table, use_dictionary) {
-      assert_that(is.logical(use_dictionary))
-      private$.set(table, use_dictionary,
-        parquet___ArrowWriterProperties___Builder__set_use_dictionary
-      )
-    },
-    set_write_statistics = function(table, write_statistics) {
-      assert_that(is.logical(write_statistics))
-      private$.set(table, write_statistics,
-        parquet___ArrowWriterProperties___Builder__set_write_statistics
-      )
-    },
-    set_data_page_size = function(data_page_size) {
-      parquet___ArrowWriterProperties___Builder__data_page_size(self, data_page_size)
-    }
-  ),
+                                          public = list(
+                                            set_version = function(version) {
+                                              parquet___WriterProperties___Builder__version(self, make_valid_version(version))
+                                            },
+                                            set_compression = function(table, compression) {
+                                              compression <- compression_from_name(compression)
+                                              assert_that(is.integer(compression))
+                                              private$.set(table, compression,
+                                                           parquet___ArrowWriterProperties___Builder__set_compressions
+                                              )
+                                            },
+                                            set_compression_level = function(table, compression_level){
+                                              # cast to integer but keep names
+                                              compression_level <- set_names(as.integer(compression_level), names(compression_level))
+                                              private$.set(table, compression_level,
+                                                           parquet___ArrowWriterProperties___Builder__set_compression_levels
+                                              )
+                                            },
+                                            set_dictionary = function(table, use_dictionary) {
+                                              assert_that(is.logical(use_dictionary))
+                                              private$.set(table, use_dictionary,
+                                                           parquet___ArrowWriterProperties___Builder__set_use_dictionary
+                                              )
+                                            },
+                                            set_write_statistics = function(table, write_statistics) {
+                                              assert_that(is.logical(write_statistics))
+                                              private$.set(table, write_statistics,
+                                                           parquet___ArrowWriterProperties___Builder__set_write_statistics
+                                              )
+                                            },
+                                            set_data_page_size = function(data_page_size) {
+                                              parquet___ArrowWriterProperties___Builder__data_page_size(self, data_page_size)
+                                            }
+                                          ),
 
-  private = list(
-    .set = function(table, value, FUN) {
-      msg <- paste0("unsupported ", substitute(value), "= specification")
-      column_names <- names(table)
-      given_names <- names(value)
-      if (is.null(given_names)) {
-        if (length(value) %in% c(1L, length(column_names))) {
-          # If there's a single, unnamed value, FUN will set it globally
-          # If there are values for all columns, send them along with the names
-          FUN(self, column_names, value)
-        } else {
-          abort(msg)
-        }
-      } else if (all(given_names %in% column_names)) {
-        # Use the given names
-        FUN(self, given_names, value)
-      } else {
-        abort(msg)
-      }
-    }
-  )
+                                          private = list(
+                                            .set = function(table, value, FUN) {
+                                              msg <- paste0("unsupported ", substitute(value), "= specification")
+                                              column_names <- names(table)
+                                              given_names <- names(value)
+                                              if (is.null(given_names)) {
+                                                if (length(value) %in% c(1L, length(column_names))) {
+                                                  # If there's a single, unnamed value, FUN will set it globally
+                                                  # If there are values for all columns, send them along with the names
+                                                  FUN(self, column_names, value)
+                                                } else {
+                                                  abort(msg)
+                                                }
+                                              } else if (all(given_names %in% column_names)) {
+                                                # Use the given names
+                                                FUN(self, given_names, value)
+                                              } else {
+                                                abort(msg)
+                                              }
+                                            }
+                                          )
 )
 
 ParquetWriterProperties$create <- function(table,
@@ -395,12 +411,12 @@ ParquetWriterProperties$create <- function(table,
 #' @export
 #' @include arrow-package.R
 ParquetFileWriter <- R6Class("ParquetFileWriter", inherit = ArrowObject,
-  public = list(
-    WriteTable = function(table, chunk_size) {
-      parquet___arrow___FileWriter__WriteTable(self, table, chunk_size)
-    },
-    Close = function() parquet___arrow___FileWriter__Close(self)
-  )
+                             public = list(
+                               WriteTable = function(table, chunk_size) {
+                                 parquet___arrow___FileWriter__WriteTable(self, table, chunk_size)
+                               },
+                               Close = function() parquet___arrow___FileWriter__Close(self)
+                             )
 )
 ParquetFileWriter$create <- function(schema,
                                      sink,
@@ -461,53 +477,53 @@ ParquetFileWriter$create <- function(schema,
 #' }
 #' @include arrow-package.R
 ParquetFileReader <- R6Class("ParquetFileReader",
-  inherit = ArrowObject,
-  active = list(
-    num_rows = function() {
-      as.integer(parquet___arrow___FileReader__num_rows(self))
-    },
-    num_columns = function() {
-      parquet___arrow___FileReader__num_columns(self)
-    },
-    num_row_groups = function() {
-      parquet___arrow___FileReader__num_row_groups(self)
-    }
-  ),
-  public = list(
-    ReadTable = function(column_indices = NULL) {
-      if (is.null(column_indices)) {
-        parquet___arrow___FileReader__ReadTable1(self)
-      } else {
-        column_indices <- vec_cast(column_indices, integer())
-        parquet___arrow___FileReader__ReadTable2(self, column_indices)
-      }
-    },
-    ReadRowGroup = function(i, column_indices = NULL) {
-      i <- vec_cast(i, integer())
-      if (is.null(column_indices)) {
-        parquet___arrow___FileReader__ReadRowGroup1(self, i)
-      } else {
-        column_indices <- vec_cast(column_indices, integer())
-        parquet___arrow___FileReader__ReadRowGroup2(self, i, column_indices)
-      }
-    },
-    ReadRowGroups = function(row_groups, column_indices = NULL) {
-      row_groups <- vec_cast(row_groups, integer())
-      if (is.null(column_indices)) {
-        parquet___arrow___FileReader__ReadRowGroups1(self, row_groups)
-      } else {
-        column_indices <- vec_cast(column_indices, integer())
-        parquet___arrow___FileReader__ReadRowGroups2(self, row_groups, column_indices)
-      }
-    },
-    ReadColumn = function(i) {
-      i <- vec_cast(i, integer())
-      parquet___arrow___FileReader__ReadColumn(self, i)
-    },
-    GetSchema = function() {
-      parquet___arrow___FileReader__GetSchema(self)
-    }
-  )
+                             inherit = ArrowObject,
+                             active = list(
+                               num_rows = function() {
+                                 as.integer(parquet___arrow___FileReader__num_rows(self))
+                               },
+                               num_columns = function() {
+                                 parquet___arrow___FileReader__num_columns(self)
+                               },
+                               num_row_groups = function() {
+                                 parquet___arrow___FileReader__num_row_groups(self)
+                               }
+                             ),
+                             public = list(
+                               ReadTable = function(column_indices = NULL) {
+                                 if (is.null(column_indices)) {
+                                   parquet___arrow___FileReader__ReadTable1(self)
+                                 } else {
+                                   column_indices <- vec_cast(column_indices, integer())
+                                   parquet___arrow___FileReader__ReadTable2(self, column_indices)
+                                 }
+                               },
+                               ReadRowGroup = function(i, column_indices = NULL) {
+                                 i <- vec_cast(i, integer())
+                                 if (is.null(column_indices)) {
+                                   parquet___arrow___FileReader__ReadRowGroup1(self, i)
+                                 } else {
+                                   column_indices <- vec_cast(column_indices, integer())
+                                   parquet___arrow___FileReader__ReadRowGroup2(self, i, column_indices)
+                                 }
+                               },
+                               ReadRowGroups = function(row_groups, column_indices = NULL) {
+                                 row_groups <- vec_cast(row_groups, integer())
+                                 if (is.null(column_indices)) {
+                                   parquet___arrow___FileReader__ReadRowGroups1(self, row_groups)
+                                 } else {
+                                   column_indices <- vec_cast(column_indices, integer())
+                                   parquet___arrow___FileReader__ReadRowGroups2(self, row_groups, column_indices)
+                                 }
+                               },
+                               ReadColumn = function(i) {
+                                 i <- vec_cast(i, integer())
+                                 parquet___arrow___FileReader__ReadColumn(self, i)
+                               },
+                               GetSchema = function() {
+                                 parquet___arrow___FileReader__GetSchema(self)
+                               }
+                             )
 )
 
 ParquetFileReader$create <- function(file,
@@ -544,24 +560,24 @@ ParquetFileReader$create <- function(file,
 #'
 #' @export
 ParquetArrowReaderProperties <- R6Class("ParquetArrowReaderProperties",
-  inherit = ArrowObject,
-  public = list(
-    read_dictionary = function(column_index) {
-      parquet___arrow___ArrowReaderProperties__get_read_dictionary(self, column_index)
-    },
-    set_read_dictionary = function(column_index, read_dict) {
-      parquet___arrow___ArrowReaderProperties__set_read_dictionary(self, column_index, read_dict)
-    }
-  ),
-  active = list(
-    use_threads = function(use_threads) {
-      if(missing(use_threads)) {
-        parquet___arrow___ArrowReaderProperties__get_use_threads(self)
-      } else {
-        parquet___arrow___ArrowReaderProperties__set_use_threads(self, use_threads)
-      }
-    }
-  )
+                                        inherit = ArrowObject,
+                                        public = list(
+                                          read_dictionary = function(column_index) {
+                                            parquet___arrow___ArrowReaderProperties__get_read_dictionary(self, column_index)
+                                          },
+                                          set_read_dictionary = function(column_index, read_dict) {
+                                            parquet___arrow___ArrowReaderProperties__set_read_dictionary(self, column_index, read_dict)
+                                          }
+                                        ),
+                                        active = list(
+                                          use_threads = function(use_threads) {
+                                            if(missing(use_threads)) {
+                                              parquet___arrow___ArrowReaderProperties__get_use_threads(self)
+                                            } else {
+                                              parquet___arrow___ArrowReaderProperties__set_use_threads(self, use_threads)
+                                            }
+                                          }
+                                        )
 )
 
 ParquetArrowReaderProperties$create <- function(use_threads = option_use_threads()) {
