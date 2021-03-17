@@ -51,7 +51,7 @@ TEST_P(RandomArrayTest, GenerateArray) {
   ASSERT_OK(array->ValidateFull());
 }
 
-TEST_P(RandomArrayTest, GenerateNonNullArray) {
+TEST_P(RandomArrayTest, GenerateArrayWithZeroNullProbability) {
   auto field =
       GetField()->WithMetadata(key_value_metadata({{"null_probability", "0.0"}}));
   if (field->type()->id() == Type::type::NA) {
@@ -76,12 +76,6 @@ TEST_P(RandomArrayTest, GenerateNonNullableArray) {
   ASSERT_EQ(0, array->null_count());
 }
 
-struct FieldParamName {
-  template <class ParamType>
-  std::string operator()(const ::testing::TestParamInfo<ParamType>& info) const {
-    return std::to_string(info.index) + info.param->name();
-  }
-};
 
 auto values = ::testing::Values(
     field("null", null()), field("bool", boolean()), field("uint8", uint8()),
@@ -146,13 +140,10 @@ TYPED_TEST(RandomNumericArrayTest, GenerateMinMax) {
   auto batch = Generate({field}, 128, 0xDEADBEEF);
   AssertSchemaEqual(schema({field}), batch->schema());
   auto array = this->Downcast(batch->column(0));
-  auto it = array->begin();
-  while (it != array->end()) {
-    if ((*it).has_value()) {
-      ASSERT_GE(**it, typename TypeParam::c_type(0));
-      ASSERT_LE(**it, typename TypeParam::c_type(127));
-    }
-    it++;
+  for (auto slot : *array) {
+    if (!slot.has_value()) continue;
+    ASSERT_GE(slot, 0);
+    ASSERT_LE(slot, 127);
   }
 }
 
@@ -178,16 +169,10 @@ TEST(TypeSpecificTests, RepeatedStrings) {
   AssertSchemaEqual(schema({field}), batch->schema());
   auto array = internal::checked_pointer_cast<StringArray>(batch->column(0));
   auto it = array->begin();
-  util::optional<util::string_view> singular_value;
-  while (it != array->end()) {
-    if ((*it).has_value()) {
-      if (!singular_value.has_value()) {
-        singular_value = *it;
-      } else {
-        ASSERT_EQ(*singular_value, **it);
-      }
-    }
-    it++;
+  util::string_view singular_value = array->GetView(0);
+  for (auto slot : *array) {
+    if (!slot.has_value()) continue;
+    ASSERT_EQ(slot, singular_value);
   }
 }
 

@@ -372,7 +372,7 @@ std::shared_ptr<Array> RandomArrayGenerator::FixedSizeBinary(int64_t size,
 }
 
 namespace {
-template <typename ArrayType>
+template <typename OffsetArrayType>
 std::shared_ptr<Array> GenerateOffsets(SeedType seed, int64_t size,
                                        typename ArrayType::value_type first_offset,
                                        typename ArrayType::value_type last_offset,
@@ -585,16 +585,14 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(std::shared_ptr<DataType> t
 }
 
 namespace {
-template <typename T>
-typename T::c_type GetMetadata(const KeyValueMetadata* metadata, const std::string& key,
-                               typename T::c_type default_value) {
+template <typename T, typename ArrowType = typename CTypeTraits<T>::ArrowType>
+enable_if_parameter_free<ArrowType, T> GetMetadata(const KeyValueMetadata* metadata, const std::string& key, T default_value) {
   if (!metadata) return default_value;
   const auto index = metadata->FindKey(key);
   if (index < 0) return default_value;
   const auto& value = metadata->value(index);
-  typename T::c_type output{};
-  auto type = checked_pointer_cast<T>(TypeTraits<T>::type_singleton());
-  if (!internal::ParseValue(*type, value.data(), value.length(), &output)) {
+  T output{};
+  if (!internal::ParseValue<ArrowType>(value.data(), value.length(), &output)) {
     ABORT_NOT_OK(Status::Invalid("Could not parse ", key, " = ", value));
   }
   return output;

@@ -363,7 +363,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
 };
 
 ARROW_TESTING_EXPORT
-std::shared_ptr<arrow::RecordBatch> Generate(const FieldVector& fields, int64_t size,
+std::shared_ptr<arrow::RecordBatch> GenerateBatch(const FieldVector& fields, int64_t size,
                                              SeedType seed);
 
 }  // namespace random
