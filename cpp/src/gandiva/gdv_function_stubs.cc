@@ -126,7 +126,7 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
 #define SHA128_HASH_FUNCTION(TYPE)                                                    \
   GANDIVA_EXPORT                                                                      \
   const char *gdv_fn_sha128_##TYPE(int64_t context, gdv_##TYPE value,                 \
-                                        bool validity, u_int32_t *out_length) {       \
+                                        bool validity, int32_t *out_length) {         \
     if (!validity) {                                                                  \
       *out_length = 0;                                                                \
       return "";                                                                      \
@@ -146,7 +146,7 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
                                         gdv_##TYPE value,                          \
                                         int32_t value_length,                      \
                                         bool value_validity,                       \
-                                        u_int32_t *out_length) {                   \
+                                        int32_t *out_length) {                     \
     if (!value_validity) {                                                         \
       *out_length = 0;                                                             \
       return "";                                                                   \
@@ -158,7 +158,7 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
 #define SHA256_HASH_FUNCTION(TYPE)                                                      \
   GANDIVA_EXPORT                                                                        \
   const char *gdv_fn_sha256_##TYPE(int64_t context, gdv_##TYPE value,                   \
-                                        bool validity, u_int32_t *out_length) {         \
+                                        bool validity, int32_t *out_length) {           \
     if (!validity) {                                                                    \
       *out_length = 0;                                                                  \
       return "";                                                                        \
@@ -177,7 +177,7 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
                                         gdv_##TYPE value,                               \
                                         int32_t value_length,                           \
                                         bool value_validity,                            \
-                                        u_int32_t *out_length) {                        \
+                                        int32_t *out_length) {                          \
     if (!value_validity) {                                                              \
       *out_length = 0;                                                                  \
       return "";                                                                        \
@@ -224,8 +224,8 @@ SHA_VAR_LEN_PARAMS(SHA128_HASH_FUNCTION_BUF)
 // Add functions for decimal128
 GANDIVA_EXPORT
 const char* gdv_fn_sha256_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
-                                          int32_t x_precision, int32_t x_scale,
-                                          gdv_boolean x_isvalid, u_int32_t *out_length) {
+                                     int32_t x_precision, int32_t x_scale,
+                                     gdv_boolean x_isvalid, int32_t *out_length) {
   if (!x_isvalid) {
       *out_length = 0;
       return "";
@@ -238,8 +238,8 @@ const char* gdv_fn_sha256_decimal128(int64_t context, int64_t x_high, uint64_t x
 
 GANDIVA_EXPORT
 const char* gdv_fn_sha128_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
-                                          int32_t x_precision, int32_t x_scale,
-                                          gdv_boolean x_isvalid, u_int32_t *out_length) {
+                                     int32_t x_precision, int32_t x_scale,
+                                     gdv_boolean x_isvalid, int32_t *out_length) {
   if (!x_isvalid) {
     *out_length = 0;
     return "";

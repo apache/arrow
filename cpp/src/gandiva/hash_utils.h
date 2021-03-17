@@ -27,14 +27,14 @@ namespace gandiva {
 class GANDIVA_EXPORT HashUtils {
  public:
   static const char *HashUsingSha256(int64_t context,
-                                       const void *message,
-                                       size_t message_length,
-                                       u_int32_t *out_length);
+                                     const void *message,
+                                     size_t message_length,
+                                     int32_t *out_length);
 
   static const char *HashUsingSha128(int64_t context,
-                                       const void *message,
-                                       size_t message_length,
-                                       u_int32_t *out_length);
+                                     const void *message,
+                                     size_t message_length,
+                                     int32_t *out_length);
 
   static uint64_t DoubleToLong(double value);
  private:
@@ -45,7 +45,7 @@ class GANDIVA_EXPORT HashUtils {
                              size_t message_length,
                              const EVP_MD *hash_type,
                              int result_buf_size,
-                             u_int32_t *out_length);
+                             int32_t *out_length);
 
   static void ErrorMessage(int64_t context_ptr, char const *err_msg);
 };

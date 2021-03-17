@@ -23,18 +23,18 @@
 
 namespace gandiva {
   const char* HashUtils::HashUsingSha256(int64_t context,
-                                            const void* message,
-                                            size_t message_length,
-                                            u_int32_t* out_length) {
+                                         const void* message,
+                                         size_t message_length,
+                                         int32_t *out_length) {
     // The buffer size is the hash size + null character
     int sha256_result_length = 65;
     return HashUtils::GetHash(context, message, message_length, EVP_sha256(),
 							  sha256_result_length, out_length);
   }
   const char* HashUtils::HashUsingSha128(int64_t context,
-                                            const void* message,
-                                            size_t message_length,
-                                            u_int32_t* out_length) {
+                                         const void* message,
+                                         size_t message_length,
+                                         int32_t *out_length) {
     // The buffer size is the hash size + null character
     int sha128_result_length = 41;
     return HashUtils::GetHash(context, message, message_length, EVP_sha1(),
@@ -46,7 +46,7 @@ namespace gandiva {
                                  size_t message_length,
                                  const EVP_MD *hash_type,
                                  int result_buf_size,
-                                 u_int32_t* out_length) {
+                                 int32_t *out_length) {
     EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
 
     if (md_ctx == nullptr) {
