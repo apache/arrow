@@ -343,6 +343,10 @@ if(ARROW_CUDA
   set(ARROW_IPC ON)
 endif()
 
+if(ARROW_ENGINE)
+  set(ARROW_COMPUTE ON)
+endif()
+
 if(ARROW_DATASET)
   set(ARROW_COMPUTE ON)
   set(ARROW_FILESYSTEM ON)

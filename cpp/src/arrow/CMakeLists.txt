@@ -414,6 +414,11 @@ if(ARROW_COMPUTE)
   endif()
 endif()
 
+if(ARROW_ENGINE)
+  list(APPEND ARROW_SRCS engine/exec_plan.cc)
+  list(APPEND ARROW_TESTING_SRCS engine/test_util.cc)
+endif()
+
 if(ARROW_FILESYSTEM)
   if(ARROW_HDFS)
     add_definitions(-DARROW_HDFS)
@@ -677,6 +682,10 @@ endif()
 
 if(ARROW_DATASET)
   add_subdirectory(dataset)
+endif()
+
+if(ARROW_ENGINE)
+  add_subdirectory(engine)
 endif()
 
 if(ARROW_FILESYSTEM)
