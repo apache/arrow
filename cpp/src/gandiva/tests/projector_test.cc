@@ -374,14 +374,14 @@ TEST_F(TestProjector, TestExtendedMath) {
   auto field_radians = arrow::field("radians", arrow::float64());
   auto field_degrees = arrow::field("degrees", arrow::float64());
 
-
-        // Build expression
+  // Build expression
   auto cbrt_expr = TreeExprBuilder::MakeExpression("cbrt", {field0}, field_cbrt);
   auto exp_expr = TreeExprBuilder::MakeExpression("exp", {field0}, field_exp);
   auto log_expr = TreeExprBuilder::MakeExpression("log", {field0}, field_log);
   auto log10_expr = TreeExprBuilder::MakeExpression("log10", {field0}, field_log10);
   auto logb_expr = TreeExprBuilder::MakeExpression("log", {field0, field1}, field_logb);
-  auto power_expr = TreeExprBuilder::MakeExpression("power", {field0, field1}, field_power);
+  auto power_expr =
+  		TreeExprBuilder::MakeExpression("power", {field0, field1}, field_power);
   auto sin_expr = TreeExprBuilder::MakeExpression("sin", {field0}, field_sin);
   auto cos_expr = TreeExprBuilder::MakeExpression("cos", {field0}, field_cos);
   auto asin_expr = TreeExprBuilder::MakeExpression("asin", {field0}, field_asin);
@@ -391,16 +391,17 @@ TEST_F(TestProjector, TestExtendedMath) {
   auto sinh_expr = TreeExprBuilder::MakeExpression("sinh", {field0}, field_sinh);
   auto cosh_expr = TreeExprBuilder::MakeExpression("cosh", {field0}, field_cosh);
   auto tanh_expr = TreeExprBuilder::MakeExpression("tanh", {field0}, field_tanh);
-  auto atan2_expr = TreeExprBuilder::MakeExpression("atan2", {field0, field1}, field_atan2);
+  auto atan2_expr =
+  		TreeExprBuilder::MakeExpression("atan2", {field0, field1}, field_atan2);
   auto cot_expr = TreeExprBuilder::MakeExpression("cot", {field0}, field_cot);
   auto radians_expr = TreeExprBuilder::MakeExpression("radians", {field0}, field_radians);
   auto degrees_expr = TreeExprBuilder::MakeExpression("degrees", {field0}, field_degrees);
 
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(
-      schema, {cbrt_expr, exp_expr, log_expr, log10_expr, logb_expr, power_expr, sin_expr, cos_expr,
-               asin_expr, acos_expr, tan_expr, atan_expr, sinh_expr, cosh_expr, tanh_expr, atan2_expr,
-               cot_expr, radians_expr, degrees_expr},
+      schema, {cbrt_expr, exp_expr, log_expr, log10_expr, logb_expr, power_expr, sin_expr,
+			   cos_expr, asin_expr, acos_expr, tan_expr, atan_expr, sinh_expr, cosh_expr,
+			   tanh_expr, atan2_expr, cot_expr, radians_expr, degrees_expr},
       TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
@@ -450,9 +451,9 @@ TEST_F(TestProjector, TestExtendedMath) {
     cosh_vals.push_back(static_cast<double>(cosh(input0[i])));
     tanh_vals.push_back(static_cast<double>(tanh(input0[i])));
     atan2_vals.push_back(static_cast<double>(atan2(input0[i], input1[i])));
-    cot_vals.push_back(static_cast<double>(tan(M_PI/2 - input0[i])));
-    radians_vals.push_back(static_cast<double>(input0[i] *  M_PI / 180.0));
-    degrees_vals.push_back(static_cast<double>(input0[i] *  180.0 / M_PI));
+    cot_vals.push_back(static_cast<double>(tan(M_PI / 2 - input0[i])));
+	radians_vals.push_back(static_cast<double>(input0[i] * M_PI / 180.0));
+	degrees_vals.push_back(static_cast<double>(input0[i] * 180.0 / M_PI));
   }
   auto expected_cbrt = MakeArrowArray<arrow::DoubleType, double>(cbrt_vals, validity);
   auto expected_exp = MakeArrowArray<arrow::DoubleType, double>(exp_vals, validity);
@@ -471,8 +472,10 @@ TEST_F(TestProjector, TestExtendedMath) {
   auto expected_tanh = MakeArrowArray<arrow::DoubleType, double>(tanh_vals, validity);
   auto expected_atan2 = MakeArrowArray<arrow::DoubleType, double>(atan2_vals, validity);
   auto expected_cot = MakeArrowArray<arrow::DoubleType, double>(cot_vals, validity);
-  auto expected_radians = MakeArrowArray<arrow::DoubleType, double>(radians_vals, validity);
-  auto expected_degrees = MakeArrowArray<arrow::DoubleType, double>(degrees_vals, validity);
+  auto expected_radians =
+  		MakeArrowArray<arrow::DoubleType, double>(radians_vals, validity);
+  auto expected_degrees =
+  		MakeArrowArray<arrow::DoubleType, double>(degrees_vals, validity);
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
 
