@@ -1,0 +1,99 @@
+package org.apache.arrow.adapter.jdbc.consumer;
+
+import org.apache.arrow.vector.BaseValueVector;
+import org.apache.arrow.vector.VarBinaryVector;
+import org.junit.Test;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.util.function.Consumer;
+
+import static org.junit.Assert.*;
+
+public class BinaryConsumerTest extends AbstractConsumerTest {
+
+    private static final int INITIAL_VALUE_ALLOCATION = BaseValueVector.INITIAL_VALUE_ALLOCATION;
+    private static final int DEFAULT_RECORD_BYTE_COUNT = 8;
+
+    protected void assertConsume(boolean nullable, Consumer<BinaryConsumer> dataConsumer, byte[][] expect){
+        try(final VarBinaryVector vector = new VarBinaryVector("binary", allocator)) {
+            BinaryConsumer consumer = BinaryConsumer.createConsumer(vector, 0, nullable);
+            dataConsumer.accept(consumer);
+            assertEquals(expect.length - 1, vector.getLastSet());
+            for (int i = 0; i < expect.length; i++) {
+                byte[] value = expect[i];
+                if (value == null) {
+                    assertTrue(vector.isNull(i));
+                } else {
+                    assertArrayEquals(expect[i], vector.get(i));
+                }
+            }
+        }
+    }
+
+    private byte[] createBytes(int length) {
+        byte[] bytes = new byte[length];
+        for(int i=0;i<length;i++) {
+            bytes[i] = (byte) (i % 1024);
+        }
+        return bytes;
+    }
+
+
+    public void testConsumeInputStream(byte[][] values, boolean nullable) throws IOException {
+        assertConsume(nullable, binaryConsumer -> {
+            for (byte[] value : values) {
+                try {
+                    binaryConsumer.consume(new ByteArrayInputStream(value));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                binaryConsumer.moveWriterPosition();
+            }
+        }, values);
+    }
+
+    @Test
+    public void testConsumeInputStream() throws IOException {
+        testConsumeInputStream(new byte[][]{
+                createBytes(DEFAULT_RECORD_BYTE_COUNT)
+        }, false);
+
+        testConsumeInputStream(new byte[][]{
+                createBytes(DEFAULT_RECORD_BYTE_COUNT),
+                createBytes(DEFAULT_RECORD_BYTE_COUNT)
+        }, false);
+
+        testConsumeInputStream(new byte[][]{
+                createBytes(DEFAULT_RECORD_BYTE_COUNT * 2),
+                createBytes(DEFAULT_RECORD_BYTE_COUNT),
+                createBytes(DEFAULT_RECORD_BYTE_COUNT)
+        }, false);
+
+        testConsumeInputStream(new byte[][]{
+                createBytes(INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT)
+        }, false);
+
+        testConsumeInputStream(new byte[][]{
+                createBytes(INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT * 10),
+        }, false);
+
+        testConsumeInputStream(new byte[][]{
+                createBytes(INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT),
+                createBytes(INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT)
+        }, false);
+
+        testConsumeInputStream(new byte[][]{
+                createBytes(INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT),
+                createBytes(DEFAULT_RECORD_BYTE_COUNT),
+                createBytes(INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT)
+        }, false);
+
+        byte[][] testRecords = new byte[INITIAL_VALUE_ALLOCATION * 2][];
+        for (int i=0;i<testRecords.length;i++) {
+            testRecords[i] = createBytes(DEFAULT_RECORD_BYTE_COUNT);
+        }
+        testConsumeInputStream(testRecords, false);
+    }
+
+}
