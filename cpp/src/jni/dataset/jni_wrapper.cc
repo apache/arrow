@@ -431,13 +431,11 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScann
   if (pool == nullptr) {
     JniThrow("Memory pool does not exist or has been closed");
   }
-  std::shared_ptr<arrow::dataset::ScanContext> context =
-      std::make_shared<arrow::dataset::ScanContext>();
-  context->pool = pool;
   std::shared_ptr<arrow::dataset::Dataset> dataset =
       RetrieveNativeInstance<arrow::dataset::Dataset>(dataset_id);
   std::shared_ptr<arrow::dataset::ScannerBuilder> scanner_builder =
-      JniGetOrThrow(dataset->NewScan(context));
+      JniGetOrThrow(dataset->NewScan());
+  JniAssertOkOrThrow(scanner_builder->Pool(pool));
 
   std::vector<std::string> column_vector = ToStringVector(env, columns);
   if (!column_vector.empty()) {

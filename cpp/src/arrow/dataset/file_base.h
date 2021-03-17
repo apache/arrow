@@ -32,7 +32,6 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/filesystem/filesystem.h"
-#include "arrow/filesystem/path_forest.h"
 #include "arrow/io/file.h"
 #include "arrow/util/compression.h"
 
@@ -104,6 +103,12 @@ class ARROW_DS_EXPORT FileSource {
   /// \brief Get a RandomAccessFile which views this file source
   Result<std::shared_ptr<io::RandomAccessFile>> Open() const;
 
+  /// \brief Get an InputStream which views this file source (and decompresses if needed)
+  /// \param[in] compression If nullopt, guess the compression scheme from the
+  ///     filename, else decompress with the given codec
+  Result<std::shared_ptr<io::InputStream>> OpenCompressed(
+      util::optional<Compression::type> compression = util::nullopt) const;
+
  private:
   static Result<std::shared_ptr<io::RandomAccessFile>> InvalidOpen() {
     return Status::Invalid("Called Open() on an uninitialized FileSource");
@@ -137,9 +142,9 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 
   /// \brief Open a FileFragment for scanning.
   /// May populate lazy properties of the FileFragment.
-  virtual Result<ScanTaskIterator> ScanFile(std::shared_ptr<ScanOptions> options,
-                                            std::shared_ptr<ScanContext> context,
-                                            FileFragment* file) const = 0;
+  virtual Result<ScanTaskIterator> ScanFile(
+      std::shared_ptr<ScanOptions> options,
+      const std::shared_ptr<FileFragment>& file) const = 0;
 
   /// \brief Open a fragment
   virtual Result<std::shared_ptr<FileFragment>> MakeFragment(
@@ -162,10 +167,10 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 /// \brief A Fragment that is stored in a file with a known format
 class ARROW_DS_EXPORT FileFragment : public Fragment {
  public:
-  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options,
-                                std::shared_ptr<ScanContext> context) override;
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override;
 
   std::string type_name() const override { return format_->type_name(); }
+  std::string ToString() const override { return source_.path(); };
   bool splittable() const override { return format_->splittable(); }
 
   const FileSource& source() const { return source_; }
@@ -233,16 +238,23 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   std::string ToString() const;
 
  protected:
+  struct FragmentSubtrees;
+
+  explicit FileSystemDataset(std::shared_ptr<Schema> schema)
+      : Dataset(std::move(schema)) {}
+
+  FileSystemDataset(std::shared_ptr<Schema> schema, Expression partition_expression)
+      : Dataset(std::move(schema), partition_expression) {}
+
   Result<FragmentIterator> GetFragmentsImpl(Expression predicate) override;
 
-  FileSystemDataset(std::shared_ptr<Schema> schema, Expression root_partition,
-                    std::shared_ptr<FileFormat> format,
-                    std::shared_ptr<fs::FileSystem> filesystem,
-                    std::vector<std::shared_ptr<FileFragment>> fragments);
+  void SetupSubtreePruning();
 
   std::shared_ptr<FileFormat> format_;
   std::shared_ptr<fs::FileSystem> filesystem_;
   std::vector<std::shared_ptr<FileFragment>> fragments_;
+
+  std::shared_ptr<FragmentSubtrees> subtrees_;
 };
 
 class ARROW_DS_EXPORT FileWriteOptions {

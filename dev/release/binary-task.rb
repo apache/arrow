@@ -1022,7 +1022,6 @@ class BinaryTask
   def available_apt_targets
     [
       ["debian", "buster", "main"],
-      ["ubuntu", "xenial", "main"],
       ["ubuntu", "bionic", "main"],
       ["ubuntu", "focal", "main"],
       ["ubuntu", "groovy", "main"],

@@ -62,9 +62,6 @@ case "${distribution}-${code_name}" in
       -e "s/ main$/ main contrib non-free/g" \
       /etc/apt/sources.list
     ;;
-  ubuntu-xenial)
-    have_flight=no
-    ;;
 esac
 if [ "$(arch)" = "aarch64" ]; then
   have_plasma=no
@@ -132,11 +129,7 @@ required_packages=()
 required_packages+=(cmake)
 required_packages+=(g++)
 required_packages+=(git)
-# Bash on Ubuntu Xenial reports unbound variable for
-# ${workaround_missing_packages[@]} with empty workaround_missing_packages.
-if [ ${#workaround_missing_packages[@]} -gt 0 ]; then
-  required_packages+=(${workaround_missing_packages[@]})
-fi
+required_packages+=(${workaround_missing_packages[@]})
 apt install -y -V ${required_packages[@]}
 mkdir -p build
 cp -a /arrow/cpp/examples/minimal_build build

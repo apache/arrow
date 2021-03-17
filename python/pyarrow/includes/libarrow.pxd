@@ -1130,6 +1130,21 @@ ctypedef void CallbackTransform(
     object, const shared_ptr[CBuffer]& src, shared_ptr[CBuffer]* dest)
 
 
+cdef extern from "arrow/util/cancel.h" namespace "arrow" nogil:
+    cdef cppclass CStopToken "arrow::StopToken":
+        CStatus Poll()
+        c_bool IsStopRequested()
+
+    cdef cppclass CStopSource "arrow::StopSource":
+        CStopToken token()
+
+    CResult[CStopSource*] SetSignalStopSource()
+    void ResetSignalStopSource()
+
+    CStatus RegisterCancellingSignalHandler(vector[int] signals)
+    void UnregisterCancellingSignalHandler()
+
+
 cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     enum FileMode" arrow::io::FileMode::type":
         FileMode_READ" arrow::io::FileMode::READ"
@@ -1142,7 +1157,9 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
 
     cdef cppclass CIOContext" arrow::io::IOContext":
         CIOContext()
+        CIOContext(CStopToken)
         CIOContext(CMemoryPool*)
+        CIOContext(CMemoryPool*, CStopToken)
 
     CIOContext c_default_io_context "arrow::io::default_io_context"()
 
@@ -1640,7 +1657,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
             CRecordBatchReader):
         @staticmethod
         CResult[shared_ptr[CCSVStreamingReader]] Make(
-            CMemoryPool*, shared_ptr[CInputStream],
+            CIOContext, shared_ptr[CInputStream],
             CCSVReadOptions, CCSVParseOptions, CCSVConvertOptions)
 
     cdef CStatus WriteCSV(
@@ -2256,6 +2273,11 @@ cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
 cdef extern from 'arrow/util/io_util.h' namespace 'arrow::internal' nogil:
     int ErrnoFromStatus(CStatus status)
     int WinErrorFromStatus(CStatus status)
+    int SignalFromStatus(CStatus status)
+
+    CStatus SendSignal(int signum)
+    CStatus SendSignalToThread(int signum, uint64_t thread_id)
+
 
 cdef extern from 'arrow/util/iterator.h' namespace 'arrow' nogil:
     cdef cppclass CIterator" arrow::Iterator"[T]:

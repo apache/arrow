@@ -43,12 +43,48 @@ test_that("basic mutate", {
   )
 })
 
+test_that("mutate() with NULL inputs", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(int = NULL) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("empty mutate()", {
+  expect_dplyr_equal(
+    input %>%
+      mutate() %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("transmute", {
   expect_dplyr_equal(
     input %>%
       select(int, chr) %>%
       filter(int > 5) %>%
       transmute(int = int + 6L) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("transmute() with NULL inputs", {
+  expect_dplyr_equal(
+    input %>%
+      transmute(int = NULL) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("empty transmute()", {
+  expect_dplyr_equal(
+    input %>%
+      transmute() %>%
       collect(),
     tbl
   )
@@ -131,7 +167,7 @@ test_that("dplyr::mutate's examples", {
         mass2_squared = mass2 * mass2
       ) %>%
       collect(),
-    starwars # this is a test dataset that ships with dplyr
+    starwars # this is a test tibble that ships with dplyr
   )
 
   # As well as adding new variables, you can use mutate() to
@@ -272,7 +308,7 @@ test_that("handle bad expressions", {
   )
 })
 
-test_that("print a mutated dataset", {
+test_that("print a mutated table", {
   expect_output(
     Table$create(tbl) %>%
       select(int) %>%
@@ -300,6 +336,7 @@ See $.data for the source Arrow object',
 })
 
 test_that("mutate and write_dataset", {
+  skip_if_not_available("dataset")
   # See related test in test-dataset.R
 
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-9651

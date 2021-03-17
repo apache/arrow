@@ -440,16 +440,20 @@ dataset___DirectoryPartitioning__MakeFactory <- function(field_names){
     .Call(`_arrow_dataset___DirectoryPartitioning__MakeFactory`, field_names)
 }
 
-dataset___HivePartitioning <- function(schm){
-    .Call(`_arrow_dataset___HivePartitioning`, schm)
+dataset___HivePartitioning <- function(schm, null_fallback){
+    .Call(`_arrow_dataset___HivePartitioning`, schm, null_fallback)
 }
 
-dataset___HivePartitioning__MakeFactory <- function(){
-    .Call(`_arrow_dataset___HivePartitioning__MakeFactory`)
+dataset___HivePartitioning__MakeFactory <- function(null_fallback){
+    .Call(`_arrow_dataset___HivePartitioning__MakeFactory`, null_fallback)
 }
 
-dataset___ScannerBuilder__Project <- function(sb, cols){
-    invisible(.Call(`_arrow_dataset___ScannerBuilder__Project`, sb, cols))
+dataset___ScannerBuilder__ProjectNames <- function(sb, cols){
+    invisible(.Call(`_arrow_dataset___ScannerBuilder__ProjectNames`, sb, cols))
+}
+
+dataset___ScannerBuilder__ProjectExprs <- function(sb, exprs, names){
+    invisible(.Call(`_arrow_dataset___ScannerBuilder__ProjectExprs`, sb, exprs, names))
 }
 
 dataset___ScannerBuilder__Filter <- function(sb, expr){
@@ -1420,6 +1424,10 @@ ipc___RecordBatchStreamWriter__Open <- function(stream, schema, use_legacy_forma
     .Call(`_arrow_ipc___RecordBatchStreamWriter__Open`, stream, schema, use_legacy_format, metadata_version)
 }
 
+runtime_info <- function(){
+    .Call(`_arrow_runtime_info`)
+}
+
 Array__GetScalar <- function(x, i){
     .Call(`_arrow_Array__GetScalar`, x, i)
 }
@@ -1438,6 +1446,10 @@ StructScalar__GetFieldByName <- function(s, name){
 
 Scalar__as_vector <- function(scalar){
     .Call(`_arrow_Scalar__as_vector`, scalar)
+}
+
+MakeArrayFromScalar <- function(scalar){
+    .Call(`_arrow_MakeArrayFromScalar`, scalar)
 }
 
 Scalar__is_valid <- function(s){

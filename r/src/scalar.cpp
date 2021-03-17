@@ -69,6 +69,12 @@ SEXP Scalar__as_vector(const std::shared_ptr<arrow::Scalar>& scalar) {
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::Array> MakeArrayFromScalar(
+    const std::shared_ptr<arrow::Scalar>& scalar) {
+  return ValueOrStop(arrow::MakeArrayFromScalar(*scalar, 1, gc_memory_pool()));
+}
+
+// [[arrow::export]]
 bool Scalar__is_valid(const std::shared_ptr<arrow::Scalar>& s) { return s->is_valid; }
 
 // [[arrow::export]]

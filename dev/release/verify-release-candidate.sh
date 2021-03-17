@@ -137,8 +137,6 @@ test_binary() {
 test_apt() {
   for target in "debian:buster" \
                 "arm64v8/debian:buster" \
-                "ubuntu:xenial" \
-                "arm64v8/ubuntu:xenial" \
                 "ubuntu:bionic" \
                 "arm64v8/ubuntu:bionic" \
                 "ubuntu:focal" \
@@ -168,7 +166,6 @@ test_apt() {
 
 test_yum() {
   for target in "centos:7" \
-                "arm64v8/centos:7" \
                 "centos:8" \
                 "arm64v8/centos:8"; do
     case "${target}" in

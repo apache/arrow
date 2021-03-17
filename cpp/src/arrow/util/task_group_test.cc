@@ -114,6 +114,49 @@ void TestTaskGroupErrors(std::shared_ptr<TaskGroup> task_group) {
   ASSERT_RAISES(Invalid, task_group->Finish());
 }
 
+void TestTaskGroupCancel(std::shared_ptr<TaskGroup> task_group, StopSource* stop_source) {
+  const int NSUCCESSES = 2;
+  const int NCANCELS = 20;
+
+  std::atomic<int> count(0);
+
+  auto task_group_was_ok = false;
+  task_group->Append([&]() -> Status {
+    for (int i = 0; i < NSUCCESSES; ++i) {
+      task_group->Append([&]() {
+        count++;
+        return Status::OK();
+      });
+    }
+    task_group_was_ok = task_group->ok();
+    for (int i = 0; i < NCANCELS; ++i) {
+      task_group->Append([&]() {
+        SleepFor(1e-2);
+        stop_source->RequestStop();
+        count++;
+        return Status::OK();
+      });
+    }
+
+    return Status::OK();
+  });
+
+  // Cancellation is propagated
+  ASSERT_RAISES(Cancelled, task_group->Finish());
+  ASSERT_TRUE(task_group_was_ok);
+  ASSERT_FALSE(task_group->ok());
+  if (task_group->parallelism() == 1) {
+    // Serial: exactly three successes
+    ASSERT_EQ(count.load(), NSUCCESSES + 1);
+  } else {
+    // Parallel: at least three successes
+    ASSERT_GE(count.load(), NSUCCESSES + 1);
+    ASSERT_LE(count.load(), NSUCCESSES * task_group->parallelism());
+  }
+  // Finish() is idempotent
+  ASSERT_RAISES(Cancelled, task_group->Finish());
+}
+
 class CopyCountingTask {
  public:
   explicit CopyCountingTask(std::shared_ptr<uint8_t> target)
@@ -310,6 +353,11 @@ TEST(SerialTaskGroup, Success) { TestTaskGroupSuccess(TaskGroup::MakeSerial()); 
 
 TEST(SerialTaskGroup, Errors) { TestTaskGroupErrors(TaskGroup::MakeSerial()); }
 
+TEST(SerialTaskGroup, Cancel) {
+  StopSource stop_source;
+  TestTaskGroupCancel(TaskGroup::MakeSerial(stop_source.token()), &stop_source);
+}
+
 TEST(SerialTaskGroup, TasksSpawnTasks) { TestTasksSpawnTasks(TaskGroup::MakeSerial()); }
 
 TEST(SerialTaskGroup, NoCopyTask) { TestNoCopyTask(TaskGroup::MakeSerial()); }
@@ -334,6 +382,15 @@ TEST(ThreadedTaskGroup, Errors) {
   ASSERT_OK_AND_ASSIGN(thread_pool, ThreadPool::Make(4));
 
   TestTaskGroupErrors(TaskGroup::MakeThreaded(thread_pool.get()));
+}
+
+TEST(ThreadedTaskGroup, Cancel) {
+  std::shared_ptr<ThreadPool> thread_pool;
+  ASSERT_OK_AND_ASSIGN(thread_pool, ThreadPool::Make(4));
+
+  StopSource stop_source;
+  TestTaskGroupCancel(TaskGroup::MakeThreaded(thread_pool.get(), stop_source.token()),
+                      &stop_source);
 }
 
 TEST(ThreadedTaskGroup, TasksSpawnTasks) {

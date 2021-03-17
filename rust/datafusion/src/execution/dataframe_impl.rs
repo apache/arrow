@@ -166,6 +166,13 @@ impl DataFrame for DataFrameImpl {
         let registry = self.ctx_state.lock().unwrap().clone();
         Arc::new(registry)
     }
+
+    fn union(&self, dataframe: Arc<dyn DataFrame>) -> Result<Arc<dyn DataFrame>> {
+        let plan = LogicalPlanBuilder::from(&self.plan)
+            .union(dataframe.to_logical_plan())?
+            .build()?;
+        Ok(Arc::new(DataFrameImpl::new(self.ctx_state.clone(), &plan)))
+    }
 }
 
 #[cfg(test)]

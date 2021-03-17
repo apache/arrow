@@ -18,6 +18,7 @@
 example_data <- tibble::tibble(
   int = c(1:3, NA_integer_, 5:10),
   dbl = c(1:8, NA, 10) + .1,
+  dbl2 = rep(5, 10),
   lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
   false = logical(10),
   chr = letters[c(1:5, NA, 7:10)],
@@ -121,3 +122,15 @@ make_string_of_size <- function(size = 1) {
 
 example_with_extra_metadata <- example_with_metadata
 attributes(example_with_extra_metadata$b) <- list(lots = rep(make_string_of_size(1), 100))
+
+example_with_logical_factors <- tibble::tibble(
+  starting_a_fight = factor(c(FALSE, TRUE, TRUE, TRUE)),
+  consoling_a_child = factor(c(TRUE, FALSE, TRUE, TRUE)),
+  petting_a_dog = factor(c(TRUE, TRUE, FALSE, TRUE)),
+  saying = c(
+    "shhhhh, it's ok",
+    "you wanna go outside?",
+    "you want your mommy?",
+    "hey buddy"
+  )
+)

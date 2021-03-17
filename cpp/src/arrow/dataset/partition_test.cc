@@ -225,6 +225,19 @@ TEST_F(TestPartitioning, DirectoryPartitioningFormatDictionary) {
   AssertFormat(equal(field_ref("alpha"), literal(dict_hello)), "hello");
 }
 
+TEST_F(TestPartitioning, DirectoryPartitioningFormatDictionaryCustomIndex) {
+  // Make sure a non-int32 index type is properly cast to, else we fail a CHECK when
+  // we construct a dictionary array with the wrong index type
+  auto dict_type = dictionary(int8(), utf8());
+  auto dictionary = ArrayFromJSON(utf8(), R"(["hello", "world"])");
+  partitioning_ = std::make_shared<DirectoryPartitioning>(
+      schema({field("alpha", dict_type)}), ArrayVector{dictionary});
+  written_schema_ = partitioning_->schema();
+
+  ASSERT_OK_AND_ASSIGN(auto dict_hello, MakeScalar("hello")->CastTo(dict_type));
+  AssertFormat(equal(field_ref("alpha"), literal(dict_hello)), "hello");
+}
+
 TEST_F(TestPartitioning, DirectoryPartitioningWithTemporal) {
   for (auto temporal : {timestamp(TimeUnit::SECOND), date32()}) {
     partitioning_ = std::make_shared<DirectoryPartitioning>(
@@ -462,6 +475,67 @@ TEST_F(TestPartitioning, HiveDictionaryHasUniqueValues) {
   }
 
   AssertParseError("/alpha=yosemite");  // not in inspected dictionary
+}
+
+TEST_F(TestPartitioning, ExistingSchemaDirectory) {
+  // Infer dictionary values but with a given schema
+  auto dict_type = dictionary(int8(), utf8());
+  PartitioningFactoryOptions options;
+  options.schema = schema({field("alpha", int64()), field("beta", dict_type)});
+  factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"}, options);
+
+  AssertInspect({"/0/1"}, options.schema->fields());
+  AssertInspect({"/0/1/what"}, options.schema->fields());
+
+  // fail if any segment is not parseable as schema type
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Failed to parse string"),
+                                  factory_->Inspect({"/0/1", "/hello/1"}));
+  factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"}, options);
+
+  // Now we don't fail since our type is large enough
+  AssertInspect({"/3760212050/1"}, options.schema->fields());
+  // If there are still too many digits, fail
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Failed to parse string"),
+                                  factory_->Inspect({"/1038581385102940193760212050/1"}));
+  factory_ = DirectoryPartitioning::MakeFactory({"alpha", "beta"}, options);
+
+  AssertInspect({"/0/1", "/2"}, options.schema->fields());
+}
+
+TEST_F(TestPartitioning, ExistingSchemaHive) {
+  // Infer dictionary values but with a given schema
+  auto dict_type = dictionary(int8(), utf8());
+  HivePartitioningFactoryOptions options;
+  options.schema = schema({field("a", int64()), field("b", dict_type)});
+  factory_ = HivePartitioning::MakeFactory(options);
+
+  AssertInspect({"/a=0/b=1"}, options.schema->fields());
+  AssertInspect({"/a=0/b=1/what"}, options.schema->fields());
+  AssertInspect({"/a=0", "/b=1"}, options.schema->fields());
+
+  // fail if any segment for field alpha is not parseable as schema type
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "Could not cast segments for partition field a to requested type int64"),
+      factory_->Inspect({"/a=0/b=1", "/a=hello/b=1"}));
+  factory_ = HivePartitioning::MakeFactory(options);
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("Requested schema has 2 fields, but only 1 were detected"),
+      factory_->Inspect({"/a=0", "/a=hello"}));
+  factory_ = HivePartitioning::MakeFactory(options);
+
+  // Now we don't fail since our type is large enough
+  AssertInspect({"/a=3760212050/b=1"}, options.schema->fields());
+  // If there are still too many digits, fail
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Failed to parse string"),
+      factory_->Inspect({"/a=1038581385102940193760212050/b=1"}));
+  factory_ = HivePartitioning::MakeFactory(options);
+
+  AssertInspect({"/a=0/b=1", "/b=2"}, options.schema->fields());
 }
 
 TEST_F(TestPartitioning, EtlThenHive) {

@@ -264,6 +264,29 @@ TYPED_TEST(TestRandomNumericSumKernel, RandomSliceArraySum) {
   }
 }
 
+// Test round-off error
+class TestSumKernelRoundOff : public ::testing::Test {};
+
+TEST_F(TestSumKernelRoundOff, Basics) {
+  using ScalarType = typename TypeTraits<DoubleType>::ScalarType;
+
+  // array = np.arange(321000, dtype='float64')
+  // array -= np.mean(array)
+  // array *= arrray
+  double index = 0;
+  ASSERT_OK_AND_ASSIGN(
+      auto array, ArrayFromBuilderVisitor(
+                      float64(), 321000, [&](NumericBuilder<DoubleType>* builder) {
+                        builder->UnsafeAppend((index - 160499.5) * (index - 160499.5));
+                        ++index;
+                      }));
+
+  // reference value from numpy.sum()
+  ASSERT_OK_AND_ASSIGN(Datum result, Sum(array));
+  auto sum = checked_cast<const ScalarType*>(result.scalar().get());
+  ASSERT_EQ(sum->value, 2756346749973250.0);
+}
+
 //
 // Count
 //

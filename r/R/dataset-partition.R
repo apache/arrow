@@ -25,12 +25,21 @@
 #' `DirectoryPartitioning` describes how to interpret raw path segments, in
 #' order. For example, `schema(year = int16(), month = int8())` would define
 #' partitions for file paths like "2019/01/file.parquet",
-#' "2019/02/file.parquet", etc.
+#' "2019/02/file.parquet", etc. In this scheme `NULL` values will be skipped. In
+#' the previous example: when writing a dataset if the month was `NA` (or
+#' `NULL`), the files would be placed in "2019/file.parquet". When reading, the
+#' rows in "2019/file.parquet" would return an `NA` for the month column. An
+#' error will be raised if an outer directory is `NULL` and an inner directory
+#' is not.
 #'
 #' `HivePartitioning` is for Hive-style partitioning, which embeds field
 #' names and values in path segments, such as
 #' "/year=2019/month=2/data.parquet". Because fields are named in the path
-#' segments, order does not matter.
+#' segments, order does not matter. This partitioning scheme allows `NULL`
+#' values. They will be replaced by a configurable `null_fallback` which
+#' defaults to the string `"__HIVE_DEFAULT_PARTITION__"` when writing. When
+#' reading, the `null_fallback` string will be replaced with `NA`s as
+#' appropriate.
 #'
 #' `PartitioningFactory` subclasses instruct the `DatasetFactory` to detect
 #' partition features from the file paths.
@@ -62,7 +71,9 @@ DirectoryPartitioning$create <- dataset___DirectoryPartitioning
 #' @rdname Partitioning
 #' @export
 HivePartitioning <- R6Class("HivePartitioning", inherit = Partitioning)
-HivePartitioning$create <- dataset___HivePartitioning
+HivePartitioning$create <- function(schm, null_fallback = NULL) {
+  dataset___HivePartitioning(schm, null_fallback = null_fallback_or_default(null_fallback))
+}
 
 #' Construct Hive partitioning
 #'
@@ -72,19 +83,22 @@ HivePartitioning$create <- dataset___HivePartitioning
 #' Because fields are named in the path segments, order of fields passed to
 #' `hive_partition()` does not matter.
 #' @param ... named list of [data types][data-type], passed to [schema()]
+#' @param null_fallback character to be used in place of missing values (`NA` or `NULL`)
+#' in partition columns. Default is `"__HIVE_DEFAULT_PARTITION__"`,
+#' which is what Hive uses.
 #' @return A [HivePartitioning][Partitioning], or a `HivePartitioningFactory` if
 #' calling `hive_partition()` with no arguments.
 #' @examples
-#' \donttest{
+#' \dontrun{
 #' hive_partition(year = int16(), month = int8())
 #' }
 #' @export
-hive_partition <- function(...) {
+hive_partition <- function(..., null_fallback = NULL) {
   schm <- schema(...)
   if (length(schm) == 0) {
-    HivePartitioningFactory$create()
+    HivePartitioningFactory$create(null_fallback)
   } else {
-    HivePartitioning$create(schm)
+    HivePartitioning$create(schm, null_fallback)
   }
 }
 
@@ -102,4 +116,10 @@ DirectoryPartitioningFactory$create <- dataset___DirectoryPartitioning__MakeFact
 #' @rdname Partitioning
 #' @export
 HivePartitioningFactory <- R6Class("HivePartitioningFactory", inherit = PartitioningFactory)
-HivePartitioningFactory$create <- dataset___HivePartitioning__MakeFactory
+HivePartitioningFactory$create <- function(null_fallback = NULL) {
+  dataset___HivePartitioning__MakeFactory(null_fallback_or_default(null_fallback))
+}
+
+null_fallback_or_default <- function(null_fallback) {
+  null_fallback %||% "__HIVE_DEFAULT_PARTITION__"
+}

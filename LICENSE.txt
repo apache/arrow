@@ -2119,6 +2119,22 @@ DEALINGS IN THE SOFTWARE.
 
 --------------------------------------------------------------------------------
 
+This project includes code from Folly.
+
+ * cpp/src/arrow/vendored/ProducerConsumerQueue.h
+
+is based on Folly's
+
+ * folly/Portability.h
+ * folly/lang/Align.h
+ * folly/ProducerConsumerQueue.h
+
+Copyright: Copyright (c) Facebook, Inc. and its affiliates.
+Home page: https://github.com/facebook/folly
+License: http://www.apache.org/licenses/LICENSE-2.0
+
+--------------------------------------------------------------------------------
+
 The file cpp/src/arrow/vendored/musl/strptime.c has the following license
 
 Copyright © 2005-2020 Rich Felker, et al.

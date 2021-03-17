@@ -445,7 +445,7 @@ impl RleDecoder {
                     cmp::min(max_values - values_read, self.rle_left as usize);
                 let dict_idx = self.current_value.unwrap() as usize;
                 for i in 0..num_values {
-                    buffer[values_read + i] = dict[dict_idx].clone();
+                    buffer[values_read + i].clone_from(&dict[dict_idx]);
                 }
                 self.rle_left -= num_values as u32;
                 values_read += num_values;
@@ -463,8 +463,8 @@ impl RleDecoder {
                         self.bit_width as usize,
                     );
                     for i in 0..num_values {
-                        buffer[values_read + i] =
-                            dict[self.index_buf[i] as usize].clone();
+                        buffer[values_read + i]
+                            .clone_from(&dict[self.index_buf[i] as usize])
                     }
                     self.bit_packed_left -= num_values as u32;
                     values_read += num_values;

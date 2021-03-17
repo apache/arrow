@@ -25,9 +25,9 @@
 
 #include "parquet/column_writer.h"
 #include "parquet/deprecated_io.h"
-#include "parquet/encryption_internal.h"
+#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/exception.h"
-#include "parquet/internal_file_encryptor.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"

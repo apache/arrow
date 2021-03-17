@@ -250,6 +250,10 @@ include_directories(SYSTEM "${THIRDPARTY_DIR}/flatbuffers/include")
 # ----------------------------------------------------------------------
 # Some EP's require other EP's
 
+if(PARQUET_REQUIRE_ENCRYPTION)
+  set(ARROW_JSON ON)
+endif()
+
 if(ARROW_THRIFT)
   set(ARROW_WITH_ZLIB ON)
 endif()
@@ -371,7 +375,6 @@ else()
     AWSSDK_SOURCE_URL
     "https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
     "https://github.com/ursa-labs/thirdparty/releases/download/latest/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
-    "https://dl.bintray.com/ursalabs/arrow-awssdk/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
     )
 endif()
 
@@ -384,14 +387,12 @@ else()
     BOOST_SOURCE_URL
     # These are trimmed boost bundles we maintain.
     # See cpp/build-support/trim-boost.sh
-    "https://dl.bintray.com/ursalabs/arrow-boost/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
-    "https://dl.bintray.com/boostorg/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
-    "https://github.com/boostorg/boost/archive/boost-${ARROW_BOOST_BUILD_VERSION}.tar.gz"
     # FIXME(ARROW-6407) automate uploading this archive to ensure it reflects
     # our currently used packages and doesn't fall out of sync with
     # ${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}
     "https://github.com/ursa-labs/thirdparty/releases/download/latest/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
-    )
+    "https://sourceforge.net/projects/boost/files/boost/${ARROW_BOOST_BUILD_VERSION}/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
+    "https://github.com/boostorg/boost/archive/boost-${ARROW_BOOST_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_BROTLI_URL})
@@ -462,7 +463,6 @@ else()
     "https://github.com/google/googletest/archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
     "https://chromium.googlesource.com/external/github.com/google/googletest/+archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
     "https://github.com/ursa-labs/thirdparty/releases/download/latest/gtest-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
-    "https://dl.bintray.com/ursalabs/arrow-gtest/gtest-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
     )
 endif()
 
@@ -568,7 +568,6 @@ else()
     "https://mirrors.sonic.net/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
     "https://us.mirrors.quenda.co/apache/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
     "https://github.com/ursa-labs/thirdparty/releases/download/latest/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
-    "https://dl.bintray.com/ursalabs/arrow-thrift/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
     )
 endif()
 
@@ -724,7 +723,7 @@ macro(build_boost)
       set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh")
     endif()
 
-    set(BOOST_BUILD_WITH_LIBRARIES "filesystem" "regex" "system")
+    set(BOOST_BUILD_WITH_LIBRARIES "filesystem" "system")
     string(REPLACE ";" "," BOOST_CONFIGURE_LIBRARIES "${BOOST_BUILD_WITH_LIBRARIES}")
     list(APPEND BOOST_CONFIGURE_COMMAND "--prefix=${BOOST_PREFIX}"
                 "--with-libraries=${BOOST_CONFIGURE_LIBRARIES}")
@@ -765,10 +764,6 @@ macro(build_boost)
       BOOST_STATIC_FILESYSTEM_LIBRARY
       "${BOOST_LIB_DIR}/libboost_filesystem${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
-    set(
-      BOOST_STATIC_REGEX_LIBRARY
-      "${BOOST_LIB_DIR}/libboost_regex${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
     set(BOOST_SYSTEM_LIBRARY boost_system_static)
     set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
     set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
@@ -778,8 +773,6 @@ macro(build_boost)
 
     add_thirdparty_lib(boost_filesystem STATIC_LIB "${BOOST_STATIC_FILESYSTEM_LIBRARY}")
 
-    add_thirdparty_lib(boost_regex STATIC_LIB "${BOOST_STATIC_REGEX_LIBRARY}")
-
     externalproject_add(boost_ep
                         URL ${BOOST_SOURCE_URL}
                         BUILD_BYPRODUCTS ${BOOST_BUILD_PRODUCTS}
@@ -787,8 +780,7 @@ macro(build_boost)
                         CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
                         BUILD_COMMAND ${BOOST_BUILD_COMMAND}
                         INSTALL_COMMAND "" ${EP_LOG_OPTIONS})
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS boost_system_static boost_filesystem_static
-                boost_regex_static)
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS boost_system_static boost_filesystem_static)
   else()
     externalproject_add(boost_ep
                         ${EP_LOG_OPTIONS}
@@ -814,6 +806,8 @@ if(MSVC AND ARROW_USE_STATIC_CRT)
   set(Boost_USE_STATIC_RUNTIME ON)
 endif()
 set(Boost_ADDITIONAL_VERSIONS
+    "1.75.0"
+    "1.75"
     "1.74.0"
     "1.74"
     "1.73.0"
@@ -1238,6 +1232,10 @@ endif()
 # Thrift
 
 macro(build_thrift)
+  if(CMAKE_VERSION VERSION_LESS 3.10)
+    message(
+      FATAL_ERROR "Building thrift using ExternalProject requires at least CMake 3.10")
+  endif()
   message("Building Apache Thrift from source")
   set(THRIFT_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/thrift_ep-install")
   set(THRIFT_INCLUDE_DIR "${THRIFT_PREFIX}/include")
@@ -1247,8 +1245,6 @@ macro(build_thrift)
       "-DCMAKE_INSTALL_RPATH=${THRIFT_PREFIX}/lib"
       -DBUILD_COMPILER=OFF
       -DBUILD_SHARED_LIBS=OFF
-      # DWITH_SHARED_LIB is removed in 0.13
-      -DWITH_SHARED_LIB=OFF
       -DBUILD_TESTING=OFF
       -DBUILD_EXAMPLES=OFF
       -DBUILD_TUTORIALS=OFF
@@ -2187,6 +2183,10 @@ macro(build_bzip2)
     "${BZIP2_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}bz2${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
   set(BZIP2_EXTRA_ARGS "CC=${CMAKE_C_COMPILER}" "CFLAGS=${EP_C_FLAGS}")
+
+  if(CMAKE_OSX_SYSROOT)
+    list(APPEND BZIP2_EXTRA_ARGS "SDKROOT=${CMAKE_OSX_SYSROOT}")
+  endif()
 
   externalproject_add(bzip2_ep
                       ${EP_LOG_OPTIONS}

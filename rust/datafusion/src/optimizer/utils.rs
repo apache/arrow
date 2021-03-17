@@ -214,6 +214,11 @@ pub fn from_plan(
         LogicalPlan::Extension { node } => Ok(LogicalPlan::Extension {
             node: node.from_template(expr, inputs),
         }),
+        LogicalPlan::Union { schema, alias, .. } => Ok(LogicalPlan::Union {
+            inputs: inputs.to_vec(),
+            schema: schema.clone(),
+            alias: alias.clone(),
+        }),
         LogicalPlan::EmptyRelation { .. }
         | LogicalPlan::TableScan { .. }
         | LogicalPlan::CreateExternalTable { .. }

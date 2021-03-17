@@ -22,6 +22,15 @@
 
 #define _FILE_OFFSET_BITS 64
 
+#if defined(sun) || defined(__sun)
+// According to https://bugs.python.org/issue1759169#msg82201, __EXTENSIONS__
+// is the best way to enable modern POSIX APIs, such as posix_madvise(), on Solaris.
+// (see also
+// https://github.com/illumos/illumos-gate/blob/master/usr/src/uts/common/sys/mman.h)
+#undef __EXTENSIONS__
+#define __EXTENSIONS__
+#endif
+
 #include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
 
 #include <algorithm>
@@ -304,6 +313,26 @@ class WinErrorDetail : public StatusDetail {
 };
 #endif
 
+const char kSignalDetailTypeId[] = "arrow::SignalDetail";
+
+class SignalDetail : public StatusDetail {
+ public:
+  explicit SignalDetail(int signum) : signum_(signum) {}
+
+  const char* type_id() const override { return kSignalDetailTypeId; }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << "received signal " << signum_;
+    return ss.str();
+  }
+
+  int signum() const { return signum_; }
+
+ protected:
+  int signum_;
+};
+
 }  // namespace
 
 std::shared_ptr<StatusDetail> StatusDetailFromErrno(int errnum) {
@@ -315,6 +344,10 @@ std::shared_ptr<StatusDetail> StatusDetailFromWinError(int errnum) {
   return std::make_shared<WinErrorDetail>(errnum);
 }
 #endif
+
+std::shared_ptr<StatusDetail> StatusDetailFromSignal(int signum) {
+  return std::make_shared<SignalDetail>(signum);
+}
 
 int ErrnoFromStatus(const Status& status) {
   const auto detail = status.detail();
@@ -331,6 +364,14 @@ int WinErrorFromStatus(const Status& status) {
     return checked_cast<const WinErrorDetail&>(*detail).errnum();
   }
 #endif
+  return 0;
+}
+
+int SignalFromStatus(const Status& status) {
+  const auto detail = status.detail();
+  if (detail != nullptr && detail->type_id() == kSignalDetailTypeId) {
+    return checked_cast<const SignalDetail&>(*detail).signum();
+  }
   return 0;
 }
 
@@ -1033,8 +1074,16 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
     return StatusFromMmapErrno("MapViewOfFile failed");
   }
   return Status::OK();
+#elif defined(__linux__)
+  if (ftruncate(fildes, new_size) == -1) {
+    return StatusFromMmapErrno("ftruncate failed");
+  }
+  *new_addr = mremap(addr, old_size, new_size, MREMAP_MAYMOVE);
+  if (*new_addr == MAP_FAILED) {
+    return StatusFromMmapErrno("mremap failed");
+  }
+  return Status::OK();
 #else
-#if defined(__APPLE__) || defined(__FreeBSD__)
   // we have to close the mmap first, truncate the file to the new size
   // and recreate the mmap
   if (munmap(addr, old_size) == -1) {
@@ -1050,16 +1099,6 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
     return StatusFromMmapErrno("mmap failed");
   }
   return Status::OK();
-#else
-  if (ftruncate(fildes, new_size) == -1) {
-    return StatusFromMmapErrno("ftruncate failed");
-  }
-  *new_addr = mremap(addr, old_size, new_size, MREMAP_MAYMOVE);
-  if (*new_addr == MAP_FAILED) {
-    return StatusFromMmapErrno("mremap failed");
-  }
-  return Status::OK();
-#endif
 #endif
 }
 
@@ -1105,7 +1144,7 @@ Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
     }
   }
   return Status::OK();
-#else
+#elif defined(POSIX_MADV_WILLNEED)
   for (const auto& region : regions) {
     if (region.size != 0) {
       const auto aligned = align_region(region);
@@ -1118,6 +1157,8 @@ Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
       }
     }
   }
+  return Status::OK();
+#else
   return Status::OK();
 #endif
 }
@@ -1606,6 +1647,39 @@ Result<SignalHandler> SetSignalHandler(int signum, const SignalHandler& handler)
   return SignalHandler(cb);
 #endif
   return Status::OK();
+}
+
+void ReinstateSignalHandler(int signum, SignalHandler::Callback handler) {
+#if !ARROW_HAVE_SIGACTION
+  // Cannot report any errors from signal() (but there shouldn't be any)
+  signal(signum, handler);
+#endif
+}
+
+Status SendSignal(int signum) {
+  if (raise(signum) == 0) {
+    return Status::OK();
+  }
+  if (errno == EINVAL) {
+    return Status::Invalid("Invalid signal number ", signum);
+  }
+  return IOErrorFromErrno(errno, "Failed to raise signal");
+}
+
+Status SendSignalToThread(int signum, uint64_t thread_id) {
+#ifdef _WIN32
+  return Status::NotImplemented("Cannot send signal to specific thread on Windows");
+#else
+  // Have to use a C-style cast because pthread_t can be a pointer *or* integer type
+  int r = pthread_kill((pthread_t)thread_id, signum);  // NOLINT readability-casting
+  if (r == 0) {
+    return Status::OK();
+  }
+  if (r == EINVAL) {
+    return Status::Invalid("Invalid signal number ", signum);
+  }
+  return IOErrorFromErrno(r, "Failed to raise signal");
+#endif
 }
 
 namespace {

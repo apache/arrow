@@ -195,6 +195,10 @@ class JiraIssue(object):
             self.cmd.fail("JIRA issue %s already has status '%s'"
                           % (self.jira_id, cur_status))
 
+        if DEBUG:
+            print("JIRA issue %s untouched" % (self.jira_id))
+            return
+
         resolve = [x for x in self.jira_con.transitions(self.jira_id)
                    if x['name'] == "Resolve Issue"][0]
 

@@ -526,7 +526,9 @@ impl ArrayBuilder for BooleanBuilder {
 #[derive(Debug)]
 pub struct PrimitiveBuilder<T: ArrowPrimitiveType> {
     values_builder: BufferBuilder<T::Native>,
-    bitmap_builder: BooleanBufferBuilder,
+    /// We only materialize the builder when we add `false`.
+    /// This optimization is **very** important for performance of `StringBuilder`.
+    bitmap_builder: Option<BooleanBufferBuilder>,
 }
 
 impl<T: ArrowPrimitiveType> ArrayBuilder for PrimitiveBuilder<T> {
@@ -566,7 +568,7 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
     pub fn new(capacity: usize) -> Self {
         Self {
             values_builder: BufferBuilder::<T::Native>::new(capacity),
-            bitmap_builder: BooleanBufferBuilder::new(capacity),
+            bitmap_builder: None,
         }
     }
 
@@ -577,14 +579,17 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
 
     /// Appends a value of type `T` into the builder
     pub fn append_value(&mut self, v: T::Native) -> Result<()> {
-        self.bitmap_builder.append(true);
+        if let Some(b) = self.bitmap_builder.as_mut() {
+            b.append(true);
+        }
         self.values_builder.append(v);
         Ok(())
     }
 
     /// Appends a null slot into the builder
     pub fn append_null(&mut self) -> Result<()> {
-        self.bitmap_builder.append(false);
+        self.materialize_bitmap_builder();
+        self.bitmap_builder.as_mut().unwrap().append(false);
         self.values_builder.advance(1);
         Ok(())
     }
@@ -600,7 +605,9 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
 
     /// Appends a slice of type `T` into the builder
     pub fn append_slice(&mut self, v: &[T::Native]) -> Result<()> {
-        self.bitmap_builder.append_n(v.len(), true);
+        if let Some(b) = self.bitmap_builder.as_mut() {
+            b.append_n(v.len(), true);
+        }
         self.values_builder.append_slice(v);
         Ok(())
     }
@@ -616,7 +623,12 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
                 "Value and validity lengths must be equal".to_string(),
             ));
         }
-        self.bitmap_builder.append_slice(is_valid);
+        if is_valid.iter().any(|v| !*v) {
+            self.materialize_bitmap_builder();
+        }
+        if let Some(b) = self.bitmap_builder.as_mut() {
+            b.append_slice(is_valid);
+        }
         self.values_builder.append_slice(values);
         Ok(())
     }
@@ -624,13 +636,17 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
     /// Builds the `PrimitiveArray` and reset this builder.
     pub fn finish(&mut self) -> PrimitiveArray<T> {
         let len = self.len();
-        let null_bit_buffer = self.bitmap_builder.finish();
-        let null_count = len - null_bit_buffer.count_set_bits();
+        let null_bit_buffer = self.bitmap_builder.as_mut().map(|b| b.finish());
+        let null_count = len
+            - null_bit_buffer
+                .as_ref()
+                .map(|b| b.count_set_bits())
+                .unwrap_or(len);
         let mut builder = ArrayData::builder(T::DATA_TYPE)
             .len(len)
             .add_buffer(self.values_builder.finish());
         if null_count > 0 {
-            builder = builder.null_bit_buffer(null_bit_buffer);
+            builder = builder.null_bit_buffer(null_bit_buffer.unwrap());
         }
         let data = builder.build();
         PrimitiveArray::<T>::from(data)
@@ -639,8 +655,12 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
     /// Builds the `DictionaryArray` and reset this builder.
     pub fn finish_dict(&mut self, values: ArrayRef) -> DictionaryArray<T> {
         let len = self.len();
-        let null_bit_buffer = self.bitmap_builder.finish();
-        let null_count = len - null_bit_buffer.count_set_bits();
+        let null_bit_buffer = self.bitmap_builder.as_mut().map(|b| b.finish());
+        let null_count = len
+            - null_bit_buffer
+                .as_ref()
+                .map(|b| b.count_set_bits())
+                .unwrap_or(len);
         let data_type = DataType::Dictionary(
             Box::new(T::DATA_TYPE),
             Box::new(values.data_type().clone()),
@@ -649,10 +669,20 @@ impl<T: ArrowPrimitiveType> PrimitiveBuilder<T> {
             .len(len)
             .add_buffer(self.values_builder.finish());
         if null_count > 0 {
-            builder = builder.null_bit_buffer(null_bit_buffer);
+            builder = builder.null_bit_buffer(null_bit_buffer.unwrap());
         }
         builder = builder.add_child_data(values.data());
         DictionaryArray::<T>::from(builder.build())
+    }
+
+    fn materialize_bitmap_builder(&mut self) {
+        if self.bitmap_builder.is_some() {
+            return;
+        }
+        let mut b = BooleanBufferBuilder::new(0);
+        b.reserve(self.values_builder.capacity());
+        b.append_n(self.values_builder.len, true);
+        self.bitmap_builder = Some(b);
     }
 }
 

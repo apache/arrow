@@ -150,6 +150,13 @@ Array$create <- function(x, type = NULL) {
   if (!is.null(type)) {
     type <- as_type(type)
   }
+  if (inherits(x, "Scalar")) {
+    out <- x$as_array()
+    if (!is.null(type)) {
+      out <- out$cast(type)
+    }
+    return(out)
+  }
   vec_to_arrow(x, type)
 }
 

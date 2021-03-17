@@ -107,7 +107,7 @@ class CrossbowCommentFormatter:
         ),
         'travis': _markdown_badge.format(
             title='TravisCI',
-            url='https://travis-ci.org/{repo}/branches',
+            url='https://travis-ci.com/{repo}/branches',
             badge='https://img.shields.io/travis/{repo}/{branch}.svg'
         ),
         'circle': _markdown_badge.format(

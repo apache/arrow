@@ -48,7 +48,8 @@ namespace io {
 
 static IOContext g_default_io_context{};
 
-IOContext::IOContext(MemoryPool* pool) : IOContext(pool, internal::GetIOThreadPool()) {}
+IOContext::IOContext(MemoryPool* pool, StopToken stop_token)
+    : IOContext(pool, internal::GetIOThreadPool(), std::move(stop_token)) {}
 
 const IOContext& default_io_context() { return g_default_io_context; }
 

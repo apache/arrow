@@ -42,7 +42,11 @@ arrow_dplyr_query <- function(.data) {
       filtered_rows = TRUE,
       # group_by_vars is a character vector of columns (as renamed)
       # in the data. They will be kept when data is pulled into R.
-      group_by_vars = character()
+      group_by_vars = character(),
+      # drop_empty_groups is a logical value indicating whether to drop
+      # groups formed by factor levels that don't appear in the data. It
+      # should be non-null only when the data is grouped.
+      drop_empty_groups = NULL
     ),
     class = "arrow_dplyr_query"
   )
@@ -282,16 +286,14 @@ arrow_eval <- function (expr, mask) {
 build_function_list <- function(FUN) {
   wrapper <- function(operator) {
     force(operator)
-    function(e1, e2) FUN(operator, e1, e2)
+    function(...) FUN(operator, ...)
   }
+  all_arrow_funs <- list_compute_functions()
 
   c(
+    # Include mappings from R function name spellings
     lapply(set_names(names(.array_function_map)), wrapper),
-    # TODO: lapply also for the arrow spellings?
-    # See list_compute_functions()
-    # (would want to do these first, and then modifyList with the R ones
-    # in case of name collision)
-    # Would need to generalize FUN to accept ... args
+    # Plus some special handling where it's not 1:1
     str_trim = function(string, side = c("both", "left", "right")) {
       side <- match.arg(side)
       switch(
@@ -300,20 +302,32 @@ build_function_list <- function(FUN) {
         right = FUN("utf8_rtrim_whitespace", string),
         both = FUN("utf8_trim_whitespace", string)
       )
-    }
+    },
+    between = function(x, left, right) {
+      x >= left & x <= right
+    },
+    # Now also include all available Arrow Compute functions,
+    # namespaced as arrow_fun
+    set_names(
+      lapply(all_arrow_funs, wrapper),
+      paste0("arrow_", all_arrow_funs)
+    )
   )
 }
 
-# Create these once, at package build time
-dataset_function_list <- build_function_list(build_dataset_expression)
-array_function_list <- build_function_list(build_array_expression)
+# We'll populate these at package load time.
+dplyr_functions <- NULL
+init_env <- function () {
+  dplyr_functions <<- new.env(hash = TRUE)
+}
+init_env()
 
 # Create a data mask for evaluating a dplyr expression
 arrow_mask <- function(.data) {
   if (query_on_dataset(.data)) {
-    f_env <- new_environment(dataset_function_list)
+    f_env <- new_environment(dplyr_functions$dataset)
   } else {
-    f_env <- new_environment(array_function_list)
+    f_env <- new_environment(dplyr_functions$array)
   }
 
   # Add functions that need to error hard and clear.
@@ -388,6 +402,7 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
 collect.ArrowTabular <- as.data.frame.ArrowTabular
 collect.Dataset <- function(x, ...) dplyr::collect(arrow_dplyr_query(x), ...)
 
+#' @importFrom rlang .data
 ensure_group_vars <- function(x) {
   if (inherits(x, "arrow_dplyr_query")) {
     # Before pulling data from Arrow, make sure all group vars are in the projection
@@ -416,11 +431,16 @@ restore_dplyr_features <- function(df, query) {
   if (grouped) {
     # Preserve groupings, if present
     if (is.data.frame(df)) {
-      df <- dplyr::grouped_df(df, dplyr::group_vars(query))
+      df <- dplyr::grouped_df(
+        df,
+        dplyr::group_vars(query),
+        drop = group_by_drop_default(query)
+      )
     } else {
       # This is a Table, via collect(as_data_frame = FALSE)
       df <- arrow_dplyr_query(df)
       df$group_by_vars <- query$group_by_vars
+      df$drop_empty_groups <- query$drop_empty_groups
     }
   }
   df
@@ -455,10 +475,7 @@ group_by.arrow_dplyr_query <- function(.data,
                                        ...,
                                        .add = FALSE,
                                        add = .add,
-                                       .drop = TRUE) {
-  if (!isTRUE(.drop)) {
-    stop(".drop argument not supported for Arrow objects", call. = FALSE)
-  }
+                                       .drop = group_by_drop_default(.data)) {
   .data <- arrow_dplyr_query(.data)
   # ... can contain expressions (i.e. can add (or rename?) columns)
   # Check for those (they show up as named expressions)
@@ -477,6 +494,7 @@ group_by.arrow_dplyr_query <- function(.data,
     gv <- dplyr::group_by_prepare(.data, ..., add = add)$group_names
   }
   .data$group_by_vars <- gv
+  .data$drop_empty_groups <- ifelse(length(gv), .drop, group_by_drop_default(.data))
   .data
 }
 group_by.Dataset <- group_by.ArrowTabular <- group_by.arrow_dplyr_query
@@ -487,8 +505,16 @@ groups.Dataset <- groups.ArrowTabular <- function(x) NULL
 group_vars.arrow_dplyr_query <- function(x) x$group_by_vars
 group_vars.Dataset <- group_vars.ArrowTabular <- function(x) NULL
 
+# the logical literal in the two functions below controls the default value of
+# the .drop argument to group_by()
+group_by_drop_default.arrow_dplyr_query <-
+  function(.tbl) .tbl$drop_empty_groups %||% TRUE
+group_by_drop_default.Dataset <- group_by_drop_default.ArrowTabular <-
+  function(.tbl) TRUE
+
 ungroup.arrow_dplyr_query <- function(x, ...) {
   x$group_by_vars <- character()
+  x$drop_empty_groups <- NULL
   x
 }
 ungroup.Dataset <- ungroup.ArrowTabular <- force
@@ -500,24 +526,23 @@ mutate.arrow_dplyr_query <- function(.data,
                                      .after = NULL) {
   call <- match.call()
   exprs <- quos(...)
-  if (length(exprs) == 0) {
+
+  .keep <- match.arg(.keep)
+  .before <- enquo(.before)
+  .after <- enquo(.after)
+
+  if (.keep %in% c("all", "unused") && length(exprs) == 0) {
     # Nothing to do
     return(.data)
   }
 
   .data <- arrow_dplyr_query(.data)
-  if (query_on_dataset(.data)) {
-    not_implemented_for_dataset("mutate()")
-  }
 
-  .keep <- match.arg(.keep)
-  .before <- enquo(.before)
-  .after <- enquo(.after)
   # Restrict the cases we support for now
   if (!quo_is_null(.before) || !quo_is_null(.after)) {
     # TODO(ARROW-11701)
     return(abandon_ship(call, .data, '.before and .after arguments are not supported in Arrow'))
-  } else if (length(group_vars(.data)) > 0) {
+  } else if (length(dplyr::group_vars(.data)) > 0) {
     # mutate() on a grouped dataset does calculations within groups
     # This doesn't matter on scalar ops (arithmetic etc.) but it does
     # for things with aggregations (e.g. subtracting the mean)
@@ -529,6 +554,7 @@ mutate.arrow_dplyr_query <- function(.data,
   # Deparse and take the first element in case they're long expressions
   names(exprs)[unnamed] <- map_chr(exprs[unnamed], as_label)
 
+  is_dataset <- query_on_dataset(.data)
   mask <- arrow_mask(.data)
   results <- list()
   for (i in seq_along(exprs)) {
@@ -539,6 +565,15 @@ mutate.arrow_dplyr_query <- function(.data,
     if (inherits(results[[new_var]], "try-error")) {
       msg <- paste('Expression', as_label(exprs[[i]]), 'not supported in Arrow')
       return(abandon_ship(call, .data, msg))
+    } else if (is_dataset &&
+               !inherits(results[[new_var]], "Expression") &&
+               !is.null(results[[new_var]])) {
+      # We need some wrapping to handle literal values
+      if (length(results[[new_var]]) != 1) {
+        msg <- paste0('In ', new_var, " = ", as_label(exprs[[i]]), ", only values of size one are recycled")
+        return(abandon_ship(call, .data, msg))
+      }
+      results[[new_var]] <- Expression$scalar(results[[new_var]])
     }
     # Put it in the data mask too
     mask[[new_var]] <- mask$.data[[new_var]] <- results[[new_var]]
@@ -583,7 +618,7 @@ abandon_ship <- function(call, .data, msg = NULL) {
       # Default message: function not implemented
       not_implemented_for_dataset(paste0(dplyr_fun_name, "()"))
     } else {
-      stop(msg, call. = FALSE)
+      stop(msg, "\nCall collect() first to pull data into R.", call. = FALSE)
     }
   }
 

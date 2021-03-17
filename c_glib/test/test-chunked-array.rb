@@ -128,4 +128,14 @@ class TestChunkedArray < Test::Unit::TestCase
 ]
     PRETTY_PRINT
   end
+
+  def test_combine
+    chunks = [
+      build_boolean_array([true]),
+      build_boolean_array([false, nil]),
+    ]
+    chunked_array = Arrow::ChunkedArray.new(chunks)
+    assert_equal(build_boolean_array([true, false, nil]),
+                 chunked_array.combine)
+  end
 end

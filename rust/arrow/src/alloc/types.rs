@@ -35,141 +35,37 @@ pub unsafe trait NativeType:
     fn to_le_bytes(&self) -> Self::Bytes;
 }
 
-unsafe impl NativeType for u8 {
-    type Bytes = [u8; std::mem::size_of::<Self>()];
-    #[inline]
-    fn to_le_bytes(&self) -> Self::Bytes {
-        Self::to_le_bytes(*self)
-    }
+macro_rules! create_native {
+    ($native_ty:ty,$($impl_pattern:pat)|+) => {
+        unsafe impl NativeType for $native_ty {
+            type Bytes = [u8; std::mem::size_of::<Self>()];
 
-    #[inline]
-    fn is_valid(data_type: &DataType) -> bool {
-        data_type == &DataType::UInt8
-    }
+            #[inline]
+            fn to_le_bytes(&self) -> Self::Bytes {
+                Self::to_le_bytes(*self)
+            }
+
+            #[inline]
+            fn is_valid(data_type: &DataType) -> bool {
+                matches!(data_type, $($impl_pattern)|+)
+            }
+        }
+    };
 }
 
-unsafe impl NativeType for u16 {
-    type Bytes = [u8; std::mem::size_of::<Self>()];
-    #[inline]
-    fn to_le_bytes(&self) -> Self::Bytes {
-        Self::to_le_bytes(*self)
-    }
-
-    #[inline]
-    fn is_valid(data_type: &DataType) -> bool {
-        data_type == &DataType::UInt16
-    }
-}
-
-unsafe impl NativeType for u32 {
-    type Bytes = [u8; std::mem::size_of::<Self>()];
-    #[inline]
-    fn to_le_bytes(&self) -> Self::Bytes {
-        Self::to_le_bytes(*self)
-    }
-
-    #[inline]
-    fn is_valid(data_type: &DataType) -> bool {
-        data_type == &DataType::UInt32
-    }
-}
-
-unsafe impl NativeType for u64 {
-    type Bytes = [u8; std::mem::size_of::<Self>()];
-    #[inline]
-    fn to_le_bytes(&self) -> Self::Bytes {
-        Self::to_le_bytes(*self)
-    }
-
-    #[inline]
-    fn is_valid(data_type: &DataType) -> bool {
-        data_type == &DataType::UInt64
-    }
-}
-
-unsafe impl NativeType for i8 {
-    type Bytes = [u8; std::mem::size_of::<Self>()];
-    #[inline]
-    fn to_le_bytes(&self) -> Self::Bytes {
-        Self::to_le_bytes(*self)
-    }
-
-    #[inline]
-    fn is_valid(data_type: &DataType) -> bool {
-        data_type == &DataType::Int8
-    }
-}
-
-unsafe impl NativeType for i16 {
-    type Bytes = [u8; std::mem::size_of::<Self>()];
-    #[inline]
-    fn to_le_bytes(&self) -> Self::Bytes {
-        Self::to_le_bytes(*self)
-    }
-
-    #[inline]
-    fn is_valid(data_type: &DataType) -> bool {
-        data_type == &DataType::Int16
-    }
-}
-
-unsafe impl NativeType for i32 {
-    type Bytes = [u8; std::mem::size_of::<Self>()];
-    #[inline]
-    fn to_le_bytes(&self) -> Self::Bytes {
-        Self::to_le_bytes(*self)
-    }
-
-    #[inline]
-    fn is_valid(data_type: &DataType) -> bool {
-        matches!(
-            data_type,
-            DataType::Int32 | DataType::Date32 | DataType::Time32(_)
-        )
-    }
-}
-
-unsafe impl NativeType for i64 {
-    type Bytes = [u8; std::mem::size_of::<Self>()];
-    #[inline]
-    fn to_le_bytes(&self) -> Self::Bytes {
-        Self::to_le_bytes(*self)
-    }
-
-    #[inline]
-    fn is_valid(data_type: &DataType) -> bool {
-        matches!(
-            data_type,
-            DataType::Int64
-                | DataType::Date64
-                | DataType::Time64(_)
-                | DataType::Timestamp(_, _)
-        )
-    }
-}
-
-unsafe impl NativeType for f32 {
-    type Bytes = [u8; std::mem::size_of::<Self>()];
-    #[inline]
-    fn to_le_bytes(&self) -> Self::Bytes {
-        Self::to_le_bytes(*self)
-    }
-
-    #[inline]
-    fn is_valid(data_type: &DataType) -> bool {
-        data_type == &DataType::Float32
-    }
-}
-
-unsafe impl NativeType for f64 {
-    type Bytes = [u8; std::mem::size_of::<Self>()];
-    #[inline]
-    fn to_le_bytes(&self) -> Self::Bytes {
-        Self::to_le_bytes(*self)
-    }
-
-    #[inline]
-    fn is_valid(data_type: &DataType) -> bool {
-        data_type == &DataType::Float64
-    }
-}
+create_native!(u8, DataType::UInt8);
+create_native!(u16, DataType::UInt16);
+create_native!(u32, DataType::UInt32);
+create_native!(u64, DataType::UInt64);
+create_native!(i8, DataType::Int8);
+create_native!(i16, DataType::Int16);
+create_native!(
+    i32,
+    DataType::Int32 | DataType::Date32 | DataType::Time32(_)
+);
+create_native!(
+    i64,
+    DataType::Int64 | DataType::Date64 | DataType::Time64(_) | DataType::Timestamp(_, _)
+);
+create_native!(f32, DataType::Float32);
+create_native!(f64, DataType::Float64);

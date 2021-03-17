@@ -156,12 +156,14 @@ fn sort_batches(
     )?;
 
     // sort combined record batch
+    // TODO: pushup the limit expression to sort
     let indices = lexsort_to_indices(
         &expr
             .iter()
             .map(|e| e.evaluate_to_sort_column(&combined_batch))
             .collect::<Result<Vec<SortColumn>>>()
             .map_err(DataFusionError::into_arrow_external_error)?,
+        None,
     )?;
 
     // reorder all rows based on sorted indices
@@ -271,8 +273,13 @@ mod tests {
         let schema = test::aggr_test_schema();
         let partitions = 4;
         let path = test::create_partitioned_csv("aggregate_test_100.csv", partitions)?;
-        let csv =
-            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
+        let csv = CsvExec::try_new(
+            &path,
+            CsvReadOptions::new().schema(&schema),
+            None,
+            1024,
+            None,
+        )?;
 
         let sort_exec = Arc::new(SortExec::try_new(
             vec![

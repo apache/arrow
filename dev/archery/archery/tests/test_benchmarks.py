@@ -19,10 +19,13 @@ import json
 
 from archery.benchmark.codec import JsonEncoder
 from archery.benchmark.core import Benchmark, median
-from archery.benchmark.compare import BenchmarkComparator
+from archery.benchmark.compare import (
+    BenchmarkComparator, RunnerComparator
+)
 from archery.benchmark.google import (
     GoogleBenchmark, GoogleBenchmarkObservation
 )
+from archery.benchmark.runner import StaticBenchmarkRunner
 
 
 def test_benchmark_comparator():
@@ -47,6 +50,54 @@ def test_benchmark_comparator():
         Benchmark("contender", unit, False, [20], unit, [1]),
         Benchmark("baseline", unit, False, [10], unit, [1]),
     ).regression
+
+
+def test_static_runner_from_json():
+    # full output of `archery benchmark run`
+    archery_result = {
+        "suites": [
+            {
+                "name": "arrow-value-parsing-benchmark",
+                "benchmarks": [
+                    {
+                        "name": "FloatParsing<DoubleType>",
+                        "unit": "items_per_second",
+                        "less_is_better": False,
+                        "values": [
+                            109941112.87296811
+                        ],
+                        "time_unit": "ns",
+                        "times": [
+                            9095.800104330105
+                        ]
+                    },
+                    {
+                        "name": "FloatParsing<FloatType>",
+                        "unit": "items_per_second",
+                        "less_is_better": False,
+                        "values": [
+                            105982641.9337845
+                        ],
+                        "time_unit": "ns",
+                        "times": [
+                            9435.567922160235
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+
+    contender = StaticBenchmarkRunner.from_json(json.dumps(archery_result))
+
+    # introduce artificial regression:
+    archery_result['suites'][0]['benchmarks'][0]['values'][0] *= 2
+    baseline = StaticBenchmarkRunner.from_json(json.dumps(archery_result))
+
+    artificial_reg, normal = RunnerComparator(contender, baseline).comparisons
+
+    assert artificial_reg.regression
+    assert not normal.regression
 
 
 def test_benchmark_median():

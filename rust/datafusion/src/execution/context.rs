@@ -42,6 +42,7 @@ use crate::logical_plan::{
 };
 use crate::optimizer::constant_folding::ConstantFolding;
 use crate::optimizer::filter_push_down::FilterPushDown;
+use crate::optimizer::limit_push_down::LimitPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
 use crate::physical_plan::csv::CsvReadOptions;
@@ -154,7 +155,10 @@ impl ExecutionContext {
                 ))),
             },
 
-            plan => Ok(Arc::new(DataFrameImpl::new(self.state.clone(), &plan))),
+            plan => Ok(Arc::new(DataFrameImpl::new(
+                self.state.clone(),
+                &self.optimize(&plan)?,
+            ))),
         }
     }
 
@@ -244,6 +248,7 @@ impl ExecutionContext {
             projected_schema: schema.to_dfschema_ref()?,
             projection: None,
             filters: vec![],
+            limit: None,
         };
         Ok(Arc::new(DataFrameImpl::new(
             self.state.clone(),
@@ -316,6 +321,7 @@ impl ExecutionContext {
                     projected_schema: schema.to_dfschema_ref()?,
                     projection: None,
                     filters: vec![],
+                    limit: None,
                 };
                 Ok(Arc::new(DataFrameImpl::new(
                     self.state.clone(),
@@ -353,7 +359,7 @@ impl ExecutionContext {
         for optimizer in optimizers {
             new_plan = optimizer.optimize(&new_plan)?;
         }
-        debug!("Optimized logical plan:\n {:?}", plan);
+        debug!("Optimized logical plan:\n {:?}", new_plan);
         Ok(new_plan)
     }
 
@@ -519,6 +525,7 @@ impl ExecutionConfig {
                 Arc::new(ProjectionPushDown::new()),
                 Arc::new(FilterPushDown::new()),
                 Arc::new(HashBuildProbeOrder::new()),
+                Arc::new(LimitPushDown::new()),
             ],
             query_planner: Arc::new(DefaultQueryPlanner {}),
         }
@@ -1700,6 +1707,23 @@ mod tests {
         for thread in threads {
             thread.join().expect("Failed to join thread")?;
         }
+        Ok(())
+    }
+    #[test]
+    fn ctx_sql_should_optimize_plan() -> Result<()> {
+        let mut ctx = ExecutionContext::new();
+        let plan1 =
+            ctx.create_logical_plan("SELECT * FROM (SELECT 1) WHERE TRUE AND TRUE")?;
+
+        let opt_plan1 = ctx.optimize(&plan1)?;
+
+        let plan2 = ctx.sql("SELECT * FROM (SELECT 1) WHERE TRUE AND TRUE")?;
+
+        assert_eq!(
+            format!("{:?}", opt_plan1),
+            format!("{:?}", plan2.to_logical_plan())
+        );
+
         Ok(())
     }
 

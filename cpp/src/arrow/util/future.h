@@ -628,6 +628,10 @@ Future<std::vector<Result<T>>> All(std::vector<Future<T>> futures) {
     std::atomic<size_t> n_remaining;
   };
 
+  if (futures.size() == 0) {
+    return {std::vector<Result<T>>{}};
+  }
+
   auto state = std::make_shared<State>(std::move(futures));
 
   auto out = Future<std::vector<Result<T>>>::Make();
@@ -644,6 +648,14 @@ Future<std::vector<Result<T>>> All(std::vector<Future<T>> futures) {
   }
   return out;
 }
+
+/// \brief Create a Future which completes when all of `futures` complete.
+///
+/// The future will be marked complete if all `futures` complete
+/// successfully. Otherwise, it will be marked failed with the status of
+/// the first failing future.
+ARROW_EXPORT
+Future<> AllComplete(const std::vector<Future<>>& futures);
 
 /// \brief Wait for one of the futures to end, or for the given timeout to expire.
 ///

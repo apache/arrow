@@ -34,8 +34,8 @@ from pyarrow.lib cimport (check_status, Field, MemoryPool, Schema,
                           pyarrow_unwrap_batch, pyarrow_unwrap_table,
                           pyarrow_wrap_schema, pyarrow_wrap_table,
                           pyarrow_wrap_data_type, pyarrow_unwrap_data_type,
-                          Table, RecordBatch)
-from pyarrow.lib import frombytes, tobytes
+                          Table, RecordBatch, StopToken)
+from pyarrow.lib import frombytes, tobytes, SignalStopHandler
 from pyarrow.util import _stringify_path
 
 
@@ -649,18 +649,27 @@ cdef class CSVStreamingReader(RecordBatchReader):
                         "use pyarrow.csv.open_csv() instead."
                         .format(self.__class__.__name__))
 
+    # Note about cancellation: we cannot create a SignalStopHandler
+    # by default here, as several CSVStreamingReader instances may be
+    # created (including by the same thread).  Handling cancellation
+    # would require having the user pass the SignalStopHandler.
+    # (in addition to solving ARROW-11853)
+
     cdef _open(self, shared_ptr[CInputStream] stream,
                CCSVReadOptions c_read_options,
                CCSVParseOptions c_parse_options,
                CCSVConvertOptions c_convert_options,
-               CMemoryPool* c_memory_pool):
+               MemoryPool memory_pool):
         cdef:
             shared_ptr[CSchema] c_schema
+            CIOContext io_context
+
+        io_context = CIOContext(maybe_unbox_memory_pool(memory_pool))
 
         with nogil:
             self.reader = <shared_ptr[CRecordBatchReader]> GetResultValue(
                 CCSVStreamingReader.Make(
-                    c_memory_pool, stream,
+                    io_context, stream,
                     move(c_read_options), move(c_parse_options),
                     move(c_convert_options)))
             c_schema = self.reader.get().schema()
@@ -701,6 +710,7 @@ def read_csv(input_file, read_options=None, parse_options=None,
         CCSVReadOptions c_read_options
         CCSVParseOptions c_parse_options
         CCSVConvertOptions c_convert_options
+        CIOContext io_context
         shared_ptr[CCSVReader] reader
         shared_ptr[CTable] table
 
@@ -709,12 +719,16 @@ def read_csv(input_file, read_options=None, parse_options=None,
     _get_parse_options(parse_options, &c_parse_options)
     _get_convert_options(convert_options, &c_convert_options)
 
-    reader = GetResultValue(CCSVReader.Make(
-        CIOContext(maybe_unbox_memory_pool(memory_pool)),
-        stream, c_read_options, c_parse_options, c_convert_options))
+    with SignalStopHandler() as stop_handler:
+        io_context = CIOContext(
+            maybe_unbox_memory_pool(memory_pool),
+            (<StopToken> stop_handler.stop_token).stop_token)
+        reader = GetResultValue(CCSVReader.Make(
+            io_context, stream,
+            c_read_options, c_parse_options, c_convert_options))
 
-    with nogil:
-        table = GetResultValue(reader.get().Read())
+        with nogil:
+            table = GetResultValue(reader.get().Read())
 
     return pyarrow_wrap_table(table)
 
@@ -762,8 +776,7 @@ def open_csv(input_file, read_options=None, parse_options=None,
 
     reader = CSVStreamingReader.__new__(CSVStreamingReader)
     reader._open(stream, move(c_read_options), move(c_parse_options),
-                 move(c_convert_options),
-                 maybe_unbox_memory_pool(memory_pool))
+                 move(c_convert_options), memory_pool)
     return reader
 
 

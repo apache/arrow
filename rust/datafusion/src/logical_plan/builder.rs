@@ -120,6 +120,7 @@ impl LogicalPlanBuilder {
             projected_schema,
             projection,
             filters: vec![],
+            limit: None,
         };
 
         Ok(Self::from(&table_scan))
@@ -174,6 +175,29 @@ impl LogicalPlanBuilder {
         Ok(Self::from(&LogicalPlan::Sort {
             expr: expr.to_vec(),
             input: Arc::new(self.plan.clone()),
+        }))
+    }
+
+    /// Apply a union
+    pub fn union(&self, plan: LogicalPlan) -> Result<Self> {
+        let schema = self.plan.schema();
+
+        if plan.schema() != schema {
+            return Err(DataFusionError::Plan(
+                "Schema's for union should be the same ".to_string(),
+            ));
+        }
+        // Add plan to existing union if possible
+        let mut inputs = match &self.plan {
+            LogicalPlan::Union { inputs, .. } => inputs.clone(),
+            _ => vec![self.plan.clone()],
+        };
+        inputs.push(plan);
+
+        Ok(Self::from(&LogicalPlan::Union {
+            inputs,
+            schema: schema.clone(),
+            alias: None,
         }))
     }
 
@@ -413,6 +437,32 @@ mod tests {
     }
 
     #[test]
+    fn plan_builder_union_combined_single_union() -> Result<()> {
+        let plan = LogicalPlanBuilder::scan_empty(
+            "employee.csv",
+            &employee_schema(),
+            Some(vec![3, 4]),
+        )?;
+
+        let plan = plan
+            .union(plan.build()?)?
+            .union(plan.build()?)?
+            .union(plan.build()?)?
+            .build()?;
+
+        // output has only one union
+        let expected = "Union\
+        \n  TableScan: employee.csv projection=Some([3, 4])\
+        \n  TableScan: employee.csv projection=Some([3, 4])\
+        \n  TableScan: employee.csv projection=Some([3, 4])\
+        \n  TableScan: employee.csv projection=Some([3, 4])";
+
+        assert_eq!(expected, format!("{:?}", plan));
+
+        Ok(())
+    }
+
+    #[test]
     fn projection_non_unique_names() -> Result<()> {
         let plan = LogicalPlanBuilder::scan_empty(
             "employee.csv",
@@ -424,9 +474,12 @@ mod tests {
 
         match plan {
             Err(DataFusionError::Plan(e)) => {
-                assert_eq!(e, "Projections require unique expression names \
+                assert_eq!(
+                    e,
+                    "Projections require unique expression names \
                     but the expression \"#id\" at position 0 and \"#first_name AS id\" at \
-                    position 1 have the same name. Consider aliasing (\"AS\") one of them.");
+                    position 1 have the same name. Consider aliasing (\"AS\") one of them."
+                );
                 Ok(())
             }
             _ => Err(DataFusionError::Plan(
@@ -447,9 +500,12 @@ mod tests {
 
         match plan {
             Err(DataFusionError::Plan(e)) => {
-                assert_eq!(e, "Aggregations require unique expression names \
+                assert_eq!(
+                    e,
+                    "Aggregations require unique expression names \
                     but the expression \"#state\" at position 0 and \"SUM(#salary) AS state\" at \
-                    position 1 have the same name. Consider aliasing (\"AS\") one of them.");
+                    position 1 have the same name. Consider aliasing (\"AS\") one of them."
+                );
                 Ok(())
             }
             _ => Err(DataFusionError::Plan(

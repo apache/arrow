@@ -4,10 +4,14 @@
 \alias{hive_partition}
 \title{Construct Hive partitioning}
 \usage{
-hive_partition(...)
+hive_partition(..., null_fallback = NULL)
 }
 \arguments{
 \item{...}{named list of \link[=data-type]{data types}, passed to \code{\link[=schema]{schema()}}}
+
+\item{null_fallback}{character to be used in place of missing values (\code{NA} or \code{NULL})
+in partition columns. Default is \code{"__HIVE_DEFAULT_PARTITION__"},
+which is what Hive uses.}
 }
 \value{
 A \link[=Partitioning]{HivePartitioning}, or a \code{HivePartitioningFactory} if
@@ -22,7 +26,7 @@ Because fields are named in the path segments, order of fields passed to
 \code{hive_partition()} does not matter.
 }
 \examples{
-\donttest{
+\dontrun{
 hive_partition(year = int16(), month = int8())
 }
 }

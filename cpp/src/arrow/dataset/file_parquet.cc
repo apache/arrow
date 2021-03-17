@@ -29,6 +29,7 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/table.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
@@ -59,8 +60,8 @@ class ParquetScanTask : public ScanTask {
                   std::vector<int> pre_buffer_row_groups, arrow::io::IOContext io_context,
                   arrow::io::CacheOptions cache_options,
                   std::shared_ptr<ScanOptions> options,
-                  std::shared_ptr<ScanContext> context)
-      : ScanTask(std::move(options), std::move(context)),
+                  std::shared_ptr<Fragment> fragment)
+      : ScanTask(std::move(options), std::move(fragment)),
         row_group_(row_group),
         column_projection_(std::move(column_projection)),
         reader_(std::move(reader)),
@@ -104,8 +105,10 @@ class ParquetScanTask : public ScanTask {
     if (pre_buffer_once_) {
       BEGIN_PARQUET_CATCH_EXCEPTIONS
       std::call_once(*pre_buffer_once_, [this]() {
-        reader_->parquet_reader()->PreBuffer(pre_buffer_row_groups_, column_projection_,
-                                             io_context_, cache_options_);
+        // Ignore the future here - don't wait for pre-buffering (the reader itself will
+        // block as necessary)
+        ARROW_UNUSED(reader_->parquet_reader()->PreBuffer(
+            pre_buffer_row_groups_, column_projection_, io_context_, cache_options_));
       });
       END_PARQUET_CATCH_EXCEPTIONS
     }
@@ -286,8 +289,8 @@ Result<std::shared_ptr<Schema>> ParquetFileFormat::Inspect(
 }
 
 Result<std::unique_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader(
-    const FileSource& source, ScanOptions* options, ScanContext* context) const {
-  MemoryPool* pool = context ? context->pool : default_memory_pool();
+    const FileSource& source, ScanOptions* options) const {
+  MemoryPool* pool = options ? options->pool : default_memory_pool();
   auto properties = MakeReaderProperties(*this, pool);
 
   ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
@@ -306,7 +309,7 @@ Result<std::unique_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
     arrow_properties.set_batch_size(options->batch_size);
   }
 
-  if (context && !context->use_threads) {
+  if (options && !options->use_threads) {
     arrow_properties.set_use_threads(reader_options.enable_parallel_column_conversion);
   }
 
@@ -316,10 +319,10 @@ Result<std::unique_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
   return std::move(arrow_reader);
 }
 
-Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions> options,
-                                                     std::shared_ptr<ScanContext> context,
-                                                     FileFragment* fragment) const {
-  auto* parquet_fragment = checked_cast<ParquetFileFragment*>(fragment);
+Result<ScanTaskIterator> ParquetFileFormat::ScanFile(
+    std::shared_ptr<ScanOptions> options,
+    const std::shared_ptr<FileFragment>& fragment) const {
+  auto* parquet_fragment = checked_cast<ParquetFileFragment*>(fragment.get());
   std::vector<int> row_groups;
 
   bool pre_filtered = false;
@@ -338,7 +341,7 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions
 
   // Open the reader and pay the real IO cost.
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<parquet::arrow::FileReader> reader,
-                        GetReader(fragment->source(), options.get(), context.get()));
+                        GetReader(fragment->source(), options.get()));
 
   // Ensure that parquet_fragment has FileMetaData
   RETURN_NOT_OK(parquet_fragment->EnsureCompleteMetadata(reader.get()));
@@ -361,7 +364,7 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(std::shared_ptr<ScanOptions
   for (size_t i = 0; i < row_groups.size(); ++i) {
     tasks[i] = std::make_shared<ParquetScanTask>(
         row_groups[i], column_projection, reader, pre_buffer_once, row_groups,
-        reader_options.io_context, reader_options.cache_options, options, context);
+        reader_options.io_context, reader_options.cache_options, options, fragment);
   }
 
   return MakeVectorIterator(std::move(tasks));

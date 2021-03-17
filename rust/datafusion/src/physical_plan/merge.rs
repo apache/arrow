@@ -121,7 +121,7 @@ impl ExecutionPlan for MergeExec {
 
                 // spawn independent tasks whose resulting streams (of batches)
                 // are sent to the channel for consumption.
-                for part_i in (0..input_partitions) {
+                for part_i in 0..input_partitions {
                     let input = self.input.clone();
                     let mut sender = sender.clone();
                     tokio::spawn(async move {
@@ -195,8 +195,13 @@ mod tests {
         let path =
             test::create_partitioned_csv("aggregate_test_100.csv", num_partitions)?;
 
-        let csv =
-            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
+        let csv = CsvExec::try_new(
+            &path,
+            CsvReadOptions::new().schema(&schema),
+            None,
+            1024,
+            None,
+        )?;
 
         // input should have 4 partitions
         assert_eq!(csv.output_partitioning().partition_count(), num_partitions);

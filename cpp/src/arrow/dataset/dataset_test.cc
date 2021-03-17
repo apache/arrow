@@ -42,9 +42,10 @@ TEST_F(TestInMemoryFragment, Scan) {
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
   // Creates a InMemoryFragment of the same repeated batch.
-  InMemoryFragment fragment({static_cast<size_t>(kNumberBatches), batch});
+  RecordBatchVector batches = {static_cast<size_t>(kNumberBatches), batch};
+  auto fragment = std::make_shared<InMemoryFragment>(batches);
 
-  AssertFragmentEquals(reader.get(), &fragment);
+  AssertFragmentEquals(reader.get(), fragment.get());
 }
 
 class TestInMemoryDataset : public DatasetFixtureMixin {};

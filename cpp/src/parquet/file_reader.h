@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/io/caching.h"
+#include "arrow/util/type_fwd.h"
 #include "parquet/metadata.h"  // IWYU pragma: keep
 #include "parquet/platform.h"
 #include "parquet/properties.h"
@@ -136,10 +137,10 @@ class PARQUET_EXPORT ParquetFileReader {
   /// buffered in memory until either \a PreBuffer() is called again,
   /// or the reader itself is destructed. Reading - and buffering -
   /// only one row group at a time may be useful.
-  void PreBuffer(const std::vector<int>& row_groups,
-                 const std::vector<int>& column_indices,
-                 const ::arrow::io::IOContext& ctx,
-                 const ::arrow::io::CacheOptions& options);
+  ::arrow::Future<> PreBuffer(const std::vector<int>& row_groups,
+                              const std::vector<int>& column_indices,
+                              const ::arrow::io::IOContext& ctx,
+                              const ::arrow::io::CacheOptions& options);
 
  private:
   // Holds a pointer to an instance of Contents implementation

@@ -1,8 +1,8 @@
 ---
-title: "Installing the Arrow Package on Linux"
+title: "Installing the Arrow Package"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Installing the Arrow Package on Linux}
+  %\VignetteIndexEntry{Installing the Arrow Package}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -100,8 +100,6 @@ satisfy C++ dependencies.
 
 > Note that, unlike packages like `tensorflow`, `blogdown`, and others that require external dependencies, you do not need to run `install_arrow()` after a successful `arrow` installation.
 
-<!-- TODO: does remotes::install_github("apache/arrow/r") work now? -->
-
 ## S3 support
 
 The `arrow` package allows you to work with data in AWS S3 or in other cloud
@@ -166,9 +164,34 @@ run `install.packages("arrow")` or `R CMD INSTALL` but not when running `R CMD c
 unless you've set the `NOT_CRAN=true` environment variable.
 
 For the mechanics of how all this works, see the R package `configure` script,
-which calls `tools/linuxlibs.R`.
+which calls `tools/nixlibs.R`.
 If the C++ library is built from source, `inst/build_arrow_static.sh` is executed.
 This build script is also what is used to generate the prebuilt binaries.
+
+
+# Using `remotes::install_github(...)`
+
+If you need an Arrow installation from a specific repository or at a specific ref,
+`remotes::install_github("apache/arrow/r", build = FALSE)`
+should work on most platforms (with the notable exception of Windows).
+The `build = FALSE` argument is important so that the installation can access the
+C++ source in the `cpp/` directory in `apache/arrow`.
+
+As with other installation methods, setting the environment variables `LIBARROW_MINIMAL=false` and `ARROW_R_DEV=true` will provide a more full-featured version of Arrow and provide more verbose output, respectively.
+
+For example, to install from the (fictional) branch `bugfix` from `apache/arrow` one could:
+
+```r
+Sys.setenv(LIBARROW_MINIMAL="false")
+remotes::install_github("apache/arrow/r@bugfix", build = FALSE)
+```
+
+Developers may wish to use this method of installing a specific commit
+separate from another Arrow development environment or system installation
+(e.g. we use this in [arrowbench](https://github.com/ursacomputing/arrowbench) to install development versions of arrow isolated from the system install). If you already have Arrow C++ libraries installed system-wide, you may need to set some additional variables in order to isolate this build from your system libraries:
+
+* Setting the environment variable `FORCE_BUNDLED_BUILD` to `true` will skip the `pkg-config` search for Arrow libraries and attempt to build from the same source at the repository+ref given.
+* You may also need to set the Makevars `CPPFLAGS` and `LDFLAGS` to `""` in order to prevent the installation process from attempting to link to already installed system versions of Arrow. One way to do this temporarily is wrapping your `remotes::install_github()` call like so: `withr::with_makevars(list(CPPFLAGS = "", LDFLAGS = ""), remotes::install_github(...))`.
 
 # Troubleshooting
 
@@ -334,7 +357,7 @@ By default, these are all unset. All boolean variables are case-insensitive.
   Use this if you want to avoid compiling the C++ library, which may be slow
   and resource-intensive, and ensure that you only use a prebuilt binary.
 * `LIBARROW_MINIMAL`: If set to `false`, the build script
-  will enable some optional features, including compression libraries, S3 
+  will enable some optional features, including compression libraries, S3
   support, and additional alternative memory allocators. This will increase the
   source build time but results in a more fully functional library.
 * `NOT_CRAN`: If this variable is set to `true`, as the `devtools` package does,

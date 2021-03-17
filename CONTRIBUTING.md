@@ -27,6 +27,13 @@ to first create an account on the
 hosts bugs and issues for multiple Apache projects.  The JIRA project name
 for Arrow is "ARROW".
 
+To be assigned to an issue, ask an Arrow JIRA admin to go to
+[Arrow Roles](https://issues.apache.org/jira/plugins/servlet/project-config/ARROW/roles),
+click "Add users to a role," and add you to the "Contributor" role.  Most
+committers are authorized to do this; if you're a committer and aren't
+able to load that project admin page, have someone else add you to the
+necessary role.
+
 Before you create a new bug entry, we recommend you first
 [search](https://issues.apache.org/jira/projects/ARROW/issues/ARROW-5140?filter=allopenissues)
 among existing Arrow issues.
