@@ -353,6 +353,7 @@ def test_filters_cutoff_exclusive_datetime(tempdir, use_legacy_dataset):
 
 
 @pytest.mark.pandas
+@pytest.mark.dataset
 def test_filters_inclusive_datetime(tempdir):
     # ARROW-11480
     path = tempdir / 'timestamps.parquet'
