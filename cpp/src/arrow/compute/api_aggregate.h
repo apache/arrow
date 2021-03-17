@@ -339,10 +339,9 @@ struct ARROW_EXPORT Aggregate {
 /// Internal use only: helper function for testing HashAggregateKernels.
 /// This will be replaced by streaming execution operators.
 ARROW_EXPORT
-Result<Datum> GroupBy(const std::vector<Datum>& arguments,
-                      const std::vector<Datum>& keys,
+Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Datum>& keys,
                       const std::vector<Aggregate>& aggregates,
-                      ExecContext* ctx = nullptr);
+                      ExecContext* ctx = NULLPTR);
 
 /// Interna use only: Assemble lists of indices of identical elements.
 ///
@@ -365,7 +364,7 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments,
 ///       {"ids": 3, "groupings": [5]}
 ///   ]
 ARROW_EXPORT
-Result<std::shared_ptr<StructArray>> MakeGroupings(Datum ids, ExecContext* ctx = nullptr);
+Result<std::shared_ptr<StructArray>> MakeGroupings(Datum ids, ExecContext* ctx = NULLPTR);
 
 }  // namespace internal
 }  // namespace compute

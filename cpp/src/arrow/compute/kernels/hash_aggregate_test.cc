@@ -673,4 +673,3 @@ TEST(GroupBy, RandomArraySum) {
 
 }  // namespace compute
 }  // namespace arrow
-

@@ -859,8 +859,7 @@ Result<std::unique_ptr<GroupIdentifier>> GroupIdentifier::Make(
   return GroupIdentifierImpl::Make(ctx, descrs);
 }
 
-Result<Datum> GroupBy(const std::vector<Datum>& arguments,
-                      const std::vector<Datum>& keys,
+Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Datum>& keys,
                       const std::vector<Aggregate>& aggregates, ExecContext* ctx) {
   if (ctx == nullptr) {
     ExecContext default_ctx;
@@ -869,9 +868,8 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments,
 
   // Construct and initialize HashAggregateKernels
   ARROW_ASSIGN_OR_RAISE(auto argument_descrs,
-                        ExecBatch::Make(arguments).Map([](ExecBatch batch) {
-                          return batch.GetDescriptors();
-                        }));
+                        ExecBatch::Make(arguments).Map(
+                            [](ExecBatch batch) { return batch.GetDescriptors(); }));
 
   ARROW_ASSIGN_OR_RAISE(auto kernels, MakeKernels(aggregates, argument_descrs));
 
