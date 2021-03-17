@@ -21,6 +21,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/result.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/util/functional.h"
 #include "arrow/util/sort.h"
 #include "arrow/util/string.h"
 #include "arrow/util/vector.h"
@@ -90,6 +93,23 @@ TEST(StlUtilTest, ArgSortPermute) {
   ExpectSortPermutation({c, b, a, d, e, f}, {2, 1, 0, 3, 4, 5}, 5);
   ExpectSortPermutation({b, c, a, f, d, e}, {2, 0, 1, 4, 5, 3}, 2);
   ExpectSortPermutation({b, c, d, e, a, f}, {4, 0, 1, 2, 3, 5}, 2);
+}
+
+TEST(StlUtilTest, MapEmplaceBack) {
+  auto all_good = EmplacedMappedVector<Result<MoveOnlyDataType>>(
+      Constructor<MoveOnlyDataType>(), 1, 2, 3);
+
+  ASSERT_EQ(all_good[0].ValueUnsafe(), 1);
+  ASSERT_EQ(all_good[1].ValueUnsafe(), 2);
+  ASSERT_EQ(all_good[2].ValueUnsafe(), 3);
+  ASSERT_EQ(all_good.size(), 3);
+
+  auto some_bad = EmplacedVector<Result<MoveOnlyDataType>>(
+      MoveOnlyDataType(1), Status::Invalid("XYZ"), Status::IOError("XYZ"));
+
+  ASSERT_EQ(some_bad[0].ValueUnsafe(), 1);
+  ASSERT_TRUE(some_bad[1].status().IsInvalid());
+  ASSERT_TRUE(some_bad[2].status().IsIOError());
 }
 
 }  // namespace internal
