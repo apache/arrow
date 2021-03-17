@@ -19,7 +19,9 @@
 
 use std::sync::Arc;
 
-use super::{aggregates, empty::EmptyExec, expressions::binary, functions, udaf};
+use super::{
+    aggregates, empty::EmptyExec, expressions::binary, functions, udaf, union::UnionExec,
+};
 use crate::error::{DataFusionError, Result};
 use crate::execution::context::ExecutionContextState;
 use crate::logical_plan::{
@@ -267,6 +269,13 @@ impl DefaultPhysicalPlanner {
                 let runtime_expr =
                     self.create_physical_expr(predicate, &input_schema, ctx_state)?;
                 Ok(Arc::new(FilterExec::try_new(runtime_expr, input)?))
+            }
+            LogicalPlan::Union { inputs, .. } => {
+                let physical_plans = inputs
+                    .iter()
+                    .map(|input| self.create_physical_plan(input, ctx_state))
+                    .collect::<Result<Vec<_>>>()?;
+                Ok(Arc::new(UnionExec::new(physical_plans)))
             }
             LogicalPlan::Repartition {
                 input,
@@ -870,7 +879,8 @@ mod tests {
         };
         let plan = planner.create_physical_plan(&logical_plan, &ctx_state);
 
-        let expected_error = "No installed planner was able to convert the custom node to an execution plan: NoOp";
+        let expected_error =
+            "No installed planner was able to convert the custom node to an execution plan: NoOp";
         match plan {
             Ok(_) => panic!("Expected planning failure"),
             Err(e) => assert!(

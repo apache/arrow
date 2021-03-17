@@ -42,8 +42,8 @@ use arrow::datatypes::*;
 use crate::prelude::JoinType;
 use sqlparser::ast::{
     BinaryOperator, DataType as SQLDataType, DateTimeField, Expr as SQLExpr, FunctionArg,
-    Join, JoinConstraint, JoinOperator, Query, Select, SelectItem, SetExpr, TableFactor,
-    TableWithJoins, UnaryOperator, Value,
+    Join, JoinConstraint, JoinOperator, Query, Select, SelectItem, SetExpr, SetOperator,
+    TableFactor, TableWithJoins, UnaryOperator, Value,
 };
 use sqlparser::ast::{ColumnDef as SQLColumnDef, ColumnOption};
 use sqlparser::ast::{OrderByExpr, Statement};
@@ -104,17 +104,73 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
 
     /// Generate a logic plan from an SQL query
     pub fn query_to_plan(&self, query: &Query) -> Result<LogicalPlan> {
-        let plan = match &query.body {
-            SetExpr::Select(s) => self.select_to_plan(s.as_ref()),
-            _ => Err(DataFusionError::NotImplemented(format!(
-                "Query {} not implemented yet",
-                query.body
-            ))),
-        }?;
+        self.query_to_plan_with_alias(query, None)
+    }
+
+    /// Generate a logic plan from an SQL query with optional alias
+    pub fn query_to_plan_with_alias(
+        &self,
+        query: &Query,
+        alias: Option<String>,
+    ) -> Result<LogicalPlan> {
+        let set_expr = &query.body;
+        let plan = self.set_expr_to_plan(set_expr, alias)?;
 
         let plan = self.order_by(&plan, &query.order_by)?;
 
         self.limit(&plan, &query.limit)
+    }
+
+    fn set_expr_to_plan(
+        &self,
+        set_expr: &SetExpr,
+        alias: Option<String>,
+    ) -> Result<LogicalPlan> {
+        match set_expr {
+            SetExpr::Select(s) => self.select_to_plan(s.as_ref()),
+            SetExpr::SetOperation {
+                op,
+                left,
+                right,
+                all,
+            } => match (op, all) {
+                (SetOperator::Union, true) => {
+                    let left_plan = self.set_expr_to_plan(left.as_ref(), None)?;
+                    let right_plan = self.set_expr_to_plan(right.as_ref(), None)?;
+                    let inputs = vec![left_plan, right_plan]
+                        .into_iter()
+                        .flat_map(|p| match p {
+                            LogicalPlan::Union { inputs, .. } => inputs,
+                            x => vec![x],
+                        })
+                        .collect::<Vec<_>>();
+                    if inputs.is_empty() {
+                        return Err(DataFusionError::Plan(format!(
+                            "Empty UNION: {}",
+                            set_expr
+                        )));
+                    }
+                    if !inputs.iter().all(|s| s.schema() == inputs[0].schema()) {
+                        return Err(DataFusionError::Plan(
+                            "UNION ALL schemas are expected to be the same".to_string(),
+                        ));
+                    }
+                    Ok(LogicalPlan::Union {
+                        schema: inputs[0].schema().clone(),
+                        inputs,
+                        alias,
+                    })
+                }
+                _ => Err(DataFusionError::NotImplemented(format!(
+                    "Only UNION ALL is supported, found {}",
+                    op
+                ))),
+            },
+            _ => Err(DataFusionError::NotImplemented(format!(
+                "Query {} not implemented yet",
+                set_expr
+            ))),
+        }
     }
 
     /// Generate a logical plan from a CREATE EXTERNAL TABLE statement
@@ -330,7 +386,12 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                     ))),
                 }
             }
-            TableFactor::Derived { subquery, .. } => self.query_to_plan(subquery),
+            TableFactor::Derived {
+                subquery, alias, ..
+            } => self.query_to_plan_with_alias(
+                subquery,
+                alias.as_ref().map(|a| a.name.value.to_string()),
+            ),
             TableFactor::NestedJoin(table_with_joins) => {
                 self.plan_table_with_joins(table_with_joins)
             }
@@ -2357,6 +2418,55 @@ mod tests {
             \n  Filter: #delivered Eq Boolean(false) Or #delivered Eq Boolean(true)\
             \n    TableScan: orders projection=None";
         quick_test(sql, expected);
+    }
+
+    #[test]
+    fn union() {
+        let sql = "SELECT order_id from orders UNION ALL SELECT order_id FROM orders";
+        let expected = "Union\
+            \n  Projection: #order_id\
+            \n    TableScan: orders projection=None\
+            \n  Projection: #order_id\
+            \n    TableScan: orders projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn union_4_combined_in_one() {
+        let sql = "SELECT order_id from orders
+                    UNION ALL SELECT order_id FROM orders
+                    UNION ALL SELECT order_id FROM orders
+                    UNION ALL SELECT order_id FROM orders";
+        let expected = "Union\
+            \n  Projection: #order_id\
+            \n    TableScan: orders projection=None\
+            \n  Projection: #order_id\
+            \n    TableScan: orders projection=None\
+            \n  Projection: #order_id\
+            \n    TableScan: orders projection=None\
+            \n  Projection: #order_id\
+            \n    TableScan: orders projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn union_schemas_should_be_same() {
+        let sql = "SELECT order_id from orders UNION ALL SELECT customer_id FROM orders";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "Plan(\"UNION ALL schemas are expected to be the same\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn only_union_all_supported() {
+        let sql = "SELECT order_id from orders EXCEPT SELECT order_id FROM orders";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "NotImplemented(\"Only UNION ALL is supported, found EXCEPT\")",
+            format!("{:?}", err)
+        );
     }
 
     #[test]

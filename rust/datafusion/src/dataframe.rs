@@ -132,6 +132,20 @@ pub trait DataFrame: Send + Sync {
     /// ```
     fn limit(&self, n: usize) -> Result<Arc<dyn DataFrame>>;
 
+    /// Calculate the union two [`DataFrame`]s.  The two [`DataFrame`]s must have exactly the same schema
+    ///
+    /// ```
+    /// # use datafusion::prelude::*;
+    /// # use datafusion::error::Result;
+    /// # fn main() -> Result<()> {
+    /// let mut ctx = ExecutionContext::new();
+    /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
+    /// let df = df.union(df.clone())?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    fn union(&self, dataframe: Arc<dyn DataFrame>) -> Result<Arc<dyn DataFrame>>;
+
     /// Sort the DataFrame by the specified sorting expressions. Any expression can be turned into
     /// a sort expression by calling its [sort](../logical_plan/enum.Expr.html#method.sort) method.
     ///
