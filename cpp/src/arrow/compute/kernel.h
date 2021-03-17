@@ -720,7 +720,7 @@ using HashAggregateFinalize = std::function<void(KernelContext*, Datum*)>;
 /// kernel are the init, consume, merge, and finalize functions.
 ///
 /// * init: creates a new KernelState for a kernel.
-/// * consume: processes an ExecBatch (which includes the aggregand as well
+/// * consume: processes an ExecBatch (which includes the argument as well
 ///   as an array of group identifiers) and updates the KernelState found in the
 ///   KernelContext.
 /// * finalize: produces the end result of the aggregation using the

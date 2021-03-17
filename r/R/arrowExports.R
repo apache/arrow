@@ -284,8 +284,8 @@ compute__CallFunction <- function(func_name, args, options){
     .Call(`_arrow_compute__CallFunction`, func_name, args, options)
 }
 
-compute__GroupBy <- function(aggregands, keys, options){
-    .Call(`_arrow_compute__GroupBy`, aggregands, keys, options)
+compute__GroupBy <- function(arguments, keys, options){
+    .Call(`_arrow_compute__GroupBy`, arguments, keys, options)
 }
 
 list_compute_functions <- function(){

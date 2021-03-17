@@ -796,7 +796,7 @@ Result<std::vector<HashAggregateKernel>> MakeKernels(
     const std::vector<Aggregate>& aggregates, const std::vector<ValueDescr>& in_descrs) {
   if (aggregates.size() != in_descrs.size()) {
     return Status::Invalid(aggregates.size(), " aggregate functions were specified but ",
-                           in_descrs.size(), " aggregands were provided.");
+                           in_descrs.size(), " arguments were provided.");
   }
 
   std::vector<HashAggregateKernel> kernels(in_descrs.size());
@@ -859,32 +859,32 @@ Result<std::unique_ptr<GroupIdentifier>> GroupIdentifier::Make(
   return GroupIdentifierImpl::Make(ctx, descrs);
 }
 
-Result<Datum> GroupBy(const std::vector<Datum>& aggregands,
+Result<Datum> GroupBy(const std::vector<Datum>& arguments,
                       const std::vector<Datum>& keys,
                       const std::vector<Aggregate>& aggregates, ExecContext* ctx) {
   if (ctx == nullptr) {
     ExecContext default_ctx;
-    return GroupBy(aggregands, keys, aggregates, &default_ctx);
+    return GroupBy(arguments, keys, aggregates, &default_ctx);
   }
 
   // Construct and initialize HashAggregateKernels
-  ARROW_ASSIGN_OR_RAISE(auto aggregand_descrs,
-                        ExecBatch::Make(aggregands).Map([](ExecBatch batch) {
+  ARROW_ASSIGN_OR_RAISE(auto argument_descrs,
+                        ExecBatch::Make(arguments).Map([](ExecBatch batch) {
                           return batch.GetDescriptors();
                         }));
 
-  ARROW_ASSIGN_OR_RAISE(auto kernels, MakeKernels(aggregates, aggregand_descrs));
+  ARROW_ASSIGN_OR_RAISE(auto kernels, MakeKernels(aggregates, argument_descrs));
 
   ARROW_ASSIGN_OR_RAISE(auto states,
-                        InitKernels(kernels, ctx, aggregates, aggregand_descrs));
+                        InitKernels(kernels, ctx, aggregates, argument_descrs));
 
   ARROW_ASSIGN_OR_RAISE(FieldVector out_fields,
-                        ResolveKernels(kernels, states, ctx, aggregand_descrs));
+                        ResolveKernels(kernels, states, ctx, argument_descrs));
 
   using arrow::compute::detail::ExecBatchIterator;
 
-  ARROW_ASSIGN_OR_RAISE(auto aggregand_batch_iterator,
-                        ExecBatchIterator::Make(aggregands, ctx->exec_chunksize()));
+  ARROW_ASSIGN_OR_RAISE(auto argument_batch_iterator,
+                        ExecBatchIterator::Make(arguments, ctx->exec_chunksize()));
 
   // Construct GroupIdentifier
   ARROW_ASSIGN_OR_RAISE(auto key_descrs, ExecBatch::Make(keys).Map([](ExecBatch batch) {
@@ -901,8 +901,8 @@ Result<Datum> GroupBy(const std::vector<Datum>& aggregands,
                         ExecBatchIterator::Make(keys, ctx->exec_chunksize()));
 
   // start "streaming" execution
-  ExecBatch key_batch, aggregand_batch;
-  while (aggregand_batch_iterator->Next(&aggregand_batch) &&
+  ExecBatch key_batch, argument_batch;
+  while (argument_batch_iterator->Next(&argument_batch) &&
          key_batch_iterator->Next(&key_batch)) {
     if (key_batch.length == 0) continue;
 
@@ -914,14 +914,14 @@ Result<Datum> GroupBy(const std::vector<Datum>& aggregands,
       KernelContext batch_ctx{ctx};
       batch_ctx.SetState(states[i].get());
       ARROW_ASSIGN_OR_RAISE(
-          auto batch, ExecBatch::Make({aggregand_batch[i], id_batch[0], id_batch[1]}));
+          auto batch, ExecBatch::Make({argument_batch[i], id_batch[0], id_batch[1]}));
       kernels[i].consume(&batch_ctx, batch);
       if (batch_ctx.HasError()) return batch_ctx.status();
     }
   }
 
   // Finalize output
-  ArrayDataVector out_data(aggregands.size() + keys.size());
+  ArrayDataVector out_data(arguments.size() + keys.size());
   auto it = out_data.begin();
 
   for (size_t i = 0; i < kernels.size(); ++i) {

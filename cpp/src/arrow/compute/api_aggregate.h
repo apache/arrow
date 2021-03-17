@@ -339,7 +339,7 @@ struct ARROW_EXPORT Aggregate {
 /// Internal use only: helper function for testing HashAggregateKernels.
 /// This will be replaced by streaming execution operators.
 ARROW_EXPORT
-Result<Datum> GroupBy(const std::vector<Datum>& aggregands,
+Result<Datum> GroupBy(const std::vector<Datum>& arguments,
                       const std::vector<Datum>& keys,
                       const std::vector<Aggregate>& aggregates,
                       ExecContext* ctx = nullptr);

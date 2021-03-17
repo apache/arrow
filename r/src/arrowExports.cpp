@@ -616,13 +616,13 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute.cpp
-SEXP compute__GroupBy(cpp11::list aggregands, cpp11::list keys, cpp11::list options);
-extern "C" SEXP _arrow_compute__GroupBy(SEXP aggregands_sexp, SEXP keys_sexp, SEXP options_sexp){
+SEXP compute__GroupBy(cpp11::list arguments, cpp11::list keys, cpp11::list options);
+extern "C" SEXP _arrow_compute__GroupBy(SEXP arguments_sexp, SEXP keys_sexp, SEXP options_sexp){
 BEGIN_CPP11
-	arrow::r::Input<cpp11::list>::type aggregands(aggregands_sexp);
+	arrow::r::Input<cpp11::list>::type arguments(arguments_sexp);
 	arrow::r::Input<cpp11::list>::type keys(keys_sexp);
 	arrow::r::Input<cpp11::list>::type options(options_sexp);
-	return cpp11::as_sexp(compute__GroupBy(aggregands, keys, options));
+	return cpp11::as_sexp(compute__GroupBy(arguments, keys, options));
 END_CPP11
 }
 // compute.cpp

@@ -315,7 +315,7 @@ struct ScalarVectorToArray {
   std::shared_ptr<ArrayData> data_;
 };
 
-Result<Datum> NaiveGroupBy(std::vector<Datum> aggregands, std::vector<Datum> keys,
+Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys,
                            const std::vector<internal::Aggregate>& aggregates) {
   ArrayVector keys_arrays;
   for (const Datum& key : keys) keys_arrays.push_back(key.make_array());
@@ -332,16 +332,16 @@ Result<Datum> NaiveGroupBy(std::vector<Datum> aggregands, std::vector<Datum> key
 
   ArrayVector out_columns;
 
-  for (size_t i_agg = 0; i_agg < aggregands.size(); ++i_agg) {
+  for (size_t i_agg = 0; i_agg < arguments.size(); ++i_agg) {
     ScalarVector aggregated_scalars;
 
-    ARROW_ASSIGN_OR_RAISE(auto grouped_aggregand,
-                          ApplyGroupings(*groupings, *aggregands[i_agg].make_array()));
+    ARROW_ASSIGN_OR_RAISE(auto grouped_argument,
+                          ApplyGroupings(*groupings, *arguments[i_agg].make_array()));
 
     for (int64_t i_group = 0; i_group < n_groups; ++i_group) {
       ARROW_ASSIGN_OR_RAISE(Datum d,
                             CallFunction(aggregates[i_agg].function,
-                                         {grouped_aggregand->value_slice(i_group)}));
+                                         {grouped_argument->value_slice(i_group)}));
       aggregated_scalars.push_back(d.scalar());
     }
 
@@ -352,7 +352,7 @@ Result<Datum> NaiveGroupBy(std::vector<Datum> aggregands, std::vector<Datum> key
 
   keys_struct =
       checked_pointer_cast<StructArray>(groupings_and_values->GetFieldByName("values"));
-  for (size_t i_key = 0; i_key < aggregands.size(); ++i_key) {
+  for (size_t i_key = 0; i_key < arguments.size(); ++i_key) {
     out_columns.push_back(keys_struct->field(i_key));
   }
 
@@ -361,11 +361,11 @@ Result<Datum> NaiveGroupBy(std::vector<Datum> aggregands, std::vector<Datum> key
 }
 
 void ValidateGroupBy(const std::vector<internal::Aggregate>& aggregates,
-                     std::vector<Datum> aggregands, std::vector<Datum> keys) {
+                     std::vector<Datum> arguments, std::vector<Datum> keys) {
   ASSERT_OK_AND_ASSIGN(Datum expected,
-                       group_helpers::NaiveGroupBy(aggregands, keys, aggregates));
+                       group_helpers::NaiveGroupBy(arguments, keys, aggregates));
 
-  ASSERT_OK_AND_ASSIGN(Datum actual, GroupBy(aggregands, keys, aggregates));
+  ASSERT_OK_AND_ASSIGN(Datum actual, GroupBy(arguments, keys, aggregates));
 
   // Ordering of groups is not important, so sort by key columns to ensure the comparison
   // doesn't fail spuriously
@@ -396,11 +396,11 @@ void ValidateGroupBy(const std::vector<internal::Aggregate>& aggregates,
 }  // namespace group_helpers
 
 TEST(GroupBy, SumOnlyBooleanKey) {
-  auto aggregand = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
+  auto argument = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
   auto key = ArrayFromJSON(boolean(), "[1, 0, 1, 0, null, 0, null]");
 
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy({aggregand}, {key},
+                       internal::GroupBy({argument}, {key},
                                          {
                                              {"sum", nullptr},
                                          }));
@@ -419,11 +419,11 @@ TEST(GroupBy, SumOnlyBooleanKey) {
 }
 
 TEST(GroupBy, SumOnly8bitKey) {
-  auto aggregand = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
+  auto argument = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
   auto key = ArrayFromJSON(int8(), "[1, 2, 3, 1, 2, 2, null]");
 
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy({aggregand}, {key},
+                       internal::GroupBy({argument}, {key},
                                          {
                                              {"sum", nullptr},
                                          }));
@@ -445,11 +445,11 @@ TEST(GroupBy, SumOnly8bitKey) {
 }
 
 TEST(GroupBy, SumOnly32bitKey) {
-  auto aggregand = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
+  auto argument = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
   auto key = ArrayFromJSON(int32(), "[1, 2, 3, 1, 2, 2, null]");
 
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy({aggregand}, {key},
+                       internal::GroupBy({argument}, {key},
                                          {
                                              {"sum", nullptr},
                                          }));
@@ -469,11 +469,12 @@ TEST(GroupBy, SumOnly32bitKey) {
 }
 
 TEST(GroupBy, SumOnly) {
-  auto aggregand = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
-  auto key = ArrayFromJSON(int64(), "[1, 2, 3, 1, 2, 2, null]");
+  auto argument =
+      ArrayFromJSON(float64(), "[1.0, 0.0, null, 4.0, 3.25, 0.125, -0.25, 0.75]");
+  auto key = ArrayFromJSON(int64(), "[1, 2, 3, null, 1, 2, 2, null]");
 
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy({aggregand}, {key},
+                       internal::GroupBy({argument}, {key},
                                          {
                                              {"sum", nullptr},
                                          }));
@@ -486,18 +487,18 @@ TEST(GroupBy, SumOnly) {
     [4.25,   1],
     [-0.125, 2],
     [null,   3],
-    [0.75,   null]
+    [4.75,   null]
   ])"),
                     aggregated_and_grouped,
                     /*verbose=*/true);
 }
 
 TEST(GroupBy, SumOnlyFloatingPointKey) {
-  auto aggregand = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
+  auto argument = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
   auto key = ArrayFromJSON(float64(), "[1, 2, 3, 1, 2, 2, null]");
 
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy({aggregand}, {key},
+                       internal::GroupBy({argument}, {key},
                                          {
                                              {"sum", nullptr},
                                          }));
@@ -517,11 +518,11 @@ TEST(GroupBy, SumOnlyFloatingPointKey) {
 }
 
 TEST(GroupBy, MinMaxOnly) {
-  auto aggregand = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
+  auto argument = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
   auto key = ArrayFromJSON(int64(), "[1, 2, 3, 1, 2, 2, null]");
 
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy({aggregand}, {key},
+                       internal::GroupBy({argument}, {key},
                                          {
                                              {"min_max", nullptr},
                                          }));
@@ -544,20 +545,19 @@ TEST(GroupBy, MinMaxOnly) {
 }
 
 TEST(GroupBy, CountAndSum) {
-  auto aggregand = ArrayFromJSON(float32(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
+  auto argument = ArrayFromJSON(float32(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
   auto key = ArrayFromJSON(int64(), "[1, 2, 1, 3, 2, 3, null]");
 
   CountOptions count_options;
 
-  ASSERT_OK_AND_ASSIGN(
-      Datum aggregated_and_grouped,
-      // NB: passing an aggregand twice or also using it as a key is legal
-      internal::GroupBy({aggregand, aggregand, key}, {key},
-                        {
-                            {"count", &count_options},
-                            {"sum", nullptr},
-                            {"sum", nullptr},
-                        }));
+  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                       // NB: passing an argument twice or also using it as a key is legal
+                       internal::GroupBy({argument, argument, key}, {key},
+                                         {
+                                             {"count", &count_options},
+                                             {"sum", nullptr},
+                                             {"sum", nullptr},
+                                         }));
 
   AssertDatumsEqual(
       ArrayFromJSON(struct_({
@@ -578,11 +578,11 @@ TEST(GroupBy, CountAndSum) {
 }
 
 TEST(GroupBy, StringKey) {
-  auto aggregand = ArrayFromJSON(int64(), "[10, 5, 4, 2, 12, 9]");
+  auto argument = ArrayFromJSON(int64(), "[10, 5, 4, 2, 12, 9]");
   auto key = ArrayFromJSON(utf8(), R"(["alfa", "beta", "gamma", "gamma", null, "beta"])");
 
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy({aggregand}, {key}, {{"sum", nullptr}}));
+                       internal::GroupBy({argument}, {key}, {{"sum", nullptr}}));
 
   AssertDatumsEqual(ArrayFromJSON(struct_({
                                       field("", int64()),
@@ -599,12 +599,12 @@ TEST(GroupBy, StringKey) {
 }
 
 TEST(GroupBy, DictKey) {
-  auto aggregand = ArrayFromJSON(int64(), "[10, 5, 4, 2, 12, 9]");
+  auto argument = ArrayFromJSON(int64(), "[10, 5, 4, 2, 12, 9]");
   auto key = ArrayFromJSON(dictionary(int32(), utf8()),
                            R"(["alfa", "beta", "gamma", "gamma", null, "beta"])");
 
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy({aggregand}, {key}, {{"sum", nullptr}}));
+                       internal::GroupBy({argument}, {key}, {{"sum", nullptr}}));
 
   AssertDatumsEqual(ArrayFromJSON(struct_({
                                       field("", int64()),
@@ -621,14 +621,14 @@ TEST(GroupBy, DictKey) {
 }
 
 TEST(GroupBy, MultipleKeys) {
-  auto aggregand = ArrayFromJSON(float32(), "[0.125, 0.5, -0.75, 8, 1.0, 2.0]");
+  auto argument = ArrayFromJSON(float32(), "[0.125, 0.5, -0.75, 8, 1.0, 2.0]");
   auto int_key = ArrayFromJSON(int32(), "[0, 1, 0, 1, 0, 1]");
   auto str_key =
       ArrayFromJSON(utf8(), R"(["beta", "beta", "gamma", "gamma", null, "beta"])");
 
   ASSERT_OK_AND_ASSIGN(
       Datum aggregated_and_grouped,
-      internal::GroupBy({aggregand}, {int_key, str_key}, {{"sum", nullptr}}));
+      internal::GroupBy({argument}, {int_key, str_key}, {{"sum", nullptr}}));
 
   AssertDatumsEqual(ArrayFromJSON(struct_({
                                       field("", float64()),
@@ -647,17 +647,17 @@ TEST(GroupBy, MultipleKeys) {
 }
 
 TEST(GroupBy, ConcreteCaseWithValidateGroupBy) {
-  auto aggregand = ArrayFromJSON(int64(), "[10, 5, 4, 2, 12]");
+  auto argument = ArrayFromJSON(int64(), "[10, 5, 4, 2, 12]");
   auto key = ArrayFromJSON(utf8(), R"(["alfa", "beta", "gamma", "gamma", "beta"])");
 
-  group_helpers::ValidateGroupBy({{"sum", nullptr}}, {aggregand}, {key});
+  group_helpers::ValidateGroupBy({{"sum", nullptr}}, {argument}, {key});
 }
 
 TEST(GroupBy, RandomArraySum) {
   auto rand = random::RandomArrayGenerator(0xdeadbeef);
 
-  for (size_t i = 3; i < 14; i += 2) {
-    for (auto null_probability : {0.0, 0.001, 0.1, 0.5, 0.999, 1.0}) {
+  for (size_t i = 10; i < 14; i += 2) {
+    for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
       int64_t length = 1UL << i;
       auto summand = rand.Float32(length, -100, 100, null_probability);
       auto key = rand.Int64(length, 0, 12);
