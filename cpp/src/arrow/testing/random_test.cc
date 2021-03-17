@@ -169,8 +169,8 @@ TYPED_TEST(RandomNumericArrayTest, GenerateMinMax) {
 
 // Test all the supported options
 TEST(TypeSpecificTests, BoolTrueProbability) {
-  auto field = arrow::field("bool", boolean())
-                   ->WithMetadata(key_value_metadata({{"true_probability", "1.0"}}));
+  auto field =
+      arrow::field("bool", boolean(), key_value_metadata({{"true_probability", "1.0"}}));
   auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
   AssertTypeEqual(field->type(), base_array->type());
   auto array = internal::checked_pointer_cast<BooleanArray>(base_array);
@@ -181,8 +181,8 @@ TEST(TypeSpecificTests, BoolTrueProbability) {
 }
 
 TEST(TypeSpecificTests, DictionaryValues) {
-  auto field = arrow::field("dictionary", dictionary(int8(), utf8()))
-                   ->WithMetadata(key_value_metadata({{"values", "16"}}));
+  auto field = arrow::field("dictionary", dictionary(int8(), utf8()),
+                            key_value_metadata({{"values", "16"}}));
   auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
   AssertTypeEqual(field->type(), base_array->type());
   auto array = internal::checked_pointer_cast<DictionaryArray>(base_array);
@@ -191,8 +191,8 @@ TEST(TypeSpecificTests, DictionaryValues) {
 }
 
 TEST(TypeSpecificTests, Float32Nan) {
-  auto field = arrow::field("float32", float32())
-                   ->WithMetadata(key_value_metadata({{"nan_probability", "1.0"}}));
+  auto field = arrow::field("float32", float32(),
+                            key_value_metadata({{"nan_probability", "1.0"}}));
   auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
   AssertTypeEqual(field->type(), base_array->type());
   auto array = internal::checked_pointer_cast<NumericArray<FloatType>>(base_array);
@@ -203,8 +203,8 @@ TEST(TypeSpecificTests, Float32Nan) {
 }
 
 TEST(TypeSpecificTests, Float64Nan) {
-  auto field = arrow::field("float64", float64())
-                   ->WithMetadata(key_value_metadata({{"nan_probability", "1.0"}}));
+  auto field = arrow::field("float64", float64(),
+                            key_value_metadata({{"nan_probability", "1.0"}}));
   auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
   AssertTypeEqual(field->type(), base_array->type());
   auto array = internal::checked_pointer_cast<NumericArray<DoubleType>>(base_array);
@@ -216,9 +216,9 @@ TEST(TypeSpecificTests, Float64Nan) {
 
 TEST(TypeSpecificTests, ListLengths) {
   {
-    auto field = arrow::field("list", list(int8()))
-                     ->WithMetadata(
-                         key_value_metadata({{"min_length", "1"}, {"max_length", "1"}}));
+    auto field =
+        arrow::field("list", list(int8()),
+                     key_value_metadata({{"min_length", "1"}, {"max_length", "1"}}));
     auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
     AssertTypeEqual(field->type(), base_array->type());
     auto array = internal::checked_pointer_cast<ListArray>(base_array);
@@ -230,9 +230,9 @@ TEST(TypeSpecificTests, ListLengths) {
     }
   }
   {
-    auto field = arrow::field("list", large_list(int8()))
-                     ->WithMetadata(key_value_metadata(
-                         {{"min_length", "10"}, {"max_length", "10"}}));
+    auto field =
+        arrow::field("list", large_list(int8()),
+                     key_value_metadata({{"min_length", "10"}, {"max_length", "10"}}));
     auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
     AssertTypeEqual(field->type(), base_array->type());
     auto array = internal::checked_pointer_cast<LargeListArray>(base_array);
@@ -246,8 +246,8 @@ TEST(TypeSpecificTests, ListLengths) {
 }
 
 TEST(TypeSpecificTests, MapValues) {
-  auto field = arrow::field("map", map(int8(), int8()))
-                   ->WithMetadata(key_value_metadata({{"values", "4"}}));
+  auto field =
+      arrow::field("map", map(int8(), int8()), key_value_metadata({{"values", "4"}}));
   auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
   AssertTypeEqual(field->type(), base_array->type());
   auto array = internal::checked_pointer_cast<MapArray>(base_array);
@@ -257,8 +257,7 @@ TEST(TypeSpecificTests, MapValues) {
 }
 
 TEST(TypeSpecificTests, RepeatedStrings) {
-  auto field =
-      arrow::field("string", utf8())->WithMetadata(key_value_metadata({{"unique", "1"}}));
+  auto field = arrow::field("string", utf8(), key_value_metadata({{"unique", "1"}}));
   auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
   AssertTypeEqual(field->type(), base_array->type());
   auto array = internal::checked_pointer_cast<StringArray>(base_array);
@@ -273,9 +272,8 @@ TEST(TypeSpecificTests, RepeatedStrings) {
 
 TEST(TypeSpecificTests, StringLengths) {
   {
-    auto field = arrow::field("list", utf8())
-                     ->WithMetadata(
-                         key_value_metadata({{"min_length", "1"}, {"max_length", "1"}}));
+    auto field = arrow::field(
+        "list", utf8(), key_value_metadata({{"min_length", "1"}, {"max_length", "1"}}));
     auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
     AssertTypeEqual(field->type(), base_array->type());
     auto array = internal::checked_pointer_cast<StringArray>(base_array);
@@ -287,9 +285,8 @@ TEST(TypeSpecificTests, StringLengths) {
     }
   }
   {
-    auto field = arrow::field("list", binary())
-                     ->WithMetadata(
-                         key_value_metadata({{"min_length", "1"}, {"max_length", "1"}}));
+    auto field = arrow::field(
+        "list", binary(), key_value_metadata({{"min_length", "1"}, {"max_length", "1"}}));
     auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
     AssertTypeEqual(field->type(), base_array->type());
     auto array = internal::checked_pointer_cast<BinaryArray>(base_array);
@@ -301,9 +298,9 @@ TEST(TypeSpecificTests, StringLengths) {
     }
   }
   {
-    auto field = arrow::field("list", large_utf8())
-                     ->WithMetadata(key_value_metadata(
-                         {{"min_length", "10"}, {"max_length", "10"}}));
+    auto field =
+        arrow::field("list", large_utf8(),
+                     key_value_metadata({{"min_length", "10"}, {"max_length", "10"}}));
     auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
     AssertTypeEqual(field->type(), base_array->type());
     auto array = internal::checked_pointer_cast<LargeStringArray>(base_array);
@@ -315,9 +312,9 @@ TEST(TypeSpecificTests, StringLengths) {
     }
   }
   {
-    auto field = arrow::field("list", large_binary())
-                     ->WithMetadata(key_value_metadata(
-                         {{"min_length", "10"}, {"max_length", "10"}}));
+    auto field =
+        arrow::field("list", large_binary(),
+                     key_value_metadata({{"min_length", "10"}, {"max_length", "10"}}));
     auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
     AssertTypeEqual(field->type(), base_array->type());
     auto array = internal::checked_pointer_cast<LargeBinaryArray>(base_array);
