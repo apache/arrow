@@ -103,6 +103,12 @@ class ARROW_DS_EXPORT FileSource {
   /// \brief Get a RandomAccessFile which views this file source
   Result<std::shared_ptr<io::RandomAccessFile>> Open() const;
 
+  /// \brief Get an InputStream which views this file source (and decompresses if needed)
+  /// \param[in] compression If nullopt, guess the compression scheme from the
+  ///     filename, else decompress with the given codec
+  Result<std::shared_ptr<io::InputStream>> OpenCompressed(
+      util::optional<Compression::type> compression = util::nullopt) const;
+
  private:
   static Result<std::shared_ptr<io::RandomAccessFile>> InvalidOpen() {
     return Status::Invalid("Called Open() on an uninitialized FileSource");

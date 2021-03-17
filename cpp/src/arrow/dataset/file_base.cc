@@ -30,8 +30,10 @@
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/io/compressed.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
+#include "arrow/util/compression.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
@@ -54,6 +56,32 @@ Result<std::shared_ptr<io::RandomAccessFile>> FileSource::Open() const {
   }
 
   return custom_open_();
+}
+
+Result<std::shared_ptr<io::InputStream>> FileSource::OpenCompressed(
+    util::optional<Compression::type> compression) const {
+  ARROW_ASSIGN_OR_RAISE(auto file, Open());
+  auto actual_compression = Compression::type::UNCOMPRESSED;
+  if (!compression.has_value()) {
+    // Guess compression from file extension
+    auto extension = fs::internal::GetAbstractPathExtension(path());
+    util::string_view file_path(path());
+    if (extension == "gz") {
+      actual_compression = Compression::type::GZIP;
+    } else {
+      auto maybe_compression = util::Codec::GetCompressionType(extension);
+      if (maybe_compression.ok()) {
+        ARROW_ASSIGN_OR_RAISE(actual_compression, maybe_compression);
+      }
+    }
+  } else {
+    actual_compression = compression.value();
+  }
+  if (actual_compression == Compression::type::UNCOMPRESSED) {
+    return file;
+  }
+  ARROW_ASSIGN_OR_RAISE(auto codec, util::Codec::Create(actual_compression));
+  return io::CompressedInputStream::Make(codec.get(), std::move(file));
 }
 
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(

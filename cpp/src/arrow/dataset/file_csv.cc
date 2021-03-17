@@ -30,6 +30,8 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/io/buffered.h"
+#include "arrow/io/compressed.h"
 #include "arrow/result.h"
 #include "arrow/type.h"
 #include "arrow/util/iterator.h"
@@ -76,10 +78,9 @@ Result<std::unordered_set<std::string>> GetColumnNames(
 
 static inline Result<csv::ConvertOptions> GetConvertOptions(
     const CsvFileFormat& format, const std::shared_ptr<ScanOptions>& scan_options,
-    const Buffer& first_block, MemoryPool* pool) {
-  ARROW_ASSIGN_OR_RAISE(
-      auto column_names,
-      GetColumnNames(format.parse_options, util::string_view{first_block}, pool));
+    const util::string_view first_block, MemoryPool* pool) {
+  ARROW_ASSIGN_OR_RAISE(auto column_names,
+                        GetColumnNames(format.parse_options, first_block, pool));
 
   auto convert_options = csv::ConvertOptions::Defaults();
   if (scan_options && scan_options->fragment_scan_options &&
@@ -111,18 +112,20 @@ static inline Result<std::shared_ptr<csv::StreamingReader>> OpenReader(
     const FileSource& source, const CsvFileFormat& format,
     const std::shared_ptr<ScanOptions>& scan_options = nullptr,
     MemoryPool* pool = default_memory_pool()) {
-  ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
-
   auto reader_options = GetReadOptions(format);
-  ARROW_ASSIGN_OR_RAISE(auto first_block, input->ReadAt(0, reader_options.block_size));
-  RETURN_NOT_OK(input->Seek(0));
+
+  util::string_view first_block;
+  ARROW_ASSIGN_OR_RAISE(auto input, source.OpenCompressed());
+  ARROW_ASSIGN_OR_RAISE(
+      input, io::BufferedInputStream::Create(reader_options.block_size,
+                                             default_memory_pool(), std::move(input)));
+  ARROW_ASSIGN_OR_RAISE(first_block, input->Peek(reader_options.block_size));
 
   const auto& parse_options = format.parse_options;
-
   auto convert_options = csv::ConvertOptions::Defaults();
   if (scan_options != nullptr) {
     ARROW_ASSIGN_OR_RAISE(convert_options,
-                          GetConvertOptions(format, scan_options, *first_block, pool));
+                          GetConvertOptions(format, scan_options, first_block, pool));
   }
 
   auto maybe_reader =
