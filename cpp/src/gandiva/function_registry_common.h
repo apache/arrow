@@ -212,22 +212,22 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
 // - NULL handling is of type NULL_NEVER
 // - can return errors
 //
-// The function name includes the base name & input type name. gdv_fn_sha128_from_float64
+// The function name includes the base name & input type name. gdv_fn_sha128_float64
 #define HASH_SHA128_NULL_NEVER(NAME, ALIASES, TYPE)                           \
   NativeFunction(#NAME, std::vector<std::string> ALIASES,                          \
                  DataTypeVector{TYPE()}, utf8(), kResultNullNever,                 \
-                 ARROW_STRINGIFY(gdv_fn_sha128_from_##TYPE),                       \
+                 ARROW_STRINGIFY(gdv_fn_sha128_##TYPE),                       \
                  NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
 
 // HashSHA256 functions that :
 // - NULL handling is of type NULL_NEVER
 // - can return errors
 //
-// The function name includes the base name & input type name. gdv_fn_sha256_from_float64
+// The function name includes the base name & input type name. gdv_fn_sha256_float64
 #define HASH_SHA256_NULL_NEVER(NAME, ALIASES, TYPE)                           \
   NativeFunction(#NAME, std::vector<std::string> ALIASES,                          \
                  DataTypeVector{TYPE()}, utf8(), kResultNullNever,                 \
-                 ARROW_STRINGIFY(gdv_fn_sha256_from_##TYPE),                       \
+                 ARROW_STRINGIFY(gdv_fn_sha256_##TYPE),                       \
                  NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
 
 // Iterate the inner macro over all numeric types

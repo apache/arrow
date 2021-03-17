@@ -67,29 +67,29 @@ bool in_expr_lookup_utf8(int64_t ptr, const char* data, int data_len, bool in_va
 int gdv_fn_time_with_zone(int* time_fields, const char* zone, int zone_len,
                           int64_t* ret_time);
 
-const char *gdv_fn_sha256_from_float64(int64_t context, double value, bool validity,
+const char *gdv_fn_sha256_float64(int64_t context, double value, bool validity,
 									   unsigned int *out_length);
 
-const char *gdv_fn_sha256_from_utf8(int64_t context,
+const char *gdv_fn_sha256_utf8(int64_t context,
                                     char *value,
                                     int32_t value_length,
                                     bool value_validity,
                                     uint32_t *out_length);
 
-const char *gdv_fn_sha128_from_float64(int64_t context, double value, bool validity,
+const char *gdv_fn_sha128_float64(int64_t context, double value, bool validity,
 									   unsigned int *out_length);
 
-const char *gdv_fn_sha128_from_utf8(int64_t context,
+const char *gdv_fn_sha128_utf8(int64_t context,
                                     char *value,
                                     int32_t value_length,
                                     bool value_validity,
                                     uint32_t *out_length);
 
-const char* gdv_fn_sha256_from_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
+const char* gdv_fn_sha256_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
                                           int32_t x_precision, int32_t x_scale,
                                           gdv_boolean x_isvalid, uint32_t *out_length);
 
-const char* gdv_fn_sha128_from_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
+const char* gdv_fn_sha128_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
                                           int32_t x_precision, int32_t x_scale,
                                           gdv_boolean x_isvalid, uint32_t *out_length);
 

@@ -24,31 +24,31 @@
 #include "openssl/evp.h"
 
 namespace gandiva {
-  class GANDIVA_EXPORT HashUtils {
-   public:
-    static const char *HashUsingSha256(int64_t context,
-                                         const void *message,
-                                         size_t message_length,
-                                         u_int32_t *out_length);
+class GANDIVA_EXPORT HashUtils {
+ public:
+  static const char *HashUsingSha256(int64_t context,
+                                       const void *message,
+                                       size_t message_length,
+                                       u_int32_t *out_length);
 
-    static const char *HashUsingSha128(int64_t context,
-                                         const void *message,
-                                         size_t message_length,
-                                         u_int32_t *out_length);
+  static const char *HashUsingSha128(int64_t context,
+                                       const void *message,
+                                       size_t message_length,
+                                       u_int32_t *out_length);
 
-    static uint64_t DoubleToLong(double value);
-   private:
-    static inline void CleanCharArray(char *buffer);
+  static uint64_t DoubleToLong(double value);
+ private:
+  static inline void CleanCharArray(char *buffer);
 
-    static const char *GetHash(int64_t context,
-                               const void *message,
-                               size_t message_length,
-                               const EVP_MD *hash_type,
-                               int result_buffer_size,
-                               u_int32_t *out_length);
+  static const char *GetHash(int64_t context,
+                             const void *message,
+                             size_t message_length,
+                             const EVP_MD *hash_type,
+                             int result_buffer_size,
+                             u_int32_t *out_length);
 
-    static void ErrorMessage(int64_t context_ptr, char const *err_msg);
-  };
+  static void ErrorMessage(int64_t context_ptr, char const *err_msg);
+};
 }  // namespace gandiva
 
 #endif //ARROW_SRC_HASH_UTILS_H_

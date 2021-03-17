@@ -18,7 +18,7 @@
 #include <cstring>
 #include "gandiva/hash_utils.h"
 #include "openssl/evp.h"
-#include "execution_context.h"
+#include "gandiva/execution_context.h"
 
 namespace gandiva {
   const char* HashUtils::HashUsingSha256(int64_t context,
@@ -93,7 +93,7 @@ namespace gandiva {
 
     for (unsigned int j = 0; j < result_length; j++) {
       unsigned char hex_number = result[j];
-      sprintf(hex_buffer, "%02x", hex_number);
+      snprintf(hex_buffer, temporary_buffer_length, "%02x", hex_number);
       strncat(result_buffer, hex_buffer, temporary_buffer_length);
     }
 
