@@ -349,9 +349,14 @@ ensure_cmake <- function() {
     # If not found, download it
     cat("**** cmake\n")
     CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.19.2")
+    if (tolower(Sys.info()[["sysname"]]) %in% "darwin") {
+      postfix <- "-macos-universal.tar.gz"
+    } else {
+      postfix <- "-Linux-x86_64.tar.gz"
+    }
     cmake_binary_url <- paste0(
       "https://github.com/Kitware/CMake/releases/download/v", CMAKE_VERSION,
-      "/cmake-", CMAKE_VERSION, "-Linux-x86_64.tar.gz"
+      "/cmake-", CMAKE_VERSION, postfix
     )
     cmake_tar <- tempfile()
     cmake_dir <- tempfile()
@@ -361,7 +366,7 @@ ensure_cmake <- function() {
     options(.arrow.cleanup = c(getOption(".arrow.cleanup"), cmake_dir))
     cmake <- paste0(
       cmake_dir,
-      "/cmake-", CMAKE_VERSION, "-Linux-x86_64",
+      "/cmake-", CMAKE_VERSION, sub(".tar.gz", "", postfix, fixed = TRUE),
       "/bin/cmake"
     )
   }
@@ -402,10 +407,11 @@ with_s3_support <- function(env_vars) {
       cat("**** S3 support not available for gcc < 4.9; building with ARROW_S3=OFF\n")
       arrow_s3 <- FALSE
     } else if (!cmake_find_package("CURL", NULL, env_vars)) {
+      # curl on macos should be installed, so no need to alter this for macos
       cat("**** S3 support requires libcurl-devel (rpm) or libcurl4-openssl-dev (deb); building with ARROW_S3=OFF\n")
       arrow_s3 <- FALSE
     } else if (!cmake_find_package("OpenSSL", "1.0.2", env_vars)) {
-      cat("**** S3 support requires openssl-devel (rpm) or libssl-dev (deb), version >= 1.0.2; building with ARROW_S3=OFF\n")
+      cat("**** S3 support requires version >= 1.0.2 of openssl-devel (rpm), libssl-dev (deb), or openssl (brew); building with ARROW_S3=OFF\n")
       arrow_s3 <- FALSE
     }
   }

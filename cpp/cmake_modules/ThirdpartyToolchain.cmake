@@ -2180,6 +2180,10 @@ macro(build_bzip2)
 
   set(BZIP2_EXTRA_ARGS "CC=${CMAKE_C_COMPILER}" "CFLAGS=${EP_C_FLAGS}")
 
+  if(CMAKE_OSX_SYSROOT)
+    list(APPEND BZIP2_EXTRA_ARGS "SDKROOT=${CMAKE_OSX_SYSROOT}")
+  endif()
+
   externalproject_add(bzip2_ep
                       ${EP_LOG_OPTIONS}
                       CONFIGURE_COMMAND ""

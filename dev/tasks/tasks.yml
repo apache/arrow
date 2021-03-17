@@ -1197,7 +1197,7 @@ tasks:
   homebrew-r-autobrew:
     # This tests that the autobrew formula + script work in practice
     ci: github
-    template: r/github.macos.yml
+    template: r/github.macos.autobrew.yml
 
   ############################## Gandiva Tasks ################################
 
@@ -1629,6 +1629,10 @@ tasks:
     template: r/github.linux.versions.yml
     params:
       MATRIX: "${{ matrix.r_version }}"
+
+  test-r-install-local:
+    ci: github
+    template: r/github.macos-linux.local.yml
 
   test-r-rhub-ubuntu-gcc-release:
     ci: azure
