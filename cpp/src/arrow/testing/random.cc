@@ -31,7 +31,6 @@
 #include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/buffer.h"
-#include "arrow/compute/api_aggregate.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
@@ -690,6 +689,8 @@ Result<std::shared_ptr<Array>> GenerateArray(const Field& field, int64_t length,
     return generator->GENERATOR_FUNC(length, min_value, max_value, null_probability,    \
                                      nan_probability);                                  \
   }
+
+  // Don't use compute::Sum since that may not get built
 #define GENERATE_LIST_CASE(ARRAY_TYPE)                                                  \
   case ARRAY_TYPE::TypeClass::type_id: {                                                \
     const auto min_length = GetMetadata<ARRAY_TYPE::TypeClass::offset_type>(            \
@@ -700,8 +701,10 @@ Result<std::shared_ptr<Array>> GenerateArray(const Field& field, int64_t length,
         CTypeTraits<ARRAY_TYPE::TypeClass::offset_type>::ArrayType>(                    \
         generator->Numeric<CTypeTraits<ARRAY_TYPE::TypeClass::offset_type>::ArrowType>( \
             length, min_length, max_length, null_probability));                         \
-    ARROW_ASSIGN_OR_RAISE(const auto values_datum, compute::Sum(lengths));              \
-    const auto values_length = values_datum.scalar_as<Int64Scalar>().value;             \
+    int64_t values_length = 0;                                                          \
+    for (const auto& length : *lengths) {                                               \
+      if (length.has_value()) values_length += *length;                                 \
+    }                                                                                   \
     const auto force_empty_nulls =                                                      \
         GetMetadata<bool>(field.metadata().get(), "force_empty_nulls", false);          \
     const auto values = GenerateArray(                                                  \
