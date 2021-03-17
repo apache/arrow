@@ -200,7 +200,7 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
   explicit HivePartitioning(std::shared_ptr<Schema> schema, ArrayVector dictionaries = {},
                             std::string null_fallback = kDefaultHiveNullFallback)
       : KeyValuePartitioning(std::move(schema), std::move(dictionaries)),
-        null_fallback_(null_fallback) {}
+        null_fallback_(std::move(null_fallback)) {}
 
   std::string type_name() const override { return "hive"; }
   std::string null_fallback() const { return null_fallback_; }
