@@ -142,7 +142,7 @@ MYNULL
 N/A
 bar)");
   SetSchema({field("str", utf8())});
-  format_->read_options.skip_rows = 1;
+  format_->skip_rows = 1;
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
   auto fragment_scan_options = std::make_shared<CsvFragmentScanOptions>();
   fragment_scan_options->block_size = 1 << 22;

@@ -83,8 +83,9 @@ static inline Result<csv::ConvertOptions> GetConvertOptions(
                         GetColumnNames(format.parse_options, first_block, pool));
 
   auto convert_options = csv::ConvertOptions::Defaults();
-  auto csv_scan_options =
-      DowncastFragmentScanOptions<CsvFragmentScanOptions>(scan_options, kCsvTypeName);
+  ARROW_ASSIGN_OR_RAISE(
+      auto csv_scan_options,
+      DowncastFragmentScanOptions<CsvFragmentScanOptions>(scan_options, kCsvTypeName));
   if (csv_scan_options) {
     convert_options = csv_scan_options->convert_options;
   }
@@ -98,15 +99,19 @@ static inline Result<csv::ConvertOptions> GetConvertOptions(
   return convert_options;
 }
 
-static inline csv::ReadOptions GetReadOptions(
+static inline Result<csv::ReadOptions> GetReadOptions(
     const CsvFileFormat& format, const std::shared_ptr<ScanOptions>& scan_options) {
-  auto read_options = format.read_options;
+  auto read_options = csv::ReadOptions::Defaults();
   // Multithreaded conversion of individual files would lead to excessive thread
   // contention when ScanTasks are also executed in multiple threads, so we disable it
   // here.
   read_options.use_threads = false;
-  auto csv_scan_options =
-      DowncastFragmentScanOptions<CsvFragmentScanOptions>(scan_options, kCsvTypeName);
+  read_options.skip_rows = format.skip_rows;
+  read_options.column_names = format.column_names;
+  read_options.autogenerate_column_names = format.autogenerate_column_names;
+  ARROW_ASSIGN_OR_RAISE(
+      auto csv_scan_options,
+      DowncastFragmentScanOptions<CsvFragmentScanOptions>(scan_options, kCsvTypeName));
   if (csv_scan_options) {
     read_options.block_size = csv_scan_options->block_size;
   }
@@ -117,7 +122,7 @@ static inline Result<std::shared_ptr<csv::StreamingReader>> OpenReader(
     const FileSource& source, const CsvFileFormat& format,
     const std::shared_ptr<ScanOptions>& scan_options = nullptr,
     MemoryPool* pool = default_memory_pool()) {
-  auto reader_options = GetReadOptions(format, scan_options);
+  ARROW_ASSIGN_OR_RAISE(auto reader_options, GetReadOptions(format, scan_options));
 
   util::string_view first_block;
   ARROW_ASSIGN_OR_RAISE(auto input, source.OpenCompressed());

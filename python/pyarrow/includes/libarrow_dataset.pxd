@@ -256,7 +256,9 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CCsvFileFormat "arrow::dataset::CsvFileFormat"(
             CFileFormat):
         CCSVParseOptions parse_options
-        CCSVReadOptions read_options
+        int32_t skip_rows
+        vector[c_string] column_names
+        c_bool autogenerate_column_names
 
     cdef cppclass CCsvFragmentScanOptions \
             "arrow::dataset::CsvFragmentScanOptions"(CFragmentScanOptions):

@@ -186,11 +186,15 @@ inline bool operator==(const SubtreeImpl::Encoded& l, const SubtreeImpl::Encoded
 }
 
 template <typename T>
-std::shared_ptr<T> DowncastFragmentScanOptions(
+arrow::Result<std::shared_ptr<T>> DowncastFragmentScanOptions(
     const std::shared_ptr<ScanOptions>& scan_options, const std::string& type_name) {
   if (!scan_options) return nullptr;
   if (!scan_options->fragment_scan_options) return nullptr;
-  if (scan_options->fragment_scan_options->type_name() != type_name) return nullptr;
+  const auto actual_type_name = scan_options->fragment_scan_options->type_name();
+  if (actual_type_name != type_name) {
+    return Status::Invalid("FragmentScanOptions of type ", actual_type_name,
+                           " were provided for scanning a fragment of type ", type_name);
+  }
   return internal::checked_pointer_cast<T>(scan_options->fragment_scan_options);
 }
 

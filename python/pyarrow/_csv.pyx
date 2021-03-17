@@ -73,6 +73,10 @@ cdef class ReadOptions(_Weakrefable):
         The character encoding of the CSV data.  Columns that cannot
         decode using this encoding can still be read as Binary.
     """
+    cdef:
+        CCSVReadOptions options
+        public object encoding
+
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
@@ -156,13 +160,6 @@ cdef class ReadOptions(_Weakrefable):
     @autogenerate_column_names.setter
     def autogenerate_column_names(self, value):
         self.options.autogenerate_column_names = value
-
-    @staticmethod
-    cdef ReadOptions wrap(CCSVReadOptions options):
-        out = ReadOptions()
-        out.options = options
-        out.encoding = 'utf8'
-        return out
 
 
 cdef class ParseOptions(_Weakrefable):
@@ -608,6 +605,36 @@ cdef class ConvertOptions(_Weakrefable):
         out = ConvertOptions()
         out.options = options
         return out
+
+    def equals(self, ConvertOptions other):
+        return (
+            self.check_utf8 == other.check_utf8 and
+            self.column_types == other.column_types and
+            self.null_values == other.null_values and
+            self.true_values == other.true_values and
+            self.false_values == other.false_values and
+            self.timestamp_parsers == other.timestamp_parsers and
+            self.strings_can_be_null == other.strings_can_be_null and
+            self.auto_dict_encode == other.auto_dict_encode and
+            self.auto_dict_max_cardinality ==
+            other.auto_dict_max_cardinality and
+            self.include_columns == other.include_columns and
+            self.include_missing_columns == other.include_missing_columns
+        )
+
+    def __getstate__(self):
+        return (self.check_utf8, self.column_types, self.null_values,
+                self.true_values, self.false_values, self.timestamp_parsers,
+                self.strings_can_be_null, self.auto_dict_encode,
+                self.auto_dict_max_cardinality, self.include_columns,
+                self.include_missing_columns)
+
+    def __setstate__(self, state):
+        (self.check_utf8, self.column_types, self.null_values,
+         self.true_values, self.false_values, self.timestamp_parsers,
+         self.strings_can_be_null, self.auto_dict_encode,
+         self.auto_dict_max_cardinality, self.include_columns,
+         self.include_missing_columns) = state
 
 
 cdef _get_reader(input_file, ReadOptions read_options,
