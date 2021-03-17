@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <string>
 #include <cmath>
+#include <string>
 
 #include "arrow/status.h"
 

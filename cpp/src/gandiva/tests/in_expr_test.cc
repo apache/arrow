@@ -102,7 +102,7 @@ TEST_F(TestIn, TestInFloat) {
   auto node_f1 = TreeExprBuilder::MakeField(field1);
   auto sum_func =
       TreeExprBuilder::MakeFunction("add", {node_f0, node_f1}, arrow::float32());
-  std::unordered_set<float_t> in_constants({6.5, 12,11.5});
+  std::unordered_set<float_t> in_constants({6.5, 12, 11.5});
   auto in_expr = TreeExprBuilder::MakeInExpressionFloat(sum_func, in_constants);
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
@@ -112,8 +112,10 @@ TEST_F(TestIn, TestInFloat) {
 
   // Create a row-batch with some sample data
   int num_records = 5;
-  auto array0 = MakeArrowArrayFloat32({1.5, 2.5, 4, 3.15, 6}, {true, true, false, true, true});
-  auto array1 = MakeArrowArrayFloat32({5, 9, 6, 8, 5}, {true, true, true, true, true});
+  auto array0 =
+      MakeArrowArrayFloat32({1.5, 2.5, 4, 3.15, 6}, {true, true, false, true, true});
+  auto array1 =
+      MakeArrowArrayFloat32({5, 9, 6, 8, 5}, {true, true, true, true, true});
   // expected output (indices for which condition matches)
   auto exp = MakeArrowArrayUint16({0, 1});
 
@@ -152,7 +154,9 @@ TEST_F(TestIn, TestInDouble) {
   // Create a row-batch with some sample data
   int num_records = 5;
   auto array0 = MakeArrowArrayFloat64({1, 2, 3, 4, 11}, {true, true, true, false, false});
-  auto array1 = MakeArrowArrayFloat64({5, 9, 0.14159265359, 17, 4.5555555}, {true, true, true, true, true});
+  auto array1 = MakeArrowArrayFloat64({5, 9, 0.14159265359, 17, 4.5555555},
+                                      {true, true, true, true, true});
+
   // expected output (indices for which condition matches)
   auto exp = MakeArrowArrayUint16({2});
 

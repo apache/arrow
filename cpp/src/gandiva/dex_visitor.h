@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <string>
 
 #include "arrow/util/logging.h"
@@ -86,6 +87,8 @@ class GANDIVA_EXPORT DexDefaultVisitor : public DexVisitor {
   VISIT_DCHECK(BooleanOrDex)
   VISIT_DCHECK(InExprDexBase<int32_t>)
   VISIT_DCHECK(InExprDexBase<int64_t>)
+  VISIT_DCHECK(InExprDexBase<float_t>)
+  VISIT_DCHECK(InExprDexBase<double_t>)
   VISIT_DCHECK(InExprDexBase<std::string>)
 };
 

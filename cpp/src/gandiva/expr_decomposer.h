@@ -17,11 +17,11 @@
 
 #pragma once
 
+#include <cmath>
 #include <memory>
 #include <stack>
 #include <string>
 #include <utility>
-#include <cmath>
 
 #include "gandiva/arrow.h"
 #include "gandiva/expression.h"

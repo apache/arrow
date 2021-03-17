@@ -17,11 +17,11 @@
 
 #pragma once
 
+#include <cmath>
 #include <memory>
 #include <string>
 #include <unordered_set>
 #include <vector>
-#include <cmath>
 
 #include "arrow/type.h"
 #include "gandiva/condition.h"
@@ -113,7 +113,7 @@ class GANDIVA_EXPORT TreeExprBuilder {
 
   /// \brief creates an in expression for double
   static NodePtr MakeInExpressionDouble(NodePtr node,
-                                       const std::unordered_set<double_t>& constants);
+                                        const std::unordered_set<double_t>& constants);
 
   /// \brief Date as s/millis since epoch.
   static NodePtr MakeInExpressionDate32(NodePtr node,
@@ -134,7 +134,6 @@ class GANDIVA_EXPORT TreeExprBuilder {
   /// \brief Timestamp as millis since epoch.
   static NodePtr MakeInExpressionTimeStamp(NodePtr node,
                                            const std::unordered_set<int64_t>& constants);
-
 };
 
 }  // namespace gandiva
