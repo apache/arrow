@@ -242,65 +242,18 @@ struct VarLengthKeyEncoder : KeyEncoder {
   std::shared_ptr<DataType> type_;
 };
 
-Result<HashAggregateKernel> MakeKernel(GroupByOptions::Aggregate);
-
 struct GroupByImpl {
-  static Result<GroupByImpl> Make(ExecContext* ctx, const std::vector<Datum>& aggregands,
-                                  const std::vector<Datum>& keys,
+  static Result<GroupByImpl> Make(ExecContext* ctx, const std::vector<ValueDescr>& keys,
                                   const GroupByOptions& options) {
     GroupByImpl impl;
-    impl.options_ = options;
-    const auto& aggregates = impl.options_.aggregates;
-
-    impl.num_groups_ = 0;
-    impl.offsets_.push_back(0);
-
-    if (aggregates.size() != aggregands.size()) {
-      return Status::Invalid(aggregates.size(),
-                             " aggregate functions were specified but ",
-                             aggregands.size(), " aggregands were provided.");
-    }
-
-    FieldVector out_fields;
-
-    impl.aggregators_.resize(aggregates.size());
-    impl.aggregator_states_.resize(aggregates.size());
-
-    for (size_t i = 0; i < aggregates.size(); ++i) {
-      auto a = aggregates[i];
-
-      if (a.options == nullptr) {
-        // use known default options for the named function if possible
-        auto maybe_function = ctx->func_registry()->GetFunction(a.function);
-        if (maybe_function.ok()) {
-          a.options = maybe_function.ValueOrDie()->default_options();
-        }
-      }
-
-      ARROW_ASSIGN_OR_RAISE(impl.aggregators_[i], MakeKernel(a));
-
-      KernelContext kernel_ctx{ctx};
-      impl.aggregator_states_[i] = impl.aggregators_[i].init(
-          &kernel_ctx,
-          KernelInitArgs{&impl.aggregators_[i], {aggregands[i].type()}, a.options});
-      if (kernel_ctx.HasError()) return kernel_ctx.status();
-
-      kernel_ctx.SetState(impl.aggregator_states_[i].get());
-      ARROW_ASSIGN_OR_RAISE(auto descr,
-                            impl.aggregators_[i].signature->out_type().Resolve(
-                                &kernel_ctx, {
-                                                 aggregands[i].type(),
-                                                 uint32(),
-                                                 uint32(),
-                                             }));
-      out_fields.push_back(field("", descr.type));
-    }
-
     impl.encoders_.resize(keys.size());
-    for (size_t i = 0; i < keys.size(); ++i) {
-      const auto& key = keys[i].type();
+    impl.ctx_ = ctx;
 
-      out_fields.push_back(field("", key));
+    FieldVector out_fields(keys.size());
+
+    for (size_t i = 0; i < keys.size(); ++i) {
+      const auto& key = keys[i].type;
+      out_fields[i] = field("", key);
 
       if (key->id() == Type::BOOL) {
         impl.encoders_[i] = ::arrow::internal::make_unique<BooleanKeyEncoder>();
@@ -332,54 +285,37 @@ struct GroupByImpl {
     return impl;
   }
 
-  // TODO(bkietz) Here I'd like to make this clearly a node which classifies keys; extract
-  // the immediate pass-to-HashAggregateKernel.
-  void Consume(KernelContext* ctx, const ExecBatch& batch) {
-    ArrayDataVector aggregands, keys;
-
-    size_t i;
-    for (i = 0; i < aggregators_.size(); ++i) {
-      aggregands.push_back(batch[i].array());
-    }
-
-    while (i < static_cast<size_t>(batch.num_values())) {
-      keys.push_back(batch[i++].array());
-    }
-
-    offsets_batch_.clear();
-    offsets_batch_.resize(batch.length + 1);
-    offsets_batch_[0] = 0;
-    memset(offsets_batch_.data(), 0, sizeof(offsets_batch_[0]) * offsets_batch_.size());
-    for (size_t i = 0; i < keys.size(); ++i) {
-      encoders_[i]->AddLength(*keys[i], offsets_batch_.data());
+  Result<ExecBatch> Consume(const ExecBatch& batch) {
+    std::vector<int32_t> offsets_batch(batch.length + 1);
+    for (int i = 0; i < batch.num_values(); ++i) {
+      encoders_[i]->AddLength(*batch[i].array(), offsets_batch.data());
     }
 
     int32_t total_length = 0;
     for (int64_t i = 0; i < batch.length; ++i) {
       auto total_length_before = total_length;
-      total_length += offsets_batch_[i];
-      offsets_batch_[i] = total_length_before;
+      total_length += offsets_batch[i];
+      offsets_batch[i] = total_length_before;
     }
-    offsets_batch_[batch.length] = total_length;
+    offsets_batch[batch.length] = total_length;
 
-    key_bytes_batch_.clear();
-    key_bytes_batch_.resize(total_length);
-    key_buf_ptrs_.clear();
-    key_buf_ptrs_.resize(batch.length);
+    std::vector<uint8_t> key_bytes_batch(total_length);
+    std::vector<uint8_t*> key_buf_ptrs(batch.length);
     for (int64_t i = 0; i < batch.length; ++i) {
-      key_buf_ptrs_[i] = key_bytes_batch_.data() + offsets_batch_[i];
+      key_buf_ptrs[i] = key_bytes_batch.data() + offsets_batch[i];
     }
 
-    for (size_t i = 0; i < keys.size(); ++i) {
-      encoders_[i]->Encode(*keys[i], key_buf_ptrs_.data());
+    for (int i = 0; i < batch.num_values(); ++i) {
+      encoders_[i]->Encode(*batch[i].array(), key_buf_ptrs.data());
     }
 
-    group_ids_batch_.clear();
-    group_ids_batch_.resize(batch.length);
+    TypedBufferBuilder<uint32_t> group_ids_batch(ctx_->memory_pool());
+    RETURN_NOT_OK(group_ids_batch.Resize(batch.length));
+
     for (int64_t i = 0; i < batch.length; ++i) {
-      int32_t key_length = offsets_batch_[i + 1] - offsets_batch_[i];
+      int32_t key_length = offsets_batch[i + 1] - offsets_batch[i];
       std::string key(
-          reinterpret_cast<const char*>(key_bytes_batch_.data() + offsets_batch_[i]),
+          reinterpret_cast<const char*>(key_bytes_batch.data() + offsets_batch[i]),
           key_length);
 
       auto it_success = map_.emplace(key, num_groups_);
@@ -391,66 +327,41 @@ struct GroupByImpl {
         offsets_.push_back(next_key_offset + key_length);
         memcpy(key_bytes_.data() + next_key_offset, key.c_str(), key_length);
       }
-      group_ids_batch_[i] = it_success.first->second;
+      group_ids_batch.UnsafeAppend(it_success.first->second);
     }
 
-    UInt32Array group_ids(batch.length, Buffer::Wrap(group_ids_batch_));
-    for (size_t i = 0; i < aggregators_.size(); ++i) {
-      KernelContext batch_ctx{ctx->exec_context()};
-      batch_ctx.SetState(aggregator_states_[i].get());
-      ExecBatch batch({aggregands[i], group_ids, Datum(num_groups_)}, group_ids.length());
-      aggregators_[i].consume(&batch_ctx, batch);
-      ctx->SetStatus(batch_ctx.status());
-      if (ctx->HasError()) return;
-    }
+    ARROW_ASSIGN_OR_RAISE(auto group_ids, group_ids_batch.Finish());
+    return ExecBatch(
+        {UInt32Array(batch.length, std::move(group_ids)), Datum(num_groups_)},
+        batch.length);
   }
 
-  void Finalize(KernelContext* ctx, Datum* out) {
-    size_t n_keys = encoders_.size();
-    ArrayDataVector out_columns(aggregators_.size() + n_keys);
-    for (size_t i = 0; i < aggregators_.size(); ++i) {
-      KernelContext batch_ctx{ctx->exec_context()};
-      batch_ctx.SetState(aggregator_states_[i].get());
-      Datum aggregated;
-      aggregators_[i].finalize(&batch_ctx, &aggregated);
-      ctx->SetStatus(batch_ctx.status());
-      if (ctx->HasError()) return;
-      out_columns[i] = aggregated.array();
-    }
+  Result<Datum> Finalize(ExecContext* ctx) {
+    ArrayDataVector out_columns(encoders_.size());
 
-    key_buf_ptrs_.clear();
-    key_buf_ptrs_.resize(num_groups_);
+    std::vector<uint8_t*> key_buf_ptrs(num_groups_);
     for (int64_t i = 0; i < num_groups_; ++i) {
-      key_buf_ptrs_[i] = key_bytes_.data() + offsets_[i];
+      key_buf_ptrs[i] = key_bytes_.data() + offsets_[i];
     }
 
-    int64_t length = num_groups_;
-    for (size_t i = 0; i < n_keys; ++i) {
-      KERNEL_ASSIGN_OR_RAISE(
-          auto key_array, ctx,
-          encoders_[i]->Decode(key_buf_ptrs_.data(), static_cast<int32_t>(length),
+    for (size_t i = 0; i < encoders_.size(); ++i) {
+      ARROW_ASSIGN_OR_RAISE(
+          out_columns[i],
+          encoders_[i]->Decode(key_buf_ptrs.data(), static_cast<int32_t>(num_groups_),
                                ctx->memory_pool()));
-      out_columns[aggregators_.size() + i] = std::move(key_array);
     }
 
-    *out = ArrayData::Make(std::move(out_type_), length, {/*null_bitmap=*/nullptr},
+    return ArrayData::Make(std::move(out_type_), num_groups_, {/*null_bitmap=*/nullptr},
                            std::move(out_columns));
   }
 
-  std::vector<int32_t> offsets_batch_;
-  std::vector<uint8_t> key_bytes_batch_;
-  std::vector<uint8_t*> key_buf_ptrs_;
-  std::vector<uint32_t> group_ids_batch_;
-
+  ExecContext* ctx_;
   std::unordered_map<std::string, uint32_t> map_;
-  std::vector<int32_t> offsets_;
+  std::vector<int32_t> offsets_ = {0};
   std::vector<uint8_t> key_bytes_;
-  uint32_t num_groups_;
+  uint32_t num_groups_ = 0;
 
   std::shared_ptr<DataType> out_type_;
-  GroupByOptions options_;
-  std::vector<HashAggregateKernel> aggregators_;
-  std::vector<std::unique_ptr<KernelState>> aggregator_states_;
 
   std::vector<std::unique_ptr<KeyEncoder>> encoders_;
 };
@@ -782,31 +693,31 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
 };
 
 template <typename A>
-KernelInit MakeInit(GroupByOptions::Aggregate a) {
-  return [a](KernelContext* ctx,
-             const KernelInitArgs& args) -> std::unique_ptr<KernelState> {
+KernelInit MakeInit() {
+  return [](KernelContext* ctx,
+            const KernelInitArgs& args) -> std::unique_ptr<KernelState> {
     auto impl = ::arrow::internal::make_unique<A>();
-    ctx->SetStatus(impl->Init(ctx->exec_context(), a.options, args.inputs[0].type));
+    ctx->SetStatus(impl->Init(ctx->exec_context(), args.options, args.inputs[0].type));
     if (ctx->HasError()) return nullptr;
     return impl;
   };
 }
 
-Result<HashAggregateKernel> MakeKernel(GroupByOptions::Aggregate a) {
+// this isn't really in the spirit of things, but I'll get around to defining
+// HashAggregateFunctions later
+Result<HashAggregateKernel> MakeKernel(const std::string& function_name) {
   HashAggregateKernel kernel;
 
-  if (a.function == "count") {
-    kernel.init = MakeInit<GroupedCountImpl>(a);
-  } else if (a.function == "sum") {
-    kernel.init = MakeInit<GroupedSumImpl>(a);
-  } else if (a.function == "min_max") {
-    kernel.init = MakeInit<GroupedMinMaxImpl>(a);
+  if (function_name == "count") {
+    kernel.init = MakeInit<GroupedCountImpl>();
+  } else if (function_name == "sum") {
+    kernel.init = MakeInit<GroupedSumImpl>();
+  } else if (function_name == "min_max") {
+    kernel.init = MakeInit<GroupedMinMaxImpl>();
   } else {
-    return Status::NotImplemented("Grouped aggregate ", a.function);
+    return Status::NotImplemented("Grouped aggregate ", function_name);
   }
 
-  // this isn't really in the spirit of things, but I'll get around to defining
-  // HashAggregateFunctions later
   kernel.signature = KernelSignature::Make(
       {{}, {}, {}}, OutputType([](KernelContext* ctx,
                                   const std::vector<ValueDescr>&) -> Result<ValueDescr> {
@@ -830,6 +741,68 @@ Result<HashAggregateKernel> MakeKernel(GroupByOptions::Aggregate a) {
   return kernel;
 }
 
+Result<std::vector<HashAggregateKernel>> MakeKernels(
+    const std::vector<GroupByOptions::Aggregate>& aggregates,
+    const std::vector<ValueDescr>& in_descrs) {
+  if (aggregates.size() != in_descrs.size()) {
+    return Status::Invalid(aggregates.size(), " aggregate functions were specified but ",
+                           in_descrs.size(), " aggregands were provided.");
+  }
+
+  std::vector<HashAggregateKernel> kernels(in_descrs.size());
+
+  for (size_t i = 0; i < aggregates.size(); ++i) {
+    ARROW_ASSIGN_OR_RAISE(kernels[i], MakeKernel(aggregates[i].function));
+  }
+  return kernels;
+}
+
+Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
+    const std::vector<HashAggregateKernel>& kernels, ExecContext* ctx,
+    const std::vector<GroupByOptions::Aggregate>& aggregates,
+    const std::vector<ValueDescr>& in_descrs) {
+  std::vector<std::unique_ptr<KernelState>> states(kernels.size());
+
+  for (size_t i = 0; i < aggregates.size(); ++i) {
+    auto options = aggregates[i].options;
+
+    if (options == nullptr) {
+      // use known default options for the named function if possible
+      auto maybe_function = ctx->func_registry()->GetFunction(aggregates[i].function);
+      if (maybe_function.ok()) {
+        options = maybe_function.ValueOrDie()->default_options();
+      }
+    }
+
+    KernelContext kernel_ctx{ctx};
+    states[i] = kernels[i].init(
+        &kernel_ctx, KernelInitArgs{&kernels[i], {in_descrs[i].type}, options});
+    if (kernel_ctx.HasError()) return kernel_ctx.status();
+  }
+  return states;
+}
+
+Result<FieldVector> ResolveKernels(
+    const std::vector<HashAggregateKernel>& kernels,
+    const std::vector<std::unique_ptr<KernelState>>& states, ExecContext* ctx,
+    const std::vector<ValueDescr>& descrs) {
+  FieldVector fields(descrs.size());
+
+  for (size_t i = 0; i < kernels.size(); ++i) {
+    KernelContext kernel_ctx{ctx};
+    kernel_ctx.SetState(states[i].get());
+
+    ARROW_ASSIGN_OR_RAISE(auto descr, kernels[i].signature->out_type().Resolve(
+                                          &kernel_ctx, {
+                                                           descrs[i].type,
+                                                           uint32(),
+                                                           uint32(),
+                                                       }));
+    fields[i] = field("", std::move(descr.type));
+  }
+  return fields;
+}
+
 }  // namespace aggregate
 
 Result<Datum> GroupBy(const std::vector<Datum>& aggregands,
@@ -840,31 +813,78 @@ Result<Datum> GroupBy(const std::vector<Datum>& aggregands,
     return GroupBy(aggregands, keys, options, &default_ctx);
   }
 
-  std::vector<Datum> args = aggregands;
-  for (const Datum& key : keys) {
-    args.push_back(key);
-  }
+  ARROW_ASSIGN_OR_RAISE(auto aggregand_descrs,
+                        ExecBatch::Make(aggregands).Map([](ExecBatch batch) {
+                          return batch.GetDescriptors();
+                        }));
+
+  ARROW_ASSIGN_OR_RAISE(auto kernels,
+                        aggregate::MakeKernels(options.aggregates, aggregand_descrs));
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto states,
+      aggregate::InitKernels(kernels, ctx, options.aggregates, aggregand_descrs));
+
+  ARROW_ASSIGN_OR_RAISE(
+      FieldVector out_fields,
+      aggregate::ResolveKernels(kernels, states, ctx, aggregand_descrs));
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto aggregand_batch_iterator,
+      detail::ExecBatchIterator::Make(aggregands, ctx->exec_chunksize()));
+
+  ARROW_ASSIGN_OR_RAISE(auto key_descrs, ExecBatch::Make(keys).Map([](ExecBatch batch) {
+    return batch.GetDescriptors();
+  }));
 
   ARROW_ASSIGN_OR_RAISE(auto impl,
-                        aggregate::GroupByImpl::Make(ctx, aggregands, keys, options));
+                        aggregate::GroupByImpl::Make(ctx, key_descrs, options));
 
-  ARROW_ASSIGN_OR_RAISE(auto batch_iterator,
-                        detail::ExecBatchIterator::Make(args, ctx->exec_chunksize()));
+  for (ValueDescr& key_descr : key_descrs) {
+    out_fields.push_back(field("", std::move(key_descr.type)));
+  }
 
-  KernelContext kernel_ctx{ctx};
+  ARROW_ASSIGN_OR_RAISE(auto key_batch_iterator,
+                        detail::ExecBatchIterator::Make(keys, ctx->exec_chunksize()));
 
-  ExecBatch batch;
-  while (batch_iterator->Next(&batch)) {
-    if (batch.length > 0) {
-      impl.Consume(&kernel_ctx, batch);
-      if (kernel_ctx.HasError()) return kernel_ctx.status();
+  // start "streaming" execution
+  ExecBatch key_batch, aggregand_batch;
+  while (aggregand_batch_iterator->Next(&aggregand_batch) &&
+         key_batch_iterator->Next(&key_batch)) {
+    if (key_batch.length == 0) continue;
+
+    // compute a batch of group ids
+    ARROW_ASSIGN_OR_RAISE(ExecBatch id_batch, impl.Consume(key_batch));
+
+    // consume group ids with HashAggregateKernels
+    for (size_t i = 0; i < kernels.size(); ++i) {
+      KernelContext batch_ctx{ctx};
+      batch_ctx.SetState(states[i].get());
+      ARROW_ASSIGN_OR_RAISE(
+          auto batch, ExecBatch::Make({aggregand_batch[i], id_batch[0], id_batch[1]}));
+      kernels[i].consume(&batch_ctx, batch);
+      if (batch_ctx.HasError()) return batch_ctx.status();
     }
   }
 
-  Datum out;
-  impl.Finalize(&kernel_ctx, &out);
-  if (kernel_ctx.HasError()) return kernel_ctx.status();
-  return out;
+  ArrayDataVector out_data(aggregands.size() + keys.size());
+  for (size_t i = 0; i < kernels.size(); ++i) {
+    KernelContext batch_ctx{ctx};
+    batch_ctx.SetState(states[i].get());
+    Datum out;
+    kernels[i].finalize(&batch_ctx, &out);
+    if (batch_ctx.HasError()) return batch_ctx.status();
+    out_data[i] = out.array();
+  }
+
+  ARROW_ASSIGN_OR_RAISE(Datum out_keys, impl.Finalize(ctx));
+  std::move(out_keys.array()->child_data.begin(), out_keys.array()->child_data.end(),
+            out_data.begin() + aggregands.size());
+
+  int64_t length = out_data[0]->length;
+  return ArrayData::Make(struct_(std::move(out_fields)), length,
+                         {/*null_bitmap=*/nullptr}, std::move(out_data),
+                         /*null_count=*/0);
 }
 
 }  // namespace compute
