@@ -362,9 +362,34 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::default_random_engine seed_rng_;
 };
 
+/// Generate a record batch with random data of the specified length.
+///
+/// Generation options are read from key-value metadata for each field
+/// (including nested fields).
+///
+/// The following options are supported:
+///
+/// For all types except NullType:
+/// - null_probability (double): range [0.0, 1.0] the probability of a null value.
+/// Default/value is 0.0 if the field is marked non-nullable, else it is 0.01
+///
+/// For all numeric types T:
+/// - min (T::c_type): the minimum value to generate (inclusive), default
+/// std::numeric_limits<T::c_type>::min()
+/// - max (T::c_type): the maximum value to generate (inclusive), default
+/// std::numeric_limits<T::c_type>::max() Note this means that, for example, min/max are
+/// int16_t values for HalfFloatType.
+///
+/// For floating point types T for which is_physical_floating_type<T>:
+/// - nan_probability (double): range [0.0, 1.0]
 ARROW_TESTING_EXPORT
 std::shared_ptr<arrow::RecordBatch> GenerateBatch(const FieldVector& fields, int64_t size,
-                                             SeedType seed);
+                                                  SeedType seed);
+
+/// Generate an array with random data. See GenerateBatch for usage info.
+ARROW_TESTING_EXPORT
+std::shared_ptr<arrow::Array> GenerateArray(const Field& field, int64_t size,
+                                            SeedType seed);
 
 }  // namespace random
 

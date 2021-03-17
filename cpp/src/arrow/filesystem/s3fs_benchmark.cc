@@ -147,14 +147,14 @@ class MinioFixture : public benchmark::Fixture {
   /// Appends integer columns to the beginning (to act as indices).
   Status MakeParquetObject(const std::string& path, int num_columns, int num_rows) {
     std::vector<std::shared_ptr<ChunkedArray>> columns;
-    FieldVector fields{field("timestamp", int64(), /*nullable=*/true,
-                                      key_value_metadata({{"min", "0"},
-                                                          {"max", "10000000000"},
-                                                          {"null_probability", "0"}})),
-                       ::arrow::field("val", int32(), /*nullable=*/true,
-                                      key_value_metadata({{"min", "0"},
-                                                          {"max", "1000000000"},
-                                                          {"null_probability", "0"}}))};
+    FieldVector fields{
+        field("timestamp", int64(), /*nullable=*/true,
+              key_value_metadata(
+                  {{"min", "0"}, {"max", "10000000000"}, {"null_probability", "0"}})),
+        ::arrow::field(
+            "val", int32(), /*nullable=*/true,
+            key_value_metadata(
+                {{"min", "0"}, {"max", "1000000000"}, {"null_probability", "0"}}))};
     for (int i = 0; i < num_columns; i++) {
       std::stringstream ss;
       ss << "col" << i;

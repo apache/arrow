@@ -374,12 +374,12 @@ std::shared_ptr<Array> RandomArrayGenerator::FixedSizeBinary(int64_t size,
 namespace {
 template <typename OffsetArrayType>
 std::shared_ptr<Array> GenerateOffsets(SeedType seed, int64_t size,
-                                       typename ArrayType::value_type first_offset,
-                                       typename ArrayType::value_type last_offset,
+                                       typename OffsetArrayType::value_type first_offset,
+                                       typename OffsetArrayType::value_type last_offset,
                                        double null_probability, bool force_empty_nulls) {
-  using GenOpt =
-      GenerateOptions<typename ArrayType::value_type,
-                      std::uniform_int_distribution<typename ArrayType::value_type>>;
+  using GenOpt = GenerateOptions<
+      typename OffsetArrayType::value_type,
+      std::uniform_int_distribution<typename OffsetArrayType::value_type>>;
   GenOpt options(seed, first_offset, last_offset, null_probability);
 
   BufferVector buffers{2};
@@ -393,9 +393,9 @@ std::shared_ptr<Array> GenerateOffsets(SeedType seed, int64_t size,
   arrow::BitUtil::SetBit(null_bitmap, 0);
   arrow::BitUtil::SetBit(null_bitmap, size - 1);
 
-  buffers[1] = *AllocateBuffer(sizeof(typename ArrayType::value_type) * size);
+  buffers[1] = *AllocateBuffer(sizeof(typename OffsetArrayType::value_type) * size);
   auto data =
-      reinterpret_cast<typename ArrayType::value_type*>(buffers[1]->mutable_data());
+      reinterpret_cast<typename OffsetArrayType::value_type*>(buffers[1]->mutable_data());
   options.GenerateTypedData(data, size);
   // Ensure offsets are in increasing order
   std::sort(data, data + size);
@@ -417,9 +417,9 @@ std::shared_ptr<Array> GenerateOffsets(SeedType seed, int64_t size,
     }
   }
 
-  auto array_data = ArrayData::Make(std::make_shared<typename ArrayType::TypeClass>(),
-                                    size, buffers, null_count);
-  return std::make_shared<ArrayType>(array_data);
+  auto array_data = ArrayData::Make(
+      std::make_shared<typename OffsetArrayType::TypeClass>(), size, buffers, null_count);
+  return std::make_shared<OffsetArrayType>(array_data);
 }
 }  // namespace
 
@@ -586,7 +586,9 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(std::shared_ptr<DataType> t
 
 namespace {
 template <typename T, typename ArrowType = typename CTypeTraits<T>::ArrowType>
-enable_if_parameter_free<ArrowType, T> GetMetadata(const KeyValueMetadata* metadata, const std::string& key, T default_value) {
+enable_if_parameter_free<ArrowType, T> GetMetadata(const KeyValueMetadata* metadata,
+                                                   const std::string& key,
+                                                   T default_value) {
   if (!metadata) return default_value;
   const auto index = metadata->FindKey(key);
   if (index < 0) return default_value;
@@ -600,12 +602,25 @@ enable_if_parameter_free<ArrowType, T> GetMetadata(const KeyValueMetadata* metad
 
 Result<std::shared_ptr<Array>> GenerateArray(const Field& field, int64_t length,
                                              RandomArrayGenerator* generator) {
+  // TODO: check min <= max in tests
+#define VALIDATE_RANGE(PARAM, MIN, MAX)                                          \
+  if (PARAM < MIN || PARAM > MAX) {                                              \
+    ABORT_NOT_OK(Status::Invalid(field.ToString(), ": ", ARROW_STRINGIFY(PARAM), \
+                                 " must be in [", MIN, ", ", MAX, " ] but got ", \
+                                 null_probability));                             \
+  }
+#define VALIDATE_MIN_MAX(MIN, MAX)                                                  \
+  if (MIN > MAX) {                                                                  \
+    ABORT_NOT_OK(                                                                   \
+        Status::Invalid(field.ToString(), ": min ", MIN, " must be <= max ", MAX)); \
+  }
 #define GENERATE_INTEGRAL_CASE_VIEW(BASE_TYPE, VIEW_TYPE)                                \
   case VIEW_TYPE::type_id: {                                                             \
-    const BASE_TYPE::c_type min_value = GetMetadata<BASE_TYPE>(                          \
+    const BASE_TYPE::c_type min_value = GetMetadata<BASE_TYPE::c_type>(                  \
         field.metadata().get(), "min", std::numeric_limits<BASE_TYPE::c_type>::min());   \
-    const BASE_TYPE::c_type max_value = GetMetadata<BASE_TYPE>(                          \
+    const BASE_TYPE::c_type max_value = GetMetadata<BASE_TYPE::c_type>(                  \
         field.metadata().get(), "max", std::numeric_limits<BASE_TYPE::c_type>::max());   \
+    VALIDATE_MIN_MAX(min_value, max_value);                                              \
     return generator->Numeric<BASE_TYPE>(length, min_value, max_value, null_probability) \
         ->View(field.type());                                                            \
   }
@@ -613,27 +628,31 @@ Result<std::shared_ptr<Array>> GenerateArray(const Field& field, int64_t length,
   GENERATE_INTEGRAL_CASE_VIEW(ARROW_TYPE, ARROW_TYPE)
 #define GENERATE_FLOATING_CASE(ARROW_TYPE, GENERATOR_FUNC)                              \
   case ARROW_TYPE::type_id: {                                                           \
-    const ARROW_TYPE::c_type min_value = GetMetadata<ARROW_TYPE>(                       \
+    const ARROW_TYPE::c_type min_value = GetMetadata<ARROW_TYPE::c_type>(               \
         field.metadata().get(), "min", std::numeric_limits<ARROW_TYPE::c_type>::min()); \
-    const ARROW_TYPE::c_type max_value = GetMetadata<ARROW_TYPE>(                       \
+    const ARROW_TYPE::c_type max_value = GetMetadata<ARROW_TYPE::c_type>(               \
         field.metadata().get(), "max", std::numeric_limits<ARROW_TYPE::c_type>::max()); \
     const double nan_probability =                                                      \
-        GetMetadata<DoubleType>(field.metadata().get(), "nan_probability", 0);          \
+        GetMetadata<double>(field.metadata().get(), "nan_probability", 0);              \
+    VALIDATE_MIN_MAX(min_value, max_value);                                             \
+    VALIDATE_RANGE(nan_probability, 0.0, 1.0);                                          \
     return generator->GENERATOR_FUNC(length, min_value, max_value, null_probability,    \
                                      nan_probability);                                  \
   }
 
   const double null_probability =
       field.nullable()
-          ? GetMetadata<DoubleType>(field.metadata().get(), "null_probability", 0.01)
+          ? GetMetadata<double>(field.metadata().get(), "null_probability", 0.01)
           : 0.0;
+  VALIDATE_RANGE(null_probability, 0.0, 1.0);
   switch (field.type()->id()) {
-    case Type::type::NA:
+    case Type::type::NA: {
       return std::make_shared<NullArray>(length);
+    }
 
     case Type::type::BOOL: {
       const double true_probability =
-          GetMetadata<DoubleType>(field.metadata().get(), "true_probability", 0.5);
+          GetMetadata<double>(field.metadata().get(), "true_probability", 0.5);
       return generator->Boolean(length, true_probability, null_probability);
     }
 
@@ -651,11 +670,10 @@ Result<std::shared_ptr<Array>> GenerateArray(const Field& field, int64_t length,
 
     case Type::type::STRING:
     case Type::type::BINARY: {
-      const int32_t min_length = GetMetadata<Int32Type>(field.metadata().get(), "min", 0);
-      const int32_t max_length =
-          GetMetadata<Int32Type>(field.metadata().get(), "max", 1024);
-      const int32_t unique_values =
-          GetMetadata<Int32Type>(field.metadata().get(), "unique", -1);
+      const auto min_length = GetMetadata<int32_t>(field.metadata().get(), "min", 0);
+      const auto max_length = GetMetadata<int32_t>(field.metadata().get(), "max", 1024);
+      const auto unique_values =
+          GetMetadata<int32_t>(field.metadata().get(), "unique", -1);
       if (unique_values > 0) {
         return generator
             ->StringWithRepeats(length, unique_values, min_length, max_length,
@@ -687,10 +705,10 @@ Result<std::shared_ptr<Array>> GenerateArray(const Field& field, int64_t length,
       GENERATE_INTEGRAL_CASE_VIEW(Int64Type, DayTimeIntervalType);
 
     case Type::type::LIST: {
-      const int32_t values_length = GetMetadata<Int32Type>(
-          field.metadata().get(), "values", static_cast<int32_t>(length));
-      const bool force_empty_nulls =
-          GetMetadata<BooleanType>(field.metadata().get(), "force_empty_nulls", false);
+      const auto values_length = GetMetadata<int32_t>(field.metadata().get(), "values",
+                                                      static_cast<int32_t>(length));
+      const auto force_empty_nulls =
+          GetMetadata<bool>(field.metadata().get(), "force_empty_nulls", false);
       auto values = GenerateArray(
           *internal::checked_pointer_cast<ListType>(field.type())->value_field(),
           values_length, generator);
@@ -719,14 +737,15 @@ Result<std::shared_ptr<Array>> GenerateArray(const Field& field, int64_t length,
         const auto& child_field = field.type()->field(i);
         child_arrays[i] = *GenerateArray(*child_field, length, generator);
       }
-      return field.type()->id() == Type::type::SPARSE_UNION
-                 ? generator->SparseUnion(child_arrays, length)
-                 : generator->DenseUnion(child_arrays, length);
+      auto array = field.type()->id() == Type::type::SPARSE_UNION
+                       ? generator->SparseUnion(child_arrays, length)
+                       : generator->DenseUnion(child_arrays, length);
+      return array->View(field.type());
     }
 
     case Type::type::DICTIONARY: {
-      const int64_t values_length =
-          GetMetadata<Int64Type>(field.metadata().get(), "values", 4);
+      const auto values_length =
+          GetMetadata<int64_t>(field.metadata().get(), "values", 4);
       auto dict_type = internal::checked_pointer_cast<DictionaryType>(field.type());
       // TODO: no way to control generation of dictionary
       auto values = *GenerateArray(
@@ -742,10 +761,10 @@ Result<std::shared_ptr<Array>> GenerateArray(const Field& field, int64_t length,
     }
 
     case Type::type::MAP: {
-      const int32_t values_length = GetMetadata<Int32Type>(
-          field.metadata().get(), "values", static_cast<int32_t>(length));
-      const bool force_empty_nulls =
-          GetMetadata<BooleanType>(field.metadata().get(), "force_empty_nulls", false);
+      const auto values_length = GetMetadata<int32_t>(field.metadata().get(), "values",
+                                                      static_cast<int32_t>(length));
+      const auto force_empty_nulls =
+          GetMetadata<bool>(field.metadata().get(), "force_empty_nulls", false);
       auto map_type = internal::checked_pointer_cast<MapType>(field.type());
       auto keys = *GenerateArray(*map_type->key_field(), values_length, generator);
       auto items = *GenerateArray(*map_type->item_field(), values_length, generator);
@@ -772,11 +791,10 @@ Result<std::shared_ptr<Array>> GenerateArray(const Field& field, int64_t length,
 
     case Type::type::LARGE_STRING:
     case Type::type::LARGE_BINARY: {
-      const int32_t min_length = GetMetadata<Int32Type>(field.metadata().get(), "min", 0);
-      const int32_t max_length =
-          GetMetadata<Int32Type>(field.metadata().get(), "max", 1024);
-      const int32_t unique_values =
-          GetMetadata<Int32Type>(field.metadata().get(), "unique", -1);
+      const auto min_length = GetMetadata<int32_t>(field.metadata().get(), "min", 0);
+      const auto max_length = GetMetadata<int32_t>(field.metadata().get(), "max", 1024);
+      const auto unique_values =
+          GetMetadata<int32_t>(field.metadata().get(), "unique", -1);
       if (unique_values > 0) {
         ABORT_NOT_OK(
             Status::NotImplemented("Generating random array with repeated values for "
@@ -787,10 +805,10 @@ Result<std::shared_ptr<Array>> GenerateArray(const Field& field, int64_t length,
     }
 
     case Type::type::LARGE_LIST: {
-      const int64_t values_length =
-          GetMetadata<Int64Type>(field.metadata().get(), "values", length);
-      const bool force_empty_nulls =
-          GetMetadata<BooleanType>(field.metadata().get(), "force_empty_nulls", false);
+      const auto values_length =
+          GetMetadata<int64_t>(field.metadata().get(), "values", length);
+      const auto force_empty_nulls =
+          GetMetadata<bool>(field.metadata().get(), "force_empty_nulls", false);
       auto values = GenerateArray(
           *internal::checked_pointer_cast<LargeListType>(field.type())->value_field(),
           values_length, generator);
@@ -814,8 +832,14 @@ Result<std::shared_ptr<Array>> GenerateArray(const Field& field, int64_t length,
 
 }  // namespace
 
-std::shared_ptr<arrow::RecordBatch> Generate(const FieldVector& fields, int64_t length,
-                                             SeedType seed) {
+std::shared_ptr<arrow::Array> GenerateArray(const Field& field, int64_t length,
+                                            SeedType seed) {
+  RandomArrayGenerator generator(seed);
+  return *GenerateArray(field, length, &generator);
+}
+
+std::shared_ptr<arrow::RecordBatch> GenerateBatch(const FieldVector& fields,
+                                                  int64_t length, SeedType seed) {
   std::vector<std::shared_ptr<Array>> arrays(fields.size());
   RandomArrayGenerator generator(seed);
   for (size_t i = 0; i < fields.size(); i++) {
