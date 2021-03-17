@@ -3692,6 +3692,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "regex_expressions")]
     fn test_regexp_match() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Utf8, false)]);
 
@@ -3728,6 +3729,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "regex_expressions")]
     fn test_regexp_match_all_literals() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
 
