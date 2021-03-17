@@ -2464,7 +2464,7 @@ mod tests {
         let sql = "SELECT order_id from orders EXCEPT SELECT order_id FROM orders";
         let err = logical_plan(sql).expect_err("query should have failed");
         assert_eq!(
-            "Plan(\"Only UNION ALL is supported, found EXCEPT\")",
+            "NotImplemented(\"Only UNION ALL is supported, found EXCEPT\")",
             format!("{:?}", err)
         );
     }
