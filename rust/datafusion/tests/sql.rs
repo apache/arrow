@@ -2485,6 +2485,7 @@ async fn inner_join_qualified_names() -> Result<()> {
 }
 
 #[tokio::test]
+#[cfg(feature = "regex_expressions")]
 async fn query_regexp_match() -> Result<()> {
     let schema = Arc::new(Schema::new(vec![Field::new("c1", DataType::Utf8, false)]));
 
