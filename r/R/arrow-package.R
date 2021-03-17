@@ -30,7 +30,8 @@
     "dplyr::",
     c(
       "select", "filter", "collect", "summarise", "group_by", "groups",
-      "group_vars", "ungroup", "mutate", "transmute", "arrange", "rename", "pull"
+      "group_vars", "group_by_drop_default", "ungroup", "mutate", "transmute",
+      "arrange", "rename", "pull"
     )
   )
   for (cl in c("Dataset", "ArrowTabular", "arrow_dplyr_query")) {
