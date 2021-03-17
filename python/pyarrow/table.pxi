@@ -2225,8 +2225,6 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None):
             CConcatenateTablesOptions.Defaults())
 
     for table in tables:
-        if table is None:
-            raise TypeError("Unable to concatenate table. Table is None.")
         c_tables.push_back(table.sp_table)
 
     with nogil:

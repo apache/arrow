@@ -271,7 +271,9 @@ def test_chunked_array_equals():
     eq([a, c], [d])
     ne([c, a], [a, c])
 
-    assert not pa.chunked_array([], type=pa.int32()).equals(None)
+    # ARROW-4822
+    with pytest.raises(AttributeError):
+        pa.chunked_array([], type=pa.int32()).equals(None)
 
 
 @pytest.mark.parametrize(
@@ -715,8 +717,10 @@ def test_table_equals():
     table = pa.Table.from_arrays([], names=[])
 
     assert table.equals(table)
+
     # ARROW-4822
-    assert not table.equals(None)
+    with pytest.raises(AttributeError):
+        table.equals(None)
 
     other = pa.Table.from_arrays([], names=[], metadata={'key': 'value'})
     assert not table.equals(other, check_metadata=True)
@@ -1135,7 +1139,8 @@ def test_concat_tables():
 
 
 def test_concat_tables_none_table():
-    with pytest.raises(TypeError):
+    # ARROW-11997
+    with pytest.raises(AttributeError):
         pa.concat_tables([None])
 
 
