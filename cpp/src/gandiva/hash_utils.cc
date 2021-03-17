@@ -16,9 +16,10 @@
 // under the License.
 
 #include <cstring>
-#include "gandiva/hash_utils.h"
 #include "openssl/evp.h"
+#include "gandiva/hash_utils.h"
 #include "gandiva/execution_context.h"
+#include "gandiva/gdv_function_stubs.h"
 
 namespace gandiva {
   const char* HashUtils::HashUsingSha256(int64_t context,
@@ -44,7 +45,7 @@ namespace gandiva {
                                  const void* message,
                                  size_t message_length,
                                  const EVP_MD *hash_type,
-                                 int result_buffer_size,
+                                 int result_buf_size,
                                  u_int32_t* out_length) {
     EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
 
@@ -83,26 +84,35 @@ namespace gandiva {
     unsigned int result_length;
     EVP_DigestFinal_ex(md_ctx, result, &result_length);
 
-    int temporary_buffer_length = 4;
+    int tmp_buf_len = 4;
 
-    char* hex_buffer = new char[temporary_buffer_length];
-    char* result_buffer = new char[result_buffer_size];
+    auto hex_buffer =
+        reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, tmp_buf_len));
 
-    CleanCharArray(hex_buffer);
+    auto result_buffer =
+        reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, result_buf_size));
+
     CleanCharArray(result_buffer);
+    CleanCharArray(hex_buffer);
+
+    if (hex_buffer == nullptr || result_buffer == nullptr) {
+      gdv_fn_context_set_error_msg(context, "Could not allocate memory "
+                                       "for the result buffers.");
+      EVP_MD_CTX_free(md_ctx);
+      return "";
+    }
 
     for (unsigned int j = 0; j < result_length; j++) {
       unsigned char hex_number = result[j];
-      snprintf(hex_buffer, temporary_buffer_length, "%02x", hex_number);
-      strncat(result_buffer, hex_buffer, temporary_buffer_length);
+      snprintf(hex_buffer, tmp_buf_len, "%02x", hex_number);
+      strncat(result_buffer, hex_buffer, tmp_buf_len);
     }
 
     // Add the NULL character to shows the end of the string
-    result_buffer[result_buffer_size - 1] = '\0';
+    result_buffer[result_buf_size - 1] = '\0';
 
     // free the resources to avoid memory leaks
     EVP_MD_CTX_free(md_ctx);
-    delete[] hex_buffer;
     free(result);
 
     *out_length = strlen(result_buffer);

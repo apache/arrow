@@ -44,7 +44,7 @@ class GANDIVA_EXPORT HashUtils {
                              const void *message,
                              size_t message_length,
                              const EVP_MD *hash_type,
-                             int result_buffer_size,
+                             int result_buf_size,
                              u_int32_t *out_length);
 
   static void ErrorMessage(int64_t context_ptr, char const *err_msg);
