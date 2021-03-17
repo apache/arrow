@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/kernels/hash_aggregate_internal.h"
+#include "arrow/compute/api_aggregate.h"
 
 #include <memory>
 #include <string>
@@ -23,7 +23,6 @@
 #include <vector>
 
 #include "arrow/buffer_builder.h"
-#include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/kernel.h"

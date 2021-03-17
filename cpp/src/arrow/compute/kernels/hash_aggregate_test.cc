@@ -31,7 +31,6 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
-#include "arrow/compute/kernels/hash_aggregate_internal.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/compute/registry.h"
 #include "arrow/type.h"
