@@ -51,7 +51,7 @@ struct KeyEncoder {
 
   virtual void AddLength(const ArrayData&, int32_t* lengths) = 0;
 
-  virtual void Encode(const ArrayData&, uint8_t** encoded_bytes) = 0;
+  virtual Status Encode(const ArrayData&, uint8_t** encoded_bytes) = 0;
 
   virtual Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes,
                                                     int32_t length, MemoryPool*) = 0;
@@ -91,7 +91,7 @@ struct BooleanKeyEncoder : KeyEncoder {
     }
   }
 
-  void Encode(const ArrayData& data, uint8_t** encoded_bytes) override {
+  Status Encode(const ArrayData& data, uint8_t** encoded_bytes) override {
     VisitArrayDataInline<BooleanType>(
         data,
         [&](bool value) {
@@ -104,6 +104,7 @@ struct BooleanKeyEncoder : KeyEncoder {
           *encoded_ptr++ = 1;
           *encoded_ptr++ = 0;
         });
+    return Status::OK();
   }
 
   Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
@@ -127,8 +128,9 @@ struct BooleanKeyEncoder : KeyEncoder {
 };
 
 struct FixedWidthKeyEncoder : KeyEncoder {
-  FixedWidthKeyEncoder(int byte_width, std::shared_ptr<DataType> type)
-      : byte_width_(byte_width), type_(std::move(type)) {}
+  explicit FixedWidthKeyEncoder(std::shared_ptr<DataType> type)
+      : type_(std::move(type)),
+        byte_width_(checked_cast<const FixedWidthType&>(*type_).bit_width() / 8) {}
 
   void AddLength(const ArrayData& data, int32_t* lengths) override {
     for (int64_t i = 0; i < data.length; ++i) {
@@ -136,7 +138,7 @@ struct FixedWidthKeyEncoder : KeyEncoder {
     }
   }
 
-  void Encode(const ArrayData& data, uint8_t** encoded_bytes) override {
+  Status Encode(const ArrayData& data, uint8_t** encoded_bytes) override {
     ArrayData viewed(fixed_size_binary(byte_width_), data.length, data.buffers,
                      data.null_count, data.offset);
 
@@ -154,6 +156,7 @@ struct FixedWidthKeyEncoder : KeyEncoder {
           memset(encoded_ptr, 0, byte_width_);
           encoded_ptr += byte_width_;
         });
+    return Status::OK();
   }
 
   Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
@@ -176,8 +179,45 @@ struct FixedWidthKeyEncoder : KeyEncoder {
                            null_count);
   }
 
-  int byte_width_;
   std::shared_ptr<DataType> type_;
+  int byte_width_;
+};
+
+struct DictionaryKeyEncoder : FixedWidthKeyEncoder {
+  DictionaryKeyEncoder(std::shared_ptr<DataType> type, MemoryPool* pool)
+      : FixedWidthKeyEncoder(std::move(type)), pool_(pool) {}
+
+  Status Encode(const ArrayData& data, uint8_t** encoded_bytes) override {
+    auto dict = MakeArray(data.dictionary);
+    if (dictionary_) {
+      if (!dictionary_->Equals(dict)) {
+        // TODO(bkietz) unify if necessary
+        return Status::NotImplemented("Dictionary keys with multiple dictionaries");
+      }
+    } else {
+      dictionary_ = std::move(dict);
+    }
+    return FixedWidthKeyEncoder::Encode(data, encoded_bytes);
+  }
+
+  Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
+                                            MemoryPool* pool) override {
+    ARROW_ASSIGN_OR_RAISE(auto data,
+                          FixedWidthKeyEncoder::Decode(encoded_bytes, length, pool));
+
+    if (dictionary_) {
+      data->dictionary = dictionary_->data();
+    } else {
+      ARROW_ASSIGN_OR_RAISE(auto dict, MakeArrayOfNull(type_, 0));
+      data->dictionary = dict->data();
+    }
+
+    data->type = type_;
+    return data;
+  }
+
+  MemoryPool* pool_;
+  std::shared_ptr<Array> dictionary_;
 };
 
 template <typename T>
@@ -194,8 +234,8 @@ struct VarLengthKeyEncoder : KeyEncoder {
         [&] { lengths[i++] += kExtraByteForNull + sizeof(Offset); });
   }
 
-  void Encode(const ArrayData& data, uint8_t** encoded_bytes) override {
-    return VisitArrayDataInline<T>(
+  Status Encode(const ArrayData& data, uint8_t** encoded_bytes) override {
+    VisitArrayDataInline<T>(
         data,
         [&](util::string_view bytes) {
           auto& encoded_ptr = *encoded_bytes++;
@@ -211,6 +251,7 @@ struct VarLengthKeyEncoder : KeyEncoder {
           util::SafeStore(encoded_ptr, static_cast<Offset>(0));
           encoded_ptr += sizeof(Offset);
         });
+    return Status::OK();
   }
 
   Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
@@ -268,9 +309,14 @@ struct GroupIdentifierImpl : GroupIdentifier {
         continue;
       }
 
-      if (auto byte_width = bit_width(key->id()) / 8) {
+      if (key->id() == Type::DICTIONARY) {
         impl->encoders_[i] =
-            ::arrow::internal::make_unique<FixedWidthKeyEncoder>(byte_width, key);
+            ::arrow::internal::make_unique<DictionaryKeyEncoder>(key, ctx->memory_pool());
+        continue;
+      }
+
+      if (is_fixed_width(key->id())) {
+        impl->encoders_[i] = ::arrow::internal::make_unique<FixedWidthKeyEncoder>(key);
         continue;
       }
 
@@ -312,7 +358,7 @@ struct GroupIdentifierImpl : GroupIdentifier {
     }
 
     for (int i = 0; i < batch.num_values(); ++i) {
-      encoders_[i]->Encode(*batch[i].array(), key_buf_ptrs.data());
+      RETURN_NOT_OK(encoders_[i]->Encode(*batch[i].array(), key_buf_ptrs.data()));
     }
 
     TypedBufferBuilder<uint32_t> group_ids_batch(ctx_->memory_pool());

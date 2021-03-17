@@ -493,6 +493,30 @@ TEST(GroupBy, SumOnly) {
                     /*verbose=*/true);
 }
 
+TEST(GroupBy, SumOnlyFloatingPointKey) {
+  auto aggregand = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
+  auto key = ArrayFromJSON(float64(), "[1, 2, 3, 1, 2, 2, null]");
+
+  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                       internal::GroupBy({aggregand}, {key},
+                                         {
+                                             {"sum", nullptr},
+                                         }));
+
+  AssertDatumsEqual(ArrayFromJSON(struct_({
+                                      field("", float64()),
+                                      field("", float64()),
+                                  }),
+                                  R"([
+    [4.25,   1],
+    [-0.125, 2],
+    [null,   3],
+    [0.75,   null]
+  ])"),
+                    aggregated_and_grouped,
+                    /*verbose=*/true);
+}
+
 TEST(GroupBy, MinMaxOnly) {
   auto aggregand = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
   auto key = ArrayFromJSON(int64(), "[1, 2, 3, 1, 2, 2, null]");
@@ -564,6 +588,28 @@ TEST(GroupBy, StringKey) {
   AssertDatumsEqual(ArrayFromJSON(struct_({
                                       field("", int64()),
                                       field("", utf8()),
+                                  }),
+                                  R"([
+    [10,   "alfa"],
+    [14,   "beta"],
+    [6,    "gamma"],
+    [12,   null]
+  ])"),
+                    aggregated_and_grouped,
+                    /*verbose=*/true);
+}
+
+TEST(GroupBy, DictKey) {
+  auto aggregand = ArrayFromJSON(int64(), "[10, 5, 4, 2, 12, 9]");
+  auto key = ArrayFromJSON(dictionary(int32(), utf8()),
+                           R"(["alfa", "beta", "gamma", "gamma", null, "beta"])");
+
+  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                       internal::GroupBy({aggregand}, {key}, {{"sum", nullptr}}));
+
+  AssertDatumsEqual(ArrayFromJSON(struct_({
+                                      field("", int64()),
+                                      field("", dictionary(int32(), utf8())),
                                   }),
                                   R"([
     [10,   "alfa"],
