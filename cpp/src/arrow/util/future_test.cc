@@ -971,6 +971,13 @@ TEST(FutureCompletionTest, FutureVoid) {
   }
 }
 
+TEST(FutureAllTest, Empty) {
+  auto combined = arrow::All(std::vector<Future<int>>{});
+  auto after_assert = combined.Then(
+      [](std::vector<Result<int>> results) { ASSERT_EQ(0, results.size()); });
+  AssertSuccessful(after_assert);
+}
+
 TEST(FutureAllTest, Simple) {
   auto f1 = Future<int>::Make();
   auto f2 = Future<int>::Make();
@@ -1012,11 +1019,16 @@ TEST(FutureAllTest, Failure) {
   AssertFinished(after_assert);
 }
 
+TEST(FutureAllCompleteTest, Empty) {
+  Future<> combined = AllComplete(std::vector<Future<>>{});
+  AssertSuccessful(combined);
+}
+
 TEST(FutureAllCompleteTest, Simple) {
   auto f1 = Future<int>::Make();
   auto f2 = Future<int>::Make();
   std::vector<Future<>> futures = {Future<>(f1), Future<>(f2)};
-  auto combined = arrow::AllComplete(futures);
+  auto combined = AllComplete(futures);
   AssertNotFinished(combined);
   f2.MarkFinished(2);
   AssertNotFinished(combined);
@@ -1029,7 +1041,7 @@ TEST(FutureAllCompleteTest, Failure) {
   auto f2 = Future<int>::Make();
   auto f3 = Future<int>::Make();
   std::vector<Future<>> futures = {Future<>(f1), Future<>(f2), Future<>(f3)};
-  auto combined = arrow::AllComplete(futures);
+  auto combined = AllComplete(futures);
   AssertNotFinished(combined);
   f1.MarkFinished(1);
   AssertNotFinished(combined);
