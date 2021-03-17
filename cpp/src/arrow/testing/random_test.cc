@@ -61,6 +61,17 @@ TEST_P(RandomArrayTest, GenerateBatch) {
   ASSERT_OK(array->ValidateFull());
 }
 
+TEST_P(RandomArrayTest, GenerateZeroLengthArray) {
+  auto field = GetField();
+  if (field->type()->id() == Type::type::DENSE_UNION) {
+    GTEST_SKIP() << "Cannot generate zero-length dense union arrays";
+  }
+  auto array = GenerateArray(*field, 0, 0xDEADBEEF);
+  AssertTypeEqual(field->type(), array->type());
+  ASSERT_EQ(0, array->length());
+  ASSERT_OK(array->ValidateFull());
+}
+
 TEST_P(RandomArrayTest, GenerateArrayWithZeroNullProbability) {
   auto field =
       GetField()->WithMetadata(key_value_metadata({{"null_probability", "0.0"}}));
@@ -156,31 +167,166 @@ TYPED_TEST(RandomNumericArrayTest, GenerateMinMax) {
   }
 }
 
-TEST(TypeSpecificTests, FloatNan) {
+// Test all the supported options
+TEST(TypeSpecificTests, BoolTrueProbability) {
+  auto field = arrow::field("bool", boolean())
+                   ->WithMetadata(key_value_metadata({{"true_probability", "1.0"}}));
+  auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
+  AssertTypeEqual(field->type(), base_array->type());
+  auto array = internal::checked_pointer_cast<BooleanArray>(base_array);
+  ASSERT_OK(array->ValidateFull());
+  for (const auto& value : *array) {
+    ASSERT_TRUE(!value.has_value() || *value);
+  }
+}
+
+TEST(TypeSpecificTests, DictionaryValues) {
+  auto field = arrow::field("dictionary", dictionary(int8(), utf8()))
+                   ->WithMetadata(key_value_metadata({{"values", "16"}}));
+  auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
+  AssertTypeEqual(field->type(), base_array->type());
+  auto array = internal::checked_pointer_cast<DictionaryArray>(base_array);
+  ASSERT_OK(array->ValidateFull());
+  ASSERT_EQ(16, array->dictionary()->length());
+}
+
+TEST(TypeSpecificTests, Float32Nan) {
   auto field = arrow::field("float32", float32())
                    ->WithMetadata(key_value_metadata({{"nan_probability", "1.0"}}));
-  auto batch = GenerateBatch({field}, kExpectedLength, 0xDEADBEEF);
-  AssertSchemaEqual(schema({field}), batch->schema());
-  auto array = internal::checked_pointer_cast<NumericArray<FloatType>>(batch->column(0));
-  auto it = array->begin();
-  while (it != array->end()) {
-    if ((*it).has_value()) {
-      ASSERT_TRUE(std::isnan(**it));
-    }
-    it++;
+  auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
+  AssertTypeEqual(field->type(), base_array->type());
+  auto array = internal::checked_pointer_cast<NumericArray<FloatType>>(base_array);
+  ASSERT_OK(array->ValidateFull());
+  for (const auto& value : *array) {
+    ASSERT_TRUE(!value.has_value() || std::isnan(*value));
   }
+}
+
+TEST(TypeSpecificTests, Float64Nan) {
+  auto field = arrow::field("float64", float64())
+                   ->WithMetadata(key_value_metadata({{"nan_probability", "1.0"}}));
+  auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
+  AssertTypeEqual(field->type(), base_array->type());
+  auto array = internal::checked_pointer_cast<NumericArray<DoubleType>>(base_array);
+  ASSERT_OK(array->ValidateFull());
+  for (const auto& value : *array) {
+    ASSERT_TRUE(!value.has_value() || std::isnan(*value));
+  }
+}
+
+TEST(TypeSpecificTests, ListLengths) {
+  {
+    auto field = arrow::field("list", list(int8()))
+                     ->WithMetadata(
+                         key_value_metadata({{"min_length", "1"}, {"max_length", "1"}}));
+    auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
+    AssertTypeEqual(field->type(), base_array->type());
+    auto array = internal::checked_pointer_cast<ListArray>(base_array);
+    ASSERT_OK(array->ValidateFull());
+    for (int i = 0; i < kExpectedLength; i++) {
+      if (!array->IsNull(i)) {
+        ASSERT_EQ(1, array->value_length(i));
+      }
+    }
+  }
+  {
+    auto field = arrow::field("list", large_list(int8()))
+                     ->WithMetadata(key_value_metadata(
+                         {{"min_length", "10"}, {"max_length", "10"}}));
+    auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
+    AssertTypeEqual(field->type(), base_array->type());
+    auto array = internal::checked_pointer_cast<LargeListArray>(base_array);
+    ASSERT_OK(array->ValidateFull());
+    for (int i = 0; i < kExpectedLength; i++) {
+      if (!array->IsNull(i)) {
+        ASSERT_EQ(10, array->value_length(i));
+      }
+    }
+  }
+}
+
+TEST(TypeSpecificTests, MapValues) {
+  auto field = arrow::field("map", map(int8(), int8()))
+                   ->WithMetadata(key_value_metadata({{"values", "4"}}));
+  auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
+  AssertTypeEqual(field->type(), base_array->type());
+  auto array = internal::checked_pointer_cast<MapArray>(base_array);
+  ASSERT_OK(array->ValidateFull());
+  ASSERT_EQ(4, array->keys()->length());
+  ASSERT_EQ(4, array->items()->length());
 }
 
 TEST(TypeSpecificTests, RepeatedStrings) {
   auto field =
       arrow::field("string", utf8())->WithMetadata(key_value_metadata({{"unique", "1"}}));
-  auto batch = GenerateBatch({field}, kExpectedLength, 0xDEADBEEF);
-  AssertSchemaEqual(schema({field}), batch->schema());
-  auto array = internal::checked_pointer_cast<StringArray>(batch->column(0));
+  auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
+  AssertTypeEqual(field->type(), base_array->type());
+  auto array = internal::checked_pointer_cast<StringArray>(base_array);
+  ASSERT_OK(array->ValidateFull());
   util::string_view singular_value = array->GetView(0);
   for (auto slot : *array) {
     if (!slot.has_value()) continue;
     ASSERT_EQ(slot, singular_value);
+  }
+  // N.B. LargeString does not support unique
+}
+
+TEST(TypeSpecificTests, StringLengths) {
+  {
+    auto field = arrow::field("list", utf8())
+                     ->WithMetadata(
+                         key_value_metadata({{"min_length", "1"}, {"max_length", "1"}}));
+    auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
+    AssertTypeEqual(field->type(), base_array->type());
+    auto array = internal::checked_pointer_cast<StringArray>(base_array);
+    ASSERT_OK(array->ValidateFull());
+    for (int i = 0; i < kExpectedLength; i++) {
+      if (!array->IsNull(i)) {
+        ASSERT_EQ(1, array->value_length(i));
+      }
+    }
+  }
+  {
+    auto field = arrow::field("list", binary())
+                     ->WithMetadata(
+                         key_value_metadata({{"min_length", "1"}, {"max_length", "1"}}));
+    auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
+    AssertTypeEqual(field->type(), base_array->type());
+    auto array = internal::checked_pointer_cast<BinaryArray>(base_array);
+    ASSERT_OK(array->ValidateFull());
+    for (int i = 0; i < kExpectedLength; i++) {
+      if (!array->IsNull(i)) {
+        ASSERT_EQ(1, array->value_length(i));
+      }
+    }
+  }
+  {
+    auto field = arrow::field("list", large_utf8())
+                     ->WithMetadata(key_value_metadata(
+                         {{"min_length", "10"}, {"max_length", "10"}}));
+    auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
+    AssertTypeEqual(field->type(), base_array->type());
+    auto array = internal::checked_pointer_cast<LargeStringArray>(base_array);
+    ASSERT_OK(array->ValidateFull());
+    for (int i = 0; i < kExpectedLength; i++) {
+      if (!array->IsNull(i)) {
+        ASSERT_EQ(10, array->value_length(i));
+      }
+    }
+  }
+  {
+    auto field = arrow::field("list", large_binary())
+                     ->WithMetadata(key_value_metadata(
+                         {{"min_length", "10"}, {"max_length", "10"}}));
+    auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
+    AssertTypeEqual(field->type(), base_array->type());
+    auto array = internal::checked_pointer_cast<LargeBinaryArray>(base_array);
+    ASSERT_OK(array->ValidateFull());
+    for (int i = 0; i < kExpectedLength; i++) {
+      if (!array->IsNull(i)) {
+        ASSERT_EQ(10, array->value_length(i));
+      }
+    }
   }
 }
 

@@ -364,8 +364,9 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
 
 /// Generate a record batch with random data of the specified length.
 ///
-/// Generation options are read from key-value metadata for each field
-/// (including nested fields).
+/// Generation options are read from key-value metadata for each field. Options
+/// are applied recursively, e.g. for list(field(int8())), metadata of the child
+/// field will be used when generating child values.
 ///
 /// The following options are supported:
 ///
@@ -375,13 +376,36 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
 ///
 /// For all numeric types T:
 /// - min (T::c_type): the minimum value to generate (inclusive), default
-/// std::numeric_limits<T::c_type>::min()
+///   std::numeric_limits<T::c_type>::min()
 /// - max (T::c_type): the maximum value to generate (inclusive), default
-/// std::numeric_limits<T::c_type>::max() Note this means that, for example, min/max are
-/// int16_t values for HalfFloatType.
+///   std::numeric_limits<T::c_type>::max()
+/// Note this means that, for example, min/max are int16_t values for HalfFloatType.
 ///
 /// For floating point types T for which is_physical_floating_type<T>:
-/// - nan_probability (double): range [0.0, 1.0]
+/// - nan_probability (double): range [0.0, 1.0] the probability of a NaN value.
+///
+/// For BooleanType:
+/// - true_probability (double): range [0.0, 1.0] the probability of a true.
+///
+/// For DictionaryType:
+/// - values (int32_t): the size of the dictionary.
+/// Other properties are passed to the generator for the dictionary indices. However, min
+/// and max cannot be specified. Note it is not possible to otherwise customize the
+/// generation of dictionary values.
+///
+/// For list, string, and binary types T, including their large variants:
+/// - min_length (T::offset_type): the minimum length of the child to generate,
+///   default 0
+/// - max_length (T::offset_type): the minimum length of the child to generate,
+///   default 1024
+///
+/// For string and binary types T (not including their large variants):
+/// - unique (int32_t): if positive, this many distinct values will be generated
+///   and all array values will be one of these values, default -1
+///
+/// For MapType:
+/// - values (int32_t): the number of key-value pairs to generate, which will be
+///   partitioned among the array values.
 ARROW_TESTING_EXPORT
 std::shared_ptr<arrow::RecordBatch> GenerateBatch(const FieldVector& fields, int64_t size,
                                                   SeedType seed);

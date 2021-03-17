@@ -426,9 +426,8 @@ std::shared_ptr<Array> GenerateOffsets(SeedType seed, int64_t size,
 template <typename OffsetArrayType>
 std::shared_ptr<Array> OffsetsFromLengthsArray(OffsetArrayType* lengths,
                                                bool force_empty_nulls) {
-  // TODO: length 0 arrays (need test case)
-  DCHECK(!lengths->IsNull(0));
-  DCHECK(!lengths->IsNull(lengths->length() - 1));
+  DCHECK(lengths->length() == 0 || !lengths->IsNull(0));
+  DCHECK(lengths->length() == 0 || !lengths->IsNull(lengths->length() - 1));
   // Need N + 1 offsets for N items
   int64_t size = lengths->length() + 1;
   BufferVector buffers{2};
@@ -694,9 +693,9 @@ Result<std::shared_ptr<Array>> GenerateArray(const Field& field, int64_t length,
 #define GENERATE_LIST_CASE(ARRAY_TYPE)                                                  \
   case ARRAY_TYPE::TypeClass::type_id: {                                                \
     const auto min_length = GetMetadata<ARRAY_TYPE::TypeClass::offset_type>(            \
-        field.metadata().get(), "min", 0);                                              \
+        field.metadata().get(), "min_length", 0);                                       \
     const auto max_length = GetMetadata<ARRAY_TYPE::TypeClass::offset_type>(            \
-        field.metadata().get(), "max", 1024);                                           \
+        field.metadata().get(), "max_length", 1024);                                    \
     const auto lengths = internal::checked_pointer_cast<                                \
         CTypeTraits<ARRAY_TYPE::TypeClass::offset_type>::ArrayType>(                    \
         generator->Numeric<CTypeTraits<ARRAY_TYPE::TypeClass::offset_type>::ArrowType>( \
@@ -743,8 +742,10 @@ Result<std::shared_ptr<Array>> GenerateArray(const Field& field, int64_t length,
 
     case Type::type::STRING:
     case Type::type::BINARY: {
-      const auto min_length = GetMetadata<int32_t>(field.metadata().get(), "min", 0);
-      const auto max_length = GetMetadata<int32_t>(field.metadata().get(), "max", 1024);
+      const auto min_length =
+          GetMetadata<int32_t>(field.metadata().get(), "min_length", 0);
+      const auto max_length =
+          GetMetadata<int32_t>(field.metadata().get(), "max_length", 1024);
       const auto unique_values =
           GetMetadata<int32_t>(field.metadata().get(), "unique", -1);
       if (unique_values > 0) {
@@ -813,6 +814,10 @@ Result<std::shared_ptr<Array>> GenerateArray(const Field& field, int64_t length,
           *arrow::field("temporary", dict_type->value_type(), /*nullable=*/false),
           values_length, generator);
       auto merged = field.metadata() ? field.metadata() : key_value_metadata({}, {});
+      if (merged->Contains("min"))
+        ABORT_NOT_OK(Status::Invalid(field.ToString(), ": cannot specify min"));
+      if (merged->Contains("max"))
+        ABORT_NOT_OK(Status::Invalid(field.ToString(), ": cannot specify max"));
       merged = merged->Merge(*key_value_metadata(
           {{"min", "0"}, {"max", std::to_string(values_length - 1)}}));
       auto indices = *GenerateArray(
@@ -852,8 +857,10 @@ Result<std::shared_ptr<Array>> GenerateArray(const Field& field, int64_t length,
 
     case Type::type::LARGE_STRING:
     case Type::type::LARGE_BINARY: {
-      const auto min_length = GetMetadata<int32_t>(field.metadata().get(), "min", 0);
-      const auto max_length = GetMetadata<int32_t>(field.metadata().get(), "max", 1024);
+      const auto min_length =
+          GetMetadata<int32_t>(field.metadata().get(), "min_length", 0);
+      const auto max_length =
+          GetMetadata<int32_t>(field.metadata().get(), "max_length", 1024);
       const auto unique_values =
           GetMetadata<int32_t>(field.metadata().get(), "unique", -1);
       if (unique_values > 0) {
