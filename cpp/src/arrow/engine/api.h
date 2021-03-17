@@ -17,28 +17,4 @@
 
 #pragma once
 
-namespace arrow {
-
-struct Datum;
-struct ValueDescr;
-
-namespace compute {
-
-class Function;
-struct FunctionOptions;
-
-struct CastOptions;
-
-class ExecBatch;
-class ExecContext;
-class KernelContext;
-
-struct Kernel;
-struct ScalarKernel;
-struct ScalarAggregateKernel;
-struct VectorKernel;
-
-struct KernelState;
-
-}  // namespace compute
-}  // namespace arrow
+#include "arrow/engine/query_plan.h"  // IWYU pragma: export
