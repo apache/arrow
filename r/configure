@@ -149,7 +149,7 @@ else
       fi
 
       ${R_HOME}/bin/Rscript tools/nixlibs.R $VERSION
-      PKG_CFLAGS="-I$(pwd)/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
+      PKG_CFLAGS="-I`pwd`/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
 
       LIB_DIR="libarrow/arrow-${VERSION}/lib"
       if [ -d "$LIB_DIR" ]; then
@@ -162,8 +162,8 @@ else
         #
         # TODO: what about non-bundled deps?
         BUNDLED_LIBS=`cd $LIB_DIR && ls *.a`
-        BUNDLED_LIBS=`echo $BUNDLED_LIBS | sed -E "s/lib(.*)\.a/-l\1/" | sed -e "s/\\.a lib/ -l/g"`
-        PKG_DIRS="-L$(pwd)/$LIB_DIR"
+        BUNDLED_LIBS=`echo "$BUNDLED_LIBS" | sed -e "s/\\.a lib/ -l/g" | sed -e "s/\\.a$//" | sed -e "s/^lib/-l/" | tr '\n' ' ' | sed -e "s/ $//"`
+        PKG_DIRS="-L`pwd`/$LIB_DIR"
 
         # When using brew's openssl it is not bundled and it is not on the system
         # search path  and so we must add the lib path to BUNDLED_LIBS if we are
