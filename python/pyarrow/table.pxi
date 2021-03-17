@@ -207,13 +207,13 @@ cdef class ChunkedArray(_PandasConvertible):
         -------
         are_equal : bool
         """
+        if other is None:
+            return False
+
         cdef:
             CChunkedArray* this_arr = self.chunked_array
             CChunkedArray* other_arr = other.chunked_array
             c_bool result
-
-        if other is None:
-            return False
 
         with nogil:
             result = this_arr.Equals(deref(other_arr))
@@ -1432,13 +1432,13 @@ cdef class Table(_PandasConvertible):
         -------
         are_equal : bool
         """
+        if other is None:
+            return False
+
         cdef:
             CTable* this_table = self.table
             CTable* other_table = other.table
             c_bool result
-
-        if other is None:
-            return False
 
         with nogil:
             result = this_table.Equals(deref(other_table), check_metadata)

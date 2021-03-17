@@ -272,8 +272,7 @@ def test_chunked_array_equals():
     ne([c, a], [a, c])
 
     # ARROW-4822
-    with pytest.raises(AttributeError):
-        pa.chunked_array([], type=pa.int32()).equals(None)
+    assert not pa.chunked_array([], type=pa.int32()).equals(None)
 
 
 @pytest.mark.parametrize(
@@ -715,12 +714,10 @@ def test_table_column_sets_private_name():
 
 def test_table_equals():
     table = pa.Table.from_arrays([], names=[])
-
     assert table.equals(table)
 
     # ARROW-4822
-    with pytest.raises(AttributeError):
-        table.equals(None)
+    assert not table.equals(None)
 
     other = pa.Table.from_arrays([], names=[], metadata={'key': 'value'})
     assert not table.equals(other, check_metadata=True)
