@@ -176,12 +176,12 @@ set(PARQUET_SRCS
     column_writer.cc
     deprecated_io.cc
     encoding.cc
-    encryption.cc
+    encryption/encryption.cc
+    encryption/internal_file_decryptor.cc
+    encryption/internal_file_encryptor.cc
     exception.cc
     file_reader.cc
     file_writer.cc
-    internal_file_decryptor.cc
-    internal_file_encryptor.cc
     level_comparison.cc
     level_conversion.cc
     metadata.cc
@@ -219,9 +219,21 @@ if(ARROW_HAVE_RUNTIME_AVX2)
 endif()
 
 if(PARQUET_REQUIRE_ENCRYPTION)
-  set(PARQUET_SRCS ${PARQUET_SRCS} encryption_internal.cc)
+  set(PARQUET_SRCS ${PARQUET_SRCS} encryption/encryption_internal.cc)
+  # Encryption key management
+  set(PARQUET_SRCS
+      ${PARQUET_SRCS}
+      encryption/crypto_factory.cc
+      encryption/file_key_unwrapper.cc
+      encryption/file_key_wrapper.cc
+      encryption/kms_client.cc
+      encryption/key_material.cc
+      encryption/key_metadata.cc
+      encryption/key_toolkit.cc
+      encryption/key_toolkit_internal.cc
+      encryption/local_wrap_kms_client.cc)
 else()
-  set(PARQUET_SRCS ${PARQUET_SRCS} encryption_internal_nossl.cc)
+  set(PARQUET_SRCS ${PARQUET_SRCS} encryption/encryption_internal_nossl.cc)
 endif()
 
 if(NOT PARQUET_MINIMAL_DEPENDENCY)
@@ -323,6 +335,7 @@ endif()
 
 add_subdirectory(api)
 add_subdirectory(arrow)
+add_subdirectory(encryption)
 
 arrow_install_all_headers("parquet")
 
@@ -381,9 +394,19 @@ add_parquet_test(arrow-internals-test
 if(PARQUET_REQUIRE_ENCRYPTION)
   add_parquet_test(encryption-test
                    SOURCES
-                   encryption_write_configurations_test.cc
-                   encryption_read_configurations_test.cc
-                   encryption_properties_test.cc
+                   encryption/write_configurations_test.cc
+                   encryption/read_configurations_test.cc
+                   encryption/properties_test.cc
+                   encryption/test_encryption_util.cc
+                   test_util.cc)
+  add_parquet_test(encryption-key-management-test
+                   SOURCES
+                   encryption/key_management_test.cc
+                   encryption/key_metadata_test.cc
+                   encryption/key_wrapping_test.cc
+                   encryption/test_encryption_util.cc
+                   encryption/test_in_memory_kms.cc
+                   encryption/two_level_cache_with_expiration_test.cc
                    test_util.cc)
 endif()
 

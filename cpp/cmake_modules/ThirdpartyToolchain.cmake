@@ -250,6 +250,10 @@ include_directories(SYSTEM "${THIRDPARTY_DIR}/flatbuffers/include")
 # ----------------------------------------------------------------------
 # Some EP's require other EP's
 
+if(PARQUET_REQUIRE_ENCRYPTION)
+  set(ARROW_JSON ON)
+endif()
+
 if(ARROW_THRIFT)
   set(ARROW_WITH_ZLIB ON)
 endif()
