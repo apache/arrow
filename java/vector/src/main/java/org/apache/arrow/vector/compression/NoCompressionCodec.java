@@ -48,8 +48,8 @@ public class NoCompressionCodec implements CompressionCodec {
   }
 
   @Override
-  public String getCodecName() {
-    return "NO_COMPRESSION";
+  public CompressionUtil.CodecType getCodecType() {
+    return CompressionUtil.CodecType.NO_COMPRESSION;
   }
 
   /**

@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-import org.apache.arrow.flatbuf.CompressionType;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.MemoryUtil;
@@ -152,7 +151,7 @@ public class Lz4CompressionCodec implements CompressionCodec {
   }
 
   @Override
-  public String getCodecName() {
-    return CompressionType.name(CompressionType.LZ4_FRAME);
+  public CompressionUtil.CodecType getCodecType() {
+    return CompressionUtil.CodecType.LZ4_FRAME;
   }
 }

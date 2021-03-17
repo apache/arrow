@@ -79,8 +79,7 @@ public class CompressionUtil {
    * {@link org.apache.arrow.flatbuf.CompressionType#names}.
    */
   public static ArrowBodyCompression createBodyCompression(CompressionCodec codec) {
-    CodecType type = CodecType.valueOf(codec.getCodecName());
-    return new ArrowBodyCompression(type.getType(), BodyCompressionMethod.BUFFER);
+    return new ArrowBodyCompression(codec.getCodecType().getType(), BodyCompressionMethod.BUFFER);
   }
 
   /**
@@ -95,7 +94,7 @@ public class CompressionUtil {
   }
 
   /**
-   * Process decompression by decompressing the buffer as is.
+   * Process decompression by slicing the buffer that contains the uncompressed bytes.
    */
   public static ArrowBuf extractUncompressedBuffer(ArrowBuf inputBuffer) {
     return inputBuffer.slice(SIZE_OF_UNCOMPRESSED_LENGTH,

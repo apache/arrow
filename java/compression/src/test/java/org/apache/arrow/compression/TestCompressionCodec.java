@@ -33,6 +33,7 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.compression.CompressionCodec;
+import org.apache.arrow.vector.compression.CompressionUtil;
 import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.junit.After;
@@ -63,7 +64,7 @@ public class TestCompressionCodec {
     allocator.close();
   }
 
-  public TestCompressionCodec(String name, int vectorLength, CompressionCodec codec) {
+  public TestCompressionCodec(CompressionUtil.CodecType type, int vectorLength, CompressionCodec codec) {
     this.codec = codec;
     this.vectorLength = vectorLength;
   }
@@ -75,10 +76,10 @@ public class TestCompressionCodec {
     int[] lengths = new int[] {10, 100, 1000};
     for (int len : lengths) {
       CompressionCodec dumbCodec = NoCompressionCodec.INSTANCE;
-      params.add(new Object[]{dumbCodec.getCodecName(), len, dumbCodec});
+      params.add(new Object[]{dumbCodec.getCodecType(), len, dumbCodec});
 
       CompressionCodec lz4Codec = new Lz4CompressionCodec();
-      params.add(new Object[]{lz4Codec.getCodecName(), len, lz4Codec});
+      params.add(new Object[]{lz4Codec.getCodecType(), len, lz4Codec});
     }
     return params;
   }
