@@ -63,12 +63,8 @@
 #'
 #' # See the contents of the directory we wrote to in order to demonstrate
 #' # what partitioning does
-#' list(
-#'  cyl_partioning = list.files(one_part_dir, pattern = "parquet",
-#'   recursive = TRUE),
-#'  cyl_gear_partitioning = list.files(two_part_dir, pattern = "parquet",
-#'   recursive = TRUE)
-#' )
+#'  list.files(one_part_dir, recursive = TRUE)
+#'  list.files(two_part_dir, recursive = TRUE)
 #'
 #' # We can do the same combining both arrow and dplyr
 #' if(requireNamespace("dplyr", quietly = TRUE)) {
