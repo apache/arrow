@@ -39,7 +39,7 @@ class TestProjector : public ::testing::Test {
   void SetUp() { pool_ = arrow::default_memory_pool(); }
 
  protected:
-  arrow::MemoryPool *pool_;
+  arrow::MemoryPool* pool_;
 };
 
 time_t Epoch() {
@@ -371,7 +371,7 @@ TEST_F(TestProjector, TestTimestampDiff) {
       TreeExprBuilder::MakeExpression("timestampdiffYear", {f0, f1}, diff_seconds);
 
   std::shared_ptr<Projector> projector;
-  auto exprs = {diff_secs_expr, diff_mins_expr, diff_hours_expr, diff_days_expr,
+  auto exprs = {diff_secs_expr,  diff_mins_expr,   diff_hours_expr,    diff_days_expr,
                 diff_weeks_expr, diff_months_expr, diff_quarters_expr, diff_years_expr};
   auto status = Projector::Make(schema, exprs, TestConfiguration(), &projector);
   ASSERT_TRUE(status.ok());
@@ -383,14 +383,14 @@ TEST_F(TestProjector, TestTimestampDiff) {
   // 2017-03-30T22:50:59.050
   auto end_millis = MillisSince(epoch, 2017, 3, 30, 22, 50, 59, 50);
   std::vector<int64_t> f0_data = {start_millis, end_millis,
-      // 2015-09-10T20:49:42.999
+                                  // 2015-09-10T20:49:42.999
                                   start_millis + 999,
-      // 2015-09-10T20:49:42.999
+                                  // 2015-09-10T20:49:42.999
                                   MillisSince(epoch, 2015, 9, 10, 20, 49, 42, 999)};
   std::vector<int64_t> f1_data = {end_millis, start_millis,
-      // 2015-09-10T20:49:42.999
+                                  // 2015-09-10T20:49:42.999
                                   start_millis + 999,
-      // 2015-09-9T21:49:42.999 (23 hours behind)
+                                  // 2015-09-9T21:49:42.999 (23 hours behind)
                                   MillisSince(epoch, 2015, 9, 9, 21, 49, 42, 999)};
 
   int64_t num_records = f0_data.size();
@@ -544,12 +544,10 @@ TEST_F(TestProjector, TestLastDay) {
   // output fields
   auto output = field("out", arrow::date64());
 
-  auto last_day_expr =
-      TreeExprBuilder::MakeExpression("last_day", {f0}, output);
+  auto last_day_expr = TreeExprBuilder::MakeExpression("last_day", {f0}, output);
 
   std::shared_ptr<Projector> projector;
-  auto status =
-      Projector::Make(schema, {last_day_expr}, TestConfiguration(), &projector);
+  auto status = Projector::Make(schema, {last_day_expr}, TestConfiguration(), &projector);
   std::cout << status.message();
   ASSERT_TRUE(status.ok());
 
@@ -573,7 +571,6 @@ TEST_F(TestProjector, TestLastDay) {
                                          MillisSince(epoch, 2016, 1, 31, 0, 0, 0, 0),
                                          MillisSince(epoch, 2017, 2, 28, 0, 0, 0, 0),
                                          MillisSince(epoch, 2015, 12, 31, 0, 0, 0, 0)};
-
 
   // expected output
   auto exp_output = MakeArrowArrayDate64(f0_output_data, validity);

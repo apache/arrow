@@ -174,7 +174,6 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
   NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
                  date64(), kResultNullIfNull, ARROW_STRINGIFY(NAME##_from_##TYPE))
 
-
 // Hash32 functions that :
 // - NULL handling is of type NULL_NEVER
 //

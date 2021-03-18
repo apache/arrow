@@ -455,13 +455,13 @@ DATE_TRUNC_FUNCTIONS(timestamp)
   FORCE_INLINE                                                                \
   gdv_date64 last_day_from_##TYPE(gdv_date64 millis) {                        \
     EpochTimePoint received_day(millis);                                      \
-    const auto &day_without_hours_and_sec = received_day.ClearTimeOfDay();    \
+    const auto& day_without_hours_and_sec = received_day.ClearTimeOfDay();    \
                                                                               \
     int received_day_in_month = day_without_hours_and_sec.TmMday();           \
-    const auto &first_day_in_month =                                          \
-    day_without_hours_and_sec.AddDays(1 - received_day_in_month);             \
+    const auto& first_day_in_month =                                          \
+        day_without_hours_and_sec.AddDays(1 - received_day_in_month);         \
                                                                               \
-    const auto &month_last_day = first_day_in_month.AddMonths(1).AddDays(-1); \
+    const auto& month_last_day = first_day_in_month.AddMonths(1).AddDays(-1); \
                                                                               \
     return month_last_day.MillisSinceEpoch();                                 \
   }

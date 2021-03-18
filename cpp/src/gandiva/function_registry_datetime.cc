@@ -83,8 +83,7 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
       NativeFunction("extractDay", {}, DataTypeVector{day_time_interval()}, int64(),
                      kResultNullIfNull, "extractDay_daytimeinterval"),
 
-      DATE_TYPES(LAST_DAY_SAFE_NULL_IF_NULL, last_day, {})
-  };
+      DATE_TYPES(LAST_DAY_SAFE_NULL_IF_NULL, last_day, {})};
 
   return date_time_fn_registry_;
 }
