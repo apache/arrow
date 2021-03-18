@@ -170,7 +170,7 @@ else
         # using it. Note the order is important, this must be after the arrow
         # lib path + the pkg and bundled libs above so this is why we're
         # appending to BUNDLED_LIBS and not PKG_DIRS
-        if [ $OPENSSL_ROOT_DIR != "" ]; then
+        if [ "$OPENSSL_ROOT_DIR" != "" ]; then
           BUNDLED_LIBS="$BUNDLED_LIBS -L$OPENSSL_ROOT_DIR/lib"
         fi
       fi
