@@ -521,17 +521,17 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
                                   types->i1_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_in_expr_lookup_utf8));
   // gdv_fn_in_expr_lookup_float
-  args = {types->i64_type(),  // int64_t in holder ptr
+  args = {types->i64_type(),    // int64_t in holder ptr
           types->float_type(),  // float value
-          types->i1_type()};  // bool in_validity
+          types->i1_type()};    // bool in_validity
 
   engine->AddGlobalMappingForFunc("gdv_fn_in_expr_lookup_float",
                                   types->i1_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_in_expr_lookup_float));
   // gdv_fn_in_expr_lookup_double
-  args = {types->i64_type(),  // int64_t in holder ptr
+  args = {types->i64_type(),     // int64_t in holder ptr
           types->double_type(),  // double value
-          types->i1_type()};  // bool in_validity
+          types->i1_type()};     // bool in_validity
 
   engine->AddGlobalMappingForFunc("gdv_fn_in_expr_lookup_double",
                                   types->i1_type() /*return_type*/, args,
