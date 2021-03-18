@@ -834,8 +834,11 @@ mod tests {
 
     #[test]
     fn test_binary_fixed_sized_offsets() {
-        let array =
-            FixedSizeBinaryArray::from(vec![vec![0, 0], vec![0, 1], vec![0, 2]]).data();
+        let array = FixedSizeBinaryArray::try_from_iter(
+            vec![vec![0, 0], vec![0, 1], vec![0, 2]].into_iter(),
+        )
+        .expect("Failed to create FixedSizeBinaryArray from iterable")
+        .data();
         let array = array.slice(1, 2);
         // = [[0, 1], [0, 2]] due to the offset = 1
 
@@ -849,7 +852,9 @@ mod tests {
         let result = mutable.freeze();
         let result = FixedSizeBinaryArray::from(Arc::new(result));
 
-        let expected = FixedSizeBinaryArray::from(vec![vec![0, 2], vec![0, 1]]);
+        let expected =
+            FixedSizeBinaryArray::try_from_iter(vec![vec![0, 2], vec![0, 1]].into_iter())
+                .expect("Failed to create FixedSizeBinaryArray from iterable");
         assert_eq!(result, expected);
     }
 
@@ -1077,16 +1082,21 @@ mod tests {
     #[test]
     fn test_fixed_size_binary_append() {
         let a = vec![Some(vec![1, 2]), Some(vec![3, 4]), Some(vec![5, 6])];
-        let a = FixedSizeBinaryArray::from(a).data();
+        let a = FixedSizeBinaryArray::try_from_sparse_iter(a.into_iter())
+            .expect("Failed to create FixedSizeBinaryArray from iterable")
+            .data();
 
         let b = vec![
+            None,
             Some(vec![7, 8]),
             Some(vec![9, 10]),
             None,
             Some(vec![13, 14]),
             None,
         ];
-        let b = FixedSizeBinaryArray::from(b).data();
+        let b = FixedSizeBinaryArray::try_from_sparse_iter(b.into_iter())
+            .expect("Failed to create FixedSizeBinaryArray from iterable")
+            .data();
 
         let mut mutable = MutableArrayData::new(vec![a.as_ref(), b.as_ref()], false, 10);
 
@@ -1103,20 +1113,23 @@ mod tests {
             Some(vec![3, 4]),
             Some(vec![5, 6]),
             // b
+            None,
             Some(vec![7, 8]),
             Some(vec![9, 10]),
             None,
             Some(vec![13, 14]),
             None,
             // b[1..4]
+            Some(vec![7, 8]),
             Some(vec![9, 10]),
             None,
-            Some(vec![13, 14]),
             // b[2..3]
-            None,
+            Some(vec![9, 10]),
             // b[4..4]
         ];
-        let expected = FixedSizeBinaryArray::from(expected).data();
+        let expected = FixedSizeBinaryArray::try_from_sparse_iter(expected.into_iter())
+            .expect("Failed to create FixedSizeBinaryArray from iterable")
+            .data();
         assert_eq!(&result, expected.as_ref());
     }
 

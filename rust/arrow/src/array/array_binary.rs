@@ -28,6 +28,7 @@ use super::{
     FixedSizeListArray, GenericBinaryIter, GenericListArray, OffsetSizeTrait,
 };
 use crate::buffer::Buffer;
+use crate::error::ArrowError;
 use crate::util::bit_util;
 use crate::{buffer::MutableBuffer, datatypes::DataType};
 
@@ -366,62 +367,157 @@ impl FixedSizeBinaryArray {
         self.data.buffers()[0].clone()
     }
 
-    #[inline]
-    fn value_offset_at(&self, i: usize) -> i32 {
-        self.length * i as i32
-    }
-}
-
-impl From<Vec<Vec<u8>>> for FixedSizeBinaryArray {
-    fn from(data: Vec<Vec<u8>>) -> Self {
-        let len = data.len();
-        assert!(len > 0);
-        let size = data[0].len();
-        assert!(data.iter().all(|item| item.len() == size));
-        let data = data.into_iter().flatten().collect::<Vec<_>>();
-        let array_data = ArrayData::builder(DataType::FixedSizeBinary(size as i32))
-            .len(len)
-            .add_buffer(Buffer::from(&data))
-            .build();
-        FixedSizeBinaryArray::from(array_data)
-    }
-}
-
-impl From<Vec<Option<Vec<u8>>>> for FixedSizeBinaryArray {
-    fn from(data: Vec<Option<Vec<u8>>>) -> Self {
-        let len = data.len();
-        assert!(len > 0);
-        // try to estimate the size. This may not be possible no entry is valid => panic
-        let size = data.iter().filter_map(|e| e.as_ref()).next().unwrap().len();
-        assert!(data
-            .iter()
-            .filter_map(|e| e.as_ref())
-            .all(|item| item.len() == size));
-
-        let num_bytes = bit_util::ceil(len, 8);
-        let mut null_buf = MutableBuffer::from_len_zeroed(num_bytes);
-        let null_slice = null_buf.as_slice_mut();
-
-        data.iter().enumerate().for_each(|(i, entry)| {
-            if entry.is_some() {
-                bit_util::set_bit(null_slice, i);
+    /// Create an array from an iterable argument of sparse byte slices.
+    /// Sparsity means that items returned by the iterator are optional, i.e input argument can
+    /// contain `None` items.
+    ///
+    /// # Examles
+    ///
+    /// ```
+    /// use arrow::array::FixedSizeBinaryArray;
+    /// let input_arg = vec![
+    ///     None,
+    ///     Some(vec![7, 8]),
+    ///     Some(vec![9, 10]),
+    ///     None,
+    ///     Some(vec![13, 14]),
+    ///     None,
+    /// ];
+    /// let array = FixedSizeBinaryArray::try_from_sparse_iter(input_arg.into_iter()).unwrap();
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns error if argument has length zero, or sizes of nested slices don't match.
+    pub fn try_from_sparse_iter<T, U>(mut iter: T) -> Result<Self, ArrowError>
+    where
+        T: Iterator<Item = Option<U>>,
+        U: AsRef<[u8]>,
+    {
+        let mut len = 0;
+        let mut size = None;
+        let mut byte = 0;
+        let mut null_buf = MutableBuffer::from_len_zeroed(0);
+        let mut buffer = MutableBuffer::from_len_zeroed(0);
+        let mut prepend = 0;
+        iter.try_for_each(|item| -> Result<(), ArrowError> {
+            // extend null bitmask by one byte per each 8 items
+            if byte == 0 {
+                null_buf.push(0u8);
+                byte = 8;
             }
-        });
+            byte -= 1;
 
-        let data = data
-            .into_iter()
-            .flat_map(|e| e.unwrap_or_else(|| vec![0; size]))
-            .collect::<Vec<_>>();
-        let data = ArrayData::new(
+            if let Some(slice) = item {
+                let slice = slice.as_ref();
+                if let Some(size) = size {
+                    if size != slice.len() {
+                        return Err(ArrowError::InvalidArgumentError(format!(
+                            "Nested array size mismatch: one is {}, and the other is {}",
+                            size,
+                            slice.len()
+                        )));
+                    }
+                } else {
+                    size = Some(slice.len());
+                    buffer.extend_zeros(slice.len() * prepend);
+                }
+                bit_util::set_bit(null_buf.as_slice_mut(), len);
+                buffer.extend_from_slice(slice);
+            } else {
+                if let Some(size) = size {
+                    buffer.extend_zeros(size);
+                } else {
+                    prepend += 1;
+                }
+            }
+
+            len += 1;
+
+            Ok(())
+        })?;
+
+        if len == 0 {
+            return Err(ArrowError::InvalidArgumentError(
+                "Input iterable argument has no data".to_owned(),
+            ));
+        }
+
+        let size = size.unwrap_or(0);
+        let array_data = ArrayData::new(
             DataType::FixedSizeBinary(size as i32),
             len,
             None,
             Some(null_buf.into()),
             0,
-            vec![Buffer::from(&data)],
+            vec![buffer.into()],
             vec![],
         );
-        FixedSizeBinaryArray::from(Arc::new(data))
+        Ok(FixedSizeBinaryArray::from(Arc::new(array_data)))
+    }
+
+    /// Create an array from an iterable argument of byte slices.
+    ///
+    /// # Examles
+    ///
+    /// ```
+    /// use arrow::array::FixedSizeBinaryArray;
+    /// let input_arg = vec![
+    ///     vec![1, 2],
+    ///     vec![3, 4],
+    ///     vec![5, 6],
+    /// ];
+    /// let array = FixedSizeBinaryArray::try_from_iter(input_arg.into_iter()).unwrap();
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns error if argument has length zero, or sizes of nested slices don't match.
+    pub fn try_from_iter<T, U>(mut iter: T) -> Result<Self, ArrowError>
+    where
+        T: Iterator<Item = U>,
+        U: AsRef<[u8]>,
+    {
+        let mut len = 0;
+        let mut size = None;
+        let mut buffer = MutableBuffer::from_len_zeroed(0);
+        iter.try_for_each(|item| -> Result<(), ArrowError> {
+            let slice = item.as_ref();
+            if let Some(size) = size {
+                if size != slice.len() {
+                    return Err(ArrowError::InvalidArgumentError(format!(
+                        "Nested array size mismatch: one is {}, and the other is {}",
+                        size,
+                        slice.len()
+                    )));
+                }
+            } else {
+                size = Some(slice.len());
+            }
+            buffer.extend_from_slice(slice);
+
+            len += 1;
+
+            Ok(())
+        })?;
+
+        if len == 0 {
+            return Err(ArrowError::InvalidArgumentError(
+                "Input iterable argument has no data".to_owned(),
+            ));
+        }
+
+        let size = size.unwrap_or(0);
+        let array_data = ArrayData::builder(DataType::FixedSizeBinary(size as i32))
+            .len(len)
+            .add_buffer(buffer.into())
+            .build();
+        Ok(FixedSizeBinaryArray::from(array_data))
+    }
+
+    #[inline]
+    fn value_offset_at(&self, i: usize) -> i32 {
+        self.length * i as i32
     }
 }
 
