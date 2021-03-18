@@ -328,6 +328,13 @@ struct UnboxScalar<Decimal128Type> {
   }
 };
 
+template <>
+struct UnboxScalar<Decimal256Type> {
+  static Decimal256 Unbox(const Scalar& val) {
+    return checked_cast<const Decimal256Scalar&>(val).value;
+  }
+};
+
 template <typename Type, typename Enable = void>
 struct BoxScalar;
 

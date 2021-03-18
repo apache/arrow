@@ -302,8 +302,8 @@ struct CastFunctor<O, I, enable_if_base_binary<I>> {
 // Decimal to integer
 
 struct DecimalToIntegerMixin {
-  template <typename OutValue>
-  OutValue ToInteger(KernelContext* ctx, const Decimal128& val) const {
+  template <typename OutValue, typename Arg0Value>
+  OutValue ToInteger(KernelContext* ctx, const Arg0Value& val) const {
     constexpr auto min_value = std::numeric_limits<OutValue>::min();
     constexpr auto max_value = std::numeric_limits<OutValue>::max();
 
@@ -326,7 +326,7 @@ struct UnsafeUpscaleDecimalToInteger : public DecimalToIntegerMixin {
   using DecimalToIntegerMixin::DecimalToIntegerMixin;
 
   template <typename OutValue, typename Arg0Value>
-  OutValue Call(KernelContext* ctx, Decimal128 val) const {
+  OutValue Call(KernelContext* ctx, Arg0Value val) const {
     return ToInteger<OutValue>(ctx, val.IncreaseScaleBy(-in_scale_));
   }
 };
@@ -335,7 +335,7 @@ struct UnsafeDownscaleDecimalToInteger : public DecimalToIntegerMixin {
   using DecimalToIntegerMixin::DecimalToIntegerMixin;
 
   template <typename OutValue, typename Arg0Value>
-  OutValue Call(KernelContext* ctx, Decimal128 val) const {
+  OutValue Call(KernelContext* ctx, Arg0Value val) const {
     return ToInteger<OutValue>(ctx, val.ReduceScaleBy(in_scale_, false));
   }
 };
@@ -344,7 +344,7 @@ struct SafeRescaleDecimalToInteger : public DecimalToIntegerMixin {
   using DecimalToIntegerMixin::DecimalToIntegerMixin;
 
   template <typename OutValue, typename Arg0Value>
-  OutValue Call(KernelContext* ctx, Decimal128 val) const {
+  OutValue Call(KernelContext* ctx, Arg0Value val) const {
     auto result = val.Rescale(in_scale_, 0);
     if (ARROW_PREDICT_FALSE(!result.ok())) {
       ctx->SetStatus(result.status());
@@ -355,35 +355,33 @@ struct SafeRescaleDecimalToInteger : public DecimalToIntegerMixin {
   }
 };
 
-template <typename O>
-struct CastFunctor<O, Decimal128Type, enable_if_t<is_integer_type<O>::value>> {
+template <typename O, typename I>
+struct CastFunctor<O, I,
+                   enable_if_t<is_integer_type<O>::value && is_decimal_type<I>::value>> {
   using out_type = typename O::c_type;
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& options = checked_cast<const CastState*>(ctx->state())->options;
 
-    const auto& in_type_inst = checked_cast<const Decimal128Type&>(*batch[0].type());
+    const auto& in_type_inst = checked_cast<const I&>(*batch[0].type());
     const auto in_scale = in_type_inst.scale();
 
     if (options.allow_decimal_truncate) {
       if (in_scale < 0) {
         // Unsafe upscale
-        applicator::ScalarUnaryNotNullStateful<O, Decimal128Type,
-                                               UnsafeUpscaleDecimalToInteger>
+        applicator::ScalarUnaryNotNullStateful<O, I, UnsafeUpscaleDecimalToInteger>
             kernel(UnsafeUpscaleDecimalToInteger{in_scale, options.allow_int_overflow});
         return kernel.Exec(ctx, batch, out);
       } else {
         // Unsafe downscale
-        applicator::ScalarUnaryNotNullStateful<O, Decimal128Type,
-                                               UnsafeDownscaleDecimalToInteger>
+        applicator::ScalarUnaryNotNullStateful<O, I, UnsafeDownscaleDecimalToInteger>
             kernel(UnsafeDownscaleDecimalToInteger{in_scale, options.allow_int_overflow});
         return kernel.Exec(ctx, batch, out);
       }
     } else {
       // Safe rescale
-      applicator::ScalarUnaryNotNullStateful<O, Decimal128Type,
-                                             SafeRescaleDecimalToInteger>
-          kernel(SafeRescaleDecimalToInteger{in_scale, options.allow_int_overflow});
+      applicator::ScalarUnaryNotNullStateful<O, I, SafeRescaleDecimalToInteger> kernel(
+          SafeRescaleDecimalToInteger{in_scale, options.allow_int_overflow});
       return kernel.Exec(ctx, batch, out);
     }
   }
@@ -562,6 +560,8 @@ std::shared_ptr<CastFunction> GetCastToInteger(std::string name) {
   // From decimal to integer
   DCHECK_OK(func->AddKernel(Type::DECIMAL, {InputType(Type::DECIMAL)}, out_ty,
                             CastFunctor<OutType, Decimal128Type>::Exec));
+  DCHECK_OK(func->AddKernel(Type::DECIMAL256, {InputType(Type::DECIMAL256)}, out_ty,
+                            CastFunctor<OutType, Decimal256Type>::Exec));
   return func;
 }
 

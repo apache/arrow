@@ -494,6 +494,97 @@ TEST(Cast, DecimalToInt) {
   CheckCast(negative_scale, ArrayFromJSON(int64(), "[1234567890000, -120000]"), options);
 }
 
+TEST(Cast, Decimal256ToInt) {
+  auto options = CastOptions::Safe(int64());
+
+  for (bool allow_int_overflow : {false, true}) {
+    for (bool allow_decimal_truncate : {false, true}) {
+      options.allow_int_overflow = allow_int_overflow;
+      options.allow_decimal_truncate = allow_decimal_truncate;
+
+      auto no_overflow_no_truncation = ArrayFromJSON(decimal256(40, 10), R"([
+          "02.0000000000",
+         "-11.0000000000",
+          "22.0000000000",
+        "-121.0000000000",
+        null])");
+      CheckCast(no_overflow_no_truncation,
+                ArrayFromJSON(int64(), "[2, -11, 22, -121, null]"), options);
+    }
+  }
+
+  for (bool allow_int_overflow : {false, true}) {
+    options.allow_int_overflow = allow_int_overflow;
+    auto truncation_but_no_overflow = ArrayFromJSON(decimal256(40, 10), R"([
+          "02.1000000000",
+         "-11.0000004500",
+          "22.0000004500",
+        "-121.1210000000",
+        null])");
+
+    options.allow_decimal_truncate = true;
+    CheckCast(truncation_but_no_overflow,
+              ArrayFromJSON(int64(), "[2, -11, 22, -121, null]"), options);
+
+    options.allow_decimal_truncate = false;
+    CheckCastFails(truncation_but_no_overflow, options);
+  }
+
+  for (bool allow_decimal_truncate : {false, true}) {
+    options.allow_decimal_truncate = allow_decimal_truncate;
+
+    auto overflow_no_truncation = ArrayFromJSON(decimal256(40, 10), R"([
+        "1234567890123456789000000.0000000000",
+        "9999999999999999999999999.0000000000",
+        null])");
+
+    options.allow_int_overflow = true;
+    CheckCast(overflow_no_truncation,
+              ArrayFromJSON(
+                  int64(),
+                  // 1234567890123456789000000 % 2**64, 9999999999999999999999999 % 2**64
+                  "[1096246371337547584, 1590897978359414783, null]"),
+              options);
+
+    options.allow_int_overflow = false;
+    CheckCastFails(overflow_no_truncation, options);
+  }
+
+  for (bool allow_int_overflow : {false, true}) {
+    for (bool allow_decimal_truncate : {false, true}) {
+      options.allow_int_overflow = allow_int_overflow;
+      options.allow_decimal_truncate = allow_decimal_truncate;
+
+      auto overflow_and_truncation = ArrayFromJSON(decimal256(40, 10), R"([
+        "1234567890123456789000000.0045345000",
+        "9999999999999999999999999.0000344300",
+        null])");
+
+      if (options.allow_int_overflow && options.allow_decimal_truncate) {
+        CheckCast(
+            overflow_and_truncation,
+            ArrayFromJSON(
+                int64(),
+                // 1234567890123456789000000 % 2**64, 9999999999999999999999999 % 2**64
+                "[1096246371337547584, 1590897978359414783, null]"),
+            options);
+      } else {
+        CheckCastFails(overflow_and_truncation, options);
+      }
+    }
+  }
+
+  Decimal256Builder builder(decimal256(40, -4));
+  for (auto d : {Decimal256("1234567890000."), Decimal256("-120000.")}) {
+    ASSERT_OK_AND_ASSIGN(d, d.Rescale(0, -4));
+    ASSERT_OK(builder.Append(d));
+  }
+  ASSERT_OK_AND_ASSIGN(auto negative_scale, builder.Finish());
+  options.allow_int_overflow = true;
+  options.allow_decimal_truncate = true;
+  CheckCast(negative_scale, ArrayFromJSON(int64(), "[1234567890000, -120000]"), options);
+}
+
 TEST(Cast, DecimalToDecimal) {
   CastOptions options;
 

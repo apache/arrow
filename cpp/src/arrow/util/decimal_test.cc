@@ -1495,6 +1495,44 @@ TEST(Decimal256Test, Rescale) {
   }
 }
 
+TEST(Decimal256Test, IncreaseScale) {
+  Decimal256 result;
+
+  result = Decimal256("1234").IncreaseScaleBy(0);
+  ASSERT_EQ("1234", result.ToIntegerString());
+
+  result = Decimal256("1234").IncreaseScaleBy(3);
+  ASSERT_EQ("1234000", result.ToIntegerString());
+
+  result = Decimal256("-1234").IncreaseScaleBy(3);
+  ASSERT_EQ("-1234000", result.ToIntegerString());
+}
+
+TEST(Decimal256Test, ReduceScaleAndRound) {
+  Decimal256 result;
+
+  result = Decimal256("123456").ReduceScaleBy(0);
+  ASSERT_EQ("123456", result.ToIntegerString());
+
+  result = Decimal256("123456").ReduceScaleBy(1, false);
+  ASSERT_EQ("12345", result.ToIntegerString());
+
+  result = Decimal256("123456").ReduceScaleBy(1, true);
+  ASSERT_EQ("12346", result.ToIntegerString());
+
+  result = Decimal256("123451").ReduceScaleBy(1, true);
+  ASSERT_EQ("12345", result.ToIntegerString());
+
+  result = Decimal256("-123789").ReduceScaleBy(2, true);
+  ASSERT_EQ("-1238", result.ToIntegerString());
+
+  result = Decimal256("-123749").ReduceScaleBy(2, true);
+  ASSERT_EQ("-1237", result.ToIntegerString());
+
+  result = Decimal256("-123750").ReduceScaleBy(2, true);
+  ASSERT_EQ("-1238", result.ToIntegerString());
+}
+
 TEST(Decimal256, FromBigEndianTest) {
   // We test out a variety of scenarios:
   //
