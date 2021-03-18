@@ -980,6 +980,28 @@ TEST(TestStringOps, TestBinaryString) {
   EXPECT_EQ(output, "OM");
 }
 
+TEST(TestStringOps, TestNumericToChar) {
+    gandiva::ExecutionContext ctx;
+    uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+    gdv_int32 out_len = 0;
+    const char* out_str;
+
+    out_str = numeric_to_char(ctx_ptr, 5, &out_len);
+    EXPECT_EQ(std::string(out_str), "5");
+
+    out_str = numeric_to_char(ctx_ptr, 15.5, &out_len);
+    EXPECT_EQ(std::string(out_str), "15.5");
+
+    out_str = numeric_to_char(ctx_ptr, 0.12, &out_len);
+    EXPECT_EQ(std::string(out_str), "0.12");
+
+    out_str = numeric_to_char(ctx_ptr, 1333333333, &out_len);
+    EXPECT_EQ(std::string(out_str), "1333333333");
+
+    out_str = numeric_to_char(ctx_ptr, 1215928.01924010283, &out_len);
+    EXPECT_EQ(std::string(out_str), "1215928.01924010283");
+}
+
 TEST(TestStringOps, TestSplitPart) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
