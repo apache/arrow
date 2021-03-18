@@ -87,6 +87,15 @@ bool gdv_fn_in_expr_lookup_int64(int64_t ptr, int64_t value, bool in_validity) {
   return holder->HasValue(value);
 }
 
+bool gdv_fn_in_expr_lookup_decimal(int64_t ptr, gandiva::BasicDecimalScalar128 value, bool in_validity) {
+  if (!in_validity) {
+    return false;
+  }
+  gandiva::InHolder<gandiva::BasicDecimalScalar128>* holder =
+      reinterpret_cast<gandiva::InHolder<gandiva::BasicDecimalScalar128>*>(ptr);
+  return holder->HasValue(value);
+}
+
 bool gdv_fn_in_expr_lookup_utf8(int64_t ptr, const char* data, int data_len,
                                 bool in_validity) {
   if (!in_validity) {
@@ -278,6 +287,15 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_in_expr_lookup_int64",
                                   types->i1_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_in_expr_lookup_int64));
+
+  // gdv_fn_in_expr_lookup_decimal
+  args = {types->i64_type(),      // int64_t in holder ptr
+          types->decimal_type(),  // decimal value
+          types->i1_type()};      // bool in_validity
+
+  engine->AddGlobalMappingForFunc("gdv_fn_in_expr_lookup_decimal",
+                                  types->i1_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_in_expr_lookup_decimal));
 
   // gdv_fn_in_expr_lookup_utf8
   args = {types->i64_type(),     // int64_t in holder ptr
