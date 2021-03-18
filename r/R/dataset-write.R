@@ -54,6 +54,40 @@
 #' - `null_fallback`: character to be used in place of missing values (`NA` or
 #' `NULL`) when using Hive-style partitioning. See [hive_partition()].
 #' @return The input `dataset`, invisibly
+#' @examples
+#' # We can partition by one more variables, say, cyl and gear in mtcars dataset
+#' one_part_dir <- tempfile()
+#' two_part_dir <- tempfile()
+#' write_dataset(mtcars, one_part_dir, "parquet", partitioning = "cyl")
+#' write_dataset(mtcars, two_part_dir, "parquet", partitioning = c("cyl", "gear"))
+#'
+#' # See the contents of the directory we wrote to in order to demonstrate
+#' # what partitioning does
+#' list(
+#'  cyl_partioning = list.files(one_part_dir, pattern = "parquet",
+#'   recursive = TRUE),
+#'  cyl_gear_partitioning = list.files(two_part_dir, pattern = "parquet",
+#'   recursive = TRUE)
+#' )
+#'
+#' # We can do the same combining both arrow and dplyr
+#' if(requireNamespace("dplyr", quietly = TRUE)) {
+#'  two_part_dir_2 <- tempfile()
+#'  two_part_dir_3 <- tempfile()
+#'  d <- mtcars %>% group_by(cyl, gear)
+#'  d %>% write_dataset(two_part_dir_2, "parquet")
+#'
+#'  # Passing the additional hive_style option to see the difference in the
+#'  # output
+#'  d %>% write_dataset(two_part_dir_3, "parquet", hive_style = FALSE)
+#'
+#'  list(
+#'   hive_true = list.files(two_part_dir_2, pattern = "parquet",
+#'    recursive = TRUE),
+#'   hive_false = list.files(two_part_dir_3, pattern = "parquet",
+#'    recursive = TRUE)
+#'  )
+#' }
 #' @export
 write_dataset <- function(dataset,
                           path,
