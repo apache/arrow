@@ -250,6 +250,9 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
   /// \return error status if the length is an invalid value
   static Result<Decimal256> FromBigEndian(const uint8_t* data, int32_t length);
 
+  static Result<Decimal256> FromReal(double real, int32_t precision, int32_t scale);
+  static Result<Decimal256> FromReal(float real, int32_t precision, int32_t scale);
+
   /// \brief Convert to a floating-point number (scaled)
   float ToFloat(int32_t scale) const;
   /// \brief Convert to a floating-point number (scaled)

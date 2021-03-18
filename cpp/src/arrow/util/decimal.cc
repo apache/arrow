@@ -805,6 +805,59 @@ namespace {
 
 template <typename Real, typename Derived>
 struct Decimal256RealConversion {
+  static Result<Decimal256> FromPositiveReal(Real real, int32_t precision,
+                                             int32_t scale) {
+    auto x = real;
+    if (scale >= -76 && scale <= 76) {
+      x *= Derived::powers_of_ten()[scale + 76];
+    } else {
+      x *= std::pow(static_cast<Real>(10), static_cast<Real>(scale));
+    }
+    x = std::nearbyint(x);
+    const auto max_abs = Derived::powers_of_ten()[precision + 76];
+    if (x <= -max_abs || x >= max_abs) {
+      return Status::Invalid("Cannot convert ", real,
+                             " to Decimal256(precision = ", precision,
+                             ", scale = ", scale, "): overflow");
+    }
+    // Extract parts
+    const auto part3 = std::floor(std::ldexp(x, -192));
+    x -= std::ldexp(part3, 192);
+    const auto part2 = std::floor(std::ldexp(x, -128));
+    x -= std::ldexp(part2, 128);
+    const auto part1 = std::floor(std::ldexp(x, -64));
+    x -= std::ldexp(part1, 64);
+    const auto part0 = x;
+
+    DCHECK_GE(part3, 0);
+    DCHECK_LT(part3, 1.8446744073709552e+19);  // 2**64
+    DCHECK_GE(part2, 0);
+    DCHECK_LT(part2, 1.8446744073709552e+19);  // 2**64
+    DCHECK_GE(part1, 0);
+    DCHECK_LT(part1, 1.8446744073709552e+19);  // 2**64
+    DCHECK_GE(part0, 0);
+    DCHECK_LT(part0, 1.8446744073709552e+19);  // 2**64
+    return Decimal256(std::array<uint64_t, 4>{
+        static_cast<uint64_t>(part0), static_cast<uint64_t>(part1),
+        static_cast<uint64_t>(part2), static_cast<uint64_t>(part3)});
+  }
+
+  static Result<Decimal256> FromReal(Real x, int32_t precision, int32_t scale) {
+    DCHECK_GT(precision, 0);
+    DCHECK_LE(precision, 76);
+
+    if (!std::isfinite(x)) {
+      return Status::Invalid("Cannot convert ", x, " to Decimal256");
+    }
+    if (x < 0) {
+      ARROW_ASSIGN_OR_RAISE(auto dec, FromPositiveReal(-x, precision, scale));
+      return dec.Negate();
+    } else {
+      // Includes negative zero
+      return FromPositiveReal(x, precision, scale);
+    }
+  }
+
   static Real ToRealPositive(const Decimal256& decimal, int32_t scale) {
     DCHECK_GE(decimal, 0);
     Real x = 0;
@@ -851,6 +904,14 @@ struct Decimal256DoubleConversion
 };
 
 }  // namespace
+
+Result<Decimal256> Decimal256::FromReal(float x, int32_t precision, int32_t scale) {
+  return Decimal256FloatConversion::FromReal(x, precision, scale);
+}
+
+Result<Decimal256> Decimal256::FromReal(double x, int32_t precision, int32_t scale) {
+  return Decimal256DoubleConversion::FromReal(x, precision, scale);
+}
 
 float Decimal256::ToFloat(int32_t scale) const {
   return Decimal256FloatConversion::ToReal(*this, scale);

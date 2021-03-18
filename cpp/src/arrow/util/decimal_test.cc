@@ -455,17 +455,17 @@ TEST(Decimal128ParseTest, WithExponentAndNullptrScale) {
   ASSERT_OK_AND_EQ(expected_value, Decimal128::FromString("1.23E-8"));
 }
 
-template <typename Real>
+template <typename Decimal, typename Real>
 void CheckDecimalFromReal(Real real, int32_t precision, int32_t scale,
                           const std::string& expected) {
-  ASSERT_OK_AND_ASSIGN(auto dec, Decimal128::FromReal(real, precision, scale));
+  ASSERT_OK_AND_ASSIGN(auto dec, Decimal::FromReal(real, precision, scale));
   ASSERT_EQ(dec.ToString(scale), expected);
 }
 
-template <typename Real>
+template <typename Decimal, typename Real>
 void CheckDecimalFromRealIntegerString(Real real, int32_t precision, int32_t scale,
                                        const std::string& expected) {
-  ASSERT_OK_AND_ASSIGN(auto dec, Decimal128::FromReal(real, precision, scale));
+  ASSERT_OK_AND_ASSIGN(auto dec, Decimal::FromReal(real, precision, scale));
   ASSERT_EQ(dec.ToIntegerString(), expected);
 }
 
@@ -486,11 +486,13 @@ struct FromRealTestParam {
 using FromFloatTestParam = FromRealTestParam<float>;
 using FromDoubleTestParam = FromRealTestParam<double>;
 
-// Common tests for Decimal128::FromReal(T, ...)
+// Common tests for Decimal128::FromReal(T, ...) and Decimal256::FromReal(T, ...)
 template <typename T>
 class TestDecimalFromReal : public ::testing::Test {
  public:
-  using ParamType = FromRealTestParam<T>;
+  using Decimal = typename T::first_type;
+  using Real = typename T::second_type;
+  using ParamType = FromRealTestParam<Real>;
 
   void TestSuccess() {
     const std::vector<ParamType> params{
@@ -527,27 +529,30 @@ class TestDecimalFromReal : public ::testing::Test {
         // clang-format on
     };
     for (const ParamType& param : params) {
-      CheckDecimalFromReal(param.real, param.precision, param.scale, param.expected);
+      CheckDecimalFromReal<Decimal>(param.real, param.precision, param.scale,
+                                    param.expected);
     }
   }
 
   void TestErrors() {
-    ASSERT_RAISES(Invalid, Decimal128::FromReal(INFINITY, 19, 4));
-    ASSERT_RAISES(Invalid, Decimal128::FromReal(-INFINITY, 19, 4));
-    ASSERT_RAISES(Invalid, Decimal128::FromReal(NAN, 19, 4));
+    ASSERT_RAISES(Invalid, Decimal::FromReal(INFINITY, 19, 4));
+    ASSERT_RAISES(Invalid, Decimal::FromReal(-INFINITY, 19, 4));
+    ASSERT_RAISES(Invalid, Decimal::FromReal(NAN, 19, 4));
     // Overflows
-    ASSERT_RAISES(Invalid, Decimal128::FromReal(1000.0, 3, 0));
-    ASSERT_RAISES(Invalid, Decimal128::FromReal(-1000.0, 3, 0));
-    ASSERT_RAISES(Invalid, Decimal128::FromReal(1000.0, 5, 2));
-    ASSERT_RAISES(Invalid, Decimal128::FromReal(-1000.0, 5, 2));
-    ASSERT_RAISES(Invalid, Decimal128::FromReal(999.996, 5, 2));
-    ASSERT_RAISES(Invalid, Decimal128::FromReal(-999.996, 5, 2));
-    ASSERT_RAISES(Invalid, Decimal128::FromReal(1e+38, 38, 0));
-    ASSERT_RAISES(Invalid, Decimal128::FromReal(-1e+38, 38, 0));
+    ASSERT_RAISES(Invalid, Decimal::FromReal(1000.0, 3, 0));
+    ASSERT_RAISES(Invalid, Decimal::FromReal(-1000.0, 3, 0));
+    ASSERT_RAISES(Invalid, Decimal::FromReal(1000.0, 5, 2));
+    ASSERT_RAISES(Invalid, Decimal::FromReal(-1000.0, 5, 2));
+    ASSERT_RAISES(Invalid, Decimal::FromReal(999.996, 5, 2));
+    ASSERT_RAISES(Invalid, Decimal::FromReal(-999.996, 5, 2));
+    ASSERT_RAISES(Invalid, Decimal::FromReal(1e+38, 38, 0));
+    ASSERT_RAISES(Invalid, Decimal::FromReal(-1e+38, 38, 0));
   }
 };
 
-using RealTypes = ::testing::Types<float, double>;
+using RealTypes =
+    ::testing::Types<std::pair<Decimal128, float>, std::pair<Decimal128, double>,
+                     std::pair<Decimal256, float>, std::pair<Decimal256, double>>;
 TYPED_TEST_SUITE(TestDecimalFromReal, RealTypes);
 
 TYPED_TEST(TestDecimalFromReal, TestSuccess) { this->TestSuccess(); }
@@ -559,7 +564,8 @@ class TestDecimalFromRealFloat : public ::testing::TestWithParam<FromFloatTestPa
 
 TEST_P(TestDecimalFromRealFloat, SuccessConversion) {
   const auto param = GetParam();
-  CheckDecimalFromReal(param.real, param.precision, param.scale, param.expected);
+  CheckDecimalFromReal<Decimal128>(param.real, param.precision, param.scale,
+                                   param.expected);
 }
 
 // clang-format off
@@ -591,13 +597,62 @@ TEST(TestDecimalFromRealFloat, LargeValues) {
   // Test the entire float range
   for (int32_t scale = -38; scale <= 38; ++scale) {
     float real = std::pow(10.0f, static_cast<float>(scale));
-    CheckDecimalFromRealIntegerString(real, 1, -scale, "1");
+    CheckDecimalFromRealIntegerString<Decimal128>(real, 1, -scale, "1");
   }
   for (int32_t scale = -37; scale <= 36; ++scale) {
     float real = 123.f * std::pow(10.f, static_cast<float>(scale));
-    CheckDecimalFromRealIntegerString(real, 2, -scale - 1, "12");
-    CheckDecimalFromRealIntegerString(real, 3, -scale, "123");
-    CheckDecimalFromRealIntegerString(real, 4, -scale + 1, "1230");
+    CheckDecimalFromRealIntegerString<Decimal128>(real, 2, -scale - 1, "12");
+    CheckDecimalFromRealIntegerString<Decimal128>(real, 3, -scale, "123");
+    CheckDecimalFromRealIntegerString<Decimal128>(real, 4, -scale + 1, "1230");
+  }
+}
+
+// Same tests, repeated for Decimal256
+class TestDecimal256FromRealFloat : public ::testing::TestWithParam<FromFloatTestParam> {
+};
+
+TEST_P(TestDecimal256FromRealFloat, SuccessConversion) {
+  const auto param = GetParam();
+  CheckDecimalFromReal<Decimal256>(param.real, param.precision, param.scale,
+                                   param.expected);
+}
+
+// clang-format off
+INSTANTIATE_TEST_SUITE_P(
+    TestDecimal256FromRealFloat, TestDecimal256FromRealFloat,
+    ::testing::Values(
+        // 2**63 + 2**40 (exactly representable in a float's 24 bits of precision)
+        FromFloatTestParam{9.223373e+18f, 19, 0, "9223373136366403584"},
+        FromFloatTestParam{-9.223373e+18f, 19, 0, "-9223373136366403584"},
+        FromFloatTestParam{9.223373e+14f, 19, 4, "922337313636640.3584"},
+        FromFloatTestParam{-9.223373e+14f, 19, 4, "-922337313636640.3584"},
+        // 2**64 - 2**40 (exactly representable in a float)
+        FromFloatTestParam{1.8446743e+19f, 20, 0, "18446742974197923840"},
+        FromFloatTestParam{-1.8446743e+19f, 20, 0, "-18446742974197923840"},
+        // 2**64 + 2**41 (exactly representable in a float)
+        FromFloatTestParam{1.8446746e+19f, 20, 0, "18446746272732807168"},
+        FromFloatTestParam{-1.8446746e+19f, 20, 0, "-18446746272732807168"},
+        FromFloatTestParam{1.8446746e+15f, 20, 4, "1844674627273280.7168"},
+        FromFloatTestParam{-1.8446746e+15f, 20, 4, "-1844674627273280.7168"},
+        // Almost 10**38 (minus 2**103)
+        FromFloatTestParam{9.999999e+37f, 38, 0,
+                           "99999986661652122824821048795547566080"},
+        FromFloatTestParam{-9.999999e+37f, 38, 0,
+                           "-99999986661652122824821048795547566080"}
+));
+// clang-format on
+
+TEST(TestDecimal256FromRealFloat, LargeValues) {
+  // Test the entire float range
+  for (int32_t scale = -38; scale <= 38; ++scale) {
+    float real = std::pow(10.0f, static_cast<float>(scale));
+    CheckDecimalFromRealIntegerString<Decimal256>(real, 1, -scale, "1");
+  }
+  for (int32_t scale = -37; scale <= 36; ++scale) {
+    float real = 123.f * std::pow(10.f, static_cast<float>(scale));
+    CheckDecimalFromRealIntegerString<Decimal256>(real, 2, -scale - 1, "12");
+    CheckDecimalFromRealIntegerString<Decimal256>(real, 3, -scale, "123");
+    CheckDecimalFromRealIntegerString<Decimal256>(real, 4, -scale + 1, "1230");
   }
 }
 
@@ -606,7 +661,8 @@ class TestDecimalFromRealDouble : public ::testing::TestWithParam<FromDoubleTest
 
 TEST_P(TestDecimalFromRealDouble, SuccessConversion) {
   const auto param = GetParam();
-  CheckDecimalFromReal(param.real, param.precision, param.scale, param.expected);
+  CheckDecimalFromReal<Decimal128>(param.real, param.precision, param.scale,
+                                   param.expected);
 }
 
 // clang-format off
@@ -642,13 +698,79 @@ TEST(TestDecimalFromRealDouble, LargeValues) {
   // Test the entire double range
   for (int32_t scale = -308; scale <= 308; ++scale) {
     double real = std::pow(10.0, static_cast<double>(scale));
-    CheckDecimalFromRealIntegerString(real, 1, -scale, "1");
+    CheckDecimalFromRealIntegerString<Decimal128>(real, 1, -scale, "1");
   }
   for (int32_t scale = -307; scale <= 306; ++scale) {
     double real = 123. * std::pow(10.0, static_cast<double>(scale));
-    CheckDecimalFromRealIntegerString(real, 2, -scale - 1, "12");
-    CheckDecimalFromRealIntegerString(real, 3, -scale, "123");
-    CheckDecimalFromRealIntegerString(real, 4, -scale + 1, "1230");
+    CheckDecimalFromRealIntegerString<Decimal128>(real, 2, -scale - 1, "12");
+    CheckDecimalFromRealIntegerString<Decimal128>(real, 3, -scale, "123");
+    CheckDecimalFromRealIntegerString<Decimal128>(real, 4, -scale + 1, "1230");
+  }
+}
+
+// Same tests for Decimal256
+class TestDecimal256FromRealDouble
+    : public ::testing::TestWithParam<FromDoubleTestParam> {};
+
+TEST_P(TestDecimal256FromRealDouble, SuccessConversion) {
+  const auto param = GetParam();
+  CheckDecimalFromReal<Decimal256>(param.real, param.precision, param.scale,
+                                   param.expected);
+}
+
+// clang-format off
+INSTANTIATE_TEST_SUITE_P(
+    TestDecimal256FromRealDouble, TestDecimal256FromRealDouble,
+    ::testing::Values(
+        // 2**63 + 2**11 (exactly representable in a double's 53 bits of precision)
+        FromDoubleTestParam{9.223372036854778e+18, 19, 0, "9223372036854777856"},
+        FromDoubleTestParam{-9.223372036854778e+18, 19, 0, "-9223372036854777856"},
+        FromDoubleTestParam{9.223372036854778e+10, 19, 8, "92233720368.54777856"},
+        FromDoubleTestParam{-9.223372036854778e+10, 19, 8, "-92233720368.54777856"},
+        // 2**64 - 2**11 (exactly representable in a double)
+        FromDoubleTestParam{1.844674407370955e+19, 20, 0, "18446744073709549568"},
+        FromDoubleTestParam{-1.844674407370955e+19, 20, 0, "-18446744073709549568"},
+        // 2**64 + 2**11 (exactly representable in a double)
+        FromDoubleTestParam{1.8446744073709556e+19, 20, 0, "18446744073709555712"},
+        FromDoubleTestParam{-1.8446744073709556e+19, 20, 0, "-18446744073709555712"},
+        FromDoubleTestParam{1.8446744073709556e+15, 20, 4, "1844674407370955.5712"},
+        FromDoubleTestParam{-1.8446744073709556e+15, 20, 4, "-1844674407370955.5712"},
+        // Almost 10**38 (minus 2**73)
+        FromDoubleTestParam{9.999999999999998e+37, 38, 0,
+                            "99999999999999978859343891977453174784"},
+        FromDoubleTestParam{-9.999999999999998e+37, 38, 0,
+                            "-99999999999999978859343891977453174784"},
+        FromDoubleTestParam{9.999999999999998e+27, 38, 10,
+                            "9999999999999997885934389197.7453174784"},
+        FromDoubleTestParam{-9.999999999999998e+27, 38, 10,
+                            "-9999999999999997885934389197.7453174784"},
+        // Almost 10**76
+        FromDoubleTestParam{9.999999999999999e+75, 76, 0,
+                            "999999999999999886366330070006442034959750906670402"
+                            "8242075715752105414230016"},
+        FromDoubleTestParam{-9.999999999999999e+75, 76, 0,
+                            "-999999999999999886366330070006442034959750906670402"
+                            "8242075715752105414230016"},
+        FromDoubleTestParam{9.999999999999999e+65, 76, 10,
+                            "999999999999999886366330070006442034959750906670402"
+                            "824207571575210.5414230016"},
+        FromDoubleTestParam{-9.999999999999999e+65, 76, 10,
+                            "-999999999999999886366330070006442034959750906670402"
+                            "824207571575210.5414230016"}
+));
+// clang-format on
+
+TEST(TestDecimal256FromRealDouble, LargeValues) {
+  // Test the entire double range
+  for (int32_t scale = -308; scale <= 308; ++scale) {
+    double real = std::pow(10.0, static_cast<double>(scale));
+    CheckDecimalFromRealIntegerString<Decimal256>(real, 1, -scale, "1");
+  }
+  for (int32_t scale = -307; scale <= 306; ++scale) {
+    double real = 123. * std::pow(10.0, static_cast<double>(scale));
+    CheckDecimalFromRealIntegerString<Decimal256>(real, 2, -scale - 1, "12");
+    CheckDecimalFromRealIntegerString<Decimal256>(real, 3, -scale, "123");
+    CheckDecimalFromRealIntegerString<Decimal256>(real, 4, -scale + 1, "1230");
   }
 }
 
@@ -723,10 +845,7 @@ class TestDecimalToReal : public ::testing::Test {
   }
 };
 
-using DecimalRealTypes =
-    ::testing::Types<std::pair<Decimal128, float>, std::pair<Decimal128, double>,
-                     std::pair<Decimal256, float>, std::pair<Decimal256, double>>;
-TYPED_TEST_SUITE(TestDecimalToReal, DecimalRealTypes);
+TYPED_TEST_SUITE(TestDecimalToReal, RealTypes);
 
 TYPED_TEST(TestDecimalToReal, TestSuccess) { this->TestSuccess(); }
 
