@@ -272,10 +272,32 @@ std::shared_ptr<ds::IpcFileFormat> dataset___IpcFileFormat__Make() {
 
 // [[dataset::export]]
 std::shared_ptr<ds::CsvFileFormat> dataset___CsvFileFormat__Make(
-    const std::shared_ptr<arrow::csv::ParseOptions>& parse_options) {
+    const std::shared_ptr<arrow::csv::ParseOptions>& parse_options, int32_t skip_rows,
+    cpp11::strings column_names, bool autogenerate_column_names) {
   auto format = std::make_shared<ds::CsvFileFormat>();
   format->parse_options = *parse_options;
+  format->skip_rows = skip_rows;
+  format->column_names = cpp11::as_cpp<std::vector<std::string>>(column_names);
+  format->autogenerate_column_names = autogenerate_column_names;
   return format;
+}
+
+// FragmentScanOptions, CsvFragmentScanOptions
+
+// [[dataset::export]]
+std::string dataset___FragmentScanOptions__type_name(
+    const std::shared_ptr<ds::FragmentScanOptions>& fragment_scan_options) {
+  return fragment_scan_options->type_name();
+}
+
+// [[dataset::export]]
+std::shared_ptr<ds::CsvFragmentScanOptions> dataset___CsvFragmentScanOptions__Make(
+    const std::shared_ptr<arrow::csv::ConvertOptions>& convert_options,
+    int32_t block_size) {
+  auto options = std::make_shared<ds::CsvFragmentScanOptions>();
+  options->convert_options = *convert_options;
+  options->block_size = block_size;
+  return options;
 }
 
 // DirectoryPartitioning, HivePartitioning
@@ -344,6 +366,13 @@ void dataset___ScannerBuilder__UseThreads(const std::shared_ptr<ds::ScannerBuild
 void dataset___ScannerBuilder__BatchSize(const std::shared_ptr<ds::ScannerBuilder>& sb,
                                          int64_t batch_size) {
   StopIfNotOk(sb->BatchSize(batch_size));
+}
+
+// [[dataset::export]]
+void dataset___ScannerBuilder__FragmentScanOptions(
+    const std::shared_ptr<ds::ScannerBuilder>& sb,
+    const std::shared_ptr<ds::FragmentScanOptions>& options) {
+  StopIfNotOk(sb->FragmentScanOptions(options));
 }
 
 // [[dataset::export]]
