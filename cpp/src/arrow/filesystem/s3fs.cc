@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/filesystem/s3fs.h"
+#include "arrow/util/span.h"
 
 #include <algorithm>
 #include <atomic>
@@ -716,6 +717,9 @@ class ObjectInputFile final : public io::RandomAccessFile {
     RETURN_NOT_OK(CheckClosed());
     RETURN_NOT_OK(CheckPosition(position, "read"));
 
+    Span span("arrow::fs::s3::ReadAt");
+    span.AddAttribute("size", std::to_string(nbytes));
+    span.AddAttribute("filename", path_.full_path);
     nbytes = std::min(nbytes, content_length_ - position);
     if (nbytes == 0) {
       return 0;
