@@ -743,7 +743,89 @@ TEST(Cast, Decimal256ToDecimal256) {
   }
 }
 
-// TODO: Need DecimalToDecimal256 and Decimal256ToDecimal
+TEST(Cast, DecimalToDecimal256) {
+  CastOptions options;
+
+  for (bool allow_decimal_truncate : {false, true}) {
+    options.allow_decimal_truncate = allow_decimal_truncate;
+
+    auto no_truncation = ArrayFromJSON(decimal(38, 10), R"([
+          "02.0000000000",
+          "30.0000000000",
+          "22.0000000000",
+        "-121.0000000000",
+        null])");
+    auto expected = ArrayFromJSON(decimal256(28, 0), R"([
+          "02.",
+          "30.",
+          "22.",
+        "-121.",
+        null])");
+
+    CheckCast(no_truncation, expected, options);
+  }
+
+  for (bool allow_decimal_truncate : {false, true}) {
+    options.allow_decimal_truncate = allow_decimal_truncate;
+
+    // Same scale, different precision
+    auto d_5_2 = ArrayFromJSON(decimal(5, 2), R"([
+          "12.34",
+           "0.56"])");
+    auto d_4_2 = ArrayFromJSON(decimal256(4, 2), R"([
+          "12.34",
+           "0.56"])");
+
+    CheckCast(d_5_2, d_4_2, options);
+  }
+
+  auto d128_38_10 = ArrayFromJSON(decimal(38, 10), R"([
+      "-02.1234567890",
+       "30.1234567890",
+      null])");
+
+  auto d128_28_0 = ArrayFromJSON(decimal(28, 0), R"([
+      "-02.",
+       "30.",
+      null])");
+
+  auto d256_28_0 = ArrayFromJSON(decimal256(28, 0), R"([
+      "-02.",
+       "30.",
+      null])");
+
+  auto d256_38_10_roundtripped = ArrayFromJSON(decimal256(38, 10), R"([
+      "-02.0000000000",
+       "30.0000000000",
+      null])");
+
+  // Rescale which leads to truncation
+  options.allow_decimal_truncate = true;
+  CheckCast(d128_38_10, d256_28_0, options);
+  CheckCast(d128_28_0, d256_38_10_roundtripped, options);
+
+  options.allow_decimal_truncate = false;
+  options.to_type = d256_28_0->type();
+  CheckCastFails(d128_38_10, options);
+  CheckCast(d128_28_0, d256_38_10_roundtripped, options);
+
+  // Precision loss without rescale leads to truncation
+  auto d128_4_2 = ArrayFromJSON(decimal(4, 2), R"(["12.34"])");
+  for (auto expected : {
+           ArrayFromJSON(decimal256(3, 2), R"(["12.34"])"),
+           ArrayFromJSON(decimal256(4, 3), R"(["12.340"])"),
+           ArrayFromJSON(decimal256(2, 1), R"(["12.3"])"),
+       }) {
+    options.allow_decimal_truncate = true;
+    CheckCast(d128_4_2, expected, options);
+
+    options.allow_decimal_truncate = false;
+    options.to_type = expected->type();
+    CheckCastFails(d128_4_2, options);
+  }
+}
+
+// TODO: Need Decimal256ToDecimal
 
 TEST(Cast, FloatingToDecimal) {
   for (auto float_type : {float32(), float64()}) {
