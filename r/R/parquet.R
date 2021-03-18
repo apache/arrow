@@ -311,19 +311,19 @@ ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inhe
       # cast to integer but keep names
       compression_level <- set_names(as.integer(compression_level), names(compression_level))
       private$.set(table, compression_level,
-                   parquet___ArrowWriterProperties___Builder__set_compression_levels
+        parquet___ArrowWriterProperties___Builder__set_compression_levels
       )
     },
     set_dictionary = function(table, use_dictionary) {
       assert_that(is.logical(use_dictionary))
       private$.set(table, use_dictionary,
-                   parquet___ArrowWriterProperties___Builder__set_use_dictionary
+        parquet___ArrowWriterProperties___Builder__set_use_dictionary
       )
     },
     set_write_statistics = function(table, write_statistics) {
       assert_that(is.logical(write_statistics))
       private$.set(table, write_statistics,
-                   parquet___ArrowWriterProperties___Builder__set_write_statistics
+        parquet___ArrowWriterProperties___Builder__set_write_statistics
       )
     },
     set_data_page_size = function(data_page_size) {
