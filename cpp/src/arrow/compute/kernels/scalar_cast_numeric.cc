@@ -393,7 +393,8 @@ struct CastFunctor<O, I,
 struct UnsafeUpscaleDecimal {
   template <typename OutValue, typename Arg0Value>
   OutValue Call(KernelContext* ctx, Arg0Value val) const {
-    return val.IncreaseScaleBy(by_);
+    // For OutValue=Decimal256, convert then scale
+    return OutValue(val).IncreaseScaleBy(by_);
   }
   int32_t by_;
 };
@@ -401,7 +402,7 @@ struct UnsafeUpscaleDecimal {
 struct UnsafeDownscaleDecimal {
   template <typename OutValue, typename Arg0Value>
   OutValue Call(KernelContext* ctx, Arg0Value val) const {
-    return val.ReduceScaleBy(by_, false);
+    return OutValue(val).ReduceScaleBy(by_, false);
   }
   int32_t by_;
 };
@@ -409,7 +410,7 @@ struct UnsafeDownscaleDecimal {
 struct SafeRescaleDecimal {
   template <typename OutValue, typename Arg0Value>
   OutValue Call(KernelContext* ctx, Arg0Value val) const {
-    auto maybe_rescaled = val.Rescale(in_scale_, out_scale_);
+    auto maybe_rescaled = OutValue(val).Rescale(in_scale_, out_scale_);
     if (ARROW_PREDICT_FALSE(!maybe_rescaled.ok())) {
       ctx->SetStatus(maybe_rescaled.status());
       return {};  // Zero
@@ -419,7 +420,52 @@ struct SafeRescaleDecimal {
       return maybe_rescaled.MoveValueUnsafe();
     }
 
-    ctx->SetStatus(Status::Invalid("Decimal value does not fit in precision"));
+    ctx->SetStatus(
+        Status::Invalid("Decimal value does not fit in precision ", out_precision_));
+    return {};  // Zero
+  }
+
+  int32_t out_scale_, out_precision_, in_scale_;
+};
+
+// Same as above, but this time, scale then convert
+struct UnsafeUpscaleDecimalDowncast {
+  template <typename... Unused>
+  Decimal128 Call(KernelContext* ctx, Decimal256 val) const {
+    auto decimal256 = val.IncreaseScaleBy(by_);
+    return Decimal128(decimal256.little_endian_array()[1],
+                      decimal256.little_endian_array()[0]);
+  }
+  int32_t by_;
+};
+
+struct UnsafeDownscaleDecimalDowncast {
+  template <typename... Unused>
+  Decimal128 Call(KernelContext* ctx, Decimal256 val) const {
+    auto decimal256 = val.ReduceScaleBy(by_, false);
+    return Decimal128(decimal256.little_endian_array()[1],
+                      decimal256.little_endian_array()[0]);
+  }
+  int32_t by_;
+};
+
+struct SafeRescaleDecimalDowncast {
+  template <typename... Unused>
+  Decimal128 Call(KernelContext* ctx, Decimal256 val) const {
+    auto maybe_rescaled = val.Rescale(in_scale_, out_scale_);
+    if (ARROW_PREDICT_FALSE(!maybe_rescaled.ok())) {
+      ctx->SetStatus(maybe_rescaled.status());
+      return {};  // Zero
+    }
+
+    if (ARROW_PREDICT_TRUE(maybe_rescaled->FitsInPrecision(out_precision_))) {
+      auto decimal256 = maybe_rescaled.MoveValueUnsafe();
+      return Decimal128(decimal256.little_endian_array()[1],
+                        decimal256.little_endian_array()[0]);
+    }
+
+    ctx->SetStatus(
+        Status::Invalid("Decimal value does not fit in precision ", out_precision_));
     return {};  // Zero
   }
 
@@ -456,6 +502,40 @@ struct CastFunctor<Decimal128Type, Decimal128Type> {
     applicator::ScalarUnaryNotNullStateful<Decimal128Type, Decimal128Type,
                                            SafeRescaleDecimal>
         kernel(SafeRescaleDecimal{out_scale, out_type.precision(), in_scale});
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+
+template <>
+struct CastFunctor<Decimal256Type, Decimal128Type> {
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& options = checked_cast<const CastState*>(ctx->state())->options;
+
+    const auto& in_type = checked_cast<const Decimal256Type&>(*batch[0].type());
+    const auto& out_type = checked_cast<const Decimal128Type&>(*out->type());
+    const auto in_scale = in_type.scale();
+    const auto out_scale = out_type.scale();
+
+    if (options.allow_decimal_truncate) {
+      if (in_scale < out_scale) {
+        // Unsafe upscale
+        applicator::ScalarUnaryNotNullStateful<Decimal128Type, Decimal256Type,
+                                               UnsafeUpscaleDecimalDowncast>
+            kernel(UnsafeUpscaleDecimalDowncast{out_scale - in_scale});
+        return kernel.Exec(ctx, batch, out);
+      } else {
+        // Unsafe downscale
+        applicator::ScalarUnaryNotNullStateful<Decimal128Type, Decimal256Type,
+                                               UnsafeDownscaleDecimalDowncast>
+            kernel(UnsafeDownscaleDecimalDowncast{in_scale - out_scale});
+        return kernel.Exec(ctx, batch, out);
+      }
+    }
+
+    // Safe rescale
+    applicator::ScalarUnaryNotNullStateful<Decimal128Type, Decimal256Type,
+                                           SafeRescaleDecimalDowncast>
+        kernel(SafeRescaleDecimalDowncast{out_scale, out_type.precision(), in_scale});
     return kernel.Exec(ctx, batch, out);
   }
 };
@@ -639,6 +719,9 @@ std::shared_ptr<CastFunction> GetCastToDecimal128() {
   // We resolve the output type of this kernel from the CastOptions
   DCHECK_OK(
       func->AddKernel(Type::DECIMAL128, {InputType(Type::DECIMAL128)}, sig_out_ty, exec));
+  exec = CastFunctor<Decimal256Type, Decimal128Type>::Exec;
+  DCHECK_OK(
+      func->AddKernel(Type::DECIMAL128, {InputType(Type::DECIMAL256)}, sig_out_ty, exec));
   return func;
 }
 
