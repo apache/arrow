@@ -184,7 +184,7 @@ ENUMERIC_TYPES_UNARY(TANH, float64)
   FORCE_INLINE                                                                       \
   gdv_##OUT_TYPE atan2_##IN_TYPE##_##IN_TYPE(gdv_##IN_TYPE in1, gdv_##IN_TYPE in2) { \
     return static_cast<gdv_##OUT_TYPE>(                                              \
-        atan2(static_cast<long double>(in1), static_cast<long double>(in2)));            \
+        atan2(static_cast<long double>(in1), static_cast<long double>(in2)));        \
   }
 ENUMERIC_TYPES_UNARY(ATAN2, float64)
 
@@ -205,10 +205,10 @@ ENUMERIC_TYPES_UNARY(COT, float64)
 ENUMERIC_TYPES_UNARY(RADIANS, float64)
 
 // Degrees
-#define DEGREES(IN_TYPE, OUT_TYPE)                                                    \
-  FORCE_INLINE                                                                        \
-  gdv_##OUT_TYPE degrees_##IN_TYPE(gdv_##IN_TYPE in) {                                \
-    return static_cast<gdv_##OUT_TYPE>(static_cast<long double>(in) *  180.0 / M_PI); \
+#define DEGREES(IN_TYPE, OUT_TYPE)                                                   \
+  FORCE_INLINE                                                                       \
+  gdv_##OUT_TYPE degrees_##IN_TYPE(gdv_##IN_TYPE in) {                               \
+    return static_cast<gdv_##OUT_TYPE>(static_cast<long double>(in) * 180.0 / M_PI); \
   }
 ENUMERIC_TYPES_UNARY(DEGREES, float64)
 
