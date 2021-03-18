@@ -355,22 +355,22 @@ class InExprDex<int64_t> : public InExprDexBase<int64_t> {
 
 template <>
 class InExprDex<float_t> : public InExprDexBase<float_t> {
-public:
-    InExprDex(const ValueValidityPairVector& args,
-              const std::unordered_set<float_t>& values)
-        : InExprDexBase(args, values) {
-      runtime_function_ = "gdv_fn_in_expr_lookup_float";
-    }
+ public:
+  InExprDex(const ValueValidityPairVector& args,
+            const std::unordered_set<float_t>& values)
+      : InExprDexBase(args, values) {
+    runtime_function_ = "gdv_fn_in_expr_lookup_float";
+  }
 };
 
 template <>
 class InExprDex<double_t> : public InExprDexBase<double_t> {
-public:
-    InExprDex(const ValueValidityPairVector& args,
-              const std::unordered_set<double_t>& values)
-        : InExprDexBase(args, values) {
-      runtime_function_ = "gdv_fn_in_expr_lookup_double";
-    }
+ public:
+  InExprDex(const ValueValidityPairVector& args,
+            const std::unordered_set<double_t>& values)
+      : InExprDexBase(args, values) {
+    runtime_function_ = "gdv_fn_in_expr_lookup_double";
+  }
 };
 
 template <>
