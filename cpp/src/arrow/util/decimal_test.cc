@@ -23,6 +23,7 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -661,30 +662,28 @@ struct ToRealTestParam {
 using ToFloatTestParam = ToRealTestParam<float>;
 using ToDoubleTestParam = ToRealTestParam<double>;
 
-template <typename Real>
+template <typename Decimal, typename Real>
 void CheckDecimalToReal(const std::string& decimal_value, int32_t scale, Real expected) {
-  Decimal128 dec(decimal_value);
-  ASSERT_EQ(dec.ToReal<Real>(scale), expected);
+  Decimal dec(decimal_value);
+  ASSERT_EQ(dec.template ToReal<Real>(scale), expected)
+      << "Decimal value: " << decimal_value << " Scale: " << scale;
 }
 
-void CheckFloatToRealApprox(const std::string& decimal_value, int32_t scale,
-                            float expected) {
-  Decimal128 dec(decimal_value);
-  ASSERT_FLOAT_EQ(dec.ToReal<float>(scale), expected);
+template <typename Decimal, typename Real>
+void CheckDecimalToRealApprox(const std::string& decimal_value, int32_t scale,
+                              Real expected) {
+  Decimal dec(decimal_value);
+  ASSERT_FLOAT_EQ(dec.template ToReal<Real>(scale), expected)
+      << "Decimal value: " << decimal_value << " Scale: " << scale;
 }
 
-void CheckDoubleToRealApprox(const std::string& decimal_value, int32_t scale,
-                             double expected) {
-  Decimal128 dec(decimal_value);
-  ASSERT_DOUBLE_EQ(dec.ToReal<double>(scale), expected);
-}
-
-// Common tests for Decimal128::ToReal<T>
+// Common tests for Decimal128::ToReal<T> and Decimal256::ToReal<T>
 template <typename T>
 class TestDecimalToReal : public ::testing::Test {
  public:
-  using Real = T;
-  using ParamType = ToRealTestParam<T>;
+  using Decimal = typename T::first_type;
+  using Real = typename T::second_type;
+  using ParamType = ToRealTestParam<Real>;
 
   Real Pow2(int exp) { return std::pow(static_cast<Real>(2), static_cast<Real>(exp)); }
 
@@ -715,85 +714,158 @@ class TestDecimalToReal : public ::testing::Test {
         // clang-format on
     };
     for (const ParamType& param : params) {
-      CheckDecimalToReal<Real>(param.decimal_value, param.scale, param.expected);
+      CheckDecimalToReal<Decimal, Real>(param.decimal_value, param.scale, param.expected);
       if (param.decimal_value != "0") {
-        CheckDecimalToReal<Real>("-" + param.decimal_value, param.scale, -param.expected);
+        CheckDecimalToReal<Decimal, Real>("-" + param.decimal_value, param.scale,
+                                          -param.expected);
       }
     }
   }
 };
 
-TYPED_TEST_SUITE(TestDecimalToReal, RealTypes);
+using DecimalRealTypes =
+    ::testing::Types<std::pair<Decimal128, float>, std::pair<Decimal128, double>,
+                     std::pair<Decimal256, float>, std::pair<Decimal256, double>>;
+TYPED_TEST_SUITE(TestDecimalToReal, DecimalRealTypes);
 
 TYPED_TEST(TestDecimalToReal, TestSuccess) { this->TestSuccess(); }
 
 // Custom test for Decimal128::ToReal<float>
-class TestDecimalToRealFloat : public TestDecimalToReal<float> {};
+class TestDecimalToRealFloat : public TestDecimalToReal<std::pair<Decimal128, float>> {};
 
 TEST_F(TestDecimalToRealFloat, LargeValues) {
   // Note that exact comparisons would succeed on some platforms (Linux, macOS).
   // Nevertheless, power-of-ten factors are not all exactly representable
   // in binary floating point.
   for (int32_t scale = -38; scale <= 38; scale++) {
-    CheckFloatToRealApprox("1", scale, Pow10(-scale));
+    CheckDecimalToRealApprox<Decimal, Real>("1", scale, Pow10(-scale));
   }
   for (int32_t scale = -38; scale <= 36; scale++) {
     const Real factor = static_cast<Real>(123);
-    CheckFloatToRealApprox("123", scale, factor * Pow10(-scale));
+    CheckDecimalToRealApprox<Decimal, Real>("123", scale, factor * Pow10(-scale));
   }
 }
 
 TEST_F(TestDecimalToRealFloat, Precision) {
   // 2**63 + 2**40 (exactly representable in a float's 24 bits of precision)
-  CheckDecimalToReal<float>("9223373136366403584", 0, 9.223373e+18f);
-  CheckDecimalToReal<float>("-9223373136366403584", 0, -9.223373e+18f);
+  CheckDecimalToReal<Decimal, Real>("9223373136366403584", 0, 9.223373e+18f);
+  CheckDecimalToReal<Decimal, Real>("-9223373136366403584", 0, -9.223373e+18f);
   // 2**64 + 2**41 (exactly representable in a float)
-  CheckDecimalToReal<float>("18446746272732807168", 0, 1.8446746e+19f);
-  CheckDecimalToReal<float>("-18446746272732807168", 0, -1.8446746e+19f);
+  CheckDecimalToReal<Decimal, Real>("18446746272732807168", 0, 1.8446746e+19f);
+  CheckDecimalToReal<Decimal, Real>("-18446746272732807168", 0, -1.8446746e+19f);
+}
+
+// Same tests, repeated for Decimal256
+class TestDecimal256ToRealFloat : public TestDecimalToReal<std::pair<Decimal256, float>> {
+};
+
+TEST_F(TestDecimal256ToRealFloat, LargeValues) {
+  // Note that exact comparisons would succeed on some platforms (Linux, macOS).
+  // Nevertheless, power-of-ten factors are not all exactly representable
+  // in binary floating point.
+  for (int32_t scale = -76; scale <= 76; scale++) {
+    CheckDecimalToRealApprox<Decimal, Real>("1", scale, Pow10(-scale));
+  }
+  for (int32_t scale = -76; scale <= 76; scale++) {
+    const Real factor = static_cast<Real>(123);
+    CheckDecimalToRealApprox<Decimal, Real>("123", scale, factor * Pow10(-scale));
+  }
+}
+
+TEST_F(TestDecimal256ToRealFloat, Precision) {
+  // 2**63 + 2**40 (exactly representable in a float's 24 bits of precision)
+  CheckDecimalToReal<Decimal, Real>("9223373136366403584", 0, 9.223373e+18f);
+  CheckDecimalToReal<Decimal, Real>("-9223373136366403584", 0, -9.223373e+18f);
+  // 2**64 + 2**41 (exactly representable in a float)
+  CheckDecimalToReal<Decimal, Real>("18446746272732807168", 0, 1.8446746e+19f);
+  CheckDecimalToReal<Decimal, Real>("-18446746272732807168", 0, -1.8446746e+19f);
 }
 
 // ToReal<double> tests are disabled on MinGW because of precision issues in results
 #ifndef __MINGW32__
 
 // Custom test for Decimal128::ToReal<double>
-class TestDecimalToRealDouble : public TestDecimalToReal<double> {};
+class TestDecimalToRealDouble : public TestDecimalToReal<std::pair<Decimal128, double>> {
+};
 
 TEST_F(TestDecimalToRealDouble, LargeValues) {
   // Note that exact comparisons would succeed on some platforms (Linux, macOS).
   // Nevertheless, power-of-ten factors are not all exactly representable
   // in binary floating point.
   for (int32_t scale = -308; scale <= 308; scale++) {
-    CheckDoubleToRealApprox("1", scale, Pow10(-scale));
+    CheckDecimalToRealApprox<Decimal, Real>("1", scale, Pow10(-scale));
   }
   for (int32_t scale = -308; scale <= 306; scale++) {
     const Real factor = static_cast<Real>(123);
-    CheckDoubleToRealApprox("123", scale, factor * Pow10(-scale));
+    CheckDecimalToRealApprox<Decimal, Real>("123", scale, factor * Pow10(-scale));
   }
 }
 
 TEST_F(TestDecimalToRealDouble, Precision) {
   // 2**63 + 2**11 (exactly representable in a double's 53 bits of precision)
-  CheckDecimalToReal<double>("9223372036854777856", 0, 9.223372036854778e+18);
-  CheckDecimalToReal<double>("-9223372036854777856", 0, -9.223372036854778e+18);
+  CheckDecimalToReal<Decimal, Real>("9223372036854777856", 0, 9.223372036854778e+18);
+  CheckDecimalToReal<Decimal, Real>("-9223372036854777856", 0, -9.223372036854778e+18);
   // 2**64 - 2**11 (exactly representable in a double)
-  CheckDecimalToReal<double>("18446744073709549568", 0, 1.844674407370955e+19);
-  CheckDecimalToReal<double>("-18446744073709549568", 0, -1.844674407370955e+19);
+  CheckDecimalToReal<Decimal, Real>("18446744073709549568", 0, 1.844674407370955e+19);
+  CheckDecimalToReal<Decimal, Real>("-18446744073709549568", 0, -1.844674407370955e+19);
   // 2**64 + 2**11 (exactly representable in a double)
-  CheckDecimalToReal<double>("18446744073709555712", 0, 1.8446744073709556e+19);
-  CheckDecimalToReal<double>("-18446744073709555712", 0, -1.8446744073709556e+19);
+  CheckDecimalToReal<Decimal, Real>("18446744073709555712", 0, 1.8446744073709556e+19);
+  CheckDecimalToReal<Decimal, Real>("-18446744073709555712", 0, -1.8446744073709556e+19);
   // Almost 10**38 (minus 2**73)
-  CheckDecimalToReal<double>("99999999999999978859343891977453174784", 0,
-                             9.999999999999998e+37);
-  CheckDecimalToReal<double>("-99999999999999978859343891977453174784", 0,
-                             -9.999999999999998e+37);
-  CheckDecimalToReal<double>("99999999999999978859343891977453174784", 10,
-                             9.999999999999998e+27);
-  CheckDecimalToReal<double>("-99999999999999978859343891977453174784", 10,
-                             -9.999999999999998e+27);
-  CheckDecimalToReal<double>("99999999999999978859343891977453174784", -10,
-                             9.999999999999998e+47);
-  CheckDecimalToReal<double>("-99999999999999978859343891977453174784", -10,
-                             -9.999999999999998e+47);
+  CheckDecimalToReal<Decimal, Real>("99999999999999978859343891977453174784", 0,
+                                    9.999999999999998e+37);
+  CheckDecimalToReal<Decimal, Real>("-99999999999999978859343891977453174784", 0,
+                                    -9.999999999999998e+37);
+  CheckDecimalToReal<Decimal, Real>("99999999999999978859343891977453174784", 10,
+                                    9.999999999999998e+27);
+  CheckDecimalToReal<Decimal, Real>("-99999999999999978859343891977453174784", 10,
+                                    -9.999999999999998e+27);
+  CheckDecimalToReal<Decimal, Real>("99999999999999978859343891977453174784", -10,
+                                    9.999999999999998e+47);
+  CheckDecimalToReal<Decimal, Real>("-99999999999999978859343891977453174784", -10,
+                                    -9.999999999999998e+47);
+}
+
+// Same tests, but for Decimal256
+class TestDecimal256ToRealDouble
+    : public TestDecimalToReal<std::pair<Decimal128, double>> {};
+
+TEST_F(TestDecimal256ToRealDouble, LargeValues) {
+  // Note that exact comparisons would succeed on some platforms (Linux, macOS).
+  // Nevertheless, power-of-ten factors are not all exactly representable
+  // in binary floating point.
+  for (int32_t scale = -308; scale <= 308; scale++) {
+    CheckDecimalToRealApprox<Decimal, Real>("1", scale, Pow10(-scale));
+  }
+  for (int32_t scale = -308; scale <= 306; scale++) {
+    const Real factor = static_cast<Real>(123);
+    CheckDecimalToRealApprox<Decimal, Real>("123", scale, factor * Pow10(-scale));
+  }
+}
+
+TEST_F(TestDecimal256ToRealDouble, Precision) {
+  // 2**63 + 2**11 (exactly representable in a double's 53 bits of precision)
+  CheckDecimalToReal<Decimal, Real>("9223372036854777856", 0, 9.223372036854778e+18);
+  CheckDecimalToReal<Decimal, Real>("-9223372036854777856", 0, -9.223372036854778e+18);
+  // 2**64 - 2**11 (exactly representable in a double)
+  CheckDecimalToReal<Decimal, Real>("18446744073709549568", 0, 1.844674407370955e+19);
+  CheckDecimalToReal<Decimal, Real>("-18446744073709549568", 0, -1.844674407370955e+19);
+  // 2**64 + 2**11 (exactly representable in a double)
+  CheckDecimalToReal<Decimal, Real>("18446744073709555712", 0, 1.8446744073709556e+19);
+  CheckDecimalToReal<Decimal, Real>("-18446744073709555712", 0, -1.8446744073709556e+19);
+  // Almost 10**38 (minus 2**73)
+  CheckDecimalToReal<Decimal, Real>("99999999999999978859343891977453174784", 0,
+                                    9.999999999999998e+37);
+  CheckDecimalToReal<Decimal, Real>("-99999999999999978859343891977453174784", 0,
+                                    -9.999999999999998e+37);
+  CheckDecimalToReal<Decimal, Real>("99999999999999978859343891977453174784", 10,
+                                    9.999999999999998e+27);
+  CheckDecimalToReal<Decimal, Real>("-99999999999999978859343891977453174784", 10,
+                                    -9.999999999999998e+27);
+  CheckDecimalToReal<Decimal, Real>("99999999999999978859343891977453174784", -10,
+                                    9.999999999999998e+47);
+  CheckDecimalToReal<Decimal, Real>("-99999999999999978859343891977453174784", -10,
+                                    -9.999999999999998e+47);
 }
 
 #endif  // __MINGW32__
@@ -1455,9 +1527,7 @@ TEST(Decimal256Test, Divide) {
       Decimal256 decimal_x = Decimal256FromInt128(x);
       Decimal256 decimal_y = Decimal256FromInt128(y);
       Decimal256 result = decimal_x / decimal_y;
-      EXPECT_EQ(Decimal256FromInt128(x / y), result)
-          << " x: " << decimal_x.ToIntegerString()
-          << " y: " << decimal_y.ToIntegerString();
+      EXPECT_EQ(Decimal256FromInt128(x / y), result);
     }
   }
 }

@@ -614,20 +614,21 @@ struct CastFunctor<Decimal128Type, I, enable_if_t<is_floating_type<I>::value>> {
 
 struct DecimalToReal {
   template <typename RealType, typename Arg0Value>
-  RealType Call(KernelContext* ctx, const Decimal128& val) const {
-    return val.ToReal<RealType>(in_scale_);
+  RealType Call(KernelContext* ctx, const Arg0Value& val) const {
+    return val.template ToReal<RealType>(in_scale_);
   }
 
   int32_t in_scale_;
 };
 
-template <typename O>
-struct CastFunctor<O, Decimal128Type, enable_if_t<is_floating_type<O>::value>> {
+template <typename O, typename I>
+struct CastFunctor<O, I,
+                   enable_if_t<is_floating_type<O>::value && is_decimal_type<I>::value>> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    const auto& in_type = checked_cast<const Decimal128Type&>(*batch[0].type());
+    const auto& in_type = checked_cast<const I&>(*batch[0].type());
     const auto in_scale = in_type.scale();
 
-    applicator::ScalarUnaryNotNullStateful<O, Decimal128Type, DecimalToReal> kernel(
+    applicator::ScalarUnaryNotNullStateful<O, I, DecimalToReal> kernel(
         DecimalToReal{in_scale});
     return kernel.Exec(ctx, batch, out);
   }
@@ -699,6 +700,8 @@ std::shared_ptr<CastFunction> GetCastToFloating(std::string name) {
   // From decimal to floating point
   DCHECK_OK(func->AddKernel(Type::DECIMAL, {InputType(Type::DECIMAL)}, out_ty,
                             CastFunctor<OutType, Decimal128Type>::Exec));
+  DCHECK_OK(func->AddKernel(Type::DECIMAL256, {InputType(Type::DECIMAL256)}, out_ty,
+                            CastFunctor<OutType, Decimal256Type>::Exec));
   return func;
 }
 

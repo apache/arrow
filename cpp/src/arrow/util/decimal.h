@@ -250,12 +250,38 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
   /// \return error status if the length is an invalid value
   static Result<Decimal256> FromBigEndian(const uint8_t* data, int32_t length);
 
+  /// \brief Convert to a floating-point number (scaled)
+  float ToFloat(int32_t scale) const;
+  /// \brief Convert to a floating-point number (scaled)
+  double ToDouble(int32_t scale) const;
+
+  /// \brief Convert to a floating-point number (scaled)
+  template <typename T>
+  T ToReal(int32_t scale) const {
+    return ToRealConversion<T>::ToReal(*this, scale);
+  }
+
   friend ARROW_EXPORT std::ostream& operator<<(std::ostream& os,
                                                const Decimal256& decimal);
 
  private:
   /// Converts internal error code to Status
   Status ToArrowStatus(DecimalStatus dstatus) const;
+
+  template <typename T>
+  struct ToRealConversion {};
+};
+
+template <>
+struct Decimal256::ToRealConversion<float> {
+  static float ToReal(const Decimal256& dec, int32_t scale) { return dec.ToFloat(scale); }
+};
+
+template <>
+struct Decimal256::ToRealConversion<double> {
+  static double ToReal(const Decimal256& dec, int32_t scale) {
+    return dec.ToDouble(scale);
+  }
 };
 
 }  // namespace arrow

@@ -958,6 +958,15 @@ TEST(Cast, DecimalToFloating) {
   // Edge cases are tested for Decimal128::ToReal()
 }
 
+TEST(Cast, Decimal256ToFloating) {
+  for (auto float_type : {float32(), float64()}) {
+    CheckCast(ArrayFromJSON(decimal256(5, 2), R"(["0.00", null, "123.45", "999.99"])"),
+              ArrayFromJSON(float_type, "[0.0, null, 123.45, 999.99]"));
+  }
+
+  // Edge cases are tested for Decimal256::ToReal()
+}
+
 TEST(Cast, TimestampToTimestamp) {
   struct TimestampTypePair {
     std::shared_ptr<DataType> coarse, fine;
