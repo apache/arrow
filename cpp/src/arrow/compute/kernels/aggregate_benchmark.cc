@@ -305,22 +305,10 @@ BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapVectorizeUnroll<int64_t>)
 //
 
 static void BenchmarkGroupBy(benchmark::State& state,
-                             std::vector<GroupByOptions::Aggregate> aggregates,
+                             std::vector<internal::Aggregate> aggregates,
                              std::vector<Datum> arguments, std::vector<Datum> keys) {
-  std::vector<Datum> arguments;
-  for (const Datum& argument : arguments) {
-    arguments.push_back(argument);
-  }
-
-  for (const Datum& key : keys) {
-    arguments.push_back(key);
-  }
-
-  GroupByOptions options;
-  options.aggregates = aggregates;
-
   for (auto _ : state) {
-    ABORT_NOT_OK(CallFunction("group_by", arguments, &options).status());
+    ABORT_NOT_OK(GroupBy(arguments, keys, aggregates).status());
   }
 }
 
