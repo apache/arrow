@@ -58,8 +58,8 @@
 #' # We can partition by one more variables, say, cyl and gear in mtcars dataset
 #' one_part_dir <- tempfile()
 #' two_part_dir <- tempfile()
-#' write_dataset(mtcars, one_part_dir, "parquet", partitioning = "cyl")
-#' write_dataset(mtcars, two_part_dir, "parquet", partitioning = c("cyl", "gear"))
+#' write_dataset(mtcars, one_part_dir, partitioning = "cyl")
+#' write_dataset(mtcars, two_part_dir, partitioning = c("cyl", "gear"))
 #'
 #' # See the contents of the directory we wrote to in order to demonstrate
 #' # what partitioning does
