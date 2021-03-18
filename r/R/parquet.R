@@ -304,7 +304,7 @@ ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inhe
       compression <- compression_from_name(compression)
       assert_that(is.integer(compression))
       private$.set(table, compression,
-                   parquet___ArrowWriterProperties___Builder__set_compressions
+        parquet___ArrowWriterProperties___Builder__set_compressions
       )
     },
     set_compression_level = function(table, compression_level){
@@ -411,12 +411,12 @@ ParquetWriterProperties$create <- function(table,
 #' @export
 #' @include arrow-package.R
 ParquetFileWriter <- R6Class("ParquetFileWriter", inherit = ArrowObject,
-                             public = list(
-                               WriteTable = function(table, chunk_size) {
-                                 parquet___arrow___FileWriter__WriteTable(self, table, chunk_size)
-                               },
-                               Close = function() parquet___arrow___FileWriter__Close(self)
-                             )
+  public = list(
+    WriteTable = function(table, chunk_size) {
+      parquet___arrow___FileWriter__WriteTable(self, table, chunk_size)
+    },
+    Close = function() parquet___arrow___FileWriter__Close(self)
+  )
 )
 ParquetFileWriter$create <- function(schema,
                                      sink,
@@ -477,53 +477,53 @@ ParquetFileWriter$create <- function(schema,
 #' }
 #' @include arrow-package.R
 ParquetFileReader <- R6Class("ParquetFileReader",
-                             inherit = ArrowObject,
-                             active = list(
-                               num_rows = function() {
-                                 as.integer(parquet___arrow___FileReader__num_rows(self))
-                               },
-                               num_columns = function() {
-                                 parquet___arrow___FileReader__num_columns(self)
-                               },
-                               num_row_groups = function() {
-                                 parquet___arrow___FileReader__num_row_groups(self)
-                               }
-                             ),
-                             public = list(
-                               ReadTable = function(column_indices = NULL) {
-                                 if (is.null(column_indices)) {
-                                   parquet___arrow___FileReader__ReadTable1(self)
-                                 } else {
-                                   column_indices <- vec_cast(column_indices, integer())
-                                   parquet___arrow___FileReader__ReadTable2(self, column_indices)
-                                 }
-                               },
-                               ReadRowGroup = function(i, column_indices = NULL) {
-                                 i <- vec_cast(i, integer())
-                                 if (is.null(column_indices)) {
-                                   parquet___arrow___FileReader__ReadRowGroup1(self, i)
-                                 } else {
-                                   column_indices <- vec_cast(column_indices, integer())
-                                   parquet___arrow___FileReader__ReadRowGroup2(self, i, column_indices)
-                                 }
-                               },
-                               ReadRowGroups = function(row_groups, column_indices = NULL) {
-                                 row_groups <- vec_cast(row_groups, integer())
-                                 if (is.null(column_indices)) {
-                                   parquet___arrow___FileReader__ReadRowGroups1(self, row_groups)
-                                 } else {
-                                   column_indices <- vec_cast(column_indices, integer())
-                                   parquet___arrow___FileReader__ReadRowGroups2(self, row_groups, column_indices)
-                                 }
-                               },
-                               ReadColumn = function(i) {
-                                 i <- vec_cast(i, integer())
-                                 parquet___arrow___FileReader__ReadColumn(self, i)
-                               },
-                               GetSchema = function() {
-                                 parquet___arrow___FileReader__GetSchema(self)
-                               }
-                             )
+  inherit = ArrowObject,
+  active = list(
+    num_rows = function() {
+      as.integer(parquet___arrow___FileReader__num_rows(self))
+    },
+    num_columns = function() {
+      parquet___arrow___FileReader__num_columns(self)
+    },
+    num_row_groups = function() {
+      parquet___arrow___FileReader__num_row_groups(self)
+    }
+  ),
+  public = list(
+    ReadTable = function(column_indices = NULL) {
+      if (is.null(column_indices)) {
+        parquet___arrow___FileReader__ReadTable1(self)
+      } else {
+        column_indices <- vec_cast(column_indices, integer())
+        parquet___arrow___FileReader__ReadTable2(self, column_indices)
+      }
+    },
+    ReadRowGroup = function(i, column_indices = NULL) {
+      i <- vec_cast(i, integer())
+      if (is.null(column_indices)) {
+        parquet___arrow___FileReader__ReadRowGroup1(self, i)
+      } else {
+        column_indices <- vec_cast(column_indices, integer())
+        parquet___arrow___FileReader__ReadRowGroup2(self, i, column_indices)
+      }
+    },
+    ReadRowGroups = function(row_groups, column_indices = NULL) {
+      row_groups <- vec_cast(row_groups, integer())
+      if (is.null(column_indices)) {
+        parquet___arrow___FileReader__ReadRowGroups1(self, row_groups)
+      } else {
+        column_indices <- vec_cast(column_indices, integer())
+        parquet___arrow___FileReader__ReadRowGroups2(self, row_groups, column_indices)
+      }
+    },
+    ReadColumn = function(i) {
+      i <- vec_cast(i, integer())
+      parquet___arrow___FileReader__ReadColumn(self, i)
+    },
+    GetSchema = function() {
+      parquet___arrow___FileReader__GetSchema(self)
+    }
+  )
 )
 
 ParquetFileReader$create <- function(file,
