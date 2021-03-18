@@ -17,6 +17,7 @@
 
 #include "arrow/compute/api_aggregate.h"
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -271,13 +272,16 @@ struct VarLengthKeyEncoder : KeyEncoder {
     auto raw_offsets = reinterpret_cast<Offset*>(offset_buf->mutable_data());
     auto raw_keys = key_buf->mutable_data();
 
-    int32_t current_offset = 0;
+    Offset current_offset = 0;
     for (int32_t i = 0; i < length; ++i) {
-      auto key_length = util::SafeLoadAs<Offset>(encoded_bytes[i]);
       raw_offsets[i] = current_offset;
+
+      auto key_length = util::SafeLoadAs<Offset>(encoded_bytes[i]);
       encoded_bytes[i] += sizeof(Offset);
+
       memcpy(raw_keys + current_offset, encoded_bytes[i], key_length);
       encoded_bytes[i] += key_length;
+
       current_offset += key_length;
     }
     raw_offsets[length] = current_offset;
@@ -333,7 +337,8 @@ struct GroupIdentifierImpl : GroupIdentifier {
 
       return Status::NotImplemented("Keys of type ", *key);
     }
-    return impl;
+
+    return std::move(impl);
   }
 
   Result<ExecBatch> Consume(const ExecBatch& batch) override {
@@ -603,6 +608,21 @@ struct GroupedSumImpl : public GroupedAggregator {
 // ----------------------------------------------------------------------
 // MinMax implementation
 
+template <typename CType>
+struct Extrema : std::numeric_limits<CType> {};
+
+template <>
+struct Extrema<float> {
+  static constexpr float min() { return -std::numeric_limits<float>::infinity(); }
+  static constexpr float max() { return std::numeric_limits<float>::infinity(); }
+};
+
+template <>
+struct Extrema<double> {
+  static constexpr double min() { return -std::numeric_limits<double>::infinity(); }
+  static constexpr double max() { return std::numeric_limits<double>::infinity(); }
+};
+
 struct GroupedMinMaxImpl : public GroupedAggregator {
   using ConsumeImpl =
       std::function<void(const std::shared_ptr<ArrayData>&, const uint32_t*, void*, void*,
@@ -640,7 +660,8 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
             [&] { BitUtil::SetBit(has_nulls, *group++); });
       };
 
-      GetResizeImpls<T>();
+      resize_min_impl = MakeResizeImpl(Extrema<CType>::max());
+      resize_max_impl = MakeResizeImpl(Extrema<CType>::min());
       return Status::OK();
     }
 
@@ -654,19 +675,6 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
 
     Status Visit(const DataType& type) {
       return Status::NotImplemented("Grouped MinMax data of type ", type);
-    }
-
-    template <typename T, typename CType = typename TypeTraits<T>::CType>
-    enable_if_floating_point<T> GetResizeImpls() {
-      auto inf = std::numeric_limits<CType>::infinity();
-      resize_min_impl = MakeResizeImpl(inf);
-      resize_max_impl = MakeResizeImpl(-inf);
-    }
-
-    template <typename T, typename CType = typename TypeTraits<T>::CType>
-    enable_if_integer<T> GetResizeImpls() {
-      resize_max_impl = MakeResizeImpl(std::numeric_limits<CType>::min());
-      resize_min_impl = MakeResizeImpl(std::numeric_limits<CType>::max());
     }
 
     ConsumeImpl consume_impl;
@@ -750,7 +758,7 @@ KernelInit MakeInit() {
     auto impl = ::arrow::internal::make_unique<A>();
     ctx->SetStatus(impl->Init(ctx->exec_context(), args.options, args.inputs[0].type));
     if (ctx->HasError()) return nullptr;
-    return impl;
+    return std::move(impl);
   };
 }
 
@@ -828,7 +836,8 @@ Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
         &kernel_ctx, KernelInitArgs{&kernels[i], {in_descrs[i].type}, options});
     if (kernel_ctx.HasError()) return kernel_ctx.status();
   }
-  return states;
+
+  return std::move(states);
 }
 
 Result<FieldVector> ResolveKernels(
