@@ -199,16 +199,16 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
 #' @export
 #' @include arrow-package.R
 FeatherReader <- R6Class("FeatherReader", inherit = ArrowObject,
-                         public = list(
-                           Read = function(columns) {
-                             ipc___feather___Reader__Read(self, columns)
-                           }
-                         ),
-                         active = list(
-                           # versions are officially 2 for V1 and 3 for V2 :shrug:
-                           version = function() ipc___feather___Reader__version(self) - 1L,
-                           column_names = function() ipc___feather___Reader__column_names(self)
-                         )
+  public = list(
+    Read = function(columns) {
+      ipc___feather___Reader__Read(self, columns)
+    }
+  ),
+  active = list(
+    # versions are officially 2 for V1 and 3 for V2 :shrug:
+    version = function() ipc___feather___Reader__version(self) - 1L,
+    column_names = function() ipc___feather___Reader__column_names(self)
+  )
 )
 
 #' @export
