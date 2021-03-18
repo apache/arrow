@@ -23,6 +23,7 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <string>
 
 #include "./types.h"
 
@@ -145,6 +146,17 @@ gdv_int32 utf8_char_length(char c) {
   // invalid char
   return 0;
 }
+
+FORCE_INLINE
+char* numeric_to_char(gdv_int64 context, int number, gdv_int32 data_len) {
+
+    char* converted_number;
+    converted_number = strdup(std::to_string(number).c_str());
+
+    return converted_number;
+}
+
+
 
 FORCE_INLINE
 void set_error_for_invalid_utf(int64_t execution_context, char val) {
