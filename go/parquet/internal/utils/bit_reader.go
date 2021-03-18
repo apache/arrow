@@ -205,6 +205,8 @@ func (b *BitReader) next(bits uint) (v uint64, err error) {
 
 // GetBatchIndex is like GetBatch but for IndexType (used for dictionary decoding)
 func (b *BitReader) GetBatchIndex(bits uint, out []IndexType) (i int, err error) {
+	// IndexType is a 32-bit value so bits must be less than 32 when unpacking
+	// values using the bitreader.
 	if bits > 32 {
 		return 0, errors.New("must be 32 bits or less per read")
 	}
@@ -290,6 +292,8 @@ func (b *BitReader) GetBatchBools(out []bool) (int, error) {
 // using bits as the number of bits per value. The values are expected to be bit packed
 // so we will unpack the values to populate.
 func (b *BitReader) GetBatch(bits uint, out []uint64) (int, error) {
+	// since we're unpacking into uint64 values, we can't support bits being
+	// larger than 64 here as that's the largest size value we're reading
 	if bits > 64 {
 		return 0, errors.New("must be 64 bits or less per read")
 	}
