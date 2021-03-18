@@ -229,7 +229,8 @@ struct VarLengthKeyEncoder : KeyEncoder {
     VisitArrayDataInline<T>(
         data,
         [&](util::string_view bytes) {
-          lengths[i++] += kExtraByteForNull + sizeof(Offset) + bytes.size();
+          lengths[i++] +=
+              kExtraByteForNull + sizeof(Offset) + static_cast<int32_t>(bytes.size());
         },
         [&] { lengths[i++] += kExtraByteForNull + sizeof(Offset); });
   }
