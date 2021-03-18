@@ -74,7 +74,7 @@
 #'  d %>% write_dataset(two_part_dir_2)
 #'
 #'  # We can also turn off the Hive-style directory naming where the column name is included with the value for each directory with `hive_style = FALSE`.
-#'  d %>% write_dataset(two_part_dir_3, "parquet", hive_style = FALSE)
+#'  d %>% write_dataset(two_part_dir_3, hive_style = FALSE)
 #'
 #' list.files(two_part_dir_2, recursive = TRUE)
 #' list.files(two_part_dir_3, recursive = TRUE)
