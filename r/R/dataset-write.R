@@ -71,7 +71,7 @@
 #'  two_part_dir_2 <- tempfile()
 #'  two_part_dir_3 <- tempfile()
 #'  d <- mtcars %>% group_by(cyl, gear)
-#'  d %>% write_dataset(two_part_dir_2, "parquet")
+#'  d %>% write_dataset(two_part_dir_2)
 #'
 #'  # Passing the additional hive_style option to see the difference in the
 #'  # output
