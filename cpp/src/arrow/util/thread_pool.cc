@@ -28,6 +28,7 @@
 
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/span.h"
 
 namespace arrow {
 namespace internal {
@@ -105,6 +106,7 @@ static void WorkerLoop(std::shared_ptr<ThreadPool::State> state,
         StopToken* stop_token = &task.stop_token;
         lock.unlock();
         if (!stop_token->IsStopRequested()) {
+          Span span("ThreadPoolTask");
           std::move(task.callable)();
         } else {
           if (task.stop_callback) {

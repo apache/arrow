@@ -55,6 +55,7 @@
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/span.h"
 
 namespace arrow {
 
@@ -144,12 +145,18 @@ class OSFile {
   }
 
   Result<int64_t> Read(int64_t nbytes, void* out) {
+    Span span("OSFile::Read");
+    span.AddAttribute("size", std::to_string(nbytes));
+    span.AddAttribute("filename", file_name_.ToString());
     RETURN_NOT_OK(CheckClosed());
     RETURN_NOT_OK(CheckPositioned());
     return ::arrow::internal::FileRead(fd_, reinterpret_cast<uint8_t*>(out), nbytes);
   }
 
   Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) {
+    Span span("OSFile::ReadAt");
+    span.AddAttribute("filename", file_name_.ToString());
+    span.AddAttribute("size", std::to_string(nbytes));
     RETURN_NOT_OK(CheckClosed());
     RETURN_NOT_OK(internal::ValidateRange(position, nbytes));
     // ReadAt() leaves the file position undefined, so require that we seek
