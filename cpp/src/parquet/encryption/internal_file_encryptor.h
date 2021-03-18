@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-#include "parquet/encryption.h"
+#include "parquet/encryption/encryption.h"
 #include "parquet/schema.h"
 
 namespace parquet {

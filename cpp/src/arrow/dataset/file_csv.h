@@ -26,6 +26,7 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/status.h"
+#include "arrow/util/compression.h"
 
 namespace arrow {
 namespace dataset {

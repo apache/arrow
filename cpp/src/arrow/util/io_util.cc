@@ -22,6 +22,15 @@
 
 #define _FILE_OFFSET_BITS 64
 
+#if defined(sun) || defined(__sun)
+// According to https://bugs.python.org/issue1759169#msg82201, __EXTENSIONS__
+// is the best way to enable modern POSIX APIs, such as posix_madvise(), on Solaris.
+// (see also
+// https://github.com/illumos/illumos-gate/blob/master/usr/src/uts/common/sys/mman.h)
+#undef __EXTENSIONS__
+#define __EXTENSIONS__
+#endif
+
 #include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
 
 #include <algorithm>
@@ -1065,8 +1074,16 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
     return StatusFromMmapErrno("MapViewOfFile failed");
   }
   return Status::OK();
+#elif defined(__linux__)
+  if (ftruncate(fildes, new_size) == -1) {
+    return StatusFromMmapErrno("ftruncate failed");
+  }
+  *new_addr = mremap(addr, old_size, new_size, MREMAP_MAYMOVE);
+  if (*new_addr == MAP_FAILED) {
+    return StatusFromMmapErrno("mremap failed");
+  }
+  return Status::OK();
 #else
-#if defined(__APPLE__) || defined(__FreeBSD__)
   // we have to close the mmap first, truncate the file to the new size
   // and recreate the mmap
   if (munmap(addr, old_size) == -1) {
@@ -1082,16 +1099,6 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
     return StatusFromMmapErrno("mmap failed");
   }
   return Status::OK();
-#else
-  if (ftruncate(fildes, new_size) == -1) {
-    return StatusFromMmapErrno("ftruncate failed");
-  }
-  *new_addr = mremap(addr, old_size, new_size, MREMAP_MAYMOVE);
-  if (*new_addr == MAP_FAILED) {
-    return StatusFromMmapErrno("mremap failed");
-  }
-  return Status::OK();
-#endif
 #endif
 }
 
@@ -1137,7 +1144,7 @@ Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
     }
   }
   return Status::OK();
-#else
+#elif defined(POSIX_MADV_WILLNEED)
   for (const auto& region : regions) {
     if (region.size != 0) {
       const auto aligned = align_region(region);
@@ -1150,6 +1157,8 @@ Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions) {
       }
     }
   }
+  return Status::OK();
+#else
   return Status::OK();
 #endif
 }

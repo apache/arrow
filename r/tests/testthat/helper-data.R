@@ -122,3 +122,15 @@ make_string_of_size <- function(size = 1) {
 
 example_with_extra_metadata <- example_with_metadata
 attributes(example_with_extra_metadata$b) <- list(lots = rep(make_string_of_size(1), 100))
+
+example_with_logical_factors <- tibble::tibble(
+  starting_a_fight = factor(c(FALSE, TRUE, TRUE, TRUE)),
+  consoling_a_child = factor(c(TRUE, FALSE, TRUE, TRUE)),
+  petting_a_dog = factor(c(TRUE, TRUE, FALSE, TRUE)),
+  saying = c(
+    "shhhhh, it's ok",
+    "you wanna go outside?",
+    "you want your mommy?",
+    "hey buddy"
+  )
+)

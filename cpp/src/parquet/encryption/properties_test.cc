@@ -19,11 +19,11 @@
 
 #include <string>
 
-#include "parquet/encryption.h"
-#include "parquet/test_encryption_util.h"
+#include "parquet/encryption/encryption.h"
+#include "parquet/encryption/test_encryption_util.h"
 
 namespace parquet {
-
+namespace encryption {
 namespace test {
 
 TEST(TestColumnEncryptionProperties, ColumnEncryptedWithOwnKey) {
@@ -272,4 +272,5 @@ TEST(TestDecryptionProperties, UsingExplicitFooterAndColumnKeys) {
 }
 
 }  // namespace test
+}  // namespace encryption
 }  // namespace parquet

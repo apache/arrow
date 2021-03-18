@@ -71,6 +71,7 @@ impl OptimizerRule for ConstantFolding {
             | LogicalPlan::Sort { .. }
             | LogicalPlan::Explain { .. }
             | LogicalPlan::Limit { .. }
+            | LogicalPlan::Union { .. }
             | LogicalPlan::Join { .. } => {
                 // apply the optimization to all inputs of the plan
                 let inputs = plan.inputs();

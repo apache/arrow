@@ -295,6 +295,29 @@ test_that("CSV dataset", {
   )
 })
 
+test_that("compressed CSV dataset", {
+  skip_if_not_available("gzip")
+  dst_dir <- make_temp_dir()
+  dst_file <- file.path(dst_dir, "data.csv.gz")
+  write.csv(df1, gzfile(dst_file), row.names = FALSE, quote = FALSE)
+  format <- FileFormat$create("csv")
+  ds <- open_dataset(dst_dir, format = format)
+  expect_is(ds$format, "CsvFileFormat")
+  expect_is(ds$filesystem, "LocalFileSystem")
+
+  expect_equivalent(
+    ds %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
 test_that("Other text delimited dataset", {
   ds1 <- open_dataset(tsv_dir, partitioning = "part", format = "tsv")
   expect_equivalent(

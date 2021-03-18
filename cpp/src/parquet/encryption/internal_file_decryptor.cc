@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/internal_file_decryptor.h"
-#include "parquet/encryption.h"
-#include "parquet/encryption_internal.h"
+#include "parquet/encryption/internal_file_decryptor.h"
+#include "parquet/encryption/encryption.h"
+#include "parquet/encryption/encryption_internal.h"
 
 namespace parquet {
 

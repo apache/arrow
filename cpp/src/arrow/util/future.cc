@@ -348,6 +348,10 @@ Future<> AllComplete(const std::vector<Future<>>& futures) {
     std::atomic<size_t> n_remaining;
   };
 
+  if (futures.empty()) {
+    return Future<>::MakeFinished();
+  }
+
   auto state = std::make_shared<State>(futures.size());
   auto out = Future<>::Make();
   for (const auto& future : futures) {

@@ -2215,6 +2215,33 @@ def test_csv_format(tempdir):
     assert result.equals(table)
 
 
+@pytest.mark.pandas
+@pytest.mark.parametrize("compression", [
+    "bz2",
+    "gzip",
+    "lz4",
+    "zstd",
+])
+def test_csv_format_compressed(tempdir, compression):
+    if not pyarrow.Codec.is_available(compression):
+        pytest.skip("{} support is not built".format(compression))
+    table = pa.table({'a': pa.array([1, 2, 3], type="int64"),
+                      'b': pa.array([.1, .2, .3], type="float64")})
+    filesystem = fs.LocalFileSystem()
+    suffix = compression if compression != 'gzip' else 'gz'
+    path = str(tempdir / f'test.csv.{suffix}')
+    with filesystem.open_output_stream(path, compression=compression) as sink:
+        # https://github.com/pandas-dev/pandas/issues/23854
+        # With CI version of Pandas (anything < 1.2), Pandas tries to write
+        # str to the sink
+        csv_str = table.to_pandas().to_csv(index=False)
+        sink.write(csv_str.encode('utf-8'))
+
+    dataset = ds.dataset(path, format=ds.CsvFileFormat())
+    result = dataset.to_table()
+    assert result.equals(table)
+
+
 def test_feather_format(tempdir):
     from pyarrow.feather import write_feather
 
