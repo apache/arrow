@@ -301,7 +301,7 @@ test_that("handle bad expressions", {
   # TODO: search for functions other than mean() (see above test)
   # that need to be forced to fail because they error ambiguously
 
-  withr::with_envvar(c(LANGUAGE = "FR_fr"), {
+  with_language("fr", {
     # expect_warning(., NA) because the usual behavior when it hits a filter
     # that it can't evaluate is to raise a warning, collect() to R, and retry
     # the filter. But we want this to error the first time because it's

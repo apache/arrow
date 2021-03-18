@@ -302,7 +302,7 @@ test_that("filter environment scope", {
 })
 
 test_that("Filtering on a column that doesn't exist errors correctly", {
-  withr::with_envvar(c(LANGUAGE = "FR_fr"), {
+  with_language("fr", {
     # expect_warning(., NA) because the usual behavior when it hits a filter
     # that it can't evaluate is to raise a warning, collect() to R, and retry
     # the filter. But we want this to error the first time because it's
@@ -311,6 +311,15 @@ test_that("Filtering on a column that doesn't exist errors correctly", {
       expect_error(
         tbl %>% record_batch() %>% filter(not_a_col == 42) %>% collect(),
         "objet 'not_a_col' introuvable"
+      ),
+      NA
+    )
+  })
+  with_language("en", {
+    expect_warning(
+      expect_error(
+        tbl %>% record_batch() %>% filter(not_a_col == 42) %>% collect(),
+        "object 'not_a_col' not found"
       ),
       NA
     )

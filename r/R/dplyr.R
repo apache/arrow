@@ -268,7 +268,12 @@ arrow_eval <- function (expr, mask) {
     # else, for things not supported by Arrow return a "try-error",
     # which we'll handle differently
     msg <- conditionMessage(e)
-    patterns <- paste(i18ize_error_messages(), collapse = "|")
+    patterns <- dplyr_functions$i18ized_error_pattern
+    if (is.null(patterns)) {
+      patterns <- i18ize_error_messages()
+      # Memoize it
+      dplyr_functions$i18ized_error_pattern <- patterns
+    }
     if (grepl(patterns, msg)) {
       stop(e)
     }
@@ -283,7 +288,7 @@ i18ize_error_messages <- function() {
     obj = tryCatch(X_____X, error = function(e) conditionMessage(e)),
     fun = tryCatch(X_____X(), error = function(e) conditionMessage(e))
   )
-  map(out, ~sub("X_____X", ".*", .))
+  paste(map(out, ~sub("X_____X", ".*", .)), collapse = "|")
 }
 
 # Helper to assemble the functions that go in the NSE data mask
