@@ -114,6 +114,9 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      utf8(), kResultNullIfNull, "substr_utf8_int64_int64",
                      NativeFunction::kNeedsContext),
 
+      NativeFunction("to_char", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
+                     "numeric_to_char", NativeFunction::kNeedsContext),
+
       NativeFunction("substr", {"substring"}, DataTypeVector{utf8(), int64() /*offset*/},
                      utf8(), kResultNullIfNull, "substr_utf8_int64",
                      NativeFunction::kNeedsContext),
