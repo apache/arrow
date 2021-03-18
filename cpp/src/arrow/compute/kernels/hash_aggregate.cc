@@ -262,7 +262,7 @@ struct VarLengthKeyEncoder : KeyEncoder {
 
     Offset length_sum = 0;
     for (int32_t i = 0; i < length; ++i) {
-      length_sum += reinterpret_cast<Offset*>(encoded_bytes)[0];
+      length_sum += util::SafeLoadAs<Offset>(encoded_bytes[i]);
     }
 
     ARROW_ASSIGN_OR_RAISE(auto offset_buf,
