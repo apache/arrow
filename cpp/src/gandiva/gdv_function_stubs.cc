@@ -128,8 +128,8 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
   const char *gdv_fn_sha128_##TYPE(int64_t context, gdv_##TYPE value,                 \
                                         bool validity, int32_t *out_length) {         \
     if (!validity) {                                                                  \
-      *out_length = 0;                                                                \
-      return "";                                                                      \
+      return gandiva::HashUtils::HashUsingSha128(context, NULLPTR,                    \
+                                                 0, out_length);                      \
     }                                                                                 \
     auto value_as_long = gandiva::HashUtils::DoubleToLong((double)value);             \
     const char *result = gandiva::HashUtils::HashUsingSha128(context,                 \
@@ -148,8 +148,8 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
                                         bool value_validity,                       \
                                         int32_t *out_length) {                     \
     if (!value_validity) {                                                         \
-      *out_length = 0;                                                             \
-      return "";                                                                   \
+      return gandiva::HashUtils::HashUsingSha128(context, NULLPTR,                 \
+                                                 0, out_length);                   \
     }                                                                              \
     return gandiva::HashUtils::HashUsingSha128(context, value,                     \
     value_length, out_length);                                                     \
@@ -160,8 +160,8 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
   const char *gdv_fn_sha256_##TYPE(int64_t context, gdv_##TYPE value,                   \
                                         bool validity, int32_t *out_length) {           \
     if (!validity) {                                                                    \
-      *out_length = 0;                                                                  \
-      return "";                                                                        \
+      return gandiva::HashUtils::HashUsingSha256(context, NULLPTR,                      \
+                                                 0, out_length);                        \
     }                                                                                   \
     auto value_as_long = gandiva::HashUtils::DoubleToLong((double)value);               \
     const char *result = gandiva::HashUtils::HashUsingSha256(context,                   \
@@ -179,8 +179,8 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
                                         bool value_validity,                            \
                                         int32_t *out_length) {                          \
     if (!value_validity) {                                                              \
-      *out_length = 0;                                                                  \
-      return "";                                                                        \
+      return gandiva::HashUtils::HashUsingSha256(context, NULLPTR,                      \
+                                                 0, out_length);                        \
     }                                                                                   \
                                                                                         \
     return gandiva::HashUtils::HashUsingSha256(context, value,                          \
@@ -227,8 +227,8 @@ const char* gdv_fn_sha256_decimal128(int64_t context, int64_t x_high, uint64_t x
                                      int32_t x_precision, int32_t x_scale,
                                      gdv_boolean x_isvalid, int32_t *out_length) {
   if (!x_isvalid) {
-      *out_length = 0;
-      return "";
+      return gandiva::HashUtils::HashUsingSha256(context, NULLPTR,
+                                                 0, out_length);
   }
 
   const auto &decimal_128 = gandiva::BasicDecimal128(x_high, x_low);
@@ -241,8 +241,8 @@ const char* gdv_fn_sha128_decimal128(int64_t context, int64_t x_high, uint64_t x
                                      int32_t x_precision, int32_t x_scale,
                                      gdv_boolean x_isvalid, int32_t *out_length) {
   if (!x_isvalid) {
-    *out_length = 0;
-    return "";
+    return gandiva::HashUtils::HashUsingSha128(context, NULLPTR,
+                                               0, out_length);
   }
 
   const auto &decimal_128 = gandiva::BasicDecimal128(x_high, x_low);

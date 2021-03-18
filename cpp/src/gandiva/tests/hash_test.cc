@@ -171,29 +171,29 @@ TEST_F(TestHash, TestSha256Simple) {
   // hashSHA256(a)
   auto node_a = TreeExprBuilder::MakeField(field_a);
   auto hashSha256_1 = TreeExprBuilder::MakeFunction("hashSHA256",
-													{node_a}, utf8());
+                                                    {node_a}, utf8());
   auto expr_0 = TreeExprBuilder::MakeExpression(hashSha256_1, res_0);
 
   auto node_b = TreeExprBuilder::MakeField(field_b);
   auto hashSha256_2 = TreeExprBuilder::MakeFunction("hashSHA256",
-													{node_b}, utf8());
+                                                    {node_b}, utf8());
   auto expr_1 = TreeExprBuilder::MakeExpression(hashSha256_2, res_1);
 
   auto node_c = TreeExprBuilder::MakeField(field_c);
   auto hashSha256_3 = TreeExprBuilder::MakeFunction("hashSHA256",
-													{node_c}, utf8());
+                                                    {node_c}, utf8());
   auto expr_2 = TreeExprBuilder::MakeExpression(hashSha256_3, res_2);
 
   auto node_d = TreeExprBuilder::MakeField(field_d);
   auto hashSha256_4 = TreeExprBuilder::MakeFunction("hashSHA256",
-													{node_d}, utf8());
+                                                    {node_d}, utf8());
   auto expr_3 = TreeExprBuilder::MakeExpression(hashSha256_4, res_3);
 
   // Build a projector for the expressions.
   std::shared_ptr<Projector> projector;
   auto status =
       Projector::Make(schema, {expr_0, expr_1, expr_2, expr_3},
-					  TestConfiguration(), &projector);
+                      TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
@@ -214,17 +214,35 @@ TEST_F(TestHash, TestSha256Simple) {
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records,
-										   {array_int32, array_int64,
-			  array_float32, array_float64});
+                                           {array_int32, array_int64,
+                                            array_float32, array_float64});
 
   // Evaluate expression
   arrow::ArrayVector outputs;
   status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok());
 
-  EXPECT_ARROW_ARRAY_EQUALS(outputs.at(0), outputs.at(1));
-  EXPECT_ARROW_ARRAY_EQUALS(outputs.at(1), outputs.at(2));
-  EXPECT_ARROW_ARRAY_EQUALS(outputs.at(2), outputs.at(3));
+  auto response_int32 = outputs.at(0);
+  auto response_int64 = outputs.at(1);
+  auto response_float32 = outputs.at(2);
+  auto response_float64 = outputs.at(3);
+
+  // Checks if the null and zero representation for numeric values
+  // are consistent between the types
+  EXPECT_ARROW_ARRAY_EQUALS(response_int32, response_int64);
+  EXPECT_ARROW_ARRAY_EQUALS(response_int64, response_float32);
+  EXPECT_ARROW_ARRAY_EQUALS(response_float32, response_float64);
+
+  const int sha256_hash_size = 64;
+
+  // Checks if the hash size in response is correct
+  for (int i = 1; i < num_records; ++i) {
+    const auto& value_at_position = response_int32->GetScalar(i).ValueOrDie()->ToString();
+
+    EXPECT_EQ(value_at_position.size(), sha256_hash_size);
+    EXPECT_NE(value_at_position,
+              response_int32->GetScalar(i - 1).ValueOrDie()->ToString());
+  }
 }
 
 TEST_F(TestHash, TestSha256Varlen) {
@@ -268,16 +286,19 @@ TEST_F(TestHash, TestSha256Varlen) {
   EXPECT_TRUE(status.ok());
 
   auto response = outputs.at(0);
+  const int sha256_hash_size = 64;
+
   EXPECT_EQ(response->null_count(), 0);
-  EXPECT_EQ(response->GetScalar(0).ValueOrDie()->ToString(), "");
   for (int i = 1; i < num_records; ++i) {
-    const auto &value_at_position = response->GetScalar(i).ValueOrDie()->ToString();
+    const auto& value_at_position = response->GetScalar(i).ValueOrDie()->ToString();
+
+    EXPECT_EQ(value_at_position.size(), sha256_hash_size);
     EXPECT_NE(value_at_position,
-			  response->GetScalar(i - 1).ValueOrDie()->ToString());
+              response->GetScalar(i - 1).ValueOrDie()->ToString());
   }
 }
 
-TEST_F(TestHash, TestSha128Simple) {
+TEST_F(TestHash, TestSha1Simple) {
     // schema for input fields
     auto field_a = field("a", int32());
     auto field_b = field("b", int64());
@@ -295,29 +316,29 @@ TEST_F(TestHash, TestSha128Simple) {
     // hashSHA128(a)
     auto node_a = TreeExprBuilder::MakeField(field_a);
     auto hashSha128_1 = TreeExprBuilder::MakeFunction("hashSHA128",
-													  {node_a}, utf8());
+                                                      {node_a}, utf8());
     auto expr_0 = TreeExprBuilder::MakeExpression(hashSha128_1, res_0);
 
     auto node_b = TreeExprBuilder::MakeField(field_b);
     auto hashSha128_2 = TreeExprBuilder::MakeFunction("hashSHA128",
-													  {node_b}, utf8());
+                                                      {node_b}, utf8());
     auto expr_1 = TreeExprBuilder::MakeExpression(hashSha128_2, res_1);
 
     auto node_c = TreeExprBuilder::MakeField(field_c);
     auto hashSha128_3 = TreeExprBuilder::MakeFunction("hashSHA128",
-													  {node_c}, utf8());
+                                                      {node_c}, utf8());
     auto expr_2 = TreeExprBuilder::MakeExpression(hashSha128_3, res_2);
 
     auto node_d = TreeExprBuilder::MakeField(field_d);
     auto hashSha128_4 = TreeExprBuilder::MakeFunction("hashSHA128",
-													  {node_d}, utf8());
+                                                      {node_d}, utf8());
     auto expr_3 = TreeExprBuilder::MakeExpression(hashSha128_4, res_3);
 
     // Build a projector for the expressions.
     std::shared_ptr<Projector> projector;
     auto status =
             Projector::Make(schema, {expr_0, expr_1, expr_2, expr_3},
-							TestConfiguration(), &projector);
+                            TestConfiguration(), &projector);
     EXPECT_TRUE(status.ok()) << status.message();
 
     // Create a row-batch with some sample data
@@ -337,21 +358,38 @@ TEST_F(TestHash, TestSha128Simple) {
             MakeArrowArrayFloat64({1.0, 0.0}, validity_array);
 
     // prepare input record batch
-    auto in_batch = arrow::RecordBatch::Make(schema, num_records,
-											 {array_int32, array_int64,
-			 array_float32, array_float64});
+    auto in_batch = arrow::RecordBatch::Make(schema, num_records,{array_int32, array_int64,
+                                                                  array_float32, array_float64});
 
     // Evaluate expression
     arrow::ArrayVector outputs;
     status = projector->Evaluate(*in_batch, pool_, &outputs);
     EXPECT_TRUE(status.ok());
 
-    EXPECT_ARROW_ARRAY_EQUALS(outputs.at(0), outputs.at(1));
-    EXPECT_ARROW_ARRAY_EQUALS(outputs.at(1), outputs.at(2));
-    EXPECT_ARROW_ARRAY_EQUALS(outputs.at(2), outputs.at(3));
+    auto response_int32 = outputs.at(0);
+    auto response_int64 = outputs.at(1);
+    auto response_float32 = outputs.at(2);
+    auto response_float64 = outputs.at(3);
+
+    // Checks if the null and zero representation for numeric values
+    // are consistent between the types
+    EXPECT_ARROW_ARRAY_EQUALS(response_int32, response_int64);
+    EXPECT_ARROW_ARRAY_EQUALS(response_int64, response_float32);
+    EXPECT_ARROW_ARRAY_EQUALS(response_float32, response_float64);
+
+    const int sha1_hash_size = 40;
+
+    // Checks if the hash size in response is correct
+    for (int i = 1; i < num_records; ++i) {
+        const auto& value_at_position = response_int32->GetScalar(i).ValueOrDie()->ToString();
+
+        EXPECT_EQ(value_at_position.size(), sha1_hash_size);
+        EXPECT_NE(value_at_position,
+                response_int32->GetScalar(i - 1).ValueOrDie()->ToString());
+    }
 }
 
-TEST_F(TestHash, TestSha128Varlen) {
+TEST_F(TestHash, TestSha1Varlen) {
     // schema for input fields
     auto field_a = field("a", utf8());
     auto schema = arrow::schema({field_a});
@@ -363,7 +401,7 @@ TEST_F(TestHash, TestSha128Varlen) {
     // hashSHA128(a)
     auto node_a = TreeExprBuilder::MakeField(field_a);
     auto hashSha128 = TreeExprBuilder::MakeFunction("hashSHA128",
-													{node_a}, utf8());
+                                                    {node_a}, utf8());
     auto expr_0 = TreeExprBuilder::MakeExpression(hashSha128, res_0);
 
     // Build a projector for the expressions.
@@ -376,13 +414,13 @@ TEST_F(TestHash, TestSha128Varlen) {
     int num_records = 3;
 
     std::string first_string = "ði ıntəˈnæʃənəl fəˈnɛtık əsoʊsiˈeıʃn\nY [ˈʏpsilɔn], "
-							   "Yen [jɛn], Yoga [ˈjoːgɑ]";
+                               "Yen [jɛn], Yoga [ˈjoːgɑ]";
     std::string second_string = "ði ıntəˈnæʃənəl fəˈnɛtık əsoʊsiˈeın\nY [ˈʏpsilɔn], "
-								"Yen [jɛn], Yoga [ˈjoːgɑ] コンニチハ";
+                                "Yen [jɛn], Yoga [ˈjoːgɑ] コンニチハ";
 
     auto array_a =
-            MakeArrowArrayUtf8({"foo", first_string, second_string},
-							   {false, true, true});
+            MakeArrowArrayUtf8({"", first_string, second_string},
+                               {false, true, true});
 
     // prepare input record batch
     auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
@@ -393,12 +431,15 @@ TEST_F(TestHash, TestSha128Varlen) {
     EXPECT_TRUE(status.ok());
 
     auto response = outputs.at(0);
+    const int sha1_hash_size = 40;
+
     EXPECT_EQ(response->null_count(), 0);
-    EXPECT_EQ(response->GetScalar(0).ValueOrDie()->ToString(), "");
     for (int i = 1; i < num_records; ++i) {
-        const auto &value_at_position = response->GetScalar(i).ValueOrDie()->ToString();
+        const auto& value_at_position = response->GetScalar(i).ValueOrDie()->ToString();
+
+        EXPECT_EQ(value_at_position.size(), sha1_hash_size);
         EXPECT_NE(value_at_position,
-				  response->GetScalar(i - 1).ValueOrDie()->ToString());
+                  response->GetScalar(i - 1).ValueOrDie()->ToString());
     }
 }
 }  // namespace gandiva
