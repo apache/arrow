@@ -578,8 +578,8 @@ struct CastFunctor<Arg0Type, Decimal256Type, enable_if_decimal<Arg0Type>> {
 
 struct RealToDecimal {
   template <typename OutValue, typename RealType>
-  Decimal128 Call(KernelContext* ctx, RealType val) const {
-    auto maybe_decimal = Decimal128::FromReal(val, out_precision_, out_scale_);
+  OutValue Call(KernelContext* ctx, RealType val) const {
+    auto maybe_decimal = OutValue::FromReal(val, out_precision_, out_scale_);
 
     if (ARROW_PREDICT_TRUE(maybe_decimal.ok())) {
       return maybe_decimal.MoveValueUnsafe();
@@ -595,15 +595,16 @@ struct RealToDecimal {
   bool allow_truncate_;
 };
 
-template <typename I>
-struct CastFunctor<Decimal128Type, I, enable_if_t<is_floating_type<I>::value>> {
+template <typename O, typename I>
+struct CastFunctor<O, I,
+                   enable_if_t<is_decimal_type<O>::value && is_floating_type<I>::value>> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& options = checked_cast<const CastState*>(ctx->state())->options;
-    const auto& out_type = checked_cast<const Decimal128Type&>(*out->type());
+    const auto& out_type = checked_cast<const O&>(*out->type());
     const auto out_scale = out_type.scale();
     const auto out_precision = out_type.precision();
 
-    applicator::ScalarUnaryNotNullStateful<Decimal128Type, I, RealToDecimal> kernel(
+    applicator::ScalarUnaryNotNullStateful<O, I, RealToDecimal> kernel(
         RealToDecimal{out_scale, out_precision, options.allow_decimal_truncate});
     return kernel.Exec(ctx, batch, out);
   }
@@ -735,6 +736,12 @@ std::shared_ptr<CastFunction> GetCastToDecimal256() {
   // Needed for Parquet conversion. Full implementation is ARROW-10606
   // tracks full implementation.
   AddCommonCasts(Type::DECIMAL256, sig_out_ty, func.get());
+
+  // Cast from floating point
+  DCHECK_OK(func->AddKernel(Type::FLOAT, {float32()}, sig_out_ty,
+                            CastFunctor<Decimal256Type, FloatType>::Exec));
+  DCHECK_OK(func->AddKernel(Type::DOUBLE, {float64()}, sig_out_ty,
+                            CastFunctor<Decimal256Type, DoubleType>::Exec));
 
   // Cast from other decimal
   auto exec = CastFunctor<Decimal128Type, Decimal256Type>::Exec;
