@@ -239,7 +239,7 @@ test_that("Error messages are shown when the compression algorithm lz4/snappy
           is not found", {
   skip_on_cran()
   if (codec_is_available("snappy")) {
-    d <- read_parquet(system.file("extdata", "pets.feather", package = "arrow"))
+    d <- read_parquet(system.file("extdata", "pets.parquet", package = "arrow"))
     expect_is(d, "data.frame")
   } else {
     expect_error(
