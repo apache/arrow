@@ -501,9 +501,10 @@ impl<'a> PrimitiveTypeBuilder<'a> {
                 if self.precision > max_precision {
                     return Err(general_err!(
                         "Cannot represent FIXED_LEN_BYTE_ARRAY as DECIMAL with length {} and \
-                        precision {}",
+                        precision {}. The max precision can only be {}",
                         self.length,
-                        self.precision
+                        self.precision,
+                        max_precision
                     ));
                 }
             }
@@ -1386,7 +1387,7 @@ mod tests {
         if let Err(e) = result {
             assert_eq!(
                 format!("{}", e),
-                "Parquet error: Cannot represent FIXED_LEN_BYTE_ARRAY as DECIMAL with length 5 and precision 12"
+                "Parquet error: Cannot represent FIXED_LEN_BYTE_ARRAY as DECIMAL with length 5 and precision 12. The max precision can only be 11"
             );
         }
 
@@ -1496,6 +1497,7 @@ mod tests {
 
         let result = Type::group_type_builder("foo")
             .with_repetition(Repetition::REPEATED)
+            .with_logical_type(Some(LogicalType::LIST(Default::default())))
             .with_fields(&mut fields)
             .with_id(1)
             .build();
@@ -1506,7 +1508,11 @@ mod tests {
         assert!(tp.is_group());
         assert!(!tp.is_primitive());
         assert_eq!(basic_info.repetition(), Repetition::REPEATED);
-        assert_eq!(basic_info.converted_type(), ConvertedType::NONE);
+        assert_eq!(
+            basic_info.logical_type(),
+            Some(LogicalType::LIST(Default::default()))
+        );
+        assert_eq!(basic_info.converted_type(), ConvertedType::LIST);
         assert_eq!(basic_info.id(), 1);
         assert_eq!(tp.get_fields().len(), 2);
         assert_eq!(tp.get_fields()[0].name(), "f1");

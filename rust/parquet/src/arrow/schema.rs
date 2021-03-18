@@ -449,6 +449,19 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
                 .build()
         }
         DataType::Decimal(precision, scale) => {
+            // Decimal precision determines the Parquet physical type to use.
+            // TODO(ARROW-12018): Enable the below after ARROW-10818 Decimal support
+            //
+            // let (physical_type, length) = if *precision > 1 && *precision <= 9 {
+            //     (PhysicalType::INT32, -1)
+            // } else if *precision <= 18 {
+            //     (PhysicalType::INT64, -1)
+            // } else {
+            //     (
+            //         PhysicalType::FIXED_LEN_BYTE_ARRAY,
+            //         decimal_length_from_precision(*precision) as i32,
+            //     )
+            // };
             Type::primitive_type_builder(name, PhysicalType::FIXED_LEN_BYTE_ARRAY)
                 .with_repetition(repetition)
                 .with_length(decimal_length_from_precision(*precision) as i32)
@@ -1800,6 +1813,9 @@ mod tests {
                 //     true,
                 // ),
                 Field::new("c35", DataType::Null, true),
+                Field::new("c36", DataType::Decimal(2, 1), false),
+                Field::new("c37", DataType::Decimal(50, 20), false),
+                Field::new("c38", DataType::Decimal(18, 12), true),
             ],
             metadata,
         );
