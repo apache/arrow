@@ -73,8 +73,7 @@
 #'  d <- mtcars %>% group_by(cyl, gear)
 #'  d %>% write_dataset(two_part_dir_2)
 #'
-#'  # Passing the additional hive_style option to see the difference in the
-#'  # output
+#'  # We can also turn off the Hive-style directory naming where the column name is included with the value for each directory with `hive_style = FALSE`.
 #'  d %>% write_dataset(two_part_dir_3, "parquet", hive_style = FALSE)
 #'
 #'  list(
