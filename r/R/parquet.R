@@ -225,7 +225,7 @@ ParquetArrowWriterProperties$create <- function(use_deprecated_int96_timestamps 
     timestamp_unit <- -1L # null sentinel value
   } else {
     timestamp_unit <- make_valid_time_unit(coerce_timestamps,
-                                           c("ms" = TimeUnit$MILLI, "us" = TimeUnit$MICRO)
+      c("ms" = TimeUnit$MILLI, "us" = TimeUnit$MICRO)
     )
   }
   parquet___ArrowWriterProperties___create(
@@ -296,62 +296,62 @@ make_valid_version <- function(version, valid_versions = valid_parquet_version) 
 #' @export
 ParquetWriterProperties <- R6Class("ParquetWriterProperties", inherit = ArrowObject)
 ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inherit = ArrowObject,
-                                          public = list(
-                                            set_version = function(version) {
-                                              parquet___WriterProperties___Builder__version(self, make_valid_version(version))
-                                            },
-                                            set_compression = function(table, compression) {
-                                              compression <- compression_from_name(compression)
-                                              assert_that(is.integer(compression))
-                                              private$.set(table, compression,
-                                                           parquet___ArrowWriterProperties___Builder__set_compressions
-                                              )
-                                            },
-                                            set_compression_level = function(table, compression_level){
-                                              # cast to integer but keep names
-                                              compression_level <- set_names(as.integer(compression_level), names(compression_level))
-                                              private$.set(table, compression_level,
-                                                           parquet___ArrowWriterProperties___Builder__set_compression_levels
-                                              )
-                                            },
-                                            set_dictionary = function(table, use_dictionary) {
-                                              assert_that(is.logical(use_dictionary))
-                                              private$.set(table, use_dictionary,
-                                                           parquet___ArrowWriterProperties___Builder__set_use_dictionary
-                                              )
-                                            },
-                                            set_write_statistics = function(table, write_statistics) {
-                                              assert_that(is.logical(write_statistics))
-                                              private$.set(table, write_statistics,
-                                                           parquet___ArrowWriterProperties___Builder__set_write_statistics
-                                              )
-                                            },
-                                            set_data_page_size = function(data_page_size) {
-                                              parquet___ArrowWriterProperties___Builder__data_page_size(self, data_page_size)
-                                            }
-                                          ),
+  public = list(
+    set_version = function(version) {
+      parquet___WriterProperties___Builder__version(self, make_valid_version(version))
+    },
+    set_compression = function(table, compression) {
+      compression <- compression_from_name(compression)
+      assert_that(is.integer(compression))
+      private$.set(table, compression,
+                   parquet___ArrowWriterProperties___Builder__set_compressions
+      )
+    },
+    set_compression_level = function(table, compression_level){
+      # cast to integer but keep names
+      compression_level <- set_names(as.integer(compression_level), names(compression_level))
+      private$.set(table, compression_level,
+                   parquet___ArrowWriterProperties___Builder__set_compression_levels
+      )
+    },
+    set_dictionary = function(table, use_dictionary) {
+      assert_that(is.logical(use_dictionary))
+      private$.set(table, use_dictionary,
+                   parquet___ArrowWriterProperties___Builder__set_use_dictionary
+      )
+    },
+    set_write_statistics = function(table, write_statistics) {
+      assert_that(is.logical(write_statistics))
+      private$.set(table, write_statistics,
+                   parquet___ArrowWriterProperties___Builder__set_write_statistics
+      )
+    },
+    set_data_page_size = function(data_page_size) {
+      parquet___ArrowWriterProperties___Builder__data_page_size(self, data_page_size)
+    }
+  ),
 
-                                          private = list(
-                                            .set = function(table, value, FUN) {
-                                              msg <- paste0("unsupported ", substitute(value), "= specification")
-                                              column_names <- names(table)
-                                              given_names <- names(value)
-                                              if (is.null(given_names)) {
-                                                if (length(value) %in% c(1L, length(column_names))) {
-                                                  # If there's a single, unnamed value, FUN will set it globally
-                                                  # If there are values for all columns, send them along with the names
-                                                  FUN(self, column_names, value)
-                                                } else {
-                                                  abort(msg)
-                                                }
-                                              } else if (all(given_names %in% column_names)) {
-                                                # Use the given names
-                                                FUN(self, given_names, value)
-                                              } else {
-                                                abort(msg)
-                                              }
-                                            }
-                                          )
+  private = list(
+    .set = function(table, value, FUN) {
+      msg <- paste0("unsupported ", substitute(value), "= specification")
+      column_names <- names(table)
+      given_names <- names(value)
+      if (is.null(given_names)) {
+        if (length(value) %in% c(1L, length(column_names))) {
+          # If there's a single, unnamed value, FUN will set it globally
+          # If there are values for all columns, send them along with the names
+          FUN(self, column_names, value)
+        } else {
+          abort(msg)
+        }
+      } else if (all(given_names %in% column_names)) {
+        # Use the given names
+        FUN(self, given_names, value)
+      } else {
+        abort(msg)
+      }
+    }
+  )
 )
 
 ParquetWriterProperties$create <- function(table,
