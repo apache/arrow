@@ -560,24 +560,24 @@ ParquetFileReader$create <- function(file,
 #'
 #' @export
 ParquetArrowReaderProperties <- R6Class("ParquetArrowReaderProperties",
-                                        inherit = ArrowObject,
-                                        public = list(
-                                          read_dictionary = function(column_index) {
-                                            parquet___arrow___ArrowReaderProperties__get_read_dictionary(self, column_index)
-                                          },
-                                          set_read_dictionary = function(column_index, read_dict) {
-                                            parquet___arrow___ArrowReaderProperties__set_read_dictionary(self, column_index, read_dict)
-                                          }
-                                        ),
-                                        active = list(
-                                          use_threads = function(use_threads) {
-                                            if(missing(use_threads)) {
-                                              parquet___arrow___ArrowReaderProperties__get_use_threads(self)
-                                            } else {
-                                              parquet___arrow___ArrowReaderProperties__set_use_threads(self, use_threads)
-                                            }
-                                          }
-                                        )
+  inherit = ArrowObject,
+  public = list(
+    read_dictionary = function(column_index) {
+      parquet___arrow___ArrowReaderProperties__get_read_dictionary(self, column_index)
+    },
+    set_read_dictionary = function(column_index, read_dict) {
+      parquet___arrow___ArrowReaderProperties__set_read_dictionary(self, column_index, read_dict)
+    }
+  ),
+  active = list(
+    use_threads = function(use_threads) {
+      if(missing(use_threads)) {
+        parquet___arrow___ArrowReaderProperties__get_use_threads(self)
+      } else {
+        parquet___arrow___ArrowReaderProperties__set_use_threads(self, use_threads)
+      }
+    }
+  )
 )
 
 ParquetArrowReaderProperties$create <- function(use_threads = option_use_threads()) {
