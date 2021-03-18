@@ -96,7 +96,7 @@ write_feather <- function(x,
 
   # "lz4" is the convenience
   if (compression == "lz4") {
-   compression <- "lz4_frame"
+    compression <- "lz4_frame"
   }
 
   compression <- compression_from_name(compression)
