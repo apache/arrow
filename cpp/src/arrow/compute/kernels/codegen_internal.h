@@ -361,6 +361,13 @@ struct BoxScalar<Decimal128Type> {
   static void Box(T val, Scalar* out) { checked_cast<ScalarType*>(out)->value = val; }
 };
 
+template <>
+struct BoxScalar<Decimal256Type> {
+  using T = Decimal256;
+  using ScalarType = Decimal256Scalar;
+  static void Box(T val, Scalar* out) { checked_cast<ScalarType*>(out)->value = val; }
+};
+
 // A VisitArrayDataInline variant that calls its visitor function with logical
 // values, such as Decimal128 rather than util::string_view.
 
@@ -682,12 +689,13 @@ struct ScalarUnaryNotNullStateful {
   };
 
   template <typename Type>
-  struct ArrayExec<Type, enable_if_t<std::is_same<Type, Decimal128Type>::value>> {
+  struct ArrayExec<Type, enable_if_decimal<Type>> {
     static void Exec(const ThisType& functor, KernelContext* ctx, const ArrayData& arg0,
                      Datum* out) {
       ArrayData* out_arr = out->mutable_array();
       // Decimal128 data buffers are not safely reinterpret_cast-able on big-endian
-      using endian_agnostic = std::array<uint8_t, sizeof(Decimal128)>;
+      using endian_agnostic =
+          std::array<uint8_t, sizeof(typename TypeTraits<Type>::ScalarType::ValueType)>;
       auto out_data = out_arr->GetMutableValues<endian_agnostic>(1);
       VisitArrayValuesInline<Arg0Type>(
           arg0,

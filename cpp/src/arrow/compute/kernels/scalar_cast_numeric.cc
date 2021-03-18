@@ -391,24 +391,24 @@ struct CastFunctor<O, I,
 // Decimal to decimal
 
 struct UnsafeUpscaleDecimal {
-  template <typename... Unused>
-  Decimal128 Call(KernelContext* ctx, Decimal128 val) const {
+  template <typename OutValue, typename Arg0Value>
+  OutValue Call(KernelContext* ctx, Arg0Value val) const {
     return val.IncreaseScaleBy(by_);
   }
   int32_t by_;
 };
 
 struct UnsafeDownscaleDecimal {
-  template <typename... Unused>
-  Decimal128 Call(KernelContext* ctx, Decimal128 val) const {
+  template <typename OutValue, typename Arg0Value>
+  OutValue Call(KernelContext* ctx, Arg0Value val) const {
     return val.ReduceScaleBy(by_, false);
   }
   int32_t by_;
 };
 
 struct SafeRescaleDecimal {
-  template <typename... Unused>
-  Decimal128 Call(KernelContext* ctx, Decimal128 val) const {
+  template <typename OutValue, typename Arg0Value>
+  OutValue Call(KernelContext* ctx, Arg0Value val) const {
     auto maybe_rescaled = val.Rescale(in_scale_, out_scale_);
     if (ARROW_PREDICT_FALSE(!maybe_rescaled.ok())) {
       ctx->SetStatus(maybe_rescaled.status());
@@ -454,6 +454,40 @@ struct CastFunctor<Decimal128Type, Decimal128Type> {
 
     // Safe rescale
     applicator::ScalarUnaryNotNullStateful<Decimal128Type, Decimal128Type,
+                                           SafeRescaleDecimal>
+        kernel(SafeRescaleDecimal{out_scale, out_type.precision(), in_scale});
+    return kernel.Exec(ctx, batch, out);
+  }
+};
+
+template <>
+struct CastFunctor<Decimal256Type, Decimal256Type> {
+  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+    const auto& options = checked_cast<const CastState*>(ctx->state())->options;
+
+    const auto& in_type = checked_cast<const Decimal256Type&>(*batch[0].type());
+    const auto& out_type = checked_cast<const Decimal256Type&>(*out->type());
+    const auto in_scale = in_type.scale();
+    const auto out_scale = out_type.scale();
+
+    if (options.allow_decimal_truncate) {
+      if (in_scale < out_scale) {
+        // Unsafe upscale
+        applicator::ScalarUnaryNotNullStateful<Decimal256Type, Decimal256Type,
+                                               UnsafeUpscaleDecimal>
+            kernel(UnsafeUpscaleDecimal{out_scale - in_scale});
+        return kernel.Exec(ctx, batch, out);
+      } else {
+        // Unsafe downscale
+        applicator::ScalarUnaryNotNullStateful<Decimal256Type, Decimal256Type,
+                                               UnsafeDownscaleDecimal>
+            kernel(UnsafeDownscaleDecimal{in_scale - out_scale});
+        return kernel.Exec(ctx, batch, out);
+      }
+    }
+
+    // Safe rescale
+    applicator::ScalarUnaryNotNullStateful<Decimal256Type, Decimal256Type,
                                            SafeRescaleDecimal>
         kernel(SafeRescaleDecimal{out_scale, out_type.precision(), in_scale});
     return kernel.Exec(ctx, batch, out);
@@ -617,6 +651,10 @@ std::shared_ptr<CastFunction> GetCastToDecimal256() {
   // tracks full implementation.
   AddCommonCasts(Type::DECIMAL256, sig_out_ty, func.get());
 
+  // Cast from other decimal
+  auto exec = CastFunctor<Decimal256Type, Decimal256Type>::Exec;
+  DCHECK_OK(
+      func->AddKernel(Type::DECIMAL256, {InputType(Type::DECIMAL256)}, sig_out_ty, exec));
   return func;
 }
 
