@@ -151,17 +151,16 @@ class MinioFixture : public benchmark::Fixture {
         field("timestamp", int64(), /*nullable=*/true,
               key_value_metadata(
                   {{"min", "0"}, {"max", "10000000000"}, {"null_probability", "0"}})),
-        ::arrow::field(
-            "val", int32(), /*nullable=*/true,
-            key_value_metadata(
-                {{"min", "0"}, {"max", "1000000000"}, {"null_probability", "0"}}))};
+        field("val", int32(), /*nullable=*/true,
+              key_value_metadata(
+                  {{"min", "0"}, {"max", "1000000000"}, {"null_probability", "0"}}))};
     for (int i = 0; i < num_columns; i++) {
       std::stringstream ss;
       ss << "col" << i;
-      fields.push_back(::arrow::field(
-          ss.str(), float64(), /*nullable=*/true,
-          key_value_metadata(
-              {{"min", "-1.e10"}, {"max", "1e10"}, {"null_probability", "0"}})));
+      fields.push_back(
+          field(ss.str(), float64(), /*nullable=*/true,
+                key_value_metadata(
+                    {{"min", "-1.e10"}, {"max", "1e10"}, {"null_probability", "0"}})));
     }
     auto batch = random::GenerateBatch(fields, num_rows, 0);
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> table,

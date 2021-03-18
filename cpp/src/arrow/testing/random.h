@@ -364,9 +364,10 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
 
 /// Generate a record batch with random data of the specified length.
 ///
-/// Generation options are read from key-value metadata for each field. Options
-/// are applied recursively, e.g. for list(field(int8())), metadata of the child
-/// field will be used when generating child values.
+/// Generation options are read from key-value metadata for each field, and may be
+/// specified at any nesting level. For example, generation options for the child values
+/// of a list array can be specified by constructing the list type with
+/// list(field("item", int8(), options_metadata))
 ///
 /// The following options are supported:
 ///
