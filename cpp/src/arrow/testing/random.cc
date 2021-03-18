@@ -451,6 +451,7 @@ std::shared_ptr<Array> OffsetsFromLengthsArray(OffsetArrayType* lengths,
       DCHECK_GE(*length, 0);
     } else {
       data[index] = data[index - 1];
+      null_count++;
     }
     index++;
   }

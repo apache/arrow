@@ -163,7 +163,7 @@ class MinioFixture : public benchmark::Fixture {
           key_value_metadata(
               {{"min", "-1.e10"}, {"max", "1e10"}, {"null_probability", "0"}})));
     }
-    auto batch = random::Generate(fields, num_rows, 0);
+    auto batch = random::GenerateBatch(fields, num_rows, 0);
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> table,
                           Table::FromRecordBatches({batch}));
 
