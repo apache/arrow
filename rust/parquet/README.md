@@ -48,8 +48,8 @@ See [crate documentation](https://docs.rs/crate/parquet/4.0.0-SNAPSHOT) on avail
 
 ## Upgrading from versions prior to 4.0
 
-*Upgrade Note*: If you used version 3.0 or previous of this crate, you
-likely need to change your code to refer to [`ConvertedType`] rather
+If you are upgrading from version 3.0 or previous of this crate, you
+likely need to change your code to use [`ConvertedType`] rather
 than [`LogicalType`]. Version 4.0 introduces an *entirely new* struct
 called `LogicalType` to align with the standard, and `LogicalType` was
 was renamed to `ConvertedType`.
