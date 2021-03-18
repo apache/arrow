@@ -18,8 +18,11 @@ package utils_test
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
+	"math"
 	"math/bits"
+	"strconv"
 	"testing"
 
 	"github.com/apache/arrow/go/arrow"
@@ -168,6 +171,23 @@ func TestMixedValues(t *testing.T) {
 			assert.True(t, ok)
 			assert.Equal(t, uint64(i), val)
 		}
+	}
+}
+
+func TestZigZag(t *testing.T) {
+	testvals := []int64{0, 1, 1234, -1, -1234, math.MaxInt32, -math.MaxInt32}
+	for _, v := range testvals {
+		t.Run(strconv.Itoa(int(v)), func(t *testing.T) {
+			var buf [binary.MaxVarintLen64]byte
+			wrtr := utils.NewBitWriter(utils.NewWriterAtBuffer(buf[:]))
+			assert.True(t, wrtr.WriteZigZagVlqInt(v))
+			wrtr.Flush(false)
+
+			rdr := utils.NewBitReader(bytes.NewReader(buf[:]))
+			val, ok := rdr.GetZigZagVlqInt()
+			assert.True(t, ok)
+			assert.EqualValues(t, v, val)
+		})
 	}
 }
 
