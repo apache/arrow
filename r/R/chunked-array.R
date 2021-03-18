@@ -89,7 +89,11 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowDatum,
       assert_that(is.logical(descending))
       assert_that(length(descending) == 1L)
       assert_that(!is.na(descending))
-      call_function("array_sort_indices", self, options = list(order = descending))
+      call_function(
+        "sort_indices",
+        self,
+        options = list(names = "", orders = as.integer(descending))
+      )
     },
     View = function(type) {
       ChunkedArray__View(self, as_type(type))
