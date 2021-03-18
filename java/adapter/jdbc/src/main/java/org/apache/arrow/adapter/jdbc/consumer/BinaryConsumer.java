@@ -26,8 +26,6 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.VarBinaryVector;
 
-import io.netty.util.internal.PlatformDependent;
-
 /**
  * Consumer which consume binary type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.VarBinaryVector}.
