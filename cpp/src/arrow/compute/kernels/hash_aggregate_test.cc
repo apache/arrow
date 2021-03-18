@@ -656,9 +656,8 @@ TEST(GroupBy, ConcreteCaseWithValidateGroupBy) {
 TEST(GroupBy, RandomArraySum) {
   auto rand = random::RandomArrayGenerator(0xdeadbeef);
 
-  for (size_t i = 10; i < 14; i += 2) {
+  for (int64_t length : {1 << 10, 1 << 12, 1 << 15}) {
     for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
-      int64_t length = 1UL << i;
       auto summand = rand.Float32(length, -100, 100, null_probability);
       auto key = rand.Int64(length, 0, 12);
 
