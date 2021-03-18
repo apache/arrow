@@ -299,3 +299,8 @@ is.Array <- function(x, type = NULL) {
   }
   is_it
 }
+
+#' @export
+sort.Array <- function(x, decreasing = FALSE, ...) {
+  x$Take(x$SortIndices(descending = decreasing))
+}

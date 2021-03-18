@@ -68,3 +68,6 @@ length.Scalar <- function(x) 1L
 
 #' @export
 is.na.Scalar <- function(x) !x$is_valid
+
+#' @export
+sort.Scalar <- function(x, decreasing = FALSE, ...) x
