@@ -160,10 +160,8 @@ pub enum ConvertedType {
 /// Logical types used by version 2 of the Parquet format.
 ///
 /// *Upgrade Note*: This is an *entirely new* struct as of version
-/// 4.0.0. The struct previously known as `LogicalType` was renamed to
-/// `ConvertedType`. If you used version 3.0 or previous of this
-/// crate, you should likely change your code to refer to
-/// [`ConvertedType`] rather than [`LogicalType`].
+/// 4.0.0. The struct previously named `LogicalType` was renamed to
+/// [`ConvertedType`]. Please see the README.md for more details.
 #[derive(Debug, Clone, PartialEq)]
 pub enum LogicalType {
     STRING(StringType),
