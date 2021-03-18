@@ -41,6 +41,8 @@
 #'    coerced to an R vector before taking.
 #' - `$Filter(i, keep_na = TRUE)`: return a `ChunkedArray` with values at positions where
 #'    logical vector or Arrow boolean-type `(Chunked)Array` `i` is `TRUE`.
+#' - `$SortIndices(descending = FALSE)`: return an `Array` of integer positions that can be
+#'    used to rearrange the `ChunkedArray` in ascending or descending order
 #' - `$cast(target_type, safe = TRUE, options = cast_options(safe))`: Alter the
 #'    data in the array to change its type.
 #' - `$null_count()`: The number of null entries in the array
@@ -82,6 +84,12 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowDatum,
         i <- Array$create(i)
       }
       call_function("filter", self, i, options = list(keep_na = keep_na))
+    },
+    SortIndices = function(descending = FALSE) {
+      assert_that(is.logical(descending))
+      assert_that(length(descending) == 1L)
+      assert_that(!is.na(descending))
+      call_function("array_sort_indices", self, options = list(order = descending))
     },
     View = function(type) {
       ChunkedArray__View(self, as_type(type))

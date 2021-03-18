@@ -38,6 +38,8 @@ integers \code{i}. If \code{i} is an Arrow \code{Array} or \code{ChunkedArray}, 
 coerced to an R vector before taking.
 \item \verb{$Filter(i, keep_na = TRUE)}: return a \code{ChunkedArray} with values at positions where
 logical vector or Arrow boolean-type \verb{(Chunked)Array} \code{i} is \code{TRUE}.
+\item \verb{$SortIndices(descending = FALSE)}: return an \code{Array} of integer positions that can be
+used to rearrange the \code{ChunkedArray} in ascending or descending order
 \item \verb{$cast(target_type, safe = TRUE, options = cast_options(safe))}: Alter the
 data in the array to change its type.
 \item \verb{$null_count()}: The number of null entries in the array
