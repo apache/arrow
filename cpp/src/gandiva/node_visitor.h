@@ -47,8 +47,8 @@ class GANDIVA_EXPORT NodeVisitor {
   virtual Status Visit(const BooleanNode& node) = 0;
   virtual Status Visit(const InExpressionNode<int32_t>& node) = 0;
   virtual Status Visit(const InExpressionNode<int64_t>& node) = 0;
-  virtual Status Visit(const InExpressionNode<float_t>& node) = 0;
-  virtual Status Visit(const InExpressionNode<double_t>& node) = 0;
+  virtual Status Visit(const InExpressionNode<float>& node) = 0;
+  virtual Status Visit(const InExpressionNode<double>& node) = 0;
   virtual Status Visit(const InExpressionNode<gandiva::DecimalScalar128>& node) = 0;
   virtual Status Visit(const InExpressionNode<std::string>& node) = 0;
 };
