@@ -123,35 +123,35 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
   return 0;
 }
 
-#define SHA128_HASH_FUNCTION(TYPE)                                                    \
+#define SHA1_HASH_FUNCTION(TYPE)                                                      \
   GANDIVA_EXPORT                                                                      \
-  const char *gdv_fn_sha128_##TYPE(int64_t context, gdv_##TYPE value,                 \
+  const char *gdv_fn_sha1_##TYPE(int64_t context, gdv_##TYPE value,                   \
                                         bool validity, int32_t *out_length) {         \
     if (!validity) {                                                                  \
-      return gandiva::HashUtils::HashUsingSha128(context, NULLPTR,                    \
+      return gandiva::HashUtils::HashUsingSha1(context, NULLPTR,                      \
                                                  0, out_length);                      \
     }                                                                                 \
     auto value_as_long = gandiva::HashUtils::DoubleToLong((double)value);             \
-    const char *result = gandiva::HashUtils::HashUsingSha128(context,                 \
-                                                               &value_as_long,        \
-                                                               sizeof(value_as_long), \
-                                                               out_length);           \
+    const char *result = gandiva::HashUtils::HashUsingSha1(context,                   \
+                                                           &value_as_long,            \
+                                                           sizeof(value_as_long),     \
+                                                           out_length);               \
                                                                                       \
     return result;                                                                    \
   }                                                                                   \
 
-#define SHA128_HASH_FUNCTION_BUF(TYPE)                                             \
+#define SHA1_HASH_FUNCTION_BUF(TYPE)                                               \
   GANDIVA_EXPORT                                                                   \
-  const char *gdv_fn_sha128_##TYPE(int64_t context,                                \
+  const char *gdv_fn_sha1_##TYPE(int64_t context,                                  \
                                         gdv_##TYPE value,                          \
                                         int32_t value_length,                      \
                                         bool value_validity,                       \
                                         int32_t *out_length) {                     \
     if (!value_validity) {                                                         \
-      return gandiva::HashUtils::HashUsingSha128(context, NULLPTR,                 \
+      return gandiva::HashUtils::HashUsingSha1(context, NULLPTR,                   \
                                                  0, out_length);                   \
     }                                                                              \
-    return gandiva::HashUtils::HashUsingSha128(context, value,                     \
+    return gandiva::HashUtils::HashUsingSha1(context, value,                       \
     value_length, out_length);                                                     \
   }
 
@@ -215,8 +215,8 @@ int32_t gdv_fn_populate_varlen_vector(int64_t context_ptr, int8_t* data_ptr,
 SHA_NUMERIC_BOOL_DATE_PARAMS(SHA256_HASH_FUNCTION)
 SHA_VAR_LEN_PARAMS(SHA256_HASH_FUNCTION_BUF)
 
-SHA_NUMERIC_BOOL_DATE_PARAMS(SHA128_HASH_FUNCTION)
-SHA_VAR_LEN_PARAMS(SHA128_HASH_FUNCTION_BUF)
+SHA_NUMERIC_BOOL_DATE_PARAMS(SHA1_HASH_FUNCTION)
+SHA_VAR_LEN_PARAMS(SHA1_HASH_FUNCTION_BUF)
 
 #undef SHA_NUMERIC_BOOL_DATE_PARAMS
 #undef SHA_VAR_LEN_PARAMS
@@ -237,17 +237,17 @@ const char* gdv_fn_sha256_decimal128(int64_t context, int64_t x_high, uint64_t x
 }
 
 GANDIVA_EXPORT
-const char* gdv_fn_sha128_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
-                                     int32_t x_precision, int32_t x_scale,
-                                     gdv_boolean x_isvalid, int32_t *out_length) {
+const char* gdv_fn_sha1_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
+                                   int32_t x_precision, int32_t x_scale,
+                                   gdv_boolean x_isvalid, int32_t *out_length) {
   if (!x_isvalid) {
-    return gandiva::HashUtils::HashUsingSha128(context, NULLPTR,
-                                               0, out_length);
+    return gandiva::HashUtils::HashUsingSha1(context, NULLPTR,
+                                             0, out_length);
   }
 
   const auto &decimal_128 = gandiva::BasicDecimal128(x_high, x_low);
-  return gandiva::HashUtils::HashUsingSha128(context, decimal_128.ToBytes().data(),
-                                             16, out_length);
+  return gandiva::HashUtils::HashUsingSha1(context, decimal_128.ToBytes().data(),
+                                           16, out_length);
 }
 
 int32_t gdv_fn_dec_from_string(int64_t context, const char* in, int32_t in_length,
@@ -466,172 +466,172 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_castFLOAT8_utf8", types->double_type(), args,
                                   reinterpret_cast<void*>(gdv_fn_castFLOAT8_utf8));
 
-    // gdv_fn_sha128_int8
+    // gdv_fn_sha1_int8
     args = {
             types->i64_type(),       // context
             types->i8_type(),        // value
             types->i1_type(),        // validity
             types->i32_ptr_type()    // out_length
     };
-    engine->AddGlobalMappingForFunc("gdv_fn_sha128_int8",
+    engine->AddGlobalMappingForFunc("gdv_fn_sha1_int8",
                                     types->i8_ptr_type() /*return_type*/, args,
-                                    reinterpret_cast<void *>(gdv_fn_sha128_int8));
+                                    reinterpret_cast<void *>(gdv_fn_sha1_int8));
 
-    // gdv_fn_sha128_int16
+    // gdv_fn_sha1_int16
     args = {
             types->i64_type(),       // context
             types->i16_type(),       // value
             types->i1_type(),        // validity
             types->i32_ptr_type()    // out_length
     };
-    engine->AddGlobalMappingForFunc("gdv_fn_sha128_int16",
+    engine->AddGlobalMappingForFunc("gdv_fn_sha1_int16",
                                     types->i8_ptr_type() /*return_type*/, args,
-                                    reinterpret_cast<void *>(gdv_fn_sha128_int16));
+                                    reinterpret_cast<void *>(gdv_fn_sha1_int16));
 
-    // gdv_fn_sha128_int32
+    // gdv_fn_sha1_int32
     args = {
             types->i64_type(),       // context
             types->i32_type(),       // value
             types->i1_type(),        // validity
             types->i32_ptr_type()    // out_length
     };
-    engine->AddGlobalMappingForFunc("gdv_fn_sha128_int32",
+    engine->AddGlobalMappingForFunc("gdv_fn_sha1_int32",
                                     types->i8_ptr_type() /*return_type*/, args,
-                                    reinterpret_cast<void *>(gdv_fn_sha128_int32));
+                                    reinterpret_cast<void *>(gdv_fn_sha1_int32));
 
-    // gdv_fn_sha128_int32
+    // gdv_fn_sha1_int32
     args = {
             types->i64_type(),       // context
             types->i64_type(),       // value
             types->i1_type(),        // validity
             types->i32_ptr_type()    // out_length
     };
-    engine->AddGlobalMappingForFunc("gdv_fn_sha128_int64",
+    engine->AddGlobalMappingForFunc("gdv_fn_sha1_int64",
                                     types->i8_ptr_type() /*return_type*/, args,
-                                    reinterpret_cast<void *>(gdv_fn_sha128_int64));
+                                    reinterpret_cast<void *>(gdv_fn_sha1_int64));
 
-    // gdv_fn_sha128_uint8
+    // gdv_fn_sha1_uint8
     args = {
             types->i64_type(),       // context
             types->i8_type(),        // value
             types->i1_type(),        // validity
             types->i32_ptr_type()    // out_length
     };
-    engine->AddGlobalMappingForFunc("gdv_fn_sha128_uint8",
+    engine->AddGlobalMappingForFunc("gdv_fn_sha1_uint8",
                                     types->i8_ptr_type() /*return_type*/, args,
-                                    reinterpret_cast<void *>(gdv_fn_sha128_uint8));
+                                    reinterpret_cast<void *>(gdv_fn_sha1_uint8));
 
-    // gdv_fn_sha128_uint16
+    // gdv_fn_sha1_uint16
     args = {
             types->i64_type(),       // context
             types->i16_type(),      // value
             types->i1_type(),        // validity
             types->i32_ptr_type()    // out_length
     };
-    engine->AddGlobalMappingForFunc("gdv_fn_sha128_uint16",
+    engine->AddGlobalMappingForFunc("gdv_fn_sha1_uint16",
                                     types->i8_ptr_type() /*return_type*/, args,
-                                    reinterpret_cast<void *>(gdv_fn_sha128_uint16));
+                                    reinterpret_cast<void *>(gdv_fn_sha1_uint16));
 
-    // gdv_fn_sha128_uint32
+    // gdv_fn_sha1_uint32
     args = {
             types->i64_type(),       // context
             types->i32_type(),      // value
             types->i1_type(),        // validity
             types->i32_ptr_type()    // out_length
     };
-    engine->AddGlobalMappingForFunc("gdv_fn_sha128_uint32",
+    engine->AddGlobalMappingForFunc("gdv_fn_sha1_uint32",
                                     types->i8_ptr_type() /*return_type*/, args,
-                                    reinterpret_cast<void *>(gdv_fn_sha128_uint32));
+                                    reinterpret_cast<void *>(gdv_fn_sha1_uint32));
 
-    // gdv_fn_sha128_uint64
+    // gdv_fn_sha1_uint64
     args = {
             types->i64_type(),       // context
             types->i64_type(),      // value
             types->i1_type(),        // validity
             types->i32_ptr_type()    // out_length
     };
-    engine->AddGlobalMappingForFunc("gdv_fn_sha128_uint64",
+    engine->AddGlobalMappingForFunc("gdv_fn_sha1_uint64",
                                     types->i8_ptr_type() /*return_type*/, args,
-                                    reinterpret_cast<void *>(gdv_fn_sha128_uint64));
+                                    reinterpret_cast<void *>(gdv_fn_sha1_uint64));
 
-    // gdv_fn_sha128_float32
+    // gdv_fn_sha1_float32
     args = {
             types->i64_type(),      // context
             types->float_type(),    // value
             types->i1_type(),        // validity
             types->i32_ptr_type()    // out_length
     };
-    engine->AddGlobalMappingForFunc("gdv_fn_sha128_float32",
+    engine->AddGlobalMappingForFunc("gdv_fn_sha1_float32",
                                     types->i8_ptr_type() /*return_type*/, args,
-                                    reinterpret_cast<void *>(gdv_fn_sha128_float32));
+                                    reinterpret_cast<void *>(gdv_fn_sha1_float32));
 
-    // gdv_fn_sha128_float64
+    // gdv_fn_sha1_float64
     args = {
             types->i64_type(),      // context
             types->double_type(),    // value
             types->i1_type(),        // validity
             types->i32_ptr_type()    // out_length
     };
-    engine->AddGlobalMappingForFunc("gdv_fn_sha128_float64",
+    engine->AddGlobalMappingForFunc("gdv_fn_sha1_float64",
                                     types->i8_ptr_type() /*return_type*/, args,
-                                    reinterpret_cast<void *>(gdv_fn_sha128_float64));
+                                    reinterpret_cast<void *>(gdv_fn_sha1_float64));
 
-    // gdv_fn_sha128_boolean
+    // gdv_fn_sha1_boolean
     args = {
             types->i64_type(),       // context
             types->i1_type(),    // value
             types->i1_type(),        // validity
             types->i32_ptr_type()    // out_length
     };
-    engine->AddGlobalMappingForFunc("gdv_fn_sha128_boolean",
+    engine->AddGlobalMappingForFunc("gdv_fn_sha1_boolean",
                                     types->i8_ptr_type() /*return_type*/, args,
-                                    reinterpret_cast<void *>(gdv_fn_sha128_boolean));
+                                    reinterpret_cast<void *>(gdv_fn_sha1_boolean));
 
-    // gdv_fn_sha128_date64
+    // gdv_fn_sha1_date64
     args = {
             types->i64_type(),       // context
             types->i64_type(),    // value
             types->i1_type(),        // validity
             types->i32_ptr_type()    // out_length
     };
-    engine->AddGlobalMappingForFunc("gdv_fn_sha128_date64",
+    engine->AddGlobalMappingForFunc("gdv_fn_sha1_date64",
                                     types->i8_ptr_type() /*return_type*/, args,
-                                    reinterpret_cast<void *>(gdv_fn_sha128_date64));
+                                    reinterpret_cast<void *>(gdv_fn_sha1_date64));
 
-    // gdv_fn_sha128_date32
+    // gdv_fn_sha1_date32
     args = {
             types->i64_type(),       // context
             types->i32_type(),    // value
             types->i1_type(),        // validity
             types->i32_ptr_type()    // out_length
     };
-    engine->AddGlobalMappingForFunc("gdv_fn_sha128_date32",
+    engine->AddGlobalMappingForFunc("gdv_fn_sha1_date32",
                                     types->i8_ptr_type() /*return_type*/, args,
-                                    reinterpret_cast<void *>(gdv_fn_sha128_date32));
+                                    reinterpret_cast<void *>(gdv_fn_sha1_date32));
 
-    // gdv_fn_sha128_time32
+    // gdv_fn_sha1_time32
     args = {
             types->i64_type(),       // context
             types->i32_type(),    // value
             types->i1_type(),        // validity
             types->i32_ptr_type()    // out_length
     };
-    engine->AddGlobalMappingForFunc("gdv_fn_sha128_time32",
+    engine->AddGlobalMappingForFunc("gdv_fn_sha1_time32",
                                     types->i8_ptr_type() /*return_type*/, args,
-                                    reinterpret_cast<void *>(gdv_fn_sha128_time32));
+                                    reinterpret_cast<void *>(gdv_fn_sha1_time32));
 
-    // gdv_fn_sha128_timestamp
+    // gdv_fn_sha1_timestamp
     args = {
             types->i64_type(),       // context
             types->i64_type(),    // value
             types->i1_type(),        // validity
             types->i32_ptr_type()    // out_length
     };
-    engine->AddGlobalMappingForFunc("gdv_fn_sha128_timestamp",
+    engine->AddGlobalMappingForFunc("gdv_fn_sha1_timestamp",
                                     types->i8_ptr_type() /*return_type*/, args,
-                                    reinterpret_cast<void *>(gdv_fn_sha128_timestamp));
+                                    reinterpret_cast<void *>(gdv_fn_sha1_timestamp));
 
-    // gdv_fn_hash_sha128_from_utf8
+    // gdv_fn_sha1_from_utf8
     args = {
             types->i64_type(),      // context
             types->i8_ptr_type(),   // const char*
@@ -640,11 +640,11 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
             types->i32_ptr_type()       // out
     };
 
-    engine->AddGlobalMappingForFunc("gdv_fn_sha128_utf8",
+    engine->AddGlobalMappingForFunc("gdv_fn_sha1_utf8",
                                     types->i8_ptr_type() /*return_type*/, args,
-                                    reinterpret_cast<void *>(gdv_fn_sha128_utf8));
+                                    reinterpret_cast<void *>(gdv_fn_sha1_utf8));
 
-    // gdv_fn_hash_sha128_from_binary
+    // gdv_fn_sha1_from_binary
     args = {
             types->i64_type(),      // context
             types->i8_ptr_type(),   // const char*
@@ -653,9 +653,9 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
             types->i32_ptr_type()       // out
     };
 
-    engine->AddGlobalMappingForFunc("gdv_fn_sha128_binary",
+    engine->AddGlobalMappingForFunc("gdv_fn_sha1_binary",
                                     types->i8_ptr_type() /*return_type*/, args,
-                                    reinterpret_cast<void *>(gdv_fn_sha128_binary));
+                                    reinterpret_cast<void *>(gdv_fn_sha1_binary));
 
   // gdv_fn_sha256_int8
   args = {
@@ -848,7 +848,7 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void *>(gdv_fn_sha256_binary));
 
-  // gdv_fn_sha128_decimal128
+  // gdv_fn_sha1_decimal128
   args = {
       types->i64_type(),      // context
       types->i64_type(),      // high_bits
@@ -859,9 +859,9 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
       types->i32_ptr_type()   // out length
   };
 
-  engine->AddGlobalMappingForFunc("gdv_fn_sha128_decimal128",
+  engine->AddGlobalMappingForFunc("gdv_fn_sha1_decimal128",
                                   types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void *>(gdv_fn_sha128_decimal128));
+                                  reinterpret_cast<void *>(gdv_fn_sha1_decimal128));
   // gdv_fn_sha256_decimal128
   args = {
       types->i64_type(),      // context

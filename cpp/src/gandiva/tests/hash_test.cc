@@ -313,26 +313,26 @@ TEST_F(TestHash, TestSha1Simple) {
     auto res_3 = field("res3", utf8());
 
     // build expressions.
-    // hashSHA128(a)
+    // hashSHA1(a)
     auto node_a = TreeExprBuilder::MakeField(field_a);
-    auto hashSha128_1 = TreeExprBuilder::MakeFunction("hashSHA128",
-                                                      {node_a}, utf8());
-    auto expr_0 = TreeExprBuilder::MakeExpression(hashSha128_1, res_0);
+    auto hashSha1_1 = TreeExprBuilder::MakeFunction("hashSHA1",
+                                                    {node_a}, utf8());
+    auto expr_0 = TreeExprBuilder::MakeExpression(hashSha1_1, res_0);
 
     auto node_b = TreeExprBuilder::MakeField(field_b);
-    auto hashSha128_2 = TreeExprBuilder::MakeFunction("hashSHA128",
-                                                      {node_b}, utf8());
-    auto expr_1 = TreeExprBuilder::MakeExpression(hashSha128_2, res_1);
+    auto hashSha1_2 = TreeExprBuilder::MakeFunction("hashSHA1",
+                                                    {node_b}, utf8());
+    auto expr_1 = TreeExprBuilder::MakeExpression(hashSha1_2, res_1);
 
     auto node_c = TreeExprBuilder::MakeField(field_c);
-    auto hashSha128_3 = TreeExprBuilder::MakeFunction("hashSHA128",
-                                                      {node_c}, utf8());
-    auto expr_2 = TreeExprBuilder::MakeExpression(hashSha128_3, res_2);
+    auto hashSha1_3 = TreeExprBuilder::MakeFunction("hashSHA1",
+                                                    {node_c}, utf8());
+    auto expr_2 = TreeExprBuilder::MakeExpression(hashSha1_3, res_2);
 
     auto node_d = TreeExprBuilder::MakeField(field_d);
-    auto hashSha128_4 = TreeExprBuilder::MakeFunction("hashSHA128",
-                                                      {node_d}, utf8());
-    auto expr_3 = TreeExprBuilder::MakeExpression(hashSha128_4, res_3);
+    auto hashSha1_4 = TreeExprBuilder::MakeFunction("hashSHA1",
+                                                    {node_d}, utf8());
+    auto expr_3 = TreeExprBuilder::MakeExpression(hashSha1_4, res_3);
 
     // Build a projector for the expressions.
     std::shared_ptr<Projector> projector;
@@ -398,11 +398,11 @@ TEST_F(TestHash, TestSha1Varlen) {
     auto res_0 = field("res0", utf8());
 
     // build expressions.
-    // hashSHA128(a)
+    // hashSHA1(a)
     auto node_a = TreeExprBuilder::MakeField(field_a);
-    auto hashSha128 = TreeExprBuilder::MakeFunction("hashSHA128",
-                                                    {node_a}, utf8());
-    auto expr_0 = TreeExprBuilder::MakeExpression(hashSha128, res_0);
+    auto hashSha1 = TreeExprBuilder::MakeFunction("hashSHA1",
+                                                  {node_a}, utf8());
+    auto expr_0 = TreeExprBuilder::MakeExpression(hashSha1, res_0);
 
     // Build a projector for the expressions.
     std::shared_ptr<Projector> projector;

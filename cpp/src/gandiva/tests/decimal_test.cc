@@ -1136,11 +1136,11 @@ TEST_F(TestDecimal, TestSha) {
   auto res_1 = field("res1", utf8());
 
   // build expressions.
-  // hashSHA128(a)
+  // hashSHA1(a)
   auto node_a = TreeExprBuilder::MakeField(field_a);
-  auto hashSha128 = TreeExprBuilder::MakeFunction("hashSHA128",
-                                                  {node_a}, utf8());
-  auto expr_0 = TreeExprBuilder::MakeExpression(hashSha128, res_0);
+  auto hashSha1 = TreeExprBuilder::MakeFunction("hashSHA1",
+                                                {node_a}, utf8());
+  auto expr_0 = TreeExprBuilder::MakeExpression(hashSha1, res_0);
 
   auto hashSha256 = TreeExprBuilder::MakeFunction("hashSHA256",
                                                   {node_a}, utf8());
@@ -1159,7 +1159,7 @@ TEST_F(TestDecimal, TestSha) {
   auto validity_array = {false, true, true};
 
   auto array_dec = MakeArrowArrayDecimal(
-      decimal_5_2, MakeDecimalVector({"3.45", "0", "0.0"}, 2),
+      decimal_5_2, MakeDecimalVector({"3.45", "0", "0.01"}, 2),
       validity_array);
 
   // prepare input record batch
@@ -1173,21 +1173,30 @@ TEST_F(TestDecimal, TestSha) {
 
   auto response = outputs.at(0);
   EXPECT_EQ(response->null_count(), 0);
-  EXPECT_EQ(response->GetScalar(0).ValueOrDie()->ToString(), "");
-  for (int i = 2; i < num_records; ++i) {
-    const auto &value_at_position = response->GetScalar(i).ValueOrDie()->ToString();
-    EXPECT_EQ(value_at_position,
+  EXPECT_NE(response->GetScalar(0).ValueOrDie()->ToString(), "");
+
+  // Checks if the hash size in response is correct
+  const int sha1_hash_size = 40;
+  for (int i = 1; i < num_records; ++i) {
+    const auto& value_at_position = response->GetScalar(i).ValueOrDie()->ToString();
+
+    EXPECT_EQ(value_at_position.size(), sha1_hash_size);
+    EXPECT_NE(value_at_position,
               response->GetScalar(i - 1).ValueOrDie()->ToString());
   }
 
   response = outputs.at(1);
   EXPECT_EQ(response->null_count(), 0);
-  EXPECT_EQ(response->GetScalar(0).ValueOrDie()->ToString(), "");
-  for (int i = 2; i < num_records; ++i) {
-    const auto &value_at_position = response->GetScalar(i).ValueOrDie()->ToString();
-    EXPECT_EQ(value_at_position,
+  EXPECT_NE(response->GetScalar(0).ValueOrDie()->ToString(), "");
+
+  // Checks if the hash size in response is correct
+  const int sha256_hash_size = 64;
+  for (int i = 1; i < num_records; ++i) {
+    const auto& value_at_position = response->GetScalar(i).ValueOrDie()->ToString();
+
+    EXPECT_EQ(value_at_position.size(), sha256_hash_size);
+    EXPECT_NE(value_at_position,
               response->GetScalar(i - 1).ValueOrDie()->ToString());
   }
 }
-
 }  // namespace gandiva

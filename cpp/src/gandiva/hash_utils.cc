@@ -31,14 +31,14 @@ namespace gandiva {
     return HashUtils::GetHash(context, message, message_length, EVP_sha256(),
                               sha256_result_length, out_length);
   }
-  const char* HashUtils::HashUsingSha128(int64_t context,
-                                         const void* message,
-                                         size_t message_length,
-                                         int32_t *out_length) {
+  const char* HashUtils::HashUsingSha1(int64_t context,
+                                       const void* message,
+                                       size_t message_length,
+                                       int32_t *out_length) {
     // The buffer size is the hash size + null character
-    int sha128_result_length = 40;
+    int sha1_result_length = 40;
     return HashUtils::GetHash(context, message, message_length, EVP_sha1(),
-                              sha128_result_length, out_length);
+                              sha1_result_length, out_length);
   }
 
   const char* HashUtils::GetHash(int64_t context,

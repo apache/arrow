@@ -31,10 +31,10 @@ class GANDIVA_EXPORT HashUtils {
                                      size_t message_length,
                                      int32_t *out_length);
 
-  static const char *HashUsingSha128(int64_t context,
-                                     const void *message,
-                                     size_t message_length,
-                                     int32_t *out_length);
+  static const char *HashUsingSha1(int64_t context,
+                                   const void *message,
+                                   size_t message_length,
+                                   int32_t *out_length);
 
   static uint64_t DoubleToLong(double value);
  private:
