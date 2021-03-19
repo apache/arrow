@@ -134,3 +134,17 @@ example_with_logical_factors <- tibble::tibble(
     "hey buddy"
   )
 )
+
+# the values in each column of this tibble are in ascending order in the C locale.
+# there are some ties, but sorting by any two columns will give a deterministic order.
+example_data_for_sorting <- tibble::tibble(
+  int = c(-.Machine$integer.max, -101L, -100L, 0L, 0L, 1L, 100L, 1000L, .Machine$integer.max, NA_integer_),
+  dbl = c(-Inf, -.Machine$double.xmax, -.Machine$double.xmin, 0, .Machine$double.xmin, pi, .Machine$double.xmax, Inf, NaN, NA_real_),
+  # R string collation varies by locale, while libarrow always uses the C locale for string collation
+  # (in other words: string values in libarrow are ordered lexicographically as bytestrings)
+  # to make R sort functions use the C locale, run Sys.setlocale("LC_COLLATE", "C")
+  chr = c("", "", "\u0001", "&", "ABC", "NULL", "a", "abc", "\uFFFF", NA_character_),
+  # bool is not supported (ARROW-12016)
+  lgl = c(rep(FALSE, 4L), rep(TRUE, 4L), rep(NA, 2)),
+  # TODO: add more types
+)
