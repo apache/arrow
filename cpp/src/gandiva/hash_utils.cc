@@ -43,7 +43,7 @@ namespace gandiva {
                                  const void* message,
                                  size_t message_length,
                                  const EVP_MD *hash_type,
-                                 int result_buf_size,
+                                 uint32_t result_buf_size,
                                  int32_t *out_length) {
     EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
 
@@ -67,7 +67,7 @@ namespace gandiva {
     }
 
     // Create the temporary buffer used by the EVP to generate the hash
-    int hash_digest_size = EVP_MD_size(hash_type);
+    unsigned int hash_digest_size = EVP_MD_size(hash_type);
     auto* result = static_cast<unsigned char*>(OPENSSL_malloc(hash_digest_size));
 
     if (result == nullptr) {
