@@ -156,12 +156,7 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
 
   out <- tryCatch(
     reader$Read(columns),
-    error = function (e) {
-      if (grepl("Support for codec", conditionMessage(e))) {
-        msg <- "Unsupported compressed format: We suggest either setting the right environment variable to install binaries or setting LIBARROW_MINIMAL=false and then reinstall the package."
-        stop(msg, call. = FALSE)
-      }
-    }
+    error = function(e) { read_compressed_error(e) }
   )
 
   if (isTRUE(as_data_frame)) {

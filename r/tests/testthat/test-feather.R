@@ -197,15 +197,17 @@ test_that("Character vectors > 2GB can write to feather", {
 
 unlink(feather_file)
 
-test_that("Error messages are shown when the compression algorithm lz4/snappy
+ft_file <- system.file("v0.7.1.feather", package = "arrow")
+
+test_that("Error messages are shown when the compression algorithm lz4
           is not found", {
   skip_on_cran()
   if (codec_is_available("lz4")) {
-    d <- read_feather(system.file("extdata", "pets.feather", package="arrow"))
+    d <- read_feather(ft_file)
     expect_is(d, "data.frame")
   } else {
     expect_error(
-      read_feather(system.file("extdata", "pets.feather", package="arrow")),
+      read_feather(ft_file),
       "Unsupported compressed format"
     )
   }

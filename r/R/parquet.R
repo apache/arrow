@@ -54,12 +54,7 @@ read_parquet <- function(file,
     indices <- match(vars_select(names, !!col_select), names) - 1L
     tab <- tryCatch(
       reader$ReadTable(indices),
-      error = function (e) {
-        if (grepl("Support for codec", conditionMessage(e))) {
-          msg <- "Unsupported compressed format: We suggest either setting the right environment variable to install binaries or setting LIBARROW_MINIMAL=false and then reinstall the package."
-          stop(msg, call. = FALSE)
-        }
-      }
+      error = function(e) { read_compressed_error(e) }
     )
   } else {
     # read all columns
