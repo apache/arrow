@@ -163,7 +163,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     // cpp11 does not support bool here so use int
     auto orders = cpp11::as_cpp<std::vector<int>>(options["orders"]);
     std::vector<Key> keys;
-    for (int i = 0; i < names.size(); i++) {
+    for (size_t i = 0; i < names.size(); i++) {
       keys.push_back(
           Key(names[i], (orders[i] > 0) ? Order::Descending : Order::Ascending));
     }
