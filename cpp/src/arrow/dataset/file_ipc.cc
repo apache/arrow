@@ -44,7 +44,26 @@ static inline ipc::IpcReadOptions default_read_options() {
   return options;
 }
 
-static inline Result<std::shared_ptr<ipc::RecordBatchFileReader>> OpenReader(
+static inline Future<std::shared_ptr<ipc::RecordBatchFileReader>> OpenReader(
+    const FileSource& source,
+    const ipc::IpcReadOptions& options = default_read_options()) {
+  ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
+
+  auto path = source.path();
+
+  return ipc::RecordBatchFileReader::OpenAsync(std::move(input), options)
+      .Then(
+          [](const std::shared_ptr<ipc::RecordBatchFileReader>& reader) {
+            return reader;
+          },
+          [path](
+              const Status& err) -> Result<std::shared_ptr<ipc::RecordBatchFileReader>> {
+            return err.WithMessage("Could not open IPC input source '", path,
+                                   "': ", err.message());
+          });
+}
+
+static inline Result<std::shared_ptr<ipc::RecordBatchFileReader>> OpenReaderSync(
     const FileSource& source,
     const ipc::IpcReadOptions& options = default_read_options()) {
   ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
@@ -86,16 +105,21 @@ class IpcScanTask : public ScanTask {
       static Result<RecordBatchGenerator> Make(
           const FileSource& source, std::vector<std::string> materialized_fields,
           MemoryPool* pool) {
-        ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source));
-
         auto options = default_read_options();
         options.memory_pool = pool;
-        ARROW_ASSIGN_OR_RAISE(options.included_fields,
-                              GetIncludedFields(*reader->schema(), materialized_fields));
 
-        ARROW_ASSIGN_OR_RAISE(reader, OpenReader(source, options));
-        RecordBatchGenerator generator = Impl{std::move(reader), 0};
-        return generator;
+        auto reader_fut = OpenReader(source);
+        auto gen_fut = reader_fut.Then(
+            [options, materialized_fields](
+                const std::shared_ptr<ipc::RecordBatchFileReader>& reader) mutable
+            -> Result<RecordBatchGenerator> {
+              ARROW_ASSIGN_OR_RAISE(
+                  options.included_fields,
+                  GetIncludedFields(*reader->schema(), materialized_fields));
+              return reader->GetRecordBatchGenerator(8);
+            });
+
+        return MakeFromFuture(gen_fut);
       }
 
       Future<std::shared_ptr<RecordBatch>> operator()() {
@@ -122,11 +146,11 @@ class IpcScanTask : public ScanTask {
 
 Result<bool> IpcFileFormat::IsSupported(const FileSource& source) const {
   RETURN_NOT_OK(source.Open().status());
-  return OpenReader(source).ok();
+  return OpenReaderSync(source).ok();
 }
 
 Result<std::shared_ptr<Schema>> IpcFileFormat::Inspect(const FileSource& source) const {
-  ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source));
+  ARROW_ASSIGN_OR_RAISE(auto reader, OpenReaderSync(source));
   return reader->schema();
 }
 

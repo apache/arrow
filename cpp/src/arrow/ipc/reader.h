@@ -139,6 +139,15 @@ class ARROW_EXPORT RecordBatchFileReader
       const std::shared_ptr<io::RandomAccessFile>& file,
       const IpcReadOptions& options = IpcReadOptions::Defaults());
 
+  /// \brief Async version of Open that retains ownership of file
+  ///
+  /// \param[in] file the data source
+  /// \param[in] options options for IPC reading
+  /// \return the returned reader
+  static Future<std::shared_ptr<RecordBatchFileReader>> OpenAsync(
+      const std::shared_ptr<io::RandomAccessFile>& file,
+      const IpcReadOptions& options = IpcReadOptions::Defaults());
+
   /// \brief Version of Open that retains ownership of file
   ///
   /// \param[in] file the data source
@@ -146,6 +155,16 @@ class ARROW_EXPORT RecordBatchFileReader
   /// \param[in] options options for IPC reading
   /// \return the returned reader
   static Result<std::shared_ptr<RecordBatchFileReader>> Open(
+      const std::shared_ptr<io::RandomAccessFile>& file, int64_t footer_offset,
+      const IpcReadOptions& options = IpcReadOptions::Defaults());
+
+  /// \brief Async version of Open that retains ownership of file
+  ///
+  /// \param[in] file the data source
+  /// \param[in] footer_offset the position of the end of the Arrow file
+  /// \param[in] options options for IPC reading
+  /// \return the returned reader
+  static Future<std::shared_ptr<RecordBatchFileReader>> OpenAsync(
       const std::shared_ptr<io::RandomAccessFile>& file, int64_t footer_offset,
       const IpcReadOptions& options = IpcReadOptions::Defaults());
 
