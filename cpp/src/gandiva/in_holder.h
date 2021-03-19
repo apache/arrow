@@ -23,6 +23,7 @@
 #include "arrow/util/hashing.h"
 #include "gandiva/arrow.h"
 #include "gandiva/gandiva_aliases.h"
+#include "gandiva/basic_decimal_scalar.h"
 
 namespace gandiva {
 

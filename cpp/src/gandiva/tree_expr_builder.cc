@@ -198,7 +198,7 @@ ConditionPtr TreeExprBuilder::MakeCondition(const std::string& function,
 
 MAKE_IN(Int32, int32_t);
 MAKE_IN(Int64, int64_t);
-MAKE_IN(Decimal, gandiva::DecimalScalar128);
+MAKE_IN(Decimal,gandiva::BasicDecimalScalar128);
 MAKE_IN(Date32, int32_t);
 MAKE_IN(Date64, int64_t);
 MAKE_IN(TimeStamp, int64_t);

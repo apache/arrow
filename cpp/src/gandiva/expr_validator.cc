@@ -157,9 +157,17 @@ Status ExprValidator::Visit(const InExpressionNode<int64_t>& node) {
                               arrow::int64());
 }
 
-Status ExprValidator::Visit(const InExpressionNode<gandiva::DecimalScalar128>& node) {
+Status ExprValidator::Visit(const InExpressionNode<gandiva::BasicDecimalScalar128>& node) {
+  int32_t scale = 0;
+  int32_t precision=0;
+
+  if (node.values().size() > 0){
+    scale = node.values().begin()->scale();
+    precision = node.values().begin()->precision();
+  }
+
   return ValidateInExpression(node.values().size(), node.eval_expr()->return_type(),
-                              arrow::decimal(38, 5));
+                              arrow::decimal(precision, scale));
 }
 
 Status ExprValidator::Visit(const InExpressionNode<std::string>& node) {
