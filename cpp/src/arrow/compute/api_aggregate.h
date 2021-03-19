@@ -310,13 +310,13 @@ namespace internal {
 
 /// Internal use only: streaming group identifier.
 /// Consumes batches of keys and yields batches of the group ids.
-class ARROW_EXPORT GroupIdentifier {
+class ARROW_EXPORT Grouper {
  public:
-  virtual ~GroupIdentifier() = default;
+  virtual ~Grouper() = default;
 
-  /// Construct a GroupIdentifier which receives the specified key types
-  static Result<std::unique_ptr<GroupIdentifier>> Make(
-      ExecContext* ctx, const std::vector<ValueDescr>& descrs);
+  /// Construct a Grouper which receives the specified key types
+  static Result<std::unique_ptr<Grouper>> Make(ExecContext* ctx,
+                                               const std::vector<ValueDescr>& descrs);
 
   /// Consume a batch of keys, producing an array of the corresponding
   /// group ids as an integer column. The yielded batch also includes the current group
@@ -343,7 +343,7 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
                       const std::vector<Aggregate>& aggregates,
                       ExecContext* ctx = NULLPTR);
 
-/// Interna use only: Assemble lists of indices of identical elements.
+/// Internal use only: Assemble lists of indices of identical elements.
 ///
 /// \param[in] ids An integral array which will be used as grouping criteria.
 ///                Nulls are invalid.

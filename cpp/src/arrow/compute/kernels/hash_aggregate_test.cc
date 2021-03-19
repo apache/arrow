@@ -335,13 +335,16 @@ Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys
   for (size_t i_agg = 0; i_agg < arguments.size(); ++i_agg) {
     ScalarVector aggregated_scalars;
 
+    // trim "hash_" prefix
+    auto scalar_agg_function = aggregates[i_agg].function.substr(5);
+
     ARROW_ASSIGN_OR_RAISE(auto grouped_argument,
                           ApplyGroupings(*groupings, *arguments[i_agg].make_array()));
 
     for (int64_t i_group = 0; i_group < n_groups; ++i_group) {
-      ARROW_ASSIGN_OR_RAISE(Datum d,
-                            CallFunction(aggregates[i_agg].function,
-                                         {grouped_argument->value_slice(i_group)}));
+      ARROW_ASSIGN_OR_RAISE(
+          Datum d,
+          CallFunction(scalar_agg_function, {grouped_argument->value_slice(i_group)}));
       aggregated_scalars.push_back(d.scalar());
     }
 
@@ -402,7 +405,7 @@ TEST(GroupBy, SumOnlyBooleanKey) {
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
                        internal::GroupBy({argument}, {key},
                                          {
-                                             {"sum", nullptr},
+                                             {"hash_sum", nullptr},
                                          }));
 
   AssertDatumsEqual(ArrayFromJSON(struct_({
@@ -425,7 +428,7 @@ TEST(GroupBy, SumOnly8bitKey) {
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
                        internal::GroupBy({argument}, {key},
                                          {
-                                             {"sum", nullptr},
+                                             {"hash_sum", nullptr},
                                          }));
 
   ASSERT_OK(aggregated_and_grouped.array_as<StructArray>()->ValidateFull());
@@ -451,7 +454,7 @@ TEST(GroupBy, SumOnly32bitKey) {
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
                        internal::GroupBy({argument}, {key},
                                          {
-                                             {"sum", nullptr},
+                                             {"hash_sum", nullptr},
                                          }));
 
   AssertDatumsEqual(ArrayFromJSON(struct_({
@@ -476,7 +479,7 @@ TEST(GroupBy, SumOnly) {
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
                        internal::GroupBy({argument}, {key},
                                          {
-                                             {"sum", nullptr},
+                                             {"hash_sum", nullptr},
                                          }));
 
   AssertDatumsEqual(ArrayFromJSON(struct_({
@@ -500,7 +503,7 @@ TEST(GroupBy, SumOnlyFloatingPointKey) {
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
                        internal::GroupBy({argument}, {key},
                                          {
-                                             {"sum", nullptr},
+                                             {"hash_sum", nullptr},
                                          }));
 
   AssertDatumsEqual(ArrayFromJSON(struct_({
@@ -524,7 +527,7 @@ TEST(GroupBy, MinMaxOnly) {
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
                        internal::GroupBy({argument}, {key},
                                          {
-                                             {"min_max", nullptr},
+                                             {"hash_min_max", nullptr},
                                          }));
 
   AssertDatumsEqual(ArrayFromJSON(struct_({
@@ -554,9 +557,9 @@ TEST(GroupBy, CountAndSum) {
                        // NB: passing an argument twice or also using it as a key is legal
                        internal::GroupBy({argument, argument, key}, {key},
                                          {
-                                             {"count", &count_options},
-                                             {"sum", nullptr},
-                                             {"sum", nullptr},
+                                             {"hash_count", &count_options},
+                                             {"hash_sum", nullptr},
+                                             {"hash_sum", nullptr},
                                          }));
 
   AssertDatumsEqual(
@@ -582,7 +585,7 @@ TEST(GroupBy, StringKey) {
   auto key = ArrayFromJSON(utf8(), R"(["alfa", "beta", "gamma", "gamma", null, "beta"])");
 
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy({argument}, {key}, {{"sum", nullptr}}));
+                       internal::GroupBy({argument}, {key}, {{"hash_sum", nullptr}}));
 
   AssertDatumsEqual(ArrayFromJSON(struct_({
                                       field("", int64()),
@@ -604,7 +607,7 @@ TEST(GroupBy, DictKey) {
                            R"(["alfa", "beta", "gamma", "gamma", null, "beta"])");
 
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy({argument}, {key}, {{"sum", nullptr}}));
+                       internal::GroupBy({argument}, {key}, {{"hash_sum", nullptr}}));
 
   AssertDatumsEqual(ArrayFromJSON(struct_({
                                       field("", int64()),
@@ -628,7 +631,7 @@ TEST(GroupBy, MultipleKeys) {
 
   ASSERT_OK_AND_ASSIGN(
       Datum aggregated_and_grouped,
-      internal::GroupBy({argument}, {int_key, str_key}, {{"sum", nullptr}}));
+      internal::GroupBy({argument}, {int_key, str_key}, {{"hash_sum", nullptr}}));
 
   AssertDatumsEqual(ArrayFromJSON(struct_({
                                       field("", float64()),
@@ -650,7 +653,7 @@ TEST(GroupBy, ConcreteCaseWithValidateGroupBy) {
   auto argument = ArrayFromJSON(int64(), "[10, 5, 4, 2, 12]");
   auto key = ArrayFromJSON(utf8(), R"(["alfa", "beta", "gamma", "gamma", "beta"])");
 
-  group_helpers::ValidateGroupBy({{"sum", nullptr}}, {argument}, {key});
+  group_helpers::ValidateGroupBy({{"hash_sum", nullptr}}, {argument}, {key});
 }
 
 TEST(GroupBy, RandomArraySum) {
@@ -663,7 +666,7 @@ TEST(GroupBy, RandomArraySum) {
 
       group_helpers::ValidateGroupBy(
           {
-              {"sum", nullptr},
+              {"hash_sum", nullptr},
           },
           {summand}, {key});
     }

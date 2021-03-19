@@ -297,10 +297,10 @@ struct VarLengthKeyEncoder : KeyEncoder {
   std::shared_ptr<DataType> type_;
 };
 
-struct GroupIdentifierImpl : GroupIdentifier {
-  static Result<std::unique_ptr<GroupIdentifierImpl>> Make(
-      ExecContext* ctx, const std::vector<ValueDescr>& keys) {
-    auto impl = ::arrow::internal::make_unique<GroupIdentifierImpl>();
+struct GrouperImpl : Grouper {
+  static Result<std::unique_ptr<GrouperImpl>> Make(ExecContext* ctx,
+                                                   const std::vector<ValueDescr>& keys) {
+    auto impl = ::arrow::internal::make_unique<GrouperImpl>();
 
     impl->encoders_.resize(keys.size());
     impl->ctx_ = ctx;
@@ -752,37 +752,27 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
   MinMaxOptions options_;
 };
 
-template <typename A>
-KernelInit MakeInit() {
-  return [](KernelContext* ctx,
-            const KernelInitArgs& args) -> std::unique_ptr<KernelState> {
-    auto impl = ::arrow::internal::make_unique<A>();
+template <typename Impl>
+HashAggregateKernel MakeKernel(InputType argument_type) {
+  HashAggregateKernel kernel;
+
+  kernel.init = [](KernelContext* ctx,
+                   const KernelInitArgs& args) -> std::unique_ptr<KernelState> {
+    auto impl = ::arrow::internal::make_unique<Impl>();
+    // FIXME(bkietz) Init should not take a type. That should be an unboxed template arg
+    // for the Impl. Otherwise we're not exposing dispatch as well as we should.
     ctx->SetStatus(impl->Init(ctx->exec_context(), args.options, args.inputs[0].type));
     if (ctx->HasError()) return nullptr;
     return std::move(impl);
   };
-}
-
-// this isn't really in the spirit of things, but I'll get around to defining
-// HashAggregateFunctions later
-Result<HashAggregateKernel> MakeKernel(const std::string& function_name) {
-  HashAggregateKernel kernel;
-
-  if (function_name == "count") {
-    kernel.init = MakeInit<GroupedCountImpl>();
-  } else if (function_name == "sum") {
-    kernel.init = MakeInit<GroupedSumImpl>();
-  } else if (function_name == "min_max") {
-    kernel.init = MakeInit<GroupedMinMaxImpl>();
-  } else {
-    return Status::NotImplemented("Grouped aggregate ", function_name);
-  }
 
   kernel.signature = KernelSignature::Make(
-      {{}, {}, {}}, OutputType([](KernelContext* ctx,
-                                  const std::vector<ValueDescr>&) -> Result<ValueDescr> {
-        return checked_cast<GroupedAggregator*>(ctx->state())->out_type();
-      }));
+      {std::move(argument_type), InputType::Array(Type::UINT32),
+       InputType::Scalar(Type::UINT32)},
+      OutputType(
+          [](KernelContext* ctx, const std::vector<ValueDescr>&) -> Result<ValueDescr> {
+            return checked_cast<GroupedAggregator*>(ctx->state())->out_type();
+          }));
 
   kernel.consume = [](KernelContext* ctx, const ExecBatch& batch) {
     ctx->SetStatus(checked_cast<GroupedAggregator*>(ctx->state())->Consume(batch));
@@ -801,23 +791,30 @@ Result<HashAggregateKernel> MakeKernel(const std::string& function_name) {
   return kernel;
 }
 
-Result<std::vector<HashAggregateKernel>> MakeKernels(
-    const std::vector<Aggregate>& aggregates, const std::vector<ValueDescr>& in_descrs) {
+Result<std::vector<const HashAggregateKernel*>> GetKernels(
+    ExecContext* ctx, const std::vector<Aggregate>& aggregates,
+    const std::vector<ValueDescr>& in_descrs) {
   if (aggregates.size() != in_descrs.size()) {
     return Status::Invalid(aggregates.size(), " aggregate functions were specified but ",
                            in_descrs.size(), " arguments were provided.");
   }
 
-  std::vector<HashAggregateKernel> kernels(in_descrs.size());
+  std::vector<const HashAggregateKernel*> kernels(in_descrs.size());
 
   for (size_t i = 0; i < aggregates.size(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(kernels[i], MakeKernel(aggregates[i].function));
+    ARROW_ASSIGN_OR_RAISE(auto function,
+                          ctx->func_registry()->GetFunction(aggregates[i].function));
+    ARROW_ASSIGN_OR_RAISE(
+        const Kernel* kernel,
+        function->DispatchExact(
+            {in_descrs[i], ValueDescr::Array(uint32()), ValueDescr::Scalar(uint32())}));
+    kernels[i] = static_cast<const HashAggregateKernel*>(kernel);
   }
   return kernels;
 }
 
 Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
-    const std::vector<HashAggregateKernel>& kernels, ExecContext* ctx,
+    const std::vector<const HashAggregateKernel*>& kernels, ExecContext* ctx,
     const std::vector<Aggregate>& aggregates, const std::vector<ValueDescr>& in_descrs) {
   std::vector<std::unique_ptr<KernelState>> states(kernels.size());
 
@@ -833,8 +830,13 @@ Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
     }
 
     KernelContext kernel_ctx{ctx};
-    states[i] = kernels[i].init(
-        &kernel_ctx, KernelInitArgs{&kernels[i], {in_descrs[i].type}, options});
+    states[i] = kernels[i]->init(&kernel_ctx, KernelInitArgs{kernels[i],
+                                                             {
+                                                                 in_descrs[i].type,
+                                                                 uint32(),
+                                                                 uint32(),
+                                                             },
+                                                             options});
     if (kernel_ctx.HasError()) return kernel_ctx.status();
   }
 
@@ -842,7 +844,7 @@ Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
 }
 
 Result<FieldVector> ResolveKernels(
-    const std::vector<HashAggregateKernel>& kernels,
+    const std::vector<const HashAggregateKernel*>& kernels,
     const std::vector<std::unique_ptr<KernelState>>& states, ExecContext* ctx,
     const std::vector<ValueDescr>& descrs) {
   FieldVector fields(descrs.size());
@@ -851,7 +853,7 @@ Result<FieldVector> ResolveKernels(
     KernelContext kernel_ctx{ctx};
     kernel_ctx.SetState(states[i].get());
 
-    ARROW_ASSIGN_OR_RAISE(auto descr, kernels[i].signature->out_type().Resolve(
+    ARROW_ASSIGN_OR_RAISE(auto descr, kernels[i]->signature->out_type().Resolve(
                                           &kernel_ctx, {
                                                            descrs[i].type,
                                                            uint32(),
@@ -864,9 +866,9 @@ Result<FieldVector> ResolveKernels(
 
 }  // namespace
 
-Result<std::unique_ptr<GroupIdentifier>> GroupIdentifier::Make(
-    ExecContext* ctx, const std::vector<ValueDescr>& descrs) {
-  return GroupIdentifierImpl::Make(ctx, descrs);
+Result<std::unique_ptr<Grouper>> Grouper::Make(ExecContext* ctx,
+                                               const std::vector<ValueDescr>& descrs) {
+  return GrouperImpl::Make(ctx, descrs);
 }
 
 Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Datum>& keys,
@@ -881,7 +883,7 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
                         ExecBatch::Make(arguments).Map(
                             [](ExecBatch batch) { return batch.GetDescriptors(); }));
 
-  ARROW_ASSIGN_OR_RAISE(auto kernels, MakeKernels(aggregates, argument_descrs));
+  ARROW_ASSIGN_OR_RAISE(auto kernels, GetKernels(ctx, aggregates, argument_descrs));
 
   ARROW_ASSIGN_OR_RAISE(auto states,
                         InitKernels(kernels, ctx, aggregates, argument_descrs));
@@ -894,12 +896,12 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
   ARROW_ASSIGN_OR_RAISE(auto argument_batch_iterator,
                         ExecBatchIterator::Make(arguments, ctx->exec_chunksize()));
 
-  // Construct GroupIdentifier
+  // Construct Grouper
   ARROW_ASSIGN_OR_RAISE(auto key_descrs, ExecBatch::Make(keys).Map([](ExecBatch batch) {
     return batch.GetDescriptors();
   }));
 
-  ARROW_ASSIGN_OR_RAISE(auto group_identifier, GroupIdentifier::Make(ctx, key_descrs));
+  ARROW_ASSIGN_OR_RAISE(auto grouper, Grouper::Make(ctx, key_descrs));
 
   for (ValueDescr& key_descr : key_descrs) {
     out_fields.push_back(field("", std::move(key_descr.type)));
@@ -915,7 +917,7 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
     if (key_batch.length == 0) continue;
 
     // compute a batch of group ids
-    ARROW_ASSIGN_OR_RAISE(ExecBatch id_batch, group_identifier->Consume(key_batch));
+    ARROW_ASSIGN_OR_RAISE(ExecBatch id_batch, grouper->Consume(key_batch));
 
     // consume group ids with HashAggregateKernels
     for (size_t i = 0; i < kernels.size(); ++i) {
@@ -923,7 +925,7 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
       batch_ctx.SetState(states[i].get());
       ARROW_ASSIGN_OR_RAISE(
           auto batch, ExecBatch::Make({argument_batch[i], id_batch[0], id_batch[1]}));
-      kernels[i].consume(&batch_ctx, batch);
+      kernels[i]->consume(&batch_ctx, batch);
       if (batch_ctx.HasError()) return batch_ctx.status();
     }
   }
@@ -936,12 +938,12 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
     KernelContext batch_ctx{ctx};
     batch_ctx.SetState(states[i].get());
     Datum out;
-    kernels[i].finalize(&batch_ctx, &out);
+    kernels[i]->finalize(&batch_ctx, &out);
     if (batch_ctx.HasError()) return batch_ctx.status();
     *it++ = out.array();
   }
 
-  ARROW_ASSIGN_OR_RAISE(ExecBatch out_keys, group_identifier->GetUniques());
+  ARROW_ASSIGN_OR_RAISE(ExecBatch out_keys, grouper->GetUniques());
   for (const auto& key : out_keys.values) {
     *it++ = key.array();
   }
@@ -997,6 +999,49 @@ Result<std::shared_ptr<StructArray>> MakeGroupings(Datum ids, ExecContext* ctx) 
 
   return StructArray::Make(ArrayVector{std::move(unique_ids), std::move(groupings)},
                            std::vector<std::string>{"ids", "groupings"});
+}
+
+namespace {
+const FunctionDoc count_doc{"Count the number of null / non-null values",
+                            ("By default, non-null values are counted.\n"
+                             "This can be changed through CountOptions."),
+                            {"array", "group_id_array", "group_count"},
+                            "CountOptions"};
+
+const FunctionDoc sum_doc{"Sum values of a numeric array",
+                          ("Null values are ignored."),
+                          {"array", "group_id_array", "group_count"}};
+
+const FunctionDoc min_max_doc{"Compute the minimum and maximum values of a numeric array",
+                              ("Null values are ignored by default.\n"
+                               "This can be changed through MinMaxOptions."),
+                              {"array", "group_id_array", "group_count"},
+                              "MinMaxOptions"};
+}  // namespace
+
+void RegisterHashAggregateBasic(FunctionRegistry* registry) {
+  {
+    static auto default_count_options = CountOptions::Defaults();
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_count", Arity::Ternary(), &count_doc, &default_count_options);
+    DCHECK_OK(func->AddKernel(MakeKernel<GroupedCountImpl>(ValueDescr::ARRAY)));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+
+  {
+    auto func =
+        std::make_shared<HashAggregateFunction>("hash_sum", Arity::Ternary(), &sum_doc);
+    DCHECK_OK(func->AddKernel(MakeKernel<GroupedSumImpl>(ValueDescr::ARRAY)));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+
+  {
+    static auto default_minmax_options = MinMaxOptions::Defaults();
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_min_max", Arity::Ternary(), &min_max_doc, &default_minmax_options);
+    DCHECK_OK(func->AddKernel(MakeKernel<GroupedMinMaxImpl>(ValueDescr::ARRAY)));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
 }
 
 }  // namespace internal

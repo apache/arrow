@@ -592,10 +592,10 @@ Result<std::shared_ptr<StructArray>> MakeGroupings(const StructArray& by) {
   }
 
   compute::ExecContext ctx;
-  ARROW_ASSIGN_OR_RAISE(auto group_identifier, compute::internal::GroupIdentifier::Make(
-                                                   &ctx, key_batch.GetDescriptors()));
+  ARROW_ASSIGN_OR_RAISE(
+      auto grouper, compute::internal::Grouper::Make(&ctx, key_batch.GetDescriptors()));
 
-  ARROW_ASSIGN_OR_RAISE(auto id_batch, group_identifier->Consume(key_batch));
+  ARROW_ASSIGN_OR_RAISE(auto id_batch, grouper->Consume(key_batch));
 
   ARROW_ASSIGN_OR_RAISE(auto unique_ids_and_groupings,
                         compute::internal::MakeGroupings(id_batch[0]));
@@ -603,7 +603,7 @@ Result<std::shared_ptr<StructArray>> MakeGroupings(const StructArray& by) {
   auto unique_ids = MakeArray(std::move(unique_ids_and_groupings->data()->child_data[0]));
   // if unique_ids is not sorted then groupings are out of order WRT groupings
 
-  ARROW_ASSIGN_OR_RAISE(auto uniques, group_identifier->GetUniques());
+  ARROW_ASSIGN_OR_RAISE(auto uniques, grouper->GetUniques());
   ArrayVector unique_rows_fields(uniques.num_values());
   for (int i = 0; i < by.num_fields(); ++i) {
     unique_rows_fields[i] = uniques[i].make_array();
