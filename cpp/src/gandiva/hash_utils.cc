@@ -18,29 +18,29 @@
 #include <cstring>
 #include "openssl/evp.h"
 #include "gandiva/hash_utils.h"
-#include "gandiva/execution_context.h"
 #include "gandiva/gdv_function_stubs.h"
 #include "arrow/util/logging.h"
 
 namespace gandiva {
-  const char* HashUtils::HashUsingSha256(int64_t context,
-                                         const void* message,
-                                         size_t message_length,
-                                         int32_t *out_length) {
+  const char* gdv_hash_using_sha256(int64_t context,
+                                    const void* message,
+                                    size_t message_length,
+                                    int32_t *out_length) {
     constexpr int sha256_result_length = 64;
-    return HashUtils::GetHash(context, message, message_length, EVP_sha256(),
+    return gdv_hash_using_sha(context, message, message_length, EVP_sha256(),
                               sha256_result_length, out_length);
   }
-  const char* HashUtils::HashUsingSha1(int64_t context,
-                                       const void* message,
-                                       size_t message_length,
-                                       int32_t *out_length) {
+
+  const char* gdv_hash_using_sha1(int64_t context,
+                                  const void* message,
+                                  size_t message_length,
+                                  int32_t *out_length) {
     constexpr int sha1_result_length = 40;
-    return HashUtils::GetHash(context, message, message_length, EVP_sha1(),
+    return gdv_hash_using_sha(context, message, message_length, EVP_sha1(),
                               sha1_result_length, out_length);
   }
 
-  const char* HashUtils::GetHash(int64_t context,
+  const char* gdv_hash_using_sha(int64_t context,
                                  const void* message,
                                  size_t message_length,
                                  const EVP_MD *hash_type,
@@ -49,8 +49,8 @@ namespace gandiva {
     EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
 
     if (md_ctx == nullptr) {
-      HashUtils::ErrorMessage(context, "Could not create the context "
-                                       "for SHA processing.");
+      gdv_fn_context_set_error_msg(context,
+                                   "Could not create the context for SHA processing.");
       *out_length = 0;
       return "";
     }
@@ -72,8 +72,8 @@ namespace gandiva {
     auto* result = static_cast<unsigned char*>(OPENSSL_malloc(hash_digest_size));
 
     if (result == nullptr) {
-      HashUtils::ErrorMessage(context, "Could not allocate memory "
-                                       "for SHA processing.");
+      gdv_fn_context_set_error_msg(context,
+                                   "Could not allocate memory for SHA processing");
       EVP_MD_CTX_free(md_ctx);
       *out_length = 0;
       return "";
@@ -84,8 +84,8 @@ namespace gandiva {
 
     if(result_length != hash_digest_size &&
        result_buf_size != (2 * hash_digest_size)){
-      HashUtils::ErrorMessage(context, "Could not obtain the hash "
-                                       "for the defined value.");
+      gdv_fn_context_set_error_msg(context,
+                                   "Could not obtain the hash for the defined value");
       EVP_MD_CTX_free(md_ctx);
       OPENSSL_free(result);
 
@@ -124,14 +124,9 @@ namespace gandiva {
     return result_buffer;
   }
 
-  uint64_t HashUtils::DoubleToLong(double value) {
+  uint64_t gdv_double_to_long(double value) {
     uint64_t result;
     memcpy(&result, &value, sizeof(result));
     return result;
-  }
-
-  void HashUtils::ErrorMessage(int64_t context_ptr, char const *err_msg) {
-    auto context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
-    context->set_error_msg(err_msg);
   }
 }  // namespace gandiva

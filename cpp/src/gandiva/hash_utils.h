@@ -24,31 +24,25 @@
 #include "openssl/evp.h"
 
 namespace gandiva {
-class GANDIVA_EXPORT HashUtils {
- public:
-  static const char *HashUsingSha256(int64_t context,
-                                     const void *message,
-                                     size_t message_length,
-                                     int32_t *out_length);
 
-  static const char *HashUsingSha1(int64_t context,
-                                   const void *message,
-                                   size_t message_length,
-                                   int32_t *out_length);
+const char* gdv_hash_using_sha256(int64_t context,
+                                  const void* message,
+                                  size_t message_length,
+                                  int32_t *out_length);
 
-  static uint64_t DoubleToLong(double value);
- private:
-  static inline void CleanCharArray(char *buffer);
+const char* gdv_hash_using_sha1(int64_t context,
+                                const void* message,
+                                size_t message_length,
+                                int32_t *out_length);
 
-  static const char *GetHash(int64_t context,
-                             const void *message,
-                             size_t message_length,
-                             const EVP_MD *hash_type,
-                             uint32_t result_buf_size,
-                             int32_t *out_length);
+const char* gdv_hash_using_sha(int64_t context,
+                               const void* message,
+                               size_t message_length,
+                               const EVP_MD *hash_type,
+                               uint32_t result_buf_size,
+                               int32_t *out_length);
 
-  static void ErrorMessage(int64_t context_ptr, char const *err_msg);
-};
+uint64_t gdv_double_to_long(double value);
 }  // namespace gandiva
 
 #endif //ARROW_SRC_HASH_UTILS_H_
