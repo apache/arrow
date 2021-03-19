@@ -290,7 +290,7 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
 
   // gdv_fn_in_expr_lookup_decimal
   args = {types->i64_type(),      // int64_t in holder ptr
-          types->decimal_type(),  // decimal value
+          types->i128_type(),     // decimal value
           types->i1_type()};      // bool in_validity
 
   engine->AddGlobalMappingForFunc("gdv_fn_in_expr_lookup_decimal",

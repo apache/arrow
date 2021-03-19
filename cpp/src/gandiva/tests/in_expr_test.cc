@@ -34,6 +34,26 @@ class TestIn : public ::testing::Test {
  protected:
   arrow::MemoryPool* pool_;
 };
+std::vector<Decimal128> MakeDecimalVector(std::vector<std::string> values,
+                                                       int32_t scale) {
+  std::vector<arrow::Decimal128> ret;
+  for (auto str : values) {
+    Decimal128 str_value;
+    int32_t str_precision;
+    int32_t str_scale;
+
+        DCHECK_OK(Decimal128::FromString(str, &str_value, &str_precision, &str_scale));
+
+    Decimal128 scaled_value;
+    if (str_scale == scale) {
+      scaled_value = str_value;
+    } else {
+      scaled_value = str_value.Rescale(str_scale, scale).ValueOrDie();
+    }
+    ret.push_back(scaled_value);
+  }
+  return ret;
+}
 
 TEST_F(TestIn, TestInSimple) {
   // schema for input fields
@@ -78,7 +98,9 @@ TEST_F(TestIn, TestInSimple) {
 
 TEST_F(TestIn, TestInDecimal) {
   int32_t precision = 38;
-  int32_t scale =5;
+  int32_t scale = 5;
+  auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
+
   // schema for input fields
   auto field0 = field("f0", arrow::decimal(precision, scale));
   auto field1 = field("f1", arrow::decimal(precision, scale));
@@ -88,10 +110,11 @@ TEST_F(TestIn, TestInDecimal) {
   auto node_f0 = TreeExprBuilder::MakeField(field0);
   auto node_f1 = TreeExprBuilder::MakeField(field1);
   auto sum_func =
-      TreeExprBuilder::MakeFunction("add", {node_f0, node_f1}, arrow::decimal(precision, scale));
+      TreeExprBuilder::MakeFunction("add", {node_f0, node_f1},
+                                    arrow::decimal(precision, scale));
   gandiva::DecimalScalar128 d0("6",precision,scale);
   gandiva::DecimalScalar128 d1("11",precision,scale);
-  std::unordered_set<gandiva::DecimalScalar128> in_constants({d0, d1});
+  std::unordered_set<gandiva::BasicDecimalScalar128> in_constants({d0, d1});
   auto in_expr = TreeExprBuilder::MakeInExpressionDecimal(sum_func, in_constants);
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
@@ -101,8 +124,10 @@ TEST_F(TestIn, TestInDecimal) {
 
   // Create a row-batch with some sample data
   int num_records = 5;
-  auto array0 = MakeArrowArrayDecimal({1, 2, 0, -6, 6}, {true, true, true, false, true});
-  auto array1 = MakeArrowArrayDecimal({5, 9, 6, 17, 5}, {true, true, false, true, false});
+  auto values0 = MakeDecimalVector({"1", "2", "0", "-6", "6"},scale);
+  auto values1 = MakeDecimalVector({"5", "9", "6", "17", "5"},scale);
+  auto array0 = MakeArrowArrayDecimal(decimal_type, values0, {true, true, true, false, true});
+  auto array1 = MakeArrowArrayDecimal(decimal_type, values1, {true, true, false, true, false});
   // expected output (indices for which condition matches)
   auto exp = MakeArrowArrayUint16({0, 1});
 
