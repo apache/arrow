@@ -110,9 +110,8 @@ const char* gdv_hash_using_sha(int64_t context, const void* message,
     DCHECK(result_buff_index >= 0 && result_buff_index < result_buf_size);
 
     unsigned char hex_number = result[j];
-    char* next_pos_to_write = result_buffer + result_buff_index;
     result_buff_index +=
-        snprintf(next_pos_to_write, sizeof(next_pos_to_write), "%02x", hex_number);
+        snprintf(result_buffer + result_buff_index, result_buf_size, "%02x", hex_number);
   }
 
   // Free the resources used by the EVP to avoid memory leaks
