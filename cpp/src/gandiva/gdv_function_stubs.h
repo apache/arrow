@@ -70,12 +70,12 @@ int gdv_fn_time_with_zone(int* time_fields, const char* zone, int zone_len,
 GANDIVA_EXPORT
 const char* gdv_fn_sha256_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
                                      int32_t x_precision, int32_t x_scale,
-                                     gdv_boolean x_isvalid, int32_t *out_length);
+                                     gdv_boolean x_isvalid, int32_t* out_length);
 
 GANDIVA_EXPORT
 const char* gdv_fn_sha1_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
                                    int32_t x_precision, int32_t x_scale,
-                                   gdv_boolean x_isvalid, int32_t *out_length);
+                                   gdv_boolean x_isvalid, int32_t* out_length);
 
 int32_t gdv_fn_dec_from_string(int64_t context, const char* in, int32_t in_length,
                                int32_t* precision_from_str, int32_t* scale_from_str,

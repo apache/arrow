@@ -18,31 +18,24 @@
 #ifndef ARROW_SRC_HASH_UTILS_H_
 #define ARROW_SRC_HASH_UTILS_H_
 
-#include <cstdlib>
 #include <cstdint>
+#include <cstdlib>
 #include "gandiva/visibility.h"
 #include "openssl/evp.h"
 
 namespace gandiva {
 
-const char* gdv_hash_using_sha256(int64_t context,
-                                  const void* message,
-                                  size_t message_length,
-                                  int32_t *out_length);
+const char* gdv_hash_using_sha256(int64_t context, const void* message,
+                                  size_t message_length, int32_t* out_length);
 
-const char* gdv_hash_using_sha1(int64_t context,
-                                const void* message,
-                                size_t message_length,
-                                int32_t *out_length);
+const char* gdv_hash_using_sha1(int64_t context, const void* message,
+                                size_t message_length, int32_t* out_length);
 
-const char* gdv_hash_using_sha(int64_t context,
-                               const void* message,
-                               size_t message_length,
-                               const EVP_MD *hash_type,
-                               uint32_t result_buf_size,
-                               int32_t *out_length);
+const char* gdv_hash_using_sha(int64_t context, const void* message,
+                               size_t message_length, const EVP_MD* hash_type,
+                               uint32_t result_buf_size, int32_t* out_length);
 
 uint64_t gdv_double_to_long(double value);
 }  // namespace gandiva
 
-#endif //ARROW_SRC_HASH_UTILS_H_
+#endif  // ARROW_SRC_HASH_UTILS_H_
