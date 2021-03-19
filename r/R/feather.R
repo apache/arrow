@@ -178,8 +178,6 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
 #' takes the following arguments:
 #'
 #' - `file` an Arrow file connection object inheriting from `RandomAccessFile`.
-#' - `mmap` Logical: whether to memory-map the file (default `TRUE`)
-#' - `...` Additional arguments, currently ignored
 #'
 #' @section Methods:
 #'
