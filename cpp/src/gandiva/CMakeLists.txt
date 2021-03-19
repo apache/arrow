@@ -228,6 +228,7 @@ add_gandiva_test(internals-test
                  like_holder_test.cc
                  decimal_type_util_test.cc
                  random_generator_holder_test.cc
+                 hash_utils_test.cc
                  gdv_function_stubs_test.cc
                  EXTRA_DEPENDENCIES
                  LLVM::LLVM_INTERFACE
