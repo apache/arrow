@@ -181,6 +181,20 @@ find_array_refs <- function(x) {
   unlist(out)
 }
 
+get_field_name <-  function(x, msg = NULL) {
+  if (!identical(x$fun, "array_ref")) {
+    if (is.null(msg)) {
+      # Default message
+      stop(paste(.format_array_expression(x), "is not a bare field name"), call. = FALSE)
+    } else if (is.function(msg)) {
+      stop(msg(x), call. = FALSE)
+    } else {
+      stop(msg, call. = FALSE)
+    }
+  }
+  x$args$field_name
+}
+
 # Take an array_expression and replace array_refs with arrays/chunkedarrays from data
 bind_array_refs <- function(x, data) {
   if (inherits(x, "array_expression")) {

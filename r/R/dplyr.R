@@ -46,7 +46,12 @@ arrow_dplyr_query <- function(.data) {
       # drop_empty_groups is a logical value indicating whether to drop
       # groups formed by factor levels that don't appear in the data. It
       # should be non-null only when the data is grouped.
-      drop_empty_groups = NULL
+      drop_empty_groups = NULL,
+      # arrange_vars will be a list of expressions
+      arrange_vars = list(),
+      # arrange_desc will be a logical vector indicating the sort order for each
+      # expression in arrange_vars (FALSE for ascending, TRUE for descending)
+      arrange_desc = logical()
     ),
     class = "arrow_dplyr_query"
   )
@@ -79,6 +84,20 @@ print.arrow_dplyr_query <- function(x, ...) {
   }
   if (length(x$group_by_vars)) {
     cat("* Grouped by ", paste(x$group_by_vars, collapse = ", "), "\n", sep = "")
+  }
+  if (length(x$arrange_vars)) {
+    cat(
+      "* Sorted by ",
+      paste(
+        paste0(
+          map_chr(x$arrange_vars, .format_array_expression),
+          " [", ifelse(x$arrange_desc, "desc", "asc"), "]"
+        ),
+        collapse = ", "
+      ),
+      "\n",
+      sep = ""
+    )
   }
   cat("See $.data for the source Arrow object\n")
   invisible(x)
@@ -404,6 +423,25 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
         tab <- RecordBatch$create(!!!cols)
       }
     }
+    # Arrange rows
+    # TODO: support sorting by expressions, not just field names
+    # TODO: support sorting by names and expressions that are valid *before* the
+    # selected_columns code above but are *not* valid after it
+    if (length(x$arrange_vars) > 0) {
+      x$arrange_vars <- vapply(
+        x$arrange_vars,
+        get_field_name,
+        character(1),
+        msg = function(x) {
+          paste(
+          .format_array_expression(x),
+          "is not a field name. Only bare field names are supported in arrange()"
+          )
+        },
+        USE.NAMES = FALSE
+      )
+      tab <- tab[tab$SortIndices(x$arrange_vars, x$arrange_desc), ]
+    }
   }
   if (as_data_frame) {
     df <- as.data.frame(tab)
@@ -689,16 +727,97 @@ abandon_ship <- function(call, .data, msg = NULL) {
   eval.parent(call, 2)
 }
 
-arrange.arrow_dplyr_query <- function(.data, ...) {
+arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
+  # TODO: handle .by_group argument
+  if (!isFALSE(.by_group)) {
+    stop(".by_group argument not supported for Arrow objects", call. = FALSE)
+  }
+
+  call <- match.call()
+  exprs <- quos(...)
+
+  if (length(exprs) == 0) {
+    # Nothing to do
+    return(.data)
+  }
+
   .data <- arrow_dplyr_query(.data)
+
+  # Restrict the cases we support for now
   if (query_on_dataset(.data)) {
     not_implemented_for_dataset("arrange()")
   }
-  # TODO(ARROW-11703) move this to Arrow
-  call <- match.call()
-  abandon_ship(call, .data)
+  is_grouped <- length(dplyr::group_vars(.data)) > 0
+  if (is_grouped) {
+    return(abandon_ship(call, .data, 'arrange() on grouped data not supported in Arrow'))
+  }
+  is_dataset <- query_on_dataset(.data)
+  if (is_dataset) {
+    return(abandon_ship(call, .data))
+  }
+
+  # find and remove any dplyr::desc() and tidy-eval
+  # the arrange expressions inside an Arrow data_mask
+  sorts <- vector("list", length(exprs))
+  descs <- logical(0)
+  mask <- arrow_mask(.data)
+  for (i in seq_along(exprs)) {
+    x <- find_and_remove_desc(exprs[[i]])
+    exprs[[i]] <- x[["quos"]]
+    sorts[[i]] <- arrow_eval(exprs[[i]], mask)
+    descs[i] <- x[["desc"]]
+  }
+  bad_sorts <- map_lgl(sorts, ~inherits(., "try-error"))
+  if (any(bad_sorts)) {
+    bads <- oxford_paste(map_chr(exprs, as_label)[bad_sorts], quote = FALSE)
+    stop(
+      "Invalid or unsupported arrange ",
+      ngettext(length(bads), "expression: ", "expressions: "),
+      bads,
+      call. = FALSE
+    )
+  }
+  .data$arrange_vars <- c(sorts, .data$arrange_vars)
+  .data$arrange_desc <- c(descs, .data$arrange_desc)
+  .data
 }
 arrange.Dataset <- arrange.ArrowTabular <- arrange.arrow_dplyr_query
+
+# Helper to handle desc() in arrange()
+# * Takes a quosure as input
+# * Returns a list with two elements:
+#   1. The quosure with any wrapping parentheses and desc() removed
+#   2. A logical value indicating whether desc() was found
+# * Performs some other validation
+find_and_remove_desc <- function(quosure) {
+  expr <- quo_get_expr(quosure)
+  descending <- FALSE
+  if (length(all.vars(expr)) < 1L) {
+    stop(
+      "Expression in arrange() does not contain any field names: ",
+      deparse(expr),
+      call. = FALSE
+    )
+  }
+  while (identical(typeof(expr), "language") && is.call(expr)) {
+    if (identical(expr[[1]], quote(`(`))) {
+      # remove enclosing parentheses
+      expr <- expr[[2]]
+    } else if (identical(expr[[1]], quote(desc))) {
+      # remove desc() and toggle descending
+      expr <- expr[[2]]
+      descending <- !descending
+    } else {
+      break
+    }
+  }
+  return(
+    list(
+      quos = quo_set_expr(quosure, expr),
+      desc = descending
+    )
+  )
+}
 
 query_on_dataset <- function(x) inherits(x$.data, "Dataset")
 
