@@ -224,28 +224,28 @@ SHA_VAR_LEN_PARAMS(SHA1_HASH_FUNCTION_BUF)
 // Add functions for decimal128
 GANDIVA_EXPORT
 const char* gdv_fn_sha256_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
-                                     int32_t x_precision, int32_t x_scale,
+                                     int32_t /*x_precision*/, int32_t /*x_scale*/,
                                      gdv_boolean x_isvalid, int32_t *out_length) {
   if (!x_isvalid) {
       return gandiva::HashUtils::HashUsingSha256(context, NULLPTR,
                                                  0, out_length);
   }
 
-  const auto &decimal_128 = gandiva::BasicDecimal128(x_high, x_low);
+  const gandiva::BasicDecimal128 decimal_128(x_high, x_low);
   return gandiva::HashUtils::HashUsingSha256(context, decimal_128.ToBytes().data(),
                                              16, out_length);
 }
 
 GANDIVA_EXPORT
 const char* gdv_fn_sha1_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
-                                   int32_t x_precision, int32_t x_scale,
+                                   int32_t /*x_precision*/, int32_t /*x_scale*/,
                                    gdv_boolean x_isvalid, int32_t *out_length) {
   if (!x_isvalid) {
     return gandiva::HashUtils::HashUsingSha1(context, NULLPTR,
                                              0, out_length);
   }
 
-  const auto &decimal_128 = gandiva::BasicDecimal128(x_high, x_low);
+  const gandiva::BasicDecimal128 decimal_128(x_high, x_low);
   return gandiva::HashUtils::HashUsingSha1(context, decimal_128.ToBytes().data(),
                                            16, out_length);
 }

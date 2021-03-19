@@ -58,8 +58,8 @@ namespace gandiva {
 
     if (EVP_DigestInit_ex(md_ctx, hash_type, nullptr) != evp_success_status ||
         EVP_DigestUpdate(md_ctx, message, message_length) != evp_success_status) {
-      HashUtils::ErrorMessage(context, "Could not obtain the hash "
-                                       "for the defined value.");
+      gdv_fn_context_set_error_msg(context,
+                                   "Could not obtain the hash for the defined value.");
       EVP_MD_CTX_free(md_ctx);
 
       *out_length = 0;
