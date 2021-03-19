@@ -424,12 +424,10 @@ impl FixedSizeBinaryArray {
                 }
                 bit_util::set_bit(null_buf.as_slice_mut(), len);
                 buffer.extend_from_slice(slice);
+            } else if let Some(size) = size {
+                buffer.extend_zeros(size);
             } else {
-                if let Some(size) = size {
-                    buffer.extend_zeros(size);
-                } else {
-                    prepend += 1;
-                }
+                prepend += 1;
             }
 
             len += 1;

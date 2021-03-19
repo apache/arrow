@@ -222,12 +222,12 @@ impl<'a> Parser<'a> {
             .next()
             .ok_or_else(|| general_err!("Expected name, found None"))?;
 
-        // Parse logical type if exists
+        // Parse converted type if exists
         let converted_type = if let Some("(") = self.tokenizer.next() {
             let tpe = self
                 .tokenizer
                 .next()
-                .ok_or_else(|| general_err!("Expected logical type, found None"))
+                .ok_or_else(|| general_err!("Expected converted type, found None"))
                 .and_then(|v| v.to_uppercase().parse::<ConvertedType>())?;
             assert_token(self.tokenizer.next(), ")")?;
             tpe
@@ -280,13 +280,13 @@ impl<'a> Parser<'a> {
             .next()
             .ok_or_else(|| general_err!("Expected name, found None"))?;
 
-        // Parse logical type
+        // Parse converted type
         let (converted_type, precision, scale) = if let Some("(") = self.tokenizer.next()
         {
             let tpe = self
                 .tokenizer
                 .next()
-                .ok_or_else(|| general_err!("Expected logical type, found None"))
+                .ok_or_else(|| general_err!("Expected converted type, found None"))
                 .and_then(|v| v.to_uppercase().parse::<ConvertedType>())?;
 
             // Parse precision and scale for decimals
@@ -548,7 +548,7 @@ mod tests {
         assert!(result.is_err());
 
         // Invalid decimal because, we always require either precision or scale to be
-        // specified as part of logical type
+        // specified as part of converted type
         let schema = "
     message root {
       optional int32 f3 (DECIMAL);
