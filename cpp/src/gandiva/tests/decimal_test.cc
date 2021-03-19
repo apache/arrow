@@ -1152,7 +1152,7 @@ TEST_F(TestDecimal, TestSha) {
   auto status =
       Projector::Make(schema, {expr_0, expr_1},
                       TestConfiguration(), &projector);
-  EXPECT_TRUE(status.ok()) << status.message();
+  ASSERT_OK(status) << status.message();
 
   // Create a row-batch with some sample data
   int num_records = 3;
@@ -1169,7 +1169,7 @@ TEST_F(TestDecimal, TestSha) {
   // Evaluate expression
   arrow::ArrayVector outputs;
   status = projector->Evaluate(*in_batch, pool_, &outputs);
-  EXPECT_TRUE(status.ok());
+  ASSERT_OK(status);
 
   auto response = outputs.at(0);
   EXPECT_EQ(response->null_count(), 0);

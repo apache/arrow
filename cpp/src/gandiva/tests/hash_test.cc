@@ -122,7 +122,7 @@ TEST_F(TestHash, TestBuf) {
   std::shared_ptr<Projector> projector;
   auto status =
       Projector::Make(schema, {expr_0, expr_1}, TestConfiguration(), &projector);
-  EXPECT_TRUE(status.ok()) << status.message();
+  ASSERT_OK(status) << status.message();
 
   // Create a row-batch with some sample data
   int num_records = 4;
@@ -135,7 +135,7 @@ TEST_F(TestHash, TestBuf) {
   // Evaluate expression
   arrow::ArrayVector outputs;
   status = projector->Evaluate(*in_batch, pool_, &outputs);
-  EXPECT_TRUE(status.ok());
+  ASSERT_OK(status);
 
   // Validate results
   auto int32_arr = std::dynamic_pointer_cast<arrow::Int32Array>(outputs.at(0));
@@ -194,7 +194,7 @@ TEST_F(TestHash, TestSha256Simple) {
   auto status =
       Projector::Make(schema, {expr_0, expr_1, expr_2, expr_3},
                       TestConfiguration(), &projector);
-  EXPECT_TRUE(status.ok()) << status.message();
+  ASSERT_OK(status) << status.message();
 
   // Create a row-batch with some sample data
   int num_records = 2;
@@ -220,7 +220,7 @@ TEST_F(TestHash, TestSha256Simple) {
   // Evaluate expression
   arrow::ArrayVector outputs;
   status = projector->Evaluate(*in_batch, pool_, &outputs);
-  EXPECT_TRUE(status.ok());
+  ASSERT_OK(status);
 
   auto response_int32 = outputs.at(0);
   auto response_int64 = outputs.at(1);
@@ -283,7 +283,7 @@ TEST_F(TestHash, TestSha256Varlen) {
   // Evaluate expression
   arrow::ArrayVector outputs;
   status = projector->Evaluate(*in_batch, pool_, &outputs);
-  EXPECT_TRUE(status.ok());
+  ASSERT_OK(status);
 
   auto response = outputs.at(0);
   const int sha256_hash_size = 64;
@@ -364,7 +364,7 @@ TEST_F(TestHash, TestSha1Simple) {
     // Evaluate expression
     arrow::ArrayVector outputs;
     status = projector->Evaluate(*in_batch, pool_, &outputs);
-    EXPECT_TRUE(status.ok());
+    ASSERT_OK(status);
 
     auto response_int32 = outputs.at(0);
     auto response_int64 = outputs.at(1);
@@ -408,7 +408,7 @@ TEST_F(TestHash, TestSha1Varlen) {
     std::shared_ptr<Projector> projector;
     auto status =
             Projector::Make(schema, {expr_0}, TestConfiguration(), &projector);
-    EXPECT_TRUE(status.ok()) << status.message();
+    ASSERT_OK(status) << status.message();
 
     // Create a row-batch with some sample data
     int num_records = 3;
@@ -428,7 +428,7 @@ TEST_F(TestHash, TestSha1Varlen) {
     // Evaluate expression
     arrow::ArrayVector outputs;
     status = projector->Evaluate(*in_batch, pool_, &outputs);
-    EXPECT_TRUE(status.ok());
+    ASSERT_OK(status);
 
     auto response = outputs.at(0);
     const int sha1_hash_size = 40;
