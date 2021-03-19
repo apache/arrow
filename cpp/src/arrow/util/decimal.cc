@@ -94,27 +94,31 @@ static constexpr double kDoublePowersOfTen[2 * 38 + 1] = {
     1e17,  1e18,  1e19,  1e20,  1e21,  1e22,  1e23,  1e24,  1e25,  1e26,  1e27,
     1e28,  1e29,  1e30,  1e31,  1e32,  1e33,  1e34,  1e35,  1e36,  1e37,  1e38};
 
+// On the Windows R toolchain, INFINITY is double type instead of float
+static constexpr float kFloatInf = std::numeric_limits<float>::infinity();
 static constexpr float kFloatPowersOfTen76[2 * 76 + 1] = {
-    0,        0,        0,        0,        0,        0,        0,        0,
-    0,        0,        0,        0,        0,        0,        0,        0,
-    0,        0,        0,        0,        0,        0,        0,        0,
-    0,        0,        0,        0,        0,        0,        0,        1e-45f,
-    1e-44f,   1e-43f,   1e-42f,   1e-41f,   1e-40f,   1e-39f,   1e-38f,   1e-37f,
-    1e-36f,   1e-35f,   1e-34f,   1e-33f,   1e-32f,   1e-31f,   1e-30f,   1e-29f,
-    1e-28f,   1e-27f,   1e-26f,   1e-25f,   1e-24f,   1e-23f,   1e-22f,   1e-21f,
-    1e-20f,   1e-19f,   1e-18f,   1e-17f,   1e-16f,   1e-15f,   1e-14f,   1e-13f,
-    1e-12f,   1e-11f,   1e-10f,   1e-9f,    1e-8f,    1e-7f,    1e-6f,    1e-5f,
-    1e-4f,    1e-3f,    1e-2f,    1e-1f,    1e0f,     1e1f,     1e2f,     1e3f,
-    1e4f,     1e5f,     1e6f,     1e7f,     1e8f,     1e9f,     1e10f,    1e11f,
-    1e12f,    1e13f,    1e14f,    1e15f,    1e16f,    1e17f,    1e18f,    1e19f,
-    1e20f,    1e21f,    1e22f,    1e23f,    1e24f,    1e25f,    1e26f,    1e27f,
-    1e28f,    1e29f,    1e30f,    1e31f,    1e32f,    1e33f,    1e34f,    1e35f,
-    1e36f,    1e37f,    1e38f,    INFINITY, INFINITY, INFINITY, INFINITY, INFINITY,
-    INFINITY, INFINITY, INFINITY, INFINITY, INFINITY, INFINITY, INFINITY, INFINITY,
-    INFINITY, INFINITY, INFINITY, INFINITY, INFINITY, INFINITY, INFINITY, INFINITY,
-    INFINITY, INFINITY, INFINITY, INFINITY, INFINITY, INFINITY, INFINITY, INFINITY,
-    INFINITY, INFINITY, INFINITY, INFINITY, INFINITY, INFINITY, INFINITY, INFINITY,
-    INFINITY};
+    0,         0,         0,         0,         0,         0,         0,
+    0,         0,         0,         0,         0,         0,         0,
+    0,         0,         0,         0,         0,         0,         0,
+    0,         0,         0,         0,         0,         0,         0,
+    0,         0,         0,         1e-45f,    1e-44f,    1e-43f,    1e-42f,
+    1e-41f,    1e-40f,    1e-39f,    1e-38f,    1e-37f,    1e-36f,    1e-35f,
+    1e-34f,    1e-33f,    1e-32f,    1e-31f,    1e-30f,    1e-29f,    1e-28f,
+    1e-27f,    1e-26f,    1e-25f,    1e-24f,    1e-23f,    1e-22f,    1e-21f,
+    1e-20f,    1e-19f,    1e-18f,    1e-17f,    1e-16f,    1e-15f,    1e-14f,
+    1e-13f,    1e-12f,    1e-11f,    1e-10f,    1e-9f,     1e-8f,     1e-7f,
+    1e-6f,     1e-5f,     1e-4f,     1e-3f,     1e-2f,     1e-1f,     1e0f,
+    1e1f,      1e2f,      1e3f,      1e4f,      1e5f,      1e6f,      1e7f,
+    1e8f,      1e9f,      1e10f,     1e11f,     1e12f,     1e13f,     1e14f,
+    1e15f,     1e16f,     1e17f,     1e18f,     1e19f,     1e20f,     1e21f,
+    1e22f,     1e23f,     1e24f,     1e25f,     1e26f,     1e27f,     1e28f,
+    1e29f,     1e30f,     1e31f,     1e32f,     1e33f,     1e34f,     1e35f,
+    1e36f,     1e37f,     1e38f,     kFloatInf, kFloatInf, kFloatInf, kFloatInf,
+    kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf,
+    kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf,
+    kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf,
+    kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf,
+    kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf, kFloatInf};
 
 static constexpr double kDoublePowersOfTen76[2 * 76 + 1] = {
     1e-76, 1e-75, 1e-74, 1e-73, 1e-72, 1e-71, 1e-70, 1e-69, 1e-68, 1e-67, 1e-66, 1e-65,
