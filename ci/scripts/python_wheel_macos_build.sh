@@ -19,33 +19,36 @@
 
 set -ex
 
-function check_arrow_visibility {
-    nm --demangle --dynamic /tmp/arrow-dist/lib/libarrow.so > nm_arrow.log
+source_dir=${1}
+build_dir=${2}
 
-    # Filter out Arrow symbols and see if anything remains.
-    # '_init' and '_fini' symbols may or not be present, we don't care.
-    # (note we must ignore the grep exit status when no match is found)
-    grep ' T ' nm_arrow.log | grep -v -E '(arrow|\b_init\b|\b_fini\b)' | cat - > visible_symbols.log
+# function check_arrow_visibility {
+#     nm --demangle --dynamic /tmp/arrow-dist/lib/libarrow.so > nm_arrow.log
 
-    if [[ -f visible_symbols.log && `cat visible_symbols.log | wc -l` -eq 0 ]]; then
-        return 0
-    else
-        echo "== Unexpected symbols exported by libarrow.so =="
-        cat visible_symbols.log
-        echo "================================================"
+#     # Filter out Arrow symbols and see if anything remains.
+#     # '_init' and '_fini' symbols may or not be present, we don't care.
+#     # (note we must ignore the grep exit status when no match is found)
+#     grep ' T ' nm_arrow.log | grep -v -E '(arrow|\b_init\b|\b_fini\b)' | cat - > visible_symbols.log
 
-        exit 1
-    fi
-}
+#     if [[ -f visible_symbols.log && `cat visible_symbols.log | wc -l` -eq 0 ]]; then
+#         return 0
+#     else
+#         echo "== Unexpected symbols exported by libarrow.so =="
+#         cat visible_symbols.log
+#         echo "================================================"
+
+#         exit 1
+#     fi
+# }
 
 echo "=== (${PYTHON_VERSION}) Clear output directories and leftovers ==="
 # Clear output directories and leftovers
 rm -rf /tmp/arrow-build
-rm -rf /arrow/python/dist
-rm -rf /arrow/python/build
-rm -rf /arrow/python/repaired_wheels
-rm -rf /arrow/python/pyarrow/*.so
-rm -rf /arrow/python/pyarrow/*.so.*
+rm -rf ${source_dir}/python/dist
+rm -rf ${source_dir}/python/build
+rm -rf ${source_dir}/python/repaired_wheels
+rm -rf ${source_dir}/python/pyarrow/*.so
+rm -rf ${source_dir}/python/pyarrow/*.so.*
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_DATASET:=ON}
@@ -68,9 +71,10 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${CMAKE_BUILD_TYPE:=release}
 : ${CMAKE_GENERATOR:=Ninja}
 : ${VCPKG_FEATURE_FLAGS:=-manifests}
+: ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-osx-static-${CMAKE_BUILD_TYPE}}}
 
-mkdir /tmp/arrow-build
-pushd /tmp/arrow-build
+mkdir -p ${build_dir}/build
+pushd ${build_dir}/build
 cmake \
     -DARROW_BROTLI_USE_SHARED=OFF \
     -DARROW_BUILD_SHARED=ON \
@@ -102,18 +106,18 @@ cmake \
     -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD} \
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
     -DCMAKE_INSTALL_LIBDIR=lib \
-    -DCMAKE_INSTALL_PREFIX=/tmp/arrow-dist \
+    -DCMAKE_INSTALL_PREFIX=${build_dir}/install \
     -DCMAKE_UNITY_BUILD=ON \
     -DOPENSSL_USE_STATIC_LIBS=ON \
     -DVCPKG_MANIFEST_MODE=OFF \
-    -DVCPKG_TARGET_TRIPLET=x64-linux-static-${CMAKE_BUILD_TYPE} \
+    -DVCPKG_TARGET_TRIPLET=${VCPKG_TARGET_TRIPLET} \
     -G ${CMAKE_GENERATOR} \
-    /arrow/cpp
+    ${source_dir}/cpp
 cmake --build . --target install
 popd
 
 # Check that we don't expose any unwanted symbols
-check_arrow_visibility
+# check_arrow_visibility
 
 echo "=== (${PYTHON_VERSION}) Building wheel ==="
 export PYARROW_BUILD_TYPE=${CMAKE_BUILD_TYPE}
@@ -129,14 +133,14 @@ export PYARROW_WITH_PARQUET=${ARROW_PARQUET}
 export PYARROW_WITH_PLASMA=${ARROW_PLASMA}
 export PYARROW_WITH_S3=${ARROW_S3}
 # PyArrow build configuration
-export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/tmp/arrow-dist/lib/pkgconfig
+export PKG_CONFIG_PATH=/usr/lib/pkgconfig:${build_dir}/install/lib/pkgconfig
 
-pushd /arrow/python
+pushd ${source_dir}/python
 python setup.py bdist_wheel
 
-echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux${MANYLINUX_VERSION} ==="
-auditwheel repair \
-    --plat "manylinux${MANYLINUX_VERSION}_x86_64" \
-    -L . dist/pyarrow-*.whl \
-    -w repaired_wheels
+# echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux${MANYLINUX_VERSION} ==="
+# auditwheel repair \
+#     --plat "manylinux${MANYLINUX_VERSION}_x86_64" \
+#     -L . dist/pyarrow-*.whl \
+#     -w repaired_wheels
 popd
