@@ -253,17 +253,22 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CFileFormat):
         pass
 
-    cdef cppclass CCsvFileFormat "arrow::dataset::CsvFileFormat"(
-            CFileFormat):
+    cdef cppclass CCsvFragmentScanOptions \
+            "arrow::dataset::CsvFragmentScanOptions"(CFragmentScanOptions):
+        CCSVConvertOptions convert_options
+        int32_t block_size
+
+    cdef cppclass CCsvFileFormatReaderOptions \
+            "arrow::dataset::ParquetFileFormat::ReaderOptions"(
+                CCsvFragmentScanOptions):
         CCSVParseOptions parse_options
         int32_t skip_rows
         vector[c_string] column_names
         c_bool autogenerate_column_names
 
-    cdef cppclass CCsvFragmentScanOptions \
-            "arrow::dataset::CsvFragmentScanOptions"(CFragmentScanOptions):
-        CCSVConvertOptions convert_options
-        int32_t block_size
+    cdef cppclass CCsvFileFormat "arrow::dataset::CsvFileFormat"(
+            CFileFormat):
+        CCsvFileFormatReaderOptions reader_options
 
     cdef cppclass CPartitioning "arrow::dataset::Partitioning":
         c_string type_name() const

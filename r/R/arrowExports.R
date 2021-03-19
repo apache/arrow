@@ -428,8 +428,8 @@ dataset___IpcFileFormat__Make <- function(){
     .Call(`_arrow_dataset___IpcFileFormat__Make`)
 }
 
-dataset___CsvFileFormat__Make <- function(parse_options, skip_rows, column_names, autogenerate_column_names){
-    .Call(`_arrow_dataset___CsvFileFormat__Make`, parse_options, skip_rows, column_names, autogenerate_column_names)
+dataset___CsvFileFormat__Make <- function(parse_options, skip_rows, column_names, autogenerate_column_names, convert_options, block_size){
+    .Call(`_arrow_dataset___CsvFileFormat__Make`, parse_options, skip_rows, column_names, autogenerate_column_names, convert_options, block_size)
 }
 
 dataset___FragmentScanOptions__type_name <- function(fragment_scan_options){

@@ -316,6 +316,22 @@ test_that("CSV scan options", {
 
   tab <- sb$Finish()$ToTable()
   expect_equivalent(as.data.frame(tab), tibble(chr = c("foo", NA)))
+
+  # Set default convert options in CsvFileFormat
+  csv_format <- CsvFileFormat$create(null_values = c("mynull"),
+                                     strings_can_be_null = TRUE)
+  ds <- open_dataset(dst_dir, format = csv_format)
+  expect_equivalent(ds %>% collect(), tibble(chr = c("foo", NA)))
+
+  # Set both parse and convert options
+  df <- tibble(chr = c("foo", "mynull"), chr2 = c("bar", "baz"))
+  write.table(df, dst_file, row.names = FALSE, quote = FALSE, sep = "\t")
+  ds <- open_dataset(dst_dir, format = "csv",
+                     delimiter="\t",
+                     null_values = c("mynull"),
+                     strings_can_be_null = TRUE)
+  expect_equivalent(ds %>% collect(), tibble(chr = c("foo", NA),
+                                             chr2 = c("bar", "baz")))
 })
 
 test_that("compressed CSV dataset", {

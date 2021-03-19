@@ -1105,18 +1105,20 @@ extern "C" SEXP _arrow_dataset___IpcFileFormat__Make(){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::CsvFileFormat> dataset___CsvFileFormat__Make(const std::shared_ptr<arrow::csv::ParseOptions>& parse_options, int32_t skip_rows, cpp11::strings column_names, bool autogenerate_column_names);
-extern "C" SEXP _arrow_dataset___CsvFileFormat__Make(SEXP parse_options_sexp, SEXP skip_rows_sexp, SEXP column_names_sexp, SEXP autogenerate_column_names_sexp){
+std::shared_ptr<ds::CsvFileFormat> dataset___CsvFileFormat__Make(const std::shared_ptr<arrow::csv::ParseOptions>& parse_options, int32_t skip_rows, cpp11::strings column_names, bool autogenerate_column_names, const std::shared_ptr<arrow::csv::ConvertOptions>& convert_options, int32_t block_size);
+extern "C" SEXP _arrow_dataset___CsvFileFormat__Make(SEXP parse_options_sexp, SEXP skip_rows_sexp, SEXP column_names_sexp, SEXP autogenerate_column_names_sexp, SEXP convert_options_sexp, SEXP block_size_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::csv::ParseOptions>&>::type parse_options(parse_options_sexp);
 	arrow::r::Input<int32_t>::type skip_rows(skip_rows_sexp);
 	arrow::r::Input<cpp11::strings>::type column_names(column_names_sexp);
 	arrow::r::Input<bool>::type autogenerate_column_names(autogenerate_column_names_sexp);
-	return cpp11::as_sexp(dataset___CsvFileFormat__Make(parse_options, skip_rows, column_names, autogenerate_column_names));
+	arrow::r::Input<const std::shared_ptr<arrow::csv::ConvertOptions>&>::type convert_options(convert_options_sexp);
+	arrow::r::Input<int32_t>::type block_size(block_size_sexp);
+	return cpp11::as_sexp(dataset___CsvFileFormat__Make(parse_options, skip_rows, column_names, autogenerate_column_names, convert_options, block_size));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___CsvFileFormat__Make(SEXP parse_options_sexp, SEXP skip_rows_sexp, SEXP column_names_sexp, SEXP autogenerate_column_names_sexp){
+extern "C" SEXP _arrow_dataset___CsvFileFormat__Make(SEXP parse_options_sexp, SEXP skip_rows_sexp, SEXP column_names_sexp, SEXP autogenerate_column_names_sexp, SEXP convert_options_sexp, SEXP block_size_sexp){
 	Rf_error("Cannot call dataset___CsvFileFormat__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -4273,7 +4275,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___IpcFileWriteOptions__update2", (DL_FUNC) &_arrow_dataset___IpcFileWriteOptions__update2, 4}, 
 		{ "_arrow_dataset___IpcFileWriteOptions__update1", (DL_FUNC) &_arrow_dataset___IpcFileWriteOptions__update1, 3}, 
 		{ "_arrow_dataset___IpcFileFormat__Make", (DL_FUNC) &_arrow_dataset___IpcFileFormat__Make, 0}, 
-		{ "_arrow_dataset___CsvFileFormat__Make", (DL_FUNC) &_arrow_dataset___CsvFileFormat__Make, 4}, 
+		{ "_arrow_dataset___CsvFileFormat__Make", (DL_FUNC) &_arrow_dataset___CsvFileFormat__Make, 6}, 
 		{ "_arrow_dataset___FragmentScanOptions__type_name", (DL_FUNC) &_arrow_dataset___FragmentScanOptions__type_name, 1}, 
 		{ "_arrow_dataset___CsvFragmentScanOptions__Make", (DL_FUNC) &_arrow_dataset___CsvFragmentScanOptions__Make, 2}, 
 		{ "_arrow_dataset___DirectoryPartitioning", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning, 1}, 

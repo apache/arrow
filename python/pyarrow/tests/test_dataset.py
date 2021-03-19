@@ -527,6 +527,7 @@ def test_file_format_pickling():
         ds.CsvFileFormat(pa.csv.ParseOptions(delimiter='\t',
                                              ignore_empty_lines=True)),
         ds.CsvFileFormat(skip_rows=3, column_names=['foo']),
+        ds.CsvFileFormat(skip_rows=3, block_size=2**20),
         ds.ParquetFileFormat(),
         ds.ParquetFileFormat(
             read_options=ds.ParquetReadOptions(use_buffered_stream=True)
@@ -2284,6 +2285,16 @@ def test_csv_fragment_options(tempdir):
         convert_options=convert_options, block_size=2**16)
     result = dataset.to_table(fragment_scan_options=options)
     assert result.equals(pa.table({'col0': pa.array(['foo', 'spam', None])}))
+
+    csv_format = ds.CsvFileFormat(convert_options=convert_options)
+    dataset = ds.dataset(path, format=csv_format)
+    result = dataset.to_table()
+    assert result.equals(pa.table({'col0': pa.array(['foo', 'spam', None])}))
+
+    options = ds.CsvFragmentScanOptions()
+    result = dataset.to_table(fragment_scan_options=options)
+    assert result.equals(
+        pa.table({'col0': pa.array(['foo', 'spam', 'MYNULL'])}))
 
 
 def test_feather_format(tempdir):

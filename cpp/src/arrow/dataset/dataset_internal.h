@@ -187,7 +187,7 @@ inline bool operator==(const SubtreeImpl::Encoded& l, const SubtreeImpl::Encoded
 
 template <typename T>
 arrow::Result<std::shared_ptr<T>> DowncastFragmentScanOptions(
-    const std::shared_ptr<ScanOptions>& scan_options, const std::string& type_name) {
+    ScanOptions* scan_options, const std::string& type_name) {
   if (!scan_options) return nullptr;
   if (!scan_options->fragment_scan_options) return nullptr;
   const auto actual_type_name = scan_options->fragment_scan_options->type_name();

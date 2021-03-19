@@ -320,6 +320,12 @@ cdef class ParseOptions(_Weakrefable):
          self.escape_char, self.newlines_in_values,
          self.ignore_empty_lines) = state
 
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return False
+
 
 cdef class _ISO8601(_Weakrefable):
     """
@@ -635,6 +641,12 @@ cdef class ConvertOptions(_Weakrefable):
          self.strings_can_be_null, self.auto_dict_encode,
          self.auto_dict_max_cardinality, self.include_columns,
          self.include_missing_columns) = state
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return False
 
 
 cdef _get_reader(input_file, ReadOptions read_options,

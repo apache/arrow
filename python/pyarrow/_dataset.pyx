@@ -1393,7 +1393,9 @@ cdef class CsvFileFormat(FileFormat):
 
     def __init__(self, ParseOptions parse_options=None,
                  skip_rows=None, column_names=None,
-                 autogenerate_column_names=None):
+                 autogenerate_column_names=None,
+                 ConvertOptions convert_options=None,
+                 block_size=None):
         self.init(shared_ptr[CFileFormat](new CCsvFileFormat()))
         if parse_options is not None:
             self.parse_options = parse_options
@@ -1403,6 +1405,10 @@ cdef class CsvFileFormat(FileFormat):
             self.column_names = column_names
         if autogenerate_column_names is not None:
             self.autogenerate_column_names = autogenerate_column_names
+        if convert_options is not None:
+            self.convert_options = convert_options
+        if block_size is not None:
+            self.block_size = block_size
 
     cdef void init(self, const shared_ptr[CFileFormat]& sp):
         FileFormat.init(self, sp)
@@ -1413,47 +1419,78 @@ cdef class CsvFileFormat(FileFormat):
 
     @property
     def parse_options(self):
-        return ParseOptions.wrap(self.csv_format.parse_options)
+        return ParseOptions.wrap(self.csv_format.reader_options.parse_options)
 
     @parse_options.setter
     def parse_options(self, ParseOptions parse_options not None):
-        self.csv_format.parse_options = parse_options.options
+        self.csv_format.reader_options.parse_options = parse_options.options
 
     @property
     def skip_rows(self):
-        return self.csv_format.skip_rows
+        return self.csv_format.reader_options.skip_rows
 
     @skip_rows.setter
     def skip_rows(self, int skip_rows):
-        self.csv_format.skip_rows = skip_rows
+        self.csv_format.reader_options.skip_rows = skip_rows
 
     @property
     def column_names(self):
-        return [frombytes(b) for b in self.csv_format.column_names]
+        return [frombytes(b)
+                for b in self.csv_format.reader_options.column_names]
 
     @column_names.setter
     def column_names(self, list column_names):
-        self.csv_format.column_names = [tobytes(s) for s in column_names]
+        self.csv_format.reader_options.column_names = [
+            tobytes(s) for s in column_names]
 
     @property
     def autogenerate_column_names(self):
-        return self.csv_format.autogenerate_column_names
+        return self.csv_format.reader_options.autogenerate_column_names
 
     @autogenerate_column_names.setter
     def autogenerate_column_names(self, bint skip_rows):
-        self.csv_format.autogenerate_column_names = skip_rows
+        self.csv_format.reader_options.autogenerate_column_names = skip_rows
+
+    @property
+    def convert_options(self):
+        return ConvertOptions.wrap(
+            self.csv_format.reader_options.convert_options)
+
+    @convert_options.setter
+    def convert_options(self, ConvertOptions convert_options not None):
+        self.csv_format.reader_options.convert_options = \
+            convert_options.options
+
+    @property
+    def block_size(self):
+        return self.csv_format.reader_options.block_size
+
+    @block_size.setter
+    def block_size(self, int block_size):
+        self.csv_format.reader_options.block_size = block_size
 
     def equals(self, CsvFileFormat other):
         return (self.parse_options.equals(other.parse_options) and
                 self.skip_rows == other.skip_rows and
                 self.column_names == other.column_names and
                 self.autogenerate_column_names ==
-                other.autogenerate_column_names)
+                other.autogenerate_column_names and
+                self.convert_options == other.convert_options and
+                self.block_size == other.block_size)
 
     def __reduce__(self):
         return CsvFileFormat, (self.parse_options, self.skip_rows,
                                self.column_names,
-                               self.autogenerate_column_names)
+                               self.autogenerate_column_names,
+                               self.convert_options, self.block_size)
+
+    def __repr__(self):
+        return (f"<CsvFileFormat parse_options={self.parse_options} "
+                f"skip_rows={self.skip_rows} "
+                f"column_names={self.column_names} "
+                f"autogenerate_column_names={self.autogenerate_column_names} "
+                f"convert_options={self.convert_options} "
+                f"block_size={self.block_size}>")
 
 
 cdef class CsvFragmentScanOptions(FragmentScanOptions):
