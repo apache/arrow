@@ -791,11 +791,19 @@ void CheckDecimalToReal(const std::string& decimal_value, int32_t scale, Real ex
       << "Decimal value: " << decimal_value << " Scale: " << scale;
 }
 
-template <typename Decimal, typename Real>
+template <typename Decimal>
 void CheckDecimalToRealApprox(const std::string& decimal_value, int32_t scale,
-                              Real expected) {
+                              float expected) {
   Decimal dec(decimal_value);
-  ASSERT_DOUBLE_EQ(dec.template ToReal<Real>(scale), expected)
+  ASSERT_FLOAT_EQ(dec.template ToReal<float>(scale), expected)
+      << "Decimal value: " << decimal_value << " Scale: " << scale;
+}
+
+template <typename Decimal>
+void CheckDecimalToRealApprox(const std::string& decimal_value, int32_t scale,
+                              double expected) {
+  Decimal dec(decimal_value);
+  ASSERT_DOUBLE_EQ(dec.template ToReal<double>(scale), expected)
       << "Decimal value: " << decimal_value << " Scale: " << scale;
 }
 
@@ -857,11 +865,11 @@ TEST_F(TestDecimalToRealFloat, LargeValues) {
   // Nevertheless, power-of-ten factors are not all exactly representable
   // in binary floating point.
   for (int32_t scale = -38; scale <= 38; scale++) {
-    CheckDecimalToRealApprox<Decimal, Real>("1", scale, Pow10(-scale));
+    CheckDecimalToRealApprox<Decimal>("1", scale, Pow10(-scale));
   }
   for (int32_t scale = -38; scale <= 36; scale++) {
     const Real factor = static_cast<Real>(123);
-    CheckDecimalToRealApprox<Decimal, Real>("123", scale, factor * Pow10(-scale));
+    CheckDecimalToRealApprox<Decimal>("123", scale, factor * Pow10(-scale));
   }
 }
 
@@ -887,9 +895,9 @@ TEST_F(TestDecimal256ToRealFloat, LargeValues) {
     // MSVC gives pow(10.f, -45.f) == 0 even though 1e-45f is nonzero
     if (scale == 45) continue;
 #endif
-    CheckDecimalToRealApprox<Decimal, Real>("1", scale, Pow10(-scale));
+    CheckDecimalToRealApprox<Decimal>("1", scale, Pow10(-scale));
     const Real factor = static_cast<Real>(123);
-    CheckDecimalToRealApprox<Decimal, Real>("123", scale, factor * Pow10(-scale));
+    CheckDecimalToRealApprox<Decimal>("123", scale, factor * Pow10(-scale));
   }
 }
 
@@ -914,11 +922,11 @@ TEST_F(TestDecimalToRealDouble, LargeValues) {
   // Nevertheless, power-of-ten factors are not all exactly representable
   // in binary floating point.
   for (int32_t scale = -308; scale <= 308; scale++) {
-    CheckDecimalToRealApprox<Decimal, Real>("1", scale, Pow10(-scale));
+    CheckDecimalToRealApprox<Decimal>("1", scale, Pow10(-scale));
   }
   for (int32_t scale = -308; scale <= 306; scale++) {
     const Real factor = static_cast<Real>(123);
-    CheckDecimalToRealApprox<Decimal, Real>("123", scale, factor * Pow10(-scale));
+    CheckDecimalToRealApprox<Decimal>("123", scale, factor * Pow10(-scale));
   }
 }
 
@@ -956,11 +964,11 @@ TEST_F(TestDecimal256ToRealDouble, LargeValues) {
   // Nevertheless, power-of-ten factors are not all exactly representable
   // in binary floating point.
   for (int32_t scale = -308; scale <= 308; scale++) {
-    CheckDecimalToRealApprox<Decimal, Real>("1", scale, Pow10(-scale));
+    CheckDecimalToRealApprox<Decimal>("1", scale, Pow10(-scale));
   }
   for (int32_t scale = -308; scale <= 306; scale++) {
     const Real factor = static_cast<Real>(123);
-    CheckDecimalToRealApprox<Decimal, Real>("123", scale, factor * Pow10(-scale));
+    CheckDecimalToRealApprox<Decimal>("123", scale, factor * Pow10(-scale));
   }
 }
 
