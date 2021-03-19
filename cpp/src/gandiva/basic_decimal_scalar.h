@@ -18,7 +18,9 @@
 #pragma once
 
 #include <cstdint>
+
 #include "arrow/util/basic_decimal.h"
+#include "arrow/util/decimal.h"
 
 namespace gandiva {
 
@@ -44,6 +46,12 @@ class BasicDecimalScalar128 {
 
   const BasicDecimal128& value() const { return value_; }
 
+  inline std::string ToString() const {
+    arrow::Decimal128 dvalue(value());
+    return dvalue.ToString(0) + "," + std::to_string(precision()) + "," +
+           std::to_string(scale());
+  }
+
  private:
   BasicDecimal128 value_;
   int32_t precision_;
@@ -60,4 +68,25 @@ inline BasicDecimalScalar128 operator-(const BasicDecimalScalar128& operand) {
   return BasicDecimalScalar128{-operand.value(), operand.precision(), operand.scale()};
 }
 
+inline std::ostream& operator<<(std::ostream& os, const BasicDecimalScalar128& dec) {
+  os << dec.ToString();
+  return os;
+}
+
 }  // namespace gandiva
+
+namespace std {
+    template<>
+    struct hash<gandiva::BasicDecimalScalar128> {
+        std::size_t operator()(gandiva::BasicDecimalScalar128 const& s) const noexcept {
+            arrow::BasicDecimal128 dvalue(s.value());
+            std::size_t h0 = std::hash<int64_t>{}(dvalue.high_bits());
+            std::size_t h1 = std::hash<uint64_t>{}(dvalue.low_bits());
+
+            std::size_t h2 = std::hash<int32_t>{}(s.precision());
+            std::size_t h3 = std::hash<int32_t>{}(s.scale());
+
+            return (((h0 ^ (h1 << 1) >> 1)^(h2 << 1) >> 1) ^ h3 << 1);
+        }
+    };
+}
