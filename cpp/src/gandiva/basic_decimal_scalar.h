@@ -46,7 +46,7 @@ class BasicDecimalScalar128 {
 
   const BasicDecimal128& value() const { return value_; }
 
-  inline std::string ToString() const {
+  virtual inline std::string ToString() const {
     arrow::Decimal128 dvalue(value());
     return dvalue.ToString(0) + "," + std::to_string(precision()) + "," +
            std::to_string(scale());
