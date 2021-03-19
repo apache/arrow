@@ -26,8 +26,7 @@ namespace gandiva {
                                          const void* message,
                                          size_t message_length,
                                          int32_t *out_length) {
-    // The buffer size is the hash size + null character
-    int sha256_result_length = 64;
+    constexpr int sha256_result_length = 64;
     return HashUtils::GetHash(context, message, message_length, EVP_sha256(),
                               sha256_result_length, out_length);
   }
@@ -35,8 +34,7 @@ namespace gandiva {
                                        const void* message,
                                        size_t message_length,
                                        int32_t *out_length) {
-    // The buffer size is the hash size + null character
-    int sha1_result_length = 40;
+    constexpr int sha1_result_length = 40;
     return HashUtils::GetHash(context, message, message_length, EVP_sha1(),
                               sha1_result_length, out_length);
   }
@@ -50,7 +48,7 @@ namespace gandiva {
     EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
 
     if (md_ctx == nullptr) {
-      HashUtils::ErrorMessage(context, "Could not allocate memory "
+      HashUtils::ErrorMessage(context, "Could not create the context "
                                        "for SHA processing.");
       *out_length = 0;
       return "";
@@ -83,6 +81,17 @@ namespace gandiva {
     unsigned int result_length;
     EVP_DigestFinal_ex(md_ctx, result, &result_length);
 
+    if(result_length != hash_digest_size &&
+       result_buf_size != (2 * hash_digest_size)){
+      HashUtils::ErrorMessage(context, "Could not obtain the hash "
+                                       "for the defined value.");
+      EVP_MD_CTX_free(md_ctx);
+      OPENSSL_free(result);
+
+      *out_length = 0;
+      return "";
+    }
+
     int tmp_buf_len = 4;
 
     auto hex_buffer =
@@ -95,7 +104,7 @@ namespace gandiva {
     CleanCharArray(hex_buffer);
 
     if (hex_buffer == nullptr || result_buffer == nullptr) {
-      gdv_fn_context_set_error_msg(context, "Could not allocate memory "
+      HashUtils::ErrorMessage(context, "Could not allocate memory "
                                        "for the result buffers.");
       // Free the resources used by the EVP
       EVP_MD_CTX_free(md_ctx);
@@ -113,10 +122,9 @@ namespace gandiva {
 
     // Free the resources used by the EVP to avoid memory leaks
     EVP_MD_CTX_free(md_ctx);
-    free(result);
+    OPENSSL_free(result);
 
     *out_length = result_buf_size;
-
     return result_buffer;
   }
 
