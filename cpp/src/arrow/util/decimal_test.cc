@@ -795,7 +795,7 @@ template <typename Decimal, typename Real>
 void CheckDecimalToRealApprox(const std::string& decimal_value, int32_t scale,
                               Real expected) {
   Decimal dec(decimal_value);
-  ASSERT_FLOAT_EQ(dec.template ToReal<Real>(scale), expected)
+  ASSERT_DOUBLE_EQ(dec.template ToReal<Real>(scale), expected)
       << "Decimal value: " << decimal_value << " Scale: " << scale;
 }
 
@@ -883,14 +883,12 @@ TEST_F(TestDecimal256ToRealFloat, LargeValues) {
   // Nevertheless, power-of-ten factors are not all exactly representable
   // in binary floating point.
   for (int32_t scale = -76; scale <= 76; scale++) {
-    CheckDecimalToRealApprox<Decimal, Real>("1", scale, Pow10(-scale));
-  }
-  for (int32_t scale = -76; scale <= 76; scale++) {
-    const Real factor = static_cast<Real>(123);
 #ifdef _WIN32
     // MSVC gives pow(10.f, -45.f) == 0 even though 1e-45f is nonzero
     if (scale == 45) continue;
 #endif
+    CheckDecimalToRealApprox<Decimal, Real>("1", scale, Pow10(-scale));
+    const Real factor = static_cast<Real>(123);
     CheckDecimalToRealApprox<Decimal, Real>("123", scale, factor * Pow10(-scale));
   }
 }
