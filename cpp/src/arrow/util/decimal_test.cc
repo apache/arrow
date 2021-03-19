@@ -887,6 +887,10 @@ TEST_F(TestDecimal256ToRealFloat, LargeValues) {
   }
   for (int32_t scale = -76; scale <= 76; scale++) {
     const Real factor = static_cast<Real>(123);
+#ifdef _WIN32
+    // MSVC gives pow(10.f, -45.f) == 0 even though 1e-45f is nonzero
+    if (scale == 45) continue;
+#endif
     CheckDecimalToRealApprox<Decimal, Real>("123", scale, factor * Pow10(-scale));
   }
 }
