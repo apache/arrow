@@ -95,6 +95,7 @@ public class TestParallelSearcher {
       targetVector.allocateNew(VECTOR_LENGTH);
       keyVector.allocateNew(VECTOR_LENGTH);
 
+      // if we are comparing elements using equality semantics, we do not need a comparator here.
       VectorValueComparator<IntVector> comparator = comparatorType == ComparatorType.EqualityComparator ? null
           : DefaultVectorComparators.createDefaultComparator(targetVector);
 
@@ -124,6 +125,7 @@ public class TestParallelSearcher {
       targetVector.allocateNew(VECTOR_LENGTH);
       keyVector.allocateNew(VECTOR_LENGTH);
 
+      // if we are comparing elements using equality semantics, we do not need a comparator here.
       VectorValueComparator<VarCharVector> comparator = comparatorType == ComparatorType.EqualityComparator ? null
           : DefaultVectorComparators.createDefaultComparator(targetVector);
 

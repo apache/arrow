@@ -76,7 +76,9 @@ public class ParallelSearcher<V extends ValueVector> {
   }
 
   /**
-   * Search for the key in the target vector.
+   * Search for the key in the target vector. The element-wise comparison is based on
+   * {@link RangeEqualsVisitor}, so there are two possible results for each element-wise
+   * comparison: equal and un-equal.
    * @param keyVector the vector containing the search key.
    * @param keyIndex the index of the search key in the key vector.
    * @return the position of a matched value in the target vector,
@@ -130,7 +132,9 @@ public class ParallelSearcher<V extends ValueVector> {
   }
 
   /**
-   * Search for the key in the target vector.
+   * Search for the key in the target vector. The element-wise comparison is based on
+   * {@link VectorValueComparator}, so there are three possible results for each element-wise
+   * comparison: less than, equal to and greater than.
    * @param keyVector the vector containing the search key.
    * @param keyIndex the index of the search key in the key vector.
    * @param comparator the comparator for comparing the key against vector elements.
