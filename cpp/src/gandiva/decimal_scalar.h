@@ -52,11 +52,7 @@ class DecimalScalar128 : public BasicDecimalScalar128 {
     os << dec.ToString();
     return os;
   }
-  friend bool operator==(const gandiva::DecimalScalar128& lhs, const gandiva::DecimalScalar128& rhs) {
-    return lhs.ToString()==rhs.ToString() && lhs.scale()==rhs.scale() && lhs.precision()==rhs.precision();
-  }
 };
-
 } // namespace gandiva
 
 namespace std{
@@ -66,7 +62,9 @@ namespace std{
         std::size_t operator()(gandiva::DecimalScalar128 const& v)
         {
           arrow::Decimal128 dvalue(v.value());
-          return std::hash<int64_t>{}(dvalue.high_bits());
+          std::size_t h0 = std::hash<int64_t>{}(dvalue.high_bits());
+          std::size_t h1 = std::hash<uint64_t>{}(dvalue.low_bits());
+          return h0 ^ (h1 << 1);
         }
     };
 }
