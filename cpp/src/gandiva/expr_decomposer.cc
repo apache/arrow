@@ -22,7 +22,6 @@
 #include <string>
 #include <unordered_set>
 #include <vector>
-#include <cmath>
 
 #include "gandiva/annotator.h"
 #include "gandiva/dex.h"
