@@ -20,6 +20,7 @@
 #include "gandiva/hash_utils.h"
 #include "gandiva/execution_context.h"
 #include "gandiva/gdv_function_stubs.h"
+#include "arrow/util/logging.h"
 
 namespace gandiva {
   const char* HashUtils::HashUsingSha256(int64_t context,
@@ -92,20 +93,12 @@ namespace gandiva {
       return "";
     }
 
-    int tmp_buf_len = 4;
-
-    auto hex_buffer =
-        reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, tmp_buf_len));
-
     auto result_buffer =
         reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, result_buf_size));
 
-    CleanCharArray(result_buffer);
-    CleanCharArray(hex_buffer);
-
-    if (hex_buffer == nullptr || result_buffer == nullptr) {
-      HashUtils::ErrorMessage(context, "Could not allocate memory "
-                                       "for the result buffers.");
+    if (result_buffer == nullptr) {
+      gdv_fn_context_set_error_msg(context,
+                                   "Could not allocate memory for the result buffer");
       // Free the resources used by the EVP
       EVP_MD_CTX_free(md_ctx);
       OPENSSL_free(result);
@@ -114,10 +107,13 @@ namespace gandiva {
       return "";
     }
 
+    unsigned int result_buff_index = 0;
     for (unsigned int j = 0; j < result_length; j++) {
+      DCHECK(result_buff_index >= 0 && result_buff_index < result_buf_size);
+
       unsigned char hex_number = result[j];
-      snprintf(hex_buffer, tmp_buf_len, "%02x", hex_number);
-      strncat(result_buffer, hex_buffer, tmp_buf_len);
+      result_buff_index += snprintf(result_buffer + result_buff_index,
+                                   3, "%02x", hex_number);
     }
 
     // Free the resources used by the EVP to avoid memory leaks
@@ -132,10 +128,6 @@ namespace gandiva {
     uint64_t result;
     memcpy(&result, &value, sizeof(result));
     return result;
-  }
-
-  void HashUtils::CleanCharArray(char *buffer) {
-    buffer[0] = '\0';
   }
 
   void HashUtils::ErrorMessage(int64_t context_ptr, char const *err_msg) {
