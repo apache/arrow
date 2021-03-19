@@ -181,4 +181,14 @@ public class PlasmaClient implements ObjectStoreLink {
   public boolean contains(byte[] objectId) {
     return PlasmaClientJNI.contains(conn, objectId);
   }
+
+  /**
+   * Get metrics in the PlasmaStore.
+   *
+   * @param metrics used to return metrics, array size is 4, elements are: total memory size,
+   *        used memory size, total external size, used external size.
+   */
+  public int metrics(long[] metrics) {
+    return PlasmaClientJNI.metrics(conn, metrics);
+  }
 }
