@@ -415,6 +415,23 @@ impl MutableBuffer {
         buffer
     }
 
+    /// Creates a [`MutableBuffer`] from a boolean [`Iterator`] with a trusted (upper) length.
+    /// # use arrow::buffer::MutableBuffer;
+    /// # Example
+    /// ```
+    /// # use arrow::buffer::MutableBuffer;
+    /// let v = vec![false, true, false];
+    /// let iter = v.iter().map(|x| *x || true);
+    /// let buffer = unsafe { MutableBuffer::from_trusted_len_iter_bool(iter) };
+    /// assert_eq!(buffer.len(), 1) // 3 booleans have 1 byte
+    /// ```
+    /// # Safety
+    /// This method assumes that the iterator's size is correct and is undefined behavior
+    /// to use it on an iterator that reports an incorrect length.
+    // This implementation is required for two reasons:
+    // 1. there is no trait `TrustedLen` in stable rust and therefore
+    //    we can't specialize `extend` for `TrustedLen` like `Vec` does.
+    // 2. `from_trusted_len_iter` is faster.
     pub unsafe fn from_trusted_len_iter_bool<I: Iterator<Item = bool>>(
         iterator: I,
     ) -> Self {
