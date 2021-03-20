@@ -19,11 +19,16 @@
 //! representing collections of named schemas.
 
 use crate::catalog::schema::SchemaProvider;
+use std::any::Any;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 /// Represents a catalog, comprising a number of named schemas.
 pub trait CatalogProvider: Sync + Send {
+    /// Returns the catalog provider as [`Any`](std::any::Any)
+    /// so that it can be downcast to a specific implementation.
+    fn as_any(&self) -> &dyn Any;
+
     /// Retrieves the list of available schema names in this catalog.
     fn schema_names(&self) -> Vec<String>;
 
@@ -57,6 +62,10 @@ impl MemoryCatalogProvider {
 }
 
 impl CatalogProvider for MemoryCatalogProvider {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn schema_names(&self) -> Vec<String> {
         let schemas = self.schemas.read().unwrap();
         schemas.keys().cloned().collect()

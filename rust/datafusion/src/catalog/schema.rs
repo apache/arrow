@@ -20,11 +20,16 @@
 
 use crate::datasource::TableProvider;
 use crate::error::{DataFusionError, Result};
+use std::any::Any;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 /// Represents a schema, comprising a number of named tables.
 pub trait SchemaProvider: Sync + Send {
+    /// Returns the schema provider as [`Any`](std::any::Any)
+    /// so that it can be downcast to a specific implementation.
+    fn as_any(&self) -> &dyn Any;
+
     /// Retrieves the list of available table names in this schema.
     fn table_names(&self) -> Vec<String>;
 
@@ -67,6 +72,10 @@ impl MemorySchemaProvider {
 }
 
 impl SchemaProvider for MemorySchemaProvider {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn table_names(&self) -> Vec<String> {
         let tables = self.tables.read().unwrap();
         tables.keys().cloned().collect()
