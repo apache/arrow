@@ -415,9 +415,7 @@ impl MutableBuffer {
         buffer
     }
 
-    pub unsafe fn from_trusted_len_iter_bool<
-        I: Iterator<Item = bool>,
-    >(
+    pub unsafe fn from_trusted_len_iter_bool<I: Iterator<Item = bool>>(
         iterator: I,
     ) -> Self {
         let mut iterator = iterator.into_iter();
@@ -429,7 +427,7 @@ impl MutableBuffer {
             MutableBuffer::new(byte_capacity)
         };
 
-        'a: loop  {
+        'a: loop {
             let mut byte_accum: u8 = 0;
             let mut mask: u8 = 1;
 
