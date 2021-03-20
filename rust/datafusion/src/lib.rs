@@ -157,6 +157,7 @@
 extern crate arrow;
 extern crate sqlparser;
 
+pub mod catalog;
 pub mod dataframe;
 pub mod datasource;
 pub mod error;

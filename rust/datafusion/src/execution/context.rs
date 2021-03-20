@@ -32,6 +32,10 @@ use tokio::task::{self, JoinHandle};
 
 use arrow::csv;
 
+use crate::catalog::{
+    catalog::{CatalogProvider, MemoryCatalogProvider},
+    schema::{MemorySchemaProvider, SchemaProvider},
+};
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
@@ -111,9 +115,20 @@ impl ExecutionContext {
 
     /// Creates a new execution context using the provided configuration.
     pub fn with_config(config: ExecutionConfig) -> Self {
+        let default_schema = Arc::new(MemorySchemaProvider::new());
+        let mut default_catalog = MemoryCatalogProvider::new();
+        default_catalog.register_schema("public", default_schema.clone());
+
+        let mut catalogs = HashMap::new();
+        catalogs.insert(
+            "datafusion".to_owned(),
+            Arc::new(default_catalog) as Arc<dyn CatalogProvider>,
+        );
+
         Self {
             state: Arc::new(Mutex::new(ExecutionContextState {
-                datasources: HashMap::new(),
+                default_schema: Some(default_schema.clone()),
+                catalogs,
                 scalar_functions: HashMap::new(),
                 var_provider: HashMap::new(),
                 aggregate_functions: HashMap::new(),
@@ -279,6 +294,10 @@ impl ExecutionContext {
         Ok(())
     }
 
+    fn get_default_schema(&self) -> Option<Arc<MemorySchemaProvider>> {
+        self.state.lock().unwrap().default_schema.clone()
+    }
+
     /// Registers a named table using a custom `TableProvider` so that
     /// it can be referenced from SQL statements executed against this
     /// context.
@@ -290,18 +309,18 @@ impl ExecutionContext {
         name: &str,
         provider: Arc<dyn TableProvider>,
     ) -> Option<Arc<dyn TableProvider>> {
-        self.state
-            .lock()
-            .unwrap()
-            .datasources
-            .insert(name.to_string(), provider)
+        self.get_default_schema()
+            .expect("no default schema available for table registration")
+            .register_table(name.to_string(), provider)
     }
 
     /// Deregisters the named table.
     ///
     /// Returns the registered provider, if any
     pub fn deregister_table(&mut self, name: &str) -> Option<Arc<dyn TableProvider>> {
-        self.state.lock().unwrap().datasources.remove(name)
+        self.get_default_schema()
+            .expect("no default schema available for table deregistration")
+            .deregister_table(name)
     }
 
     /// Retrieves a DataFrame representing a table previously registered by calling the
@@ -309,8 +328,12 @@ impl ExecutionContext {
     ///
     /// Returns an error if no table has been registered with the provided name.
     pub fn table(&self, table_name: &str) -> Result<Arc<dyn DataFrame>> {
-        match self.state.lock().unwrap().datasources.get(table_name) {
-            Some(provider) => {
+        let default_schema = self
+            .get_default_schema()
+            .expect("no default schema available for table retrieval");
+
+        match default_schema.table(table_name) {
+            Some(ref provider) => {
                 let schema = provider.schema();
                 let table_scan = LogicalPlan::TableScan {
                     table_name: table_name.to_string(),
@@ -338,11 +361,10 @@ impl ExecutionContext {
     ///
     /// [`table`]: ExecutionContext::table
     pub fn tables(&self) -> HashSet<String> {
-        self.state
-            .lock()
-            .unwrap()
-            .datasources
-            .keys()
+        self.get_default_schema()
+            .expect("no default schema available for table listing")
+            .table_names()
+            .iter()
             .cloned()
             .collect()
     }
@@ -566,8 +588,10 @@ impl ExecutionConfig {
 /// Execution context for registering data sources and executing queries
 #[derive(Clone)]
 pub struct ExecutionContextState {
-    /// Data sources that are registered with the context
-    pub datasources: HashMap<String, Arc<dyn TableProvider>>,
+    ///
+    pub default_schema: Option<Arc<MemorySchemaProvider>>,
+    ///
+    pub catalogs: HashMap<String, Arc<dyn CatalogProvider>>,
     /// Scalar functions that are registered with the context
     pub scalar_functions: HashMap<String, Arc<ScalarUDF>>,
     /// Variable provider that are registered with the context
@@ -580,7 +604,10 @@ pub struct ExecutionContextState {
 
 impl ContextProvider for ExecutionContextState {
     fn get_table_provider(&self, name: &str) -> Option<Arc<dyn TableProvider>> {
-        self.datasources.get(name).map(|ds| Arc::clone(ds))
+        self.default_schema
+            .as_ref()
+            .expect("no default schema available for table retrieval")
+            .table(name)
     }
 
     fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>> {
@@ -870,11 +897,9 @@ mod tests {
         let ctx = create_ctx(&tmp_dir, 1)?;
 
         let schema = ctx
-            .state
-            .lock()
+            .get_default_schema()
             .unwrap()
-            .datasources
-            .get("test")
+            .table("test")
             .unwrap()
             .schema();
         assert_eq!(schema.field_with_name("c1")?.is_nullable(), false);
