@@ -509,14 +509,19 @@ class BaseTestCSVRead:
 
     def test_simple_timestamps(self):
         # Infer a timestamp column
-        rows = b"a,b\n1970,1970-01-01 00:00:00\n1989,1989-07-14 01:00:00\n"
+        rows = (b"a,b,c\n"
+                b"1970,1970-01-01 00:00:00,1970-01-01 00:00:00.123\n"
+                b"1989,1989-07-14 01:00:00,1989-07-14 01:00:00.123456\n")
         table = self.read_bytes(rows)
         schema = pa.schema([('a', pa.int64()),
-                            ('b', pa.timestamp('s'))])
+                            ('b', pa.timestamp('s')),
+                            ('c', pa.timestamp('ns'))])
         assert table.schema == schema
         assert table.to_pydict() == {
             'a': [1970, 1989],
             'b': [datetime(1970, 1, 1), datetime(1989, 7, 14, 1)],
+            'c': [datetime(1970, 1, 1, 0, 0, 0, 123000),
+                  datetime(1989, 7, 14, 1, 0, 0, 123456)],
         }
 
     def test_timestamp_parsers(self):
