@@ -433,9 +433,8 @@ impl MutableBuffer {
     //    we can't specialize `extend` for `TrustedLen` like `Vec` does.
     // 2. `from_trusted_len_iter_bool` is faster.
     pub unsafe fn from_trusted_len_iter_bool<I: Iterator<Item = bool>>(
-        iterator: I,
+        mut iterator: I,
     ) -> Self {
-        let mut iterator = iterator.into_iter();
         let (_, upper) = iterator.size_hint();
         let upper = upper.expect("from_trusted_len_iter requires an upper limit");
 
