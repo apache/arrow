@@ -650,7 +650,7 @@ impl ExecutionConfig {
 /// Execution context for registering data sources and executing queries
 #[derive(Clone)]
 pub struct ExecutionContextState {
-    ///
+    /// Collection of catalogs containing schemas and ultimately tables
     pub catalogs: HashMap<String, Arc<dyn CatalogProvider>>,
     /// Scalar functions that are registered with the context
     pub scalar_functions: HashMap<String, Arc<ScalarUDF>>,
