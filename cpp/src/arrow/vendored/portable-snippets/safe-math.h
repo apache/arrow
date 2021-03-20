@@ -58,7 +58,8 @@
 #  define PSNIP_SAFE__FUNCTION PSNIP_SAFE__COMPILER_ATTRIBUTES static PSNIP_SAFE__INLINE
 #endif
 
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+// !defined(__cplusplus) added for Solaris support
+#if !defined(__cplusplus) && defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
 #  define psnip_safe_bool _Bool
 #else
 #  define psnip_safe_bool int

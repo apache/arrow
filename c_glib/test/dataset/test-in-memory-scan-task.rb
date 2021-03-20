@@ -40,23 +40,16 @@ class TestDatasetInMemoryScanTask < Test::Unit::TestCase
 
     @scan_options = ArrowDataset::ScanOptions.new(@schema)
 
-    @scan_context = ArrowDataset::ScanContext.new
-
     @fragment = ArrowDataset::InMemoryFragment.new(@schema,
                                                    @record_batches)
 
     @scan_task = ArrowDataset::InMemoryScanTask.new(@record_batches,
                                                     @scan_options,
-                                                    @scan_context,
                                                     @fragment)
   end
 
   def test_scan_options
     assert_equal(@scan_options, @scan_task.options)
-  end
-
-  def test_scan_context
-    assert_equal(@scan_context, @scan_task.context)
   end
 
   def test_execute

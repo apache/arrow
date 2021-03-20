@@ -767,6 +767,27 @@ async fn csv_query_cast_literal() -> Result<()> {
 }
 
 #[tokio::test]
+async fn union_all() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    let sql = "SELECT 1 as x UNION ALL SELECT 2 as x";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![vec!["1"], vec!["2"]];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
+async fn csv_union_all() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx)?;
+    let sql =
+        "SELECT c1 FROM aggregate_test_100 UNION ALL SELECT c1 FROM aggregate_test_100";
+    let actual = execute(&mut ctx, sql).await;
+    assert_eq!(actual.len(), 200);
+    Ok(())
+}
+
+#[tokio::test]
 async fn csv_query_limit() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx)?;

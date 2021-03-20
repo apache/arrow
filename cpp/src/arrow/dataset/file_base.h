@@ -103,6 +103,12 @@ class ARROW_DS_EXPORT FileSource {
   /// \brief Get a RandomAccessFile which views this file source
   Result<std::shared_ptr<io::RandomAccessFile>> Open() const;
 
+  /// \brief Get an InputStream which views this file source (and decompresses if needed)
+  /// \param[in] compression If nullopt, guess the compression scheme from the
+  ///     filename, else decompress with the given codec
+  Result<std::shared_ptr<io::InputStream>> OpenCompressed(
+      util::optional<Compression::type> compression = util::nullopt) const;
+
  private:
   static Result<std::shared_ptr<io::RandomAccessFile>> InvalidOpen() {
     return Status::Invalid("Called Open() on an uninitialized FileSource");
@@ -137,7 +143,7 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
   /// \brief Open a FileFragment for scanning.
   /// May populate lazy properties of the FileFragment.
   virtual Result<ScanTaskIterator> ScanFile(
-      std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
+      std::shared_ptr<ScanOptions> options,
       const std::shared_ptr<FileFragment>& file) const = 0;
 
   /// \brief Open a fragment
@@ -161,8 +167,7 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 /// \brief A Fragment that is stored in a file with a known format
 class ARROW_DS_EXPORT FileFragment : public Fragment {
  public:
-  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options,
-                                std::shared_ptr<ScanContext> context) override;
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override;
 
   std::string type_name() const override { return format_->type_name(); }
   std::string ToString() const override { return source_.path(); };

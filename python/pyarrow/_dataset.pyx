@@ -1528,8 +1528,9 @@ cdef class DirectoryPartitioning(Partitioning):
         self.directory_partitioning = <CDirectoryPartitioning*> sp.get()
 
     @staticmethod
-    def discover(field_names, infer_dictionary=False,
-                 max_partition_dictionary_size=0):
+    def discover(field_names=None, infer_dictionary=False,
+                 max_partition_dictionary_size=0,
+                 schema=None):
         """
         Discover a DirectoryPartitioning.
 
@@ -1537,6 +1538,7 @@ cdef class DirectoryPartitioning(Partitioning):
         ----------
         field_names : list of str
             The names to associate with the values from the subdirectory names.
+            If schema is given, will be populated from the schema.
         infer_dictionary : bool, default False
             When inferring a schema for partition fields, yield dictionary
             encoded types instead of plain types. This can be more efficient
@@ -1547,6 +1549,10 @@ cdef class DirectoryPartitioning(Partitioning):
             Synonymous with infer_dictionary for backwards compatibility with
             1.0: setting this to -1 or None is equivalent to passing
             infer_dictionary=True.
+        schema : Schema, default None
+            Use this schema instead of inferring a schema from partition
+            values. Partition values will be validated against this schema
+            before accumulation into the Partitioning's dictionary.
 
         Returns
         -------
@@ -1566,7 +1572,15 @@ cdef class DirectoryPartitioning(Partitioning):
         if infer_dictionary:
             c_options.infer_dictionary = True
 
-        c_field_names = [tobytes(s) for s in field_names]
+        if schema:
+            c_options.schema = pyarrow_unwrap_schema(schema)
+            c_field_names = [tobytes(f.name) for f in schema]
+        elif not field_names:
+            raise ValueError(
+                "Neither field_names nor schema was passed; "
+                "cannot infer field_names")
+        else:
+            c_field_names = [tobytes(s) for s in field_names]
         return PartitioningFactory.wrap(
             CDirectoryPartitioning.MakeFactory(c_field_names, c_options))
 
@@ -1637,7 +1651,8 @@ cdef class HivePartitioning(Partitioning):
     @staticmethod
     def discover(infer_dictionary=False,
                  max_partition_dictionary_size=0,
-                 null_fallback="__HIVE_DEFAULT_PARTITION__"):
+                 null_fallback="__HIVE_DEFAULT_PARTITION__",
+                 schema=None):
         """
         Discover a HivePartitioning.
 
@@ -1657,6 +1672,10 @@ cdef class HivePartitioning(Partitioning):
             When inferring a schema for partition fields this value will be
             replaced by null.  The default is set to __HIVE_DEFAULT_PARTITION__
             for compatibility with Spark
+        schema : Schema, default None
+            Use this schema instead of inferring a schema from partition
+            values. Partition values will be validated against this schema
+            before accumulation into the Partitioning's dictionary.
 
         Returns
         -------
@@ -1676,6 +1695,9 @@ cdef class HivePartitioning(Partitioning):
             c_options.infer_dictionary = True
 
         c_options.null_fallback = tobytes(null_fallback)
+
+        if schema:
+            c_options.schema = pyarrow_unwrap_schema(schema)
 
         return PartitioningFactory.wrap(
             CHivePartitioning.MakeFactory(c_options))
@@ -2163,25 +2185,14 @@ cdef class ScanTask(_Weakrefable):
                     yield pyarrow_wrap_batch(record_batch)
 
 
-cdef shared_ptr[CScanContext] _build_scan_context(bint use_threads=True,
-                                                  MemoryPool memory_pool=None):
-    cdef:
-        shared_ptr[CScanContext] context
-
-    context = make_shared[CScanContext]()
-    context.get().pool = maybe_unbox_memory_pool(memory_pool)
-    if use_threads is not None:
-        context.get().use_threads = use_threads
-
-    return context
-
-
 _DEFAULT_BATCH_SIZE = 2**20
 
 
 cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
                             list columns=None, Expression filter=None,
-                            int batch_size=_DEFAULT_BATCH_SIZE) except *:
+                            int batch_size=_DEFAULT_BATCH_SIZE,
+                            bint use_threads=True,
+                            MemoryPool memory_pool=None) except *:
     cdef:
         CScannerBuilder *builder
     builder = ptr.get()
@@ -2193,6 +2204,9 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
         check_status(builder.Project([tobytes(c) for c in columns]))
 
     check_status(builder.BatchSize(batch_size))
+    check_status(builder.UseThreads(use_threads))
+    if memory_pool:
+        check_status(builder.Pool(maybe_unbox_memory_pool(memory_pool)))
 
 
 cdef class Scanner(_Weakrefable):
@@ -2257,15 +2271,14 @@ cdef class Scanner(_Weakrefable):
                      list columns=None, Expression filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE):
         cdef:
-            shared_ptr[CScanContext] context
+            shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
             shared_ptr[CScannerBuilder] builder
             shared_ptr[CScanner] scanner
 
-        context = _build_scan_context(use_threads=use_threads,
-                                      memory_pool=memory_pool)
-        builder = make_shared[CScannerBuilder](dataset.unwrap(), context)
+        builder = make_shared[CScannerBuilder](dataset.unwrap(), options)
         _populate_builder(builder, columns=columns, filter=filter,
-                          batch_size=batch_size)
+                          batch_size=batch_size, use_threads=use_threads,
+                          memory_pool=memory_pool)
 
         scanner = GetResultValue(builder.get().Finish())
         return Scanner.wrap(scanner)
@@ -2276,19 +2289,17 @@ cdef class Scanner(_Weakrefable):
                       list columns=None, Expression filter=None,
                       int batch_size=_DEFAULT_BATCH_SIZE):
         cdef:
-            shared_ptr[CScanContext] context
+            shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
             shared_ptr[CScannerBuilder] builder
             shared_ptr[CScanner] scanner
-
-        context = _build_scan_context(use_threads=use_threads,
-                                      memory_pool=memory_pool)
 
         schema = schema or fragment.physical_schema
 
         builder = make_shared[CScannerBuilder](pyarrow_unwrap_schema(schema),
-                                               fragment.unwrap(), context)
+                                               fragment.unwrap(), options)
         _populate_builder(builder, columns=columns, filter=filter,
-                          batch_size=batch_size)
+                          batch_size=batch_size, use_threads=use_threads,
+                          memory_pool=memory_pool)
 
         scanner = GetResultValue(builder.get().Finish())
         return Scanner.wrap(scanner)

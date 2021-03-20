@@ -33,7 +33,7 @@ module Arrow
     #   @param type_codes [::Array<Integer>] The IDs that indicates
     #     corresponding fields.
     #
-    #   @example Create a sparse union data type for {2: visible, 9: count}
+    #   @example Create a sparse union data type for `{2: visible, 9: count}`
     #     fields = [
     #       Arrow::Field.new("visible", :boolean),
     #       {
@@ -57,7 +57,7 @@ module Arrow
     #   @option description [::Array<Integer>] :type_codes The IDs
     #     that indicates corresponding fields.
     #
-    #   @example Create a sparse union data type for {2: visible, 9: count}
+    #   @example Create a sparse union data type for `{2: visible, 9: count}`
     #     fields = [
     #       Arrow::Field.new("visible", :boolean),
     #       {

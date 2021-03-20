@@ -308,3 +308,4 @@ pub mod udaf;
 pub mod udf;
 #[cfg(feature = "unicode_expressions")]
 pub mod unicode_expressions;
+pub mod union;

@@ -36,6 +36,7 @@ PKG_LIBS="-larrow"
 # Make some env vars case-insensitive
 ARROW_R_DEV=`echo $ARROW_R_DEV | tr '[:upper:]' '[:lower:]'`
 FORCE_AUTOBREW=`echo $FORCE_AUTOBREW | tr '[:upper:]' '[:lower:]'`
+FORCE_BUNDLED_BUILD=`echo $FORCE_BUNDLED_BUILD | tr '[:upper:]' '[:lower:]'`
 ARROW_USE_PKG_CONFIG=`echo $ARROW_USE_PKG_CONFIG | tr '[:upper:]' '[:lower:]'`
 
 VERSION=`grep '^Version' DESCRIPTION | sed s/Version:\ //`
@@ -60,7 +61,7 @@ if [ -f "tools/apache-arrow.rb" ]; then
   fi
 fi
 
-if [ "$FORCE_AUTOBREW" = "true" ]; then
+if [ "$FORCE_AUTOBREW" = "true" ] || [ "$FORCE_BUNDLED_BUILD" = "true" ]; then
   ARROW_USE_PKG_CONFIG="false"
 fi
 
@@ -96,7 +97,7 @@ else
       echo "**** or retry with ARROW_USE_PKG_CONFIG=false"
     fi
   else
-    if [ "$UNAME" = "Darwin" ]; then
+    if [ "$UNAME" = "Darwin" ] && [ "$FORCE_BUNDLED_BUILD" != "true" ]; then
       if [ "$FORCE_AUTOBREW" != "true" ] && [ "`command -v brew`" ] && [ "`brew ls --versions ${PKG_BREW_NAME}`" != "" ]; then
         echo "*** Using Homebrew ${PKG_BREW_NAME}"
         BREWDIR=`brew --prefix`
@@ -133,22 +134,45 @@ else
       if [ "${LIBARROW_MINIMAL}" = "" ] && [ "${NOT_CRAN}" = "true" ]; then
         LIBARROW_MINIMAL=false; export LIBARROW_MINIMAL
       fi
-      ${R_HOME}/bin/Rscript tools/linuxlibs.R $VERSION
-      PKG_CFLAGS="-I$(pwd)/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
+
+      # find openssl on macos. macOS ships with libressl. openssl is installable
+      # with brew, but it is generally not linked. We can over-ride this and find
+      # openssl but setting OPENSSL_ROOT_DIR (which cmake will pick up later in
+      # the installation process). FWIW, arrow's cmake process uses this
+      # same process to find openssl, but doing it now allows us to catch it in
+      # nixlibs.R and throw a nicer error.
+      if [ "$UNAME" = "Darwin" ] && [ "${OPENSSL_ROOT_DIR}" = "" ]; then
+        brew --prefix openssl >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+          export OPENSSL_ROOT_DIR="$(brew --prefix openssl)"
+        fi
+      fi
+
+      ${R_HOME}/bin/Rscript tools/nixlibs.R $VERSION
+      PKG_CFLAGS="-I`pwd`/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
 
       LIB_DIR="libarrow/arrow-${VERSION}/lib"
       if [ -d "$LIB_DIR" ]; then
         # Enumerate the static libs, put their -l flags in BUNDLED_LIBS,
         # and put their -L location in PKG_DIRS
         #
-        # If tools/linuxlibs.R fails to produce libs, this dir won't exist
+        # If tools/nixlibs.R fails to produce libs, this dir won't exist
         # so don't try (the error message from `ls` would be misleading)
-        # Assume linuxlibs.R has handled and messaged about its failure already
+        # Assume nixlibs.R has handled and messaged about its failure already
         #
         # TODO: what about non-bundled deps?
         BUNDLED_LIBS=`cd $LIB_DIR && ls *.a`
-        BUNDLED_LIBS=`echo $BUNDLED_LIBS | sed -E "s/lib(.*)\.a/-l\1/" | sed -e "s/\\.a lib/ -l/g"`
-        PKG_DIRS="-L$(pwd)/$LIB_DIR"
+        BUNDLED_LIBS=`echo "$BUNDLED_LIBS" | sed -e "s/\\.a lib/ -l/g" | sed -e "s/\\.a$//" | sed -e "s/^lib/-l/" | tr '\n' ' ' | sed -e "s/ $//"`
+        PKG_DIRS="-L`pwd`/$LIB_DIR"
+
+        # When using brew's openssl it is not bundled and it is not on the system
+        # search path  and so we must add the lib path to BUNDLED_LIBS if we are
+        # using it. Note the order is important, this must be after the arrow
+        # lib path + the pkg and bundled libs above so this is why we're
+        # appending to BUNDLED_LIBS and not PKG_DIRS
+        if [ "$OPENSSL_ROOT_DIR" != "" ]; then
+          BUNDLED_LIBS="$BUNDLED_LIBS -L$OPENSSL_ROOT_DIR/lib"
+        fi
       fi
     fi
   fi

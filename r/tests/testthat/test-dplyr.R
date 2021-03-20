@@ -195,21 +195,68 @@ test_that("group_by then rename", {
 })
 
 test_that("group_by with .drop", {
-  expect_identical(
-    Table$create(tbl) %>% 
-      group_by(chr, .drop = TRUE) %>%
-      group_vars(), 
-    "chr"
+  test_groups <- c("starting_a_fight", "consoling_a_child", "petting_a_dog")
+  expect_dplyr_equal(
+    input %>%
+      group_by(!!!syms(test_groups), .drop = TRUE) %>%
+      collect(),
+    example_with_logical_factors
   )
   expect_dplyr_equal(
     input %>%
-      group_by(chr, .drop = TRUE) %>%
+      group_by(!!!syms(test_groups), .drop = FALSE) %>%
       collect(),
-    tbl
+    example_with_logical_factors
   )
-  expect_error(
-    Table$create(tbl) %>% group_by(chr, .drop = FALSE),
-    "not supported"
+  expect_equal(
+    example_with_logical_factors %>%
+      group_by(!!!syms(test_groups), .drop = TRUE) %>%
+      collect() %>%
+      n_groups(),
+    4L
+  )
+  expect_equal(
+    example_with_logical_factors %>%
+      group_by(!!!syms(test_groups), .drop = FALSE) %>%
+      collect() %>%
+      n_groups(),
+    8L
+  )
+  expect_equal(
+    example_with_logical_factors %>%
+      group_by(!!!syms(test_groups), .drop = FALSE) %>%
+      group_by_drop_default(),
+    FALSE
+  )
+  expect_equal(
+    example_with_logical_factors %>%
+      group_by(!!!syms(test_groups), .drop = TRUE) %>%
+      group_by_drop_default(),
+    TRUE
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(.drop = FALSE) %>% # no group by vars
+      group_by_drop_default(),
+    example_with_logical_factors
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by_drop_default(),
+    example_with_logical_factors
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(!!!syms(test_groups)) %>%
+      group_by_drop_default(),
+    example_with_logical_factors
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(!!!syms(test_groups), .drop = FALSE) %>%
+      ungroup() %>%
+      group_by_drop_default(),
+    example_with_logical_factors
   )
 })
 

@@ -860,18 +860,14 @@ class AsyncThreadedTableReader
     ARROW_ASSIGN_OR_RAISE(auto istream_it,
                           io::MakeInputStreamIterator(input_, read_options_.block_size));
 
-    // TODO: use io_executor_ here, see ARROW-11590
-    ARROW_ASSIGN_OR_RAISE(auto background_executor, internal::ThreadPool::Make(1));
-    ARROW_ASSIGN_OR_RAISE(auto bg_it, MakeBackgroundGenerator(std::move(istream_it),
-                                                              background_executor.get()));
-    AsyncGenerator<std::shared_ptr<Buffer>> wrapped_bg_it =
-        [bg_it, background_executor]() { return bg_it(); };
+    ARROW_ASSIGN_OR_RAISE(auto bg_it,
+                          MakeBackgroundGenerator(std::move(istream_it), io_executor_));
 
-    auto transferred_it =
-        MakeTransferredGenerator(std::move(wrapped_bg_it), cpu_executor_);
+    auto transferred_it = MakeTransferredGenerator(bg_it, cpu_executor_);
 
-    int32_t block_queue_size = cpu_executor_->GetCapacity();
-    auto rh_it = MakeReadaheadGenerator(std::move(transferred_it), block_queue_size);
+    int32_t block_queue_size = std::max(2, cpu_executor_->GetCapacity());
+    auto rh_it =
+        MakeSerialReadaheadGenerator(std::move(transferred_it), block_queue_size);
     buffer_generator_ = CSVBufferIterator::MakeAsync(std::move(rh_it));
     return Status::OK();
   }

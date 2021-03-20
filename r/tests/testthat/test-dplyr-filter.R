@@ -24,6 +24,7 @@ tbl$verses <- verses[[1]]
 # c(" a ", "  b  ", "   c   ", ...) increasing padding
 # nchar =   3  5  7  9 11 13 15 17 19 21
 tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2*(1:10)+1, side = "both")
+tbl$some_negative <- tbl$int * (-1)^(1:nrow(tbl))
 
 test_that("filter() on is.na()", {
   expect_dplyr_equal(
@@ -153,6 +154,75 @@ test_that("filter() with %in%", {
       collect(),
     tbl
   )
+})
+
+test_that("Negative scalar values", {
+  expect_dplyr_equal(
+    input %>%
+      filter(some_negative > -2) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      filter(some_negative %in% -1) %>%
+      collect(),
+    tbl
+    )
+  expect_dplyr_equal(
+    input %>%
+      filter(int == -some_negative) %>%
+      collect(),
+    tbl
+  )
+})
+
+
+test_that("filter() with between()", {
+  expect_dplyr_equal(
+    input %>%
+      filter(between(dbl, 1, 2)) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(between(dbl, 0.5, 2)) %>%
+      collect(),
+    tbl
+  )
+
+  expect_identical(
+    tbl %>%
+      record_batch() %>%
+      filter(between(dbl, int, dbl2)) %>%
+      collect(),
+    tbl %>%
+      filter(dbl >= int, dbl <= dbl2)
+    )
+
+  expect_error(
+    tbl %>%
+      record_batch() %>%
+      filter(between(dbl, 1, "2")) %>%
+      collect()
+  )
+
+  expect_error(
+    tbl %>%
+      record_batch() %>%
+      filter(between(dbl, 1, NA)) %>%
+      collect()
+  )
+
+  expect_error(
+    tbl %>%
+      record_batch() %>%
+      filter(between(chr, 1, 2)) %>%
+      collect()
+  )
+
 })
 
 test_that("filter() with string ops", {

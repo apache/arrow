@@ -1313,6 +1313,8 @@ def test_partitioning_function():
     # default DirectoryPartitioning
     part = ds.partitioning(schema)
     assert isinstance(part, ds.DirectoryPartitioning)
+    part = ds.partitioning(schema, dictionaries="infer")
+    assert isinstance(part, ds.PartitioningFactory)
     part = ds.partitioning(field_names=names)
     assert isinstance(part, ds.PartitioningFactory)
     # needs schema or list of names
@@ -1326,6 +1328,8 @@ def test_partitioning_function():
     # Hive partitioning
     part = ds.partitioning(schema, flavor="hive")
     assert isinstance(part, ds.HivePartitioning)
+    part = ds.partitioning(schema, dictionaries="infer", flavor="hive")
+    assert isinstance(part, ds.PartitioningFactory)
     part = ds.partitioning(flavor="hive")
     assert isinstance(part, ds.PartitioningFactory)
     # cannot pass list of names
@@ -1337,6 +1341,52 @@ def test_partitioning_function():
     # unsupported flavor
     with pytest.raises(ValueError):
         ds.partitioning(schema, flavor="unsupported")
+
+
+def test_directory_partitioning_dictionary_key(mockfs):
+    # ARROW-8088 specifying partition key as dictionary type
+    schema = pa.schema([
+        pa.field('group', pa.dictionary(pa.int8(), pa.int32())),
+        pa.field('key', pa.dictionary(pa.int8(), pa.string()))
+    ])
+    part = ds.DirectoryPartitioning.discover(schema=schema)
+
+    dataset = ds.dataset(
+        "subdir", format="parquet", filesystem=mockfs, partitioning=part
+    )
+    table = dataset.to_table()
+
+    assert table.column('group').type.equals(schema.types[0])
+    assert table.column('group').to_pylist() == [1] * 5 + [2] * 5
+    assert table.column('key').type.equals(schema.types[1])
+    assert table.column('key').to_pylist() == ['xxx'] * 5 + ['yyy'] * 5
+
+
+def test_hive_partitioning_dictionary_key(multisourcefs):
+    # ARROW-8088 specifying partition key as dictionary type
+    schema = pa.schema([
+        pa.field('year', pa.dictionary(pa.int8(), pa.int16())),
+        pa.field('month', pa.dictionary(pa.int8(), pa.int16()))
+    ])
+    part = ds.HivePartitioning.discover(schema=schema)
+
+    dataset = ds.dataset(
+        "hive", format="parquet", filesystem=multisourcefs, partitioning=part
+    )
+    table = dataset.to_table()
+
+    year_dictionary = list(range(2006, 2011))
+    month_dictionary = list(range(1, 13))
+    assert table.column('year').type.equals(schema.types[0])
+    for chunk in table.column('year').chunks:
+        actual = chunk.dictionary.to_pylist()
+        actual.sort()
+        assert actual == year_dictionary
+    assert table.column('month').type.equals(schema.types[1])
+    for chunk in table.column('month').chunks:
+        actual = chunk.dictionary.to_pylist()
+        actual.sort()
+        assert actual == month_dictionary
 
 
 def _create_single_file(base_dir, table=None, row_group_size=None):
@@ -2161,6 +2211,33 @@ def test_csv_format(tempdir):
     assert result.equals(table)
 
     dataset = ds.dataset(path, format='csv')
+    result = dataset.to_table()
+    assert result.equals(table)
+
+
+@pytest.mark.pandas
+@pytest.mark.parametrize("compression", [
+    "bz2",
+    "gzip",
+    "lz4",
+    "zstd",
+])
+def test_csv_format_compressed(tempdir, compression):
+    if not pyarrow.Codec.is_available(compression):
+        pytest.skip("{} support is not built".format(compression))
+    table = pa.table({'a': pa.array([1, 2, 3], type="int64"),
+                      'b': pa.array([.1, .2, .3], type="float64")})
+    filesystem = fs.LocalFileSystem()
+    suffix = compression if compression != 'gzip' else 'gz'
+    path = str(tempdir / f'test.csv.{suffix}')
+    with filesystem.open_output_stream(path, compression=compression) as sink:
+        # https://github.com/pandas-dev/pandas/issues/23854
+        # With CI version of Pandas (anything < 1.2), Pandas tries to write
+        # str to the sink
+        csv_str = table.to_pandas().to_csv(index=False)
+        sink.write(csv_str.encode('utf-8'))
+
+    dataset = ds.dataset(path, format=ds.CsvFileFormat())
     result = dataset.to_table()
     assert result.equals(table)
 

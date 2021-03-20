@@ -155,7 +155,10 @@ impl ExecutionContext {
                 ))),
             },
 
-            plan => Ok(Arc::new(DataFrameImpl::new(self.state.clone(), &plan))),
+            plan => Ok(Arc::new(DataFrameImpl::new(
+                self.state.clone(),
+                &self.optimize(&plan)?,
+            ))),
         }
     }
 
@@ -356,7 +359,7 @@ impl ExecutionContext {
         for optimizer in optimizers {
             new_plan = optimizer.optimize(&new_plan)?;
         }
-        debug!("Optimized logical plan:\n {:?}", plan);
+        debug!("Optimized logical plan:\n {:?}", new_plan);
         Ok(new_plan)
     }
 
@@ -1743,6 +1746,23 @@ mod tests {
         for thread in threads {
             thread.join().expect("Failed to join thread")?;
         }
+        Ok(())
+    }
+    #[test]
+    fn ctx_sql_should_optimize_plan() -> Result<()> {
+        let mut ctx = ExecutionContext::new();
+        let plan1 =
+            ctx.create_logical_plan("SELECT * FROM (SELECT 1) WHERE TRUE AND TRUE")?;
+
+        let opt_plan1 = ctx.optimize(&plan1)?;
+
+        let plan2 = ctx.sql("SELECT * FROM (SELECT 1) WHERE TRUE AND TRUE")?;
+
+        assert_eq!(
+            format!("{:?}", opt_plan1),
+            format!("{:?}", plan2.to_logical_plan())
+        );
+
         Ok(())
     }
 

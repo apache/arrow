@@ -47,7 +47,7 @@ class TestScanner : public DatasetFixtureMixin {
 
     EXPECT_OK_AND_ASSIGN(auto dataset, UnionDataset::Make(batch->schema(), children));
 
-    return Scanner{dataset, options_, ctx_};
+    return Scanner{dataset, options_};
   }
 
   void AssertScannerEqualsRepetitionsOf(
@@ -123,7 +123,7 @@ TEST_F(TestScanner, MaterializeMissingColumn) {
   auto batch_with_f64 =
       RecordBatch::Make(schema_, f64->length(), {batch_missing_f64->column(0), f64});
 
-  ScannerBuilder builder{schema_, fragment_missing_f64, ctx_};
+  ScannerBuilder builder{schema_, fragment_missing_f64, options_};
   ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
 
   AssertScannerEqualsRepetitionsOf(*scanner, batch_with_f64);
@@ -140,13 +140,13 @@ TEST_F(TestScanner, ToTable) {
   auto scanner = MakeScanner(batch);
   std::shared_ptr<Table> actual;
 
-  ctx_->use_threads = false;
+  options_->use_threads = false;
   ASSERT_OK_AND_ASSIGN(actual, scanner.ToTable());
   AssertTablesEqual(*expected, *actual);
 
   // There is no guarantee on the ordering when using multiple threads, but
   // since the RecordBatch is always the same it will pass.
-  ctx_->use_threads = true;
+  options_->use_threads = true;
   ASSERT_OK_AND_ASSIGN(actual, scanner.ToTable());
   AssertTablesEqual(*expected, *actual);
 }
@@ -167,13 +167,13 @@ class TestScannerBuilder : public ::testing::Test {
   }
 
  protected:
-  std::shared_ptr<ScanContext> ctx_ = std::make_shared<ScanContext>();
+  std::shared_ptr<ScanOptions> options_ = std::make_shared<ScanOptions>();
   std::shared_ptr<Schema> schema_;
   std::shared_ptr<Dataset> dataset_;
 };
 
 TEST_F(TestScannerBuilder, TestProject) {
-  ScannerBuilder builder(dataset_, ctx_);
+  ScannerBuilder builder(dataset_, options_);
 
   // It is valid to request no columns, e.g. `SELECT 1 FROM t WHERE t.a > 0`.
   // still needs to touch the `a` column.
@@ -200,7 +200,7 @@ TEST_F(TestScannerBuilder, TestProject) {
 }
 
 TEST_F(TestScannerBuilder, TestFilter) {
-  ScannerBuilder builder(dataset_, ctx_);
+  ScannerBuilder builder(dataset_, options_);
 
   ASSERT_OK(builder.Filter(literal(true)));
   ASSERT_OK(builder.Filter(equal(field_ref("i64"), literal<int64_t>(10))));

@@ -78,6 +78,7 @@ tempfile = "3"
 prost = "0.7"
 arrow-flight = { path = "../arrow-flight", version = "4.0.0-SNAPSHOT" }
 tonic = "0.4"
+doc-comment = "0.3"
 
 [[bench]]
 name = "aggregate_query_sql"

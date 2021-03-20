@@ -102,5 +102,43 @@ TEST(Replace, Basics) {
   EXPECT_FALSE(s);
 }
 
+TEST(SplitString, InnerDelimiter) {
+  std::string input = "a:b:c";
+  auto parts = SplitString(input, ':');
+  ASSERT_EQ(parts.size(), 3);
+  EXPECT_EQ(parts[0], "a");
+  EXPECT_EQ(parts[1], "b");
+  EXPECT_EQ(parts[2], "c");
+}
+
+TEST(SplitString, OuterRightDelimiter) {
+  std::string input = "a:b:c:";
+  auto parts = SplitString(input, ':');
+  ASSERT_EQ(parts.size(), 4);
+  EXPECT_EQ(parts[0], "a");
+  EXPECT_EQ(parts[1], "b");
+  EXPECT_EQ(parts[2], "c");
+  EXPECT_EQ(parts[3], "");
+}
+
+TEST(SplitString, OuterLeftAndOuterRightDelimiter) {
+  std::string input = ":a:b:c:";
+  auto parts = SplitString(input, ':');
+  ASSERT_EQ(parts.size(), 5);
+  EXPECT_EQ(parts[0], "");
+  EXPECT_EQ(parts[1], "a");
+  EXPECT_EQ(parts[2], "b");
+  EXPECT_EQ(parts[3], "c");
+  EXPECT_EQ(parts[4], "");
+}
+
+TEST(SplitString, OnlyDemiliter) {
+  std::string input = ":";
+  auto parts = SplitString(input, ':');
+  ASSERT_EQ(parts.size(), 2);
+  EXPECT_EQ(parts[0], "");
+  EXPECT_EQ(parts[1], "");
+}
+
 }  // namespace internal
 }  // namespace arrow

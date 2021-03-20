@@ -26,6 +26,8 @@ import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.compression.CompressionCodec;
+import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.MessageChannelReader;
@@ -50,10 +52,34 @@ public class ArrowStreamReader extends ArrowReader {
    *
    * @param messageReader reader used to get messages from a ReadChannel
    * @param allocator to allocate new buffers
+   * @param compressionFactory the factory to create compression codec.
+   */
+  public ArrowStreamReader(
+      MessageChannelReader messageReader, BufferAllocator allocator, CompressionCodec.Factory compressionFactory) {
+    super(allocator, compressionFactory);
+    this.messageReader = messageReader;
+  }
+
+  /**
+   * Constructs a streaming reader using a MessageChannelReader. Non-blocking.
+   *
+   * @param messageReader reader used to get messages from a ReadChannel
+   * @param allocator to allocate new buffers
    */
   public ArrowStreamReader(MessageChannelReader messageReader, BufferAllocator allocator) {
-    super(allocator);
-    this.messageReader = messageReader;
+    this(messageReader, allocator, NoCompressionCodec.Factory.INSTANCE);
+  }
+
+  /**
+   * Constructs a streaming reader from a ReadableByteChannel input. Non-blocking.
+   *
+   * @param in ReadableByteChannel to read messages from
+   * @param allocator to allocate new buffers
+   * @param compressionFactory the factory to create compression codec.
+   */
+  public ArrowStreamReader(
+      ReadableByteChannel in, BufferAllocator allocator, CompressionCodec.Factory compressionFactory) {
+    this(new MessageChannelReader(new ReadChannel(in), allocator), allocator, compressionFactory);
   }
 
   /**
@@ -64,6 +90,18 @@ public class ArrowStreamReader extends ArrowReader {
    */
   public ArrowStreamReader(ReadableByteChannel in, BufferAllocator allocator) {
     this(new MessageChannelReader(new ReadChannel(in), allocator), allocator);
+  }
+
+  /**
+   * Constructs a streaming reader from a ReadableByteChannel input. Non-blocking.
+   *
+   * @param in InputStream to read messages from
+   * @param allocator to allocate new buffers
+   * @param compressionFactory the factory to create compression codec.
+   */
+  public ArrowStreamReader(
+      InputStream in, BufferAllocator allocator, CompressionCodec.Factory compressionFactory) {
+    this(Channels.newChannel(in), allocator, compressionFactory);
   }
 
   /**

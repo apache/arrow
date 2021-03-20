@@ -28,11 +28,11 @@ public interface CompressionCodec {
   /**
    * Compress a buffer.
    * @param allocator the allocator for allocating memory for compressed buffer.
-   * @param unCompressedBuffer the buffer to compress.
+   * @param uncompressedBuffer the buffer to compress.
    *                           Implementation of this method should take care of releasing this buffer.
-   * @return the compressed buffer.
+   * @return the compressed buffer
    */
-  ArrowBuf compress(BufferAllocator allocator, ArrowBuf unCompressedBuffer);
+  ArrowBuf compress(BufferAllocator allocator, ArrowBuf uncompressedBuffer);
 
   /**
    * Decompress a buffer.
@@ -44,8 +44,19 @@ public interface CompressionCodec {
   ArrowBuf decompress(BufferAllocator allocator, ArrowBuf compressedBuffer);
 
   /**
-   * Gets the name of the codec.
-   * @return the name of the codec.
+   * Gets the type of the codec.
+   * @return the type of the codec.
    */
-  String getCodecName();
+  CompressionUtil.CodecType getCodecType();
+
+  /**
+   * Factory to create compression codec.
+   */
+  interface Factory {
+
+    /**
+     * Creates the codec based on the codec type.
+     */
+    CompressionCodec createCodec(CompressionUtil.CodecType codecType);
+  }
 }

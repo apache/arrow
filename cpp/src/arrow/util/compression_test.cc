@@ -519,6 +519,45 @@ TEST_P(CodecTest, StreamingDecompressorReuse) {
   CheckStreamingRoundtrip(compressor, decompressor, data);
 }
 
+TEST_P(CodecTest, StreamingMultiFlush) {
+  // Regression test for ARROW-11937
+  if (GetCompression() == Compression::SNAPPY) {
+    GTEST_SKIP() << "snappy doesn't support streaming decompression";
+  }
+  if (GetCompression() == Compression::LZ4 ||
+      GetCompression() == Compression::LZ4_HADOOP) {
+    GTEST_SKIP() << "LZ4 raw format doesn't support streaming decompression.";
+  }
+  auto type = GetCompression();
+  ASSERT_OK_AND_ASSIGN(auto codec, Codec::Create(type));
+
+  std::shared_ptr<Compressor> compressor;
+  ASSERT_OK_AND_ASSIGN(compressor, codec->MakeCompressor());
+
+  // Grow the buffer and flush again while requested (up to a bounded number of times)
+  std::vector<uint8_t> compressed(1024);
+  Compressor::FlushResult result;
+  int attempts = 0;
+  int64_t actual_size = 0;
+  int64_t output_len = 0;
+  uint8_t* output = compressed.data();
+  do {
+    compressed.resize(compressed.capacity() * 2);
+    output_len = compressed.size() - actual_size;
+    output = compressed.data() + actual_size;
+    ASSERT_OK_AND_ASSIGN(result, compressor->Flush(output_len, output));
+    actual_size += result.bytes_written;
+    attempts++;
+  } while (attempts < 8 && result.should_retry);
+  // The LZ4 codec actually needs this many attempts to settle
+
+  // Flush again having done nothing - should not require retry
+  output_len = compressed.size() - actual_size;
+  output = compressed.data() + actual_size;
+  ASSERT_OK_AND_ASSIGN(result, compressor->Flush(output_len, output));
+  ASSERT_FALSE(result.should_retry);
+}
+
 #ifdef ARROW_WITH_ZLIB
 INSTANTIATE_TEST_SUITE_P(TestGZip, CodecTest, ::testing::Values(Compression::GZIP));
 #endif
