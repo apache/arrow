@@ -2504,3 +2504,20 @@ async fn inner_join_qualified_names() -> Result<()> {
     }
     Ok(())
 }
+
+#[tokio::test]
+async fn qualified_table_references() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx)?;
+
+    for table_ref in &[
+        "aggregate_test_100",
+        "public.aggregate_test_100",
+        "datafusion.public.aggregate_test_100",
+    ] {
+        let sql = format!("SELECT COUNT(*) FROM {}", table_ref);
+        let results = execute(&mut ctx, &sql).await;
+        assert_eq!(results, vec![vec!["100"]]);
+    }
+    Ok(())
+}
