@@ -19,12 +19,12 @@
 
 use std::{convert::TryFrom, fmt, iter::repeat, sync::Arc};
 
-use arrow::datatypes::{DataType, Field, IntervalUnit, TimeUnit};
 use arrow::array::{
-    Int16Builder, Int32Builder, Int64Builder, Int8Builder, ListBuilder,
+    ArrayRef, Int16Builder, Int32Builder, Int64Builder, Int8Builder, ListBuilder,
     TimestampMicrosecondArray, TimestampMillisecondArray, TimestampNanosecondArray,
-    UInt16Builder, UInt32Builder, UInt64Builder, UInt8Builder, ArrayRef,
+    UInt16Builder, UInt32Builder, UInt64Builder, UInt8Builder,
 };
+use arrow::datatypes::{DataType, Field, IntervalUnit, TimeUnit};
 use arrow::{
     array::*,
     datatypes::{ArrowNativeType, Float32Type, TimestampNanosecondType},
