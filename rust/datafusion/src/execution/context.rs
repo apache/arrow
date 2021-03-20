@@ -239,7 +239,7 @@ impl ExecutionContext {
     /// Creates a DataFrame for reading a custom TableProvider.
     pub fn read_table(
         &mut self,
-        provider: Arc<dyn TableProvider + Send + Sync>,
+        provider: Arc<dyn TableProvider>,
     ) -> Result<Arc<dyn DataFrame>> {
         let schema = provider.schema();
         let table_scan = LogicalPlan::TableScan {
@@ -288,8 +288,8 @@ impl ExecutionContext {
     pub fn register_table(
         &mut self,
         name: &str,
-        provider: Arc<dyn TableProvider + Send + Sync>,
-    ) -> Option<Arc<dyn TableProvider + Send + Sync>> {
+        provider: Arc<dyn TableProvider>,
+    ) -> Option<Arc<dyn TableProvider>> {
         self.state
             .lock()
             .unwrap()
@@ -300,10 +300,7 @@ impl ExecutionContext {
     /// Deregisters the named table.
     ///
     /// Returns the registered provider, if any
-    pub fn deregister_table(
-        &mut self,
-        name: &str,
-    ) -> Option<Arc<dyn TableProvider + Send + Sync>> {
+    pub fn deregister_table(&mut self, name: &str) -> Option<Arc<dyn TableProvider>> {
         self.state.lock().unwrap().datasources.remove(name)
     }
 
@@ -570,7 +567,7 @@ impl ExecutionConfig {
 #[derive(Clone)]
 pub struct ExecutionContextState {
     /// Data sources that are registered with the context
-    pub datasources: HashMap<String, Arc<dyn TableProvider + Send + Sync>>,
+    pub datasources: HashMap<String, Arc<dyn TableProvider>>,
     /// Scalar functions that are registered with the context
     pub scalar_functions: HashMap<String, Arc<ScalarUDF>>,
     /// Variable provider that are registered with the context
@@ -582,10 +579,7 @@ pub struct ExecutionContextState {
 }
 
 impl ContextProvider for ExecutionContextState {
-    fn get_table_provider(
-        &self,
-        name: &str,
-    ) -> Option<Arc<dyn TableProvider + Send + Sync>> {
+    fn get_table_provider(&self, name: &str) -> Option<Arc<dyn TableProvider>> {
         self.datasources.get(name).map(|ds| Arc::clone(ds))
     }
 

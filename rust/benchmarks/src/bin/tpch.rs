@@ -1105,7 +1105,7 @@ fn get_table(
     table: &str,
     table_format: &str,
     max_concurrency: usize,
-) -> Result<Arc<dyn TableProvider + Send + Sync>> {
+) -> Result<Arc<dyn TableProvider>> {
     match table_format {
         // dbgen creates .tbl ('|' delimited) files without header
         "tbl" => {

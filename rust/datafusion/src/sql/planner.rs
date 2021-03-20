@@ -58,10 +58,7 @@ use super::utils::{
 /// functions referenced in SQL statements
 pub trait ContextProvider {
     /// Getter for a datasource
-    fn get_table_provider(
-        &self,
-        name: &str,
-    ) -> Option<Arc<dyn TableProvider + Send + Sync>>;
+    fn get_table_provider(&self, name: &str) -> Option<Arc<dyn TableProvider>>;
     /// Getter for a UDF description
     fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>>;
     /// Getter for a UDAF description
@@ -2493,10 +2490,7 @@ mod tests {
     struct MockContextProvider {}
 
     impl ContextProvider for MockContextProvider {
-        fn get_table_provider(
-            &self,
-            name: &str,
-        ) -> Option<Arc<dyn TableProvider + Send + Sync>> {
+        fn get_table_provider(&self, name: &str) -> Option<Arc<dyn TableProvider>> {
             let schema = match name {
                 "person" => Some(Schema::new(vec![
                     Field::new("id", DataType::UInt32, false),
@@ -2540,7 +2534,7 @@ mod tests {
                 ])),
                 _ => None,
             };
-            schema.map(|s| -> Arc<dyn TableProvider + Send + Sync> {
+            schema.map(|s| -> Arc<dyn TableProvider> {
                 Arc::new(EmptyTable::new(Arc::new(s)))
             })
         }
