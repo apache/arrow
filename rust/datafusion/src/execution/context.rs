@@ -299,6 +299,29 @@ impl ExecutionContext {
         Ok(())
     }
 
+    /// Registers a named catalog using a custom `CatalogProvider` so that
+    /// it can be referenced from SQL statements executed against this
+    /// context.
+    ///
+    /// Returns the `CatalogProvider` previously registered for this
+    /// name, if any
+    pub fn register_catalog(
+        &self,
+        name: impl Into<String>,
+        catalog: Arc<dyn CatalogProvider>,
+    ) -> Option<Arc<dyn CatalogProvider>> {
+        self.state
+            .lock()
+            .unwrap()
+            .catalogs
+            .insert(name.into(), catalog)
+    }
+
+    /// Retrieves a `CatalogProvider` instance by name
+    pub fn catalog(&self, name: &str) -> Option<Arc<dyn CatalogProvider>> {
+        self.state.lock().unwrap().catalogs.get(name).cloned()
+    }
+
     fn get_schema<'a>(
         &'a self,
         table_ref: impl Into<TableReference<'a>>,
@@ -347,24 +370,13 @@ impl ExecutionContext {
         table_ref: impl Into<TableReference<'a>>,
     ) -> Result<Arc<dyn DataFrame>> {
         let table_ref = table_ref.into();
+        let schema = self.get_schema(table_ref)?;
 
-        let (table_name, table) = {
-            let state = self.state.lock().unwrap();
-            let resolved_ref = state.resolve_table_ref(table_ref);
-            let table = state
-                .schema_for_ref(resolved_ref)
-                .and_then(|s| s.table(resolved_ref.table));
-
-            // intentionally returning only the table name for now
-            // TODO:
-            (resolved_ref.table.to_string(), table)
-        };
-
-        match table {
+        match schema.table(table_ref.table()) {
             Some(ref provider) => {
                 let schema = provider.schema();
                 let table_scan = LogicalPlan::TableScan {
-                    table_name: table_name,
+                    table_name: table_ref.table().to_owned(),
                     source: Arc::clone(provider),
                     projected_schema: schema.to_dfschema_ref()?,
                     projection: None,
@@ -378,7 +390,7 @@ impl ExecutionContext {
             }
             _ => Err(DataFusionError::Plan(format!(
                 "No table named '{}'",
-                table_name
+                table_ref.table()
             ))),
         }
     }
