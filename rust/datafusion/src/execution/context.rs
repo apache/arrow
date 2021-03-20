@@ -835,7 +835,7 @@ mod tests {
         ctx.register_variable(VarType::UserDefined, Arc::new(variable_provider));
 
         let provider = test::create_table_dual();
-        ctx.register_table("dual", provider).unwrap();
+        ctx.register_table("dual", provider)?;
 
         let results =
             plan_and_collect(&mut ctx, "SELECT @@version, @name FROM dual").await?;
@@ -859,10 +859,10 @@ mod tests {
         let mut ctx = create_ctx(&tmp_dir, partition_count)?;
 
         let provider = test::create_table_dual();
-        ctx.register_table("dual", provider).unwrap();
+        ctx.register_table("dual", provider)?;
 
-        assert!(ctx.deregister_table("dual").unwrap().is_some());
-        assert!(ctx.deregister_table("dual").unwrap().is_none());
+        assert!(ctx.deregister_table("dual")?.is_some());
+        assert!(ctx.deregister_table("dual")?.is_none());
 
         Ok(())
     }
@@ -1842,7 +1842,7 @@ mod tests {
         let mut ctx = ExecutionContext::new();
 
         let provider = MemTable::try_new(Arc::new(schema), vec![vec![batch]])?;
-        ctx.register_table("t", Arc::new(provider)).unwrap();
+        ctx.register_table("t", Arc::new(provider))?;
 
         let myfunc = |args: &[ArrayRef]| {
             let l = &args[0]
@@ -1922,7 +1922,7 @@ mod tests {
             assert_eq!(a.value(i) + b.value(i), sum.value(i));
         }
 
-        ctx.deregister_table("t").unwrap();
+        ctx.deregister_table("t")?;
 
         Ok(())
     }
@@ -1944,7 +1944,7 @@ mod tests {
 
         let provider =
             MemTable::try_new(Arc::new(schema), vec![vec![batch1], vec![batch2]])?;
-        ctx.register_table("t", Arc::new(provider)).unwrap();
+        ctx.register_table("t", Arc::new(provider))?;
 
         let result = plan_and_collect(&mut ctx, "SELECT AVG(a) FROM t").await?;
 
@@ -1981,7 +1981,7 @@ mod tests {
 
         let provider =
             MemTable::try_new(Arc::new(schema), vec![vec![batch1], vec![batch2]])?;
-        ctx.register_table("t", Arc::new(provider)).unwrap();
+        ctx.register_table("t", Arc::new(provider))?;
 
         // define a udaf, using a DataFusion's accumulator
         let my_avg = create_udaf(

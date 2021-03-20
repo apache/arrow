@@ -157,9 +157,9 @@ async fn benchmark(opt: BenchmarkOpt) -> Result<Vec<arrow::record_batch::RecordB
                 table,
                 start.elapsed().as_millis()
             );
-            ctx.register_table(*table, Arc::new(memtable)).unwrap();
+            ctx.register_table(*table, Arc::new(memtable))?;
         } else {
-            ctx.register_table(*table, table_provider).unwrap();
+            ctx.register_table(*table, table_provider)?;
         }
     }
 
@@ -1614,7 +1614,7 @@ mod tests {
 
             let provider = MemTable::try_new(Arc::new(schema), vec![vec![batch]])?;
 
-            ctx.register_table(table, Arc::new(provider)).unwrap();
+            ctx.register_table(table, Arc::new(provider))?;
         }
 
         let plan = create_logical_plan(&mut ctx, n)?;
