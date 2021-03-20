@@ -415,6 +415,47 @@ impl MutableBuffer {
         buffer
     }
 
+    pub unsafe fn from_trusted_len_iter_bool<
+        I: Iterator<Item = bool>,
+    >(
+        iterator: I,
+    ) -> Self {
+        let mut iterator = iterator.into_iter();
+        let (_, upper) = iterator.size_hint();
+        let upper = upper.expect("from_trusted_len_iter requires an upper limit");
+
+        let mut result = {
+            let byte_capacity: usize = upper.saturating_add(7) / 8;
+            MutableBuffer::new(byte_capacity)
+        };
+
+        'a: loop  {
+            let mut byte_accum: u8 = 0;
+            let mut mask: u8 = 1;
+
+            //collect (up to) 8 bits into a byte
+            while mask != 0 {
+                if let Some(value) = iterator.next() {
+                    byte_accum |= match value {
+                        true => mask,
+                        false => 0,
+                    };
+                    mask <<= 1;
+                } else {
+                    if mask != 1 {
+                        // Add last byte
+                        result.push_unchecked(byte_accum);
+                    }
+                    break 'a;
+                }
+            }
+
+            // Soundness: from_trusted_len
+            result.push_unchecked(byte_accum);
+        }
+        result
+    }
+
     /// Creates a [`MutableBuffer`] from an [`Iterator`] with a trusted (upper) length or errors
     /// if any of the items of the iterator is an error.
     /// Prefer this to `collect` whenever possible, as it is faster ~60% faster.

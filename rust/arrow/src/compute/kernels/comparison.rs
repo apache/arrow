@@ -47,9 +47,9 @@ macro_rules! compare_op {
         let null_bit_buffer =
             combine_option_bitmap($left.data_ref(), $right.data_ref(), $left.len())?;
 
-        let buffer = (0..$left.len())
-            .map(|i| $op($left.value(i), $right.value(i)))
-            .collect();
+        let comparison = (0..$left.len()).map(|i| $op($left.value(i), $right.value(i)));
+        // same size as $left.len() and $right.len()
+        let buffer = unsafe { MutableBuffer::from_trusted_len_iter_bool(comparison) };
 
         let data = ArrayData::new(
             DataType::Boolean,
@@ -57,7 +57,7 @@ macro_rules! compare_op {
             None,
             null_bit_buffer,
             0,
-            vec![buffer],
+            vec![Buffer::from(buffer)],
             vec![],
         );
         Ok(BooleanArray::from(Arc::new(data)))
@@ -68,9 +68,9 @@ macro_rules! compare_op_scalar {
     ($left: expr, $right:expr, $op:expr) => {{
         let null_bit_buffer = $left.data().null_buffer().cloned();
 
-        let buffer = (0..$left.len())
-            .map(|i| $op($left.value(i), $right))
-            .collect();
+        let comparison = (0..$left.len()).map(|i| $op($left.value(i), $right));
+        // same as $left.len()
+        let buffer = unsafe { MutableBuffer::from_trusted_len_iter_bool(comparison) };
 
         let data = ArrayData::new(
             DataType::Boolean,
@@ -78,7 +78,7 @@ macro_rules! compare_op_scalar {
             None,
             null_bit_buffer,
             0,
-            vec![buffer],
+            vec![Buffer::from(buffer)],
             vec![],
         );
         Ok(BooleanArray::from(Arc::new(data)))
