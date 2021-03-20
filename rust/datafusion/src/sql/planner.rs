@@ -17,9 +17,11 @@
 
 //! SQL Query Planner (produces logical plan from SQL AST)
 
+use std::convert::TryInto;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use crate::catalog::TableReference;
 use crate::datasource::TableProvider;
 use crate::logical_plan::Expr::Alias;
 use crate::logical_plan::{
@@ -58,7 +60,7 @@ use super::utils::{
 /// functions referenced in SQL statements
 pub trait ContextProvider {
     /// Getter for a datasource
-    fn get_table_provider(&self, name: &str) -> Option<Arc<dyn TableProvider>>;
+    fn get_table_provider(&self, name: TableReference) -> Option<Arc<dyn TableProvider>>;
     /// Getter for a UDF description
     fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>>;
     /// Getter for a UDAF description
@@ -373,7 +375,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
         match relation {
             TableFactor::Table { name, .. } => {
                 let table_name = name.to_string();
-                match self.schema_provider.get_table_provider(&table_name) {
+                match self.schema_provider.get_table_provider(name.try_into()?) {
                     Some(provider) => {
                         LogicalPlanBuilder::scan(&table_name, provider, None)?.build()
                     }
@@ -2490,8 +2492,12 @@ mod tests {
     struct MockContextProvider {}
 
     impl ContextProvider for MockContextProvider {
-        fn get_table_provider(&self, name: &str) -> Option<Arc<dyn TableProvider>> {
-            let schema = match name {
+        fn get_table_provider(
+            &self,
+            name: TableReference,
+        ) -> Option<Arc<dyn TableProvider>> {
+            let resolved_ref = name.resolve("", "");
+            let schema = match resolved_ref.table {
                 "person" => Some(Schema::new(vec![
                     Field::new("id", DataType::UInt32, false),
                     Field::new("first_name", DataType::Utf8, false),

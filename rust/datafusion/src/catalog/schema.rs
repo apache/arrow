@@ -19,6 +19,7 @@
 //! representing collections of named tables.
 
 use crate::datasource::TableProvider;
+use crate::error::{DataFusionError, Result};
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
@@ -29,6 +30,26 @@ pub trait SchemaProvider: Sync + Send {
 
     /// Retrieves a specific table from the schema by name, provided it exists.
     fn table(&self, name: &str) -> Option<Arc<dyn TableProvider>>;
+
+    /// If supported by the implementation, adds a new table to this schema.
+    /// If a table of the same name existed before, it is replaced in the schema and returned.
+    fn register_table(
+        &self,
+        _name: String,
+        _table: Arc<dyn TableProvider>,
+    ) -> Result<Option<Arc<dyn TableProvider>>> {
+        Err(DataFusionError::Execution(
+            "schema provider does not support registering tables".to_owned(),
+        ))
+    }
+
+    /// If supported by the implementation, removes an existing table from this schema and returns it.
+    /// If no table of that name exists, returns Ok(None).
+    fn deregister_table(&self, _name: &str) -> Result<Option<Arc<dyn TableProvider>>> {
+        Err(DataFusionError::Execution(
+            "schema provider does not support deregistering tables".to_owned(),
+        ))
+    }
 }
 
 /// Simple in-memory implementation of a schema.
@@ -43,27 +64,6 @@ impl MemorySchemaProvider {
             tables: RwLock::new(HashMap::new()),
         }
     }
-
-    /// Adds a new table to this schema.
-    /// If a table of the same name existed before, it is replaced in the schema and returned.
-    pub fn register_table(
-        &self,
-        name: impl Into<String>,
-        table: Arc<dyn TableProvider>,
-    ) -> Option<Arc<dyn TableProvider>> {
-        let mut tables = self.tables.write().unwrap();
-        tables.insert(name.into(), table)
-    }
-
-    /// Removes an existing table from this schema and returns it.
-    /// If no table of that name exists, returns None.
-    pub fn deregister_table(
-        &self,
-        name: impl AsRef<str>,
-    ) -> Option<Arc<dyn TableProvider>> {
-        let mut tables = self.tables.write().unwrap();
-        tables.remove(name.as_ref())
-    }
 }
 
 impl SchemaProvider for MemorySchemaProvider {
@@ -75,5 +75,19 @@ impl SchemaProvider for MemorySchemaProvider {
     fn table(&self, name: &str) -> Option<Arc<dyn TableProvider>> {
         let tables = self.tables.read().unwrap();
         tables.get(name).cloned()
+    }
+
+    fn register_table(
+        &self,
+        name: String,
+        table: Arc<dyn TableProvider>,
+    ) -> Result<Option<Arc<dyn TableProvider>>> {
+        let mut tables = self.tables.write().unwrap();
+        Ok(tables.insert(name, table))
+    }
+
+    fn deregister_table(&self, name: &str) -> Result<Option<Arc<dyn TableProvider>>> {
+        let mut tables = self.tables.write().unwrap();
+        Ok(tables.remove(name))
     }
 }
