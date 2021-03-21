@@ -316,7 +316,10 @@ class PullRequest(object):
         print("\n=== Pull Request #%s ===" % self.number)
         print("title\t%s\nsource\t%s\ntarget\t%s\nurl\t%s"
               % (self.title, self.description, self.target_ref, self.url))
-        self.jira_issue.show()
+        if self.jira_issue is not None:
+            self.jira_issue.show()
+        else:
+            print("Minor PR.  Please ensure it meets guidelines for minor.\n")
 
     @property
     def is_merged(self):
@@ -334,7 +337,7 @@ class PullRequest(object):
                 jira_id = m.group(1)
                 break
 
-        if jira_id is None:
+        if jira_id is None and not self.title.startswith("MINOR:"):
             options = ' or '.join('{0}-XXX'.format(project)
                                   for project in SUPPORTED_PROJECTS)
             self.cmd.fail("PR title should be prefixed by a jira id "
@@ -584,6 +587,10 @@ def cli():
 
     # merged hash not used
     pr.merge()
+
+    if pr.jira_issue is None:
+       print("Minor PR.  No JIRA issue to update.\n")
+       return
 
     cmd.continue_maybe("Would you like to update the associated JIRA?")
     jira_comment = (

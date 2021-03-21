@@ -19,12 +19,18 @@
 
 Thanks for opening a pull request!
 
-Could you open an issue for this pull request on JIRA?
-https://issues.apache.org/jira/browse/ARROW
+If this is not a [minor PR](https://github.com/apache/arrow/blob/master/.github/CONTRIBUTING.md#Minor-Fixes).
+Could you open an issue for this pull request on JIRA? https://issues.apache.org/jira/browse/ARROW
+
+Opening JIRAs ahead of time contribute to the values of [Openness](http://theapacheway.com/open/#:~:text=Openness%20allows%20new%20users%20the,must%20happen%20in%20the%20open.) in the Apache Arrow project.
 
 Then could you also rename pull request title in the following format?
 
     ARROW-${JIRA_ID}: [${COMPONENT}] ${SUMMARY}
+
+or
+
+    MINOR: [${COMPONENT}] ${SUMMARY}
 
 See also:
 

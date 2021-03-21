@@ -53,6 +53,16 @@ with the JIRA issue number and the component name in brackets.
 Respecting this convention makes it easier for us to process the backlog
 of submitted Pull Requests.
 
+### Minor Fixes
+
+Any functionality change should have a JIRA opened.  For minor changes that
+affect documentation, you do not need to open up a JIRA.  Instead you can
+title your PR "MINOR: " if meets the following guidelines:
+
+*  Grammar, usage and spelling fixes that affect no more than 2 files
+*  Documentation updates affecting no more than 2 files and not more
+   than 500 words.
+
 ## Do you want to propose a significant new feature or an important refactoring?
 
 We ask that all discussions about major changes in the codebase happen
