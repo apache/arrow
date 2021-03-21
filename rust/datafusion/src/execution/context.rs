@@ -759,7 +759,7 @@ mod tests {
         logical_plan::{col, create_udf, sum},
     };
     use crate::{
-        datasource::empty::EmptyTable, datasource::MemTable, logical_plan::create_udaf,
+        datasource::MemTable, logical_plan::create_udaf,
         physical_plan::expressions::AvgAccumulator,
     };
     use arrow::array::{
@@ -2035,12 +2035,17 @@ mod tests {
         Ok(())
     }
 
-    fn empty_table_for_catalogs() -> Arc<dyn TableProvider> {
-        Arc::new(EmptyTable::new(Arc::new(Schema::new(vec![Field::new(
-            "a",
-            DataType::Int32,
-            true,
-        )]))))
+    fn table_with_sequence(
+        seq_start: i32,
+        seq_end: i32,
+    ) -> Result<Arc<dyn TableProvider>> {
+        let schema = Arc::new(Schema::new(vec![Field::new("i", DataType::Int32, true)]));
+        let arr = Arc::new(Int32Array::from((seq_start..=seq_end).collect::<Vec<_>>()));
+        let partitions = vec![vec![RecordBatch::try_new(
+            schema.clone(),
+            vec![arr as ArrayRef],
+        )?]];
+        Ok(Arc::new(MemTable::try_new(schema, partitions)?))
     }
 
     #[tokio::test]
@@ -2050,7 +2055,7 @@ mod tests {
         );
 
         assert!(matches!(
-            ctx.register_table("test", empty_table_for_catalogs()),
+            ctx.register_table("test", table_with_sequence(1, 1)?),
             Err(DataFusionError::Plan(_))
         ));
 
@@ -2072,7 +2077,7 @@ mod tests {
 
         let catalog = MemoryCatalogProvider::new();
         let schema = MemorySchemaProvider::new();
-        schema.register_table("test".to_owned(), empty_table_for_catalogs())?;
+        schema.register_table("test".to_owned(), table_with_sequence(1, 1)?)?;
         catalog.register_schema("my_schema", Arc::new(schema));
         ctx.register_catalog("my_catalog", Arc::new(catalog));
 
@@ -2087,11 +2092,53 @@ mod tests {
                 "+-------+",
                 "| count |",
                 "+-------+",
-                "| 0     |",
+                "| 1     |",
                 "+-------+",
             ];
             assert_batches_eq!(expected, &result);
         }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn cross_catalog_access() -> Result<()> {
+        let mut ctx = ExecutionContext::new();
+
+        let catalog_a = MemoryCatalogProvider::new();
+        let schema_a = MemorySchemaProvider::new();
+        schema_a.register_table("table_a".to_owned(), table_with_sequence(1, 1)?)?;
+        catalog_a.register_schema("schema_a", Arc::new(schema_a));
+        ctx.register_catalog("catalog_a", Arc::new(catalog_a));
+
+        let catalog_b = MemoryCatalogProvider::new();
+        let schema_b = MemorySchemaProvider::new();
+        schema_b.register_table("table_b".to_owned(), table_with_sequence(1, 2)?)?;
+        catalog_b.register_schema("schema_b", Arc::new(schema_b));
+        ctx.register_catalog("catalog_b", Arc::new(catalog_b));
+
+        let result = plan_and_collect(
+            &mut ctx,
+            "SELECT cat, SUM(i) AS total FROM (
+                    SELECT i, 'a' AS cat FROM catalog_a.schema_a.table_a
+                    UNION ALL
+                    SELECT i, 'b' AS cat FROM catalog_b.schema_b.table_b
+                )
+                GROUP BY cat
+                ORDER BY cat
+                ",
+        )
+        .await?;
+
+        let expected = vec![
+            "+-----+-------+",
+            "| cat | total |",
+            "+-----+-------+",
+            "| a   | 1     |",
+            "| b   | 3     |",
+            "+-----+-------+",
+        ];
+        assert_batches_eq!(expected, &result);
 
         Ok(())
     }
