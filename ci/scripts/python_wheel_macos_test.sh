@@ -21,6 +21,8 @@ set -ex
 
 source_dir=${1}
 
+: ${ARROW_S3:=ON}
+
 export PYARROW_TEST_CYTHON=OFF
 export PYARROW_TEST_DATASET=ON
 export PYARROW_TEST_GANDIVA=OFF
@@ -29,7 +31,7 @@ export PYARROW_TEST_ORC=ON
 export PYARROW_TEST_PANDAS=ON
 export PYARROW_TEST_PARQUET=ON
 export PYARROW_TEST_PLASMA=ON
-export PYARROW_TEST_S3=ON
+export PYARROW_TEST_S3=${ARROW_S3}
 export PYARROW_TEST_TENSORFLOW=ON
 export PYARROW_TEST_FLIGHT=ON
 
@@ -43,7 +45,6 @@ pip install ${source_dir}/python/dist/*.whl
 python -c "
 import pyarrow
 import pyarrow._hdfs
-import pyarrow._s3fs
 import pyarrow.csv
 import pyarrow.dataset
 import pyarrow.flight
@@ -53,6 +54,10 @@ import pyarrow.orc
 import pyarrow.parquet
 import pyarrow.plasma
 "
+
+if [ "${PYARROW_TEST_S3}" == "ON" ]; then
+  python -c "import pyarrow._s3fs"
+fi
 
 # Install testing dependencies
 pip install -r ${source_dir}/python/requirements-wheel-test.txt

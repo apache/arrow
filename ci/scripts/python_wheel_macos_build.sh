@@ -125,3 +125,6 @@ export PKG_CONFIG_PATH=/usr/lib/pkgconfig:${build_dir}/install/lib/pkgconfig
 pushd ${source_dir}/python
 python setup.py bdist_wheel
 popd
+
+echo "=== (${PYTHON_VERSION}) Show dynamic libraries the wheel depend on ==="
+delocate-listdeps ${source_dir}/python/*.whl

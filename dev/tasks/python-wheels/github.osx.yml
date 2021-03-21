@@ -116,47 +116,36 @@ jobs:
         env:
           CONFIG_PATH: /dev/null
         run: |
-          # configure environment and install Python
+          # configure environment and install python
           source multibuild/common_utils.sh
           source multibuild/travis_osx_steps.sh
           before_install
 
           # install python dependencies
-          pip install -r arrow/python/requirements-wheel-build.txt
+          pip install -r arrow/python/requirements-wheel-build.txt delocate
 
           # build the wheel
           arrow/ci/scripts/python_wheel_macos_build.sh $(pwd)/arrow $(pwd)/build
 
+          # check wheel dependencies
+          delocate-listdeps arrow/python/dist/*.whl
+
       - name: Setup Python for Testing
         uses: actions/setup-python@v2
         with:
-          python-version: ${{ python-version }}
+          python-version: "{{ python_version }}"
 
-      - name: Test Wheel
+      - name: Test the Wheel
         run: |
-          # move Homebrew directory to ensure things are properly statically-linked
-          CELLAR=$(brew --cellar)
-          sudo mv $CELLAR{,.bak}
-          sudo mkdir $CELLAR
-          # make a new Cellar, allowing numpy to dynamically link to openblas and
-          # brew's openblas will need gcc
-          sudo ln -s ../Cellar.bak/openblas $CELLAR/openblas
-          sudo ln -s ../Cellar.bak/gcc $CELLAR/gcc
-
-          # test the wheel
+          # TODO(kszucs): temporarily remove homebrew libs
           arrow/ci/scripts/python_wheel_macos_test.sh $(pwd)/arrow
 
-          # restore the original Cellar
-          sudo rm $CELLAR/{gcc,openblas}
-          sudo rmdir $CELLAR
-          sudo mv $CELLAR{.bak,}
-
       - name: Setup Crossbow
-        run: pip3 install --requirement arrow/dev/tasks/requirements-crossbow.txt
+        run: pip install --requirement arrow/dev/tasks/requirements-crossbow.txt
 
       - name: Upload artifacts
         run: |
-          python3 arrow/dev/tasks/crossbow.py \
+          python arrow/dev/tasks/crossbow.py \
             --queue-path $(pwd) \
             --queue-remote {{ queue_remote_url }} \
             upload-artifacts \
