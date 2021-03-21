@@ -131,4 +131,5 @@ deps=$(delocate-listdeps ${source_dir}/python/dist/*.whl)
 
 if echo $deps | grep -v "^@rpath/lib\(arrow\|parquet\|plasma\)"; then
   echo "There are non-bundled shared library dependencies."
+  exit 1
 fi

@@ -138,6 +138,7 @@ jobs:
       - name: Test the Wheel
         run: |
           # TODO(kszucs): temporarily remove homebrew libs
+          unset MACOSX_DEPLOYMENT_TARGET
           arrow/ci/scripts/python_wheel_macos_test.sh $(pwd)/arrow
 
       - name: Setup Crossbow
