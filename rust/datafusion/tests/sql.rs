@@ -35,7 +35,10 @@ use datafusion::{
     datasource::{csv::CsvReadOptions, MemTable},
     physical_plan::collect,
 };
-use datafusion::{error::Result, physical_plan::ColumnarValue};
+use datafusion::{
+    error::{DataFusionError, Result},
+    physical_plan::ColumnarValue,
+};
 
 #[tokio::test]
 async fn nyc() -> Result<()> {
@@ -2518,6 +2521,21 @@ async fn qualified_table_references() -> Result<()> {
         let sql = format!("SELECT COUNT(*) FROM {}", table_ref);
         let results = execute(&mut ctx, &sql).await;
         assert_eq!(results, vec![vec!["100"]]);
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn invalid_qualified_table_references() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx)?;
+
+    for table_ref in &[
+        "nonexistentschema.aggregate_test_100",
+        "nonexistentcatalog.public.aggregate_test_100",
+    ] {
+        let sql = format!("SELECT COUNT(*) FROM {}", table_ref);
+        assert!(matches!(ctx.sql(&sql), Err(DataFusionError::Plan(_))));
     }
     Ok(())
 }
