@@ -22,33 +22,24 @@ set -ex
 source_dir=${1}
 build_dir=${2}
 
-# function check_arrow_visibility {
-#     nm --demangle --dynamic /tmp/arrow-dist/lib/libarrow.so > nm_arrow.log
-
-#     # Filter out Arrow symbols and see if anything remains.
-#     # '_init' and '_fini' symbols may or not be present, we don't care.
-#     # (note we must ignore the grep exit status when no match is found)
-#     grep ' T ' nm_arrow.log | grep -v -E '(arrow|\b_init\b|\b_fini\b)' | cat - > visible_symbols.log
-
-#     if [[ -f visible_symbols.log && `cat visible_symbols.log | wc -l` -eq 0 ]]; then
-#         return 0
-#     else
-#         echo "== Unexpected symbols exported by libarrow.so =="
-#         cat visible_symbols.log
-#         echo "================================================"
-
-#         exit 1
-#     fi
-# }
-
 echo "=== (${PYTHON_VERSION}) Clear output directories and leftovers ==="
 # Clear output directories and leftovers
-rm -rf /tmp/arrow-build
+rm -rf ${build_dir}/install
 rm -rf ${source_dir}/python/dist
 rm -rf ${source_dir}/python/build
 rm -rf ${source_dir}/python/repaired_wheels
 rm -rf ${source_dir}/python/pyarrow/*.so
 rm -rf ${source_dir}/python/pyarrow/*.so.*
+
+echo "=== (${PYTHON_VERSION}) Show OSX SDK and C flags ==="
+# Arrow is 64-bit-only at the moment
+export CFLAGS="-fPIC -arch x86_64 ${CFLAGS//"-arch i386"/}"
+export CXXFLAGS="-fPIC -arch x86_64 ${CXXFLAGS//"-arch i386"} -std=c++11"
+export SDKROOT="$(xcrun --show-sdk-path)"
+
+echo "SDKROOT: ${SDKROOT}"
+echo "CFLAGS: ${CFLAGS}"
+echo "CXXFLAGS: ${CXXFLAGS}"
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_DATASET:=ON}
@@ -137,10 +128,4 @@ export PKG_CONFIG_PATH=/usr/lib/pkgconfig:${build_dir}/install/lib/pkgconfig
 
 pushd ${source_dir}/python
 python setup.py bdist_wheel
-
-# echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux${MANYLINUX_VERSION} ==="
-# auditwheel repair \
-#     --plat "manylinux${MANYLINUX_VERSION}_x86_64" \
-#     -L . dist/pyarrow-*.whl \
-#     -w repaired_wheels
 popd

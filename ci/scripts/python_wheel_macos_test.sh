@@ -19,6 +19,8 @@
 
 set -ex
 
+source_dir=${1}
+
 export PYARROW_TEST_CYTHON=OFF
 export PYARROW_TEST_DATASET=ON
 export PYARROW_TEST_GANDIVA=OFF
@@ -31,11 +33,11 @@ export PYARROW_TEST_S3=ON
 export PYARROW_TEST_TENSORFLOW=ON
 export PYARROW_TEST_FLIGHT=ON
 
-export ARROW_TEST_DATA=/arrow/testing/data
-export PARQUET_TEST_DATA=/arrow/submodules/parquet-testing/data
+export ARROW_TEST_DATA=${source_dir}/testing/data
+export PARQUET_TEST_DATA=${source_dir}/submodules/parquet-testing/data
 
 # Install the built wheels
-pip install /arrow/python/repaired_wheels/*.whl
+pip install ${source_dir}/python/dist/*.whl
 
 # Test that the modules are importable
 python -c "
@@ -53,7 +55,7 @@ import pyarrow.plasma
 "
 
 # Install testing dependencies
-pip install -r /arrow/python/requirements-wheel-test.txt
+pip install -r ${source_dir}/python/requirements-wheel-test.txt
 
 # Execute unittest
 pytest -v -r s --pyargs pyarrow
