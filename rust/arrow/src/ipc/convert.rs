@@ -859,7 +859,7 @@ mod tests {
             0, 0,
         ];
         let ipc2 = ipc::root_as_message(&bytes[..]).unwrap();
-        let schema2 = ipc.header_as_schema().unwrap();
+        let schema2 = ipc2.header_as_schema().unwrap();
 
         assert_eq!(schema, schema2);
         assert_eq!(ipc.version(), ipc2.version());
