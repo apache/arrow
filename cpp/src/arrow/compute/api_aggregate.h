@@ -315,8 +315,8 @@ class ARROW_EXPORT Grouper {
   virtual ~Grouper() = default;
 
   /// Construct a Grouper which receives the specified key types
-  static Result<std::unique_ptr<Grouper>> Make(ExecContext* ctx,
-                                               const std::vector<ValueDescr>& descrs);
+  static Result<std::unique_ptr<Grouper>> Make(const std::vector<ValueDescr>& descrs,
+                                               ExecContext* ctx = NULLPTR);
 
   /// Consume a batch of keys, producing an array of the corresponding
   /// group ids as an integer column. The yielded batch also includes the current group
@@ -345,26 +345,32 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
 
 /// Internal use only: Assemble lists of indices of identical elements.
 ///
-/// \param[in] ids An integral array which will be used as grouping criteria.
-///                Nulls are invalid.
-/// \return A array of type `struct<ids: ids.type, groupings: list<int64>>`,
-///         which is a mapping from unique ids to lists of
-///         indices into `ids` where that value appears
+/// \param[in] ids An unsigned, all-valid integral array which will be
+///                used as grouping criteria.
+/// \param[in] max_id An upper bound for the elements of ids
+/// \return A (max_id + 1)-long ListArray where the slot at i contains a
+///         list of indices where i appears in ids.
 ///
 ///   MakeGroupings([
-///       7,
-///       7,
+///       2,
+///       2,
 ///       5,
 ///       5,
-///       7,
+///       2,
 ///       3
-///   ]) == [
-///       {"ids": 7, "groupings": [0, 1, 4]},
-///       {"ids": 5, "groupings": [2, 3]},
-///       {"ids": 3, "groupings": [5]}
+///   ], 7) == [
+///       [],
+///       [],
+///       [0, 1, 4],
+///       [5],
+///       [],
+///       [2, 3],
+///       [],
+///       []
 ///   ]
 ARROW_EXPORT
-Result<std::shared_ptr<StructArray>> MakeGroupings(Datum ids, ExecContext* ctx = NULLPTR);
+Result<std::shared_ptr<ListArray>> MakeGroupings(const UInt32Array& ids, uint32_t max_id,
+                                                 ExecContext* ctx = NULLPTR);
 
 }  // namespace internal
 }  // namespace compute

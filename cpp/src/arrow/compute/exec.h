@@ -169,33 +169,9 @@ struct ExecBatch {
   ExecBatch(std::vector<Datum> values, int64_t length)
       : values(std::move(values)), length(length) {}
 
-  static Result<ExecBatch> Make(std::vector<Datum> values) {
-    if (values.empty()) {
-      return Status::Invalid("Cannot infer ExecBatch length without at least one value");
-    }
+  explicit ExecBatch(const RecordBatch& batch);
 
-    int64_t length = -1;
-    for (const auto& value : values) {
-      if (value.is_scalar()) {
-        if (length == -1) {
-          length = 1;
-        }
-        continue;
-      }
-
-      if (length == -1) {
-        length = value.length();
-        continue;
-      }
-
-      if (length != value.length()) {
-        return Status::Invalid(
-            "Arrays used to construct an ExecBatch must have equal length");
-      }
-    }
-
-    return ExecBatch(std::move(values), length);
-  }
+  static Result<ExecBatch> Make(std::vector<Datum> values);
 
   /// The values representing positional arguments to be passed to a kernel's
   /// exec function for processing.

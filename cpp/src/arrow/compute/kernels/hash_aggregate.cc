@@ -298,8 +298,8 @@ struct VarLengthKeyEncoder : KeyEncoder {
 };
 
 struct GrouperImpl : Grouper {
-  static Result<std::unique_ptr<GrouperImpl>> Make(ExecContext* ctx,
-                                                   const std::vector<ValueDescr>& keys) {
+  static Result<std::unique_ptr<GrouperImpl>> Make(const std::vector<ValueDescr>& keys,
+                                                   ExecContext* ctx) {
     auto impl = ::arrow::internal::make_unique<GrouperImpl>();
 
     impl->encoders_.resize(keys.size());
@@ -866,9 +866,13 @@ Result<FieldVector> ResolveKernels(
 
 }  // namespace
 
-Result<std::unique_ptr<Grouper>> Grouper::Make(ExecContext* ctx,
-                                               const std::vector<ValueDescr>& descrs) {
-  return GrouperImpl::Make(ctx, descrs);
+Result<std::unique_ptr<Grouper>> Grouper::Make(const std::vector<ValueDescr>& descrs,
+                                               ExecContext* ctx) {
+  if (ctx == nullptr) {
+    static ExecContext default_ctx;
+    return Make(descrs, &default_ctx);
+  }
+  return GrouperImpl::Make(descrs, ctx);
 }
 
 Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Datum>& keys,
@@ -901,7 +905,7 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
     return batch.GetDescriptors();
   }));
 
-  ARROW_ASSIGN_OR_RAISE(auto grouper, Grouper::Make(ctx, key_descrs));
+  ARROW_ASSIGN_OR_RAISE(auto grouper, Grouper::Make(key_descrs, ctx));
 
   for (ValueDescr& key_descr : key_descrs) {
     out_fields.push_back(field("", std::move(key_descr.type)));
@@ -954,51 +958,49 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
                          /*null_count=*/0);
 }
 
-namespace {
-Result<std::shared_ptr<Buffer>> CountsToOffsets(std::shared_ptr<Int64Array> counts) {
-  TypedBufferBuilder<int32_t> offset_builder;
-  RETURN_NOT_OK(offset_builder.Resize(counts->length() + 1));
-
-  int32_t current_offset = 0;
-  offset_builder.UnsafeAppend(current_offset);
-
-  for (int64_t i = 0; i < counts->length(); ++i) {
-    DCHECK_NE(counts->Value(i), 0);
-    current_offset += static_cast<int32_t>(counts->Value(i));
-    offset_builder.UnsafeAppend(current_offset);
-  }
-
-  return offset_builder.Finish();
-}
-}  // namespace
-
-Result<std::shared_ptr<StructArray>> MakeGroupings(Datum ids, ExecContext* ctx) {
+Result<std::shared_ptr<ListArray>> MakeGroupings(const UInt32Array& ids, uint32_t max_id,
+                                                 ExecContext* ctx) {
   if (ctx == nullptr) {
     ExecContext default_ctx;
-    return MakeGroupings(ids, &default_ctx);
+    return MakeGroupings(ids, max_id, &default_ctx);
   }
 
   if (ids.null_count() != 0) {
     return Status::Invalid("MakeGroupings with null ids");
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto sort_indices,
-                        compute::SortIndices(ids, compute::SortOptions::Defaults(), ctx));
+  ARROW_ASSIGN_OR_RAISE(
+      auto offsets, AllocateBuffer(sizeof(int32_t) * (max_id + 2), ctx->memory_pool()));
+  auto raw_offsets = reinterpret_cast<int32_t*>(offsets->mutable_data());
 
-  ARROW_ASSIGN_OR_RAISE(auto counts_and_values, compute::ValueCounts(ids));
+  std::memset(raw_offsets, 0, offsets->size());
+  for (int i = 0; i < ids.length(); ++i) {
+    DCHECK_LE(ids.Value(i), max_id);
+    raw_offsets[ids.Value(i)] += 1;
+  }
+  int32_t length = 0;
+  for (uint32_t id = 0; id < max_id + 1; ++id) {
+    auto offset = raw_offsets[id];
+    raw_offsets[id] = length;
+    length += offset;
+  }
+  raw_offsets[max_id + 1] = length;
+  DCHECK_EQ(ids.length(), length);
 
-  auto unique_ids = counts_and_values->GetFieldByName("values");
+  ARROW_ASSIGN_OR_RAISE(auto offsets_copy,
+                        offsets->CopySlice(0, offsets->size(), ctx->memory_pool()));
+  raw_offsets = reinterpret_cast<int32_t*>(offsets_copy->mutable_data());
 
-  auto counts =
-      checked_pointer_cast<Int64Array>(counts_and_values->GetFieldByName("counts"));
-  ARROW_ASSIGN_OR_RAISE(auto offsets, CountsToOffsets(std::move(counts)));
+  ARROW_ASSIGN_OR_RAISE(auto sort_indices, AllocateBuffer(sizeof(int32_t) * ids.length(),
+                                                          ctx->memory_pool()));
+  auto raw_sort_indices = reinterpret_cast<int32_t*>(sort_indices->mutable_data());
+  for (int i = 0; i < ids.length(); ++i) {
+    raw_sort_indices[raw_offsets[ids.Value(i)]++] = i;
+  }
 
-  auto groupings =
-      std::make_shared<ListArray>(list(sort_indices->type()), unique_ids->length(),
-                                  std::move(offsets), std::move(sort_indices));
-
-  return StructArray::Make(ArrayVector{std::move(unique_ids), std::move(groupings)},
-                           std::vector<std::string>{"ids", "groupings"});
+  return std::make_shared<ListArray>(
+      list(int32()), max_id + 1, std::move(offsets),
+      std::make_shared<Int32Array>(ids.length(), std::move(sort_indices)));
 }
 
 namespace {

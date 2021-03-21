@@ -31,6 +31,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/compute/registry.h"
 #include "arrow/type.h"
@@ -397,6 +398,183 @@ void ValidateGroupBy(const std::vector<internal::Aggregate>& aggregates,
 
 }  // namespace
 }  // namespace group_helpers
+
+struct TestGrouper {
+  explicit TestGrouper(std::vector<ValueDescr> descrs) : descrs_(std::move(descrs)) {
+    grouper_ = internal::Grouper::Make(descrs_).ValueOrDie();
+
+    FieldVector fields;
+    for (const auto& descr : descrs_) {
+      fields.push_back(field("", descr.type));
+    }
+    key_schema_ = schema(std::move(fields));
+  }
+
+  void ExpectConsume(const std::string& key_json, const std::string& expected) {
+    auto key_batch = ExecBatch(*RecordBatchFromJSON(key_schema_, key_json));
+
+    Datum ids;
+    ConsumeAndValidate(key_batch, &ids);
+
+    AssertDatumsEqual(ArrayFromJSON(uint32(), expected), ids,
+                      /*verbose=*/true);
+  }
+
+  void ConsumeAndValidate(const ExecBatch& key_batch, Datum* ids = nullptr) {
+    ASSERT_OK_AND_ASSIGN(auto id_batch, grouper_->Consume(key_batch));
+
+    ValidateConsume(key_batch, id_batch);
+
+    if (ids) {
+      *ids = id_batch[0];
+    }
+  }
+
+  void ValidateConsume(const ExecBatch& key_batch, const ExecBatch& id_batch) {
+    int64_t new_num_groups = id_batch[1].scalar_as<UInt32Scalar>().value;
+
+    if (uniques_.length == -1) {
+      ASSERT_OK_AND_ASSIGN(uniques_, grouper_->GetUniques());
+    } else if (new_num_groups > uniques_.length) {
+      ASSERT_OK_AND_ASSIGN(ExecBatch new_uniques, grouper_->GetUniques());
+
+      // check that uniques_ are prefixes of new_uniques
+      for (int i = 0; i < uniques_.num_values(); ++i) {
+        auto prefix = new_uniques[i].array()->Slice(0, uniques_.length);
+        AssertDatumsEqual(uniques_[i], prefix, /*verbose=*/true);
+      }
+
+      uniques_ = std::move(new_uniques);
+    }
+
+    // check that the ids encode an equivalent key sequence
+    for (int i = 0; i < key_batch.num_values(); ++i) {
+      SCOPED_TRACE(std::to_string(i) + "th key array");
+      ASSERT_OK_AND_ASSIGN(auto expected, Take(uniques_[i], id_batch[0]));
+      AssertDatumsEqual(expected, key_batch[i], /*verbose=*/true);
+    }
+  }
+
+  std::vector<ValueDescr> descrs_;
+  std::shared_ptr<Schema> key_schema_;
+  std::unique_ptr<internal::Grouper> grouper_;
+  ExecBatch uniques_ = ExecBatch({}, -1);
+};
+
+TEST(Grouper, BooleanKey) {
+  TestGrouper g({boolean()});
+
+  g.ExpectConsume("[[true], [true]]", "[0, 0]");
+
+  g.ExpectConsume("[[true], [true]]", "[0, 0]");
+
+  g.ExpectConsume("[[false], [null]]", "[1, 2]");
+
+  g.ExpectConsume("[[true], [false], [true], [false], [null], [false], [null]]",
+                  "[0, 1, 0, 1, 2, 1, 2]");
+}
+
+TEST(Grouper, NumericKey) {
+  for (auto ty : internal::NumericTypes()) {
+    SCOPED_TRACE("key type: " + ty->ToString());
+
+    TestGrouper g({ty});
+
+    g.ExpectConsume("[[3], [3]]", "[0, 0]");
+
+    g.ExpectConsume("[[3], [3]]", "[0, 0]");
+
+    g.ExpectConsume("[[27], [81]]", "[1, 2]");
+
+    g.ExpectConsume("[[3], [27], [3], [27], [null], [81], [27], [81]]",
+                    "[0, 1, 0, 1, 3, 2, 1, 2]");
+  }
+}
+
+TEST(Grouper, StringKey) {
+  for (auto ty : {utf8(),
+                  // dictionary(int32(), utf8()),
+                  large_utf8()}) {
+    SCOPED_TRACE("key type: " + ty->ToString());
+
+    TestGrouper g({ty});
+
+    g.ExpectConsume(R"([["eh"], ["eh"]])", "[0, 0]");
+
+    g.ExpectConsume(R"([["eh"], ["eh"]])", "[0, 0]");
+
+    g.ExpectConsume(R"([["bee"], [null]])", "[1, 2]");
+  }
+}
+
+TEST(Grouper, StringInt64Key) {
+  TestGrouper g({utf8(), int64()});
+
+  g.ExpectConsume(R"([["eh", 0], ["eh", 0]])", "[0, 0]");
+
+  g.ExpectConsume(R"([["eh", 0], ["eh", null]])", "[0, 1]");
+
+  g.ExpectConsume(R"([["eh", 1], ["bee", 1]])", "[2, 3]");
+
+  g.ExpectConsume(R"([["eh", null], ["bee", 1]])", "[1, 3]");
+}
+
+TEST(Grouper, DoubleStringInt64Key) {
+  TestGrouper g({float64(), utf8(), int64()});
+
+  g.ExpectConsume(R"([[1.5, "eh", 0], [1.5, "eh", 0]])", "[0, 0]");
+
+  g.ExpectConsume(R"([[1.5, "eh", 0], [1.5, "eh", 0]])", "[0, 0]");
+
+  g.ExpectConsume(R"([[1.0, "eh", 0], [1.0, "be", null]])", "[1, 2]");
+
+  // note: -0 and +0 hash differently
+  g.ExpectConsume(R"([[-0.0, "be", 7], [0.0, "be", 7]])", "[3, 4]");
+}
+
+TEST(Grouper, RandomInt64Keys) {
+  TestGrouper g({int64()});
+  for (int i = 0; i < 4; ++i) {
+    SCOPED_TRACE(std::to_string(i) + "th key batch");
+
+    ExecBatch key_batch{
+        *random::GenerateBatch(g.key_schema_->fields(), 1 << 12, 0xDEADBEEF)};
+    g.ConsumeAndValidate(key_batch);
+  }
+}
+
+TEST(Grouper, RandomStringInt64Keys) {
+  TestGrouper g({utf8(), int64()});
+  for (int i = 0; i < 4; ++i) {
+    SCOPED_TRACE(std::to_string(i) + "th key batch");
+
+    ExecBatch key_batch{
+        *random::GenerateBatch(g.key_schema_->fields(), 1 << 12, 0xDEADBEEF)};
+    g.ConsumeAndValidate(key_batch);
+  }
+}
+
+TEST(GroupByHelpers, MakeGroupings) {
+  auto ExpectGroupings = [](std::string ids_json, uint32_t max_id,
+                            std::string expected_json) {
+    auto ids = checked_pointer_cast<UInt32Array>(ArrayFromJSON(uint32(), ids_json));
+    auto expected = ArrayFromJSON(list(int32()), expected_json);
+
+    ASSERT_OK_AND_ASSIGN(auto actual, internal::MakeGroupings(*ids, max_id));
+    AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+  };
+
+  ExpectGroupings("[]", 0, "[[]]");
+
+  ExpectGroupings("[0, 0, 0]", 0, "[[0, 1, 2]]");
+
+  ExpectGroupings("[0, 0, 0, 1, 1, 2]", 3, "[[0, 1, 2], [3, 4], [5], []]");
+
+  ExpectGroupings("[2, 1, 2, 1, 1, 2]", 4, "[[], [1, 3, 4], [0, 2, 5], [], []]");
+
+  ExpectGroupings("[2, 2, 5, 5, 2, 3]", 7,
+                  "[[], [], [0, 1, 4], [5], [], [2, 3], [], []]");
+}
 
 TEST(GroupBy, SumOnlyBooleanKey) {
   auto argument = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");

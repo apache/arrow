@@ -64,9 +64,9 @@ class NumericArray : public PrimitiveArray {
   // For API compatibility with BinaryArray etc.
   value_type GetView(int64_t i) const { return Value(i); }
 
-  IteratorType begin() { return IteratorType(*this); }
+  IteratorType begin() const { return IteratorType(*this); }
 
-  IteratorType end() { return IteratorType(*this, length()); }
+  IteratorType end() const { return IteratorType(*this, length()); }
 
  protected:
   using PrimitiveArray::PrimitiveArray;
@@ -99,9 +99,9 @@ class ARROW_EXPORT BooleanArray : public PrimitiveArray {
   /// values. Result is not cached.
   int64_t true_count() const;
 
-  IteratorType begin() { return IteratorType(*this); }
+  IteratorType begin() const { return IteratorType(*this); }
 
-  IteratorType end() { return IteratorType(*this, length()); }
+  IteratorType end() const { return IteratorType(*this, length()); }
 
  protected:
   using PrimitiveArray::PrimitiveArray;
