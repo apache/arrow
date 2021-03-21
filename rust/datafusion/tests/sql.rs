@@ -2533,6 +2533,7 @@ async fn invalid_qualified_table_references() -> Result<()> {
     for table_ref in &[
         "nonexistentschema.aggregate_test_100",
         "nonexistentcatalog.public.aggregate_test_100",
+        "way.too.many.namespaces.as.ident.prefixes.aggregate_test_100",
     ] {
         let sql = format!("SELECT COUNT(*) FROM {}", table_ref);
         assert!(matches!(ctx.sql(&sql), Err(DataFusionError::Plan(_))));
