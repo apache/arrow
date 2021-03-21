@@ -322,34 +322,26 @@ impl ExecutionContext {
         self.state.lock().unwrap().catalogs.get(name).cloned()
     }
 
-    fn get_schema<'a>(
-        &'a self,
-        table_ref: impl Into<TableReference<'a>>,
-    ) -> Result<Arc<dyn SchemaProvider>> {
-        self.state
-            .lock()
-            .unwrap()
-            .schema_for_ref(table_ref.into())
-            .ok_or_else(|| DataFusionError::Plan("failed to resolve schema".to_owned()))
-    }
-
-    /// Registers a named table using a custom `TableProvider` so that
+    /// Registers a table using a custom `TableProvider` so that
     /// it can be referenced from SQL statements executed against this
     /// context.
     ///
     /// Returns the `TableProvider` previously registered for this
-    /// name, if any
+    /// reference, if any
     pub fn register_table<'a>(
         &'a mut self,
         table_ref: impl Into<TableReference<'a>>,
         provider: Arc<dyn TableProvider>,
     ) -> Result<Option<Arc<dyn TableProvider>>> {
         let table_ref = table_ref.into();
-        self.get_schema(table_ref)?
+        self.state
+            .lock()
+            .unwrap()
+            .schema_for_ref(table_ref)?
             .register_table(table_ref.table().to_owned(), provider)
     }
 
-    /// Deregisters the named table.
+    /// Deregisters the given table.
     ///
     /// Returns the registered provider, if any
     pub fn deregister_table<'a>(
@@ -357,20 +349,23 @@ impl ExecutionContext {
         table_ref: impl Into<TableReference<'a>>,
     ) -> Result<Option<Arc<dyn TableProvider>>> {
         let table_ref = table_ref.into();
-        self.get_schema(table_ref)?
+        self.state
+            .lock()
+            .unwrap()
+            .schema_for_ref(table_ref)?
             .deregister_table(table_ref.table())
     }
 
     /// Retrieves a DataFrame representing a table previously registered by calling the
     /// register_table function.
     ///
-    /// Returns an error if no table has been registered with the provided name.
+    /// Returns an error if no table has been registered with the provided reference.
     pub fn table<'a>(
         &self,
         table_ref: impl Into<TableReference<'a>>,
     ) -> Result<Arc<dyn DataFrame>> {
         let table_ref = table_ref.into();
-        let schema = self.get_schema(table_ref)?;
+        let schema = self.state.lock().unwrap().schema_for_ref(table_ref)?;
 
         match schema.table(table_ref.table()) {
             Some(ref provider) => {
@@ -395,20 +390,25 @@ impl ExecutionContext {
         }
     }
 
-    /// Returns the set of available tables.
+    /// Returns the set of available tables in the default catalog and schema.
     ///
     /// Use [`table`] to get a specific table.
     ///
     /// [`table`]: ExecutionContext::table
-    pub fn tables(&self) -> HashSet<String> {
-        // quick hack to get default schema
-        self.get_schema(TableReference::Bare { table: "" })
-            .ok()
-            .map(|s| s.table_names())
-            .unwrap_or_default()
+    #[deprecated(
+        note = "Please use the catalog provider interface (`ExecutionContext::catalog`) to examine available catalogs, schemas, and tables"
+    )]
+    pub fn tables(&self) -> Result<HashSet<String>> {
+        Ok(self
+            .state
+            .lock()
+            .unwrap()
+            // a bare reference will always resolve to the default catalog and schema
+            .schema_for_ref(TableReference::Bare { table: "" })?
+            .table_names()
             .iter()
             .cloned()
-            .collect()
+            .collect())
     }
 
     /// Optimizes the logical plan by applying optimizer rules.
@@ -675,21 +675,31 @@ impl ExecutionContextState {
     fn schema_for_ref<'a>(
         &'a self,
         table_ref: impl Into<TableReference<'a>>,
-    ) -> Option<Arc<dyn SchemaProvider>> {
+    ) -> Result<Arc<dyn SchemaProvider>> {
         let resolved_ref = self.resolve_table_ref(table_ref.into());
 
-        Some(
-            self.catalogs
-                .get(resolved_ref.catalog)?
-                .schema(resolved_ref.schema)?,
-        )
+        self.catalogs
+            .get(resolved_ref.catalog)
+            .ok_or_else(|| {
+                DataFusionError::Plan(format!(
+                    "failed to resolve catalog: {}",
+                    resolved_ref.catalog
+                ))
+            })?
+            .schema(resolved_ref.schema)
+            .ok_or_else(|| {
+                DataFusionError::Plan(format!(
+                    "failed to resolve schema: {}",
+                    resolved_ref.schema
+                ))
+            })
     }
 }
 
 impl ContextProvider for ExecutionContextState {
     fn get_table_provider(&self, name: TableReference) -> Option<Arc<dyn TableProvider>> {
         let resolved_ref = self.resolve_table_ref(name);
-        let schema = self.schema_for_ref(resolved_ref)?;
+        let schema = self.schema_for_ref(resolved_ref).ok()?;
         schema.table(resolved_ref.table)
     }
 
