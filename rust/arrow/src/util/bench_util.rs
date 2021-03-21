@@ -53,7 +53,8 @@ pub fn create_primitive_array_with_seed<T>(
 ) -> PrimitiveArray<T>
 where
     T: ArrowPrimitiveType,
-    Standard: Distribution<T::Native>,{
+    Standard: Distribution<T::Native>,
+{
     let mut rng = StdRng::seed_from_u64(seed);
 
     (0..size)
