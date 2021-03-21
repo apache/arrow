@@ -2496,8 +2496,7 @@ mod tests {
             &self,
             name: TableReference,
         ) -> Option<Arc<dyn TableProvider>> {
-            let resolved_ref = name.resolve("", "");
-            let schema = match resolved_ref.table {
+            let schema = match name.table() {
                 "person" => Some(Schema::new(vec![
                     Field::new("id", DataType::UInt32, false),
                     Field::new("first_name", DataType::Utf8, false),
