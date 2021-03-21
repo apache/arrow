@@ -38,10 +38,11 @@ pub trait SchemaProvider: Sync + Send {
 
     /// If supported by the implementation, adds a new table to this schema.
     /// If a table of the same name existed before, it is replaced in the schema and returned.
+    #[allow(unused_variables)]
     fn register_table(
         &self,
-        _name: String,
-        _table: Arc<dyn TableProvider>,
+        name: String,
+        table: Arc<dyn TableProvider>,
     ) -> Result<Option<Arc<dyn TableProvider>>> {
         Err(DataFusionError::Execution(
             "schema provider does not support registering tables".to_owned(),
@@ -50,7 +51,8 @@ pub trait SchemaProvider: Sync + Send {
 
     /// If supported by the implementation, removes an existing table from this schema and returns it.
     /// If no table of that name exists, returns Ok(None).
-    fn deregister_table(&self, _name: &str) -> Result<Option<Arc<dyn TableProvider>>> {
+    #[allow(unused_variables)]
+    fn deregister_table(&self, name: &str) -> Result<Option<Arc<dyn TableProvider>>> {
         Err(DataFusionError::Execution(
             "schema provider does not support deregistering tables".to_owned(),
         ))
