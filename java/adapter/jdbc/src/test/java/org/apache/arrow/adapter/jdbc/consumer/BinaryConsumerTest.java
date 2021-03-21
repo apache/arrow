@@ -17,11 +17,12 @@
 
 package org.apache.arrow.adapter.jdbc.consumer;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.util.function.Consumer;
 
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
@@ -32,10 +33,14 @@ public class BinaryConsumerTest extends AbstractConsumerTest {
   private static final int INITIAL_VALUE_ALLOCATION = BaseValueVector.INITIAL_VALUE_ALLOCATION;
   private static final int DEFAULT_RECORD_BYTE_COUNT = 8;
 
-  protected void assertConsume(boolean nullable, Consumer<BinaryConsumer> dataConsumer, byte[][] expect) {
+  interface InputStreamConsumer {
+    void consume(BinaryConsumer consumer) throws IOException;
+  }
+
+  protected void assertConsume(boolean nullable, InputStreamConsumer dataConsumer, byte[][] expect) throws IOException {
     try (final VarBinaryVector vector = new VarBinaryVector("binary", allocator)) {
       BinaryConsumer consumer = BinaryConsumer.createConsumer(vector, 0, nullable);
-      dataConsumer.accept(consumer);
+      dataConsumer.consume(consumer);
       assertEquals(expect.length - 1, vector.getLastSet());
       for (int i = 0; i < expect.length; i++) {
         byte[] value = expect[i];
@@ -60,11 +65,7 @@ public class BinaryConsumerTest extends AbstractConsumerTest {
   public void testConsumeInputStream(byte[][] values, boolean nullable) throws IOException {
     assertConsume(nullable, binaryConsumer -> {
       for (byte[] value : values) {
-        try {
-          binaryConsumer.consume(new ByteArrayInputStream(value));
-        } catch (IOException e) {
-          e.printStackTrace();
-        }
+        binaryConsumer.consume(new ByteArrayInputStream(value));
         binaryConsumer.moveWriterPosition();
       }
     }, values);
