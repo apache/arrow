@@ -52,7 +52,7 @@ impl MemoryCatalogProvider {
     /// Adds a new schema to this catalog.
     /// If a schema of the same name existed before, it is replaced in the catalog and returned.
     pub fn register_schema(
-        &mut self,
+        &self,
         name: impl Into<String>,
         schema: Arc<dyn SchemaProvider>,
     ) -> Option<Arc<dyn SchemaProvider>> {

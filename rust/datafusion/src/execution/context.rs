@@ -119,7 +119,7 @@ impl ExecutionContext {
         let mut catalogs = HashMap::new();
 
         if config.create_default_catalog_and_schema {
-            let mut default_catalog = MemoryCatalogProvider::new();
+            let default_catalog = MemoryCatalogProvider::new();
             default_catalog.register_schema(
                 config.default_schema.clone(),
                 Arc::new(MemorySchemaProvider::new()),
@@ -645,6 +645,12 @@ impl ExecutionConfig {
         self.default_schema = schema.into();
         self
     }
+
+    /// Controls whether the default catalog and schema will be automatically created
+    pub fn create_default_catalog_and_schema(mut self, create: bool) -> Self {
+        self.create_default_catalog_and_schema = create;
+        self
+    }
 }
 
 /// Execution context for registering data sources and executing queries
@@ -753,7 +759,7 @@ mod tests {
         logical_plan::{col, create_udf, sum},
     };
     use crate::{
-        datasource::MemTable, logical_plan::create_udaf,
+        datasource::empty::EmptyTable, datasource::MemTable, logical_plan::create_udaf,
         physical_plan::expressions::AvgAccumulator,
     };
     use arrow::array::{
@@ -2026,6 +2032,67 @@ mod tests {
 
         let df = ctx.sql("SELECT 1")?;
         df.collect().await.expect_err("query not supported");
+        Ok(())
+    }
+
+    fn empty_table_for_catalogs() -> Arc<dyn TableProvider> {
+        Arc::new(EmptyTable::new(Arc::new(Schema::new(vec![Field::new(
+            "a",
+            DataType::Int32,
+            true,
+        )]))))
+    }
+
+    #[tokio::test]
+    async fn disabled_default_catalog_and_schema() -> Result<()> {
+        let mut ctx = ExecutionContext::with_config(
+            ExecutionConfig::new().create_default_catalog_and_schema(false),
+        );
+
+        assert!(matches!(
+            ctx.register_table("test", empty_table_for_catalogs()),
+            Err(DataFusionError::Plan(_))
+        ));
+
+        assert!(matches!(
+            ctx.sql("select * from datafusion.public.test"),
+            Err(DataFusionError::Plan(_))
+        ));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn custom_catalog_and_schema() -> Result<()> {
+        let mut ctx = ExecutionContext::with_config(
+            ExecutionConfig::new()
+                .create_default_catalog_and_schema(false)
+                .with_default_catalog_and_schema("my_catalog", "my_schema"),
+        );
+
+        let catalog = MemoryCatalogProvider::new();
+        let schema = MemorySchemaProvider::new();
+        schema.register_table("test".to_owned(), empty_table_for_catalogs())?;
+        catalog.register_schema("my_schema", Arc::new(schema));
+        ctx.register_catalog("my_catalog", Arc::new(catalog));
+
+        for table_ref in &["my_catalog.my_schema.test", "my_schema.test", "test"] {
+            let result = plan_and_collect(
+                &mut ctx,
+                &format!("SELECT COUNT(*) AS count FROM {}", table_ref),
+            )
+            .await?;
+
+            let expected = vec![
+                "+-------+",
+                "| count |",
+                "+-------+",
+                "| 0     |",
+                "+-------+",
+            ];
+            assert_batches_eq!(expected, &result);
+        }
+
         Ok(())
     }
 
