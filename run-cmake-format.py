@@ -18,8 +18,8 @@
 # under the License.
 
 import argparse
-import hashlib
 import fnmatch
+import hashlib
 import pathlib
 import subprocess
 import sys
