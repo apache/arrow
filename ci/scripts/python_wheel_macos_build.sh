@@ -127,4 +127,8 @@ python setup.py bdist_wheel
 popd
 
 echo "=== (${PYTHON_VERSION}) Show dynamic libraries the wheel depend on ==="
-delocate-listdeps ${source_dir}/python/*.whl
+deps=$(delocate-listdeps ${source_dir}/python/dist/*.whl)
+
+if echo $deps | grep -v "^@rpath/lib\(arrow\|parquet\|plasma\)"; then
+  echo "There are non-bundled shared library dependencies."
+fi
