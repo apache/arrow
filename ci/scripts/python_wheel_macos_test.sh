@@ -58,4 +58,4 @@ import pyarrow.plasma
 pip install -r ${source_dir}/python/requirements-wheel-test.txt
 
 # Execute unittest
-pytest -v -r s --pyargs pyarrow
+pytest -r s --pyargs pyarrow

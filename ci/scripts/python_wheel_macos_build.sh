@@ -31,15 +31,11 @@ rm -rf ${source_dir}/python/repaired_wheels
 rm -rf ${source_dir}/python/pyarrow/*.so
 rm -rf ${source_dir}/python/pyarrow/*.so.*
 
-echo "=== (${PYTHON_VERSION}) Show OSX SDK and C flags ==="
+echo "=== (${PYTHON_VERSION}) Set OSX SDK and C flags ==="
 # Arrow is 64-bit-only at the moment
 export CFLAGS="-fPIC -arch x86_64 ${CFLAGS//"-arch i386"/}"
 export CXXFLAGS="-fPIC -arch x86_64 ${CXXFLAGS//"-arch i386"} -std=c++11"
 export SDKROOT="$(xcrun --show-sdk-path)"
-
-echo "SDKROOT: ${SDKROOT}"
-echo "CFLAGS: ${CFLAGS}"
-echo "CXXFLAGS: ${CXXFLAGS}"
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_DATASET:=ON}

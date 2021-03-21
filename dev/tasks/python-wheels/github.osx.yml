@@ -26,8 +26,11 @@ on:
 env:
   ARROW_S3: {{ arrow_s3 }}
   MACOSX_DEPLOYMENT_TARGET: {{ macos_deployment_target }}
+  MB_PYTHON_VERSION: {{ python_version }}
+  PLAT: x86_64
   PYARROW_BUILD_VERBOSE: 1
   PYARROW_VERSION: {{ arrow.no_rc_version }}
+  PYTHON_VERSION: {{ python_version }}
   VCPKG_DEFAULT_TRIPLET: x64-osx-static-release
   VCPKG_FEATURE_FLAGS: "-manifests"
   VCPKG_OVERLAY_TRIPLETS: {{ "${{ github.workspace }}/arrow/ci/vcpkg" }}
@@ -109,11 +112,9 @@ jobs:
           git clone https://github.com/matthew-brett/multibuild
           git -C multibuild checkout 03950c9a7feb09d215f82d6563c4ffd91274a1e1
 
-      - name: Build and Test the Wheel
+      - name: Build Wheel
         env:
-          PLAT: x86_64
           CONFIG_PATH: /dev/null
-          MB_PYTHON_VERSION: {{ python_version }}
         run: |
           # configure environment and install Python
           source multibuild/common_utils.sh
@@ -126,33 +127,29 @@ jobs:
           # build the wheel
           arrow/ci/scripts/python_wheel_macos_build.sh $(pwd)/arrow $(pwd)/build
 
+      - name: Setup Python for Testing
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ python-version }}
+
+      - name: Test Wheel
+        run: |
+          # move Homebrew directory to ensure things are properly statically-linked
+          CELLAR=$(brew --cellar)
+          sudo mv $CELLAR{,.bak}
+          sudo mkdir $CELLAR
+          # make a new Cellar, allowing numpy to dynamically link to openblas and
+          # brew's openblas will need gcc
+          sudo ln -s ../Cellar.bak/openblas $CELLAR/openblas
+          sudo ln -s ../Cellar.bak/gcc $CELLAR/gcc
+
           # test the wheel
           arrow/ci/scripts/python_wheel_macos_test.sh $(pwd)/arrow
 
-      # # test the built wheels, move Homebrew directory to ensure things
-      # # are properly statically-linked
-      # CELLAR=$(brew --cellar)
-      # sudo mv $CELLAR{,.bak}
-
-      # # make a new Cellar, allowing numpy to dynamically link to openblas
-      # sudo mkdir $CELLAR
-      # sudo ln -s ../Cellar.bak/openblas $CELLAR/openblas
-      # # and brew's openblas will need gcc
-      # sudo ln -s ../Cellar.bak/gcc $CELLAR/gcc
-
-      # # install the built wheel and test dependencies (osx-build.sh)
-      # install_wheel arrow
-
-      # # run unit tests before removing the system libraries (osx-build.sh)
-      # ulimit -S -n 4096 && run_unit_tests arrow
-
-      # # run the import tests (osx-build.sh)
-      # run_import_tests
-
-      # # restore the original Cellar
-      # sudo rm $CELLAR/{gcc,openblas}
-      # sudo rmdir $CELLAR
-      # sudo mv $CELLAR{.bak,}
+          # restore the original Cellar
+          sudo rm $CELLAR/{gcc,openblas}
+          sudo rmdir $CELLAR
+          sudo mv $CELLAR{.bak,}
 
       - name: Setup Crossbow
         run: pip3 install --requirement arrow/dev/tasks/requirements-crossbow.txt
