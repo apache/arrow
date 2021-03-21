@@ -127,9 +127,6 @@ jobs:
           # build the wheel
           arrow/ci/scripts/python_wheel_macos_build.sh $(pwd)/arrow $(pwd)/build
 
-          # check wheel dependencies
-          delocate-listdeps arrow/python/dist/*.whl
-
       - name: Setup Python for Testing
         uses: actions/setup-python@v2
         with:
