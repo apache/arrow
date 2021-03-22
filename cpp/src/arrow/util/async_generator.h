@@ -345,6 +345,11 @@ class ReadaheadGenerator {
   std::queue<Future<T>> readahead_queue_;
 };
 
+/// \brief A generator where the producer pushes items on a queue.
+///
+/// No back-pressure is applied, so this primitive is mostly useful when
+/// producing the values is neither CPU- nor memory-expensive (e.g. fetching
+/// filesystem metadata).
 template <typename T>
 class PushGenerator {
   struct State {
@@ -377,6 +382,7 @@ class PushGenerator {
  public:
   PushGenerator() : state_(std::make_shared<State>()) {}
 
+  /// Producer API: push a value on the queue
   void Push(Result<T> result) {
     auto lock = state_->mutex.Lock();
     if (state_->consumer_fut.has_value()) {
@@ -389,6 +395,7 @@ class PushGenerator {
     state_->result_q.push_back(std::move(result));
   }
 
+  /// Producer API: tell the consumer we have finished producing
   void Close() {
     auto lock = state_->mutex.Lock();
     state_->finished = true;
@@ -400,7 +407,9 @@ class PushGenerator {
     }
   }
 
-  /// Return a non-reentrant async generator
+  /// \brief Return a non-reentrant async generator
+  ///
+  /// The returned object is meant to be given to the consumer.
   Generator generator() { return Generator{state_}; }
 
  private:
