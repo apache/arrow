@@ -23,6 +23,7 @@
 
 namespace gandiva {
 /// Hashes a generic message using the SHA256 algorithm
+GANDIVA_EXPORT
 const char* gdv_hash_using_sha256(int64_t context, const void* message,
                                   size_t message_length, int32_t* out_length) {
   constexpr int sha256_result_length = 64;
@@ -31,6 +32,7 @@ const char* gdv_hash_using_sha256(int64_t context, const void* message,
 }
 
 /// Hashes a generic message using the SHA1 algorithm
+GANDIVA_EXPORT
 const char* gdv_hash_using_sha1(int64_t context, const void* message,
                                 size_t message_length, int32_t* out_length) {
   constexpr int sha1_result_length = 40;
@@ -43,6 +45,7 @@ const char* gdv_hash_using_sha1(int64_t context, const void* message,
 /// It uses the EVP API in the OpenSSL library to generate
 /// the hash. The type of the hash is defined by the
 /// \b hash_type \b parameter.
+GANDIVA_EXPORT
 const char* gdv_hash_using_sha(int64_t context, const void* message,
                                size_t message_length, const EVP_MD* hash_type,
                                uint32_t result_buf_size, int32_t* out_length) {
@@ -122,6 +125,7 @@ const char* gdv_hash_using_sha(int64_t context, const void* message,
   return result_buffer;
 }
 
+GANDIVA_EXPORT
 uint64_t gdv_double_to_long(double value) {
   uint64_t result;
   memcpy(&result, &value, sizeof(result));
