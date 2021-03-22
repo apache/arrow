@@ -390,6 +390,17 @@ TEST(Grouper, RandomStringInt64Keys) {
   }
 }
 
+TEST(Grouper, RandomStringInt64DoubleInt32Keys) {
+  TestGrouper g({utf8(), int64(), float64(), int32()});
+  for (int i = 0; i < 4; ++i) {
+    SCOPED_TRACE(std::to_string(i) + "th key batch");
+
+    ExecBatch key_batch{
+        *random::GenerateBatch(g.key_schema_->fields(), 1 << 12, 0xDEADBEEF)};
+    g.ConsumeAndValidate(key_batch);
+  }
+}
+
 TEST(Grouper, MakeGroupings) {
   auto ExpectGroupings = [](std::string ids_json, uint32_t max_id,
                             std::string expected_json) {
@@ -398,6 +409,17 @@ TEST(Grouper, MakeGroupings) {
 
     ASSERT_OK_AND_ASSIGN(auto actual, internal::Grouper::MakeGroupings(*ids, max_id));
     AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+
+    // validate ApplyGroupings
+    ASSERT_OK_AND_ASSIGN(auto grouped_ids,
+                         internal::Grouper::ApplyGroupings(*actual, *ids));
+
+    for (uint32_t id = 0; id <= max_id; ++id) {
+      auto ids_slice = checked_pointer_cast<UInt32Array>(grouped_ids->value_slice(id));
+      for (auto slot : *ids_slice) {
+        EXPECT_EQ(slot, id);
+      }
+    }
   };
 
   ExpectGroupings("[]", 0, "[[]]");
