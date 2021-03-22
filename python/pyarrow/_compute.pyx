@@ -60,7 +60,7 @@ cdef wrap_scalar_aggregate_function(const shared_ptr[CFunction]& sp_func):
 
 cdef wrap_hash_aggregate_function(const shared_ptr[CFunction]& sp_func):
     """
-    Wrap a C++ aggregate Function in a ScalarAggregateFunction object.
+    Wrap a C++ aggregate Function in a HashAggregateFunction object.
     """
     cdef HashAggregateFunction func = (
         HashAggregateFunction.__new__(HashAggregateFunction)
@@ -225,8 +225,12 @@ cdef class Function(_Weakrefable):
       in each input.  Examples: dictionary encoding, sorting, extracting
       unique values...
 
-    * "aggregate" functions reduce the dimensionality of the inputs by
-      applying a reduction function.  Examples: sum, minmax, mode...
+    * "scalar_aggregate" functions reduce the dimensionality of the inputs by
+      applying a reduction function.  Examples: sum, min_max, mode...
+
+    * "hash_aggregate" functions apply a reduction function to an input
+      subdivided by grouping criteria.  They may not be directly called.
+      Examples: hash_sum, hash_min_max...
 
     * "meta" functions dispatch to other functions.
     """

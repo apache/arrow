@@ -134,6 +134,11 @@ def test_get_function_aggregate():
                         pc.ScalarAggregateKernel, 8)
 
 
+def test_get_function_aggregate():
+    _check_get_function("hash_sum", pc.HashAggregateFunction,
+                        pc.HashAggregateKernel, 1)
+
+
 def test_call_function_with_memory_pool():
     arr = pa.array(["foo", "bar", "baz"])
     indices = np.array([2, 2, 1])

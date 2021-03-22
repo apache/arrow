@@ -34,17 +34,19 @@
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/compute/registry.h"
+#include "arrow/testing/generator.h"
+#include "arrow/testing/gtest_common.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_internal.h"
-
-#include "arrow/testing/gtest_common.h"
-#include "arrow/testing/gtest_util.h"
-#include "arrow/testing/random.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+
+using testing::HasSubstr;
 
 namespace arrow {
 
@@ -54,83 +56,6 @@ using internal::checked_pointer_cast;
 
 namespace compute {
 namespace {
-
-struct ScalarVectorToArray {
-  template <typename T, typename AppendScalar,
-            typename BuilderType = typename TypeTraits<T>::BuilderType,
-            typename ScalarType = typename TypeTraits<T>::ScalarType>
-  Status UseBuilder(const AppendScalar& append) {
-    BuilderType builder(type_, default_memory_pool());
-    for (const auto& s : scalars_) {
-      if (s->is_valid) {
-        RETURN_NOT_OK(append(checked_cast<const ScalarType&>(*s), &builder));
-      } else {
-        RETURN_NOT_OK(builder.AppendNull());
-      }
-    }
-    return builder.FinishInternal(&data_);
-  }
-
-  struct AppendValue {
-    template <typename BuilderType, typename ScalarType>
-    Status operator()(const ScalarType& s, BuilderType* builder) const {
-      return builder->Append(s.value);
-    }
-  };
-
-  struct AppendBuffer {
-    template <typename BuilderType, typename ScalarType>
-    Status operator()(const ScalarType& s, BuilderType* builder) const {
-      const Buffer& buffer = *s.value;
-      return builder->Append(util::string_view{buffer});
-    }
-  };
-
-  template <typename T>
-  enable_if_primitive_ctype<T, Status> Visit(const T&) {
-    return UseBuilder<T>(AppendValue{});
-  }
-
-  template <typename T>
-  enable_if_has_string_view<T, Status> Visit(const T&) {
-    return UseBuilder<T>(AppendBuffer{});
-  }
-
-  Status Visit(const StructType& type) {
-    data_ = ArrayData::Make(type_, static_cast<int64_t>(scalars_.size()),
-                            {/*null_bitmap=*/nullptr});
-    ScalarVector field_scalars(scalars_.size());
-
-    for (int field_index = 0; field_index < type.num_fields(); ++field_index) {
-      for (size_t i = 0; i < scalars_.size(); ++i) {
-        field_scalars[i] =
-            checked_cast<StructScalar*>(scalars_[i].get())->value[field_index];
-      }
-
-      ARROW_ASSIGN_OR_RAISE(Datum field, ScalarVectorToArray{}.Convert(field_scalars));
-      data_->child_data.push_back(field.array());
-    }
-    return Status::OK();
-  }
-
-  Status Visit(const DataType& type) {
-    return Status::NotImplemented("ScalarVectorToArray for type ", type);
-  }
-
-  Result<Datum> Convert(const ScalarVector& scalars) && {
-    if (scalars.size() == 0) {
-      return Status::NotImplemented("ScalarVectorToArray with no scalars");
-    }
-    scalars_ = std::move(scalars);
-    type_ = scalars_[0]->type;
-    RETURN_NOT_OK(VisitTypeInline(*type_, this));
-    return Datum(std::move(data_));
-  }
-
-  std::shared_ptr<DataType> type_;
-  ScalarVector scalars_;
-  std::shared_ptr<ArrayData> data_;
-};
 
 Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys,
                            const std::vector<internal::Aggregate>& aggregates) {
@@ -146,8 +71,11 @@ Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys
                                                        grouper->num_groups()));
 
   ArrayVector out_columns;
+  std::vector<std::string> out_names;
 
   for (size_t i = 0; i < arguments.size(); ++i) {
+    out_names.push_back(aggregates[i].function);
+
     // trim "hash_" prefix
     auto scalar_agg_function = aggregates[i].function.substr(5);
 
@@ -166,16 +94,17 @@ Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys
     }
 
     ARROW_ASSIGN_OR_RAISE(Datum aggregated_column,
-                          ScalarVectorToArray{}.Convert(aggregated_scalars));
+                          ScalarVectorToArray(aggregated_scalars));
     out_columns.push_back(aggregated_column.make_array());
   }
 
+  int i = 0;
   ARROW_ASSIGN_OR_RAISE(auto uniques, grouper->GetUniques());
   for (const Datum& key : uniques.values) {
     out_columns.push_back(key.make_array());
+    out_names.push_back("key_" + std::to_string(i++));
   }
 
-  std::vector<std::string> out_names(out_columns.size(), "");
   return StructArray::Make(std::move(out_columns), std::move(out_names));
 }
 
@@ -184,6 +113,9 @@ void ValidateGroupBy(const std::vector<internal::Aggregate>& aggregates,
   ASSERT_OK_AND_ASSIGN(Datum expected, NaiveGroupBy(arguments, keys, aggregates));
 
   ASSERT_OK_AND_ASSIGN(Datum actual, GroupBy(arguments, keys, aggregates));
+
+  ASSERT_OK(expected.make_array()->ValidateFull());
+  ASSERT_OK(actual.make_array()->ValidateFull());
 
   AssertDatumsEqual(expected, actual, /*verbose=*/true);
 }
@@ -269,18 +201,26 @@ struct TestGrouper {
 
       // check that uniques_ are prefixes of new_uniques
       for (int i = 0; i < uniques_.num_values(); ++i) {
-        auto prefix = new_uniques[i].array()->Slice(0, uniques_.length);
-        AssertDatumsEqual(uniques_[i], prefix, /*verbose=*/true);
+        auto new_unique = new_uniques[i].make_array();
+        ASSERT_OK(new_unique->ValidateFull());
+
+        AssertDatumsEqual(uniques_[i], new_unique->Slice(0, uniques_.length),
+                          /*verbose=*/true);
       }
 
       uniques_ = std::move(new_uniques);
     }
 
     // check that the ids encode an equivalent key sequence
+    auto ids = id_batch.make_array();
+    ASSERT_OK(ids->ValidateFull());
+
     for (int i = 0; i < key_batch.num_values(); ++i) {
       SCOPED_TRACE(std::to_string(i) + "th key array");
-      ASSERT_OK_AND_ASSIGN(auto expected, Take(uniques_[i], id_batch));
-      AssertDatumsEqual(expected, key_batch[i], /*verbose=*/true);
+      auto original = key_batch[i].make_array();
+      ASSERT_OK_AND_ASSIGN(auto encoded, Take(*uniques_[i].make_array(), *ids));
+      AssertArraysEqual(*original, *encoded, /*verbose=*/true,
+                        EqualOptions().nans_equal(true));
     }
   }
 
@@ -320,6 +260,20 @@ TEST(Grouper, NumericKey) {
   }
 }
 
+TEST(Grouper, FloatingPointKey) {
+  TestGrouper g({float32()});
+
+  // -0.0 hashes differently from 0.0
+  g.ExpectConsume("[[0.0], [-0.0]]", "[0, 1]");
+
+  g.ExpectConsume("[[Inf], [-Inf]]", "[2, 3]");
+
+  // assert(!(NaN == NaN)) does not cause spurious new groups
+  g.ExpectConsume("[[NaN], [NaN]]", "[4, 4]");
+
+  // TODO(bkietz) test denormal numbers, more NaNs
+}
+
 TEST(Grouper, StringKey) {
   for (auto ty : {utf8(), large_utf8(), fixed_size_binary(2)}) {
     SCOPED_TRACE("key type: " + ty->ToString());
@@ -337,7 +291,9 @@ TEST(Grouper, StringKey) {
 TEST(Grouper, DictKey) {
   TestGrouper g({dictionary(int32(), utf8())});
 
-  // unification of dictionaries on encode is not yet supported
+  // For dictionary keys, all batches must share a single dictionary.
+  // Eventually, differing dictionaries will be unified and indices transposed
+  // during encoding to relieve this restriction.
   const auto dict = ArrayFromJSON(utf8(), R"(["ex", "why", "zee", null])");
 
   auto WithIndices = [&](const std::string& indices) {
@@ -356,10 +312,11 @@ TEST(Grouper, DictKey) {
   g.ExpectConsume({WithIndices("           [3, 1, null, 0, 2]")},
                   ArrayFromJSON(uint32(), "[3, 1, 4,    0, 2]"));
 
-  ASSERT_RAISES(NotImplemented,
-                g.grouper_->Consume(*ExecBatch::Make({*DictionaryArray::FromArrays(
-                    ArrayFromJSON(int32(), "[0, 1]"),
-                    ArrayFromJSON(utf8(), R"(["different", "dictionary"])"))})));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented, HasSubstr("Unifying differing dictionaries"),
+      g.grouper_->Consume(*ExecBatch::Make({*DictionaryArray::FromArrays(
+          ArrayFromJSON(int32(), "[0, 1]"),
+          ArrayFromJSON(utf8(), R"(["different", "dictionary"])"))})));
 }
 
 TEST(Grouper, StringInt64Key) {
@@ -478,12 +435,13 @@ TEST(Grouper, MakeGroupings) {
   ExpectGroupings("[2, 2, 5, 5, 2, 3]", "[[], [], [0, 1, 4], [5], [], [2, 3], [], []]");
 
   auto ids = checked_pointer_cast<UInt32Array>(ArrayFromJSON(uint32(), "[0, null, 1]"));
-  ASSERT_RAISES(Invalid, internal::Grouper::MakeGroupings(*ids, 5));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("MakeGroupings with null ids"),
+                                  internal::Grouper::MakeGroupings(*ids, 5));
 }
 
 TEST(GroupBy, Errors) {
   auto batch = RecordBatchFromJSON(
-      schema({field("argument", float64()), field("group_id", int32())}), R"([
+      schema({field("argument", float64()), field("group_id", uint32())}), R"([
     [1.0,   1],
     [null,  1],
     [0.0,   2],
@@ -496,8 +454,8 @@ TEST(GroupBy, Errors) {
     [null,  3]
   ])");
 
-  ASSERT_RAISES(
-      NotImplemented,
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      NotImplemented, HasSubstr("Direct execution of HASH_AGGREGATE functions"),
       CallFunction("hash_sum", {batch->GetColumnByName("argument"),
                                 batch->GetColumnByName("group_id"), Datum(uint32_t(4))}));
 }
@@ -525,8 +483,8 @@ TEST(GroupBy, SumOnly) {
                                          }));
 
   AssertDatumsEqual(ArrayFromJSON(struct_({
-                                      field("", float64()),
-                                      field("", int64()),
+                                      field("hash_sum", float64()),
+                                      field("key_0", int64()),
                                   }),
                                   R"([
     [4.25,   1],
@@ -561,11 +519,11 @@ TEST(GroupBy, MinMaxOnly) {
                                          }));
 
   AssertDatumsEqual(ArrayFromJSON(struct_({
-                                      field("", struct_({
-                                                    field("min", float64()),
-                                                    field("max", float64()),
-                                                })),
-                                      field("", int64()),
+                                      field("hash_min_max", struct_({
+                                                                field("min", float64()),
+                                                                field("max", float64()),
+                                                            })),
+                                      field("key_0", int64()),
                                   }),
                                   R"([
     [{"min": 1.0,   "max": 3.25},  1],
@@ -613,11 +571,11 @@ TEST(GroupBy, CountAndSum) {
 
   AssertDatumsEqual(
       ArrayFromJSON(struct_({
-                        field("", int64()),
+                        field("hash_count", int64()),
                         // NB: summing a float32 array results in float64 sums
-                        field("", float64()),
-                        field("", int64()),
-                        field("", int64()),
+                        field("hash_sum", float64()),
+                        field("hash_sum", int64()),
+                        field("key_0", int64()),
                     }),
                     R"([
     [2, 4.25,   3,    1],
@@ -655,8 +613,8 @@ TEST(GroupBy, SumOnlyStringAndDictKeys) {
                                            }));
 
     AssertDatumsEqual(ArrayFromJSON(struct_({
-                                        field("", float64()),
-                                        field("", key_type),
+                                        field("hash_sum", float64()),
+                                        field("key_0", key_type),
                                     }),
                                     R"([
     [4.25,   "alfa"],
@@ -711,7 +669,7 @@ TEST(GroupBy, RandomArraySum) {
               field("argument", float32(),
                     key_value_metadata(
                         {{"null_probability", std::to_string(null_probability)}})),
-              field("key", int64()),
+              field("key", int64(), key_value_metadata({{"min", "0"}, {"max", "100"}})),
           },
           length, 0xDEADBEEF);
 

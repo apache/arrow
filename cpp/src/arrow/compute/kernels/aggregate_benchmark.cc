@@ -334,7 +334,7 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallStringSet, [&] {
                                    /*min_length=*/3,
                                    /*max_length=*/32);
 
-  BenchmarkGroupBy(state, {{"sum", NULLPTR}}, {summand}, {key});
+  BenchmarkGroupBy(state, {{"hash_sum", NULLPTR}}, {summand}, {key});
 });
 
 GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallIntegerSet, [&] {
@@ -348,7 +348,7 @@ GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallIntegerSet, [&] {
                        /*min=*/0,
                        /*max=*/15);
 
-  BenchmarkGroupBy(state, {{"sum", NULLPTR}}, {summand}, {key});
+  BenchmarkGroupBy(state, {{"hash_sum", NULLPTR}}, {summand}, {key});
 });
 
 //

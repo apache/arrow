@@ -47,6 +47,9 @@ struct KeyEncoder {
   // the first byte of an encoded key is used to indicate nullity
   static constexpr bool kExtraByteForNull = true;
 
+  static constexpr uint8_t kNullByte = 1;
+  static constexpr uint8_t kValidByte = 0;
+
   virtual ~KeyEncoder() = default;
 
   virtual void AddLength(const ArrayData&, int32_t* lengths) = 0;
@@ -58,19 +61,19 @@ struct KeyEncoder {
 
   // extract the null bitmap from the leading nullity bytes of encoded keys
   static Status DecodeNulls(MemoryPool* pool, int32_t length, uint8_t** encoded_bytes,
-                            std::shared_ptr<Buffer>* null_buf, int32_t* null_count) {
+                            std::shared_ptr<Buffer>* null_bitmap, int32_t* null_count) {
     // first count nulls to determine if a null bitmap is necessary
     *null_count = 0;
     for (int32_t i = 0; i < length; ++i) {
-      *null_count += encoded_bytes[i][0];
+      *null_count += (encoded_bytes[i][0] == kNullByte);
     }
 
     if (*null_count > 0) {
-      ARROW_ASSIGN_OR_RAISE(*null_buf, AllocateBitmap(length, pool));
+      ARROW_ASSIGN_OR_RAISE(*null_bitmap, AllocateBitmap(length, pool));
 
-      uint8_t* nulls = (*null_buf)->mutable_data();
+      uint8_t* validity = (*null_bitmap)->mutable_data();
       for (int32_t i = 0; i < length; ++i) {
-        BitUtil::SetBitTo(nulls, i, !encoded_bytes[i][0]);
+        BitUtil::SetBitTo(validity, i, encoded_bytes[i][0] == kValidByte);
         encoded_bytes[i] += 1;
       }
     } else {
@@ -96,12 +99,12 @@ struct BooleanKeyEncoder : KeyEncoder {
         data,
         [&](bool value) {
           auto& encoded_ptr = *encoded_bytes++;
-          *encoded_ptr++ = 0;
+          *encoded_ptr++ = kValidByte;
           *encoded_ptr++ = value;
         },
         [&] {
           auto& encoded_ptr = *encoded_bytes++;
-          *encoded_ptr++ = 1;
+          *encoded_ptr++ = kNullByte;
           *encoded_ptr++ = 0;
         });
     return Status::OK();
@@ -146,13 +149,13 @@ struct FixedWidthKeyEncoder : KeyEncoder {
         viewed,
         [&](util::string_view bytes) {
           auto& encoded_ptr = *encoded_bytes++;
-          *encoded_ptr++ = 0;
+          *encoded_ptr++ = kValidByte;
           memcpy(encoded_ptr, bytes.data(), byte_width_);
           encoded_ptr += byte_width_;
         },
         [&] {
           auto& encoded_ptr = *encoded_bytes++;
-          *encoded_ptr++ = 1;
+          *encoded_ptr++ = kNullByte;
           memset(encoded_ptr, 0, byte_width_);
           encoded_ptr += byte_width_;
         });
@@ -191,8 +194,9 @@ struct DictionaryKeyEncoder : FixedWidthKeyEncoder {
     auto dict = MakeArray(data.dictionary);
     if (dictionary_) {
       if (!dictionary_->Equals(dict)) {
-        // TODO(bkietz) unify if necessary
-        return Status::NotImplemented("Dictionary keys with multiple dictionaries");
+        // TODO(bkietz) unify if necessary. For now, just error if any batch's dictionary
+        // differs from the first we saw for this key
+        return Status::NotImplemented("Unifying differing dictionaries");
       }
     } else {
       dictionary_ = std::move(dict);
@@ -240,7 +244,7 @@ struct VarLengthKeyEncoder : KeyEncoder {
         data,
         [&](util::string_view bytes) {
           auto& encoded_ptr = *encoded_bytes++;
-          *encoded_ptr++ = 0;
+          *encoded_ptr++ = kValidByte;
           util::SafeStore(encoded_ptr, static_cast<Offset>(bytes.size()));
           encoded_ptr += sizeof(Offset);
           memcpy(encoded_ptr, bytes.data(), bytes.size());
@@ -248,7 +252,7 @@ struct VarLengthKeyEncoder : KeyEncoder {
         },
         [&] {
           auto& encoded_ptr = *encoded_bytes++;
-          *encoded_ptr++ = 1;
+          *encoded_ptr++ = kNullByte;
           util::SafeStore(encoded_ptr, static_cast<Offset>(0));
           encoded_ptr += sizeof(Offset);
         });
@@ -844,6 +848,7 @@ Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
 }
 
 Result<FieldVector> ResolveKernels(
+    const std::vector<Aggregate>& aggregates,
     const std::vector<const HashAggregateKernel*>& kernels,
     const std::vector<std::unique_ptr<KernelState>>& states, ExecContext* ctx,
     const std::vector<ValueDescr>& descrs) {
@@ -859,7 +864,7 @@ Result<FieldVector> ResolveKernels(
                                                            uint32(),
                                                            uint32(),
                                                        }));
-    fields[i] = field("", std::move(descr.type));
+    fields[i] = field(aggregates[i].function, std::move(descr.type));
   }
   return fields;
 }
@@ -883,8 +888,9 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
   ARROW_ASSIGN_OR_RAISE(auto states,
                         InitKernels(kernels, ctx, aggregates, argument_descrs));
 
-  ARROW_ASSIGN_OR_RAISE(FieldVector out_fields,
-                        ResolveKernels(kernels, states, ctx, argument_descrs));
+  ARROW_ASSIGN_OR_RAISE(
+      FieldVector out_fields,
+      ResolveKernels(aggregates, kernels, states, ctx, argument_descrs));
 
   using arrow::compute::detail::ExecBatchIterator;
 
@@ -898,8 +904,9 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
 
   ARROW_ASSIGN_OR_RAISE(auto grouper, Grouper::Make(key_descrs, ctx));
 
+  int i = 0;
   for (ValueDescr& key_descr : key_descrs) {
-    out_fields.push_back(field("", std::move(key_descr.type)));
+    out_fields.push_back(field("key_" + std::to_string(i++), std::move(key_descr.type)));
   }
 
   ARROW_ASSIGN_OR_RAISE(auto key_batch_iterator,

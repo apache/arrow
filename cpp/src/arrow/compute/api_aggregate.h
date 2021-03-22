@@ -319,6 +319,8 @@ class ARROW_EXPORT Grouper {
                                                ExecContext* ctx = default_exec_context());
 
   /// Consume a batch of keys, producing the corresponding group ids as an integer array.
+  /// Currently only uint32 indices will be produced, eventually the bit width will only
+  /// be as wide as necessary.
   virtual Result<Datum> Consume(const ExecBatch& batch) = 0;
 
   /// Get current unique keys. May be called multiple times.
@@ -342,7 +344,7 @@ class ARROW_EXPORT Grouper {
   ///       5,
   ///       2,
   ///       3
-  ///   ], 7) == [
+  ///   ], 8) == [
   ///       [],
   ///       [],
   ///       [0, 1, 4],

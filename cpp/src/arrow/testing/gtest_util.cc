@@ -131,20 +131,21 @@ void AssertArraysEqualWith(const Array& expected, const Array& actual, bool verb
   }
 }
 
-void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose) {
+void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose,
+                       const EqualOptions& options) {
   return AssertArraysEqualWith(
       expected, actual, verbose,
-      [](const Array& expected, const Array& actual, std::stringstream* diff) {
-        return expected.Equals(actual, EqualOptions().diff_sink(diff));
+      [&](const Array& expected, const Array& actual, std::stringstream* diff) {
+        return expected.Equals(actual, options.diff_sink(diff));
       });
 }
 
 void AssertArraysApproxEqual(const Array& expected, const Array& actual, bool verbose,
-                             const EqualOptions& option) {
+                             const EqualOptions& options) {
   return AssertArraysEqualWith(
       expected, actual, verbose,
-      [&option](const Array& expected, const Array& actual, std::stringstream* diff) {
-        return expected.ApproxEquals(actual, option.diff_sink(diff));
+      [&](const Array& expected, const Array& actual, std::stringstream* diff) {
+        return expected.ApproxEquals(actual, options.diff_sink(diff));
       });
 }
 

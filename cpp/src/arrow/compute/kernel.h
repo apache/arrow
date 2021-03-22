@@ -723,6 +723,7 @@ using HashAggregateFinalize = std::function<void(KernelContext*, Datum*)>;
 /// * consume: processes an ExecBatch (which includes the argument as well
 ///   as an array of group identifiers) and updates the KernelState found in the
 ///   KernelContext.
+/// * merge: combines one KernelState with another.
 /// * finalize: produces the end result of the aggregation using the
 ///   KernelState in the KernelContext.
 struct HashAggregateKernel : public Kernel {
