@@ -301,11 +301,19 @@ test_that("handle bad expressions", {
   # TODO: search for functions other than mean() (see above test)
   # that need to be forced to fail because they error ambiguously
 
-  skip("Error handling in arrow_eval() needs to be internationalized (ARROW-11700)")
-  expect_error(
-    Table$create(tbl) %>% mutate(newvar = NOTAVAR + 2),
-    "object 'NOTAVAR' not found"
-  )
+  with_language("fr", {
+    # expect_warning(., NA) because the usual behavior when it hits a filter
+    # that it can't evaluate is to raise a warning, collect() to R, and retry
+    # the filter. But we want this to error the first time because it's
+    # a user error, not solvable by retrying in R
+    expect_warning(
+      expect_error(
+        Table$create(tbl) %>% mutate(newvar = NOTAVAR + 2),
+        "objet 'NOTAVAR' introuvable"
+      ),
+      NA
+    )
+  })
 })
 
 test_that("print a mutated table", {
