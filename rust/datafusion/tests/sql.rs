@@ -1956,6 +1956,11 @@ async fn query_cte() -> Result<()> {
     let expected = vec![vec!["1"], vec!["2"]];
     assert_eq!(expected, actual);
 
+    let sql = "WITH t AS (SELECT 1 AS id1), u AS (SELECT 1 AS id2, 5 as x) SELECT x FROM t JOIN u ON (id1 = id2)";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![vec!["5"]];
+    assert_eq!(expected, actual);
+
     Ok(())
 }
 
