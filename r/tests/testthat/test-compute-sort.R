@@ -21,6 +21,13 @@ library(dplyr)
 
 tbl <- example_data_for_sorting
 
+test_that("Scalar sort", {
+  expect_identical(
+    as.vector(sort(Scalar$create(42L))),
+    42L
+  )
+})
+
 test_that("Array sort", {
   expect_equal(
     Array$create(tbl$int)$SortIndices(),

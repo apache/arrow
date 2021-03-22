@@ -299,11 +299,3 @@ is.Array <- function(x, type = NULL) {
   }
   is_it
 }
-
-#' @export
-sort.Array <- function(x, decreasing = FALSE, na.last = TRUE, ...) {
-  if (!identical(na.last, TRUE)) {
-    stop("Arrow only supports sort() with na.last = TRUE", call. = FALSE)
-  }
-  x$Take(x$SortIndices(descending = decreasing))
-}

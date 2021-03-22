@@ -138,3 +138,11 @@ as.integer.ArrowDatum <- function(x, ...) as.integer(as.vector(x), ...)
 
 #' @export
 as.character.ArrowDatum <- function(x, ...) as.character(as.vector(x), ...)
+
+#' @export
+sort.ArrowDatum <- function(x, decreasing = FALSE, na.last = TRUE, ...) {
+  if (!identical(na.last, TRUE)) {
+    stop("Arrow only supports sort() with na.last = TRUE", call. = FALSE)
+  }
+  x$Take(x$SortIndices(descending = decreasing))
+}

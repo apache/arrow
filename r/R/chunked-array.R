@@ -128,6 +128,3 @@ ChunkedArray$create <- function(..., type = NULL) {
 #' @rdname ChunkedArray
 #' @export
 chunked_array <- ChunkedArray$create
-
-#' @export
-sort.ChunkedArray <- sort.Array
