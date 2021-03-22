@@ -26,7 +26,7 @@ TEST(TestShaHashUtils, TestSha1Numeric) {
 
   auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
-  std::vector<double> values_to_be_hashed;
+  std::vector<uint64_t> values_to_be_hashed;
 
   // Generate a list of values to obtains the SHA1 hash
   values_to_be_hashed.push_back(gandiva::gdv_double_to_long(0.0));
@@ -61,7 +61,7 @@ TEST(TestShaHashUtils, TestSha256Numeric) {
 
   auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
-  std::vector<double> values_to_be_hashed;
+  std::vector<uint64_t> values_to_be_hashed;
 
   // Generate a list of values to obtains the SHA1 hash
   values_to_be_hashed.push_back(gandiva::gdv_double_to_long(0.0));
