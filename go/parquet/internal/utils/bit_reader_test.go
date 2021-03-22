@@ -41,7 +41,7 @@ func TestBitWriter(t *testing.T) {
 	bw := utils.NewBitWriter(utils.NewWriterAtBuffer(buf))
 
 	for i := 0; i < 8; i++ {
-		assert.True(t, bw.WriteValue(uint64(i%2), 1))
+		assert.Nil(t, bw.WriteValue(uint64(i%2), 1))
 	}
 	bw.Flush(false)
 
@@ -50,9 +50,9 @@ func TestBitWriter(t *testing.T) {
 	for i := 0; i < 8; i++ {
 		switch i {
 		case 0, 1, 4, 5:
-			assert.True(t, bw.WriteValue(0, 1))
+			assert.Nil(t, bw.WriteValue(0, 1))
 		default:
-			assert.True(t, bw.WriteValue(1, 1))
+			assert.Nil(t, bw.WriteValue(1, 1))
 		}
 	}
 	bw.Flush(false)
@@ -117,7 +117,7 @@ func TestBitArrayVals(t *testing.T) {
 					buf := make([]byte, l)
 					bw := utils.NewBitWriter(utils.NewWriterAtBuffer(buf))
 					for i := 0; i < nvals; i++ {
-						assert.True(t, bw.WriteValue(uint64(i)%mod, width))
+						assert.Nil(t, bw.WriteValue(uint64(i)%mod, width))
 					}
 					bw.Flush(false)
 					assert.Equal(t, l, int64(bw.Written()))
@@ -146,10 +146,10 @@ func TestMixedValues(t *testing.T) {
 			if !parity {
 				v = 0
 			}
-			assert.True(t, bw.WriteValue(v, 1))
+			assert.Nil(t, bw.WriteValue(v, 1))
 			parity = !parity
 		} else {
-			assert.True(t, bw.WriteValue(uint64(i), 10))
+			assert.Nil(t, bw.WriteValue(uint64(i), 10))
 		}
 	}
 	bw.Flush(false)
@@ -540,49 +540,6 @@ func (r *RLERandomSuite) TestRandomSequences() {
 		r.Require().Truef(r.checkRoundTrip(values, bits.Len(uint(len(values)))), "failing seed: %d", seed)
 	}
 }
-
-// func TestBitRleOverflow(t *testing.T) {
-// 	for width := 1; width < 32; width += 3 {
-// 		t.Run(fmt.Sprintf("width %d", width), func(t *testing.T) {
-// 			buflen := utils.MinBufferSize(width)
-// 			buf := make([]byte, buflen)
-
-// 			parity := true
-// 			nadded := 0
-
-// 			enc := utils.NewRleEncoder(utils.NewWriterAtBuffer(buf), width)
-// 			for {
-// 				val := uint64(0)
-// 				if parity {
-// 					val = 1
-// 				}
-// 				if !enc.Put(val) {
-// 					break
-// 				}
-// 				parity = !parity
-// 				nadded++
-// 			}
-
-// 			written := enc.Flush()
-// 			assert.LessOrEqual(t, written, buflen)
-// 			assert.Greater(t, nadded, 0)
-
-// 			dec := utils.NewRleDecoder(bytes.NewReader(buf), width)
-// 			parity = true
-// 			for i := 0; i < nadded; i++ {
-// 				val, ok := dec.GetValue()
-// 				assert.True(t, ok)
-// 				assert.Equal(t, val != 0, parity)
-// 				parity = !parity
-// 			}
-
-// 			_, ok := dec.GetValue()
-// 			assert.False(t, ok)
-// 			_, ok = dec.GetValue()
-// 			assert.False(t, ok)
-// 		})
-// 	}
-// }
 
 type RandomArrayGenerator struct {
 	seed     uint64

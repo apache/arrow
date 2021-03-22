@@ -57,7 +57,7 @@ func (r *RandomArrayGenerator) GenerateBitmap(buffer []byte, n int64, prob float
 	// bernoulli distribution uses P to determine the probabitiliy of a 0 or a 1,
 	// which we'll use to generate the bitmap.
 	dist := distuv.Bernoulli{P: prob, Src: rand.NewSource(r.seed + r.extra)}
-	for i := int(0); int64(i) < n; i++ {
+	for i := 0; int64(i) < n; i++ {
 		if dist.Rand() != float64(0.0) {
 			bitutil.SetBit(buffer, i)
 		} else {

@@ -37,6 +37,8 @@ type BitRun struct {
 // multiple types of bit run readers such as a reverse reader and so on.
 //
 // It's a convenience interface for counting contiguous set/unset bits in a bitmap.
+// In places where BitBlockCounter can be used, then it would be preferred to use that
+// as it would be faster than using BitRunReader.
 type BitRunReader interface {
 	NextRun() BitRun
 }

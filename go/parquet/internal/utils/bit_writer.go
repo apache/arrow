@@ -93,22 +93,21 @@ func (b *BitWriter) Written() int {
 
 // WriteValue writes the value v using nbits to pack it, returning false if it fails
 // for some reason.
-func (b *BitWriter) WriteValue(v uint64, nbits uint) bool {
+func (b *BitWriter) WriteValue(v uint64, nbits uint) error {
 	b.buffer |= v << b.bitoffset
 	b.bitoffset += nbits
 
 	if b.bitoffset >= 64 {
 		binary.LittleEndian.PutUint64(b.raw[:], b.buffer)
 		if _, err := b.wr.WriteAt(b.raw[:], int64(b.byteoffset)); err != nil {
-			log.Println(err)
-			return false
+			return err
 		}
 		b.buffer = 0
 		b.byteoffset += 8
 		b.bitoffset -= 64
 		b.buffer = v >> (nbits - b.bitoffset)
 	}
-	return true
+	return nil
 }
 
 // Flush will flush any buffered data to the underlying writer, pass true if

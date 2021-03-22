@@ -164,7 +164,7 @@ func (b *BitBlockCounter) NextWord() BitBlockCount {
 	} else {
 		// When the offset is > 0, we need there to be a word beyond the last
 		// aligned word in the bitmap for the bit shifting logic.
-		if b.bitsRemaining < 2*WordBits-int64(b.bitOffset) {
+		if b.bitsRemaining < (2*WordBits - int64(b.bitOffset)) {
 			return b.getBlockSlow(WordBits)
 		}
 		popcnt = bits.OnesCount64(shiftWord(loadWord(b.bitmap), loadWord(b.bitmap[8:]), int64(b.bitOffset)))
