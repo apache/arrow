@@ -18,7 +18,6 @@
 use crate::array::*;
 use crate::compute::SlicesIterator;
 use crate::error::{ArrowError, Result};
-use std::sync::Arc;
 
 /// Zip two arrays by some boolean mask. Where the mask evaluates `true` values of `truthy`
 /// are taken, where the mask evaluates `false` values of `falsy` are taken.
@@ -68,7 +67,7 @@ pub fn zip(
     }
 
     let data = mutable.freeze();
-    Ok(make_array(Arc::new(data)))
+    Ok(make_array(data))
 }
 
 #[cfg(test)]

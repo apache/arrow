@@ -23,7 +23,6 @@
 //! [here](https://doc.rust-lang.org/stable/core/arch/) for more information.
 
 use std::ops::Not;
-use std::sync::Arc;
 
 use crate::array::{Array, ArrayData, BooleanArray, PrimitiveArray};
 use crate::buffer::{
@@ -71,7 +70,7 @@ where
         vec![values],
         vec![],
     );
-    Ok(BooleanArray::from(Arc::new(data)))
+    Ok(BooleanArray::from(data))
 }
 
 /// Performs `AND` operation on two arrays. If either left or right value is null then the
@@ -153,7 +152,7 @@ pub fn not(left: &BooleanArray) -> Result<BooleanArray> {
         vec![values],
         vec![],
     );
-    Ok(BooleanArray::from(Arc::new(data)))
+    Ok(BooleanArray::from(data))
 }
 
 /// Returns a non-null [BooleanArray] with whether each value of the array is null.
@@ -185,7 +184,7 @@ pub fn is_null(input: &Array) -> Result<BooleanArray> {
     let data =
         ArrayData::new(DataType::Boolean, len, None, None, 0, vec![output], vec![]);
 
-    Ok(BooleanArray::from(Arc::new(data)))
+    Ok(BooleanArray::from(data))
 }
 
 /// Returns a non-null [BooleanArray] with whether each value of the array is not null.
@@ -219,7 +218,7 @@ pub fn is_not_null(input: &Array) -> Result<BooleanArray> {
     let data =
         ArrayData::new(DataType::Boolean, len, None, None, 0, vec![output], vec![]);
 
-    Ok(BooleanArray::from(Arc::new(data)))
+    Ok(BooleanArray::from(data))
 }
 
 /// Copies original array, setting null bit to true if a secondary comparison boolean array is set to true.
@@ -310,11 +309,13 @@ where
         data_buffers,
         left_data.child_data().to_vec(),
     );
-    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
+    Ok(PrimitiveArray::<T>::from(data))
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use super::*;
     use crate::array::{ArrayRef, Int32Array};
 

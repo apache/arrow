@@ -25,7 +25,7 @@ use std::io::{BufWriter, Write};
 
 use flatbuffers::FlatBufferBuilder;
 
-use crate::array::{ArrayDataRef, ArrayRef};
+use crate::array::{ArrayData, ArrayRef};
 use crate::buffer::{Buffer, MutableBuffer};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
@@ -233,7 +233,7 @@ impl IpcDataGenerator {
     fn dictionary_batch_to_bytes(
         &self,
         dict_id: i64,
-        array_data: &ArrayDataRef,
+        array_data: &ArrayData,
         write_options: &IpcWriteOptions,
     ) -> EncodedData {
         let mut fbb = FlatBufferBuilder::new();
@@ -656,7 +656,7 @@ fn write_continuation<W: Write>(
 
 /// Write array data to a vector of bytes
 fn write_array_data(
-    array_data: &ArrayDataRef,
+    array_data: &ArrayData,
     mut buffers: &mut Vec<ipc::Buffer>,
     mut arrow_data: &mut Vec<u8>,
     mut nodes: &mut Vec<ipc::FieldNode>,

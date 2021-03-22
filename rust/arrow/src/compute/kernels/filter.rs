@@ -20,7 +20,7 @@
 use crate::error::Result;
 use crate::record_batch::RecordBatch;
 use crate::{array::*, util::bit_chunk_iterator::BitChunkIterator};
-use std::{iter::Enumerate, sync::Arc};
+use std::iter::Enumerate;
 
 /// Function that can filter arbitrary arrays
 pub type Filter<'a> = Box<Fn(&ArrayData) -> ArrayData + 'a>;
@@ -227,7 +227,7 @@ pub fn filter(array: &Array, filter: &BooleanArray) -> Result<ArrayRef> {
         MutableArrayData::new(vec![array.data_ref()], false, iter.filter_count);
     iter.for_each(|(start, end)| mutable.extend(0, start, end));
     let data = mutable.freeze();
-    Ok(make_array(Arc::new(data)))
+    Ok(make_array(data))
 }
 
 /// Returns a new [RecordBatch] with arrays containing only values matching the filter.
@@ -241,7 +241,7 @@ pub fn filter_record_batch(
     let filtered_arrays = record_batch
         .columns()
         .iter()
-        .map(|a| make_array(Arc::new(filter(&a.data()))))
+        .map(|a| make_array(filter(&a.data())))
         .collect();
     RecordBatch::try_new(record_batch.schema(), filtered_arrays)
 }

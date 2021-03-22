@@ -24,7 +24,6 @@
 
 use regex::Regex;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use crate::array::*;
 use crate::buffer::{Buffer, MutableBuffer};
@@ -60,7 +59,7 @@ macro_rules! compare_op {
             vec![buffer],
             vec![],
         );
-        Ok(BooleanArray::from(Arc::new(data)))
+        Ok(BooleanArray::from(data))
     }};
 }
 
@@ -81,7 +80,7 @@ macro_rules! compare_op_scalar {
             vec![buffer],
             vec![],
         );
-        Ok(BooleanArray::from(Arc::new(data)))
+        Ok(BooleanArray::from(data))
     }};
 }
 
@@ -176,7 +175,7 @@ pub fn like_utf8<OffsetSize: StringOffsetSizeTrait>(
         vec![result.finish()],
         vec![],
     );
-    Ok(BooleanArray::from(Arc::new(data)))
+    Ok(BooleanArray::from(data))
 }
 
 fn is_like_pattern(c: char) -> bool {
@@ -246,7 +245,7 @@ pub fn like_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
         vec![bool_buf.into()],
         vec![],
     );
-    Ok(BooleanArray::from(Arc::new(data)))
+    Ok(BooleanArray::from(data))
 }
 
 /// Perform SQL `left NOT LIKE right` operation on [`StringArray`] /
@@ -298,7 +297,7 @@ pub fn nlike_utf8<OffsetSize: StringOffsetSizeTrait>(
         vec![result.finish()],
         vec![],
     );
-    Ok(BooleanArray::from(Arc::new(data)))
+    Ok(BooleanArray::from(data))
 }
 
 /// Perform SQL `left NOT LIKE right` operation on [`StringArray`] /
@@ -351,7 +350,7 @@ pub fn nlike_utf8_scalar<OffsetSize: StringOffsetSizeTrait>(
         vec![result.finish()],
         vec![],
     );
-    Ok(BooleanArray::from(Arc::new(data)))
+    Ok(BooleanArray::from(data))
 }
 
 /// Perform `left == right` operation on [`StringArray`] / [`LargeStringArray`].
@@ -537,7 +536,7 @@ where
         vec![result.into()],
         vec![],
     );
-    Ok(BooleanArray::from(Arc::new(data)))
+    Ok(BooleanArray::from(data))
 }
 
 /// Helper function to perform boolean lambda function on values from an array and a scalar value using
@@ -620,7 +619,7 @@ where
         vec![result.into()],
         vec![],
     );
-    Ok(BooleanArray::from(Arc::new(data)))
+    Ok(BooleanArray::from(data))
 }
 
 /// Perform `left == right` operation on two arrays.
@@ -822,7 +821,7 @@ where
         vec![bool_buf.into()],
         vec![],
     );
-    Ok(BooleanArray::from(Arc::new(data)))
+    Ok(BooleanArray::from(data))
 }
 
 /// Checks if a [`GenericListArray`] contains a value in the [`GenericStringArray`]
@@ -880,7 +879,7 @@ where
         vec![bool_buf.into()],
         vec![],
     );
-    Ok(BooleanArray::from(Arc::new(data)))
+    Ok(BooleanArray::from(data))
 }
 
 // create a buffer and fill it with valid bits
@@ -1198,7 +1197,8 @@ mod tests {
             None,
             Some(7),
         ])
-        .data();
+        .data()
+        .clone();
         let value_offsets = Buffer::from_slice_ref(&[0i64, 3, 6, 6, 9]);
         let list_data_type =
             DataType::LargeList(Box::new(Field::new("item", DataType::Int32, true)));

@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::any::Any;
 use std::convert::{From, TryFrom};
 use std::fmt;
 use std::iter::IntoIterator;
 use std::mem;
-use std::{any::Any, sync::Arc};
 
-use super::{make_array, Array, ArrayData, ArrayDataRef, ArrayRef};
+use super::{make_array, Array, ArrayData, ArrayRef};
 use crate::datatypes::DataType;
 use crate::error::{ArrowError, Result};
 use crate::{
@@ -32,7 +32,7 @@ use crate::{
 /// A nested array type where each child (called *field*) is represented by a separate
 /// array.
 pub struct StructArray {
-    data: ArrayDataRef,
+    data: ArrayData,
     pub(crate) boxed_fields: Vec<ArrayRef>,
 }
 
@@ -81,12 +81,12 @@ impl StructArray {
     }
 }
 
-impl From<ArrayDataRef> for StructArray {
-    fn from(data: ArrayDataRef) -> Self {
+impl From<ArrayData> for StructArray {
+    fn from(data: ArrayData) -> Self {
         let mut boxed_fields = vec![];
         for cd in data.child_data() {
             let child_data = if data.offset() != 0 || data.len() != cd.len() {
-                Arc::new(cd.slice(data.offset(), data.len()))
+                cd.slice(data.offset(), data.len())
             } else {
                 cd.clone()
             };
@@ -170,11 +170,7 @@ impl Array for StructArray {
         self
     }
 
-    fn data(&self) -> ArrayDataRef {
-        self.data.clone()
-    }
-
-    fn data_ref(&self) -> &ArrayDataRef {
+    fn data(&self) -> &ArrayData {
         &self.data
     }
 
@@ -214,7 +210,7 @@ impl From<Vec<(Field, ArrayRef)>> for StructArray {
         }
 
         let data = ArrayData::builder(DataType::Struct(field_types))
-            .child_data(field_values.into_iter().map(|a| a.data()).collect())
+            .child_data(field_values.into_iter().map(|a| a.data().clone()).collect())
             .len(length)
             .build();
         Self::from(data)
@@ -261,7 +257,7 @@ impl From<(Vec<(Field, ArrayRef)>, Buffer)> for StructArray {
 
         let data = ArrayData::builder(DataType::Struct(field_types))
             .null_bit_buffer(pair.1)
-            .child_data(field_values.into_iter().map(|a| a.data()).collect())
+            .child_data(field_values.into_iter().map(|a| a.data().clone()).collect())
             .len(length)
             .build();
         Self::from(data)
@@ -286,8 +282,10 @@ mod tests {
 
     #[test]
     fn test_struct_array_builder() {
-        let boolean_data = BooleanArray::from(vec![false, false, true, true]).data();
-        let int_data = Int64Array::from(vec![42, 28, 19, 31]).data();
+        let array = BooleanArray::from(vec![false, false, true, true]);
+        let boolean_data = array.data();
+        let array = Int64Array::from(vec![42, 28, 19, 31]);
+        let int_data = array.data();
 
         let fields = vec![
             Field::new("a", DataType::Boolean, false),
@@ -364,7 +362,7 @@ mod tests {
             .add_buffer(Buffer::from(&[1, 2, 0, 4].to_byte_slice()))
             .build();
 
-        assert_eq!(expected_string_data, arr.column(0).data());
+        assert_eq!(&expected_string_data, arr.column(0).data());
 
         // TODO: implement equality for ArrayData
         assert_eq!(expected_int_data.len(), arr.column(1).data().len());
@@ -459,8 +457,8 @@ mod tests {
         assert!(struct_array.is_valid(2));
         assert!(struct_array.is_null(3));
         assert!(struct_array.is_valid(4));
-        assert_eq!(boolean_data, struct_array.column(0).data());
-        assert_eq!(int_data, struct_array.column(1).data());
+        assert_eq!(&boolean_data, struct_array.column(0).data());
+        assert_eq!(&int_data, struct_array.column(1).data());
 
         let c0 = struct_array.column(0);
         let c0 = c0.as_any().downcast_ref::<BooleanArray>().unwrap();
