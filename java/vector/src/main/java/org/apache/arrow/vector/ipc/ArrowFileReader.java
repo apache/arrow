@@ -28,6 +28,8 @@ import java.util.Map;
 import org.apache.arrow.flatbuf.Footer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.VisibleForTesting;
+import org.apache.arrow.vector.compression.CompressionCodec;
+import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowFooter;
@@ -51,9 +53,19 @@ public class ArrowFileReader extends ArrowReader {
   private int currentDictionaryBatch = 0;
   private int currentRecordBatch = 0;
 
-  public ArrowFileReader(SeekableReadChannel in, BufferAllocator allocator) {
-    super(allocator);
+  public ArrowFileReader(
+      SeekableReadChannel in, BufferAllocator allocator, CompressionCodec.Factory compressionFactory) {
+    super(allocator, compressionFactory);
     this.in = in;
+  }
+
+  public ArrowFileReader(
+      SeekableByteChannel in, BufferAllocator allocator, CompressionCodec.Factory compressionFactory) {
+    this(new SeekableReadChannel(in), allocator, compressionFactory);
+  }
+
+  public ArrowFileReader(SeekableReadChannel in, BufferAllocator allocator) {
+    this(in, allocator, NoCompressionCodec.Factory.INSTANCE);
   }
 
   public ArrowFileReader(SeekableByteChannel in, BufferAllocator allocator) {

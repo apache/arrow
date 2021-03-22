@@ -1197,7 +1197,7 @@ tasks:
   homebrew-r-autobrew:
     # This tests that the autobrew formula + script work in practice
     ci: github
-    template: r/github.macos.yml
+    template: r/github.macos.autobrew.yml
 
   ############################## Gandiva Tasks ################################
 
@@ -1450,48 +1450,48 @@ tasks:
       run: conda-cpp-valgrind
 
   test-debian-10-cpp:
-    ci: circle
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         DEBIAN: 10
       run: debian-cpp
 
   test-ubuntu-16.04-cpp:
-    ci: circle
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         UBUNTU: 16.04
       run: ubuntu-cpp
 
   test-ubuntu-18.04-cpp:
-    ci: circle
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         UBUNTU: 18.04
       run: ubuntu-cpp
 
   test-fedora-33-cpp:
-    ci: circle
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         FEDORA: 33
       run: fedora-cpp
 
   test-ubuntu-18.04-cpp-release:
-    ci: circle
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         UBUNTU: 18.04
       run: "-e ARROW_BUILD_TYPE=release ubuntu-cpp"
 
   test-ubuntu-18.04-cpp-static:
-    ci: circle
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         UBUNTU: 18.04
@@ -1531,20 +1531,20 @@ tasks:
       run: ubuntu-cpp-thread-sanitizer
 
   test-debian-c-glib:
-    ci: circle
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       run: debian-c-glib
 
   test-ubuntu-c-glib:
-    ci: circle
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       run: ubuntu-c-glib
 
   test-debian-ruby:
-    ci: circle
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       run: debian-ruby
 
@@ -1629,6 +1629,10 @@ tasks:
     template: r/github.linux.versions.yml
     params:
       MATRIX: "${{ matrix.r_version }}"
+
+  test-r-install-local:
+    ci: github
+    template: r/github.macos-linux.local.yml
 
   test-r-rhub-ubuntu-gcc-release:
     ci: azure

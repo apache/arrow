@@ -15,19 +15,5 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestDatasetScanContext < Test::Unit::TestCase
-  def setup
-    omit("Arrow Dataset is required") unless defined?(ArrowDataset)
-    @scan_context = ArrowDataset::ScanContext.new
-  end
-
-  def test_use_threads
-    assert do
-      not @scan_context.use_threads?
-    end
-    @scan_context.use_threads = true
-    assert do
-      @scan_context.use_threads?
-    end
-  end
-end
+# Headers: public api
+arrow_install_all_headers("parquet/encryption")

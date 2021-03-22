@@ -70,5 +70,5 @@ where
     let buffer = unsafe { Buffer::from_trusted_len_iter(values) };
 
     let data = into_primitive_array_data::<_, O>(array, buffer);
-    PrimitiveArray::<O>::from(std::sync::Arc::new(data))
+    PrimitiveArray::<O>::from(data)
 }

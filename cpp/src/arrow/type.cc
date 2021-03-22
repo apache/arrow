@@ -2233,6 +2233,12 @@ std::shared_ptr<Field> field(std::string name, std::shared_ptr<DataType> type,
                                  std::move(metadata));
 }
 
+std::shared_ptr<Field> field(std::string name, std::shared_ptr<DataType> type,
+                             std::shared_ptr<const KeyValueMetadata> metadata) {
+  return std::make_shared<Field>(std::move(name), std::move(type), /*nullable=*/true,
+                                 std::move(metadata));
+}
+
 std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale) {
   return precision <= Decimal128Type::kMaxPrecision ? decimal128(precision, scale)
                                                     : decimal256(precision, scale);

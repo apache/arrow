@@ -42,6 +42,10 @@ ARROW_EXPORT Status ParseHexValue(const char* data, uint8_t* out);
 
 namespace internal {
 
+/// \brief Split a string with a delimiter
+ARROW_EXPORT
+std::vector<util::string_view> SplitString(util::string_view v, char delim);
+
 /// \brief Join strings with a delimiter
 ARROW_EXPORT
 std::string JoinStrings(const std::vector<util::string_view>& strings,

@@ -295,6 +295,29 @@ test_that("CSV dataset", {
   )
 })
 
+test_that("compressed CSV dataset", {
+  skip_if_not_available("gzip")
+  dst_dir <- make_temp_dir()
+  dst_file <- file.path(dst_dir, "data.csv.gz")
+  write.csv(df1, gzfile(dst_file), row.names = FALSE, quote = FALSE)
+  format <- FileFormat$create("csv")
+  ds <- open_dataset(dst_dir, format = format)
+  expect_is(ds$format, "CsvFileFormat")
+  expect_is(ds$filesystem, "LocalFileSystem")
+
+  expect_equivalent(
+    ds %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
 test_that("Other text delimited dataset", {
   ds1 <- open_dataset(tsv_dir, partitioning = "part", format = "tsv")
   expect_equivalent(
@@ -525,6 +548,37 @@ test_that("filter() with %in%", {
       select(names(df2)) %>%
       collect(),
     df2
+  )
+})
+
+test_that("filter() with negative scalar", {
+  skip_if_not_available("parquet")
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_equivalent(
+    ds %>%
+      filter(part == 1) %>%
+      select(chr, int) %>%
+      filter(int > -2) %>%
+      collect(),
+    df1[, c("chr", "int")]
+  )
+
+  expect_equivalent(
+    ds %>%
+      filter(part == 1) %>%
+      select(chr, int) %>%
+      filter(int %in% -2) %>%
+      collect(),
+    df1[FALSE, c("chr", "int")]
+  )
+
+  expect_equivalent(
+    ds %>%
+      filter(part == 1) %>%
+      select(chr, int) %>%
+      filter(-int < -2) %>%
+      collect(),
+    df1[df1$int > 2, c("chr", "int")]
   )
 })
 

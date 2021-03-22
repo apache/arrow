@@ -719,18 +719,20 @@ ExtensionTypeGuard::~ExtensionTypeGuard() {
   }
 }
 
-class GatingTask::Impl {
+class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
  public:
   explicit Impl(double timeout_seconds)
       : timeout_seconds_(timeout_seconds), status_(), unlocked_(false) {}
 
   ~Impl() {
-    std::unique_lock<std::mutex> lk(mx_);
-    if (!finished_cv_.wait_for(
-            lk, std::chrono::nanoseconds(static_cast<int64_t>(timeout_seconds_ * 1e9)),
-            [this] { return num_finished_ == num_launched_; })) {
+    if (num_running_ != num_launched_) {
       ADD_FAILURE()
-          << "A GatingTask instance was destroyed but the underlying tasks did not "
+          << "A GatingTask instance was destroyed but some underlying tasks did not "
+             "start running"
+          << std::endl;
+    } else if (num_finished_ != num_launched_) {
+      ADD_FAILURE()
+          << "A GatingTask instance was destroyed but some underlying tasks did not "
              "finish running"
           << std::endl;
     }
@@ -738,24 +740,23 @@ class GatingTask::Impl {
 
   std::function<void()> Task() {
     num_launched_++;
-    return [this] {
-      std::unique_lock<std::mutex> lk(mx_);
-      num_running_++;
-      lk.unlock();
-      running_cv_.notify_all();
-      lk.lock();
-      if (!unlocked_cv_.wait_for(
-              lk, std::chrono::nanoseconds(static_cast<int64_t>(timeout_seconds_ * 1e9)),
-              [this] { return unlocked_; })) {
-        status_ &=
-            Status::Invalid("Timed out (" + std::to_string(timeout_seconds_) + "," +
-                            std::to_string(unlocked_) +
-                            " seconds) waiting for the gating task to be unlocked");
-      }
-      num_finished_++;
-      lk.unlock();
-      finished_cv_.notify_all();
-    };
+    auto self = shared_from_this();
+    return [self] { self->RunTask(); };
+  }
+
+  void RunTask() {
+    std::unique_lock<std::mutex> lk(mx_);
+    num_running_++;
+    running_cv_.notify_all();
+    if (!unlocked_cv_.wait_for(
+            lk, std::chrono::nanoseconds(static_cast<int64_t>(timeout_seconds_ * 1e9)),
+            [this] { return unlocked_; })) {
+      status_ &= Status::Invalid("Timed out (" + std::to_string(timeout_seconds_) + "," +
+                                 std::to_string(unlocked_) +
+                                 " seconds) waiting for the gating task to be unlocked");
+    }
+    num_finished_++;
+    finished_cv_.notify_all();
   }
 
   Status WaitForRunning(int count) {
@@ -769,10 +770,8 @@ class GatingTask::Impl {
   }
 
   Status Unlock() {
-    {
-      std::lock_guard<std::mutex> lk(mx_);
-      unlocked_ = true;
-    }
+    std::lock_guard<std::mutex> lk(mx_);
+    unlocked_ = true;
     unlocked_cv_.notify_all();
     return status_;
   }
@@ -792,10 +791,14 @@ class GatingTask::Impl {
 
 GatingTask::GatingTask(double timeout_seconds) : impl_(new Impl(timeout_seconds)) {}
 
-std::function<void()> GatingTask::Task() { return impl_->Task(); }
-Status GatingTask::Unlock() { return impl_->Unlock(); }
-Status GatingTask::WaitForRunning(int count) { return impl_->WaitForRunning(count); }
 GatingTask::~GatingTask() {}
+
+std::function<void()> GatingTask::Task() { return impl_->Task(); }
+
+Status GatingTask::Unlock() { return impl_->Unlock(); }
+
+Status GatingTask::WaitForRunning(int count) { return impl_->WaitForRunning(count); }
+
 std::shared_ptr<GatingTask> GatingTask::Make(double timeout_seconds) {
   return std::make_shared<GatingTask>(timeout_seconds);
 }

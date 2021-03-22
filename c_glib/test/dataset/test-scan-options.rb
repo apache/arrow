@@ -34,4 +34,14 @@ class TestDatasetScanOptions < Test::Unit::TestCase
     assert_equal(42,
                  @scan_options.batch_size)
   end
+
+  def test_use_threads
+    assert do
+      not @scan_options.use_threads?
+    end
+    @scan_options.use_threads = true
+    assert do
+      @scan_options.use_threads?
+    end
+  end
 end

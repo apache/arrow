@@ -157,7 +157,7 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
   }
 
   RecordBatchIterator Batches(Fragment* fragment) {
-    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_, ctx_));
+    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
     return Batches(std::move(scan_task_it));
   }
 
@@ -217,7 +217,6 @@ class TestParquetFileFormat : public ArrowParquetWriterMixin {
  protected:
   std::shared_ptr<ParquetFileFormat> format_ = std::make_shared<ParquetFileFormat>();
   std::shared_ptr<ScanOptions> opts_;
-  std::shared_ptr<ScanContext> ctx_ = std::make_shared<ScanContext>();
 };
 
 TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
@@ -248,7 +247,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderDictEncoded) {
   format_->reader_options.dict_columns = {"utf8"};
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
-  ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_, ctx_));
+  ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
   int64_t row_count = 0;
 
   Schema expected_schema({field("utf8", dictionary(int32(), utf8()))});
@@ -275,7 +274,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderPreBuffer) {
 
   format_->reader_options.pre_buffer = true;
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
-  ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_, ctx_));
+  ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
 
   int64_t task_count = 0;
   int64_t row_count = 0;
@@ -594,7 +593,7 @@ TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       IndexError,
       testing::HasSubstr("only has " + std::to_string(kNumRowGroups) + " row groups"),
-      row_groups_fragment({kNumRowGroups + 1})->Scan(opts_, ctx_));
+      row_groups_fragment({kNumRowGroups + 1})->Scan(opts_));
 }
 
 TEST_F(TestParquetFileFormat, WriteRecordBatchReader) {

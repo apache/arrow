@@ -90,6 +90,10 @@ struct PartitioningFactoryOptions {
   /// columns, and Expressions parsed by the finished Partitioning will include
   /// dictionaries of all unique inspected values for each field.
   bool infer_dictionary = false;
+  /// Optionally, an expected schema can be provided, in which case inference
+  /// will only check discovered fields against the schema and update internal
+  /// state (such as dictionaries).
+  std::shared_ptr<Schema> schema;
 };
 
 struct HivePartitioningFactoryOptions : PartitioningFactoryOptions {

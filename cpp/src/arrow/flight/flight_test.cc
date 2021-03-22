@@ -740,7 +740,7 @@ class TestTls : public ::testing::Test {
   }
 
   Status ConnectClient() {
-    auto options = FlightClientOptions();
+    auto options = FlightClientOptions::Defaults();
     CertKeyPair root_cert;
     RETURN_NOT_OK(ExampleTlsCertificateRoot(&root_cert));
     options.tls_root_certs = root_cert.pem_cert;
@@ -1891,7 +1891,7 @@ TEST_F(TestDoPut, DoPutSizeLimit) {
   const int64_t size_limit = 4096;
   Location location;
   ASSERT_OK(Location::ForGrpcTcp("localhost", server_->port(), &location));
-  FlightClientOptions client_options;
+  auto client_options = FlightClientOptions::Defaults();
   client_options.write_size_limit_bytes = size_limit;
   std::unique_ptr<FlightClient> client;
   ASSERT_OK(FlightClient::Connect(location, client_options, &client));
@@ -2155,7 +2155,7 @@ TEST_F(TestTls, DoAction) {
 #if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
 TEST_F(TestTls, DisableServerVerification) {
   std::unique_ptr<FlightClient> client;
-  auto client_options = FlightClientOptions();
+  auto client_options = FlightClientOptions::Defaults();
   // For security reasons, if encryption is being used,
   // the client should be configured to verify the server by default.
   ASSERT_EQ(client_options.disable_server_verification, false);
@@ -2180,7 +2180,7 @@ TEST_F(TestTls, DisableServerVerification) {
 
 TEST_F(TestTls, OverrideHostname) {
   std::unique_ptr<FlightClient> client;
-  auto client_options = FlightClientOptions();
+  auto client_options = FlightClientOptions::Defaults();
   client_options.override_hostname = "fakehostname";
   CertKeyPair root_cert;
   ASSERT_OK(ExampleTlsCertificateRoot(&root_cert));
@@ -2199,7 +2199,7 @@ TEST_F(TestTls, OverrideHostname) {
 // Test the facility for setting generic transport options.
 TEST_F(TestTls, OverrideHostnameGeneric) {
   std::unique_ptr<FlightClient> client;
-  auto client_options = FlightClientOptions();
+  auto client_options = FlightClientOptions::Defaults();
   client_options.generic_options.emplace_back(GRPC_SSL_TARGET_NAME_OVERRIDE_ARG,
                                               "fakehostname");
   CertKeyPair root_cert;

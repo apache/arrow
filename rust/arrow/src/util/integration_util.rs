@@ -238,7 +238,7 @@ impl ArrowJsonBatch {
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
                     DataType::Int32 | DataType::Date32 | DataType::Time32(_) => {
-                        let arr = Int32Array::from(arr.data());
+                        let arr = Int32Array::from(arr.data().clone());
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
                     DataType::Int64
@@ -246,15 +246,15 @@ impl ArrowJsonBatch {
                     | DataType::Time64(_)
                     | DataType::Timestamp(_, _)
                     | DataType::Duration(_) => {
-                        let arr = Int64Array::from(arr.data());
+                        let arr = Int64Array::from(arr.data().clone());
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
                     DataType::Interval(IntervalUnit::YearMonth) => {
-                        let arr = IntervalYearMonthArray::from(arr.data());
+                        let arr = IntervalYearMonthArray::from(arr.data().clone());
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
                     DataType::Interval(IntervalUnit::DayTime) => {
-                        let arr = IntervalDayTimeArray::from(arr.data());
+                        let arr = IntervalDayTimeArray::from(arr.data().clone());
                         let x = json_array
                             .iter()
                             .map(|v| {
@@ -892,7 +892,7 @@ mod tests {
         let list_data = ArrayData::builder(list_data_type)
             .len(3)
             .add_buffer(value_offsets)
-            .add_child_data(value_data.data())
+            .add_child_data(value_data.data().clone())
             .build();
         let lists = ListArray::from(list_data);
 

@@ -77,7 +77,7 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
     /// members of parquet::ReaderProperties.
     ///
     /// We don't embed parquet::ReaderProperties directly because we get memory_pool from
-    /// ScanContext at scan time and provide differing defaults.
+    /// ScanOptions at scan time and provide differing defaults.
     ///
     /// @{
     bool use_buffered_stream = false;
@@ -114,7 +114,7 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 
   /// \brief Open a file for scanning
   Result<ScanTaskIterator> ScanFile(
-      std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
+      std::shared_ptr<ScanOptions> options,
       const std::shared_ptr<FileFragment>& file) const override;
 
   using FileFormat::MakeFragment;
@@ -131,7 +131,7 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 
   /// \brief Return a FileReader on the given source.
   Result<std::unique_ptr<parquet::arrow::FileReader>> GetReader(
-      const FileSource& source, ScanOptions* = NULLPTR, ScanContext* = NULLPTR) const;
+      const FileSource& source, ScanOptions* = NULLPTR) const;
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,

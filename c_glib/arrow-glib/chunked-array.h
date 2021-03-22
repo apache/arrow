@@ -59,5 +59,8 @@ GArrowChunkedArray *garrow_chunked_array_slice(GArrowChunkedArray *chunked_array
                                                guint64 length);
 gchar *garrow_chunked_array_to_string(GArrowChunkedArray *chunked_array,
                                       GError **error);
+GARROW_AVAILABLE_IN_4_0
+GArrowArray *garrow_chunked_array_combine(GArrowChunkedArray *chunked_array,
+                                          GError **error);
 
 G_END_DECLS

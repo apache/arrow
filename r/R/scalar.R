@@ -32,7 +32,8 @@ Scalar <- R6Class("Scalar",
   # TODO: document the methods
   public = list(
     ToString = function() Scalar__ToString(self),
-    as_vector = function() Scalar__as_vector(self)
+    as_vector = function() Scalar__as_vector(self),
+    as_array = function() MakeArrayFromScalar(self)
   ),
   active = list(
     is_valid = function() Scalar__is_valid(self),

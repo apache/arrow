@@ -15,13 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::sync::Arc;
-
 use crate::{buffer::MutableBuffer, datatypes::DataType, util::bit_util};
 
 use super::{
     data::{into_buffers, new_buffers},
-    ArrayData, ArrayDataRef,
+    ArrayData,
 };
 
 mod boolean;
@@ -58,7 +56,7 @@ struct _MutableArrayData<'a> {
 }
 
 impl<'a> _MutableArrayData<'a> {
-    fn freeze(self, dictionary: Option<ArrayDataRef>) -> ArrayData {
+    fn freeze(self, dictionary: Option<ArrayData>) -> ArrayData {
         let buffers = into_buffers(&self.data_type, self.buffer1, self.buffer2);
 
         let child_data = match self.data_type {
@@ -66,7 +64,7 @@ impl<'a> _MutableArrayData<'a> {
             _ => {
                 let mut child_data = Vec::with_capacity(self.child_data.len());
                 for child in self.child_data {
-                    child_data.push(Arc::new(child.freeze()));
+                    child_data.push(child.freeze());
                 }
                 child_data
             }
@@ -120,18 +118,18 @@ fn build_extend_null_bits(array: &ArrayData, use_nulls: bool) -> ExtendNullBits 
 /// # Example:
 ///
 /// ```
-/// use std::sync::Arc;
 /// use arrow::{array::{Int32Array, Array, MutableArrayData}};
 ///
-/// let array = Int32Array::from(vec![1, 2, 3, 4, 5]).data();
+/// let array = Int32Array::from(vec![1, 2, 3, 4, 5]);
+/// let array = array.data();
 /// // Create a new `MutableArrayData` from an array and with a capacity of 4.
 /// // Capacity here is equivalent to `Vec::with_capacity`
-/// let arrays = vec![array.as_ref()];
+/// let arrays = vec![array];
 /// let mut mutable = MutableArrayData::new(arrays, false, 4);
 /// mutable.extend(0, 1, 3); // extend from the slice [1..3], [2,3]
 /// mutable.extend(0, 0, 3); // extend from the slice [0..3], [1,2,3]
 /// // `.freeze()` to convert `MutableArrayData` into a `ArrayData`.
-/// let new_array = Int32Array::from(Arc::new(mutable.freeze()));
+/// let new_array = Int32Array::from(mutable.freeze());
 /// assert_eq!(Int32Array::from(vec![2, 3, 1, 2, 3]), new_array);
 /// ```
 pub struct MutableArrayData<'a> {
@@ -145,7 +143,7 @@ pub struct MutableArrayData<'a> {
     // the child data of the `Array` in Dictionary arrays.
     // This is not stored in `MutableArrayData` because these values constant and only needed
     // at the end, when freezing [_MutableArrayData].
-    dictionary: Option<ArrayDataRef>,
+    dictionary: Option<ArrayData>,
 
     // function used to extend values from arrays. This function's lifetime is bound to the array
     // because it reads values from it.
@@ -319,7 +317,7 @@ impl<'a> MutableArrayData<'a> {
             DataType::List(_) | DataType::LargeList(_) => {
                 let childs = arrays
                     .iter()
-                    .map(|array| array.child_data()[0].as_ref())
+                    .map(|array| &array.child_data()[0])
                     .collect::<Vec<_>>();
                 vec![MutableArrayData::new(childs, use_nulls, capacity)]
             }
@@ -330,7 +328,7 @@ impl<'a> MutableArrayData<'a> {
                 .map(|i| {
                     let child_arrays = arrays
                         .iter()
-                        .map(|array| array.child_data()[i].as_ref())
+                        .map(|array| &array.child_data()[i])
                         .collect::<Vec<_>>();
                     MutableArrayData::new(child_arrays, use_nulls, capacity)
                 })
@@ -400,15 +398,16 @@ impl<'a> MutableArrayData<'a> {
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
-    use std::convert::TryFrom;
+    use std::{convert::TryFrom, sync::Arc};
 
     use super::*;
 
     use crate::{
         array::{
-            Array, ArrayDataRef, ArrayRef, BooleanArray, DictionaryArray,
+            Array, ArrayData, ArrayRef, BooleanArray, DictionaryArray,
             FixedSizeBinaryArray, Int16Array, Int16Type, Int32Array, Int64Array,
             Int64Builder, ListBuilder, NullArray, PrimitiveBuilder, StringArray,
             StringDictionaryBuilder, StructArray, UInt8Array,
@@ -424,12 +423,13 @@ mod tests {
     /// tests extending from a primitive array w/ offset nor nulls
     #[test]
     fn test_primitive() {
-        let b = UInt8Array::from(vec![Some(1), Some(2), Some(3)]).data();
-        let arrays = vec![b.as_ref()];
+        let b = UInt8Array::from(vec![Some(1), Some(2), Some(3)]);
+        let b = b.data();
+        let arrays = vec![b];
         let mut a = MutableArrayData::new(arrays, false, 3);
         a.extend(0, 0, 2);
         let result = a.freeze();
-        let array = UInt8Array::from(Arc::new(result));
+        let array = UInt8Array::from(result);
         let expected = UInt8Array::from(vec![Some(1), Some(2)]);
         assert_eq!(array, expected);
     }
@@ -438,12 +438,13 @@ mod tests {
     #[test]
     fn test_primitive_offset() {
         let b = UInt8Array::from(vec![Some(1), Some(2), Some(3)]);
-        let b = b.slice(1, 2).data();
-        let arrays = vec![b.as_ref()];
+        let b = b.slice(1, 2);
+        let b = b.data();
+        let arrays = vec![b];
         let mut a = MutableArrayData::new(arrays, false, 2);
         a.extend(0, 0, 2);
         let result = a.freeze();
-        let array = UInt8Array::from(Arc::new(result));
+        let array = UInt8Array::from(result);
         let expected = UInt8Array::from(vec![Some(2), Some(3)]);
         assert_eq!(array, expected);
     }
@@ -453,11 +454,11 @@ mod tests {
     fn test_primitive_null_offset() {
         let b = UInt8Array::from(vec![Some(1), None, Some(3)]);
         let b = b.slice(1, 2).data();
-        let arrays = vec![b.as_ref()];
+        let arrays = vec![b];
         let mut a = MutableArrayData::new(arrays, false, 2);
         a.extend(0, 0, 2);
         let result = a.freeze();
-        let array = UInt8Array::from(Arc::new(result));
+        let array = UInt8Array::from(result);
         let expected = UInt8Array::from(vec![None, Some(3)]);
         assert_eq!(array, expected);
     }
@@ -466,13 +467,13 @@ mod tests {
     fn test_primitive_null_offset_nulls() {
         let b = UInt8Array::from(vec![Some(1), Some(2), Some(3)]);
         let b = b.slice(1, 2).data();
-        let arrays = vec![b.as_ref()];
+        let arrays = vec![b];
         let mut a = MutableArrayData::new(arrays, true, 2);
         a.extend(0, 0, 2);
         a.extend_nulls(3);
         a.extend(0, 1, 2);
         let result = a.freeze();
-        let array = UInt8Array::from(Arc::new(result));
+        let array = UInt8Array::from(result);
         let expected =
             UInt8Array::from(vec![Some(2), Some(3), None, None, None, Some(3)]);
         assert_eq!(array, expected);
@@ -489,13 +490,13 @@ mod tests {
         builder.values().append_slice(&[6, 7, 8])?;
         builder.append(true)?;
         let array = builder.finish().data();
-        let arrays = vec![array.as_ref()];
+        let arrays = vec![array];
 
         let mut mutable = MutableArrayData::new(arrays, false, 0);
         mutable.extend(0, 0, 1);
 
         let result = mutable.freeze();
-        let array = ListArray::from(Arc::new(result));
+        let array = ListArray::from(result);
 
         let int_builder = Int64Builder::new(24);
         let mut builder = ListBuilder::<Int64Builder>::new(int_builder);
@@ -513,14 +514,14 @@ mod tests {
     fn test_variable_sized_nulls() {
         let array =
             StringArray::from(vec![Some("a"), Some("bc"), None, Some("defh")]).data();
-        let arrays = vec![array.as_ref()];
+        let arrays = vec![array];
 
         let mut mutable = MutableArrayData::new(arrays, false, 0);
 
         mutable.extend(0, 1, 3);
 
         let result = mutable.freeze();
-        let result = StringArray::from(Arc::new(result));
+        let result = StringArray::from(result);
 
         let expected = StringArray::from(vec![Some("bc"), None]);
         assert_eq!(result, expected);
@@ -541,7 +542,7 @@ mod tests {
         mutable.extend(0, 0, 3);
 
         let result = mutable.freeze();
-        let result = StringArray::from(Arc::new(result));
+        let result = StringArray::from(result);
 
         let expected = StringArray::from(vec![Some("bc"), None, Some("defh")]);
         assert_eq!(result, expected);
@@ -560,7 +561,7 @@ mod tests {
         mutable.extend(0, 0, 3);
 
         let result = mutable.freeze();
-        let result = StringArray::from(Arc::new(result));
+        let result = StringArray::from(result);
 
         let expected = StringArray::from(vec![Some("bc"), None, Some("defh")]);
         assert_eq!(result, expected);
@@ -571,7 +572,7 @@ mod tests {
         let array1 = StringArray::from(vec!["hello", "world"]).data();
         let array2 = StringArray::from(vec![Some("1"), None]).data();
 
-        let arrays = vec![array1.as_ref(), array2.as_ref()];
+        let arrays = vec![array1, array2];
 
         let mut mutable = MutableArrayData::new(arrays, false, 5);
 
@@ -579,7 +580,7 @@ mod tests {
         mutable.extend(1, 0, 2);
 
         let result = mutable.freeze();
-        let result = StringArray::from(Arc::new(result));
+        let result = StringArray::from(result);
 
         let expected =
             StringArray::from(vec![Some("hello"), Some("world"), Some("1"), None]);
@@ -600,7 +601,7 @@ mod tests {
         mutable.extend_nulls(1);
 
         let result = mutable.freeze();
-        let result = StringArray::from(Arc::new(result));
+        let result = StringArray::from(result);
 
         let expected = StringArray::from(vec![None, Some("defh"), None]);
         assert_eq!(result, expected);
@@ -610,14 +611,14 @@ mod tests {
     fn test_bool() {
         let array =
             BooleanArray::from(vec![Some(false), Some(true), None, Some(false)]).data();
-        let arrays = vec![array.as_ref()];
+        let arrays = vec![array];
 
         let mut mutable = MutableArrayData::new(arrays, false, 0);
 
         mutable.extend(0, 1, 3);
 
         let result = mutable.freeze();
-        let result = BooleanArray::from(Arc::new(result));
+        let result = BooleanArray::from(result);
 
         let expected = BooleanArray::from(vec![Some(true), None]);
         assert_eq!(result, expected);
@@ -627,7 +628,7 @@ mod tests {
     fn test_null() {
         let array1 = NullArray::new(10).data();
         let array2 = NullArray::new(5).data();
-        let arrays = vec![array1.as_ref(), array2.as_ref()];
+        let arrays = vec![array1, array2];
 
         let mut mutable = MutableArrayData::new(arrays, false, 0);
 
@@ -635,13 +636,13 @@ mod tests {
         mutable.extend(1, 0, 1);
 
         let result = mutable.freeze();
-        let result = NullArray::from(Arc::new(result));
+        let result = NullArray::from(result);
 
         let expected = NullArray::new(3);
         assert_eq!(result, expected);
     }
 
-    fn create_dictionary_array(values: &[&str], keys: &[Option<&str>]) -> ArrayDataRef {
+    fn create_dictionary_array(values: &[&str], keys: &[Option<&str>]) -> ArrayData {
         let values = StringArray::from(values.to_vec());
         let mut builder = StringDictionaryBuilder::new_with_dictionary(
             PrimitiveBuilder::<Int16Type>::new(3),
@@ -655,7 +656,7 @@ mod tests {
                 builder.append_null().unwrap()
             }
         }
-        builder.finish().data()
+        builder.finish().data().clone()
     }
 
     #[test]
@@ -665,14 +666,14 @@ mod tests {
             &["a", "b", "c"],
             &[Some("a"), Some("b"), None, Some("c")],
         );
-        let arrays = vec![array.as_ref()];
+        let arrays = vec![&array];
 
         let mut mutable = MutableArrayData::new(arrays, false, 0);
 
         mutable.extend(0, 1, 3);
 
         let result = mutable.freeze();
-        let result = DictionaryArray::from(Arc::new(result));
+        let result = DictionaryArray::from(result);
 
         let expected = Int16Array::from(vec![Some(1), None]);
         assert_eq!(result.keys(), &expected);
@@ -699,12 +700,12 @@ mod tests {
             StructArray::try_from(vec![("f1", strings.clone()), ("f2", ints.clone())])
                 .unwrap()
                 .data();
-        let arrays = vec![array.as_ref()];
+        let arrays = vec![array];
         let mut mutable = MutableArrayData::new(arrays, false, 0);
 
         mutable.extend(0, 1, 3);
         let data = mutable.freeze();
-        let array = StructArray::from(Arc::new(data));
+        let array = StructArray::from(data);
 
         let expected = StructArray::try_from(vec![
             ("f1", strings.slice(1, 2)),
@@ -775,13 +776,13 @@ mod tests {
             StructArray::try_from(vec![("f1", strings.clone()), ("f2", ints.clone())])
                 .unwrap()
                 .data();
-        let arrays = vec![array.as_ref()];
+        let arrays = vec![array];
 
         let mut mutable = MutableArrayData::new(arrays, false, 0);
 
         mutable.extend(0, 1, 3);
         let data = mutable.freeze();
-        let array = StructArray::from(Arc::new(data));
+        let array = StructArray::from(data);
 
         let expected_string = Arc::new(StringArray::from(vec![None, None])) as ArrayRef;
         let expected_int = Arc::new(Int32Array::from(vec![Some(2), None])) as ArrayRef;
@@ -813,13 +814,13 @@ mod tests {
             StructArray::try_from(vec![("f1", strings.clone()), ("f2", ints.clone())])
                 .unwrap()
                 .data();
-        let arrays = vec![array.as_ref(), array.as_ref()];
+        let arrays = vec![array, array];
         let mut mutable = MutableArrayData::new(arrays, false, 0);
 
         mutable.extend(0, 1, 3);
         mutable.extend(1, 0, 2);
         let data = mutable.freeze();
-        let array = StructArray::from(Arc::new(data));
+        let array = StructArray::from(data);
 
         let expected_string =
             Arc::new(StringArray::from(vec![None, None, Some("joe"), None])) as ArrayRef;
@@ -834,8 +835,11 @@ mod tests {
 
     #[test]
     fn test_binary_fixed_sized_offsets() {
-        let array =
-            FixedSizeBinaryArray::from(vec![vec![0, 0], vec![0, 1], vec![0, 2]]).data();
+        let array = FixedSizeBinaryArray::try_from_iter(
+            vec![vec![0, 0], vec![0, 1], vec![0, 2]].into_iter(),
+        )
+        .expect("Failed to create FixedSizeBinaryArray from iterable")
+        .data();
         let array = array.slice(1, 2);
         // = [[0, 1], [0, 2]] due to the offset = 1
 
@@ -847,9 +851,11 @@ mod tests {
         mutable.extend(0, 0, 1);
 
         let result = mutable.freeze();
-        let result = FixedSizeBinaryArray::from(Arc::new(result));
+        let result = FixedSizeBinaryArray::from(result);
 
-        let expected = FixedSizeBinaryArray::from(vec![vec![0, 2], vec![0, 1]]);
+        let expected =
+            FixedSizeBinaryArray::try_from_iter(vec![vec![0, 2], vec![0, 1]].into_iter())
+                .expect("Failed to create FixedSizeBinaryArray from iterable");
         assert_eq!(result, expected);
     }
 
@@ -877,8 +883,7 @@ mod tests {
         let b = b.data();
         let c = b.slice(1, 2);
 
-        let mut mutable =
-            MutableArrayData::new(vec![a.as_ref(), b.as_ref(), &c], false, 1);
+        let mut mutable = MutableArrayData::new(vec![a, b, &c], false, 1);
         mutable.extend(0, 0, a.len());
         mutable.extend(1, 0, b.len());
         mutable.extend(2, 0, c.len());
@@ -915,7 +920,7 @@ mod tests {
             None,
             0,
             vec![list_value_offsets],
-            vec![expected_int_array.data()],
+            vec![expected_int_array.data().clone()],
         );
         assert_eq!(finished, expected_list_data);
 
@@ -952,8 +957,7 @@ mod tests {
         let c = b.slice(1, 2);
         let d = b.slice(2, 2);
 
-        let mut mutable =
-            MutableArrayData::new(vec![a.as_ref(), b.as_ref(), &c, &d], false, 10);
+        let mut mutable = MutableArrayData::new(vec![a, b, &c, &d], false, 10);
 
         mutable.extend(0, 0, a.len());
         mutable.extend(1, 0, b.len());
@@ -997,7 +1001,7 @@ mod tests {
             Some(Buffer::from(&[0b11011011, 0b1110])),
             0,
             vec![list_value_offsets],
-            vec![expected_int_array.data()],
+            vec![expected_int_array.data().clone()],
         );
         assert_eq!(result, expected_list_data);
 
@@ -1027,7 +1031,7 @@ mod tests {
         builder.append(true)?;
         let b = builder.finish().data();
 
-        let mut mutable = MutableArrayData::new(vec![a.as_ref(), b.as_ref()], false, 10);
+        let mut mutable = MutableArrayData::new(vec![a, b], false, 10);
 
         mutable.extend(0, 0, a.len());
         mutable.extend(1, 0, b.len());
@@ -1068,7 +1072,7 @@ mod tests {
             None,
             0,
             vec![list_value_offsets],
-            vec![expected_string_array.data()],
+            vec![expected_string_array.data().clone()],
         );
         assert_eq!(result, expected_list_data);
         Ok(())
@@ -1077,18 +1081,23 @@ mod tests {
     #[test]
     fn test_fixed_size_binary_append() {
         let a = vec![Some(vec![1, 2]), Some(vec![3, 4]), Some(vec![5, 6])];
-        let a = FixedSizeBinaryArray::from(a).data();
+        let a = FixedSizeBinaryArray::try_from_sparse_iter(a.into_iter())
+            .expect("Failed to create FixedSizeBinaryArray from iterable")
+            .data();
 
         let b = vec![
+            None,
             Some(vec![7, 8]),
             Some(vec![9, 10]),
             None,
             Some(vec![13, 14]),
             None,
         ];
-        let b = FixedSizeBinaryArray::from(b).data();
+        let b = FixedSizeBinaryArray::try_from_sparse_iter(b.into_iter())
+            .expect("Failed to create FixedSizeBinaryArray from iterable")
+            .data();
 
-        let mut mutable = MutableArrayData::new(vec![a.as_ref(), b.as_ref()], false, 10);
+        let mut mutable = MutableArrayData::new(vec![a, b], false, 10);
 
         mutable.extend(0, 0, a.len());
         mutable.extend(1, 0, b.len());
@@ -1103,20 +1112,23 @@ mod tests {
             Some(vec![3, 4]),
             Some(vec![5, 6]),
             // b
+            None,
             Some(vec![7, 8]),
             Some(vec![9, 10]),
             None,
             Some(vec![13, 14]),
             None,
             // b[1..4]
+            Some(vec![7, 8]),
             Some(vec![9, 10]),
             None,
-            Some(vec![13, 14]),
             // b[2..3]
-            None,
+            Some(vec![9, 10]),
             // b[4..4]
         ];
-        let expected = FixedSizeBinaryArray::from(expected).data();
+        let expected = FixedSizeBinaryArray::try_from_sparse_iter(expected.into_iter())
+            .expect("Failed to create FixedSizeBinaryArray from iterable")
+            .data();
         assert_eq!(&result, expected.as_ref());
     }
 
@@ -1200,7 +1212,7 @@ mod tests {
             vec![expected_int_array.data()],
         );
         let expected_list =
-            FixedSizeListArray::from(Arc::new(expected_list_data) as ArrayDataRef);
+            FixedSizeListArray::from(Arc::new(expected_list_data) as ArrayData);
         assert_eq!(&expected_list.values(), &finished.values());
         assert_eq!(expected_list.len(), finished.len());
 
@@ -1208,3 +1220,4 @@ mod tests {
     }
     */
 }
+ */

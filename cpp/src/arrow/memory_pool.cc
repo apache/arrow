@@ -24,6 +24,10 @@
 #include <limits>
 #include <memory>
 
+#if defined(sun) || defined(__sun)
+#include <stdlib.h>
+#endif
+
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/io_util.h"
@@ -179,6 +183,11 @@ class SystemAllocator {
     // Special code path for Windows
     *out = reinterpret_cast<uint8_t*>(
         _aligned_malloc(static_cast<size_t>(size), kAlignment));
+    if (!*out) {
+      return Status::OutOfMemory("malloc of size ", size, " failed");
+    }
+#elif defined(sun) || defined(__sun)
+    *out = reinterpret_cast<uint8_t*>(memalign(kAlignment, static_cast<size_t>(size)));
     if (!*out) {
       return Status::OutOfMemory("malloc of size ", size, " failed");
     }

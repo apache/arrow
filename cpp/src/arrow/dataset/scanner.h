@@ -38,18 +38,6 @@ namespace dataset {
 
 constexpr int64_t kDefaultBatchSize = 1 << 20;
 
-/// \brief Shared state for a Scan operation
-struct ARROW_DS_EXPORT ScanContext {
-  /// A pool from which materialized and scanned arrays will be allocated.
-  MemoryPool* pool = arrow::default_memory_pool();
-
-  /// Indicate if the Scanner should make use of a ThreadPool.
-  bool use_threads = false;
-
-  /// Return a threaded or serial TaskGroup according to use_threads.
-  std::shared_ptr<internal::TaskGroup> TaskGroup() const;
-};
-
 struct ARROW_DS_EXPORT ScanOptions {
   // Filter and projection
   Expression filter = literal(true);
@@ -75,6 +63,15 @@ struct ARROW_DS_EXPORT ScanOptions {
   // Maximum row count for scanned batches.
   int64_t batch_size = kDefaultBatchSize;
 
+  /// A pool from which materialized and scanned arrays will be allocated.
+  MemoryPool* pool = arrow::default_memory_pool();
+
+  /// Indicate if the Scanner should make use of a ThreadPool.
+  bool use_threads = false;
+
+  /// Fragment-specific scan options.
+  std::shared_ptr<FragmentScanOptions> fragment_scan_options;
+
   // Return a vector of fields that requires materialization.
   //
   // This is usually the union of the fields referenced in the projection and the
@@ -90,6 +87,9 @@ struct ARROW_DS_EXPORT ScanOptions {
   // This is used by Fragment implementations to apply the column
   // sub-selection optimization.
   std::vector<std::string> MaterializedFields() const;
+
+  /// Return a threaded or serial TaskGroup according to use_threads.
+  std::shared_ptr<internal::TaskGroup> TaskGroup() const;
 };
 
 /// \brief Read record batches from a range of a single data fragment. A
@@ -105,18 +105,13 @@ class ARROW_DS_EXPORT ScanTask {
   virtual ~ScanTask() = default;
 
   const std::shared_ptr<ScanOptions>& options() const { return options_; }
-  const std::shared_ptr<ScanContext>& context() const { return context_; }
   const std::shared_ptr<Fragment>& fragment() const { return fragment_; }
 
  protected:
-  ScanTask(std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
-           std::shared_ptr<Fragment> fragment)
-      : options_(std::move(options)),
-        context_(std::move(context)),
-        fragment_(std::move(fragment)) {}
+  ScanTask(std::shared_ptr<ScanOptions> options, std::shared_ptr<Fragment> fragment)
+      : options_(std::move(options)), fragment_(std::move(fragment)) {}
 
   std::shared_ptr<ScanOptions> options_;
-  std::shared_ptr<ScanContext> context_;
   std::shared_ptr<Fragment> fragment_;
 };
 
@@ -125,9 +120,8 @@ class ARROW_DS_EXPORT InMemoryScanTask : public ScanTask {
  public:
   InMemoryScanTask(std::vector<std::shared_ptr<RecordBatch>> record_batches,
                    std::shared_ptr<ScanOptions> options,
-                   std::shared_ptr<ScanContext> context,
                    std::shared_ptr<Fragment> fragment)
-      : ScanTask(std::move(options), std::move(context), std::move(fragment)),
+      : ScanTask(std::move(options), std::move(fragment)),
         record_batches_(std::move(record_batches)) {}
 
   Result<RecordBatchIterator> Execute() override;
@@ -138,7 +132,7 @@ class ARROW_DS_EXPORT InMemoryScanTask : public ScanTask {
 
 ARROW_DS_EXPORT Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
     std::vector<std::shared_ptr<RecordBatch>> batches,
-    std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext>);
+    std::shared_ptr<ScanOptions> options);
 
 /// \brief Scanner is a materialized scan operation with context and options
 /// bound. A scanner is the class that glues ScanTask, Fragment,
@@ -150,17 +144,11 @@ ARROW_DS_EXPORT Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
 ///        yield scan_task
 class ARROW_DS_EXPORT Scanner {
  public:
-  Scanner(std::shared_ptr<Dataset> dataset, std::shared_ptr<ScanOptions> scan_options,
-          std::shared_ptr<ScanContext> scan_context)
-      : dataset_(std::move(dataset)),
-        scan_options_(std::move(scan_options)),
-        scan_context_(std::move(scan_context)) {}
+  Scanner(std::shared_ptr<Dataset> dataset, std::shared_ptr<ScanOptions> scan_options)
+      : dataset_(std::move(dataset)), scan_options_(std::move(scan_options)) {}
 
-  Scanner(std::shared_ptr<Fragment> fragment, std::shared_ptr<ScanOptions> scan_options,
-          std::shared_ptr<ScanContext> scan_context)
-      : fragment_(std::move(fragment)),
-        scan_options_(std::move(scan_options)),
-        scan_context_(std::move(scan_context)) {}
+  Scanner(std::shared_ptr<Fragment> fragment, std::shared_ptr<ScanOptions> scan_options)
+      : fragment_(std::move(fragment)), scan_options_(std::move(scan_options)) {}
 
   /// \brief The Scan operator returns a stream of ScanTask. The caller is
   /// responsible to dispatch/schedule said tasks. Tasks should be safe to run
@@ -182,14 +170,11 @@ class ARROW_DS_EXPORT Scanner {
 
   const std::shared_ptr<ScanOptions>& options() const { return scan_options_; }
 
-  const std::shared_ptr<ScanContext>& context() const { return scan_context_; }
-
  protected:
   std::shared_ptr<Dataset> dataset_;
   // TODO(ARROW-8065) remove fragment_ after a Dataset is constuctible from fragments
   std::shared_ptr<Fragment> fragment_;
   std::shared_ptr<ScanOptions> scan_options_;
-  std::shared_ptr<ScanContext> scan_context_;
 };
 
 /// \brief ScannerBuilder is a factory class to construct a Scanner. It is used
@@ -197,11 +182,13 @@ class ARROW_DS_EXPORT Scanner {
 /// columns to materialize.
 class ARROW_DS_EXPORT ScannerBuilder {
  public:
+  explicit ScannerBuilder(std::shared_ptr<Dataset> dataset);
+
   ScannerBuilder(std::shared_ptr<Dataset> dataset,
-                 std::shared_ptr<ScanContext> scan_context);
+                 std::shared_ptr<ScanOptions> scan_options);
 
   ScannerBuilder(std::shared_ptr<Schema> schema, std::shared_ptr<Fragment> fragment,
-                 std::shared_ptr<ScanContext> scan_context);
+                 std::shared_ptr<ScanOptions> scan_options);
 
   /// \brief Set the subset of columns to materialize.
   ///
@@ -239,7 +226,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   Status Filter(const Expression& filter);
 
   /// \brief Indicate if the Scanner should make use of the available
-  ///        ThreadPool found in ScanContext;
+  ///        ThreadPool found in ScanOptions;
   Status UseThreads(bool use_threads = true);
 
   /// \brief Set the maximum number of rows per RecordBatch.
@@ -250,6 +237,9 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// This option provides a control limiting the memory owned by any RecordBatch.
   Status BatchSize(int64_t batch_size);
 
+  /// \brief Set the pool from which materialized and scanned arrays will be allocated.
+  Status Pool(MemoryPool* pool);
+
   /// \brief Return the constructed now-immutable Scanner object
   Result<std::shared_ptr<Scanner>> Finish();
 
@@ -259,7 +249,6 @@ class ARROW_DS_EXPORT ScannerBuilder {
   std::shared_ptr<Dataset> dataset_;
   std::shared_ptr<Fragment> fragment_;
   std::shared_ptr<ScanOptions> scan_options_;
-  std::shared_ptr<ScanContext> scan_context_;
 };
 
 }  // namespace dataset

@@ -55,6 +55,17 @@ build_array_expression <- function(FUN,
                                    ...,
                                    args = list(...),
                                    options = empty_named_list()) {
+  if (FUN == "-" && length(args) == 1L) {
+    # Unary -, i.e. just make it negative, and somehow this works
+    if (inherits(args[[1]], c("ArrowObject", "array_expression"))) {
+      # Make it be 0 - arg
+      # TODO(ARROW-11950): do this in C++ compute
+      args <- list(0L, args[[1]])
+    } else {
+      # Somehow this works
+      return(-args[[1]])
+    }
+  }
   args <- lapply(args, .wrap_arrow, FUN)
 
   # In Arrow, "divide" is one function, which does integer division on
@@ -155,6 +166,9 @@ eval_array_expression <- function(x, data = NULL) {
       a
     }
   })
+  if (x$fun == "is_in_meta_binary" && inherits(x$args[[2]], "Scalar")) {
+    x$args[[2]] <- Array$create(x$args[[2]])
+  }
   call_function(x$fun, args = x$args, options = x$options %||% empty_named_list())
 }
 
@@ -270,10 +284,22 @@ build_dataset_expression <- function(FUN,
                                      ...,
                                      args = list(...),
                                      options = empty_named_list()) {
+  if (FUN == "-" && length(args) == 1L) {
+    # Unary -, i.e. make it negative
+    if (inherits(args[[1]], c("ArrowObject", "Expression"))) {
+      # TODO(ARROW-11950): do this in C++ compute
+      args <- list(0L, args[[1]])
+    } else {
+      # Somehow this just works
+      return(-args[[1]])
+    }
+  }
   if (FUN == "%in%") {
     # Special-case %in%, which is different from the Array function name
     expr <- Expression$create("is_in", args[[1]],
       options = list(
+        # If args[[2]] is already an Arrow object (like a scalar),
+        # this wouldn't work
         value_set = Array$create(args[[2]]),
         skip_nulls = TRUE
       )
