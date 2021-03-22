@@ -958,6 +958,15 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
                          /*null_count=*/0);
 }
 
+Result<std::shared_ptr<ListArray>> ApplyGroupings(const ListArray& groupings,
+                                                  const Array& array) {
+  ARROW_ASSIGN_OR_RAISE(Datum sorted,
+                        compute::Take(array, groupings.data()->child_data[0]));
+
+  return std::make_shared<ListArray>(list(array.type()), groupings.length(),
+                                     groupings.value_offsets(), sorted.make_array());
+}
+
 Result<std::shared_ptr<ListArray>> MakeGroupings(const UInt32Array& ids, uint32_t max_id,
                                                  ExecContext* ctx) {
   if (ctx == nullptr) {

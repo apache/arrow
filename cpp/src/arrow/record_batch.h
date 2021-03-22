@@ -87,7 +87,7 @@ class ARROW_EXPORT RecordBatch {
 
   // \return the table's schema
   /// \return true if batches are equal
-  std::shared_ptr<Schema> schema() const { return schema_; }
+  const std::shared_ptr<Schema>& schema() const { return schema_; }
 
   /// \brief Retrieve all columns at once
   std::vector<std::shared_ptr<Array>> columns() const;

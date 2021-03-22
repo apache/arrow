@@ -372,6 +372,32 @@ ARROW_EXPORT
 Result<std::shared_ptr<ListArray>> MakeGroupings(const UInt32Array& ids, uint32_t max_id,
                                                  ExecContext* ctx = NULLPTR);
 
+/// \brief Produce a ListArray whose slots are selections of `array` which correspond to
+/// the provided groupings.
+///
+/// For example,
+///   ApplyGroupings([
+///       [],
+///       [],
+///       [0, 1, 4],
+///       [5],
+///       [],
+///       [2, 3],
+///       [],
+///       []
+///   ], [2, 2, 5, 5, 2, 3]) == [
+///       [],
+///       [],
+///       [2, 2, 2],
+///       [3],
+///       [],
+///       [5, 5],
+///       [],
+///       []
+///   ]
+Result<std::shared_ptr<ListArray>> ApplyGroupings(const ListArray& groupings,
+                                                  const Array& array);
+
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow

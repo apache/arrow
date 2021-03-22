@@ -71,56 +71,90 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
   return std::make_shared<DefaultPartitioning>();
 }
 
-inline Expression ConjunctionFromGroupingRow(Scalar* row) {
-  ScalarVector* values = &checked_cast<StructScalar*>(row)->value;
-  std::vector<Expression> equality_expressions(values->size());
-  for (size_t i = 0; i < values->size(); ++i) {
-    const std::string& name = row->type->field(static_cast<int>(i))->name();
-    if (values->at(i)->is_valid) {
-      equality_expressions[i] = equal(field_ref(name), literal(std::move(values->at(i))));
-    } else {
-      equality_expressions[i] = is_null(field_ref(name));
-    }
+static Result<RecordBatchVector> ApplyGroupings(
+    const ListArray& groupings, const std::shared_ptr<RecordBatch>& batch) {
+  ARROW_ASSIGN_OR_RAISE(Datum sorted,
+                        compute::Take(batch, groupings.data()->child_data[0]));
+
+  const auto& sorted_batch = *sorted.record_batch();
+
+  RecordBatchVector out(static_cast<size_t>(groupings.length()));
+  for (size_t i = 0; i < out.size(); ++i) {
+    out[i] = sorted_batch.Slice(groupings.value_offset(i), groupings.value_length(i));
   }
-  return and_(std::move(equality_expressions));
+
+  return out;
 }
 
 Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
     const std::shared_ptr<RecordBatch>& batch) const {
-  FieldVector by_fields;
-  ArrayVector by_columns;
+  std::vector<int> key_indices;
+  int num_keys = 0;
 
-  std::shared_ptr<RecordBatch> rest = batch;
+  // assemble vector of indices of fields in batch on which we'll partition
   for (const auto& partition_field : schema_->fields()) {
     ARROW_ASSIGN_OR_RAISE(
-        auto match, FieldRef(partition_field->name()).FindOneOrNone(*rest->schema()))
-    if (match.empty()) continue;
+        auto match, FieldRef(partition_field->name()).FindOneOrNone(*batch->schema()))
 
-    by_fields.push_back(partition_field);
-    by_columns.push_back(rest->column(match[0]));
-    ARROW_ASSIGN_OR_RAISE(rest, rest->RemoveColumn(match[0]));
+    if (match.empty()) continue;
+    key_indices.push_back(match[0]);
+    ++num_keys;
   }
 
-  if (by_fields.empty()) {
+  if (key_indices.empty()) {
     // no fields to group by; return the whole batch
     return PartitionedBatches{{batch}, {literal(true)}};
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto by,
-                        StructArray::Make(std::move(by_columns), std::move(by_fields)));
-  ARROW_ASSIGN_OR_RAISE(auto groupings_and_values, MakeGroupings(*by));
-  auto groupings =
-      checked_pointer_cast<ListArray>(groupings_and_values->GetFieldByName("groupings"));
-  auto unique_rows = groupings_and_values->GetFieldByName("values");
+  // assemble an ExecBatch of the key columns
+  compute::ExecBatch key_batch({}, batch->num_rows());
+  for (int i : key_indices) {
+    key_batch.values.emplace_back(batch->column_data(i));
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto grouper,
+                        compute::internal::Grouper::Make(key_batch.GetDescriptors()));
+
+  ARROW_ASSIGN_OR_RAISE(auto id_batch, grouper->Consume(key_batch));
+
+  int64_t num_groups = id_batch[1].scalar_as<UInt32Scalar>().value;
+  auto ids = id_batch[0].array_as<UInt32Array>();
+  ARROW_ASSIGN_OR_RAISE(auto groupings, compute::internal::MakeGroupings(
+                                            *ids, static_cast<uint32_t>(num_groups - 1)));
+
+  ARROW_ASSIGN_OR_RAISE(auto uniques, grouper->GetUniques());
+  ArrayVector unique_arrays(num_keys);
+  for (int i = 0; i < num_keys; ++i) {
+    unique_arrays[i] = uniques.values[i].make_array();
+  }
 
   PartitionedBatches out;
-  ARROW_ASSIGN_OR_RAISE(out.batches, ApplyGroupings(*groupings, rest));
-  out.expressions.resize(out.batches.size());
 
-  for (size_t i = 0; i < out.batches.size(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(auto row, unique_rows->GetScalar(i));
-    out.expressions[i] = ConjunctionFromGroupingRow(row.get());
+  // assemble partition expressions from the unique keys
+  out.expressions.resize(static_cast<size_t>(num_groups));
+  for (int64_t group = 0; group < num_groups; ++group) {
+    std::vector<Expression> exprs(num_keys);
+
+    for (int i = 0; i < num_keys; ++i) {
+      ARROW_ASSIGN_OR_RAISE(auto val, unique_arrays[i]->GetScalar(group));
+      const auto& name = batch->schema()->field(key_indices[i])->name();
+
+      exprs[i] = val->is_valid ? equal(field_ref(name), literal(std::move(val)))
+                               : is_null(field_ref(name));
+    }
+    out.expressions[group] = and_(std::move(exprs));
   }
+
+  // remove key columns from batch to which we'll be applying the groupings
+  auto rest = batch;
+  std::sort(key_indices.begin(), key_indices.end(), std::greater<int>());
+  for (int i : key_indices) {
+    // indices are in descending order; indices larger than i (which would be invalidated
+    // here) have already been handled
+    ARROW_ASSIGN_OR_RAISE(rest, rest->RemoveColumn(i));
+  }
+  ARROW_ASSIGN_OR_RAISE(out.batches, ApplyGroupings(*groupings, rest));
+
   return out;
 }
 
@@ -273,10 +307,11 @@ Result<std::string> DirectoryPartitioning::FormatValues(
   return fs::internal::JoinAbstractPath(std::move(segments));
 }
 
+namespace {
 class KeyValuePartitioningFactory : public PartitioningFactory {
  protected:
   explicit KeyValuePartitioningFactory(PartitioningFactoryOptions options)
-      : options_(options) {}
+      : options_(std::move(options)) {}
 
   int GetOrInsertField(const std::string& name) {
     auto it_inserted =
@@ -437,6 +472,8 @@ class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
   std::vector<std::string> field_names_;
 };
 
+}  // namespace
+
 std::shared_ptr<PartitioningFactory> DirectoryPartitioning::MakeFactory(
     std::vector<std::string> field_names, PartitioningFactoryOptions options) {
   return std::shared_ptr<PartitioningFactory>(
@@ -575,65 +612,6 @@ Result<std::shared_ptr<Schema>> PartitioningOrFactory::GetOrInferSchema(
   }
 
   return factory()->Inspect(paths);
-}
-
-Result<std::shared_ptr<StructArray>> MakeGroupings(const StructArray& by) {
-  if (by.num_fields() == 0) {
-    return Status::Invalid("Grouping with no criteria");
-  }
-
-  if (by.null_count() != 0) {
-    return Status::Invalid("Grouping with null criteria");
-  }
-
-  compute::ExecBatch key_batch({}, by.length());
-  for (const auto& key : by.fields()) {
-    key_batch.values.emplace_back(key);
-  }
-
-  ARROW_ASSIGN_OR_RAISE(auto grouper,
-                        compute::internal::Grouper::Make(key_batch.GetDescriptors()));
-
-  ARROW_ASSIGN_OR_RAISE(auto id_batch, grouper->Consume(key_batch));
-
-  auto ids = id_batch[0].array_as<UInt32Array>();
-  auto max_id = id_batch[1].scalar_as<UInt32Scalar>().value - 1;
-  ARROW_ASSIGN_OR_RAISE(auto groupings, compute::internal::MakeGroupings(*ids, max_id));
-
-  ARROW_ASSIGN_OR_RAISE(auto uniques, grouper->GetUniques());
-  ArrayVector unique_rows_fields(uniques.num_values());
-  for (int i = 0; i < by.num_fields(); ++i) {
-    unique_rows_fields[i] = uniques[i].make_array();
-  }
-  ARROW_ASSIGN_OR_RAISE(auto unique_rows, StructArray::Make(std::move(unique_rows_fields),
-                                                            by.type()->fields()));
-
-  return StructArray::Make(ArrayVector{std::move(unique_rows), std::move(groupings)},
-                           std::vector<std::string>{"values", "groupings"});
-}
-
-Result<std::shared_ptr<ListArray>> ApplyGroupings(const ListArray& groupings,
-                                                  const Array& array) {
-  ARROW_ASSIGN_OR_RAISE(Datum sorted,
-                        compute::Take(array, groupings.data()->child_data[0]));
-
-  return std::make_shared<ListArray>(list(array.type()), groupings.length(),
-                                     groupings.value_offsets(), sorted.make_array());
-}
-
-Result<RecordBatchVector> ApplyGroupings(const ListArray& groupings,
-                                         const std::shared_ptr<RecordBatch>& batch) {
-  ARROW_ASSIGN_OR_RAISE(Datum sorted,
-                        compute::Take(batch, groupings.data()->child_data[0]));
-
-  const auto& sorted_batch = *sorted.record_batch();
-
-  RecordBatchVector out(static_cast<size_t>(groupings.length()));
-  for (size_t i = 0; i < out.size(); ++i) {
-    out[i] = sorted_batch.Slice(groupings.value_offset(i), groupings.value_length(i));
-  }
-
-  return out;
 }
 
 }  // namespace dataset
