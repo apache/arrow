@@ -1044,8 +1044,22 @@ void LLVMGenerator::Visitor::VisitInExpression(const InExprDexBase<Type>& dex) {
 
   llvm::Type* ret_type = types->IRType(arrow::Type::type::BOOL);
 
-  llvm::Value* value =
-      generator_->AddFunctionCall(dex.runtime_function(), ret_type, params);
+
+  bool is_decimal;
+  for (auto& param: params){
+    if (param->getType()==types->i128_type()){
+      is_decimal=true;
+    }
+  }
+  llvm::Value* value;
+
+  if (is_decimal){
+    value =decimalIR.CallDecimalFunction(dex.runtime_function(),ret_type,params);
+  }else{
+    value =
+        generator_->AddFunctionCall(dex.runtime_function(), ret_type, params);
+  }
+
   result_.reset(new LValue(value));
 }
 

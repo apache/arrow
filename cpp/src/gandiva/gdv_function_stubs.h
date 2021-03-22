@@ -19,6 +19,7 @@
 
 #include <cstdint>
 
+#include "arrow/util/basic_decimal.h"
 #include "gandiva/visibility.h"
 
 /// Stub functions that can be accessed from LLVM.

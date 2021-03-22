@@ -89,4 +89,14 @@ namespace std {
             return (((h0 ^ (h1 << 1) >> 1)^(h2 << 1) >> 1) ^ h3 << 1);
         }
     };
+    template<>
+    struct hash<arrow::BasicDecimal128> {
+        std::size_t operator()(arrow::BasicDecimal128 const& dvalue) const noexcept {
+
+          std::size_t h0 = std::hash<int64_t>{}(dvalue.high_bits());
+          std::size_t h1 = std::hash<uint64_t>{}(dvalue.low_bits());
+
+          return h0 ^ (h1 << 1);
+        }
+    };
 }
