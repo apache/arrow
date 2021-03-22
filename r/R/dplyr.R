@@ -430,7 +430,7 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
     if (length(x$arrange_vars) > 0) {
       x$arrange_vars <- vapply(
         x$arrange_vars,
-        get_field_name,
+        get_field_name_of_array_ref,
         character(1),
         msg = function(x) {
           paste(

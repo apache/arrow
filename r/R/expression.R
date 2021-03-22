@@ -181,7 +181,10 @@ find_array_refs <- function(x) {
   unlist(out)
 }
 
-get_field_name <-  function(x, msg = NULL) {
+# This function takes an array reference as input and returns its field name.
+# If the input is not an array reference, then it throws an error, optionally
+# using the specified message function or message string.
+get_field_name_of_array_ref <-  function(x, msg = NULL) {
   if (!identical(x$fun, "array_ref")) {
     if (is.null(msg)) {
       # Default message
