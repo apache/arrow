@@ -2558,12 +2558,13 @@ macro(build_grpc)
   add_library(gRPC::grpc++ STATIC IMPORTED)
   set_target_properties(
     gRPC::grpc++
-    PROPERTIES IMPORTED_LOCATION
-               "${GRPC_STATIC_LIBRARY_GRPCPP}"
-               INTERFACE_LINK_LIBRARIES
-               "gRPC::grpc;gRPC::gpr;gRPC::upb;gRPC::address_sorting;${ABSL_LIBRARIES};Threads::Threads"
-               INTERFACE_INCLUDE_DIRECTORIES
-               "${GRPC_INCLUDE_DIR}")
+    PROPERTIES
+      IMPORTED_LOCATION
+      "${GRPC_STATIC_LIBRARY_GRPCPP}"
+      INTERFACE_LINK_LIBRARIES
+      "gRPC::grpc;gRPC::gpr;gRPC::upb;gRPC::address_sorting;${ABSL_LIBRARIES};Threads::Threads"
+      INTERFACE_INCLUDE_DIRECTORIES
+      "${GRPC_INCLUDE_DIR}")
 
   add_executable(gRPC::grpc_cpp_plugin IMPORTED)
   set_target_properties(gRPC::grpc_cpp_plugin
