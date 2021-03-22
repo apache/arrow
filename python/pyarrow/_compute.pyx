@@ -58,6 +58,17 @@ cdef wrap_scalar_aggregate_function(const shared_ptr[CFunction]& sp_func):
     return func
 
 
+cdef wrap_hash_aggregate_function(const shared_ptr[CFunction]& sp_func):
+    """
+    Wrap a C++ aggregate Function in a ScalarAggregateFunction object.
+    """
+    cdef HashAggregateFunction func = (
+        HashAggregateFunction.__new__(HashAggregateFunction)
+    )
+    func.init(sp_func)
+    return func
+
+
 cdef wrap_meta_function(const shared_ptr[CFunction]& sp_func):
     """
     Wrap a C++ meta Function in a MetaFunction object.
@@ -85,6 +96,8 @@ cdef wrap_function(const shared_ptr[CFunction]& sp_func):
         return wrap_vector_function(sp_func)
     elif c_kind == FunctionKind_SCALAR_AGGREGATE:
         return wrap_scalar_aggregate_function(sp_func)
+    elif c_kind == FunctionKind_HASH_AGGREGATE:
+        return wrap_hash_aggregate_function(sp_func)
     elif c_kind == FunctionKind_META:
         return wrap_meta_function(sp_func)
     else:
@@ -112,6 +125,16 @@ cdef wrap_scalar_aggregate_kernel(const CScalarAggregateKernel* c_kernel):
         raise ValueError('Kernel was NULL')
     cdef ScalarAggregateKernel kernel = (
         ScalarAggregateKernel.__new__(ScalarAggregateKernel)
+    )
+    kernel.init(c_kernel)
+    return kernel
+
+
+cdef wrap_hash_aggregate_kernel(const CHashAggregateKernel* c_kernel):
+    if c_kernel == NULL:
+        raise ValueError('Kernel was NULL')
+    cdef HashAggregateKernel kernel = (
+        HashAggregateKernel.__new__(HashAggregateKernel)
     )
     kernel.init(c_kernel)
     return kernel
@@ -162,6 +185,18 @@ cdef class ScalarAggregateKernel(Kernel):
 
     def __repr__(self):
         return ("ScalarAggregateKernel<{}>"
+                .format(frombytes(self.kernel.signature.get().ToString())))
+
+
+cdef class HashAggregateKernel(Kernel):
+    cdef:
+        const CHashAggregateKernel* kernel
+
+    cdef void init(self, const CHashAggregateKernel* kernel) except *:
+        self.kernel = kernel
+
+    def __repr__(self):
+        return ("HashAggregateKernel<{}>"
                 .format(frombytes(self.kernel.signature.get().ToString())))
 
 
@@ -249,6 +284,8 @@ cdef class Function(_Weakrefable):
             return 'vector'
         elif c_kind == FunctionKind_SCALAR_AGGREGATE:
             return 'scalar_aggregate'
+        elif c_kind == FunctionKind_HASH_AGGREGATE:
+            return 'hash_aggregate'
         elif c_kind == FunctionKind_META:
             return 'meta'
         else:
@@ -349,6 +386,25 @@ cdef class ScalarAggregateFunction(Function):
             self.func.kernels()
         )
         return [wrap_scalar_aggregate_kernel(k) for k in kernels]
+
+
+cdef class HashAggregateFunction(Function):
+    cdef:
+        const CHashAggregateFunction* func
+
+    cdef void init(self, const shared_ptr[CFunction]& sp_func) except *:
+        Function.init(self, sp_func)
+        self.func = <const CHashAggregateFunction*> sp_func.get()
+
+    @property
+    def kernels(self):
+        """
+        The kernels implementing this function.
+        """
+        cdef vector[const CHashAggregateKernel*] kernels = (
+            self.func.kernels()
+        )
+        return [wrap_hash_aggregate_kernel(k) for k in kernels]
 
 
 cdef class MetaFunction(Function):

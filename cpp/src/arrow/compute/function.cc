@@ -189,8 +189,10 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
     executor = detail::KernelExecutor::MakeScalar();
   } else if (kind() == Function::VECTOR) {
     executor = detail::KernelExecutor::MakeVector();
-  } else {
+  } else if (kind() == Function::SCALAR_AGGREGATE) {
     executor = detail::KernelExecutor::MakeScalarAggregate();
+  } else {
+    return Status::NotImplemented("Direct execution of HASH_AGGREGATE functions");
   }
   RETURN_NOT_OK(executor->Init(&kernel_ctx, {kernel, inputs, options}));
 

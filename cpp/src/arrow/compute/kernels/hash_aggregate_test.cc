@@ -190,6 +190,41 @@ void ValidateGroupBy(const std::vector<internal::Aggregate>& aggregates,
 
 }  // namespace
 
+TEST(Grouper, SupportedKeys) {
+  ASSERT_OK(internal::Grouper::Make({boolean()}));
+
+  ASSERT_OK(internal::Grouper::Make({int8(), uint16(), int32(), uint64()}));
+
+  ASSERT_OK(internal::Grouper::Make({dictionary(int64(), utf8())}));
+
+  ASSERT_OK(internal::Grouper::Make({float16(), float32(), float64()}));
+
+  ASSERT_OK(internal::Grouper::Make({utf8(), binary(), large_utf8(), large_binary()}));
+
+  ASSERT_OK(internal::Grouper::Make({fixed_size_binary(16), fixed_size_binary(32)}));
+
+  ASSERT_OK(internal::Grouper::Make({decimal128(32, 10), decimal256(76, 20)}));
+
+  ASSERT_OK(internal::Grouper::Make({date32(), date64()}));
+
+  for (auto unit : internal::AllTimeUnits()) {
+    ASSERT_OK(internal::Grouper::Make({timestamp(unit), duration(unit)}));
+  }
+
+  ASSERT_OK(internal::Grouper::Make({day_time_interval(), month_interval()}));
+
+  ASSERT_RAISES(NotImplemented, internal::Grouper::Make({struct_({field("", int64())})}));
+
+  ASSERT_RAISES(NotImplemented, internal::Grouper::Make({struct_({})}));
+
+  ASSERT_RAISES(NotImplemented, internal::Grouper::Make({list(int32())}));
+
+  ASSERT_RAISES(NotImplemented, internal::Grouper::Make({fixed_size_list(int32(), 5)}));
+
+  ASSERT_RAISES(NotImplemented,
+                internal::Grouper::Make({dense_union({field("", int32())})}));
+}
+
 struct TestGrouper {
   explicit TestGrouper(std::vector<ValueDescr> descrs) : descrs_(std::move(descrs)) {
     grouper_ = internal::Grouper::Make(descrs_).ValueOrDie();
@@ -286,7 +321,7 @@ TEST(Grouper, NumericKey) {
 }
 
 TEST(Grouper, StringKey) {
-  for (auto ty : {utf8(), large_utf8()}) {
+  for (auto ty : {utf8(), large_utf8(), fixed_size_binary(2)}) {
     SCOPED_TRACE("key type: " + ty->ToString());
 
     TestGrouper g({ty});
@@ -295,7 +330,7 @@ TEST(Grouper, StringKey) {
 
     g.ExpectConsume(R"([["eh"], ["eh"]])", "[0, 0]");
 
-    g.ExpectConsume(R"([["bee"], [null]])", "[1, 2]");
+    g.ExpectConsume(R"([["be"], [null]])", "[1, 2]");
   }
 }
 
@@ -441,6 +476,30 @@ TEST(Grouper, MakeGroupings) {
   ExpectGroupings("[2, 1, 2, 1, 1, 2]", "[[], [1, 3, 4], [0, 2, 5], [], []]");
 
   ExpectGroupings("[2, 2, 5, 5, 2, 3]", "[[], [], [0, 1, 4], [5], [], [2, 3], [], []]");
+
+  auto ids = checked_pointer_cast<UInt32Array>(ArrayFromJSON(uint32(), "[0, null, 1]"));
+  ASSERT_RAISES(Invalid, internal::Grouper::MakeGroupings(*ids, 5));
+}
+
+TEST(GroupBy, Errors) {
+  auto batch = RecordBatchFromJSON(
+      schema({field("argument", float64()), field("group_id", int32())}), R"([
+    [1.0,   1],
+    [null,  1],
+    [0.0,   2],
+    [null,  3],
+    [4.0,   0],
+    [3.25,  1],
+    [0.125, 2],
+    [-0.25, 2],
+    [0.75,  0],
+    [null,  3]
+  ])");
+
+  ASSERT_RAISES(
+      NotImplemented,
+      CallFunction("hash_sum", {batch->GetColumnByName("argument"),
+                                batch->GetColumnByName("group_id"), Datum(uint32_t(4))}));
 }
 
 TEST(GroupBy, SumOnly) {
