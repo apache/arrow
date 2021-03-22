@@ -27,13 +27,19 @@ import sys
 # Keep an explicit list of files to format as we don't want to reformat
 # files we imported from other location.
 PATTERNS = [
-    'cpp/cmake_modules/*/.cmake',
-    '*CMakeLists.txt',
+    'ci/**/*.cmake',
+    'cpp/CMakeLists.txt',
+    'cpp/src/**/CMakeLists.txt',
+    'cpp/cmake_modules/*.cmake',
+    'go/**/CMakeLists.txt',
+    'java/**/CMakeLists.txt',
+    'matlab/**/CMakeLists.txt',
 ]
 EXCLUDE = [
     'cpp/cmake_modules/FindNumPy.cmake',
     'cpp/cmake_modules/FindPythonLibsNew.cmake',
     'cpp/cmake_modules/UseCython.cmake',
+    'cpp/src/arrow/util/config.h.cmake',
 ]
 
 here = pathlib.Path(__file__).parent
@@ -92,14 +98,12 @@ if __name__ == "__main__":
     parser.add_argument('paths', nargs='*', type=pathlib.Path)
     args = parser.parse_args()
 
-    if not args.paths:
-        paths = find_cmake_files()
-    else:
-        paths = args.paths
+    paths = find_cmake_files()
+    if args.paths:
+        paths = set(paths) & set([path.resolve() for path in args.paths])
     paths = [
-        i for i in paths
-        if any(fnmatch.fnmatch(i.as_posix(), pattern) for pattern in PATTERNS)
-        and i.as_posix() not in EXCLUDE
+        path for path in paths
+        if path.relative_to(here).as_posix() not in EXCLUDE
     ]
     if args.check:
         check_cmake_format(paths)
