@@ -93,27 +93,6 @@ class TestCsvFileFormat : public testing::TestWithParam<Compression::type> {
   std::shared_ptr<ScanOptions> opts_ = std::make_shared<ScanOptions>();
 };
 
-TEST_P(TestCsvFileFormat, Equality) {
-  CsvFileFormat options1;
-  CsvFileFormat options2;
-  options2.reader_options.skip_rows = 3;
-  CsvFileFormat options3;
-  options3.reader_options.parse_options.delimiter = '\t';
-  CsvFileFormat options4;
-  options4.reader_options.block_size = 1 << 30;
-
-  ASSERT_TRUE(options1.Equals(options1));
-  ASSERT_TRUE(options2.Equals(options2));
-  ASSERT_TRUE(options3.Equals(options3));
-  ASSERT_TRUE(options4.Equals(options4));
-  ASSERT_FALSE(options1.Equals(options2));
-  ASSERT_FALSE(options1.Equals(options3));
-  ASSERT_FALSE(options1.Equals(options4));
-  ASSERT_FALSE(options2.Equals(options3));
-  ASSERT_FALSE(options2.Equals(options4));
-  ASSERT_FALSE(options3.Equals(options4));
-}
-
 TEST_P(TestCsvFileFormat, ScanRecordBatchReader) {
   auto source = GetFileSource(R"(f64
 1.0
@@ -163,21 +142,33 @@ MYNULL
 N/A
 bar)");
   SetSchema({field("str", utf8())});
-  format_->reader_options.skip_rows = 1;
+  auto defaults = std::make_shared<CsvFragmentScanOptions>();
+  defaults->read_options.skip_rows = 1;
+  format_->default_fragment_scan_options = defaults;
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
-  auto fragment_scan_options = std::make_shared<CsvFragmentScanOptions>();
-  fragment_scan_options->block_size = 1 << 22;
-  opts_->fragment_scan_options = fragment_scan_options;
-
   ASSERT_OK_AND_ASSIGN(auto physical_schema, fragment->ReadPhysicalSchema());
   AssertSchemaEqual(opts_->dataset_schema, physical_schema);
 
-  int64_t rows = 0;
-  for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-    rows += batch->GetColumnByName("str")->length();
+  {
+    int64_t rows = 0;
+    for (auto maybe_batch : Batches(fragment.get())) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      rows += batch->GetColumnByName("str")->length();
+    }
+    ASSERT_EQ(rows, 4);
   }
-  ASSERT_EQ(rows, 4);
+  {
+    // These options completely override the default ones
+    auto fragment_scan_options = std::make_shared<CsvFragmentScanOptions>();
+    fragment_scan_options->read_options.block_size = 1 << 22;
+    opts_->fragment_scan_options = fragment_scan_options;
+    int64_t rows = 0;
+    for (auto maybe_batch : Batches(fragment.get())) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      rows += batch->GetColumnByName("header_skipped")->length();
+    }
+    ASSERT_EQ(rows, 5);
+  }
 }
 
 TEST_P(TestCsvFileFormat, ScanRecordBatchReaderWithVirtualColumn) {

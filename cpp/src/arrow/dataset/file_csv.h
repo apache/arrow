@@ -33,35 +33,11 @@ namespace dataset {
 
 constexpr char kCsvTypeName[] = "csv";
 
-/// \brief Per-scan options for CSV fragments
-struct ARROW_DS_EXPORT CsvFragmentScanOptions : public FragmentScanOptions {
-  std::string type_name() const override { return kCsvTypeName; }
-
-  /// CSV conversion options
-  csv::ConvertOptions convert_options = csv::ConvertOptions::Defaults();
-
-  /// Block size for reading (see arrow::csv::ReadOptions::block_size)
-  int32_t block_size = 1 << 20;  // 1 MB
-};
-
 /// \brief A FileFormat implementation that reads from and writes to Csv files
 class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
  public:
-  /// \brief Dataset-wide options for CSV. For convenience (both for users, and
-  /// for authors of language bindings), these include fields for per-scan
-  /// options, however, if per-scan options are provided, then those fields will
-  /// be overridden.
-  struct ReaderOptions : CsvFragmentScanOptions {
-    /// Options affecting the parsing of CSV files
-    csv::ParseOptions parse_options = csv::ParseOptions::Defaults();
-    /// Number of header rows to skip (see arrow::csv::ReadOptions::skip_rows)
-    int32_t skip_rows = 0;
-    /// Column names for the target table (see arrow::csv::ReadOptions::column_names)
-    std::vector<std::string> column_names;
-    /// Whether to generate column names or assume a header row (see
-    /// arrow::csv::ReadOptions::autogenerate_column_names)
-    bool autogenerate_column_names = false;
-  } reader_options;
+  /// Options affecting the parsing of CSV files
+  csv::ParseOptions parse_options = csv::ParseOptions::Defaults();
 
   std::string type_name() const override { return kCsvTypeName; }
 
@@ -84,6 +60,19 @@ class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
   }
 
   std::shared_ptr<FileWriteOptions> DefaultWriteOptions() override { return NULLPTR; }
+};
+
+/// \brief Per-scan options for CSV fragments
+struct ARROW_DS_EXPORT CsvFragmentScanOptions : public FragmentScanOptions {
+  std::string type_name() const override { return kCsvTypeName; }
+
+  /// CSV conversion options
+  csv::ConvertOptions convert_options = csv::ConvertOptions::Defaults();
+
+  /// CSV reading options
+  ///
+  /// Note that use_threads is always ignored.
+  csv::ReadOptions read_options = csv::ReadOptions::Defaults();
 };
 
 }  // namespace dataset

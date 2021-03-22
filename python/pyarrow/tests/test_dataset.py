@@ -526,8 +526,10 @@ def test_file_format_pickling():
         ds.CsvFileFormat(),
         ds.CsvFileFormat(pa.csv.ParseOptions(delimiter='\t',
                                              ignore_empty_lines=True)),
-        ds.CsvFileFormat(skip_rows=3, column_names=['foo']),
-        ds.CsvFileFormat(skip_rows=3, block_size=2**20),
+        ds.CsvFileFormat(read_options=pa.csv.ReadOptions(
+            skip_rows=3, column_names=['foo'])),
+        ds.CsvFileFormat(read_options=pa.csv.ReadOptions(
+            skip_rows=3, block_size=2**20)),
         ds.ParquetFileFormat(),
         ds.ParquetFileFormat(
             read_options=ds.ParquetReadOptions(use_buffered_stream=True)
@@ -547,8 +549,9 @@ def test_fragment_scan_options_pickling():
     options = [
         ds.CsvFragmentScanOptions(),
         ds.CsvFragmentScanOptions(
-            pa.csv.ConvertOptions(strings_can_be_null=True)),
-        ds.CsvFragmentScanOptions(block_size=2**16),
+            convert_options=pa.csv.ConvertOptions(strings_can_be_null=True)),
+        ds.CsvFragmentScanOptions(
+            read_options=pa.csv.ReadOptions(block_size=2**16)),
     ]
     for option in options:
         assert pickle.loads(pickle.dumps(option)) == option
@@ -2264,11 +2267,13 @@ def test_csv_format_options(tempdir):
     assert result.equals(
         pa.table({'skipped': pa.array(['col0', 'foo', 'bar'])}))
 
-    dataset = ds.dataset(path, format=ds.CsvFileFormat(skip_rows=1))
+    dataset = ds.dataset(path, format=ds.CsvFileFormat(
+        read_options=pa.csv.ReadOptions(skip_rows=1)))
     result = dataset.to_table()
     assert result.equals(pa.table({'col0': pa.array(['foo', 'bar'])}))
 
-    dataset = ds.dataset(path, format=ds.CsvFileFormat(column_names=['foo']))
+    dataset = ds.dataset(path, format=ds.CsvFileFormat(
+        read_options=pa.csv.ReadOptions(column_names=['foo'])))
     result = dataset.to_table()
     assert result.equals(
         pa.table({'foo': pa.array(['skipped', 'col0', 'foo', 'bar'])}))
@@ -2282,7 +2287,8 @@ def test_csv_fragment_options(tempdir):
     convert_options = pyarrow.csv.ConvertOptions(null_values=['MYNULL'],
                                                  strings_can_be_null=True)
     options = ds.CsvFragmentScanOptions(
-        convert_options=convert_options, block_size=2**16)
+        convert_options=convert_options,
+        read_options=pa.csv.ReadOptions(block_size=2**16))
     result = dataset.to_table(fragment_scan_options=options)
     assert result.equals(pa.table({'col0': pa.array(['foo', 'spam', None])}))
 

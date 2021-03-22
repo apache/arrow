@@ -60,7 +60,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         shared_ptr[CScanOptions] Make(shared_ptr[CSchema] schema)
 
     cdef cppclass CFragmentScanOptions "arrow::dataset::FragmentScanOptions":
-        pass
+        c_string type_name() const
 
     ctypedef CIterator[shared_ptr[CScanTask]] CScanTaskIterator \
         "arrow::dataset::ScanTaskIterator"
@@ -169,6 +169,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         c_string type_name() const
 
     cdef cppclass CFileFormat "arrow::dataset::FileFormat":
+        shared_ptr[CFragmentScanOptions] default_fragment_scan_options
         c_string type_name() const
         CResult[shared_ptr[CSchema]] Inspect(const CFileSource&) const
         CResult[shared_ptr[CFileFragment]] MakeFragment(
@@ -253,22 +254,14 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CFileFormat):
         pass
 
+    cdef cppclass CCsvFileFormat "arrow::dataset::CsvFileFormat"(
+            CFileFormat):
+        CCSVParseOptions parse_options
+
     cdef cppclass CCsvFragmentScanOptions \
             "arrow::dataset::CsvFragmentScanOptions"(CFragmentScanOptions):
         CCSVConvertOptions convert_options
-        int32_t block_size
-
-    cdef cppclass CCsvFileFormatReaderOptions \
-            "arrow::dataset::ParquetFileFormat::ReaderOptions"(
-                CCsvFragmentScanOptions):
-        CCSVParseOptions parse_options
-        int32_t skip_rows
-        vector[c_string] column_names
-        c_bool autogenerate_column_names
-
-    cdef cppclass CCsvFileFormat "arrow::dataset::CsvFileFormat"(
-            CFileFormat):
-        CCsvFileFormatReaderOptions reader_options
+        CCSVReadOptions read_options
 
     cdef cppclass CPartitioning "arrow::dataset::Partitioning":
         c_string type_name() const

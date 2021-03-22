@@ -79,18 +79,14 @@ Result<std::unordered_set<std::string>> GetColumnNames(
 static inline Result<csv::ConvertOptions> GetConvertOptions(
     const CsvFileFormat& format, const std::shared_ptr<ScanOptions>& scan_options,
     const util::string_view first_block, MemoryPool* pool) {
+  ARROW_ASSIGN_OR_RAISE(auto column_names,
+                        GetColumnNames(format.parse_options, first_block, pool));
+
   ARROW_ASSIGN_OR_RAISE(
-      auto column_names,
-      GetColumnNames(format.reader_options.parse_options, first_block, pool));
-
-  auto convert_options = format.reader_options.convert_options;
-  ARROW_ASSIGN_OR_RAISE(auto csv_scan_options,
-                        DowncastFragmentScanOptions<CsvFragmentScanOptions>(
-                            scan_options.get(), kCsvTypeName));
-  if (csv_scan_options) {
-    convert_options = csv_scan_options->convert_options;
-  }
-
+      auto csv_scan_options,
+      GetFragmentScanOptions<CsvFragmentScanOptions>(
+          kCsvTypeName, scan_options.get(), format.default_fragment_scan_options));
+  auto convert_options = csv_scan_options->convert_options;
   for (FieldRef ref : scan_options->MaterializedFields()) {
     ARROW_ASSIGN_OR_RAISE(auto field, ref.GetOne(*scan_options->dataset_schema));
 
@@ -102,20 +98,15 @@ static inline Result<csv::ConvertOptions> GetConvertOptions(
 
 static inline Result<csv::ReadOptions> GetReadOptions(
     const CsvFileFormat& format, const std::shared_ptr<ScanOptions>& scan_options) {
-  auto read_options = csv::ReadOptions::Defaults();
+  ARROW_ASSIGN_OR_RAISE(
+      auto csv_scan_options,
+      GetFragmentScanOptions<CsvFragmentScanOptions>(
+          kCsvTypeName, scan_options.get(), format.default_fragment_scan_options));
+  auto read_options = csv_scan_options->read_options;
   // Multithreaded conversion of individual files would lead to excessive thread
   // contention when ScanTasks are also executed in multiple threads, so we disable it
   // here.
   read_options.use_threads = false;
-  read_options.skip_rows = format.reader_options.skip_rows;
-  read_options.column_names = format.reader_options.column_names;
-  read_options.autogenerate_column_names =
-      format.reader_options.autogenerate_column_names;
-  ARROW_ASSIGN_OR_RAISE(auto csv_scan_options,
-                        DowncastFragmentScanOptions<CsvFragmentScanOptions>(
-                            scan_options.get(), kCsvTypeName));
-  read_options.block_size =
-      csv_scan_options ? csv_scan_options->block_size : format.reader_options.block_size;
   return read_options;
 }
 
@@ -132,7 +123,7 @@ static inline Result<std::shared_ptr<csv::StreamingReader>> OpenReader(
                                              default_memory_pool(), std::move(input)));
   ARROW_ASSIGN_OR_RAISE(first_block, input->Peek(reader_options.block_size));
 
-  const auto& parse_options = format.reader_options.parse_options;
+  const auto& parse_options = format.parse_options;
   auto convert_options = csv::ConvertOptions::Defaults();
   if (scan_options != nullptr) {
     ARROW_ASSIGN_OR_RAISE(convert_options,
@@ -174,47 +165,17 @@ class CsvScanTask : public ScanTask {
 bool CsvFileFormat::Equals(const FileFormat& format) const {
   if (type_name() != format.type_name()) return false;
 
-  const auto other_format = checked_cast<const CsvFileFormat&>(format);
-  const auto& other_convert_options = other_format.reader_options.convert_options;
-  const auto& other_parse_options = other_format.reader_options.parse_options;
+  const auto& other_parse_options =
+      checked_cast<const CsvFileFormat&>(format).parse_options;
 
-  return reader_options.convert_options.check_utf8 == other_convert_options.check_utf8 &&
-         reader_options.convert_options.column_types ==
-             other_convert_options.column_types &&
-         reader_options.convert_options.null_values ==
-             other_convert_options.null_values &&
-         reader_options.convert_options.true_values ==
-             other_convert_options.true_values &&
-         reader_options.convert_options.false_values ==
-             other_convert_options.false_values &&
-         reader_options.convert_options.strings_can_be_null ==
-             other_convert_options.strings_can_be_null &&
-         reader_options.convert_options.auto_dict_encode ==
-             other_convert_options.auto_dict_encode &&
-         reader_options.convert_options.auto_dict_max_cardinality ==
-             other_convert_options.auto_dict_max_cardinality &&
-         reader_options.convert_options.include_columns ==
-             other_convert_options.include_columns &&
-         reader_options.convert_options.include_missing_columns ==
-             other_convert_options.include_missing_columns &&
-         // N.B. values are not comparable
-         reader_options.convert_options.timestamp_parsers.size() ==
-             other_convert_options.timestamp_parsers.size() &&
-         reader_options.block_size == other_format.reader_options.block_size &&
-         reader_options.parse_options.delimiter == other_parse_options.delimiter &&
-         reader_options.parse_options.quoting == other_parse_options.quoting &&
-         reader_options.parse_options.quote_char == other_parse_options.quote_char &&
-         reader_options.parse_options.double_quote == other_parse_options.double_quote &&
-         reader_options.parse_options.escaping == other_parse_options.escaping &&
-         reader_options.parse_options.escape_char == other_parse_options.escape_char &&
-         reader_options.parse_options.newlines_in_values ==
-             other_parse_options.newlines_in_values &&
-         reader_options.parse_options.ignore_empty_lines ==
-             other_parse_options.ignore_empty_lines &&
-         reader_options.skip_rows == other_format.reader_options.skip_rows &&
-         reader_options.column_names == other_format.reader_options.column_names &&
-         reader_options.autogenerate_column_names ==
-             other_format.reader_options.autogenerate_column_names;
+  return parse_options.delimiter == other_parse_options.delimiter &&
+         parse_options.quoting == other_parse_options.quoting &&
+         parse_options.quote_char == other_parse_options.quote_char &&
+         parse_options.double_quote == other_parse_options.double_quote &&
+         parse_options.escaping == other_parse_options.escaping &&
+         parse_options.escape_char == other_parse_options.escape_char &&
+         parse_options.newlines_in_values == other_parse_options.newlines_in_values &&
+         parse_options.ignore_empty_lines == other_parse_options.ignore_empty_lines;
 }
 
 Result<bool> CsvFileFormat::IsSupported(const FileSource& source) const {

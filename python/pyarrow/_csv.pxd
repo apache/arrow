@@ -35,3 +35,12 @@ cdef class ParseOptions(_Weakrefable):
 
     @staticmethod
     cdef ParseOptions wrap(CCSVParseOptions options)
+
+
+cdef class ReadOptions(_Weakrefable):
+    cdef:
+        CCSVReadOptions options
+        public object encoding
+
+    @staticmethod
+    cdef ReadOptions wrap(CCSVReadOptions options)

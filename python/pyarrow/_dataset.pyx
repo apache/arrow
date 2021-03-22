@@ -29,7 +29,7 @@ from pyarrow.lib cimport *
 from pyarrow.lib import frombytes, tobytes
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
-from pyarrow._csv cimport ConvertOptions, ParseOptions
+from pyarrow._csv cimport ConvertOptions, ParseOptions, ReadOptions
 from pyarrow.util import _is_path_like, _stringify_path
 
 from pyarrow._parquet cimport (
@@ -717,6 +717,23 @@ cdef class FileFormat(_Weakrefable):
     def default_extname(self):
         return frombytes(self.format.type_name())
 
+    @property
+    def default_fragment_scan_options(self):
+        return FragmentScanOptions.wrap(
+            self.wrapped.get().default_fragment_scan_options)
+
+    @default_fragment_scan_options.setter
+    def default_fragment_scan_options(self, FragmentScanOptions options):
+        if options is None:
+            self.wrapped.get().default_fragment_scan_options =\
+                <shared_ptr[CFragmentScanOptions]>nullptr
+        else:
+            self._set_default_fragment_scan_options(options)
+
+    cdef _set_default_fragment_scan_options(self, FragmentScanOptions options):
+        raise ValueError(f"Cannot set fragment scan options for "
+                         f"'{options.type_name}' on {self.__class__.__name__}")
+
     def __eq__(self, other):
         try:
             return self.equals(other)
@@ -983,6 +1000,26 @@ cdef class FragmentScanOptions(_Weakrefable):
 
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
         self.wrapped = sp
+
+    @staticmethod
+    cdef wrap(const shared_ptr[CFragmentScanOptions]& sp):
+        type_name = frombytes(sp.get().type_name())
+
+        classes = {
+            'csv': CsvFragmentScanOptions,
+        }
+
+        class_ = classes.get(type_name, None)
+        if class_ is None:
+            raise TypeError(type_name)
+
+        cdef FragmentScanOptions self = class_.__new__(class_)
+        self.init(sp)
+        return self
+
+    @property
+    def type_name(self):
+        return frombytes(self.wrapped.get().type_name())
 
     def __eq__(self, other):
         try:
@@ -1392,23 +1429,14 @@ cdef class CsvFileFormat(FileFormat):
     __slots__ = ()
 
     def __init__(self, ParseOptions parse_options=None,
-                 skip_rows=None, column_names=None,
-                 autogenerate_column_names=None,
                  ConvertOptions convert_options=None,
-                 block_size=None):
+                 ReadOptions read_options=None):
         self.init(shared_ptr[CFileFormat](new CCsvFileFormat()))
         if parse_options is not None:
             self.parse_options = parse_options
-        if skip_rows is not None:
-            self.skip_rows = skip_rows
-        if column_names is not None:
-            self.column_names = column_names
-        if autogenerate_column_names is not None:
-            self.autogenerate_column_names = autogenerate_column_names
-        if convert_options is not None:
-            self.convert_options = convert_options
-        if block_size is not None:
-            self.block_size = block_size
+        if convert_options is not None or read_options is not None:
+            self.default_fragment_scan_options = CsvFragmentScanOptions(
+                convert_options=convert_options, read_options=read_options)
 
     cdef void init(self, const shared_ptr[CFileFormat]& sp):
         FileFormat.init(self, sp)
@@ -1419,78 +1447,26 @@ cdef class CsvFileFormat(FileFormat):
 
     @property
     def parse_options(self):
-        return ParseOptions.wrap(self.csv_format.reader_options.parse_options)
+        return ParseOptions.wrap(self.csv_format.parse_options)
 
     @parse_options.setter
     def parse_options(self, ParseOptions parse_options not None):
-        self.csv_format.reader_options.parse_options = parse_options.options
+        self.csv_format.parse_options = parse_options.options
 
-    @property
-    def skip_rows(self):
-        return self.csv_format.reader_options.skip_rows
-
-    @skip_rows.setter
-    def skip_rows(self, int skip_rows):
-        self.csv_format.reader_options.skip_rows = skip_rows
-
-    @property
-    def column_names(self):
-        return [frombytes(b)
-                for b in self.csv_format.reader_options.column_names]
-
-    @column_names.setter
-    def column_names(self, list column_names):
-        self.csv_format.reader_options.column_names = [
-            tobytes(s) for s in column_names]
-
-    @property
-    def autogenerate_column_names(self):
-        return self.csv_format.reader_options.autogenerate_column_names
-
-    @autogenerate_column_names.setter
-    def autogenerate_column_names(self, bint skip_rows):
-        self.csv_format.reader_options.autogenerate_column_names = skip_rows
-
-    @property
-    def convert_options(self):
-        return ConvertOptions.wrap(
-            self.csv_format.reader_options.convert_options)
-
-    @convert_options.setter
-    def convert_options(self, ConvertOptions convert_options not None):
-        self.csv_format.reader_options.convert_options = \
-            convert_options.options
-
-    @property
-    def block_size(self):
-        return self.csv_format.reader_options.block_size
-
-    @block_size.setter
-    def block_size(self, int block_size):
-        self.csv_format.reader_options.block_size = block_size
+    cdef _set_default_fragment_scan_options(self, FragmentScanOptions options):
+        if options.type_name == 'csv':
+            self.csv_format.default_fragment_scan_options = options.wrapped
+        else:
+            super()._set_default_fragment_scan_options(options)
 
     def equals(self, CsvFileFormat other):
-        return (self.parse_options.equals(other.parse_options) and
-                self.skip_rows == other.skip_rows and
-                self.column_names == other.column_names and
-                self.autogenerate_column_names ==
-                other.autogenerate_column_names and
-                self.convert_options == other.convert_options and
-                self.block_size == other.block_size)
+        return self.parse_options.equals(other.parse_options)
 
     def __reduce__(self):
-        return CsvFileFormat, (self.parse_options, self.skip_rows,
-                               self.column_names,
-                               self.autogenerate_column_names,
-                               self.convert_options, self.block_size)
+        return CsvFileFormat, (self.parse_options,)
 
     def __repr__(self):
-        return (f"<CsvFileFormat parse_options={self.parse_options} "
-                f"skip_rows={self.skip_rows} "
-                f"column_names={self.column_names} "
-                f"autogenerate_column_names={self.autogenerate_column_names} "
-                f"convert_options={self.convert_options} "
-                f"block_size={self.block_size}>")
+        return f"<CsvFileFormat parse_options={self.parse_options}>"
 
 
 cdef class CsvFragmentScanOptions(FragmentScanOptions):
@@ -1502,13 +1478,14 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
-    def __init__(self, ConvertOptions convert_options=None, block_size=None):
+    def __init__(self, ConvertOptions convert_options=None,
+                 ReadOptions read_options=None):
         self.init(shared_ptr[CFragmentScanOptions](
             new CCsvFragmentScanOptions()))
         if convert_options is not None:
             self.convert_options = convert_options
-        if block_size is not None:
-            self.block_size = block_size
+        if read_options is not None:
+            self.read_options = read_options
 
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
         FragmentScanOptions.init(self, sp)
@@ -1523,19 +1500,20 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
         self.csv_options.convert_options = convert_options.options
 
     @property
-    def block_size(self):
-        return self.csv_options.block_size
+    def read_options(self):
+        return ReadOptions.wrap(self.csv_options.read_options)
 
-    @block_size.setter
-    def block_size(self, int block_size):
-        self.csv_options.block_size = block_size
+    @read_options.setter
+    def read_options(self, ReadOptions read_options not None):
+        self.csv_options.read_options = read_options.options
 
     def equals(self, CsvFragmentScanOptions other):
         return (self.convert_options.equals(other.convert_options) and
-                self.block_size == other.block_size)
+                self.read_options.equals(other.read_options))
 
     def __reduce__(self):
-        return CsvFragmentScanOptions, (self.convert_options, self.block_size)
+        return CsvFragmentScanOptions, (self.convert_options,
+                                        self.read_options)
 
 
 cdef class Partitioning(_Weakrefable):

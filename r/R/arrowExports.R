@@ -428,16 +428,16 @@ dataset___IpcFileFormat__Make <- function(){
     .Call(`_arrow_dataset___IpcFileFormat__Make`)
 }
 
-dataset___CsvFileFormat__Make <- function(parse_options, skip_rows, column_names, autogenerate_column_names, convert_options, block_size){
-    .Call(`_arrow_dataset___CsvFileFormat__Make`, parse_options, skip_rows, column_names, autogenerate_column_names, convert_options, block_size)
+dataset___CsvFileFormat__Make <- function(parse_options, convert_options, read_options){
+    .Call(`_arrow_dataset___CsvFileFormat__Make`, parse_options, convert_options, read_options)
 }
 
 dataset___FragmentScanOptions__type_name <- function(fragment_scan_options){
     .Call(`_arrow_dataset___FragmentScanOptions__type_name`, fragment_scan_options)
 }
 
-dataset___CsvFragmentScanOptions__Make <- function(convert_options, block_size){
-    .Call(`_arrow_dataset___CsvFragmentScanOptions__Make`, convert_options, block_size)
+dataset___CsvFragmentScanOptions__Make <- function(convert_options, read_options){
+    .Call(`_arrow_dataset___CsvFragmentScanOptions__Make`, convert_options, read_options)
 }
 
 dataset___DirectoryPartitioning <- function(schm){

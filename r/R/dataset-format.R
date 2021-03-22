@@ -109,21 +109,19 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' @export
 CsvFileFormat <- R6Class("CsvFileFormat", inherit = FileFormat)
 CsvFileFormat$create <- function(..., opts = csv_file_format_parse_options(...),
-                                 skip_rows = 0,
-                                 column_names = character(0),
-                                 autogenerate_column_names = FALSE,
                                  convert_options = csv_file_format_convert_options(...),
-                                 block_size = 2**20) {
-  dataset___CsvFileFormat__Make(opts, skip_rows, column_names,
-                                autogenerate_column_names, convert_options, block_size)
+                                 read_options = csv_file_format_read_options(...)) {
+  dataset___CsvFileFormat__Make(opts, convert_options, read_options)
 }
 
 # Support both readr-style option names and Arrow C++ option names
 csv_file_format_parse_options <- function(...) {
   opts <- list(...)
-  # Filter out arguments meant for CsvConvertOptions
+  # Filter out arguments meant for CsvConvertOptions/CsvReadOptions
   convert_opts <- names(formals(CsvConvertOptions$create))
+  read_opts <- names(formals(CsvReadOptions$create))
   opts[convert_opts] <- NULL
+  opts[read_opts] <- NULL
   opt_names <- names(opts)
   # Catch any readr-style options specified with full option names that are
   # supported by read_delim_arrow() (and its wrappers) but are not yet
@@ -188,12 +186,26 @@ csv_file_format_parse_options <- function(...) {
 
 csv_file_format_convert_options <- function(...) {
   opts <- list(...)
-  # Filter out arguments meant for CsvParseOptions
+  # Filter out arguments meant for CsvParseOptions/CsvReadOptions
   arrow_opts <- names(formals(CsvParseOptions$create))
   readr_opts <- names(formals(readr_to_csv_parse_options))
+  read_opts <- names(formals(CsvReadOptions$create))
   opts[arrow_opts] <- NULL
   opts[readr_opts] <- NULL
+  opts[read_opts] <- NULL
   do.call(CsvConvertOptions$create, opts)
+}
+
+csv_file_format_read_options <- function(...) {
+  opts <- list(...)
+  # Filter out arguments meant for CsvParseOptions/CsvConvertOptions
+  arrow_opts <- names(formals(CsvParseOptions$create))
+  readr_opts <- names(formals(readr_to_csv_parse_options))
+  convert_opts <- names(formals(CsvConvertOptions$create))
+  opts[arrow_opts] <- NULL
+  opts[readr_opts] <- NULL
+  opts[convert_opts] <- NULL
+  do.call(CsvReadOptions$create, opts)
 }
 
 #' Format-specific scan options
@@ -244,9 +256,9 @@ as.character.FragmentScanOptions <- function(x, ...) {
 #' @export
 CsvFragmentScanOptions <- R6Class("CsvFragmentScanOptions", inherit = FragmentScanOptions)
 CsvFragmentScanOptions$create <- function(...,
-                                          opts = CsvConvertOptions$create(...),
-                                          block_size = 2**20) {
-  dataset___CsvFragmentScanOptions__Make(opts, block_size)
+                                          convert_opts = csv_file_format_convert_options(...),
+                                          read_opts = csv_file_format_read_options(...)) {
+  dataset___CsvFragmentScanOptions__Make(convert_opts, read_opts)
 }
 
 #' Format-specific write options

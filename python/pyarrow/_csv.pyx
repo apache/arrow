@@ -73,9 +73,6 @@ cdef class ReadOptions(_Weakrefable):
         The character encoding of the CSV data.  Columns that cannot
         decode using this encoding can still be read as Binary.
     """
-    cdef:
-        CCSVReadOptions options
-        public object encoding
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
@@ -160,6 +157,40 @@ cdef class ReadOptions(_Weakrefable):
     @autogenerate_column_names.setter
     def autogenerate_column_names(self, value):
         self.options.autogenerate_column_names = value
+
+    def equals(self, ReadOptions other):
+        return (
+            self.use_threads == other.use_threads and
+            self.block_size == other.block_size and
+            self.skip_rows == other.skip_rows and
+            self.column_names == other.column_names and
+            self.autogenerate_column_names ==
+            other.autogenerate_column_names and
+            self.encoding == other.encoding
+        )
+
+    @staticmethod
+    cdef ReadOptions wrap(CCSVReadOptions options):
+        out = ReadOptions()
+        out.options = options
+        out.encoding = 'utf8'  # No way to know this
+        return out
+
+    def __getstate__(self):
+        return (self.use_threads, self.block_size, self.skip_rows,
+                self.column_names, self.autogenerate_column_names,
+                self.encoding)
+
+    def __setstate__(self, state):
+        (self.use_threads, self.block_size, self.skip_rows,
+         self.column_names, self.autogenerate_column_names,
+         self.encoding) = state
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return False
 
 
 cdef class ParseOptions(_Weakrefable):
