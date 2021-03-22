@@ -66,11 +66,14 @@ pub trait FileWriter {
     /// There is no limit on a number of row groups in a file; however, row groups have
     /// to be written sequentially. Every time the next row group is requested, the
     /// previous row group must be finalised and closed using `close_row_group` method.
-    fn next_row_group(&mut self) -> Result<Box<RowGroupWriter>>;
+    fn next_row_group(&mut self) -> Result<Box<dyn RowGroupWriter>>;
 
     /// Finalises and closes row group that was created using `next_row_group` method.
     /// After calling this method, the next row group is available for writes.
-    fn close_row_group(&mut self, row_group_writer: Box<RowGroupWriter>) -> Result<()>;
+    fn close_row_group(
+        &mut self,
+        row_group_writer: Box<dyn RowGroupWriter>,
+    ) -> Result<()>;
 
     /// Closes and finalises file writer.
     ///
@@ -165,7 +168,7 @@ impl<W: ParquetWriter> SerializedFileWriter<W> {
     /// Finalises active row group writer, otherwise no-op.
     fn finalise_row_group_writer(
         &mut self,
-        mut row_group_writer: Box<RowGroupWriter>,
+        mut row_group_writer: Box<dyn RowGroupWriter>,
     ) -> Result<()> {
         let row_group_metadata = row_group_writer.close()?;
         self.total_num_rows += row_group_metadata.num_rows();
@@ -229,7 +232,7 @@ impl<W: ParquetWriter> SerializedFileWriter<W> {
 
 impl<W: 'static + ParquetWriter> FileWriter for SerializedFileWriter<W> {
     #[inline]
-    fn next_row_group(&mut self) -> Result<Box<RowGroupWriter>> {
+    fn next_row_group(&mut self) -> Result<Box<dyn RowGroupWriter>> {
         self.assert_closed()?;
         self.assert_previous_writer_closed()?;
         let row_group_writer = SerializedRowGroupWriter::new(
@@ -242,7 +245,10 @@ impl<W: 'static + ParquetWriter> FileWriter for SerializedFileWriter<W> {
     }
 
     #[inline]
-    fn close_row_group(&mut self, row_group_writer: Box<RowGroupWriter>) -> Result<()> {
+    fn close_row_group(
+        &mut self,
+        row_group_writer: Box<dyn RowGroupWriter>,
+    ) -> Result<()> {
         self.assert_closed()?;
         let res = self.finalise_row_group_writer(row_group_writer);
         self.previous_writer_closed = res.is_ok();
@@ -993,7 +999,7 @@ mod tests {
     }
 
     /// Helper function to compress a slice
-    fn compress_helper(compressor: Option<&mut Box<Codec>>, data: &[u8]) -> Vec<u8> {
+    fn compress_helper(compressor: Option<&mut Box<dyn Codec>>, data: &[u8]) -> Vec<u8> {
         let mut output_buf = vec![];
         if let Some(cmpr) = compressor {
             cmpr.compress(data, &mut output_buf).unwrap();

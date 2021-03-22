@@ -18,7 +18,6 @@
 #![allow(incomplete_features)]
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
-#![allow(bare_trait_objects)]
 #![allow(
     clippy::approx_constant,
     clippy::borrowed_box,
