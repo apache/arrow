@@ -1018,6 +1018,7 @@ void LLVMGenerator::Visitor::VisitInExpression(const InExprDexBase<Type>& dex) {
   ADD_VISITOR_TRACE("visit In Expression");
   LLVMTypes* types = generator_->types();
   std::vector<llvm::Value*> params;
+  DecimalIR decimalIR(generator_->engine_.get());
 
   const InExprDex<Type>& dex_instance = dynamic_cast<const InExprDex<Type>&>(dex);
   /* add the holder at the beginning */
