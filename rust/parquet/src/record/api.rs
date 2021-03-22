@@ -134,7 +134,7 @@ pub trait RowAccessor {
 
 /// Trait for formating fields within a Row.
 pub trait RowFormatter {
-    fn fmt(&self, i: usize) -> &fmt::Display;
+    fn fmt(&self, i: usize) -> &dyn fmt::Display;
 }
 
 /// Macro to generate type-safe get_xxx methods for primitive types,
@@ -173,7 +173,7 @@ macro_rules! row_complex_accessor {
 
 impl RowFormatter for Row {
     /// Get Display reference for a given field.
-    fn fmt(&self, i: usize) -> &fmt::Display {
+    fn fmt(&self, i: usize) -> &dyn fmt::Display {
         &self.fields[i].1
     }
 }
@@ -387,8 +387,8 @@ pub fn make_map(entries: Vec<(Field, Field)>) -> Map {
 
 /// Trait for type-safe access of an index for a `Map`
 pub trait MapAccessor {
-    fn get_keys<'a>(&'a self) -> Box<ListAccessor + 'a>;
-    fn get_values<'a>(&'a self) -> Box<ListAccessor + 'a>;
+    fn get_keys<'a>(&'a self) -> Box<dyn ListAccessor + 'a>;
+    fn get_values<'a>(&'a self) -> Box<dyn ListAccessor + 'a>;
 }
 
 struct MapList<'a> {
@@ -453,14 +453,14 @@ impl<'a> ListAccessor for MapList<'a> {
 }
 
 impl MapAccessor for Map {
-    fn get_keys<'a>(&'a self) -> Box<ListAccessor + 'a> {
+    fn get_keys<'a>(&'a self) -> Box<dyn ListAccessor + 'a> {
         let map_list = MapList {
             elements: self.entries.iter().map(|v| &v.0).collect(),
         };
         Box::new(map_list)
     }
 
-    fn get_values<'a>(&'a self) -> Box<ListAccessor + 'a> {
+    fn get_values<'a>(&'a self) -> Box<dyn ListAccessor + 'a> {
         let map_list = MapList {
             elements: self.entries.iter().map(|v| &v.1).collect(),
         };

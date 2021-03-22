@@ -59,7 +59,7 @@ impl std::fmt::Display for ParquetError {
 }
 
 impl std::error::Error for ParquetError {
-    fn cause(&self) -> Option<&::std::error::Error> {
+    fn cause(&self) -> Option<&dyn ::std::error::Error> {
         None
     }
 }
