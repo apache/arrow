@@ -102,19 +102,24 @@ function(test_grpc_version DST_VAR DETECT_VERSION TEST_FILE)
   endif()
 endfunction()
 
-test_grpc_version(GRPC_VERSION "1.36" "check_tls_opts_136.cc")
-test_grpc_version(GRPC_VERSION "1.34" "check_tls_opts_134.cc")
-test_grpc_version(GRPC_VERSION "1.32" "check_tls_opts_132.cc")
-test_grpc_version(GRPC_VERSION "1.27" "check_tls_opts_127.cc")
-message(
-  STATUS
-    "Found approximate gRPC version: ${GRPC_VERSION} (ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS=${ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS})"
-  )
+if(GRPC_VENDORED)
+  # v1.35.0 -> 1.35
+  string(REGEX MATCH "[0-9]+\\.[0-9]+" GRPC_VERSION "${ARROW_GRPC_BUILD_VERSION}")
+else()
+  test_grpc_version(GRPC_VERSION "1.36" "check_tls_opts_136.cc")
+  test_grpc_version(GRPC_VERSION "1.34" "check_tls_opts_134.cc")
+  test_grpc_version(GRPC_VERSION "1.32" "check_tls_opts_132.cc")
+  test_grpc_version(GRPC_VERSION "1.27" "check_tls_opts_127.cc")
+  message(
+    STATUS
+      "Found approximate gRPC version: ${GRPC_VERSION} (ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS=${ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS})"
+    )
+endif()
 if(GRPC_VERSION EQUAL "1.27")
   add_definitions(-DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc_impl::experimental)
 elseif(GRPC_VERSION EQUAL "1.32")
   add_definitions(-DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
-elseif(GRPC_VERSION EQUAL "1.34")
+elseif(GRPC_VERSION EQUAL "1.34" OR GRPC_VERSION EQUAL "1.35")
   add_definitions(-DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
                   -DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS
                   -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
