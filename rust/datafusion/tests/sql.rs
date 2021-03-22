@@ -1941,6 +1941,26 @@ async fn query_without_from() -> Result<()> {
 }
 
 #[tokio::test]
+async fn query_cte() -> Result<()> {
+    // Test for SELECT <expression> without FROM.
+    // Should evaluate expressions in project position.
+    let mut ctx = ExecutionContext::new();
+
+    let sql = "WITH t AS (SELECT 1) SELECT * FROM t";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![vec!["1"]];
+    assert_eq!(expected, actual);
+
+    let sql = "WITH t AS (SELECT 1 AS a), u AS (SELECT 2 AS a) SELECT * FROM t UNION ALL SELECT * FROM u";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![vec!["1"], vec!["2"]];
+    assert_eq!(expected, actual);
+
+    Ok(())
+}
+
+
+#[tokio::test]
 async fn query_scalar_minus_array() -> Result<()> {
     let schema = Arc::new(Schema::new(vec![Field::new("c1", DataType::Int32, true)]));
 

@@ -118,8 +118,8 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
         let ctes: HashMap<String, Query> = query
             .clone()
             .with
-            .map(|x| {
-                x.cte_tables
+            .map(|with| {
+                with.cte_tables
                     .iter()
                     .map(|cte| (cte.alias.name.value.clone(), cte.query.clone()))
                     .collect()
