@@ -23,6 +23,7 @@
 //! [here](https://doc.rust-lang.org/stable/core/arch/) for more information.
 
 use std::ops::Not;
+use std::sync::Arc;
 
 use crate::array::{Array, ArrayData, BooleanArray, PrimitiveArray};
 use crate::buffer::{
@@ -31,7 +32,150 @@ use crate::buffer::{
 use crate::compute::util::combine_option_bitmap;
 use crate::datatypes::{ArrowNumericType, DataType};
 use crate::error::{ArrowError, Result};
-use crate::util::bit_util::ceil;
+use crate::util::bit_util::{ceil, round_upto_multiple_of_64};
+use core::iter;
+use lexical_core::Integer;
+
+fn binary_boolean_kleene_kernel<F>(
+    left: &BooleanArray,
+    right: &BooleanArray,
+    op: F,
+) -> Result<BooleanArray>
+where
+    F: Fn(u64, u64, u64, u64) -> (u64, u64),
+{
+    if left.len() != right.len() {
+        return Err(ArrowError::ComputeError(
+            "Cannot perform bitwise operation on arrays of different length".to_string(),
+        ));
+    }
+
+    // length and offset of boolean array is measured in bits
+    let len = left.len();
+    let left_offset = left.offset();
+    let right_offset = right.offset();
+
+    let left_buffer = left.values();
+    let right_buffer = right.values();
+
+    // If we do not have a validity bitmap, we just need something to iterate over...
+    let left_validity = if let Some(buffer) = left.data_ref().null_buffer() {
+        buffer
+    } else {
+        left.values()
+    };
+    let right_validity = if let Some(buffer) = right.data_ref().null_buffer() {
+        buffer
+    } else {
+        right.values()
+    };
+
+    let left_chunks = left_buffer.bit_chunks(left_offset, len);
+    let left_valid_chunks = left_validity.bit_chunks(left_offset, len);
+    let right_chunks = right_buffer.bit_chunks(right_offset, len);
+    let right_valid_chunks = right_validity.bit_chunks(right_offset, len);
+
+    // result length measured in bytes
+    let result_len = round_upto_multiple_of_64(len) / 8;
+    let mut value_buffer = MutableBuffer::new(result_len);
+    let mut valid_buffer = MutableBuffer::new(result_len);
+
+    let kleene_op = |((left_data, left_valid), (right_data, right_valid)): (
+        (u64, u64),
+        (u64, u64),
+    )| {
+        let left_true = left_valid & left_data;
+        let left_false = left_valid & !left_data;
+
+        let right_true = right_valid & right_data;
+        let right_false = right_valid & !right_data;
+
+        let (value, valid) = op(left_true, left_false, right_true, right_false);
+
+        value_buffer.extend_from_slice(&[value]);
+        valid_buffer.extend_from_slice(&[valid]);
+    };
+
+    let base_iter = left_chunks
+        .iter()
+        .zip(left_valid_chunks.iter())
+        .zip(right_chunks.iter().zip(right_valid_chunks.iter()));
+
+    // To get rid off the additional remainder logic we would need an iterator
+    // which provides a possible remainder word.
+    let mut remainder = (
+        (
+            left_chunks.remainder_bits(),
+            left_valid_chunks.remainder_bits(),
+        ),
+        (
+            right_chunks.remainder_bits(),
+            right_valid_chunks.remainder_bits(),
+        ),
+    );
+
+    match (
+        left.data_ref().null_buffer().is_some(),
+        right.data_ref().null_buffer().is_some(),
+    ) {
+        (true, true) => {
+            base_iter.chain(iter::once(remainder)).for_each(kleene_op);
+        }
+        (true, false) => {
+            remainder.1 = (
+                right_chunks.remainder_bits(),
+                u64::MAX, // all valid
+            );
+            base_iter
+                .chain(iter::once(remainder))
+                .map(|(left, (right_data, _))| (left, (right_data, u64::MAX)))
+                .for_each(kleene_op);
+        }
+        (false, true) => {
+            remainder.0 = (
+                left_chunks.remainder_bits(),
+                u64::MAX, // all valid
+            );
+            base_iter
+                .chain(iter::once(remainder))
+                .map(|((left_data, _), right)| ((left_data, u64::MAX), right))
+                .for_each(kleene_op);
+        }
+        (false, false) => {
+            let remainder = (
+                (
+                    left_chunks.remainder_bits(),
+                    u64::MAX, // all valid,
+                ),
+                (
+                    right_chunks.remainder_bits(),
+                    u64::MAX, // all valid),
+                ),
+            );
+            base_iter
+                .chain(iter::once(remainder))
+                .map(|((left_data, _), (right_data, _))| {
+                    ((left_data, u64::MAX), (right_data, u64::MAX))
+                })
+                .for_each(kleene_op);
+        }
+    };
+
+    let bool_buffer: Buffer = value_buffer.into();
+    let bool_valid_buffer: Buffer = valid_buffer.into();
+
+    let array_data = ArrayData::new(
+        DataType::Boolean,
+        len,
+        None,
+        Some(bool_valid_buffer),
+        left_offset,
+        vec![bool_buffer],
+        vec![],
+    );
+
+    Ok(BooleanArray::from(array_data))
+}
 
 /// Helper function to implement binary kernels
 fn binary_boolean_kernel<F>(
@@ -94,6 +238,55 @@ pub fn and(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
     binary_boolean_kernel(&left, &right, buffer_bin_and)
 }
 
+/// Logical 'and' boolean values with Kleene logic
+///
+/// # Behavior
+///
+/// This function behaves as follows with nulls:
+///
+/// * `true` and `null` = `null`
+/// * `null` and `true` = `null`
+/// * `false` and `null` = `false`
+/// * `null` and `false` = `false`
+/// * `null` and `null` = `null`
+///
+/// In other words, in this context a null value really means \"unknown\",
+/// and an unknown value 'and' false is always false.
+/// For a different null behavior, see function \"and\".
+///
+/// # Example
+///
+/// ```rust
+/// use arrow::array::BooleanArray;
+/// use arrow::error::Result;
+/// use arrow::compute::kernels::boolean::and_kleene;
+/// # fn main() -> Result<()> {
+/// let a = BooleanArray::from(vec![Some(true), Some(false), None]);
+/// let b = BooleanArray::from(vec![None, None, None]);
+/// let and_ab = and_kleene(&a, &b)?;
+/// assert_eq!(and_ab, BooleanArray::from(vec![None, Some(false), None]));
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Fails
+///
+/// If the operands have different lengths
+pub fn and_kleene(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
+    if left.null_count().is_zero() && right.null_count().is_zero() {
+        return and(left, right);
+    }
+
+    let op = |left_true, left_false, right_true, right_false| {
+        (
+            left_true & right_true,
+            left_false | right_false | (left_true & right_true),
+        )
+    };
+
+    binary_boolean_kleene_kernel(left, right, op)
+}
+
 /// Performs `OR` operation on two arrays. If either left or right value is null then the
 /// result is also null.
 /// # Error
@@ -113,6 +306,55 @@ pub fn and(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
 /// ```
 pub fn or(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
     binary_boolean_kernel(&left, &right, buffer_bin_or)
+}
+
+/// Logical 'or' boolean values with Kleene logic
+///
+/// # Behavior
+///
+/// This function behaves as follows with nulls:
+///
+/// * `true` or `null` = `true`
+/// * `null` or `true` = `true`
+/// * `false` or `null` = `null`
+/// * `null` or `false` = `null`
+/// * `null` or `null` = `null`
+///
+/// In other words, in this context a null value really means \"unknown\",
+/// and an unknown value 'or' true is always true.
+/// For a different null behavior, see function \"or\".
+///
+/// # Example
+///
+/// ```rust
+/// use arrow::array::BooleanArray;
+/// use arrow::error::Result;
+/// use arrow::compute::kernels::boolean::or_kleene;
+/// # fn main() -> Result<()> {
+/// let a = BooleanArray::from(vec![Some(true), Some(false), None]);
+/// let b = BooleanArray::from(vec![None, None, None]);
+/// let or_ab = or_kleene(&a, &b)?;
+/// assert_eq!(or_ab, BooleanArray::from(vec![Some(true), None, None]));
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Fails
+///
+/// If the operands have different lengths
+pub fn or_kleene(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
+    if left.null_count().is_zero() && right.null_count().is_zero() {
+        return or(left, right);
+    }
+
+    let op = |left_true, left_false, right_true, right_false| {
+        (
+            left_true | right_true,
+            left_true | right_true | (left_false & right_false),
+        )
+    };
+
+    binary_boolean_kleene_kernel(left, right, op)
 }
 
 /// Performs unary `NOT` operation on an arrays. If value is null then the result is also
@@ -314,8 +556,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use super::*;
     use crate::array::{ArrayRef, Int32Array};
 
@@ -375,6 +615,181 @@ mod tests {
             Some(false),
             Some(true),
             None,
+            Some(true),
+            Some(true),
+        ]);
+
+        assert_eq!(c, expected);
+    }
+
+    #[test]
+    fn test_binary_boolean_kleene_kernel() {
+        // the kleene kernel is based on chunking and we want to also create
+        // cases, where the number of values is not a multiple of 64
+        for &value in [true, false].iter() {
+            for &is_valid in [true, false].iter() {
+                for &n in [0usize, 1, 63, 64, 65, 127, 128].iter() {
+                    let a = BooleanArray::from(vec![Some(true); n]);
+                    let b = BooleanArray::from(vec![None; n]);
+
+                    let result = binary_boolean_kleene_kernel(&a, &b, |_, _, _, _| {
+                        let value = if value { u64::MAX } else { 0 };
+                        let is_valid = if is_valid { u64::MAX } else { 0 };
+                        (value, is_valid)
+                    })
+                    .unwrap();
+
+                    assert_eq!(result.len(), n);
+                    (0..n).for_each(|idx| {
+                        assert_eq!(value, result.value(idx));
+                        assert_eq!(is_valid, result.is_valid(idx));
+                    });
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_bool_array_and_kleene_nulls() {
+        let a = BooleanArray::from(vec![
+            None,
+            None,
+            None,
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(true),
+            Some(true),
+            Some(true),
+        ]);
+        let b = BooleanArray::from(vec![
+            None,
+            Some(false),
+            Some(true),
+            None,
+            Some(false),
+            Some(true),
+            None,
+            Some(false),
+            Some(true),
+        ]);
+        let c = and_kleene(&a, &b).unwrap();
+
+        let expected = BooleanArray::from(vec![
+            None,
+            Some(false),
+            None,
+            Some(false),
+            Some(false),
+            Some(false),
+            None,
+            Some(false),
+            Some(true),
+        ]);
+
+        assert_eq!(c, expected);
+    }
+
+    #[test]
+    fn test_bool_array_or_kleene_nulls() {
+        let a = BooleanArray::from(vec![
+            None,
+            None,
+            None,
+            Some(false),
+            Some(false),
+            Some(false),
+            Some(true),
+            Some(true),
+            Some(true),
+        ]);
+        let b = BooleanArray::from(vec![
+            None,
+            Some(false),
+            Some(true),
+            None,
+            Some(false),
+            Some(true),
+            None,
+            Some(false),
+            Some(true),
+        ]);
+        let c = or_kleene(&a, &b).unwrap();
+
+        let expected = BooleanArray::from(vec![
+            None,
+            None,
+            Some(true),
+            None,
+            Some(false),
+            Some(true),
+            Some(true),
+            Some(true),
+            Some(true),
+        ]);
+
+        assert_eq!(c, expected);
+    }
+
+    #[test]
+    fn test_bool_array_or_kleene_right_sided_nulls() {
+        let a = BooleanArray::from(vec![false, false, false, true, true, true]);
+
+        // ensure null bitmap of a is absent
+        assert!(a.data_ref().null_bitmap().is_none());
+
+        let b = BooleanArray::from(vec![
+            Some(true),
+            Some(false),
+            None,
+            Some(true),
+            Some(false),
+            None,
+        ]);
+
+        // ensure null bitmap of b is present
+        assert!(b.data_ref().null_bitmap().is_some());
+
+        let c = or_kleene(&a, &b).unwrap();
+
+        let expected = BooleanArray::from(vec![
+            Some(true),
+            Some(false),
+            None,
+            Some(true),
+            Some(true),
+            Some(true),
+        ]);
+
+        assert_eq!(c, expected);
+    }
+
+    #[test]
+    fn test_bool_array_or_kleene_left_sided_nulls() {
+        let a = BooleanArray::from(vec![
+            Some(true),
+            Some(false),
+            None,
+            Some(true),
+            Some(false),
+            None,
+        ]);
+
+        // ensure null bitmap of b is absent
+        assert!(a.data_ref().null_bitmap().is_some());
+
+        let b = BooleanArray::from(vec![false, false, false, true, true, true]);
+
+        // ensure null bitmap of a is present
+        assert!(b.data_ref().null_bitmap().is_none());
+
+        let c = or_kleene(&a, &b).unwrap();
+
+        let expected = BooleanArray::from(vec![
+            Some(true),
+            Some(false),
+            None,
+            Some(true),
             Some(true),
             Some(true),
         ]);
