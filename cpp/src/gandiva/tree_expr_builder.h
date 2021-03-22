@@ -109,11 +109,11 @@ class GANDIVA_EXPORT TreeExprBuilder {
 
   /// \brief creates an in expression for float
   static NodePtr MakeInExpressionFloat(NodePtr node,
-                                       const std::unordered_set<float_t>& constants);
+                                       const std::unordered_set<float>& constants);
 
   /// \brief creates an in expression for double
   static NodePtr MakeInExpressionDouble(NodePtr node,
-                                        const std::unordered_set<double_t>& constants);
+                                        const std::unordered_set<double>& constants);
 
   /// \brief Date as s/millis since epoch.
   static NodePtr MakeInExpressionDate32(NodePtr node,

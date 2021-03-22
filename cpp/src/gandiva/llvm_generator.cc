@@ -997,24 +997,6 @@ void LLVMGenerator::Visitor::Visit(const BooleanOrDex& dex) {
   result_.reset(new LValue(result_value));
 }
 
-void LLVMGenerator::Visitor::Visit(const InExprDexBase<int32_t>& dex) {
-  VisitInExpression<int32_t>(dex);
-}
-
-void LLVMGenerator::Visitor::Visit(const InExprDexBase<int64_t>& dex) {
-  VisitInExpression<int64_t>(dex);
-}
-void LLVMGenerator::Visitor::Visit(const InExprDexBase<float_t>& dex) {
-  VisitInExpression<float_t>(dex);
-}
-void LLVMGenerator::Visitor::Visit(const InExprDexBase<double_t>& dex) {
-  VisitInExpression<double_t>(dex);
-}
-
-void LLVMGenerator::Visitor::Visit(const InExprDexBase<std::string>& dex) {
-  VisitInExpression<std::string>(dex);
-}
-
 template <typename Type>
 void LLVMGenerator::Visitor::VisitInExpression(const InExprDexBase<Type>& dex) {
   ADD_VISITOR_TRACE("visit In Expression");
@@ -1100,6 +1082,13 @@ void LLVMGenerator::Visitor::Visit(const InExprDexBase<int32_t>& dex) {
 
 void LLVMGenerator::Visitor::Visit(const InExprDexBase<int64_t>& dex) {
   VisitInExpression<int64_t>(dex);
+}
+
+void LLVMGenerator::Visitor::Visit(const InExprDexBase<float>& dex) {
+  VisitInExpression<float>(dex);
+}
+void LLVMGenerator::Visitor::Visit(const InExprDexBase<double>& dex) {
+  VisitInExpression<double>(dex);
 }
 
 void LLVMGenerator::Visitor::Visit(const InExprDexBase<gandiva::DecimalScalar128>& dex) {
