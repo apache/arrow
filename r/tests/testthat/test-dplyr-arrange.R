@@ -29,6 +29,13 @@ test_that("arrange", {
   )
   expect_dplyr_equal(
     input %>%
+      arrange(dttm, int) %>%
+      collect(),
+    tbl %>%
+      slice_sample(prop = 1L)
+  )
+  expect_dplyr_equal(
+    input %>%
       arrange(int, desc(dbl)) %>%
       collect(),
     tbl %>%

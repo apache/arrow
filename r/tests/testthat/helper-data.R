@@ -135,16 +135,29 @@ example_with_logical_factors <- tibble::tibble(
   )
 )
 
-# the values in each column of this tibble are in ascending order in the C locale.
-# there are some ties, but sorting by any two columns will give a deterministic order.
+# The values in each column of this tibble are in ascending order in the C locale.
+# There are some ties, so tests should use two or more columns to ensure
+# deterministic order. libarrow uses the C locale for string collation. testthat
+# uses the C locale for string collation inside calls to test_that(). To run test
+# code outside of test_that() calls, set the collation locale to "C" by running:
+#   Sys.setlocale("LC_COLLATE", "C")
+# When finished, restore the default collation locale by running:
+#   Sys.setlocale("LC_COLLATE")
 example_data_for_sorting <- tibble::tibble(
   int = c(-.Machine$integer.max, -101L, -100L, 0L, 0L, 1L, 100L, 1000L, .Machine$integer.max, NA_integer_),
   dbl = c(-Inf, -.Machine$double.xmax, -.Machine$double.xmin, 0, .Machine$double.xmin, pi, .Machine$double.xmax, Inf, NaN, NA_real_),
-  # R string collation varies by locale, while libarrow always uses the C locale for string collation
-  # (in other words: string values in libarrow are ordered lexicographically as bytestrings)
-  # to make R sort functions use the C locale, run Sys.setlocale("LC_COLLATE", "C")
   chr = c("", "", "\u0001", "&", "ABC", "NULL", "a", "abc", "\uFFFF", NA_character_),
-  # bool is not supported (ARROW-12016)
-  lgl = c(rep(FALSE, 4L), rep(TRUE, 4L), rep(NA, 2)),
-  # TODO: add more types
+  lgl = c(rep(FALSE, 4L), rep(TRUE, 5L), NA), # bool is not supported (ARROW-12016)
+  dttm = lubridate::ymd_hms(c(
+    "0000-01-01 00:00:00",
+    "1919-05-29 13:08:55",
+    "1955-06-20 04:10:42",
+    "1973-06-30 11:38:41",
+    "1987-03-29 12:49:47",
+    "1991-06-11 19:07:01",
+    NA_character_,
+    "2017-08-21 18:26:40",
+    "2017-08-21 18:26:40",
+    "9999-12-31 23:59:59"
+  ))
 )
