@@ -374,10 +374,7 @@ test_that("CSV dataset options", {
       select(string = chr)
   )
 
-  format <- FileFormat$create("csv", column_names = c("foo"))
-  ds <- open_dataset(dst_dir, format = format)
-  expect_is(ds$format, "CsvFileFormat")
-  expect_is(ds$filesystem, "LocalFileSystem")
+  ds <- open_dataset(dst_dir, format = "csv", column_names = c("foo"))
 
   expect_equivalent(
     ds %>%
