@@ -1002,35 +1002,36 @@ Result<std::shared_ptr<ListArray>> Grouper::MakeGroupings(const UInt32Array& ids
 }
 
 namespace {
-const FunctionDoc count_doc{"Count the number of null / non-null values",
-                            ("By default, non-null values are counted.\n"
-                             "This can be changed through CountOptions."),
-                            {"array", "group_id_array", "group_count"},
-                            "CountOptions"};
+const FunctionDoc hash_count_doc{"Count the number of null / non-null values",
+                                 ("By default, non-null values are counted.\n"
+                                  "This can be changed through CountOptions."),
+                                 {"array", "group_id_array", "group_count"},
+                                 "CountOptions"};
 
-const FunctionDoc sum_doc{"Sum values of a numeric array",
-                          ("Null values are ignored."),
-                          {"array", "group_id_array", "group_count"}};
+const FunctionDoc hash_sum_doc{"Sum values of a numeric array",
+                               ("Null values are ignored."),
+                               {"array", "group_id_array", "group_count"}};
 
-const FunctionDoc min_max_doc{"Compute the minimum and maximum values of a numeric array",
-                              ("Null values are ignored by default.\n"
-                               "This can be changed through MinMaxOptions."),
-                              {"array", "group_id_array", "group_count"},
-                              "MinMaxOptions"};
+const FunctionDoc hash_min_max_doc{
+    "Compute the minimum and maximum values of a numeric array",
+    ("Null values are ignored by default.\n"
+     "This can be changed through MinMaxOptions."),
+    {"array", "group_id_array", "group_count"},
+    "MinMaxOptions"};
 }  // namespace
 
 void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   {
     static auto default_count_options = CountOptions::Defaults();
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_count", Arity::Ternary(), &count_doc, &default_count_options);
+        "hash_count", Arity::Ternary(), &hash_count_doc, &default_count_options);
     DCHECK_OK(func->AddKernel(MakeKernel<GroupedCountImpl>(ValueDescr::ARRAY)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
 
   {
-    auto func =
-        std::make_shared<HashAggregateFunction>("hash_sum", Arity::Ternary(), &sum_doc);
+    auto func = std::make_shared<HashAggregateFunction>("hash_sum", Arity::Ternary(),
+                                                        &hash_sum_doc);
     DCHECK_OK(func->AddKernel(MakeKernel<GroupedSumImpl>(ValueDescr::ARRAY)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
@@ -1038,7 +1039,7 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   {
     static auto default_minmax_options = MinMaxOptions::Defaults();
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_min_max", Arity::Ternary(), &min_max_doc, &default_minmax_options);
+        "hash_min_max", Arity::Ternary(), &hash_min_max_doc, &default_minmax_options);
     DCHECK_OK(func->AddKernel(MakeKernel<GroupedMinMaxImpl>(ValueDescr::ARRAY)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
