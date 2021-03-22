@@ -1959,7 +1959,6 @@ async fn query_cte() -> Result<()> {
     Ok(())
 }
 
-
 #[tokio::test]
 async fn query_scalar_minus_array() -> Result<()> {
     let schema = Arc::new(Schema::new(vec![Field::new("c1", DataType::Int32, true)]));
