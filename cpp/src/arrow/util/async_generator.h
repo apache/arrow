@@ -347,9 +347,11 @@ class ReadaheadGenerator {
 
 /// \brief A generator where the producer pushes items on a queue.
 ///
-/// No back-pressure is applied, so this primitive is mostly useful when
+/// No back-pressure is applied, so this generator is mostly useful when
 /// producing the values is neither CPU- nor memory-expensive (e.g. fetching
 /// filesystem metadata).
+///
+/// This generator is not async-reentrant.
 template <typename T>
 class PushGenerator {
   struct State {
@@ -359,58 +361,82 @@ class PushGenerator {
     bool finished = false;
   };
 
-  struct Generator {
-    const std::shared_ptr<State> state_;
+ public:
+  /// Producer API for PushGenerator
+  class Producer {
+   public:
+    explicit Producer(std::shared_ptr<State> state) : state_(std::move(state)) {}
 
-    Future<T> operator()() {
+    /// Push a value on the queue
+    void Push(Result<T> result) {
       auto lock = state_->mutex.Lock();
-      assert(!state_->consumer_fut.has_value());  // Non-reentrant
-      if (!state_->result_q.empty()) {
-        auto fut = Future<T>::MakeFinished(std::move(state_->result_q.front()));
-        state_->result_q.pop_front();
-        return fut;
-      }
       if (state_->finished) {
-        return AsyncGeneratorEnd<T>();
+        // Closed early
+        return;
       }
-      auto fut = Future<T>::Make();
-      state_->consumer_fut = fut;
-      return fut;
+      if (state_->consumer_fut.has_value()) {
+        auto fut = std::move(state_->consumer_fut.value());
+        state_->consumer_fut.reset();
+        lock.Unlock();  // unlock before potentially invoking a callback
+        fut.MarkFinished(std::move(result));
+        return;
+      }
+      state_->result_q.push_back(std::move(result));
     }
+
+    /// \brief Tell the consumer we have finished producing
+    ///
+    /// It is allowed to call this and later call Push() again ("early close").
+    /// In this case, calls to Push() after the queue is closed are silently
+    /// ignored.  This can help implementing non-trivial cancellation cases.
+    void Close() {
+      auto lock = state_->mutex.Lock();
+      if (state_->finished) {
+        // Already closed
+        return;
+      }
+      state_->finished = true;
+      if (state_->consumer_fut.has_value()) {
+        auto fut = std::move(state_->consumer_fut.value());
+        state_->consumer_fut.reset();
+        lock.Unlock();  // unlock before potentially invoking a callback
+        fut.MarkFinished(IterationTraits<T>::End());
+      }
+    }
+
+    bool is_closed() const {
+      auto lock = state_->mutex.Lock();
+      return state_->finished;
+    }
+
+   private:
+    const std::shared_ptr<State> state_;
   };
 
- public:
   PushGenerator() : state_(std::make_shared<State>()) {}
 
-  /// Producer API: push a value on the queue
-  void Push(Result<T> result) {
+  /// Read an item from the queue
+  Future<T> operator()() {
     auto lock = state_->mutex.Lock();
-    if (state_->consumer_fut.has_value()) {
-      auto fut = std::move(state_->consumer_fut.value());
-      state_->consumer_fut.reset();
-      lock.Unlock();  // unlock before potentially invoking a callback
-      fut.MarkFinished(std::move(result));
-      return;
+    assert(!state_->consumer_fut.has_value());  // Non-reentrant
+    if (!state_->result_q.empty()) {
+      auto fut = Future<T>::MakeFinished(std::move(state_->result_q.front()));
+      state_->result_q.pop_front();
+      return fut;
     }
-    state_->result_q.push_back(std::move(result));
+    if (state_->finished) {
+      return AsyncGeneratorEnd<T>();
+    }
+    auto fut = Future<T>::Make();
+    state_->consumer_fut = fut;
+    return fut;
   }
 
-  /// Producer API: tell the consumer we have finished producing
-  void Close() {
-    auto lock = state_->mutex.Lock();
-    state_->finished = true;
-    if (state_->consumer_fut.has_value()) {
-      auto fut = std::move(state_->consumer_fut.value());
-      state_->consumer_fut.reset();
-      lock.Unlock();  // unlock before potentially invoking a callback
-      fut.MarkFinished(IterationTraits<T>::End());
-    }
-  }
-
-  /// \brief Return a non-reentrant async generator
+  /// \brief Return producer-side interface
   ///
-  /// The returned object is meant to be given to the consumer.
-  Generator generator() { return Generator{state_}; }
+  /// The returned object must be used by the producer to push values on the queue.
+  /// Only a single Producer object should be instantiated.
+  Producer producer() { return Producer{state_}; }
 
  private:
   const std::shared_ptr<State> state_;

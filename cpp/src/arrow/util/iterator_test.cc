@@ -943,8 +943,9 @@ TEST(TestAsyncIteratorTransform, SkipSome) {
 }
 
 TEST(PushGenerator, Empty) {
-  PushGenerator<TestInt> producer;
-  auto gen = producer.generator();
+  PushGenerator<TestInt> gen;
+  auto producer = gen.producer();
+
   auto fut = gen();
   AssertNotFinished(fut);
   producer.Close();
@@ -960,12 +961,12 @@ TEST(PushGenerator, Empty) {
 }
 
 TEST(PushGenerator, Success) {
-  PushGenerator<TestInt> producer;
+  PushGenerator<TestInt> gen;
+  auto producer = gen.producer();
   std::vector<Future<TestInt>> futures;
 
   producer.Push(TestInt{1});
   producer.Push(TestInt{2});
-  auto gen = producer.generator();
   for (int i = 0; i < 3; ++i) {
     futures.push_back(gen());
   }
@@ -991,12 +992,12 @@ TEST(PushGenerator, Success) {
 }
 
 TEST(PushGenerator, Errors) {
-  PushGenerator<TestInt> producer;
+  PushGenerator<TestInt> gen;
+  auto producer = gen.producer();
   std::vector<Future<TestInt>> futures;
 
   producer.Push(TestInt{1});
   producer.Push(Status::Invalid("2"));
-  auto gen = producer.generator();
   for (int i = 0; i < 3; ++i) {
     futures.push_back(gen());
   }
@@ -1013,12 +1014,33 @@ TEST(PushGenerator, Errors) {
   ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), gen());
 }
 
+TEST(PushGenerator, CloseEarly) {
+  PushGenerator<TestInt> gen;
+  auto producer = gen.producer();
+  std::vector<Future<TestInt>> futures;
+
+  producer.Push(TestInt{1});
+  producer.Push(TestInt{2});
+  for (int i = 0; i < 3; ++i) {
+    futures.push_back(gen());
+  }
+  producer.Close();
+  producer.Push(TestInt{3});
+
+  ASSERT_FINISHES_OK_AND_EQ(TestInt{1}, futures[0]);
+  ASSERT_FINISHES_OK_AND_EQ(TestInt{2}, futures[1]);
+  ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), futures[2]);
+  ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), gen());
+}
+
 TEST(PushGenerator, Stress) {
   const int NTHREADS = 20;
   const int NVALUES = 2000;
   const int NFUTURES = NVALUES + 100;
 
-  PushGenerator<TestInt> producer;
+  PushGenerator<TestInt> gen;
+  auto producer = gen.producer();
+
   std::atomic<int> next_value{0};
 
   auto producer_worker = [&]() {
@@ -1042,7 +1064,6 @@ TEST(PushGenerator, Stress) {
     producer.Close();
   };
 
-  auto gen = producer.generator();
   std::vector<Result<TestInt>> results;
   std::thread thread(producer_main);
   for (int i = 0; i < NFUTURES; ++i) {
