@@ -117,10 +117,9 @@ Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
 
   ARROW_ASSIGN_OR_RAISE(Datum id_batch, grouper->Consume(key_batch));
 
-  int64_t num_groups = 0;
   auto ids = id_batch.array_as<UInt32Array>();
   ARROW_ASSIGN_OR_RAISE(auto groupings, compute::internal::Grouper::MakeGroupings(
-                                            *ids, static_cast<uint32_t>(num_groups - 1)));
+                                            *ids, grouper->num_groups()));
 
   ARROW_ASSIGN_OR_RAISE(auto uniques, grouper->GetUniques());
   ArrayVector unique_arrays(num_keys);
@@ -131,8 +130,8 @@ Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
   PartitionedBatches out;
 
   // assemble partition expressions from the unique keys
-  out.expressions.resize(static_cast<size_t>(num_groups));
-  for (int64_t group = 0; group < num_groups; ++group) {
+  out.expressions.resize(grouper->num_groups());
+  for (uint32_t group = 0; group < grouper->num_groups(); ++group) {
     std::vector<Expression> exprs(num_keys);
 
     for (int i = 0; i < num_keys; ++i) {

@@ -961,28 +961,28 @@ Result<std::shared_ptr<ListArray>> Grouper::ApplyGroupings(const ListArray& grou
 }
 
 Result<std::shared_ptr<ListArray>> Grouper::MakeGroupings(const UInt32Array& ids,
-                                                          uint32_t max_id,
+                                                          uint32_t num_groups,
                                                           ExecContext* ctx) {
   if (ids.null_count() != 0) {
     return Status::Invalid("MakeGroupings with null ids");
   }
 
-  ARROW_ASSIGN_OR_RAISE(
-      auto offsets, AllocateBuffer(sizeof(int32_t) * (max_id + 2), ctx->memory_pool()));
+  ARROW_ASSIGN_OR_RAISE(auto offsets, AllocateBuffer(sizeof(int32_t) * (num_groups + 1),
+                                                     ctx->memory_pool()));
   auto raw_offsets = reinterpret_cast<int32_t*>(offsets->mutable_data());
 
   std::memset(raw_offsets, 0, offsets->size());
   for (int i = 0; i < ids.length(); ++i) {
-    DCHECK_LE(ids.Value(i), max_id);
+    DCHECK_LT(ids.Value(i), num_groups);
     raw_offsets[ids.Value(i)] += 1;
   }
   int32_t length = 0;
-  for (uint32_t id = 0; id < max_id + 1; ++id) {
+  for (uint32_t id = 0; id < num_groups; ++id) {
     auto offset = raw_offsets[id];
     raw_offsets[id] = length;
     length += offset;
   }
-  raw_offsets[max_id + 1] = length;
+  raw_offsets[num_groups] = length;
   DCHECK_EQ(ids.length(), length);
 
   ARROW_ASSIGN_OR_RAISE(auto offsets_copy,
@@ -997,7 +997,7 @@ Result<std::shared_ptr<ListArray>> Grouper::MakeGroupings(const UInt32Array& ids
   }
 
   return std::make_shared<ListArray>(
-      list(int32()), max_id + 1, std::move(offsets),
+      list(int32()), num_groups, std::move(offsets),
       std::make_shared<Int32Array>(ids.length(), std::move(sort_indices)));
 }
 

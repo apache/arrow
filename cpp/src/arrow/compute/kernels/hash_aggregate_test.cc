@@ -143,7 +143,7 @@ Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys
 
   ARROW_ASSIGN_OR_RAISE(
       auto groupings, internal::Grouper::MakeGroupings(*id_batch.array_as<UInt32Array>(),
-                                                       grouper->num_groups() - 1));
+                                                       grouper->num_groups()));
 
   ArrayVector out_columns;
 
@@ -412,36 +412,35 @@ TEST(Grouper, RandomStringInt64DoubleInt32Keys) {
 }
 
 TEST(Grouper, MakeGroupings) {
-  auto ExpectGroupings = [](std::string ids_json, uint32_t max_id,
-                            std::string expected_json) {
+  auto ExpectGroupings = [](std::string ids_json, std::string expected_json) {
     auto ids = checked_pointer_cast<UInt32Array>(ArrayFromJSON(uint32(), ids_json));
     auto expected = ArrayFromJSON(list(int32()), expected_json);
 
-    ASSERT_OK_AND_ASSIGN(auto actual, internal::Grouper::MakeGroupings(*ids, max_id));
+    auto num_groups = static_cast<uint32_t>(expected->length());
+    ASSERT_OK_AND_ASSIGN(auto actual, internal::Grouper::MakeGroupings(*ids, num_groups));
     AssertArraysEqual(*expected, *actual, /*verbose=*/true);
 
     // validate ApplyGroupings
     ASSERT_OK_AND_ASSIGN(auto grouped_ids,
                          internal::Grouper::ApplyGroupings(*actual, *ids));
 
-    for (uint32_t id = 0; id <= max_id; ++id) {
-      auto ids_slice = checked_pointer_cast<UInt32Array>(grouped_ids->value_slice(id));
+    for (uint32_t group = 0; group < num_groups; ++group) {
+      auto ids_slice = checked_pointer_cast<UInt32Array>(grouped_ids->value_slice(group));
       for (auto slot : *ids_slice) {
-        EXPECT_EQ(slot, id);
+        EXPECT_EQ(slot, group);
       }
     }
   };
 
-  ExpectGroupings("[]", 0, "[[]]");
+  ExpectGroupings("[]", "[[]]");
 
-  ExpectGroupings("[0, 0, 0]", 0, "[[0, 1, 2]]");
+  ExpectGroupings("[0, 0, 0]", "[[0, 1, 2]]");
 
-  ExpectGroupings("[0, 0, 0, 1, 1, 2]", 3, "[[0, 1, 2], [3, 4], [5], []]");
+  ExpectGroupings("[0, 0, 0, 1, 1, 2]", "[[0, 1, 2], [3, 4], [5], []]");
 
-  ExpectGroupings("[2, 1, 2, 1, 1, 2]", 4, "[[], [1, 3, 4], [0, 2, 5], [], []]");
+  ExpectGroupings("[2, 1, 2, 1, 1, 2]", "[[], [1, 3, 4], [0, 2, 5], [], []]");
 
-  ExpectGroupings("[2, 2, 5, 5, 2, 3]", 7,
-                  "[[], [], [0, 1, 4], [5], [], [2, 3], [], []]");
+  ExpectGroupings("[2, 2, 5, 5, 2, 3]", "[[], [], [0, 1, 4], [5], [], [2, 3], [], []]");
 }
 
 TEST(GroupBy, SumOnly) {

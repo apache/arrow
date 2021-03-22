@@ -331,8 +331,8 @@ class ARROW_EXPORT Grouper {
   ///
   /// \param[in] ids An unsigned, all-valid integral array which will be
   ///                used as grouping criteria.
-  /// \param[in] max_id An upper bound for the elements of ids
-  /// \return A (max_id + 1)-long ListArray where the slot at i contains a
+  /// \param[in] num_groups An upper bound for the elements of ids
+  /// \return A num_groups-long ListArray where the slot at i contains a
   ///         list of indices where i appears in ids.
   ///
   ///   MakeGroupings([
@@ -353,7 +353,8 @@ class ARROW_EXPORT Grouper {
   ///       []
   ///   ]
   static Result<std::shared_ptr<ListArray>> MakeGroupings(
-      const UInt32Array& ids, uint32_t max_id, ExecContext* ctx = default_exec_context());
+      const UInt32Array& ids, uint32_t num_groups,
+      ExecContext* ctx = default_exec_context());
 
   /// \brief Produce a ListArray whose slots are selections of `array` which correspond to
   /// the provided groupings.
