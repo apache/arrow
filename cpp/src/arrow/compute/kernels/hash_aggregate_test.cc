@@ -43,6 +43,7 @@
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -52,12 +53,6 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 namespace compute {
-
-// Copy-pasta from partition.cc
-//
-// In the finished product this will only be a test helper for group_by
-// and partition.cc will rely on a no-aggregate call to group_by.
-namespace group_helpers {
 namespace {
 
 struct ScalarVectorToArray {
@@ -65,7 +60,7 @@ struct ScalarVectorToArray {
             typename BuilderType = typename TypeTraits<T>::BuilderType,
             typename ScalarType = typename TypeTraits<T>::ScalarType>
   Status UseBuilder(const AppendScalar& append) {
-    BuilderType builder(type(), default_memory_pool());
+    BuilderType builder(type_, default_memory_pool());
     for (const auto& s : scalars_) {
       if (s->is_valid) {
         RETURN_NOT_OK(append(checked_cast<const ScalarType&>(*s), &builder));
@@ -101,21 +96,38 @@ struct ScalarVectorToArray {
     return UseBuilder<T>(AppendBuffer{});
   }
 
+  Status Visit(const StructType& type) {
+    data_ = ArrayData::Make(type_, static_cast<int64_t>(scalars_.size()),
+                            {/*null_bitmap=*/nullptr});
+    ScalarVector field_scalars(scalars_.size());
+
+    for (int field_index = 0; field_index < type.num_fields(); ++field_index) {
+      for (size_t i = 0; i < scalars_.size(); ++i) {
+        field_scalars[i] =
+            checked_cast<StructScalar*>(scalars_[i].get())->value[field_index];
+      }
+
+      ARROW_ASSIGN_OR_RAISE(Datum field, ScalarVectorToArray{}.Convert(field_scalars));
+      data_->child_data.push_back(field.array());
+    }
+    return Status::OK();
+  }
+
   Status Visit(const DataType& type) {
     return Status::NotImplemented("ScalarVectorToArray for type ", type);
   }
 
-  Result<Datum> Convert(ScalarVector scalars) && {
+  Result<Datum> Convert(const ScalarVector& scalars) && {
     if (scalars.size() == 0) {
       return Status::NotImplemented("ScalarVectorToArray with no scalars");
     }
     scalars_ = std::move(scalars);
-    RETURN_NOT_OK(VisitTypeInline(*type(), this));
+    type_ = scalars_[0]->type;
+    RETURN_NOT_OK(VisitTypeInline(*type_, this));
     return Datum(std::move(data_));
   }
 
-  const std::shared_ptr<DataType>& type() { return scalars_[0]->type; }
-
+  std::shared_ptr<DataType> type_;
   ScalarVector scalars_;
   std::shared_ptr<ArrayData> data_;
 };
@@ -154,7 +166,7 @@ Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys
     }
 
     ARROW_ASSIGN_OR_RAISE(Datum aggregated_column,
-                          ScalarVectorToArray{}.Convert(std::move(aggregated_scalars)));
+                          ScalarVectorToArray{}.Convert(aggregated_scalars));
     out_columns.push_back(aggregated_column.make_array());
   }
 
@@ -169,8 +181,7 @@ Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys
 
 void ValidateGroupBy(const std::vector<internal::Aggregate>& aggregates,
                      std::vector<Datum> arguments, std::vector<Datum> keys) {
-  ASSERT_OK_AND_ASSIGN(Datum expected,
-                       group_helpers::NaiveGroupBy(arguments, keys, aggregates));
+  ASSERT_OK_AND_ASSIGN(Datum expected, NaiveGroupBy(arguments, keys, aggregates));
 
   ASSERT_OK_AND_ASSIGN(Datum actual, GroupBy(arguments, keys, aggregates));
 
@@ -178,7 +189,6 @@ void ValidateGroupBy(const std::vector<internal::Aggregate>& aggregates,
 }
 
 }  // namespace
-}  // namespace group_helpers
 
 struct TestGrouper {
   explicit TestGrouper(std::vector<ValueDescr> descrs) : descrs_(std::move(descrs)) {
@@ -434,86 +444,24 @@ TEST(Grouper, MakeGroupings) {
                   "[[], [], [0, 1, 4], [5], [], [2, 3], [], []]");
 }
 
-TEST(GroupBy, SumOnlyBooleanKey) {
-  auto argument = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
-  auto key = ArrayFromJSON(boolean(), "[1, 0, 1, 0, null, 0, null]");
-
-  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy({argument}, {key},
-                                         {
-                                             {"hash_sum", nullptr},
-                                         }));
-
-  AssertDatumsEqual(ArrayFromJSON(struct_({
-                                      field("", float64()),
-                                      field("", boolean()),
-                                  }),
-                                  R"([
-    [1,     true],
-    [3,    false],
-    [0.875, null]
-  ])"),
-                    aggregated_and_grouped,
-                    /*verbose=*/true);
-}
-
-TEST(GroupBy, SumOnly8bitKey) {
-  auto argument = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
-  auto key = ArrayFromJSON(int8(), "[1, 2, 3, 1, 2, 2, null]");
-
-  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy({argument}, {key},
-                                         {
-                                             {"hash_sum", nullptr},
-                                         }));
-
-  ASSERT_OK(aggregated_and_grouped.array_as<StructArray>()->ValidateFull());
-
-  AssertDatumsEqual(ArrayFromJSON(struct_({
-                                      field("", float64()),
-                                      field("", int8()),
-                                  }),
-                                  R"([
-    [4.25,   1],
-    [-0.125, 2],
-    [null,   3],
-    [0.75,   null]
-  ])"),
-                    aggregated_and_grouped,
-                    /*verbose=*/true);
-}
-
-TEST(GroupBy, SumOnly32bitKey) {
-  auto argument = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
-  auto key = ArrayFromJSON(int32(), "[1, 2, 3, 1, 2, 2, null]");
-
-  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy({argument}, {key},
-                                         {
-                                             {"hash_sum", nullptr},
-                                         }));
-
-  AssertDatumsEqual(ArrayFromJSON(struct_({
-                                      field("", float64()),
-                                      field("", int32()),
-                                  }),
-                                  R"([
-    [4.25,   1],
-    [-0.125, 2],
-    [null,   3],
-    [0.75,   null]
-  ])"),
-                    aggregated_and_grouped,
-                    /*verbose=*/true);
-}
-
 TEST(GroupBy, SumOnly) {
-  auto argument =
-      ArrayFromJSON(float64(), "[1.0, 0.0, null, 4.0, 3.25, 0.125, -0.25, 0.75]");
-  auto key = ArrayFromJSON(int64(), "[1, 2, 3, null, 1, 2, 2, null]");
+  auto batch = RecordBatchFromJSON(
+      schema({field("argument", float64()), field("key", int64())}), R"([
+    [1.0,   1],
+    [null,  1],
+    [0.0,   2],
+    [null,  3],
+    [4.0,   null],
+    [3.25,  1],
+    [0.125, 2],
+    [-0.25, 2],
+    [0.75,  null],
+    [null,  3]
+  ])");
 
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy({argument}, {key},
+                       internal::GroupBy({batch->GetColumnByName("argument")},
+                                         {batch->GetColumnByName("key")},
                                          {
                                              {"hash_sum", nullptr},
                                          }));
@@ -532,36 +480,24 @@ TEST(GroupBy, SumOnly) {
                     /*verbose=*/true);
 }
 
-TEST(GroupBy, SumOnlyFloatingPointKey) {
-  auto argument = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
-  auto key = ArrayFromJSON(float64(), "[1, 2, 3, 1, 2, 2, null]");
-
-  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy({argument}, {key},
-                                         {
-                                             {"hash_sum", nullptr},
-                                         }));
-
-  AssertDatumsEqual(ArrayFromJSON(struct_({
-                                      field("", float64()),
-                                      field("", float64()),
-                                  }),
-                                  R"([
-    [4.25,   1],
-    [-0.125, 2],
-    [null,   3],
-    [0.75,   null]
-  ])"),
-                    aggregated_and_grouped,
-                    /*verbose=*/true);
-}
-
 TEST(GroupBy, MinMaxOnly) {
-  auto argument = ArrayFromJSON(float64(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
-  auto key = ArrayFromJSON(int64(), "[1, 2, 3, 1, 2, 2, null]");
+  auto batch = RecordBatchFromJSON(
+      schema({field("argument", float64()), field("key", int64())}), R"([
+    [1.0,   1],
+    [null,  1],
+    [0.0,   2],
+    [null,  3],
+    [4.0,   null],
+    [3.25,  1],
+    [0.125, 2],
+    [-0.25, 2],
+    [0.75,  null],
+    [null,  3]
+  ])");
 
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy({argument}, {key},
+                       internal::GroupBy({batch->GetColumnByName("argument")},
+                                         {batch->GetColumnByName("key")},
                                          {
                                              {"hash_min_max", nullptr},
                                          }));
@@ -577,26 +513,45 @@ TEST(GroupBy, MinMaxOnly) {
     [{"min": 1.0,   "max": 3.25},  1],
     [{"min": -0.25, "max": 0.125}, 2],
     [{"min": null,  "max": null},  3],
-    [{"min": 0.75,  "max": 0.75},  null]
+    [{"min": 0.75,  "max": 4.0},   null]
   ])"),
                     aggregated_and_grouped,
                     /*verbose=*/true);
 }
 
 TEST(GroupBy, CountAndSum) {
-  auto argument = ArrayFromJSON(float32(), "[1.0, 0.0, null, 3.25, 0.125, -0.25, 0.75]");
-  auto key = ArrayFromJSON(int64(), "[1, 2, 1, 3, 2, 3, null]");
+  auto batch = RecordBatchFromJSON(
+      schema({field("argument", float64()), field("key", int64())}), R"([
+    [1.0,   1],
+    [null,  1],
+    [0.0,   2],
+    [null,  3],
+    [4.0,   null],
+    [3.25,  1],
+    [0.125, 2],
+    [-0.25, 2],
+    [0.75,  null],
+    [null,  3]
+  ])");
 
   CountOptions count_options;
-
-  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       // NB: passing an argument twice or also using it as a key is legal
-                       internal::GroupBy({argument, argument, key}, {key},
-                                         {
-                                             {"hash_count", &count_options},
-                                             {"hash_sum", nullptr},
-                                             {"hash_sum", nullptr},
-                                         }));
+  ASSERT_OK_AND_ASSIGN(
+      Datum aggregated_and_grouped,
+      internal::GroupBy(
+          {
+              // NB: passing an argument twice or also using it as a key is legal
+              batch->GetColumnByName("argument"),
+              batch->GetColumnByName("argument"),
+              batch->GetColumnByName("key"),
+          },
+          {
+              batch->GetColumnByName("key"),
+          },
+          {
+              {"hash_count", &count_options},
+              {"hash_sum", nullptr},
+              {"hash_sum", nullptr},
+          }));
 
   AssertDatumsEqual(
       ArrayFromJSON(struct_({
@@ -607,104 +562,106 @@ TEST(GroupBy, CountAndSum) {
                         field("", int64()),
                     }),
                     R"([
-    [1, 1.0,   2,    1],
-    [2, 0.125, 4,    2],
-    [2, 3.0,   6,    3],
-    [1, 0.75,  null, null]
+    [2, 4.25,   3,    1],
+    [3, -0.125, 6,    2],
+    [0, null,   6,    3],
+    [2, 4.75,   null, null]
   ])"),
       aggregated_and_grouped,
       /*verbose=*/true);
 }
 
-TEST(GroupBy, StringKey) {
-  auto argument = ArrayFromJSON(int64(), "[10, 5, 4, 2, 12, 9]");
-  auto key = ArrayFromJSON(utf8(), R"(["alfa", "beta", "gamma", "gamma", null, "beta"])");
+TEST(GroupBy, SumOnlyStringAndDictKeys) {
+  for (auto key_type : {utf8(), dictionary(int32(), utf8())}) {
+    SCOPED_TRACE("key type: " + key_type->ToString());
 
-  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy({argument}, {key}, {{"hash_sum", nullptr}}));
+    auto batch = RecordBatchFromJSON(
+        schema({field("argument", float64()), field("key", key_type)}), R"([
+      [1.0,   "alfa"],
+      [null,  "alfa"],
+      [0.0,   "beta"],
+      [null,  "gama"],
+      [4.0,    null ],
+      [3.25,  "alfa"],
+      [0.125, "beta"],
+      [-0.25, "beta"],
+      [0.75,   null ],
+      [null,  "gama"]
+    ])");
 
-  AssertDatumsEqual(ArrayFromJSON(struct_({
-                                      field("", int64()),
-                                      field("", utf8()),
-                                  }),
-                                  R"([
-    [10,   "alfa"],
-    [14,   "beta"],
-    [6,    "gamma"],
-    [12,   null]
+    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                         internal::GroupBy({batch->GetColumnByName("argument")},
+                                           {batch->GetColumnByName("key")},
+                                           {
+                                               {"hash_sum", nullptr},
+                                           }));
+
+    AssertDatumsEqual(ArrayFromJSON(struct_({
+                                        field("", float64()),
+                                        field("", key_type),
+                                    }),
+                                    R"([
+    [4.25,   "alfa"],
+    [-0.125, "beta"],
+    [null,   "gama"],
+    [4.75,    null ]
   ])"),
-                    aggregated_and_grouped,
-                    /*verbose=*/true);
-}
-
-TEST(GroupBy, DictKey) {
-  auto argument = ArrayFromJSON(int64(), "[10, 5, 4, 2, 12, 9]");
-  auto key = ArrayFromJSON(dictionary(int32(), utf8()),
-                           R"(["alfa", "beta", "gamma", "gamma", null, "beta"])");
-
-  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       internal::GroupBy({argument}, {key}, {{"hash_sum", nullptr}}));
-
-  AssertDatumsEqual(ArrayFromJSON(struct_({
-                                      field("", int64()),
-                                      field("", dictionary(int32(), utf8())),
-                                  }),
-                                  R"([
-    [10,   "alfa"],
-    [14,   "beta"],
-    [6,    "gamma"],
-    [12,   null]
-  ])"),
-                    aggregated_and_grouped,
-                    /*verbose=*/true);
-}
-
-TEST(GroupBy, MultipleKeys) {
-  auto argument = ArrayFromJSON(float32(), "[0.125, 0.5, -0.75, 8, 1.0, 2.0]");
-  auto int_key = ArrayFromJSON(int32(), "[0, 1, 0, 1, 0, 1]");
-  auto str_key =
-      ArrayFromJSON(utf8(), R"(["beta", "beta", "gamma", "gamma", null, "beta"])");
-
-  ASSERT_OK_AND_ASSIGN(
-      Datum aggregated_and_grouped,
-      internal::GroupBy({argument}, {int_key, str_key}, {{"hash_sum", nullptr}}));
-
-  AssertDatumsEqual(ArrayFromJSON(struct_({
-                                      field("", float64()),
-                                      field("", int32()),
-                                      field("", utf8()),
-                                  }),
-                                  R"([
-    [0.125, 0, "beta"],
-    [2.5,   1, "beta"],
-    [-0.75, 0, "gamma"],
-    [8,     1, "gamma"],
-    [1.0,   0, null]
-  ])"),
-                    aggregated_and_grouped,
-                    /*verbose=*/true);
+                      aggregated_and_grouped,
+                      /*verbose=*/true);
+  }
 }
 
 TEST(GroupBy, ConcreteCaseWithValidateGroupBy) {
-  auto argument = ArrayFromJSON(int64(), "[10, 5, 4, 2, 12]");
-  auto key = ArrayFromJSON(utf8(), R"(["alfa", "beta", "gamma", "gamma", "beta"])");
+  auto batch = RecordBatchFromJSON(
+      schema({field("argument", float64()), field("key", utf8())}), R"([
+    [1.0,   "alfa"],
+    [null,  "alfa"],
+    [0.0,   "beta"],
+    [null,  "gama"],
+    [4.0,    null ],
+    [3.25,  "alfa"],
+    [0.125, "beta"],
+    [-0.25, "beta"],
+    [0.75,   null ],
+    [null,  "gama"]
+  ])");
 
-  group_helpers::ValidateGroupBy({{"hash_sum", nullptr}}, {argument}, {key});
+  CountOptions count_non_null{CountOptions::COUNT_NON_NULL},
+      count_null{CountOptions::COUNT_NULL};
+
+  MinMaxOptions emit_null{MinMaxOptions::EMIT_NULL};
+
+  using internal::Aggregate;
+  for (auto agg : {
+           Aggregate{"hash_sum", nullptr},
+           Aggregate{"hash_count", &count_non_null},
+           Aggregate{"hash_count", &count_null},
+           Aggregate{"hash_min_max", nullptr},
+           Aggregate{"hash_min_max", &emit_null},
+       }) {
+    SCOPED_TRACE(agg.function);
+    ValidateGroupBy({agg}, {batch->GetColumnByName("argument")},
+                    {batch->GetColumnByName("key")});
+  }
 }
 
 TEST(GroupBy, RandomArraySum) {
-  auto rand = random::RandomArrayGenerator(0xdeadbeef);
-
   for (int64_t length : {1 << 10, 1 << 12, 1 << 15}) {
-    for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
-      auto summand = rand.Float32(length, -100, 100, null_probability);
-      auto key = rand.Int64(length, 0, 12);
+    for (auto null_probability : {0.0, 0.01, 0.5, 1.0}) {
+      auto batch = random::GenerateBatch(
+          {
+              field("argument", float32(),
+                    key_value_metadata(
+                        {{"null_probability", std::to_string(null_probability)}})),
+              field("key", int64()),
+          },
+          length, 0xDEADBEEF);
 
-      group_helpers::ValidateGroupBy(
+      ValidateGroupBy(
           {
               {"hash_sum", nullptr},
           },
-          {summand}, {key});
+          {batch->GetColumnByName("argument")}, {batch->GetColumnByName("key")});
     }
   }
 }
