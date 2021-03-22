@@ -637,7 +637,7 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
     return [anti_extreme](BufferBuilder* builder, int64_t added_groups) {
       TypedBufferBuilder<CType> typed_builder(std::move(*builder));
       RETURN_NOT_OK(typed_builder.Append(added_groups, anti_extreme));
-      *builder = std::move(typed_builder.bytes_builder());
+      *builder = std::move(*typed_builder.bytes_builder());
       return Status::OK();
     };
   }

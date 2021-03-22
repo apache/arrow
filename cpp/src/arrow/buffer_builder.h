@@ -211,7 +211,7 @@ class TypedBufferBuilder<
   explicit TypedBufferBuilder(BufferBuilder builder)
       : bytes_builder_(std::move(builder)) {}
 
-  BufferBuilder& bytes_builder() { return bytes_builder_; }
+  BufferBuilder* bytes_builder() { return &bytes_builder_; }
 
   Status Append(T value) {
     return bytes_builder_.Append(reinterpret_cast<uint8_t*>(&value), sizeof(T));
@@ -294,7 +294,7 @@ class TypedBufferBuilder<bool> {
   explicit TypedBufferBuilder(BufferBuilder builder)
       : bytes_builder_(std::move(builder)) {}
 
-  BufferBuilder& bytes_builder() { return bytes_builder_; }
+  BufferBuilder* bytes_builder() { return &bytes_builder_; }
 
   Status Append(bool value) {
     ARROW_RETURN_NOT_OK(Reserve(1));
