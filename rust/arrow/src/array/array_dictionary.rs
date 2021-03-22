@@ -15,15 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::any::Any;
 use std::fmt;
 use std::iter::IntoIterator;
 use std::mem;
-use std::{any::Any, sync::Arc};
 use std::{convert::From, iter::FromIterator};
 
 use super::{
-    make_array, Array, ArrayData, ArrayDataRef, ArrayRef, PrimitiveArray,
-    PrimitiveBuilder, StringArray, StringBuilder, StringDictionaryBuilder,
+    make_array, Array, ArrayData, ArrayRef, PrimitiveArray, PrimitiveBuilder,
+    StringArray, StringBuilder, StringDictionaryBuilder,
 };
 use crate::datatypes::ArrowNativeType;
 use crate::datatypes::{ArrowDictionaryKeyType, ArrowPrimitiveType, DataType};
@@ -54,7 +54,7 @@ use crate::datatypes::{ArrowDictionaryKeyType, ArrowPrimitiveType, DataType};
 pub struct DictionaryArray<K: ArrowPrimitiveType> {
     /// Data of this dictionary. Note that this is _not_ compatible with the C Data interface,
     /// as, in the current implementation, `values` below are the first child of this struct.
-    data: ArrayDataRef,
+    data: ArrayData,
 
     /// The keys of this dictionary. These are constructed from the buffer and null bitmap
     /// of `data`.
@@ -87,7 +87,7 @@ impl<'a, K: ArrowPrimitiveType> DictionaryArray<K> {
             data.buffers().to_vec(),
             vec![],
         );
-        PrimitiveArray::<K>::from(Arc::new(keys_data))
+        PrimitiveArray::<K>::from(keys_data)
     }
 
     /// Returns the lookup key by doing reverse dictionary lookup
@@ -128,8 +128,8 @@ impl<'a, K: ArrowPrimitiveType> DictionaryArray<K> {
 }
 
 /// Constructs a `DictionaryArray` from an array data reference.
-impl<T: ArrowPrimitiveType> From<ArrayDataRef> for DictionaryArray<T> {
-    fn from(data: ArrayDataRef) -> Self {
+impl<T: ArrowPrimitiveType> From<ArrayData> for DictionaryArray<T> {
+    fn from(data: ArrayData) -> Self {
         assert_eq!(
             data.buffers().len(),
             1,
@@ -146,7 +146,7 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for DictionaryArray<T> {
                 panic!("DictionaryArray's data type must match.")
             };
             // create a zero-copy of the keys' data
-            let keys = PrimitiveArray::<T>::from(Arc::new(ArrayData::new(
+            let keys = PrimitiveArray::<T>::from(ArrayData::new(
                 T::DATA_TYPE,
                 data.len(),
                 Some(data.null_count()),
@@ -154,7 +154,7 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for DictionaryArray<T> {
                 data.offset(),
                 data.buffers().to_vec(),
                 vec![],
-            )));
+            ));
             let values = make_array(data.child_data()[0].clone());
             Self {
                 data,
@@ -221,11 +221,7 @@ impl<T: ArrowPrimitiveType> Array for DictionaryArray<T> {
         self
     }
 
-    fn data(&self) -> ArrayDataRef {
-        self.data.clone()
-    }
-
-    fn data_ref(&self) -> &ArrayDataRef {
+    fn data(&self) -> &ArrayData {
         &self.data
     }
 
@@ -292,7 +288,7 @@ mod tests {
         let dict_array = Int16DictionaryArray::from(dict_data);
 
         let values = dict_array.values();
-        assert_eq!(value_data, values.data());
+        assert_eq!(&value_data, values.data());
         assert_eq!(DataType::Int8, dict_array.value_type());
         assert_eq!(3, dict_array.len());
 
@@ -311,7 +307,7 @@ mod tests {
         let dict_array = Int16DictionaryArray::from(dict_data);
 
         let values = dict_array.values();
-        assert_eq!(value_data, values.data());
+        assert_eq!(&value_data, values.data());
         assert_eq!(DataType::Int8, dict_array.value_type());
         assert_eq!(2, dict_array.len());
         assert_eq!(dict_array.keys(), &Int16Array::from(vec![3_i16, 4]));

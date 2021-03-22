@@ -15,16 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::convert::{From, TryInto};
 use std::fmt;
 use std::mem;
 use std::{any::Any, iter::FromIterator};
-use std::{
-    convert::{From, TryInto},
-    sync::Arc,
-};
 
 use super::{
-    array::print_long_array, raw_pointer::RawPtrBox, Array, ArrayData, ArrayDataRef,
+    array::print_long_array, raw_pointer::RawPtrBox, Array, ArrayData,
     FixedSizeListArray, GenericBinaryIter, GenericListArray, OffsetSizeTrait,
 };
 use crate::buffer::Buffer;
@@ -47,7 +44,7 @@ impl BinaryOffsetSizeTrait for i64 {
 }
 
 pub struct GenericBinaryArray<OffsetSize: BinaryOffsetSizeTrait> {
-    data: ArrayDataRef,
+    data: ArrayData,
     value_offsets: RawPtrBox<OffsetSize>,
     value_data: RawPtrBox<u8>,
 }
@@ -199,11 +196,7 @@ impl<OffsetSize: BinaryOffsetSizeTrait> Array for GenericBinaryArray<OffsetSize>
         self
     }
 
-    fn data(&self) -> ArrayDataRef {
-        self.data.clone()
-    }
-
-    fn data_ref(&self) -> &ArrayDataRef {
+    fn data(&self) -> &ArrayData {
         &self.data
     }
 
@@ -218,10 +211,10 @@ impl<OffsetSize: BinaryOffsetSizeTrait> Array for GenericBinaryArray<OffsetSize>
     }
 }
 
-impl<OffsetSize: BinaryOffsetSizeTrait> From<ArrayDataRef>
+impl<OffsetSize: BinaryOffsetSizeTrait> From<ArrayData>
     for GenericBinaryArray<OffsetSize>
 {
-    fn from(data: ArrayDataRef) -> Self {
+    fn from(data: ArrayData) -> Self {
         assert_eq!(
             data.data_type(),
             &<OffsetSize as BinaryOffsetSizeTrait>::DATA_TYPE,
@@ -324,7 +317,7 @@ impl<T: BinaryOffsetSizeTrait> From<GenericListArray<T>> for GenericBinaryArray<
 
 /// A type of `FixedSizeListArray` whose elements are binaries.
 pub struct FixedSizeBinaryArray {
-    data: ArrayDataRef,
+    data: ArrayData,
     value_data: RawPtrBox<u8>,
     length: i32,
 }
@@ -451,7 +444,7 @@ impl FixedSizeBinaryArray {
             vec![buffer.into()],
             vec![],
         );
-        Ok(FixedSizeBinaryArray::from(Arc::new(array_data)))
+        Ok(FixedSizeBinaryArray::from(array_data))
     }
 
     /// Create an array from an iterable argument of byte slices.
@@ -519,8 +512,8 @@ impl FixedSizeBinaryArray {
     }
 }
 
-impl From<ArrayDataRef> for FixedSizeBinaryArray {
-    fn from(data: ArrayDataRef) -> Self {
+impl From<ArrayData> for FixedSizeBinaryArray {
+    fn from(data: ArrayData) -> Self {
         assert_eq!(
             data.buffers().len(),
             1,
@@ -581,11 +574,7 @@ impl Array for FixedSizeBinaryArray {
         self
     }
 
-    fn data(&self) -> ArrayDataRef {
-        self.data.clone()
-    }
-
-    fn data_ref(&self) -> &ArrayDataRef {
+    fn data(&self) -> &ArrayData {
         &self.data
     }
 
@@ -602,7 +591,7 @@ impl Array for FixedSizeBinaryArray {
 
 /// A type of `DecimalArray` whose elements are binaries.
 pub struct DecimalArray {
-    data: ArrayDataRef,
+    data: ArrayData,
     value_data: RawPtrBox<u8>,
     precision: usize,
     scale: usize,
@@ -690,8 +679,8 @@ impl DecimalArray {
     }
 }
 
-impl From<ArrayDataRef> for DecimalArray {
-    fn from(data: ArrayDataRef) -> Self {
+impl From<ArrayData> for DecimalArray {
+    fn from(data: ArrayData) -> Self {
         assert_eq!(
             data.buffers().len(),
             1,
@@ -728,11 +717,7 @@ impl Array for DecimalArray {
         self
     }
 
-    fn data(&self) -> ArrayDataRef {
-        self.data.clone()
-    }
-
-    fn data_ref(&self) -> &ArrayDataRef {
+    fn data(&self) -> &ArrayData {
         &self.data
     }
 

@@ -26,7 +26,6 @@ use crate::{
     datatypes::{DataType, Int32Type, Int64Type},
     error::{ArrowError, Result},
 };
-use std::sync::Arc;
 
 fn unary_offsets_string<O, F>(
     array: &GenericStringArray<O>,
@@ -67,7 +66,7 @@ where
         vec![buffer],
         vec![],
     );
-    make_array(Arc::new(data))
+    make_array(data)
 }
 
 fn octet_length<O: StringOffsetSizeTrait, T: ArrowPrimitiveType>(

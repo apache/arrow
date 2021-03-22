@@ -1055,7 +1055,7 @@ cdef class FlightClient(_Weakrefable):
         cdef:
             int c_port = 0
             CLocation c_location = Location.unwrap(location)
-            CFlightClientOptions c_options
+            CFlightClientOptions c_options = CFlightClientOptions.Defaults()
             function[cb_client_middleware_start_call] start_call = \
                 &_client_middleware_start_call
             CIntStringVariant variant

@@ -268,10 +268,8 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         (_, Struct(_)) => Err(ArrowError::ComputeError(
             "Cannot cast to struct from other types".to_string(),
         )),
-        (List(_), List(ref to)) => cast_list_inner::<i32>(&**array, to, to_type),
-        (LargeList(_), LargeList(ref to)) => {
-            cast_list_inner::<i64>(&**array, to, to_type)
-        }
+        (List(_), List(ref to)) => cast_list_inner::<i32>(array, to, to_type),
+        (LargeList(_), LargeList(ref to)) => cast_list_inner::<i64>(array, to, to_type),
         (List(list_from), LargeList(list_to)) => {
             if list_to.data_type() != list_from.data_type() {
                 Err(ArrowError::ComputeError(
@@ -635,7 +633,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
         }
         //(Time32(TimeUnit::Second), Time64(_)) => {},
         (Time32(from_unit), Time64(to_unit)) => {
-            let time_array = Int32Array::from(array.data());
+            let time_array = Int32Array::from(array.data().clone());
             // note: (numeric_cast + SIMD multiply) is faster than (cast & multiply)
             let c: Int64Array = numeric_cast(&time_array);
             let from_size = time_unit_multiple(&from_unit);
@@ -678,7 +676,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             Ok(Arc::new(values) as ArrayRef)
         }
         (Time64(from_unit), Time32(to_unit)) => {
-            let time_array = Int64Array::from(array.data());
+            let time_array = Int64Array::from(array.data().clone());
             let from_size = time_unit_multiple(&from_unit);
             let to_size = time_unit_multiple(&to_unit);
             let divisor = from_size / to_size;
@@ -715,7 +713,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             }
         }
         (Timestamp(from_unit, _), Timestamp(to_unit, _)) => {
-            let time_array = Int64Array::from(array.data());
+            let time_array = Int64Array::from(array.data().clone());
             let from_size = time_unit_multiple(&from_unit);
             let to_size = time_unit_multiple(&to_unit);
             // we either divide or multiply, depending on size of each unit
@@ -752,7 +750,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             }
         }
         (Timestamp(from_unit, _), Date32) => {
-            let time_array = Int64Array::from(array.data());
+            let time_array = Int64Array::from(array.data().clone());
             let from_size = time_unit_multiple(&from_unit) * SECONDS_IN_DAY;
             let mut b = Date32Builder::new(array.len());
             for i in 0..array.len() {
@@ -775,7 +773,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
 
             match to_size.cmp(&from_size) {
                 std::cmp::Ordering::Less => {
-                    let time_array = Date64Array::from(array.data());
+                    let time_array = Date64Array::from(array.data().clone());
                     Ok(Arc::new(divide(
                         &time_array,
                         &Date64Array::from(vec![from_size / to_size; array.len()]),
@@ -785,7 +783,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                     cast_array_data::<Date64Type>(array, to_type.clone())
                 }
                 std::cmp::Ordering::Greater => {
-                    let time_array = Date64Array::from(array.data());
+                    let time_array = Date64Array::from(array.data().clone());
                     Ok(Arc::new(multiply(
                         &time_array,
                         &Date64Array::from(vec![to_size / from_size; array.len()]),
@@ -853,7 +851,7 @@ fn cast_array_data<TO>(array: &ArrayRef, to_type: DataType) -> Result<ArrayRef>
 where
     TO: ArrowNumericType,
 {
-    let data = Arc::new(ArrayData::new(
+    let data = ArrayData::new(
         to_type,
         array.len(),
         Some(array.null_count()),
@@ -861,7 +859,7 @@ where
         array.data().offset(),
         array.data().buffers().to_vec(),
         vec![],
-    ));
+    );
     Ok(Arc::new(PrimitiveArray::<TO>::from(data)) as ArrayRef)
 }
 
@@ -1158,7 +1156,7 @@ fn dictionary_cast<K: ArrowDictionaryKeyType>(
             }
 
             // keys are data, child_data is values (dictionary)
-            let data = Arc::new(ArrayData::new(
+            let data = ArrayData::new(
                 to_type.clone(),
                 cast_keys.len(),
                 Some(cast_keys.null_count()),
@@ -1169,8 +1167,8 @@ fn dictionary_cast<K: ArrowDictionaryKeyType>(
                     .map(|bitmap| bitmap.bits),
                 cast_keys.data().offset(),
                 cast_keys.data().buffers().to_vec(),
-                vec![cast_values.data()],
-            ));
+                vec![cast_values.data().clone()],
+            );
 
             // create the appropriate array type
             let new_array: ArrayRef = match **to_index_type {
@@ -1342,17 +1340,17 @@ fn cast_primitive_to_list<OffsetSize: OffsetSizeTrait + NumCast>(
             .map(|bitmap| bitmap.bits),
         0,
         vec![offsets.into()],
-        vec![cast_array.data()],
+        vec![cast_array.data().clone()],
     );
     let list_array =
-        Arc::new(GenericListArray::<OffsetSize>::from(Arc::new(list_data))) as ArrayRef;
+        Arc::new(GenericListArray::<OffsetSize>::from(list_data)) as ArrayRef;
 
     Ok(list_array)
 }
 
 /// Helper function that takes an Generic list container and casts the inner datatype.
 fn cast_list_inner<OffsetSize: OffsetSizeTrait>(
-    array: &dyn Array,
+    array: &Arc<dyn Array>,
     to: &Field,
     to_type: &DataType,
 ) -> Result<ArrayRef> {
@@ -1371,9 +1369,9 @@ fn cast_list_inner<OffsetSize: OffsetSizeTrait>(
         array.offset(),
         // reuse offset buffer
         data.buffers().to_vec(),
-        vec![cast_array.data()],
+        vec![cast_array.data().clone()],
     );
-    let list = GenericListArray::<OffsetSize>::from(Arc::new(array_data));
+    let list = GenericListArray::<OffsetSize>::from(array_data);
     Ok(Arc::new(list) as ArrayRef)
 }
 
@@ -1684,7 +1682,9 @@ mod tests {
     #[test]
     fn test_cast_list_i32_to_list_u16() {
         // Construct a value array
-        let value_data = Int32Array::from(vec![0, 0, 0, -1, -2, -1, 2, 100000000]).data();
+        let value_data = Int32Array::from(vec![0, 0, 0, -1, -2, -1, 2, 100000000])
+            .data()
+            .clone();
 
         let value_offsets = Buffer::from_slice_ref(&[0, 3, 6, 8]);
 
@@ -1742,8 +1742,9 @@ mod tests {
     )]
     fn test_cast_list_i32_to_list_timestamp() {
         // Construct a value array
-        let value_data =
-            Int32Array::from(vec![0, 0, 0, -1, -2, -1, 2, 8, 100000000]).data();
+        let value_data = Int32Array::from(vec![0, 0, 0, -1, -2, -1, 2, 8, 100000000])
+            .data()
+            .clone();
 
         let value_offsets = Buffer::from_slice_ref(&[0, 3, 6, 9]);
 

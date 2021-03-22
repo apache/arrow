@@ -623,7 +623,7 @@ mod tests {
         let a_list_data = ArrayData::builder(field_c1.data_type().clone())
             .len(5)
             .add_buffer(a_value_offsets)
-            .add_child_data(a_values.data())
+            .add_child_data(a_values.data().clone())
             .null_bit_buffer(Buffer::from(vec![0b00011111]))
             .build();
         let a = ListArray::from(a_list_data);
@@ -675,7 +675,7 @@ mod tests {
             .len(3)
             .add_buffer(a_value_offsets)
             .null_bit_buffer(Buffer::from(vec![0b00000111]))
-            .add_child_data(a_values.data())
+            .add_child_data(a_values.data().clone())
             .build();
 
         let c1_value_offsets = Buffer::from(&[0, 2, 2, 3].to_byte_slice());
@@ -755,7 +755,7 @@ mod tests {
         let c1_list_data = ArrayData::builder(field_c1.data_type().clone())
             .len(3)
             .add_buffer(c1_value_offsets)
-            .add_child_data(struct_values.data())
+            .add_child_data(struct_values.data().clone())
             .null_bit_buffer(Buffer::from(vec![0b00000101]))
             .build();
         let c1 = ListArray::from(c1_list_data);

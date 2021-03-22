@@ -49,7 +49,7 @@ unicode_expressions = ["unicode-segmentation"]
 
 [dependencies]
 ahash = "0.7"
-hashbrown = "0.9"
+hashbrown = "0.11"
 arrow = { path = "../arrow", version = "4.0.0-SNAPSHOT", features = ["prettyprint"] }
 parquet = { path = "../parquet", version = "4.0.0-SNAPSHOT", features = ["arrow"] }
 sqlparser = "0.8.0"

@@ -115,8 +115,8 @@ pub(super) fn list_equal<T: OffsetSizeTrait>(
         return true;
     }
 
-    let lhs_values = lhs.child_data()[0].as_ref();
-    let rhs_values = rhs.child_data()[0].as_ref();
+    let lhs_values = &lhs.child_data()[0];
+    let rhs_values = &rhs.child_data()[0];
 
     let lhs_null_count = count_nulls(lhs_nulls, lhs_start, len);
     let rhs_null_count = count_nulls(rhs_nulls, rhs_start, len);
