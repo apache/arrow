@@ -91,9 +91,9 @@ bool gdv_fn_in_expr_lookup_decimal(int64_t ptr, int64_t value_high, int64_t valu
   if (!in_validity) {
     return false;
   }
-  arrow::BasicDecimal128 value(value_high,value_low);
-  gandiva::InHolder<arrow::BasicDecimal128>* holder =
-      reinterpret_cast<gandiva::InHolder<arrow::BasicDecimal128>*>(ptr);
+  arrow::Decimal128 value(value_high,value_low);
+  gandiva::InHolder<arrow::Decimal128>* holder =
+      reinterpret_cast<gandiva::InHolder<arrow::Decimal128>*>(ptr);
   return holder->HasValue(value);
 }
 

@@ -223,7 +223,22 @@ template <typename Type>
 class InExpressionNode : public Node {
  public:
   InExpressionNode(NodePtr eval_expr, const std::unordered_set<Type>& values)
-      : Node(arrow::boolean()), eval_expr_(eval_expr), values_(values) {}
+      : Node(arrow::boolean()), eval_expr_(eval_expr), values_(values),
+      precision_(-1), scale_(-1) {}
+
+  InExpressionNode(NodePtr eval_expr,
+                   const std::unordered_set<arrow::Decimal128>& values,
+                   int32_t precision, int32_t scale)
+      : Node(arrow::boolean()), eval_expr_(eval_expr),
+      values_(values), precision_(precision), scale_(scale) {}
+
+  const int32_t get_precision() const{
+    return precision_;
+  }
+
+  const int32_t get_scale() const{
+    return scale_;
+  }
 
   const NodePtr& eval_expr() const { return eval_expr_; }
 
@@ -250,6 +265,7 @@ class InExpressionNode : public Node {
  private:
   NodePtr eval_expr_;
   std::unordered_set<Type> values_;
+  int32_t precision_,scale_;
 };
 
 }  // namespace gandiva

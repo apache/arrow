@@ -190,6 +190,12 @@ ConditionPtr TreeExprBuilder::MakeCondition(const std::string& function,
   return ConditionPtr(new Condition(func_node));
 }
 
+NodePtr TreeExprBuilder::MakeInExpressionDecimal(NodePtr node,
+                                                 const std::unordered_set<arrow::Decimal128> &constants,
+                                                 int32_t precision, int32_t scale) {
+  return std::make_shared<InExpressionNode<arrow::Decimal128>>(node, constants, precision, scale);
+}
+
 #define MAKE_IN(NAME, ctype)                                        \
   NodePtr TreeExprBuilder::MakeInExpression##NAME(                  \
       NodePtr node, const std::unordered_set<ctype>& values) {      \
@@ -198,7 +204,6 @@ ConditionPtr TreeExprBuilder::MakeCondition(const std::string& function,
 
 MAKE_IN(Int32, int32_t);
 MAKE_IN(Int64, int64_t);
-MAKE_IN(Decimal,gandiva::BasicDecimalScalar128);
 MAKE_IN(Date32, int32_t);
 MAKE_IN(Date64, int64_t);
 MAKE_IN(TimeStamp, int64_t);

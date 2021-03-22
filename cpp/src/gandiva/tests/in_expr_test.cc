@@ -112,10 +112,11 @@ TEST_F(TestIn, TestInDecimal) {
   auto sum_func =
       TreeExprBuilder::MakeFunction("add", {node_f0, node_f1},
                                     arrow::decimal(precision, scale));
-  gandiva::DecimalScalar128 d0("6",precision,scale);
-  gandiva::DecimalScalar128 d1("11",precision,scale);
-  std::unordered_set<gandiva::BasicDecimalScalar128> in_constants({d0, d1});
-  auto in_expr = TreeExprBuilder::MakeInExpressionDecimal(sum_func, in_constants);
+  arrow::Decimal128 d0(6);
+  arrow::Decimal128 d1(12);
+  arrow::Decimal128 d2(11);
+  std::unordered_set<arrow::Decimal128> in_constants({d0, d1, d2});
+  auto in_expr = TreeExprBuilder::MakeInExpressionDecimal(sum_func, in_constants, precision, scale);
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
   std::shared_ptr<Filter> filter;

@@ -45,19 +45,19 @@ class InHolder {
 };
 
 template <>
-class InHolder<arrow::BasicDecimal128> {
-public:
-    explicit InHolder(const std::unordered_set<arrow::BasicDecimal128>& values) : values_(std::move(values)){
-      values_.max_load_factor(0.25f);
-      for (auto& value : values) {
-        values_.insert(value);
-      }
+class InHolder<arrow::Decimal128> {
+ public:
+  explicit InHolder(const std::unordered_set<arrow::Decimal128>& values){
+    values_.max_load_factor(0.25f);
+    for (auto& value : values) {
+      values_.insert(value);
     }
+  }
 
-    bool HasValue(arrow::BasicDecimal128 value) const { return values_.count(value) == 1; }
+  bool HasValue(arrow::Decimal128 value) const { return values_.count(value) == 1; }
 
-private:
-    std::unordered_set<arrow::BasicDecimal128> values_;
+ private:
+  std::unordered_set<arrow::Decimal128> values_;
 };
 
 template <>

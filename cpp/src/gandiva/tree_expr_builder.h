@@ -97,7 +97,11 @@ class GANDIVA_EXPORT TreeExprBuilder {
   static NodePtr MakeInExpressionInt64(NodePtr node,
                                        const std::unordered_set<int64_t>& constants);
 
-  static NodePtr MakeInExpressionDecimal(NodePtr node, const std::unordered_set<gandiva::BasicDecimalScalar128>& constants);
+  static NodePtr MakeInExpressionDecimal(
+      NodePtr node,
+      const std::unordered_set<arrow::Decimal128>& constants,
+      int32_t precision,
+      int32_t scale);
 
   static NodePtr MakeInExpressionString(NodePtr node,
                                         const std::unordered_set<std::string>& constants);

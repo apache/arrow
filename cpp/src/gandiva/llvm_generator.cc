@@ -1005,8 +1005,8 @@ void LLVMGenerator::Visitor::Visit(const InExprDexBase<int64_t>& dex) {
   VisitInExpression<int64_t>(dex);
 }
 
-void LLVMGenerator::Visitor::Visit(const InExprDexBase<gandiva::BasicDecimalScalar128>& dex) {
-  VisitInExpression<gandiva::BasicDecimalScalar128>(dex);
+void LLVMGenerator::Visitor::Visit(const InExprDexBase<arrow::Decimal128>& dex) {
+  VisitInExpression<arrow::Decimal128>(dex);
 }
 
 void LLVMGenerator::Visitor::Visit(const InExprDexBase<std::string>& dex) {

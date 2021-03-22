@@ -323,10 +323,10 @@ class InExprDex<int64_t> : public InExprDexBase<int64_t> {
 };
 
 template <>
-class InExprDex<BasicDecimalScalar128> : public InExprDexBase<BasicDecimalScalar128> {
+class InExprDex<arrow::Decimal128> : public InExprDexBase<arrow::Decimal128> {
  public:
   InExprDex(const ValueValidityPairVector& args,
-            const std::unordered_set<gandiva::BasicDecimalScalar128>& values)
+            const std::unordered_set<arrow::Decimal128>& values)
       : InExprDexBase(args, values) {
     runtime_function_ = "gdv_fn_in_expr_lookup_decimal";
   }
