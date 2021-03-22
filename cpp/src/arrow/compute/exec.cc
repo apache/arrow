@@ -58,6 +58,11 @@ using internal::CpuInfo;
 
 namespace compute {
 
+ExecContext* default_exec_context() {
+  static ExecContext default_ctx;
+  return &default_ctx;
+}
+
 ExecBatch::ExecBatch(const RecordBatch& batch)
     : values(batch.num_columns()), length(batch.num_rows()) {
   auto columns = batch.column_data();

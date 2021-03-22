@@ -342,7 +342,7 @@ struct GrouperImpl : Grouper {
     return std::move(impl);
   }
 
-  Result<ExecBatch> Consume(const ExecBatch& batch) override {
+  Result<Datum> Consume(const ExecBatch& batch) override {
     std::vector<int32_t> offsets_batch(batch.length + 1);
     for (int i = 0; i < batch.num_values(); ++i) {
       encoders_[i]->AddLength(*batch[i].array(), offsets_batch.data());
@@ -391,10 +391,10 @@ struct GrouperImpl : Grouper {
     }
 
     ARROW_ASSIGN_OR_RAISE(auto group_ids, group_ids_batch.Finish());
-    return ExecBatch(
-        {UInt32Array(batch.length, std::move(group_ids)), Datum(num_groups_)},
-        batch.length);
+    return Datum(UInt32Array(batch.length, std::move(group_ids)));
   }
+
+  uint32_t num_groups() const override { return num_groups_; }
 
   Result<ExecBatch> GetUniques() override {
     ExecBatch out({}, num_groups_);
@@ -868,20 +868,11 @@ Result<FieldVector> ResolveKernels(
 
 Result<std::unique_ptr<Grouper>> Grouper::Make(const std::vector<ValueDescr>& descrs,
                                                ExecContext* ctx) {
-  if (ctx == nullptr) {
-    static ExecContext default_ctx;
-    return Make(descrs, &default_ctx);
-  }
   return GrouperImpl::Make(descrs, ctx);
 }
 
 Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Datum>& keys,
                       const std::vector<Aggregate>& aggregates, ExecContext* ctx) {
-  if (ctx == nullptr) {
-    ExecContext default_ctx;
-    return GroupBy(arguments, keys, aggregates, &default_ctx);
-  }
-
   // Construct and initialize HashAggregateKernels
   ARROW_ASSIGN_OR_RAISE(auto argument_descrs,
                         ExecBatch::Make(arguments).Map(
@@ -921,14 +912,14 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
     if (key_batch.length == 0) continue;
 
     // compute a batch of group ids
-    ARROW_ASSIGN_OR_RAISE(ExecBatch id_batch, grouper->Consume(key_batch));
+    ARROW_ASSIGN_OR_RAISE(Datum id_batch, grouper->Consume(key_batch));
 
     // consume group ids with HashAggregateKernels
     for (size_t i = 0; i < kernels.size(); ++i) {
       KernelContext batch_ctx{ctx};
       batch_ctx.SetState(states[i].get());
-      ARROW_ASSIGN_OR_RAISE(
-          auto batch, ExecBatch::Make({argument_batch[i], id_batch[0], id_batch[1]}));
+      ARROW_ASSIGN_OR_RAISE(auto batch, ExecBatch::Make({argument_batch[i], id_batch,
+                                                         Datum(grouper->num_groups())}));
       kernels[i]->consume(&batch_ctx, batch);
       if (batch_ctx.HasError()) return batch_ctx.status();
     }
@@ -958,22 +949,20 @@ Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Dat
                          /*null_count=*/0);
 }
 
-Result<std::shared_ptr<ListArray>> ApplyGroupings(const ListArray& groupings,
-                                                  const Array& array) {
+Result<std::shared_ptr<ListArray>> Grouper::ApplyGroupings(const ListArray& groupings,
+                                                           const Array& array,
+                                                           ExecContext* ctx) {
   ARROW_ASSIGN_OR_RAISE(Datum sorted,
-                        compute::Take(array, groupings.data()->child_data[0]));
+                        compute::Take(array, groupings.data()->child_data[0],
+                                      TakeOptions::NoBoundsCheck(), ctx));
 
   return std::make_shared<ListArray>(list(array.type()), groupings.length(),
                                      groupings.value_offsets(), sorted.make_array());
 }
 
-Result<std::shared_ptr<ListArray>> MakeGroupings(const UInt32Array& ids, uint32_t max_id,
-                                                 ExecContext* ctx) {
-  if (ctx == nullptr) {
-    ExecContext default_ctx;
-    return MakeGroupings(ids, max_id, &default_ctx);
-  }
-
+Result<std::shared_ptr<ListArray>> Grouper::MakeGroupings(const UInt32Array& ids,
+                                                          uint32_t max_id,
+                                                          ExecContext* ctx) {
   if (ids.null_count() != 0) {
     return Status::Invalid("MakeGroupings with null ids");
   }

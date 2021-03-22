@@ -127,12 +127,11 @@ Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys
   ARROW_ASSIGN_OR_RAISE(auto grouper,
                         internal::Grouper::Make(key_batch.GetDescriptors()));
 
-  ARROW_ASSIGN_OR_RAISE(auto id_batch, grouper->Consume(key_batch));
+  ARROW_ASSIGN_OR_RAISE(Datum id_batch, grouper->Consume(key_batch));
 
-  int64_t num_groups = id_batch[1].scalar_as<UInt32Scalar>().value;
   ARROW_ASSIGN_OR_RAISE(
-      auto groupings,
-      internal::MakeGroupings(*id_batch[0].array_as<UInt32Array>(), num_groups - 1));
+      auto groupings, internal::Grouper::MakeGroupings(*id_batch.array_as<UInt32Array>(),
+                                                       grouper->num_groups() - 1));
 
   ArrayVector out_columns;
 
@@ -142,11 +141,11 @@ Result<Datum> NaiveGroupBy(std::vector<Datum> arguments, std::vector<Datum> keys
 
     ARROW_ASSIGN_OR_RAISE(
         auto grouped_argument,
-        internal::ApplyGroupings(*groupings, *arguments[i].make_array()));
+        internal::Grouper::ApplyGroupings(*groupings, *arguments[i].make_array()));
 
     ScalarVector aggregated_scalars;
 
-    for (int64_t i_group = 0; i_group < num_groups; ++i_group) {
+    for (int64_t i_group = 0; i_group < grouper->num_groups(); ++i_group) {
       auto slice = grouped_argument->value_slice(i_group);
       if (slice->length() == 0) continue;
       ARROW_ASSIGN_OR_RAISE(
@@ -208,21 +207,19 @@ struct TestGrouper {
   }
 
   void ConsumeAndValidate(const ExecBatch& key_batch, Datum* ids = nullptr) {
-    ASSERT_OK_AND_ASSIGN(auto id_batch, grouper_->Consume(key_batch));
+    ASSERT_OK_AND_ASSIGN(Datum id_batch, grouper_->Consume(key_batch));
 
     ValidateConsume(key_batch, id_batch);
 
     if (ids) {
-      *ids = id_batch[0];
+      *ids = std::move(id_batch);
     }
   }
 
-  void ValidateConsume(const ExecBatch& key_batch, const ExecBatch& id_batch) {
-    int64_t new_num_groups = id_batch[1].scalar_as<UInt32Scalar>().value;
-
+  void ValidateConsume(const ExecBatch& key_batch, const Datum& id_batch) {
     if (uniques_.length == -1) {
       ASSERT_OK_AND_ASSIGN(uniques_, grouper_->GetUniques());
-    } else if (new_num_groups > uniques_.length) {
+    } else if (static_cast<int64_t>(grouper_->num_groups()) > uniques_.length) {
       ASSERT_OK_AND_ASSIGN(ExecBatch new_uniques, grouper_->GetUniques());
 
       // check that uniques_ are prefixes of new_uniques
@@ -237,7 +234,7 @@ struct TestGrouper {
     // check that the ids encode an equivalent key sequence
     for (int i = 0; i < key_batch.num_values(); ++i) {
       SCOPED_TRACE(std::to_string(i) + "th key array");
-      ASSERT_OK_AND_ASSIGN(auto expected, Take(uniques_[i], id_batch[0]));
+      ASSERT_OK_AND_ASSIGN(auto expected, Take(uniques_[i], id_batch));
       AssertDatumsEqual(expected, key_batch[i], /*verbose=*/true);
     }
   }
@@ -393,13 +390,13 @@ TEST(Grouper, RandomStringInt64Keys) {
   }
 }
 
-TEST(GroupByHelpers, MakeGroupings) {
+TEST(Grouper, MakeGroupings) {
   auto ExpectGroupings = [](std::string ids_json, uint32_t max_id,
                             std::string expected_json) {
     auto ids = checked_pointer_cast<UInt32Array>(ArrayFromJSON(uint32(), ids_json));
     auto expected = ArrayFromJSON(list(int32()), expected_json);
 
-    ASSERT_OK_AND_ASSIGN(auto actual, internal::MakeGroupings(*ids, max_id));
+    ASSERT_OK_AND_ASSIGN(auto actual, internal::Grouper::MakeGroupings(*ids, max_id));
     AssertArraysEqual(*expected, *actual, /*verbose=*/true);
   };
 

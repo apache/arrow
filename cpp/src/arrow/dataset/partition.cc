@@ -115,11 +115,11 @@ Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
   ARROW_ASSIGN_OR_RAISE(auto grouper,
                         compute::internal::Grouper::Make(key_batch.GetDescriptors()));
 
-  ARROW_ASSIGN_OR_RAISE(auto id_batch, grouper->Consume(key_batch));
+  ARROW_ASSIGN_OR_RAISE(Datum id_batch, grouper->Consume(key_batch));
 
-  int64_t num_groups = id_batch[1].scalar_as<UInt32Scalar>().value;
-  auto ids = id_batch[0].array_as<UInt32Array>();
-  ARROW_ASSIGN_OR_RAISE(auto groupings, compute::internal::MakeGroupings(
+  int64_t num_groups = 0;
+  auto ids = id_batch.array_as<UInt32Array>();
+  ARROW_ASSIGN_OR_RAISE(auto groupings, compute::internal::Grouper::MakeGroupings(
                                             *ids, static_cast<uint32_t>(num_groups - 1)));
 
   ARROW_ASSIGN_OR_RAISE(auto uniques, grouper->GetUniques());

@@ -316,15 +316,71 @@ class ARROW_EXPORT Grouper {
 
   /// Construct a Grouper which receives the specified key types
   static Result<std::unique_ptr<Grouper>> Make(const std::vector<ValueDescr>& descrs,
-                                               ExecContext* ctx = NULLPTR);
+                                               ExecContext* ctx = default_exec_context());
 
-  /// Consume a batch of keys, producing an array of the corresponding
-  /// group ids as an integer column. The yielded batch also includes the current group
-  /// count, which is necessary for efficient resizing of kernel storage.
-  virtual Result<ExecBatch> Consume(const ExecBatch& batch) = 0;
+  /// Consume a batch of keys, producing the corresponding group ids as an integer array.
+  virtual Result<Datum> Consume(const ExecBatch& batch) = 0;
 
   /// Get current unique keys. May be called multiple times.
   virtual Result<ExecBatch> GetUniques() = 0;
+
+  /// Get the current number of groups.
+  virtual uint32_t num_groups() const = 0;
+
+  /// \brief Assemble lists of indices of identical elements.
+  ///
+  /// \param[in] ids An unsigned, all-valid integral array which will be
+  ///                used as grouping criteria.
+  /// \param[in] max_id An upper bound for the elements of ids
+  /// \return A (max_id + 1)-long ListArray where the slot at i contains a
+  ///         list of indices where i appears in ids.
+  ///
+  ///   MakeGroupings([
+  ///       2,
+  ///       2,
+  ///       5,
+  ///       5,
+  ///       2,
+  ///       3
+  ///   ], 7) == [
+  ///       [],
+  ///       [],
+  ///       [0, 1, 4],
+  ///       [5],
+  ///       [],
+  ///       [2, 3],
+  ///       [],
+  ///       []
+  ///   ]
+  static Result<std::shared_ptr<ListArray>> MakeGroupings(
+      const UInt32Array& ids, uint32_t max_id, ExecContext* ctx = default_exec_context());
+
+  /// \brief Produce a ListArray whose slots are selections of `array` which correspond to
+  /// the provided groupings.
+  ///
+  /// For example,
+  ///   ApplyGroupings([
+  ///       [],
+  ///       [],
+  ///       [0, 1, 4],
+  ///       [5],
+  ///       [],
+  ///       [2, 3],
+  ///       [],
+  ///       []
+  ///   ], [2, 2, 5, 5, 2, 3]) == [
+  ///       [],
+  ///       [],
+  ///       [2, 2, 2],
+  ///       [3],
+  ///       [],
+  ///       [5, 5],
+  ///       [],
+  ///       []
+  ///   ]
+  static Result<std::shared_ptr<ListArray>> ApplyGroupings(
+      const ListArray& groupings, const Array& array,
+      ExecContext* ctx = default_exec_context());
 };
 
 /// \brief Configure a grouped aggregation
@@ -341,62 +397,7 @@ struct ARROW_EXPORT Aggregate {
 ARROW_EXPORT
 Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Datum>& keys,
                       const std::vector<Aggregate>& aggregates,
-                      ExecContext* ctx = NULLPTR);
-
-/// Internal use only: Assemble lists of indices of identical elements.
-///
-/// \param[in] ids An unsigned, all-valid integral array which will be
-///                used as grouping criteria.
-/// \param[in] max_id An upper bound for the elements of ids
-/// \return A (max_id + 1)-long ListArray where the slot at i contains a
-///         list of indices where i appears in ids.
-///
-///   MakeGroupings([
-///       2,
-///       2,
-///       5,
-///       5,
-///       2,
-///       3
-///   ], 7) == [
-///       [],
-///       [],
-///       [0, 1, 4],
-///       [5],
-///       [],
-///       [2, 3],
-///       [],
-///       []
-///   ]
-ARROW_EXPORT
-Result<std::shared_ptr<ListArray>> MakeGroupings(const UInt32Array& ids, uint32_t max_id,
-                                                 ExecContext* ctx = NULLPTR);
-
-/// \brief Produce a ListArray whose slots are selections of `array` which correspond to
-/// the provided groupings.
-///
-/// For example,
-///   ApplyGroupings([
-///       [],
-///       [],
-///       [0, 1, 4],
-///       [5],
-///       [],
-///       [2, 3],
-///       [],
-///       []
-///   ], [2, 2, 5, 5, 2, 3]) == [
-///       [],
-///       [],
-///       [2, 2, 2],
-///       [3],
-///       [],
-///       [5, 5],
-///       [],
-///       []
-///   ]
-Result<std::shared_ptr<ListArray>> ApplyGroupings(const ListArray& groupings,
-                                                  const Array& array);
+                      ExecContext* ctx = default_exec_context());
 
 }  // namespace internal
 }  // namespace compute
