@@ -156,6 +156,16 @@ fn write_leaves(
             row_group_writer.close_column(col_writer)?;
             Ok(())
         }
+        ArrowDataType::FixedSizeBinary(_) => {
+            let mut col_writer = get_col_writer(&mut row_group_writer)?;
+            write_leaf(
+                &mut col_writer,
+                array,
+                levels.pop().expect("Levels exhausted"),
+            )?;
+            row_group_writer.close_column(col_writer)?;
+            Ok(())
+        }
         ArrowDataType::List(_) | ArrowDataType::LargeList(_) => {
             // write the child list
             let data = array.data();
@@ -189,11 +199,12 @@ fn write_leaves(
         ArrowDataType::Float16 => Err(ParquetError::ArrowError(
             "Float16 arrays not supported".to_string(),
         )),
-        ArrowDataType::FixedSizeList(_, _)
-        | ArrowDataType::FixedSizeBinary(_)
-        | ArrowDataType::Union(_) => Err(ParquetError::NYI(
-            "Attempting to write an Arrow type that is not yet implemented".to_string(),
-        )),
+        ArrowDataType::FixedSizeList(_, _) | ArrowDataType::Union(_) => {
+            Err(ParquetError::NYI(
+                "Attempting to write an Arrow type that is not yet implemented"
+                    .to_string(),
+            ))
+        }
     }
 }
 
@@ -1222,6 +1233,18 @@ mod tests {
             many_vecs_iter,
             "large_binary_single_column",
         );
+    }
+
+    #[test]
+    fn fixed_size_binary_single_column() {
+        let mut builder = FixedSizeBinaryBuilder::new(16, 4);
+        builder.append_value(b"0123").unwrap();
+        builder.append_null().unwrap();
+        builder.append_value(b"8910").unwrap();
+        builder.append_value(b"1112").unwrap();
+        let array = Arc::new(builder.finish());
+
+        one_column_roundtrip("timestamp_millisecond_single_column", array, true);
     }
 
     #[test]
