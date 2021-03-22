@@ -58,6 +58,8 @@ type aesEncryptor struct {
 	ciphertextSizeDelta int
 }
 
+// NewAesEncryptor constructs an encryptor for the passed in cipher and whether
+// or not it's being used to encrypt metadata.
 func NewAesEncryptor(alg parquet.Cipher, metadata bool) *aesEncryptor {
 	ret := &aesEncryptor{}
 	ret.ciphertextSizeDelta = kBufferSizeLength + NonceLength
@@ -71,8 +73,12 @@ func NewAesEncryptor(alg parquet.Cipher, metadata bool) *aesEncryptor {
 	return ret
 }
 
+// CiphertextSizeDelta is the number of extra bytes that are part of the encrypted data
+// above and beyond the plaintext value.
 func (a *aesEncryptor) CiphertextSizeDelta() int { return a.ciphertextSizeDelta }
 
+// SignedFooterEncrypt writes the signature for the provided footer bytes using the given key, AAD and nonce.
+// It returns the number of bytes that were written to w.
 func (a *aesEncryptor) SignedFooterEncrypt(w io.Writer, footer, key, aad, nonce []byte) int {
 	if a.mode != kGcmMode {
 		panic("must use AES GCM (metadata) encryptor")
@@ -96,6 +102,7 @@ func (a *aesEncryptor) SignedFooterEncrypt(w io.Writer, footer, key, aad, nonce 
 
 	ciphertext := aead.Seal(nil, nonce, footer, aad)
 	bufferSize := uint32(len(ciphertext) + len(nonce))
+	// data is written with a prefix of the size written as a little endian 32bit int.
 	if err := binary.Write(w, binary.LittleEndian, bufferSize); err != nil {
 		panic(err)
 	}
@@ -104,6 +111,8 @@ func (a *aesEncryptor) SignedFooterEncrypt(w io.Writer, footer, key, aad, nonce 
 	return kBufferSizeLength + int(bufferSize)
 }
 
+// Encrypt calculates the ciphertext for src with the given key and aad, then writes it to w.
+// Returns the total number of bytes written.
 func (a *aesEncryptor) Encrypt(w io.Writer, src, key, aad []byte) int {
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -127,6 +136,7 @@ func (a *aesEncryptor) Encrypt(w io.Writer, src, key, aad []byte) int {
 
 		ciphertext := aead.Seal(nil, nonce, src, aad)
 		bufferSize := len(ciphertext) + len(nonce)
+		// data is written with a prefix of the size written as a little endian 32bit int.
 		if err := binary.Write(w, binary.LittleEndian, uint32(bufferSize)); err != nil {
 			panic(err)
 		}
@@ -144,6 +154,7 @@ func (a *aesEncryptor) Encrypt(w io.Writer, src, key, aad []byte) int {
 	iv[kCtrIVLen-1] = 1
 
 	bufferSize := NonceLength + len(src)
+	// data is written with a prefix of the size written as a little endian 32bit int.
 	if err := binary.Write(w, binary.LittleEndian, uint32(bufferSize)); err != nil {
 		panic(err)
 	}
@@ -157,6 +168,8 @@ type aesDecryptor struct {
 	ciphertextSizeDelta int
 }
 
+// newAesDecryptor constructs and returns a decryptor for the given cipher type and whether or
+// not it is intended to be used for decrypting metadata.
 func newAesDecryptor(alg parquet.Cipher, metadata bool) *aesDecryptor {
 	ret := &aesDecryptor{}
 	ret.ciphertextSizeDelta = kBufferSizeLength + NonceLength
@@ -170,8 +183,13 @@ func newAesDecryptor(alg parquet.Cipher, metadata bool) *aesDecryptor {
 	return ret
 }
 
+// CiphertextSizeDelta is the number of bytes in the ciphertext that will not exist in the
+// plaintext due to be used for the decryption. The total size - the CiphertextSizeDelta is
+// the length of the plaintext after decryption.
 func (a *aesDecryptor) CiphertextSizeDelta() int { return a.ciphertextSizeDelta }
 
+// Decrypt returns the plaintext version of the given ciphertext when decrypted
+// with the provided key and AAD security bytes.
 func (a *aesDecryptor) Decrypt(cipherText, key, aad []byte) []byte {
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -209,6 +227,9 @@ func (a *aesDecryptor) Decrypt(cipherText, key, aad []byte) []byte {
 	return dst
 }
 
+// CreateModuleAad creates the section AAD security bytes for the file, module, row group, column and page.
+//
+// This should be used for being passed to the encryptor and decryptor whenever requesting AAD bytes.
 func CreateModuleAad(fileAad string, moduleType int8, rowGroupOrdinal, columnOrdinal, pageOrdinal int16) string {
 	buf := bytes.NewBuffer([]byte(fileAad))
 	buf.WriteByte(byte(moduleType))
@@ -227,10 +248,14 @@ func CreateModuleAad(fileAad string, moduleType int8, rowGroupOrdinal, columnOrd
 	return buf.String()
 }
 
+// CreateFooterAad takes an aadPrefix and constructs the security AAD bytes for encrypting
+// and decrypting the parquet footer bytes.
 func CreateFooterAad(aadPrefix string) string {
 	return CreateModuleAad(aadPrefix, FooterModule, -1, -1, -1)
 }
 
+// QuickUpdatePageAad updates aad with the new page ordinal, modifying the
+// last two bytes of aad.
 func QuickUpdatePageAad(aad []byte, newPageOrdinal int16) {
 	binary.LittleEndian.PutUint16(aad[len(aad)-2:], uint16(newPageOrdinal))
 }

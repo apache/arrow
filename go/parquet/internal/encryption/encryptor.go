@@ -23,11 +23,23 @@ import (
 	"github.com/apache/arrow/go/parquet"
 )
 
+// FileEncryptor is the interface for constructing encryptors for the different
+// sections of a parquet file.
 type FileEncryptor interface {
+	// GetFooterEncryptor returns an encryptor for the footer metadata
 	GetFooterEncryptor() Encryptor
+	// GetFooterSigningEncryptor returns an encryptor for creating the signature
+	// for the footer as opposed to encrypting the footer bytes directly.
 	GetFooterSigningEncryptor() Encryptor
+	// GetColumnMetaEncryptor returns an encryptor for the metadata only of the requested
+	// column path string.
 	GetColumnMetaEncryptor(columnPath string) Encryptor
+	// GetColumnDataEncryptor returns an encryptor for the column data ONLY of
+	// the requested column path string.
 	GetColumnDataEncryptor(columnPath string) Encryptor
+	// WipeOutEncryptionKeys deletes the keys that were used for encryption,
+	// called after every successfully encrypted file to ensure against accidental
+	// key re-use.
 	WipeOutEncryptionKeys()
 }
 
@@ -47,12 +59,20 @@ type fileEncryptor struct {
 	mem memory.Allocator
 }
 
+// NewFileEncryptor returns a new encryptor using the given encryption properties.
+//
+// Panics if the properties passed have already been used to construct an encryptor
+// ie: props.IsUtilized returns true. If mem is nil, will default to memory.DefaultAllocator
 func NewFileEncryptor(props *parquet.FileEncryptionProperties, mem memory.Allocator) FileEncryptor {
 	if props.IsUtilized() {
 		panic("re-using encryption properties for another file")
 	}
 
 	props.SetUtilized()
+	if mem == nil {
+		mem = memory.DefaultAllocator
+	}
+
 	return &fileEncryptor{
 		props:             props,
 		mem:               mem,
@@ -168,12 +188,24 @@ func (e *fileEncryptor) getColumnEncryptor(columnPath string, metadata bool) Enc
 	return ret
 }
 
+// Encryptor is the basic interface for encryptors, for now there's only the single
+// aes encryptor implementation, but having it as an interface allows easy addition
+// manipulation of encryptor implementations in the future.
 type Encryptor interface {
+	// FileAad returns the file level AAD bytes for this encryptor
 	FileAad() string
+	// UpdateAad sets the aad bytes for encryption to the provided string
 	UpdateAad(string)
+	// Allocator returns the allocator that was used to construct the encryptor
 	Allocator() memory.Allocator
+	// CiphertextSizeDelta returns the extra bytes that will be added to the ciphertext
+	// for a total size of len(plaintext) + CiphertextSizeDelta bytes
 	CiphertextSizeDelta() int
+	// Encrypt writes the encrypted ciphertext for src to w and returns the total
+	// number of bytes written.
 	Encrypt(w io.Writer, src []byte) int
+	// EncryptColumnMetaData returns true if the column metadata should be encrypted based on the
+	// column encryption settings and footer encryption setting.
 	EncryptColumnMetaData(encryptFooter bool, properties *parquet.ColumnEncryptionProperties) bool
 }
 

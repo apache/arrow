@@ -25,8 +25,12 @@ import (
 	"github.com/apache/thrift/lib/go/thrift"
 )
 
+// default factory for creating thrift protocols for serialization/deserialization
 var protocolFactory = thrift.NewTCompactProtocolFactory()
 
+// DeserializeThrift deserializes the bytes in buf into the given thrift msg type
+// returns the number of remaining bytes in the buffer that weren't needed for deserialization
+// and any error if there was one, or nil.
 func DeserializeThrift(msg thrift.TStruct, buf []byte) (remain uint64, err error) {
 	tbuf := &thrift.TMemoryBuffer{Buffer: bytes.NewBuffer(buf)}
 	err = msg.Read(context.TODO(), protocolFactory.GetProtocol(tbuf))
@@ -34,18 +38,25 @@ func DeserializeThrift(msg thrift.TStruct, buf []byte) (remain uint64, err error
 	return
 }
 
+// SerializeThriftStream writes out the serialized bytes of the passed in type
+// to the given writer stream.
 func SerializeThriftStream(msg thrift.TStruct, w io.Writer) error {
 	return msg.Write(context.TODO(), protocolFactory.GetProtocol(thrift.NewStreamTransportW(w)))
 }
 
+// DeserializeThriftStream populates the given msg by reading from the provided
+// stream until it completes the deserialization.
 func DeserializeThriftStream(msg thrift.TStruct, r io.Reader) error {
 	return msg.Read(context.TODO(), protocolFactory.GetProtocol(thrift.NewStreamTransportR(r)))
 }
 
+// ThriftSerializer is an object that can stick around to provide convenience
+// functions and allow object reuse
 type ThriftSerializer struct {
 	thrift.TSerializer
 }
 
+// NewThriftSerializer constructs a serializer with a default buffer of 1024
 func NewThriftSerializer() *ThriftSerializer {
 	tbuf := thrift.NewTMemoryBufferLen(1024)
 	return &ThriftSerializer{thrift.TSerializer{
@@ -54,6 +65,8 @@ func NewThriftSerializer() *ThriftSerializer {
 	}}
 }
 
+// Serialize will serialize the given msg to the writer stream w, optionally encrypting it on the way
+// if enc is not nil, returning the total number of bytes written and any error received, or nil
 func (t *ThriftSerializer) Serialize(msg thrift.TStruct, w io.Writer, enc encryption.Encryptor) (int, error) {
 	b, err := t.Write(context.Background(), msg)
 	if err != nil {

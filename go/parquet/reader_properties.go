@@ -27,9 +27,14 @@ import (
 
 // ReaderProperties are used to define how the file reader will handle buffering and allocating buffers
 type ReaderProperties struct {
-	alloc                 memory.Allocator
-	BufferSize            int64
-	FileDecryptProps      *FileDecryptionProperties
+	alloc memory.Allocator
+	// Default buffer size to utilize when reading chunks
+	BufferSize int64
+	// create with NewFileDecryptionProperties if dealing with an encrypted file
+	FileDecryptProps *FileDecryptionProperties
+	// If this is set to true, then the reader will use SectionReader to
+	// just use the read stream when reading data. Otherwise we will buffer
+	// the data we're going to read into memory first and then read that buffer.
 	BufferedStreamEnabled bool
 }
 

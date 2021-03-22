@@ -25,10 +25,14 @@ import (
 
 // Constants that will be used as the default values with encryption/decryption
 const (
+	// By default we'll use AesGCM as our encryption algorithm
 	DefaultEncryptionAlgorithm       = AesGcm
 	MaximalAadMetadataLength   int32 = 256
-	DefaultEncryptedFooter           = true
-	DefaultCheckSignature            = true
+	// if encryption is turned on, we will default to also encrypting the footer
+	DefaultEncryptedFooter = true
+	DefaultCheckSignature  = true
+	// by default if you set the file decryption properties, we will error
+	// on any plaintext files unless otherwise specified.
 	DefaultAllowPlaintextFiles       = false
 	AadFileUniqueLength        int32 = 8
 )

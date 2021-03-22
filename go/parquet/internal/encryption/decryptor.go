@@ -21,20 +21,40 @@ import (
 	"github.com/apache/arrow/go/parquet"
 )
 
+// FileDecryptor is an interface used by the filereader for decrypting an
+// entire parquet file as we go, usually constructed from the DecryptionProperties
 type FileDecryptor interface {
+	// Returns the key for decrypting the footer if provided
 	GetFooterKey() string
+	// Provides the file level AAD security bytes
 	FileAad() string
+	// return which algorithm this decryptor was constructed for
 	Algorithm() parquet.Cipher
+	// return the FileDecryptionProperties that were used for this decryptor
 	Properties() *parquet.FileDecryptionProperties
+	// Clear out the decryption keys, this is automatically called after every
+	// successfully decrypted file to ensure that keys aren't kept around.
 	WipeOutDecryptionKeys()
+	// GetFooterDecryptor returns a Decryptor interface for use to decrypt the footer
+	// of a parquet file.
 	GetFooterDecryptor() Decryptor
+	// GetFooterDecryptorForColumnMeta returns a Decryptor interface for Column Metadata
+	// in the file footer using the AAD bytes provided.
 	GetFooterDecryptorForColumnMeta(aad string) Decryptor
+	// GetFooterDecryptorForColumnData returns the decryptor that can be used for decrypting
+	// actual column data footer bytes, not column metadata.
 	GetFooterDecryptorForColumnData(aad string) Decryptor
+	// GetColumnMetaDecryptor returns a decryptor for the requested column path, key and AAD bytes
+	// but only for decrypting the row group level metadata
 	GetColumnMetaDecryptor(columnPath, columnKeyMetadata, aad string) Decryptor
+	// GetColumnDataDecryptor returns a decryptor for the requested column path, key, and AAD bytes
+	// but only for the rowgroup column data.
 	GetColumnDataDecryptor(columnPath, columnKeyMetadata, aad string) Decryptor
 }
 
 type fileDecryptor struct {
+	// the properties contains the key retriever for us to get keys
+	// from the key metadata
 	props *parquet.FileDecryptionProperties
 	// concatenation of aad_prefix (if exists) and aad_file_unique
 	fileAad                 string
@@ -49,7 +69,12 @@ type fileDecryptor struct {
 	mem                     memory.Allocator
 }
 
+// NewFileDecryptor constructs a decryptor from the provided configuration of properties, cipher and key metadata. Using the provided memory allocator or
+// the default allocator if one isn't provided.
 func NewFileDecryptor(props *parquet.FileDecryptionProperties, fileAad string, alg parquet.Cipher, keymetadata string, mem memory.Allocator) FileDecryptor {
+	if mem == nil {
+		mem = memory.DefaultAllocator
+	}
 	return &fileDecryptor{
 		fileAad:           fileAad,
 		props:             props,
@@ -205,11 +230,17 @@ func (d *fileDecryptor) getDataAesDecryptor() *aesDecryptor {
 	return d.dataDecryptor
 }
 
+// Decryptor is the basic interface for any decryptor generated from a FileDecryptor
 type Decryptor interface {
+	// returns the File Level AAD bytes
 	FileAad() string
+	// returns the current allocator that was used for any extra allocations of buffers
 	Allocator() memory.Allocator
+	// returns the CiphertextSizeDelta from the decryptor
 	CiphertextSizeDelta() int
+	// Decrypt just returns the decrypted plaintext from the src ciphertext
 	Decrypt(src []byte) []byte
+	// set the AAD bytes of the decryptor to the provided string
 	UpdateAad(string)
 }
 

@@ -23,12 +23,17 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// StringKeyIDRetriever implements the KeyRetriever interface GetKey
+// to allow setting in keys with a string id.
 type StringKeyIDRetriever map[string]string
 
+// PutKey adds a key with the given string ID that can be retrieved
 func (s StringKeyIDRetriever) PutKey(keyID, key string) {
 	s[keyID] = key
 }
 
+// GetKey expects the keymetadata to match one of the keys that were added
+// with PutKey and panics if the key cannot be found.
 func (s StringKeyIDRetriever) GetKey(keyMetadata []byte) string {
 	k, ok := s[*(*string)(unsafe.Pointer(&keyMetadata))]
 	if !ok {
@@ -37,15 +42,19 @@ func (s StringKeyIDRetriever) GetKey(keyMetadata []byte) string {
 	return k
 }
 
-type IntegerKeyIDRetriever map[uint]string
+// IntegerKeyIDRetriever is used for using unsigned 32bit integers as key ids.
+type IntegerKeyIDRetriever map[uint32]string
 
-func (i IntegerKeyIDRetriever) PutKey(keyID uint, key string) {
+// PutKey adds keys with uint32 IDs
+func (i IntegerKeyIDRetriever) PutKey(keyID uint32, key string) {
 	i[keyID] = key
 }
 
+// GetKey expects the key metadata bytes to be a little endian uint32 which
+// is then used to retrieve the key bytes. Panics if the key id cannot be found.
 func (i IntegerKeyIDRetriever) GetKey(keyMetadata []byte) string {
 	keyID := binary.LittleEndian.Uint32(keyMetadata)
-	k, ok := i[uint(keyID)]
+	k, ok := i[keyID]
 	if !ok {
 		panic(xerrors.Errorf("parquet: key missing for id %d", keyID))
 	}
