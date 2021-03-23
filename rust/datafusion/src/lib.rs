@@ -31,7 +31,8 @@
 //! as well as a query optimizer and execution engine capable of parallel execution
 //! against partitioned data sources (CSV and Parquet) using threads.
 //!
-//! Below is an example of how to execute a query against a CSV using [`DataFrames`](dataframe::DataFrame):
+//! Below is an example of how to execute a query against data stored
+//! in a CSV file using a [`DataFrame`](dataframe::DataFrame):
 //!
 //! ```rust
 //! # use datafusion::prelude::*;
@@ -52,6 +53,19 @@
 //!
 //! // execute the plan
 //! let results: Vec<RecordBatch> = df.collect().await?;
+//!
+//! // format the results
+//! let pretty_results = arrow::util::pretty::pretty_format_batches(&results)?;
+//!
+//! let expected = vec![
+//!     "+---+--------+",
+//!     "| a | MIN(b) |",
+//!     "+---+--------+",
+//!     "| 1 | 2      |",
+//!     "+---+--------+"
+//! ];
+//!
+//! assert_eq!(pretty_results.trim().lines().collect::<Vec<_>>(), expected);
 //! # Ok(())
 //! # }
 //! ```
@@ -74,6 +88,19 @@
 //!
 //! // execute the plan
 //! let results: Vec<RecordBatch> = df.collect().await?;
+//!
+//! // format the results
+//! let pretty_results = arrow::util::pretty::pretty_format_batches(&results)?;
+//!
+//! let expected = vec![
+//!     "+---+--------+",
+//!     "| a | MIN(b) |",
+//!     "+---+--------+",
+//!     "| 1 | 2      |",
+//!     "+---+--------+"
+//! ];
+//!
+//! assert_eq!(pretty_results.trim().lines().collect::<Vec<_>>(), expected);
 //! # Ok(())
 //! # }
 //! ```

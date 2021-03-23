@@ -329,7 +329,7 @@ fn set_column_for_json_rows(
 }
 
 /// Converts an arrow [`RecordBatch`] into a `Vec` of Serde JSON
-/// [`serde_json::map::JsonMap`]s (objects)
+/// [`JsonMap`]s (objects)
 pub fn record_batches_to_json_rows(
     batches: &[RecordBatch],
 ) -> Vec<JsonMap<String, Value>> {
