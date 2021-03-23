@@ -89,6 +89,8 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowDatum,
       assert_that(is.logical(descending))
       assert_that(length(descending) == 1L)
       assert_that(!is.na(descending))
+      # TODO: after ARROW-12042 is closed, review whether this and the
+      # Array$SortIndices definition can be consolidated
       call_function(
         "sort_indices",
         self,
