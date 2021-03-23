@@ -24,7 +24,7 @@ func Min(a, b int64) int64 {
 	return b
 }
 
-// Min is a convenience Min function for int
+// MinInt is a convenience Min function for int
 func MinInt(a, b int) int {
 	if a < b {
 		return a
@@ -40,7 +40,7 @@ func Max(a, b int64) int64 {
 	return b
 }
 
-// Max is a convenience Max function for int
+// MaxInt is a convenience Max function for int
 func MaxInt(a, b int) int {
 	if a > b {
 		return a

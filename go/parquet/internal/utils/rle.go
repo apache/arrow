@@ -102,7 +102,6 @@ func MaxBufferSize(width, numValues int) int {
 type RleDecoder struct {
 	r *BitReader
 
-	buffered uint64
 	bitWidth int
 	curVal   uint64
 	repCount int32
@@ -537,7 +536,7 @@ func (r *RleEncoder) flushLiteral(updateIndicator bool) {
 }
 
 func (r *RleEncoder) flushRepeated() {
-	indicator := r.repCount<<1 | 0
+	indicator := r.repCount << 1
 	r.w.WriteVlqInt(uint64(indicator))
 	r.w.WriteAligned(r.curVal, int(bitutil.BytesForBits(int64(r.BitWidth))))
 

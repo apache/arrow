@@ -25,6 +25,7 @@ import (
 // an alias to int32
 type IndexType = int32
 
+// Max and Min constants for the IndexType
 const (
 	MaxIndexType = math.MaxInt32
 	MinIndexType = math.MinInt32

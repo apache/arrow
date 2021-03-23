@@ -34,7 +34,7 @@ func _levels_to_bitmap(levels unsafe.Pointer, numLevels int, rhs int16) (res uin
 // greaterThanBitmapBMI2 builds a bitmap where each set bit indicates the corresponding level
 // is greater than the rhs value.
 func greaterThanBitmapBMI2(levels []int16, rhs int16) uint64 {
-	if levels == nil || len(levels) == 0 {
+	if len(levels) == 0 {
 		return 0
 	}
 

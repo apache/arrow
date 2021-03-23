@@ -30,14 +30,20 @@ type WriterAtBuffer struct {
 	buf []byte
 }
 
+// NewWriterAtBuffer returns an object which fulfills the io.WriterAt interface
+// by taking ownership of the passed in slice.
 func NewWriterAtBuffer(buf []byte) WriterAtWithLen {
 	return &WriterAtBuffer{buf}
 }
 
+// Len returns the length of the underlying byte slice.
 func (w *WriterAtBuffer) Len() int {
 	return len(w.buf)
 }
 
+// WriteAt fulfills the io.WriterAt interface to write len(p) bytes from p
+// to the underlying byte slice starting at offset off. It returns the number
+// of bytes written from p (0 <= n <= len(p)) and any error encountered.
 func (w *WriterAtBuffer) WriteAt(p []byte, off int64) (n int, err error) {
 	if off > int64(len(w.buf)) {
 		return 0, io.ErrUnexpectedEOF
@@ -66,6 +72,8 @@ type BitWriter struct {
 	raw        [8]byte
 }
 
+// NewBitWriter initializes a new bit writer to write to the passed in interface
+// using WriteAt to write the appropriate offsets and values.
 func NewBitWriter(w io.WriterAt) *BitWriter {
 	return &BitWriter{wr: w}
 }
@@ -80,6 +88,10 @@ func (b *BitWriter) ReserveBytes(nbytes int) int {
 	return ret
 }
 
+// WriteAt fulfills the io.WriterAt interface to write len(p) bytes from p
+// to the underlying byte slice starting at offset off. It returns the number
+// of bytes written from p (0 <= n <= len(p)) and any error encountered.
+// This allows writing full bytes directly to the underlying writer.
 func (b *BitWriter) WriteAt(val []byte, off int64) (int, error) {
 	return b.wr.WriteAt(val, off)
 }

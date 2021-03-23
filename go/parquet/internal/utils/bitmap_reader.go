@@ -16,6 +16,7 @@
 
 package utils
 
+// BitmapReader is a simple bitmap reader for a byte slice.
 type BitmapReader struct {
 	bitmap []byte
 	pos    int64

@@ -23,8 +23,12 @@ import (
 	"github.com/apache/arrow/go/arrow/bitutil"
 )
 
+// IsMultipleOf64 returns whether v is a multiple of 64.
 func IsMultipleOf64(v int64) bool { return v&63 == 0 }
 
+// LeastSignificantBitMask returns a bit mask to return the least significant
+// bits for a value starting from the bit index passed in. ie: if you want a
+// mask for the 4 least significant bits, you call LeastSignificantBitMask(4)
 func LeastSignificantBitMask(index int64) uint64 {
 	return (uint64(1) << index) - 1
 }
@@ -36,10 +40,13 @@ type SetBitRun struct {
 	Length int64
 }
 
+// AtEnd returns true if this bit run is the end of the set by checking
+// that the length is 0.
 func (s SetBitRun) AtEnd() bool {
 	return s.Length == 0
 }
 
+// Equal returns whether rhs is the same run as s
 func (s SetBitRun) Equal(rhs SetBitRun) bool {
 	return s.Pos == rhs.Pos && s.Length == rhs.Length
 }
@@ -301,6 +308,7 @@ func (br *baseSetBitRunReader) NextRun() SetBitRun {
 	return br.adjustRun(SetBitRun{pos, length})
 }
 
+// VisitFn is a callback function for visiting runs of contiguous bits
 type VisitFn func(pos int64, length int64) error
 
 func (br *baseSetBitRunReader) VisitSetBitRuns(visitFn VisitFn) error {
