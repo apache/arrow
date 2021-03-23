@@ -66,6 +66,25 @@ struct BinaryLength {
 
 #ifdef ARROW_WITH_UTF8PROC
 
+struct Utf8Length {
+  template <typename OutValue, typename Arg0Value = util::string_view>
+  static OutValue Call(KernelContext*, Arg0Value val) {
+    auto str = reinterpret_cast<const utf8proc_uint8_t*>(val.data());
+    auto strlen = static_cast<utf8proc_ssize_t>(val.size());
+    utf8proc_int32_t codepoint;
+
+    OutValue length = 0;
+    while (strlen > 0) {
+      auto char_width = utf8proc_iterate(str, strlen, &codepoint);
+      // XXX check for errmsg?
+      str += char_width;
+      strlen -= char_width;
+      ++length;
+    }
+    return length;
+  }
+};
+
 // Direct lookup tables for unicode properties
 constexpr uint32_t kMaxCodepointLookup =
     0xffff;  // up to this codepoint is in a lookup table
@@ -1569,8 +1588,15 @@ const FunctionDoc strptime_doc(
 
 const FunctionDoc binary_length_doc(
     "Compute string lengths",
-    ("For each string in `strings`, emit its length.  Null values emit null."),
+    ("For each string in `strings`, emit the number of bytes.  Null values emit null."),
     {"strings"});
+
+#ifdef ARROW_WITH_UTF8PROC
+const FunctionDoc utf8_length_doc("Compute utf8 string lengths",
+                                  ("For each string in `strings`, emit the number of "
+                                   "utf8 characters.  Null values emit null."),
+                                  {"strings"});
+#endif  // ARROW_WITH_UTF8PROC
 
 void AddStrptime(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("strptime", Arity::Unary(), &strptime_doc);
@@ -1596,6 +1622,23 @@ void AddBinaryLength(FunctionRegistry* registry) {
   }
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
+
+#ifdef ARROW_WITH_UTF8PROC
+void AddUtf8Length(FunctionRegistry* registry) {
+  auto func =
+      std::make_shared<ScalarFunction>("utf8_length", Arity::Unary(), &utf8_length_doc);
+
+  ArrayKernelExec exec_offset_32 =
+      applicator::ScalarUnaryNotNull<Int32Type, StringType, Utf8Length>::Exec;
+  DCHECK_OK(func->AddKernel({utf8()}, int32(), std::move(exec_offset_32)));
+
+  ArrayKernelExec exec_offset_64 =
+      applicator::ScalarUnaryNotNull<Int64Type, LargeStringType, Utf8Length>::Exec;
+  DCHECK_OK(func->AddKernel({large_utf8()}, int64(), std::move(exec_offset_64)));
+
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+#endif  // ARROW_WITH_UTF8PROC
 
 template <template <typename> class ExecFunctor>
 void MakeUnaryStringBatchKernel(
@@ -1866,6 +1909,9 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
 
   AddSplit(registry);
   AddBinaryLength(registry);
+#ifdef ARROW_WITH_UTF8PROC
+  AddUtf8Length(registry);
+#endif
   AddMatchSubstring(registry);
   AddStrptime(registry);
 }
