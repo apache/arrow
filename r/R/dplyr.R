@@ -767,21 +767,15 @@ arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
     x <- find_and_remove_desc(exprs[[i]])
     exprs[[i]] <- x[["quos"]]
     sorts[[i]] <- arrow_eval(exprs[[i]], mask)
+    if (inherits(sorts[[i]], "try-error")) {
+      msg <- paste('Expression', as_label(exprs[[i]]), 'not supported in Arrow')
+      return(abandon_ship(call, .data, msg))
+    }
     names(sorts)[i] <- tryCatch(
       expr = as_name(exprs[[i]]),
       error = function(x) as_label(exprs[[i]])
     )
     descs[i] <- x[["desc"]]
-  }
-  bad_sorts <- map_lgl(sorts, ~inherits(., "try-error"))
-  if (any(bad_sorts)) {
-    bads <- oxford_paste(map_chr(exprs, as_label)[bad_sorts], quote = FALSE)
-    stop(
-      "Invalid or unsupported arrange ",
-      ngettext(length(bads), "expression: ", "expressions: "),
-      bads,
-      call. = FALSE
-    )
   }
   .data$arrange_vars <- c(sorts, .data$arrange_vars)
   .data$arrange_desc <- c(descs, .data$arrange_desc)
