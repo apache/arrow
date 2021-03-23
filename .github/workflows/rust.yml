@@ -117,7 +117,7 @@ jobs:
           cargo test
           # test datafusion examples
           cd datafusion-examples
-          cargo test --no-default-features --features cli
+          cargo test --no-default-features
           cargo run --example csv_sql
           cargo run --example parquet_sql
           cd ..
