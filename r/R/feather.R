@@ -175,7 +175,7 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
 #' @section Factory:
 #'
 #' The `FeatherReader$create()` factory method instantiates the object and
-#' takes the following arguments:
+#' takes the following argument:
 #'
 #' - `file` an Arrow file connection object inheriting from `RandomAccessFile`.
 #'
