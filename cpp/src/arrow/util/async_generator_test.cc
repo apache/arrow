@@ -18,6 +18,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
+#include <random>
 #include <thread>
 #include <unordered_set>
 
@@ -792,6 +793,57 @@ TEST(TestAsyncUtil, ReadaheadFailed) {
   ASSERT_FINISHES_OK_AND_ASSIGN(auto definitely_last, readahead());
   ASSERT_TRUE(IsIterationEnd(definitely_last));
 }
+
+class SequencerTestFixture : public GeneratorTestFixture {
+ protected:
+  void RandomShuffle(std::vector<TestInt>& values) {
+    std::default_random_engine gen(seed_++);
+    std::shuffle(values.begin(), values.end(), gen);
+  }
+
+  int seed_ = 42;
+  std::function<bool(const TestInt&, const TestInt&)> cmp_ =
+      [](const TestInt& left, const TestInt& right) { return left.value > right.value; };
+  // Let's increment by 2's to make it interesting
+  std::function<bool(const TestInt&, const TestInt&)> is_next_ =
+      [](const TestInt& left, const TestInt& right) {
+        return left.value + 2 == right.value;
+      };
+};
+
+TEST_P(SequencerTestFixture, SequenceBasic) {
+  // Basic sequencing
+  auto original = MakeSource({6, 4, 2});
+  auto sequenced = MakeSequencingGenerator(original, cmp_, is_next_, TestInt(0));
+  AssertAsyncGeneratorMatch({2, 4, 6}, sequenced);
+
+  // From ordered input
+  original = MakeSource({2, 4, 6});
+  sequenced = MakeSequencingGenerator(original, cmp_, is_next_, TestInt(0));
+  AssertAsyncGeneratorMatch({2, 4, 6}, sequenced);
+}
+
+TEST_P(SequencerTestFixture, SequenceError) {
+  auto original = MakeSource({6, 4, 2});
+  original = FailsAt(original, 1);
+  auto sequenced = MakeSequencingGenerator(original, cmp_, is_next_, TestInt(0));
+  auto collected = CollectAsyncGenerator(sequenced);
+  ASSERT_FINISHES_ERR(Invalid, collected);
+}
+
+TEST_P(SequencerTestFixture, SequenceStress) {
+  constexpr int NITEMS = 100;
+  for (auto task_index = 0; task_index < GetNumItersForStress(); task_index++) {
+    auto input = RangeVector(NITEMS, 2);
+    RandomShuffle(input);
+    auto original = MakeSource(input);
+    auto sequenced = MakeSequencingGenerator(original, cmp_, is_next_, TestInt(-2));
+    AssertAsyncGeneratorMatch(RangeVector(NITEMS, 2), sequenced);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(SequencerTests, SequencerTestFixture,
+                         ::testing::Values(false, true));
 
 TEST(TestAsyncIteratorTransform, SkipSome) {
   auto original = AsyncVectorIt<TestInt>({1, 2, 3});

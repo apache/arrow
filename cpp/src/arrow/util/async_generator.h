@@ -280,6 +280,147 @@ AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator,
   return MappingGenerator<T, V>(std::move(source_generator), std::move(map));
 }
 
+template <typename T, typename Comp, typename IsNext>
+class SequencingGenerator {
+ public:
+  SequencingGenerator(AsyncGenerator<T> source, Comp compare, IsNext is_next,
+                      T initial_value)
+      : state_(std::make_shared<State>(std::move(source), std::move(compare),
+                                       std::move(is_next), std::move(initial_value))) {}
+
+  Future<T> operator()() {
+    util::optional<Result<T>> result;
+    {
+      auto guard = state_->mutex.Lock();
+      if (!state_->queue.empty()) {
+        if (!state_->queue.top().ok() ||
+            state_->is_next(state_->previous_value, *state_->queue.top())) {
+          result = std::move(state_->queue.top());
+          if (result->ok()) {
+            state_->previous_value = **result;
+          }
+          state_->queue.pop();
+        }
+      }
+      if (!result.has_value()) {
+        if (state_->finished) {
+          return AsyncGeneratorEnd<T>();
+        }
+        auto new_waiting_fut = Future<T>::Make();
+        state_->waiting_future = new_waiting_fut;
+        guard.Unlock();
+        state_->source().AddCallback(Callback{state_});
+        return new_waiting_fut;
+      }
+      return Future<T>::MakeFinished(*result);
+    }
+  }
+
+ private:
+  struct WrappedComp {
+    bool operator()(const Result<T>& left, const Result<T>& right) {
+      if (!left.ok() || !right.ok()) {
+        return false;
+      }
+      return compare(*left, *right);
+    }
+    Comp compare;
+  };
+
+  struct State {
+    State(AsyncGenerator<T> source, Comp compare, IsNext is_next, T initial_value)
+        : source(std::move(source)),
+          is_next(std::move(is_next)),
+          previous_value(std::move(initial_value)),
+          waiting_future(),
+          queue(WrappedComp{compare}),
+          finished(false),
+          mutex() {}
+
+    AsyncGenerator<T> source;
+    IsNext is_next;
+    T previous_value;
+    Future<T> waiting_future;
+    std::priority_queue<Result<T>, std::vector<Result<T>>, WrappedComp> queue;
+    bool finished;
+    util::Mutex mutex;
+  };
+
+  class Callback {
+   public:
+    explicit Callback(std::shared_ptr<State> state) : state_(std::move(state)) {}
+
+    void operator()(const Result<T> result) {
+      Future<T> to_deliver;
+      bool finished;
+      {
+        auto guard = state_->mutex.Lock();
+        bool ready_to_deliver = false;
+        if (!result.ok()) {
+          while (!state_->queue.empty()) {
+            state_->queue.pop();
+          }
+          ready_to_deliver = true;
+          state_->finished = true;
+        } else if (IsIterationEnd<T>(result.ValueUnsafe())) {
+          ready_to_deliver = state_->queue.empty();
+          state_->finished = true;
+        } else {
+          ready_to_deliver = state_->is_next(state_->previous_value, *result);
+        }
+
+        if (ready_to_deliver && state_->waiting_future.is_valid()) {
+          to_deliver = state_->waiting_future;
+          if (result.ok()) {
+            state_->previous_value = *result;
+          }
+        } else {
+          state_->queue.push(result);
+        }
+        finished = state_->finished;
+      }
+      if (to_deliver.is_valid()) {
+        to_deliver.MarkFinished(result);
+      } else {
+        if (!finished) {
+          state_->source().AddCallback(Callback{state_});
+        }
+      }
+    }
+
+   private:
+    const std::shared_ptr<State> state_;
+  };
+
+  const std::shared_ptr<State> state_;
+};
+
+/// \brief Buffers an AsyncGenerator to return values in sequence order  Comp and IsNext
+/// determine the sequence order.
+///
+/// Comp should be STL Compare https://en.cppreference.com/w/cpp/named_req/Compare It
+/// should return true only if a is later than b
+///
+/// IsNext should be a BinaryPredicate that returns true, given `a` and `b`, only if
+/// `b` follows immediately after `a`.  It should return true given `initial_value` and
+/// `b` if `b` is the first item in the sequence.
+///
+/// This operator will queue unboundedly while waiting for the next item.  It is intended
+/// for jittery sources that might scatter an ordered sequence.  It is NOT intended to
+/// sort.  Using it to try and sort could result in deadlock.  Imagine a sequence of 10
+/// items returned in reverse order with a readahead of 8.  The first item will never
+/// reach this operator and the chain will halt.
+///
+/// This generator is not async-reentrant but it consists only of a simple log(n)
+/// insertion into a priority queue.
+template <typename T, typename Comp, typename IsNext>
+AsyncGenerator<T> MakeSequencingGenerator(AsyncGenerator<T> source_generator,
+                                          Comp compare, IsNext is_next, T initial_value) {
+  return SequencingGenerator<T, Comp, IsNext>(std::move(source_generator),
+                                              std::move(compare), std::move(is_next),
+                                              std::move(initial_value));
+}
+
 /// \see MakeAsyncGenerator
 template <typename T, typename V>
 class TransformingGenerator {
