@@ -17,8 +17,6 @@
 
 #pragma once
 
-#include <chrono>
-
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/future.h"
 
@@ -74,24 +72,6 @@ namespace arrow {
 template <typename T>
 void AssertNotFinished(const Future<T>& fut) {
   ASSERT_FALSE(IsFutureFinished(fut.state()));
-}
-
-template <typename T>
-void AssertFinishesInReasonableTime(const Future<T>& fut) {
-  auto start = std::chrono::system_clock::now();
-  bool finished_quick = fut.Wait(10);
-  if (!finished_quick) {
-    bool finished_slow = fut.Wait(290);
-    if (finished_slow) {
-      auto end = std::chrono::system_clock::now();
-      auto elapsed =
-          std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-      FAIL() << "The future took more than 10 seconds to finish (but it did finish in "
-             << elapsed << "ms)";
-    } else {
-      FAIL() << "Even after 300 seconds the future was still not finished";
-    }
-  }
 }
 
 template <typename T>
