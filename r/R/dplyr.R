@@ -730,34 +730,23 @@ abandon_ship <- function(call, .data, msg = NULL) {
 }
 
 arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
-  # TODO: handle .by_group argument
-  if (!isFALSE(.by_group)) {
-    stop(".by_group argument not supported for Arrow objects", call. = FALSE)
-  }
-
   call <- match.call()
   exprs <- quos(...)
-
   if (length(exprs) == 0) {
     # Nothing to do
     return(.data)
   }
-
   .data <- arrow_dplyr_query(.data)
-
-  # Restrict the cases we support for now
   if (query_on_dataset(.data)) {
     not_implemented_for_dataset("arrange()")
-  }
-  is_grouped <- length(dplyr::group_vars(.data)) > 0
-  if (is_grouped) {
-    return(abandon_ship(call, .data, 'arrange() on grouped data not supported in Arrow'))
   }
   is_dataset <- query_on_dataset(.data)
   if (is_dataset) {
     return(abandon_ship(call, .data))
   }
-
+  if (.by_group) {
+    exprs <- c(quos(!!!dplyr::groups(.data)), exprs)
+  }
   # find and remove any dplyr::desc() and tidy-eval
   # the arrange expressions inside an Arrow data_mask
   sorts <- vector("list", length(exprs))
