@@ -65,18 +65,6 @@ test_that("Array sort", {
     as.vector(sort(Array$create(tbl$int), decreasing = TRUE, na.last = FALSE)),
     sort(tbl$int, decreasing = TRUE, na.last = FALSE)
   )
-  expect_equal(
-    as.vector(sort(Array$create(tbl$chr), decreasing = TRUE, na.last = FALSE)),
-    sort(tbl$chr, decreasing = TRUE, na.last = FALSE)
-  )
-})
-
-test_that("Array sort treats NaN as NA", {
-  skip("ARROW-12055")
-  expect_equal(
-    as.vector(sort(Array$create(tbl$dbl), decreasing = TRUE, na.last = FALSE)),
-    sort(tbl$dbl, decreasing = TRUE, na.last = FALSE)
-  )
 })
 
 test_that("ChunkedArray sort", {
@@ -116,9 +104,29 @@ test_that("ChunkedArray sort", {
     as.vector(sort(ChunkedArray$create(tbl$int[1:5], tbl$int[6:10]), decreasing = TRUE, na.last = FALSE)),
     sort(tbl$int, decreasing = TRUE, na.last = FALSE)
   )
+})
+
+test_that("Array/ChunkedArray sort on strings", {
+  skip_on_os("windows") # multibyte string errors
+  expect_equal(
+    as.vector(sort(Array$create(tbl$chr), decreasing = TRUE, na.last = FALSE)),
+    sort(tbl$chr, decreasing = TRUE, na.last = FALSE)
+  )
   expect_equal(
     as.vector(sort(ChunkedArray$create(tbl$chr[1:5], tbl$chr[6:10]), decreasing = TRUE, na.last = FALSE)),
     sort(tbl$chr, decreasing = TRUE, na.last = FALSE)
+  )
+})
+
+test_that("Array/ChunkedArray sort treats NaN as NA", {
+  skip("ARROW-12055")
+  expect_equal(
+    as.vector(sort(Array$create(tbl$dbl), decreasing = TRUE, na.last = FALSE)),
+    sort(tbl$dbl, decreasing = TRUE, na.last = FALSE)
+  )
+  expect_equal(
+    as.vector(sort(ChunkedArray$create(tbl$dbl[1:5], tbl$dbl[6:10]), decreasing = TRUE, na.last = FALSE)),
+    sort(tbl$dbl, decreasing = TRUE, na.last = FALSE)
   )
 })
 
