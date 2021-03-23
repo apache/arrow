@@ -1981,11 +1981,13 @@ async fn query_cte_incorrect() -> Result<()> {
     let sql = "WITH t AS (SELECT * FROM t) SELECT * from u";
     let plan = ctx.create_logical_plan(&sql);
     assert!(plan.is_err());
+    assert_eq!(format!("{}", plan.unwrap_err()),  "Error during planning: Table or CTE with name \'t\' not found");
 
     // forward referencing
     let sql = "WITH t AS (SELECT * FROM u), u AS (SELECT 1) SELECT * from u";
     let plan = ctx.create_logical_plan(&sql);
     assert!(plan.is_err());
+    assert_eq!(format!("{}", plan.unwrap_err()),  "Error during planning: Table or CTE with name \'u\' not found");
 
     Ok(())
 }

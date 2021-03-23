@@ -412,7 +412,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                         LogicalPlanBuilder::scan(&table_name, provider, None)?.build()
                     }
                     (_, None) => Err(DataFusionError::Plan(format!(
-                        "no provider found for table {}",
+                        "Table or CTE with name '{}' not found",
                         name
                     ))),
                 }
