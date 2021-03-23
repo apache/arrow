@@ -507,7 +507,7 @@ struct CastFunctor<Decimal128Type, Decimal128Type> {
 };
 
 template <>
-struct CastFunctor<Decimal256Type, Decimal128Type> {
+struct CastFunctor<Decimal128Type, Decimal256Type> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& options = checked_cast<const CastState*>(ctx->state())->options;
 
@@ -540,12 +540,12 @@ struct CastFunctor<Decimal256Type, Decimal128Type> {
   }
 };
 
-template <typename Arg0Type>
-struct CastFunctor<Arg0Type, Decimal256Type, enable_if_decimal<Arg0Type>> {
+template <typename I>
+struct CastFunctor<Decimal256Type, I, enable_if_decimal<I>> {
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& options = checked_cast<const CastState*>(ctx->state())->options;
 
-    const auto& in_type = checked_cast<const Arg0Type&>(*batch[0].type());
+    const auto& in_type = checked_cast<const I&>(*batch[0].type());
     const auto& out_type = checked_cast<const Decimal256Type&>(*out->type());
     const auto in_scale = in_type.scale();
     const auto out_scale = out_type.scale();
@@ -553,22 +553,20 @@ struct CastFunctor<Arg0Type, Decimal256Type, enable_if_decimal<Arg0Type>> {
     if (options.allow_decimal_truncate) {
       if (in_scale < out_scale) {
         // Unsafe upscale
-        applicator::ScalarUnaryNotNullStateful<Decimal256Type, Arg0Type,
-                                               UnsafeUpscaleDecimal>
+        applicator::ScalarUnaryNotNullStateful<Decimal256Type, I, UnsafeUpscaleDecimal>
             kernel(UnsafeUpscaleDecimal{out_scale - in_scale});
         return kernel.Exec(ctx, batch, out);
       } else {
         // Unsafe downscale
-        applicator::ScalarUnaryNotNullStateful<Decimal256Type, Arg0Type,
-                                               UnsafeDownscaleDecimal>
+        applicator::ScalarUnaryNotNullStateful<Decimal256Type, I, UnsafeDownscaleDecimal>
             kernel(UnsafeDownscaleDecimal{in_scale - out_scale});
         return kernel.Exec(ctx, batch, out);
       }
     }
 
     // Safe rescale
-    applicator::ScalarUnaryNotNullStateful<Decimal256Type, Arg0Type, SafeRescaleDecimal>
-        kernel(SafeRescaleDecimal{out_scale, out_type.precision(), in_scale});
+    applicator::ScalarUnaryNotNullStateful<Decimal256Type, I, SafeRescaleDecimal> kernel(
+        SafeRescaleDecimal{out_scale, out_type.precision(), in_scale});
     return kernel.Exec(ctx, batch, out);
   }
 };
@@ -723,9 +721,9 @@ std::shared_ptr<CastFunction> GetCastToDecimal128() {
   // We resolve the output type of this kernel from the CastOptions
   DCHECK_OK(
       func->AddKernel(Type::DECIMAL128, {InputType(Type::DECIMAL128)}, sig_out_ty, exec));
-  exec = CastFunctor<Decimal256Type, Decimal128Type>::Exec;
+  exec = CastFunctor<Decimal128Type, Decimal256Type>::Exec;
   DCHECK_OK(
-      func->AddKernel(Type::DECIMAL128, {InputType(Type::DECIMAL256)}, sig_out_ty, exec));
+      func->AddKernel(Type::DECIMAL256, {InputType(Type::DECIMAL256)}, sig_out_ty, exec));
   return func;
 }
 
@@ -733,8 +731,7 @@ std::shared_ptr<CastFunction> GetCastToDecimal256() {
   OutputType sig_out_ty(ResolveOutputFromOptions);
 
   auto func = std::make_shared<CastFunction>("cast_decimal256", Type::DECIMAL256);
-  // Needed for Parquet conversion. Full implementation is ARROW-10606
-  // tracks full implementation.
+  // Needed for Parquet conversion.
   AddCommonCasts(Type::DECIMAL256, sig_out_ty, func.get());
 
   // Cast from floating point
@@ -744,9 +741,9 @@ std::shared_ptr<CastFunction> GetCastToDecimal256() {
                             CastFunctor<Decimal256Type, DoubleType>::Exec));
 
   // Cast from other decimal
-  auto exec = CastFunctor<Decimal128Type, Decimal256Type>::Exec;
+  auto exec = CastFunctor<Decimal256Type, Decimal128Type>::Exec;
   DCHECK_OK(
-      func->AddKernel(Type::DECIMAL256, {InputType(Type::DECIMAL128)}, sig_out_ty, exec));
+      func->AddKernel(Type::DECIMAL128, {InputType(Type::DECIMAL128)}, sig_out_ty, exec));
   exec = CastFunctor<Decimal256Type, Decimal256Type>::Exec;
   DCHECK_OK(
       func->AddKernel(Type::DECIMAL256, {InputType(Type::DECIMAL256)}, sig_out_ty, exec));
