@@ -139,7 +139,12 @@ TEST(Grouper, SupportedKeys) {
 
   ASSERT_OK(internal::Grouper::Make({date32(), date64()}));
 
-  for (auto unit : internal::AllTimeUnits()) {
+  for (auto unit : {
+           TimeUnit::SECOND,
+           TimeUnit::MILLI,
+           TimeUnit::MICRO,
+           TimeUnit::NANO,
+       }) {
     ASSERT_OK(internal::Grouper::Make({timestamp(unit), duration(unit)}));
   }
 
@@ -244,7 +249,19 @@ TEST(Grouper, BooleanKey) {
 }
 
 TEST(Grouper, NumericKey) {
-  for (auto ty : internal::NumericTypes()) {
+  for (auto ty : {
+           uint8(),
+           int8(),
+           uint16(),
+           int16(),
+           uint32(),
+           int32(),
+           uint64(),
+           int64(),
+           float16(),
+           float32(),
+           float64(),
+       }) {
     SCOPED_TRACE("key type: " + ty->ToString());
 
     TestGrouper g({ty});
