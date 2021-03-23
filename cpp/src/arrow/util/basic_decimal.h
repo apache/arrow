@@ -259,8 +259,8 @@ class ARROW_EXPORT BasicDecimal256 {
 
   /// \brief Scale down.
   /// - If 'round' is true, the right-most digits are dropped and the result value is
-  ///   rounded up (+1 for +ve, -1 for -ve) based on the value of the dropped digits
-  ///   (>= 10^reduce_by / 2).
+  ///   rounded up (+1 for positive, -1 for negative) based on the value of the
+  ///   dropped digits (>= 10^reduce_by / 2).
   /// - If 'round' is false, the right-most digits are simply dropped.
   BasicDecimal256 ReduceScaleBy(int32_t reduce_by, bool round = true) const;
 

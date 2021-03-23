@@ -819,7 +819,7 @@ struct Decimal256RealConversion {
     }
     x = std::nearbyint(x);
     const auto max_abs = Derived::powers_of_ten()[precision + 76];
-    if (x <= -max_abs || x >= max_abs) {
+    if (x >= max_abs) {
       return Status::Invalid("Cannot convert ", real,
                              " to Decimal256(precision = ", precision,
                              ", scale = ", scale, "): overflow");
