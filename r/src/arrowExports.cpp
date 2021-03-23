@@ -616,6 +616,16 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute.cpp
+SEXP compute__GroupBy(cpp11::list arguments, cpp11::list keys, cpp11::list options);
+extern "C" SEXP _arrow_compute__GroupBy(SEXP arguments_sexp, SEXP keys_sexp, SEXP options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::list>::type arguments(arguments_sexp);
+	arrow::r::Input<cpp11::list>::type keys(keys_sexp);
+	arrow::r::Input<cpp11::list>::type options(options_sexp);
+	return cpp11::as_sexp(compute__GroupBy(arguments, keys, options));
+END_CPP11
+}
+// compute.cpp
 std::vector<std::string> list_compute_functions();
 extern "C" SEXP _arrow_list_compute_functions(){
 BEGIN_CPP11
@@ -4236,6 +4246,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
+		{ "_arrow_compute__GroupBy", (DL_FUNC) &_arrow_compute__GroupBy, 3}, 
 		{ "_arrow_list_compute_functions", (DL_FUNC) &_arrow_list_compute_functions, 0}, 
 		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1}, 
 		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1}, 

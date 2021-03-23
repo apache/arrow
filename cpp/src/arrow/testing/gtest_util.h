@@ -173,10 +173,12 @@ std::vector<Type::type> AllTypeIds();
 
 // If verbose is true, then the arrays will be pretty printed
 ARROW_TESTING_EXPORT void AssertArraysEqual(const Array& expected, const Array& actual,
-                                            bool verbose = false);
-ARROW_TESTING_EXPORT void AssertArraysApproxEqual(
-    const Array& expected, const Array& actual, bool verbose = false,
-    const EqualOptions& option = EqualOptions::Defaults());
+                                            bool verbose = false,
+                                            const EqualOptions& options = {});
+ARROW_TESTING_EXPORT void AssertArraysApproxEqual(const Array& expected,
+                                                  const Array& actual,
+                                                  bool verbose = false,
+                                                  const EqualOptions& options = {});
 // Returns true when values are both null
 ARROW_TESTING_EXPORT void AssertScalarsEqual(
     const Scalar& expected, const Scalar& actual, bool verbose = false,

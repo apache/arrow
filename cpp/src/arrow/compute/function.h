@@ -133,6 +133,10 @@ class ARROW_EXPORT Function {
     /// A function that computes scalar summary statistics from array input.
     SCALAR_AGGREGATE,
 
+    /// A function that computes grouped summary statistics from array input
+    /// and an array of group identifiers.
+    HASH_AGGREGATE,
+
     /// A function that dispatches to other functions and does not contain its
     /// own kernels.
     META
@@ -305,6 +309,21 @@ class ARROW_EXPORT ScalarAggregateFunction
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
   Status AddKernel(ScalarAggregateKernel kernel);
+};
+
+class ARROW_EXPORT HashAggregateFunction
+    : public detail::FunctionImpl<HashAggregateKernel> {
+ public:
+  using KernelType = HashAggregateKernel;
+
+  HashAggregateFunction(std::string name, const Arity& arity, const FunctionDoc* doc,
+                        const FunctionOptions* default_options = NULLPTR)
+      : detail::FunctionImpl<HashAggregateKernel>(
+            std::move(name), Function::HASH_AGGREGATE, arity, doc, default_options) {}
+
+  /// \brief Add a kernel (function implementation). Returns error if the
+  /// kernel's signature does not match the function's arity.
+  Status AddKernel(HashAggregateKernel kernel);
 };
 
 /// \brief A function that dispatches to other functions. Must implement

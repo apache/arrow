@@ -200,6 +200,29 @@ SEXP compute__CallFunction(std::string func_name, cpp11::list args, cpp11::list 
 }
 
 // [[arrow::export]]
+SEXP compute__GroupBy(cpp11::list arguments, cpp11::list keys, cpp11::list options) {
+  // options is a list of pairs: string function name, list of options
+
+  std::vector<std::shared_ptr<arrow::compute::FunctionOptions>> keep_alives;
+  std::vector<arrow::compute::internal::Aggregate> aggregates;
+
+  for (cpp11::list name_opts : options) {
+    auto name = cpp11::as_cpp<std::string>(name_opts[0]);
+    auto opts = make_compute_options(name, name_opts[1]);
+
+    aggregates.push_back(
+        arrow::compute::internal::Aggregate{std::move(name), opts.get()});
+    keep_alives.push_back(std::move(opts));
+  }
+
+  auto datum_arguments = arrow::r::from_r_list<arrow::Datum>(arguments);
+  auto datum_keys = arrow::r::from_r_list<arrow::Datum>(keys);
+  auto out = ValueOrStop(arrow::compute::internal::GroupBy(datum_arguments, datum_keys,
+                                                           aggregates, gc_context()));
+  return from_datum(std::move(out));
+}
+
+// [[arrow::export]]
 std::vector<std::string> list_compute_functions() {
   return arrow::compute::GetFunctionRegistry()->GetFunctionNames();
 }
