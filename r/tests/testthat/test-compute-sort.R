@@ -28,7 +28,7 @@ test_that("Scalar sort", {
   )
 })
 
-test_that("Array sort", {
+test_that("Array sort on integers", {
   expect_equal(
     Array$create(tbl$int)$SortIndices(),
     Array$create(0L:9L, type = uint64())
@@ -67,7 +67,7 @@ test_that("Array sort", {
   )
 })
 
-test_that("ChunkedArray sort", {
+test_that("ChunkedArray sort on integers", {
   expect_equal(
     ChunkedArray$create(tbl$int[1:5], tbl$int[6:10])$SortIndices(),
     Array$create(0L:9L, type = uint64())
@@ -107,7 +107,6 @@ test_that("ChunkedArray sort", {
 })
 
 test_that("Array/ChunkedArray sort on strings", {
-  skip_on_os("windows") # multibyte string errors
   expect_equal(
     as.vector(sort(Array$create(tbl$chr), decreasing = TRUE, na.last = FALSE)),
     sort(tbl$chr, decreasing = TRUE, na.last = FALSE)
@@ -118,7 +117,7 @@ test_that("Array/ChunkedArray sort on strings", {
   )
 })
 
-test_that("Array/ChunkedArray sort treats NaN as NA", {
+test_that("Array/ChunkedArray sort on floats", {
   skip("ARROW-12055")
   expect_equal(
     as.vector(sort(Array$create(tbl$dbl), decreasing = TRUE, na.last = FALSE)),
