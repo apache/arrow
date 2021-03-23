@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package thrift is just some useful helpers for interacting with thrift to
+// make other code easier to read/write and centralize interactions.
 package thrift
 
 import (
