@@ -662,7 +662,7 @@ TEST(TestAsyncUtil, SerialReadaheadSlowConsumer) {
 }
 
 TEST(TestAsyncUtil, SerialReadaheadStress) {
-  constexpr int NTASKS = 20;
+  constexpr int NTASKS = 1000;
   constexpr int NITEMS = 50;
   for (int i = 0; i < NTASKS; i++) {
     AsyncGenerator<TestInt> gen = BackgroundAsyncVectorIt(RangeVector(NITEMS));
@@ -675,6 +675,7 @@ TEST(TestAsyncUtil, SerialReadaheadStress) {
           SleepABit();
           return Status::OK();
         });
+    AssertFinishesInReasonableTime(visit_fut);
     ASSERT_FINISHES_OK(visit_fut);
   }
 }
