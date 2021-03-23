@@ -16,8 +16,6 @@ The \code{FeatherReader$create()} factory method instantiates the object and
 takes the following arguments:
 \itemize{
 \item \code{file} an Arrow file connection object inheriting from \code{RandomAccessFile}.
-\item \code{mmap} Logical: whether to memory-map the file (default \code{TRUE})
-\item \code{...} Additional arguments, currently ignored
 }
 }
 
