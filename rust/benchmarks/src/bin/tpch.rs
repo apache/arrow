@@ -157,9 +157,9 @@ async fn benchmark(opt: BenchmarkOpt) -> Result<Vec<arrow::record_batch::RecordB
                 table,
                 start.elapsed().as_millis()
             );
-            ctx.register_table(table, Arc::new(memtable));
+            ctx.register_table(*table, Arc::new(memtable))?;
         } else {
-            ctx.register_table(table, table_provider);
+            ctx.register_table(*table, table_provider)?;
         }
     }
 
@@ -1105,7 +1105,7 @@ fn get_table(
     table: &str,
     table_format: &str,
     max_concurrency: usize,
-) -> Result<Arc<dyn TableProvider + Send + Sync>> {
+) -> Result<Arc<dyn TableProvider>> {
     match table_format {
         // dbgen creates .tbl ('|' delimited) files without header
         "tbl" => {
@@ -1614,7 +1614,7 @@ mod tests {
 
             let provider = MemTable::try_new(Arc::new(schema), vec![vec![batch]])?;
 
-            ctx.register_table(table, Arc::new(provider));
+            ctx.register_table(table, Arc::new(provider))?;
         }
 
         let plan = create_logical_plan(&mut ctx, n)?;
