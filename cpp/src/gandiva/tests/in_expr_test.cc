@@ -112,9 +112,8 @@ TEST_F(TestIn, TestInFloat) {
 
   // Create a row-batch with some sample data
   int num_records = 5;
-  auto array0 =
-      MakeArrowArrayFloat32({float(1.5), float(2.5), 4, float(3.15), 6},
-                            {true, true, false, true, true});
+  auto array0 = MakeArrowArrayFloat32({float(1.5), float(2.5), 4, float(3.15), 6},
+                                      {true, true, false, true, true});
   auto array1 = MakeArrowArrayFloat32({5, 9, 6, 8, 5}, {true, true, true, true, true});
   // expected output (indices for which condition matches)
   auto exp = MakeArrowArrayUint16({0, 1});
