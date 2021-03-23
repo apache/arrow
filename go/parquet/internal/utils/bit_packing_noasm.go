@@ -20,4 +20,4 @@ package utils
 
 import "io"
 
-var unpack32 func(io.Reader, []uint32, int) int = unpack32_default
+var unpack32 func(io.Reader, []uint32, int) int = unpack32Default
