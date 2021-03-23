@@ -217,6 +217,8 @@ class RConverter : public Converter<SEXP, RConversionOptions> {
   virtual Status ExtendMasked(SEXP values, SEXP mask, int64_t size) {
     return Status::NotImplemented("ExtendMasked");
   }
+
+  virtual bool Parallel() { return true; }
 };
 
 template <typename T, typename Enable = void>
@@ -886,6 +888,8 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
     return Status::OK();
   }
 
+  bool Parallel() override { return false; }
+
  protected:
   Status Init(MemoryPool* pool) override {
     return StructConverter<RConverter, RConverterTrait>::Init(pool);
@@ -1110,7 +1114,8 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
   StopIfNotOk(status);
 
   for (int j = 0; j < num_fields; j++) {
-    if (converters[j] != nullptr) {
+    auto& converter = converters[j];
+    if (converter != nullptr) {
       auto task = [j, &converters, &flatten_lst, &columns] {
         // for now synchronize all tasks with the R mutex
         // until we can lock more precisely
@@ -1128,11 +1133,10 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
         return arrow::Status::OK();
       };
 
-      SEXP x = flatten_lst[j];
-      if (Rf_inherits(x, "data.frame")) {
-        delayed_serial_tasks.push_back(std::move(task));
-      } else {
+      if (converter->Parallel()) {
         parallel_tasks->Append(task);
+      } else {
+        delayed_serial_tasks.push_back(std::move(task));
       }
     }
   }
