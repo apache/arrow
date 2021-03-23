@@ -16,12 +16,16 @@
 // under the License.
 
 #pragma once
+
+#include <cassert>
+#include <deque>
 #include <queue>
 
 #include "arrow/util/functional.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/mutex.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/queue.h"
 #include "arrow/util/thread_pool.h"
@@ -34,6 +38,11 @@ using AsyncGenerator = std::function<Future<T>()>;
 template <typename T>
 Future<T> AsyncGeneratorEnd() {
   return Future<T>::MakeFinished(IterationTraits<T>::End());
+}
+
+template <typename T>
+bool IsGeneratorEnd(const T& value) {
+  return value == IterationTraits<T>::End();
 }
 
 /// Iterates through a generator of futures, visiting the result of each one and
@@ -334,6 +343,103 @@ class ReadaheadGenerator {
   // outlive this class
   std::shared_ptr<std::atomic<bool>> finished_;
   std::queue<Future<T>> readahead_queue_;
+};
+
+/// \brief A generator where the producer pushes items on a queue.
+///
+/// No back-pressure is applied, so this generator is mostly useful when
+/// producing the values is neither CPU- nor memory-expensive (e.g. fetching
+/// filesystem metadata).
+///
+/// This generator is not async-reentrant.
+template <typename T>
+class PushGenerator {
+  struct State {
+    util::Mutex mutex;
+    std::deque<Result<T>> result_q;
+    util::optional<Future<T>> consumer_fut;
+    bool finished = false;
+  };
+
+ public:
+  /// Producer API for PushGenerator
+  class Producer {
+   public:
+    explicit Producer(std::shared_ptr<State> state) : state_(std::move(state)) {}
+
+    /// Push a value on the queue
+    void Push(Result<T> result) {
+      auto lock = state_->mutex.Lock();
+      if (state_->finished) {
+        // Closed early
+        return;
+      }
+      if (state_->consumer_fut.has_value()) {
+        auto fut = std::move(state_->consumer_fut.value());
+        state_->consumer_fut.reset();
+        lock.Unlock();  // unlock before potentially invoking a callback
+        fut.MarkFinished(std::move(result));
+        return;
+      }
+      state_->result_q.push_back(std::move(result));
+    }
+
+    /// \brief Tell the consumer we have finished producing
+    ///
+    /// It is allowed to call this and later call Push() again ("early close").
+    /// In this case, calls to Push() after the queue is closed are silently
+    /// ignored.  This can help implementing non-trivial cancellation cases.
+    void Close() {
+      auto lock = state_->mutex.Lock();
+      if (state_->finished) {
+        // Already closed
+        return;
+      }
+      state_->finished = true;
+      if (state_->consumer_fut.has_value()) {
+        auto fut = std::move(state_->consumer_fut.value());
+        state_->consumer_fut.reset();
+        lock.Unlock();  // unlock before potentially invoking a callback
+        fut.MarkFinished(IterationTraits<T>::End());
+      }
+    }
+
+    bool is_closed() const {
+      auto lock = state_->mutex.Lock();
+      return state_->finished;
+    }
+
+   private:
+    const std::shared_ptr<State> state_;
+  };
+
+  PushGenerator() : state_(std::make_shared<State>()) {}
+
+  /// Read an item from the queue
+  Future<T> operator()() {
+    auto lock = state_->mutex.Lock();
+    assert(!state_->consumer_fut.has_value());  // Non-reentrant
+    if (!state_->result_q.empty()) {
+      auto fut = Future<T>::MakeFinished(std::move(state_->result_q.front()));
+      state_->result_q.pop_front();
+      return fut;
+    }
+    if (state_->finished) {
+      return AsyncGeneratorEnd<T>();
+    }
+    auto fut = Future<T>::Make();
+    state_->consumer_fut = fut;
+    return fut;
+  }
+
+  /// \brief Return producer-side interface
+  ///
+  /// The returned object must be used by the producer to push values on the queue.
+  /// Only a single Producer object should be instantiated.
+  Producer producer() { return Producer{state_}; }
+
+ private:
+  const std::shared_ptr<State> state_;
 };
 
 /// \brief Creates a generator that pulls reentrantly from a source

@@ -134,6 +134,43 @@ bar)");
   ASSERT_EQ(null_count, 1);
 }
 
+TEST_P(TestCsvFileFormat, CustomReadOptions) {
+  auto source = GetFileSource(R"(header_skipped
+str
+foo
+MYNULL
+N/A
+bar)");
+  SetSchema({field("str", utf8())});
+  auto defaults = std::make_shared<CsvFragmentScanOptions>();
+  defaults->read_options.skip_rows = 1;
+  format_->default_fragment_scan_options = defaults;
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+  ASSERT_OK_AND_ASSIGN(auto physical_schema, fragment->ReadPhysicalSchema());
+  AssertSchemaEqual(opts_->dataset_schema, physical_schema);
+
+  {
+    int64_t rows = 0;
+    for (auto maybe_batch : Batches(fragment.get())) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      rows += batch->GetColumnByName("str")->length();
+    }
+    ASSERT_EQ(rows, 4);
+  }
+  {
+    // These options completely override the default ones
+    auto fragment_scan_options = std::make_shared<CsvFragmentScanOptions>();
+    fragment_scan_options->read_options.block_size = 1 << 22;
+    opts_->fragment_scan_options = fragment_scan_options;
+    int64_t rows = 0;
+    for (auto maybe_batch : Batches(fragment.get())) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      rows += batch->GetColumnByName("header_skipped")->length();
+    }
+    ASSERT_EQ(rows, 5);
+  }
+}
+
 TEST_P(TestCsvFileFormat, ScanRecordBatchReaderWithVirtualColumn) {
   auto source = GetFileSource(R"(f64
 1.0

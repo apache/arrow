@@ -1729,6 +1729,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             " arrow::compute::ScalarAggregateKernel"(CKernel):
         pass
 
+    cdef cppclass CHashAggregateKernel \
+            " arrow::compute::HashAggregateKernel"(CKernel):
+        pass
+
     cdef cppclass CArity" arrow::compute::Arity":
         int num_args
         c_bool is_varargs
@@ -1738,6 +1742,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         FunctionKind_VECTOR" arrow::compute::Function::VECTOR"
         FunctionKind_SCALAR_AGGREGATE \
             " arrow::compute::Function::SCALAR_AGGREGATE"
+        FunctionKind_HASH_AGGREGATE \
+            " arrow::compute::Function::HASH_AGGREGATE"
         FunctionKind_META \
             " arrow::compute::Function::META"
 
@@ -1770,6 +1776,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             " arrow::compute::ScalarAggregateFunction"\
             (CFunction):
         vector[const CScalarAggregateKernel*] kernels() const
+
+    cdef cppclass CHashAggregateFunction\
+            " arrow::compute::HashAggregateFunction"\
+            (CFunction):
+        vector[const CHashAggregateKernel*] kernels() const
 
     cdef cppclass CMetaFunction" arrow::compute::MetaFunction"(CFunction):
         pass

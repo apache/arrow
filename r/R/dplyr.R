@@ -470,20 +470,64 @@ pull.arrow_dplyr_query <- function(.data, var = -1) {
 pull.Dataset <- pull.ArrowTabular <- pull.arrow_dplyr_query
 
 summarise.arrow_dplyr_query <- function(.data, ...) {
+  call <- match.call()
   .data <- arrow_dplyr_query(.data)
   if (query_on_dataset(.data)) {
     not_implemented_for_dataset("summarize()")
   }
+  exprs <- quos(...)
   # Only retain the columns we need to do our aggregations
   vars_to_keep <- unique(c(
-    unlist(lapply(quos(...), all.vars)), # vars referenced in summarise
+    unlist(lapply(exprs, all.vars)), # vars referenced in summarise
     dplyr::group_vars(.data)             # vars needed for grouping
   ))
   .data <- dplyr::select(.data, vars_to_keep)
-  # TODO: determine whether work can be pushed down to Arrow
-  dplyr::summarise(dplyr::collect(.data), ...)
+  if (isTRUE(getOption("arrow.summarize", FALSE))) {
+    # Try stuff, if successful return()
+    out <- try(do_arrow_group_by(.data, ...), silent = TRUE)
+    if (inherits(out, "try-error")) {
+      return(abandon_ship(call, .data, format(out)))
+    } else {
+      return(out)
+    }
+  } else {
+    # If unsuccessful or if option not set, do the work in R
+    dplyr::summarise(dplyr::collect(.data), ...)
+  }
 }
 summarise.Dataset <- summarise.ArrowTabular <- summarise.arrow_dplyr_query
+
+do_arrow_group_by <- function(.data, ...) {
+  exprs <- quos(...)
+  mask <- arrow_mask(.data)
+  # Add aggregation wrappers to arrow_mask somehow
+  # (this is not ideal, would overwrite same-named objects)
+  mask$sum <- function(x, na.rm = FALSE) {
+    list(
+      fun = "sum",
+      data = x,
+      options = list(na.rm = na.rm)
+    )
+  }
+  results <- list()
+  for (i in seq_along(exprs)) {
+    # Iterate over the indices and not the names because names may be repeated
+    # (which overwrites the previous name)
+    new_var <- names(exprs)[i]
+    results[[new_var]] <- arrow_eval(exprs[[i]], mask)
+    if (inherits(results[[new_var]], "try-error")) {
+      msg <- paste('Expression', as_label(exprs[[i]]), 'not supported in Arrow')
+      stop(msg, call. = FALSE)
+    }
+    # Put it in the data mask too?
+    #mask[[new_var]] <- mask$.data[[new_var]] <- results[[new_var]]
+  }
+  # Now, from that, split out the array (expressions) and options
+  opts <- lapply(results, function(x) x[c("fun", "options")])
+  inputs <- lapply(results, function(x) eval_array_expression(x$data, .data$.data))
+  grouping_vars <- lapply(.data$group_by_vars, function(x) eval_array_expression(.data$selected_columns[[x]], .data$.data))
+  compute__GroupBy(inputs, grouping_vars, opts)
+}
 
 group_by.arrow_dplyr_query <- function(.data,
                                        ...,

@@ -764,7 +764,7 @@ mod tests {
 
     fn make_ctx_state() -> ExecutionContextState {
         ExecutionContextState {
-            datasources: HashMap::new(),
+            catalogs: HashMap::new(),
             scalar_functions: HashMap::new(),
             var_provider: HashMap::new(),
             aggregate_functions: HashMap::new(),

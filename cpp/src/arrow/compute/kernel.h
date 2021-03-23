@@ -537,7 +537,8 @@ struct Kernel {
       : signature(std::move(sig)), init(std::move(init)) {}
 
   Kernel(std::vector<InputType> in_types, OutputType out_type, KernelInit init)
-      : Kernel(KernelSignature::Make(std::move(in_types), out_type), std::move(init)) {}
+      : Kernel(KernelSignature::Make(std::move(in_types), std::move(out_type)),
+               std::move(init)) {}
 
   /// \brief The "signature" of the kernel containing the InputType input
   /// argument validators and OutputType output type and shape resolver.
@@ -574,7 +575,8 @@ struct ArrayKernel : public Kernel {
 
   ArrayKernel(std::vector<InputType> in_types, OutputType out_type, ArrayKernelExec exec,
               KernelInit init = NULLPTR)
-      : Kernel(std::move(in_types), std::move(out_type), init), exec(std::move(exec)) {}
+      : Kernel(std::move(in_types), std::move(out_type), std::move(init)),
+        exec(std::move(exec)) {}
 
   /// \brief Perform a single invocation of this kernel. Depending on the
   /// implementation, it may only write into preallocated memory, while in some
@@ -617,7 +619,7 @@ struct VectorKernel : public ArrayKernel {
   VectorKernel() = default;
 
   VectorKernel(std::shared_ptr<KernelSignature> sig, ArrayKernelExec exec)
-      : ArrayKernel(std::move(sig), exec) {}
+      : ArrayKernel(std::move(sig), std::move(exec)) {}
 
   VectorKernel(std::vector<InputType> in_types, OutputType out_type, ArrayKernelExec exec,
                KernelInit init = NULLPTR, VectorFinalize finalize = NULLPTR)
@@ -680,12 +682,12 @@ using ScalarAggregateFinalize = std::function<void(KernelContext*, Datum*)>;
 /// * finalize: produces the end result of the aggregation using the
 ///   KernelState in the KernelContext.
 struct ScalarAggregateKernel : public Kernel {
-  ScalarAggregateKernel() {}
+  ScalarAggregateKernel() = default;
 
   ScalarAggregateKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                         ScalarAggregateConsume consume, ScalarAggregateMerge merge,
                         ScalarAggregateFinalize finalize)
-      : Kernel(std::move(sig), init),
+      : Kernel(std::move(sig), std::move(init)),
         consume(std::move(consume)),
         merge(std::move(merge)),
         finalize(std::move(finalize)) {}
@@ -693,12 +695,58 @@ struct ScalarAggregateKernel : public Kernel {
   ScalarAggregateKernel(std::vector<InputType> in_types, OutputType out_type,
                         KernelInit init, ScalarAggregateConsume consume,
                         ScalarAggregateMerge merge, ScalarAggregateFinalize finalize)
-      : ScalarAggregateKernel(KernelSignature::Make(std::move(in_types), out_type), init,
-                              consume, merge, finalize) {}
+      : ScalarAggregateKernel(
+            KernelSignature::Make(std::move(in_types), std::move(out_type)),
+            std::move(init), std::move(consume), std::move(merge), std::move(finalize)) {}
 
   ScalarAggregateConsume consume;
   ScalarAggregateMerge merge;
   ScalarAggregateFinalize finalize;
+};
+
+// ----------------------------------------------------------------------
+// HashAggregateKernel (for HashAggregateFunction)
+
+using HashAggregateConsume = std::function<void(KernelContext*, const ExecBatch&)>;
+
+using HashAggregateMerge =
+    std::function<void(KernelContext*, KernelState&&, KernelState*)>;
+
+// Finalize returns Datum to permit multiple return values
+using HashAggregateFinalize = std::function<void(KernelContext*, Datum*)>;
+
+/// \brief Kernel data structure for implementations of
+/// HashAggregateFunction. The four necessary components of an aggregation
+/// kernel are the init, consume, merge, and finalize functions.
+///
+/// * init: creates a new KernelState for a kernel.
+/// * consume: processes an ExecBatch (which includes the argument as well
+///   as an array of group identifiers) and updates the KernelState found in the
+///   KernelContext.
+/// * merge: combines one KernelState with another.
+/// * finalize: produces the end result of the aggregation using the
+///   KernelState in the KernelContext.
+struct HashAggregateKernel : public Kernel {
+  HashAggregateKernel() = default;
+
+  HashAggregateKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
+                      HashAggregateConsume consume, HashAggregateMerge merge,
+                      HashAggregateFinalize finalize)
+      : Kernel(std::move(sig), std::move(init)),
+        consume(std::move(consume)),
+        merge(std::move(merge)),
+        finalize(std::move(finalize)) {}
+
+  HashAggregateKernel(std::vector<InputType> in_types, OutputType out_type,
+                      KernelInit init, HashAggregateMerge merge,
+                      HashAggregateConsume consume, HashAggregateFinalize finalize)
+      : HashAggregateKernel(
+            KernelSignature::Make(std::move(in_types), std::move(out_type)),
+            std::move(init), std::move(consume), std::move(merge), std::move(finalize)) {}
+
+  HashAggregateConsume consume;
+  HashAggregateMerge merge;
+  HashAggregateFinalize finalize;
 };
 
 }  // namespace compute
