@@ -42,6 +42,7 @@
 #include "arrow/table.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
@@ -102,7 +103,7 @@ std::unique_ptr<GeneratedRecordBatch<Gen>> MakeGeneratedRecordBatch(
 
 std::unique_ptr<RecordBatchReader> MakeGeneratedRecordBatch(
     std::shared_ptr<Schema> schema, int64_t batch_size, int64_t batch_repetitions) {
-  auto batch = ConstantArrayGenerator::Zeroes(batch_size, schema);
+  auto batch = random::GenerateBatch(schema->fields(), batch_size, /*seed=*/0);
   int64_t i = 0;
   return MakeGeneratedRecordBatch(
       schema, [batch, i, batch_repetitions](std::shared_ptr<RecordBatch>* out) mutable {

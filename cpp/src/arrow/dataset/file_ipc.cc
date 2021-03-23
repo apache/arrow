@@ -81,15 +81,27 @@ class IpcScanTask : public ScanTask {
 
   Result<RecordBatchIterator> Execute() override {
     struct Impl {
-      static Result<RecordBatchIterator> Make(
-          const FileSource& source, std::vector<std::string> materialized_fields,
-          MemoryPool* pool) {
+      static Result<RecordBatchIterator> Make(const FileSource& source,
+                                              FileFormat* format,
+                                              ScanOptions* scan_options) {
         ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source));
 
-        auto options = default_read_options();
-        options.memory_pool = pool;
-        ARROW_ASSIGN_OR_RAISE(options.included_fields,
-                              GetIncludedFields(*reader->schema(), materialized_fields));
+        ARROW_ASSIGN_OR_RAISE(
+            auto ipc_scan_options,
+            GetFragmentScanOptions<IpcFragmentScanOptions>(
+                kIpcTypeName, scan_options, format->default_fragment_scan_options));
+        auto options = ipc_scan_options->options ? *ipc_scan_options->options
+                                                 : default_read_options();
+        options.memory_pool = scan_options->pool;
+        options.use_threads = false;
+        if (!options.included_fields.empty()) {
+          // Cannot set them ehre
+          return Status::Invalid(
+              "Cannot set included_fields in scan options for IPC fragments");
+        }
+        ARROW_ASSIGN_OR_RAISE(
+            options.included_fields,
+            GetIncludedFields(*reader->schema(), scan_options->MaterializedFields()));
 
         ARROW_ASSIGN_OR_RAISE(reader, OpenReader(source, options));
         return RecordBatchIterator(Impl{std::move(reader), 0});
@@ -107,7 +119,9 @@ class IpcScanTask : public ScanTask {
       int i_;
     };
 
-    return Impl::Make(source_, options_->MaterializedFields(), options_->pool);
+    return Impl::Make(
+        source_, internal::checked_pointer_cast<FileFragment>(fragment_)->format().get(),
+        options_.get());
   }
 
  private:
