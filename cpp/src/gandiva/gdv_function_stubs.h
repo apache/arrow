@@ -69,14 +69,18 @@ double gdv_fn_castFLOAT8_utf8(int64_t context, const char* data, int32_t data_le
 
 GANDIVA_EXPORT
 const char* gdv_fn_to_char_int32_int64(int64_t context, int32_t value, int64_t len,
+                                           const char* pattern,
                                            int32_t* out_len);
 GANDIVA_EXPORT
 const char* gdv_fn_to_char_int64_int64(int64_t context, int64_t value, int64_t len,
+                                       const char* pattern,
                                            int32_t* out_len);
 GANDIVA_EXPORT
 const char* gdv_fn_to_char_float32_int64(int64_t context, float value, int64_t len,
+                                         const char* pattern,
                                              int32_t* out_len);
 GANDIVA_EXPORT
 const char* gdv_fn_to_char_float64_int64(int64_t context, double value, int64_t len,
+                                         const char* pattern,
                                              int32_t* out_len);
 }
