@@ -268,15 +268,27 @@ arrow_eval <- function (expr, mask) {
     # else, for things not supported by Arrow return a "try-error",
     # which we'll handle differently
     msg <- conditionMessage(e)
-    # TODO(ARROW-11700): internationalization
-    if (grepl("object '.*'.not.found", msg)) {
-      stop(e)
+    patterns <- dplyr_functions$i18ized_error_pattern
+    if (is.null(patterns)) {
+      patterns <- i18ize_error_messages()
+      # Memoize it
+      dplyr_functions$i18ized_error_pattern <- patterns
     }
-    if (grepl('could not find function ".*"', msg)) {
+    if (grepl(patterns, msg)) {
       stop(e)
     }
     invisible(structure(msg, class = "try-error", condition = e))
   })
+}
+
+i18ize_error_messages <- function() {
+  # Figure out what the error messages will be with this LANGUAGE
+  # so that we can look for them
+  out <- list(
+    obj = tryCatch(X_____X, error = function(e) conditionMessage(e)),
+    fun = tryCatch(X_____X(), error = function(e) conditionMessage(e))
+  )
+  paste(map(out, ~sub("X_____X", ".*", .)), collapse = "|")
 }
 
 # Helper to assemble the functions that go in the NSE data mask
@@ -351,13 +363,15 @@ arrow_mask <- function(.data) {
 }
 
 set_filters <- function(.data, expressions) {
-  # expressions is a list of Expressions. AND them together and set them on .data
-  new_filter <- Reduce("&", expressions)
-  if (isTRUE(.data$filtered_rows)) {
-    # TRUE is default (i.e. no filter yet), so we don't need to & with it
-    .data$filtered_rows <- new_filter
-  } else {
-    .data$filtered_rows <- .data$filtered_rows & new_filter
+  if (length(expressions)) {
+    # expressions is a list of Expressions. AND them together and set them on .data
+    new_filter <- Reduce("&", expressions)
+    if (isTRUE(.data$filtered_rows)) {
+      # TRUE is default (i.e. no filter yet), so we don't need to & with it
+      .data$filtered_rows <- new_filter
+    } else {
+      .data$filtered_rows <- .data$filtered_rows & new_filter
+    }
   }
   .data
 }

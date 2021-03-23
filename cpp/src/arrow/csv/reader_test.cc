@@ -30,6 +30,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/future.h"
 #include "arrow/util/thread_pool.h"
