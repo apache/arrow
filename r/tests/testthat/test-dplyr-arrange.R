@@ -43,6 +43,13 @@ test_that("arrange", {
   )
   expect_dplyr_equal(
     input %>%
+      arrange(int, desc(desc(dbl))) %>%
+      collect(),
+    tbl %>%
+      slice_sample(prop = 1L)
+  )
+  expect_dplyr_equal(
+    input %>%
       arrange(int) %>%
       arrange(desc(dbl)) %>%
       collect(),
@@ -50,39 +57,75 @@ test_that("arrange", {
       slice_sample(prop = 1L)
   )
   expect_dplyr_equal(
-    tbl %>%
-      Table$create() %>%
-      arrange(int + dbl) %>%
+    input %>%
+      arrange(int + dbl, chr) %>%
       collect(),
     tbl %>%
       slice_sample(prop = 1L)
   )
   expect_dplyr_equal(
+    input %>%
+      mutate(zzz = int + dbl,) %>%
+      arrange(zzz, chr) %>%
+      collect(),
     tbl %>%
-      Table$create() %>%
+      slice_sample(prop = 1L)
+  )
+  expect_dplyr_equal(
+    input %>%
       mutate(zzz = int + dbl) %>%
-      arrange(zzz) %>%
+      arrange(int + dbl, chr) %>%
       collect(),
     tbl %>%
       slice_sample(prop = 1L)
   )
   expect_dplyr_equal(
-    tbl %>%
-      Table$create() %>%
-      mutate(zzz = int + dbl) %>%
-      arrange(int + dbl) %>%
-      collect(),
-    tbl %>%
-      slice_sample(prop = 1L)
-  )
-  expect_dplyr_equal(
-    tbl %>%
-      Table$create() %>%
+    input %>%
       mutate(int + dbl) %>%
-      arrange(int + dbl) %>%
+      arrange(int + dbl, chr) %>%
       collect(),
     tbl %>%
       slice_sample(prop = 1L)
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(grp) %>%
+      arrange(int, dbl) %>%
+      collect(),
+    tbl %>%
+      slice_sample(prop = 1L)
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(grp) %>%
+      arrange(int, dbl, .by_group = TRUE) %>%
+      collect(),
+    tbl %>%
+      slice_sample(prop = 1L)
+  )
+  expect_dplyr_equal(
+    input %>%
+      group_by(grp, grp2) %>%
+      arrange(int, dbl, .by_group = TRUE) %>%
+      collect(),
+    tbl %>%
+      mutate(grp2 = ifelse(is.na(lgl), 1L, as.integer(lgl))) %>%
+      slice_sample(prop = 1L)
+  )
+  expect_warning(
+    expect_equal(
+      tbl %>%
+        slice_sample(prop = 1L) %>%
+        Table$create() %>%
+        arrange(abs(int), dbl) %>%
+        collect(),
+      tbl %>%
+        slice_sample(prop = 1L) %>%
+        arrange(abs(int), dbl) %>%
+        collect()
+    ),
+    "not supported in Arrow",
+    fixed = TRUE
   )
   expect_error(
     tbl %>%
@@ -91,17 +134,4 @@ test_that("arrange", {
     "does not contain any field names",
     fixed = TRUE
   )
-  expect_warning(
-    expect_dplyr_equal(
-      tbl %>%
-        Table$create() %>%
-        arrange(abs(int)) %>%
-        collect(),
-      tbl %>%
-        slice_sample(prop = 1L)
-    ),
-    "not supported in Arrow",
-    fixed = TRUE
-  )
-  # TODO: test the other unsupported cases and error conditions
 })
