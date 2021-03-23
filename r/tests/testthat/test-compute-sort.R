@@ -39,16 +39,43 @@ test_that("Array sort", {
   )
   expect_equal(
     as.vector(sort(Array$create(tbl$int))),
+    sort(tbl$int)
+  )
+  expect_equal(
+    as.vector(sort(Array$create(tbl$int), na.last = NA)),
+    sort(tbl$int, na.last = NA)
+  )
+  expect_equal(
+    as.vector(sort(Array$create(tbl$int), na.last = TRUE)),
     sort(tbl$int, na.last = TRUE)
   )
   expect_equal(
+    as.vector(sort(Array$create(tbl$int), na.last = FALSE)),
+    sort(tbl$int, na.last = FALSE)
+  )
+  expect_equal(
     as.vector(sort(Array$create(tbl$int), decreasing = TRUE)),
+    sort(tbl$int, decreasing = TRUE)
+  )
+  expect_equal(
+    as.vector(sort(Array$create(tbl$int), decreasing = TRUE, na.last = TRUE)),
     sort(tbl$int, decreasing = TRUE, na.last = TRUE)
   )
-  expect_error(
-    sort(Array$create(tbl$int), decreasing = TRUE, na.last = NA),
-    "na.last",
-    fixed = TRUE
+  expect_equal(
+    as.vector(sort(Array$create(tbl$int), decreasing = TRUE, na.last = FALSE)),
+    sort(tbl$int, decreasing = TRUE, na.last = FALSE)
+  )
+  expect_equal(
+    as.vector(sort(Array$create(tbl$chr), decreasing = TRUE, na.last = FALSE)),
+    sort(tbl$chr, decreasing = TRUE, na.last = FALSE)
+  )
+})
+
+test_that("Array sort treats NaN as NA", {
+  skip("ARROW-12055")
+  expect_equal(
+    as.vector(sort(Array$create(tbl$dbl), decreasing = TRUE, na.last = FALSE)),
+    sort(tbl$dbl, decreasing = TRUE, na.last = FALSE)
   )
 })
 
@@ -63,16 +90,35 @@ test_that("ChunkedArray sort", {
   )
   expect_equal(
     as.vector(sort(ChunkedArray$create(tbl$int[1:5], tbl$int[6:10]))),
+    sort(tbl$int)
+  )
+  expect_equal(
+    as.vector(sort(ChunkedArray$create(tbl$int[1:5], tbl$int[6:10]), na.last = NA)),
+    sort(tbl$int, na.last = NA)
+  )
+  expect_equal(
+    as.vector(sort(ChunkedArray$create(tbl$int[1:5], tbl$int[6:10]), na.last = TRUE)),
     sort(tbl$int, na.last = TRUE)
   )
   expect_equal(
+    as.vector(sort(ChunkedArray$create(tbl$int[1:5], tbl$int[6:10]), na.last = FALSE)),
+    sort(tbl$int, na.last = FALSE)
+  )
+  expect_equal(
     as.vector(sort(ChunkedArray$create(tbl$int[1:5], tbl$int[6:10]), decreasing = TRUE)),
+    sort(tbl$int, decreasing = TRUE)
+  )
+  expect_equal(
+    as.vector(sort(ChunkedArray$create(tbl$int[1:5], tbl$int[6:10]), decreasing = TRUE, na.last = TRUE)),
     sort(tbl$int, decreasing = TRUE, na.last = TRUE)
   )
-  expect_error(
-    sort(ChunkedArray$create(tbl$int), decreasing = TRUE, na.last = NA),
-    "na.last",
-    fixed = TRUE
+  expect_equal(
+    as.vector(sort(ChunkedArray$create(tbl$int[1:5], tbl$int[6:10]), decreasing = TRUE, na.last = FALSE)),
+    sort(tbl$int, decreasing = TRUE, na.last = FALSE)
+  )
+  expect_equal(
+    as.vector(sort(ChunkedArray$create(tbl$chr[1:5], tbl$chr[6:10]), decreasing = TRUE, na.last = FALSE)),
+    sort(tbl$chr, decreasing = TRUE, na.last = FALSE)
   )
 })
 

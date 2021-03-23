@@ -140,9 +140,14 @@ as.integer.ArrowDatum <- function(x, ...) as.integer(as.vector(x), ...)
 as.character.ArrowDatum <- function(x, ...) as.character(as.vector(x), ...)
 
 #' @export
-sort.ArrowDatum <- function(x, decreasing = FALSE, na.last = TRUE, ...) {
-  if (!identical(na.last, TRUE)) {
-    stop("Arrow only supports sort() with na.last = TRUE", call. = FALSE)
+sort.ArrowDatum <- function(x, decreasing = FALSE, na.last = NA, ...) {
+  if (is.na(na.last)) {
+    x <- x$Filter(!is.na(x))
+    x$Take(x$SortIndices(descending = decreasing))
+  } else if (na.last) {
+    x$Take(x$SortIndices(descending = decreasing))
+  } else {
+    x <- Table$create(x = x, isnax = as.integer(is.na(x)))
+    x$x$Take(x$SortIndices(names = c("isnax", "x"), descending = c(TRUE, decreasing)))
   }
-  x$Take(x$SortIndices(descending = decreasing))
 }
