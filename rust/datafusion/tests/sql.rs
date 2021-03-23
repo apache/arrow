@@ -1946,20 +1946,46 @@ async fn query_cte() -> Result<()> {
     // Should evaluate expressions in project position.
     let mut ctx = ExecutionContext::new();
 
+    // simple with
     let sql = "WITH t AS (SELECT 1) SELECT * FROM t";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![vec!["1"]];
     assert_eq!(expected, actual);
 
+    // with + union
     let sql = "WITH t AS (SELECT 1 AS a), u AS (SELECT 2 AS a) SELECT * FROM t UNION ALL SELECT * FROM u";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![vec!["1"], vec!["2"]];
     assert_eq!(expected, actual);
 
+    // with + join
     let sql = "WITH t AS (SELECT 1 AS id1), u AS (SELECT 1 AS id2, 5 as x) SELECT x FROM t JOIN u ON (id1 = id2)";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![vec!["5"]];
     assert_eq!(expected, actual);
+
+    // backward reference
+    let sql = "WITH t AS (SELECT 1 AS id1), u AS (SELECT * FROM t) SELECT * from u";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![vec!["1"]];
+    assert_eq!(expected, actual);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn query_cte_incorrect() -> Result<()> {
+    let ctx = ExecutionContext::new();
+
+    // self reference
+    let sql = "WITH t AS (SELECT * FROM t) SELECT * from u";
+    let plan = ctx.create_logical_plan(&sql);
+    assert!(plan.is_err());
+
+    // forward referencing
+    let sql = "WITH t AS (SELECT * FROM u), u AS (SELECT 1) SELECT * from u";
+    let plan = ctx.create_logical_plan(&sql);
+    assert!(plan.is_err());
 
     Ok(())
 }
