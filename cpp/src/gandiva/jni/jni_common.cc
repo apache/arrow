@@ -368,6 +368,14 @@ NodePtr ProtoTypeToInNode(const types::InNode& node) {
     return TreeExprBuilder::MakeInExpressionInt64(field, long_values);
   }
 
+  if (node.has_decimalvalues()) {
+    std::unordered_set<gandiva::DecimalScalar128> decimal_values;
+    for (int i = 0; i < node.decimal_values().decimalvalues_size(); i++) {
+      decimal_values.insert(node.decimal_values().decimalvalues(i).value());
+    }
+    return TreeExprBuilder::MakeInExpressionDecimal(field, decimal_values);
+  }
+
   if (node.has_stringvalues()) {
     std::unordered_set<std::string> stringvalues;
     for (int i = 0; i < node.stringvalues().stringvalues_size(); i++) {
