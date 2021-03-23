@@ -148,17 +148,6 @@ gdv_int32 utf8_char_length(char c) {
 }
 
 FORCE_INLINE
-char* numeric_to_char(gdv_int64 context, int number, gdv_int32 data_len) {
-
-    char* converted_number;
-    converted_number = strdup(std::to_string(number).c_str());
-
-    return converted_number;
-}
-
-
-
-FORCE_INLINE
 void set_error_for_invalid_utf(int64_t execution_context, char val) {
   char const* fmt = "unexpected byte \\%02hhx encountered while decoding utf8 string";
   int size = static_cast<int>(strlen(fmt)) + 64;
