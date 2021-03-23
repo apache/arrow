@@ -39,6 +39,12 @@ pub struct Field {
     metadata: Option<BTreeMap<String, String>>,
 }
 
+impl Default for Field {
+    fn default() -> Self {
+        Field::new("", DataType::Null, false)
+    }
+}
+
 impl Field {
     /// Creates a new field
     pub fn new(name: &str, data_type: DataType, nullable: bool) -> Self {

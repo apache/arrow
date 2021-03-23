@@ -85,10 +85,12 @@ use std::{
     sync::Arc,
 };
 
+use crate::array::ArrayData;
 use crate::buffer::Buffer;
 use crate::datatypes::{DataType, TimeUnit};
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
+use std::convert::TryFrom;
 
 /// ABI-compatible struct for `ArrowSchema` from C Data Interface
 /// See <https://arrow.apache.org/docs/format/CDataInterface.html#structure-definitions>
@@ -117,20 +119,29 @@ unsafe extern "C" fn release_schema(schema: *mut FFI_ArrowSchema) {
     schema.release = None;
 }
 
+struct SchemaPrivateData {
+    children: Box<[*mut FFI_ArrowSchema]>,
+}
+
 impl FFI_ArrowSchema {
     /// create a new [FFI_ArrowSchema] from a format.
-    fn new(format: &str) -> FFI_ArrowSchema {
+    fn new(format: &str, children: Vec<*mut FFI_ArrowSchema>) -> FFI_ArrowSchema {
+        let children = children.into_boxed_slice();
+        let n_children = children.len() as i64;
+        let children_ptr = children.as_ptr() as *mut *mut FFI_ArrowSchema;
+
+        let private_data = Box::new(SchemaPrivateData { children });
         // <https://arrow.apache.org/docs/format/CDataInterface.html#c.ArrowSchema>
         FFI_ArrowSchema {
             format: CString::new(format).unwrap().into_raw(),
             name: std::ptr::null_mut(),
             metadata: std::ptr::null_mut(),
             flags: 0,
-            n_children: 0,
-            children: ptr::null_mut(),
+            n_children,
+            children: children_ptr,
             dictionary: std::ptr::null_mut(),
             release: Some(release_schema),
-            private_data: std::ptr::null_mut(),
+            private_data: Box::into_raw(private_data) as *mut ::std::os::raw::c_void,
         }
     }
 
@@ -193,6 +204,8 @@ fn to_datatype(format: &str) -> Result<DataType> {
         "ttm" => DataType::Time32(TimeUnit::Millisecond),
         "ttu" => DataType::Time64(TimeUnit::Microsecond),
         "ttn" => DataType::Time64(TimeUnit::Nanosecond),
+        "+l" => DataType::List(Box::new(Default::default())),
+        "+L" => DataType::LargeList(Box::new(Default::default())),
         dt => {
             return Err(ArrowError::CDataInterface(format!(
                 "The datatype \"{}\" is not supported in the Rust implementation",
@@ -228,6 +241,8 @@ fn from_datatype(datatype: &DataType) -> Result<String> {
         DataType::Time32(TimeUnit::Millisecond) => "ttm",
         DataType::Time64(TimeUnit::Microsecond) => "ttu",
         DataType::Time64(TimeUnit::Nanosecond) => "ttn",
+        DataType::List(_) => "+l",
+        DataType::LargeList(_) => "+L",
         z => {
             return Err(ArrowError::CDataInterface(format!(
                 "The datatype \"{:?}\" is still not supported in Rust implementation",
@@ -275,9 +290,9 @@ fn bit_width(data_type: &DataType, i: usize) -> Result<usize> {
         }
         // Variable-sized binaries: have two buffers.
         // "small": first buffer is i32, second is in bytes
-        (DataType::Utf8, 1) | (DataType::Binary, 1) => size_of::<i32>() * 8,
-        (DataType::Utf8, 2) | (DataType::Binary, 2) => size_of::<u8>() * 8,
-        (DataType::Utf8, _) | (DataType::Binary, _) => {
+        (DataType::Utf8, 1) | (DataType::Binary, 1) | (DataType::List(_), 1) => size_of::<i32>() * 8,
+        (DataType::Utf8, 2) | (DataType::Binary, 2) | (DataType::List(_), 2) => size_of::<u8>() * 8,
+        (DataType::Utf8, _) | (DataType::Binary, _) | (DataType::List(_), _)=> {
             return Err(ArrowError::CDataInterface(format!(
                 "The datatype \"{:?}\" expects 3 buffers, but requested {}. Please verify that the C data interface is correctly implemented.",
                 data_type, i
@@ -285,9 +300,9 @@ fn bit_width(data_type: &DataType, i: usize) -> Result<usize> {
         }
         // Variable-sized binaries: have two buffers.
         // LargeUtf8: first buffer is i64, second is in bytes
-        (DataType::LargeUtf8, 1) | (DataType::LargeBinary, 1) => size_of::<i64>() * 8,
-        (DataType::LargeUtf8, 2) | (DataType::LargeBinary, 2) => size_of::<u8>() * 8,
-        (DataType::LargeUtf8, _) | (DataType::LargeBinary, _) => {
+        (DataType::LargeUtf8, 1) | (DataType::LargeBinary, 1) | (DataType::LargeList(_), 1) => size_of::<i64>() * 8,
+        (DataType::LargeUtf8, 2) | (DataType::LargeBinary, 2) | (DataType::LargeList(_), 2)=> size_of::<u8>() * 8,
+        (DataType::LargeUtf8, _) | (DataType::LargeBinary, _) | (DataType::LargeList(_), _)=> {
             return Err(ArrowError::CDataInterface(format!(
                 "The datatype \"{:?}\" expects 3 buffers, but requested {}. Please verify that the C data interface is correctly implemented.",
                 data_type, i
@@ -340,6 +355,7 @@ unsafe extern "C" fn release_array(array: *mut FFI_ArrowArray) {
 struct PrivateData {
     buffers: Vec<Option<Buffer>>,
     buffers_ptr: Box<[*const std::os::raw::c_void]>,
+    children: Box<[*mut FFI_ArrowArray]>,
 }
 
 impl FFI_ArrowArray {
@@ -353,6 +369,7 @@ impl FFI_ArrowArray {
         offset: i64,
         n_buffers: i64,
         buffers: Vec<Option<Buffer>>,
+        children: Vec<*mut FFI_ArrowArray>,
     ) -> Self {
         let buffers_ptr = buffers
             .iter()
@@ -364,11 +381,16 @@ impl FFI_ArrowArray {
             .collect::<Box<[_]>>();
         let pointer = buffers_ptr.as_ptr() as *mut *const std::ffi::c_void;
 
+        let children = children.into_boxed_slice();
+        let children_ptr = children.as_ptr() as *mut *mut FFI_ArrowArray;
+        let n_children = children.len() as i64;
+
         // create the private data owning everything.
         // any other data must be added here, e.g. via a struct, to track lifetime.
         let private_data = Box::new(PrivateData {
             buffers,
             buffers_ptr,
+            children,
         });
 
         Self {
@@ -376,9 +398,9 @@ impl FFI_ArrowArray {
             null_count,
             offset,
             n_buffers,
-            n_children: 0,
+            n_children,
             buffers: pointer,
-            children: std::ptr::null_mut(),
+            children: children_ptr,
             dictionary: std::ptr::null_mut(),
             release: Some(release_array),
             private_data: Box::into_raw(private_data) as *mut ::std::os::raw::c_void,
@@ -423,6 +445,27 @@ unsafe fn create_buffer(
     let ptr = *buffers.add(index);
 
     NonNull::new(ptr as *mut u8).map(|ptr| Buffer::from_unowned(ptr, len, array))
+}
+
+unsafe fn create_child_arrays(
+    array: Arc<FFI_ArrowArray>,
+    schema: Arc<FFI_ArrowSchema>,
+) -> Result<Vec<ArrayData>> {
+    if array.n_children == 0 {
+        return Ok(vec![]);
+    }
+    let mut children = Vec::with_capacity(array.n_children as usize);
+    for i in 0..array.n_children as usize {
+        let arr_ptr = *array.children.add(i);
+        let schema_ptr = *schema.children.add(i);
+        let arrow_arr = ArrowArray::try_from_raw(
+            arr_ptr as *const FFI_ArrowArray,
+            schema_ptr as *const FFI_ArrowSchema,
+        )?;
+        let data = ArrayData::try_from(arrow_arr)?;
+        children.push(data)
+    }
+    Ok(children)
 }
 
 impl Drop for FFI_ArrowArray {
@@ -471,7 +514,7 @@ impl ArrowArray {
         null_buffer: Option<Buffer>,
         offset: usize,
         buffers: Vec<Buffer>,
-        _child_data: Vec<ArrowArray>,
+        child_data: Vec<ArrowArray>,
     ) -> Result<Self> {
         let format = from_datatype(data_type)?;
         // * insert the null buffer at the start
@@ -480,13 +523,23 @@ impl ArrowArray {
             .chain(buffers.iter().map(|b| Some(b.clone())))
             .collect::<Vec<_>>();
 
-        let schema = Arc::new(FFI_ArrowSchema::new(&format));
+        let mut ffi_arrow_arrays = Vec::with_capacity(child_data.len());
+        let mut ffi_arrow_schemas = Vec::with_capacity(child_data.len());
+
+        child_data.into_iter().for_each(|arrow_arr| {
+            let (arr, schema) = ArrowArray::into_raw(arrow_arr);
+            ffi_arrow_arrays.push(arr as *mut FFI_ArrowArray);
+            ffi_arrow_schemas.push(schema as *mut FFI_ArrowSchema);
+        });
+
+        let schema = Arc::new(FFI_ArrowSchema::new(&format, ffi_arrow_schemas));
         let array = Arc::new(FFI_ArrowArray::new(
             len as i64,
             null_count as i64,
             offset as i64,
             new_buffers.len() as i64,
             new_buffers,
+            ffi_arrow_arrays,
         ));
 
         Ok(ArrowArray { schema, array })
@@ -548,13 +601,15 @@ impl ArrowArray {
             (DataType::Utf8, 1)
             | (DataType::LargeUtf8, 1)
             | (DataType::Binary, 1)
-            | (DataType::LargeBinary, 1) => {
+            | (DataType::LargeBinary, 1)
+            | (DataType::List(_), 1)
+            | (DataType::LargeList(_), 1) => {
                 // the len of the offset buffer (buffer 1) equals length + 1
                 let bits = bit_width(data_type, i)?;
                 debug_assert_eq!(bits % 8, 0);
                 (self.array.length as usize + 1) * (bits / 8)
             }
-            (DataType::Utf8, 2) | (DataType::Binary, 2) => {
+            (DataType::Utf8, 2) | (DataType::Binary, 2) | (DataType::List(_), 2) => {
                 // the len of the data buffer (buffer 2) equals the last value of the offset buffer (buffer 1)
                 let len = self.buffer_len(1)?;
                 // first buffer is the null buffer => add(1)
@@ -566,7 +621,9 @@ impl ArrowArray {
                 // get last offset
                 (unsafe { *offset_buffer.add(len / size_of::<i32>() - 1) }) as usize
             }
-            (DataType::LargeUtf8, 2) | (DataType::LargeBinary, 2) => {
+            (DataType::LargeUtf8, 2)
+            | (DataType::LargeBinary, 2)
+            | (DataType::LargeList(_), 2) => {
                 // the len of the data buffer (buffer 2) equals the last value of the offset buffer (buffer 1)
                 let len = self.buffer_len(1)?;
                 // first buffer is the null buffer => add(1)
@@ -607,6 +664,10 @@ impl ArrowArray {
             .collect()
     }
 
+    pub fn children(&self) -> Result<Vec<ArrayData>> {
+        unsafe { create_child_arrays(self.array.clone(), self.schema.clone()) }
+    }
+
     /// the length of the array
     pub fn len(&self) -> usize {
         self.array.length as usize
@@ -638,11 +699,14 @@ mod tests {
     use super::*;
     use crate::array::{
         make_array, Array, ArrayData, BinaryOffsetSizeTrait, BooleanArray,
-        GenericBinaryArray, GenericStringArray, Int32Array, StringOffsetSizeTrait,
-        Time32MillisecondArray,
+        GenericBinaryArray, GenericListArray, GenericStringArray, Int32Array,
+        OffsetSizeTrait, StringOffsetSizeTrait, Time32MillisecondArray,
     };
     use crate::compute::kernels;
+    use crate::datatypes::Field;
     use std::convert::TryFrom;
+    use std::iter::FromIterator;
+    use std::sync::Arc;
 
     #[test]
     fn test_round_trip() -> Result<()> {
@@ -710,6 +774,71 @@ mod tests {
     #[test]
     fn test_large_string() -> Result<()> {
         test_generic_string::<i64>()
+    }
+
+    fn test_generic_list<Offset: OffsetSizeTrait>() -> Result<()> {
+        // Construct a value array
+        let value_data = ArrayData::builder(DataType::Int32)
+            .len(8)
+            .add_buffer(Buffer::from_slice_ref(&[0, 1, 2, 3, 4, 5, 6, 7]))
+            .build();
+
+        // Construct a buffer for value offsets, for the nested array:
+        //  [[0, 1, 2], [3, 4, 5], [6, 7]]
+        let value_offsets = Buffer::from_iter(
+            [0usize, 3, 6, 8]
+                .iter()
+                .map(|i| Offset::from_usize(*i).unwrap()),
+        );
+
+        // Construct a list array from the above two
+        let list_data_type = match std::mem::size_of::<Offset>() {
+            4 => DataType::List(Box::new(Field::new("item", DataType::Int32, false))),
+            _ => {
+                DataType::LargeList(Box::new(Field::new("item", DataType::Int32, false)))
+            }
+        };
+
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .len(3)
+            .add_buffer(value_offsets.clone())
+            .add_child_data(value_data.clone())
+            .build();
+
+        // create an array natively
+        let array = GenericListArray::<Offset>::from(list_data.clone());
+
+        // export it
+        let array = ArrowArray::try_from(array.data().clone())?;
+
+        // (simulate consumer) import it
+        let data = ArrayData::try_from(array)?;
+        let array = make_array(data);
+
+        // perform some operation
+        let array = array
+            .as_any()
+            .downcast_ref::<GenericListArray<Offset>>()
+            .unwrap();
+
+        // verify
+        let expected = GenericListArray::<Offset>::from(list_data);
+        assert_eq!(&array.value(0), &expected.value(0));
+        assert_eq!(&array.value(1), &expected.value(1));
+        assert_eq!(&array.value(2), &expected.value(2));
+
+        // (drop/release)
+        Ok(())
+    }
+
+    #[test]
+    fn test_list() -> Result<()> {
+        test_generic_list::<i32>()
+    }
+
+    #[test]
+    fn test_large_list() -> Result<()> {
+        test_generic_list::<i64>()
     }
 
     fn test_generic_binary<Offset: BinaryOffsetSizeTrait>() -> Result<()> {

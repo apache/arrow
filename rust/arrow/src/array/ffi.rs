@@ -25,17 +25,35 @@ use crate::{
 };
 
 use super::ArrayData;
+use crate::datatypes::{DataType, Field};
+use crate::ffi::ArrowArray;
 
 impl TryFrom<ffi::ArrowArray> for ArrayData {
     type Error = ArrowError;
 
     fn try_from(value: ffi::ArrowArray) -> Result<Self> {
         let data_type = value.data_type()?;
+
         let len = value.len();
         let offset = value.offset();
         let null_count = value.null_count();
         let buffers = value.buffers()?;
         let null_bit_buffer = value.null_bit_buffer();
+        let child_data = value.children()?;
+
+        let data_type = match data_type {
+            DataType::List(_) => DataType::List(Box::new(Field::new(
+                "",
+                child_data[0].data_type().clone(),
+                false,
+            ))),
+            DataType::LargeList(_) => DataType::LargeList(Box::new(Field::new(
+                "",
+                child_data[0].data_type().clone(),
+                false,
+            ))),
+            dt => dt,
+        };
 
         Ok(ArrayData::new(
             data_type,
@@ -44,9 +62,7 @@ impl TryFrom<ffi::ArrowArray> for ArrayData {
             null_bit_buffer,
             offset,
             buffers,
-            // this is empty because ffi still does not support it.
-            // this is ok because FFI only supports datatypes without childs
-            vec![],
+            child_data,
         ))
     }
 }
@@ -60,6 +76,11 @@ impl TryFrom<ArrayData> for ffi::ArrowArray {
         let null_count = value.null_count();
         let buffers = value.buffers().to_vec();
         let null_buffer = value.null_buffer().cloned();
+        let child_data = value
+            .child_data()
+            .into_iter()
+            .map(|arr| ArrowArray::try_from((*arr).clone()).expect("infallible"))
+            .collect::<Vec<_>>();
 
         unsafe {
             ffi::ArrowArray::try_new(
@@ -69,9 +90,7 @@ impl TryFrom<ArrayData> for ffi::ArrowArray {
                 null_buffer,
                 offset,
                 buffers,
-                // this is empty because ffi still does not support it.
-                // this is ok because FFI only supports datatypes without childs
-                vec![],
+                child_data,
             )
         }
     }
