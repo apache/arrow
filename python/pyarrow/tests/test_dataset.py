@@ -487,6 +487,14 @@ def test_expression_boolean_operators():
         not true
 
 
+def test_expression_arithmetic_operators():
+    field = ds.field("field")
+    field + 1
+    field - 1
+    field * 1
+    field / 1
+
+
 def test_partition_keys():
     a, b, c = [ds.field(f) == f for f in 'abc']
     assert ds._get_partition_keys(a) == {'a': 'a'}
