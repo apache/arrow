@@ -14,6 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package bmi contains helpers for manipulating bitmaps via BMI2 extensions
+// properly falling back to pure go implementations if the CPU doesn't support
+// BMI2.
 package bmi
 
 import (

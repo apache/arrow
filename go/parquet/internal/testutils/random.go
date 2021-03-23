@@ -14,6 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package testutils contains utilities for generating random data and other
+// helpers that are used for testing the various aspects of the parquet library.
 package testutils
 
 import (

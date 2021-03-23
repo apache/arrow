@@ -1858,7 +1858,7 @@ func nullunpack32(_ io.Reader, out []uint32) {
 	}
 }
 
-func unpack32_default(in io.Reader, out []uint32, nbits int) int {
+func unpack32Default(in io.Reader, out []uint32, nbits int) int {
 	batch := len(out) / 32 * 32
 	nloops := batch / 32
 

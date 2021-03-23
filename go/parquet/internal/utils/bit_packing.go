@@ -28,8 +28,8 @@ var unpack32 func(io.Reader, []uint32, int) int
 
 func init() {
 	if cpu.X86.HasAVX2 {
-		unpack32 = unpack32_avx2
+		unpack32 = unpack32Avx2
 	} else { // default to the pure go implementation if no avx2 available
-		unpack32 = unpack32_default
+		unpack32 = unpack32Default
 	}
 }

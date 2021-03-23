@@ -60,7 +60,8 @@ func (i96 *Int96) SetNanoSeconds(nanos int64) {
 	binary.LittleEndian.PutUint64(i96[:8], uint64(nanos))
 }
 
-// Provides the string representation as a timestamp via converting to a time.Time and then calling String
+// String provides the string representation as a timestamp via converting to a time.Time
+// and then calling String
 func (i96 Int96) String() string {
 	return i96.ToTime().String()
 }
@@ -111,7 +112,7 @@ func (b ByteArray) Len() int {
 	return len(b)
 }
 
-// return a string representation of the ByteArray
+// String returns a string representation of the ByteArray
 func (b ByteArray) String() string {
 	return *(*string)(unsafe.Pointer(&b))
 }
@@ -142,7 +143,7 @@ func (b FixedLenByteArray) Len() int {
 	return len(b)
 }
 
-// Return a string representation of the FixedLenByteArray
+// String returns a string representation of the FixedLenByteArray
 func (b FixedLenByteArray) String() string {
 	return *(*string)(unsafe.Pointer(&b))
 }

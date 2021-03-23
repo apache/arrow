@@ -14,6 +14,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package utils contains various internal utilities for the parquet library
+// that aren't intended to be exposed to external consumers such as interfaces
+// and bitmap readers/writers including the RLE encoder/decoder and so on.
 package utils
 
 import (
