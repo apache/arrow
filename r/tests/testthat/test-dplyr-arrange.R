@@ -49,13 +49,40 @@ test_that("arrange", {
     tbl %>%
       slice_sample(prop = 1L)
   )
-  expect_error(
+  expect_dplyr_equal(
     tbl %>%
       Table$create() %>%
       arrange(int + dbl) %>%
       collect(),
-    "Only bare field names are supported in arrange",
-    fixed = TRUE
+    tbl %>%
+      slice_sample(prop = 1L)
+  )
+  expect_dplyr_equal(
+    tbl %>%
+      Table$create() %>%
+      mutate(zzz = int + dbl) %>%
+      arrange(zzz) %>%
+      collect(),
+    tbl %>%
+      slice_sample(prop = 1L)
+  )
+  expect_dplyr_equal(
+    tbl %>%
+      Table$create() %>%
+      mutate(zzz = int + dbl) %>%
+      arrange(int + dbl) %>%
+      collect(),
+    tbl %>%
+      slice_sample(prop = 1L)
+  )
+  expect_dplyr_equal(
+    tbl %>%
+      Table$create() %>%
+      mutate(int + dbl) %>%
+      arrange(int + dbl) %>%
+      collect(),
+    tbl %>%
+      slice_sample(prop = 1L)
   )
   expect_error(
     tbl %>%
@@ -64,5 +91,17 @@ test_that("arrange", {
     "does not contain any field names",
     fixed = TRUE
   )
-  # TODO: test the other unsupported cases
+  expect_warning(
+    expect_dplyr_equal(
+      tbl %>%
+        Table$create() %>%
+        arrange(abs(int)) %>%
+        collect(),
+      tbl %>%
+        slice_sample(prop = 1L)
+    ),
+    "not supported in Arrow",
+    fixed = TRUE
+  )
+  # TODO: test the other unsupported cases and error conditions
 })
