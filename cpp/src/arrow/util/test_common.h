@@ -56,7 +56,7 @@ struct IterationTraits<TestStr> {
   static bool IsEnd(const TestStr& val) { return val == IterationTraits<TestStr>::End(); }
 };
 
-std::vector<TestInt> RangeVector(unsigned int max);
+std::vector<TestInt> RangeVector(unsigned int max, unsigned int step = 1);
 
 template <typename T>
 inline Iterator<T> VectorIt(std::vector<T> v) {
