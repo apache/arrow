@@ -32,16 +32,19 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// important constants for handling the aes encryption
 const (
 	GcmTagLength = 16
 	NonceLength  = 12
 
-	kGcmMode          = 0
-	kCtrMode          = 1
-	kCtrIVLen         = 16
-	kBufferSizeLength = 4
+	gcmMode          = 0
+	ctrMode          = 1
+	ctrIVLen         = 16
+	bufferSizeLength = 4
 )
 
+// Module constants for constructing the AAD bytes, the order here is
+// important as the constants are set via iota.
 const (
 	FooterModule int8 = iota
 	ColumnMetaModule
@@ -62,12 +65,12 @@ type aesEncryptor struct {
 // or not it's being used to encrypt metadata.
 func NewAesEncryptor(alg parquet.Cipher, metadata bool) *aesEncryptor {
 	ret := &aesEncryptor{}
-	ret.ciphertextSizeDelta = kBufferSizeLength + NonceLength
+	ret.ciphertextSizeDelta = bufferSizeLength + NonceLength
 	if metadata || alg == parquet.AesGcm {
-		ret.mode = kGcmMode
+		ret.mode = gcmMode
 		ret.ciphertextSizeDelta += GcmTagLength
 	} else {
-		ret.mode = kCtrMode
+		ret.mode = ctrMode
 	}
 
 	return ret
@@ -80,7 +83,7 @@ func (a *aesEncryptor) CiphertextSizeDelta() int { return a.ciphertextSizeDelta 
 // SignedFooterEncrypt writes the signature for the provided footer bytes using the given key, AAD and nonce.
 // It returns the number of bytes that were written to w.
 func (a *aesEncryptor) SignedFooterEncrypt(w io.Writer, footer, key, aad, nonce []byte) int {
-	if a.mode != kGcmMode {
+	if a.mode != gcmMode {
 		panic("must use AES GCM (metadata) encryptor")
 	}
 
@@ -108,7 +111,7 @@ func (a *aesEncryptor) SignedFooterEncrypt(w io.Writer, footer, key, aad, nonce 
 	}
 	w.Write(nonce)
 	w.Write(ciphertext)
-	return kBufferSizeLength + int(bufferSize)
+	return bufferSizeLength + int(bufferSize)
 }
 
 // Encrypt calculates the ciphertext for src with the given key and aad, then writes it to w.
@@ -122,7 +125,7 @@ func (a *aesEncryptor) Encrypt(w io.Writer, src, key, aad []byte) int {
 	nonce := make([]byte, NonceLength)
 	rand.Read(nonce)
 
-	if a.mode == kGcmMode {
+	if a.mode == gcmMode {
 		aead, err := cipher.NewGCM(block)
 		if err != nil {
 			panic(err)
@@ -142,16 +145,16 @@ func (a *aesEncryptor) Encrypt(w io.Writer, src, key, aad []byte) int {
 		}
 		w.Write(nonce)
 		w.Write(ciphertext)
-		return kBufferSizeLength + bufferSize
+		return bufferSizeLength + bufferSize
 	}
 
 	// Parquet CTR IVs are comprised of a 12-byte nonce and a 4-byte initial
 	// counter field.
 	// The first 31 bits of the initial counter field are set to 0, the last bit
 	// is set to 1.
-	iv := make([]byte, kCtrIVLen)
+	iv := make([]byte, ctrIVLen)
 	copy(iv, nonce)
-	iv[kCtrIVLen-1] = 1
+	iv[ctrIVLen-1] = 1
 
 	bufferSize := NonceLength + len(src)
 	// data is written with a prefix of the size written as a little endian 32bit int.
@@ -160,7 +163,7 @@ func (a *aesEncryptor) Encrypt(w io.Writer, src, key, aad []byte) int {
 	}
 	w.Write(nonce)
 	cipher.StreamWriter{S: cipher.NewCTR(block, iv), W: w}.Write(src)
-	return kBufferSizeLength + bufferSize
+	return bufferSizeLength + bufferSize
 }
 
 type aesDecryptor struct {
@@ -172,12 +175,12 @@ type aesDecryptor struct {
 // not it is intended to be used for decrypting metadata.
 func newAesDecryptor(alg parquet.Cipher, metadata bool) *aesDecryptor {
 	ret := &aesDecryptor{}
-	ret.ciphertextSizeDelta = kBufferSizeLength + NonceLength
+	ret.ciphertextSizeDelta = bufferSizeLength + NonceLength
 	if metadata || alg == parquet.AesGcm {
-		ret.mode = kGcmMode
+		ret.mode = gcmMode
 		ret.ciphertextSizeDelta += GcmTagLength
 	} else {
-		ret.mode = kCtrMode
+		ret.mode = ctrMode
 	}
 
 	return ret
@@ -197,16 +200,16 @@ func (a *aesDecryptor) Decrypt(cipherText, key, aad []byte) []byte {
 	}
 
 	writtenCiphertextLen := binary.LittleEndian.Uint32(cipherText)
-	cipherLen := writtenCiphertextLen + kBufferSizeLength
-	nonce := cipherText[kBufferSizeLength : kBufferSizeLength+NonceLength]
+	cipherLen := writtenCiphertextLen + bufferSizeLength
+	nonce := cipherText[bufferSizeLength : bufferSizeLength+NonceLength]
 
-	if a.mode == kGcmMode {
+	if a.mode == gcmMode {
 		aead, err := cipher.NewGCM(block)
 		if err != nil {
 			panic(err)
 		}
 
-		plain, err := aead.Open(nil, nonce, cipherText[kBufferSizeLength+NonceLength:cipherLen], aad)
+		plain, err := aead.Open(nil, nonce, cipherText[bufferSizeLength+NonceLength:cipherLen], aad)
 		if err != nil {
 			panic(err)
 		}
@@ -217,13 +220,13 @@ func (a *aesDecryptor) Decrypt(cipherText, key, aad []byte) []byte {
 	// counter field.
 	// The first 31 bits of the initial counter field are set to 0, the last bit
 	// is set to 1.
-	iv := make([]byte, kCtrIVLen)
+	iv := make([]byte, ctrIVLen)
 	copy(iv, nonce)
-	iv[kCtrIVLen-1] = 1
+	iv[ctrIVLen-1] = 1
 
 	stream := cipher.NewCTR(block, iv)
-	dst := make([]byte, len(cipherText)-kBufferSizeLength-NonceLength)
-	stream.XORKeyStream(dst, cipherText[kBufferSizeLength+NonceLength:])
+	dst := make([]byte, len(cipherText)-bufferSizeLength-NonceLength)
+	stream.XORKeyStream(dst, cipherText[bufferSizeLength+NonceLength:])
 	return dst
 }
 

@@ -362,10 +362,13 @@ func NewWriterProperties(opts ...WriterProperty) *WriterProperties {
 	return cfg.wr
 }
 
-func (w *WriterProperties) Allocator() memory.Allocator { return w.mem }
+// FileEncryptionProperties returns the current encryption properties that were
+// used to create the writer properties.
 func (w *WriterProperties) FileEncryptionProperties() *FileEncryptionProperties {
 	return w.encryptionProps
 }
+
+func (w *WriterProperties) Allocator() memory.Allocator      { return w.mem }
 func (w *WriterProperties) CreatedBy() string                { return w.createdBy }
 func (w *WriterProperties) WriteBatchSize() int64            { return w.batchSize }
 func (w *WriterProperties) DataPageSize() int64              { return w.pageSize }

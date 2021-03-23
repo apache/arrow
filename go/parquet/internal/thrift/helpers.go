@@ -50,16 +50,16 @@ func DeserializeThriftStream(msg thrift.TStruct, r io.Reader) error {
 	return msg.Read(context.TODO(), protocolFactory.GetProtocol(thrift.NewStreamTransportR(r)))
 }
 
-// ThriftSerializer is an object that can stick around to provide convenience
+// Serializer is an object that can stick around to provide convenience
 // functions and allow object reuse
-type ThriftSerializer struct {
+type Serializer struct {
 	thrift.TSerializer
 }
 
 // NewThriftSerializer constructs a serializer with a default buffer of 1024
-func NewThriftSerializer() *ThriftSerializer {
+func NewThriftSerializer() *Serializer {
 	tbuf := thrift.NewTMemoryBufferLen(1024)
-	return &ThriftSerializer{thrift.TSerializer{
+	return &Serializer{thrift.TSerializer{
 		Transport: tbuf,
 		Protocol:  protocolFactory.GetProtocol(tbuf),
 	}}
@@ -67,7 +67,7 @@ func NewThriftSerializer() *ThriftSerializer {
 
 // Serialize will serialize the given msg to the writer stream w, optionally encrypting it on the way
 // if enc is not nil, returning the total number of bytes written and any error received, or nil
-func (t *ThriftSerializer) Serialize(msg thrift.TStruct, w io.Writer, enc encryption.Encryptor) (int, error) {
+func (t *Serializer) Serialize(msg thrift.TStruct, w io.Writer, enc encryption.Encryptor) (int, error) {
 	b, err := t.Write(context.Background(), msg)
 	if err != nil {
 		return 0, err
