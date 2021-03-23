@@ -689,7 +689,6 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
     if (rtype != STRING) {
       return Status::Invalid("Expecting a character vector");
     }
-
     cpp11::strings s(arrow::r::utf8_strings(x));
     RETURN_NOT_OK(this->primitive_builder_->Reserve(s.size()));
     auto it = s.begin() + start;
@@ -702,7 +701,6 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
       total_length += cpp11::is_na(si) ? 0 : si.size();
     }
     RETURN_NOT_OK(this->primitive_builder_->ReserveData(total_length));
-
     // append
     it = s.begin() + start;
     for (R_xlen_t i = 0; i < size; i++, ++it) {
@@ -863,15 +861,6 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
 
       return Status::OK();
     }));
-
-    for (R_xlen_t i = 0; i < n_columns; i++) {
-      std::string name(x_names[i]);
-      if (name != fields[i]->name()) {
-        return Status::RError(
-            "Field name in position ", i, " (", fields[i]->name(),
-            ") does not match the name of the column of the data frame (", name, ")");
-      }
-    }
 
     for (R_xlen_t i = 0; i < n_columns; i++) {
       SEXP x_i = VECTOR_ELT(x, i);
@@ -1054,13 +1043,13 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
   return ValueOrStop(converter->ToArray());
 }
 
+std::mutex& get_r_mutex() {
+  static std::mutex m;
+  return m;
+}
+
 }  // namespace r
 }  // namespace arrow
-
-bool CanExtendParallel(SEXP x, const std::shared_ptr<arrow::DataType>& type) {
-  // TODO: identify when it's ok to do things in parallel
-  return false;
-}
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
@@ -1084,6 +1073,10 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
   arrow::Status status = arrow::Status::OK();
 
   auto flatten_lst = arrow::r::FlattenDots(lst, num_fields);
+
+  std::vector<std::unique_ptr<arrow::r::RConverter>> converters(num_fields);
+
+  // init converters
   for (int j = 0; j < num_fields && status.ok(); j++) {
     SEXP x = flatten_lst[j];
 
@@ -1103,34 +1096,51 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
         columns[j] = std::make_shared<arrow::ChunkedArray>(
             arrow::r::vec_to_arrow__reuse_memory(x));
       } else {
-        auto task = [=, &columns]() {
-          ARROW_ASSIGN_OR_RAISE(
-              auto converter,
-              (arrow::MakeConverter<arrow::r::RConverter, arrow::r::RConverterTrait>(
-                  options.type, options, gc_memory_pool())));
-
-          RETURN_NOT_OK(converter->Extend(x, options.size));
-          ARROW_ASSIGN_OR_RAISE(auto array, converter->ToArray());
-          columns[j] = std::make_shared<arrow::ChunkedArray>(array);
-          return arrow::Status::OK();
-        };
-
-        if (CanExtendParallel(x, options.type)) {
-          parallel_tasks->Append(task);
-        } else {
-          delayed_serial_tasks.push_back(task);
+        auto converter_result =
+            arrow::MakeConverter<arrow::r::RConverter, arrow::r::RConverterTrait>(
+                options.type, options, gc_memory_pool());
+        if (!converter_result.ok()) {
+          status = converter_result.status();
+          break;
         }
+        converters[j] = std::move(converter_result.ValueUnsafe());
+      }
+    }
+  }
+  StopIfNotOk(status);
+
+  for (int j = 0; j < num_fields; j++) {
+    if (converters[j] != nullptr) {
+      auto task = [j, &converters, &flatten_lst, &columns] {
+        // for now synchronize all tasks with the R mutex
+        // until we can lock more precisely
+        //
+        // so for now, they don't run in parallel
+        std::lock_guard<std::mutex> lock(arrow::r::get_r_mutex());
+
+        auto& converter = converters[j];
+
+        SEXP x = flatten_lst[j];
+
+        RETURN_NOT_OK(converter->Extend(x, converter->options().size));
+        ARROW_ASSIGN_OR_RAISE(auto array, converter->ToArray());
+        columns[j] = std::make_shared<arrow::ChunkedArray>(array);
+        return arrow::Status::OK();
+      };
+
+      SEXP x = flatten_lst[j];
+      if (Rf_inherits(x, "data.frame")) {
+        delayed_serial_tasks.push_back(std::move(task));
+      } else {
+        parallel_tasks->Append(task);
       }
     }
   }
 
-  // now that the parallel tasks have been started
-  // do the delayed serial tasks
-  for (auto task : delayed_serial_tasks) {
+  for (auto& task : delayed_serial_tasks) {
     status &= task();
   }
 
-  // and wait for the parallel tasks to finish
   status &= parallel_tasks->Finish();
   StopIfNotOk(status);
 
