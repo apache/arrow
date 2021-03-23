@@ -397,6 +397,7 @@ set_filters <- function(.data, expressions) {
 
 collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
   x <- ensure_group_vars(x)
+  x <- ensure_arrange_vars(x) # this sets x$temp_columns
   # Pull only the selected rows and cols into R
   if (query_on_dataset(x)) {
     # See dataset.R for Dataset and Scanner(Builder) classes
@@ -410,10 +411,14 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
     } else {
       filter <- eval_array_expression(x$filtered_rows, x$.data)
     }
-    # TODO: shortcut if identical(names(x$.data), find_array_refs(x$selected_columns))?
-    tab <- x$.data[filter, find_array_refs(x$selected_columns), keep_na = FALSE]
+    # TODO: shortcut if identical(names(x$.data), find_array_refs(c(x$selected_columns, x$temp_columns)))?
+    tab <- x$.data[
+      filter,
+      find_array_refs(c(x$selected_columns, x$temp_columns)),
+      keep_na = FALSE
+    ]
     # Now evaluate those expressions on the filtered table
-    cols <- lapply(x$selected_columns, eval_array_expression, data = tab)
+    cols <- lapply(c(x$selected_columns, x$temp_columns), eval_array_expression, data = tab)
     if (length(cols) == 0) {
       tab <- tab[, integer(0)]
     } else {
@@ -424,23 +429,14 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
       }
     }
     # Arrange rows
-    # TODO: support sorting by expressions, not just field names
-    # TODO: support sorting by names and expressions that are valid *before* the
-    # selected_columns code above but are *not* valid after it
     if (length(x$arrange_vars) > 0) {
-      x$arrange_vars <- vapply(
-        x$arrange_vars,
-        get_field_name_of_array_ref,
-        character(1),
-        msg = function(x) {
-          paste(
-          .format_array_expression(x),
-          "is not a field name. Only bare field names are supported in arrange()"
-          )
-        },
-        USE.NAMES = FALSE
-      )
-      tab <- tab[tab$SortIndices(x$arrange_vars, x$arrange_desc), ]
+      x$arrange_vars <- get_field_names(x$arrange_vars)
+      tab <- tab[
+        tab$SortIndices(names(x$arrange_vars), x$arrange_desc),
+        names(x$selected_columns), # need this here to remove x$temp_columns
+        drop = FALSE
+      ]
+      x$temp_columns <- NULL
     }
   }
   if (as_data_frame) {
@@ -467,6 +463,12 @@ ensure_group_vars <- function(x) {
       )
     }
   }
+  x
+}
+
+ensure_arrange_vars <- function(x) {
+  # Make sure all arrange vars are temporarily in the projection
+  x$temp_columns <- x$arrange_vars[!names(x$arrange_vars) %in% names(x$selected_columns)]
   x
 }
 
@@ -765,6 +767,10 @@ arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
     x <- find_and_remove_desc(exprs[[i]])
     exprs[[i]] <- x[["quos"]]
     sorts[[i]] <- arrow_eval(exprs[[i]], mask)
+    names(sorts)[i] <- tryCatch(
+      expr = as_name(exprs[[i]]),
+      error = function(x) as_label(exprs[[i]])
+    )
     descs[i] <- x[["desc"]]
   }
   bad_sorts <- map_lgl(sorts, ~inherits(., "try-error"))
