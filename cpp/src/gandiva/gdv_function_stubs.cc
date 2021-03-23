@@ -87,13 +87,14 @@ bool gdv_fn_in_expr_lookup_int64(int64_t ptr, int64_t value, bool in_validity) {
   return holder->HasValue(value);
 }
 
-bool gdv_fn_in_expr_lookup_decimal(int64_t ptr, int64_t value_high, int64_t value_low, bool in_validity) {
+bool gdv_fn_in_expr_lookup_decimal(int64_t ptr, int64_t value_high, int64_t value_low,
+                                   int32_t precision, int32_t scale, bool in_validity) {
   if (!in_validity) {
     return false;
   }
-  arrow::Decimal128 value(value_high,value_low);
-  gandiva::InHolder<arrow::Decimal128>* holder =
-      reinterpret_cast<gandiva::InHolder<arrow::Decimal128>*>(ptr);
+  gandiva::DecimalScalar128 value(value_high, value_low, precision, scale);
+  gandiva::InHolder<gandiva::DecimalScalar128>* holder =
+      reinterpret_cast<gandiva::InHolder<gandiva::DecimalScalar128>*>(ptr);
   return holder->HasValue(value);
 }
 
@@ -290,10 +291,12 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
                                   reinterpret_cast<void*>(gdv_fn_in_expr_lookup_int64));
 
   // gdv_fn_in_expr_lookup_decimal
-  args = {types->i64_type(),      // int64_t in holder ptr
-          types->i64_type(),      // high decimal value
-          types->i64_type(),      // low decimal value
-          types->i1_type()};      // bool in_validity
+  args = {types->i64_type(),  // int64_t in holder ptr
+          types->i64_type(),  // high decimal value
+          types->i64_type(),  // low decimal value
+          types->i32_type(),  // decimal precision value
+          types->i32_type(),  // decimal scale value
+          types->i1_type()};  // bool in_validity
 
   engine->AddGlobalMappingForFunc("gdv_fn_in_expr_lookup_decimal",
                                   types->i1_type() /*return_type*/, args,

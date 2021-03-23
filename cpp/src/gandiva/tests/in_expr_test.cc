@@ -102,11 +102,12 @@ TEST_F(TestIn, TestInDecimal) {
   // Build In f0 + f1 in (6, 11)
   auto node_f0 = TreeExprBuilder::MakeField(field0);
 
-  arrow::Decimal128 d0(6);
-  arrow::Decimal128 d1(12);
-  arrow::Decimal128 d2(11);
-  std::unordered_set<arrow::Decimal128> in_constants({d0, d1, d2});
-  auto in_expr = TreeExprBuilder::MakeInExpressionDecimal(node_f0, in_constants, precision, scale);
+  gandiva::DecimalScalar128 d0("6", precision, scale);
+  gandiva::DecimalScalar128 d1("12", precision, scale);
+  gandiva::DecimalScalar128 d2("11", precision, scale);
+  std::unordered_set<gandiva::DecimalScalar128> in_constants({d0, d1, d2});
+  auto in_expr =
+      TreeExprBuilder::MakeInExpressionDecimal(node_f0, in_constants, precision, scale);
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
   std::shared_ptr<Filter> filter;
@@ -116,7 +117,8 @@ TEST_F(TestIn, TestInDecimal) {
   // Create a row-batch with some sample data
   int num_records = 5;
   auto values0 = MakeDecimalVector({"1", "2", "0", "-6", "6"});
-  auto array0 = MakeArrowArrayDecimal(decimal_type, values0, {true, true, true, false, true});
+  auto array0 =
+      MakeArrowArrayDecimal(decimal_type, values0, {true, true, true, false, true});
   // expected output (indices for which condition matches)
   auto exp = MakeArrowArrayUint16({4});
 

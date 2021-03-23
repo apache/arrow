@@ -1005,8 +1005,8 @@ void LLVMGenerator::Visitor::Visit(const InExprDexBase<int64_t>& dex) {
   VisitInExpression<int64_t>(dex);
 }
 
-void LLVMGenerator::Visitor::Visit(const InExprDexBase<arrow::Decimal128>& dex) {
-  VisitInExpression<arrow::Decimal128>(dex);
+void LLVMGenerator::Visitor::Visit(const InExprDexBase<gandiva::DecimalScalar128>& dex) {
+  VisitInExpression<gandiva::DecimalScalar128>(dex);
 }
 
 void LLVMGenerator::Visitor::Visit(const InExprDexBase<std::string>& dex) {
@@ -1045,20 +1045,18 @@ void LLVMGenerator::Visitor::VisitInExpression(const InExprDexBase<Type>& dex) {
 
   llvm::Type* ret_type = types->IRType(arrow::Type::type::BOOL);
 
-
   bool is_decimal = false;
-  for (auto& param: params){
-    if (param->getType()==types->i128_type()){
-      is_decimal=true;
+  for (auto& param : params) {
+    if (param->getType() == types->i128_type()) {
+      is_decimal = true;
     }
   }
   llvm::Value* value;
 
-  if (is_decimal){
-    value =decimalIR.CallDecimalFunction(dex.runtime_function(),ret_type,params);
-  }else{
-    value =
-        generator_->AddFunctionCall(dex.runtime_function(), ret_type, params);
+  if (is_decimal) {
+    value = decimalIR.CallDecimalFunction(dex.runtime_function(), ret_type, params);
+  } else {
+    value = generator_->AddFunctionCall(dex.runtime_function(), ret_type, params);
   }
 
   result_.reset(new LValue(value));

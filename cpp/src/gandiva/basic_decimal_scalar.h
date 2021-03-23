@@ -63,15 +63,3 @@ inline BasicDecimalScalar128 operator-(const BasicDecimalScalar128& operand) {
 }
 
 }  // namespace gandiva
-
-namespace std {
-    template<>
-    struct hash<arrow::Decimal128> {
-        std::size_t operator()(arrow::Decimal128 const& dvalue) const noexcept {
-          std::size_t h0 = std::hash<int64_t>{}(dvalue.high_bits());
-          std::size_t h1 = std::hash<uint64_t>{}(dvalue.low_bits());
-
-          return h0 ^ (h1 << 1);
-        }
-    };
-}

@@ -197,7 +197,7 @@ Status ExprDecomposer::Visit(const BooleanNode& node) {
 
 MAKE_VISIT_IN(int32_t);
 MAKE_VISIT_IN(int64_t);
-MAKE_VISIT_IN(arrow::Decimal128);
+MAKE_VISIT_IN(gandiva::DecimalScalar128);
 MAKE_VISIT_IN(std::string);
 
 Status ExprDecomposer::Visit(const LiteralNode& node) {

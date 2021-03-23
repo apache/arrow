@@ -22,8 +22,8 @@
 
 #include "arrow/util/hashing.h"
 #include "gandiva/arrow.h"
+#include "gandiva/decimal_scalar.h"
 #include "gandiva/gandiva_aliases.h"
-#include "gandiva/basic_decimal_scalar.h"
 
 namespace gandiva {
 
@@ -45,19 +45,21 @@ class InHolder {
 };
 
 template <>
-class InHolder<arrow::Decimal128> {
+class InHolder<gandiva::DecimalScalar128> {
  public:
-  explicit InHolder(const std::unordered_set<arrow::Decimal128>& values){
+  explicit InHolder(const std::unordered_set<gandiva::DecimalScalar128>& values) {
     values_.max_load_factor(0.25f);
     for (auto& value : values) {
       values_.insert(value);
     }
   }
 
-  bool HasValue(arrow::Decimal128 value) const { return values_.count(value) == 1; }
+  bool HasValue(gandiva::DecimalScalar128 value) const {
+    return values_.count(value) == 1;
+  }
 
  private:
-  std::unordered_set<arrow::Decimal128> values_;
+  std::unordered_set<gandiva::DecimalScalar128> values_;
 };
 
 template <>
