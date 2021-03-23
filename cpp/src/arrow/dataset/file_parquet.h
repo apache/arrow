@@ -57,6 +57,8 @@ struct SchemaManifest;
 namespace arrow {
 namespace dataset {
 
+constexpr char kParquetTypeName[] = "parquet";
+
 /// \brief A FileFormat implementation that reads from Parquet files
 class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
  public:
@@ -66,7 +68,7 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   /// memory_pool will be ignored.
   explicit ParquetFileFormat(const parquet::ReaderProperties& reader_properties);
 
-  std::string type_name() const override { return "parquet"; }
+  std::string type_name() const override { return kParquetTypeName; }
 
   bool splittable() const override { return true; }
 
@@ -76,35 +78,20 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
     /// \defgroup parquet-file-format-reader-properties properties which correspond to
     /// members of parquet::ReaderProperties.
     ///
-    /// We don't embed parquet::ReaderProperties directly because we get memory_pool from
-    /// ScanOptions at scan time and provide differing defaults.
-    ///
     /// @{
-    bool use_buffered_stream = false;
-    int64_t buffer_size = 1 << 13;
     std::shared_ptr<parquet::FileDecryptionProperties> file_decryption_properties;
     /// @}
 
     /// \defgroup parquet-file-format-arrow-reader-properties properties which correspond
     /// to members of parquet::ArrowReaderProperties.
     ///
-    /// We don't embed parquet::ReaderProperties directly because we get batch_size from
-    /// ScanOptions at scan time, and we will never pass use_threads == true (since we
-    /// defer parallelization of the scan). Additionally column names (rather than
-    /// indices) are used to indicate dictionary columns.
+    /// We don't embed parquet::ReaderProperties directly because column names (rather
+    /// than indices) are used to indicate dictionary columns, and other options are
+    /// deferred to scan time.
     ///
     /// @{
     std::unordered_set<std::string> dict_columns;
-    bool pre_buffer = false;
-    arrow::io::CacheOptions cache_options = arrow::io::CacheOptions::Defaults();
-    arrow::io::IOContext io_context;
     /// @}
-
-    /// EXPERIMENTAL: Parallelize conversion across columns. This option is ignored if a
-    /// scan is already parallelized across input files to avoid thread contention. This
-    /// option will be removed after support is added for simultaneous parallelization
-    /// across files and columns.
-    bool enable_parallel_column_conversion = false;
   } reader_options;
 
   Result<bool> IsSupported(const FileSource& source) const override;
@@ -204,6 +191,43 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
 
   friend class ParquetFileFormat;
   friend class ParquetDatasetFactory;
+};
+
+/// \brief Per-scan options for Parquet fragments
+class ARROW_DS_EXPORT ParquetFragmentScanOptions : public FragmentScanOptions {
+ public:
+  std::string type_name() const override { return kParquetTypeName; }
+
+  /// \defgroup parquet-file-format-reader-properties properties which correspond to
+  /// members of parquet::ReaderProperties.
+  ///
+  /// We don't embed parquet::ReaderProperties directly because we get memory_pool from
+  /// ScanOptions at scan time and provide differing defaults.
+  ///
+  /// @{
+  bool use_buffered_stream = false;
+  int64_t buffer_size = 1 << 13;
+  /// @}
+
+  /// \defgroup parquet-file-format-arrow-reader-properties properties which correspond
+  /// to members of parquet::ArrowReaderProperties.
+  ///
+  /// We don't embed parquet::ReaderProperties directly because we get batch_size from
+  /// ScanOptions at scan time, and we will never pass use_threads == true (since we
+  /// defer parallelization of the scan). Additionally column names (rather than
+  /// indices) are used to indicate dictionary columns.
+  ///
+  /// @{
+  bool pre_buffer = false;
+  arrow::io::CacheOptions cache_options = arrow::io::CacheOptions::Defaults();
+  arrow::io::IOContext io_context;
+  /// @}
+
+  /// EXPERIMENTAL: Parallelize conversion across columns. This option is ignored if a
+  /// scan is already parallelized across input files to avoid thread contention. This
+  /// option will be removed after support is added for simultaneous parallelization
+  /// across files and columns.
+  bool enable_parallel_column_conversion = false;
 };
 
 class ARROW_DS_EXPORT ParquetFileWriteOptions : public FileWriteOptions {
