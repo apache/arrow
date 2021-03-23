@@ -828,7 +828,7 @@ TEST_P(SequencerTestFixture, SequenceError) {
   original = FailsAt(original, 1);
   auto sequenced = MakeSequencingGenerator(original, cmp_, is_next_, TestInt(0));
   auto collected = CollectAsyncGenerator(sequenced);
-  ASSERT_FINISHES_ERR(Invalid, collected);
+  ASSERT_FINISHES_AND_RAISES(Invalid, collected);
 }
 
 TEST_P(SequencerTestFixture, SequenceStress) {
