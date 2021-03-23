@@ -112,6 +112,14 @@ test_that("arrange", {
       mutate(grp2 = ifelse(is.na(lgl), 1L, as.integer(lgl))) %>%
       slice_sample(prop = 1L)
   )
+  expect_dplyr_equal(
+    input %>%
+      group_by(grp) %>%
+      arrange(.by_group = TRUE) %>%
+      pull(grp),
+    tbl %>%
+      slice_sample(prop = 1L)
+  )
   expect_warning(
     expect_equal(
       tbl %>%

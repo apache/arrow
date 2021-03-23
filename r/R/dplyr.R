@@ -732,6 +732,9 @@ abandon_ship <- function(call, .data, msg = NULL) {
 arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
   call <- match.call()
   exprs <- quos(...)
+  if (.by_group) {
+    exprs <- c(quos(!!!dplyr::groups(.data)), exprs)
+  }
   if (length(exprs) == 0) {
     # Nothing to do
     return(.data)
@@ -743,9 +746,6 @@ arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
   is_dataset <- query_on_dataset(.data)
   if (is_dataset) {
     return(abandon_ship(call, .data))
-  }
-  if (.by_group) {
-    exprs <- c(quos(!!!dplyr::groups(.data)), exprs)
   }
   # find and remove any dplyr::desc() and tidy-eval
   # the arrange expressions inside an Arrow data_mask
