@@ -49,7 +49,6 @@ type fileEncryptor struct {
 	columnMetaDataMap      map[string]Encryptor
 	footerSigningEncryptor Encryptor
 	footerEncryptor        Encryptor
-	allEncryptors          []*aesEncryptor
 
 	// Key must be 16, 24, or 32 bytes in length thus there could be up to
 	// three types of meta_encryptors and data_encryptors

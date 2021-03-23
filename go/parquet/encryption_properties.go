@@ -100,7 +100,6 @@ func (ce *ColumnEncryptionProperties) Clone() *ColumnEncryptionProperties {
 
 type colEncryptConfig struct {
 	key         string
-	colpath     string
 	keyMetadata string
 	encrypted   bool
 }

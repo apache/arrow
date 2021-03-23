@@ -26,7 +26,7 @@ import (
 )
 
 // default factory for creating thrift protocols for serialization/deserialization
-var protocolFactory = thrift.NewTCompactProtocolFactory()
+var protocolFactory = thrift.NewTCompactProtocolFactoryConf(&thrift.TConfiguration{})
 
 // DeserializeThrift deserializes the bytes in buf into the given thrift msg type
 // returns the number of remaining bytes in the buffer that weren't needed for deserialization
