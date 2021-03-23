@@ -78,7 +78,7 @@ impl TryFrom<ArrayData> for ffi::ArrowArray {
         let null_buffer = value.null_buffer().cloned();
         let child_data = value
             .child_data()
-            .into_iter()
+            .iter()
             .map(|arr| ArrowArray::try_from((*arr).clone()).expect("infallible"))
             .collect::<Vec<_>>();
 

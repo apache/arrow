@@ -542,7 +542,7 @@ impl ArrowArray {
             ffi_arrow_arrays,
         ));
 
-        Ok(ArrowArray { schema, array })
+        Ok(ArrowArray { array, schema })
     }
 
     /// creates a new [ArrowArray] from two pointers. Used to import from the C Data Interface.
@@ -572,7 +572,7 @@ impl ArrowArray {
     pub unsafe fn empty() -> Self {
         let schema = Arc::new(FFI_ArrowSchema::empty());
         let array = Arc::new(FFI_ArrowArray::empty());
-        ArrowArray { schema, array }
+        ArrowArray { array, schema }
     }
 
     /// exports [ArrowArray] to the C Data Interface
@@ -706,7 +706,6 @@ mod tests {
     use crate::datatypes::Field;
     use std::convert::TryFrom;
     use std::iter::FromIterator;
-    use std::sync::Arc;
 
     #[test]
     fn test_round_trip() -> Result<()> {
@@ -799,10 +798,10 @@ mod tests {
             }
         };
 
-        let list_data = ArrayData::builder(list_data_type.clone())
+        let list_data = ArrayData::builder(list_data_type)
             .len(3)
-            .add_buffer(value_offsets.clone())
-            .add_child_data(value_data.clone())
+            .add_buffer(value_offsets)
+            .add_child_data(value_data)
             .build();
 
         // create an array natively
