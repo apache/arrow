@@ -63,15 +63,17 @@ std::string nation_dict_truncated_data_page() {
 // Compressed using custom Hadoop LZ4 format (block LZ4 format + custom header)
 std::string hadoop_lz4_compressed() { return data_file("hadoop_lz4_compressed.parquet"); }
 
-// Compressed using block LZ4 format
-std::string non_hadoop_lz4_compressed() {
-  return data_file("non_hadoop_lz4_compressed.parquet");
-}
-
 // Larger data compressed using custom Hadoop LZ4 format (several frames)
 std::string hadoop_lz4_compressed_larger() {
   return data_file("hadoop_lz4_compressed_larger.parquet");
 }
+
+// Compressed using block LZ4 format, declared with the legacy "LZ4" compression type
+std::string non_hadoop_lz4_compressed() {
+  return data_file("non_hadoop_lz4_compressed.parquet");
+}
+
+// TODO: add LZ4_RAW compressed file
 
 // TODO: Assert on definition and repetition levels
 template <typename DType, typename ValueType>
