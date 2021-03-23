@@ -16,6 +16,7 @@
 // under the License.
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <memory>
@@ -25,6 +26,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/iterator.h"
@@ -857,7 +859,7 @@ TEST(TestAsyncUtil, SerialReadaheadStressFailing) {
           std::this_thread::sleep_for(kYieldDuration);
           return Status::OK();
         });
-    ASSERT_FINISHES_ERR(Invalid, visit_fut);
+    ASSERT_FINISHES_AND_RAISES(Invalid, visit_fut);
     ASSERT_EQ(EXPECTED_SUM, sum);
   }
 }
@@ -910,7 +912,7 @@ TEST(TestAsyncUtil, ReadaheadFailed) {
     });
   };
   auto readahead = MakeReadaheadGenerator<TestInt>(source, 10);
-  ASSERT_FINISHES_ERR(Invalid, readahead());
+  ASSERT_FINISHES_AND_RAISES(Invalid, readahead());
   SleepABit();
 
   for (int i = 0; i < 9; i++) {
@@ -938,6 +940,146 @@ TEST(TestAsyncIteratorTransform, SkipSome) {
   auto filter = MakeFilter([](TestInt& t) { return t.value != 2; });
   auto filtered = MakeAsyncGenerator(std::move(original), filter);
   AssertAsyncGeneratorMatch({"1", "3"}, std::move(filtered));
+}
+
+TEST(PushGenerator, Empty) {
+  PushGenerator<TestInt> gen;
+  auto producer = gen.producer();
+
+  auto fut = gen();
+  AssertNotFinished(fut);
+  producer.Close();
+  ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), fut);
+  ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), gen());
+
+  // Close idempotent
+  fut = gen();
+  producer.Close();
+  ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), fut);
+  ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), gen());
+  ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), gen());
+}
+
+TEST(PushGenerator, Success) {
+  PushGenerator<TestInt> gen;
+  auto producer = gen.producer();
+  std::vector<Future<TestInt>> futures;
+
+  producer.Push(TestInt{1});
+  producer.Push(TestInt{2});
+  for (int i = 0; i < 3; ++i) {
+    futures.push_back(gen());
+  }
+  ASSERT_FINISHES_OK_AND_EQ(TestInt{1}, futures[0]);
+  ASSERT_FINISHES_OK_AND_EQ(TestInt{2}, futures[1]);
+  AssertNotFinished(futures[2]);
+
+  producer.Push(TestInt{3});
+  ASSERT_FINISHES_OK_AND_EQ(TestInt{3}, futures[2]);
+  producer.Push(TestInt{4});
+  futures.push_back(gen());
+  ASSERT_FINISHES_OK_AND_EQ(TestInt{4}, futures[3]);
+  producer.Push(TestInt{5});
+  producer.Close();
+  for (int i = 0; i < 4; ++i) {
+    futures.push_back(gen());
+  }
+  ASSERT_FINISHES_OK_AND_EQ(TestInt{5}, futures[4]);
+  for (int i = 5; i < 8; ++i) {
+    ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), futures[i]);
+  }
+  ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), gen());
+}
+
+TEST(PushGenerator, Errors) {
+  PushGenerator<TestInt> gen;
+  auto producer = gen.producer();
+  std::vector<Future<TestInt>> futures;
+
+  producer.Push(TestInt{1});
+  producer.Push(Status::Invalid("2"));
+  for (int i = 0; i < 3; ++i) {
+    futures.push_back(gen());
+  }
+  ASSERT_FINISHES_OK_AND_EQ(TestInt{1}, futures[0]);
+  ASSERT_FINISHES_AND_RAISES(Invalid, futures[1]);
+  AssertNotFinished(futures[2]);
+
+  producer.Push(Status::IOError("3"));
+  producer.Push(TestInt{4});
+  ASSERT_FINISHES_AND_RAISES(IOError, futures[2]);
+  futures.push_back(gen());
+  ASSERT_FINISHES_OK_AND_EQ(TestInt{4}, futures[3]);
+  producer.Close();
+  ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), gen());
+}
+
+TEST(PushGenerator, CloseEarly) {
+  PushGenerator<TestInt> gen;
+  auto producer = gen.producer();
+  std::vector<Future<TestInt>> futures;
+
+  producer.Push(TestInt{1});
+  producer.Push(TestInt{2});
+  for (int i = 0; i < 3; ++i) {
+    futures.push_back(gen());
+  }
+  producer.Close();
+  producer.Push(TestInt{3});
+
+  ASSERT_FINISHES_OK_AND_EQ(TestInt{1}, futures[0]);
+  ASSERT_FINISHES_OK_AND_EQ(TestInt{2}, futures[1]);
+  ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), futures[2]);
+  ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), gen());
+}
+
+TEST(PushGenerator, Stress) {
+  const int NTHREADS = 20;
+  const int NVALUES = 2000;
+  const int NFUTURES = NVALUES + 100;
+
+  PushGenerator<TestInt> gen;
+  auto producer = gen.producer();
+
+  std::atomic<int> next_value{0};
+
+  auto producer_worker = [&]() {
+    while (true) {
+      int v = next_value.fetch_add(1);
+      if (v >= NVALUES) {
+        break;
+      }
+      producer.Push(v);
+    }
+  };
+
+  auto producer_main = [&]() {
+    std::vector<std::thread> threads;
+    for (int i = 0; i < NTHREADS; ++i) {
+      threads.emplace_back(producer_worker);
+    }
+    for (auto& thread : threads) {
+      thread.join();
+    }
+    producer.Close();
+  };
+
+  std::vector<Result<TestInt>> results;
+  std::thread thread(producer_main);
+  for (int i = 0; i < NFUTURES; ++i) {
+    results.push_back(gen().result());
+  }
+  thread.join();
+
+  std::unordered_set<int> seen_values;
+  for (int i = 0; i < NVALUES; ++i) {
+    ASSERT_OK_AND_ASSIGN(auto v, results[i]);
+    ASSERT_EQ(seen_values.count(v.value), 0);
+    seen_values.insert(v.value);
+  }
+  for (int i = NVALUES; i < NFUTURES; ++i) {
+    ASSERT_OK_AND_EQ(IterationTraits<TestInt>::End(), results[i]);
+  }
 }
 
 }  // namespace arrow
