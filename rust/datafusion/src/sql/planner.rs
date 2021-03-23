@@ -117,13 +117,16 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     ) -> Result<LogicalPlan> {
         let set_expr = &query.body;
         if let Some(with) = &query.with {
+            // Process CTEs from top to bottom
+            // do not allow self-references
             for cte in &with.cte_tables {
-                let lp = self.query_to_plan_with_alias(
+                // create logical plan & pass backreferencing CTEs
+                let logical_plan = self.query_to_plan_with_alias(
                     &cte.query,
                     Some(cte.alias.name.value.clone()),
                     ctes,
                 )?;
-                ctes.insert(cte.alias.name.value.clone(), lp);
+                ctes.insert(cte.alias.name.value.clone(), logical_plan);
             }
         }
         let plan = self.set_expr_to_plan(set_expr, alias, ctes)?;
