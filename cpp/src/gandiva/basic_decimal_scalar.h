@@ -46,12 +46,6 @@ class BasicDecimalScalar128 {
 
   const BasicDecimal128& value() const { return value_; }
 
-  virtual inline std::string ToString() const {
-    arrow::Decimal128 dvalue(value());
-    return dvalue.ToString(0) + "," + std::to_string(precision()) + "," +
-           std::to_string(scale());
-  }
-
  private:
   BasicDecimal128 value_;
   int32_t precision_;
@@ -66,11 +60,6 @@ inline bool operator==(const BasicDecimalScalar128& left,
 
 inline BasicDecimalScalar128 operator-(const BasicDecimalScalar128& operand) {
   return BasicDecimalScalar128{-operand.value(), operand.precision(), operand.scale()};
-}
-
-inline std::ostream& operator<<(std::ostream& os, const BasicDecimalScalar128& dec) {
-  os << dec.ToString();
-  return os;
 }
 
 }  // namespace gandiva

@@ -42,7 +42,7 @@ class DecimalScalar128 : public BasicDecimalScalar128 {
   constexpr DecimalScalar128(const BasicDecimalScalar128& scalar) noexcept
       : BasicDecimalScalar128(scalar) {}
 
-  inline std::string ToString() const override{
+  inline std::string ToString() const{
     Decimal128 dvalue(value());
     return dvalue.ToString(0) + "," + std::to_string(precision()) + "," +
            std::to_string(scale());

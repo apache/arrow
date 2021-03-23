@@ -1046,7 +1046,7 @@ void LLVMGenerator::Visitor::VisitInExpression(const InExprDexBase<Type>& dex) {
   llvm::Type* ret_type = types->IRType(arrow::Type::type::BOOL);
 
 
-  bool is_decimal;
+  bool is_decimal = false;
   for (auto& param: params){
     if (param->getType()==types->i128_type()){
       is_decimal=true;

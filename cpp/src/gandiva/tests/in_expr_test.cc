@@ -16,6 +16,7 @@
 // under the License.
 
 #include <gtest/gtest.h>
+
 #include "arrow/memory_pool.h"
 #include "gandiva/filter.h"
 #include "gandiva/tests/test_util.h"
@@ -34,23 +35,16 @@ class TestIn : public ::testing::Test {
  protected:
   arrow::MemoryPool* pool_;
 };
-std::vector<Decimal128> MakeDecimalVector(std::vector<std::string> values,
-                                                       int32_t scale) {
+std::vector<Decimal128> MakeDecimalVector(std::vector<std::string> values) {
   std::vector<arrow::Decimal128> ret;
   for (auto str : values) {
     Decimal128 str_value;
     int32_t str_precision;
     int32_t str_scale;
 
-        DCHECK_OK(Decimal128::FromString(str, &str_value, &str_precision, &str_scale));
+    DCHECK_OK(Decimal128::FromString(str, &str_value, &str_precision, &str_scale));
 
-    Decimal128 scaled_value;
-    if (str_scale == scale) {
-      scaled_value = str_value;
-    } else {
-      scaled_value = str_value.Rescale(str_scale, scale).ValueOrDie();
-    }
-    ret.push_back(scaled_value);
+    ret.push_back(str_value);
   }
   return ret;
 }
@@ -98,7 +92,7 @@ TEST_F(TestIn, TestInSimple) {
 
 TEST_F(TestIn, TestInDecimal) {
   int32_t precision = 38;
-  int32_t scale = 0;
+  int32_t scale = 5;
   auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
 
   // schema for input fields
@@ -121,7 +115,7 @@ TEST_F(TestIn, TestInDecimal) {
 
   // Create a row-batch with some sample data
   int num_records = 5;
-  auto values0 = MakeDecimalVector({"1", "2", "0", "-6", "6"}, scale);
+  auto values0 = MakeDecimalVector({"1", "2", "0", "-6", "6"});
   auto array0 = MakeArrowArrayDecimal(decimal_type, values0, {true, true, true, false, true});
   // expected output (indices for which condition matches)
   auto exp = MakeArrowArrayUint16({4});
