@@ -404,7 +404,7 @@ TEST(Cast, IntToFloating) {
                  CastOptions::Safe(float64()));
 }
 
-TEST(Cast, DecimalToInt) {
+TEST(Cast, Decimal128ToInt) {
   auto options = CastOptions::Safe(int64());
 
   for (bool allow_int_overflow : {false, true}) {
@@ -585,7 +585,7 @@ TEST(Cast, Decimal256ToInt) {
   CheckCast(negative_scale, ArrayFromJSON(int64(), "[1234567890000, -120000]"), options);
 }
 
-TEST(Cast, DecimalToDecimal) {
+TEST(Cast, Decimal128ToDecimal128) {
   CastOptions options;
 
   for (bool allow_decimal_truncate : {false, true}) {
@@ -743,7 +743,7 @@ TEST(Cast, Decimal256ToDecimal256) {
   }
 }
 
-TEST(Cast, DecimalToDecimal256) {
+TEST(Cast, Decimal128ToDecimal256) {
   CastOptions options;
 
   for (bool allow_decimal_truncate : {false, true}) {
@@ -829,7 +829,7 @@ TEST(Cast, DecimalToDecimal256) {
   }
 }
 
-TEST(Cast, Decimal256ToDecimal) {
+TEST(Cast, Decimal256ToDecimal128) {
   CastOptions options;
 
   for (bool allow_decimal_truncate : {false, true}) {
@@ -913,96 +913,57 @@ TEST(Cast, Decimal256ToDecimal) {
 
 TEST(Cast, FloatingToDecimal) {
   for (auto float_type : {float32(), float64()}) {
-    CheckCast(
-        ArrayFromJSON(float_type, "[0.0, null, 123.45, 123.456, 999.994]"),
-        ArrayFromJSON(decimal(5, 2), R"(["0.00", null, "123.45", "123.46", "999.99"])"));
+    for (auto decimal_type : {decimal(5, 2), decimal256(5, 2)}) {
+      CheckCast(
+          ArrayFromJSON(float_type, "[0.0, null, 123.45, 123.456, 999.994]"),
+          ArrayFromJSON(decimal_type, R"(["0.00", null, "123.45", "123.46", "999.99"])"));
 
-    // Overflow
-    CastOptions options;
-    options.to_type = decimal(5, 2);
-    CheckCastFails(ArrayFromJSON(float_type, "[999.996]"), options);
+      // Overflow
+      CastOptions options;
+      options.to_type = decimal_type;
+      CheckCastFails(ArrayFromJSON(float_type, "[999.996]"), options);
 
-    options.allow_decimal_truncate = true;
-    CheckCast(
-        ArrayFromJSON(float_type, "[0.0, null, 999.996, 123.45, 999.994]"),
-        ArrayFromJSON(decimal(5, 2), R"(["0.00", null, "0.00", "123.45", "999.99"])"),
-        options);
+      options.allow_decimal_truncate = true;
+      CheckCast(
+          ArrayFromJSON(float_type, "[0.0, null, 999.996, 123.45, 999.994]"),
+          ArrayFromJSON(decimal_type, R"(["0.00", null, "0.00", "123.45", "999.99"])"),
+          options);
+    }
   }
 
-  // 2**64 + 2**41 (exactly representable as a float)
-  CheckCast(ArrayFromJSON(float32(), "[1.8446746e+19, -1.8446746e+19]"),
-            ArrayFromJSON(decimal(20, 0),
-                          R"(["18446746272732807168", "-18446746272732807168"])"));
+  for (auto decimal_type : {decimal128, decimal256}) {
+    // 2**64 + 2**41 (exactly representable as a float)
+    CheckCast(ArrayFromJSON(float32(), "[1.8446746e+19, -1.8446746e+19]"),
+              ArrayFromJSON(decimal_type(20, 0),
+                            R"(["18446746272732807168", "-18446746272732807168"])"));
 
-  CheckCast(ArrayFromJSON(float32(), "[1.8446746e+15, -1.8446746e+15]"),
-            ArrayFromJSON(decimal(20, 4),
-                          R"(["1844674627273280.7168", "-1844674627273280.7168"])"));
-
-  CheckCast(ArrayFromJSON(float64(), "[1.8446744073709556e+19, -1.8446744073709556e+19]"),
-            ArrayFromJSON(decimal(20, 0),
-                          R"(["18446744073709555712", "-18446744073709555712"])"));
-
-  CheckCast(ArrayFromJSON(float64(), "[1.8446744073709556e+15, -1.8446744073709556e+15]"),
-            ArrayFromJSON(decimal(20, 4),
-                          R"(["1844674407370955.5712", "-1844674407370955.5712"])"));
-
-  // Edge cases are tested for Decimal128::FromReal()
-}
-
-TEST(Cast, FloatingToDecimal256) {
-  for (auto float_type : {float32(), float64()}) {
-    CheckCast(ArrayFromJSON(float_type, "[0.0, null, 123.45, 123.456, 999.994]"),
-              ArrayFromJSON(decimal256(5, 2),
-                            R"(["0.00", null, "123.45", "123.46", "999.99"])"));
-
-    // Overflow
-    CastOptions options;
-    options.to_type = decimal256(5, 2);
-    CheckCastFails(ArrayFromJSON(float_type, "[999.996]"), options);
-
-    options.allow_decimal_truncate = true;
     CheckCast(
-        ArrayFromJSON(float_type, "[0.0, null, 999.996, 123.45, 999.994]"),
-        ArrayFromJSON(decimal256(5, 2), R"(["0.00", null, "0.00", "123.45", "999.99"])"),
-        options);
+        ArrayFromJSON(float64(), "[1.8446744073709556e+19, -1.8446744073709556e+19]"),
+        ArrayFromJSON(decimal_type(20, 0),
+                      R"(["18446744073709555712", "-18446744073709555712"])"));
+
+    CheckCast(ArrayFromJSON(float32(), "[1.8446746e+15, -1.8446746e+15]"),
+              ArrayFromJSON(decimal_type(20, 4),
+                            R"(["1844674627273280.7168", "-1844674627273280.7168"])"));
+
+    CheckCast(
+        ArrayFromJSON(float64(), "[1.8446744073709556e+15, -1.8446744073709556e+15]"),
+        ArrayFromJSON(decimal_type(20, 4),
+                      R"(["1844674407370955.5712", "-1844674407370955.5712"])"));
+
+    // Edge cases are tested for Decimal128::FromReal() and Decimal256::FromReal
   }
-
-  // 2**64 + 2**41 (exactly representable as a float)
-  CheckCast(ArrayFromJSON(float32(), "[1.8446746e+19, -1.8446746e+19]"),
-            ArrayFromJSON(decimal256(20, 0),
-                          R"(["18446746272732807168", "-18446746272732807168"])"));
-
-  CheckCast(ArrayFromJSON(float32(), "[1.8446746e+15, -1.8446746e+15]"),
-            ArrayFromJSON(decimal256(20, 4),
-                          R"(["1844674627273280.7168", "-1844674627273280.7168"])"));
-
-  CheckCast(ArrayFromJSON(float64(), "[1.8446744073709556e+19, -1.8446744073709556e+19]"),
-            ArrayFromJSON(decimal256(20, 0),
-                          R"(["18446744073709555712", "-18446744073709555712"])"));
-
-  CheckCast(ArrayFromJSON(float64(), "[1.8446744073709556e+15, -1.8446744073709556e+15]"),
-            ArrayFromJSON(decimal256(20, 4),
-                          R"(["1844674407370955.5712", "-1844674407370955.5712"])"));
-
-  // Edge cases are tested for Decimal256::FromReal()
 }
 
 TEST(Cast, DecimalToFloating) {
   for (auto float_type : {float32(), float64()}) {
-    CheckCast(ArrayFromJSON(decimal(5, 2), R"(["0.00", null, "123.45", "999.99"])"),
-              ArrayFromJSON(float_type, "[0.0, null, 123.45, 999.99]"));
+    for (auto decimal_type : {decimal(5, 2), decimal256(5, 2)}) {
+      CheckCast(ArrayFromJSON(decimal_type, R"(["0.00", null, "123.45", "999.99"])"),
+                ArrayFromJSON(float_type, "[0.0, null, 123.45, 999.99]"));
+    }
   }
 
-  // Edge cases are tested for Decimal128::ToReal()
-}
-
-TEST(Cast, Decimal256ToFloating) {
-  for (auto float_type : {float32(), float64()}) {
-    CheckCast(ArrayFromJSON(decimal256(5, 2), R"(["0.00", null, "123.45", "999.99"])"),
-              ArrayFromJSON(float_type, "[0.0, null, 123.45, 999.99]"));
-  }
-
-  // Edge cases are tested for Decimal256::ToReal()
+  // Edge cases are tested for Decimal128::ToReal() and Decimal256::ToReal()
 }
 
 TEST(Cast, TimestampToTimestamp) {
