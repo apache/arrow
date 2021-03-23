@@ -29,7 +29,7 @@ from pyarrow.lib cimport *
 from pyarrow.lib import frombytes, tobytes
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
-from pyarrow._csv cimport ParseOptions
+from pyarrow._csv cimport ConvertOptions, ParseOptions, ReadOptions
 from pyarrow.util import _is_path_like, _stringify_path
 
 from pyarrow._parquet cimport (
@@ -377,6 +377,9 @@ cdef class Dataset(_Weakrefable):
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
+        fragment_scan_options : FragmentScanOptions, default None
+            Options specific to a particular scan and fragment type, which
+            can change between different scans of the same dataset.
 
         Returns
         -------
@@ -714,6 +717,23 @@ cdef class FileFormat(_Weakrefable):
     def default_extname(self):
         return frombytes(self.format.type_name())
 
+    @property
+    def default_fragment_scan_options(self):
+        return FragmentScanOptions.wrap(
+            self.wrapped.get().default_fragment_scan_options)
+
+    @default_fragment_scan_options.setter
+    def default_fragment_scan_options(self, FragmentScanOptions options):
+        if options is None:
+            self.wrapped.get().default_fragment_scan_options =\
+                <shared_ptr[CFragmentScanOptions]>nullptr
+        else:
+            self._set_default_fragment_scan_options(options)
+
+    cdef _set_default_fragment_scan_options(self, FragmentScanOptions options):
+        raise ValueError(f"Cannot set fragment scan options for "
+                         f"'{options.type_name}' on {self.__class__.__name__}")
+
     def __eq__(self, other):
         try:
             return self.equals(other)
@@ -816,6 +836,9 @@ cdef class Fragment(_Weakrefable):
         memory_pool : MemoryPool, default None
             For memory allocations, if required. If not specified, uses the
             default pool.
+        fragment_scan_options : FragmentScanOptions, default None
+            Options specific to a particular scan and fragment type, which
+            can change between different scans of the same dataset.
 
         Returns
         -------
@@ -964,6 +987,45 @@ class RowGroupInfo:
         if not isinstance(other, RowGroupInfo):
             return False
         return self.id == other.id
+
+
+cdef class FragmentScanOptions(_Weakrefable):
+    """Scan options specific to a particular fragment and scan operation."""
+
+    cdef:
+        shared_ptr[CFragmentScanOptions] wrapped
+
+    def __init__(self):
+        _forbid_instantiation(self.__class__)
+
+    cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
+        self.wrapped = sp
+
+    @staticmethod
+    cdef wrap(const shared_ptr[CFragmentScanOptions]& sp):
+        type_name = frombytes(sp.get().type_name())
+
+        classes = {
+            'csv': CsvFragmentScanOptions,
+        }
+
+        class_ = classes.get(type_name, None)
+        if class_ is None:
+            raise TypeError(type_name)
+
+        cdef FragmentScanOptions self = class_.__new__(class_)
+        self.init(sp)
+        return self
+
+    @property
+    def type_name(self):
+        return frombytes(self.wrapped.get().type_name())
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return False
 
 
 cdef class ParquetFileFragment(FileFragment):
@@ -1363,10 +1425,18 @@ cdef class CsvFileFormat(FileFormat):
     cdef:
         CCsvFileFormat* csv_format
 
-    def __init__(self, ParseOptions parse_options=None):
+    # Avoid mistakingly creating attributes
+    __slots__ = ()
+
+    def __init__(self, ParseOptions parse_options=None,
+                 ConvertOptions convert_options=None,
+                 ReadOptions read_options=None):
         self.init(shared_ptr[CFileFormat](new CCsvFileFormat()))
         if parse_options is not None:
             self.parse_options = parse_options
+        if convert_options is not None or read_options is not None:
+            self.default_fragment_scan_options = CsvFragmentScanOptions(
+                convert_options=convert_options, read_options=read_options)
 
     cdef void init(self, const shared_ptr[CFileFormat]& sp):
         FileFormat.init(self, sp)
@@ -1383,11 +1453,67 @@ cdef class CsvFileFormat(FileFormat):
     def parse_options(self, ParseOptions parse_options not None):
         self.csv_format.parse_options = parse_options.options
 
+    cdef _set_default_fragment_scan_options(self, FragmentScanOptions options):
+        if options.type_name == 'csv':
+            self.csv_format.default_fragment_scan_options = options.wrapped
+        else:
+            super()._set_default_fragment_scan_options(options)
+
     def equals(self, CsvFileFormat other):
         return self.parse_options.equals(other.parse_options)
 
     def __reduce__(self):
         return CsvFileFormat, (self.parse_options,)
+
+    def __repr__(self):
+        return f"<CsvFileFormat parse_options={self.parse_options}>"
+
+
+cdef class CsvFragmentScanOptions(FragmentScanOptions):
+    """Scan-specific options for CSV fragments."""
+
+    cdef:
+        CCsvFragmentScanOptions* csv_options
+
+    # Avoid mistakingly creating attributes
+    __slots__ = ()
+
+    def __init__(self, ConvertOptions convert_options=None,
+                 ReadOptions read_options=None):
+        self.init(shared_ptr[CFragmentScanOptions](
+            new CCsvFragmentScanOptions()))
+        if convert_options is not None:
+            self.convert_options = convert_options
+        if read_options is not None:
+            self.read_options = read_options
+
+    cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
+        FragmentScanOptions.init(self, sp)
+        self.csv_options = <CCsvFragmentScanOptions*> sp.get()
+
+    @property
+    def convert_options(self):
+        return ConvertOptions.wrap(self.csv_options.convert_options)
+
+    @convert_options.setter
+    def convert_options(self, ConvertOptions convert_options not None):
+        self.csv_options.convert_options = convert_options.options
+
+    @property
+    def read_options(self):
+        return ReadOptions.wrap(self.csv_options.read_options)
+
+    @read_options.setter
+    def read_options(self, ReadOptions read_options not None):
+        self.csv_options.read_options = read_options.options
+
+    def equals(self, CsvFragmentScanOptions other):
+        return (self.convert_options.equals(other.convert_options) and
+                self.read_options.equals(other.read_options))
+
+    def __reduce__(self):
+        return CsvFragmentScanOptions, (self.convert_options,
+                                        self.read_options)
 
 
 cdef class Partitioning(_Weakrefable):
@@ -2192,7 +2318,9 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
                             list columns=None, Expression filter=None,
                             int batch_size=_DEFAULT_BATCH_SIZE,
                             bint use_threads=True,
-                            MemoryPool memory_pool=None) except *:
+                            MemoryPool memory_pool=None,
+                            FragmentScanOptions fragment_scan_options=None)\
+        except *:
     cdef:
         CScannerBuilder *builder
     builder = ptr.get()
@@ -2207,6 +2335,9 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
     check_status(builder.UseThreads(use_threads))
     if memory_pool:
         check_status(builder.Pool(maybe_unbox_memory_pool(memory_pool)))
+    if fragment_scan_options:
+        check_status(
+            builder.FragmentScanOptions(fragment_scan_options.wrapped))
 
 
 cdef class Scanner(_Weakrefable):
@@ -2269,7 +2400,8 @@ cdef class Scanner(_Weakrefable):
     def from_dataset(Dataset dataset not None,
                      bint use_threads=True, MemoryPool memory_pool=None,
                      list columns=None, Expression filter=None,
-                     int batch_size=_DEFAULT_BATCH_SIZE):
+                     int batch_size=_DEFAULT_BATCH_SIZE,
+                     FragmentScanOptions fragment_scan_options=None):
         cdef:
             shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
             shared_ptr[CScannerBuilder] builder
@@ -2278,7 +2410,8 @@ cdef class Scanner(_Weakrefable):
         builder = make_shared[CScannerBuilder](dataset.unwrap(), options)
         _populate_builder(builder, columns=columns, filter=filter,
                           batch_size=batch_size, use_threads=use_threads,
-                          memory_pool=memory_pool)
+                          memory_pool=memory_pool,
+                          fragment_scan_options=fragment_scan_options)
 
         scanner = GetResultValue(builder.get().Finish())
         return Scanner.wrap(scanner)
@@ -2287,7 +2420,8 @@ cdef class Scanner(_Weakrefable):
     def from_fragment(Fragment fragment not None, Schema schema=None,
                       bint use_threads=True, MemoryPool memory_pool=None,
                       list columns=None, Expression filter=None,
-                      int batch_size=_DEFAULT_BATCH_SIZE):
+                      int batch_size=_DEFAULT_BATCH_SIZE,
+                      FragmentScanOptions fragment_scan_options=None):
         cdef:
             shared_ptr[CScanOptions] options = make_shared[CScanOptions]()
             shared_ptr[CScannerBuilder] builder
@@ -2299,7 +2433,8 @@ cdef class Scanner(_Weakrefable):
                                                fragment.unwrap(), options)
         _populate_builder(builder, columns=columns, filter=filter,
                           batch_size=batch_size, use_threads=use_threads,
-                          memory_pool=memory_pool)
+                          memory_pool=memory_pool,
+                          fragment_scan_options=fragment_scan_options)
 
         scanner = GetResultValue(builder.get().Finish())
         return Scanner.wrap(scanner)

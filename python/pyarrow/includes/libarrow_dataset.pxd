@@ -59,6 +59,9 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         @staticmethod
         shared_ptr[CScanOptions] Make(shared_ptr[CSchema] schema)
 
+    cdef cppclass CFragmentScanOptions "arrow::dataset::FragmentScanOptions":
+        c_string type_name() const
+
     ctypedef CIterator[shared_ptr[CScanTask]] CScanTaskIterator \
         "arrow::dataset::ScanTaskIterator"
 
@@ -101,6 +104,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CStatus UseThreads(c_bool use_threads)
         CStatus Pool(CMemoryPool* pool)
         CStatus BatchSize(int64_t batch_size)
+        CStatus FragmentScanOptions(
+            shared_ptr[CFragmentScanOptions] fragment_scan_options)
         CResult[shared_ptr[CScanner]] Finish()
         shared_ptr[CSchema] schema() const
 
@@ -164,6 +169,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         c_string type_name() const
 
     cdef cppclass CFileFormat "arrow::dataset::FileFormat":
+        shared_ptr[CFragmentScanOptions] default_fragment_scan_options
         c_string type_name() const
         CResult[shared_ptr[CSchema]] Inspect(const CFileSource&) const
         CResult[shared_ptr[CFileFragment]] MakeFragment(
@@ -251,6 +257,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CCsvFileFormat "arrow::dataset::CsvFileFormat"(
             CFileFormat):
         CCSVParseOptions parse_options
+
+    cdef cppclass CCsvFragmentScanOptions \
+            "arrow::dataset::CsvFragmentScanOptions"(CFragmentScanOptions):
+        CCSVConvertOptions convert_options
+        CCSVReadOptions read_options
 
     cdef cppclass CPartitioning "arrow::dataset::Partitioning":
         c_string type_name() const

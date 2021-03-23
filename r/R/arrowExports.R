@@ -428,8 +428,16 @@ dataset___IpcFileFormat__Make <- function(){
     .Call(`_arrow_dataset___IpcFileFormat__Make`)
 }
 
-dataset___CsvFileFormat__Make <- function(parse_options){
-    .Call(`_arrow_dataset___CsvFileFormat__Make`, parse_options)
+dataset___CsvFileFormat__Make <- function(parse_options, convert_options, read_options){
+    .Call(`_arrow_dataset___CsvFileFormat__Make`, parse_options, convert_options, read_options)
+}
+
+dataset___FragmentScanOptions__type_name <- function(fragment_scan_options){
+    .Call(`_arrow_dataset___FragmentScanOptions__type_name`, fragment_scan_options)
+}
+
+dataset___CsvFragmentScanOptions__Make <- function(convert_options, read_options){
+    .Call(`_arrow_dataset___CsvFragmentScanOptions__Make`, convert_options, read_options)
 }
 
 dataset___DirectoryPartitioning <- function(schm){
@@ -466,6 +474,10 @@ dataset___ScannerBuilder__UseThreads <- function(sb, threads){
 
 dataset___ScannerBuilder__BatchSize <- function(sb, batch_size){
     invisible(.Call(`_arrow_dataset___ScannerBuilder__BatchSize`, sb, batch_size))
+}
+
+dataset___ScannerBuilder__FragmentScanOptions <- function(sb, options){
+    invisible(.Call(`_arrow_dataset___ScannerBuilder__FragmentScanOptions`, sb, options))
 }
 
 dataset___ScannerBuilder__schema <- function(sb){

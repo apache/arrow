@@ -240,6 +240,9 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// \brief Set the pool from which materialized and scanned arrays will be allocated.
   Status Pool(MemoryPool* pool);
 
+  /// \brief Set fragment-specific scan options.
+  Status FragmentScanOptions(std::shared_ptr<FragmentScanOptions> fragment_scan_options);
+
   /// \brief Return the constructed now-immutable Scanner object
   Result<std::shared_ptr<Scanner>> Finish();
 
