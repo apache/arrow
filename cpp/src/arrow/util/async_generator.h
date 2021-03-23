@@ -280,6 +280,7 @@ AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator,
   return MappingGenerator<T, V>(std::move(source_generator), std::move(map));
 }
 
+/// \see MakeSequencingGenerator
 template <typename T, typename Comp, typename IsNext>
 class SequencingGenerator {
  public:
@@ -407,9 +408,11 @@ class SequencingGenerator {
 ///
 /// This operator will queue unboundedly while waiting for the next item.  It is intended
 /// for jittery sources that might scatter an ordered sequence.  It is NOT intended to
-/// sort.  Using it to try and sort could result in deadlock.  Imagine a sequence of 10
-/// items returned in reverse order with a readahead of 8.  The first item will never
-/// reach this operator and the chain will halt.
+/// sort.  Using it to try and sort could result in excessive RAM usage.  This generator
+/// will queue up to N blocks where N is the max "out of order"ness of the source.
+///
+/// For example, if the source is 1,6,2,5,4,3 it will queue 3 blocks because 3 is 3
+/// blocks beyond where it belongs.
 ///
 /// This generator is not async-reentrant but it consists only of a simple log(n)
 /// insertion into a priority queue.
