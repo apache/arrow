@@ -57,7 +57,7 @@ This crate used `parquet::basic::LogicalType` to map to the `ConvertedType`, but
 
 The `ConvertedType` is deprecated in the format, but is still written
 to preserve backward compatibility.
-It is preferred that `LogicalType` is used, as it suports nanosecond
+It is preferred that `LogicalType` is used, as it supports nanosecond
 precision timestamps without using the deprecated `Int96` Parquet type.
 
 ## Supported Parquet Version
