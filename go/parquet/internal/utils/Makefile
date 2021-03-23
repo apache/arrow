@@ -66,3 +66,7 @@ unpack_bool_avx2.s: _lib/unpack_bool_avx2.s
 
 unpack_bool_sse4.s: _lib/unpack_bool_sse4.s
 	$(C2GOASM) -a -f $^ $@
+
+clean:
+	rm -f $(INTEL_SOURCES)
+	rm -f $(addprefix _lib/,$(INTEL_SOURCES))
