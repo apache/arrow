@@ -98,25 +98,21 @@ TEST_F(TestIn, TestInSimple) {
 
 TEST_F(TestIn, TestInDecimal) {
   int32_t precision = 38;
-  int32_t scale = 5;
+  int32_t scale = 0;
   auto decimal_type = std::make_shared<arrow::Decimal128Type>(precision, scale);
 
   // schema for input fields
   auto field0 = field("f0", arrow::decimal(precision, scale));
-  auto field1 = field("f1", arrow::decimal(precision, scale));
-  auto schema = arrow::schema({field0, field1});
+  auto schema = arrow::schema({field0});
 
   // Build In f0 + f1 in (6, 11)
   auto node_f0 = TreeExprBuilder::MakeField(field0);
-  auto node_f1 = TreeExprBuilder::MakeField(field1);
-  auto sum_func =
-      TreeExprBuilder::MakeFunction("add", {node_f0, node_f1},
-                                    arrow::decimal(precision, scale));
+
   arrow::Decimal128 d0(6);
   arrow::Decimal128 d1(12);
   arrow::Decimal128 d2(11);
   std::unordered_set<arrow::Decimal128> in_constants({d0, d1, d2});
-  auto in_expr = TreeExprBuilder::MakeInExpressionDecimal(sum_func, in_constants, precision, scale);
+  auto in_expr = TreeExprBuilder::MakeInExpressionDecimal(node_f0, in_constants, precision, scale);
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
   std::shared_ptr<Filter> filter;
@@ -125,15 +121,13 @@ TEST_F(TestIn, TestInDecimal) {
 
   // Create a row-batch with some sample data
   int num_records = 5;
-  auto values0 = MakeDecimalVector({"1", "2", "0", "-6", "6"},scale);
-  auto values1 = MakeDecimalVector({"5", "9", "6", "17", "5"},scale);
+  auto values0 = MakeDecimalVector({"1", "2", "0", "-6", "6"}, scale);
   auto array0 = MakeArrowArrayDecimal(decimal_type, values0, {true, true, true, false, true});
-  auto array1 = MakeArrowArrayDecimal(decimal_type, values1, {true, true, false, true, false});
   // expected output (indices for which condition matches)
-  auto exp = MakeArrowArrayUint16({0, 1});
+  auto exp = MakeArrowArrayUint16({4});
 
   // prepare input record batch
-  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
 
   std::shared_ptr<SelectionVector> selection_vector;
   status = SelectionVector::MakeInt16(num_records, pool_, &selection_vector);
