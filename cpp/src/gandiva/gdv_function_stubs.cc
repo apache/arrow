@@ -20,6 +20,7 @@
 #include <cstdlib>
 #include <string>
 #include <vector>
+#include <boost/format.hpp>
 
 #include "arrow/util/formatting.h"
 #include "arrow/util/value_parsing.h"
@@ -304,7 +305,7 @@ char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
 #define GDV_FN_TO_CHAR(IN_TYPE, ARROW_TYPE)                                         \
   GANDIVA_EXPORT                                                                         \
   const char* gdv_fn_to_char_##IN_TYPE##_int64(int64_t context, gdv_##IN_TYPE value, \
-                                                   int64_t len, int32_t * out_len) {     \
+                                                   int64_t len, const char* pattern, int32_t * out_len) {     \
     if (len < 0) {                                                                       \
       gdv_fn_context_set_error_msg(context, "Buffer length can not be negative");        \
       *out_len = 0;                                                                      \
@@ -334,7 +335,12 @@ char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
       *out_len = 0;                                                                      \
       return "";                                                                         \
     }                                                                                    \
-    return ret;                                                                          \
+    boost::format fmter(pattern);                                                        \
+    fmter % ret;                                                                         \
+    std::string s = fmter.str();                                                         \
+    char* converted_number;                                                              \
+    converted_number = strdup(s.c_str());                                                \
+    return converted_number;                                                             \
   }
 
 GDV_FN_TO_CHAR(int32, Int32Type)
