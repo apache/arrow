@@ -120,6 +120,19 @@ test_that("arrange", {
     tbl %>%
       slice_sample(prop = 1L)
   )
+  expect_dplyr_equal(
+    input %>%
+      arrange() %>%
+      collect(),
+    tbl %>%
+      group_by(grp)
+  )
+  expect_dplyr_equal(
+    input %>%
+      arrange() %>%
+      collect(),
+    tbl
+  )
   expect_warning(
     expect_equal(
       tbl %>%
