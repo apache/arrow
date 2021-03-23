@@ -61,8 +61,8 @@ class TestBinaryKernels : public BaseTestStringKernels<TestType> {};
 TYPED_TEST_SUITE(TestBinaryKernels, BinaryTypes);
 
 TYPED_TEST(TestBinaryKernels, BinaryLength) {
-  this->CheckUnary("binary_length", R"(["aaa", null, "", "b"])", this->offset_type(),
-                   "[3, null, 0, 1]");
+  this->CheckUnary("binary_length", R"(["aaa", null, "áéíóú", "", "b"])",
+                   this->offset_type(), "[3, null, 10, 0, 1]");
 }
 
 template <typename TestType>
@@ -102,6 +102,11 @@ TEST(TestStringKernels, LARGE_MEMORY_TEST(Utf8Upper32bitGrowth)) {
 }
 
 #ifdef ARROW_WITH_UTF8PROC
+
+TYPED_TEST(TestStringKernels, Utf8Length) {
+  this->CheckUnary("utf8_length", R"(["aaa", null, "áéíóú", "", "b"])",
+                   this->offset_type(), "[3, null, 5, 0, 1]");
+}
 
 TYPED_TEST(TestStringKernels, Utf8Upper) {
   this->CheckUnary("utf8_upper", "[\"aAazZæÆ&\", null, \"\", \"b\"]", this->type(),
