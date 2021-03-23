@@ -108,4 +108,17 @@ const char* gdv_fn_castVARCHAR_float32_int64(int64_t context, float value, int64
 GANDIVA_EXPORT
 const char* gdv_fn_castVARCHAR_float64_int64(int64_t context, double value, int64_t len,
                                              int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* gdv_fn_to_char_int32_int64(int64_t context, int32_t value, int64_t len,
+                                           int32_t* out_len);
+GANDIVA_EXPORT
+const char* gdv_fn_to_char_int64_int64(int64_t context, int64_t value, int64_t len,
+                                           int32_t* out_len);
+GANDIVA_EXPORT
+const char* gdv_fn_to_char_float32_int64(int64_t context, float value, int64_t len,
+                                             int32_t* out_len);
+GANDIVA_EXPORT
+const char* gdv_fn_to_char_float64_int64(int64_t context, double value, int64_t len,
+                                             int32_t* out_len);
 }
