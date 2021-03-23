@@ -1479,10 +1479,12 @@ garrow_csv_read_options_add_column_name(GArrowCSVReadOptions *options,
 
 typedef struct GArrowCSVReaderPrivate_ {
   std::shared_ptr<arrow::csv::TableReader> reader;
+  GArrowInputStream *input;
 } GArrowCSVReaderPrivate;
 
 enum {
-  PROP_CSV_TABLE_READER = 1
+  PROP_CSV_TABLE_READER = 1,
+  PROP_INPUT,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowCSVReader,
@@ -1499,9 +1501,22 @@ garrow_csv_reader_dispose(GObject *object)
 {
   auto priv = GARROW_CSV_READER_GET_PRIVATE(object);
 
-  priv->reader = nullptr;
+  if (priv->input) {
+    g_object_unref(priv->input);
+    priv->input = nullptr;
+  }
 
   G_OBJECT_CLASS(garrow_csv_reader_parent_class)->dispose(object);
+}
+
+static void
+garrow_csv_reader_finalize(GObject *object)
+{
+  auto priv = GARROW_CSV_READER_GET_PRIVATE(object);
+
+  priv->reader.~shared_ptr();
+
+  G_OBJECT_CLASS(garrow_csv_reader_parent_class)->finalize(object);
 }
 
 static void
@@ -1517,6 +1532,9 @@ garrow_csv_reader_set_property(GObject *object,
     priv->reader =
       *static_cast<std::shared_ptr<arrow::csv::TableReader> *>(g_value_get_pointer(value));
     break;
+  case PROP_INPUT:
+    priv->input = GARROW_INPUT_STREAM(g_value_dup_object(value));
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -1529,7 +1547,12 @@ garrow_csv_reader_get_property(GObject *object,
                                GValue *value,
                                GParamSpec *pspec)
 {
+  auto priv = GARROW_CSV_READER_GET_PRIVATE(object);
+
   switch (prop_id) {
+  case PROP_INPUT:
+    g_value_set_object(value, priv->input);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -1539,25 +1562,35 @@ garrow_csv_reader_get_property(GObject *object,
 static void
 garrow_csv_reader_init(GArrowCSVReader *object)
 {
+  auto priv = GARROW_CSV_READER_GET_PRIVATE(object);
+  new(&priv->reader) std::shared_ptr<arrow::csv::TableReader>;
 }
 
 static void
 garrow_csv_reader_class_init(GArrowCSVReaderClass *klass)
 {
-  GParamSpec *spec;
-
   auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->dispose      = garrow_csv_reader_dispose;
+  gobject_class->finalize     = garrow_csv_reader_finalize;
   gobject_class->set_property = garrow_csv_reader_set_property;
   gobject_class->get_property = garrow_csv_reader_get_property;
 
+  GParamSpec *spec;
   spec = g_param_spec_pointer("csv-table-reader",
                               "CSV table reader",
                               "The raw std::shared<arrow::csv::TableReader> *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_CSV_TABLE_READER, spec);
+
+  spec = g_param_spec_object("input",
+                             "Input",
+                             "The input stream to be read",
+                             GARROW_TYPE_INPUT_STREAM,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_INPUT, spec);
 }
 
 /**
@@ -1597,7 +1630,7 @@ garrow_csv_reader_new(GArrowInputStream *input,
                                   parse_options,
                                   convert_options);
   if (garrow::check(error, arrow_reader, "[csv-reader][new]")) {
-    return garrow_csv_reader_new_raw(&(arrow_reader.ValueOrDie()));
+    return garrow_csv_reader_new_raw(&(*arrow_reader), input);
   } else {
     return NULL;
   }
@@ -2085,10 +2118,12 @@ garrow_feather_file_reader_get_raw(GArrowFeatherFileReader *reader)
 }
 
 GArrowCSVReader *
-garrow_csv_reader_new_raw(std::shared_ptr<arrow::csv::TableReader> *arrow_reader)
+garrow_csv_reader_new_raw(std::shared_ptr<arrow::csv::TableReader> *arrow_reader,
+                          GArrowInputStream *input)
 {
   auto reader = GARROW_CSV_READER(g_object_new(GARROW_TYPE_CSV_READER,
                                                "csv-table-reader", arrow_reader,
+                                               "input", input,
                                                NULL));
   return reader;
 }
