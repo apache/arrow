@@ -23,7 +23,6 @@
 //! [here](https://doc.rust-lang.org/stable/core/arch/) for more information.
 
 use std::ops::Not;
-use std::sync::Arc;
 
 use crate::array::{Array, ArrayData, BooleanArray, PrimitiveArray};
 use crate::buffer::{
@@ -558,6 +557,7 @@ where
 mod tests {
     use super::*;
     use crate::array::{ArrayRef, Int32Array};
+    use std::sync::Arc;
 
     #[test]
     fn test_bool_array_and() {
