@@ -2082,10 +2082,10 @@ public class ProjectorTest extends BaseEvaluatorTest {
     String[] expValues =
         new String[] {
             "",
-            "2345",
-            "23",
-            "2345",
-            "-2345",
+            Integer.toString(2345).substring(0, 4),
+            Integer.toString(2345).substring(0, 2),
+            Integer.toString(2345),
+            Integer.toString(-2345)
         };
 
     ArrowBuf bufValidity = buf(validity);
@@ -2146,24 +2146,43 @@ public class ProjectorTest extends BaseEvaluatorTest {
     byte[] validity = new byte[] {(byte) 255};
     double[] values =
         new double[] {
-            23.45,
-            23.45,
+            -0.0,
+            0.0,
+            1.0,
+            0.001,
+            0.0009,
+            999999.9999,
+            10000000.0,
             23.45,
             23.45,
             -23.45,
         };
     long[] lenValues =
         new long[] {
-            0L, 6L, 6L, 6L, 6L
+            6L, 6L, 6L, 6L, 10L, 15L, 15L,
+            0L, 6L, 6L
         };
 
+    /*The Java real numbers are represented in two ways and Gandiva must
+    * follow the same rules:
+    * - If the number is greater or equals than 10^7 and less than 10^(-3)
+    *   it will be represented using scientific notation, e.g:
+    *       - 0.000012 -> 1.2E-5
+    *       - 10000002.3 -> 1.00000023E7
+    * - If the numbers are between that interval above, they are showed as is.
+    * - The "0.0" and "-0.0" must be represented as the same number: "0.0"*/
     String[] expValues =
         new String[] {
+            Double.toString(-0.0), // must becast to -> "0.0"
+            Double.toString(0.0), // must be cast to -> "0.0"
+            Double.toString(1.0), // must be cast to -> "1.0"
+            Double.toString(0.001), // must be cast to -> "0.001"
+            Double.toString(0.0009), // must be cast to -> "9E-4"
+            Double.toString(999999.9999), // must be cast to -> "999999.9999"
+            Double.toString(10000000.0), // must be cast to 10000000.0
             "",
-            "23.45",
-            "23.45",
-            "23.45",
-            "-23.45",
+            Double.toString(23.45),
+            Double.toString(-23.45)
         };
 
     ArrowBuf bufValidity = buf(validity);
