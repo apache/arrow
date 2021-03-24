@@ -26,7 +26,7 @@
 // unit test anyways.
 #define ASSERT_FINISHES_IMPL(fut)                            \
   do {                                                       \
-    ASSERT_TRUE(fut.Wait(10));                               \
+    ASSERT_TRUE(fut.Wait(300));                              \
     if (!fut.is_finished()) {                                \
       FAIL() << "Future did not finish in a timely fashion"; \
     }                                                        \
