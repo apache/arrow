@@ -40,7 +40,7 @@ using RecordBatchGenerator = AsyncGenerator<std::shared_ptr<RecordBatch>>;
 namespace dataset {
 
 constexpr int64_t kDefaultBatchSize = 1 << 20;
-constexpr int32_t kDefaultBlockReadahead = 8;
+constexpr int32_t kDefaultBatchReadahead = 8;
 constexpr int32_t kDefaultFileReadahead = 8;
 
 struct ARROW_DS_EXPORT ScanOptions {
@@ -68,8 +68,8 @@ struct ARROW_DS_EXPORT ScanOptions {
   // Maximum row count for scanned batches.
   int64_t batch_size = kDefaultBatchSize;
 
-  // How many blocks to read ahead within a file
-  int32_t block_readahead = kDefaultBlockReadahead;
+  // How many batches to read ahead within a file
+  int32_t batch_readahead = kDefaultBatchReadahead;
 
   // How many files to read ahead
   int32_t file_readahead = kDefaultFileReadahead;
@@ -195,11 +195,11 @@ class ARROW_DS_EXPORT Scanner {
   /// \brief The Scan operator returns a stream of ScanTask futures. The caller is
   /// responsible to dispatch/schedule said tasks. Tasks should be safe to run
   /// in a concurrent fashion and outlive the iterator.
-  Future<PositionedScanTaskGenerator> ScanUnorderedAsync();
+  PositionedScanTaskGenerator ScanUnorderedAsync();
 
   /// \brief \see ScanUnorderedAsync The scan tasks returned in this version will be
   /// resequenced so they arrive in order.  This will introduce some latency.
-  Future<ScanTaskGenerator> ScanAsync();
+  ScanTaskGenerator ScanAsync();
 
   /// \brief \see ScanAsync
   Result<ScanTaskIterator> Scan();
@@ -243,9 +243,9 @@ class ARROW_DS_EXPORT Scanner {
   static RecordBatchGenerator AddProjection(RecordBatchGenerator rbs,
                                             Expression projection, MemoryPool* pool);
 
-  static std::vector<Future<PositionedScanTaskGenerator>> FragmentsToPositionedScanTasks(
+  static AsyncGenerator<PositionedScanTaskGenerator> FragmentsToPositionedScanTasks(
       std::shared_ptr<ScanOptions> options, const FragmentVector& fragments);
-  static Future<PositionedScanTaskGenerator> FragmentToPositionedScanTasks(
+  static PositionedScanTaskGenerator FragmentToPositionedScanTasks(
       std::shared_ptr<ScanOptions> options, const std::shared_ptr<Fragment>& fragment,
       uint32_t fragment_index);
   static Result<PositionedScanTaskGenerator> GetUnorderedScanTaskGenerator(

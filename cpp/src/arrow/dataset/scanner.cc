@@ -103,60 +103,44 @@ Future<FragmentVector> Scanner::GetFragmentsAsync() {
   return GetFragmentsFromDatasets({dataset_}, scan_options_->filter);
 }
 
-Future<ScanTaskGenerator> Scanner::ScanAsync() {
-  auto unordered_generator_fut = ScanUnorderedAsync();
-  return unordered_generator_fut.Then([](const PositionedScanTaskGenerator&
-                                             unordered_generator) -> ScanTaskGenerator {
-    auto cmp = [](const PositionedScanTask& left, const PositionedScanTask& right) {
-      if (left.fragment_index > right.fragment_index) {
-        return true;
-      }
-      return left.scan_task_index > right.scan_task_index;
-    };
-    auto is_next = [](const PositionedScanTask& last,
-                      const PositionedScanTask& maybe_next) {
-      if (last.scan_task == nullptr) {
-        return maybe_next.fragment_index == 0 && maybe_next.scan_task_index == 0;
-      }
-      if (maybe_next.fragment_index == last.fragment_index) {
-        return maybe_next.scan_task_index == last.scan_task_index + 1;
-      }
-      if (maybe_next.fragment_index == last.fragment_index + 1) {
-        return last.last_scan_task;
-      }
-      return false;
-    };
-    PositionedScanTaskGenerator ordered_generator = MakeSequencingGenerator(
-        std::move(unordered_generator), cmp, is_next, PositionedScanTask::BeforeAny());
+ScanTaskGenerator Scanner::ScanAsync() {
+  auto unordered_generator = ScanUnorderedAsync();
+  auto cmp = [](const PositionedScanTask& left, const PositionedScanTask& right) {
+    if (left.fragment_index > right.fragment_index) {
+      return true;
+    }
+    return left.scan_task_index > right.scan_task_index;
+  };
+  auto is_next = [](const PositionedScanTask& last,
+                    const PositionedScanTask& maybe_next) {
+    if (last.scan_task == nullptr) {
+      return maybe_next.fragment_index == 0 && maybe_next.scan_task_index == 0;
+    }
+    if (maybe_next.fragment_index == last.fragment_index) {
+      return maybe_next.scan_task_index == last.scan_task_index + 1;
+    }
+    if (maybe_next.fragment_index == last.fragment_index + 1) {
+      return last.last_scan_task;
+    }
+    return false;
+  };
+  PositionedScanTaskGenerator ordered_generator = MakeSequencingGenerator(
+      std::move(unordered_generator), cmp, is_next, PositionedScanTask::BeforeAny());
 
-    std::function<std::shared_ptr<ScanTask>(const PositionedScanTask&)> unwrap_scan_task =
-        [](const PositionedScanTask& positioned_task) {
-          return positioned_task.scan_task;
-        };
-    return MakeMappedGenerator(std::move(ordered_generator), unwrap_scan_task);
-  });
+  std::function<std::shared_ptr<ScanTask>(const PositionedScanTask&)> unwrap_scan_task =
+      [](const PositionedScanTask& positioned_task) { return positioned_task.scan_task; };
+  return MakeMappedGenerator(std::move(ordered_generator), unwrap_scan_task);
 }
 
-Future<PositionedScanTaskGenerator> Scanner::ScanUnorderedAsync() {
-  // Transforms Iterator<Fragment> into a unified
-  // Iterator<ScanTask>. The first Iterator::Next invocation is going to do
-  // all the work of unwinding the chained iterators.
-
-  // FIXME: Should just return ScanTaskGenerator, not Future<ScanTaskGenerator>
-  return GetFragmentsAsync().Then(
-      [this](const FragmentVector& fragments) -> Result<PositionedScanTaskGenerator> {
-        ARROW_ASSIGN_OR_RAISE(auto scan_task_generator,
-                              GetUnorderedScanTaskGenerator(fragments, scan_options_));
-        return MakeReadaheadGenerator(scan_task_generator,
-                                      static_cast<int>(scan_options_->block_readahead));
-      });
+PositionedScanTaskGenerator Scanner::ScanUnorderedAsync() {
+  return MakeFromFuture(GetFragmentsAsync().Then([this](const FragmentVector& fragments) {
+    return GetUnorderedScanTaskGenerator(fragments, scan_options_);
+  }));
 }
 
 Result<ScanTaskIterator> Scanner::Scan() {
-  auto scan_fut = ScanAsync();
-  scan_fut.Wait();
-  ARROW_ASSIGN_OR_RAISE(auto gen, scan_fut.result());
-  return MakeGeneratorIterator(std::move(gen));
+  auto scan_task_generator = ScanAsync();
+  return MakeGeneratorIterator(std::move(scan_task_generator));
 }
 
 Result<std::shared_ptr<RecordBatch>> Scanner::FilterRecordBatch(
@@ -228,11 +212,11 @@ std::vector<PositionedScanTask> PositionTasks(const ScanTaskVector& scan_tasks,
 }
 }  // namespace
 
-Future<PositionedScanTaskGenerator> Scanner::FragmentToPositionedScanTasks(
+PositionedScanTaskGenerator Scanner::FragmentToPositionedScanTasks(
     std::shared_ptr<ScanOptions> options, const std::shared_ptr<Fragment>& fragment,
     uint32_t fragment_index) {
-  return fragment->Scan(options).Then(
-      [fragment, fragment_index](const ScanTaskVector& scan_tasks) {
+  return MakeFromFuture(fragment->Scan(options).Then(
+      [fragment, fragment_index, options](const ScanTaskVector& scan_tasks) {
         auto positioned_tasks = PositionTasks(scan_tasks, fragment_index);
         // Apply the filter and/or projection to incoming RecordBatches by
         // wrapping the ScanTask with a FilterAndProjectScanTask
@@ -245,29 +229,35 @@ Future<PositionedScanTaskGenerator> Scanner::FragmentToPositionedScanTasks(
         };
 
         auto scan_tasks_gen = MakeVectorGenerator(positioned_tasks);
-        return MakeMappedGenerator(scan_tasks_gen, wrap_scan_task);
-      });
+        auto wrapped_tasks_gen =
+            MakeMappedGenerator(std::move(scan_tasks_gen), wrap_scan_task);
+        // TODO - This may not seem like "batch" readahead but for CSV and IPC there is
+        // only one scan task (so this is a no-op) and for Parquet there is a scan task
+        // per batc but that will eventually change
+        return MakeReadaheadGenerator(std::move(wrapped_tasks_gen),
+                                      options->batch_readahead);
+      }));
 }
 
-std::vector<Future<PositionedScanTaskGenerator>> Scanner::FragmentsToPositionedScanTasks(
+AsyncGenerator<PositionedScanTaskGenerator> Scanner::FragmentsToPositionedScanTasks(
     std::shared_ptr<ScanOptions> options, const FragmentVector& fragments) {
-  std::vector<Future<PositionedScanTaskGenerator>> positioned_scan_tasks;
+  std::vector<PositionedScanTaskGenerator> positioned_scan_tasks;
   positioned_scan_tasks.reserve(fragments.size());
   for (std::size_t i = 0; i < fragments.size(); i++) {
     positioned_scan_tasks.push_back(
         FragmentToPositionedScanTasks(options, fragments[i], i));
   }
-  return positioned_scan_tasks;
+  return MakeVectorGenerator(positioned_scan_tasks);
 }
 
 /// \brief GetScanTaskGenerator transforms FragmentVector->ScanTaskGenerator
 Result<PositionedScanTaskGenerator> Scanner::GetUnorderedScanTaskGenerator(
     const FragmentVector& fragments, std::shared_ptr<ScanOptions> options) {
   // Fragments -> ScanTaskGeneratorGenerator
-  auto scan_tasks = FragmentsToPositionedScanTasks(options, fragments);
-  auto scan_tasks_generator = MakeGeneratorFromFutures(scan_tasks);
+  auto scan_task_generator_generator = FragmentsToPositionedScanTasks(options, fragments);
   // ScanTaskGeneratorGenerator -> ScanTaskGenerator
-  return MakeMergedGenerator(std::move(scan_tasks_generator), options->file_readahead);
+  return MakeMergedGenerator(std::move(scan_task_generator_generator),
+                             options->file_readahead);
 }
 
 ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset)
@@ -385,42 +375,38 @@ Result<std::shared_ptr<Table>> Scanner::ToTable() {
 
 Future<std::shared_ptr<Table>> Scanner::ToTableAsync() {
   auto scan_options = scan_options_;
-  return ScanAsync().Then([scan_options](const ScanTaskGenerator& scan_task_gen)
-                              -> Future<std::shared_ptr<Table>> {
-    /// Wraps the state in a shared_ptr to ensure that failing ScanTasks don't
-    /// invalidate concurrently running tasks when Finish() early returns
-    /// and the mutex/batches fail out of scope.
-    auto state = std::make_shared<TableAssemblyState>();
+  auto scan_task_gen = ScanAsync();
+  /// Wraps the state in a shared_ptr to ensure that failing ScanTasks don't
+  /// invalidate concurrently running tasks when Finish() early returns
+  /// and the mutex/batches fail out of scope.
+  auto state = std::make_shared<TableAssemblyState>();
 
-    // FIXME use auto
-    // TODO(ARROW-12023)
-    std::function<Future<std::shared_ptr<ScanTask>>(
-        const std::shared_ptr<ScanTask>& scan_task)>
-        table_building_task = [state](const std::shared_ptr<ScanTask>& scan_task)
-        -> Future<std::shared_ptr<ScanTask>> {
-      auto id = state->scan_task_id++;
-      ARROW_ASSIGN_OR_RAISE(auto batch_gen, scan_task->ExecuteAsync());
-      return CollectAsyncGenerator(std::move(batch_gen))
-          .Then([state, id,
-                 scan_task](const RecordBatchVector& rbs) -> std::shared_ptr<ScanTask> {
-            state->Emplace(rbs, id);
-            return scan_task;
-          });
-    };
-
-    auto transferred_generator =
-        MakeTransferredGenerator(scan_task_gen, internal::GetCpuThreadPool());
-
-    auto table_building_gen =
-        MakeMappedGenerator(transferred_generator, table_building_task);
-
-    return DiscardAllFromAsyncGenerator(table_building_gen)
-        .Then([state, scan_options](...) {
-          return Table::FromRecordBatches(
-              scan_options->projected_schema,
-              FlattenRecordBatchVector(std::move(state->batches)));
+  // TODO(ARROW-12023) Ideally this mapping function would just return Future<> but that
+  // isn't allowed yet
+  auto table_building_task = [state](const std::shared_ptr<ScanTask>& scan_task)
+      -> Future<std::shared_ptr<ScanTask>> {
+    auto id = state->scan_task_id++;
+    ARROW_ASSIGN_OR_RAISE(auto batch_gen, scan_task->ExecuteAsync());
+    return CollectAsyncGenerator(std::move(batch_gen))
+        .Then([state, id,
+               scan_task](const RecordBatchVector& rbs) -> std::shared_ptr<ScanTask> {
+          state->Emplace(rbs, id);
+          return scan_task;
         });
-  });
+  };
+
+  auto transferred_generator =
+      MakeTransferredGenerator(scan_task_gen, internal::GetCpuThreadPool());
+
+  auto table_building_gen =
+      MakeMappedGeneratorAsync(transferred_generator, table_building_task);
+
+  return DiscardAllFromAsyncGenerator(table_building_gen)
+      .Then([state, scan_options](...) {
+        return Table::FromRecordBatches(
+            scan_options->projected_schema,
+            FlattenRecordBatchVector(std::move(state->batches)));
+      });
 }
 
 }  // namespace dataset
