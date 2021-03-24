@@ -136,7 +136,8 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReader) {
 
 TEST_F(TestIpcFileFormat, FragmentScanOptions) {
   auto reader = GetRecordBatchReader(
-      schema({field("list", list(float64())), field("f64", float64())}));
+      schema({field("list", list(float64()), key_value_metadata({{"max_length", "1"}})),
+              field("f64", float64())}));
   auto source = GetFileSource(reader.get());
 
   SetSchema(reader->schema()->fields());
