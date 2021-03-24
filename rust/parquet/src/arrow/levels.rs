@@ -189,7 +189,8 @@ impl LevelInfo {
                     | DataType::Utf8
                     | DataType::LargeUtf8
                     | DataType::Dictionary(_, _)
-                    | DataType::Decimal(_, _) => {
+                    | DataType::Decimal(_, _)
+                    | DataType::FixedSizeBinary(_) => {
                         vec![list_level.calculate_child_levels(
                             child_offsets,
                             child_mask,
@@ -197,7 +198,6 @@ impl LevelInfo {
                             list_field.is_nullable(),
                         )]
                     }
-                    DataType::FixedSizeBinary(_) => unimplemented!(),
                     DataType::List(_) | DataType::LargeList(_) | DataType::Struct(_) => {
                         list_level.calculate_array_levels(&child_array, list_field)
                     }

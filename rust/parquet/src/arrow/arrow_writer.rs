@@ -146,17 +146,8 @@ fn write_leaves(
         | ArrowDataType::Binary
         | ArrowDataType::Utf8
         | ArrowDataType::LargeUtf8
-        | ArrowDataType::Decimal(_, _) => {
-            let mut col_writer = get_col_writer(&mut row_group_writer)?;
-            write_leaf(
-                &mut col_writer,
-                array,
-                levels.pop().expect("Levels exhausted"),
-            )?;
-            row_group_writer.close_column(col_writer)?;
-            Ok(())
-        }
-        ArrowDataType::FixedSizeBinary(_) => {
+        | ArrowDataType::Decimal(_, _)
+        | ArrowDataType::FixedSizeBinary(_) => {
             let mut col_writer = get_col_writer(&mut row_group_writer)?;
             write_leaf(
                 &mut col_writer,
@@ -201,8 +192,10 @@ fn write_leaves(
         )),
         ArrowDataType::FixedSizeList(_, _) | ArrowDataType::Union(_) => {
             Err(ParquetError::NYI(
-                "Attempting to write an Arrow type that is not yet implemented"
-                    .to_string(),
+                format!(
+                    "Attempting to write an Arrow type {:?} to parquet that is not yet implemented", 
+                    array.data_type()
+                )
             ))
         }
     }
