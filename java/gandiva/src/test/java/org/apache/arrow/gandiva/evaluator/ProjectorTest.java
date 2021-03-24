@@ -2146,8 +2146,8 @@ public class ProjectorTest extends BaseEvaluatorTest {
     byte[] validity = new byte[] {(byte) 255};
     double[] values =
         new double[] {
-            -0.0,
             0.0,
+            -0.0,
             1.0,
             0.001,
             0.0009,
@@ -2173,13 +2173,13 @@ public class ProjectorTest extends BaseEvaluatorTest {
     * - The "0.0" and "-0.0" must be represented as the same number: "0.0"*/
     String[] expValues =
         new String[] {
-            Double.toString(-0.0), // must becast to -> "0.0"
             Double.toString(0.0), // must be cast to -> "0.0"
+            Double.toString(-0.0), // must be cast to -> "-0.0"
             Double.toString(1.0), // must be cast to -> "1.0"
             Double.toString(0.001), // must be cast to -> "0.001"
             Double.toString(0.0009), // must be cast to -> "9E-4"
             Double.toString(999999.9999), // must be cast to -> "999999.9999"
-            Double.toString(10000000.0), // must be cast to 10000000.0
+            Double.toString(10000000.0), // must be cast to 1E7
             "",
             Double.toString(23.45),
             Double.toString(-23.45)
