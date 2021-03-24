@@ -202,6 +202,11 @@ DataFusion also includes a simple command-line interactive SQL utility. See the 
 - [ ] Lists
 - [x] Subqueries
 - [x] Common table expressions
+- [ ] Set Operations
+  - [x] UNION ALL
+  - [ ] UNION
+  - [ ] INTERSECT
+  - [ ] MINUS
 - [x] Joins
   - [x] INNER JOIN
   - [ ] CROSS JOIN
