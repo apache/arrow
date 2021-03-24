@@ -102,7 +102,7 @@ TEST_F(TestIn, TestInFloat) {
   auto node_f1 = TreeExprBuilder::MakeField(field1);
   auto sum_func =
       TreeExprBuilder::MakeFunction("add", {node_f0, node_f1}, arrow::float32());
-  std::unordered_set<float> in_constants({6.5, 12, 11.5});
+  std::unordered_set<float> in_constants({float(6.5), 12, float(11.5)});
   auto in_expr = TreeExprBuilder::MakeInExpressionFloat(sum_func, in_constants);
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
