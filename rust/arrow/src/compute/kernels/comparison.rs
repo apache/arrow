@@ -46,9 +46,9 @@ macro_rules! compare_op {
         let null_bit_buffer =
             combine_option_bitmap($left.data_ref(), $right.data_ref(), $left.len())?;
 
-        let buffer = (0..$left.len())
-            .map(|i| $op($left.value(i), $right.value(i)))
-            .collect();
+        let comparison = (0..$left.len()).map(|i| $op($left.value(i), $right.value(i)));
+        // same size as $left.len() and $right.len()
+        let buffer = unsafe { MutableBuffer::from_trusted_len_iter_bool(comparison) };
 
         let data = ArrayData::new(
             DataType::Boolean,
@@ -56,7 +56,62 @@ macro_rules! compare_op {
             None,
             null_bit_buffer,
             0,
-            vec![buffer],
+            vec![Buffer::from(buffer)],
+            vec![],
+        );
+        Ok(BooleanArray::from(Arc::new(data)))
+    }};
+}
+
+macro_rules! compare_op_primitive {
+    ($left: expr, $right:expr, $op:expr) => {{
+        if $left.len() != $right.len() {
+            return Err(ArrowError::ComputeError(
+                "Cannot perform comparison operation on arrays of different length"
+                    .to_string(),
+            ));
+        }
+
+        let null_bit_buffer =
+            combine_option_bitmap($left.data_ref(), $right.data_ref(), $left.len())?;
+
+        let mut values = MutableBuffer::from_len_zeroed(($left.len() + 7) / 8);
+        let lhs_chunks_iter = $left.values().chunks_exact(8);
+        let lhs_remainder = lhs_chunks_iter.remainder();
+        let rhs_chunks_iter = $right.values().chunks_exact(8);
+        let rhs_remainder = rhs_chunks_iter.remainder();
+        let chunks = $left.len() / 8;
+
+        values[..chunks]
+            .iter_mut()
+            .zip(lhs_chunks_iter)
+            .zip(rhs_chunks_iter)
+            .for_each(|((byte, lhs), rhs)| {
+                lhs.iter()
+                    .zip(rhs.iter())
+                    .enumerate()
+                    .for_each(|(i, (&lhs, &rhs))| {
+                        *byte |= if $op(lhs, rhs) { 1 << i } else { 0 };
+                    });
+            });
+
+        if !lhs_remainder.is_empty() {
+            let last = &mut values[chunks];
+            lhs_remainder
+                .iter()
+                .zip(rhs_remainder.iter())
+                .enumerate()
+                .for_each(|(i, (&lhs, &rhs))| {
+                    *last |= if $op(lhs, rhs) { 1 << i } else { 0 };
+                });
+        };
+        let data = ArrayData::new(
+            DataType::Boolean,
+            $left.len(),
+            None,
+            null_bit_buffer,
+            0,
+            vec![Buffer::from(values)],
             vec![],
         );
         Ok(BooleanArray::from(data))
@@ -67,9 +122,9 @@ macro_rules! compare_op_scalar {
     ($left: expr, $right:expr, $op:expr) => {{
         let null_bit_buffer = $left.data().null_buffer().cloned();
 
-        let buffer = (0..$left.len())
-            .map(|i| $op($left.value(i), $right))
-            .collect();
+        let comparison = (0..$left.len()).map(|i| $op($left.value(i), $right));
+        // same as $left.len()
+        let buffer = unsafe { MutableBuffer::from_trusted_len_iter_bool(comparison) };
 
         let data = ArrayData::new(
             DataType::Boolean,
@@ -77,7 +132,44 @@ macro_rules! compare_op_scalar {
             None,
             null_bit_buffer,
             0,
-            vec![buffer],
+            vec![Buffer::from(buffer)],
+            vec![],
+        );
+        Ok(BooleanArray::from(Arc::new(data)))
+    }};
+}
+
+macro_rules! compare_op_scalar_primitive {
+    ($left: expr, $right:expr, $op:expr) => {{
+        let null_bit_buffer = $left.data().null_buffer().cloned();
+
+        let mut values = MutableBuffer::from_len_zeroed(($left.len() + 7) / 8);
+        let lhs_chunks_iter = $left.values().chunks_exact(8);
+        let lhs_remainder = lhs_chunks_iter.remainder();
+        let chunks = $left.len() / 8;
+
+        values[..chunks]
+            .iter_mut()
+            .zip(lhs_chunks_iter)
+            .for_each(|(byte, chunk)| {
+                chunk.iter().enumerate().for_each(|(i, &c_i)| {
+                    *byte |= if $op(c_i, $right) { 1 << i } else { 0 };
+                });
+            });
+        if !lhs_remainder.is_empty() {
+            let last = &mut values[chunks];
+            lhs_remainder.iter().enumerate().for_each(|(i, &lhs)| {
+                *last |= if $op(lhs, $right) { 1 << i } else { 0 };
+            });
+        };
+
+        let data = ArrayData::new(
+            DataType::Boolean,
+            $left.len(),
+            None,
+            null_bit_buffer,
+            0,
+            vec![Buffer::from(values)],
             vec![],
         );
         Ok(BooleanArray::from(data))
@@ -95,7 +187,7 @@ where
     T: ArrowNumericType,
     F: Fn(T::Native, T::Native) -> bool,
 {
-    compare_op!(left, right, op)
+    compare_op_primitive!(left, right, op)
 }
 
 /// Evaluate `op(left, right)` for [`PrimitiveArray`] and scalar using
@@ -109,7 +201,7 @@ where
     T: ArrowNumericType,
     F: Fn(T::Native, T::Native) -> bool,
 {
-    compare_op_scalar!(left, right, op)
+    compare_op_scalar_primitive!(left, right, op)
 }
 
 /// Perform SQL `left LIKE right` operation on [`StringArray`] / [`LargeStringArray`].
