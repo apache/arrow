@@ -87,11 +87,16 @@ print.arrow_dplyr_query <- function(x, ...) {
     cat("* Grouped by ", paste(x$group_by_vars, collapse = ", "), "\n", sep = "")
   }
   if (length(x$arrange_vars)) {
+    if (query_on_dataset(x)) {
+      arrange_strings <- map_chr(x$arrange_vars, function(x) x$ToString())
+    } else {
+      arrange_strings <- map_chr(x$arrange_vars, .format_array_expression)
+    }
     cat(
       "* Sorted by ",
       paste(
         paste0(
-          map_chr(x$arrange_vars, .format_array_expression),
+          arrange_strings,
           " [", ifelse(x$arrange_desc, "desc", "asc"), "]"
         ),
         collapse = ", "
@@ -429,14 +434,14 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
         tab <- RecordBatch$create(!!!cols)
       }
     }
-    # Arrange rows
-    if (length(x$arrange_vars) > 0) {
-      tab <- tab[
-        tab$SortIndices(names(x$arrange_vars), x$arrange_desc),
-        names(x$selected_columns), # this omits x$temp_columns from the result
-        drop = FALSE
-      ]
-    }
+  }
+  # Arrange rows
+  if (length(x$arrange_vars) > 0) {
+    tab <- tab[
+      tab$SortIndices(names(x$arrange_vars), x$arrange_desc),
+      names(x$selected_columns), # this omits x$temp_columns from the result
+      drop = FALSE
+    ]
   }
   if (as_data_frame) {
     df <- as.data.frame(tab)
@@ -749,9 +754,6 @@ arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
     return(.data)
   }
   .data <- arrow_dplyr_query(.data)
-  if (query_on_dataset(.data)) {
-    not_implemented_for_dataset("arrange()")
-  }
   # find and remove any dplyr::desc() and tidy-eval
   # the arrange expressions inside an Arrow data_mask
   sorts <- vector("list", length(exprs))
