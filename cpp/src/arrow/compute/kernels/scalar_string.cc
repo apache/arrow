@@ -67,7 +67,7 @@ struct BinaryLength {
 struct Utf8Length {
   template <typename OutValue, typename Arg0Value = util::string_view>
   static OutValue Call(KernelContext*, Arg0Value val) {
-    auto str = reinterpret_cast<const uint8_t *>(val.data());
+    auto str = reinterpret_cast<const uint8_t*>(val.data());
     auto strlen = val.size();
 
     OutValue length = 0;
@@ -1619,8 +1619,8 @@ void AddBinaryLength(FunctionRegistry* registry) {
 }
 
 void AddUtf8Length(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>("utf8_length", Arity::Unary(),
-                                               &utf8_length_doc);
+  auto func =
+      std::make_shared<ScalarFunction>("utf8_length", Arity::Unary(), &utf8_length_doc);
 
   ArrayKernelExec exec_offset_32 =
       applicator::ScalarUnaryNotNull<Int32Type, StringType, Utf8Length>::Exec;
