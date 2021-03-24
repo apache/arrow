@@ -301,18 +301,14 @@ class TestStringArray : public ::testing::Test {
     auto st2 = ValidateFull(1, {0, 4}, "\xf4\x90\x80\x80");
     // Single UTF8 character straddles two entries
     auto st3 = ValidateFull(2, {0, 1, 2}, "\xc3\xa9");
-    // Null characters in the string
-    auto st4 = ValidateFull(1, {0, 4}, "\0\0\0\0");
     if (T::is_utf8) {
       ASSERT_RAISES(Invalid, st1);
       ASSERT_RAISES(Invalid, st2);
       ASSERT_RAISES(Invalid, st3);
-      ASSERT_RAISES(Invalid, st4);
     } else {
       ASSERT_OK(st1);
       ASSERT_OK(st2);
       ASSERT_OK(st3);
-      ASSERT_OK(st4);
     }
   }
 

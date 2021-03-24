@@ -72,7 +72,7 @@ struct Utf8Length {
 
     OutValue length = 0;
     while (strlen > 0) {
-      length += (*str & 0xc0) != 0x80;
+      length += ((*str & 0xc0) != 0x80);
       ++str;
       --strlen;
     }
@@ -1588,7 +1588,7 @@ const FunctionDoc binary_length_doc(
     ("For each string in `strings`, emit the number of bytes.  Null values emit null."),
     {"strings"});
 
-const FunctionDoc utf8_length_doc("Compute utf8 string lengths",
+const FunctionDoc utf8_length_doc("Compute UTF8 string lengths",
                                   ("For each string in `strings`, emit the number of "
                                    "UTF8 characters.  Null values emit null."),
                                   {"strings"});

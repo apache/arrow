@@ -101,12 +101,12 @@ TEST(TestStringKernels, LARGE_MEMORY_TEST(Utf8Upper32bitGrowth)) {
                                   CallFunction("utf8_upper", {scalar}, options));
 }
 
-#ifdef ARROW_WITH_UTF8PROC
-
 TYPED_TEST(TestStringKernels, Utf8Length) {
   this->CheckUnary("utf8_length", R"(["aaa", null, "áéíóú", "", "b"])",
                    this->offset_type(), "[3, null, 5, 0, 1]");
 }
+
+#ifdef ARROW_WITH_UTF8PROC
 
 TYPED_TEST(TestStringKernels, Utf8Upper) {
   this->CheckUnary("utf8_upper", "[\"aAazZæÆ&\", null, \"\", \"b\"]", this->type(),
