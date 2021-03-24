@@ -250,7 +250,6 @@ class InExpressionNode : public Node {
  private:
   NodePtr eval_expr_;
   std::unordered_set<Type> values_;
-  int32_t precision_, scale_;
 };
 
 template <>
