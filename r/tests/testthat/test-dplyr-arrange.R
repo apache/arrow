@@ -140,6 +140,13 @@ test_that("arrange", {
       collect(),
     tbl
   )
+  test_sort_cols <- c("int", "dbl")
+  expect_dplyr_equal(
+    input %>%
+      arrange(!!!syms(test_sort_cols)) %>%
+      collect(),
+    tbl
+  )
   expect_warning(
     expect_equal(
       tbl %>%
