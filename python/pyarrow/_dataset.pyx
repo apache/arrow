@@ -233,7 +233,23 @@ cdef class Expression(_Weakrefable):
 
     @staticmethod
     def _field(str name not None):
-        return Expression.wrap(CMakeFieldExpression(tobytes(name)))
+        cdef:
+            CFieldRef c_field
+
+        c_field = CFieldRef(<c_string> tobytes(name))
+        return Expression.wrap(CMakeFieldExpression(c_field))
+
+    @staticmethod
+    def _nested_field(tuple names not None):
+        cdef:
+            vector[CFieldRef] nested
+
+        if len(names) == 0:
+            raise ValueError("nested field reference should be non-empty")
+        nested.reserve(len(names))
+        for name in names:
+            nested.push_back(CFieldRef(<c_string> tobytes(name)))
+        return Expression.wrap(CMakeFieldExpression(CFieldRef(move(nested))))
 
     @staticmethod
     def _scalar(value):

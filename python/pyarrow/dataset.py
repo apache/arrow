@@ -61,16 +61,26 @@ def field(name):
     Stores only the field's name. Type and other information is known only when
     the expression is bound to a dataset having an explicit scheme.
 
+    Nested references are allowed by passing a tuple of names.
+    For example ``('foo', 'bar')`` references the field named "bar" inside
+    the field named "foo".
+
     Parameters
     ----------
-    name : string
-        The name of the field the expression references to.
+    name : string or tuple
+        The name of the (possibly nested) field the expression references to.
 
     Returns
     -------
     field_expr : Expression
     """
-    return Expression._field(name)
+    if isinstance(name, str):
+        return Expression._field(name)
+    elif isinstance(name, tuple):
+        return Expression._nested_field(name)
+    else:
+        raise TypeError(
+            f"field reference should be str or tuple, got {type(name)}")
 
 
 def scalar(value):

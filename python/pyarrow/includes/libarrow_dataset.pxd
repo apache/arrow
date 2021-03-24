@@ -43,7 +43,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         "arrow::dataset::literal"(shared_ptr[CScalar] value)
 
     cdef CExpression CMakeFieldExpression \
-        "arrow::dataset::field_ref"(c_string name)
+        "arrow::dataset::field_ref"(CFieldRef)
 
     cdef CExpression CMakeCallExpression \
         "arrow::dataset::call"(c_string function,

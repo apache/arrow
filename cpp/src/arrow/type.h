@@ -1504,6 +1504,11 @@ class ARROW_EXPORT FieldRef {
   /// Equivalent to a single index string of indices.
   FieldRef(int index) : impl_(FieldPath({index})) {}  // NOLINT runtime/explicit
 
+  /// Construct a nested FieldRef.
+  FieldRef(std::vector<FieldRef> refs) {  // NOLINT runtime/explicit
+    Flatten(std::move(refs));
+  }
+
   /// Convenience constructor for nested FieldRefs: each argument will be used to
   /// construct a FieldRef
   template <typename A0, typename A1, typename... A>
@@ -1559,6 +1564,11 @@ class ARROW_EXPORT FieldRef {
   }
   const std::string* name() const {
     return IsName() ? &util::get<std::string>(impl_) : NULLPTR;
+  }
+  const std::vector<FieldRef>* nested() const {
+    return util::holds_alternative<std::vector<FieldRef>>(impl_)
+               ? &util::get<std::vector<FieldRef>>(impl_)
+               : NULLPTR;
   }
 
   /// \brief Retrieve FieldPath of every child field which matches this FieldRef.

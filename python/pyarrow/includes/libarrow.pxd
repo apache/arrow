@@ -418,6 +418,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CFieldRef()
         CFieldRef(c_string name)
         CFieldRef(int index)
+        CFieldRef(vector[CFieldRef])
         const c_string* name() const
 
     cdef cppclass CFieldRefHash" arrow::FieldRef::Hash":
