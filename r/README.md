@@ -143,7 +143,15 @@ checkout:
 
 ``` shell
 cd ../../r
-R -e 'install.packages(c("devtools", "roxygen2", "pkgdown", "covr")); devtools::install_dev_deps()'
+
+R --vanilla << EOF
+options(repos = c(REPO_NAME = "https://cloud.r-project.org/"))
+install.packages(c("bit64", "devtools", "roxygen2", "tidyselect",
+ "pkgdown", "covr") 
+devtools::install_dev_deps()
+q()
+EOF
+
 R CMD INSTALL .
 ```
 
