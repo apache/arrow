@@ -2337,6 +2337,11 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
     if columns is not None:
         if isinstance(columns, dict):
             for expr in columns.values():
+                if not isinstance(expr, Expression):
+                    raise TypeError(
+                        "Expected an Expression for a 'column' dictionary "
+                        "value, got {} instead".format(type(expr))
+                    )
                 c_exprs.push_back((<Expression> expr).unwrap())
 
             check_status(

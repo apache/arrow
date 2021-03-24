@@ -2581,6 +2581,10 @@ def test_dataset_project_columns(tempdir):
     })
     assert result.equals(expected)
 
+    # raise proper error when not passing an expression
+    with pytest.raises(TypeError, match="Expected an Expression"):
+        dataset.to_table(columns={"A": "A"})
+
 
 @pytest.mark.parquet
 @pytest.mark.pandas
