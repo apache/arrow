@@ -769,10 +769,7 @@ arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
       msg <- paste('Expression', as_label(exprs[[i]]), 'not supported in Arrow')
       return(abandon_ship(call, .data, msg))
     }
-    names(sorts)[i] <- tryCatch(
-      expr = as_name(exprs[[i]]),
-      error = function(x) as_label(exprs[[i]])
-    )
+    names(sorts)[i] <- as_label(exprs[[i]])
     descs[i] <- x[["desc"]]
   }
   .data$arrange_vars <- c(sorts, .data$arrange_vars)
