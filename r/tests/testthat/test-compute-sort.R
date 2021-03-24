@@ -118,7 +118,7 @@ test_that("Array/ChunkedArray sort on strings", {
 })
 
 test_that("Array/ChunkedArray sort on floats", {
-  skip("ARROW-12055")
+  skip("is.na() evaluates to FALSE on Arrow NaN values (ARROW-12055)")
   expect_equal(
     as.vector(sort(Array$create(tbl$dbl), decreasing = TRUE, na.last = FALSE)),
     sort(tbl$dbl, decreasing = TRUE, na.last = FALSE)
