@@ -435,9 +435,11 @@ String transforms
 +--------------------------+------------+-------------------------+---------------------+---------+
 | binary_length            | Unary      | Binary- or String-like  | Int32 or Int64      | \(2)    |
 +--------------------------+------------+-------------------------+---------------------+---------+
-| utf8_lower               | Unary      | String-like             | String-like         | \(3)    |
+| utf8_length              | Unary      | String-like             | Int32 or Int64      | \(3)    |
 +--------------------------+------------+-------------------------+---------------------+---------+
-| utf8_upper               | Unary      | String-like             | String-like         | \(3)    |
+| utf8_lower               | Unary      | String-like             | String-like         | \(4)    |
++--------------------------+------------+-------------------------+---------------------+---------+
+| utf8_upper               | Unary      | String-like             | String-like         | \(4)    |
 +--------------------------+------------+-------------------------+---------------------+---------+
 
 
@@ -447,7 +449,10 @@ String transforms
 * \(2) Output is the physical length in bytes of each input element.  Output
   type is Int32 for Binary / String, Int64 for LargeBinary / LargeString.
 
-* \(3) Each UTF8-encoded character in the input is converted to lowercase or
+* \(3) Output is the number of characters (not bytes) of each input element.
+  Output type is Int32 for String, Int64 for LargeString. 
+
+* \(4) Each UTF8-encoded character in the input is converted to lowercase or
   uppercase.
 
 
