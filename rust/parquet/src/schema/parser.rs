@@ -367,9 +367,9 @@ impl<'a> Parser<'a> {
                             if let Some(",") = self.tokenizer.next() {
                                 scale = parse_i32(
                                     self.tokenizer.next(),
-                                    "Invalid boolean found",
-                                    "Failure to parse timezone info for TIME type",
-                                )?; // TODO: this might not cater for the case of no scale correctly
+                                    "Expected scale, found None",
+                                    "Failed to parse scale for DECIMAL type",
+                                )?;
                                 assert_token(self.tokenizer.next(), ")")?;
                                 logical = Some(LogicalType::DECIMAL(DecimalType {
                                     precision,
@@ -397,7 +397,7 @@ impl<'a> Parser<'a> {
                                 let is_adjusted_to_u_t_c = parse_bool(
                                     self.tokenizer.next(),
                                     "Invalid boolean found",
-                                    "Failure to parse timezone info for TIME type",
+                                    "Failed to parse timezone info for TIME type",
                                 )?;
                                 assert_token(self.tokenizer.next(), ")")?;
                                 logical = Some(LogicalType::TIME(TimeType {
@@ -422,7 +422,7 @@ impl<'a> Parser<'a> {
                                 let is_adjusted_to_u_t_c = parse_bool(
                                     self.tokenizer.next(),
                                     "Invalid boolean found",
-                                    "Failure to parse timezone info for TIMESTAMP type",
+                                    "Failed to parse timezone info for TIMESTAMP type",
                                 )?;
                                 assert_token(self.tokenizer.next(), ")")?;
                                 logical = Some(LogicalType::TIMESTAMP(TimestampType {
@@ -443,12 +443,29 @@ impl<'a> Parser<'a> {
                                 "Invalid bit_width found",
                                 "Failed to parse bit_width for INTEGER type",
                             )? as i8;
-                            // TODO: check the unit against the physical type
+                            match physical_type {
+                                PhysicalType::INT32 => {
+                                    match bit_width {
+                                        8 | 16 | 32 => {}
+                                        _ => {
+                                            return Err(general_err!("Incorrect bit width {} for INT32", bit_width))
+                                        }
+                                    }
+                                }
+                                PhysicalType::INT64 => {
+                                    if bit_width != 64 {
+                                        return Err(general_err!("Incorrect bit width {} for INT64", bit_width))
+                                    }
+                                }
+                                _ => {
+                                    return Err(general_err!("Logical type INTEGER cannot be used with physical type {}", physical_type))
+                                }
+                            }
                             if let Some(",") = self.tokenizer.next() {
                                 let is_signed = parse_bool(
                                     self.tokenizer.next(),
                                     "Invalid boolean found",
-                                    "Failure to parse timezone info for TIMESTAMP type",
+                                    "Failed to parse is_signed for INTEGER type",
                                 )?;
                                 assert_token(self.tokenizer.next(), ")")?;
                                 logical = Some(LogicalType::INTEGER(IntType {
@@ -688,7 +705,10 @@ mod tests {
             tokenizer: &mut iter,
         }
         .parse_message_type();
-        assert!(result.is_err());
+        assert_eq!(
+            result,
+            Err(general_err!("Failed to parse bit_width for INTEGER type"))
+        );
 
         // Invalid integer syntax, needs both bit-width and UTC sign
         let schema = "
@@ -701,7 +721,10 @@ mod tests {
             tokenizer: &mut iter,
         }
         .parse_message_type();
-        assert!(result.is_err());
+        assert_eq!(
+            result,
+            Err(general_err!("Incorrect bit width 32 for INT64"))
+        );
 
         // Invalid integer because of non-numeric bit width
         let schema = "
@@ -714,7 +737,10 @@ mod tests {
             tokenizer: &mut iter,
         }
         .parse_message_type();
-        assert!(result.is_err());
+        assert_eq!(
+            result,
+            Err(general_err!("Failed to parse bit_width for INTEGER type"))
+        );
 
         // Valid types
         let schema = "
@@ -750,7 +776,10 @@ mod tests {
             tokenizer: &mut iter,
         }
         .parse_message_type();
-        assert!(result.is_err());
+        assert_eq!(
+            result,
+            Err(general_err!("Failed to parse timeunit for TIMESTAMP type"))
+        );
 
         // Invalid timestamp syntax, needs both unit and UTC adjustment
         let schema = "
@@ -763,7 +792,12 @@ mod tests {
             tokenizer: &mut iter,
         }
         .parse_message_type();
-        assert!(result.is_err());
+        assert_eq!(
+            result,
+            Err(general_err!(
+                "Failed to parse timezone info for TIMESTAMP type"
+            ))
+        );
 
         // Invalid timestamp because of unknown unit
         let schema = "
@@ -776,7 +810,10 @@ mod tests {
             tokenizer: &mut iter,
         }
         .parse_message_type();
-        assert!(result.is_err());
+        assert_eq!(
+            result,
+            Err(general_err!("Failed to parse timeunit for TIMESTAMP type"))
+        );
 
         // Valid types
         let schema = "
@@ -1097,8 +1134,12 @@ mod tests {
       required int32 _2 (INTEGER(16,false));
       required float _3;
       required double _4;
-      optional int32 _5 (TIME(MILLIS,false));
-      optional binary _6 (STRING);
+      optional int32 _5 (DATE);
+      optional int32 _6 (TIME(MILLIS,false));
+      optional int64 _7 (TIME(MICROS,true));
+      optional int64 _8 (TIMESTAMP(MILLIS,true));
+      optional int64 _9 (TIMESTAMP(NANOS,false));
+      optional binary _10 (STRING);
     }
     ";
         let mut iter = Tokenizer::from_str(schema);
@@ -1143,6 +1184,12 @@ mod tests {
             ),
             Arc::new(
                 Type::primitive_type_builder("_5", PhysicalType::INT32)
+                    .with_logical_type(Some(LogicalType::DATE(Default::default())))
+                    .build()
+                    .unwrap(),
+            ),
+            Arc::new(
+                Type::primitive_type_builder("_6", PhysicalType::INT32)
                     .with_logical_type(Some(LogicalType::TIME(TimeType {
                         unit: TimeUnit::MILLIS(Default::default()),
                         is_adjusted_to_u_t_c: false,
@@ -1151,7 +1198,34 @@ mod tests {
                     .unwrap(),
             ),
             Arc::new(
-                Type::primitive_type_builder("_6", PhysicalType::BYTE_ARRAY)
+                Type::primitive_type_builder("_7", PhysicalType::INT64)
+                    .with_logical_type(Some(LogicalType::TIME(TimeType {
+                        unit: TimeUnit::MICROS(Default::default()),
+                        is_adjusted_to_u_t_c: true,
+                    })))
+                    .build()
+                    .unwrap(),
+            ),
+            Arc::new(
+                Type::primitive_type_builder("_8", PhysicalType::INT64)
+                    .with_logical_type(Some(LogicalType::TIMESTAMP(TimestampType {
+                        unit: TimeUnit::MILLIS(Default::default()),
+                        is_adjusted_to_u_t_c: true,
+                    })))
+                    .build()
+                    .unwrap(),
+            ),
+            Arc::new(
+                Type::primitive_type_builder("_9", PhysicalType::INT64)
+                    .with_logical_type(Some(LogicalType::TIMESTAMP(TimestampType {
+                        unit: TimeUnit::NANOS(Default::default()),
+                        is_adjusted_to_u_t_c: false,
+                    })))
+                    .build()
+                    .unwrap(),
+            ),
+            Arc::new(
+                Type::primitive_type_builder("_10", PhysicalType::BYTE_ARRAY)
                     .with_logical_type(Some(LogicalType::STRING(Default::default())))
                     .build()
                     .unwrap(),

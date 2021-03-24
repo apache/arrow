@@ -1514,7 +1514,7 @@ mod tests {
         message test_schema {
             REQUIRED BOOLEAN boolean;
             REQUIRED INT32   int8  (INT_8);
-            REQUIRED INT32   uint8  (INTEGER(8,false));
+            REQUIRED INT32   uint8 (INTEGER(8,false));
             REQUIRED INT32   int16 (INT_16);
             REQUIRED INT32   uint16 (INTEGER(16,false));
             REQUIRED INT32   int32;
