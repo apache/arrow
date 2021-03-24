@@ -43,9 +43,9 @@ jobs:
       - name: Cache ccache
         uses: actions/cache@v2
         with:
-          path: arrow/dev/tasks/linux-packages/apache-arrow/${{ task_namespace }}/build/{{ target }}/ccache
-          key: linux-${{ task_namespace }}-ccache-${{ target }}-{{ "${{ hashFiles('arrow/cpp/**') }}" }}
-          restore-keys: linux-${{ task_namespace }}-ccache-${{ target }}-
+          path: arrow/dev/tasks/linux-packages/apache-arrow/{{ task_namespace }}/build/{{ target }}/ccache
+          key: linux-{{ task_namespace }}-ccache-{{ target }}-{{ "${{ hashFiles('arrow/cpp/**') }}" }}
+          restore-keys: linux-{{ task_namespace }}-ccache-{{ target }}-
       - name: Build
         run: |
           set -e
