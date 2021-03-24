@@ -49,8 +49,10 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/windows_compatibility.h"
 
 namespace arrow {
 
@@ -597,11 +599,56 @@ void SleepFor(double seconds) {
       std::chrono::nanoseconds(static_cast<int64_t>(seconds * 1e9)));
 }
 
+#ifdef _WIN32
+void SleepABit() {
+  LARGE_INTEGER freq, start, now;
+  QueryPerformanceFrequency(&freq);
+  // 1 ms
+  auto desired = freq.QuadPart / 1000;
+  if (desired <= 0) {
+    // Fallback to STL sleep if high resolution clock not available, tests may fail,
+    // shouldn't really happen
+    SleepFor(1e-3);
+    return;
+  }
+  QueryPerformanceCounter(&start);
+  while (true) {
+    std::this_thread::yield();
+    QueryPerformanceCounter(&now);
+    auto elapsed = now.QuadPart - start.QuadPart;
+    if (elapsed > desired) {
+      break;
+    }
+  }
+}
+#else
+// std::this_thread::sleep_for should be high enough resolution on non-Windows systems
+void SleepABit() { SleepFor(1e-3); }
+#endif
+
 void BusyWait(double seconds, std::function<bool()> predicate) {
   const double period = 0.001;
   for (int i = 0; !predicate() && i * period < seconds; ++i) {
     SleepFor(period);
   }
+}
+
+Future<> SleepAsync(double seconds) {
+  auto out = Future<>::Make();
+  std::thread([out, seconds]() mutable {
+    SleepFor(seconds);
+    out.MarkFinished(Status::OK());
+  }).detach();
+  return out;
+}
+
+Future<> SleepABitAsync() {
+  auto out = Future<>::Make();
+  std::thread([out]() mutable {
+    SleepABit();
+    out.MarkFinished(Status::OK());
+  }).detach();
+  return out;
 }
 
 ///////////////////////////////////////////////////////////////////////////

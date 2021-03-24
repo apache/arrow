@@ -436,9 +436,23 @@ inline void BitmapFromVector(const std::vector<T>& is_valid,
 ARROW_TESTING_EXPORT
 void SleepFor(double seconds);
 
+// Sleeps for a very small amount of time.  The thread will be yielded
+// at least once ensuring that context switches could happen.  It is intended
+// to be used for stress testing parallel code and shouldn't be assumed to do any
+// reliable timing.
+ARROW_TESTING_EXPORT
+void SleepABit();
+
 // Wait until predicate is true or timeout in seconds expires.
 ARROW_TESTING_EXPORT
 void BusyWait(double seconds, std::function<bool()> predicate);
+
+ARROW_TESTING_EXPORT
+Future<> SleepAsync(double seconds);
+
+// \see SleepABit
+ARROW_TESTING_EXPORT
+Future<> SleepABitAsync();
 
 template <typename T>
 std::vector<T> IteratorToVector(Iterator<T> iterator) {
