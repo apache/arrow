@@ -68,6 +68,7 @@ class IpcFileWriteOptions;
 
 class ParquetFileFormat;
 class ParquetFileFragment;
+class ParquetFragmentScanOptions;
 class ParquetFileWriter;
 class ParquetFileWriteOptions;
 
