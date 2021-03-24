@@ -50,6 +50,11 @@ using internal::MakeConverter;
 
 namespace r {
 
+std::mutex& get_r_mutex() {
+  static std::mutex m;
+  return m;
+}
+
 struct RConversionOptions {
   RConversionOptions() = default;
 
@@ -218,7 +223,7 @@ class RConverter : public Converter<SEXP, RConversionOptions> {
     return Status::NotImplemented("ExtendMasked");
   }
 
-  virtual bool Parallel() { return true; }
+  virtual bool Parallel() { return false; }
 };
 
 template <typename T, typename Enable = void>
@@ -316,6 +321,8 @@ class RPrimitiveConverter<T, enable_if_null<T>>
   Status Extend(SEXP, int64_t size) override {
     return this->primitive_builder_->AppendNulls(size);
   }
+
+  bool Parallel() override { return true; }
 };
 
 template <typename T>
@@ -341,6 +348,8 @@ class RPrimitiveConverter<
     // TODO: mention T in the error
     return Status::Invalid("cannot convert");
   }
+
+  bool Parallel() override { return true; }
 
  private:
   template <typename r_value_type>
@@ -391,6 +400,8 @@ class RPrimitiveConverter<
 
   template <typename r_value_type>
   Status AppendRangeSameTypeALTREP(SEXP x, int64_t size) {
+    std::lock_guard<std::mutex> lock(arrow::r::get_r_mutex());
+
     // if it is altrep, then we use cpp11 looping
     // without needing to convert
     RETURN_NOT_OK(this->primitive_builder_->Reserve(size));
@@ -1047,11 +1058,6 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
   return ValueOrStop(converter->ToArray());
 }
 
-std::mutex& get_r_mutex() {
-  static std::mutex m;
-  return m;
-}
-
 }  // namespace r
 }  // namespace arrow
 
@@ -1117,16 +1123,9 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
     auto& converter = converters[j];
     if (converter != nullptr) {
       auto task = [j, &converters, &flatten_lst, &columns] {
-        // for now synchronize all tasks with the R mutex
-        // until we can lock more precisely
-        //
-        // so for now, they don't run in parallel
-        std::lock_guard<std::mutex> lock(arrow::r::get_r_mutex());
-
         auto& converter = converters[j];
 
         SEXP x = flatten_lst[j];
-
         RETURN_NOT_OK(converter->Extend(x, converter->options().size));
         ARROW_ASSIGN_OR_RAISE(auto array, converter->ToArray());
         columns[j] = std::make_shared<arrow::ChunkedArray>(array);
