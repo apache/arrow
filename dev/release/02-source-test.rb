@@ -53,17 +53,6 @@ class SourceTest < Test::Unit::TestCase
     end
   end
 
-  def test_glib_configure
-    source("GLIB")
-    Dir.chdir("#{@tag_name}/c_glib") do
-      assert_equal([
-                     "configure",
-                     "configure.ac",
-                   ],
-                   Dir.glob("configure*").sort)
-    end
-  end
-
   def test_csharp_git_commit_information
     source
     Dir.chdir("#{@tag_name}/csharp") do
