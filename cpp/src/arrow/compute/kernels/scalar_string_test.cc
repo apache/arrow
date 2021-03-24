@@ -102,8 +102,8 @@ TEST(TestStringKernels, LARGE_MEMORY_TEST(Utf8Upper32bitGrowth)) {
 }
 
 TYPED_TEST(TestStringKernels, Utf8Length) {
-  this->CheckUnary("utf8_length", R"(["aaa", null, "áéíóú", "", "b"])",
-                   this->offset_type(), "[3, null, 5, 0, 1]");
+  this->CheckUnary("utf8_length", R"(["aaa", null, "áéíóú", "ɑɽⱤoW😀", "áéí 0😀", "", "b"])",
+                   this->offset_type(), "[3, null, 5, 6, 6, 0, 1]");
 }
 
 #ifdef ARROW_WITH_UTF8PROC
