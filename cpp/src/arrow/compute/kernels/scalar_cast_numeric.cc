@@ -652,7 +652,6 @@ std::shared_ptr<CastFunction> GetCastToDecimal256() {
   OutputType sig_out_ty(ResolveOutputFromOptions);
 
   auto func = std::make_shared<CastFunction>("cast_decimal256", Type::DECIMAL256);
-  // Needed for Parquet conversion.
   AddCommonCasts(Type::DECIMAL256, sig_out_ty, func.get());
 
   // Cast from floating point
