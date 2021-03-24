@@ -47,7 +47,8 @@ arrow_dplyr_query <- function(.data) {
       # groups formed by factor levels that don't appear in the data. It
       # should be non-null only when the data is grouped.
       drop_empty_groups = NULL,
-      # arrange_vars will be a list of expressions
+      # arrange_vars will be a list of expressions named by their associated
+      # column names
       arrange_vars = list(),
       # arrange_desc will be a logical vector indicating the sort order for each
       # expression in arrange_vars (FALSE for ascending, TRUE for descending)
@@ -433,7 +434,7 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
       x$arrange_vars <- get_field_names(x$arrange_vars)
       tab <- tab[
         tab$SortIndices(names(x$arrange_vars), x$arrange_desc),
-        names(x$selected_columns), # need this here to remove x$temp_columns
+        names(x$selected_columns), # this omits x$temp_columns from the result
         drop = FALSE
       ]
       x$temp_columns <- NULL
@@ -467,7 +468,15 @@ ensure_group_vars <- function(x) {
 }
 
 ensure_arrange_vars <- function(x) {
-  # Make sure all arrange vars are temporarily in the projection
+  # The arrange() operation is not performed until later, because:
+  # - It must be performed after mutate(), to enable sorting by new columns.
+  # - It should be performed after filter() and select(), for efficiency.
+  # However, we need users to be able to arrange() by columns and expressions
+  # that are *not* returned in the query result. To enable this, we must
+  # *temporarily* include these columns and expressions in the projection. We
+  # use x$temp_columns to store these. Later, after the arrange() operation has
+  # been performed, these are omitted from the result. This differs from the
+  # columns in x$group_by_vars which *are* returned in the result.
   x$temp_columns <- x$arrange_vars[!names(x$arrange_vars) %in% names(x$selected_columns)]
   x
 }
