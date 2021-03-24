@@ -1030,6 +1030,42 @@ test_that("count()", {
   )
 })
 
+test_that("arrange()", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  arranged <- ds %>%
+    select(chr, dbl, int) %>%
+    filter(dbl * 2 > 14 & dbl - 50 < 3L) %>%
+    mutate(twice = int * 2) %>%
+    arrange(chr, desc(twice), dbl + int)
+  expect_output(
+    print(arranged),
+    "FileSystemDataset (query)
+chr: string
+dbl: double
+int: int32
+twice: expr
+
+* Filter: ((multiply_checked(dbl, 2) > 14) and (subtract_checked(dbl, 50) < 3))
+* Sorted by chr [asc], multiply_checked(int, 2) [desc], add_checked(dbl, int) [asc]
+See $.data for the source Arrow object",
+    fixed = TRUE
+  )
+  expect_equivalent(
+    arranged %>%
+      collect(),
+    rbind(
+      df1[8, c("chr", "dbl", "int")],
+      df2[2, c("chr", "dbl", "int")],
+      df1[9, c("chr", "dbl", "int")],
+      df2[1, c("chr", "dbl", "int")],
+      df1[10, c("chr", "dbl", "int")]
+    ) %>%
+      mutate(
+        twice = int * 2
+      )
+  )
+})
+
 test_that("head/tail", {
   skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir)
