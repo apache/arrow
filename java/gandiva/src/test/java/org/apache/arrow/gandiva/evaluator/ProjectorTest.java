@@ -1289,6 +1289,51 @@ public class ProjectorTest extends BaseEvaluatorTest {
   }
 
   @Test
+  public void testInExprDouble() throws GandivaException, Exception {
+    Field c1 = Field.nullable("c1", float64);
+
+    TreeNode inExpr =
+            TreeBuilder.makeInExpressionDouble(TreeBuilder.makeField(c1),
+                    Sets.newHashSet(1.0, 2.0, 3.0, 4.0, 5.0, 15.0, 16.0));
+    ExpressionTree expr = TreeBuilder.makeExpression(inExpr, Field.nullable("result", boolType));
+    Schema schema = new Schema(Lists.newArrayList(c1));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+
+    int numRows = 16;
+    byte[] validity = new byte[]{(byte) 255, 0};
+    double[] c1Values = new double[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+
+    ArrowBuf c1Validity = buf(validity);
+    ArrowBuf c1Data = doubleBuf(c1Values);
+    ArrowBuf c2Validity = buf(validity);
+
+    ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
+    ArrowRecordBatch batch =
+            new ArrowRecordBatch(
+                    numRows,
+                    Lists.newArrayList(fieldNode, fieldNode),
+                    Lists.newArrayList(c1Validity, c1Data, c2Validity));
+
+    BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
+    bitVector.allocateNew(numRows);
+
+    List<ValueVector> output = new ArrayList<ValueVector>();
+    output.add(bitVector);
+    eval.evaluate(batch, output);
+
+    for (int i = 1; i < 5; i++) {
+      assertTrue(bitVector.getObject(i).booleanValue());
+    }
+    for (int i = 5; i < 16; i++) {
+      assertFalse(bitVector.getObject(i).booleanValue());
+    }
+
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+    eval.close();
+  }
+
+  @Test
   public void testInExprStrings() throws GandivaException, Exception {
     Field c1 = Field.nullable("c1", new ArrowType.Utf8());
 
