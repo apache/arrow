@@ -370,8 +370,8 @@ NodePtr ProtoTypeToInNode(const types::InNode& node) {
 
   if (node.has_decimalvalues()) {
     std::unordered_set<gandiva::DecimalScalar128> decimal_values;
-    for (int i = 0; i < node.decimal_values().decimalvalues_size(); i++) {
-      decimal_values.insert(node.decimal_values().decimalvalues(i).value());
+    for (int i = 0; i < node.decimalvalues().decimalvalues_size(); i++) {
+      decimal_values.insert(node.decimalvalues().decimalvalues(i).value());
     }
     return TreeExprBuilder::MakeInExpressionDecimal(field, decimal_values);
   }

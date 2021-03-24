@@ -202,6 +202,11 @@ public class TreeBuilder {
     return InNode.makeLongInExpr(resultNode, longValues);
   }
 
+  public static TreeNode makeInExpressionDecimal(TreeNode resultNode,
+                                                Set<Decimal> decimalValues) {
+    return InNode.makeDecimalInExpr(resultNode, decimalValues);
+  }
+
   public static TreeNode makeInExpressionString(TreeNode resultNode,
                                                 Set<String> stringValues) {
     return InNode.makeStringInExpr(resultNode, stringValues);
