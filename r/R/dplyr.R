@@ -212,7 +212,6 @@ select.arrow_dplyr_query <- function(.data, ...) {
 }
 select.Dataset <- select.ArrowTabular <- select.arrow_dplyr_query
 
-#' @importFrom tidyselect vars_rename
 rename.arrow_dplyr_query <- function(.data, ...) {
   column_select(arrow_dplyr_query(.data), !!!enquos(...), .FUN = vars_rename)
 }
@@ -517,7 +516,6 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
 collect.ArrowTabular <- as.data.frame.ArrowTabular
 collect.Dataset <- function(x, ...) dplyr::collect(arrow_dplyr_query(x), ...)
 
-#' @importFrom rlang .data
 ensure_group_vars <- function(x) {
   if (inherits(x, "arrow_dplyr_query")) {
     # Before pulling data from Arrow, make sure all group vars are in the projection
@@ -575,7 +573,6 @@ restore_dplyr_features <- function(df, query) {
   df
 }
 
-#' @importFrom tidyselect vars_pull
 pull.arrow_dplyr_query <- function(.data, var = -1) {
   .data <- arrow_dplyr_query(.data)
   var <- vars_pull(names(.data), !!enquo(var))
