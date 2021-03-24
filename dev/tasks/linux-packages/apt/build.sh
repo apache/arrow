@@ -45,7 +45,8 @@ case "${distribution}" in
 esac
 architecture=$(dpkg-architecture -q DEB_BUILD_ARCH)
 
-debuild_options=(-us -uc)
+debuild_options=()
+dpkg_buildpackage_options=(-us -uc)
 
 run mkdir -p /build
 run cd /build
@@ -54,17 +55,17 @@ if which ccache > /dev/null 2>&1; then
   export CCACHE_COMPILERCHECK=content
   export CCACHE_COMPRESS=1
   export CCACHE_COMPRESSLEVEL=6
-  export CCACHE_MAXSIZE=500M
   export CCACHE_DIR="${PWD}/ccache"
+  export CCACHE_MAXSIZE=500M
   ccache --show-stats
-  cat <<DEVSCRIPTS > ~/.devscripts
-DEBUILD_SET_ENVVAR_CCACHE_COMPILERCHECK=${CCACHE_COMPILERCHECK}
-DEBUILD_SET_ENVVAR_CCACHE_COMPRESS=${CCACHE_COMPRESS}
-DEBUILD_SET_ENVVAR_CCACHE_COMPRESSLEVEL=${CCACHE_COMPRESSLEVEL}
-DEBUILD_SET_ENVVAR_CCACHE_MAXSIZE=${CCACHE_MAXSIZE}
-DEBUILD_SET_ENVVAR_CCACHE_DIR="${CCACHE_DIR}"
-DEBUILD_PREPEND_PATH=/usr/lib/ccache
-DEVSCRIPTS
+  debuild_options+=(-eCCACHE_COMPILERCHECK)
+  debuild_options+=(-eCCACHE_COMPRESS)
+  debuild_options+=(-eCCACHE_COMPRESSLEVEL)
+  debuild_options+=(-eCCACHE_DIR)
+  debuild_options+=(-eCCACHE_MAXSIZE)
+  if [ -d /usr/lib/ccache ] ;then
+    debuild_options+=(--prepend-path=/usr/lib/ccache)
+  fi
 fi
 run cp /host/tmp/${PACKAGE}-${VERSION}.tar.gz \
   ${PACKAGE}_${VERSION}.orig.tar.gz
@@ -92,9 +93,9 @@ fi
 # DEB_BUILD_OPTIONS="${DEB_BUILD_OPTIONS} noopt"
 export DEB_BUILD_OPTIONS
 if [ "${DEBUG:-no}" = "yes" ]; then
-  run debuild "${debuild_options[@]}"
+  run debuild "${debuild_options[@]}" "${dpkg_buildpackage_options[@]}"
 else
-  run debuild "${debuild_options[@]}" > /dev/null
+  run debuild "${debuild_options[@]}" "${dpkg_buildpackage_options[@]}" > /dev/null
 fi
 if which ccache > /dev/null 2>&1; then
   ccache --show-stats
