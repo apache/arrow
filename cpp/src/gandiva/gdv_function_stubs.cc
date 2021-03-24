@@ -17,7 +17,6 @@
 
 #include "gandiva/gdv_function_stubs.h"
 
-#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -31,6 +30,7 @@
 #include "gandiva/precompiled/types.h"
 #include "gandiva/random_generator_holder.h"
 #include "gandiva/to_date_holder.h"
+#include "gandiva/formatting_utils.h"
 
 /// Stub functions that can be accessed from LLVM or the pre-compiled library.
 
