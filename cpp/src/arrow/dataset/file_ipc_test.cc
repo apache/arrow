@@ -136,7 +136,9 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReader) {
 
 TEST_F(TestIpcFileFormat, FragmentScanOptions) {
   auto reader = GetRecordBatchReader(
-      schema({field("list", list(float64()), key_value_metadata({{"max_length", "1"}})),
+      // ARROW-12077: on Windows/mimalloc/release, nullable list column leads to crash
+      schema({field("list", list(float64()), false,
+                    key_value_metadata({{"max_length", "1"}})),
               field("f64", float64())}));
   auto source = GetFileSource(reader.get());
 
