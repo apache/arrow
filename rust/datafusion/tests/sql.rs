@@ -1992,6 +1992,12 @@ async fn query_cte_incorrect() -> Result<()> {
     assert!(plan.is_err());
     assert_eq!(format!("{}", plan.unwrap_err()),  "Error during planning: Table or CTE with name \'u\' not found");
 
+    // wrapping should hide u
+    let sql = "WITH t AS (WITH u as (SELECT 1) SELECT 1) SELECT * from u";
+    let plan = ctx.create_logical_plan(&sql);
+    assert!(plan.is_err());
+    assert_eq!(format!("{}", plan.unwrap_err()),  "Error during planning: Table or CTE with name \'u\' not found");
+    
     Ok(())
 }
 

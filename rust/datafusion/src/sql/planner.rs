@@ -123,7 +123,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                 let logical_plan = self.query_to_plan_with_alias(
                     &cte.query,
                     Some(cte.alias.name.value.clone()),
-                    ctes,
+                    &mut ctes.clone(),
                 )?;
                 ctes.insert(cte.alias.name.value.clone(), logical_plan);
             }
