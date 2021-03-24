@@ -752,10 +752,6 @@ arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
   if (query_on_dataset(.data)) {
     not_implemented_for_dataset("arrange()")
   }
-  is_dataset <- query_on_dataset(.data)
-  if (is_dataset) {
-    return(abandon_ship(call, .data))
-  }
   # find and remove any dplyr::desc() and tidy-eval
   # the arrange expressions inside an Arrow data_mask
   sorts <- vector("list", length(exprs))
