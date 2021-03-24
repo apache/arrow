@@ -145,7 +145,7 @@ checkout:
 cd ../../r
 
 Rscript -e '
-options(repos = c(REPO_NAME = "https://cloud.r-project.org/"))
+options(repos = "https://cloud.r-project.org/")
 install.packages(c("bit64", "devtools", "roxygen2", "tidyselect", "pkgdown", "covr"))
 devtools::install_dev_deps()
 '
