@@ -134,7 +134,7 @@ pub enum LogicalPlan {
         /// The name of the table
         table_name: String,
         /// The source of the table
-        source: Arc<dyn TableProvider + Send + Sync>,
+        source: Arc<dyn TableProvider>,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
         /// The schema description of the output

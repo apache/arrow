@@ -21,9 +21,26 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport _Weakrefable
 
 
+cdef class ConvertOptions(_Weakrefable):
+    cdef:
+        CCSVConvertOptions options
+
+    @staticmethod
+    cdef ConvertOptions wrap(CCSVConvertOptions options)
+
+
 cdef class ParseOptions(_Weakrefable):
     cdef:
         CCSVParseOptions options
 
     @staticmethod
     cdef ParseOptions wrap(CCSVParseOptions options)
+
+
+cdef class ReadOptions(_Weakrefable):
+    cdef:
+        CCSVReadOptions options
+        public object encoding
+
+    @staticmethod
+    cdef ReadOptions wrap(CCSVReadOptions options)

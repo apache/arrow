@@ -284,7 +284,7 @@ bool Identical(const Expression& l, const Expression& r) { return l.impl_ == r.i
 size_t Expression::hash() const {
   if (auto lit = literal()) {
     if (lit->is_scalar()) {
-      return Scalar::Hash::hash(*lit->scalar());
+      return lit->scalar()->hash();
     }
     return 0;
   }

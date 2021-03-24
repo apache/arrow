@@ -18,7 +18,6 @@
 //! Defines sort kernel for `ArrayRef`
 
 use std::cmp::Ordering;
-use std::sync::Arc;
 
 use crate::array::*;
 use crate::buffer::MutableBuffer;
@@ -35,14 +34,59 @@ use TimeUnit::*;
 ///
 /// Returns an `ArrowError::ComputeError(String)` if the array type is either unsupported by `sort_to_indices` or `take`.
 ///
+/// # Example
+/// ```rust
+/// # use std::sync::Arc;
+/// # use arrow::array::{Int32Array, ArrayRef};
+/// # use arrow::error::Result;
+/// # use arrow::compute::kernels::sort::sort;
+/// # fn main() -> Result<()> {
+/// let array: ArrayRef = Arc::new(Int32Array::from(vec![5, 4, 3, 2, 1]));
+/// let sorted_array = sort(&array, None).unwrap();
+/// let sorted_array = sorted_array.as_any().downcast_ref::<Int32Array>().unwrap();
+/// assert_eq!(sorted_array, &Int32Array::from(vec![1, 2, 3, 4, 5]));
+/// # Ok(())
+/// # }
+/// ```
 pub fn sort(values: &ArrayRef, options: Option<SortOptions>) -> Result<ArrayRef> {
     let indices = sort_to_indices(values, options, None)?;
     take(values.as_ref(), &indices, None)
 }
 
 /// Sort the `ArrayRef` partially.
-/// It's unstable_sort, may not preserve the order of equal elements
-/// Return an sorted `ArrayRef`, discarding the data after limit.
+///
+/// If `limit` is specified, the resulting array will contain only
+/// first `limit` in the sort order. Any data data after the limit
+/// will be discarded.
+///
+/// Note: this is an unstable_sort, meaning it may not preserve the
+/// order of equal elements.
+///
+/// # Example
+/// ```rust
+/// # use std::sync::Arc;
+/// # use arrow::array::{Int32Array, ArrayRef};
+/// # use arrow::error::Result;
+/// # use arrow::compute::kernels::sort::{sort_limit, SortOptions};
+/// # fn main() -> Result<()> {
+/// let array: ArrayRef = Arc::new(Int32Array::from(vec![5, 4, 3, 2, 1]));
+///
+/// // Find the the top 2 items
+/// let sorted_array = sort_limit(&array, None, Some(2)).unwrap();
+/// let sorted_array = sorted_array.as_any().downcast_ref::<Int32Array>().unwrap();
+/// assert_eq!(sorted_array, &Int32Array::from(vec![1, 2]));
+///
+/// // Find the bottom top 2 items
+/// let options = Some(SortOptions {
+///                  descending: true,
+///                  ..Default::default()
+///               });
+/// let sorted_array = sort_limit(&array, options, Some(2)).unwrap();
+/// let sorted_array = sorted_array.as_any().downcast_ref::<Int32Array>().unwrap();
+/// assert_eq!(sorted_array, &Int32Array::from(vec![5, 4]));
+/// # Ok(())
+/// # }
+/// ```
 pub fn sort_limit(
     values: &ArrayRef,
     options: Option<SortOptions>,
@@ -395,7 +439,7 @@ fn sort_boolean(
         }
     }
 
-    let result_data = Arc::new(ArrayData::new(
+    let result_data = ArrayData::new(
         DataType::UInt32,
         len,
         Some(0),
@@ -403,7 +447,7 @@ fn sort_boolean(
         0,
         vec![result.into()],
         vec![],
-    ));
+    );
 
     Ok(UInt32Array::from(result_data))
 }
@@ -472,7 +516,7 @@ where
         }
     }
 
-    let result_data = Arc::new(ArrayData::new(
+    let result_data = ArrayData::new(
         DataType::UInt32,
         len,
         Some(0),
@@ -480,7 +524,7 @@ where
         0,
         vec![result.into()],
         vec![],
-    ));
+    );
 
     Ok(UInt32Array::from(result_data))
 }
@@ -763,7 +807,7 @@ pub fn lexsort_to_indices(
     let flat_columns = columns
         .iter()
         .map(
-            |column| -> Result<(&ArrayDataRef, DynComparator, SortOptions)> {
+            |column| -> Result<(&ArrayData, DynComparator, SortOptions)> {
                 // flatten and convert build comparators
                 // use ArrayData for is_valid checks later to avoid dynamic call
                 let values = column.values.as_ref();
@@ -775,7 +819,7 @@ pub fn lexsort_to_indices(
                 ))
             },
         )
-        .collect::<Result<Vec<(&ArrayDataRef, DynComparator, SortOptions)>>>()?;
+        .collect::<Result<Vec<(&ArrayData, DynComparator, SortOptions)>>>()?;
 
     let lex_comparator = |a_idx: &usize, b_idx: &usize| -> Ordering {
         for (data, comparator, sort_option) in flat_columns.iter() {

@@ -35,7 +35,10 @@ use datafusion::{
     datasource::{csv::CsvReadOptions, MemTable},
     physical_plan::collect,
 };
-use datafusion::{error::Result, physical_plan::ColumnarValue};
+use datafusion::{
+    error::{DataFusionError, Result},
+    physical_plan::ColumnarValue,
+};
 
 #[tokio::test]
 async fn nyc() -> Result<()> {
@@ -1168,7 +1171,7 @@ fn create_case_context() -> Result<ExecutionContext> {
         ]))],
     )?;
     let table = MemTable::try_new(schema, vec![vec![data]])?;
-    ctx.register_table("t1", Arc::new(table));
+    ctx.register_table("t1", Arc::new(table))?;
     Ok(ctx)
 }
 
@@ -1317,7 +1320,7 @@ fn create_join_context(
         ],
     )?;
     let t1_table = MemTable::try_new(t1_schema, vec![vec![t1_data]])?;
-    ctx.register_table("t1", Arc::new(t1_table));
+    ctx.register_table("t1", Arc::new(t1_table))?;
 
     let t2_schema = Arc::new(Schema::new(vec![
         Field::new(column_right, DataType::UInt32, true),
@@ -1336,7 +1339,7 @@ fn create_join_context(
         ],
     )?;
     let t2_table = MemTable::try_new(t2_schema, vec![vec![t2_data]])?;
-    ctx.register_table("t2", Arc::new(t2_table));
+    ctx.register_table("t2", Arc::new(t2_table))?;
 
     Ok(ctx)
 }
@@ -1358,7 +1361,7 @@ fn create_join_context_qualified() -> Result<ExecutionContext> {
         ],
     )?;
     let t1_table = MemTable::try_new(t1_schema, vec![vec![t1_data]])?;
-    ctx.register_table("t1", Arc::new(t1_table));
+    ctx.register_table("t1", Arc::new(t1_table))?;
 
     let t2_schema = Arc::new(Schema::new(vec![
         Field::new("a", DataType::UInt32, true),
@@ -1374,7 +1377,7 @@ fn create_join_context_qualified() -> Result<ExecutionContext> {
         ],
     )?;
     let t2_table = MemTable::try_new(t2_schema, vec![vec![t2_data]])?;
-    ctx.register_table("t2", Arc::new(t2_table));
+    ctx.register_table("t2", Arc::new(t2_table))?;
 
     Ok(ctx)
 }
@@ -1594,7 +1597,7 @@ async fn generic_query_length<T: 'static + Array + From<Vec<&'static str>>>(
     let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
-    ctx.register_table("test", Arc::new(table));
+    ctx.register_table("test", Arc::new(table))?;
     let sql = "SELECT length(c1) FROM test";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![vec!["0"], vec!["1"], vec!["2"], vec!["3"]];
@@ -1630,7 +1633,7 @@ async fn query_not() -> Result<()> {
     let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
-    ctx.register_table("test", Arc::new(table));
+    ctx.register_table("test", Arc::new(table))?;
     let sql = "SELECT NOT c1 FROM test";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![vec!["true"], vec!["NULL"], vec!["false"]];
@@ -1656,7 +1659,7 @@ async fn query_concat() -> Result<()> {
     let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
-    ctx.register_table("test", Arc::new(table));
+    ctx.register_table("test", Arc::new(table))?;
     let sql = "SELECT concat(c1, '-hi-', cast(c2 as varchar)) FROM test";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![
@@ -1687,7 +1690,7 @@ async fn query_array() -> Result<()> {
     let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
-    ctx.register_table("test", Arc::new(table));
+    ctx.register_table("test", Arc::new(table))?;
     let sql = "SELECT array(c1, cast(c2 as varchar)) FROM test";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![
@@ -1780,7 +1783,7 @@ fn make_timestamp_nano_table() -> Result<Arc<MemTable>> {
 #[tokio::test]
 async fn to_timestamp() -> Result<()> {
     let mut ctx = ExecutionContext::new();
-    ctx.register_table("ts_data", make_timestamp_nano_table()?);
+    ctx.register_table("ts_data", make_timestamp_nano_table()?)?;
 
     let sql = "SELECT COUNT(*) FROM ts_data where ts > to_timestamp('2020-09-08T12:00:00+00:00')";
     let actual = execute(&mut ctx, sql).await;
@@ -1806,7 +1809,7 @@ async fn query_is_null() -> Result<()> {
     let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
-    ctx.register_table("test", Arc::new(table));
+    ctx.register_table("test", Arc::new(table))?;
     let sql = "SELECT c1 IS NULL FROM test";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![vec!["false"], vec!["true"], vec!["false"]];
@@ -1830,7 +1833,7 @@ async fn query_is_not_null() -> Result<()> {
     let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
-    ctx.register_table("test", Arc::new(table));
+    ctx.register_table("test", Arc::new(table))?;
     let sql = "SELECT c1 IS NOT NULL FROM test";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![vec!["true"], vec!["false"], vec!["true"]];
@@ -1857,7 +1860,7 @@ async fn query_count_distinct() -> Result<()> {
     let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
-    ctx.register_table("test", Arc::new(table));
+    ctx.register_table("test", Arc::new(table))?;
     let sql = "SELECT COUNT(DISTINCT c1) FROM test";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![vec!["3".to_string()]];
@@ -1886,7 +1889,7 @@ async fn query_on_string_dictionary() -> Result<()> {
 
     let table = MemTable::try_new(schema, vec![vec![data]])?;
     let mut ctx = ExecutionContext::new();
-    ctx.register_table("test", Arc::new(table));
+    ctx.register_table("test", Arc::new(table))?;
 
     // Basic SELECT
     let sql = "SELECT * FROM test";
@@ -1957,7 +1960,7 @@ async fn query_scalar_minus_array() -> Result<()> {
     let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
-    ctx.register_table("test", Arc::new(table));
+    ctx.register_table("test", Arc::new(table))?;
     let sql = "SELECT 4 - c1 FROM test";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![vec!["4"], vec!["3"], vec!["NULL"], vec!["1"]];
@@ -2036,7 +2039,7 @@ async fn csv_group_by_date() -> Result<()> {
     )?;
     let table = MemTable::try_new(schema, vec![vec![data]])?;
 
-    ctx.register_table("dates", Arc::new(table));
+    ctx.register_table("dates", Arc::new(table))?;
     let sql = "SELECT SUM(cnt) FROM dates GROUP BY date";
     let actual = execute(&mut ctx, sql).await;
     let mut actual: Vec<String> = actual.iter().flatten().cloned().collect();
@@ -2501,6 +2504,39 @@ async fn inner_join_qualified_names() -> Result<()> {
         let mut ctx = create_join_context_qualified()?;
         let actual = execute(&mut ctx, sql).await;
         assert_eq!(expected, actual);
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn qualified_table_references() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx)?;
+
+    for table_ref in &[
+        "aggregate_test_100",
+        "public.aggregate_test_100",
+        "datafusion.public.aggregate_test_100",
+    ] {
+        let sql = format!("SELECT COUNT(*) FROM {}", table_ref);
+        let results = execute(&mut ctx, &sql).await;
+        assert_eq!(results, vec![vec!["100"]]);
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn invalid_qualified_table_references() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx)?;
+
+    for table_ref in &[
+        "nonexistentschema.aggregate_test_100",
+        "nonexistentcatalog.public.aggregate_test_100",
+        "way.too.many.namespaces.as.ident.prefixes.aggregate_test_100",
+    ] {
+        let sql = format!("SELECT COUNT(*) FROM {}", table_ref);
+        assert!(matches!(ctx.sql(&sql), Err(DataFusionError::Plan(_))));
     }
     Ok(())
 }

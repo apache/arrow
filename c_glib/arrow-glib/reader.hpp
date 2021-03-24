@@ -44,7 +44,8 @@ std::shared_ptr<arrow::ipc::feather::Reader>
 garrow_feather_file_reader_get_raw(GArrowFeatherFileReader *reader);
 
 GArrowCSVReader *
-garrow_csv_reader_new_raw(std::shared_ptr<arrow::csv::TableReader> *arrow_reader);
+garrow_csv_reader_new_raw(std::shared_ptr<arrow::csv::TableReader> *arrow_reader,
+                          GArrowInputStream *input);
 std::shared_ptr<arrow::csv::TableReader>
 garrow_csv_reader_get_raw(GArrowCSVReader *reader);
 

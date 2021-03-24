@@ -103,7 +103,7 @@ impl LogicalPlanBuilder {
     /// Convert a table provider into a builder with a TableScan
     pub fn scan(
         name: &str,
-        provider: Arc<dyn TableProvider + Send + Sync>,
+        provider: Arc<dyn TableProvider>,
         projection: Option<Vec<usize>>,
     ) -> Result<Self> {
         let schema = provider.schema();

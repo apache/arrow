@@ -73,9 +73,7 @@
 //! # Ok(())
 //! # }
 //! ```
-use crate::array::{
-    data::count_nulls, make_array, Array, ArrayData, ArrayDataRef, ArrayRef,
-};
+use crate::array::{data::count_nulls, make_array, Array, ArrayData, ArrayRef};
 use crate::buffer::Buffer;
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
@@ -87,7 +85,7 @@ use std::mem::size_of;
 
 /// An Array that can represent slots of varying types.
 pub struct UnionArray {
-    data: ArrayDataRef,
+    data: ArrayData,
     boxed_fields: Vec<ArrayRef>,
 }
 
@@ -127,7 +125,7 @@ impl UnionArray {
         let len = type_ids.len();
         let mut builder = ArrayData::builder(DataType::Union(field_types))
             .add_buffer(type_ids)
-            .child_data(field_values.into_iter().map(|a| a.data()).collect())
+            .child_data(field_values.into_iter().map(|a| a.data().clone()).collect())
             .len(len);
         if let Some(bitmap) = bitmap_data {
             builder = builder.null_bit_buffer(bitmap)
@@ -260,8 +258,8 @@ impl UnionArray {
     }
 }
 
-impl From<ArrayDataRef> for UnionArray {
-    fn from(data: ArrayDataRef) -> Self {
+impl From<ArrayData> for UnionArray {
+    fn from(data: ArrayData) -> Self {
         let mut boxed_fields = vec![];
         for cd in data.child_data() {
             boxed_fields.push(make_array(cd.clone()));
@@ -275,11 +273,7 @@ impl Array for UnionArray {
         self
     }
 
-    fn data(&self) -> ArrayDataRef {
-        self.data.clone()
-    }
-
-    fn data_ref(&self) -> &ArrayDataRef {
+    fn data(&self) -> &ArrayData {
         &self.data
     }
 
@@ -403,16 +397,6 @@ mod tests {
             let value = slot.value(0);
             assert_eq!(expected_value, &value);
         }
-
-        assert_eq!(
-            4 * 8 * 4 * mem::size_of::<i32>(),
-            union.get_buffer_memory_size()
-        );
-        let internals_of_union_array = (8 + 72) + (union.boxed_fields.len() * 144); // Arc<ArrayData> & Vec<ArrayRef> combined.
-        assert_eq!(
-            union.get_buffer_memory_size() + internals_of_union_array,
-            union.get_array_memory_size()
-        );
     }
 
     #[test]

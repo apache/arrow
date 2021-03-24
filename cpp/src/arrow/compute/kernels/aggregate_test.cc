@@ -27,19 +27,26 @@
 #include "arrow/array.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/api_scalar.h"
+#include "arrow/compute/api_vector.h"
+#include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/registry.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/int_util_internal.h"
 
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
+using internal::BitmapReader;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
@@ -65,8 +72,7 @@ static SumResult<ArrowType> NaiveSumPartial(const Array& array) {
   const auto values = array_numeric.raw_values();
 
   if (array.null_count() != 0) {
-    internal::BitmapReader reader(array.null_bitmap_data(), array.offset(),
-                                  array.length());
+    BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
     for (int64_t i = 0; i < array.length(); i++) {
       if (reader.IsSet()) {
         result.first += values[i];
@@ -488,9 +494,7 @@ class TestPrimitiveMinMaxKernel : public ::testing::Test {
 
   void AssertMinMaxIsNull(const Datum& array, const MinMaxOptions& options) {
     ASSERT_OK_AND_ASSIGN(Datum out, MinMax(array, options));
-
-    const StructScalar& value = out.scalar_as<StructScalar>();
-    for (const auto& val : value.value) {
+    for (const auto& val : out.scalar_as<StructScalar>().value) {
       ASSERT_FALSE(val->is_valid);
     }
   }
@@ -646,8 +650,7 @@ static enable_if_integer<ArrowType, MinMaxResult<ArrowType>> NaiveMinMax(
   T min = std::numeric_limits<T>::max();
   T max = std::numeric_limits<T>::min();
   if (array.null_count() != 0) {  // Some values are null
-    internal::BitmapReader reader(array.null_bitmap_data(), array.offset(),
-                                  array.length());
+    BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
     for (int64_t i = 0; i < array.length(); i++) {
       if (reader.IsSet()) {
         min = std::min(min, values[i]);
@@ -686,8 +689,7 @@ static enable_if_floating_point<ArrowType, MinMaxResult<ArrowType>> NaiveMinMax(
   T min = std::numeric_limits<T>::infinity();
   T max = -std::numeric_limits<T>::infinity();
   if (array.null_count() != 0) {  // Some values are null
-    internal::BitmapReader reader(array.null_bitmap_data(), array.offset(),
-                                  array.length());
+    BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
     for (int64_t i = 0; i < array.length(); i++) {
       if (reader.IsSet()) {
         min = std::fmin(min, values[i]);
@@ -1030,7 +1032,7 @@ ModeResult<ArrowType> NaiveMode(const Array& array) {
 
   const auto& array_numeric = reinterpret_cast<const ArrayType&>(array);
   const auto values = array_numeric.raw_values();
-  internal::BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
+  BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
   for (int64_t i = 0; i < array.length(); ++i) {
     if (reader.IsSet()) {
       ++value_counts[values[i]];
@@ -1281,7 +1283,7 @@ void KahanSum(double& sum, double& adjust, double addend) {
 template <typename ArrayType>
 std::pair<double, double> WelfordVar(const ArrayType& array) {
   const auto values = array.raw_values();
-  internal::BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
+  BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
   double count = 0, mean = 0, m2 = 0;
   double mean_adjust = 0, m2_adjust = 0;
   for (int64_t i = 0; i < array.length(); ++i) {

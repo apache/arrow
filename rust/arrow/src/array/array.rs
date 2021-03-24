@@ -19,7 +19,6 @@ use std::fmt;
 use std::sync::Arc;
 use std::{any::Any, convert::TryFrom};
 
-use super::ArrayDataRef;
 use super::*;
 use crate::array::equal_json::JsonEqual;
 use crate::buffer::{Buffer, MutableBuffer};
@@ -57,11 +56,13 @@ pub trait Array: fmt::Debug + Send + Sync + JsonEqual {
     /// ```
     fn as_any(&self) -> &Any;
 
-    /// Returns a reference-counted pointer to the underlying data of this array.
-    fn data(&self) -> ArrayDataRef;
+    /// Returns a reference to the underlying data of this array.
+    fn data(&self) -> &ArrayData;
 
-    /// Returns a borrowed & reference-counted pointer to the underlying data of this array.
-    fn data_ref(&self) -> &ArrayDataRef;
+    /// Returns a reference-counted pointer to the underlying data of this array.
+    fn data_ref(&self) -> &ArrayData {
+        self.data()
+    }
 
     /// Returns a reference to the [`DataType`](crate::datatypes::DataType) of this array.
     ///
@@ -93,7 +94,7 @@ pub trait Array: fmt::Debug + Send + Sync + JsonEqual {
     /// assert_eq!(array_slice.as_ref(), &Int32Array::from(vec![2, 3, 4]));
     /// ```
     fn slice(&self, offset: usize, length: usize) -> ArrayRef {
-        make_array(Arc::new(self.data_ref().as_ref().slice(offset, length)))
+        make_array(self.data_ref().slice(offset, length))
     }
 
     /// Returns the length (i.e., number of elements) of this array.
@@ -206,7 +207,7 @@ pub trait Array: fmt::Debug + Send + Sync + JsonEqual {
     fn to_raw(
         &self,
     ) -> Result<(*const ffi::FFI_ArrowArray, *const ffi::FFI_ArrowSchema)> {
-        let data = self.data().as_ref().clone();
+        let data = self.data().clone();
         let array = ffi::ArrowArray::try_from(data)?;
         Ok(ffi::ArrowArray::into_raw(array))
     }
@@ -217,7 +218,7 @@ pub type ArrayRef = Arc<Array>;
 
 /// Constructs an array using the input `data`.
 /// Returns a reference-counted `Array` instance.
-pub fn make_array(data: ArrayDataRef) -> ArrayRef {
+pub fn make_array(data: ArrayData) -> ArrayRef {
     match data.data_type() {
         DataType::Boolean => Arc::new(BooleanArray::from(data)) as ArrayRef,
         DataType::Int8 => Arc::new(Int8Array::from(data)) as ArrayRef,
@@ -325,7 +326,7 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
 /// Creates a new empty array
 pub fn new_empty_array(data_type: &DataType) -> ArrayRef {
     let data = ArrayData::new_empty(data_type);
-    make_array(Arc::new(data))
+    make_array(data)
 }
 /// Creates a new array of `data_type` of length `length` filled entirely of `NULL` values
 pub fn new_null_array(data_type: &DataType, length: usize) -> ArrayRef {
@@ -334,7 +335,7 @@ pub fn new_null_array(data_type: &DataType, length: usize) -> ArrayRef {
         DataType::Null => Arc::new(NullArray::new(length)),
         DataType::Boolean => {
             let null_buf: Buffer = MutableBuffer::new_null(length).into();
-            make_array(Arc::new(ArrayData::new(
+            make_array(ArrayData::new(
                 data_type.clone(),
                 length,
                 Some(length),
@@ -342,7 +343,7 @@ pub fn new_null_array(data_type: &DataType, length: usize) -> ArrayRef {
                 0,
                 vec![null_buf],
                 vec![],
-            )))
+            ))
         }
         DataType::Int8 => new_null_sized_array::<Int8Type>(data_type, length),
         DataType::UInt8 => new_null_sized_array::<UInt8Type>(data_type, length),
@@ -371,7 +372,7 @@ pub fn new_null_array(data_type: &DataType, length: usize) -> ArrayRef {
                 new_null_sized_array::<IntervalDayTimeType>(data_type, length)
             }
         },
-        DataType::FixedSizeBinary(value_len) => make_array(Arc::new(ArrayData::new(
+        DataType::FixedSizeBinary(value_len) => make_array(ArrayData::new(
             data_type.clone(),
             length,
             Some(length),
@@ -379,7 +380,7 @@ pub fn new_null_array(data_type: &DataType, length: usize) -> ArrayRef {
             0,
             vec![Buffer::from(vec![0u8; *value_len as usize * length])],
             vec![],
-        ))),
+        )),
         DataType::Binary | DataType::Utf8 => {
             new_null_binary_array::<i32>(data_type, length)
         }
@@ -392,21 +393,20 @@ pub fn new_null_array(data_type: &DataType, length: usize) -> ArrayRef {
         DataType::LargeList(field) => {
             new_null_list_array::<i64>(data_type, field.data_type(), length)
         }
-        DataType::FixedSizeList(field, value_len) => {
-            make_array(Arc::new(ArrayData::new(
-                data_type.clone(),
-                length,
-                Some(length),
-                Some(MutableBuffer::new_null(length).into()),
-                0,
-                vec![],
-                vec![
-                    new_null_array(field.data_type(), *value_len as usize * length)
-                        .data(),
-                ],
-            )))
-        }
-        DataType::Struct(fields) => make_array(Arc::new(ArrayData::new(
+        DataType::FixedSizeList(field, value_len) => make_array(ArrayData::new(
+            data_type.clone(),
+            length,
+            Some(length),
+            Some(MutableBuffer::new_null(length).into()),
+            0,
+            vec![],
+            vec![
+                new_null_array(field.data_type(), *value_len as usize * length)
+                    .data()
+                    .clone(),
+            ],
+        )),
+        DataType::Struct(fields) => make_array(ArrayData::new(
             data_type.clone(),
             length,
             Some(length),
@@ -415,22 +415,22 @@ pub fn new_null_array(data_type: &DataType, length: usize) -> ArrayRef {
             vec![],
             fields
                 .iter()
-                .map(|field| Arc::new(ArrayData::new_empty(field.data_type())))
+                .map(|field| ArrayData::new_empty(field.data_type()))
                 .collect(),
-        ))),
+        )),
         DataType::Union(_) => {
             unimplemented!("Creating null Union array not yet supported")
         }
         DataType::Dictionary(_, value) => {
-            make_array(Arc::new(ArrayData::new(
+            make_array(ArrayData::new(
                 data_type.clone(),
                 length,
                 Some(length),
                 Some(MutableBuffer::new_null(length).into()),
                 0,
                 vec![MutableBuffer::new(0).into()], // values are empty
-                vec![new_empty_array(value.as_ref()).data()],
-            )))
+                vec![new_empty_array(value.as_ref()).data().clone()],
+            ))
         }
         DataType::Decimal(_, _) => {
             unimplemented!("Creating null Decimal array not yet supported")
@@ -444,7 +444,7 @@ fn new_null_list_array<OffsetSize: OffsetSizeTrait>(
     child_data_type: &DataType,
     length: usize,
 ) -> ArrayRef {
-    make_array(Arc::new(ArrayData::new(
+    make_array(ArrayData::new(
         data_type.clone(),
         length,
         Some(length),
@@ -453,8 +453,8 @@ fn new_null_list_array<OffsetSize: OffsetSizeTrait>(
         vec![Buffer::from(
             vec![OffsetSize::zero(); length + 1].to_byte_slice(),
         )],
-        vec![Arc::new(ArrayData::new_empty(child_data_type))],
-    )))
+        vec![ArrayData::new_empty(child_data_type)],
+    ))
 }
 
 #[inline]
@@ -462,7 +462,7 @@ fn new_null_binary_array<OffsetSize: OffsetSizeTrait>(
     data_type: &DataType,
     length: usize,
 ) -> ArrayRef {
-    make_array(Arc::new(ArrayData::new(
+    make_array(ArrayData::new(
         data_type.clone(),
         length,
         Some(length),
@@ -473,7 +473,7 @@ fn new_null_binary_array<OffsetSize: OffsetSizeTrait>(
             MutableBuffer::new(0).into(),
         ],
         vec![],
-    )))
+    ))
 }
 
 #[inline]
@@ -481,7 +481,7 @@ fn new_null_sized_array<T: ArrowPrimitiveType>(
     data_type: &DataType,
     length: usize,
 ) -> ArrayRef {
-    make_array(Arc::new(ArrayData::new(
+    make_array(ArrayData::new(
         data_type.clone(),
         length,
         Some(length),
@@ -489,7 +489,7 @@ fn new_null_sized_array<T: ArrowPrimitiveType>(
         0,
         vec![Buffer::from(vec![0u8; length * T::get_byte_width()])],
         vec![],
-    )))
+    ))
 }
 
 /// Creates a new array from two FFI pointers. Used to import arrays from the C Data Interface
@@ -501,7 +501,7 @@ pub unsafe fn make_array_from_raw(
     schema: *const ffi::FFI_ArrowSchema,
 ) -> Result<ArrayRef> {
     let array = ffi::ArrowArray::try_from_raw(array, schema)?;
-    let data = Arc::new(ArrayData::try_from(array)?);
+    let data = ArrayData::try_from(array)?;
     Ok(make_array(data))
 }
 // Helper function for printing potentially long arrays.

@@ -129,9 +129,14 @@ def test_get_function_vector():
     _check_get_function("unique", pc.VectorFunction, pc.VectorKernel, 8)
 
 
-def test_get_function_aggregate():
+def test_get_function_scalar_aggregate():
     _check_get_function("mean", pc.ScalarAggregateFunction,
                         pc.ScalarAggregateKernel, 8)
+
+
+def test_get_function_hash_aggregate():
+    _check_get_function("hash_sum", pc.HashAggregateFunction,
+                        pc.HashAggregateKernel, 1)
 
 
 def test_call_function_with_memory_pool():

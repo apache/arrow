@@ -105,19 +105,22 @@ mod tests {
 
     #[test]
     fn test_u32() -> Result<()> {
-        let data = UInt32Array::from(vec![Some(2), None, Some(1), None]).data();
-        test_round_trip(data.as_ref())
+        let array = UInt32Array::from(vec![Some(2), None, Some(1), None]);
+        let data = array.data();
+        test_round_trip(data)
     }
 
     #[test]
     fn test_u64() -> Result<()> {
-        let data = UInt64Array::from(vec![Some(2), None, Some(1), None]).data();
-        test_round_trip(data.as_ref())
+        let array = UInt64Array::from(vec![Some(2), None, Some(1), None]);
+        let data = array.data();
+        test_round_trip(data)
     }
 
     #[test]
     fn test_i64() -> Result<()> {
-        let data = Int64Array::from(vec![Some(2), None, Some(1), None]).data();
-        test_round_trip(data.as_ref())
+        let array = Int64Array::from(vec![Some(2), None, Some(1), None]);
+        let data = array.data();
+        test_round_trip(data)
     }
 }

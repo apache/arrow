@@ -295,6 +295,45 @@ test_that("CSV dataset", {
   )
 })
 
+test_that("CSV scan options", {
+  options <- FragmentScanOptions$create("text")
+  expect_equal(options$type, "csv")
+  options <- FragmentScanOptions$create("csv",
+                                        null_values = c("mynull"),
+                                        strings_can_be_null = TRUE)
+  expect_equal(options$type, "csv")
+
+  dst_dir <- make_temp_dir()
+  dst_file <- file.path(dst_dir, "data.csv")
+  df <- tibble(chr = c("foo", "mynull"))
+  write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
+
+  ds <- open_dataset(dst_dir, format = "csv")
+  expect_equivalent(ds %>% collect(), df)
+
+  sb <- ds$NewScan()
+  sb$FragmentScanOptions(options)
+
+  tab <- sb$Finish()$ToTable()
+  expect_equivalent(as.data.frame(tab), tibble(chr = c("foo", NA)))
+
+  # Set default convert options in CsvFileFormat
+  csv_format <- CsvFileFormat$create(null_values = c("mynull"),
+                                     strings_can_be_null = TRUE)
+  ds <- open_dataset(dst_dir, format = csv_format)
+  expect_equivalent(ds %>% collect(), tibble(chr = c("foo", NA)))
+
+  # Set both parse and convert options
+  df <- tibble(chr = c("foo", "mynull"), chr2 = c("bar", "baz"))
+  write.table(df, dst_file, row.names = FALSE, quote = FALSE, sep = "\t")
+  ds <- open_dataset(dst_dir, format = "csv",
+                     delimiter="\t",
+                     null_values = c("mynull"),
+                     strings_can_be_null = TRUE)
+  expect_equivalent(ds %>% collect(), tibble(chr = c("foo", NA),
+                                             chr2 = c("bar", "baz")))
+})
+
 test_that("compressed CSV dataset", {
   skip_if_not_available("gzip")
   dst_dir <- make_temp_dir()
@@ -315,6 +354,33 @@ test_that("compressed CSV dataset", {
       select(string = chr, integer = int) %>%
       filter(integer > 6) %>%
       summarize(mean = mean(integer))
+  )
+})
+
+test_that("CSV dataset options", {
+  dst_dir <- make_temp_dir()
+  dst_file <- file.path(dst_dir, "data.csv")
+  df <- tibble(chr = letters[1:10])
+  write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
+
+  format <- FileFormat$create("csv", skip_rows = 1)
+  ds <- open_dataset(dst_dir, format = format)
+
+  expect_equivalent(
+    ds %>%
+      select(string = a) %>%
+      collect(),
+    df1[-1,] %>%
+      select(string = chr)
+  )
+
+  ds <- open_dataset(dst_dir, format = "csv", column_names = c("foo"))
+
+  expect_equivalent(
+    ds %>%
+      select(string = foo) %>%
+      collect(),
+    tibble(foo = c(c('chr'), letters[1:10]))
   )
 })
 
