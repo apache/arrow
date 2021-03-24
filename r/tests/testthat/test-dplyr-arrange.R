@@ -129,6 +129,13 @@ test_that("arrange", {
   )
   expect_dplyr_equal(
     input %>%
+      group_by(grp) %>%
+      arrange() %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
       arrange() %>%
       collect(),
     tbl

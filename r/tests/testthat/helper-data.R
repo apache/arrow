@@ -146,7 +146,7 @@ example_with_logical_factors <- tibble::tibble(
 example_data_for_sorting <- tibble::tibble(
   int = c(-.Machine$integer.max, -101L, -100L, 0L, 0L, 1L, 100L, 1000L, .Machine$integer.max, NA_integer_),
   dbl = c(-Inf, -.Machine$double.xmax, -.Machine$double.xmin, 0, .Machine$double.xmin, pi, .Machine$double.xmax, Inf, NaN, NA_real_),
-  chr = c("", "", "\u0001", "&", "ABC", "NULL", "a", "abc", "ZZZZZ", NA_character_),
+  chr = c("", "", "\u0001", "&", "ABC", "NULL", "a", "abc", "zzz", NA_character_),
   lgl = c(rep(FALSE, 4L), rep(TRUE, 5L), NA), # bool is not supported (ARROW-12016)
   dttm = lubridate::ymd_hms(c(
     "0000-01-01 00:00:00",
