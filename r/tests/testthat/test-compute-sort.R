@@ -86,6 +86,10 @@ test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results
 })
 
 test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results on strings", {
+  skip_if_not(
+    identical(Sys.getlocale("LC_COLLATE"), "C"),
+    "Unexpected LC_COLLATE"
+  )
   expect_vector_equal(
     sort(input, decreasing = TRUE, na.last = FALSE),
     tbl$chr
