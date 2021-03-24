@@ -34,6 +34,7 @@ use crate::error::{ArrowError, Result};
 use crate::util::bit_util::{ceil, round_upto_multiple_of_64};
 use core::iter;
 use lexical_core::Integer;
+use std::iter::FromIterator;
 
 fn binary_boolean_kleene_kernel<F>(
     left: &BooleanArray,
@@ -57,25 +58,31 @@ where
     let left_buffer = left.values();
     let right_buffer = right.values();
 
-    // If we do not have a validity bitmap, we just need something to iterate over...
-    let left_validity = if let Some(buffer) = left.data_ref().null_buffer() {
-        buffer
-    } else {
-        left.values()
-    };
-    let right_validity = if let Some(buffer) = right.data_ref().null_buffer() {
-        buffer
-    } else {
-        right.values()
-    };
+    // If we do not have a validity bitmap, we just use an empty buffer
+    let (left_validity, left_validity_len) = left.data_ref().null_buffer().map_or_else(
+        || (Buffer::from_iter(iter::empty::<bool>()), 0),
+        |buffer| (buffer.clone(), len),
+    );
+    let (right_validity, right_validity_len) =
+        right.data_ref().null_buffer().map_or_else(
+            || (Buffer::from_iter(iter::empty::<bool>()), 0),
+            |buffer| (buffer.clone(), len),
+        );
 
     let left_chunks = left_buffer.bit_chunks(left_offset, len);
-    let left_valid_chunks = left_validity.bit_chunks(left_offset, len);
+    let left_valid_chunks = left_validity.bit_chunks(left_offset, left_validity_len);
     let right_chunks = right_buffer.bit_chunks(right_offset, len);
-    let right_valid_chunks = right_validity.bit_chunks(right_offset, len);
+    let right_valid_chunks = right_validity.bit_chunks(right_offset, right_validity_len);
 
-    // result length measured in bytes
-    let result_len = round_upto_multiple_of_64(len) / 8;
+    // result length measured in bytes (incl. remainder)
+    let mut result_len = round_upto_multiple_of_64(len) / 8;
+    // if remainder is absent, the kleene_op code would always resize the result buffers,
+    // which is both unnecessary and expensive. We can prevent the resizing by always
+    // adding 8 additional bytes to the length of both buffers. All bits of these 8 bytes
+    // will always be 0 though.
+    if left_chunks.remainder_len().is_zero() {
+        result_len = result_len + 8;
+    }
     let mut value_buffer = MutableBuffer::new(result_len);
     let mut valid_buffer = MutableBuffer::new(result_len);
 
@@ -95,14 +102,9 @@ where
         valid_buffer.extend_from_slice(&[valid]);
     };
 
-    let base_iter = left_chunks
-        .iter()
-        .zip(left_valid_chunks.iter())
-        .zip(right_chunks.iter().zip(right_valid_chunks.iter()));
-
     // To get rid off the additional remainder logic we would need an iterator
-    // which provides a possible remainder word.
-    let mut remainder = (
+    // which contains a possible remainder word.
+    let remainder = (
         (
             left_chunks.remainder_bits(),
             left_valid_chunks.remainder_bits(),
@@ -113,51 +115,28 @@ where
         ),
     );
 
+    let base_iter = left_chunks
+        .iter()
+        .zip(left_valid_chunks.iter())
+        .zip(right_chunks.iter().zip(right_valid_chunks.iter()))
+        .chain(iter::once(remainder));
+
     match (
         left.data_ref().null_buffer().is_some(),
         right.data_ref().null_buffer().is_some(),
     ) {
-        (true, true) => {
-            base_iter.chain(iter::once(remainder)).for_each(kleene_op);
-        }
-        (true, false) => {
-            remainder.1 = (
-                right_chunks.remainder_bits(),
-                u64::MAX, // all valid
-            );
-            base_iter
-                .chain(iter::once(remainder))
-                .map(|(left, (right_data, _))| (left, (right_data, u64::MAX)))
-                .for_each(kleene_op);
-        }
-        (false, true) => {
-            remainder.0 = (
-                left_chunks.remainder_bits(),
-                u64::MAX, // all valid
-            );
-            base_iter
-                .chain(iter::once(remainder))
-                .map(|((left_data, _), right)| ((left_data, u64::MAX), right))
-                .for_each(kleene_op);
-        }
-        (false, false) => {
-            let remainder = (
-                (
-                    left_chunks.remainder_bits(),
-                    u64::MAX, // all valid,
-                ),
-                (
-                    right_chunks.remainder_bits(),
-                    u64::MAX, // all valid),
-                ),
-            );
-            base_iter
-                .chain(iter::once(remainder))
-                .map(|((left_data, _), (right_data, _))| {
-                    ((left_data, u64::MAX), (right_data, u64::MAX))
-                })
-                .for_each(kleene_op);
-        }
+        (true, true) => base_iter.for_each(kleene_op),
+        (true, false) => base_iter
+            .map(|(left, (right_data, _))| (left, (right_data, u64::MAX)))
+            .for_each(kleene_op),
+        (false, true) => base_iter
+            .map(|((left_data, _), right)| ((left_data, u64::MAX), right))
+            .for_each(kleene_op),
+        (false, false) => base_iter
+            .map(|((left_data, _), (right_data, _))| {
+                ((left_data, u64::MAX), (right_data, u64::MAX))
+            })
+            .for_each(kleene_op),
     };
 
     let bool_buffer: Buffer = value_buffer.into();
@@ -633,9 +612,9 @@ mod tests {
                     let b = BooleanArray::from(vec![None; n]);
 
                     let result = binary_boolean_kleene_kernel(&a, &b, |_, _, _, _| {
-                        let value = if value { u64::MAX } else { 0 };
-                        let is_valid = if is_valid { u64::MAX } else { 0 };
-                        (value, is_valid)
+                        let tmp_value = if value { u64::MAX } else { 0 };
+                        let tmp_is_valid = if is_valid { u64::MAX } else { 0 };
+                        (tmp_value, tmp_is_valid)
                     })
                     .unwrap();
 
