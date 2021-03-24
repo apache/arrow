@@ -88,7 +88,6 @@ class ScannerBuilder;
 class ScanTask;
 using ScanTaskVector = std::vector<std::shared_ptr<ScanTask>>;
 using ScanTaskIterator = Iterator<std::shared_ptr<ScanTask>>;
-using ScanTaskGenerator = AsyncGenerator<std::shared_ptr<ScanTask>>;
 
 }  // namespace dataset
 }  // namespace arrow

@@ -113,12 +113,12 @@ class GatedFragment : public Fragment {
         gated_(gated) {}
   virtual ~GatedFragment() {}
 
-  RecordBatchVector MakeRecordBatches(bool secondScanTask) {
+  RecordBatchVector MakeRecordBatches(bool second_scan_task) {
     int offset = 0;
     if (!gated_) {
       offset += 2;
     }
-    if (secondScanTask) {
+    if (second_scan_task) {
       offset += 1;
     }
     auto arr = ConstantArrayGenerator::Int32(1, offset);
@@ -139,6 +139,8 @@ class GatedFragment : public Fragment {
   Future<ScanTaskVector> Scan(std::shared_ptr<ScanOptions> options) override {
     ScanTaskVector scan_tasks = MakeScanTasks();
     auto state = state_;
+    state_->delivered++;
+    state_->delivered_cv.notify_one();
     if (gated_) {
       return DeferNotOk(
                  internal::GetCpuThreadPool()->Submit([scan_tasks, state]() -> Status {

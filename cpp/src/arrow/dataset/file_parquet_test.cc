@@ -27,6 +27,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
@@ -589,7 +590,7 @@ TEST_F(TestParquetFileFormat, ExplicitRowGroupSelection) {
   CountRowsAndBatchesInScan(row_groups_fragment({2, 3, 4, 5}), 4 + 5 + 6, 3);
 
   auto scan_fut = row_groups_fragment({kNumRowGroups + 1})->Scan(opts_);
-  ASSERT_FINISHES_ERR(IndexError, scan_fut);
+  ASSERT_FINISHES_AND_RAISES(IndexError, scan_fut);
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       IndexError,
       testing::HasSubstr("only has " + std::to_string(kNumRowGroups) + " row groups"),

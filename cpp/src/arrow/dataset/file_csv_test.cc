@@ -30,6 +30,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 
@@ -153,8 +154,7 @@ bar)");
 
   {
     int64_t rows = 0;
-    for (auto maybe_batch : Batches(fragment.get())) {
-      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+    for (const auto& batch : Batches(fragment.get())) {
       rows += batch->GetColumnByName("str")->length();
     }
     ASSERT_EQ(rows, 4);
@@ -165,8 +165,7 @@ bar)");
     fragment_scan_options->read_options.block_size = 1 << 22;
     opts_->fragment_scan_options = fragment_scan_options;
     int64_t rows = 0;
-    for (auto maybe_batch : Batches(fragment.get())) {
-      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+    for (const auto& batch : Batches(fragment.get())) {
       rows += batch->GetColumnByName("header_skipped")->length();
     }
     ASSERT_EQ(rows, 5);

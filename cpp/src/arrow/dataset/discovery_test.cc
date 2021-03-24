@@ -26,6 +26,7 @@
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/filesystem/test_util.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"

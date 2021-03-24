@@ -18,7 +18,6 @@
 #include "arrow/dataset/scanner.h"
 
 #include <algorithm>
-#include <iostream>
 #include <memory>
 #include <mutex>
 
@@ -62,6 +61,37 @@ Result<RecordBatchGenerator> InMemoryScanTask::ExecuteAsync() {
   return MakeVectorGenerator(record_batches_);
 }
 
+class Scanner::FilterAndProjectScanTask : public ScanTask {
+ public:
+  explicit FilterAndProjectScanTask(std::shared_ptr<ScanTask> task, Expression partition)
+      : ScanTask(task->options(), task->fragment()),
+        task_(std::move(task)),
+        partition_(std::move(partition)) {}
+
+  Result<RecordBatchGenerator> ExecuteAsync() override {
+    ARROW_ASSIGN_OR_RAISE(auto rbs, task_->ExecuteAsync());
+    ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
+                          SimplifyWithGuarantee(options()->filter, partition_));
+
+    ARROW_ASSIGN_OR_RAISE(Expression simplified_projection,
+                          SimplifyWithGuarantee(options()->projection, partition_));
+
+    RecordBatchGenerator filtered_rbs =
+        AddFiltering(rbs, simplified_filter, options_->pool);
+
+    return AddProjection(std::move(filtered_rbs), simplified_projection, options_->pool);
+  }
+
+ private:
+  std::shared_ptr<ScanTask> task_;
+  Expression partition_;
+};
+
+Result<RecordBatchIterator> ScanTask::Execute() {
+  ARROW_ASSIGN_OR_RAISE(auto gen, ExecuteAsync());
+  return MakeGeneratorIterator(gen);
+}
+
 Future<FragmentVector> Scanner::GetFragmentsAsync() {
   if (fragment_ != nullptr) {
     return Future<FragmentVector>::MakeFinished(FragmentVector{fragment_});
@@ -74,14 +104,170 @@ Future<FragmentVector> Scanner::GetFragmentsAsync() {
 }
 
 Future<ScanTaskGenerator> Scanner::ScanAsync() {
+  auto unordered_generator_fut = ScanUnorderedAsync();
+  return unordered_generator_fut.Then([](const PositionedScanTaskGenerator&
+                                             unordered_generator) -> ScanTaskGenerator {
+    auto cmp = [](const PositionedScanTask& left, const PositionedScanTask& right) {
+      if (left.fragment_index > right.fragment_index) {
+        return true;
+      }
+      return left.scan_task_index > right.scan_task_index;
+    };
+    auto is_next = [](const PositionedScanTask& last,
+                      const PositionedScanTask& maybe_next) {
+      if (last.scan_task == nullptr) {
+        return maybe_next.fragment_index == 0 && maybe_next.scan_task_index == 0;
+      }
+      if (maybe_next.fragment_index == last.fragment_index) {
+        return maybe_next.scan_task_index == last.scan_task_index + 1;
+      }
+      if (maybe_next.fragment_index == last.fragment_index + 1) {
+        return last.last_scan_task;
+      }
+      return false;
+    };
+    PositionedScanTaskGenerator ordered_generator = MakeSequencingGenerator(
+        std::move(unordered_generator), cmp, is_next, PositionedScanTask::BeforeAny());
+
+    std::function<std::shared_ptr<ScanTask>(const PositionedScanTask&)> unwrap_scan_task =
+        [](const PositionedScanTask& positioned_task) {
+          return positioned_task.scan_task;
+        };
+    return MakeMappedGenerator(std::move(ordered_generator), unwrap_scan_task);
+  });
+}
+
+Future<PositionedScanTaskGenerator> Scanner::ScanUnorderedAsync() {
   // Transforms Iterator<Fragment> into a unified
   // Iterator<ScanTask>. The first Iterator::Next invocation is going to do
   // all the work of unwinding the chained iterators.
 
   // FIXME: Should just return ScanTaskGenerator, not Future<ScanTaskGenerator>
-  return GetFragmentsAsync().Then([this](const FragmentVector& fragments) {
-    return GetScanTaskGenerator(fragments, scan_options_);
-  });
+  return GetFragmentsAsync().Then(
+      [this](const FragmentVector& fragments) -> Result<PositionedScanTaskGenerator> {
+        ARROW_ASSIGN_OR_RAISE(auto scan_task_generator,
+                              GetUnorderedScanTaskGenerator(fragments, scan_options_));
+        return MakeReadaheadGenerator(scan_task_generator,
+                                      static_cast<int>(scan_options_->block_readahead));
+      });
+}
+
+Result<ScanTaskIterator> Scanner::Scan() {
+  auto scan_fut = ScanAsync();
+  scan_fut.Wait();
+  ARROW_ASSIGN_OR_RAISE(auto gen, scan_fut.result());
+  return MakeGeneratorIterator(std::move(gen));
+}
+
+Result<std::shared_ptr<RecordBatch>> Scanner::FilterRecordBatch(
+    const Expression& filter, MemoryPool* pool, const std::shared_ptr<RecordBatch>& in) {
+  compute::ExecContext exec_context{pool};
+  ARROW_ASSIGN_OR_RAISE(Datum mask,
+                        ExecuteScalarExpression(filter, Datum(in), &exec_context));
+
+  if (mask.is_scalar()) {
+    const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
+    if (mask_scalar.is_valid && mask_scalar.value) {
+      return std::move(in);
+    }
+    return in->Slice(0, 0);
+  }
+
+  ARROW_ASSIGN_OR_RAISE(
+      Datum filtered,
+      compute::Filter(in, mask, compute::FilterOptions::Defaults(), &exec_context));
+  return filtered.record_batch();
+}
+
+RecordBatchGenerator Scanner::AddFiltering(RecordBatchGenerator rbs, Expression filter,
+                                           MemoryPool* pool) {
+  auto mapper = [=](const std::shared_ptr<RecordBatch>& in) {
+    return FilterRecordBatch(filter, pool, in);
+  };
+  return MakeMappedGenerator(std::move(rbs), mapper);
+}
+
+Result<std::shared_ptr<RecordBatch>> Scanner::ProjectRecordBatch(
+    const Expression& projection, MemoryPool* pool,
+    const std::shared_ptr<RecordBatch>& in) {
+  compute::ExecContext exec_context{pool};
+  ARROW_ASSIGN_OR_RAISE(Datum projected,
+                        ExecuteScalarExpression(projection, Datum(in), &exec_context));
+  DCHECK_EQ(projected.type()->id(), Type::STRUCT);
+  if (projected.shape() == ValueDescr::SCALAR) {
+    // Only virtual columns are projected. Broadcast to an array
+    ARROW_ASSIGN_OR_RAISE(projected,
+                          MakeArrayFromScalar(*projected.scalar(), in->num_rows(), pool));
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto out,
+                        RecordBatch::FromStructArray(projected.array_as<StructArray>()));
+
+  return out->ReplaceSchemaMetadata(in->schema()->metadata());
+}
+
+RecordBatchGenerator Scanner::AddProjection(RecordBatchGenerator rbs,
+                                            Expression projection, MemoryPool* pool) {
+  auto mapper = [=](const std::shared_ptr<RecordBatch>& in) {
+    return ProjectRecordBatch(projection, pool, in);
+  };
+  return MakeMappedGenerator(std::move(rbs), mapper);
+}
+
+namespace {
+std::vector<PositionedScanTask> PositionTasks(const ScanTaskVector& scan_tasks,
+                                              uint32_t fragment_index) {
+  std::vector<PositionedScanTask> positioned_tasks;
+  positioned_tasks.reserve(scan_tasks.size());
+  for (std::size_t i = 0; i < scan_tasks.size(); i++) {
+    positioned_tasks.push_back(PositionedScanTask{scan_tasks[i], fragment_index,
+                                                  static_cast<uint32_t>(i),
+                                                  i == scan_tasks.size() - 1});
+  }
+  return positioned_tasks;
+}
+}  // namespace
+
+Future<PositionedScanTaskGenerator> Scanner::FragmentToPositionedScanTasks(
+    std::shared_ptr<ScanOptions> options, const std::shared_ptr<Fragment>& fragment,
+    uint32_t fragment_index) {
+  return fragment->Scan(options).Then(
+      [fragment, fragment_index](const ScanTaskVector& scan_tasks) {
+        auto positioned_tasks = PositionTasks(scan_tasks, fragment_index);
+        // Apply the filter and/or projection to incoming RecordBatches by
+        // wrapping the ScanTask with a FilterAndProjectScanTask
+        auto wrap_scan_task =
+            [fragment](const PositionedScanTask& task) -> Result<PositionedScanTask> {
+          auto partition = fragment->partition_expression();
+          auto wrapped_task = std::make_shared<FilterAndProjectScanTask>(
+              std::move(task.scan_task), partition);
+          return task.ReplaceTask(wrapped_task);
+        };
+
+        auto scan_tasks_gen = MakeVectorGenerator(positioned_tasks);
+        return MakeMappedGenerator(scan_tasks_gen, wrap_scan_task);
+      });
+}
+
+std::vector<Future<PositionedScanTaskGenerator>> Scanner::FragmentsToPositionedScanTasks(
+    std::shared_ptr<ScanOptions> options, const FragmentVector& fragments) {
+  std::vector<Future<PositionedScanTaskGenerator>> positioned_scan_tasks;
+  positioned_scan_tasks.reserve(fragments.size());
+  for (std::size_t i = 0; i < fragments.size(); i++) {
+    positioned_scan_tasks.push_back(
+        FragmentToPositionedScanTasks(options, fragments[i], i));
+  }
+  return positioned_scan_tasks;
+}
+
+/// \brief GetScanTaskGenerator transforms FragmentVector->ScanTaskGenerator
+Result<PositionedScanTaskGenerator> Scanner::GetUnorderedScanTaskGenerator(
+    const FragmentVector& fragments, std::shared_ptr<ScanOptions> options) {
+  // Fragments -> ScanTaskGeneratorGenerator
+  auto scan_tasks = FragmentsToPositionedScanTasks(options, fragments);
+  auto scan_tasks_generator = MakeGeneratorFromFutures(scan_tasks);
+  // ScanTaskGeneratorGenerator -> ScanTaskGenerator
+  return MakeMergedGenerator(std::move(scan_tasks_generator), options->file_readahead);
 }
 
 ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset)
@@ -222,13 +408,11 @@ Future<std::shared_ptr<Table>> Scanner::ToTableAsync() {
           });
     };
 
-    auto scan_readahead = MakeReadaheadGenerator(scan_task_gen, 32);
-    scan_readahead =
-        MakeTransferredGenerator(scan_readahead, internal::GetCpuThreadPool());
+    auto transferred_generator =
+        MakeTransferredGenerator(scan_task_gen, internal::GetCpuThreadPool());
 
-    auto table_building_gen = MakeMappedGenerator(scan_readahead, table_building_task);
-
-    table_building_gen = MakeReadaheadGenerator(std::move(table_building_gen), 32);
+    auto table_building_gen =
+        MakeMappedGenerator(transferred_generator, table_building_task);
 
     return DiscardAllFromAsyncGenerator(table_building_gen)
         .Then([state, scan_options](...) {

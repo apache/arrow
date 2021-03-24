@@ -279,6 +279,32 @@ AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator,
                                       std::function<Future<V>(const T&)> map) {
   return MappingGenerator<T, V>(std::move(source_generator), std::move(map));
 }
+template <typename T, typename MapFunc,
+          typename V = decltype(std::declval<MapFunc>()(std::declval<T>())),
+          typename E = typename std::enable_if<!V::ValueType>::type>
+AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator,
+                                      MapFunc map_fn) {
+  std::function<V(const T&)> map_fn_wrapper = map_fn;
+  return MakeMappedGenerator(std::move(source_generator), std::move(map_fn_wrapper));
+}
+template <typename T, typename MapFunc,
+          typename VR = decltype(std::declval<MapFunc>()(std::declval<T>())),
+          typename V = typename VR::ValueType>
+AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator,
+                                      MapFunc map_fn) {
+  std::function<Result<V>(const T&)> map_fn_wrapper = map_fn;
+  return MakeMappedGenerator(std::move(source_generator), std::move(map_fn_wrapper));
+}
+template <typename T, typename MapFunc,
+          typename VR = decltype(std::declval<MapFunc>()(std::declval<T>())),
+          typename V = typename VR::ValueType>
+// FIXME, find way to make this overload, need SFINAE to distinguish between Result
+// and Future (both of which have ValueType defined)
+AsyncGenerator<V> MakeMappedGeneratorAsync(AsyncGenerator<T> source_generator,
+                                           MapFunc map_fn) {
+  std::function<Future<V>(const T&)> map_fn_wrapper = map_fn;
+  return MakeMappedGenerator(std::move(source_generator), std::move(map_fn_wrapper));
+}
 
 /// \see MakeSequencingGenerator
 template <typename T, typename Comp, typename IsNext>
@@ -1026,6 +1052,19 @@ class MergedGenerator {
 
   std::shared_ptr<State> state_;
 };
+
+template <typename T>
+AsyncGenerator<T> MakeGeneratorFromFutures(const std::vector<Future<T>> futures) {
+  auto index = std::make_shared<std::size_t>(0);
+  auto futures_ptr = std::make_shared<std::vector<Future<T>>>(futures);
+  return [index, futures_ptr]() {
+    if (*index >= futures_ptr->size()) {
+      return AsyncGeneratorEnd<T>();
+    }
+    auto next_index = (*index)++;
+    return (*futures_ptr)[next_index];
+  };
+}
 
 /// \brief Creates a generator that takes in a stream of generators and pulls from up to
 /// max_subscriptions at a time
