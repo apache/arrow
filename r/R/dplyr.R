@@ -431,13 +431,11 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
     }
     # Arrange rows
     if (length(x$arrange_vars) > 0) {
-      x$arrange_vars <- get_field_names(x$arrange_vars)
       tab <- tab[
         tab$SortIndices(names(x$arrange_vars), x$arrange_desc),
         names(x$selected_columns), # this omits x$temp_columns from the result
         drop = FALSE
       ]
-      x$temp_columns <- NULL
     }
   }
   if (as_data_frame) {
