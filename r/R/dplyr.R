@@ -241,6 +241,52 @@ column_select <- function(.data, ..., .FUN = vars_select) {
   .data
 }
 
+relocate.arrow_dplyr_query <- function(.data, ..., .before = NULL, .after = NULL) {
+  .data <- arrow_dplyr_query(.data)
+
+  # TODO: look for unsupported tidyselect selection helpers in exprs(...),
+  # .before, and .after and throw an error if detected
+
+  to_move <- eval_select(expr(c(...)), .data$selected_columns)
+
+  .before <- enquo(.before)
+  .after <- enquo(.after)
+  has_before <- !quo_is_null(.before)
+  has_after <- !quo_is_null(.after)
+
+  if (has_before && has_after) {
+    abort("Must supply only one of `.before` and `.after`.")
+  } else if (has_before) {
+    where <- min(unname(eval_select(.before, .data$selected_columns)))
+    if (!where %in% to_move) {
+      to_move <- c(to_move, where)
+    }
+  } else if (has_after) {
+    where <- max(unname(eval_select(.after, .data$selected_columns)))
+    if (!where %in% to_move) {
+      to_move <- c(where, to_move)
+    }
+  } else {
+    where <- 1L
+    if (!where %in% to_move) {
+      to_move <- c(to_move, where)
+    }
+  }
+
+  lhs <- setdiff(seq2(1, where - 1), to_move)
+  rhs <- setdiff(seq2(where + 1, length(.data$selected_columns)), to_move)
+
+  pos <- vec_unique(c(lhs, to_move, rhs))
+  new_names <- names(pos)
+  .data$selected_columns <- .data$selected_columns[pos]
+
+  if (!is.null(new_names)) {
+    names(.data$selected_columns)[new_names != ""] <- new_names[new_names != ""]
+  }
+  .data
+}
+relocate.Dataset <- relocate.ArrowTabular <- relocate.arrow_dplyr_query
+
 filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
   # TODO something with the .preserve argument
   filts <- quos(...)
