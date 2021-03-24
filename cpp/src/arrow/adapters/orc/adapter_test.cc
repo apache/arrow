@@ -506,7 +506,19 @@ class TestORCWriterSingleArray : public ::testing::Test {
   arrow::random::RandomArrayGenerator rand;
 };
 // Nested types
-
+TEST_F(TestORCWriterSingleArray, WriteStruct) {
+  std::vector<std::shared_ptr<Field>> subfields{field("int32", int32())};
+  int64_t num_rows = 10000;
+  int num_subcols = subfields.size();
+  ArrayVector av0(num_subcols);
+  for (int i = 0; i < num_subcols; i++) {
+    av0[i] = rand.ArrayOf(subfields[i]->type(), num_rows, 0.6);
+  }
+  std::shared_ptr<Buffer> bitmap = rand.NullBitmap(num_rows, 0.2);
+  std::shared_ptr<Array> array =
+      std::make_shared<StructArray>(struct_(subfields), num_rows, av0, bitmap);
+  AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 10);
+}
 TEST_F(TestORCWriterSingleArray, WriteList) {
   int64_t num_rows = 10000;
   auto value_array = rand.ArrayOf(int32(), 125 * num_rows, 0);
