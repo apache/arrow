@@ -25,12 +25,12 @@
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
 #include "gandiva/hash_utils.h"
+#include "gandiva/formatting_utils.h"
 #include "gandiva/in_holder.h"
 #include "gandiva/like_holder.h"
 #include "gandiva/precompiled/types.h"
 #include "gandiva/random_generator_holder.h"
 #include "gandiva/to_date_holder.h"
-#include "gandiva/formatting_utils.h"
 
 /// Stub functions that can be accessed from LLVM or the pre-compiled library.
 
@@ -307,7 +307,7 @@ CAST_NUMERIC_FROM_STRING(double, arrow::DoubleType, FLOAT8)
 
 #undef CAST_NUMERIC_FROM_STRING
 
-#define GDV_FN_CAST_VARCHAR(IN_TYPE, ARROW_TYPE)                                         \
+#define GDV_FN_CAST_VARCHAR_INTEGER(IN_TYPE, ARROW_TYPE)                                 \
   GANDIVA_EXPORT                                                                         \
   const char* gdv_fn_castVARCHAR_##IN_TYPE##_int64(int64_t context, gdv_##IN_TYPE value, \
                                                    int64_t len, int32_t * out_len) {     \
@@ -343,12 +343,49 @@ CAST_NUMERIC_FROM_STRING(double, arrow::DoubleType, FLOAT8)
     return ret;                                                                          \
   }
 
-GDV_FN_CAST_VARCHAR(int32, Int32Type)
-GDV_FN_CAST_VARCHAR(int64, Int64Type)
-GDV_FN_CAST_VARCHAR(float32, FloatType)
-GDV_FN_CAST_VARCHAR(float64, DoubleType)
+#define GDV_FN_CAST_VARCHAR_REAL(IN_TYPE, ARROW_TYPE)                                    \
+  GANDIVA_EXPORT                                                                         \
+  const char* gdv_fn_castVARCHAR_##IN_TYPE##_int64(int64_t context, gdv_##IN_TYPE value, \
+                                                   int64_t len, int32_t * out_len) {     \
+    if (len < 0) {                                                                       \
+      gdv_fn_context_set_error_msg(context, "Buffer length can not be negative");        \
+      *out_len = 0;                                                                      \
+      return "";                                                                         \
+    }                                                                                    \
+    if (len == 0) {                                                                      \
+      *out_len = 0;                                                                      \
+      return "";                                                                         \
+    }                                                                                    \
+    gandiva::GdvStringFormatter<arrow::ARROW_TYPE> formatter;                            \
+    char* ret = reinterpret_cast<char*>(                                                 \
+        gdv_fn_context_arena_malloc(context, static_cast<int32_t>(len)));                \
+    if (ret == nullptr) {                                                                \
+      gdv_fn_context_set_error_msg(context, "Could not allocate memory");                \
+      *out_len = 0;                                                                      \
+      return "";                                                                         \
+    }                                                                                    \
+    arrow::Status status = formatter(value, [&](arrow::util::string_view v) {            \
+      int64_t size = static_cast<int64_t>(v.size());                                     \
+      *out_len = static_cast<int32_t>(len < size ? len : size);                          \
+      memcpy(ret, v.data(), *out_len);                                                   \
+      return arrow::Status::OK();                                                        \
+    });                                                                                  \
+    if (!status.ok()) {                                                                  \
+      std::string err = "Could not cast " + std::to_string(value) + " to string";        \
+      gdv_fn_context_set_error_msg(context, err.c_str());                                \
+      *out_len = 0;                                                                      \
+      return "";                                                                         \
+    }                                                                                    \
+    return ret;                                                                          \
+  }
 
-#undef GDV_FN_CAST_VARCHAR
+GDV_FN_CAST_VARCHAR_INTEGER(int32, Int32Type)
+GDV_FN_CAST_VARCHAR_INTEGER(int64, Int64Type)
+GDV_FN_CAST_VARCHAR_REAL(float32, FloatType)
+GDV_FN_CAST_VARCHAR_REAL(float64, DoubleType)
+
+#undef GDV_FN_CAST_VARCHAR_INTEGER
+#undef GDV_FN_CAST_VARCHAR_REAL
 }
 
 namespace gandiva {

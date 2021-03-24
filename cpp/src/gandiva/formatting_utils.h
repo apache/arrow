@@ -15,11 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 #pragma once
 
-#include "arrow/util/formatting.h"
 #include "arrow/type.h"
+#include "arrow/util/formatting.h"
 #include "arrow/vendored/double-conversion/double-conversion.h"
 
 #ifndef ARROW_SRC_GANDIVA_FORMATTING_UTILS_H_
@@ -31,39 +30,34 @@ namespace gandiva {
 template <typename ARROW_TYPE, typename Enable = void>
 class GdvStringFormatter;
 
-template<typename ARROW_TYPE>
-class FloatToStringGdvMixin :
-    public arrow::internal::FloatToStringFormatterMixin<ARROW_TYPE>{
+using double_conversion::DoubleToStringConverter;
 
+template <typename ARROW_TYPE>
+class FloatToStringGdvMixin
+    : public arrow::internal::FloatToStringFormatterMixin<ARROW_TYPE> {
  public:
-  using arrow::internal::FloatToStringFormatterMixin<ARROW_TYPE>::FloatToStringFormatterMixin;
+  using arrow::internal::FloatToStringFormatterMixin<
+      ARROW_TYPE>::FloatToStringFormatterMixin;
 
   explicit FloatToStringGdvMixin(const std::shared_ptr<arrow::DataType>& = NULLPTR)
-    : arrow::internal::FloatToStringFormatterMixin<ARROW_TYPE>()
-  {
-    const int flags =
-        double_conversion::DoubleToStringConverter::EMIT_TRAILING_ZERO_AFTER_POINT |
-            double_conversion::DoubleToStringConverter::EMIT_TRAILING_DECIMAL_POINT;
-
-    double_conversion::DoubleToStringConverter return_(flags, "inf", "nan",
-                                                       'E', -3, 7, 6, 1);
-
-    this->impl_->converter_ = return_;
-  }
+      : arrow::internal::FloatToStringFormatterMixin<ARROW_TYPE>(
+            DoubleToStringConverter::EMIT_TRAILING_ZERO_AFTER_POINT |
+                DoubleToStringConverter::EMIT_TRAILING_DECIMAL_POINT,
+            "inf", "nan", 'E', -3, 7, 3, 1) {}
 };
 
 template <>
-class GdvStringFormatter<arrow::FloatType> :
-    public FloatToStringGdvMixin<arrow::FloatType> {
+class GdvStringFormatter<arrow::FloatType>
+    : public FloatToStringGdvMixin<arrow::FloatType> {
  public:
   using FloatToStringGdvMixin::FloatToStringGdvMixin;
 };
 
 template <>
-class GdvStringFormatter<arrow::DoubleType> :
-    public FloatToStringGdvMixin<arrow::DoubleType> {
+class GdvStringFormatter<arrow::DoubleType>
+    : public FloatToStringGdvMixin<arrow::DoubleType> {
  public:
   using FloatToStringGdvMixin::FloatToStringGdvMixin;
 };
-}
-#endif //ARROW_SRC_GANDIVA_FORMATTING_UTILS_H_
+}  // namespace gandiva
+#endif  // ARROW_SRC_GANDIVA_FORMATTING_UTILS_H_
