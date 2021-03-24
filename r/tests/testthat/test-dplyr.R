@@ -369,3 +369,27 @@ test_that("tail", {
       group_by(int)
     )
 })
+
+test_that("relocate", {
+  df <- tibble(a = 1, b = 1, c = 1, d = "a", e = "a", f = "a")
+  expect_dplyr_equal(
+    input %>% relocate(f) %>% collect(),
+    df,
+  )
+  expect_dplyr_equal(
+    input %>% relocate(a, .after = c) %>% collect(),
+    df,
+  )
+  expect_dplyr_equal(
+    input %>% relocate(f, .before = b) %>% collect(),
+    df,
+  )
+  expect_dplyr_equal(
+    input %>% relocate(a, .after = last_col()) %>% collect(),
+    df,
+  )
+  expect_dplyr_equal(
+    input %>% relocate(ff = f) %>% collect(),
+    df,
+  )
+})
