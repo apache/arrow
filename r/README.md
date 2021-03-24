@@ -147,7 +147,7 @@ cd ../../r
 R --vanilla << EOF
 options(repos = c(REPO_NAME = "https://cloud.r-project.org/"))
 install.packages(c("bit64", "devtools", "roxygen2", "tidyselect",
- "pkgdown", "covr") 
+ "pkgdown", "covr"))
 devtools::install_dev_deps()
 q()
 EOF
