@@ -147,6 +147,10 @@ else
   fi
 fi
 
+if which ccache > /dev/null 2>&1; then
+  ccache --show-stats
+fi
+
 run mv rpmbuild/RPMS/*/* "${rpm_dir}/"
 run mv rpmbuild/SRPMS/* "${srpm_dir}/"
 
