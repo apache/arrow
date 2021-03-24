@@ -21,14 +21,18 @@ library(dplyr)
 
 tbl <- example_data_for_sorting
 
-test_that("Scalar sort", {
+test_that("sort(Scalar) is identity function", {
   expect_identical(
     as.vector(sort(Scalar$create(42L))),
     42L
   )
+  expect_identical(
+    as.vector(sort(Scalar$create("foo"))),
+    "foo"
+  )
 })
 
-test_that("Array sort on integers", {
+test_that("Array$SortIndices()", {
   expect_equal(
     Array$create(tbl$int)$SortIndices(),
     Array$create(0L:9L, type = uint64())
@@ -37,37 +41,9 @@ test_that("Array sort on integers", {
     Array$create(rev(tbl$int))$SortIndices(descending = TRUE),
     Array$create(c(1L:9L, 0L), type = uint64())
   )
-  expect_equal(
-    as.vector(sort(Array$create(tbl$int))),
-    sort(tbl$int)
-  )
-  expect_equal(
-    as.vector(sort(Array$create(tbl$int), na.last = NA)),
-    sort(tbl$int, na.last = NA)
-  )
-  expect_equal(
-    as.vector(sort(Array$create(tbl$int), na.last = TRUE)),
-    sort(tbl$int, na.last = TRUE)
-  )
-  expect_equal(
-    as.vector(sort(Array$create(tbl$int), na.last = FALSE)),
-    sort(tbl$int, na.last = FALSE)
-  )
-  expect_equal(
-    as.vector(sort(Array$create(tbl$int), decreasing = TRUE)),
-    sort(tbl$int, decreasing = TRUE)
-  )
-  expect_equal(
-    as.vector(sort(Array$create(tbl$int), decreasing = TRUE, na.last = TRUE)),
-    sort(tbl$int, decreasing = TRUE, na.last = TRUE)
-  )
-  expect_equal(
-    as.vector(sort(Array$create(tbl$int), decreasing = TRUE, na.last = FALSE)),
-    sort(tbl$int, decreasing = TRUE, na.last = FALSE)
-  )
 })
 
-test_that("ChunkedArray sort on integers", {
+test_that("ChunkedArray$SortIndices()", {
   expect_equal(
     ChunkedArray$create(tbl$int[1:5], tbl$int[6:10])$SortIndices(),
     Array$create(0L:9L, type = uint64())
@@ -76,60 +52,63 @@ test_that("ChunkedArray sort on integers", {
     ChunkedArray$create(rev(tbl$int)[1:5], rev(tbl$int)[6:10])$SortIndices(descending = TRUE),
     Array$create(c(1L:9L, 0L), type = uint64())
   )
-  expect_equal(
-    as.vector(sort(ChunkedArray$create(tbl$int[1:5], tbl$int[6:10]))),
-    sort(tbl$int)
+})
+
+test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results on integers", {
+  expect_vector_equal(
+    sort(input),
+    tbl$int
   )
-  expect_equal(
-    as.vector(sort(ChunkedArray$create(tbl$int[1:5], tbl$int[6:10]), na.last = NA)),
-    sort(tbl$int, na.last = NA)
+  expect_vector_equal(
+    sort(input, na.last = NA),
+    tbl$int
   )
-  expect_equal(
-    as.vector(sort(ChunkedArray$create(tbl$int[1:5], tbl$int[6:10]), na.last = TRUE)),
-    sort(tbl$int, na.last = TRUE)
+  expect_vector_equal(
+    sort(input, na.last = TRUE),
+    tbl$int
   )
-  expect_equal(
-    as.vector(sort(ChunkedArray$create(tbl$int[1:5], tbl$int[6:10]), na.last = FALSE)),
-    sort(tbl$int, na.last = FALSE)
+  expect_vector_equal(
+    sort(input, na.last = FALSE),
+    tbl$int
   )
-  expect_equal(
-    as.vector(sort(ChunkedArray$create(tbl$int[1:5], tbl$int[6:10]), decreasing = TRUE)),
-    sort(tbl$int, decreasing = TRUE)
+  expect_vector_equal(
+    sort(input, decreasing = TRUE),
+    tbl$int,
   )
-  expect_equal(
-    as.vector(sort(ChunkedArray$create(tbl$int[1:5], tbl$int[6:10]), decreasing = TRUE, na.last = TRUE)),
-    sort(tbl$int, decreasing = TRUE, na.last = TRUE)
+  expect_vector_equal(
+    sort(input, decreasing = TRUE, na.last = TRUE),
+    tbl$int,
   )
-  expect_equal(
-    as.vector(sort(ChunkedArray$create(tbl$int[1:5], tbl$int[6:10]), decreasing = TRUE, na.last = FALSE)),
-    sort(tbl$int, decreasing = TRUE, na.last = FALSE)
+  expect_vector_equal(
+    sort(input, decreasing = TRUE, na.last = FALSE),
+    tbl$int,
   )
 })
 
-test_that("Array/ChunkedArray sort on strings", {
-  expect_equal(
-    as.vector(sort(Array$create(tbl$chr), decreasing = TRUE, na.last = FALSE)),
-    sort(tbl$chr, decreasing = TRUE, na.last = FALSE)
+test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results on strings", {
+  expect_vector_equal(
+    sort(input, decreasing = TRUE, na.last = FALSE),
+    tbl$chr
   )
-  expect_equal(
-    as.vector(sort(ChunkedArray$create(tbl$chr[1:5], tbl$chr[6:10]), decreasing = TRUE, na.last = FALSE)),
-    sort(tbl$chr, decreasing = TRUE, na.last = FALSE)
+  expect_vector_equal(
+    sort(input, decreasing = TRUE, na.last = FALSE),
+    tbl$chr
   )
 })
 
-test_that("Array/ChunkedArray sort on floats", {
+test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results on floats", {
   skip("is.na() evaluates to FALSE on Arrow NaN values (ARROW-12055)")
-  expect_equal(
-    as.vector(sort(Array$create(tbl$dbl), decreasing = TRUE, na.last = FALSE)),
-    sort(tbl$dbl, decreasing = TRUE, na.last = FALSE)
+  expect_vector_equal(
+    sort(input, decreasing = TRUE, na.last = FALSE),
+    tbl$dbl
   )
-  expect_equal(
-    as.vector(sort(ChunkedArray$create(tbl$dbl[1:5], tbl$dbl[6:10]), decreasing = TRUE, na.last = FALSE)),
-    sort(tbl$dbl, decreasing = TRUE, na.last = FALSE)
+  expect_vector_equal(
+    sort(input, decreasing = TRUE, na.last = FALSE),
+    tbl$dbl,
   )
 })
 
-test_that("Table/RecordBatch sort", {
+test_that("Table$SortIndices()", {
   expect_identical(
     {
       x <- tbl %>% slice_sample(prop = 1L) %>% Table$create()
@@ -144,6 +123,9 @@ test_that("Table/RecordBatch sort", {
     },
     tbl
   )
+})
+
+test_that("RecordBatch$SortIndices()", {
   expect_identical(
     {
       x <- tbl %>% slice_sample(prop = 1L) %>% record_batch()
