@@ -285,8 +285,8 @@ i18ize_error_messages <- function() {
   # Figure out what the error messages will be with this LANGUAGE
   # so that we can look for them
   out <- list(
-    obj = tryCatch(X_____X, error = function(e) conditionMessage(e)),
-    fun = tryCatch(X_____X(), error = function(e) conditionMessage(e))
+    obj = tryCatch(eval(parse(text = "X_____X")), error = function(e) conditionMessage(e)),
+    fun = tryCatch(eval(parse(text = "X_____X()")), error = function(e) conditionMessage(e))
   )
   paste(map(out, ~sub("X_____X", ".*", .)), collapse = "|")
 }
