@@ -1153,7 +1153,6 @@ test_that("dplyr method not implemented messages", {
   expect_not_implemented <- function(x) {
     expect_error(x, "is not currently implemented for Arrow Datasets")
   }
-  expect_not_implemented(ds %>% arrange(int))
   expect_not_implemented(ds %>% filter(int == 1) %>% summarize(n()))
 })
 
