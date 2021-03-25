@@ -40,7 +40,7 @@ using RecordBatchGenerator = AsyncGenerator<std::shared_ptr<RecordBatch>>;
 namespace dataset {
 
 constexpr int64_t kDefaultBatchSize = 1 << 20;
-constexpr int32_t kDefaultBatchReadahead = 8;
+constexpr int32_t kDefaultBatchReadahead = 32;
 constexpr int32_t kDefaultFileReadahead = 8;
 
 struct ARROW_DS_EXPORT ScanOptions {
@@ -144,37 +144,37 @@ class ARROW_DS_EXPORT InMemoryScanTask : public ScanTask {
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;
 };
 
-struct PositionedScanTask {
-  std::shared_ptr<ScanTask> scan_task;
-  uint32_t fragment_index;
-  uint32_t scan_task_index;
+struct PositionedRecordBatch {
+  std::shared_ptr<RecordBatch> record_batch;
+  int fragment_index;
+  int scan_task_index;
   bool last_scan_task;
+  int record_batch_index;
+  bool last_record_batch;
 
-  static PositionedScanTask BeforeAny() {
-    return PositionedScanTask{nullptr, 0, 0, false};
+  static PositionedRecordBatch BeforeAny() {
+    return PositionedRecordBatch{nullptr, -1, -1, false, -1, false};
   }
-  static PositionedScanTask AfterAny() { return PositionedScanTask{nullptr, 0, 0, true}; }
-
-  PositionedScanTask ReplaceTask(std::shared_ptr<ScanTask> new_task) const {
-    return PositionedScanTask{new_task, fragment_index, scan_task_index, last_scan_task};
+  static PositionedRecordBatch AfterAny() {
+    return PositionedRecordBatch{nullptr, -1, -1, true, -1, true};
   }
 };
 
 }  // namespace dataset
 
 template <>
-struct IterationTraits<dataset::PositionedScanTask> {
-  static dataset::PositionedScanTask End() {
-    return dataset::PositionedScanTask::AfterAny();
+struct IterationTraits<dataset::PositionedRecordBatch> {
+  static dataset::PositionedRecordBatch End() {
+    return dataset::PositionedRecordBatch::AfterAny();
   }
-  static bool IsEnd(const dataset::PositionedScanTask val) {
-    return val.scan_task == nullptr;
+  static bool IsEnd(const dataset::PositionedRecordBatch val) {
+    return val.record_batch == nullptr;
   }
 };
 
 namespace dataset {
 
-using PositionedScanTaskGenerator = AsyncGenerator<PositionedScanTask>;
+using PositionedRecordBatchGenerator = AsyncGenerator<PositionedRecordBatch>;
 
 /// \brief Scanner is a materialized scan operation with context and options
 /// bound. A scanner is the class that glues ScanTask, Fragment,
@@ -195,11 +195,11 @@ class ARROW_DS_EXPORT Scanner {
   /// \brief The Scan operator returns a stream of ScanTask futures. The caller is
   /// responsible to dispatch/schedule said tasks. Tasks should be safe to run
   /// in a concurrent fashion and outlive the iterator.
-  PositionedScanTaskGenerator ScanUnorderedAsync();
+  PositionedRecordBatchGenerator ScanUnorderedAsync();
 
   /// \brief \see ScanUnorderedAsync The scan tasks returned in this version will be
   /// resequenced so they arrive in order.  This will introduce some latency.
-  ScanTaskGenerator ScanAsync();
+  RecordBatchGenerator ScanAsync();
 
   /// \brief \see ScanAsync
   Result<ScanTaskIterator> Scan();
@@ -243,12 +243,13 @@ class ARROW_DS_EXPORT Scanner {
   static RecordBatchGenerator AddProjection(RecordBatchGenerator rbs,
                                             Expression projection, MemoryPool* pool);
 
-  static AsyncGenerator<PositionedScanTaskGenerator> FragmentsToPositionedScanTasks(
-      std::shared_ptr<ScanOptions> options, const FragmentVector& fragments);
-  static PositionedScanTaskGenerator FragmentToPositionedScanTasks(
+  static AsyncGenerator<PositionedRecordBatchGenerator>
+  FragmentsToPositionedRecordBatches(std::shared_ptr<ScanOptions> options,
+                                     const FragmentVector& fragments);
+  static PositionedRecordBatchGenerator FragmentToPositionedRecordBatches(
       std::shared_ptr<ScanOptions> options, const std::shared_ptr<Fragment>& fragment,
-      uint32_t fragment_index);
-  static Result<PositionedScanTaskGenerator> GetUnorderedScanTaskGenerator(
+      int fragment_index);
+  static Result<PositionedRecordBatchGenerator> GetUnorderedRecordBatchGenerator(
       const FragmentVector& fragments, std::shared_ptr<ScanOptions> options);
 
   class FilterAndProjectScanTask;

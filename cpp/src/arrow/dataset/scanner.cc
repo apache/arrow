@@ -103,44 +103,68 @@ Future<FragmentVector> Scanner::GetFragmentsAsync() {
   return GetFragmentsFromDatasets({dataset_}, scan_options_->filter);
 }
 
-ScanTaskGenerator Scanner::ScanAsync() {
+RecordBatchGenerator Scanner::ScanAsync() {
   auto unordered_generator = ScanUnorderedAsync();
-  auto cmp = [](const PositionedScanTask& left, const PositionedScanTask& right) {
+  auto cmp = [](const PositionedRecordBatch& left, const PositionedRecordBatch& right) {
     if (left.fragment_index > right.fragment_index) {
       return true;
     }
-    return left.scan_task_index > right.scan_task_index;
-  };
-  auto is_next = [](const PositionedScanTask& last,
-                    const PositionedScanTask& maybe_next) {
-    if (last.scan_task == nullptr) {
-      return maybe_next.fragment_index == 0 && maybe_next.scan_task_index == 0;
+    if (left.scan_task_index > right.scan_task_index) {
+      return true;
     }
-    if (maybe_next.fragment_index == last.fragment_index) {
-      return maybe_next.scan_task_index == last.scan_task_index + 1;
+    return left.record_batch_index > right.record_batch_index;
+  };
+  auto is_next = [](const PositionedRecordBatch& last,
+                    const PositionedRecordBatch& maybe_next) {
+    if (last.record_batch == nullptr) {
+      return maybe_next.fragment_index == 0 && maybe_next.scan_task_index == 0 &&
+             maybe_next.record_batch_index == 0;
+    }
+    if (maybe_next.fragment_index > last.fragment_index + 1) {
+      return false;
     }
     if (maybe_next.fragment_index == last.fragment_index + 1) {
-      return last.last_scan_task;
+      return maybe_next.record_batch_index == 0 && maybe_next.scan_task_index == 0 &&
+             last.last_scan_task && last.last_record_batch;
     }
-    return false;
+    if (maybe_next.scan_task_index > last.scan_task_index + 1) {
+      return false;
+    }
+    if (maybe_next.scan_task_index == last.scan_task_index + 1) {
+      return maybe_next.record_batch_index == 0 && last.last_record_batch;
+    }
+    return maybe_next.record_batch_index == last.record_batch_index + 1;
   };
-  PositionedScanTaskGenerator ordered_generator = MakeSequencingGenerator(
-      std::move(unordered_generator), cmp, is_next, PositionedScanTask::BeforeAny());
+  PositionedRecordBatchGenerator ordered_generator = MakeSequencingGenerator(
+      std::move(unordered_generator), cmp, is_next, PositionedRecordBatch::BeforeAny());
 
-  std::function<std::shared_ptr<ScanTask>(const PositionedScanTask&)> unwrap_scan_task =
-      [](const PositionedScanTask& positioned_task) { return positioned_task.scan_task; };
-  return MakeMappedGenerator(std::move(ordered_generator), unwrap_scan_task);
+  std::function<std::shared_ptr<RecordBatch>(const PositionedRecordBatch&)>
+      unwrap_record_batch = [](const PositionedRecordBatch& positioned_task) {
+        return positioned_task.record_batch;
+      };
+  return MakeMappedGenerator(std::move(ordered_generator), unwrap_record_batch);
 }
 
-PositionedScanTaskGenerator Scanner::ScanUnorderedAsync() {
+PositionedRecordBatchGenerator Scanner::ScanUnorderedAsync() {
   return MakeFromFuture(GetFragmentsAsync().Then([this](const FragmentVector& fragments) {
-    return GetUnorderedScanTaskGenerator(fragments, scan_options_);
+    return GetUnorderedRecordBatchGenerator(fragments, scan_options_);
   }));
 }
 
 Result<ScanTaskIterator> Scanner::Scan() {
-  auto scan_task_generator = ScanAsync();
-  return MakeGeneratorIterator(std::move(scan_task_generator));
+  auto record_batch_generator = ScanAsync();
+  auto scan_options = scan_options_;
+  auto wrap_record_batch = [scan_options](const std::shared_ptr<RecordBatch> record_batch)
+      -> Result<std::shared_ptr<ScanTask>> {
+    // FIXME, should tag record batches so we can get the correct fragment
+    auto fragment = std::make_shared<InMemoryFragment>(RecordBatchVector{record_batch});
+    auto scan_fut = fragment->Scan(scan_options);
+    ARROW_ASSIGN_OR_RAISE(auto fake_scan_tasks, scan_fut.result());
+    return fake_scan_tasks[0];
+  };
+  auto wrapped_generator =
+      MakeMappedGenerator(std::move(record_batch_generator), wrap_record_batch);
+  return MakeGeneratorIterator(std::move(wrapped_generator));
 }
 
 Result<std::shared_ptr<RecordBatch>> Scanner::FilterRecordBatch(
@@ -198,23 +222,45 @@ RecordBatchGenerator Scanner::AddProjection(RecordBatchGenerator rbs,
   return MakeMappedGenerator(std::move(rbs), mapper);
 }
 
-namespace {
+struct PositionedScanTask {
+  std::shared_ptr<ScanTask> scan_task;
+  int fragment_index;
+  int scan_task_index;
+  bool last_scan_task;
+
+  PositionedScanTask ReplaceScanTask(std::shared_ptr<ScanTask> new_task) const {
+    return PositionedScanTask{new_task, fragment_index, scan_task_index, last_scan_task};
+  }
+};
+
 std::vector<PositionedScanTask> PositionTasks(const ScanTaskVector& scan_tasks,
-                                              uint32_t fragment_index) {
+                                              int fragment_index) {
   std::vector<PositionedScanTask> positioned_tasks;
   positioned_tasks.reserve(scan_tasks.size());
   for (std::size_t i = 0; i < scan_tasks.size(); i++) {
-    positioned_tasks.push_back(PositionedScanTask{scan_tasks[i], fragment_index,
-                                                  static_cast<uint32_t>(i),
-                                                  i == scan_tasks.size() - 1});
+    positioned_tasks.push_back(PositionedScanTask{
+        scan_tasks[i], fragment_index, static_cast<int>(i), i == scan_tasks.size() - 1});
   }
   return positioned_tasks;
 }
-}  // namespace
 
-PositionedScanTaskGenerator Scanner::FragmentToPositionedScanTasks(
+}  // namespace dataset
+
+template <>
+struct IterationTraits<dataset::PositionedScanTask> {
+  static dataset::PositionedScanTask End() {
+    return dataset::PositionedScanTask{nullptr, -1, -1, false};
+  }
+  static bool IsEnd(const dataset::PositionedScanTask val) {
+    return val.scan_task == nullptr;
+  }
+};
+
+namespace dataset {
+
+PositionedRecordBatchGenerator Scanner::FragmentToPositionedRecordBatches(
     std::shared_ptr<ScanOptions> options, const std::shared_ptr<Fragment>& fragment,
-    uint32_t fragment_index) {
+    int fragment_index) {
   return MakeFromFuture(fragment->Scan(options).Then(
       [fragment, fragment_index, options](const ScanTaskVector& scan_tasks) {
         auto positioned_tasks = PositionTasks(scan_tasks, fragment_index);
@@ -225,39 +271,64 @@ PositionedScanTaskGenerator Scanner::FragmentToPositionedScanTasks(
           auto partition = fragment->partition_expression();
           auto wrapped_task = std::make_shared<FilterAndProjectScanTask>(
               std::move(task.scan_task), partition);
-          return task.ReplaceTask(wrapped_task);
+          return task.ReplaceScanTask(wrapped_task);
         };
 
         auto scan_tasks_gen = MakeVectorGenerator(positioned_tasks);
         auto wrapped_tasks_gen =
             MakeMappedGenerator(std::move(scan_tasks_gen), wrap_scan_task);
-        // TODO - This may not seem like "batch" readahead but for CSV and IPC there is
-        // only one scan task (so this is a no-op) and for Parquet there is a scan task
-        // per batc but that will eventually change
-        return MakeReadaheadGenerator(std::move(wrapped_tasks_gen),
-                                      options->batch_readahead);
+
+        auto execute_task = [fragment_index](const PositionedScanTask& task)
+            -> Result<PositionedRecordBatchGenerator> {
+          ARROW_ASSIGN_OR_RAISE(auto record_batch_gen, task.scan_task->ExecuteAsync());
+          auto enumerated_rb_gen = MakeEnumeratedGenerator(record_batch_gen);
+          auto scan_task_index = task.scan_task_index;
+          auto last_scan_task = task.last_scan_task;
+          auto to_positioned_batch =
+              [fragment_index, scan_task_index,
+               last_scan_task](const Enumerated<std::shared_ptr<RecordBatch>>& batch)
+              // FIXME This shouldn't have to be a result, need to fix mapped generator
+              // SNIFAE weirdness
+              -> Result<PositionedRecordBatch> {
+                return PositionedRecordBatch{*batch.value,    fragment_index,
+                                             scan_task_index, last_scan_task,
+                                             batch.index,     batch.last};
+              };
+          return MakeMappedGenerator(enumerated_rb_gen, to_positioned_batch);
+        };
+
+        auto rb_gen_gen = MakeMappedGenerator(std::move(wrapped_tasks_gen), execute_task);
+        // This is really "how many scan tasks to run at once" however all readers either
+        // do 1 scan task (in which case this is pointless) or in the parquet case scan
+        // task per row group which is close enough to per-batch
+        return MakeMergedGenerator(rb_gen_gen, options->batch_readahead);
       }));
 }
 
-AsyncGenerator<PositionedScanTaskGenerator> Scanner::FragmentsToPositionedScanTasks(
-    std::shared_ptr<ScanOptions> options, const FragmentVector& fragments) {
-  std::vector<PositionedScanTaskGenerator> positioned_scan_tasks;
-  positioned_scan_tasks.reserve(fragments.size());
-  for (std::size_t i = 0; i < fragments.size(); i++) {
-    positioned_scan_tasks.push_back(
-        FragmentToPositionedScanTasks(options, fragments[i], i));
-  }
-  return MakeVectorGenerator(positioned_scan_tasks);
+AsyncGenerator<PositionedRecordBatchGenerator>
+Scanner::FragmentsToPositionedRecordBatches(std::shared_ptr<ScanOptions> options,
+                                            const FragmentVector& fragments) {
+  auto fragment_generator = MakeVectorGenerator(fragments);
+  auto fragment_counter = std::make_shared<std::atomic<int>>(0);
+  std::function<PositionedRecordBatchGenerator(const std::shared_ptr<Fragment>& fragment)>
+      fragment_to_scan_tasks =
+          [options, fragment_counter](const std::shared_ptr<Fragment>& fragment) {
+            auto fragment_index = fragment_counter->fetch_add(1);
+            return FragmentToPositionedRecordBatches(options, fragment, fragment_index);
+          };
+  return MakeMappedGenerator(fragment_generator, fragment_to_scan_tasks);
 }
 
 /// \brief GetScanTaskGenerator transforms FragmentVector->ScanTaskGenerator
-Result<PositionedScanTaskGenerator> Scanner::GetUnorderedScanTaskGenerator(
+Result<PositionedRecordBatchGenerator> Scanner::GetUnorderedRecordBatchGenerator(
     const FragmentVector& fragments, std::shared_ptr<ScanOptions> options) {
   // Fragments -> ScanTaskGeneratorGenerator
-  auto scan_task_generator_generator = FragmentsToPositionedScanTasks(options, fragments);
+  auto scan_task_generator_generator =
+      FragmentsToPositionedRecordBatches(options, fragments);
   // ScanTaskGeneratorGenerator -> ScanTaskGenerator
-  return MakeMergedGenerator(std::move(scan_task_generator_generator),
-                             options->file_readahead);
+  auto merged = MakeMergedGenerator(std::move(scan_task_generator_generator),
+                                    options->file_readahead);
+  return MakeReadaheadGenerator(merged, options->file_readahead);
 }
 
 ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset)
@@ -350,15 +421,22 @@ static inline RecordBatchVector FlattenRecordBatchVector(
 struct TableAssemblyState {
   /// Protecting mutating accesses to batches
   std::mutex mutex{};
-  std::vector<RecordBatchVector> batches{};
+  std::vector<std::vector<RecordBatchVector>> batches{};
   int scan_task_id = 0;
 
-  void Emplace(RecordBatchVector b, size_t position) {
+  void Emplace(std::shared_ptr<RecordBatch> batch, size_t fragment_index,
+               size_t task_index, size_t record_batch_index) {
     std::lock_guard<std::mutex> lock(mutex);
-    if (batches.size() <= position) {
-      batches.resize(position + 1);
+    if (batches.size() <= fragment_index) {
+      batches.resize(fragment_index + 1);
     }
-    batches[position] = std::move(b);
+    if (batches[fragment_index].size() <= task_index) {
+      batches[fragment_index].resize(task_index + 1);
+    }
+    if (batches[fragment_index][task_index].size() <= record_batch_index) {
+      batches[fragment_index][task_index].resize(record_batch_index + 1);
+    }
+    batches[fragment_index][task_index][record_batch_index] = std::move(batch);
   }
 };
 
@@ -375,37 +453,31 @@ Result<std::shared_ptr<Table>> Scanner::ToTable() {
 
 Future<std::shared_ptr<Table>> Scanner::ToTableAsync() {
   auto scan_options = scan_options_;
-  auto scan_task_gen = ScanAsync();
+  auto positioned_batch_gen = ScanUnorderedAsync();
   /// Wraps the state in a shared_ptr to ensure that failing ScanTasks don't
   /// invalidate concurrently running tasks when Finish() early returns
   /// and the mutex/batches fail out of scope.
   auto state = std::make_shared<TableAssemblyState>();
 
-  // TODO(ARROW-12023) Ideally this mapping function would just return Future<> but that
-  // isn't allowed yet
-  auto table_building_task = [state](const std::shared_ptr<ScanTask>& scan_task)
-      -> Future<std::shared_ptr<ScanTask>> {
-    auto id = state->scan_task_id++;
-    ARROW_ASSIGN_OR_RAISE(auto batch_gen, scan_task->ExecuteAsync());
-    return CollectAsyncGenerator(std::move(batch_gen))
-        .Then([state, id,
-               scan_task](const RecordBatchVector& rbs) -> std::shared_ptr<ScanTask> {
-          state->Emplace(rbs, id);
-          return scan_task;
-        });
+  // TODO(ARROW-12023) Ideally this mapping function would just return Status but that
+  // isn't allowed because Status is not iterable
+  // FIXME Return PositionedBatch and not Result<PB> when snifae confusion is figured out
+  // in async_generator
+  auto table_building_task =
+      [state](const PositionedRecordBatch& batch) -> Result<PositionedRecordBatch> {
+    state->Emplace(batch.record_batch, batch.fragment_index, batch.scan_task_index,
+                   batch.record_batch_index);
+    return batch;
   };
 
-  auto transferred_generator =
-      MakeTransferredGenerator(scan_task_gen, internal::GetCpuThreadPool());
-
   auto table_building_gen =
-      MakeMappedGeneratorAsync(transferred_generator, table_building_task);
+      MakeMappedGeneratorAsync(positioned_batch_gen, table_building_task);
 
   return DiscardAllFromAsyncGenerator(table_building_gen)
       .Then([state, scan_options](...) {
         return Table::FromRecordBatches(
             scan_options->projected_schema,
-            FlattenRecordBatchVector(std::move(state->batches)));
+            internal::FlattenVectors(internal::FlattenVectors(state->batches)));
       });
 }
 
