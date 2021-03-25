@@ -23,16 +23,10 @@ tbl <- slice_sample(example_data_for_sorting, prop = 1L)
 # use the C locale for string collation in R (ARROW-12046)
 Sys.setlocale("LC_COLLATE", "C")
 
-test_that("arrange", {
+test_that("arrange() on integer, double, and character columns", {
   expect_dplyr_equal(
     input %>%
       arrange(int, chr) %>%
-      collect(),
-    tbl
-  )
-  expect_dplyr_equal(
-    input %>%
-      arrange(dttm, int) %>%
       collect(),
     tbl
   )
@@ -131,6 +125,14 @@ test_that("arrange", {
       collect(),
     tbl
   )
+  test_sort_col <- "chr"
+  expect_dplyr_equal(
+    input %>%
+      arrange(!!sym(test_sort_col)) %>%
+      collect(),
+    tbl %>%
+      select(chr, lgl)
+  )
   test_sort_cols <- c("int", "dbl")
   expect_dplyr_equal(
     input %>%
@@ -151,11 +153,48 @@ test_that("arrange", {
     "not supported in Arrow",
     fixed = TRUE
   )
+})
+
+test_that("arrange() on datetime columns", {
+  expect_dplyr_equal(
+    input %>%
+      arrange(dttm, int) %>%
+      collect(),
+    tbl
+  )
+  skip("Sorting by only a single timestamp column fails (ARROW-12087)")
+  expect_dplyr_equal(
+    input %>%
+      arrange(dttm) %>%
+      collect(),
+    tbl %>%
+      select(dttm, grp)
+  )
+})
+
+test_that("arrange() on logical columns", {
+  skip("Sorting by bool columns is not supported (ARROW-12016)")
+  expect_dplyr_equal(
+    input %>%
+      arrange(lgl, int) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("arrange() with bad inputs", {
   expect_error(
     tbl %>%
       Table$create() %>%
       arrange(1),
     "does not contain any field names",
+    fixed = TRUE
+  )
+  expect_error(
+    tbl %>%
+      Table$create() %>%
+      arrange(aertidjfgjksertyj),
+    "not found",
     fixed = TRUE
   )
 })
