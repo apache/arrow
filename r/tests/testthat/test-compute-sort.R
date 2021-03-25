@@ -19,7 +19,11 @@ context("compute: sorting")
 
 library(dplyr)
 
-tbl <- example_data_for_sorting
+# randomize order of rows in test data
+tbl <- slice_sample(example_data_for_sorting, prop = 1L)
+
+# use the C locale for string collation in R (ARROW-12046)
+Sys.setlocale("LC_COLLATE", "C")
 
 test_that("sort(Scalar) is identity function", {
   int <- Scalar$create(42L)
@@ -31,24 +35,30 @@ test_that("sort(Scalar) is identity function", {
 })
 
 test_that("Array$SortIndices()", {
+  int <- tbl$int
+  int <- int[!duplicated(int)] # needed because ties in int
   expect_equal(
-    Array$create(tbl$int)$SortIndices(),
-    Array$create(0:9, type = uint64())
+    Array$create(int)$SortIndices(),
+    Array$create(order(int) - 1L, type = uint64())
   )
+  int <- na.omit(int) # needed because ARROW-12063
   expect_equal(
-    Array$create(rev(tbl$int))$SortIndices(descending = TRUE),
-    Array$create(c(1:9, 0L), type = uint64())
+    Array$create(int)$SortIndices(descending = TRUE),
+    Array$create(rev(order(int)) - 1, type = uint64())
   )
 })
 
 test_that("ChunkedArray$SortIndices()", {
+  int <- tbl$int
+  int <- int[!duplicated(int)] # needed because ties in int
   expect_equal(
-    ChunkedArray$create(tbl$int[1:5], tbl$int[6:10])$SortIndices(),
-    Array$create(0:9, type = uint64())
+    ChunkedArray$create(int[1:4], int[5:length(int)])$SortIndices(),
+    Array$create(order(int) - 1L, type = uint64())
   )
+  int <- na.omit(int) # needed because ARROW-12063
   expect_equal(
-    ChunkedArray$create(rev(tbl$int)[1:5], rev(tbl$int)[6:10])$SortIndices(descending = TRUE),
-    Array$create(c(1:9, 0L), type = uint64())
+    ChunkedArray$create(int[1:4], int[5:length(int)])$SortIndices(descending = TRUE),
+    Array$create(rev(order(int)) - 1, type = uint64())
   )
 })
 
@@ -84,10 +94,6 @@ test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results
 })
 
 test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results on strings", {
-  skip_if_not(
-    identical(Sys.getlocale("LC_COLLATE"), "C"),
-    "Unexpected LC_COLLATE"
-  )
   expect_vector_equal(
     sort(input, decreasing = TRUE, na.last = FALSE),
     tbl$chr
@@ -129,29 +135,29 @@ test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results
 test_that("Table$SortIndices()", {
   expect_identical(
     {
-      x <- tbl %>% slice_sample(prop = 1L) %>% Table$create()
+      x <- tbl %>% Table$create()
       x$Take(x$SortIndices("chr")) %>% pull(chr)
     },
-    tbl$chr
+    sort(tbl$chr, na.last = TRUE)
   )
   expect_identical(
     {
-      x <- tbl %>% slice_sample(prop = 1L) %>% Table$create()
+      x <- tbl %>% Table$create()
       x$Take(x$SortIndices(c("int", "dbl"), c(FALSE, FALSE))) %>% collect()
     },
-    tbl
+    tbl %>% arrange(int, dbl)
   )
 })
 
 test_that("RecordBatch$SortIndices()", {
   expect_identical(
     {
-      x <- tbl %>% slice_sample(prop = 1L) %>% record_batch()
+      x <- tbl %>% record_batch()
       x$Take(x$SortIndices(c("chr", "int", "dbl"), TRUE)) %>% collect()
     },
-    rbind(
-      tbl %>% head(-1) %>% arrange(-row_number()),
-      tbl %>% tail(1)
-    )
+    tbl %>% arrange(desc(chr), desc(int), desc(dbl))
   )
 })
+
+# restore previous collation locale setting
+Sys.setlocale("LC_COLLATE")

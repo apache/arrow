@@ -17,91 +17,84 @@
 
 library(dplyr)
 
-tbl <- example_data_for_sorting
+# randomize order of rows in test data
+tbl <- slice_sample(example_data_for_sorting, prop = 1L)
+
+# use the C locale for string collation in R (ARROW-12046)
+Sys.setlocale("LC_COLLATE", "C")
 
 test_that("arrange", {
   expect_dplyr_equal(
     input %>%
       arrange(int, chr) %>%
       collect(),
-    tbl %>%
-      slice_sample(prop = 1L)
+    tbl
   )
   expect_dplyr_equal(
     input %>%
       arrange(dttm, int) %>%
       collect(),
-    tbl %>%
-      slice_sample(prop = 1L)
+    tbl
   )
   expect_dplyr_equal(
     input %>%
       arrange(int, desc(dbl)) %>%
       collect(),
-    tbl %>%
-      slice_sample(prop = 1L)
+    tbl
   )
   expect_dplyr_equal(
     input %>%
       arrange(int, desc(desc(dbl))) %>%
       collect(),
-    tbl %>%
-      slice_sample(prop = 1L)
+    tbl
   )
   expect_dplyr_equal(
     input %>%
       arrange(int) %>%
       arrange(desc(dbl)) %>%
       collect(),
-    tbl %>%
-      slice_sample(prop = 1L)
+    tbl
   )
   expect_dplyr_equal(
     input %>%
       arrange(int + dbl, chr) %>%
       collect(),
-    tbl %>%
-      slice_sample(prop = 1L)
+    tbl
   )
   expect_dplyr_equal(
     input %>%
       mutate(zzz = int + dbl,) %>%
       arrange(zzz, chr) %>%
       collect(),
-    tbl %>%
-      slice_sample(prop = 1L)
+    tbl
   )
   expect_dplyr_equal(
     input %>%
       mutate(zzz = int + dbl) %>%
       arrange(int + dbl, chr) %>%
       collect(),
-    tbl %>%
-      slice_sample(prop = 1L)
+    tbl
   )
   expect_dplyr_equal(
     input %>%
       mutate(int + dbl) %>%
       arrange(int + dbl, chr) %>%
       collect(),
-    tbl %>%
-      slice_sample(prop = 1L)
+    tbl
   )
   expect_dplyr_equal(
     input %>%
       group_by(grp) %>%
       arrange(int, dbl) %>%
       collect(),
-    tbl %>%
-      slice_sample(prop = 1L)
+    tbl
   )
   expect_dplyr_equal(
     input %>%
       group_by(grp) %>%
       arrange(int, dbl, .by_group = TRUE) %>%
       collect(),
-    tbl %>%
-      slice_sample(prop = 1L)
+    tbl
   )
   expect_dplyr_equal(
     input %>%
@@ -109,16 +102,14 @@ test_that("arrange", {
       arrange(int, dbl, .by_group = TRUE) %>%
       collect(),
     tbl %>%
-      mutate(grp2 = ifelse(is.na(lgl), 1L, as.integer(lgl))) %>%
-      slice_sample(prop = 1L)
+      mutate(grp2 = ifelse(is.na(lgl), 1L, as.integer(lgl)))
   )
   expect_dplyr_equal(
     input %>%
       group_by(grp) %>%
       arrange(.by_group = TRUE) %>%
       pull(grp),
-    tbl %>%
-      slice_sample(prop = 1L)
+    tbl
   )
   expect_dplyr_equal(
     input %>%
@@ -150,12 +141,10 @@ test_that("arrange", {
   expect_warning(
     expect_equal(
       tbl %>%
-        slice_sample(prop = 1L) %>%
         Table$create() %>%
         arrange(abs(int), dbl) %>%
         collect(),
       tbl %>%
-        slice_sample(prop = 1L) %>%
         arrange(abs(int), dbl) %>%
         collect()
     ),
@@ -170,3 +159,6 @@ test_that("arrange", {
     fixed = TRUE
   )
 })
+
+# restore previous collation locale setting
+Sys.setlocale("LC_COLLATE")
