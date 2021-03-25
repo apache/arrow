@@ -154,13 +154,6 @@ TEST_F(TestIpcFileFormat, FragmentScanOptions) {
   ASSERT_OK_AND_ASSIGN(auto scan_task, scan_tasks.Next());
   ASSERT_OK_AND_ASSIGN(auto batches, scan_task->Execute());
   ASSERT_RAISES(Invalid, batches.Next());
-
-  // Ensure included_fields cannot be set
-  fragment_scan_options->options = std::make_shared<ipc::IpcReadOptions>();
-  fragment_scan_options->options->included_fields = {1};
-  ASSERT_OK_AND_ASSIGN(scan_tasks, fragment->Scan(opts_));
-  ASSERT_OK_AND_ASSIGN(scan_task, scan_tasks.Next());
-  ASSERT_RAISES(Invalid, scan_task->Execute());
 }
 
 TEST_F(TestIpcFileFormat, ScanRecordBatchReaderWithVirtualColumn) {
