@@ -18,6 +18,7 @@
 package org.apache.arrow.gandiva.expression;
 
 import java.util.ArrayList;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Set;
 
@@ -203,7 +204,7 @@ public class TreeBuilder {
   }
 
   public static TreeNode makeInExpressionDecimal(TreeNode resultNode,
-                                                Set<Decimal> decimalValues) {
+                                                 Set<BigDecimal> decimalValues) {
     return InNode.makeDecimalInExpr(resultNode, decimalValues);
   }
 

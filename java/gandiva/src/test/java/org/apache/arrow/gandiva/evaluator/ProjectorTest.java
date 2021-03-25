@@ -22,11 +22,13 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -37,12 +39,7 @@ import org.apache.arrow.gandiva.expression.ExpressionTree;
 import org.apache.arrow.gandiva.expression.TreeBuilder;
 import org.apache.arrow.gandiva.expression.TreeNode;
 import org.apache.arrow.memory.ArrowBuf;
-import org.apache.arrow.vector.BigIntVector;
-import org.apache.arrow.vector.BitVector;
-import org.apache.arrow.vector.Float8Vector;
-import org.apache.arrow.vector.IntVector;
-import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.DateUnit;
@@ -1231,11 +1228,16 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
   @Test
   public void testInExprDecimal() throws GandivaException, Exception {
+    int precision = 26;
+    int scale = 5;
+    ArrowType.Decimal decimal = new ArrowType.Decimal(precision, scale, 128);
+    ArrowType.Decimal literalType = new ArrowType.Decimal(precision, scale, 128);
     Field c1 = Field.nullable("c1", decimal);
 
+    String[] values = new String[]{"1", "2", "3", "4", "5", "15", "16"};
     TreeNode inExpr =
             TreeBuilder.makeInExpressionDecimal(TreeBuilder.makeField(c1),
-                    Sets.newHashSet(1, 2, 3, 4, 5, 15, 16));
+                    decimalSet(values));
     ExpressionTree expr = TreeBuilder.makeExpression(inExpr,
             Field.nullable("result", boolType));
     Schema schema = new Schema(Lists.newArrayList(c1));
@@ -1243,10 +1245,10 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, 0};
-    Decimal[] c1Values = new Decimal[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    String[] c1Values = new String[]{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"};
 
     ArrowBuf c1Validity = buf(validity);
-    ArrowBuf c1Data = decimalBuf(c1Values);
+    DecimalVector c1Data = decimalVector(c1Values, precision, scale);
     ArrowBuf c2Validity = buf(validity);
 
     ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
@@ -1254,7 +1256,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
             new ArrowRecordBatch(
                     numRows,
                     Lists.newArrayList(fieldNode, fieldNode),
-                    Lists.newArrayList(c1Validity, c1Data, c2Validity));
+                    Lists.newArrayList(c1Validity, c1Data.getDataBuffer(), c2Validity));
 
     BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
     bitVector.allocateNew(numRows);

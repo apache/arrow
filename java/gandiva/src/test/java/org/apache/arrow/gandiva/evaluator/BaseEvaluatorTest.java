@@ -19,9 +19,7 @@ package org.apache.arrow.gandiva.evaluator;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.gandiva.exceptions.GandivaException;
@@ -241,6 +239,15 @@ class BaseEvaluatorTest {
 
     vector.setValueCount(values.length);
     return vector;
+  }
+
+  Set decimalSet(String[] values){
+    Set<BigDecimal> decimalSet = new HashSet<>();
+    for (int i = 0; i < values.length; i++){
+      decimalSet.add(new BigDecimal(values[i]));
+    }
+
+    return decimalSet;
   }
 
   VarCharVector varcharVector(String[] values) {

@@ -17,6 +17,7 @@
 
 package org.apache.arrow.gandiva.expression;
 
+import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.util.Set;
 
@@ -33,13 +34,13 @@ public class InNode implements TreeNode {
 
   private final Set<Integer> intValues;
   private final Set<Long> longValues;
-  private final Set<Decimal> decimalValues;
+  private final Set<BigDecimal> decimalValues;
   private final Set<String> stringValues;
   private final Set<byte[]> binaryValues;
   private final TreeNode input;
 
   private InNode(Set<Integer> values, Set<Long> longValues, Set<String> stringValues, Set<byte[]>
-          binaryValues, Set<Decimal> decimalValues, TreeNode node) {
+          binaryValues, Set<BigDecimal> decimalValues, TreeNode node) {
     this.intValues = values;
     this.longValues = longValues;
     this.decimalValues = decimalValues;
@@ -56,7 +57,7 @@ public class InNode implements TreeNode {
     return new InNode(null, longValues, null, null, null, node);
   }
 
-  public static InNode makeDecimalInExpr(TreeNode node, Set<Decimal> decimalValues) {
+  public static InNode makeDecimalInExpr(TreeNode node, Set<BigDecimal> decimalValues) {
     return new InNode(null, null, null, null, decimalValues, node);
   }
 
@@ -105,6 +106,5 @@ public class InNode implements TreeNode {
     GandivaTypes.TreeNode.Builder builder = GandivaTypes.TreeNode.newBuilder();
     builder.setInNode(inNode.build());
     return builder.build();
-
   }
 }
