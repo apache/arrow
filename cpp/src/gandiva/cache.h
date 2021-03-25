@@ -21,6 +21,7 @@
 #include <mutex>
 
 #include "gandiva/lru_cache.h"
+#include "gandiva/lower_value_used_cache.h"
 #include "gandiva/visibility.h"
 
 namespace gandiva {
@@ -31,12 +32,22 @@ int GetCapacity();
 GANDIVA_EXPORT
 void LogCacheSize(size_t capacity);
 
+GANDIVA_EXPORT
+int GetCacheTypeToUse();
+
 template <class KeyType, typename ValueType>
 class Cache {
  public:
-  explicit Cache(size_t capacity) : cache_(capacity) { LogCacheSize(capacity); }
+  explicit Cache(size_t capacity, int cache_type_to_use) {
+    if (cache_type_to_use == 0) {
+      this->cache_ = LruCache<KeyType, ValueType>(capacity);
+    } else {
+      this->cache_ = LruCache<KeyType, ValueType>(capacity);
+    }
+    LogCacheSize(capacity);
+  }
 
-  Cache() : Cache(GetCapacity()) {}
+  Cache() : Cache(GetCapacity(), GetCacheTypeToUse()) {}
 
   ValueType GetModule(KeyType cache_key) {
     arrow::util::optional<ValueType> result;
@@ -48,7 +59,7 @@ class Cache {
 
   void PutModule(KeyType cache_key, ValueType module) {
     mtx_.lock();
-    cache_.insert(cache_key, module);
+    cache_.insert(cache_key, module, 0);
     mtx_.unlock();
   }
 

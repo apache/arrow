@@ -21,6 +21,7 @@
 #include <unordered_map>
 #include <utility>
 
+#include "base_cache.h"
 #include "arrow/util/optional.h"
 
 // modified from boost LRU cache -> the boost cache supported only an
@@ -28,11 +29,8 @@
 namespace gandiva {
 // a cache which evicts the least recently used item when it is full
 template <class Key, class Value>
-class LruCache {
+class LruCache : BaseCache<Key, Value> {
  public:
-  using key_type = Key;
-  using value_type = Value;
-  using list_type = std::list<key_type>;
   struct hasher {
     template <typename I>
     std::size_t operator()(const I& i) const {
@@ -40,26 +38,30 @@ class LruCache {
     }
   };
   using map_type =
-      std::unordered_map<key_type, std::pair<value_type, typename list_type::iterator>,
+      std::unordered_map<Key, std::pair<Value, typename std::list<Key>::iterator>,
                          hasher>;
 
-  explicit LruCache(size_t capacity) : cache_capacity_(capacity) {}
+  explicit LruCache(size_t capacity) : BaseCache<Key, Value>(capacity) {}
 
-  ~LruCache() {}
+  LruCache<Key, Value>() : BaseCache<Key, Value>() {};
 
   size_t size() const { return map_.size(); }
 
-  size_t capacity() const { return cache_capacity_; }
+  size_t capacity() const { return this->cache_capacity_; }
 
   bool empty() const { return map_.empty(); }
 
-  bool contains(const key_type& key) { return map_.find(key) != map_.end(); }
+  bool contains(const Key& key) { return map_.find(key) != map_.end(); }
 
-  void insert(const key_type& key, const value_type& value) {
+  void insert(const Key& key, const Value& value) {
+    this->insert(key, value, 0);
+  }
+
+  void insert(const Key& key, const Value& value, const u_long /*value_to_order*/) {
     typename map_type::iterator i = map_.find(key);
     if (i == map_.end()) {
       // insert item into the cache, but first check if it is full
-      if (size() >= cache_capacity_) {
+      if (size() >= this->cache_capacity_) {
         // cache is full, evict the least recently used item
         evict();
       }
@@ -70,7 +72,7 @@ class LruCache {
     }
   }
 
-  arrow::util::optional<value_type> get(const key_type& key) {
+  arrow::util::optional<Value> get(const Key& key) {
     // lookup value in the cache
     typename map_type::iterator value_for_key = map_.find(key);
     if (value_for_key == map_.end()) {
@@ -80,7 +82,7 @@ class LruCache {
 
     // return the value, but first update its place in the most
     // recently used list
-    typename list_type::iterator position_in_lru_list = value_for_key->second.second;
+    typename std::list<Key>::iterator position_in_lru_list = value_for_key->second.second;
     if (position_in_lru_list != lru_list_.begin()) {
       // move item to the front of the most recently used list
       lru_list_.erase(position_in_lru_list);
@@ -88,7 +90,7 @@ class LruCache {
 
       // update iterator in map
       position_in_lru_list = lru_list_.begin();
-      const value_type& value = value_for_key->second.first;
+      const Value& value = value_for_key->second.first;
       map_[key] = std::make_pair(value, position_in_lru_list);
 
       // return the value
@@ -108,14 +110,13 @@ class LruCache {
  private:
   void evict() {
     // evict item from the end of most recently used list
-    typename list_type::iterator i = --lru_list_.end();
+    typename std::list<Key>::iterator i = --lru_list_.end();
     map_.erase(*i);
     lru_list_.erase(i);
   }
 
  private:
   map_type map_;
-  list_type lru_list_;
-  size_t cache_capacity_;
+  std::list<Key> lru_list_;
 };
 }  // namespace gandiva
