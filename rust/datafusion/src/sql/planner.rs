@@ -567,7 +567,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                     &select_exprs,
                     &having_expr_opt,
                     &select.group_by,
-                    &aggr_exprs,
+                    aggr_exprs,
                 )?
             } else {
                 if let Some(having_expr) = &having_expr_opt {
@@ -600,7 +600,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             plan
         };
 
-        self.project(&plan, &select_exprs_post_aggr, false)
+        self.project(&plan, select_exprs_post_aggr, false)
     }
 
     /// Returns the `Expr`'s corresponding to a SQL query's SELECT expressions.
@@ -631,7 +631,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     fn project(
         &self,
         input: &LogicalPlan,
-        expr: &[Expr],
+        expr: Vec<Expr>,
         force: bool,
     ) -> Result<LogicalPlan> {
         self.validate_schema_satisfies_exprs(&input.schema(), &expr)?;
@@ -656,7 +656,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
         select_exprs: &[Expr],
         having_expr_opt: &Option<Expr>,
         group_by: &[SQLExpr],
-        aggr_exprs: &[Expr],
+        aggr_exprs: Vec<Expr>,
     ) -> Result<(LogicalPlan, Vec<Expr>, Option<Expr>)> {
         let group_by_exprs = group_by
             .iter()
@@ -670,7 +670,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             .collect::<Vec<Expr>>();
 
         let plan = LogicalPlanBuilder::from(&input)
-            .aggregate(&group_by_exprs, aggr_exprs)?
+            .aggregate(group_by_exprs, aggr_exprs)?
             .build()?;
 
         // After aggregation, these are all of the columns that will be
@@ -757,9 +757,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             })
             .collect();
 
-        LogicalPlanBuilder::from(&plan)
-            .sort(&order_by_rex?)?
-            .build()
+        LogicalPlanBuilder::from(&plan).sort(order_by_rex?)?.build()
     }
 
     /// Validate the schema provides all of the columns referenced in the expressions.

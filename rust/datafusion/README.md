@@ -100,7 +100,7 @@ async fn main() -> datafusion::error::Result<()> {
   let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
 
   let df = df.filter(col("a").lt_eq(col("b")))?
-           .aggregate(&[col("a")], &[min(col("b"))])?
+           .aggregate(vec![col("a")], vec![min(col("b"))])?
            .limit(100)?;
 
   // execute and print results

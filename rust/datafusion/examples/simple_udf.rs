@@ -133,7 +133,7 @@ async fn main() -> Result<()> {
     let expr1 = pow.call(vec![col("a"), col("b")]);
 
     // equivalent to `'SELECT pow(a, b), pow(a, b) AS pow1 FROM t'`
-    let df = df.select(&[
+    let df = df.select(vec![
         expr,
         // alias so that they have different column names
         expr1.alias("pow1"),
