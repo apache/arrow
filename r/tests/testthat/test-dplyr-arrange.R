@@ -193,7 +193,21 @@ test_that("arrange() with bad inputs", {
   expect_error(
     tbl %>%
       Table$create() %>%
+      arrange(2 + 2),
+    "does not contain any field names",
+    fixed = TRUE
+  )
+  expect_error(
+    tbl %>%
+      Table$create() %>%
       arrange(aertidjfgjksertyj),
+    "not found",
+    fixed = TRUE
+  )
+  expect_error(
+    tbl %>%
+      Table$create() %>%
+      arrange(desc(aertidjfgjksertyj + iaermxiwerksxsdqq)),
     "not found",
     fixed = TRUE
   )
