@@ -26,11 +26,11 @@ import os
 
 import pyarrow as pa
 from pyarrow.lib cimport *
-from pyarrow.lib import frombytes, tobytes
+from pyarrow.lib import ArrowTypeError, frombytes, tobytes
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
 from pyarrow._csv cimport ConvertOptions, ParseOptions, ReadOptions
-from pyarrow.util import _is_path_like, _stringify_path
+from pyarrow.util import _is_iterable, _is_path_like, _stringify_path
 
 from pyarrow._parquet cimport (
     _create_writer_properties, _create_arrow_writer_properties,
@@ -439,6 +439,73 @@ cdef class Dataset(_Weakrefable):
     def schema(self):
         """The common schema of the full Dataset"""
         return pyarrow_wrap_schema(self.dataset.schema())
+
+
+cdef class InMemoryDataset(Dataset):
+    """A Dataset wrapping in-memory data.
+
+    Parameters
+    ----------
+    source
+        The data for this dataset. Can be a RecordBatch, Table, list of
+        RecordBatch/Table, iterable of RecordBatch, or a RecordBatchReader.
+        If an iterable is provided, the schema must also be provided.
+    schema : Schema, optional
+        Only required if passing an iterable as the source.
+    """
+
+    cdef:
+        CInMemoryDataset* in_memory_dataset
+
+    def __init__(self, source, Schema schema=None):
+        cdef:
+            RecordBatchReader reader
+            shared_ptr[CInMemoryDataset] in_memory_dataset
+
+        if isinstance(source, (pa.RecordBatch, pa.Table)):
+            source = [source]
+
+        if isinstance(source, (list, tuple)):
+            batches = []
+            for item in source:
+                if isinstance(item, pa.RecordBatch):
+                    batches.append(item)
+                elif isinstance(item, pa.Table):
+                    batches.extend(item.to_batches())
+                else:
+                    raise TypeError(
+                        'Expected a list of tables or batches. The given list '
+                        'contains a ' + type(item).__name__)
+                if schema is None:
+                    schema = item.schema
+                elif not schema.equals(item.schema):
+                    raise ArrowTypeError(
+                        f'Item has schema {item.schema} which which does not '
+                        f'match expected schema {schema}')
+            if not batches and schema is None:
+                raise ValueError('Must provide schema to construct in-memory '
+                                 'dataset from an empty list')
+            reader = pa.ipc.RecordBatchReader.from_batches(schema, batches)
+        elif isinstance(source, pa.ipc.RecordBatchReader):
+            reader = source
+        elif _is_iterable(source):
+            if schema is None:
+                raise ValueError('Must provide schema to construct in-memory '
+                                 'dataset from an iterable')
+            reader = pa.ipc.RecordBatchReader.from_batches(schema, source)
+        else:
+            raise TypeError(
+                'Expected a table, batch, iterable of tables/batches, or a '
+                'record batch reader instead of the given type: ' +
+                type(source).__name__
+            )
+
+        in_memory_dataset = make_shared[CInMemoryDataset](reader.reader)
+        self.init(<shared_ptr[CDataset]> in_memory_dataset)
+
+    cdef void init(self, const shared_ptr[CDataset]& sp):
+        Dataset.init(self, sp)
+        self.in_memory_dataset = <CInMemoryDataset*> sp.get()
 
 
 cdef class UnionDataset(Dataset):

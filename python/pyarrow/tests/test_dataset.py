@@ -1622,13 +1622,16 @@ def test_construct_from_invalid_sources_raise(multisourcefs):
         fs.FileSelector('/schema'),
         format=ds.ParquetFileFormat()
     )
+    batch1 = pa.RecordBatch.from_arrays([pa.array(range(10))], names=["a"])
+    batch2 = pa.RecordBatch.from_arrays([pa.array(range(10))], names=["b"])
 
     with pytest.raises(TypeError, match='Expected.*FileSystemDatasetFactory'):
         ds.dataset([child1, child2])
 
     expected = (
-        "Expected a list of path-like or dataset objects. The given list "
-        "contains the following types: int"
+        "Expected a list of path-like or dataset objects, or a list "
+        "of batches or tables. The given list contains the following "
+        "types: int"
     )
     with pytest.raises(TypeError, match=expected):
         ds.dataset([1, 2, 3])
@@ -1639,6 +1642,53 @@ def test_construct_from_invalid_sources_raise(multisourcefs):
     )
     with pytest.raises(TypeError, match=expected):
         ds.dataset(None)
+
+    expected = (
+        "Must provide schema to construct in-memory dataset from an iterable"
+    )
+    with pytest.raises(ValueError, match=expected):
+        ds.dataset((batch1 for _ in range(3)))
+
+    expected = (
+        "Must provide schema to construct in-memory dataset from an empty list"
+    )
+    with pytest.raises(ValueError, match=expected):
+        ds.InMemoryDataset([])
+
+    expected = (
+        "Item has schema b: int64 which which does not match expected schema "
+        "a: int64"
+    )
+    with pytest.raises(TypeError, match=expected):
+        ds.dataset([batch1, batch2])
+
+    expected = (
+        "Expected a list of path-like or dataset objects, or a list of "
+        "batches or tables. The given list contains the following types:"
+    )
+    with pytest.raises(TypeError, match=expected):
+        ds.dataset([batch1, 0])
+
+    expected = (
+        "Expected a list of tables or batches. The given list contains a int"
+    )
+    with pytest.raises(TypeError, match=expected):
+        ds.InMemoryDataset([batch1, 0])
+
+
+def test_construct_in_memory():
+    batch = pa.RecordBatch.from_arrays([pa.array(range(10))], names=["a"])
+    table = pa.Table.from_batches([batch])
+    reader = pa.ipc.RecordBatchReader.from_batches(
+        batch.schema, (batch for _ in range(1)))
+    iterable = (batch for _ in range(1))
+
+    for source in (batch, table, reader, [batch], [table]):
+        dataset = ds.dataset(source)
+        assert dataset.to_table().equals(table)
+
+    assert ds.dataset(iterable, schema=batch.schema).to_table().equals(table)
+    assert ds.dataset([], schema=pa.schema([])).to_table() == pa.table([])
 
 
 @pytest.mark.parquet
