@@ -2906,6 +2906,28 @@ def test_write_table_multiple_fragments(tempdir):
     )
 
 
+def test_write_iterable(tempdir):
+    table = pa.table([
+        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(np.repeat(['a', 'b'], 10))
+    ], names=["f1", "f2", "part"])
+
+    base_dir = tempdir / 'inmemory_iterable'
+    ds.write_dataset((batch for batch in table.to_batches()), base_dir,
+                     schema=table.schema,
+                     basename_template='dat_{i}.arrow', format="feather")
+    result = ds.dataset(base_dir, format="ipc").to_table()
+    assert result.equals(table)
+
+    base_dir = tempdir / 'inmemory_reader'
+    reader = pa.ipc.RecordBatchReader.from_batches(table.schema,
+                                                   table.to_batches())
+    ds.write_dataset(reader, base_dir,
+                     basename_template='dat_{i}.arrow', format="feather")
+    result = ds.dataset(base_dir, format="ipc").to_table()
+    assert result.equals(table)
+
+
 def test_write_table_partitioned_dict(tempdir):
     # ensure writing table partitioned on a dictionary column works without
     # specifying the dictionary values explicitly

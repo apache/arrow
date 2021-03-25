@@ -698,9 +698,11 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
     Parameters
     ----------
-    data : Dataset, Table/RecordBatch, or list of Table/RecordBatch
+    data : Dataset, Table/RecordBatch, RecordBatchReader, or list or
+           iterable of Table/RecordBatch
         The data to write. This can be a Dataset instance or
-        in-memory Arrow data.
+        in-memory Arrow data. If an iterable is given, the schema must
+        also be given.
     base_dir : str
         The root directory where to write the dataset.
     basename_template : str, optional
@@ -735,12 +737,15 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
     elif isinstance(data, (pa.Table, pa.RecordBatch)):
         schema = schema or data.schema
         data = [data]
-    elif isinstance(data, list):
+    elif isinstance(data, (list, tuple)):
         schema = schema or data[0].schema
+    elif isinstance(data, pa.ipc.RecordBatchReader) or _is_iterable(data):
+        data = InMemoryDataset(data, schema=schema)
+        schema = schema or data.schema
     else:
         raise ValueError(
-            "Only Dataset, Table/RecordBatch or a list of Table/RecordBatch "
-            "objects are supported."
+            "Only Dataset, Table/RecordBatch, RecordBatchReader, or a list "
+            "or iterable of Table/RecordBatch objects are supported."
         )
 
     if format is None and isinstance(data, FileSystemDataset):
