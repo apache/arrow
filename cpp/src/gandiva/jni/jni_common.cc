@@ -390,8 +390,8 @@ NodePtr ProtoTypeToInNode(const types::InNode& node) {
 
   if (node.has_doublevalues()) {
     std::unordered_set<double> double_values;
-    for (int i = 0; i < node.floatvalues().floatvalues_size(); i++) {
-      double_values.insert(node.floatvalues().floatvalues(i).value());
+    for (int i = 0; i < node.doublevalues().doublevalues_size(); i++) {
+      double_values.insert(node.doublevalues().doublevalues(i).value());
     }
     return TreeExprBuilder::MakeInExpressionDouble(field, double_values);
   }
