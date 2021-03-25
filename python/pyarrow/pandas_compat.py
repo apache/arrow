@@ -19,6 +19,9 @@
 import ast
 from collections.abc import Sequence
 from concurrent import futures
+# import threading submodule upfront to avoid partially initialized
+# module bug (ARROW-11983)
+import concurrent.futures.thread  # noqa
 from copy import deepcopy
 from itertools import zip_longest
 import json
