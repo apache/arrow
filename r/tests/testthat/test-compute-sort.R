@@ -36,12 +36,16 @@ test_that("sort(Scalar) is identity function", {
 
 test_that("Array$SortIndices()", {
   int <- tbl$int
-  int <- int[!duplicated(int)] # needed because ties in int
+  # Remove ties because they could give non-deterministic sort indices, and this
+  # test compares sort indices. Other tests compare sorted values, which are
+  # deterministic in the case of ties.
+  int <- int[!duplicated(int)]
   expect_equal(
     Array$create(int)$SortIndices(),
     Array$create(order(int) - 1L, type = uint64())
   )
-  int <- na.omit(int) # needed because ARROW-12063
+  # Need to remove NAs because ARROW-12063
+  int <- na.omit(int)
   expect_equal(
     Array$create(int)$SortIndices(descending = TRUE),
     Array$create(rev(order(int)) - 1, type = uint64())
@@ -50,12 +54,16 @@ test_that("Array$SortIndices()", {
 
 test_that("ChunkedArray$SortIndices()", {
   int <- tbl$int
-  int <- int[!duplicated(int)] # needed because ties in int
+  # Remove ties because they could give non-deterministic sort indices, and this
+  # test compares sort indices. Other tests compare sorted values, which are
+  # deterministic in the case of ties.
+  int <- int[!duplicated(int)]
   expect_equal(
     ChunkedArray$create(int[1:4], int[5:length(int)])$SortIndices(),
     Array$create(order(int) - 1L, type = uint64())
   )
-  int <- na.omit(int) # needed because ARROW-12063
+  # Need to remove NAs because ARROW-12063
+  int <- na.omit(int)
   expect_equal(
     ChunkedArray$create(int[1:4], int[5:length(int)])$SortIndices(descending = TRUE),
     Array$create(rev(order(int)) - 1, type = uint64())

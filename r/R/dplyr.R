@@ -792,6 +792,9 @@ find_and_remove_desc <- function(quosure) {
       call. = FALSE
     )
   }
+  # Use a while loop to remove any number of nested pairs of enclosing
+  # parentheses and any number of nested desc() calls. In the case of multiple
+  # nested desc() calls, each one toggles the sort order.
   while (identical(typeof(expr), "language") && is.call(expr)) {
     if (identical(expr[[1]], quote(`(`))) {
       # remove enclosing parentheses
