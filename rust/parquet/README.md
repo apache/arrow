@@ -50,14 +50,18 @@ See [crate documentation](https://docs.rs/crate/parquet/4.0.0-SNAPSHOT) on avail
 
 If you are upgrading from version 3.0 or previous of this crate, you
 likely need to change your code to use [`ConvertedType`] rather than
-[`LogicalType`]. Version 4.0 introduces an *entirely new* struct
-called `LogicalType` to align with the `LogicalType` introduced in
-Parquet Format 2.4.0. The type previously called `LogicalType` was was
-renamed to `ConvertedType`.
+[`LogicalType`] to preserve existing behaviour in your code.
 
+Version 2.4.0 of the Parquet format introduced a `LogicalType` to replace the existing `ConvertedType`.
+This crate used `parquet::basic::LogicalType` to map to the `ConvertedType`, but this has been renamed to `parquet::basic::ConvertedType` from version 4.0 of this crate.
+
+The `ConvertedType` is deprecated in the format, but is still written
+to preserve backward compatibility.
+It is preferred that `LogicalType` is used, as it supports nanosecond
+precision timestamps without using the deprecated `Int96` Parquet type.
 
 ## Supported Parquet Version
-- Parquet-format 2.4.0
+- Parquet-format 2.6.0
 
 To update Parquet format to a newer version, check if [parquet-format](https://github.com/sunchao/parquet-format-rs)
 version is available. Then simply update version of `parquet-format` crate in Cargo.toml.
@@ -73,9 +77,9 @@ version is available. Then simply update version of `parquet-format` crate in Ca
 - [X] Write support
   - [X] Primitive column value writers
   - [ ] Row record writer
-  - [ ] Arrow record writer
+  - [X] Arrow record writer
 - [ ] Predicate pushdown
-- [ ] Parquet format 2.5 support
+- [X] Parquet format 2.6.0 support
 
 ## Requirements
 
