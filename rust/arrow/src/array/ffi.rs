@@ -25,35 +25,27 @@ use crate::{
 };
 
 use super::ArrayData;
-use crate::datatypes::{DataType, Field};
 use crate::ffi::ArrowArray;
 
 impl TryFrom<ffi::ArrowArray> for ArrayData {
     type Error = ArrowError;
 
     fn try_from(value: ffi::ArrowArray) -> Result<Self> {
-        let data_type = value.data_type()?;
+        let child_data = value.children()?;
+
+        let child_type = if !child_data.is_empty() {
+            Some(child_data[0].data_type().clone())
+        } else {
+            None
+        };
+
+        let data_type = value.data_type(child_type)?;
 
         let len = value.len();
         let offset = value.offset();
         let null_count = value.null_count();
         let buffers = value.buffers()?;
         let null_bit_buffer = value.null_bit_buffer();
-        let child_data = value.children()?;
-
-        let data_type = match data_type {
-            DataType::List(_) => DataType::List(Box::new(Field::new(
-                "",
-                child_data[0].data_type().clone(),
-                false,
-            ))),
-            DataType::LargeList(_) => DataType::LargeList(Box::new(Field::new(
-                "",
-                child_data[0].data_type().clone(),
-                false,
-            ))),
-            dt => dt,
-        };
 
         Ok(ArrayData::new(
             data_type,

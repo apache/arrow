@@ -87,7 +87,7 @@ use std::{
 
 use crate::array::ArrayData;
 use crate::buffer::Buffer;
-use crate::datatypes::{DataType, TimeUnit};
+use crate::datatypes::{DataType, Field, TimeUnit};
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
 use std::convert::TryFrom;
@@ -179,7 +179,7 @@ impl Drop for FFI_ArrowSchema {
 
 /// maps a DataType `format` to a [DataType](arrow::datatypes::DataType).
 /// See https://arrow.apache.org/docs/format/CDataInterface.html#data-type-description-format-strings
-fn to_datatype(format: &str) -> Result<DataType> {
+fn to_datatype(format: &str, child_type: Option<DataType>) -> Result<DataType> {
     Ok(match format {
         "n" => DataType::Null,
         "b" => DataType::Boolean,
@@ -204,8 +204,20 @@ fn to_datatype(format: &str) -> Result<DataType> {
         "ttm" => DataType::Time32(TimeUnit::Millisecond),
         "ttu" => DataType::Time64(TimeUnit::Microsecond),
         "ttn" => DataType::Time64(TimeUnit::Nanosecond),
-        "+l" => DataType::List(Box::new(Default::default())),
-        "+L" => DataType::LargeList(Box::new(Default::default())),
+
+        // Note: The datatype null will only be created when called from ArrowArray::buffer_len
+        // at that point the child data is not yet known, but it is also not required to determine
+        // the buffer length of the list arrays.
+        "+l" => DataType::List(Box::new(Field::new(
+            "",
+            child_type.unwrap_or(DataType::Null),
+            false,
+        ))),
+        "+L" => DataType::LargeList(Box::new(Field::new(
+            "",
+            child_type.unwrap_or(DataType::Null),
+            false,
+        ))),
         dt => {
             return Err(ArrowError::CDataInterface(format!(
                 "The datatype \"{}\" is not supported in the Rust implementation",
@@ -451,21 +463,17 @@ unsafe fn create_child_arrays(
     array: Arc<FFI_ArrowArray>,
     schema: Arc<FFI_ArrowSchema>,
 ) -> Result<Vec<ArrayData>> {
-    if array.n_children == 0 {
-        return Ok(vec![]);
-    }
-    let mut children = Vec::with_capacity(array.n_children as usize);
-    for i in 0..array.n_children as usize {
-        let arr_ptr = *array.children.add(i);
-        let schema_ptr = *schema.children.add(i);
-        let arrow_arr = ArrowArray::try_from_raw(
-            arr_ptr as *const FFI_ArrowArray,
-            schema_ptr as *const FFI_ArrowSchema,
-        )?;
-        let data = ArrayData::try_from(arrow_arr)?;
-        children.push(data)
-    }
-    Ok(children)
+    (0..array.n_children as usize)
+        .map(|i| {
+            let arr_ptr = *array.children.add(i);
+            let schema_ptr = *schema.children.add(i);
+            let arrow_arr = ArrowArray::try_from_raw(
+                arr_ptr as *const FFI_ArrowArray,
+                schema_ptr as *const FFI_ArrowSchema,
+            )?;
+            ArrayData::try_from(arrow_arr)
+        })
+        .collect()
 }
 
 impl Drop for FFI_ArrowArray {
@@ -595,7 +603,8 @@ impl ArrowArray {
     // for variable-sized buffers, such as the second buffer of a stringArray, we need
     // to fetch offset buffer's len to build the second buffer.
     fn buffer_len(&self, i: usize) -> Result<usize> {
-        let data_type = &self.data_type()?;
+        // Inner type is not important for buffer length.
+        let data_type = &self.data_type(None)?;
 
         Ok(match (data_type, i) {
             (DataType::Utf8, 1)
@@ -689,8 +698,8 @@ impl ArrowArray {
     }
 
     /// the data_type as declared in the schema
-    pub fn data_type(&self) -> Result<DataType> {
-        to_datatype(self.schema.format())
+    pub fn data_type(&self, child_type: Option<DataType>) -> Result<DataType> {
+        to_datatype(self.schema.format(), child_type)
     }
 }
 
@@ -814,11 +823,13 @@ mod tests {
         let data = ArrayData::try_from(array)?;
         let array = make_array(data);
 
-        // perform some operation
+        // downcast
         let array = array
             .as_any()
             .downcast_ref::<GenericListArray<Offset>>()
             .unwrap();
+
+        dbg!(&array);
 
         // verify
         let expected = GenericListArray::<Offset>::from(list_data);
