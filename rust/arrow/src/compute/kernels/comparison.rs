@@ -59,7 +59,7 @@ macro_rules! compare_op {
             vec![Buffer::from(buffer)],
             vec![],
         );
-        Ok(BooleanArray::from(Arc::new(data)))
+        Ok(BooleanArray::from(data))
     }};
 }
 
@@ -135,7 +135,7 @@ macro_rules! compare_op_scalar {
             vec![Buffer::from(buffer)],
             vec![],
         );
-        Ok(BooleanArray::from(Arc::new(data)))
+        Ok(BooleanArray::from(data))
     }};
 }
 
