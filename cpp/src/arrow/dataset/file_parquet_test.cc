@@ -274,7 +274,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderPreBuffer) {
 
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
   auto fragment_scan_options = std::make_shared<ParquetFragmentScanOptions>();
-  fragment_scan_options->pre_buffer = true;
+  fragment_scan_options->arrow_reader_properties->set_pre_buffer(true);
   opts_->fragment_scan_options = fragment_scan_options;
   ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
 

@@ -25,6 +25,7 @@
 #include <arrow/table.h>
 #include <arrow/util/checked_cast.h>
 #include <arrow/util/iterator.h>
+#include <parquet/properties.h>
 
 namespace ds = ::arrow::dataset;
 namespace fs = ::arrow::fs;
@@ -306,9 +307,13 @@ std::shared_ptr<ds::ParquetFragmentScanOptions>
 dataset___ParquetFragmentScanOptions__Make(bool use_buffered_stream, int64_t buffer_size,
                                            bool pre_buffer) {
   auto options = std::make_shared<ds::ParquetFragmentScanOptions>();
-  options->use_buffered_stream = use_buffered_stream;
-  options->buffer_size = buffer_size;
-  options->pre_buffer = pre_buffer;
+  if (use_buffered_stream) {
+    options->reader_properties->enable_buffered_stream();
+  } else {
+    options->reader_properties->disable_buffered_stream();
+  }
+  options->reader_properties->set_buffer_size(buffer_size);
+  options->arrow_reader_properties->set_pre_buffer(pre_buffer);
   return options;
 }
 

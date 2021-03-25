@@ -1556,31 +1556,40 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         FragmentScanOptions.init(self, sp)
         self.parquet_options = <CParquetFragmentScanOptions*> sp.get()
 
+    cdef CReaderProperties* reader_properties(self):
+        return self.parquet_options.reader_properties.get()
+
+    cdef ArrowReaderProperties* arrow_reader_properties(self):
+        return self.parquet_options.arrow_reader_properties.get()
+
     @property
     def use_buffered_stream(self):
-        return self.parquet_options.use_buffered_stream
+        return self.reader_properties().is_buffered_stream_enabled()
 
     @use_buffered_stream.setter
     def use_buffered_stream(self, bint use_buffered_stream):
-        self.parquet_options.use_buffered_stream = use_buffered_stream
+        if use_buffered_stream:
+            self.reader_properties().enable_buffered_stream()
+        else:
+            self.reader_properties().disable_buffered_stream()
 
     @property
     def buffer_size(self):
-        return self.parquet_options.buffer_size
+        return self.reader_properties().buffer_size()
 
     @buffer_size.setter
     def buffer_size(self, buffer_size):
         if buffer_size <= 0:
             raise ValueError("Buffer size must be larger than zero")
-        self.parquet_options.buffer_size = buffer_size
+        self.reader_properties().set_buffer_size(buffer_size)
 
     @property
     def pre_buffer(self):
-        return self.parquet_options.pre_buffer
+        return self.arrow_reader_properties().pre_buffer()
 
     @pre_buffer.setter
     def pre_buffer(self, bint pre_buffer):
-        self.parquet_options.pre_buffer = pre_buffer
+        self.arrow_reader_properties().set_pre_buffer(pre_buffer)
 
     @property
     def enable_parallel_column_conversion(self):

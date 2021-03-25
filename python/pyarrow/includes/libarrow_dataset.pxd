@@ -250,9 +250,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CParquetFragmentScanOptions \
             "arrow::dataset::ParquetFragmentScanOptions"(CFragmentScanOptions):
-        c_bool use_buffered_stream
-        int64_t buffer_size
-        c_bool pre_buffer
+        shared_ptr[CReaderProperties] reader_properties
+        shared_ptr[ArrowReaderProperties] arrow_reader_properties
         c_bool enable_parallel_column_conversion
 
     cdef cppclass CIpcFileWriteOptions \

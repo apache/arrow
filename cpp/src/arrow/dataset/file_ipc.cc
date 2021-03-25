@@ -83,7 +83,7 @@ class IpcScanTask : public ScanTask {
     struct Impl {
       static Result<RecordBatchIterator> Make(const FileSource& source,
                                               FileFormat* format,
-                                              ScanOptions* scan_options) {
+                                              const ScanOptions* scan_options) {
         ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source));
 
         ARROW_ASSIGN_OR_RAISE(
@@ -95,9 +95,10 @@ class IpcScanTask : public ScanTask {
         options.memory_pool = scan_options->pool;
         options.use_threads = false;
         if (!options.included_fields.empty()) {
-          // Cannot set them ehre
-          return Status::Invalid(
-              "Cannot set included_fields in scan options for IPC fragments");
+          // Cannot set them here
+          ARROW_LOG(WARNING) << "IpcFragmentScanOptions.options->included_fields was set "
+                                "but will be ignored; included_fields are derived from "
+                                "fields referenced by the scan";
         }
         ARROW_ASSIGN_OR_RAISE(
             options.included_fields,
