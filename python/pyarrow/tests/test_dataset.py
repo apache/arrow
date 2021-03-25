@@ -2564,6 +2564,45 @@ def test_dataset_project_only_partition_columns(tempdir):
 
 @pytest.mark.parquet
 @pytest.mark.pandas
+def test_dataset_project_null_column(tempdir):
+    import pandas as pd
+    df = pd.DataFrame({"col": np.array([None, None, None], dtype='object')})
+
+    f = tempdir / "test_dataset_project_null_column.parquet"
+    df.to_parquet(f, engine="pyarrow")
+
+    dataset = ds.dataset(f, format="parquet",
+                         schema=pa.schema([("col", pa.int64())]))
+    expected = pa.table({'col': pa.array([None, None, None], pa.int64())})
+    assert dataset.to_table().equals(expected)
+
+
+def test_dataset_project_columns(tempdir):
+    # basic column re-projection with expressions
+    from pyarrow import feather
+    table = pa.table({"A": [1, 2, 3], "B": [1., 2., 3.], "C": ["a", "b", "c"]})
+    feather.write_feather(table, tempdir / "data.feather")
+
+    dataset = ds.dataset(tempdir / "data.feather", format="feather")
+    result = dataset.to_table(columns={
+        'A_renamed': ds.field('A'),
+        'B_as_int': ds.field('B').cast("int32", safe=False),
+        'C_is_a': ds.field('C') == 'a'
+    })
+    expected = pa.table({
+        "A_renamed": [1, 2, 3],
+        "B_as_int": pa.array([1, 2, 3], type="int32"),
+        "C_is_a": [True, False, False],
+    })
+    assert result.equals(expected)
+
+    # raise proper error when not passing an expression
+    with pytest.raises(TypeError, match="Expected an Expression"):
+        dataset.to_table(columns={"A": "A"})
+
+
+@pytest.mark.parquet
+@pytest.mark.pandas
 def test_write_to_dataset_given_null_just_works(tempdir):
     import pyarrow.parquet as pq
 
@@ -2606,21 +2645,6 @@ def test_legacy_write_to_dataset_drops_null(tempdir):
 
     actual = pq.read_table(tempdir / 'test_dataset')
     assert actual == expected
-
-
-@pytest.mark.parquet
-@pytest.mark.pandas
-def test_dataset_project_null_column(tempdir):
-    import pandas as pd
-    df = pd.DataFrame({"col": np.array([None, None, None], dtype='object')})
-
-    f = tempdir / "test_dataset_project_null_column.parquet"
-    df.to_parquet(f, engine="pyarrow")
-
-    dataset = ds.dataset(f, format="parquet",
-                         schema=pa.schema([("col", pa.int64())]))
-    expected = pa.table({'col': pa.array([None, None, None], pa.int64())})
-    assert dataset.to_table().equals(expected)
 
 
 def _check_dataset_roundtrip(dataset, base_dir, expected_files,

@@ -354,7 +354,10 @@ cdef class Dataset(_Weakrefable):
         Parameters
         ----------
         columns : list of str, default None
-            List of columns to project. Order and duplicates will be preserved.
+            The columns to project. This can be a list of column names to
+            include (order and duplicates will be preserved), or a dictionary
+            with {new_column_name: expression} values for more advanced
+            projections.
             The columns will be passed down to Datasets and corresponding data
             fragments to avoid loading, copying, and deserializing columns
             that will not be required further down the compute chain.
@@ -384,6 +387,23 @@ cdef class Dataset(_Weakrefable):
         Returns
         -------
         scan_tasks : iterator of ScanTask
+
+        Examples
+        --------
+        >>> import pyarrow.dataset as ds
+        >>> dataset = ds.dataset("path/to/dataset")
+
+        Selecting a subset of the columns:
+
+        >>> dataset.scan(columns=["A", "B"])
+
+        Projecting selected columns using an expression:
+
+        >>> dataset.scan(columns={"A_int": ds.field("A").cast("int64")})
+
+        Filtering rows while scanning:
+
+        >>> dataset.scan(filter=ds.field("A") > 0)
         """
         return self._scanner(**kwargs).scan()
 
@@ -813,7 +833,10 @@ cdef class Fragment(_Weakrefable):
             it's Dataset's schema. If not specified this will use the
             Fragment's physical schema which might differ for each Fragment.
         columns : list of str, default None
-            List of columns to project. Order and duplicates will be preserved.
+            The columns to project. This can be a list of column names to
+            include (order and duplicates will be preserved), or a dictionary
+            with {new_column_name: expression} values for more advanced
+            projections.
             The columns will be passed down to Datasets and corresponding data
             fragments to avoid loading, copying, and deserializing columns
             that will not be required further down the compute chain.
@@ -2351,7 +2374,7 @@ _DEFAULT_BATCH_SIZE = 2**20
 
 
 cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
-                            list columns=None, Expression filter=None,
+                            object columns=None, Expression filter=None,
                             int batch_size=_DEFAULT_BATCH_SIZE,
                             bint use_threads=True,
                             MemoryPool memory_pool=None,
@@ -2359,13 +2382,33 @@ cdef void _populate_builder(const shared_ptr[CScannerBuilder]& ptr,
         except *:
     cdef:
         CScannerBuilder *builder
+        vector[CExpression] c_exprs
+
     builder = ptr.get()
 
     check_status(builder.Filter(_bind(
         filter, pyarrow_wrap_schema(builder.schema()))))
 
     if columns is not None:
-        check_status(builder.Project([tobytes(c) for c in columns]))
+        if isinstance(columns, dict):
+            for expr in columns.values():
+                if not isinstance(expr, Expression):
+                    raise TypeError(
+                        "Expected an Expression for a 'column' dictionary "
+                        "value, got {} instead".format(type(expr))
+                    )
+                c_exprs.push_back((<Expression> expr).unwrap())
+
+            check_status(
+                builder.Project(c_exprs, [tobytes(c) for c in columns.keys()])
+            )
+        elif isinstance(columns, list):
+            check_status(builder.ProjectColumns([tobytes(c) for c in columns]))
+        else:
+            raise ValueError(
+                "Expected a list or a dict for 'columns', "
+                "got {} instead.".format(type(columns))
+            )
 
     check_status(builder.BatchSize(batch_size))
     check_status(builder.UseThreads(use_threads))
@@ -2386,8 +2429,10 @@ cdef class Scanner(_Weakrefable):
     ----------
     dataset : Dataset
         Dataset to scan.
-    columns : list of str, default None
-        List of columns to project. Order and duplicates will be preserved.
+    columns : list of str or dict, default None
+        The columns to project. This can be a list of column names to include
+        (order and duplicates will be preserved), or a dictionary with
+        {new_column_name: expression} values for more advanced projections.
         The columns will be passed down to Datasets and corresponding data
         fragments to avoid loading, copying, and deserializing columns
         that will not be required further down the compute chain.
@@ -2435,7 +2480,7 @@ cdef class Scanner(_Weakrefable):
     @staticmethod
     def from_dataset(Dataset dataset not None,
                      bint use_threads=True, MemoryPool memory_pool=None,
-                     list columns=None, Expression filter=None,
+                     object columns=None, Expression filter=None,
                      int batch_size=_DEFAULT_BATCH_SIZE,
                      FragmentScanOptions fragment_scan_options=None):
         cdef:
@@ -2455,7 +2500,7 @@ cdef class Scanner(_Weakrefable):
     @staticmethod
     def from_fragment(Fragment fragment not None, Schema schema=None,
                       bint use_threads=True, MemoryPool memory_pool=None,
-                      list columns=None, Expression filter=None,
+                      object columns=None, Expression filter=None,
                       int batch_size=_DEFAULT_BATCH_SIZE,
                       FragmentScanOptions fragment_scan_options=None):
         cdef:
