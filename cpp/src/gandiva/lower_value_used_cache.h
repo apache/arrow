@@ -22,19 +22,15 @@
 #include <utility>
 #include <set>
 
+#include "base_cache.h"
 #include "arrow/util/optional.h"
 
 // modified cache to support evict policy of lower value used.
 namespace gandiva {
 // a cache which evicts the lower value used item when it is full
 template <class Key, class Value>
-class LowerValueUsedCache {
+class LowerValueUsedCache : BaseCache<Key, Value>{
  public:
-  using key_type = Key;
-  using value_type = Value;
-  // try to use set to keep it ordered by the key, so the last position will always
-  // be the higher value.
-  using set_type = std::set<std::pair<u_long, Key>>;
   struct hasher {
    template <typename I>
    std::size_t operator()(const I& i) const {
@@ -42,26 +38,26 @@ class LowerValueUsedCache {
    }
   };
   using map_type =
-  std::unordered_map<key_type, std::pair<value_type, typename set_type ::iterator>,
+  std::unordered_map<Key, std::pair<Value, typename std::set<std::pair<u_long, Key>> ::iterator>,
       hasher>;
 
-  explicit LowerValueUsedCache(size_t capacity) : cache_capacity_(capacity) {}
+  explicit LowerValueUsedCache(size_t capacity) : BaseCache<Key, Value>(capacity) {}
 
-  ~LowerValueUsedCache() {}
+  LowerValueUsedCache<Key, Value>() : BaseCache<Key, Value>() {};
 
   size_t size() const { return map_.size(); }
 
-  size_t capacity() const { return cache_capacity_; }
+  size_t capacity() const { return this->cache_capacity_; }
 
   bool empty() const { return map_.empty(); }
 
-  bool contains(const key_type& key) { return map_.find(key) != map_.end(); }
+  bool contains(const Key& key) { return map_.find(key) != map_.end(); }
 
-  void insert(const key_type& key, const value_type& value, const u_long value_to_order) {
+  void insert(const Key& key, const Value& value, const u_long value_to_order) {
     typename map_type::iterator i = map_.find(key);
     if (i == map_.end()) {
       // insert item into the cache, but first check if it is full
-      if (size() >= cache_capacity_) {
+      if (size() >= this->cache_capacity_) {
         // check if the value should be inserted on cache, otherwise just return
         if (value_to_order <= lvu_set_.begin()->first) return;
 
@@ -75,7 +71,7 @@ class LowerValueUsedCache {
     }
   }
 
-  arrow::util::optional<value_type> get(const key_type& key) {
+  arrow::util::optional<Value> get(const Key& key) {
     // lookup value in the cache
     typename map_type::iterator value_for_key = map_.find(key);
     if (value_for_key == map_.end()) {
@@ -94,14 +90,13 @@ class LowerValueUsedCache {
   void evict() {
     // evict item from the beginning of the set. This set is ordered from the
     // lower value constant to the higher value.
-    typename set_type::iterator i = lvu_set_.begin();
+    typename std::set<std::pair<u_long, Key>>::iterator i = lvu_set_.begin();
     map_.erase((*i).second);
     lvu_set_.erase(i);
   }
 
  private:
   map_type map_;
-  set_type lvu_set_;
-  size_t cache_capacity_;
+  std::set<std::pair<u_long, Key>> lvu_set_;
  };
 }  // namespace gandiva

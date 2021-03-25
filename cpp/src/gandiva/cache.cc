@@ -20,6 +20,10 @@
 
 namespace gandiva {
 
+// Define the default cache to be used:
+// 0 - Lowest Value Used Cache
+// 1 - LRU cache (Least Recent Used)
+static const int DEFAULT_CACHE_TO_USE = 0;
 static const int DEFAULT_CACHE_SIZE = 500;
 
 int GetCapacity() {
@@ -37,6 +41,22 @@ int GetCapacity() {
   }
   return capacity;
 }
+
+int GetCacheTypeToUse() {
+  int cache_type;
+  const char* env_cache_type = std::getenv("GANDIVA_CACHE_TYPE");
+  if (env_cache_type != nullptr) {
+    cache_type = std::atoi(env_cache_type);
+    if (cache_type > 1) {
+      ARROW_LOG(WARNING) << "Invalid cache type provided. Using default cache type: "
+                         << DEFAULT_CACHE_TO_USE;
+      cache_type = DEFAULT_CACHE_TO_USE;
+    }
+  } else {
+    cache_type = DEFAULT_CACHE_TO_USE;
+  }
+   return cache_type;
+ }
 
 void LogCacheSize(size_t capacity) {
   ARROW_LOG(INFO) << "Creating gandiva cache with capacity: " << capacity;
