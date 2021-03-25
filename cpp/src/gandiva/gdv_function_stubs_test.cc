@@ -170,15 +170,15 @@ TEST(TestGdvFnStubs, TestCastFloat8) {
         EXPECT_FALSE(ctx.has_error());
 
         out_str = gdv_fn_to_char_int32_int64(ctx_ptr, 2147483647, 100, "%1 %1", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "2147483647 2147483647");
+        EXPECT_EQ(std::string(out_str, out_len), "2147483647");
         EXPECT_FALSE(ctx.has_error());
 
         out_str = gdv_fn_to_char_int32_int64(ctx_ptr, -2147483647 - 1, 100, "%1 - %1", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "-2147483648 - -2147483648");
+        EXPECT_EQ(std::string(out_str, out_len), "-2147483648");
         EXPECT_FALSE(ctx.has_error());
 
         out_str = gdv_fn_to_char_int32_int64(ctx_ptr, 0, 100, "%1/%1/%1", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "0/0/0");
+        EXPECT_EQ(std::string(out_str, out_len), "0");
         EXPECT_FALSE(ctx.has_error());
 
         // test with required length less than actual buffer length
