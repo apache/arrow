@@ -22,14 +22,12 @@ library(dplyr)
 tbl <- example_data_for_sorting
 
 test_that("sort(Scalar) is identity function", {
-  expect_identical(
-    as.vector(sort(Scalar$create(42L))),
-    42L
-  )
-  expect_identical(
-    as.vector(sort(Scalar$create("foo"))),
-    "foo"
-  )
+  int <- Scalar$create(42L)
+  expect_equal(sort(int), int)
+  dbl <- Scalar$create(3.14)
+  expect_equal(sort(dbl), dbl)
+  chr <- Scalar$create("foo")
+  expect_equal(sort(chr), chr)
 })
 
 test_that("Array$SortIndices()", {
