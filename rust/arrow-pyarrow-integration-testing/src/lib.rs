@@ -167,11 +167,22 @@ fn concatenate(array: PyObject, py: Python) -> PyResult<PyObject> {
     to_py(array, py)
 }
 
+/// Converts to rust and back to python
+#[pyfunction]
+fn round_trip(array: PyObject, py: Python) -> PyResult<PyObject> {
+    // import
+    let array = to_rust(array, py)?;
+
+    // export
+    to_py(array, py)
+}
+
 #[pymodule]
 fn arrow_pyarrow_integration_testing(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(double))?;
     m.add_wrapped(wrap_pyfunction!(double_py))?;
     m.add_wrapped(wrap_pyfunction!(substring))?;
     m.add_wrapped(wrap_pyfunction!(concatenate))?;
+    m.add_wrapped(wrap_pyfunction!(round_trip))?;
     Ok(())
 }

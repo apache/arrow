@@ -78,3 +78,23 @@ class TestCase(unittest.TestCase):
         del expected
         # No leak of C++ memory
         self.assertEqual(old_allocated, pyarrow.total_allocated_bytes())
+
+    def test_list_array(self):
+        """
+        Python -> Rust -> Python
+        """
+        old_allocated = pyarrow.total_allocated_bytes()
+        a = pyarrow.array([[1, 2], [1, 2]], pyarrow.list_(pyarrow.int64()))
+        b = arrow_pyarrow_integration_testing.round_trip(a)
+        # list equality does not work, so we check the elements
+        self.assertEqual(a[0][0], b[0][0])
+        self.assertEqual(a[0][1], b[0][1])
+        self.assertEqual(a[1][0], b[1][0])
+        self.assertEqual(a[1][1], b[1][1])
+        del a
+        del b
+        # No leak of C++ memory
+        self.assertEqual(old_allocated, pyarrow.total_allocated_bytes())
+
+
+

@@ -134,7 +134,8 @@ impl FFI_ArrowSchema {
         // <https://arrow.apache.org/docs/format/CDataInterface.html#c.ArrowSchema>
         FFI_ArrowSchema {
             format: CString::new(format).unwrap().into_raw(),
-            name: std::ptr::null_mut(),
+            // For child data a non null string is expected
+            name: CString::new("").unwrap().into_raw(),
             metadata: std::ptr::null_mut(),
             flags: 0,
             n_children,
