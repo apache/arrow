@@ -281,7 +281,7 @@ arrow_eval <- function (expr, mask) {
     invisible(structure(msg, class = "try-error", condition = e))
   })
   # Check that the evaluated expression has one of the expected classes or types
-  if (!class(out) %in% c("array_expression", "Expression", "try-error") &&
+  if (!inherits(out, c("array_expression", "Expression", "try-error")) &&
       !typeof(out) %in% c("logical", "integer", "double", "character", "NULL")) {
     stop(
       "Expression `",
