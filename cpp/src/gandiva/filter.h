@@ -45,6 +45,10 @@ class FilterCacheKey {
 
   bool operator!=(const FilterCacheKey& other) const { return !(*this == other); }
 
+  bool operator<(const FilterCacheKey& other) const {
+    return uniqifier_ < other.uniqifier_;
+  };
+
   SchemaPtr schema() const { return schema_; }
 
   std::string ToString() const;
