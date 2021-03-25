@@ -67,7 +67,7 @@ pub enum TableProviderFilterPushDown {
 }
 
 /// Source table
-pub trait TableProvider {
+pub trait TableProvider: Sync + Send {
     /// Returns the table provider as [`Any`](std::any::Any) so that it can be
     /// downcast to a specific implementation.
     fn as_any(&self) -> &dyn Any;

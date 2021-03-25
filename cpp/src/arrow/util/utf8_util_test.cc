@@ -65,7 +65,8 @@ class UTF8Test : public ::testing::Test {
   static std::vector<std::string> invalid_sequences_ascii;
 };
 
-std::vector<std::string> UTF8Test::valid_sequences_1 = {"a", "\x7f"};
+std::vector<std::string> UTF8Test::valid_sequences_1 = {"a", "\x7f",
+                                                        std::string("\0", 1)};
 std::vector<std::string> UTF8Test::valid_sequences_2 = {"\xc2\x80", "\xc3\xbf",
                                                         "\xdf\xbf"};
 std::vector<std::string> UTF8Test::valid_sequences_3 = {"\xe0\xa0\x80", "\xe8\x9d\xa5",

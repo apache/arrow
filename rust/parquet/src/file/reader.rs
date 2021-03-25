@@ -63,7 +63,7 @@ pub trait FileReader {
     fn num_row_groups(&self) -> usize;
 
     /// Get the `i`th row group reader. Note this doesn't do bound check.
-    fn get_row_group(&self, i: usize) -> Result<Box<RowGroupReader + '_>>;
+    fn get_row_group(&self, i: usize) -> Result<Box<dyn RowGroupReader + '_>>;
 
     /// Get full iterator of `Row`s from a file (over all row groups).
     ///
@@ -84,7 +84,7 @@ pub trait RowGroupReader {
     fn num_columns(&self) -> usize;
 
     /// Get page reader for the `i`th column chunk.
-    fn get_column_page_reader(&self, i: usize) -> Result<Box<PageReader>>;
+    fn get_column_page_reader(&self, i: usize) -> Result<Box<dyn PageReader>>;
 
     /// Get value reader for the `i`th column chunk.
     fn get_column_reader(&self, i: usize) -> Result<ColumnReader> {
@@ -139,13 +139,13 @@ pub trait RowGroupReader {
 /// Implementation of page iterator for parquet file.
 pub struct FilePageIterator {
     column_index: usize,
-    row_group_indices: Box<Iterator<Item = usize>>,
-    file_reader: Arc<FileReader>,
+    row_group_indices: Box<dyn Iterator<Item = usize>>,
+    file_reader: Arc<dyn FileReader>,
 }
 
 impl FilePageIterator {
     /// Creates a page iterator for all row groups in file.
-    pub fn new(column_index: usize, file_reader: Arc<FileReader>) -> Result<Self> {
+    pub fn new(column_index: usize, file_reader: Arc<dyn FileReader>) -> Result<Self> {
         let num_row_groups = file_reader.metadata().num_row_groups();
 
         let row_group_indices = Box::new(0..num_row_groups);
@@ -156,8 +156,8 @@ impl FilePageIterator {
     /// Create page iterator from parquet file reader with only some row groups.
     pub fn with_row_groups(
         column_index: usize,
-        row_group_indices: Box<Iterator<Item = usize>>,
-        file_reader: Arc<FileReader>,
+        row_group_indices: Box<dyn Iterator<Item = usize>>,
+        file_reader: Arc<dyn FileReader>,
     ) -> Result<Self> {
         // Check that column_index is valid
         let num_columns = file_reader
@@ -180,9 +180,9 @@ impl FilePageIterator {
 }
 
 impl Iterator for FilePageIterator {
-    type Item = Result<Box<PageReader>>;
+    type Item = Result<Box<dyn PageReader>>;
 
-    fn next(&mut self) -> Option<Result<Box<PageReader>>> {
+    fn next(&mut self) -> Option<Result<Box<dyn PageReader>>> {
         self.row_group_indices.next().map(|row_group_index| {
             self.file_reader
                 .get_row_group(row_group_index)

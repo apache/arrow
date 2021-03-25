@@ -24,11 +24,11 @@ use std::sync::Arc;
 use std::vec::Vec;
 
 use arrow::array::{
-    new_empty_array, Array, ArrayData, ArrayDataBuilder, ArrayDataRef, ArrayRef,
-    BinaryArray, BinaryBuilder, BooleanArray, BooleanBufferBuilder, BooleanBuilder,
-    DecimalBuilder, FixedSizeBinaryArray, FixedSizeBinaryBuilder, GenericListArray,
-    Int16BufferBuilder, Int32Array, Int64Array, OffsetSizeTrait, PrimitiveArray,
-    PrimitiveBuilder, StringArray, StringBuilder, StructArray,
+    new_empty_array, Array, ArrayData, ArrayDataBuilder, ArrayRef, BinaryArray,
+    BinaryBuilder, BooleanArray, BooleanBufferBuilder, BooleanBuilder, DecimalBuilder,
+    FixedSizeBinaryArray, FixedSizeBinaryBuilder, GenericListArray, Int16BufferBuilder,
+    Int32Array, Int64Array, OffsetSizeTrait, PrimitiveArray, PrimitiveBuilder,
+    StringArray, StringBuilder, StructArray,
 };
 use arrow::buffer::{Buffer, MutableBuffer};
 use arrow::datatypes::{
@@ -890,7 +890,7 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
         let list_data = ArrayData::builder(self.get_data_type().clone())
             .len(offsets.len() - 1)
             .add_buffer(value_offsets)
-            .add_child_data(batch_values.data())
+            .add_child_data(batch_values.data().clone())
             .null_bit_buffer(null_buf.into())
             .offset(next_batch_array.offset())
             .build();
@@ -1039,8 +1039,8 @@ impl ArrayReader for StructArrayReader {
             .child_data(
                 children_array
                     .iter()
-                    .map(|x| x.data())
-                    .collect::<Vec<ArrayDataRef>>(),
+                    .map(|x| x.data().clone())
+                    .collect::<Vec<ArrayData>>(),
             )
             .build();
 
@@ -1206,7 +1206,7 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
         &mut self,
         cur_type: Arc<Type>,
         context: &'a ArrayReaderBuilderContext,
-    ) -> Result<Option<Box<ArrayReader>>> {
+    ) -> Result<Option<Box<dyn ArrayReader>>> {
         let mut new_context = context.clone();
         new_context.path.append(vec![cur_type.name().to_string()]);
 
@@ -2289,7 +2289,7 @@ mod tests {
     }
 
     impl ArrayReader for InMemoryArrayReader {
-        fn as_any(&self) -> &Any {
+        fn as_any(&self) -> &dyn Any {
             self
         }
 

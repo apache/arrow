@@ -54,8 +54,9 @@ fn regex_replace_posix_groups(replacement: &str) -> String {
         .into_owned()
 }
 
-/// Replaces substring(s) matching a POSIX regular expression
-/// regexp_replace('Thomas', '.[mN]a.', 'M') = 'ThM'
+/// Replaces substring(s) matching a POSIX regular expression.
+///
+/// example: `regexp_replace('Thomas', '.[mN]a.', 'M') = 'ThM'`
 pub fn regexp_replace<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
     // creating Regex is expensive so create hashmap for memoization
     let mut patterns: HashMap<String, Regex> = HashMap::new();

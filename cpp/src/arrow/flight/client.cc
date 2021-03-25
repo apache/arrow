@@ -90,9 +90,6 @@ std::shared_ptr<FlightWriteSizeStatusDetail> FlightWriteSizeStatusDetail::Unwrap
   return std::dynamic_pointer_cast<FlightWriteSizeStatusDetail>(status.detail());
 }
 
-FlightClientOptions::FlightClientOptions()
-    : write_size_limit_bytes(0), disable_server_verification(false) {}
-
 FlightClientOptions FlightClientOptions::Defaults() { return FlightClientOptions(); }
 
 struct ClientRpc {
@@ -1240,7 +1237,7 @@ FlightClient::~FlightClient() {}
 
 Status FlightClient::Connect(const Location& location,
                              std::unique_ptr<FlightClient>* client) {
-  return Connect(location, {}, client);
+  return Connect(location, FlightClientOptions::Defaults(), client);
 }
 
 Status FlightClient::Connect(const Location& location, const FlightClientOptions& options,

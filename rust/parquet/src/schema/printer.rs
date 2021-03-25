@@ -54,7 +54,7 @@ use crate::schema::types::Type;
 /// Prints Parquet metadata [`ParquetMetaData`](crate::file::metadata::ParquetMetaData)
 /// information.
 #[allow(unused_must_use)]
-pub fn print_parquet_metadata(out: &mut io::Write, metadata: &ParquetMetaData) {
+pub fn print_parquet_metadata(out: &mut dyn io::Write, metadata: &ParquetMetaData) {
     print_file_metadata(out, &metadata.file_metadata());
     writeln!(out);
     writeln!(out);
@@ -71,7 +71,7 @@ pub fn print_parquet_metadata(out: &mut io::Write, metadata: &ParquetMetaData) {
 /// Prints file metadata [`FileMetaData`](crate::file::metadata::FileMetaData)
 /// information.
 #[allow(unused_must_use)]
-pub fn print_file_metadata(out: &mut io::Write, file_metadata: &FileMetaData) {
+pub fn print_file_metadata(out: &mut dyn io::Write, file_metadata: &FileMetaData) {
     writeln!(out, "version: {}", file_metadata.version());
     writeln!(out, "num of rows: {}", file_metadata.num_rows());
     if let Some(created_by) = file_metadata.created_by().as_ref() {
@@ -94,7 +94,7 @@ pub fn print_file_metadata(out: &mut io::Write, file_metadata: &FileMetaData) {
 
 /// Prints Parquet [`Type`](crate::schema::types::Type) information.
 #[allow(unused_must_use)]
-pub fn print_schema(out: &mut io::Write, tp: &Type) {
+pub fn print_schema(out: &mut dyn io::Write, tp: &Type) {
     // TODO: better if we can pass fmt::Write to Printer.
     // But how can we make it to accept both io::Write & fmt::Write?
     let mut s = String::new();
@@ -106,7 +106,7 @@ pub fn print_schema(out: &mut io::Write, tp: &Type) {
 }
 
 #[allow(unused_must_use)]
-fn print_row_group_metadata(out: &mut io::Write, rg_metadata: &RowGroupMetaData) {
+fn print_row_group_metadata(out: &mut dyn io::Write, rg_metadata: &RowGroupMetaData) {
     writeln!(out, "total byte size: {}", rg_metadata.total_byte_size());
     writeln!(out, "num of rows: {}", rg_metadata.num_rows());
     writeln!(out);
@@ -121,7 +121,10 @@ fn print_row_group_metadata(out: &mut io::Write, rg_metadata: &RowGroupMetaData)
 }
 
 #[allow(unused_must_use)]
-fn print_column_chunk_metadata(out: &mut io::Write, cc_metadata: &ColumnChunkMetaData) {
+fn print_column_chunk_metadata(
+    out: &mut dyn io::Write,
+    cc_metadata: &ColumnChunkMetaData,
+) {
     writeln!(out, "column type: {}", cc_metadata.column_type());
     writeln!(out, "column path: {}", cc_metadata.column_path());
     let encoding_strs: Vec<_> = cc_metadata
@@ -167,7 +170,7 @@ fn print_column_chunk_metadata(out: &mut io::Write, cc_metadata: &ColumnChunkMet
 }
 
 #[allow(unused_must_use)]
-fn print_dashes(out: &mut io::Write, num: i32) {
+fn print_dashes(out: &mut dyn io::Write, num: i32) {
     for _ in 0..num {
         write!(out, "-");
     }
@@ -178,13 +181,13 @@ const INDENT_WIDTH: i32 = 2;
 
 /// Struct for printing Parquet message type.
 struct Printer<'a> {
-    output: &'a mut fmt::Write,
+    output: &'a mut dyn fmt::Write,
     indent: i32,
 }
 
 #[allow(unused_must_use)]
 impl<'a> Printer<'a> {
-    fn new(output: &'a mut fmt::Write) -> Self {
+    fn new(output: &'a mut dyn fmt::Write) -> Self {
         Printer { output, indent: 0 }
     }
 

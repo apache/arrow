@@ -392,7 +392,7 @@ impl RowGroupPredicateBuilder {
             .collect::<Vec<_>>();
         let stat_schema = Schema::new(stat_fields);
         let execution_context_state = ExecutionContextState {
-            datasources: HashMap::new(),
+            catalogs: HashMap::new(),
             scalar_functions: HashMap::new(),
             var_provider: HashMap::new(),
             aggregate_functions: HashMap::new(),

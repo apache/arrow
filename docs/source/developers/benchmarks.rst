@@ -160,7 +160,7 @@ Writing a benchmark
    scenario, the cputime will give incorrect result since the since it'll
    be inflated by the number of threads and can be far off realtime. Thus, if
    the benchmark is multi threaded, it might be better to use
-   ``SetRealtime()``, see this `example <https://github.com/apache/arrow/blob/a9582ea6ab2db055656809a2c579165fe6a811ba/cpp/src/arrow/io/memory-benchmark.cc#L223-L227>`.
+   ``SetRealtime()``, see this `example <https://github.com/apache/arrow/blob/a9582ea6ab2db055656809a2c579165fe6a811ba/cpp/src/arrow/io/memory-benchmark.cc#L223-L227>`_.
 
 Scripting
 =========

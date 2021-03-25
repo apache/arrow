@@ -356,6 +356,7 @@ VERSION=#{@deb_upstream_version}
       end
 
       namespace :build do
+        desc "Open console"
         task :console => build_dependencies do
           apt_build(console: true) if enable_apt?
         end
@@ -489,6 +490,7 @@ RELEASE=#{@rpm_release}
       end
 
       namespace :build do
+        desc "Open console"
         task :console => build_dependencies do
           yum_build(console: true) if enable_yum?
         end

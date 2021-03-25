@@ -174,7 +174,6 @@ set(PARQUET_SRCS
     column_reader.cc
     column_scanner.cc
     column_writer.cc
-    deprecated_io.cc
     encoding.cc
     encryption/encryption.cc
     encryption/internal_file_decryptor.cc
@@ -347,7 +346,6 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"
 add_parquet_test(internals-test
                  SOURCES
                  bloom_filter_test.cc
-                 deprecated_io_test.cc
                  properties_test.cc
                  statistics_test.cc
                  encoding_test.cc

@@ -268,6 +268,10 @@ std::string FormatMessageType(MessageType type) {
       return "record batch";
     case MessageType::DICTIONARY_BATCH:
       return "dictionary";
+    case MessageType::TENSOR:
+      return "tensor";
+    case MessageType::SPARSE_TENSOR:
+      return "sparse tensor";
     default:
       break;
   }

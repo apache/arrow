@@ -112,6 +112,7 @@ column.  Type inference considers the following data types, in order:
 * Boolean
 * Date32
 * Timestamp (with seconds unit)
+* Timestamp (with nanoseconds unit)
 * Float64
 * Dictionary<String> (if :member:`ConvertOptions::auto_dict_encode` is true)
 * Dictionary<Binary> (if :member:`ConvertOptions::auto_dict_encode` is true)
