@@ -335,12 +335,7 @@ char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
       *out_len = 0;                                                                      \
       return "";                                                                         \
     }                                                                                    \
-    boost::format fmter(pattern);                                                        \
-    fmter % ret;                                                                         \
-    std::string s = fmter.str();                                                         \
-    char* converted_number;                                                              \
-    converted_number = strdup(s.c_str());                                                \
-    return converted_number;                                                             \
+    return ret;                                                                          \
   }
 
 GDV_FN_TO_CHAR(int32, Int32Type)
