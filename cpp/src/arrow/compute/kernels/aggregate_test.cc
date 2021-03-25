@@ -104,31 +104,38 @@ static Datum NaiveSum(const Array& array) {
 }
 
 template <typename ArrowType>
-void ValidateSum(const Array& input, Datum expected) {
+void ValidateSum(
+    const Array& input, Datum expected,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults()) {
   using OutputType = typename FindAccumulatorType<ArrowType>::Type;
 
-  ASSERT_OK_AND_ASSIGN(Datum result, Sum(input));
+  ASSERT_OK_AND_ASSIGN(Datum result, Sum(input, options));
   DatumEqual<OutputType>::EnsureEqual(result, expected);
 }
 
 template <typename ArrowType>
-void ValidateSum(const std::shared_ptr<ChunkedArray>& input, Datum expected) {
+void ValidateSum(const std::shared_ptr<ChunkedArray>& input, Datum expected,
+                 const ScalarAggregateOptions& options) {
   using OutputType = typename FindAccumulatorType<ArrowType>::Type;
 
-  ASSERT_OK_AND_ASSIGN(Datum result, Sum(input));
+  ASSERT_OK_AND_ASSIGN(Datum result, Sum(input, options));
   DatumEqual<OutputType>::EnsureEqual(result, expected);
 }
 
 template <typename ArrowType>
-void ValidateSum(const char* json, Datum expected) {
+void ValidateSum(
+    const char* json, Datum expected,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults()) {
   auto array = ArrayFromJSON(TypeTraits<ArrowType>::type_singleton(), json);
-  ValidateSum<ArrowType>(*array, expected);
+  ValidateSum<ArrowType>(*array, expected, options);
 }
 
 template <typename ArrowType>
-void ValidateSum(const std::vector<std::string>& json, Datum expected) {
+void ValidateSum(
+    const std::vector<std::string>& json, Datum expected,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults()) {
   auto array = ChunkedArrayFromJSON(TypeTraits<ArrowType>::type_singleton(), json);
-  ValidateSum<ArrowType>(array, expected);
+  ValidateSum<ArrowType>(array, expected, options);
 }
 
 template <typename ArrowType>
@@ -136,39 +143,71 @@ void ValidateSum(const Array& array) {
   ValidateSum<ArrowType>(array, NaiveSum<ArrowType>(array));
 }
 
-using UnaryOp = Result<Datum>(const Datum&, ExecContext*);
+using UnaryOp = Result<Datum>(const Datum&, const ScalarAggregateOptions&, ExecContext*);
 
-template <UnaryOp& Op, typename ScalarType>
+template <UnaryOp& Op, typename ScalarAggregateOptions, typename ScalarType>
 void ValidateBooleanAgg(const std::string& json,
-                        const std::shared_ptr<ScalarType>& expected) {
+                        const std::shared_ptr<ScalarType>& expected,
+                        const ScalarAggregateOptions& options) {
   auto array = ArrayFromJSON(boolean(), json);
   auto exp = Datum(expected);
-  ASSERT_OK_AND_ASSIGN(Datum result, Op(array, nullptr));
+  ASSERT_OK_AND_ASSIGN(Datum result, Op(array, options, nullptr));
   ASSERT_TRUE(result.Equals(exp));
 }
 
 TEST(TestBooleanAggregation, Sum) {
-  ValidateBooleanAgg<Sum>("[]", std::make_shared<UInt64Scalar>());
-  ValidateBooleanAgg<Sum>("[null]", std::make_shared<UInt64Scalar>());
-  ValidateBooleanAgg<Sum>("[null, false]", std::make_shared<UInt64Scalar>(0));
-  ValidateBooleanAgg<Sum>("[true]", std::make_shared<UInt64Scalar>(1));
-  ValidateBooleanAgg<Sum>("[true, false, true]", std::make_shared<UInt64Scalar>(2));
+  const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults();
+  ValidateBooleanAgg<Sum>("[]", std::make_shared<UInt64Scalar>(), options);
+  ValidateBooleanAgg<Sum>("[null]", std::make_shared<UInt64Scalar>(), options);
+  ValidateBooleanAgg<Sum>("[null, false]", std::make_shared<UInt64Scalar>(0), options);
+  ValidateBooleanAgg<Sum>("[true]", std::make_shared<UInt64Scalar>(1), options);
+  ValidateBooleanAgg<Sum>("[true, false, true]", std::make_shared<UInt64Scalar>(2),
+                          options);
   ValidateBooleanAgg<Sum>("[true, false, true, true, null]",
-                          std::make_shared<UInt64Scalar>(3));
+                          std::make_shared<UInt64Scalar>(3), options);
+
+  const char* json = "[true, null, false, null]";
+  ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
+                          ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 1));
+  ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
+                          ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 2));
+    ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(),
+    ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 3));
+  ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
+                          ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 1));
+  ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
+                          ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 2));
+    ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(),
+    ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 3));
 }
 
 TEST(TestBooleanAggregation, Mean) {
-  ValidateBooleanAgg<Mean>("[]", std::make_shared<DoubleScalar>());
-  ValidateBooleanAgg<Mean>("[null]", std::make_shared<DoubleScalar>());
-  ValidateBooleanAgg<Mean>("[null, false]", std::make_shared<DoubleScalar>(0));
-  ValidateBooleanAgg<Mean>("[true]", std::make_shared<DoubleScalar>(1));
+  const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults();
+  ValidateBooleanAgg<Mean>("[]", std::make_shared<DoubleScalar>(), options);
+  ValidateBooleanAgg<Mean>("[null]", std::make_shared<DoubleScalar>(), options);
+  ValidateBooleanAgg<Mean>("[null, false]", std::make_shared<DoubleScalar>(0), options);
+  ValidateBooleanAgg<Mean>("[true]", std::make_shared<DoubleScalar>(1), options);
   ValidateBooleanAgg<Mean>("[true, false, true, false]",
-                           std::make_shared<DoubleScalar>(0.5));
-  ValidateBooleanAgg<Mean>("[true, null]", std::make_shared<DoubleScalar>(1));
+                           std::make_shared<DoubleScalar>(0.5), options);
+  ValidateBooleanAgg<Mean>("[true, null]", std::make_shared<DoubleScalar>(1), options);
   ValidateBooleanAgg<Mean>("[true, null, false, true, true]",
-                           std::make_shared<DoubleScalar>(0.75));
+                           std::make_shared<DoubleScalar>(0.75), options);
   ValidateBooleanAgg<Mean>("[true, null, false, false, false]",
-                           std::make_shared<DoubleScalar>(0.25));
+                           std::make_shared<DoubleScalar>(0.25), options);
+
+  const char* json = "[true, null, false, null]";
+  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.5),
+                           ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 1));
+  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.5),
+                           ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 2));
+  //  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(),
+  //  ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 3));
+  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.5),
+                           ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 1));
+  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.5),
+                           ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 2));
+  //  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(),
+  //  ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 3));
 }
 
 template <typename ArrowType>
@@ -206,6 +245,32 @@ TYPED_TEST(TestNumericSumKernel, SimpleSum) {
   const T expected_result = static_cast<T>(14);
   ValidateSum<TypeParam>("[1, null, 3, null, 3, null, 7]",
                          Datum(std::make_shared<ScalarType>(expected_result)));
+}
+
+TYPED_TEST_SUITE(TestNumericSumKernel, NumericArrowTypes);
+TYPED_TEST(TestNumericSumKernel, ScalarAggregateOptions) {
+  using SumType = typename FindAccumulatorType<TypeParam>::Type;
+  using ScalarType = typename TypeTraits<SumType>::ScalarType;
+  using T = typename TypeParam::c_type;
+
+  const T expected_result = static_cast<T>(14);
+  auto null_result = Datum(std::make_shared<ScalarType>());
+  auto result = Datum(std::make_shared<ScalarType>(expected_result));
+  const char* json = "[1, null, 3, null, 3, null, 7]";
+
+  ValidateSum<TypeParam>(json, result,
+                         ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 3));
+  ValidateSum<TypeParam>(json, result,
+                         ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 4));
+  //  ValidateSum<TypeParam>(json, null_result,
+  //  ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 5));
+
+  ValidateSum<TypeParam>(json, result,
+                         ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 3));
+  ValidateSum<TypeParam>(json, result,
+                         ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 4));
+  //  ValidateSum<TypeParam>(json, null_result,
+  //  ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 5));
 }
 
 template <typename ArrowType>
@@ -374,22 +439,26 @@ static Datum NaiveMean(const Array& array) {
 }
 
 template <typename ArrowType>
-void ValidateMean(const Array& input, Datum expected) {
+void ValidateMean(const Array& input, Datum expected,
+                  const ScalarAggregateOptions& options) {
   using OutputType = typename FindAccumulatorType<DoubleType>::Type;
 
-  ASSERT_OK_AND_ASSIGN(Datum result, Mean(input));
+  ASSERT_OK_AND_ASSIGN(Datum result, Mean(input, options, nullptr));
   DatumEqual<OutputType>::EnsureEqual(result, expected);
 }
 
 template <typename ArrowType>
-void ValidateMean(const char* json, Datum expected) {
+void ValidateMean(
+    const char* json, Datum expected,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults()) {
   auto array = ArrayFromJSON(TypeTraits<ArrowType>::type_singleton(), json);
-  ValidateMean<ArrowType>(*array, expected);
+  ValidateMean<ArrowType>(*array, expected, options);
 }
 
 template <typename ArrowType>
 void ValidateMean(const Array& array) {
-  ValidateMean<ArrowType>(array, NaiveMean<ArrowType>(array));
+  ValidateMean<ArrowType>(array, NaiveMean<ArrowType>(array),
+                          ScalarAggregateOptions::Defaults());
 }
 
 template <typename ArrowType>
@@ -413,6 +482,35 @@ TYPED_TEST(TestMeanKernelNumeric, SimpleMean) {
 
   ValidateMean<TypeParam>("[1, 1, 1, 1, 1, 1, 1, 1]",
                           Datum(std::make_shared<ScalarType>(1.0)));
+}
+
+TYPED_TEST_SUITE(TestMeanKernelNumeric, NumericArrowTypes);
+TYPED_TEST(TestMeanKernelNumeric, ScalarAggregateOptions) {
+  using ScalarType = typename TypeTraits<DoubleType>::ScalarType;
+  using T = typename TypeParam::c_type;
+
+  auto expected_result_keepna = Datum(std::make_shared<ScalarType>(static_cast<T>(2)));
+  auto expected_result_skipna = Datum(std::make_shared<ScalarType>(static_cast<T>(3)));
+  auto null_result = Datum(std::make_shared<ScalarType>());
+  const char* json = "[1, null, 2, 2, null, 7]";
+
+  ValidateMean<TypeParam>(json, expected_result_skipna,
+                          ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 0));
+  ValidateMean<TypeParam>(json, expected_result_skipna,
+                          ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 3));
+  ValidateMean<TypeParam>(json, expected_result_skipna,
+                          ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 4));
+  //  ValidateMean<TypeParam>(json, null_result,
+  //  ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 5));
+
+  ValidateMean<TypeParam>(json, expected_result_keepna,
+                          ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 0));
+  ValidateMean<TypeParam>(json, expected_result_keepna,
+                          ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 3));
+  ValidateMean<TypeParam>(json, expected_result_keepna,
+                          ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 4));
+  //  ValidateMean<TypeParam>(json, null_result,
+  //  ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 15));
 }
 
 template <typename ArrowType>

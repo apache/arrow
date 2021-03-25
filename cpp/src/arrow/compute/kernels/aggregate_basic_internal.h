@@ -60,6 +60,7 @@ struct SumImpl : public ScalarAggregator {
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
     const auto& data = batch[0].array();
+    this->length = data->length;
     this->count = data->length - data->GetNullCount();
     if (is_boolean_type<ArrowType>::value) {
       this->sum = static_cast<typename SumType::c_type>(BooleanArray(data).true_count());
@@ -72,12 +73,24 @@ struct SumImpl : public ScalarAggregator {
 
   Status MergeFrom(KernelContext*, KernelState&& src) override {
     const auto& other = checked_cast<const ThisType&>(src);
+    this->length += other.length;
     this->count += other.count;
     this->sum += other.sum;
     return Status::OK();
   }
 
   Status Finalize(KernelContext*, Datum* out) override {
+    const auto& state = checked_cast<const SumImpl&>(*ctx->state());
+//    ARROW_LOG(INFO) << "options.min_count: " << options.min_count;
+    ARROW_LOG(INFO) << "SumImpl: options.null_handling: " << options.null_handling << " options.min_count: " << options.min_count;
+
+//    ARROW_LOG(INFO) << "state.options.min_count: " << state.options.min_count;
+//    ARROW_LOG(INFO) << "state.options.null_handling: " << state.options.null_handling;
+
+    if (state.options.min_count != 0 ||  options.min_count != 0) {
+      ARROW_LOG(FATAL) << "state.options.min_count: " << state.options.min_count;
+    }
+
     if (this->count == 0) {
       out->value = std::make_shared<OutputType>();
     } else {
@@ -86,21 +99,38 @@ struct SumImpl : public ScalarAggregator {
     return Status::OK();
   }
 
+  size_t length = 0;
   size_t count = 0;
   typename SumType::c_type sum = 0;
+  ScalarAggregateOptions options;
 };
 
 template <typename ArrowType, SimdLevel::type SimdLevel>
 struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
   Status Finalize(KernelContext*, Datum* out) override {
-    if (this->count == 0) {
+    //    const ScalarAggregateOptions& options = checked_cast<const ScalarAggregateState&>(*ctx->state()).options;
+    const auto& state = checked_cast<const MeanImpl&>(*ctx->state());
+//    ARROW_LOG(INFO) << "options.min_count: " << options.min_count;
+    ARROW_LOG(INFO) << "SumImpl: options.null_handling: " << options.null_handling << " options.min_count: " << options.min_count;
+
+//    ARROW_LOG(INFO) << "state.options.min_count: " << state.options.min_count;
+//    ARROW_LOG(INFO) << "state.options.null_handling: " << state.options.null_handling;
+    if (state.options.min_count != 0 || options.min_count != 0) {
+      ARROW_LOG(FATAL) << "state.options.min_count: " << state.options.min_count;
+    }
+
+    if (this->count == 0 || this->count < options.min_count) {
       out->value = std::make_shared<DoubleScalar>();
-    } else {
+    } else if (options.null_handling == ScalarAggregateOptions::SKIPNA) {
       const double mean = static_cast<double>(this->sum) / this->count;
+      out->value = std::make_shared<DoubleScalar>(mean);
+    } else {
+      const double mean = static_cast<double>(this->sum) / this->length;
       out->value = std::make_shared<DoubleScalar>(mean);
     }
     return Status::OK();
   }
+  ScalarAggregateOptions options;
 };
 
 template <template <typename> class KernelClass>
@@ -108,8 +138,11 @@ struct SumLikeInit {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
   const DataType& type;
+  ScalarAggregateOptions options;
 
-  SumLikeInit(KernelContext* ctx, const DataType& type) : ctx(ctx), type(type) {}
+  SumLikeInit(KernelContext* ctx, const DataType& type,
+              const ScalarAggregateOptions& options)
+      : ctx(ctx), type(type), options(options) {}
 
   Status Visit(const DataType&) { return Status::NotImplemented("No sum implemented"); }
 
@@ -118,13 +151,13 @@ struct SumLikeInit {
   }
 
   Status Visit(const BooleanType&) {
-    state.reset(new KernelClass<BooleanType>());
+    state.reset(new KernelClass<BooleanType>(options));
     return Status::OK();
   }
 
   template <typename Type>
   enable_if_number<Type, Status> Visit(const Type&) {
-    state.reset(new KernelClass<Type>());
+    state.reset(new KernelClass<Type>(options));
     return Status::OK();
   }
 

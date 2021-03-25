@@ -103,20 +103,30 @@ Result<std::unique_ptr<KernelState>> CountInit(KernelContext*,
 // Sum implementation
 
 template <typename ArrowType>
-struct SumImplDefault : public SumImpl<ArrowType, SimdLevel::NONE> {};
+struct SumImplDefault : public SumImpl<ArrowType, SimdLevel::NONE> {
+  explicit SumImplDefault(const ScalarAggregateOptions options) : options(std::move(options)) {}
+  ScalarAggregateOptions options;
+};
 
 template <typename ArrowType>
-struct MeanImplDefault : public MeanImpl<ArrowType, SimdLevel::NONE> {};
+struct MeanImplDefault : public MeanImpl<ArrowType, SimdLevel::NONE> {
+  explicit MeanImplDefault(const ScalarAggregateOptions options) : options(std::move(options)) {}
+  ScalarAggregateOptions options;
+};
 
 Result<std::unique_ptr<KernelState>> SumInit(KernelContext* ctx,
                                              const KernelInitArgs& args) {
-  SumLikeInit<SumImplDefault> visitor(ctx, *args.inputs[0].type);
+  SumLikeInit<SumImplDefault> visitor(
+      ctx, *args.inputs[0].type,
+      static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
 
 Result<std::unique_ptr<KernelState>> MeanInit(KernelContext* ctx,
                                               const KernelInitArgs& args) {
-  SumLikeInit<MeanImplDefault> visitor(ctx, *args.inputs[0].type);
+  SumLikeInit<MeanImplDefault> visitor(
+      ctx, *args.inputs[0].type,
+      static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
 
@@ -245,6 +255,9 @@ void AddMinMaxKernels(KernelInit init,
 namespace internal {
 namespace {
 
+//using ScalarAggregateState = internal::OptionsWrapper<ScalarAggregateOptions>;
+////const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
+
 const FunctionDoc count_doc{"Count the number of null / non-null values",
                             ("By default, non-null values are counted.\n"
                              "This can be changed through CountOptions."),
@@ -286,7 +299,10 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
                aggregate::CountInit, func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
-  func = std::make_shared<ScalarAggregateFunction>("sum", Arity::Unary(), &sum_doc);
+  static ScalarAggregateOptions sum_default_scalar_aggregate_options =
+      ScalarAggregateOptions::Defaults();
+  func = std::make_shared<ScalarAggregateFunction>("sum", Arity::Unary(), &sum_doc,
+                                                   &sum_default_scalar_aggregate_options);
   aggregate::AddBasicAggKernels(aggregate::SumInit, {boolean()}, int64(), func.get());
   aggregate::AddBasicAggKernels(aggregate::SumInit, SignedIntTypes(), int64(),
                                 func.get());
@@ -310,7 +326,10 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 #endif
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
-  func = std::make_shared<ScalarAggregateFunction>("mean", Arity::Unary(), &mean_doc);
+  static ScalarAggregateOptions mean_default_scalar_aggregate_options =
+      ScalarAggregateOptions::Defaults();
+  func = std::make_shared<ScalarAggregateFunction>(
+      "mean", Arity::Unary(), &mean_doc, &mean_default_scalar_aggregate_options);
   aggregate::AddBasicAggKernels(aggregate::MeanInit, {boolean()}, float64(), func.get());
   aggregate::AddBasicAggKernels(aggregate::MeanInit, NumericTypes(), float64(),
                                 func.get());

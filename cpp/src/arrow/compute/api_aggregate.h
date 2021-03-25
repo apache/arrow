@@ -37,6 +37,27 @@ class ExecContext;
 // ----------------------------------------------------------------------
 // Aggregate functions
 
+/// \brief Control general scalar aggregate kernel behavior
+///
+/// By default, null values are ignored
+struct ARROW_EXPORT ScalarAggregateOptions : public FunctionOptions {
+  enum Mode {
+    /// Skip null values.
+    SKIPNA = 0,
+    /// Calculate over all values.
+    KEEPNA,
+  };
+
+  explicit ScalarAggregateOptions(enum Mode null_handling = SKIPNA,
+                                  uint32_t min_count = 0)
+      : null_handling(null_handling), min_count(min_count) {}
+
+  static ScalarAggregateOptions Defaults() { return ScalarAggregateOptions{}; }
+
+  enum Mode null_handling;
+  uint32_t min_count = 0;
+};
+
 /// \addtogroup compute-concrete-options
 /// @{
 
@@ -167,24 +188,32 @@ Result<Datum> Count(const Datum& datum, CountOptions options = CountOptions::Def
 /// \brief Compute the mean of a numeric array.
 ///
 /// \param[in] value datum to compute the mean, expecting Array
+/// \param[in] options see ScalarAggregateOptions for more information
 /// \param[in] ctx the function execution context, optional
 /// \return datum of the computed mean as a DoubleScalar
 ///
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Mean(const Datum& value, ExecContext* ctx = NULLPTR);
+Result<Datum> Mean(
+    const Datum& value,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Sum values of a numeric array.
 ///
 /// \param[in] value datum to sum, expecting Array or ChunkedArray
+/// \param[in] options see ScalarAggregateOptions for more information
 /// \param[in] ctx the function execution context, optional
 /// \return datum of the computed sum as a Scalar
 ///
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Sum(const Datum& value, ExecContext* ctx = NULLPTR);
+Result<Datum> Sum(
+    const Datum& value,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Calculate the min / max of a numeric array
 ///

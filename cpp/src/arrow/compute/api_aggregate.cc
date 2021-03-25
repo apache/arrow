@@ -29,12 +29,14 @@ Result<Datum> Count(const Datum& value, CountOptions options, ExecContext* ctx) 
   return CallFunction("count", {value}, &options, ctx);
 }
 
-Result<Datum> Mean(const Datum& value, ExecContext* ctx) {
-  return CallFunction("mean", {value}, ctx);
+Result<Datum> Mean(const Datum& value, const ScalarAggregateOptions& options,
+                   ExecContext* ctx) {
+  return CallFunction("mean", {value}, &options, ctx);
 }
 
-Result<Datum> Sum(const Datum& value, ExecContext* ctx) {
-  return CallFunction("sum", {value}, ctx);
+Result<Datum> Sum(const Datum& value, const ScalarAggregateOptions& options,
+                  ExecContext* ctx) {
+  return CallFunction("sum", {value}, &options, ctx);
 }
 
 Result<Datum> MinMax(const Datum& value, const MinMaxOptions& options, ExecContext* ctx) {
