@@ -145,10 +145,9 @@ FileSystemDatasetFactory$create <- function(filesystem,
     msg = "Either selector or paths must be specified"
   )
   assert_is(format, "FileFormat")
-  !is.null(paths) || assert_that(
-    is.null(partitioning),
-    "Partitioning not supported with paths"
-  )
+  if (!is.null(paths)) {
+    assert_that(is.null(partitioning), msg = "Partitioning not supported with paths")
+  }
 
   if (!is.null(paths)) {
     ptr <- dataset___FileSystemDatasetFactory__Make0(filesystem, paths, format)

@@ -534,7 +534,7 @@ test_that("Creating UnionDataset", {
   )
 
   # Confirm c() method error handling
-  expect_error(c(ds1, 42), "string")
+  expect_error(c(ds1, "42"), "character")
 })
 
 test_that("InMemoryDataset", {
