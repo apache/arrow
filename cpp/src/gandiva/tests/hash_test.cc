@@ -275,6 +275,13 @@ TEST_F(TestHash, TestSha256Varlen) {
   const int sha256_hash_size = 64;
 
   EXPECT_EQ(response->null_count(), 0);
+
+  // Checks that the null value was hashed
+  EXPECT_NE(response->GetScalar(0).ValueOrDie()->ToString(), "");
+  EXPECT_NE(response->GetScalar(0).ValueOrDie()->ToString().size(),
+            sha256_hash_size);
+
+  // Check that all generated hashes were different
   for (int i = 1; i < num_records; ++i) {
     const auto& value_at_position = response->GetScalar(i).ValueOrDie()->ToString();
 
@@ -409,6 +416,13 @@ TEST_F(TestHash, TestSha1Varlen) {
   const int sha1_hash_size = 40;
 
   EXPECT_EQ(response->null_count(), 0);
+
+  // Checks that the null value was hashed
+  EXPECT_NE(response->GetScalar(0).ValueOrDie()->ToString(), "");
+  EXPECT_NE(response->GetScalar(0).ValueOrDie()->ToString().size(),
+            sha1_hash_size);
+
+  // Check that all generated hashes were different
   for (int i = 1; i < num_records; ++i) {
     const auto& value_at_position = response->GetScalar(i).ValueOrDie()->ToString();
 
