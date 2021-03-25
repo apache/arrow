@@ -516,8 +516,8 @@ def dataset(source, schema=None, format=None, filesystem=None,
 
     Parameters
     ----------
-    source : path, list of paths, dataset, list of datasets, (list or
-             iterable of) batches or tables, RecordBatchReader, or URI
+    source : path, list of paths, dataset, list of datasets, (list of) batches
+             or tables, iterable of batches, RecordBatchReader, or URI
         Path pointing to a single file:
             Open a FileSystemDataset from a single file.
         Path pointing to a directory:
@@ -533,11 +533,9 @@ def dataset(source, schema=None, format=None, filesystem=None,
             A nested UnionDataset gets constructed, it allows arbitrary
             composition of other datasets.
             Note that additional keyword arguments are not allowed.
-        (List or iterable of) batches or tables:
+        (List of) batches or tables, iterable of batches, or RecordBatchReader:
             Create an InMemoryDataset. If an iterable or empty list is given,
             a schema must also be given.
-        RecordBatchReader:
-            Create an InMemoryDataset.
     schema : Schema, optional
         Optionally provide the Schema for the Dataset, in which case it will
         not be inferred from the source.
@@ -698,8 +696,8 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
     Parameters
     ----------
-    data : Dataset, Table/RecordBatch, RecordBatchReader, or list or
-           iterable of Table/RecordBatch
+    data : Dataset, Table/RecordBatch, RecordBatchReader, list of
+           Table/RecordBatch, or iterable of RecordBatch
         The data to write. This can be a Dataset instance or
         in-memory Arrow data. If an iterable is given, the schema must
         also be given.
@@ -744,8 +742,8 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
         schema = schema or data.schema
     else:
         raise ValueError(
-            "Only Dataset, Table/RecordBatch, RecordBatchReader, or a list "
-            "or iterable of Table/RecordBatch objects are supported."
+            "Only Dataset, Table/RecordBatch, RecordBatchReader, a list "
+            "of Tables/RecordBatches, or iterable of batches are supported."
         )
 
     if format is None and isinstance(data, FileSystemDataset):
