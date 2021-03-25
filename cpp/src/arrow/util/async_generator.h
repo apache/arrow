@@ -1135,10 +1135,9 @@ class EnumeratingGenerator {
  private:
   struct State {
     State(AsyncGenerator<T> source, T initial_value)
-        : source(std::move(source)),
-          prev_value(std::move(initial_value)),
-          prev_index(0),
-          finished(false) {}
+        : source(std::move(source)), prev_value(std::move(initial_value)), prev_index(0) {
+      finished = IsIterationEnd<T>(prev_value);
+    }
 
     AsyncGenerator<T> source;
     T prev_value;
