@@ -46,6 +46,8 @@ class Fragment;
 using FragmentIterator = Iterator<std::shared_ptr<Fragment>>;
 using FragmentVector = std::vector<std::shared_ptr<Fragment>>;
 
+class FragmentScanOptions;
+
 class FileSource;
 class FileFormat;
 class FileFragment;
@@ -58,6 +60,7 @@ struct FileSystemDatasetWriteOptions;
 class InMemoryDataset;
 
 class CsvFileFormat;
+struct CsvFragmentScanOptions;
 
 class IpcFileFormat;
 class IpcFileWriter;

@@ -1,4 +1,4 @@
-﻿// Licensed to the Apache Software Foundation (ASF) under one or more
+// Licensed to the Apache Software Foundation (ASF) under one or more
 // contributor license agreements. See the NOTICE file distributed with
 // this work for additional information regarding copyright ownership.
 // The ASF licenses this file to You under the Apache License, Version 2.0
@@ -116,6 +116,10 @@ namespace Apache.Arrow.Benchmarks
                         DoubleArray doubleArray = (DoubleArray)array;
                         sum += Sum(doubleArray);
                         break;
+                    case ArrowTypeId.Decimal128:
+                        Decimal128Array decimalArray = (Decimal128Array)array;
+                        sum += Sum(decimalArray);
+                        break;
                 }
             }
             return sum;
@@ -139,6 +143,16 @@ namespace Apache.Arrow.Benchmarks
             for (int valueIndex = 0; valueIndex < values.Length; valueIndex++)
             {
                 sum += values[valueIndex];
+            }
+            return sum;
+        }
+
+        private static double Sum(Decimal128Array decimal128Array)
+        {
+            double sum = 0;
+            for (int valueIndex = 0; valueIndex < decimal128Array.Length; valueIndex++)
+            {
+                sum += (double)decimal128Array.GetValue(valueIndex);
             }
             return sum;
         }

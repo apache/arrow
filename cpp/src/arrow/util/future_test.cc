@@ -32,6 +32,7 @@
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
@@ -69,38 +70,6 @@ template <>
 struct IterationTraits<MoveOnlyDataType> {
   static MoveOnlyDataType End() { return MoveOnlyDataType(-1); }
 };
-
-template <typename T>
-void AssertNotFinished(const Future<T>& fut) {
-  ASSERT_FALSE(IsFutureFinished(fut.state()));
-}
-
-template <typename T>
-void AssertFinished(const Future<T>& fut) {
-  ASSERT_TRUE(IsFutureFinished(fut.state()));
-}
-
-// Assert the future is successful *now*
-template <typename T>
-void AssertSuccessful(const Future<T>& fut) {
-  if (IsFutureFinished(fut.state())) {
-    ASSERT_EQ(fut.state(), FutureState::SUCCESS);
-    ASSERT_OK(fut.status());
-  } else {
-    FAIL() << "Expected future to be completed successfully but it was still pending";
-  }
-}
-
-// Assert the future is failed *now*
-template <typename T>
-void AssertFailed(const Future<T>& fut) {
-  if (IsFutureFinished(fut.state())) {
-    ASSERT_EQ(fut.state(), FutureState::FAILURE);
-    ASSERT_FALSE(fut.status().ok());
-  } else {
-    FAIL() << "Expected future to have failed but it was still pending";
-  }
-}
 
 template <typename T>
 struct IteratorResults {

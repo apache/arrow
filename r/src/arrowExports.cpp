@@ -616,6 +616,16 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute.cpp
+SEXP compute__GroupBy(cpp11::list arguments, cpp11::list keys, cpp11::list options);
+extern "C" SEXP _arrow_compute__GroupBy(SEXP arguments_sexp, SEXP keys_sexp, SEXP options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::list>::type arguments(arguments_sexp);
+	arrow::r::Input<cpp11::list>::type keys(keys_sexp);
+	arrow::r::Input<cpp11::list>::type options(options_sexp);
+	return cpp11::as_sexp(compute__GroupBy(arguments, keys, options));
+END_CPP11
+}
+// compute.cpp
 std::vector<std::string> list_compute_functions();
 extern "C" SEXP _arrow_list_compute_functions(){
 BEGIN_CPP11
@@ -1105,16 +1115,49 @@ extern "C" SEXP _arrow_dataset___IpcFileFormat__Make(){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::CsvFileFormat> dataset___CsvFileFormat__Make(const std::shared_ptr<arrow::csv::ParseOptions>& parse_options);
-extern "C" SEXP _arrow_dataset___CsvFileFormat__Make(SEXP parse_options_sexp){
+std::shared_ptr<ds::CsvFileFormat> dataset___CsvFileFormat__Make(const std::shared_ptr<arrow::csv::ParseOptions>& parse_options, const std::shared_ptr<arrow::csv::ConvertOptions>& convert_options, const std::shared_ptr<arrow::csv::ReadOptions>& read_options);
+extern "C" SEXP _arrow_dataset___CsvFileFormat__Make(SEXP parse_options_sexp, SEXP convert_options_sexp, SEXP read_options_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::csv::ParseOptions>&>::type parse_options(parse_options_sexp);
-	return cpp11::as_sexp(dataset___CsvFileFormat__Make(parse_options));
+	arrow::r::Input<const std::shared_ptr<arrow::csv::ConvertOptions>&>::type convert_options(convert_options_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::csv::ReadOptions>&>::type read_options(read_options_sexp);
+	return cpp11::as_sexp(dataset___CsvFileFormat__Make(parse_options, convert_options, read_options));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___CsvFileFormat__Make(SEXP parse_options_sexp){
+extern "C" SEXP _arrow_dataset___CsvFileFormat__Make(SEXP parse_options_sexp, SEXP convert_options_sexp, SEXP read_options_sexp){
 	Rf_error("Cannot call dataset___CsvFileFormat__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
+std::string dataset___FragmentScanOptions__type_name(const std::shared_ptr<ds::FragmentScanOptions>& fragment_scan_options);
+extern "C" SEXP _arrow_dataset___FragmentScanOptions__type_name(SEXP fragment_scan_options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::FragmentScanOptions>&>::type fragment_scan_options(fragment_scan_options_sexp);
+	return cpp11::as_sexp(dataset___FragmentScanOptions__type_name(fragment_scan_options));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___FragmentScanOptions__type_name(SEXP fragment_scan_options_sexp){
+	Rf_error("Cannot call dataset___FragmentScanOptions__type_name(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
+std::shared_ptr<ds::CsvFragmentScanOptions> dataset___CsvFragmentScanOptions__Make(const std::shared_ptr<arrow::csv::ConvertOptions>& convert_options, const std::shared_ptr<arrow::csv::ReadOptions>& read_options);
+extern "C" SEXP _arrow_dataset___CsvFragmentScanOptions__Make(SEXP convert_options_sexp, SEXP read_options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::csv::ConvertOptions>&>::type convert_options(convert_options_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::csv::ReadOptions>&>::type read_options(read_options_sexp);
+	return cpp11::as_sexp(dataset___CsvFragmentScanOptions__Make(convert_options, read_options));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___CsvFragmentScanOptions__Make(SEXP convert_options_sexp, SEXP read_options_sexp){
+	Rf_error("Cannot call dataset___CsvFragmentScanOptions__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -1262,6 +1305,23 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_dataset___ScannerBuilder__BatchSize(SEXP sb_sexp, SEXP batch_size_sexp){
 	Rf_error("Cannot call dataset___ScannerBuilder__BatchSize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
+void dataset___ScannerBuilder__FragmentScanOptions(const std::shared_ptr<ds::ScannerBuilder>& sb, const std::shared_ptr<ds::FragmentScanOptions>& options);
+extern "C" SEXP _arrow_dataset___ScannerBuilder__FragmentScanOptions(SEXP sb_sexp, SEXP options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::ScannerBuilder>&>::type sb(sb_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::FragmentScanOptions>&>::type options(options_sexp);
+	dataset___ScannerBuilder__FragmentScanOptions(sb, options);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___ScannerBuilder__FragmentScanOptions(SEXP sb_sexp, SEXP options_sexp){
+	Rf_error("Cannot call dataset___ScannerBuilder__FragmentScanOptions(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4186,6 +4246,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatch__cast", (DL_FUNC) &_arrow_RecordBatch__cast, 3}, 
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
+		{ "_arrow_compute__GroupBy", (DL_FUNC) &_arrow_compute__GroupBy, 3}, 
 		{ "_arrow_list_compute_functions", (DL_FUNC) &_arrow_list_compute_functions, 0}, 
 		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1}, 
 		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1}, 
@@ -4222,7 +4283,9 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___IpcFileWriteOptions__update2", (DL_FUNC) &_arrow_dataset___IpcFileWriteOptions__update2, 4}, 
 		{ "_arrow_dataset___IpcFileWriteOptions__update1", (DL_FUNC) &_arrow_dataset___IpcFileWriteOptions__update1, 3}, 
 		{ "_arrow_dataset___IpcFileFormat__Make", (DL_FUNC) &_arrow_dataset___IpcFileFormat__Make, 0}, 
-		{ "_arrow_dataset___CsvFileFormat__Make", (DL_FUNC) &_arrow_dataset___CsvFileFormat__Make, 1}, 
+		{ "_arrow_dataset___CsvFileFormat__Make", (DL_FUNC) &_arrow_dataset___CsvFileFormat__Make, 3}, 
+		{ "_arrow_dataset___FragmentScanOptions__type_name", (DL_FUNC) &_arrow_dataset___FragmentScanOptions__type_name, 1}, 
+		{ "_arrow_dataset___CsvFragmentScanOptions__Make", (DL_FUNC) &_arrow_dataset___CsvFragmentScanOptions__Make, 2}, 
 		{ "_arrow_dataset___DirectoryPartitioning", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning, 1}, 
 		{ "_arrow_dataset___DirectoryPartitioning__MakeFactory", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning__MakeFactory, 1}, 
 		{ "_arrow_dataset___HivePartitioning", (DL_FUNC) &_arrow_dataset___HivePartitioning, 2}, 
@@ -4232,6 +4295,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___ScannerBuilder__Filter", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Filter, 2}, 
 		{ "_arrow_dataset___ScannerBuilder__UseThreads", (DL_FUNC) &_arrow_dataset___ScannerBuilder__UseThreads, 2}, 
 		{ "_arrow_dataset___ScannerBuilder__BatchSize", (DL_FUNC) &_arrow_dataset___ScannerBuilder__BatchSize, 2}, 
+		{ "_arrow_dataset___ScannerBuilder__FragmentScanOptions", (DL_FUNC) &_arrow_dataset___ScannerBuilder__FragmentScanOptions, 2}, 
 		{ "_arrow_dataset___ScannerBuilder__schema", (DL_FUNC) &_arrow_dataset___ScannerBuilder__schema, 1}, 
 		{ "_arrow_dataset___ScannerBuilder__Finish", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Finish, 1}, 
 		{ "_arrow_dataset___Scanner__ToTable", (DL_FUNC) &_arrow_dataset___Scanner__ToTable, 1}, 

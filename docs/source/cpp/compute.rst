@@ -86,20 +86,20 @@ Many compute functions are also available directly as concrete APIs, here
 Some functions accept or require an options structure that determines the
 exact semantics of the function::
 
-   MinMaxOptions options;
-   options.null_handling = MinMaxOptions::EMIT_NULL;
+   MinMaxOptions min_max_options;
+   min_max_options.null_handling = MinMaxOptions::EMIT_NULL;
 
    std::shared_ptr<arrow::Array> array = ...;
-   arrow::Datum min_max_datum;
+   arrow::Datum min_max;
 
-   ARROW_ASSIGN_OR_RAISE(min_max_datum,
-                         arrow::compute::CallFunction("min_max", {array}, &options));
+   ARROW_ASSIGN_OR_RAISE(min_max,
+                         arrow::compute::CallFunction("min_max", {array},
+                                                      &min_max_options));
 
    // Unpack struct scalar result (a two-field {"min", "max"} scalar)
-   const auto& min_max_scalar = \
-         static_cast<const arrow::StructScalar&>(*min_max_datum.scalar());
-   const auto min_value = min_max_scalar.value[0];
-   const auto max_value = min_max_scalar.value[1];
+   std::shared_ptr<arrow::Scalar> min_value, max_value;
+   min_value = min_max.scalar_as<arrow::StructScalar>().value[0];
+   max_value = min_max.scalar_as<arrow::StructScalar>().value[1];
 
 .. seealso::
    :doc:`Compute API reference <api/compute>`
@@ -435,9 +435,11 @@ String transforms
 +--------------------------+------------+-------------------------+---------------------+---------+
 | binary_length            | Unary      | Binary- or String-like  | Int32 or Int64      | \(2)    |
 +--------------------------+------------+-------------------------+---------------------+---------+
-| utf8_lower               | Unary      | String-like             | String-like         | \(3)    |
+| utf8_length              | Unary      | String-like             | Int32 or Int64      | \(3)    |
 +--------------------------+------------+-------------------------+---------------------+---------+
-| utf8_upper               | Unary      | String-like             | String-like         | \(3)    |
+| utf8_lower               | Unary      | String-like             | String-like         | \(4)    |
++--------------------------+------------+-------------------------+---------------------+---------+
+| utf8_upper               | Unary      | String-like             | String-like         | \(4)    |
 +--------------------------+------------+-------------------------+---------------------+---------+
 
 
@@ -447,7 +449,10 @@ String transforms
 * \(2) Output is the physical length in bytes of each input element.  Output
   type is Int32 for Binary / String, Int64 for LargeBinary / LargeString.
 
-* \(3) Each UTF8-encoded character in the input is converted to lowercase or
+* \(3) Output is the number of characters (not bytes) of each input element.
+  Output type is Int32 for String, Int64 for LargeString. 
+
+* \(4) Each UTF8-encoded character in the input is converted to lowercase or
   uppercase.
 
 

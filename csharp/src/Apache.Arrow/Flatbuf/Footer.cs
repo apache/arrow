@@ -26,13 +26,18 @@ internal struct Footer : IFlatbufferObject
   public int DictionariesLength { get { int o = __p.__offset(8); return o != 0 ? __p.__vector_len(o) : 0; } }
   public Block? RecordBatches(int j) { int o = __p.__offset(10); return o != 0 ? (Block?)(new Block()).__assign(__p.__vector(o) + j * 24, __p.bb) : null; }
   public int RecordBatchesLength { get { int o = __p.__offset(10); return o != 0 ? __p.__vector_len(o) : 0; } }
+  /// User-defined metadata
+  public KeyValue? CustomMetadata(int j) { int o = __p.__offset(12); return o != 0 ? (KeyValue?)(new KeyValue()).__assign(__p.__indirect(__p.__vector(o) + j * 4), __p.bb) : null; }
+  public int CustomMetadataLength { get { int o = __p.__offset(12); return o != 0 ? __p.__vector_len(o) : 0; } }
 
   public static Offset<Footer> CreateFooter(FlatBufferBuilder builder,
       MetadataVersion version = MetadataVersion.V1,
       Offset<Schema> schemaOffset = default(Offset<Schema>),
       VectorOffset dictionariesOffset = default(VectorOffset),
-      VectorOffset recordBatchesOffset = default(VectorOffset)) {
-    builder.StartObject(4);
+      VectorOffset recordBatchesOffset = default(VectorOffset),
+      VectorOffset custom_metadataOffset = default(VectorOffset)) {
+    builder.StartObject(5);
+    Footer.AddCustomMetadata(builder, custom_metadataOffset);
     Footer.AddRecordBatches(builder, recordBatchesOffset);
     Footer.AddDictionaries(builder, dictionariesOffset);
     Footer.AddSchema(builder, schemaOffset);
@@ -40,13 +45,17 @@ internal struct Footer : IFlatbufferObject
     return Footer.EndFooter(builder);
   }
 
-  public static void StartFooter(FlatBufferBuilder builder) { builder.StartObject(4); }
+  public static void StartFooter(FlatBufferBuilder builder) { builder.StartObject(5); }
   public static void AddVersion(FlatBufferBuilder builder, MetadataVersion version) { builder.AddShort(0, (short)version, 0); }
   public static void AddSchema(FlatBufferBuilder builder, Offset<Schema> schemaOffset) { builder.AddOffset(1, schemaOffset.Value, 0); }
   public static void AddDictionaries(FlatBufferBuilder builder, VectorOffset dictionariesOffset) { builder.AddOffset(2, dictionariesOffset.Value, 0); }
   public static void StartDictionariesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(24, numElems, 8); }
   public static void AddRecordBatches(FlatBufferBuilder builder, VectorOffset recordBatchesOffset) { builder.AddOffset(3, recordBatchesOffset.Value, 0); }
   public static void StartRecordBatchesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(24, numElems, 8); }
+  public static void AddCustomMetadata(FlatBufferBuilder builder, VectorOffset customMetadataOffset) { builder.AddOffset(4, customMetadataOffset.Value, 0); }
+  public static VectorOffset CreateCustomMetadataVector(FlatBufferBuilder builder, Offset<KeyValue>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
+  public static VectorOffset CreateCustomMetadataVectorBlock(FlatBufferBuilder builder, Offset<KeyValue>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
+  public static void StartCustomMetadataVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
   public static Offset<Footer> EndFooter(FlatBufferBuilder builder) {
     int o = builder.EndObject();
     return new Offset<Footer>(o);
