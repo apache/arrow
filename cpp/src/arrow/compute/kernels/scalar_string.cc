@@ -64,6 +64,22 @@ struct BinaryLength {
   }
 };
 
+struct Utf8Length {
+  template <typename OutValue, typename Arg0Value = util::string_view>
+  static OutValue Call(KernelContext*, Arg0Value val) {
+    auto str = reinterpret_cast<const uint8_t*>(val.data());
+    auto strlen = val.size();
+
+    OutValue length = 0;
+    while (strlen > 0) {
+      length += ((*str & 0xc0) != 0x80);
+      ++str;
+      --strlen;
+    }
+    return length;
+  }
+};
+
 #ifdef ARROW_WITH_UTF8PROC
 
 // Direct lookup tables for unicode properties
@@ -1569,8 +1585,13 @@ const FunctionDoc strptime_doc(
 
 const FunctionDoc binary_length_doc(
     "Compute string lengths",
-    ("For each string in `strings`, emit its length.  Null values emit null."),
+    ("For each string in `strings`, emit the number of bytes.  Null values emit null."),
     {"strings"});
+
+const FunctionDoc utf8_length_doc("Compute UTF8 string lengths",
+                                  ("For each string in `strings`, emit the number of "
+                                   "UTF8 characters.  Null values emit null."),
+                                  {"strings"});
 
 void AddStrptime(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("strptime", Arity::Unary(), &strptime_doc);
@@ -1594,6 +1615,21 @@ void AddBinaryLength(FunctionRegistry* registry) {
   for (const auto& input_type : {large_binary(), large_utf8()}) {
     DCHECK_OK(func->AddKernel({input_type}, int64(), exec_offset_64));
   }
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
+void AddUtf8Length(FunctionRegistry* registry) {
+  auto func =
+      std::make_shared<ScalarFunction>("utf8_length", Arity::Unary(), &utf8_length_doc);
+
+  ArrayKernelExec exec_offset_32 =
+      applicator::ScalarUnaryNotNull<Int32Type, StringType, Utf8Length>::Exec;
+  DCHECK_OK(func->AddKernel({utf8()}, int32(), std::move(exec_offset_32)));
+
+  ArrayKernelExec exec_offset_64 =
+      applicator::ScalarUnaryNotNull<Int64Type, LargeStringType, Utf8Length>::Exec;
+  DCHECK_OK(func->AddKernel({large_utf8()}, int64(), std::move(exec_offset_64)));
+
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -1866,6 +1902,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
 
   AddSplit(registry);
   AddBinaryLength(registry);
+  AddUtf8Length(registry);
   AddMatchSubstring(registry);
   AddStrptime(registry);
 }

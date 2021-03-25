@@ -19,6 +19,8 @@ from pyarrow._compute import (  # noqa
     Function,
     FunctionOptions,
     FunctionRegistry,
+    HashAggregateFunction,
+    HashAggregateKernel,
     Kernel,
     ScalarAggregateFunction,
     ScalarAggregateKernel,

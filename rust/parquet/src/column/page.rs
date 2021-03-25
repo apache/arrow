@@ -219,7 +219,7 @@ pub trait PageWriter {
 }
 
 /// An iterator over pages of some specific column in a parquet file.
-pub trait PageIterator: Iterator<Item = Result<Box<PageReader>>> {
+pub trait PageIterator: Iterator<Item = Result<Box<dyn PageReader>>> {
     /// Get schema of parquet file.
     fn schema(&mut self) -> Result<SchemaDescPtr>;
 

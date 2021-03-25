@@ -422,6 +422,37 @@ TEST_F(InferringColumnBuilderTest, MultipleChunkTimestamp) {
   CheckInferred(tg, {{""}, {"1970-01-01"}, {"2018-11-13 17:11:10"}}, options, expected);
 }
 
+TEST_F(InferringColumnBuilderTest, SingleChunkTimestampNS) {
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+
+  std::shared_ptr<ChunkedArray> expected;
+  ChunkedArrayFromVector<TimestampType>(
+      timestamp(TimeUnit::NANO), {{false, true, true, true, true}},
+      {{0, 0, 1542129070123000000, 1542129070123456000, 1542129070123456789}}, &expected);
+  CheckInferred(tg,
+                {{"", "1970-01-01", "2018-11-13 17:11:10.123",
+                  "2018-11-13 17:11:10.123456", "2018-11-13 17:11:10.123456789"}},
+                options, expected);
+}
+
+TEST_F(InferringColumnBuilderTest, MultipleChunkTimestampNS) {
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+
+  std::shared_ptr<ChunkedArray> expected;
+  ChunkedArrayFromVector<TimestampType>(
+      timestamp(TimeUnit::NANO), {{false}, {true}, {true, true, true}},
+      {{0}, {0}, {1542129070123000000, 1542129070123456000, 1542129070123456789}},
+      &expected);
+  CheckInferred(tg,
+                {{""},
+                 {"1970-01-01"},
+                 {"2018-11-13 17:11:10.123", "2018-11-13 17:11:10.123456",
+                  "2018-11-13 17:11:10.123456789"}},
+                options, expected);
+}
+
 TEST_F(InferringColumnBuilderTest, SingleChunkString) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();

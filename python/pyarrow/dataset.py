@@ -22,6 +22,7 @@ from pyarrow.util import _stringify_path, _is_path_like
 
 from pyarrow._dataset import (  # noqa
     CsvFileFormat,
+    CsvFragmentScanOptions,
     Expression,
     Dataset,
     DatasetFactory,

@@ -50,7 +50,7 @@ fn create_context() -> Result<ExecutionContext> {
 
     // declare a table in memory. In spark API, this corresponds to createDataFrame(...).
     let provider = MemTable::try_new(schema, vec![vec![batch]])?;
-    ctx.register_table("t", Arc::new(provider));
+    ctx.register_table("t", Arc::new(provider))?;
     Ok(ctx)
 }
 
@@ -133,7 +133,7 @@ async fn main() -> Result<()> {
     let expr1 = pow.call(vec![col("a"), col("b")]);
 
     // equivalent to `'SELECT pow(a, b), pow(a, b) AS pow1 FROM t'`
-    let df = df.select(&[
+    let df = df.select(vec![
         expr,
         // alias so that they have different column names
         expr1.alias("pow1"),

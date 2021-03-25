@@ -2371,30 +2371,30 @@ macro(build_grpc)
   set(ABSL_LIBRARIES)
 
   # Abseil libraries gRPC depends on
+  # Follows grpc++ package config template for link order of libraries
+  # https://github.com/grpc/grpc/blob/v1.35.0/CMakeLists.txt#L16361
   set(_ABSL_LIBS
-      bad_optional_access
-      base
-      cord
-      graphcycles_internal
-      int128
-      malloc_internal
-      raw_logging_internal
-      spinlock_wait
-      stacktrace
-      status
       statusor
+      status
+      cord
       str_format_internal
+      synchronization
+      graphcycles_internal
+      symbolize
+      demangle_internal
+      stacktrace
+      debugging_internal
+      malloc_internal
+      time
+      time_zone
       strings
       strings_internal
-      symbolize
-      # symbolize depends on debugging_internal
-      debugging_internal
-      # debugging_internal depends on demangle_internal
-      demangle_internal
-      synchronization
       throw_delegate
-      time
-      time_zone)
+      int128
+      base
+      spinlock_wait
+      bad_optional_access
+      raw_logging_internal)
 
   foreach(_ABSL_LIB ${_ABSL_LIBS})
     set(
@@ -2558,12 +2558,13 @@ macro(build_grpc)
   add_library(gRPC::grpc++ STATIC IMPORTED)
   set_target_properties(
     gRPC::grpc++
-    PROPERTIES IMPORTED_LOCATION
-               "${GRPC_STATIC_LIBRARY_GRPCPP}"
-               INTERFACE_LINK_LIBRARIES
-               "gRPC::grpc;gRPC::gpr;gRPC::upb;gRPC::address_sorting;${ABSL_LIBRARIES}"
-               INTERFACE_INCLUDE_DIRECTORIES
-               "${GRPC_INCLUDE_DIR}")
+    PROPERTIES
+      IMPORTED_LOCATION
+      "${GRPC_STATIC_LIBRARY_GRPCPP}"
+      INTERFACE_LINK_LIBRARIES
+      "gRPC::grpc;gRPC::gpr;gRPC::upb;gRPC::address_sorting;${ABSL_LIBRARIES};Threads::Threads"
+      INTERFACE_INCLUDE_DIRECTORIES
+      "${GRPC_INCLUDE_DIR}")
 
   add_executable(gRPC::grpc_cpp_plugin IMPORTED)
   set_target_properties(gRPC::grpc_cpp_plugin

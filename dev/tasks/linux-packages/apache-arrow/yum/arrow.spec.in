@@ -43,8 +43,6 @@
 # %define use_s3 (%{_centos_ver} >= 8)
 %define use_s3 0
 
-%define use_meson (%{_centos_ver} >= 8)
-
 %define have_rapidjson (%{_centos_ver} == 7)
 %define have_re2 (%{_centos_ver} >= 8)
 %define have_utf8proc (%{_centos_ver} == 7)
@@ -94,9 +92,6 @@ BuildRequires:	llvm-devel
 BuildRequires:	ncurses-devel
 %endif
 
-%if !%{use_meson}
-BuildRequires:	autoconf-archive
-%endif
 BuildRequires:	gobject-introspection-devel
 BuildRequires:	gtk-doc
 
@@ -134,6 +129,7 @@ cd cpp/build
   -DARROW_WITH_ZLIB=ON \
   -DARROW_WITH_ZSTD=ON \
   -DCMAKE_BUILD_TYPE=$cpp_build_type \
+  -DARROW_USE_CCACHE=OFF \
   -DCMAKE_UNITY_BUILD=ON \
   -DPARQUET_REQUIRE_ENCRYPTION=ON \
   -DPythonInterp_FIND_VERSION=ON \
@@ -150,7 +146,6 @@ make %{?_smp_mflags}
 cd -
 
 cd c_glib
-%if %{use_meson}
 pip3 install meson
 meson setup build \
   --default-library=both \
@@ -160,35 +155,14 @@ meson setup build \
   -Darrow_cpp_build_type=$cpp_build_type \
   -Dgtk_doc=true
 LD_LIBRARY_PATH=$PWD/../cpp/build/$cpp_build_type ninja -C build %{?_smp_mflags}
-%else
-./autogen.sh
-%configure \
-  --with-arrow-cpp-build-dir=$PWD/../cpp/build \
-  --with-arrow-cpp-build-type=$cpp_build_type \
-  --enable-gtk-doc
-sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
-sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
-ld_library_path=$PWD/arrow-glib/.libs/
-ld_library_path=$ld_library_path:$PWD/arrow-dataset-glib/.libs/
-ld_library_path=$ld_library_path:$PWD/parquet-glib/.libs/
-ld_library_path=$ld_library_path:$PWD/plasma-glib/.libs/
-ld_library_path=$ld_library_path:$PWD/../cpp/build/$cpp_build_type
-LD_LIBRARY_PATH=$ld_library_path make %{?_smp_mflags}
-%endif
 cd -
 
 %install
 cpp_build_type=release
 
 cd c_glib
-%if %{use_meson}
 DESTDIR=$RPM_BUILD_ROOT ninja -C build install
 ninja -C build clean
-%else
-make install DESTDIR=$RPM_BUILD_ROOT
-rm $RPM_BUILD_ROOT%{_libdir}/*.la
-make clean
-%endif
 cd -
 
 cd cpp/build

@@ -150,7 +150,7 @@ fn create_context(
 
     // declare a table in memory. In spark API, this corresponds to createDataFrame(...).
     let provider = MemTable::try_new(schema, partitions)?;
-    ctx.register_table("t", Arc::new(provider));
+    ctx.register_table("t", Arc::new(provider))?;
 
     Ok(Arc::new(Mutex::new(ctx)))
 }

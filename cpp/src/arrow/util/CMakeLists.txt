@@ -41,6 +41,7 @@ endif()
 add_arrow_test(utility-test
                SOURCES
                align_util_test.cc
+               async_generator_test.cc
                bit_block_counter_test.cc
                bit_util_test.cc
                cache_test.cc
@@ -60,6 +61,7 @@ add_arrow_test(utility-test
                stl_util_test.cc
                string_test.cc
                tdigest_test.cc
+               test_common.cc
                time_test.cc
                trie_test.cc
                uri_test.cc

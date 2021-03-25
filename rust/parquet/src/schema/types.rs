@@ -711,8 +711,7 @@ impl<'a> From<&'a str> for ColumnPath {
 
 impl From<String> for ColumnPath {
     fn from(single_path: String) -> Self {
-        let mut v = vec![];
-        v.push(single_path);
+        let v = vec![single_path];
         ColumnPath { parts: v }
     }
 }
