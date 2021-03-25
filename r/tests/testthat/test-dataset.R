@@ -1205,7 +1205,7 @@ test_that("Assembling a Dataset manually and getting a Table", {
   partitioning <- DirectoryPartitioning$create(schema(part = double()))
 
   fmt <- FileFormat$create("parquet")
-  factory <- FileSystemDatasetFactory$create(fs, selector, fmt, partitioning = partitioning)
+  factory <- FileSystemDatasetFactory$create(fs, selector, NULL, fmt, partitioning = partitioning)
   expect_is(factory, "FileSystemDatasetFactory")
 
   schm <- factory$Inspect()

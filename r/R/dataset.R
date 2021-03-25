@@ -123,7 +123,8 @@ open_dataset <- function(sources,
 #' `FileSystemDatasetFactory$create()` is a lower-level factory method and
 #' takes the following arguments:
 #' * `filesystem`: A [FileSystem]
-#' * `selector`: A [FileSelector]
+#' * `selector`: Either a [FileSelector] or `NULL`
+#' * `paths`: Either a character vector of file paths or `NULL`
 #' * `format`: A [FileFormat]
 #' * `partitioning`: Either `Partitioning`, `PartitioningFactory`, or `NULL`
 #' @section Methods:

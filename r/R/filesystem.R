@@ -273,13 +273,18 @@ FileSystem$from_uri <- function(uri) {
   fs___FileSystemFromUri(uri)
 }
 
+# TODO: consider changing "path" to "paths" in the name of this function and the
+# name of the character vector in the returned list, because it now accepts
+# length(x) > 1. Or possibly create two separate functions for these two cases,
+# both wrapping the same function containing the shared logic. Or instead add
+# an argument e.g. "allow_multiple_paths" that would default to FALSE.
 get_path_and_filesystem <- function(x, filesystem = NULL) {
   # Wrapper around FileSystem$from_uri that handles local paths
   # and an optional explicit filesystem
   if (inherits(x, "SubTreeFileSystem")) {
     return(list(fs = x$base_fs, path = x$base_path))
   }
-  assert_that(is.string(x))
+  assert_that(is.character(x))
   if (is_url(x)) {
     if (!is.null(filesystem)) {
       # Stop? Can't have URL (which yields a fs) and another fs
@@ -287,11 +292,11 @@ get_path_and_filesystem <- function(x, filesystem = NULL) {
     FileSystem$from_uri(x)
   } else {
     fs <- filesystem %||% LocalFileSystem$create()
-    path <- ifelse(
-      inherits(fs, "LocalFileSystem"),
-      clean_path_abs(x),
-      clean_path_rel(x)
-    )
+    if (inherits(fs, "LocalFileSystem")) {
+      path <- clean_path_abs(x)
+    } else {
+      path <- clean_path_rel(x)
+    }
     list(
       fs = fs,
       path = path

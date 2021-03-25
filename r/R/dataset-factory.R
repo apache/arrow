@@ -45,13 +45,16 @@ DatasetFactory$create <- function(x,
     return(dataset___UnionDatasetFactory__Make(x))
   }
 
-  path_and_fs <- get_path_and_filesystem(x, filesystem)
-  selector <- FileSelector$create(path_and_fs$path, allow_not_found = FALSE, recursive = TRUE)
-
   if (is.character(format)) {
     format <- FileFormat$create(match.arg(format), ...)
   } else {
     assert_is(format, "FileFormat")
+  }
+
+  path_and_fs <- get_path_and_filesystem(x, filesystem)
+
+  if (length(path_and_fs$path) > 1) {
+    return(FileSystemDatasetFactory$create(path_and_fs$fs, NULL, path_and_fs$path, format))
   }
 
   if (!is.null(partitioning)) {
@@ -62,7 +65,10 @@ DatasetFactory$create <- function(x,
       partitioning <- DirectoryPartitioningFactory$create(partitioning)
     }
   }
-  FileSystemDatasetFactory$create(path_and_fs$fs, selector, format, partitioning)
+
+  selector <- FileSelector$create(path_and_fs$path, allow_not_found = FALSE, recursive = TRUE)
+
+  FileSystemDatasetFactory$create(path_and_fs$fs, selector, NULL, format, partitioning)
 }
 
 #' Create a DatasetFactory
@@ -75,6 +81,8 @@ DatasetFactory$create <- function(x,
 #' single directory containing Parquet files), you can call `open_dataset()`
 #' directly. Use `dataset_factory()` when you
 #' want to combine different directories, file systems, or file formats.
+#'
+#' TODO: UPDATE THIS DOCS ENTRY
 #'
 #' @param x A string file x containing data files, or
 #' a list of `DatasetFactory` objects whose datasets should be
@@ -125,14 +133,26 @@ FileSystemDatasetFactory <- R6Class("FileSystemDatasetFactory",
   inherit = DatasetFactory
 )
 FileSystemDatasetFactory$create <- function(filesystem,
-                                            selector,
+                                            selector = NULL,
+                                            paths = NULL,
                                             format,
                                             partitioning = NULL) {
   assert_is(filesystem, "FileSystem")
-  assert_is(selector, "FileSelector")
+  is.null(selector) || assert_is(selector, "FileSelector")
+  is.null(paths) || assert_is(paths, "character")
+  assert_that(
+    xor(is.null(selector), is.null(paths)),
+    msg = "Either selector or paths must be specified"
+  )
   assert_is(format, "FileFormat")
+  !is.null(paths) || assert_that(
+    is.null(partitioning),
+    "Partitioning not supported with paths"
+  )
 
-  if (is.null(partitioning)) {
+  if (!is.null(paths)) {
+    ptr <- dataset___FileSystemDatasetFactory__Make0(filesystem, paths, format)
+  } else if (is.null(partitioning)) {
     ptr <- dataset___FileSystemDatasetFactory__Make1(filesystem, selector, format)
   } else if (inherits(partitioning, "PartitioningFactory")) {
     ptr <- dataset___FileSystemDatasetFactory__Make3(filesystem, selector, format, partitioning)
