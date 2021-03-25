@@ -430,10 +430,21 @@ TYPED_TEST(TestStringKernels, SplitWhitespaceUTF8Reverse) {
                    &options_max);
 }
 
-TYPED_TEST(TestStringKernels, ReplaceSubstringNormal) {
+TYPED_TEST(TestStringKernels, ReplaceSubstring) {
   ReplaceSubstringOptions options{"foo", "bazz"};
   this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", null])",
                    this->type(), R"(["bazz", "this bazz that bazz", null])", &options);
+}
+
+TYPED_TEST(TestStringKernels, ReplaceSubstringLimited) {
+  ReplaceSubstringOptions options{"foo", "bazz", 1};
+  this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", null])",
+                   this->type(), R"(["bazz", "this bazz that foo", null])", &options);
+}
+
+TYPED_TEST(TestStringKernels, ReplaceSubstringNoOptions) {
+  Datum input = ArrayFromJSON(this->type(), "[]");
+  ASSERT_RAISES(Invalid, CallFunction("replace_substring", {input}));
 }
 
 #ifdef ARROW_WITH_RE2
@@ -448,7 +459,8 @@ TYPED_TEST(TestStringKernels, ReplaceSubstringRegex) {
                    R"(["abaaaaabaaaa"])", &options_regex2);
 }
 
-TYPED_TEST(TestStringKernels, ReplaceSubstringMax) {
+TYPED_TEST(TestStringKernels, ReplaceSubstringRegexLimited) {
+  // With a finite number of replacements
   ReplaceSubstringOptions options1{"foo", "bazz", 1};
   this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", null])",
                    this->type(), R"(["bazz", "this bazz that foo", null])", &options1);
@@ -456,6 +468,11 @@ TYPED_TEST(TestStringKernels, ReplaceSubstringMax) {
   this->CheckUnary("replace_substring_regex", R"(["foo ", "this foo   that foo", null])",
                    this->type(), R"(["foo-bazz", "this foo-bazzthat foo", null])",
                    &options_regex1);
+}
+
+TYPED_TEST(TestStringKernels, ReplaceSubstringRegexNoOptions) {
+  Datum input = ArrayFromJSON(this->type(), "[]");
+  ASSERT_RAISES(Invalid, CallFunction("replace_substring_regex", {input}));
 }
 #endif
 

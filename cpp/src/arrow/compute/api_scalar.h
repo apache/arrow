@@ -77,6 +77,7 @@ struct ARROW_EXPORT ReplaceSubstringOptions : public FunctionOptions {
   std::string pattern;
   /// String to replace the pattern with
   std::string replacement;
+  /// Max number of substrings to replace (-1 means unbounded)
   int64_t max_replacements;
 };
 
