@@ -76,7 +76,9 @@ class ProjectorCacheKey {
     }
     return true;
   }
-
+  bool operator<(const ProjectorCacheKey& other) const {
+    return uniqifier_ < other.uniqifier_;
+  };
   bool operator!=(const ProjectorCacheKey& other) const { return !(*this == other); }
 
   SchemaPtr schema() const { return schema_; }
