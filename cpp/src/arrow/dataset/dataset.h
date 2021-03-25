@@ -32,7 +32,6 @@
 #include "arrow/util/mutex.h"
 
 namespace arrow {
-
 namespace dataset {
 
 /// \brief A granular piece of a Dataset, such as an individual file.
