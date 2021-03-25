@@ -100,7 +100,7 @@ class CSVBufferIterator {
       AsyncGenerator<std::shared_ptr<Buffer>> buffer_iterator) {
     Transformer<std::shared_ptr<Buffer>, std::shared_ptr<Buffer>> fn =
         CSVBufferIterator();
-    return MakeAsyncGenerator(std::move(buffer_iterator), fn);
+    return MakeTransformedGenerator(std::move(buffer_iterator), fn);
   }
 
   Result<TransformFlow<std::shared_ptr<Buffer>>> operator()(std::shared_ptr<Buffer> buf) {
@@ -209,7 +209,7 @@ class SerialBlockReader : public BlockReader {
         [block_reader](std::shared_ptr<Buffer> next) {
           return (*block_reader)(std::move(next));
         };
-    return MakeAsyncGenerator(std::move(buffer_generator), block_reader_fn);
+    return MakeTransformedGenerator(std::move(buffer_generator), block_reader_fn);
   }
 
   Result<TransformFlow<CSVBlock>> operator()(std::shared_ptr<Buffer> next_buffer) {
@@ -273,7 +273,7 @@ class ThreadedBlockReader : public BlockReader {
     // Wrap shared pointer in callable
     Transformer<std::shared_ptr<Buffer>, CSVBlock> block_reader_fn =
         [block_reader](std::shared_ptr<Buffer> next) { return (*block_reader)(next); };
-    return MakeAsyncGenerator(std::move(buffer_generator), block_reader_fn);
+    return MakeTransformedGenerator(std::move(buffer_generator), block_reader_fn);
   }
 
   Result<TransformFlow<CSVBlock>> operator()(std::shared_ptr<Buffer> next_buffer) {
@@ -600,8 +600,7 @@ class BaseStreamingReader : public ReaderMixin, public csv::StreamingReader {
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
     auto next_fut = ReadNextAsync();
     auto next_result = next_fut.result();
-    ARROW_ASSIGN_OR_RAISE(*batch, next_result);
-    return Status::OK();
+    return std::move(next_result).Value(batch);
   }
 
  protected:
@@ -707,7 +706,9 @@ class SerialStreamingReader : public BaseStreamingReader,
     ARROW_ASSIGN_OR_RAISE(auto bg_it, MakeBackgroundGenerator(std::move(istream_it),
                                                               io_context_.executor()));
 
-    auto rh_it = MakeSerialReadaheadGenerator(std::move(bg_it), 8);
+    // TODO Consider exposing readahead as a read option (ARROW-12090)
+    auto rh_it =
+        MakeSerialReadaheadGenerator(std::move(bg_it), cpu_executor_->GetCapacity());
 
     auto transferred_it = MakeTransferredGenerator(rh_it, cpu_executor_);
 
