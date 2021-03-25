@@ -90,6 +90,7 @@ This implementation is under development and may not be suitable for use in prod
 - Timestamp
 - Date32
 - Date64
+- Decimal
 - Time32
 - Time64
 - Binary (fixed-length)
@@ -124,7 +125,6 @@ This implementation is under development and may not be suitable for use in prod
         - Dense
         - Sparse
     - Half-Float
-    - Decimal
     - Dictionary
 - Array Operations
 	- Equality / Comparison

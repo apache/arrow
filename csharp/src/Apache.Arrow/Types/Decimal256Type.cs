@@ -15,19 +15,21 @@
 
 namespace Apache.Arrow.Types
 {
-    public sealed class DecimalType: FixedSizeBinaryType
+    public sealed class Decimal256Type: FixedSizeBinaryType
     {
-        public override ArrowTypeId TypeId => ArrowTypeId.Decimal;
-        public override string Name => "decimal";
+        public override ArrowTypeId TypeId => ArrowTypeId.Decimal256;
+        public override string Name => "decimal256";
 
         public int Precision { get; }
         public int Scale { get; }
 
-        public DecimalType(int precision, int scale)
-            : base(16)
+        public Decimal256Type(int precision, int scale)
+            : base(32)
         {
             Precision = precision;
             Scale = scale;
         }
+
+        public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
     }
 }
