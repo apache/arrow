@@ -354,7 +354,10 @@ cdef class Dataset(_Weakrefable):
         Parameters
         ----------
         columns : list of str, default None
-            List of columns to project. Order and duplicates will be preserved.
+            The columns to project. This can be a list of column names to
+            include (order and duplicates will be preserved), or a dictionary
+            with {new_column_name: expression} values for more advanced
+            projections.
             The columns will be passed down to Datasets and corresponding data
             fragments to avoid loading, copying, and deserializing columns
             that will not be required further down the compute chain.
@@ -384,6 +387,23 @@ cdef class Dataset(_Weakrefable):
         Returns
         -------
         scan_tasks : iterator of ScanTask
+
+        Examples
+        --------
+        >>> import pyarrow.dataset as ds
+        >>> dataset = ds.dataset("path/to/dataset")
+
+        Selecting a subset of the columns:
+
+        >>> dataset.scan(columns=["A", "B"])
+
+        Projecting selected columns using an expression:
+
+        >>> dataset.scan(columns={"A_int": ds.field("A").cast("int64")})
+
+        Filtering rows while scanning:
+
+        >>> dataset.scan(filter=ds.field("A") > 0)
         """
         return self._scanner(**kwargs).scan()
 
@@ -813,7 +833,10 @@ cdef class Fragment(_Weakrefable):
             it's Dataset's schema. If not specified this will use the
             Fragment's physical schema which might differ for each Fragment.
         columns : list of str, default None
-            List of columns to project. Order and duplicates will be preserved.
+            The columns to project. This can be a list of column names to
+            include (order and duplicates will be preserved), or a dictionary
+            with {new_column_name: expression} values for more advanced
+            projections.
             The columns will be passed down to Datasets and corresponding data
             fragments to avoid loading, copying, and deserializing columns
             that will not be required further down the compute chain.
@@ -2374,8 +2397,10 @@ cdef class Scanner(_Weakrefable):
     ----------
     dataset : Dataset
         Dataset to scan.
-    columns : list of str, default None
-        List of columns to project. Order and duplicates will be preserved.
+    columns : list of str or dict, default None
+        The columns to project. This can be a list of column names to include
+        (order and duplicates will be preserved), or a dictionary with
+        {new_column_name: expression} values for more advanced projections.
         The columns will be passed down to Datasets and corresponding data
         fragments to avoid loading, copying, and deserializing columns
         that will not be required further down the compute chain.
