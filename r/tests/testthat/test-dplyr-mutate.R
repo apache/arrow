@@ -314,6 +314,19 @@ test_that("handle bad expressions", {
       NA
     )
   })
+
+  expect_error(
+    tbl %>%
+      Table$create() %>%
+      mutate(q = q), # q is a function
+    "unexpected"
+  )
+  expect_error(
+    tbl %>%
+      Table$create() %>%
+      mutate(int, ge = .GlobalEnv), # .GlobalEnv is an environment
+    "unexpected"
+  )
 })
 
 test_that("print a mutated table", {
