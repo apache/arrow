@@ -260,9 +260,10 @@ arrow_eval <- function (expr, mask) {
   # with references to Arrays (if .data is Table/RecordBatch) or Fields (if
   # .data is a Dataset).
 
-  # This yields an Expression as long as the `exprs` are implemented in Arrow.
-  # Otherwise, it returns a try-error
-  tryCatch(eval_tidy(expr, mask), error = function(e) {
+  # If `expr` evaluates successfully, this returns an Expression or array_expression.
+  # If `expr` cannot be translated to an Arrow expression, this returns a try-error.
+  # If `expr` evaluates to an object with an unexpected class or type, this throws an error.
+  out <- tryCatch(eval_tidy(expr, mask), error = function(e) {
     # Look for the cases where bad input was given, i.e. this would fail
     # in regular dplyr anyway, and let those raise those as errors;
     # else, for things not supported by Arrow return a "try-error",
@@ -279,6 +280,19 @@ arrow_eval <- function (expr, mask) {
     }
     invisible(structure(msg, class = "try-error", condition = e))
   })
+  # Check that the evaluated expression has one of the expected classes or types
+  if (!class(out) %in% c("array_expression", "Expression", "try-error") &&
+      !typeof(out) %in% c("logical", "integer", "double", "character", "NULL")) {
+    stop(
+      "Expression `",
+      quo_get_expr(expr),
+      "` has unexpected class \"",
+      class(out),
+      "\"",
+      call. = FALSE
+    )
+  }
+  out
 }
 
 i18ize_error_messages <- function() {
