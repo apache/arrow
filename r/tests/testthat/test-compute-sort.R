@@ -33,22 +33,22 @@ test_that("sort(Scalar) is identity function", {
 test_that("Array$SortIndices()", {
   expect_equal(
     Array$create(tbl$int)$SortIndices(),
-    Array$create(0L:9L, type = uint64())
+    Array$create(0:9, type = uint64())
   )
   expect_equal(
     Array$create(rev(tbl$int))$SortIndices(descending = TRUE),
-    Array$create(c(1L:9L, 0L), type = uint64())
+    Array$create(c(1:9, 0L), type = uint64())
   )
 })
 
 test_that("ChunkedArray$SortIndices()", {
   expect_equal(
     ChunkedArray$create(tbl$int[1:5], tbl$int[6:10])$SortIndices(),
-    Array$create(0L:9L, type = uint64())
+    Array$create(0:9, type = uint64())
   )
   expect_equal(
     ChunkedArray$create(rev(tbl$int)[1:5], rev(tbl$int)[6:10])$SortIndices(descending = TRUE),
-    Array$create(c(1L:9L, 0L), type = uint64())
+    Array$create(c(1:9, 0L), type = uint64())
   )
 })
 
@@ -99,13 +99,29 @@ test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results
 })
 
 test_that("sort(vector), sort(Array), sort(ChunkedArray) give equivalent results on floats", {
+  expect_vector_equal(
+    sort(input, decreasing = TRUE, na.last = TRUE),
+    tbl$dbl
+  )
+  expect_vector_equal(
+    sort(input, decreasing = FALSE, na.last = TRUE),
+    tbl$dbl
+  )
   skip("is.na() evaluates to FALSE on Arrow NaN values (ARROW-12055)")
   expect_vector_equal(
-    sort(input, decreasing = TRUE, na.last = FALSE),
+    sort(input, decreasing = TRUE, na.last = NA),
     tbl$dbl
   )
   expect_vector_equal(
     sort(input, decreasing = TRUE, na.last = FALSE),
+    tbl$dbl,
+  )
+  expect_vector_equal(
+    sort(input, decreasing = FALSE, na.last = NA),
+    tbl$dbl
+  )
+  expect_vector_equal(
+    sort(input, decreasing = FALSE, na.last = FALSE),
     tbl$dbl,
   )
 })
