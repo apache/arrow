@@ -278,8 +278,7 @@ TEST_F(TestHash, TestSha256Varlen) {
 
   // Checks that the null value was hashed
   EXPECT_NE(response->GetScalar(0).ValueOrDie()->ToString(), "");
-  EXPECT_EQ(response->GetScalar(0).ValueOrDie()->ToString().size(),
-            sha256_hash_size);
+  EXPECT_EQ(response->GetScalar(0).ValueOrDie()->ToString().size(), sha256_hash_size);
 
   // Check that all generated hashes were different
   for (int i = 1; i < num_records; ++i) {
@@ -419,8 +418,7 @@ TEST_F(TestHash, TestSha1Varlen) {
 
   // Checks that the null value was hashed
   EXPECT_NE(response->GetScalar(0).ValueOrDie()->ToString(), "");
-  EXPECT_EQ(response->GetScalar(0).ValueOrDie()->ToString().size(),
-            sha1_hash_size);
+  EXPECT_EQ(response->GetScalar(0).ValueOrDie()->ToString().size(), sha1_hash_size);
 
   // Check that all generated hashes were different
   for (int i = 1; i < num_records; ++i) {
