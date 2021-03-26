@@ -19,7 +19,11 @@ package org.apache.arrow.gandiva.evaluator;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.gandiva.exceptions.GandivaException;
@@ -233,7 +237,7 @@ class BaseEvaluatorTest {
     DecimalVector vector = new DecimalVector("decimal" + Math.random(), allocator, precision, scale);
     vector.allocateNew();
     for (int i = 0; i < values.length; i++) {
-      BigDecimal decimal = new BigDecimal(values[i]);
+      BigDecimal decimal = new BigDecimal(values[i]).setScale(scale);
       vector.setSafe(i, decimal);
     }
 
@@ -241,10 +245,10 @@ class BaseEvaluatorTest {
     return vector;
   }
 
-  Set decimalSet(String[] values){
+  Set decimalSet(String[] values, Integer scale) {
     Set<BigDecimal> decimalSet = new HashSet<>();
-    for (int i = 0; i < values.length; i++){
-      decimalSet.add(new BigDecimal(values[i]));
+    for (int i = 0; i < values.length; i++) {
+      decimalSet.add(new BigDecimal(values[i]).setScale(scale));
     }
 
     return decimalSet;

@@ -31,6 +31,7 @@
 
 #include "Types.pb.h"
 #include "gandiva/configuration.h"
+#include "gandiva/decimal_scalar.h"
 #include "gandiva/filter.h"
 #include "gandiva/jni/config_holder.h"
 #include "gandiva/jni/env_helper.h"
@@ -371,7 +372,10 @@ NodePtr ProtoTypeToInNode(const types::InNode& node) {
   if (node.has_decimalvalues()) {
     std::unordered_set<gandiva::DecimalScalar128> decimal_values;
     for (int i = 0; i < node.decimalvalues().decimalvalues_size(); i++) {
-      decimal_values.insert(node.decimalvalues().decimalvalues(i).value());
+      decimal_values.insert(gandiva::DecimalScalar128(
+          node.decimalvalues().decimalvalues(i).value(),
+          node.decimalvalues().decimalvalues(i).precision(),
+          node.decimalvalues().decimalvalues(i).scale()));
     }
     return TreeExprBuilder::MakeInExpressionDecimal(field, decimal_values);
   }

@@ -191,8 +191,13 @@ ConditionPtr TreeExprBuilder::MakeCondition(const std::string& function,
 }
 
 NodePtr TreeExprBuilder::MakeInExpressionDecimal(
-    NodePtr node, std::unordered_set<gandiva::DecimalScalar128>& constants,
-    int32_t precision, int32_t scale) {
+    NodePtr node, std::unordered_set<gandiva::DecimalScalar128>& constants) {
+  int32_t precision = 0;
+  int32_t scale = 0;
+  if (!constants.empty()) {
+    precision = constants.begin()->precision();
+    scale = constants.begin()->scale();
+  }
   return std::make_shared<InExpressionNode<gandiva::DecimalScalar128>>(node, constants,
                                                                        precision, scale);
 }
