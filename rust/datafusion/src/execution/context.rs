@@ -2104,7 +2104,7 @@ mod tests {
             "+---------------+--------------------+------------+--------------+",
             "| table_catalog | table_schema       | table_name | table_type   |",
             "+---------------+--------------------+------------+--------------+",
-            "| datafusion    | information_schema | TABLES     | SYSTEM TABLE |",
+            "| datafusion    | information_schema | tables     | SYSTEM TABLE |",
             "+---------------+--------------------+------------+--------------+",
         ];
         assert_batches_eq!(expected, &result);
@@ -2130,7 +2130,7 @@ mod tests {
             "| table_catalog | table_schema       | table_name | table_type   |",
             "+---------------+--------------------+------------+--------------+",
             "| datafusion    | public             | t          | BASE TABLE   |",
-            "| datafusion    | information_schema | TABLES     | SYSTEM TABLE |",
+            "| datafusion    | information_schema | tables     | SYSTEM TABLE |",
             "+---------------+--------------------+------------+--------------+",
         ];
         assert_batches_sorted_eq!(expected, &result);
@@ -2150,7 +2150,7 @@ mod tests {
             "+---------------+--------------------+------------+--------------+",
             "| datafusion    | public             | t2         | BASE TABLE   |",
             "| datafusion    | public             | t          | BASE TABLE   |",
-            "| datafusion    | information_schema | TABLES     | SYSTEM TABLE |",
+            "| datafusion    | information_schema | tables     | SYSTEM TABLE |",
             "+---------------+--------------------+------------+--------------+",
         ];
         assert_batches_sorted_eq!(expected, &result);
@@ -2189,12 +2189,12 @@ mod tests {
             "+------------------+--------------------+------------+--------------+",
             "| table_catalog    | table_schema       | table_name | table_type   |",
             "+------------------+--------------------+------------+--------------+",
-            "| datafusion       | information_schema | TABLES     | SYSTEM TABLE |",
+            "| datafusion       | information_schema | tables     | SYSTEM TABLE |",
             "| my_other_catalog | my_other_schema    | t3         | BASE TABLE   |",
-            "| my_other_catalog | information_schema | TABLES     | SYSTEM TABLE |",
+            "| my_other_catalog | information_schema | tables     | SYSTEM TABLE |",
             "| my_catalog       | my_schema          | t2         | BASE TABLE   |",
             "| my_catalog       | my_schema          | t1         | BASE TABLE   |",
-            "| my_catalog       | information_schema | TABLES     | SYSTEM TABLE |",
+            "| my_catalog       | information_schema | tables     | SYSTEM TABLE |",
             "+------------------+--------------------+------------+--------------+",
         ];
         assert_batches_sorted_eq!(expected, &result);
