@@ -20,6 +20,16 @@ skip_if_not_available <- function(feature) {
     skip_if_not(arrow_with_dataset())
   } else if (feature == "parquet") {
     skip_if_not(arrow_with_parquet())
+  } else if (feature %in% c("string", "utf8proc")) {
+    skip_if_not(
+      "utf8_upper" %in% list_compute_functions(),
+      "Arrow C++ library not built with utf8proc dependency"
+    )
+  } else if (feature %in% c("regex", "re2")) {
+    skip_if_not(
+      "replace_substring_regex" %in% list_compute_functions(),
+      "Arrow C++ library not built with re2 dependency"
+    )
   } else if (feature == "s3") {
     skip_if_not(arrow_with_s3())
   } else if (!codec_is_available(feature)) {
