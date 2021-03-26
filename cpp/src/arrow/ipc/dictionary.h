@@ -79,6 +79,9 @@ class ARROW_EXPORT DictionaryFieldMapper {
   Result<int64_t> GetFieldId(std::vector<int> field_path) const;
 
   int num_fields() const;
+
+  /// \brief Returns number of unique dictionaries, taking into
+  /// account that different fields can share the same dictionary.
   int num_dicts() const;
 
  private:
