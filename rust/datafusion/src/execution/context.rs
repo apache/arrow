@@ -16,7 +16,13 @@
 // under the License.
 
 //! ExecutionContext contains methods for registering data sources and executing queries
-use crate::optimizer::hash_build_probe_order::HashBuildProbeOrder;
+use crate::{
+    catalog::{
+        catalog::{CatalogList, MemoryCatalogList},
+        information_schema::CatalogListWithInformationSchema,
+    },
+    optimizer::hash_build_probe_order::HashBuildProbeOrder,
+};
 use log::debug;
 use std::fs;
 use std::path::Path;
@@ -116,7 +122,7 @@ impl ExecutionContext {
 
     /// Creates a new execution context using the provided configuration.
     pub fn with_config(config: ExecutionConfig) -> Self {
-        let mut catalogs = HashMap::new();
+        let catalog_list = Arc::new(MemoryCatalogList::new()) as Arc<dyn CatalogList>;
 
         if config.create_default_catalog_and_schema {
             let default_catalog = MemoryCatalogProvider::new();
@@ -125,7 +131,7 @@ impl ExecutionContext {
                 Arc::new(MemorySchemaProvider::new()),
             );
 
-            catalogs.insert(
+            catalog_list.register_catalog(
                 config.default_catalog.clone(),
                 Arc::new(default_catalog) as Arc<dyn CatalogProvider>,
             );
@@ -133,7 +139,7 @@ impl ExecutionContext {
 
         Self {
             state: Arc::new(Mutex::new(ExecutionContextState {
-                catalogs,
+                catalog_list,
                 scalar_functions: HashMap::new(),
                 var_provider: HashMap::new(),
                 aggregate_functions: HashMap::new(),
@@ -310,16 +316,17 @@ impl ExecutionContext {
         name: impl Into<String>,
         catalog: Arc<dyn CatalogProvider>,
     ) -> Option<Arc<dyn CatalogProvider>> {
+        let name = name.into();
         self.state
             .lock()
             .unwrap()
-            .catalogs
-            .insert(name.into(), catalog)
+            .catalog_list
+            .register_catalog(name, catalog)
     }
 
     /// Retrieves a `CatalogProvider` instance by name
     pub fn catalog(&self, name: &str) -> Option<Arc<dyn CatalogProvider>> {
-        self.state.lock().unwrap().catalogs.get(name).cloned()
+        self.state.lock().unwrap().catalog_list.catalog(name)
     }
 
     /// Registers a table using a custom `TableProvider` so that
@@ -579,6 +586,9 @@ pub struct ExecutionConfig {
     default_schema: String,
     /// Whether the default catalog and schema should be created automatically
     create_default_catalog_and_schema: bool,
+    /// Should DataFusion provide access to `information_schema`
+    /// virtual tables for displaying schema information
+    information_schema: bool,
 }
 
 impl ExecutionConfig {
@@ -598,6 +608,7 @@ impl ExecutionConfig {
             default_catalog: "datafusion".to_owned(),
             default_schema: "public".to_owned(),
             create_default_catalog_and_schema: true,
+            information_schema: false,
         }
     }
 
@@ -651,13 +662,19 @@ impl ExecutionConfig {
         self.create_default_catalog_and_schema = create;
         self
     }
+
+    /// Enables the `information_schema` virtual tables
+    pub fn with_information_schema(mut self) -> Self {
+        self.information_schema = true;
+        self
+    }
 }
 
 /// Execution context for registering data sources and executing queries
 #[derive(Clone)]
 pub struct ExecutionContextState {
     /// Collection of catalogs containing schemas and ultimately TableProviders
-    pub catalogs: HashMap<String, Arc<dyn CatalogProvider>>,
+    pub catalog_list: Arc<dyn CatalogList>,
     /// Scalar functions that are registered with the context
     pub scalar_functions: HashMap<String, Arc<ScalarUDF>>,
     /// Variable provider that are registered with the context
@@ -678,20 +695,31 @@ impl ExecutionContextState {
             .resolve(&self.config.default_catalog, &self.config.default_schema)
     }
 
+    fn catalog_for_ref<'a>(
+        &'a self,
+        resolved_ref: &ResolvedTableReference<'a>,
+    ) -> Result<Arc<dyn CatalogProvider>> {
+        if self.config.information_schema {
+            CatalogListWithInformationSchema::new(self.catalog_list.clone())
+                .catalog(resolved_ref.catalog)
+        } else {
+            self.catalog_list.catalog(resolved_ref.catalog)
+        }
+        .ok_or_else(|| {
+            DataFusionError::Plan(format!(
+                "failed to resolve catalog: {}",
+                resolved_ref.catalog
+            ))
+        })
+    }
+
     fn schema_for_ref<'a>(
         &'a self,
         table_ref: impl Into<TableReference<'a>>,
     ) -> Result<Arc<dyn SchemaProvider>> {
         let resolved_ref = self.resolve_table_ref(table_ref.into());
 
-        self.catalogs
-            .get(resolved_ref.catalog)
-            .ok_or_else(|| {
-                DataFusionError::Plan(format!(
-                    "failed to resolve catalog: {}",
-                    resolved_ref.catalog
-                ))
-            })?
+        self.catalog_for_ref(&resolved_ref)?
             .schema(resolved_ref.schema)
             .ok_or_else(|| {
                 DataFusionError::Plan(format!(
@@ -2046,6 +2074,130 @@ mod tests {
             vec![arr as ArrayRef],
         )?]];
         Ok(Arc::new(MemTable::try_new(schema, partitions)?))
+    }
+
+    #[tokio::test]
+    async fn information_schema_tables_not_exist_by_default() {
+        let mut ctx = ExecutionContext::new();
+
+        let err = plan_and_collect(&mut ctx, "SELECT * from information_schema.tables")
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Error during planning: Table or CTE with name 'information_schema.tables' not found"
+        );
+    }
+
+    #[tokio::test]
+    async fn information_schema_tables_no_tables() {
+        let mut ctx = ExecutionContext::with_config(
+            ExecutionConfig::new().with_information_schema(),
+        );
+
+        let result =
+            plan_and_collect(&mut ctx, "SELECT * from information_schema.tables")
+                .await
+                .unwrap();
+
+        let expected = vec![
+            "+---------------+--------------------+------------+--------------+",
+            "| table_catalog | table_schema       | table_name | table_type   |",
+            "+---------------+--------------------+------------+--------------+",
+            "| datafusion    | information_schema | TABLES     | SYSTEM TABLE |",
+            "+---------------+--------------------+------------+--------------+",
+        ];
+        assert_batches_eq!(expected, &result);
+    }
+
+    #[tokio::test]
+    async fn information_schema_tables_tables_default_catalog() {
+        let mut ctx = ExecutionContext::with_config(
+            ExecutionConfig::new().with_information_schema(),
+        );
+
+        // Now, register an empty table
+        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+            .unwrap();
+
+        let result =
+            plan_and_collect(&mut ctx, "SELECT * from information_schema.tables")
+                .await
+                .unwrap();
+
+        let expected = vec![
+            "+---------------+--------------------+------------+--------------+",
+            "| table_catalog | table_schema       | table_name | table_type   |",
+            "+---------------+--------------------+------------+--------------+",
+            "| datafusion    | public             | t          | BASE TABLE   |",
+            "| datafusion    | information_schema | TABLES     | SYSTEM TABLE |",
+            "+---------------+--------------------+------------+--------------+",
+        ];
+        assert_batches_sorted_eq!(expected, &result);
+
+        // Newly added tables should appear
+        ctx.register_table("t2", table_with_sequence(1, 1).unwrap())
+            .unwrap();
+
+        let result =
+            plan_and_collect(&mut ctx, "SELECT * from information_schema.tables")
+                .await
+                .unwrap();
+
+        let expected = vec![
+            "+---------------+--------------------+------------+--------------+",
+            "| table_catalog | table_schema       | table_name | table_type   |",
+            "+---------------+--------------------+------------+--------------+",
+            "| datafusion    | public             | t2         | BASE TABLE   |",
+            "| datafusion    | public             | t          | BASE TABLE   |",
+            "| datafusion    | information_schema | TABLES     | SYSTEM TABLE |",
+            "+---------------+--------------------+------------+--------------+",
+        ];
+        assert_batches_sorted_eq!(expected, &result);
+    }
+
+    #[tokio::test]
+    async fn information_schema_tables_tables_with_multiple_catalogs() {
+        let mut ctx = ExecutionContext::with_config(
+            ExecutionConfig::new().with_information_schema(),
+        );
+        let catalog = MemoryCatalogProvider::new();
+        let schema = MemorySchemaProvider::new();
+        schema
+            .register_table("t1".to_owned(), table_with_sequence(1, 1).unwrap())
+            .unwrap();
+        schema
+            .register_table("t2".to_owned(), table_with_sequence(1, 1).unwrap())
+            .unwrap();
+        catalog.register_schema("my_schema", Arc::new(schema));
+        ctx.register_catalog("my_catalog", Arc::new(catalog));
+
+        let catalog = MemoryCatalogProvider::new();
+        let schema = MemorySchemaProvider::new();
+        schema
+            .register_table("t3".to_owned(), table_with_sequence(1, 1).unwrap())
+            .unwrap();
+        catalog.register_schema("my_other_schema", Arc::new(schema));
+        ctx.register_catalog("my_other_catalog", Arc::new(catalog));
+
+        let result =
+            plan_and_collect(&mut ctx, "SELECT * from information_schema.tables")
+                .await
+                .unwrap();
+
+        let expected = vec![
+            "+------------------+--------------------+------------+--------------+",
+            "| table_catalog    | table_schema       | table_name | table_type   |",
+            "+------------------+--------------------+------------+--------------+",
+            "| datafusion       | information_schema | TABLES     | SYSTEM TABLE |",
+            "| my_other_catalog | my_other_schema    | t3         | BASE TABLE   |",
+            "| my_other_catalog | information_schema | TABLES     | SYSTEM TABLE |",
+            "| my_catalog       | my_schema          | t2         | BASE TABLE   |",
+            "| my_catalog       | my_schema          | t1         | BASE TABLE   |",
+            "| my_catalog       | information_schema | TABLES     | SYSTEM TABLE |",
+            "+------------------+--------------------+------------+--------------+",
+        ];
+        assert_batches_sorted_eq!(expected, &result);
     }
 
     #[tokio::test]
