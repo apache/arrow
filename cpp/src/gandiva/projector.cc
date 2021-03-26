@@ -176,7 +176,12 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
     ARROW_RETURN_NOT_OK(expr_validator.Validate(expr));
   }
 
+  // Start measuring build time
+  auto begin = std::chrono::high_resolution_clock::now();
   ARROW_RETURN_NOT_OK(llvm_gen->Build(exprs, selection_vector_mode));
+  // Stop measuring time and calculate the elapsed time
+  auto end = std::chrono::high_resolution_clock::now();
+  auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count();
 
   // save the output field types. Used for validation at Evaluate() time.
   std::vector<FieldPtr> output_fields;
@@ -188,7 +193,7 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   // Instantiate the projector with the completely built llvm generator
   *projector = std::shared_ptr<Projector>(
       new Projector(std::move(llvm_gen), schema, output_fields, configuration));
-  cache.PutModule(cache_key, *projector);
+  cache.PutModule(cache_key, *projector, elapsed);
 
   return Status::OK();
 }
