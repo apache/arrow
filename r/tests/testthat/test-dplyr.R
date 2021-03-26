@@ -85,41 +85,6 @@ test_that("summarize", {
   )
 })
 
-test_that("group_by groupings are recorded", {
-  expect_dplyr_equal(
-    input %>%
-      group_by(chr) %>%
-      select(int, chr) %>%
-      filter(int > 5) %>%
-      summarize(min_int = min(int)),
-    tbl
-  )
-  # Test that the original object is not affected
-  expect_identical(collect(batch), tbl)
-})
-
-test_that("group_by doesn't yet support creating/renaming", {
-  expect_error(
-    record_batch(tbl) %>%
-      group_by(chr, numbers = int),
-    "Cannot create or rename columns in group_by on Arrow objects"
-  )
-})
-
-test_that("ungroup", {
-  expect_dplyr_equal(
-    input %>%
-      group_by(chr) %>%
-      select(int, chr) %>%
-      ungroup() %>%
-      filter(int > 5) %>%
-      summarize(min_int = min(int)),
-    tbl
-  )
-  # Test that the original object is not affected
-  expect_identical(collect(batch), tbl)
-})
-
 test_that("Empty select returns no columns", {
   expect_dplyr_equal(
     input %>% select() %>% collect(),
@@ -185,82 +150,6 @@ test_that("filtering with rename", {
       filter(string == "b") %>%
       collect(),
     tbl
-  )
-})
-
-test_that("group_by then rename", {
-  expect_dplyr_equal(
-    input %>%
-      group_by(chr) %>%
-      select(string = chr, int) %>%
-      collect(),
-    tbl
-  )
-})
-
-test_that("group_by with .drop", {
-  test_groups <- c("starting_a_fight", "consoling_a_child", "petting_a_dog")
-  expect_dplyr_equal(
-    input %>%
-      group_by(!!!syms(test_groups), .drop = TRUE) %>%
-      collect(),
-    example_with_logical_factors
-  )
-  expect_dplyr_equal(
-    input %>%
-      group_by(!!!syms(test_groups), .drop = FALSE) %>%
-      collect(),
-    example_with_logical_factors
-  )
-  expect_equal(
-    example_with_logical_factors %>%
-      group_by(!!!syms(test_groups), .drop = TRUE) %>%
-      collect() %>%
-      n_groups(),
-    4L
-  )
-  expect_equal(
-    example_with_logical_factors %>%
-      group_by(!!!syms(test_groups), .drop = FALSE) %>%
-      collect() %>%
-      n_groups(),
-    8L
-  )
-  expect_equal(
-    example_with_logical_factors %>%
-      group_by(!!!syms(test_groups), .drop = FALSE) %>%
-      group_by_drop_default(),
-    FALSE
-  )
-  expect_equal(
-    example_with_logical_factors %>%
-      group_by(!!!syms(test_groups), .drop = TRUE) %>%
-      group_by_drop_default(),
-    TRUE
-  )
-  expect_dplyr_equal(
-    input %>%
-      group_by(.drop = FALSE) %>% # no group by vars
-      group_by_drop_default(),
-    example_with_logical_factors
-  )
-  expect_dplyr_equal(
-    input %>%
-      group_by_drop_default(),
-    example_with_logical_factors
-  )
-  expect_dplyr_equal(
-    input %>%
-      group_by(!!!syms(test_groups)) %>%
-      group_by_drop_default(),
-    example_with_logical_factors
-  )
-  expect_dplyr_equal(
-    input %>%
-      group_by(!!!syms(test_groups), .drop = FALSE) %>%
-      ungroup() %>%
-      group_by_drop_default(),
-    example_with_logical_factors
   )
 })
 
