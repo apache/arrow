@@ -312,9 +312,9 @@ class InExprDexBase<gandiva::DecimalScalar128> : public Dex {
     in_holder_.reset(new InHolder<gandiva::DecimalScalar128>(values));
   }
 
-  const int32_t get_precision() const { return precision_; }
+  int32_t get_precision() const { return precision_; }
 
-  const int32_t get_scale() const { return scale_; }
+  int32_t get_scale() const { return scale_; }
 
   const ValueValidityPairVector& args() const { return args_; }
 
