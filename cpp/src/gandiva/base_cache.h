@@ -40,7 +40,7 @@ class BaseCache {
 
   virtual bool contains(const Key& key) = 0;
 
-  virtual void insert(const Key& key, const Value& value, u_long value_to_order) = 0;
+  virtual void insert(const Key& key, const Value& value, uint64_t value_to_order) = 0;
 
   virtual arrow::util::optional<Value> get(const Key& key) = 0;
 

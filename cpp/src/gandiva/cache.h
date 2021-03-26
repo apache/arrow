@@ -57,7 +57,7 @@ class Cache {
     return result != arrow::util::nullopt ? *result : nullptr;
   }
 
-  void PutModule(KeyType cache_key, ValueType module, u_long value_to_order) {
+  void PutModule(KeyType cache_key, ValueType module, uint64_t value_to_order) {
     // Define value_to_order if the cache being used considers it, otherwise define 0
     mtx_.lock();
     (*cache_).insert(cache_key, module, value_to_order);

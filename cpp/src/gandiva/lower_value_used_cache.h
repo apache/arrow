@@ -38,7 +38,7 @@ class LowerValueUsedCache : public BaseCache<Key, Value> {
     }
   };
   using map_type =std::unordered_map<
-      Key, std::pair<Value, typename std::set<std::pair<u_long, Key>> ::iterator>, hasher>;
+      Key, std::pair<Value, typename std::set<std::pair<uint64_t, Key>> ::iterator>, hasher>;
 
   explicit LowerValueUsedCache(size_t capacity) : BaseCache<Key, Value>(capacity) {}
 
@@ -52,7 +52,7 @@ class LowerValueUsedCache : public BaseCache<Key, Value> {
 
   bool contains(const Key& key) override { return map_.find(key) != map_.end(); }
 
-  void insert(const Key& key, const Value& value, const u_long value_to_order) override {
+  void insert(const Key& key, const Value& value, const uint64_t value_to_order) override {
     typename map_type::iterator i = map_.find(key);
     if (i == map_.end()) {
       // insert item into the cache, but first check if it is full
@@ -89,7 +89,7 @@ class LowerValueUsedCache : public BaseCache<Key, Value> {
   void evict() {
     // evict item from the beginning of the set. This set is ordered from the
     // lower value constant to the higher value.
-    typename std::set<std::pair<u_long, Key>>::iterator i = lvu_set_.begin();
+    typename std::set<std::pair<uint64_t, Key>>::iterator i = lvu_set_.begin();
     map_.erase((*i).second);
     lvu_set_.erase(i);
   }
