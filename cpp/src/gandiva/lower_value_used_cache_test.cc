@@ -29,9 +29,7 @@ class TestCacheKey {
   explicit TestCacheKey(int tmp) : tmp_(tmp) {}
   std::size_t Hash() const { return tmp_; }
   bool operator==(const TestCacheKey& other) const { return tmp_ == other.tmp_; }
-  bool operator<(const TestCacheKey& other) const {
-    return tmp_ < other.tmp_;
-  }
+  bool operator<(const TestCacheKey& other) const { return tmp_ < other.tmp_; }
 
  private:
   int tmp_;

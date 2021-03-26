@@ -20,8 +20,8 @@
 #include <cstdlib>
 #include <mutex>
 
-#include "gandiva/lru_cache.h"
 #include "gandiva/lower_value_used_cache.h"
+#include "gandiva/lru_cache.h"
 #include "gandiva/visibility.h"
 
 namespace gandiva {

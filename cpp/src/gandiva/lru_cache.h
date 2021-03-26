@@ -21,8 +21,8 @@
 #include <unordered_map>
 #include <utility>
 
-#include "gandiva/base_cache.h"
 #include "arrow/util/optional.h"
+#include "gandiva/base_cache.h"
 
 // modified from boost LRU cache -> the boost cache supported only an
 // ordered map.
