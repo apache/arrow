@@ -193,6 +193,38 @@ testing, and boolean combinations (``&``, ``|``, ``~``):
 Note that :class:`Expression` objects can **not** be combined by python logical
 operators ``and``, ``or`` and ``not``.
 
+Projecting columns
+------------------
+
+The ``columns`` keyword can be used to read a subset of the columns of the
+dataset by passing it a list of column names. The keyword can also be used
+for more complex projections in combination with expressions.
+
+In this case, we pass it a dictionary with the keys being the resulting
+column names and the values the expression that is used to construct the column
+values:
+
+.. ipython:: python
+
+    projection = {
+        "a_renamed": ds.field("a"),
+        "b_as_float32": ds.field("b").cast("float32"),
+        "c_1": ds.field("c") == 1,
+    }
+    dataset.to_table(columns=projection).to_pandas().head()
+
+The dictionary also determines the column selection (only the keys in the
+dictionary will be present as columns in the resulting table). If you want
+to include a derived column in *addition* to the existing columns, you can
+build up the dictionary from the dataset schema:
+
+.. ipython:: python
+
+    projection = {col: ds.field(col) for col in dataset.schema.names}
+    projection.update({"b_large": ds.field("b") > 1})
+    dataset.to_table(columns=projection).to_pandas().head()
+
+
 Reading partitioned data
 ------------------------
 

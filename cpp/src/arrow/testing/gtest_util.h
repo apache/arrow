@@ -173,10 +173,12 @@ std::vector<Type::type> AllTypeIds();
 
 // If verbose is true, then the arrays will be pretty printed
 ARROW_TESTING_EXPORT void AssertArraysEqual(const Array& expected, const Array& actual,
-                                            bool verbose = false);
-ARROW_TESTING_EXPORT void AssertArraysApproxEqual(
-    const Array& expected, const Array& actual, bool verbose = false,
-    const EqualOptions& option = EqualOptions::Defaults());
+                                            bool verbose = false,
+                                            const EqualOptions& options = {});
+ARROW_TESTING_EXPORT void AssertArraysApproxEqual(const Array& expected,
+                                                  const Array& actual,
+                                                  bool verbose = false,
+                                                  const EqualOptions& options = {});
 // Returns true when values are both null
 ARROW_TESTING_EXPORT void AssertScalarsEqual(
     const Scalar& expected, const Scalar& actual, bool verbose = false,
@@ -434,9 +436,23 @@ inline void BitmapFromVector(const std::vector<T>& is_valid,
 ARROW_TESTING_EXPORT
 void SleepFor(double seconds);
 
+// Sleeps for a very small amount of time.  The thread will be yielded
+// at least once ensuring that context switches could happen.  It is intended
+// to be used for stress testing parallel code and shouldn't be assumed to do any
+// reliable timing.
+ARROW_TESTING_EXPORT
+void SleepABit();
+
 // Wait until predicate is true or timeout in seconds expires.
 ARROW_TESTING_EXPORT
 void BusyWait(double seconds, std::function<bool()> predicate);
+
+ARROW_TESTING_EXPORT
+Future<> SleepAsync(double seconds);
+
+// \see SleepABit
+ARROW_TESTING_EXPORT
+Future<> SleepABitAsync();
 
 template <typename T>
 std::vector<T> IteratorToVector(Iterator<T> iterator) {

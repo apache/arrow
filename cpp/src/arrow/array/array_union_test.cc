@@ -152,7 +152,8 @@ class TestUnionArrayFactories : public ::testing::Test {
 
 TEST_F(TestUnionArrayFactories, TestMakeDense) {
   std::shared_ptr<Array> value_offsets;
-  ArrayFromVector<Int32Type, int32_t>({1, 0, 0, 0, 1, 0, 1, 2, 1, 2}, &value_offsets);
+  // type_ids_:                       {0, 1, 2, 0, 1, 3, 2, 0, 2, 1}
+  ArrayFromVector<Int32Type, int32_t>({0, 0, 0, 1, 1, 0, 1, 2, 1, 2}, &value_offsets);
 
   auto children = std::vector<std::shared_ptr<Array>>(4);
   ArrayFromVector<StringType, std::string>({"abc", "def", "xyz"}, &children[0]);
@@ -208,12 +209,19 @@ TEST_F(TestUnionArrayFactories, TestMakeDense) {
   ASSERT_RAISES(Invalid, result->ValidateFull());
 
   // Invalid offsets
+  // - offset out of bounds at index 5
   std::shared_ptr<Array> invalid_offsets;
-  ArrayFromVector<Int32Type, int32_t>({1, 0, 0, 0, 1, 1, 1, 2, 1, 2}, &invalid_offsets);
+  ArrayFromVector<Int32Type, int32_t>({0, 0, 0, 1, 1, 1, 1, 2, 1, 2}, &invalid_offsets);
   ASSERT_OK_AND_ASSIGN(result,
                        DenseUnionArray::Make(*type_ids_, *invalid_offsets, children));
   ASSERT_RAISES(Invalid, result->ValidateFull());
-  ArrayFromVector<Int32Type, int32_t>({1, 0, 0, 0, 1, -1, 1, 2, 1, 2}, &invalid_offsets);
+  // - negative offset at index 5
+  ArrayFromVector<Int32Type, int32_t>({0, 0, 0, 1, 1, -1, 1, 2, 1, 2}, &invalid_offsets);
+  ASSERT_OK_AND_ASSIGN(result,
+                       DenseUnionArray::Make(*type_ids_, *invalid_offsets, children));
+  ASSERT_RAISES(Invalid, result->ValidateFull());
+  // - non-monotonic offset at index 3
+  ArrayFromVector<Int32Type, int32_t>({1, 0, 0, 0, 1, 0, 1, 2, 1, 2}, &invalid_offsets);
   ASSERT_OK_AND_ASSIGN(result,
                        DenseUnionArray::Make(*type_ids_, *invalid_offsets, children));
   ASSERT_RAISES(Invalid, result->ValidateFull());

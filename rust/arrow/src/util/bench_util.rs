@@ -17,12 +17,15 @@
 
 //! Utils to make benchmarking easier
 
-use rand::distributions::{Alphanumeric, Distribution, Standard};
-use rand::Rng;
-
 use crate::array::*;
 use crate::datatypes::*;
 use crate::util::test_util::seedable_rng;
+use rand::Rng;
+use rand::SeedableRng;
+use rand::{
+    distributions::{Alphanumeric, Distribution, Standard},
+    prelude::StdRng,
+};
 
 /// Creates an random (but fixed-seeded) array of a given size and null density
 pub fn create_primitive_array<T>(size: usize, null_density: f32) -> PrimitiveArray<T>
@@ -31,6 +34,28 @@ where
     Standard: Distribution<T::Native>,
 {
     let mut rng = seedable_rng();
+
+    (0..size)
+        .map(|_| {
+            if rng.gen::<f32>() < null_density {
+                None
+            } else {
+                Some(rng.gen())
+            }
+        })
+        .collect()
+}
+
+pub fn create_primitive_array_with_seed<T>(
+    size: usize,
+    null_density: f32,
+    seed: u64,
+) -> PrimitiveArray<T>
+where
+    T: ArrowPrimitiveType,
+    Standard: Distribution<T::Native>,
+{
+    let mut rng = StdRng::seed_from_u64(seed);
 
     (0..size)
         .map(|_| {

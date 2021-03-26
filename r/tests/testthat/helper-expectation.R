@@ -122,3 +122,42 @@ expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its star
     ...
   )
 }
+
+expect_vector_equal <- function(expr, # A vectorized R expression containing `input` as its input
+                               vec,  # A vector as reference, will make Array/ChunkedArray with
+                               skip_array = NULL, # Msg, if should skip Array test
+                               skip_chunked_array = NULL, # Msg, if should skip ChunkedArray test
+                               ...) {
+  expr <- rlang::enquo(expr)
+  expected <- rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = vec)))
+
+  skip_msg <- NULL
+
+  if (is.null(skip_array)) {
+    via_array <- rlang::eval_tidy(
+      expr,
+      rlang::new_data_mask(rlang::env(input = Array$create(vec)))
+    )
+    expect_vector(via_array, expected, ...)
+  } else {
+    skip_msg <- c(skip_msg, skip_array)
+  }
+
+  if (is.null(skip_chunked_array)) {
+    # split input vector into two to exercise ChunkedArray with >1 chunk
+    vec_split <- length(vec) %/% 2
+    vec1 <- vec[seq(from = min(1, length(vec) - 1), to = min(length(vec) - 1, vec_split), by = 1)]
+    vec2 <- vec[seq(from = min(length(vec), vec_split + 1), to = length(vec), by = 1)]
+    via_chunked <- rlang::eval_tidy(
+      expr,
+      rlang::new_data_mask(rlang::env(input = ChunkedArray$create(vec1, vec2)))
+    )
+    expect_vector(via_chunked, expected, ...)
+  } else {
+    skip_msg <- c(skip_msg, skip_chunked_array)
+  }
+
+  if (!is.null(skip_msg)) {
+    skip(paste(skip_msg, collpase = "\n"))
+  }
+}

@@ -56,6 +56,11 @@ integers \code{i}. If \code{i} is an Arrow \code{Array} or \code{ChunkedArray}, 
 coerced to an R vector before taking.
 \item \verb{$Filter(i, keep_na = TRUE)}: return an \code{Table} with rows at positions where logical
 vector or Arrow boolean-type \verb{(Chunked)Array} \code{i} is \code{TRUE}.
+\item \verb{$SortIndices(names, descending = FALSE)}: return an \code{Array} of integer row
+positions that can be used to rearrange the \code{Table} in ascending or descending
+order by the first named column, breaking ties with further named columns.
+\code{descending} can be a logical vector of length one or of the same length as
+\code{names}.
 \item \verb{$serialize(output_stream, ...)}: Write the table to the given
 \link{OutputStream}
 \item \verb{$cast(target_schema, safe = TRUE, options = cast_options(safe))}: Alter

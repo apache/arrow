@@ -117,7 +117,15 @@ namespace Apache.Arrow.Ipc
                     return new Types.BooleanType();
                 case Flatbuf.Type.Decimal:
                     Flatbuf.Decimal decMeta = field.Type<Flatbuf.Decimal>().Value;
-                    return new Types.DecimalType(decMeta.Precision, decMeta.Scale);
+                    switch (decMeta.BitWidth)
+                    {
+                        case 128:
+                            return new Types.Decimal128Type(decMeta.Precision, decMeta.Scale);
+                        case 256:
+                            return new Types.Decimal256Type(decMeta.Precision, decMeta.Scale);
+                        default:
+                            throw new InvalidDataException("Unsupported decimal bit width " + decMeta.BitWidth);
+                    }
                 case Flatbuf.Type.Date:
                     Flatbuf.Date dateMeta = field.Type<Flatbuf.Date>().Value;
                     switch (dateMeta.Unit)

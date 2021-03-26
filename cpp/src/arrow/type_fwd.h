@@ -35,6 +35,12 @@ class Result;
 
 class Status;
 
+namespace detail {
+struct Empty;
+}
+template <typename T = detail::Empty>
+class Future;
+
 namespace util {
 class Codec;
 }  // namespace util

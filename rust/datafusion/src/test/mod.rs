@@ -29,7 +29,7 @@ use std::io::{BufReader, BufWriter};
 use std::sync::Arc;
 use tempfile::TempDir;
 
-pub fn create_table_dual() -> Arc<dyn TableProvider + Send + Sync> {
+pub fn create_table_dual() -> Arc<dyn TableProvider> {
     let dual_schema = Arc::new(Schema::new(vec![
         Field::new("id", DataType::Int32, false),
         Field::new("name", DataType::Utf8, false),

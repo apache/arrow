@@ -227,6 +227,9 @@ class ARROW_EXPORT BasicDecimal256 {
   /// \brief Add a number to this one. The result is truncated to 256 bits.
   BasicDecimal256& operator+=(const BasicDecimal256& right);
 
+  /// \brief Subtract a number from this one. The result is truncated to 256 bits.
+  BasicDecimal256& operator-=(const BasicDecimal256& right);
+
   /// \brief Get the bits of the two's complement representation of the number. The 4
   /// elements are in little endian order. The bits within each uint64_t element are in
   /// native endian order. For example,
@@ -237,6 +240,9 @@ class ARROW_EXPORT BasicDecimal256 {
     return little_endian_array_;
   }
 
+  /// \brief Get the lowest bits of the two's complement representation of the number.
+  inline constexpr uint64_t low_bits() const { return little_endian_array_[0]; }
+
   /// \brief Return the raw bytes of the value in native-endian byte order.
   std::array<uint8_t, 32> ToBytes() const;
   void ToBytes(uint8_t* out) const;
@@ -244,9 +250,19 @@ class ARROW_EXPORT BasicDecimal256 {
   /// \brief Scale multiplier for given scale value.
   static const BasicDecimal256& GetScaleMultiplier(int32_t scale);
 
-  /// \brief Convert BasicDecimal128 from one scale to another
+  /// \brief Convert BasicDecimal256 from one scale to another
   DecimalStatus Rescale(int32_t original_scale, int32_t new_scale,
                         BasicDecimal256* out) const;
+
+  /// \brief Scale up.
+  BasicDecimal256 IncreaseScaleBy(int32_t increase_by) const;
+
+  /// \brief Scale down.
+  /// - If 'round' is true, the right-most digits are dropped and the result value is
+  ///   rounded up (+1 for positive, -1 for negative) based on the value of the
+  ///   dropped digits (>= 10^reduce_by / 2).
+  /// - If 'round' is false, the right-most digits are simply dropped.
+  BasicDecimal256 ReduceScaleBy(int32_t reduce_by, bool round = true) const;
 
   /// \brief Whether this number fits in the given precision
   ///

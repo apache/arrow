@@ -40,11 +40,18 @@
 #'   * `buffer_size`: Size of buffered stream, if enabled. Default is 8KB.
 #'   * `dict_columns`: Names of columns which should be read as dictionaries.
 #'
-#'   `format = "text"`: see [CsvReadOptions]. Note that you can specify them either
+#'   `format = "text"`: see [CsvParseOptions]. Note that you can specify them either
 #'   with the Arrow C++ library naming ("delimiter", "quoting", etc.) or the
 #'   `readr`-style naming used in [read_csv_arrow()] ("delim", "quote", etc.).
 #'   Not all `readr` options are currently supported; please file an issue if
-#'   you encounter one that `arrow` should support.
+#'   you encounter one that `arrow` should support. Also, the following options are
+#'   supported. From [CsvReadOptions]:
+#'   * `skip_rows`
+#'   * `column_names`
+#'   * `autogenerate_column_names`
+#'   From [CsvFragmentScanOptions] (these values can be overridden at scan time):
+#'   * `convert_options`: a [CsvConvertOptions]
+#'   * `block_size`
 #'
 #' It returns the appropriate subclass of `FileFormat` (e.g. `ParquetFileFormat`)
 #' @rdname FileFormat
@@ -101,13 +108,21 @@ IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
 #' @rdname FileFormat
 #' @export
 CsvFileFormat <- R6Class("CsvFileFormat", inherit = FileFormat)
-CsvFileFormat$create <- function(..., opts = csv_file_format_parse_options(...)) {
-  dataset___CsvFileFormat__Make(opts)
+CsvFileFormat$create <- function(..., opts = csv_file_format_parse_options(...),
+                                 convert_options = csv_file_format_convert_options(...),
+                                 read_options = csv_file_format_read_options(...)) {
+  dataset___CsvFileFormat__Make(opts, convert_options, read_options)
 }
 
 # Support both readr-style option names and Arrow C++ option names
 csv_file_format_parse_options <- function(...) {
-  opt_names <- names(list(...))
+  opts <- list(...)
+  # Filter out arguments meant for CsvConvertOptions/CsvReadOptions
+  convert_opts <- names(formals(CsvConvertOptions$create))
+  read_opts <- names(formals(CsvReadOptions$create))
+  opts[convert_opts] <- NULL
+  opts[read_opts] <- NULL
+  opt_names <- names(opts)
   # Catch any readr-style options specified with full option names that are
   # supported by read_delim_arrow() (and its wrappers) but are not yet
   # supported here
@@ -163,10 +178,87 @@ csv_file_format_parse_options <- function(...) {
       stop("Use either Arrow parse options or readr parse options, not both",
            call. = FALSE)
     }
-    readr_to_csv_parse_options(...) # all options have readr-style names
+    do.call(readr_to_csv_parse_options, opts) # all options have readr-style names
   } else {
-    CsvParseOptions$create(...) # all options have Arrow C++ names
+    do.call(CsvParseOptions$create, opts) # all options have Arrow C++ names
   }
+}
+
+csv_file_format_convert_options <- function(...) {
+  opts <- list(...)
+  # Filter out arguments meant for CsvParseOptions/CsvReadOptions
+  arrow_opts <- names(formals(CsvParseOptions$create))
+  readr_opts <- names(formals(readr_to_csv_parse_options))
+  read_opts <- names(formals(CsvReadOptions$create))
+  opts[arrow_opts] <- NULL
+  opts[readr_opts] <- NULL
+  opts[read_opts] <- NULL
+  do.call(CsvConvertOptions$create, opts)
+}
+
+csv_file_format_read_options <- function(...) {
+  opts <- list(...)
+  # Filter out arguments meant for CsvParseOptions/CsvConvertOptions
+  arrow_opts <- names(formals(CsvParseOptions$create))
+  readr_opts <- names(formals(readr_to_csv_parse_options))
+  convert_opts <- names(formals(CsvConvertOptions$create))
+  opts[arrow_opts] <- NULL
+  opts[readr_opts] <- NULL
+  opts[convert_opts] <- NULL
+  do.call(CsvReadOptions$create, opts)
+}
+
+#' Format-specific scan options
+#'
+#' @description
+#' A `FragmentScanOptions` holds options specific to a `FileFormat` and a scan
+#' operation.
+#'
+#' @section Factory:
+#' `FragmentScanOptions$create()` takes the following arguments:
+#' * `format`: A string identifier of the file format. Currently supported values:
+#'   * "csv"/"text", aliases for the same format.
+#' * `...`: Additional format-specific options
+#'
+#'   `format = "text"`: see [CsvConvertOptions]. Note that options can only be
+#'   specified with the Arrow C++ library naming. Also, "block_size" from
+#'   [CsvReadOptions] may be given.
+#'
+#' It returns the appropriate subclass of `FragmentScanOptions`
+#' (e.g. `CsvFragmentScanOptions`).
+#' @rdname FragmentScanOptions
+#' @name FragmentScanOptions
+#' @export
+FragmentScanOptions <- R6Class("FragmentScanOptions", inherit = ArrowObject,
+  active = list(
+    # @description
+    # Return the `FragmentScanOptions`'s type
+    type = function() dataset___FragmentScanOptions__type_name(self)
+  )
+)
+FragmentScanOptions$create <- function(format, ...) {
+  opt_names <- names(list(...))
+  if (format %in% c("csv", "text", "tsv")) {
+    CsvFragmentScanOptions$create(...)
+  } else {
+    stop("Unsupported file format: ", format, call. = FALSE)
+  }
+}
+
+#' @export
+as.character.FragmentScanOptions <- function(x, ...) {
+  x$type
+}
+
+#' @usage NULL
+#' @format NULL
+#' @rdname FragmentScanOptions
+#' @export
+CsvFragmentScanOptions <- R6Class("CsvFragmentScanOptions", inherit = FragmentScanOptions)
+CsvFragmentScanOptions$create <- function(...,
+                                          convert_opts = csv_file_format_convert_options(...),
+                                          read_opts = csv_file_format_read_options(...)) {
+  dataset___CsvFragmentScanOptions__Make(convert_opts, read_opts)
 }
 
 #' Format-specific write options

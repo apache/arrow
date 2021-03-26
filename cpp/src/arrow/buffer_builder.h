@@ -162,6 +162,12 @@ class ARROW_EXPORT BufferBuilder {
     return Status::OK();
   }
 
+  Result<std::shared_ptr<Buffer>> Finish(bool shrink_to_fit = true) {
+    std::shared_ptr<Buffer> out;
+    ARROW_RETURN_NOT_OK(Finish(&out, shrink_to_fit));
+    return out;
+  }
+
   void Reset() {
     buffer_ = NULLPTR;
     capacity_ = size_ = 0;
@@ -201,6 +207,11 @@ class TypedBufferBuilder<
   explicit TypedBufferBuilder(std::shared_ptr<ResizableBuffer> buffer,
                               MemoryPool* pool = default_memory_pool())
       : bytes_builder_(std::move(buffer), pool) {}
+
+  explicit TypedBufferBuilder(BufferBuilder builder)
+      : bytes_builder_(std::move(builder)) {}
+
+  BufferBuilder* bytes_builder() { return &bytes_builder_; }
 
   Status Append(T value) {
     return bytes_builder_.Append(reinterpret_cast<uint8_t*>(&value), sizeof(T));
@@ -256,6 +267,12 @@ class TypedBufferBuilder<
     return bytes_builder_.Finish(out, shrink_to_fit);
   }
 
+  Result<std::shared_ptr<Buffer>> Finish(bool shrink_to_fit = true) {
+    std::shared_ptr<Buffer> out;
+    ARROW_RETURN_NOT_OK(Finish(&out, shrink_to_fit));
+    return out;
+  }
+
   void Reset() { bytes_builder_.Reset(); }
 
   int64_t length() const { return bytes_builder_.length() / sizeof(T); }
@@ -273,6 +290,11 @@ class TypedBufferBuilder<bool> {
  public:
   explicit TypedBufferBuilder(MemoryPool* pool = default_memory_pool())
       : bytes_builder_(pool) {}
+
+  explicit TypedBufferBuilder(BufferBuilder builder)
+      : bytes_builder_(std::move(builder)) {}
+
+  BufferBuilder* bytes_builder() { return &bytes_builder_; }
 
   Status Append(bool value) {
     ARROW_RETURN_NOT_OK(Reserve(1));
@@ -369,6 +391,12 @@ class TypedBufferBuilder<bool> {
                                  bytes_builder_.length());
     bit_length_ = false_count_ = 0;
     return bytes_builder_.Finish(out, shrink_to_fit);
+  }
+
+  Result<std::shared_ptr<Buffer>> Finish(bool shrink_to_fit = true) {
+    std::shared_ptr<Buffer> out;
+    ARROW_RETURN_NOT_OK(Finish(&out, shrink_to_fit));
+    return out;
   }
 
   void Reset() {

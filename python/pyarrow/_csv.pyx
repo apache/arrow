@@ -73,9 +73,6 @@ cdef class ReadOptions(_Weakrefable):
         The character encoding of the CSV data.  Columns that cannot
         decode using this encoding can still be read as Binary.
     """
-    cdef:
-        CCSVReadOptions options
-        public object encoding
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
@@ -160,6 +157,40 @@ cdef class ReadOptions(_Weakrefable):
     @autogenerate_column_names.setter
     def autogenerate_column_names(self, value):
         self.options.autogenerate_column_names = value
+
+    def equals(self, ReadOptions other):
+        return (
+            self.use_threads == other.use_threads and
+            self.block_size == other.block_size and
+            self.skip_rows == other.skip_rows and
+            self.column_names == other.column_names and
+            self.autogenerate_column_names ==
+            other.autogenerate_column_names and
+            self.encoding == other.encoding
+        )
+
+    @staticmethod
+    cdef ReadOptions wrap(CCSVReadOptions options):
+        out = ReadOptions()
+        out.options = options
+        out.encoding = 'utf8'  # No way to know this
+        return out
+
+    def __getstate__(self):
+        return (self.use_threads, self.block_size, self.skip_rows,
+                self.column_names, self.autogenerate_column_names,
+                self.encoding)
+
+    def __setstate__(self, state):
+        (self.use_threads, self.block_size, self.skip_rows,
+         self.column_names, self.autogenerate_column_names,
+         self.encoding) = state
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return False
 
 
 cdef class ParseOptions(_Weakrefable):
@@ -320,6 +351,12 @@ cdef class ParseOptions(_Weakrefable):
          self.escape_char, self.newlines_in_values,
          self.ignore_empty_lines) = state
 
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return False
+
 
 cdef class _ISO8601(_Weakrefable):
     """
@@ -391,9 +428,6 @@ cdef class ConvertOptions(_Weakrefable):
         `column_types`, or null by default).
         This option is ignored if `include_columns` is empty.
     """
-    cdef:
-        CCSVConvertOptions options
-
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
@@ -602,6 +636,48 @@ cdef class ConvertOptions(_Weakrefable):
                 raise TypeError("Expected list of str or ISO8601 objects")
 
         self.options.timestamp_parsers = move(c_parsers)
+
+    @staticmethod
+    cdef ConvertOptions wrap(CCSVConvertOptions options):
+        out = ConvertOptions()
+        out.options = options
+        return out
+
+    def equals(self, ConvertOptions other):
+        return (
+            self.check_utf8 == other.check_utf8 and
+            self.column_types == other.column_types and
+            self.null_values == other.null_values and
+            self.true_values == other.true_values and
+            self.false_values == other.false_values and
+            self.timestamp_parsers == other.timestamp_parsers and
+            self.strings_can_be_null == other.strings_can_be_null and
+            self.auto_dict_encode == other.auto_dict_encode and
+            self.auto_dict_max_cardinality ==
+            other.auto_dict_max_cardinality and
+            self.include_columns == other.include_columns and
+            self.include_missing_columns == other.include_missing_columns
+        )
+
+    def __getstate__(self):
+        return (self.check_utf8, self.column_types, self.null_values,
+                self.true_values, self.false_values, self.timestamp_parsers,
+                self.strings_can_be_null, self.auto_dict_encode,
+                self.auto_dict_max_cardinality, self.include_columns,
+                self.include_missing_columns)
+
+    def __setstate__(self, state):
+        (self.check_utf8, self.column_types, self.null_values,
+         self.true_values, self.false_values, self.timestamp_parsers,
+         self.strings_can_be_null, self.auto_dict_encode,
+         self.auto_dict_max_cardinality, self.include_columns,
+         self.include_missing_columns) = state
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return False
 
 
 cdef _get_reader(input_file, ReadOptions read_options,

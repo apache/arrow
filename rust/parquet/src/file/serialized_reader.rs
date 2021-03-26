@@ -166,7 +166,7 @@ impl<R: 'static + ChunkReader> FileReader for SerializedFileReader<R> {
         self.metadata.num_row_groups()
     }
 
-    fn get_row_group(&self, i: usize) -> Result<Box<RowGroupReader + '_>> {
+    fn get_row_group(&self, i: usize) -> Result<Box<dyn RowGroupReader + '_>> {
         let row_group_metadata = self.metadata.row_group(i);
         // Row groups should be processed sequentially.
         let f = Arc::clone(&self.chunk_reader);
@@ -207,7 +207,7 @@ impl<'a, R: 'static + ChunkReader> RowGroupReader for SerializedRowGroupReader<'
     }
 
     // TODO: fix PARQUET-816
-    fn get_column_page_reader(&self, i: usize) -> Result<Box<PageReader>> {
+    fn get_column_page_reader(&self, i: usize) -> Result<Box<dyn PageReader>> {
         let col = self.metadata.column(i);
         let (col_start, col_length) = col.byte_range();
         let file_chunk = self.chunk_reader.get_read(col_start, col_length as usize)?;
@@ -232,7 +232,7 @@ pub struct SerializedPageReader<T: Read> {
     buf: T,
 
     // The compression codec for this column chunk. Only set for non-PLAIN codec.
-    decompressor: Option<Box<Codec>>,
+    decompressor: Option<Box<dyn Codec>>,
 
     // The number of values we have seen so far.
     seen_num_values: i64,
@@ -544,7 +544,7 @@ mod tests {
         // Test row group reader
         let row_group_reader_result = reader.get_row_group(0);
         assert!(row_group_reader_result.is_ok());
-        let row_group_reader: Box<RowGroupReader> = row_group_reader_result.unwrap();
+        let row_group_reader: Box<dyn RowGroupReader> = row_group_reader_result.unwrap();
         assert_eq!(
             row_group_reader.num_columns(),
             row_group_metadata.num_columns()
@@ -558,7 +558,7 @@ mod tests {
         // TODO: test for every column
         let page_reader_0_result = row_group_reader.get_column_page_reader(0);
         assert!(page_reader_0_result.is_ok());
-        let mut page_reader_0: Box<PageReader> = page_reader_0_result.unwrap();
+        let mut page_reader_0: Box<dyn PageReader> = page_reader_0_result.unwrap();
         let mut page_count = 0;
         while let Ok(Some(page)) = page_reader_0.get_next_page() {
             let is_expected_page = match page {
@@ -636,7 +636,7 @@ mod tests {
         // Test row group reader
         let row_group_reader_result = reader.get_row_group(0);
         assert!(row_group_reader_result.is_ok());
-        let row_group_reader: Box<RowGroupReader> = row_group_reader_result.unwrap();
+        let row_group_reader: Box<dyn RowGroupReader> = row_group_reader_result.unwrap();
         assert_eq!(
             row_group_reader.num_columns(),
             row_group_metadata.num_columns()
@@ -650,7 +650,7 @@ mod tests {
         // TODO: test for every column
         let page_reader_0_result = row_group_reader.get_column_page_reader(0);
         assert!(page_reader_0_result.is_ok());
-        let mut page_reader_0: Box<PageReader> = page_reader_0_result.unwrap();
+        let mut page_reader_0: Box<dyn PageReader> = page_reader_0_result.unwrap();
         let mut page_count = 0;
         while let Ok(Some(page)) = page_reader_0.get_next_page() {
             let is_expected_page = match page {

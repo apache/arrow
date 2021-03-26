@@ -62,11 +62,17 @@ class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
   std::shared_ptr<FileWriteOptions> DefaultWriteOptions() override { return NULLPTR; }
 };
 
-class ARROW_DS_EXPORT CsvFragmentScanOptions : public FragmentScanOptions {
- public:
+/// \brief Per-scan options for CSV fragments
+struct ARROW_DS_EXPORT CsvFragmentScanOptions : public FragmentScanOptions {
   std::string type_name() const override { return kCsvTypeName; }
 
+  /// CSV conversion options
   csv::ConvertOptions convert_options = csv::ConvertOptions::Defaults();
+
+  /// CSV reading options
+  ///
+  /// Note that use_threads is always ignored.
+  csv::ReadOptions read_options = csv::ReadOptions::Defaults();
 };
 
 }  // namespace dataset

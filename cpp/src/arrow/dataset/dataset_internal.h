@@ -185,5 +185,27 @@ inline bool operator==(const SubtreeImpl::Encoded& l, const SubtreeImpl::Encoded
          l.partition_expression == r.partition_expression;
 }
 
+/// Get fragment scan options of the expected type.
+/// \return Fragment scan options if provided on the scan options, else the default
+///     options if set, else a default-constructed value. If options are provided
+///     but of the wrong type, an error is returned.
+template <typename T>
+arrow::Result<std::shared_ptr<T>> GetFragmentScanOptions(
+    const std::string& type_name, ScanOptions* scan_options,
+    const std::shared_ptr<FragmentScanOptions>& default_options) {
+  auto source = default_options;
+  if (scan_options && scan_options->fragment_scan_options) {
+    source = scan_options->fragment_scan_options;
+  }
+  if (!source) {
+    return std::make_shared<T>();
+  }
+  if (source->type_name() != type_name) {
+    return Status::Invalid("FragmentScanOptions of type ", source->type_name(),
+                           " were provided for scanning a fragment of type ", type_name);
+  }
+  return internal::checked_pointer_cast<T>(source);
+}
+
 }  // namespace dataset
 }  // namespace arrow

@@ -58,7 +58,7 @@ impl TreeBuilder {
     pub fn build(
         &self,
         descr: SchemaDescPtr,
-        row_group_reader: &RowGroupReader,
+        row_group_reader: &dyn RowGroupReader,
     ) -> Reader {
         // Prepare lookup table of column path -> original column index
         // This allows to prune columns and map schema leaf nodes to the column readers
@@ -96,7 +96,7 @@ impl TreeBuilder {
     pub fn as_iter(
         &self,
         descr: SchemaDescPtr,
-        row_group_reader: &RowGroupReader,
+        row_group_reader: &dyn RowGroupReader,
     ) -> ReaderIter {
         let num_records = row_group_reader.metadata().num_rows() as usize;
         ReaderIter::new(self.build(descr, row_group_reader), num_records)
@@ -110,7 +110,7 @@ impl TreeBuilder {
         mut curr_def_level: i16,
         mut curr_rep_level: i16,
         paths: &HashMap<ColumnPath, usize>,
-        row_group_reader: &RowGroupReader,
+        row_group_reader: &dyn RowGroupReader,
     ) -> Reader {
         assert!(field.get_basic_info().has_repetition());
         // Update current definition and repetition levels for this type
@@ -615,12 +615,12 @@ impl fmt::Display for Reader {
 /// The enum Either with variants That represet a reference and a box of
 /// [`FileReader`](crate::file::reader::FileReader).
 enum Either<'a> {
-    Left(&'a FileReader),
-    Right(Box<FileReader>),
+    Left(&'a dyn FileReader),
+    Right(Box<dyn FileReader>),
 }
 
 impl<'a> Either<'a> {
-    fn reader(&self) -> &FileReader {
+    fn reader(&self) -> &dyn FileReader {
         match *self {
             Either::Left(r) => r,
             Either::Right(ref r) => &**r,
@@ -665,7 +665,7 @@ impl<'a> RowIter<'a> {
 
     /// Creates iterator of [`Row`](crate::record::Row)s for all row groups in a
     /// file.
-    pub fn from_file(proj: Option<Type>, reader: &'a FileReader) -> Result<Self> {
+    pub fn from_file(proj: Option<Type>, reader: &'a dyn FileReader) -> Result<Self> {
         let either = Either::Left(reader);
         let descr = Self::get_proj_descr(
             proj,
@@ -678,7 +678,7 @@ impl<'a> RowIter<'a> {
     /// Creates iterator of [`Row`](crate::record::Row)s for a specific row group.
     pub fn from_row_group(
         proj: Option<Type>,
-        reader: &'a RowGroupReader,
+        reader: &'a dyn RowGroupReader,
     ) -> Result<Self> {
         let descr = Self::get_proj_descr(proj, reader.metadata().schema_descr_ptr())?;
         let tree_builder = Self::tree_builder();
@@ -691,7 +691,7 @@ impl<'a> RowIter<'a> {
 
     /// Creates a iterator of [`Row`](crate::record::Row)s from a
     /// [`FileReader`](crate::file::reader::FileReader) using the full file schema.
-    pub fn from_file_into(reader: Box<FileReader>) -> Self {
+    pub fn from_file_into(reader: Box<dyn FileReader>) -> Self {
         let either = Either::Right(reader);
         let descr = either
             .reader()
@@ -1650,14 +1650,14 @@ mod tests {
 
     fn test_file_reader_rows(file_name: &str, schema: Option<Type>) -> Result<Vec<Row>> {
         let file = get_test_file(file_name);
-        let file_reader: Box<FileReader> = Box::new(SerializedFileReader::new(file)?);
+        let file_reader: Box<dyn FileReader> = Box::new(SerializedFileReader::new(file)?);
         let iter = file_reader.get_row_iter(schema)?;
         Ok(iter.collect())
     }
 
     fn test_row_group_rows(file_name: &str, schema: Option<Type>) -> Result<Vec<Row>> {
         let file = get_test_file(file_name);
-        let file_reader: Box<FileReader> = Box::new(SerializedFileReader::new(file)?);
+        let file_reader: Box<dyn FileReader> = Box::new(SerializedFileReader::new(file)?);
         // Check the first row group only, because files will contain only single row
         // group
         let row_group_reader = file_reader.get_row_group(0).unwrap();
