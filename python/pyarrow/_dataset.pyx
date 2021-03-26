@@ -2345,7 +2345,9 @@ cdef class RecordBatchIterator(_Weakrefable):
     """An iterator over a sequence of record batches."""
     cdef:
         ScanTask task
-        CRecordBatchIterator iterator
+        # Iterator is a non-POD type and Cython uses offsetof, leading
+        # to a compiler warning unless wrapped like so
+        shared_ptr[CRecordBatchIterator] iterator
 
     def __init__(self):
         _forbid_instantiation(self.__class__, subclasses_instead=False)
@@ -2355,7 +2357,7 @@ cdef class RecordBatchIterator(_Weakrefable):
         cdef RecordBatchIterator self = \
             RecordBatchIterator.__new__(RecordBatchIterator)
         self.task = task
-        self.iterator = move(iterator)
+        self.iterator = make_shared[CRecordBatchIterator](move(iterator))
         return self
 
     def __iter__(self):
@@ -2364,7 +2366,7 @@ cdef class RecordBatchIterator(_Weakrefable):
     def __next__(self):
         cdef shared_ptr[CRecordBatch] record_batch
         with nogil:
-            record_batch = GetResultValue(move(self.iterator.Next()))
+            record_batch = GetResultValue(move(self.iterator.get().Next()))
         if record_batch == NULL:
             raise StopIteration
         return pyarrow_wrap_batch(record_batch)
