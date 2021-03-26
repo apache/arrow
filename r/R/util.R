@@ -15,6 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# for compatibility with R versions earlier than 4.0.0
+if (!exists("deparse1")) {
+  deparse1 <- function (expr, collapse = " ", width.cutoff = 500L, ...) {
+    paste(deparse(expr, width.cutoff, ...), collapse = collapse)
+  }
+}
+
 oxford_paste <- function(x, conjunction = "and", quote = TRUE) {
   if (quote && is.character(x)) {
     x <- paste0('"', x, '"')
