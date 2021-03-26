@@ -49,7 +49,7 @@ class BaseCache {
   virtual void clear() = 0;
 
  private:
-  virtual void evict() = 0;
+  void evict() {};
 
  protected:
   size_t cache_capacity_{};

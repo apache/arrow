@@ -29,7 +29,7 @@
 namespace gandiva {
 // a cache which evicts the least recently used item when it is full
 template <class Key, class Value>
-class LruCache : BaseCache<Key, Value> {
+class LruCache : public BaseCache<Key, Value> {
  public:
   struct hasher {
     template <typename I>
@@ -45,19 +45,19 @@ class LruCache : BaseCache<Key, Value> {
 
   LruCache<Key, Value>() : BaseCache<Key, Value>() {};
 
-  size_t size() const { return map_.size(); }
+  size_t size() const override { return map_.size(); }
 
-  size_t capacity() const { return this->cache_capacity_; }
+  size_t capacity() const override { return this->cache_capacity_; }
 
-  bool empty() const { return map_.empty(); }
+  bool empty() const override { return map_.empty(); }
 
-  bool contains(const Key& key) { return map_.find(key) != map_.end(); }
+  bool contains(const Key& key) override { return map_.find(key) != map_.end(); }
 
-  void insert(const Key& key, const Value& value) {
+  void insert(const Key& key, const Value& value) override{
     this->insert(key, value, 0);
   }
 
-  void insert(const Key& key, const Value& value, const u_long /*value_to_order*/) {
+  void insert(const Key& key, const Value& value, const u_long value_to_order) override {
     typename map_type::iterator i = map_.find(key);
     if (i == map_.end()) {
       // insert item into the cache, but first check if it is full
@@ -72,7 +72,7 @@ class LruCache : BaseCache<Key, Value> {
     }
   }
 
-  arrow::util::optional<Value> get(const Key& key) {
+  arrow::util::optional<Value> get(const Key& key) override {
     // lookup value in the cache
     typename map_type::iterator value_for_key = map_.find(key);
     if (value_for_key == map_.end()) {
@@ -102,7 +102,7 @@ class LruCache : BaseCache<Key, Value> {
     }
   }
 
-  void clear() {
+  void clear() override {
     map_.clear();
     lru_list_.clear();
   }

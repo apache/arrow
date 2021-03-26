@@ -40,9 +40,9 @@ class Cache {
  public:
   explicit Cache(size_t capacity, int cache_type_to_use) {
     if (cache_type_to_use == 0) {
-      this->cache_ = LruCache<KeyType, ValueType>(capacity);
+      this->cache_ = new LruCache<KeyType, ValueType>(capacity);
     } else {
-      this->cache_ = LruCache<KeyType, ValueType>(capacity);
+      this->cache_ = new LruCache<KeyType, ValueType>(capacity);
     }
     LogCacheSize(capacity);
   }
@@ -52,19 +52,19 @@ class Cache {
   ValueType GetModule(KeyType cache_key) {
     arrow::util::optional<ValueType> result;
     mtx_.lock();
-    result = cache_.get(cache_key);
+    result = (*cache_).get(cache_key);
     mtx_.unlock();
     return result != arrow::util::nullopt ? *result : nullptr;
   }
 
   void PutModule(KeyType cache_key, ValueType module) {
     mtx_.lock();
-    cache_.insert(cache_key, module, 0);
+    (*cache_).insert(cache_key, module, 0);
     mtx_.unlock();
   }
 
  private:
-  LruCache<KeyType, ValueType> cache_;
+  BaseCache<KeyType, ValueType>* cache_;
   std::mutex mtx_;
 };
 }  // namespace gandiva
