@@ -81,7 +81,7 @@ where
     // adding 8 additional bytes to the length of both buffers. All bits of these 8 bytes
     // will always be 0 though.
     if left_chunks.remainder_len().is_zero() {
-        result_len = result_len + 8;
+        result_len += 8;
     }
     let mut value_buffer = MutableBuffer::new(result_len);
     let mut valid_buffer = MutableBuffer::new(result_len);
