@@ -579,6 +579,18 @@ def test_string_py_compat_boolean(function_name, variant):
             assert arrow_func(ar)[0].as_py() == getattr(c, py_name)()
 
 
+def test_replace_plain():
+    ar = pa.array(['foo', 'food', None])
+    ar = pc.replace_substring(ar, pattern='foo', replacement='bar')
+    assert ar.tolist() == ['bar', 'bard', None]
+
+
+def test_replace_regex():
+    ar = pa.array(['foo', 'mood', None])
+    ar = pc.replace_substring_regex(ar, pattern='(.)oo', replacement=r'\100')
+    assert ar.tolist() == ['f00', 'm00d', None]
+
+
 @pytest.mark.parametrize(('ty', 'values'), all_array_types)
 def test_take(ty, values):
     arr = pa.array(values, type=ty)

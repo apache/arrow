@@ -1815,6 +1815,14 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
                              c_bool reverse)
         c_string pattern
 
+    cdef cppclass CReplaceSubstringOptions \
+            "arrow::compute::ReplaceSubstringOptions"(CFunctionOptions):
+        CReplaceSubstringOptions(c_string pattern, c_string replacement,
+                                 int64_t max_replacements)
+        c_string pattern
+        c_string replacement
+        int64_t max_replacements
+
     cdef cppclass CCastOptions" arrow::compute::CastOptions"(CFunctionOptions):
         CCastOptions()
         CCastOptions(c_bool safe)
