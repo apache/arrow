@@ -134,17 +134,6 @@ test_that("Empty select still includes the group_by columns", {
   )
 })
 
-test_that("arrange", {
-  expect_dplyr_equal(
-    input %>%
-      group_by(chr) %>%
-      select(int, chr) %>%
-      arrange(desc(int)) %>%
-      collect(),
-    tbl
-  )
-})
-
 test_that("select/rename", {
   expect_dplyr_equal(
     input %>%

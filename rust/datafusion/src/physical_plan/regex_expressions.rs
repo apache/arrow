@@ -44,17 +44,6 @@ macro_rules! downcast_string_arg {
     }};
 }
 
-/// replace POSIX capture groups (like \1) with Rust Regex group (like ${1})
-/// used by regexp_replace
-fn regex_replace_posix_groups(replacement: &str) -> String {
-    lazy_static! {
-        static ref CAPTURE_GROUPS_RE: Regex = Regex::new("(\\\\)(\\d*)").unwrap();
-    }
-    CAPTURE_GROUPS_RE
-        .replace_all(replacement, "$${$2}")
-        .into_owned()
-}
-
 /// extract a specific group from a string column, using a regular expression
 pub fn regexp_match<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
     match args.len() {
@@ -69,8 +58,20 @@ pub fn regexp_match<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<Array
     }
 }
 
-/// Replaces substring(s) matching a POSIX regular expression
-/// regexp_replace('Thomas', '.[mN]a.', 'M') = 'ThM'
+/// replace POSIX capture groups (like \1) with Rust Regex group (like ${1})
+/// used by regexp_replace
+fn regex_replace_posix_groups(replacement: &str) -> String {
+    lazy_static! {
+        static ref CAPTURE_GROUPS_RE: Regex = Regex::new("(\\\\)(\\d*)").unwrap();
+    }
+    CAPTURE_GROUPS_RE
+        .replace_all(replacement, "$${$2}")
+        .into_owned()
+}
+
+/// Replaces substring(s) matching a POSIX regular expression.
+///
+/// example: `regexp_replace('Thomas', '.[mN]a.', 'M') = 'ThM'`
 pub fn regexp_replace<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
     // creating Regex is expensive so create hashmap for memoization
     let mut patterns: HashMap<String, Regex> = HashMap::new();

@@ -149,6 +149,12 @@ Status ScannerBuilder::Pool(MemoryPool* pool) {
   return Status::OK();
 }
 
+Status ScannerBuilder::FragmentScanOptions(
+    std::shared_ptr<dataset::FragmentScanOptions> fragment_scan_options) {
+  scan_options_->fragment_scan_options = std::move(fragment_scan_options);
+  return Status::OK();
+}
+
 Result<std::shared_ptr<Scanner>> ScannerBuilder::Finish() {
   if (!scan_options_->projection.IsBound()) {
     RETURN_NOT_OK(Project(scan_options_->dataset_schema->field_names()));

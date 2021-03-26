@@ -295,6 +295,45 @@ test_that("CSV dataset", {
   )
 })
 
+test_that("CSV scan options", {
+  options <- FragmentScanOptions$create("text")
+  expect_equal(options$type, "csv")
+  options <- FragmentScanOptions$create("csv",
+                                        null_values = c("mynull"),
+                                        strings_can_be_null = TRUE)
+  expect_equal(options$type, "csv")
+
+  dst_dir <- make_temp_dir()
+  dst_file <- file.path(dst_dir, "data.csv")
+  df <- tibble(chr = c("foo", "mynull"))
+  write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
+
+  ds <- open_dataset(dst_dir, format = "csv")
+  expect_equivalent(ds %>% collect(), df)
+
+  sb <- ds$NewScan()
+  sb$FragmentScanOptions(options)
+
+  tab <- sb$Finish()$ToTable()
+  expect_equivalent(as.data.frame(tab), tibble(chr = c("foo", NA)))
+
+  # Set default convert options in CsvFileFormat
+  csv_format <- CsvFileFormat$create(null_values = c("mynull"),
+                                     strings_can_be_null = TRUE)
+  ds <- open_dataset(dst_dir, format = csv_format)
+  expect_equivalent(ds %>% collect(), tibble(chr = c("foo", NA)))
+
+  # Set both parse and convert options
+  df <- tibble(chr = c("foo", "mynull"), chr2 = c("bar", "baz"))
+  write.table(df, dst_file, row.names = FALSE, quote = FALSE, sep = "\t")
+  ds <- open_dataset(dst_dir, format = "csv",
+                     delimiter="\t",
+                     null_values = c("mynull"),
+                     strings_can_be_null = TRUE)
+  expect_equivalent(ds %>% collect(), tibble(chr = c("foo", NA),
+                                             chr2 = c("bar", "baz")))
+})
+
 test_that("compressed CSV dataset", {
   skip_if_not_available("gzip")
   dst_dir <- make_temp_dir()
@@ -315,6 +354,33 @@ test_that("compressed CSV dataset", {
       select(string = chr, integer = int) %>%
       filter(integer > 6) %>%
       summarize(mean = mean(integer))
+  )
+})
+
+test_that("CSV dataset options", {
+  dst_dir <- make_temp_dir()
+  dst_file <- file.path(dst_dir, "data.csv")
+  df <- tibble(chr = letters[1:10])
+  write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
+
+  format <- FileFormat$create("csv", skip_rows = 1)
+  ds <- open_dataset(dst_dir, format = format)
+
+  expect_equivalent(
+    ds %>%
+      select(string = a) %>%
+      collect(),
+    df1[-1,] %>%
+      select(string = chr)
+  )
+
+  ds <- open_dataset(dst_dir, format = "csv", column_names = c("foo"))
+
+  expect_equivalent(
+    ds %>%
+      select(string = foo) %>%
+      collect(),
+    tibble(foo = c(c('chr'), letters[1:10]))
   )
 })
 
@@ -964,6 +1030,42 @@ test_that("count()", {
   )
 })
 
+test_that("arrange()", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  arranged <- ds %>%
+    select(chr, dbl, int) %>%
+    filter(dbl * 2 > 14 & dbl - 50 < 3L) %>%
+    mutate(twice = int * 2) %>%
+    arrange(chr, desc(twice), dbl + int)
+  expect_output(
+    print(arranged),
+    "FileSystemDataset (query)
+chr: string
+dbl: double
+int: int32
+twice: expr
+
+* Filter: ((multiply_checked(dbl, 2) > 14) and (subtract_checked(dbl, 50) < 3))
+* Sorted by chr [asc], multiply_checked(int, 2) [desc], add_checked(dbl, int) [asc]
+See $.data for the source Arrow object",
+    fixed = TRUE
+  )
+  expect_equivalent(
+    arranged %>%
+      collect(),
+    rbind(
+      df1[8, c("chr", "dbl", "int")],
+      df2[2, c("chr", "dbl", "int")],
+      df1[9, c("chr", "dbl", "int")],
+      df2[1, c("chr", "dbl", "int")],
+      df1[10, c("chr", "dbl", "int")]
+    ) %>%
+      mutate(
+        twice = int * 2
+      )
+  )
+})
+
 test_that("head/tail", {
   skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir)
@@ -1051,7 +1153,6 @@ test_that("dplyr method not implemented messages", {
   expect_not_implemented <- function(x) {
     expect_error(x, "is not currently implemented for Arrow Datasets")
   }
-  expect_not_implemented(ds %>% arrange(int))
   expect_not_implemented(ds %>% filter(int == 1) %>% summarize(n()))
 })
 

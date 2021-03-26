@@ -58,6 +58,17 @@ cdef wrap_scalar_aggregate_function(const shared_ptr[CFunction]& sp_func):
     return func
 
 
+cdef wrap_hash_aggregate_function(const shared_ptr[CFunction]& sp_func):
+    """
+    Wrap a C++ aggregate Function in a HashAggregateFunction object.
+    """
+    cdef HashAggregateFunction func = (
+        HashAggregateFunction.__new__(HashAggregateFunction)
+    )
+    func.init(sp_func)
+    return func
+
+
 cdef wrap_meta_function(const shared_ptr[CFunction]& sp_func):
     """
     Wrap a C++ meta Function in a MetaFunction object.
@@ -85,6 +96,8 @@ cdef wrap_function(const shared_ptr[CFunction]& sp_func):
         return wrap_vector_function(sp_func)
     elif c_kind == FunctionKind_SCALAR_AGGREGATE:
         return wrap_scalar_aggregate_function(sp_func)
+    elif c_kind == FunctionKind_HASH_AGGREGATE:
+        return wrap_hash_aggregate_function(sp_func)
     elif c_kind == FunctionKind_META:
         return wrap_meta_function(sp_func)
     else:
@@ -112,6 +125,16 @@ cdef wrap_scalar_aggregate_kernel(const CScalarAggregateKernel* c_kernel):
         raise ValueError('Kernel was NULL')
     cdef ScalarAggregateKernel kernel = (
         ScalarAggregateKernel.__new__(ScalarAggregateKernel)
+    )
+    kernel.init(c_kernel)
+    return kernel
+
+
+cdef wrap_hash_aggregate_kernel(const CHashAggregateKernel* c_kernel):
+    if c_kernel == NULL:
+        raise ValueError('Kernel was NULL')
+    cdef HashAggregateKernel kernel = (
+        HashAggregateKernel.__new__(HashAggregateKernel)
     )
     kernel.init(c_kernel)
     return kernel
@@ -165,6 +188,18 @@ cdef class ScalarAggregateKernel(Kernel):
                 .format(frombytes(self.kernel.signature.get().ToString())))
 
 
+cdef class HashAggregateKernel(Kernel):
+    cdef:
+        const CHashAggregateKernel* kernel
+
+    cdef void init(self, const CHashAggregateKernel* kernel) except *:
+        self.kernel = kernel
+
+    def __repr__(self):
+        return ("HashAggregateKernel<{}>"
+                .format(frombytes(self.kernel.signature.get().ToString())))
+
+
 FunctionDoc = namedtuple(
     "FunctionDoc",
     ("summary", "description", "arg_names", "options_class"))
@@ -190,8 +225,12 @@ cdef class Function(_Weakrefable):
       in each input.  Examples: dictionary encoding, sorting, extracting
       unique values...
 
-    * "aggregate" functions reduce the dimensionality of the inputs by
-      applying a reduction function.  Examples: sum, minmax, mode...
+    * "scalar_aggregate" functions reduce the dimensionality of the inputs by
+      applying a reduction function.  Examples: sum, min_max, mode...
+
+    * "hash_aggregate" functions apply a reduction function to an input
+      subdivided by grouping criteria.  They may not be directly called.
+      Examples: hash_sum, hash_min_max...
 
     * "meta" functions dispatch to other functions.
     """
@@ -249,6 +288,8 @@ cdef class Function(_Weakrefable):
             return 'vector'
         elif c_kind == FunctionKind_SCALAR_AGGREGATE:
             return 'scalar_aggregate'
+        elif c_kind == FunctionKind_HASH_AGGREGATE:
+            return 'hash_aggregate'
         elif c_kind == FunctionKind_META:
             return 'meta'
         else:
@@ -349,6 +390,25 @@ cdef class ScalarAggregateFunction(Function):
             self.func.kernels()
         )
         return [wrap_scalar_aggregate_kernel(k) for k in kernels]
+
+
+cdef class HashAggregateFunction(Function):
+    cdef:
+        const CHashAggregateFunction* func
+
+    cdef void init(self, const shared_ptr[CFunction]& sp_func) except *:
+        Function.init(self, sp_func)
+        self.func = <const CHashAggregateFunction*> sp_func.get()
+
+    @property
+    def kernels(self):
+        """
+        The kernels implementing this function.
+        """
+        cdef vector[const CHashAggregateKernel*] kernels = (
+            self.func.kernels()
+        )
+        return [wrap_hash_aggregate_kernel(k) for k in kernels]
 
 
 cdef class MetaFunction(Function):
@@ -622,6 +682,26 @@ cdef class _TrimOptions(FunctionOptions):
 class TrimOptions(_TrimOptions):
     def __init__(self, characters):
         self._set_options(characters)
+
+
+cdef class _ReplaceSubstringOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CReplaceSubstringOptions] replace_substring_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.replace_substring_options.get()
+
+    def _set_options(self, pattern, replacement, max_replacements):
+        self.replace_substring_options.reset(
+            new CReplaceSubstringOptions(tobytes(pattern),
+                                         tobytes(replacement),
+                                         max_replacements)
+        )
+
+
+class ReplaceSubstringOptions(_ReplaceSubstringOptions):
+    def __init__(self, pattern, replacement, max_replacements=-1):
+        self._set_options(pattern, replacement, max_replacements)
 
 
 cdef class _FilterOptions(FunctionOptions):

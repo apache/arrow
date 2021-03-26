@@ -33,7 +33,6 @@ namespace parquet {
 class ColumnReader;
 class FileMetaData;
 class PageReader;
-class RandomAccessSource;
 class RowGroupMetaData;
 
 class PARQUET_EXPORT RowGroupReader {
@@ -84,17 +83,6 @@ class PARQUET_EXPORT ParquetFileReader {
 
   ParquetFileReader();
   ~ParquetFileReader();
-
-  // Create a reader from some implementation of parquet-cpp's generic file
-  // input interface
-  //
-  // If you cannot provide exclusive access to your file resource, create a
-  // subclass of RandomAccessSource that wraps the shared resource
-  ARROW_DEPRECATED("Use arrow::io::RandomAccessFile version")
-  static std::unique_ptr<ParquetFileReader> Open(
-      std::unique_ptr<RandomAccessSource> source,
-      const ReaderProperties& props = default_reader_properties(),
-      std::shared_ptr<FileMetaData> metadata = NULLPTR);
 
   // Create a file reader instance from an Arrow file object. Thread-safety is
   // the responsibility of the file implementation

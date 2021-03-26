@@ -124,6 +124,11 @@ class ARROW_DS_EXPORT FileSource {
 /// \brief Base class for file format implementation
 class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileFormat> {
  public:
+  /// Options affecting how this format is scanned.
+  ///
+  /// The options here can be overridden at scan time.
+  std::shared_ptr<FragmentScanOptions> default_fragment_scan_options;
+
   virtual ~FileFormat() = default;
 
   /// \brief The name identifying the kind of file format

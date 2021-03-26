@@ -34,6 +34,7 @@ RUN \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     build-essential \
+    ccache \
     clang-11 \
     cmake \
     debhelper \

@@ -38,6 +38,23 @@ ArrowTabular <- R6Class("ArrowTabular", inherit = ArrowObject,
       }
       assert_that(is.Array(i, "bool"))
       call_function("filter", self, i, options = list(keep_na = keep_na))
+    },
+    SortIndices = function(names, descending = FALSE) {
+      assert_that(is.character(names))
+      assert_that(length(names) > 0)
+      assert_that(!any(is.na(names)))
+      if (length(descending) == 1L) {
+        descending <- rep_len(descending, length(names))
+      }
+      assert_that(is.logical(descending))
+      assert_that(identical(length(names), length(descending)))
+      assert_that(!any(is.na(descending)))
+      call_function(
+        "sort_indices",
+        self,
+        # cpp11 does not support logical vectors so convert to integer
+        options = list(names = names, orders = as.integer(descending))
+      )
     }
   )
 )

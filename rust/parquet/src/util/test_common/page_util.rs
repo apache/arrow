@@ -119,7 +119,7 @@ impl DataPageBuilder for DataPageBuilderImpl {
             values.len()
         );
         self.encoding = Some(encoding);
-        let mut encoder: Box<Encoder<T>> =
+        let mut encoder: Box<dyn Encoder<T>> =
             get_encoder::<T>(self.desc.clone(), encoding, self.mem_tracker.clone())
                 .expect("get_encoder() should be OK");
         encoder.put(values).expect("put() should be OK");
@@ -164,7 +164,7 @@ impl DataPageBuilder for DataPageBuilderImpl {
 
 /// A utility page reader which stores pages in memory.
 pub struct InMemoryPageReader {
-    pages: Box<Iterator<Item = Page>>,
+    pages: Box<dyn Iterator<Item = Page>>,
 }
 
 impl InMemoryPageReader {

@@ -82,7 +82,7 @@ impl<T: DataType> RecordReader<T> {
     }
 
     /// Set the current page reader.
-    pub fn set_page_reader(&mut self, page_reader: Box<PageReader>) -> Result<()> {
+    pub fn set_page_reader(&mut self, page_reader: Box<dyn PageReader>) -> Result<()> {
         self.column_reader =
             Some(ColumnReaderImpl::new(self.column_desc.clone(), page_reader));
         Ok(())
@@ -447,7 +447,7 @@ mod tests {
     use std::sync::Arc;
 
     struct TestPageReader {
-        pages: Box<Iterator<Item = Page>>,
+        pages: Box<dyn Iterator<Item = Page>>,
     }
 
     impl TestPageReader {

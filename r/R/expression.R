@@ -119,13 +119,15 @@ cast_array_expression <- function(x, to_type, safe = TRUE, ...) {
   "!" = "invert",
   "is.na" = "is_null",
   "is.nan" = "is_nan",
-  "nchar" = "binary_length",
+  # nchar is defined in dplyr.R because it is more complex
+  # "nchar" = "utf8_length",
   "tolower" = "utf8_lower",
   "toupper" = "utf8_upper",
   # stringr spellings of those
-  "str_length" = "binary_length",
+  "str_length" = "utf8_length",
   "str_to_lower" = "utf8_lower",
   "str_to_upper" = "utf8_upper"
+  # str_trim is defined in dplyr.R
 )
 
 .binary_function_map <- list(

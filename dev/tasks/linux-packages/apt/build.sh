@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # -*- sh-indentation: 2; sh-basic-offset: 2 -*-
 #
 # Licensed to the Apache Software Foundation (ASF) under one
@@ -45,10 +45,30 @@ case "${distribution}" in
 esac
 architecture=$(dpkg-architecture -q DEB_BUILD_ARCH)
 
-run mkdir -p build
+debuild_options=()
+dpkg_buildpackage_options=(-us -uc)
+
+run mkdir -p /build
+run cd /build
+find . -not -path ./ccache -a -not -path "./ccache/*" -delete
+if which ccache > /dev/null 2>&1; then
+  export CCACHE_COMPILERCHECK=content
+  export CCACHE_COMPRESS=1
+  export CCACHE_COMPRESSLEVEL=6
+  export CCACHE_DIR="${PWD}/ccache"
+  export CCACHE_MAXSIZE=500M
+  ccache --show-stats
+  debuild_options+=(-eCCACHE_COMPILERCHECK)
+  debuild_options+=(-eCCACHE_COMPRESS)
+  debuild_options+=(-eCCACHE_COMPRESSLEVEL)
+  debuild_options+=(-eCCACHE_DIR)
+  debuild_options+=(-eCCACHE_MAXSIZE)
+  if [ -d /usr/lib/ccache ] ;then
+    debuild_options+=(--prepend-path=/usr/lib/ccache)
+  fi
+fi
 run cp /host/tmp/${PACKAGE}-${VERSION}.tar.gz \
-  build/${PACKAGE}_${VERSION}.orig.tar.gz
-run cd build
+  ${PACKAGE}_${VERSION}.orig.tar.gz
 run tar xfz ${PACKAGE}_${VERSION}.orig.tar.gz
 case "${VERSION}" in
   *~dev*)
@@ -73,9 +93,12 @@ fi
 # DEB_BUILD_OPTIONS="${DEB_BUILD_OPTIONS} noopt"
 export DEB_BUILD_OPTIONS
 if [ "${DEBUG:-no}" = "yes" ]; then
-  run debuild -us -uc
+  run debuild "${debuild_options[@]}" "${dpkg_buildpackage_options[@]}"
 else
-  run debuild -us -uc > /dev/null
+  run debuild "${debuild_options[@]}" "${dpkg_buildpackage_options[@]}" > /dev/null
+fi
+if which ccache > /dev/null 2>&1; then
+  ccache --show-stats
 fi
 run cd -
 

@@ -41,6 +41,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/type_fwd.h"
 
 // NOTE: failing must be inline in the macros below, to get correct file / line number
 // reporting on test failures.
@@ -134,48 +135,8 @@
     ASSERT_EQ(expected, _actual);               \
   } while (0)
 
-// This macro should be called by futures that are expected to
-// complete pretty quickly.  2 seconds is the default max wait
-// here.  Anything longer than that and it's a questionable
-// unit test anyways.
-#define ASSERT_FINISHES_IMPL(fut)                            \
-  do {                                                       \
-    ASSERT_TRUE(fut.Wait(10));                               \
-    if (!fut.is_finished()) {                                \
-      FAIL() << "Future did not finish in a timely fashion"; \
-    }                                                        \
-  } while (false)
-
-#define ASSERT_FINISHES_OK(expr)                                              \
-  do {                                                                        \
-    auto&& _fut = (expr);                                                     \
-    ASSERT_TRUE(_fut.Wait(10));                                               \
-    if (!_fut.is_finished()) {                                                \
-      FAIL() << "Future did not finish in a timely fashion";                  \
-    }                                                                         \
-    auto _st = _fut.status();                                                 \
-    if (!_st.ok()) {                                                          \
-      FAIL() << "'" ARROW_STRINGIFY(expr) "' failed with " << _st.ToString(); \
-    }                                                                         \
-  } while (false)
-
-#define ASSERT_FINISHES_ERR(ENUM, expr) \
-  do {                                  \
-    auto&& fut = (expr);                \
-    ASSERT_FINISHES_IMPL(fut);          \
-    ASSERT_RAISES(ENUM, fut.status());  \
-  } while (false)
-
-#define ASSERT_FINISHES_OK_AND_ASSIGN_IMPL(lhs, rexpr, future_name) \
-  auto future_name = (rexpr);                                       \
-  ASSERT_FINISHES_IMPL(future_name);                                \
-  ASSERT_OK_AND_ASSIGN(lhs, future_name.result());
-
-#define ASSERT_FINISHES_OK_AND_ASSIGN(lhs, rexpr) \
-  ASSERT_FINISHES_OK_AND_ASSIGN_IMPL(lhs, rexpr,  \
-                                     ARROW_ASSIGN_OR_RAISE_NAME(_fut, __COUNTER__))
-
 namespace arrow {
+
 // ----------------------------------------------------------------------
 // Useful testing::Types declarations
 
@@ -212,10 +173,12 @@ std::vector<Type::type> AllTypeIds();
 
 // If verbose is true, then the arrays will be pretty printed
 ARROW_TESTING_EXPORT void AssertArraysEqual(const Array& expected, const Array& actual,
-                                            bool verbose = false);
-ARROW_TESTING_EXPORT void AssertArraysApproxEqual(
-    const Array& expected, const Array& actual, bool verbose = false,
-    const EqualOptions& option = EqualOptions::Defaults());
+                                            bool verbose = false,
+                                            const EqualOptions& options = {});
+ARROW_TESTING_EXPORT void AssertArraysApproxEqual(const Array& expected,
+                                                  const Array& actual,
+                                                  bool verbose = false,
+                                                  const EqualOptions& options = {});
 // Returns true when values are both null
 ARROW_TESTING_EXPORT void AssertScalarsEqual(
     const Scalar& expected, const Scalar& actual, bool verbose = false,
@@ -473,9 +436,23 @@ inline void BitmapFromVector(const std::vector<T>& is_valid,
 ARROW_TESTING_EXPORT
 void SleepFor(double seconds);
 
+// Sleeps for a very small amount of time.  The thread will be yielded
+// at least once ensuring that context switches could happen.  It is intended
+// to be used for stress testing parallel code and shouldn't be assumed to do any
+// reliable timing.
+ARROW_TESTING_EXPORT
+void SleepABit();
+
 // Wait until predicate is true or timeout in seconds expires.
 ARROW_TESTING_EXPORT
 void BusyWait(double seconds, std::function<bool()> predicate);
+
+ARROW_TESTING_EXPORT
+Future<> SleepAsync(double seconds);
+
+// \see SleepABit
+ARROW_TESTING_EXPORT
+Future<> SleepABitAsync();
 
 template <typename T>
 std::vector<T> IteratorToVector(Iterator<T> iterator) {

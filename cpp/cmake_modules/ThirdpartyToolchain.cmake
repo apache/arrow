@@ -405,6 +405,16 @@ else()
     )
 endif()
 
+if(DEFINED ENV{ARROW_BZIP2_URL})
+  set(ARROW_BZIP2_SOURCE_URL "$ENV{ARROW_BZIP2_URL}")
+else()
+  set_urls(
+    ARROW_BZIP2_SOURCE_URL
+    "https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
+    )
+endif()
+
 if(DEFINED ENV{ARROW_CARES_URL})
   set(CARES_SOURCE_URL "$ENV{ARROW_CARES_URL}")
 else()
@@ -571,6 +581,15 @@ else()
     )
 endif()
 
+if(DEFINED ENV{ARROW_UTF8PROC_URL})
+  set(ARROW_UTF8PROC_SOURCE_URL "$ENV{ARROW_UTF8PROC_URL}")
+else()
+  set_urls(
+    ARROW_UTF8PROC_SOURCE_URL
+    "https://github.com/JuliaStrings/utf8proc/archive/${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz"
+    )
+endif()
+
 if(DEFINED ENV{ARROW_XSIMD_URL})
   set(XSIMD_SOURCE_URL "$ENV{ARROW_XSIMD_URL}")
 else()
@@ -595,25 +614,6 @@ else()
     ZSTD_SOURCE_URL
     "https://github.com/facebook/zstd/archive/${ARROW_ZSTD_BUILD_VERSION}.tar.gz"
     "https://github.com/ursa-labs/thirdparty/releases/download/latest/zstd-${ARROW_ZSTD_BUILD_VERSION}.tar.gz"
-    )
-endif()
-
-if(DEFINED ENV{ARROW_BZIP2_SOURCE_URL})
-  set(ARROW_BZIP2_SOURCE_URL "$ENV{ARROW_BZIP2_SOURCE_URL}")
-else()
-  set_urls(
-    ARROW_BZIP2_SOURCE_URL
-    "https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
-    )
-endif()
-
-if(DEFINED ENV{ARROW_UTF8PROC_SOURCE_URL})
-  set(ARROW_UTF8PROC_SOURCE_URL "$ENV{ARROW_UTF8PROC_SOURCE_URL}")
-else()
-  set_urls(
-    ARROW_UTF8PROC_SOURCE_URL
-    "https://github.com/JuliaStrings/utf8proc/archive/${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz"
     )
 endif()
 
@@ -2371,30 +2371,30 @@ macro(build_grpc)
   set(ABSL_LIBRARIES)
 
   # Abseil libraries gRPC depends on
+  # Follows grpc++ package config template for link order of libraries
+  # https://github.com/grpc/grpc/blob/v1.35.0/CMakeLists.txt#L16361
   set(_ABSL_LIBS
-      bad_optional_access
-      base
-      cord
-      graphcycles_internal
-      int128
-      malloc_internal
-      raw_logging_internal
-      spinlock_wait
-      stacktrace
-      status
       statusor
+      status
+      cord
       str_format_internal
+      synchronization
+      graphcycles_internal
+      symbolize
+      demangle_internal
+      stacktrace
+      debugging_internal
+      malloc_internal
+      time
+      time_zone
       strings
       strings_internal
-      symbolize
-      # symbolize depends on debugging_internal
-      debugging_internal
-      # debugging_internal depends on demangle_internal
-      demangle_internal
-      synchronization
       throw_delegate
-      time
-      time_zone)
+      int128
+      base
+      spinlock_wait
+      bad_optional_access
+      raw_logging_internal)
 
   foreach(_ABSL_LIB ${_ABSL_LIBS})
     set(
@@ -2558,12 +2558,13 @@ macro(build_grpc)
   add_library(gRPC::grpc++ STATIC IMPORTED)
   set_target_properties(
     gRPC::grpc++
-    PROPERTIES IMPORTED_LOCATION
-               "${GRPC_STATIC_LIBRARY_GRPCPP}"
-               INTERFACE_LINK_LIBRARIES
-               "gRPC::grpc;gRPC::gpr;gRPC::upb;gRPC::address_sorting;${ABSL_LIBRARIES}"
-               INTERFACE_INCLUDE_DIRECTORIES
-               "${GRPC_INCLUDE_DIR}")
+    PROPERTIES
+      IMPORTED_LOCATION
+      "${GRPC_STATIC_LIBRARY_GRPCPP}"
+      INTERFACE_LINK_LIBRARIES
+      "gRPC::grpc;gRPC::gpr;gRPC::upb;gRPC::address_sorting;${ABSL_LIBRARIES};Threads::Threads"
+      INTERFACE_INCLUDE_DIRECTORIES
+      "${GRPC_INCLUDE_DIR}")
 
   add_executable(gRPC::grpc_cpp_plugin IMPORTED)
   set_target_properties(gRPC::grpc_cpp_plugin

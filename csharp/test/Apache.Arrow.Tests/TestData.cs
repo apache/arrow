@@ -48,8 +48,9 @@ namespace Apache.Arrow.Tests
                 builder.Field(CreateField(TimestampType.Default, i));
                 builder.Field(CreateField(StringType.Default, i));
                 builder.Field(CreateField(new StructType(new List<Field> { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }), i));
+                builder.Field(CreateField(new Decimal128Type(10, 6), i));
+                builder.Field(CreateField(new Decimal256Type(16, 8), i));
                 //builder.Field(CreateField(new FixedSizeBinaryType(16), i));
-                //builder.Field(CreateField(new DecimalType(19, 2)));
                 //builder.Field(CreateField(HalfFloatType.Default));
                 //builder.Field(CreateField(StringType.Default));
                 //builder.Field(CreateField(Time32Type.Default));
@@ -111,7 +112,9 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<StringType>,
             IArrowTypeVisitor<ListType>,
-            IArrowTypeVisitor<StructType>
+            IArrowTypeVisitor<StructType>,
+            IArrowTypeVisitor<Decimal128Type>,
+            IArrowTypeVisitor<Decimal256Type>
         {
             private int Length { get; }
             public IArrowArray Array { get; private set; }
@@ -132,6 +135,29 @@ namespace Apache.Arrow.Tests
             public void Visit(UInt64Type type) => GenerateArray(new UInt64Array.Builder(), x => (ulong)x);
             public void Visit(FloatType type) => GenerateArray(new FloatArray.Builder(), x => ((float)x / Length));
             public void Visit(DoubleType type) => GenerateArray(new DoubleArray.Builder(), x => ((double)x / Length));
+            public void Visit(Decimal128Type type)
+            {
+                var builder = new Decimal128Array.Builder(type).Reserve(Length);
+
+                for (var i = 0; i < Length; i++)
+                {
+                    builder.Append((decimal)i / Length);
+                }
+
+                Array = builder.Build();
+            }
+
+            public void Visit(Decimal256Type type)
+            {
+                var builder = new Decimal256Array.Builder(type).Reserve(Length);
+
+                for (var i = 0; i < Length; i++)
+                {
+                    builder.Append((decimal)i / Length);
+                }
+
+                Array = builder.Build();
+            }
 
             public void Visit(Date32Type type)
             {

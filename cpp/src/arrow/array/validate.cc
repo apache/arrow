@@ -527,6 +527,7 @@ struct ValidateArrayFullImpl {
       }
 
       // Check offsets are in bounds
+      std::vector<int64_t> last_child_offsets(256, 0);
       const int32_t* offsets = data.GetValues<int32_t>(2);
       for (int64_t i = 0; i < data.length; ++i) {
         const int32_t code = type_codes[i];
@@ -541,6 +542,11 @@ struct ValidateArrayFullImpl {
                                  "than child length (",
                                  offset, " >= ", child_lengths[code], ")");
         }
+        if (offset < last_child_offsets[code]) {
+          return Status::Invalid("Union value at position ", i,
+                                 " has non-monotonic offset ", offset);
+        }
+        last_child_offsets[code] = offset;
       }
     }
 

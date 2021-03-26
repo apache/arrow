@@ -131,13 +131,6 @@ class PrepareTest < Test::Unit::TestCase
     prepare("VERSION_PRE_TAG")
     assert_equal([
                    {
-                     path: "c_glib/configure.ac",
-                     hunks: [
-                       ["-m4_define([arrow_glib_version], #{@snapshot_version})",
-                        "+m4_define([arrow_glib_version], #{@release_version})"],
-                     ],
-                   },
-                   {
                      path: "c_glib/meson.build",
                      hunks: [
                        ["-version = '#{@snapshot_version}'",
@@ -383,13 +376,6 @@ class PrepareTest < Test::Unit::TestCase
               "VERSION_POST_TAG")
     end
     assert_equal([
-                   {
-                     path: "c_glib/configure.ac",
-                     hunks: [
-                       ["-m4_define([arrow_glib_version], #{@release_version})",
-                        "+m4_define([arrow_glib_version], #{@next_snapshot_version})"],
-                     ],
-                   },
                    {
                      path: "c_glib/meson.build",
                      hunks: [

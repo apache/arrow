@@ -48,7 +48,7 @@ fn create_context() -> Result<ExecutionContext> {
 
     // declare a table in memory. In spark API, this corresponds to createDataFrame(...).
     let provider = MemTable::try_new(schema, vec![vec![batch1], vec![batch2]])?;
-    ctx.register_table("t", Arc::new(provider));
+    ctx.register_table("t", Arc::new(provider))?;
     Ok(ctx)
 }
 
@@ -148,7 +148,7 @@ async fn main() -> Result<()> {
     let df = ctx.table("t")?;
 
     // perform the aggregation
-    let df = df.aggregate(&[], &[geometric_mean.call(vec![col("a")])])?;
+    let df = df.aggregate(vec![], vec![geometric_mean.call(vec![col("a")])])?;
 
     // note that "a" is f32, not f64. DataFusion coerces it to match the UDAF's signature.
 

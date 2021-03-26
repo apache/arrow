@@ -28,9 +28,13 @@
 #include "arrow/json/test_common.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace json {
 
 using util::string_view;
@@ -46,7 +50,7 @@ void AssertUnconvertedArraysEqual(const Array& expected, const Array& actual) {
     case Type::DICTIONARY: {
       ASSERT_EQ(expected.type_id(), Type::STRING);
       std::shared_ptr<Array> actual_decoded;
-      ASSERT_OK(DecodeStringDictionary(static_cast<const DictionaryArray&>(actual),
+      ASSERT_OK(DecodeStringDictionary(checked_cast<const DictionaryArray&>(actual),
                                        &actual_decoded));
       return AssertArraysEqual(expected, *actual_decoded);
     }
@@ -59,14 +63,15 @@ void AssertUnconvertedArraysEqual(const Array& expected, const Array& actual) {
       const auto& expected_offsets = expected.data()->buffers[1];
       const auto& actual_offsets = actual.data()->buffers[1];
       AssertBufferEqual(*expected_offsets, *actual_offsets);
-      auto expected_values = static_cast<const ListArray&>(expected).values();
-      auto actual_values = static_cast<const ListArray&>(actual).values();
+      auto expected_values = checked_cast<const ListArray&>(expected).values();
+      auto actual_values = checked_cast<const ListArray&>(actual).values();
       return AssertUnconvertedArraysEqual(*expected_values, *actual_values);
     }
     case Type::STRUCT:
       ASSERT_EQ(expected.type_id(), Type::STRUCT);
-      return AssertUnconvertedStructArraysEqual(static_cast<const StructArray&>(expected),
-                                                static_cast<const StructArray&>(actual));
+      return AssertUnconvertedStructArraysEqual(
+          checked_cast<const StructArray&>(expected),
+          checked_cast<const StructArray&>(actual));
     default:
       FAIL();
   }

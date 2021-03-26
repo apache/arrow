@@ -33,6 +33,7 @@
 #include "arrow/buffer_builder.h"
 #include "arrow/type.h"
 #include "arrow/util/bitset_stack.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/util/string_view.h"
@@ -431,7 +432,7 @@ class RawBuilderSet {
 
       case Kind::kArray: {
         RETURN_NOT_OK(MakeBuilder<Kind::kArray>(leading_nulls, builder));
-        const auto& list_type = static_cast<const ListType&>(t);
+        const auto& list_type = checked_cast<const ListType&>(t);
 
         BuilderPtr value_builder;
         RETURN_NOT_OK(MakeBuilder(*list_type.value_type(), 0, &value_builder));
@@ -442,7 +443,7 @@ class RawBuilderSet {
       }
       case Kind::kObject: {
         RETURN_NOT_OK(MakeBuilder<Kind::kObject>(leading_nulls, builder));
-        const auto& struct_type = static_cast<const StructType&>(t);
+        const auto& struct_type = checked_cast<const StructType&>(t);
 
         for (const auto& f : struct_type.fields()) {
           BuilderPtr field_builder;

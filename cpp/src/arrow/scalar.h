@@ -69,14 +69,14 @@ struct ARROW_EXPORT Scalar : public util::EqualityComparable<Scalar> {
                     const EqualOptions& options = EqualOptions::Defaults()) const;
 
   struct ARROW_EXPORT Hash {
-    size_t operator()(const Scalar& scalar) const { return hash(scalar); }
+    size_t operator()(const Scalar& scalar) const { return scalar.hash(); }
 
     size_t operator()(const std::shared_ptr<Scalar>& scalar) const {
-      return hash(*scalar);
+      return scalar->hash();
     }
-
-    static size_t hash(const Scalar& scalar);
   };
+
+  size_t hash() const;
 
   std::string ToString() const;
 

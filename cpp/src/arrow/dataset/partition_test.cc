@@ -138,9 +138,13 @@ class TestPartitioning : public ::testing::Test {
 };
 
 TEST_F(TestPartitioning, Partition) {
+  auto dataset_schema =
+      schema({field("a", int32()), field("b", utf8()), field("c", uint32())});
+
   auto partition_schema = schema({field("a", int32()), field("b", utf8())});
-  auto schema_ = schema({field("a", int32()), field("b", utf8()), field("c", uint32())});
-  auto remaining_schema = schema({field("c", uint32())});
+
+  auto physical_schema = schema({field("c", uint32())});
+
   auto partitioning = std::make_shared<DirectoryPartitioning>(partition_schema);
   std::string json = R"([{"a": 3,    "b": "x",  "c": 0},
                          {"a": 3,    "b": "x",  "c": 1},
@@ -149,15 +153,22 @@ TEST_F(TestPartitioning, Partition) {
                          {"a": null, "b": "z",  "c": 4},
                          {"a": null, "b": null, "c": 5}
                        ])";
-  std::vector<std::string> expected_batches = {R"([{"c": 0}, {"c": 1}])", R"([{"c": 2}])",
-                                               R"([{"c": 3}, {"c": 5}])",
-                                               R"([{"c": 4}])"};
+
+  std::vector<std::string> expected_batches = {
+      R"([{"c": 0}, {"c": 1}])",
+      R"([{"c": 2}])",
+      R"([{"c": 3}, {"c": 5}])",
+      R"([{"c": 4}])",
+  };
+
   std::vector<Expression> expected_expressions = {
       and_(equal(field_ref("a"), literal(3)), equal(field_ref("b"), literal("x"))),
       and_(equal(field_ref("a"), literal(1)), is_null(field_ref("b"))),
       and_(is_null(field_ref("a")), is_null(field_ref("b"))),
-      and_(is_null(field_ref("a")), equal(field_ref("b"), literal("z")))};
-  AssertPartition(partitioning, schema_, json, remaining_schema, expected_batches,
+      and_(is_null(field_ref("a")), equal(field_ref("b"), literal("z"))),
+  };
+
+  AssertPartition(partitioning, dataset_schema, json, physical_schema, expected_batches,
                   expected_expressions);
 }
 
@@ -711,133 +722,6 @@ TEST(TestStripPrefixAndFilename, Basic) {
   EXPECT_THAT(StripPrefixAndFilename(input, "/data"),
               testing::ElementsAre("year=2019", "year=2019/month=12",
                                    "year=2019/month=12/day=01"));
-}
-
-void AssertGrouping(const FieldVector& by_fields, const std::string& batch_json,
-                    const std::string& expected_json) {
-  FieldVector fields_with_ids = by_fields;
-  fields_with_ids.push_back(field("ids", list(int32())));
-  auto expected = ArrayFromJSON(struct_(fields_with_ids), expected_json);
-
-  FieldVector fields_with_id = by_fields;
-  fields_with_id.push_back(field("id", int32()));
-  auto batch = RecordBatchFromJSON(schema(fields_with_id), batch_json);
-
-  ASSERT_OK_AND_ASSIGN(auto by, batch->RemoveColumn(batch->num_columns() - 1)
-                                    .Map([](std::shared_ptr<RecordBatch> by) {
-                                      return by->ToStructArray();
-                                    }));
-
-  ASSERT_OK_AND_ASSIGN(auto groupings_and_values, MakeGroupings(*by));
-  ASSERT_OK(groupings_and_values->ValidateFull());
-
-  auto groupings =
-      checked_pointer_cast<ListArray>(groupings_and_values->GetFieldByName("groupings"));
-
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> grouped_ids,
-                       ApplyGroupings(*groupings, *batch->GetColumnByName("id")));
-  ASSERT_OK(grouped_ids->ValidateFull());
-
-  ArrayVector columns =
-      checked_cast<const StructArray&>(*groupings_and_values->GetFieldByName("values"))
-          .fields();
-  columns.push_back(grouped_ids);
-
-  ASSERT_OK_AND_ASSIGN(auto actual, StructArray::Make(columns, fields_with_ids));
-  ASSERT_OK(actual->ValidateFull());
-
-  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
-}
-
-TEST(GroupTest, Basics) {
-  AssertGrouping({field("a", utf8()), field("b", int32())}, R"([
-    {"a": "ex",  "b": 0, "id": 0},
-    {"a": "ex",  "b": 0, "id": 1},
-    {"a": "why", "b": 0, "id": 2},
-    {"a": "ex",  "b": 1, "id": 3},
-    {"a": "why", "b": 0, "id": 4},
-    {"a": "ex",  "b": 1, "id": 5},
-    {"a": "ex",  "b": 0, "id": 6},
-    {"a": "why", "b": 1, "id": 7}
-  ])",
-                 R"([
-    {"a": "ex",  "b": 0, "ids": [0, 1, 6]},
-    {"a": "why", "b": 0, "ids": [2, 4]},
-    {"a": "ex",  "b": 1, "ids": [3, 5]},
-    {"a": "why", "b": 1, "ids": [7]}
-  ])");
-}
-
-TEST(GroupTest, WithNulls) {
-  AssertGrouping({field("a", utf8()), field("b", int32())},
-                 R"([
-                   {"a": "ex",  "b": 0,    "id": 0},
-                   {"a": null,  "b": 0,    "id": 1},
-                   {"a": null,  "b": 0,    "id": 2},
-                   {"a": "ex",  "b": 1,    "id": 3},
-                   {"a": null,  "b": null, "id": 4},
-                   {"a": "ex",  "b": 1,    "id": 5},
-                   {"a": "ex",  "b": 0,    "id": 6},
-                   {"a": "why", "b": null, "id": 7}
-                 ])",
-                 R"([
-                   {"a": "ex", "b": 0, "ids": [0, 6]},
-                   {"a": null, "b": 0, "ids": [1, 2]},
-                   {"a": "ex", "b": 1, "ids": [3, 5]},
-                   {"a": null, "b": null, "ids": [4]},
-                   {"a": "why", "b": null, "ids": [7]}
-  ])");
-
-  AssertGrouping({field("a", dictionary(int32(), utf8())), field("b", int32())},
-                 R"([
-                   {"a": "ex",  "b": 0,    "id": 0},
-                   {"a": null,  "b": 0,    "id": 1},
-                   {"a": null,  "b": 0,    "id": 2},
-                   {"a": "ex",  "b": 1,    "id": 3},
-                   {"a": null,  "b": null, "id": 4},
-                   {"a": "ex",  "b": 1,    "id": 5},
-                   {"a": "ex",  "b": 0,    "id": 6},
-                   {"a": "why", "b": null, "id": 7}
-                 ])",
-                 R"([
-                   {"a": "ex", "b": 0, "ids": [0, 6]},
-                   {"a": null, "b": 0, "ids": [1, 2]},
-                   {"a": "ex", "b": 1, "ids": [3, 5]},
-                   {"a": null, "b": null, "ids": [4]},
-                   {"a": "why", "b": null, "ids": [7]}
-  ])");
-
-  auto has_nulls = checked_pointer_cast<StructArray>(
-      ArrayFromJSON(struct_({field("a", utf8()), field("b", int32())}), R"([
-    {"a": "ex",  "b": 0},
-    null,
-    {"a": "why", "b": 0},
-    {"a": "ex",  "b": 1},
-    {"a": "why", "b": 0},
-    {"a": "ex",  "b": 1},
-    {"a": "ex",  "b": 0},
-    null
-  ])"));
-  ASSERT_RAISES(Invalid, MakeGroupings(*has_nulls));
-}
-
-TEST(GroupTest, GroupOnDictionary) {
-  AssertGrouping({field("a", dictionary(int32(), utf8())), field("b", int32())}, R"([
-    {"a": "ex",  "b": 0, "id": 0},
-    {"a": "ex",  "b": 0, "id": 1},
-    {"a": "why", "b": 0, "id": 2},
-    {"a": "ex",  "b": 1, "id": 3},
-    {"a": "why", "b": 0, "id": 4},
-    {"a": "ex",  "b": 1, "id": 5},
-    {"a": "ex",  "b": 0, "id": 6},
-    {"a": "why", "b": 1, "id": 7}
-  ])",
-                 R"([
-    {"a": "ex",  "b": 0, "ids": [0, 1, 6]},
-    {"a": "why", "b": 0, "ids": [2, 4]},
-    {"a": "ex",  "b": 1, "ids": [3, 5]},
-    {"a": "why", "b": 1, "ids": [7]}
-  ])");
 }
 
 }  // namespace dataset
