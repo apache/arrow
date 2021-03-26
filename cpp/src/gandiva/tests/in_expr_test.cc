@@ -106,8 +106,7 @@ TEST_F(TestIn, TestInDecimal) {
   gandiva::DecimalScalar128 d1("12", precision, scale);
   gandiva::DecimalScalar128 d2("11", precision, scale);
   std::unordered_set<gandiva::DecimalScalar128> in_constants({d0, d1, d2});
-  auto in_expr =
-      TreeExprBuilder::MakeInExpressionDecimal(node_f0, in_constants);
+  auto in_expr = TreeExprBuilder::MakeInExpressionDecimal(node_f0, in_constants);
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
   std::shared_ptr<Filter> filter;
