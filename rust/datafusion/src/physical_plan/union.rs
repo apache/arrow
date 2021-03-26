@@ -25,7 +25,7 @@ use std::{any::Any, sync::Arc};
 
 use arrow::datatypes::SchemaRef;
 
-use super::{ExecutionPlan, Partitioning, SendableRecordBatchStream};
+use super::{ExecutionPlan, Partitioning, PhysicalExpr, SendableRecordBatchStream};
 use crate::error::Result;
 use async_trait::async_trait;
 
@@ -60,15 +60,21 @@ impl ExecutionPlan for UnionExec {
 
     /// Output of the union is the combination of all output partitions of the inputs
     fn output_partitioning(&self) -> Partitioning {
-        // Sums all the output partitions
-        let num_partitions = self
-            .inputs
-            .iter()
-            .map(|plan| plan.output_partitioning().partition_count())
-            .sum();
-        // TODO: this loses partitioning info in case of same partitioning scheme (for example `Partitioning::Hash`)
-        // https://issues.apache.org/jira/browse/ARROW-11991
-        Partitioning::UnknownPartitioning(num_partitions)
+        let intial: std::result::Result<(Vec<Arc<dyn PhysicalExpr>>, usize), usize> =
+            Ok((vec![], 0));
+        let input = self.inputs.iter().fold(intial, |acc, plan| {
+            match (acc, plan.output_partitioning()) {
+                (Ok((mut v, s)), Partitioning::Hash(vp, sp)) => {
+                    v.append(&mut vp.clone());
+                    Ok((v, s + sp))
+                }
+                (Ok((_, s)), p) | (Err(s), p) => Err(s + p.partition_count()),
+            }
+        });
+        match input {
+            Ok((v, s)) => Partitioning::Hash(v, s),
+            Err(s) => Partitioning::UnknownPartitioning(s),
+        }
     }
 
     fn with_new_children(
