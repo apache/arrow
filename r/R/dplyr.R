@@ -331,6 +331,23 @@ build_function_list <- function(FUN) {
     # Include mappings from R function name spellings
     lapply(set_names(names(.array_function_map)), wrapper),
     # Plus some special handling where it's not 1:1
+    nchar = function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
+      if (allowNA) {
+        stop("allowNA = TRUE not supported for Arrow", call. = FALSE)
+      }
+      if (is.na(keepNA)) {
+        keepNA <- !identical(type, "width")
+      }
+      if (!keepNA) {
+        # TODO: I think there is a fill_null kernel we could use, set null to 2
+        stop("keepNA = TRUE not supported for Arrow", call. = FALSE)
+      }
+      if (identical(type, "bytes")) {
+        FUN("binary_length", x)
+      } else {
+        FUN("utf8_length", x)
+      }
+    },
     str_trim = function(string, side = c("both", "left", "right")) {
       side <- match.arg(side)
       switch(

@@ -93,9 +93,9 @@ test_that("empty transmute()", {
 test_that("mutate and refer to previous mutants", {
   expect_dplyr_equal(
     input %>%
-      select(int, padded_strings) %>%
+      select(int, verses) %>%
       mutate(
-        line_lengths = nchar(padded_strings),
+        line_lengths = nchar(verses),
         longer = line_lengths * 10
       ) %>%
       filter(line_lengths > 15) %>%
@@ -104,12 +104,40 @@ test_that("mutate and refer to previous mutants", {
   )
 })
 
+test_that("nchar() arguments", {
+  expect_dplyr_equal(
+    input %>%
+      select(int, verses) %>%
+      mutate(
+        line_lengths = nchar(verses, type = "bytes"),
+        longer = line_lengths * 10
+      ) %>%
+      filter(line_lengths > 15) %>%
+      collect(),
+    tbl
+  )
+  expect_warning(
+    expect_dplyr_equal(
+      input %>%
+        select(int, verses) %>%
+        mutate(
+          line_lengths = nchar(verses, type = "bytes", allowNA = TRUE),
+          longer = line_lengths * 10
+        ) %>%
+        filter(line_lengths > 15) %>%
+        collect(),
+      tbl
+    ),
+    "not supported"
+  )
+})
+
 test_that("mutate with .data pronoun", {
   expect_dplyr_equal(
     input %>%
-      select(int, padded_strings) %>%
+      select(int, verses) %>%
       mutate(
-        line_lengths = nchar(padded_strings),
+        line_lengths = str_length(verses),
         longer = .data$line_lengths * 10
       ) %>%
       filter(line_lengths > 15) %>%
