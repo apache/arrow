@@ -46,7 +46,13 @@ arrow_dplyr_query <- function(.data) {
       # drop_empty_groups is a logical value indicating whether to drop
       # groups formed by factor levels that don't appear in the data. It
       # should be non-null only when the data is grouped.
-      drop_empty_groups = NULL
+      drop_empty_groups = NULL,
+      # arrange_vars will be a list of expressions named by their associated
+      # column names
+      arrange_vars = list(),
+      # arrange_desc will be a logical vector indicating the sort order for each
+      # expression in arrange_vars (FALSE for ascending, TRUE for descending)
+      arrange_desc = logical()
     ),
     class = "arrow_dplyr_query"
   )
@@ -79,6 +85,25 @@ print.arrow_dplyr_query <- function(x, ...) {
   }
   if (length(x$group_by_vars)) {
     cat("* Grouped by ", paste(x$group_by_vars, collapse = ", "), "\n", sep = "")
+  }
+  if (length(x$arrange_vars)) {
+    if (query_on_dataset(x)) {
+      arrange_strings <- map_chr(x$arrange_vars, function(x) x$ToString())
+    } else {
+      arrange_strings <- map_chr(x$arrange_vars, .format_array_expression)
+    }
+    cat(
+      "* Sorted by ",
+      paste(
+        paste0(
+          arrange_strings,
+          " [", ifelse(x$arrange_desc, "desc", "asc"), "]"
+        ),
+        collapse = ", "
+      ),
+      "\n",
+      sep = ""
+    )
   }
   cat("See $.data for the source Arrow object\n")
   invisible(x)
@@ -378,6 +403,7 @@ set_filters <- function(.data, expressions) {
 
 collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
   x <- ensure_group_vars(x)
+  x <- ensure_arrange_vars(x) # this sets x$temp_columns
   # Pull only the selected rows and cols into R
   if (query_on_dataset(x)) {
     # See dataset.R for Dataset and Scanner(Builder) classes
@@ -391,10 +417,14 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
     } else {
       filter <- eval_array_expression(x$filtered_rows, x$.data)
     }
-    # TODO: shortcut if identical(names(x$.data), find_array_refs(x$selected_columns))?
-    tab <- x$.data[filter, find_array_refs(x$selected_columns), keep_na = FALSE]
+    # TODO: shortcut if identical(names(x$.data), find_array_refs(c(x$selected_columns, x$temp_columns)))?
+    tab <- x$.data[
+      filter,
+      find_array_refs(c(x$selected_columns, x$temp_columns)),
+      keep_na = FALSE
+    ]
     # Now evaluate those expressions on the filtered table
-    cols <- lapply(x$selected_columns, eval_array_expression, data = tab)
+    cols <- lapply(c(x$selected_columns, x$temp_columns), eval_array_expression, data = tab)
     if (length(cols) == 0) {
       tab <- tab[, integer(0)]
     } else {
@@ -404,6 +434,14 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
         tab <- RecordBatch$create(!!!cols)
       }
     }
+  }
+  # Arrange rows
+  if (length(x$arrange_vars) > 0) {
+    tab <- tab[
+      tab$SortIndices(names(x$arrange_vars), x$arrange_desc),
+      names(x$selected_columns), # this omits x$temp_columns from the result
+      drop = FALSE
+    ]
   }
   if (as_data_frame) {
     df <- as.data.frame(tab)
@@ -429,6 +467,20 @@ ensure_group_vars <- function(x) {
       )
     }
   }
+  x
+}
+
+ensure_arrange_vars <- function(x) {
+  # The arrange() operation is not performed until later, because:
+  # - It must be performed after mutate(), to enable sorting by new columns.
+  # - It should be performed after filter() and select(), for efficiency.
+  # However, we need users to be able to arrange() by columns and expressions
+  # that are *not* returned in the query result. To enable this, we must
+  # *temporarily* include these columns and expressions in the projection. We
+  # use x$temp_columns to store these. Later, after the arrange() operation has
+  # been performed, these are omitted from the result. This differs from the
+  # columns in x$group_by_vars which *are* returned in the result.
+  x$temp_columns <- x$arrange_vars[!names(x$arrange_vars) %in% names(x$selected_columns)]
   x
 }
 
@@ -689,16 +741,79 @@ abandon_ship <- function(call, .data, msg = NULL) {
   eval.parent(call, 2)
 }
 
-arrange.arrow_dplyr_query <- function(.data, ...) {
-  .data <- arrow_dplyr_query(.data)
-  if (query_on_dataset(.data)) {
-    not_implemented_for_dataset("arrange()")
-  }
-  # TODO(ARROW-11703) move this to Arrow
+arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
   call <- match.call()
-  abandon_ship(call, .data)
+  exprs <- quos(...)
+  if (.by_group) {
+    # when the data is is grouped and .by_group is TRUE, order the result by
+    # the grouping columns first
+    exprs <- c(quos(!!!dplyr::groups(.data)), exprs)
+  }
+  if (length(exprs) == 0) {
+    # Nothing to do
+    return(.data)
+  }
+  .data <- arrow_dplyr_query(.data)
+  # find and remove any dplyr::desc() and tidy-eval
+  # the arrange expressions inside an Arrow data_mask
+  sorts <- vector("list", length(exprs))
+  descs <- logical(0)
+  mask <- arrow_mask(.data)
+  for (i in seq_along(exprs)) {
+    x <- find_and_remove_desc(exprs[[i]])
+    exprs[[i]] <- x[["quos"]]
+    sorts[[i]] <- arrow_eval(exprs[[i]], mask)
+    if (inherits(sorts[[i]], "try-error")) {
+      msg <- paste('Expression', as_label(exprs[[i]]), 'not supported in Arrow')
+      return(abandon_ship(call, .data, msg))
+    }
+    names(sorts)[i] <- as_label(exprs[[i]])
+    descs[i] <- x[["desc"]]
+  }
+  .data$arrange_vars <- c(sorts, .data$arrange_vars)
+  .data$arrange_desc <- c(descs, .data$arrange_desc)
+  .data
 }
 arrange.Dataset <- arrange.ArrowTabular <- arrange.arrow_dplyr_query
+
+# Helper to handle desc() in arrange()
+# * Takes a quosure as input
+# * Returns a list with two elements:
+#   1. The quosure with any wrapping parentheses and desc() removed
+#   2. A logical value indicating whether desc() was found
+# * Performs some other validation
+find_and_remove_desc <- function(quosure) {
+  expr <- quo_get_expr(quosure)
+  descending <- FALSE
+  if (length(all.vars(expr)) < 1L) {
+    stop(
+      "Expression in arrange() does not contain any field names: ",
+      deparse(expr),
+      call. = FALSE
+    )
+  }
+  # Use a while loop to remove any number of nested pairs of enclosing
+  # parentheses and any number of nested desc() calls. In the case of multiple
+  # nested desc() calls, each one toggles the sort order.
+  while (identical(typeof(expr), "language") && is.call(expr)) {
+    if (identical(expr[[1]], quote(`(`))) {
+      # remove enclosing parentheses
+      expr <- expr[[2]]
+    } else if (identical(expr[[1]], quote(desc))) {
+      # remove desc() and toggle descending
+      expr <- expr[[2]]
+      descending <- !descending
+    } else {
+      break
+    }
+  }
+  return(
+    list(
+      quos = quo_set_expr(quosure, expr),
+      desc = descending
+    )
+  )
+}
 
 query_on_dataset <- function(x) inherits(x$.data, "Dataset")
 

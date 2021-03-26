@@ -30,6 +30,10 @@ MAX_INT <- 2147483647L
 
 # Make sure this is unset
 Sys.setenv(ARROW_PRE_0_15_IPC_FORMAT = "")
+
+# use the C locale for string collation (ARROW-12046)
+Sys.setlocale("LC_COLLATE", "C")
+
 # Set English language so that error messages aren't internationalized
 # (R CMD check does this, but in case you're running outside of check)
 Sys.setenv(LANGUAGE = "en")

@@ -144,6 +144,33 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return out;
   }
 
+  if (func_name == "array_sort_indices") {
+    using Order = arrow::compute::SortOrder;
+    using Options = arrow::compute::ArraySortOptions;
+    // false means descending, true means ascending
+    auto order = cpp11::as_cpp<bool>(options["order"]);
+    auto out =
+        std::make_shared<Options>(Options(order ? Order::Descending : Order::Ascending));
+    return out;
+  }
+
+  if (func_name == "sort_indices") {
+    using Key = arrow::compute::SortKey;
+    using Order = arrow::compute::SortOrder;
+    using Options = arrow::compute::SortOptions;
+    auto names = cpp11::as_cpp<std::vector<std::string>>(options["names"]);
+    // false means descending, true means ascending
+    // cpp11 does not support bool here so use int
+    auto orders = cpp11::as_cpp<std::vector<int>>(options["orders"]);
+    std::vector<Key> keys;
+    for (size_t i = 0; i < names.size(); i++) {
+      keys.push_back(
+          Key(names[i], (orders[i] > 0) ? Order::Descending : Order::Ascending));
+    }
+    auto out = std::make_shared<Options>(Options(keys));
+    return out;
+  }
+
   if (func_name == "min_max") {
     using Options = arrow::compute::MinMaxOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
