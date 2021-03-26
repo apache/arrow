@@ -28,11 +28,11 @@ namespace gandiva {
 template <class Key, class Value>
 class BaseCache {
  public:
-  explicit BaseCache<Key, Value>(size_t capacity) : cache_capacity_(capacity) {};
+  explicit BaseCache<Key, Value>(size_t capacity) : cache_capacity_(capacity) {}
 
   BaseCache<Key, Value>() = default;
 
-  virtual size_t size() const { return  this->cache_capacity_; };
+  virtual size_t size() const { return  this->cache_capacity_; }
 
   virtual size_t capacity() const = 0;
 
@@ -47,9 +47,9 @@ class BaseCache {
   virtual void clear() = 0;
 
  private:
-  void evict() {};
+  void evict() {}
 
  protected:
   size_t cache_capacity_{};
- };
+};
 }  // namespace gandiva

@@ -21,7 +21,7 @@
 #include <unordered_map>
 #include <utility>
 
-#include "base_cache.h"
+#include "gandiva/base_cache.h"
 #include "arrow/util/optional.h"
 
 // modified from boost LRU cache -> the boost cache supported only an
@@ -43,7 +43,7 @@ class LruCache : public BaseCache<Key, Value> {
 
   explicit LruCache(size_t capacity) : BaseCache<Key, Value>(capacity) {}
 
-  LruCache<Key, Value>() : BaseCache<Key, Value>() {};
+  LruCache<Key, Value>() : BaseCache<Key, Value>() {}
 
   size_t size() const override { return map_.size(); }
 

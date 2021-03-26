@@ -63,6 +63,7 @@ class Cache {
     (*cache_).insert(cache_key, module, value_to_order);
     mtx_.unlock();
   }
+
  private:
   BaseCache<KeyType, ValueType>* cache_;
   std::mutex mtx_;

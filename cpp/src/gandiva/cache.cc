@@ -55,8 +55,8 @@ int GetCacheTypeToUse() {
   } else {
     cache_type = DEFAULT_CACHE_TO_USE;
   }
-   return cache_type;
- }
+  return cache_type;
+}
 
 void LogCacheSize(size_t capacity) {
   ARROW_LOG(INFO) << "Creating gandiva cache with capacity: " << capacity;

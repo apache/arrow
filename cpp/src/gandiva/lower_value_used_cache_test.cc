@@ -31,7 +31,7 @@ class TestCacheKey {
   bool operator==(const TestCacheKey& other) const { return tmp_ == other.tmp_; }
   bool operator<(const TestCacheKey& other) const {
     return tmp_ < other.tmp_;
-  };
+  }
 
  private:
   int tmp_;
@@ -39,10 +39,10 @@ class TestCacheKey {
 
 class TestLowerValueUsedCache : public ::testing::Test {
  public:
- TestLowerValueUsedCache() : cache_(2) {}
+  TestLowerValueUsedCache() : cache_(2) {}
 
  protected:
- LowerValueUsedCache<TestCacheKey, std::string> cache_;
+  LowerValueUsedCache<TestCacheKey, std::string> cache_;
 };
 
 TEST_F(TestLowerValueUsedCache, TestEvict) {

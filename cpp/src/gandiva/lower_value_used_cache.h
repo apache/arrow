@@ -22,7 +22,7 @@
 #include <utility>
 #include <set>
 
-#include "base_cache.h"
+#include "gandiva/base_cache.h"
 #include "arrow/util/optional.h"
 
 // modified cache to support evict policy of lower value used.
@@ -32,18 +32,18 @@ template <class Key, class Value>
 class LowerValueUsedCache : public BaseCache<Key, Value>{
  public:
   struct hasher {
-   template <typename I>
-   std::size_t operator()(const I& i) const {
-     return i.Hash();
-   }
+    template <typename I>
+    std::size_t operator()(const I& i) const {
+      return i.Hash();
+    }
   };
   using map_type =
-  std::unordered_map<Key, std::pair<Value, typename std::set<std::pair<u_long, Key>> ::iterator>,
-      hasher>;
+  std::unordered_map<Key,
+  std::pair<Value, typename std::set<std::pair<u_long, Key>> ::iterator>, hasher>;
 
   explicit LowerValueUsedCache(size_t capacity) : BaseCache<Key, Value>(capacity) {}
 
-  LowerValueUsedCache<Key, Value>() : BaseCache<Key, Value>() {};
+  LowerValueUsedCache<Key, Value>() : BaseCache<Key, Value>() {}
 
   size_t size() const override { return map_.size(); }
 
@@ -53,7 +53,7 @@ class LowerValueUsedCache : public BaseCache<Key, Value>{
 
   bool contains(const Key& key) override { return map_.find(key) != map_.end(); }
 
-  void insert(const Key& key, const Value& value, const u_long value_to_order) override{
+  void insert(const Key& key, const Value& value, const u_long value_to_order) override {
     typename map_type::iterator i = map_.find(key);
     if (i == map_.end()) {
       // insert item into the cache, but first check if it is full
@@ -98,5 +98,5 @@ class LowerValueUsedCache : public BaseCache<Key, Value>{
  private:
   map_type map_;
   std::set<std::pair<u_long, Key>> lvu_set_;
- };
+};
 }  // namespace gandiva
