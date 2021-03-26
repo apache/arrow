@@ -2608,6 +2608,7 @@ async fn invalid_qualified_table_references() -> Result<()> {
     Ok(())
 }
 
+#[tokio::test]
 #[cfg(feature = "regex_expressions")]
 async fn query_regexp_match() -> Result<()> {
     let schema = Arc::new(Schema::new(vec![Field::new("c1", DataType::Utf8, false)]));
@@ -2620,7 +2621,7 @@ async fn query_regexp_match() -> Result<()> {
     let table = MemTable::try_new(schema, vec![vec![data]])?;
 
     let mut ctx = ExecutionContext::new();
-    ctx.register_table("test", Arc::new(table));
+    ctx.register_table("test", Arc::new(table))?;
     let sql = r"SELECT regexp_match(c1, '.*-(\d)') FROM test";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![vec!["[0]"], vec!["[1]"], vec!["[]"]];
