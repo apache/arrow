@@ -1935,7 +1935,7 @@ macro(build_xsimd)
 endmacro()
 
 # For now xsimd is always bundled from upstream
-if(1)
+if(NOT ARROW_SIMD_LEVEL STREQUAL "NONE")
   set(xsimd_SOURCE "BUNDLED")
   resolve_dependency(xsimd)
   # TODO: Don't use global includes but rather target_include_directories
