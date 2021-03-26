@@ -2155,6 +2155,9 @@ public class ProjectorTest extends BaseEvaluatorTest {
             999999.9999,
             10000000.0,
             23943410000000.343434,
+            Double.POSITIVE_INFINITY,
+            Double.NEGATIVE_INFINITY,
+            Double.NaN,
             23.45,
             23.45,
             -23.45,
@@ -2162,16 +2165,19 @@ public class ProjectorTest extends BaseEvaluatorTest {
     long[] lenValues =
         new long[] {
             6L, 6L, 6L, 6L, 10L, 15L, 15L, 15L, 30L,
-            0L, 6L, 6L
+            15L, 15L, 15L, 0L, 6L, 6L
         };
 
-    /*The Java real numbers are represented in two ways and Gandiva must
+    /* The Java real numbers are represented in two ways and Gandiva must
      * follow the same rules:
      * - If the number is greater or equals than 10^7 and less than 10^(-3)
      *   it will be represented using scientific notation, e.g:
      *       - 0.000012 -> 1.2E-5
      *       - 10000002.3 -> 1.00000023E7
      * - If the numbers are between that interval above, they are showed as is.
+     *
+     * The test checks if the Gandiva function casts the number with the same notation of the
+     * Java.
      * */
     String[] expValues =
         new String[] {
@@ -2184,6 +2190,9 @@ public class ProjectorTest extends BaseEvaluatorTest {
             Double.toString(999999.9999), // must be cast to -> "999999.9999"
             Double.toString(10000000.0), // must be cast to 1E7
             Double.toString(23943410000000.343434),
+            Double.toString(Double.POSITIVE_INFINITY),
+            Double.toString(Double.NEGATIVE_INFINITY),
+            Double.toString(Double.NaN),
             "",
             Double.toString(23.45),
             Double.toString(-23.45)
