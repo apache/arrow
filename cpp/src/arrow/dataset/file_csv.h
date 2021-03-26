@@ -33,6 +33,10 @@ namespace dataset {
 
 constexpr char kCsvTypeName[] = "csv";
 
+/// \addtogroup dataset-file-formats
+///
+/// @{
+
 /// \brief A FileFormat implementation that reads from and writes to Csv files
 class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
  public:
@@ -74,6 +78,8 @@ struct ARROW_DS_EXPORT CsvFragmentScanOptions : public FragmentScanOptions {
   /// Note that use_threads is always ignored.
   csv::ReadOptions read_options = csv::ReadOptions::Defaults();
 };
+
+/// @}
 
 }  // namespace dataset
 }  // namespace arrow

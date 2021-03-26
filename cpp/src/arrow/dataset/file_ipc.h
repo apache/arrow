@@ -31,6 +31,10 @@
 namespace arrow {
 namespace dataset {
 
+/// \addtogroup dataset-file-formats
+///
+/// @{
+
 constexpr char kIpcTypeName[] = "ipc";
 
 /// \brief A FileFormat implementation that reads from and writes to Ipc files
@@ -100,6 +104,8 @@ class ARROW_DS_EXPORT IpcFileWriter : public FileWriter {
 
   friend class IpcFileFormat;
 };
+
+/// @}
 
 }  // namespace dataset
 }  // namespace arrow
