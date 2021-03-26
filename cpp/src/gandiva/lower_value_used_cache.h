@@ -22,14 +22,14 @@
 #include <utility>
 #include <set>
 
-#include "gandiva/base_cache.h"
 #include "arrow/util/optional.h"
+#include "gandiva/base_cache.h"
 
 // modified cache to support evict policy of lower value used.
 namespace gandiva {
 // a cache which evicts the lower value used item when it is full
 template <class Key, class Value>
-class LowerValueUsedCache : public BaseCache<Key, Value>{
+class LowerValueUsedCache : public BaseCache<Key, Value> {
  public:
   struct hasher {
     template <typename I>
@@ -37,9 +37,8 @@ class LowerValueUsedCache : public BaseCache<Key, Value>{
       return i.Hash();
     }
   };
-  using map_type =
-  std::unordered_map<Key,
-  std::pair<Value, typename std::set<std::pair<u_long, Key>> ::iterator>, hasher>;
+  using map_type =std::unordered_map<
+      Key, std::pair<Value, typename std::set<std::pair<u_long, Key>> ::iterator>, hasher>;
 
   explicit LowerValueUsedCache(size_t capacity) : BaseCache<Key, Value>(capacity) {}
 
