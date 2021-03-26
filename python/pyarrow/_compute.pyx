@@ -684,6 +684,26 @@ class TrimOptions(_TrimOptions):
         self._set_options(characters)
 
 
+cdef class _ReplaceSubstringOptions(FunctionOptions):
+    cdef:
+        unique_ptr[CReplaceSubstringOptions] replace_substring_options
+
+    cdef const CFunctionOptions* get_options(self) except NULL:
+        return self.replace_substring_options.get()
+
+    def _set_options(self, pattern, replacement, max_replacements):
+        self.replace_substring_options.reset(
+            new CReplaceSubstringOptions(tobytes(pattern),
+                                         tobytes(replacement),
+                                         max_replacements)
+        )
+
+
+class ReplaceSubstringOptions(_ReplaceSubstringOptions):
+    def __init__(self, pattern, replacement, max_replacements=-1):
+        self._set_options(pattern, replacement, max_replacements)
+
+
 cdef class _FilterOptions(FunctionOptions):
     cdef:
         unique_ptr[CFilterOptions] filter_options
