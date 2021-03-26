@@ -243,6 +243,9 @@ column_select <- function(.data, ..., .FUN = vars_select) {
 }
 
 relocate.arrow_dplyr_query <- function(.data, ..., .before = NULL, .after = NULL) {
+  # The code in this function is adapted from the code in dplyr::relocate.data.frame
+  # at https://github.com/tidyverse/dplyr/blob/master/R/relocate.R
+  # TODO: revisit this after https://github.com/tidyverse/dplyr/issues/5829
   check_select_helpers(c(enexprs(...), enexpr(.before), enexpr(.after)))
 
   .data <- arrow_dplyr_query(.data)
