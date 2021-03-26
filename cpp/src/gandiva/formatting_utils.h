@@ -39,11 +39,21 @@ class FloatToStringGdvMixin
   using arrow::internal::FloatToStringFormatterMixin<
       ARROW_TYPE>::FloatToStringFormatterMixin;
 
+  // The mixin is a modified version of the existent FloatToStringFormatterMixin, but
+  // it defines some specific parameters in the FloatToStringFormatterMixin to cast
+  // the float numbers to string using the same patterns like Java.
+  //
+  // The Java real numbers are represented in two ways following these rules:
+  //- If the number is greater or equals than 10^7 and less than 10^(-3)
+  //  it will be represented using scientific notation, e.g:
+  //      - 0.000012 -> 1.2E-5
+  //      - 10000002.3 -> 1.00000023E7
+  //- If the numbers are between that interval above, they are showed as is.
   explicit FloatToStringGdvMixin(const std::shared_ptr<arrow::DataType>& = NULLPTR)
       : arrow::internal::FloatToStringFormatterMixin<ARROW_TYPE>(
             DoubleToStringConverter::EMIT_TRAILING_ZERO_AFTER_POINT |
                 DoubleToStringConverter::EMIT_TRAILING_DECIMAL_POINT,
-            "inf", "nan", 'E', -3, 7, 3, 1) {}
+            "Infinity", "NaN", 'E', -3, 7, 3, 1) {}
 };
 
 template <>

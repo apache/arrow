@@ -104,6 +104,17 @@ class DoubleToStringConverter {
   //   ToPrecision(230.0, 2) -> "230"
   //   ToPrecision(230.0, 2) -> "230."  with EMIT_TRAILING_DECIMAL_POINT.
   //   ToPrecision(230.0, 2) -> "2.3e2" with EMIT_TRAILING_ZERO_AFTER_POINT.
+  //
+  // When converting numbers to scientific notation representation, if the mantissa of
+  // the representation is an integer number, the EMIT_TRAILING_DECIMAL_POINT flag will
+  // add a '.' character at the end of the representation:
+  // - With EMIT_TRAILING_DECIMAL_POINT enabled -> 0.0009 => 9.E-4
+  // - With EMIT_TRAILING_DECIMAL_POINT disabled -> 0.0009 => 9E-4
+  //
+  // If the mantissa is an integer and the EMIT_TRAILING_ZERO_AFTER_POINT flag is enabled
+  // it will add a '0' character at the end of the mantissa representation. Note that that
+  // flag depends on EMIT_TRAILING_DECIMAL_POINT flag be enabled.
+  // - With EMIT_TRAILING_ZERO_AFTER_POINT enabled -> 0.0009 => 9.0E-4
   DoubleToStringConverter(int flags,
                           const char* infinity_symbol,
                           const char* nan_symbol,
