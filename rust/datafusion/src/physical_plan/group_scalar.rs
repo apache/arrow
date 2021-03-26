@@ -65,6 +65,8 @@ impl TryFrom<&ScalarValue> for GroupByScalar {
             ScalarValue::UInt32(Some(v)) => GroupByScalar::UInt32(*v),
             ScalarValue::UInt64(Some(v)) => GroupByScalar::UInt64(*v),
             ScalarValue::TimeMillisecond(Some(v)) => GroupByScalar::TimeMillisecond(*v),
+            ScalarValue::TimeMicrosecond(Some(v)) => GroupByScalar::TimeMicrosecond(*v),
+            ScalarValue::TimeNanosecond(Some(v)) => GroupByScalar::TimeNanosecond(*v),
             ScalarValue::Utf8(Some(v)) => GroupByScalar::Utf8(Box::new(v.clone())),
             ScalarValue::Float32(None)
             | ScalarValue::Float64(None)
