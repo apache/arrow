@@ -156,6 +156,21 @@ test_that("select/rename", {
   )
 })
 
+test_that("select/rename with selection helpers", {
+
+  # TODO: add some passing tests here
+
+  expect_error(
+    expect_dplyr_equal(
+      input %>%
+        select(where(is.numeric)) %>%
+        collect(),
+      tbl
+    ),
+    "Unsupported selection helper"
+  )
+})
+
 test_that("filtering with rename", {
   expect_dplyr_equal(
     input %>%
@@ -391,5 +406,24 @@ test_that("relocate", {
   expect_dplyr_equal(
     input %>% relocate(ff = f) %>% collect(),
     df,
+  )
+})
+
+test_that("relocate with selection helpers", {
+  expect_dplyr_equal(
+    input %>% relocate(any_of(c("a", "e", "i", "o", "u"))) %>% collect(),
+    df
+  )
+  expect_error(
+    df %>% Table$create() %>% relocate(where(is.character)),
+    "Unsupported selection helper"
+  )
+  expect_error(
+    df %>% Table$create() %>% relocate(a, b, c, .after = where(is.character)),
+    "Unsupported selection helper"
+  )
+  expect_error(
+    df %>% Table$create() %>% relocate(d, e, f, .before = where(is.numeric)),
+    "Unsupported selection helper"
   )
 })
