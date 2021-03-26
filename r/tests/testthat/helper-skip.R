@@ -18,7 +18,8 @@
 build_features <- arrow_info()$capabilities
 
 skip_if_not_available <- function(feature) {
-  if (!isTRUE(build_features[feature])) {
+  # Special handling for "uncompressed", for test that iterate over compressions
+  if (!(feature %in% "uncompressed") && !isTRUE(build_features[feature])) {
     skip(paste("Arrow C++ not built with", feature))
   }
 }
