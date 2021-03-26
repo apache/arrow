@@ -728,10 +728,7 @@ mutate.arrow_dplyr_query <- function(.data,
   .data <- arrow_dplyr_query(.data)
 
   # Restrict the cases we support for now
-  if (!quo_is_null(.before) || !quo_is_null(.after)) {
-    # TODO(ARROW-11701)
-    return(abandon_ship(call, .data, '.before and .after arguments are not supported in Arrow'))
-  } else if (length(dplyr::group_vars(.data)) > 0) {
+  if (length(dplyr::group_vars(.data)) > 0) {
     # mutate() on a grouped dataset does calculations within groups
     # This doesn't matter on scalar ops (arithmetic etc.) but it does
     # for things with aggregations (e.g. subtracting the mean)
@@ -768,25 +765,36 @@ mutate.arrow_dplyr_query <- function(.data,
     mask[[new_var]] <- mask$.data[[new_var]] <- results[[new_var]]
   }
 
-  # Assign the new columns into the .data$selected_columns, respecting the .keep param
+  old_vars <- names(.data$selected_columns)
+  # Note that this is names(exprs) not names(results):
+  # if results$new_var is NULL, that means we are supposed to remove it
+  new_vars <- names(exprs)
+
+  # Assign the new columns into the .data$selected_columns
+  for (new_var in new_vars) {
+    .data$selected_columns[[new_var]] <- results[[new_var]]
+  }
+
+  # Deduplicate new_vars and remove NULL columns from new_vars
+  new_vars <- intersect(new_vars, names(.data$selected_columns))
+
+  # Respect .before and .after
+  if (!quo_is_null(.before) || !quo_is_null(.after)) {
+    new <- setdiff(new_vars, old_vars)
+    .data <- relocate(.data, !!new, .before = !!.before, .after = !!.after)
+  }
+
+  # Respect .keep
   if (.keep == "none") {
-    .data$selected_columns <- results
-  } else {
-    if (.keep != "all") {
-      # "used" or "unused"
-      used_vars <- unlist(lapply(exprs, all.vars), use.names = FALSE)
-      old_vars <- names(.data$selected_columns)
-      if (.keep == "used") {
-        .data$selected_columns <- .data$selected_columns[intersect(old_vars, used_vars)]
-      } else {
-        # "unused"
-        .data$selected_columns <- .data$selected_columns[setdiff(old_vars, used_vars)]
-      }
-    }
-    # Note that this is names(exprs) not names(results):
-    # if results$new_var is NULL, that means we are supposed to remove it
-    for (new_var in names(exprs)) {
-      .data$selected_columns[[new_var]] <- results[[new_var]]
+    .data$selected_columns <- .data$selected_columns[new_vars]
+  } else if (.keep != "all") {
+    # "used" or "unused"
+    used_vars <- unlist(lapply(exprs, all.vars), use.names = FALSE)
+    if (.keep == "used") {
+      .data$selected_columns[setdiff(old_vars, used_vars)] <- NULL
+    } else {
+      # "unused"
+      .data$selected_columns[intersect(old_vars, used_vars)] <- NULL
     }
   }
   # Even if "none", we still keep group vars
