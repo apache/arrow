@@ -234,7 +234,7 @@ TEST(TestGdvFnStubs, TestCastVARCHARFromFloat) {
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_castVARCHAR_float32_int64(ctx_ptr, 0.00001f, 100, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "1E-5");
+  EXPECT_EQ(std::string(out_str, out_len), "1.0E-5");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_castVARCHAR_float32_int64(ctx_ptr, 0.00099999f, 100, &out_len);
@@ -243,6 +243,10 @@ TEST(TestGdvFnStubs, TestCastVARCHARFromFloat) {
 
   out_str = gdv_fn_castVARCHAR_float32_int64(ctx_ptr, 0.0f, 100, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "0.0");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_castVARCHAR_float32_int64(ctx_ptr, 10.00000f, 100, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "10.0");
   EXPECT_FALSE(ctx.has_error());
 
   // test with required length less than actual buffer length
@@ -265,7 +269,7 @@ TEST(TestGdvFnStubs, TestCastVARCHARFromDouble) {
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_castVARCHAR_float64_int64(ctx_ptr, 0.00001, 100, &out_len);
-  EXPECT_EQ(std::string(out_str, out_len), "1E-5");
+  EXPECT_EQ(std::string(out_str, out_len), "1.0E-5");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = gdv_fn_castVARCHAR_float32_int64(ctx_ptr, 0.00099999f, 100, &out_len);
@@ -274,6 +278,10 @@ TEST(TestGdvFnStubs, TestCastVARCHARFromDouble) {
 
   out_str = gdv_fn_castVARCHAR_float64_int64(ctx_ptr, 0.0, 100, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "0.0");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_castVARCHAR_float64_int64(ctx_ptr, 10.0000000000, 100, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "10.0");
   EXPECT_FALSE(ctx.has_error());
 
   // test with required length less than actual buffer length
