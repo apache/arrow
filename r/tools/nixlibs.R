@@ -331,6 +331,12 @@ build_libarrow <- function(src_dir, dst_dir) {
     # but `ar` fails to build libarrow_bundled_dependencies, so turn them off
     # so that there are no bundled deps
     env_vars <- paste(env_vars, "ARROW_JEMALLOC=OFF ARROW_PARQUET=OFF ARROW_DATASET=OFF ARROW_WITH_RE2=OFF ARROW_WITH_UTF8PROC=OFF EXTRA_CMAKE_FLAGS=-DARROW_SIMD_LEVEL=NONE")
+  } else if grepl("libc++", env_var_list["CXX"], fixed = TRUE) {
+    # ARROW-12094: re2 seems to fail on the rhub/fedora-clang-devel build,
+    # which among other features uses libc++
+    # See ci/scripts/r_docker_configure.sh for config and references.
+    # Here, we'll just turn off re2 as a workaround
+    env_vars <- paste(env_vars, "ARROW_WITH_RE2=OFF")
   }
   cat("**** arrow", ifelse(quietly, "", paste("with", env_vars)), "\n")
   status <- system(
