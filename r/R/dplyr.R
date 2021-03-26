@@ -208,12 +208,13 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
 tbl_vars.arrow_dplyr_query <- function(x) names(x$selected_columns)
 
 select.arrow_dplyr_query <- function(.data, ...) {
+  check_select_helpers(enexprs(...))
   column_select(arrow_dplyr_query(.data), !!!enquos(...))
 }
 select.Dataset <- select.ArrowTabular <- select.arrow_dplyr_query
 
-#' @importFrom tidyselect vars_rename
 rename.arrow_dplyr_query <- function(.data, ...) {
+  check_select_helpers(enexprs(...))
   column_select(arrow_dplyr_query(.data), !!!enquos(...), .FUN = vars_rename)
 }
 rename.Dataset <- rename.ArrowTabular <- rename.arrow_dplyr_query
@@ -239,6 +240,69 @@ column_select <- function(.data, ..., .FUN = vars_select) {
     # No need to massage filters because those contain references to Arrow objects
   }
   .data
+}
+
+relocate.arrow_dplyr_query <- function(.data, ..., .before = NULL, .after = NULL) {
+  # The code in this function is adapted from the code in dplyr::relocate.data.frame
+  # at https://github.com/tidyverse/dplyr/blob/master/R/relocate.R
+  # TODO: revisit this after https://github.com/tidyverse/dplyr/issues/5829
+  check_select_helpers(c(enexprs(...), enexpr(.before), enexpr(.after)))
+
+  .data <- arrow_dplyr_query(.data)
+
+  to_move <- eval_select(expr(c(...)), .data$selected_columns)
+
+  .before <- enquo(.before)
+  .after <- enquo(.after)
+  has_before <- !quo_is_null(.before)
+  has_after <- !quo_is_null(.after)
+
+  if (has_before && has_after) {
+    abort("Must supply only one of `.before` and `.after`.")
+  } else if (has_before) {
+    where <- min(unname(eval_select(.before, .data$selected_columns)))
+    if (!where %in% to_move) {
+      to_move <- c(to_move, where)
+    }
+  } else if (has_after) {
+    where <- max(unname(eval_select(.after, .data$selected_columns)))
+    if (!where %in% to_move) {
+      to_move <- c(where, to_move)
+    }
+  } else {
+    where <- 1L
+    if (!where %in% to_move) {
+      to_move <- c(to_move, where)
+    }
+  }
+
+  lhs <- setdiff(seq2(1, where - 1), to_move)
+  rhs <- setdiff(seq2(where + 1, length(.data$selected_columns)), to_move)
+
+  pos <- vec_unique(c(lhs, to_move, rhs))
+  new_names <- names(pos)
+  .data$selected_columns <- .data$selected_columns[pos]
+
+  if (!is.null(new_names)) {
+    names(.data$selected_columns)[new_names != ""] <- new_names[new_names != ""]
+  }
+  .data
+}
+relocate.Dataset <- relocate.ArrowTabular <- relocate.arrow_dplyr_query
+
+check_select_helpers <- function(exprs) {
+  # Throw an error if unsupported tidyselect selection helpers in `exprs`
+  unsup_select_helpers <- "where"
+  funs_in_exprs <- unlist(lapply(exprs, all_funs))
+  unsup_funs <- funs_in_exprs[funs_in_exprs %in% unsup_select_helpers]
+  if (length(unsup_funs)) {
+    stop(
+      "Unsupported selection ",
+      ngettext(length(unsup_funs), "helper: ", "helpers: "),
+      oxford_paste(paste0(unsup_funs, "()"), quote = FALSE),
+      call. = FALSE
+    )
+  }
 }
 
 filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
@@ -471,7 +535,6 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
 collect.ArrowTabular <- as.data.frame.ArrowTabular
 collect.Dataset <- function(x, ...) dplyr::collect(arrow_dplyr_query(x), ...)
 
-#' @importFrom rlang .data
 ensure_group_vars <- function(x) {
   if (inherits(x, "arrow_dplyr_query")) {
     # Before pulling data from Arrow, make sure all group vars are in the projection
@@ -529,7 +592,6 @@ restore_dplyr_features <- function(df, query) {
   df
 }
 
-#' @importFrom tidyselect vars_pull
 pull.arrow_dplyr_query <- function(.data, var = -1) {
   .data <- arrow_dplyr_query(.data)
   var <- vars_pull(names(.data), !!enquo(var))
@@ -666,10 +728,7 @@ mutate.arrow_dplyr_query <- function(.data,
   .data <- arrow_dplyr_query(.data)
 
   # Restrict the cases we support for now
-  if (!quo_is_null(.before) || !quo_is_null(.after)) {
-    # TODO(ARROW-11701)
-    return(abandon_ship(call, .data, '.before and .after arguments are not supported in Arrow'))
-  } else if (length(dplyr::group_vars(.data)) > 0) {
+  if (length(dplyr::group_vars(.data)) > 0) {
     # mutate() on a grouped dataset does calculations within groups
     # This doesn't matter on scalar ops (arithmetic etc.) but it does
     # for things with aggregations (e.g. subtracting the mean)
@@ -706,25 +765,36 @@ mutate.arrow_dplyr_query <- function(.data,
     mask[[new_var]] <- mask$.data[[new_var]] <- results[[new_var]]
   }
 
-  # Assign the new columns into the .data$selected_columns, respecting the .keep param
+  old_vars <- names(.data$selected_columns)
+  # Note that this is names(exprs) not names(results):
+  # if results$new_var is NULL, that means we are supposed to remove it
+  new_vars <- names(exprs)
+
+  # Assign the new columns into the .data$selected_columns
+  for (new_var in new_vars) {
+    .data$selected_columns[[new_var]] <- results[[new_var]]
+  }
+
+  # Deduplicate new_vars and remove NULL columns from new_vars
+  new_vars <- intersect(new_vars, names(.data$selected_columns))
+
+  # Respect .before and .after
+  if (!quo_is_null(.before) || !quo_is_null(.after)) {
+    new <- setdiff(new_vars, old_vars)
+    .data <- relocate(.data, !!new, .before = !!.before, .after = !!.after)
+  }
+
+  # Respect .keep
   if (.keep == "none") {
-    .data$selected_columns <- results
-  } else {
-    if (.keep != "all") {
-      # "used" or "unused"
-      used_vars <- unlist(lapply(exprs, all.vars), use.names = FALSE)
-      old_vars <- names(.data$selected_columns)
-      if (.keep == "used") {
-        .data$selected_columns <- .data$selected_columns[intersect(old_vars, used_vars)]
-      } else {
-        # "unused"
-        .data$selected_columns <- .data$selected_columns[setdiff(old_vars, used_vars)]
-      }
-    }
-    # Note that this is names(exprs) not names(results):
-    # if results$new_var is NULL, that means we are supposed to remove it
-    for (new_var in names(exprs)) {
-      .data$selected_columns[[new_var]] <- results[[new_var]]
+    .data$selected_columns <- .data$selected_columns[new_vars]
+  } else if (.keep != "all") {
+    # "used" or "unused"
+    used_vars <- unlist(lapply(exprs, all.vars), use.names = FALSE)
+    if (.keep == "used") {
+      .data$selected_columns[setdiff(old_vars, used_vars)] <- NULL
+    } else {
+      # "unused"
+      .data$selected_columns[intersect(old_vars, used_vars)] <- NULL
     }
   }
   # Even if "none", we still keep group vars
