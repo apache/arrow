@@ -703,14 +703,11 @@ class SerialStreamingReader : public BaseStreamingReader,
     ARROW_ASSIGN_OR_RAISE(auto istream_it,
                           io::MakeInputStreamIterator(input_, read_options_.block_size));
 
+    // TODO Consider exposing readahead as a read option (ARROW-12090)
     ARROW_ASSIGN_OR_RAISE(auto bg_it, MakeBackgroundGenerator(std::move(istream_it),
                                                               io_context_.executor()));
 
-    // TODO Consider exposing readahead as a read option (ARROW-12090)
-    auto rh_it =
-        MakeSerialReadaheadGenerator(std::move(bg_it), cpu_executor_->GetCapacity());
-
-    auto transferred_it = MakeTransferredGenerator(rh_it, cpu_executor_);
+    auto transferred_it = MakeTransferredGenerator(bg_it, cpu_executor_);
 
     buffer_generator_ = CSVBufferIterator::MakeAsync(std::move(transferred_it));
     task_group_ = internal::TaskGroup::MakeSerial(io_context_.stop_token());
@@ -909,15 +906,15 @@ class AsyncThreadedTableReader
     ARROW_ASSIGN_OR_RAISE(auto istream_it,
                           io::MakeInputStreamIterator(input_, read_options_.block_size));
 
-    ARROW_ASSIGN_OR_RAISE(auto bg_it, MakeBackgroundGenerator(std::move(istream_it),
-                                                              io_context_.executor()));
+    int max_readahead = cpu_executor_->GetCapacity();
+    int readahead_restart = std::max(1, max_readahead / 2);
+
+    ARROW_ASSIGN_OR_RAISE(
+        auto bg_it, MakeBackgroundGenerator(std::move(istream_it), io_context_.executor(),
+                                            max_readahead, readahead_restart));
 
     auto transferred_it = MakeTransferredGenerator(bg_it, cpu_executor_);
-
-    int32_t block_queue_size = cpu_executor_->GetCapacity();
-    auto rh_it =
-        MakeSerialReadaheadGenerator(std::move(transferred_it), block_queue_size);
-    buffer_generator_ = CSVBufferIterator::MakeAsync(std::move(rh_it));
+    buffer_generator_ = CSVBufferIterator::MakeAsync(std::move(transferred_it));
     return Status::OK();
   }
 
