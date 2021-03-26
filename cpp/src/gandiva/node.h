@@ -264,9 +264,9 @@ class InExpressionNode<gandiva::DecimalScalar128> : public Node {
         precision_(precision),
         scale_(scale) {}
 
-  const int32_t get_precision() const { return precision_; }
+  int32_t get_precision() const { return precision_; }
 
-  const int32_t get_scale() const { return scale_; }
+  int32_t get_scale() const { return scale_; }
 
   const NodePtr& eval_expr() const { return eval_expr_; }
 
