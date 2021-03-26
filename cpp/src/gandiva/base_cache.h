@@ -32,26 +32,26 @@ class BaseCache {
 
   BaseCache<Key, Value>() = default;
 
-  size_t size();
+  virtual size_t size() const { return  this->cache_capacity_; };
 
-  size_t capacity();
+  virtual size_t capacity() const = 0;
 
-  bool empty();
+  virtual bool empty() const = 0;
 
-  bool contains(const Key& key);
+  virtual bool contains(const Key& key) = 0;
 
-  void insert(const Key& key, const Value& value);
+  virtual void insert(const Key& key, const Value& value) = 0;
 
-  void insert(const Key& key, const Value& value, const u_long value_to_order);
+  virtual void insert(const Key& key, const Value& value, u_long value_to_order) = 0;
 
-  arrow::util::optional<Value> get(const Key& key);
+  virtual arrow::util::optional<Value> get(const Key& key) = 0;
 
-  void clear();
+  virtual void clear() = 0;
 
  private:
-  void evict();
+  virtual void evict() = 0;
 
  protected:
-  size_t cache_capacity_;
+  size_t cache_capacity_{};
  };
 }  // namespace gandiva
