@@ -78,7 +78,7 @@ class ProjectorCacheKey {
   }
   bool operator<(const ProjectorCacheKey& other) const {
     return uniqifier_ < other.uniqifier_;
-  };
+  }
   bool operator!=(const ProjectorCacheKey& other) const { return !(*this == other); }
 
   SchemaPtr schema() const { return schema_; }
@@ -181,7 +181,8 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   ARROW_RETURN_NOT_OK(llvm_gen->Build(exprs, selection_vector_mode));
   // Stop measuring time and calculate the elapsed time
   auto end = std::chrono::high_resolution_clock::now();
-  auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count();
+  auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin)
+      .count();
 
   // save the output field types. Used for validation at Evaluate() time.
   std::vector<FieldPtr> output_fields;
