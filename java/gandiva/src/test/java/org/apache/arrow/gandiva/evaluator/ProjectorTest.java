@@ -1193,7 +1193,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     Field c1 = Field.nullable("c1", int32);
 
     TreeNode inExpr =
-            TreeBuilder.makeInExpressionInt32(TreeBuilder.makeField(c1), Sets.newHashSet(1, 2, 3, 4, 5, 15, 16));
+        TreeBuilder.makeInExpressionInt32(TreeBuilder.makeField(c1), Sets.newHashSet(1, 2, 3, 4, 5, 15, 16));
     ExpressionTree expr = TreeBuilder.makeExpression(inExpr, Field.nullable("result", boolType));
     Schema schema = new Schema(Lists.newArrayList(c1));
     Projector eval = Projector.make(schema, Lists.newArrayList(expr));
@@ -1208,10 +1208,10 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
     ArrowRecordBatch batch =
-            new ArrowRecordBatch(
-                    numRows,
-                    Lists.newArrayList(fieldNode, fieldNode),
-                    Lists.newArrayList(c1Validity, c1Data, c2Validity));
+        new ArrowRecordBatch(
+            numRows,
+            Lists.newArrayList(fieldNode, fieldNode),
+            Lists.newArrayList(c1Validity, c1Data, c2Validity));
 
     BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
     bitVector.allocateNew(numRows);
@@ -1297,7 +1297,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     List<TreeNode> args = Lists.newArrayList(TreeBuilder.makeField(c1), l1, l2);
     TreeNode substr = TreeBuilder.makeFunction("substr", args, new ArrowType.Utf8());
     TreeNode inExpr =
-            TreeBuilder.makeInExpressionString(substr, Sets.newHashSet("one", "two", "thr", "fou"));
+        TreeBuilder.makeInExpressionString(substr, Sets.newHashSet("one", "two", "thr", "fou"));
     ExpressionTree expr = TreeBuilder.makeExpression(inExpr, Field.nullable("result", boolType));
     Schema schema = new Schema(Lists.newArrayList(c1));
     Projector eval = Projector.make(schema, Lists.newArrayList(expr));
@@ -1305,8 +1305,8 @@ public class ProjectorTest extends BaseEvaluatorTest {
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, 0};
     String[] c1Values = new String[]{"one", "two", "three", "four", "five", "six", "seven",
-      "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen",
-      "sixteen"};
+        "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen",
+        "sixteen"};
 
     ArrowBuf c1Validity = buf(validity);
     List<ArrowBuf> dataBufsX = stringBufs(c1Values);
@@ -1314,10 +1314,10 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
     ArrowRecordBatch batch =
-            new ArrowRecordBatch(
-                    numRows,
-                    Lists.newArrayList(fieldNode, fieldNode),
-                    Lists.newArrayList(c1Validity, dataBufsX.get(0), dataBufsX.get(1), c2Validity));
+        new ArrowRecordBatch(
+            numRows,
+            Lists.newArrayList(fieldNode, fieldNode),
+            Lists.newArrayList(c1Validity, dataBufsX.get(0), dataBufsX.get(1), c2Validity));
 
     BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
     bitVector.allocateNew(numRows);
@@ -1509,9 +1509,9 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     Field resultField = Field.nullable("result", date64);
     List<ExpressionTree> exprs =
-            Lists.newArrayList(
-                    TreeBuilder.makeExpression(dateToYear, resultField),
-                    TreeBuilder.makeExpression(dateToMonth, resultField));
+        Lists.newArrayList(
+            TreeBuilder.makeExpression(dateToYear, resultField),
+            TreeBuilder.makeExpression(dateToMonth, resultField));
 
     Schema schema = new Schema(Lists.newArrayList(dateField));
     Projector eval = Projector.make(schema, exprs);
@@ -1544,10 +1544,10 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
     ArrowRecordBatch batch =
-            new ArrowRecordBatch(
-                    numRows,
-                    Lists.newArrayList(fieldNode),
-                    Lists.newArrayList(bufValidity, millisData));
+        new ArrowRecordBatch(
+            numRows,
+            Lists.newArrayList(fieldNode),
+            Lists.newArrayList(bufValidity, millisData));
 
     List<ValueVector> output = new ArrayList<ValueVector>();
     for (int i = 0; i < exprs.size(); i++) {
@@ -2151,26 +2151,28 @@ public class ProjectorTest extends BaseEvaluatorTest {
             1.0,
             0.001,
             0.0009,
+            0.00099893,
             999999.9999,
             10000000.0,
+            23943410000000.343434,
             23.45,
             23.45,
             -23.45,
         };
     long[] lenValues =
         new long[] {
-            6L, 6L, 6L, 6L, 10L, 15L, 15L,
+            6L, 6L, 6L, 6L, 10L, 15L, 15L, 15L, 30L,
             0L, 6L, 6L
         };
 
     /*The Java real numbers are represented in two ways and Gandiva must
-    * follow the same rules:
-    * - If the number is greater or equals than 10^7 and less than 10^(-3)
-    *   it will be represented using scientific notation, e.g:
-    *       - 0.000012 -> 1.2E-5
-    *       - 10000002.3 -> 1.00000023E7
-    * - If the numbers are between that interval above, they are showed as is.
-    * - The "0.0" and "-0.0" must be represented as the same number: "0.0"*/
+     * follow the same rules:
+     * - If the number is greater or equals than 10^7 and less than 10^(-3)
+     *   it will be represented using scientific notation, e.g:
+     *       - 0.000012 -> 1.2E-5
+     *       - 10000002.3 -> 1.00000023E7
+     * - If the numbers are between that interval above, they are showed as is.
+     * */
     String[] expValues =
         new String[] {
             Double.toString(0.0), // must be cast to -> "0.0"
@@ -2178,8 +2180,10 @@ public class ProjectorTest extends BaseEvaluatorTest {
             Double.toString(1.0), // must be cast to -> "1.0"
             Double.toString(0.001), // must be cast to -> "0.001"
             Double.toString(0.0009), // must be cast to -> "9E-4"
+            Double.toString(0.00099893), // must be cast to -> "9E-4"
             Double.toString(999999.9999), // must be cast to -> "999999.9999"
             Double.toString(10000000.0), // must be cast to 1E7
+            Double.toString(23943410000000.343434),
             "",
             Double.toString(23.45),
             Double.toString(-23.45)
