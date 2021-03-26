@@ -40,6 +40,7 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/testing/extension_type.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
