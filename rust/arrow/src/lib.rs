@@ -129,6 +129,9 @@
 #![cfg_attr(feature = "avx512", feature(avx512_target_feature))]
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
+// upper_case_acronyms lint was introduced in Rust 1.51.
+// It is triggered in the ffi module, and ipc::gen, which we have no control over
+#![allow(clippy::upper_case_acronyms)]
 #![allow(bare_trait_objects)]
 #![warn(missing_debug_implementations)]
 #![deny(clippy::redundant_clone)]
