@@ -208,11 +208,13 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
 tbl_vars.arrow_dplyr_query <- function(x) names(x$selected_columns)
 
 select.arrow_dplyr_query <- function(.data, ...) {
+  check_select_helpers(enexprs(...))
   column_select(arrow_dplyr_query(.data), !!!enquos(...))
 }
 select.Dataset <- select.ArrowTabular <- select.arrow_dplyr_query
 
 rename.arrow_dplyr_query <- function(.data, ...) {
+  check_select_helpers(enexprs(...))
   column_select(arrow_dplyr_query(.data), !!!enquos(...), .FUN = vars_rename)
 }
 rename.Dataset <- rename.ArrowTabular <- rename.arrow_dplyr_query
@@ -241,10 +243,9 @@ column_select <- function(.data, ..., .FUN = vars_select) {
 }
 
 relocate.arrow_dplyr_query <- function(.data, ..., .before = NULL, .after = NULL) {
-  .data <- arrow_dplyr_query(.data)
+  check_select_helpers(c(enexprs(...), enexpr(.before), enexpr(.after)))
 
-  # TODO: look for unsupported tidyselect selection helpers in exprs(...),
-  # .before, and .after and throw an error if detected
+  .data <- arrow_dplyr_query(.data)
 
   to_move <- eval_select(expr(c(...)), .data$selected_columns)
 
@@ -285,6 +286,21 @@ relocate.arrow_dplyr_query <- function(.data, ..., .before = NULL, .after = NULL
   .data
 }
 relocate.Dataset <- relocate.ArrowTabular <- relocate.arrow_dplyr_query
+
+check_select_helpers <- function(exprs) {
+  # Throw an error if unsupported tidyselect selection helpers in `exprs`
+  unsup_select_helpers <- "where"
+  funs_in_exprs <- unlist(lapply(exprs, all_funs))
+  unsup_funs <- funs_in_exprs[funs_in_exprs %in% unsup_select_helpers]
+  if (length(unsup_funs)) {
+    stop(
+      "Unsupported selection ",
+      ngettext(length(unsup_funs), "helper: ", "helpers: "),
+      oxford_paste(paste0(unsup_funs, "()"), quote = FALSE),
+      call. = FALSE
+    )
+  }
+}
 
 filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
   # TODO something with the .preserve argument
