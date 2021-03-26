@@ -40,7 +40,7 @@ class Cache {
  public:
   explicit Cache(size_t capacity, int cache_type_to_use) {
     if (cache_type_to_use == 0) {
-      this->cache_ = new LruCache<KeyType, ValueType>(capacity);
+      this->cache_ = new LowerValueUsedCache<KeyType, ValueType>(capacity);
     } else {
       this->cache_ = new LruCache<KeyType, ValueType>(capacity);
     }
@@ -57,12 +57,12 @@ class Cache {
     return result != arrow::util::nullopt ? *result : nullptr;
   }
 
-  void PutModule(KeyType cache_key, ValueType module) {
+  void PutModule(KeyType cache_key, ValueType module, u_long value_to_order) {
+    // Define value_to_order if the cache being used considers it, otherwise define 0
     mtx_.lock();
-    (*cache_).insert(cache_key, module, 0);
+    (*cache_).insert(cache_key, module, value_to_order);
     mtx_.unlock();
   }
-
  private:
   BaseCache<KeyType, ValueType>* cache_;
   std::mutex mtx_;
