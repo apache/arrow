@@ -22,9 +22,6 @@ library(dplyr)
 # randomize order of rows in test data
 tbl <- slice_sample(example_data_for_sorting, prop = 1L)
 
-# use the C locale for string collation in R (ARROW-12046)
-Sys.setlocale("LC_COLLATE", "C")
-
 test_that("sort(Scalar) is identity function", {
   int <- Scalar$create(42L)
   expect_equal(sort(int), int)
@@ -166,6 +163,3 @@ test_that("RecordBatch$SortIndices()", {
     tbl %>% arrange(desc(chr), desc(int), desc(dbl))
   )
 })
-
-# restore previous collation locale setting
-Sys.setlocale("LC_COLLATE")

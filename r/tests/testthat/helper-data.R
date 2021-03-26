@@ -135,14 +135,19 @@ example_with_logical_factors <- tibble::tibble(
   )
 )
 
-# The values in each column of this tibble are in ascending order in the C locale.
-# There are some ties, so tests should use two or more columns to ensure
-# deterministic order. libarrow uses the C locale for string collation. testthat
-# uses the C locale for string collation inside calls to test_that(). To run test
-# code outside of test_that() calls, set the collation locale to "C" by running:
+# The values in each column of this tibble are in ascending order. There are
+# some ties, so tests should use two or more columns to ensure deterministic
+# sort order. The Arrow C++ library orders strings lexicographically as byte
+# strings. The order of a string array sorted by Arrow will not match the order
+# of an equivalent character vector sorted by R unless you set the R collation
+# locale to "C" by running:
 #   Sys.setlocale("LC_COLLATE", "C")
-# When finished, restore the default collation locale by running:
+# These test scripts set that, but if you are running individual tests you might
+# need to set it manually. When finished, you can restore the default
+# collation locale by running:
 #   Sys.setlocale("LC_COLLATE")
+# In the future, the string collation locale used by the Arrow C++ library might
+# be configurable (ARROW-12046).
 example_data_for_sorting <- tibble::tibble(
   int = c(-.Machine$integer.max, -101L, -100L, 0L, 0L, 1L, 100L, 1000L, .Machine$integer.max, NA_integer_),
   dbl = c(-Inf, -.Machine$double.xmax, -.Machine$double.xmin, 0, .Machine$double.xmin, pi, .Machine$double.xmax, Inf, NaN, NA_real_),

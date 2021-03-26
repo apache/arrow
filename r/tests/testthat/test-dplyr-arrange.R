@@ -20,9 +20,6 @@ library(dplyr)
 # randomize order of rows in test data
 tbl <- slice_sample(example_data_for_sorting, prop = 1L)
 
-# use the C locale for string collation in R (ARROW-12046)
-Sys.setlocale("LC_COLLATE", "C")
-
 test_that("arrange() on integer, double, and character columns", {
   expect_dplyr_equal(
     input %>%
@@ -197,21 +194,20 @@ test_that("arrange() with bad inputs", {
     "does not contain any field names",
     fixed = TRUE
   )
-  expect_error(
-    tbl %>%
-      Table$create() %>%
-      arrange(aertidjfgjksertyj),
-    "not found",
-    fixed = TRUE
-  )
-  expect_error(
-    tbl %>%
-      Table$create() %>%
-      arrange(desc(aertidjfgjksertyj + iaermxiwerksxsdqq)),
-    "not found",
-    fixed = TRUE
-  )
+  with_language("en", {
+    expect_error(
+      tbl %>%
+        Table$create() %>%
+        arrange(aertidjfgjksertyj),
+      "not found",
+      fixed = TRUE
+    )
+    expect_error(
+      tbl %>%
+        Table$create() %>%
+        arrange(desc(aertidjfgjksertyj + iaermxiwerksxsdqq)),
+      "not found",
+      fixed = TRUE
+    )
+  })
 })
-
-# restore previous collation locale setting
-Sys.setlocale("LC_COLLATE")
