@@ -44,20 +44,20 @@ class TestLruCache : public ::testing::Test {
 };
 
 TEST_F(TestLruCache, TestEvict) {
-  cache_.insert(TestCacheKey(1), "hello");
-  cache_.insert(TestCacheKey(2), "hello");
-  cache_.insert(TestCacheKey(1), "hello");
-  cache_.insert(TestCacheKey(3), "hello");
+  cache_.insert(TestCacheKey(1), "hello", 0);
+  cache_.insert(TestCacheKey(2), "hello", 0);
+  cache_.insert(TestCacheKey(1), "hello", 0);
+  cache_.insert(TestCacheKey(3), "hello", 0);
   // should have evicted key 1
   ASSERT_EQ(2, cache_.size());
   ASSERT_EQ(cache_.get(TestCacheKey(1)), arrow::util::nullopt);
 }
 
 TEST_F(TestLruCache, TestLruBehavior) {
-  cache_.insert(TestCacheKey(1), "hello");
-  cache_.insert(TestCacheKey(2), "hello");
+  cache_.insert(TestCacheKey(1), "hello", 0);
+  cache_.insert(TestCacheKey(2), "hello", 0);
   cache_.get(TestCacheKey(1));
-  cache_.insert(TestCacheKey(3), "hello");
+  cache_.insert(TestCacheKey(3), "hello", 0);
   // should have evicted key 2.
   ASSERT_EQ(*cache_.get(TestCacheKey(1)), "hello");
 }
