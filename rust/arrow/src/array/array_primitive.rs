@@ -112,6 +112,21 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
         );
         PrimitiveArray::from(data)
     }
+
+    /// Creates a PrimitiveArray based on an iterator of values without nulls
+    pub fn from_constant(value: T::Native, count: usize) -> Self {
+        let val_buf = unsafe { Buffer::from_trusted_len_iter((0..count).map(|_| value)) };
+        let data = ArrayData::new(
+            T::DATA_TYPE,
+            val_buf.len() / mem::size_of::<<T as ArrowPrimitiveType>::Native>(),
+            None,
+            None,
+            0,
+            vec![val_buf],
+            vec![],
+        );
+        PrimitiveArray::from(data)
+    }
 }
 
 impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
