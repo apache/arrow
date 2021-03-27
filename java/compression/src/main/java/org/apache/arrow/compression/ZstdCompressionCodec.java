@@ -54,10 +54,16 @@ public class ZstdCompressionCodec extends AbstractCompressionCodec {
     long decompressedSize = Zstd.decompressUnsafe(uncompressedBuffer.memoryAddress(), decompressedLength,
           /*src=*/compressedBuffer.memoryAddress() + CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH,
           compressedBuffer.writerIndex() - CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH);
-    if (Zstd.isError(decompressedLength)) {
+    if (Zstd.isError(decompressedSize)) {
       uncompressedBuffer.close();
       throw new RuntimeException("Error decompressing: " + Zstd.getErrorName(decompressedLength));
     }
+    if (decompressedLength != decompressedSize) {
+      uncompressedBuffer.close();
+      throw new RuntimeException("Expected != actual decompressed length: " + 
+                                 decompressedLength + " != " + decompressedSize);
+    }
+    uncompressedBuffer.writerIndex(decompressedLength);
     return uncompressedBuffer;
   }
 
