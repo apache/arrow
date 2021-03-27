@@ -671,10 +671,8 @@ group_by.arrow_dplyr_query <- function(.data,
   new_groups <- enquos(...)
   new_groups <- new_groups[nzchar(names(new_groups))]
   if (length(new_groups)) {
-    # TODO(ARROW-11658): either find a way to let group_by_prepare handle this
-    # (it may call mutate() for us)
-    # or essentially reimplement it here (see dplyr:::add_computed_columns)
-    stop("Cannot create or rename columns in group_by on Arrow objects", call. = FALSE)
+    # Add them to the data
+    .data <- dplyr::mutate(.data, !!!new_groups)
   }
   if (".add" %in% names(formals(dplyr::group_by))) {
     # dplyr >= 1.0
