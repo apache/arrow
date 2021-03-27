@@ -48,7 +48,9 @@
       <property name="file" value="${checkstyle.suppressions.file}"/>
     </module>
 
-    <module name="NewlineAtEndOfFile"/>
+    <module name="NewlineAtEndOfFile">
+        <property name="lineSeparator" value="lf" />
+    </module>
 
     <!-- Google style modules -->
 
