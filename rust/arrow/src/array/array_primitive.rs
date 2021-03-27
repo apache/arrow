@@ -113,8 +113,9 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
         PrimitiveArray::from(data)
     }
 
-    /// Creates a PrimitiveArray based on an iterator of values without nulls
+    /// Creates a PrimitiveArray based on a constant value with `count` elements
     pub fn from_constant(value: T::Native, count: usize) -> Self {
+        // # Safety: length is known
         let val_buf = unsafe { Buffer::from_trusted_len_iter((0..count).map(|_| value)) };
         let data = ArrayData::new(
             T::DATA_TYPE,
