@@ -292,6 +292,7 @@ relocate.Dataset <- relocate.ArrowTabular <- relocate.arrow_dplyr_query
 
 check_select_helpers <- function(exprs) {
   # Throw an error if unsupported tidyselect selection helpers in `exprs`
+  exprs <- lapply(exprs, function(x) if (is_quosure(x)) quo_get_expr(x) else x)
   unsup_select_helpers <- "where"
   funs_in_exprs <- unlist(lapply(exprs, all_funs))
   unsup_funs <- funs_in_exprs[funs_in_exprs %in% unsup_select_helpers]
@@ -779,7 +780,7 @@ mutate.arrow_dplyr_query <- function(.data,
   # Respect .before and .after
   if (!quo_is_null(.before) || !quo_is_null(.after)) {
     new <- setdiff(new_vars, old_vars)
-    .data <- relocate(.data, !!new, .before = !!.before, .after = !!.after)
+    .data <- dplyr::relocate(.data, !!new, .before = !!.before, .after = !!.after)
   }
 
   # Respect .keep
