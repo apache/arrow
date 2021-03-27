@@ -292,6 +292,7 @@ relocate.Dataset <- relocate.ArrowTabular <- relocate.arrow_dplyr_query
 
 check_select_helpers <- function(exprs) {
   # Throw an error if unsupported tidyselect selection helpers in `exprs`
+  exprs <- lapply(exprs, function(x) if (is_quosure(x)) quo_get_expr(x) else x)
   unsup_select_helpers <- "where"
   funs_in_exprs <- unlist(lapply(exprs, all_funs))
   unsup_funs <- funs_in_exprs[funs_in_exprs %in% unsup_select_helpers]
