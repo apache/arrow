@@ -137,7 +137,7 @@ class IntegrationRunner(object):
                 skip.add("Go")
                 skip.add("JS")
                 skip.add("Rust")
-                # See https://github.com/apache/arrow/pull/9822 for how to 
+                # See https://github.com/apache/arrow/pull/9822 for how to
                 # disable specific compression type tests.
             yield datagen.File(name, None, None, skip=skip, path=out_path)
 
