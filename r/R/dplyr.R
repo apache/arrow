@@ -365,7 +365,7 @@ arrow_eval <- function (expr, mask) {
       dplyr_functions$i18ized_error_pattern <- patterns
     }
     if (grepl(patterns, msg)) {
-      stop(e, call. = FALSE)
+      stop(e)
     }
     invisible(structure(msg, class = "try-error", condition = e))
   })
@@ -452,7 +452,7 @@ arrow_mask <- function(.data) {
   # Add functions that need to error hard and clear.
   # Some R functions will still try to evaluate on an Expression
   # and return NA with a warning
-  fail <- function(...) stop("Not implemented", call. = FALSE)
+  fail <- function(...) stop("Not implemented")
   for (f in c("mean")) {
     f_env[[f]] <- fail
   }
