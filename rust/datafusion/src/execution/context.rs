@@ -663,9 +663,9 @@ impl ExecutionConfig {
         self
     }
 
-    /// Enables the `information_schema` virtual tables
-    pub fn with_information_schema(mut self) -> Self {
-        self.information_schema = true;
+    /// Enables or disables the inclusion of `information_schema` virtual tables
+    pub fn with_information_schema(mut self, enabled: bool) -> Self {
+        self.information_schema = enabled;
         self
     }
 }
@@ -2092,7 +2092,7 @@ mod tests {
     #[tokio::test]
     async fn information_schema_tables_no_tables() {
         let mut ctx = ExecutionContext::with_config(
-            ExecutionConfig::new().with_information_schema(),
+            ExecutionConfig::new().with_information_schema(true),
         );
 
         let result =
@@ -2101,11 +2101,11 @@ mod tests {
                 .unwrap();
 
         let expected = vec![
-            "+---------------+--------------------+------------+--------------+",
-            "| table_catalog | table_schema       | table_name | table_type   |",
-            "+---------------+--------------------+------------+--------------+",
-            "| datafusion    | information_schema | tables     | SYSTEM TABLE |",
-            "+---------------+--------------------+------------+--------------+",
+            "+---------------+--------------------+------------+------------+",
+            "| table_catalog | table_schema       | table_name | table_type |",
+            "+---------------+--------------------+------------+------------+",
+            "| datafusion    | information_schema | tables     | VIEW       |",
+            "+---------------+--------------------+------------+------------+",
         ];
         assert_batches_eq!(expected, &result);
     }
@@ -2113,7 +2113,7 @@ mod tests {
     #[tokio::test]
     async fn information_schema_tables_tables_default_catalog() {
         let mut ctx = ExecutionContext::with_config(
-            ExecutionConfig::new().with_information_schema(),
+            ExecutionConfig::new().with_information_schema(true),
         );
 
         // Now, register an empty table
@@ -2126,12 +2126,12 @@ mod tests {
                 .unwrap();
 
         let expected = vec![
-            "+---------------+--------------------+------------+--------------+",
-            "| table_catalog | table_schema       | table_name | table_type   |",
-            "+---------------+--------------------+------------+--------------+",
-            "| datafusion    | public             | t          | BASE TABLE   |",
-            "| datafusion    | information_schema | tables     | SYSTEM TABLE |",
-            "+---------------+--------------------+------------+--------------+",
+            "+---------------+--------------------+------------+------------+",
+            "| table_catalog | table_schema       | table_name | table_type |",
+            "+---------------+--------------------+------------+------------+",
+            "| datafusion    | information_schema | tables     | VIEW       |",
+            "| datafusion    | public             | t          | BASE TABLE |",
+            "+---------------+--------------------+------------+------------+",
         ];
         assert_batches_sorted_eq!(expected, &result);
 
@@ -2159,7 +2159,7 @@ mod tests {
     #[tokio::test]
     async fn information_schema_tables_tables_with_multiple_catalogs() {
         let mut ctx = ExecutionContext::with_config(
-            ExecutionConfig::new().with_information_schema(),
+            ExecutionConfig::new().with_information_schema(true),
         );
         let catalog = MemoryCatalogProvider::new();
         let schema = MemorySchemaProvider::new();
@@ -2186,16 +2186,16 @@ mod tests {
                 .unwrap();
 
         let expected = vec![
-            "+------------------+--------------------+------------+--------------+",
-            "| table_catalog    | table_schema       | table_name | table_type   |",
-            "+------------------+--------------------+------------+--------------+",
-            "| datafusion       | information_schema | tables     | SYSTEM TABLE |",
-            "| my_other_catalog | my_other_schema    | t3         | BASE TABLE   |",
-            "| my_other_catalog | information_schema | tables     | SYSTEM TABLE |",
-            "| my_catalog       | my_schema          | t2         | BASE TABLE   |",
-            "| my_catalog       | my_schema          | t1         | BASE TABLE   |",
-            "| my_catalog       | information_schema | tables     | SYSTEM TABLE |",
-            "+------------------+--------------------+------------+--------------+",
+            "+------------------+--------------------+------------+------------+",
+            "| table_catalog    | table_schema       | table_name | table_type |",
+            "+------------------+--------------------+------------+------------+",
+            "| datafusion       | information_schema | tables     | VIEW       |",
+            "| my_catalog       | information_schema | tables     | VIEW       |",
+            "| my_catalog       | my_schema          | t1         | BASE TABLE |",
+            "| my_catalog       | my_schema          | t2         | BASE TABLE |",
+            "| my_other_catalog | information_schema | tables     | VIEW       |",
+            "| my_other_catalog | my_other_schema    | t3         | BASE TABLE |",
+            "+------------------+--------------------+------------+------------+",
         ];
         assert_batches_sorted_eq!(expected, &result);
     }

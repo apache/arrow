@@ -64,7 +64,7 @@ pub async fn main() {
     let mut ctx = ExecutionContext::with_config(
         ExecutionConfig::new()
             .with_batch_size(batch_size)
-            .with_information_schema(),
+            .with_information_schema(true),
     );
 
     let mut rl = Editor::<()>::new();
