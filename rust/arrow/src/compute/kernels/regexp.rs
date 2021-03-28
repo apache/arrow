@@ -59,6 +59,12 @@ pub fn regexp_match<OffsetSize: StringOffsetSizeTrait>(
         .zip(complete_pattern)
         .map(|(value, pattern)| {
             match (value, pattern) {
+                // Required for Postgres compatibility:
+                // SELECT regexp_match('foobarbequebaz', ''); = {""}
+                (Some(_), Some(pattern)) if pattern == "".to_string() => {
+                    list_builder.values().append_value("")?;
+                    list_builder.append(true)?;
+                }
                 (Some(value), Some(pattern)) => {
                     let existing_pattern = patterns.get(&pattern);
                     let re = match existing_pattern {
@@ -124,6 +130,7 @@ mod tests {
         expected_builder.append(false)?;
         expected_builder.append(false)?;
         expected_builder.append(false)?;
+        expected_builder.values().append_value("")?;
         expected_builder.append(true)?;
         let expected = expected_builder.finish();
         let result = actual.as_any().downcast_ref::<ListArray>().unwrap();
