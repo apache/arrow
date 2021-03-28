@@ -24,12 +24,12 @@
 
 namespace gandiva {
 
-class TestCacheKey {
+class TestLvuCacheKey {
  public:
-  explicit TestCacheKey(int tmp) : tmp_(tmp) {}
+  explicit TestLvuCacheKey(int tmp) : tmp_(tmp) {}
   std::size_t Hash() const { return tmp_; }
-  bool operator==(const TestCacheKey& other) const { return tmp_ == other.tmp_; }
-  bool operator<(const TestCacheKey& other) const { return tmp_ < other.tmp_; }
+  bool operator==(const TestLvuCacheKey& other) const { return tmp_ == other.tmp_; }
+  bool operator<(const TestLvuCacheKey& other) const { return tmp_ < other.tmp_; }
 
  private:
   int tmp_;
@@ -40,49 +40,49 @@ class TestLowerValueUsedCache : public ::testing::Test {
   TestLowerValueUsedCache() : cache_(2) {}
 
  protected:
-  LowerValueUsedCache<TestCacheKey, std::string> cache_;
+  LowerValueUsedCache<TestLvuCacheKey, std::string> cache_;
 };
 
 TEST_F(TestLowerValueUsedCache, TestEvict) {
-  cache_.insert(TestCacheKey(1), "bye", 1);
-  cache_.insert(TestCacheKey(2), "bye", 10);
-  cache_.insert(TestCacheKey(1), "bye", 1);
-  cache_.insert(TestCacheKey(3), "bye", 20);
-  cache_.insert(TestCacheKey(4), "bye", 100);
-  cache_.insert(TestCacheKey(1), "bye", 1);
+  cache_.insert(TestLvuCacheKey(1), "bye", 1);
+  cache_.insert(TestLvuCacheKey(2), "bye", 10);
+  cache_.insert(TestLvuCacheKey(1), "bye", 1);
+  cache_.insert(TestLvuCacheKey(3), "bye", 20);
+  cache_.insert(TestLvuCacheKey(4), "bye", 100);
+  cache_.insert(TestLvuCacheKey(1), "bye", 1);
   ASSERT_EQ(2, cache_.size());
-  ASSERT_EQ(cache_.get(TestCacheKey(1)), arrow::util::nullopt);
-  ASSERT_EQ(cache_.get(TestCacheKey(2)), arrow::util::nullopt);
-  ASSERT_EQ(cache_.get(TestCacheKey(3)), "bye");
-  ASSERT_EQ(cache_.get(TestCacheKey(4)), "bye");
+  ASSERT_EQ(cache_.get(TestLvuCacheKey(1)), arrow::util::nullopt);
+  ASSERT_EQ(cache_.get(TestLvuCacheKey(2)), arrow::util::nullopt);
+  ASSERT_EQ(cache_.get(TestLvuCacheKey(3)), "bye");
+  ASSERT_EQ(cache_.get(TestLvuCacheKey(4)), "bye");
 }
 
 TEST_F(TestLowerValueUsedCache, TestLowestValueUsedBehavior) {
   // should insert key 1 and 2
-  cache_.insert(TestCacheKey(1), "bye", 1);
-  cache_.insert(TestCacheKey(2), "bye", 10);
-  cache_.insert(TestCacheKey(1), "bye", 1);
-  ASSERT_EQ(cache_.get(TestCacheKey(1)), "bye");
-  ASSERT_EQ(cache_.get(TestCacheKey(2)), "bye");
+  cache_.insert(TestLvuCacheKey(1), "bye", 1);
+  cache_.insert(TestLvuCacheKey(2), "bye", 10);
+  cache_.insert(TestLvuCacheKey(1), "bye", 1);
+  ASSERT_EQ(cache_.get(TestLvuCacheKey(1)), "bye");
+  ASSERT_EQ(cache_.get(TestLvuCacheKey(2)), "bye");
 
   // should insert key 3 evicting key 1 (because value to order of key 3 is higher)
-  cache_.insert(TestCacheKey(3), "bye", 20);
-  ASSERT_EQ(cache_.get(TestCacheKey(3)), "bye");
-  ASSERT_EQ(cache_.get(TestCacheKey(2)), "bye");
-  ASSERT_EQ(cache_.get(TestCacheKey(1)), arrow::util::nullopt);
+  cache_.insert(TestLvuCacheKey(3), "bye", 20);
+  ASSERT_EQ(cache_.get(TestLvuCacheKey(3)), "bye");
+  ASSERT_EQ(cache_.get(TestLvuCacheKey(2)), "bye");
+  ASSERT_EQ(cache_.get(TestLvuCacheKey(1)), arrow::util::nullopt);
 
   // should insert key 4 evicting key 2 (because value to order of key 4 is higher)
-  cache_.insert(TestCacheKey(4), "bye", 100);
-  ASSERT_EQ(cache_.get(TestCacheKey(3)), "bye");
-  ASSERT_EQ(cache_.get(TestCacheKey(4)), "bye");
-  ASSERT_EQ(cache_.get(TestCacheKey(2)), arrow::util::nullopt);
-  ASSERT_EQ(cache_.get(TestCacheKey(1)), arrow::util::nullopt);
+  cache_.insert(TestLvuCacheKey(4), "bye", 100);
+  ASSERT_EQ(cache_.get(TestLvuCacheKey(3)), "bye");
+  ASSERT_EQ(cache_.get(TestLvuCacheKey(4)), "bye");
+  ASSERT_EQ(cache_.get(TestLvuCacheKey(2)), arrow::util::nullopt);
+  ASSERT_EQ(cache_.get(TestLvuCacheKey(1)), arrow::util::nullopt);
 
   // should not insert key 1 on cache (because the value to order is lower)
-  cache_.insert(TestCacheKey(1), "bye", 1);
-  ASSERT_EQ(cache_.get(TestCacheKey(3)), "bye");
-  ASSERT_EQ(cache_.get(TestCacheKey(4)), "bye");
-  ASSERT_EQ(cache_.get(TestCacheKey(1)), arrow::util::nullopt);
-  ASSERT_EQ(cache_.get(TestCacheKey(2)), arrow::util::nullopt);
+  cache_.insert(TestLvuCacheKey(1), "bye", 1);
+  ASSERT_EQ(cache_.get(TestLvuCacheKey(3)), "bye");
+  ASSERT_EQ(cache_.get(TestLvuCacheKey(4)), "bye");
+  ASSERT_EQ(cache_.get(TestLvuCacheKey(1)), arrow::util::nullopt);
+  ASSERT_EQ(cache_.get(TestLvuCacheKey(2)), arrow::util::nullopt);
 }
 }  // namespace gandiva
