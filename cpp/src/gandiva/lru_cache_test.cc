@@ -25,11 +25,12 @@
 
 namespace gandiva {
 
-class TestCacheKey {
+class TestLruCacheKey {
  public:
-  explicit TestCacheKey(int tmp) : tmp_(tmp) {}
+  explicit TestLruCacheKey(int tmp) : tmp_(tmp) {}
   std::size_t Hash() const { return tmp_; }
-  bool operator==(const TestCacheKey& other) const { return tmp_ == other.tmp_; }
+  bool operator==(const TestLruCacheKey& other) const { return tmp_ == other.tmp_; }
+  bool operator<(const TestLruCacheKey& other) const { return tmp_ < other.tmp_; }
 
  private:
   int tmp_;
@@ -40,25 +41,25 @@ class TestLruCache : public ::testing::Test {
   TestLruCache() : cache_(2) {}
 
  protected:
-  LruCache<TestCacheKey, std::string> cache_;
+  LruCache<TestLruCacheKey, std::string> cache_;
 };
 
 TEST_F(TestLruCache, TestEvict) {
-  cache_.insert(TestCacheKey(1), "hello", 0);
-  cache_.insert(TestCacheKey(2), "hello", 0);
-  cache_.insert(TestCacheKey(1), "hello", 0);
-  cache_.insert(TestCacheKey(3), "hello", 0);
+  cache_.insert(TestLruCacheKey(1), "hello", 0);
+  cache_.insert(TestLruCacheKey(2), "hello", 0);
+  cache_.insert(TestLruCacheKey(1), "hello", 0);
+  cache_.insert(TestLruCacheKey(3), "hello", 0);
   // should have evicted key 1
   ASSERT_EQ(2, cache_.size());
-  ASSERT_EQ(cache_.get(TestCacheKey(1)), arrow::util::nullopt);
+  ASSERT_EQ(cache_.get(TestLruCacheKey(1)), arrow::util::nullopt);
 }
 
 TEST_F(TestLruCache, TestLruBehavior) {
-  cache_.insert(TestCacheKey(1), "hello", 0);
-  cache_.insert(TestCacheKey(2), "hello", 0);
-  cache_.get(TestCacheKey(1));
-  cache_.insert(TestCacheKey(3), "hello", 0);
+  cache_.insert(TestLruCacheKey(1), "hello", 0);
+  cache_.insert(TestLruCacheKey(2), "hello", 0);
+  cache_.get(TestLruCacheKey(1));
+  cache_.insert(TestLruCacheKey(3), "hello", 0);
   // should have evicted key 2.
-  ASSERT_EQ(*cache_.get(TestCacheKey(1)), "hello");
+  ASSERT_EQ(*cache_.get(TestLruCacheKey(1)), "hello");
 }
 }  // namespace gandiva

@@ -98,6 +98,6 @@ class LowerValueUsedCache : public BaseCache<Key, Value> {
 
  private:
   map_type map_;
-  std::set<std::pair<u_long, Key>> lvu_set_;
+  std::set<std::pair<uint64_t, Key>> lvu_set_;
 };
 }  // namespace gandiva
