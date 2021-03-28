@@ -1028,7 +1028,19 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             }
 
             SQLExpr::Function(function) => {
-                let name: String = function.name.to_string();
+                let name = if function.name.0.len() > 1 {
+                    // DF doesn't handle compound identifiers
+                    // (e.g. "foo.bar") for function names yet
+                    function.name.to_string()
+                } else {
+                    // if there is a quote style, then don't normalize
+                    // the name, otherwise normalize to lowercase
+                    let ident = &function.name.0[0];
+                    match ident.quote_style {
+                        Some(_) => ident.value.clone(),
+                        None => ident.value.to_ascii_lowercase(),
+                    }
+                };
 
                 // first, scalar built-in
                 if let Ok(fun) = functions::BuiltinScalarFunction::from_str(&name) {

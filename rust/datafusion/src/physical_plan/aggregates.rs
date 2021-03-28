@@ -72,12 +72,12 @@ impl fmt::Display for AggregateFunction {
 impl FromStr for AggregateFunction {
     type Err = DataFusionError;
     fn from_str(name: &str) -> Result<AggregateFunction> {
-        Ok(match &*name.to_uppercase() {
-            "MIN" => AggregateFunction::Min,
-            "MAX" => AggregateFunction::Max,
-            "COUNT" => AggregateFunction::Count,
-            "AVG" => AggregateFunction::Avg,
-            "SUM" => AggregateFunction::Sum,
+        Ok(match name {
+            "min" => AggregateFunction::Min,
+            "max" => AggregateFunction::Max,
+            "count" => AggregateFunction::Count,
+            "avg" => AggregateFunction::Avg,
+            "sum" => AggregateFunction::Sum,
             _ => {
                 return Err(DataFusionError::Plan(format!(
                     "There is no built-in function named {}",
