@@ -19,7 +19,7 @@
 use crate::{
     catalog::{
         catalog::{CatalogList, MemoryCatalogList},
-        information_schema::CatalogListWithInformationSchema,
+        information_schema::CatalogWithInformationSchema,
     },
     optimizer::hash_build_probe_order::HashBuildProbeOrder,
 };
@@ -126,15 +126,23 @@ impl ExecutionContext {
 
         if config.create_default_catalog_and_schema {
             let default_catalog = MemoryCatalogProvider::new();
+
             default_catalog.register_schema(
                 config.default_schema.clone(),
                 Arc::new(MemorySchemaProvider::new()),
             );
 
-            catalog_list.register_catalog(
-                config.default_catalog.clone(),
-                Arc::new(default_catalog) as Arc<dyn CatalogProvider>,
-            );
+            let default_catalog: Arc<dyn CatalogProvider> = if config.information_schema {
+                Arc::new(CatalogWithInformationSchema::new(
+                    catalog_list.clone(),
+                    Arc::new(default_catalog),
+                ))
+            } else {
+                Arc::new(default_catalog)
+            };
+
+            catalog_list
+                .register_catalog(config.default_catalog.clone(), default_catalog);
         }
 
         Self {
@@ -317,11 +325,19 @@ impl ExecutionContext {
         catalog: Arc<dyn CatalogProvider>,
     ) -> Option<Arc<dyn CatalogProvider>> {
         let name = name.into();
-        self.state
-            .lock()
-            .unwrap()
-            .catalog_list
-            .register_catalog(name, catalog)
+
+        let state = self.state.lock().unwrap();
+        println!("Registering catalog for {}", name);
+        let catalog = if state.config.information_schema {
+            Arc::new(CatalogWithInformationSchema::new(
+                state.catalog_list.clone(),
+                catalog,
+            ))
+        } else {
+            catalog
+        };
+
+        state.catalog_list.register_catalog(name, catalog)
     }
 
     /// Retrieves a `CatalogProvider` instance by name
@@ -695,31 +711,20 @@ impl ExecutionContextState {
             .resolve(&self.config.default_catalog, &self.config.default_schema)
     }
 
-    fn catalog_for_ref<'a>(
-        &'a self,
-        resolved_ref: &ResolvedTableReference<'a>,
-    ) -> Result<Arc<dyn CatalogProvider>> {
-        if self.config.information_schema {
-            CatalogListWithInformationSchema::new(self.catalog_list.clone())
-                .catalog(resolved_ref.catalog)
-        } else {
-            self.catalog_list.catalog(resolved_ref.catalog)
-        }
-        .ok_or_else(|| {
-            DataFusionError::Plan(format!(
-                "failed to resolve catalog: {}",
-                resolved_ref.catalog
-            ))
-        })
-    }
-
     fn schema_for_ref<'a>(
         &'a self,
         table_ref: impl Into<TableReference<'a>>,
     ) -> Result<Arc<dyn SchemaProvider>> {
         let resolved_ref = self.resolve_table_ref(table_ref.into());
 
-        self.catalog_for_ref(&resolved_ref)?
+        self.catalog_list
+            .catalog(resolved_ref.catalog)
+            .ok_or_else(|| {
+                DataFusionError::Plan(format!(
+                    "failed to resolve catalog: {}",
+                    resolved_ref.catalog
+                ))
+            })?
             .schema(resolved_ref.schema)
             .ok_or_else(|| {
                 DataFusionError::Plan(format!(

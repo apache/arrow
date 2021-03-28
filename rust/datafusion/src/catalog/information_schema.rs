@@ -37,36 +37,24 @@ use super::{
 const INFORMATION_SCHEMA: &str = "information_schema";
 const TABLES: &str = "tables";
 
-/// Wraps a [`CatalogList`] so that it also provides an
-/// `information_schema` schema view as well in each catalog.
-pub(crate) struct CatalogListWithInformationSchema {
-    inner: Arc<dyn CatalogList>,
-}
-
-impl CatalogListWithInformationSchema {
-    pub(crate) fn new(inner: Arc<dyn CatalogList>) -> Self {
-        Self { inner }
-    }
-
-    /// Returns a catalog provider that also contains the information schema table provider.
-    pub(crate) fn catalog(&self, name: &str) -> Option<Arc<dyn CatalogProvider>> {
-        self.inner.catalog(name).map(|catalog| {
-            let catalog_list = self.inner.clone();
-
-            Arc::new(CatalogWithInformationSchema {
-                catalog_list,
-                inner: catalog,
-            }) as Arc<dyn CatalogProvider>
-        })
-    }
-}
-
 /// Wraps another [`CatalogProvider`] and adds a "information_schema"
 /// schema that can introspect on tables in the catalog_list
-struct CatalogWithInformationSchema {
+pub(crate) struct CatalogWithInformationSchema {
     catalog_list: Arc<dyn CatalogList>,
     /// wrapped provider
     inner: Arc<dyn CatalogProvider>,
+}
+
+impl CatalogWithInformationSchema {
+    pub(crate) fn new(
+        catalog_list: Arc<dyn CatalogList>,
+        inner: Arc<dyn CatalogProvider>,
+    ) -> Self {
+        Self {
+            catalog_list,
+            inner,
+        }
+    }
 }
 
 impl CatalogProvider for CatalogWithInformationSchema {
@@ -121,9 +109,15 @@ impl SchemaProvider for InformationSchemaProvider {
                 let catalog = self.catalog_list.catalog(&catalog_name).unwrap();
 
                 for schema_name in catalog.schema_names() {
-                    let schema = catalog.schema(&schema_name).unwrap();
-                    for table_name in schema.table_names() {
-                        builder.add_base_table(&catalog_name, &schema_name, table_name)
+                    if schema_name != INFORMATION_SCHEMA {
+                        let schema = catalog.schema(&schema_name).unwrap();
+                        for table_name in schema.table_names() {
+                            builder.add_base_table(
+                                &catalog_name,
+                                &schema_name,
+                                table_name,
+                            )
+                        }
                     }
                 }
 
