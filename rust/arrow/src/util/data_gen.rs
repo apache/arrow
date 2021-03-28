@@ -248,7 +248,7 @@ mod tests {
         let size = 32;
         let fields = vec![Field::new("a", DataType::Int32, true)];
         let schema = Schema::new(fields);
-        let schema_ref = Arc::new(schema.clone());
+        let schema_ref = Arc::new(schema);
         let batch = create_random_batch(schema_ref.clone(), size, 0.35, 0.7).unwrap();
 
         assert_eq!(batch.schema(), schema_ref);
@@ -271,7 +271,7 @@ mod tests {
             Field::new("a", DataType::Int32, false),
         ];
         let schema = Schema::new(fields);
-        let schema_ref = Arc::new(schema.clone());
+        let schema_ref = Arc::new(schema);
         let batch = create_random_batch(schema_ref.clone(), size, 0.35, 0.7).unwrap();
 
         assert_eq!(batch.schema(), schema_ref);
