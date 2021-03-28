@@ -303,8 +303,8 @@ impl LogicalPlanBuilder {
 
         Ok(Self::from(&LogicalPlan::Aggregate {
             input: Arc::new(self.plan.clone()),
-            group_expr: group_expr,
-            aggr_expr: aggr_expr,
+            group_expr,
+            aggr_expr,
             schema: DFSchemaRef::new(aggr_schema),
         }))
     }
