@@ -2624,7 +2624,7 @@ async fn query_regexp_match() -> Result<()> {
     ctx.register_table("test", Arc::new(table))?;
     let sql = r"SELECT regexp_match(c1, '.*-(\d)') FROM test";
     let actual = execute(&mut ctx, sql).await;
-    let expected = vec![vec!["[0]"], vec!["[1]"], vec!["[]"]];
+    let expected = vec![vec!["[0]"], vec!["[1]"], vec!["NULL"]];
     assert_eq!(expected, actual);
     Ok(())
 }

@@ -83,10 +83,7 @@ pub fn regexp_match<OffsetSize: StringOffsetSizeTrait>(
                             }
                             list_builder.append(true)?
                         }
-                        None => {
-                            list_builder.values().append_value("")?;
-                            list_builder.append(true)?
-                        }
+                        None => list_builder.append(false)?,
                     }
                 }
                 _ => list_builder.append(false)?,
@@ -104,9 +101,19 @@ mod tests {
 
     #[test]
     fn match_single_group() -> Result<()> {
-        let values = vec![Some("abc-005-def"), Some("X-7-5"), Some("X545"), None];
+        let values = vec![
+            Some("abc-005-def"),
+            Some("X-7-5"),
+            Some("X545"),
+            None,
+            Some("foobarbequebaz"),
+            Some("foobarbequebaz"),
+        ];
         let array = StringArray::from(values);
-        let pattern = StringArray::from(vec![r".*-(\d*)-.*"; 4]);
+        let mut pattern_values = vec![r".*-(\d*)-.*"; 4];
+        pattern_values.push(r"(bar)(bequ1e)");
+        pattern_values.push("");
+        let pattern = StringArray::from(pattern_values);
         let actual = regexp_match(&array, &pattern, None)?;
         let elem_builder: GenericStringBuilder<i32> = GenericStringBuilder::new(0);
         let mut expected_builder = ListBuilder::new(elem_builder);
@@ -114,9 +121,10 @@ mod tests {
         expected_builder.append(true)?;
         expected_builder.values().append_value("7")?;
         expected_builder.append(true)?;
-        expected_builder.values().append_value("")?;
-        expected_builder.append(true)?;
         expected_builder.append(false)?;
+        expected_builder.append(false)?;
+        expected_builder.append(false)?;
+        expected_builder.append(true)?;
         let expected = expected_builder.finish();
         let result = actual.as_any().downcast_ref::<ListArray>().unwrap();
         assert_eq!(&expected, result);
@@ -132,12 +140,10 @@ mod tests {
         let actual = regexp_match(&array, &pattern, Some(&flags))?;
         let elem_builder: GenericStringBuilder<i32> = GenericStringBuilder::new(0);
         let mut expected_builder = ListBuilder::new(elem_builder);
-        expected_builder.values().append_value("")?;
-        expected_builder.append(true)?;
+        expected_builder.append(false)?;
         expected_builder.values().append_value("7")?;
         expected_builder.append(true)?;
-        expected_builder.values().append_value("")?;
-        expected_builder.append(true)?;
+        expected_builder.append(false)?;
         expected_builder.append(false)?;
         let expected = expected_builder.finish();
         let result = actual.as_any().downcast_ref::<ListArray>().unwrap();
