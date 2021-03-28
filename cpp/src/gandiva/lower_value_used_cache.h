@@ -18,9 +18,9 @@
 #pragma once
 
 #include <list>
+#include <set>
 #include <unordered_map>
 #include <utility>
-#include <set>
 
 #include "arrow/util/optional.h"
 #include "gandiva/base_cache.h"
@@ -37,8 +37,9 @@ class LowerValueUsedCache : public BaseCache<Key, Value> {
       return i.Hash();
     }
   };
-  using map_type =std::unordered_map<
-      Key, std::pair<Value, typename std::set<std::pair<uint64_t, Key>> ::iterator>, hasher>;
+  using map_type = std::unordered_map<
+      Key, std::pair<Value, typename std::set<std::pair<uint64_t, Key>>::iterator>,
+      hasher>;
 
   explicit LowerValueUsedCache(size_t capacity) : BaseCache<Key, Value>(capacity) {}
 
@@ -52,7 +53,8 @@ class LowerValueUsedCache : public BaseCache<Key, Value> {
 
   bool contains(const Key& key) override { return map_.find(key) != map_.end(); }
 
-  void insert(const Key& key, const Value& value, const uint64_t value_to_order) override {
+  void insert(const Key& key, const Value& value,
+              const uint64_t value_to_order) override {
     typename map_type::iterator i = map_.find(key);
     if (i == map_.end()) {
       // insert item into the cache, but first check if it is full
