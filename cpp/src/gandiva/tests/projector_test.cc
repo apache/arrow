@@ -15,6 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 #include "gandiva/projector.h"
 
 #include <gtest/gtest.h>
@@ -356,6 +360,19 @@ TEST_F(TestProjector, TestExtendedMath) {
   auto field_log10 = arrow::field("log10", arrow::float64());
   auto field_logb = arrow::field("logb", arrow::float64());
   auto field_power = arrow::field("power", arrow::float64());
+  auto field_sin = arrow::field("sin", arrow::float64());
+  auto field_cos = arrow::field("cos", arrow::float64());
+  auto field_asin = arrow::field("asin", arrow::float64());
+  auto field_acos = arrow::field("acos", arrow::float64());
+  auto field_tan = arrow::field("tan", arrow::float64());
+  auto field_atan = arrow::field("atan", arrow::float64());
+  auto field_sinh = arrow::field("sinh", arrow::float64());
+  auto field_cosh = arrow::field("cosh", arrow::float64());
+  auto field_tanh = arrow::field("tanh", arrow::float64());
+  auto field_atan2 = arrow::field("atan2", arrow::float64());
+  auto field_cot = arrow::field("cot", arrow::float64());
+  auto field_radians = arrow::field("radians", arrow::float64());
+  auto field_degrees = arrow::field("degrees", arrow::float64());
 
   // Build expression
   auto cbrt_expr = TreeExprBuilder::MakeExpression("cbrt", {field0}, field_cbrt);
@@ -365,10 +382,27 @@ TEST_F(TestProjector, TestExtendedMath) {
   auto logb_expr = TreeExprBuilder::MakeExpression("log", {field0, field1}, field_logb);
   auto power_expr =
       TreeExprBuilder::MakeExpression("power", {field0, field1}, field_power);
+  auto sin_expr = TreeExprBuilder::MakeExpression("sin", {field0}, field_sin);
+  auto cos_expr = TreeExprBuilder::MakeExpression("cos", {field0}, field_cos);
+  auto asin_expr = TreeExprBuilder::MakeExpression("asin", {field0}, field_asin);
+  auto acos_expr = TreeExprBuilder::MakeExpression("acos", {field0}, field_acos);
+  auto tan_expr = TreeExprBuilder::MakeExpression("tan", {field0}, field_tan);
+  auto atan_expr = TreeExprBuilder::MakeExpression("atan", {field0}, field_atan);
+  auto sinh_expr = TreeExprBuilder::MakeExpression("sinh", {field0}, field_sinh);
+  auto cosh_expr = TreeExprBuilder::MakeExpression("cosh", {field0}, field_cosh);
+  auto tanh_expr = TreeExprBuilder::MakeExpression("tanh", {field0}, field_tanh);
+  auto atan2_expr =
+      TreeExprBuilder::MakeExpression("atan2", {field0, field1}, field_atan2);
+  auto cot_expr = TreeExprBuilder::MakeExpression("cot", {field0}, field_cot);
+  auto radians_expr = TreeExprBuilder::MakeExpression("radians", {field0}, field_radians);
+  auto degrees_expr = TreeExprBuilder::MakeExpression("degrees", {field0}, field_degrees);
 
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(
-      schema, {cbrt_expr, exp_expr, log_expr, log10_expr, logb_expr, power_expr},
+      schema,
+      {cbrt_expr, exp_expr, log_expr, log10_expr, logb_expr, power_expr, sin_expr,
+       cos_expr, asin_expr, acos_expr, tan_expr, atan_expr, sinh_expr, cosh_expr,
+       tanh_expr, atan2_expr, cot_expr, radians_expr, degrees_expr},
       TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
@@ -388,6 +422,19 @@ TEST_F(TestProjector, TestExtendedMath) {
   std::vector<double> log10_vals;
   std::vector<double> logb_vals;
   std::vector<double> power_vals;
+  std::vector<double> sin_vals;
+  std::vector<double> cos_vals;
+  std::vector<double> asin_vals;
+  std::vector<double> acos_vals;
+  std::vector<double> tan_vals;
+  std::vector<double> atan_vals;
+  std::vector<double> sinh_vals;
+  std::vector<double> cosh_vals;
+  std::vector<double> tanh_vals;
+  std::vector<double> atan2_vals;
+  std::vector<double> cot_vals;
+  std::vector<double> radians_vals;
+  std::vector<double> degrees_vals;
   for (int i = 0; i < num_records; i++) {
     cbrt_vals.push_back(static_cast<double>(cbrtl(input0[i])));
     exp_vals.push_back(static_cast<double>(expl(input0[i])));
@@ -395,6 +442,19 @@ TEST_F(TestProjector, TestExtendedMath) {
     log10_vals.push_back(static_cast<double>(log10l(input0[i])));
     logb_vals.push_back(static_cast<double>(logl(input1[i]) / logl(input0[i])));
     power_vals.push_back(static_cast<double>(powl(input0[i], input1[i])));
+    sin_vals.push_back(static_cast<double>(sin(input0[i])));
+    cos_vals.push_back(static_cast<double>(cos(input0[i])));
+    asin_vals.push_back(static_cast<double>(asin(input0[i])));
+    acos_vals.push_back(static_cast<double>(acos(input0[i])));
+    tan_vals.push_back(static_cast<double>(tan(input0[i])));
+    atan_vals.push_back(static_cast<double>(atan(input0[i])));
+    sinh_vals.push_back(static_cast<double>(sinh(input0[i])));
+    cosh_vals.push_back(static_cast<double>(cosh(input0[i])));
+    tanh_vals.push_back(static_cast<double>(tanh(input0[i])));
+    atan2_vals.push_back(static_cast<double>(atan2(input0[i], input1[i])));
+    cot_vals.push_back(static_cast<double>(tan(M_PI / 2 - input0[i])));
+    radians_vals.push_back(static_cast<double>(input0[i] * M_PI / 180.0));
+    degrees_vals.push_back(static_cast<double>(input0[i] * 180.0 / M_PI));
   }
   auto expected_cbrt = MakeArrowArray<arrow::DoubleType, double>(cbrt_vals, validity);
   auto expected_exp = MakeArrowArray<arrow::DoubleType, double>(exp_vals, validity);
@@ -402,7 +462,21 @@ TEST_F(TestProjector, TestExtendedMath) {
   auto expected_log10 = MakeArrowArray<arrow::DoubleType, double>(log10_vals, validity);
   auto expected_logb = MakeArrowArray<arrow::DoubleType, double>(logb_vals, validity);
   auto expected_power = MakeArrowArray<arrow::DoubleType, double>(power_vals, validity);
-
+  auto expected_sin = MakeArrowArray<arrow::DoubleType, double>(sin_vals, validity);
+  auto expected_cos = MakeArrowArray<arrow::DoubleType, double>(cos_vals, validity);
+  auto expected_asin = MakeArrowArray<arrow::DoubleType, double>(asin_vals, validity);
+  auto expected_acos = MakeArrowArray<arrow::DoubleType, double>(acos_vals, validity);
+  auto expected_tan = MakeArrowArray<arrow::DoubleType, double>(tan_vals, validity);
+  auto expected_atan = MakeArrowArray<arrow::DoubleType, double>(atan_vals, validity);
+  auto expected_sinh = MakeArrowArray<arrow::DoubleType, double>(sinh_vals, validity);
+  auto expected_cosh = MakeArrowArray<arrow::DoubleType, double>(cosh_vals, validity);
+  auto expected_tanh = MakeArrowArray<arrow::DoubleType, double>(tanh_vals, validity);
+  auto expected_atan2 = MakeArrowArray<arrow::DoubleType, double>(atan2_vals, validity);
+  auto expected_cot = MakeArrowArray<arrow::DoubleType, double>(cot_vals, validity);
+  auto expected_radians =
+      MakeArrowArray<arrow::DoubleType, double>(radians_vals, validity);
+  auto expected_degrees =
+      MakeArrowArray<arrow::DoubleType, double>(degrees_vals, validity);
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1});
 
@@ -419,6 +493,19 @@ TEST_F(TestProjector, TestExtendedMath) {
   EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_log10, outputs.at(3), epsilon);
   EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_logb, outputs.at(4), epsilon);
   EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_power, outputs.at(5), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_sin, outputs.at(6), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_cos, outputs.at(7), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_asin, outputs.at(8), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_acos, outputs.at(9), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_tan, outputs.at(10), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_atan, outputs.at(11), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_sinh, outputs.at(12), 1E-08);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_cosh, outputs.at(13), 1E-08);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_tanh, outputs.at(14), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_atan2, outputs.at(15), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_cot, outputs.at(16), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_radians, outputs.at(17), epsilon);
+  EXPECT_ARROW_ARRAY_APPROX_EQUALS(expected_degrees, outputs.at(18), epsilon);
 }
 
 TEST_F(TestProjector, TestFloatLessThan) {

@@ -659,6 +659,7 @@ test_that("filter() with strings", {
     tibble(chr = "b", part = 1)
   )
 
+  skip_if_not_available("utf8proc")
   expect_equivalent(
     ds %>%
       select(chr, part) %>%
