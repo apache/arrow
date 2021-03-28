@@ -61,6 +61,11 @@ pub fn create_random_array(
     null_density: f32,
     true_density: f32,
 ) -> Result<ArrayRef> {
+    // Override null density with 0.0 if the array is non-nullable
+    let null_density = match field.is_nullable() {
+        true => null_density,
+        false => 0.0,
+    };
     use DataType::*;
     Ok(match field.data_type() {
         Null => Arc::new(NullArray::new(size)) as ArrayRef,
@@ -133,7 +138,7 @@ pub fn create_random_array(
                 .iter()
                 .map(|struct_field| {
                     create_random_array(struct_field, size, null_density, true_density)
-                        .map(|array_ref| (field.name().as_str(), array_ref))
+                        .map(|array_ref| (struct_field.name().as_str(), array_ref))
                 })
                 .collect::<Result<Vec<(&str, ArrayRef)>>>()?,
         )?),
@@ -153,15 +158,20 @@ fn create_random_list_array(
     null_density: f32,
     true_density: f32,
 ) -> Result<ArrayRef> {
+    // Override null density with 0.0 if the array is non-nullable
+    let null_density = match field.is_nullable() {
+        true => null_density,
+        false => 0.0,
+    };
     let list_field;
     let (offsets, child_len) = match field.data_type() {
         DataType::List(f) => {
-            let (offsets, child_len) = create_random_offsets::<i32>(size, 1, 3);
+            let (offsets, child_len) = create_random_offsets::<i32>(size, 0, 5);
             list_field = f;
             (Buffer::from(offsets.to_byte_slice()), child_len as usize)
         }
         DataType::LargeList(f) => {
-            let (offsets, child_len) = create_random_offsets::<i64>(size, 1, 3);
+            let (offsets, child_len) = create_random_offsets::<i64>(size, 0, 5);
             list_field = f;
             (Buffer::from(offsets.to_byte_slice()), child_len as usize)
         }
@@ -205,6 +215,7 @@ fn create_random_offsets<T: OffsetSizeTrait + SampleUniform>(
     let mut current_offset = T::zero();
 
     let mut offsets = Vec::with_capacity(size + 1);
+    offsets.push(current_offset);
 
     (0..size).for_each(|_| {
         current_offset += rng.gen_range(min, max);
@@ -245,5 +256,92 @@ mod tests {
         for array in batch.columns() {
             assert_eq!(array.len(), size);
         }
+    }
+
+    #[test]
+    fn test_create_batch_non_null() {
+        let size = 32;
+        let fields = vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new(
+                "b",
+                DataType::List(Box::new(Field::new("item", DataType::LargeUtf8, true))),
+                false,
+            ),
+            Field::new("a", DataType::Int32, false),
+        ];
+        let schema = Schema::new(fields);
+        let schema_ref = Arc::new(schema.clone());
+        let batch = create_random_batch(schema_ref.clone(), size, 0.35, 0.7).unwrap();
+
+        assert_eq!(batch.schema(), schema_ref);
+        assert_eq!(batch.num_columns(), schema_ref.fields().len());
+        for array in batch.columns() {
+            assert_eq!(array.null_count(), 0);
+        }
+        // Test that the list's child values are non-null
+        let b_array = batch.column(1);
+        let list_array = b_array.as_any().downcast_ref::<ListArray>().unwrap();
+        let child_array = make_array(list_array.data().child_data()[0].clone());
+        assert_eq!(child_array.null_count(), 0);
+        // There should be more values than the list, to show that it's a list
+        assert!(child_array.len() > list_array.len());
+    }
+
+    #[test]
+    fn test_create_struct_array() {
+        let size = 32;
+        let struct_fields = vec![
+            Field::new("b", DataType::Boolean, true),
+            Field::new(
+                "c",
+                DataType::LargeList(Box::new(Field::new(
+                    "item",
+                    DataType::List(Box::new(Field::new(
+                        "item",
+                        DataType::FixedSizeBinary(6),
+                        true,
+                    ))),
+                    false,
+                ))),
+                true,
+            ),
+            Field::new(
+                "d",
+                DataType::Struct(vec![
+                    Field::new("d_x", DataType::Int32, true),
+                    Field::new("d_y", DataType::Float32, false),
+                    Field::new("d_z", DataType::Binary, true),
+                ]),
+                true,
+            ),
+        ];
+        let field = Field::new("struct", DataType::Struct(struct_fields), true);
+        let array = create_random_array(&field, size, 0.2, 0.5).unwrap();
+
+        assert_eq!(array.len(), 32);
+        let struct_array = array.as_any().downcast_ref::<StructArray>().unwrap();
+        assert_eq!(struct_array.columns().len(), 3);
+
+        // Test that the nested list makes sense,
+        // i.e. its children's values are more than the parent, to show repetition
+        let col_c = struct_array.column_by_name("c").unwrap();
+        let col_c = col_c.as_any().downcast_ref::<LargeListArray>().unwrap();
+        assert_eq!(col_c.len(), size);
+        let col_c_values = col_c.values();
+        assert!(col_c_values.len() > size);
+        // col_c_values should be a list
+        let col_c_list = col_c_values.as_any().downcast_ref::<ListArray>().unwrap();
+        // Its values should be FixedSizeBinary(6)
+        let fsb = col_c_list.values();
+        assert_eq!(fsb.data_type(), &DataType::FixedSizeBinary(6));
+        assert!(fsb.len() > col_c_list.len());
+
+        // Test nested struct
+        let col_d = struct_array.column_by_name("d").unwrap();
+        let col_d = col_d.as_any().downcast_ref::<StructArray>().unwrap();
+        let col_d_y = col_d.column_by_name("d_y").unwrap();
+        assert_eq!(col_d_y.data_type(), &DataType::Float32);
+        assert_eq!(col_d_y.null_count(), 0);
     }
 }
