@@ -212,12 +212,12 @@ fn to_datatype(format: &str, child_type: Option<DataType>) -> Result<DataType> {
         "+l" => DataType::List(Box::new(Field::new(
             "item",
             child_type.unwrap_or(DataType::Null),
-            false,
+            true,
         ))),
         "+L" => DataType::LargeList(Box::new(Field::new(
             "item",
             child_type.unwrap_or(DataType::Null),
-            false,
+            true,
         ))),
         dt => {
             return Err(ArrowError::CDataInterface(format!(
