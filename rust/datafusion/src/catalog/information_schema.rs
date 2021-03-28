@@ -151,11 +151,15 @@ struct InformationSchemaTablesBuilder {
 
 impl InformationSchemaTablesBuilder {
     fn new() -> Self {
+        // StringBuilder requires providing an initial capacity, so
+        // pick 10 here arbitrarily as this is not performance
+        // critical code and the number of tables is unavailable here.
+        let default_capacity = 10;
         Self {
-            catalog_names: StringBuilder::new(10),
-            schema_names: StringBuilder::new(10),
-            table_names: StringBuilder::new(10),
-            table_types: StringBuilder::new(10),
+            catalog_names: StringBuilder::new(default_capacity),
+            schema_names: StringBuilder::new(default_capacity),
+            table_names: StringBuilder::new(default_capacity),
+            table_types: StringBuilder::new(default_capacity),
         }
     }
 
@@ -190,7 +194,7 @@ impl InformationSchemaTablesBuilder {
             .append_value(schema_name.as_ref())
             .unwrap();
         self.table_names.append_value(table_name.as_ref()).unwrap();
-        self.table_types.append_value("SYSTEM TABLE").unwrap();
+        self.table_types.append_value("VIEW").unwrap();
     }
 
     fn build(self) -> MemTable {
