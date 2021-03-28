@@ -77,6 +77,7 @@ To export an array, create an `ArrowArray` using [ArrowArray::try_new].
 */
 
 use std::{
+    convert::TryFrom,
     ffi::CStr,
     ffi::CString,
     iter,
@@ -90,7 +91,6 @@ use crate::buffer::Buffer;
 use crate::datatypes::{DataType, Field, TimeUnit};
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
-use std::convert::TryFrom;
 
 /// ABI-compatible struct for `ArrowSchema` from C Data Interface
 /// See <https://arrow.apache.org/docs/format/CDataInterface.html#structure-definitions>
@@ -210,12 +210,12 @@ fn to_datatype(format: &str, child_type: Option<DataType>) -> Result<DataType> {
         // at that point the child data is not yet known, but it is also not required to determine
         // the buffer length of the list arrays.
         "+l" => DataType::List(Box::new(Field::new(
-            "",
+            "item",
             child_type.unwrap_or(DataType::Null),
             false,
         ))),
         "+L" => DataType::LargeList(Box::new(Field::new(
-            "",
+            "item",
             child_type.unwrap_or(DataType::Null),
             false,
         ))),
@@ -674,6 +674,7 @@ impl ArrowArray {
             .collect()
     }
 
+    /// returns the child data of this array
     pub fn children(&self) -> Result<Vec<ArrayData>> {
         unsafe { create_child_arrays(self.array.clone(), self.schema.clone()) }
     }
