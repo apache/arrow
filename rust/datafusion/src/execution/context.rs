@@ -2145,13 +2145,13 @@ mod tests {
                 .unwrap();
 
         let expected = vec![
-            "+---------------+--------------------+------------+--------------+",
-            "| table_catalog | table_schema       | table_name | table_type   |",
-            "+---------------+--------------------+------------+--------------+",
-            "| datafusion    | public             | t2         | BASE TABLE   |",
-            "| datafusion    | public             | t          | BASE TABLE   |",
-            "| datafusion    | information_schema | tables     | SYSTEM TABLE |",
-            "+---------------+--------------------+------------+--------------+",
+            "+---------------+--------------------+------------+------------+",
+            "| table_catalog | table_schema       | table_name | table_type |",
+            "+---------------+--------------------+------------+------------+",
+            "| datafusion    | information_schema | tables     | VIEW       |",
+            "| datafusion    | public             | t          | BASE TABLE |",
+            "| datafusion    | public             | t2         | BASE TABLE |",
+            "+---------------+--------------------+------------+------------+",
         ];
         assert_batches_sorted_eq!(expected, &result);
     }
