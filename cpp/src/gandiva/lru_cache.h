@@ -53,7 +53,8 @@ class LruCache : public BaseCache<Key, Value> {
 
   bool contains(const Key& key) override { return map_.find(key) != map_.end(); }
 
-  void insert(const Key& key, const Value& value, const uint64_t value_to_order) override {
+  void insert(const Key& key, const Value& value,
+              const uint64_t value_to_order) override {
     typename map_type::iterator i = map_.find(key);
     if (i == map_.end()) {
       // insert item into the cache, but first check if it is full
