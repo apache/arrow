@@ -15,20 +15,25 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[workspace]
-members = [
-        "arrow",
-        "parquet",
-        "parquet_derive",
-        "parquet_derive_test",
-        "datafusion",
-        "datafusion-examples",
-        "arrow-flight",
-        "integration-testing",
-	"benchmarks",
-]
+[package]
+name = "datafusion-examples"
+description = "DataFusion usage examples"
+version = "4.0.0-SNAPSHOT"
+homepage = "https://github.com/apache/arrow"
+repository = "https://github.com/apache/arrow"
+authors = ["Apache Arrow <dev@arrow.apache.org>"]
+license = "Apache-2.0"
+keywords = [ "arrow", "query", "sql" ]
+edition = "2018"
+publish = false
 
-# this package is excluded because it requires different compilation flags, thereby significantly changing
-# how it is compiled within the workspace, causing the whole workspace to be compiled from scratch
-# this way, this is a stand-alone package that compiles independently of the others.
-exclude = ["arrow-pyarrow-integration-testing"]
+
+[dev-dependencies]
+datafusion = { path = "../datafusion" }
+arrow = { path = "../arrow" }
+prost = "0.7"
+arrow-flight = { path = "../arrow-flight" }
+tonic = "0.4"
+tokio = { version = "1.0", features = ["macros", "rt", "rt-multi-thread", "sync"] }
+futures = "0.3"
+num_cpus = "1.13.0"
