@@ -61,7 +61,7 @@ pub fn regexp_match<OffsetSize: StringOffsetSizeTrait>(
             match (value, pattern) {
                 // Required for Postgres compatibility:
                 // SELECT regexp_match('foobarbequebaz', ''); = {""}
-                (Some(_), Some(pattern)) if pattern == "".to_string() => {
+                (Some(_), Some(pattern)) if pattern == *"" => {
                     list_builder.values().append_value("")?;
                     list_builder.append(true)?;
                 }
