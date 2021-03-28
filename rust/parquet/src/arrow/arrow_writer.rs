@@ -146,7 +146,7 @@ fn write_leaves(
         | ArrowDataType::Binary
         | ArrowDataType::Utf8
         | ArrowDataType::LargeUtf8
-        | ArrowDataType::Decimal(_, _)
+        | ArrowDataType::Decimal128(_, _)
         | ArrowDataType::FixedSizeBinary(_) => {
             let mut col_writer = get_col_writer(&mut row_group_writer)?;
             write_leaf(
@@ -189,6 +189,9 @@ fn write_leaves(
         }
         ArrowDataType::Float16 => Err(ParquetError::ArrowError(
             "Float16 arrays not supported".to_string(),
+        )),
+        ArrowDataType::Decimal256(_, _) => Err(ParquetError::ArrowError(
+            "Decimal256 arrays not supported".to_string(),
         )),
         ArrowDataType::FixedSizeList(_, _) | ArrowDataType::Union(_) => {
             Err(ParquetError::NYI(
@@ -358,10 +361,10 @@ fn write_leaf(
                         .unwrap();
                     get_fsb_array_slice(&array, &indices)
                 }
-                ArrowDataType::Decimal(_, _) => {
+                ArrowDataType::Decimal128(_, _) => {
                     let array = column
                         .as_any()
-                        .downcast_ref::<arrow_array::DecimalArray>()
+                        .downcast_ref::<arrow_array::Decimal128Array>()
                         .unwrap();
                     get_decimal_array_slice(&array, &indices)
                 }
@@ -467,7 +470,7 @@ fn get_interval_dt_array_slice(
 }
 
 fn get_decimal_array_slice(
-    array: &arrow_array::DecimalArray,
+    array: &arrow_array::Decimal128Array,
     indices: &[usize],
 ) -> Vec<FixedLenByteArray> {
     let mut values = Vec::with_capacity(indices.len());
@@ -699,14 +702,14 @@ mod tests {
 
     #[test]
     fn arrow_writer_decimal() {
-        let decimal_field = Field::new("a", DataType::Decimal(5, 2), false);
+        let decimal_field = Field::new("a", DataType::Decimal128(5, 2), false);
         let schema = Schema::new(vec![decimal_field]);
 
         let mut dec_builder = DecimalBuilder::new(4, 5, 2);
-        dec_builder.append_value(10_000).unwrap();
-        dec_builder.append_value(50_000).unwrap();
-        dec_builder.append_value(0).unwrap();
-        dec_builder.append_value(-100).unwrap();
+        dec_builder.append_value_i128(10_000_i128).unwrap();
+        dec_builder.append_value_i128(50_000_i128).unwrap();
+        dec_builder.append_value_i128(0_i128).unwrap();
+        dec_builder.append_value_i128(-100_i128).unwrap();
 
         let raw_decimal_i128_values: Vec<i128> = vec![10_000, 50_000, 0, -100];
         let decimal_values = dec_builder.finish();
@@ -732,11 +735,14 @@ mod tests {
         let decimal_col = batch
             .column(0)
             .as_any()
-            .downcast_ref::<DecimalArray>()
+            .downcast_ref::<Decimal128Array>()
             .unwrap();
 
         for i in 0..batch.num_rows() {
-            assert_eq!(decimal_col.value(i), raw_decimal_i128_values[i]);
+            assert_eq!(
+                Into::<i128>::into(decimal_col.value(i)),
+                raw_decimal_i128_values[i]
+            );
         }
     }
 

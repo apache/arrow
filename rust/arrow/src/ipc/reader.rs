@@ -319,7 +319,7 @@ fn create_primitive_array(
             }
             builder.build()
         }
-        Decimal(_, _) => {
+        Decimal128(_, _) => {
             // read 3 buffers
             let mut builder = ArrayData::builder(data_type.clone())
                 .len(length)

@@ -15,13 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::datatypes::ArrowPrimitiveType;
+use crate::datatypes::{ArrowDecimalType, ArrowPrimitiveType};
 
 use super::{
     Array, ArrayRef, BinaryOffsetSizeTrait, BooleanArray, GenericBinaryArray,
     GenericListArray, GenericStringArray, OffsetSizeTrait, PrimitiveArray,
     StringOffsetSizeTrait,
 };
+use crate::array::array_decimal::DecimalArray;
 
 /// an iterator that returns Some(T) or None, that can be used on any PrimitiveArray
 // Note: This implementation is based on std's [Vec]s' [IntoIter].
@@ -85,6 +86,67 @@ impl<'a, T: ArrowPrimitiveType> std::iter::DoubleEndedIterator for PrimitiveIter
 
 /// all arrays have known size.
 impl<'a, T: ArrowPrimitiveType> std::iter::ExactSizeIterator for PrimitiveIter<'a, T> {}
+
+#[derive(Debug)]
+pub struct DecimalIter<'a, T: 'static + ArrowDecimalType> {
+    array: &'a DecimalArray<T>,
+    current: usize,
+    current_end: usize,
+}
+
+impl<'a, T: ArrowDecimalType> DecimalIter<'a, T> {
+    /// create a new iterator
+    pub fn new(array: &'a DecimalArray<T>) -> Self {
+        DecimalIter::<T> {
+            array,
+            current: 0,
+            current_end: array.len(),
+        }
+    }
+}
+
+impl<'a, T: ArrowDecimalType> std::iter::Iterator for DecimalIter<'a, T> {
+    type Item = Option<T::Native>;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current == self.current_end {
+            None
+        } else if self.array.is_null(self.current) {
+            self.current += 1;
+            Some(None)
+        } else {
+            let old = self.current;
+            self.current += 1;
+            Some(Some(self.array.value(old)))
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (
+            self.array.len() - self.current,
+            Some(self.array.len() - self.current),
+        )
+    }
+}
+
+impl<'a, T: ArrowDecimalType> std::iter::DoubleEndedIterator for DecimalIter<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.current_end == self.current {
+            None
+        } else {
+            self.current_end -= 1;
+            Some(if self.array.is_null(self.current_end) {
+                None
+            } else {
+                Some(self.array.value(self.current_end))
+            })
+        }
+    }
+}
+
+/// all arrays have known size.
+impl<'a, T: ArrowDecimalType> std::iter::ExactSizeIterator for DecimalIter<'a, T> {}
 
 /// an iterator that returns Some(bool) or None.
 // Note: This implementation is based on std's [Vec]s' [IntoIter].

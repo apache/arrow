@@ -136,7 +136,8 @@ impl LevelInfo {
             | DataType::Interval(_)
             | DataType::Binary
             | DataType::LargeBinary
-            | DataType::Decimal(_, _)
+            | DataType::Decimal128(_, _)
+            | DataType::Decimal256(_, _)
             | DataType::FixedSizeBinary(_) => {
                 // we return a vector of 1 value to represent the primitive
                 vec![self.calculate_child_levels(
@@ -189,7 +190,8 @@ impl LevelInfo {
                     | DataType::Utf8
                     | DataType::LargeUtf8
                     | DataType::Dictionary(_, _)
-                    | DataType::Decimal(_, _)
+                    | DataType::Decimal128(_, _)
+                    | DataType::Decimal256(_, _)
                     | DataType::FixedSizeBinary(_) => {
                         vec![list_level.calculate_child_levels(
                             child_offsets,
@@ -601,7 +603,8 @@ impl LevelInfo {
             | DataType::LargeUtf8
             | DataType::Struct(_)
             | DataType::Dictionary(_, _)
-            | DataType::Decimal(_, _) => {
+            | DataType::Decimal128(_, _)
+            | DataType::Decimal256(_, _) => {
                 let array_mask = match array.data().null_buffer() {
                     Some(buf) => get_bool_array_slice(buf, array.offset(), array.len()),
                     None => vec![true; array.len()],

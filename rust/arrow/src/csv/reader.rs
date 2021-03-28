@@ -51,7 +51,7 @@ use std::sync::Arc;
 
 use csv as csv_crate;
 
-use crate::array::{ArrayRef, BooleanArray, PrimitiveArray, StringArray};
+use crate::array::{ArrayRef, BooleanArray, DecimalBuilder, PrimitiveArray, StringArray};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
@@ -430,6 +430,9 @@ fn parse(
             let field = &fields[i];
             match field.data_type() {
                 &DataType::Boolean => build_boolean_array(line_number, rows, i),
+                &DataType::Decimal128(p, s) => {
+                    build_decimal_array(line_number, rows, i, p, s)
+                }
                 &DataType::Int8 => {
                     build_primitive_array::<Int8Type>(line_number, rows, i)
                 }
@@ -631,6 +634,45 @@ fn build_primitive_array<T: ArrowPrimitiveType + Parser>(
         })
         .collect::<Result<PrimitiveArray<T>>>()
         .map(|e| Arc::new(e) as ArrayRef)
+}
+
+// parses a specific column (col_idx) into an Arrow Array.
+fn build_decimal_array(
+    line_number: usize,
+    rows: &[StringRecord],
+    col_idx: usize,
+    precision: usize,
+    scale: usize,
+) -> Result<ArrayRef> {
+    let mut builder = DecimalBuilder::new(rows.len(), precision, scale);
+
+    for (row_index, row) in rows.iter().enumerate() {
+        match row.get(col_idx) {
+            Some(s) => {
+                if s.is_empty() {
+                    builder.append_null()?
+                }
+
+                let parsed = match Decimal128Type::parse(s, precision, scale) {
+                    Ok(number) => number,
+                    Err(_) => {
+                        return Err(ArrowError::ParseError(format!(
+                            // TODO: we should surface the underlying error here.
+                            "Error while parsing value {} for column {} at line {}",
+                            s,
+                            col_idx,
+                            line_number + row_index
+                        )));
+                    }
+                };
+
+                builder.append_value(parsed)?
+            }
+            None => builder.append_null()?,
+        }
+    }
+
+    Ok(Arc::new(builder.finish()))
 }
 
 // parses a specific column (col_idx) into an Arrow Array.

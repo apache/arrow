@@ -23,6 +23,7 @@ use super::{
 };
 
 mod boolean;
+mod decimal;
 mod fixed_binary;
 mod list;
 mod null;
@@ -212,6 +213,8 @@ fn build_extend(array: &ArrayData) -> Extend {
         },
         DataType::Struct(_) => structure::build_extend(array),
         DataType::FixedSizeBinary(_) => fixed_binary::build_extend(array),
+        DataType::Decimal128(_, _) => decimal::build_extend(array),
+        DataType::Decimal256(_, _) => decimal::build_extend(array),
         DataType::Float16 => unreachable!(),
         /*
         DataType::FixedSizeList(_, _) => {}
@@ -261,6 +264,8 @@ fn build_extend_nulls(data_type: &DataType) -> ExtendNulls {
         },
         DataType::Struct(_) => structure::extend_nulls,
         DataType::FixedSizeBinary(_) => fixed_binary::extend_nulls,
+        DataType::Decimal128(_, _) => decimal::extend_nulls,
+        DataType::Decimal256(_, _) => decimal::extend_nulls,
         DataType::Float16 => unreachable!(),
         /*
         DataType::FixedSizeList(_, _) => {}
@@ -313,6 +318,7 @@ impl<'a> MutableArrayData<'a> {
             | DataType::LargeUtf8
             | DataType::LargeBinary
             | DataType::Interval(_)
+            | DataType::Decimal128(_, _)
             | DataType::FixedSizeBinary(_) => vec![],
             DataType::List(_) | DataType::LargeList(_) => {
                 let childs = arrays

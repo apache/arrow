@@ -373,6 +373,27 @@ async fn csv_query_group_by_float32() -> Result<()> {
 }
 
 #[tokio::test]
+async fn csv_query_group_by_decimal() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_simple_csv(&mut ctx)?;
+
+    let sql =
+        "SELECT COUNT(*) as cnt, c4 FROM aggregate_simple GROUP BY c4 ORDER BY cnt DESC";
+    let actual = execute(&mut ctx, sql).await;
+
+    let expected = vec![
+        vec!["5", "5.000000000005"],
+        vec!["4", "4.000000000004"],
+        vec!["3", "3.000000000003"],
+        vec!["2", "2.000000000002"],
+        vec!["1", "1.000000000001"],
+    ];
+    assert_eq!(expected, actual);
+
+    Ok(())
+}
+
+#[tokio::test]
 async fn csv_query_group_by_float64() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     register_aggregate_simple_csv(&mut ctx)?;
@@ -1498,6 +1519,7 @@ fn register_aggregate_simple_csv(ctx: &mut ExecutionContext) -> Result<()> {
         Field::new("c1", DataType::Float32, false),
         Field::new("c2", DataType::Float64, false),
         Field::new("c3", DataType::Boolean, false),
+        Field::new("c4", DataType::Decimal128(1, 12), false),
     ]));
 
     ctx.register_csv(

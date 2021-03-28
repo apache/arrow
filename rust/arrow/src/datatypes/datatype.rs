@@ -127,8 +127,10 @@ pub enum DataType {
     /// This type mostly used to represent low cardinality string
     /// arrays or a limited set of primitive types as integers.
     Dictionary(Box<DataType>, Box<DataType>),
-    /// Decimal value with precision and scale
-    Decimal(usize, usize),
+    /// A 128-bit Decimal value with precision and scale
+    Decimal128(usize, usize),
+    /// A 256-bit Decimal value with precision and scale
+    Decimal256(usize, usize),
 }
 
 /// An absolute length of time in seconds, milliseconds, microseconds or nanoseconds.
@@ -197,7 +199,7 @@ impl DataType {
                         )),
                     };
 
-                    Ok(DataType::Decimal(precision?, scale?))
+                    Ok(DataType::Decimal128(precision?, scale?))
                 }
                 Some(s) if s == "floatingpoint" => match map.get("precision") {
                     Some(p) if p == "HALF" => Ok(DataType::Float16),
@@ -426,8 +428,8 @@ impl DataType {
                 TimeUnit::Nanosecond => "NANOSECOND",
             }}),
             DataType::Dictionary(_, _) => json!({ "name": "dictionary"}),
-            DataType::Decimal(precision, scale) => {
-                json!({"name": "decimal", "precision": precision, "scale": scale})
+            DataType::Decimal128(p, s) | DataType::Decimal256(p, s) => {
+                json!({"name": "decimal", "precision": p, "scale": s})
             }
         }
     }

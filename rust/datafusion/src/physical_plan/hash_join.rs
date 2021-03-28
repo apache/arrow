@@ -40,7 +40,7 @@ use futures::{Stream, StreamExt, TryStreamExt};
 use hashbrown::HashMap;
 use tokio::sync::Mutex;
 
-use arrow::array::Array;
+use arrow::array::{Array, Decimal128Array};
 use arrow::datatypes::DataType;
 use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
@@ -666,6 +666,9 @@ fn equal_rows(
             DataType::UInt16 => equal_rows_elem!(UInt16Array, l, r, left, right),
             DataType::UInt32 => equal_rows_elem!(UInt32Array, l, r, left, right),
             DataType::UInt64 => equal_rows_elem!(UInt64Array, l, r, left, right),
+            DataType::Decimal128(_, _) => {
+                equal_rows_elem!(Decimal128Array, l, r, left, right)
+            }
             DataType::Timestamp(_, None) => {
                 equal_rows_elem!(Int64Array, l, r, left, right)
             }

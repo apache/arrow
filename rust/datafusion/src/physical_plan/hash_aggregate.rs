@@ -46,8 +46,8 @@ use arrow::{
     array::{BooleanArray, Date32Array, DictionaryArray},
     compute::cast,
     datatypes::{
-        ArrowDictionaryKeyType, ArrowNativeType, Int16Type, Int32Type, Int64Type,
-        Int8Type, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
+        ArrowDictionaryKeyType, ArrowNativeType, Decimal128Type, Int16Type, Int32Type,
+        Int64Type, Int8Type, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
     },
 };
 use arrow::{
@@ -59,7 +59,8 @@ use ordered_float::OrderedFloat;
 use pin_project_lite::pin_project;
 
 use arrow::array::{
-    TimestampMicrosecondArray, TimestampMillisecondArray, TimestampNanosecondArray,
+    Decimal128Array, DecimalBuilder, TimestampMicrosecondArray,
+    TimestampMillisecondArray, TimestampNanosecondArray,
 };
 use async_trait::async_trait;
 
@@ -457,6 +458,10 @@ fn create_key_for_col(col: &ArrayRef, row: usize, vec: &mut Vec<u8>) -> Result<(
         DataType::Boolean => {
             let array = col.as_any().downcast_ref::<BooleanArray>().unwrap();
             vec.extend_from_slice(&[array.value(row) as u8]);
+        }
+        DataType::Decimal128(_, _) => {
+            let array = col.as_any().downcast_ref::<Decimal128Array>().unwrap();
+            vec.extend_from_slice(&array.value(row).to_le_bytes());
         }
         DataType::Float32 => {
             let array = col.as_any().downcast_ref::<Float32Array>().unwrap();
@@ -910,6 +915,12 @@ fn create_batch_from_map(
             // 2.
             let mut groups = (0..num_group_expr)
                 .map(|i| match &group_by_values[i] {
+                    GroupByScalar::Decimal128(n) => {
+                        let mut builder = DecimalBuilder::new(1, n.precision, n.scale);
+                        builder.append_value(**n).unwrap();
+
+                        Arc::new(builder.finish()) as ArrayRef
+                    }
                     GroupByScalar::Float32(n) => {
                         Arc::new(Float32Array::from(vec![(*n).into()] as Vec<f32>))
                             as ArrayRef
@@ -1037,6 +1048,14 @@ fn dictionary_create_group_by_value<K: ArrowDictionaryKeyType>(
 /// Extract the value in `col[row]` as a GroupByScalar
 fn create_group_by_value(col: &ArrayRef, row: usize) -> Result<GroupByScalar> {
     match col.data_type() {
+        DataType::Decimal128(p, s) => {
+            let array = col.as_any().downcast_ref::<Decimal128Array>().unwrap();
+            Ok(GroupByScalar::Decimal128(Box::new(Decimal128Type::new(
+                array.value(row),
+                *p,
+                *s,
+            ))))
+        }
         DataType::Float32 => {
             let array = col.as_any().downcast_ref::<Float32Array>().unwrap();
             Ok(GroupByScalar::Float32(OrderedFloat::from(array.value(row))))

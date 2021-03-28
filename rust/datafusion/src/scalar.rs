@@ -38,6 +38,8 @@ use crate::error::{DataFusionError, Result};
 pub enum ScalarValue {
     /// true or false value
     Boolean(Option<bool>),
+    /// 128bit decimal
+    Decimal128(Option<i128>, usize, usize),
     /// 32bit float
     Float32(Option<f32>),
     /// 64bit float
@@ -136,6 +138,7 @@ impl ScalarValue {
     /// Getter for the `DataType` of the value
     pub fn get_datatype(&self) -> DataType {
         match self {
+            ScalarValue::Decimal128(_, p, s) => DataType::Decimal128(*p, *s),
             ScalarValue::Boolean(_) => DataType::Boolean,
             ScalarValue::UInt8(_) => DataType::UInt8,
             ScalarValue::UInt16(_) => DataType::UInt16,
@@ -223,6 +226,14 @@ impl ScalarValue {
     /// Converts a scalar value into an array of `size` rows.
     pub fn to_array_of_size(&self, size: usize) -> ArrayRef {
         match self {
+            ScalarValue::Decimal128(e, p, s) => match e {
+                Some(_) => {
+                    unimplemented!(
+                        "Unable to cast ScalarValue::Decimal128 to DecimalArray"
+                    )
+                }
+                None => new_null_array(&DataType::Decimal128(*p, *s), size),
+            },
             ScalarValue::Boolean(e) => {
                 Arc::new(BooleanArray::from(vec![*e; size])) as ArrayRef
             }
@@ -586,6 +597,7 @@ macro_rules! format_option {
 impl fmt::Display for ScalarValue {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            ScalarValue::Decimal128(e, _, _) => format_option!(f, e)?,
             ScalarValue::Boolean(e) => format_option!(f, e)?,
             ScalarValue::Float32(e) => format_option!(f, e)?,
             ScalarValue::Float64(e) => format_option!(f, e)?,
@@ -647,6 +659,9 @@ impl fmt::Display for ScalarValue {
 impl fmt::Debug for ScalarValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            ScalarValue::Decimal128(_, p, s) => {
+                write!(f, "Decimal128<{}, {}>({})", p, s, self)
+            }
             ScalarValue::Boolean(_) => write!(f, "Boolean({})", self),
             ScalarValue::Float32(_) => write!(f, "Float32({})", self),
             ScalarValue::Float64(_) => write!(f, "Float64({})", self),

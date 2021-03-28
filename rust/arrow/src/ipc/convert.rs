@@ -310,7 +310,7 @@ pub(crate) fn get_data_type(field: ipc::Field, may_be_dictionary: bool) -> DataT
         }
         ipc::Type::Decimal => {
             let fsb = field.type_as_decimal().unwrap();
-            DataType::Decimal(fsb.precision() as usize, fsb.scale() as usize)
+            DataType::Decimal128(fsb.precision() as usize, fsb.scale() as usize)
         }
         t => unimplemented!("Type {:?} not supported", t),
     }
@@ -630,7 +630,7 @@ pub(crate) fn get_fb_field_type<'a>(
             // type in the DictionaryEncoding metadata in the parent field
             get_fb_field_type(value_type, is_nullable, fbb)
         }
-        Decimal(precision, scale) => {
+        Decimal128(precision, scale) => {
             let mut builder = ipc::DecimalBuilder::new(fbb);
             builder.add_precision(*precision as i32);
             builder.add_scale(*scale as i32);
@@ -821,7 +821,7 @@ mod tests {
                     123,
                     true,
                 ),
-                Field::new("decimal<usize, usize>", DataType::Decimal(10, 6), false),
+                Field::new("decimal<usize, usize>", DataType::Decimal128(10, 6), false),
             ],
             md,
         );

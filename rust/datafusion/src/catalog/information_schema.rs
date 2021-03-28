@@ -405,7 +405,7 @@ impl InformationSchemaColumnsBuilder {
             Float32 => (Some(24), Some(2), None),
             // Numbers from postgres `double` type
             Float64 => (Some(24), Some(2), None),
-            Decimal(precision, scale) => {
+            Decimal128(precision, scale) => {
                 (Some(*precision as u64), Some(10), Some(*scale as u64))
             }
             _ => (None, None, None),

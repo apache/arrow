@@ -22,10 +22,13 @@ use std::convert::{From, TryFrom};
 
 use crate::error::{DataFusionError, Result};
 use crate::scalar::ScalarValue;
+use arrow::datatypes::Decimal128Type;
 
 /// Enumeration of types that can be used in a GROUP BY expression
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub(crate) enum GroupByScalar {
+    // Box is needed to reduce memory usage
+    Decimal128(Box<Decimal128Type>),
     Float32(OrderedFloat<f32>),
     Float64(OrderedFloat<f64>),
     UInt8(u8),
@@ -36,6 +39,7 @@ pub(crate) enum GroupByScalar {
     Int16(i16),
     Int32(i32),
     Int64(i64),
+    // Box is needed to reduce memory usage
     Utf8(Box<String>),
     Boolean(bool),
     TimeMillisecond(i64),
@@ -49,6 +53,9 @@ impl TryFrom<&ScalarValue> for GroupByScalar {
 
     fn try_from(scalar_value: &ScalarValue) -> Result<Self> {
         Ok(match scalar_value {
+            ScalarValue::Decimal128(Some(v), p, s) => {
+                GroupByScalar::Decimal128(Box::new(Decimal128Type::new(*v, *p, *s)))
+            }
             ScalarValue::Float32(Some(v)) => {
                 GroupByScalar::Float32(OrderedFloat::from(*v))
             }
@@ -69,6 +76,7 @@ impl TryFrom<&ScalarValue> for GroupByScalar {
             ScalarValue::TimeNanosecond(Some(v)) => GroupByScalar::TimeNanosecond(*v),
             ScalarValue::Utf8(Some(v)) => GroupByScalar::Utf8(Box::new(v.clone())),
             ScalarValue::Float32(None)
+            | ScalarValue::Decimal128(None, _, _)
             | ScalarValue::Float64(None)
             | ScalarValue::Boolean(None)
             | ScalarValue::Int8(None)
@@ -98,6 +106,9 @@ impl TryFrom<&ScalarValue> for GroupByScalar {
 impl From<&GroupByScalar> for ScalarValue {
     fn from(group_by_scalar: &GroupByScalar) -> Self {
         match group_by_scalar {
+            GroupByScalar::Decimal128(v) => {
+                ScalarValue::Decimal128(Some(v.digits), v.precision, v.scale)
+            }
             GroupByScalar::Float32(v) => ScalarValue::Float32(Some((*v).into())),
             GroupByScalar::Float64(v) => ScalarValue::Float64(Some((*v).into())),
             GroupByScalar::Boolean(v) => ScalarValue::Boolean(Some(*v)),
@@ -125,12 +136,9 @@ mod tests {
     use crate::error::DataFusionError;
 
     macro_rules! scalar_eq_test {
-        ($TYPE:expr, $VALUE:expr) => {{
-            let scalar_value = $TYPE($VALUE);
-            let a = GroupByScalar::try_from(&scalar_value).unwrap();
-
-            let scalar_value = $TYPE($VALUE);
-            let b = GroupByScalar::try_from(&scalar_value).unwrap();
+        ($EXPR:expr) => {{
+            let a = GroupByScalar::try_from(&$EXPR).unwrap();
+            let b = GroupByScalar::try_from(&$EXPR).unwrap();
 
             assert_eq!(a, b);
         }};
@@ -139,17 +147,15 @@ mod tests {
     #[test]
     fn test_scalar_ne_non_std() {
         // Test only Scalars with non native Eq, Hash
-        scalar_eq_test!(ScalarValue::Float32, Some(1.0));
-        scalar_eq_test!(ScalarValue::Float64, Some(1.0));
+        scalar_eq_test!(ScalarValue::Float32(Some(1.0)));
+        scalar_eq_test!(ScalarValue::Float64(Some(1.0)));
+        scalar_eq_test!(ScalarValue::Decimal128(Some(10_i128), 1, 1));
     }
 
     macro_rules! scalar_ne_test {
-        ($TYPE:expr, $LVALUE:expr, $RVALUE:expr) => {{
-            let scalar_value = $TYPE($LVALUE);
-            let a = GroupByScalar::try_from(&scalar_value).unwrap();
-
-            let scalar_value = $TYPE($RVALUE);
-            let b = GroupByScalar::try_from(&scalar_value).unwrap();
+        ($LEXPR:expr, $REXPR:expr) => {{
+            let a = GroupByScalar::try_from(&$LEXPR).unwrap();
+            let b = GroupByScalar::try_from(&$REXPR).unwrap();
 
             assert_ne!(a, b);
         }};
@@ -158,8 +164,18 @@ mod tests {
     #[test]
     fn test_scalar_eq_non_std() {
         // Test only Scalars with non native Eq, Hash
-        scalar_ne_test!(ScalarValue::Float32, Some(1.0), Some(2.0));
-        scalar_ne_test!(ScalarValue::Float64, Some(1.0), Some(2.0));
+        scalar_ne_test!(
+            ScalarValue::Float32(Some(1.0)),
+            ScalarValue::Float32(Some(2.0))
+        );
+        scalar_ne_test!(
+            ScalarValue::Float64(Some(1.0)),
+            ScalarValue::Float64(Some(2.0))
+        );
+        scalar_ne_test!(
+            ScalarValue::Decimal128(Some(10_i128), 1, 1),
+            ScalarValue::Decimal128(Some(20_i128), 1, 1)
+        );
     }
 
     #[test]

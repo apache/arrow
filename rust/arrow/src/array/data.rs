@@ -21,7 +21,7 @@
 use std::mem;
 use std::sync::Arc;
 
-use crate::datatypes::{DataType, IntervalUnit};
+use crate::datatypes::{i256, DataType, IntervalUnit};
 use crate::{bitmap::Bitmap, datatypes::ArrowNativeType};
 use crate::{
     buffer::{Buffer, MutableBuffer},
@@ -180,8 +180,12 @@ pub(crate) fn new_buffers(data_type: &DataType, capacity: usize) -> [MutableBuff
         DataType::FixedSizeList(_, _) | DataType::Struct(_) => {
             [empty_buffer, MutableBuffer::new(0)]
         }
-        DataType::Decimal(_, _) => [
-            MutableBuffer::new(capacity * mem::size_of::<u8>()),
+        DataType::Decimal128(_, _) => [
+            MutableBuffer::new(capacity * mem::size_of::<i128>()),
+            empty_buffer,
+        ],
+        DataType::Decimal256(_, _) => [
+            MutableBuffer::new(capacity * mem::size_of::<i256>()),
             empty_buffer,
         ],
         DataType::Union(_) => unimplemented!(),
@@ -442,7 +446,8 @@ impl ArrayData {
             | DataType::LargeBinary
             | DataType::Interval(_)
             | DataType::FixedSizeBinary(_)
-            | DataType::Decimal(_, _) => vec![],
+            | DataType::Decimal128(_, _)
+            | DataType::Decimal256(_, _) => vec![],
             DataType::List(field) => {
                 vec![Self::new_empty(field.data_type())]
             }

@@ -132,10 +132,12 @@ impl RecordBatch {
         if options.match_field_names {
             for (i, column) in columns.iter().enumerate() {
                 if column.len() != len {
-                    return Err(ArrowError::InvalidArgumentError(
-                        "all columns in a record batch must have the same length"
-                            .to_string(),
-                    ));
+                    return Err(ArrowError::InvalidArgumentError(format!(
+                        "all columns in a record batch must have the same length, expected {:?} but found {:?} at column {}",
+                        len,
+                        column.len(),
+                        schema.field(i).data_type(),
+                    )));
                 }
                 if column.data_type() != schema.field(i).data_type() {
                     return Err(ArrowError::InvalidArgumentError(format!(

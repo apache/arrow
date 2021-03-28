@@ -85,6 +85,7 @@
 mod array;
 mod array_binary;
 mod array_boolean;
+mod array_decimal;
 mod array_dictionary;
 mod array_list;
 mod array_primitive;
@@ -114,10 +115,12 @@ pub use self::data::ArrayDataBuilder;
 pub use self::data::ArrayDataRef;
 
 pub use self::array_binary::BinaryArray;
-pub use self::array_binary::DecimalArray;
 pub use self::array_binary::FixedSizeBinaryArray;
 pub use self::array_binary::LargeBinaryArray;
 pub use self::array_boolean::BooleanArray;
+pub use self::array_decimal::Decimal128Array;
+pub use self::array_decimal::Decimal256Array;
+pub use self::array_decimal::DecimalArray;
 pub use self::array_dictionary::DictionaryArray;
 pub use self::array_list::FixedSizeListArray;
 pub use self::array_list::LargeListArray;

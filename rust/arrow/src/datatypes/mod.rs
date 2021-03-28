@@ -36,6 +36,11 @@ mod types;
 pub use types::*;
 mod datatype;
 pub use datatype::*;
+mod decimal;
+mod i256_type;
+
+pub use decimal::*;
+pub use i256_type::*;
 
 /// A reference-counted reference to a [`Schema`](crate::datatypes::Schema).
 pub type SchemaRef = Arc<Schema>;

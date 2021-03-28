@@ -177,6 +177,18 @@ where
                 .unwrap();
             Ok(Arc::new(take_string::<i32, _>(values, indices)?))
         }
+        DataType::Decimal128(_, _) => {
+            let values = values.as_any().downcast_ref::<Decimal128Array>().unwrap();
+            Ok(Arc::new(take_decimal::<Decimal128Type, _>(
+                values, indices,
+            )?))
+        }
+        DataType::Decimal256(_, _) => {
+            let values = values.as_any().downcast_ref::<Decimal256Array>().unwrap();
+            Ok(Arc::new(take_decimal::<Decimal256Type, _>(
+                values, indices,
+            )?))
+        }
         DataType::LargeUtf8 => {
             let values = values
                 .as_any()
@@ -522,6 +534,76 @@ where
         vec![],
     );
     Ok(BooleanArray::from(data))
+}
+
+fn take_decimal<T: 'static, I>(
+    values: &DecimalArray<T>,
+    indices: &PrimitiveArray<I>,
+) -> Result<DecimalArray<T>>
+where
+    T: ArrowDecimalType,
+    I: ArrowNumericType,
+    I::Native: ToPrimitive,
+{
+    let data_len = indices.len();
+
+    // @todo This should be rewritten to try_from_trusted_len_iter when DecimalArray will be generic
+    let mut buffer =
+        MutableBuffer::from_len_zeroed(data_len * std::mem::size_of::<T::Native>());
+    let data = buffer.typed_data_mut();
+
+    let nulls;
+
+    if values.null_count() == 0 {
+        // Take indices without null checking
+        for (i, elem) in data.iter_mut().enumerate() {
+            let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
+                ArrowError::ComputeError("Cast to usize failed".to_string())
+            })?;
+
+            *elem = values.value(index);
+        }
+        nulls = indices.data_ref().null_buffer().cloned();
+    } else {
+        let num_bytes = bit_util::ceil(data_len, 8);
+        let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, true);
+
+        let null_slice = null_buf.as_slice_mut();
+
+        for (i, elem) in data.iter_mut().enumerate() {
+            let index = ToPrimitive::to_usize(&indices.value(i)).ok_or_else(|| {
+                ArrowError::ComputeError("Cast to usize failed".to_string())
+            })?;
+
+            if values.is_null(index) {
+                bit_util::unset_bit(null_slice, i);
+            }
+
+            *elem = values.value(index);
+        }
+        nulls = match indices.data_ref().null_buffer() {
+            Some(buffer) => Some(buffer_bin_and(
+                buffer,
+                0,
+                &null_buf.into(),
+                0,
+                indices.len(),
+            )),
+            None => Some(null_buf.into()),
+        };
+    }
+
+    let data = ArrayData::new(
+        values.data_type().clone(),
+        indices.len(),
+        None,
+        nulls,
+        0,
+        vec![buffer.into()],
+        vec![],
+    );
+
+    Ok(DecimalArray::<T>::from(data))
 }
 
 /// `take` implementation for string arrays

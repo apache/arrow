@@ -1265,12 +1265,13 @@ impl DecimalBuilder {
         }
     }
 
-    /// Appends a byte slice into the builder.
+    /// Append i128 to into the builder. For DecimalNType please use append_value.
+    /// This method is useful when you are reading a data and doesnt require to cast value to DecimalNType
     ///
     /// Automatically calls the `append` method to delimit the slice appended in as a
     /// distinct array element.
     #[inline]
-    pub fn append_value(&mut self, value: i128) -> Result<()> {
+    pub fn append_value_i128(&mut self, value: i128) -> Result<()> {
         let value_as_bytes = Self::from_i128_to_fixed_size_bytes(
             value,
             self.builder.value_length() as usize,
@@ -1286,6 +1287,7 @@ impl DecimalBuilder {
         self.builder.append(true)
     }
 
+    #[inline]
     fn from_i128_to_fixed_size_bytes(v: i128, size: usize) -> Result<Vec<u8>> {
         if size > 16 {
             return Err(ArrowError::InvalidArgumentError(
@@ -1297,6 +1299,34 @@ impl DecimalBuilder {
         Ok(res[start_byte..16].to_vec())
     }
 
+    /// Append DecimalNType to into the builder. For i128 please use append_value_i128
+    ///
+    /// Automatically calls the `append` method to delimit the slice appended in as a
+    /// distinct array element.
+    pub fn append_value(&mut self, value: Decimal128Type) -> Result<()> {
+        if self.scale != value.scale || self.precision != value.precision {
+            return Err(ArrowError::InvalidArgumentError(format!(
+                "Value Decimal128Type<{}, {}> does not have the same scale as DecimalBuilder<{}, {}>",
+                value.precision,
+                value.scale,
+                self.precision,
+                self.scale,
+            )));
+        }
+
+        let value_as_bytes = value.to_byte_slice();
+        if self.builder.value_length() != value_as_bytes.len() as i32 {
+            return Err(ArrowError::InvalidArgumentError(
+                "Byte slice does not have the same length as DecimalBuilder value lengths".to_string()
+            ));
+        }
+
+        self.builder
+            .values()
+            .append_slice(value_as_bytes.as_slice())?;
+        self.builder.append(true)
+    }
+
     /// Append a null value to the array.
     #[inline]
     pub fn append_null(&mut self) -> Result<()> {
@@ -1306,8 +1336,8 @@ impl DecimalBuilder {
     }
 
     /// Builds the `DecimalArray` and reset this builder.
-    pub fn finish(&mut self) -> DecimalArray {
-        DecimalArray::from_fixed_size_list_array(
+    pub fn finish(&mut self) -> Decimal128Array {
+        Decimal128Array::from_fixed_size_list_array(
             self.builder.finish(),
             self.precision,
             self.scale,
@@ -1401,7 +1431,10 @@ pub fn make_builder(datatype: &DataType, capacity: usize) -> Box<ArrayBuilder> {
         DataType::FixedSizeBinary(len) => {
             Box::new(FixedSizeBinaryBuilder::new(capacity, *len))
         }
-        DataType::Decimal(precision, scale) => {
+        DataType::Decimal128(precision, scale) => {
+            Box::new(DecimalBuilder::new(capacity, *precision, *scale))
+        }
+        DataType::Decimal256(precision, scale) => {
             Box::new(DecimalBuilder::new(capacity, *precision, *scale))
         }
         DataType::Utf8 => Box::new(StringBuilder::new(capacity)),
@@ -2803,18 +2836,20 @@ mod tests {
 
     #[test]
     fn test_decimal_builder() {
-        let mut builder = DecimalBuilder::new(30, 23, 6);
+        let mut builder = DecimalBuilder::new(30, 23, 0);
 
-        builder.append_value(8_887_000_000).unwrap();
+        builder
+            .append_value(Decimal128Type::new(8_887_000_000, 23, 0))
+            .unwrap();
         builder.append_null().unwrap();
-        builder.append_value(-8_887_000_000).unwrap();
-        let decimal_array: DecimalArray = builder.finish();
+        builder
+            .append_value(Decimal128Type::new(-8_887_000_000, 23, 0))
+            .unwrap();
+        let decimal_array: Decimal128Array = builder.finish();
 
-        assert_eq!(&DataType::Decimal(23, 6), decimal_array.data_type());
+        assert_eq!(&DataType::Decimal128(23, 0), decimal_array.data_type());
         assert_eq!(3, decimal_array.len());
         assert_eq!(1, decimal_array.null_count());
-        assert_eq!(32, decimal_array.value_offset(2));
-        assert_eq!(16, decimal_array.value_length());
     }
 
     #[test]

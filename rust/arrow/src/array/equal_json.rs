@@ -16,6 +16,7 @@
 // under the License.
 
 use super::*;
+use crate::array::array_decimal::DecimalArray;
 use crate::datatypes::*;
 use array::Array;
 use hex::FromHex;
@@ -335,7 +336,7 @@ impl PartialEq<FixedSizeBinaryArray> for Value {
     }
 }
 
-impl JsonEqual for DecimalArray {
+impl<T: 'static + ArrowDecimalType> JsonEqual for DecimalArray<T> {
     fn equals_json(&self, json: &[&Value]) -> bool {
         if self.len() != json.len() {
             return false;
@@ -345,7 +346,7 @@ impl JsonEqual for DecimalArray {
             JString(s) => {
                 self.is_valid(i)
                     && (s
-                        .parse::<i128>()
+                        .parse::<T::Native>()
                         .map_or_else(|_| false, |v| v == self.value(i)))
             }
             JNull => self.is_null(i),
@@ -354,7 +355,7 @@ impl JsonEqual for DecimalArray {
     }
 }
 
-impl PartialEq<Value> for DecimalArray {
+impl<T: 'static + ArrowDecimalType> PartialEq<Value> for DecimalArray<T> {
     fn eq(&self, json: &Value) -> bool {
         match json {
             Value::Array(json_array) => self.equals_json_values(&json_array),
@@ -363,8 +364,8 @@ impl PartialEq<Value> for DecimalArray {
     }
 }
 
-impl PartialEq<DecimalArray> for Value {
-    fn eq(&self, arrow: &DecimalArray) -> bool {
+impl<T: 'static + ArrowDecimalType> PartialEq<DecimalArray<T>> for Value {
+    fn eq(&self, arrow: &DecimalArray<T>) -> bool {
         match self {
             Value::Array(json_array) => arrow.equals_json_values(&json_array),
             _ => false,
@@ -899,11 +900,15 @@ mod tests {
     #[test]
     fn test_decimal_json_equal() {
         // Test the equal case
-        let mut builder = DecimalBuilder::new(30, 23, 6);
-        builder.append_value(1_000).unwrap();
+        let mut builder = DecimalBuilder::new(30, 23, 0);
+        builder
+            .append_value(Decimal128Type::new(1_000, 23, 0))
+            .unwrap();
         builder.append_null().unwrap();
-        builder.append_value(-250).unwrap();
-        let arrow_array: DecimalArray = builder.finish();
+        builder
+            .append_value(Decimal128Type::new(-250, 23, 0))
+            .unwrap();
+        let arrow_array: Decimal128Array = builder.finish();
         let json_array: Value = serde_json::from_str(
             r#"
             [
@@ -918,10 +923,14 @@ mod tests {
         assert!(json_array.eq(&arrow_array));
 
         // Test unequal case
-        builder.append_value(1_000).unwrap();
+        builder
+            .append_value(Decimal128Type::new(-1_000, 23, 0))
+            .unwrap();
         builder.append_null().unwrap();
-        builder.append_value(55).unwrap();
-        let arrow_array: DecimalArray = builder.finish();
+        builder
+            .append_value(Decimal128Type::new(-55, 23, 0))
+            .unwrap();
+        let arrow_array: Decimal128Array = builder.finish();
         let json_array: Value = serde_json::from_str(
             r#"
             [

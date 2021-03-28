@@ -448,7 +448,7 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
                 .with_length(*length)
                 .build()
         }
-        DataType::Decimal(precision, scale) => {
+        DataType::Decimal128(precision, scale) => {
             // Decimal precision determines the Parquet physical type to use.
             // TODO(ARROW-12018): Enable the below after ARROW-10818 Decimal support
             //
@@ -473,6 +473,9 @@ fn arrow_to_parquet_type(field: &Field) -> Result<Type> {
                 .with_scale(*scale as i32)
                 .build()
         }
+        DataType::Decimal256(_, _) => Err(ArrowError(
+            "Converting Decimal256 to parquet not supported".to_string(),
+        )),
         DataType::Utf8 | DataType::LargeUtf8 => {
             Type::primitive_type_builder(name, PhysicalType::BYTE_ARRAY)
                 .with_logical_type(Some(LogicalType::STRING(Default::default())))
@@ -761,7 +764,7 @@ impl ParquetTypeConverter<'_> {
 
     fn to_decimal(&self) -> DataType {
         assert!(self.schema.is_primitive());
-        DataType::Decimal(
+        DataType::Decimal128(
             self.schema.get_precision() as usize,
             self.schema.get_scale() as usize,
         )
@@ -1842,9 +1845,9 @@ mod tests {
                 //     true,
                 // ),
                 Field::new("c35", DataType::Null, true),
-                Field::new("c36", DataType::Decimal(2, 1), false),
-                Field::new("c37", DataType::Decimal(50, 20), false),
-                Field::new("c38", DataType::Decimal(18, 12), true),
+                Field::new("c36", DataType::Decimal128(2, 1), false),
+                Field::new("c37", DataType::Decimal128(50, 20), false),
+                Field::new("c38", DataType::Decimal128(18, 12), true),
             ],
             metadata,
         );

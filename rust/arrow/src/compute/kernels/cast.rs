@@ -96,6 +96,30 @@ pub fn can_cast_types(from_type: &DataType, to_type: &DataType) -> bool {
             DataType::is_numeric(from_type) || from_type == &Binary
         }
 
+        // start decimal casts
+        (UInt8, Decimal128(_, _)) => true,
+        (UInt16, Decimal128(_, _)) => true,
+        (UInt32, Decimal128(_, _)) => true,
+        (UInt64, Decimal128(_, _)) => true,
+        (Int8, Decimal128(_, _)) => true,
+        (Int16, Decimal128(_, _)) => true,
+        (Int32, Decimal128(_, _)) => true,
+        (Int64, Decimal128(_, _)) => true,
+        (Float32, Decimal128(_, _)) => true,
+        (Float64, Decimal128(_, _)) => true,
+
+        (Decimal128(_, _), UInt8) => true,
+        (Decimal128(_, _), UInt16) => true,
+        (Decimal128(_, _), UInt32) => true,
+        (Decimal128(_, _), UInt64) => true,
+        (Decimal128(_, _), Int8) => true,
+        (Decimal128(_, _), Int16) => true,
+        (Decimal128(_, _), Int32) => true,
+        (Decimal128(_, _), Int64) => true,
+        (Decimal128(_, _), Float32) => true,
+        (Decimal128(_, _), Float64) => true,
+        // end decimal casts
+
         // start numeric casts
         (UInt8, UInt16) => true,
         (UInt8, UInt32) => true,
@@ -464,6 +488,70 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                 from_type, to_type,
             ))),
         },
+
+        // start decimal casts
+        (Int8, Decimal128(p, s)) => {
+            cast_numeric_to_decimal::<Int8Type, Decimal128Type>(array, *p, *s)
+        }
+        (Int16, Decimal128(p, s)) => {
+            cast_numeric_to_decimal::<Int16Type, Decimal128Type>(array, *p, *s)
+        }
+        (Int32, Decimal128(p, s)) => {
+            cast_numeric_to_decimal::<Int32Type, Decimal128Type>(array, *p, *s)
+        }
+        (Int64, Decimal128(p, s)) => {
+            cast_numeric_to_decimal::<Int64Type, Decimal128Type>(array, *p, *s)
+        }
+        (UInt8, Decimal128(p, s)) => {
+            cast_numeric_to_decimal::<UInt8Type, Decimal128Type>(array, *p, *s)
+        }
+        (UInt16, Decimal128(p, s)) => {
+            cast_numeric_to_decimal::<UInt16Type, Decimal128Type>(array, *p, *s)
+        }
+        (UInt32, Decimal128(p, s)) => {
+            cast_numeric_to_decimal::<UInt32Type, Decimal128Type>(array, *p, *s)
+        }
+        (UInt64, Decimal128(p, s)) => {
+            cast_numeric_to_decimal::<UInt64Type, Decimal128Type>(array, *p, *s)
+        }
+        (Float32, Decimal128(p, s)) => {
+            cast_numeric_to_decimal::<Float32Type, Decimal128Type>(array, *p, *s)
+        }
+        (Float64, Decimal128(p, s)) => {
+            cast_numeric_to_decimal::<Float64Type, Decimal128Type>(array, *p, *s)
+        }
+
+        (Decimal128(_, _), Int8) => {
+            cast_decimal_to_numeric::<Decimal128Type, Int8Type>(array)
+        }
+        (Decimal128(_, _), Int16) => {
+            cast_decimal_to_numeric::<Decimal128Type, Int16Type>(array)
+        }
+        (Decimal128(_, _), Int32) => {
+            cast_decimal_to_numeric::<Decimal128Type, Int32Type>(array)
+        }
+        (Decimal128(_, _), Int64) => {
+            cast_decimal_to_numeric::<Decimal128Type, Int64Type>(array)
+        }
+        (Decimal128(_, _), UInt8) => {
+            cast_decimal_to_numeric::<Decimal128Type, UInt8Type>(array)
+        }
+        (Decimal128(_, _), UInt16) => {
+            cast_decimal_to_numeric::<Decimal128Type, UInt16Type>(array)
+        }
+        (Decimal128(_, _), UInt32) => {
+            cast_decimal_to_numeric::<Decimal128Type, UInt32Type>(array)
+        }
+        (Decimal128(_, _), UInt64) => {
+            cast_decimal_to_numeric::<Decimal128Type, UInt64Type>(array)
+        }
+        (Decimal128(_, _), Float32) => {
+            cast_decimal_to_numeric::<Decimal128Type, Float32Type>(array)
+        }
+        (Decimal128(_, _), Float64) => {
+            cast_decimal_to_numeric::<Decimal128Type, Float64Type>(array)
+        }
+        // end decimal casts
 
         // start numeric casts
         (UInt8, UInt16) => cast_numeric_arrays::<UInt8Type, UInt16Type>(array),
@@ -861,6 +949,80 @@ where
         vec![],
     );
     Ok(Arc::new(PrimitiveArray::<TO>::from(data)) as ArrayRef)
+}
+
+fn cast_numeric_to_decimal<FROM, TO>(
+    from: &ArrayRef,
+    precision: usize,
+    scale: usize,
+) -> Result<ArrayRef>
+where
+    FROM: ArrowNumericType,
+    FROM::Native: ToString,
+    TO: ArrowDecimalType,
+{
+    let values = from
+        .as_any()
+        .downcast_ref::<PrimitiveArray<FROM>>()
+        .unwrap();
+
+    let mut builder = DecimalBuilder::new(values.len(), precision, scale);
+
+    for maybe_value in values.iter() {
+        match maybe_value {
+            Some(v) => {
+                let as_decimal = numeric_to_decimal::<FROM::Native, Decimal128Type>(
+                    v, precision, scale,
+                )
+                .ok_or_else(|| {
+                    ArrowError::CastError(format!(
+                        "Unable to cast numeric to decimal, {:?}",
+                        v
+                    ))
+                })?;
+
+                builder.append_value(as_decimal)?
+            }
+            None => builder.append_null()?,
+        };
+    }
+
+    Ok(Arc::new(builder.finish()))
+}
+
+fn cast_decimal_to_numeric<FROM, TO>(from: &ArrayRef) -> Result<ArrayRef>
+where
+    FROM: ArrowDecimalType + DecimalCast,
+    TO: ArrowNumericType,
+    TO::Native: num::NumCast,
+{
+    let values = from.as_any().downcast_ref::<Decimal128Array>().unwrap();
+
+    let mut builder = PrimitiveBuilder::<TO>::new(values.len());
+
+    for maybe_value in values.iter() {
+        match maybe_value {
+            Some(v) => {
+                let as_decimal = FROM::from(v, values.precision(), values.scale());
+                if as_decimal.is_none() {
+                    builder.append_null()?
+                }
+
+                let as_numeric =
+                    decimal_to_numeric::<FROM, TO::Native>(as_decimal.unwrap())
+                        .ok_or_else(|| {
+                            ArrowError::CastError(
+                                "Unable to cast decimal to numeric".to_string(),
+                            )
+                        })?;
+
+                builder.append_value(as_numeric)?
+            }
+            None => builder.append_null()?,
+        };
+    }
+
+    Ok(Arc::new(builder.finish()))
 }
 
 /// Convert Array into a PrimitiveArray of type, and apply numeric cast
@@ -1507,6 +1669,65 @@ mod tests {
         assert!(7.0 - c.value(2) < f64::EPSILON);
         assert!(8.0 - c.value(3) < f64::EPSILON);
         assert!(9.0 - c.value(4) < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_cast_i64_to_decimal() {
+        let a = Int64Array::from(vec![1, 2]);
+        let array = Arc::new(a) as ArrayRef;
+        let b = cast(&array, &DataType::Decimal128(5, 10)).unwrap();
+        let c = b.as_any().downcast_ref::<Decimal128Array>().unwrap();
+
+        assert_eq!("1.0000000000", c.value(0).as_string(10));
+        assert_eq!("2.0000000000", c.value(1).as_string(10));
+    }
+
+    #[test]
+    fn test_cast_f64_to_decimal() {
+        let a = Float64Array::from(vec![1.0, 2.0]);
+        let array = Arc::new(a) as ArrayRef;
+        let b = cast(&array, &DataType::Decimal128(5, 10)).unwrap();
+        let c = b.as_any().downcast_ref::<Decimal128Array>().unwrap();
+
+        assert_eq!("1.0000000000", c.value(0).as_string(10));
+        assert_eq!("2.0000000000", c.value(1).as_string(10));
+    }
+
+    #[test]
+    fn test_cast_decimal_to_i64() {
+        let mut builder = DecimalBuilder::new(2, 5, 10);
+        builder
+            .append_value(Decimal128Type::new(10000000000_i128, 5, 10))
+            .unwrap();
+        builder
+            .append_value(Decimal128Type::new(20000000000_i128, 5, 10))
+            .unwrap();
+
+        let array = Arc::new(builder.finish()) as ArrayRef;
+        let b = cast(&array, &DataType::Int64).unwrap();
+        let c = b.as_any().downcast_ref::<Int64Array>().unwrap();
+
+        assert_eq!(1_i64, c.value(0));
+        assert_eq!(2_i64, c.value(1));
+    }
+
+    #[test]
+    fn test_cast_decimal_to_f64() {
+        let mut builder = DecimalBuilder::new(3, 3, 5);
+        builder
+            .append_value(Decimal128Type::new(123456_i128, 3, 5))
+            .unwrap();
+        builder
+            .append_value(Decimal128Type::new(654321_i128, 3, 5))
+            .unwrap();
+
+        let array = Arc::new(builder.finish()) as ArrayRef;
+        let b = cast(&array, &DataType::Float64).unwrap();
+        let c = b.as_any().downcast_ref::<Float64Array>().unwrap();
+
+        // string compare to skip clippy::float_cmp
+        assert_eq!(1.23456_f64.to_string(), c.value(0).to_string());
+        assert_eq!(6.54321_f64.to_string(), c.value(1).to_string());
     }
 
     #[test]

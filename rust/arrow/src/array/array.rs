@@ -318,7 +318,8 @@ pub fn make_array(data: ArrayData) -> ArrayRef {
             dt => panic!("Unexpected dictionary key type {:?}", dt),
         },
         DataType::Null => Arc::new(NullArray::from(data)) as ArrayRef,
-        DataType::Decimal(_, _) => Arc::new(DecimalArray::from(data)) as ArrayRef,
+        DataType::Decimal128(_, _) => Arc::new(Decimal128Array::from(data)) as ArrayRef,
+        DataType::Decimal256(_, _) => Arc::new(Decimal256Array::from(data)) as ArrayRef,
         dt => panic!("Unexpected data type {:?}", dt),
     }
 }
@@ -432,8 +433,11 @@ pub fn new_null_array(data_type: &DataType, length: usize) -> ArrayRef {
                 vec![new_empty_array(value.as_ref()).data().clone()],
             ))
         }
-        DataType::Decimal(_, _) => {
-            unimplemented!("Creating null Decimal array not yet supported")
+        DataType::Decimal128(_, _) => {
+            unimplemented!();
+        }
+        DataType::Decimal256(_, _) => {
+            unimplemented!();
         }
     }
 }

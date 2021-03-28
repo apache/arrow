@@ -23,14 +23,17 @@ use std::result::Result::Ok;
 use std::sync::Arc;
 use std::vec::Vec;
 
-use arrow::array::{
-    new_empty_array, Array, ArrayData, ArrayDataBuilder, ArrayRef, BinaryArray,
-    BinaryBuilder, BooleanArray, BooleanBufferBuilder, BooleanBuilder, DecimalBuilder,
-    FixedSizeBinaryArray, FixedSizeBinaryBuilder, GenericListArray, Int16BufferBuilder,
-    Int32Array, Int64Array, OffsetSizeTrait, PrimitiveArray, PrimitiveBuilder,
-    StringArray, StringBuilder, StructArray,
+use arrow::{
+    array::{
+        new_empty_array, Array, ArrayData, ArrayDataBuilder, ArrayRef, BinaryArray,
+        BinaryBuilder, BooleanArray, BooleanBufferBuilder, BooleanBuilder,
+        DecimalBuilder, FixedSizeBinaryArray, FixedSizeBinaryBuilder, GenericListArray,
+        Int16BufferBuilder, Int32Array, Int64Array, OffsetSizeTrait, PrimitiveArray,
+        PrimitiveBuilder, StringArray, StringBuilder, StructArray,
+    },
+    buffer::{Buffer, MutableBuffer},
 };
-use arrow::buffer::{Buffer, MutableBuffer};
+
 use arrow::datatypes::{
     ArrowPrimitiveType, BooleanType as ArrowBooleanType, DataType as ArrowType,
     Date32Type as ArrowDate32Type, Date64Type as ArrowDate64Type,
@@ -350,14 +353,16 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
                 let a = arrow::compute::cast(&array, &ArrowType::Date32)?;
                 arrow::compute::cast(&a, target_type)?
             }
-            ArrowType::Decimal(p, s) => {
+            ArrowType::Decimal128(p, s) => {
                 let mut builder = DecimalBuilder::new(array.len(), *p, *s);
                 match array.data_type() {
                     ArrowType::Int32 => {
                         let values = array.as_any().downcast_ref::<Int32Array>().unwrap();
                         for maybe_value in values.iter() {
                             match maybe_value {
-                                Some(value) => builder.append_value(value as i128)?,
+                                Some(value) => {
+                                    builder.append_value_i128(value as i128)?
+                                }
                                 None => builder.append_null()?,
                             }
                         }
@@ -366,7 +371,9 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
                         let values = array.as_any().downcast_ref::<Int64Array>().unwrap();
                         for maybe_value in values.iter() {
                             match maybe_value {
-                                Some(value) => builder.append_value(value as i128)?,
+                                Some(value) => {
+                                    builder.append_value_i128(value as i128)?
+                                }
                                 None => builder.append_null()?,
                             }
                         }

@@ -18,10 +18,11 @@
 use crate::data_type::{ByteArray, DataType, FixedLenByteArray, Int96};
 // TODO: clean up imports (best done when there are few moving parts)
 use arrow::array::{
-    Array, ArrayRef, BinaryBuilder, DecimalBuilder, FixedSizeBinaryBuilder,
-    IntervalDayTimeArray, IntervalDayTimeBuilder, IntervalYearMonthArray,
-    IntervalYearMonthBuilder, LargeBinaryBuilder, LargeStringBuilder, PrimitiveBuilder,
-    PrimitiveDictionaryBuilder, StringBuilder, StringDictionaryBuilder,
+    Array, ArrayRef, BinaryBuilder, Decimal128Array, DecimalBuilder,
+    FixedSizeBinaryBuilder, IntervalDayTimeArray, IntervalDayTimeBuilder,
+    IntervalYearMonthArray, IntervalYearMonthBuilder, LargeBinaryBuilder,
+    LargeStringBuilder, PrimitiveBuilder, PrimitiveDictionaryBuilder, StringBuilder,
+    StringDictionaryBuilder,
 };
 use arrow::compute::cast;
 use std::convert::{From, TryInto};
@@ -31,7 +32,7 @@ use crate::errors::Result;
 use arrow::datatypes::{ArrowDictionaryKeyType, ArrowPrimitiveType};
 
 use arrow::array::{
-    BinaryArray, DecimalArray, DictionaryArray, FixedSizeBinaryArray, LargeBinaryArray,
+    BinaryArray, DictionaryArray, FixedSizeBinaryArray, LargeBinaryArray,
     LargeStringArray, PrimitiveArray, StringArray, TimestampNanosecondArray,
 };
 use std::marker::PhantomData;
@@ -98,8 +99,10 @@ impl DecimalArrayConverter {
     }
 }
 
-impl Converter<Vec<Option<FixedLenByteArray>>, DecimalArray> for DecimalArrayConverter {
-    fn convert(&self, source: Vec<Option<FixedLenByteArray>>) -> Result<DecimalArray> {
+impl Converter<Vec<Option<FixedLenByteArray>>, Decimal128Array>
+    for DecimalArrayConverter
+{
+    fn convert(&self, source: Vec<Option<FixedLenByteArray>>) -> Result<Decimal128Array> {
         let mut builder = DecimalBuilder::new(
             source.len(),
             self.precision as usize,
@@ -108,7 +111,7 @@ impl Converter<Vec<Option<FixedLenByteArray>>, DecimalArray> for DecimalArrayCon
         for v in source {
             match v {
                 Some(array) => {
-                    builder.append_value(Self::from_bytes_to_i128(array.data()))
+                    builder.append_value_i128(Self::from_bytes_to_i128(array.data()))
                 }
                 None => builder.append_null(),
             }?
@@ -391,7 +394,7 @@ pub type IntervalDayTimeConverter = ArrayRefConverter<
 
 pub type DecimalConverter = ArrayRefConverter<
     Vec<Option<FixedLenByteArray>>,
-    DecimalArray,
+    Decimal128Array,
     DecimalArrayConverter,
 >;
 

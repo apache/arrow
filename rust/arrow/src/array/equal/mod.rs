@@ -20,10 +20,9 @@
 //! depend on dynamic casting of `Array`.
 
 use super::{
-    Array, ArrayData, BinaryOffsetSizeTrait, BooleanArray, DecimalArray,
-    FixedSizeBinaryArray, FixedSizeListArray, GenericBinaryArray, GenericListArray,
-    GenericStringArray, NullArray, OffsetSizeTrait, PrimitiveArray,
-    StringOffsetSizeTrait, StructArray,
+    Array, ArrayData, BinaryOffsetSizeTrait, BooleanArray, FixedSizeBinaryArray,
+    FixedSizeListArray, GenericBinaryArray, GenericListArray, GenericStringArray,
+    NullArray, OffsetSizeTrait, PrimitiveArray, StringOffsetSizeTrait, StructArray,
 };
 
 use crate::{
@@ -46,6 +45,7 @@ mod variable_size;
 // these methods assume the same type, len and null count.
 // For this reason, they are not exposed and are instead used
 // to build the generic functions below (`equal_range` and `equal`).
+use crate::array::{Decimal128Array, Decimal256Array};
 use boolean::boolean_equal;
 use decimal::decimal_equal;
 use dictionary::dictionary_equal;
@@ -105,7 +105,13 @@ impl PartialEq for FixedSizeBinaryArray {
     }
 }
 
-impl PartialEq for DecimalArray {
+impl PartialEq for Decimal128Array {
+    fn eq(&self, other: &Self) -> bool {
+        equal(self.data(), other.data())
+    }
+}
+
+impl PartialEq for Decimal256Array {
     fn eq(&self, other: &Self) -> bool {
         equal(self.data(), other.data())
     }
@@ -202,7 +208,10 @@ fn equal_values(
         DataType::FixedSizeBinary(_) => {
             fixed_binary_equal(lhs, rhs, lhs_nulls, rhs_nulls, lhs_start, rhs_start, len)
         }
-        DataType::Decimal(_, _) => {
+        DataType::Decimal128(_, _) => {
+            decimal_equal(lhs, rhs, lhs_nulls, rhs_nulls, lhs_start, rhs_start, len)
+        }
+        DataType::Decimal256(_, _) => {
             decimal_equal(lhs, rhs, lhs_nulls, rhs_nulls, lhs_start, rhs_start, len)
         }
         DataType::List(_) => {
@@ -297,7 +306,7 @@ mod tests {
     };
     use crate::array::{GenericStringArray, Int32Array};
     use crate::buffer::Buffer;
-    use crate::datatypes::{Field, Int16Type, ToByteSlice};
+    use crate::datatypes::{Decimal128Type, Field, Int16Type, ToByteSlice};
 
     use super::*;
 
@@ -796,11 +805,13 @@ mod tests {
     }
 
     fn create_decimal_array(data: &[Option<i128>]) -> ArrayData {
-        let mut builder = DecimalBuilder::new(20, 23, 6);
+        let mut builder = DecimalBuilder::new(20, 23, 0);
 
         for d in data {
             if let Some(v) = d {
-                builder.append_value(*v).unwrap();
+                builder
+                    .append_value(Decimal128Type::new(*v, 23, 0))
+                    .unwrap();
             } else {
                 builder.append_null().unwrap();
             }
