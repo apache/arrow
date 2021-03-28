@@ -51,7 +51,7 @@ pub struct MemoryCatalogList {
 }
 
 impl MemoryCatalogList {
-    /// Instantiates a new MemoryDatabase with an empty collection of catalogs
+    /// Instantiates a new `MemoryCatalogList` with an empty collection of catalogs
     pub fn new() -> Self {
         Self {
             catalogs: RwLock::new(HashMap::new()),
