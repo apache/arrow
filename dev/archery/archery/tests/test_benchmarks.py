@@ -94,10 +94,16 @@ def test_static_runner_from_json():
     archery_result['suites'][0]['benchmarks'][0]['values'][0] *= 2
     baseline = StaticBenchmarkRunner.from_json(json.dumps(archery_result))
 
-    artificial_reg, normal = RunnerComparator(contender, baseline).comparisons
+    comparisons = list(RunnerComparator(contender, baseline).comparisons)
 
-    assert artificial_reg.regression
-    assert not normal.regression
+    # can't assume return order
+    artificial, unchanged = comparisons[0], comparisons[1]
+    if comparisons[0].name == "FloatParsing<FloatType>":
+        artificial, unchanged = comparisons[1], comparisons[0]
+
+    assert artificial.regression
+    assert not unchanged.regression
+
 
 
 def test_benchmark_median():
