@@ -102,7 +102,7 @@ TEST_F(TestIn, TestInFloat) {
   auto node_f1 = TreeExprBuilder::MakeField(field1);
   auto sum_func =
       TreeExprBuilder::MakeFunction("add", {node_f0, node_f1}, arrow::float32());
-  std::unordered_set<float> in_constants({float(6.5), 12, float(11.5)});
+  std::unordered_set<float> in_constants({6.5f, 12.0f, 11.5f});
   auto in_expr = TreeExprBuilder::MakeInExpressionFloat(sum_func, in_constants);
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
@@ -112,10 +112,10 @@ TEST_F(TestIn, TestInFloat) {
 
   // Create a row-batch with some sample data
   int num_records = 5;
-  auto array0 = MakeArrowArrayFloat32({float(1.5), float(2.5), 4, float(3.15), 6},
+  auto array0 = MakeArrowArrayFloat32({1.5f, 2.5f, 4, 3.15f, 6},
                                       {true, true, false, true, true});
   auto array1 =
-      MakeArrowArrayFloat32({float(5), 9, 6, 8, 5}, {true, true, true, true, true});
+      MakeArrowArrayFloat32({5.0f, 9.0f, 6, 8, 5}, {true, true, true, true, true});
   // expected output (indices for which condition matches)
   auto exp = MakeArrowArrayUint16({0, 1});
 
