@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"github.com/apache/arrow/go/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
@@ -58,5 +59,46 @@ func TestStream(t *testing.T) {
 
 			arrdata.CheckArrowStream(t, f, mem, recs[0].Schema(), recs)
 		})
+	}
+}
+
+func TestStreamCompressed(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "go-arrow-stream-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	compressTypes := []flatbuf.CompressionType{
+		flatbuf.CompressionTypeLZ4_FRAME, flatbuf.CompressionTypeZSTD,
+	}
+
+	for _, codec := range compressTypes {
+		for name, recs := range arrdata.Records {
+			t.Run(name, func(t *testing.T) {
+				mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+				defer mem.AssertSize(t, 0)
+
+				f, err := ioutil.TempFile(tempDir, "go-arrow-stream-")
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer f.Close()
+
+				arrdata.WriteStreamCompressed(t, f, mem, recs[0].Schema(), recs, codec)
+
+				err = f.Sync()
+				if err != nil {
+					t.Fatalf("could not sync data to disk: %v", err)
+				}
+
+				_, err = f.Seek(0, io.SeekStart)
+				if err != nil {
+					t.Fatalf("could not seek to start: %v", err)
+				}
+
+				arrdata.CheckArrowStream(t, f, mem, recs[0].Schema(), recs)
+			})
+		}
 	}
 }

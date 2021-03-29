@@ -25,6 +25,7 @@ import (
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
+	"github.com/apache/arrow/go/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
 )
@@ -128,7 +129,7 @@ func CheckArrowStream(t *testing.T, f *os.File, mem memory.Allocator, schema *ar
 	for r.Next() {
 		rec := r.Record()
 		if !array.RecordEqual(rec, recs[n]) {
-			t.Fatalf("records[%d] differ", n)
+			t.Fatalf("records[%d] differ, got: %s, expected %s", n, rec, recs[n])
 		}
 		n++
 	}
@@ -172,11 +173,81 @@ func WriteFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Sch
 	}
 }
 
+// WriteFile writes a list of records to the given file descriptor, as an ARROW file.
+func WriteFileCompressed(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record, codec flatbuf.CompressionType) {
+	t.Helper()
+
+	opts := []ipc.Option{ipc.WithSchema(schema), ipc.WithAllocator(mem)}
+	switch codec {
+	case flatbuf.CompressionTypeLZ4_FRAME:
+		opts = append(opts, ipc.WithLZ4())
+	case flatbuf.CompressionTypeZSTD:
+		opts = append(opts, ipc.WithZstd())
+	}
+
+	w, err := ipc.NewFileWriter(f, opts...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer w.Close()
+
+	for i, rec := range recs {
+		err = w.Write(rec)
+		if err != nil {
+			t.Fatalf("could not write record[%d]: %v", i, err)
+		}
+	}
+
+	err = w.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = f.Sync()
+	if err != nil {
+		t.Fatalf("could not sync data to disk: %v", err)
+	}
+
+	_, err = f.Seek(0, io.SeekStart)
+	if err != nil {
+		t.Fatalf("could not seek to start: %v", err)
+	}
+}
+
 // WriteStream writes a list of records to the given file descriptor, as an ARROW stream.
 func WriteStream(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
 	t.Helper()
 
 	w := ipc.NewWriter(f, ipc.WithSchema(schema), ipc.WithAllocator(mem))
+	defer w.Close()
+
+	for i, rec := range recs {
+		err := w.Write(rec)
+		if err != nil {
+			t.Fatalf("could not write record[%d]: %v", i, err)
+		}
+	}
+
+	err := w.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// WriteStreamCompressed writes a list of records to the given file descriptor as an ARROW stream
+// using the provided compression type.
+func WriteStreamCompressed(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record, codec flatbuf.CompressionType) {
+	t.Helper()
+
+	opts := []ipc.Option{ipc.WithSchema(schema), ipc.WithAllocator(mem)}
+	switch codec {
+	case flatbuf.CompressionTypeLZ4_FRAME:
+		opts = append(opts, ipc.WithLZ4())
+	case flatbuf.CompressionTypeZSTD:
+		opts = append(opts, ipc.WithZstd())
+	}
+
+	w := ipc.NewWriter(f, opts...)
 	defer w.Close()
 
 	for i, rec := range recs {

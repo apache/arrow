@@ -17,12 +17,15 @@
 package ipc // import "github.com/apache/arrow/go/arrow/ipc"
 
 import (
+	"bytes"
+	"encoding/binary"
 	"io"
 	"math"
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/bitutil"
+	"github.com/apache/arrow/go/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/arrow/memory"
 	"golang.org/x/xerrors"
 )
@@ -61,6 +64,7 @@ type Writer struct {
 
 	started bool
 	schema  *arrow.Schema
+	codec   flatbuf.CompressionType
 }
 
 // NewWriterWithPayloadWriter constructs a writer with the provided payload writer
@@ -72,6 +76,7 @@ func NewWriterWithPayloadWriter(pw PayloadWriter, opts ...Option) *Writer {
 		mem:    cfg.alloc,
 		pw:     pw,
 		schema: cfg.schema,
+		codec:  cfg.codec,
 	}
 }
 
@@ -83,6 +88,7 @@ func NewWriter(w io.Writer, opts ...Option) *Writer {
 		mem:    cfg.alloc,
 		pw:     &swriter{w: w},
 		schema: cfg.schema,
+		codec:  cfg.codec,
 	}
 }
 
@@ -123,7 +129,7 @@ func (w *Writer) Write(rec array.Record) error {
 	const allow64b = true
 	var (
 		data = Payload{msg: MessageRecordBatch}
-		enc  = newRecordEncoder(w.mem, 0, kMaxNestingDepth, allow64b)
+		enc  = newRecordEncoder(w.mem, 0, kMaxNestingDepth, allow64b, w.codec)
 	)
 	defer data.Release()
 
@@ -160,15 +166,39 @@ type recordEncoder struct {
 	depth    int64
 	start    int64
 	allow64b bool
+	codec    compressor
 }
 
-func newRecordEncoder(mem memory.Allocator, startOffset, maxDepth int64, allow64b bool) *recordEncoder {
+func newRecordEncoder(mem memory.Allocator, startOffset, maxDepth int64, allow64b bool, codec flatbuf.CompressionType) *recordEncoder {
 	return &recordEncoder{
 		mem:      mem,
 		start:    startOffset,
 		depth:    maxDepth,
 		allow64b: allow64b,
+		codec:    getCompressor(codec),
 	}
+}
+
+func (w *recordEncoder) compressBodyBuffers(p *Payload) (err error) {
+	for idx := range p.body {
+		if p.body[idx] == nil || p.body[idx].Len() == 0 {
+			continue
+		}
+		var buf bytes.Buffer
+		buf.Grow(w.codec.MaxCompressedLen(p.body[idx].Len()) + arrow.Int64SizeBytes)
+		if err = binary.Write(&buf, binary.LittleEndian, uint64(p.body[idx].Len())); err != nil {
+			break
+		}
+		w.codec.Reset(&buf)
+		if _, err = w.codec.Write(p.body[idx].Bytes()); err != nil {
+			break
+		}
+		if err = w.codec.Close(); err != nil {
+			break
+		}
+		p.body[idx] = memory.NewBufferBytes(buf.Bytes())
+	}
+	return
 }
 
 func (w *recordEncoder) Encode(p *Payload, rec array.Record) error {
@@ -179,6 +209,10 @@ func (w *recordEncoder) Encode(p *Payload, rec array.Record) error {
 		if err != nil {
 			return xerrors.Errorf("arrow/ipc: could not encode column %d (%q): %w", i, rec.ColumnName(i), err)
 		}
+	}
+
+	if w.codec != nil {
+		w.compressBodyBuffers(p)
 	}
 
 	// position for the start of a buffer relative to the passed frame of reference.
@@ -434,7 +468,7 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr array.Interface) (*memory.B
 }
 
 func (w *recordEncoder) encodeMetadata(p *Payload, nrows int64) error {
-	p.meta = writeRecordMessage(w.mem, nrows, p.size, w.fields, w.meta)
+	p.meta = writeRecordMessage(w.mem, nrows, p.size, w.fields, w.meta, w.codec)
 	return nil
 }
 
