@@ -205,10 +205,9 @@ mod tests {
     }
 
     #[test]
-    fn test_sum_no_utf8() -> Result<()> {
+    fn test_sum_no_utf8() {
         let observed = return_type(&AggregateFunction::Sum, &[DataType::Utf8]);
         assert!(observed.is_err());
-        Ok(())
     }
 
     #[test]
@@ -239,9 +238,8 @@ mod tests {
     }
 
     #[test]
-    fn test_avg_no_utf8() -> Result<()> {
+    fn test_avg_no_utf8() {
         let observed = return_type(&AggregateFunction::Avg, &[DataType::Utf8]);
         assert!(observed.is_err());
-        Ok(())
     }
 }

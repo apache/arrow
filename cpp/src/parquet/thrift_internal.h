@@ -43,9 +43,9 @@
 
 #include "arrow/util/logging.h"
 
+#include "parquet/encryption/internal_file_decryptor.h"
+#include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/exception.h"
-#include "parquet/internal_file_decryptor.h"
-#include "parquet/internal_file_encryptor.h"
 #include "parquet/platform.h"
 #include "parquet/statistics.h"
 #include "parquet/types.h"

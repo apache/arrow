@@ -21,23 +21,9 @@
 
 #include <arrow-glib/arrow-glib.h>
 
+#include <arrow-dataset-glib/fragment.h>
+
 G_BEGIN_DECLS
-
-/* arrow::dataset::ScanContext */
-
-#define GAD_TYPE_SCAN_CONTEXT (gad_scan_context_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADScanContext,
-                         gad_scan_context,
-                         GAD,
-                         SCAN_CONTEXT,
-                         GObject)
-struct _GADScanContextClass
-{
-  GObjectClass parent_class;
-};
-
-GARROW_AVAILABLE_IN_1_0
-GADScanContext *gad_scan_context_new(void);
 
 /* arrow::dataset::ScanOptions */
 
@@ -57,9 +43,6 @@ GARROW_AVAILABLE_IN_1_0
 GADScanOptions *gad_scan_options_new(GArrowSchema *schema);
 GARROW_AVAILABLE_IN_1_0
 GArrowSchema *gad_scan_options_get_schema(GADScanOptions *scan_options);
-GARROW_AVAILABLE_IN_1_0
-GADScanOptions *gad_scan_options_replace_schema(GADScanOptions *scan_options,
-                                                GArrowSchema *schema);
 
 /* arrow::dataset::ScanTask */
 
@@ -76,8 +59,8 @@ struct _GADScanTaskClass
 
 GARROW_AVAILABLE_IN_1_0
 GADScanOptions *gad_scan_task_get_options(GADScanTask *scan_task);
-GARROW_AVAILABLE_IN_1_0
-GADScanContext *gad_scan_task_get_context(GADScanTask *scan_task);
+GARROW_AVAILABLE_IN_4_0
+GADFragment *gad_scan_task_get_fragment(GADScanTask *scan_task);
 GARROW_AVAILABLE_IN_1_0
 GArrowRecordBatchIterator *gad_scan_task_execute(GADScanTask *scan_task,
                                                  GError **error);
@@ -100,6 +83,6 @@ GADInMemoryScanTask *
 gad_in_memory_scan_task_new(GArrowRecordBatch **record_batches,
                             gsize n_record_batches,
                             GADScanOptions *options,
-                            GADScanContext *context);
+                            GADInMemoryFragment *fragment);
 
 G_END_DECLS

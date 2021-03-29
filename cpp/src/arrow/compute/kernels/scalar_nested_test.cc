@@ -22,6 +22,7 @@
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/result.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 namespace compute {
@@ -38,51 +39,71 @@ TEST(TestScalarNested, ListValueLength) {
 }
 
 struct {
- public:
-  Result<Datum> operator()(std::vector<Datum> args) {
-    ProjectOptions opts{field_names};
+  template <typename... Options>
+  Result<Datum> operator()(std::vector<Datum> args, std::vector<std::string> field_names,
+                           Options... options) {
+    ProjectOptions opts{field_names, options...};
     return CallFunction("project", args, &opts);
   }
-
-  std::vector<std::string> field_names;
 } Project;
 
 TEST(Project, Scalar) {
-  std::shared_ptr<StructScalar> expected(new StructScalar{{}, struct_({})});
-  ASSERT_OK_AND_EQ(Datum(expected), Project({}));
-
   auto i32 = MakeScalar(1);
   auto f64 = MakeScalar(2.5);
   auto str = MakeScalar("yo");
 
-  expected.reset(new StructScalar{
-      {i32, f64, str},
-      struct_({field("i", i32->type), field("f", f64->type), field("s", str->type)})});
-  Project.field_names = {"i", "f", "s"};
-  ASSERT_OK_AND_EQ(Datum(expected), Project({i32, f64, str}));
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       StructScalar::Make({i32, f64, str}, {"i", "f", "s"}));
+  ASSERT_OK_AND_EQ(Datum(expected), Project({i32, f64, str}, {"i", "f", "s"}));
 
   // Three field names but one input value
-  ASSERT_RAISES(Invalid, Project({str}));
+  ASSERT_RAISES(Invalid, Project({str}, {"i", "f", "s"}));
+
+  // No field names or input values is fine
+  expected.reset(new StructScalar{{}, struct_({})});
+  ASSERT_OK_AND_EQ(Datum(expected), Project(/*args=*/{}, /*field_names=*/{}));
 }
 
 TEST(Project, Array) {
-  Project.field_names = {"i", "s"};
+  std::vector<std::string> field_names{"i", "s"};
+
   auto i32 = ArrayFromJSON(int32(), "[42, 13, 7]");
   auto str = ArrayFromJSON(utf8(), R"(["aa", "aa", "aa"])");
-  ASSERT_OK_AND_ASSIGN(Datum expected,
-                       StructArray::Make({i32, str}, Project.field_names));
+  ASSERT_OK_AND_ASSIGN(Datum expected, StructArray::Make({i32, str}, field_names));
 
-  ASSERT_OK_AND_EQ(expected, Project({i32, str}));
+  ASSERT_OK_AND_EQ(expected, Project({i32, str}, field_names));
 
   // Scalars are broadcast to the length of the arrays
-  ASSERT_OK_AND_EQ(expected, Project({i32, MakeScalar("aa")}));
+  ASSERT_OK_AND_EQ(expected, Project({i32, MakeScalar("aa")}, field_names));
 
   // Array length mismatch
-  ASSERT_RAISES(Invalid, Project({i32->Slice(1), str}));
+  ASSERT_RAISES(Invalid, Project({i32->Slice(1), str}, field_names));
+}
+
+TEST(Project, NullableMetadataPassedThru) {
+  auto i32 = ArrayFromJSON(int32(), "[42, 13, 7]");
+  auto str = ArrayFromJSON(utf8(), R"(["aa", "aa", "aa"])");
+
+  std::vector<std::string> field_names{"i", "s"};
+  std::vector<bool> nullability{true, false};
+  std::vector<std::shared_ptr<const KeyValueMetadata>> metadata = {
+      key_value_metadata({"a", "b"}, {"ALPHA", "BRAVO"}), nullptr};
+
+  ASSERT_OK_AND_ASSIGN(auto proj,
+                       Project({i32, str}, field_names, nullability, metadata));
+
+  AssertTypeEqual(*proj.type(), StructType({
+                                    field("i", int32(), /*nullable=*/true, metadata[0]),
+                                    field("s", utf8(), /*nullable=*/false, nullptr),
+                                }));
+
+  // error: projecting an array containing nulls with nullable=false
+  str = ArrayFromJSON(utf8(), R"(["aa", null, "aa"])");
+  ASSERT_RAISES(Invalid, Project({i32, str}, field_names, nullability, metadata));
 }
 
 TEST(Project, ChunkedArray) {
-  Project.field_names = {"i", "s"};
+  std::vector<std::string> field_names{"i", "s"};
 
   auto i32_0 = ArrayFromJSON(int32(), "[42, 13, 7]");
   auto i32_1 = ArrayFromJSON(int32(), "[]");
@@ -95,26 +116,23 @@ TEST(Project, ChunkedArray) {
   ASSERT_OK_AND_ASSIGN(auto i32, ChunkedArray::Make({i32_0, i32_1, i32_2}));
   ASSERT_OK_AND_ASSIGN(auto str, ChunkedArray::Make({str_0, str_1, str_2}));
 
-  ASSERT_OK_AND_ASSIGN(auto expected_0,
-                       StructArray::Make({i32_0, str_0}, Project.field_names));
-  ASSERT_OK_AND_ASSIGN(auto expected_1,
-                       StructArray::Make({i32_1, str_1}, Project.field_names));
-  ASSERT_OK_AND_ASSIGN(auto expected_2,
-                       StructArray::Make({i32_2, str_2}, Project.field_names));
+  ASSERT_OK_AND_ASSIGN(auto expected_0, StructArray::Make({i32_0, str_0}, field_names));
+  ASSERT_OK_AND_ASSIGN(auto expected_1, StructArray::Make({i32_1, str_1}, field_names));
+  ASSERT_OK_AND_ASSIGN(auto expected_2, StructArray::Make({i32_2, str_2}, field_names));
   ASSERT_OK_AND_ASSIGN(Datum expected,
                        ChunkedArray::Make({expected_0, expected_1, expected_2}));
 
-  ASSERT_OK_AND_EQ(expected, Project({i32, str}));
+  ASSERT_OK_AND_EQ(expected, Project({i32, str}, field_names));
 
   // Scalars are broadcast to the length of the arrays
-  ASSERT_OK_AND_EQ(expected, Project({i32, MakeScalar("aa")}));
+  ASSERT_OK_AND_EQ(expected, Project({i32, MakeScalar("aa")}, field_names));
 
   // Array length mismatch
-  ASSERT_RAISES(Invalid, Project({i32->Slice(1), str}));
+  ASSERT_RAISES(Invalid, Project({i32->Slice(1), str}, field_names));
 }
 
 TEST(Project, ChunkedArrayDifferentChunking) {
-  Project.field_names = {"i", "s"};
+  std::vector<std::string> field_names{"i", "s"};
 
   auto i32_0 = ArrayFromJSON(int32(), "[42, 13, 7]");
   auto i32_1 = ArrayFromJSON(int32(), "[]");
@@ -136,18 +154,18 @@ TEST(Project, ChunkedArrayDifferentChunking) {
   for (size_t i = 0; i < expected_chunks.size(); ++i) {
     ASSERT_OK_AND_ASSIGN(expected_chunks[i], StructArray::Make({expected_rechunked[0][i],
                                                                 expected_rechunked[1][i]},
-                                                               Project.field_names));
+                                                               field_names));
   }
 
   ASSERT_OK_AND_ASSIGN(Datum expected, ChunkedArray::Make(expected_chunks));
 
-  ASSERT_OK_AND_EQ(expected, Project({i32, str}));
+  ASSERT_OK_AND_EQ(expected, Project({i32, str}, field_names));
 
   // Scalars are broadcast to the length of the arrays
-  ASSERT_OK_AND_EQ(expected, Project({i32, MakeScalar("aa")}));
+  ASSERT_OK_AND_EQ(expected, Project({i32, MakeScalar("aa")}, field_names));
 
   // Array length mismatch
-  ASSERT_RAISES(Invalid, Project({i32->Slice(1), str}));
+  ASSERT_RAISES(Invalid, Project({i32->Slice(1), str}, field_names));
 }
 
 }  // namespace compute

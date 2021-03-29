@@ -48,6 +48,10 @@ Array__ApproxEquals <- function(lhs, rhs){
     .Call(`_arrow_Array__ApproxEquals`, lhs, rhs)
 }
 
+Array__Diff <- function(lhs, rhs){
+    .Call(`_arrow_Array__Diff`, lhs, rhs)
+}
+
 Array__data <- function(array){
     .Call(`_arrow_Array__data`, array)
 }
@@ -130,22 +134,6 @@ ListArray__raw_value_offsets <- function(array){
 
 LargeListArray__raw_value_offsets <- function(array){
     .Call(`_arrow_LargeListArray__raw_value_offsets`, array)
-}
-
-Array__infer_type <- function(x){
-    .Call(`_arrow_Array__infer_type`, x)
-}
-
-Array__from_vector <- function(x, s_type){
-    .Call(`_arrow_Array__from_vector`, x, s_type)
-}
-
-ChunkedArray__from_list <- function(chunks, s_type){
-    .Call(`_arrow_ChunkedArray__from_list`, chunks, s_type)
-}
-
-DictionaryArray__FromArrays <- function(type, indices, dict){
-    .Call(`_arrow_DictionaryArray__FromArrays`, type, indices, dict)
 }
 
 Array__as_vector <- function(array){
@@ -260,6 +248,10 @@ ChunkedArray__ToString <- function(x){
     .Call(`_arrow_ChunkedArray__ToString`, x)
 }
 
+ChunkedArray__from_list <- function(chunks, s_type){
+    .Call(`_arrow_ChunkedArray__from_list`, chunks, s_type)
+}
+
 util___Codec__Create <- function(codec, compression_level){
     .Call(`_arrow_util___Codec__Create`, codec, compression_level)
 }
@@ -290,6 +282,14 @@ Table__cast <- function(table, schema, options){
 
 compute__CallFunction <- function(func_name, args, options){
     .Call(`_arrow_compute__CallFunction`, func_name, args, options)
+}
+
+compute__GroupBy <- function(arguments, keys, options){
+    .Call(`_arrow_compute__GroupBy`, arguments, keys, options)
+}
+
+list_compute_functions <- function(){
+    .Call(`_arrow_list_compute_functions`)
 }
 
 csv___ReadOptions__initialize <- function(options){
@@ -432,8 +432,16 @@ dataset___IpcFileFormat__Make <- function(){
     .Call(`_arrow_dataset___IpcFileFormat__Make`)
 }
 
-dataset___CsvFileFormat__Make <- function(parse_options){
-    .Call(`_arrow_dataset___CsvFileFormat__Make`, parse_options)
+dataset___CsvFileFormat__Make <- function(parse_options, convert_options, read_options){
+    .Call(`_arrow_dataset___CsvFileFormat__Make`, parse_options, convert_options, read_options)
+}
+
+dataset___FragmentScanOptions__type_name <- function(fragment_scan_options){
+    .Call(`_arrow_dataset___FragmentScanOptions__type_name`, fragment_scan_options)
+}
+
+dataset___CsvFragmentScanOptions__Make <- function(convert_options, read_options){
+    .Call(`_arrow_dataset___CsvFragmentScanOptions__Make`, convert_options, read_options)
 }
 
 dataset___DirectoryPartitioning <- function(schm){
@@ -444,16 +452,20 @@ dataset___DirectoryPartitioning__MakeFactory <- function(field_names){
     .Call(`_arrow_dataset___DirectoryPartitioning__MakeFactory`, field_names)
 }
 
-dataset___HivePartitioning <- function(schm){
-    .Call(`_arrow_dataset___HivePartitioning`, schm)
+dataset___HivePartitioning <- function(schm, null_fallback){
+    .Call(`_arrow_dataset___HivePartitioning`, schm, null_fallback)
 }
 
-dataset___HivePartitioning__MakeFactory <- function(){
-    .Call(`_arrow_dataset___HivePartitioning__MakeFactory`)
+dataset___HivePartitioning__MakeFactory <- function(null_fallback){
+    .Call(`_arrow_dataset___HivePartitioning__MakeFactory`, null_fallback)
 }
 
-dataset___ScannerBuilder__Project <- function(sb, cols){
-    invisible(.Call(`_arrow_dataset___ScannerBuilder__Project`, sb, cols))
+dataset___ScannerBuilder__ProjectNames <- function(sb, cols){
+    invisible(.Call(`_arrow_dataset___ScannerBuilder__ProjectNames`, sb, cols))
+}
+
+dataset___ScannerBuilder__ProjectExprs <- function(sb, exprs, names){
+    invisible(.Call(`_arrow_dataset___ScannerBuilder__ProjectExprs`, sb, exprs, names))
 }
 
 dataset___ScannerBuilder__Filter <- function(sb, expr){
@@ -466,6 +478,10 @@ dataset___ScannerBuilder__UseThreads <- function(sb, threads){
 
 dataset___ScannerBuilder__BatchSize <- function(sb, batch_size){
     invisible(.Call(`_arrow_dataset___ScannerBuilder__BatchSize`, sb, batch_size))
+}
+
+dataset___ScannerBuilder__FragmentScanOptions <- function(sb, options){
+    invisible(.Call(`_arrow_dataset___ScannerBuilder__FragmentScanOptions`, sb, options))
 }
 
 dataset___ScannerBuilder__schema <- function(sb){
@@ -734,6 +750,10 @@ dataset___expr__call <- function(func_name, argument_list, options){
 
 dataset___expr__field_ref <- function(name){
     .Call(`_arrow_dataset___expr__field_ref`, name)
+}
+
+dataset___expr__get_field_ref_name <- function(ref){
+    .Call(`_arrow_dataset___expr__get_field_ref_name`, ref)
 }
 
 dataset___expr__scalar <- function(x){
@@ -1268,6 +1288,14 @@ ExportRecordBatch <- function(batch, array_ptr, schema_ptr){
     invisible(.Call(`_arrow_ExportRecordBatch`, batch, array_ptr, schema_ptr))
 }
 
+vec_to_arrow <- function(x, s_type){
+    .Call(`_arrow_vec_to_arrow`, x, s_type)
+}
+
+DictionaryArray__FromArrays <- function(type, indices, dict){
+    .Call(`_arrow_DictionaryArray__FromArrays`, type, indices, dict)
+}
+
 RecordBatch__num_columns <- function(x){
     .Call(`_arrow_RecordBatch__num_columns`, x)
 }
@@ -1412,6 +1440,10 @@ ipc___RecordBatchStreamWriter__Open <- function(stream, schema, use_legacy_forma
     .Call(`_arrow_ipc___RecordBatchStreamWriter__Open`, stream, schema, use_legacy_format, metadata_version)
 }
 
+runtime_info <- function(){
+    .Call(`_arrow_runtime_info`)
+}
+
 Array__GetScalar <- function(x, i){
     .Call(`_arrow_Array__GetScalar`, x, i)
 }
@@ -1432,12 +1464,24 @@ Scalar__as_vector <- function(scalar){
     .Call(`_arrow_Scalar__as_vector`, scalar)
 }
 
+MakeArrayFromScalar <- function(scalar){
+    .Call(`_arrow_MakeArrayFromScalar`, scalar)
+}
+
 Scalar__is_valid <- function(s){
     .Call(`_arrow_Scalar__is_valid`, s)
 }
 
 Scalar__type <- function(s){
     .Call(`_arrow_Scalar__type`, s)
+}
+
+Scalar__Equals <- function(lhs, rhs){
+    .Call(`_arrow_Scalar__Equals`, lhs, rhs)
+}
+
+Scalar__ApproxEquals <- function(lhs, rhs){
+    .Call(`_arrow_Scalar__ApproxEquals`, lhs, rhs)
 }
 
 schema_ <- function(fields){
@@ -1586,6 +1630,10 @@ GetCpuThreadPoolCapacity <- function(){
 
 SetCpuThreadPoolCapacity <- function(threads){
     invisible(.Call(`_arrow_SetCpuThreadPoolCapacity`, threads))
+}
+
+Array__infer_type <- function(x){
+    .Call(`_arrow_Array__infer_type`, x)
 }
 
 

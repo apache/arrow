@@ -67,7 +67,6 @@
 //!
 //! let path = Path::new("/path/to/sample.parquet");
 //! if let Ok(file) = File::open(&path) {
-//!     let file = File::open(&path).unwrap();
 //!     let reader = SerializedFileReader::new(file).unwrap();
 //!
 //!     let parquet_metadata = reader.metadata();

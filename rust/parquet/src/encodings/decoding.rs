@@ -108,8 +108,8 @@ pub trait Decoder<T: DataType> {
 pub fn get_decoder<T: DataType>(
     descr: ColumnDescPtr,
     encoding: Encoding,
-) -> Result<Box<Decoder<T>>> {
-    let decoder: Box<Decoder<T>> = match encoding {
+) -> Result<Box<dyn Decoder<T>>> {
+    let decoder: Box<dyn Decoder<T>> = match encoding {
         Encoding::PLAIN => Box::new(PlainDecoder::new(descr.type_length())),
         Encoding::RLE_DICTIONARY | Encoding::PLAIN_DICTIONARY => {
             return Err(general_err!(
@@ -231,7 +231,7 @@ impl<T: DataType> DictDecoder<T> {
     }
 
     /// Decodes and sets values for dictionary using `decoder` decoder.
-    pub fn set_dict(&mut self, mut decoder: Box<Decoder<T>>) -> Result<()> {
+    pub fn set_dict(&mut self, mut decoder: Box<dyn Decoder<T>>) -> Result<()> {
         let num_values = decoder.values_left();
         self.dictionary.resize(num_values, T::T::default());
         let _ = decoder.get(&mut self.dictionary)?;
@@ -995,7 +995,7 @@ mod tests {
         let mut decoder: PlainDecoder<T> = PlainDecoder::new(type_length);
         let result = decoder.set_data(data, num_values);
         assert!(result.is_ok());
-        let result = decoder.get(&mut buffer[..]);
+        let result = decoder.get(buffer);
         assert!(result.is_ok());
         assert_eq!(decoder.values_left(), 0);
         assert_eq!(buffer, expected);
@@ -1013,7 +1013,7 @@ mod tests {
         let mut decoder: PlainDecoder<T> = PlainDecoder::new(type_length);
         let result = decoder.set_data(data, num_values);
         assert!(result.is_ok());
-        let result = decoder.get_spaced(&mut buffer[..], num_nulls, valid_bits);
+        let result = decoder.get_spaced(buffer, num_nulls, valid_bits);
         assert!(result.is_ok());
         assert_eq!(num_values + num_nulls, result.unwrap());
         assert_eq!(decoder.values_left(), 0);
@@ -1317,6 +1317,7 @@ mod tests {
 
     /// A util trait to convert slices of different types to byte arrays
     trait ToByteArray<T: DataType> {
+        #[allow(clippy::wrong_self_convention)]
         fn to_byte_array(data: &[T::T]) -> Vec<u8>;
     }
 

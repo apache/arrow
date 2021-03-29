@@ -111,10 +111,12 @@ TYPED_TEST(TestNumericScalar, Hashing) {
   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
 
   std::unordered_set<std::shared_ptr<Scalar>, Scalar::Hash, Scalar::PtrsEqual> set;
+  set.emplace(std::make_shared<ScalarType>());
   for (T i = 0; i < 10; ++i) {
     set.emplace(std::make_shared<ScalarType>(i));
   }
 
+  ASSERT_FALSE(set.emplace(std::make_shared<ScalarType>()).second);
   for (T i = 0; i < 10; ++i) {
     ASSERT_FALSE(set.emplace(std::make_shared<ScalarType>(i)).second);
   }
@@ -406,6 +408,23 @@ TEST(TestBinaryScalar, Basics) {
   ASSERT_FALSE(two->Equals(BinaryScalar(Buffer::FromString("else"))));
 }
 
+TEST(TestBinaryScalar, Hashing) {
+  auto FromInt = [](int i) {
+    return std::make_shared<BinaryScalar>(Buffer::FromString(std::to_string(i)));
+  };
+
+  std::unordered_set<std::shared_ptr<Scalar>, Scalar::Hash, Scalar::PtrsEqual> set;
+  set.emplace(std::make_shared<BinaryScalar>());
+  for (int i = 0; i < 10; ++i) {
+    set.emplace(FromInt(i));
+  }
+
+  ASSERT_FALSE(set.emplace(std::make_shared<BinaryScalar>()).second);
+  for (int i = 0; i < 10; ++i) {
+    ASSERT_FALSE(set.emplace(FromInt(i)).second);
+  }
+}
+
 TEST(TestStringScalar, MakeScalar) {
   auto three = MakeScalar("three");
   ASSERT_EQ(StringScalar("three"), *three);
@@ -660,7 +679,7 @@ TEST(TestTimestampScalars, Cast) {
 
   ASSERT_OK_AND_ASSIGN(auto str,
                        TimestampScalar(1024, timestamp(TimeUnit::MILLI)).CastTo(utf8()));
-  EXPECT_EQ(*str, StringScalar("1024"));
+  EXPECT_EQ(*str, StringScalar("1970-01-01 00:00:01.024"));
   ASSERT_OK_AND_ASSIGN(auto i64,
                        TimestampScalar(1024, timestamp(TimeUnit::MILLI)).CastTo(int64()));
   EXPECT_EQ(*i64, Int64Scalar(1024));

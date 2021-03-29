@@ -115,6 +115,10 @@ name = "length_kernel"
 harness = false
 
 [[bench]]
+name = "bit_length_kernel"
+harness = false
+
+[[bench]]
 name = "sort_kernel"
 harness = false
 

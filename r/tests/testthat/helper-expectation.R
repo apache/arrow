@@ -59,3 +59,105 @@ verify_output <- function(...) {
   }
   testthat::verify_output(...)
 }
+
+expect_dplyr_equal <- function(expr, # A dplyr pipeline with `input` as its start
+                               tbl,  # A tbl/df as reference, will make RB/Table with
+                               skip_record_batch = NULL, # Msg, if should skip RB test
+                               skip_table = NULL,        # Msg, if should skip Table test
+                               ...) {
+  expr <- rlang::enquo(expr)
+  expected <- rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = tbl)))
+
+  skip_msg <- NULL
+
+  if (is.null(skip_record_batch)) {
+    via_batch <- rlang::eval_tidy(
+      expr,
+      rlang::new_data_mask(rlang::env(input = record_batch(tbl)))
+    )
+    expect_equivalent(via_batch, expected, ...)
+  } else {
+    skip_msg <- c(skip_msg, skip_record_batch)
+  }
+
+  if (is.null(skip_table)) {
+    via_table <- rlang::eval_tidy(
+      expr,
+      rlang::new_data_mask(rlang::env(input = Table$create(tbl)))
+    )
+    expect_equivalent(via_table, expected, ...)
+  } else {
+    skip_msg <- c(skip_msg, skip_table)
+  }
+
+  if (!is.null(skip_msg)) {
+    skip(paste(skip_msg, collpase = "\n"))
+  }
+}
+
+expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its start
+                               tbl,  # A tbl/df as reference, will make RB/Table with
+                               ...) {
+  expr <- rlang::enquo(expr)
+  msg <- tryCatch(
+    rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = tbl))),
+    error = function (e) conditionMessage(e)
+  )
+  expect_is(msg, "character", label = "dplyr on data.frame did not error")
+
+  expect_error(
+    rlang::eval_tidy(
+      expr,
+      rlang::new_data_mask(rlang::env(input = record_batch(tbl)))
+    ),
+    msg,
+    ...
+  )
+  expect_error(
+    rlang::eval_tidy(
+      expr,
+      rlang::new_data_mask(rlang::env(input = Table$create(tbl)))
+    ),
+    msg,
+    ...
+  )
+}
+
+expect_vector_equal <- function(expr, # A vectorized R expression containing `input` as its input
+                               vec,  # A vector as reference, will make Array/ChunkedArray with
+                               skip_array = NULL, # Msg, if should skip Array test
+                               skip_chunked_array = NULL, # Msg, if should skip ChunkedArray test
+                               ...) {
+  expr <- rlang::enquo(expr)
+  expected <- rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = vec)))
+
+  skip_msg <- NULL
+
+  if (is.null(skip_array)) {
+    via_array <- rlang::eval_tidy(
+      expr,
+      rlang::new_data_mask(rlang::env(input = Array$create(vec)))
+    )
+    expect_vector(via_array, expected, ...)
+  } else {
+    skip_msg <- c(skip_msg, skip_array)
+  }
+
+  if (is.null(skip_chunked_array)) {
+    # split input vector into two to exercise ChunkedArray with >1 chunk
+    vec_split <- length(vec) %/% 2
+    vec1 <- vec[seq(from = min(1, length(vec) - 1), to = min(length(vec) - 1, vec_split), by = 1)]
+    vec2 <- vec[seq(from = min(length(vec), vec_split + 1), to = length(vec), by = 1)]
+    via_chunked <- rlang::eval_tidy(
+      expr,
+      rlang::new_data_mask(rlang::env(input = ChunkedArray$create(vec1, vec2)))
+    )
+    expect_vector(via_chunked, expected, ...)
+  } else {
+    skip_msg <- c(skip_msg, skip_chunked_array)
+  }
+
+  if (!is.null(skip_msg)) {
+    skip(paste(skip_msg, collpase = "\n"))
+  }
+}

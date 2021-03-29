@@ -32,6 +32,7 @@
 #include "arrow/ipc/options.h"
 #include "arrow/ipc/util.h"
 #include "arrow/status.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 
@@ -267,6 +268,10 @@ std::string FormatMessageType(MessageType type) {
       return "record batch";
     case MessageType::DICTIONARY_BATCH:
       return "dictionary";
+    case MessageType::TENSOR:
+      return "tensor";
+    case MessageType::SPARSE_TENSOR:
+      return "sparse tensor";
     default:
       break;
   }

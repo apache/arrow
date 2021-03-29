@@ -156,10 +156,22 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
 Status GetKeyValueMetadata(const KVVector* fb_metadata,
                            std::shared_ptr<KeyValueMetadata>* out);
 
+template <typename RootType>
+bool VerifyFlatbuffers(const uint8_t* data, int64_t size) {
+  // Heuristic: tables in a Arrow flatbuffers buffer must take at least 1 bit
+  // each in average (ARROW-11559).
+  // Especially, the only recursive table (the `Field` table in Schema.fbs)
+  // must have a non-empty `type` member.
+  flatbuffers::Verifier verifier(
+      data, static_cast<size_t>(size),
+      /*max_depth=*/128,
+      /*max_tables=*/static_cast<flatbuffers::uoffset_t>(8 * size));
+  return verifier.VerifyBuffer<RootType>(nullptr);
+}
+
 static inline Status VerifyMessage(const uint8_t* data, int64_t size,
                                    const flatbuf::Message** out) {
-  flatbuffers::Verifier verifier(data, size, /*max_depth=*/128);
-  if (!flatbuf::VerifyMessageBuffer(verifier)) {
+  if (!VerifyFlatbuffers<flatbuf::Message>(data, size)) {
     return Status::IOError("Invalid flatbuffers message.");
   }
   *out = flatbuf::GetMessage(data);

@@ -27,9 +27,10 @@ use std::ops::Add;
 /// Combines the null bitmaps of two arrays using a bitwise `and` operation.
 ///
 /// This function is useful when implementing operations on higher level arrays.
+#[allow(clippy::unnecessary_wraps)]
 pub(super) fn combine_option_bitmap(
-    left_data: &ArrayDataRef,
-    right_data: &ArrayDataRef,
+    left_data: &ArrayData,
+    right_data: &ArrayData,
     len_in_bits: usize,
 ) -> Result<Option<Buffer>> {
     let left_offset_in_bits = left_data.offset();
@@ -60,9 +61,10 @@ pub(super) fn combine_option_bitmap(
 /// Compares the null bitmaps of two arrays using a bitwise `or` operation.
 ///
 /// This function is useful when implementing operations on higher level arrays.
+#[allow(clippy::unnecessary_wraps)]
 pub(super) fn compare_option_bitmap(
-    left_data: &ArrayDataRef,
-    right_data: &ArrayDataRef,
+    left_data: &ArrayData,
+    right_data: &ArrayData,
     len_in_bits: usize,
 ) -> Result<Option<Buffer>> {
     let left_offset_in_bits = left_data.offset();
@@ -300,7 +302,7 @@ pub(super) mod tests {
             offset.push(values.len() as i64);
         }
 
-        let value_data = PrimitiveArray::<T>::from(values).data();
+        let value_data = PrimitiveArray::<T>::from(values).data().clone();
         let (list_data_type, value_offsets) = if TypeId::of::<S>() == TypeId::of::<i32>()
         {
             (
@@ -389,7 +391,7 @@ pub(super) mod tests {
             length,
         );
 
-        let child_data = PrimitiveArray::<T>::from(values).data();
+        let child_data = PrimitiveArray::<T>::from(values).data().clone();
 
         let list_data = ArrayData::builder(list_data_type)
             .len(list_len)

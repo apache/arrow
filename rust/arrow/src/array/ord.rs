@@ -93,8 +93,8 @@ where
     let left_keys = left.keys_array();
     let right_keys = right.keys_array();
 
-    let left_values = StringArray::from(left.values().data());
-    let right_values = StringArray::from(left.values().data());
+    let left_values = StringArray::from(left.values().data().clone());
+    let right_values = StringArray::from(left.values().data().clone());
 
     Box::new(move |i: usize, j: usize| {
         let key_left = left_keys.value(i).to_usize().unwrap();

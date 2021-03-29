@@ -103,6 +103,8 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
     std::unique_ptr<RowGroupMetaData> group_metadata = file_metadata->RowGroup(r);
 
     stream << "--- Total Bytes: " << group_metadata->total_byte_size() << " ---\n";
+    stream << "--- Total Compressed Bytes: " << group_metadata->total_compressed_size()
+           << " ---\n";
     stream << "--- Rows: " << group_metadata->num_rows() << " ---\n";
 
     // Print column metadata
@@ -215,7 +217,8 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
   int c = 0;
   for (auto i : selected_columns) {
     const ColumnDescriptor* descr = file_metadata->schema()->Column(i);
-    stream << "     { \"Id\": \"" << i << "\", \"Name\": \"" << descr->name() << "\","
+    stream << "     { \"Id\": \"" << i << "\","
+           << " \"Name\": \"" << descr->path()->ToDotString() << "\","
            << " \"PhysicalType\": \"" << TypeToString(descr->physical_type()) << "\","
            << " \"ConvertedType\": \"" << ConvertedTypeToString(descr->converted_type())
            << "\","
@@ -234,6 +237,8 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
     std::unique_ptr<RowGroupMetaData> group_metadata = file_metadata->RowGroup(r);
 
     stream << " \"TotalBytes\": \"" << group_metadata->total_byte_size() << "\", ";
+    stream << " \"TotalCompressedBytes\": \"" << group_metadata->total_compressed_size()
+           << "\", ";
     stream << " \"Rows\": \"" << group_metadata->num_rows() << "\",\n";
 
     // Print column metadata

@@ -24,7 +24,6 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/util/key_value_metadata.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
@@ -205,6 +204,12 @@ class PARQUET_EXPORT RowGroupMetaData {
 
   /// \brief Total byte size of all the uncompressed column data in this row group.
   int64_t total_byte_size() const;
+
+  /// \brief Total byte size of all the compressed (and potentially encrypted)
+  /// column data in this row group.
+  ///
+  /// This information is optional and may be 0 if omitted.
+  int64_t total_compressed_size() const;
 
   /// \brief Byte offset from beginning of file to first page (data or
   /// dictionary) in this row group

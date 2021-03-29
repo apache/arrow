@@ -29,6 +29,8 @@
 #include "arrow/json/parser.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/util/async_generator.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
@@ -39,6 +41,7 @@ namespace arrow {
 
 using util::string_view;
 
+using internal::checked_cast;
 using internal::GetCpuThreadPool;
 using internal::TaskGroup;
 using internal::ThreadPool;
@@ -204,20 +207,19 @@ Result<std::shared_ptr<RecordBatch>> ParseOne(ParseOptions options,
           ? GetPromotionGraph()
           : nullptr;
   std::shared_ptr<ChunkedArrayBuilder> builder;
-  RETURN_NOT_OK(MakeChunkedArrayBuilder(internal::TaskGroup::MakeSerial(),
-                                        default_memory_pool(), promotion_graph, type,
-                                        &builder));
+  RETURN_NOT_OK(MakeChunkedArrayBuilder(TaskGroup::MakeSerial(), default_memory_pool(),
+                                        promotion_graph, type, &builder));
 
   builder->Insert(0, field("", type), parsed);
   std::shared_ptr<ChunkedArray> converted_chunked;
   RETURN_NOT_OK(builder->Finish(&converted_chunked));
-  auto converted = static_cast<const StructArray*>(converted_chunked->chunk(0).get());
+  const auto& converted = checked_cast<const StructArray&>(*converted_chunked->chunk(0));
 
-  std::vector<std::shared_ptr<Array>> columns(converted->num_fields());
-  for (int i = 0; i < converted->num_fields(); ++i) {
-    columns[i] = converted->field(i);
+  std::vector<std::shared_ptr<Array>> columns(converted.num_fields());
+  for (int i = 0; i < converted.num_fields(); ++i) {
+    columns[i] = converted.field(i);
   }
-  return RecordBatch::Make(schema(converted->type()->fields()), converted->length(),
+  return RecordBatch::Make(schema(converted.type()->fields()), converted.length(),
                            std::move(columns));
 }
 

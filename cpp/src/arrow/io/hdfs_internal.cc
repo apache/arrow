@@ -173,7 +173,7 @@ Result<std::vector<PlatformFilename>> get_potential_libjvm_paths() {
   std::string file_name;
 
 // From heuristics
-#ifdef __WIN32
+#ifdef _WIN32
   ARROW_ASSIGN_OR_RAISE(search_prefixes, MakeFilenameVector({""}));
   ARROW_ASSIGN_OR_RAISE(search_suffixes,
                         MakeFilenameVector({"/jre/bin/server", "/bin/server"}));

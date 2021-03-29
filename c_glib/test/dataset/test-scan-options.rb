@@ -35,10 +35,13 @@ class TestDatasetScanOptions < Test::Unit::TestCase
                  @scan_options.batch_size)
   end
 
-  def test_replace_schema
-    other_schema = Arrow::Schema.new([Arrow::Field.new("visible", Arrow::BooleanDataType.new)])
-    other_scan_options = @scan_options.replace_schema(other_schema)
-    assert_not_equal(@schema, other_scan_options.schema)
-    assert_equal(other_schema, other_scan_options.schema)
+  def test_use_threads
+    assert do
+      not @scan_options.use_threads?
+    end
+    @scan_options.use_threads = true
+    assert do
+      @scan_options.use_threads?
+    end
   end
 end

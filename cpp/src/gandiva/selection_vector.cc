@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/util/bit_util.h"
+#include "arrow/util/endian.h"
 
 #include "gandiva/selection_vector_impl.h"
 

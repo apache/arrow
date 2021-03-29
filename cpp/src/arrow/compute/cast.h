@@ -82,10 +82,10 @@ struct ARROW_EXPORT CastOptions : public FunctionOptions {
 // the same execution machinery
 class CastFunction : public ScalarFunction {
  public:
-  CastFunction(std::string name, Type::type out_type);
-  ~CastFunction() override;
+  CastFunction(std::string name, Type::type out_type_id);
 
-  Type::type out_type_id() const;
+  Type::type out_type_id() const { return out_type_id_; }
+  const std::vector<Type::type>& in_type_ids() const { return in_type_ids_; }
 
   Status AddKernel(Type::type in_type_id, std::vector<InputType> in_types,
                    OutputType out_type, ArrayKernelExec exec,
@@ -96,14 +96,12 @@ class CastFunction : public ScalarFunction {
   // function to CastInit
   Status AddKernel(Type::type in_type_id, ScalarKernel kernel);
 
-  bool CanCastTo(const DataType& out_type) const;
-
   Result<const Kernel*> DispatchExact(
       const std::vector<ValueDescr>& values) const override;
 
  private:
-  struct CastFunctionImpl;
-  std::unique_ptr<CastFunctionImpl> impl_;
+  std::vector<Type::type> in_type_ids_;
+  const Type::type out_type_id_;
 };
 
 ARROW_EXPORT
@@ -156,6 +154,18 @@ ARROW_EXPORT
 Result<Datum> Cast(const Datum& value, std::shared_ptr<DataType> to_type,
                    const CastOptions& options = CastOptions::Safe(),
                    ExecContext* ctx = NULLPTR);
+
+/// \brief Cast several values simultaneously. Safe cast options are used.
+/// \param[in] values datums to cast
+/// \param[in] descrs ValueDescrs to cast to
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datums
+///
+/// \since 4.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<std::vector<Datum>> Cast(std::vector<Datum> values, std::vector<ValueDescr> descrs,
+                                ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow

@@ -15,11 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Transfer data between the Arrow memory format and JSON line-delimited records.
+//! Transfer data between the Arrow memory format and JSON
+//! line-delimited records. See the module level documentation for the
+//! [`reader`] and [`writer`] for usage examples.
 
 pub mod reader;
 pub mod writer;
 
 pub use self::reader::Reader;
 pub use self::reader::ReaderBuilder;
-pub use self::writer::Writer;
+pub use self::writer::{ArrayWriter, LineDelimitedWriter, Writer};

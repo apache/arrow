@@ -23,14 +23,15 @@
 //! [here](https://doc.rust-lang.org/stable/core/arch/) for more information.
 
 use std::ops::{Add, Div, Mul, Neg, Sub};
-use std::sync::Arc;
 
 use num::{One, Zero};
 
 use crate::buffer::Buffer;
 #[cfg(simd)]
 use crate::buffer::MutableBuffer;
-use crate::compute::{kernels::arity::unary, util::combine_option_bitmap};
+#[cfg(not(simd))]
+use crate::compute::kernels::arity::unary;
+use crate::compute::util::combine_option_bitmap;
 use crate::datatypes;
 use crate::datatypes::ArrowNumericType;
 use crate::error::{ArrowError, Result};
@@ -87,7 +88,7 @@ where
         vec![result.into()],
         vec![],
     );
-    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
+    Ok(PrimitiveArray::<T>::from(data))
 }
 
 #[cfg(simd)]
@@ -136,7 +137,7 @@ where
         vec![result.into()],
         vec![],
     );
-    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
+    Ok(PrimitiveArray::<T>::from(data))
 }
 
 /// Helper function to perform math lambda function on values from two arrays. If either
@@ -185,7 +186,7 @@ where
         vec![buffer],
         vec![],
     );
-    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
+    Ok(PrimitiveArray::<T>::from(data))
 }
 
 /// Helper function to divide two arrays.
@@ -253,7 +254,35 @@ where
         vec![buffer],
         vec![],
     );
-    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
+    Ok(PrimitiveArray::<T>::from(data))
+}
+
+/// Scalar-divisor version of `math_divide`.
+fn math_divide_scalar<T>(
+    array: &PrimitiveArray<T>,
+    divisor: T::Native,
+) -> Result<PrimitiveArray<T>>
+where
+    T: ArrowNumericType,
+    T::Native: Div<Output = T::Native> + Zero,
+{
+    if divisor.is_zero() {
+        return Err(ArrowError::DivideByZero);
+    }
+
+    let values = array.values().iter().map(|value| *value / divisor);
+    let buffer = unsafe { Buffer::from_trusted_len_iter(values) };
+
+    let data = ArrayData::new(
+        T::DATA_TYPE,
+        array.len(),
+        None,
+        array.data_ref().null_buffer().cloned(),
+        0,
+        vec![buffer],
+        vec![],
+    );
+    Ok(PrimitiveArray::<T>::from(data))
 }
 
 /// SIMD vectorized version of `math_op` above.
@@ -316,7 +345,7 @@ where
         vec![result.into()],
         vec![],
     );
-    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
+    Ok(PrimitiveArray::<T>::from(data))
 }
 
 /// SIMD vectorized implementation of `left / right`.
@@ -387,9 +416,38 @@ where
     Ok(())
 }
 
-/// SIMD vectorized version of `divide`, the divide kernel needs it's own implementation as there
-/// is a need to handle situations where a divide by `0` occurs.  This is complicated by `NULL`
-/// slots and padding.
+/// Scalar-divisor version of `simd_checked_divide_remainder`.
+#[cfg(simd)]
+#[inline]
+fn simd_checked_divide_scalar_remainder<T: ArrowNumericType>(
+    array_chunks: ChunksExact<T::Native>,
+    divisor: T::Native,
+    result_chunks: ChunksExactMut<T::Native>,
+) -> Result<()>
+where
+    T::Native: Zero + Div<Output = T::Native>,
+{
+    if divisor.is_zero() {
+        return Err(ArrowError::DivideByZero);
+    }
+
+    let result_remainder = result_chunks.into_remainder();
+    let array_remainder = array_chunks.remainder();
+
+    result_remainder
+        .iter_mut()
+        .zip(array_remainder.iter())
+        .for_each(|(result_scalar, array_scalar)| {
+            *result_scalar = *array_scalar / divisor;
+        });
+
+    Ok(())
+}
+
+/// SIMD vectorized version of `divide`.
+///
+/// The divide kernels need their own implementation as there is a need to handle situations
+/// where a divide by `0` occurs.  This is complicated by `NULL` slots and padding.
 #[cfg(simd)]
 fn simd_divide<T>(
     left: &PrimitiveArray<T>,
@@ -503,7 +561,53 @@ where
         vec![result.into()],
         vec![],
     );
-    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
+    Ok(PrimitiveArray::<T>::from(data))
+}
+
+/// SIMD vectorized version of `divide_scalar`.
+#[cfg(simd)]
+fn simd_divide_scalar<T>(
+    array: &PrimitiveArray<T>,
+    divisor: T::Native,
+) -> Result<PrimitiveArray<T>>
+where
+    T: ArrowNumericType,
+    T::Native: One + Zero + Div<Output = T::Native>,
+{
+    if divisor.is_zero() {
+        return Err(ArrowError::DivideByZero);
+    }
+
+    let lanes = T::lanes();
+    let buffer_size = array.len() * std::mem::size_of::<T::Native>();
+    let mut result = MutableBuffer::new(buffer_size).with_bitset(buffer_size, false);
+
+    let mut result_chunks = result.typed_data_mut().chunks_exact_mut(lanes);
+    let mut array_chunks = array.values().chunks_exact(lanes);
+
+    result_chunks
+        .borrow_mut()
+        .zip(array_chunks.borrow_mut())
+        .for_each(|(result_slice, array_slice)| {
+            let simd_left = T::load(array_slice);
+            let simd_right = T::init(divisor);
+
+            let simd_result = T::bin_op(simd_left, simd_right, |a, b| a / b);
+            T::write(simd_result, result_slice);
+        });
+
+    simd_checked_divide_scalar_remainder::<T>(array_chunks, divisor, result_chunks)?;
+
+    let data = ArrayData::new(
+        T::DATA_TYPE,
+        array.len(),
+        None,
+        array.data_ref().null_buffer().cloned(),
+        0,
+        vec![result.into()],
+        vec![],
+    );
+    Ok(PrimitiveArray::<T>::from(data))
 }
 
 /// Perform `left + right` operation on two arrays. If either left or right value is null
@@ -622,6 +726,28 @@ where
     return math_divide(&left, &right);
 }
 
+/// Divide every value in an array by a scalar. If any value in the array is null then the
+/// result is also null. If the scalar is zero then the result of this operation will be
+/// `Err(ArrowError::DivideByZero)`.
+pub fn divide_scalar<T>(
+    array: &PrimitiveArray<T>,
+    divisor: T::Native,
+) -> Result<PrimitiveArray<T>>
+where
+    T: datatypes::ArrowNumericType,
+    T::Native: Add<Output = T::Native>
+        + Sub<Output = T::Native>
+        + Mul<Output = T::Native>
+        + Div<Output = T::Native>
+        + Zero
+        + One,
+{
+    #[cfg(simd)]
+    return simd_divide_scalar(&array, divisor);
+    #[cfg(not(simd))]
+    return math_divide_scalar(&array, divisor);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -710,6 +836,15 @@ mod tests {
     }
 
     #[test]
+    fn test_primitive_array_divide_scalar() {
+        let a = Int32Array::from(vec![15, 14, 9, 8, 1]);
+        let b = 3;
+        let c = divide_scalar(&a, b).unwrap();
+        let expected = Int32Array::from(vec![5, 4, 3, 2, 0]);
+        assert_eq!(c, expected);
+    }
+
+    #[test]
     fn test_primitive_array_divide_sliced() {
         let a = Int32Array::from(vec![0, 0, 0, 15, 15, 8, 1, 9, 0]);
         let b = Int32Array::from(vec![0, 0, 0, 5, 6, 8, 9, 1, 0]);
@@ -738,6 +873,16 @@ mod tests {
         assert_eq!(0, c.value(3));
         assert_eq!(true, c.is_null(4));
         assert_eq!(true, c.is_null(5));
+    }
+
+    #[test]
+    fn test_primitive_array_divide_scalar_with_nulls() {
+        let a = Int32Array::from(vec![Some(15), None, Some(8), Some(1), Some(9), None]);
+        let b = 3;
+        let c = divide_scalar(&a, b).unwrap();
+        let expected =
+            Int32Array::from(vec![Some(5), None, Some(2), Some(0), Some(3), None]);
+        assert_eq!(c, expected);
     }
 
     #[test]

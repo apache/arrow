@@ -28,11 +28,11 @@ RUN \
   yum install -y ${quiet} epel-release && \
   yum groupinstall -y ${quiet} "Development Tools" && \
   yum install -y ${quiet} \
-    autoconf-archive \
     bison \
     boost169-devel \
     brotli-devel \
     bzip2-devel \
+    ccache \
     cmake3 \
     flex \
     gflags-devel \
@@ -42,6 +42,7 @@ RUN \
     gtk-doc \
     libzstd-devel \
     lz4-devel \
+    ninja-build \
     openssl-devel \
     pkg-config \
     python36 \

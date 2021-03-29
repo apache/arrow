@@ -61,10 +61,17 @@ static Result<Datum> ExecSetLookup(const std::string& func_name, const Datum& da
   if (!options.value_set.is_arraylike()) {
     return Status::Invalid("Set lookup value set must be Array or ChunkedArray");
   }
+  std::shared_ptr<DataType> data_type;
+  if (data.type()->id() == Type::DICTIONARY) {
+    data_type =
+        arrow::internal::checked_pointer_cast<DictionaryType>(data.type())->value_type();
+  } else {
+    data_type = data.type();
+  }
 
-  if (options.value_set.length() > 0 && !data.type()->Equals(options.value_set.type())) {
+  if (options.value_set.length() > 0 && !data_type->Equals(options.value_set.type())) {
     std::stringstream ss;
-    ss << "Array type didn't match type of values set: " << data.type()->ToString()
+    ss << "Array type didn't match type of values set: " << data_type->ToString()
        << " vs " << options.value_set.type()->ToString();
     return Status::Invalid(ss.str());
   }

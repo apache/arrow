@@ -23,7 +23,7 @@ ARG arch=amd64
 ARG maven=3.5
 ARG node=14
 ARG jdk=8
-ARG go=1.12
+ARG go=1.15
 
 COPY ci/conda_env_archery.yml /arrow/ci/
 RUN conda install -q \

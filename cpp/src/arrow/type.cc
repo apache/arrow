@@ -1298,28 +1298,55 @@ void PrintTo(const FieldRef& ref, std::ostream* os) { *os << ref.ToString(); }
 // ----------------------------------------------------------------------
 // Schema implementation
 
+std::string EndiannessToString(Endianness endianness) {
+  switch (endianness) {
+    case Endianness::Little:
+      return "little";
+    case Endianness::Big:
+      return "big";
+    default:
+      DCHECK(false) << "invalid endianness";
+      return "???";
+  }
+}
+
 class Schema::Impl {
  public:
-  Impl(std::vector<std::shared_ptr<Field>> fields,
+  Impl(std::vector<std::shared_ptr<Field>> fields, Endianness endianness,
        std::shared_ptr<const KeyValueMetadata> metadata)
       : fields_(std::move(fields)),
+        endianness_(endianness),
         name_to_index_(CreateNameToIndexMap(fields_)),
         metadata_(std::move(metadata)) {}
 
   std::vector<std::shared_ptr<Field>> fields_;
+  Endianness endianness_;
   std::unordered_multimap<std::string, int> name_to_index_;
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
+Schema::Schema(std::vector<std::shared_ptr<Field>> fields, Endianness endianness,
+               std::shared_ptr<const KeyValueMetadata> metadata)
+    : detail::Fingerprintable(),
+      impl_(new Impl(std::move(fields), endianness, std::move(metadata))) {}
+
 Schema::Schema(std::vector<std::shared_ptr<Field>> fields,
                std::shared_ptr<const KeyValueMetadata> metadata)
     : detail::Fingerprintable(),
-      impl_(new Impl(std::move(fields), std::move(metadata))) {}
+      impl_(new Impl(std::move(fields), Endianness::Native, std::move(metadata))) {}
 
 Schema::Schema(const Schema& schema)
     : detail::Fingerprintable(), impl_(new Impl(*schema.impl_)) {}
 
 Schema::~Schema() = default;
+
+std::shared_ptr<Schema> Schema::WithEndianness(Endianness endianness) const {
+  return std::make_shared<Schema>(impl_->fields_, endianness, impl_->metadata_);
+}
+
+Endianness Schema::endianness() const { return impl_->endianness_; }
+
+bool Schema::is_native_endian() const { return impl_->endianness_ == Endianness::Native; }
 
 int Schema::num_fields() const { return static_cast<int>(impl_->fields_.size()); }
 
@@ -1336,6 +1363,11 @@ const std::vector<std::shared_ptr<Field>>& Schema::fields() const {
 bool Schema::Equals(const Schema& other, bool check_metadata) const {
   if (this == &other) {
     return true;
+  }
+
+  // checks endianness equality
+  if (endianness() != other.endianness()) {
+    return false;
   }
 
   // checks field equality
@@ -1480,6 +1512,10 @@ std::string Schema::ToString(bool show_metadata) const {
     }
     buffer << field->ToString(show_metadata);
     ++i;
+  }
+
+  if (impl_->endianness_ != Endianness::Native) {
+    buffer << "\n-- endianness: " << EndiannessToString(impl_->endianness_) << " --";
   }
 
   if (show_metadata && HasMetadata()) {
@@ -1661,6 +1697,12 @@ std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>> fields,
   return std::make_shared<Schema>(std::move(fields), std::move(metadata));
 }
 
+std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>> fields,
+                               Endianness endianness,
+                               std::shared_ptr<const KeyValueMetadata> metadata) {
+  return std::make_shared<Schema>(std::move(fields), endianness, std::move(metadata));
+}
+
 Result<std::shared_ptr<Schema>> UnifySchemas(
     const std::vector<std::shared_ptr<Schema>>& schemas,
     const Field::MergeOptions field_merge_options) {
@@ -1819,6 +1861,7 @@ std::string Schema::ComputeFingerprint() const {
     }
     ss << field_fingerprint << ";";
   }
+  ss << (endianness() == Endianness::Little ? "L" : "B");
   ss << "}";
   return ss.str();
 }
@@ -2190,6 +2233,12 @@ std::shared_ptr<Field> field(std::string name, std::shared_ptr<DataType> type,
                                  std::move(metadata));
 }
 
+std::shared_ptr<Field> field(std::string name, std::shared_ptr<DataType> type,
+                             std::shared_ptr<const KeyValueMetadata> metadata) {
+  return std::make_shared<Field>(std::move(name), std::move(type), /*nullable=*/true,
+                                 std::move(metadata));
+}
+
 std::shared_ptr<DataType> decimal(int32_t precision, int32_t scale) {
   return precision <= Decimal128Type::kMaxPrecision ? decimal128(precision, scale)
                                                     : decimal256(precision, scale);
@@ -2205,7 +2254,7 @@ std::shared_ptr<DataType> decimal256(int32_t precision, int32_t scale) {
 
 std::string Decimal128Type::ToString() const {
   std::stringstream s;
-  s << "decimal(" << precision_ << ", " << scale_ << ")";
+  s << "decimal128(" << precision_ << ", " << scale_ << ")";
   return s.str();
 }
 

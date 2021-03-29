@@ -43,7 +43,7 @@ namespace dataset {
 /// Note that Fragments have well defined physical schemas which are reconciled by
 /// the Datasets which contain them; these physical schemas may differ from a parent
 /// Dataset's schema and the physical schemas of sibling Fragments.
-class ARROW_DS_EXPORT Fragment {
+class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
  public:
   /// \brief Return the physical schema of the Fragment.
   ///
@@ -62,13 +62,13 @@ class ARROW_DS_EXPORT Fragment {
   /// columns may be absent if they were not present in this fragment.
   ///
   /// To receive a record batch stream which is fully filtered and projected, use Scanner.
-  virtual Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options,
-                                        std::shared_ptr<ScanContext> context) = 0;
+  virtual Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) = 0;
 
   /// \brief Return true if the fragment can benefit from parallel scanning.
   virtual bool splittable() const = 0;
 
   virtual std::string type_name() const = 0;
+  virtual std::string ToString() const { return type_name(); }
 
   /// \brief An expression which evaluates to true for all data viewed by this
   /// Fragment.
@@ -88,6 +88,19 @@ class ARROW_DS_EXPORT Fragment {
   std::shared_ptr<Schema> physical_schema_;
 };
 
+/// \brief Per-scan options for fragment(s) in a dataset.
+///
+/// These options are not intrinsic to the format or fragment itself, but do affect
+/// the results of a scan. These are options which make sense to change between
+/// repeated reads of the same dataset, such as format-specific conversion options
+/// (that do not affect the schema).
+class ARROW_DS_EXPORT FragmentScanOptions {
+ public:
+  virtual std::string type_name() const = 0;
+  virtual std::string ToString() const { return type_name(); }
+  virtual ~FragmentScanOptions() = default;
+};
+
 /// \brief A trivial Fragment that yields ScanTask out of a fixed set of
 /// RecordBatch.
 class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
@@ -96,8 +109,7 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
                    Expression = literal(true));
   explicit InMemoryFragment(RecordBatchVector record_batches, Expression = literal(true));
 
-  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options,
-                                std::shared_ptr<ScanContext> context) override;
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override;
 
   bool splittable() const override { return false; }
 
@@ -117,7 +129,7 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
 class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
  public:
   /// \brief Begin to build a new Scan operation against this Dataset
-  Result<std::shared_ptr<ScannerBuilder>> NewScan(std::shared_ptr<ScanContext> context);
+  Result<std::shared_ptr<ScannerBuilder>> NewScan(std::shared_ptr<ScanOptions> options);
   Result<std::shared_ptr<ScannerBuilder>> NewScan();
 
   /// \brief GetFragments returns an iterator of Fragments given a predicate.

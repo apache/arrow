@@ -278,12 +278,13 @@ impl From<&StructArray> for RecordBatch {
     }
 }
 
-impl Into<StructArray> for RecordBatch {
-    fn into(self) -> StructArray {
-        self.schema
+impl From<RecordBatch> for StructArray {
+    fn from(batch: RecordBatch) -> Self {
+        batch
+            .schema
             .fields
             .iter()
-            .zip(self.columns.iter())
+            .zip(batch.columns.iter())
             .map(|t| (t.0.clone(), t.1.clone()))
             .collect::<Vec<(Field, ArrayRef)>>()
             .into()
@@ -366,7 +367,7 @@ mod tests {
             DataType::Int8,
             false,
         ))))
-        .add_child_data(a2_child.data())
+        .add_child_data(a2_child.data().clone())
         .len(2)
         .add_buffer(Buffer::from(vec![0i32, 3, 4].to_byte_slice()))
         .build();
@@ -375,8 +376,8 @@ mod tests {
             Field::new("aa1", DataType::Int32, false),
             Field::new("a2", a2.data_type().clone(), false),
         ]))
-        .add_child_data(a1.data())
-        .add_child_data(a2.data())
+        .add_child_data(a1.data().clone())
+        .add_child_data(a2.data().clone())
         .len(2)
         .build();
         let a: ArrayRef = Arc::new(StructArray::from(a));

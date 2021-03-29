@@ -35,7 +35,11 @@ def test_docker_run_with_custom_command(run, build, pull):
         "ubuntu-cpp", pull_leaf=True, using_docker=False
     )
     build.assert_called_once_with(
-        "ubuntu-cpp", use_cache=True, use_leaf_cache=True, using_docker=False
+        "ubuntu-cpp",
+        use_cache=True,
+        use_leaf_cache=True,
+        using_docker=False,
+        using_buildx=False
     )
     run.assert_called_once_with(
         "ubuntu-cpp",
@@ -73,7 +77,11 @@ def test_docker_run_options(run, build, pull):
         "ubuntu-cpp", pull_leaf=True, using_docker=False
     )
     build.assert_called_once_with(
-        "ubuntu-cpp", use_cache=True, use_leaf_cache=True, using_docker=False
+        "ubuntu-cpp",
+        use_cache=True,
+        use_leaf_cache=True,
+        using_docker=False,
+        using_buildx=False
     )
     run.assert_called_once_with(
         "ubuntu-cpp",
@@ -113,7 +121,11 @@ def test_docker_run_only_pulling_and_building(build, pull):
         "ubuntu-cpp", pull_leaf=True, using_docker=False
     )
     build.assert_called_once_with(
-        "ubuntu-cpp", use_cache=True, use_leaf_cache=True, using_docker=False
+        "ubuntu-cpp",
+        use_cache=True,
+        use_leaf_cache=True,
+        using_docker=False,
+        using_buildx=False
     )
 
 
@@ -134,7 +146,11 @@ def test_docker_run_without_build_cache(run, build):
     result = CliRunner().invoke(archery, args)
     assert result.exit_code == 0
     build.assert_called_once_with(
-        "ubuntu-cpp", use_cache=False, use_leaf_cache=False, using_docker=False
+        "ubuntu-cpp",
+        use_cache=False,
+        use_leaf_cache=False,
+        using_docker=False,
+        using_buildx=False
     )
     run.assert_called_once_with(
         "ubuntu-cpp",

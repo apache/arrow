@@ -20,11 +20,19 @@
 
 #include "arrow/flight/server.h"
 
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <fcntl.h>
+#include <unistd.h>
+#endif
 #include <atomic>
+#include <cerrno>
 #include <cstdint>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <utility>
 
@@ -60,10 +68,10 @@ using ServerContext = grpc::ServerContext;
 template <typename T>
 using ServerWriter = grpc::ServerWriter<T>;
 
-namespace pb = arrow::flight::protocol;
-
 namespace arrow {
 namespace flight {
+
+namespace pb = arrow::flight::protocol;
 
 // Macro that runs interceptors before returning the given status
 #define RETURN_WITH_MIDDLEWARE(CONTEXT, STATUS) \
@@ -764,18 +772,86 @@ FlightMetadataWriter::~FlightMetadataWriter() = default;
 using ::arrow::internal::SetSignalHandler;
 using ::arrow::internal::SignalHandler;
 
+#ifdef WIN32
+#define PIPE_WRITE _write
+#define PIPE_READ _read
+#else
+#define PIPE_WRITE write
+#define PIPE_READ read
+#endif
+
+/// RAII guard that manages a self-pipe and a thread that listens on
+/// the self-pipe, shutting down the gRPC server when a signal handler
+/// writes to the pipe.
+class ServerSignalHandler {
+ public:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(ServerSignalHandler);
+  ServerSignalHandler() = default;
+
+  /// Create the pipe and handler thread.
+  ///
+  /// \return the fd of the write side of the pipe.
+  template <typename Fn>
+  arrow::Result<int> Init(Fn handler) {
+    ARROW_ASSIGN_OR_RAISE(auto pipe, arrow::internal::CreatePipe());
+#ifndef WIN32
+    // Make write end nonblocking
+    int flags = fcntl(pipe.wfd, F_GETFL);
+    if (flags == -1) {
+      RETURN_NOT_OK(arrow::internal::FileClose(pipe.rfd));
+      RETURN_NOT_OK(arrow::internal::FileClose(pipe.wfd));
+      return arrow::internal::IOErrorFromErrno(
+          errno, "Could not initialize self-pipe to wait for signals");
+    }
+    flags |= O_NONBLOCK;
+    if (fcntl(pipe.wfd, F_SETFL, flags) == -1) {
+      RETURN_NOT_OK(arrow::internal::FileClose(pipe.rfd));
+      RETURN_NOT_OK(arrow::internal::FileClose(pipe.wfd));
+      return arrow::internal::IOErrorFromErrno(
+          errno, "Could not initialize self-pipe to wait for signals");
+    }
+#endif
+    self_pipe_ = pipe;
+    handle_signals_ = std::thread(handler, self_pipe_.rfd);
+    return self_pipe_.wfd;
+  }
+
+  Status Shutdown() {
+    if (self_pipe_.rfd == 0) {
+      // Already closed
+      return Status::OK();
+    }
+    if (PIPE_WRITE(self_pipe_.wfd, "0", 1) < 0 && errno != EAGAIN &&
+        errno != EWOULDBLOCK && errno != EINTR) {
+      return arrow::internal::IOErrorFromErrno(errno, "Could not unblock signal thread");
+    }
+    RETURN_NOT_OK(arrow::internal::FileClose(self_pipe_.rfd));
+    RETURN_NOT_OK(arrow::internal::FileClose(self_pipe_.wfd));
+    handle_signals_.join();
+    self_pipe_.rfd = 0;
+    self_pipe_.wfd = 0;
+    return Status::OK();
+  }
+
+  ~ServerSignalHandler() { ARROW_CHECK_OK(Shutdown()); }
+
+ private:
+  arrow::internal::Pipe self_pipe_;
+  std::thread handle_signals_;
+};
+
 struct FlightServerBase::Impl {
   std::unique_ptr<FlightServiceImpl> service_;
   std::unique_ptr<grpc::Server> server_;
   int port_;
-#ifdef _WIN32
-  // Signal handlers are executed in a separate thread on Windows, so getting
-  // the current thread instance wouldn't make sense.  This means only a single
-  // instance can receive signals on Windows.
+
+  // Signal handlers (on Windows) and the shutdown handler (other platforms)
+  // are executed in a separate thread, so getting the current thread instance
+  // wouldn't make sense.  This means only a single instance can receive signals.
   static std::atomic<Impl*> running_instance_;
-#else
-  static thread_local std::atomic<Impl*> running_instance_;
-#endif
+  // We'll use the self-pipe trick to notify a thread from the signal
+  // handler. The thread will then shut down the gRPC server.
+  int self_pipe_wfd_;
 
   // Signal handling
   std::vector<int> signals_;
@@ -791,16 +867,30 @@ struct FlightServerBase::Impl {
 
   void DoHandleSignal(int signum) {
     got_signal_ = signum;
-    server_->Shutdown();
+    int saved_errno = errno;
+    // Ignore errors - pipe is nonblocking
+    PIPE_WRITE(self_pipe_wfd_, "0", 1);
+    errno = saved_errno;
+  }
+
+  static void WaitForSignals(int fd) {
+    // Wait for a signal handler to write to the pipe
+    int8_t buf[1];
+    while (PIPE_READ(fd, /*buf=*/buf, /*count=*/1) == -1) {
+      if (errno == EINTR) {
+        continue;
+      }
+      ARROW_CHECK_OK(arrow::internal::IOErrorFromErrno(
+          errno, "Error while waiting for shutdown signal"));
+    }
+    auto instance = running_instance_.load();
+    if (instance != nullptr) {
+      instance->server_->Shutdown();
+    }
   }
 };
 
-#ifdef _WIN32
 std::atomic<FlightServerBase::Impl*> FlightServerBase::Impl::running_instance_;
-#else
-thread_local std::atomic<FlightServerBase::Impl*>
-    FlightServerBase::Impl::running_instance_;
-#endif
 
 FlightServerOptions::FlightServerOptions(const Location& location_)
     : location(location_),
@@ -892,6 +982,9 @@ Status FlightServerBase::Serve() {
   impl_->old_signal_handlers_.clear();
   impl_->running_instance_ = impl_.get();
 
+  ServerSignalHandler signal_handler;
+  ARROW_ASSIGN_OR_RAISE(impl_->self_pipe_wfd_,
+                        signal_handler.Init(&Impl::WaitForSignals));
   // Override existing signal handlers with our own handler so as to stop the server.
   for (size_t i = 0; i < impl_->signals_.size(); ++i) {
     int signum = impl_->signals_[i];
@@ -908,7 +1001,6 @@ Status FlightServerBase::Serve() {
     RETURN_NOT_OK(
         SetSignalHandler(impl_->signals_[i], impl_->old_signal_handlers_[i]).status());
   }
-
   return Status::OK();
 }
 

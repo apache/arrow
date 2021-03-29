@@ -317,6 +317,7 @@ class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
     return ValueUnsafe();
   }
   const T& operator*() const& { return ValueOrDie(); }
+  const T* operator->() const { return &ValueOrDie(); }
 
   /// Gets a mutable reference to the stored `T` value.
   ///
@@ -331,6 +332,7 @@ class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
     return ValueUnsafe();
   }
   T& operator*() & { return ValueOrDie(); }
+  T* operator->() { return &ValueOrDie(); }
 
   /// Moves and returns the internally-stored `T` value.
   ///
@@ -453,9 +455,9 @@ class ARROW_MUST_USE_TYPE Result : public util::EqualityComparable<Result<T>> {
   }
 };
 
-#define ARROW_ASSIGN_OR_RAISE_IMPL(result_name, lhs, rexpr) \
-  auto&& result_name = (rexpr);                             \
-  ARROW_RETURN_NOT_OK((result_name).status());              \
+#define ARROW_ASSIGN_OR_RAISE_IMPL(result_name, lhs, rexpr)                              \
+  auto&& result_name = (rexpr);                                                          \
+  ARROW_RETURN_IF_(!(result_name).ok(), (result_name).status(), ARROW_STRINGIFY(rexpr)); \
   lhs = std::move(result_name).ValueUnsafe();
 
 #define ARROW_ASSIGN_OR_RAISE_NAME(x, y) ARROW_CONCAT(x, y)

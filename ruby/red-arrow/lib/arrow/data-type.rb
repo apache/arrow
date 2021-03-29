@@ -18,7 +18,7 @@
 module Arrow
   class DataType
     class << self
-      # Creates a new suitable {Arrow::DataType}.
+      # Ensure returning suitable {Arrow::DataType}.
       #
       # @overload resolve(data_type)
       #
@@ -31,17 +31,21 @@ module Arrow
       #
       # @overload resolve(name)
       #
-      #   Creates a suitable data type from type name. For example,
-      #   you can create {Arrow::BooleanDataType} from `:boolean`.
+      #   Creates a suitable data type from the given type name. For
+      #   example, you can create {Arrow::BooleanDataType} from
+      #   `:boolean`.
       #
       #   @param name [String, Symbol] The type name of the data type.
+      #
+      #   @return [Arrow::DataType] A new suitable data type.
       #
       #   @example Create a boolean data type
       #     Arrow::DataType.resolve(:boolean)
       #
       # @overload resolve(name_with_arguments)
       #
-      #   Creates a suitable data type from type name with arguments.
+      #   Creates a new suitable data type from the given type name
+      #   with arguments.
       #
       #   @param name_with_arguments [::Array<String, ...>]
       #     The type name of the data type as the first element.
@@ -51,6 +55,8 @@ module Arrow
       #     For example, {Arrow::TimestampDataType} needs unit as
       #     additional information.
       #
+      #   @return [Arrow::DataType] A new suitable data type.
+      #
       #   @example Create a boolean data type
       #     Arrow::DataType.resolve([:boolean])
       #
@@ -59,7 +65,8 @@ module Arrow
       #
       # @overload resolve(description)
       #
-      #   Creates a suitable data type from data type description.
+      #   Creates a new suitable data type from the given data type
+      #   description.
       #
       #   Data type description is a raw `Hash`. Data type description
       #   must have `:type` value. `:type` is the type of the data type.
@@ -73,6 +80,8 @@ module Arrow
       #
       #   @option description [String, Symbol] :type The type name of
       #     the data type.
+      #
+      #   @return [Arrow::DataType] A new suitable data type.
       #
       #   @example Create a boolean data type
       #     Arrow::DataType.resolve(type: :boolean)

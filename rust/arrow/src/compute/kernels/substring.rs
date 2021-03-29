@@ -22,8 +22,8 @@ use crate::{
     datatypes::DataType,
     error::{ArrowError, Result},
 };
-use std::sync::Arc;
 
+#[allow(clippy::unnecessary_wraps)]
 fn generic_substring<OffsetSize: StringOffsetSizeTrait>(
     array: &GenericStringArray<OffsetSize>,
     start: OffsetSize,
@@ -86,7 +86,7 @@ fn generic_substring<OffsetSize: StringOffsetSizeTrait>(
         ],
         vec![],
     );
-    Ok(make_array(Arc::new(data)))
+    Ok(make_array(data))
 }
 
 /// Returns an ArrayRef with a substring starting from `start` and with optional length `length` of each of the elements in `array`.

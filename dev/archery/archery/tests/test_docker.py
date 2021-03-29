@@ -131,14 +131,28 @@ x-hierarchy:
 services:
   conda-cpp:
     image: org/conda-cpp
+    build:
+      context: .
+      dockerfile: ci/docker/conda-cpp.dockerfile
   conda-python:
     image: org/conda-python
+    build:
+      context: .
+      dockerfile: ci/docker/conda-cpp.dockerfile
+      args:
+        python: 3.6
   conda-python-pandas:
     image: org/conda-python-pandas
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python-pandas.dockerfile
   conda-python-dask:
     image: org/conda-python-dask
   ubuntu-cpp:
     image: org/ubuntu-cpp
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-${UBUNTU}-cpp.dockerfile
   ubuntu-cpp-cmake32:
     image: org/ubuntu-cpp-cmake32
   ubuntu-c-glib:
@@ -341,6 +355,17 @@ def test_compose_build(arrow_compose_path):
                       use_leaf_cache=False)
 
 
+@mock.patch.dict(os.environ, {"BUILDKIT_INLINE_CACHE": "1"})
+def test_compose_buildkit_inline_cache(arrow_compose_path):
+    compose = DockerCompose(arrow_compose_path)
+
+    expected_calls = [
+        "build --build-arg BUILDKIT_INLINE_CACHE=1 conda-cpp",
+    ]
+    with assert_compose_calls(compose, expected_calls):
+        compose.build('conda-cpp')
+
+
 def test_compose_build_params(arrow_compose_path):
     expected_calls = [
         "build ubuntu-cpp",
@@ -465,7 +490,7 @@ def test_image_with_gpu(arrow_compose_path):
             "-e", "OTHER_ENV=2",
             "-v", "/host:/container:rw",
             "org/ubuntu-cuda",
-            "/bin/bash", "-c", "echo 1 > /tmp/dummy && cat /tmp/dummy"
+            '/bin/bash -c "echo 1 > /tmp/dummy && cat /tmp/dummy"'
         ]
     ]
     with assert_docker_calls(compose, expected_calls):

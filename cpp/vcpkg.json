@@ -1,0 +1,40 @@
+{
+  "name": "arrow",
+  "version-string": "4.0.0-SNAPSHOT",
+  "dependencies": [
+    "abseil",
+    {
+      "name": "aws-sdk-cpp",
+      "features": [
+        "config",
+        "cognito-identity",
+        "identity-management",
+        "s3",
+        "sts",
+        "transfer"
+      ]
+    },
+    "benchmark",
+    "boost",
+    "brotli",
+    "bzip2",
+    "c-ares",
+    "curl",
+    "flatbuffers",
+    "gflags",
+    "glog",
+    "grpc",
+    "gtest",
+    "lz4",
+    "openssl",
+    "orc",
+    "protobuf",
+    "rapidjson",
+    "re2",
+    "snappy",
+    "thrift",
+    "utf8proc",
+    "zlib",
+    "zstd"
+  ]
+}

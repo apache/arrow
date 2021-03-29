@@ -29,7 +29,7 @@ The features currently offered are the following:
   such as ``my_data.csv.gz``)
 * fetching column names from the first row in the CSV file
 * column-wise type inference and conversion to one of ``null``, ``int64``,
-  ``float64``, ``date32``, ``timestamp[s]``, ``string`` or ``binary`` data
+  ``float64``, ``date32``, ``timestamp[s]``, ``timestamp[ns]``, ``string`` or ``binary`` data
 * opportunistic dictionary encoding of ``string`` and ``binary`` columns
   (disabled by default)
 * detecting various spellings of null values such as ``NaN`` or ``#N/A``
@@ -75,7 +75,18 @@ Customized conversion
 ---------------------
 
 To alter how CSV data is converted to Arrow types and data, you should create
-a :class:`ConvertOptions` instance and pass it to :func:`read_csv`.
+a :class:`ConvertOptions` instance and pass it to :func:`read_csv`::
+
+   import pyarrow as pa
+   import pyarrow.csv as csv
+
+   table = csv.read_csv('tips.csv.gz', convert_options=pa.csv.ConvertOptions(
+       column_types={
+           'total_bill': pa.decimal128(precision=10, scale=2),
+           'tip': pa.decimal128(precision=10, scale=2),
+       }
+   ))
+
 
 Incremental reading
 -------------------

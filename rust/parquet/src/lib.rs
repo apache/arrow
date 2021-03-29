@@ -18,21 +18,21 @@
 #![allow(incomplete_features)]
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
-#![allow(bare_trait_objects)]
 #![allow(
     clippy::approx_constant,
-    clippy::borrowed_box,
     clippy::cast_ptr_alignment,
-    clippy::comparison_chain,
     clippy::float_cmp,
     clippy::float_equality_without_abs,
+    clippy::from_over_into,
     clippy::many_single_char_names,
     clippy::needless_range_loop,
     clippy::new_without_default,
     clippy::or_fun_call,
     clippy::same_item_push,
     clippy::too_many_arguments,
-    clippy::transmute_ptr_to_ptr
+    clippy::transmute_ptr_to_ptr,
+    clippy::upper_case_acronyms,
+    clippy::vec_init_then_push
 )]
 
 #[macro_use]

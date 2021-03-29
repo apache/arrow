@@ -68,6 +68,19 @@ struct ARROW_EXPORT SplitPatternOptions : public SplitOptions {
   std::string pattern;
 };
 
+struct ARROW_EXPORT ReplaceSubstringOptions : public FunctionOptions {
+  explicit ReplaceSubstringOptions(std::string pattern, std::string replacement,
+                                   int64_t max_replacements = -1)
+      : pattern(pattern), replacement(replacement), max_replacements(max_replacements) {}
+
+  /// Pattern to match, literal, or regular expression depending on which kernel is used
+  std::string pattern;
+  /// String to replace the pattern with
+  std::string replacement;
+  /// Max number of substrings to replace (-1 means unbounded)
+  int64_t max_replacements;
+};
+
 /// Options for IsIn and IndexIn functions
 struct ARROW_EXPORT SetLookupOptions : public FunctionOptions {
   explicit SetLookupOptions(Datum value_set, bool skip_nulls = false)
@@ -115,10 +128,25 @@ struct CompareOptions : public FunctionOptions {
 };
 
 struct ARROW_EXPORT ProjectOptions : public FunctionOptions {
-  explicit ProjectOptions(std::vector<std::string> n) : field_names(std::move(n)) {}
+  ProjectOptions(std::vector<std::string> n, std::vector<bool> r,
+                 std::vector<std::shared_ptr<const KeyValueMetadata>> m)
+      : field_names(std::move(n)),
+        field_nullability(std::move(r)),
+        field_metadata(std::move(m)) {}
+
+  explicit ProjectOptions(std::vector<std::string> n)
+      : field_names(std::move(n)),
+        field_nullability(field_names.size(), true),
+        field_metadata(field_names.size(), NULLPTR) {}
 
   /// Names for wrapped columns
   std::vector<std::string> field_names;
+
+  /// Nullability bits for wrapped columns
+  std::vector<bool> field_nullability;
+
+  /// Metadata attached to wrapped columns
+  std::vector<std::shared_ptr<const KeyValueMetadata>> field_metadata;
 };
 
 /// @}

@@ -38,24 +38,18 @@ use std::any::Any;
 use std::fmt;
 use std::mem;
 
-use crate::array::{Array, ArrayData, ArrayDataRef};
+use crate::array::{Array, ArrayData};
 use crate::datatypes::*;
 
 /// An Array where all elements are nulls
 pub struct NullArray {
-    data: ArrayDataRef,
+    data: ArrayData,
 }
 
 impl NullArray {
     /// Create a new null array of the specified length
     pub fn new(length: usize) -> Self {
         let array_data = ArrayData::builder(DataType::Null).len(length).build();
-        NullArray::from(array_data)
-    }
-
-    /// Create a new null array of the specified length and type
-    pub fn new_with_type(length: usize, data_type: DataType) -> Self {
-        let array_data = ArrayData::builder(data_type).len(length).build();
         NullArray::from(array_data)
     }
 }
@@ -65,11 +59,7 @@ impl Array for NullArray {
         self
     }
 
-    fn data(&self) -> ArrayDataRef {
-        self.data.clone()
-    }
-
-    fn data_ref(&self) -> &ArrayDataRef {
+    fn data(&self) -> &ArrayData {
         &self.data
     }
 
@@ -98,12 +88,17 @@ impl Array for NullArray {
 
     /// Returns the total number of bytes of memory occupied physically by this [NullArray].
     fn get_array_memory_size(&self) -> usize {
-        self.data.get_array_memory_size() + mem::size_of_val(self)
+        mem::size_of_val(self)
     }
 }
 
-impl From<ArrayDataRef> for NullArray {
-    fn from(data: ArrayDataRef) -> Self {
+impl From<ArrayData> for NullArray {
+    fn from(data: ArrayData) -> Self {
+        assert_eq!(
+            data.data_type(),
+            &DataType::Null,
+            "NullArray data type should be Null"
+        );
         assert_eq!(
             data.buffers().len(),
             0,
@@ -136,9 +131,8 @@ mod tests {
         assert_eq!(null_arr.is_valid(0), false);
 
         assert_eq!(0, null_arr.get_buffer_memory_size());
-        let internals_of_null_array = 64; // Arc<ArrayData>
         assert_eq!(
-            null_arr.get_buffer_memory_size() + internals_of_null_array,
+            null_arr.get_buffer_memory_size() + std::mem::size_of::<NullArray>(),
             null_arr.get_array_memory_size()
         );
     }
@@ -151,15 +145,6 @@ mod tests {
         assert_eq!(array2.len(), 16);
         assert_eq!(array2.null_count(), 16);
         assert_eq!(array2.offset(), 8);
-    }
-
-    #[test]
-    fn test_null_array_new_with_type() {
-        let length = 10;
-        let data_type = DataType::Int8;
-        let array = NullArray::new_with_type(length, data_type.clone());
-        assert_eq!(array.len(), length);
-        assert_eq!(array.data_type(), &data_type);
     }
 
     #[test]

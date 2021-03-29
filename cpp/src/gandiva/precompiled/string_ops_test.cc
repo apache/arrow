@@ -115,6 +115,33 @@ TEST(TestStringOps, TestCharLength) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestCastBoolToVarchar) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+
+  const char* out_str = castVARCHAR_bool_int64(ctx_ptr, true, 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "tr");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_bool_int64(ctx_ptr, true, 7, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "true");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_bool_int64(ctx_ptr, false, 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "fals");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_bool_int64(ctx_ptr, false, 5, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "false");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_bool_int64(ctx_ptr, true, -3, &out_len);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Output buffer length can't be negative"));
+  ctx.Reset();
+}
+
 TEST(TestStringOps, TestCastVarhcar) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);

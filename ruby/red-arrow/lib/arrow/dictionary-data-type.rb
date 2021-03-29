@@ -50,7 +50,7 @@ module Arrow
     #   @param ordered [Boolean] Whether dictionary contents are
     #     ordered or not.
     #
-    #   @example Create a dictionary data type for {0: "Hello", 1: "World"}
+    #   @example Create a dictionary data type for `{0: "Hello", 1: "World"}`
     #     index_data_type = :int8
     #     value_data_type = :string
     #     ordered = true
@@ -91,7 +91,7 @@ module Arrow
     #   @option description [Boolean] :ordered Whether dictionary
     #     contents are ordered or not.
     #
-    #   @example Create a dictionary data type for {0: "Hello", 1: "World"}
+    #   @example Create a dictionary data type for `{0: "Hello", 1: "World"}`
     #     Arrow::DictionaryDataType.new(index_data_type: :int8,
     #                                   value_data_type: :string,
     #                                   ordered: true)

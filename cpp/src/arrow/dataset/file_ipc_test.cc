@@ -25,6 +25,7 @@
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/partition.h"
+#include "arrow/dataset/scanner_internal.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
@@ -84,9 +85,8 @@ class TestIpcFileFormat : public ArrowIpcWriterMixin {
   }
 
   std::unique_ptr<RecordBatchReader> GetRecordBatchReader(
-      std::shared_ptr<Schema> schema = nullptr) {
-    return MakeGeneratedRecordBatch(schema ? schema : schema_, kBatchSize,
-                                    kBatchRepetitions);
+      std::shared_ptr<Schema> schema) {
+    return MakeGeneratedRecordBatch(schema, kBatchSize, kBatchRepetitions);
   }
 
   Result<std::shared_ptr<io::BufferOutputStream>> GetFileSink() {
@@ -102,22 +102,26 @@ class TestIpcFileFormat : public ArrowIpcWriterMixin {
   }
 
   RecordBatchIterator Batches(Fragment* fragment) {
-    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_, ctx_));
+    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
     return Batches(std::move(scan_task_it));
+  }
+
+  void SetSchema(std::vector<std::shared_ptr<Field>> fields) {
+    opts_ = std::make_shared<ScanOptions>();
+    opts_->dataset_schema = schema(std::move(fields));
+    ASSERT_OK(SetProjection(opts_.get(), opts_->dataset_schema->field_names()));
   }
 
  protected:
   std::shared_ptr<IpcFileFormat> format_ = std::make_shared<IpcFileFormat>();
   std::shared_ptr<ScanOptions> opts_;
-  std::shared_ptr<ScanContext> ctx_ = std::make_shared<ScanContext>();
-  std::shared_ptr<Schema> schema_ = schema({field("f64", float64())});
 };
 
 TEST_F(TestIpcFileFormat, ScanRecordBatchReader) {
-  auto reader = GetRecordBatchReader();
+  auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
   auto source = GetFileSource(reader.get());
 
-  opts_ = ScanOptions::Make(reader->schema());
+  SetSchema(reader->schema()->fields());
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
   int64_t row_count = 0;
@@ -131,17 +135,21 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReader) {
 }
 
 TEST_F(TestIpcFileFormat, ScanRecordBatchReaderWithVirtualColumn) {
-  auto reader = GetRecordBatchReader();
+  auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
   auto source = GetFileSource(reader.get());
 
-  opts_ = ScanOptions::Make(schema({schema_->field(0), field("virtual", int32())}));
+  // NB: dataset_schema includes a column not present in the file
+  SetSchema({reader->schema()->field(0), field("virtual", int32())});
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+
+  ASSERT_OK_AND_ASSIGN(auto physical_schema, fragment->ReadPhysicalSchema());
+  AssertSchemaEqual(Schema({field("f64", float64())}), *physical_schema);
 
   int64_t row_count = 0;
 
   for (auto maybe_batch : Batches(fragment.get())) {
     ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-    AssertSchemaEqual(*batch->schema(), *schema_);
+    AssertSchemaEqual(*batch->schema(), *physical_schema);
     row_count += batch->num_rows();
   }
 
@@ -149,17 +157,17 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderWithVirtualColumn) {
 }
 
 TEST_F(TestIpcFileFormat, WriteRecordBatchReader) {
-  std::shared_ptr<RecordBatchReader> reader = GetRecordBatchReader();
+  auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
   auto source = GetFileSource(reader.get());
-  reader = GetRecordBatchReader();
 
-  opts_ = ScanOptions::Make(reader->schema());
+  SetSchema(reader->schema()->fields());
 
   EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
 
   auto options = format_->DefaultWriteOptions();
   EXPECT_OK_AND_ASSIGN(auto writer, format_->MakeWriter(sink, reader->schema(), options));
-  ASSERT_OK(writer->Write(reader.get()));
+
+  ASSERT_OK(writer->Write(GetRecordBatchReader(schema({field("f64", float64())})).get()));
   ASSERT_OK(writer->Finish());
 
   EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
@@ -168,11 +176,10 @@ TEST_F(TestIpcFileFormat, WriteRecordBatchReader) {
 }
 
 TEST_F(TestIpcFileFormat, WriteRecordBatchReaderCustomOptions) {
-  std::shared_ptr<RecordBatchReader> reader = GetRecordBatchReader();
+  auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
   auto source = GetFileSource(reader.get());
-  reader = GetRecordBatchReader();
 
-  opts_ = ScanOptions::Make(reader->schema());
+  SetSchema(reader->schema()->fields());
 
   EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
 
@@ -185,7 +192,7 @@ TEST_F(TestIpcFileFormat, WriteRecordBatchReaderCustomOptions) {
   ipc_options->metadata = key_value_metadata({{"hello", "world"}});
   EXPECT_OK_AND_ASSIGN(auto writer,
                        format_->MakeWriter(sink, reader->schema(), ipc_options));
-  ASSERT_OK(writer->Write(reader.get()));
+  ASSERT_OK(writer->Write(GetRecordBatchReader(schema({field("f64", float64())})).get()));
   ASSERT_OK(writer->Finish());
 
   EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
@@ -230,7 +237,7 @@ TEST_F(TestIpcFileSystemDataset, WriteExceedsMaxPartitions) {
   // require that no batch be grouped into more than 2 written batches:
   write_options_.max_partitions = 2;
 
-  auto scanner = std::make_shared<Scanner>(dataset_, scan_options_, scan_context_);
+  auto scanner = std::make_shared<Scanner>(dataset_, scan_options_);
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("This exceeds the maximum"),
                                   FileSystemDataset::Write(write_options_, scanner));
 }
@@ -249,19 +256,22 @@ TEST_F(TestIpcFileFormat, OpenFailureWithRelevantError) {
                                   result.status());
 }
 
-TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjected) {
-  schema_ = schema({field("f64", float64()), field("i64", int64()),
-                    field("f32", float32()), field("i32", int32())});
+static auto f32 = field("f32", float32());
+static auto f64 = field("f64", float64());
+static auto i32 = field("i32", int32());
+static auto i64 = field("i64", int64());
 
-  opts_ = ScanOptions::Make(schema_);
-  opts_->projector = RecordBatchProjector(SchemaFromColumnNames(schema_, {"f64"}));
+TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjected) {
+  SetSchema({f64, i64, f32, i32});
+  ASSERT_OK(SetProjection(opts_.get(), {"f64"}));
   opts_->filter = equal(field_ref("i32"), literal(0));
 
-  // NB: projector is applied by the scanner; FileFragment does not evaluate it so
-  // we will not drop "i32" even though it is not in the projector's schema
-  auto expected_schema = schema({field("f64", float64()), field("i32", int32())});
+  // NB: projection is applied by the scanner; FileFragment does not evaluate it so
+  // we will not drop "i32" even though it is not projected since we need it for
+  // filtering
+  auto expected_schema = schema({f64, i32});
 
-  auto reader = GetRecordBatchReader();
+  auto reader = GetRecordBatchReader(opts_->dataset_schema);
   auto source = GetFileSource(reader.get());
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
@@ -278,38 +288,32 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjected) {
 }
 
 TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
-  auto reader_without_i32 = GetRecordBatchReader(
-      schema({field("f64", float64()), field("i64", int64()), field("f32", float32())}));
-
-  auto reader_without_f64 = GetRecordBatchReader(
-      schema({field("i64", int64()), field("f32", float32()), field("i32", int32())}));
-
-  auto reader =
-      GetRecordBatchReader(schema({field("f64", float64()), field("i64", int64()),
-                                   field("f32", float32()), field("i32", int32())}));
-
-  schema_ = reader->schema();
-  opts_ = ScanOptions::Make(schema_);
-  opts_->projector = RecordBatchProjector(SchemaFromColumnNames(schema_, {"f64"}));
+  SetSchema({f64, i64, f32, i32});
+  ASSERT_OK(SetProjection(opts_.get(), {"f64"}));
   opts_->filter = equal(field_ref("i32"), literal(0));
+
+  auto reader_without_i32 = GetRecordBatchReader(schema({f64, i64, f32}));
+  auto reader_without_f64 = GetRecordBatchReader(schema({i64, f32, i32}));
+  auto reader = GetRecordBatchReader(schema({f64, i64, f32, i32}));
 
   auto readers = {reader.get(), reader_without_i32.get(), reader_without_f64.get()};
   for (auto reader : readers) {
     auto source = GetFileSource(reader);
     ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
-    // NB: projector is applied by the scanner; Fragment does not evaluate it.
-    // We will not drop "i32" even though it is not in the projector's schema.
+    // NB: projection is applied by the scanner; FileFragment does not evaluate it so
+    // we will not drop "i32" even though it is not projected since we need it for
+    // filtering
     //
     // in the case where a file doesn't contain a referenced field, we won't
-    // materialize it (the filter/projector will populate it with nulls later)
+    // materialize it as nulls later
     std::shared_ptr<Schema> expected_schema;
     if (reader == reader_without_i32.get()) {
-      expected_schema = schema({field("f64", float64())});
+      expected_schema = schema({f64});
     } else if (reader == reader_without_f64.get()) {
-      expected_schema = schema({field("i32", int32())});
+      expected_schema = schema({i32});
     } else {
-      expected_schema = schema({field("f64", float64()), field("i32", int32())});
+      expected_schema = schema({f64, i32});
     }
 
     int64_t row_count = 0;
@@ -326,15 +330,15 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
 }
 
 TEST_F(TestIpcFileFormat, Inspect) {
-  auto reader = GetRecordBatchReader();
+  auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
   auto source = GetFileSource(reader.get());
 
   ASSERT_OK_AND_ASSIGN(auto actual, format_->Inspect(*source.get()));
-  EXPECT_EQ(*actual, *schema_);
+  EXPECT_EQ(*actual, *reader->schema());
 }
 
 TEST_F(TestIpcFileFormat, IsSupported) {
-  auto reader = GetRecordBatchReader();
+  auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
   auto source = GetFileSource(reader.get());
 
   bool supported = false;

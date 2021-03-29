@@ -147,6 +147,11 @@ test_that("[ on RecordBatch", {
   expect_data_frame(batch[batch$lgl,], tbl[tbl$lgl,])
   # int Array
   expect_data_frame(batch[Array$create(5:6), 2:4], tbl[6:7, 2:4])
+
+  # input validation
+  expect_error(batch[, c("dbl", "NOTACOLUMN")], 'Column not found: "NOTACOLUMN"')
+  expect_error(batch[, c(6, NA)], 'Column indices cannot be NA')
+  expect_error(batch[, c(2, -2)], 'Invalid column index')
 })
 
 test_that("[[ and $ on RecordBatch", {
@@ -409,6 +414,14 @@ test_that("record_batch() only auto splice data frames", {
 test_that("record_batch() handles null type (ARROW-7064)", {
   batch <- record_batch(a = 1:10, n = vctrs::unspecified(10))
   expect_equivalent(batch$schema,  schema(a = int32(), n = null()))
+})
+
+test_that("record_batch() scalar recycling", {
+  skip("Not implemented (ARROW-11705)")
+  expect_data_frame(
+    record_batch(a = 1:10, b = 5),
+    tibble::tibble(a = 1:10, b = 5)
+  )
 })
 
 test_that("RecordBatch$Equals", {

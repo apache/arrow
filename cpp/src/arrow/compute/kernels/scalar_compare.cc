@@ -72,10 +72,35 @@ void AddGenericCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func
                       applicator::ScalarBinaryEqualTypes<BooleanType, InType, Op>::Exec));
 }
 
+struct CompareFunction : ScalarFunction {
+  using ScalarFunction::ScalarFunction;
+
+  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
+    RETURN_NOT_OK(CheckArity(*values));
+
+    using arrow::compute::detail::DispatchExactImpl;
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+
+    EnsureDictionaryDecoded(values);
+    ReplaceNullWithOtherType(values);
+
+    if (auto type = CommonNumeric(*values)) {
+      ReplaceTypes(type, values);
+    } else if (auto type = CommonTimestamp(*values)) {
+      ReplaceTypes(type, values);
+    } else if (auto type = CommonBinary(*values)) {
+      ReplaceTypes(type, values);
+    }
+
+    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    return arrow::compute::detail::NoMatchingKernel(this, *values);
+  }
+};
+
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
                                                     const FunctionDoc* doc) {
-  auto func = std::make_shared<ScalarFunction>(name, Arity::Binary(), doc);
+  auto func = std::make_shared<CompareFunction>(name, Arity::Binary(), doc);
 
   DCHECK_OK(func->AddKernel(
       {boolean(), boolean()}, boolean(),
@@ -136,7 +161,7 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
 std::shared_ptr<ScalarFunction> MakeFlippedFunction(std::string name,
                                                     const ScalarFunction& func,
                                                     const FunctionDoc* doc) {
-  auto flipped_func = std::make_shared<ScalarFunction>(name, Arity::Binary(), doc);
+  auto flipped_func = std::make_shared<CompareFunction>(name, Arity::Binary(), doc);
   for (const ScalarKernel* kernel : func.kernels()) {
     ScalarKernel flipped_kernel = *kernel;
     flipped_kernel.exec = MakeFlippedBinaryExec(kernel->exec);

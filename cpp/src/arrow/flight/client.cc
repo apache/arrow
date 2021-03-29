@@ -58,11 +58,11 @@
 #include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/types.h"
 
-namespace pb = arrow::flight::protocol;
-
 namespace arrow {
 
 namespace flight {
+
+namespace pb = arrow::flight::protocol;
 
 const char* kWriteSizeDetailTypeId = "flight::FlightWriteSizeStatusDetail";
 
@@ -89,9 +89,6 @@ std::shared_ptr<FlightWriteSizeStatusDetail> FlightWriteSizeStatusDetail::Unwrap
   }
   return std::dynamic_pointer_cast<FlightWriteSizeStatusDetail>(status.detail());
 }
-
-FlightClientOptions::FlightClientOptions()
-    : write_size_limit_bytes(0), disable_server_verification(false) {}
 
 FlightClientOptions FlightClientOptions::Defaults() { return FlightClientOptions(); }
 
@@ -860,7 +857,7 @@ namespace {
 // requires root CA certs, even if you are skipping server
 // verification.
 #if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
-constexpr char BLANK_ROOT_PEM[] =
+constexpr char kDummyRootCert[] =
     "-----BEGIN CERTIFICATE-----\n"
     "MIICwzCCAaugAwIBAgIJAM12DOkcaqrhMA0GCSqGSIb3DQEBBQUAMBQxEjAQBgNV\n"
     "BAMTCWxvY2FsaG9zdDAeFw0yMDEwMDcwODIyNDFaFw0zMDEwMDUwODIyNDFaMBQx\n"
@@ -893,11 +890,7 @@ class FlightClient::FlightClientImpl {
 
       if (scheme == kSchemeGrpcTls) {
         if (options.disable_server_verification) {
-#if !defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
-          return Status::NotImplemented(
-              "Using encryption with server verification disabled is unsupported. "
-              "Please use a release of Arrow Flight built with gRPC 1.27 or higher.");
-#else
+#if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
           namespace ge = GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS;
 
           // A callback to supply to TlsCredentialsOptions that accepts any server
@@ -910,16 +903,40 @@ class FlightClient::FlightClientImpl {
               return 0;
             }
           };
-
+          auto server_authorization_check = std::make_shared<NoOpTlsAuthorizationCheck>();
           noop_auth_check_ = std::make_shared<ge::TlsServerAuthorizationCheckConfig>(
-              std::make_shared<NoOpTlsAuthorizationCheck>());
+              server_authorization_check);
+#if defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS)
+          auto certificate_provider =
+              std::make_shared<grpc::experimental::StaticDataCertificateProvider>(
+                  kDummyRootCert);
+#if defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
+          grpc::experimental::TlsChannelCredentialsOptions tls_options(
+              certificate_provider);
+#else
+          // While gRPC >= 1.36 does not require a root cert (it has a default)
+          // in practice the path it hardcodes is broken. See grpc/grpc#21655.
+          grpc::experimental::TlsChannelCredentialsOptions tls_options;
+          tls_options.set_certificate_provider(certificate_provider);
+#endif
+          tls_options.watch_root_certs();
+          tls_options.set_root_cert_name("dummy");
+          tls_options.set_server_verification_option(
+              grpc_tls_server_verification_option::GRPC_TLS_SKIP_ALL_SERVER_VERIFICATION);
+          tls_options.set_server_authorization_check_config(noop_auth_check_);
+#elif defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
           auto materials_config = std::make_shared<ge::TlsKeyMaterialsConfig>();
-          materials_config->set_pem_root_certs(BLANK_ROOT_PEM);
+          materials_config->set_pem_root_certs(kDummyRootCert);
           ge::TlsCredentialsOptions tls_options(
               GRPC_SSL_DONT_REQUEST_CLIENT_CERTIFICATE,
               GRPC_TLS_SKIP_ALL_SERVER_VERIFICATION, materials_config,
               std::shared_ptr<ge::TlsCredentialReloadConfig>(), noop_auth_check_);
+#endif
           creds = ge::TlsCredentials(tls_options);
+#else
+          return Status::NotImplemented(
+              "Using encryption with server verification disabled is unsupported. "
+              "Please use a release of Arrow Flight built with gRPC 1.27 or higher.");
 #endif
         } else {
           grpc::SslCredentialsOptions ssl_options;
@@ -1220,7 +1237,7 @@ FlightClient::~FlightClient() {}
 
 Status FlightClient::Connect(const Location& location,
                              std::unique_ptr<FlightClient>* client) {
-  return Connect(location, {}, client);
+  return Connect(location, FlightClientOptions::Defaults(), client);
 }
 
 Status FlightClient::Connect(const Location& location, const FlightClientOptions& options,

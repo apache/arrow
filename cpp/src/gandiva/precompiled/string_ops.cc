@@ -506,6 +506,22 @@ const char* btrim_utf8_utf8(gdv_int64 context, const char* basetext,
   return basetext + start_ptr;
 }
 
+FORCE_INLINE
+const char* castVARCHAR_bool_int64(gdv_int64 context, gdv_boolean value,
+                                   gdv_int64 out_len, gdv_int32* out_length) {
+  gdv_int32 len = static_cast<gdv_int32>(out_len);
+  if (len < 0) {
+    gdv_fn_context_set_error_msg(context, "Output buffer length can't be negative");
+    *out_length = 0;
+    return "";
+  }
+  const char* out =
+      reinterpret_cast<const char*>(gdv_fn_context_arena_malloc(context, 5));
+  out = value ? "true" : "false";
+  *out_length = value ? ((len > 4) ? 4 : len) : ((len > 5) ? 5 : len);
+  return out;
+}
+
 // Truncates the string to given length
 FORCE_INLINE
 const char* castVARCHAR_utf8_int64(gdv_int64 context, const char* data,

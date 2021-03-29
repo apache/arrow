@@ -16,6 +16,7 @@
 // under the License.
 
 //! Crypto expressions
+use std::sync::Arc;
 
 use md5::Md5;
 use sha2::{
@@ -23,11 +24,18 @@ use sha2::{
     Sha512,
 };
 
-use crate::error::{DataFusionError, Result};
-use arrow::array::{
-    ArrayRef, GenericBinaryArray, GenericStringArray, StringOffsetSizeTrait,
+use crate::{
+    error::{DataFusionError, Result},
+    scalar::ScalarValue,
+};
+use arrow::{
+    array::{Array, BinaryArray, GenericStringArray, StringOffsetSizeTrait},
+    datatypes::DataType,
 };
 
+use super::{string_expressions::unary_string_function, ColumnarValue};
+
+/// Computes the md5 of a string.
 fn md5_process(input: &str) -> String {
     let mut digest = Md5::default();
     digest.update(&input);
@@ -49,58 +57,142 @@ fn sha_process<D: SHA2Digest + Default>(input: &str) -> SHA2DigestOutput<D> {
     digest.finalize()
 }
 
-macro_rules! crypto_unary_string_function {
-    ($NAME:ident, $FUNC:expr) => {
-        /// crypto function that accepts Utf8 or LargeUtf8 and returns Utf8 string
-        pub fn $NAME<T: StringOffsetSizeTrait>(
-            args: &[ArrayRef],
-        ) -> Result<GenericStringArray<i32>> {
-            if args.len() != 1 {
-                return Err(DataFusionError::Internal(format!(
-                    "{:?} args were supplied but {} takes exactly one argument",
-                    args.len(),
-                    String::from(stringify!($NAME)),
-                )));
-            }
+/// # Errors
+/// This function errors when:
+/// * the number of arguments is not 1
+/// * the first argument is not castable to a `GenericStringArray`
+fn unary_binary_function<T, R, F>(
+    args: &[&dyn Array],
+    op: F,
+    name: &str,
+) -> Result<BinaryArray>
+where
+    R: AsRef<[u8]>,
+    T: StringOffsetSizeTrait,
+    F: Fn(&str) -> R,
+{
+    if args.len() != 1 {
+        return Err(DataFusionError::Internal(format!(
+            "{:?} args were supplied but {} takes exactly one argument",
+            args.len(),
+            name,
+        )));
+    }
 
-            let array = args[0]
-                .as_any()
-                .downcast_ref::<GenericStringArray<T>>()
-                .unwrap();
+    let array = args[0]
+        .as_any()
+        .downcast_ref::<GenericStringArray<T>>()
+        .ok_or_else(|| {
+            DataFusionError::Internal("failed to downcast to string".to_string())
+        })?;
 
-            // first map is the iterator, second is for the `Option<_>`
-            Ok(array.iter().map(|x| x.map(|x| $FUNC(x))).collect())
-        }
-    };
+    // first map is the iterator, second is for the `Option<_>`
+    Ok(array.iter().map(|x| x.map(|x| op(x))).collect())
 }
 
-macro_rules! crypto_unary_binary_function {
-    ($NAME:ident, $FUNC:expr) => {
-        /// crypto function that accepts Utf8 or LargeUtf8 and returns Binary
-        pub fn $NAME<T: StringOffsetSizeTrait>(
-            args: &[ArrayRef],
-        ) -> Result<GenericBinaryArray<i32>> {
-            if args.len() != 1 {
-                return Err(DataFusionError::Internal(format!(
-                    "{:?} args were supplied but {} takes exactly one argument",
-                    args.len(),
-                    String::from(stringify!($NAME)),
-                )));
+fn handle<F, R>(args: &[ColumnarValue], op: F, name: &str) -> Result<ColumnarValue>
+where
+    R: AsRef<[u8]>,
+    F: Fn(&str) -> R,
+{
+    match &args[0] {
+        ColumnarValue::Array(a) => match a.data_type() {
+            DataType::Utf8 => {
+                Ok(ColumnarValue::Array(Arc::new(unary_binary_function::<
+                    i32,
+                    _,
+                    _,
+                >(
+                    &[a.as_ref()], op, name
+                )?)))
             }
-
-            let array = args[0]
-                .as_any()
-                .downcast_ref::<GenericStringArray<T>>()
-                .unwrap();
-
-            // first map is the iterator, second is for the `Option<_>`
-            Ok(array.iter().map(|x| x.map(|x| $FUNC(x))).collect())
-        }
-    };
+            DataType::LargeUtf8 => {
+                Ok(ColumnarValue::Array(Arc::new(unary_binary_function::<
+                    i64,
+                    _,
+                    _,
+                >(
+                    &[a.as_ref()], op, name
+                )?)))
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function {}",
+                other, name,
+            ))),
+        },
+        ColumnarValue::Scalar(scalar) => match scalar {
+            ScalarValue::Utf8(a) => {
+                let result = a.as_ref().map(|x| (op)(x).as_ref().to_vec());
+                Ok(ColumnarValue::Scalar(ScalarValue::Binary(result)))
+            }
+            ScalarValue::LargeUtf8(a) => {
+                let result = a.as_ref().map(|x| (op)(x).as_ref().to_vec());
+                Ok(ColumnarValue::Scalar(ScalarValue::Binary(result)))
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function {}",
+                other, name,
+            ))),
+        },
+    }
 }
 
-crypto_unary_string_function!(md5, md5_process);
-crypto_unary_binary_function!(sha224, sha_process::<Sha224>);
-crypto_unary_binary_function!(sha256, sha_process::<Sha256>);
-crypto_unary_binary_function!(sha384, sha_process::<Sha384>);
-crypto_unary_binary_function!(sha512, sha_process::<Sha512>);
+fn md5_array<T: StringOffsetSizeTrait>(
+    args: &[&dyn Array],
+) -> Result<GenericStringArray<i32>> {
+    unary_string_function::<T, i32, _, _>(args, md5_process, "md5")
+}
+
+/// crypto function that accepts Utf8 or LargeUtf8 and returns a [`ColumnarValue`]
+pub fn md5(args: &[ColumnarValue]) -> Result<ColumnarValue> {
+    match &args[0] {
+        ColumnarValue::Array(a) => match a.data_type() {
+            DataType::Utf8 => Ok(ColumnarValue::Array(Arc::new(md5_array::<i32>(&[
+                a.as_ref()
+            ])?))),
+            DataType::LargeUtf8 => {
+                Ok(ColumnarValue::Array(Arc::new(md5_array::<i64>(&[
+                    a.as_ref()
+                ])?)))
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function md5",
+                other,
+            ))),
+        },
+        ColumnarValue::Scalar(scalar) => match scalar {
+            ScalarValue::Utf8(a) => {
+                let result = a.as_ref().map(|x| md5_process(x));
+                Ok(ColumnarValue::Scalar(ScalarValue::Utf8(result)))
+            }
+            ScalarValue::LargeUtf8(a) => {
+                let result = a.as_ref().map(|x| md5_process(x));
+                Ok(ColumnarValue::Scalar(ScalarValue::LargeUtf8(result)))
+            }
+            other => Err(DataFusionError::Internal(format!(
+                "Unsupported data type {:?} for function md5",
+                other,
+            ))),
+        },
+    }
+}
+
+/// crypto function that accepts Utf8 or LargeUtf8 and returns a [`ColumnarValue`]
+pub fn sha224(args: &[ColumnarValue]) -> Result<ColumnarValue> {
+    handle(args, sha_process::<Sha224>, "ssh224")
+}
+
+/// crypto function that accepts Utf8 or LargeUtf8 and returns a [`ColumnarValue`]
+pub fn sha256(args: &[ColumnarValue]) -> Result<ColumnarValue> {
+    handle(args, sha_process::<Sha256>, "sha256")
+}
+
+/// crypto function that accepts Utf8 or LargeUtf8 and returns a [`ColumnarValue`]
+pub fn sha384(args: &[ColumnarValue]) -> Result<ColumnarValue> {
+    handle(args, sha_process::<Sha384>, "sha384")
+}
+
+/// crypto function that accepts Utf8 or LargeUtf8 and returns a [`ColumnarValue`]
+pub fn sha512(args: &[ColumnarValue]) -> Result<ColumnarValue> {
+    handle(args, sha_process::<Sha512>, "sha512")
+}

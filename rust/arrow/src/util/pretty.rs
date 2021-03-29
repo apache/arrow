@@ -18,7 +18,7 @@
 //! Utilities for printing record batches. Note this module is not
 //! available unless `feature = "prettyprint"` is enabled.
 
-use crate::record_batch::RecordBatch;
+use crate::{array::ArrayRef, record_batch::RecordBatch};
 
 use prettytable::format;
 use prettytable::{Cell, Row, Table};
@@ -32,9 +32,20 @@ pub fn pretty_format_batches(results: &[RecordBatch]) -> Result<String> {
     Ok(create_table(results)?.to_string())
 }
 
+///! Create a visual representation of columns
+pub fn pretty_format_columns(col_name: &str, results: &[ArrayRef]) -> Result<String> {
+    Ok(create_column(col_name, results)?.to_string())
+}
+
 ///! Prints a visual representation of record batches to stdout
 pub fn print_batches(results: &[RecordBatch]) -> Result<()> {
     create_table(results)?.printstd();
+    Ok(())
+}
+
+///! Prints a visual representation of a list of column to stdout
+pub fn print_columns(col_name: &str, results: &[ArrayRef]) -> Result<()> {
+    create_column(col_name, results)?.printstd();
     Ok(())
 }
 
@@ -69,14 +80,36 @@ fn create_table(results: &[RecordBatch]) -> Result<Table> {
     Ok(table)
 }
 
+fn create_column(field: &str, columns: &[ArrayRef]) -> Result<Table> {
+    let mut table = Table::new();
+    table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+
+    if columns.is_empty() {
+        return Ok(table);
+    }
+
+    let header = vec![Cell::new(field)];
+    table.set_titles(Row::new(header));
+
+    for col in columns {
+        for row in 0..col.len() {
+            let cells = vec![Cell::new(&array_value_to_string(&col, row)?)];
+            table.add_row(Row::new(cells));
+        }
+    }
+
+    Ok(table)
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
         array::{
-            self, Array, Date32Array, Date64Array, PrimitiveBuilder, StringBuilder,
-            StringDictionaryBuilder, Time32MillisecondArray, Time32SecondArray,
-            Time64MicrosecondArray, Time64NanosecondArray, TimestampMicrosecondArray,
-            TimestampMillisecondArray, TimestampNanosecondArray, TimestampSecondArray,
+            self, new_null_array, Array, Date32Array, Date64Array, PrimitiveBuilder,
+            StringBuilder, StringDictionaryBuilder, Time32MillisecondArray,
+            Time32SecondArray, Time64MicrosecondArray, Time64NanosecondArray,
+            TimestampMicrosecondArray, TimestampMillisecondArray,
+            TimestampNanosecondArray, TimestampSecondArray,
         },
         datatypes::{DataType, Field, Int32Type, Schema},
     };
@@ -129,6 +162,68 @@ mod tests {
         assert_eq!(expected, actual, "Actual result:\n{}", table);
 
         Ok(())
+    }
+
+    #[test]
+    fn test_pretty_format_columns() -> Result<()> {
+        let columns = vec![
+            Arc::new(array::StringArray::from(vec![
+                Some("a"),
+                Some("b"),
+                None,
+                Some("d"),
+            ])) as ArrayRef,
+            Arc::new(array::StringArray::from(vec![Some("e"), None, Some("g")])),
+        ];
+
+        let table = pretty_format_columns("a", &columns)?;
+
+        let expected = vec![
+            "+---+", "| a |", "+---+", "| a |", "| b |", "|   |", "| d |", "| e |",
+            "|   |", "| g |", "+---+",
+        ];
+
+        let actual: Vec<&str> = table.lines().collect();
+
+        assert_eq!(expected, actual, "Actual result:\n{}", table);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_pretty_format_null() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Utf8, true),
+            Field::new("b", DataType::Int32, true),
+            Field::new("c", DataType::Null, true),
+        ]));
+
+        let num_rows = 4;
+        let arrays = schema
+            .fields()
+            .iter()
+            .map(|f| new_null_array(f.data_type(), num_rows))
+            .collect();
+
+        // define data (null)
+        let batch = RecordBatch::try_new(schema, arrays).unwrap();
+
+        let table = pretty_format_batches(&[batch]).unwrap();
+
+        let expected = vec![
+            "+---+---+---+",
+            "| a | b | c |",
+            "+---+---+---+",
+            "|   |   |   |",
+            "|   |   |   |",
+            "|   |   |   |",
+            "|   |   |   |",
+            "+---+---+---+",
+        ];
+
+        let actual: Vec<&str> = table.lines().collect();
+
+        assert_eq!(expected, actual, "Actual result:\n{:#?}", table);
     }
 
     #[test]

@@ -184,7 +184,14 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   Status OpenReadable(const std::string& path, int32_t buffer_size,
                       std::shared_ptr<HdfsReadableFile>* file);
 
+  Status OpenReadable(const std::string& path, int32_t buffer_size,
+                      const io::IOContext& io_context,
+                      std::shared_ptr<HdfsReadableFile>* file);
+
   Status OpenReadable(const std::string& path, std::shared_ptr<HdfsReadableFile>* file);
+
+  Status OpenReadable(const std::string& path, const io::IOContext& io_context,
+                      std::shared_ptr<HdfsReadableFile>* file);
 
   // FileMode::WRITE options
   // @param path complete file path
@@ -228,10 +235,8 @@ class ARROW_EXPORT HdfsReadableFile : public RandomAccessFile {
   Result<int64_t> Tell() const override;
   Result<int64_t> GetSize() override;
 
-  void set_memory_pool(MemoryPool* pool);
-
  private:
-  explicit HdfsReadableFile(MemoryPool* pool = NULLPTR);
+  explicit HdfsReadableFile(const io::IOContext&);
 
   class ARROW_NO_EXPORT HdfsReadableFileImpl;
   std::unique_ptr<HdfsReadableFileImpl> impl_;
@@ -253,7 +258,6 @@ class ARROW_EXPORT HdfsOutputStream : public OutputStream {
 
   using OutputStream::Write;
   Status Write(const void* buffer, int64_t nbytes) override;
-  Status Write(const void* buffer, int64_t nbytes, int64_t* bytes_written);
 
   Status Flush() override;
 

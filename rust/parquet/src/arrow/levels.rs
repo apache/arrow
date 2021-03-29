@@ -136,7 +136,8 @@ impl LevelInfo {
             | DataType::Interval(_)
             | DataType::Binary
             | DataType::LargeBinary
-            | DataType::Decimal(_, _) => {
+            | DataType::Decimal(_, _)
+            | DataType::FixedSizeBinary(_) => {
                 // we return a vector of 1 value to represent the primitive
                 vec![self.calculate_child_levels(
                     array_offsets,
@@ -145,7 +146,6 @@ impl LevelInfo {
                     field.is_nullable(),
                 )]
             }
-            DataType::FixedSizeBinary(_) => unimplemented!(),
             DataType::List(list_field) | DataType::LargeList(list_field) => {
                 // Calculate the list level
                 let list_level = self.calculate_child_levels(
@@ -189,7 +189,8 @@ impl LevelInfo {
                     | DataType::Utf8
                     | DataType::LargeUtf8
                     | DataType::Dictionary(_, _)
-                    | DataType::Decimal(_, _) => {
+                    | DataType::Decimal(_, _)
+                    | DataType::FixedSizeBinary(_) => {
                         vec![list_level.calculate_child_levels(
                             child_offsets,
                             child_mask,
@@ -197,7 +198,6 @@ impl LevelInfo {
                             list_field.is_nullable(),
                         )]
                     }
-                    DataType::FixedSizeBinary(_) => unimplemented!(),
                     DataType::List(_) | DataType::LargeList(_) | DataType::Struct(_) => {
                         list_level.calculate_array_levels(&child_array, list_field)
                     }
@@ -297,9 +297,10 @@ impl LevelInfo {
         is_list: bool,
         is_nullable: bool,
     ) -> Self {
-        let mut definition = vec![];
-        let mut repetition = vec![];
-        let mut merged_array_mask = vec![];
+        let min_len = *(array_offsets.last().unwrap()) as usize;
+        let mut definition = Vec::with_capacity(min_len);
+        let mut repetition = Vec::with_capacity(min_len);
+        let mut merged_array_mask = Vec::with_capacity(min_len);
 
         // determine the total level increment based on data types
         let max_definition = match is_list {
@@ -624,9 +625,18 @@ impl LevelInfo {
                 let masks = offsets.windows(2).map(|w| w[1] > w[0]).collect();
                 (offsets, masks)
             }
-            DataType::FixedSizeBinary(_)
-            | DataType::FixedSizeList(_, _)
-            | DataType::Union(_) => {
+            DataType::FixedSizeBinary(value_len) => {
+                let array_mask = match array.data().null_buffer() {
+                    Some(buf) => get_bool_array_slice(buf, array.offset(), array.len()),
+                    None => vec![true; array.len()],
+                };
+                let value_len = *value_len as i64;
+                (
+                    (0..=(array.len() as i64)).map(|v| v * value_len).collect(),
+                    array_mask,
+                )
+            }
+            DataType::FixedSizeList(_, _) | DataType::Union(_) => {
                 unimplemented!("Getting offsets not yet implemented")
             }
         }
@@ -1174,7 +1184,7 @@ mod tests {
             .len(5)
             .add_buffer(a_value_offsets)
             .null_bit_buffer(Buffer::from(vec![0b00011011]))
-            .add_child_data(a_values.data())
+            .add_child_data(a_values.data().clone())
             .build();
 
         assert_eq!(a_list_data.null_count(), 1);
@@ -1278,7 +1288,7 @@ mod tests {
         let g_list_data = ArrayData::builder(struct_field_g.data_type().clone())
             .len(5)
             .add_buffer(g_value_offsets)
-            .add_child_data(g_value.data())
+            .add_child_data(g_value.data().clone())
             .build();
         let g = ListArray::from(g_list_data);
 

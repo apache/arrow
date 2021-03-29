@@ -159,6 +159,7 @@ pub enum Distribution {
 }
 
 /// Represents the result from an expression
+#[derive(Clone)]
 pub enum ColumnarValue {
     /// Array of values
     Array(ArrayRef),
@@ -276,6 +277,7 @@ pub mod aggregates;
 pub mod array_expressions;
 pub mod coalesce_batches;
 pub mod common;
+#[cfg(feature = "crypto_expressions")]
 pub mod crypto_expressions;
 pub mod csv;
 pub mod datetime_expressions;
@@ -296,9 +298,14 @@ pub mod merge;
 pub mod parquet;
 pub mod planner;
 pub mod projection;
+#[cfg(feature = "regex_expressions")]
+pub mod regex_expressions;
 pub mod repartition;
 pub mod sort;
 pub mod string_expressions;
 pub mod type_coercion;
 pub mod udaf;
 pub mod udf;
+#[cfg(feature = "unicode_expressions")]
+pub mod unicode_expressions;
+pub mod union;

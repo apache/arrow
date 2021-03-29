@@ -17,12 +17,20 @@
 
 #pragma once
 
+#include "arrow/util/visibility.h"
+
 namespace arrow {
 namespace io {
 
 struct FileMode {
   enum type { READ, WRITE, READWRITE };
 };
+
+struct IOContext;
+
+/// EXPERIMENTAL: convenience global singleton for default IOContext settings
+ARROW_EXPORT
+const IOContext& default_io_context();
 
 class FileInterface;
 class Seekable;

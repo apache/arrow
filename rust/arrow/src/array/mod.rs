@@ -131,6 +131,7 @@ pub use self::null::NullArray;
 
 pub use self::array::make_array;
 pub use self::array::new_empty_array;
+pub use self::array::new_null_array;
 
 pub type Int8Array = PrimitiveArray<Int8Type>;
 pub type Int16Array = PrimitiveArray<Int16Type>;

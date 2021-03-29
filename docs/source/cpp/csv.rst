@@ -41,7 +41,7 @@ A CSV file is read from a :class:`~arrow::io::InputStream`.
 
    {
       // ...
-      arrow::MemoryPool* pool = default_memory_pool();
+      arrow::io::IOContext io_context = arrow::io::default_io_context();
       std::shared_ptr<arrow::io::InputStream> input = ...;
 
       auto read_options = arrow::csv::ReadOptions::Defaults();
@@ -50,7 +50,7 @@ A CSV file is read from a :class:`~arrow::io::InputStream`.
 
       // Instantiate TableReader from input stream and options
       auto maybe_reader =
-        arrow::csv::TableReader::Make(pool,
+        arrow::csv::TableReader::Make(io_context,
                                       input,
                                       read_options,
                                       parse_options,
@@ -112,6 +112,7 @@ column.  Type inference considers the following data types, in order:
 * Boolean
 * Date32
 * Timestamp (with seconds unit)
+* Timestamp (with nanoseconds unit)
 * Float64
 * Dictionary<String> (if :member:`ConvertOptions::auto_dict_encode` is true)
 * Dictionary<Binary> (if :member:`ConvertOptions::auto_dict_encode` is true)

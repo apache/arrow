@@ -183,10 +183,9 @@ pub fn order_coercion(lhs_type: &DataType, rhs_type: &DataType) -> Option<DataTy
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error::Result;
 
     #[test]
-    fn test_dictionary_type_coersion() -> Result<()> {
+    fn test_dictionary_type_coersion() {
         use DataType::*;
 
         // TODO: In the future, this would ideally return Dictionary types and avoid unpacking
@@ -205,7 +204,5 @@ mod tests {
         let lhs_type = Utf8;
         let rhs_type = Dictionary(Box::new(Int8), Box::new(Utf8));
         assert_eq!(dictionary_coercion(&lhs_type, &rhs_type), Some(Utf8));
-
-        Ok(())
     }
 }

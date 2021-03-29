@@ -26,11 +26,13 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 namespace internal {
@@ -464,6 +466,65 @@ INSTANTIATE_ALL()
 #undef INSTANTIATE_ALL
 #undef INSTANTIATE_ALL_DEST
 
+namespace {
+
+template <typename SrcType>
+struct TransposeIntsDest {
+  const SrcType* src;
+  uint8_t* dest;
+  int64_t dest_offset;
+  int64_t length;
+  const int32_t* transpose_map;
+
+  template <typename T>
+  enable_if_integer<T, Status> Visit(const T&) {
+    using DestType = typename T::c_type;
+    TransposeInts(src, reinterpret_cast<DestType*>(dest) + dest_offset, length,
+                  transpose_map);
+    return Status::OK();
+  }
+
+  Status Visit(const DataType& type) {
+    return Status::TypeError("TransposeInts received non-integer dest_type");
+  }
+
+  Status operator()(const DataType& type) { return VisitTypeInline(type, this); }
+};
+
+struct TransposeIntsSrc {
+  const uint8_t* src;
+  uint8_t* dest;
+  int64_t src_offset;
+  int64_t dest_offset;
+  int64_t length;
+  const int32_t* transpose_map;
+  const DataType& dest_type;
+
+  template <typename T>
+  enable_if_integer<T, Status> Visit(const T&) {
+    using SrcType = typename T::c_type;
+    return TransposeIntsDest<SrcType>{reinterpret_cast<const SrcType*>(src) + src_offset,
+                                      dest, dest_offset, length,
+                                      transpose_map}(dest_type);
+  }
+
+  Status Visit(const DataType& type) {
+    return Status::TypeError("TransposeInts received non-integer dest_type");
+  }
+
+  Status operator()(const DataType& type) { return VisitTypeInline(type, this); }
+};
+
+};  // namespace
+
+Status TransposeInts(const DataType& src_type, const DataType& dest_type,
+                     const uint8_t* src, uint8_t* dest, int64_t src_offset,
+                     int64_t dest_offset, int64_t length, const int32_t* transpose_map) {
+  TransposeIntsSrc transposer{src,    dest,          src_offset, dest_offset,
+                              length, transpose_map, dest_type};
+  return transposer(src_type);
+}
+
 template <typename T>
 static std::string FormatInt(T val) {
   return std::to_string(val);
@@ -488,60 +549,22 @@ static Status CheckIndexBoundsImpl(const ArrayData& indices, uint64_t upper_limi
     return ((IsSigned && val < 0) ||
             (val >= 0 && static_cast<uint64_t>(val) >= upper_limit));
   };
-  auto IsOutOfBoundsMaybeNull = [&](IndexCType val, bool is_valid) -> bool {
-    return is_valid && ((IsSigned && val < 0) ||
-                        (val >= 0 && static_cast<uint64_t>(val) >= upper_limit));
-  };
-  OptionalBitBlockCounter indices_bit_counter(bitmap, indices.offset, indices.length);
-  int64_t position = 0;
-  int64_t offset_position = indices.offset;
-  while (position < indices.length) {
-    BitBlockCount block = indices_bit_counter.NextBlock();
-    bool block_out_of_bounds = false;
-    if (block.popcount == block.length) {
-      // Fast path: branchless
-      for (int64_t i = 0; i < block.length; ++i) {
-        block_out_of_bounds |= IsOutOfBounds(indices_data[i]);
-      }
-    } else if (block.popcount > 0) {
-      // Indices have nulls, must only boundscheck non-null values
-      int64_t i = 0;
-      for (int64_t chunk = 0; chunk < block.length / 8; ++chunk) {
-        // Let the compiler unroll this
-        for (int j = 0; j < 8; ++j) {
-          block_out_of_bounds |= IsOutOfBoundsMaybeNull(
-              indices_data[i], BitUtil::GetBit(bitmap, offset_position + i));
-          ++i;
+  return VisitSetBitRuns(
+      bitmap, indices.offset, indices.length, [&](int64_t offset, int64_t length) {
+        bool block_out_of_bounds = false;
+        for (int64_t i = 0; i < length; ++i) {
+          block_out_of_bounds |= IsOutOfBounds(indices_data[offset + i]);
         }
-      }
-      for (; i < block.length; ++i) {
-        block_out_of_bounds |= IsOutOfBoundsMaybeNull(
-            indices_data[i], BitUtil::GetBit(bitmap, offset_position + i));
-      }
-    }
-    if (ARROW_PREDICT_FALSE(block_out_of_bounds)) {
-      if (indices.GetNullCount() > 0) {
-        for (int64_t i = 0; i < block.length; ++i) {
-          if (IsOutOfBoundsMaybeNull(indices_data[i],
-                                     BitUtil::GetBit(bitmap, offset_position + i))) {
-            return Status::IndexError("Index ", FormatInt(indices_data[i]),
-                                      " out of bounds");
+        if (ARROW_PREDICT_FALSE(block_out_of_bounds)) {
+          for (int64_t i = 0; i < length; ++i) {
+            if (IsOutOfBounds(indices_data[offset + i])) {
+              return Status::IndexError("Index ", FormatInt(indices_data[offset + i]),
+                                        " out of bounds");
+            }
           }
         }
-      } else {
-        for (int64_t i = 0; i < block.length; ++i) {
-          if (IsOutOfBounds(indices_data[i])) {
-            return Status::IndexError("Index ", FormatInt(indices_data[i]),
-                                      " out of bounds");
-          }
-        }
-      }
-    }
-    indices_data += block.length;
-    position += block.length;
-    offset_position += block.length;
-  }
-  return Status::OK();
+        return Status::OK();
+      });
 }
 
 /// \brief Branchless boundschecking of the indices. Processes batches of

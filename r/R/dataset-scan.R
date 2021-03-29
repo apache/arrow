@@ -67,13 +67,20 @@ Scanner$create <- function(dataset,
                            filter = TRUE,
                            use_threads = option_use_threads(),
                            batch_size = NULL,
+                           fragment_scan_options = NULL,
                            ...) {
   if (inherits(dataset, "arrow_dplyr_query")) {
+    if (inherits(dataset$.data, "ArrowTabular")) {
+      # To handle mutate() on Table/RecordBatch, we need to collect(as_data_frame=FALSE) now
+      dataset <- dplyr::collect(dataset, as_data_frame = FALSE)
+    }
     return(Scanner$create(
       dataset$.data,
-      dataset$selected_columns,
+      c(dataset$selected_columns, dataset$temp_columns),
       dataset$filtered_rows,
       use_threads,
+      batch_size,
+      fragment_scan_options,
       ...
     ))
   }
@@ -94,6 +101,9 @@ Scanner$create <- function(dataset,
   }
   if (is_integerish(batch_size)) {
     scanner_builder$BatchSize(batch_size)
+  }
+  if (!is.null(fragment_scan_options)) {
+    scanner_builder$FragmentScanOptions(fragment_scan_options)
   }
   scanner_builder$Finish()
 }
@@ -138,7 +148,8 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
     lapply(scan_task$Execute(), function(batch) {
       # message("Processing Batch")
       # This inner lapply cannot be parallelized
-      # TODO: wrap batch in arrow_dplyr_query with X$selected_columns and X$group_by_vars
+      # TODO: wrap batch in arrow_dplyr_query with X$selected_columns,
+      # X$temp_columns, and X$group_by_vars
       # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
       FUN(batch, ...)
     })
@@ -152,8 +163,20 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
 ScannerBuilder <- R6Class("ScannerBuilder", inherit = ArrowObject,
   public = list(
     Project = function(cols) {
-      assert_is(cols, "character")
-      dataset___ScannerBuilder__Project(self, cols)
+      # cols is either a character vector or a named list of Expressions
+      if (is.character(cols)) {
+        dataset___ScannerBuilder__ProjectNames(self, cols)
+      } else {
+        # If we have expressions, but they all turn out to be field_refs,
+        # we can still call the simple method
+        field_names <- get_field_names(cols)
+        if (all(nzchar(field_names))) {
+          dataset___ScannerBuilder__ProjectNames(self, field_names)
+        } else {
+          # Else, we are projecting/mutating
+          dataset___ScannerBuilder__ProjectExprs(self, cols, names(cols))
+        }
+      }
       self
     },
     Filter = function(expr) {
@@ -167,6 +190,10 @@ ScannerBuilder <- R6Class("ScannerBuilder", inherit = ArrowObject,
     },
     BatchSize = function(batch_size) {
       dataset___ScannerBuilder__BatchSize(self, batch_size)
+      self
+    },
+    FragmentScanOptions = function(options) {
+      dataset___ScannerBuilder__FragmentScanOptions(self, options)
       self
     },
     Finish = function() dataset___ScannerBuilder__Finish(self)

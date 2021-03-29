@@ -39,6 +39,8 @@ using internal::checked_cast;
 // should ideally not limit scalability.
 static std::mutex global_waiter_mutex;
 
+const double FutureWaiter::kInfinity = HUGE_VAL;
+
 class FutureWaiterImpl : public FutureWaiter {
  public:
   FutureWaiterImpl(Kind kind, std::vector<FutureImpl*> futures)
@@ -239,6 +241,16 @@ class ConcreteFutureImpl : public FutureImpl {
     }
   }
 
+  bool TryAddCallback(const std::function<Callback()>& callback_factory) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    if (IsFutureFinished(state_)) {
+      return false;
+    } else {
+      callbacks_.push_back(callback_factory());
+      return true;
+    }
+  }
+
   void DoMarkFinishedOrFailed(FutureState state) {
     {
       // Lock the hypothetical waiter first, and the future after.
@@ -324,6 +336,40 @@ void FutureImpl::MarkFailed() { GetConcreteFuture(this)->DoMarkFailed(); }
 
 void FutureImpl::AddCallback(Callback callback) {
   GetConcreteFuture(this)->AddCallback(std::move(callback));
+}
+
+bool FutureImpl::TryAddCallback(const std::function<Callback()>& callback_factory) {
+  return GetConcreteFuture(this)->TryAddCallback(callback_factory);
+}
+
+Future<> AllComplete(const std::vector<Future<>>& futures) {
+  struct State {
+    explicit State(int64_t n_futures) : mutex(), n_remaining(n_futures) {}
+
+    std::mutex mutex;
+    std::atomic<size_t> n_remaining;
+  };
+
+  if (futures.empty()) {
+    return Future<>::MakeFinished();
+  }
+
+  auto state = std::make_shared<State>(futures.size());
+  auto out = Future<>::Make();
+  for (const auto& future : futures) {
+    future.AddCallback([state, out](const Result<detail::Empty>& result) mutable {
+      if (!result.ok()) {
+        std::unique_lock<std::mutex> lock(state->mutex);
+        if (!out.is_finished()) {
+          out.MarkFinished(result);
+        }
+        return;
+      }
+      if (state->n_remaining.fetch_sub(1) != 1) return;
+      out.MarkFinished(Status::OK());
+    });
+  }
+  return out;
 }
 
 }  // namespace arrow

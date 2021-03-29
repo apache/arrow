@@ -117,19 +117,19 @@ pub struct ByteArray {
 impl PartialOrd for ByteArray {
     fn partial_cmp(&self, other: &ByteArray) -> Option<Ordering> {
         if self.data.is_some() && other.data.is_some() {
-            if self.len() > other.len() {
-                Some(Ordering::Greater)
-            } else if self.len() < other.len() {
-                Some(Ordering::Less)
-            } else {
-                for (v1, v2) in self.data().iter().zip(other.data().iter()) {
-                    if *v1 > *v2 {
-                        return Some(Ordering::Greater);
-                    } else if *v1 < *v2 {
-                        return Some(Ordering::Less);
+            match self.len().cmp(&other.len()) {
+                Ordering::Greater => Some(Ordering::Greater),
+                Ordering::Less => Some(Ordering::Less),
+                Ordering::Equal => {
+                    for (v1, v2) in self.data().iter().zip(other.data().iter()) {
+                        match v1.cmp(v2) {
+                            Ordering::Greater => return Some(Ordering::Greater),
+                            Ordering::Less => return Some(Ordering::Less),
+                            _ => {}
+                        }
                     }
+                    Some(Ordering::Equal)
                 }
-                Some(Ordering::Equal)
             }
         } else {
             None
@@ -460,6 +460,7 @@ impl AsBytes for [u8] {
 macro_rules! gen_as_bytes {
     ($source_ty:ident) => {
         impl AsBytes for $source_ty {
+            #[allow(clippy::size_of_in_element_count)]
             fn as_bytes(&self) -> &[u8] {
                 unsafe {
                     std::slice::from_raw_parts(
@@ -472,6 +473,7 @@ macro_rules! gen_as_bytes {
 
         impl SliceAsBytes for $source_ty {
             #[inline]
+            #[allow(clippy::size_of_in_element_count)]
             fn slice_as_bytes(self_: &[Self]) -> &[u8] {
                 unsafe {
                     std::slice::from_raw_parts(
@@ -482,6 +484,7 @@ macro_rules! gen_as_bytes {
             }
 
             #[inline]
+            #[allow(clippy::size_of_in_element_count)]
             unsafe fn slice_as_bytes_mut(self_: &mut [Self]) -> &mut [u8] {
                 std::slice::from_raw_parts_mut(
                     self_.as_mut_ptr() as *mut u8,

@@ -38,7 +38,9 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/base64.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
@@ -61,8 +63,12 @@ using arrow::BooleanArray;
 using arrow::ChunkedArray;
 using arrow::DataType;
 using arrow::Datum;
+using arrow::Decimal128;
 using arrow::Decimal128Array;
+using arrow::Decimal128Type;
+using arrow::Decimal256;
 using arrow::Decimal256Array;
+using arrow::Decimal256Type;
 using arrow::Field;
 using arrow::Int32Array;
 using arrow::ListArray;
@@ -87,8 +93,11 @@ using parquet::schema::Node;
 using parquet::schema::PrimitiveNode;
 using ParquetType = parquet::Type;
 
+namespace BitUtil = arrow::BitUtil;
+
 namespace parquet {
 namespace arrow {
+namespace {
 
 template <typename ArrowType>
 using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
@@ -184,13 +193,61 @@ static Status FromInt64Statistics(const Int64Statistics& statistics,
   return Status::NotImplemented("Cannot extract statistics for type ");
 }
 
-static inline Status ByteArrayStatisticsAsScalars(const Statistics& statistics,
-                                                  std::shared_ptr<::arrow::Scalar>* min,
-                                                  std::shared_ptr<::arrow::Scalar>* max) {
-  auto logical_type = statistics.descr()->logical_type();
-  auto type = logical_type->type() == LogicalType::Type::STRING ? ::arrow::utf8()
-                                                                : ::arrow::binary();
+template <typename DecimalType>
+Result<std::shared_ptr<::arrow::Scalar>> FromBigEndianString(
+    const std::string& data, std::shared_ptr<DataType> arrow_type) {
+  ARROW_ASSIGN_OR_RAISE(
+      DecimalType decimal,
+      DecimalType::FromBigEndian(reinterpret_cast<const uint8_t*>(data.data()),
+                                 static_cast<int32_t>(data.size())));
+  return ::arrow::MakeScalar(std::move(arrow_type), decimal);
+}
 
+// Extracts Min and Max scalar from bytes like types (i.e. types where
+// decimal is encoded as little endian.
+Status ExtractDecimalMinMaxFromBytesType(const Statistics& statistics,
+                                         const LogicalType& logical_type,
+                                         std::shared_ptr<::arrow::Scalar>* min,
+                                         std::shared_ptr<::arrow::Scalar>* max) {
+  const DecimalLogicalType& decimal_type =
+      checked_cast<const DecimalLogicalType&>(logical_type);
+
+  Result<std::shared_ptr<DataType>> maybe_type =
+      Decimal128Type::Make(decimal_type.precision(), decimal_type.scale());
+  std::shared_ptr<DataType> arrow_type;
+  if (maybe_type.ok()) {
+    arrow_type = maybe_type.ValueOrDie();
+    ARROW_ASSIGN_OR_RAISE(
+        *min, FromBigEndianString<Decimal128>(statistics.EncodeMin(), arrow_type));
+    ARROW_ASSIGN_OR_RAISE(*max, FromBigEndianString<Decimal128>(statistics.EncodeMax(),
+                                                                std::move(arrow_type)));
+    return Status::OK();
+  }
+  // Fallback to see if Decimal256 can represent the type.
+  ARROW_ASSIGN_OR_RAISE(
+      arrow_type, Decimal256Type::Make(decimal_type.precision(), decimal_type.scale()));
+  ARROW_ASSIGN_OR_RAISE(
+      *min, FromBigEndianString<Decimal256>(statistics.EncodeMin(), arrow_type));
+  ARROW_ASSIGN_OR_RAISE(*max, FromBigEndianString<Decimal256>(statistics.EncodeMax(),
+                                                              std::move(arrow_type)));
+
+  return Status::OK();
+}
+
+Status ByteArrayStatisticsAsScalars(const Statistics& statistics,
+                                    std::shared_ptr<::arrow::Scalar>* min,
+                                    std::shared_ptr<::arrow::Scalar>* max) {
+  auto logical_type = statistics.descr()->logical_type();
+  if (logical_type->type() == LogicalType::Type::DECIMAL) {
+    return ExtractDecimalMinMaxFromBytesType(statistics, *logical_type, min, max);
+  }
+  std::shared_ptr<::arrow::DataType> type;
+  if (statistics.descr()->physical_type() == Type::FIXED_LEN_BYTE_ARRAY) {
+    type = ::arrow::fixed_size_binary(statistics.descr()->type_length());
+  } else {
+    type = logical_type->type() == LogicalType::Type::STRING ? ::arrow::utf8()
+                                                             : ::arrow::binary();
+  }
   ARROW_ASSIGN_OR_RAISE(
       *min, ::arrow::MakeScalar(type, Buffer::FromString(statistics.EncodeMin())));
   ARROW_ASSIGN_OR_RAISE(
@@ -198,6 +255,8 @@ static inline Status ByteArrayStatisticsAsScalars(const Statistics& statistics,
 
   return Status::OK();
 }
+
+}  // namespace
 
 Status StatisticsAsScalars(const Statistics& statistics,
                            std::shared_ptr<::arrow::Scalar>* min,
@@ -230,6 +289,7 @@ Status StatisticsAsScalars(const Statistics& statistics,
       return FromInt64Statistics(checked_cast<const Int64Statistics&>(statistics),
                                  *logical_type, min, max);
     case Type::BYTE_ARRAY:
+    case Type::FIXED_LEN_BYTE_ARRAY:
       return ByteArrayStatisticsAsScalars(statistics, min, max);
     default:
       return Status::NotImplemented("Extract statistics unsupported for physical_type ",
@@ -241,6 +301,8 @@ Status StatisticsAsScalars(const Statistics& statistics,
 
 // ----------------------------------------------------------------------
 // Primitive types
+
+namespace {
 
 template <typename ArrowType, typename ParquetType>
 Status TransferInt(RecordReader* reader, MemoryPool* pool,
@@ -579,6 +641,8 @@ Status TransferDecimal(RecordReader* reader, MemoryPool* pool,
   *out = std::make_shared<ChunkedArray>(chunks, type);
   return Status::OK();
 }
+
+}  // namespace
 
 #define TRANSFER_INT32(ENUM, ArrowType)                                              \
   case ::arrow::Type::ENUM: {                                                        \

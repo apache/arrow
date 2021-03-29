@@ -60,7 +60,7 @@ pub trait Codec {
 /// Given the compression type `codec`, returns a codec used to compress and decompress
 /// bytes for the compression type.
 /// This returns `None` if the codec type is `UNCOMPRESSED`.
-pub fn create_codec(codec: CodecType) -> Result<Option<Box<Codec>>> {
+pub fn create_codec(codec: CodecType) -> Result<Option<Box<dyn Codec>>> {
     match codec {
         #[cfg(any(feature = "brotli", test))]
         CodecType::BROTLI => Ok(Some(Box::new(BrotliCodec::new()))),
@@ -208,7 +208,7 @@ mod brotli_codec {
                 BROTLI_DEFAULT_COMPRESSION_QUALITY,
                 BROTLI_DEFAULT_LG_WINDOW_SIZE,
             );
-            encoder.write_all(&input_buf[..])?;
+            encoder.write_all(input_buf)?;
             encoder.flush().map_err(|e| e.into())
         }
     }
@@ -308,7 +308,7 @@ mod zstd_codec {
 
         fn compress(&mut self, input_buf: &[u8], output_buf: &mut Vec<u8>) -> Result<()> {
             let mut encoder = zstd::Encoder::new(output_buf, ZSTD_COMPRESSION_LEVEL)?;
-            encoder.write_all(&input_buf[..])?;
+            encoder.write_all(input_buf)?;
             match encoder.finish() {
                 Ok(_) => Ok(()),
                 Err(e) => Err(e.into()),

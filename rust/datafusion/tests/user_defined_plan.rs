@@ -427,6 +427,7 @@ fn remove_lowest_value(top_values: &mut BTreeMap<i64, String>) {
     }
 }
 
+#[allow(clippy::unnecessary_wraps)]
 fn accumulate_batch(
     input_batch: &RecordBatch,
     mut top_values: BTreeMap<i64, String>,

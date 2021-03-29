@@ -21,9 +21,11 @@
 // client then requests the data from the server and compares it to
 // the data originally uploaded.
 
+#include <chrono>
 #include <iostream>
 #include <memory>
 #include <string>
+#include <thread>
 
 #include <gflags/gflags.h>
 
@@ -202,7 +204,22 @@ class IntegrationTestScenario : public flight::Scenario {
 }  // namespace flight
 }  // namespace arrow
 
+constexpr int kRetries = 3;
+
+arrow::Status RunScenario(arrow::flight::Scenario* scenario) {
+  auto options = arrow::flight::FlightClientOptions::Defaults();
+  std::unique_ptr<arrow::flight::FlightClient> client;
+
+  RETURN_NOT_OK(scenario->MakeClient(&options));
+  arrow::flight::Location location;
+  RETURN_NOT_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_host, FLAGS_port, &location));
+  RETURN_NOT_OK(arrow::flight::FlightClient::Connect(location, options, &client));
+  return scenario->RunClient(std::move(client));
+}
+
 int main(int argc, char** argv) {
+  arrow::util::ArrowLog::InstallFailureSignalHandler();
+
   gflags::SetUsageMessage("Integration testing client for Flight.");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   std::shared_ptr<arrow::flight::Scenario> scenario;
@@ -212,15 +229,16 @@ int main(int argc, char** argv) {
     scenario = std::make_shared<arrow::flight::IntegrationTestScenario>();
   }
 
-  arrow::flight::FlightClientOptions options =
-      arrow::flight::FlightClientOptions::Defaults();
-  std::unique_ptr<arrow::flight::FlightClient> client;
+  // ARROW-11908: retry a few times in case a client is slow to bring up the server
+  auto status = arrow::Status::OK();
+  for (int i = 0; i < kRetries; i++) {
+    status = RunScenario(scenario.get());
+    if (status.ok()) break;
+    // Failed, wait a bit and try again
+    std::this_thread::sleep_for(std::chrono::milliseconds((i + 1) * 500));
+  }
+  ABORT_NOT_OK(status);
 
-  ABORT_NOT_OK(scenario->MakeClient(&options));
-
-  arrow::flight::Location location;
-  ABORT_NOT_OK(arrow::flight::Location::ForGrpcTcp(FLAGS_host, FLAGS_port, &location));
-  ABORT_NOT_OK(arrow::flight::FlightClient::Connect(location, options, &client));
-  ABORT_NOT_OK(scenario->RunClient(std::move(client)));
+  arrow::util::ArrowLog::UninstallSignalAction();
   return 0;
 }

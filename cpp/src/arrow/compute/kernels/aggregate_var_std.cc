@@ -30,6 +30,7 @@ namespace internal {
 namespace {
 
 using arrow::internal::int128_t;
+using arrow::internal::VisitSetBitRunsVoid;
 
 template <typename ArrowType>
 struct VarStdState {
@@ -49,24 +50,13 @@ struct VarStdState {
 
     using SumType =
         typename std::conditional<is_floating_type<T>::value, double, int128_t>::type;
-    SumType sum = 0;
+    SumType sum = arrow::compute::detail::SumArray<CType, SumType>(*array.data());
 
-    const ArrayData& data = *array.data();
-    const CType* values = data.GetValues<CType>(1);
-    arrow::internal::VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
-                                         [&](int64_t pos, int64_t len) {
-                                           for (int64_t i = 0; i < len; ++i) {
-                                             sum += static_cast<SumType>(values[pos + i]);
-                                           }
-                                         });
-
-    double mean = static_cast<double>(sum) / count, m2 = 0;
-    arrow::internal::VisitSetBitRunsVoid(
-        data.buffers[0], data.offset, data.length, [&](int64_t pos, int64_t len) {
-          for (int64_t i = 0; i < len; ++i) {
-            const double v = static_cast<double>(values[pos + i]);
-            m2 += (v - mean) * (v - mean);
-          }
+    const double mean = static_cast<double>(sum) / count;
+    const double m2 = arrow::compute::detail::SumArray<CType, double>(
+        *array.data(), [mean](CType value) {
+          const double v = static_cast<double>(value);
+          return (v - mean) * (v - mean);
         });
 
     this->count = count;
@@ -98,14 +88,14 @@ struct VarStdState {
         int128_t square_sum = 0;
         const ArrayData& data = *slice->data();
         const CType* values = data.GetValues<CType>(1);
-        arrow::internal::VisitSetBitRunsVoid(
-            data.buffers[0], data.offset, data.length, [&](int64_t pos, int64_t len) {
-              for (int64_t i = 0; i < len; ++i) {
-                const auto value = values[pos + i];
-                sum += value;
-                square_sum += static_cast<uint64_t>(value) * value;
-              }
-            });
+        VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
+                            [&](int64_t pos, int64_t len) {
+                              for (int64_t i = 0; i < len; ++i) {
+                                const auto value = values[pos + i];
+                                sum += value;
+                                square_sum += static_cast<uint64_t>(value) * value;
+                              }
+                            });
 
         const double mean = static_cast<double>(sum) / count;
         // calculate m2 = square_sum - sum * sum / count

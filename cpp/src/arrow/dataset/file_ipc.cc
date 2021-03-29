@@ -75,9 +75,9 @@ static inline Result<std::vector<int>> GetIncludedFields(
 /// \brief A ScanTask backed by an Ipc file.
 class IpcScanTask : public ScanTask {
  public:
-  IpcScanTask(FileSource source, std::shared_ptr<ScanOptions> options,
-              std::shared_ptr<ScanContext> context)
-      : ScanTask(std::move(options), std::move(context)), source_(std::move(source)) {}
+  IpcScanTask(std::shared_ptr<FileFragment> fragment,
+              std::shared_ptr<ScanOptions> options)
+      : ScanTask(std::move(options), fragment), source_(fragment->source()) {}
 
   Result<RecordBatchIterator> Execute() override {
     struct Impl {
@@ -107,7 +107,7 @@ class IpcScanTask : public ScanTask {
       int i_;
     };
 
-    return Impl::Make(source_, options_->MaterializedFields(), context_->pool);
+    return Impl::Make(source_, options_->MaterializedFields(), options_->pool);
   }
 
  private:
@@ -117,10 +117,8 @@ class IpcScanTask : public ScanTask {
 class IpcScanTaskIterator {
  public:
   static Result<ScanTaskIterator> Make(std::shared_ptr<ScanOptions> options,
-                                       std::shared_ptr<ScanContext> context,
-                                       FileSource source) {
-    return ScanTaskIterator(
-        IpcScanTaskIterator(std::move(options), std::move(context), std::move(source)));
+                                       std::shared_ptr<FileFragment> fragment) {
+    return ScanTaskIterator(IpcScanTaskIterator(std::move(options), std::move(fragment)));
   }
 
   Result<std::shared_ptr<ScanTask>> Next() {
@@ -130,20 +128,17 @@ class IpcScanTaskIterator {
     }
 
     once_ = true;
-    return std::shared_ptr<ScanTask>(new IpcScanTask(source_, options_, context_));
+    return std::shared_ptr<ScanTask>(new IpcScanTask(fragment_, options_));
   }
 
  private:
   IpcScanTaskIterator(std::shared_ptr<ScanOptions> options,
-                      std::shared_ptr<ScanContext> context, FileSource source)
-      : options_(std::move(options)),
-        context_(std::move(context)),
-        source_(std::move(source)) {}
+                      std::shared_ptr<FileFragment> fragment)
+      : options_(std::move(options)), fragment_(std::move(fragment)) {}
 
   bool once_ = false;
   std::shared_ptr<ScanOptions> options_;
-  std::shared_ptr<ScanContext> context_;
-  FileSource source_;
+  std::shared_ptr<FileFragment> fragment_;
 };
 
 Result<bool> IpcFileFormat::IsSupported(const FileSource& source) const {
@@ -156,11 +151,10 @@ Result<std::shared_ptr<Schema>> IpcFileFormat::Inspect(const FileSource& source)
   return reader->schema();
 }
 
-Result<ScanTaskIterator> IpcFileFormat::ScanFile(std::shared_ptr<ScanOptions> options,
-                                                 std::shared_ptr<ScanContext> context,
-                                                 FileFragment* fragment) const {
-  return IpcScanTaskIterator::Make(std::move(options), std::move(context),
-                                   fragment->source());
+Result<ScanTaskIterator> IpcFileFormat::ScanFile(
+    std::shared_ptr<ScanOptions> options,
+    const std::shared_ptr<FileFragment>& fragment) const {
+  return IpcScanTaskIterator::Make(std::move(options), std::move(fragment));
 }
 
 //
@@ -193,20 +187,22 @@ Result<std::shared_ptr<FileWriter>> IpcFileFormat::MakeWriter(
                                             ipc_options->metadata));
 
   return std::shared_ptr<FileWriter>(
-      new IpcFileWriter(std::move(writer), std::move(schema), std::move(ipc_options)));
+      new IpcFileWriter(std::move(destination), std::move(writer), std::move(schema),
+                        std::move(ipc_options)));
 }
 
-IpcFileWriter::IpcFileWriter(std::shared_ptr<ipc::RecordBatchWriter> writer,
+IpcFileWriter::IpcFileWriter(std::shared_ptr<io::OutputStream> destination,
+                             std::shared_ptr<ipc::RecordBatchWriter> writer,
                              std::shared_ptr<Schema> schema,
                              std::shared_ptr<IpcFileWriteOptions> options)
-    : FileWriter(std::move(schema), std::move(options)),
+    : FileWriter(std::move(schema), std::move(options), std::move(destination)),
       batch_writer_(std::move(writer)) {}
 
 Status IpcFileWriter::Write(const std::shared_ptr<RecordBatch>& batch) {
   return batch_writer_->WriteRecordBatch(*batch);
 }
 
-Status IpcFileWriter::Finish() { return batch_writer_->Close(); }
+Status IpcFileWriter::FinishInternal() { return batch_writer_->Close(); }
 
 }  // namespace dataset
 }  // namespace arrow

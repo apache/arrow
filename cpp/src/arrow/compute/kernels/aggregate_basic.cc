@@ -99,37 +99,11 @@ std::unique_ptr<KernelState> CountInit(KernelContext*, const KernelInitArgs& arg
 // ----------------------------------------------------------------------
 // Sum implementation
 
-// Round size optimized based on data type and compiler
-template <typename T>
-struct RoundSizeDefault {
-  static constexpr int64_t size = 16;
-};
-
-// Round size set to 32 for float/int32_t/uint32_t
-template <>
-struct RoundSizeDefault<float> {
-  static constexpr int64_t size = 32;
-};
-
-template <>
-struct RoundSizeDefault<int32_t> {
-  static constexpr int64_t size = 32;
-};
-
-template <>
-struct RoundSizeDefault<uint32_t> {
-  static constexpr int64_t size = 32;
-};
+template <typename ArrowType>
+struct SumImplDefault : public SumImpl<ArrowType, SimdLevel::NONE> {};
 
 template <typename ArrowType>
-struct SumImplDefault
-    : public SumImpl<RoundSizeDefault<typename TypeTraits<ArrowType>::CType>::size,
-                     ArrowType, SimdLevel::NONE> {};
-
-template <typename ArrowType>
-struct MeanImplDefault
-    : public MeanImpl<RoundSizeDefault<typename TypeTraits<ArrowType>::CType>::size,
-                      ArrowType, SimdLevel::NONE> {};
+struct MeanImplDefault : public MeanImpl<ArrowType, SimdLevel::NONE> {};
 
 std::unique_ptr<KernelState> SumInit(KernelContext* ctx, const KernelInitArgs& args) {
   SumLikeInit<SumImplDefault> visitor(ctx, *args.inputs[0].type);
@@ -276,15 +250,13 @@ const FunctionDoc min_max_doc{"Compute the minimum and maximum values of a numer
                               {"array"},
                               "MinMaxOptions"};
 
-const FunctionDoc any_doc{
-    "Test whether any element in a boolean array evaluates to true.",
-    ("Null values are ignored."),
-    {"array"}};
+const FunctionDoc any_doc{"Test whether any element in a boolean array evaluates to true",
+                          ("Null values are ignored."),
+                          {"array"}};
 
-const FunctionDoc all_doc{
-    "Test whether all elements in a boolean array evaluate to true.",
-    ("Null values are ignored."),
-    {"array"}};
+const FunctionDoc all_doc{"Test whether all elements in a boolean array evaluate to true",
+                          ("Null values are ignored."),
+                          {"array"}};
 
 }  // namespace
 

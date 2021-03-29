@@ -67,6 +67,10 @@ GArrowArray *garrow_array_view(GArrowArray *array,
 GARROW_AVAILABLE_IN_0_15
 gchar *garrow_array_diff_unified(GArrowArray *array,
                                  GArrowArray *other_array);
+GARROW_AVAILABLE_IN_4_0
+GArrowArray *garrow_array_concatenate(GArrowArray *array,
+                                      GList *other_arrays,
+                                      GError **error);
 
 
 #define GARROW_TYPE_NULL_ARRAY (garrow_null_array_get_type())

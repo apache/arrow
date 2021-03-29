@@ -29,20 +29,23 @@
 #include "arrow/array.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/compute/api.h"
+#include "arrow/io/memory.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_stream_utils.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
 #include "arrow/visitor_inline.h"
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
-#include "parquet/encryption_internal.h"
-#include "parquet/internal_file_encryptor.h"
+#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/level_conversion.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
@@ -61,6 +64,8 @@ using arrow::BitUtil::BitWriter;
 using arrow::internal::checked_cast;
 using arrow::internal::checked_pointer_cast;
 using arrow::util::RleEncoder;
+
+namespace BitUtil = arrow::BitUtil;
 
 namespace parquet {
 
@@ -310,7 +315,7 @@ class SerializedPageWriter : public PageWriter {
     if (meta_encryptor_) {
       UpdateEncryption(encryption::kDictionaryPageHeader);
     }
-    int64_t header_size =
+    const int64_t header_size =
         thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_);
 
     PARQUET_THROW_NOT_OK(sink_->Write(output_data_buffer, output_data_len));
@@ -318,9 +323,7 @@ class SerializedPageWriter : public PageWriter {
     total_uncompressed_size_ += uncompressed_size + header_size;
     total_compressed_size_ += output_data_len + header_size;
     ++dict_encoding_stats_[page.encoding()];
-
-    PARQUET_ASSIGN_OR_THROW(int64_t final_pos, sink_->Tell());
-    return final_pos - start_pos;
+    return uncompressed_size + header_size;
   }
 
   void Close(bool has_dictionary, bool fallback) override {
@@ -358,7 +361,7 @@ class SerializedPageWriter : public PageWriter {
   }
 
   int64_t WriteDataPage(const DataPage& page) override {
-    int64_t uncompressed_size = page.uncompressed_size();
+    const int64_t uncompressed_size = page.uncompressed_size();
     std::shared_ptr<Buffer> compressed_data = page.buffer();
     const uint8_t* output_data_buffer = compressed_data->data();
     int32_t output_data_len = static_cast<int32_t>(compressed_data->size());
@@ -395,7 +398,7 @@ class SerializedPageWriter : public PageWriter {
     if (meta_encryptor_) {
       UpdateEncryption(encryption::kDataPageHeader);
     }
-    int64_t header_size =
+    const int64_t header_size =
         thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_);
     PARQUET_THROW_NOT_OK(sink_->Write(output_data_buffer, output_data_len));
 
@@ -404,8 +407,7 @@ class SerializedPageWriter : public PageWriter {
     num_values_ += page.num_values();
     ++data_encoding_stats_[page.encoding()];
     ++page_ordinal_;
-    PARQUET_ASSIGN_OR_THROW(int64_t current_pos, sink_->Tell());
-    return current_pos - start_pos;
+    return uncompressed_size + header_size;
   }
 
   void SetDataPageHeader(format::PageHeader& page_header, const DataPageV1& page) {
@@ -748,7 +750,7 @@ class ColumnWriterImpl {
   // Total number of rows written with this ColumnWriter
   int rows_written_;
 
-  // Records the total number of bytes written by the serializer
+  // Records the total number of uncompressed bytes written by the serializer
   int64_t total_bytes_written_;
 
   // Records the current number of compressed bytes in a column

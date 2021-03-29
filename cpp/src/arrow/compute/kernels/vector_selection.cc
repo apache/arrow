@@ -94,126 +94,128 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndicesImpl(
     const ArrayData& filter, FilterOptions::NullSelectionBehavior null_selection,
     MemoryPool* memory_pool) {
   using T = typename IndexType::c_type;
-  typename TypeTraits<IndexType>::BuilderType builder(memory_pool);
 
   const uint8_t* filter_data = filter.buffers[1]->data();
-  BitBlockCounter data_counter(filter_data, filter.offset, filter.length);
+  const bool have_filter_nulls = filter.MayHaveNulls();
+  const uint8_t* filter_is_valid =
+      have_filter_nulls ? filter.buffers[0]->data() : nullptr;
 
-  // The position relative to the start of the filter
-  T position = 0;
+  if (have_filter_nulls && null_selection == FilterOptions::EMIT_NULL) {
+    // Most complex case: the filter may have nulls and we don't drop them.
+    // The logic is ternary:
+    // - filter is null: emit null
+    // - filter is valid and true: emit index
+    // - filter is valid and false: don't emit anything
 
-  // The current position taking the filter offset into account
-  int64_t position_with_offset = filter.offset;
-  if (filter.MayHaveNulls()) {
-    // The filter may have nulls, so we scan the validity bitmap and the filter
-    // data bitmap together, branching on the null selection type.
-    const uint8_t* filter_is_valid = filter.buffers[0]->data();
+    typename TypeTraits<IndexType>::BuilderType builder(memory_pool);
 
-    // To count blocks whether filter_data[i] || !filter_is_valid[i]
+    // The position relative to the start of the filter
+    T position = 0;
+    // The current position taking the filter offset into account
+    int64_t position_with_offset = filter.offset;
+
+    // To count blocks where filter_data[i] || !filter_is_valid[i]
     BinaryBitBlockCounter filter_counter(filter_data, filter.offset, filter_is_valid,
                                          filter.offset, filter.length);
-    if (null_selection == FilterOptions::DROP) {
-      while (position < filter.length) {
-        BitBlockCount and_block = filter_counter.NextAndWord();
-        RETURN_NOT_OK(builder.Reserve(and_block.popcount));
-        if (and_block.AllSet()) {
-          // All the values are selected and non-null
-          for (int64_t i = 0; i < and_block.length; ++i) {
-            builder.UnsafeAppend(position++);
-          }
-          position_with_offset += and_block.length;
-        } else if (!and_block.NoneSet()) {
-          // Some of the values are false or null
-          for (int64_t i = 0; i < and_block.length; ++i) {
-            if (BitUtil::GetBit(filter_is_valid, position_with_offset) &&
-                BitUtil::GetBit(filter_data, position_with_offset)) {
+    BitBlockCounter is_valid_counter(filter_is_valid, filter.offset, filter.length);
+    while (position < filter.length) {
+      // true OR NOT valid
+      BitBlockCount selected_or_null_block = filter_counter.NextOrNotWord();
+      if (selected_or_null_block.NoneSet()) {
+        position += selected_or_null_block.length;
+        position_with_offset += selected_or_null_block.length;
+        continue;
+      }
+      RETURN_NOT_OK(builder.Reserve(selected_or_null_block.popcount));
+
+      // If the values are all valid and the selected_or_null_block is full,
+      // then we can infer that all the values are true and skip the bit checking
+      BitBlockCount is_valid_block = is_valid_counter.NextWord();
+
+      if (selected_or_null_block.AllSet() && is_valid_block.AllSet()) {
+        // All the values are selected and non-null
+        for (int64_t i = 0; i < selected_or_null_block.length; ++i) {
+          builder.UnsafeAppend(position++);
+        }
+        position_with_offset += selected_or_null_block.length;
+      } else {
+        // Some of the values are false or null
+        for (int64_t i = 0; i < selected_or_null_block.length; ++i) {
+          if (BitUtil::GetBit(filter_is_valid, position_with_offset)) {
+            if (BitUtil::GetBit(filter_data, position_with_offset)) {
               builder.UnsafeAppend(position);
             }
-            ++position;
-            ++position_with_offset;
+          } else {
+            // Null slot, so append a null
+            builder.UnsafeAppendNull();
           }
-        } else {
-          position += and_block.length;
-          position_with_offset += and_block.length;
-        }
-      }
-    } else {
-      BitBlockCounter is_valid_counter(filter_is_valid, filter.offset, filter.length);
-      while (position < filter.length) {
-        // true OR NOT valid
-        BitBlockCount or_not_block = filter_counter.NextOrNotWord();
-        RETURN_NOT_OK(builder.Reserve(or_not_block.popcount));
-
-        // If the values are all valid and the or_not_block is full, then we
-        // can infer that all the values are true and skip the bit checking
-        BitBlockCount is_valid_block = is_valid_counter.NextWord();
-
-        if (or_not_block.AllSet() && is_valid_block.AllSet()) {
-          // All the values are selected and non-null
-          for (int64_t i = 0; i < or_not_block.length; ++i) {
-            builder.UnsafeAppend(position++);
-          }
-          position_with_offset += or_not_block.length;
-        } else {
-          // Some of the values are false or null
-          for (int64_t i = 0; i < or_not_block.length; ++i) {
-            if (BitUtil::GetBit(filter_is_valid, position_with_offset)) {
-              if (BitUtil::GetBit(filter_data, position_with_offset)) {
-                builder.UnsafeAppend(position);
-              }
-            } else {
-              // Null slot, so append a null
-              builder.UnsafeAppendNull();
-            }
-            ++position;
-            ++position_with_offset;
-          }
+          ++position;
+          ++position_with_offset;
         }
       }
     }
-  } else {
-    // The filter has no nulls, so we need only look for true values
-    BitBlockCount current_block = data_counter.NextWord();
+    std::shared_ptr<ArrayData> result;
+    RETURN_NOT_OK(builder.FinishInternal(&result));
+    return result;
+  }
+
+  // Other cases don't emit nulls and are therefore simpler.
+  TypedBufferBuilder<T> builder(memory_pool);
+
+  if (have_filter_nulls) {
+    // The filter may have nulls, so we scan the validity bitmap and the filter
+    // data bitmap together.
+    DCHECK_EQ(null_selection, FilterOptions::DROP);
+
+    // The position relative to the start of the filter
+    T position = 0;
+    // The current position taking the filter offset into account
+    int64_t position_with_offset = filter.offset;
+
+    BinaryBitBlockCounter filter_counter(filter_data, filter.offset, filter_is_valid,
+                                         filter.offset, filter.length);
     while (position < filter.length) {
-      if (current_block.AllSet()) {
-        int64_t run_length = 0;
-
-        // If we've found a all-true block, then we scan forward until we find
-        // a block that has some false values (or we reach the end)
-        while (current_block.length > 0 && current_block.AllSet()) {
-          run_length += current_block.length;
-          current_block = data_counter.NextWord();
-        }
-
-        // Append the consecutive run of indices
-        RETURN_NOT_OK(builder.Reserve(run_length));
-        for (int64_t i = 0; i < run_length; ++i) {
+      BitBlockCount and_block = filter_counter.NextAndWord();
+      RETURN_NOT_OK(builder.Reserve(and_block.popcount));
+      if (and_block.AllSet()) {
+        // All the values are selected and non-null
+        for (int64_t i = 0; i < and_block.length; ++i) {
           builder.UnsafeAppend(position++);
         }
-        position_with_offset += run_length;
-        // The current_block already computed, so advance to next loop
-        // iteration.
-        continue;
-      } else if (!current_block.NoneSet()) {
-        // Must do bitchecking on the current block
-        RETURN_NOT_OK(builder.Reserve(current_block.popcount));
-        for (int64_t i = 0; i < current_block.length; ++i) {
-          if (BitUtil::GetBit(filter_data, position_with_offset)) {
+        position_with_offset += and_block.length;
+      } else if (!and_block.NoneSet()) {
+        // Some of the values are false or null
+        for (int64_t i = 0; i < and_block.length; ++i) {
+          if (BitUtil::GetBit(filter_is_valid, position_with_offset) &&
+              BitUtil::GetBit(filter_data, position_with_offset)) {
             builder.UnsafeAppend(position);
           }
           ++position;
           ++position_with_offset;
         }
       } else {
-        position += current_block.length;
-        position_with_offset += current_block.length;
+        position += and_block.length;
+        position_with_offset += and_block.length;
       }
-      current_block = data_counter.NextWord();
     }
+  } else {
+    // The filter has no nulls, so we need only look for true values
+    RETURN_NOT_OK(::arrow::internal::VisitSetBitRuns(
+        filter_data, filter.offset, filter.length, [&](int64_t offset, int64_t length) {
+          // Append the consecutive run of indices
+          RETURN_NOT_OK(builder.Reserve(length));
+          for (int64_t i = 0; i < length; ++i) {
+            builder.UnsafeAppend(static_cast<T>(offset + i));
+          }
+          return Status::OK();
+        }));
   }
-  std::shared_ptr<ArrayData> result;
-  RETURN_NOT_OK(builder.FinishInternal(&result));
-  return result;
+
+  const int64_t length = builder.length();
+  std::shared_ptr<Buffer> out_buffer;
+  RETURN_NOT_OK(builder.Finish(&out_buffer));
+  return std::make_shared<ArrayData>(TypeTraits<IndexType>::type_singleton(), length,
+                                     BufferVector{nullptr, out_buffer}, /*null_count=*/0);
 }
 
 }  // namespace

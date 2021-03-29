@@ -264,7 +264,7 @@ fn create_primitive_array(
                 let values = Arc::new(Int64Array::from(builder.build())) as ArrayRef;
                 // this cast is infallible, the unwrap is safe
                 let casted = cast(&values, data_type).unwrap();
-                casted.data()
+                casted.data().clone()
             } else {
                 let mut builder = ArrayData::builder(data_type.clone())
                     .len(length)
@@ -289,7 +289,7 @@ fn create_primitive_array(
                 let values = Arc::new(Float64Array::from(builder.build())) as ArrayRef;
                 // this cast is infallible, the unwrap is safe
                 let casted = cast(&values, data_type).unwrap();
-                casted.data()
+                casted.data().clone()
             } else {
                 let mut builder = ArrayData::builder(data_type.clone())
                     .len(length)
@@ -350,7 +350,7 @@ fn create_list_array(
             .len(field_node.length() as usize)
             .buffers(buffers[1..2].to_vec())
             .offset(0)
-            .child_data(vec![child_array.data()]);
+            .child_data(vec![child_array.data().clone()]);
         if null_count > 0 {
             builder = builder.null_bit_buffer(buffers[0].clone())
         }
@@ -361,7 +361,7 @@ fn create_list_array(
             .len(field_node.length() as usize)
             .buffers(buffers[1..2].to_vec())
             .offset(0)
-            .child_data(vec![child_array.data()]);
+            .child_data(vec![child_array.data().clone()]);
         if null_count > 0 {
             builder = builder.null_bit_buffer(buffers[0].clone())
         }
@@ -372,7 +372,7 @@ fn create_list_array(
             .len(field_node.length() as usize)
             .buffers(buffers[1..1].to_vec())
             .offset(0)
-            .child_data(vec![child_array.data()]);
+            .child_data(vec![child_array.data().clone()]);
         if null_count > 0 {
             builder = builder.null_bit_buffer(buffers[0].clone())
         }
@@ -396,7 +396,7 @@ fn create_dictionary_array(
             .len(field_node.length() as usize)
             .buffers(buffers[1..2].to_vec())
             .offset(0)
-            .child_data(vec![value_array.data()]);
+            .child_data(vec![value_array.data().clone()]);
         if null_count > 0 {
             builder = builder.null_bit_buffer(buffers[0].clone())
         }

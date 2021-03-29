@@ -90,9 +90,13 @@ struct ScalarHashImpl {
     return Status::OK();
   }
 
+  Status Visit(const DictionaryScalar& s) {
+    AccumulateHashFrom(*s.value.index);
+    return Status::OK();
+  }
+
   // TODO(bkietz) implement less wimpy hashing when these have ValueType
   Status Visit(const UnionScalar& s) { return Status::OK(); }
-  Status Visit(const DictionaryScalar& s) { return Status::OK(); }
   Status Visit(const ExtensionScalar& s) { return Status::OK(); }
 
   template <typename T>
@@ -127,17 +131,21 @@ struct ScalarHashImpl {
     return Status::OK();
   }
 
-  explicit ScalarHashImpl(const Scalar& scalar) { AccumulateHashFrom(scalar); }
+  explicit ScalarHashImpl(const Scalar& scalar) : hash_(scalar.type->Hash()) {
+    if (scalar.is_valid) {
+      AccumulateHashFrom(scalar);
+    }
+  }
 
   void AccumulateHashFrom(const Scalar& scalar) {
     DCHECK_OK(StdHash(scalar.type->fingerprint()));
     DCHECK_OK(VisitScalarInline(scalar, this));
   }
 
-  size_t hash_ = 0;
+  size_t hash_;
 };
 
-size_t Scalar::Hash::hash(const Scalar& scalar) { return ScalarHashImpl(scalar).hash_; }
+size_t Scalar::hash() const { return ScalarHashImpl(*this).hash_; }
 
 StringScalar::StringScalar(std::string s)
     : StringScalar(Buffer::FromString(std::move(s))) {}
@@ -266,6 +274,13 @@ Result<std::shared_ptr<Scalar>> DictionaryScalar::GetEncodedValue() const {
       break;
   }
   return value.dictionary->GetScalar(index_value);
+}
+
+std::shared_ptr<DictionaryScalar> DictionaryScalar::Make(std::shared_ptr<Scalar> index,
+                                                         std::shared_ptr<Array> dict) {
+  auto type = dictionary(index->type, dict->type());
+  return std::make_shared<DictionaryScalar>(ValueType{std::move(index), std::move(dict)},
+                                            std::move(type));
 }
 
 template <typename T>
@@ -509,20 +524,6 @@ Status CastImpl(const DateScalar<D>& from, TimestampScalar* to) {
       .Value(&to->value);
 }
 
-// timestamp to string
-Status CastImpl(const TimestampScalar& from, StringScalar* to) {
-  to->value = FormatToBuffer(internal::StringFormatter<Int64Type>{}, from);
-  return Status::OK();
-}
-
-// date to string
-template <typename D>
-Status CastImpl(const DateScalar<D>& from, StringScalar* to) {
-  TimestampScalar ts({}, timestamp(TimeUnit::MILLI));
-  RETURN_NOT_OK(CastImpl(from, &ts));
-  return CastImpl(ts, to);
-}
-
 // string to any
 template <typename ScalarType>
 Status CastImpl(const StringScalar& from, ScalarType* to) {
@@ -546,6 +547,18 @@ template <typename ScalarType, typename T = typename ScalarType::TypeClass,
           typename Value = typename Formatter::value_type>
 Status CastImpl(const ScalarType& from, StringScalar* to) {
   to->value = FormatToBuffer(Formatter{from.type}, from);
+  return Status::OK();
+}
+
+Status CastImpl(const Decimal128Scalar& from, StringScalar* to) {
+  auto from_type = checked_cast<const Decimal128Type*>(from.type.get());
+  to->value = Buffer::FromString(from.value.ToString(from_type->scale()));
+  return Status::OK();
+}
+
+Status CastImpl(const Decimal256Scalar& from, StringScalar* to) {
+  auto from_type = checked_cast<const Decimal256Type*>(from.type.get());
+  to->value = Buffer::FromString(from.value.ToString(from_type->scale()));
   return Status::OK();
 }
 

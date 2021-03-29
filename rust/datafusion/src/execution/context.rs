@@ -32,6 +32,11 @@ use tokio::task::{self, JoinHandle};
 
 use arrow::csv;
 
+use crate::catalog::{
+    catalog::{CatalogProvider, MemoryCatalogProvider},
+    schema::{MemorySchemaProvider, SchemaProvider},
+    ResolvedTableReference, TableReference,
+};
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
@@ -40,7 +45,9 @@ use crate::execution::dataframe_impl::DataFrameImpl;
 use crate::logical_plan::{
     FunctionRegistry, LogicalPlan, LogicalPlanBuilder, ToDFSchema,
 };
+use crate::optimizer::constant_folding::ConstantFolding;
 use crate::optimizer::filter_push_down::FilterPushDown;
+use crate::optimizer::limit_push_down::LimitPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
 use crate::physical_plan::csv::CsvReadOptions;
@@ -75,7 +82,7 @@ use parquet::file::properties::WriterProperties;
 /// let mut ctx = ExecutionContext::new();
 /// let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
 /// let df = df.filter(col("a").lt_eq(col("b")))?
-///            .aggregate(&[col("a")], &[min(col("b"))])?
+///            .aggregate(vec![col("a")], vec![min(col("b"))])?
 ///            .limit(100)?;
 /// let results = df.collect();
 /// # Ok(())
@@ -109,9 +116,24 @@ impl ExecutionContext {
 
     /// Creates a new execution context using the provided configuration.
     pub fn with_config(config: ExecutionConfig) -> Self {
+        let mut catalogs = HashMap::new();
+
+        if config.create_default_catalog_and_schema {
+            let default_catalog = MemoryCatalogProvider::new();
+            default_catalog.register_schema(
+                config.default_schema.clone(),
+                Arc::new(MemorySchemaProvider::new()),
+            );
+
+            catalogs.insert(
+                config.default_catalog.clone(),
+                Arc::new(default_catalog) as Arc<dyn CatalogProvider>,
+            );
+        }
+
         Self {
             state: Arc::new(Mutex::new(ExecutionContextState {
-                datasources: HashMap::new(),
+                catalogs,
                 scalar_functions: HashMap::new(),
                 var_provider: HashMap::new(),
                 aggregate_functions: HashMap::new(),
@@ -153,7 +175,10 @@ impl ExecutionContext {
                 ))),
             },
 
-            plan => Ok(Arc::new(DataFrameImpl::new(self.state.clone(), &plan))),
+            plan => Ok(Arc::new(DataFrameImpl::new(
+                self.state.clone(),
+                &self.optimize(&plan)?,
+            ))),
         }
     }
 
@@ -172,7 +197,7 @@ impl ExecutionContext {
         // create a query planner
         let state = self.state.lock().unwrap().clone();
         let query_planner = SqlToRel::new(&state);
-        Ok(query_planner.statement_to_plan(&statements[0])?)
+        query_planner.statement_to_plan(&statements[0])
     }
 
     /// Registers a variable provider within this context.
@@ -234,7 +259,7 @@ impl ExecutionContext {
     /// Creates a DataFrame for reading a custom TableProvider.
     pub fn read_table(
         &mut self,
-        provider: Arc<dyn TableProvider + Send + Sync>,
+        provider: Arc<dyn TableProvider>,
     ) -> Result<Arc<dyn DataFrame>> {
         let schema = provider.schema();
         let table_scan = LogicalPlan::TableScan {
@@ -243,6 +268,7 @@ impl ExecutionContext {
             projected_schema: schema.to_dfschema_ref()?,
             projection: None,
             filters: vec![],
+            limit: None,
         };
         Ok(Arc::new(DataFrameImpl::new(
             self.state.clone(),
@@ -258,7 +284,7 @@ impl ExecutionContext {
         filename: &str,
         options: CsvReadOptions,
     ) -> Result<()> {
-        self.register_table(name, Box::new(CsvFile::try_new(filename, options)?));
+        self.register_table(name, Arc::new(CsvFile::try_new(filename, options)?))?;
         Ok(())
     }
 
@@ -269,38 +295,88 @@ impl ExecutionContext {
             &filename,
             self.state.lock().unwrap().config.concurrency,
         )?;
-        self.register_table(name, Box::new(table));
+        self.register_table(name, Arc::new(table))?;
         Ok(())
     }
 
-    /// Registers a table using a custom TableProvider so that it can be referenced from SQL
-    /// statements executed against this context.
-    pub fn register_table(
-        &mut self,
-        name: &str,
-        provider: Box<dyn TableProvider + Send + Sync>,
-    ) {
+    /// Registers a named catalog using a custom `CatalogProvider` so that
+    /// it can be referenced from SQL statements executed against this
+    /// context.
+    ///
+    /// Returns the `CatalogProvider` previously registered for this
+    /// name, if any
+    pub fn register_catalog(
+        &self,
+        name: impl Into<String>,
+        catalog: Arc<dyn CatalogProvider>,
+    ) -> Option<Arc<dyn CatalogProvider>> {
         self.state
             .lock()
             .unwrap()
-            .datasources
-            .insert(name.to_string(), provider.into());
+            .catalogs
+            .insert(name.into(), catalog)
+    }
+
+    /// Retrieves a `CatalogProvider` instance by name
+    pub fn catalog(&self, name: &str) -> Option<Arc<dyn CatalogProvider>> {
+        self.state.lock().unwrap().catalogs.get(name).cloned()
+    }
+
+    /// Registers a table using a custom `TableProvider` so that
+    /// it can be referenced from SQL statements executed against this
+    /// context.
+    ///
+    /// Returns the `TableProvider` previously registered for this
+    /// reference, if any
+    pub fn register_table<'a>(
+        &'a mut self,
+        table_ref: impl Into<TableReference<'a>>,
+        provider: Arc<dyn TableProvider>,
+    ) -> Result<Option<Arc<dyn TableProvider>>> {
+        let table_ref = table_ref.into();
+        self.state
+            .lock()
+            .unwrap()
+            .schema_for_ref(table_ref)?
+            .register_table(table_ref.table().to_owned(), provider)
+    }
+
+    /// Deregisters the given table.
+    ///
+    /// Returns the registered provider, if any
+    pub fn deregister_table<'a>(
+        &'a mut self,
+        table_ref: impl Into<TableReference<'a>>,
+    ) -> Result<Option<Arc<dyn TableProvider>>> {
+        let table_ref = table_ref.into();
+        self.state
+            .lock()
+            .unwrap()
+            .schema_for_ref(table_ref)?
+            .deregister_table(table_ref.table())
     }
 
     /// Retrieves a DataFrame representing a table previously registered by calling the
     /// register_table function.
     ///
-    /// Returns an error if no table has been registered with the provided name.
-    pub fn table(&self, table_name: &str) -> Result<Arc<dyn DataFrame>> {
-        match self.state.lock().unwrap().datasources.get(table_name) {
-            Some(provider) => {
+    /// Returns an error if no table has been registered with the provided reference.
+    pub fn table<'a>(
+        &self,
+        table_ref: impl Into<TableReference<'a>>,
+    ) -> Result<Arc<dyn DataFrame>> {
+        let table_ref = table_ref.into();
+        let schema = self.state.lock().unwrap().schema_for_ref(table_ref)?;
+
+        match schema.table(table_ref.table()) {
+            Some(ref provider) => {
                 let schema = provider.schema();
                 let table_scan = LogicalPlan::TableScan {
-                    table_name: table_name.to_string(),
+                    table_name: table_ref.table().to_owned(),
                     source: Arc::clone(provider),
                     projected_schema: schema.to_dfschema_ref()?,
                     projection: None,
                     filters: vec![],
+                    limit: None,
                 };
                 Ok(Arc::new(DataFrameImpl::new(
                     self.state.clone(),
@@ -309,24 +385,30 @@ impl ExecutionContext {
             }
             _ => Err(DataFusionError::Plan(format!(
                 "No table named '{}'",
-                table_name
+                table_ref.table()
             ))),
         }
     }
 
-    /// Returns the set of available tables.
+    /// Returns the set of available tables in the default catalog and schema.
     ///
     /// Use [`table`] to get a specific table.
     ///
     /// [`table`]: ExecutionContext::table
-    pub fn tables(&self) -> HashSet<String> {
-        self.state
+    #[deprecated(
+        note = "Please use the catalog provider interface (`ExecutionContext::catalog`) to examine available catalogs, schemas, and tables"
+    )]
+    pub fn tables(&self) -> Result<HashSet<String>> {
+        Ok(self
+            .state
             .lock()
             .unwrap()
-            .datasources
-            .keys()
+            // a bare reference will always resolve to the default catalog and schema
+            .schema_for_ref(TableReference::Bare { table: "" })?
+            .table_names()
+            .iter()
             .cloned()
-            .collect()
+            .collect())
     }
 
     /// Optimizes the logical plan by applying optimizer rules.
@@ -338,7 +420,7 @@ impl ExecutionContext {
         for optimizer in optimizers {
             new_plan = optimizer.optimize(&new_plan)?;
         }
-        debug!("Optimized logical plan:\n {:?}", plan);
+        debug!("Optimized logical plan:\n {:?}", new_plan);
         Ok(new_plan)
     }
 
@@ -491,6 +573,12 @@ pub struct ExecutionConfig {
     optimizers: Vec<Arc<dyn OptimizerRule + Send + Sync>>,
     /// Responsible for planning `LogicalPlan`s, and `ExecutionPlan`
     query_planner: Arc<dyn QueryPlanner + Send + Sync>,
+    /// Default catalog name for table resolution
+    default_catalog: String,
+    /// Default schema name for table resolution
+    default_schema: String,
+    /// Whether the default catalog and schema should be created automatically
+    create_default_catalog_and_schema: bool,
 }
 
 impl ExecutionConfig {
@@ -500,11 +588,16 @@ impl ExecutionConfig {
             concurrency: num_cpus::get(),
             batch_size: 32768,
             optimizers: vec![
+                Arc::new(ConstantFolding::new()),
                 Arc::new(ProjectionPushDown::new()),
                 Arc::new(FilterPushDown::new()),
                 Arc::new(HashBuildProbeOrder::new()),
+                Arc::new(LimitPushDown::new()),
             ],
             query_planner: Arc::new(DefaultQueryPlanner {}),
+            default_catalog: "datafusion".to_owned(),
+            default_schema: "public".to_owned(),
+            create_default_catalog_and_schema: true,
         }
     }
 
@@ -541,13 +634,30 @@ impl ExecutionConfig {
         self.optimizers.push(optimizer_rule);
         self
     }
+
+    /// Selects a name for the default catalog and schema
+    pub fn with_default_catalog_and_schema(
+        mut self,
+        catalog: impl Into<String>,
+        schema: impl Into<String>,
+    ) -> Self {
+        self.default_catalog = catalog.into();
+        self.default_schema = schema.into();
+        self
+    }
+
+    /// Controls whether the default catalog and schema will be automatically created
+    pub fn create_default_catalog_and_schema(mut self, create: bool) -> Self {
+        self.create_default_catalog_and_schema = create;
+        self
+    }
 }
 
 /// Execution context for registering data sources and executing queries
 #[derive(Clone)]
 pub struct ExecutionContextState {
-    /// Data sources that are registered with the context
-    pub datasources: HashMap<String, Arc<dyn TableProvider + Send + Sync>>,
+    /// Collection of catalogs containing schemas and ultimately TableProviders
+    pub catalogs: HashMap<String, Arc<dyn CatalogProvider>>,
     /// Scalar functions that are registered with the context
     pub scalar_functions: HashMap<String, Arc<ScalarUDF>>,
     /// Variable provider that are registered with the context
@@ -558,12 +668,45 @@ pub struct ExecutionContextState {
     pub config: ExecutionConfig,
 }
 
+impl ExecutionContextState {
+    fn resolve_table_ref<'a>(
+        &'a self,
+        table_ref: impl Into<TableReference<'a>>,
+    ) -> ResolvedTableReference<'a> {
+        table_ref
+            .into()
+            .resolve(&self.config.default_catalog, &self.config.default_schema)
+    }
+
+    fn schema_for_ref<'a>(
+        &'a self,
+        table_ref: impl Into<TableReference<'a>>,
+    ) -> Result<Arc<dyn SchemaProvider>> {
+        let resolved_ref = self.resolve_table_ref(table_ref.into());
+
+        self.catalogs
+            .get(resolved_ref.catalog)
+            .ok_or_else(|| {
+                DataFusionError::Plan(format!(
+                    "failed to resolve catalog: {}",
+                    resolved_ref.catalog
+                ))
+            })?
+            .schema(resolved_ref.schema)
+            .ok_or_else(|| {
+                DataFusionError::Plan(format!(
+                    "failed to resolve schema: {}",
+                    resolved_ref.schema
+                ))
+            })
+    }
+}
+
 impl ContextProvider for ExecutionContextState {
-    fn get_table_provider(
-        &self,
-        name: &str,
-    ) -> Option<Arc<dyn TableProvider + Send + Sync>> {
-        self.datasources.get(name).map(|ds| Arc::clone(ds))
+    fn get_table_provider(&self, name: TableReference) -> Option<Arc<dyn TableProvider>> {
+        let resolved_ref = self.resolve_table_ref(name);
+        let schema = self.schema_for_ref(resolved_ref).ok()?;
+        schema.table(resolved_ref.table)
     }
 
     fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>> {
@@ -607,7 +750,7 @@ impl FunctionRegistry for ExecutionContextState {
 mod tests {
 
     use super::*;
-    use crate::physical_plan::functions::ScalarFunctionImplementation;
+    use crate::physical_plan::functions::make_scalar_function;
     use crate::physical_plan::{collect, collect_partitioned};
     use crate::test;
     use crate::variable::VarType;
@@ -619,7 +762,9 @@ mod tests {
         datasource::MemTable, logical_plan::create_udaf,
         physical_plan::expressions::AvgAccumulator,
     };
-    use arrow::array::{ArrayRef, Float64Array, Int32Array};
+    use arrow::array::{
+        Array, ArrayRef, DictionaryArray, Float64Array, Int32Array, Int64Array,
+    };
     use arrow::compute::add;
     use arrow::datatypes::*;
     use arrow::record_batch::RecordBatch;
@@ -706,7 +851,7 @@ mod tests {
         ctx.register_variable(VarType::UserDefined, Arc::new(variable_provider));
 
         let provider = test::create_table_dual();
-        ctx.register_table("dual", provider);
+        ctx.register_table("dual", provider)?;
 
         let results =
             plan_and_collect(&mut ctx, "SELECT @@version, @name FROM dual").await?;
@@ -719,6 +864,21 @@ mod tests {
             "+----------------------+------------------------+",
         ];
         assert_batches_eq!(expected, &results);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn register_deregister() -> Result<()> {
+        let tmp_dir = TempDir::new()?;
+        let partition_count = 4;
+        let mut ctx = create_ctx(&tmp_dir, partition_count)?;
+
+        let provider = test::create_table_dual();
+        ctx.register_table("dual", provider)?;
+
+        assert!(ctx.deregister_table("dual")?.is_some());
+        assert!(ctx.deregister_table("dual")?.is_none());
 
         Ok(())
     }
@@ -794,7 +954,7 @@ mod tests {
 
         let table = ctx.table("test")?;
         let logical_plan = LogicalPlanBuilder::from(&table.to_logical_plan())
-            .project(&[col("c2")])?
+            .project(vec![col("c2")])?
             .build()?;
 
         let optimized_plan = ctx.optimize(&logical_plan)?;
@@ -805,7 +965,7 @@ mod tests {
                     projected_schema,
                     ..
                 } => {
-                    assert_eq!(source.schema().fields().len(), 2);
+                    assert_eq!(source.schema().fields().len(), 3);
                     assert_eq!(projected_schema.fields().len(), 1);
                 }
                 _ => panic!("input to projection should be TableScan"),
@@ -835,18 +995,11 @@ mod tests {
         let tmp_dir = TempDir::new()?;
         let ctx = create_ctx(&tmp_dir, 1)?;
 
-        let schema = ctx
-            .state
-            .lock()
-            .unwrap()
-            .datasources
-            .get("test")
-            .unwrap()
-            .schema();
+        let schema: Schema = ctx.table("test").unwrap().schema().clone().into();
         assert_eq!(schema.field_with_name("c1")?.is_nullable(), false);
 
-        let plan = LogicalPlanBuilder::scan_empty("", schema.as_ref(), None)?
-            .project(&[col("c1")])?
+        let plan = LogicalPlanBuilder::scan_empty("", &schema, None)?
+            .project(vec![col("c1")])?
             .build()?;
 
         let plan = ctx.optimize(&plan)?;
@@ -877,7 +1030,7 @@ mod tests {
         )?]];
 
         let plan = LogicalPlanBuilder::scan_memory(partitions, schema, None)?
-            .project(&[col("b")])?
+            .project(vec![col("b")])?
             .build()?;
         assert_fields_eq(&plan, vec!["b"]);
 
@@ -1118,6 +1271,28 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn boolean_literal() -> Result<()> {
+        let results =
+            execute("SELECT c1, c3 FROM test WHERE c1 > 2 AND c3 = true", 4).await?;
+        assert_eq!(results.len(), 1);
+
+        let expected = vec![
+            "+----+------+",
+            "| c1 | c3   |",
+            "+----+------+",
+            "| 3  | true |",
+            "| 3  | true |",
+            "| 3  | true |",
+            "| 3  | true |",
+            "| 3  | true |",
+            "+----+------+",
+        ];
+        assert_batches_sorted_eq!(expected, &results);
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn aggregate_grouped_empty() -> Result<()> {
         let results =
             execute("SELECT c1, AVG(c2) FROM test WHERE c1 = 123 GROUP BY c1", 4).await?;
@@ -1271,6 +1446,83 @@ mod tests {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn group_by_dictionary() {
+        async fn run_test_case<K: ArrowDictionaryKeyType>() {
+            let mut ctx = ExecutionContext::new();
+
+            // input data looks like:
+            // A, 1
+            // B, 2
+            // A, 2
+            // A, 4
+            // C, 1
+            // A, 1
+
+            let dict_array: DictionaryArray<K> =
+                vec!["A", "B", "A", "A", "C", "A"].into_iter().collect();
+            let dict_array = Arc::new(dict_array);
+
+            let val_array: Int64Array = vec![1, 2, 2, 4, 1, 1].into();
+            let val_array = Arc::new(val_array);
+
+            let schema = Arc::new(Schema::new(vec![
+                Field::new("dict", dict_array.data_type().clone(), false),
+                Field::new("val", val_array.data_type().clone(), false),
+            ]));
+
+            let batch = RecordBatch::try_new(schema.clone(), vec![dict_array, val_array])
+                .unwrap();
+
+            let provider = MemTable::try_new(schema.clone(), vec![vec![batch]]).unwrap();
+            ctx.register_table("t", Arc::new(provider)).unwrap();
+
+            let results = plan_and_collect(
+                &mut ctx,
+                "SELECT dict, count(val) FROM t GROUP BY dict",
+            )
+            .await
+            .expect("ran plan correctly");
+
+            let expected = vec![
+                "+------+------------+",
+                "| dict | COUNT(val) |",
+                "+------+------------+",
+                "| A    | 4          |",
+                "| B    | 1          |",
+                "| C    | 1          |",
+                "+------+------------+",
+            ];
+            assert_batches_sorted_eq!(expected, &results);
+
+            // Now, use dict as an aggregate
+            let results =
+                plan_and_collect(&mut ctx, "SELECT val, count(dict) FROM t GROUP BY val")
+                    .await
+                    .expect("ran plan correctly");
+
+            let expected = vec![
+                "+-----+-------------+",
+                "| val | COUNT(dict) |",
+                "+-----+-------------+",
+                "| 1   | 3           |",
+                "| 2   | 2           |",
+                "| 4   | 1           |",
+                "+-----+-------------+",
+            ];
+            assert_batches_sorted_eq!(expected, &results);
+        }
+
+        run_test_case::<Int8Type>().await;
+        run_test_case::<Int16Type>().await;
+        run_test_case::<Int32Type>().await;
+        run_test_case::<Int64Type>().await;
+        run_test_case::<UInt8Type>().await;
+        run_test_case::<UInt16Type>().await;
+        run_test_case::<UInt32Type>().await;
+        run_test_case::<UInt64Type>().await;
+    }
+
     async fn run_count_distinct_integers_aggregated_scenario(
         partitions: Vec<Vec<(&str, u64)>>,
     ) -> Result<Vec<RecordBatch>> {
@@ -1408,8 +1660,8 @@ mod tests {
         ]));
 
         let plan = LogicalPlanBuilder::scan_empty("", schema.as_ref(), None)?
-            .aggregate(&[col("c1")], &[sum(col("c2"))])?
-            .project(&[col("c1"), col("SUM(c2)").alias("total_salary")])?
+            .aggregate(vec![col("c1")], vec![sum(col("c2"))])?
+            .project(vec![col("c1"), col("SUM(c2)").alias("total_salary")])?
             .build()?;
 
         let plan = ctx.optimize(&plan)?;
@@ -1570,6 +1822,23 @@ mod tests {
         }
         Ok(())
     }
+    #[test]
+    fn ctx_sql_should_optimize_plan() -> Result<()> {
+        let mut ctx = ExecutionContext::new();
+        let plan1 =
+            ctx.create_logical_plan("SELECT * FROM (SELECT 1) WHERE TRUE AND TRUE")?;
+
+        let opt_plan1 = ctx.optimize(&plan1)?;
+
+        let plan2 = ctx.sql("SELECT * FROM (SELECT 1) WHERE TRUE AND TRUE")?;
+
+        assert_eq!(
+            format!("{:?}", opt_plan1),
+            format!("{:?}", plan2.to_logical_plan())
+        );
+
+        Ok(())
+    }
 
     #[tokio::test]
     async fn scalar_udf() -> Result<()> {
@@ -1589,9 +1858,9 @@ mod tests {
         let mut ctx = ExecutionContext::new();
 
         let provider = MemTable::try_new(Arc::new(schema), vec![vec![batch]])?;
-        ctx.register_table("t", Box::new(provider));
+        ctx.register_table("t", Arc::new(provider))?;
 
-        let myfunc: ScalarFunctionImplementation = Arc::new(|args: &[ArrayRef]| {
+        let myfunc = |args: &[ArrayRef]| {
             let l = &args[0]
                 .as_any()
                 .downcast_ref::<Int32Array>()
@@ -1600,8 +1869,9 @@ mod tests {
                 .as_any()
                 .downcast_ref::<Int32Array>()
                 .expect("cast failed");
-            Ok(Arc::new(add(l, r)?))
-        });
+            Ok(Arc::new(add(l, r)?) as ArrayRef)
+        };
+        let myfunc = make_scalar_function(myfunc);
 
         ctx.register_udf(create_udf(
             "my_add",
@@ -1616,7 +1886,7 @@ mod tests {
         let t = ctx.table("t")?;
 
         let plan = LogicalPlanBuilder::from(&t.to_logical_plan())
-            .project(&[
+            .project(vec![
                 col("a"),
                 col("b"),
                 ctx.udf("my_add")?.call(vec![col("a"), col("b")]),
@@ -1668,6 +1938,8 @@ mod tests {
             assert_eq!(a.value(i) + b.value(i), sum.value(i));
         }
 
+        ctx.deregister_table("t")?;
+
         Ok(())
     }
 
@@ -1688,7 +1960,7 @@ mod tests {
 
         let provider =
             MemTable::try_new(Arc::new(schema), vec![vec![batch1], vec![batch2]])?;
-        ctx.register_table("t", Box::new(provider));
+        ctx.register_table("t", Arc::new(provider))?;
 
         let result = plan_and_collect(&mut ctx, "SELECT AVG(a) FROM t").await?;
 
@@ -1725,7 +1997,7 @@ mod tests {
 
         let provider =
             MemTable::try_new(Arc::new(schema), vec![vec![batch1], vec![batch2]])?;
-        ctx.register_table("t", Box::new(provider));
+        ctx.register_table("t", Arc::new(provider))?;
 
         // define a udaf, using a DataFusion's accumulator
         let my_avg = create_udaf(
@@ -1760,6 +2032,114 @@ mod tests {
 
         let df = ctx.sql("SELECT 1")?;
         df.collect().await.expect_err("query not supported");
+        Ok(())
+    }
+
+    fn table_with_sequence(
+        seq_start: i32,
+        seq_end: i32,
+    ) -> Result<Arc<dyn TableProvider>> {
+        let schema = Arc::new(Schema::new(vec![Field::new("i", DataType::Int32, true)]));
+        let arr = Arc::new(Int32Array::from((seq_start..=seq_end).collect::<Vec<_>>()));
+        let partitions = vec![vec![RecordBatch::try_new(
+            schema.clone(),
+            vec![arr as ArrayRef],
+        )?]];
+        Ok(Arc::new(MemTable::try_new(schema, partitions)?))
+    }
+
+    #[tokio::test]
+    async fn disabled_default_catalog_and_schema() -> Result<()> {
+        let mut ctx = ExecutionContext::with_config(
+            ExecutionConfig::new().create_default_catalog_and_schema(false),
+        );
+
+        assert!(matches!(
+            ctx.register_table("test", table_with_sequence(1, 1)?),
+            Err(DataFusionError::Plan(_))
+        ));
+
+        assert!(matches!(
+            ctx.sql("select * from datafusion.public.test"),
+            Err(DataFusionError::Plan(_))
+        ));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn custom_catalog_and_schema() -> Result<()> {
+        let mut ctx = ExecutionContext::with_config(
+            ExecutionConfig::new()
+                .create_default_catalog_and_schema(false)
+                .with_default_catalog_and_schema("my_catalog", "my_schema"),
+        );
+
+        let catalog = MemoryCatalogProvider::new();
+        let schema = MemorySchemaProvider::new();
+        schema.register_table("test".to_owned(), table_with_sequence(1, 1)?)?;
+        catalog.register_schema("my_schema", Arc::new(schema));
+        ctx.register_catalog("my_catalog", Arc::new(catalog));
+
+        for table_ref in &["my_catalog.my_schema.test", "my_schema.test", "test"] {
+            let result = plan_and_collect(
+                &mut ctx,
+                &format!("SELECT COUNT(*) AS count FROM {}", table_ref),
+            )
+            .await?;
+
+            let expected = vec![
+                "+-------+",
+                "| count |",
+                "+-------+",
+                "| 1     |",
+                "+-------+",
+            ];
+            assert_batches_eq!(expected, &result);
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn cross_catalog_access() -> Result<()> {
+        let mut ctx = ExecutionContext::new();
+
+        let catalog_a = MemoryCatalogProvider::new();
+        let schema_a = MemorySchemaProvider::new();
+        schema_a.register_table("table_a".to_owned(), table_with_sequence(1, 1)?)?;
+        catalog_a.register_schema("schema_a", Arc::new(schema_a));
+        ctx.register_catalog("catalog_a", Arc::new(catalog_a));
+
+        let catalog_b = MemoryCatalogProvider::new();
+        let schema_b = MemorySchemaProvider::new();
+        schema_b.register_table("table_b".to_owned(), table_with_sequence(1, 2)?)?;
+        catalog_b.register_schema("schema_b", Arc::new(schema_b));
+        ctx.register_catalog("catalog_b", Arc::new(catalog_b));
+
+        let result = plan_and_collect(
+            &mut ctx,
+            "SELECT cat, SUM(i) AS total FROM (
+                    SELECT i, 'a' AS cat FROM catalog_a.schema_a.table_a
+                    UNION ALL
+                    SELECT i, 'b' AS cat FROM catalog_b.schema_b.table_b
+                )
+                GROUP BY cat
+                ORDER BY cat
+                ",
+        )
+        .await?;
+
+        let expected = vec![
+            "+-----+-------+",
+            "| cat | total |",
+            "+-----+-------+",
+            "| a   | 1     |",
+            "| b   | 3     |",
+            "+-----+-------+",
+        ];
+        assert_batches_eq!(expected, &result);
+
         Ok(())
     }
 
@@ -1844,6 +2224,7 @@ mod tests {
         let schema = Arc::new(Schema::new(vec![
             Field::new("c1", DataType::UInt32, false),
             Field::new("c2", DataType::UInt64, false),
+            Field::new("c3", DataType::Boolean, false),
         ]));
 
         // generate a partitioned file
@@ -1854,7 +2235,7 @@ mod tests {
 
             // generate some data
             for i in 0..=10 {
-                let data = format!("{},{}\n", partition, i);
+                let data = format!("{},{},{}\n", partition, i, i % 2 == 0);
                 file.write_all(data.as_bytes())?;
             }
         }

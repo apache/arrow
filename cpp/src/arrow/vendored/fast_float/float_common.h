@@ -5,18 +5,19 @@
 #include <cstdint>
 #include <cassert>
 
-#if (defined(__i386) || defined(__i386__) || defined(_M_IX86)   \
-     || defined(__arm__)                                        \
-     || defined(__MINGW32__))
-#define FASTFLOAT_32BIT
-#elif (defined(__x86_64) || defined(__x86_64__) || defined(_M_X64)   \
+#if (defined(__x86_64) || defined(__x86_64__) || defined(_M_X64)   \
        || defined(__amd64) || defined(__aarch64__) || defined(_M_ARM64) \
        || defined(__MINGW64__)                                          \
        || defined(__s390x__)                                            \
-       || (defined(__ppc64__) || defined(__PPC64__) || defined(__ppc64le__) || defined(__PPC64LE__)))
+       || (defined(__ppc64__) || defined(__PPC64__) || defined(__ppc64le__) || defined(__PPC64LE__)) \
+       || defined(__EMSCRIPTEN__))
 #define FASTFLOAT_64BIT
+#elif (defined(__i386) || defined(__i386__) || defined(_M_IX86)   \
+     || defined(__arm__)                                        \
+     || defined(__MINGW32__))
+#define FASTFLOAT_32BIT
 #else
-#error Unknown platform
+#error Unknown platform (not 32-bit, not 64-bit?)
 #endif
 
 #if ((defined(_WIN32) || defined(_WIN64)) && !defined(__clang__))
@@ -32,6 +33,8 @@
 #else
 #if defined(__APPLE__) || defined(__FreeBSD__)
 #include <machine/endian.h>
+#elif defined(sun) || defined(__sun)
+#include <sys/byteorder.h>
 #else
 #include <endian.h>
 #endif
@@ -165,7 +168,7 @@ fastfloat_really_inline value128 full_multiplication(uint64_t a,
   // ARM64 has native support for 64-bit multiplications, no need to emulate
   answer.high = __umulh(a, b);
   answer.low = a * b;
-#elif defined(FASTFLOAT_32BIT) || (defined(_WIN64))
+#elif defined(FASTFLOAT_32BIT) || (defined(_WIN64) && !defined(__clang__))
   answer.low = _umul128(a, b, &answer.high); // _umul128 not available on ARM64
 #elif defined(FASTFLOAT_64BIT)
   __uint128_t r = ((__uint128_t)a) * b;
@@ -180,11 +183,13 @@ fastfloat_really_inline value128 full_multiplication(uint64_t a,
 
 struct adjusted_mantissa {
   uint64_t mantissa{0};
-  int power2{0}; // a negative value indicate an invalid result
+  int power2{0}; // a negative value indicates an invalid result
   adjusted_mantissa() = default;
-  // bool operator==(const adjusted_mantissa &o) const = default;
   bool operator==(const adjusted_mantissa &o) const {
     return mantissa == o.mantissa && power2 == o.power2;
+  }
+  bool operator!=(const adjusted_mantissa &o) const {
+    return mantissa != o.mantissa || power2 != o.power2;
   }
 };
 
@@ -202,44 +207,6 @@ struct decimal {
   // Moves are allowed:
   decimal(decimal &&) = default;
   decimal &operator=(decimal &&other) = default;
-  // Generates a mantissa by truncating to 19 digits.
-  // This function should be reasonably fast.
-  // Note that the user is responsible to ensure that digits are
-  // initialized to zero when there are fewer than 19.
-  inline uint64_t to_truncated_mantissa() {
-#if FASTFLOAT_IS_BIG_ENDIAN == 1
-    uint64_t mantissa = 0;
-    for (uint32_t i = 0; i < max_digit_without_overflow;
-         i++) {
-      mantissa = mantissa * 10 + digits[i]; // can be accelerated
-    }
-    return mantissa;
-#else
-    uint64_t val;
-    // 8 first digits
-    ::memcpy(&val, digits, sizeof(uint64_t));
-    val = val * 2561 >> 8;
-    val = (val & 0x00FF00FF00FF00FF) * 6553601 >> 16;
-    uint64_t mantissa =
-        uint32_t((val & 0x0000FFFF0000FFFF) * 42949672960001 >> 32);
-    // 8 more digits for a total of 16
-    ::memcpy(&val, digits + sizeof(uint64_t), sizeof(uint64_t));
-    val = val * 2561 >> 8;
-    val = (val & 0x00FF00FF00FF00FF) * 6553601 >> 16;
-    uint32_t eight_digits_value =
-        uint32_t((val & 0x0000FFFF0000FFFF) * 42949672960001 >> 32);
-    mantissa = 100000000 * mantissa + eight_digits_value;
-    for (uint32_t i = 2 * sizeof(uint64_t); i < max_digit_without_overflow;
-         i++) {
-      mantissa = mantissa * 10 + digits[i]; // can be accelerated
-    }
-    return mantissa;
-#endif
-  }
-  // Generate san exponent matching to_truncated_mantissa()
-  inline int32_t to_truncated_exponent() {
-    return decimal_point - int32_t(max_digit_without_overflow);
-  }
 };
 
 constexpr static double powers_of_ten_double[] = {
@@ -258,6 +225,8 @@ template <typename T> struct binary_format {
   static constexpr int max_exponent_round_to_even();
   static constexpr int min_exponent_round_to_even();
   static constexpr uint64_t max_mantissa_fast_path();
+  static constexpr int largest_power_of_ten();
+  static constexpr int smallest_power_of_ten();
   static constexpr T exact_power_of_ten(int64_t power);
 };
 
@@ -340,9 +309,31 @@ constexpr float binary_format<float>::exact_power_of_ten(int64_t power) {
   return powers_of_ten_float[power];
 }
 
+
+template <>
+constexpr int binary_format<double>::largest_power_of_ten() {
+  return 308;
+}
+template <>
+constexpr int binary_format<float>::largest_power_of_ten() {
+  return 38;
+}
+
+template <>
+constexpr int binary_format<double>::smallest_power_of_ten() {
+  return -342;
+}
+template <>
+constexpr int binary_format<float>::smallest_power_of_ten() {
+  return -65;
+}
+
+} // namespace fast_float
+} // namespace arrow_vendored
+
 // for convenience:
-#include <ostream>
-inline std::ostream &operator<<(std::ostream &out, const fast_float::decimal &d) {
+template<class OStream>
+inline OStream& operator<<(OStream &out, const arrow_vendored::fast_float::decimal &d) {
   out << "0.";
   for (size_t i = 0; i < d.num_digits; i++) {
     out << int32_t(d.digits[i]);
@@ -350,8 +341,5 @@ inline std::ostream &operator<<(std::ostream &out, const fast_float::decimal &d)
   out << " * 10 ** " << d.decimal_point;
   return out;
 }
-
-} // namespace fast_float
-} // namespace arrow_vendored
 
 #endif

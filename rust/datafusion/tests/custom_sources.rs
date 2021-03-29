@@ -144,6 +144,7 @@ impl TableProvider for CustomTableProvider {
         projection: &Option<Vec<usize>>,
         _batch_size: usize,
         _filters: &[Expr],
+        _limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         Ok(Arc::new(CustomExecutionPlan {
             projection: projection.clone(),
@@ -161,7 +162,7 @@ async fn custom_source_dataframe() -> Result<()> {
 
     let table = ctx.read_table(Arc::new(CustomTableProvider))?;
     let logical_plan = LogicalPlanBuilder::from(&table.to_logical_plan())
-        .project(&[col("c2")])?
+        .project(vec![col("c2")])?
         .build()?;
 
     let optimized_plan = ctx.optimize(&logical_plan)?;

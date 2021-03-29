@@ -19,6 +19,7 @@
 
 #include <cstdint>
 
+#include "arrow/util/endian.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 

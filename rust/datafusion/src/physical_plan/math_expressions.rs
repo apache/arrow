@@ -17,12 +17,11 @@
 
 //! Math expressions
 
-use std::sync::Arc;
-
-use arrow::array::{make_array, Array, ArrayData, ArrayRef, Float32Array, Float64Array};
+use arrow::array::{make_array, Array, ArrayData, Float32Array, Float64Array};
 use arrow::buffer::Buffer;
 use arrow::datatypes::{DataType, ToByteSlice};
 
+use super::{ColumnarValue, ScalarValue};
 use crate::error::{DataFusionError, Result};
 
 macro_rules! compute_op {
@@ -40,7 +39,7 @@ macro_rules! compute_op {
             vec![Buffer::from(result.to_byte_slice())],
             vec![],
         );
-        Ok(make_array(Arc::new(data)))
+        Ok(make_array(data))
     }};
 }
 
@@ -58,14 +57,35 @@ macro_rules! downcast_compute_op {
 }
 
 macro_rules! unary_primitive_array_op {
-    ($ARRAY:expr, $NAME:expr, $FUNC:ident) => {{
-        match ($ARRAY).data_type() {
-            DataType::Float32 => downcast_compute_op!($ARRAY, $NAME, $FUNC, Float32Array),
-            DataType::Float64 => downcast_compute_op!($ARRAY, $NAME, $FUNC, Float64Array),
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function {}",
-                other, $NAME,
-            ))),
+    ($VALUE:expr, $NAME:expr, $FUNC:ident) => {{
+        match ($VALUE) {
+            ColumnarValue::Array(array) => match array.data_type() {
+                DataType::Float32 => {
+                    let result = downcast_compute_op!(array, $NAME, $FUNC, Float32Array);
+                    Ok(ColumnarValue::Array(result?))
+                }
+                DataType::Float64 => {
+                    let result = downcast_compute_op!(array, $NAME, $FUNC, Float64Array);
+                    Ok(ColumnarValue::Array(result?))
+                }
+                other => Err(DataFusionError::Internal(format!(
+                    "Unsupported data type {:?} for function {}",
+                    other, $NAME,
+                ))),
+            },
+            ColumnarValue::Scalar(a) => match a {
+                ScalarValue::Float32(a) => Ok(ColumnarValue::Scalar(
+                    ScalarValue::Float64(a.map(|x| x.$FUNC() as f64)),
+                )),
+                ScalarValue::Float64(a) => Ok(ColumnarValue::Scalar(
+                    ScalarValue::Float64(a.map(|x| x.$FUNC())),
+                )),
+                _ => Err(DataFusionError::Internal(format!(
+                    "Unsupported data type {:?} for function {}",
+                    ($VALUE).data_type(),
+                    $NAME,
+                ))),
+            },
         }
     }};
 }
@@ -73,8 +93,8 @@ macro_rules! unary_primitive_array_op {
 macro_rules! math_unary_function {
     ($NAME:expr, $FUNC:ident) => {
         /// mathematical function that accepts f32 or f64 and returns f64
-        pub fn $FUNC(args: &[ArrayRef]) -> Result<ArrayRef> {
-            unary_primitive_array_op!(args[0], $NAME, $FUNC)
+        pub fn $FUNC(args: &[ColumnarValue]) -> Result<ColumnarValue> {
+            unary_primitive_array_op!(&args[0], $NAME, $FUNC)
         }
     };
 }

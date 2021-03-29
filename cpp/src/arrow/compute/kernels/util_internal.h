@@ -59,7 +59,8 @@ PrimitiveArg GetPrimitiveArg(const ArrayData& arr);
 // the original exec, then the only element of the resulting array will be extracted as
 // the output scalar. This could be far more efficient, but instead of optimizing this
 // it'd be better to support scalar inputs "upstream" in original exec.
-ArrayKernelExec TrivialScalarUnaryAsArraysExec(ArrayKernelExec exec);
+ArrayKernelExec TrivialScalarUnaryAsArraysExec(
+    ArrayKernelExec exec, NullHandling::type null_handling = NullHandling::INTERSECTION);
 
 }  // namespace internal
 }  // namespace compute

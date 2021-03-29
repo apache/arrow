@@ -17,6 +17,7 @@
 
 #include <gtest/gtest.h>
 #include <time.h>
+
 #include "../execution_context.h"
 #include "gandiva/precompiled/testing.h"
 #include "gandiva/precompiled/types.h"
@@ -94,6 +95,41 @@ TEST(TestTime, TestCastTimestamp) {
   EXPECT_EQ(castTIMESTAMP_date64(
                 castDATE_utf8(context_ptr, "2000-09-23 9:45:30.920 +08:00", 29)),
             castTIMESTAMP_utf8(context_ptr, "2000-09-23 0:00:00.000 +00:00", 29));
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.1", 20),
+            castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30", 18) + 100);
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.10", 20),
+            castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30", 18) + 100);
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30.100", 20),
+            castTIMESTAMP_utf8(context_ptr, "2000-09-23 9:45:30", 18) + 100);
+
+  // error cases
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 24:00:00", 19), 0);
+  EXPECT_EQ(context.get_error(),
+            "Not a valid time for timestamp value 2000-01-01 24:00:00");
+  context.Reset();
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:60:00", 19), 0);
+  EXPECT_EQ(context.get_error(),
+            "Not a valid time for timestamp value 2000-01-01 00:60:00");
+  context.Reset();
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:100", 20), 0);
+  EXPECT_EQ(context.get_error(),
+            "Not a valid time for timestamp value 2000-01-01 00:00:100");
+  context.Reset();
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.0001", 24), 0);
+  EXPECT_EQ(context.get_error(),
+            "Invalid millis for timestamp value 2000-01-01 00:00:00.0001");
+  context.Reset();
+
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.1000", 24), 0);
+  EXPECT_EQ(context.get_error(),
+            "Invalid millis for timestamp value 2000-01-01 00:00:00.1000");
+  context.Reset();
 }
 
 #ifndef _WIN32
@@ -661,6 +697,31 @@ TEST(TestTime, TestCastTimestampToDate) {
   gdv_timestamp ts = StringToTimestamp("2000-05-01 10:20:34");
   auto out = castDATE_timestamp(ts);
   EXPECT_EQ(StringToTimestamp("2000-05-01 00:00:00"), out);
+}
+
+TEST(TestTime, TestLastDay) {
+  // leap year test
+  gdv_timestamp ts = StringToTimestamp("2016-02-11 03:20:34");
+  auto out = last_day_from_timestamp(ts);
+  EXPECT_EQ(StringToTimestamp("2016-02-29 00:00:00"), out);
+
+  ts = StringToTimestamp("2016-02-29 23:59:59");
+  out = last_day_from_timestamp(ts);
+  EXPECT_EQ(StringToTimestamp("2016-02-29 00:00:00"), out);
+
+  ts = StringToTimestamp("2016-01-30 23:59:00");
+  out = last_day_from_timestamp(ts);
+  EXPECT_EQ(StringToTimestamp("2016-01-31 00:00:00"), out);
+
+  // normal year
+  ts = StringToTimestamp("2017-02-03 23:59:59");
+  out = last_day_from_timestamp(ts);
+  EXPECT_EQ(StringToTimestamp("2017-02-28 00:00:00"), out);
+
+  // december
+  ts = StringToTimestamp("2015-12-03 03:12:59");
+  out = last_day_from_timestamp(ts);
+  EXPECT_EQ(StringToTimestamp("2015-12-31 00:00:00"), out);
 }
 
 }  // namespace gandiva

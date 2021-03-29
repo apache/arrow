@@ -301,6 +301,169 @@ BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapVectorizeUnroll<int64_t>)
 #endif  // ARROW_WITH_BENCHMARKS_REFERENCE
 
 //
+// GroupBy
+//
+
+static void BenchmarkGroupBy(benchmark::State& state,
+                             std::vector<internal::Aggregate> aggregates,
+                             std::vector<Datum> arguments, std::vector<Datum> keys) {
+  for (auto _ : state) {
+    ABORT_NOT_OK(GroupBy(arguments, keys, aggregates).status());
+  }
+}
+
+#define GROUP_BY_BENCHMARK(Name, Impl)                               \
+  static void Name(benchmark::State& state) {                        \
+    RegressionArgs args(state, false);                               \
+    auto rng = random::RandomArrayGenerator(1923);                   \
+    (Impl)();                                                        \
+  }                                                                  \
+  BENCHMARK(Name)->Apply([](benchmark::internal::Benchmark* bench) { \
+    BenchmarkSetArgsWithSizes(bench, {1 * 1024 * 1024});             \
+  })
+
+GROUP_BY_BENCHMARK(SumDoublesGroupedByTinyStringSet, [&] {
+  auto summand = rng.Float64(args.size,
+                             /*min=*/0.0,
+                             /*max=*/1.0e14,
+                             /*null_probability=*/args.null_proportion,
+                             /*nan_probability=*/args.null_proportion / 10);
+
+  auto key = rng.StringWithRepeats(args.size,
+                                   /*unique=*/16,
+                                   /*min_length=*/3,
+                                   /*max_length=*/32);
+
+  BenchmarkGroupBy(state, {{"hash_sum", NULLPTR}}, {summand}, {key});
+});
+
+GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallStringSet, [&] {
+  auto summand = rng.Float64(args.size,
+                             /*min=*/0.0,
+                             /*max=*/1.0e14,
+                             /*null_probability=*/args.null_proportion,
+                             /*nan_probability=*/args.null_proportion / 10);
+
+  auto key = rng.StringWithRepeats(args.size,
+                                   /*unique=*/256,
+                                   /*min_length=*/3,
+                                   /*max_length=*/32);
+
+  BenchmarkGroupBy(state, {{"hash_sum", NULLPTR}}, {summand}, {key});
+});
+
+GROUP_BY_BENCHMARK(SumDoublesGroupedByMediumStringSet, [&] {
+  auto summand = rng.Float64(args.size,
+                             /*min=*/0.0,
+                             /*max=*/1.0e14,
+                             /*null_probability=*/args.null_proportion,
+                             /*nan_probability=*/args.null_proportion / 10);
+
+  auto key = rng.StringWithRepeats(args.size,
+                                   /*unique=*/4096,
+                                   /*min_length=*/3,
+                                   /*max_length=*/32);
+
+  BenchmarkGroupBy(state, {{"hash_sum", NULLPTR}}, {summand}, {key});
+});
+
+GROUP_BY_BENCHMARK(SumDoublesGroupedByTinyIntegerSet, [&] {
+  auto summand = rng.Float64(args.size,
+                             /*min=*/0.0,
+                             /*max=*/1.0e14,
+                             /*null_probability=*/args.null_proportion,
+                             /*nan_probability=*/args.null_proportion / 10);
+
+  auto key = rng.Int64(args.size,
+                       /*min=*/0,
+                       /*max=*/15);
+
+  BenchmarkGroupBy(state, {{"hash_sum", NULLPTR}}, {summand}, {key});
+});
+
+GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallIntegerSet, [&] {
+  auto summand = rng.Float64(args.size,
+                             /*min=*/0.0,
+                             /*max=*/1.0e14,
+                             /*null_probability=*/args.null_proportion,
+                             /*nan_probability=*/args.null_proportion / 10);
+
+  auto key = rng.Int64(args.size,
+                       /*min=*/0,
+                       /*max=*/255);
+
+  BenchmarkGroupBy(state, {{"hash_sum", NULLPTR}}, {summand}, {key});
+});
+
+GROUP_BY_BENCHMARK(SumDoublesGroupedByMediumIntegerSet, [&] {
+  auto summand = rng.Float64(args.size,
+                             /*min=*/0.0,
+                             /*max=*/1.0e14,
+                             /*null_probability=*/args.null_proportion,
+                             /*nan_probability=*/args.null_proportion / 10);
+
+  auto key = rng.Int64(args.size,
+                       /*min=*/0,
+                       /*max=*/4095);
+
+  BenchmarkGroupBy(state, {{"hash_sum", NULLPTR}}, {summand}, {key});
+});
+
+GROUP_BY_BENCHMARK(SumDoublesGroupedByTinyIntStringPairSet, [&] {
+  auto summand = rng.Float64(args.size,
+                             /*min=*/0.0,
+                             /*max=*/1.0e14,
+                             /*null_probability=*/args.null_proportion,
+                             /*nan_probability=*/args.null_proportion / 10);
+
+  auto int_key = rng.Int64(args.size,
+                           /*min=*/0,
+                           /*max=*/4);
+  auto str_key = rng.StringWithRepeats(args.size,
+                                       /*unique=*/4,
+                                       /*min_length=*/3,
+                                       /*max_length=*/32);
+
+  BenchmarkGroupBy(state, {{"hash_sum", NULLPTR}}, {summand}, {int_key, str_key});
+});
+
+GROUP_BY_BENCHMARK(SumDoublesGroupedBySmallIntStringPairSet, [&] {
+  auto summand = rng.Float64(args.size,
+                             /*min=*/0.0,
+                             /*max=*/1.0e14,
+                             /*null_probability=*/args.null_proportion,
+                             /*nan_probability=*/args.null_proportion / 10);
+
+  auto int_key = rng.Int64(args.size,
+                           /*min=*/0,
+                           /*max=*/15);
+  auto str_key = rng.StringWithRepeats(args.size,
+                                       /*unique=*/16,
+                                       /*min_length=*/3,
+                                       /*max_length=*/32);
+
+  BenchmarkGroupBy(state, {{"hash_sum", NULLPTR}}, {summand}, {int_key, str_key});
+});
+
+GROUP_BY_BENCHMARK(SumDoublesGroupedByMediumIntStringPairSet, [&] {
+  auto summand = rng.Float64(args.size,
+                             /*min=*/0.0,
+                             /*max=*/1.0e14,
+                             /*null_probability=*/args.null_proportion,
+                             /*nan_probability=*/args.null_proportion / 10);
+
+  auto int_key = rng.Int64(args.size,
+                           /*min=*/0,
+                           /*max=*/63);
+  auto str_key = rng.StringWithRepeats(args.size,
+                                       /*unique=*/64,
+                                       /*min_length=*/3,
+                                       /*max_length=*/32);
+
+  BenchmarkGroupBy(state, {{"hash_sum", NULLPTR}}, {summand}, {int_key, str_key});
+});
+
+//
 // Sum
 //
 
@@ -461,11 +624,23 @@ VARIANCE_KERNEL_BENCHMARK(VarianceKernelDouble, DoubleType);
 // Quantile
 //
 
+static std::vector<double> deciles() {
+  return {0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
+}
+
+static std::vector<double> centiles() {
+  std::vector<double> q(101);
+  for (int i = 0; i <= 100; ++i) {
+    q[i] = i / 100.0;
+  }
+  return q;
+}
+
 template <typename ArrowType>
-void QuantileKernelBench(benchmark::State& state, int min, int max) {
+void QuantileKernel(benchmark::State& state, int min, int max, std::vector<double> q) {
   using CType = typename TypeTraits<ArrowType>::CType;
 
-  QuantileOptions options;
+  QuantileOptions options(std::move(q));
   RegressionArgs args(state);
   const int64_t array_size = args.size / sizeof(CType);
   auto rand = random::RandomArrayGenerator(1926);
@@ -474,29 +649,90 @@ void QuantileKernelBench(benchmark::State& state, int min, int max) {
   for (auto _ : state) {
     ABORT_NOT_OK(Quantile(array, options).status());
   }
+  state.SetItemsProcessed(state.iterations() * array_size);
 }
 
-static void QuantileKernelBenchArgs(benchmark::internal::Benchmark* bench) {
+template <typename ArrowType>
+void QuantileKernelMedian(benchmark::State& state, int min, int max) {
+  QuantileKernel<ArrowType>(state, min, max, {0.5});
+}
+
+template <typename ArrowType>
+void QuantileKernelMedianWide(benchmark::State& state) {
+  QuantileKernel<ArrowType>(state, 0, 1 << 24, {0.5});
+}
+
+template <typename ArrowType>
+void QuantileKernelMedianNarrow(benchmark::State& state) {
+  QuantileKernel<ArrowType>(state, -30000, 30000, {0.5});
+}
+
+template <typename ArrowType>
+void QuantileKernelDecilesWide(benchmark::State& state) {
+  QuantileKernel<ArrowType>(state, 0, 1 << 24, deciles());
+}
+
+template <typename ArrowType>
+void QuantileKernelDecilesNarrow(benchmark::State& state) {
+  QuantileKernel<ArrowType>(state, -30000, 30000, deciles());
+}
+
+template <typename ArrowType>
+void QuantileKernelCentilesWide(benchmark::State& state) {
+  QuantileKernel<ArrowType>(state, 0, 1 << 24, centiles());
+}
+
+template <typename ArrowType>
+void QuantileKernelCentilesNarrow(benchmark::State& state) {
+  QuantileKernel<ArrowType>(state, -30000, 30000, centiles());
+}
+
+static void QuantileKernelArgs(benchmark::internal::Benchmark* bench) {
   BenchmarkSetArgsWithSizes(bench, {1 * 1024 * 1024});
 }
 
-#define QUANTILE_KERNEL_BENCHMARK_WIDE(FuncName, Type) \
-  static void FuncName(benchmark::State& state) {      \
-    QuantileKernelBench<Type>(state, 0, 1 << 24);      \
-  }                                                    \
-  BENCHMARK(FuncName)->Apply(QuantileKernelBenchArgs)
+BENCHMARK_TEMPLATE(QuantileKernelMedianNarrow, Int32Type)->Apply(QuantileKernelArgs);
+BENCHMARK_TEMPLATE(QuantileKernelMedianWide, Int32Type)->Apply(QuantileKernelArgs);
+BENCHMARK_TEMPLATE(QuantileKernelMedianNarrow, Int64Type)->Apply(QuantileKernelArgs);
+BENCHMARK_TEMPLATE(QuantileKernelMedianWide, Int64Type)->Apply(QuantileKernelArgs);
+BENCHMARK_TEMPLATE(QuantileKernelMedianWide, DoubleType)->Apply(QuantileKernelArgs);
 
-#define QUANTILE_KERNEL_BENCHMARK_NARROW(FuncName, Type) \
-  static void FuncName(benchmark::State& state) {        \
-    QuantileKernelBench<Type>(state, -30000, 30000);     \
-  }                                                      \
-  BENCHMARK(FuncName)->Apply(QuantileKernelBenchArgs)
+BENCHMARK_TEMPLATE(QuantileKernelDecilesNarrow, Int32Type)->Apply(QuantileKernelArgs);
+BENCHMARK_TEMPLATE(QuantileKernelDecilesWide, Int32Type)->Apply(QuantileKernelArgs);
+BENCHMARK_TEMPLATE(QuantileKernelDecilesWide, DoubleType)->Apply(QuantileKernelArgs);
 
-QUANTILE_KERNEL_BENCHMARK_WIDE(QuantileKernelInt32Wide, Int32Type);
-QUANTILE_KERNEL_BENCHMARK_NARROW(QuantileKernelInt32Narrow, Int32Type);
-QUANTILE_KERNEL_BENCHMARK_WIDE(QuantileKernelInt64Wide, Int64Type);
-QUANTILE_KERNEL_BENCHMARK_NARROW(QuantileKernelInt64Narrow, Int64Type);
-QUANTILE_KERNEL_BENCHMARK_WIDE(QuantileKernelDouble, DoubleType);
+BENCHMARK_TEMPLATE(QuantileKernelCentilesNarrow, Int32Type)->Apply(QuantileKernelArgs);
+BENCHMARK_TEMPLATE(QuantileKernelCentilesWide, Int32Type)->Apply(QuantileKernelArgs);
+BENCHMARK_TEMPLATE(QuantileKernelCentilesWide, DoubleType)->Apply(QuantileKernelArgs);
+
+static void TDigestKernelDouble(benchmark::State& state, std::vector<double> q) {
+  TDigestOptions options{std::move(q)};
+  RegressionArgs args(state);
+  const int64_t array_size = args.size / sizeof(double);
+  auto rand = random::RandomArrayGenerator(1926);
+  auto array = rand.Numeric<DoubleType>(array_size, 0, 1 << 24, args.null_proportion);
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(TDigest(array, options).status());
+  }
+  state.SetItemsProcessed(state.iterations() * array_size);
+}
+
+static void TDigestKernelDoubleMedian(benchmark::State& state) {
+  TDigestKernelDouble(state, {0.5});
+}
+
+static void TDigestKernelDoubleDeciles(benchmark::State& state) {
+  TDigestKernelDouble(state, deciles());
+}
+
+static void TDigestKernelDoubleCentiles(benchmark::State& state) {
+  TDigestKernelDouble(state, centiles());
+}
+
+BENCHMARK(TDigestKernelDoubleMedian)->Apply(QuantileKernelArgs);
+BENCHMARK(TDigestKernelDoubleDeciles)->Apply(QuantileKernelArgs);
+BENCHMARK(TDigestKernelDoubleCentiles)->Apply(QuantileKernelArgs);
 
 }  // namespace compute
 }  // namespace arrow

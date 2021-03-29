@@ -66,11 +66,14 @@ pub trait FileWriter {
     /// There is no limit on a number of row groups in a file; however, row groups have
     /// to be written sequentially. Every time the next row group is requested, the
     /// previous row group must be finalised and closed using `close_row_group` method.
-    fn next_row_group(&mut self) -> Result<Box<RowGroupWriter>>;
+    fn next_row_group(&mut self) -> Result<Box<dyn RowGroupWriter>>;
 
     /// Finalises and closes row group that was created using `next_row_group` method.
     /// After calling this method, the next row group is available for writes.
-    fn close_row_group(&mut self, row_group_writer: Box<RowGroupWriter>) -> Result<()>;
+    fn close_row_group(
+        &mut self,
+        row_group_writer: Box<dyn RowGroupWriter>,
+    ) -> Result<()>;
 
     /// Closes and finalises file writer.
     ///
@@ -165,7 +168,7 @@ impl<W: ParquetWriter> SerializedFileWriter<W> {
     /// Finalises active row group writer, otherwise no-op.
     fn finalise_row_group_writer(
         &mut self,
-        mut row_group_writer: Box<RowGroupWriter>,
+        mut row_group_writer: Box<dyn RowGroupWriter>,
     ) -> Result<()> {
         let row_group_metadata = row_group_writer.close()?;
         self.total_num_rows += row_group_metadata.num_rows();
@@ -229,7 +232,7 @@ impl<W: ParquetWriter> SerializedFileWriter<W> {
 
 impl<W: 'static + ParquetWriter> FileWriter for SerializedFileWriter<W> {
     #[inline]
-    fn next_row_group(&mut self) -> Result<Box<RowGroupWriter>> {
+    fn next_row_group(&mut self) -> Result<Box<dyn RowGroupWriter>> {
         self.assert_closed()?;
         self.assert_previous_writer_closed()?;
         let row_group_writer = SerializedRowGroupWriter::new(
@@ -242,7 +245,10 @@ impl<W: 'static + ParquetWriter> FileWriter for SerializedFileWriter<W> {
     }
 
     #[inline]
-    fn close_row_group(&mut self, row_group_writer: Box<RowGroupWriter>) -> Result<()> {
+    fn close_row_group(
+        &mut self,
+        row_group_writer: Box<dyn RowGroupWriter>,
+    ) -> Result<()> {
         self.assert_closed()?;
         let res = self.finalise_row_group_writer(row_group_writer);
         self.previous_writer_closed = res.is_ok();
@@ -533,11 +539,11 @@ mod tests {
 
     use std::{fs::File, io::Cursor};
 
-    use crate::basic::{Compression, Encoding, Repetition, Type};
+    use crate::basic::{Compression, Encoding, IntType, LogicalType, Repetition, Type};
     use crate::column::page::PageReader;
     use crate::compression::{create_codec, Codec};
     use crate::file::{
-        properties::WriterProperties,
+        properties::{WriterProperties, WriterVersion},
         reader::{FileReader, SerializedFileReader, SerializedPageReader},
         statistics::{from_thrift, to_thrift, Statistics},
     };
@@ -720,6 +726,59 @@ mod tests {
                 .len(),
             1
         );
+    }
+
+    #[test]
+    fn test_file_writer_v2_with_metadata() {
+        let file = get_temp_file("test_file_writer_v2_write_with_metadata", &[]);
+        let field_logical_type = Some(LogicalType::INTEGER(IntType {
+            bit_width: 8,
+            is_signed: false,
+        }));
+        let field = Arc::new(
+            types::Type::primitive_type_builder("col1", Type::INT32)
+                .with_logical_type(field_logical_type.clone())
+                .with_converted_type(field_logical_type.into())
+                .build()
+                .unwrap(),
+        );
+        let schema = Arc::new(
+            types::Type::group_type_builder("schema")
+                .with_fields(&mut vec![field.clone()])
+                .build()
+                .unwrap(),
+        );
+        let props = Arc::new(
+            WriterProperties::builder()
+                .set_key_value_metadata(Some(vec![KeyValue::new(
+                    "key".to_string(),
+                    "value".to_string(),
+                )]))
+                .set_writer_version(WriterVersion::PARQUET_2_0)
+                .build(),
+        );
+        let mut writer =
+            SerializedFileWriter::new(file.try_clone().unwrap(), schema, props).unwrap();
+        writer.close().unwrap();
+
+        let reader = SerializedFileReader::new(file).unwrap();
+
+        assert_eq!(
+            reader
+                .metadata()
+                .file_metadata()
+                .key_value_metadata()
+                .to_owned()
+                .unwrap()
+                .len(),
+            1
+        );
+
+        // ARROW-11803: Test that the converted and logical types have been populated
+        let fields = reader.metadata().file_metadata().schema().get_fields();
+        assert_eq!(fields.len(), 1);
+        let read_field = fields.get(0).unwrap();
+        assert_eq!(read_field, &field);
     }
 
     #[test]
@@ -940,7 +999,7 @@ mod tests {
     }
 
     /// Helper function to compress a slice
-    fn compress_helper(compressor: Option<&mut Box<Codec>>, data: &[u8]) -> Vec<u8> {
+    fn compress_helper(compressor: Option<&mut Box<dyn Codec>>, data: &[u8]) -> Vec<u8> {
         let mut output_buf = vec![];
         if let Some(cmpr) = compressor {
             cmpr.compress(data, &mut output_buf).unwrap();

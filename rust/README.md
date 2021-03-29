@@ -21,7 +21,7 @@
 
 [![Coverage Status](https://codecov.io/gh/apache/arrow/rust/branch/master/graph/badge.svg)](https://codecov.io/gh/apache/arrow?branch=master)
 
-Welcome to the implementation of Arrow, the popular in-memory columnar format, in Rust.
+Welcome to the implementation of Arrow, the popular in-memory columnar format, in [Rust](https://www.rust-lang.org/).
 
 This part of the Arrow project is divided in 4 main components:
 
@@ -34,9 +34,9 @@ This part of the Arrow project is divided in 4 main components:
 
 Independently, they support a vast array of functionality for in-memory computations.
 
-Together, they allow users to write an SQL query or a `DataFrame` (using `datafusion` crate), run it against a parquet file (using `parquet` crate), evaluate it in-memory using Arrow's columnar format (using the `arrow` crate), and send to another process (using `arrow-flight` crate).
+Together, they allow users to write an SQL query or a `DataFrame` (using the `datafusion` crate), run it against a parquet file (using the `parquet` crate), evaluate it in-memory using Arrow's columnar format (using the `arrow` crate), and send to another process (using the `arrow-flight` crate).
 
-Generally speaking, the `arrow` crate offers the  functionality to develop code that uses Arrow arrays, and `datafusion` offers most operations typically found in SQL, with the notable exceptions of:
+Generally speaking, the `arrow` crate offers functionality to develop code that uses Arrow arrays, and `datafusion` offers most operations typically found in SQL, with the notable exceptions of:
 
 * `join`
 * `window` functions
@@ -48,7 +48,21 @@ There are too many features to enumerate here, but some notable mentions:
 * `DataFusion` supports `async` execution
 * `DataFusion` supports user-defined functions, aggregates, and whole execution nodes
 
-You can find more details about each crate on their respective READMEs.
+You can find more details about each crate in their respective READMEs.
+
+## Arrow Rust Community
+
+We use the official [ASF Slack](https://s.apache.org/slack-invite) for informal discussions and coordination. This is 
+a great place to meet other contributors and get guidance on where to contribute. Join us in the `arrow-rust` channel.
+
+We use [ASF JIRA](https://issues.apache.org/jira/secure/Dashboard.jspa) as the system of record for new features
+and bug fixes and this plays a critical role in the release process.
+
+For design discussions we generally collaborate on Google documents and file a JIRA linking to the document.
+
+There is also a bi-weekly Rust-specific sync call for the Arrow Rust community. This is hosted on Google Meet
+at https://meet.google.com/ctp-yujs-aee on alternate Wednesday's at 09:00 US/Pacific, 12:00 US/Eastern. During 
+US daylight savings time this corresponds to 16:00 UTC and at other times this is 17:00 UTC.
 
 ## Developer's guide to Arrow Rust
 
@@ -69,7 +83,7 @@ docker run --rm -v $(pwd)/rust:/rust -it rust /bin/bash -c "cd /rust && cargo bu
 The command above assumes that are in the root directory of the project, not in the same
 directory as this README.md.
 
-You can also compile specific workspaces,
+You can also compile specific workspaces:
 
 ```bash
 cd /rust/arrow && cargo build
@@ -93,8 +107,7 @@ This populates data in two git submodules:
 - `../testing` (sourced from https://github.com/apache/arrow-testing)
 
 By default, `cargo test` will look for these directories at their
-standard location. The following Env vars can be used to override the
-location should you choose
+standard location. The following environment variables can be used to override the location:
 
 ```bash
 # Optionaly specify a different location for test data

@@ -75,6 +75,7 @@ open_dataset <- function(sources,
       }
     }
     # Enforce that all datasets have the same schema
+    assert_is(schema, "Schema")
     sources <- lapply(sources, function(x) {
       x$schema <- schema
       x

@@ -27,16 +27,17 @@
 
 #include "arrow/io/caching.h"
 #include "arrow/io/file.h"
+#include "arrow/io/memory.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
-#include "parquet/deprecated_io.h"
-#include "parquet/encryption_internal.h"
+#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
 #include "parquet/file_writer.h"
-#include "parquet/internal_file_decryptor.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
@@ -249,10 +250,10 @@ class SerializedFile : public ParquetFileReader::Contents {
     file_metadata_ = std::move(metadata);
   }
 
-  void PreBuffer(const std::vector<int>& row_groups,
-                 const std::vector<int>& column_indices,
-                 const ::arrow::io::AsyncContext& ctx,
-                 const ::arrow::io::CacheOptions& options) {
+  ::arrow::Future<> PreBuffer(const std::vector<int>& row_groups,
+                              const std::vector<int>& column_indices,
+                              const ::arrow::io::IOContext& ctx,
+                              const ::arrow::io::CacheOptions& options) {
     cached_source_ =
         std::make_shared<::arrow::io::internal::ReadRangeCache>(source_, ctx, options);
     std::vector<::arrow::io::ReadRange> ranges;
@@ -263,6 +264,7 @@ class SerializedFile : public ParquetFileReader::Contents {
       }
     }
     PARQUET_THROW_NOT_OK(cached_source_->Cache(ranges));
+    return cached_source_->Wait();
   }
 
   void ParseMetaData() {
@@ -546,13 +548,6 @@ std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
   return result;
 }
 
-std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
-    std::unique_ptr<RandomAccessSource> source, const ReaderProperties& props,
-    std::shared_ptr<FileMetaData> metadata) {
-  auto wrapper = std::make_shared<ParquetInputWrapper>(std::move(source));
-  return Open(std::move(wrapper), props, std::move(metadata));
-}
-
 std::unique_ptr<ParquetFileReader> ParquetFileReader::OpenFile(
     const std::string& path, bool memory_map, const ReaderProperties& props,
     std::shared_ptr<FileMetaData> metadata) {
@@ -592,14 +587,14 @@ std::shared_ptr<RowGroupReader> ParquetFileReader::RowGroup(int i) {
   return contents_->GetRowGroup(i);
 }
 
-void ParquetFileReader::PreBuffer(const std::vector<int>& row_groups,
-                                  const std::vector<int>& column_indices,
-                                  const ::arrow::io::AsyncContext& ctx,
-                                  const ::arrow::io::CacheOptions& options) {
+::arrow::Future<> ParquetFileReader::PreBuffer(const std::vector<int>& row_groups,
+                                               const std::vector<int>& column_indices,
+                                               const ::arrow::io::IOContext& ctx,
+                                               const ::arrow::io::CacheOptions& options) {
   // Access private methods here
   SerializedFile* file =
       ::arrow::internal::checked_cast<SerializedFile*>(contents_.get());
-  file->PreBuffer(row_groups, column_indices, ctx, options);
+  return file->PreBuffer(row_groups, column_indices, ctx, options);
 }
 
 // ----------------------------------------------------------------------

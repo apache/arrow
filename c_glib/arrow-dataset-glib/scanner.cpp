@@ -27,6 +27,7 @@
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
 
+#include <arrow-dataset-glib/fragment.hpp>
 #include <arrow-dataset-glib/scanner.hpp>
 
 G_BEGIN_DECLS
@@ -37,8 +38,6 @@ G_BEGIN_DECLS
  * @title: Scanner classes
  * @include: arrow-dataset-glib/arrow-dataset-glib.h
  *
- * #GADScanContext is a class for a scan context.
- *
  * #GADScanOptions is a class for a set of scan options.
  *
  * #GADScanTask is an abstract class for a scan task.
@@ -47,131 +46,6 @@ G_BEGIN_DECLS
  *
  * Since: 1.0.0
  */
-
-/* arrow::dataset::ScanContext */
-
-typedef struct GADScanContextPrivate_ {
-  std::shared_ptr<arrow::dataset::ScanContext> scan_context;
-} GADScanContextPrivate;
-
-enum {
-  PROP_SCAN_CONTEXT = 1,
-  PROP_USE_THREADS,
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GADScanContext,
-                           gad_scan_context,
-                           G_TYPE_OBJECT)
-
-#define GAD_SCAN_CONTEXT_GET_PRIVATE(obj)       \
-  static_cast<GADScanContextPrivate *>(         \
-    gad_scan_context_get_instance_private(      \
-      GAD_SCAN_CONTEXT(obj)))
-
-static void
-gad_scan_context_finalize(GObject *object)
-{
-  auto priv = GAD_SCAN_CONTEXT_GET_PRIVATE(object);
-
-  priv->scan_context.~shared_ptr();
-
-  G_OBJECT_CLASS(gad_scan_context_parent_class)->finalize(object);
-}
-
-static void
-gad_scan_context_set_property(GObject *object,
-                              guint prop_id,
-                              const GValue *value,
-                              GParamSpec *pspec)
-{
-  auto priv = GAD_SCAN_CONTEXT_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_SCAN_CONTEXT:
-    priv->scan_context =
-      *static_cast<std::shared_ptr<arrow::dataset::ScanContext> *>(g_value_get_pointer(value));
-    break;
-  case PROP_USE_THREADS:
-    priv->scan_context->use_threads = g_value_get_boolean(value);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
-gad_scan_context_get_property(GObject *object,
-                              guint prop_id,
-                              GValue *value,
-                              GParamSpec *pspec)
-{
-  auto priv = GAD_SCAN_CONTEXT_GET_PRIVATE(object);
-
-  switch (prop_id) {
-  case PROP_USE_THREADS:
-    g_value_set_boolean(value, priv->scan_context->use_threads);
-    break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-    break;
-  }
-}
-
-static void
-gad_scan_context_init(GADScanContext *object)
-{
-  auto priv = GAD_SCAN_CONTEXT_GET_PRIVATE(object);
-  new(&priv->scan_context) std::shared_ptr<arrow::dataset::ScanContext>;
-}
-
-static void
-gad_scan_context_class_init(GADScanContextClass *klass)
-{
-  auto gobject_class = G_OBJECT_CLASS(klass);
-
-  gobject_class->finalize     = gad_scan_context_finalize;
-  gobject_class->set_property = gad_scan_context_set_property;
-  gobject_class->get_property = gad_scan_context_get_property;
-
-  auto scan_context = arrow::dataset::ScanContext();
-
-  GParamSpec *spec;
-  spec = g_param_spec_pointer("scan-context",
-                              "ScanContext",
-                              "The raw std::shared<arrow::dataset::ScanContext> *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_SCAN_CONTEXT, spec);
-
-  /**
-   * GADScanContext:use-threads:
-   *
-   * Indicate if the Scanner should make use of a ThreadPool.
-   *
-   * Since: 1.0.0
-   */
-  spec = g_param_spec_boolean("use-threads",
-                              "Use threads",
-                              "Indicate if the Scanner should make use of a ThreadPool",
-                              scan_context.use_threads,
-                              static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class, PROP_USE_THREADS, spec);
-}
-
-/**
- * gad_scan_context_new:
- *
- * Returns: A newly created #GADScanContext.
- *
- * Since: 1.0.0
- */
-GADScanContext *
-gad_scan_context_new(void)
-{
-  auto arrow_scan_context = std::make_shared<arrow::dataset::ScanContext>();
-  return gad_scan_context_new_raw(&arrow_scan_context);
-}
 
 /* arrow::dataset::ScanOptions */
 
@@ -185,6 +59,7 @@ enum {
   PROP_EVALUATOR,
   PROP_PROJECTOR,
   PROP_BATCH_SIZE,
+  PROP_USE_THREADS,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GADScanOptions,
@@ -222,6 +97,9 @@ gad_scan_options_set_property(GObject *object,
   case PROP_BATCH_SIZE:
     priv->scan_options->batch_size = g_value_get_int64(value);
     break;
+  case PROP_USE_THREADS:
+    priv->scan_options->use_threads = g_value_get_boolean(value);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -239,6 +117,9 @@ gad_scan_options_get_property(GObject *object,
   switch (prop_id) {
   case PROP_BATCH_SIZE:
     g_value_set_int64(value, priv->scan_options->batch_size);
+    break;
+  case PROP_USE_THREADS:
+    g_value_set_boolean(value, priv->scan_options->use_threads);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -265,7 +146,7 @@ gad_scan_options_class_init(GADScanOptionsClass *klass)
   gobject_class->set_property = gad_scan_options_set_property;
   gobject_class->get_property = gad_scan_options_get_property;
 
-  auto scan_options = arrow::dataset::ScanOptions::Make(arrow::schema({}));
+  auto scan_options = std::make_shared<arrow::dataset::ScanOptions>();
 
   spec = g_param_spec_pointer("scan-options",
                               "ScanOptions",
@@ -293,6 +174,20 @@ gad_scan_options_class_init(GADScanOptionsClass *klass)
                             scan_options->batch_size,
                             static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_BATCH_SIZE, spec);
+
+  /**
+   * GADScanOptions:use-threads:
+   *
+   * Indicate if the Scanner should make use of a ThreadPool.
+   *
+   * Since: 4.0.0
+   */
+  spec = g_param_spec_boolean("use-threads",
+                              "Use threads",
+                              "Indicate if the Scanner should make use of a ThreadPool",
+                              scan_options->use_threads,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_USE_THREADS, spec);
 }
 
 /**
@@ -307,7 +202,8 @@ GADScanOptions *
 gad_scan_options_new(GArrowSchema *schema)
 {
   auto arrow_schema = garrow_schema_get_raw(schema);
-  auto arrow_scan_options = arrow::dataset::ScanOptions::Make(arrow_schema);
+  auto arrow_scan_options = std::make_shared<arrow::dataset::ScanOptions>();
+  arrow_scan_options->dataset_schema = arrow_schema;
   return gad_scan_options_new_raw(&arrow_scan_options);
 }
 
@@ -323,28 +219,8 @@ GArrowSchema *
 gad_scan_options_get_schema(GADScanOptions *scan_options)
 {
   auto priv = GAD_SCAN_OPTIONS_GET_PRIVATE(scan_options);
-  auto arrow_schema = priv->scan_options->schema();
+  auto arrow_schema = priv->scan_options->dataset_schema;
   return garrow_schema_new_raw(&arrow_schema);
-}
-
-/**
- * gad_scan_options_replace_schema:
- * @scan_options: A #GADScanOptions.
- * @schema: A #GArrowSchema.
- *
- * Returns: (transfer full):
- *   A copy of the #GADScanOptions with the given #GArrowSchema.
- *
- * Since: 1.0.0
- */
-GADScanOptions *
-gad_scan_options_replace_schema(GADScanOptions *scan_options,
-                                GArrowSchema *schema)
-{
-  auto priv = GAD_SCAN_OPTIONS_GET_PRIVATE(scan_options);
-  auto arrow_schema = garrow_schema_get_raw(schema);
-  auto arrow_scan_options_copy = priv->scan_options->ReplaceSchema(arrow_schema);
-  return gad_scan_options_new_raw(&arrow_scan_options_copy);
 }
 
 /* arrow::dataset::ScanTask */
@@ -352,13 +228,13 @@ gad_scan_options_replace_schema(GADScanOptions *scan_options,
 typedef struct GADScanTaskPrivate_ {
   std::shared_ptr<arrow::dataset::ScanTask> scan_task;
   GADScanOptions *options;
-  GADScanContext *context;
+  GADFragment *fragment;
 } GADScanTaskPrivate;
 
 enum {
   PROP_SCAN_TASK = 1,
   PROP_OPTIONS,
-  PROP_CONTEXT,
+  PROP_FRAGMENT,
 };
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GADScanTask,
@@ -380,9 +256,9 @@ gad_scan_task_dispose(GObject *object)
     priv->options = NULL;
   }
 
-  if (priv->context) {
-    g_object_unref(priv->context);
-    priv->context = NULL;
+  if (priv->fragment) {
+    g_object_unref(priv->fragment);
+    priv->fragment = NULL;
   }
 
   G_OBJECT_CLASS(gad_scan_task_parent_class)->dispose(object);
@@ -414,8 +290,8 @@ gad_scan_task_set_property(GObject *object,
   case PROP_OPTIONS:
     priv->options = GAD_SCAN_OPTIONS(g_value_dup_object(value));
     break;
-  case PROP_CONTEXT:
-    priv->context = GAD_SCAN_CONTEXT(g_value_dup_object(value));
+  case PROP_FRAGMENT:
+    priv->fragment = GAD_FRAGMENT(g_value_dup_object(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -435,8 +311,8 @@ gad_scan_task_get_property(GObject *object,
   case PROP_OPTIONS:
     g_value_set_object(value, priv->options);
     break;
-  case PROP_CONTEXT:
-    g_value_set_object(value, priv->context);
+  case PROP_FRAGMENT:
+    g_value_set_object(value, priv->fragment);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -485,19 +361,19 @@ gad_scan_task_class_init(GADScanTaskClass *klass)
   g_object_class_install_property(gobject_class, PROP_OPTIONS, spec);
 
   /**
-   * GADScanTask:context:
+   * GADScanTask:fragment:
    *
-   * The context of the scan task.
+   * The fragment of the scan task.
    *
-   * Since: 1.0.0
+   * Since: 4.0.0
    */
-  spec = g_param_spec_object("context",
-                             "Context",
-                             "The context of the scan task",
-                             GAD_TYPE_SCAN_CONTEXT,
+  spec = g_param_spec_object("fragment",
+                             "Fragment",
+                             "The fragment of the scan task",
+                             GAD_TYPE_FRAGMENT,
                              static_cast<GParamFlags>(G_PARAM_READWRITE |
                                                       G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_CONTEXT, spec);
+  g_object_class_install_property(gobject_class, PROP_FRAGMENT, spec);
 }
 
 /**
@@ -522,24 +398,24 @@ gad_scan_task_get_options(GADScanTask *scan_task)
 }
 
 /**
- * gad_scan_task_get_context:
- * @scan_task: A #GADScanTask.
+ * gad_scan_task_get_fragment:
+ * @scan_task: A #GADFragment.
  *
- * Returns: (transfer full): A #GADScanContext.
+ * Returns: (transfer full): A #GADFragment.
  *
- * Since: 1.0.0
+ * Since: 4.0.0
  */
-GADScanContext *
-gad_scan_task_get_context(GADScanTask *scan_task)
+GADFragment *
+gad_scan_task_get_fragment(GADScanTask *scan_task)
 {
   auto priv = GAD_SCAN_TASK_GET_PRIVATE(scan_task);
-  if (priv->context) {
-    g_object_ref(priv->context);
-    return priv->context;
+  if (priv->fragment) {
+    g_object_ref(priv->fragment);
+    return priv->fragment;
   }
 
-  auto arrow_context = priv->scan_task->context();
-  return gad_scan_context_new_raw(&arrow_context);
+  auto arrow_fragment = priv->scan_task->fragment();
+  return gad_fragment_new_raw(&arrow_fragment);
 }
 
 /**
@@ -587,7 +463,7 @@ gad_in_memory_scan_task_class_init(GADInMemoryScanTaskClass *klass)
  *   (element-type GArrowRecordBatch): The record batches of the table.
  * @n_record_batches: The number of record batches.
  * @options: A #GADScanOptions.
- * @context: A #GADScanContext.
+ * @fragment: A #GADInMemoryFragment.
  *
  * Returns: A newly created #GADInMemoryScanTask.
  *
@@ -597,7 +473,7 @@ GADInMemoryScanTask *
 gad_in_memory_scan_task_new(GArrowRecordBatch **record_batches,
                             gsize n_record_batches,
                             GADScanOptions *options,
-                            GADScanContext *context)
+                            GADInMemoryFragment *fragment)
 {
   std::vector<std::shared_ptr<arrow::RecordBatch>> arrow_record_batches;
   arrow_record_batches.reserve(n_record_batches);
@@ -606,34 +482,17 @@ gad_in_memory_scan_task_new(GArrowRecordBatch **record_batches,
     arrow_record_batches.push_back(arrow_record_batch);
   }
   auto arrow_options = gad_scan_options_get_raw(options);
-  auto arrow_context = gad_scan_context_get_raw(context);
+  auto arrow_fragment = gad_fragment_get_raw(GAD_FRAGMENT(fragment));
   auto arrow_in_memory_scan_task =
     std::make_shared<arrow::dataset::InMemoryScanTask>(arrow_record_batches,
                                                        arrow_options,
-                                                       arrow_context);
+                                                       arrow_fragment);
   return gad_in_memory_scan_task_new_raw(&arrow_in_memory_scan_task,
                                          options,
-                                         context);
+                                         fragment);
 }
 
 G_END_DECLS
-
-GADScanContext *
-gad_scan_context_new_raw(std::shared_ptr<arrow::dataset::ScanContext> *arrow_scan_context)
-{
-  auto scan_context =
-    GAD_SCAN_CONTEXT(g_object_new(GAD_TYPE_SCAN_CONTEXT,
-                                  "scan-context", arrow_scan_context,
-                                  NULL));
-  return scan_context;
-}
-
-std::shared_ptr<arrow::dataset::ScanContext>
-gad_scan_context_get_raw(GADScanContext *scan_context)
-{
-  auto priv = GAD_SCAN_CONTEXT_GET_PRIVATE(scan_context);
-  return priv->scan_context;
-}
 
 GADScanOptions *
 gad_scan_options_new_raw(std::shared_ptr<arrow::dataset::ScanOptions> *arrow_scan_options)
@@ -655,13 +514,13 @@ gad_scan_options_get_raw(GADScanOptions *scan_options)
 GADInMemoryScanTask *
 gad_in_memory_scan_task_new_raw(std::shared_ptr<arrow::dataset::InMemoryScanTask> *arrow_in_memory_scan_task,
                                 GADScanOptions *options,
-                                GADScanContext *context)
+                                GADInMemoryFragment *fragment)
 {
   auto in_memory_scan_task =
     GAD_IN_MEMORY_SCAN_TASK(g_object_new(GAD_TYPE_IN_MEMORY_SCAN_TASK,
                                          "scan-task", arrow_in_memory_scan_task,
                                          "options", options,
-                                         "context", context,
+                                         "fragment", fragment,
                                          NULL));
   return in_memory_scan_task;
 }

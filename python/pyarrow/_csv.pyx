@@ -30,10 +30,13 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (check_status, Field, MemoryPool, Schema,
                           RecordBatchReader, ensure_type,
                           maybe_unbox_memory_pool, get_input_stream,
-                          native_transcoding_input_stream,
+                          get_writer, native_transcoding_input_stream,
+                          pyarrow_unwrap_batch, pyarrow_unwrap_table,
                           pyarrow_wrap_schema, pyarrow_wrap_table,
-                          pyarrow_wrap_data_type, pyarrow_unwrap_data_type)
-from pyarrow.lib import frombytes, tobytes
+                          pyarrow_wrap_data_type, pyarrow_unwrap_data_type,
+                          Table, RecordBatch, StopToken)
+from pyarrow.lib import frombytes, tobytes, SignalStopHandler
+from pyarrow.util import _stringify_path
 
 
 cdef unsigned char _single_char(s) except 0:
@@ -70,9 +73,6 @@ cdef class ReadOptions(_Weakrefable):
         The character encoding of the CSV data.  Columns that cannot
         decode using this encoding can still be read as Binary.
     """
-    cdef:
-        CCSVReadOptions options
-        public object encoding
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
@@ -157,6 +157,40 @@ cdef class ReadOptions(_Weakrefable):
     @autogenerate_column_names.setter
     def autogenerate_column_names(self, value):
         self.options.autogenerate_column_names = value
+
+    def equals(self, ReadOptions other):
+        return (
+            self.use_threads == other.use_threads and
+            self.block_size == other.block_size and
+            self.skip_rows == other.skip_rows and
+            self.column_names == other.column_names and
+            self.autogenerate_column_names ==
+            other.autogenerate_column_names and
+            self.encoding == other.encoding
+        )
+
+    @staticmethod
+    cdef ReadOptions wrap(CCSVReadOptions options):
+        out = ReadOptions()
+        out.options = options
+        out.encoding = 'utf8'  # No way to know this
+        return out
+
+    def __getstate__(self):
+        return (self.use_threads, self.block_size, self.skip_rows,
+                self.column_names, self.autogenerate_column_names,
+                self.encoding)
+
+    def __setstate__(self, state):
+        (self.use_threads, self.block_size, self.skip_rows,
+         self.column_names, self.autogenerate_column_names,
+         self.encoding) = state
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return False
 
 
 cdef class ParseOptions(_Weakrefable):
@@ -317,6 +351,12 @@ cdef class ParseOptions(_Weakrefable):
          self.escape_char, self.newlines_in_values,
          self.ignore_empty_lines) = state
 
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return False
+
 
 cdef class _ISO8601(_Weakrefable):
     """
@@ -388,9 +428,6 @@ cdef class ConvertOptions(_Weakrefable):
         `column_types`, or null by default).
         This option is ignored if `include_columns` is empty.
     """
-    cdef:
-        CCSVConvertOptions options
-
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
@@ -600,6 +637,48 @@ cdef class ConvertOptions(_Weakrefable):
 
         self.options.timestamp_parsers = move(c_parsers)
 
+    @staticmethod
+    cdef ConvertOptions wrap(CCSVConvertOptions options):
+        out = ConvertOptions()
+        out.options = options
+        return out
+
+    def equals(self, ConvertOptions other):
+        return (
+            self.check_utf8 == other.check_utf8 and
+            self.column_types == other.column_types and
+            self.null_values == other.null_values and
+            self.true_values == other.true_values and
+            self.false_values == other.false_values and
+            self.timestamp_parsers == other.timestamp_parsers and
+            self.strings_can_be_null == other.strings_can_be_null and
+            self.auto_dict_encode == other.auto_dict_encode and
+            self.auto_dict_max_cardinality ==
+            other.auto_dict_max_cardinality and
+            self.include_columns == other.include_columns and
+            self.include_missing_columns == other.include_missing_columns
+        )
+
+    def __getstate__(self):
+        return (self.check_utf8, self.column_types, self.null_values,
+                self.true_values, self.false_values, self.timestamp_parsers,
+                self.strings_can_be_null, self.auto_dict_encode,
+                self.auto_dict_max_cardinality, self.include_columns,
+                self.include_missing_columns)
+
+    def __setstate__(self, state):
+        (self.check_utf8, self.column_types, self.null_values,
+         self.true_values, self.false_values, self.timestamp_parsers,
+         self.strings_can_be_null, self.auto_dict_encode,
+         self.auto_dict_max_cardinality, self.include_columns,
+         self.include_missing_columns) = state
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return False
+
 
 cdef _get_reader(input_file, ReadOptions read_options,
                  shared_ptr[CInputStream]* out):
@@ -646,18 +725,27 @@ cdef class CSVStreamingReader(RecordBatchReader):
                         "use pyarrow.csv.open_csv() instead."
                         .format(self.__class__.__name__))
 
+    # Note about cancellation: we cannot create a SignalStopHandler
+    # by default here, as several CSVStreamingReader instances may be
+    # created (including by the same thread).  Handling cancellation
+    # would require having the user pass the SignalStopHandler.
+    # (in addition to solving ARROW-11853)
+
     cdef _open(self, shared_ptr[CInputStream] stream,
                CCSVReadOptions c_read_options,
                CCSVParseOptions c_parse_options,
                CCSVConvertOptions c_convert_options,
-               CMemoryPool* c_memory_pool):
+               MemoryPool memory_pool):
         cdef:
             shared_ptr[CSchema] c_schema
+            CIOContext io_context
+
+        io_context = CIOContext(maybe_unbox_memory_pool(memory_pool))
 
         with nogil:
             self.reader = <shared_ptr[CRecordBatchReader]> GetResultValue(
                 CCSVStreamingReader.Make(
-                    c_memory_pool, stream,
+                    io_context, stream,
                     move(c_read_options), move(c_parse_options),
                     move(c_convert_options)))
             c_schema = self.reader.get().schema()
@@ -698,6 +786,7 @@ def read_csv(input_file, read_options=None, parse_options=None,
         CCSVReadOptions c_read_options
         CCSVParseOptions c_parse_options
         CCSVConvertOptions c_convert_options
+        CIOContext io_context
         shared_ptr[CCSVReader] reader
         shared_ptr[CTable] table
 
@@ -706,12 +795,16 @@ def read_csv(input_file, read_options=None, parse_options=None,
     _get_parse_options(parse_options, &c_parse_options)
     _get_convert_options(convert_options, &c_convert_options)
 
-    reader = GetResultValue(CCSVReader.Make(
-        maybe_unbox_memory_pool(memory_pool), stream,
-        c_read_options, c_parse_options, c_convert_options))
+    with SignalStopHandler() as stop_handler:
+        io_context = CIOContext(
+            maybe_unbox_memory_pool(memory_pool),
+            (<StopToken> stop_handler.stop_token).stop_token)
+        reader = GetResultValue(CCSVReader.Make(
+            io_context, stream,
+            c_read_options, c_parse_options, c_convert_options))
 
-    with nogil:
-        table = GetResultValue(reader.get().Read())
+        with nogil:
+            table = GetResultValue(reader.get().Read())
 
     return pyarrow_wrap_table(table)
 
@@ -759,6 +852,101 @@ def open_csv(input_file, read_options=None, parse_options=None,
 
     reader = CSVStreamingReader.__new__(CSVStreamingReader)
     reader._open(stream, move(c_read_options), move(c_parse_options),
-                 move(c_convert_options),
-                 maybe_unbox_memory_pool(memory_pool))
+                 move(c_convert_options), memory_pool)
     return reader
+
+
+cdef class WriteOptions(_Weakrefable):
+    """
+    Options for writing CSV files.
+
+    Parameters
+    ----------
+    include_header : bool, optional (default True)
+        Whether to write an initial header line with column names
+    batch_size : int, optional (default 1024)
+        How many rows to process together when converting and writing
+        CSV data
+    """
+    cdef:
+        CCSVWriteOptions options
+
+    # Avoid mistakingly creating attributes
+    __slots__ = ()
+
+    def __init__(self, *, include_header=None, batch_size=None):
+        self.options = CCSVWriteOptions.Defaults()
+        if include_header is not None:
+            self.include_header = include_header
+        if batch_size is not None:
+            self.batch_size = batch_size
+
+    @property
+    def include_header(self):
+        """
+        Whether to write an initial header line with column names.
+        """
+        return self.options.include_header
+
+    @include_header.setter
+    def include_header(self, value):
+        self.options.include_header = value
+
+    @property
+    def batch_size(self):
+        """
+        How many rows to process together when converting and writing
+        CSV data.
+        """
+        return self.options.batch_size
+
+    @batch_size.setter
+    def batch_size(self, value):
+        self.options.batch_size = value
+
+
+cdef _get_write_options(WriteOptions write_options, CCSVWriteOptions* out):
+    if write_options is None:
+        out[0] = CCSVWriteOptions.Defaults()
+    else:
+        out[0] = write_options.options
+
+
+def write_csv(data, output_file, write_options=None,
+              MemoryPool memory_pool=None):
+    """
+    Write record batch or table to a CSV file.
+
+    Parameters
+    ----------
+    data: pyarrow.RecordBatch or pyarrow.Table
+        The data to write.
+    output_file: string, path, pyarrow.OutputStream or file-like object
+        The location where to write the CSV data.
+    write_options: pyarrow.csv.WriteOptions
+        Options to configure writing the CSV data.
+    memory_pool: MemoryPool, optional
+        Pool for temporary allocations.
+    """
+    cdef:
+        shared_ptr[COutputStream] stream
+        CCSVWriteOptions c_write_options
+        CMemoryPool* c_memory_pool
+        CRecordBatch* batch
+        CTable* table
+    _get_write_options(write_options, &c_write_options)
+
+    get_writer(output_file, &stream)
+    c_memory_pool = maybe_unbox_memory_pool(memory_pool)
+    if isinstance(data, RecordBatch):
+        batch = pyarrow_unwrap_batch(data).get()
+        with nogil:
+            check_status(WriteCSV(deref(batch), c_write_options, c_memory_pool,
+                                  stream.get()))
+    elif isinstance(data, Table):
+        table = pyarrow_unwrap_table(data).get()
+        with nogil:
+            check_status(WriteCSV(deref(table), c_write_options, c_memory_pool,
+                                  stream.get()))
+    else:
+        raise TypeError(f"Expected Table or RecordBatch, got '{type(data)}'")

@@ -24,11 +24,11 @@ use std::sync::Arc;
 use std::vec::Vec;
 
 use arrow::array::{
-    new_empty_array, Array, ArrayData, ArrayDataBuilder, ArrayDataRef, ArrayRef,
-    BinaryArray, BinaryBuilder, BooleanArray, BooleanBufferBuilder, BooleanBuilder,
-    DecimalBuilder, FixedSizeBinaryArray, FixedSizeBinaryBuilder, GenericListArray,
-    Int16BufferBuilder, Int32Array, Int64Array, OffsetSizeTrait, PrimitiveArray,
-    PrimitiveBuilder, StringArray, StringBuilder, StructArray,
+    new_empty_array, Array, ArrayData, ArrayDataBuilder, ArrayRef, BinaryArray,
+    BinaryBuilder, BooleanArray, BooleanBufferBuilder, BooleanBuilder, DecimalBuilder,
+    FixedSizeBinaryArray, FixedSizeBinaryBuilder, GenericListArray, Int16BufferBuilder,
+    Int32Array, Int64Array, OffsetSizeTrait, PrimitiveArray, PrimitiveBuilder,
+    StringArray, StringBuilder, StructArray,
 };
 use arrow::buffer::{Buffer, MutableBuffer};
 use arrow::datatypes::{
@@ -64,7 +64,7 @@ use crate::arrow::converter::{
 };
 use crate::arrow::record_reader::RecordReader;
 use crate::arrow::schema::parquet_to_arrow_field;
-use crate::basic::{LogicalType, Repetition, Type as PhysicalType};
+use crate::basic::{ConvertedType, Repetition, Type as PhysicalType};
 use crate::column::page::PageIterator;
 use crate::column::reader::ColumnReaderImpl;
 use crate::data_type::{
@@ -890,7 +890,7 @@ impl<OffsetSize: OffsetSizeTrait> ArrayReader for ListArrayReader<OffsetSize> {
         let list_data = ArrayData::builder(self.get_data_type().clone())
             .len(offsets.len() - 1)
             .add_buffer(value_offsets)
-            .add_child_data(batch_values.data())
+            .add_child_data(batch_values.data().clone())
             .null_bit_buffer(null_buf.into())
             .offset(next_batch_array.offset())
             .build();
@@ -1039,8 +1039,8 @@ impl ArrayReader for StructArrayReader {
             .child_data(
                 children_array
                     .iter()
-                    .map(|x| x.data())
-                    .collect::<Vec<ArrayDataRef>>(),
+                    .map(|x| x.data().clone())
+                    .collect::<Vec<ArrayData>>(),
             )
             .build();
 
@@ -1095,6 +1095,7 @@ where
 
     for c in column_indices {
         let column = parquet_schema.column(c).self_type() as *const Type;
+
         leaves.insert(column, c);
 
         let root = parquet_schema.get_column_root_ptr(c);
@@ -1205,7 +1206,7 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
         &mut self,
         cur_type: Arc<Type>,
         context: &'a ArrayReaderBuilderContext,
-    ) -> Result<Option<Box<ArrayReader>>> {
+    ) -> Result<Option<Box<dyn ArrayReader>>> {
         let mut new_context = context.clone();
         new_context.path.append(vec![cur_type.name().to_string()]);
 
@@ -1395,12 +1396,11 @@ impl<'a> ArrayReaderBuilder {
             self.file_reader.clone(),
         )?);
 
-        let arrow_type = self
-            .arrow_schema
-            .field_with_name(cur_type.name())
-            .ok()
-            .map(|f| f.data_type())
-            .cloned();
+        let arrow_type: Option<ArrowType> = match self.get_arrow_field(&cur_type, context)
+        {
+            Some(f) => Some(f.data_type().clone()),
+            _ => None,
+        };
 
         match cur_type.get_physical_type() {
             PhysicalType::BOOLEAN => Ok(Box::new(PrimitiveArrayReader::<BoolType>::new(
@@ -1463,7 +1463,7 @@ impl<'a> ArrayReaderBuilder {
                 )?))
             }
             PhysicalType::BYTE_ARRAY => {
-                if cur_type.get_basic_info().logical_type() == LogicalType::UTF8 {
+                if cur_type.get_basic_info().converted_type() == ConvertedType::UTF8 {
                     if let Some(ArrowType::LargeUtf8) = arrow_type {
                         let converter =
                             LargeUtf8Converter::new(LargeUtf8ArrayConverter {});
@@ -1514,7 +1514,8 @@ impl<'a> ArrayReaderBuilder {
                 }
             }
             PhysicalType::FIXED_LEN_BYTE_ARRAY
-                if cur_type.get_basic_info().logical_type() == LogicalType::DECIMAL =>
+                if cur_type.get_basic_info().converted_type()
+                    == ConvertedType::DECIMAL =>
             {
                 let converter = DecimalConverter::new(DecimalArrayConverter::new(
                     cur_type.get_precision(),
@@ -1531,7 +1532,7 @@ impl<'a> ArrayReaderBuilder {
                 )?))
             }
             PhysicalType::FIXED_LEN_BYTE_ARRAY => {
-                if cur_type.get_basic_info().logical_type() == LogicalType::INTERVAL {
+                if cur_type.get_basic_info().converted_type() == ConvertedType::INTERVAL {
                     let byte_width = match *cur_type {
                         Type::PrimitiveType {
                             ref type_length, ..
@@ -1631,9 +1632,13 @@ impl<'a> ArrayReaderBuilder {
         let mut children_reader = Vec::with_capacity(cur_type.get_fields().len());
 
         for child in cur_type.get_fields() {
+            let mut struct_context = context.clone();
             if let Some(child_reader) = self.dispatch(child.clone(), context)? {
-                let field = match self.arrow_schema.field_with_name(child.name()) {
-                    Ok(f) => f.to_owned(),
+                // TODO: this results in calling get_arrow_field twice, it could be reused
+                // from child_reader above, by making child_reader carry its `Field`
+                struct_context.path.append(vec![child.name().to_string()]);
+                let field = match self.get_arrow_field(child, &struct_context) {
+                    Some(f) => f.clone(),
                     _ => Field::new(
                         child.name(),
                         child_reader.get_data_type().clone(),
@@ -1655,6 +1660,45 @@ impl<'a> ArrayReaderBuilder {
             ))))
         } else {
             Ok(None)
+        }
+    }
+
+    fn get_arrow_field(
+        &self,
+        cur_type: &Type,
+        context: &'a ArrayReaderBuilderContext,
+    ) -> Option<&Field> {
+        let parts: Vec<&str> = context
+            .path
+            .parts()
+            .iter()
+            .map(|x| -> &str { x })
+            .collect::<Vec<&str>>();
+
+        // If the parts length is one it'll have the top level "schema" type. If
+        // it's two then it'll be a top-level type that we can get from the arrow
+        // schema directly.
+        if parts.len() <= 2 {
+            self.arrow_schema.field_with_name(cur_type.name()).ok()
+        } else {
+            // If it's greater than two then we need to traverse the type path
+            // until we find the actual field we're looking for.
+            let mut field: Option<&Field> = None;
+
+            for (i, part) in parts.iter().enumerate().skip(1) {
+                if i == 1 {
+                    field = self.arrow_schema.field_with_name(part).ok();
+                } else if let Some(f) = field {
+                    if let ArrowType::Struct(fields) = f.data_type() {
+                        field = fields.iter().find(|f| f.name() == part)
+                    } else {
+                        field = None
+                    }
+                } else {
+                    field = None
+                }
+            }
+            field
         }
     }
 }
@@ -1845,14 +1889,14 @@ mod tests {
     }
 
     macro_rules! test_primitive_array_reader_one_type {
-        ($arrow_parquet_type:ty, $physical_type:expr, $logical_type_str:expr, $result_arrow_type:ty, $result_arrow_cast_type:ty, $result_primitive_type:ty) => {{
+        ($arrow_parquet_type:ty, $physical_type:expr, $converted_type_str:expr, $result_arrow_type:ty, $result_arrow_cast_type:ty, $result_primitive_type:ty) => {{
             let message_type = format!(
                 "
             message test_schema {{
               REQUIRED {:?} leaf ({});
           }}
             ",
-                $physical_type, $logical_type_str
+                $physical_type, $converted_type_str
             );
             let schema = parse_message_type(&message_type)
                 .map(|t| Arc::new(SchemaDescriptor::new(Arc::new(t))))
@@ -2245,7 +2289,7 @@ mod tests {
     }
 
     impl ArrayReader for InMemoryArrayReader {
-        fn as_any(&self) -> &Any {
+        fn as_any(&self) -> &dyn Any {
             self
         }
 

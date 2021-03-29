@@ -142,6 +142,12 @@ bool Array__ApproxEquals(const std::shared_ptr<arrow::Array>& lhs,
 }
 
 // [[arrow::export]]
+std::string Array__Diff(const std::shared_ptr<arrow::Array>& lhs,
+                        const std::shared_ptr<arrow::Array>& rhs) {
+  return lhs->Diff(*rhs);
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::ArrayData> Array__data(
     const std::shared_ptr<arrow::Array>& array) {
   return array->data();

@@ -43,10 +43,7 @@ class FileSystem;
 class SubTreeFileSystem;
 class SlowFileSystem;
 class LocalFileSystem;
-
-#if defined(ARROW_R_WITH_S3)
 class S3FileSystem;
-#endif
 
 }  // namespace fs
 }  // namespace arrow

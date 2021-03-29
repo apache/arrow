@@ -26,7 +26,7 @@
 #include "arrow/io/caching.h"
 #include "arrow/type.h"
 #include "arrow/util/compression.h"
-#include "parquet/encryption.h"
+#include "parquet/encryption/encryption.h"
 #include "parquet/exception.h"
 #include "parquet/parquet_version.h"
 #include "parquet/platform.h"
@@ -616,16 +616,16 @@ class PARQUET_EXPORT ArrowReaderProperties {
   ::arrow::io::CacheOptions cache_options() const { return cache_options_; }
 
   /// Set execution context for read coalescing.
-  void set_async_context(::arrow::io::AsyncContext ctx) { async_context_ = ctx; }
+  void set_io_context(const ::arrow::io::IOContext& ctx) { io_context_ = ctx; }
 
-  ::arrow::io::AsyncContext async_context() const { return async_context_; }
+  const ::arrow::io::IOContext& io_context() const { return io_context_; }
 
  private:
   bool use_threads_;
   std::unordered_set<int> read_dict_indices_;
   int64_t batch_size_;
   bool pre_buffer_;
-  ::arrow::io::AsyncContext async_context_;
+  ::arrow::io::IOContext io_context_;
   ::arrow::io::CacheOptions cache_options_;
 };
 

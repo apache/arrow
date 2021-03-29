@@ -27,11 +27,13 @@
 #include "arrow/buffer.h"
 #include "arrow/json/converter.h"
 #include "arrow/table.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/task_group.h"
 
 namespace arrow {
 
+using internal::checked_cast;
 using internal::TaskGroup;
 
 namespace json {
@@ -199,15 +201,6 @@ class ChunkedListArrayBuilder : public ChunkedArrayBuilder {
               const std::shared_ptr<Array>& unconverted) override {
     std::unique_lock<std::mutex> lock(mutex_);
 
-    auto list_array = static_cast<const ListArray*>(unconverted.get());
-
-    if (null_bitmap_chunks_.size() <= static_cast<size_t>(block_index)) {
-      null_bitmap_chunks_.resize(static_cast<size_t>(block_index) + 1, nullptr);
-      offset_chunks_.resize(null_bitmap_chunks_.size(), nullptr);
-    }
-    null_bitmap_chunks_[block_index] = unconverted->null_bitmap();
-    offset_chunks_[block_index] = list_array->value_offsets();
-
     if (unconverted->type_id() == Type::NA) {
       auto st = InsertNull(block_index, unconverted->length());
       if (!st.ok()) {
@@ -217,8 +210,17 @@ class ChunkedListArrayBuilder : public ChunkedArrayBuilder {
     }
 
     DCHECK_EQ(unconverted->type_id(), Type::LIST);
-    value_builder_->Insert(block_index, list_array->list_type()->value_field(),
-                           list_array->values());
+    const auto& list_array = checked_cast<const ListArray&>(*unconverted);
+
+    if (null_bitmap_chunks_.size() <= static_cast<size_t>(block_index)) {
+      null_bitmap_chunks_.resize(static_cast<size_t>(block_index) + 1, nullptr);
+      offset_chunks_.resize(null_bitmap_chunks_.size(), nullptr);
+    }
+    null_bitmap_chunks_[block_index] = unconverted->null_bitmap();
+    offset_chunks_[block_index] = list_array.value_offsets();
+
+    value_builder_->Insert(block_index, list_array.list_type()->value_field(),
+                           list_array.values());
   }
 
   Status Finish(std::shared_ptr<ChunkedArray>* out) override {
@@ -305,17 +307,17 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
       return;
     }
 
-    auto struct_array = std::static_pointer_cast<StructArray>(unconverted);
+    const auto& struct_array = checked_cast<const StructArray&>(*unconverted);
     if (promotion_graph_ == nullptr) {
       // If unexpected fields are ignored or result in an error then all parsers will emit
       // columns exclusively in the ordering specified in ParseOptions::explicit_schema,
       // so child_builders_ is immutable and no associative lookup is necessary.
       for (int i = 0; i < unconverted->num_fields(); ++i) {
         child_builders_[i]->Insert(block_index, unconverted->type()->field(i),
-                                   struct_array->field(i));
+                                   struct_array.field(i));
       }
     } else {
-      auto st = InsertChildren(block_index, struct_array.get());
+      auto st = InsertChildren(block_index, struct_array);
       if (!st.ok()) {
         return task_group_->Append([st] { return st; });
       }
@@ -383,10 +385,10 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
   // Insert children associatively by name; the unconverted block may have unexpected or
   // differently ordered fields
   // call from Insert() only, with mutex_ locked
-  Status InsertChildren(int64_t block_index, const StructArray* unconverted) {
-    const auto& fields = unconverted->type()->fields();
+  Status InsertChildren(int64_t block_index, const StructArray& unconverted) {
+    const auto& fields = unconverted.type()->fields();
 
-    for (int i = 0; i < unconverted->num_fields(); ++i) {
+    for (int i = 0; i < unconverted.num_fields(); ++i) {
       auto it = name_to_index_.find(fields[i]->name());
 
       if (it == name_to_index_.end()) {
@@ -405,9 +407,9 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
         child_builders_.emplace_back(std::move(child_builder));
       }
 
-      auto unconverted_field = unconverted->type()->field(i);
+      auto unconverted_field = unconverted.type()->field(i);
       child_builders_[it->second]->Insert(block_index, unconverted_field,
-                                          unconverted->field(i));
+                                          unconverted.field(i));
 
       child_absent_[block_index].resize(child_builders_.size(), true);
       child_absent_[block_index][it->second] = false;
@@ -444,12 +446,12 @@ Status MakeChunkedArrayBuilder(const std::shared_ptr<TaskGroup>& task_group,
     return Status::OK();
   }
   if (type->id() == Type::LIST) {
-    auto list_type = static_cast<const ListType*>(type.get());
+    const auto& list_type = checked_cast<const ListType&>(*type);
     std::shared_ptr<ChunkedArrayBuilder> value_builder;
     RETURN_NOT_OK(MakeChunkedArrayBuilder(task_group, pool, promotion_graph,
-                                          list_type->value_type(), &value_builder));
+                                          list_type.value_type(), &value_builder));
     *out = std::make_shared<ChunkedListArrayBuilder>(
-        task_group, pool, std::move(value_builder), list_type->value_field());
+        task_group, pool, std::move(value_builder), list_type.value_field());
     return Status::OK();
   }
   std::shared_ptr<Converter> converter;

@@ -65,6 +65,10 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
     Preconditions.checkArgument(targetVector.getField().getType().equals(deltaVector.getField().getType()),
             "The targetVector to append must have the same type as the targetVector being appended");
 
+    if (deltaVector.getValueCount() == 0) {
+      return targetVector; // optimization, nothing to append, return
+    }
+
     int newValueCount = targetVector.getValueCount() + deltaVector.getValueCount();
 
     // make sure there is enough capacity
@@ -89,6 +93,10 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
   public ValueVector visit(BaseVariableWidthVector deltaVector, Void value) {
     Preconditions.checkArgument(targetVector.getField().getType().equals(deltaVector.getField().getType()),
             "The targetVector to append must have the same type as the targetVector being appended");
+
+    if (deltaVector.getValueCount() == 0) {
+      return targetVector; // nothing to append, return
+    }
 
     int newValueCount = targetVector.getValueCount() + deltaVector.getValueCount();
 
@@ -140,6 +148,10 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
     Preconditions.checkArgument(targetVector.getField().getType().equals(deltaVector.getField().getType()),
             "The targetVector to append must have the same type as the targetVector being appended");
 
+    if (deltaVector.getValueCount() == 0) {
+      return targetVector; // nothing to append, return
+    }
+
     int newValueCount = targetVector.getValueCount() + deltaVector.getValueCount();
 
     long targetDataSize = targetVector.getOffsetBuffer().getLong(
@@ -189,6 +201,10 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
   public ValueVector visit(ListVector deltaVector, Void value) {
     Preconditions.checkArgument(typeVisitor.equals(deltaVector),
           "The targetVector to append must have the same type as the targetVector being appended");
+
+    if (deltaVector.getValueCount() == 0) {
+      return targetVector; // nothing to append, return
+    }
 
     int newValueCount = targetVector.getValueCount() + deltaVector.getValueCount();
 
@@ -240,6 +256,10 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
   public ValueVector visit(LargeListVector deltaVector, Void value) {
     Preconditions.checkArgument(typeVisitor.equals(deltaVector),
             "The targetVector to append must have the same type as the targetVector being appended");
+
+    if (deltaVector.getValueCount() == 0) {
+      return targetVector; // nothing to append, return
+    }
 
     int newValueCount = targetVector.getValueCount() + deltaVector.getValueCount();
 
@@ -293,6 +313,10 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
     Preconditions.checkArgument(typeVisitor.equals(deltaVector),
             "The vector to append must have the same type as the targetVector being appended");
 
+    if (deltaVector.getValueCount() == 0) {
+      return targetVector; // optimization, nothing to append, return
+    }
+
     FixedSizeListVector targetListVector = (FixedSizeListVector) targetVector;
 
     Preconditions.checkArgument(targetListVector.getListSize() == deltaVector.getListSize(),
@@ -330,6 +354,10 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
     Preconditions.checkArgument(typeVisitor.equals(deltaVector),
             "The vector to append must have the same type as the targetVector being appended");
 
+    if (deltaVector.getValueCount() == 0) {
+      return targetVector; // optimization, nothing to append, return
+    }
+
     NonNullableStructVector targetStructVector = (NonNullableStructVector) targetVector;
     int newValueCount = targetVector.getValueCount() + deltaVector.getValueCount();
 
@@ -364,6 +392,10 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
     // we only make sure that both vectors are union vectors.
     Preconditions.checkArgument(targetVector.getMinorType() == deltaVector.getMinorType(),
             "The vector to append must have the same type as the targetVector being appended");
+
+    if (deltaVector.getValueCount() == 0) {
+      return targetVector; // optimization, nothing to append, return
+    }
 
     UnionVector targetUnionVector = (UnionVector) targetVector;
     int newValueCount = targetVector.getValueCount() + deltaVector.getValueCount();
@@ -423,6 +455,10 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
     // we only make sure that both vectors are union vectors.
     Preconditions.checkArgument(targetVector.getMinorType() == deltaVector.getMinorType(),
         "The vector to append must have the same type as the targetVector being appended");
+
+    if (deltaVector.getValueCount() == 0) {
+      return targetVector; // optimization, nothing to append, return
+    }
 
     DenseUnionVector targetDenseUnionVector = (DenseUnionVector) targetVector;
     int newValueCount = targetVector.getValueCount() + deltaVector.getValueCount();

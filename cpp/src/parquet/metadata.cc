@@ -24,11 +24,13 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/io/memory.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
-#include "parquet/encryption_internal.h"
+#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
-#include "parquet/internal_file_decryptor.h"
 #include "parquet/schema.h"
 #include "parquet/schema_internal.h"
 #include "parquet/statistics.h"
@@ -412,11 +414,11 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
 
   inline int64_t total_byte_size() const { return row_group_->total_byte_size; }
 
-  inline int64_t file_offset() const { return row_group_->file_offset; }
-
   inline int64_t total_compressed_size() const {
     return row_group_->total_compressed_size;
   }
+
+  inline int64_t file_offset() const { return row_group_->file_offset; }
 
   inline const SchemaDescriptor* schema() const { return schema_; }
 
@@ -463,6 +465,10 @@ int RowGroupMetaData::num_columns() const { return impl_->num_columns(); }
 int64_t RowGroupMetaData::num_rows() const { return impl_->num_rows(); }
 
 int64_t RowGroupMetaData::total_byte_size() const { return impl_->total_byte_size(); }
+
+int64_t RowGroupMetaData::total_compressed_size() const {
+  return impl_->total_compressed_size();
+}
 
 int64_t RowGroupMetaData::file_offset() const { return impl_->file_offset(); }
 

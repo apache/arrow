@@ -69,14 +69,14 @@ struct ARROW_EXPORT Scalar : public util::EqualityComparable<Scalar> {
                     const EqualOptions& options = EqualOptions::Defaults()) const;
 
   struct ARROW_EXPORT Hash {
-    size_t operator()(const Scalar& scalar) const { return hash(scalar); }
+    size_t operator()(const Scalar& scalar) const { return scalar.hash(); }
 
     size_t operator()(const std::shared_ptr<Scalar>& scalar) const {
-      return hash(*scalar);
+      return scalar->hash();
     }
-
-    static size_t hash(const Scalar& scalar);
   };
+
+  size_t hash() const;
 
   std::string ToString() const;
 
@@ -447,6 +447,9 @@ struct ARROW_EXPORT DictionaryScalar : public Scalar {
 
   DictionaryScalar(ValueType value, std::shared_ptr<DataType> type, bool is_valid = true)
       : Scalar(std::move(type), is_valid), value(std::move(value)) {}
+
+  static std::shared_ptr<DictionaryScalar> Make(std::shared_ptr<Scalar> index,
+                                                std::shared_ptr<Array> dict);
 
   Result<std::shared_ptr<Scalar>> GetEncodedValue() const;
 };

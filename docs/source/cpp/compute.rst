@@ -86,24 +86,75 @@ Many compute functions are also available directly as concrete APIs, here
 Some functions accept or require an options structure that determines the
 exact semantics of the function::
 
-   MinMaxOptions options;
-   options.null_handling = MinMaxOptions::EMIT_NULL;
+   MinMaxOptions min_max_options;
+   min_max_options.null_handling = MinMaxOptions::EMIT_NULL;
 
    std::shared_ptr<arrow::Array> array = ...;
-   arrow::Datum min_max_datum;
+   arrow::Datum min_max;
 
-   ARROW_ASSIGN_OR_RAISE(min_max_datum,
-                         arrow::compute::CallFunction("min_max", {array}, &options));
+   ARROW_ASSIGN_OR_RAISE(min_max,
+                         arrow::compute::CallFunction("min_max", {array},
+                                                      &min_max_options));
 
    // Unpack struct scalar result (a two-field {"min", "max"} scalar)
-   const auto& min_max_scalar = \
-         static_cast<const arrow::StructScalar&>(*min_max_datum.scalar());
-   const auto min_value = min_max_scalar.value[0];
-   const auto max_value = min_max_scalar.value[1];
+   std::shared_ptr<arrow::Scalar> min_value, max_value;
+   min_value = min_max.scalar_as<arrow::StructScalar>().value[0];
+   max_value = min_max.scalar_as<arrow::StructScalar>().value[1];
 
 .. seealso::
    :doc:`Compute API reference <api/compute>`
 
+Implicit casts
+==============
+
+Functions may require conversion of their arguments before execution if a
+kernel does not match the argument types precisely. For example comparison
+of dictionary encoded arrays is not directly supported by any kernel, but an
+implicit cast can be made allowing comparison against the decoded array.
+
+Each function may define implicit cast behaviour as appropriate. For example
+comparison and arithmetic kernels require identically typed arguments, and
+support execution against differing numeric types by promoting their arguments
+to numeric type which can accommodate any value from either input.
+
+.. _common-numeric-type:
+
+Common numeric type
+-------------------
+
+The common numeric type of a set of input numeric types is the smallest numeric
+type which can accommodate any value of any input. If any input is a floating
+point type the common numeric type is the widest floating point type among the
+inputs. Otherwise the common numeric type is integral and is signed if any input
+is signed. For example:
+
++-------------------+----------------------+------------------------------------------------+
+| Input types       | Common numeric type  | Notes                                          |
++===================+======================+================================================+
+| int32, int32      | int32                |                                                |
++-------------------+----------------------+------------------------------------------------+
+| int16, int32      | int32                | Max width is 32, promote LHS to int32          |
++-------------------+----------------------+------------------------------------------------+
+| uint16, int32     | int32                | One input signed, override unsigned            |
++-------------------+----------------------+------------------------------------------------+
+| uint32, int32     | int64                | Widen to accommodate range of uint32           |
++-------------------+----------------------+------------------------------------------------+
+| uint16, uint32    | uint32               | All inputs unsigned, maintain unsigned         |
++-------------------+----------------------+------------------------------------------------+
+| int16, uint32     | int64                |                                                |
++-------------------+----------------------+------------------------------------------------+
+| uint64, int16     | int64                | int64 cannot accommodate all uint64 values     |
++-------------------+----------------------+------------------------------------------------+
+| float32, int32    | float32              | Promote RHS to float32                         |
++-------------------+----------------------+------------------------------------------------+
+| float32, float64  | float64              |                                                |
++-------------------+----------------------+------------------------------------------------+
+| float32, int64    | float32              | int64 is wider, still promotes to float32      |
++-------------------+----------------------+------------------------------------------------+
+
+In particulary, note that comparing a ``uint64`` column to an ``int16`` column
+may emit an error if one of the ``uint64`` values cannot be expressed as the
+common type ``int64`` (for example, ``2 ** 63``).
 
 .. _compute-function-list:
 
@@ -117,7 +168,8 @@ To avoid exhaustively listing supported types, the tables below use a number
 of general type categories:
 
 * "Numeric": Integer types (Int8, etc.) and Floating-point types (Float32,
-  Float64, sometimes Float16).  Some functions also accept Decimal128 input.
+  Float64, sometimes Float16).  Some functions also accept Decimal128 and
+  Decimal256 input.
 
 * "Temporal": Date types (Date32, Date64), Time types (Time32, Time64),
   Timestamp, Duration, Interval.
@@ -155,6 +207,8 @@ Aggregations
 | stddev                   | Unary      | Numeric            | Scalar Float64        | :struct:`VarianceOptions`                  |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | sum                      | Unary      | Numeric            | Scalar Numeric (4)    |                                            |
++--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
+| tdigest                  | Unary      | Numeric            | Scalar Float64        | :struct:`TDigestOptions`                   |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | variance                 | Unary      | Numeric            | Scalar Float64        | :struct:`VarianceOptions`                  |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
@@ -196,9 +250,11 @@ Binary functions have the following semantics (which is sometimes called
 Arithmetic functions
 ~~~~~~~~~~~~~~~~~~~~
 
-These functions expect two inputs of the same type and apply a given binary
+These functions expect two inputs of numeric type and apply a given binary
 operation to each pair of elements gathered from the inputs.  If any of the
 input elements in a pair is null, the corresponding output element is null.
+Inputs will be cast to the :ref:`common numeric type <common-numeric-type>`
+(and dictionary decoded, if applicable) before the operation is applied.
 
 The default variant of these functions does not detect overflow (the result
 then typically wraps around).  Each function is also available in an
@@ -228,9 +284,12 @@ an ``Invalid`` :class:`Status` when overflow is detected.
 Comparisons
 ~~~~~~~~~~~
 
-Those functions expect two inputs of the same type and apply a given
-comparison operator.  If any of the input elements in a pair is null,
-the corresponding output element is null.
+These functions expect two inputs of numeric type (in which case they will be
+cast to the :ref:`common numeric type <common-numeric-type>` before comparison),
+or two inputs of Binary- or String-like types, or two inputs of Temporal types.
+If any input is dictionary encoded it will be expanded for the purposes of
+comparison. If any of the input elements in a pair is null, the corresponding
+output element is null.
 
 +--------------------------+------------+---------------------------------------------+---------------------+
 | Function names           | Arity      | Input types                                 | Output type         |
@@ -367,19 +426,25 @@ The third set of functions examines string elements on a byte-per-byte basis:
 String transforms
 ~~~~~~~~~~~~~~~~~
 
-+--------------------------+------------+-------------------------+---------------------+---------+
-| Function name            | Arity      | Input types             | Output type         | Notes   |
-+==========================+============+=========================+=====================+=========+
-| ascii_lower              | Unary      | String-like             | String-like         | \(1)    |
-+--------------------------+------------+-------------------------+---------------------+---------+
-| ascii_upper              | Unary      | String-like             | String-like         | \(1)    |
-+--------------------------+------------+-------------------------+---------------------+---------+
-| binary_length            | Unary      | Binary- or String-like  | Int32 or Int64      | \(2)    |
-+--------------------------+------------+-------------------------+---------------------+---------+
-| utf8_lower               | Unary      | String-like             | String-like         | \(3)    |
-+--------------------------+------------+-------------------------+---------------------+---------+
-| utf8_upper               | Unary      | String-like             | String-like         | \(3)    |
-+--------------------------+------------+-------------------------+---------------------+---------+
++--------------------------+------------+-------------------------+---------------------+-------------------------------------------------+
+| Function name            | Arity      | Input types             | Output type         | Notes   | Options class                         |
++==========================+============+=========================+=====================+=========+=======================================+
+| ascii_lower              | Unary      | String-like             | String-like         | \(1)    |                                       |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
+| ascii_upper              | Unary      | String-like             | String-like         | \(1)    |                                       |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
+| binary_length            | Unary      | Binary- or String-like  | Int32 or Int64      | \(2)    |                                       |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
+| replace_substring        | Unary      | String-like             | String-like         | \(3)    | :struct:`ReplaceSubstringOptions`     |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
+| replace_substring_regex  | Unary      | String-like             | String-like         | \(4)    | :struct:`ReplaceSubstringOptions`     |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
+| utf8_length              | Unary      | String-like             | Int32 or Int64      | \(5)    |                                       |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
+| utf8_lower               | Unary      | String-like             | String-like         | \(6)    |                                       |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
+| utf8_upper               | Unary      | String-like             | String-like         | \(6)    |                                       |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
 
 
 * \(1) Each ASCII character in the input is converted to lowercase or
@@ -388,7 +453,23 @@ String transforms
 * \(2) Output is the physical length in bytes of each input element.  Output
   type is Int32 for Binary / String, Int64 for LargeBinary / LargeString.
 
-* \(3) Each UTF8-encoded character in the input is converted to lowercase or
+* \(3) Replace non-overlapping substrings that match to
+  :member:`ReplaceSubstringOptions::pattern` by
+  :member:`ReplaceSubstringOptions::replacement`. If
+  :member:`ReplaceSubstringOptions::max_replacements` != -1, it determines the
+  maximum number of replacements made, counting from the left.
+
+* \(4) Replace non-overlapping substrings that match to the regular expression
+  :member:`ReplaceSubstringOptions::pattern` by
+  :member:`ReplaceSubstringOptions::replacement`, using the Google RE2 library. If
+  :member:`ReplaceSubstringOptions::max_replacements` != -1, it determines the
+  maximum number of replacements made, counting from the left. Note that if the
+  pattern contains groups, backreferencing can be used.
+
+* \(5) Output is the number of characters (not bytes) of each input element.
+  Output type is Int32 for String, Int64 for LargeString. 
+
+* \(6) Each UTF8-encoded character in the input is converted to lowercase or
   uppercase.
 
 
@@ -426,14 +507,14 @@ These functions trim off characters on both sides (trim), or the left (ltrim) or
 +--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
 
 * \(1) Only characters specified in :member:`TrimOptions::characters` will be
-trimmed off. Both the input string as the `characters` argument are interepreted
-as ASCII characters.
+  trimmed off. Both the input string and the `characters` argument are
+  interpreted as ASCII characters.
 
 * \(2) Only trim off ASCII whitespace characters (``'\t'``, ``'\n'``, ``'\v'``,
-``'\f'``, ``'\r'``  and ``' '``).
+  ``'\f'``, ``'\r'``  and ``' '``).
 
 * \(3) Only characters specified in :member:`TrimOptions::characters` will be
-trimmed off.
+  trimmed off.
 
 * \(4) Only trim off Unicode whitespace characters.
 
@@ -744,3 +825,4 @@ Structural transforms
 * \(2) For each value in the list child array, the index at which it is found
   in the list array is appended to the output.  Nulls in the parent list array
   are discarded.
+

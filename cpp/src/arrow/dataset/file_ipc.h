@@ -25,15 +25,10 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/ipc/type_fwd.h"
 #include "arrow/result.h"
 
 namespace arrow {
-namespace ipc {
-
-class RecordBatchWriter;
-struct IpcWriteOptions;
-
-}  // namespace ipc
 namespace dataset {
 
 /// \brief A FileFormat implementation that reads from and writes to Ipc files
@@ -53,9 +48,9 @@ class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
 
   /// \brief Open a file for scanning
-  Result<ScanTaskIterator> ScanFile(std::shared_ptr<ScanOptions> options,
-                                    std::shared_ptr<ScanContext> context,
-                                    FileFragment* fragment) const override;
+  Result<ScanTaskIterator> ScanFile(
+      std::shared_ptr<ScanOptions> options,
+      const std::shared_ptr<FileFragment>& fragment) const override;
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
@@ -82,13 +77,15 @@ class ARROW_DS_EXPORT IpcFileWriter : public FileWriter {
  public:
   Status Write(const std::shared_ptr<RecordBatch>& batch) override;
 
-  Status Finish() override;
-
  private:
-  IpcFileWriter(std::shared_ptr<ipc::RecordBatchWriter> writer,
+  IpcFileWriter(std::shared_ptr<io::OutputStream> destination,
+                std::shared_ptr<ipc::RecordBatchWriter> writer,
                 std::shared_ptr<Schema> schema,
                 std::shared_ptr<IpcFileWriteOptions> options);
 
+  Status FinishInternal() override;
+
+  std::shared_ptr<io::OutputStream> destination_;
   std::shared_ptr<ipc::RecordBatchWriter> batch_writer_;
 
   friend class IpcFileFormat;

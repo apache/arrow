@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/extension_type.h"
+#include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"
 #include "arrow/result_internal.h"
 #include "arrow/type.h"

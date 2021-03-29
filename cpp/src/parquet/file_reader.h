@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/io/caching.h"
+#include "arrow/util/type_fwd.h"
 #include "parquet/metadata.h"  // IWYU pragma: keep
 #include "parquet/platform.h"
 #include "parquet/properties.h"
@@ -32,7 +33,6 @@ namespace parquet {
 class ColumnReader;
 class FileMetaData;
 class PageReader;
-class RandomAccessSource;
 class RowGroupMetaData;
 
 class PARQUET_EXPORT RowGroupReader {
@@ -84,17 +84,6 @@ class PARQUET_EXPORT ParquetFileReader {
   ParquetFileReader();
   ~ParquetFileReader();
 
-  // Create a reader from some implementation of parquet-cpp's generic file
-  // input interface
-  //
-  // If you cannot provide exclusive access to your file resource, create a
-  // subclass of RandomAccessSource that wraps the shared resource
-  ARROW_DEPRECATED("Use arrow::io::RandomAccessFile version")
-  static std::unique_ptr<ParquetFileReader> Open(
-      std::unique_ptr<RandomAccessSource> source,
-      const ReaderProperties& props = default_reader_properties(),
-      std::shared_ptr<FileMetaData> metadata = NULLPTR);
-
   // Create a file reader instance from an Arrow file object. Thread-safety is
   // the responsibility of the file implementation
   static std::unique_ptr<ParquetFileReader> Open(
@@ -136,10 +125,10 @@ class PARQUET_EXPORT ParquetFileReader {
   /// buffered in memory until either \a PreBuffer() is called again,
   /// or the reader itself is destructed. Reading - and buffering -
   /// only one row group at a time may be useful.
-  void PreBuffer(const std::vector<int>& row_groups,
-                 const std::vector<int>& column_indices,
-                 const ::arrow::io::AsyncContext& ctx,
-                 const ::arrow::io::CacheOptions& options);
+  ::arrow::Future<> PreBuffer(const std::vector<int>& row_groups,
+                              const std::vector<int>& column_indices,
+                              const ::arrow::io::IOContext& ctx,
+                              const ::arrow::io::CacheOptions& options);
 
  private:
   // Holds a pointer to an instance of Contents implementation

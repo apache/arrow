@@ -50,7 +50,9 @@ TEST(GetTakeIndices, Basics) {
     auto expected_indices = ArrayFromJSON(indices_type, indices_json);
     ASSERT_OK_AND_ASSIGN(auto indices,
                          internal::GetTakeIndices(*filter->data(), null_selection));
-    AssertArraysEqual(*expected_indices, *MakeArray(indices), /*verbose=*/true);
+    auto indices_array = MakeArray(indices);
+    ASSERT_OK(indices_array->ValidateFull());
+    AssertArraysEqual(*expected_indices, *indices_array, /*verbose=*/true);
   };
 
   // Drop null cases
@@ -64,6 +66,23 @@ TEST(GetTakeIndices, Basics) {
   CheckCase("[null, false, true, true]", "[null, 2, 3]", FilterOptions::EMIT_NULL);
 }
 
+TEST(GetTakeIndices, NullValidityBuffer) {
+  BooleanArray filter(1, *AllocateEmptyBitmap(1), /*null_bitmap=*/nullptr);
+  auto expected_indices = ArrayFromJSON(uint16(), "[]");
+
+  ASSERT_OK_AND_ASSIGN(auto indices,
+                       internal::GetTakeIndices(*filter.data(), FilterOptions::DROP));
+  auto indices_array = MakeArray(indices);
+  ASSERT_OK(indices_array->ValidateFull());
+  AssertArraysEqual(*expected_indices, *indices_array, /*verbose=*/true);
+
+  ASSERT_OK_AND_ASSIGN(
+      indices, internal::GetTakeIndices(*filter.data(), FilterOptions::EMIT_NULL));
+  indices_array = MakeArray(indices);
+  ASSERT_OK(indices_array->ValidateFull());
+  AssertArraysEqual(*expected_indices, *indices_array, /*verbose=*/true);
+}
+
 // TODO: Add slicing
 
 template <typename IndexArrayType>
@@ -74,6 +93,8 @@ void CheckGetTakeIndicesCase(const Array& untyped_filter) {
   // Verify DROP indices
   {
     IndexArrayType indices(drop_indices);
+    ASSERT_OK(indices.ValidateFull());
+
     int64_t out_position = 0;
     for (int64_t i = 0; i < filter.length(); ++i) {
       if (filter.IsValid(i)) {
@@ -83,6 +104,7 @@ void CheckGetTakeIndicesCase(const Array& untyped_filter) {
         }
       }
     }
+    ASSERT_EQ(out_position, indices.length());
     // Check that the end length agrees with the output of GetFilterOutputSize
     ASSERT_EQ(out_position,
               internal::GetFilterOutputSize(*filter.data(), FilterOptions::DROP));
@@ -91,10 +113,11 @@ void CheckGetTakeIndicesCase(const Array& untyped_filter) {
   ASSERT_OK_AND_ASSIGN(
       std::shared_ptr<ArrayData> emit_indices,
       internal::GetTakeIndices(*filter.data(), FilterOptions::EMIT_NULL));
-
   // Verify EMIT_NULL indices
   {
     IndexArrayType indices(emit_indices);
+    ASSERT_OK(indices.ValidateFull());
+
     int64_t out_position = 0;
     for (int64_t i = 0; i < filter.length(); ++i) {
       if (filter.IsValid(i)) {
@@ -108,6 +131,7 @@ void CheckGetTakeIndicesCase(const Array& untyped_filter) {
       }
     }
 
+    ASSERT_EQ(out_position, indices.length());
     // Check that the end length agrees with the output of GetFilterOutputSize
     ASSERT_EQ(out_position,
               internal::GetFilterOutputSize(*filter.data(), FilterOptions::EMIT_NULL));
@@ -923,10 +947,37 @@ uint64_t GetMaxIndex(int64_t values_length) {
   return static_cast<uint64_t>(values_length - 1);
 }
 
-template <typename ArrowType>
-class TestTakeKernel : public ::testing::Test {};
+class TestTakeKernel : public ::testing::Test {
+ public:
+  void TestNoValidityBitmapButUnknownNullCount(const std::shared_ptr<Array>& values,
+                                               const std::shared_ptr<Array>& indices) {
+    ASSERT_EQ(values->null_count(), 0);
+    ASSERT_EQ(indices->null_count(), 0);
+    auto expected = (*Take(values, indices)).make_array();
 
-TEST(TestTakeKernel, TakeNull) {
+    auto new_values = MakeArray(values->data()->Copy());
+    new_values->data()->buffers[0].reset();
+    new_values->data()->null_count = kUnknownNullCount;
+    auto new_indices = MakeArray(indices->data()->Copy());
+    new_indices->data()->buffers[0].reset();
+    new_indices->data()->null_count = kUnknownNullCount;
+    auto result = (*Take(new_values, new_indices)).make_array();
+
+    AssertArraysEqual(*expected, *result);
+  }
+
+  void TestNoValidityBitmapButUnknownNullCount(const std::shared_ptr<DataType>& type,
+                                               const std::string& values,
+                                               const std::string& indices) {
+    TestNoValidityBitmapButUnknownNullCount(ArrayFromJSON(type, values),
+                                            ArrayFromJSON(int16(), indices));
+  }
+};
+
+template <typename ArrowType>
+class TestTakeKernelTyped : public TestTakeKernel {};
+
+TEST_F(TestTakeKernel, TakeNull) {
   AssertTakeNull("[null, null, null]", "[0, 1, 0]", "[null, null, null]");
   AssertTakeNull("[null, null, null]", "[0, 2]", "[null, null]");
 
@@ -937,13 +988,13 @@ TEST(TestTakeKernel, TakeNull) {
                 TakeJSON(boolean(), "[null, null, null]", int8(), "[0, -1, 0]", &arr));
 }
 
-TEST(TestTakeKernel, InvalidIndexType) {
+TEST_F(TestTakeKernel, InvalidIndexType) {
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(NotImplemented, TakeJSON(null(), "[null, null, null]", float32(),
                                          "[0.0, 1.0, 0.1]", &arr));
 }
 
-TEST(TestTakeKernel, DefaultOptions) {
+TEST_F(TestTakeKernel, DefaultOptions) {
   auto indices = ArrayFromJSON(int8(), "[null, 2, 0, 3]");
   auto values = ArrayFromJSON(int8(), "[7, 8, 9, null]");
   ASSERT_OK_AND_ASSIGN(auto no_options_provided, CallFunction("take", {values, indices}));
@@ -955,11 +1006,13 @@ TEST(TestTakeKernel, DefaultOptions) {
   AssertDatumsEqual(explicit_defaults, no_options_provided);
 }
 
-TEST(TestTakeKernel, TakeBoolean) {
+TEST_F(TestTakeKernel, TakeBoolean) {
   AssertTakeBoolean("[7, 8, 9]", "[]", "[]");
   AssertTakeBoolean("[true, false, true]", "[0, 1, 0]", "[true, false, true]");
   AssertTakeBoolean("[null, false, true]", "[0, 1, 0]", "[null, false, null]");
   AssertTakeBoolean("[true, false, true]", "[null, 1, 0]", "[null, false, true]");
+
+  TestNoValidityBitmapButUnknownNullCount(boolean(), "[true, false, true]", "[1, 0, 0]");
 
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(IndexError,
@@ -969,7 +1022,7 @@ TEST(TestTakeKernel, TakeBoolean) {
 }
 
 template <typename ArrowType>
-class TestTakeKernelWithNumeric : public TestTakeKernel<ArrowType> {
+class TestTakeKernelWithNumeric : public TestTakeKernelTyped<ArrowType> {
  protected:
   void AssertTake(const std::string& values, const std::string& indices,
                   const std::string& expected) {
@@ -998,7 +1051,7 @@ TYPED_TEST(TestTakeKernelWithNumeric, TakeNumeric) {
 }
 
 template <typename TypeClass>
-class TestTakeKernelWithString : public TestTakeKernel<TypeClass> {
+class TestTakeKernelWithString : public TestTakeKernelTyped<TypeClass> {
  public:
   std::shared_ptr<DataType> value_type() {
     return TypeTraits<TypeClass>::type_singleton();
@@ -1033,6 +1086,9 @@ TYPED_TEST(TestTakeKernelWithString, TakeString) {
   this->AssertTake(R"([null, "b", "c"])", "[0, 1, 0]", "[null, \"b\", null]");
   this->AssertTake(R"(["a", "b", "c"])", "[null, 1, 0]", R"([null, "b", "a"])");
 
+  this->TestNoValidityBitmapButUnknownNullCount(this->value_type(), R"(["a", "b", "c"])",
+                                                "[0, 1, 0]");
+
   std::shared_ptr<DataType> type = this->value_type();
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(IndexError,
@@ -1048,7 +1104,7 @@ TYPED_TEST(TestTakeKernelWithString, TakeDictionary) {
   this->AssertTakeDictionary(dict, "[3, 4, 2]", "[null, 1, 0]", "[null, 4, 3]");
 }
 
-class TestTakeKernelFSB : public TestTakeKernel<FixedSizeBinaryType> {
+class TestTakeKernelFSB : public TestTakeKernelTyped<FixedSizeBinaryType> {
  public:
   std::shared_ptr<DataType> value_type() { return fixed_size_binary(3); }
 
@@ -1063,6 +1119,9 @@ TEST_F(TestTakeKernelFSB, TakeFixedSizeBinary) {
   this->AssertTake(R"([null, "bbb", "ccc"])", "[0, 1, 0]", "[null, \"bbb\", null]");
   this->AssertTake(R"(["aaa", "bbb", "ccc"])", "[null, 1, 0]", R"([null, "bbb", "aaa"])");
 
+  this->TestNoValidityBitmapButUnknownNullCount(this->value_type(),
+                                                R"(["aaa", "bbb", "ccc"])", "[0, 1, 0]");
+
   std::shared_ptr<DataType> type = this->value_type();
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(IndexError,
@@ -1071,7 +1130,7 @@ TEST_F(TestTakeKernelFSB, TakeFixedSizeBinary) {
                                      int64(), "[2, 5]", &arr));
 }
 
-class TestTakeKernelWithList : public TestTakeKernel<ListType> {};
+class TestTakeKernelWithList : public TestTakeKernelTyped<ListType> {};
 
 TEST_F(TestTakeKernelWithList, TakeListInt32) {
   std::string list_json = "[[], [1,2], null, [3]]";
@@ -1083,6 +1142,9 @@ TEST_F(TestTakeKernelWithList, TakeListInt32) {
   CheckTake(list(int32()), list_json, "[0, 1, 2, 3]", list_json);
   CheckTake(list(int32()), list_json, "[0, 0, 0, 0, 0, 0, 1]",
             "[[], [], [], [], [], [], [1, 2]]");
+
+  this->TestNoValidityBitmapButUnknownNullCount(list(int32()), "[[], [1,2], [3]]",
+                                                "[0, 1, 0]");
 }
 
 TEST_F(TestTakeKernelWithList, TakeListListInt32) {
@@ -1110,9 +1172,12 @@ TEST_F(TestTakeKernelWithList, TakeListListInt32) {
   CheckTake(type, list_json, "[0, 1, 2, 3]", list_json);
   CheckTake(type, list_json, "[0, 0, 0, 0, 0, 0, 1]",
             "[[], [], [], [], [], [], [[1], [2, null, 2], []]]");
+
+  this->TestNoValidityBitmapButUnknownNullCount(
+      type, "[[[1], [2, null, 2], []], [[3, null]]]", "[0, 1, 0]");
 }
 
-class TestTakeKernelWithLargeList : public TestTakeKernel<LargeListType> {};
+class TestTakeKernelWithLargeList : public TestTakeKernelTyped<LargeListType> {};
 
 TEST_F(TestTakeKernelWithLargeList, TakeLargeListInt32) {
   std::string list_json = "[[], [1,2], null, [3]]";
@@ -1120,7 +1185,7 @@ TEST_F(TestTakeKernelWithLargeList, TakeLargeListInt32) {
   CheckTake(large_list(int32()), list_json, "[null, 1, 2, 0]", "[null, [1,2], null, []]");
 }
 
-class TestTakeKernelWithFixedSizeList : public TestTakeKernel<FixedSizeListType> {};
+class TestTakeKernelWithFixedSizeList : public TestTakeKernelTyped<FixedSizeListType> {};
 
 TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListInt32) {
   std::string list_json = "[null, [1, null, 3], [4, 5, 6], [7, 8, null]]";
@@ -1136,9 +1201,13 @@ TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListInt32) {
   CheckTake(
       fixed_size_list(int32(), 3), list_json, "[2, 2, 2, 2, 2, 2, 1]",
       "[[4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [1, null, 3]]");
+
+  this->TestNoValidityBitmapButUnknownNullCount(fixed_size_list(int32(), 3),
+                                                "[[1, null, 3], [4, 5, 6], [7, 8, null]]",
+                                                "[0, 1, 0]");
 }
 
-class TestTakeKernelWithMap : public TestTakeKernel<MapType> {};
+class TestTakeKernelWithMap : public TestTakeKernelTyped<MapType> {};
 
 TEST_F(TestTakeKernelWithMap, TakeMapStringToInt32) {
   std::string map_json = R"([
@@ -1172,7 +1241,7 @@ TEST_F(TestTakeKernelWithMap, TakeMapStringToInt32) {
   ])");
 }
 
-class TestTakeKernelWithStruct : public TestTakeKernel<StructType> {};
+class TestTakeKernelWithStruct : public TestTakeKernelTyped<StructType> {};
 
 TEST_F(TestTakeKernelWithStruct, TakeStruct) {
   auto struct_type = struct_({field("a", int32()), field("b", utf8())});
@@ -1205,9 +1274,12 @@ TEST_F(TestTakeKernelWithStruct, TakeStruct) {
     {"a": 2, "b": "hello"},
     {"a": 2, "b": "hello"}
   ])");
+
+  this->TestNoValidityBitmapButUnknownNullCount(
+      struct_type, R"([{"a": 1}, {"a": 2, "b": "hello"}])", "[0, 1, 0]");
 }
 
-class TestTakeKernelWithUnion : public TestTakeKernel<UnionType> {};
+class TestTakeKernelWithUnion : public TestTakeKernelTyped<UnionType> {};
 
 // TODO: Restore Union take functionality
 TEST_F(TestTakeKernelWithUnion, DISABLED_TakeUnion) {
@@ -1361,7 +1433,7 @@ TEST_F(TestPermutationsWithTake, InvertPermutation) {
   }
 }
 
-class TestTakeKernelWithRecordBatch : public TestTakeKernel<RecordBatch> {
+class TestTakeKernelWithRecordBatch : public TestTakeKernelTyped<RecordBatch> {
  public:
   void AssertTake(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
                   const std::string& indices, const std::string& expected_batch) {
@@ -1420,7 +1492,7 @@ TEST_F(TestTakeKernelWithRecordBatch, TakeRecordBatch) {
   ])");
 }
 
-class TestTakeKernelWithChunkedArray : public TestTakeKernel<ChunkedArray> {
+class TestTakeKernelWithChunkedArray : public TestTakeKernelTyped<ChunkedArray> {
  public:
   void AssertTake(const std::shared_ptr<DataType>& type,
                   const std::vector<std::string>& values, const std::string& indices,
@@ -1477,7 +1549,7 @@ TEST_F(TestTakeKernelWithChunkedArray, TakeChunkedArray) {
                                                        {"[0, 1, 0]", "[5, 1]"}, &arr));
 }
 
-class TestTakeKernelWithTable : public TestTakeKernel<Table> {
+class TestTakeKernelWithTable : public TestTakeKernelTyped<Table> {
  public:
   void AssertTake(const std::shared_ptr<Schema>& schm,
                   const std::vector<std::string>& table_json, const std::string& filter,

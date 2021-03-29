@@ -197,6 +197,9 @@ macro_rules! make_string_from_list {
 /// Note this function is quite inefficient and is unlikely to be
 /// suitable for converting large arrays or record batches.
 pub fn array_value_to_string(column: &array::ArrayRef, row: usize) -> Result<String> {
+    if column.is_null(row) {
+        return Ok("".to_string());
+    }
     match column.data_type() {
         DataType::Utf8 => make_string!(array::StringArray, column, row),
         DataType::LargeUtf8 => make_string!(array::LargeStringArray, column, row),

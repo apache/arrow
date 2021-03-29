@@ -82,7 +82,7 @@ impl<T: DataType> RecordReader<T> {
     }
 
     /// Set the current page reader.
-    pub fn set_page_reader(&mut self, page_reader: Box<PageReader>) -> Result<()> {
+    pub fn set_page_reader(&mut self, page_reader: Box<dyn PageReader>) -> Result<()> {
         self.column_reader =
             Some(ColumnReaderImpl::new(self.column_desc.clone(), page_reader));
         Ok(())
@@ -369,6 +369,7 @@ impl<T: DataType> RecordReader<T> {
 
     /// Split values into records according repetition definition and returns number of
     /// records read.
+    #[allow(clippy::unnecessary_wraps)]
     fn split_records(&mut self, records_to_read: usize) -> Result<usize> {
         let rep_levels = self.rep_levels.as_ref().map(|buf| {
             let (prefix, rep_levels, suffix) =
@@ -410,6 +411,7 @@ impl<T: DataType> RecordReader<T> {
         }
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn set_values_written(&mut self, new_values_written: usize) -> Result<()> {
         self.values_written = new_values_written;
         self.records
@@ -445,7 +447,7 @@ mod tests {
     use std::sync::Arc;
 
     struct TestPageReader {
-        pages: Box<Iterator<Item = Page>>,
+        pages: Box<dyn Iterator<Item = Page>>,
     }
 
     impl TestPageReader {

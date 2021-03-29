@@ -18,6 +18,7 @@
 #include "benchmark/benchmark.h"
 
 #include "arrow/array.h"
+#include "arrow/io/memory.h"
 #include "arrow/testing/random.h"
 
 #include "parquet/column_reader.h"
@@ -37,9 +38,10 @@ std::shared_ptr<Int64Writer> BuildWriter(int64_t output_size,
                                          const std::shared_ptr<ArrowOutputStream>& dst,
                                          ColumnChunkMetaDataBuilder* metadata,
                                          ColumnDescriptor* schema,
-                                         const WriterProperties* properties) {
-  std::unique_ptr<PageWriter> pager = PageWriter::Open(
-      dst, Compression::UNCOMPRESSED, Codec::UseDefaultCompressionLevel(), metadata);
+                                         const WriterProperties* properties,
+                                         Compression::type codec) {
+  std::unique_ptr<PageWriter> pager =
+      PageWriter::Open(dst, codec, Codec::UseDefaultCompressionLevel(), metadata);
   std::shared_ptr<ColumnWriter> writer =
       ColumnWriter::Make(metadata, std::move(pager), properties);
   return std::static_pointer_cast<Int64Writer>(writer);
@@ -85,7 +87,7 @@ static void BM_WriteInt64Column(::benchmark::State& state) {
   while (state.KeepRunning()) {
     auto stream = CreateOutputStream();
     std::shared_ptr<Int64Writer> writer = BuildWriter(
-        state.range(0), stream, metadata.get(), schema.get(), properties.get());
+        state.range(0), stream, metadata.get(), schema.get(), properties.get(), codec);
     writer->WriteBatch(i8_values.length(), definition_levels.data(),
                        repetition_levels.data(), i8_values.raw_values());
     writer->Close();
@@ -118,10 +120,10 @@ BENCHMARK_TEMPLATE(BM_WriteInt64Column, Repetition::REPEATED, Compression::ZSTD)
     ->Arg(1 << 20);
 
 std::shared_ptr<Int64Reader> BuildReader(std::shared_ptr<Buffer>& buffer,
-                                         int64_t num_values, ColumnDescriptor* schema) {
+                                         int64_t num_values, Compression::type codec,
+                                         ColumnDescriptor* schema) {
   auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
-  std::unique_ptr<PageReader> page_reader =
-      PageReader::Open(source, num_values, Compression::UNCOMPRESSED);
+  std::unique_ptr<PageReader> page_reader = PageReader::Open(source, num_values, codec);
   return std::static_pointer_cast<Int64Reader>(
       ColumnReader::Make(schema, std::move(page_reader)));
 }
@@ -144,8 +146,8 @@ static void BM_ReadInt64Column(::benchmark::State& state) {
       properties, schema.get(), reinterpret_cast<uint8_t*>(&thrift_metadata));
 
   auto stream = CreateOutputStream();
-  std::shared_ptr<Int64Writer> writer =
-      BuildWriter(state.range(0), stream, metadata.get(), schema.get(), properties.get());
+  std::shared_ptr<Int64Writer> writer = BuildWriter(
+      state.range(0), stream, metadata.get(), schema.get(), properties.get(), codec);
   writer->WriteBatch(values.size(), definition_levels.data(), repetition_levels.data(),
                      values.data());
   writer->Close();
@@ -155,7 +157,8 @@ static void BM_ReadInt64Column(::benchmark::State& state) {
   std::vector<int16_t> definition_levels_out(state.range(1));
   std::vector<int16_t> repetition_levels_out(state.range(1));
   while (state.KeepRunning()) {
-    std::shared_ptr<Int64Reader> reader = BuildReader(src, state.range(1), schema.get());
+    std::shared_ptr<Int64Reader> reader =
+        BuildReader(src, state.range(1), codec, schema.get());
     int64_t values_read = 0;
     for (size_t i = 0; i < values.size(); i += values_read) {
       reader->ReadBatch(values_out.size(), definition_levels_out.data(),

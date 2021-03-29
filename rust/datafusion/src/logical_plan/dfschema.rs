@@ -237,9 +237,11 @@ where
     Self: Sized,
 {
     /// Attempt to create a DSSchema
+    #[allow(clippy::wrong_self_convention)]
     fn to_dfschema(self) -> Result<DFSchema>;
 
     /// Attempt to create a DSSchemaRef
+    #[allow(clippy::wrong_self_convention)]
     fn to_dfschema_ref(self) -> Result<DFSchemaRef> {
         Ok(Arc::new(self.to_dfschema()?))
     }

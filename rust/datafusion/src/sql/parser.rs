@@ -311,7 +311,7 @@ mod tests {
     }
 
     /// Parses sql and asserts that the expected error message was found
-    fn expect_parse_error(sql: &str, expected_error: &str) -> Result<(), ParserError> {
+    fn expect_parse_error(sql: &str, expected_error: &str) {
         match DFParser::parse_sql(sql) {
             Ok(statements) => {
                 panic!(
@@ -329,7 +329,6 @@ mod tests {
                 );
             }
         }
-        Ok(())
     }
 
     fn make_column_def(name: impl Into<String>, data_type: DataType) -> ColumnDef {
@@ -374,7 +373,7 @@ mod tests {
         expect_parse_error(
             sql,
             "Expected one of PARQUET, NDJSON, or CSV, found: UNKNOWN_TYPE",
-        )?;
+        );
 
         Ok(())
     }

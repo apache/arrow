@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::memory;
 use std::ptr::NonNull;
 
 /// This struct is highly `unsafe` and offers the possibility to self-reference a [arrow::Buffer] from [arrow::array::ArrayData].
@@ -36,7 +35,11 @@ impl<T> RawPtrBox<T> {
     /// * `ptr` is not aligned to a slice of type `T`. This is guaranteed if it was built from a slice of type `T`.
     pub(super) unsafe fn new(ptr: *const u8) -> Self {
         let ptr = NonNull::new(ptr as *mut u8).expect("Pointer cannot be null");
-        assert!(memory::is_ptr_aligned::<T>(ptr), "memory is not aligned");
+        assert_eq!(
+            ptr.as_ptr().align_offset(std::mem::align_of::<T>()),
+            0,
+            "memory is not aligned"
+        );
         Self { ptr: ptr.cast() }
     }
 

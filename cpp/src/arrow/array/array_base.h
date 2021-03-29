@@ -91,7 +91,7 @@ class ARROW_EXPORT Array {
   ///
   /// Note that for `null_count == 0` or for null type, this will be null.
   /// This buffer does not account for any slice offset
-  std::shared_ptr<Buffer> null_bitmap() const { return data_->buffers[0]; }
+  const std::shared_ptr<Buffer>& null_bitmap() const { return data_->buffers[0]; }
 
   /// Raw pointer to the null bitmap.
   ///
@@ -160,7 +160,7 @@ class ARROW_EXPORT Array {
   /// Input-checking variant of Array::Slice
   Result<std::shared_ptr<Array>> SliceSafe(int64_t offset) const;
 
-  std::shared_ptr<ArrayData> data() const { return data_; }
+  const std::shared_ptr<ArrayData>& data() const { return data_; }
 
   int num_fields() const { return static_cast<int>(data_->child_data.size()); }
 

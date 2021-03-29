@@ -15,9 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# cython: profile=False
-# distutils: language = c++
+# cython: profile = False
 # cython: embedsignature = True
+# cython: nonecheck = True
+# distutils: language = c++
 
 import datetime
 import decimal as _pydecimal

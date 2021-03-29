@@ -18,11 +18,14 @@
 ARG base
 FROM ${base}
 
+ARG arch_alias
+ARG arch_short_alias
+
 RUN yum install -y git flex curl autoconf zip wget
 
 # Install CMake
-ARG cmake=3.19.2
-RUN wget -q https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-Linux-x86_64.tar.gz -O - | \
+ARG cmake=3.19.3
+RUN wget -q https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-Linux-${arch_alias}.tar.gz -O - | \
     tar -xzf - --directory /usr/local --strip-components=1
 
 # Install Ninja
@@ -51,22 +54,27 @@ RUN mkdir /tmp/ccache && \
 ARG vcpkg
 RUN git clone https://github.com/microsoft/vcpkg /opt/vcpkg && \
     git -C /opt/vcpkg checkout ${vcpkg} && \
-    /opt/vcpkg/bootstrap-vcpkg.sh --useSystemBinaries --disableMetrics && \
+    /opt/vcpkg/bootstrap-vcpkg.sh -useSystemBinaries -disableMetrics && \
     ln -s /opt/vcpkg/vcpkg /usr/bin/vcpkg
 
 # Patch ports files as needed
 COPY ci/vcpkg arrow/ci/vcpkg
-RUN cd /opt/vcpkg && patch -p1 -i /arrow/ci/vcpkg/ports.patch
+RUN cd /opt/vcpkg && git apply --ignore-whitespace /arrow/ci/vcpkg/ports.patch
 
 ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_FORCE_SYSTEM_BINARIES=1 \
     VCPKG_OVERLAY_TRIPLETS=/arrow/ci/vcpkg \
-    VCPKG_DEFAULT_TRIPLET=x64-linux-static-${build_type}
+    VCPKG_DEFAULT_TRIPLET=${arch_short_alias}-linux-static-${build_type} \
+    VCPKG_FEATURE_FLAGS=-manifests
 
+# Need to install the boost-build prior installing the boost packages, otherwise
+# vcpkg will raise an error.
 # TODO(kszucs): factor out the package enumeration to a text file and reuse it
 # from the windows image and potentially in a future macos wheel build
 RUN vcpkg install --clean-after-build \
+        boost-build:${arch_short_alias}-linux && \
+    vcpkg install --clean-after-build \
         abseil \
         aws-sdk-cpp[config,cognito-identity,core,identity-management,s3,sts,transfer] \
         boost-filesystem \

@@ -2,9 +2,12 @@
 % Please edit documentation in R/compute.R
 \name{match_arrow}
 \alias{match_arrow}
-\title{\code{match} for Arrow objects}
+\alias{is_in}
+\title{\code{match} and \code{\%in\%} for Arrow objects}
 \usage{
 match_arrow(x, table, ...)
+
+is_in(x, table, ...)
 }
 \arguments{
 \item{x}{\code{Array} or \code{ChunkedArray}}
@@ -14,10 +17,12 @@ match_arrow(x, table, ...)
 \item{...}{additional arguments, ignored}
 }
 \value{
-An \code{int32}-type \code{Array} of the same length as \code{x} with the
-(0-based) indexes into \code{table}.
+\code{match_arrow()} returns an \code{int32}-type \code{Array} of the same length
+as \code{x} with the (0-based) indexes into \code{table}. \code{is_in()} returns a
+\code{boolean}-type \code{Array} of the same length as \code{x} with values indicating
+per element of \code{x} it it is present in \code{table}.
 }
 \description{
 \code{base::match()} is not a generic, so we can't just define Arrow methods for
-it. This function exposes the analogous function in the Arrow C++ library.
+it. This function exposes the analogous functions in the Arrow C++ library.
 }

@@ -86,14 +86,10 @@ struct Comparison {
     return nullptr;
   }
 
-  // Execute a simple Comparison between scalars, casting the RHS if types disagree
+  // Execute a simple Comparison between scalars
   static Result<type> Execute(Datum l, Datum r) {
     if (!l.is_scalar() || !r.is_scalar()) {
       return Status::Invalid("Cannot Execute Comparison on non-scalars");
-    }
-
-    if (!l.type()->Equals(r.type())) {
-      ARROW_ASSIGN_OR_RAISE(r, compute::Cast(r, l.type()));
     }
 
     std::vector<Datum> arguments{std::move(l), std::move(r)};
@@ -107,6 +103,44 @@ struct Comparison {
 
     if (!less.scalar()->is_valid) return NA;
     return less.scalar_as<BooleanScalar>().value ? LESS : GREATER;
+  }
+
+  // Given an Expression wrapped in casts which preserve ordering
+  // (for example, cast(field_ref("i16"), to_type=int32())), unwrap the inner Expression.
+  // This is used to destructure implicitly cast field_refs during Expression
+  // simplification.
+  static const Expression& StripOrderPreservingCasts(const Expression& expr) {
+    auto call = expr.call();
+    if (!call) return expr;
+    if (call->function_name != "cast") return expr;
+
+    const Expression& from = call->arguments[0];
+
+    auto from_id = from.type()->id();
+    auto to_id = expr.type()->id();
+
+    if (is_floating(to_id)) {
+      if (is_integer(from_id) || is_floating(from_id)) {
+        return StripOrderPreservingCasts(from);
+      }
+      return expr;
+    }
+
+    if (is_unsigned_integer(to_id)) {
+      if (is_unsigned_integer(from_id) && bit_width(to_id) >= bit_width(from_id)) {
+        return StripOrderPreservingCasts(from);
+      }
+      return expr;
+    }
+
+    if (is_signed_integer(to_id)) {
+      if (is_integer(from_id) && bit_width(to_id) >= bit_width(from_id)) {
+        return StripOrderPreservingCasts(from);
+      }
+      return expr;
+    }
+
+    return expr;
   }
 
   static type GetFlipped(type op) {
@@ -182,14 +216,6 @@ inline bool IsSetLookup(const std::string& function) {
   return function == "is_in" || function == "index_in";
 }
 
-inline bool IsSameTypesBinary(const std::string& function) {
-  if (Comparison::Get(function)) return true;
-
-  static std::unordered_set<std::string> set{"add", "subtract", "multiply", "divide"};
-
-  return set.find(function) != set.end();
-}
-
 inline const compute::SetLookupOptions* GetSetLookupOptions(
     const Expression::Call& call) {
   if (!IsSetLookup(call.function_name)) return nullptr;
@@ -204,38 +230,6 @@ inline const compute::ProjectOptions* GetProjectOptions(const Expression::Call& 
 inline const compute::StrptimeOptions* GetStrptimeOptions(const Expression::Call& call) {
   if (call.function_name != "strptime") return nullptr;
   return checked_cast<const compute::StrptimeOptions*>(call.options.get());
-}
-
-inline std::shared_ptr<DataType> GetDictionaryValueType(
-    const std::shared_ptr<DataType>& type) {
-  if (type && type->id() == Type::DICTIONARY) {
-    return checked_cast<const DictionaryType&>(*type).value_type();
-  }
-  return nullptr;
-}
-
-inline Status EnsureNotDictionary(ValueDescr* descr) {
-  if (auto value_type = GetDictionaryValueType(descr->type)) {
-    descr->type = std::move(value_type);
-  }
-  return Status::OK();
-}
-
-inline Status EnsureNotDictionary(Datum* datum) {
-  if (datum->type()->id() == Type::DICTIONARY) {
-    const auto& type = checked_cast<const DictionaryType&>(*datum->type()).value_type();
-    ARROW_ASSIGN_OR_RAISE(*datum, compute::Cast(*datum, type));
-  }
-  return Status::OK();
-}
-
-inline Status EnsureNotDictionary(Expression::Call* call) {
-  if (auto options = GetSetLookupOptions(*call)) {
-    auto new_options = *options;
-    RETURN_NOT_OK(EnsureNotDictionary(&new_options.value_set));
-    call->options.reset(new compute::SetLookupOptions(std::move(new_options)));
-  }
-  return Status::OK();
 }
 
 /// A helper for unboxing an Expression composed of associative function calls.

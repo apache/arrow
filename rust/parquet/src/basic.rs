@@ -24,6 +24,12 @@ use parquet_format as parquet;
 
 use crate::errors::ParquetError;
 
+// Re-export parquet_format types used in this module
+pub use parquet_format::{
+    BsonType, DateType, DecimalType, EnumType, IntType, JsonType, ListType, MapType,
+    NullType, StringType, TimeType, TimeUnit, TimestampType, UUIDType,
+};
+
 // ----------------------------------------------------------------------
 // Types from the Thrift definition
 
@@ -50,11 +56,14 @@ pub enum Type {
 // ----------------------------------------------------------------------
 // Mirrors `parquet::ConvertedType`
 
-/// Common types (logical types) used by frameworks when using Parquet.
+/// Common types (converted types) used by frameworks when using Parquet.
 /// This helps map between types in those frameworks to the base types in Parquet.
 /// This is only metadata and not needed to read or write the data.
+///
+/// This struct was renamed from `LogicalType` in version 4.0.0.
+/// If targeting Parquet format 2.4.0 or above, please use [LogicalType] instead.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum LogicalType {
+pub enum ConvertedType {
     NONE,
     /// A BYTE_ARRAY actually contains UTF8 encoded chars.
     UTF8,
@@ -144,6 +153,31 @@ pub enum LogicalType {
     /// the number of milliseconds associated with the provided duration.
     /// This duration of time is independent of any particular timezone or date.
     INTERVAL,
+}
+
+// ----------------------------------------------------------------------
+// Mirrors `parquet::LogicalType`
+
+/// Logical types used by version 2.4.0+ of the Parquet format.
+///
+/// This is an *entirely new* struct as of version
+/// 4.0.0. The struct previously named `LogicalType` was renamed to
+/// [`ConvertedType`]. Please see the README.md for more details.
+#[derive(Debug, Clone, PartialEq)]
+pub enum LogicalType {
+    STRING(StringType),
+    MAP(MapType),
+    LIST(ListType),
+    ENUM(EnumType),
+    DECIMAL(DecimalType),
+    DATE(DateType),
+    TIME(TimeType),
+    TIMESTAMP(TimestampType),
+    INTEGER(IntType),
+    UNKNOWN(NullType),
+    JSON(JsonType),
+    BSON(BsonType),
+    UUID(UUIDType),
 }
 
 // ----------------------------------------------------------------------
@@ -284,42 +318,74 @@ pub enum ColumnOrder {
 
 impl ColumnOrder {
     /// Returns sort order for a physical/logical type.
-    pub fn get_sort_order(logical_type: LogicalType, physical_type: Type) -> SortOrder {
+    pub fn get_sort_order(
+        logical_type: Option<LogicalType>,
+        converted_type: ConvertedType,
+        physical_type: Type,
+    ) -> SortOrder {
+        // TODO: Should this take converted and logical type, for compatibility?
         match logical_type {
+            Some(logical) => match logical {
+                LogicalType::STRING(_)
+                | LogicalType::ENUM(_)
+                | LogicalType::JSON(_)
+                | LogicalType::BSON(_) => SortOrder::UNSIGNED,
+                LogicalType::INTEGER(t) => match t.is_signed {
+                    true => SortOrder::SIGNED,
+                    false => SortOrder::UNSIGNED,
+                },
+                LogicalType::MAP(_) | LogicalType::LIST(_) => SortOrder::UNDEFINED,
+                LogicalType::DECIMAL(_) => SortOrder::SIGNED,
+                LogicalType::DATE(_) => SortOrder::SIGNED,
+                LogicalType::TIME(_) => SortOrder::SIGNED,
+                LogicalType::TIMESTAMP(_) => SortOrder::SIGNED,
+                LogicalType::UNKNOWN(_) => SortOrder::UNDEFINED,
+                LogicalType::UUID(_) => SortOrder::UNSIGNED,
+            },
+            // Fall back to converted type
+            None => Self::get_converted_sort_order(converted_type, physical_type),
+        }
+    }
+
+    fn get_converted_sort_order(
+        converted_type: ConvertedType,
+        physical_type: Type,
+    ) -> SortOrder {
+        match converted_type {
             // Unsigned byte-wise comparison.
-            LogicalType::UTF8
-            | LogicalType::JSON
-            | LogicalType::BSON
-            | LogicalType::ENUM => SortOrder::UNSIGNED,
+            ConvertedType::UTF8
+            | ConvertedType::JSON
+            | ConvertedType::BSON
+            | ConvertedType::ENUM => SortOrder::UNSIGNED,
 
-            LogicalType::INT_8
-            | LogicalType::INT_16
-            | LogicalType::INT_32
-            | LogicalType::INT_64 => SortOrder::SIGNED,
+            ConvertedType::INT_8
+            | ConvertedType::INT_16
+            | ConvertedType::INT_32
+            | ConvertedType::INT_64 => SortOrder::SIGNED,
 
-            LogicalType::UINT_8
-            | LogicalType::UINT_16
-            | LogicalType::UINT_32
-            | LogicalType::UINT_64 => SortOrder::UNSIGNED,
+            ConvertedType::UINT_8
+            | ConvertedType::UINT_16
+            | ConvertedType::UINT_32
+            | ConvertedType::UINT_64 => SortOrder::UNSIGNED,
 
             // Signed comparison of the represented value.
-            LogicalType::DECIMAL => SortOrder::SIGNED,
+            ConvertedType::DECIMAL => SortOrder::SIGNED,
 
-            LogicalType::DATE => SortOrder::SIGNED,
+            ConvertedType::DATE => SortOrder::SIGNED,
 
-            LogicalType::TIME_MILLIS
-            | LogicalType::TIME_MICROS
-            | LogicalType::TIMESTAMP_MILLIS
-            | LogicalType::TIMESTAMP_MICROS => SortOrder::SIGNED,
+            ConvertedType::TIME_MILLIS
+            | ConvertedType::TIME_MICROS
+            | ConvertedType::TIMESTAMP_MILLIS
+            | ConvertedType::TIMESTAMP_MICROS => SortOrder::SIGNED,
 
-            LogicalType::INTERVAL => SortOrder::UNSIGNED,
+            ConvertedType::INTERVAL => SortOrder::UNDEFINED,
 
-            LogicalType::LIST | LogicalType::MAP | LogicalType::MAP_KEY_VALUE => {
+            ConvertedType::LIST | ConvertedType::MAP | ConvertedType::MAP_KEY_VALUE => {
                 SortOrder::UNDEFINED
             }
 
             // Fall back to physical type.
-            LogicalType::NONE => Self::get_default_sort_order(physical_type),
+            ConvertedType::NONE => Self::get_default_sort_order(physical_type),
         }
     }
 
@@ -337,7 +403,7 @@ impl ColumnOrder {
             // If the max is -0, the row group may contain +0 values as well.
             // When looking for NaN values, min and max should be ignored.
             Type::FLOAT | Type::DOUBLE => SortOrder::SIGNED,
-            // unsigned byte-wise comparison
+            // Unsigned byte-wise comparison
             Type::BYTE_ARRAY | Type::FIXED_LEN_BYTE_ARRAY => SortOrder::UNSIGNED,
         }
     }
@@ -357,7 +423,7 @@ impl fmt::Display for Type {
     }
 }
 
-impl fmt::Display for LogicalType {
+impl fmt::Display for ConvertedType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
     }
@@ -433,70 +499,167 @@ impl convert::From<Type> for parquet::Type {
 }
 
 // ----------------------------------------------------------------------
-// parquet::ConvertedType <=> LogicalType conversion
+// parquet::ConvertedType <=> ConvertedType conversion
 
-impl convert::From<Option<parquet::ConvertedType>> for LogicalType {
+impl convert::From<Option<parquet::ConvertedType>> for ConvertedType {
     fn from(option: Option<parquet::ConvertedType>) -> Self {
         match option {
-            None => LogicalType::NONE,
+            None => ConvertedType::NONE,
             Some(value) => match value {
-                parquet::ConvertedType::Utf8 => LogicalType::UTF8,
-                parquet::ConvertedType::Map => LogicalType::MAP,
-                parquet::ConvertedType::MapKeyValue => LogicalType::MAP_KEY_VALUE,
-                parquet::ConvertedType::List => LogicalType::LIST,
-                parquet::ConvertedType::Enum => LogicalType::ENUM,
-                parquet::ConvertedType::Decimal => LogicalType::DECIMAL,
-                parquet::ConvertedType::Date => LogicalType::DATE,
-                parquet::ConvertedType::TimeMillis => LogicalType::TIME_MILLIS,
-                parquet::ConvertedType::TimeMicros => LogicalType::TIME_MICROS,
-                parquet::ConvertedType::TimestampMillis => LogicalType::TIMESTAMP_MILLIS,
-                parquet::ConvertedType::TimestampMicros => LogicalType::TIMESTAMP_MICROS,
-                parquet::ConvertedType::Uint8 => LogicalType::UINT_8,
-                parquet::ConvertedType::Uint16 => LogicalType::UINT_16,
-                parquet::ConvertedType::Uint32 => LogicalType::UINT_32,
-                parquet::ConvertedType::Uint64 => LogicalType::UINT_64,
-                parquet::ConvertedType::Int8 => LogicalType::INT_8,
-                parquet::ConvertedType::Int16 => LogicalType::INT_16,
-                parquet::ConvertedType::Int32 => LogicalType::INT_32,
-                parquet::ConvertedType::Int64 => LogicalType::INT_64,
-                parquet::ConvertedType::Json => LogicalType::JSON,
-                parquet::ConvertedType::Bson => LogicalType::BSON,
-                parquet::ConvertedType::Interval => LogicalType::INTERVAL,
+                parquet::ConvertedType::Utf8 => ConvertedType::UTF8,
+                parquet::ConvertedType::Map => ConvertedType::MAP,
+                parquet::ConvertedType::MapKeyValue => ConvertedType::MAP_KEY_VALUE,
+                parquet::ConvertedType::List => ConvertedType::LIST,
+                parquet::ConvertedType::Enum => ConvertedType::ENUM,
+                parquet::ConvertedType::Decimal => ConvertedType::DECIMAL,
+                parquet::ConvertedType::Date => ConvertedType::DATE,
+                parquet::ConvertedType::TimeMillis => ConvertedType::TIME_MILLIS,
+                parquet::ConvertedType::TimeMicros => ConvertedType::TIME_MICROS,
+                parquet::ConvertedType::TimestampMillis => {
+                    ConvertedType::TIMESTAMP_MILLIS
+                }
+                parquet::ConvertedType::TimestampMicros => {
+                    ConvertedType::TIMESTAMP_MICROS
+                }
+                parquet::ConvertedType::Uint8 => ConvertedType::UINT_8,
+                parquet::ConvertedType::Uint16 => ConvertedType::UINT_16,
+                parquet::ConvertedType::Uint32 => ConvertedType::UINT_32,
+                parquet::ConvertedType::Uint64 => ConvertedType::UINT_64,
+                parquet::ConvertedType::Int8 => ConvertedType::INT_8,
+                parquet::ConvertedType::Int16 => ConvertedType::INT_16,
+                parquet::ConvertedType::Int32 => ConvertedType::INT_32,
+                parquet::ConvertedType::Int64 => ConvertedType::INT_64,
+                parquet::ConvertedType::Json => ConvertedType::JSON,
+                parquet::ConvertedType::Bson => ConvertedType::BSON,
+                parquet::ConvertedType::Interval => ConvertedType::INTERVAL,
             },
         }
     }
 }
 
-impl convert::From<LogicalType> for Option<parquet::ConvertedType> {
-    fn from(value: LogicalType) -> Self {
+impl convert::From<ConvertedType> for Option<parquet::ConvertedType> {
+    fn from(value: ConvertedType) -> Self {
         match value {
-            LogicalType::NONE => None,
-            LogicalType::UTF8 => Some(parquet::ConvertedType::Utf8),
-            LogicalType::MAP => Some(parquet::ConvertedType::Map),
-            LogicalType::MAP_KEY_VALUE => Some(parquet::ConvertedType::MapKeyValue),
-            LogicalType::LIST => Some(parquet::ConvertedType::List),
-            LogicalType::ENUM => Some(parquet::ConvertedType::Enum),
-            LogicalType::DECIMAL => Some(parquet::ConvertedType::Decimal),
-            LogicalType::DATE => Some(parquet::ConvertedType::Date),
-            LogicalType::TIME_MILLIS => Some(parquet::ConvertedType::TimeMillis),
-            LogicalType::TIME_MICROS => Some(parquet::ConvertedType::TimeMicros),
-            LogicalType::TIMESTAMP_MILLIS => {
+            ConvertedType::NONE => None,
+            ConvertedType::UTF8 => Some(parquet::ConvertedType::Utf8),
+            ConvertedType::MAP => Some(parquet::ConvertedType::Map),
+            ConvertedType::MAP_KEY_VALUE => Some(parquet::ConvertedType::MapKeyValue),
+            ConvertedType::LIST => Some(parquet::ConvertedType::List),
+            ConvertedType::ENUM => Some(parquet::ConvertedType::Enum),
+            ConvertedType::DECIMAL => Some(parquet::ConvertedType::Decimal),
+            ConvertedType::DATE => Some(parquet::ConvertedType::Date),
+            ConvertedType::TIME_MILLIS => Some(parquet::ConvertedType::TimeMillis),
+            ConvertedType::TIME_MICROS => Some(parquet::ConvertedType::TimeMicros),
+            ConvertedType::TIMESTAMP_MILLIS => {
                 Some(parquet::ConvertedType::TimestampMillis)
             }
-            LogicalType::TIMESTAMP_MICROS => {
+            ConvertedType::TIMESTAMP_MICROS => {
                 Some(parquet::ConvertedType::TimestampMicros)
             }
-            LogicalType::UINT_8 => Some(parquet::ConvertedType::Uint8),
-            LogicalType::UINT_16 => Some(parquet::ConvertedType::Uint16),
-            LogicalType::UINT_32 => Some(parquet::ConvertedType::Uint32),
-            LogicalType::UINT_64 => Some(parquet::ConvertedType::Uint64),
-            LogicalType::INT_8 => Some(parquet::ConvertedType::Int8),
-            LogicalType::INT_16 => Some(parquet::ConvertedType::Int16),
-            LogicalType::INT_32 => Some(parquet::ConvertedType::Int32),
-            LogicalType::INT_64 => Some(parquet::ConvertedType::Int64),
-            LogicalType::JSON => Some(parquet::ConvertedType::Json),
-            LogicalType::BSON => Some(parquet::ConvertedType::Bson),
-            LogicalType::INTERVAL => Some(parquet::ConvertedType::Interval),
+            ConvertedType::UINT_8 => Some(parquet::ConvertedType::Uint8),
+            ConvertedType::UINT_16 => Some(parquet::ConvertedType::Uint16),
+            ConvertedType::UINT_32 => Some(parquet::ConvertedType::Uint32),
+            ConvertedType::UINT_64 => Some(parquet::ConvertedType::Uint64),
+            ConvertedType::INT_8 => Some(parquet::ConvertedType::Int8),
+            ConvertedType::INT_16 => Some(parquet::ConvertedType::Int16),
+            ConvertedType::INT_32 => Some(parquet::ConvertedType::Int32),
+            ConvertedType::INT_64 => Some(parquet::ConvertedType::Int64),
+            ConvertedType::JSON => Some(parquet::ConvertedType::Json),
+            ConvertedType::BSON => Some(parquet::ConvertedType::Bson),
+            ConvertedType::INTERVAL => Some(parquet::ConvertedType::Interval),
+        }
+    }
+}
+
+// ----------------------------------------------------------------------
+// parquet::LogicalType <=> LogicalType conversion
+
+impl convert::From<parquet::LogicalType> for LogicalType {
+    fn from(value: parquet::LogicalType) -> Self {
+        match value {
+            parquet::LogicalType::STRING(t) => LogicalType::STRING(t),
+            parquet::LogicalType::MAP(t) => LogicalType::MAP(t),
+            parquet::LogicalType::LIST(t) => LogicalType::LIST(t),
+            parquet::LogicalType::ENUM(t) => LogicalType::ENUM(t),
+            parquet::LogicalType::DECIMAL(t) => LogicalType::DECIMAL(t),
+            parquet::LogicalType::DATE(t) => LogicalType::DATE(t),
+            parquet::LogicalType::TIME(t) => LogicalType::TIME(t),
+            parquet::LogicalType::TIMESTAMP(t) => LogicalType::TIMESTAMP(t),
+            parquet::LogicalType::INTEGER(t) => LogicalType::INTEGER(t),
+            parquet::LogicalType::UNKNOWN(t) => LogicalType::UNKNOWN(t),
+            parquet::LogicalType::JSON(t) => LogicalType::JSON(t),
+            parquet::LogicalType::BSON(t) => LogicalType::BSON(t),
+            parquet::LogicalType::UUID(t) => LogicalType::UUID(t),
+        }
+    }
+}
+
+impl convert::From<LogicalType> for parquet::LogicalType {
+    fn from(value: LogicalType) -> Self {
+        match value {
+            LogicalType::STRING(t) => parquet::LogicalType::STRING(t),
+            LogicalType::MAP(t) => parquet::LogicalType::MAP(t),
+            LogicalType::LIST(t) => parquet::LogicalType::LIST(t),
+            LogicalType::ENUM(t) => parquet::LogicalType::ENUM(t),
+            LogicalType::DECIMAL(t) => parquet::LogicalType::DECIMAL(t),
+            LogicalType::DATE(t) => parquet::LogicalType::DATE(t),
+            LogicalType::TIME(t) => parquet::LogicalType::TIME(t),
+            LogicalType::TIMESTAMP(t) => parquet::LogicalType::TIMESTAMP(t),
+            LogicalType::INTEGER(t) => parquet::LogicalType::INTEGER(t),
+            LogicalType::UNKNOWN(t) => parquet::LogicalType::UNKNOWN(t),
+            LogicalType::JSON(t) => parquet::LogicalType::JSON(t),
+            LogicalType::BSON(t) => parquet::LogicalType::BSON(t),
+            LogicalType::UUID(t) => parquet::LogicalType::UUID(t),
+        }
+    }
+}
+
+// ----------------------------------------------------------------------
+// LogicalType <=> ConvertedType conversion
+
+// Note: To prevent type loss when converting from ConvertedType to LogicalType,
+// the conversion from ConvertedType -> LogicalType is not implemented.
+// Such type loss includes:
+// - Not knowing the decimal scale and precision of ConvertedType
+// - Time and timestamp nanosecond precision, that is not supported in ConvertedType.
+
+impl From<Option<LogicalType>> for ConvertedType {
+    fn from(value: Option<LogicalType>) -> Self {
+        match value {
+            Some(value) => match value {
+                LogicalType::STRING(_) => ConvertedType::UTF8,
+                LogicalType::MAP(_) => ConvertedType::MAP,
+                LogicalType::LIST(_) => ConvertedType::LIST,
+                LogicalType::ENUM(_) => ConvertedType::ENUM,
+                LogicalType::DECIMAL(_) => ConvertedType::DECIMAL,
+                LogicalType::DATE(_) => ConvertedType::DATE,
+                LogicalType::TIME(t) => match t.unit {
+                    TimeUnit::MILLIS(_) => ConvertedType::TIME_MILLIS,
+                    TimeUnit::MICROS(_) => ConvertedType::TIME_MICROS,
+                    TimeUnit::NANOS(_) => ConvertedType::NONE,
+                },
+                LogicalType::TIMESTAMP(t) => match t.unit {
+                    TimeUnit::MILLIS(_) => ConvertedType::TIMESTAMP_MILLIS,
+                    TimeUnit::MICROS(_) => ConvertedType::TIMESTAMP_MICROS,
+                    TimeUnit::NANOS(_) => ConvertedType::NONE,
+                },
+                LogicalType::INTEGER(t) => match (t.bit_width, t.is_signed) {
+                    (8, true) => ConvertedType::INT_8,
+                    (16, true) => ConvertedType::INT_16,
+                    (32, true) => ConvertedType::INT_32,
+                    (64, true) => ConvertedType::INT_64,
+                    (8, false) => ConvertedType::UINT_8,
+                    (16, false) => ConvertedType::UINT_16,
+                    (32, false) => ConvertedType::UINT_32,
+                    (64, false) => ConvertedType::UINT_64,
+                    t => panic!("Integer type {:?} is not supported", t),
+                },
+                LogicalType::UNKNOWN(_) => ConvertedType::NONE,
+                LogicalType::JSON(_) => ConvertedType::JSON,
+                LogicalType::BSON(_) => ConvertedType::BSON,
+                LogicalType::UUID(_) => ConvertedType::NONE,
+            },
+            None => ConvertedType::NONE,
         }
     }
 }
@@ -647,34 +810,71 @@ impl str::FromStr for Type {
     }
 }
 
+impl str::FromStr for ConvertedType {
+    type Err = ParquetError;
+
+    fn from_str(s: &str) -> result::Result<Self, Self::Err> {
+        match s {
+            "NONE" => Ok(ConvertedType::NONE),
+            "UTF8" => Ok(ConvertedType::UTF8),
+            "MAP" => Ok(ConvertedType::MAP),
+            "MAP_KEY_VALUE" => Ok(ConvertedType::MAP_KEY_VALUE),
+            "LIST" => Ok(ConvertedType::LIST),
+            "ENUM" => Ok(ConvertedType::ENUM),
+            "DECIMAL" => Ok(ConvertedType::DECIMAL),
+            "DATE" => Ok(ConvertedType::DATE),
+            "TIME_MILLIS" => Ok(ConvertedType::TIME_MILLIS),
+            "TIME_MICROS" => Ok(ConvertedType::TIME_MICROS),
+            "TIMESTAMP_MILLIS" => Ok(ConvertedType::TIMESTAMP_MILLIS),
+            "TIMESTAMP_MICROS" => Ok(ConvertedType::TIMESTAMP_MICROS),
+            "UINT_8" => Ok(ConvertedType::UINT_8),
+            "UINT_16" => Ok(ConvertedType::UINT_16),
+            "UINT_32" => Ok(ConvertedType::UINT_32),
+            "UINT_64" => Ok(ConvertedType::UINT_64),
+            "INT_8" => Ok(ConvertedType::INT_8),
+            "INT_16" => Ok(ConvertedType::INT_16),
+            "INT_32" => Ok(ConvertedType::INT_32),
+            "INT_64" => Ok(ConvertedType::INT_64),
+            "JSON" => Ok(ConvertedType::JSON),
+            "BSON" => Ok(ConvertedType::BSON),
+            "INTERVAL" => Ok(ConvertedType::INTERVAL),
+            other => Err(general_err!("Invalid converted type {}", other)),
+        }
+    }
+}
+
 impl str::FromStr for LogicalType {
     type Err = ParquetError;
 
     fn from_str(s: &str) -> result::Result<Self, Self::Err> {
         match s {
-            "NONE" => Ok(LogicalType::NONE),
-            "UTF8" => Ok(LogicalType::UTF8),
-            "MAP" => Ok(LogicalType::MAP),
-            "MAP_KEY_VALUE" => Ok(LogicalType::MAP_KEY_VALUE),
-            "LIST" => Ok(LogicalType::LIST),
-            "ENUM" => Ok(LogicalType::ENUM),
-            "DECIMAL" => Ok(LogicalType::DECIMAL),
-            "DATE" => Ok(LogicalType::DATE),
-            "TIME_MILLIS" => Ok(LogicalType::TIME_MILLIS),
-            "TIME_MICROS" => Ok(LogicalType::TIME_MICROS),
-            "TIMESTAMP_MILLIS" => Ok(LogicalType::TIMESTAMP_MILLIS),
-            "TIMESTAMP_MICROS" => Ok(LogicalType::TIMESTAMP_MICROS),
-            "UINT_8" => Ok(LogicalType::UINT_8),
-            "UINT_16" => Ok(LogicalType::UINT_16),
-            "UINT_32" => Ok(LogicalType::UINT_32),
-            "UINT_64" => Ok(LogicalType::UINT_64),
-            "INT_8" => Ok(LogicalType::INT_8),
-            "INT_16" => Ok(LogicalType::INT_16),
-            "INT_32" => Ok(LogicalType::INT_32),
-            "INT_64" => Ok(LogicalType::INT_64),
-            "JSON" => Ok(LogicalType::JSON),
-            "BSON" => Ok(LogicalType::BSON),
-            "INTERVAL" => Ok(LogicalType::INTERVAL),
+            // The type is a placeholder that gets updated elsewhere
+            "INTEGER" => Ok(LogicalType::INTEGER(IntType {
+                bit_width: 8,
+                is_signed: false,
+            })),
+            "MAP" => Ok(LogicalType::MAP(MapType {})),
+            "LIST" => Ok(LogicalType::LIST(ListType {})),
+            "ENUM" => Ok(LogicalType::ENUM(EnumType {})),
+            "DECIMAL" => Ok(LogicalType::DECIMAL(DecimalType {
+                precision: -1,
+                scale: -1,
+            })),
+            "DATE" => Ok(LogicalType::DATE(DateType {})),
+            "TIME" => Ok(LogicalType::TIME(TimeType {
+                is_adjusted_to_u_t_c: false,
+                unit: TimeUnit::MILLIS(parquet::MilliSeconds {}),
+            })),
+            "TIMESTAMP" => Ok(LogicalType::TIMESTAMP(TimestampType {
+                is_adjusted_to_u_t_c: false,
+                unit: TimeUnit::MILLIS(parquet::MilliSeconds {}),
+            })),
+            "STRING" => Ok(LogicalType::STRING(StringType {})),
+            "JSON" => Ok(LogicalType::JSON(JsonType {})),
+            "BSON" => Ok(LogicalType::BSON(BsonType {})),
+            "UUID" => Ok(LogicalType::UUID(UUIDType {})),
+            "UNKNOWN" => Ok(LogicalType::UNKNOWN(NullType {})),
+            "INTERVAL" => Err(general_err!("Interval logical type not yet supported")),
             other => Err(general_err!("Invalid logical type {}", other)),
         }
     }
@@ -770,364 +970,533 @@ mod tests {
     }
 
     #[test]
-    fn test_display_logical_type() {
-        assert_eq!(LogicalType::NONE.to_string(), "NONE");
-        assert_eq!(LogicalType::UTF8.to_string(), "UTF8");
-        assert_eq!(LogicalType::MAP.to_string(), "MAP");
-        assert_eq!(LogicalType::MAP_KEY_VALUE.to_string(), "MAP_KEY_VALUE");
-        assert_eq!(LogicalType::LIST.to_string(), "LIST");
-        assert_eq!(LogicalType::ENUM.to_string(), "ENUM");
-        assert_eq!(LogicalType::DECIMAL.to_string(), "DECIMAL");
-        assert_eq!(LogicalType::DATE.to_string(), "DATE");
-        assert_eq!(LogicalType::TIME_MILLIS.to_string(), "TIME_MILLIS");
-        assert_eq!(LogicalType::DATE.to_string(), "DATE");
-        assert_eq!(LogicalType::TIME_MICROS.to_string(), "TIME_MICROS");
+    fn test_display_converted_type() {
+        assert_eq!(ConvertedType::NONE.to_string(), "NONE");
+        assert_eq!(ConvertedType::UTF8.to_string(), "UTF8");
+        assert_eq!(ConvertedType::MAP.to_string(), "MAP");
+        assert_eq!(ConvertedType::MAP_KEY_VALUE.to_string(), "MAP_KEY_VALUE");
+        assert_eq!(ConvertedType::LIST.to_string(), "LIST");
+        assert_eq!(ConvertedType::ENUM.to_string(), "ENUM");
+        assert_eq!(ConvertedType::DECIMAL.to_string(), "DECIMAL");
+        assert_eq!(ConvertedType::DATE.to_string(), "DATE");
+        assert_eq!(ConvertedType::TIME_MILLIS.to_string(), "TIME_MILLIS");
+        assert_eq!(ConvertedType::DATE.to_string(), "DATE");
+        assert_eq!(ConvertedType::TIME_MICROS.to_string(), "TIME_MICROS");
         assert_eq!(
-            LogicalType::TIMESTAMP_MILLIS.to_string(),
+            ConvertedType::TIMESTAMP_MILLIS.to_string(),
             "TIMESTAMP_MILLIS"
         );
         assert_eq!(
-            LogicalType::TIMESTAMP_MICROS.to_string(),
+            ConvertedType::TIMESTAMP_MICROS.to_string(),
             "TIMESTAMP_MICROS"
         );
-        assert_eq!(LogicalType::UINT_8.to_string(), "UINT_8");
-        assert_eq!(LogicalType::UINT_16.to_string(), "UINT_16");
-        assert_eq!(LogicalType::UINT_32.to_string(), "UINT_32");
-        assert_eq!(LogicalType::UINT_64.to_string(), "UINT_64");
-        assert_eq!(LogicalType::INT_8.to_string(), "INT_8");
-        assert_eq!(LogicalType::INT_16.to_string(), "INT_16");
-        assert_eq!(LogicalType::INT_32.to_string(), "INT_32");
-        assert_eq!(LogicalType::INT_64.to_string(), "INT_64");
-        assert_eq!(LogicalType::JSON.to_string(), "JSON");
-        assert_eq!(LogicalType::BSON.to_string(), "BSON");
-        assert_eq!(LogicalType::INTERVAL.to_string(), "INTERVAL");
+        assert_eq!(ConvertedType::UINT_8.to_string(), "UINT_8");
+        assert_eq!(ConvertedType::UINT_16.to_string(), "UINT_16");
+        assert_eq!(ConvertedType::UINT_32.to_string(), "UINT_32");
+        assert_eq!(ConvertedType::UINT_64.to_string(), "UINT_64");
+        assert_eq!(ConvertedType::INT_8.to_string(), "INT_8");
+        assert_eq!(ConvertedType::INT_16.to_string(), "INT_16");
+        assert_eq!(ConvertedType::INT_32.to_string(), "INT_32");
+        assert_eq!(ConvertedType::INT_64.to_string(), "INT_64");
+        assert_eq!(ConvertedType::JSON.to_string(), "JSON");
+        assert_eq!(ConvertedType::BSON.to_string(), "BSON");
+        assert_eq!(ConvertedType::INTERVAL.to_string(), "INTERVAL");
     }
 
     #[test]
-    fn test_from_logical_type() {
-        assert_eq!(LogicalType::from(None), LogicalType::NONE);
+    fn test_from_converted_type() {
+        let parquet_conv_none: Option<parquet::ConvertedType> = None;
+        assert_eq!(ConvertedType::from(parquet_conv_none), ConvertedType::NONE);
         assert_eq!(
-            LogicalType::from(Some(parquet::ConvertedType::Utf8)),
-            LogicalType::UTF8
+            ConvertedType::from(Some(parquet::ConvertedType::Utf8)),
+            ConvertedType::UTF8
         );
         assert_eq!(
-            LogicalType::from(Some(parquet::ConvertedType::Map)),
-            LogicalType::MAP
+            ConvertedType::from(Some(parquet::ConvertedType::Map)),
+            ConvertedType::MAP
         );
         assert_eq!(
-            LogicalType::from(Some(parquet::ConvertedType::MapKeyValue)),
-            LogicalType::MAP_KEY_VALUE
+            ConvertedType::from(Some(parquet::ConvertedType::MapKeyValue)),
+            ConvertedType::MAP_KEY_VALUE
         );
         assert_eq!(
-            LogicalType::from(Some(parquet::ConvertedType::List)),
-            LogicalType::LIST
+            ConvertedType::from(Some(parquet::ConvertedType::List)),
+            ConvertedType::LIST
         );
         assert_eq!(
-            LogicalType::from(Some(parquet::ConvertedType::Enum)),
-            LogicalType::ENUM
+            ConvertedType::from(Some(parquet::ConvertedType::Enum)),
+            ConvertedType::ENUM
         );
         assert_eq!(
-            LogicalType::from(Some(parquet::ConvertedType::Decimal)),
-            LogicalType::DECIMAL
+            ConvertedType::from(Some(parquet::ConvertedType::Decimal)),
+            ConvertedType::DECIMAL
         );
         assert_eq!(
-            LogicalType::from(Some(parquet::ConvertedType::Date)),
-            LogicalType::DATE
+            ConvertedType::from(Some(parquet::ConvertedType::Date)),
+            ConvertedType::DATE
         );
         assert_eq!(
-            LogicalType::from(Some(parquet::ConvertedType::TimeMillis)),
-            LogicalType::TIME_MILLIS
+            ConvertedType::from(Some(parquet::ConvertedType::TimeMillis)),
+            ConvertedType::TIME_MILLIS
         );
         assert_eq!(
-            LogicalType::from(Some(parquet::ConvertedType::TimeMicros)),
-            LogicalType::TIME_MICROS
+            ConvertedType::from(Some(parquet::ConvertedType::TimeMicros)),
+            ConvertedType::TIME_MICROS
         );
         assert_eq!(
-            LogicalType::from(Some(parquet::ConvertedType::TimestampMillis)),
-            LogicalType::TIMESTAMP_MILLIS
+            ConvertedType::from(Some(parquet::ConvertedType::TimestampMillis)),
+            ConvertedType::TIMESTAMP_MILLIS
         );
         assert_eq!(
-            LogicalType::from(Some(parquet::ConvertedType::TimestampMicros)),
-            LogicalType::TIMESTAMP_MICROS
+            ConvertedType::from(Some(parquet::ConvertedType::TimestampMicros)),
+            ConvertedType::TIMESTAMP_MICROS
         );
         assert_eq!(
-            LogicalType::from(Some(parquet::ConvertedType::Uint8)),
-            LogicalType::UINT_8
+            ConvertedType::from(Some(parquet::ConvertedType::Uint8)),
+            ConvertedType::UINT_8
         );
         assert_eq!(
-            LogicalType::from(Some(parquet::ConvertedType::Uint16)),
-            LogicalType::UINT_16
+            ConvertedType::from(Some(parquet::ConvertedType::Uint16)),
+            ConvertedType::UINT_16
         );
         assert_eq!(
-            LogicalType::from(Some(parquet::ConvertedType::Uint32)),
-            LogicalType::UINT_32
+            ConvertedType::from(Some(parquet::ConvertedType::Uint32)),
+            ConvertedType::UINT_32
         );
         assert_eq!(
-            LogicalType::from(Some(parquet::ConvertedType::Uint64)),
-            LogicalType::UINT_64
+            ConvertedType::from(Some(parquet::ConvertedType::Uint64)),
+            ConvertedType::UINT_64
         );
         assert_eq!(
-            LogicalType::from(Some(parquet::ConvertedType::Int8)),
-            LogicalType::INT_8
+            ConvertedType::from(Some(parquet::ConvertedType::Int8)),
+            ConvertedType::INT_8
         );
         assert_eq!(
-            LogicalType::from(Some(parquet::ConvertedType::Int16)),
-            LogicalType::INT_16
+            ConvertedType::from(Some(parquet::ConvertedType::Int16)),
+            ConvertedType::INT_16
         );
         assert_eq!(
-            LogicalType::from(Some(parquet::ConvertedType::Int32)),
-            LogicalType::INT_32
+            ConvertedType::from(Some(parquet::ConvertedType::Int32)),
+            ConvertedType::INT_32
         );
         assert_eq!(
-            LogicalType::from(Some(parquet::ConvertedType::Int64)),
-            LogicalType::INT_64
+            ConvertedType::from(Some(parquet::ConvertedType::Int64)),
+            ConvertedType::INT_64
         );
         assert_eq!(
-            LogicalType::from(Some(parquet::ConvertedType::Json)),
-            LogicalType::JSON
+            ConvertedType::from(Some(parquet::ConvertedType::Json)),
+            ConvertedType::JSON
         );
         assert_eq!(
-            LogicalType::from(Some(parquet::ConvertedType::Bson)),
-            LogicalType::BSON
+            ConvertedType::from(Some(parquet::ConvertedType::Bson)),
+            ConvertedType::BSON
         );
         assert_eq!(
-            LogicalType::from(Some(parquet::ConvertedType::Interval)),
-            LogicalType::INTERVAL
+            ConvertedType::from(Some(parquet::ConvertedType::Interval)),
+            ConvertedType::INTERVAL
         );
     }
 
     #[test]
-    fn test_into_logical_type() {
+    fn test_into_converted_type() {
         let converted_type: Option<parquet::ConvertedType> = None;
-        assert_eq!(converted_type, LogicalType::NONE.into());
-        assert_eq!(Some(parquet::ConvertedType::Utf8), LogicalType::UTF8.into());
-        assert_eq!(Some(parquet::ConvertedType::Map), LogicalType::MAP.into());
+        assert_eq!(converted_type, ConvertedType::NONE.into());
+        assert_eq!(
+            Some(parquet::ConvertedType::Utf8),
+            ConvertedType::UTF8.into()
+        );
+        assert_eq!(Some(parquet::ConvertedType::Map), ConvertedType::MAP.into());
         assert_eq!(
             Some(parquet::ConvertedType::MapKeyValue),
-            LogicalType::MAP_KEY_VALUE.into()
+            ConvertedType::MAP_KEY_VALUE.into()
         );
-        assert_eq!(Some(parquet::ConvertedType::List), LogicalType::LIST.into());
-        assert_eq!(Some(parquet::ConvertedType::Enum), LogicalType::ENUM.into());
+        assert_eq!(
+            Some(parquet::ConvertedType::List),
+            ConvertedType::LIST.into()
+        );
+        assert_eq!(
+            Some(parquet::ConvertedType::Enum),
+            ConvertedType::ENUM.into()
+        );
         assert_eq!(
             Some(parquet::ConvertedType::Decimal),
-            LogicalType::DECIMAL.into()
+            ConvertedType::DECIMAL.into()
         );
-        assert_eq!(Some(parquet::ConvertedType::Date), LogicalType::DATE.into());
+        assert_eq!(
+            Some(parquet::ConvertedType::Date),
+            ConvertedType::DATE.into()
+        );
         assert_eq!(
             Some(parquet::ConvertedType::TimeMillis),
-            LogicalType::TIME_MILLIS.into()
+            ConvertedType::TIME_MILLIS.into()
         );
         assert_eq!(
             Some(parquet::ConvertedType::TimeMicros),
-            LogicalType::TIME_MICROS.into()
+            ConvertedType::TIME_MICROS.into()
         );
         assert_eq!(
             Some(parquet::ConvertedType::TimestampMillis),
-            LogicalType::TIMESTAMP_MILLIS.into()
+            ConvertedType::TIMESTAMP_MILLIS.into()
         );
         assert_eq!(
             Some(parquet::ConvertedType::TimestampMicros),
-            LogicalType::TIMESTAMP_MICROS.into()
+            ConvertedType::TIMESTAMP_MICROS.into()
         );
         assert_eq!(
             Some(parquet::ConvertedType::Uint8),
-            LogicalType::UINT_8.into()
+            ConvertedType::UINT_8.into()
         );
         assert_eq!(
             Some(parquet::ConvertedType::Uint16),
-            LogicalType::UINT_16.into()
+            ConvertedType::UINT_16.into()
         );
         assert_eq!(
             Some(parquet::ConvertedType::Uint32),
-            LogicalType::UINT_32.into()
+            ConvertedType::UINT_32.into()
         );
         assert_eq!(
             Some(parquet::ConvertedType::Uint64),
-            LogicalType::UINT_64.into()
+            ConvertedType::UINT_64.into()
         );
         assert_eq!(
             Some(parquet::ConvertedType::Int8),
-            LogicalType::INT_8.into()
+            ConvertedType::INT_8.into()
         );
         assert_eq!(
             Some(parquet::ConvertedType::Int16),
-            LogicalType::INT_16.into()
+            ConvertedType::INT_16.into()
         );
         assert_eq!(
             Some(parquet::ConvertedType::Int32),
-            LogicalType::INT_32.into()
+            ConvertedType::INT_32.into()
         );
         assert_eq!(
             Some(parquet::ConvertedType::Int64),
-            LogicalType::INT_64.into()
+            ConvertedType::INT_64.into()
         );
-        assert_eq!(Some(parquet::ConvertedType::Json), LogicalType::JSON.into());
-        assert_eq!(Some(parquet::ConvertedType::Bson), LogicalType::BSON.into());
+        assert_eq!(
+            Some(parquet::ConvertedType::Json),
+            ConvertedType::JSON.into()
+        );
+        assert_eq!(
+            Some(parquet::ConvertedType::Bson),
+            ConvertedType::BSON.into()
+        );
         assert_eq!(
             Some(parquet::ConvertedType::Interval),
-            LogicalType::INTERVAL.into()
+            ConvertedType::INTERVAL.into()
         );
     }
 
     #[test]
-    fn test_from_string_into_logical_type() {
+    fn test_from_string_into_converted_type() {
         assert_eq!(
-            LogicalType::NONE
+            ConvertedType::NONE
                 .to_string()
-                .parse::<LogicalType>()
+                .parse::<ConvertedType>()
                 .unwrap(),
-            LogicalType::NONE
+            ConvertedType::NONE
         );
         assert_eq!(
-            LogicalType::UTF8
+            ConvertedType::UTF8
                 .to_string()
-                .parse::<LogicalType>()
+                .parse::<ConvertedType>()
                 .unwrap(),
-            LogicalType::UTF8
+            ConvertedType::UTF8
         );
         assert_eq!(
-            LogicalType::MAP.to_string().parse::<LogicalType>().unwrap(),
-            LogicalType::MAP
+            ConvertedType::MAP
+                .to_string()
+                .parse::<ConvertedType>()
+                .unwrap(),
+            ConvertedType::MAP
         );
         assert_eq!(
-            LogicalType::MAP_KEY_VALUE
+            ConvertedType::MAP_KEY_VALUE
                 .to_string()
-                .parse::<LogicalType>()
+                .parse::<ConvertedType>()
                 .unwrap(),
-            LogicalType::MAP_KEY_VALUE
+            ConvertedType::MAP_KEY_VALUE
         );
         assert_eq!(
-            LogicalType::LIST
+            ConvertedType::LIST
                 .to_string()
-                .parse::<LogicalType>()
+                .parse::<ConvertedType>()
                 .unwrap(),
-            LogicalType::LIST
+            ConvertedType::LIST
         );
         assert_eq!(
-            LogicalType::ENUM
+            ConvertedType::ENUM
                 .to_string()
-                .parse::<LogicalType>()
+                .parse::<ConvertedType>()
                 .unwrap(),
-            LogicalType::ENUM
+            ConvertedType::ENUM
         );
         assert_eq!(
-            LogicalType::DECIMAL
+            ConvertedType::DECIMAL
                 .to_string()
-                .parse::<LogicalType>()
+                .parse::<ConvertedType>()
                 .unwrap(),
-            LogicalType::DECIMAL
+            ConvertedType::DECIMAL
         );
         assert_eq!(
-            LogicalType::DATE
+            ConvertedType::DATE
                 .to_string()
-                .parse::<LogicalType>()
+                .parse::<ConvertedType>()
                 .unwrap(),
-            LogicalType::DATE
+            ConvertedType::DATE
         );
         assert_eq!(
-            LogicalType::TIME_MILLIS
+            ConvertedType::TIME_MILLIS
                 .to_string()
-                .parse::<LogicalType>()
+                .parse::<ConvertedType>()
                 .unwrap(),
-            LogicalType::TIME_MILLIS
+            ConvertedType::TIME_MILLIS
         );
         assert_eq!(
-            LogicalType::TIME_MICROS
+            ConvertedType::TIME_MICROS
                 .to_string()
-                .parse::<LogicalType>()
+                .parse::<ConvertedType>()
                 .unwrap(),
-            LogicalType::TIME_MICROS
+            ConvertedType::TIME_MICROS
         );
         assert_eq!(
-            LogicalType::TIMESTAMP_MILLIS
+            ConvertedType::TIMESTAMP_MILLIS
                 .to_string()
-                .parse::<LogicalType>()
+                .parse::<ConvertedType>()
                 .unwrap(),
-            LogicalType::TIMESTAMP_MILLIS
+            ConvertedType::TIMESTAMP_MILLIS
         );
         assert_eq!(
-            LogicalType::TIMESTAMP_MICROS
+            ConvertedType::TIMESTAMP_MICROS
                 .to_string()
-                .parse::<LogicalType>()
+                .parse::<ConvertedType>()
                 .unwrap(),
-            LogicalType::TIMESTAMP_MICROS
+            ConvertedType::TIMESTAMP_MICROS
         );
         assert_eq!(
-            LogicalType::UINT_8
+            ConvertedType::UINT_8
                 .to_string()
-                .parse::<LogicalType>()
+                .parse::<ConvertedType>()
                 .unwrap(),
-            LogicalType::UINT_8
+            ConvertedType::UINT_8
         );
         assert_eq!(
-            LogicalType::UINT_16
+            ConvertedType::UINT_16
                 .to_string()
-                .parse::<LogicalType>()
+                .parse::<ConvertedType>()
                 .unwrap(),
-            LogicalType::UINT_16
+            ConvertedType::UINT_16
         );
         assert_eq!(
-            LogicalType::UINT_32
+            ConvertedType::UINT_32
                 .to_string()
-                .parse::<LogicalType>()
+                .parse::<ConvertedType>()
                 .unwrap(),
-            LogicalType::UINT_32
+            ConvertedType::UINT_32
         );
         assert_eq!(
-            LogicalType::UINT_64
+            ConvertedType::UINT_64
                 .to_string()
-                .parse::<LogicalType>()
+                .parse::<ConvertedType>()
                 .unwrap(),
-            LogicalType::UINT_64
+            ConvertedType::UINT_64
         );
         assert_eq!(
-            LogicalType::INT_8
+            ConvertedType::INT_8
                 .to_string()
-                .parse::<LogicalType>()
+                .parse::<ConvertedType>()
                 .unwrap(),
-            LogicalType::INT_8
+            ConvertedType::INT_8
         );
         assert_eq!(
-            LogicalType::INT_16
+            ConvertedType::INT_16
                 .to_string()
-                .parse::<LogicalType>()
+                .parse::<ConvertedType>()
                 .unwrap(),
-            LogicalType::INT_16
+            ConvertedType::INT_16
         );
         assert_eq!(
-            LogicalType::INT_32
+            ConvertedType::INT_32
                 .to_string()
-                .parse::<LogicalType>()
+                .parse::<ConvertedType>()
                 .unwrap(),
-            LogicalType::INT_32
+            ConvertedType::INT_32
         );
         assert_eq!(
-            LogicalType::INT_64
+            ConvertedType::INT_64
                 .to_string()
-                .parse::<LogicalType>()
+                .parse::<ConvertedType>()
                 .unwrap(),
-            LogicalType::INT_64
+            ConvertedType::INT_64
         );
         assert_eq!(
-            LogicalType::JSON
+            ConvertedType::JSON
                 .to_string()
-                .parse::<LogicalType>()
+                .parse::<ConvertedType>()
                 .unwrap(),
-            LogicalType::JSON
+            ConvertedType::JSON
         );
         assert_eq!(
-            LogicalType::BSON
+            ConvertedType::BSON
                 .to_string()
-                .parse::<LogicalType>()
+                .parse::<ConvertedType>()
                 .unwrap(),
-            LogicalType::BSON
+            ConvertedType::BSON
         );
         assert_eq!(
-            LogicalType::INTERVAL
+            ConvertedType::INTERVAL
                 .to_string()
-                .parse::<LogicalType>()
+                .parse::<ConvertedType>()
                 .unwrap(),
-            LogicalType::INTERVAL
+            ConvertedType::INTERVAL
+        );
+    }
+
+    #[test]
+    fn test_logical_to_converted_type() {
+        let logical_none: Option<LogicalType> = None;
+        assert_eq!(ConvertedType::from(logical_none), ConvertedType::NONE);
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::DECIMAL(DecimalType {
+                precision: 20,
+                scale: 5
+            }))),
+            ConvertedType::DECIMAL
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::BSON(Default::default()))),
+            ConvertedType::BSON
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::JSON(Default::default()))),
+            ConvertedType::JSON
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::STRING(Default::default()))),
+            ConvertedType::UTF8
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::DATE(Default::default()))),
+            ConvertedType::DATE
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::TIME(TimeType {
+                unit: TimeUnit::MILLIS(Default::default()),
+                is_adjusted_to_u_t_c: true,
+            }))),
+            ConvertedType::TIME_MILLIS
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::TIME(TimeType {
+                unit: TimeUnit::MICROS(Default::default()),
+                is_adjusted_to_u_t_c: true,
+            }))),
+            ConvertedType::TIME_MICROS
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::TIME(TimeType {
+                unit: TimeUnit::NANOS(Default::default()),
+                is_adjusted_to_u_t_c: false,
+            }))),
+            ConvertedType::NONE
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::TIMESTAMP(TimestampType {
+                unit: TimeUnit::MILLIS(Default::default()),
+                is_adjusted_to_u_t_c: true,
+            }))),
+            ConvertedType::TIMESTAMP_MILLIS
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::TIMESTAMP(TimestampType {
+                unit: TimeUnit::MICROS(Default::default()),
+                is_adjusted_to_u_t_c: false,
+            }))),
+            ConvertedType::TIMESTAMP_MICROS
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::TIMESTAMP(TimestampType {
+                unit: TimeUnit::NANOS(Default::default()),
+                is_adjusted_to_u_t_c: false,
+            }))),
+            ConvertedType::NONE
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::INTEGER(IntType {
+                bit_width: 8,
+                is_signed: false
+            }))),
+            ConvertedType::UINT_8
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::INTEGER(IntType {
+                bit_width: 8,
+                is_signed: true
+            }))),
+            ConvertedType::INT_8
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::INTEGER(IntType {
+                bit_width: 16,
+                is_signed: false
+            }))),
+            ConvertedType::UINT_16
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::INTEGER(IntType {
+                bit_width: 16,
+                is_signed: true
+            }))),
+            ConvertedType::INT_16
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::INTEGER(IntType {
+                bit_width: 32,
+                is_signed: false
+            }))),
+            ConvertedType::UINT_32
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::INTEGER(IntType {
+                bit_width: 32,
+                is_signed: true
+            }))),
+            ConvertedType::INT_32
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::INTEGER(IntType {
+                bit_width: 64,
+                is_signed: false
+            }))),
+            ConvertedType::UINT_64
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::INTEGER(IntType {
+                bit_width: 64,
+                is_signed: true
+            }))),
+            ConvertedType::INT_64
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::LIST(Default::default()))),
+            ConvertedType::LIST
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::MAP(Default::default()))),
+            ConvertedType::MAP
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::UUID(Default::default()))),
+            ConvertedType::NONE
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::ENUM(Default::default()))),
+            ConvertedType::ENUM
+        );
+        assert_eq!(
+            ConvertedType::from(Some(LogicalType::UNKNOWN(Default::default()))),
+            ConvertedType::NONE
         );
     }
 
@@ -1389,13 +1758,17 @@ mod tests {
     }
 
     #[test]
-    fn test_column_order_get_sort_order() {
+    fn test_column_order_get_logical_type_sort_order() {
         // Helper to check the order in a list of values.
         // Only logical type is checked.
         fn check_sort_order(types: Vec<LogicalType>, expected_order: SortOrder) {
             for tpe in types {
                 assert_eq!(
-                    ColumnOrder::get_sort_order(tpe, Type::BYTE_ARRAY),
+                    ColumnOrder::get_sort_order(
+                        Some(tpe),
+                        ConvertedType::NONE,
+                        Type::BYTE_ARRAY
+                    ),
                     expected_order
                 );
             }
@@ -1403,44 +1776,141 @@ mod tests {
 
         // Unsigned comparison (physical type does not matter)
         let unsigned = vec![
-            LogicalType::UTF8,
-            LogicalType::JSON,
-            LogicalType::BSON,
-            LogicalType::ENUM,
-            LogicalType::UINT_8,
-            LogicalType::UINT_16,
-            LogicalType::UINT_32,
-            LogicalType::UINT_64,
-            LogicalType::INTERVAL,
+            LogicalType::STRING(Default::default()),
+            LogicalType::JSON(Default::default()),
+            LogicalType::BSON(Default::default()),
+            LogicalType::ENUM(Default::default()),
+            LogicalType::UUID(Default::default()),
+            LogicalType::INTEGER(IntType {
+                bit_width: 8,
+                is_signed: false,
+            }),
+            LogicalType::INTEGER(IntType {
+                bit_width: 16,
+                is_signed: false,
+            }),
+            LogicalType::INTEGER(IntType {
+                bit_width: 32,
+                is_signed: false,
+            }),
+            LogicalType::INTEGER(IntType {
+                bit_width: 64,
+                is_signed: false,
+            }),
         ];
         check_sort_order(unsigned, SortOrder::UNSIGNED);
 
         // Signed comparison (physical type does not matter)
         let signed = vec![
-            LogicalType::INT_8,
-            LogicalType::INT_16,
-            LogicalType::INT_32,
-            LogicalType::INT_64,
-            LogicalType::DECIMAL,
-            LogicalType::DATE,
-            LogicalType::TIME_MILLIS,
-            LogicalType::TIME_MICROS,
-            LogicalType::TIMESTAMP_MILLIS,
-            LogicalType::TIMESTAMP_MICROS,
+            LogicalType::INTEGER(IntType {
+                bit_width: 8,
+                is_signed: true,
+            }),
+            LogicalType::INTEGER(IntType {
+                bit_width: 8,
+                is_signed: true,
+            }),
+            LogicalType::INTEGER(IntType {
+                bit_width: 8,
+                is_signed: true,
+            }),
+            LogicalType::INTEGER(IntType {
+                bit_width: 8,
+                is_signed: true,
+            }),
+            LogicalType::DECIMAL(DecimalType {
+                scale: 20,
+                precision: 4,
+            }),
+            LogicalType::DATE(Default::default()),
+            LogicalType::TIME(TimeType {
+                is_adjusted_to_u_t_c: false,
+                unit: TimeUnit::MILLIS(Default::default()),
+            }),
+            LogicalType::TIME(TimeType {
+                is_adjusted_to_u_t_c: false,
+                unit: TimeUnit::MICROS(Default::default()),
+            }),
+            LogicalType::TIME(TimeType {
+                is_adjusted_to_u_t_c: true,
+                unit: TimeUnit::NANOS(Default::default()),
+            }),
+            LogicalType::TIMESTAMP(TimestampType {
+                is_adjusted_to_u_t_c: false,
+                unit: TimeUnit::MILLIS(Default::default()),
+            }),
+            LogicalType::TIMESTAMP(TimestampType {
+                is_adjusted_to_u_t_c: false,
+                unit: TimeUnit::MICROS(Default::default()),
+            }),
+            LogicalType::TIMESTAMP(TimestampType {
+                is_adjusted_to_u_t_c: true,
+                unit: TimeUnit::NANOS(Default::default()),
+            }),
         ];
         check_sort_order(signed, SortOrder::SIGNED);
 
         // Undefined comparison
         let undefined = vec![
-            LogicalType::LIST,
-            LogicalType::MAP,
-            LogicalType::MAP_KEY_VALUE,
+            LogicalType::LIST(Default::default()),
+            LogicalType::MAP(Default::default()),
+        ];
+        check_sort_order(undefined, SortOrder::UNDEFINED);
+    }
+
+    #[test]
+    fn test_column_order_get_coverted_type_sort_order() {
+        // Helper to check the order in a list of values.
+        // Only converted type is checked.
+        fn check_sort_order(types: Vec<ConvertedType>, expected_order: SortOrder) {
+            for tpe in types {
+                assert_eq!(
+                    ColumnOrder::get_sort_order(None, tpe, Type::BYTE_ARRAY),
+                    expected_order
+                );
+            }
+        }
+
+        // Unsigned comparison (physical type does not matter)
+        let unsigned = vec![
+            ConvertedType::UTF8,
+            ConvertedType::JSON,
+            ConvertedType::BSON,
+            ConvertedType::ENUM,
+            ConvertedType::UINT_8,
+            ConvertedType::UINT_16,
+            ConvertedType::UINT_32,
+            ConvertedType::UINT_64,
+        ];
+        check_sort_order(unsigned, SortOrder::UNSIGNED);
+
+        // Signed comparison (physical type does not matter)
+        let signed = vec![
+            ConvertedType::INT_8,
+            ConvertedType::INT_16,
+            ConvertedType::INT_32,
+            ConvertedType::INT_64,
+            ConvertedType::DECIMAL,
+            ConvertedType::DATE,
+            ConvertedType::TIME_MILLIS,
+            ConvertedType::TIME_MICROS,
+            ConvertedType::TIMESTAMP_MILLIS,
+            ConvertedType::TIMESTAMP_MICROS,
+        ];
+        check_sort_order(signed, SortOrder::SIGNED);
+
+        // Undefined comparison
+        let undefined = vec![
+            ConvertedType::LIST,
+            ConvertedType::MAP,
+            ConvertedType::MAP_KEY_VALUE,
+            ConvertedType::INTERVAL,
         ];
         check_sort_order(undefined, SortOrder::UNDEFINED);
 
         // Check None logical type
         // This should return a sort order for byte array type.
-        check_sort_order(vec![LogicalType::NONE], SortOrder::UNSIGNED);
+        check_sort_order(vec![ConvertedType::NONE], SortOrder::UNSIGNED);
     }
 
     #[test]

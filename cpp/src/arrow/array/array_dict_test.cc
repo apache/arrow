@@ -28,8 +28,10 @@
 #include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_dict.h"
 #include "arrow/array/builder_nested.h"
-#include "arrow/memory_pool.h"
+#include "arrow/chunked_array.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
@@ -41,6 +43,27 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+
+void CheckTransposeMap(const Buffer& map, std::vector<int32_t> expected) {
+  AssertBufferEqual(map, *Buffer::Wrap(expected));
+}
+
+void CheckDictionaryArray(const std::shared_ptr<Array>& array,
+                          const std::shared_ptr<Array>& expected_values,
+                          const std::shared_ptr<Array>& expected_indices) {
+  const auto& dict_array = checked_cast<const DictionaryArray&>(*array);
+  AssertArraysEqual(*expected_values, *dict_array.dictionary(), /*verbose=*/true);
+  AssertArraysEqual(*expected_indices, *dict_array.indices(), /*verbose=*/true);
+}
+
+std::shared_ptr<Array> DictExtensionFromJSON(const std::shared_ptr<DataType>& type,
+                                             const std::string& json) {
+  auto ext_type = checked_pointer_cast<ExtensionType>(type);
+  auto storage = ArrayFromJSON(ext_type->storage_type(), json);
+  auto ext_data = storage->data()->Copy();
+  ext_data->type = ext_type;
+  return MakeArray(ext_data);
+}
 
 // ----------------------------------------------------------------------
 // Dictionary tests
@@ -1388,6 +1411,268 @@ TEST(TestDictionary, IndicesArray) {
 
   // Validate the indices array
   ASSERT_OK(arr->indices()->ValidateFull());
+}
+
+TEST(TestDictionaryUnifier, Numeric) {
+  auto dict_ty = int64();
+
+  auto d1 = ArrayFromJSON(dict_ty, "[3, 4, 7]");
+  auto d2 = ArrayFromJSON(dict_ty, "[1, 7, 4, 8]");
+  auto d3 = ArrayFromJSON(dict_ty, "[1, -200]");
+
+  auto expected = dictionary(int8(), dict_ty);
+  auto expected_dict = ArrayFromJSON(dict_ty, "[3, 4, 7, 1, 8, -200]");
+
+  ASSERT_OK_AND_ASSIGN(auto unifier, DictionaryUnifier::Make(dict_ty));
+
+  std::shared_ptr<DataType> out_type;
+  std::shared_ptr<Array> out_dict;
+
+  ASSERT_OK(unifier->Unify(*d1));
+  ASSERT_OK(unifier->Unify(*d2));
+  ASSERT_OK(unifier->Unify(*d3));
+
+  ASSERT_RAISES(Invalid, unifier->Unify(*ArrayFromJSON(int32(), "[1, -200]")));
+
+  ASSERT_OK(unifier->GetResult(&out_type, &out_dict));
+  ASSERT_TRUE(out_type->Equals(*expected));
+  ASSERT_TRUE(out_dict->Equals(*expected_dict));
+
+  std::shared_ptr<Buffer> b1, b2, b3;
+
+  ASSERT_OK(unifier->Unify(*d1, &b1));
+  ASSERT_OK(unifier->Unify(*d2, &b2));
+  ASSERT_OK(unifier->Unify(*d3, &b3));
+  ASSERT_OK(unifier->GetResult(&out_type, &out_dict));
+  ASSERT_TRUE(out_type->Equals(*expected));
+  ASSERT_TRUE(out_dict->Equals(*expected_dict));
+
+  CheckTransposeMap(*b1, {0, 1, 2});
+  CheckTransposeMap(*b2, {3, 2, 1, 4});
+  CheckTransposeMap(*b3, {3, 5});
+}
+
+TEST(TestDictionaryUnifier, String) {
+  auto dict_ty = utf8();
+
+  auto t1 = dictionary(int16(), dict_ty);
+  auto d1 = ArrayFromJSON(dict_ty, "[\"foo\", \"bar\"]");
+
+  auto t2 = dictionary(int32(), dict_ty);
+  auto d2 = ArrayFromJSON(dict_ty, "[\"quux\", \"foo\"]");
+
+  auto expected = dictionary(int8(), dict_ty);
+  auto expected_dict = ArrayFromJSON(dict_ty, "[\"foo\", \"bar\", \"quux\"]");
+
+  ASSERT_OK_AND_ASSIGN(auto unifier, DictionaryUnifier::Make(dict_ty));
+
+  std::shared_ptr<DataType> out_type;
+  std::shared_ptr<Array> out_dict;
+  ASSERT_OK(unifier->Unify(*d1));
+  ASSERT_OK(unifier->Unify(*d2));
+  ASSERT_OK(unifier->GetResult(&out_type, &out_dict));
+  ASSERT_TRUE(out_type->Equals(*expected));
+  ASSERT_TRUE(out_dict->Equals(*expected_dict));
+
+  std::shared_ptr<Buffer> b1, b2;
+
+  ASSERT_OK(unifier->Unify(*d1, &b1));
+  ASSERT_OK(unifier->Unify(*d2, &b2));
+  ASSERT_OK(unifier->GetResult(&out_type, &out_dict));
+  ASSERT_TRUE(out_type->Equals(*expected));
+  ASSERT_TRUE(out_dict->Equals(*expected_dict));
+
+  CheckTransposeMap(*b1, {0, 1});
+  CheckTransposeMap(*b2, {2, 0});
+}
+
+TEST(TestDictionaryUnifier, FixedSizeBinary) {
+  auto type = fixed_size_binary(3);
+
+  std::string data = "foobarbazqux";
+  auto buf = std::make_shared<Buffer>(data);
+  // ["foo", "bar"]
+  auto dict1 = std::make_shared<FixedSizeBinaryArray>(type, 2, SliceBuffer(buf, 0, 6));
+  auto t1 = dictionary(int16(), type);
+  // ["bar", "baz", "qux"]
+  auto dict2 = std::make_shared<FixedSizeBinaryArray>(type, 3, SliceBuffer(buf, 3, 9));
+  auto t2 = dictionary(int16(), type);
+
+  // ["foo", "bar", "baz", "qux"]
+  auto expected_dict = std::make_shared<FixedSizeBinaryArray>(type, 4, buf);
+  auto expected = dictionary(int8(), type);
+
+  ASSERT_OK_AND_ASSIGN(auto unifier, DictionaryUnifier::Make(type));
+  std::shared_ptr<DataType> out_type;
+  std::shared_ptr<Array> out_dict;
+  ASSERT_OK(unifier->Unify(*dict1));
+  ASSERT_OK(unifier->Unify(*dict2));
+  ASSERT_OK(unifier->GetResult(&out_type, &out_dict));
+  ASSERT_TRUE(out_type->Equals(*expected));
+  ASSERT_TRUE(out_dict->Equals(*expected_dict));
+
+  std::shared_ptr<Buffer> b1, b2;
+  ASSERT_OK(unifier->Unify(*dict1, &b1));
+  ASSERT_OK(unifier->Unify(*dict2, &b2));
+  ASSERT_OK(unifier->GetResult(&out_type, &out_dict));
+  ASSERT_TRUE(out_type->Equals(*expected));
+  ASSERT_TRUE(out_dict->Equals(*expected_dict));
+
+  CheckTransposeMap(*b1, {0, 1});
+  CheckTransposeMap(*b2, {1, 2, 3});
+}
+
+TEST(TestDictionaryUnifier, Large) {
+  // Unifying "large" dictionary types should choose the right index type
+  std::shared_ptr<Array> dict1, dict2, expected_dict;
+
+  Int32Builder builder;
+  ASSERT_OK(builder.Reserve(120));
+  for (int32_t i = 0; i < 120; ++i) {
+    builder.UnsafeAppend(i);
+  }
+  ASSERT_OK(builder.Finish(&dict1));
+  ASSERT_EQ(dict1->length(), 120);
+  auto t1 = dictionary(int8(), int32());
+
+  ASSERT_OK(builder.Reserve(30));
+  for (int32_t i = 110; i < 140; ++i) {
+    builder.UnsafeAppend(i);
+  }
+  ASSERT_OK(builder.Finish(&dict2));
+  ASSERT_EQ(dict2->length(), 30);
+  auto t2 = dictionary(int8(), int32());
+
+  ASSERT_OK(builder.Reserve(140));
+  for (int32_t i = 0; i < 140; ++i) {
+    builder.UnsafeAppend(i);
+  }
+  ASSERT_OK(builder.Finish(&expected_dict));
+  ASSERT_EQ(expected_dict->length(), 140);
+
+  // int8 would be too narrow to hold all possible index values
+  auto expected = dictionary(int16(), int32());
+
+  ASSERT_OK_AND_ASSIGN(auto unifier, DictionaryUnifier::Make(int32()));
+  std::shared_ptr<DataType> out_type;
+  std::shared_ptr<Array> out_dict;
+  ASSERT_OK(unifier->Unify(*dict1));
+  ASSERT_OK(unifier->Unify(*dict2));
+  ASSERT_OK(unifier->GetResult(&out_type, &out_dict));
+  ASSERT_TRUE(out_type->Equals(*expected));
+  ASSERT_TRUE(out_dict->Equals(*expected_dict));
+}
+
+TEST(TestDictionaryUnifier, ChunkedArraySimple) {
+  auto type = dictionary(int8(), utf8());
+  auto chunk1 = ArrayFromJSON(type, R"(["ab", "cd", null, "cd"])");
+  auto chunk2 = ArrayFromJSON(type, R"(["ef", "cd", "ef"])");
+  auto chunk3 = ArrayFromJSON(type, R"(["ef", "ab", null, "ab"])");
+  auto chunk4 = ArrayFromJSON(type, "[]");
+  ASSERT_OK_AND_ASSIGN(auto chunked,
+                       ChunkedArray::Make({chunk1, chunk2, chunk3, chunk4}));
+
+  ASSERT_OK_AND_ASSIGN(auto unified, DictionaryUnifier::UnifyChunkedArray(chunked));
+  ASSERT_EQ(unified->num_chunks(), 4);
+  auto expected_dict = ArrayFromJSON(utf8(), R"(["ab", "cd", "ef"])");
+  CheckDictionaryArray(unified->chunk(0), expected_dict,
+                       ArrayFromJSON(int8(), "[0, 1, null, 1]"));
+  CheckDictionaryArray(unified->chunk(1), expected_dict,
+                       ArrayFromJSON(int8(), "[2, 1, 2]"));
+  CheckDictionaryArray(unified->chunk(2), expected_dict,
+                       ArrayFromJSON(int8(), "[2, 0, null, 0]"));
+  CheckDictionaryArray(unified->chunk(3), expected_dict, ArrayFromJSON(int8(), "[]"));
+}
+
+TEST(TestDictionaryUnifier, ChunkedArrayZeroChunk) {
+  auto type = dictionary(int8(), utf8());
+  ASSERT_OK_AND_ASSIGN(auto chunked, ChunkedArray::Make(ArrayVector{}, type));
+  ASSERT_OK_AND_ASSIGN(auto unified, DictionaryUnifier::UnifyChunkedArray(chunked));
+  AssertChunkedEqual(*chunked, *unified);
+}
+
+TEST(TestDictionaryUnifier, ChunkedArrayOneChunk) {
+  auto type = dictionary(int8(), utf8());
+  auto chunk1 = ArrayFromJSON(type, R"(["ab", "cd", null, "cd"])");
+  ASSERT_OK_AND_ASSIGN(auto chunked, ChunkedArray::Make({chunk1}));
+  ASSERT_OK_AND_ASSIGN(auto unified, DictionaryUnifier::UnifyChunkedArray(chunked));
+  AssertChunkedEqual(*chunked, *unified);
+}
+
+TEST(TestDictionaryUnifier, ChunkedArrayNoDict) {
+  auto type = int8();
+  auto chunk1 = ArrayFromJSON(type, "[1, 1, 2, 3]");
+  auto chunk2 = ArrayFromJSON(type, "[5, 8, 13]");
+  ASSERT_OK_AND_ASSIGN(auto chunked, ChunkedArray::Make({chunk1, chunk2}));
+  ASSERT_OK_AND_ASSIGN(auto unified, DictionaryUnifier::UnifyChunkedArray(chunked));
+  AssertChunkedEqual(*chunked, *unified);
+}
+
+TEST(TestDictionaryUnifier, ChunkedArrayNested) {
+  // Dict in a nested type: ok
+  auto type = list(dictionary(int16(), utf8()));
+  auto chunk1 = ArrayFromJSON(type, R"([["ab", "cd"], ["cd"]])");
+  auto chunk2 = ArrayFromJSON(type, R"([[], ["ef", "cd", "ef"]])");
+  ASSERT_OK_AND_ASSIGN(auto chunked, ChunkedArray::Make({chunk1, chunk2}));
+
+  ASSERT_OK_AND_ASSIGN(auto unified, DictionaryUnifier::UnifyChunkedArray(chunked));
+  ASSERT_EQ(unified->num_chunks(), 2);
+  auto expected_dict = ArrayFromJSON(utf8(), R"(["ab", "cd", "ef"])");
+  auto unified1 = checked_pointer_cast<ListArray>(unified->chunk(0));
+  AssertArraysEqual(*unified1->offsets(), *ArrayFromJSON(int32(), "[0, 2, 3]"));
+  CheckDictionaryArray(unified1->values(), expected_dict,
+                       ArrayFromJSON(int16(), "[0, 1, 1]"));
+  auto unified2 = checked_pointer_cast<ListArray>(unified->chunk(1));
+  AssertArraysEqual(*unified2->offsets(), *ArrayFromJSON(int32(), "[0, 0, 3]"));
+  CheckDictionaryArray(unified2->values(), expected_dict,
+                       ArrayFromJSON(int16(), "[2, 1, 2]"));
+}
+
+TEST(TestDictionaryUnifier, ChunkedArrayExtension) {
+  // Dict in an extension type: ok
+  auto type = dict_extension_type();
+  auto chunk1 = DictExtensionFromJSON(type, R"(["ab", null, "cd", "ab"])");
+  auto chunk2 = DictExtensionFromJSON(type, R"(["ef", "ab", "ab"])");
+  ASSERT_OK_AND_ASSIGN(auto chunked, ChunkedArray::Make({chunk1, chunk2}));
+
+  ASSERT_OK_AND_ASSIGN(auto unified, DictionaryUnifier::UnifyChunkedArray(chunked));
+  ASSERT_EQ(unified->num_chunks(), 2);
+
+  auto expected_dict = ArrayFromJSON(utf8(), R"(["ab", "cd", "ef"])");
+  auto unified1 = checked_pointer_cast<ExtensionArray>(unified->chunk(0));
+  AssertTypeEqual(*type, *unified1->type());
+  CheckDictionaryArray(unified1->storage(), expected_dict,
+                       ArrayFromJSON(int8(), "[0, null, 1, 0]"));
+  auto unified2 = checked_pointer_cast<ExtensionArray>(unified->chunk(1));
+  AssertTypeEqual(*type, *unified2->type());
+  CheckDictionaryArray(unified2->storage(), expected_dict,
+                       ArrayFromJSON(int8(), "[2, 0, 0]"));
+}
+
+TEST(TestDictionaryUnifier, ChunkedArrayNestedDict) {
+  // Dict in a dict type: unsupported
+  auto inner_type = list(dictionary(uint32(), utf8()));
+  auto inner_dict1 = ArrayFromJSON(inner_type, R"([["ab", "cd"], [], ["cd", null]])");
+  ASSERT_OK_AND_ASSIGN(
+      auto chunk1, DictionaryArray::FromArrays(ArrayFromJSON(int32(), "[2, 1, 0, 1, 2]"),
+                                               inner_dict1));
+  auto inner_dict2 = ArrayFromJSON(inner_type, R"([["cd", "ef"], ["cd", null], []])");
+  ASSERT_OK_AND_ASSIGN(
+      auto chunk2,
+      DictionaryArray::FromArrays(ArrayFromJSON(int32(), "[1, 2, 2, 0]"), inner_dict2));
+  ASSERT_OK_AND_ASSIGN(auto chunked, ChunkedArray::Make({chunk1, chunk2}));
+
+  ASSERT_RAISES(NotImplemented, DictionaryUnifier::UnifyChunkedArray(chunked));
+}
+
+TEST(TestDictionaryUnifier, TableZeroColumns) {
+  auto schema = ::arrow::schema(FieldVector{});
+  auto table = Table::Make(schema, ArrayVector{}, /*num_rows=*/42);
+
+  ASSERT_OK_AND_ASSIGN(auto unified, DictionaryUnifier::UnifyTable(*table));
+  AssertSchemaEqual(*schema, *unified->schema());
+  ASSERT_EQ(unified->num_rows(), 42);
+  AssertTablesEqual(*table, *unified);
 }
 
 }  // namespace arrow

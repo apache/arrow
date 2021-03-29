@@ -27,19 +27,26 @@
 #include "arrow/array.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/api_scalar.h"
+#include "arrow/compute/api_vector.h"
+#include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/registry.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/int_util_internal.h"
 
 #include "arrow/testing/gtest_common.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
+using internal::BitmapReader;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
@@ -65,8 +72,7 @@ static SumResult<ArrowType> NaiveSumPartial(const Array& array) {
   const auto values = array_numeric.raw_values();
 
   if (array.null_count() != 0) {
-    internal::BitmapReader reader(array.null_bitmap_data(), array.offset(),
-                                  array.length());
+    BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
     for (int64_t i = 0; i < array.length(); i++) {
       if (reader.IsSet()) {
         result.first += values[i];
@@ -262,6 +268,29 @@ TYPED_TEST(TestRandomNumericSumKernel, RandomSliceArraySum) {
       ValidateSum<TypeParam>(*slice);
     }
   }
+}
+
+// Test round-off error
+class TestSumKernelRoundOff : public ::testing::Test {};
+
+TEST_F(TestSumKernelRoundOff, Basics) {
+  using ScalarType = typename TypeTraits<DoubleType>::ScalarType;
+
+  // array = np.arange(321000, dtype='float64')
+  // array -= np.mean(array)
+  // array *= arrray
+  double index = 0;
+  ASSERT_OK_AND_ASSIGN(
+      auto array, ArrayFromBuilderVisitor(
+                      float64(), 321000, [&](NumericBuilder<DoubleType>* builder) {
+                        builder->UnsafeAppend((index - 160499.5) * (index - 160499.5));
+                        ++index;
+                      }));
+
+  // reference value from numpy.sum()
+  ASSERT_OK_AND_ASSIGN(Datum result, Sum(array));
+  auto sum = checked_cast<const ScalarType*>(result.scalar().get());
+  ASSERT_EQ(sum->value, 2756346749973250.0);
 }
 
 //
@@ -465,9 +494,7 @@ class TestPrimitiveMinMaxKernel : public ::testing::Test {
 
   void AssertMinMaxIsNull(const Datum& array, const MinMaxOptions& options) {
     ASSERT_OK_AND_ASSIGN(Datum out, MinMax(array, options));
-
-    const StructScalar& value = out.scalar_as<StructScalar>();
-    for (const auto& val : value.value) {
+    for (const auto& val : out.scalar_as<StructScalar>().value) {
       ASSERT_FALSE(val->is_valid);
     }
   }
@@ -623,8 +650,7 @@ static enable_if_integer<ArrowType, MinMaxResult<ArrowType>> NaiveMinMax(
   T min = std::numeric_limits<T>::max();
   T max = std::numeric_limits<T>::min();
   if (array.null_count() != 0) {  // Some values are null
-    internal::BitmapReader reader(array.null_bitmap_data(), array.offset(),
-                                  array.length());
+    BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
     for (int64_t i = 0; i < array.length(); i++) {
       if (reader.IsSet()) {
         min = std::min(min, values[i]);
@@ -663,8 +689,7 @@ static enable_if_floating_point<ArrowType, MinMaxResult<ArrowType>> NaiveMinMax(
   T min = std::numeric_limits<T>::infinity();
   T max = -std::numeric_limits<T>::infinity();
   if (array.null_count() != 0) {  // Some values are null
-    internal::BitmapReader reader(array.null_bitmap_data(), array.offset(),
-                                  array.length());
+    BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
     for (int64_t i = 0; i < array.length(); i++) {
       if (reader.IsSet()) {
         min = std::fmin(min, values[i]);
@@ -1007,7 +1032,7 @@ ModeResult<ArrowType> NaiveMode(const Array& array) {
 
   const auto& array_numeric = reinterpret_cast<const ArrayType&>(array);
   const auto values = array_numeric.raw_values();
-  internal::BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
+  BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
   for (int64_t i = 0; i < array.length(); ++i) {
     if (reader.IsSet()) {
       ++value_counts[values[i]];
@@ -1205,6 +1230,26 @@ TEST_F(TestVarStdKernelMergeStability, Basics) {
 #endif
 }
 
+// Test round-off error
+template <typename ArrowType>
+class TestVarStdKernelRoundOff : public TestPrimitiveVarStdKernel<ArrowType> {};
+
+typedef ::testing::Types<Int32Type, Int64Type, FloatType, DoubleType> VarStdRoundOffTypes;
+
+TYPED_TEST_SUITE(TestVarStdKernelRoundOff, VarStdRoundOffTypes);
+TYPED_TEST(TestVarStdKernelRoundOff, Basics) {
+  // build array: np.arange(321000, dtype='xxx')
+  typename TypeParam::c_type value = 0;
+  ASSERT_OK_AND_ASSIGN(
+      auto array, ArrayFromBuilderVisitor(TypeTraits<TypeParam>::type_singleton(), 321000,
+                                          [&](NumericBuilder<TypeParam>* builder) {
+                                            builder->UnsafeAppend(value++);
+                                          }));
+
+  // reference value from numpy.var()
+  this->AssertVarStdIs(*array, VarianceOptions{0}, 8586749999.916667);
+}
+
 // Test integer arithmetic code
 class TestVarStdKernelInt32 : public TestPrimitiveVarStdKernel<Int32Type> {};
 
@@ -1238,7 +1283,7 @@ void KahanSum(double& sum, double& adjust, double addend) {
 template <typename ArrayType>
 std::pair<double, double> WelfordVar(const ArrayType& array) {
   const auto values = array.raw_values();
-  internal::BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
+  BitmapReader reader(array.null_bitmap_data(), array.offset(), array.length());
   double count = 0, mean = 0, m2 = 0;
   double mean_adjust = 0, m2_adjust = 0;
   for (int64_t i = 0; i < array.length(); ++i) {
@@ -1292,7 +1337,7 @@ TYPED_TEST(TestVarStdKernelRandom, Basics) {
 
   double var_population, var_sample;
   using ArrayType = typename TypeTraits<TypeParam>::ArrayType;
-  auto typed_array = std::static_pointer_cast<ArrayType>(array->Slice(0, total_size));
+  auto typed_array = checked_pointer_cast<ArrayType>(array->Slice(0, total_size));
   std::tie(var_population, var_sample) = WelfordVar(*typed_array);
 
   this->AssertVarStdIs(chunked, VarianceOptions{0}, var_population);
@@ -1313,7 +1358,7 @@ TEST_F(TestVarStdKernelIntegerLength, Basics) {
   // auto array = rand.Numeric<Int32Type>(4000000000, min, min + 100000, 0.1);
 
   double var_population, var_sample;
-  auto int32_array = std::static_pointer_cast<Int32Array>(array);
+  auto int32_array = checked_pointer_cast<Int32Array>(array);
   std::tie(var_population, var_sample) = WelfordVar(*int32_array);
 
   this->AssertVarStdIs(*array, VarianceOptions{0}, var_population);
@@ -1343,22 +1388,22 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
       ASSERT_OK(out_array->ValidateFull());
       ASSERT_EQ(out_array->length(), options.q.size());
       ASSERT_EQ(out_array->null_count(), 0);
-      ASSERT_EQ(out_array->type(), expected[0][i].type());
+      AssertTypeEqual(out_array->type(), expected[0][i].type());
 
-      if (out_array->type() == float64()) {
+      if (out_array->type()->Equals(float64())) {
         const double* quantiles = out_array->data()->GetValues<double>(1);
         for (int64_t j = 0; j < out_array->length(); ++j) {
           const auto& numeric_scalar =
-              std::static_pointer_cast<DoubleScalar>(expected[j][i].scalar());
+              checked_pointer_cast<DoubleScalar>(expected[j][i].scalar());
           ASSERT_TRUE((quantiles[j] == numeric_scalar->value) ||
                       (std::isnan(quantiles[j]) && std::isnan(numeric_scalar->value)));
         }
       } else {
-        ASSERT_EQ(out_array->type(), type_singleton());
+        AssertTypeEqual(out_array->type(), type_singleton());
         const CType* quantiles = out_array->data()->GetValues<CType>(1);
         for (int64_t j = 0; j < out_array->length(); ++j) {
           const auto& numeric_scalar =
-              std::static_pointer_cast<NumericScalar<ArrowType>>(expected[j][i].scalar());
+              checked_pointer_cast<NumericScalar<ArrowType>>(expected[j][i].scalar());
           ASSERT_EQ(quantiles[j], numeric_scalar->value);
         }
       }
@@ -1530,42 +1575,86 @@ TEST_F(TestInt64QuantileKernel, Int64) {
 #undef O
 
 #ifndef __MINGW32__
-class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<Int32Type> {
+class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<DoubleType> {
  public:
   void CheckQuantiles(int64_t array_size, int64_t num_quantiles) {
-    auto rand = random::RandomArrayGenerator(0x5487658);
-    // small value range to exercise input array with equal values and histogram approach
-    const auto array = rand.Numeric<Int32Type>(array_size, -100, 200, 0.1);
-
+    std::shared_ptr<Array> array;
     std::vector<double> quantiles;
-    random_real(num_quantiles, 0x5487658, 0.0, 1.0, &quantiles);
-    // make sure to exercise 0 and 1 quantiles
-    *std::min_element(quantiles.begin(), quantiles.end()) = 0;
-    *std::max_element(quantiles.begin(), quantiles.end()) = 1;
+    // small value range to exercise input array with equal values and histogram approach
+    GenerateTestData(array_size, num_quantiles, -100, 200, &array, &quantiles);
 
     this->AssertQuantilesAre(array, QuantileOptions{quantiles},
-                             NaiveQuantile(*array, quantiles));
+                             NaiveQuantile(*array, quantiles, interpolations_));
+  }
+
+  void CheckTDigests(const std::vector<int>& chunk_sizes, int64_t num_quantiles) {
+    int total_size = 0;
+    for (int size : chunk_sizes) {
+      total_size += size;
+    }
+    std::shared_ptr<Array> array;
+    std::vector<double> quantiles;
+    GenerateTestData(total_size, num_quantiles, 100, 123456789, &array, &quantiles);
+
+    total_size = 0;
+    ArrayVector array_vector;
+    for (int size : chunk_sizes) {
+      array_vector.emplace_back(array->Slice(total_size, size));
+      total_size += size;
+    }
+    auto chunked = *ChunkedArray::Make(array_vector);
+
+    TDigestOptions options(quantiles);
+    ASSERT_OK_AND_ASSIGN(Datum out, TDigest(chunked, options));
+    const auto& out_array = out.make_array();
+    ASSERT_OK(out_array->ValidateFull());
+    ASSERT_EQ(out_array->length(), quantiles.size());
+    ASSERT_EQ(out_array->null_count(), 0);
+    AssertTypeEqual(out_array->type(), float64());
+
+    // linear interpolated exact quantile as reference
+    std::vector<std::vector<Datum>> exact =
+        NaiveQuantile(*array, quantiles, {QuantileOptions::LINEAR});
+    const double* approx = out_array->data()->GetValues<double>(1);
+    for (size_t i = 0; i < quantiles.size(); ++i) {
+      const auto& exact_scalar = checked_pointer_cast<DoubleScalar>(exact[i][0].scalar());
+      const double tolerance = std::fabs(exact_scalar->value) * 0.05;
+      EXPECT_NEAR(approx[i], exact_scalar->value, tolerance) << quantiles[i];
+    }
   }
 
  private:
-  std::vector<std::vector<Datum>> NaiveQuantile(const Array& array,
-                                                const std::vector<double>& quantiles) {
+  void GenerateTestData(int64_t array_size, int64_t num_quantiles, int min, int max,
+                        std::shared_ptr<Array>* array, std::vector<double>* quantiles) {
+    auto rand = random::RandomArrayGenerator(0x5487658);
+    *array = rand.Float64(array_size, min, max, /*null_prob=*/0.1, /*nan_prob=*/0.2);
+
+    random_real(num_quantiles, 0x5487658, 0.0, 1.0, quantiles);
+    // make sure to exercise 0 and 1 quantiles
+    *std::min_element(quantiles->begin(), quantiles->end()) = 0;
+    *std::max_element(quantiles->begin(), quantiles->end()) = 1;
+  }
+
+  std::vector<std::vector<Datum>> NaiveQuantile(
+      const Array& array, const std::vector<double>& quantiles,
+      const std::vector<enum QuantileOptions::Interpolation>& interpolations) {
     // copy and sort input array
-    std::vector<int32_t> input(array.length() - array.null_count());
-    const int32_t* values = array.data()->GetValues<int32_t>(1);
+    std::vector<double> input(array.length() - array.null_count());
+    const double* values = array.data()->GetValues<double>(1);
     const auto bitmap = array.null_bitmap_data();
     int64_t index = 0;
     for (int64_t i = 0; i < array.length(); ++i) {
-      if (BitUtil::GetBit(bitmap, i)) {
+      if (BitUtil::GetBit(bitmap, i) && !std::isnan(values[i])) {
         input[index++] = values[i];
       }
     }
+    input.resize(index);
     std::sort(input.begin(), input.end());
 
     std::vector<std::vector<Datum>> output(quantiles.size(),
-                                           std::vector<Datum>(interpolations_.size()));
-    for (uint64_t i = 0; i < interpolations_.size(); ++i) {
-      const auto interp = interpolations_[i];
+                                           std::vector<Datum>(interpolations.size()));
+    for (uint64_t i = 0; i < interpolations.size(); ++i) {
+      const auto interp = interpolations[i];
       for (uint64_t j = 0; j < quantiles.size(); ++j) {
         output[j][i] = GetQuantile(input, quantiles[j], interp);
       }
@@ -1573,7 +1662,7 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<Int32Type> {
     return output;
   }
 
-  Datum GetQuantile(const std::vector<int32_t>& input, double q,
+  Datum GetQuantile(const std::vector<double>& input, double q,
                     enum QuantileOptions::Interpolation interp) {
     const double index = (input.size() - 1) * q;
     const uint64_t lower_index = static_cast<uint64_t>(index);
@@ -1594,14 +1683,14 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<Int32Type> {
         }
       case QuantileOptions::LINEAR:
         if (fraction == 0) {
-          return Datum(static_cast<double>(input[lower_index]));
+          return Datum(input[lower_index]);
         } else {
           return Datum(fraction * input[lower_index + 1] +
                        (1 - fraction) * input[lower_index]);
         }
       case QuantileOptions::MIDPOINT:
         if (fraction == 0) {
-          return Datum(static_cast<double>(input[lower_index]));
+          return Datum(input[lower_index]);
         } else {
           return Datum(input[lower_index] / 2.0 + input[lower_index + 1] / 2.0);
         }
@@ -1625,7 +1714,30 @@ TEST_F(TestRandomQuantileKernel, Histogram) {
   // exercise histogram approach: size >= 65536, range <= 65536
   this->CheckQuantiles(/*array_size=*/80000, /*num_quantiles=*/100);
 }
+
+TEST_F(TestRandomQuantileKernel, TDigest) {
+  this->CheckTDigests(/*chunk_sizes=*/{12345, 6789, 8765, 4321}, /*num_quantiles=*/100);
+}
 #endif
+
+class TestTDigestKernel : public ::testing::Test {};
+
+TEST_F(TestTDigestKernel, AllNullsOrNaNs) {
+  const std::vector<std::vector<std::string>> tests = {
+      {"[]"},
+      {"[null, null]", "[]", "[null]"},
+      {"[NaN]", "[NaN, NaN]", "[]"},
+      {"[null, NaN, null]"},
+      {"[NaN, NaN]", "[]", "[null]"},
+  };
+
+  for (const auto& json : tests) {
+    auto chunked = ChunkedArrayFromJSON(float64(), json);
+    ASSERT_OK_AND_ASSIGN(Datum out, TDigest(chunked, TDigestOptions()));
+    ASSERT_OK(out.make_array()->ValidateFull());
+    ASSERT_EQ(out.array()->length, 0);
+  }
+}
 
 }  // namespace compute
 }  // namespace arrow

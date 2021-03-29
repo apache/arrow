@@ -16,48 +16,42 @@
 // under the License.
 
 use std::any::Any;
-use std::convert::From;
 use std::fmt;
 use std::mem;
 
 use num::Num;
 
 use super::{
-    array::print_long_array, make_array, raw_pointer::RawPtrBox, Array, ArrayDataRef,
-    ArrayRef, GenericListArrayIter,
+    array::print_long_array, make_array, raw_pointer::RawPtrBox, Array, ArrayData,
+    ArrayRef, BooleanBufferBuilder, GenericListArrayIter, PrimitiveArray,
 };
-use crate::datatypes::ArrowNativeType;
-use crate::datatypes::*;
+use crate::{
+    buffer::MutableBuffer,
+    datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType, Field},
+    error::ArrowError,
+};
 
 /// trait declaring an offset size, relevant for i32 vs i64 array types.
 pub trait OffsetSizeTrait: ArrowNativeType + Num + Ord + std::ops::AddAssign {
-    fn prefix() -> &'static str;
-
-    fn to_isize(&self) -> isize;
+    fn is_large() -> bool;
 }
 
 impl OffsetSizeTrait for i32 {
-    fn prefix() -> &'static str {
-        ""
-    }
-
-    fn to_isize(&self) -> isize {
-        num::ToPrimitive::to_isize(self).unwrap()
+    #[inline]
+    fn is_large() -> bool {
+        false
     }
 }
 
 impl OffsetSizeTrait for i64 {
-    fn prefix() -> &'static str {
-        "Large"
-    }
-
-    fn to_isize(&self) -> isize {
-        num::ToPrimitive::to_isize(self).unwrap()
+    #[inline]
+    fn is_large() -> bool {
+        true
     }
 }
 
 pub struct GenericListArray<OffsetSize> {
-    data: ArrayDataRef,
+    data: ArrayData,
     values: ArrayRef,
     value_offsets: RawPtrBox<OffsetSize>,
 }
@@ -116,44 +110,143 @@ impl<OffsetSize: OffsetSizeTrait> GenericListArray<OffsetSize> {
     pub fn iter<'a>(&'a self) -> GenericListArrayIter<'a, OffsetSize> {
         GenericListArrayIter::<'a, OffsetSize>::new(&self)
     }
-}
 
-impl<'a, S: OffsetSizeTrait> IntoIterator for &'a GenericListArray<S> {
-    type Item = Option<ArrayRef>;
-    type IntoIter = GenericListArrayIter<'a, S>;
+    #[inline]
+    fn get_type(data_type: &DataType) -> Option<&DataType> {
+        if OffsetSize::is_large() {
+            if let DataType::LargeList(child) = data_type {
+                Some(child.data_type())
+            } else {
+                None
+            }
+        } else if let DataType::List(child) = data_type {
+            Some(child.data_type())
+        } else {
+            None
+        }
+    }
 
-    fn into_iter(self) -> Self::IntoIter {
-        GenericListArrayIter::<'a, S>::new(self)
+    /// Creates a [`GenericListArray`] from an iterator of primitive values
+    /// # Example
+    /// ```
+    /// # use arrow::array::ListArray;
+    /// # use arrow::datatypes::Int32Type;
+    /// let data = vec![
+    ///    Some(vec![Some(0), Some(1), Some(2)]),
+    ///    None,
+    ///    Some(vec![Some(3), None, Some(5)]),
+    ///    Some(vec![Some(6), Some(7)]),
+    /// ];
+    /// let list_array = ListArray::from_iter_primitive::<Int32Type, _, _>(data);
+    /// println!("{:?}", list_array);
+    /// ```
+    pub fn from_iter_primitive<T, P, I>(iter: I) -> Self
+    where
+        T: ArrowPrimitiveType,
+        P: AsRef<[Option<<T as ArrowPrimitiveType>::Native>]>
+            + IntoIterator<Item = Option<<T as ArrowPrimitiveType>::Native>>,
+        I: IntoIterator<Item = Option<P>>,
+    {
+        let iterator = iter.into_iter();
+        let (lower, _) = iterator.size_hint();
+
+        let mut offsets =
+            MutableBuffer::new((lower + 1) * std::mem::size_of::<OffsetSize>());
+        let mut length_so_far = OffsetSize::zero();
+        offsets.push(length_so_far);
+
+        let mut null_buf = BooleanBufferBuilder::new(lower);
+
+        let values: PrimitiveArray<T> = iterator
+            .filter_map(|maybe_slice| {
+                // regardless of whether the item is Some, the offsets and null buffers must be updated.
+                match &maybe_slice {
+                    Some(x) => {
+                        length_so_far +=
+                            OffsetSize::from_usize(x.as_ref().len()).unwrap();
+                        null_buf.append(true);
+                    }
+                    None => null_buf.append(false),
+                };
+                offsets.push(length_so_far);
+                maybe_slice
+            })
+            .flatten()
+            .collect();
+
+        let field = Box::new(Field::new("item", T::DATA_TYPE, true));
+        let data_type = if OffsetSize::is_large() {
+            DataType::LargeList(field)
+        } else {
+            DataType::List(field)
+        };
+        let data = ArrayData::builder(data_type)
+            .len(null_buf.len())
+            .add_buffer(offsets.into())
+            .add_child_data(values.data().clone())
+            .null_bit_buffer(null_buf.into())
+            .build();
+        Self::from(data)
     }
 }
 
-impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericListArray<OffsetSize> {
-    fn from(data: ArrayDataRef) -> Self {
-        assert_eq!(
-            data.buffers().len(),
-            1,
-            "ListArray data should contain a single buffer only (value offsets)"
-        );
-        assert_eq!(
-            data.child_data().len(),
-            1,
-            "ListArray should contain a single child array (values array)"
-        );
-        let values = make_array(data.child_data()[0].clone());
+impl<OffsetSize: OffsetSizeTrait> From<ArrayData> for GenericListArray<OffsetSize> {
+    fn from(data: ArrayData) -> Self {
+        Self::try_new_from_array_data(data).expect(
+            "Expected infallable creation of GenericListArray from ArrayDataRef failed",
+        )
+    }
+}
+
+impl<OffsetSize: OffsetSizeTrait> GenericListArray<OffsetSize> {
+    fn try_new_from_array_data(data: ArrayData) -> Result<Self, ArrowError> {
+        if data.buffers().len() != 1 {
+            return Err(ArrowError::InvalidArgumentError(
+                format!("ListArray data should contain a single buffer only (value offsets), had {}",
+                        data.len())));
+        }
+
+        if data.child_data().len() != 1 {
+            return Err(ArrowError::InvalidArgumentError(format!(
+                "ListArray should contain a single child array (values array), had {}",
+                data.child_data().len()
+            )));
+        }
+
+        let values = data.child_data()[0].clone();
+
+        if let Some(child_data_type) = Self::get_type(data.data_type()) {
+            if values.data_type() != child_data_type {
+                return Err(ArrowError::InvalidArgumentError(format!(
+                    "[Large]ListArray's child datatype {:?} does not \
+                             correspond to the List's datatype {:?}",
+                    values.data_type(),
+                    child_data_type
+                )));
+            }
+        } else {
+            return Err(ArrowError::InvalidArgumentError(format!(
+                "[Large]ListArray's datatype must be [Large]ListArray(). It is {:?}",
+                data.data_type()
+            )));
+        }
+
+        let values = make_array(values);
         let value_offsets = data.buffers()[0].as_ptr();
 
         let value_offsets = unsafe { RawPtrBox::<OffsetSize>::new(value_offsets) };
         unsafe {
-            assert!(
-                (*value_offsets.as_ptr().offset(0)).is_zero(),
-                "offsets do not start at zero"
-            );
+            if !(*value_offsets.as_ptr().offset(0)).is_zero() {
+                return Err(ArrowError::InvalidArgumentError(String::from(
+                    "offsets do not start at zero",
+                )));
+            }
         }
-        Self {
+        Ok(Self {
             data,
             values,
             value_offsets,
-        }
+        })
     }
 }
 
@@ -162,11 +255,7 @@ impl<OffsetSize: 'static + OffsetSizeTrait> Array for GenericListArray<OffsetSiz
         self
     }
 
-    fn data(&self) -> ArrayDataRef {
-        self.data.clone()
-    }
-
-    fn data_ref(&self) -> &ArrayDataRef {
+    fn data(&self) -> &ArrayData {
         &self.data
     }
 
@@ -183,7 +272,9 @@ impl<OffsetSize: 'static + OffsetSizeTrait> Array for GenericListArray<OffsetSiz
 
 impl<OffsetSize: OffsetSizeTrait> fmt::Debug for GenericListArray<OffsetSize> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}ListArray\n[\n", OffsetSize::prefix())?;
+        let prefix = if OffsetSize::is_large() { "Large" } else { "" };
+
+        write!(f, "{}ListArray\n[\n", prefix)?;
         print_long_array(self, f, |array, index, f| {
             fmt::Debug::fmt(&array.value(index), f)
         })?;
@@ -202,7 +293,7 @@ pub type LargeListArray = GenericListArray<i64>;
 /// A list array where each element is a fixed-size sequence of values with the same
 /// type whose maximum length is represented by a i32.
 pub struct FixedSizeListArray {
-    data: ArrayDataRef,
+    data: ArrayData,
     values: ArrayRef,
     length: i32,
 }
@@ -246,8 +337,8 @@ impl FixedSizeListArray {
     }
 }
 
-impl From<ArrayDataRef> for FixedSizeListArray {
-    fn from(data: ArrayDataRef) -> Self {
+impl From<ArrayData> for FixedSizeListArray {
+    fn from(data: ArrayData) -> Self {
         assert_eq!(
             data.buffers().len(),
             0,
@@ -290,11 +381,7 @@ impl Array for FixedSizeListArray {
         self
     }
 
-    fn data(&self) -> ArrayDataRef {
-        self.data.clone()
-    }
-
-    fn data_ref(&self) -> &ArrayDataRef {
+    fn data(&self) -> &ArrayData {
         &self.data
     }
 
@@ -324,11 +411,51 @@ impl fmt::Debug for FixedSizeListArray {
 #[cfg(test)]
 mod tests {
     use crate::{
-        array::ArrayData, array::Int32Array, buffer::Buffer, datatypes::Field, memory,
+        alloc,
+        array::ArrayData,
+        array::Int32Array,
+        buffer::Buffer,
+        datatypes::Field,
+        datatypes::{Int32Type, ToByteSlice},
         util::bit_util,
     };
 
     use super::*;
+
+    fn create_from_buffers() -> ListArray {
+        // Construct a value array
+        let value_data = ArrayData::builder(DataType::Int32)
+            .len(8)
+            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
+            .build();
+
+        // Construct a buffer for value offsets, for the nested array:
+        //  [[0, 1, 2], [3, 4, 5], [6, 7]]
+        let value_offsets = Buffer::from(&[0, 3, 6, 8].to_byte_slice());
+
+        // Construct a list array from the above two
+        let list_data_type =
+            DataType::List(Box::new(Field::new("item", DataType::Int32, true)));
+        let list_data = ArrayData::builder(list_data_type)
+            .len(3)
+            .add_buffer(value_offsets)
+            .add_child_data(value_data)
+            .build();
+        ListArray::from(list_data)
+    }
+
+    #[test]
+    fn test_from_iter_primitive() {
+        let data = vec![
+            Some(vec![Some(0), Some(1), Some(2)]),
+            Some(vec![Some(3), Some(4), Some(5)]),
+            Some(vec![Some(6), Some(7)]),
+        ];
+        let list_array = ListArray::from_iter_primitive::<Int32Type, _, _>(data);
+
+        let another = create_from_buffers();
+        assert_eq!(list_array, another)
+    }
 
     #[test]
     fn test_list_array() {
@@ -353,7 +480,7 @@ mod tests {
         let list_array = ListArray::from(list_data);
 
         let values = list_array.values();
-        assert_eq!(value_data, values.data());
+        assert_eq!(&value_data, values.data());
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
@@ -391,7 +518,7 @@ mod tests {
         let list_array = ListArray::from(list_data);
 
         let values = list_array.values();
-        assert_eq!(value_data, values.data());
+        assert_eq!(&value_data, values.data());
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
@@ -439,7 +566,7 @@ mod tests {
         let list_array = LargeListArray::from(list_data);
 
         let values = list_array.values();
-        assert_eq!(value_data, values.data());
+        assert_eq!(&value_data, values.data());
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
@@ -477,7 +604,7 @@ mod tests {
         let list_array = LargeListArray::from(list_data);
 
         let values = list_array.values();
-        assert_eq!(value_data, values.data());
+        assert_eq!(&value_data, values.data());
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
@@ -522,7 +649,7 @@ mod tests {
         let list_array = FixedSizeListArray::from(list_data);
 
         let values = list_array.values();
-        assert_eq!(value_data, values.data());
+        assert_eq!(&value_data, values.data());
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
@@ -551,7 +678,7 @@ mod tests {
         let list_array = FixedSizeListArray::from(list_data);
 
         let values = list_array.values();
-        assert_eq!(value_data, values.data());
+        assert_eq!(&value_data, values.data());
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
@@ -622,7 +749,7 @@ mod tests {
         let list_array = ListArray::from(list_data);
 
         let values = list_array.values();
-        assert_eq!(value_data, values.data());
+        assert_eq!(&value_data, values.data());
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(9, list_array.len());
         assert_eq!(4, list_array.null_count());
@@ -684,7 +811,7 @@ mod tests {
         let list_array = LargeListArray::from(list_data);
 
         let values = list_array.values();
-        assert_eq!(value_data, values.data());
+        assert_eq!(&value_data, values.data());
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(9, list_array.len());
         assert_eq!(4, list_array.null_count());
@@ -781,7 +908,7 @@ mod tests {
         let list_array = FixedSizeListArray::from(list_data);
 
         let values = list_array.values();
-        assert_eq!(value_data, values.data());
+        assert_eq!(&value_data, values.data());
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(5, list_array.len());
         assert_eq!(2, list_array.null_count());
@@ -899,7 +1026,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "memory is not aligned")]
     fn test_primitive_array_alignment() {
-        let ptr = memory::allocate_aligned(8);
+        let ptr = alloc::allocate_aligned::<u8>(8);
         let buf = unsafe { Buffer::from_raw_parts(ptr, 8, 8) };
         let buf2 = buf.slice(1);
         let array_data = ArrayData::builder(DataType::Int32).add_buffer(buf2).build();
@@ -909,7 +1036,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "memory is not aligned")]
     fn test_list_array_alignment() {
-        let ptr = memory::allocate_aligned(8);
+        let ptr = alloc::allocate_aligned::<u8>(8);
         let buf = unsafe { Buffer::from_raw_parts(ptr, 8, 8) };
         let buf2 = buf.slice(1);
 

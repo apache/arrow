@@ -419,7 +419,7 @@ fn array_from_json(
                 .len(json_col.count)
                 .offset(0)
                 .add_buffer(Buffer::from(&offsets.to_byte_slice()))
-                .add_child_data(child_array.data())
+                .add_child_data(child_array.data().clone())
                 .null_bit_buffer(null_buf)
                 .build();
             Ok(Arc::new(ListArray::from(list_data)))
@@ -446,7 +446,7 @@ fn array_from_json(
                 .len(json_col.count)
                 .offset(0)
                 .add_buffer(Buffer::from(&offsets.to_byte_slice()))
-                .add_child_data(child_array.data())
+                .add_child_data(child_array.data().clone())
                 .null_bit_buffer(null_buf)
                 .build();
             Ok(Arc::new(LargeListArray::from(list_data)))
@@ -461,7 +461,7 @@ fn array_from_json(
             let null_buf = create_null_buf(&json_col);
             let list_data = ArrayData::builder(field.data_type().clone())
                 .len(json_col.count)
-                .add_child_data(child_array.data())
+                .add_child_data(child_array.data().clone())
                 .null_bit_buffer(null_buf)
                 .build();
             Ok(Arc::new(FixedSizeListArray::from(list_data)))
@@ -475,7 +475,7 @@ fn array_from_json(
 
             for (field, col) in fields.iter().zip(json_col.children.unwrap()) {
                 let array = array_from_json(field, col, dictionaries)?;
-                array_data = array_data.add_child_data(array.data());
+                array_data = array_data.add_child_data(array.data().clone());
             }
 
             let array = StructArray::from(array_data.build());
@@ -556,7 +556,7 @@ fn dictionary_array_from_json(
                 .len(keys.len())
                 .add_buffer(keys.data().buffers()[0].clone())
                 .null_bit_buffer(null_buf)
-                .add_child_data(values.data())
+                .add_child_data(values.data().clone())
                 .build();
 
             let array = match dict_key {

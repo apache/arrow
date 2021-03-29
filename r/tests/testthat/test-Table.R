@@ -141,6 +141,10 @@ test_that("[, [[, $ for Table", {
   expect_error(tab[1000],  "Invalid column index")
   expect_error(tab[1:1000], "Invalid column index")
 
+  # input validation
+  expect_error(tab[, c("dbl", "NOTACOLUMN")], 'Column not found: "NOTACOLUMN"')
+  expect_error(tab[, c(6, NA)], 'Column indices cannot be NA')
+
   skip("Table with 0 cols doesn't know how many rows it should have")
   expect_data_frame(tab[0], tbl[0])
 })
@@ -355,9 +359,21 @@ test_that("table() auto splices (ARROW-5718)", {
 })
 
 test_that("Validation when creating table with schema (ARROW-10953)", {
-  tab <- Table$create(data.frame(), schema = schema(a = int32()))
-  skip("This segfaults")
-  expect_identical(dim(as.data.frame(tab)), c(0L, 1L))
+  expect_error(
+    Table$create(data.frame(), schema = schema(a = int32())),
+    "incompatible. schema has 1 fields, and 0 columns are supplied",
+    fixed = TRUE
+  )
+  expect_error(
+    Table$create(data.frame(b = 1), schema = schema(a = int32())),
+    "field at index 1 has name 'a' != 'b'",
+    fixed = TRUE
+  )
+  expect_error(
+    Table$create(data.frame(b = 2, c = 3), schema = schema(a = int32())),
+    "incompatible. schema has 1 fields, and 2 columns are supplied",
+    fixed = TRUE
+  )
 })
 
 test_that("==.Table", {

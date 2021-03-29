@@ -193,11 +193,11 @@ fn to_datatype(format: &str) -> Result<DataType> {
         "ttm" => DataType::Time32(TimeUnit::Millisecond),
         "ttu" => DataType::Time64(TimeUnit::Microsecond),
         "ttn" => DataType::Time64(TimeUnit::Nanosecond),
-        _ => {
-            return Err(ArrowError::CDataInterface(
-                "The datatype \"{}\" is still not supported in Rust implementation"
-                    .to_string(),
-            ))
+        dt => {
+            return Err(ArrowError::CDataInterface(format!(
+                "The datatype \"{}\" is not supported in the Rust implementation",
+                dt
+            )))
         }
     })
 }
@@ -643,7 +643,6 @@ mod tests {
     };
     use crate::compute::kernels;
     use std::convert::TryFrom;
-    use std::sync::Arc;
 
     #[test]
     fn test_round_trip() -> Result<()> {
@@ -651,10 +650,10 @@ mod tests {
         let array = Int32Array::from(vec![1, 2, 3]);
 
         // export it
-        let array = ArrowArray::try_from(array.data().as_ref().clone())?;
+        let array = ArrowArray::try_from(array.data().clone())?;
 
         // (simulate consumer) import it
-        let data = Arc::new(ArrayData::try_from(array)?);
+        let data = ArrayData::try_from(array)?;
         let array = make_array(data);
 
         // perform some operation
@@ -675,10 +674,10 @@ mod tests {
             GenericStringArray::<Offset>::from(vec![Some("a"), None, Some("aaa")]);
 
         // export it
-        let array = ArrowArray::try_from(array.data().as_ref().clone())?;
+        let array = ArrowArray::try_from(array.data().clone())?;
 
         // (simulate consumer) import it
-        let data = Arc::new(ArrayData::try_from(array)?);
+        let data = ArrayData::try_from(array)?;
         let array = make_array(data);
 
         // perform some operation
@@ -719,10 +718,10 @@ mod tests {
         let array = GenericBinaryArray::<Offset>::from(array);
 
         // export it
-        let array = ArrowArray::try_from(array.data().as_ref().clone())?;
+        let array = ArrowArray::try_from(array.data().clone())?;
 
         // (simulate consumer) import it
-        let data = Arc::new(ArrayData::try_from(array)?);
+        let data = ArrayData::try_from(array)?;
         let array = make_array(data);
 
         // perform some operation
@@ -764,10 +763,10 @@ mod tests {
         let array = BooleanArray::from(vec![None, Some(true), Some(false)]);
 
         // export it
-        let array = ArrowArray::try_from(array.data().as_ref().clone())?;
+        let array = ArrowArray::try_from(array.data().clone())?;
 
         // (simulate consumer) import it
-        let data = Arc::new(ArrayData::try_from(array)?);
+        let data = ArrayData::try_from(array)?;
         let array = make_array(data);
 
         // perform some operation
@@ -790,10 +789,10 @@ mod tests {
         let array = Time32MillisecondArray::from(vec![None, Some(1), Some(2)]);
 
         // export it
-        let array = ArrowArray::try_from(array.data().as_ref().clone())?;
+        let array = ArrowArray::try_from(array.data().clone())?;
 
         // (simulate consumer) import it
-        let data = Arc::new(ArrayData::try_from(array)?);
+        let data = ArrayData::try_from(array)?;
         let array = make_array(data);
 
         // perform some operation

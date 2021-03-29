@@ -33,6 +33,7 @@
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
+#include "arrow/dataset/scanner_internal.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/path_util.h"
@@ -50,16 +51,19 @@ namespace arrow {
 namespace dataset {
 
 const std::shared_ptr<Schema> kBoringSchema = schema({
+    field("bool", boolean()),
+    field("i8", int8()),
     field("i32", int32()),
     field("i32_req", int32(), /*nullable=*/false),
+    field("u32", uint32()),
     field("i64", int64()),
-    field("date64", date64()),
     field("f32", float32()),
     field("f32_req", float32(), /*nullable=*/false),
     field("f64", float64()),
-    field("bool", boolean()),
+    field("date64", date64()),
     field("str", utf8()),
     field("dict_str", dictionary(int32(), utf8())),
+    field("dict_i32", dictionary(int32(), int32())),
     field("ts_ns", timestamp(TimeUnit::NANO)),
 });
 
@@ -136,7 +140,7 @@ class DatasetFixtureMixin : public ::testing::Test {
   /// record batches yielded by the data fragment.
   void AssertFragmentEquals(RecordBatchReader* expected, Fragment* fragment,
                             bool ensure_drained = true) {
-    ASSERT_OK_AND_ASSIGN(auto it, fragment->Scan(options_, ctx_));
+    ASSERT_OK_AND_ASSIGN(auto it, fragment->Scan(options_));
 
     ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<ScanTask> task) -> Status {
       AssertScanTaskEquals(expected, task.get(), false);
@@ -197,7 +201,9 @@ class DatasetFixtureMixin : public ::testing::Test {
  protected:
   void SetSchema(std::vector<std::shared_ptr<Field>> fields) {
     schema_ = schema(std::move(fields));
-    options_ = ScanOptions::Make(schema_);
+    options_ = std::make_shared<ScanOptions>();
+    options_->dataset_schema = schema_;
+    ASSERT_OK(SetProjection(options_.get(), schema_->field_names()));
     SetFilter(literal(true));
   }
 
@@ -207,7 +213,6 @@ class DatasetFixtureMixin : public ::testing::Test {
 
   std::shared_ptr<Schema> schema_;
   std::shared_ptr<ScanOptions> options_;
-  std::shared_ptr<ScanContext> ctx_ = std::make_shared<ScanContext>();
 };
 
 /// \brief A dummy FileFormat implementation
@@ -230,9 +235,9 @@ class DummyFileFormat : public FileFormat {
   }
 
   /// \brief Open a file for scanning (always returns an empty iterator)
-  Result<ScanTaskIterator> ScanFile(std::shared_ptr<ScanOptions> options,
-                                    std::shared_ptr<ScanContext> context,
-                                    FileFragment* fragment) const override {
+  Result<ScanTaskIterator> ScanFile(
+      std::shared_ptr<ScanOptions> options,
+      const std::shared_ptr<FileFragment>& fragment) const override {
     return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
   }
 
@@ -270,9 +275,9 @@ class JSONRecordBatchFileFormat : public FileFormat {
   }
 
   /// \brief Open a file for scanning
-  Result<ScanTaskIterator> ScanFile(std::shared_ptr<ScanOptions> options,
-                                    std::shared_ptr<ScanContext> context,
-                                    FileFragment* fragment) const override {
+  Result<ScanTaskIterator> ScanFile(
+      std::shared_ptr<ScanOptions> options,
+      const std::shared_ptr<FileFragment>& fragment) const override {
     ARROW_ASSIGN_OR_RAISE(auto file, fragment->source().Open());
     ARROW_ASSIGN_OR_RAISE(int64_t size, file->GetSize());
     ARROW_ASSIGN_OR_RAISE(auto buffer, file->Read(size));
@@ -281,8 +286,7 @@ class JSONRecordBatchFileFormat : public FileFormat {
 
     ARROW_ASSIGN_OR_RAISE(auto schema, Inspect(fragment->source()));
     std::shared_ptr<RecordBatch> batch = RecordBatchFromJSON(schema, view);
-    return ScanTaskIteratorFromRecordBatch({batch}, std::move(options),
-                                           std::move(context));
+    return ScanTaskIteratorFromRecordBatch({batch}, std::move(options));
   }
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
@@ -369,7 +373,7 @@ struct MakeFileSystemDatasetMixin {
 
   std::shared_ptr<fs::FileSystem> fs_;
   std::shared_ptr<Dataset> dataset_;
-  std::shared_ptr<ScanOptions> options_ = ScanOptions::Make(schema({}));
+  std::shared_ptr<ScanOptions> options_;
 };
 
 static const std::string& PathOf(const std::shared_ptr<Fragment>& fragment) {
@@ -565,7 +569,9 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
                          FileSystemDatasetFactory::Make(fs_, s, source_format, options));
     ASSERT_OK_AND_ASSIGN(dataset_, factory->Finish());
 
-    scan_options_ = ScanOptions::Make(source_schema_);
+    scan_options_ = std::make_shared<ScanOptions>();
+    scan_options_->dataset_schema = source_schema_;
+    ASSERT_OK(SetProjection(scan_options_.get(), source_schema_->field_names()));
   }
 
   void SetWriteOptions(std::shared_ptr<FileWriteOptions> file_write_options) {
@@ -577,7 +583,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
 
   void DoWrite(std::shared_ptr<Partitioning> desired_partitioning) {
     write_options_.partitioning = desired_partitioning;
-    auto scanner = std::make_shared<Scanner>(dataset_, scan_options_, scan_context_);
+    auto scanner = std::make_shared<Scanner>(dataset_, scan_options_);
     ASSERT_OK(FileSystemDataset::Write(write_options_, scanner));
 
     // re-discover the written dataset
@@ -745,7 +751,7 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
       }
 
       ASSERT_OK_AND_ASSIGN(auto scanner, ScannerBuilder(actual_physical_schema, fragment,
-                                                        std::make_shared<ScanContext>())
+                                                        std::make_shared<ScanOptions>())
                                              .Finish());
       ASSERT_OK_AND_ASSIGN(auto actual_table, scanner->ToTable());
       ASSERT_OK_AND_ASSIGN(actual_table, actual_table->CombineChunks());
@@ -772,7 +778,6 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
   std::shared_ptr<Dataset> written_;
   FileSystemDatasetWriteOptions write_options_;
   std::shared_ptr<ScanOptions> scan_options_;
-  std::shared_ptr<ScanContext> scan_context_ = std::make_shared<ScanContext>();
 };
 
 }  // namespace dataset

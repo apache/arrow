@@ -1335,7 +1335,11 @@ Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
 
   std::shared_ptr<KeyValueMetadata> metadata;
   RETURN_NOT_OK(internal::GetKeyValueMetadata(schema->custom_metadata(), &metadata));
-  *out = ::arrow::schema(std::move(fields), metadata);
+  // set endianess using the value in flatbuf schema
+  auto endianness = schema->endianness() == flatbuf::Endianness::Little
+                        ? Endianness::Little
+                        : Endianness::Big;
+  *out = ::arrow::schema(std::move(fields), endianness, metadata);
   return Status::OK();
 }
 
