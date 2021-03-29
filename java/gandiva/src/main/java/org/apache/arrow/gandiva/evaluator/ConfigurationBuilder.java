@@ -17,17 +17,56 @@
 
 package org.apache.arrow.gandiva.evaluator;
 
+import java.util.Objects;
+
 /**
  * Used to construct gandiva configuration objects.
  */
 public class ConfigurationBuilder {
 
-  public long buildConfigInstance() {
-    return buildConfigInstance(true);
+  public long buildConfigInstance(ConfigOptions configOptions) {
+    return buildConfigInstance(configOptions.optimize, configOptions.targetCPU);
   }
 
-  public native long buildConfigInstance(boolean optimize);
+  private native long buildConfigInstance(boolean optimize, boolean detectHostCPU);
 
   public native void releaseConfigInstance(long configId);
 
+  /**
+   * ConfigOptions contains the configuration parameters to provide to gandiva.
+   */
+  public static class ConfigOptions {
+    private boolean optimize = true;
+    private boolean targetCPU = true;
+
+    public static ConfigOptions getDefault() {
+      return new ConfigOptions();
+    }
+
+    public ConfigOptions() {}
+
+    public ConfigOptions withOptimize(boolean optimize) {
+      this.optimize = optimize;
+      return this;
+    }
+
+    public ConfigOptions withTargetCPU(boolean targetCPU) {
+      this.targetCPU = targetCPU;
+      return this;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(optimize, targetCPU);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof ConfigOptions)) {
+        return false;
+      }
+      return this.optimize == ((ConfigOptions) obj).optimize &&
+              this.targetCPU == ((ConfigOptions) obj).targetCPU;
+    }
+  }
 }
