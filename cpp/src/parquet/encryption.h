@@ -70,6 +70,27 @@ class PARQUET_EXPORT StringKeyIdRetriever : public DecryptionKeyRetriever {
   std::map<std::string, std::string> key_map_;
 };
 
+// Function variant of DecryptionKeyRetriever, taking a state object.
+// We return actual string since otherwise ownership is potential concern.
+using KeyRetrieverFunc = std::string (*)(void*, const std::string&);
+
+// Key retriever that can interoperate with e.g. Cython or C code by delegating
+// to a function.
+class PARQUET_EXPORT FunctionKeyRetriever : public DecryptionKeyRetriever {
+ public:
+  FunctionKeyRetriever(void* object, KeyRetrieverFunc callable)
+      : state_object_(object), callable_(callable) {}
+
+  std::string GetKey(const std::string& key_metadata) const;
+  static std::shared_ptr<DecryptionKeyRetriever> build(
+      void* object, KeyRetrieverFunc callable);
+
+ private:
+  void* state_object_;
+  KeyRetrieverFunc callable_;
+  mutable std::map<std::string, std::string> key_map_;
+};
+
 class PARQUET_EXPORT HiddenColumnException : public ParquetException {
  public:
   explicit HiddenColumnException(const std::string& columnPath)

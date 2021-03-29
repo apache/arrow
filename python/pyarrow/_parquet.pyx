@@ -908,7 +908,7 @@ cdef ParquetCompression compression_from_name(name):
 cdef c_string retrieve_key_from_python(
     void* pyobject, const c_string& key_metadata
 ):
-    retrieve_key_callable = <PyObject*> pyobject
+    retrieve_key_callable = <object> pyobject
     return retrieve_key_callable(key_metadata)
 
 
@@ -930,6 +930,7 @@ cdef class LowLevelDecryptionProperties(_Weakrefable):
             ColumnDecryptionProperties]] c_column_keys
         cdef FileDecryptionProperties.Builder builder
         cdef c_string column, key
+        cdef shared_ptr[DecryptionKeyRetriever] key_retriever
 
         builder = FileDecryptionProperties.Builder()
 
@@ -942,8 +943,9 @@ cdef class LowLevelDecryptionProperties(_Weakrefable):
             raise ValueError("You must set either retrieve_key or footer_key")
 
         if retrieve_key is not None:
-            builder.key_retriever(CythonDecryptionKeyRetriever.build(
-                retrieve_key, retrieve_key_from_python))
+            key_retrieve = FunctionKeyRetriever.build(
+                <void*>retrieve_key, retrieve_key_from_python)
+            builder.key_retriever(key_retriever)
 
         if footer_key is not None:
             builder.footer_key(footer_key)
@@ -1246,7 +1248,7 @@ cdef class LowLevelEncryptionProperties(_Weakrefable):
             ColumnEncryptionProperties]] c_column_keys
         builder = new FileEncryptionProperties.Builder(footer_key)
         if footer_key_metadata is not None:
-            builder.footer_key_metadata(footer_key_id.encode("utf-8"))
+            builder.footer_key_metadata(footer_key_metadata)
 
         if column_keys is not None:
             for pycolumn, key in column_keys.items():

@@ -497,6 +497,7 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
         const shared_ptr[const CKeyValueMetadata]& key_value_metadata,
         shared_ptr[CSchema]* out)
 
+cdef extern from "parquet/encryption.h" namespace "parquet" nogil:
     cdef cppclass DecryptionKeyRetriever:
         c_string GetKey(const c_string& key_metadata)
 
@@ -504,13 +505,11 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
         PutKey(uint32_t key_id, const c_string& key)
         c_string GetKey(const c_string& key_metadata)
 
-    cdef cppclass IntKeyIdReceiver:
+    cdef cppclass StringKeyIdReceiver:
         PutKey(const c_string& key_id, const c_string& key)
         c_string GetKey(const c_string& key_metadata)
 
-
-cdef extern from "parquet/encryption.h" namespace "parquet" nogil:
-cdef cppclass ColumnDecryptionProperties:
+    cdef cppclass ColumnDecryptionProperties:
         cppclass Builder:
             Builder(const c_string& name)
             Builder(const shared_ptr[ColumnPath]& path)
@@ -549,13 +548,13 @@ cdef cppclass ColumnDecryptionProperties:
         set_utilized()
         shared_ptr[FileDecryptionProperties] DeepClone()
 
-# We do want GIL, this code calls back into Python...
-cdef extern from "parquet_cython.h" namespace "parquet":
-    ctypedef c_string (*CythonKeyRetrieverFunc)(void*, const c_string&)
-    cdef cppclass CythonDecryptionKeyRetriever:
-        CythonDecryptionKeyRetriever(void* object, CythonKeyRetrieverFunc callable)
+# We do want GIL, this code will call back into Python.
+cdef extern from "parquet/encryption.h" namespace "parquet":
+    ctypedef c_string (*KeyRetrieverFunc)(void*, const c_string&)
+    cdef cppclass FunctionKeyRetriever(DecryptionKeyRetriever):
+        FunctionKeyRetriever(void* object, KeyRetrieverFunc callable)
         @staticmethod
-        shared_ptr[CythonKeyRetrieverFunc] build(void* object, CythonKeyRetrieverFunc callable)
+        shared_ptr[DecryptionKeyRetriever] build(void* object, KeyRetrieverFunc callable)
 
 cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
 

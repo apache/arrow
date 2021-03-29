@@ -49,6 +49,19 @@ std::string StringKeyIdRetriever::GetKey(const std::string& key_id) const {
   return key_map_.at(key_id);
 }
 
+std::string FunctionKeyRetriever::GetKey(const std::string& key_metadata) const {
+  std::string key = callable_(state_object_, key_metadata);
+  // We store the key to preserve ownership even if original string goes away.
+  key_map_.insert({key_metadata, key});
+  return key_map_.at(key_metadata);
+}
+
+std::shared_ptr<DecryptionKeyRetriever> FunctionKeyRetriever::build(
+    void* object, KeyRetrieverFunc callable) {
+  return std::shared_ptr<DecryptionKeyRetriever>(
+      new FunctionKeyRetriever(object, callable));
+}
+
 ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key(
     std::string column_key) {
   if (column_key.empty()) return this;
