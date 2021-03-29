@@ -590,6 +590,82 @@ TYPED_TEST(TestBinaryArithmeticSigned, DivideOverflowRaises) {
   this->AssertBinop(Divide, MakeArray(min), MakeArray(-1), "[0]");
 }
 
+TYPED_TEST(TestBinaryArithmeticFloating, Exponentiate) {
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+
+    // Empty arrays
+    this->AssertBinop(Exponentiate, "[]", "[]", "[]");
+    // Ordinary arrays
+    this->AssertBinop(Exponentiate, "[3.4, 16, 0.64, 1.2, 0]", "[1, 0.5, 2, 4, 0]",
+                      "[3.4, 4, 0.4096, 2.0736, 1]");
+    // Array with nulls
+    this->AssertBinop(Exponentiate, "[null, 1, 3.3, null, 2]", "[1, 4, 2, 5, 0.1]",
+                      "[null, 1, 10.89, null, 1.07177346]");
+    // Scalar exponentiated by array
+    this->AssertBinop(Exponentiate, 10.0F, "[null, 1, 2.5, null, 2, 5]",
+                      "[null, 10, 316.227766017, null, 100, 100000]");
+    // Array exponentiated by scalar
+    this->AssertBinop(Exponentiate, "[null, 1, 2.5, null, 2, 5]", 10.0F,
+                      "[null, 1, 9536.74316406, null, 1024, 9765625]");
+    // Array with infinity
+    this->AssertBinop(Exponentiate, "[3.4, Inf, -Inf, 1.1]", "[1, 2, 3, Inf]",
+                      "[3.4, Inf, -Inf, Inf]");
+    // Array with NaN
+    this->SetNansEqual(true);
+    this->AssertBinop(Exponentiate, "[3.4, NaN, 2.0]", "[1, 2, 2.0]", "[3.4, NaN, 4.0]");
+    // Scalar exponentiated by scalar
+    this->AssertBinop(Exponentiate, 21.0F, 3.0F, 9261.0F);
+  }
+}
+
+TYPED_TEST(TestBinaryArithmeticIntegral, Exponentiate) {
+  for (auto check_overflow : {false, true}) {
+    this->SetOverflowCheck(check_overflow);
+
+    // Empty arrays
+    this->AssertBinop(Exponentiate, "[]", "[]", "[]");
+    // Ordinary arrays
+    this->AssertBinop(Exponentiate, "[3, 2, 6, 2]", "[1, 1, 2, 0]", "[3, 2, 36, 1]");
+    // Array with nulls
+    this->AssertBinop(Exponentiate, "[null, 2, 3, null, 20]", "[1, 6, 2, 5, 1]",
+                      "[null, 64, 9, null, 20]");
+    // Scalar exponentiated by array
+    this->AssertBinop(Exponentiate, 3, "[null, 3, 4, null, 2]",
+                      "[null, 27, 81, null, 9]");
+    // Array exponentiated by scalar
+    this->AssertBinop(Exponentiate, "[null, 10, 3, null, 2]", 2,
+                      "[null, 100, 9, null, 4]");
+    // Scalar exponentiated by scalar
+    this->AssertBinop(Exponentiate, 6, 3, 216);
+  }
+}
+
+TYPED_TEST(TestBinaryArithmeticSigned, Exponentiate) {
+  // Ordinary arrays
+  this->AssertBinop(Exponentiate, "[-3, 2, -6]", "[1, 1, 2]", "[-3, 2, 36]");
+  // Array with nulls
+  this->AssertBinop(Exponentiate, "[null, 10, -27, null, -20]", "[1, 2, -3, 5, 1]",
+                    "[null, 100, 0, null, -20]");
+  // Scalar divides by array
+  this->AssertBinop(Exponentiate, 11, "[null, -1, -3, null, 2]",
+                    "[null, 0, 0, null, 121]");
+  // Array divides by scalar
+  this->AssertBinop(Exponentiate, "[null, 1, 3, null, 2]", 3, "[null, 1, 27, null, 8]");
+  // Scalar divides by scalar
+  this->AssertBinop(Exponentiate, 16, .5, 1);
+}
+
+TYPED_TEST(TestBinaryArithmeticFloating, BaseZeroToNegativePower) {
+  this->SetOverflowCheck(true);
+  this->AssertBinopRaises(Exponentiate, MakeArray(0), MakeArray(-1), "divide by zero");
+
+  this->SetOverflowCheck(false);
+  this->SetNansEqual(true);
+  this->AssertBinop(Exponentiate, "[-0.0, 0.0, 0.0]", "[-1.0, -2.0, -1.0]",
+                    "[-Inf, Inf, Inf]");
+}
+
 TYPED_TEST(TestBinaryArithmeticFloating, Sub) {
   this->AssertBinop(Subtract, "[]", "[]", "[]");
 
@@ -638,7 +714,7 @@ TYPED_TEST(TestBinaryArithmeticFloating, Mul) {
 }
 
 TEST(TestBinaryArithmetic, DispatchBest) {
-  for (std::string name : {"add", "subtract", "multiply", "divide"}) {
+  for (std::string name : {"add", "subtract", "multiply", "divide", "exponentiate"}) {
     for (std::string suffix : {"", "_checked"}) {
       name += suffix;
 

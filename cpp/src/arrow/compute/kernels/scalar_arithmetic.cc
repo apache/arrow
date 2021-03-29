@@ -18,11 +18,13 @@
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/macros.h"
+#include "math.h"
 
 namespace arrow {
 
 using internal::AddWithOverflow;
 using internal::DivideWithOverflow;
+// using internal::ExponentiateWithOverflow;
 using internal::MultiplyWithOverflow;
 using internal::SubtractWithOverflow;
 
@@ -233,6 +235,41 @@ struct DivideChecked {
   }
 };
 
+struct Exponentiate {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+    if (left == 0 && (-INFINITY < right && right < 0)) {
+      ctx->SetStatus(Status::Invalid("divide by zero"));
+    }
+    return pow(left, right);
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_point<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+    return pow(left, right);
+  }
+};
+
+struct ExponentiateChecked {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    if (left == 0 && (-INFINITY < right && right < 0)) {
+      ctx->SetStatus(Status::Invalid("divide by zero"));
+    }
+    return pow(left, right);
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_point<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    if (left == 0 && (-INFINITY < right && right < 0)) {
+      ctx->SetStatus(Status::Invalid("divide by zero"));
+    }
+    return pow(left, right);
+  }
+};
+
 // Generate a kernel given an arithmetic functor
 template <template <typename... Args> class KernelGenerator, typename Op>
 ArrayKernelExec NumericEqualTypesBinary(detail::GetTypeId get_id) {
@@ -359,6 +396,20 @@ const FunctionDoc div_checked_doc{
      "integer overflow is encountered."),
     {"dividend", "divisor"}};
 
+const FunctionDoc exp_doc{
+    "Exponentiate the arguments element-wise",
+    ("Integer division by zero returns an error. However, integer overflow\n"
+     "wraps around, and floating-point division by zero returns an infinite.\n"
+     "Use function \"divide_checked\" if you want to get an error\n"
+     "in all the aforementioned cases."),
+    {"base", "power"}};
+
+const FunctionDoc exp_checked_doc{
+    "Exponentiate the arguments element-wise",
+    ("An error is returned when trying to divide by zero, or when\n"
+     "integer overflow is encountered."),
+    {"base", "power"}};
+
 }  // namespace
 
 void RegisterScalarArithmetic(FunctionRegistry* registry) {
@@ -407,6 +458,16 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto divide_checked =
       MakeArithmeticFunctionNotNull<DivideChecked>("divide_checked", &div_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
+
+  // ----------------------------------------------------------------------
+  auto exponentiate =
+      MakeArithmeticFunctionNotNull<Exponentiate>("exponentiate", &exp_doc);
+  DCHECK_OK(registry->AddFunction(std::move(exponentiate)));
+
+  // ----------------------------------------------------------------------
+  auto exponentiate_checked = MakeArithmeticFunctionNotNull<ExponentiateChecked>(
+      "exponentiate_checked", &exp_checked_doc);
+  DCHECK_OK(registry->AddFunction(std::move(exponentiate_checked)));
 }
 
 }  // namespace internal
