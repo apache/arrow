@@ -369,3 +369,23 @@ def test_filter_project():
 
     exp = pa.array([1, -21, None], pa.int32())
     assert r.equals(exp)
+
+
+@pytest.mark.gandiva
+def test_to_string():
+    import pyarrow.gandiva as gandiva
+    builder = gandiva.TreeExprBuilder()
+
+    assert str(builder.make_literal(2.0, pa.float64())
+               ).startswith('(const double) 2 raw(')
+    assert str(builder.make_literal(2, pa.int64())) == '(const int64) 2'
+    assert str(builder.make_field(pa.field('x', pa.float64()))) == '(double) x'
+    assert str(builder.make_field(pa.field('y', pa.string()))) == '(string) y'
+
+    field_z = builder.make_field(pa.field('z', pa.bool_()))
+    func_node = builder.make_function('not', [field_z], pa.bool_())
+    assert str(func_node) == 'bool not((bool) z)'
+
+    field_y = builder.make_field(pa.field('y', pa.bool_()))
+    and_node = builder.make_and([func_node, field_y])
+    assert str(and_node) == 'bool not((bool) z) && (bool) y'
