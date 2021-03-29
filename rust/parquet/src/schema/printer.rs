@@ -45,7 +45,7 @@
 
 use std::{fmt, io};
 
-use crate::basic::{ConvertedType, Type as PhysicalType};
+use crate::basic::{ConvertedType, LogicalType, TimeUnit, Type as PhysicalType};
 use crate::file::metadata::{
     ColumnChunkMetaData, FileMetaData, ParquetMetaData, RowGroupMetaData,
 };
@@ -54,7 +54,7 @@ use crate::schema::types::Type;
 /// Prints Parquet metadata [`ParquetMetaData`](crate::file::metadata::ParquetMetaData)
 /// information.
 #[allow(unused_must_use)]
-pub fn print_parquet_metadata(out: &mut io::Write, metadata: &ParquetMetaData) {
+pub fn print_parquet_metadata(out: &mut dyn io::Write, metadata: &ParquetMetaData) {
     print_file_metadata(out, &metadata.file_metadata());
     writeln!(out);
     writeln!(out);
@@ -71,7 +71,7 @@ pub fn print_parquet_metadata(out: &mut io::Write, metadata: &ParquetMetaData) {
 /// Prints file metadata [`FileMetaData`](crate::file::metadata::FileMetaData)
 /// information.
 #[allow(unused_must_use)]
-pub fn print_file_metadata(out: &mut io::Write, file_metadata: &FileMetaData) {
+pub fn print_file_metadata(out: &mut dyn io::Write, file_metadata: &FileMetaData) {
     writeln!(out, "version: {}", file_metadata.version());
     writeln!(out, "num of rows: {}", file_metadata.num_rows());
     if let Some(created_by) = file_metadata.created_by().as_ref() {
@@ -94,7 +94,7 @@ pub fn print_file_metadata(out: &mut io::Write, file_metadata: &FileMetaData) {
 
 /// Prints Parquet [`Type`](crate::schema::types::Type) information.
 #[allow(unused_must_use)]
-pub fn print_schema(out: &mut io::Write, tp: &Type) {
+pub fn print_schema(out: &mut dyn io::Write, tp: &Type) {
     // TODO: better if we can pass fmt::Write to Printer.
     // But how can we make it to accept both io::Write & fmt::Write?
     let mut s = String::new();
@@ -106,7 +106,7 @@ pub fn print_schema(out: &mut io::Write, tp: &Type) {
 }
 
 #[allow(unused_must_use)]
-fn print_row_group_metadata(out: &mut io::Write, rg_metadata: &RowGroupMetaData) {
+fn print_row_group_metadata(out: &mut dyn io::Write, rg_metadata: &RowGroupMetaData) {
     writeln!(out, "total byte size: {}", rg_metadata.total_byte_size());
     writeln!(out, "num of rows: {}", rg_metadata.num_rows());
     writeln!(out);
@@ -121,7 +121,10 @@ fn print_row_group_metadata(out: &mut io::Write, rg_metadata: &RowGroupMetaData)
 }
 
 #[allow(unused_must_use)]
-fn print_column_chunk_metadata(out: &mut io::Write, cc_metadata: &ColumnChunkMetaData) {
+fn print_column_chunk_metadata(
+    out: &mut dyn io::Write,
+    cc_metadata: &ColumnChunkMetaData,
+) {
     writeln!(out, "column type: {}", cc_metadata.column_type());
     writeln!(out, "column path: {}", cc_metadata.column_path());
     let encoding_strs: Vec<_> = cc_metadata
@@ -167,7 +170,7 @@ fn print_column_chunk_metadata(out: &mut io::Write, cc_metadata: &ColumnChunkMet
 }
 
 #[allow(unused_must_use)]
-fn print_dashes(out: &mut io::Write, num: i32) {
+fn print_dashes(out: &mut dyn io::Write, num: i32) {
     for _ in 0..num {
         write!(out, "-");
     }
@@ -178,19 +181,92 @@ const INDENT_WIDTH: i32 = 2;
 
 /// Struct for printing Parquet message type.
 struct Printer<'a> {
-    output: &'a mut fmt::Write,
+    output: &'a mut dyn fmt::Write,
     indent: i32,
 }
 
 #[allow(unused_must_use)]
 impl<'a> Printer<'a> {
-    fn new(output: &'a mut fmt::Write) -> Self {
+    fn new(output: &'a mut dyn fmt::Write) -> Self {
         Printer { output, indent: 0 }
     }
 
     fn print_indent(&mut self) {
         for _ in 0..self.indent {
             write!(self.output, " ");
+        }
+    }
+}
+
+#[inline]
+fn print_timeunit(unit: &TimeUnit) -> &str {
+    match unit {
+        TimeUnit::MILLIS(_) => "MILLIS",
+        TimeUnit::MICROS(_) => "MICROS",
+        TimeUnit::NANOS(_) => "NANOS",
+    }
+}
+
+#[inline]
+fn print_logical_and_converted(
+    logical_type: &Option<LogicalType>,
+    converted_type: ConvertedType,
+    precision: i32,
+    scale: i32,
+) -> String {
+    match logical_type {
+        Some(logical_type) => match logical_type {
+            LogicalType::INTEGER(t) => {
+                format!("INTEGER({},{})", t.bit_width, t.is_signed)
+            }
+            LogicalType::DECIMAL(t) => {
+                format!("DECIMAL({},{})", t.precision, t.scale)
+            }
+            LogicalType::TIMESTAMP(t) => {
+                format!(
+                    "TIMESTAMP({},{})",
+                    print_timeunit(&t.unit),
+                    t.is_adjusted_to_u_t_c
+                )
+            }
+            LogicalType::TIME(t) => {
+                format!(
+                    "TIME({},{})",
+                    print_timeunit(&t.unit),
+                    t.is_adjusted_to_u_t_c
+                )
+            }
+            LogicalType::DATE(_) => "DATE".to_string(),
+            LogicalType::BSON(_) => "BSON".to_string(),
+            LogicalType::JSON(_) => "JSON".to_string(),
+            LogicalType::STRING(_) => "STRING".to_string(),
+            LogicalType::UUID(_) => "UUID".to_string(),
+            LogicalType::ENUM(_) => "ENUM".to_string(),
+            LogicalType::LIST(_) => "LIST".to_string(),
+            LogicalType::MAP(_) => "MAP".to_string(),
+            LogicalType::UNKNOWN(_) => "UNKNOWN".to_string(),
+        },
+        None => {
+            // Also print converted type if it is available
+            match converted_type {
+                ConvertedType::NONE => format!(""),
+                decimal @ ConvertedType::DECIMAL => {
+                    // For decimal type we should print precision and scale if they
+                    // are > 0, e.g. DECIMAL(9, 2) -
+                    // DECIMAL(9) - DECIMAL
+                    let precision_scale = match (precision, scale) {
+                        (p, s) if p > 0 && s > 0 => {
+                            format!("{}, {}", p, s)
+                        }
+                        (p, 0) if p > 0 => format!("{}", p),
+                        _ => format!(""),
+                    };
+                    format!("{}{}", decimal, precision_scale)
+                }
+                other_converted_type => {
+                    format!("{}", other_converted_type)
+                }
+            }
         }
     }
 }
@@ -215,29 +291,31 @@ impl<'a> Printer<'a> {
                     _ => format!("{}", physical_type),
                 };
                 // Also print logical type if it is available
-                let converted_type_str = match basic_info.converted_type() {
-                    ConvertedType::NONE => format!(""),
-                    decimal @ ConvertedType::DECIMAL => {
-                        // For decimal type we should print precision and scale if they
-                        // are > 0, e.g. DECIMAL(9, 2) -
-                        // DECIMAL(9) - DECIMAL
-                        let precision_scale = match (precision, scale) {
-                            (p, s) if p > 0 && s > 0 => format!(" ({}, {})", p, s),
-                            (p, 0) if p > 0 => format!(" ({})", p),
-                            _ => format!(""),
-                        };
-                        format!(" ({}{})", decimal, precision_scale)
-                    }
-                    other_converted_type => format!(" ({})", other_converted_type),
-                };
-                write!(
-                    self.output,
-                    "{} {} {}{};",
-                    basic_info.repetition(),
-                    phys_type_str,
-                    basic_info.name(),
-                    converted_type_str
+                // If there is a logical type, do not print converted type
+                let logical_type_str = print_logical_and_converted(
+                    &basic_info.logical_type(),
+                    basic_info.converted_type(),
+                    scale,
+                    precision,
                 );
+                if logical_type_str.is_empty() {
+                    write!(
+                        self.output,
+                        "{} {} {};",
+                        basic_info.repetition(),
+                        phys_type_str,
+                        basic_info.name()
+                    );
+                } else {
+                    write!(
+                        self.output,
+                        "{} {} {} ({});",
+                        basic_info.repetition(),
+                        phys_type_str,
+                        basic_info.name(),
+                        logical_type_str
+                    );
+                }
             }
             Type::GroupType {
                 ref basic_info,
@@ -246,8 +324,14 @@ impl<'a> Printer<'a> {
                 if basic_info.has_repetition() {
                     let r = basic_info.repetition();
                     write!(self.output, "{} group {} ", r, basic_info.name());
-                    if basic_info.converted_type() != ConvertedType::NONE {
-                        write!(self.output, "({}) ", basic_info.converted_type());
+                    let logical_str = print_logical_and_converted(
+                        &basic_info.logical_type(),
+                        basic_info.converted_type(),
+                        0,
+                        0,
+                    );
+                    if !logical_str.is_empty() {
+                        write!(self.output, "({}) ", logical_str);
                     }
                     writeln!(self.output, "{{");
                 } else {
@@ -273,7 +357,11 @@ mod tests {
 
     use std::sync::Arc;
 
-    use crate::basic::{Repetition, Type as PhysicalType};
+    use crate::basic::{
+        DateType, DecimalType, IntType, LogicalType, Repetition, TimeType, TimestampType,
+        Type as PhysicalType,
+    };
+    use crate::errors::Result;
     use crate::schema::{parser::parse_message_type, types::Type};
 
     fn assert_print_parse_message(message: Type) {
@@ -282,6 +370,7 @@ mod tests {
             let mut p = Printer::new(&mut s);
             p.print(&message);
         }
+        println!("{}", &s);
         let parsed = parse_message_type(&s).unwrap();
         assert_eq!(message, parsed);
     }
@@ -301,18 +390,259 @@ mod tests {
         assert_eq!(&mut s, "REQUIRED INT32 field (INT_32);");
     }
 
+    #[inline]
+    fn build_primitive_type(
+        name: &str,
+        physical_type: PhysicalType,
+        logical_type: Option<LogicalType>,
+        converted_type: ConvertedType,
+        repetition: Repetition,
+    ) -> Result<Type> {
+        Type::primitive_type_builder(name, physical_type)
+            .with_repetition(repetition)
+            .with_logical_type(logical_type)
+            .with_converted_type(converted_type)
+            .build()
+    }
+
     #[test]
-    fn test_print_primitive_type_without_logical() {
-        let mut s = String::new();
-        {
-            let mut p = Printer::new(&mut s);
-            let field = Type::primitive_type_builder("field", PhysicalType::DOUBLE)
-                .with_repetition(Repetition::REQUIRED)
+    fn test_print_logical_types() {
+        let types_and_strings = vec![
+            (
+                build_primitive_type(
+                    "field",
+                    PhysicalType::INT32,
+                    Some(LogicalType::INTEGER(IntType {
+                        bit_width: 32,
+                        is_signed: true,
+                    })),
+                    ConvertedType::NONE,
+                    Repetition::REQUIRED,
+                )
+                .unwrap(),
+                "REQUIRED INT32 field (INTEGER(32,true));",
+            ),
+            (
+                build_primitive_type(
+                    "field",
+                    PhysicalType::INT32,
+                    Some(LogicalType::INTEGER(IntType {
+                        bit_width: 8,
+                        is_signed: false,
+                    })),
+                    ConvertedType::NONE,
+                    Repetition::OPTIONAL,
+                )
+                .unwrap(),
+                "OPTIONAL INT32 field (INTEGER(8,false));",
+            ),
+            (
+                build_primitive_type(
+                    "field",
+                    PhysicalType::INT32,
+                    Some(LogicalType::INTEGER(IntType {
+                        bit_width: 16,
+                        is_signed: true,
+                    })),
+                    ConvertedType::INT_16,
+                    Repetition::REPEATED,
+                )
+                .unwrap(),
+                "REPEATED INT32 field (INTEGER(16,true));",
+            ),
+            (
+                build_primitive_type(
+                    "field",
+                    PhysicalType::INT64,
+                    None,
+                    ConvertedType::NONE,
+                    Repetition::REPEATED,
+                )
+                .unwrap(),
+                "REPEATED INT64 field;",
+            ),
+            (
+                build_primitive_type(
+                    "field",
+                    PhysicalType::FLOAT,
+                    None,
+                    ConvertedType::NONE,
+                    Repetition::REQUIRED,
+                )
+                .unwrap(),
+                "REQUIRED FLOAT field;",
+            ),
+            (
+                build_primitive_type(
+                    "booleans",
+                    PhysicalType::BOOLEAN,
+                    None,
+                    ConvertedType::NONE,
+                    Repetition::OPTIONAL,
+                )
+                .unwrap(),
+                "OPTIONAL BOOLEAN booleans;",
+            ),
+            (
+                build_primitive_type(
+                    "field",
+                    PhysicalType::INT64,
+                    Some(LogicalType::TIMESTAMP(TimestampType {
+                        is_adjusted_to_u_t_c: true,
+                        unit: TimeUnit::MILLIS(Default::default()),
+                    })),
+                    ConvertedType::NONE,
+                    Repetition::REQUIRED,
+                )
+                .unwrap(),
+                "REQUIRED INT64 field (TIMESTAMP(MILLIS,true));",
+            ),
+            (
+                build_primitive_type(
+                    "field",
+                    PhysicalType::INT32,
+                    Some(LogicalType::DATE(DateType {})),
+                    ConvertedType::NONE,
+                    Repetition::OPTIONAL,
+                )
+                .unwrap(),
+                "OPTIONAL INT32 field (DATE);",
+            ),
+            (
+                build_primitive_type(
+                    "field",
+                    PhysicalType::INT32,
+                    Some(LogicalType::TIME(TimeType {
+                        unit: TimeUnit::MILLIS(Default::default()),
+                        is_adjusted_to_u_t_c: false,
+                    })),
+                    ConvertedType::TIME_MILLIS,
+                    Repetition::REQUIRED,
+                )
+                .unwrap(),
+                "REQUIRED INT32 field (TIME(MILLIS,false));",
+            ),
+            (
+                build_primitive_type(
+                    "field",
+                    PhysicalType::BYTE_ARRAY,
+                    None,
+                    ConvertedType::NONE,
+                    Repetition::REQUIRED,
+                )
+                .unwrap(),
+                "REQUIRED BYTE_ARRAY field;",
+            ),
+            (
+                build_primitive_type(
+                    "field",
+                    PhysicalType::BYTE_ARRAY,
+                    None,
+                    ConvertedType::UTF8,
+                    Repetition::REQUIRED,
+                )
+                .unwrap(),
+                "REQUIRED BYTE_ARRAY field (UTF8);",
+            ),
+            (
+                build_primitive_type(
+                    "field",
+                    PhysicalType::BYTE_ARRAY,
+                    Some(LogicalType::JSON(Default::default())),
+                    ConvertedType::JSON,
+                    Repetition::REQUIRED,
+                )
+                .unwrap(),
+                "REQUIRED BYTE_ARRAY field (JSON);",
+            ),
+            (
+                build_primitive_type(
+                    "field",
+                    PhysicalType::BYTE_ARRAY,
+                    Some(LogicalType::BSON(Default::default())),
+                    ConvertedType::BSON,
+                    Repetition::REQUIRED,
+                )
+                .unwrap(),
+                "REQUIRED BYTE_ARRAY field (BSON);",
+            ),
+            (
+                build_primitive_type(
+                    "field",
+                    PhysicalType::BYTE_ARRAY,
+                    Some(LogicalType::STRING(Default::default())),
+                    ConvertedType::NONE,
+                    Repetition::REQUIRED,
+                )
+                .unwrap(),
+                "REQUIRED BYTE_ARRAY field (STRING);",
+            ),
+        ];
+
+        types_and_strings.into_iter().for_each(|(field, expected)| {
+            let mut s = String::new();
+            {
+                let mut p = Printer::new(&mut s);
+                p.print(&field);
+            }
+            assert_eq!(&s, expected)
+        });
+    }
+
+    #[inline]
+    fn decimal_length_from_precision(precision: usize) -> i32 {
+        (10.0_f64.powi(precision as i32).log2() / 8.0).ceil() as i32
+    }
+
+    #[test]
+    fn test_print_flba_logical_types() {
+        let types_and_strings = vec![
+            (
+                Type::primitive_type_builder("field", PhysicalType::FIXED_LEN_BYTE_ARRAY)
+                    .with_logical_type(None)
+                    .with_converted_type(ConvertedType::INTERVAL)
+                    .with_length(12)
+                    .with_repetition(Repetition::REQUIRED)
+                    .build()
+                    .unwrap(),
+                "REQUIRED FIXED_LEN_BYTE_ARRAY (12) field (INTERVAL);",
+            ),
+            (
+                Type::primitive_type_builder("field", PhysicalType::FIXED_LEN_BYTE_ARRAY)
+                    .with_logical_type(Some(LogicalType::UUID(Default::default())))
+                    .with_length(16)
+                    .with_repetition(Repetition::REQUIRED)
+                    .build()
+                    .unwrap(),
+                "REQUIRED FIXED_LEN_BYTE_ARRAY (16) field (UUID);",
+            ),
+            (
+                Type::primitive_type_builder(
+                    "decimal",
+                    PhysicalType::FIXED_LEN_BYTE_ARRAY,
+                )
+                .with_logical_type(Some(LogicalType::DECIMAL(DecimalType {
+                    precision: 32,
+                    scale: 20,
+                })))
+                .with_precision(32)
+                .with_scale(20)
+                .with_length(decimal_length_from_precision(32))
+                .with_repetition(Repetition::REPEATED)
                 .build()
-                .unwrap();
-            p.print(&field);
-        }
-        assert_eq!(&mut s, "REQUIRED DOUBLE field;");
+                .unwrap(),
+                "REPEATED FIXED_LEN_BYTE_ARRAY (14) decimal (DECIMAL(32,20));",
+            ),
+        ];
+
+        types_and_strings.into_iter().for_each(|(field, expected)| {
+            let mut s = String::new();
+            {
+                let mut p = Printer::new(&mut s);
+                p.print(&field);
+            }
+            assert_eq!(&s, expected)
+        });
     }
 
     #[test]
@@ -329,8 +659,12 @@ mod tests {
                 .with_converted_type(ConvertedType::UTF8)
                 .with_id(1)
                 .build();
-            let f3 =
-                Type::primitive_type_builder("f3", PhysicalType::FIXED_LEN_BYTE_ARRAY)
+            let f3 = Type::primitive_type_builder("f3", PhysicalType::BYTE_ARRAY)
+                .with_logical_type(Some(LogicalType::STRING(Default::default())))
+                .with_id(1)
+                .build();
+            let f4 =
+                Type::primitive_type_builder("f4", PhysicalType::FIXED_LEN_BYTE_ARRAY)
                     .with_repetition(Repetition::REPEATED)
                     .with_converted_type(ConvertedType::INTERVAL)
                     .with_length(12)
@@ -339,6 +673,7 @@ mod tests {
             let mut struct_fields = Vec::new();
             struct_fields.push(Arc::new(f1.unwrap()));
             struct_fields.push(Arc::new(f2.unwrap()));
+            struct_fields.push(Arc::new(f3.unwrap()));
             let field = Type::group_type_builder("field")
                 .with_repetition(Repetition::OPTIONAL)
                 .with_fields(&mut struct_fields)
@@ -347,7 +682,7 @@ mod tests {
                 .unwrap();
             let mut fields = Vec::new();
             fields.push(Arc::new(field));
-            fields.push(Arc::new(f3.unwrap()));
+            fields.push(Arc::new(f4.unwrap()));
             let message = Type::group_type_builder("schema")
                 .with_fields(&mut fields)
                 .with_id(2)
@@ -359,8 +694,9 @@ mod tests {
   OPTIONAL group field {
     REQUIRED INT32 f1 (INT_32);
     OPTIONAL BYTE_ARRAY f2 (UTF8);
+    OPTIONAL BYTE_ARRAY f3 (STRING);
   }
-  REPEATED FIXED_LEN_BYTE_ARRAY (12) f3 (INTERVAL);
+  REPEATED FIXED_LEN_BYTE_ARRAY (12) f4 (INTERVAL);
 }";
         assert_eq!(&mut s, expected);
     }
@@ -375,6 +711,7 @@ mod tests {
 
         let a1 = Type::group_type_builder("a1")
             .with_repetition(Repetition::OPTIONAL)
+            .with_logical_type(Some(LogicalType::LIST(Default::default())))
             .with_converted_type(ConvertedType::LIST)
             .with_fields(&mut vec![Arc::new(a2)])
             .build()
@@ -399,6 +736,7 @@ mod tests {
 
         let b1 = Type::group_type_builder("b1")
             .with_repetition(Repetition::OPTIONAL)
+            .with_logical_type(Some(LogicalType::LIST(Default::default())))
             .with_converted_type(ConvertedType::LIST)
             .with_fields(&mut vec![Arc::new(b2)])
             .build()
@@ -457,6 +795,10 @@ mod tests {
     fn test_print_and_parse_decimal() {
         let f1 = Type::primitive_type_builder("f1", PhysicalType::INT32)
             .with_repetition(Repetition::OPTIONAL)
+            .with_logical_type(Some(LogicalType::DECIMAL(DecimalType {
+                precision: 9,
+                scale: 2,
+            })))
             .with_converted_type(ConvertedType::DECIMAL)
             .with_precision(9)
             .with_scale(2)
@@ -465,6 +807,10 @@ mod tests {
 
         let f2 = Type::primitive_type_builder("f2", PhysicalType::INT32)
             .with_repetition(Repetition::OPTIONAL)
+            .with_logical_type(Some(LogicalType::DECIMAL(DecimalType {
+                precision: 9,
+                scale: 0,
+            })))
             .with_converted_type(ConvertedType::DECIMAL)
             .with_precision(9)
             .with_scale(0)

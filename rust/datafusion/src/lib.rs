@@ -18,9 +18,11 @@
 // Clippy lints, some should be disabled incrementally
 #![allow(
     clippy::float_cmp,
+    clippy::from_over_into,
     clippy::module_inception,
     clippy::new_without_default,
-    clippy::type_complexity
+    clippy::type_complexity,
+    clippy::upper_case_acronyms
 )]
 
 //! [DataFusion](https://github.com/apache/arrow/tree/master/rust/datafusion)
@@ -48,7 +50,7 @@
 //!
 //! // create a plan
 //! let df = df.filter(col("a").lt_eq(col("b")))?
-//!            .aggregate(&[col("a")], &[min(col("b"))])?
+//!            .aggregate(vec![col("a")], vec![min(col("b"))])?
 //!            .limit(100)?;
 //!
 //! // execute the plan

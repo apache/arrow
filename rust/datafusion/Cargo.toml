@@ -75,9 +75,6 @@ lazy_static = { version = "^1.4.0", optional = true }
 rand = "0.8"
 criterion = "0.3"
 tempfile = "3"
-prost = "0.7"
-arrow-flight = { path = "../arrow-flight", version = "4.0.0-SNAPSHOT" }
-tonic = "0.4"
 doc-comment = "0.3"
 
 [[bench]]

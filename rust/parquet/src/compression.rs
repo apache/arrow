@@ -60,7 +60,7 @@ pub trait Codec {
 /// Given the compression type `codec`, returns a codec used to compress and decompress
 /// bytes for the compression type.
 /// This returns `None` if the codec type is `UNCOMPRESSED`.
-pub fn create_codec(codec: CodecType) -> Result<Option<Box<Codec>>> {
+pub fn create_codec(codec: CodecType) -> Result<Option<Box<dyn Codec>>> {
     match codec {
         #[cfg(any(feature = "brotli", test))]
         CodecType::BROTLI => Ok(Some(Box::new(BrotliCodec::new()))),

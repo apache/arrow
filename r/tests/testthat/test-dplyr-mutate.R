@@ -93,9 +93,9 @@ test_that("empty transmute()", {
 test_that("mutate and refer to previous mutants", {
   expect_dplyr_equal(
     input %>%
-      select(int, padded_strings) %>%
+      select(int, verses) %>%
       mutate(
-        line_lengths = nchar(padded_strings),
+        line_lengths = nchar(verses),
         longer = line_lengths * 10
       ) %>%
       filter(line_lengths > 15) %>%
@@ -104,12 +104,40 @@ test_that("mutate and refer to previous mutants", {
   )
 })
 
+test_that("nchar() arguments", {
+  expect_dplyr_equal(
+    input %>%
+      select(int, verses) %>%
+      mutate(
+        line_lengths = nchar(verses, type = "bytes"),
+        longer = line_lengths * 10
+      ) %>%
+      filter(line_lengths > 15) %>%
+      collect(),
+    tbl
+  )
+  expect_warning(
+    expect_dplyr_equal(
+      input %>%
+        select(int, verses) %>%
+        mutate(
+          line_lengths = nchar(verses, type = "bytes", allowNA = TRUE),
+          longer = line_lengths * 10
+        ) %>%
+        filter(line_lengths > 15) %>%
+        collect(),
+      tbl
+    ),
+    "not supported"
+  )
+})
+
 test_that("mutate with .data pronoun", {
   expect_dplyr_equal(
     input %>%
-      select(int, padded_strings) %>%
+      select(int, verses) %>%
       mutate(
-        line_lengths = nchar(padded_strings),
+        line_lengths = str_length(verses),
         longer = .data$line_lengths * 10
       ) %>%
       filter(line_lengths > 15) %>%
@@ -221,23 +249,17 @@ test_that("dplyr::mutate's examples", {
   #>       x     y     z
   #>   <dbl> <dbl> <dbl>
   #> 1     1     2     3
-  expect_warning(
-    expect_dplyr_equal(
-      input %>% mutate(z = x + y, .before = 1) %>% collect(),
-      df
-    ),
-    "not supported in Arrow"
+  expect_dplyr_equal(
+    input %>% mutate(z = x + y, .before = 1) %>% collect(),
+    df
   )
   #> # A tibble: 1 x 3
   #>       z     x     y
   #>   <dbl> <dbl> <dbl>
   #> 1     3     1     2
-  expect_warning(
-    expect_dplyr_equal(
-      input %>% mutate(z = x + y, .after = x) %>% collect(),
-      df
-    ),
-    "not supported in Arrow"
+  expect_dplyr_equal(
+    input %>% mutate(z = x + y, .after = x) %>% collect(),
+    df
   )
   #> # A tibble: 1 x 3
   #>       x     z     y

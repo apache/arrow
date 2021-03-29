@@ -150,7 +150,7 @@ async fn assert_provider_row_count(value: i64, expected_count: u64) -> Result<()
     let df = ctx
         .read_table(Arc::new(provider.clone()))?
         .filter(col("flag").eq(lit(value)))?
-        .aggregate(&[], &[count(col("flag"))])?;
+        .aggregate(vec![], vec![count(col("flag"))])?;
 
     let results = df.collect().await?;
     let result_col: &UInt64Array = as_primitive_array(results[0].column(0));

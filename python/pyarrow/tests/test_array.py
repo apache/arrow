@@ -854,8 +854,8 @@ def test_union_from_dense():
     int64 = pa.array([1, 2, 3], type='int64')
     types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
     logical_types = pa.array([11, 13, 11, 11, 13, 13, 11], type='int8')
-    value_offsets = pa.array([1, 0, 0, 2, 1, 2, 3], type='int32')
-    py_value = [b'b', 1, b'a', b'c', 2, 3, b'd']
+    value_offsets = pa.array([0, 0, 1, 2, 1, 2, 3], type='int32')
+    py_value = [b'a', 1, b'b', b'c', 2, 3, b'd']
 
     def check_result(result, expected_field_names, expected_type_codes,
                      expected_type_code_values):

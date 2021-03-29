@@ -76,7 +76,7 @@ Scanner$create <- function(dataset,
     }
     return(Scanner$create(
       dataset$.data,
-      dataset$selected_columns,
+      c(dataset$selected_columns, dataset$temp_columns),
       dataset$filtered_rows,
       use_threads,
       batch_size,
@@ -148,7 +148,8 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
     lapply(scan_task$Execute(), function(batch) {
       # message("Processing Batch")
       # This inner lapply cannot be parallelized
-      # TODO: wrap batch in arrow_dplyr_query with X$selected_columns and X$group_by_vars
+      # TODO: wrap batch in arrow_dplyr_query with X$selected_columns,
+      # X$temp_columns, and X$group_by_vars
       # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
       FUN(batch, ...)
     })

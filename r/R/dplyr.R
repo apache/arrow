@@ -46,7 +46,13 @@ arrow_dplyr_query <- function(.data) {
       # drop_empty_groups is a logical value indicating whether to drop
       # groups formed by factor levels that don't appear in the data. It
       # should be non-null only when the data is grouped.
-      drop_empty_groups = NULL
+      drop_empty_groups = NULL,
+      # arrange_vars will be a list of expressions named by their associated
+      # column names
+      arrange_vars = list(),
+      # arrange_desc will be a logical vector indicating the sort order for each
+      # expression in arrange_vars (FALSE for ascending, TRUE for descending)
+      arrange_desc = logical()
     ),
     class = "arrow_dplyr_query"
   )
@@ -79,6 +85,25 @@ print.arrow_dplyr_query <- function(x, ...) {
   }
   if (length(x$group_by_vars)) {
     cat("* Grouped by ", paste(x$group_by_vars, collapse = ", "), "\n", sep = "")
+  }
+  if (length(x$arrange_vars)) {
+    if (query_on_dataset(x)) {
+      arrange_strings <- map_chr(x$arrange_vars, function(x) x$ToString())
+    } else {
+      arrange_strings <- map_chr(x$arrange_vars, .format_array_expression)
+    }
+    cat(
+      "* Sorted by ",
+      paste(
+        paste0(
+          arrange_strings,
+          " [", ifelse(x$arrange_desc, "desc", "asc"), "]"
+        ),
+        collapse = ", "
+      ),
+      "\n",
+      sep = ""
+    )
   }
   cat("See $.data for the source Arrow object\n")
   invisible(x)
@@ -183,12 +208,13 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
 tbl_vars.arrow_dplyr_query <- function(x) names(x$selected_columns)
 
 select.arrow_dplyr_query <- function(.data, ...) {
+  check_select_helpers(enexprs(...))
   column_select(arrow_dplyr_query(.data), !!!enquos(...))
 }
 select.Dataset <- select.ArrowTabular <- select.arrow_dplyr_query
 
-#' @importFrom tidyselect vars_rename
 rename.arrow_dplyr_query <- function(.data, ...) {
+  check_select_helpers(enexprs(...))
   column_select(arrow_dplyr_query(.data), !!!enquos(...), .FUN = vars_rename)
 }
 rename.Dataset <- rename.ArrowTabular <- rename.arrow_dplyr_query
@@ -214,6 +240,70 @@ column_select <- function(.data, ..., .FUN = vars_select) {
     # No need to massage filters because those contain references to Arrow objects
   }
   .data
+}
+
+relocate.arrow_dplyr_query <- function(.data, ..., .before = NULL, .after = NULL) {
+  # The code in this function is adapted from the code in dplyr::relocate.data.frame
+  # at https://github.com/tidyverse/dplyr/blob/master/R/relocate.R
+  # TODO: revisit this after https://github.com/tidyverse/dplyr/issues/5829
+  check_select_helpers(c(enexprs(...), enexpr(.before), enexpr(.after)))
+
+  .data <- arrow_dplyr_query(.data)
+
+  to_move <- eval_select(expr(c(...)), .data$selected_columns)
+
+  .before <- enquo(.before)
+  .after <- enquo(.after)
+  has_before <- !quo_is_null(.before)
+  has_after <- !quo_is_null(.after)
+
+  if (has_before && has_after) {
+    abort("Must supply only one of `.before` and `.after`.")
+  } else if (has_before) {
+    where <- min(unname(eval_select(.before, .data$selected_columns)))
+    if (!where %in% to_move) {
+      to_move <- c(to_move, where)
+    }
+  } else if (has_after) {
+    where <- max(unname(eval_select(.after, .data$selected_columns)))
+    if (!where %in% to_move) {
+      to_move <- c(where, to_move)
+    }
+  } else {
+    where <- 1L
+    if (!where %in% to_move) {
+      to_move <- c(to_move, where)
+    }
+  }
+
+  lhs <- setdiff(seq2(1, where - 1), to_move)
+  rhs <- setdiff(seq2(where + 1, length(.data$selected_columns)), to_move)
+
+  pos <- vec_unique(c(lhs, to_move, rhs))
+  new_names <- names(pos)
+  .data$selected_columns <- .data$selected_columns[pos]
+
+  if (!is.null(new_names)) {
+    names(.data$selected_columns)[new_names != ""] <- new_names[new_names != ""]
+  }
+  .data
+}
+relocate.Dataset <- relocate.ArrowTabular <- relocate.arrow_dplyr_query
+
+check_select_helpers <- function(exprs) {
+  # Throw an error if unsupported tidyselect selection helpers in `exprs`
+  exprs <- lapply(exprs, function(x) if (is_quosure(x)) quo_get_expr(x) else x)
+  unsup_select_helpers <- "where"
+  funs_in_exprs <- unlist(lapply(exprs, all_funs))
+  unsup_funs <- funs_in_exprs[funs_in_exprs %in% unsup_select_helpers]
+  if (length(unsup_funs)) {
+    stop(
+      "Unsupported selection ",
+      ngettext(length(unsup_funs), "helper: ", "helpers: "),
+      oxford_paste(paste0(unsup_funs, "()"), quote = FALSE),
+      call. = FALSE
+    )
+  }
 }
 
 filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
@@ -285,8 +375,8 @@ i18ize_error_messages <- function() {
   # Figure out what the error messages will be with this LANGUAGE
   # so that we can look for them
   out <- list(
-    obj = tryCatch(X_____X, error = function(e) conditionMessage(e)),
-    fun = tryCatch(X_____X(), error = function(e) conditionMessage(e))
+    obj = tryCatch(eval(parse(text = "X_____X")), error = function(e) conditionMessage(e)),
+    fun = tryCatch(eval(parse(text = "X_____X()")), error = function(e) conditionMessage(e))
   )
   paste(map(out, ~sub("X_____X", ".*", .)), collapse = "|")
 }
@@ -306,6 +396,23 @@ build_function_list <- function(FUN) {
     # Include mappings from R function name spellings
     lapply(set_names(names(.array_function_map)), wrapper),
     # Plus some special handling where it's not 1:1
+    nchar = function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
+      if (allowNA) {
+        stop("allowNA = TRUE not supported for Arrow", call. = FALSE)
+      }
+      if (is.na(keepNA)) {
+        keepNA <- !identical(type, "width")
+      }
+      if (!keepNA) {
+        # TODO: I think there is a fill_null kernel we could use, set null to 2
+        stop("keepNA = TRUE not supported for Arrow", call. = FALSE)
+      }
+      if (identical(type, "bytes")) {
+        FUN("binary_length", x)
+      } else {
+        FUN("utf8_length", x)
+      }
+    },
     str_trim = function(string, side = c("both", "left", "right")) {
       side <- match.arg(side)
       switch(
@@ -378,6 +485,7 @@ set_filters <- function(.data, expressions) {
 
 collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
   x <- ensure_group_vars(x)
+  x <- ensure_arrange_vars(x) # this sets x$temp_columns
   # Pull only the selected rows and cols into R
   if (query_on_dataset(x)) {
     # See dataset.R for Dataset and Scanner(Builder) classes
@@ -391,10 +499,14 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
     } else {
       filter <- eval_array_expression(x$filtered_rows, x$.data)
     }
-    # TODO: shortcut if identical(names(x$.data), find_array_refs(x$selected_columns))?
-    tab <- x$.data[filter, find_array_refs(x$selected_columns), keep_na = FALSE]
+    # TODO: shortcut if identical(names(x$.data), find_array_refs(c(x$selected_columns, x$temp_columns)))?
+    tab <- x$.data[
+      filter,
+      find_array_refs(c(x$selected_columns, x$temp_columns)),
+      keep_na = FALSE
+    ]
     # Now evaluate those expressions on the filtered table
-    cols <- lapply(x$selected_columns, eval_array_expression, data = tab)
+    cols <- lapply(c(x$selected_columns, x$temp_columns), eval_array_expression, data = tab)
     if (length(cols) == 0) {
       tab <- tab[, integer(0)]
     } else {
@@ -404,6 +516,14 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
         tab <- RecordBatch$create(!!!cols)
       }
     }
+  }
+  # Arrange rows
+  if (length(x$arrange_vars) > 0) {
+    tab <- tab[
+      tab$SortIndices(names(x$arrange_vars), x$arrange_desc),
+      names(x$selected_columns), # this omits x$temp_columns from the result
+      drop = FALSE
+    ]
   }
   if (as_data_frame) {
     df <- as.data.frame(tab)
@@ -416,7 +536,6 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
 collect.ArrowTabular <- as.data.frame.ArrowTabular
 collect.Dataset <- function(x, ...) dplyr::collect(arrow_dplyr_query(x), ...)
 
-#' @importFrom rlang .data
 ensure_group_vars <- function(x) {
   if (inherits(x, "arrow_dplyr_query")) {
     # Before pulling data from Arrow, make sure all group vars are in the projection
@@ -429,6 +548,20 @@ ensure_group_vars <- function(x) {
       )
     }
   }
+  x
+}
+
+ensure_arrange_vars <- function(x) {
+  # The arrange() operation is not performed until later, because:
+  # - It must be performed after mutate(), to enable sorting by new columns.
+  # - It should be performed after filter() and select(), for efficiency.
+  # However, we need users to be able to arrange() by columns and expressions
+  # that are *not* returned in the query result. To enable this, we must
+  # *temporarily* include these columns and expressions in the projection. We
+  # use x$temp_columns to store these. Later, after the arrange() operation has
+  # been performed, these are omitted from the result. This differs from the
+  # columns in x$group_by_vars which *are* returned in the result.
+  x$temp_columns <- x$arrange_vars[!names(x$arrange_vars) %in% names(x$selected_columns)]
   x
 }
 
@@ -460,7 +593,6 @@ restore_dplyr_features <- function(df, query) {
   df
 }
 
-#' @importFrom tidyselect vars_pull
 pull.arrow_dplyr_query <- function(.data, var = -1) {
   .data <- arrow_dplyr_query(.data)
   var <- vars_pull(names(.data), !!enquo(var))
@@ -540,10 +672,8 @@ group_by.arrow_dplyr_query <- function(.data,
   new_groups <- enquos(...)
   new_groups <- new_groups[nzchar(names(new_groups))]
   if (length(new_groups)) {
-    # TODO(ARROW-11658): either find a way to let group_by_prepare handle this
-    # (it may call mutate() for us)
-    # or essentially reimplement it here (see dplyr:::add_computed_columns)
-    stop("Cannot create or rename columns in group_by on Arrow objects", call. = FALSE)
+    # Add them to the data
+    .data <- dplyr::mutate(.data, !!!new_groups)
   }
   if (".add" %in% names(formals(dplyr::group_by))) {
     # dplyr >= 1.0
@@ -597,10 +727,7 @@ mutate.arrow_dplyr_query <- function(.data,
   .data <- arrow_dplyr_query(.data)
 
   # Restrict the cases we support for now
-  if (!quo_is_null(.before) || !quo_is_null(.after)) {
-    # TODO(ARROW-11701)
-    return(abandon_ship(call, .data, '.before and .after arguments are not supported in Arrow'))
-  } else if (length(dplyr::group_vars(.data)) > 0) {
+  if (length(dplyr::group_vars(.data)) > 0) {
     # mutate() on a grouped dataset does calculations within groups
     # This doesn't matter on scalar ops (arithmetic etc.) but it does
     # for things with aggregations (e.g. subtracting the mean)
@@ -637,25 +764,36 @@ mutate.arrow_dplyr_query <- function(.data,
     mask[[new_var]] <- mask$.data[[new_var]] <- results[[new_var]]
   }
 
-  # Assign the new columns into the .data$selected_columns, respecting the .keep param
+  old_vars <- names(.data$selected_columns)
+  # Note that this is names(exprs) not names(results):
+  # if results$new_var is NULL, that means we are supposed to remove it
+  new_vars <- names(exprs)
+
+  # Assign the new columns into the .data$selected_columns
+  for (new_var in new_vars) {
+    .data$selected_columns[[new_var]] <- results[[new_var]]
+  }
+
+  # Deduplicate new_vars and remove NULL columns from new_vars
+  new_vars <- intersect(new_vars, names(.data$selected_columns))
+
+  # Respect .before and .after
+  if (!quo_is_null(.before) || !quo_is_null(.after)) {
+    new <- setdiff(new_vars, old_vars)
+    .data <- dplyr::relocate(.data, !!new, .before = !!.before, .after = !!.after)
+  }
+
+  # Respect .keep
   if (.keep == "none") {
-    .data$selected_columns <- results
-  } else {
-    if (.keep != "all") {
-      # "used" or "unused"
-      used_vars <- unlist(lapply(exprs, all.vars), use.names = FALSE)
-      old_vars <- names(.data$selected_columns)
-      if (.keep == "used") {
-        .data$selected_columns <- .data$selected_columns[intersect(old_vars, used_vars)]
-      } else {
-        # "unused"
-        .data$selected_columns <- .data$selected_columns[setdiff(old_vars, used_vars)]
-      }
-    }
-    # Note that this is names(exprs) not names(results):
-    # if results$new_var is NULL, that means we are supposed to remove it
-    for (new_var in names(exprs)) {
-      .data$selected_columns[[new_var]] <- results[[new_var]]
+    .data$selected_columns <- .data$selected_columns[new_vars]
+  } else if (.keep != "all") {
+    # "used" or "unused"
+    used_vars <- unlist(lapply(exprs, all.vars), use.names = FALSE)
+    if (.keep == "used") {
+      .data$selected_columns[setdiff(old_vars, used_vars)] <- NULL
+    } else {
+      # "unused"
+      .data$selected_columns[intersect(old_vars, used_vars)] <- NULL
     }
   }
   # Even if "none", we still keep group vars
@@ -689,16 +827,79 @@ abandon_ship <- function(call, .data, msg = NULL) {
   eval.parent(call, 2)
 }
 
-arrange.arrow_dplyr_query <- function(.data, ...) {
-  .data <- arrow_dplyr_query(.data)
-  if (query_on_dataset(.data)) {
-    not_implemented_for_dataset("arrange()")
-  }
-  # TODO(ARROW-11703) move this to Arrow
+arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
   call <- match.call()
-  abandon_ship(call, .data)
+  exprs <- quos(...)
+  if (.by_group) {
+    # when the data is is grouped and .by_group is TRUE, order the result by
+    # the grouping columns first
+    exprs <- c(quos(!!!dplyr::groups(.data)), exprs)
+  }
+  if (length(exprs) == 0) {
+    # Nothing to do
+    return(.data)
+  }
+  .data <- arrow_dplyr_query(.data)
+  # find and remove any dplyr::desc() and tidy-eval
+  # the arrange expressions inside an Arrow data_mask
+  sorts <- vector("list", length(exprs))
+  descs <- logical(0)
+  mask <- arrow_mask(.data)
+  for (i in seq_along(exprs)) {
+    x <- find_and_remove_desc(exprs[[i]])
+    exprs[[i]] <- x[["quos"]]
+    sorts[[i]] <- arrow_eval(exprs[[i]], mask)
+    if (inherits(sorts[[i]], "try-error")) {
+      msg <- paste('Expression', as_label(exprs[[i]]), 'not supported in Arrow')
+      return(abandon_ship(call, .data, msg))
+    }
+    names(sorts)[i] <- as_label(exprs[[i]])
+    descs[i] <- x[["desc"]]
+  }
+  .data$arrange_vars <- c(sorts, .data$arrange_vars)
+  .data$arrange_desc <- c(descs, .data$arrange_desc)
+  .data
 }
 arrange.Dataset <- arrange.ArrowTabular <- arrange.arrow_dplyr_query
+
+# Helper to handle desc() in arrange()
+# * Takes a quosure as input
+# * Returns a list with two elements:
+#   1. The quosure with any wrapping parentheses and desc() removed
+#   2. A logical value indicating whether desc() was found
+# * Performs some other validation
+find_and_remove_desc <- function(quosure) {
+  expr <- quo_get_expr(quosure)
+  descending <- FALSE
+  if (length(all.vars(expr)) < 1L) {
+    stop(
+      "Expression in arrange() does not contain any field names: ",
+      deparse(expr),
+      call. = FALSE
+    )
+  }
+  # Use a while loop to remove any number of nested pairs of enclosing
+  # parentheses and any number of nested desc() calls. In the case of multiple
+  # nested desc() calls, each one toggles the sort order.
+  while (identical(typeof(expr), "language") && is.call(expr)) {
+    if (identical(expr[[1]], quote(`(`))) {
+      # remove enclosing parentheses
+      expr <- expr[[2]]
+    } else if (identical(expr[[1]], quote(desc))) {
+      # remove desc() and toggle descending
+      expr <- expr[[2]]
+      descending <- !descending
+    } else {
+      break
+    }
+  }
+  return(
+    list(
+      quos = quo_set_expr(quosure, expr),
+      desc = descending
+    )
+  )
+}
 
 query_on_dataset <- function(x) inherits(x$.data, "Dataset")
 

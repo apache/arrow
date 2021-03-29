@@ -469,7 +469,7 @@ mod tests {
         let plan = LogicalPlanBuilder::from(&table_scan)
             .filter(col("b").eq(lit(true)))?
             .filter(col("c").eq(lit(false)))?
-            .project(&[col("a")])?
+            .project(vec![col("a")])?
             .build()?;
 
         let expected = "\
@@ -489,7 +489,7 @@ mod tests {
             .filter(col("b").not_eq(lit(true)))?
             .filter(col("c").not_eq(lit(false)))?
             .limit(1)?
-            .project(&[col("a")])?
+            .project(vec![col("a")])?
             .build()?;
 
         let expected = "\
@@ -508,7 +508,7 @@ mod tests {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
             .filter(col("b").not_eq(lit(true)).and(col("c").eq(lit(true))))?
-            .project(&[col("a")])?
+            .project(vec![col("a")])?
             .build()?;
 
         let expected = "\
@@ -525,7 +525,7 @@ mod tests {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
             .filter(col("b").not_eq(lit(true)).or(col("c").eq(lit(false))))?
-            .project(&[col("a")])?
+            .project(vec![col("a")])?
             .build()?;
 
         let expected = "\
@@ -542,7 +542,7 @@ mod tests {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
             .filter(col("b").eq(lit(false)).not())?
-            .project(&[col("a")])?
+            .project(vec![col("a")])?
             .build()?;
 
         let expected = "\
@@ -558,7 +558,7 @@ mod tests {
     fn optimize_plan_support_projection() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(&[col("a"), col("d"), col("b").eq(lit(false))])?
+            .project(vec![col("a"), col("d"), col("b").eq(lit(false))])?
             .build()?;
 
         let expected = "\
@@ -573,10 +573,10 @@ mod tests {
     fn optimize_plan_support_aggregate() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(&[col("a"), col("c"), col("b")])?
+            .project(vec![col("a"), col("c"), col("b")])?
             .aggregate(
-                &[col("a"), col("c")],
-                &[max(col("b").eq(lit(true))), min(col("b"))],
+                vec![col("a"), col("c")],
+                vec![max(col("b").eq(lit(true))), min(col("b"))],
             )?
             .build()?;
 

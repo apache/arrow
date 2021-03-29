@@ -1206,7 +1206,7 @@ impl<'a> TypeVisitor<Option<Box<dyn ArrayReader>>, &'a ArrayReaderBuilderContext
         &mut self,
         cur_type: Arc<Type>,
         context: &'a ArrayReaderBuilderContext,
-    ) -> Result<Option<Box<ArrayReader>>> {
+    ) -> Result<Option<Box<dyn ArrayReader>>> {
         let mut new_context = context.clone();
         new_context.path.append(vec![cur_type.name().to_string()]);
 
@@ -2289,7 +2289,7 @@ mod tests {
     }
 
     impl ArrayReader for InMemoryArrayReader {
-        fn as_any(&self) -> &Any {
+        fn as_any(&self) -> &dyn Any {
             self
         }
 

@@ -405,6 +405,16 @@ else()
     )
 endif()
 
+if(DEFINED ENV{ARROW_BZIP2_URL})
+  set(ARROW_BZIP2_SOURCE_URL "$ENV{ARROW_BZIP2_URL}")
+else()
+  set_urls(
+    ARROW_BZIP2_SOURCE_URL
+    "https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
+    )
+endif()
+
 if(DEFINED ENV{ARROW_CARES_URL})
   set(CARES_SOURCE_URL "$ENV{ARROW_CARES_URL}")
 else()
@@ -571,6 +581,15 @@ else()
     )
 endif()
 
+if(DEFINED ENV{ARROW_UTF8PROC_URL})
+  set(ARROW_UTF8PROC_SOURCE_URL "$ENV{ARROW_UTF8PROC_URL}")
+else()
+  set_urls(
+    ARROW_UTF8PROC_SOURCE_URL
+    "https://github.com/JuliaStrings/utf8proc/archive/${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz"
+    )
+endif()
+
 if(DEFINED ENV{ARROW_XSIMD_URL})
   set(XSIMD_SOURCE_URL "$ENV{ARROW_XSIMD_URL}")
 else()
@@ -598,30 +617,15 @@ else()
     )
 endif()
 
-if(DEFINED ENV{ARROW_BZIP2_SOURCE_URL})
-  set(ARROW_BZIP2_SOURCE_URL "$ENV{ARROW_BZIP2_SOURCE_URL}")
-else()
-  set_urls(
-    ARROW_BZIP2_SOURCE_URL
-    "https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
-    )
-endif()
-
-if(DEFINED ENV{ARROW_UTF8PROC_SOURCE_URL})
-  set(ARROW_UTF8PROC_SOURCE_URL "$ENV{ARROW_UTF8PROC_SOURCE_URL}")
-else()
-  set_urls(
-    ARROW_UTF8PROC_SOURCE_URL
-    "https://github.com/JuliaStrings/utf8proc/archive/${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz"
-    )
-endif()
-
 # ----------------------------------------------------------------------
 # ExternalProject options
 
-set(EP_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}}")
-set(EP_C_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}}")
+set(
+  EP_CXX_FLAGS
+  "${CMAKE_CXX_COMPILER_ARG1} ${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}}"
+  )
+set(EP_C_FLAGS
+    "${CMAKE_C_COMPILER_ARG1} ${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}}")
 
 if(NOT MSVC_TOOLCHAIN)
   # Set -fPIC on all external projects
@@ -1935,7 +1939,7 @@ macro(build_xsimd)
 endmacro()
 
 # For now xsimd is always bundled from upstream
-if(1)
+if(NOT ARROW_SIMD_LEVEL STREQUAL "NONE")
   set(xsimd_SOURCE "BUNDLED")
   resolve_dependency(xsimd)
   # TODO: Don't use global includes but rather target_include_directories

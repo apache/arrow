@@ -54,3 +54,25 @@ test_that("Scalar to Array", {
   expect_equal(a$as_array(), Array$create(42))
   expect_equal(Array$create(a), Array$create(42))
 })
+
+test_that("Scalar$Equals", {
+  a <- Scalar$create(42)
+  aa <- Array$create(42)
+  b <- Scalar$create(42)
+  d <- Scalar$create(43)
+  expect_equal(a, b)
+  expect_true(a$Equals(b))
+  expect_false(a$Equals(d))
+  expect_false(a$Equals(aa))
+})
+
+test_that("Scalar$ApproxEquals", {
+  a <- Scalar$create(1.0000000000001)
+  aa <- Array$create(1.0000000000001)
+  b <- Scalar$create(1.0)
+  d <- 2.400000000000001
+  expect_false(a$Equals(b))
+  expect_true(a$ApproxEquals(b))
+  expect_false(a$ApproxEquals(d))
+  expect_false(a$ApproxEquals(aa))
+})

@@ -3793,6 +3793,24 @@ BEGIN_CPP11
 	return cpp11::as_sexp(Scalar__type(s));
 END_CPP11
 }
+// scalar.cpp
+bool Scalar__Equals(const std::shared_ptr<arrow::Scalar>& lhs, const std::shared_ptr<arrow::Scalar>& rhs);
+extern "C" SEXP _arrow_Scalar__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Scalar>&>::type lhs(lhs_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Scalar>&>::type rhs(rhs_sexp);
+	return cpp11::as_sexp(Scalar__Equals(lhs, rhs));
+END_CPP11
+}
+// scalar.cpp
+bool Scalar__ApproxEquals(const std::shared_ptr<arrow::Scalar>& lhs, const std::shared_ptr<arrow::Scalar>& rhs);
+extern "C" SEXP _arrow_Scalar__ApproxEquals(SEXP lhs_sexp, SEXP rhs_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Scalar>&>::type lhs(lhs_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Scalar>&>::type rhs(rhs_sexp);
+	return cpp11::as_sexp(Scalar__ApproxEquals(lhs, rhs));
+END_CPP11
+}
 // schema.cpp
 std::shared_ptr<arrow::Schema> schema_(const std::vector<std::shared_ptr<arrow::Field>>& fields);
 extern "C" SEXP _arrow_schema_(SEXP fields_sexp){
@@ -4544,6 +4562,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_MakeArrayFromScalar", (DL_FUNC) &_arrow_MakeArrayFromScalar, 1}, 
 		{ "_arrow_Scalar__is_valid", (DL_FUNC) &_arrow_Scalar__is_valid, 1}, 
 		{ "_arrow_Scalar__type", (DL_FUNC) &_arrow_Scalar__type, 1}, 
+		{ "_arrow_Scalar__Equals", (DL_FUNC) &_arrow_Scalar__Equals, 2}, 
+		{ "_arrow_Scalar__ApproxEquals", (DL_FUNC) &_arrow_Scalar__ApproxEquals, 2}, 
 		{ "_arrow_schema_", (DL_FUNC) &_arrow_schema_, 1}, 
 		{ "_arrow_Schema__ToString", (DL_FUNC) &_arrow_Schema__ToString, 1}, 
 		{ "_arrow_Schema__num_fields", (DL_FUNC) &_arrow_Schema__num_fields, 1}, 

@@ -50,6 +50,7 @@ std::shared_ptr<arrow::csv::TableReader>
 garrow_csv_reader_get_raw(GArrowCSVReader *reader);
 
 GArrowJSONReader *
-garrow_json_reader_new_raw(std::shared_ptr<arrow::json::TableReader> *arrow_reader);
+garrow_json_reader_new_raw(std::shared_ptr<arrow::json::TableReader> *arrow_reader,
+                           GArrowInputStream *input);
 std::shared_ptr<arrow::json::TableReader>
 garrow_json_reader_get_raw(GArrowJSONReader *reader);

@@ -15,6 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# for compatibility with R versions earlier than 4.0.0
+if (!exists("deparse1")) {
+  deparse1 <- function (expr, collapse = " ", width.cutoff = 500L, ...) {
+    paste(deparse(expr, width.cutoff, ...), collapse = collapse)
+  }
+}
+
 oxford_paste <- function(x, conjunction = "and", quote = TRUE) {
   if (quote && is.character(x)) {
     x <- paste0('"', x, '"')
@@ -45,3 +52,37 @@ is_list_of <- function(object, class) {
 }
 
 empty_named_list <- function() structure(list(), .Names = character(0))
+
+r_symbolic_constants <- c(
+  "pi", "TRUE", "FALSE", "NULL", "Inf", "NA", "NaN",
+  "NA_integer_", "NA_real_", "NA_complex_", "NA_character_"
+)
+
+is_function <- function(expr, name) {
+  if (!is.call(expr)) {
+    return(FALSE)
+  } else {
+    if (deparse1(expr[[1]]) == name) {
+      return(TRUE)
+    }
+    out <- lapply(expr, is_function, name)
+  }
+  any(vapply(out, isTRUE, TRUE))
+}
+
+all_funs <- function(expr) {
+  names <- all_names(expr)
+  names[vapply(names, function(name) {is_function(expr, name)}, TRUE)]
+}
+
+all_vars <- function(expr) {
+  setdiff(all.vars(expr), r_symbolic_constants)
+}
+
+all_names <- function(expr) {
+  setdiff(all.names(expr), r_symbolic_constants)
+}
+
+is_constant <- function(expr) {
+  length(all_vars(expr)) == 0
+}
