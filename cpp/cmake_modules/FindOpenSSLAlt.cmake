@@ -38,3 +38,8 @@ if (NOT GANDIVA_OPENSSL_LIBS)
         set(GANDIVA_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
     endif()
 endif ()
+
+if (NOT GANDIVA_OPENSSL_INCLUDE_DIR)
+    set(GANDIVA_OPENSSL_INCLUDE_DIR ${OPENSSL_INCLUDE_DIR})
+    message(STATUS "OpenSSL include dir: ${GANDIVA_OPENSSL_INCLUDE_DIR}")
+endif()
