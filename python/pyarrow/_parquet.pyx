@@ -934,14 +934,6 @@ cdef class LowLevelDecryptionProperties(_Weakrefable):
 
         builder = FileDecryptionProperties.Builder()
 
-        if retrieve_key is not None and (
-                footer_key is not None or column_keys is not None
-        ):
-            raise ValueError("If the retrieve_key option is used, you can't "
-                             "use footer_key or column_keys.")
-        if retrieve_key is None and footer_key is None:
-            raise ValueError("You must set either retrieve_key or footer_key")
-
         if retrieve_key is not None:
             key_retrieve = FunctionKeyRetriever.build(
                 <void*>retrieve_key, retrieve_key_from_python)
