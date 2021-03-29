@@ -89,6 +89,7 @@ class TestCase(unittest.TestCase):
 
         b.validate(full=True)
         assert a.to_pylist() == b.to_pylist()
+        assert a.type == b.type
         del a
         del b
         # No leak of C++ memory
