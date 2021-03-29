@@ -1250,6 +1250,7 @@ FORCE_INLINE
 const char* convert_replace_invalid_fromUTF8_binary(gdv_int64 context, const char* text_in,
                                                     gdv_int32 text_len,
                                                     const char* char_to_replace,
+                                                    gdv_int32 /*char_to_replace_len*/,
                                                     gdv_int32* out_len) {
   *out_len = text_len;
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
