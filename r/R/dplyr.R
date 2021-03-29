@@ -292,6 +292,7 @@ relocate.Dataset <- relocate.ArrowTabular <- relocate.arrow_dplyr_query
 
 check_select_helpers <- function(exprs) {
   # Throw an error if unsupported tidyselect selection helpers in `exprs`
+  exprs <- lapply(exprs, function(x) if (is_quosure(x)) quo_get_expr(x) else x)
   unsup_select_helpers <- "where"
   funs_in_exprs <- unlist(lapply(exprs, all_funs))
   unsup_funs <- funs_in_exprs[funs_in_exprs %in% unsup_select_helpers]
@@ -671,10 +672,8 @@ group_by.arrow_dplyr_query <- function(.data,
   new_groups <- enquos(...)
   new_groups <- new_groups[nzchar(names(new_groups))]
   if (length(new_groups)) {
-    # TODO(ARROW-11658): either find a way to let group_by_prepare handle this
-    # (it may call mutate() for us)
-    # or essentially reimplement it here (see dplyr:::add_computed_columns)
-    stop("Cannot create or rename columns in group_by on Arrow objects", call. = FALSE)
+    # Add them to the data
+    .data <- dplyr::mutate(.data, !!!new_groups)
   }
   if (".add" %in% names(formals(dplyr::group_by))) {
     # dplyr >= 1.0
@@ -781,7 +780,7 @@ mutate.arrow_dplyr_query <- function(.data,
   # Respect .before and .after
   if (!quo_is_null(.before) || !quo_is_null(.after)) {
     new <- setdiff(new_vars, old_vars)
-    .data <- relocate(.data, !!new, .before = !!.before, .after = !!.after)
+    .data <- dplyr::relocate(.data, !!new, .before = !!.before, .after = !!.after)
   }
 
   # Respect .keep

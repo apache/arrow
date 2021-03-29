@@ -15,6 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 #include "arrow/util/logging.h"
 #include "gandiva/precompiled/decimal_ops.h"
 
@@ -103,13 +107,117 @@ LOG_WITH_BASE(uint64, uint64, float64)
 LOG_WITH_BASE(float32, float32, float64)
 LOG_WITH_BASE(float64, float64, float64)
 
+// Sin
+#define SIN(IN_TYPE, OUT_TYPE)                                             \
+  FORCE_INLINE                                                             \
+  gdv_##OUT_TYPE sin_##IN_TYPE(gdv_##IN_TYPE in) {                         \
+    return static_cast<gdv_##OUT_TYPE>(sin(static_cast<long double>(in))); \
+  }
+ENUMERIC_TYPES_UNARY(SIN, float64)
+
+// Asin
+#define ASIN(IN_TYPE, OUT_TYPE)                                             \
+  FORCE_INLINE                                                              \
+  gdv_##OUT_TYPE asin_##IN_TYPE(gdv_##IN_TYPE in) {                         \
+    return static_cast<gdv_##OUT_TYPE>(asin(static_cast<long double>(in))); \
+  }
+ENUMERIC_TYPES_UNARY(ASIN, float64)
+
+// Cos
+#define COS(IN_TYPE, OUT_TYPE)                                             \
+  FORCE_INLINE                                                             \
+  gdv_##OUT_TYPE cos_##IN_TYPE(gdv_##IN_TYPE in) {                         \
+    return static_cast<gdv_##OUT_TYPE>(cos(static_cast<long double>(in))); \
+  }
+ENUMERIC_TYPES_UNARY(COS, float64)
+
+// Acos
+#define ACOS(IN_TYPE, OUT_TYPE)                                             \
+  FORCE_INLINE                                                              \
+  gdv_##OUT_TYPE acos_##IN_TYPE(gdv_##IN_TYPE in) {                         \
+    return static_cast<gdv_##OUT_TYPE>(acos(static_cast<long double>(in))); \
+  }
+ENUMERIC_TYPES_UNARY(ACOS, float64)
+
+// Tan
+#define TAN(IN_TYPE, OUT_TYPE)                                             \
+  FORCE_INLINE                                                             \
+  gdv_##OUT_TYPE tan_##IN_TYPE(gdv_##IN_TYPE in) {                         \
+    return static_cast<gdv_##OUT_TYPE>(tan(static_cast<long double>(in))); \
+  }
+ENUMERIC_TYPES_UNARY(TAN, float64)
+
+// Atan
+#define ATAN(IN_TYPE, OUT_TYPE)                                             \
+  FORCE_INLINE                                                              \
+  gdv_##OUT_TYPE atan_##IN_TYPE(gdv_##IN_TYPE in) {                         \
+    return static_cast<gdv_##OUT_TYPE>(atan(static_cast<long double>(in))); \
+  }
+ENUMERIC_TYPES_UNARY(ATAN, float64)
+
+// Sinh
+#define SINH(IN_TYPE, OUT_TYPE)                                             \
+  FORCE_INLINE                                                              \
+  gdv_##OUT_TYPE sinh_##IN_TYPE(gdv_##IN_TYPE in) {                         \
+    return static_cast<gdv_##OUT_TYPE>(sinh(static_cast<long double>(in))); \
+  }
+ENUMERIC_TYPES_UNARY(SINH, float64)
+
+// Cosh
+#define COSH(IN_TYPE, OUT_TYPE)                                             \
+  FORCE_INLINE                                                              \
+  gdv_##OUT_TYPE cosh_##IN_TYPE(gdv_##IN_TYPE in) {                         \
+    return static_cast<gdv_##OUT_TYPE>(cosh(static_cast<long double>(in))); \
+  }
+ENUMERIC_TYPES_UNARY(COSH, float64)
+
+// Tanh
+#define TANH(IN_TYPE, OUT_TYPE)                                             \
+  FORCE_INLINE                                                              \
+  gdv_##OUT_TYPE tanh_##IN_TYPE(gdv_##IN_TYPE in) {                         \
+    return static_cast<gdv_##OUT_TYPE>(tanh(static_cast<long double>(in))); \
+  }
+ENUMERIC_TYPES_UNARY(TANH, float64)
+
+// Atan2
+#define ATAN2(IN_TYPE, OUT_TYPE)                                                     \
+  FORCE_INLINE                                                                       \
+  gdv_##OUT_TYPE atan2_##IN_TYPE##_##IN_TYPE(gdv_##IN_TYPE in1, gdv_##IN_TYPE in2) { \
+    return static_cast<gdv_##OUT_TYPE>(                                              \
+        atan2(static_cast<long double>(in1), static_cast<long double>(in2)));        \
+  }
+ENUMERIC_TYPES_UNARY(ATAN2, float64)
+
+// Cot
+#define COT(IN_TYPE, OUT_TYPE)                                                        \
+  FORCE_INLINE                                                                        \
+  gdv_##OUT_TYPE cot_##IN_TYPE(gdv_##IN_TYPE in) {                                    \
+    return static_cast<gdv_##OUT_TYPE>(tan(M_PI / 2 - static_cast<long double>(in))); \
+  }
+ENUMERIC_TYPES_UNARY(COT, float64)
+
+// Radians
+#define RADIANS(IN_TYPE, OUT_TYPE)                                                   \
+  FORCE_INLINE                                                                       \
+  gdv_##OUT_TYPE radians_##IN_TYPE(gdv_##IN_TYPE in) {                               \
+    return static_cast<gdv_##OUT_TYPE>(static_cast<long double>(in) * M_PI / 180.0); \
+  }
+ENUMERIC_TYPES_UNARY(RADIANS, float64)
+
+// Degrees
+#define DEGREES(IN_TYPE, OUT_TYPE)                                                   \
+  FORCE_INLINE                                                                       \
+  gdv_##OUT_TYPE degrees_##IN_TYPE(gdv_##IN_TYPE in) {                               \
+    return static_cast<gdv_##OUT_TYPE>(static_cast<long double>(in) * 180.0 / M_PI); \
+  }
+ENUMERIC_TYPES_UNARY(DEGREES, float64)
+
 // power
 #define POWER(IN_TYPE1, IN_TYPE2, OUT_TYPE)                                              \
   FORCE_INLINE                                                                           \
   gdv_##OUT_TYPE power_##IN_TYPE1##_##IN_TYPE2(gdv_##IN_TYPE1 in1, gdv_##IN_TYPE2 in2) { \
     return static_cast<gdv_float64>(powl(in1, in2));                                     \
   }
-
 POWER(float64, float64, float64)
 
 FORCE_INLINE

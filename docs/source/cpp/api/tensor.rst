@@ -50,4 +50,8 @@ Sparse Tensors
 
 .. doxygentypedef:: arrow::SparseCOOTensor
 
+.. doxygentypedef:: arrow::SparseCSCMatrix
+
+.. doxygentypedef:: arrow::SparseCSFTensor
+
 .. doxygentypedef:: arrow::SparseCSRMatrix

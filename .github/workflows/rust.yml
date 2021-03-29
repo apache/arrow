@@ -116,8 +116,8 @@ jobs:
           # run tests on all workspace members with default feature list
           cargo test
           # test datafusion examples
-          cd datafusion
-          cargo test --no-default-features --features cli
+          cd datafusion-examples
+          cargo test --no-default-features
           cargo run --example csv_sql
           cargo run --example parquet_sql
           cd ..
