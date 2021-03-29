@@ -15,11 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-build_features <- arrow_info()$capabilities
+build_features <- c(
+  arrow_info()$capabilities,
+  # Special handling for "uncompressed", for tests that iterate over compressions
+  uncompressed = TRUE
+)
 
 skip_if_not_available <- function(feature) {
-  # Special handling for "uncompressed", for test that iterate over compressions
-  if (!(feature %in% "uncompressed") && !isTRUE(build_features[feature])) {
+  yes <- feature %in% names(build_features) && build_features[feature]
+  if (!yes) {
     skip(paste("Arrow C++ not built with", feature))
   }
 }
