@@ -146,8 +146,8 @@ cd ../../r
 
 Rscript -e '
 options(repos = "https://cloud.r-project.org/")
-install.packages(c("bit64", "devtools", "roxygen2", "tidyselect", "pkgdown", "covr"))
-devtools::install_dev_deps()
+if (!require("remotes")) install.packages("remotes")
+remotes::install_deps(dependencies = TRUE)
 '
 
 R CMD INSTALL .
