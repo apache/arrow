@@ -61,6 +61,7 @@ esac
 pacman \
   --needed \
   --noconfirm \
+  --refresh \
   --sync \
   "${packages[@]}"
 
