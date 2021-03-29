@@ -439,4 +439,3 @@ def test_decrypt_with_key_retriever():
     f = pq.ParquetFile(bio.getvalue(), low_level_decryption=decryption_props)
     assert f.reader.read_column(0).to_pylist() == [4, 5]
     assert f.reader.read_column(1).to_pylist() == ["foo", "bar"]
-

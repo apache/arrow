@@ -82,8 +82,8 @@ class PARQUET_EXPORT FunctionKeyRetriever : public DecryptionKeyRetriever {
       : state_object_(object), callable_(callable) {}
 
   std::string GetKey(const std::string& key_metadata) const;
-  static std::shared_ptr<DecryptionKeyRetriever> build(
-      void* object, KeyRetrieverFunc callable);
+  static std::shared_ptr<DecryptionKeyRetriever> build(void* object,
+                                                       KeyRetrieverFunc callable);
 
  private:
   void* state_object_;
