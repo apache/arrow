@@ -509,6 +509,14 @@ cdef extern from "parquet/encryption.h" namespace "parquet" nogil:
         PutKey(const c_string& key_id, const c_string& key)
         c_string GetKey(const c_string& key_metadata)
 
+    ctypedef c_string (*KeyRetrieverFunc)(void*, const c_string&)
+
+    cdef cppclass FunctionKeyRetriever(DecryptionKeyRetriever):
+        FunctionKeyRetriever(void* object, KeyRetrieverFunc callable)
+        @staticmethod
+        shared_ptr[DecryptionKeyRetriever] build(
+            void* object, KeyRetrieverFunc callable)
+
     cdef cppclass ColumnDecryptionProperties:
         cppclass Builder:
             Builder(const c_string& name)
@@ -548,13 +556,6 @@ cdef extern from "parquet/encryption.h" namespace "parquet" nogil:
         set_utilized()
         shared_ptr[FileDecryptionProperties] DeepClone()
 
-# We do want GIL, this code will call back into Python.
-cdef extern from "parquet/encryption.h" namespace "parquet":
-    ctypedef c_string (*KeyRetrieverFunc)(void*, const c_string&)
-    cdef cppclass FunctionKeyRetriever(DecryptionKeyRetriever):
-        FunctionKeyRetriever(void* object, KeyRetrieverFunc callable)
-        @staticmethod
-        shared_ptr[DecryptionKeyRetriever] build(void* object, KeyRetrieverFunc callable)
 
 cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
 

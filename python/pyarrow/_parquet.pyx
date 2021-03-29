@@ -907,7 +907,7 @@ cdef ParquetCompression compression_from_name(name):
 
 cdef c_string retrieve_key_from_python(
     void* pyobject, const c_string& key_metadata
-):
+) with gil:
     retrieve_key_callable = <object> pyobject
     return retrieve_key_callable(key_metadata)
 
@@ -935,7 +935,7 @@ cdef class LowLevelDecryptionProperties(_Weakrefable):
         builder = FileDecryptionProperties.Builder()
 
         if retrieve_key is not None:
-            key_retrieve = FunctionKeyRetriever.build(
+            key_retriever = FunctionKeyRetriever.build(
                 <void*>retrieve_key, retrieve_key_from_python)
             builder.key_retriever(key_retriever)
 
@@ -1248,9 +1248,7 @@ cdef class LowLevelEncryptionProperties(_Weakrefable):
                 if column_keys_metadata is not None:
                     key_id = column_keys_metadata[pycolumn]
                 else:
-                    # TODO Lacking metadata, use the column name utf-8 encoded?
-                    # Or just delete this code path.
-                    key_id = column
+                    key_id = b""
                 c_column_keys[column] = ColumnEncryptionProperties.Builder(
                     column).key(key).key_id(key_id).build()
             builder.encrypted_columns(c_column_keys)
