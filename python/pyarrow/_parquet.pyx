@@ -905,15 +905,25 @@ cdef ParquetCompression compression_from_name(name):
         return ParquetCompression_UNCOMPRESSED
 
 
+cdef c_string retrieve_key_from_python(
+    void* pyobject, const c_string& key_metadata
+):
+    retrieve_key_callable = <PyObject*> pyobject
+    return retrieve_key_callable(key_metadata)
+
+
 cdef class LowLevelDecryptionProperties(_Weakrefable):
     """Wrapper for FileDecryptionProperties."""
     cdef:
         shared_ptr[FileDecryptionProperties] decryption_properties
 
     def __cinit__(self,
-                  footer_key,
+                  footer_key=None,
                   # Map column name (str) to key (bytes):
                   column_keys=None,
+                  # Callable that takes key metadata (bytes), returns the key
+                  # (bytes); equivalent to DecryptionKeyRetriever in C++ API.
+                  retrieve_key=None,
                   disable_footer_signature_verification=False,
                   plaintext_files_allowed=False):
         cdef c_map[c_string, shared_ptr[
@@ -922,6 +932,18 @@ cdef class LowLevelDecryptionProperties(_Weakrefable):
         cdef c_string column, key
 
         builder = FileDecryptionProperties.Builder()
+
+        if retrieve_key is not None and (
+                footer_key is not None or column_keys is not None
+        ):
+            raise ValueError("If the retrieve_key option is used, you can't "
+                             "use footer_key or column_keys.")
+        if retrieve_key is None and footer_key is None:
+            raise ValueError("You must set either retrieve_key or footer_key")
+
+        if retrieve_key is not None:
+            builder.key_retriever(CythonDecryptionKeyRetriever.build(
+                retrieve_key, retrieve_key_from_python))
 
         if footer_key is not None:
             builder.footer_key(footer_key)
@@ -1216,18 +1238,27 @@ cdef class LowLevelEncryptionProperties(_Weakrefable):
     cdef:
         shared_ptr[FileEncryptionProperties] encryption_properties
 
-    def __cinit__(self, footer_key, column_keys=None, plaintext_footer=False):
+    def __cinit__(self, footer_key, column_keys=None, plaintext_footer=False,
+                  footer_key_metadata=None, column_keys_metadata=None):
         cdef FileEncryptionProperties.Builder* builder
         cdef c_string column
         cdef c_map[c_string, shared_ptr[
             ColumnEncryptionProperties]] c_column_keys
         builder = new FileEncryptionProperties.Builder(footer_key)
+        if footer_key_metadata is not None:
+            builder.footer_key_metadata(footer_key_id.encode("utf-8"))
 
         if column_keys is not None:
             for pycolumn, key in column_keys.items():
                 column = pycolumn.encode("utf-8")
+                if column_keys_metadata is not None:
+                    key_id = column_keys_metadata[pycolumn]
+                else:
+                    # TODO Lacking metadata, use the column name utf-8 encoded?
+                    # Or just delete this code path.
+                    key_id = column
                 c_column_keys[column] = ColumnEncryptionProperties.Builder(
-                    column).key(key).build()
+                    column).key(key).key_id(key_id).build()
             builder.encrypted_columns(c_column_keys)
 
         if plaintext_footer:

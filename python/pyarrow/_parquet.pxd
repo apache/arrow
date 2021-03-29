@@ -510,7 +510,7 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
 
 
 cdef extern from "parquet/encryption.h" namespace "parquet" nogil:
-    cdef cppclass ColumnDecryptionProperties:
+cdef cppclass ColumnDecryptionProperties:
         cppclass Builder:
             Builder(const c_string& name)
             Builder(const shared_ptr[ColumnPath]& path)
@@ -548,6 +548,14 @@ cdef extern from "parquet/encryption.h" namespace "parquet" nogil:
         c_bool is_utilized()
         set_utilized()
         shared_ptr[FileDecryptionProperties] DeepClone()
+
+# We do want GIL, this code calls back into Python...
+cdef extern from "parquet_cython.h" namespace "parquet":
+    ctypedef c_string (*CythonKeyRetrieverFunc)(void*, const c_string&)
+    cdef cppclass CythonDecryptionKeyRetriever:
+        CythonDecryptionKeyRetriever(void* object, CythonKeyRetrieverFunc callable)
+        @staticmethod
+        shared_ptr[CythonKeyRetrieverFunc] build(void* object, CythonKeyRetrieverFunc callable)
 
 cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
 
