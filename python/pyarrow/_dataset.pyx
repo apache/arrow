@@ -480,19 +480,23 @@ cdef class InMemoryDataset(Dataset):
                     schema = item.schema
                 elif not schema.equals(item.schema):
                     raise ArrowTypeError(
-                        f'Item has schema {item.schema} which which does not '
-                        f'match expected schema {schema}')
+                        f'Item has schema\n{item.schema}\nwhich does not '
+                        f'match expected schema\n{schema}')
             if not batches and schema is None:
                 raise ValueError('Must provide schema to construct in-memory '
                                  'dataset from an empty list')
-            reader = pa.ipc.RecordBatchReader.from_batches(schema, batches)
+            table = pa.Table.from_batches(batches, schema=schema)
+            in_memory_dataset = make_shared[CInMemoryDataset](
+                pyarrow_unwrap_table(table))
         elif isinstance(source, pa.ipc.RecordBatchReader):
             reader = source
+            in_memory_dataset = make_shared[CInMemoryDataset](reader.reader)
         elif _is_iterable(source):
             if schema is None:
                 raise ValueError('Must provide schema to construct in-memory '
                                  'dataset from an iterable')
             reader = pa.ipc.RecordBatchReader.from_batches(schema, source)
+            in_memory_dataset = make_shared[CInMemoryDataset](reader.reader)
         else:
             raise TypeError(
                 'Expected a table, batch, iterable of tables/batches, or a '
@@ -500,7 +504,6 @@ cdef class InMemoryDataset(Dataset):
                 type(source).__name__
             )
 
-        in_memory_dataset = make_shared[CInMemoryDataset](reader.reader)
         self.init(<shared_ptr[CDataset]> in_memory_dataset)
 
     cdef void init(self, const shared_ptr[CDataset]& sp):

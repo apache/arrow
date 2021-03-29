@@ -150,14 +150,20 @@ InMemoryDataset::InMemoryDataset(std::shared_ptr<Table> table)
 
 struct ReaderRecordBatchGenerator : InMemoryDataset::RecordBatchGenerator {
   explicit ReaderRecordBatchGenerator(std::shared_ptr<RecordBatchReader> reader)
-      : reader_(std::move(reader)) {}
+      : reader_(std::move(reader)), consumed_(false) {}
 
   RecordBatchIterator Get() const final {
+    if (consumed_) {
+      return MakeErrorIterator<std::shared_ptr<RecordBatch>>(Status::Invalid(
+          "RecordBatchReader-backed InMemoryDataset was already consumed"));
+    }
+    consumed_ = true;
     auto reader = reader_;
     return MakeFunctionIterator([reader] { return reader->Next(); });
   }
 
   std::shared_ptr<RecordBatchReader> reader_;
+  mutable bool consumed_;
 };
 
 InMemoryDataset::InMemoryDataset(std::shared_ptr<RecordBatchReader> reader)

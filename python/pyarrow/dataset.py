@@ -535,7 +535,9 @@ def dataset(source, schema=None, format=None, filesystem=None,
             Note that additional keyword arguments are not allowed.
         (List of) batches or tables, iterable of batches, or RecordBatchReader:
             Create an InMemoryDataset. If an iterable or empty list is given,
-            a schema must also be given.
+            a schema must also be given. If an iterable or RecordBatchReader
+            is given, the resulting dataset can only be scanned once; further
+            attempts will raise an error.
     schema : Schema, optional
         Optionally provide the Schema for the Dataset, in which case it will
         not be inferred from the source.

@@ -1679,8 +1679,7 @@ def test_construct_from_invalid_sources_raise(multisourcefs):
 def test_construct_in_memory():
     batch = pa.RecordBatch.from_arrays([pa.array(range(10))], names=["a"])
     table = pa.Table.from_batches([batch])
-    reader = pa.ipc.RecordBatchReader.from_batches(
-        batch.schema, (batch for _ in range(1)))
+    reader = pa.ipc.RecordBatchReader.from_batches(batch.schema, [batch])
     iterable = (batch for _ in range(1))
 
     for source in (batch, table, reader, [batch], [table]):
@@ -1689,6 +1688,36 @@ def test_construct_in_memory():
 
     assert ds.dataset(iterable, schema=batch.schema).to_table().equals(table)
     assert ds.dataset([], schema=pa.schema([])).to_table() == pa.table([])
+
+    # When constructed from batches/tables, should be reusable
+    for source in (batch, table, [batch], [table]):
+        dataset = ds.dataset(source)
+        assert len(list(dataset.get_fragments())) == 1
+        assert len(list(dataset.get_fragments())) == 1
+        assert dataset.to_table().equals(table)
+        assert dataset.to_table().equals(table)
+
+    # When constructed from readers/iterators, should be one-shot
+    match = "InMemoryDataset was already consumed"
+    for factory in (
+            lambda: pa.ipc.RecordBatchReader.from_batches(
+                batch.schema, [batch]),
+            lambda: (batch for _ in range(1)),
+    ):
+        dataset = ds.dataset(factory(), schema=batch.schema)
+        # Getting fragments consumes the underlying iterator
+        assert len(list(dataset.get_fragments())) == 1
+        with pytest.raises(pa.ArrowInvalid, match=match):
+            list(dataset.get_fragments())
+        with pytest.raises(pa.ArrowInvalid, match=match):
+            dataset.to_table()
+        # Materializing consumes the underlying iterator
+        dataset = ds.dataset(factory(), schema=batch.schema)
+        dataset.to_table()
+        with pytest.raises(pa.ArrowInvalid, match=match):
+            list(dataset.get_fragments())
+        with pytest.raises(pa.ArrowInvalid, match=match):
+            dataset.to_table()
 
 
 @pytest.mark.parquet

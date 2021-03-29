@@ -91,6 +91,9 @@ TEST_F(TestInMemoryDataset, FromReader) {
   auto dataset = std::make_shared<InMemoryDataset>(source_reader);
 
   AssertDatasetEquals(target_reader.get(), dataset.get());
+  // Such datasets can only be scanned once
+  ASSERT_OK_AND_ASSIGN(auto fragments, dataset->GetFragments());
+  ASSERT_RAISES(Invalid, fragments.Next());
 }
 
 TEST_F(TestInMemoryDataset, GetFragments) {
