@@ -1684,7 +1684,7 @@ def test_construct_in_memory():
 
     for source in (batch, table, reader, [batch], [table]):
         dataset = ds.dataset(source)
-        assert dataset.to_table().equals(table)
+        assert dataset.to_table() == table
 
     assert ds.dataset(iterable, schema=batch.schema).to_table().equals(table)
     assert ds.dataset([], schema=pa.schema([])).to_table() == pa.table([])
@@ -1694,8 +1694,9 @@ def test_construct_in_memory():
         dataset = ds.dataset(source)
         assert len(list(dataset.get_fragments())) == 1
         assert len(list(dataset.get_fragments())) == 1
-        assert dataset.to_table().equals(table)
-        assert dataset.to_table().equals(table)
+        assert dataset.to_table() == table
+        assert dataset.to_table() == table
+        assert next(dataset.get_fragments()).to_table() == table
 
     # When constructed from readers/iterators, should be one-shot
     match = "InMemoryDataset was already consumed"
@@ -1706,14 +1707,16 @@ def test_construct_in_memory():
     ):
         dataset = ds.dataset(factory(), schema=batch.schema)
         # Getting fragments consumes the underlying iterator
-        assert len(list(dataset.get_fragments())) == 1
+        fragments = list(dataset.get_fragments())
+        assert len(fragments) == 1
+        assert fragments[0].to_table() == table
         with pytest.raises(pa.ArrowInvalid, match=match):
             list(dataset.get_fragments())
         with pytest.raises(pa.ArrowInvalid, match=match):
             dataset.to_table()
         # Materializing consumes the underlying iterator
         dataset = ds.dataset(factory(), schema=batch.schema)
-        dataset.to_table()
+        assert dataset.to_table() == table
         with pytest.raises(pa.ArrowInvalid, match=match):
             list(dataset.get_fragments())
         with pytest.raises(pa.ArrowInvalid, match=match):

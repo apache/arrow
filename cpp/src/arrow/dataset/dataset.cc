@@ -66,8 +66,11 @@ InMemoryFragment::InMemoryFragment(std::shared_ptr<Schema> schema,
 
 InMemoryFragment::InMemoryFragment(RecordBatchVector record_batches,
                                    Expression partition_expression)
-    : InMemoryFragment(record_batches.empty() ? schema({}) : record_batches[0]->schema(),
-                       std::move(record_batches), std::move(partition_expression)) {}
+    : Fragment(std::move(partition_expression), /*schema=*/nullptr),
+      record_batches_(std::move(record_batches)) {
+  // Order of argument evaluation is undefined, so compute physical_schema here
+  physical_schema_ = record_batches_.empty() ? schema({}) : record_batches_[0]->schema();
+}
 
 Result<ScanTaskIterator> InMemoryFragment::Scan(std::shared_ptr<ScanOptions> options) {
   // Make an explicit copy of record_batches_ to ensure Scan can be called
