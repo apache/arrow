@@ -91,6 +91,8 @@ use crate::buffer::Buffer;
 use crate::datatypes::{DataType, Field, TimeUnit};
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
+use std::mem::ManuallyDrop;
+use std::os::raw::c_char;
 
 /// ABI-compatible struct for `ArrowSchema` from C Data Interface
 /// See <https://arrow.apache.org/docs/format/CDataInterface.html#structure-definitions>
@@ -186,7 +188,11 @@ impl Drop for FFI_ArrowSchema {
 
 /// maps a DataType `format` to a [DataType](arrow::datatypes::DataType).
 /// See https://arrow.apache.org/docs/format/CDataInterface.html#data-type-description-format-strings
-fn to_datatype(format: &str, child_type: Option<DataType>) -> Result<DataType> {
+fn to_datatype(
+    format: &str,
+    child_type: Option<DataType>,
+    schema: &FFI_ArrowSchema,
+) -> Result<DataType> {
     Ok(match format {
         "n" => DataType::Null,
         "b" => DataType::Boolean,
@@ -215,16 +221,38 @@ fn to_datatype(format: &str, child_type: Option<DataType>) -> Result<DataType> {
         // Note: The datatype null will only be created when called from ArrowArray::buffer_len
         // at that point the child data is not yet known, but it is also not required to determine
         // the buffer length of the list arrays.
-        "+l" => DataType::List(Box::new(Field::new(
-            "item",
-            child_type.unwrap_or(DataType::Null),
-            true,
-        ))),
-        "+L" => DataType::LargeList(Box::new(Field::new(
-            "item",
-            child_type.unwrap_or(DataType::Null),
-            true,
-        ))),
+        "+l" => {
+            let nullable = schema.flags == 2;
+            // Safety
+            // Should be set as this is expected from the C FFI definition
+            debug_assert!(!schema.name.is_null());
+            let name = unsafe { CString::from_raw(schema.name as *mut c_char) }
+                .into_string()
+                .unwrap();
+            // prevent a double free
+            let name = ManuallyDrop::new(name);
+            DataType::List(Box::new(Field::new(
+                &name,
+                child_type.unwrap_or(DataType::Null),
+                nullable,
+            )))
+        }
+        "+L" => {
+            let nullable = schema.flags == 2;
+            // Safety
+            // Should be set as this is expected from the C FFI definition
+            debug_assert!(!schema.name.is_null());
+            let name = unsafe { CString::from_raw(schema.name as *mut c_char) }
+                .into_string()
+                .unwrap();
+            // prevent a double free
+            let name = ManuallyDrop::new(name);
+            DataType::LargeList(Box::new(Field::new(
+                &name,
+                child_type.unwrap_or(DataType::Null),
+                nullable,
+            )))
+        }
         dt => {
             return Err(ArrowError::CDataInterface(format!(
                 "The datatype \"{}\" is not supported in the Rust implementation",
@@ -708,7 +736,7 @@ impl ArrowArray {
 
     /// the data_type as declared in the schema
     pub fn data_type(&self, child_type: Option<DataType>) -> Result<DataType> {
-        to_datatype(self.schema.format(), child_type)
+        to_datatype(self.schema.format(), child_type, self.schema.as_ref())
     }
 }
 
