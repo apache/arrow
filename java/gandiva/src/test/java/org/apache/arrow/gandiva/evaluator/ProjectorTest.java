@@ -1276,10 +1276,10 @@ public class ProjectorTest extends BaseEvaluatorTest {
     output.add(bitVector);
     eval.evaluate(batch, output);
 
-    for (int i = 1; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
       assertTrue(bitVector.getObject(i).booleanValue());
     }
-    for (int i = 5; i < 16; i++) {
+    for (int i = 4; i < 16; i++) {
       assertFalse(bitVector.getObject(i).booleanValue());
     }
 
@@ -1294,14 +1294,16 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     TreeNode inExpr =
             TreeBuilder.makeInExpressionDouble(TreeBuilder.makeField(c1),
-                    Sets.newHashSet(1.0, 2.0, 3.0, 4.0, 5.0, 15.0, 16.0));
+                    Sets.newHashSet(1.0, -0.0, 3.0, 4.0, Double.NaN,
+                            Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY));
     ExpressionTree expr = TreeBuilder.makeExpression(inExpr, Field.nullable("result", boolType));
     Schema schema = new Schema(Lists.newArrayList(c1));
     Projector eval = Projector.make(schema, Lists.newArrayList(expr));
 
     int numRows = 16;
     byte[] validity = new byte[]{(byte) 255, 0};
-    double[] c1Values = new double[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    double[] c1Values = new double[]{1, -0.0, Double.NEGATIVE_INFINITY , Double.POSITIVE_INFINITY, Double.NaN,
+        6, 7, 8, 9, 10, 11, 12, 13, 14, 4 , 3};
 
     ArrowBuf c1Validity = buf(validity);
     ArrowBuf c1Data = doubleBuf(c1Values);
