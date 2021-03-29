@@ -399,3 +399,44 @@ def test_read_encrypted_disable_footer_signature_verification():
     f = pq.ParquetFile(bio.getvalue(), low_level_decryption=decryption_props)
     assert f.reader.read_column(0).to_pylist() == [4, 5]
     assert f.reader.read_column(1).to_pylist() == ["foo", "bar"]
+
+
+def test_decrypt_with_key_retriever():
+    """A key retriever function can be used to retrieve keys."""
+    key1 = b"foot!abcd\xff\x0012356"
+    key2 = b"col1!abcd\xff\x0012356"
+    table = pa.table([pa.array([4, 5]), pa.array(["foo", "bar"])],
+                     names=['ints', 'strs'])
+    bio = pa.BufferOutputStream()
+
+    # The encryption APIs are private for now, exposed only to allow testing.
+    from pyarrow import _parquet
+    encryption_props = _parquet.LowLevelEncryptionProperties(
+        key1, {"ints": key1, "strs": key2},
+        column_keys_metadata={"ints": b"KEY1", "strs": b"KEY2"},
+        footer_key_metadata=b"KEY1",
+    )
+
+    pq.write_table(table, bio, lowlevel_encryption_properties=encryption_props)
+
+    # Use wrong key retriever to retrieve keys:
+    def retrieve_key(metadata):
+        return {b"KEY1": key2, b"KEY2": key1}[metadata]
+
+    decryption_props = pq.LowLevelDecryptionProperties(
+        retrieve_key=retrieve_key
+    )
+    with pytest.raises(IOError, match="Failed decryption"):
+        pq.ParquetFile(bio.getvalue(), low_level_decryption=decryption_props)
+
+    # Use correct key retriever to retrieve keys:
+    def retrieve_key(metadata):
+        return {b"KEY1": key1, b"KEY2": key2}[metadata]
+
+    decryption_props = pq.LowLevelDecryptionProperties(
+        retrieve_key=retrieve_key
+    )
+    f = pq.ParquetFile(bio.getvalue(), low_level_decryption=decryption_props)
+    assert f.reader.read_column(0).to_pylist() == [4, 5]
+    assert f.reader.read_column(1).to_pylist() == ["foo", "bar"]
+
