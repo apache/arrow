@@ -112,7 +112,6 @@ TEST_F(TestInMemoryDataset, GetFragments) {
 
 TEST_F(TestInMemoryDataset, InMemoryFragment) {
   constexpr int64_t kBatchSize = 1024;
-  constexpr int64_t kNumberBatches = 16;
 
   SetSchema({field("i32", int32()), field("f64", float64())});
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
