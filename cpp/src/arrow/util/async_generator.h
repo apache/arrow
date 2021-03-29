@@ -280,7 +280,7 @@ AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator,
   return MappingGenerator<T, V>(std::move(source_generator), std::move(map));
 }
 
-/// \see MakeAsyncGenerator
+/// \see MakeTransformedGenerator
 template <typename T, typename V>
 class TransformingGenerator {
   // The transforming generator state will be referenced as an async generator but will
@@ -382,8 +382,8 @@ class TransformingGenerator {
 ///
 /// This generator may queue up to 1 instance of T
 template <typename T, typename V>
-AsyncGenerator<V> MakeAsyncGenerator(AsyncGenerator<T> generator,
-                                     Transformer<T, V> transformer) {
+AsyncGenerator<V> MakeTransformedGenerator(AsyncGenerator<T> generator,
+                                           Transformer<T, V> transformer) {
   return TransformingGenerator<T, V>(generator, transformer);
 }
 
