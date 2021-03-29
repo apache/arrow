@@ -81,7 +81,8 @@ use std::{
     ffi::CStr,
     ffi::CString,
     iter,
-    mem::size_of,
+    mem::{size_of, ManuallyDrop},
+    os::raw::c_char,
     ptr::{self, NonNull},
     sync::Arc,
 };
@@ -91,8 +92,6 @@ use crate::buffer::Buffer;
 use crate::datatypes::{DataType, Field, TimeUnit};
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
-use std::mem::ManuallyDrop;
-use std::os::raw::c_char;
 
 /// ABI-compatible struct for `ArrowSchema` from C Data Interface
 /// See <https://arrow.apache.org/docs/format/CDataInterface.html#structure-definitions>
