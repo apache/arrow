@@ -68,9 +68,10 @@ jobs:
 
       - name: Patch Vcpkg Ports
         run: |
+          vcpkg_patch_file="../arrow/ci/vcpkg/ports.patch"
           cd $VCPKG_ROOT
-          if ! git apply --reverse --check --ignore-whitespace ../arrow/ci/vcpkg/ports.patch; then
-            git apply --ignore-whitespace ../arrow/ci/vcpkg/ports.patch
+          if ! git apply --reverse --check --ignore-whitespace ${vcpkg_patch_file}; then
+            git apply --ignore-whitespace ${vcpkg_patch_file}
             echo "Patch successfully applied!"
           fi
 

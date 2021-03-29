@@ -33,8 +33,8 @@ rm -rf ${source_dir}/python/pyarrow/*.so.*
 
 echo "=== (${PYTHON_VERSION}) Set OSX SDK and C flags ==="
 # Arrow is 64-bit-only at the moment
-export CFLAGS="-fPIC -arch x86_64 ${CFLAGS//"-arch i386"/}"
-export CXXFLAGS="-fPIC -arch x86_64 ${CXXFLAGS//"-arch i386"} -std=c++11"
+export CFLAGS="-fPIC -arch x86_64 ${CFLAGS//-arch i386/}"
+export CXXFLAGS="-fPIC -arch x86_64 ${CXXFLAGS//-arch i386} -std=c++11"
 export SDKROOT="$(xcrun --show-sdk-path)"
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
@@ -63,7 +63,6 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 mkdir -p ${build_dir}/build
 pushd ${build_dir}/build
 cmake \
-    -DARROW_BROTLI_USE_SHARED=OFF \
     -DARROW_BUILD_SHARED=ON \
     -DARROW_BUILD_STATIC=OFF \
     -DARROW_BUILD_TESTS=OFF \
@@ -84,7 +83,6 @@ cmake \
     -DARROW_S3=${ARROW_S3} \
     -DARROW_TENSORFLOW=${ARROW_TENSORFLOW} \
     -DARROW_USE_CCACHE=ON \
-    -DARROW_UTF8PROC_USE_SHARED=OFF \
     -DARROW_WITH_BROTLI=${ARROW_WITH_BROTLI} \
     -DARROW_WITH_BZ2=${ARROW_WITH_BZ2} \
     -DARROW_WITH_LZ4=${ARROW_WITH_LZ4} \
@@ -129,7 +127,7 @@ popd
 echo "=== (${PYTHON_VERSION}) Show dynamic libraries the wheel depend on ==="
 deps=$(delocate-listdeps ${source_dir}/python/dist/*.whl)
 
-if echo $deps | grep -v "^@rpath/lib\(arrow\|parquet\|plasma\)"; then
+if echo $deps | grep -v "^@rpath/lib\(arrow\|gandiva\|parquet\|plasma\)"; then
   echo "There are non-bundled shared library dependencies."
   exit 1
 fi
