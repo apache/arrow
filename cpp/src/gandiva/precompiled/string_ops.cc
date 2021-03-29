@@ -1246,6 +1246,34 @@ const char* convert_fromUTF8_binary(gdv_int64 context, const char* bin_in, gdv_i
   return ret;
 }
 
+FORCE_INLINE
+const char* convert_replace_invalid_fromUTF8_binary(gdv_int64 context, const char* text_in,
+                                                    gdv_int32 text_len,
+                                                    const char* char_to_replace,
+                                                    gdv_int32* out_len) {
+  *out_len = text_len;
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  std::string str;
+  gdv_int32 char_len;
+  // scan the base text from left to right and increment the start pointer till
+  // looking for invalid chars to substitute
+  for (int text_index = 0; text_index < text_len; text_index += 1) {
+    char_len = utf8_char_length(text_in[text_index]);
+    if (char_len == 0 || text_index + char_len > text_len) {
+      str += char_to_replace;
+    } else {
+      str += text_in[text_index];
+    }
+  }
+  memcpy(ret, str.c_str(), *out_len);
+  return ret;
+}
+
 // Search for a string within another string
 FORCE_INLINE
 gdv_int32 locate_utf8_utf8(gdv_int64 context, const char* sub_str, gdv_int32 sub_str_len,
