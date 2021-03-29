@@ -426,21 +426,25 @@ The third set of functions examines string elements on a byte-per-byte basis:
 String transforms
 ~~~~~~~~~~~~~~~~~
 
-+--------------------------+------------+-------------------------+---------------------+---------+
-| Function name            | Arity      | Input types             | Output type         | Notes   |
-+==========================+============+=========================+=====================+=========+
-| ascii_lower              | Unary      | String-like             | String-like         | \(1)    |
-+--------------------------+------------+-------------------------+---------------------+---------+
-| ascii_upper              | Unary      | String-like             | String-like         | \(1)    |
-+--------------------------+------------+-------------------------+---------------------+---------+
-| binary_length            | Unary      | Binary- or String-like  | Int32 or Int64      | \(2)    |
-+--------------------------+------------+-------------------------+---------------------+---------+
-| utf8_length              | Unary      | String-like             | Int32 or Int64      | \(3)    |
-+--------------------------+------------+-------------------------+---------------------+---------+
-| utf8_lower               | Unary      | String-like             | String-like         | \(4)    |
-+--------------------------+------------+-------------------------+---------------------+---------+
-| utf8_upper               | Unary      | String-like             | String-like         | \(4)    |
-+--------------------------+------------+-------------------------+---------------------+---------+
++--------------------------+------------+-------------------------+---------------------+-------------------------------------------------+
+| Function name            | Arity      | Input types             | Output type         | Notes   | Options class                         |
++==========================+============+=========================+=====================+=========+=======================================+
+| ascii_lower              | Unary      | String-like             | String-like         | \(1)    |                                       |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
+| ascii_upper              | Unary      | String-like             | String-like         | \(1)    |                                       |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
+| binary_length            | Unary      | Binary- or String-like  | Int32 or Int64      | \(2)    |                                       |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
+| replace_substring        | Unary      | String-like             | String-like         | \(3)    | :struct:`ReplaceSubstringOptions`     |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
+| replace_substring_regex  | Unary      | String-like             | String-like         | \(4)    | :struct:`ReplaceSubstringOptions`     |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
+| utf8_length              | Unary      | String-like             | Int32 or Int64      | \(5)    |                                       |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
+| utf8_lower               | Unary      | String-like             | String-like         | \(6)    |                                       |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
+| utf8_upper               | Unary      | String-like             | String-like         | \(6)    |                                       |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
 
 
 * \(1) Each ASCII character in the input is converted to lowercase or
@@ -449,10 +453,23 @@ String transforms
 * \(2) Output is the physical length in bytes of each input element.  Output
   type is Int32 for Binary / String, Int64 for LargeBinary / LargeString.
 
-* \(3) Output is the number of characters (not bytes) of each input element.
+* \(3) Replace non-overlapping substrings that match to
+  :member:`ReplaceSubstringOptions::pattern` by
+  :member:`ReplaceSubstringOptions::replacement`. If
+  :member:`ReplaceSubstringOptions::max_replacements` != -1, it determines the
+  maximum number of replacements made, counting from the left.
+
+* \(4) Replace non-overlapping substrings that match to the regular expression
+  :member:`ReplaceSubstringOptions::pattern` by
+  :member:`ReplaceSubstringOptions::replacement`, using the Google RE2 library. If
+  :member:`ReplaceSubstringOptions::max_replacements` != -1, it determines the
+  maximum number of replacements made, counting from the left. Note that if the
+  pattern contains groups, backreferencing can be used.
+
+* \(5) Output is the number of characters (not bytes) of each input element.
   Output type is Int32 for String, Int64 for LargeString. 
 
-* \(4) Each UTF8-encoded character in the input is converted to lowercase or
+* \(6) Each UTF8-encoded character in the input is converted to lowercase or
   uppercase.
 
 

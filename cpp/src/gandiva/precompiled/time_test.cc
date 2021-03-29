@@ -699,4 +699,29 @@ TEST(TestTime, TestCastTimestampToDate) {
   EXPECT_EQ(StringToTimestamp("2000-05-01 00:00:00"), out);
 }
 
+TEST(TestTime, TestLastDay) {
+  // leap year test
+  gdv_timestamp ts = StringToTimestamp("2016-02-11 03:20:34");
+  auto out = last_day_from_timestamp(ts);
+  EXPECT_EQ(StringToTimestamp("2016-02-29 00:00:00"), out);
+
+  ts = StringToTimestamp("2016-02-29 23:59:59");
+  out = last_day_from_timestamp(ts);
+  EXPECT_EQ(StringToTimestamp("2016-02-29 00:00:00"), out);
+
+  ts = StringToTimestamp("2016-01-30 23:59:00");
+  out = last_day_from_timestamp(ts);
+  EXPECT_EQ(StringToTimestamp("2016-01-31 00:00:00"), out);
+
+  // normal year
+  ts = StringToTimestamp("2017-02-03 23:59:59");
+  out = last_day_from_timestamp(ts);
+  EXPECT_EQ(StringToTimestamp("2017-02-28 00:00:00"), out);
+
+  // december
+  ts = StringToTimestamp("2015-12-03 03:12:59");
+  out = last_day_from_timestamp(ts);
+  EXPECT_EQ(StringToTimestamp("2015-12-31 00:00:00"), out);
+}
+
 }  // namespace gandiva

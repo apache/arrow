@@ -1476,6 +1476,14 @@ Scalar__type <- function(s){
     .Call(`_arrow_Scalar__type`, s)
 }
 
+Scalar__Equals <- function(lhs, rhs){
+    .Call(`_arrow_Scalar__Equals`, lhs, rhs)
+}
+
+Scalar__ApproxEquals <- function(lhs, rhs){
+    .Call(`_arrow_Scalar__ApproxEquals`, lhs, rhs)
+}
+
 schema_ <- function(fields){
     .Call(`_arrow_schema_`, fields)
 }
