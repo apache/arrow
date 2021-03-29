@@ -79,6 +79,12 @@ from pyarrow.includes.libgandiva cimport (
     GetRegisteredFunctionSignatures)
 
 cdef class Node(_Weakrefable):
+    """A node in a Gandiva expression tree
+
+    See Also
+    --------
+    pyarrow.gandiva.TreeExprBuilder : builds Nodes
+    """
     cdef:
         shared_ptr[CNode] node
 
@@ -104,6 +110,13 @@ cdef class Node(_Weakrefable):
         return pyarrow_wrap_data_type(self.node.get().return_type())
 
 cdef class Expression(_Weakrefable):
+    """A Gandiva node associated with a pyarrow.Field to label the result
+
+    See Also
+    --------
+    pyarrow.gandiva.TreeExprBuilder.make_expression : Produces Expression
+    pyarrow.gandiva.make_projector : Uses Expressions to create Projectors
+    """
     cdef:
         shared_ptr[CExpression] expression
 
@@ -124,6 +137,12 @@ cdef class Expression(_Weakrefable):
         return pyarrow_wrap_field(self.expression.get().result())
 
 cdef class Condition(_Weakrefable):
+    """A wrapper around a boolean Gandiva expression node
+
+    See Also
+    --------
+    pyarrow.gandiva.TreeExprBuilder.make_condition : Produces Conditions
+    """
     cdef:
         shared_ptr[CCondition] condition
 
@@ -152,6 +171,12 @@ cdef class Condition(_Weakrefable):
         return pyarrow_wrap_field(self.condition.get().result())
 
 cdef class SelectionVector(_Weakrefable):
+    """A vector of array indices representing the result of a Gandiva Filter
+
+    See Also
+    --------
+    pyarrow.gandiva.Filter.evaluate : Produces SelectionVectors
+    """
     cdef:
         shared_ptr[CSelectionVector] selection_vector
 
@@ -170,6 +195,14 @@ cdef class SelectionVector(_Weakrefable):
         return pyarrow_wrap_array(result)
 
 cdef class Projector(_Weakrefable):
+    """A Gandiva projection operator, containing the optimized projection function.
+
+    To create a projector, use the pyarrow.gandiva.make_projector function.
+
+    See Also
+    --------
+    pyarrow.gandiva.make_projector : factory function for projectors
+    """
     cdef:
         shared_ptr[CProjector] projector
         MemoryPool pool
@@ -207,6 +240,14 @@ cdef class Projector(_Weakrefable):
         return arrays
 
 cdef class Filter(_Weakrefable):
+    """A Gandiva filter operator, containing the optimized filter function.
+
+    To create an instance, use the :py:func:`pyarrow.gandiva.make_filter` function.
+
+    See Also
+    --------
+    pyarrow.gandiva.make_filter : Factory function for filters
+    """
     cdef:
         shared_ptr[CFilter] filter
 
@@ -226,6 +267,22 @@ cdef class Filter(_Weakrefable):
         return self.filter.get().DumpIR().decode()
 
     def evaluate(self, RecordBatch batch, MemoryPool pool, dtype='int32'):
+        """Evaluate the filter agianst a record batch to get a SelectionVector.
+
+        The SelectionVector contains the indices of the matching rows.
+
+        Parameters
+        ----------
+        batch : pyarrow.RecordBatch
+            Input record batch. Schema must match the schema provided when creating
+            the filter.
+        pool : pyarrow.MemoryPool
+            Memory pool to use. Typically will use :py:func:`pyarrow.default_memory_pool()`.
+
+        Returns
+        -------
+        pyarrow.gandiva.SelectionVector
+        """
         cdef:
             DataType type = ensure_type(dtype)
             shared_ptr[CSelectionVector] selection
@@ -249,8 +306,22 @@ cdef class Filter(_Weakrefable):
 
 
 cdef class TreeExprBuilder(_Weakrefable):
+    """Builder class used to generate Gandiva expression nodes."""
 
     def make_literal(self, value, dtype):
+        """Create a node representing a literal value
+
+        Parameters
+        ----------
+        value : primitive value (float, int, string, bytes)
+            Literal value to represent
+        dtype : pyarrow.DataType
+            Arrow datatype of the value.
+
+        Returns
+        -------
+        pyarrow.gandiva.Node
+        """
         cdef:
             DataType type = ensure_type(dtype)
             shared_ptr[CNode] r
@@ -287,6 +358,19 @@ cdef class TreeExprBuilder(_Weakrefable):
         return Node.create(r)
 
     def make_expression(self, Node root_node, Field return_field):
+        """Create a pyarrow.gandiva.Expression
+
+        Parameters
+        ----------
+        root_node : pyarrow.gandiva.Node
+            Node representing expression
+        return_field : pyarrow.Field
+            PyArrow field to use in projected result for the expression
+
+        Returns
+        -------
+        pyarrow.gandiva.Expression
+        """
         cdef shared_ptr[CExpression] r = TreeExprBuilder_MakeExpression(
             root_node.node, return_field.sp_field)
         cdef Expression expression = Expression()
@@ -294,6 +378,30 @@ cdef class TreeExprBuilder(_Weakrefable):
         return expression
 
     def make_function(self, name, children, DataType return_type):
+        """Create a function node
+
+        Will match to a registered gandiva function based on the `name`, `children`
+        data types, and `return_type`
+
+        Parameters
+        ----------
+        name : str
+            Name of function. See pyarrow.gandiva.get_registered_function_signatures
+            for available function names.
+        children : List[pyarrow.gandiva.Node]
+            List of Nodes to be arguments to the function.
+        return_type : pyarrow.DataType
+            Return type of the function to use.
+
+        Returns
+        -------
+        pyarrow.gandiva.Node
+
+        See Also
+        --------
+        pyarrow.gandiva.get_registered_function_signatures : Provides list of
+                                                             available functions.
+        """
         cdef c_vector[shared_ptr[CNode]] c_children
         cdef Node child
         for child in children:
@@ -303,17 +411,58 @@ cdef class TreeExprBuilder(_Weakrefable):
         return Node.create(r)
 
     def make_field(self, Field field):
+        """Create a field node, representing a column in a record batch
+
+        Parameters
+        ----------
+        field : pyarrow.Field
+            Field to represent in node.
+
+        Returns
+        -------
+        pyarrow.gandiva.Node
+        """
         cdef shared_ptr[CNode] r = TreeExprBuilder_MakeField(field.sp_field)
         return Node.create(r)
 
     def make_if(self, Node condition, Node this_node,
                 Node else_node, DataType return_type):
+        """Create an if-else node
+
+        Parameters
+        ----------
+        condition : pyarrow.gandiva.Node
+            A Boolean node
+        this_node : pyarrow.gandiva.Node
+            Node to use as value if condition is true
+        else_node : pyarrow.gandiva.Node
+            Node to use if condition is false
+        return_type : pyarrow.DataType
+            Datatype of result
+
+        Returns
+        -------
+        pyarrow.gandiva.Node
+        """
+        # TODO: Document null behavior in this node
+        # TODO: Why do we need the return_type if we have the nodes???
         cdef shared_ptr[CNode] r = TreeExprBuilder_MakeIf(
             condition.node, this_node.node, else_node.node,
             return_type.sp_type)
         return Node.create(r)
 
     def make_and(self, children):
+        """Create an 'and' Node
+
+        Parameters
+        ----------
+        children : Iterable[Node]
+            Boolean nodes to 'and' together
+
+        Returns
+        -------
+        pyarrow.gandiva.Node
+        """
         cdef c_vector[shared_ptr[CNode]] c_children
         cdef Node child
         for child in children:
@@ -322,6 +471,17 @@ cdef class TreeExprBuilder(_Weakrefable):
         return Node.create(r)
 
     def make_or(self, children):
+        """Create an 'or' Node
+
+        Parameters
+        ----------
+        children : Iterable[Node]
+            Boolean nodes to 'or' together
+
+        Returns
+        -------
+        pyarrow.gandiva.Node
+        """
         cdef c_vector[shared_ptr[CNode]] c_children
         cdef Node child
         for child in children:
@@ -412,6 +572,20 @@ cdef class TreeExprBuilder(_Weakrefable):
         return Node.create(r)
 
     def make_in_expression(self, Node node, values, dtype):
+        """Create a Node representing an 'is in' check
+
+        Values are a fixed list of values.
+
+        Parameters
+        ---------
+        node : pyarrow.gandiva.Node
+            Node representing values to perform check on
+        values : Iterable[primitive values (float, int, str, bytes)]
+            A fixed list of values
+        dtype : pyarrow.DataType
+            Data type of the values
+        """
+        # TODO: Use return_type of the node?
         cdef DataType type = ensure_type(dtype)
 
         if type.id == _Type_INT32:
@@ -436,12 +610,41 @@ cdef class TreeExprBuilder(_Weakrefable):
             raise TypeError("Data type " + str(dtype) + " not supported.")
 
     def make_condition(self, Node condition):
+        """Create a Condition from a boolean node
+
+        Parameters
+        ----------
+        condition : pyarrow.gandiva.Node
+            A boolean node
+
+        Returns
+        -------
+        pyarrow.gandiva.Condition
+        """
         cdef shared_ptr[CCondition] r = TreeExprBuilder_MakeCondition(
             condition.node)
         return Condition.create(r)
 
 cpdef make_projector(Schema schema, children, MemoryPool pool,
                      str selection_mode="NONE"):
+    """Create a Projector
+
+    Parameters
+    ----------
+    schema : pyarrow.Schema
+        Schema of record batches the projector will be evaluated on
+    children : Iterable[pyarrow.gandiva.Expression]
+        Expressions to project into a record batches
+    pool : pyarrow.MemoryPool
+        Memory pool to use. Typically will use :py:func:`pyarrow.default_memory_pool()`.
+    selection_mode : 'NONE', 'UINT16', 'UINT32', 'UINT64'
+        ???
+
+    Returns
+    -------
+    pyarrow.gandiva.Projector
+    """
+    # TODO: Validate selection_mode and what it does
     cdef c_vector[shared_ptr[CExpression]] c_children
     cdef Expression child
     for child in children:
@@ -455,6 +658,19 @@ cpdef make_projector(Schema schema, children, MemoryPool pool,
     return Projector.create(result, pool)
 
 cpdef make_filter(Schema schema, Condition condition):
+    """Create a Filter
+
+    Parameters
+    ----------
+    schema : pyarrow.Schema
+        Schema of record batches the projector will be evaluated on
+    condition : pyarrow.gandiva.Condition
+        condition to evalute in filter.
+
+    Returns
+    -------
+    pyarrow.gandiva.Filter
+    """
     cdef shared_ptr[CFilter] result
     check_status(
         Filter_Make(schema.sp_schema, condition.condition, &result))
@@ -481,9 +697,21 @@ cdef class FunctionSignature(_Weakrefable):
         return self
 
     def return_type(self):
+        """Get the return type of the function
+
+        Returns
+        -------
+        pyarrow.DataType
+        """
         return pyarrow_wrap_data_type(self.signature.get().ret_type())
 
     def param_types(self):
+        """Get the parameter types of the function
+
+        Returns
+        -------
+        List[pyarrow.DataType]
+        """
         result = []
         cdef vector[shared_ptr[CDataType]] types = \
             self.signature.get().param_types()
@@ -492,6 +720,12 @@ cdef class FunctionSignature(_Weakrefable):
         return result
 
     def name(self):
+        """Get the name of the function
+
+        Returns
+        -------
+        str
+        """
         return self.signature.get().base_name().decode()
 
     def __repr__(self):
@@ -501,11 +735,11 @@ cdef class FunctionSignature(_Weakrefable):
 
 def get_registered_function_signatures():
     """
-    Return the function in Gandiva's ExpressionRegistry.
+    List the functions in Gandiva's ExpressionRegistry.
 
     Returns
     -------
-    registry: a list of registered function signatures
+    List[FunctionSignature]: a list of registered function signatures
     """
     results = []
 
