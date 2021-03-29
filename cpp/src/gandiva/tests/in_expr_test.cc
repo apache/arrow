@@ -112,8 +112,8 @@ TEST_F(TestIn, TestInFloat) {
 
   // Create a row-batch with some sample data
   int num_records = 5;
-  auto array0 = MakeArrowArrayFloat32({1.5f, 2.5f, 4, 3.15f, 6},
-                                      {true, true, false, true, true});
+  auto array0 =
+      MakeArrowArrayFloat32({1.5f, 2.5f, 4, 3.15f, 6}, {true, true, false, true, true});
   auto array1 =
       MakeArrowArrayFloat32({5.0f, 9.0f, 6, 8, 5}, {true, true, true, true, true});
   // expected output (indices for which condition matches)
