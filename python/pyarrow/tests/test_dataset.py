@@ -1656,7 +1656,7 @@ def test_construct_from_invalid_sources_raise(multisourcefs):
         ds.InMemoryDataset([])
 
     expected = (
-        "Item has schema b: int64 which which does not match expected schema "
+        "Item has schema\nb: int64\nwhich does not match expected schema\n"
         "a: int64"
     )
     with pytest.raises(TypeError, match=expected):

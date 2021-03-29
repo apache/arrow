@@ -2670,10 +2670,14 @@ def _get_partition_keys(Expression partition_expression):
 
 
 def _filesystemdataset_write(
-    data not None, object base_dir not None, str basename_template not None,
-    Schema schema not None, FileSystem filesystem not None,
+    Dataset data not None,
+    object base_dir not None,
+    str basename_template not None,
+    Schema schema not None,
+    FileSystem filesystem not None,
     Partitioning partitioning not None,
-    FileWriteOptions file_options not None, bint use_threads,
+    FileWriteOptions file_options not None,
+    bint use_threads,
     int max_partitions,
 ):
     """
@@ -2691,21 +2695,7 @@ def _filesystemdataset_write(
     c_options.max_partitions = max_partitions
     c_options.basename_template = tobytes(basename_template)
 
-    if isinstance(data, Dataset):
-        scanner = data._scanner(use_threads=use_threads)
-    else:
-        # data is list of batches/tables
-        for table in data:
-            if isinstance(table, Table):
-                for batch in table.to_batches():
-                    c_batches.push_back((<RecordBatch> batch).sp_batch)
-            else:
-                c_batches.push_back((<RecordBatch> table).sp_batch)
-
-        data = Fragment.wrap(shared_ptr[CFragment](
-            new CInMemoryFragment(move(c_batches), _true.unwrap())))
-
-        scanner = Scanner.from_fragment(data, schema, use_threads=use_threads)
+    scanner = data._scanner(use_threads=use_threads)
 
     c_scanner = (<Scanner> scanner).unwrap()
     with nogil:

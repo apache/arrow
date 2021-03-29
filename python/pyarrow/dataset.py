@@ -734,12 +734,11 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
     if isinstance(data, Dataset):
         schema = schema or data.schema
-    elif isinstance(data, (pa.Table, pa.RecordBatch)):
-        schema = schema or data.schema
-        data = [data]
     elif isinstance(data, (list, tuple)):
         schema = schema or data[0].schema
-    elif isinstance(data, pa.ipc.RecordBatchReader) or _is_iterable(data):
+        data = InMemoryDataset(data, schema=schema)
+    elif isinstance(data, (pa.RecordBatch, pa.ipc.RecordBatchReader,
+                           pa.Table)) or _is_iterable(data):
         data = InMemoryDataset(data, schema=schema)
         schema = schema or data.schema
     else:
