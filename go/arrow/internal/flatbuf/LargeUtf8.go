@@ -22,44 +22,31 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-type Interval struct {
+/// Same as Utf8, but with 64-bit offsets, allowing to represent
+/// extremely large data values.
+type LargeUtf8 struct {
 	_tab flatbuffers.Table
 }
 
-func GetRootAsInterval(buf []byte, offset flatbuffers.UOffsetT) *Interval {
+func GetRootAsLargeUtf8(buf []byte, offset flatbuffers.UOffsetT) *LargeUtf8 {
 	n := flatbuffers.GetUOffsetT(buf[offset:])
-	x := &Interval{}
+	x := &LargeUtf8{}
 	x.Init(buf, n+offset)
 	return x
 }
 
-func (rcv *Interval) Init(buf []byte, i flatbuffers.UOffsetT) {
+func (rcv *LargeUtf8) Init(buf []byte, i flatbuffers.UOffsetT) {
 	rcv._tab.Bytes = buf
 	rcv._tab.Pos = i
 }
 
-func (rcv *Interval) Table() flatbuffers.Table {
+func (rcv *LargeUtf8) Table() flatbuffers.Table {
 	return rcv._tab
 }
 
-func (rcv *Interval) Unit() IntervalUnit {
-	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
-	if o != 0 {
-		return IntervalUnit(rcv._tab.GetInt16(o + rcv._tab.Pos))
-	}
-	return 0
+func LargeUtf8Start(builder *flatbuffers.Builder) {
+	builder.StartObject(0)
 }
-
-func (rcv *Interval) MutateUnit(n IntervalUnit) bool {
-	return rcv._tab.MutateInt16Slot(4, int16(n))
-}
-
-func IntervalStart(builder *flatbuffers.Builder) {
-	builder.StartObject(1)
-}
-func IntervalAddUnit(builder *flatbuffers.Builder, unit IntervalUnit) {
-	builder.PrependInt16Slot(0, int16(unit), 0)
-}
-func IntervalEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
+func LargeUtf8End(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()
 }
