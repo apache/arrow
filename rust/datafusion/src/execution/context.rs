@@ -327,7 +327,6 @@ impl ExecutionContext {
         let name = name.into();
 
         let state = self.state.lock().unwrap();
-        println!("Registering catalog for {}", name);
         let catalog = if state.config.information_schema {
             Arc::new(CatalogWithInformationSchema::new(
                 state.catalog_list.clone(),
