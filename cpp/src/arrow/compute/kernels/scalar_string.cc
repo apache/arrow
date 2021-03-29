@@ -411,22 +411,65 @@ void TransformMatchSubstring(const uint8_t* pattern, int64_t pattern_length,
 
 using MatchSubstringState = OptionsWrapper<MatchSubstringOptions>;
 
-template <typename Type>
+template <typename Type, template <typename offset_type> class Matcher>
 struct MatchSubstring {
   using offset_type = typename Type::offset_type;
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    MatchSubstringOptions arg = MatchSubstringState::Get(ctx);
-    const uint8_t* pat = reinterpret_cast<const uint8_t*>(arg.pattern.c_str());
-    const int64_t pat_size = arg.pattern.length();
+    // TODO Cache matcher accross invocations (for regex compilation)
+    Matcher<offset_type> matcher(ctx, MatchSubstringState::Get(ctx));
+    if (ctx->HasError()) return;
     StringBoolTransform<Type>(
         ctx, batch,
-        [pat, pat_size](const void* offsets, const uint8_t* data, int64_t length,
-                        int64_t output_offset, uint8_t* output) {
-          TransformMatchSubstring<offset_type>(
-              pat, pat_size, reinterpret_cast<const offset_type*>(offsets), data, length,
-              output_offset, output);
+        [&matcher](const void* offsets, const uint8_t* data, int64_t length,
+                   int64_t output_offset, uint8_t* output) {
+          matcher.Match(reinterpret_cast<const offset_type*>(offsets), data, length,
+                        output_offset, output);
         },
         out);
+  }
+};
+
+template <typename offset_type>
+struct PlainSubstringMatcher {
+  const MatchSubstringOptions& options_;
+
+  PlainSubstringMatcher(KernelContext* ctx, const MatchSubstringOptions& options)
+      : options_(options) {}
+
+  void Match(const offset_type* offsets, const uint8_t* data, int64_t length,
+             int64_t output_offset, uint8_t* output) {
+    const uint8_t* pat = reinterpret_cast<const uint8_t*>(options_.pattern.c_str());
+    const int64_t pat_size = options_.pattern.length();
+    TransformMatchSubstring<offset_type>(pat, pat_size, offsets, data, length,
+                                         output_offset, output);
+  }
+};
+
+template <typename offset_type>
+struct RegexSubstringMatcher {
+  const MatchSubstringOptions& options_;
+  const RE2 regex_match_;
+
+  RegexSubstringMatcher(KernelContext* ctx, const MatchSubstringOptions& options)
+      : options_(options), regex_match_(options_.pattern) {
+    if (!regex_match_.ok()) {
+      ctx->SetStatus(Status::Invalid("Regular expression error"));
+    }
+  }
+
+  void Match(const offset_type* offsets, const uint8_t* data, int64_t length,
+             int64_t output_offset, uint8_t* output) {
+    FirstTimeBitmapWriter bitmap_writer(output, output_offset, length);
+    for (int64_t i = 0; i < length; ++i) {
+      const char* current_data = reinterpret_cast<const char*>(data + offsets[i]);
+      int64_t current_length = offsets[i + 1] - offsets[i];
+      auto piece = re2::StringPiece(current_data, current_length);
+      if (re2::RE2::PartialMatch(piece, regex_match_)) {
+        bitmap_writer.Set();
+      }
+      bitmap_writer.Next();
+    }
+    bitmap_writer.Finish();
   }
 };
 
@@ -436,15 +479,36 @@ const FunctionDoc match_substring_doc(
      "Null inputs emit null.  The pattern must be given in MatchSubstringOptions."),
     {"strings"}, "MatchSubstringOptions");
 
+const FunctionDoc match_substring_regex_doc(
+    "Match strings against regex pattern",
+    ("For each string in `strings`, emit true iff it matches a given pattern at any "
+     "position.\n"
+     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions."),
+    {"strings"}, "MatchSubstringOptions");
+
 void AddMatchSubstring(FunctionRegistry* registry) {
-  auto func = std::make_shared<ScalarFunction>("match_substring", Arity::Unary(),
-                                               &match_substring_doc);
-  auto exec_32 = MatchSubstring<StringType>::Exec;
-  auto exec_64 = MatchSubstring<LargeStringType>::Exec;
-  DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
-  DCHECK_OK(
-      func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
-  DCHECK_OK(registry->AddFunction(std::move(func)));
+  {
+    auto func = std::make_shared<ScalarFunction>("match_substring", Arity::Unary(),
+                                                 &match_substring_doc);
+    auto exec_32 = MatchSubstring<StringType, PlainSubstringMatcher>::Exec;
+    auto exec_64 = MatchSubstring<LargeStringType, PlainSubstringMatcher>::Exec;
+    DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
+    DCHECK_OK(
+        func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+#ifdef ARROW_WITH_RE2
+  {
+    auto func = std::make_shared<ScalarFunction>("match_substring_regex", Arity::Unary(),
+                                                 &match_substring_regex_doc);
+    auto exec_32 = MatchSubstring<StringType, RegexSubstringMatcher>::Exec;
+    auto exec_64 = MatchSubstring<LargeStringType, RegexSubstringMatcher>::Exec;
+    DCHECK_OK(func->AddKernel({utf8()}, boolean(), exec_32, MatchSubstringState::Init));
+    DCHECK_OK(
+        func->AddKernel({large_utf8()}, boolean(), exec_64, MatchSubstringState::Init));
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+#endif
 }
 
 // IsAlpha/Digit etc
