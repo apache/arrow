@@ -63,6 +63,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     GTest
     LLVM
     Lz4
+    OpenTelemetry
     ORC
     re2
     Protobuf
@@ -162,6 +163,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_lz4()
   elseif("${DEPENDENCY_NAME}" STREQUAL "ORC")
     build_orc()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "OpenTelemetry")
+    build_opentelemetry()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Protobuf")
     build_protobuf()
   elseif("${DEPENDENCY_NAME}" STREQUAL "RapidJSON")
@@ -543,6 +546,15 @@ else()
   set_urls(ORC_SOURCE_URL
            "https://archive.apache.org/dist/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
            "https://github.com/apache/orc/archive/rel/release-${ARROW_ORC_BUILD_VERSION}.tar.gz"
+  )
+endif()
+
+if(DEFINED ENV{ARROW_OPENTELEMETRY_URL})
+  set(OPENTELEMETRY_SOURCE_URL "$ENV{ARROW_OPENTELEMETRY_URL}")
+else()
+  set_urls(OPENTELEMETRY_SOURCE_URL
+           "https://github.com/open-telemetry/opentelemetry-cpp/archive/refs/tags/${ARROW_OPENTELEMETRY_BUILD_VERSION}.tar.gz"
+           # "https://github.com/ursa-labs/thirdparty/releases/download/latest/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz"
   )
 endif()
 
@@ -3863,6 +3875,91 @@ if(ARROW_ORC)
   include_directories(SYSTEM ${ORC_INCLUDE_DIR})
   message(STATUS "Found ORC static library: ${ORC_STATIC_LIB}")
   message(STATUS "Found ORC headers: ${ORC_INCLUDE_DIR}")
+endif()
+
+# ----------------------------------------------------------------------
+# OpenTelemetry C++
+
+macro(build_opentelemetry)
+  message("Building OpenTelemetry from source")
+  set(OPENTELEMETRY_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/opentelemetry_ep-install")
+  set(OPENTELEMETRY_INCLUDE_DIR "${OPENTELEMETRY_PREFIX}/include")
+  set(OPENTELEMETRY_STATIC_LIB
+      "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  )
+  set(_OPENTELEMETRY_APIS api sdk)
+  set(_OPENTELEMETRY_LIBS common resources trace)
+  set(OPENTELEMETRY_BUILD_BYPRODUCTS)
+  set(OPENTELEMETRY_LIBRARIES)
+
+  foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_APIS})
+    add_library(opentelemetry-cpp::${_OPENTELEMETRY_LIB} INTERFACE IMPORTED)
+    set_target_properties(opentelemetry-cpp::${_OPENTELEMETRY_LIB}
+                          PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                     "${OPENTELEMETRY_INCLUDE_DIR}")
+  endforeach()
+  foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
+    set(_OPENTELEMETRY_STATIC_LIBRARY
+        "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_${_OPENTELEMETRY_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+    add_library(opentelemetry-cpp::${_OPENTELEMETRY_LIB} STATIC IMPORTED)
+    set_target_properties(opentelemetry-cpp::${_OPENTELEMETRY_LIB}
+                          PROPERTIES IMPORTED_LOCATION ${_OPENTELEMETRY_STATIC_LIBRARY})
+    list(APPEND OPENTELEMETRY_BUILD_BYPRODUCTS ${_OPENTELEMETRY_STATIC_LIBRARY})
+    list(APPEND OPENTELEMETRY_LIBRARIES opentelemetry-cpp::${_OPENTELEMETRY_LIB})
+  endforeach()
+
+  set(OPENTELEMETRY_CMAKE_ARGS
+      ${EP_COMMON_TOOLCHAIN}
+      "-DCMAKE_INSTALL_PREFIX=${OPENTELEMETRY_PREFIX}"
+      "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+      -DCMAKE_INSTALL_LIBDIR=lib
+      "-DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}"
+      -DBUILD_TESTING=OFF
+      -DWITH_EXAMPLES=OFF)
+  if(ARROW_WITH_OPENTELEMETRY)
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS ${OPENTELEMETRY_LIBRARIES})
+  else()
+    set(OPENTELEMETRY_CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS} "-DWITH_API_ONLY=ON")
+  endif()
+  externalproject_add(opentelemetry_ep
+                      ${EP_LOG_OPTIONS}
+                      URL_HASH "SHA256=${ARROW_OPENTELEMETRY_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS}
+                      URL ${OPENTELEMETRY_SOURCE_URL}
+                      BUILD_BYPRODUCTS ${OPENTELEMETRY_BUILD_BYPRODUCTS}
+                      EXCLUDE_FROM_ALL NOT
+                      ${ARROW_WITH_OPENTELEMETRY})
+  add_dependencies(toolchain opentelemetry_ep)
+  add_dependencies(toolchain-tests opentelemetry_ep)
+
+  set(OPENTELEMETRY_VENDORED 1)
+
+  set_target_properties(opentelemetry-cpp::common
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   "opentelemetry-cpp::api;opentelemetry-cpp::sdk;Threads::Threads"
+  )
+  set_target_properties(opentelemetry-cpp::resources
+                        PROPERTIES INTERFACE_LINK_LIBRARIES "opentelemetry-cpp::common")
+  set_target_properties(opentelemetry-cpp::trace
+                        PROPERTIES INTERFACE_LINK_LIBRARIES
+                                   "opentelemetry-cpp::common;opentelemetry-cpp::resources"
+  )
+
+  foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
+    add_dependencies(opentelemetry-cpp::${_OPENTELEMETRY_LIB} opentelemetry_ep)
+  endforeach()
+endmacro()
+
+# For now OpenTelemetry is always bundled from upstream
+if(1)
+  set(OpenTelemetry_SOURCE "BUNDLED")
+  resolve_dependency(OpenTelemetry)
+  get_target_property(OPENTELEMETRY_INCLUDE_DIR opentelemetry-cpp::api
+                      INTERFACE_INCLUDE_DIRECTORIES)
+  include_directories(SYSTEM ${OPENTELEMETRY_INCLUDE_DIR})
+  message(STATUS "Found OpenTelemetry headers: ${OPENTELEMETRY_INCLUDE_DIR}")
+  message(STATUS "Found OpenTelemetry static library: ${OPENTELEMETRY_BUILD_BYPRODUCTS}")
 endif()
 
 # ----------------------------------------------------------------------

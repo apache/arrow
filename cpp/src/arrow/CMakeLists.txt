@@ -220,6 +220,7 @@ set(ARROW_SRCS
     util/tdigest.cc
     util/thread_pool.cc
     util/time.cc
+    util/tracing_internal.cc
     util/trie.cc
     util/unreachable.cc
     util/uri.cc
@@ -572,6 +573,12 @@ if(ARROW_WITH_BACKTRACE)
     if(Backtrace_FOUND AND ARROW_WITH_BACKTRACE)
       target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_WITH_BACKTRACE)
     endif()
+  endforeach()
+endif()
+
+if(ARROW_WITH_OPENTELEMETRY)
+  foreach(LIB_TARGET ${ARROW_LIBRARIES})
+    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_WITH_OPENTELEMETRY)
   endforeach()
 endif()
 
