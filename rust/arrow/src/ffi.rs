@@ -125,10 +125,16 @@ struct SchemaPrivateData {
 
 impl FFI_ArrowSchema {
     /// create a new [FFI_ArrowSchema] from a format.
-    fn new(format: &str, children: Vec<*mut FFI_ArrowSchema>) -> FFI_ArrowSchema {
+    fn new(
+        format: &str,
+        children: Vec<*mut FFI_ArrowSchema>,
+        nullable: bool,
+    ) -> FFI_ArrowSchema {
         let children = children.into_boxed_slice();
         let n_children = children.len() as i64;
         let children_ptr = children.as_ptr() as *mut *mut FFI_ArrowSchema;
+
+        let flags = if nullable { 2 } else { 0 };
 
         let private_data = Box::new(SchemaPrivateData { children });
         // <https://arrow.apache.org/docs/format/CDataInterface.html#c.ArrowSchema>
@@ -137,8 +143,7 @@ impl FFI_ArrowSchema {
             // For child data a non null string is expected and is called item
             name: CString::new("item").unwrap().into_raw(),
             metadata: std::ptr::null_mut(),
-            // default to nullable
-            flags: 2,
+            flags,
             n_children,
             children: children_ptr,
             dictionary: std::ptr::null_mut(),
@@ -525,6 +530,7 @@ impl ArrowArray {
         offset: usize,
         buffers: Vec<Buffer>,
         child_data: Vec<ArrowArray>,
+        nullable: bool,
     ) -> Result<Self> {
         let format = from_datatype(data_type)?;
         // * insert the null buffer at the start
@@ -542,7 +548,7 @@ impl ArrowArray {
             ffi_arrow_schemas.push(schema as *mut FFI_ArrowSchema);
         });
 
-        let schema = Arc::new(FFI_ArrowSchema::new(&format, ffi_arrow_schemas));
+        let schema = Arc::new(FFI_ArrowSchema::new(&format, ffi_arrow_schemas, nullable));
         let array = Arc::new(FFI_ArrowArray::new(
             len as i64,
             null_count as i64,

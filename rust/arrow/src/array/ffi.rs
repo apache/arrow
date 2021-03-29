@@ -25,6 +25,7 @@ use crate::{
 };
 
 use super::ArrayData;
+use crate::datatypes::DataType;
 use crate::ffi::ArrowArray;
 
 impl TryFrom<ffi::ArrowArray> for ArrayData {
@@ -63,6 +64,14 @@ impl TryFrom<ArrayData> for ffi::ArrowArray {
     type Error = ArrowError;
 
     fn try_from(value: ArrayData) -> Result<Self> {
+        // If parent is nullable, then children also must be nullable
+        // so we pass this nullable to the creation of hte child data
+        let nullable = match value.data_type() {
+            DataType::List(field) => field.is_nullable(),
+            DataType::LargeList(field) => field.is_nullable(),
+            _ => false,
+        };
+
         let len = value.len();
         let offset = value.offset() as usize;
         let null_count = value.null_count();
@@ -71,7 +80,28 @@ impl TryFrom<ArrayData> for ffi::ArrowArray {
         let child_data = value
             .child_data()
             .iter()
-            .map(|arr| ArrowArray::try_from((*arr).clone()).expect("infallible"))
+            .map(|arr| {
+                let len = arr.len();
+                let offset = arr.offset() as usize;
+                let null_count = arr.null_count();
+                let buffers = arr.buffers().to_vec();
+                let null_buffer = arr.null_buffer().cloned();
+
+                // Note: the nullable comes from the parent data.
+                unsafe {
+                    ArrowArray::try_new(
+                        arr.data_type(),
+                        len,
+                        null_count,
+                        null_buffer,
+                        offset,
+                        buffers,
+                        vec![],
+                        nullable,
+                    )
+                    .expect("infallible")
+                }
+            })
             .collect::<Vec<_>>();
 
         unsafe {
@@ -83,6 +113,7 @@ impl TryFrom<ArrayData> for ffi::ArrowArray {
                 offset,
                 buffers,
                 child_data,
+                nullable,
             )
         }
     }
