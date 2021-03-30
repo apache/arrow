@@ -18,7 +18,7 @@
 find_package(OpenSSL)
 
 if (OPENSSL_FOUND)
-    if (OPENSSL_VERSION LESS "1.0.0")
+    if (OPENSSL_VERSION LESS "1.1.0")
         message(SEND_ERROR "The OpenSSL must be grater than 1.0.0, the actual version is ${OPENSSL_VERSION}")
     else ()
         message(STATUS "OpenSSL found with ${OPENSSL_VERSION}")
