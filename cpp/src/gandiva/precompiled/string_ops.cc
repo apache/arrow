@@ -1249,8 +1249,10 @@ const char* convert_fromUTF8_binary(gdv_int64 context, const char* bin_in, gdv_i
 FORCE_INLINE
 const char* convert_replace_invalid_fromUTF8_binary(
     gdv_int64 context, const char* text_in, gdv_int32 text_len,
-    const char* char_to_replace, gdv_int32 char_to_replace_len, gdv_int32* out_len) {
-  *out_len = text_len * char_to_replace_len;
+    const char* char_to_replace, gdv_int32 /*char_to_replace_len*/, gdv_int32* out_len) {
+  // actually the convert_replace function replaces the invalid bytes with a single byte
+  // so the output length will be the same as the input length
+  *out_len = text_len;
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
@@ -1264,8 +1266,8 @@ const char* convert_replace_invalid_fromUTF8_binary(
   for (int text_index = 0; text_index < text_len; text_index += char_len) {
     char_len = utf8_char_length(text_in[text_index]);
     if (char_len == 0 || text_index + char_len > text_len) {
-      memcpy(ret + out_byte_counter, char_to_replace, char_to_replace_len);
-      out_byte_counter += char_to_replace_len;
+      memcpy(ret + out_byte_counter, char_to_replace, 1);
+      out_byte_counter += 1;
       // define char_len = 1 to increase text_index by 1 (as ASCII char fits in 1 byte)
       char_len = 1;
     } else {

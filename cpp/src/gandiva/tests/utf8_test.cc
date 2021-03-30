@@ -556,7 +556,7 @@ TEST_F(TestUtf8, TestConvertUtf8) {
   auto node_b = TreeExprBuilder::MakeStringLiteral("z");
 
   auto convert_replace_utf8 =
-      TreeExprBuilder::MakeFunction("convert_fromUTF8", {node_a, node_b}, utf8());
+      TreeExprBuilder::MakeFunction("convert_replaceUTF8", {node_a, node_b}, utf8());
   auto equals =
       TreeExprBuilder::MakeFunction("equal", {convert_replace_utf8, node_c}, boolean());
   auto expr = TreeExprBuilder::MakeExpression(equals, res);
