@@ -453,12 +453,7 @@ class build_ext(_build_ext):
     def get_ext_built(self, name):
         if sys.platform == 'win32':
             head, tail = os.path.split(name)
-            # Visual Studio seems to differ from other generators in
-            # where it places output files.
-            if self.cmake_generator.startswith('Visual Studio'):
-                return pjoin(head, self.build_type, tail + ext_suffix)
-            else:
-                return pjoin(head, tail + ext_suffix)
+            return pjoin(head, self.build_type, tail + ext_suffix)
         else:
             return pjoin(self.build_type, name + ext_suffix)
 
