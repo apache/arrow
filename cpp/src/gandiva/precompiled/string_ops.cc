@@ -1249,7 +1249,12 @@ const char* convert_fromUTF8_binary(gdv_int64 context, const char* bin_in, gdv_i
 FORCE_INLINE
 const char* convert_replace_invalid_fromUTF8_binary(
     gdv_int64 context, const char* text_in, gdv_int32 text_len,
-    const char* char_to_replace, gdv_int32 /*char_to_replace_len*/, gdv_int32* out_len) {
+    const char* char_to_replace, gdv_int32 char_to_replace_len, gdv_int32* out_len) {
+  if (char_to_replace_len > 1) {
+    gdv_fn_context_set_error_msg(context, "Replacement of multiple bytes not supported");
+    *out_len = 0;
+    return "";
+  }
   // actually the convert_replace function replaces the invalid bytes with a single byte
   // so the output length will be the same as the input length
   *out_len = text_len;

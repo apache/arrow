@@ -143,14 +143,23 @@ TEST(TestStringOps, TestConvertReplaceInvalidUtf8Char) {
   const char* c_str = convert_replace_invalid_fromUTF8_binary(
       ctx_ptr, c.data(), c_in_out_len, "c", 1, &c_in_out_len);
   EXPECT_EQ(std::string(c_str, c_in_out_len), "all-valid");
+  EXPECT_FALSE(ctx.has_error());
 
   // valid utf8 (महसुस is a 4-byte utf-8 char)
-  std::string e("ok-महसुस-valid-new");
+  std::string d("ok-महसुस-valid-new");
+  auto d_in_out_len = static_cast<int>(d.length());
+  const char* d_str = convert_replace_invalid_fromUTF8_binary(
+      ctx_ptr, d.data(), d_in_out_len, "d", 1, &d_in_out_len);
+  EXPECT_EQ(std::string(d_str, d_in_out_len), "ok-महसुस-valid-new");
+  EXPECT_FALSE(ctx.has_error());
+
+  // full valid utf8, but invalid replacement char length
+  std::string e("all-valid");
   auto e_in_out_len = static_cast<int>(e.length());
   const char* e_str = convert_replace_invalid_fromUTF8_binary(
-      ctx_ptr, e.data(),e_in_out_len, "bk", 2, &e_in_out_len);
-  EXPECT_EQ(std::string(e_str, e_in_out_len), "ok-महसुस-valid-new");
-  EXPECT_FALSE(ctx.has_error());
+      ctx_ptr, e.data(), e_in_out_len, "ee", 2, &e_in_out_len);
+  EXPECT_EQ(std::string(e_str, e_in_out_len), "");
+  EXPECT_TRUE(ctx.has_error());
 
   ctx.Reset();
 }
