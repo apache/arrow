@@ -61,8 +61,11 @@ pub async fn main() {
         .map(|size| size.parse::<usize>().unwrap())
         .unwrap_or(1_048_576);
 
-    let mut ctx =
-        ExecutionContext::with_config(ExecutionConfig::new().with_batch_size(batch_size));
+    let mut ctx = ExecutionContext::with_config(
+        ExecutionConfig::new()
+            .with_batch_size(batch_size)
+            .with_information_schema(true),
+    );
 
     let mut rl = Editor::<()>::new();
     rl.load_history(".history").ok();

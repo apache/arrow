@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,20 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+set(VCPKG_TARGET_ARCHITECTURE x64)
+set(VCPKG_CRT_LINKAGE dynamic)
+set(VCPKG_LIBRARY_LINKAGE static)
 
-arrow_dir=${1}
-source_dir=${1}/cpp
-build_dir=${2}/cpp
+set(VCPKG_CMAKE_SYSTEM_NAME Darwin)
+set(VCPKG_OSX_ARCHITECTURES x86_64)
 
-gold_dir=$arrow_dir/testing/data/arrow-ipc-stream/integration
-
-pip install -e $arrow_dir/dev/archery
-
-archery integration --with-all --run-flight \
-    --gold-dirs=$gold_dir/0.14.1 \
-    --gold-dirs=$gold_dir/0.17.1 \
-    --gold-dirs=$gold_dir/1.0.0-bigendian \
-    --gold-dirs=$gold_dir/1.0.0-littleendian \
-    --gold-dirs=$gold_dir/2.0.0-compression \
-    --gold-dirs=$gold_dir/4.0.0-shareddict \
+set(VCPKG_BUILD_TYPE release)

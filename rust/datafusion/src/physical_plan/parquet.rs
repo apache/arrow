@@ -30,7 +30,10 @@ use super::{
     planner::DefaultPhysicalPlanner, ColumnarValue, PhysicalExpr, RecordBatchStream,
     SendableRecordBatchStream,
 };
-use crate::physical_plan::{common, ExecutionPlan, Partitioning};
+use crate::{
+    catalog::catalog::MemoryCatalogList,
+    physical_plan::{common, ExecutionPlan, Partitioning},
+};
 use crate::{
     error::{DataFusionError, Result},
     execution::context::ExecutionContextState,
@@ -392,7 +395,7 @@ impl RowGroupPredicateBuilder {
             .collect::<Vec<_>>();
         let stat_schema = Schema::new(stat_fields);
         let execution_context_state = ExecutionContextState {
-            catalogs: HashMap::new(),
+            catalog_list: Arc::new(MemoryCatalogList::new()),
             scalar_functions: HashMap::new(),
             var_provider: HashMap::new(),
             aggregate_functions: HashMap::new(),

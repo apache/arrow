@@ -30,6 +30,7 @@ def print_unpack_bit_func(bit):
 
     print(
         f"inline static const uint32_t* unpack{bit}_32_avx2(const uint32_t* in, uint32_t* out) {bracket}")
+    print("  using ::arrow::util::SafeLoad;")
     print("  uint32_t mask = 0x%x;" % mask)
     print("  __m256i reg_shifts, reg_inls, reg_masks;")
     print("  __m256i results;")
@@ -38,18 +39,18 @@ def print_unpack_bit_func(bit):
     for i in range(32):
         if shift + bit == 32:
             shifts.append(shift)
-            inls.append(f"in[{in_index}]")
+            inls.append(f"SafeLoad(in + {in_index})")
             in_index += 1
             shift = 0
         elif shift + bit > 32:  # cross the boundary
             inls.append(
-                f"in[{in_index}] >> {shift} | in[{in_index + 1}] << {32 - shift}")
+                f"SafeLoad(in + {in_index}) >> {shift} | SafeLoad(in + {in_index + 1}) << {32 - shift}")
             in_index += 1
             shift = bit - (32 - shift)
             shifts.append(0)  # zero shift
         else:
             shifts.append(shift)
-            inls.append(f"in[{in_index}]")
+            inls.append(f"SafeLoad(in + {in_index})")
             shift += bit
 
     print("  reg_masks = _mm256_set1_epi32(mask);")
@@ -59,11 +60,11 @@ def print_unpack_bit_func(bit):
     print(
         f"  reg_shifts = _mm256_set_epi32({shifts[7]}, {shifts[6]}, {shifts[5]}, {shifts[4]},")
     print(
-        f"                               {shifts[3]}, {shifts[2]}, {shifts[1]}, {shifts[0]});")
+        f"                                {shifts[3]}, {shifts[2]}, {shifts[1]}, {shifts[0]});")
     print(f"  reg_inls = _mm256_set_epi32({inls[7]}, {inls[6]},")
-    print(f"                             {inls[5]}, {inls[4]},")
-    print(f"                             {inls[3]}, {inls[2]},")
-    print(f"                             {inls[1]}, {inls[0]});")
+    print(f"                              {inls[5]}, {inls[4]},")
+    print(f"                              {inls[3]}, {inls[2]},")
+    print(f"                              {inls[1]}, {inls[0]});")
     print(
         "  results = _mm256_and_si256(_mm256_srlv_epi32(reg_inls, reg_shifts), reg_masks);")
     print("  _mm256_storeu_si256(reinterpret_cast<__m256i*>(out), results);")
@@ -181,6 +182,8 @@ def main():
     print("#else")
     print("#include <immintrin.h>")
     print("#endif")
+    print("")
+    print('#include "arrow/util/ubsan.h"')
     print("")
     print("namespace arrow {")
     print("namespace internal {")

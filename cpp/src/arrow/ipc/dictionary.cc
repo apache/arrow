@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <set>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -87,6 +88,16 @@ struct DictionaryFieldMapper::Impl {
 
   int num_fields() const { return static_cast<int>(field_path_to_id.size()); }
 
+  int num_dicts() const {
+    std::set<int64_t> uniqueIds;
+
+    for (auto& kv : field_path_to_id) {
+      uniqueIds.insert(kv.second);
+    }
+
+    return static_cast<int>(uniqueIds.size());
+  }
+
  private:
   void ImportFields(const FieldPosition& pos,
                     const std::vector<std::shared_ptr<Field>>& fields) {
@@ -139,6 +150,8 @@ Result<int64_t> DictionaryFieldMapper::GetFieldId(std::vector<int> field_path) c
 }
 
 int DictionaryFieldMapper::num_fields() const { return impl_->num_fields(); }
+
+int DictionaryFieldMapper::num_dicts() const { return impl_->num_dicts(); }
 
 // ----------------------------------------------------------------------
 // DictionaryMemo implementation

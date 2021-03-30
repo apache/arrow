@@ -753,12 +753,15 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, FieldPosition field_pos,
 
   // Reconstruct the data type
   // 1. Data type children
+  FieldVector child_fields;
   const auto& children = field->children();
-  CHECK_FLATBUFFERS_NOT_NULL(children, "Field.children");
-  std::vector<std::shared_ptr<Field>> child_fields(children->size());
-  for (int i = 0; i < static_cast<int>(children->size()); ++i) {
-    RETURN_NOT_OK(FieldFromFlatbuffer(children->Get(i), field_pos.child(i),
-                                      dictionary_memo, &child_fields[i]));
+  // As a tolerance, allow for a null children field meaning "no children" (ARROW-12100)
+  if (children != nullptr) {
+    child_fields.resize(children->size());
+    for (int i = 0; i < static_cast<int>(children->size()); ++i) {
+      RETURN_NOT_OK(FieldFromFlatbuffer(children->Get(i), field_pos.child(i),
+                                        dictionary_memo, &child_fields[i]));
+    }
   }
 
   // 2. Top-level concrete data type

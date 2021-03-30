@@ -139,6 +139,8 @@ class IntegrationRunner(object):
                 skip.add("Rust")
             if name == 'zstd':
                 skip.add("Java")
+            if prefix == '4.0.0-shareddict':
+                skip.add("Go")
             yield datagen.File(name, None, None, skip=skip, path=out_path)
 
     def _run_test_cases(self, producer, consumer, case_runner,
