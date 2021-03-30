@@ -524,7 +524,7 @@ impl ExecutionContext {
                             .try_collect()
                             .await
                             .map_err(DataFusionError::from)?;
-                        writer.close().map_err(DataFusionError::from)
+                        writer.close().map_err(DataFusionError::from).map(|_| ())
                     });
                     tasks.push(handle);
                 }
