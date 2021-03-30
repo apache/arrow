@@ -71,9 +71,9 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
       pid <- sys::exec_background('minio', c('server', minio_dir))
       on.exit(tools::pskill(pid))
     }
-    rcmdcheck::rcmdcheck(build_args = '--no-build-vignettes', args = c('--no-manual', '--ignore-vignettes', '--run-donttest'), error_on = 'warning', check_dir = 'check')
+    rcmdcheck::rcmdcheck(build_args = '--no-build-vignettes', args = c('--no-manual', '--ignore-vignettes', '--run-donttest'), error_on = 'warning', check_dir = 'check', timeout = 3600)
   }"
-echo "$SCRIPT" | timeout -k 3600 3600 ${R_BIN} --no-save
+echo "$SCRIPT" | ${R_BIN} --no-save
 
 AFTER=$(ls -alh ~/)
 if [ "$NOT_CRAN" != "true" ] && [ "$BEFORE" != "$AFTER" ]; then
