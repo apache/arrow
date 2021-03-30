@@ -415,7 +415,7 @@ template <typename Type, template <typename offset_type> class Matcher>
 struct MatchSubstring {
   using offset_type = typename Type::offset_type;
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    // TODO Cache matcher accross invocations (for regex compilation)
+    // TODO Cache matcher across invocations (for regex compilation)
     Matcher<offset_type> matcher(ctx, MatchSubstringState::Get(ctx));
     if (ctx->HasError()) return;
     StringBoolTransform<Type>(
@@ -1310,7 +1310,7 @@ struct ReplaceSubString {
   using State = OptionsWrapper<ReplaceSubstringOptions>;
 
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    // TODO Cache replacer accross invocations (for regex compilation)
+    // TODO Cache replacer across invocations (for regex compilation)
     Replacer replacer{ctx, State::Get(ctx)};
     if (!ctx->HasError()) {
       Replace(ctx, batch, &replacer, out);
