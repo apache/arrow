@@ -362,6 +362,9 @@ def test_scanner(dataset):
         for batch in task.execute():
             assert batch.num_columns == 1
 
+    with pytest.warns(FutureWarning):
+        scanner.scan()
+
 
 def test_abstract_classes():
     classes = [

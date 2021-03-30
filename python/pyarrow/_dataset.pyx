@@ -2603,22 +2603,26 @@ cdef class Scanner(_Weakrefable):
         -------
         scan_tasks : iterator of ScanTask
         """
+        import warnings
+        warnings.warn("Scanner.scan is deprecated as of 4.0.0, "
+                      "please use Scanner.to_batches instead.",
+                      FutureWarning)
+        # Make this method eager so the warning appears immediately
+        return self._scan()
+
+    def _scan(self):
         for maybe_task in GetResultValue(self.scanner.Scan()):
             yield ScanTask.wrap(GetResultValue(move(maybe_task)))
 
     def to_batches(self):
         """Consume a Scanner in record batches.
 
-        Sequentially executes the ScanTasks as the returned generator gets
-        consumed.
-
         Returns
         -------
         record_batches : iterator of RecordBatch
         """
-        for task in self.scan():
-            for batch in task.execute():
-                yield batch
+        for maybe_batch in GetResultValue(self.scanner.ScanBatches()):
+            yield pyarrow_wrap_batch(GetResultValue(maybe_batch).record_batch)
 
     def to_table(self):
         """Convert a Scanner into a Table.
