@@ -97,9 +97,10 @@ void DoubleToStringConverter::CreateExponentialRepresentation(
   if(length == 1){
     if ((flags_ & EMIT_TRAILING_DECIMAL_POINT) != 0) {
       result_builder->AddCharacter('.');
-    }
-    if ((flags_ & EMIT_TRAILING_ZERO_AFTER_POINT) != 0) {
-      result_builder->AddCharacter('0');
+
+      if ((flags_ & EMIT_TRAILING_ZERO_AFTER_POINT) != 0) {
+          result_builder->AddCharacter('0');
+      }
     }
   } else {
     result_builder->AddCharacter('.');
