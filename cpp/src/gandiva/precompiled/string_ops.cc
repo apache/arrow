@@ -1247,7 +1247,8 @@ const char* convert_fromUTF8_binary(gdv_int64 context, const char* bin_in, gdv_i
 }
 
 FORCE_INLINE
-const char* convert_replace_invalid_fromUTF8_binary(gdv_int64 context, const char* text_in,
+const char* convert_replace_invalid_fromUTF8_binary(gdv_int64 context,
+                                                    const char* text_in,
                                                     gdv_int32 text_len,
                                                     const char* char_to_replace,
                                                     gdv_int32 /*char_to_replace_len*/,

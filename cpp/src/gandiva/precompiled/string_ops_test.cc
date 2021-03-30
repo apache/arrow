@@ -146,7 +146,7 @@ TEST(TestStringOps, TestConvertReplaceInvalidUtf8Char) {
   EXPECT_EQ(std::string(c_str, c.length()), "all-valid");
   EXPECT_FALSE(ctx.has_error());
 
- ctx.Reset();
+  ctx.Reset();
 }
 
 TEST(TestStringOps, TestCastBoolToVarchar) {
