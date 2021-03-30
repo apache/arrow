@@ -140,7 +140,7 @@ fn _create_nested_bench_batch(
 fn write_batch(batch: &RecordBatch) -> Result<()> {
     // Write batch to an in-memory writer
     let cursor = InMemoryWriteableCursor::default();
-    let mut writer = ArrowWriter::try_new(cursor.clone(), batch.schema(), None)?;
+    let mut writer = ArrowWriter::try_new(cursor, batch.schema(), None)?;
 
     writer.write(&batch)?;
     writer.close()
