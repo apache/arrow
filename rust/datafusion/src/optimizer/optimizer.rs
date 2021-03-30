@@ -16,9 +16,10 @@
 // under the License.
 
 //! Query optimizer traits
+use std::sync::Arc;
 
-use crate::error::Result;
 use crate::logical_plan::LogicalPlan;
+use crate::{error::Result, physical_plan::ExecutionPlan};
 
 /// `OptimizerRule` transforms one ['LogicalPlan'] into another which
 /// computes the same results, but in a potentially more efficient
@@ -26,6 +27,17 @@ use crate::logical_plan::LogicalPlan;
 pub trait OptimizerRule {
     /// Rewrite `plan` to an optimized form
     fn optimize(&self, plan: &LogicalPlan) -> Result<LogicalPlan>;
+
+    /// A human readable name for this optimizer rule
+    fn name(&self) -> &str;
+}
+
+/// `PhysicalOptimizerRule` transforms one ['ExecutionPlan'] into another which
+/// computes the same results, but in a potentially more efficient
+/// way.
+pub trait PhysicalOptimizerRule {
+    /// Rewrite `plan` to an optimized form
+    fn optimize(&self, plan: Arc<dyn ExecutionPlan>) -> Result<Arc<dyn ExecutionPlan>>;
 
     /// A human readable name for this optimizer rule
     fn name(&self) -> &str;
