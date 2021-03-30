@@ -356,7 +356,8 @@ def py_fsspec_memoryfs(request, tempdir):
 @pytest.fixture
 def py_fsspec_s3fs(request, s3_connection, s3_server):
     s3fs = pytest.importorskip("s3fs")
-    if sys.version_info < (3, 7) and s3fs.__version__ >= Version("0.5"):
+    if (sys.version_info < (3, 7) and
+            Version(s3fs.__version__) >= Version("0.5")):
         pytest.skip("s3fs>=0.5 version is async and requires Python >= 3.7")
 
     host, port, access_key, secret_key = s3_connection
