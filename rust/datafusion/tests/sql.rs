@@ -2054,10 +2054,14 @@ async fn group_by_timestamp_millis() -> Result<()> {
     let mut ctx = ExecutionContext::new();
 
     let schema = Arc::new(Schema::new(vec![
-        Field::new("timestamp", DataType::Timestamp(TimeUnit::Millisecond, None), false),
+        Field::new(
+            "timestamp",
+            DataType::Timestamp(TimeUnit::Millisecond, None),
+            false,
+        ),
         Field::new("count", DataType::Int32, false),
     ]));
-    let base_dt = Utc.ymd(2018, 7, 1).and_hms(6,0,0);     // 2018-Jul-01 06:00
+    let base_dt = Utc.ymd(2018, 7, 1).and_hms(6, 0, 0); // 2018-Jul-01 06:00
     let hour1 = Duration::hours(1);
     let timestamps = vec![
         base_dt.timestamp_millis(),
@@ -2077,7 +2081,8 @@ async fn group_by_timestamp_millis() -> Result<()> {
     let t1_table = MemTable::try_new(schema, vec![vec![data]])?;
     ctx.register_table("t1", Arc::new(t1_table));
 
-    let sql = "SELECT timestamp, SUM(count) FROM t1 GROUP BY timestamp ORDER BY timestamp ASC";
+    let sql =
+        "SELECT timestamp, SUM(count) FROM t1 GROUP BY timestamp ORDER BY timestamp ASC";
     let actual = execute(&mut ctx, sql).await;
     let actual: Vec<String> = actual.iter().map(|row| row[1].clone()).collect();
     let expected = vec!["80", "130"];
