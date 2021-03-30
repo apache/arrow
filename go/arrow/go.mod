@@ -25,6 +25,7 @@ require (
 	github.com/google/flatbuffers v1.11.0
 	github.com/klauspost/compress v1.11.13
 	github.com/pierrec/lz4 v2.6.0+incompatible
+	github.com/pierrec/lz4/v4 v4.1.4 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/stretchr/testify v1.2.0
 	golang.org/x/net v0.0.0-20200904194848-62affa334b73 // indirect

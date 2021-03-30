@@ -233,7 +233,9 @@ func (w *recordEncoder) Encode(p *Payload, rec array.Record) error {
 		}
 		w.meta[i] = bufferMetadata{
 			Offset: offset,
-			Len:    size + padding,
+			// even though we add padding, we need the Len to be correct
+			// so that decompressing works properly.
+			Len: size,
 		}
 		offset += size + padding
 	}

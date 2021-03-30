@@ -21,7 +21,7 @@ import (
 
 	"github.com/apache/arrow/go/arrow/internal/flatbuf"
 	"github.com/klauspost/compress/zstd"
-	"github.com/pierrec/lz4"
+	"github.com/pierrec/lz4/v4"
 )
 
 type compressor interface {
@@ -63,7 +63,9 @@ func (zstdCompressor) Type() flatbuf.CompressionType {
 func getCompressor(codec flatbuf.CompressionType) compressor {
 	switch codec {
 	case flatbuf.CompressionTypeLZ4_FRAME:
-		return lz4Compressor{lz4.NewWriter(nil)}
+		w := lz4.NewWriter(nil)
+		w.Apply(lz4.ConcurrencyOption(1), lz4.ChecksumOption(false), lz4.BlockSizeOption(lz4.Block64Kb))
+		return &lz4Compressor{w}
 	case flatbuf.CompressionTypeZSTD:
 		enc, err := zstd.NewWriter(nil)
 		if err != nil {
