@@ -19,4 +19,4 @@ library(testthat)
 library(arrow)
 library(tibble)
 
-test_check("arrow")
+test_check("arrow", reporter="location")

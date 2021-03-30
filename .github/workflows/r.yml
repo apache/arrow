@@ -86,6 +86,9 @@ jobs:
       - name: Dump install logs
         run: cat r/check/arrow.Rcheck/00install.out
         if: always()
+      - name: Dump test logs
+        run: cat r/check/arrow.Rcheck/tests/testthat.Rout
+        if: always()
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
@@ -133,6 +136,9 @@ jobs:
           archery docker run r
       - name: Dump install logs
         run: cat r/check/arrow.Rcheck/00install.out
+        if: always()
+      - name: Dump test logs
+        run: cat r/check/arrow.Rcheck/tests/testthat.Rout
         if: always()
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
