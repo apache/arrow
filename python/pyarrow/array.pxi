@@ -722,6 +722,10 @@ cdef class _PandasConvertible(_Weakrefable):
             memory while converting the Arrow object to pandas. If you use the
             object after calling to_pandas with this option it will crash your
             program.
+
+            Note that you may not see always memory usage improvements. For
+            example, if multiple columns share an underlying allocation,
+            memory can't be freed until all columns are converted.
         types_mapper : function, default None
             A function mapping a pyarrow DataType to a pandas ExtensionDtype.
             This can be used to override the default pandas type for conversion
