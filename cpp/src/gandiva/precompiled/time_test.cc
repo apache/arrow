@@ -724,4 +724,9 @@ TEST(TestTime, TestLastDay) {
   EXPECT_EQ(StringToTimestamp("2015-12-31 00:00:00"), out);
 }
 
+TEST(TestTime, TestToTime) {
+  auto out = to_time_timestamp(1000000);
+  EXPECT_EQ(std::chrono::high_resolution_clock::now().time_since_epoch().count(), out);
+}
+
 }  // namespace gandiva

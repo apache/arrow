@@ -87,6 +87,10 @@ class EpochTimePoint {
 
   int64_t MillisSinceEpoch() const { return tp_.time_since_epoch().count(); }
 
+ static int64_t NowMillisEpoch() {
+    return std::chrono::high_resolution_clock::now().time_since_epoch().count();
+  }
+
  private:
   arrow_vendored::date::year_month_day YearMonthDay() const {
     return arrow_vendored::date::year_month_day{
