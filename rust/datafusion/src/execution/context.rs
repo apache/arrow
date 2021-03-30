@@ -586,7 +586,7 @@ impl ExecutionConfig {
     pub fn new() -> Self {
         Self {
             concurrency: num_cpus::get(),
-            batch_size: 32768,
+            batch_size: 8192,
             optimizers: vec![
                 Arc::new(ConstantFolding::new()),
                 Arc::new(ProjectionPushDown::new()),
