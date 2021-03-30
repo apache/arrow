@@ -32,6 +32,10 @@
 include(CMakeFindDependencyMacro)
 find_dependency(Arrow)
 
+set(PARQUET_VERSION "@ARROW_VERSION@")
+set(PARQUET_SO_VERSION "@ARROW_SO_VERSION@")
+set(PARQUET_FULL_SO_VERSION "@ARROW_FULL_SO_VERSION@")
+
 # Load targets only once. If we load targets multiple times, CMake reports
 # already existent target error.
 if(NOT (TARGET parquet_shared OR TARGET parquet_static))
