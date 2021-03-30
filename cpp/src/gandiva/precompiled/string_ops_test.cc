@@ -123,26 +123,26 @@ TEST(TestStringOps, TestConvertReplaceInvalidUtf8Char) {
   std::string a(
       "ok-\xf8\x28"
       "-a");
-  gdv_int32 a_in_out_len = a.length();
+  auto a_in_out_len = static_cast<int>(a.length());
   const char* a_str = convert_replace_invalid_fromUTF8_binary(
       ctx_ptr, a.data(), a_in_out_len, "a", 1, &a_in_out_len);
-  EXPECT_EQ(std::string(a_str, a.length()), "ok-a(-a");
+  EXPECT_EQ(std::string(a_str, a_in_out_len), "ok-a(-a");
   EXPECT_FALSE(ctx.has_error());
 
   // invalid utf8 (xa0 and xa1 are invalid)
   std::string b("ok-\xa0\xa1-valid");
-  gdv_int32 b_in_out_len = b.length();
+  auto b_in_out_len = static_cast<int>(b.length());
   const char* b_str = convert_replace_invalid_fromUTF8_binary(
       ctx_ptr, b.data(), b_in_out_len, "b", 1, &b_in_out_len);
-  EXPECT_EQ(std::string(b_str, b.length()), "ok-bb-valid");
+  EXPECT_EQ(std::string(b_str, b_in_out_len), "ok-bb-valid");
   EXPECT_FALSE(ctx.has_error());
 
   // full valid utf8
   std::string c("all-valid");
-  gdv_int32 c_in_out_len = c.length();
+  auto c_in_out_len = static_cast<int>(c.length());
   const char* c_str = convert_replace_invalid_fromUTF8_binary(
       ctx_ptr, c.data(), c_in_out_len, "c", 1, &c_in_out_len);
-  EXPECT_EQ(std::string(c_str, c.length()), "all-valid");
+  EXPECT_EQ(std::string(c_str, c_in_out_len), "all-valid");
   EXPECT_FALSE(ctx.has_error());
 
   ctx.Reset();
