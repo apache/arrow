@@ -159,10 +159,6 @@ services:
   #     -e ARROW_BUILD_SHARED=OFF \
   #     -e ARROW_TEST_LINKAGE=static \
   #     conda-cpp|debian-cpp|...
-  # Minimum boost - Ubuntu Xenial 16.04 has Boost 1.58:
-  #   UBUNTU=16.04 docker-compose build \
-  #     -e BOOST_SOURCE=SYSTEM \
-  #     ubuntu-cpp
 
   conda-cpp:
     # C++ build in conda environment, including the doxygen docs.
@@ -265,7 +261,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, s390x, ...
-    #   UBUNTU: 16.04, 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
@@ -322,7 +318,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp-sanitizer
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 16.04, 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     cap_add:
       # For LeakSanitizer
@@ -358,7 +354,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp-thread-sanitizer
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 16.04, 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
@@ -447,7 +443,7 @@ services:
     #   docker-compose run --rm ubuntu-c-glib
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 16.04, 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-c-glib
     build:
       context: .
@@ -507,7 +503,7 @@ services:
     #   docker-compose run --rm ubuntu-ruby
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 16.04, 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-ruby
     build:
       context: .
@@ -608,7 +604,7 @@ services:
     #   docker-compose run --rm ubuntu-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 16.04, 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     build:
       context: .
@@ -673,7 +669,7 @@ services:
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
     #   PYARROW_VERSION: The test target pyarrow version such as "3.0.0"
-    #   UBUNTU: 16.04, 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     build:
       context: .
