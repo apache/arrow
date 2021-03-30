@@ -1209,6 +1209,23 @@ test_that("Dataset and query print methods", {
   )
 })
 
+test_that("Scanner$Scan is deprecated", {
+  ds <- open_dataset(ipc_dir, partitioning = "part", format = "feather")
+  expect_deprecated(
+    ds$NewScan()$Finish()$Scan(),
+    "ScanBatches"
+  )
+})
+
+test_that("Scanner$ScanBatches", {
+  ds <- open_dataset(ipc_dir, format = "feather")
+  batches <- ds$NewScan()$Finish()$ScanBatches()
+  table <- Table$create(!!!batches)
+  print(table)
+  print(rbind(df1, df2))
+  expect_equivalent(as.data.frame(table), rbind(df1, df2))
+})
+
 expect_scan_result <- function(ds, schm) {
   sb <- ds$NewScan()
   expect_is(sb, "ScannerBuilder")

@@ -274,13 +274,10 @@ tail.Dataset <- function(x, n = 6L, ...) {
   result <- list()
   batch_num <- 0
   scanner <- Scanner$create(ensure_group_vars(x))
-  for (scan_task in rev(dataset___Scanner__Scan(scanner))) {
-    for (batch in rev(scan_task$Execute())) {
-      batch_num <- batch_num + 1
-      result[[batch_num]] <- tail(batch, n)
-      n <- n - nrow(batch)
-      if (n <= 0) break
-    }
+  for (batch in rev(dataset___Scanner__ScanBatches(scanner))) {
+    batch_num <- batch_num + 1
+    result[[batch_num]] <- tail(batch, n)
+    n <- n - nrow(batch)
     if (n <= 0) break
   }
   Table$create(!!!rev(result))
@@ -311,17 +308,14 @@ take_dataset_rows <- function(x, i) {
   result_order <- order(i)
   i <- sort(i) - 1L
   scanner <- Scanner$create(ensure_group_vars(x))
-  for (scan_task in dataset___Scanner__Scan(scanner)) {
-    for (batch in scan_task$Execute()) {
-      # Take all rows that are in this batch
-      this_batch_nrows <- batch$num_rows
-      in_this_batch <- i > -1L & i < this_batch_nrows
-      if (any(in_this_batch)) {
-        result[[length(result) + 1L]] <- batch$Take(i[in_this_batch])
-      }
-      i <- i - this_batch_nrows
-      if (all(i < 0L)) break
+  for (batch in dataset___Scanner__ScanBatches(scanner)) {
+    # Take all rows that are in this batch
+    this_batch_nrows <- batch$num_rows
+    in_this_batch <- i > -1L & i < this_batch_nrows
+    if (any(in_this_batch)) {
+      result[[length(result) + 1L]] <- batch$Take(i[in_this_batch])
     }
+    i <- i - this_batch_nrows
     if (all(i < 0L)) break
   }
   tab <- Table$create(!!!result)

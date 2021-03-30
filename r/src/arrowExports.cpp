@@ -1403,6 +1403,21 @@ extern "C" SEXP _arrow_dataset___Scanner__Scan(SEXP scanner_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
+cpp11::list dataset___Scanner__ScanBatches(const std::shared_ptr<ds::Scanner>& scanner);
+extern "C" SEXP _arrow_dataset___Scanner__ScanBatches(SEXP scanner_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<ds::Scanner>&>::type scanner(scanner_sexp);
+	return cpp11::as_sexp(dataset___Scanner__ScanBatches(scanner));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___Scanner__ScanBatches(SEXP scanner_sexp){
+	Rf_error("Cannot call dataset___Scanner__ScanBatches(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<arrow::Schema> dataset___Scanner__schema(const std::shared_ptr<ds::Scanner>& sc);
 extern "C" SEXP _arrow_dataset___Scanner__schema(SEXP sc_sexp){
 BEGIN_CPP11
@@ -4319,6 +4334,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___Scanner__ToTable", (DL_FUNC) &_arrow_dataset___Scanner__ToTable, 1}, 
 		{ "_arrow_dataset___Scanner__head", (DL_FUNC) &_arrow_dataset___Scanner__head, 2}, 
 		{ "_arrow_dataset___Scanner__Scan", (DL_FUNC) &_arrow_dataset___Scanner__Scan, 1}, 
+		{ "_arrow_dataset___Scanner__ScanBatches", (DL_FUNC) &_arrow_dataset___Scanner__ScanBatches, 1}, 
 		{ "_arrow_dataset___Scanner__schema", (DL_FUNC) &_arrow_dataset___Scanner__schema, 1}, 
 		{ "_arrow_dataset___ScanTask__get_batches", (DL_FUNC) &_arrow_dataset___ScanTask__get_batches, 1}, 
 		{ "_arrow_dataset___Dataset__Write", (DL_FUNC) &_arrow_dataset___Dataset__Write, 6}, 

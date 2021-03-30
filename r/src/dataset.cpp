@@ -429,6 +429,18 @@ cpp11::list dataset___Scanner__Scan(const std::shared_ptr<ds::Scanner>& scanner)
 }
 
 // [[dataset::export]]
+cpp11::list dataset___Scanner__ScanBatches(const std::shared_ptr<ds::Scanner>& scanner) {
+  auto it = ValueOrStop(scanner->ScanBatches());
+  std::vector<std::shared_ptr<arrow::RecordBatch>> out;
+  for (auto maybe_positioned_batch : it) {
+    auto positioned_batch = ValueOrStop(maybe_positioned_batch);
+    out.push_back(positioned_batch.record_batch);
+  }
+
+  return arrow::r::to_r_list(out);
+}
+
+// [[dataset::export]]
 std::shared_ptr<arrow::Schema> dataset___Scanner__schema(
     const std::shared_ptr<ds::Scanner>& sc) {
   return sc->schema();
