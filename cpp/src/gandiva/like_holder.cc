@@ -81,20 +81,33 @@ Status LikeHolder::Make(const FunctionNode& node, std::shared_ptr<LikeHolder>* h
       Status::Invalid(
           "'like' function requires a string literal as the second parameter"));
 
+  // Checks if it should compile the pattern directly as an regex expression.
+  auto function_name = node.descriptor()->name();
+  if (function_name == "regexp_matches" || function_name == "regexp_like") {
+    return Make(arrow::util::get<std::string>(literal->holder()), holder, true);
+  }
   return Make(arrow::util::get<std::string>(literal->holder()), holder);
 }
 
 Status LikeHolder::Make(const std::string& sql_pattern,
                         std::shared_ptr<LikeHolder>* holder) {
+  std::shared_ptr<LikeHolder> lholder;
   std::string pcre_pattern;
   ARROW_RETURN_NOT_OK(RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern));
-
-  auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern));
+  lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern));
   ARROW_RETURN_IF(!lholder->regex_.ok(),
                   Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
-
   *holder = lholder;
   return Status::OK();
 }
 
+Status LikeHolder::Make(const std::string& pattern,
+                        std::shared_ptr<LikeHolder>* holder, bool is_regex) {
+  std::shared_ptr<LikeHolder> lholder;
+  lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pattern));
+  ARROW_RETURN_IF(!lholder->regex_.ok(),
+                  Status::Invalid("Building RE2 pattern '", pattern, "' failed"));
+  *holder = lholder;
+  return Status::OK();
+}
 }  // namespace gandiva

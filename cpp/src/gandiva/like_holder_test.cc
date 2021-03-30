@@ -65,6 +65,21 @@ TEST_F(TestLikeHolder, TestMatchOne) {
   EXPECT_FALSE(like("dabc"));
 }
 
+TEST_F(TestLikeHolder, TestMatchOneRegex) {
+  std::shared_ptr<LikeHolder> like_holder;
+
+  auto status = LikeHolder::Make("ab.", &like_holder, true);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  auto& like = *like_holder;
+  EXPECT_TRUE(like("abc"));
+  EXPECT_TRUE(like("abd"));
+
+  EXPECT_FALSE(like("a"));
+  EXPECT_FALSE(like("abcd"));
+  EXPECT_FALSE(like("dabc"));
+}
+
 TEST_F(TestLikeHolder, TestPcreSpecial) {
   std::shared_ptr<LikeHolder> like_holder;
 
