@@ -52,8 +52,7 @@ def test_benchmark_comparator():
     ).regression
 
 
-def test_static_runner_from_json():
-    # full output of `archery benchmark run`
+def test_static_runner_from_json_not_a_regression():
     archery_result = {
         "suites": [
             {
@@ -71,18 +70,35 @@ def test_static_runner_from_json():
                             9095.800104330105
                         ]
                     },
+                ]
+            }
+        ]
+    }
+
+    contender = StaticBenchmarkRunner.from_json(json.dumps(archery_result))
+    baseline = StaticBenchmarkRunner.from_json(json.dumps(archery_result))
+    [comparison] = RunnerComparator(contender, baseline).comparisons
+    assert not comparison.regression
+
+
+def test_static_runner_from_json_regression():
+    archery_result = {
+        "suites": [
+            {
+                "name": "arrow-value-parsing-benchmark",
+                "benchmarks": [
                     {
-                        "name": "FloatParsing<FloatType>",
+                        "name": "FloatParsing<DoubleType>",
                         "unit": "items_per_second",
                         "less_is_better": False,
                         "values": [
-                            105982641.9337845
+                            109941112.87296811
                         ],
                         "time_unit": "ns",
                         "times": [
-                            9435.567922160235
+                            9095.800104330105
                         ]
-                    }
+                    },
                 ]
             }
         ]
@@ -90,20 +106,12 @@ def test_static_runner_from_json():
 
     contender = StaticBenchmarkRunner.from_json(json.dumps(archery_result))
 
-    # introduce artificial regression:
+    # introduce artificial regression
     archery_result['suites'][0]['benchmarks'][0]['values'][0] *= 2
     baseline = StaticBenchmarkRunner.from_json(json.dumps(archery_result))
 
-    comparisons = list(RunnerComparator(contender, baseline).comparisons)
-
-    # can't assume return order
-    artificial, unchanged = comparisons[0], comparisons[1]
-    if comparisons[0].name == "FloatParsing<FloatType>":
-        artificial, unchanged = comparisons[1], comparisons[0]
-
-    assert artificial.regression
-    assert not unchanged.regression
-
+    [comparison] = RunnerComparator(contender, baseline).comparisons
+    assert comparison.regression
 
 
 def test_benchmark_median():
