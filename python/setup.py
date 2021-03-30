@@ -26,13 +26,10 @@ import re
 import shlex
 import shutil
 import sys
+import sysconfig
 
 import pkg_resources
 from setuptools import setup, Extension, Distribution
-
-from distutils.command.clean import clean as _clean
-from distutils.util import strtobool
-from distutils import sysconfig
 
 from Cython.Distutils import build_ext as _build_ext
 import Cython
@@ -62,15 +59,21 @@ def changed_dir(dirname):
         os.chdir(oldcwd)
 
 
-class clean(_clean):
+def strtobool(val):
+    """Convert a string representation of truth to true (1) or false (0).
 
-    def run(self):
-        _clean.run(self)
-        for x in []:
-            try:
-                os.remove(x)
-            except OSError:
-                pass
+    True values are 'y', 'yes', 't', 'true', 'on', and '1'; false values
+    are 'n', 'no', 'f', 'false', 'off', and '0'.  Raises ValueError if
+    'val' is anything else.
+    """
+    # Copied from distutils
+    val = val.lower()
+    if val in ('y', 'yes', 't', 'true', 'on', '1'):
+        return 1
+    elif val in ('n', 'no', 'f', 'false', 'off', '0'):
+        return 0
+    else:
+        raise ValueError("invalid truth value %r" % (val,))
 
 
 class build_ext(_build_ext):
@@ -588,7 +591,6 @@ setup(
     # Dummy extension to trigger build_ext
     ext_modules=[Extension('__dummy__', sources=[])],
     cmdclass={
-        'clean': clean,
         'build_ext': build_ext
     },
     entry_points={

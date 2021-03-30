@@ -1,4 +1,3 @@
-from distutils.version import LooseVersion
 from subprocess import check_output, check_call
 from typing import List
 
@@ -6,6 +5,8 @@ import json
 import os
 import pandas as pd
 import sys
+
+from packaging.version import Version
 
 
 VERSIONS_TO_KEEP = 5
@@ -44,7 +45,7 @@ def packages_to_delete(package_name: str, platform: str) -> List[str]:
         env=env,
     )
     pkgs = pd.DataFrame(json.loads(pkgs_json)[package_name])
-    pkgs["version"] = pkgs["version"].map(LooseVersion)
+    pkgs["version"] = pkgs["version"].map(Version)
     pkgs["py_version"] = pkgs["build"].str.slice(0, 4)
 
     to_delete = []
