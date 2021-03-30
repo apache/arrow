@@ -817,4 +817,18 @@ gdv_int64 castBIGINT_daytimeinterval(gdv_day_time_interval in) {
          extractDay_daytimeinterval(in) * MILLIS_IN_DAY;
 }
 
+// Convert milliseconds to date, considering input the quantity of milliseconds after
+// midnight
+#define TO_TIME(TYPE)                            \
+  FORCE_INLINE                                              \
+  gdv_date64 to_time##_##TYPE(gdv_##TYPE millis) { \
+    if (millis > MILLIS_IN_HOUR) {               \
+      millis = millis % MILLIS_IN_HOUR; \
+    }                                            \
+    EpochTimePoint tp(millis);                   \
+    return tp.MillisSinceEpoch();             \
+  }
+
+DATE_TYPES(TO_TIME)
+
 }  // extern "C"
