@@ -526,5 +526,22 @@ Future<std::shared_ptr<Table>> Scanner::ToTableAsync() {
       });
 }
 
+Result<std::shared_ptr<Table>> Scanner::Head(int64_t num_rows) {
+  if (num_rows == 0) {
+    return Table::FromRecordBatches(schema(), {});
+  }
+  ARROW_ASSIGN_OR_RAISE(auto batch_iterator, ScanBatches());
+  RecordBatchVector batches;
+  for (auto maybe_batch : batch_iterator) {
+    ARROW_ASSIGN_OR_RAISE(auto batch, maybe_batch);
+    batches.push_back(batch.record_batch->Slice(0, num_rows));
+    num_rows -= batch.record_batch->num_rows();
+    if (num_rows <= 0) {
+      break;
+    }
+  }
+  return Table::FromRecordBatches(schema(), batches);
+}
+
 }  // namespace dataset
 }  // namespace arrow

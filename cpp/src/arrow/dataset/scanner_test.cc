@@ -396,6 +396,37 @@ TEST_F(TestScanner, ToTable) {
   AssertTablesEqual(*expected, *actual);
 }
 
+TEST_F(TestScanner, Head) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+
+  auto scanner = MakeScanner(batch);
+  std::shared_ptr<Table> expected, actual;
+
+  ASSERT_OK_AND_ASSIGN(expected, Table::FromRecordBatches(scanner.schema(), {}));
+  ASSERT_OK_AND_ASSIGN(actual, scanner.Head(0));
+  AssertTablesEqual(*expected, *actual);
+
+  ASSERT_OK_AND_ASSIGN(expected, Table::FromRecordBatches(scanner.schema(), {batch}));
+  ASSERT_OK_AND_ASSIGN(actual, scanner.Head(kBatchSize));
+  AssertTablesEqual(*expected, *actual);
+
+  ASSERT_OK_AND_ASSIGN(expected,
+                       Table::FromRecordBatches(scanner.schema(), {batch->Slice(0, 1)}));
+  ASSERT_OK_AND_ASSIGN(actual, scanner.Head(1));
+  AssertTablesEqual(*expected, *actual);
+
+  ASSERT_OK_AND_ASSIGN(
+      expected, Table::FromRecordBatches(scanner.schema(), {batch, batch->Slice(0, 1)}));
+  ASSERT_OK_AND_ASSIGN(actual, scanner.Head(kBatchSize + 1));
+  AssertTablesEqual(*expected, *actual);
+
+  ASSERT_OK_AND_ASSIGN(expected, scanner.ToTable());
+  ASSERT_OK_AND_ASSIGN(actual,
+                       scanner.Head(kBatchSize * kNumberBatches * kNumberChildDatasets));
+  AssertTablesEqual(*expected, *actual);
+}
+
 class TestScannerNestedParallelism : public NestedParallelismMixin {};
 
 TEST_F(TestScannerNestedParallelism, Scan) {

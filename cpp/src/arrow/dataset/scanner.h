@@ -242,6 +242,9 @@ class ARROW_DS_EXPORT Scanner {
   /// Scan result in memory before creating the Table.
   Future<std::shared_ptr<Table>> ToTableAsync();
 
+  /// \brief Synchronously load the first N rows of the full table.
+  Result<std::shared_ptr<Table>> Head(int64_t num_rows);
+
   /// \brief GetFragments returns an vector of all Fragments in this scan.
   Future<FragmentVector> GetFragmentsAsync();
   Result<FragmentIterator> GetFragments();
