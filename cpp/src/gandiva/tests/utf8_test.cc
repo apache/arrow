@@ -557,8 +557,8 @@ TEST_F(TestUtf8, TestConvertUtf8) {
 
   auto convert_replace_utf8 =
       TreeExprBuilder::MakeFunction("convert_fromUTF8", {node_a, node_b}, utf8());
-  auto equals = TreeExprBuilder::MakeFunction("equal",
-                                              {convert_replace_utf8, node_c}, boolean());
+  auto equals =
+      TreeExprBuilder::MakeFunction("equal", {convert_replace_utf8, node_c}, boolean());
   auto expr = TreeExprBuilder::MakeExpression(equals, res);
 
   // Build a projector for the expressions.
@@ -567,14 +567,14 @@ TEST_F(TestUtf8, TestConvertUtf8) {
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
-  int num_records = 1;
-  auto array_a = MakeArrowArrayUtf8(
-      {"ok-\xf8\x28""-a", "all-valid", "ok-\xa0\xa1-valid"},
-      {true, true, true});
+  int num_records = 3;
+  auto array_a = MakeArrowArrayUtf8({"ok-\xf8\x28"
+                                     "-a",
+                                     "all-valid", "ok-\xa0\xa1-valid"},
+                                    {true, true, true});
 
   auto array_b =
-      MakeArrowArrayUtf8({"ok-z(-a", "all-valid", "ok-zz-valid"},
-                         {true, true, true});
+      MakeArrowArrayUtf8({"ok-z(-a", "all-valid", "ok-zz-valid"}, {true, true, true});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a, array_b});
@@ -584,8 +584,7 @@ TEST_F(TestUtf8, TestConvertUtf8) {
   status = projector->Evaluate(*in_batch, pool_, &outputs);
   EXPECT_TRUE(status.ok()) << status.message();
 
-  auto exp = MakeArrowArrayBool({true},
-                                 {true});
+  auto exp = MakeArrowArrayBool({true, true, true}, {true, true, true});
   // Validate results
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs[0]);
 }
