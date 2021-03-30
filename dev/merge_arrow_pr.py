@@ -589,8 +589,8 @@ def cli():
     pr.merge()
 
     if pr.jira_issue is None:
-       print("Minor PR.  No JIRA issue to update.\n")
-       return
+        print("Minor PR.  No JIRA issue to update.\n")
+        return
 
     cmd.continue_maybe("Would you like to update the associated JIRA?")
     jira_comment = (
