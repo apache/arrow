@@ -1249,27 +1249,31 @@ const char* convert_fromUTF8_binary(gdv_int64 context, const char* bin_in, gdv_i
 FORCE_INLINE
 const char* convert_replace_invalid_fromUTF8_binary(
     gdv_int64 context, const char* text_in, gdv_int32 text_len,
-    const char* char_to_replace, gdv_int32 /*char_to_replace_len*/, gdv_int32* out_len) {
-  *out_len = text_len;
+    const char* char_to_replace, gdv_int32 char_to_replace_len, gdv_int32* out_len) {
+  *out_len = text_len * char_to_replace_len;
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
     return "";
   }
-  std::string str;
+  gdv_int32 out_byte_counter = 0;
   gdv_int32 char_len;
   // scan the base text from left to right and increment the start pointer till
   // looking for invalid chars to substitute
-  for (int text_index = 0; text_index < text_len; text_index += 1) {
+  for (int text_index = 0; text_index < text_len; text_index += char_len) {
     char_len = utf8_char_length(text_in[text_index]);
     if (char_len == 0 || text_index + char_len > text_len) {
-      str += char_to_replace;
+      memcpy(ret + out_byte_counter, char_to_replace, char_to_replace_len);
+      out_byte_counter += char_to_replace_len;
+      // define char_len = 1 to increase text_index by 1 (as ASCII char fits in 1 byte)
+      char_len = 1;
     } else {
-      str += text_in[text_index];
+      memcpy(ret + out_byte_counter, text_in + text_index, char_len);
+      out_byte_counter += char_len;
     }
   }
-  memcpy(ret, str.c_str(), *out_len);
+  *out_len = out_byte_counter;
   return ret;
 }
 
