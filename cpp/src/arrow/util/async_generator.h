@@ -280,6 +280,155 @@ AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator,
   return MappingGenerator<T, V>(std::move(source_generator), std::move(map));
 }
 
+/// \see MakeSequencingGenerator
+template <typename T, typename ComesAfter, typename IsNext>
+class SequencingGenerator {
+ public:
+  SequencingGenerator(AsyncGenerator<T> source, ComesAfter compare, IsNext is_next,
+                      T initial_value)
+      : state_(std::make_shared<State>(std::move(source), std::move(compare),
+                                       std::move(is_next), std::move(initial_value))) {}
+
+  Future<T> operator()() {
+    {
+      auto guard = state_->mutex.Lock();
+      // We can send a result immediately if the top of the queue is either an
+      // error or the next item
+      if (!state_->queue.empty() &&
+          (!state_->queue.top().ok() ||
+           state_->is_next(state_->previous_value, *state_->queue.top()))) {
+        auto result = std::move(state_->queue.top());
+        if (result.ok()) {
+          state_->previous_value = *result;
+        }
+        state_->queue.pop();
+        return Future<T>::MakeFinished(result);
+      }
+      if (state_->finished) {
+        return AsyncGeneratorEnd<T>();
+      }
+      // The next item is not in the queue so we will need to wait
+      auto new_waiting_fut = Future<T>::Make();
+      state_->waiting_future = new_waiting_fut;
+      guard.Unlock();
+      state_->source().AddCallback(Callback{state_});
+      return new_waiting_fut;
+    }
+  }
+
+ private:
+  struct WrappedComesAfter {
+    bool operator()(const Result<T>& left, const Result<T>& right) {
+      if (!left.ok() || !right.ok()) {
+        // Should never happen
+        return false;
+      }
+      return compare(*left, *right);
+    }
+    ComesAfter compare;
+  };
+
+  struct State {
+    State(AsyncGenerator<T> source, ComesAfter compare, IsNext is_next, T initial_value)
+        : source(std::move(source)),
+          is_next(std::move(is_next)),
+          previous_value(std::move(initial_value)),
+          waiting_future(),
+          queue(WrappedComesAfter{compare}),
+          finished(false),
+          mutex() {}
+
+    AsyncGenerator<T> source;
+    IsNext is_next;
+    T previous_value;
+    Future<T> waiting_future;
+    std::priority_queue<Result<T>, std::vector<Result<T>>, WrappedComesAfter> queue;
+    bool finished;
+    util::Mutex mutex;
+  };
+
+  class Callback {
+   public:
+    explicit Callback(std::shared_ptr<State> state) : state_(std::move(state)) {}
+
+    void operator()(const Result<T> result) {
+      Future<T> to_deliver;
+      bool finished;
+      {
+        auto guard = state_->mutex.Lock();
+        bool ready_to_deliver = false;
+        if (!result.ok()) {
+          // Clear any cached results
+          while (!state_->queue.empty()) {
+            state_->queue.pop();
+          }
+          ready_to_deliver = true;
+          state_->finished = true;
+        } else if (IsIterationEnd<T>(result.ValueUnsafe())) {
+          ready_to_deliver = state_->queue.empty();
+          state_->finished = true;
+        } else {
+          ready_to_deliver = state_->is_next(state_->previous_value, *result);
+        }
+
+        if (ready_to_deliver && state_->waiting_future.is_valid()) {
+          to_deliver = state_->waiting_future;
+          if (result.ok()) {
+            state_->previous_value = *result;
+          }
+        } else {
+          state_->queue.push(result);
+        }
+        // Capture state_->finished so we can access it outside the mutex
+        finished = state_->finished;
+      }
+      // Must deliver result outside of the mutex
+      if (to_deliver.is_valid()) {
+        to_deliver.MarkFinished(result);
+      } else {
+        // Otherwise, if we didn't get the next item (or a terminal item), we
+        // need to keep looking
+        if (!finished) {
+          state_->source().AddCallback(Callback{state_});
+        }
+      }
+    }
+
+   private:
+    const std::shared_ptr<State> state_;
+  };
+
+  const std::shared_ptr<State> state_;
+};
+
+/// \brief Buffers an AsyncGenerator to return values in sequence order  ComesAfter
+/// and IsNext determine the sequence order.
+///
+/// ComesAfter should be a BinaryPredicate that only returns true if a comes after b
+///
+/// IsNext should be a BinaryPredicate that returns true, given `a` and `b`, only if
+/// `b` follows immediately after `a`.  It should return true given `initial_value` and
+/// `b` if `b` is the first item in the sequence.
+///
+/// This operator will queue unboundedly while waiting for the next item.  It is intended
+/// for jittery sources that might scatter an ordered sequence.  It is NOT intended to
+/// sort.  Using it to try and sort could result in excessive RAM usage.  This generator
+/// will queue up to N blocks where N is the max "out of order"ness of the source.
+///
+/// For example, if the source is 1,6,2,5,4,3 it will queue 3 blocks because 3 is 3
+/// blocks beyond where it belongs.
+///
+/// This generator is not async-reentrant but it consists only of a simple log(n)
+/// insertion into a priority queue.
+template <typename T, typename ComesAfter, typename IsNext>
+AsyncGenerator<T> MakeSequencingGenerator(AsyncGenerator<T> source_generator,
+                                          ComesAfter compare, IsNext is_next,
+                                          T initial_value) {
+  return SequencingGenerator<T, ComesAfter, IsNext>(
+      std::move(source_generator), std::move(compare), std::move(is_next),
+      std::move(initial_value));
+}
+
 /// \see MakeTransformedGenerator
 template <typename T, typename V>
 class TransformingGenerator {
