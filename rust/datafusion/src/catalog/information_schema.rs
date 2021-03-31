@@ -309,6 +309,7 @@ impl InformationSchemaColumnsBuilder {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn add_column(
         &mut self,
         catalog_name: impl AsRef<str>,
