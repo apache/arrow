@@ -657,42 +657,20 @@ fn equal_rows(
         .zip(right_arrays)
         .all(|(l, r)| match l.data_type() {
             DataType::Null => true,
-            DataType::Boolean => {
-                equal_rows_elem!(BooleanArray, l, r, left, right)
-            }
-            DataType::Int8 => {
-                equal_rows_elem!(Int8Array, l, r, left, right)
-            }
-            DataType::Int16 => {
-                equal_rows_elem!(Int16Array, l, r, left, right)
-            }
-            DataType::Int32 => {
-                equal_rows_elem!(Int32Array, l, r, left, right)
-            }
-            DataType::Int64 => {
-                equal_rows_elem!(Int64Array, l, r, left, right)
-            }
-            DataType::UInt8 => {
-                equal_rows_elem!(UInt8Array, l, r, left, right)
-            }
-            DataType::UInt16 => {
-                equal_rows_elem!(UInt16Array, l, r, left, right)
-            }
-            DataType::UInt32 => {
-                equal_rows_elem!(UInt32Array, l, r, left, right)
-            }
-            DataType::UInt64 => {
-                equal_rows_elem!(UInt64Array, l, r, left, right)
-            }
+            DataType::Boolean => equal_rows_elem!(BooleanArray, l, r, left, right),
+            DataType::Int8 => equal_rows_elem!(Int8Array, l, r, left, right),
+            DataType::Int16 => equal_rows_elem!(Int16Array, l, r, left, right),
+            DataType::Int32 => equal_rows_elem!(Int32Array, l, r, left, right),
+            DataType::Int64 => equal_rows_elem!(Int64Array, l, r, left, right),
+            DataType::UInt8 => equal_rows_elem!(UInt8Array, l, r, left, right),
+            DataType::UInt16 => equal_rows_elem!(UInt16Array, l, r, left, right),
+            DataType::UInt32 => equal_rows_elem!(UInt32Array, l, r, left, right),
+            DataType::UInt64 => equal_rows_elem!(UInt64Array, l, r, left, right),
             DataType::Timestamp(_, None) => {
                 equal_rows_elem!(Int64Array, l, r, left, right)
             }
-            DataType::Utf8 => {
-                equal_rows_elem!(StringArray, l, r, left, right)
-            }
-            DataType::LargeUtf8 => {
-                equal_rows_elem!(LargeStringArray, l, r, left, right)
-            }
+            DataType::Utf8 => equal_rows_elem!(StringArray, l, r, left, right),
+            DataType::LargeUtf8 => equal_rows_elem!(LargeStringArray, l, r, left, right),
             _ => {
                 // This is internal because we should have caught this before.
                 err = Some(Err(DataFusionError::Internal(
