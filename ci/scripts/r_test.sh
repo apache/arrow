@@ -62,7 +62,7 @@ BEFORE=$(ls -alh ~/)
 
 SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
   if (as_cran) {
-    rcmdcheck::rcmdcheck(args = c('--as-cran', '--run-donttest'), error_on = 'warning', check_dir = 'check')
+    rcmdcheck::rcmdcheck(args = c('--as-cran', '--run-donttest'), error_on = 'warning', check_dir = 'check', timeout = 3600)
   } else {
     if (nzchar(Sys.which('minio'))) {
       message('Running minio for S3 tests (if build supports them)')
