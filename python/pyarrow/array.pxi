@@ -152,6 +152,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     -------
     array : pyarrow.Array or pyarrow.ChunkedArray
         A ChunkedArray instead of an Array is returned if:
+
         - the object data overflowed binary storage.
         - the object's ``__arrow_array__`` protocol method returned a chunked
           array.
