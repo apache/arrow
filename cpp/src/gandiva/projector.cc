@@ -77,7 +77,22 @@ class ProjectorCacheKey {
     return true;
   }
   bool operator<(const ProjectorCacheKey& other) const {
-    return uniqifier_ < other.uniqifier_;
+    if (hash_code_ < other.hash_code_) {
+      return true;
+    }
+
+    if (expressions_as_strings_ < other.expressions_as_strings_) {
+      return true;
+    }
+
+    if (mode_ < other.mode_) {
+      return true;
+    }
+
+    if (uniqifier_ < other.uniqifier_) {
+      return true;
+    }
+    return false;
   }
   bool operator!=(const ProjectorCacheKey& other) const { return !(*this == other); }
 

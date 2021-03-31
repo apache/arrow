@@ -43,6 +43,8 @@ class LowerValueUsedCache : public BaseCache<Key, Value> {
 
   LowerValueUsedCache<Key, Value>() : BaseCache<Key, Value>() {}
 
+  ~LowerValueUsedCache() = default;
+
   size_t size() const override { return map_.size(); }
 
   size_t capacity() const override { return this->cache_capacity_; }

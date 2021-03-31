@@ -45,6 +45,8 @@ class LruCache : public BaseCache<Key, Value> {
 
   LruCache<Key, Value>() : BaseCache<Key, Value>() {}
 
+  ~LruCache() = default;
+
   size_t size() const override { return map_.size(); }
 
   size_t capacity() const override { return this->cache_capacity_; }
