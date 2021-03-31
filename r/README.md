@@ -143,7 +143,13 @@ checkout:
 
 ``` shell
 cd ../../r
-R -e 'install.packages(c("devtools", "roxygen2", "pkgdown", "covr")); devtools::install_dev_deps()'
+
+Rscript -e '
+options(repos = "https://cloud.r-project.org/")
+if (!require("remotes")) install.packages("remotes")
+remotes::install_deps(dependencies = TRUE)
+'
+
 R CMD INSTALL .
 ```
 

@@ -40,9 +40,10 @@ repos:
       - id: cmake-format
         name: CMake Format
         language: python
-        entry: bash -c "pip install cmake-format && python run-cmake-format.py --check"
-        entry: echo
-        files: ^(.*/CMakeLists.txt|.*.cmake)$
+        entry: python run-cmake-format.py
+        types: [cmake]
+        additional_dependencies:
+          - cmake_format==0.5.2
       - id: hadolint
         name: Docker Format
         language: docker_image

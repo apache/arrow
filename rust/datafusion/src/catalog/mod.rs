@@ -19,6 +19,7 @@
 //! of table namespacing concepts, including catalogs and schemas.
 
 pub mod catalog;
+pub mod information_schema;
 pub mod schema;
 
 use crate::error::DataFusionError;

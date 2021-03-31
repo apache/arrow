@@ -51,12 +51,12 @@ fn add_benchmark(c: &mut Criterion) {
         b.iter(|| bench_concat_arrays(&arrays))
     });
 
-    let v1 = create_string_array(1024, 0.0);
-    let v2 = create_string_array(1024, 0.0);
+    let v1 = create_string_array::<i32>(1024, 0.0);
+    let v2 = create_string_array::<i32>(1024, 0.0);
     c.bench_function("concat str 1024", |b| b.iter(|| bench_concat(&v1, &v2)));
 
-    let v1 = create_string_array(1024, 0.5);
-    let v2 = create_string_array(1024, 0.5);
+    let v1 = create_string_array::<i32>(1024, 0.5);
+    let v2 = create_string_array::<i32>(1024, 0.5);
     c.bench_function("concat str nulls 1024", |b| {
         b.iter(|| bench_concat(&v1, &v2))
     });

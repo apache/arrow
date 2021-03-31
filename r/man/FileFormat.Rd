@@ -35,11 +35,20 @@ to reduce memory overhead. Disabled by default.
 \item \code{dict_columns}: Names of columns which should be read as dictionaries.
 }
 
-\code{format = "text"}: see \link{CsvReadOptions}. Note that you can specify them either
+\code{format = "text"}: see \link{CsvParseOptions}. Note that you can specify them either
 with the Arrow C++ library naming ("delimiter", "quoting", etc.) or the
 \code{readr}-style naming used in \code{\link[=read_csv_arrow]{read_csv_arrow()}} ("delim", "quote", etc.).
 Not all \code{readr} options are currently supported; please file an issue if
-you encounter one that \code{arrow} should support.
+you encounter one that \code{arrow} should support. Also, the following options are
+supported. From \link{CsvReadOptions}:
+\itemize{
+\item \code{skip_rows}
+\item \code{column_names}
+\item \code{autogenerate_column_names}
+From \link{CsvFragmentScanOptions} (these values can be overridden at scan time):
+\item \code{convert_options}: a \link{CsvConvertOptions}
+\item \code{block_size}
+}
 }
 
 It returns the appropriate subclass of \code{FileFormat} (e.g. \code{ParquetFileFormat})

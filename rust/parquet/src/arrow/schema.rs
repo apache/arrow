@@ -942,11 +942,14 @@ mod tests {
             REQUIRED BOOLEAN boolean;
             REQUIRED INT32   int8  (INT_8);
             REQUIRED INT32   int16 (INT_16);
+            REQUIRED INT32   uint8 (INTEGER(8,false));
+            REQUIRED INT32   uint16 (INTEGER(16,false));
             REQUIRED INT32   int32;
             REQUIRED INT64   int64 ;
             OPTIONAL DOUBLE  double;
             OPTIONAL FLOAT   float;
             OPTIONAL BINARY  string (UTF8);
+            OPTIONAL BINARY  string_2 (STRING);
         }
         ";
         let parquet_group_type = parse_message_type(message_type).unwrap();
@@ -959,11 +962,14 @@ mod tests {
             Field::new("boolean", DataType::Boolean, false),
             Field::new("int8", DataType::Int8, false),
             Field::new("int16", DataType::Int16, false),
+            Field::new("uint8", DataType::UInt8, false),
+            Field::new("uint16", DataType::UInt16, false),
             Field::new("int32", DataType::Int32, false),
             Field::new("int64", DataType::Int64, false),
             Field::new("double", DataType::Float64, true),
             Field::new("float", DataType::Float32, true),
             Field::new("string", DataType::Utf8, true),
+            Field::new("string_2", DataType::Utf8, true),
         ];
 
         assert_eq!(&arrow_fields, converted_arrow_schema.fields());
@@ -1508,9 +1514,11 @@ mod tests {
         message test_schema {
             REQUIRED BOOLEAN boolean;
             REQUIRED INT32   int8  (INT_8);
+            REQUIRED INT32   uint8 (INTEGER(8,false));
             REQUIRED INT32   int16 (INT_16);
+            REQUIRED INT32   uint16 (INTEGER(16,false));
             REQUIRED INT32   int32;
-            REQUIRED INT64   int64 ;
+            REQUIRED INT64   int64;
             OPTIONAL DOUBLE  double;
             OPTIONAL FLOAT   float;
             OPTIONAL BINARY  string (UTF8);
@@ -1518,8 +1526,10 @@ mod tests {
             OPTIONAL INT32   date       (DATE);
             OPTIONAL INT32   time_milli (TIME_MILLIS);
             OPTIONAL INT64   time_micro (TIME_MICROS);
+            OPTIONAL INT64   time_nano (TIME(NANOS,false));
             OPTIONAL INT64   ts_milli (TIMESTAMP_MILLIS);
             REQUIRED INT64   ts_micro (TIMESTAMP_MICROS);
+            REQUIRED INT64   ts_nano (TIMESTAMP(NANOS,true));
         }
         ";
         let parquet_group_type = parse_message_type(message_type).unwrap();
@@ -1534,7 +1544,9 @@ mod tests {
         let arrow_fields = vec![
             Field::new("boolean", DataType::Boolean, false),
             Field::new("int8", DataType::Int8, false),
+            Field::new("uint8", DataType::UInt8, false),
             Field::new("int16", DataType::Int16, false),
+            Field::new("uint16", DataType::UInt16, false),
             Field::new("int32", DataType::Int32, false),
             Field::new("int64", DataType::Int64, false),
             Field::new("double", DataType::Float64, true),
@@ -1548,6 +1560,7 @@ mod tests {
             Field::new("date", DataType::Date32, true),
             Field::new("time_milli", DataType::Time32(TimeUnit::Millisecond), true),
             Field::new("time_micro", DataType::Time64(TimeUnit::Microsecond), true),
+            Field::new("time_nano", DataType::Time64(TimeUnit::Nanosecond), true),
             Field::new(
                 "ts_milli",
                 DataType::Timestamp(TimeUnit::Millisecond, None),
@@ -1558,24 +1571,28 @@ mod tests {
                 DataType::Timestamp(TimeUnit::Microsecond, None),
                 false,
             ),
+            Field::new(
+                "ts_nano",
+                DataType::Timestamp(TimeUnit::Nanosecond, Some("UTC".to_string())),
+                false,
+            ),
         ];
 
         assert_eq!(arrow_fields, converted_arrow_fields);
     }
 
     #[test]
-    #[ignore = "To be addressed as part of ARROW-11365"]
     fn test_field_to_column_desc() {
         let message_type = "
         message arrow_schema {
             REQUIRED BOOLEAN boolean;
             REQUIRED INT32   int8  (INT_8);
-            REQUIRED INT32   int16 (INT_16);
+            REQUIRED INT32   int16 (INTEGER(16,true));
             REQUIRED INT32   int32;
             REQUIRED INT64   int64;
             OPTIONAL DOUBLE  double;
             OPTIONAL FLOAT   float;
-            OPTIONAL BINARY  string (UTF8);
+            OPTIONAL BINARY  string (STRING);
             OPTIONAL GROUP   bools (LIST) {
                 REPEATED GROUP list {
                     OPTIONAL BOOLEAN element;
@@ -1587,20 +1604,20 @@ mod tests {
                 }
             }
             OPTIONAL INT32   date       (DATE);
-            OPTIONAL INT32   time_milli (TIME_MILLIS);
+            OPTIONAL INT32   time_milli (TIME(MILLIS,false));
             OPTIONAL INT64   time_micro (TIME_MICROS);
             OPTIONAL INT64   ts_milli (TIMESTAMP_MILLIS);
-            REQUIRED INT64   ts_micro (TIMESTAMP_MICROS);
+            REQUIRED INT64   ts_micro (TIMESTAMP(MICROS,false));
             REQUIRED GROUP struct {
                 REQUIRED BOOLEAN bools;
-                REQUIRED INT32 uint32 (UINT_32);
+                REQUIRED INT32 uint32 (INTEGER(32,false));
                 REQUIRED GROUP   int32 (LIST) {
                     REPEATED GROUP list {
                         OPTIONAL INT32 element;
                     }
                 }
             }
-            REQUIRED BINARY  dictionary_strings (UTF8);
+            REQUIRED BINARY  dictionary_strings (STRING);
         }
         ";
         let parquet_group_type = parse_message_type(message_type).unwrap();
@@ -1674,8 +1691,20 @@ mod tests {
             .iter()
             .zip(converted_arrow_schema.columns())
             .for_each(|(a, b)| {
-                // TODO: ARROW-11365: If parsing v1 format, there should be no logical type
-                assert_eq!(a, b);
+                // Only check logical type if it's set on the Parquet side.
+                // This is because the Arrow conversion always sets logical type,
+                // even if there wasn't originally one.
+                // This is not an issue, but is an inconvenience for this test.
+                match a.logical_type() {
+                    Some(_) => {
+                        assert_eq!(a, b)
+                    }
+                    None => {
+                        assert_eq!(a.name(), b.name());
+                        assert_eq!(a.physical_type(), b.physical_type());
+                        assert_eq!(a.converted_type(), b.converted_type());
+                    }
+                };
             });
     }
 
@@ -1694,7 +1723,7 @@ mod tests {
     fn test_metadata() {
         let message_type = "
         message test_schema {
-            OPTIONAL BINARY  string (UTF8);
+            OPTIONAL BINARY  string (STRING);
         }
         ";
         let parquet_group_type = parse_message_type(message_type).unwrap();

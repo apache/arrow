@@ -620,8 +620,12 @@ endif()
 # ----------------------------------------------------------------------
 # ExternalProject options
 
-set(EP_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}}")
-set(EP_C_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}}")
+set(
+  EP_CXX_FLAGS
+  "${CMAKE_CXX_COMPILER_ARG1} ${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}}"
+  )
+set(EP_C_FLAGS
+    "${CMAKE_C_COMPILER_ARG1} ${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}}")
 
 if(NOT MSVC_TOOLCHAIN)
   # Set -fPIC on all external projects
@@ -1935,7 +1939,7 @@ macro(build_xsimd)
 endmacro()
 
 # For now xsimd is always bundled from upstream
-if(1)
+if(NOT ARROW_SIMD_LEVEL STREQUAL "NONE")
   set(xsimd_SOURCE "BUNDLED")
   resolve_dependency(xsimd)
   # TODO: Don't use global includes but rather target_include_directories
