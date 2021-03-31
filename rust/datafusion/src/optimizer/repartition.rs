@@ -18,6 +18,8 @@
 //! Repartition optimizer that introduces repartition nodes to increase the level of parallism available
 use std::sync::Arc;
 
+use log::debug;
+
 use crate::physical_plan::{repartition::RepartitionExec, ExecutionPlan};
 use crate::{error::Result, execution::context::ExecutionConfig};
 
@@ -53,10 +55,8 @@ fn optimize_concurrency(
         .collect::<Result<_>>()?;
 
     let new_plan = plan.with_new_children(children)?;
-
-    let partitioning = plan.output_partitioning();
-
-    let perform_repartition = match partitioning {
+    
+    let perform_repartition = match plan.output_partitioning() {
         // Apply when underlying node has less than `self.concurrency` amount of concurrency
         RoundRobinBatch(x) => x < concurrency,
         UnknownPartitioning(x) => x < concurrency,
@@ -64,8 +64,9 @@ fn optimize_concurrency(
         // as the plan will likely depend on this
         Hash(_, _) => false,
     };
-
+    
     if perform_repartition && !requires_single_partition {
+        debug!("Added RepartitionExec in optimizer with concurrency {}", concurrency);
         Ok(Arc::new(RepartitionExec::try_new(
             new_plan,
             RoundRobinBatch(concurrency),
