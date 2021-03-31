@@ -37,9 +37,7 @@ class LowerValueUsedCache : public BaseCache<Key, Value> {
       return i.Hash();
     }
   };
-  using map_type = std::unordered_map<
-      Key, std::pair<Value, typename std::set<std::pair<uint64_t, Key>>::iterator>,
-      hasher>;
+  using map_type = std::unordered_map<Key, Value, hasher>;
 
   explicit LowerValueUsedCache(size_t capacity) : BaseCache<Key, Value>(capacity) {}
 
@@ -68,7 +66,7 @@ class LowerValueUsedCache : public BaseCache<Key, Value> {
 
       // insert the new item
       lvu_set_.insert(std::make_pair(value_to_order, key));
-      map_[key] = std::make_pair(value, lvu_set_.begin());
+      map_[key] = value;
     }
   }
 
@@ -79,7 +77,7 @@ class LowerValueUsedCache : public BaseCache<Key, Value> {
       // value not in cache
       return arrow::util::nullopt;
     }
-    return value_for_key->second.first;
+    return value_for_key->second;
   }
 
   void clear() override {
