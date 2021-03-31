@@ -55,27 +55,25 @@
 #' `NULL`) when using Hive-style partitioning. See [hive_partition()].
 #' @return The input `dataset`, invisibly
 #' @examples
-#' # We can write datasets partitioned by the values in a column (here: "cyl").
+#' # We start by creating temporary directories.
 #' one_part_dir <- tempfile()
+#' two_part_dir <- tempfile()
+#' 
+#' # We can write datasets partitioned by the values in a column (here: "cyl").
+#' # This creates a structure of the form cyl=X/part-Z.parquet.
 #' write_dataset(mtcars, one_part_dir, partitioning = "cyl")
 #'
 #' # We can also partition by the values in multiple columns.
-#' two_part_dir <- tempfile()
+#' # This creates a structure of the form cyl=X/gear=Y/part-Z.parquet.
 #' write_dataset(mtcars, two_part_dir, partitioning = c("cyl", "gear"))
 #'
-#' # We can explore the directories we wrote to in order to demonstrate
-#' # what partitioning does. With one column partitioning in our case we expect
-#' # to see the structure cyl=X/part-Z.parquet, with:
+#' # In the two previous examples we would have:
 #' # X = \{4,6,8\}, the number of cylinders.
+#' # Y = \{3,4,5\}, the number of forward gears.
 #' # Z = \{0,1,2\}, the number of saved fragments, starting from 0.
-#'
+#' 
+#' # And we can check what we just saved.
 #' list.files(one_part_dir, recursive = TRUE)
-#'
-#' # With two or columns, is the same logic, and in our case we expect to see
-#' # the structure cyl=X/gear=Y/part-Z.parquet, with Y = \{3,4,5\}, the number
-#' # of forward gears. This is because we are dividing the original dataset by
-#' # using two variables.
-#'
 #' list.files(two_part_dir, recursive = TRUE)
 #'
 #' # We can do the same as the previous call with two variables combining both
@@ -86,18 +84,17 @@
 #' if(requireNamespace("dplyr", quietly = TRUE)) {
 #'  d <- mtcars %>% group_by(cyl, gear)
 #'
+#'  # Write a structure X/Y/part-Z.parquet.
 #'  two_part_dir_2 <- tempfile()
 #'  d %>% write_dataset(two_part_dir_2)
-#'
-#'  # Here we expect a structure cyl=X/gear=Y/part-Z.parquet.
 #'  list.files(two_part_dir_2, recursive = TRUE)
 #'
 #'  # We can also turn off the Hive-style directory naming where the column name
 #'  # is included with the value for each directory with `hive_style = FALSE`.
+#'
+#'  # Write a structure X/Y/part-Z.parquet.
 #'  two_part_dir_3 <- tempfile()
 #'  d %>% write_dataset(two_part_dir_3, hive_style = FALSE)
-#'
-#'  # But here we expect a structure X/Y/part-Z.parquet.
 #'  list.files(two_part_dir_3, recursive = TRUE)
 #' }
 #' @export
