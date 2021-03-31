@@ -38,8 +38,9 @@ namespace compute {
 /// @{
 
 struct ArithmeticOptions : public FunctionOptions {
-  ArithmeticOptions() : check_overflow(false) {}
+  ArithmeticOptions() : check_overflow(false), remove_nulls(false) {}
   bool check_overflow;
+  bool remove_nulls;
 };
 
 struct ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
@@ -206,17 +207,18 @@ Result<Datum> Divide(const Datum& left, const Datum& right,
 
 /// \brief Compute the value of base value to the power of the exponent value.
 /// Array values must be the same length. If either argument is null the result will be
-/// null. For integer types, if there is a zero base value, an error will be raised.
+/// null. For integer types, if there is a zero base value with negative value, a divide
+/// by zero error will be raised.
 ///
 /// \param[in] left the base
 /// \param[in] right the exponent
-/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] options arithmetic options (enable/disable overflow checking and null removal), optional
 /// \param[in] ctx the function execution context, optional
-/// \return the elementwise quotient
+/// \return the elementwise base value raised to the power of exponent
 ARROW_EXPORT
-Result<Datum> Exponentiate(const Datum& left, const Datum& right,
-                           ArithmeticOptions options = ArithmeticOptions(),
-                           ExecContext* ctx = NULLPTR);
+Result<Datum> Power(const Datum& left, const Datum& right,
+                    ArithmeticOptions options = ArithmeticOptions(),
+                    ExecContext* ctx = NULLPTR);
 
 /// \brief Compare a numeric array with a scalar.
 ///

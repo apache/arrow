@@ -15,16 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
+
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/macros.h"
-#include "math.h"
 
 namespace arrow {
 
 using internal::AddWithOverflow;
 using internal::DivideWithOverflow;
-// using internal::ExponentiateWithOverflow;
 using internal::MultiplyWithOverflow;
 using internal::SubtractWithOverflow;
 
@@ -235,13 +235,64 @@ struct DivideChecked {
   }
 };
 
-struct Exponentiate {
+struct Power {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
-    if (left == 0 && (-INFINITY < right && right < 0)) {
-      ctx->SetStatus(Status::Invalid("divide by zero"));
+  static enable_if_signed_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+    Arg0 result = 1;
+    if (left == 0) {
+      if (right < 0) {
+        ARROW_PREDICT_FALSE(MultiplyWithOverflow(2, std::numeric_limits<Arg0>::max(), &result));
+        ctx->SetStatus(Status::Invalid("divide by zero"));
+        return result;
+      } else if (right == 0) {
+        return 1;
+      }
+      return 0;
+    } else if (right == INFINITY && abs(left) > 1) {
+      ARROW_PREDICT_FALSE(MultiplyWithOverflow(2, std::numeric_limits<Arg0>::max(), &result));
+      return result;
+    } else if (right == -INFINITY && abs(left) > 1) {
+      return 0;
     }
-    return pow(left, right);
+
+    if (right > 0) {
+      for (Arg1 i = 0; i < right; i++) {
+        if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(result, left, &result))) {
+          ctx->SetStatus(Status::Invalid("overflow"));
+        }
+      }
+    } else {
+      for (Arg1 i = 0; i < -right; i++) {
+        if (ARROW_PREDICT_FALSE(DivideWithOverflow(result, left, &result))) {
+          ctx->SetStatus(Status::Invalid("overflow"));
+        }
+      }
+    }
+    return result;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_unsigned_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+    Arg0 result = 1;
+    if (left == 0) {
+      if (right == 0) {
+        return 1;
+      }
+      return 0;
+    } else if (right == INFINITY && left > 1) {
+      ARROW_PREDICT_FALSE(MultiplyWithOverflow(2, std::numeric_limits<Arg0>::max(), &result));
+      ctx->SetStatus(Status::Invalid("overflow"));
+      return result;
+    }
+
+    if (right > 0) {
+      for (Arg1 i = 0; i < right; i++) {
+        if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(result, left, &result))) {
+          ctx->SetStatus(Status::Invalid("overflow"));
+        }
+      }
+    }
+    return result;
   }
 
   template <typename T, typename Arg0, typename Arg1>
@@ -250,14 +301,204 @@ struct Exponentiate {
   }
 };
 
-struct ExponentiateChecked {
+struct PowerChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+  static enable_if_signed_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    Arg0 result = 1;
+    if (left == 0) {
+      if (right < 0) {
+        ARROW_PREDICT_FALSE(MultiplyWithOverflow(2, std::numeric_limits<Arg0>::max(), &result));
+        ctx->SetStatus(Status::Invalid("divide by zero"));
+        return result;
+      } else if (right == 0) {
+        return 1;
+      }
+      return 0;
+    } else if (right == INFINITY && abs(left) > 1) {
+      ARROW_PREDICT_FALSE(MultiplyWithOverflow(2, std::numeric_limits<Arg0>::max(), &result));
+      return result;
+    } else if (right == -INFINITY && abs(left) > 1) {
+      return 0;
+    }
+
+    if (right > 0) {
+      for (Arg1 i = 0; i < right; i++) {
+        if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(result, left, &result))) {
+          ctx->SetStatus(Status::Invalid("overflow"));
+        }
+      }
+    } else {
+      for (Arg1 i = 0; i < -right; i++) {
+        if (ARROW_PREDICT_FALSE(DivideWithOverflow(result, left, &result))) {
+          ctx->SetStatus(Status::Invalid("overflow"));
+        }
+      }
+    }
+    return result;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_unsigned_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    Arg0 result = 1;
+    if (left == 0) {
+      if (right == 0) {
+        return 1;
+      }
+      return 0;
+    } else if (right == INFINITY && left > 1) {
+      ARROW_PREDICT_FALSE(MultiplyWithOverflow(2, std::numeric_limits<Arg0>::max(), &result));
+      ctx->SetStatus(Status::Invalid("overflow"));
+      return result;
+    }
+
+    if (right > 0) {
+      for (Arg1 i = 0; i < right; i++) {
+        if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(result, left, &result))) {
+          ctx->SetStatus(Status::Invalid("overflow"));
+        }
+      }
+    }
+    return result;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_point<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     if (left == 0 && (-INFINITY < right && right < 0)) {
       ctx->SetStatus(Status::Invalid("divide by zero"));
     }
     return pow(left, right);
+  }
+};
+
+struct PowerRemoveNulls {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_signed_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+    Arg0 result = 1;
+    if (left == 0) {
+      if (right < 0) {
+        ARROW_PREDICT_FALSE(MultiplyWithOverflow(2, std::numeric_limits<Arg0>::max(), &result));
+        ctx->SetStatus(Status::Invalid("divide by zero"));
+        return result;
+      } else if (right == 0) {
+        return 1;
+      }
+      return 0;
+    } else if (right == INFINITY && abs(left) > 1) {
+      ARROW_PREDICT_FALSE(MultiplyWithOverflow(2, std::numeric_limits<Arg0>::max(), &result));
+      return result;
+    } else if (right == -INFINITY && abs(left) > 1) {
+      return 0;
+    }
+
+    if (right > 0) {
+      for (Arg1 i = 0; i < right; i++) {
+        if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(result, left, &result))) {
+          ctx->SetStatus(Status::Invalid("overflow"));
+        }
+      }
+    } else {
+      for (Arg1 i = 0; i < -right; i++) {
+        if (ARROW_PREDICT_FALSE(DivideWithOverflow(result, left, &result))) {
+          ctx->SetStatus(Status::Invalid("overflow"));
+        }
+      }
+    }
+    return result;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_unsigned_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+    Arg0 result = 1;
+    if (left == 0) {
+      if (right == 0) {
+        return 1;
+      }
+      return 0;
+    } else if (right == INFINITY && left > 1) {
+      ARROW_PREDICT_FALSE(MultiplyWithOverflow(2, std::numeric_limits<Arg0>::max(), &result));
+      ctx->SetStatus(Status::Invalid("overflow"));
+      return result;
+    }
+
+    if (right > 0) {
+      for (Arg1 i = 0; i < right; i++) {
+        if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(result, left, &result))) {
+          ctx->SetStatus(Status::Invalid("overflow"));
+        }
+      }
+    }
+    return result;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_point<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+    return pow(left, right);
+  }
+};
+
+struct PowerCheckedRemoveNulls {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_signed_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    Arg0 result = 1;
+    if (left == 0) {
+      if (right < 0) {
+        ARROW_PREDICT_FALSE(MultiplyWithOverflow(2, std::numeric_limits<Arg0>::max(), &result));
+        ctx->SetStatus(Status::Invalid("divide by zero"));
+        return result;
+      } else if (right == 0) {
+        return 1;
+      }
+      return 0;
+    } else if (right == INFINITY && abs(left) > 1) {
+      ARROW_PREDICT_FALSE(MultiplyWithOverflow(2, std::numeric_limits<Arg0>::max(), &result));
+      return result;
+    } else if (right == -INFINITY && abs(left) > 1) {
+      return 0;
+    }
+
+    if (right > 0) {
+      for (Arg1 i = 0; i < right; i++) {
+        if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(result, left, &result))) {
+          ctx->SetStatus(Status::Invalid("overflow"));
+        }
+      }
+    } else {
+      for (Arg1 i = 0; i < -right; i++) {
+        if (ARROW_PREDICT_FALSE(DivideWithOverflow(result, left, &result))) {
+          ctx->SetStatus(Status::Invalid("overflow"));
+        }
+      }
+    }
+    return result;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_unsigned_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    Arg0 result = 1;
+    if (left == 0) {
+      if (right == 0) {
+        return 1;
+      }
+      return 0;
+    } else if (right == INFINITY && left > 1) {
+      ARROW_PREDICT_FALSE(MultiplyWithOverflow(2, std::numeric_limits<Arg0>::max(), &result));
+      ctx->SetStatus(Status::Invalid("overflow"));
+      return result;
+    }
+
+    if (right > 0) {
+      for (Arg1 i = 0; i < right; i++) {
+        if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(result, left, &result))) {
+          ctx->SetStatus(Status::Invalid("overflow"));
+        }
+      }
+    }
+    return result;
   }
 
   template <typename T, typename Arg0, typename Arg1>
@@ -396,7 +637,7 @@ const FunctionDoc div_checked_doc{
      "integer overflow is encountered."),
     {"dividend", "divisor"}};
 
-const FunctionDoc exp_doc{
+const FunctionDoc pow_doc{
     "Exponentiate the arguments element-wise",
     ("Integer division by zero returns an error. However, integer overflow\n"
      "wraps around, and floating-point division by zero returns an infinite.\n"
@@ -404,7 +645,21 @@ const FunctionDoc exp_doc{
      "in all the aforementioned cases."),
     {"base", "power"}};
 
-const FunctionDoc exp_checked_doc{
+const FunctionDoc pow_checked_doc{
+    "Exponentiate the arguments element-wise",
+    ("An error is returned when trying to divide by zero, or when\n"
+     "integer overflow is encountered."),
+    {"base", "power"}};
+
+const FunctionDoc pow_remove_nulls_doc{
+    "Exponentiate the arguments element-wise",
+    ("Integer division by zero returns an error. However, integer overflow\n"
+     "wraps around, and floating-point division by zero returns an infinite.\n"
+     "Use function \"divide_checked\" if you want to get an error\n"
+     "in all the aforementioned cases."),
+    {"base", "power"}};
+
+const FunctionDoc pow_checked_remove_nulls_doc{
     "Exponentiate the arguments element-wise",
     ("An error is returned when trying to divide by zero, or when\n"
      "integer overflow is encountered."),
@@ -460,14 +715,23 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
 
   // ----------------------------------------------------------------------
-  auto exponentiate =
-      MakeArithmeticFunctionNotNull<Exponentiate>("exponentiate", &exp_doc);
-  DCHECK_OK(registry->AddFunction(std::move(exponentiate)));
+  auto power =
+      MakeArithmeticFunctionNotNull<Power>("power", &pow_doc);
+  DCHECK_OK(registry->AddFunction(std::move(power)));
 
   // ----------------------------------------------------------------------
-  auto exponentiate_checked = MakeArithmeticFunctionNotNull<ExponentiateChecked>(
-      "exponentiate_checked", &exp_checked_doc);
-  DCHECK_OK(registry->AddFunction(std::move(exponentiate_checked)));
+  auto power_checked = MakeArithmeticFunctionNotNull<PowerChecked>("power_checked", &pow_checked_doc);
+  DCHECK_OK(registry->AddFunction(std::move(power_checked)));
+
+  // ----------------------------------------------------------------------
+  auto power_remove_nulls =
+      MakeArithmeticFunctionNotNull<PowerRemoveNulls>("power_remove_nulls", &pow_remove_nulls_doc);
+  DCHECK_OK(registry->AddFunction(std::move(power_remove_nulls)));
+
+  // ----------------------------------------------------------------------
+  auto power_checked_remove_nulls = MakeArithmeticFunctionNotNull<PowerCheckedRemoveNulls>(
+      "power_checked_remove_nulls", &pow_checked_remove_nulls_doc);
+  DCHECK_OK(registry->AddFunction(std::move(power_checked_remove_nulls)));
 }
 
 }  // namespace internal
