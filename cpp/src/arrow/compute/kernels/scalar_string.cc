@@ -368,80 +368,72 @@ void StringBoolTransform(KernelContext* ctx, const ExecBatch& batch,
   }
 }
 
-template <typename offset_type>
-void TransformMatchSubstring(const uint8_t* pattern, int64_t pattern_length,
-                             const offset_type* offsets, const uint8_t* data,
-                             int64_t length, int64_t output_offset, uint8_t* output) {
-  // This is an implementation of the Knuth-Morris-Pratt algorithm
-
-  // Phase 1: Build the prefix table
-  std::vector<offset_type> prefix_table(pattern_length + 1);
-  offset_type prefix_length = -1;
-  prefix_table[0] = -1;
-  for (offset_type pos = 0; pos < pattern_length; ++pos) {
-    // The prefix cannot be expanded, reset.
-    while (prefix_length >= 0 && pattern[pos] != pattern[prefix_length]) {
-      prefix_length = prefix_table[prefix_length];
-    }
-    prefix_length++;
-    prefix_table[pos + 1] = prefix_length;
-  }
-
-  // Phase 2: Find the prefix in the data
-  FirstTimeBitmapWriter bitmap_writer(output, output_offset, length);
-  for (int64_t i = 0; i < length; ++i) {
-    const uint8_t* current_data = data + offsets[i];
-    int64_t current_length = offsets[i + 1] - offsets[i];
-
-    int64_t pattern_pos = 0;
-    for (int64_t k = 0; k < current_length; k++) {
-      while ((pattern_pos >= 0) && (pattern[pattern_pos] != current_data[k])) {
-        pattern_pos = prefix_table[pattern_pos];
-      }
-      pattern_pos++;
-      if (pattern_pos == pattern_length) {
-        bitmap_writer.Set();
-        break;
-      }
-    }
-    bitmap_writer.Next();
-  }
-  bitmap_writer.Finish();
-}
-
 using MatchSubstringState = OptionsWrapper<MatchSubstringOptions>;
 
-template <typename Type, template <typename offset_type> class Matcher>
+template <typename Type, typename Matcher>
 struct MatchSubstring {
   using offset_type = typename Type::offset_type;
   static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // TODO Cache matcher across invocations (for regex compilation)
-    Matcher<offset_type> matcher(ctx, MatchSubstringState::Get(ctx));
+    Matcher matcher(ctx, MatchSubstringState::Get(ctx));
     if (ctx->HasError()) return;
     StringBoolTransform<Type>(
         ctx, batch,
-        [&matcher](const void* offsets, const uint8_t* data, int64_t length,
+        [&matcher](const void* raw_offsets, const uint8_t* data, int64_t length,
                    int64_t output_offset, uint8_t* output) {
-          matcher.Match(reinterpret_cast<const offset_type*>(offsets), data, length,
-                        output_offset, output);
+          const offset_type* offsets = reinterpret_cast<const offset_type*>(raw_offsets);
+          FirstTimeBitmapWriter bitmap_writer(output, output_offset, length);
+          for (int64_t i = 0; i < length; ++i) {
+            const char* current_data = reinterpret_cast<const char*>(data + offsets[i]);
+            int64_t current_length = offsets[i + 1] - offsets[i];
+            if (matcher.Match(util::string_view(current_data, current_length))) {
+              bitmap_writer.Set();
+            }
+            bitmap_writer.Next();
+          }
+          bitmap_writer.Finish();
         },
         out);
   }
 };
 
-template <typename offset_type>
+// This is an implementation of the Knuth-Morris-Pratt algorithm
 struct PlainSubstringMatcher {
   const MatchSubstringOptions& options_;
+  std::vector<int64_t> prefix_table;
 
   PlainSubstringMatcher(KernelContext* ctx, const MatchSubstringOptions& options)
-      : options_(options) {}
+      : options_(options) {
+    // Phase 1: Build the prefix table
+    const auto pattern_length = options_.pattern.size();
+    prefix_table.reserve(pattern_length + 1);
+    int64_t prefix_length = -1;
+    prefix_table[0] = -1;
+    for (size_t pos = 0; pos < pattern_length; ++pos) {
+      // The prefix cannot be expanded, reset.
+      while (prefix_length >= 0 &&
+             options_.pattern[pos] != options_.pattern[prefix_length]) {
+        prefix_length = prefix_table[prefix_length];
+      }
+      prefix_length++;
+      prefix_table[pos + 1] = prefix_length;
+    }
+  }
 
-  void Match(const offset_type* offsets, const uint8_t* data, int64_t length,
-             int64_t output_offset, uint8_t* output) {
-    const uint8_t* pat = reinterpret_cast<const uint8_t*>(options_.pattern.c_str());
-    const int64_t pat_size = options_.pattern.length();
-    TransformMatchSubstring<offset_type>(pat, pat_size, offsets, data, length,
-                                         output_offset, output);
+  bool Match(util::string_view current) {
+    // Phase 2: Find the prefix in the data
+    const auto pattern_length = options_.pattern.size();
+    int64_t pattern_pos = 0;
+    for (const auto c : current) {
+      while ((pattern_pos >= 0) && (options_.pattern[pattern_pos] != c)) {
+        pattern_pos = prefix_table[pattern_pos];
+      }
+      pattern_pos++;
+      if (static_cast<size_t>(pattern_pos) == pattern_length) {
+        return true;
+      }
+    }
+    return false;
   }
 };
 
@@ -452,7 +444,6 @@ const FunctionDoc match_substring_doc(
     {"strings"}, "MatchSubstringOptions");
 
 #ifdef ARROW_WITH_RE2
-template <typename offset_type>
 struct RegexSubstringMatcher {
   const MatchSubstringOptions& options_;
   const RE2 regex_match_;
@@ -464,19 +455,9 @@ struct RegexSubstringMatcher {
     }
   }
 
-  void Match(const offset_type* offsets, const uint8_t* data, int64_t length,
-             int64_t output_offset, uint8_t* output) {
-    FirstTimeBitmapWriter bitmap_writer(output, output_offset, length);
-    for (int64_t i = 0; i < length; ++i) {
-      const char* current_data = reinterpret_cast<const char*>(data + offsets[i]);
-      int64_t current_length = offsets[i + 1] - offsets[i];
-      auto piece = re2::StringPiece(current_data, current_length);
-      if (re2::RE2::PartialMatch(piece, regex_match_)) {
-        bitmap_writer.Set();
-      }
-      bitmap_writer.Next();
-    }
-    bitmap_writer.Finish();
+  bool Match(util::string_view current) {
+    auto piece = re2::StringPiece(current.data(), current.length());
+    return re2::RE2::PartialMatch(piece, regex_match_);
   }
 };
 
