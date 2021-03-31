@@ -2516,6 +2516,14 @@ async fn test_in_list_scalar() -> Result<()> {
     test_expression!("'2' IN ('a','b',NULL,1)", "NULL");
     test_expression!("'1' NOT IN ('a','b',NULL,1)", "false");
     test_expression!("'2' NOT IN ('a','b',NULL,1)", "NULL");
+    test_expression!("regexp_match('foobarbequebaz', '')", "[]");
+    test_expression!("regexp_match('foobarbequebaz', '(bar)(beque)')", "[bar, beque]");
+    test_expression!("regexp_match('foobarbequebaz', '(ba3r)(bequ34e)')", "NULL");
+    test_expression!("regexp_match('aaa-0', '.*-(\\d)')", "[0]");
+    test_expression!("regexp_match('bb-1', '.*-(\\d)')", "[1]");
+    test_expression!("regexp_match('aa', '.*-(\\d)')", "NULL");
+    test_expression!("regexp_match(NULL, '.*-(\\d)')", "NULL");
+    test_expression!("regexp_match('aaa-0', NULL)", "NULL");
     Ok(())
 }
 
@@ -2605,26 +2613,5 @@ async fn invalid_qualified_table_references() -> Result<()> {
         let sql = format!("SELECT COUNT(*) FROM {}", table_ref);
         assert!(matches!(ctx.sql(&sql), Err(DataFusionError::Plan(_))));
     }
-    Ok(())
-}
-
-#[tokio::test]
-#[cfg(feature = "regex_expressions")]
-async fn query_regexp_match() -> Result<()> {
-    let schema = Arc::new(Schema::new(vec![Field::new("c1", DataType::Utf8, false)]));
-
-    let data = RecordBatch::try_new(
-        schema.clone(),
-        vec![Arc::new(StringArray::from(vec!["aaa-0", "bb-1", "aa"]))],
-    )?;
-
-    let table = MemTable::try_new(schema, vec![vec![data]])?;
-
-    let mut ctx = ExecutionContext::new();
-    ctx.register_table("test", Arc::new(table))?;
-    let sql = r"SELECT regexp_match(c1, '.*-(\d)') FROM test";
-    let actual = execute(&mut ctx, sql).await;
-    let expected = vec![vec!["[0]"], vec!["[1]"], vec!["NULL"]];
-    assert_eq!(expected, actual);
     Ok(())
 }
