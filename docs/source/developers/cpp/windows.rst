@@ -112,26 +112,44 @@ Using vcpkg for build dependencies
 manager from Microsoft. It hosts community-contributed ports of C and C++
 packages and their dependencies. Arrow includes a manifest file `cpp/vcpkg.json
 <https://github.com/apache/arrow/blob/master/cpp/vcpkg.json>`_ that specifies
-which ``vcpkg`` packages are required to build the C++ library.
+which vcpkg packages are required to build the C++ library.
 
-To use ``vcpkg`` for your C++ build dependencies on Windows, first
+To use vcpkg for C++ build dependencies on Windows, first
 `install <https://docs.microsoft.com/en-us/cpp/build/install-vcpkg>`_ and
 `integrate <https://docs.microsoft.com/en-us/cpp/build/integrate-vcpkg>`_
-``vcpkg``. Then change working directory in ``cmd.exe`` to the root directory
+vcpkg. Then change working directory in ``cmd.exe`` to the root directory
 of Arrow and run the command:
 
 .. code-block:: shell
 
    vcpkg install ^
-    --triplet x64-windows ^
-    --x-manifest-root cpp  ^
-    --clean-after-build
+     --triplet x64-windows ^
+     --x-manifest-root cpp  ^
+     --clean-after-build
 
-On Windows, ``vcpkg`` builds dynamic link libraries by default.
-Use the triplet ``x64-windows-static`` to build static libraries.
+On Windows, vcpkg builds dynamic link libraries by default. Use the triplet
+``x64-windows-static`` to build static libraries. vcpkg downloads source 
+packages and compiles them locally, so installing dependencies with vcpkg is
+more time-consuming than with conda.
 
-``vcpkg`` downloads source packages and compiles them locally, so installing
-packages with ``vcpkg`` is more time-consuming than with ``conda``.
+Then in your ``cmake`` command, to use dependencies installed by vcpkg, set:
+
+.. code-block:: shell
+
+   -DARROW_DEPENDENCY_SOURCE=VCPKG
+
+You can optionally set other variables to override the default CMake
+configurations for vcpkg, including:
+   
+* ``-DCMAKE_TOOLCHAIN_FILE``: sets the path to ``vcpkg.cmake``
+* ``-DVCPKG_TARGET_TRIPLET``: sets the vcpkg 
+  `triplet <https://github.com/microsoft/vcpkg/blob/master/docs/users/triplets.md>`_
+* ``-DARROW_DEPENDENCY_USE_SHARED``: default is ``ON``; set to ``OFF`` for
+  static libraries
+* ``-DVCPKG_MANIFEST_MODE``: default is ``ON``; set to ``OFF`` to ignore the
+  ``vcpkg.json`` manifest file and only look for vcpkg packages that are
+  already installed under the directory where vcpkg is installed
+
 
 Building using Visual Studio (MSVC) Solution Files
 ==================================================
@@ -145,14 +163,11 @@ an out of source build by generating a MSVC solution:
    mkdir build
    cd build
    cmake .. -G "Visual Studio 14 2015" -A x64 ^
-         -DARROW_DEPENDENCY_SOURCE=VCPKG ^
-         -DARROW_DEPENDENCY_USE_SHARED=ON ^
          -DARROW_BUILD_TESTS=ON
    cmake --build . --config Release
 
 For newer versions of Visual Studio, specify the generator
-``Visual Studio 15 2017`` or ``Visual Studio 16 2019``. If you built static
-libraries with ``vcpkg``, specify ``-DARROW_DEPENDENCY_USE_SHARED=OFF``.
+``Visual Studio 15 2017`` or ``Visual Studio 16 2019``.
 
 Building with Ninja and clcache
 ===============================
