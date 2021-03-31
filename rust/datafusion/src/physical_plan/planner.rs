@@ -109,15 +109,16 @@ impl DefaultPhysicalPlanner {
         plan: Arc<dyn ExecutionPlan>,
         ctx_state: &ExecutionContextState,
     ) -> Result<Arc<dyn ExecutionPlan>> {
+        // TODO: make this a optimizer rule
         let children = plan
             .children()
             .iter()
             .map(|child| self.optimize_plan(child.clone(), ctx_state))
             .collect::<Result<Vec<_>>>()?;
 
-        if children.is_empty() {
+        let plan = if children.is_empty() {
             // leaf node, children cannot be replaced
-            Ok(plan.clone())
+            plan.clone()
         } else {
             // wrap operators in CoalesceBatches to avoid lots of tiny batches when we have
             // highly selective filters
@@ -148,7 +149,9 @@ impl DefaultPhysicalPlanner {
             let children = plan.children().clone();
 
             match plan.required_child_distribution() {
-                Distribution::UnspecifiedDistribution => plan.with_new_children(children),
+                Distribution::UnspecifiedDistribution => {
+                    plan.with_new_children(children)?
+                }
                 Distribution::SinglePartition => plan.with_new_children(
                     children
                         .iter()
@@ -160,9 +163,25 @@ impl DefaultPhysicalPlanner {
                             }
                         })
                         .collect(),
-                ),
+                )?,
             }
+        };
+        self.optimize_physical_plan(plan, ctx_state)
+    }
+
+    // Optimize physical plan given based on active optimizers
+    fn optimize_physical_plan(
+        &self,
+        physical_plan: Arc<dyn ExecutionPlan>,
+        ctx_state: &ExecutionContextState,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        let optimizers = &ctx_state.config.physical_optimizers;
+        let mut new_plan = physical_plan.clone();
+
+        for optimizer in optimizers {
+            new_plan = optimizer.optimize(new_plan)?;
         }
+        Ok(new_plan)
     }
 
     /// Create a physical plan from a logical plan

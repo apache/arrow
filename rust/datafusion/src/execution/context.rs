@@ -21,7 +21,9 @@ use crate::{
         catalog::{CatalogList, MemoryCatalogList},
         information_schema::CatalogWithInformationSchema,
     },
-    optimizer::hash_build_probe_order::HashBuildProbeOrder,
+    optimizer::{
+        hash_build_probe_order::HashBuildProbeOrder, optimizer::PhysicalOptimizerRule,
+    },
 };
 use log::debug;
 use std::fs;
@@ -56,6 +58,7 @@ use crate::optimizer::filter_push_down::FilterPushDown;
 use crate::optimizer::limit_push_down::LimitPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
+use crate::optimizer::repartition::Repartition;
 use crate::physical_plan::csv::CsvReadOptions;
 use crate::physical_plan::planner::DefaultPhysicalPlanner;
 use crate::physical_plan::udf::ScalarUDF;
@@ -458,6 +461,7 @@ impl ExecutionContext {
             .create_physical_plan(logical_plan, &state)
     }
 
+
     /// Executes a query and writes the results to a partitioned CSV file.
     pub async fn write_csv(
         &self,
@@ -581,6 +585,7 @@ impl QueryPlanner for DefaultQueryPlanner {
     ) -> Result<Arc<dyn ExecutionPlan>> {
         let planner = DefaultPhysicalPlanner::default();
         planner.create_physical_plan(logical_plan, ctx_state)
+
     }
 }
 
@@ -593,6 +598,8 @@ pub struct ExecutionConfig {
     pub batch_size: usize,
     /// Responsible for optimizing a logical plan
     optimizers: Vec<Arc<dyn OptimizerRule + Send + Sync>>,
+    /// Responsible for optimizing a physical execution plan
+    pub physical_optimizers: Vec<Arc<dyn PhysicalOptimizerRule + Send + Sync>>,
     /// Responsible for planning `LogicalPlan`s, and `ExecutionPlan`
     query_planner: Arc<dyn QueryPlanner + Send + Sync>,
     /// Default catalog name for table resolution
@@ -609,6 +616,7 @@ pub struct ExecutionConfig {
 impl ExecutionConfig {
     /// Create an execution config with default setting
     pub fn new() -> Self {
+        let concurrency = num_cpus::get();
         Self {
             concurrency: num_cpus::get(),
             batch_size: 8192,
@@ -619,6 +627,7 @@ impl ExecutionConfig {
                 Arc::new(HashBuildProbeOrder::new()),
                 Arc::new(LimitPushDown::new()),
             ],
+            physical_optimizers: vec![Arc::new(Repartition { concurrency })],
             query_planner: Arc::new(DefaultQueryPlanner {}),
             default_catalog: "datafusion".to_owned(),
             default_schema: "public".to_owned(),

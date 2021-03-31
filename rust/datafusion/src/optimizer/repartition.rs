@@ -13,6 +13,13 @@ pub struct Repartition {
     concurrency: usize,
 }
 
+impl Repartition {
+    #[allow(missing_docs)]
+    pub fn new(concurrency: usize) -> Self {
+        Self { concurrency }
+    }
+}
+
 impl PhysicalOptimizerRule for Repartition {
     fn optimize(&self, plan: Arc<dyn ExecutionPlan>) -> Result<Arc<dyn ExecutionPlan>> {
         let partitioning = plan.output_partitioning();
