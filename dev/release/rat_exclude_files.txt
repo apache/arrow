@@ -136,6 +136,7 @@ python/MANIFEST.in
 python/manylinux1/.dockerignore
 python/pyarrow/includes/__init__.pxd
 python/pyarrow/tests/__init__.py
+python/pyarrow/vendored/*
 python/requirements*.txt
 pax_global_header
 MANIFEST.in

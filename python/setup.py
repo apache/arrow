@@ -26,7 +26,12 @@ import re
 import shlex
 import shutil
 import sys
-import sysconfig
+
+if sys.version_info >= (3, 10):
+    import sysconfig
+else:
+    # Get correct EXT_SUFFIX on Windows (https://bugs.python.org/issue39825)
+    from distutils import sysconfig
 
 import pkg_resources
 from setuptools import setup, Extension, Distribution
@@ -42,11 +47,7 @@ if Cython.__version__ < '0.29':
 
 setup_dir = os.path.abspath(os.path.dirname(__file__))
 
-
 ext_suffix = sysconfig.get_config_var('EXT_SUFFIX')
-if ext_suffix is None:
-    # https://bugs.python.org/issue19555
-    ext_suffix = sysconfig.get_config_var('SO')
 
 
 @contextlib.contextmanager
@@ -453,7 +454,12 @@ class build_ext(_build_ext):
     def get_ext_built(self, name):
         if sys.platform == 'win32':
             head, tail = os.path.split(name)
-            return pjoin(head, self.build_type, tail + ext_suffix)
+            # Visual Studio seems to differ from other generators in
+            # where it places output files.
+            if self.cmake_generator.startswith('Visual Studio'):
+                return pjoin(head, self.build_type, tail + ext_suffix)
+            else:
+                return pjoin(head, tail + ext_suffix)
         else:
             return pjoin(self.build_type, name + ext_suffix)
 
