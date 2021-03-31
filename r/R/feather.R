@@ -144,10 +144,10 @@ write_feather <- function(x,
 #' }
 read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
   if (!inherits(file, "RandomAccessFile")) {
-    file <- make_readable_file(file)
+    file <- arrow:::make_readable_file(file)
     on.exit(file$close())
   }
-  reader <- FeatherReader$create(file, ...)
+  reader <- FeatherReader$create(file)
 
   col_select <- enquo(col_select)
   columns <- if (!quo_is_null(col_select)) {

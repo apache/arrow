@@ -237,7 +237,6 @@ test_that("ParquetFileReader $ReadRowGroup(s) methods", {
 
 test_that("Error messages are shown when the compression algorithm lz4/snappy
           is not found", {
-  skip_on_cran()
   if (codec_is_available("snappy")) {
     d <- read_parquet(pq_file)
     expect_is(d, "data.frame")
