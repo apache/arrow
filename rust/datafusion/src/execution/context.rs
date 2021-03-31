@@ -461,7 +461,6 @@ impl ExecutionContext {
             .create_physical_plan(logical_plan, &state)
     }
 
-
     /// Executes a query and writes the results to a partitioned CSV file.
     pub async fn write_csv(
         &self,
@@ -585,7 +584,6 @@ impl QueryPlanner for DefaultQueryPlanner {
     ) -> Result<Arc<dyn ExecutionPlan>> {
         let planner = DefaultPhysicalPlanner::default();
         planner.create_physical_plan(logical_plan, ctx_state)
-
     }
 }
 
@@ -627,7 +625,7 @@ impl ExecutionConfig {
                 Arc::new(HashBuildProbeOrder::new()),
                 Arc::new(LimitPushDown::new()),
             ],
-            physical_optimizers: vec![Arc::new(Repartition { concurrency })],
+            physical_optimizers: vec![Arc::new(Repartition::new(concurrency))],
             query_planner: Arc::new(DefaultQueryPlanner {}),
             default_catalog: "datafusion".to_owned(),
             default_schema: "public".to_owned(),
