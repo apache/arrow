@@ -156,15 +156,15 @@ void set_error_for_invalid_utf(int64_t execution_context, char val) {
   free(error);
 }
 
-gdv_int32 validate_utf8_following_bytes(const char* data, gdv_int32 data_len,
-                                        gdv_int32 char_index, char* invalid_char) {
+FORCE_INLINE
+bool validate_utf8_following_bytes(const char* data, int32_t data_len,
+                                   int32_t char_index) {
   for (int j = 1; j < data_len; ++j) {
     if ((data[char_index + j] & 0xC0) != 0x80) {  // bytes following head-byte of glyph
-      *invalid_char = data[char_index + j];
-      return 0;
+      return false;
     }
   }
-  return 1;
+  return true;
 }
 
 // Count the number of utf8 characters
@@ -179,14 +179,13 @@ gdv_int32 utf8_length(gdv_int64 context, const char* data, gdv_int32 data_len) {
       set_error_for_invalid_utf(context, data[i]);
       return 0;
     }
-    char* invalid_char = reinterpret_cast<char*>(malloc(char_len));
-    if (validate_utf8_following_bytes(data, char_len, i, invalid_char) == 0) {
-      set_error_for_invalid_utf(context, *invalid_char);
-      free(invalid_char);
-      return 0;
+    for (int j = 1; j < char_len; ++j) {
+      if ((data[i + j] & 0xC0) != 0x80) {  // bytes following head-byte of glyph
+        set_error_for_invalid_utf(context, data[i + j]);
+        return 0;
+      }
     }
     ++count;
-    free(invalid_char);
   }
   return count;
 }
@@ -1260,8 +1259,8 @@ const char* convert_fromUTF8_binary(gdv_int64 context, const char* bin_in, gdv_i
 
 FORCE_INLINE
 const char* convert_replace_invalid_fromUTF8_binary(
-    gdv_int64 context, const char* text_in, gdv_int32 text_len,
-    const char* char_to_replace, gdv_int32 char_to_replace_len, gdv_int32* out_len) {
+    int64_t context, const char* text_in, int32_t text_len,
+    const char* char_to_replace, int32_t char_to_replace_len, int32_t* out_len) {
   if (char_to_replace_len > 1) {
     gdv_fn_context_set_error_msg(context, "Replacement of multiple bytes not supported");
     *out_len = 0;
@@ -1276,31 +1275,31 @@ const char* convert_replace_invalid_fromUTF8_binary(
     *out_len = 0;
     return "";
   }
-  gdv_int32 out_byte_counter = 0;
-  gdv_int32 char_len;
+  int32_t valid_bytes_to_cpy = 0;
+  int32_t out_byte_counter = 0;
+  int32_t char_len;
   // scan the base text from left to right and increment the start pointer till
   // looking for invalid chars to substitute
   for (int text_index = 0; text_index < text_len; text_index += char_len) {
     char_len = utf8_char_length(text_in[text_index]);
-    if (char_len == 0) {
-      memcpy(ret + out_byte_counter, char_to_replace, 1);
-      out_byte_counter += 1;
+    // only memory copy the bytes when detect invalid char
+    if (char_len == 0 || text_index + char_len > text_len ||
+        !validate_utf8_following_bytes(text_in, char_len, text_index)) {
       // define char_len = 1 to increase text_index by 1 (as ASCII char fits in 1 byte)
       char_len = 1;
+      // first copy the valid bytes until now and then replace the invalid character
+      memcpy(ret + out_byte_counter, text_in + out_byte_counter, valid_bytes_to_cpy);
+      memcpy(ret + out_byte_counter + valid_bytes_to_cpy, char_to_replace, char_len);
+      out_byte_counter += valid_bytes_to_cpy + char_len;
+      valid_bytes_to_cpy = 0;
       continue;
     }
-    // if the char length is greater than 0, execute another validation on MSBs
-    char* invalid_char = reinterpret_cast<char*>(malloc(char_len));
-    if (text_index + char_len > text_len || validate_utf8_following_bytes(
-        text_in, char_len, text_index, invalid_char) == 0) {
-      memcpy(ret + out_byte_counter, char_to_replace, char_len);
-    } else {
-      memcpy(ret + out_byte_counter, text_in + text_index, char_len);
-    }
-    out_byte_counter += char_len;
-    free(invalid_char);
+    valid_bytes_to_cpy += char_len;
   }
-  *out_len = out_byte_counter;
+  // if there are still valid bytes to copy, do it
+  if (valid_bytes_to_cpy != 0) {
+    memcpy(ret + out_byte_counter, text_in + out_byte_counter, valid_bytes_to_cpy);
+  }
   return ret;
 }
 

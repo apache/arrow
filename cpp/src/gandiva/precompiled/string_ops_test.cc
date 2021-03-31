@@ -145,7 +145,7 @@ TEST(TestStringOps, TestConvertReplaceInvalidUtf8Char) {
   EXPECT_EQ(std::string(c_str, c_in_out_len), "all-valid");
   EXPECT_FALSE(ctx.has_error());
 
-  // valid utf8 (महसुस is a 4-byte utf-8 char)
+  // valid utf8 (महसुस is 4-char string, each char of which is likely a multibyte char)
   std::string d("ok-महसुस-valid-new");
   auto d_in_out_len = static_cast<int>(d.length());
   const char* d_str = convert_replace_invalid_fromUTF8_binary(
