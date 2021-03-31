@@ -2205,6 +2205,57 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn information_schema_show_tables_no_information_schema() {
+        let mut ctx = ExecutionContext::with_config(ExecutionConfig::new());
+
+        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+            .unwrap();
+
+        // use show tables alias
+        let err = plan_and_collect(&mut ctx, "SHOW TABLES").await.unwrap_err();
+
+        assert_eq!(err.to_string(), "Error during planning: SHOW TABLES is not supported unless information_schema is enabled");
+    }
+
+    #[tokio::test]
+    async fn information_schema_show_tables() {
+        let mut ctx = ExecutionContext::with_config(
+            ExecutionConfig::new().with_information_schema(true),
+        );
+
+        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+            .unwrap();
+
+        // use show tables alias
+        let result = plan_and_collect(&mut ctx, "SHOW TABLES").await.unwrap();
+
+        let expected = vec![
+            "+---------------+--------------------+------------+------------+",
+            "| table_catalog | table_schema       | table_name | table_type |",
+            "+---------------+--------------------+------------+------------+",
+            "| datafusion    | information_schema | tables     | VIEW       |",
+            "| datafusion    | public             | t          | BASE TABLE |",
+            "+---------------+--------------------+------------+------------+",
+        ];
+        assert_batches_sorted_eq!(expected, &result);
+
+        let result = plan_and_collect(&mut ctx, "SHOW tables").await.unwrap();
+
+        assert_batches_sorted_eq!(expected, &result);
+    }
+
+    #[tokio::test]
+    async fn show_unsupported() {
+        let mut ctx = ExecutionContext::with_config(ExecutionConfig::new());
+
+        let err = plan_and_collect(&mut ctx, "SHOW SOMETHING_UNKNOWN")
+            .await
+            .unwrap_err();
+
+        assert_eq!(err.to_string(), "This feature is not implemented: SHOW SOMETHING_UNKNOWN not implemented. Supported syntax: SHOW <TABLES>");
+    }
+
+    #[tokio::test]
     async fn disabled_default_catalog_and_schema() -> Result<()> {
         let mut ctx = ExecutionContext::with_config(
             ExecutionConfig::new().create_default_catalog_and_schema(false),
