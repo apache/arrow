@@ -33,6 +33,8 @@ class BaseCache {
 
   BaseCache<Key, Value>() = default;
 
+  virtual ~BaseCache() = default;
+
   virtual size_t size() const { return this->cache_capacity_; }
 
   virtual size_t capacity() const = 0;

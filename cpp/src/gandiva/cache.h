@@ -18,8 +18,8 @@
 #pragma once
 
 #include <cstdlib>
-#include <mutex>
 #include <memory>
+#include <mutex>
 
 #include "gandiva/lower_value_used_cache.h"
 #include "gandiva/lru_cache.h"
