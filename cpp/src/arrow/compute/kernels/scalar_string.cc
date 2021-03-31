@@ -445,6 +445,13 @@ struct PlainSubstringMatcher {
   }
 };
 
+const FunctionDoc match_substring_doc(
+    "Match strings against literal pattern",
+    ("For each string in `strings`, emit true iff it contains a given pattern.\n"
+     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions."),
+    {"strings"}, "MatchSubstringOptions");
+
+#ifdef ARROW_WITH_RE2
 template <typename offset_type>
 struct RegexSubstringMatcher {
   const MatchSubstringOptions& options_;
@@ -473,18 +480,13 @@ struct RegexSubstringMatcher {
   }
 };
 
-const FunctionDoc match_substring_doc(
-    "Match strings against literal pattern",
-    ("For each string in `strings`, emit true iff it contains a given pattern.\n"
-     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions."),
-    {"strings"}, "MatchSubstringOptions");
-
 const FunctionDoc match_substring_regex_doc(
     "Match strings against regex pattern",
     ("For each string in `strings`, emit true iff it matches a given pattern at any "
      "position.\n"
      "Null inputs emit null.  The pattern must be given in MatchSubstringOptions."),
     {"strings"}, "MatchSubstringOptions");
+#endif
 
 void AddMatchSubstring(FunctionRegistry* registry) {
   {
