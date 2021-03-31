@@ -105,28 +105,38 @@ mod tests {
     use super::*;
     use crate::datasource::datasource::Statistics;
     use crate::physical_plan::parquet::{ParquetExec, ParquetPartition};
+    use crate::physical_plan::projection::ProjectionExec;
+
     #[test]
     fn added_repartition_to_single_partition() -> Result<()> {
-        let parquet = ParquetExec::new(
-            vec![ParquetPartition {
-                filenames: vec!["x".to_string()],
-                statistics: Statistics::default(),
-            }],
-            Schema::empty(),
-            None,
-            None,
-            2048,
-            None,
-        );
+        let parquet_project = ProjectionExec::try_new(
+            vec![],
+            Arc::new(ParquetExec::new(
+                vec![ParquetPartition {
+                    filenames: vec!["x".to_string()],
+                    statistics: Statistics::default(),
+                }],
+                Schema::empty(),
+                None,
+                None,
+                2048,
+                None,
+            )),
+        )?;
 
         let optimizer = Repartition {};
 
         let optimized = optimizer.optimize(
-            Arc::new(parquet),
+            Arc::new(parquet_project),
             &ExecutionConfig::new().with_concurrency(10),
         )?;
 
-        assert_eq!(optimized.output_partitioning().partition_count(), 10);
+        assert_eq!(
+            optimized.children()[0]
+                .output_partitioning()
+                .partition_count(),
+            10
+        );
 
         Ok(())
     }
