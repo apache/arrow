@@ -72,8 +72,8 @@ class MockDatasetFactory : public DatasetFactory {
   }
 
   Result<std::shared_ptr<Dataset>> Finish(FinishOptions options) override {
-    return std::make_shared<InMemoryDataset>(options.schema,
-                                             std::vector<std::shared_ptr<RecordBatch>>{});
+    return InMemoryDataset::FromBatches(options.schema,
+                                        std::vector<std::shared_ptr<RecordBatch>>{});
   }
 
  protected:

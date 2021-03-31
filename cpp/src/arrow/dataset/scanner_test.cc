@@ -34,6 +34,24 @@ using testing::IsEmpty;
 namespace arrow {
 namespace dataset {
 
+// TODO(westonpace) This test is here to make sure we keep this constructor because it is
+// used in c_glib/arrow-dataset-glib/scanner.cpp however it doesn't really make sense to
+// make an InMemoryScanTask when you already have an InMemoryFragment.  We should get rid
+// of the call in c_glib.
+TEST(TestInMemoryScanTask, FromBatches) {
+  auto sch = schema({field("int32", int32())});
+  RecordBatchVector batches{ConstantArrayGenerator::Zeroes(10, sch),
+                            ConstantArrayGenerator::Zeroes(20, sch)};
+  auto scan_options = std::make_shared<ScanOptions>();
+  auto fragment = std::make_shared<InMemoryFragment>(sch, batches);
+  auto scan_task = std::make_shared<InMemoryScanTask>(batches, scan_options, fragment);
+  ASSERT_OK_AND_ASSIGN(auto batches_gen, scan_task->ExecuteAsync());
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto actual_batches, CollectAsyncGenerator(batches_gen));
+  ASSERT_EQ(2, batches.size());
+  AssertBatchesEqual(*batches[0], *actual_batches[0]);
+  AssertBatchesEqual(*batches[1], *actual_batches[1]);
+}
+
 constexpr int64_t kNumberChildDatasets = 2;
 constexpr int64_t kNumberBatches = 16;
 constexpr int64_t kBatchSize = 1024;
@@ -145,7 +163,7 @@ class ControlledDataset : public Dataset {
   }
 
  protected:
-  Future<FragmentVector> GetFragmentsImpl(Expression predicate) override {
+  Future<FragmentVector> GetFragmentsImpl(Expression predicate) const override {
     return fragments_fut_;
   }
 
@@ -161,7 +179,7 @@ class TestScanner : public DatasetFixtureMixin {
                                                       batch};
 
     DatasetVector children{static_cast<size_t>(kNumberChildDatasets),
-                           std::make_shared<InMemoryDataset>(batch->schema(), batches)};
+                           InMemoryDataset::FromBatches(batch->schema(), batches)};
 
     EXPECT_OK_AND_ASSIGN(auto dataset, UnionDataset::Make(batch->schema(), children));
 
@@ -244,6 +262,7 @@ TEST_F(TestScanner, MaterializeMissingColumn) {
       ConstantArrayGenerator::Zeroes(kBatchSize, schema({field("i32", int32())}));
 
   auto fragment_missing_f64 = std::make_shared<InMemoryFragment>(
+      batch_missing_f64->schema(),
       RecordBatchVector{static_cast<size_t>(kNumberChildDatasets * kNumberBatches),
                         batch_missing_f64},
       equal(field_ref("f64"), literal(2.5)));

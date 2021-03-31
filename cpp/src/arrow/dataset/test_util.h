@@ -860,6 +860,11 @@ class NestedParallelismMixin : public ::testing::Test {
     options_->use_threads = true;
   }
 
+  struct VectorIterable {
+    Result<RecordBatchGenerator> operator()() { return MakeVectorGenerator(batches); }
+    RecordBatchVector batches;
+  };
+
   class NestedParallelismScanTask : public ScanTask {
    public:
     explicit NestedParallelismScanTask(std::shared_ptr<ScanTask> target)
@@ -884,45 +889,44 @@ class NestedParallelismMixin : public ::testing::Test {
       return MakeFromFuture(generator_fut);
     }
 
-    bool supports_async() const override { return true; }
-
    private:
     std::shared_ptr<ScanTask> target_;
   };
 
   class NestedParallelismFragment : public InMemoryFragment {
    public:
-    explicit NestedParallelismFragment(RecordBatchVector record_batches,
+    explicit NestedParallelismFragment(std::shared_ptr<Schema> sch,
+                                       RecordBatchVector batches,
                                        Expression expr = literal(true))
-        : InMemoryFragment(std::move(record_batches), std::move(expr)) {}
+        : InMemoryFragment(std::move(sch), std::move(batches), std::move(expr)) {}
+    explicit NestedParallelismFragment(std::shared_ptr<Schema> sch,
+                                       RecordBatchIterable get_batches,
+                                       Expression expr = literal(true))
+        : InMemoryFragment(std::move(sch), std::move(get_batches), std::move(expr)) {}
 
-    Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override {
-      ARROW_ASSIGN_OR_RAISE(auto scan_task_it, InMemoryFragment::Scan(options));
-      return MakeMaybeMapIterator(
-          [](std::shared_ptr<ScanTask> task) -> Result<std::shared_ptr<ScanTask>> {
-            return std::make_shared<NestedParallelismScanTask>(std::move(task));
-          },
-          std::move(scan_task_it));
+    Future<ScanTaskVector> Scan(std::shared_ptr<ScanOptions> options) override {
+      auto scan_tasks_fut = InMemoryFragment::Scan(options);
+      return scan_tasks_fut.Then([](const ScanTaskVector& scan_tasks) {
+        return internal::MapVector(
+            [](const std::shared_ptr<ScanTask>& task) -> std::shared_ptr<ScanTask> {
+              return std::make_shared<NestedParallelismScanTask>(std::move(task));
+            },
+            scan_tasks);
+      });
     }
   };
 
   class NestedParallelismDataset : public InMemoryDataset {
    public:
     NestedParallelismDataset(std::shared_ptr<Schema> sch, RecordBatchVector batches)
-        : InMemoryDataset(std::move(sch), std::move(batches)) {}
+        : InMemoryDataset(std::move(sch), VectorIterable{std::move(batches)}) {}
 
    protected:
-    Result<FragmentIterator> GetFragmentsImpl(Expression) override {
+    Future<FragmentVector> GetFragmentsImpl(Expression) const override {
       auto schema = this->schema();
 
-      auto create_fragment =
-          [schema](
-              std::shared_ptr<RecordBatch> batch) -> Result<std::shared_ptr<Fragment>> {
-        RecordBatchVector batches{batch};
-        return std::make_shared<NestedParallelismFragment>(std::move(batches));
-      };
-
-      return MakeMaybeMapIterator(std::move(create_fragment), get_batches_->Get());
+      return FragmentVector{
+          std::make_shared<NestedParallelismFragment>(this->schema(), get_batches_)};
     }
   };
 
@@ -968,7 +972,7 @@ class NestedParallelismMixin : public ::testing::Test {
     Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override {
       return Status::NotImplemented("Should not be called");
     }
-    Result<ScanTaskIterator> ScanFile(
+    Future<ScanTaskVector> ScanFile(
         std::shared_ptr<ScanOptions> options,
         const std::shared_ptr<FileFragment>& file) const override {
       return Status::NotImplemented("Should not be called");

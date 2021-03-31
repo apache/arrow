@@ -123,28 +123,30 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
       input, io::BufferedInputStream::Create(reader_options.block_size,
                                              default_memory_pool(), std::move(input)));
 
-  auto peek_fut = DeferNotOk(input->io_context().executor()->Submit(
-      [input, reader_options] { return input->Peek(reader_options.block_size); }));
+  // Grab the first block and use it to determine the schema and create a reader.  The
+  // input->Peek call blocks so we run the whole thing on the I/O thread pool.
+  return DeferNotOk(input->io_context().executor()->Submit(
+      [=]() -> Future<std::shared_ptr<csv::StreamingReader>> {
+        ARROW_ASSIGN_OR_RAISE(auto first_block, input->Peek(reader_options.block_size));
+        const auto& parse_options = format.parse_options;
+        auto convert_options = csv::ConvertOptions::Defaults();
+        if (scan_options != nullptr) {
+          ARROW_ASSIGN_OR_RAISE(convert_options, GetConvertOptions(format, scan_options,
+                                                                   first_block, pool));
+        }
 
-  return peek_fut.Then([=](const util::string_view& first_block)
-                           -> Future<std::shared_ptr<csv::StreamingReader>> {
-    const auto& parse_options = format.parse_options;
-    auto convert_options = csv::ConvertOptions::Defaults();
-    if (scan_options != nullptr) {
-      ARROW_ASSIGN_OR_RAISE(convert_options,
-                            GetConvertOptions(format, scan_options, first_block, pool));
-    }
-
-    return csv::StreamingReader::MakeAsync(io::default_io_context(), std::move(input),
-                                           reader_options, parse_options, convert_options)
-        .Then(
+        auto reader_fut = csv::StreamingReader::MakeAsync(
+            io::default_io_context(), std::move(input), reader_options, parse_options,
+            convert_options);
+        // Adds the filename to the error
+        return reader_fut.Then(
             [](const std::shared_ptr<csv::StreamingReader>& maybe_reader)
                 -> Result<std::shared_ptr<csv::StreamingReader>> { return maybe_reader; },
             [source](const Status& err) -> Result<std::shared_ptr<csv::StreamingReader>> {
               return err.WithMessage("Could not open CSV input source '", source.path(),
                                      "': ", err);
             });
-  });
+      }));
 }
 
 static inline Result<std::shared_ptr<csv::StreamingReader>> OpenReader(
@@ -167,6 +169,9 @@ class CsvScanTask : public ScanTask {
 
   Result<RecordBatchGenerator> ExecuteAsync() override {
     auto reader_fut = OpenReaderAsync(source_, *format_, options(), options()->pool);
+    // OpenReaderAsync runs on the I/O thread pool so we want to get back on the CPU
+    // thread pool
+    auto transferred_fut = internal::GetCpuThreadPool()->Transfer(reader_fut);
     auto generator_fut = reader_fut.Then(
         [](const std::shared_ptr<csv::StreamingReader>& reader) -> RecordBatchGenerator {
           return [reader]() { return reader->ReadNextAsync(); };

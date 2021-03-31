@@ -43,7 +43,7 @@ TEST_F(TestInMemoryFragment, Scan) {
 
   // Creates a InMemoryFragment of the same repeated batch.
   RecordBatchVector batches = {static_cast<size_t>(kNumberBatches), batch};
-  auto fragment = std::make_shared<InMemoryFragment>(batches);
+  auto fragment = std::make_shared<InMemoryFragment>(schema_, batches);
 
   AssertFragmentEquals(reader.get(), fragment.get());
 }
@@ -58,7 +58,7 @@ TEST_F(TestInMemoryDataset, ReplaceSchema) {
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
-  auto dataset = std::make_shared<InMemoryDataset>(
+  auto dataset = InMemoryDataset::FromBatches(
       schema_, RecordBatchVector{static_cast<size_t>(kNumberBatches), batch});
 
   // drop field
@@ -88,12 +88,16 @@ TEST_F(TestInMemoryDataset, FromReader) {
   auto source_reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
   auto target_reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
-  auto dataset = std::make_shared<InMemoryDataset>(source_reader);
+  auto dataset = InMemoryDataset::FromReader(source_reader);
 
   AssertDatasetEquals(target_reader.get(), dataset.get());
   // Such datasets can only be scanned once
   ASSERT_OK_AND_ASSIGN(auto fragments, dataset->GetFragments());
-  ASSERT_RAISES(Invalid, fragments.Next());
+  ASSERT_OK_AND_ASSIGN(auto fragment, fragments.Next());
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto scan_tasks,
+                                fragment->Scan(std::make_shared<ScanOptions>()));
+  ASSERT_EQ(1, scan_tasks.size());
+  ASSERT_RAISES(Invalid, scan_tasks[0]->ExecuteAsync());
 }
 
 TEST_F(TestInMemoryDataset, GetFragments) {
@@ -104,7 +108,7 @@ TEST_F(TestInMemoryDataset, GetFragments) {
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
-  auto dataset = std::make_shared<InMemoryDataset>(
+  auto dataset = InMemoryDataset::FromBatches(
       schema_, RecordBatchVector{static_cast<size_t>(kNumberBatches), batch});
 
   AssertDatasetEquals(reader.get(), dataset.get());
@@ -119,7 +123,7 @@ TEST_F(TestInMemoryDataset, InMemoryFragment) {
 
   // Regression test: previously this constructor relied on undefined behavior (order of
   // evaluation of arguments) leading to fragments being constructed with empty schemas
-  auto fragment = std::make_shared<InMemoryFragment>(batches);
+  auto fragment = std::make_shared<InMemoryFragment>(batches[0]->schema(), batches);
   ASSERT_OK_AND_ASSIGN(auto schema, fragment->ReadPhysicalSchema());
   AssertSchemaEqual(batch->schema(), schema);
 }
@@ -137,8 +141,8 @@ TEST_F(TestUnionDataset, ReplaceSchema) {
                                                     batch};
 
   DatasetVector children = {
-      std::make_shared<InMemoryDataset>(schema_, batches),
-      std::make_shared<InMemoryDataset>(schema_, batches),
+      InMemoryDataset::FromBatches(schema_, batches),
+      InMemoryDataset::FromBatches(schema_, batches),
   };
 
   const int64_t total_batches = children.size() * kNumberBatches;
@@ -179,7 +183,7 @@ TEST_F(TestUnionDataset, GetFragments) {
   // Creates a complete binary tree of depth kCompleteBinaryTreeDepth where the
   // leaves are InMemoryDataset containing kChildPerNode fragments.
 
-  auto l1_leaf_dataset = std::make_shared<InMemoryDataset>(
+  auto l1_leaf_dataset = InMemoryDataset::FromBatches(
       schema_, RecordBatchVector{static_cast<size_t>(kChildPerNode), batch});
 
   ASSERT_OK_AND_ASSIGN(
@@ -211,8 +215,8 @@ TEST_F(TestUnionDataset, TrivialScan) {
                                                     batch};
 
   DatasetVector children = {
-      std::make_shared<InMemoryDataset>(schema_, batches),
-      std::make_shared<InMemoryDataset>(schema_, batches),
+      InMemoryDataset::FromBatches(schema_, batches),
+      InMemoryDataset::FromBatches(schema_, batches),
   };
 
   const int64_t total_batches = children.size() * kNumberBatches;

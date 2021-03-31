@@ -38,7 +38,7 @@ namespace arrow {
 namespace dataset {
 
 /// \brief GetFragmentsFromDatasets transforms a vector<Dataset> into a
-/// flattened FragmentIterator.
+/// flattened vector<Fragment>.
 inline Future<FragmentVector> GetFragmentsFromDatasets(const DatasetVector& datasets,
                                                        Expression predicate) {
   // Dataset -> Future<FragmentVector>
@@ -54,15 +54,6 @@ inline Future<FragmentVector> GetFragmentsFromDatasets(const DatasetVector& data
         ARROW_ASSIGN_OR_RAISE(auto unwrapped_vecs, internal::UnwrapOrRaise(fragment_vecs))
         return internal::FlattenVectors(std::move(unwrapped_vecs));
       });
-}
-
-inline RecordBatchGenerator GeneratorFromReader(
-    std::shared_ptr<RecordBatchReader> reader) {
-  auto generator = [reader]() -> Future<std::shared_ptr<RecordBatch>> {
-    return DeferNotOk(
-        internal::GetCpuThreadPool()->Submit([reader] { return reader->Next(); }));
-  };
-  return generator;
 }
 
 inline std::shared_ptr<Schema> SchemaFromColumnNames(

@@ -208,7 +208,7 @@ void FileSystemDataset::SetupSubtreePruning() {
   });
 }
 
-Future<FragmentVector> FileSystemDataset::GetFragmentsImpl(Expression predicate) {
+Future<FragmentVector> FileSystemDataset::GetFragmentsImpl(Expression predicate) const {
   if (predicate == literal(true)) {
     // trivial predicate; skip subtree pruning
     return Future<FragmentVector>::MakeFinished(
@@ -371,7 +371,7 @@ struct WriteState {
   std::unordered_map<std::string, std::unique_ptr<WriteQueue>> queues;
 };
 
-Status WriteNextBatch(WriteState& state, const std::shared_ptr<ScanTask>& scan_task,
+Status WriteNextBatch(WriteState& state, const Expression& fragment_partition_expression,
                       std::shared_ptr<RecordBatch> batch) {
   ARROW_ASSIGN_OR_RAISE(auto groups, state.write_options.partitioning->Partition(batch));
   batch.reset();  // drop to hopefully conserve memory
@@ -384,8 +384,8 @@ Status WriteNextBatch(WriteState& state, const std::shared_ptr<ScanTask>& scan_t
 
   std::unordered_set<WriteQueue*> need_flushed;
   for (size_t i = 0; i < groups.batches.size(); ++i) {
-    auto partition_expression = and_(std::move(groups.expressions[i]),
-                                     scan_task->fragment()->partition_expression());
+    auto partition_expression =
+        and_(std::move(groups.expressions[i]), fragment_partition_expression);
     auto batch = std::move(groups.batches[i]);
 
     ARROW_ASSIGN_OR_RAISE(auto part,
@@ -446,57 +446,16 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   // to a WriteQueue which flushes batches into that partition's output file. In principle
   // any thread could produce a batch for any partition, so each task alternates between
   // pushing batches and flushing them to disk.
-  util::Mutex queues_mutex;
-  std::unordered_map<std::string, std::unique_ptr<WriteQueue>> queues;
   ARROW_ASSIGN_OR_RAISE(auto batches_it, scanner->ScanBatches());
+
+  WriteState state(write_options);
 
   for (auto maybe_batch : batches_it) {
     ARROW_ASSIGN_OR_RAISE(auto positioned_batch, maybe_batch);
-    ARROW_ASSIGN_OR_RAISE(auto groups, write_options.partitioning->Partition(
-                                           positioned_batch.record_batch));
-    positioned_batch.record_batch.reset();  // drop to hopefully conserve memory
-
-    if (groups.batches.size() > static_cast<size_t>(write_options.max_partitions)) {
-      return Status::Invalid("Fragment would be written into ", groups.batches.size(),
-                             " partitions. This exceeds the maximum of ",
-                             write_options.max_partitions);
-    }
-
-    std::unordered_set<WriteQueue*> need_flushed;
-    for (size_t i = 0; i < groups.batches.size(); ++i) {
-      auto partition_expression = and_(std::move(groups.expressions[i]),
-                                       positioned_batch.fragment->partition_expression());
-      auto batch = std::move(groups.batches[i]);
-
-      ARROW_ASSIGN_OR_RAISE(auto part,
-                            write_options.partitioning->Format(partition_expression));
-
-      WriteQueue* queue;
-      {
-        // lookup the queue to which batch should be appended
-        auto queues_lock = queues_mutex.Lock();
-
-        queue = internal::GetOrInsertGenerated(&queues, std::move(part),
-                                               [&](const std::string& emplaced_part) {
-                                                 // lookup in `queues` also failed,
-                                                 // generate a new WriteQueue
-                                                 size_t queue_index = queues.size() - 1;
-
-                                                 return internal::make_unique<WriteQueue>(
-                                                     emplaced_part, queue_index,
-                                                     batch->schema());
-                                               })
-                    ->second.get();
-      }
-
-      queue->Push(std::move(batch));
-      need_flushed.insert(queue);
-    }
-
-    // flush all touched WriteQueues
-    for (auto queue : need_flushed) {
-      RETURN_NOT_OK(queue->Flush(write_options));
-    }
+    auto fragment_partition_expression =
+        positioned_batch.fragment->partition_expression();
+    RETURN_NOT_OK(WriteNextBatch(state, fragment_partition_expression,
+                                 positioned_batch.record_batch));
   }
 
   task_group = scanner->options()->TaskGroup();

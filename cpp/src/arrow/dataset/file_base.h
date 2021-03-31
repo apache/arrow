@@ -247,7 +247,7 @@ class ARROW_DS_EXPORT FileSystemDataset : public Dataset {
   FileSystemDataset(std::shared_ptr<Schema> schema, Expression partition_expression)
       : Dataset(std::move(schema), partition_expression) {}
 
-  Future<FragmentVector> GetFragmentsImpl(Expression predicate) override;
+  Future<FragmentVector> GetFragmentsImpl(Expression predicate) const override;
 
   void SetupSubtreePruning();
 

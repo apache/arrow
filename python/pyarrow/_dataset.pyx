@@ -487,17 +487,19 @@ cdef class InMemoryDataset(Dataset):
                 raise ValueError('Must provide schema to construct in-memory '
                                  'dataset from an empty list')
             table = pa.Table.from_batches(batches, schema=schema)
-            in_memory_dataset = make_shared[CInMemoryDataset](
-                pyarrow_unwrap_table(table))
+            in_memory_dataset = GetResultValue(
+                CInMemoryDataset.FromTable(pyarrow_unwrap_table(table)))
         elif isinstance(source, pa.ipc.RecordBatchReader):
             reader = source
-            in_memory_dataset = make_shared[CInMemoryDataset](reader.reader)
+            in_memory_dataset = GetResultValue(
+                CInMemoryDataset.FromReader(reader.reader))
         elif _is_iterable(source):
             if schema is None:
                 raise ValueError('Must provide schema to construct in-memory '
                                  'dataset from an iterable')
             reader = pa.ipc.RecordBatchReader.from_batches(schema, source)
-            in_memory_dataset = make_shared[CInMemoryDataset](reader.reader)
+            in_memory_dataset = GetResultValue(
+                CInMemoryDataset.FromReader(reader.reader))
         else:
             raise TypeError(
                 'Expected a table, batch, iterable of tables/batches, or a '

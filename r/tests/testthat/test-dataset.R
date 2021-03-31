@@ -1221,8 +1221,6 @@ test_that("Scanner$ScanBatches", {
   ds <- open_dataset(ipc_dir, format = "feather")
   batches <- ds$NewScan()$Finish()$ScanBatches()
   table <- Table$create(!!!batches)
-  print(table)
-  print(rbind(df1, df2))
   expect_equivalent(as.data.frame(table), rbind(df1, df2))
 })
 

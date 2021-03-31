@@ -29,6 +29,7 @@
 #include "arrow/dataset/projector.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_generator.h"
@@ -36,10 +37,6 @@
 
 namespace arrow {
 using RecordBatchGenerator = AsyncGenerator<std::shared_ptr<RecordBatch>>;
-<<<<<<< HEAD
-=======
-
->>>>>>> 4581b6a0d... ARROW-7001: Converting sync datasets API to async
 namespace dataset {
 
 constexpr int64_t kDefaultBatchSize = 1 << 20;
@@ -80,6 +77,12 @@ struct ARROW_DS_EXPORT ScanOptions {
   /// A pool from which materialized and scanned arrays will be allocated.
   MemoryPool* pool = arrow::default_memory_pool();
 
+  /// Executor on which to run any CPU tasks
+  internal::Executor* cpu_executor = internal::GetCpuThreadPool();
+
+  /// IOContext for any IO tasks
+  io::IOContext io_context;
+
   /// Indicate if the Scanner should make use of a ThreadPool.
   bool use_threads = false;
 
@@ -114,14 +117,8 @@ class ARROW_DS_EXPORT ScanTask {
   /// \brief Iterate through sequence of materialized record batches
   /// resulting from the Scan. Execution semantics are encapsulated in the
   /// particular ScanTask implementation
-<<<<<<< HEAD
-  virtual Result<RecordBatchIterator> Execute() = 0;
-  virtual Result<RecordBatchGenerator> ExecuteAsync();
-  virtual bool supports_async() const;
-=======
   virtual Result<RecordBatchGenerator> ExecuteAsync() = 0;
   virtual Result<RecordBatchIterator> Execute();
->>>>>>> 4581b6a0d... ARROW-7001: Converting sync datasets API to async
 
   virtual ~ScanTask() = default;
 
@@ -141,16 +138,18 @@ using ScanTaskGenerator = AsyncGenerator<std::shared_ptr<ScanTask>>;
 /// \brief A trivial ScanTask that yields the RecordBatch of an array.
 class ARROW_DS_EXPORT InMemoryScanTask : public ScanTask {
  public:
-  InMemoryScanTask(std::vector<std::shared_ptr<RecordBatch>> record_batches,
-                   std::shared_ptr<ScanOptions> options,
+  InMemoryScanTask(RecordBatchIterable get_batches, std::shared_ptr<ScanOptions> options,
                    std::shared_ptr<Fragment> fragment)
       : ScanTask(std::move(options), std::move(fragment)),
-        record_batches_(std::move(record_batches)) {}
+        get_batches_(std::move(get_batches)) {}
+
+  InMemoryScanTask(RecordBatchVector batches, std::shared_ptr<ScanOptions> options,
+                   std::shared_ptr<Fragment> fragment);
 
   Result<RecordBatchGenerator> ExecuteAsync() override;
 
  protected:
-  std::vector<std::shared_ptr<RecordBatch>> record_batches_;
+  RecordBatchIterable get_batches_;
 };
 
 struct PositionedRecordBatch {
@@ -168,8 +167,12 @@ struct PositionedRecordBatch {
            record_batch_index == other.record_batch_index;
   }
 
-  static PositionedRecordBatch BeforeAny();
-  static PositionedRecordBatch AfterAny();
+  static PositionedRecordBatch BeforeAny() {
+    return PositionedRecordBatch{NULL, NULL, -1, -1, false, -1, false};
+  }
+  static PositionedRecordBatch AfterAny() {
+    return PositionedRecordBatch{NULL, NULL, -1, -1, true, -1, true};
+  }
 };
 
 }  // namespace dataset
@@ -204,12 +207,12 @@ class ARROW_DS_EXPORT Scanner {
   Scanner(std::shared_ptr<Fragment> fragment, std::shared_ptr<ScanOptions> scan_options)
       : fragment_(std::move(fragment)), scan_options_(std::move(scan_options)) {}
 
-  /// \brief The Scan operator returns a stream of ScanTask futures. The caller is
+  /// \brief The Scan operator returns a stream of RecordBatch futures. The caller is
   /// responsible to dispatch/schedule said tasks. Tasks should be safe to run
   /// in a concurrent fashion and outlive the iterator.
   PositionedRecordBatchGenerator ScanUnorderedAsync();
 
-  /// \brief The scan tasks returned in this version will be
+  /// \brief The record batches returned in this version will be
   /// resequenced so they arrive in order.  This will introduce some latency.
   /// \see ScanUnorderedAsync
   PositionedRecordBatchGenerator ScanAsync();

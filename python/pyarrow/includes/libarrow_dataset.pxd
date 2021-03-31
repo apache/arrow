@@ -140,8 +140,13 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CInMemoryDataset "arrow::dataset::InMemoryDataset"(
             CDataset):
-        CInMemoryDataset(shared_ptr[CRecordBatchReader])
-        CInMemoryDataset(shared_ptr[CTable])
+
+        @staticmethod
+        CResult[shared_ptr[CInMemoryDataset]] FromReader(
+            shared_ptr[CRecordBatchReader])
+
+        @staticmethod
+        CResult[shared_ptr[CInMemoryDataset]] FromTable(shared_ptr[CTable])
 
     cdef cppclass CUnionDataset "arrow::dataset::UnionDataset"(
             CDataset):

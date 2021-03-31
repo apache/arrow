@@ -59,44 +59,34 @@ Result<std::shared_ptr<Schema>> InMemoryFragment::ReadPhysicalSchemaImpl() {
   return physical_schema_;
 }
 
-InMemoryFragment::InMemoryFragment(std::shared_ptr<Schema> schema,
-                                   RecordBatchVector record_batches,
+namespace {
+struct VectorIterable {
+  Result<RecordBatchGenerator> operator()() { return MakeVectorGenerator(batches); }
+  RecordBatchVector batches;
+};
+}  // namespace
+
+InMemoryFragment::InMemoryFragment(std::shared_ptr<Schema> physical_schema,
+                                   RecordBatchIterable get_batches,
                                    Expression partition_expression)
-    : Fragment(std::move(partition_expression), std::move(schema)),
-      record_batches_(std::move(record_batches)) {
+    : Fragment(std::move(partition_expression), std::move(physical_schema)),
+      get_batches_(std::move(get_batches)) {
   DCHECK_NE(physical_schema_, nullptr);
 }
 
-InMemoryFragment::InMemoryFragment(RecordBatchVector record_batches,
+InMemoryFragment::InMemoryFragment(std::shared_ptr<Schema> physical_schema,
+                                   RecordBatchVector batches,
                                    Expression partition_expression)
-    : Fragment(std::move(partition_expression), /*schema=*/nullptr),
-      record_batches_(std::move(record_batches)) {
-  // Order of argument evaluation is undefined, so compute physical_schema here
-  physical_schema_ = record_batches_.empty() ? schema({}) : record_batches_[0]->schema();
+    : Fragment(std::move(partition_expression), std::move(physical_schema)),
+      get_batches_(VectorIterable{std::move(batches)}) {
+  DCHECK_NE(physical_schema_, nullptr);
 }
 
 Future<ScanTaskVector> InMemoryFragment::Scan(std::shared_ptr<ScanOptions> options) {
-  // Make an explicit copy of record_batches_ to ensure Scan can be called
-  // multiple times.
-  auto batches_it = MakeVectorIterator(record_batches_);
-
-  auto batch_size = options->batch_size;
-  // RecordBatch -> ScanTask
   auto self = shared_from_this();
-  auto fn = [=](std::shared_ptr<RecordBatch> batch) -> std::shared_ptr<ScanTask> {
-    RecordBatchVector batches;
-
-    auto n_batches = BitUtil::CeilDiv(batch->num_rows(), batch_size);
-    for (int i = 0; i < n_batches; i++) {
-      batches.push_back(batch->Slice(batch_size * i, batch_size));
-    }
-
-    return ::arrow::internal::make_unique<InMemoryScanTask>(std::move(batches),
-                                                            std::move(options), self);
-  };
-
-  return Future<ScanTaskVector>::MakeFinished(
-      MakeMapIterator(fn, std::move(batches_it)).ToVector());
+  ScanTaskVector scan_tasks{std::make_shared<InMemoryScanTask>(
+      get_batches_, std::move(options), std::move(self))};
+  return Future<ScanTaskVector>::MakeFinished(scan_tasks);
 }
 
 Dataset::Dataset(std::shared_ptr<Schema> schema, Expression partition_expression)
@@ -112,98 +102,84 @@ Result<std::shared_ptr<ScannerBuilder>> Dataset::NewScan() {
   return NewScan(std::make_shared<ScanOptions>());
 }
 
-Future<FragmentVector> Dataset::GetFragmentsAsync() {
+Future<FragmentVector> Dataset::GetFragmentsAsync() const {
   ARROW_ASSIGN_OR_RAISE(auto predicate, literal(true).Bind(*schema_));
   return GetFragmentsAsync(std::move(predicate));
 }
 
-Future<FragmentVector> Dataset::GetFragmentsAsync(Expression predicate) {
+Future<FragmentVector> Dataset::GetFragmentsAsync(Expression predicate) const {
   ARROW_ASSIGN_OR_RAISE(
       predicate, SimplifyWithGuarantee(std::move(predicate), partition_expression_));
   return predicate.IsSatisfiable() ? GetFragmentsImpl(std::move(predicate))
                                    : FragmentVector{};
 }
 
-struct VectorRecordBatchVectorFactory : InMemoryDataset::RecordBatchVectorFactory {
-  explicit VectorRecordBatchVectorFactory(RecordBatchVector batches)
-      : batches_(std::move(batches)) {}
+namespace {
 
-  Result<RecordBatchVector> Get() const final { return batches_; }
-
-  RecordBatchVector batches_;
-};
-
-InMemoryDataset::InMemoryDataset(std::shared_ptr<Schema> schema,
-                                 RecordBatchVector batches)
-    : Dataset(std::move(schema)),
-      get_batches_(new VectorRecordBatchVectorFactory(std::move(batches))) {}
-
-struct TableRecordBatchVectorFactory : InMemoryDataset::RecordBatchVectorFactory {
-  explicit TableRecordBatchVectorFactory(std::shared_ptr<Table> table)
-      : table_(std::move(table)) {}
-
-  Result<RecordBatchVector> Get() const final {
-    auto reader = std::make_shared<TableBatchReader>(*table_);
-    auto table = table_;
-    auto iter = MakeFunctionIterator([reader, table] { return reader->Next(); });
-    return iter.ToVector();
+struct TableIterable {
+  Result<RecordBatchGenerator> operator()() {
+    auto reader = std::make_shared<TableBatchReader>(*table);
+    return [reader] { return reader->Next(); };
   }
-
-  std::shared_ptr<Table> table_;
+  std::shared_ptr<Table> table;
 };
 
-InMemoryDataset::InMemoryDataset(std::shared_ptr<Table> table)
-    : Dataset(table->schema()),
-      get_batches_(new TableRecordBatchVectorFactory(std::move(table))) {}
+struct ReaderIterableState {
+  explicit ReaderIterableState(std::shared_ptr<RecordBatchReader> reader)
+      : reader(std::move(reader)), consumed(0) {}
 
-struct ReaderRecordBatchGenerator : InMemoryDataset::RecordBatchGenerator {
-  explicit ReaderRecordBatchGenerator(std::shared_ptr<RecordBatchReader> reader)
-      : reader_(std::move(reader)), consumed_(false) {}
+  std::shared_ptr<RecordBatchReader> reader;
+  std::atomic<uint8_t> consumed;
+};
+struct ReaderIterable {
+  explicit ReaderIterable(std::shared_ptr<RecordBatchReader> reader)
+      : state(std::make_shared<ReaderIterableState>(std::move(reader))) {}
 
-  RecordBatchIterator Get() const final {
-    if (consumed_) {
-      return MakeErrorIterator<std::shared_ptr<RecordBatch>>(Status::Invalid(
-          "RecordBatchReader-backed InMemoryDataset was already consumed"));
+  Result<RecordBatchGenerator> operator()() {
+    if (state->consumed.fetch_or(1)) {
+      return Status::Invalid(
+          "A dataset created from a RecordBatchReader can only be scanned once");
     }
-    consumed_ = true;
-    auto reader = reader_;
-    return MakeFunctionIterator([reader] { return reader->Next(); });
+    auto reader_capture = state->reader;
+    return [reader_capture] { return reader_capture->Next(); };
   }
 
-  std::shared_ptr<RecordBatchReader> reader_;
-  mutable bool consumed_;
+  std::shared_ptr<ReaderIterableState> state;
 };
 
-InMemoryDataset::InMemoryDataset(std::shared_ptr<RecordBatchReader> reader)
-    : Dataset(reader->schema()),
-      get_batches_(new ReaderRecordBatchGenerator(std::move(reader))) {}
+}  // namespace
+
+std::shared_ptr<InMemoryDataset> InMemoryDataset::FromTable(
+    std::shared_ptr<Table> table) {
+  auto schema = table->schema();
+  return std::make_shared<InMemoryDataset>(std::move(schema),
+                                           TableIterable{std::move(table)});
+}
+
+std::shared_ptr<InMemoryDataset> InMemoryDataset::FromReader(
+    std::shared_ptr<RecordBatchReader> reader) {
+  auto schema = reader->schema();
+  return std::make_shared<InMemoryDataset>(std::move(schema),
+                                           ReaderIterable{std::move(reader)});
+}
+
+std::shared_ptr<InMemoryDataset> InMemoryDataset::FromBatches(
+    std::shared_ptr<Schema> schema, RecordBatchVector batches) {
+  return std::make_shared<InMemoryDataset>(std::move(schema),
+                                           VectorIterable{std::move(batches)});
+}
 
 Result<std::shared_ptr<Dataset>> InMemoryDataset::ReplaceSchema(
     std::shared_ptr<Schema> schema) const {
   RETURN_NOT_OK(CheckProjectable(*schema_, *schema));
-  return std::make_shared<InMemoryDataset>(std::move(schema), get_batches_);
+  return std::make_shared<InMemoryDataset>(std::move(schema), std::move(get_batches_));
 }
 
-Future<FragmentVector> InMemoryDataset::GetFragmentsImpl(Expression) {
+Future<FragmentVector> InMemoryDataset::GetFragmentsImpl(Expression) const {
   auto schema = this->schema();
 
-  // FIXME Need auto here
-  std::function<Result<std::shared_ptr<Fragment>>(const std::shared_ptr<RecordBatch>&)>
-      create_fragment = [schema](const std::shared_ptr<RecordBatch>& batch)
-      -> Result<std::shared_ptr<Fragment>> {
-    if (!batch->schema()->Equals(schema)) {
-      return Status::TypeError("yielded batch had schema ", *batch->schema(),
-                               " which did not match InMemorySource's: ", *schema);
-    }
-
-    RecordBatchVector batches{batch};
-    return std::make_shared<InMemoryFragment>(std::move(batches));
-  };
-
-  ARROW_ASSIGN_OR_RAISE(auto batches, get_batches_->Get());
-
-  return Future<FragmentVector>::MakeFinished(
-      internal::MaybeMapVector(std::move(create_fragment), batches));
+  FragmentVector fragments{std::make_shared<InMemoryFragment>(schema, get_batches_)};
+  return Future<FragmentVector>::MakeFinished(std::move(fragments));
 }
 
 Result<std::shared_ptr<UnionDataset>> UnionDataset::Make(std::shared_ptr<Schema> schema,
@@ -230,7 +206,7 @@ Result<std::shared_ptr<Dataset>> UnionDataset::ReplaceSchema(
       new UnionDataset(std::move(schema), std::move(children)));
 }
 
-Future<FragmentVector> UnionDataset::GetFragmentsImpl(Expression predicate) {
+Future<FragmentVector> UnionDataset::GetFragmentsImpl(Expression predicate) const {
   return GetFragmentsFromDatasets(children_, predicate);
 }
 
