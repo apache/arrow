@@ -69,6 +69,16 @@ On macOS, you can use `Homebrew <https://brew.sh/>`_:
    cd arrow
    brew update && brew bundle --file=cpp/Brewfile
 
+With `vcpkg <https://github.com/Microsoft/vcpkg>`_:
+
+.. code-block:: shell
+   
+   git clone https://github.com/apache/arrow.git
+   cd arrow
+   vcpkg install \
+     --x-manifest-root cpp \
+     --clean-after-build
+
 On MSYS2:
 
 .. code-block:: shell
@@ -241,7 +251,7 @@ LLVM and Clang Tools
 
 We are currently using LLVM 8 for library builds and for other developer tools
 such as code formatting with ``clang-format``. LLVM can be installed via most
-modern package managers (apt, yum, conda, Homebrew, chocolatey).
+modern package managers (apt, yum, conda, Homebrew, vcpkg, chocolatey).
 
 .. _cpp-build-dependency-management:
 
