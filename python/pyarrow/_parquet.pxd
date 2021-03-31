@@ -54,7 +54,7 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetType_FIXED_LEN_BYTE_ARRAY" parquet::Type::FIXED_LEN_BYTE_ARRAY"
 
     enum ParquetLogicalTypeId" parquet::LogicalType::Type::type":
-        ParquetLogicalType_UNKNOWN" parquet::LogicalType::Type::UNKNOWN"
+        ParquetLogicalType_UNDEFINED" parquet::LogicalType::Type::UNDEFINED"
         ParquetLogicalType_STRING" parquet::LogicalType::Type::STRING"
         ParquetLogicalType_MAP" parquet::LogicalType::Type::MAP"
         ParquetLogicalType_LIST" parquet::LogicalType::Type::LIST"
