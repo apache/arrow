@@ -61,7 +61,7 @@ On Alpine Linux:
            gcc \
            make
 
-On macOS, you can use `Homebrew <https://brew.sh/>`_.
+On macOS, you can use `Homebrew <https://brew.sh/>`_:
 
 .. code-block:: shell
 
@@ -276,7 +276,7 @@ The build system supports a number of third-party dependencies
 The CMake option ``ARROW_DEPENDENCY_SOURCE`` is a global option that instructs
 the build system how to resolve each dependency. There are a few options:
 
-* ``AUTO``: try to find package in the system default locations and build from
+* ``AUTO``: Try to find package in the system default locations and build from
   source if not found
 * ``BUNDLED``: Building the dependency automatically from source
 * ``SYSTEM``: Finding the dependency in system paths using CMake's built-in
