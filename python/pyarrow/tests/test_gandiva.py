@@ -428,5 +428,5 @@ def test_rejects_none():
     with pytest.raises(TypeError):
         gandiva.make_projector(schema, [None])
 
-    with pytest.raises(pa.lib.ArrowInvalid):
+    with pytest.raises(TypeError):
         gandiva.make_filter(schema, None)

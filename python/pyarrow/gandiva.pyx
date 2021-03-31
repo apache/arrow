@@ -514,6 +514,8 @@ cpdef make_filter(Schema schema, Condition condition):
     Filter instance
     """
     cdef shared_ptr[CFilter] result
+    if condition is None:
+        raise TypeError("Condition must not be None")
     check_status(
         Filter_Make(schema.sp_schema, condition.condition, &result))
     return Filter.create(result)
