@@ -38,13 +38,14 @@ class TestIn : public ::testing::Test {
 std::vector<Decimal128> MakeDecimalVector(std::vector<std::string> values) {
   std::vector<arrow::Decimal128> ret;
   for (auto str : values) {
-    Decimal128 str_value;
-    int32_t str_precision;
-    int32_t str_scale;
+    Decimal128 decimal_value;
+    int32_t decimal_precision;
+    int32_t decimal_scale;
 
-    DCHECK_OK(Decimal128::FromString(str, &str_value, &str_precision, &str_scale));
+    DCHECK_OK(Decimal128::FromString(
+        str, &decimal_value, &decimal_precision, &decimal_scale));
 
-    ret.push_back(str_value);
+    ret.push_back(decimal_value);
   }
   return ret;
 }
