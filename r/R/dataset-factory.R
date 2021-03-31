@@ -52,8 +52,10 @@ DatasetFactory$create <- function(x,
   }
 
   path_and_fs <- get_path_and_filesystem(x, filesystem)
+  info <- path_and_fs$fs$GetFileInfo(path_and_fs$path)
 
-  if (length(path_and_fs$path) > 1) {
+  if (length(info) > 1 || info[[1]]$type == FileType$File) {
+    # x looks like a vector of one or more file paths (not a directory path)
     return(FileSystemDatasetFactory$create(path_and_fs$fs, NULL, path_and_fs$path, format))
   }
 
