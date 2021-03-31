@@ -24,7 +24,8 @@
 #include "arrow/util/optional.h"
 
 namespace gandiva {
-
+// A base cache class which defines the main methods that should be implemented
+// to expose a different cache with different policies.
 template <class Key, class Value>
 class BaseCache {
  public:

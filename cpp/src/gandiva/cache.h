@@ -19,6 +19,7 @@
 
 #include <cstdlib>
 #include <mutex>
+#include <memory>
 
 #include "gandiva/lower_value_used_cache.h"
 #include "gandiva/lru_cache.h"
@@ -40,9 +41,9 @@ class Cache {
  public:
   explicit Cache(size_t capacity, int cache_type_to_use) {
     if (cache_type_to_use == 0) {
-      this->cache_ = new LowerValueUsedCache<KeyType, ValueType>(capacity);
+      this->cache_ = std::make_unique<LowerValueUsedCache<KeyType, ValueType>>(capacity);
     } else {
-      this->cache_ = new LruCache<KeyType, ValueType>(capacity);
+      this->cache_ = std::make_unique<LruCache<KeyType, ValueType>>(capacity);
     }
     LogCacheSize(capacity);
   }
@@ -65,7 +66,7 @@ class Cache {
   }
 
  private:
-  BaseCache<KeyType, ValueType>* cache_;
+  std::unique_ptr<BaseCache<KeyType, ValueType>> cache_;
   std::mutex mtx_;
 };
 }  // namespace gandiva
