@@ -2241,6 +2241,7 @@ mod tests {
             "+---------------+--------------------+------------+------------+",
             "| table_catalog | table_schema       | table_name | table_type |",
             "+---------------+--------------------+------------+------------+",
+            "| datafusion    | information_schema | columns    | VIEW       |",
             "| datafusion    | information_schema | tables     | VIEW       |",
             "| datafusion    | public             | t          | BASE TABLE |",
             "+---------------+--------------------+------------+------------+",
