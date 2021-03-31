@@ -20,26 +20,28 @@ package flatbuf
 
 import "strconv"
 
-type UnionMode int16
+/// ----------------------------------------------------------------------
+/// Dictionary encoding metadata
+/// Maintained for forwards compatibility, in the future
+/// Dictionaries might be explicit maps between integers and values
+/// allowing for non-contiguous index values
+type DictionaryKind int16
 
 const (
-	UnionModeSparse UnionMode = 0
-	UnionModeDense  UnionMode = 1
+	DictionaryKindDenseArray DictionaryKind = 0
 )
 
-var EnumNamesUnionMode = map[UnionMode]string{
-	UnionModeSparse: "Sparse",
-	UnionModeDense:  "Dense",
+var EnumNamesDictionaryKind = map[DictionaryKind]string{
+	DictionaryKindDenseArray: "DenseArray",
 }
 
-var EnumValuesUnionMode = map[string]UnionMode{
-	"Sparse": UnionModeSparse,
-	"Dense":  UnionModeDense,
+var EnumValuesDictionaryKind = map[string]DictionaryKind{
+	"DenseArray": DictionaryKindDenseArray,
 }
 
-func (v UnionMode) String() string {
-	if s, ok := EnumNamesUnionMode[v]; ok {
+func (v DictionaryKind) String() string {
+	if s, ok := EnumNamesDictionaryKind[v]; ok {
 		return s
 	}
-	return "UnionMode(" + strconv.FormatInt(int64(v), 10) + ")"
+	return "DictionaryKind(" + strconv.FormatInt(int64(v), 10) + ")"
 }

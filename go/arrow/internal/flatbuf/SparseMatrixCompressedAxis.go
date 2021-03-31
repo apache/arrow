@@ -20,26 +20,26 @@ package flatbuf
 
 import "strconv"
 
-type UnionMode int16
+type SparseMatrixCompressedAxis int16
 
 const (
-	UnionModeSparse UnionMode = 0
-	UnionModeDense  UnionMode = 1
+	SparseMatrixCompressedAxisRow    SparseMatrixCompressedAxis = 0
+	SparseMatrixCompressedAxisColumn SparseMatrixCompressedAxis = 1
 )
 
-var EnumNamesUnionMode = map[UnionMode]string{
-	UnionModeSparse: "Sparse",
-	UnionModeDense:  "Dense",
+var EnumNamesSparseMatrixCompressedAxis = map[SparseMatrixCompressedAxis]string{
+	SparseMatrixCompressedAxisRow:    "Row",
+	SparseMatrixCompressedAxisColumn: "Column",
 }
 
-var EnumValuesUnionMode = map[string]UnionMode{
-	"Sparse": UnionModeSparse,
-	"Dense":  UnionModeDense,
+var EnumValuesSparseMatrixCompressedAxis = map[string]SparseMatrixCompressedAxis{
+	"Row":    SparseMatrixCompressedAxisRow,
+	"Column": SparseMatrixCompressedAxisColumn,
 }
 
-func (v UnionMode) String() string {
-	if s, ok := EnumNamesUnionMode[v]; ok {
+func (v SparseMatrixCompressedAxis) String() string {
+	if s, ok := EnumNamesSparseMatrixCompressedAxis[v]; ok {
 		return s
 	}
-	return "UnionMode(" + strconv.FormatInt(int64(v), 10) + ")"
+	return "SparseMatrixCompressedAxis(" + strconv.FormatInt(int64(v), 10) + ")"
 }
