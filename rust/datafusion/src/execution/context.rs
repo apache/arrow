@@ -614,7 +614,6 @@ pub struct ExecutionConfig {
 impl ExecutionConfig {
     /// Create an execution config with default setting
     pub fn new() -> Self {
-        let concurrency = num_cpus::get();
         Self {
             concurrency: num_cpus::get(),
             batch_size: 8192,
@@ -625,7 +624,7 @@ impl ExecutionConfig {
                 Arc::new(HashBuildProbeOrder::new()),
                 Arc::new(LimitPushDown::new()),
             ],
-            physical_optimizers: vec![Arc::new(Repartition::new(concurrency))],
+            physical_optimizers: vec![Arc::new(Repartition::new())],
             query_planner: Arc::new(DefaultQueryPlanner {}),
             default_catalog: "datafusion".to_owned(),
             default_schema: "public".to_owned(),

@@ -18,7 +18,7 @@
 //! Query optimizer traits
 use std::sync::Arc;
 
-use crate::logical_plan::LogicalPlan;
+use crate::{execution::context::ExecutionConfig, logical_plan::LogicalPlan};
 use crate::{error::Result, physical_plan::ExecutionPlan};
 
 /// `OptimizerRule` transforms one ['LogicalPlan'] into another which
@@ -37,7 +37,7 @@ pub trait OptimizerRule {
 /// way.
 pub trait PhysicalOptimizerRule {
     /// Rewrite `plan` to an optimized form
-    fn optimize(&self, plan: Arc<dyn ExecutionPlan>) -> Result<Arc<dyn ExecutionPlan>>;
+    fn optimize(&self, plan: Arc<dyn ExecutionPlan>, config: &ExecutionConfig) -> Result<Arc<dyn ExecutionPlan>>;
 
     /// A human readable name for this optimizer rule
     fn name(&self) -> &str;

@@ -177,9 +177,8 @@ impl DefaultPhysicalPlanner {
     ) -> Result<Arc<dyn ExecutionPlan>> {
         let optimizers = &ctx_state.config.physical_optimizers;
         let mut new_plan = physical_plan.clone();
-
         for optimizer in optimizers {
-            new_plan = optimizer.optimize(new_plan)?;
+            new_plan = optimizer.optimize(new_plan, &ctx_state.config)?;
         }
         Ok(new_plan)
     }
