@@ -66,7 +66,8 @@ download and install a 64-bit distribution from the `Miniconda homepage
 <https://conda.io/miniconda.html>`_
 
 To configure ``conda`` to use the ``conda-forge`` channel by default, launch a
-command prompt (``cmd.exe``) and run the command:
+command prompt (``cmd.exe``), run the initialization command shown above
+(``vcvarsall.bat`` or ``VsDevCmd.bat``), and run the command:
 
 .. code-block:: shell
 
@@ -94,9 +95,16 @@ resolving the build dependencies. This is equivalent to setting
    -DARROW_DEPENDENCY_SOURCE=SYSTEM ^
    -DARROW_PACKAGE_PREFIX=%CONDA_PREFIX%\Library
 
-Note that these packages are only supported for release builds. If you intend
-to use ``-DCMAKE_BUILD_TYPE=debug`` then you must build the packages from
-source.
+To use the Visual Studio IDE with this conda environment activated, launch it by
+running the command:
+
+.. code-block:: shell
+
+   devenv
+
+Note that these conda packages are only supported for release builds. If you
+intend to use ``-DCMAKE_BUILD_TYPE=debug`` then you must build the packages
+from source.
 
 .. note::
 
