@@ -40,7 +40,7 @@ jobs:
           - fedora-clang-devel
     env:
       R_ORG: "rhub"
-      R_IMAGE: { { MATRIX } }
+      R_IMAGE: {{ MATRIX }}
       R_TAG: "latest"
       ARROW_R_DEV: "FALSE"
     steps:
