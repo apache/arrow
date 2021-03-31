@@ -2149,7 +2149,7 @@ async fn group_by_timestamp_millis() -> Result<()> {
         ],
     )?;
     let t1_table = MemTable::try_new(schema, vec![vec![data]])?;
-    ctx.register_table("t1", Arc::new(t1_table));
+    ctx.register_table("t1", Arc::new(t1_table)).unwrap();
 
     let sql =
         "SELECT timestamp, SUM(count) FROM t1 GROUP BY timestamp ORDER BY timestamp ASC";
