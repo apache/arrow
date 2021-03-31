@@ -42,20 +42,26 @@ fn optimize_concurrency(
     plan: Arc<dyn ExecutionPlan>,
 ) -> Result<Arc<dyn ExecutionPlan>> {
     // Recurse into children bottom-up (added nodes should be as deep as possible)
-    let children = plan
-        .children()
-        .iter()
-        .map(|child| {
-            optimize_concurrency(
-                concurrency,
-                plan.required_child_distribution() == Distribution::SinglePartition,
-                child.clone(),
-            )
-        })
-        .collect::<Result<_>>()?;
 
-    let new_plan = plan.with_new_children(children)?;
-    
+    let new_plan = if plan.children().len() == 0 {
+        // leaf node - don't replace
+        plan.clone()
+    } else {
+        let children = plan
+            .children()
+            .iter()
+            .map(|child| {
+                optimize_concurrency(
+                    concurrency,
+                    plan.required_child_distribution() == Distribution::SinglePartition,
+                    child.clone(),
+                )
+            })
+            .collect::<Result<_>>()?;
+
+        plan.with_new_children(children)?
+    };
+
     let perform_repartition = match plan.output_partitioning() {
         // Apply when underlying node has less than `self.concurrency` amount of concurrency
         RoundRobinBatch(x) => x < concurrency,
@@ -64,9 +70,12 @@ fn optimize_concurrency(
         // as the plan will likely depend on this
         Hash(_, _) => false,
     };
-    
+
     if perform_repartition && !requires_single_partition {
-        debug!("Added RepartitionExec in optimizer with concurrency {}", concurrency);
+        debug!(
+            "Added RepartitionExec in optimizer with concurrency {}",
+            concurrency
+        );
         Ok(Arc::new(RepartitionExec::try_new(
             new_plan,
             RoundRobinBatch(concurrency),
