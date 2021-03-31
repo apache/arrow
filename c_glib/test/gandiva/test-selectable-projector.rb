@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestGandivaProjector < Test::Unit::TestCase
+class TestGandivaSelectableProjector < Test::Unit::TestCase
   include Helper::Buildable
 
   def setup
@@ -40,8 +40,10 @@ class TestGandivaProjector < Test::Unit::TestCase
                                        Arrow::Int32DataType.new)
     subtract_expression = Gandiva::Expression.new(subtract_function_node,
                                                   subtract_result)
-    @projector = Gandiva::Projector.new(@schema,
-                                        [add_expression, subtract_expression])
+    @projector =
+      Gandiva::SelectableProjector.new(@schema,
+                                       [add_expression, subtract_expression],
+                                       :uint16)
 
     input_arrays = [
       build_int32_array([1, 2, 3, 4]),
@@ -53,10 +55,17 @@ class TestGandivaProjector < Test::Unit::TestCase
   end
 
   def test_evaluate
-    outputs = @projector.evaluate(@record_batch)
+    two_node = Gandiva::Int32LiteralNode.new(2)
+    condition_node = Gandiva::FunctionNode.new("greater_than",
+                                               [@field_node1, two_node],
+                                               Arrow::BooleanDataType.new)
+    condition = Gandiva::Condition.new(condition_node)
+    filter = Gandiva::Filter.new(@schema, condition)
+    selection_vector = filter.evaluate(@record_batch)
+    outputs = @projector.evaluate(@record_batch, selection_vector)
     assert_equal([
-                   [12, 15, 18, 21],
-                   [-10, -11, -12, -13],
+                   [18, 21],
+                   [-12, -13],
                  ],
                  outputs.collect(&:values))
   end
