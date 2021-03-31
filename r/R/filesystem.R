@@ -273,23 +273,34 @@ FileSystem$from_uri <- function(uri) {
   fs___FileSystemFromUri(uri)
 }
 
-# TODO: consider changing "path" to "paths" in the name of this function and the
-# name of the character vector in the returned list, because it now accepts
-# length(x) > 1. Or possibly create two separate functions for these two cases,
-# both wrapping the same function containing the shared logic. Or instead add
-# an argument e.g. "allow_multiple_paths" that would default to FALSE.
-get_path_and_filesystem <- function(x, filesystem = NULL) {
+get_paths_and_filesystem <- function(x, filesystem = NULL) {
   # Wrapper around FileSystem$from_uri that handles local paths
   # and an optional explicit filesystem
   if (inherits(x, "SubTreeFileSystem")) {
     return(list(fs = x$base_fs, path = x$base_path))
   }
   assert_that(is.character(x))
-  if (is_url(x)) {
+  are_urls <- are_urls(x)
+  if (any(are_urls)) {
+    if (!all(are_urls)) {
+      stop(
+        "Vectors of paths and URIs for different file systems are not supported",
+        call. = FALSE
+      )
+    }
     if (!is.null(filesystem)) {
       # Stop? Can't have URL (which yields a fs) and another fs
     }
-    FileSystem$from_uri(x)
+    # TODO: do this more efficiently?
+    x <- lapply(x, FileSystem$from_uri)
+    if (length(unique(map(x, ~class(.$fs)))) > 1) {
+      stop(
+        "Vectors of URIs for different file systems are not supported",
+        call. = FALSE
+      )
+    }
+    fs  <- x[[1]]$fs
+    path <- map_chr(x, ~.$path) # singular name "path" used for compatibility
   } else {
     fs <- filesystem %||% LocalFileSystem$create()
     if (inherits(fs, "LocalFileSystem")) {
@@ -297,14 +308,21 @@ get_path_and_filesystem <- function(x, filesystem = NULL) {
     } else {
       path <- clean_path_rel(x)
     }
-    list(
-      fs = fs,
-      path = path
-    )
   }
+  list(
+    fs = fs,
+    path = path
+  )
+}
+
+# variant of the above function that asserts length(x) == 1
+get_path_and_filesystem <- function(x, filesystem = NULL) {
+  assert_that(length(x) == 1)
+  get_paths_and_filesystem(x, filesystem)
 }
 
 is_url <- function(x) is.string(x) && grepl("://", x)
+are_urls <- function(x) if (!is.character(x)) FALSE else grepl("://", x)
 
 #' @usage NULL
 #' @format NULL

@@ -51,7 +51,7 @@ DatasetFactory$create <- function(x,
     assert_is(format, "FileFormat")
   }
 
-  path_and_fs <- get_path_and_filesystem(x, filesystem)
+  path_and_fs <- get_paths_and_filesystem(x, filesystem)
   info <- path_and_fs$fs$GetFileInfo(path_and_fs$path)
 
   if (length(info) > 1 || info[[1]]$type == FileType$File) {
