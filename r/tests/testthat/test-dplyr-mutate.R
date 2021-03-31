@@ -249,23 +249,17 @@ test_that("dplyr::mutate's examples", {
   #>       x     y     z
   #>   <dbl> <dbl> <dbl>
   #> 1     1     2     3
-  expect_warning(
-    expect_dplyr_equal(
-      input %>% mutate(z = x + y, .before = 1) %>% collect(),
-      df
-    ),
-    "not supported in Arrow"
+  expect_dplyr_equal(
+    input %>% mutate(z = x + y, .before = 1) %>% collect(),
+    df
   )
   #> # A tibble: 1 x 3
   #>       z     x     y
   #>   <dbl> <dbl> <dbl>
   #> 1     3     1     2
-  expect_warning(
-    expect_dplyr_equal(
-      input %>% mutate(z = x + y, .after = x) %>% collect(),
-      df
-    ),
-    "not supported in Arrow"
+  expect_dplyr_equal(
+    input %>% mutate(z = x + y, .after = x) %>% collect(),
+    df
   )
   #> # A tibble: 1 x 3
   #>       x     z     y

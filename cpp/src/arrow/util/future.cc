@@ -39,6 +39,8 @@ using internal::checked_cast;
 // should ideally not limit scalability.
 static std::mutex global_waiter_mutex;
 
+const double FutureWaiter::kInfinity = HUGE_VAL;
+
 class FutureWaiterImpl : public FutureWaiter {
  public:
   FutureWaiterImpl(Kind kind, std::vector<FutureImpl*> futures)

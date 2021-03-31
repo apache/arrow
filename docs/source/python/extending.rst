@@ -16,12 +16,15 @@
 .. under the License.
 
 .. currentmodule:: pyarrow
+.. cpp:namespace:: arrow
+
 .. _extending:
 
 Using pyarrow from C++ and Cython Code
 ======================================
 
-pyarrow features both a Cython and C++ API.
+pyarrow provides both a Cython and C++ API, allowing your own native code
+to interact with pyarrow objects.
 
 C++ API
 -------
@@ -50,8 +53,8 @@ When building C extensions that use the Arrow C++ libraries, you must add
 appropriate linker flags. We have provided functions ``pyarrow.get_libraries``
 and ``pyarrow.get_library_dirs`` which return a list of library names and
 likely library install locations (if you installed pyarrow with pip or
-conda). These must be included when declaring your C extensions with distutils
-(see below).
+conda). These must be included when declaring your C extensions with
+setuptools (see below).
 
 Initializing the API
 ~~~~~~~~~~~~~~~~~~~~
@@ -71,157 +74,184 @@ pyarrow provides the following functions to go back and forth between
 Python wrappers (as exposed by the pyarrow Python API) and the underlying
 C++ objects.
 
-.. function:: bool is_array(PyObject* obj)
+.. function:: bool arrow::py::is_array(PyObject* obj)
 
    Return whether *obj* wraps an Arrow C++ :class:`Array` pointer;
    in other words, whether *obj* is a :py:class:`pyarrow.Array` instance.
 
-.. function:: bool is_buffer(PyObject* obj)
-
-   Return whether *obj* wraps an Arrow C++ :class:`Buffer` pointer;
-   in other words, whether *obj* is a :py:class:`pyarrow.Buffer` instance.
-
-.. function:: bool is_data_type(PyObject* obj)
-
-   Return whether *obj* wraps an Arrow C++ :class:`DataType` pointer;
-   in other words, whether *obj* is a :py:class:`pyarrow.DataType` instance.
-
-.. function:: bool is_field(PyObject* obj)
-
-   Return whether *obj* wraps an Arrow C++ :class:`Field` pointer;
-   in other words, whether *obj* is a :py:class:`pyarrow.Field` instance.
-
-.. function:: bool is_record_batch(PyObject* obj)
+.. function:: bool arrow::py::is_batch(PyObject* obj)
 
    Return whether *obj* wraps an Arrow C++ :class:`RecordBatch` pointer;
    in other words, whether *obj* is a :py:class:`pyarrow.RecordBatch` instance.
 
-.. function:: bool is_schema(PyObject* obj)
+.. function:: bool arrow::py::is_buffer(PyObject* obj)
+
+   Return whether *obj* wraps an Arrow C++ :class:`Buffer` pointer;
+   in other words, whether *obj* is a :py:class:`pyarrow.Buffer` instance.
+
+.. function:: bool arrow::py::is_data_type(PyObject* obj)
+
+   Return whether *obj* wraps an Arrow C++ :class:`DataType` pointer;
+   in other words, whether *obj* is a :py:class:`pyarrow.DataType` instance.
+
+.. function:: bool arrow::py::is_field(PyObject* obj)
+
+   Return whether *obj* wraps an Arrow C++ :class:`Field` pointer;
+   in other words, whether *obj* is a :py:class:`pyarrow.Field` instance.
+
+.. function:: bool arrow::py::is_scalar(PyObject* obj)
+
+   Return whether *obj* wraps an Arrow C++ :class:`Scalar` pointer;
+   in other words, whether *obj* is a :py:class:`pyarrow.Scalar` instance.
+
+.. function:: bool arrow::py::is_schema(PyObject* obj)
 
    Return whether *obj* wraps an Arrow C++ :class:`Schema` pointer;
    in other words, whether *obj* is a :py:class:`pyarrow.Schema` instance.
 
-.. function:: bool is_table(PyObject* obj)
+.. function:: bool arrow::py::is_table(PyObject* obj)
 
    Return whether *obj* wraps an Arrow C++ :class:`Table` pointer;
    in other words, whether *obj* is a :py:class:`pyarrow.Table` instance.
 
-.. function:: bool is_tensor(PyObject* obj)
+.. function:: bool arrow::py::is_tensor(PyObject* obj)
 
    Return whether *obj* wraps an Arrow C++ :class:`Tensor` pointer;
    in other words, whether *obj* is a :py:class:`pyarrow.Tensor` instance.
 
-.. function:: bool is_sparse_coo_tensor(PyObject* obj)
+.. function:: bool arrow::py::is_sparse_coo_tensor(PyObject* obj)
 
-   Return whether *obj* wraps an Arrow C++ :class:`SparseCOOTensor` pointer;
+   Return whether *obj* wraps an Arrow C++ :type:`SparseCOOTensor` pointer;
    in other words, whether *obj* is a :py:class:`pyarrow.SparseCOOTensor` instance.
 
-.. function:: bool is_sparse_csr_matrix(PyObject* obj)
+.. function:: bool arrow::py::is_sparse_csc_matrix(PyObject* obj)
 
-   Return whether *obj* wraps an Arrow C++ :class:`SparseCSRMatrix` pointer;
-   in other words, whether *obj* is a :py:class:`pyarrow.SparseCSRMatrix` instance.
-
-.. function:: bool is_sparse_csc_matrix(PyObject* obj)
-
-   Return whether *obj* wraps an Arrow C++ :class:`SparseCSCMatrix` pointer;
+   Return whether *obj* wraps an Arrow C++ :type:`SparseCSCMatrix` pointer;
    in other words, whether *obj* is a :py:class:`pyarrow.SparseCSCMatrix` instance.
 
+.. function:: bool arrow::py::is_sparse_csf_tensor(PyObject* obj)
+
+   Return whether *obj* wraps an Arrow C++ :type:`SparseCSFTensor` pointer;
+   in other words, whether *obj* is a :py:class:`pyarrow.SparseCSFTensor` instance.
+
+.. function:: bool arrow::py::is_sparse_csr_matrix(PyObject* obj)
+
+   Return whether *obj* wraps an Arrow C++ :type:`SparseCSRMatrix` pointer;
+   in other words, whether *obj* is a :py:class:`pyarrow.SparseCSRMatrix` instance.
+
+
 The following functions expect a pyarrow object, unwrap the underlying
-Arrow C++ API pointer, and put it in the *out* parameter.  The returned
-:class:`Status` object must be inspected first to know whether any error
-occurred.  If successful, *out* is guaranteed to be non-NULL.
+Arrow C++ API pointer, and return it as a :class:`Result` object.  An error
+may be returned if the input object doesn't have the expected type.
 
-.. function:: Status unwrap_array(PyObject* obj, std::shared_ptr<Array>* out)
+.. function:: Result<std::shared_ptr<Array>> arrow::py::unwrap_array(PyObject* obj)
 
-   Unwrap the Arrow C++ :class:`Array` pointer from *obj* and put it in *out*.
+   Unwrap and return the Arrow C++ :class:`Array` pointer from *obj*.
 
-.. function:: Status unwrap_buffer(PyObject* obj, std::shared_ptr<Buffer>* out)
+.. function:: Result<std::shared_ptr<RecordBatch>> arrow::py::unwrap_batch(PyObject* obj)
 
-   Unwrap the Arrow C++ :class:`Buffer` pointer from *obj* and put it in *out*.
+   Unwrap and return the Arrow C++ :class:`RecordBatch` pointer from *obj*.
 
-.. function:: Status unwrap_data_type(PyObject* obj, std::shared_ptr<DataType>* out)
+.. function:: Result<std::shared_ptr<Buffer>> arrow::py::unwrap_buffer(PyObject* obj)
 
-   Unwrap the Arrow C++ :class:`DataType` pointer from *obj* and put it in *out*.
+   Unwrap and return the Arrow C++ :class:`Buffer` pointer from *obj*.
 
-.. function:: Status unwrap_field(PyObject* obj, std::shared_ptr<Field>* out)
+.. function:: Result<std::shared_ptr<DataType>> arrow::py::unwrap_data_type(PyObject* obj)
 
-   Unwrap the Arrow C++ :class:`Field` pointer from *obj* and put it in *out*.
+   Unwrap and return the Arrow C++ :class:`DataType` pointer from *obj*.
 
-.. function:: Status unwrap_record_batch(PyObject* obj, std::shared_ptr<RecordBatch>* out)
+.. function:: Result<std::shared_ptr<Field>> arrow::py::unwrap_field(PyObject* obj)
 
-   Unwrap the Arrow C++ :class:`RecordBatch` pointer from *obj* and put it in *out*.
+   Unwrap and return the Arrow C++ :class:`Field` pointer from *obj*.
 
-.. function:: Status unwrap_schema(PyObject* obj, std::shared_ptr<Schema>* out)
+.. function:: Result<std::shared_ptr<Scalar>> arrow::py::unwrap_scalar(PyObject* obj)
 
-   Unwrap the Arrow C++ :class:`Schema` pointer from *obj* and put it in *out*.
+   Unwrap and return the Arrow C++ :class:`Scalar` pointer from *obj*.
 
-.. function:: Status unwrap_table(PyObject* obj, std::shared_ptr<Table>* out)
+.. function:: Result<std::shared_ptr<Schema>> arrow::py::unwrap_schema(PyObject* obj)
 
-   Unwrap the Arrow C++ :class:`Table` pointer from *obj* and put it in *out*.
+   Unwrap and return the Arrow C++ :class:`Schema` pointer from *obj*.
 
-.. function:: Status unwrap_tensor(PyObject* obj, std::shared_ptr<Tensor>* out)
+.. function:: Result<std::shared_ptr<Table>> arrow::py::unwrap_table(PyObject* obj)
 
-   Unwrap the Arrow C++ :class:`Tensor` pointer from *obj* and put it in *out*.
+   Unwrap and return the Arrow C++ :class:`Table` pointer from *obj*.
 
-.. function:: Status unwrap_sparse_coo_tensor(PyObject* obj, std::shared_ptr<SparseCOOTensor>* out)
+.. function:: Result<std::shared_ptr<Tensor>> arrow::py::unwrap_tensor(PyObject* obj)
 
-   Unwrap the Arrow C++ :class:`SparseCOOTensor` pointer from *obj* and put it in *out*.
+   Unwrap and return the Arrow C++ :class:`Tensor` pointer from *obj*.
 
-.. function:: Status unwrap_sparse_csr_matrix(PyObject* obj, std::shared_ptr<SparseCSRMatrix>* out)
+.. function:: Result<std::shared_ptr<SparseCOOTensor>> arrow::py::unwrap_sparse_coo_tensor(PyObject* obj)
 
-   Unwrap the Arrow C++ :class:`SparseCSRMatrix` pointer from *obj* and put it in *out*.
+   Unwrap and return the Arrow C++ :type:`SparseCOOTensor` pointer from *obj*.
 
-.. function:: Status unwrap_sparse_csc_matrix(PyObject* obj, std::shared_ptr<SparseCSCMatrix>* out)
+.. function:: Result<std::shared_ptr<SparseCSCMatrix>> arrow::py::unwrap_sparse_csc_matrix(PyObject* obj)
 
-   Unwrap the Arrow C++ :class:`SparseCSCMatrix` pointer from *obj* and put it in *out*.
+   Unwrap and return the Arrow C++ :type:`SparseCSCMatrix` pointer from *obj*.
+
+.. function:: Result<std::shared_ptr<SparseCSFTensor>> arrow::py::unwrap_sparse_csf_tensor(PyObject* obj)
+
+   Unwrap and return the Arrow C++ :type:`SparseCSFTensor` pointer from *obj*.
+
+.. function:: Result<std::shared_ptr<SparseCSRMatrix>> arrow::py::unwrap_sparse_csr_matrix(PyObject* obj)
+
+   Unwrap and return the Arrow C++ :type:`SparseCSRMatrix` pointer from *obj*.
+
 
 The following functions take an Arrow C++ API pointer and wrap it in a
 pyarray object of the corresponding type.  A new reference is returned.
 On error, NULL is returned and a Python exception is set.
 
-.. function:: PyObject* wrap_array(const std::shared_ptr<Array>& array)
+.. function:: PyObject* arrow::py::wrap_array(const std::shared_ptr<Array>& array)
 
    Wrap the Arrow C++ *array* in a :py:class:`pyarrow.Array` instance.
 
-.. function:: PyObject* wrap_buffer(const std::shared_ptr<Buffer>& buffer)
-
-   Wrap the Arrow C++ *buffer* in a :py:class:`pyarrow.Buffer` instance.
-
-.. function:: PyObject* wrap_data_type(const std::shared_ptr<DataType>& data_type)
-
-   Wrap the Arrow C++ *data_type* in a :py:class:`pyarrow.DataType` instance.
-
-.. function:: PyObject* wrap_field(const std::shared_ptr<Field>& field)
-
-   Wrap the Arrow C++ *field* in a :py:class:`pyarrow.Field` instance.
-
-.. function:: PyObject* wrap_record_batch(const std::shared_ptr<RecordBatch>& batch)
+.. function:: PyObject* arrow::py::wrap_batch(const std::shared_ptr<RecordBatch>& batch)
 
    Wrap the Arrow C++ record *batch* in a :py:class:`pyarrow.RecordBatch` instance.
 
-.. function:: PyObject* wrap_schema(const std::shared_ptr<Schema>& schema)
+.. function:: PyObject* arrow::py::wrap_buffer(const std::shared_ptr<Buffer>& buffer)
+
+   Wrap the Arrow C++ *buffer* in a :py:class:`pyarrow.Buffer` instance.
+
+.. function:: PyObject* arrow::py::wrap_data_type(const std::shared_ptr<DataType>& data_type)
+
+   Wrap the Arrow C++ *data_type* in a :py:class:`pyarrow.DataType` instance.
+
+.. function:: PyObject* arrow::py::wrap_field(const std::shared_ptr<Field>& field)
+
+   Wrap the Arrow C++ *field* in a :py:class:`pyarrow.Field` instance.
+
+.. function:: PyObject* arrow::py::wrap_scalar(const std::shared_ptr<Scalar>& scalar)
+
+   Wrap the Arrow C++ *scalar* in a :py:class:`pyarrow.Scalar` instance.
+
+.. function:: PyObject* arrow::py::wrap_schema(const std::shared_ptr<Schema>& schema)
 
    Wrap the Arrow C++ *schema* in a :py:class:`pyarrow.Schema` instance.
 
-.. function:: PyObject* wrap_table(const std::shared_ptr<Table>& table)
+.. function:: PyObject* arrow::py::wrap_table(const std::shared_ptr<Table>& table)
 
    Wrap the Arrow C++ *table* in a :py:class:`pyarrow.Table` instance.
 
-.. function:: PyObject* wrap_tensor(const std::shared_ptr<Tensor>& tensor)
+.. function:: PyObject* arrow::py::wrap_tensor(const std::shared_ptr<Tensor>& tensor)
 
    Wrap the Arrow C++ *tensor* in a :py:class:`pyarrow.Tensor` instance.
 
-.. function:: PyObject* wrap_sparse_coo_tensor(const std::shared_ptr<SparseCOOTensor>& sparse_tensor)
+.. function:: PyObject* arrow::py::wrap_sparse_coo_tensor(const std::shared_ptr<SparseCOOTensor>& sparse_tensor)
 
-   Wrap the Arrow C++ *COO sparse tensor* in a :py:class:`pyarrow.SparseCOOTensor` instance.
+   Wrap the Arrow C++ *sparse_tensor* in a :py:class:`pyarrow.SparseCOOTensor` instance.
 
-.. function:: PyObject* wrap_sparse_csr_matrix(const std::shared_ptr<SparseCSRMatrix>& sparse_tensor)
+.. function:: PyObject* arrow::py::wrap_sparse_csc_matrix(const std::shared_ptr<SparseCSCMatrix>& sparse_tensor)
 
-   Wrap the Arrow C++ *CSR sparse tensor* in a :py:class:`pyarrow.SparseCSRMatrix` instance.
+   Wrap the Arrow C++ *sparse_tensor* in a :py:class:`pyarrow.SparseCSCMatrix` instance.
 
-.. function:: PyObject* wrap_sparse_csc_matrix(const std::shared_ptr<SparseCSCMatrix>& sparse_tensor)
+.. function:: PyObject* arrow::py::wrap_sparse_csf_tensor(const std::shared_ptr<SparseCSFTensor>& sparse_tensor)
 
-   Wrap the Arrow C++ *CSC sparse tensor* in a :py:class:`pyarrow.SparseCSCMatrix` instance.
+   Wrap the Arrow C++ *sparse_tensor* in a :py:class:`pyarrow.SparseCSFTensor` instance.
+
+.. function:: PyObject* arrow::py::wrap_sparse_csr_matrix(const std::shared_ptr<SparseCSRMatrix>& sparse_tensor)
+
+   Wrap the Arrow C++ *sparse_tensor* in a :py:class:`pyarrow.SparseCSRMatrix` instance.
 
 
 Cython API
@@ -267,6 +297,10 @@ an exception) if the input is not of the right type.
 
    Unwrap the Arrow C++ :cpp:class:`Field` pointer from *obj*.
 
+.. function:: pyarrow_unwrap_scalar(obj) -> shared_ptr[CScalar]
+
+   Unwrap the Arrow C++ :cpp:class:`Scalar` pointer from *obj*.
+
 .. function:: pyarrow_unwrap_schema(obj) -> shared_ptr[CSchema]
 
    Unwrap the Arrow C++ :cpp:class:`Schema` pointer from *obj*.
@@ -281,66 +315,80 @@ an exception) if the input is not of the right type.
 
 .. function:: pyarrow_unwrap_sparse_coo_tensor(obj) -> shared_ptr[CSparseCOOTensor]
 
-   Unwrap the Arrow C++ :cpp:class:`SparseCOOTensor` pointer from *obj*.
-
-.. function:: pyarrow_unwrap_sparse_csr_matrix(obj) -> shared_ptr[CSparseCSRMatrix]
-
-   Unwrap the Arrow C++ :cpp:class:`SparseCSRMatrix` pointer from *obj*.
+   Unwrap the Arrow C++ :cpp:type:`SparseCOOTensor` pointer from *obj*.
 
 .. function:: pyarrow_unwrap_sparse_csc_matrix(obj) -> shared_ptr[CSparseCSCMatrix]
 
-   Unwrap the Arrow C++ :cpp:class:`SparseCSCMatrix` pointer from *obj*.
+   Unwrap the Arrow C++ :cpp:type:`SparseCSCMatrix` pointer from *obj*.
+
+.. function:: pyarrow_unwrap_sparse_csf_tensor(obj) -> shared_ptr[CSparseCSFTensor]
+
+   Unwrap the Arrow C++ :cpp:type:`SparseCSFTensor` pointer from *obj*.
+
+.. function:: pyarrow_unwrap_sparse_csr_matrix(obj) -> shared_ptr[CSparseCSRMatrix]
+
+   Unwrap the Arrow C++ :cpp:type:`SparseCSRMatrix` pointer from *obj*.
+
 
 The following functions take a Arrow C++ API pointer and wrap it in a
 pyarray object of the corresponding type.  An exception is raised on error.
 
-.. function:: pyarrow_wrap_array(sp_array: const shared_ptr[CArray]& array) -> object
+.. function:: pyarrow_wrap_array(const shared_ptr[CArray]& array) -> object
 
    Wrap the Arrow C++ *array* in a Python :class:`pyarrow.Array` instance.
 
-.. function:: pyarrow_wrap_batch(sp_array: const shared_ptr[CRecordBatch]& batch) -> object
+.. function:: pyarrow_wrap_batch(const shared_ptr[CRecordBatch]& batch) -> object
 
    Wrap the Arrow C++ record *batch* in a Python :class:`pyarrow.RecordBatch` instance.
 
-.. function:: pyarrow_wrap_buffer(sp_array: const shared_ptr[CBuffer]& buffer) -> object
+.. function:: pyarrow_wrap_buffer(const shared_ptr[CBuffer]& buffer) -> object
 
    Wrap the Arrow C++ *buffer* in a Python :class:`pyarrow.Buffer` instance.
 
-.. function:: pyarrow_wrap_data_type(sp_array: const shared_ptr[CDataType]& data_type) -> object
+.. function:: pyarrow_wrap_data_type(const shared_ptr[CDataType]& data_type) -> object
 
    Wrap the Arrow C++ *data_type* in a Python :class:`pyarrow.DataType` instance.
 
-.. function:: pyarrow_wrap_field(sp_array: const shared_ptr[CField]& field) -> object
+.. function:: pyarrow_wrap_field(const shared_ptr[CField]& field) -> object
 
    Wrap the Arrow C++ *field* in a Python :class:`pyarrow.Field` instance.
 
-.. function:: pyarrow_wrap_resizable_buffer(sp_array: const shared_ptr[CResizableBuffer]& buffer) -> object
+.. function:: pyarrow_wrap_resizable_buffer(const shared_ptr[CResizableBuffer]& buffer) -> object
 
    Wrap the Arrow C++ resizable *buffer* in a Python :class:`pyarrow.ResizableBuffer` instance.
 
-.. function:: pyarrow_wrap_schema(sp_array: const shared_ptr[CSchema]& schema) -> object
+.. function:: pyarrow_wrap_scalar(const shared_ptr[CScalar]& scalar) -> object
+
+   Wrap the Arrow C++ *scalar* in a Python :class:`pyarrow.Scalar` instance.
+
+.. function:: pyarrow_wrap_schema(const shared_ptr[CSchema]& schema) -> object
 
    Wrap the Arrow C++ *schema* in a Python :class:`pyarrow.Schema` instance.
 
-.. function:: pyarrow_wrap_table(sp_array: const shared_ptr[CTable]& table) -> object
+.. function:: pyarrow_wrap_table(const shared_ptr[CTable]& table) -> object
 
    Wrap the Arrow C++ *table* in a Python :class:`pyarrow.Table` instance.
 
-.. function:: pyarrow_wrap_tensor(sp_array: const shared_ptr[CTensor]& tensor) -> object
+.. function:: pyarrow_wrap_tensor(const shared_ptr[CTensor]& tensor) -> object
 
    Wrap the Arrow C++ *tensor* in a Python :class:`pyarrow.Tensor` instance.
 
-.. function:: pyarrow_wrap_sparse_coo_tensor(sp_array: const shared_ptr[CSparseCOOTensor]& sparse_tensor) -> object
+.. function:: pyarrow_wrap_sparse_coo_tensor(const shared_ptr[CSparseCOOTensor]& sparse_tensor) -> object
 
    Wrap the Arrow C++ *COO sparse tensor* in a Python :class:`pyarrow.SparseCOOTensor` instance.
 
-.. function:: pyarrow_wrap_sparse_csr_matrix(sp_array: const shared_ptr[CSparseCSRMatrix]& sparse_tensor) -> object
+.. function:: pyarrow_wrap_sparse_csc_matrix(const shared_ptr[CSparseCSCMatrix]& sparse_tensor) -> object
+
+   Wrap the Arrow C++ *CSC sparse tensor* in a Python :class:`pyarrow.SparseCSCMatrix` instance.
+
+.. function:: pyarrow_wrap_sparse_csf_tensor(const shared_ptr[CSparseCSFTensor]& sparse_tensor) -> object
+
+   Wrap the Arrow C++ *COO sparse tensor* in a Python :class:`pyarrow.SparseCSFTensor` instance.
+
+.. function:: pyarrow_wrap_sparse_csr_matrix(const shared_ptr[CSparseCSRMatrix]& sparse_tensor) -> object
 
    Wrap the Arrow C++ *CSR sparse tensor* in a Python :class:`pyarrow.SparseCSRMatrix` instance.
 
-.. function:: pyarrow_wrap_sparse_csc_matrix(sp_array: const shared_ptr[CSparseCSCMatrix]& sparse_tensor) -> object
-
-   Wrap the Arrow C++ *CSC sparse tensor* in a Python :class:`pyarrow.SparseCSCMatrix` instance.
 
 Example
 ~~~~~~~
@@ -368,7 +416,7 @@ To build this module, you will need a slightly customized ``setup.py`` file
 
 .. code-block:: python
 
-    from distutils.core import setup
+    from setuptools import setup
     from Cython.Build import cythonize
 
     import os

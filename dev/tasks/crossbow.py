@@ -322,7 +322,11 @@ class Repo:
 
     def create_commit(self, files, parents=None, message='',
                       reference_name=None):
-        parents = parents or []
+        if parents is None:
+            # by default use the main branch as the base of the new branch
+            # required to reuse github actions cache across crossbow tasks
+            commit, _ = self.repo.resolve_refish("master")
+            parents = [commit.id]
         tree_id = self.create_tree(files)
 
         author = committer = self.signature
@@ -563,8 +567,8 @@ class Queue(Repo):
         if job.target.remote is None:
             raise RuntimeError(
                 'Cannot determine git remote for the Arrow repository to '
-                'clone or push to, try to push the branch first to have a '
-                'remote tracking counterpart.'
+                'clone or push to, try to push the `{}` branch first to have '
+                'a remote tracking counterpart.'.format(job.target.branch)
             )
         if job.target.branch is None:
             raise RuntimeError(

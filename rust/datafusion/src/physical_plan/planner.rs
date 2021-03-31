@@ -749,10 +749,13 @@ fn tuple_err<T, R>(value: (Result<T>, Result<R>)) -> Result<(T, R)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::logical_plan::{DFField, DFSchema, DFSchemaRef};
     use crate::physical_plan::{csv::CsvReadOptions, expressions, Partitioning};
     use crate::prelude::ExecutionConfig;
     use crate::scalar::ScalarValue;
+    use crate::{
+        catalog::catalog::MemoryCatalogList,
+        logical_plan::{DFField, DFSchema, DFSchemaRef},
+    };
     use crate::{
         logical_plan::{col, lit, sum, LogicalPlanBuilder},
         physical_plan::SendableRecordBatchStream,
@@ -764,7 +767,7 @@ mod tests {
 
     fn make_ctx_state() -> ExecutionContextState {
         ExecutionContextState {
-            catalogs: HashMap::new(),
+            catalog_list: Arc::new(MemoryCatalogList::new()),
             scalar_functions: HashMap::new(),
             var_provider: HashMap::new(),
             aggregate_functions: HashMap::new(),

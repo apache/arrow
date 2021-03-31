@@ -46,10 +46,11 @@ std::ostream& operator<<(std::ostream& os, const TestStr& v) {
   return os;
 }
 
-std::vector<TestInt> RangeVector(unsigned int max) {
-  std::vector<TestInt> range(max);
-  for (unsigned int i = 0; i < max; i++) {
-    range[i] = i;
+std::vector<TestInt> RangeVector(unsigned int max, unsigned int step) {
+  auto count = max / step;
+  std::vector<TestInt> range(count);
+  for (unsigned int i = 0; i < count; i++) {
+    range[i] = i * step;
   }
   return range;
 }

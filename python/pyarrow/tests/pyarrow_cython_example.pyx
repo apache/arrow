@@ -36,3 +36,20 @@ def make_null_array(length):
     cdef shared_ptr[CArray] null_array
     null_array.reset(new CNullArray(length))
     return pyarrow_wrap_array(null_array)
+
+
+def cast_scalar(scalar, to_type):
+    cdef:
+        shared_ptr[CScalar] c_scalar
+        shared_ptr[CDataType] c_type
+        CResult[shared_ptr[CScalar]] c_result
+
+    c_scalar = pyarrow_unwrap_scalar(scalar)
+    if c_scalar.get() == NULL:
+        raise TypeError("not a scalar")
+    c_type = pyarrow_unwrap_data_type(to_type)
+    if c_type.get() == NULL:
+        raise TypeError("not a type")
+    c_result = c_scalar.get().CastTo(c_type)
+    c_scalar = GetResultValue(c_result)
+    return pyarrow_wrap_scalar(c_scalar)

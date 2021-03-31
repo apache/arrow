@@ -885,7 +885,7 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader {
 
     // TODO(wesm): In future, we may want to reconcile the ids in the stream with
     // those found in the schema
-    const auto num_dicts = dictionary_memo_.fields().num_fields();
+    const auto num_dicts = dictionary_memo_.fields().num_dicts();
     for (int i = 0; i < num_dicts; ++i) {
       ARROW_ASSIGN_OR_RAISE(message, ReadNextMessage());
       if (!message) {
