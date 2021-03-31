@@ -673,13 +673,11 @@ impl LogicalPlan {
                         partitioning_scheme,
                         ..
                     } => match partitioning_scheme {
-                        Partitioning::RoundRobinBatch(n) => {
-                            write!(
-                                f,
-                                "Repartition: RoundRobinBatch partition_count={}",
-                                n
-                            )
-                        }
+                        Partitioning::RoundRobinBatch(n) => write!(
+                            f,
+                            "Repartition: RoundRobinBatch partition_count={}",
+                            n
+                        ),
                         Partitioning::Hash(expr, n) => {
                             let hash_expr: Vec<String> =
                                 expr.iter().map(|e| format!("{:?}", e)).collect();

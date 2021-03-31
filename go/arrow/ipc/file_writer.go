@@ -82,7 +82,7 @@ func (w *pwriter) WritePayload(p Payload) error {
 		return xerrors.Errorf("arrow/ipc: could not update position while in write-payload: %w", err)
 	}
 
-	switch byte(p.msg) {
+	switch flatbuf.MessageHeader(p.msg) {
 	case flatbuf.MessageHeaderDictionaryBatch:
 		w.dicts = append(w.dicts, blk)
 	case flatbuf.MessageHeaderRecordBatch:

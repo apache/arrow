@@ -549,23 +549,22 @@ use_compliant_nested_type: bool, default False
     with 3-level structure where the middle level, named ``list``,
     is a repeated group with a single field named ``element``
     ::
-      <list-repetition> group <name> (LIST) {
-        repeated group list {
-          <element-repetition> <element-type> element;
+        <list-repetition> group <name> (LIST) {
+            repeated group list {
+                  <element-repetition> <element-type> element;
+            }
         }
-      }
 
     For ``use_compliant_nested_type=False``, this will also write into a list
     with 3-level structure, where the name of the single field of the middle
     level ``list`` is taken from the element name for nested columns in Arrow,
     which defaults to ``item``
     ::
-      <list-repetition> group <name> (LIST) {
-        repeated group list {
-          <element-repetition> <element-type> item;
-       }
-      }
-
+        <list-repetition> group <name> (LIST) {
+            repeated group list {
+                <element-repetition> <element-type> item;
+            }
+        }
 """
 
 

@@ -20,26 +20,26 @@ package flatbuf
 
 import "strconv"
 
-type UnionMode int16
+type CompressionType int8
 
 const (
-	UnionModeSparse UnionMode = 0
-	UnionModeDense  UnionMode = 1
+	CompressionTypeLZ4_FRAME CompressionType = 0
+	CompressionTypeZSTD      CompressionType = 1
 )
 
-var EnumNamesUnionMode = map[UnionMode]string{
-	UnionModeSparse: "Sparse",
-	UnionModeDense:  "Dense",
+var EnumNamesCompressionType = map[CompressionType]string{
+	CompressionTypeLZ4_FRAME: "LZ4_FRAME",
+	CompressionTypeZSTD:      "ZSTD",
 }
 
-var EnumValuesUnionMode = map[string]UnionMode{
-	"Sparse": UnionModeSparse,
-	"Dense":  UnionModeDense,
+var EnumValuesCompressionType = map[string]CompressionType{
+	"LZ4_FRAME": CompressionTypeLZ4_FRAME,
+	"ZSTD":      CompressionTypeZSTD,
 }
 
-func (v UnionMode) String() string {
-	if s, ok := EnumNamesUnionMode[v]; ok {
+func (v CompressionType) String() string {
+	if s, ok := EnumNamesCompressionType[v]; ok {
 		return s
 	}
-	return "UnionMode(" + strconv.FormatInt(int64(v), 10) + ")"
+	return "CompressionType(" + strconv.FormatInt(int64(v), 10) + ")"
 }

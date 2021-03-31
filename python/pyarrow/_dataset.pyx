@@ -101,8 +101,9 @@ cdef class Expression(_Weakrefable):
     - Check whether the expression is contained in a list of values with
       the ``pyarrow.dataset.Expression.isin()`` member function.
 
-    Examples:
+    Examples
     --------
+
     >>> import pyarrow.dataset as ds
     >>> (ds.field("a") < ds.scalar(3)) | (ds.field("b") > 7)
     <pyarrow.dataset.Expression ((a < 3:int64) or (b > 7:int64))>
