@@ -44,10 +44,13 @@ var Codecs = struct {
 	Uncompressed Compression
 	Snappy       Compression
 	Gzip         Compression
-	Lzo          Compression
-	Brotli       Compression
-	Lz4          Compression
-	Zstd         Compression
+	// LZO is unsupported in this library as I haven't yet found a good implementation of it for golang.
+	Lzo    Compression
+	Brotli Compression
+	// LZ4 unsupported in this library due to problematic issues between the Hadoop LZ4 spec vs regular lz4
+	// see: http://mail-archives.apache.org/mod_mbox/arrow-dev/202007.mbox/%3CCAAri41v24xuA8MGHLDvgSnE+7AAgOhiEukemW_oPNHMvfMmrWw@mail.gmail.com%3E
+	Lz4  Compression
+	Zstd Compression
 }{
 	Uncompressed: Compression(parquet.CompressionCodec_UNCOMPRESSED),
 	Snappy:       Compression(parquet.CompressionCodec_SNAPPY),

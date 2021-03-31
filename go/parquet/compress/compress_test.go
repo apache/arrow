@@ -58,7 +58,7 @@ func TestCompressDataOneShot(t *testing.T) {
 		{compress.Codecs.Gzip},
 		// {compress.Codecs.Lzo},
 		{compress.Codecs.Brotli},
-		{compress.Codecs.Lz4},
+		// {compress.Codecs.Lz4},
 		{compress.Codecs.Zstd},
 	}
 
@@ -89,7 +89,7 @@ func TestCompressReaderWriter(t *testing.T) {
 		{compress.Codecs.Gzip},
 		// {compress.Codecs.Lzo},
 		{compress.Codecs.Brotli},
-		{compress.Codecs.Lz4},
+		// {compress.Codecs.Lz4},
 		{compress.Codecs.Zstd},
 	}
 
