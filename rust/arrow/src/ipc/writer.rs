@@ -561,7 +561,7 @@ impl<W: Write> StreamWriter<W> {
     /// # Example
     ///
     /// ```
-    /// # use arrow::datatypes::{DataType, Field, Schema};
+    /// # use arrow::datatypes::Schema;
     /// # use arrow::ipc::writer::StreamWriter;
     /// # use arrow::error::ArrowError;
     /// # fn main() -> Result<(), ArrowError> {
