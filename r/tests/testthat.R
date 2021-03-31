@@ -20,7 +20,8 @@ library(arrow)
 library(tibble)
 
 if (identical(tolower(Sys.getenv("ARROW_R_DEV", FALSE)), "true")) {
-  test_check("arrow", reporter = MultiReporter("check", "location"))
+  arrow_reporter <- MultiReporter$new(list(CheckReporter$new(), LocationReporter$new()))
 } else {
-  test_check("arrow")
+  arrow_reporter <- check_reporter()
 }
+test_check("arrow", reporter = arrow_reporter)
