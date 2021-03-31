@@ -15,7 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-find_package(OpenSSL)
+if(ARROW_OPENSSL_USE_SHARED)
+    # Find shared OpenSSL libraries.
+    set(OpenSSL_USE_STATIC_LIBS OFF)
+    set(OPENSSL_USE_STATIC_LIBS OFF)
+    find_package(OpenSSL)
+else()
+    # Find static OpenSSL headers and libs
+    set(OpenSSL_USE_STATIC_LIBS ON)
+    set(OPENSSL_USE_STATIC_LIBS ON)
+    find_package(OpenSSL)
+endif()
 
 if (OPENSSL_FOUND)
     if (OPENSSL_VERSION LESS "1.1.0")

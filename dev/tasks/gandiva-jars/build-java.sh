@@ -25,11 +25,11 @@ pushd java
   if [[ $OS_NAME == "linux" ]]; then
     SO_DEP=ldd
     GANDIVA_LIB="$CPP_BUILD_DIR"libgandiva_jni.so
-    WHITELIST=(linux-vdso libz librt libdl libpthread libstdc++ libm libgcc_s libc ld-linux-x86-64 libssl libcrypto)
+    WHITELIST=(linux-vdso libz librt libdl libpthread libstdc++ libm libgcc_s libc ld-linux-x86-64)
   else
     SO_DEP="otool -L"
     GANDIVA_LIB="$CPP_BUILD_DIR"libgandiva_jni.dylib
-    WHITELIST=(libgandiva_jni libz libncurses libSystem libc++ libssl libcrypto)
+    WHITELIST=(libgandiva_jni libz libncurses libSystem libc++)
   fi
 
   # print the shared library dependencies
