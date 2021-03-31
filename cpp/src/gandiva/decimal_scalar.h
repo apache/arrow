@@ -62,19 +62,14 @@ template <>
 struct hash<gandiva::DecimalScalar128> {
   std::size_t operator()(gandiva::DecimalScalar128 const& s) const noexcept {
     arrow::BasicDecimal128 dvalue(s.value());
-    std::size_t h0 = std::hash<int64_t>{}(dvalue.high_bits());
-    std::size_t h1 = std::hash<uint64_t>{}(dvalue.low_bits());
-
-    std::size_t h2 = std::hash<int32_t>{}(s.precision());
-    std::size_t h3 = std::hash<int32_t>{}(s.scale());
 
     static const int kSeedValue = 4;
     size_t result = kSeedValue;
 
-    arrow::internal::hash_combine(result, h0);
-    arrow::internal::hash_combine(result, h1);
-    arrow::internal::hash_combine(result, h2);
-    arrow::internal::hash_combine(result, h3);
+    arrow::internal::hash_combine(result, dvalue.high_bits());
+    arrow::internal::hash_combine(result, dvalue.low_bits());
+    arrow::internal::hash_combine(result, s.precision());
+    arrow::internal::hash_combine(result, s.scale());
     return result;
   }
 };
