@@ -527,12 +527,12 @@ Containment tests
 +===========================+============+====================================+===============+========================================+
 | match_substring           | Unary      | String-like                        | Boolean (1)   | :struct:`MatchSubstringOptions`        |
 +---------------------------+------------+------------------------------------+---------------+----------------------------------------+
-| match_substring_regex     | Unary      | String-like                        | Boolean (1)   | :struct:`MatchSubstringOptions`        |
+| match_substring_regex     | Unary      | String-like                        | Boolean (2)   | :struct:`MatchSubstringOptions`        |
 +---------------------------+------------+------------------------------------+---------------+----------------------------------------+
-| index_in                  | Unary      | Boolean, Null, Numeric, Temporal,  | Int32 (2)     | :struct:`SetLookupOptions`             |
+| index_in                  | Unary      | Boolean, Null, Numeric, Temporal,  | Int32 (3)     | :struct:`SetLookupOptions`             |
 |                           |            | Binary- and String-like            |               |                                        |
 +---------------------------+------------+------------------------------------+---------------+----------------------------------------+
-| is_in                     | Unary      | Boolean, Null, Numeric, Temporal,  | Boolean (3)   | :struct:`SetLookupOptions`             |
+| is_in                     | Unary      | Boolean, Null, Numeric, Temporal,  | Boolean (4)   | :struct:`SetLookupOptions`             |
 |                           |            | Binary- and String-like            |               |                                        |
 +---------------------------+------------+------------------------------------+---------------+----------------------------------------+
 
