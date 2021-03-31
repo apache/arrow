@@ -21,24 +21,6 @@ add_custom_target(parquet-benchmarks)
 add_custom_target(parquet-tests)
 add_dependencies(parquet-all parquet parquet-tests parquet-benchmarks)
 
-file(READ "${CMAKE_CURRENT_SOURCE_DIR}/.parquetcppversion" PARQUET_VERSION)
-string(REPLACE "\n" "" PARQUET_VERSION "${PARQUET_VERSION}")
-string(REGEX MATCH "^([0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?)" VERSION ${PARQUET_VERSION})
-if(NOT VERSION)
-  message(FATAL_ERROR "invalid .parquetcppversion")
-endif()
-set(PARQUET_VERSION "${PARQUET_VERSION}" PARENT_SCOPE)
-
-string(REGEX
-       REPLACE "^([0-9]+)\.[0-9]+\.[0-9]+(-.+)?$" "\\1" PARQUET_VERSION_MAJOR
-               "${PARQUET_VERSION}")
-string(REGEX
-       REPLACE "^[0-9]+\.([0-9]+)\.[0-9]+(-.+)?$" "\\1" PARQUET_VERSION_MINOR
-               "${PARQUET_VERSION}")
-string(REGEX
-       REPLACE "^[0-9]+\.[0-9]+\.([0-9]+)(-.+)?$" "\\1" PARQUET_VERSION_PATCH
-               "${PARQUET_VERSION}")
-
 function(ADD_PARQUET_TEST REL_TEST_NAME)
   set(one_value_args)
   set(multi_value_args EXTRA_DEPENDENCIES LABELS)
