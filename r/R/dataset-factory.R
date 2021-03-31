@@ -82,14 +82,13 @@ DatasetFactory$create <- function(x,
 #' If you would only have a single `DatasetFactory` (for example, you have a
 #' single directory containing Parquet files), you can call `open_dataset()`
 #' directly. Use `dataset_factory()` when you
-#' want to combine different directories, file systems, or file formats.
+#' want to combine different files, directories, file systems, or file formats.
 #'
-#' TODO: UPDATE THIS DOCS ENTRY
-#'
-#' @param x A string file x containing data files, or
-#' a list of `DatasetFactory` objects whose datasets should be
-#' grouped. If this argument is specified it will be used to construct a
-#' `UnionDatasetFactory` and other arguments will be ignored.
+#' @param x A string path to a directory containing data files, a vector of one
+#' one or more string paths to data files, or a list of `DatasetFactory` objects
+#' whose datasets should be combined. If this argument is specified it will be
+#' used to construct a `UnionDatasetFactory` and other arguments will be
+#' ignored.
 #' @param filesystem A [FileSystem] object; if omitted, the `FileSystem` will
 #' be detected from `x`
 #' @param format A [FileFormat] object, or a string identifier of the format of

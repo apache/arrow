@@ -13,9 +13,10 @@ open_dataset(
 )
 }
 \arguments{
-\item{sources}{Either:
+\item{sources}{One of:
 \itemize{
 \item a string path to a directory containing data files
+\item a vector of one or more string paths to data files
 \item a list of \code{Dataset} objects as created by this function
 \item a list of \code{DatasetFactory} objects as created by \code{\link[=dataset_factory]{dataset_factory()}}.
 }}
@@ -23,7 +24,7 @@ open_dataset(
 \item{schema}{\link{Schema} for the dataset. If \code{NULL} (the default), the schema
 will be inferred from the data sources.}
 
-\item{partitioning}{When \code{sources} is a file path, one of
+\item{partitioning}{When \code{sources} is a directory path, one of:
 \itemize{
 \item a \code{Schema}, in which case the file paths relative to \code{sources} will be
 parsed, and path segments will be matched with the schema fields. For
@@ -38,7 +39,8 @@ Hive-style path segments
 \item \code{NULL} for no partitioning
 }
 
-The default is to autodetect Hive-style partitions.}
+The default is to autodetect Hive-style partitions. When \code{sources} is not a
+directory path, \code{partitioning} is ignored.}
 
 \item{unify_schemas}{logical: should all data fragments (files, \code{Dataset}s)
 be scanned in order to create a unified schema from them? If \code{FALSE}, only
