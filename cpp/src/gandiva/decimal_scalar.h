@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <string>
 #include "arrow/util/decimal.h"
+#include "arrow/util/hash_util.h"
 #include "gandiva/basic_decimal_scalar.h"
 
 namespace gandiva {
@@ -67,7 +68,14 @@ struct hash<gandiva::DecimalScalar128> {
     std::size_t h2 = std::hash<int32_t>{}(s.precision());
     std::size_t h3 = std::hash<int32_t>{}(s.scale());
 
-    return (((h0 ^ (h1 << 1) >> 1) ^ (h2 << 1) >> 1) ^ h3 << 1);
+    static const int kSeedValue = 4;
+    size_t result = kSeedValue;
+
+    arrow::internal::hash_combine(result, h0);
+    arrow::internal::hash_combine(result, h1);
+    arrow::internal::hash_combine(result, h2);
+    arrow::internal::hash_combine(result, h3);
+    return result;
   }
 };
 }  // namespace std
