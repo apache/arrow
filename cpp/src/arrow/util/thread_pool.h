@@ -104,22 +104,15 @@ class ARROW_EXPORT Executor {
   template <typename T>
   Future<T> Transfer(Future<T> future) {
     auto transferred = Future<T>::Make();
-    auto callback = [this, transferred](const Result<T>& result) mutable {
+    future.AddCallback([this, transferred](const Result<T>& result) mutable {
       auto spawn_status = Spawn([transferred, result]() mutable {
         transferred.MarkFinished(std::move(result));
       });
       if (!spawn_status.ok()) {
         transferred.MarkFinished(spawn_status);
       }
-    };
-    auto callback_factory = [&callback]() { return callback; };
-    if (future.TryAddCallback(callback_factory)) {
-      return transferred;
-    }
-    // If the future is already finished and we aren't going to force spawn a thread
-    // then we don't need to add another layer of callback and can return the original
-    // future
-    return future;
+    });
+    return transferred;
   }
 
   // Submit a callable and arguments for execution.  Return a future that

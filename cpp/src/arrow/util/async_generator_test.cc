@@ -497,7 +497,7 @@ TEST(TestAsyncUtil, SynchronousFinish) {
     return Future<TestInt>::MakeFinished(IterationTraits<TestInt>::End());
   };
   Transformer<TestInt, TestStr> skip_all = [](TestInt value) { return TransformSkip(); };
-  auto transformed = MakeTransformedGenerator(generator, skip_all);
+  auto transformed = MakeAsyncGenerator(generator, skip_all);
   auto future = CollectAsyncGenerator(transformed);
   ASSERT_FINISHES_OK_AND_ASSIGN(auto actual, future);
   ASSERT_EQ(std::vector<TestStr>(), actual);
@@ -562,7 +562,7 @@ TEST(TestAsyncUtil, StackOverflow) {
   };
   Transformer<TestInt, TestStr> discard =
       [](TestInt next) -> Result<TransformFlow<TestStr>> { return TransformSkip(); };
-  auto transformed = MakeTransformedGenerator(generator, discard);
+  auto transformed = MakeAsyncGenerator(generator, discard);
   auto collected_future = CollectAsyncGenerator(transformed);
   ASSERT_FINISHES_OK_AND_ASSIGN(auto collected, collected_future);
   ASSERT_EQ(0, collected.size());
@@ -909,7 +909,7 @@ INSTANTIATE_TEST_SUITE_P(SequencerTests, SequencerTestFixture,
 TEST(TestAsyncIteratorTransform, SkipSome) {
   auto original = AsyncVectorIt<TestInt>({1, 2, 3});
   auto filter = MakeFilter([](TestInt& t) { return t.value != 2; });
-  auto filtered = MakeTransformedGenerator(std::move(original), filter);
+  auto filtered = MakeAsyncGenerator(std::move(original), filter);
   AssertAsyncGeneratorMatch({"1", "3"}, std::move(filtered));
 }
 

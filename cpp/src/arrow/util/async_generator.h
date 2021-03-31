@@ -429,7 +429,7 @@ AsyncGenerator<T> MakeSequencingGenerator(AsyncGenerator<T> source_generator,
       std::move(initial_value));
 }
 
-/// \see MakeTransformedGenerator
+/// \see MakeAsyncGenerator
 template <typename T, typename V>
 class TransformingGenerator {
   // The transforming generator state will be referenced as an async generator but will
@@ -531,8 +531,8 @@ class TransformingGenerator {
 ///
 /// This generator may queue up to 1 instance of T
 template <typename T, typename V>
-AsyncGenerator<V> MakeTransformedGenerator(AsyncGenerator<T> generator,
-                                           Transformer<T, V> transformer) {
+AsyncGenerator<V> MakeAsyncGenerator(AsyncGenerator<T> generator,
+                                     Transformer<T, V> transformer) {
   return TransformingGenerator<T, V>(generator, transformer);
 }
 
