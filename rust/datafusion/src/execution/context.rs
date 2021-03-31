@@ -21,9 +21,8 @@ use crate::{
         catalog::{CatalogList, MemoryCatalogList},
         information_schema::CatalogWithInformationSchema,
     },
-    optimizer::{
-        hash_build_probe_order::HashBuildProbeOrder, optimizer::PhysicalOptimizerRule,
-    },
+    optimizer::hash_build_probe_order::HashBuildProbeOrder,
+    physical_optimizer::optimizer::PhysicalOptimizerRule,
 };
 use log::debug;
 use std::fs;
