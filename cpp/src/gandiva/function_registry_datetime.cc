@@ -80,6 +80,19 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
                      NativeFunction::kNeedsContext |
                          NativeFunction::kNeedsFunctionHolder |
                          NativeFunction::kCanReturnErrors),
+
+      NativeFunction("to_time", {}, DataTypeVector{utf8(), utf8()}, date64(),
+                     kResultNullInternal, "gdv_fn_to_time_utf8_utf8",
+                     NativeFunction::kNeedsContext |
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
+
+      NativeFunction("to_time", {}, DataTypeVector{utf8(), utf8(), int32()}, date64(),
+                     kResultNullInternal, "gdv_fn_to_time_utf8_utf8_int32",
+                     NativeFunction::kNeedsContext |
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
+
       NativeFunction("castTIMESTAMP", {}, DataTypeVector{date64()}, timestamp(),
                      kResultNullIfNull, "castTIMESTAMP_date64"),
 
