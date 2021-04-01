@@ -162,8 +162,7 @@ std::shared_ptr<ds::DatasetFactory> dataset___UnionDatasetFactory__Make(
 
 // [[dataset::export]]
 std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make0(
-    const std::shared_ptr<fs::FileSystem>& fs,
-    const std::vector<std::string>& paths,
+    const std::shared_ptr<fs::FileSystem>& fs, const std::vector<std::string>& paths,
     const std::shared_ptr<ds::FileFormat>& format) {
   // TODO(fsaintjacques): Make options configurable
   auto options = ds::FileSystemFactoryOptions{};
