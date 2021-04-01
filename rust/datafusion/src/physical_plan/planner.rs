@@ -109,13 +109,13 @@ impl DefaultPhysicalPlanner {
         ctx_state: &ExecutionContextState,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         let optimizers = &ctx_state.config.physical_optimizers;
-        println!("Physical plan:\n{:?}", plan);
+        debug!("Physical plan:\n{:?}", plan);
 
         let mut new_plan = plan;
         for optimizer in optimizers {
             new_plan = optimizer.optimize(new_plan, &ctx_state.config)?;
         }
-        println!("Optimized physical plan:\n{:?}", new_plan);
+        debug!("Optimized physical plan:\n{:?}", new_plan);
         Ok(new_plan)
     }
 

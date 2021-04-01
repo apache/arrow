@@ -823,15 +823,6 @@ mod tests {
         let partition_count = 4;
         let results = execute("SELECT c1, c2 FROM test", partition_count).await?;
 
-        // there should be one batch per partition
-        assert_eq!(results.len(), partition_count);
-
-        // each batch should contain 2 columns and 10 rows with correct field names
-        for batch in &results {
-            assert_eq!(batch.num_columns(), 2);
-            assert_eq!(batch.num_rows(), 10);
-        }
-
         let expected = vec![
             "+----+----+",
             "| c1 | c2 |",
@@ -943,15 +934,12 @@ mod tests {
         let results = collect_partitioned(physical_plan).await?;
 
         // note that the order of partitions is not deterministic
-        let mut num_batches = 0;
         let mut num_rows = 0;
         for partition in &results {
             for batch in partition {
-                num_batches += 1;
                 num_rows += batch.num_rows();
             }
         }
-        assert_eq!(2, num_batches);
         assert_eq!(20, num_rows);
 
         let results: Vec<RecordBatch> = results.into_iter().flatten().collect();
@@ -1023,9 +1011,7 @@ mod tests {
         assert_eq!("c2", physical_plan.schema().field(0).name().as_str());
 
         let batches = collect(physical_plan).await?;
-        assert_eq!(4, batches.len());
-        assert_eq!(1, batches[0].num_columns());
-        assert_eq!(10, batches[0].num_rows());
+        assert_eq!(40, batches.iter().map(|x|x.num_rows()).sum::<usize>());
 
         Ok(())
     }
