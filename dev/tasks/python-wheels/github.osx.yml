@@ -18,8 +18,6 @@
 # github comment reports!
 name: Crossbow
 
-SETUPTOOLS_SCM_VERSION
-
 on:
   push:
     branches:
