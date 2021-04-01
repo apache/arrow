@@ -27,7 +27,7 @@
  * reference to the API.
  * The file contains all the physical data types supported by Parquet.
  * This example uses the RowGroupWriter API that supports writing RowGroups based on a
- *certain size
+ * certain size.
  **/
 
 /* Parquet is a structured columnar file format
