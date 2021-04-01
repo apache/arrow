@@ -73,10 +73,10 @@ RUN wget -q -O - https://deb.nodesource.com/setup_${node}.x | bash - && \
 
 # Sphinx is pinned because of ARROW-9693
 RUN pip install \
-        meson \
+        meson==0.56 \
         breathe \
         ipython \
-        sphinx==3.1.2 \
+        sphinx \
         sphinx_rtd_theme
 
 COPY c_glib/Gemfile /arrow/c_glib/
