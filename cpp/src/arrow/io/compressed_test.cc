@@ -210,13 +210,28 @@ TEST_P(CompressedInputStreamTest, ConcatenatedStreams) {
   auto data2 = MakeCompressibleData(200);
   auto compressed1 = CompressDataOneShot(codec.get(), data1);
   auto compressed2 = CompressDataOneShot(codec.get(), data2);
-
-  ASSERT_OK_AND_ASSIGN(auto concatenated, ConcatenateBuffers({compressed1, compressed2}));
-  std::vector<uint8_t> decompressed, expected;
-  ASSERT_OK(RunCompressedInputStream(codec.get(), concatenated, &decompressed));
+  std::vector<uint8_t> expected;
   std::copy(data1.begin(), data1.end(), std::back_inserter(expected));
   std::copy(data2.begin(), data2.end(), std::back_inserter(expected));
 
+  ASSERT_OK_AND_ASSIGN(auto concatenated, ConcatenateBuffers({compressed1, compressed2}));
+  std::vector<uint8_t> decompressed;
+  ASSERT_OK(RunCompressedInputStream(codec.get(), concatenated, &decompressed));
+  ASSERT_EQ(decompressed.size(), expected.size());
+  ASSERT_EQ(decompressed, expected);
+
+  // Same, but with an empty decompressed stream in the middle
+  auto compressed_empty = CompressDataOneShot(codec.get(), {});
+  ASSERT_OK_AND_ASSIGN(concatenated,
+                       ConcatenateBuffers({compressed1, compressed_empty, compressed2}));
+  ASSERT_OK(RunCompressedInputStream(codec.get(), concatenated, &decompressed));
+  ASSERT_EQ(decompressed.size(), expected.size());
+  ASSERT_EQ(decompressed, expected);
+
+  // Same, but with an empty decompressed stream at the end
+  ASSERT_OK_AND_ASSIGN(concatenated,
+                       ConcatenateBuffers({compressed1, compressed2, compressed_empty}));
+  ASSERT_OK(RunCompressedInputStream(codec.get(), concatenated, &decompressed));
   ASSERT_EQ(decompressed.size(), expected.size());
   ASSERT_EQ(decompressed, expected);
 }

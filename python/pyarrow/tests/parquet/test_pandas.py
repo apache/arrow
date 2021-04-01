@@ -17,7 +17,6 @@
 
 import io
 import json
-from distutils.version import LooseVersion
 
 import numpy as np
 import pytest
@@ -26,6 +25,7 @@ import pyarrow as pa
 from pyarrow.tests.parquet.common import (
     parametrize_legacy_dataset, parametrize_legacy_dataset_not_supported)
 from pyarrow.util import guid
+from pyarrow.vendored.version import Version
 
 try:
     import pyarrow.parquet as pq
@@ -559,7 +559,7 @@ def test_write_to_dataset_pandas_preserve_extensiondtypes(
     tempdir, use_legacy_dataset
 ):
     # ARROW-8251 - preserve pandas extension dtypes in roundtrip
-    if LooseVersion(pd.__version__) < "1.0.0":
+    if Version(pd.__version__) < Version("1.0.0"):
         pytest.skip("__arrow_array__ added to pandas in 1.0.0")
 
     df = pd.DataFrame({'part': 'a', "col": [1, 2, 3]})

@@ -115,7 +115,7 @@ macro_rules! build_list {
                     for scalar_value in values {
                         match scalar_value {
                             ScalarValue::$SCALAR_TY(Some(v)) => {
-                                builder.values().append_value(*v).unwrap()
+                                builder.values().append_value(v.clone()).unwrap()
                             }
                             ScalarValue::$SCALAR_TY(None) => {
                                 builder.values().append_null().unwrap();
@@ -335,6 +335,10 @@ impl ScalarValue {
                 DataType::UInt16 => build_list!(UInt16Builder, UInt16, values, size),
                 DataType::UInt32 => build_list!(UInt32Builder, UInt32, values, size),
                 DataType::UInt64 => build_list!(UInt64Builder, UInt64, values, size),
+                DataType::Utf8 => build_list!(StringBuilder, Utf8, values, size),
+                DataType::LargeUtf8 => {
+                    build_list!(LargeStringBuilder, LargeUtf8, values, size)
+                }
                 _ => panic!("Unexpected DataType for list"),
             }),
             ScalarValue::Date32(e) => match e {

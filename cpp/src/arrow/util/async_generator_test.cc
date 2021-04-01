@@ -81,8 +81,20 @@ class TrackingGenerator {
 };
 
 // Yields items with a small pause between each one from a background thread
-std::function<Future<TestInt>()> BackgroundAsyncVectorIt(std::vector<TestInt> v,
-                                                         bool sleep = true) {
+std::function<Future<TestInt>()> BackgroundAsyncVectorIt(
+    std::vector<TestInt> v, bool sleep = true, int max_q = kDefaultBackgroundMaxQ,
+    int q_restart = kDefaultBackgroundQRestart) {
+  auto pool = internal::GetCpuThreadPool();
+  auto slow_iterator = PossiblySlowVectorIt(v, sleep);
+  EXPECT_OK_AND_ASSIGN(
+      auto background,
+      MakeBackgroundGenerator<TestInt>(std::move(slow_iterator),
+                                       internal::GetCpuThreadPool(), max_q, q_restart));
+  return MakeTransferredGenerator(background, pool);
+}
+
+std::function<Future<TestInt>()> NewBackgroundAsyncVectorIt(std::vector<TestInt> v,
+                                                            bool sleep = true) {
   auto pool = internal::GetCpuThreadPool();
   auto iterator = VectorIt(v);
   auto slow_iterator = MakeTransformedIterator<TestInt, TestInt>(
@@ -204,6 +216,115 @@ ReentrantCheckerGuard<T> ExpectNotAccessedReentrantly(AsyncGenerator<T>* generat
   *generator = reentrant_checker;
   return ReentrantCheckerGuard<T>(reentrant_checker);
 }
+
+class GeneratorTestFixture : public ::testing::TestWithParam<bool> {
+ protected:
+  AsyncGenerator<TestInt> MakeSource(const std::vector<TestInt>& items) {
+    std::vector<TestInt> wrapped(items.begin(), items.end());
+    auto gen = AsyncVectorIt(std::move(wrapped));
+    bool slow = GetParam();
+    if (slow) {
+      return SlowdownABit(std::move(gen));
+    }
+    return gen;
+  }
+
+  AsyncGenerator<TestInt> MakeFailingSource() {
+    AsyncGenerator<TestInt> gen = [] {
+      return Future<TestInt>::MakeFinished(Status::Invalid("XYZ"));
+    };
+    bool slow = GetParam();
+    if (slow) {
+      return SlowdownABit(std::move(gen));
+    }
+    return gen;
+  }
+
+  int GetNumItersForStress() {
+    bool slow = GetParam();
+    // Run fewer trials for the slow case since they take longer
+    if (slow) {
+      return 10;
+    } else {
+      return 100;
+    }
+  }
+};
+
+template <typename T>
+class ManualIteratorControl {
+ public:
+  virtual ~ManualIteratorControl() {}
+  virtual void Push(Result<T> result) = 0;
+  virtual uint32_t times_polled() = 0;
+};
+
+template <typename T>
+class PushIterator : public ManualIteratorControl<T> {
+ public:
+  PushIterator() : state_(std::make_shared<State>()) {}
+  virtual ~PushIterator() {}
+
+  Result<T> Next() {
+    std::unique_lock<std::mutex> lk(state_->mx);
+    state_->times_polled++;
+    if (!state_->cv.wait_for(lk, std::chrono::seconds(300),
+                             [&] { return !state_->items.empty(); })) {
+      return Status::Invalid("Timed out waiting for PushIterator");
+    }
+    auto next = std::move(state_->items.front());
+    state_->items.pop();
+    return next;
+  }
+
+  void Push(Result<T> result) override {
+    {
+      std::lock_guard<std::mutex> lg(state_->mx);
+      state_->items.push(std::move(result));
+    }
+    state_->cv.notify_one();
+  }
+
+  uint32_t times_polled() override {
+    std::lock_guard<std::mutex> lg(state_->mx);
+    return state_->times_polled;
+  }
+
+ private:
+  struct State {
+    uint32_t times_polled = 0;
+    std::mutex mx;
+    std::condition_variable cv;
+    std::queue<Result<T>> items;
+  };
+
+  std::shared_ptr<State> state_;
+};
+
+template <typename T>
+Iterator<T> MakePushIterator(std::shared_ptr<ManualIteratorControl<T>>* out) {
+  auto iter = std::make_shared<PushIterator<T>>();
+  *out = iter;
+  return Iterator<T>(*iter);
+}
+
+template <typename T>
+class ManualGenerator {
+ public:
+  ManualGenerator() : times_polled_(std::make_shared<uint32_t>()) {}
+
+  Future<T> operator()() {
+    (*times_polled_)++;
+    return source_();
+  }
+
+  uint32_t times_polled() const { return *times_polled_; }
+  typename PushGenerator<T>::Producer producer() { return source_.producer(); }
+
+ private:
+  PushGenerator<T> source_;
+  std::shared_ptr<uint32_t> times_polled_;
+};
 
 TEST(TestAsyncUtil, Visit) {
   auto generator = AsyncVectorIt<TestInt>({1, 2, 3});
@@ -340,41 +461,9 @@ TEST(TestAsyncUtil, Concatenated) {
   AssertAsyncGeneratorMatch(expected, concat);
 }
 
-class GeneratorTestFixture : public ::testing::TestWithParam<bool> {
- protected:
-  AsyncGenerator<TestInt> MakeSource(const std::vector<TestInt>& items) {
-    std::vector<TestInt> wrapped(items.begin(), items.end());
-    auto gen = AsyncVectorIt(std::move(wrapped));
-    bool slow = GetParam();
-    if (slow) {
-      return SlowdownABit(std::move(gen));
-    }
-    return gen;
-  }
+class MergedGeneratorTestFixture : public GeneratorTestFixture {};
 
-  AsyncGenerator<TestInt> MakeFailingSource() {
-    AsyncGenerator<TestInt> gen = [] {
-      return Future<TestInt>::MakeFinished(Status::Invalid("XYZ"));
-    };
-    bool slow = GetParam();
-    if (slow) {
-      return SlowdownABit(std::move(gen));
-    }
-    return gen;
-  }
-
-  int GetNumItersForStress() {
-    bool slow = GetParam();
-    // Run fewer trials for the slow case since they take longer
-    if (slow) {
-      return 10;
-    } else {
-      return 100;
-    }
-  }
-};
-
-TEST_P(GeneratorTestFixture, Merged) {
+TEST_P(MergedGeneratorTestFixture, Merged) {
   auto gen = AsyncVectorIt<AsyncGenerator<TestInt>>(
       {MakeSource({1, 2, 3}), MakeSource({4, 5, 6})});
 
@@ -388,14 +477,14 @@ TEST_P(GeneratorTestFixture, Merged) {
   ASSERT_EQ(expected, concat_set);
 }
 
-TEST_P(GeneratorTestFixture, MergedInnerFail) {
+TEST_P(MergedGeneratorTestFixture, MergedInnerFail) {
   auto gen = AsyncVectorIt<AsyncGenerator<TestInt>>(
       {MakeSource({1, 2, 3}), MakeFailingSource()});
   auto merged_gen = MakeMergedGenerator(gen, 10);
   ASSERT_FINISHES_AND_RAISES(Invalid, CollectAsyncGenerator(merged_gen));
 }
 
-TEST_P(GeneratorTestFixture, MergedOuterFail) {
+TEST_P(MergedGeneratorTestFixture, MergedOuterFail) {
   auto gen =
       FailsAt(AsyncVectorIt<AsyncGenerator<TestInt>>(
                   {MakeSource({1, 2, 3}), MakeSource({1, 2, 3}), MakeSource({1, 2, 3})}),
@@ -404,7 +493,7 @@ TEST_P(GeneratorTestFixture, MergedOuterFail) {
   ASSERT_FINISHES_AND_RAISES(Invalid, CollectAsyncGenerator(merged_gen));
 }
 
-TEST_P(GeneratorTestFixture, MergedLimitedSubscriptions) {
+TEST_P(MergedGeneratorTestFixture, MergedLimitedSubscriptions) {
   auto gen = AsyncVectorIt<AsyncGenerator<TestInt>>(
       {MakeSource({1, 2}), MakeSource({3, 4}), MakeSource({5, 6, 7, 8}),
        MakeSource({9, 10, 11, 12})});
@@ -445,7 +534,7 @@ TEST_P(GeneratorTestFixture, MergedLimitedSubscriptions) {
   AssertGeneratorExhausted(merged);
 }
 
-TEST_P(GeneratorTestFixture, MergedStress) {
+TEST_P(MergedGeneratorTestFixture, MergedStress) {
   constexpr int NGENERATORS = 10;
   constexpr int NITEMS = 10;
   for (int i = 0; i < GetNumItersForStress(); i++) {
@@ -464,7 +553,7 @@ TEST_P(GeneratorTestFixture, MergedStress) {
   }
 }
 
-TEST_P(GeneratorTestFixture, MergedParallelStress) {
+TEST_P(MergedGeneratorTestFixture, MergedParallelStress) {
   constexpr int NGENERATORS = 10;
   constexpr int NITEMS = 10;
   for (int i = 0; i < GetNumItersForStress(); i++) {
@@ -479,7 +568,7 @@ TEST_P(GeneratorTestFixture, MergedParallelStress) {
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(GeneratorTests, GeneratorTestFixture,
+INSTANTIATE_TEST_SUITE_P(MergedGeneratorTests, GeneratorTestFixture,
                          ::testing::Values(false, true));
 
 TEST(TestAsyncUtil, FromVector) {
@@ -570,12 +659,136 @@ TEST(TestAsyncUtil, StackOverflow) {
 
 #endif
 
-TEST(TestAsyncUtil, Background) {
+class BackgroundGeneratorTestFixture : public GeneratorTestFixture {
+ protected:
+  AsyncGenerator<TestInt> Make(const std::vector<TestInt>& it,
+                               int max_q = kDefaultBackgroundMaxQ,
+                               int q_restart = kDefaultBackgroundQRestart) {
+    bool slow = GetParam();
+    return BackgroundAsyncVectorIt(it, slow, max_q, q_restart);
+  }
+};
+
+TEST_P(BackgroundGeneratorTestFixture, Empty) {
+  auto background = Make({});
+  AssertGeneratorExhausted(background);
+}
+
+TEST_P(BackgroundGeneratorTestFixture, Basic) {
   std::vector<TestInt> expected = {1, 2, 3};
-  auto background = BackgroundAsyncVectorIt(expected);
+  auto background = Make(expected);
   auto future = CollectAsyncGenerator(background);
   ASSERT_FINISHES_OK_AND_ASSIGN(auto collected, future);
   ASSERT_EQ(expected, collected);
+}
+
+TEST_P(BackgroundGeneratorTestFixture, BadResult) {
+  std::shared_ptr<ManualIteratorControl<TestInt>> iterator_control;
+  auto iterator = MakePushIterator<TestInt>(&iterator_control);
+  // Enough valid items to fill the queue and then some
+  for (int i = 0; i < 5; i++) {
+    iterator_control->Push(i);
+  }
+  // Next fail
+  iterator_control->Push(Status::Invalid("XYZ"));
+  ASSERT_OK_AND_ASSIGN(
+      auto generator,
+      MakeBackgroundGenerator(std::move(iterator), internal::GetCpuThreadPool(), 4, 2));
+
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(0), generator());
+  // Have not yet restarted so next results should always be valid
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(1), generator());
+  // Next three results may or may not be valid.
+  // The typical case is the call for TestInt(2) restarts a full queue and then maybe
+  // TestInt(3) and TestInt(4) arrive quickly enough to not get pre-empted or maybe
+  // they don't.
+  //
+  // A more bizarre, but possible, case is the checking thread falls behind the producer
+  // thread just so and TestInt(1) arrives and is delivered but before the call for
+  // TestInt(2) happens the background reader reads 2, 3, 4, and 5[err] into the queue so
+  // the queue never fills up and even TestInt(2) is preempted.
+  bool invalid_encountered = false;
+  for (int i = 0; i < 3; i++) {
+    auto next_fut = generator();
+    auto next_result = next_fut.result();
+    if (next_result.ok()) {
+      ASSERT_EQ(TestInt(i + 2), next_result.ValueUnsafe());
+    } else {
+      invalid_encountered = true;
+      break;
+    }
+  }
+  // If both of the next two results are valid then this one will surely be invalid
+  if (!invalid_encountered) {
+    ASSERT_FINISHES_AND_RAISES(Invalid, generator());
+  }
+  AssertGeneratorExhausted(generator);
+}
+
+TEST_P(BackgroundGeneratorTestFixture, InvalidExecutor) {
+  std::vector<TestInt> expected = {1, 2, 3, 4, 5, 6, 7, 8};
+  // Case 1: waiting future
+  auto slow = GetParam();
+  auto it = PossiblySlowVectorIt(expected, slow);
+  ASSERT_OK_AND_ASSIGN(auto invalid_executor, internal::ThreadPool::Make(1));
+  ASSERT_OK(invalid_executor->Shutdown());
+  ASSERT_OK_AND_ASSIGN(auto background, MakeBackgroundGenerator(
+                                            std::move(it), invalid_executor.get(), 4, 2));
+  ASSERT_FINISHES_AND_RAISES(Invalid, background());
+
+  // Case 2: Queue bad result
+  it = PossiblySlowVectorIt(expected, slow);
+  ASSERT_OK_AND_ASSIGN(invalid_executor, internal::ThreadPool::Make(1));
+  ASSERT_OK_AND_ASSIGN(
+      background, MakeBackgroundGenerator(std::move(it), invalid_executor.get(), 4, 2));
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(1), background());
+  ASSERT_OK(invalid_executor->Shutdown());
+  // Next two are ok because queue is shutdown
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(2), background());
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(3), background());
+  // Now the queue should have tried (and failed) to start back up
+  ASSERT_FINISHES_AND_RAISES(Invalid, background());
+}
+
+TEST_P(BackgroundGeneratorTestFixture, StopAndRestart) {
+  std::shared_ptr<ManualIteratorControl<TestInt>> iterator_control;
+  auto iterator = MakePushIterator<TestInt>(&iterator_control);
+  // Start with 6 items in the source
+  for (int i = 0; i < 6; i++) {
+    iterator_control->Push(i);
+  }
+  iterator_control->Push(IterationEnd<TestInt>());
+
+  ASSERT_OK_AND_ASSIGN(
+      auto generator,
+      MakeBackgroundGenerator(std::move(iterator), internal::GetCpuThreadPool(), 4, 2));
+  SleepABit();
+  // Lazy, should not start until polled once
+  ASSERT_EQ(iterator_control->times_polled(), 0);
+  // First poll should trigger 5 reads (1 for the polled value, 4 for the queue)
+  auto next = generator();
+  BusyWait(10, [&] { return iterator_control->times_polled() >= 5; });
+  // And then stop and not read any more
+  SleepABit();
+  ASSERT_EQ(iterator_control->times_polled(), 5);
+
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(0), next);
+  // One more read should bring q down to 3 and should not restart
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(1), generator());
+  SleepABit();
+  ASSERT_EQ(iterator_control->times_polled(), 5);
+
+  // One more read should bring q down to 2 and that should restart
+  // but it will only read up to 6 because we hit end of stream
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(2), generator());
+  BusyWait(10, [&] { return iterator_control->times_polled() >= 7; });
+  ASSERT_EQ(iterator_control->times_polled(), 7);
+
+  for (int i = 3; i < 6; i++) {
+    ASSERT_FINISHES_OK_AND_EQ(TestInt(i), generator());
+  }
+
+  AssertGeneratorExhausted(generator);
 }
 
 struct SlowEmptyIterator {
@@ -591,12 +804,18 @@ struct SlowEmptyIterator {
   bool called_ = false;
 };
 
-TEST(TestAsyncUtil, BackgroundRepeatEnd) {
+TEST_P(BackgroundGeneratorTestFixture, BackgroundRepeatEnd) {
   // Ensure that the background generator properly fulfills the asyncgenerator contract
   // and can be called after it ends.
   ASSERT_OK_AND_ASSIGN(auto io_pool, internal::ThreadPool::Make(1));
 
-  auto iterator = Iterator<TestInt>(SlowEmptyIterator());
+  bool slow = GetParam();
+  Iterator<TestInt> iterator;
+  if (slow) {
+    iterator = Iterator<TestInt>(SlowEmptyIterator());
+  } else {
+    iterator = MakeEmptyIterator<TestInt>();
+  }
   ASSERT_OK_AND_ASSIGN(auto background_gen,
                        MakeBackgroundGenerator(std::move(iterator), io_pool.get()));
 
@@ -604,20 +823,21 @@ TEST(TestAsyncUtil, BackgroundRepeatEnd) {
       MakeTransferredGenerator(std::move(background_gen), internal::GetCpuThreadPool());
 
   auto one = background_gen();
-  auto two = background_gen();
-
   ASSERT_FINISHES_OK_AND_ASSIGN(auto one_fin, one);
   ASSERT_TRUE(IsIterationEnd(one_fin));
 
+  auto two = background_gen();
   ASSERT_FINISHES_OK_AND_ASSIGN(auto two_fin, two);
   ASSERT_TRUE(IsIterationEnd(two_fin));
 }
 
-TEST(TestAsyncUtil, CompleteBackgroundStressTest) {
-  auto expected = RangeVector(20);
+TEST_P(BackgroundGeneratorTestFixture, Stress) {
+  constexpr int NTASKS = 20;
+  constexpr int NITEMS = 20;
+  auto expected = RangeVector(NITEMS);
   std::vector<Future<std::vector<TestInt>>> futures;
-  for (unsigned int i = 0; i < 20; i++) {
-    auto background = BackgroundAsyncVectorIt(expected);
+  for (unsigned int i = 0; i < NTASKS; i++) {
+    auto background = Make(expected, /*max_q=*/4, /*q_restart=*/2);
     futures.push_back(CollectAsyncGenerator(background));
   }
   auto combined = All(futures);
@@ -627,6 +847,9 @@ TEST(TestAsyncUtil, CompleteBackgroundStressTest) {
     ASSERT_EQ(vector, expected);
   }
 }
+
+INSTANTIATE_TEST_SUITE_P(BackgroundGeneratorTests, BackgroundGeneratorTestFixture,
+                         ::testing::Values(false, true));
 
 TEST(TestAsyncUtil, SerialReadaheadSlowProducer) {
   AsyncGenerator<TestInt> gen = BackgroundAsyncVectorIt({1, 2, 3, 4, 5});
