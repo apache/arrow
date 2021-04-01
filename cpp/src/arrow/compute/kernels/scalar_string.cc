@@ -406,7 +406,7 @@ struct PlainSubstringMatcher {
       : options_(options) {
     // Phase 1: Build the prefix table
     const auto pattern_length = options_.pattern.size();
-    prefix_table.reserve(pattern_length + 1);
+    prefix_table.resize(pattern_length + 1, /*value=*/0);
     int64_t prefix_length = -1;
     prefix_table[0] = -1;
     for (size_t pos = 0; pos < pattern_length; ++pos) {
