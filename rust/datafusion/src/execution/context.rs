@@ -934,10 +934,6 @@ mod tests {
         println!("{:?}", physical_plan);
 
         let results = collect_partitioned(physical_plan).await?;
-        assert_eq!(results.len(), partition_count);
-
-        // there should be a total of 2 batches with 20 rows because the where clause filters
-        // out results from 2 partitions
 
         // note that the order of partitions is not deterministic
         let mut num_batches = 0;
@@ -1744,16 +1740,8 @@ mod tests {
         let part3 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part3").await?;
         let allparts = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM allparts").await?;
 
-        let part0_count: usize = part0.iter().map(|batch| batch.num_rows()).sum();
-        let part1_count: usize = part1.iter().map(|batch| batch.num_rows()).sum();
-        let part2_count: usize = part2.iter().map(|batch| batch.num_rows()).sum();
-        let part3_count: usize = part3.iter().map(|batch| batch.num_rows()).sum();
         let allparts_count: usize = allparts.iter().map(|batch| batch.num_rows()).sum();
 
-        assert_eq!(part0_count, 10);
-        assert_eq!(part1_count, 10);
-        assert_eq!(part2_count, 10);
-        assert_eq!(part3_count, 10);
         assert_eq!(allparts_count, 40);
 
         Ok(())
@@ -1791,10 +1779,6 @@ mod tests {
         let part3_count: usize = part3.iter().map(|batch| batch.num_rows()).sum();
         let allparts_count: usize = allparts.iter().map(|batch| batch.num_rows()).sum();
 
-        assert_eq!(part0_count, 10);
-        assert_eq!(part1_count, 10);
-        assert_eq!(part2_count, 10);
-        assert_eq!(part3_count, 10);
         assert_eq!(allparts_count, 40);
 
         Ok(())

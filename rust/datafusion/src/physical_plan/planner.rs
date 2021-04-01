@@ -51,6 +51,7 @@ use arrow::compute::can_cast_types;
 use arrow::compute::SortOptions;
 use arrow::datatypes::{Schema, SchemaRef};
 use expressions::col;
+use log::debug;
 
 /// This trait exposes the ability to plan an [`ExecutionPlan`] out of a [`LogicalPlan`].
 pub trait ExtensionPlanner {
@@ -116,7 +117,9 @@ impl DefaultPhysicalPlanner {
             .map(|child| self.optimize_plan(child.clone(), ctx_state))
             .collect::<Result<Vec<_>>>()?;
 
-        let plan = if children.is_empty() {
+        let plan = self.optimize_physical_plan(plan, ctx_state)?;
+
+        Ok(if children.is_empty() {
             // leaf node, children cannot be replaced
             plan.clone()
         } else {
@@ -165,8 +168,7 @@ impl DefaultPhysicalPlanner {
                         .collect(),
                 )?,
             }
-        };
-        self.optimize_physical_plan(plan, ctx_state)
+        })
     }
 
     // Optimize physical plan given based on active optimizers
@@ -177,9 +179,12 @@ impl DefaultPhysicalPlanner {
     ) -> Result<Arc<dyn ExecutionPlan>> {
         let optimizers = &ctx_state.config.physical_optimizers;
         let mut new_plan = physical_plan.clone();
+        debug!("Physical plan:\n{:?}", new_plan);
+
         for optimizer in optimizers {
             new_plan = optimizer.optimize(new_plan, &ctx_state.config)?;
         }
+        debug!("Optimized physical plan:\n{:?}", new_plan);
         Ok(new_plan)
     }
 
