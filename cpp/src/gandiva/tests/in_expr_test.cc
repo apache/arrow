@@ -42,8 +42,8 @@ std::vector<Decimal128> MakeDecimalVector(std::vector<std::string> values) {
     int32_t decimal_precision;
     int32_t decimal_scale;
 
-    DCHECK_OK(Decimal128::FromString(
-        str, &decimal_value, &decimal_precision, &decimal_scale));
+    DCHECK_OK(
+        Decimal128::FromString(str, &decimal_value, &decimal_precision, &decimal_scale));
 
     ret.push_back(decimal_value);
   }
