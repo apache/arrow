@@ -283,10 +283,7 @@ get_paths_and_filesystem <- function(x, filesystem = NULL) {
   are_urls <- are_urls(x)
   if (any(are_urls)) {
     if (!all(are_urls)) {
-      stop(
-        "Vectors of paths and URIs for different file systems are not supported",
-        call. = FALSE
-      )
+      stop("Vectors of mixed paths and URIs are not supported", call. = FALSE)
     }
     if (!is.null(filesystem)) {
       # Stop? Can't have URL (which yields a fs) and another fs
