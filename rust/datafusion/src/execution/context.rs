@@ -1740,6 +1740,7 @@ mod tests {
         let part3 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part3").await?;
         let allparts = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM allparts").await?;
 
+        assert_eq!(part0_count + part1_count + part2_count + part3_count, 40);
         let allparts_count: usize = allparts.iter().map(|batch| batch.num_rows()).sum();
 
         assert_eq!(allparts_count, 40);
@@ -1778,6 +1779,8 @@ mod tests {
         let part2_count: usize = part2.iter().map(|batch| batch.num_rows()).sum();
         let part3_count: usize = part3.iter().map(|batch| batch.num_rows()).sum();
         let allparts_count: usize = allparts.iter().map(|batch| batch.num_rows()).sum();
+
+        assert_eq!(part0_count + part1_count + part2_count + part3_count, 40);
 
         assert_eq!(allparts_count, 40);
 
