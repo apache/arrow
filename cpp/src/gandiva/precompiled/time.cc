@@ -819,16 +819,15 @@ gdv_int64 castBIGINT_daytimeinterval(gdv_day_time_interval in) {
 
 // Convert milliseconds to date, considering as input the quantity of milliseconds
 // after midnight
-#define TO_TIME(TYPE)                                                              \
-  FORCE_INLINE                                                                     \
-  gdv_date64 to_time##_##TYPE(gdv_##TYPE millis) {                                 \
-    EpochTimePoint actual_tp(EpochTimePoint::NowMillisEpoch());                    \
-    long cleared_timestamp_millis = actual_tp.ClearTimeOfDay().MillisSinceEpoch(); \
-    if (millis > MILLIS_IN_DAY) {                                                  \
-      millis = millis % MILLIS_IN_DAY;                                             \
-    }                                                                              \
-    cleared_timestamp_millis += millis;                                            \
-    return cleared_timestamp_millis;                                               \
+#define TO_TIME(TYPE)                                                                   \
+  FORCE_INLINE                                                                          \
+  gdv_date64 to_time##_##TYPE(gdv_##TYPE millis) {                                      \
+    EpochTimePoint actual_tp(EpochTimePoint::NowMillisEpoch());                         \
+    gdv_int64 cleared_timestamp_millis = actual_tp.ClearTimeOfDay().MillisSinceEpoch(); \
+    if (millis > MILLIS_IN_DAY) {                                                       \
+      millis = millis % MILLIS_IN_DAY;                                                  \
+    }                                                                                   \
+    return static_cast<gdv_##TYPE>(cleared_timestamp_millis) + millis;                  \
   }
 
 DATE_TYPES(TO_TIME)
