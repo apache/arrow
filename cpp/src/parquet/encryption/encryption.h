@@ -81,14 +81,13 @@ class PARQUET_EXPORT FunctionKeyRetriever : public DecryptionKeyRetriever {
   FunctionKeyRetriever(void* object, KeyRetrieverFunc callable)
       : state_object_(object), callable_(callable) {}
 
-  std::string GetKey(const std::string& key_metadata) const;
+  std::string GetKey(const std::string& key_metadata) override;
   static std::shared_ptr<DecryptionKeyRetriever> build(void* object,
                                                        KeyRetrieverFunc callable);
 
  private:
   void* state_object_;
   KeyRetrieverFunc callable_;
-  mutable std::map<std::string, std::string> key_map_;
 };
 
 class PARQUET_EXPORT HiddenColumnException : public ParquetException {

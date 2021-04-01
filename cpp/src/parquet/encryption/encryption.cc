@@ -49,11 +49,8 @@ std::string StringKeyIdRetriever::GetKey(const std::string& key_id) {
   return key_map_.at(key_id);
 }
 
-std::string FunctionKeyRetriever::GetKey(const std::string& key_metadata) const {
-  std::string key = callable_(state_object_, key_metadata);
-  // We store the key to preserve ownership even if original string goes away.
-  key_map_.insert({key_metadata, key});
-  return key_map_.at(key_metadata);
+std::string FunctionKeyRetriever::GetKey(const std::string& key_metadata) {
+  return callable_(state_object_, key_metadata);
 }
 
 std::shared_ptr<DecryptionKeyRetriever> FunctionKeyRetriever::build(
