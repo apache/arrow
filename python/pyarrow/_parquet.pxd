@@ -503,7 +503,7 @@ cdef extern from "parquet/encryption.h" namespace "parquet" nogil:
     cdef cppclass DecryptionKeyRetriever:
         c_string GetKey(const c_string& key_metadata)
 
-    cdef cppclass IntKeyIdReceiver:
+    cdef cppclass IntegerKeyIdReceiver:
         PutKey(uint32_t key_id, const c_string& key)
         c_string GetKey(const c_string& key_metadata)
 
