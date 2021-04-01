@@ -1729,19 +1729,14 @@ mod tests {
         // register each partition as well as the top level dir
         let csv_read_option = CsvReadOptions::new().schema(&schema);
         ctx.register_csv("part0", &format!("{}/part-0.csv", out_dir), csv_read_option)?;
-        ctx.register_csv("part1", &format!("{}/part-1.csv", out_dir), csv_read_option)?;
-        ctx.register_csv("part2", &format!("{}/part-2.csv", out_dir), csv_read_option)?;
-        ctx.register_csv("part3", &format!("{}/part-3.csv", out_dir), csv_read_option)?;
         ctx.register_csv("allparts", &out_dir, csv_read_option)?;
 
         let part0 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part0").await?;
-        let part1 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part1").await?;
-        let part2 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part2").await?;
-        let part3 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part3").await?;
         let allparts = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM allparts").await?;
 
-        assert_eq!(part0_count + part1_count + part2_count + part3_count, 40);
         let allparts_count: usize = allparts.iter().map(|batch| batch.num_rows()).sum();
+
+        assert_eq!(part0[0].schema(), allparts[0].schema());
 
         assert_eq!(allparts_count, 40);
 
@@ -1769,18 +1764,11 @@ mod tests {
         ctx.register_parquet("allparts", &out_dir)?;
 
         let part0 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part0").await?;
-        let part1 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part1").await?;
-        let part2 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part2").await?;
-        let part3 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part3").await?;
         let allparts = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM allparts").await?;
 
-        let part0_count: usize = part0.iter().map(|batch| batch.num_rows()).sum();
-        let part1_count: usize = part1.iter().map(|batch| batch.num_rows()).sum();
-        let part2_count: usize = part2.iter().map(|batch| batch.num_rows()).sum();
-        let part3_count: usize = part3.iter().map(|batch| batch.num_rows()).sum();
         let allparts_count: usize = allparts.iter().map(|batch| batch.num_rows()).sum();
 
-        assert_eq!(part0_count + part1_count + part2_count + part3_count, 40);
+        assert_eq!(part0[0].schema(), allparts[0].schema());
 
         assert_eq!(allparts_count, 40);
 
