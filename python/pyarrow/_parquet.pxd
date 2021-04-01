@@ -499,7 +499,7 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
         const shared_ptr[const CKeyValueMetadata]& key_value_metadata,
         shared_ptr[CSchema]* out)
 
-cdef extern from "parquet/encryption.h" namespace "parquet" nogil:
+cdef extern from "parquet/encryption/encryption.h" namespace "parquet" nogil:
     cdef cppclass DecryptionKeyRetriever:
         c_string GetKey(const c_string& key_metadata)
 
