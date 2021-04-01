@@ -144,7 +144,7 @@ write_feather <- function(x,
 #' }
 read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
   if (!inherits(file, "RandomAccessFile")) {
-    file <- arrow:::make_readable_file(file)
+    file <- make_readable_file(file)
     on.exit(file$close())
   }
   reader <- FeatherReader$create(file)
