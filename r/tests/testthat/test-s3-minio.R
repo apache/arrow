@@ -96,6 +96,16 @@ if (arrow_with_s3() && process_is_running("minio server")) {
       )
     })
 
+    test_that("open_dataset errors on URIs for different file systems", {
+      expect_error(
+        open_dataset(
+          c(minio_uri("test.feather"), "file://path/to/test2.feather"),
+          format = "feather"
+        ),
+        "Vectors of URIs for different file systems are not supported"
+      )
+    })
+
     # Dataset test setup, cf. test-dataset.R
     first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
     df1 <- tibble(

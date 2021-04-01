@@ -257,6 +257,15 @@ test_that("dataset from vector of file URIs", {
   )
 })
 
+test_that("open_dataset errors on mixed paths and URIs", {
+  skip_on_os("windows")
+  skip_if_not_available("parquet")
+  expect_error(
+    open_dataset(c(files[1], paste0("file://", files[2]))),
+    "Vectors of mixed paths and URIs are not supported"
+  )
+})
+
 test_that("Simple interface for datasets (custom ParquetFileFormat)", {
   skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()),
