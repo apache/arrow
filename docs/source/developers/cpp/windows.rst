@@ -24,6 +24,8 @@ Developing on Windows
 Like Linux and macOS, we have worked to enable builds to work "out of the box"
 with CMake for a reasonably large subset of the project.
 
+.. _windows-system-setup:
+
 System Setup
 ============
 
@@ -66,8 +68,9 @@ download and install a 64-bit distribution from the `Miniconda homepage
 <https://conda.io/miniconda.html>`_
 
 To configure ``conda`` to use the ``conda-forge`` channel by default, launch a
-command prompt (``cmd.exe``), run the initialization command shown above
-(``vcvarsall.bat`` or ``VsDevCmd.bat``), and run the command:
+command prompt (``cmd.exe``), run the initialization command shown
+:ref:`above<windows-system-setup>` (``vcvarsall.bat`` or ``VsDevCmd.bat``), then
+run the command:
 
 .. code-block:: shell
 
@@ -187,8 +190,9 @@ past compilations to avoid running them over and over again (in a way similar
 to the Unix-specific ``ccache``).
 
 Newer versions of Visual Studio include Ninja. To see if your Visual Studio
-includes Ninja, run the initialization command shown above (``vcvarsall.bat``
-or ``VsDevCmd.bat``), then run ``ninja --version``.
+includes Ninja, run the initialization command shown
+:ref:`above<windows-system-setup>` (``vcvarsall.bat`` or ``VsDevCmd.bat``), then
+ run ``ninja --version``.
 
 If Ninja is not included in your version of Visual Studio, and you are using
 conda, activate your conda environment and install Ninja and clcache:
