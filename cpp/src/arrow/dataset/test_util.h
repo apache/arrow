@@ -788,13 +788,13 @@ class NestedParallelismMixin : public ::testing::Test {
 
   void TearDown() override {
     if (old_capacity_ > 0) {
-      internal::GetCpuThreadPool()->SetCapacity(old_capacity_);
+      ASSERT_OK(internal::GetCpuThreadPool()->SetCapacity(old_capacity_));
     }
   }
 
   void SetUp() override {
     old_capacity_ = internal::GetCpuThreadPool()->GetCapacity();
-    internal::GetCpuThreadPool()->SetCapacity(1);
+    ASSERT_OK(internal::GetCpuThreadPool()->SetCapacity(1));
     schema_ = schema({field("i32", int32())});
     options_ = std::make_shared<ScanOptions>();
     options_->dataset_schema = schema_;
@@ -881,7 +881,7 @@ class NestedParallelismMixin : public ::testing::Test {
         : FileWriter(NULL, NULL, NULL), row_count_(std::move(row_count)) {}
     virtual ~DiscardingRowCountingFileWriter() = default;
 
-    Status Write(const std::shared_ptr<RecordBatch>& batch) {
+    Status Write(const std::shared_ptr<RecordBatch>& batch) override {
       row_count_->fetch_add(static_cast<int>(batch->num_rows()));
       return Status::OK();
     }
