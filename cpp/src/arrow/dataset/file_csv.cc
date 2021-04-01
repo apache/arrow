@@ -118,7 +118,6 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
     MemoryPool* pool = default_memory_pool()) {
   ARROW_ASSIGN_OR_RAISE(auto reader_options, GetReadOptions(format, scan_options));
 
-  util::string_view first_block;
   ARROW_ASSIGN_OR_RAISE(auto input, source.OpenCompressed());
   ARROW_ASSIGN_OR_RAISE(
       input, io::BufferedInputStream::Create(reader_options.block_size,
