@@ -115,20 +115,12 @@ class ARROW_FLIGHT_EXPORT FlightStatusDetail : public arrow::StatusDetail {
 /// \brief Make an appropriate Arrow status for the given
 /// Flight-specific status.
 ///
-/// \param code The status code.
+/// \param code The Flight status code.
 /// \param message The message for the error.
+/// \param extra_info Optional extra binary info for the error (eg protobuf)
 ARROW_FLIGHT_EXPORT
-Status MakeFlightError(FlightStatusCode code, const std::string& message);
-
-/// \brief Make an appropriate Arrow status for the given
-/// Flight-specific status.
-///
-/// \param code The status code.
-/// \param message The message for the error.
-/// \param extra_info The extra binary info for the error (eg protobuf)
-ARROW_FLIGHT_EXPORT
-Status MakeFlightError(FlightStatusCode code, const std::string& message,
-                       const std::string& extra_info);
+Status MakeFlightError(FlightStatusCode code, std::string message,
+                       std::string extra_info = {});
 
 /// \brief A TLS certificate plus key.
 struct ARROW_FLIGHT_EXPORT CertKeyPair {

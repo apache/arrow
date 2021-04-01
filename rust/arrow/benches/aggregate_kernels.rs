@@ -54,10 +54,10 @@ fn add_benchmark(c: &mut Criterion) {
     c.bench_function("min nulls 512", |b| b.iter(|| bench_min(&arr_a)));
     c.bench_function("max nulls 512", |b| b.iter(|| bench_max(&arr_a)));
 
-    let arr_b = create_string_array(512, 0.0);
+    let arr_b = create_string_array::<i32>(512, 0.0);
     c.bench_function("min string 512", |b| b.iter(|| bench_min_string(&arr_b)));
 
-    let arr_b = create_string_array(512, 0.5);
+    let arr_b = create_string_array::<i32>(512, 0.5);
     c.bench_function("min nulls string 512", |b| {
         b.iter(|| bench_min_string(&arr_b))
     });

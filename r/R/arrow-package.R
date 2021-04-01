@@ -117,11 +117,14 @@ arrow_info <- function() {
   if (out$libarrow) {
     pool <- default_memory_pool()
     runtimeinfo <- runtime_info()
+    compute_funcs <- list_compute_functions()
     out <- c(out, list(
       capabilities = c(
         dataset = arrow_with_dataset(),
         parquet = arrow_with_parquet(),
         s3 = arrow_with_s3(),
+        utf8proc = "utf8_upper" %in% compute_funcs,
+        re2 = "replace_substring_regex" %in% compute_funcs,
         vapply(tolower(names(CompressionType)[-1]), codec_is_available, logical(1))
       ),
       memory_pool = list(

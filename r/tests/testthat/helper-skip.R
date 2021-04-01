@@ -15,25 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
+build_features <- c(
+  arrow_info()$capabilities,
+  # Special handling for "uncompressed", for tests that iterate over compressions
+  uncompressed = TRUE
+)
+
 skip_if_not_available <- function(feature) {
-  if (feature == "dataset") {
-    skip_if_not(arrow_with_dataset())
-  } else if (feature == "parquet") {
-    skip_if_not(arrow_with_parquet())
-  } else if (feature %in% c("string", "utf8proc")) {
-    skip_if_not(
-      "utf8_upper" %in% list_compute_functions(),
-      "Arrow C++ library not built with utf8proc dependency"
-    )
-  } else if (feature %in% c("regex", "re2")) {
-    skip_if_not(
-      "replace_substring_regex" %in% list_compute_functions(),
-      "Arrow C++ library not built with re2 dependency"
-    )
-  } else if (feature == "s3") {
-    skip_if_not(arrow_with_s3())
-  } else if (!codec_is_available(feature)) {
-    skip(paste("Arrow C++ not built with support for", feature))
+  yes <- feature %in% names(build_features) && build_features[feature]
+  if (!yes) {
+    skip(paste("Arrow C++ not built with", feature))
   }
 }
 

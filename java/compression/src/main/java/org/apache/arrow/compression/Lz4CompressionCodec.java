@@ -32,8 +32,6 @@ import org.apache.commons.compress.compressors.lz4.FramedLZ4CompressorInputStrea
 import org.apache.commons.compress.compressors.lz4.FramedLZ4CompressorOutputStream;
 import org.apache.commons.compress.utils.IOUtils;
 
-import io.netty.util.internal.PlatformDependent;
-
 /**
  * Compression codec for the LZ4 algorithm.
  */
@@ -45,7 +43,7 @@ public class Lz4CompressionCodec extends AbstractCompressionCodec {
         "The uncompressed buffer size exceeds the integer limit %s.", Integer.MAX_VALUE);
 
     byte[] inBytes = new byte[(int) uncompressedBuffer.writerIndex()];
-    PlatformDependent.copyMemory(uncompressedBuffer.memoryAddress(), inBytes, 0, uncompressedBuffer.writerIndex());
+    uncompressedBuffer.getBytes(/*index=*/0, inBytes);
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     try (InputStream in = new ByteArrayInputStream(inBytes);
          OutputStream out = new FramedLZ4CompressorOutputStream(baos)) {
@@ -57,8 +55,7 @@ public class Lz4CompressionCodec extends AbstractCompressionCodec {
     byte[] outBytes = baos.toByteArray();
 
     ArrowBuf compressedBuffer = allocator.buffer(CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH + outBytes.length);
-    PlatformDependent.copyMemory(
-        outBytes, 0, compressedBuffer.memoryAddress() + CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH, outBytes.length);
+    compressedBuffer.setBytes(CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH, outBytes);
     compressedBuffer.writerIndex(CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH + outBytes.length);
     return compressedBuffer;
   }
@@ -71,8 +68,7 @@ public class Lz4CompressionCodec extends AbstractCompressionCodec {
     long decompressedLength = readUncompressedLength(compressedBuffer);
 
     byte[] inBytes = new byte[(int) (compressedBuffer.writerIndex() - CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH)];
-    PlatformDependent.copyMemory(
-        compressedBuffer.memoryAddress() + CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH, inBytes, 0, inBytes.length);
+    compressedBuffer.getBytes(CompressionUtil.SIZE_OF_UNCOMPRESSED_LENGTH, inBytes);
     ByteArrayOutputStream out = new ByteArrayOutputStream((int) decompressedLength);
     try (InputStream in = new FramedLZ4CompressorInputStream(new ByteArrayInputStream(inBytes))) {
       IOUtils.copy(in, out);
@@ -82,8 +78,7 @@ public class Lz4CompressionCodec extends AbstractCompressionCodec {
 
     byte[] outBytes = out.toByteArray();
     ArrowBuf decompressedBuffer = allocator.buffer(outBytes.length);
-    PlatformDependent.copyMemory(outBytes, 0, decompressedBuffer.memoryAddress(), outBytes.length);
-    decompressedBuffer.writerIndex(decompressedLength);
+    decompressedBuffer.setBytes(/*index=*/0, outBytes);
     return decompressedBuffer;
   }
 

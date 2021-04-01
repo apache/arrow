@@ -25,6 +25,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/future.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -206,6 +207,14 @@ class ARROW_EXPORT RecordBatchReader {
   /// \param[out] batch the next loaded batch, null at end of stream
   /// \return Status
   virtual Status ReadNext(std::shared_ptr<RecordBatch>* batch) = 0;
+
+  // Fallback to sync implementation until all other readers are converted(ARROW-11770)
+  // and then this could become pure virtual with ReadNext falling back to async impl.
+  virtual Future<std::shared_ptr<RecordBatch>> ReadNextAsync() {
+    std::shared_ptr<RecordBatch> batch;
+    ARROW_RETURN_NOT_OK(ReadNext(&batch));
+    return Future<std::shared_ptr<RecordBatch>>::MakeFinished(std::move(batch));
+  }
 
   /// \brief Iterator interface
   Result<std::shared_ptr<RecordBatch>> Next() {

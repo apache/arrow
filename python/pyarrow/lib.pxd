@@ -536,45 +536,62 @@ cdef object pyarrow_wrap_metadata(
 #
 # Public Cython API for 3rd party code
 #
+# If you add functions to this list, please also update
+# `cpp/src/arrow/python/pyarrow.{h, cc}`
+#
+
+# Wrapping C++ -> Python
+
+cdef public object pyarrow_wrap_buffer(const shared_ptr[CBuffer]& buf)
+cdef public object pyarrow_wrap_resizable_buffer(
+    const shared_ptr[CResizableBuffer]& buf)
+
+cdef public object pyarrow_wrap_data_type(const shared_ptr[CDataType]& type)
+cdef public object pyarrow_wrap_field(const shared_ptr[CField]& field)
+cdef public object pyarrow_wrap_schema(const shared_ptr[CSchema]& type)
 
 cdef public object pyarrow_wrap_scalar(const shared_ptr[CScalar]& sp_scalar)
+
 cdef public object pyarrow_wrap_array(const shared_ptr[CArray]& sp_array)
 cdef public object pyarrow_wrap_chunked_array(
     const shared_ptr[CChunkedArray]& sp_array)
-cdef public object pyarrow_wrap_batch(const shared_ptr[CRecordBatch]& cbatch)
-cdef public object pyarrow_wrap_buffer(const shared_ptr[CBuffer]& buf)
-cdef public object pyarrow_wrap_data_type(const shared_ptr[CDataType]& type)
-cdef public object pyarrow_wrap_field(const shared_ptr[CField]& field)
-cdef public object pyarrow_wrap_resizable_buffer(
-    const shared_ptr[CResizableBuffer]& buf)
-cdef public object pyarrow_wrap_schema(const shared_ptr[CSchema]& type)
-cdef public object pyarrow_wrap_table(const shared_ptr[CTable]& ctable)
-cdef public object pyarrow_wrap_tensor(const shared_ptr[CTensor]& sp_tensor)
+
 cdef public object pyarrow_wrap_sparse_coo_tensor(
     const shared_ptr[CSparseCOOTensor]& sp_sparse_tensor)
-cdef public object pyarrow_wrap_sparse_csr_matrix(
-    const shared_ptr[CSparseCSRMatrix]& sp_sparse_tensor)
 cdef public object pyarrow_wrap_sparse_csc_matrix(
     const shared_ptr[CSparseCSCMatrix]& sp_sparse_tensor)
 cdef public object pyarrow_wrap_sparse_csf_tensor(
     const shared_ptr[CSparseCSFTensor]& sp_sparse_tensor)
+cdef public object pyarrow_wrap_sparse_csr_matrix(
+    const shared_ptr[CSparseCSRMatrix]& sp_sparse_tensor)
+cdef public object pyarrow_wrap_tensor(const shared_ptr[CTensor]& sp_tensor)
 
-cdef public shared_ptr[CScalar] pyarrow_unwrap_scalar(object scalar)
-cdef public shared_ptr[CArray] pyarrow_unwrap_array(object array)
-cdef public shared_ptr[CChunkedArray] pyarrow_unwrap_chunked_array(
-    object array)
-cdef public shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch)
+cdef public object pyarrow_wrap_batch(const shared_ptr[CRecordBatch]& cbatch)
+cdef public object pyarrow_wrap_table(const shared_ptr[CTable]& ctable)
+
+# Unwrapping Python -> C++
+
 cdef public shared_ptr[CBuffer] pyarrow_unwrap_buffer(object buffer)
+
 cdef public shared_ptr[CDataType] pyarrow_unwrap_data_type(object data_type)
 cdef public shared_ptr[CField] pyarrow_unwrap_field(object field)
 cdef public shared_ptr[CSchema] pyarrow_unwrap_schema(object schema)
-cdef public shared_ptr[CTable] pyarrow_unwrap_table(object table)
-cdef public shared_ptr[CTensor] pyarrow_unwrap_tensor(object tensor)
+
+cdef public shared_ptr[CScalar] pyarrow_unwrap_scalar(object scalar)
+
+cdef public shared_ptr[CArray] pyarrow_unwrap_array(object array)
+cdef public shared_ptr[CChunkedArray] pyarrow_unwrap_chunked_array(
+    object array)
+
 cdef public shared_ptr[CSparseCOOTensor] pyarrow_unwrap_sparse_coo_tensor(
-    object sparse_tensor)
-cdef public shared_ptr[CSparseCSRMatrix] pyarrow_unwrap_sparse_csr_matrix(
     object sparse_tensor)
 cdef public shared_ptr[CSparseCSCMatrix] pyarrow_unwrap_sparse_csc_matrix(
     object sparse_tensor)
 cdef public shared_ptr[CSparseCSFTensor] pyarrow_unwrap_sparse_csf_tensor(
     object sparse_tensor)
+cdef public shared_ptr[CSparseCSRMatrix] pyarrow_unwrap_sparse_csr_matrix(
+    object sparse_tensor)
+cdef public shared_ptr[CTensor] pyarrow_unwrap_tensor(object tensor)
+
+cdef public shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch)
+cdef public shared_ptr[CTable] pyarrow_unwrap_table(object table)

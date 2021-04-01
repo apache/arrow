@@ -39,7 +39,7 @@ const (
 )
 
 func (m MetadataVersion) String() string {
-	if v, ok := flatbuf.EnumNamesMetadataVersion[int16(m)]; ok {
+	if v, ok := flatbuf.EnumNamesMetadataVersion[flatbuf.MetadataVersion(m)]; ok {
 		return v
 	}
 	return fmt.Sprintf("MetadataVersion(%d)", int16(m))
@@ -58,7 +58,7 @@ const (
 )
 
 func (m MessageType) String() string {
-	if v, ok := flatbuf.EnumNamesMessageHeader[byte(m)]; ok {
+	if v, ok := flatbuf.EnumNamesMessageHeader[flatbuf.MessageHeader(m)]; ok {
 		return v
 	}
 	return fmt.Sprintf("MessageType(%d)", int(m))
