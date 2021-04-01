@@ -76,8 +76,27 @@ if (arrow_with_s3() && process_is_running("minio server")) {
 
   if (arrow_with_dataset()) {
 
-    # Dataset test setup, cf. test-dataset.R
     library(dplyr)
+
+    test_that("open_dataset with an S3 file (not directory) URI", {
+      skip_if_not_available("parquet")
+      expect_identical(
+        open_dataset(minio_uri("test.parquet")) %>% collect(),
+        example_data
+      )
+    })
+
+    test_that("open_dataset with vector of S3 file URIs", {
+      expect_identical(
+        open_dataset(
+          c(minio_uri("test.feather"), minio_uri("test2.feather")),
+          format = "feather"
+        ) %>% collect(),
+        rbind(example_data, example_data)
+      )
+    })
+
+    # Dataset test setup, cf. test-dataset.R
     first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
     df1 <- tibble(
       int = 1:10,

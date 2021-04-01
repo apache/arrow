@@ -90,6 +90,13 @@ test_that("Setup (putting data in the dir)", {
   expect_length(dir(tsv_dir, recursive = TRUE), 2)
 })
 
+if(arrow_with_parquet()) {
+  files <- c(
+    file.path(dataset_dir, 1, "file1.parquet", fsep = "/"),
+    file.path(dataset_dir, 2, "file2.parquet", fsep = "/")
+  )
+}
+
 test_that("Simple interface for datasets", {
   skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
@@ -163,11 +170,79 @@ test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_
   )
 })
 
-test_that("dataset from URI", {
+test_that("dataset from single local file path", {
+  skip_on_os("windows")
+  skip_if_not_available("parquet")
+  ds <- open_dataset(files[1])
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7) %>%
+      collect() %>%
+      arrange(dbl),
+    df1[8:10, c("chr", "dbl")]
+  )
+})
+
+test_that("dataset from vector of file paths", {
+  skip_on_os("windows")
+  skip_if_not_available("parquet")
+  ds <- open_dataset(files)
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+})
+
+test_that("dataset from directory URI", {
   skip_on_os("windows")
   skip_if_not_available("parquet")
   uri <- paste0("file://", dataset_dir)
   ds <- open_dataset(uri, partitioning = schema(part = uint8()))
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+})
+
+test_that("dataset from single file URI", {
+  skip_on_os("windows")
+  skip_if_not_available("parquet")
+  uri <- paste0("file://", files[1])
+  ds <- open_dataset(uri)
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7) %>%
+      collect() %>%
+      arrange(dbl),
+    df1[8:10, c("chr", "dbl")]
+  )
+})
+
+test_that("dataset from vector of file URIs", {
+  skip_on_os("windows")
+  skip_if_not_available("parquet")
+  uris <- paste0("file://", files)
+  ds <- open_dataset(uris)
   expect_is(ds, "Dataset")
   expect_equivalent(
     ds %>%
@@ -1188,13 +1263,6 @@ expect_scan_result <- function(ds, schm) {
   expect_equivalent(
     as.data.frame(tab),
     df1[8, c("chr", "lgl")]
-  )
-}
-
-if(arrow_with_parquet()) {
-  files <- c(
-    file.path(dataset_dir, 1, "file1.parquet", fsep = "/"),
-    file.path(dataset_dir, 2, "file2.parquet", fsep = "/")
   )
 }
 
