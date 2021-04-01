@@ -87,11 +87,15 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
     const ColumnDescriptor* descr = file_metadata->schema()->Column(i);
     stream << "Column " << i << ": " << descr->path()->ToDotString() << " ("
            << TypeToString(descr->physical_type());
-    if (descr->converted_type() != ConvertedType::NONE) {
-      stream << "/" << ConvertedTypeToString(descr->converted_type());
+    const auto& logical_type = descr->logical_type();
+    if (!logical_type->is_none()) {
+      stream << " / " << logical_type->ToString();
     }
-    if (descr->converted_type() == ConvertedType::DECIMAL) {
-      stream << "(" << descr->type_precision() << "," << descr->type_scale() << ")";
+    if (descr->converted_type() != ConvertedType::NONE) {
+      stream << " / " << ConvertedTypeToString(descr->converted_type());
+      if (descr->converted_type() == ConvertedType::DECIMAL) {
+        stream << "(" << descr->type_precision() << "," << descr->type_scale() << ")";
+      }
     }
     stream << ")" << std::endl;
   }

@@ -256,6 +256,9 @@ static inline format::Type::type ToThrift(Type::type type) {
 static inline format::ConvertedType::type ToThrift(ConvertedType::type type) {
   // item 0 is NONE
   DCHECK_NE(type, ConvertedType::NONE);
+  // it is forbidden to emit "NA" (PARQUET-1990)
+  DCHECK_NE(type, ConvertedType::NA);
+  DCHECK_NE(type, ConvertedType::UNDEFINED);
   return static_cast<format::ConvertedType::type>(static_cast<int>(type) - 1);
 }
 

@@ -448,7 +448,7 @@ std::unique_ptr<Node> PrimitiveNode::FromParquet(const void* opaque_element,
                           LogicalType::FromThrift(element->logicalType),
                           LoadEnumSafe(&element->type), element->type_length, field_id));
   } else if (element->__isset.converted_type) {
-    // legacy writer with logical type present
+    // legacy writer with converted type present
     primitive_node = std::unique_ptr<PrimitiveNode>(new PrimitiveNode(
         element->name, LoadEnumSafe(&element->repetition_type),
         LoadEnumSafe(&element->type), LoadEnumSafe(&element->converted_type),
@@ -500,7 +500,16 @@ void PrimitiveNode::ToParquet(void* opaque_element) const {
   element->__set_name(name_);
   element->__set_repetition_type(ToThrift(repetition_));
   if (converted_type_ != ConvertedType::NONE) {
-    element->__set_converted_type(ToThrift(converted_type_));
+    if (converted_type_ != ConvertedType::NA) {
+      element->__set_converted_type(ToThrift(converted_type_));
+    } else {
+      // ConvertedType::NA is an unreleased, obsolete synonym for LogicalType::Null.
+      // Never emit it (see PARQUET-1990 for discussion).
+      if (!logical_type_ || !logical_type_->is_null()) {
+        throw ParquetException(
+            "ConvertedType::NA is obsolete, please use LogicalType::Null instead");
+      }
+    }
   }
   if (field_id_ >= 0) {
     element->__set_field_id(field_id_);
