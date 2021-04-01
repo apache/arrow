@@ -120,8 +120,8 @@ Using vcpkg for build dependencies
 ========================================
 
 `vcpkg <https://github.com/microsoft/vcpkg>`_ is an open source package manager
-manager from Microsoft. It hosts community-contributed ports of C and C++
-packages and their dependencies. Arrow includes a manifest file `cpp/vcpkg.json
+from Microsoft. It hosts community-contributed ports of C and C++ packages and
+their dependencies. Arrow includes a manifest file `cpp/vcpkg.json
 <https://github.com/apache/arrow/blob/master/cpp/vcpkg.json>`_ that specifies
 which vcpkg packages are required to build the C++ library.
 
@@ -292,8 +292,8 @@ Debug builds
 ============
 
 To build a Debug version of Arrow, you should have pre-installed a Debug
-version of Boost. It's recommended to configure ``cmake build`` with the
-following variables for Debug build:
+version of Boost. It's recommended to configure ``cmake`` with the following
+variables for Debug build:
 
 * ``-DARROW_BOOST_USE_SHARED=OFF``: enables static linking with boost debug
   libs and simplifies run-time loading of 3rd parties
