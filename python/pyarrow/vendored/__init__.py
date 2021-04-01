@@ -14,14 +14,3 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-import numpy as np
-from setuptools import setup
-from Cython.Build import cythonize
-
-setup(
-    name="multimerge",
-    extra_compile_args=["-O3", "-mtune=native", "-march=native"],
-    ext_modules=cythonize("multimerge.pyx"),
-    include_dirs=[np.get_include()],
-)
