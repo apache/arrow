@@ -30,8 +30,12 @@
 
 namespace gandiva {
 
+using gandiva::ToDateFunctionsHolder;
+
 /// Function Holder for SQL 'to_date'
-class GANDIVA_EXPORT ToDateHolder : public ToDateFunctionsHolder {
+class GANDIVA_EXPORT ToDateHolder : public gandiva::ToDateFunctionsHolder<ToDateHolder> {
+ using ToDateFunctionsHolder::ToDateFunctionsHolder;
+
  public:
   ~ToDateHolder() override = default;
 
@@ -40,12 +44,9 @@ class GANDIVA_EXPORT ToDateHolder : public ToDateFunctionsHolder {
   static Status Make(const std::string& sql_pattern, int32_t suppress_errors,
                      std::shared_ptr<ToDateHolder>* holder);
 
-  /// Return true if the data matches the pattern.
-  int64_t operator()(ExecutionContext* context, const char* data, int data_len,
-                     bool in_valid, bool* out_valid);
-
  private:
   ToDateHolder(const std::string& pattern, int32_t suppress_errors)
-      : ToDateFunctionsHolder(pattern, suppress_errors) {}
+      : gandiva::ToDateFunctionsHolder<ToDateHolder>(pattern, suppress_errors, true,
+                                            ::arrow::TimeUnit::SECOND) {}
 };
 }  // namespace gandiva

@@ -31,19 +31,38 @@
 namespace gandiva {
 
 /// Function Holder for SQL 'to_date'
+template<typename HOLDER_TYPE>
 class GANDIVA_EXPORT ToDateFunctionsHolder : public FunctionHolder {
  public:
   ~ToDateFunctionsHolder() override = default;
 
+  /// Return true if the data matches the pattern.
+  int64_t operator()(ExecutionContext* context, const char* data, int data_len,
+                     bool in_valid, bool* out_valid);
+
  protected:
-  ToDateFunctionsHolder(std::string  pattern, int32_t suppress_errors)
-      : pattern_(std::move(pattern)), suppress_errors_(suppress_errors) {}
+  ToDateFunctionsHolder(std::string  pattern, int32_t suppress_errors, bool ignore_time,
+                        ::arrow::TimeUnit::type time_unit)
+      : pattern_(std::move(pattern)), suppress_errors_(suppress_errors),
+        ignore_time_(ignore_time),
+        time_unit_(time_unit) {}
+
 
   void return_error(ExecutionContext* context, const char* data,
-                                           int data_len) const;
+                                           int data_len);
+
+  static Status Make(const FunctionNode& node, std::shared_ptr<HOLDER_TYPE>* holder,
+                     std::string& function_name);
+
+  static Status Make(const std::string& sql_pattern, int32_t suppress_errors,
+                     std::shared_ptr<HOLDER_TYPE>* holder);
 
   std::string pattern_;  // date format string
 
   int32_t suppress_errors_;  // should throw exception on runtime errors
+
+  bool ignore_time_;
+
+  ::arrow::TimeUnit::type time_unit_;
 };
 }  // namespace gandiva
