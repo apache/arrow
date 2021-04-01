@@ -882,7 +882,7 @@ class NestedParallelismMixin : public ::testing::Test {
     virtual ~DiscardingRowCountingFileWriter() = default;
 
     Status Write(const std::shared_ptr<RecordBatch>& batch) {
-      row_count_->fetch_add(batch->num_rows());
+      row_count_->fetch_add(static_cast<int>(batch->num_rows()));
       return Status::OK();
     }
     Status Finish() override { return Status::OK(); };
