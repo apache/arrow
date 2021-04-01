@@ -72,5 +72,5 @@ This function helps you construct a \code{DatasetFactory} that you can pass to
 If you would only have a single \code{DatasetFactory} (for example, you have a
 single directory containing Parquet files), you can call \code{open_dataset()}
 directly. Use \code{dataset_factory()} when you
-want to combine different files, directories, file systems, or file formats.
+want to combine different directories, file systems, or file formats.
 }

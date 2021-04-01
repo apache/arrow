@@ -24,17 +24,22 @@
 #' `Dataset`, then use `dplyr` methods to query it.
 #'
 #' @param sources One of:
-#'   * a string path to a directory containing data files
-#'   * a vector of one or more string paths to data files
+#'   * a string path or URI to a directory containing data files
+#'   * a vector of one or more string paths or URIs to data files
 #'   * a list of `Dataset` objects as created by this function
 #'   * a list of `DatasetFactory` objects as created by [dataset_factory()].
-#' @param schema [Schema] for the dataset. If `NULL` (the default), the schema
+#'
+#' When `sources` is a vector of file URIs, they must all use the same protocol
+#' and point to files located in the same file system and having the same
+#' format.
+#' @param schema [Schema] for the `Dataset`. If `NULL` (the default), the schema
 #' will be inferred from the data sources.
-#' @param partitioning When `sources` is a directory path, one of:
+#' @param partitioning When `sources` is a directory path/URI, one of:
 #'   * a `Schema`, in which case the file paths relative to `sources` will be
 #'    parsed, and path segments will be matched with the schema fields. For
 #'    example, `schema(year = int16(), month = int8())` would create partitions
-#'    for file paths like "2019/01/file.parquet", "2019/02/file.parquet", etc.
+#'    for file paths like `"2019/01/file.parquet"`, `"2019/02/file.parquet"`,
+#'    etc.
 #'   * a character vector that defines the field names corresponding to those
 #'    path segments (that is, you're providing the names that would correspond
 #'    to a `Schema` but the types will be autodetected)
@@ -44,19 +49,20 @@
 #'   * `NULL` for no partitioning
 #'
 #' The default is to autodetect Hive-style partitions. When `sources` is not a
-#' directory path, `partitioning` is ignored.
+#' directory path/URI, `partitioning` is ignored.
 #' @param unify_schemas logical: should all data fragments (files, `Dataset`s)
 #' be scanned in order to create a unified schema from them? If `FALSE`, only
 #' the first fragment will be inspected for its schema. Use this fast path
 #' when you know and trust that all fragments have an identical schema.
-#' The default is `FALSE` when creating a dataset from a directory path or
-#' vector of file paths (because there may be many files and scanning may be
-#' slow) but `TRUE` when `sources` is a list of `Dataset`s (because there should
-#' be few `Dataset`s in the list and their `Schema`s are already in memory).
+#' The default is `FALSE` when creating a dataset from a directory path/URI or
+#' vector of file paths/URIs (because there may be many files and scanning may
+#' be slow) but `TRUE` when `sources` is a list of `Dataset`s (because there
+#' should be few `Dataset`s in the list and their `Schema`s are already in
+#' memory).
 #' @param ... additional arguments passed to `dataset_factory()` when `sources`
-#' is a directory path or vector of file paths, otherwise ignored. These may
-#' include "format" to indicate the file format, or other format-specific
-#' options.
+#' is a directory path/URI or vector of file paths/URIs, otherwise ignored.
+#' These may include `format` to indicate the file format, or other
+#' format-specific options.
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
 #' or call [`$NewScan()`][Scanner] to construct a query directly.
 #' @export
@@ -67,7 +73,7 @@ open_dataset <- function(sources,
                          partitioning = hive_partition(),
                          unify_schemas = NULL,
                          ...) {
-  # TODO: default to unify_schemas = TRUE when `sources` is a vector of file paths?
+  # TODO: default to unify_schemas = TRUE when `sources` is a vector of file paths/URIs?
   # (if so, also change the unifiy_schemas param description in the docs entry above)
   if (is_list_of(sources, "Dataset")) {
     if (is.null(schema)) {
