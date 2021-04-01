@@ -48,12 +48,13 @@ empty_named_list <- function() structure(list(), .Names = character(0))
 
 read_compressed_error <- function(e) {
   e <- as.character(e)
-  msg <- paste("Unsupported compressed format",
-    regmatches(e, gregexpr("(?<=\')(.*?)(?=\')", e, perl = TRUE))[[1]],
+  alg <- regmatches(e, gregexpr("(?<=\')(.*?)(?=\')", e, perl = TRUE))[[1]]
+  msg <- paste("Unsupported compressed format", alg,
     "\nPlease visit https://arrow.apache.org/docs/r/articles/install.html",
-    "\nfor an explanation about setting LD_LIBRARY_PATH/PKG_CONFIG_PATH or",
-    "\nsetting LIBARROW_MINIMAL=false and then reinstall the package."
+    "\nfor an explanation about optional features such as compression libraries enabled.",
+    "\nSetting LIBARROW_MINIMAL=false and then building the package from source fixes this,",
+    sprintf("\nor building libarrow with -DARROW_WITH_%s=ON and reinstalling the package.",
+            toupper(alg))
     )
-  message(msg)
-  FALSE
+  stop(msg)
 }
