@@ -24,6 +24,15 @@ class TestGandivaSelectableProjector < Test::Unit::TestCase
     field1 = Arrow::Field.new("field1", Arrow::Int32DataType.new)
     field2 = Arrow::Field.new("field2", Arrow::Int32DataType.new)
     @schema = Arrow::Schema.new([field1, field2])
+
+    input_arrays = [
+      build_int32_array([1, 2, 3, 4]),
+      build_int32_array([11, 13, 15, 17]),
+    ]
+    @record_batch = Arrow::RecordBatch.new(@schema,
+                                           input_arrays[0].length,
+                                           input_arrays)
+
     @field_node1 = Gandiva::FieldNode.new(field1)
     @field_node2 = Gandiva::FieldNode.new(field2)
     add_function_node =
@@ -40,18 +49,11 @@ class TestGandivaSelectableProjector < Test::Unit::TestCase
                                        Arrow::Int32DataType.new)
     subtract_expression = Gandiva::Expression.new(subtract_function_node,
                                                   subtract_result)
+    @selection_vector = Gandiva::UInt16SelectionVector.new(@record_batch.n_rows)
     @projector =
       Gandiva::SelectableProjector.new(@schema,
                                        [add_expression, subtract_expression],
-                                       :uint16)
-
-    input_arrays = [
-      build_int32_array([1, 2, 3, 4]),
-      build_int32_array([11, 13, 15, 17]),
-    ]
-    @record_batch = Arrow::RecordBatch.new(@schema,
-                                           input_arrays[0].length,
-                                           input_arrays)
+                                       @selection_vector.mode)
   end
 
   def test_evaluate
@@ -61,8 +63,8 @@ class TestGandivaSelectableProjector < Test::Unit::TestCase
                                                Arrow::BooleanDataType.new)
     condition = Gandiva::Condition.new(condition_node)
     filter = Gandiva::Filter.new(@schema, condition)
-    selection_vector = filter.evaluate(@record_batch)
-    outputs = @projector.evaluate(@record_batch, selection_vector)
+    filter.evaluate(@record_batch, @selection_vector)
+    outputs = @projector.evaluate(@record_batch, @selection_vector)
     assert_equal([
                    [18, 21],
                    [-12, -13],

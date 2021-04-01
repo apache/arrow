@@ -215,17 +215,15 @@ ggandiva_filter_new(GArrowSchema *schema,
  * ggandiva_filter_evaluate:
  * @filter: A #GGandivaFilter.
  * @record_batch: A #GArrowRecordBatch.
- * @selection_vector: (nullable): A #GGandivaSelectionVector that is used as
- *   output. If this is %NULL, newly #GGandivaSelectionVector is allocated
- *   internally.
+ * @selection_vector: A #GGandivaSelectionVector that is used as
+ *   output.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
- * Returns: (nullable) (transfer full):
- *   The #GGandivaSelectionVector as the result on success, %NULL on error.
+ * Returns: %TRUE on success, %FALSE otherwise.
  *
  * Since: 4.0.0
  */
-GGandivaSelectionVector *
+gboolean
 ggandiva_filter_evaluate(GGandivaFilter *filter,
                          GArrowRecordBatch *record_batch,
                          GGandivaSelectionVector *selection_vector,
@@ -233,51 +231,11 @@ ggandiva_filter_evaluate(GGandivaFilter *filter,
 {
   auto gandiva_filter = ggandiva_filter_get_raw(filter);
   auto arrow_record_batch = garrow_record_batch_get_raw(record_batch);
-  std::shared_ptr<gandiva::SelectionVector> gandiva_selection_vector;
-  if (selection_vector) {
-    gandiva_selection_vector =
-      ggandiva_selection_vector_get_raw(selection_vector);
-  } else {
-    auto n_rows = arrow_record_batch->num_rows();
-    auto memory_pool = arrow::default_memory_pool();
-    if (n_rows <= std::numeric_limits<uint16_t>::max()) {
-      auto status =
-        gandiva::SelectionVector::MakeInt16(n_rows,
-                                            memory_pool,
-                                            &gandiva_selection_vector);
-      if (!garrow_error_check(error, status, "[gandiva][filter][evaluate]")) {
-        return NULL;
-      }
-    } else if (n_rows <= std::numeric_limits<uint32_t>::max()) {
-      auto status =
-        gandiva::SelectionVector::MakeInt32(n_rows,
-                                            memory_pool,
-                                            &gandiva_selection_vector);
-      if (!garrow_error_check(error, status, "[gandiva][filter][evaluate]")) {
-        return NULL;
-      }
-    } else {
-      auto status =
-        gandiva::SelectionVector::MakeInt64(n_rows,
-                                            memory_pool,
-                                            &gandiva_selection_vector);
-      if (!garrow_error_check(error, status, "[gandiva][filter][evaluate]")) {
-        return NULL;
-      }
-    }
-  }
+  auto gandiva_selection_vector =
+    ggandiva_selection_vector_get_raw(selection_vector);
   auto status = gandiva_filter->Evaluate(*arrow_record_batch,
                                          gandiva_selection_vector);
-  if (garrow_error_check(error, status, "[gandiva][filter][evaluate]")) {
-    if (selection_vector) {
-      g_object_ref(G_OBJECT(selection_vector));
-      return selection_vector;
-    } else {
-      return ggandiva_selection_vector_new_raw(&gandiva_selection_vector);
-    }
-  } else {
-    return NULL;
-  }
+  return garrow_error_check(error, status, "[gandiva][filter][evaluate]");
 }
 
 G_END_DECLS

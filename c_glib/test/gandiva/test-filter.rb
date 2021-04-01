@@ -42,20 +42,10 @@ class TestGandivaFilter < Test::Unit::TestCase
                                            input_arrays)
   end
 
-  sub_test_case("#evaluate") do
-    def test_without_selection_vector
-      selection_vector = @filter.evaluate(@record_batch)
-      assert_equal(build_uint16_array([1, 3]),
-                   selection_vector.to_array)
-    end
-
-    def test_with_selection_vector
-      selection_vector = Gandiva::UInt16SelectionVector.new(@record_batch.n_rows)
-      returned_selection_vector =
-        @filter.evaluate(@record_batch, selection_vector)
-      assert_equal(build_uint16_array([1, 3]),
-                   selection_vector.to_array)
-      assert_same(selection_vector, returned_selection_vector)
-    end
+  def test_evaluate
+    selection_vector = Gandiva::UInt16SelectionVector.new(@record_batch.n_rows)
+    @filter.evaluate(@record_batch, selection_vector)
+    assert_equal(build_uint16_array([1, 3]),
+                 selection_vector.to_array)
   end
 end

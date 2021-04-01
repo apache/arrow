@@ -40,7 +40,7 @@ GGandivaFilter *
 ggandiva_filter_new(GArrowSchema *schema,
                     GGandivaCondition *condition,
                     GError **error);
-GGandivaSelectionVector *
+gboolean
 ggandiva_filter_evaluate(GGandivaFilter *filter,
                          GArrowRecordBatch *record_batch,
                          GGandivaSelectionVector *selection_vector,
