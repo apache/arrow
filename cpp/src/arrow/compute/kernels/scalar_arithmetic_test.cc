@@ -67,7 +67,10 @@ class TestBinaryArithmetic : public TestBase {
   using BinaryFunction = std::function<Result<Datum>(const Datum&, const Datum&,
                                                      ArithmeticOptions, ExecContext*)>;
 
-  void SetUp() override { options_.check_overflow = false; options_.remove_nulls = false; }
+  void SetUp() override {
+    options_.check_overflow = false;
+    options_.remove_nulls = false;
+  }
 
   std::shared_ptr<Scalar> MakeNullScalar() {
     return arrow::MakeNullScalar(type_singleton());
@@ -625,6 +628,8 @@ TYPED_TEST(TestBinaryArithmeticFloating, Power) {
       this->AssertBinop(Power, 21.0F, 3.0F, 9261.0F);
       // Divide by zero raises
       this->AssertBinopRaises(Power, MakeArray(0.0), MakeArray(-1.0), "divide by zero");
+      // Check overflow behaviour
+      this->AssertBinop(Power, max, 10, INFINITY);
     }
     // Edge cases - propagating NaNs
     this->SetRemoveNulls(false);
@@ -643,8 +648,8 @@ TYPED_TEST(TestBinaryArithmeticIntegral, Power) {
   using CType = typename TestFixture::CType;
   auto max = std::numeric_limits<CType>::max();
 
-  for (auto check_overflow : {false, true}) {
-    for (auto remove_nulls : {false, true}) {
+  for (auto remove_nulls : {false, true}) {
+    for (auto check_overflow : {false, true}) {
       this->SetOverflowCheck(check_overflow);
       this->SetRemoveNulls(remove_nulls);
 
@@ -656,19 +661,20 @@ TYPED_TEST(TestBinaryArithmeticIntegral, Power) {
       this->AssertBinop(Power, "[null, 2, 3, null, 20]", "[1, 6, 2, 5, 1]",
                         "[null, 64, 9, null, 20]");
       // Scalar exponentiated by array
-      this->AssertBinop(Power, 3, "[null, 3, 4, null, 2]",
-                        "[null, 27, 81, null, 9]");
+      this->AssertBinop(Power, 3, "[null, 3, 4, null, 2]", "[null, 27, 81, null, 9]");
       // Array exponentiated by scalar
-      this->AssertBinop(Power, "[null, 10, 3, null, 2]", 2,
-                        "[null, 100, 9, null, 4]");
+      this->AssertBinop(Power, "[null, 10, 3, null, 2]", 2, "[null, 100, 9, null, 4]");
       // Scalar exponentiated by scalar
       this->AssertBinop(Power, 4, 3, 64);
       // Edge cases
       this->AssertBinop(Power, "[0, 1, 0]", "[0, 0, 42]", "[1, 1, 0]");
-      // Overflow raises
-      this->SetOverflowCheck(true);
-      this->AssertBinopRaises(Power, MakeArray(max), MakeArray(10), "overflow");
     }
+    // Overflow raises
+    this->SetOverflowCheck(true);
+    this->AssertBinopRaises(Power, MakeArray(max), MakeArray(10), "overflow");
+    // Disable overflow check
+    this->SetOverflowCheck(false);
+    this->AssertBinop(Power, max, 10, 1);
   }
 }
 
@@ -676,8 +682,8 @@ TYPED_TEST(TestBinaryArithmeticSigned, Power) {
   using CType = typename TestFixture::CType;
   auto max = std::numeric_limits<CType>::max();
 
-  for (auto check_overflow : {false, true}) {
-    for (auto remove_nulls : {false, true}) {
+  for (auto remove_nulls : {false, true}) {
+    for (auto check_overflow : {false, true}) {
       this->SetOverflowCheck(check_overflow);
       this->SetRemoveNulls(remove_nulls);
 
@@ -686,13 +692,12 @@ TYPED_TEST(TestBinaryArithmeticSigned, Power) {
       // Array with nulls
       this->AssertBinop(Power, "[null, 10, -27, null, -20]", "[1, 2, -3, 5, 1]",
                         "[null, 100, 0, null, -20]");
-      // Scalar divides by array
-      this->AssertBinop(Power, 11, "[null, -1, -3, null, 2]",
-                        "[null, 0, 0, null, 121]");
-      // Array divides by scalar
+      // Scalar exponentiated by array
+      this->AssertBinop(Power, 11, "[null, -1, -3, null, 2]", "[null, 0, 0, null, 121]");
+      // Array exponentiated by scalar
       this->AssertBinop(Power, "[null, 1, 3, null, 2]", 3, "[null, 1, 27, null, 8]");
-      // Scalar divides by scalar
-      this->AssertBinop(Power, 16, .5, 1);
+      // Scalar exponentiated by scalar
+      this->AssertBinop(Power, 16, 1, 16);
       // Edge cases
       this->AssertBinop(Power, "[1, 0, -1, 2]", "[0, 42, 0, -1]", "[1, 0, 1, 0]");
       // Divide by zero raises
@@ -701,6 +706,12 @@ TYPED_TEST(TestBinaryArithmeticSigned, Power) {
       this->SetOverflowCheck(true);
       this->AssertBinopRaises(Power, MakeArray(max), MakeArray(10), "overflow");
     }
+    // Overflow raises
+    this->SetOverflowCheck(true);
+    this->AssertBinopRaises(Power, MakeArray(max), MakeArray(10), "overflow");
+    // Disable overflow check
+    this->SetOverflowCheck(false);
+    this->AssertBinop(Power, max, 10, 1);
   }
 }
 

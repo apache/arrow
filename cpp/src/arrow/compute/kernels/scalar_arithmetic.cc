@@ -271,7 +271,7 @@ struct Power {
 
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_floating_point<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
-    if (isnan(left) || isnan(right)) {
+    if (std::isnan(left) || std::isnan(right)) {
       return NAN;
     }
     if (left == 0 && right < 0) {
@@ -326,7 +326,7 @@ struct PowerChecked {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_floating_point<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    if (isnan(left) || isnan(right)) {
+    if (std::isnan(left) || std::isnan(right)) {
       return NAN;
     }
     if (left == 0 && right < 0) {
@@ -564,30 +564,36 @@ const FunctionDoc div_checked_doc{
     {"dividend", "divisor"}};
 
 const FunctionDoc pow_doc{
-    "Exponentiate the arguments element-wise",
-    ("Integer division by zero returns an error. However, integer overflow\n"
-     "wraps around, and floating-point division by zero returns an infinite.\n"
-     "Use function \"divide_checked\" if you want to get an error\n"
+    "Raise arguments to power element-wise",
+    ("Raising zero to negative integer returns an error. However, integer overflow\n"
+     "wraps around, and floating-point raising zero to negative integer returns an"
+     "infinite.\n"
+     "Use function \"power_checked\" if you want to get an error\n"
      "in all the aforementioned cases."),
     {"base", "power"}};
 
 const FunctionDoc pow_checked_doc{
-    "Exponentiate the arguments element-wise",
-    ("An error is returned when trying to divide by zero, or when\n"
+    "Raise arguments to power element-wise",
+    ("An error is returned when trying to raise zero to negative integer, or when\n"
      "integer overflow is encountered."),
     {"base", "power"}};
 
 const FunctionDoc pow_remove_nulls_doc{
-    "Exponentiate the arguments element-wise",
-    ("Integer division by zero returns an error. However, integer overflow\n"
-     "wraps around, and floating-point division by zero returns an infinite.\n"
-     "Use function \"divide_checked\" if you want to get an error\n"
+    "Raise arguments to power element-wise",
+    ("Raising zero to negative integer returns an error. However, integer overflow\n"
+     "wraps around, and floating-point raising zero to negative integer returns an"
+     "infinite.\n"
+     "In certain cases nulls will be removed: power(0, null)=0, power(1, null)=1"
+     "and power(null, 0)=1.\n"
+     "Use function \"power_checked_remove_nulls\" if you want to get an error\n"
      "in all the aforementioned cases."),
     {"base", "power"}};
 
 const FunctionDoc pow_checked_remove_nulls_doc{
-    "Exponentiate the arguments element-wise",
-    ("An error is returned when trying to divide by zero, or when\n"
+    "Raise arguments to power element-wise",
+    ("In certain cases nulls will be removed: power(0, null)=0, power(1, null)=1"
+     "and power(null, 0)=1.\n"
+     "An error is returned when trying to raise zero to negative integer, or when\n"
      "integer overflow is encountered."),
     {"base", "power"}};
 
@@ -641,22 +647,23 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
 
   // ----------------------------------------------------------------------
-  auto power =
-      MakeArithmeticFunctionNotNull<Power>("power", &pow_doc);
+  auto power = MakeArithmeticFunctionNotNull<Power>("power", &pow_doc);
   DCHECK_OK(registry->AddFunction(std::move(power)));
 
   // ----------------------------------------------------------------------
-  auto power_checked = MakeArithmeticFunctionNotNull<PowerChecked>("power_checked", &pow_checked_doc);
+  auto power_checked =
+      MakeArithmeticFunctionNotNull<PowerChecked>("power_checked", &pow_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(power_checked)));
 
   // ----------------------------------------------------------------------
-  auto power_remove_nulls =
-      MakeArithmeticFunctionNotNull<PowerRemoveNulls>("power_remove_nulls", &pow_remove_nulls_doc);
+  auto power_remove_nulls = MakeArithmeticFunctionNotNull<PowerRemoveNulls>(
+      "power_remove_nulls", &pow_remove_nulls_doc);
   DCHECK_OK(registry->AddFunction(std::move(power_remove_nulls)));
 
   // ----------------------------------------------------------------------
-  auto power_checked_remove_nulls = MakeArithmeticFunctionNotNull<PowerCheckedRemoveNulls>(
-      "power_checked_remove_nulls", &pow_checked_remove_nulls_doc);
+  auto power_checked_remove_nulls =
+      MakeArithmeticFunctionNotNull<PowerCheckedRemoveNulls>(
+          "power_checked_remove_nulls", &pow_checked_remove_nulls_doc);
   DCHECK_OK(registry->AddFunction(std::move(power_checked_remove_nulls)));
 }
 

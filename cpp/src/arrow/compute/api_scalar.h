@@ -205,16 +205,16 @@ Result<Datum> Divide(const Datum& left, const Datum& right,
                      ArithmeticOptions options = ArithmeticOptions(),
                      ExecContext* ctx = NULLPTR);
 
-/// \brief Compute the value of base value to the power of the exponent value.
-/// Array values must be the same length. If either argument is null the result will be
-/// null. For integer types, if there is a zero base value with negative value, a divide
-/// by zero error will be raised.
+/// \brief Raise the values of base array to the power of the exponent array values.
+/// Array values must be the same length. Base value 0 with negative integer exponent
+/// will raise divide by zero error. Nulls can be removed when base is 0 or 1 or when
+/// exponent is 0.
 ///
 /// \param[in] left the base
 /// \param[in] right the exponent
-/// \param[in] options arithmetic options (enable/disable overflow checking and null removal), optional
-/// \param[in] ctx the function execution context, optional
-/// \return the elementwise base value raised to the power of exponent
+/// \param[in] options arithmetic options (enable/disable overflow checking and null
+/// removal), optional \param[in] ctx the function execution context, optional \return the
+/// elementwise base value raised to the power of exponent
 ARROW_EXPORT
 Result<Datum> Power(const Datum& left, const Datum& right,
                     ArithmeticOptions options = ArithmeticOptions(),
