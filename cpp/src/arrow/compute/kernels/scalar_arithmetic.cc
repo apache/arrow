@@ -238,21 +238,16 @@ struct DivideChecked {
 struct Power {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_signed_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
-    if (left == 0 && right < 0) {
-      ctx->SetStatus(Status::Invalid("divide by zero"));
+    if (right < 0) {
+      ctx->SetStatus(
+          Status::Invalid("integers to negative integer powers are not allowed"));
     }
     if (left == 0 && right != 0) {
       return 0;
     }
     Arg0 result = 1;
-    if (right > 0) {
-      for (Arg1 i = 0; i < right; i++) {
-        result *= left;
-      }
-    } else {
-      for (Arg1 i = 0; i < -right; i++) {
-        result /= left;
-      }
+    for (Arg1 i = 0; i < right; i++) {
+      MultiplyWithOverflow(result, left, &result);
     }
     return result;
   }
@@ -264,7 +259,7 @@ struct Power {
     }
     Arg0 result = 1;
     for (Arg1 i = 0; i < right; i++) {
-      result *= left;
+      MultiplyWithOverflow(result, left, &result);
     }
     return result;
   }
@@ -285,24 +280,17 @@ struct PowerChecked {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_signed_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    if (left == 0 && right < 0) {
-      ctx->SetStatus(Status::Invalid("divide by zero"));
+    if (right < 0) {
+      ctx->SetStatus(
+          Status::Invalid("integers to negative integer powers are not allowed"));
     }
     if (left == 0 && right != 0) {
       return 0;
     }
     Arg0 result = 1;
-    if (right > 0) {
-      for (Arg1 i = 0; i < right; i++) {
-        if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(result, left, &result))) {
-          ctx->SetStatus(Status::Invalid("overflow"));
-        }
-      }
-    } else {
-      for (Arg1 i = 0; i < -right; i++) {
-        if (ARROW_PREDICT_FALSE(DivideWithOverflow(result, left, &result))) {
-          ctx->SetStatus(Status::Invalid("overflow"));
-        }
+    for (Arg1 i = 0; i < right; i++) {
+      if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(result, left, &result))) {
+        ctx->SetStatus(Status::Invalid("overflow"));
       }
     }
     return result;
@@ -339,21 +327,16 @@ struct PowerChecked {
 struct PowerRemoveNulls {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_signed_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
-    if (left == 0 && right < 0) {
-      ctx->SetStatus(Status::Invalid("divide by zero"));
+    if (right < 0) {
+      ctx->SetStatus(
+          Status::Invalid("integers to negative integer powers are not allowed"));
     }
     if (left == 0 && right != 0) {
       return 0;
     }
     Arg0 result = 1;
-    if (right > 0) {
-      for (Arg1 i = 0; i < right; i++) {
-        result *= left;
-      }
-    } else {
-      for (Arg1 i = 0; i < -right; i++) {
-        result /= left;
-      }
+    for (Arg1 i = 0; i < right; i++) {
+      MultiplyWithOverflow(result, left, &result);
     }
     return result;
   }
@@ -386,24 +369,17 @@ struct PowerCheckedRemoveNulls {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_signed_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    if (left == 0 && right < 0) {
-      ctx->SetStatus(Status::Invalid("divide by zero"));
+    if (right < 0) {
+      ctx->SetStatus(
+          Status::Invalid("integers to negative integer powers are not allowed"));
     }
     if (left == 0 && right != 0) {
       return 0;
     }
     Arg0 result = 1;
-    if (right > 0) {
-      for (Arg1 i = 0; i < right; i++) {
-        if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(result, left, &result))) {
-          ctx->SetStatus(Status::Invalid("overflow"));
-        }
-      }
-    } else {
-      for (Arg1 i = 0; i < -right; i++) {
-        if (ARROW_PREDICT_FALSE(DivideWithOverflow(result, left, &result))) {
-          ctx->SetStatus(Status::Invalid("overflow"));
-        }
+    for (Arg1 i = 0; i < right; i++) {
+      if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(result, left, &result))) {
+        ctx->SetStatus(Status::Invalid("overflow"));
       }
     }
     return result;

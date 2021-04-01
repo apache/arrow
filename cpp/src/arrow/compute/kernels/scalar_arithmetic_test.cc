@@ -690,18 +690,19 @@ TYPED_TEST(TestBinaryArithmeticSigned, Power) {
       // Ordinary arrays
       this->AssertBinop(Power, "[-3, 2, -6]", "[1, 1, 2]", "[-3, 2, 36]");
       // Array with nulls
-      this->AssertBinop(Power, "[null, 10, -27, null, -20]", "[1, 2, -3, 5, 1]",
-                        "[null, 100, 0, null, -20]");
+      this->AssertBinop(Power, "[null, 10, 127, null, -20]", "[1, 2, 1, 5, 1]",
+                        "[null, 100, 127, null, -20]");
       // Scalar exponentiated by array
-      this->AssertBinop(Power, 11, "[null, -1, -3, null, 2]", "[null, 0, 0, null, 121]");
+      this->AssertBinop(Power, 11, "[null, 1, null, 2]", "[null, 11, null, 121]");
       // Array exponentiated by scalar
       this->AssertBinop(Power, "[null, 1, 3, null, 2]", 3, "[null, 1, 27, null, 8]");
       // Scalar exponentiated by scalar
       this->AssertBinop(Power, 16, 1, 16);
       // Edge cases
-      this->AssertBinop(Power, "[1, 0, -1, 2]", "[0, 42, 0, -1]", "[1, 0, 1, 0]");
+      this->AssertBinop(Power, "[1, 0, -1, 2]", "[0, 42, 0, 1]", "[1, 0, 1, 2]");
       // Divide by zero raises
-      this->AssertBinopRaises(Power, MakeArray(0), MakeArray(-1), "divide by zero");
+      this->AssertBinopRaises(Power, MakeArray(0), MakeArray(-1),
+                              "integers to negative integer powers are not allowed");
       // Overflow raises
       this->SetOverflowCheck(true);
       this->AssertBinopRaises(Power, MakeArray(max), MakeArray(10), "overflow");
