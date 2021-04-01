@@ -19,45 +19,31 @@
 
 #pragma once
 
-#include <arrow-glib/arrow-glib.h>
-
-#include <gandiva-glib/node.h>
+#include <gandiva-glib/expression.h>
+#include <gandiva-glib/selection-vector.h>
 
 G_BEGIN_DECLS
 
-#define GGANDIVA_TYPE_EXPRESSION (ggandiva_expression_get_type())
-G_DECLARE_DERIVABLE_TYPE(GGandivaExpression,
-                         ggandiva_expression,
+#define GGANDIVA_TYPE_FILTER (ggandiva_filter_get_type())
+G_DECLARE_DERIVABLE_TYPE(GGandivaFilter,
+                         ggandiva_filter,
                          GGANDIVA,
-                         EXPRESSION,
+                         FILTER,
                          GObject)
 
-struct _GGandivaExpressionClass
+struct _GGandivaFilterClass
 {
   GObjectClass parent_class;
 };
 
-GGandivaExpression *
-ggandiva_expression_new(GGandivaNode *root_node,
-                        GArrowField *result_field);
-gchar *ggandiva_expression_to_string(GGandivaExpression *expression);
-
-
-#define GGANDIVA_TYPE_CONDITION (ggandiva_condition_get_type())
-G_DECLARE_DERIVABLE_TYPE(GGandivaCondition,
-                         ggandiva_condition,
-                         GGANDIVA,
-                         CONDITION,
-                         GGandivaExpression)
-
-struct _GGandivaConditionClass
-{
-  GGandivaExpressionClass parent_class;
-};
-
-GGANDIVA_AVAILABLE_IN_4_0
-GGandivaCondition *
-ggandiva_condition_new(GGandivaNode *root_node);
-
+GGandivaFilter *
+ggandiva_filter_new(GArrowSchema *schema,
+                    GGandivaCondition *condition,
+                    GError **error);
+gboolean
+ggandiva_filter_evaluate(GGandivaFilter *filter,
+                         GArrowRecordBatch *record_batch,
+                         GGandivaSelectionVector *selection_vector,
+                         GError **error);
 
 G_END_DECLS

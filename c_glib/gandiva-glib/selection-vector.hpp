@@ -21,19 +21,12 @@
 
 #include <memory>
 
-#include <gandiva/expression.h>
-#include <gandiva/tree_expr_builder.h>
+#include <gandiva/selection_vector.h>
 
-#include <gandiva-glib/expression.h>
+#include <gandiva-glib/selection-vector.h>
 
-GGandivaExpression *
-ggandiva_expression_new_raw(std::shared_ptr<gandiva::Expression> *gandiva_expression,
-                            GGandivaNode *root_node,
-                            GArrowField *result_field);
-std::shared_ptr<gandiva::Expression> ggandiva_expression_get_raw(GGandivaExpression *expression);
-
-GGandivaCondition
-*ggandiva_condition_new_raw(std::shared_ptr<gandiva::Condition> *gandiva_expression,
-                            GGandivaNode *root_node);
-std::shared_ptr<gandiva::Condition>
-ggandiva_condition_get_raw(GGandivaCondition *condition);
+GGandivaSelectionVector *
+ggandiva_selection_vector_new_raw(
+  std::shared_ptr<gandiva::SelectionVector> *gandiva_selection_vector);
+std::shared_ptr<gandiva::SelectionVector>
+ggandiva_selection_vector_get_raw(GGandivaSelectionVector *selection_vector);

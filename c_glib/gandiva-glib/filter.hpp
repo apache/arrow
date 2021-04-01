@@ -21,19 +21,13 @@
 
 #include <memory>
 
-#include <gandiva/expression.h>
-#include <gandiva/tree_expr_builder.h>
+#include <gandiva/filter.h>
 
-#include <gandiva-glib/expression.h>
+#include <gandiva-glib/filter.h>
 
-GGandivaExpression *
-ggandiva_expression_new_raw(std::shared_ptr<gandiva::Expression> *gandiva_expression,
-                            GGandivaNode *root_node,
-                            GArrowField *result_field);
-std::shared_ptr<gandiva::Expression> ggandiva_expression_get_raw(GGandivaExpression *expression);
-
-GGandivaCondition
-*ggandiva_condition_new_raw(std::shared_ptr<gandiva::Condition> *gandiva_expression,
-                            GGandivaNode *root_node);
-std::shared_ptr<gandiva::Condition>
-ggandiva_condition_get_raw(GGandivaCondition *condition);
+GGandivaFilter *
+ggandiva_filter_new_raw(std::shared_ptr<gandiva::Filter> *gandiva_filter,
+                        GArrowSchema *schema,
+                        GGandivaCondition *condition);
+std::shared_ptr<gandiva::Filter>
+ggandiva_filter_get_raw(GGandivaFilter *filter);
