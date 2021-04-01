@@ -17,6 +17,7 @@
 
 //! Defines `ArrowError` for representing failures in various Arrow operations.
 use std::fmt::{Debug, Display, Formatter};
+use std::io::Write;
 
 use csv as csv_crate;
 use std::error::Error;
@@ -87,6 +88,12 @@ impl From<::std::string::FromUtf8Error> for ArrowError {
 impl From<serde_json::Error> for ArrowError {
     fn from(error: serde_json::Error) -> Self {
         ArrowError::JsonError(error.to_string())
+    }
+}
+
+impl<W: Write> From<::std::io::IntoInnerError<W>> for ArrowError {
+    fn from(error: std::io::IntoInnerError<W>) -> Self {
+        ArrowError::IoError(error.to_string())
     }
 }
 
