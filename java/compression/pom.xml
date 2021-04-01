@@ -44,8 +44,9 @@
       <version>1.20</version>
     </dependency>
     <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-common</artifactId>
-    </dependency>
+    <groupId>com.github.luben</groupId>
+    <artifactId>zstd-jni</artifactId>
+    <version>1.4.9-1</version>
+</dependency>
   </dependencies>
 </project>
