@@ -795,7 +795,9 @@ mod tests {
         physical_plan::expressions::AvgAccumulator,
     };
     use arrow::array::{
-        Array, ArrayRef, DictionaryArray, Float64Array, Int32Array, Int64Array,
+        Array, ArrayRef, BinaryArray, DictionaryArray, Float64Array, Int32Array,
+        Int64Array, LargeBinaryArray, LargeStringArray, StringArray,
+        TimestampNanosecondArray,
     };
     use arrow::compute::add;
     use arrow::datatypes::*;
@@ -2108,10 +2110,11 @@ mod tests {
             "+---------------+--------------------+------------+------------+",
             "| table_catalog | table_schema       | table_name | table_type |",
             "+---------------+--------------------+------------+------------+",
+            "| datafusion    | information_schema | columns    | VIEW       |",
             "| datafusion    | information_schema | tables     | VIEW       |",
             "+---------------+--------------------+------------+------------+",
         ];
-        assert_batches_eq!(expected, &result);
+        assert_batches_sorted_eq!(expected, &result);
     }
 
     #[tokio::test]
@@ -2134,6 +2137,7 @@ mod tests {
             "| table_catalog | table_schema       | table_name | table_type |",
             "+---------------+--------------------+------------+------------+",
             "| datafusion    | information_schema | tables     | VIEW       |",
+            "| datafusion    | information_schema | columns    | VIEW       |",
             "| datafusion    | public             | t          | BASE TABLE |",
             "+---------------+--------------------+------------+------------+",
         ];
@@ -2152,6 +2156,7 @@ mod tests {
             "+---------------+--------------------+------------+------------+",
             "| table_catalog | table_schema       | table_name | table_type |",
             "+---------------+--------------------+------------+------------+",
+            "| datafusion    | information_schema | columns    | VIEW       |",
             "| datafusion    | information_schema | tables     | VIEW       |",
             "| datafusion    | public             | t          | BASE TABLE |",
             "| datafusion    | public             | t2         | BASE TABLE |",
@@ -2193,10 +2198,13 @@ mod tests {
             "+------------------+--------------------+------------+------------+",
             "| table_catalog    | table_schema       | table_name | table_type |",
             "+------------------+--------------------+------------+------------+",
+            "| datafusion       | information_schema | columns    | VIEW       |",
             "| datafusion       | information_schema | tables     | VIEW       |",
+            "| my_catalog       | information_schema | columns    | VIEW       |",
             "| my_catalog       | information_schema | tables     | VIEW       |",
             "| my_catalog       | my_schema          | t1         | BASE TABLE |",
             "| my_catalog       | my_schema          | t2         | BASE TABLE |",
+            "| my_other_catalog | information_schema | columns    | VIEW       |",
             "| my_other_catalog | information_schema | tables     | VIEW       |",
             "| my_other_catalog | my_other_schema    | t3         | BASE TABLE |",
             "+------------------+--------------------+------------+------------+",
@@ -2233,6 +2241,7 @@ mod tests {
             "+---------------+--------------------+------------+------------+",
             "| table_catalog | table_schema       | table_name | table_type |",
             "+---------------+--------------------+------------+------------+",
+            "| datafusion    | information_schema | columns    | VIEW       |",
             "| datafusion    | information_schema | tables     | VIEW       |",
             "| datafusion    | public             | t          | BASE TABLE |",
             "+---------------+--------------------+------------+------------+",
@@ -2253,6 +2262,94 @@ mod tests {
             .unwrap_err();
 
         assert_eq!(err.to_string(), "This feature is not implemented: SHOW SOMETHING_UNKNOWN not implemented. Supported syntax: SHOW <TABLES>");
+    }
+
+    #[tokio::test]
+    async fn information_schema_columns_not_exist_by_default() {
+        let mut ctx = ExecutionContext::new();
+
+        let err = plan_and_collect(&mut ctx, "SELECT * from information_schema.columns")
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Error during planning: Table or CTE with name 'information_schema.columns' not found"
+        );
+    }
+
+    fn table_with_many_types() -> Arc<dyn TableProvider> {
+        let schema = Schema::new(vec![
+            Field::new("int32_col", DataType::Int32, false),
+            Field::new("float64_col", DataType::Float64, true),
+            Field::new("utf8_col", DataType::Utf8, true),
+            Field::new("large_utf8_col", DataType::LargeUtf8, false),
+            Field::new("binary_col", DataType::Binary, false),
+            Field::new("large_binary_col", DataType::LargeBinary, false),
+            Field::new(
+                "timestamp_nanos",
+                DataType::Timestamp(TimeUnit::Nanosecond, None),
+                false,
+            ),
+        ]);
+
+        let batch = RecordBatch::try_new(
+            Arc::new(schema.clone()),
+            vec![
+                Arc::new(Int32Array::from(vec![1])),
+                Arc::new(Float64Array::from(vec![1.0])),
+                Arc::new(StringArray::from(vec![Some("foo")])),
+                Arc::new(LargeStringArray::from(vec![Some("bar")])),
+                Arc::new(BinaryArray::from(vec![b"foo" as &[u8]])),
+                Arc::new(LargeBinaryArray::from(vec![b"foo" as &[u8]])),
+                Arc::new(TimestampNanosecondArray::from_opt_vec(
+                    vec![Some(123)],
+                    None,
+                )),
+            ],
+        )
+        .unwrap();
+        let provider = MemTable::try_new(Arc::new(schema), vec![vec![batch]]).unwrap();
+        Arc::new(provider)
+    }
+
+    #[tokio::test]
+    async fn information_schema_columns() {
+        let mut ctx = ExecutionContext::with_config(
+            ExecutionConfig::new().with_information_schema(true),
+        );
+        let catalog = MemoryCatalogProvider::new();
+        let schema = MemorySchemaProvider::new();
+
+        schema
+            .register_table("t1".to_owned(), table_with_sequence(1, 1).unwrap())
+            .unwrap();
+
+        schema
+            .register_table("t2".to_owned(), table_with_many_types())
+            .unwrap();
+        catalog.register_schema("my_schema", Arc::new(schema));
+        ctx.register_catalog("my_catalog", Arc::new(catalog));
+
+        let result =
+            plan_and_collect(&mut ctx, "SELECT * from information_schema.columns")
+                .await
+                .unwrap();
+
+        let expected = vec![
+    "+---------------+--------------+------------+------------------+------------------+----------------+-------------+-----------------------------+--------------------------+------------------------+-------------------+-------------------------+---------------+--------------------+---------------+",
+    "| table_catalog | table_schema | table_name | column_name      | ordinal_position | column_default | is_nullable | data_type                   | character_maximum_length | character_octet_length | numeric_precision | numeric_precision_radix | numeric_scale | datetime_precision | interval_type |",
+    "+---------------+--------------+------------+------------------+------------------+----------------+-------------+-----------------------------+--------------------------+------------------------+-------------------+-------------------------+---------------+--------------------+---------------+",
+    "| my_catalog    | my_schema    | t1         | i                | 0                |                | YES         | Int32                       |                          |                        | 32                | 2                       |               |                    |               |",
+    "| my_catalog    | my_schema    | t2         | binary_col       | 4                |                | NO          | Binary                      |                          | 2147483647             |                   |                         |               |                    |               |",
+    "| my_catalog    | my_schema    | t2         | float64_col      | 1                |                | YES         | Float64                     |                          |                        | 24                | 2                       |               |                    |               |",
+    "| my_catalog    | my_schema    | t2         | int32_col        | 0                |                | NO          | Int32                       |                          |                        | 32                | 2                       |               |                    |               |",
+    "| my_catalog    | my_schema    | t2         | large_binary_col | 5                |                | NO          | LargeBinary                 |                          | 9223372036854775807    |                   |                         |               |                    |               |",
+    "| my_catalog    | my_schema    | t2         | large_utf8_col   | 3                |                | NO          | LargeUtf8                   |                          | 9223372036854775807    |                   |                         |               |                    |               |",
+    "| my_catalog    | my_schema    | t2         | timestamp_nanos  | 6                |                | NO          | Timestamp(Nanosecond, None) |                          |                        |                   |                         |               |                    |               |",
+    "| my_catalog    | my_schema    | t2         | utf8_col         | 2                |                | YES         | Utf8                        |                          | 2147483647             |                   |                         |               |                    |               |",
+    "+---------------+--------------+------------+------------------+------------------+----------------+-------------+-----------------------------+--------------------------+------------------------+-------------------+-------------------------+---------------+--------------------+---------------+",
+        ];
+        assert_batches_sorted_eq!(expected, &result);
     }
 
     #[tokio::test]

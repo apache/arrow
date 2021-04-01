@@ -245,11 +245,17 @@ This library currently supports many SQL constructs, including
 * `GROUP BY` together with one of the following aggregations: `MIN`, `MAX`, `COUNT`, `SUM`, `AVG`
 * `ORDER BY` together with an expression and optional `ASC` or `DESC` and also optional `NULLS FIRST` or `NULLS LAST`
 
+
 ## Supported Functions
 
 DataFusion strives to implement a subset of the [PostgreSQL SQL dialect](https://www.postgresql.org/docs/current/functions.html) where possible. We explicitly choose a single dialect to maximize interoperability with other tools and allow reuse of the PostgreSQL documents and tutorials as much as possible.
 
 Currently, only a subset of the PosgreSQL dialect is implemented, and we will document any deviations.
+
+## Information Schema
+
+DataFusion supports the `TABLES` and `COLUMNS` views of the ISO SQL `information_schema` schema to list tables and columns respectively. More information can be found in the [Postgres docs](https://www.postgresql.org/docs/13/infoschema-schema.html)).
+
 
 ## Supported Data Types
 
