@@ -209,7 +209,9 @@ ggandiva_projector_new(GArrowSchema *schema,
                             gandiva_expressions,
                             &gandiva_projector);
   if (garrow_error_check(error, status, "[gandiva][projector][new]")) {
-    return ggandiva_projector_new_raw(&gandiva_projector);
+    return ggandiva_projector_new_raw(&gandiva_projector,
+                                      schema,
+                                      expressions);
   } else {
     return NULL;
   }
@@ -303,7 +305,9 @@ ggandiva_selectable_projector_new(GArrowSchema *schema,
   if (garrow_error_check(error,
                          status,
                          "[gandiva][selectable-projector][new]")) {
-    return ggandiva_selectable_projector_new_raw(&gandiva_projector);
+    return ggandiva_selectable_projector_new_raw(&gandiva_projector,
+                                                 schema,
+                                                 expressions);
   } else {
     return NULL;
   }
@@ -358,17 +362,24 @@ ggandiva_selectable_projector_evaluate(
 G_END_DECLS
 
 GGandivaProjector *
-ggandiva_projector_new_raw(std::shared_ptr<gandiva::Projector> *gandiva_projector)
+ggandiva_projector_new_raw(
+  std::shared_ptr<gandiva::Projector> *gandiva_projector,
+  GArrowSchema *schema,
+  GList *expressions)
 {
   auto projector = g_object_new(GGANDIVA_TYPE_PROJECTOR,
                                 "projector", gandiva_projector,
+                                "schema", schema,
+                                "expressions", expressions,
                                 NULL);
   return GGANDIVA_PROJECTOR(projector);
 }
 
 GGandivaSelectableProjector *
 ggandiva_selectable_projector_new_raw(
-  std::shared_ptr<gandiva::Projector> *gandiva_projector)
+  std::shared_ptr<gandiva::Projector> *gandiva_projector,
+  GArrowSchema *schema,
+  GList *expressions)
 {
   auto projector = g_object_new(GGANDIVA_TYPE_SELECTABLE_PROJECTOR,
                                 "projector", gandiva_projector,
