@@ -73,7 +73,7 @@ RUN wget -q -O - https://deb.nodesource.com/setup_${node}.x | bash - && \
 
 # Sphinx is pinned because of ARROW-9693
 RUN pip install \
-        meson==0.56 \
+        meson \
         breathe \
         ipython \
         sphinx \
