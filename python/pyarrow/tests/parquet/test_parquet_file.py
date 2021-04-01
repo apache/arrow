@@ -402,7 +402,11 @@ def test_read_encrypted_disable_footer_signature_verification():
 
 
 def test_decrypt_with_key_retriever():
-    """A key retriever function can be used to retrieve keys."""
+    """A key retriever function can be used to retrieve keys.
+
+    We put null bytes in the key metadata to ensure that doesn't break
+    anything; the key metadata can be arbitrary byte sequences.
+    """
     key1 = b"foot!abcd\xff\x0012356"
     key2 = b"col1!abcd\xff\x0012356"
     table = pa.table([pa.array([4, 5]), pa.array(["foo", "bar"])],
@@ -413,15 +417,15 @@ def test_decrypt_with_key_retriever():
     from pyarrow import _parquet
     encryption_props = _parquet.LowLevelEncryptionProperties(
         key1, {"ints": key1, "strs": key2},
-        column_keys_metadata={"ints": b"KEY1", "strs": b"KEY2"},
-        footer_key_metadata=b"KEY1",
+        column_keys_metadata={"ints": b"KEY\x001", "strs": b"KEY\x002"},
+        footer_key_metadata=b"KEY\x001",
     )
 
     pq.write_table(table, bio, lowlevel_encryption_properties=encryption_props)
 
     # Use wrong key retriever to retrieve keys:
     def retrieve_key(metadata):
-        return {b"KEY1": key2, b"KEY2": key1}[metadata]
+        return {b"KEY\x001": key2, b"KEY\x002": key1}[metadata]
 
     decryption_props = pq.LowLevelDecryptionProperties(
         retrieve_key=retrieve_key
@@ -431,7 +435,7 @@ def test_decrypt_with_key_retriever():
 
     # Use correct key retriever to retrieve keys:
     def retrieve_key(metadata):
-        return {b"KEY1": key1, b"KEY2": key2}[metadata]
+        return {b"KEY\x001": key1, b"KEY\x002": key2}[metadata]
 
     decryption_props = pq.LowLevelDecryptionProperties(
         retrieve_key=retrieve_key
