@@ -817,15 +817,15 @@ gdv_int64 castBIGINT_daytimeinterval(gdv_day_time_interval in) {
          extractDay_daytimeinterval(in) * MILLIS_IN_DAY;
 }
 
-// Convert milliseconds to date, considering input the quantity of milliseconds after
-// midnight
+// Convert milliseconds to date, considering as input the quantity of milliseconds
+// after midnight
 #define TO_TIME(TYPE)                                                              \
   FORCE_INLINE                                                                     \
   gdv_date64 to_time##_##TYPE(gdv_##TYPE millis) {                                 \
     EpochTimePoint actual_tp(EpochTimePoint::NowMillisEpoch());                    \
     long cleared_timestamp_millis = actual_tp.ClearTimeOfDay().MillisSinceEpoch(); \
-    if (millis > MILLIS_IN_DAY) {                                                 \
-      millis = millis % MILLIS_IN_DAY;                                            \
+    if (millis > MILLIS_IN_DAY) {                                                  \
+      millis = millis % MILLIS_IN_DAY;                                             \
     }                                                                              \
     cleared_timestamp_millis += millis;                                            \
     return cleared_timestamp_millis;                                               \

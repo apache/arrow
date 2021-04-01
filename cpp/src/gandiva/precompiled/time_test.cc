@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #include <time.h>
 
+#include "./epoch_time_point.h"
 #include "../execution_context.h"
 #include "gandiva/precompiled/testing.h"
 #include "gandiva/precompiled/types.h"
@@ -724,9 +725,32 @@ TEST(TestTime, TestLastDay) {
   EXPECT_EQ(StringToTimestamp("2015-12-31 00:00:00"), out);
 }
 
-TEST(TestTime, TestToTime) {
-  auto out = to_time_timestamp(1000000);
-  EXPECT_EQ(std::chrono::high_resolution_clock::now().time_since_epoch().count(), out);
+TEST(TestTime, TestToTimeNumeric) {
+  // Retrieve the actual system time clock and the respective day timestamp
+  auto now = std::chrono::system_clock::now().time_since_epoch().count();
+  EpochTimePoint timePoint(now);
+  auto day_milliseconds = timePoint.ClearTimeOfDay().MillisSinceEpoch();
+
+  auto value_to_convert_1 = 60000;
+  auto out_1 = to_time_date64(value_to_convert_1);
+  EXPECT_EQ(day_milliseconds, out_1 - value_to_convert_1);
+
+  auto value_to_convert_2 = 100000;
+  auto out_2 = to_time_date64(value_to_convert_2);
+  EXPECT_EQ(day_milliseconds, out_2 - value_to_convert_2);
+
+  // value greater thant the quantity of ms in day (86400000)
+  auto value_to_convert_3 = 90000000;
+  auto out_3 = to_time_date64(value_to_convert_3);
+  EXPECT_EQ(day_milliseconds, out_3 - (value_to_convert_3 % 86400000));
+
+  auto value_to_convert_4 = -60000;
+  auto out_4 = to_time_date64(value_to_convert_4);
+  EXPECT_EQ(day_milliseconds, out_4 - value_to_convert_4);
+
+  auto value_to_convert_5 = -100000;
+  auto out_5 = to_time_date64(value_to_convert_5);
+  EXPECT_EQ(day_milliseconds, out_5 - value_to_convert_5);
 }
 
 }  // namespace gandiva

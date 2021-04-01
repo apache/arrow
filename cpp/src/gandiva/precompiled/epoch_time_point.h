@@ -87,8 +87,8 @@ class EpochTimePoint {
 
   int64_t MillisSinceEpoch() const { return tp_.time_since_epoch().count(); }
 
- static int64_t NowMillisEpoch() {
-    return std::chrono::high_resolution_clock::now().time_since_epoch().count();
+  static int64_t NowMillisEpoch() {
+    return std::chrono::system_clock::now().time_since_epoch().count();
   }
 
  private:
