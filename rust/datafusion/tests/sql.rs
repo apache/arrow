@@ -2560,6 +2560,17 @@ async fn test_in_list_scalar() -> Result<()> {
     test_expression!("'2' IN ('a','b',NULL,1)", "NULL");
     test_expression!("'1' NOT IN ('a','b',NULL,1)", "false");
     test_expression!("'2' NOT IN ('a','b',NULL,1)", "NULL");
+    test_expression!("regexp_match('foobarbequebaz', '')", "[]");
+    test_expression!(
+        "regexp_match('foobarbequebaz', '(bar)(beque)')",
+        "[bar, beque]"
+    );
+    test_expression!("regexp_match('foobarbequebaz', '(ba3r)(bequ34e)')", "NULL");
+    test_expression!("regexp_match('aaa-0', '.*-(\\d)')", "[0]");
+    test_expression!("regexp_match('bb-1', '.*-(\\d)')", "[1]");
+    test_expression!("regexp_match('aa', '.*-(\\d)')", "NULL");
+    test_expression!("regexp_match(NULL, '.*-(\\d)')", "NULL");
+    test_expression!("regexp_match('aaa-0', NULL)", "NULL");
     Ok(())
 }
 
