@@ -28,19 +28,17 @@ use crate::logical_plan::{
     DFSchema, Expr, LogicalPlan, Operator, Partitioning as LogicalPartitioning, PlanType,
     StringifiedPlan, UserDefinedLogicalNode,
 };
-use crate::physical_plan::coalesce_batches::CoalesceBatchesExec;
 use crate::physical_plan::explain::ExplainExec;
+use crate::physical_plan::expressions;
 use crate::physical_plan::expressions::{CaseExpr, Column, Literal, PhysicalSortExpr};
 use crate::physical_plan::filter::FilterExec;
 use crate::physical_plan::hash_aggregate::{AggregateMode, HashAggregateExec};
 use crate::physical_plan::hash_join::HashJoinExec;
 use crate::physical_plan::limit::{GlobalLimitExec, LocalLimitExec};
-use crate::physical_plan::merge::MergeExec;
 use crate::physical_plan::projection::ProjectionExec;
 use crate::physical_plan::repartition::RepartitionExec;
 use crate::physical_plan::sort::SortExec;
 use crate::physical_plan::udf;
-use crate::physical_plan::{expressions, Distribution};
 use crate::physical_plan::{hash_utils, Partitioning};
 use crate::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr, PhysicalPlanner};
 use crate::prelude::JoinType;
@@ -104,87 +102,20 @@ impl DefaultPhysicalPlanner {
         Self { extension_planners }
     }
 
-    /// Create a physical plan from a logical plan
+    /// Optimize a physical plan
     fn optimize_plan(
         &self,
         plan: Arc<dyn ExecutionPlan>,
         ctx_state: &ExecutionContextState,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        // TODO: make this a optimizer rule
-        let children = plan
-            .children()
-            .iter()
-            .map(|child| self.optimize_plan(child.clone(), ctx_state))
-            .collect::<Result<Vec<_>>>()?;
-
-        let plan = self.optimize_physical_plan(plan, ctx_state)?;
-
-        Ok(if children.is_empty() {
-            // leaf node, children cannot be replaced
-            plan.clone()
-        } else {
-            // wrap operators in CoalesceBatches to avoid lots of tiny batches when we have
-            // highly selective filters
-            let plan_any = plan.as_any();
-            //TODO we should do this in a more generic way either by wrapping all operators
-            // or having an API so that operators can declare when their inputs or outputs
-            // need to be wrapped in a coalesce batches operator.
-            // See https://issues.apache.org/jira/browse/ARROW-11068
-            let wrap_in_coalesce = plan_any.downcast_ref::<FilterExec>().is_some()
-                || plan_any.downcast_ref::<HashJoinExec>().is_some()
-                || plan_any.downcast_ref::<RepartitionExec>().is_some();
-
-            //TODO we should also do this for HashAggregateExec but we need to update tests
-            // as part of this work - see https://issues.apache.org/jira/browse/ARROW-11068
-            // || plan_any.downcast_ref::<HashAggregateExec>().is_some();
-
-            let plan = if wrap_in_coalesce {
-                //TODO we should add specific configuration settings for coalescing batches and
-                // we should do that once https://issues.apache.org/jira/browse/ARROW-11059 is
-                // implemented. For now, we choose half the configured batch size to avoid copies
-                // when a small number of rows are removed from a batch
-                let target_batch_size = ctx_state.config.batch_size / 2;
-                Arc::new(CoalesceBatchesExec::new(plan.clone(), target_batch_size))
-            } else {
-                plan.clone()
-            };
-
-            let children = plan.children().clone();
-
-            match plan.required_child_distribution() {
-                Distribution::UnspecifiedDistribution => {
-                    plan.with_new_children(children)?
-                }
-                Distribution::SinglePartition => plan.with_new_children(
-                    children
-                        .iter()
-                        .map(|child| {
-                            if child.output_partitioning().partition_count() == 1 {
-                                child.clone()
-                            } else {
-                                Arc::new(MergeExec::new(child.clone()))
-                            }
-                        })
-                        .collect(),
-                )?,
-            }
-        })
-    }
-
-    // Optimize physical plan given based on active optimizers
-    fn optimize_physical_plan(
-        &self,
-        physical_plan: Arc<dyn ExecutionPlan>,
-        ctx_state: &ExecutionContextState,
-    ) -> Result<Arc<dyn ExecutionPlan>> {
         let optimizers = &ctx_state.config.physical_optimizers;
-        let mut new_plan = physical_plan.clone();
-        debug!("Physical plan:\n{:?}", new_plan);
+        println!("Physical plan:\n{:?}", plan);
 
+        let mut new_plan = plan;
         for optimizer in optimizers {
             new_plan = optimizer.optimize(new_plan, &ctx_state.config)?;
         }
-        debug!("Optimized physical plan:\n{:?}", new_plan);
+        println!("Optimized physical plan:\n{:?}", new_plan);
         Ok(new_plan)
     }
 
@@ -211,7 +142,7 @@ impl DefaultPhysicalPlanner {
                 ..
             } => {
                 // Initially need to perform the aggregate and then merge the partitions
-                let input_exec = self.create_physical_plan(input, ctx_state)?;
+                let input_exec = self.create_initial_plan(input, ctx_state)?;
                 let input_schema = input_exec.schema();
                 let physical_input_schema = input_exec.as_ref().schema();
                 let logical_input_schema = input.as_ref().schema();
@@ -267,7 +198,7 @@ impl DefaultPhysicalPlanner {
                 )?))
             }
             LogicalPlan::Projection { input, expr, .. } => {
-                let input_exec = self.create_physical_plan(input, ctx_state)?;
+                let input_exec = self.create_initial_plan(input, ctx_state)?;
                 let input_schema = input.as_ref().schema();
                 let runtime_expr = expr
                     .iter()
@@ -287,7 +218,7 @@ impl DefaultPhysicalPlanner {
             LogicalPlan::Filter {
                 input, predicate, ..
             } => {
-                let input = self.create_physical_plan(input, ctx_state)?;
+                let input = self.create_initial_plan(input, ctx_state)?;
                 let input_schema = input.as_ref().schema();
                 let runtime_expr =
                     self.create_physical_expr(predicate, &input_schema, ctx_state)?;
@@ -296,7 +227,7 @@ impl DefaultPhysicalPlanner {
             LogicalPlan::Union { inputs, .. } => {
                 let physical_plans = inputs
                     .iter()
-                    .map(|input| self.create_physical_plan(input, ctx_state))
+                    .map(|input| self.create_initial_plan(input, ctx_state))
                     .collect::<Result<Vec<_>>>()?;
                 Ok(Arc::new(UnionExec::new(physical_plans)))
             }
@@ -304,7 +235,7 @@ impl DefaultPhysicalPlanner {
                 input,
                 partitioning_scheme,
             } => {
-                let input = self.create_physical_plan(input, ctx_state)?;
+                let input = self.create_initial_plan(input, ctx_state)?;
                 let input_schema = input.schema();
                 let physical_partitioning = match partitioning_scheme {
                     LogicalPartitioning::RoundRobinBatch(n) => {
@@ -326,7 +257,7 @@ impl DefaultPhysicalPlanner {
                 )?))
             }
             LogicalPlan::Sort { expr, input, .. } => {
-                let input = self.create_physical_plan(input, ctx_state)?;
+                let input = self.create_initial_plan(input, ctx_state)?;
                 let input_schema = input.as_ref().schema();
 
                 let sort_expr = expr
@@ -360,8 +291,8 @@ impl DefaultPhysicalPlanner {
                 join_type,
                 ..
             } => {
-                let left = self.create_physical_plan(left, ctx_state)?;
-                let right = self.create_physical_plan(right, ctx_state)?;
+                let left = self.create_initial_plan(left, ctx_state)?;
+                let right = self.create_initial_plan(right, ctx_state)?;
                 let physical_join_type = match join_type {
                     JoinType::Inner => hash_utils::JoinType::Inner,
                     JoinType::Left => hash_utils::JoinType::Left,
@@ -384,7 +315,7 @@ impl DefaultPhysicalPlanner {
             ))),
             LogicalPlan::Limit { input, n, .. } => {
                 let limit = *n;
-                let input = self.create_physical_plan(input, ctx_state)?;
+                let input = self.create_initial_plan(input, ctx_state)?;
 
                 // GlobalLimitExec requires a single partition for input
                 let input = if input.output_partitioning().partition_count() == 1 {
@@ -412,7 +343,7 @@ impl DefaultPhysicalPlanner {
                 stringified_plans,
                 schema,
             } => {
-                let input = self.create_physical_plan(plan, ctx_state)?;
+                let input = self.create_initial_plan(plan, ctx_state)?;
 
                 let mut stringified_plans = stringified_plans
                     .iter()
@@ -436,7 +367,7 @@ impl DefaultPhysicalPlanner {
                 let inputs = node
                     .inputs()
                     .into_iter()
-                    .map(|input_plan| self.create_physical_plan(input_plan, ctx_state))
+                    .map(|input_plan| self.create_initial_plan(input_plan, ctx_state))
                     .collect::<Result<Vec<_>>>()?;
 
                 let maybe_plan = self.extension_planners.iter().try_fold(

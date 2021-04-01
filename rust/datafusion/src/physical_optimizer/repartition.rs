@@ -18,8 +18,6 @@
 //! Repartition optimizer that introduces repartition nodes to increase the level of parallism available
 use std::sync::Arc;
 
-use log::debug;
-
 use super::optimizer::PhysicalOptimizerRule;
 use crate::physical_plan::{repartition::RepartitionExec, ExecutionPlan};
 use crate::physical_plan::{Distribution, Partitioning::*};
@@ -42,7 +40,7 @@ fn optimize_concurrency(
 ) -> Result<Arc<dyn ExecutionPlan>> {
     // Recurse into children bottom-up (added nodes should be as deep as possible)
 
-    let new_plan = if plan.children().len() == 0 {
+    let new_plan = if plan.children().is_empty() {
         // leaf node - don't replace children
         plan.clone()
     } else {
@@ -57,11 +55,10 @@ fn optimize_concurrency(
                 )
             })
             .collect::<Result<_>>()?;
-
         plan.with_new_children(children)?
     };
 
-    let perform_repartition = match plan.output_partitioning() {
+    let perform_repartition = match new_plan.output_partitioning() {
         // Apply when underlying node has less than `self.concurrency` amount of concurrency
         RoundRobinBatch(x) => x < concurrency,
         UnknownPartitioning(x) => x < concurrency,
@@ -71,10 +68,6 @@ fn optimize_concurrency(
     };
 
     if perform_repartition && !requires_single_partition {
-        debug!(
-            "Added RepartitionExec in optimizer with concurrency {}",
-            concurrency
-        );
         Ok(Arc::new(RepartitionExec::try_new(
             new_plan,
             RoundRobinBatch(concurrency),

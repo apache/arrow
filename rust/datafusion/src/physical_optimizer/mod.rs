@@ -20,3 +20,5 @@
 
 pub mod optimizer;
 pub mod repartition;
+pub mod coalesce_batches;
+pub mod merge_exec;
