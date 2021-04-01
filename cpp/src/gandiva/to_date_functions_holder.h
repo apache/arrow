@@ -20,32 +20,30 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 #include "arrow/status.h"
 #include "gandiva/execution_context.h"
 #include "gandiva/function_holder.h"
 #include "gandiva/node.h"
-#include "gandiva/to_date_functions_holder.h"
 #include "gandiva/visibility.h"
 
 namespace gandiva {
 
 /// Function Holder for SQL 'to_date'
-class GANDIVA_EXPORT ToDateHolder : public ToDateFunctionsHolder {
+class GANDIVA_EXPORT ToDateFunctionsHolder : public FunctionHolder {
  public:
-  ~ToDateHolder() override = default;
+  ~ToDateFunctionsHolder() override = default;
 
-  static Status Make(const FunctionNode& node, std::shared_ptr<ToDateHolder>* holder);
+ protected:
+  ToDateFunctionsHolder(std::string  pattern, int32_t suppress_errors)
+      : pattern_(std::move(pattern)), suppress_errors_(suppress_errors) {}
 
-  static Status Make(const std::string& sql_pattern, int32_t suppress_errors,
-                     std::shared_ptr<ToDateHolder>* holder);
+  void return_error(ExecutionContext* context, const char* data,
+                                           int data_len) const;
 
-  /// Return true if the data matches the pattern.
-  int64_t operator()(ExecutionContext* context, const char* data, int data_len,
-                     bool in_valid, bool* out_valid);
+  std::string pattern_;  // date format string
 
- private:
-  ToDateHolder(const std::string& pattern, int32_t suppress_errors)
-      : ToDateFunctionsHolder(pattern, suppress_errors) {}
+  int32_t suppress_errors_;  // should throw exception on runtime errors
 };
 }  // namespace gandiva

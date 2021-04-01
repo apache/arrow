@@ -17,35 +17,25 @@
 
 #pragma once
 
-#include <memory>
-#include <string>
-#include <unordered_map>
-
-#include "arrow/status.h"
-#include "gandiva/execution_context.h"
-#include "gandiva/function_holder.h"
-#include "gandiva/node.h"
 #include "gandiva/to_date_functions_holder.h"
-#include "gandiva/visibility.h"
 
 namespace gandiva {
-
 /// Function Holder for SQL 'to_date'
-class GANDIVA_EXPORT ToDateHolder : public ToDateFunctionsHolder {
+class GANDIVA_EXPORT ToTimeHolder : public ToDateFunctionsHolder {
  public:
-  ~ToDateHolder() override = default;
+  ~ToTimeHolder() override = default;
 
-  static Status Make(const FunctionNode& node, std::shared_ptr<ToDateHolder>* holder);
+  static Status Make(const FunctionNode& node, std::shared_ptr<ToTimeHolder>* holder);
 
   static Status Make(const std::string& sql_pattern, int32_t suppress_errors,
-                     std::shared_ptr<ToDateHolder>* holder);
+                     std::shared_ptr<ToTimeHolder>* holder);
 
   /// Return true if the data matches the pattern.
   int64_t operator()(ExecutionContext* context, const char* data, int data_len,
                      bool in_valid, bool* out_valid);
 
  private:
-  ToDateHolder(const std::string& pattern, int32_t suppress_errors)
+  ToTimeHolder(const std::string& pattern, int32_t suppress_errors)
       : ToDateFunctionsHolder(pattern, suppress_errors) {}
 };
 }  // namespace gandiva
