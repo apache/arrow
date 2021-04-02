@@ -144,7 +144,7 @@ TEST_F(TestToDateHolder, TestSimpleDateTimeError) {
 
 TEST_F(TestToDateHolder, TestSimpleDateTimeMakeError) {
   std::shared_ptr<ToDateHolder> to_date_holder;
-  // reject time stamps for now.
+  // reject timezones for now.
   auto status = ToDateHolder::Make("YYYY-MM-DD HH:MI:SS tzo", 0, &to_date_holder);
   EXPECT_EQ(status.IsInvalid(), true) << status.message();
 }

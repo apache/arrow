@@ -33,6 +33,6 @@ class GANDIVA_EXPORT ToTimeHolder : public ToDateFunctionsHolder<ToTimeHolder> {
 
   ToTimeHolder(const std::string& pattern, int32_t suppress_errors)
       : ToDateFunctionsHolder<ToTimeHolder>(pattern, suppress_errors, false,
-                                                     ::arrow::TimeUnit::SECOND) {}
+                                            ::arrow::TimeUnit::SECOND) {}
 };
 }  // namespace gandiva

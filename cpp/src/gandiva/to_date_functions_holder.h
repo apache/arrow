@@ -59,7 +59,7 @@ class GANDIVA_EXPORT ToDateFunctionsHolder : public FunctionHolder {
 
     *out_valid = true;
 
-    if(time_unit_ == ::arrow::TimeUnit::SECOND){
+    if (time_unit_ == ::arrow::TimeUnit::SECOND) {
       return unit_time_since_epoch * 1000;
     };
 

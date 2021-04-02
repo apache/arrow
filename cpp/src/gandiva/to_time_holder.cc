@@ -34,6 +34,7 @@ Status ToTimeHolder::Make(const FunctionNode& node,
 
 Status ToTimeHolder::Make(const std::string& sql_pattern, int32_t suppress_errors,
                           std::shared_ptr<ToTimeHolder>* holder) {
-  return gandiva::ToDateFunctionsHolder<ToTimeHolder>::Make(sql_pattern, suppress_errors, holder);
+  return gandiva::ToDateFunctionsHolder<ToTimeHolder>::Make(sql_pattern, suppress_errors,
+                                                            holder);
 }
 }  // namespace gandiva
