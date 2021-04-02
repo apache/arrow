@@ -41,7 +41,12 @@ code {
   width: auto;
 }
 
-
+a.navbar-brand img {
+  height: auto;
+  width: auto;
+  max-height: 15vh;
+  max-width: 100%;
+}
 
 
 /* Fix table text wrapping in RTD theme,
