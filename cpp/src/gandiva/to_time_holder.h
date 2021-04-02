@@ -22,18 +22,17 @@
 namespace gandiva {
 
 /// Function Holder for SQL 'to_date'
-class GANDIVA_EXPORT ToTimeHolder : public gandiva::ToDateFunctionsHolder<ToTimeHolder> {
-  public:
-    ~ToTimeHolder() override = default;
+class GANDIVA_EXPORT ToTimeHolder : public ToDateFunctionsHolder<ToTimeHolder> {
+ public:
+  ~ToTimeHolder() override = default;
 
-    static Status Make(const FunctionNode& node, std::shared_ptr<ToTimeHolder>* holder);
+  static Status Make(const FunctionNode& node, std::shared_ptr<ToTimeHolder>* holder);
 
   static Status Make(const std::string& sql_pattern, int32_t suppress_errors,
                      std::shared_ptr<ToTimeHolder>* holder);
 
- private:
   ToTimeHolder(const std::string& pattern, int32_t suppress_errors)
-      : gandiva::ToDateFunctionsHolder<ToTimeHolder>(pattern, suppress_errors, false,
-                                            ::arrow::TimeUnit::SECOND) {}
+      : ToDateFunctionsHolder<ToTimeHolder>(pattern, suppress_errors, false,
+                                                     ::arrow::TimeUnit::SECOND) {}
 };
 }  // namespace gandiva

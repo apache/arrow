@@ -28,7 +28,7 @@ namespace gandiva {
 
 Status ToTimeHolder::Make(const FunctionNode& node,
                           std::shared_ptr<ToTimeHolder>* holder) {
-  std::string function_name("to_time");
+  const std::string function_name("to_time");
   return gandiva::ToDateFunctionsHolder<ToTimeHolder>::Make(node, holder, function_name);
 }
 

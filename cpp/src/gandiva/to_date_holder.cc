@@ -28,12 +28,12 @@ namespace gandiva {
 
 Status ToDateHolder::Make(const FunctionNode& node,
                           std::shared_ptr<ToDateHolder>* holder) {
-  std::string function_name("to_date");
-  return gandiva::ToDateFunctionsHolder<ToDateHolder>::Make(node, holder, function_name);
+  const std::string function_name("to_date");
+  return ToDateFunctionsHolder<ToDateHolder>::Make(node, holder, function_name);
 }
 
 Status ToDateHolder::Make(const std::string& sql_pattern, int32_t suppress_errors,
                           std::shared_ptr<ToDateHolder>* holder) {
-  return gandiva::ToDateFunctionsHolder<ToDateHolder>::Make(sql_pattern, suppress_errors, holder);
+  return ToDateFunctionsHolder<ToDateHolder>::Make(sql_pattern, suppress_errors, holder);
 }
 }  // namespace gandiva
