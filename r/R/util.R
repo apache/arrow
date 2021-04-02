@@ -54,8 +54,7 @@ read_compressed_error <- function(e) {
     "\nTry setting the environment variable LIBARROW_MINIMAL=false and reinstalling",
     "\nfor a more complete installation ",
     sprintf("(including %s) or setting", compression),
-    sprintf("\nARROW_WITH_%s=ON", toupper(compression)),
-    "and reinstalling to enable support for this codec."
+    sprintf("\nARROW_WITH_%s=ON and reinstalling to enable support for this codec.", toupper(compression))
     )
   stop(msg, call. = FALSE)
 }
