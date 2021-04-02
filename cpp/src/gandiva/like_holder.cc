@@ -90,11 +90,11 @@ Status LikeHolder::Make(const FunctionNode& node, std::shared_ptr<LikeHolder>* h
 
     auto escape_char_type = escape_char->return_type()->id();
     ARROW_RETURN_IF(
-        escape_char_type != arrow::Type::INT8,
+        !IsArrowStringLiteral(escape_char_type),
         Status::Invalid(
-            "'like' function requires a int8 literal as the third parameter"));
+            "'like' function requires a string literal as the third parameter"));
     return Make(arrow::util::get<std::string>(literal->holder()),
-                arrow::util::get<int8_t>(escape_char->holder()), holder);
+                arrow::util::get<std::string>(escape_char->holder()), holder);
   }
 }
 
@@ -111,11 +111,18 @@ Status LikeHolder::Make(const std::string& sql_pattern,
   return Status::OK();
 }
 
-Status LikeHolder::Make(const std::string& sql_pattern, char escape_char,
+Status LikeHolder::Make(const std::string& sql_pattern, const std::string& escape_char,
                         std::shared_ptr<LikeHolder>* holder) {
+  ARROW_RETURN_IF(escape_char.length() > 1,
+                  Status::Invalid("The length of escape char ", escape_char,
+                                  " in 'like' function is greater than 1"));
   std::string pcre_pattern;
-  ARROW_RETURN_NOT_OK(
-      RegexUtil::SqlLikePatternToPcre(sql_pattern, escape_char, pcre_pattern));
+  if (escape_char.length() == 1) {
+    ARROW_RETURN_NOT_OK(
+        RegexUtil::SqlLikePatternToPcre(sql_pattern, escape_char.at(0), pcre_pattern));
+  } else {
+    ARROW_RETURN_NOT_OK(RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern));
+  }
 
   auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern));
   ARROW_RETURN_IF(!lholder->regex_.ok(),
