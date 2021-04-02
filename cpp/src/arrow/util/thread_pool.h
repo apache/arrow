@@ -23,6 +23,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <queue>
 #include <type_traits>
 #include <utility>
 
@@ -189,6 +190,64 @@ class ARROW_EXPORT Executor {
                            StopCallback&&) = 0;
 };
 
+/// \brief An executor implementation that runs all tasks on a single thread using an
+/// event loop.
+///
+/// Note: Any sort of nested parallelism will deadlock this executor.  Blocking waits are
+/// fine but if one task needs to wait for another task it must be expressed as an
+/// asynchronous continuation.
+class ARROW_EXPORT SerialExecutor : public Executor {
+ public:
+  template <typename T = ::arrow::detail::Empty>
+  using FinishSignal = internal::FnOnce<void(const Result<T>&)>;
+  template <typename T = ::arrow::detail::Empty>
+  using Scheduler = internal::FnOnce<Status(Executor*, FinishSignal<T>)>;
+
+  SerialExecutor();
+  ~SerialExecutor();
+
+  int GetCapacity() override { return 1; };
+  Status SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken,
+                   StopCallback&&) override;
+
+  /// \brief Runs the scheduler and any scheduled tasks
+  ///
+  /// The scheduler must either return an invalid status or call the finish signal.
+  /// Failure to do this will result in a deadlock.  For this reason it is preferable (if
+  /// possible) to use the helper methods (below) RunSynchronously/RunSerially which
+  /// delegates the responsiblity onto a Future producer's existing responsibility to
+  /// always mark a future finished (which can someday be aided by ARROW-12207).
+  template <typename T>
+  static Result<T> RunInSerialExecutor(Scheduler<T> initial_task) {
+    auto serial_executor = std::make_shared<SerialExecutor>();
+    return serial_executor->Run<T>(std::move(initial_task));
+  }
+
+ private:
+  // State uses mutex
+  struct State;
+  std::unique_ptr<State> state_;
+
+  template <typename T>
+  Result<T> Run(Scheduler<T> initial_task) {
+    bool finished = false;
+    Result<T> final_result;
+    FinishSignal<T> finish_signal = [&](const Result<T>& res) {
+      // The finish signal could be called from an external executor callback so need to
+      // protect it with the mutex.  Also, final_result must be set before the call to
+      // MarkFinished here to ensure we don't try and return it before it is finished
+      // setting
+      final_result = res;
+      MarkFinished(finished);
+    };
+    ARROW_RETURN_NOT_OK(std::move(initial_task)(this, std::move(finish_signal)));
+    RunLoop(finished);
+    return final_result;
+  }
+  void RunLoop(const bool& finished);
+  void MarkFinished(bool& finished);
+};
+
 // An Executor implementation spawning tasks in FIFO manner on a fixed-size
 // pool of worker threads.
 class ARROW_EXPORT ThreadPool : public Executor {
@@ -261,6 +320,41 @@ class ARROW_EXPORT ThreadPool : public Executor {
 
 // Return the process-global thread pool for CPU-bound tasks.
 ARROW_EXPORT ThreadPool* GetCpuThreadPool();
+
+/// \brief Runs a potentially async operation serially
+///
+/// This means that all CPU tasks spawned by the operation will run on the thread calling
+/// this method and the future will be completed before this call finishes.
+template <typename T = arrow::detail::Empty>
+Result<T> RunSerially(FnOnce<Future<T>(Executor*)> get_future) {
+  struct InnerCallback {
+    void operator()(const Result<T> res) { std::move(finish_signal)(std::move(res)); }
+    SerialExecutor::FinishSignal<T> finish_signal;
+  };
+  struct OuterCallback {
+    Status operator()(Executor* executor, SerialExecutor::FinishSignal<T> finish_signal) {
+      auto fut = std::move(get_future)(executor);
+      fut.AddCallback(InnerCallback{std::move(finish_signal)});
+      return Status::OK();
+    }
+    FnOnce<Future<T>(Executor*)> get_future;
+  };
+  return SerialExecutor::RunInSerialExecutor<T>(OuterCallback{std::move(get_future)});
+}
+
+/// \brief Potentially runs an async operation serially if use_threads is true
+/// \see RunSerially
+///
+/// If `use_threads` is false then the operation is run normally but this method will
+/// still block the calling thread until the operation has completed.
+template <typename T>
+Result<T> RunSynchronously(FnOnce<Future<T>(Executor*)> get_future, bool use_threads) {
+  if (use_threads) {
+    return std::move(get_future)(GetCpuThreadPool()).result();
+  } else {
+    return RunSerially<T>(std::move(get_future));
+  }
+}
 
 }  // namespace internal
 }  // namespace arrow

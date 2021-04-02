@@ -32,6 +32,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/type_fwd.h"
 
 namespace arrow {
@@ -103,7 +104,7 @@ class ARROW_DS_EXPORT ScanTask {
   /// resulting from the Scan. Execution semantics are encapsulated in the
   /// particular ScanTask implementation
   virtual Result<RecordBatchIterator> Execute() = 0;
-  virtual Result<RecordBatchGenerator> ExecuteAsync();
+  virtual Result<RecordBatchGenerator> ExecuteAsync(internal::Executor* cpu_executor);
   virtual bool supports_async() const;
 
   virtual ~ScanTask() = default;
@@ -175,6 +176,8 @@ class ARROW_DS_EXPORT Scanner {
   const std::shared_ptr<ScanOptions>& options() const { return scan_options_; }
 
  protected:
+  Future<std::shared_ptr<Table>> ToTableInternal(internal::Executor* cpu_executor);
+
   std::shared_ptr<Dataset> dataset_;
   // TODO(ARROW-8065) remove fragment_ after a Dataset is constuctible from fragments
   std::shared_ptr<Fragment> fragment_;

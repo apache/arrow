@@ -47,6 +47,8 @@ std::vector<std::string> ScanOptions::MaterializedFields() const {
   return fields;
 }
 
+using arrow::internal::Executor;
+using arrow::internal::SerialExecutor;
 using arrow::internal::TaskGroup;
 
 std::shared_ptr<TaskGroup> ScanOptions::TaskGroup() const {
@@ -61,7 +63,7 @@ Result<RecordBatchIterator> InMemoryScanTask::Execute() {
   return MakeVectorIterator(record_batches_);
 }
 
-Result<RecordBatchGenerator> ScanTask::ExecuteAsync() {
+Result<RecordBatchGenerator> ScanTask::ExecuteAsync(internal::Executor*) {
   return Status::NotImplemented("Async is not implemented for this scan task yet");
 }
 
@@ -200,6 +202,13 @@ struct TableAssemblyState {
 };
 
 Result<std::shared_ptr<Table>> Scanner::ToTable() {
+  return internal::RunSynchronously<std::shared_ptr<Table>>(
+      [this](Executor* executor) { return ToTableInternal(executor); },
+      scan_options_->use_threads);
+}
+
+Future<std::shared_ptr<Table>> Scanner::ToTableInternal(
+    internal::Executor* cpu_executor) {
   ARROW_ASSIGN_OR_RAISE(auto scan_task_it, Scan());
   auto task_group = scan_options_->TaskGroup();
 
@@ -215,7 +224,7 @@ Result<std::shared_ptr<Table>> Scanner::ToTable() {
 
     auto id = scan_task_id++;
     if (scan_task->supports_async()) {
-      ARROW_ASSIGN_OR_RAISE(auto scan_gen, scan_task->ExecuteAsync());
+      ARROW_ASSIGN_OR_RAISE(auto scan_gen, scan_task->ExecuteAsync(cpu_executor));
       auto scan_fut = CollectAsyncGenerator(std::move(scan_gen))
                           .Then([state, id](const RecordBatchVector& rbs) {
                             state->Emplace(rbs, id);
@@ -230,14 +239,18 @@ Result<std::shared_ptr<Table>> Scanner::ToTable() {
       });
     }
   }
+  auto scan_options = scan_options_;
   // Wait for all async tasks to complete, or the first error
-  RETURN_NOT_OK(AllComplete(scan_futures).status());
+  return AllComplete(scan_futures)
+      .Then([task_group, scan_options,
+             state](const detail::Empty&) -> Result<std::shared_ptr<Table>> {
+        // Wait for all sync tasks to complete, or the first error.
+        RETURN_NOT_OK(task_group->Finish());
 
-  // Wait for all sync tasks to complete, or the first error.
-  RETURN_NOT_OK(task_group->Finish());
-
-  return Table::FromRecordBatches(scan_options_->projected_schema,
-                                  FlattenRecordBatchVector(std::move(state->batches)));
+        return Table::FromRecordBatches(
+            scan_options->projected_schema,
+            FlattenRecordBatchVector(std::move(state->batches)));
+      });
 }
 
 }  // namespace dataset

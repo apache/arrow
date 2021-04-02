@@ -44,6 +44,63 @@ struct Task {
 
 }  // namespace
 
+struct SerialExecutor::State {
+  std::queue<Task> task_queue;
+  std::mutex mutex;
+  std::condition_variable wait_for_tasks;
+};
+
+SerialExecutor::SerialExecutor() : state_(new State()) {}
+SerialExecutor::~SerialExecutor() {}
+
+Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
+                                 StopToken stop_token, StopCallback&& stop_callback) {
+  // The serial task queue is truly serial (no mutex needed) but SpawnReal may be called
+  // from external threads (e.g. when transferring back from blocking I/O threads) so a
+  // mutex is needed
+  {
+    std::lock_guard<std::mutex> lg(state_->mutex);
+    state_->task_queue.push(
+        Task{std::move(task), std::move(stop_token), std::move(stop_callback)});
+  }
+  state_->wait_for_tasks.notify_one();
+  return Status::OK();
+}
+
+void SerialExecutor::MarkFinished(bool& finished) {
+  {
+    std::lock_guard<std::mutex>(state_->mutex);
+    finished = true;
+  }
+  state_->wait_for_tasks.notify_one();
+}
+
+void SerialExecutor::RunLoop(const bool& finished) {
+  std::unique_lock<std::mutex> lk(state_->mutex);
+
+  while (!finished) {
+    while (!state_->task_queue.empty()) {
+      Task& task = state_->task_queue.front();
+      lk.unlock();
+      if (!task.stop_token.IsStopRequested()) {
+        std::move(task.callable)();
+      } else {
+        if (task.stop_callback) {
+          std::move(task.stop_callback)(task.stop_token.Poll());
+        }
+        // Can't break here because there may be cleanup tasks down the chain we still
+        // need to run.
+      }
+      lk.lock();
+      state_->task_queue.pop();
+    }
+    // In this case we must be waiting on work from external (e.g. I/O) executors.  Wait
+    // for tasks to arrive (typically via transferred futures).
+    state_->wait_for_tasks.wait(lk,
+                                [&] { return finished || !state_->task_queue.empty(); });
+  }
+}
+
 struct ThreadPool::State {
   State() = default;
 

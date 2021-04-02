@@ -29,10 +29,12 @@
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 
 using internal::checked_cast;
+using internal::Executor;
 
 namespace dataset {
 
@@ -171,22 +173,15 @@ class FilterAndProjectScanTask : public ScanTask {
                               options_->pool);
   }
 
-  Result<RecordBatchIterator> Execute() override {
-    if (task_->supports_async()) {
-      ARROW_ASSIGN_OR_RAISE(auto gen, ExecuteAsync());
-      return MakeGeneratorIterator(std::move(gen));
-    } else {
-      return ExecuteSync();
-    }
-  }
+  Result<RecordBatchIterator> Execute() override { return ExecuteSync(); }
 
-  Result<RecordBatchGenerator> ExecuteAsync() override {
+  Result<RecordBatchGenerator> ExecuteAsync(Executor* cpu_executor) override {
     if (!task_->supports_async()) {
       return Status::Invalid(
           "ExecuteAsync should not have been called on FilterAndProjectScanTask if the "
           "source task did not support async");
     }
-    ARROW_ASSIGN_OR_RAISE(auto gen, task_->ExecuteAsync());
+    ARROW_ASSIGN_OR_RAISE(auto gen, task_->ExecuteAsync(cpu_executor));
 
     ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
                           SimplifyWithGuarantee(options()->filter, partition_));
