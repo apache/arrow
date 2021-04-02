@@ -240,10 +240,5 @@ test_that("Error messages are shown when the compression algorithm lz4/snappy
   if (codec_is_available("snappy")) {
     d <- read_parquet(pq_file)
     expect_is(d, "data.frame")
-  } else {
-    expect_error(
-      read_parquet(pq_file),
-      "Unsupported compressed format"
-    )
   }
 })
