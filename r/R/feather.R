@@ -147,14 +147,17 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
     file <- make_readable_file(file)
     on.exit(file$close())
   }
-  reader <- FeatherReader$create(file, ...)
+  reader <- FeatherReader$create(file)
 
   col_select <- enquo(col_select)
   columns <- if (!quo_is_null(col_select)) {
     vars_select(names(reader), !!col_select)
   }
 
-  out <- reader$Read(columns)
+  out <- tryCatch(
+    reader$Read(columns),
+    error = function(e) { read_compressed_error(e) }
+  )
 
   if (isTRUE(as_data_frame)) {
     out <- as.data.frame(out)

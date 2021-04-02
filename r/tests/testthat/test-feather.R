@@ -196,3 +196,17 @@ test_that("Character vectors > 2GB can write to feather", {
 })
 
 unlink(feather_file)
+
+ft_file <- test_path("golden-files/data-arrow_2.0.0_lz4.feather")
+
+test_that("Error messages are shown when the compression algorithm lz4 is not found", {
+  if (codec_is_available("lz4")) {
+    d <- read_feather(ft_file)
+    expect_is(d, "data.frame")
+  } else {
+    expect_error(
+      read_feather(ft_file),
+      "Unsupported compressed format"
+    )
+  }
+})
