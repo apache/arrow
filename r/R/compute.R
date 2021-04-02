@@ -81,6 +81,27 @@ collect_arrays_from_dots <- function(dots) {
 }
 
 #' @export
+quantile.ArrowDatum <- function(x,
+                                probs = seq(0, 1, 0.25),
+                                na.rm = FALSE,
+                                interpolation = c("linear", "lower", "higher", "nearest", "midpoint"),
+                                ...) {
+  if (inherits(x, "Scalar")) x <- Array$create(x)
+  assert_is(probs, c("numeric", "integer"))
+  assert_that(length(probs) > 0)
+  assert_that(all(probs >= 0 & probs <= 1))
+  if (!na.rm && TRUE %in% as.vector(unique(is.na(x)))) {
+    stop("Missing values not allowed if 'na.rm' is FALSE", call. = FALSE)
+  }
+  interpolation <- QuantileInterpolation[[toupper(match.arg(interpolation))]]
+  out <- call_function("quantile", x, options = list(q = probs, interpolation = interpolation))
+  if (length(out) == 0) {
+    out <- Array$create(rep(NA_real_, length(probs)))
+  }
+  out
+}
+
+#' @export
 unique.ArrowDatum <- function(x, incomparables = FALSE, ...) {
   call_function("unique", x)
 }
