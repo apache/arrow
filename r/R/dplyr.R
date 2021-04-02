@@ -422,7 +422,15 @@ build_function_list <- function(FUN) {
         both = FUN("utf8_trim_whitespace", string)
       )
     },
-    gsub = function(pattern, replacement, x, fixed = FALSE) {
+    gsub = function(pattern, replacement, x, ignore.case = FALSE, fixed = FALSE) {
+      if (ignore.case) {
+        if (fixed) {
+          x <- FUN("utf8_lower", x)
+          pattern <- tolower(pattern)
+        } else {
+          pattern <- paste0("(?i)", pattern)
+        }
+      }
       FUN(
         ifelse(fixed, "replace_substring", "replace_substring_regex"),
         x,
