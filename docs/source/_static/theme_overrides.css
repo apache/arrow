@@ -36,6 +36,7 @@ code {
 
 
 /* Ensure the logo is properly displayed */
+
 .navbar-brand {
   height: auto;
   width: auto;
@@ -46,6 +47,20 @@ a.navbar-brand img {
   width: auto;
   max-height: 15vh;
   max-width: 100%;
+}
+
+
+/* Limit the max height of the sidebar navigation section. Because in our
+custimized template, there is more content above the navigation, i.e.
+larger logo: if we don't decrease the max-height, it will overlap with
+the footer. */
+
+@media (min-width:720px) {
+  @supports (position:-webkit-sticky) or (position:sticky) {
+    .bd-links {
+      max-height: calc(100vh - 18rem)
+    }
+  }
 }
 
 
