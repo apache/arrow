@@ -424,6 +424,8 @@ build_function_list <- function(FUN) {
     },
     sub = arrow_replace_substring_function(FUN, 1L),
     gsub = arrow_replace_substring_function(FUN, -1L),
+    str_replace = arrow_stringr_string_replace_function(FUN, 1L),
+    str_replace_all = arrow_stringr_string_replace_function(FUN, -1L),
     between = function(x, left, right) {
       x >= left & x <= right
     },
@@ -456,6 +458,52 @@ arrow_replace_substring_function <- function(FUN, max_replacements) {
       )
     )
   }
+}
+
+arrow_stringr_string_replace_function <- function(FUN, max_replacements) {
+  function(string, pattern, replacement) {
+    quosure <- enquo(pattern)
+    opts <- get_stringr_pattern_modifier(quosure)
+    arrow_r_string_replace_function(FUN, max_replacements)(
+      pattern = opts$pattern,
+      replacement = replacement,
+      x = string,
+      ignore.case = opts$ignore_case,
+      fixed = opts$fixed
+    )
+  }
+}
+
+# Helper to handle the stringr pattern modifiers regex(), fixed()
+get_stringr_pattern_modifier <- function(quosure) {
+  expr <- quo_get_expr(quosure)
+  fixed <- FALSE
+  pattern <- expr
+  ignore_case <- FALSE
+  if (identical(typeof(expr), "language") && is.call(expr)) {
+    if(length(expr) < 2 || !is.character(expr[[2]])) {
+      stop("`pattern` does not contain a character vector", call. = FALSE)
+    }
+    pattern <- expr[[2]]
+    if (identical(expr[[1]], quote(fixed))) {
+      fixed <- TRUE
+    } else if (!identical(expr[[1]], quote(regex))) {
+      stop(
+        "string pattern modifier `",
+        deparse1(expr[[1]]),
+        "()` is not supported in Arrow",
+        call. = FALSE
+      )
+    }
+    if (identical(names(expr)[3], "ignore_case")) {
+      ignore_case <- expr[[3]]
+    }
+  }
+  list(
+    fixed = fixed,
+    pattern = pattern,
+    ignore_case = ignore_case
+  )
 }
 
 # We'll populate these at package load time.
