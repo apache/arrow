@@ -61,7 +61,7 @@ class GANDIVA_EXPORT ToDateFunctionsHolder : public FunctionHolder {
 
     if (time_unit_ == ::arrow::TimeUnit::SECOND) {
       return unit_time_since_epoch * 1000;
-    };
+    }
 
     return unit_time_since_epoch;
   }
@@ -100,7 +100,7 @@ class GANDIVA_EXPORT ToDateFunctionsHolder : public FunctionHolder {
     }
 
     auto literal_pattern = dynamic_cast<LiteralNode*>(node.children().at(1).get());
-    if (literal_pattern == nullptr) {
+    if (literal_pattern == NULLPTR) {
       return Status::Invalid(function_name +
                              " function requires a literal as the second parameter");
     }
@@ -116,7 +116,7 @@ class GANDIVA_EXPORT ToDateFunctionsHolder : public FunctionHolder {
     if (node.children().size() == 3) {
       auto literal_suppress_errors =
           dynamic_cast<LiteralNode*>(node.children().at(2).get());
-      if (literal_pattern == nullptr) {
+      if (literal_suppress_errors == NULLPTR) {
         return Status::Invalid("The (optional) third parameter to " + function_name +
                                " function needs to be an integer "
                                "literal to indicate whether to suppress the error");
