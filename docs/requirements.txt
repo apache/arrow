@@ -2,4 +2,4 @@ breathe
 ipython
 numpydoc
 sphinx==2.4.4
-sphinx_rtd_theme
+pydata-sphinx-theme
