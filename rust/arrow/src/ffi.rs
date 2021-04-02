@@ -549,6 +549,7 @@ impl ArrowArray {
     /// creates a new `ArrowArray`. This is used to export to the C Data Interface.
     /// # Safety
     /// See safety of [ArrowArray]
+    #[allow(clippy::too_many_arguments)]
     pub unsafe fn try_new(
         data_type: &DataType,
         len: usize,
