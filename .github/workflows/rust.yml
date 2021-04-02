@@ -41,6 +41,10 @@ jobs:
         rust: [stable]
     container:
       image: ${{ matrix.arch }}/rust
+      env:
+        # Disable full debug symbol generation to speed up CI build
+        # "1" means line tables only, which is useful for panic tracebacks.
+        RUSTFLAGS: "-C debuginfo=1"
     steps:
       - uses: actions/checkout@v2
       - name: Cache Cargo
@@ -83,6 +87,9 @@ jobs:
     container:
       image: ${{ matrix.arch }}/rust
       env:
+        # Disable full debug symbol generation to speed up CI build
+        # "1" means line tables only, which is useful for panic tracebacks.
+        RUSTFLAGS: "-C debuginfo=1"
         ARROW_TEST_DATA: /__w/arrow/arrow/testing/data
         PARQUET_TEST_DATA: /__w/arrow/arrow/cpp/submodules/parquet-testing/data
     steps:
@@ -140,6 +147,9 @@ jobs:
     container:
       image: ${{ matrix.arch }}/rust
       env:
+        # Disable full debug symbol generation to speed up CI build
+        # "1" means line tables only, which is useful for panic tracebacks.
+        RUSTFLAGS: "-C debuginfo=1"
         ARROW_TEST_DATA: /__w/arrow/arrow/testing/data
     steps:
       - uses: actions/checkout@v2
@@ -207,6 +217,10 @@ jobs:
         rust: [stable]
     container:
       image: ${{ matrix.arch }}/rust
+      env:
+        # Disable full debug symbol generation to speed up CI build
+        # "1" means line tables only, which is useful for panic tracebacks.
+        RUSTFLAGS: "-C debuginfo=1"
     steps:
       - uses: actions/checkout@v2
         with:
@@ -367,6 +381,9 @@ jobs:
     container:
       image: ${{ matrix.arch }}/rust
       env:
+        # Disable full debug symbol generation to speed up CI build
+        # "1" means line tables only, which is useful for panic tracebacks.
+        RUSTFLAGS: "-C debuginfo=1"
         ARROW_TEST_DATA: /__w/arrow/arrow/testing/data
         PARQUET_TEST_DATA: /__w/arrow/arrow/cpp/submodules/parquet-testing/data
     steps:
