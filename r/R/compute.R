@@ -103,7 +103,7 @@ quantile.ArrowDatum <- function(x,
 
 #' @export
 median.ArrowDatum <- function(x, na.rm = FALSE, ...) {
-  if (!na.rm && TRUE %in% as.vector(unique(is.na(x)))) {
+  if (!na.rm && x$null_count > 0) {
     Scalar$create(NA_real_)
   } else {
     Scalar$create(quantile(x, probs = 0.5, na.rm = TRUE, ...))
