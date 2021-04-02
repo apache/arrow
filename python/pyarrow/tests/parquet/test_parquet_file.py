@@ -21,6 +21,7 @@ import os
 import pytest
 
 import pyarrow as pa
+from pyarrow.lib import ArrowInvalid
 
 try:
     import pyarrow.parquet as pq
@@ -383,22 +384,22 @@ def test_read_encrypted_disable_footer_signature_verification():
 
     pq.write_table(table, bio, lowlevel_encryption_properties=encryption_props)
 
-    # Footer is plaintext, but lacking key Parquet still complains:
+    # Footer is plaintext, Parquet complains:
     decryption_props = pq.LowLevelDecryptionProperties(
         None, {"ints": column_key1, "strs": column_key2},
+        retrieve_key=lambda *args: b""
     )
     with pytest.raises(IOError, match="No footer key or key metadata"):
         f = pq.ParquetFile(
             bio.getvalue(), low_level_decryption=decryption_props)
 
-    # But if we tell it it's OK for footer to be unencrypted, that's OK:
+    # But if we tell it it's OK for footer to be unverified, that's OK:
     decryption_props = pq.LowLevelDecryptionProperties(
         None, {"ints": column_key1, "strs": column_key2},
         disable_footer_signature_verification=True,
+        retrieve_key=lambda *args: b""
     )
-    f = pq.ParquetFile(bio.getvalue(), low_level_decryption=decryption_props)
-    assert f.reader.read_column(0).to_pylist() == [4, 5]
-    assert f.reader.read_column(1).to_pylist() == ["foo", "bar"]
+    pq.ParquetFile(bio.getvalue(), low_level_decryption=decryption_props)
 
 
 def test_decrypt_with_key_retriever():
