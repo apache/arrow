@@ -51,7 +51,7 @@ read_compressed_error <- function(e) {
   alg <- sub(".*Support for codec '(.*)'.*", "\\1", e)
   msg <- paste("Unsupported compressed format", alg,
     "\nPlease visit https://arrow.apache.org/docs/r/articles/install.html",
-    "\nfor an explanation about optional features such as compression libraries enabled.",
+    "\nfor information about troubleshooting installation issues.",
     "\nSetting LIBARROW_MINIMAL=false and then building the package from source fixes this,",
     sprintf("\nor building libarrow with -DARROW_WITH_%s=ON and reinstalling the package.",
             toupper(alg))
