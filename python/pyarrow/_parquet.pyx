@@ -1250,7 +1250,7 @@ cdef class LowLevelEncryptionProperties(_Weakrefable):
                 else:
                     key_id = b""
                 c_column_keys[column] = ColumnEncryptionProperties.Builder(
-                    column).key(key).key_id(key_id).build()
+                    column).key(key).key_metadata(key_id).build()
             builder.encrypted_columns(c_column_keys)
 
         if plaintext_footer:
