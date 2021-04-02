@@ -19,7 +19,9 @@
 use std::sync::Arc;
 
 use super::optimizer::PhysicalOptimizerRule;
-use crate::physical_plan::{repartition::RepartitionExec, ExecutionPlan};
+use crate::physical_plan::{
+    empty::EmptyExec, repartition::RepartitionExec, ExecutionPlan,
+};
 use crate::physical_plan::{Distribution, Partitioning::*};
 use crate::{error::Result, execution::context::ExecutionConfig};
 
@@ -67,7 +69,11 @@ fn optimize_concurrency(
         Hash(_, _) => false,
     };
 
-    if perform_repartition && !requires_single_partition {
+    // TODO: EmptyExec causes failures with RepartitionExec
+    // But also not very useful to inlude
+    let is_empty_exec = plan.as_any().downcast_ref::<EmptyExec>().is_some();
+
+    if perform_repartition && !requires_single_partition && !is_empty_exec {
         Ok(Arc::new(RepartitionExec::try_new(
             new_plan,
             RoundRobinBatch(concurrency),
