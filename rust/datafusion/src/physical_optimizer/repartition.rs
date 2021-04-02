@@ -132,4 +132,44 @@ mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn repartition_deepest_node() -> Result<()> {
+        let parquet_project = ProjectionExec::try_new(
+            vec![],
+            Arc::new(ProjectionExec::try_new(
+                vec![],
+                Arc::new(ParquetExec::new(
+                    vec![ParquetPartition {
+                        filenames: vec!["x".to_string()],
+                        statistics: Statistics::default(),
+                    }],
+                    Schema::empty(),
+                    None,
+                    None,
+                    2048,
+                    None,
+                )),
+            )?),
+        )?;
+
+        let optimizer = Repartition {};
+
+        let optimized = optimizer.optimize(
+            Arc::new(parquet_project),
+            &ExecutionConfig::new().with_concurrency(10),
+        )?;
+
+        // RepartitionExec is added to deepest node
+        assert!(
+            optimized.children()[0].as_any()
+                .downcast_ref::<RepartitionExec>().is_none()
+        );
+        assert!(
+            optimized.children()[0].children()[0].as_any()
+            .downcast_ref::<RepartitionExec>().is_some()
+        );
+
+        Ok(())
+    }
 }

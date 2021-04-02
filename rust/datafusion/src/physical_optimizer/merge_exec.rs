@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! CoalesceBatches optimizer that groups batches together rows
-//! in bigger batches to avoid overhead with small batches
-
+//! AddMergeExec adds MergeExec to merge plans
+//! with more partitions into one partition when the node
+//! needs a single partition
 use super::optimizer::PhysicalOptimizerRule;
 use crate::{
     error::Result,
