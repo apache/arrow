@@ -105,17 +105,17 @@ impl ExecutionPlan for UnionExec {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::physical_plan::expressions::Column;
     use crate::physical_plan::{
         collect,
         csv::{CsvExec, CsvReadOptions},
+        repartition::RepartitionExec,
     };
     use crate::test;
     use arrow::record_batch::RecordBatch;
 
-    #[tokio::test]
-    async fn test_union_partitions() -> Result<()> {
+    fn get_csv_exec() -> Result<(CsvExec, CsvExec)> {
         let schema = test::aggr_test_schema();
-
         // Create csv's with different partitioning
         let path = test::create_partitioned_csv("aggregate_test_100.csv", 4)?;
         let path2 = test::create_partitioned_csv("aggregate_test_100.csv", 5)?;
@@ -135,14 +135,52 @@ mod tests {
             1024,
             None,
         )?;
+        Ok((csv, csv2))
+    }
+
+    #[tokio::test]
+    async fn test_union_partitions() -> Result<()> {
+        let (csv, csv2) = get_csv_exec()?;
 
         let union_exec = Arc::new(UnionExec::new(vec![Arc::new(csv), Arc::new(csv2)]));
 
         // Should have 9 partitions and 9 output batches
-        assert_eq!(union_exec.output_partitioning().partition_count(), 9);
+        assert!(matches!(
+            union_exec.output_partitioning(),
+            Partitioning::UnknownPartitioning(9)
+        ));
 
         let result: Vec<RecordBatch> = collect(union_exec).await?;
         assert_eq!(result.len(), 9);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_union_partitions_hash() -> Result<()> {
+        let (csv, csv2) = get_csv_exec()?;
+        let repartition = RepartitionExec::try_new(
+            Arc::new(csv),
+            Partitioning::Hash(vec![Arc::new(Column::new("c1"))], 5),
+        )?;
+        let repartition2 = RepartitionExec::try_new(
+            Arc::new(csv2),
+            Partitioning::Hash(vec![Arc::new(Column::new("c2"))], 5),
+        )?;
+
+        let union_exec = Arc::new(UnionExec::new(vec![
+            Arc::new(repartition),
+            Arc::new(repartition2),
+        ]));
+
+        // should be hash, have 10 partitions and 45 output batches
+        assert!(matches!(
+            union_exec.output_partitioning(),
+            Partitioning::Hash(_, 10)
+        ));
+
+        let result: Vec<RecordBatch> = collect(union_exec).await?;
+        assert_eq!(result.len(), 45);
 
         Ok(())
     }
