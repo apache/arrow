@@ -25,7 +25,7 @@ use std::{any::Any, sync::Arc};
 
 use arrow::datatypes::SchemaRef;
 
-use super::{ExecutionPlan, Partitioning, PhysicalExpr, SendableRecordBatchStream};
+use super::{ExecutionPlan, Partitioning, SendableRecordBatchStream};
 use crate::error::Result;
 use async_trait::async_trait;
 
@@ -60,21 +60,31 @@ impl ExecutionPlan for UnionExec {
 
     /// Output of the union is the combination of all output partitions of the inputs
     fn output_partitioning(&self) -> Partitioning {
-        let intial: std::result::Result<(Vec<Arc<dyn PhysicalExpr>>, usize), usize> =
-            Ok((vec![], 0));
-        let input = self.inputs.iter().fold(intial, |acc, plan| {
-            match (acc, plan.output_partitioning()) {
-                (Ok((mut v, s)), Partitioning::Hash(vp, sp)) => {
-                    v.append(&mut vp.clone());
-                    Ok((v, s + sp))
+        let intial: Option<Partitioning> = None;
+        self.inputs
+            .iter()
+            .fold(intial, |acc, input| {
+                match (acc, input.output_partitioning()) {
+                    (None, partition) => Some(partition),
+                    (
+                        Some(Partitioning::Hash(mut vector_acc, size_acc)),
+                        Partitioning::Hash(vector, size),
+                    ) => {
+                        vector_acc.append(&mut vector.clone());
+                        Some(Partitioning::Hash(vector_acc, size_acc + size))
+                    }
+                    (
+                        Some(Partitioning::RoundRobinBatch(size_acc)),
+                        Partitioning::RoundRobinBatch(size),
+                    ) => Some(Partitioning::RoundRobinBatch(size_acc + size)),
+                    (Some(partition_acc), partition) => {
+                        Some(Partitioning::UnknownPartitioning(
+                            partition_acc.partition_count() + partition.partition_count(),
+                        ))
+                    }
                 }
-                (Ok((_, s)), p) | (Err(s), p) => Err(s + p.partition_count()),
-            }
-        });
-        match input {
-            Ok((v, s)) => Partitioning::Hash(v, s),
-            Err(s) => Partitioning::UnknownPartitioning(s),
-        }
+            })
+            .unwrap()
     }
 
     fn with_new_children(
@@ -181,6 +191,58 @@ mod tests {
 
         let result: Vec<RecordBatch> = collect(union_exec).await?;
         assert_eq!(result.len(), 45);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_union_partitions_round_robin() -> Result<()> {
+        let (csv, csv2) = get_csv_exec()?;
+        let repartition =
+            RepartitionExec::try_new(Arc::new(csv), Partitioning::RoundRobinBatch(4))?;
+        let repartition2 =
+            RepartitionExec::try_new(Arc::new(csv2), Partitioning::RoundRobinBatch(6))?;
+
+        let union_exec = Arc::new(UnionExec::new(vec![
+            Arc::new(repartition),
+            Arc::new(repartition2),
+        ]));
+
+        // should be hash, have 10 partitions and 9 output batches
+        assert!(matches!(
+            union_exec.output_partitioning(),
+            Partitioning::RoundRobinBatch(10)
+        ));
+
+        let result: Vec<RecordBatch> = collect(union_exec).await?;
+        assert_eq!(result.len(), 9);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_union_partitions_round_mix() -> Result<()> {
+        let (csv, csv2) = get_csv_exec()?;
+        let repartition = RepartitionExec::try_new(
+            Arc::new(csv),
+            Partitioning::Hash(vec![Arc::new(Column::new("c1"))], 5),
+        )?;
+        let repartition2 =
+            RepartitionExec::try_new(Arc::new(csv2), Partitioning::RoundRobinBatch(6))?;
+
+        let union_exec = Arc::new(UnionExec::new(vec![
+            Arc::new(repartition),
+            Arc::new(repartition2),
+        ]));
+
+        // should be hash, have 11 partitions and 25 output batches
+        assert!(matches!(
+            union_exec.output_partitioning(),
+            Partitioning::UnknownPartitioning(11)
+        ));
+
+        let result: Vec<RecordBatch> = collect(union_exec).await?;
+        assert_eq!(result.len(), 25);
 
         Ok(())
     }
