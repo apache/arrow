@@ -21,7 +21,7 @@
 #include "arrow/testing/gtest_util.h"
 
 #include "gandiva/execution_context.h"
-#include "gandiva/to_time_holder.h"
+#include "gandiva/to_date_functions_holder.h"
 
 #include <gtest/gtest.h>
 

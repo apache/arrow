@@ -144,4 +144,40 @@ class GANDIVA_EXPORT ToDateFunctionsHolder : public FunctionHolder {
     return Status::OK();
   }
 };
+
+/// Function Holder for SQL 'to_date'
+class GANDIVA_EXPORT ToDateHolder : public gandiva::ToDateFunctionsHolder<ToDateHolder> {
+ public:
+  ~ToDateHolder() override = default;
+
+  static Status Make(const FunctionNode& node, std::shared_ptr<ToDateHolder>* holder);
+
+  static Status Make(const std::string& sql_pattern, int32_t suppress_errors,
+                     std::shared_ptr<ToDateHolder>* holder);
+
+  ToDateHolder(const std::string& pattern, int32_t suppress_errors)
+      : ToDateFunctionsHolder<ToDateHolder>(pattern, suppress_errors, true,
+                                            ::arrow::TimeUnit::SECOND) {}
+};
+
+/// Function Holder for SQL 'to_time'
+class GANDIVA_EXPORT ToTimeHolder : public ToDateFunctionsHolder<ToTimeHolder> {
+ public:
+  ~ToTimeHolder() override = default;
+
+  static Status Make(const FunctionNode& node, std::shared_ptr<ToTimeHolder>* holder) {
+    const std::string function_name("to_date");
+    return ToDateFunctionsHolder<ToTimeHolder>::Make(node, holder, function_name);
+  }
+
+  static Status Make(const std::string& sql_pattern, int32_t suppress_errors,
+                     std::shared_ptr<ToTimeHolder>* holder) {
+    return ToDateFunctionsHolder<ToTimeHolder>::Make(sql_pattern, suppress_errors,
+                                                     holder);
+  }
+
+  ToTimeHolder(const std::string& pattern, int32_t suppress_errors)
+      : ToDateFunctionsHolder<ToTimeHolder>(pattern, suppress_errors, false,
+                                            ::arrow::TimeUnit::SECOND) {}
+};
 }  // namespace gandiva
