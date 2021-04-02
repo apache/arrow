@@ -422,6 +422,17 @@ build_function_list <- function(FUN) {
         both = FUN("utf8_trim_whitespace", string)
       )
     },
+    gsub = function(pattern, replacement, x, fixed = FALSE) {
+      FUN(
+        ifelse(fixed, "replace_substring", "replace_substring_regex"),
+        x,
+        options = list(
+          pattern = pattern,
+          replacement = replacement,
+          max_replacements = -1L
+        )
+      )
+    },
     between = function(x, left, right) {
       x >= left & x <= right
     },
