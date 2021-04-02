@@ -81,3 +81,42 @@ test_that("sub and gsub", {
     }
   }
 })
+
+test_that("str_replace and str_replace_all", {
+  df <- tibble(x = c("foo", "bar"))
+
+  library(stringr)
+
+  expect_dplyr_equal(
+    input %>%
+      transmute(x = str_replace_all(x, regex("^f"), "baz")) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(x = str_replace_all(x, fixed("o"), "u")) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(x = str_replace(x, fixed("o"), "u")) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(x = str_replace(x, fixed("O"), "u")) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(x = str_replace(x, fixed("O", ignore_case = TRUE), "u")) %>%
+      collect(),
+    df
+  )
+
+  # TODO: add more tests of str_replace and str_replace_all
+})
