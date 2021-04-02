@@ -310,12 +310,12 @@ inline T power_remove_nulls(KernelContext* ctx, Arg0 left, Arg1 right) {
 struct Power {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_unsigned_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
-    return integer_power<T>(ctx, left, right);
+    return integer_power<uint64_t>(ctx, left, right);
   }
 
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_signed_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
-    return integer_power<T>(ctx, left, right);
+    return integer_power<int64_t>(ctx, left, right);
   }
 
   template <typename T, typename Arg0, typename Arg1>
@@ -327,14 +327,14 @@ struct Power {
 struct PowerChecked {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_unsigned_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    return integer_power_checked<T>(ctx, left, right);
+    static_assert(std::is_same<Arg0, Arg1>::value, "");
+    return integer_power_checked<uint64_t>(ctx, left, right);
   }
 
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_signed_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    return integer_power_checked<T>(ctx, left, right);
+    static_assert(std::is_same<Arg0, Arg1>::value, "");
+    return integer_power_checked<int64_t>(ctx, left, right);
   }
 
   template <typename T, typename Arg0, typename Arg1>
@@ -347,12 +347,12 @@ struct PowerChecked {
 struct PowerRemoveNulls {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_unsigned_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
-    return integer_power<T>(ctx, left, right);
+    return integer_power<uint64_t>(ctx, left, right);
   }
 
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_signed_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
-    return integer_power<T>(ctx, left, right);
+    return integer_power<int64_t>(ctx, left, right);
   }
 
   template <typename T, typename Arg0, typename Arg1>
@@ -364,14 +364,14 @@ struct PowerRemoveNulls {
 struct PowerCheckedRemoveNulls {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_unsigned_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    return integer_power_checked<T>(ctx, left, right);
+    static_assert(std::is_same<Arg0, Arg1>::value, "");
+    return integer_power_checked<uint64_t>(ctx, left, right);
   }
 
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_signed_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    return integer_power_checked<T>(ctx, left, right);
+    static_assert(std::is_same<Arg0, Arg1>::value, "");
+    return integer_power_checked<int64_t>(ctx, left, right);
   }
 
   template <typename T, typename Arg0, typename Arg1>
