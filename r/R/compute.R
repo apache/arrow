@@ -90,7 +90,7 @@ quantile.ArrowDatum <- function(x,
   assert_is(probs, c("numeric", "integer"))
   assert_that(length(probs) > 0)
   assert_that(all(probs >= 0 & probs <= 1))
-  if (!na.rm && TRUE %in% as.vector(unique(is.na(x)))) {
+  if (!na.rm && x$null_count > 0) {
     stop("Missing values not allowed if 'na.rm' is FALSE", call. = FALSE)
   }
   interpolation <- QuantileInterpolation[[toupper(match.arg(interpolation))]]
