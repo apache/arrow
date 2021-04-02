@@ -151,6 +151,21 @@ TEST_F(TestScanner, ToTable) {
   AssertTablesEqual(*expected, *actual);
 }
 
+class TestScannerNestedParallelism : public NestedParallelismMixin {};
+
+TEST_F(TestScannerNestedParallelism, Scan) {
+  constexpr int NUM_BATCHES = 32;
+  RecordBatchVector batches;
+  for (int i = 0; i < NUM_BATCHES; i++) {
+    batches.push_back(ConstantArrayGenerator::Zeroes(/*size=*/1, schema_));
+  }
+  auto dataset = std::make_shared<NestedParallelismDataset>(schema_, std::move(batches));
+  ScannerBuilder builder{dataset, options_};
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+  ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
+  ASSERT_EQ(table->num_rows(), NUM_BATCHES);
+}
+
 class TestScannerBuilder : public ::testing::Test {
   void SetUp() override {
     DatasetVector sources;
