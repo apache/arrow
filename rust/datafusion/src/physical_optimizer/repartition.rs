@@ -161,14 +161,14 @@ mod tests {
         )?;
 
         // RepartitionExec is added to deepest node
-        assert!(
-            optimized.children()[0].as_any()
-                .downcast_ref::<RepartitionExec>().is_none()
-        );
-        assert!(
-            optimized.children()[0].children()[0].as_any()
-            .downcast_ref::<RepartitionExec>().is_some()
-        );
+        assert!(optimized.children()[0]
+            .as_any()
+            .downcast_ref::<RepartitionExec>()
+            .is_none());
+        assert!(optimized.children()[0].children()[0]
+            .as_any()
+            .downcast_ref::<RepartitionExec>()
+            .is_some());
 
         Ok(())
     }

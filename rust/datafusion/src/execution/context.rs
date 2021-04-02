@@ -58,8 +58,8 @@ use crate::optimizer::limit_push_down::LimitPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
 use crate::physical_optimizer::coalesce_batches::CoalesceBatches;
-use crate::physical_optimizer::repartition::Repartition;
 use crate::physical_optimizer::merge_exec::AddMergeExec;
+use crate::physical_optimizer::repartition::Repartition;
 
 use crate::physical_plan::csv::CsvReadOptions;
 use crate::physical_plan::planner::DefaultPhysicalPlanner;
@@ -1013,7 +1013,7 @@ mod tests {
         assert_eq!("c2", physical_plan.schema().field(0).name().as_str());
 
         let batches = collect(physical_plan).await?;
-        assert_eq!(40, batches.iter().map(|x|x.num_rows()).sum::<usize>());
+        assert_eq!(40, batches.iter().map(|x| x.num_rows()).sum::<usize>());
 
         Ok(())
     }

@@ -18,7 +18,7 @@
 //! This module contains a query optimizer that operates against a physical plan and applies
 //! rules to a physical plan, such as "Repartition".
 
-pub mod optimizer;
-pub mod repartition;
 pub mod coalesce_batches;
 pub mod merge_exec;
+pub mod optimizer;
+pub mod repartition;

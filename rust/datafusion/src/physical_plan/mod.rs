@@ -54,7 +54,8 @@ pub trait PhysicalPlanner {
         &self,
         logical_plan: &LogicalPlan,
         ctx_state: &ExecutionContextState,
-    ) -> Result<Arc<dyn ExecutionPlan>>;}
+    ) -> Result<Arc<dyn ExecutionPlan>>;
+}
 
 /// Partition-aware execution plan for a relation
 #[async_trait]
