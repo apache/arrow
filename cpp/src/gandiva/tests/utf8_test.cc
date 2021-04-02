@@ -234,7 +234,7 @@ TEST_F(TestUtf8, TestLikeWithEscape) {
 
   auto node_a = TreeExprBuilder::MakeField(field_a);
   auto literal_s = TreeExprBuilder::MakeStringLiteral("%pa\\%rk%");
-  auto escape_char = TreeExprBuilder::MakeLiteral((int8_t)'\\');
+  auto escape_char = TreeExprBuilder::MakeStringLiteral("\\");
   auto is_like =
       TreeExprBuilder::MakeFunction("like", {node_a, literal_s, escape_char}, boolean());
   auto expr = TreeExprBuilder::MakeExpression(is_like, res);
