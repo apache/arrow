@@ -1090,6 +1090,7 @@ unary_scalar_expr!(Lpad, lpad);
 unary_scalar_expr!(Ltrim, ltrim);
 unary_scalar_expr!(MD5, md5);
 unary_scalar_expr!(OctetLength, octet_length);
+unary_scalar_expr!(RegexpMatch, regexp_match);
 unary_scalar_expr!(RegexpReplace, regexp_replace);
 unary_scalar_expr!(Replace, replace);
 unary_scalar_expr!(Repeat, repeat);

@@ -28,3 +28,11 @@ for d in $(go list ./... | grep -v vendor); do
 done
 
 popd
+
+pushd ${source_dir}/parquet
+
+for d in $(go list ./... | grep -v vendor); do
+    go test $d
+done
+
+popd

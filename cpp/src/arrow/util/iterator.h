@@ -57,6 +57,11 @@ struct IterationTraits {
 };
 
 template <typename T>
+T IterationEnd() {
+  return IterationTraits<T>::End();
+}
+
+template <typename T>
 bool IsIterationEnd(const T& val) {
   return IterationTraits<T>::IsEnd(val);
 }

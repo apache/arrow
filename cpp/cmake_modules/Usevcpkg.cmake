@@ -57,7 +57,7 @@ else()
     endif()
   elseif(DEFINED ENV{VCPKG_ROOT})
     # Get it from the environment variable VCPKG_ROOT
-    set(VCPKG_ROOT ENV{VCPKG_ROOT})
+    set(VCPKG_ROOT $ENV{VCPKG_ROOT})
     find_program(_VCPKG_BIN vcpkg PATHS "${VCPKG_ROOT}" NO_DEFAULT_PATH)
     if(NOT _VCPKG_BIN)
       message(

@@ -47,11 +47,11 @@ fn bench<T: Array>(v1: &T, slices: &[(usize, usize)]) {
 }
 
 fn add_benchmark(c: &mut Criterion) {
-    let v1 = create_string_array(1024, 0.0);
+    let v1 = create_string_array::<i32>(1024, 0.0);
     let v2 = create_slices(1024);
     c.bench_function("mutable str 1024", |b| b.iter(|| bench(&v1, &v2)));
 
-    let v1 = create_string_array(1024, 0.5);
+    let v1 = create_string_array::<i32>(1024, 0.5);
     let v2 = create_slices(1024);
     c.bench_function("mutable str nulls 1024", |b| b.iter(|| bench(&v1, &v2)));
 }

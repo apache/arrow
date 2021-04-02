@@ -124,6 +124,7 @@ go/arrow/internal/cpu/*
 go/arrow/type_string.go
 go/*.tmpldata
 go/*.s
+go/parquet/go.sum
 js/.npmignore
 js/closure-compiler-scripts/*
 js/src/fb/*.ts
@@ -135,6 +136,7 @@ python/MANIFEST.in
 python/manylinux1/.dockerignore
 python/pyarrow/includes/__init__.pxd
 python/pyarrow/tests/__init__.py
+python/pyarrow/vendored/*
 python/requirements*.txt
 pax_global_header
 MANIFEST.in

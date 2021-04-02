@@ -47,6 +47,7 @@ clap = { version = "2.33.3", optional = true }
 serde_json = { version = "1.0", features = ["preserve_order"], optional = true }
 
 [dev-dependencies]
+criterion = "0.3"
 rand = "0.8"
 snap = "1.0"
 brotli = "3.3"
@@ -71,3 +72,7 @@ required-features = ["cli"]
 [[ bin ]]
 name = "parquet-rowcount"
 required-features = ["cli"]
+
+[[bench]]
+name = "arrow_writer"
+harness = false

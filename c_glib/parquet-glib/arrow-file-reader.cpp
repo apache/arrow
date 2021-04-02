@@ -17,10 +17,6 @@
  * under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#  include <config.h>
-#endif
-
 #include <arrow-glib/arrow-glib.hpp>
 #include <arrow-glib/internal-index.hpp>
 

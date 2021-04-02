@@ -778,7 +778,7 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
           arrow::dictionary(result_type->index_type(), result_type->value_type(), true);
     }
 
-    return result;
+    return std::make_shared<DictionaryArray>(result->data());
   }
 };
 

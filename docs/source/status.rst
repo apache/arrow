@@ -126,7 +126,7 @@ IPC Format
 +-----------------------------+-------+-------+-------+------------+-------+-------+-------+
 | Sparse tensors              | ✓     |       |       |            |       |       |       |
 +-----------------------------+-------+-------+-------+------------+-------+-------+-------+
-| Buffer compression          | ✓     |       |       |            |       |       | ✓     |
+| Buffer compression          | ✓     | ✓ (3) |       |            |       |       | ✓     |
 +-----------------------------+-------+-------+-------+------------+-------+-------+-------+
 | Endianness conversion       | ✓ (2) |       |       |            |       |       |       |
 +-----------------------------+-------+-------+-------+------------+-------+-------+-------+
@@ -138,6 +138,8 @@ Notes:
 * \(1) Delta dictionaries not supported on nested dictionaries
 
 * \(2) Data with non-native endianness can be byte-swapped automatically when reading.
+
+* \(3) LZ4 Codec currently is quite inefficient. ARROW-11901 tracks improving performance.
 
 .. seealso::
    The :ref:`format-ipc` specification.
@@ -221,7 +223,7 @@ Third-Party Data Formats
 +-----------------------------+---------+---------+-------+------------+-------+---------+-------+
 | ORC                         | R       |         |       |            |       |         |       |
 +-----------------------------+---------+---------+-------+------------+-------+---------+-------+
-| Parquet                     | R/W     |         |       |            |       | R/W (1) |       |
+| Parquet                     | R/W     | R (2)   |       |            |       | R/W (1) |       |
 +-----------------------------+---------+---------+-------+------------+-------+---------+-------+
 
 Notes:
@@ -231,3 +233,5 @@ Notes:
 * *W* = Write supported
 
 * \(1) Nested read/write not supported
+
+* \(2) Through JNI bindings to datasets.

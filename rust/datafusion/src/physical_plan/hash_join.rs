@@ -30,6 +30,7 @@ use arrow::{
     compute,
     datatypes::{TimeUnit, UInt32Type, UInt64Type},
 };
+use smallvec::{smallvec, SmallVec};
 use std::time::Instant;
 use std::{any::Any, collections::HashSet};
 use std::{hash::Hasher, sync::Arc};
@@ -64,7 +65,7 @@ use log::debug;
 // Maps a `u64` hash value based on the left ["on" values] to a list of indices with this key's value.
 // E.g. 1 -> [3, 6, 8] indicates that the column values map to rows 3, 6 and 8 for hash value 1
 // As the key is a hash value, we need to check possible hash collisions in the probe stage
-type JoinHashMap = HashMap<u64, Vec<u64>, IdHashBuilder>;
+type JoinHashMap = HashMap<u64, SmallVec<[u64; 1]>, IdHashBuilder>;
 type JoinLeftData = Arc<(JoinHashMap, RecordBatch)>;
 
 /// join execution plan executes partitions in parallel and combines them into a set of
@@ -335,7 +336,7 @@ fn update_hash(
         hash.raw_entry_mut()
             .from_key_hashed_nocheck(*hash_value, hash_value)
             .and_modify(|_, v| v.push((row + offset) as u64))
-            .or_insert_with(|| (*hash_value, vec![(row + offset) as u64]));
+            .or_insert_with(|| (*hash_value, smallvec![(row + offset) as u64]));
     }
     Ok(())
 }
@@ -656,42 +657,20 @@ fn equal_rows(
         .zip(right_arrays)
         .all(|(l, r)| match l.data_type() {
             DataType::Null => true,
-            DataType::Boolean => {
-                equal_rows_elem!(BooleanArray, l, r, left, right)
-            }
-            DataType::Int8 => {
-                equal_rows_elem!(Int8Array, l, r, left, right)
-            }
-            DataType::Int16 => {
-                equal_rows_elem!(Int16Array, l, r, left, right)
-            }
-            DataType::Int32 => {
-                equal_rows_elem!(Int32Array, l, r, left, right)
-            }
-            DataType::Int64 => {
-                equal_rows_elem!(Int64Array, l, r, left, right)
-            }
-            DataType::UInt8 => {
-                equal_rows_elem!(UInt8Array, l, r, left, right)
-            }
-            DataType::UInt16 => {
-                equal_rows_elem!(UInt16Array, l, r, left, right)
-            }
-            DataType::UInt32 => {
-                equal_rows_elem!(UInt32Array, l, r, left, right)
-            }
-            DataType::UInt64 => {
-                equal_rows_elem!(UInt64Array, l, r, left, right)
-            }
+            DataType::Boolean => equal_rows_elem!(BooleanArray, l, r, left, right),
+            DataType::Int8 => equal_rows_elem!(Int8Array, l, r, left, right),
+            DataType::Int16 => equal_rows_elem!(Int16Array, l, r, left, right),
+            DataType::Int32 => equal_rows_elem!(Int32Array, l, r, left, right),
+            DataType::Int64 => equal_rows_elem!(Int64Array, l, r, left, right),
+            DataType::UInt8 => equal_rows_elem!(UInt8Array, l, r, left, right),
+            DataType::UInt16 => equal_rows_elem!(UInt16Array, l, r, left, right),
+            DataType::UInt32 => equal_rows_elem!(UInt32Array, l, r, left, right),
+            DataType::UInt64 => equal_rows_elem!(UInt64Array, l, r, left, right),
             DataType::Timestamp(_, None) => {
                 equal_rows_elem!(Int64Array, l, r, left, right)
             }
-            DataType::Utf8 => {
-                equal_rows_elem!(StringArray, l, r, left, right)
-            }
-            DataType::LargeUtf8 => {
-                equal_rows_elem!(LargeStringArray, l, r, left, right)
-            }
+            DataType::Utf8 => equal_rows_elem!(StringArray, l, r, left, right),
+            DataType::LargeUtf8 => equal_rows_elem!(LargeStringArray, l, r, left, right),
             _ => {
                 // This is internal because we should have caught this before.
                 err = Some(Err(DataFusionError::Internal(
@@ -1178,8 +1157,8 @@ mod tests {
             create_hashes(&[left.columns()[0].clone()], &random_state, hashes_buff)?;
 
         // Create hash collisions
-        hashmap_left.insert(hashes[0], vec![0, 1]);
-        hashmap_left.insert(hashes[1], vec![0, 1]);
+        hashmap_left.insert(hashes[0], smallvec![0, 1]);
+        hashmap_left.insert(hashes[1], smallvec![0, 1]);
 
         let right = build_table_i32(
             ("a", &vec![10, 20]),
