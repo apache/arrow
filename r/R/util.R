@@ -48,7 +48,7 @@ empty_named_list <- function() structure(list(), .Names = character(0))
 
 read_compressed_error <- function(e) {
   e <- as.character(e)
-  alg <- regmatches(e, gregexpr("(?<=\')(.*?)(?=\')", e, perl = TRUE))[[1]]
+  alg <- sub(".*Support for codec '(.*)'.*", "\\1", e)
   msg <- paste("Unsupported compressed format", alg,
     "\nPlease visit https://arrow.apache.org/docs/r/articles/install.html",
     "\nfor an explanation about optional features such as compression libraries enabled.",
