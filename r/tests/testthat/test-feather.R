@@ -197,7 +197,9 @@ test_that("Character vectors > 2GB can write to feather", {
 
 unlink(feather_file)
 
-ft_file <- system.file("v0.7.1.feather", package = "arrow")
+# lz4 ----
+
+ft_file <- test_path("golden-files/data-arrow_2.0.0_lz4.feather")
 
 test_that("Error messages are shown when the compression algorithm lz4
           is not found", {
