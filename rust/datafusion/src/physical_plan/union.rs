@@ -149,7 +149,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_union_partitions() -> Result<()> {
+    async fn test_union_partitions_unknown() -> Result<()> {
         let (csv, csv2) = get_csv_exec()?;
 
         let union_exec = Arc::new(UnionExec::new(vec![Arc::new(csv), Arc::new(csv2)]));
@@ -221,7 +221,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_union_partitions_round_mix() -> Result<()> {
+    async fn test_union_partitions_mix() -> Result<()> {
         let (csv, csv2) = get_csv_exec()?;
         let repartition = RepartitionExec::try_new(
             Arc::new(csv),
