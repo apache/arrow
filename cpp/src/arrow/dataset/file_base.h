@@ -285,7 +285,7 @@ class ARROW_DS_EXPORT FileWriter {
 
   Status Write(RecordBatchReader* batches);
 
-  Status Finish();
+  virtual Status Finish();
 
   const std::shared_ptr<FileFormat>& format() const { return options_->format(); }
   const std::shared_ptr<Schema>& schema() const { return schema_; }
