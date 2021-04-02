@@ -422,8 +422,8 @@ build_function_list <- function(FUN) {
         both = FUN("utf8_trim_whitespace", string)
       )
     },
-    sub = arrow_replace_substring_function(FUN, 1L),
-    gsub = arrow_replace_substring_function(FUN, -1L),
+    sub = arrow_r_string_replace_function(FUN, 1L),
+    gsub = arrow_r_string_replace_function(FUN, -1L),
     str_replace = arrow_stringr_string_replace_function(FUN, 1L),
     str_replace_all = arrow_stringr_string_replace_function(FUN, -1L),
     between = function(x, left, right) {
@@ -438,7 +438,7 @@ build_function_list <- function(FUN) {
   )
 }
 
-arrow_replace_substring_function <- function(FUN, max_replacements) {
+arrow_r_string_replace_function <- function(FUN, max_replacements) {
   function(pattern, replacement, x, ignore.case = FALSE, fixed = FALSE) {
     if (ignore.case) {
       if (fixed) {

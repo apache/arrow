@@ -20,8 +20,11 @@ library(stringr)
 
 test_that("sub and gsub", {
   df <- tibble(x = c("foo", "bar"))
+
   for(fun in list(quote(sub), quote(gsub))) {
+
     for(fixed in c(TRUE, FALSE)) {
+
       expect_dplyr_equal(
         input %>%
           transmute(x = eval(fun)("foo", "baz", x, fixed = fixed)) %>%
@@ -48,7 +51,7 @@ test_that("sub and gsub", {
       )
 
       # the tests below all use ignore.case = TRUE
-      # but base::gsub ignores ignore.case = TRUE with a warning when fixed = TRUE
+      # but base::sub and base::gsub ignore ignore.case = TRUE with a warning when fixed = TRUE
       # so we can't use expect_dplyr_equal() for the tests below
       expect_equal(
         df %>%
@@ -57,13 +60,6 @@ test_that("sub and gsub", {
           collect(),
         tibble(x = c("baz", "bar"))
       )
-      expect_dplyr_equal(
-        df %>%
-          Table$create() %>%
-          transmute(x = eval(fun)("Foo", "baz", x, ignore.case = TRUE, fixed = fixed)) %>%
-          collect(),
-        tibble(x = c("foo", "bar"))
-      )
       expect_equal(
         df %>%
           Table$create() %>%
@@ -71,14 +67,16 @@ test_that("sub and gsub", {
           collect(),
         if (fun == quote(sub)) tibble(x = c("fuo", "bar")) else tibble(x = c("fuu", "bar"))
       )
-      expect_dplyr_equal(
+      expect_equal(
         df %>%
           Table$create() %>%
           transmute(x = eval(fun)("^B.+", "baz", x, ignore.case = TRUE, fixed = fixed)) %>%
           collect(),
         if (fixed) tibble(x = c("foo", "bar")) else tibble(x = c("foo", "baz"))
       )
+
     }
+
   }
 })
 
