@@ -673,6 +673,15 @@ impl ExecutionConfig {
         self
     }
 
+    /// Adds a new [`PhysicalOptimizerRule`]
+    pub fn add_physical_optimizer_rule(
+        mut self,
+        optimizer_rule: Arc<dyn PhysicalOptimizerRule + Send + Sync>,
+    ) -> Self {
+        self.physical_optimizers.push(optimizer_rule);
+        self
+    }
+
     /// Selects a name for the default catalog and schema
     pub fn with_default_catalog_and_schema(
         mut self,
