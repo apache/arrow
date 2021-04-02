@@ -160,6 +160,8 @@ DataFusion also includes a simple command-line interactive SQL utility. See the 
 - [x] Limit
 - [x] Aggregate
 - [x] Common math functions
+- [x] cast
+- [x] try_cast
 - Postgres compatible String functions
   - [x] ascii
   - [x] bit_length
