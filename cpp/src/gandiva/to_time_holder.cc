@@ -17,11 +17,6 @@
 
 #include "gandiva/to_time_holder.h"
 
-#include <algorithm>
-#include <string>
-
-#include "arrow/util/value_parsing.h"
-#include "arrow/vendored/datetime.h"
 #include "gandiva/node.h"
 
 namespace gandiva {
@@ -29,12 +24,12 @@ namespace gandiva {
 Status ToTimeHolder::Make(const FunctionNode& node,
                           std::shared_ptr<ToTimeHolder>* holder) {
   const std::string function_name("to_time");
-  return gandiva::ToDateFunctionsHolder<ToTimeHolder>::Make(node, holder, function_name);
+  return ToDateFunctionsHolder<ToTimeHolder>::Make(node, holder, function_name);
 }
 
 Status ToTimeHolder::Make(const std::string& sql_pattern, int32_t suppress_errors,
                           std::shared_ptr<ToTimeHolder>* holder) {
-  return gandiva::ToDateFunctionsHolder<ToTimeHolder>::Make(sql_pattern, suppress_errors,
+  return ToDateFunctionsHolder<ToTimeHolder>::Make(sql_pattern, suppress_errors,
                                                             holder);
 }
 }  // namespace gandiva

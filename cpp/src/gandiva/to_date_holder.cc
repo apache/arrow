@@ -17,11 +17,6 @@
 
 #include "gandiva/to_date_holder.h"
 
-#include <algorithm>
-#include <string>
-
-#include "arrow/util/value_parsing.h"
-#include "arrow/vendored/datetime.h"
 #include "gandiva/node.h"
 
 namespace gandiva {
