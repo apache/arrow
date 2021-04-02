@@ -187,8 +187,11 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
       out->q = cpp11::as_cpp<std::vector<double>>(q);
     }
     SEXP interpolation = options["interpolation"];
-    if (!Rf_isNull(interpolation) && TYPEOF(interpolation) == INTSXP && XLENGTH(interpolation) == 1) {
-      out->interpolation = cpp11::as_cpp<enum arrow::compute::QuantileOptions::Interpolation>(interpolation);
+    if (!Rf_isNull(interpolation) && TYPEOF(interpolation) == INTSXP &&
+        XLENGTH(interpolation) == 1) {
+      out->interpolation =
+          cpp11::as_cpp<enum arrow::compute::QuantileOptions::Interpolation>(
+              interpolation);
     }
     return out;
   }
