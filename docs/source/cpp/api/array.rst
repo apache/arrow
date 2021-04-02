@@ -19,10 +19,6 @@
 Arrays
 ======
 
-.. sidebar:: Contents
-
-   .. contents:: :local:
-
 .. doxygenclass:: arrow::Array
    :project: arrow_cpp
    :members:

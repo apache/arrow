@@ -23,10 +23,6 @@
 Compute Functions
 =================
 
-.. sidebar:: Contents
-
-   .. contents:: :local:
-
 The generic Compute API
 =======================
 
