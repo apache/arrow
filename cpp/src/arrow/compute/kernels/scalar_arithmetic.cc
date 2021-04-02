@@ -308,18 +308,18 @@ inline T power_remove_nulls(KernelContext* ctx, Arg0 left, Arg1 right) {
 }
 
 struct Power {
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_unsigned_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+  template <typename T>
+  static enable_if_unsigned_integer<T> Call(KernelContext* ctx, T left, T right) {
     return integer_power<uint64_t>(ctx, left, right);
   }
 
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_signed_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+  template <typename T>
+  static enable_if_signed_integer<T> Call(KernelContext* ctx, T left, T right) {
     return integer_power<int64_t>(ctx, left, right);
   }
 
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_point<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+  template <typename T>
+  static enable_if_floating_point<T> Call(KernelContext* ctx, T left, T right) {
     return power<T>(ctx, left, right);
   }
 };
@@ -345,18 +345,18 @@ struct PowerChecked {
 };
 
 struct PowerRemoveNulls {
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_unsigned_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+  template <typename T>
+  static enable_if_unsigned_integer<T> Call(KernelContext* ctx, T left, T right) {
     return integer_power<uint64_t>(ctx, left, right);
   }
 
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_signed_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+  template <typename T>
+  static enable_if_signed_integer<T> Call(KernelContext* ctx, T left, T right) {
     return integer_power<int64_t>(ctx, left, right);
   }
 
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_point<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+  template <typename T>
+  static enable_if_floating_point<T> Call(KernelContext* ctx, T left, T right) {
     return power_remove_nulls<T>(ctx, left, right);
   }
 };
@@ -591,7 +591,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
 
   // ----------------------------------------------------------------------
-  auto power = MakeArithmeticFunctionNotNull<Power>("power", &pow_doc);
+  auto power = MakeArithmeticFunction<Power>("power", &pow_doc);
   DCHECK_OK(registry->AddFunction(std::move(power)));
 
   // ----------------------------------------------------------------------
@@ -600,7 +600,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(power_checked)));
 
   // ----------------------------------------------------------------------
-  auto power_remove_nulls = MakeArithmeticFunctionNotNull<PowerRemoveNulls>(
+  auto power_remove_nulls = MakeArithmeticFunction<PowerRemoveNulls>(
       "power_remove_nulls", &pow_remove_nulls_doc);
   DCHECK_OK(registry->AddFunction(std::move(power_remove_nulls)));
 
