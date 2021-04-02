@@ -422,25 +422,8 @@ build_function_list <- function(FUN) {
         both = FUN("utf8_trim_whitespace", string)
       )
     },
-    gsub = function(pattern, replacement, x, ignore.case = FALSE, fixed = FALSE) {
-      if (ignore.case) {
-        if (fixed) {
-          x <- FUN("utf8_lower", x)
-          pattern <- tolower(pattern)
-        } else {
-          pattern <- paste0("(?i)", pattern)
-        }
-      }
-      FUN(
-        ifelse(fixed, "replace_substring", "replace_substring_regex"),
-        x,
-        options = list(
-          pattern = pattern,
-          replacement = replacement,
-          max_replacements = -1L
-        )
-      )
-    },
+    sub = arrow_replace_substring_function(FUN, 1L),
+    gsub = arrow_replace_substring_function(FUN, -1L),
     between = function(x, left, right) {
       x >= left & x <= right
     },
@@ -451,6 +434,28 @@ build_function_list <- function(FUN) {
       paste0("arrow_", all_arrow_funs)
     )
   )
+}
+
+arrow_replace_substring_function <- function(FUN, max_replacements) {
+  function(pattern, replacement, x, ignore.case = FALSE, fixed = FALSE) {
+    if (ignore.case) {
+      if (fixed) {
+        x <- FUN("utf8_lower", x)
+        pattern <- tolower(pattern)
+      } else {
+        pattern <- paste0("(?i)", pattern)
+      }
+    }
+    FUN(
+      ifelse(fixed, "replace_substring", "replace_substring_regex"),
+      x,
+      options = list(
+        pattern = pattern,
+        replacement = replacement,
+        max_replacements = max_replacements
+      )
+    )
+  }
 }
 
 # We'll populate these at package load time.
