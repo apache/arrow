@@ -48,13 +48,14 @@ empty_named_list <- function() structure(list(), .Names = character(0))
 
 read_compressed_error <- function(e) {
   e <- as.character(e)
-  alg <- sub(".*Support for codec '(.*)'.*", "\\1", e)
-  msg <- paste("Unsupported compressed format", alg,
-    "\nPlease visit https://arrow.apache.org/docs/r/articles/install.html",
-    "\nfor information about troubleshooting installation issues.",
-    "\nSetting LIBARROW_MINIMAL=false and then building the package from source fixes this,",
-    sprintf("\nor building libarrow with -DARROW_WITH_%s=ON and reinstalling the package.",
-            toupper(alg))
+  compression <- sub(".*Support for codec '(.*)'.*", "\\1", e)
+  msg <- c(
+    sprintf("Unsupported compressed format %s", compression),
+    "\nTry setting the environment variable LIBARROW_MINIMAL=false and reinstalling",
+    "\nfor a more complete installation ",
+    sprintf("(including %s) or setting", compression),
+    sprintf("\nARROW_WITH_%s=ON", toupper(compression)),
+    "and reinstalling to enable support for this codec."
     )
-  stop(msg)
+  stop(msg, call. = FALSE)
 }
