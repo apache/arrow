@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+#' @importFrom stats quantile median
 #' @importFrom R6 R6Class
 #' @importFrom purrr as_mapper map map2 map_chr map_dfr map_int map_lgl keep
 #' @importFrom assertthat assert_that is.string
