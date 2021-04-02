@@ -17,6 +17,33 @@
  * under the License.
  */
 
+
+/* Customizing with theme CSS variables */
+
+:root {
+  --pst-color-active-navigation: 215, 70, 51;
+  /* Use normal text color (like h3, ..) instead of primary color */
+  --pst-color-h1: var(--color-text-base);
+  --pst-color-h2: var(--color-text-base);
+  /* Use softer blue from bootstrap's default info color */
+  --pst-color-info: 23, 162, 184;
+  --pst-header-height: 0px;
+}
+
+code {
+  color: rgb(215, 70, 51);
+}
+
+
+/* Ensure the logo is properly displayed */
+.navbar-brand {
+  height: auto;
+  width: auto;
+}
+
+
+
+
 /* Fix table text wrapping in RTD theme,
  * see https://rackerlabs.github.io/docs-rackspace/tools/rtd-tables.html
  */
