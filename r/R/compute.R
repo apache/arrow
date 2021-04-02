@@ -102,6 +102,15 @@ quantile.ArrowDatum <- function(x,
 }
 
 #' @export
+median.ArrowDatum <- function(x, na.rm = FALSE, ...) {
+  if (!na.rm && TRUE %in% as.vector(unique(is.na(x)))) {
+    Scalar$create(NA_real_)
+  } else {
+    Scalar$create(quantile(x, probs = 0.5, na.rm = TRUE, ...))
+  }
+}
+
+#' @export
 unique.ArrowDatum <- function(x, incomparables = FALSE, ...) {
   call_function("unique", x)
 }
