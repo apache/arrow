@@ -1238,6 +1238,7 @@ cdef class LowLevelEncryptionProperties(_Weakrefable):
         cdef c_string column
         cdef c_map[c_string, shared_ptr[
             ColumnEncryptionProperties]] c_column_keys
+
         builder = new FileEncryptionProperties.Builder(footer_key)
         if footer_key_metadata is not None:
             builder.footer_key_metadata(footer_key_metadata)
@@ -1248,7 +1249,7 @@ cdef class LowLevelEncryptionProperties(_Weakrefable):
                 if column_keys_metadata is not None:
                     key_id = column_keys_metadata[pycolumn]
                 else:
-                    key_id = b""
+                    key_id = column
                 c_column_keys[column] = ColumnEncryptionProperties.Builder(
                     column).key(key).key_metadata(key_id).build()
             builder.encrypted_columns(c_column_keys)
