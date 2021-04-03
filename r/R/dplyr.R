@@ -442,14 +442,13 @@ arrow_r_string_replace_function <- function(FUN, max_replacements) {
   function(pattern, replacement, x, ignore.case = FALSE, fixed = FALSE) {
     if (ignore.case) {
       if (fixed) {
-        x <- FUN("utf8_lower", x)
-        pattern <- tolower(pattern)
+        pattern <- paste0("(?i)\\Q", pattern, "\\E")
       } else {
         pattern <- paste0("(?i)", pattern)
       }
     }
     FUN(
-      ifelse(fixed, "replace_substring", "replace_substring_regex"),
+      ifelse(fixed && !ignore.case, "replace_substring", "replace_substring_regex"),
       x,
       options = list(
         pattern = pattern,
