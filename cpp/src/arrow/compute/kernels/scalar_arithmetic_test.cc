@@ -69,7 +69,7 @@ class TestBinaryArithmetic : public TestBase {
 
   void SetUp() override {
     options_.check_overflow = false;
-    options_.remove_nulls = false;
+    options_.propagate_nulls = false;
   }
 
   std::shared_ptr<Scalar> MakeNullScalar() {
@@ -174,7 +174,7 @@ class TestBinaryArithmetic : public TestBase {
 
   void SetOverflowCheck(bool value = true) { options_.check_overflow = value; }
 
-  void SetRemoveNulls(bool value = false) { options_.remove_nulls = value; }
+  void SetPropagateNulls(bool value = false) { options_.propagate_nulls = value; }
 
   void SetNansEqual(bool value = true) {
     this->equal_options_ = equal_options_.nans_equal(value);
@@ -600,9 +600,9 @@ TYPED_TEST(TestBinaryArithmeticFloating, Power) {
   auto max = std::numeric_limits<CType>::max();
 
   for (auto check_overflow : {false, true}) {
-    for (auto remove_nulls : {false, true}) {
+    for (auto propagate_nulls : {false, true}) {
       this->SetOverflowCheck(check_overflow);
-      this->SetRemoveNulls(remove_nulls);
+      this->SetPropagateNulls(propagate_nulls);
 
       // Empty arrays
       this->AssertBinop(Power, "[]", "[]", "[]");
@@ -632,12 +632,12 @@ TYPED_TEST(TestBinaryArithmeticFloating, Power) {
       this->AssertBinop(Power, max, 10, INFINITY);
     }
     // Edge cases - propagating NaNs
-    this->SetRemoveNulls(false);
+    this->SetPropagateNulls(true);
     this->AssertBinop(Power, "[1, NaN, 0, -Inf, Inf, 1.1, 1, 0, 1, 0]",
                       "[NaN, 0, NaN, 1, 2, -Inf, Inf, 0, 0, 42]",
                       "[NaN, NaN, NaN, -Inf, Inf, 0, 1, 1, 1, 0]");
     // Edge cases - removing NaNs
-    this->SetRemoveNulls(true);
+    this->SetPropagateNulls(false);
     this->AssertBinop(Power, "[1, NaN, 0, -Inf, Inf, 1.1, 1, 0, 1, 0]",
                       "[NaN, 0, NaN, 1, 2, -Inf, Inf, 0, 0, 42]",
                       "[1, 1, 0, -Inf, Inf, 0, 1, 1, 1, 0]");
@@ -648,10 +648,10 @@ TYPED_TEST(TestBinaryArithmeticIntegral, Power) {
   using CType = typename TestFixture::CType;
   auto max = std::numeric_limits<CType>::max();
 
-  for (auto remove_nulls : {false, true}) {
+  for (auto propagate_nulls : {false, true}) {
     for (auto check_overflow : {false, true}) {
       this->SetOverflowCheck(check_overflow);
-      this->SetRemoveNulls(remove_nulls);
+      this->SetPropagateNulls(propagate_nulls);
 
       // Empty arrays
       this->AssertBinop(Power, "[]", "[]", "[]");
@@ -685,7 +685,7 @@ TYPED_TEST(TestBinaryArithmeticSigned, Power) {
   for (auto remove_nulls : {false, true}) {
     for (auto check_overflow : {false, true}) {
       this->SetOverflowCheck(check_overflow);
-      this->SetRemoveNulls(remove_nulls);
+      this->SetPropagateNulls(remove_nulls);
 
       // Ordinary arrays
       this->AssertBinop(Power, "[-3, 2, -6]", "[1, 1, 2]", "[-3, 2, 36]");
