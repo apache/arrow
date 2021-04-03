@@ -461,8 +461,28 @@ arrow_r_string_replace_function <- function(FUN, max_replacements) {
 
 arrow_stringr_string_replace_function <- function(FUN, max_replacements) {
   function(string, pattern, replacement) {
-    quosure <- enquo(pattern)
-    opts <- get_stringr_pattern_modifier(quosure)
+    # Assign stringr pattern modifier functions locally
+    fixed <- function(pattern, ignore_case = FALSE, ...) {
+      list(pattern = pattern, fixed = TRUE, ignore_case = ignore_case)
+    }
+    regex <- function(pattern, ignore_case = FALSE, ...) {
+      list(pattern = pattern, fixed = FALSE, ignore_case = ignore_case)
+    }
+    coll <- boundary <- function(...) {
+      stop(
+        "Pattern modifier `",
+        match.call()[[1]],
+        "()` is not supportd in Arrow",
+        call. = FALSE
+      )
+    }
+    ensure_opts <- function(opts) {
+      if (is.character(opts)) {
+        opts <- list(pattern = opts, fixed = TRUE, ignore_case = FALSE)
+      }
+      opts
+    }
+    opts <- ensure_opts(eval(enexpr(pattern)))
     arrow_r_string_replace_function(FUN, max_replacements)(
       pattern = opts$pattern,
       replacement = replacement,
@@ -471,38 +491,6 @@ arrow_stringr_string_replace_function <- function(FUN, max_replacements) {
       fixed = opts$fixed
     )
   }
-}
-
-# Helper to handle the stringr pattern modifiers regex(), fixed()
-get_stringr_pattern_modifier <- function(quosure) {
-  expr <- quo_get_expr(quosure)
-  fixed <- FALSE
-  pattern <- expr
-  ignore_case <- FALSE
-  if (identical(typeof(expr), "language") && is.call(expr)) {
-    if(length(expr) < 2 || !is.character(expr[[2]])) {
-      stop("`pattern` does not contain a character vector", call. = FALSE)
-    }
-    pattern <- expr[[2]]
-    if (identical(expr[[1]], quote(fixed))) {
-      fixed <- TRUE
-    } else if (!identical(expr[[1]], quote(regex))) {
-      stop(
-        "string pattern modifier `",
-        deparse1(expr[[1]]),
-        "()` is not supported in Arrow",
-        call. = FALSE
-      )
-    }
-    if (identical(names(expr)[3], "ignore_case")) {
-      ignore_case <- expr[[3]]
-    }
-  }
-  list(
-    fixed = fixed,
-    pattern = pattern,
-    ignore_case = ignore_case
-  )
 }
 
 # We'll populate these at package load time.
