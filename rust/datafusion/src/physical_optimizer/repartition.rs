@@ -89,7 +89,12 @@ impl PhysicalOptimizerRule for Repartition {
         plan: Arc<dyn ExecutionPlan>,
         config: &ExecutionConfig,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        optimize_concurrency(config.concurrency, true, plan)
+        // Don't run optimizer if concurrency == 1
+        if config.concurrency == 1 {
+            Ok(plan)
+        } else {
+            optimize_concurrency(config.concurrency, true, plan)
+        }
     }
 
     fn name(&self) -> &str {
