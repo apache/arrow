@@ -633,14 +633,14 @@ TYPED_TEST(TestBinaryArithmeticFloating, Power) {
     }
     // Edge cases - propagating NaNs
     this->SetPropagateNulls(true);
-    this->AssertBinop(Power, "[1, NaN, 0, -Inf, Inf, 1.1, 1, 0, 1, 0]",
-                      "[NaN, 0, NaN, 1, 2, -Inf, Inf, 0, 0, 42]",
-                      "[NaN, NaN, NaN, -Inf, Inf, 0, 1, 1, 1, 0]");
+    this->AssertBinop(Power, "[1, NaN, 0, null, 1.2, -Inf, Inf, 1.1, 1, 0, 1, 0]",
+                      "[NaN, 0, NaN, 1, null, 1, 2, -Inf, Inf, 0, 0, 42]",
+                      "[NaN, NaN, NaN, null, null, -Inf, Inf, 0, 1, 1, 1, 0]");
     // Edge cases - removing NaNs
     this->SetPropagateNulls(false);
-    this->AssertBinop(Power, "[1, NaN, 0, -Inf, Inf, 1.1, 1, 0, 1, 0]",
-                      "[NaN, 0, NaN, 1, 2, -Inf, Inf, 0, 0, 42]",
-                      "[1, 1, 0, -Inf, Inf, 0, 1, 1, 1, 0]");
+    this->AssertBinop(Power, "[1, NaN, 0, null, 1.2, -Inf, Inf, 1.1, 1, 0, 1, 0]",
+                      "[NaN, 0, NaN, 1, null, 1, 2, -Inf, Inf, 0, 0, 42]",
+                      "[1, 1, 0, null, null, -Inf, Inf, 0, 1, 1, 1, 0]");
   }
 }
 
