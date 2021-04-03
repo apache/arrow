@@ -110,7 +110,7 @@ cdef class Node(_Weakrefable):
         return pyarrow_wrap_data_type(self.node.get().return_type())
 
 cdef class Expression(_Weakrefable):
-    """A Gandiva node associated with a :class:`pyarrow.Field` to label the result.
+    """A Gandiva node associated with a :class:`pyarrow.Field`.
 
     See Also
     --------
@@ -195,9 +195,12 @@ cdef class SelectionVector(_Weakrefable):
         return pyarrow_wrap_array(result)
 
 cdef class Projector(_Weakrefable):
-    """A Gandiva projection operator, containing the optimized projection function.
+    """A Gandiva projection executor.
 
-    To create a projector, use the :py:func:`pyarrow.gandiva.make_projector` function.
+    The projector contains the optimized projection function.
+
+    To create a projector, use the :py:func:`pyarrow.gandiva.make_projector`
+    function.
 
     See Also
     --------
@@ -256,7 +259,8 @@ cdef class Projector(_Weakrefable):
 cdef class Filter(_Weakrefable):
     """A Gandiva filter executor, containing the optimized filter function.
 
-    To create an instance, use the :py:func:`pyarrow.gandiva.make_filter` function.
+    To create an instance, use the :py:func:`pyarrow.gandiva.make_filter`
+    function.
 
     See Also
     --------
@@ -289,10 +293,11 @@ cdef class Filter(_Weakrefable):
         Parameters
         ----------
         batch : pyarrow.RecordBatch
-            Input record batch. Schema must match the schema provided when creating
-            the filter.
+            Input record batch. Schema must match the schema provided when
+            creating the filter.
         pool : pyarrow.MemoryPool
-            Memory pool to use. Typically will use :py:func:`pyarrow.default_memory_pool()`.
+            Memory pool to use. Typically will use
+            :py:func:`pyarrow.default_memory_pool()`.
         dtype : 'int16', 'int32' and 'int64'
             Selection vector type to return. Must be large enough to represent
             all indices of record batches.
@@ -398,8 +403,8 @@ cdef class TreeExprBuilder(_Weakrefable):
     def make_function(self, name, children, DataType return_type):
         """Create a function node.
 
-        Will match to a registered Gandiva function based on the `name`, `children`
-        data types, and `return_type`.
+        Will match to a registered Gandiva function based on the `name`,
+        `children` data types, and `return_type`.
 
         Parameters
         ----------
@@ -417,7 +422,8 @@ cdef class TreeExprBuilder(_Weakrefable):
         See Also
         --------
         pyarrow.gandiva.get_registered_function_signatures : Provides list of
-                                                             available functions.
+                                                             available
+                                                             functions.
         """
         cdef c_vector[shared_ptr[CNode]] c_children
         cdef Node child
@@ -657,9 +663,11 @@ cpdef make_projector(Schema schema, children, MemoryPool pool,
     children : Iterable[Expression]
         Expressions to project into a record batches
     pool : pyarrow.MemoryPool
-        Memory pool to use. Typically will use :py:func:`pyarrow.default_memory_pool()`.
+        Memory pool to use. Typically will use
+        :py:func:`pyarrow.default_memory_pool()`.
     selection_mode : 'NONE', 'UINT16', 'UINT32', 'UINT64'
-        Mode of selection vector to use if filtering when evaluating projections.
+        Mode of selection vector to use if filtering when evaluating
+        projections.
 
     Returns
     -------
