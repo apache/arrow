@@ -19,7 +19,7 @@ library(dplyr)
 library(stringr)
 
 test_that("sub and gsub", {
-  df <- tibble(x = c("foo", "bar"))
+  df <- tibble(x = c("Foo", "bar"))
 
   for(fun in list(quote(sub), quote(gsub))) {
 
@@ -27,7 +27,7 @@ test_that("sub and gsub", {
 
       expect_dplyr_equal(
         input %>%
-          transmute(x = eval(fun)("foo", "baz", x, fixed = fixed)) %>%
+          transmute(x = eval(fun)("Foo", "baz", x, fixed = fixed)) %>%
           collect(),
         df
       )
@@ -65,14 +65,14 @@ test_that("sub and gsub", {
           Table$create() %>%
           transmute(x = eval(fun)("o", "u", x, ignore.case = TRUE, fixed = fixed)) %>%
           collect(),
-        if (fun == quote(sub)) tibble(x = c("fuo", "bar")) else tibble(x = c("fuu", "bar"))
+        if (fun == quote(sub)) tibble(x = c("Fuo", "bar")) else tibble(x = c("Fuu", "bar"))
       )
       expect_equal(
         df %>%
           Table$create() %>%
           transmute(x = eval(fun)("^B.+", "baz", x, ignore.case = TRUE, fixed = fixed)) %>%
           collect(),
-        if (fixed) tibble(x = c("foo", "bar")) else tibble(x = c("foo", "baz"))
+        if (fixed) tibble(x = c("Foo", "bar")) else tibble(x = c("Foo", "baz"))
       )
 
     }
@@ -81,13 +81,13 @@ test_that("sub and gsub", {
 })
 
 test_that("str_replace and str_replace_all", {
-  df <- tibble(x = c("foo", "bar"))
+  df <- tibble(x = c("Foo", "bar"))
 
   library(stringr)
 
   expect_dplyr_equal(
     input %>%
-      transmute(x = str_replace_all(x, regex("^f"), "baz")) %>%
+      transmute(x = str_replace_all(x, regex("^F"), "baz")) %>%
       collect(),
     df
   )
