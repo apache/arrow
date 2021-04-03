@@ -28,6 +28,7 @@ API Reference
    api/arrays
    api/memory
    api/compute
+   api/gandiva
    api/files
    api/tables
    api/ipc

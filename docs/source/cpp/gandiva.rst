@@ -28,9 +28,6 @@ efficient native code for projections and filters on Arrow record batches.
 Gandiva only handles projections and filters. For other transformation, see
 :ref:`Compute Functions <compute-cpp>`.
 
-..
-   TODO: fix compute functions link
-
 Gandiva was designed to take advantage of the Arrow memory format and modern
 hardware. Compiling expressions using LLVM allows the execution to be optimized
 to the local runtime environment and hardware, including available SIMD

@@ -31,6 +31,7 @@ User Guide
    datatypes
    tables
    compute
+   gandiva
    io
    ipc
    parquet
