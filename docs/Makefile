@@ -66,13 +66,17 @@ help:
 	@echo "  coverage   to run coverage check of the documentation (if enabled)"
 	@echo "  dummy      to check syntax errors of document sources"
 
+
+gandiva_func_docs:
+	python make_gandiva_func_index.py
+
 .PHONY: clean
 clean:
 	rm -rf $(BUILDDIR)/*
 	rm -rf source/python/generated/*
 
 .PHONY: html
-html:
+html: gandiva_func_docs
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
