@@ -61,6 +61,12 @@ Result<RecordBatchIterator> InMemoryScanTask::Execute() {
   return MakeVectorIterator(record_batches_);
 }
 
+Result<RecordBatchGenerator> ScanTask::ExecuteAsync() {
+  return Status::NotImplemented("Async is not implemented for this scan task yet");
+}
+
+bool ScanTask::supports_async() const { return false; }
+
 Result<FragmentIterator> Scanner::GetFragments() {
   if (fragment_ != nullptr) {
     return MakeVectorIterator(FragmentVector{fragment_});
@@ -203,19 +209,31 @@ Result<std::shared_ptr<Table>> Scanner::ToTable() {
   auto state = std::make_shared<TableAssemblyState>();
 
   size_t scan_task_id = 0;
+  std::vector<Future<>> scan_futures;
   for (auto maybe_scan_task : scan_task_it) {
     ARROW_ASSIGN_OR_RAISE(auto scan_task, maybe_scan_task);
 
     auto id = scan_task_id++;
-    task_group->Append([state, id, scan_task] {
-      ARROW_ASSIGN_OR_RAISE(auto batch_it, scan_task->Execute());
-      ARROW_ASSIGN_OR_RAISE(auto local, batch_it.ToVector());
-      state->Emplace(std::move(local), id);
-      return Status::OK();
-    });
+    if (scan_task->supports_async()) {
+      ARROW_ASSIGN_OR_RAISE(auto scan_gen, scan_task->ExecuteAsync());
+      auto scan_fut = CollectAsyncGenerator(std::move(scan_gen))
+                          .Then([state, id](const RecordBatchVector& rbs) {
+                            state->Emplace(rbs, id);
+                          });
+      scan_futures.push_back(std::move(scan_fut));
+    } else {
+      task_group->Append([state, id, scan_task] {
+        ARROW_ASSIGN_OR_RAISE(auto batch_it, scan_task->Execute());
+        ARROW_ASSIGN_OR_RAISE(auto local, batch_it.ToVector());
+        state->Emplace(std::move(local), id);
+        return Status::OK();
+      });
+    }
   }
+  // Wait for all async tasks to complete, or the first error
+  RETURN_NOT_OK(AllComplete(scan_futures).status());
 
-  // Wait for all tasks to complete, or the first error.
+  // Wait for all sync tasks to complete, or the first error.
   RETURN_NOT_OK(task_group->Finish());
 
   return Table::FromRecordBatches(scan_options_->projected_schema,
