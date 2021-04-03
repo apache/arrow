@@ -463,9 +463,11 @@ arrow_stringr_string_replace_function <- function(FUN, max_replacements) {
   function(string, pattern, replacement) {
     # Assign stringr pattern modifier functions locally
     fixed <- function(pattern, ignore_case = FALSE, ...) {
+      check_dots(...)
       list(pattern = pattern, fixed = TRUE, ignore_case = ignore_case)
     }
     regex <- function(pattern, ignore_case = FALSE, ...) {
+      check_dots(...)
       list(pattern = pattern, fixed = FALSE, ignore_case = ignore_case)
     }
     coll <- boundary <- function(...) {
@@ -475,6 +477,18 @@ arrow_stringr_string_replace_function <- function(FUN, max_replacements) {
         "()` is not supportd in Arrow",
         call. = FALSE
       )
+    }
+    check_dots <- function(...) {
+      dots <- list(...)
+      if (length(dots)) {
+        warning(
+          "Ignoring pattern modifier ",
+          ngettext(length(dots), "argument ", "arguments "),
+          "not supported in Arrow: ",
+          oxford_paste(names(dots)),
+          call. = FALSE
+        )
+      }
     }
     ensure_opts <- function(opts) {
       if (is.character(opts)) {
