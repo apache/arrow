@@ -86,14 +86,14 @@ pub struct HashJoinExec {
     build_side: Arc<Mutex<Option<JoinLeftData>>>,
     /// Shares the `RandomState` for the hashing algorithm
     random_state: RandomState,
-    /// mode to use
+    /// Partitioning mode to use
     mode: PartitionMode,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-/// Mode for
+/// Partitioning mode to use for hash join
 pub enum PartitionMode {
-    /// Partitioned means that left/right children are partitioned on left and right keys
+    /// Left/right children are partitioned using the left and right keys
     Partitioned,
     /// Left side will be merged and collected into one partition
     MergeLeft,
