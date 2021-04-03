@@ -21,6 +21,9 @@ set -ex
 
 source_dir=${1}/rust
 
+# Disable full debug symbol generation to speed up CI build / reduce memory required
+export RUSTFLAGS="-C debuginfo=1"
+
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
 export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data
 
