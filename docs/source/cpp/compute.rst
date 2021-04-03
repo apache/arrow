@@ -19,6 +19,8 @@
 .. highlight:: cpp
 .. cpp:namespace:: arrow::compute
 
+.. _compute-cpp:
+
 =================
 Compute Functions
 =================
