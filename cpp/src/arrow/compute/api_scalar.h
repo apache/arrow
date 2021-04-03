@@ -38,7 +38,7 @@ namespace compute {
 /// @{
 
 struct ArithmeticOptions : public FunctionOptions {
-  ArithmeticOptions() : check_overflow(false), remove_nulls(false) {}
+  ArithmeticOptions() : check_overflow(false), remove_nulls(true) {}
   bool check_overflow;
   bool remove_nulls;
 };
