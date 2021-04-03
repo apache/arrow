@@ -310,12 +310,12 @@ inline T power(KernelContext* ctx, Arg0 left, Arg1 right) {
 struct PowerPropagateNulls {
   template <typename T>
   static enable_if_unsigned_integer<T> Call(KernelContext* ctx, T left, T right) {
-    return integer_power<uint64_t>(ctx, left, right);
+    return static_cast<uint64_t>(integer_power<T>(ctx, left, right));
   }
 
   template <typename T>
   static enable_if_signed_integer<T> Call(KernelContext* ctx, T left, T right) {
-    return integer_power<int64_t>(ctx, left, right);
+    return static_cast<int64_t>(integer_power<T>(ctx, left, right));
   }
 
   template <typename T>
@@ -328,13 +328,13 @@ struct PowerCheckedPropagateNulls {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_unsigned_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
     static_assert(std::is_same<Arg0, Arg1>::value, "");
-    return integer_power_checked<uint64_t>(ctx, left, right);
+    return static_cast<uint64_t>(integer_power_checked<uint64_t>(ctx, left, right));
   }
 
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_signed_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
     static_assert(std::is_same<Arg0, Arg1>::value, "");
-    return integer_power_checked<int64_t>(ctx, left, right);
+    return static_cast<int64_t>(integer_power_checked<T>(ctx, left, right));
   }
 
   template <typename T, typename Arg0, typename Arg1>
@@ -347,12 +347,12 @@ struct PowerCheckedPropagateNulls {
 struct Power {
   template <typename T>
   static enable_if_unsigned_integer<T> Call(KernelContext* ctx, T left, T right) {
-    return integer_power<uint64_t>(ctx, left, right);
+    return static_cast<uint64_t>(integer_power<uint64_t>(ctx, left, right));
   }
 
   template <typename T>
   static enable_if_signed_integer<T> Call(KernelContext* ctx, T left, T right) {
-    return integer_power<int64_t>(ctx, left, right);
+    return static_cast<int64_t>(integer_power<int64_t>(ctx, left, right));
   }
 
   template <typename T>
@@ -365,13 +365,13 @@ struct PowerChecked {
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_unsigned_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
     static_assert(std::is_same<Arg0, Arg1>::value, "");
-    return integer_power_checked<uint64_t>(ctx, left, right);
+    return static_cast<uint64_t>(integer_power_checked<uint64_t>(ctx, left, right));
   }
 
   template <typename T, typename Arg0, typename Arg1>
   static enable_if_signed_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
     static_assert(std::is_same<Arg0, Arg1>::value, "");
-    return integer_power_checked<int64_t>(ctx, left, right);
+    return static_cast<int64_t>(integer_power_checked<int64_t>(ctx, left, right));
   }
 
   template <typename T, typename Arg0, typename Arg1>
