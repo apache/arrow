@@ -31,9 +31,11 @@
 #include "arrow/dataset/visibility.h"
 #include "arrow/memory_pool.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/type_fwd.h"
 
 namespace arrow {
+using RecordBatchGenerator = AsyncGenerator<std::shared_ptr<RecordBatch>>;
 namespace dataset {
 
 constexpr int64_t kDefaultBatchSize = 1 << 20;
@@ -101,6 +103,8 @@ class ARROW_DS_EXPORT ScanTask {
   /// resulting from the Scan. Execution semantics are encapsulated in the
   /// particular ScanTask implementation
   virtual Result<RecordBatchIterator> Execute() = 0;
+  virtual Result<RecordBatchGenerator> ExecuteAsync();
+  virtual bool supports_async() const;
 
   virtual ~ScanTask() = default;
 
