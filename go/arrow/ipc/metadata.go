@@ -966,25 +966,25 @@ func writeFileFooter(schema *arrow.Schema, dicts, recs []fileBlock, w io.Writer)
 	return err
 }
 
-func writeRecordMessage(mem memory.Allocator, size, bodyLength int64, fields []fieldMetadata, meta []bufferMetadata, codec compressor) *memory.Buffer {
+func writeRecordMessage(mem memory.Allocator, size, bodyLength int64, fields []fieldMetadata, meta []bufferMetadata, codec flatbuf.CompressionType) *memory.Buffer {
 	b := flatbuffers.NewBuilder(0)
 	recFB := recordToFB(b, size, bodyLength, fields, meta, codec)
 	return writeMessageFB(b, mem, flatbuf.MessageHeaderRecordBatch, recFB, bodyLength)
 }
 
-func recordToFB(b *flatbuffers.Builder, size, bodyLength int64, fields []fieldMetadata, meta []bufferMetadata, codec compressor) flatbuffers.UOffsetT {
+func recordToFB(b *flatbuffers.Builder, size, bodyLength int64, fields []fieldMetadata, meta []bufferMetadata, codec flatbuf.CompressionType) flatbuffers.UOffsetT {
 	fieldsFB := writeFieldNodes(b, fields, flatbuf.RecordBatchStartNodesVector)
 	metaFB := writeBuffers(b, meta, flatbuf.RecordBatchStartBuffersVector)
 	var bodyCompressFB flatbuffers.UOffsetT
-	if codec != nil {
-		bodyCompressFB = writeBodyCompression(b, codec.Type())
+	if codec != -1 {
+		bodyCompressFB = writeBodyCompression(b, codec)
 	}
 
 	flatbuf.RecordBatchStart(b)
 	flatbuf.RecordBatchAddLength(b, size)
 	flatbuf.RecordBatchAddNodes(b, fieldsFB)
 	flatbuf.RecordBatchAddBuffers(b, metaFB)
-	if codec != nil {
+	if codec != -1 {
 		flatbuf.RecordBatchAddCompression(b, bodyCompressFB)
 	}
 

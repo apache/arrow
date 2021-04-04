@@ -187,7 +187,7 @@ func WriteFileCompressed(t *testing.T, f *os.File, mem memory.Allocator, schema 
 	case flatbuf.CompressionTypeZSTD:
 		opts = append(opts, ipc.WithZstd())
 	default:
-		panic("invalid compression codec, only LZ4_FRAME or ZSTD is allowed")
+		t.Fatalf("invalid compression codec %v, only LZ4_FRAME or ZSTD is allowed", codec)
 	}
 
 	w, err := ipc.NewFileWriter(f, opts...)
@@ -244,17 +244,17 @@ func WriteStream(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.S
 
 // WriteStreamCompressed writes a list of records to the given file descriptor as an ARROW stream
 // using the provided compression type.
-func WriteStreamCompressed(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record, codec flatbuf.CompressionType) {
+func WriteStreamCompressed(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record, codec flatbuf.CompressionType, np int) {
 	t.Helper()
 
-	opts := []ipc.Option{ipc.WithSchema(schema), ipc.WithAllocator(mem)}
+	opts := []ipc.Option{ipc.WithSchema(schema), ipc.WithAllocator(mem), ipc.WithCompressConcurrency(np)}
 	switch codec {
 	case flatbuf.CompressionTypeLZ4_FRAME:
 		opts = append(opts, ipc.WithLZ4())
 	case flatbuf.CompressionTypeZSTD:
 		opts = append(opts, ipc.WithZstd())
 	default:
-		panic("invalid compression codec, only LZ4_FRAME or ZSTD is allowed")
+		t.Fatalf("invalid compression codec %v, only LZ4_FRAME or ZSTD is allowed", codec)
 	}
 
 	w := ipc.NewWriter(f, opts...)

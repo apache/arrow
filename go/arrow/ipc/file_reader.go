@@ -366,14 +366,23 @@ func (src *ipcSource) buffer(i int) *memory.Buffer {
 	} else {
 		sr := io.NewSectionReader(src.r, buf.Offset(), buf.Length())
 		var uncompressedSize uint64
-		if err := binary.Read(sr, binary.LittleEndian, &uncompressedSize); err != nil {
+
+		err := binary.Read(sr, binary.LittleEndian, &uncompressedSize)
+		if err != nil {
 			panic(err)
 		}
-		src.codec.Reset(sr)
 
-		raw = make([]byte, uncompressedSize)
-		_, err := io.ReadFull(src.codec, raw)
-		if err != nil {
+		var r io.Reader = sr
+		// check for an uncompressed buffer
+		if int64(uncompressedSize) != -1 {
+			raw = make([]byte, uncompressedSize)
+			src.codec.Reset(sr)
+			r = src.codec
+		} else {
+			raw = make([]byte, buf.Length())
+		}
+
+		if _, err = io.ReadFull(r, raw); err != nil {
 			panic(err)
 		}
 	}

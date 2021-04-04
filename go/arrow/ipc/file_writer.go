@@ -274,8 +274,9 @@ type FileWriter struct {
 
 	pw PayloadWriter
 
-	schema *arrow.Schema
-	codec  flatbuf.CompressionType
+	schema     *arrow.Schema
+	codec      flatbuf.CompressionType
+	compressNP int
 }
 
 // NewFileWriter opens an Arrow file using the provided writer w.
@@ -286,11 +287,12 @@ func NewFileWriter(w io.WriteSeeker, opts ...Option) (*FileWriter, error) {
 	)
 
 	f := FileWriter{
-		w:      w,
-		pw:     &pwriter{w: w, schema: cfg.schema, pos: -1},
-		mem:    cfg.alloc,
-		schema: cfg.schema,
-		codec:  cfg.codec,
+		w:          w,
+		pw:         &pwriter{w: w, schema: cfg.schema, pos: -1},
+		mem:        cfg.alloc,
+		schema:     cfg.schema,
+		codec:      cfg.codec,
+		compressNP: cfg.compressNP,
 	}
 
 	pos, err := f.w.Seek(0, io.SeekCurrent)
@@ -334,7 +336,7 @@ func (f *FileWriter) Write(rec array.Record) error {
 	const allow64b = true
 	var (
 		data = Payload{msg: MessageRecordBatch}
-		enc  = newRecordEncoder(f.mem, 0, kMaxNestingDepth, allow64b, f.codec)
+		enc  = newRecordEncoder(f.mem, 0, kMaxNestingDepth, allow64b, f.codec, f.compressNP)
 	)
 	defer data.Release()
 

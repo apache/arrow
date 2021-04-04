@@ -66,7 +66,8 @@ type config struct {
 	footer struct {
 		offset int64
 	}
-	codec flatbuf.CompressionType
+	codec      flatbuf.CompressionType
+	compressNP int
 }
 
 func newConfig(opts ...Option) *config {
@@ -120,6 +121,14 @@ func WithLZ4() Option {
 func WithZstd() Option {
 	return func(cfg *config) {
 		cfg.codec = flatbuf.CompressionTypeZSTD
+	}
+}
+
+// WithCompressConcurrency specifies a number of goroutines to spin up for
+// concurrent compression of the body buffers when writing compress IPC records
+func WithCompressConcurrency(n int) Option {
+	return func(cfg *config) {
+		cfg.compressNP = n
 	}
 }
 

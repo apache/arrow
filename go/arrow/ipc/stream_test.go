@@ -20,6 +20,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"testing"
 
 	"github.com/apache/arrow/go/arrow/internal/arrdata"
@@ -73,32 +74,38 @@ func TestStreamCompressed(t *testing.T) {
 		flatbuf.CompressionTypeLZ4_FRAME, flatbuf.CompressionTypeZSTD,
 	}
 
-	for _, codec := range compressTypes {
-		for name, recs := range arrdata.Records {
-			t.Run(name, func(t *testing.T) {
-				mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
-				defer mem.AssertSize(t, 0)
+	for np := 0; np < 3; np++ {
+		t.Run("compress concurrency "+strconv.Itoa(np), func(t *testing.T) {
+			for _, codec := range compressTypes {
+				t.Run(codec.String(), func(t *testing.T) {
+					for name, recs := range arrdata.Records {
+						t.Run(name, func(t *testing.T) {
+							mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+							defer mem.AssertSize(t, 0)
 
-				f, err := ioutil.TempFile(tempDir, "go-arrow-stream-")
-				if err != nil {
-					t.Fatal(err)
-				}
-				defer f.Close()
+							f, err := ioutil.TempFile(tempDir, "go-arrow-stream-")
+							if err != nil {
+								t.Fatal(err)
+							}
+							defer f.Close()
 
-				arrdata.WriteStreamCompressed(t, f, mem, recs[0].Schema(), recs, codec)
+							arrdata.WriteStreamCompressed(t, f, mem, recs[0].Schema(), recs, codec, np)
 
-				err = f.Sync()
-				if err != nil {
-					t.Fatalf("could not sync data to disk: %v", err)
-				}
+							err = f.Sync()
+							if err != nil {
+								t.Fatalf("could not sync data to disk: %v", err)
+							}
 
-				_, err = f.Seek(0, io.SeekStart)
-				if err != nil {
-					t.Fatalf("could not seek to start: %v", err)
-				}
+							_, err = f.Seek(0, io.SeekStart)
+							if err != nil {
+								t.Fatalf("could not seek to start: %v", err)
+							}
 
-				arrdata.CheckArrowStream(t, f, mem, recs[0].Schema(), recs)
-			})
-		}
+							arrdata.CheckArrowStream(t, f, mem, recs[0].Schema(), recs)
+						})
+					}
+				})
+			}
+		})
 	}
 }
