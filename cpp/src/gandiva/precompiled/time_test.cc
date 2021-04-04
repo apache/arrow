@@ -743,4 +743,31 @@ TEST(TestTime, TestLastDay) {
   EXPECT_EQ(StringToTimestamp("2015-12-31 00:00:00"), out);
 }
 
+TEST(TestTime, TestToTimestamp) {
+  gdv_timestamp ts = StringToTimestamp("1970-01-01 00:00:00");
+  auto seconds = 0;
+  EXPECT_EQ(ts, to_timestamp_date64(seconds));
+  EXPECT_EQ(ts, to_timestamp_timestamp(seconds));
+
+  ts = StringToTimestamp("1970-01-01 00:00:01");
+  seconds = 1;
+  EXPECT_EQ(ts, to_timestamp_date64(seconds));
+  EXPECT_EQ(ts, to_timestamp_timestamp(seconds));
+
+  ts = StringToTimestamp("1970-01-01 00:01:00");
+  seconds = 60;
+  EXPECT_EQ(ts, to_timestamp_date64(seconds));
+  EXPECT_EQ(ts, to_timestamp_timestamp(seconds));
+
+  ts = StringToTimestamp("1970-01-01 01:00:00");
+  seconds = 60 * 60;
+  EXPECT_EQ(ts, to_timestamp_date64(seconds));
+  EXPECT_EQ(ts, to_timestamp_timestamp(seconds));
+
+  ts = StringToTimestamp("1970-01-02 00:00:00");
+  seconds = 24 * 60 * 60;
+  EXPECT_EQ(ts, to_timestamp_date64(seconds));
+  EXPECT_EQ(ts, to_timestamp_timestamp(seconds));
+}
+
 }  // namespace gandiva
