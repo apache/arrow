@@ -250,6 +250,10 @@ include_directories(SYSTEM "${THIRDPARTY_DIR}/flatbuffers/include")
 # ----------------------------------------------------------------------
 # Some EP's require other EP's
 
+if(PARQUET_REQUIRE_ENCRYPTION)
+  set(ARROW_JSON ON)
+endif()
+
 if(ARROW_THRIFT)
   set(ARROW_WITH_ZLIB ON)
 endif()
@@ -398,6 +402,16 @@ else()
     BROTLI_SOURCE_URL
     "https://github.com/google/brotli/archive/${ARROW_BROTLI_BUILD_VERSION}.tar.gz"
     "https://github.com/ursa-labs/thirdparty/releases/download/latest/brotli-${ARROW_BROTLI_BUILD_VERSION}.tar.gz"
+    )
+endif()
+
+if(DEFINED ENV{ARROW_BZIP2_URL})
+  set(ARROW_BZIP2_SOURCE_URL "$ENV{ARROW_BZIP2_URL}")
+else()
+  set_urls(
+    ARROW_BZIP2_SOURCE_URL
+    "https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
+    "https://github.com/ursa-labs/thirdparty/releases/download/latest/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
     )
 endif()
 
@@ -567,6 +581,15 @@ else()
     )
 endif()
 
+if(DEFINED ENV{ARROW_UTF8PROC_URL})
+  set(ARROW_UTF8PROC_SOURCE_URL "$ENV{ARROW_UTF8PROC_URL}")
+else()
+  set_urls(
+    ARROW_UTF8PROC_SOURCE_URL
+    "https://github.com/JuliaStrings/utf8proc/archive/${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz"
+    )
+endif()
+
 if(DEFINED ENV{ARROW_XSIMD_URL})
   set(XSIMD_SOURCE_URL "$ENV{ARROW_XSIMD_URL}")
 else()
@@ -594,30 +617,15 @@ else()
     )
 endif()
 
-if(DEFINED ENV{ARROW_BZIP2_SOURCE_URL})
-  set(ARROW_BZIP2_SOURCE_URL "$ENV{ARROW_BZIP2_SOURCE_URL}")
-else()
-  set_urls(
-    ARROW_BZIP2_SOURCE_URL
-    "https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
-    "https://github.com/ursa-labs/thirdparty/releases/download/latest/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
-    )
-endif()
-
-if(DEFINED ENV{ARROW_UTF8PROC_SOURCE_URL})
-  set(ARROW_UTF8PROC_SOURCE_URL "$ENV{ARROW_UTF8PROC_SOURCE_URL}")
-else()
-  set_urls(
-    ARROW_UTF8PROC_SOURCE_URL
-    "https://github.com/JuliaStrings/utf8proc/archive/${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz"
-    )
-endif()
-
 # ----------------------------------------------------------------------
 # ExternalProject options
 
-set(EP_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}}")
-set(EP_C_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}}")
+set(
+  EP_CXX_FLAGS
+  "${CMAKE_CXX_COMPILER_ARG1} ${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}}"
+  )
+set(EP_C_FLAGS
+    "${CMAKE_C_COMPILER_ARG1} ${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_${UPPERCASE_BUILD_TYPE}}")
 
 if(NOT MSVC_TOOLCHAIN)
   # Set -fPIC on all external projects
@@ -1931,7 +1939,7 @@ macro(build_xsimd)
 endmacro()
 
 # For now xsimd is always bundled from upstream
-if(1)
+if(NOT ARROW_SIMD_LEVEL STREQUAL "NONE")
   set(xsimd_SOURCE "BUNDLED")
   resolve_dependency(xsimd)
   # TODO: Don't use global includes but rather target_include_directories
@@ -2180,6 +2188,10 @@ macro(build_bzip2)
 
   set(BZIP2_EXTRA_ARGS "CC=${CMAKE_C_COMPILER}" "CFLAGS=${EP_C_FLAGS}")
 
+  if(CMAKE_OSX_SYSROOT)
+    list(APPEND BZIP2_EXTRA_ARGS "SDKROOT=${CMAKE_OSX_SYSROOT}")
+  endif()
+
   externalproject_add(bzip2_ep
                       ${EP_LOG_OPTIONS}
                       CONFIGURE_COMMAND ""
@@ -2363,30 +2375,30 @@ macro(build_grpc)
   set(ABSL_LIBRARIES)
 
   # Abseil libraries gRPC depends on
+  # Follows grpc++ package config template for link order of libraries
+  # https://github.com/grpc/grpc/blob/v1.35.0/CMakeLists.txt#L16361
   set(_ABSL_LIBS
-      bad_optional_access
-      base
-      cord
-      graphcycles_internal
-      int128
-      malloc_internal
-      raw_logging_internal
-      spinlock_wait
-      stacktrace
-      status
       statusor
+      status
+      cord
       str_format_internal
+      synchronization
+      graphcycles_internal
+      symbolize
+      demangle_internal
+      stacktrace
+      debugging_internal
+      malloc_internal
+      time
+      time_zone
       strings
       strings_internal
-      symbolize
-      # symbolize depends on debugging_internal
-      debugging_internal
-      # debugging_internal depends on demangle_internal
-      demangle_internal
-      synchronization
       throw_delegate
-      time
-      time_zone)
+      int128
+      base
+      spinlock_wait
+      bad_optional_access
+      raw_logging_internal)
 
   foreach(_ABSL_LIB ${_ABSL_LIBS})
     set(
@@ -2550,12 +2562,13 @@ macro(build_grpc)
   add_library(gRPC::grpc++ STATIC IMPORTED)
   set_target_properties(
     gRPC::grpc++
-    PROPERTIES IMPORTED_LOCATION
-               "${GRPC_STATIC_LIBRARY_GRPCPP}"
-               INTERFACE_LINK_LIBRARIES
-               "gRPC::grpc;gRPC::gpr;gRPC::upb;gRPC::address_sorting;${ABSL_LIBRARIES}"
-               INTERFACE_INCLUDE_DIRECTORIES
-               "${GRPC_INCLUDE_DIR}")
+    PROPERTIES
+      IMPORTED_LOCATION
+      "${GRPC_STATIC_LIBRARY_GRPCPP}"
+      INTERFACE_LINK_LIBRARIES
+      "gRPC::grpc;gRPC::gpr;gRPC::upb;gRPC::address_sorting;${ABSL_LIBRARIES};Threads::Threads"
+      INTERFACE_INCLUDE_DIRECTORIES
+      "${GRPC_INCLUDE_DIR}")
 
   add_executable(gRPC::grpc_cpp_plugin IMPORTED)
   set_target_properties(gRPC::grpc_cpp_plugin

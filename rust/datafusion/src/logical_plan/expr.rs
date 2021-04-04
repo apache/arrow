@@ -1090,6 +1090,7 @@ unary_scalar_expr!(Lpad, lpad);
 unary_scalar_expr!(Ltrim, ltrim);
 unary_scalar_expr!(MD5, md5);
 unary_scalar_expr!(OctetLength, octet_length);
+unary_scalar_expr!(RegexpMatch, regexp_match);
 unary_scalar_expr!(RegexpReplace, regexp_replace);
 unary_scalar_expr!(Replace, replace);
 unary_scalar_expr!(Repeat, repeat);
@@ -1370,11 +1371,11 @@ fn create_name(e: &Expr, input_schema: &DFSchema) -> Result<String> {
 }
 
 /// Create field meta-data from an expression, for use in a result set schema
-pub fn exprlist_to_fields(
-    expr: &[Expr],
+pub fn exprlist_to_fields<'a>(
+    expr: impl IntoIterator<Item = &'a Expr>,
     input_schema: &DFSchema,
 ) -> Result<Vec<DFField>> {
-    expr.iter().map(|e| e.to_field(input_schema)).collect()
+    expr.into_iter().map(|e| e.to_field(input_schema)).collect()
 }
 
 #[cfg(test)]

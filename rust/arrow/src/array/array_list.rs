@@ -16,7 +16,6 @@
 // under the License.
 
 use std::any::Any;
-use std::convert::From;
 use std::fmt;
 use std::mem;
 
@@ -24,10 +23,13 @@ use num::Num;
 
 use super::{
     array::print_long_array, make_array, raw_pointer::RawPtrBox, Array, ArrayData,
-    ArrayDataRef, ArrayRef, BooleanBufferBuilder, GenericListArrayIter, PrimitiveArray,
+    ArrayRef, BooleanBufferBuilder, GenericListArrayIter, PrimitiveArray,
 };
-use crate::buffer::MutableBuffer;
-use crate::datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType, Field};
+use crate::{
+    buffer::MutableBuffer,
+    datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType, Field},
+    error::ArrowError,
+};
 
 /// trait declaring an offset size, relevant for i32 vs i64 array types.
 pub trait OffsetSizeTrait: ArrowNativeType + Num + Ord + std::ops::AddAssign {
@@ -49,7 +51,7 @@ impl OffsetSizeTrait for i64 {
 }
 
 pub struct GenericListArray<OffsetSize> {
-    data: ArrayDataRef,
+    data: ArrayData,
     values: ArrayRef,
     value_offsets: RawPtrBox<OffsetSize>,
 }
@@ -181,35 +183,52 @@ impl<OffsetSize: OffsetSizeTrait> GenericListArray<OffsetSize> {
         let data = ArrayData::builder(data_type)
             .len(null_buf.len())
             .add_buffer(offsets.into())
-            .add_child_data(values.data())
+            .add_child_data(values.data().clone())
             .null_bit_buffer(null_buf.into())
             .build();
         Self::from(data)
     }
 }
 
-impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericListArray<OffsetSize> {
-    fn from(data: ArrayDataRef) -> Self {
-        assert_eq!(
-            data.buffers().len(),
-            1,
-            "ListArray data should contain a single buffer only (value offsets)"
-        );
-        assert_eq!(
-            data.child_data().len(),
-            1,
-            "ListArray should contain a single child array (values array)"
-        );
+impl<OffsetSize: OffsetSizeTrait> From<ArrayData> for GenericListArray<OffsetSize> {
+    fn from(data: ArrayData) -> Self {
+        Self::try_new_from_array_data(data).expect(
+            "Expected infallable creation of GenericListArray from ArrayDataRef failed",
+        )
+    }
+}
+
+impl<OffsetSize: OffsetSizeTrait> GenericListArray<OffsetSize> {
+    fn try_new_from_array_data(data: ArrayData) -> Result<Self, ArrowError> {
+        if data.buffers().len() != 1 {
+            return Err(ArrowError::InvalidArgumentError(
+                format!("ListArray data should contain a single buffer only (value offsets), had {}",
+                        data.len())));
+        }
+
+        if data.child_data().len() != 1 {
+            return Err(ArrowError::InvalidArgumentError(format!(
+                "ListArray should contain a single child array (values array), had {}",
+                data.child_data().len()
+            )));
+        }
 
         let values = data.child_data()[0].clone();
 
-        if let Some(child) = Self::get_type(data.data_type()) {
-            assert_eq!(values.data_type(), child, "[Large]ListArray's child datatype does not correspond to the List's datatype");
+        if let Some(child_data_type) = Self::get_type(data.data_type()) {
+            if values.data_type() != child_data_type {
+                return Err(ArrowError::InvalidArgumentError(format!(
+                    "[Large]ListArray's child datatype {:?} does not \
+                             correspond to the List's datatype {:?}",
+                    values.data_type(),
+                    child_data_type
+                )));
+            }
         } else {
-            panic!(
+            return Err(ArrowError::InvalidArgumentError(format!(
                 "[Large]ListArray's datatype must be [Large]ListArray(). It is {:?}",
                 data.data_type()
-            );
+            )));
         }
 
         let values = make_array(values);
@@ -217,16 +236,17 @@ impl<OffsetSize: OffsetSizeTrait> From<ArrayDataRef> for GenericListArray<Offset
 
         let value_offsets = unsafe { RawPtrBox::<OffsetSize>::new(value_offsets) };
         unsafe {
-            assert!(
-                (*value_offsets.as_ptr().offset(0)).is_zero(),
-                "offsets do not start at zero"
-            );
+            if !(*value_offsets.as_ptr().offset(0)).is_zero() {
+                return Err(ArrowError::InvalidArgumentError(String::from(
+                    "offsets do not start at zero",
+                )));
+            }
         }
-        Self {
+        Ok(Self {
             data,
             values,
             value_offsets,
-        }
+        })
     }
 }
 
@@ -235,11 +255,7 @@ impl<OffsetSize: 'static + OffsetSizeTrait> Array for GenericListArray<OffsetSiz
         self
     }
 
-    fn data(&self) -> ArrayDataRef {
-        self.data.clone()
-    }
-
-    fn data_ref(&self) -> &ArrayDataRef {
+    fn data(&self) -> &ArrayData {
         &self.data
     }
 
@@ -277,7 +293,7 @@ pub type LargeListArray = GenericListArray<i64>;
 /// A list array where each element is a fixed-size sequence of values with the same
 /// type whose maximum length is represented by a i32.
 pub struct FixedSizeListArray {
-    data: ArrayDataRef,
+    data: ArrayData,
     values: ArrayRef,
     length: i32,
 }
@@ -321,8 +337,8 @@ impl FixedSizeListArray {
     }
 }
 
-impl From<ArrayDataRef> for FixedSizeListArray {
-    fn from(data: ArrayDataRef) -> Self {
+impl From<ArrayData> for FixedSizeListArray {
+    fn from(data: ArrayData) -> Self {
         assert_eq!(
             data.buffers().len(),
             0,
@@ -365,11 +381,7 @@ impl Array for FixedSizeListArray {
         self
     }
 
-    fn data(&self) -> ArrayDataRef {
-        self.data.clone()
-    }
-
-    fn data_ref(&self) -> &ArrayDataRef {
+    fn data(&self) -> &ArrayData {
         &self.data
     }
 
@@ -468,7 +480,7 @@ mod tests {
         let list_array = ListArray::from(list_data);
 
         let values = list_array.values();
-        assert_eq!(value_data, values.data());
+        assert_eq!(&value_data, values.data());
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
@@ -506,7 +518,7 @@ mod tests {
         let list_array = ListArray::from(list_data);
 
         let values = list_array.values();
-        assert_eq!(value_data, values.data());
+        assert_eq!(&value_data, values.data());
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
@@ -554,7 +566,7 @@ mod tests {
         let list_array = LargeListArray::from(list_data);
 
         let values = list_array.values();
-        assert_eq!(value_data, values.data());
+        assert_eq!(&value_data, values.data());
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
@@ -592,7 +604,7 @@ mod tests {
         let list_array = LargeListArray::from(list_data);
 
         let values = list_array.values();
-        assert_eq!(value_data, values.data());
+        assert_eq!(&value_data, values.data());
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
@@ -637,7 +649,7 @@ mod tests {
         let list_array = FixedSizeListArray::from(list_data);
 
         let values = list_array.values();
-        assert_eq!(value_data, values.data());
+        assert_eq!(&value_data, values.data());
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
@@ -666,7 +678,7 @@ mod tests {
         let list_array = FixedSizeListArray::from(list_data);
 
         let values = list_array.values();
-        assert_eq!(value_data, values.data());
+        assert_eq!(&value_data, values.data());
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(3, list_array.len());
         assert_eq!(0, list_array.null_count());
@@ -737,7 +749,7 @@ mod tests {
         let list_array = ListArray::from(list_data);
 
         let values = list_array.values();
-        assert_eq!(value_data, values.data());
+        assert_eq!(&value_data, values.data());
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(9, list_array.len());
         assert_eq!(4, list_array.null_count());
@@ -799,7 +811,7 @@ mod tests {
         let list_array = LargeListArray::from(list_data);
 
         let values = list_array.values();
-        assert_eq!(value_data, values.data());
+        assert_eq!(&value_data, values.data());
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(9, list_array.len());
         assert_eq!(4, list_array.null_count());
@@ -896,7 +908,7 @@ mod tests {
         let list_array = FixedSizeListArray::from(list_data);
 
         let values = list_array.values();
-        assert_eq!(value_data, values.data());
+        assert_eq!(&value_data, values.data());
         assert_eq!(DataType::Int32, list_array.value_type());
         assert_eq!(5, list_array.len());
         assert_eq!(2, list_array.null_count());

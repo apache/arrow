@@ -69,8 +69,7 @@ InMemoryFragment::InMemoryFragment(RecordBatchVector record_batches,
     : InMemoryFragment(record_batches.empty() ? schema({}) : record_batches[0]->schema(),
                        std::move(record_batches), std::move(partition_expression)) {}
 
-Result<ScanTaskIterator> InMemoryFragment::Scan(std::shared_ptr<ScanOptions> options,
-                                                std::shared_ptr<ScanContext> context) {
+Result<ScanTaskIterator> InMemoryFragment::Scan(std::shared_ptr<ScanOptions> options) {
   // Make an explicit copy of record_batches_ to ensure Scan can be called
   // multiple times.
   auto batches_it = MakeVectorIterator(record_batches_);
@@ -86,8 +85,8 @@ Result<ScanTaskIterator> InMemoryFragment::Scan(std::shared_ptr<ScanOptions> opt
       batches.push_back(batch->Slice(batch_size * i, batch_size));
     }
 
-    return ::arrow::internal::make_unique<InMemoryScanTask>(
-        std::move(batches), std::move(options), std::move(context), self);
+    return ::arrow::internal::make_unique<InMemoryScanTask>(std::move(batches),
+                                                            std::move(options), self);
   };
 
   return MakeMapIterator(fn, std::move(batches_it));
@@ -98,12 +97,12 @@ Dataset::Dataset(std::shared_ptr<Schema> schema, Expression partition_expression
       partition_expression_(std::move(partition_expression)) {}
 
 Result<std::shared_ptr<ScannerBuilder>> Dataset::NewScan(
-    std::shared_ptr<ScanContext> context) {
-  return std::make_shared<ScannerBuilder>(this->shared_from_this(), context);
+    std::shared_ptr<ScanOptions> options) {
+  return std::make_shared<ScannerBuilder>(this->shared_from_this(), options);
 }
 
 Result<std::shared_ptr<ScannerBuilder>> Dataset::NewScan() {
-  return NewScan(std::make_shared<ScanContext>());
+  return NewScan(std::make_shared<ScanOptions>());
 }
 
 Result<FragmentIterator> Dataset::GetFragments() {

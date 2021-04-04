@@ -16,6 +16,7 @@
 // under the License.
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <memory>
@@ -28,52 +29,9 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/iterator.h"
-
+#include "arrow/util/test_common.h"
+#include "arrow/util/vector.h"
 namespace arrow {
-
-struct TestInt {
-  TestInt() : value(-999) {}
-  TestInt(int i) : value(i) {}  // NOLINT runtime/explicit
-  int value;
-
-  bool operator==(const TestInt& other) const { return value == other.value; }
-
-  friend std::ostream& operator<<(std::ostream& os, const TestInt& v) {
-    os << "{" << v.value << "}";
-    return os;
-  }
-};
-
-template <>
-struct IterationTraits<TestInt> {
-  static TestInt End() { return TestInt(); }
-};
-
-struct TestStr {
-  TestStr() : value("") {}
-  TestStr(const std::string& s) : value(s) {}  // NOLINT runtime/explicit
-  TestStr(const char* s) : value(s) {}         // NOLINT runtime/explicit
-  explicit TestStr(const TestInt& test_int) {
-    if (test_int == IterationTraits<TestInt>::End()) {
-      value = "";
-    } else {
-      value = std::to_string(test_int.value);
-    }
-  }
-  std::string value;
-
-  bool operator==(const TestStr& other) const { return value == other.value; }
-
-  friend std::ostream& operator<<(std::ostream& os, const TestStr& v) {
-    os << "{\"" << v.value << "\"}";
-    return os;
-  }
-};
-
-template <>
-struct IterationTraits<TestStr> {
-  static TestStr End() { return TestStr(); }
-};
 
 template <typename T>
 class TracingIterator {
@@ -155,48 +113,10 @@ template <typename T>
 inline Iterator<T> EmptyIt() {
   return MakeEmptyIterator<T>();
 }
+
+// Non-templated version of VectorIt<T> to allow better type deduction
 inline Iterator<TestInt> VectorIt(std::vector<TestInt> v) {
   return MakeVectorIterator<TestInt>(std::move(v));
-}
-
-AsyncGenerator<TestInt> AsyncVectorIt(std::vector<TestInt> v) {
-  size_t index = 0;
-  return [index, v]() mutable -> Future<TestInt> {
-    if (index >= v.size()) {
-      return Future<TestInt>::MakeFinished(IterationTraits<TestInt>::End());
-    }
-    return Future<TestInt>::MakeFinished(v[index++]);
-  };
-}
-
-constexpr auto kYieldDuration = std::chrono::microseconds(50);
-
-// Yields items with a small pause between each one from a background thread
-std::function<Future<TestInt>()> BackgroundAsyncVectorIt(std::vector<TestInt> v) {
-  auto pool = internal::GetCpuThreadPool();
-  auto iterator = VectorIt(v);
-  auto slow_iterator = MakeTransformedIterator<TestInt, TestInt>(
-      std::move(iterator), [](TestInt item) -> Result<TransformFlow<TestInt>> {
-        std::this_thread::sleep_for(kYieldDuration);
-        return TransformYield(item);
-      });
-  EXPECT_OK_AND_ASSIGN(auto background,
-                       MakeBackgroundGenerator<TestInt>(std::move(slow_iterator),
-                                                        internal::GetCpuThreadPool()));
-  return MakeTransferredGenerator(background, pool);
-}
-
-std::vector<TestInt> RangeVector(unsigned int max) {
-  std::vector<TestInt> range(max);
-  for (unsigned int i = 0; i < max; i++) {
-    range[i] = i;
-  }
-  return range;
-}
-
-template <typename T>
-inline Iterator<T> VectorIt(std::vector<T> v) {
-  return MakeVectorIterator<T>(std::move(v));
 }
 
 template <typename Fn, typename T>
@@ -215,13 +135,6 @@ void AssertIteratorMatch(std::vector<T> expected, Iterator<T> actual) {
 }
 
 template <typename T>
-void AssertAsyncGeneratorMatch(std::vector<T> expected, AsyncGenerator<T> actual) {
-  auto vec_future = CollectAsyncGenerator(std::move(actual));
-  EXPECT_OK_AND_ASSIGN(auto vec, vec_future.result());
-  EXPECT_EQ(expected, vec);
-}
-
-template <typename T>
 void AssertIteratorNoMatch(std::vector<T> expected, Iterator<T> actual) {
   EXPECT_NE(expected, IteratorToVector(std::move(actual)));
 }
@@ -230,11 +143,6 @@ template <typename T>
 void AssertIteratorNext(T expected, Iterator<T>& it) {
   ASSERT_OK_AND_ASSIGN(T actual, it.Next());
   ASSERT_EQ(expected, actual);
-}
-
-template <typename T>
-void AssertIteratorExhausted(Iterator<T>& it) {
-  AssertIteratorNext(IterationTraits<T>::End(), it);
 }
 
 // --------------------------------------------------------------------
@@ -330,16 +238,6 @@ TEST(TestIteratorTransform, TruncatingShort) {
   AssertIteratorMatch({"1"}, std::move(truncated));
 }
 
-Transformer<TestInt, TestStr> MakeFilter(std::function<bool(TestInt&)> filter) {
-  return [filter](TestInt next) -> Result<TransformFlow<TestStr>> {
-    if (filter(next)) {
-      return TransformYield(TestStr(next));
-    } else {
-      return TransformSkip();
-    }
-  };
-}
-
 TEST(TestIteratorTransform, SkipSome) {
   // Exercises TransformSkip
   auto original = VectorIt({1, 2, 3});
@@ -372,7 +270,7 @@ TEST(TestIteratorTransform, Abort) {
   ASSERT_OK(transformed.Next());
   ASSERT_RAISES(Invalid, transformed.Next());
   ASSERT_OK_AND_ASSIGN(auto third, transformed.Next());
-  ASSERT_EQ(IterationTraits<TestStr>::End(), third);
+  ASSERT_TRUE(IsIterationEnd(third));
 }
 
 template <typename T>
@@ -493,10 +391,6 @@ TEST(ReadaheadIterator, NotExhausted) {
   AssertIteratorNext({2}, it);
 }
 
-void SleepABit(double seconds = 1e-3) {
-  std::this_thread::sleep_for(std::chrono::duration<double>(seconds));
-}
-
 TEST(ReadaheadIterator, Trace) {
   TracingIterator<TestInt> tracing_it(VectorIt({1, 2, 3, 4, 5, 6, 7, 8}));
   auto tracing = tracing_it.state();
@@ -565,243 +459,6 @@ TEST(ReadaheadIterator, NextError) {
   SleepABit();
   tracing->AssertValuesEqual({});
   AssertIteratorExhausted(it);
-}
-
-// --------------------------------------------------------------------
-// Asynchronous iterator tests
-
-TEST(TestAsyncUtil, Visit) {
-  auto generator = AsyncVectorIt({1, 2, 3});
-  unsigned int sum = 0;
-  auto sum_future = VisitAsyncGenerator<TestInt>(generator, [&sum](TestInt item) {
-    sum += item.value;
-    return Status::OK();
-  });
-  ASSERT_TRUE(sum_future.is_finished());
-  ASSERT_EQ(6, sum);
-}
-
-TEST(TestAsyncUtil, Collect) {
-  std::vector<TestInt> expected = {1, 2, 3};
-  auto generator = AsyncVectorIt(expected);
-  auto collected = CollectAsyncGenerator(generator);
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto collected_val, collected);
-  ASSERT_EQ(expected, collected_val);
-}
-
-TEST(TestAsyncUtil, SynchronousFinish) {
-  AsyncGenerator<TestInt> generator = []() {
-    return Future<TestInt>::MakeFinished(IterationTraits<TestInt>::End());
-  };
-  Transformer<TestInt, TestStr> skip_all = [](TestInt value) { return TransformSkip(); };
-  auto transformed = MakeAsyncGenerator(generator, skip_all);
-  auto future = CollectAsyncGenerator(transformed);
-  ASSERT_TRUE(future.is_finished());
-  ASSERT_OK_AND_ASSIGN(auto actual, future.result());
-  ASSERT_EQ(std::vector<TestStr>(), actual);
-}
-
-TEST(TestAsyncUtil, GeneratorIterator) {
-  auto generator = BackgroundAsyncVectorIt({1, 2, 3});
-  ASSERT_OK_AND_ASSIGN(auto iterator, MakeGeneratorIterator(std::move(generator)));
-  ASSERT_OK_AND_EQ(TestInt(1), iterator.Next());
-  ASSERT_OK_AND_EQ(TestInt(2), iterator.Next());
-  ASSERT_OK_AND_EQ(TestInt(3), iterator.Next());
-  ASSERT_OK_AND_EQ(IterationTraits<TestInt>::End(), iterator.Next());
-  ASSERT_OK_AND_EQ(IterationTraits<TestInt>::End(), iterator.Next());
-}
-
-TEST(TestAsyncUtil, MakeTransferredGenerator) {
-  std::mutex mutex;
-  std::condition_variable cv;
-  std::atomic<bool> finished(false);
-
-  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(1));
-
-  // Needs to be a slow source to ensure we don't call Then on a completed
-  AsyncGenerator<TestInt> slow_generator = [&]() {
-    return thread_pool
-        ->Submit([&] {
-          std::unique_lock<std::mutex> lock(mutex);
-          cv.wait_for(lock, std::chrono::duration<double>(30),
-                      [&] { return finished.load(); });
-          return IterationTraits<TestInt>::End();
-        })
-        .ValueOrDie();
-  };
-
-  auto transferred =
-      MakeTransferredGenerator<TestInt>(std::move(slow_generator), thread_pool.get());
-
-  auto current_thread_id = std::this_thread::get_id();
-  auto fut = transferred().Then([&current_thread_id](const Result<TestInt>& result) {
-    ASSERT_NE(current_thread_id, std::this_thread::get_id());
-  });
-
-  {
-    std::lock_guard<std::mutex> lg(mutex);
-    finished.store(true);
-  }
-  cv.notify_one();
-  ASSERT_FINISHES_OK(fut);
-}
-
-// This test is too slow for valgrind
-#if !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER))
-
-TEST(TestAsyncUtil, StackOverflow) {
-  int counter = 0;
-  AsyncGenerator<TestInt> generator = [&counter]() {
-    if (counter < 1000000) {
-      return Future<TestInt>::MakeFinished(counter++);
-    } else {
-      return Future<TestInt>::MakeFinished(IterationTraits<TestInt>::End());
-    }
-  };
-  Transformer<TestInt, TestStr> discard =
-      [](TestInt next) -> Result<TransformFlow<TestStr>> { return TransformSkip(); };
-  auto transformed = MakeAsyncGenerator(generator, discard);
-  auto collected_future = CollectAsyncGenerator(transformed);
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto collected, collected_future);
-  ASSERT_EQ(0, collected.size());
-}
-
-#endif
-
-TEST(TestAsyncUtil, Background) {
-  std::vector<TestInt> expected = {1, 2, 3};
-  auto background = BackgroundAsyncVectorIt(expected);
-  auto future = CollectAsyncGenerator(background);
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto collected, future);
-  ASSERT_EQ(expected, collected);
-}
-
-struct SlowEmptyIterator {
-  Result<TestInt> Next() {
-    if (called_) {
-      return Status::Invalid("Should not have been called twice");
-    }
-    SleepFor(0.1);
-    return IterationTraits<TestInt>::End();
-  }
-
- private:
-  bool called_ = false;
-};
-
-TEST(TestAsyncUtil, BackgroundRepeatEnd) {
-  // Ensure that the background generator properly fulfills the asyncgenerator contract
-  // and can be called after it ends.
-  ASSERT_OK_AND_ASSIGN(auto io_pool, internal::ThreadPool::Make(1));
-
-  auto iterator = Iterator<TestInt>(SlowEmptyIterator());
-  ASSERT_OK_AND_ASSIGN(auto background_gen,
-                       MakeBackgroundGenerator(std::move(iterator), io_pool.get()));
-
-  background_gen =
-      MakeTransferredGenerator(std::move(background_gen), internal::GetCpuThreadPool());
-
-  auto one = background_gen();
-  auto two = background_gen();
-
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto one_fin, one);
-  ASSERT_EQ(IterationTraits<TestInt>::End(), one_fin);
-
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto two_fin, two);
-  ASSERT_EQ(IterationTraits<TestInt>::End(), two_fin);
-}
-
-TEST(TestAsyncUtil, CompleteBackgroundStressTest) {
-  auto expected = RangeVector(20);
-  std::vector<Future<std::vector<TestInt>>> futures;
-  for (unsigned int i = 0; i < 20; i++) {
-    auto background = BackgroundAsyncVectorIt(expected);
-    futures.push_back(CollectAsyncGenerator(background));
-  }
-  auto combined = All(futures);
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto completed_vectors, combined);
-  for (std::size_t i = 0; i < completed_vectors.size(); i++) {
-    ASSERT_OK_AND_ASSIGN(auto vector, completed_vectors[i]);
-    ASSERT_EQ(vector, expected);
-  }
-}
-
-TEST(TestAsyncUtil, Readahead) {
-  int num_delivered = 0;
-  auto source = [&num_delivered]() {
-    if (num_delivered < 5) {
-      return Future<TestInt>::MakeFinished(num_delivered++);
-    } else {
-      return Future<TestInt>::MakeFinished(IterationTraits<TestInt>::End());
-    }
-  };
-  auto readahead = MakeReadaheadGenerator<TestInt>(source, 10);
-  // Should not pump until first item requested
-  ASSERT_EQ(0, num_delivered);
-
-  auto first = readahead();
-  // At this point the pumping should have happened
-  ASSERT_EQ(5, num_delivered);
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto first_val, first);
-  ASSERT_EQ(TestInt(0), first_val);
-
-  // Read the rest
-  for (int i = 0; i < 4; i++) {
-    auto next = readahead();
-    ASSERT_FINISHES_OK_AND_ASSIGN(auto next_val, next);
-    ASSERT_EQ(TestInt(i + 1), next_val);
-  }
-
-  // Next should be end
-  auto last = readahead();
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto last_val, last);
-  ASSERT_EQ(IterationTraits<TestInt>::End(), last_val);
-}
-
-TEST(TestAsyncUtil, ReadaheadFailed) {
-  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(4));
-  std::atomic<int32_t> counter(0);
-  // All tasks are a little slow.  The first task fails.
-  // The readahead will have spawned 9 more tasks and they
-  // should all pass
-  auto source = [thread_pool, &counter]() -> Future<TestInt> {
-    auto count = counter++;
-    return *thread_pool->Submit([count]() -> Result<TestInt> {
-      if (count == 0) {
-        return Status::Invalid("X");
-      }
-      return TestInt(count);
-    });
-  };
-  auto readahead = MakeReadaheadGenerator<TestInt>(source, 10);
-  ASSERT_FINISHES_ERR(Invalid, readahead());
-  SleepABit();
-
-  for (int i = 0; i < 9; i++) {
-    ASSERT_FINISHES_OK_AND_ASSIGN(auto next_val, readahead());
-    ASSERT_EQ(TestInt(i + 1), next_val);
-  }
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto after, readahead());
-
-  // It's possible that finished was set quickly and there
-  // are only 10 elements
-  if (after == IterationTraits<TestInt>::End()) {
-    return;
-  }
-
-  // It's also possible that finished was too slow and there
-  // ended up being 11 elements
-  ASSERT_EQ(TestInt(10), after);
-  // There can't be 12 elements because SleepABit will prevent it
-  ASSERT_FINISHES_OK_AND_ASSIGN(auto definitely_last, readahead());
-  ASSERT_EQ(IterationTraits<TestInt>::End(), definitely_last);
-}
-
-TEST(TestAsyncIteratorTransform, SkipSome) {
-  auto original = AsyncVectorIt({1, 2, 3});
-  auto filter = MakeFilter([](TestInt& t) { return t.value != 2; });
-  auto filtered = MakeAsyncGenerator(std::move(original), filter);
-  AssertAsyncGeneratorMatch({"1", "3"}, std::move(filtered));
 }
 
 }  // namespace arrow

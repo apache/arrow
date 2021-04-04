@@ -166,7 +166,6 @@ test_apt() {
 
 test_yum() {
   for target in "centos:7" \
-                "arm64v8/centos:7" \
                 "centos:8" \
                 "arm64v8/centos:8"; do
     case "${target}" in
@@ -384,19 +383,11 @@ test_python() {
 test_glib() {
   pushd c_glib
 
-  if brew --prefix libffi > /dev/null 2>&1; then
-    PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH
-  fi
+  pip install meson
 
-  if [ -f configure ]; then
-    ./configure --prefix=$ARROW_HOME
-    make -j$NPROC
-    make install
-  else
-    meson build --prefix=$ARROW_HOME --libdir=lib
-    ninja -C build
-    ninja -C build install
-  fi
+  meson build --prefix=$ARROW_HOME --libdir=lib
+  ninja -C build
+  ninja -C build install
 
   export GI_TYPELIB_PATH=$ARROW_HOME/lib/girepository-1.0:$GI_TYPELIB_PATH
 

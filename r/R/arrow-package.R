@@ -18,19 +18,20 @@
 #' @importFrom R6 R6Class
 #' @importFrom purrr as_mapper map map2 map_chr map_dfr map_int map_lgl keep
 #' @importFrom assertthat assert_that is.string
-#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos eval_tidy new_data_mask syms env new_environment env_bind as_label set_names exec is_bare_character
-#' @importFrom tidyselect vars_select
+#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos eval_tidy new_data_mask syms env new_environment env_bind as_label set_names exec is_bare_character quo_get_expr quo_set_expr .data seq2 is_quosure enexpr enexprs expr
+#' @importFrom tidyselect vars_pull vars_rename vars_select eval_select
 #' @useDynLib arrow, .registration = TRUE
 #' @keywords internal
 "_PACKAGE"
 
-#' @importFrom vctrs s3_register vec_size vec_cast
+#' @importFrom vctrs s3_register vec_size vec_cast vec_unique
 .onLoad <- function(...) {
   dplyr_methods <- paste0(
     "dplyr::",
     c(
       "select", "filter", "collect", "summarise", "group_by", "groups",
-      "group_vars", "ungroup", "mutate", "transmute", "arrange", "rename", "pull"
+      "group_vars", "group_by_drop_default", "ungroup", "mutate", "transmute",
+      "arrange", "rename", "pull", "relocate"
     )
   )
   for (cl in c("Dataset", "ArrowTabular", "arrow_dplyr_query")) {
@@ -116,11 +117,14 @@ arrow_info <- function() {
   if (out$libarrow) {
     pool <- default_memory_pool()
     runtimeinfo <- runtime_info()
+    compute_funcs <- list_compute_functions()
     out <- c(out, list(
       capabilities = c(
         dataset = arrow_with_dataset(),
         parquet = arrow_with_parquet(),
         s3 = arrow_with_s3(),
+        utf8proc = "utf8_upper" %in% compute_funcs,
+        re2 = "replace_substring_regex" %in% compute_funcs,
         vapply(tolower(names(CompressionType)[-1]), codec_is_available, logical(1))
       ),
       memory_pool = list(

@@ -90,6 +90,10 @@ struct PartitioningFactoryOptions {
   /// columns, and Expressions parsed by the finished Partitioning will include
   /// dictionaries of all unique inspected values for each field.
   bool infer_dictionary = false;
+  /// Optionally, an expected schema can be provided, in which case inference
+  /// will only check discovered fields against the schema and update internal
+  /// state (such as dictionaries).
+  std::shared_ptr<Schema> schema;
 };
 
 struct HivePartitioningFactoryOptions : PartitioningFactoryOptions {
@@ -196,7 +200,7 @@ class ARROW_DS_EXPORT HivePartitioning : public KeyValuePartitioning {
   explicit HivePartitioning(std::shared_ptr<Schema> schema, ArrayVector dictionaries = {},
                             std::string null_fallback = kDefaultHiveNullFallback)
       : KeyValuePartitioning(std::move(schema), std::move(dictionaries)),
-        null_fallback_(null_fallback) {}
+        null_fallback_(std::move(null_fallback)) {}
 
   std::string type_name() const override { return "hive"; }
   std::string null_fallback() const { return null_fallback_; }
@@ -294,65 +298,6 @@ class ARROW_DS_EXPORT PartitioningOrFactory {
   std::shared_ptr<PartitioningFactory> factory_;
   std::shared_ptr<Partitioning> partitioning_;
 };
-
-/// \brief Assemble lists of indices of identical rows.
-///
-/// \param[in] by A StructArray whose columns will be used as grouping criteria.
-///               Top level nulls are invalid, as are empty criteria (no grouping
-///               columns).
-/// \return A array of type `struct<values: by.type, groupings: list<int64>>`,
-///         which is a mapping from unique rows (field "values") to lists of
-///         indices into `by` where that row appears (field "groupings").
-///
-/// For example,
-///   MakeGroupings([
-///       {"a": "ex",  "b": 0},
-///       {"a": "ex",  "b": 0},
-///       {"a": "why", "b": 0},
-///       {"a": "why", "b": 0},
-///       {"a": "ex",  "b": 0},
-///       {"a": "why", "b": 1}
-///   ]) == [
-///       {"values": {"a": "ex",  "b": 0}, "groupings": [0, 1, 4]},
-///       {"values": {"a": "why", "b": 0}, "groupings": [2, 3]},
-///       {"values": {"a": "why", "b": 1}, "groupings": [5]}
-///   ]
-ARROW_DS_EXPORT
-Result<std::shared_ptr<StructArray>> MakeGroupings(const StructArray& by);
-
-/// \brief Produce a ListArray whose slots are selections of `array` which correspond to
-/// the provided groupings.
-///
-/// For example,
-///   ApplyGroupings([[0, 1, 4], [2, 3], [5]], [
-///       {"a": "ex",  "b": 0, "passenger": 0},
-///       {"a": "ex",  "b": 0, "passenger": 1},
-///       {"a": "why", "b": 0, "passenger": 2},
-///       {"a": "why", "b": 0, "passenger": 3},
-///       {"a": "ex",  "b": 0, "passenger": 4},
-///       {"a": "why", "b": 1, "passenger": 5}
-///   ]) == [
-///     [
-///       {"a": "ex",  "b": 0, "passenger": 0},
-///       {"a": "ex",  "b": 0, "passenger": 1},
-///       {"a": "ex",  "b": 0, "passenger": 4},
-///     ],
-///     [
-///       {"a": "why", "b": 0, "passenger": 2},
-///       {"a": "why", "b": 0, "passenger": 3},
-///     ],
-///     [
-///       {"a": "why", "b": 1, "passenger": 5}
-///     ]
-///   ]
-ARROW_DS_EXPORT
-Result<std::shared_ptr<ListArray>> ApplyGroupings(const ListArray& groupings,
-                                                  const Array& array);
-
-/// \brief Produce selections of a RecordBatch which correspond to the provided groupings.
-ARROW_DS_EXPORT
-Result<RecordBatchVector> ApplyGroupings(const ListArray& groupings,
-                                         const std::shared_ptr<RecordBatch>& batch);
 
 }  // namespace dataset
 }  // namespace arrow

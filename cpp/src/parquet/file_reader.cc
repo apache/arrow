@@ -34,11 +34,10 @@
 #include "arrow/util/ubsan.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
-#include "parquet/deprecated_io.h"
-#include "parquet/encryption_internal.h"
+#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
 #include "parquet/file_writer.h"
-#include "parquet/internal_file_decryptor.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
@@ -547,13 +546,6 @@ std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
   std::unique_ptr<ParquetFileReader> result(new ParquetFileReader());
   result->Open(std::move(contents));
   return result;
-}
-
-std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
-    std::unique_ptr<RandomAccessSource> source, const ReaderProperties& props,
-    std::shared_ptr<FileMetaData> metadata) {
-  auto wrapper = std::make_shared<ParquetInputWrapper>(std::move(source));
-  return Open(std::move(wrapper), props, std::move(metadata));
 }
 
 std::unique_ptr<ParquetFileReader> ParquetFileReader::OpenFile(

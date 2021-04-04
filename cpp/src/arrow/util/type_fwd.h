@@ -24,8 +24,6 @@ struct Empty;
 }  // namespace detail
 
 template <typename T = detail::Empty>
-class Future;
-template <typename T = detail::Empty>
 class WeakFuture;
 class FutureWaiter;
 

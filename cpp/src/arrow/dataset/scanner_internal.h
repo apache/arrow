@@ -36,6 +36,8 @@ using internal::checked_cast;
 
 namespace dataset {
 
+// TODO(ARROW-7001) This synchronous version is no longer needed, can use async version
+// regardless of sync/async of source
 inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it, Expression filter,
                                              MemoryPool* pool) {
   return MakeMaybeMapIterator(
@@ -60,6 +62,38 @@ inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it, Expression 
       std::move(it));
 }
 
+inline Result<std::shared_ptr<RecordBatch>> DoFilterRecordBatch(
+    const Expression& filter, MemoryPool* pool, const std::shared_ptr<RecordBatch>& in) {
+  compute::ExecContext exec_context{pool};
+  ARROW_ASSIGN_OR_RAISE(Datum mask,
+                        ExecuteScalarExpression(filter, Datum(in), &exec_context));
+
+  if (mask.is_scalar()) {
+    const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
+    if (mask_scalar.is_valid && mask_scalar.value) {
+      return std::move(in);
+    }
+    return in->Slice(0, 0);
+  }
+
+  ARROW_ASSIGN_OR_RAISE(
+      Datum filtered,
+      compute::Filter(in, mask, compute::FilterOptions::Defaults(), &exec_context));
+  return filtered.record_batch();
+}
+
+inline RecordBatchGenerator FilterRecordBatch(RecordBatchGenerator rbs, Expression filter,
+                                              MemoryPool* pool) {
+  // TODO(ARROW-7001) This changes to auto
+  std::function<Result<std::shared_ptr<RecordBatch>>(const std::shared_ptr<RecordBatch>&)>
+      mapper = [=](const std::shared_ptr<RecordBatch>& in) {
+        return DoFilterRecordBatch(filter, pool, in);
+      };
+  return MakeMappedGenerator(std::move(rbs), mapper);
+}
+
+// TODO(ARROW-7001) This synchronous version is no longer needed, all branches use async
+// version
 inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
                                               Expression projection, MemoryPool* pool) {
   return MakeMaybeMapIterator(
@@ -83,14 +117,45 @@ inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
       std::move(it));
 }
 
+inline Result<std::shared_ptr<RecordBatch>> DoProjectRecordBatch(
+    const Expression& projection, MemoryPool* pool,
+    const std::shared_ptr<RecordBatch>& in) {
+  compute::ExecContext exec_context{pool};
+  ARROW_ASSIGN_OR_RAISE(Datum projected,
+                        ExecuteScalarExpression(projection, Datum(in), &exec_context));
+  DCHECK_EQ(projected.type()->id(), Type::STRUCT);
+  if (projected.shape() == ValueDescr::SCALAR) {
+    // Only virtual columns are projected. Broadcast to an array
+    ARROW_ASSIGN_OR_RAISE(projected,
+                          MakeArrayFromScalar(*projected.scalar(), in->num_rows(), pool));
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto out,
+                        RecordBatch::FromStructArray(projected.array_as<StructArray>()));
+
+  return out->ReplaceSchemaMetadata(in->schema()->metadata());
+}
+
+inline RecordBatchGenerator ProjectRecordBatch(RecordBatchGenerator rbs,
+                                               Expression projection, MemoryPool* pool) {
+  // TODO(ARROW-7001) This changes to auto
+  std::function<Result<std::shared_ptr<RecordBatch>>(const std::shared_ptr<RecordBatch>&)>
+      mapper = [=](const std::shared_ptr<RecordBatch>& in) {
+        return DoProjectRecordBatch(projection, pool, in);
+      };
+  return MakeMappedGenerator(std::move(rbs), mapper);
+}
+
 class FilterAndProjectScanTask : public ScanTask {
  public:
   explicit FilterAndProjectScanTask(std::shared_ptr<ScanTask> task, Expression partition)
-      : ScanTask(task->options(), task->context(), task->fragment()),
+      : ScanTask(task->options(), task->fragment()),
         task_(std::move(task)),
         partition_(std::move(partition)) {}
 
-  Result<RecordBatchIterator> Execute() override {
+  bool supports_async() const override { return task_->supports_async(); }
+
+  Result<RecordBatchIterator> ExecuteSync() {
     ARROW_ASSIGN_OR_RAISE(auto it, task_->Execute());
 
     ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
@@ -100,10 +165,40 @@ class FilterAndProjectScanTask : public ScanTask {
                           SimplifyWithGuarantee(options()->projection, partition_));
 
     RecordBatchIterator filter_it =
-        FilterRecordBatch(std::move(it), simplified_filter, context_->pool);
+        FilterRecordBatch(std::move(it), simplified_filter, options_->pool);
 
     return ProjectRecordBatch(std::move(filter_it), simplified_projection,
-                              context_->pool);
+                              options_->pool);
+  }
+
+  Result<RecordBatchIterator> Execute() override {
+    if (task_->supports_async()) {
+      ARROW_ASSIGN_OR_RAISE(auto gen, ExecuteAsync());
+      return MakeGeneratorIterator(std::move(gen));
+    } else {
+      return ExecuteSync();
+    }
+  }
+
+  Result<RecordBatchGenerator> ExecuteAsync() override {
+    if (!task_->supports_async()) {
+      return Status::Invalid(
+          "ExecuteAsync should not have been called on FilterAndProjectScanTask if the "
+          "source task did not support async");
+    }
+    ARROW_ASSIGN_OR_RAISE(auto gen, task_->ExecuteAsync());
+
+    ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
+                          SimplifyWithGuarantee(options()->filter, partition_));
+
+    ARROW_ASSIGN_OR_RAISE(Expression simplified_projection,
+                          SimplifyWithGuarantee(options()->projection, partition_));
+
+    RecordBatchGenerator filter_gen =
+        FilterRecordBatch(std::move(gen), simplified_filter, options_->pool);
+
+    return ProjectRecordBatch(std::move(filter_gen), simplified_projection,
+                              options_->pool);
   }
 
  private:
@@ -114,12 +209,10 @@ class FilterAndProjectScanTask : public ScanTask {
 /// \brief GetScanTaskIterator transforms an Iterator<Fragment> in a
 /// flattened Iterator<ScanTask>.
 inline Result<ScanTaskIterator> GetScanTaskIterator(
-    FragmentIterator fragments, std::shared_ptr<ScanOptions> options,
-    std::shared_ptr<ScanContext> context) {
+    FragmentIterator fragments, std::shared_ptr<ScanOptions> options) {
   // Fragment -> ScanTaskIterator
-  auto fn = [options,
-             context](std::shared_ptr<Fragment> fragment) -> Result<ScanTaskIterator> {
-    ARROW_ASSIGN_OR_RAISE(auto scan_task_it, fragment->Scan(options, context));
+  auto fn = [options](std::shared_ptr<Fragment> fragment) -> Result<ScanTaskIterator> {
+    ARROW_ASSIGN_OR_RAISE(auto scan_task_it, fragment->Scan(options));
 
     auto partition = fragment->partition_expression();
     // Apply the filter and/or projection to incoming RecordBatches by

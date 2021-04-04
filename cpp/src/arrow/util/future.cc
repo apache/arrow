@@ -39,6 +39,8 @@ using internal::checked_cast;
 // should ideally not limit scalability.
 static std::mutex global_waiter_mutex;
 
+const double FutureWaiter::kInfinity = HUGE_VAL;
+
 class FutureWaiterImpl : public FutureWaiter {
  public:
   FutureWaiterImpl(Kind kind, std::vector<FutureImpl*> futures)
@@ -347,6 +349,10 @@ Future<> AllComplete(const std::vector<Future<>>& futures) {
     std::mutex mutex;
     std::atomic<size_t> n_remaining;
   };
+
+  if (futures.empty()) {
+    return Future<>::MakeFinished();
+  }
 
   auto state = std::make_shared<State>(futures.size());
   auto out = Future<>::Make();

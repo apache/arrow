@@ -39,8 +39,8 @@ fn limit_push_down(
     upper_limit: Option<usize>,
     plan: &LogicalPlan,
 ) -> Result<LogicalPlan> {
-    match plan {
-        LogicalPlan::Limit { n, input } => {
+    match (plan, upper_limit) {
+        (LogicalPlan::Limit { n, input }, upper_limit) => {
             let smallest = upper_limit.map(|x| std::cmp::min(x, *n)).unwrap_or(*n);
             Ok(LogicalPlan::Limit {
                 n: smallest,
@@ -48,36 +48,62 @@ fn limit_push_down(
                 input: Arc::new(limit_push_down(Some(smallest), input.as_ref())?),
             })
         }
-        LogicalPlan::TableScan {
-            table_name,
-            source,
-            projection,
-            filters,
-            limit,
-            projected_schema,
-        } => {
-            if let Some(n) = upper_limit {
-                Ok(LogicalPlan::TableScan {
-                    table_name: table_name.clone(),
-                    source: source.clone(),
-                    projection: projection.clone(),
-                    filters: filters.clone(),
-                    limit: limit.map(|x| std::cmp::min(x, n)).or(Some(n)),
-                    projected_schema: projected_schema.clone(),
-                })
-            } else {
-                Ok(plan.clone())
-            }
-        }
-        LogicalPlan::Projection {
-            expr,
-            input,
-            schema,
-        } => {
+        (
+            LogicalPlan::TableScan {
+                table_name,
+                source,
+                projection,
+                filters,
+                limit,
+                projected_schema,
+            },
+            Some(upper_limit),
+        ) => Ok(LogicalPlan::TableScan {
+            table_name: table_name.clone(),
+            source: source.clone(),
+            projection: projection.clone(),
+            filters: filters.clone(),
+            limit: limit
+                .map(|x| std::cmp::min(x, upper_limit))
+                .or(Some(upper_limit)),
+            projected_schema: projected_schema.clone(),
+        }),
+        (
+            LogicalPlan::Projection {
+                expr,
+                input,
+                schema,
+            },
+            upper_limit,
+        ) => {
             // Push down limit directly (projection doesn't change number of rows)
             Ok(LogicalPlan::Projection {
                 expr: expr.clone(),
                 input: Arc::new(limit_push_down(upper_limit, input.as_ref())?),
+                schema: schema.clone(),
+            })
+        }
+        (
+            LogicalPlan::Union {
+                inputs,
+                alias,
+                schema,
+            },
+            Some(upper_limit),
+        ) => {
+            // Push down limit through UNION
+            let new_inputs = inputs
+                .iter()
+                .map(|x| {
+                    Ok(LogicalPlan::Limit {
+                        n: upper_limit,
+                        input: Arc::new(limit_push_down(Some(upper_limit), x)?),
+                    })
+                })
+                .collect::<Result<_>>()?;
+            Ok(LogicalPlan::Union {
+                inputs: new_inputs,
+                alias: alias.clone(),
                 schema: schema.clone(),
             })
         }
@@ -127,7 +153,7 @@ mod test {
         let table_scan = test_table_scan()?;
 
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(&[col("a")])?
+            .project(vec![col("a")])?
             .limit(1000)?
             .build()?;
 
@@ -167,7 +193,7 @@ mod test {
         let table_scan = test_table_scan()?;
 
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .aggregate(&[col("a")], &[max(col("b"))])?
+            .aggregate(vec![col("a")], vec![max(col("b"))])?
             .limit(1000)?
             .build()?;
 
@@ -182,12 +208,34 @@ mod test {
     }
 
     #[test]
+    fn limit_should_push_down_union() -> Result<()> {
+        let table_scan = test_table_scan()?;
+
+        let plan = LogicalPlanBuilder::from(&table_scan)
+            .union(LogicalPlanBuilder::from(&table_scan).build()?)?
+            .limit(1000)?
+            .build()?;
+
+        // Limit should push down through union
+        let expected = "Limit: 1000\
+        \n  Union\
+        \n    Limit: 1000\
+        \n      TableScan: test projection=None, limit=1000\
+        \n    Limit: 1000\
+        \n      TableScan: test projection=None, limit=1000";
+
+        assert_optimized_plan_eq(&plan, expected);
+
+        Ok(())
+    }
+
+    #[test]
     fn multi_stage_limit_recurses_to_deeper_limit() -> Result<()> {
         let table_scan = test_table_scan()?;
 
         let plan = LogicalPlanBuilder::from(&table_scan)
             .limit(1000)?
-            .aggregate(&[col("a")], &[max(col("b"))])?
+            .aggregate(vec![col("a")], vec![max(col("b"))])?
             .limit(10)?
             .build()?;
 

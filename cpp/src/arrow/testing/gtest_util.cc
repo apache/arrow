@@ -26,12 +26,14 @@
 
 #include <algorithm>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
 #include <limits>
 #include <locale>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -47,8 +49,10 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/windows_compatibility.h"
 
 namespace arrow {
 
@@ -130,20 +134,21 @@ void AssertArraysEqualWith(const Array& expected, const Array& actual, bool verb
   }
 }
 
-void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose) {
+void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose,
+                       const EqualOptions& options) {
   return AssertArraysEqualWith(
       expected, actual, verbose,
-      [](const Array& expected, const Array& actual, std::stringstream* diff) {
-        return expected.Equals(actual, EqualOptions().diff_sink(diff));
+      [&](const Array& expected, const Array& actual, std::stringstream* diff) {
+        return expected.Equals(actual, options.diff_sink(diff));
       });
 }
 
 void AssertArraysApproxEqual(const Array& expected, const Array& actual, bool verbose,
-                             const EqualOptions& option) {
+                             const EqualOptions& options) {
   return AssertArraysEqualWith(
       expected, actual, verbose,
-      [&option](const Array& expected, const Array& actual, std::stringstream* diff) {
-        return expected.ApproxEquals(actual, option.diff_sink(diff));
+      [&](const Array& expected, const Array& actual, std::stringstream* diff) {
+        return expected.ApproxEquals(actual, options.diff_sink(diff));
       });
 }
 
@@ -595,11 +600,56 @@ void SleepFor(double seconds) {
       std::chrono::nanoseconds(static_cast<int64_t>(seconds * 1e9)));
 }
 
+#ifdef _WIN32
+void SleepABit() {
+  LARGE_INTEGER freq, start, now;
+  QueryPerformanceFrequency(&freq);
+  // 1 ms
+  auto desired = freq.QuadPart / 1000;
+  if (desired <= 0) {
+    // Fallback to STL sleep if high resolution clock not available, tests may fail,
+    // shouldn't really happen
+    SleepFor(1e-3);
+    return;
+  }
+  QueryPerformanceCounter(&start);
+  while (true) {
+    std::this_thread::yield();
+    QueryPerformanceCounter(&now);
+    auto elapsed = now.QuadPart - start.QuadPart;
+    if (elapsed > desired) {
+      break;
+    }
+  }
+}
+#else
+// std::this_thread::sleep_for should be high enough resolution on non-Windows systems
+void SleepABit() { SleepFor(1e-3); }
+#endif
+
 void BusyWait(double seconds, std::function<bool()> predicate) {
   const double period = 0.001;
   for (int i = 0; !predicate() && i * period < seconds; ++i) {
     SleepFor(period);
   }
+}
+
+Future<> SleepAsync(double seconds) {
+  auto out = Future<>::Make();
+  std::thread([out, seconds]() mutable {
+    SleepFor(seconds);
+    out.MarkFinished(Status::OK());
+  }).detach();
+  return out;
+}
+
+Future<> SleepABitAsync() {
+  auto out = Future<>::Make();
+  std::thread([out]() mutable {
+    SleepABit();
+    out.MarkFinished(Status::OK());
+  }).detach();
+  return out;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -716,6 +766,90 @@ ExtensionTypeGuard::~ExtensionTypeGuard() {
   if (!extension_name_.empty()) {
     ARROW_CHECK_OK(UnregisterExtensionType(extension_name_));
   }
+}
+
+class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
+ public:
+  explicit Impl(double timeout_seconds)
+      : timeout_seconds_(timeout_seconds), status_(), unlocked_(false) {}
+
+  ~Impl() {
+    if (num_running_ != num_launched_) {
+      ADD_FAILURE()
+          << "A GatingTask instance was destroyed but some underlying tasks did not "
+             "start running"
+          << std::endl;
+    } else if (num_finished_ != num_launched_) {
+      ADD_FAILURE()
+          << "A GatingTask instance was destroyed but some underlying tasks did not "
+             "finish running"
+          << std::endl;
+    }
+  }
+
+  std::function<void()> Task() {
+    num_launched_++;
+    auto self = shared_from_this();
+    return [self] { self->RunTask(); };
+  }
+
+  void RunTask() {
+    std::unique_lock<std::mutex> lk(mx_);
+    num_running_++;
+    running_cv_.notify_all();
+    if (!unlocked_cv_.wait_for(
+            lk, std::chrono::nanoseconds(static_cast<int64_t>(timeout_seconds_ * 1e9)),
+            [this] { return unlocked_; })) {
+      status_ &= Status::Invalid("Timed out (" + std::to_string(timeout_seconds_) + "," +
+                                 std::to_string(unlocked_) +
+                                 " seconds) waiting for the gating task to be unlocked");
+    }
+    num_finished_++;
+    finished_cv_.notify_all();
+  }
+
+  Status WaitForRunning(int count) {
+    std::unique_lock<std::mutex> lk(mx_);
+    if (running_cv_.wait_for(
+            lk, std::chrono::nanoseconds(static_cast<int64_t>(timeout_seconds_ * 1e9)),
+            [this, count] { return num_running_ >= count; })) {
+      return Status::OK();
+    }
+    return Status::Invalid("Timed out waiting for tasks to launch");
+  }
+
+  Status Unlock() {
+    std::lock_guard<std::mutex> lk(mx_);
+    unlocked_ = true;
+    unlocked_cv_.notify_all();
+    return status_;
+  }
+
+ private:
+  double timeout_seconds_;
+  Status status_;
+  bool unlocked_;
+  int num_launched_ = 0;
+  int num_running_ = 0;
+  int num_finished_ = 0;
+  std::mutex mx_;
+  std::condition_variable running_cv_;
+  std::condition_variable unlocked_cv_;
+  std::condition_variable finished_cv_;
+};
+
+GatingTask::GatingTask(double timeout_seconds) : impl_(new Impl(timeout_seconds)) {}
+
+GatingTask::~GatingTask() {}
+
+std::function<void()> GatingTask::Task() { return impl_->Task(); }
+
+Status GatingTask::Unlock() { return impl_->Unlock(); }
+
+Status GatingTask::WaitForRunning(int count) { return impl_->WaitForRunning(count); }
+
+std::shared_ptr<GatingTask> GatingTask::Make(double timeout_seconds) {
+  return std::make_shared<GatingTask>(timeout_seconds);
 }
 
 }  // namespace arrow

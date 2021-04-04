@@ -27,6 +27,7 @@
 
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/optional.h"
@@ -175,7 +176,9 @@ class ARROW_EXPORT FutureWaiter {
  public:
   enum Kind : int8_t { ANY, ALL, ALL_OR_FIRST_FAILED, ITERATE };
 
-  static constexpr double kInfinity = HUGE_VAL;
+  // HUGE_VAL isn't constexpr on Windows
+  // https://social.msdn.microsoft.com/Forums/vstudio/en-US/47e8b9ff-b205-4189-968e-ee3bc3e2719f/constexpr-compile-error?forum=vclanguage
+  static const double kInfinity;
 
   static std::unique_ptr<FutureWaiter> Make(Kind kind, std::vector<FutureImpl*> futures);
 
@@ -627,6 +630,10 @@ Future<std::vector<Result<T>>> All(std::vector<Future<T>> futures) {
     std::vector<Future<T>> futures;
     std::atomic<size_t> n_remaining;
   };
+
+  if (futures.size() == 0) {
+    return {std::vector<Result<T>>{}};
+  }
 
   auto state = std::make_shared<State>(std::move(futures));
 

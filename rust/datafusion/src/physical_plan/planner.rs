@@ -19,7 +19,9 @@
 
 use std::sync::Arc;
 
-use super::{aggregates, empty::EmptyExec, expressions::binary, functions, udaf};
+use super::{
+    aggregates, empty::EmptyExec, expressions::binary, functions, udaf, union::UnionExec,
+};
 use crate::error::{DataFusionError, Result};
 use crate::execution::context::ExecutionContextState;
 use crate::logical_plan::{
@@ -267,6 +269,13 @@ impl DefaultPhysicalPlanner {
                 let runtime_expr =
                     self.create_physical_expr(predicate, &input_schema, ctx_state)?;
                 Ok(Arc::new(FilterExec::try_new(runtime_expr, input)?))
+            }
+            LogicalPlan::Union { inputs, .. } => {
+                let physical_plans = inputs
+                    .iter()
+                    .map(|input| self.create_physical_plan(input, ctx_state))
+                    .collect::<Result<Vec<_>>>()?;
+                Ok(Arc::new(UnionExec::new(physical_plans)))
             }
             LogicalPlan::Repartition {
                 input,
@@ -740,10 +749,13 @@ fn tuple_err<T, R>(value: (Result<T>, Result<R>)) -> Result<(T, R)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::logical_plan::{DFField, DFSchema, DFSchemaRef};
     use crate::physical_plan::{csv::CsvReadOptions, expressions, Partitioning};
     use crate::prelude::ExecutionConfig;
     use crate::scalar::ScalarValue;
+    use crate::{
+        catalog::catalog::MemoryCatalogList,
+        logical_plan::{DFField, DFSchema, DFSchemaRef},
+    };
     use crate::{
         logical_plan::{col, lit, sum, LogicalPlanBuilder},
         physical_plan::SendableRecordBatchStream,
@@ -755,7 +767,7 @@ mod tests {
 
     fn make_ctx_state() -> ExecutionContextState {
         ExecutionContextState {
-            datasources: HashMap::new(),
+            catalog_list: Arc::new(MemoryCatalogList::new()),
             scalar_functions: HashMap::new(),
             var_provider: HashMap::new(),
             aggregate_functions: HashMap::new(),
@@ -778,9 +790,9 @@ mod tests {
         let logical_plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
             // filter clause needs the type coercion rule applied
             .filter(col("c7").lt(lit(5_u8)))?
-            .project(&[col("c1"), col("c2")])?
-            .aggregate(&[col("c1")], &[sum(col("c2"))])?
-            .sort(&[col("c1").sort(true, true)])?
+            .project(vec![col("c1"), col("c2")])?
+            .aggregate(vec![col("c1")], vec![sum(col("c2"))])?
+            .sort(vec![col("c1").sort(true, true)])?
             .limit(10)?
             .build()?;
 
@@ -851,7 +863,7 @@ mod tests {
         ];
         for case in cases {
             let logical_plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
-                .project(&[case.clone()]);
+                .project(vec![case.clone()]);
             let message = format!(
                 "Expression {:?} expected to error due to impossible coercion",
                 case
@@ -870,7 +882,8 @@ mod tests {
         };
         let plan = planner.create_physical_plan(&logical_plan, &ctx_state);
 
-        let expected_error = "No installed planner was able to convert the custom node to an execution plan: NoOp";
+        let expected_error =
+            "No installed planner was able to convert the custom node to an execution plan: NoOp";
         match plan {
             Ok(_) => panic!("Expected planning failure"),
             Err(e) => assert!(
@@ -941,7 +954,7 @@ mod tests {
         let logical_plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
             // filter clause needs the type coercion rule applied
             .filter(col("c12").lt(lit(0.05)))?
-            .project(&[col("c1").in_list(list, false)])?
+            .project(vec![col("c1").in_list(list, false)])?
             .build()?;
         let execution_plan = plan(&logical_plan)?;
         // verify that the plan correctly adds cast from Int64(1) to Utf8
@@ -956,7 +969,7 @@ mod tests {
         let logical_plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
             // filter clause needs the type coercion rule applied
             .filter(col("c12").lt(lit(0.05)))?
-            .project(&[col("c12").lt_eq(lit(0.025)).in_list(list, false)])?
+            .project(vec![col("c12").lt_eq(lit(0.025)).in_list(list, false)])?
             .build()?;
         let execution_plan = plan(&logical_plan);
 
@@ -981,7 +994,7 @@ mod tests {
 
         let options = CsvReadOptions::new().schema_infer_max_records(100);
         let logical_plan = LogicalPlanBuilder::scan_csv(&path, options, None)?
-            .aggregate(&[col("c1")], &[sum(col("c2"))])?
+            .aggregate(vec![col("c1")], vec![sum(col("c2"))])?
             .build()?;
 
         let execution_plan = plan(&logical_plan)?;

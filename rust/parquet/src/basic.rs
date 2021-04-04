@@ -59,6 +59,9 @@ pub enum Type {
 /// Common types (converted types) used by frameworks when using Parquet.
 /// This helps map between types in those frameworks to the base types in Parquet.
 /// This is only metadata and not needed to read or write the data.
+///
+/// This struct was renamed from `LogicalType` in version 4.0.0.
+/// If targeting Parquet format 2.4.0 or above, please use [LogicalType] instead.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ConvertedType {
     NONE,
@@ -155,7 +158,11 @@ pub enum ConvertedType {
 // ----------------------------------------------------------------------
 // Mirrors `parquet::LogicalType`
 
-/// Logical types used by version 2 of the Parquet format.
+/// Logical types used by version 2.4.0+ of the Parquet format.
+///
+/// This is an *entirely new* struct as of version
+/// 4.0.0. The struct previously named `LogicalType` was renamed to
+/// [`ConvertedType`]. Please see the README.md for more details.
 #[derive(Debug, Clone, PartialEq)]
 pub enum LogicalType {
     STRING(StringType),
@@ -841,83 +848,26 @@ impl str::FromStr for LogicalType {
 
     fn from_str(s: &str) -> result::Result<Self, Self::Err> {
         match s {
-            "INTEGER(8,true)" => Ok(LogicalType::INTEGER(IntType {
+            // The type is a placeholder that gets updated elsewhere
+            "INTEGER" => Ok(LogicalType::INTEGER(IntType {
                 bit_width: 8,
-                is_signed: true,
-            })),
-            "INTEGER(16,true)" => Ok(LogicalType::INTEGER(IntType {
-                bit_width: 16,
-                is_signed: true,
-            })),
-            "INTEGER(32,true)" => Ok(LogicalType::INTEGER(IntType {
-                bit_width: 32,
-                is_signed: true,
-            })),
-            "INTEGER(64,true)" => Ok(LogicalType::INTEGER(IntType {
-                bit_width: 64,
-                is_signed: true,
-            })),
-            "INTEGER(8,false)" => Ok(LogicalType::INTEGER(IntType {
-                bit_width: 8,
-                is_signed: false,
-            })),
-            "INTEGER(16,false)" => Ok(LogicalType::INTEGER(IntType {
-                bit_width: 16,
-                is_signed: false,
-            })),
-            "INTEGER(32,false)" => Ok(LogicalType::INTEGER(IntType {
-                bit_width: 32,
-                is_signed: false,
-            })),
-            "INTEGER(64,false)" => Ok(LogicalType::INTEGER(IntType {
-                bit_width: 64,
                 is_signed: false,
             })),
             "MAP" => Ok(LogicalType::MAP(MapType {})),
             "LIST" => Ok(LogicalType::LIST(ListType {})),
             "ENUM" => Ok(LogicalType::ENUM(EnumType {})),
-            // TODO: ARROW-11365
-            // "DECIMAL" => Ok(LogicalType::DECIMAL),
+            "DECIMAL" => Ok(LogicalType::DECIMAL(DecimalType {
+                precision: -1,
+                scale: -1,
+            })),
             "DATE" => Ok(LogicalType::DATE(DateType {})),
-            "TIME(MILLIS,true)" => Ok(LogicalType::TIME(TimeType {
-                is_adjusted_to_u_t_c: true,
-                unit: TimeUnit::MILLIS(parquet::MilliSeconds {}),
-            })),
-            "TIME(MILLIS,false)" => Ok(LogicalType::TIME(TimeType {
+            "TIME" => Ok(LogicalType::TIME(TimeType {
                 is_adjusted_to_u_t_c: false,
                 unit: TimeUnit::MILLIS(parquet::MilliSeconds {}),
             })),
-            "TIME(MICROS,true)" => Ok(LogicalType::TIME(TimeType {
-                is_adjusted_to_u_t_c: true,
-                unit: TimeUnit::MICROS(parquet::MicroSeconds {}),
-            })),
-            "TIME(MICROS,false)" => Ok(LogicalType::TIME(TimeType {
-                is_adjusted_to_u_t_c: false,
-                unit: TimeUnit::MICROS(parquet::MicroSeconds {}),
-            })),
-            "TIMESTAMP(MILLIS,true)" => Ok(LogicalType::TIMESTAMP(TimestampType {
-                is_adjusted_to_u_t_c: true,
-                unit: TimeUnit::MILLIS(parquet::MilliSeconds {}),
-            })),
-            "TIMESTAMP(MILLIS,false)" => Ok(LogicalType::TIMESTAMP(TimestampType {
+            "TIMESTAMP" => Ok(LogicalType::TIMESTAMP(TimestampType {
                 is_adjusted_to_u_t_c: false,
                 unit: TimeUnit::MILLIS(parquet::MilliSeconds {}),
-            })),
-            "TIMESTAMP(MICROS,true)" => Ok(LogicalType::TIMESTAMP(TimestampType {
-                is_adjusted_to_u_t_c: true,
-                unit: TimeUnit::MICROS(parquet::MicroSeconds {}),
-            })),
-            "TIMESTAMP(MICROS,false)" => Ok(LogicalType::TIMESTAMP(TimestampType {
-                is_adjusted_to_u_t_c: false,
-                unit: TimeUnit::MICROS(parquet::MicroSeconds {}),
-            })),
-            "TIMESTAMP(NANOS,true)" => Ok(LogicalType::TIMESTAMP(TimestampType {
-                is_adjusted_to_u_t_c: true,
-                unit: TimeUnit::MICROS(parquet::MicroSeconds {}),
-            })),
-            "TIMESTAMP(NANOS,false)" => Ok(LogicalType::TIMESTAMP(TimestampType {
-                is_adjusted_to_u_t_c: false,
-                unit: TimeUnit::MICROS(parquet::MicroSeconds {}),
             })),
             "STRING" => Ok(LogicalType::STRING(StringType {})),
             "JSON" => Ok(LogicalType::JSON(JsonType {})),

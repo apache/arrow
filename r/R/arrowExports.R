@@ -284,6 +284,10 @@ compute__CallFunction <- function(func_name, args, options){
     .Call(`_arrow_compute__CallFunction`, func_name, args, options)
 }
 
+compute__GroupBy <- function(arguments, keys, options){
+    .Call(`_arrow_compute__GroupBy`, arguments, keys, options)
+}
+
 list_compute_functions <- function(){
     .Call(`_arrow_list_compute_functions`)
 }
@@ -428,8 +432,16 @@ dataset___IpcFileFormat__Make <- function(){
     .Call(`_arrow_dataset___IpcFileFormat__Make`)
 }
 
-dataset___CsvFileFormat__Make <- function(parse_options){
-    .Call(`_arrow_dataset___CsvFileFormat__Make`, parse_options)
+dataset___CsvFileFormat__Make <- function(parse_options, convert_options, read_options){
+    .Call(`_arrow_dataset___CsvFileFormat__Make`, parse_options, convert_options, read_options)
+}
+
+dataset___FragmentScanOptions__type_name <- function(fragment_scan_options){
+    .Call(`_arrow_dataset___FragmentScanOptions__type_name`, fragment_scan_options)
+}
+
+dataset___CsvFragmentScanOptions__Make <- function(convert_options, read_options){
+    .Call(`_arrow_dataset___CsvFragmentScanOptions__Make`, convert_options, read_options)
 }
 
 dataset___DirectoryPartitioning <- function(schm){
@@ -466,6 +478,10 @@ dataset___ScannerBuilder__UseThreads <- function(sb, threads){
 
 dataset___ScannerBuilder__BatchSize <- function(sb, batch_size){
     invisible(.Call(`_arrow_dataset___ScannerBuilder__BatchSize`, sb, batch_size))
+}
+
+dataset___ScannerBuilder__FragmentScanOptions <- function(sb, options){
+    invisible(.Call(`_arrow_dataset___ScannerBuilder__FragmentScanOptions`, sb, options))
 }
 
 dataset___ScannerBuilder__schema <- function(sb){
@@ -1448,12 +1464,24 @@ Scalar__as_vector <- function(scalar){
     .Call(`_arrow_Scalar__as_vector`, scalar)
 }
 
+MakeArrayFromScalar <- function(scalar){
+    .Call(`_arrow_MakeArrayFromScalar`, scalar)
+}
+
 Scalar__is_valid <- function(s){
     .Call(`_arrow_Scalar__is_valid`, s)
 }
 
 Scalar__type <- function(s){
     .Call(`_arrow_Scalar__type`, s)
+}
+
+Scalar__Equals <- function(lhs, rhs){
+    .Call(`_arrow_Scalar__Equals`, lhs, rhs)
+}
+
+Scalar__ApproxEquals <- function(lhs, rhs){
+    .Call(`_arrow_Scalar__ApproxEquals`, lhs, rhs)
 }
 
 schema_ <- function(fields){

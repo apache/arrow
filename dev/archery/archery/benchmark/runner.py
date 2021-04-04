@@ -120,11 +120,14 @@ class StaticBenchmarkRunner(BenchmarkRunner):
 
     @staticmethod
     def from_json(path_or_str, **kwargs):
-        # breaks recursive imports
-        from ..utils.codec import BenchmarkRunnerCodec
-        path_or_str, json_load = (open(path_or_str), json.load) \
-            if os.path.isfile(path_or_str) else (path_or_str, json.loads)
-        return BenchmarkRunnerCodec.decode(json_load(path_or_str), **kwargs)
+        # .codec imported here to break recursive imports
+        from .codec import BenchmarkRunnerCodec
+        if os.path.isfile(path_or_str):
+            with open(path_or_str) as f:
+                loaded = json.load(f)
+        else:
+            loaded = json.loads(path_or_str)
+        return BenchmarkRunnerCodec.decode(loaded, **kwargs)
 
     def __repr__(self):
         return "BenchmarkRunner[suites={}]".format(list(self.suites))

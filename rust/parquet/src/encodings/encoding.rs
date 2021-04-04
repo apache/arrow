@@ -77,8 +77,8 @@ pub fn get_encoder<T: DataType>(
     desc: ColumnDescPtr,
     encoding: Encoding,
     mem_tracker: MemTrackerPtr,
-) -> Result<Box<Encoder<T>>> {
-    let encoder: Box<Encoder<T>> = match encoding {
+) -> Result<Box<dyn Encoder<T>>> {
+    let encoder: Box<dyn Encoder<T>> = match encoding {
         Encoding::PLAIN => Box::new(PlainEncoder::new(desc, mem_tracker, vec![])),
         Encoding::RLE_DICTIONARY | Encoding::PLAIN_DICTIONARY => {
             return Err(general_err!(
@@ -1261,8 +1261,8 @@ mod tests {
     }
 
     fn put_and_get<T: DataType>(
-        encoder: &mut Box<Encoder<T>>,
-        decoder: &mut Box<Decoder<T>>,
+        encoder: &mut Box<dyn Encoder<T>>,
+        decoder: &mut Box<dyn Decoder<T>>,
         input: &[T::T],
         output: &mut [T::T],
     ) -> Result<usize> {
@@ -1305,13 +1305,19 @@ mod tests {
         ))
     }
 
-    fn create_test_encoder<T: DataType>(type_len: i32, enc: Encoding) -> Box<Encoder<T>> {
+    fn create_test_encoder<T: DataType>(
+        type_len: i32,
+        enc: Encoding,
+    ) -> Box<dyn Encoder<T>> {
         let desc = create_test_col_desc_ptr(type_len, T::get_physical_type());
         let mem_tracker = Arc::new(MemTracker::new());
         get_encoder(desc, enc, mem_tracker).unwrap()
     }
 
-    fn create_test_decoder<T: DataType>(type_len: i32, enc: Encoding) -> Box<Decoder<T>> {
+    fn create_test_decoder<T: DataType>(
+        type_len: i32,
+        enc: Encoding,
+    ) -> Box<dyn Decoder<T>> {
         let desc = create_test_col_desc_ptr(type_len, T::get_physical_type());
         get_decoder(desc, enc).unwrap()
     }

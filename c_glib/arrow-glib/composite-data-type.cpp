@@ -17,10 +17,6 @@
  * under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#  include <config.h>
-#endif
-
 #include <arrow-glib/basic-array.hpp>
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/enums.h>

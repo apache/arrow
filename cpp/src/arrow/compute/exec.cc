@@ -36,6 +36,7 @@
 #include "arrow/compute/registry.h"
 #include "arrow/compute/util_internal.h"
 #include "arrow/datum.h"
+#include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -57,6 +58,44 @@ using internal::CpuInfo;
 
 namespace compute {
 
+ExecContext* default_exec_context() {
+  static ExecContext default_ctx;
+  return &default_ctx;
+}
+
+ExecBatch::ExecBatch(const RecordBatch& batch)
+    : values(batch.num_columns()), length(batch.num_rows()) {
+  auto columns = batch.column_data();
+  std::move(columns.begin(), columns.end(), values.begin());
+}
+
+Result<ExecBatch> ExecBatch::Make(std::vector<Datum> values) {
+  if (values.empty()) {
+    return Status::Invalid("Cannot infer ExecBatch length without at least one value");
+  }
+
+  int64_t length = -1;
+  for (const auto& value : values) {
+    if (value.is_scalar()) {
+      if (length == -1) {
+        length = 1;
+      }
+      continue;
+    }
+
+    if (length == -1) {
+      length = value.length();
+      continue;
+    }
+
+    if (length != value.length()) {
+      return Status::Invalid(
+          "Arrays used to construct an ExecBatch must have equal length");
+    }
+  }
+
+  return ExecBatch(std::move(values), length);
+}
 namespace {
 
 Result<std::shared_ptr<Buffer>> AllocateDataBuffer(KernelContext* ctx, int64_t length,
@@ -838,6 +877,7 @@ class ScalarAggExecutor : public KernelExecutorImpl<ScalarAggregateKernel> {
 
  private:
   Status Consume(const ExecBatch& batch) {
+    // FIXME(ARROW-11840) don't merge *any* aggegates for every batch
     auto batch_state = kernel_->init(kernel_ctx_, {kernel_, *input_descrs_, options_});
     ARROW_CTX_RETURN_IF_ERROR(kernel_ctx_);
 
@@ -855,6 +895,7 @@ class ScalarAggExecutor : public KernelExecutorImpl<ScalarAggregateKernel> {
 
     kernel_->merge(kernel_ctx_, std::move(*batch_state), state());
     ARROW_CTX_RETURN_IF_ERROR(kernel_ctx_);
+
     return Status::OK();
   }
 

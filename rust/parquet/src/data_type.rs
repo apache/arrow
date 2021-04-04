@@ -117,19 +117,19 @@ pub struct ByteArray {
 impl PartialOrd for ByteArray {
     fn partial_cmp(&self, other: &ByteArray) -> Option<Ordering> {
         if self.data.is_some() && other.data.is_some() {
-            if self.len() > other.len() {
-                Some(Ordering::Greater)
-            } else if self.len() < other.len() {
-                Some(Ordering::Less)
-            } else {
-                for (v1, v2) in self.data().iter().zip(other.data().iter()) {
-                    if *v1 > *v2 {
-                        return Some(Ordering::Greater);
-                    } else if *v1 < *v2 {
-                        return Some(Ordering::Less);
+            match self.len().cmp(&other.len()) {
+                Ordering::Greater => Some(Ordering::Greater),
+                Ordering::Less => Some(Ordering::Less),
+                Ordering::Equal => {
+                    for (v1, v2) in self.data().iter().zip(other.data().iter()) {
+                        match v1.cmp(v2) {
+                            Ordering::Greater => return Some(Ordering::Greater),
+                            Ordering::Less => return Some(Ordering::Less),
+                            _ => {}
+                        }
                     }
+                    Some(Ordering::Equal)
                 }
-                Some(Ordering::Equal)
             }
         } else {
             None

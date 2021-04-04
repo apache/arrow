@@ -21,7 +21,9 @@ use std::{collections::HashMap, convert::From, fmt, sync::Arc};
 
 use parquet_format::SchemaElement;
 
-use crate::basic::{ConvertedType, LogicalType, Repetition, Type as PhysicalType};
+use crate::basic::{
+    ConvertedType, LogicalType, Repetition, TimeType, TimeUnit, Type as PhysicalType,
+};
 use crate::errors::{ParquetError, Result};
 
 // ----------------------------------------------------------------------
@@ -229,6 +231,8 @@ impl<'a> PrimitiveTypeBuilder<'a> {
     }
 
     /// Sets [`LogicalType`](crate::basic::LogicalType) for this field and returns itself.
+    /// If only the logical type is populated for a primitive type, the converted type
+    /// will be automatically populated, and can thus be omitted.
     pub fn with_logical_type(mut self, logical_type: Option<LogicalType>) -> Self {
         self.logical_type = logical_type;
         self
@@ -266,11 +270,11 @@ impl<'a> PrimitiveTypeBuilder<'a> {
     /// Creates a new `PrimitiveType` instance from the collected attributes.
     /// Returns `Err` in case of any building conditions are not met.
     pub fn build(self) -> Result<Type> {
-        let basic_info = BasicTypeInfo {
+        let mut basic_info = BasicTypeInfo {
             name: String::from(self.name),
             repetition: Some(self.repetition),
             converted_type: self.converted_type,
-            logical_type: self.logical_type,
+            logical_type: self.logical_type.clone(),
             id: self.id,
         };
 
@@ -280,6 +284,89 @@ impl<'a> PrimitiveTypeBuilder<'a> {
                 "Invalid FIXED_LEN_BYTE_ARRAY length: {}",
                 self.length
             ));
+        }
+
+        match &self.logical_type {
+            Some(logical_type) => {
+                // If a converted type is populated, check that it is consistent with
+                // its logical type
+                if self.converted_type != ConvertedType::NONE {
+                    if ConvertedType::from(self.logical_type.clone())
+                        != self.converted_type
+                    {
+                        return Err(general_err!(
+                            "Logical type {:?} is imcompatible with converted type {}",
+                            logical_type,
+                            self.converted_type
+                        ));
+                    }
+                } else {
+                    // Populate the converted type for backwards compatibility
+                    basic_info.converted_type = self.logical_type.clone().into();
+                }
+                // Check that logical type and physical type are compatible
+                match (logical_type, self.physical_type) {
+                    (LogicalType::MAP(_), _) | (LogicalType::LIST(_), _) => {
+                        return Err(general_err!(
+                            "{:?} cannot be applied to a primitive type",
+                            logical_type
+                        ));
+                    }
+                    (LogicalType::ENUM(_), PhysicalType::BYTE_ARRAY) => {}
+                    (LogicalType::DECIMAL(t), _) => {
+                        // Check that scale and precision are consistent with legacy values
+                        if t.scale != self.scale {
+                            return Err(general_err!(
+                                "DECIMAL logical type scale {} must match self.scale {}",
+                                t.scale,
+                                self.scale
+                            ));
+                        }
+                        if t.precision != self.precision {
+                            return Err(general_err!(
+                                "DECIMAL logical type precision {} must match self.precision {}",
+                                t.precision,
+                                self.precision
+                            ));
+                        }
+                        self.check_decimal_precision_scale()?;
+                    }
+                    (LogicalType::DATE(_), PhysicalType::INT32) => {}
+                    (
+                        LogicalType::TIME(TimeType {
+                            unit: TimeUnit::MILLIS(_),
+                            ..
+                        }),
+                        PhysicalType::INT32,
+                    ) => {}
+                    (LogicalType::TIME(t), PhysicalType::INT64) => {
+                        if t.unit == TimeUnit::MILLIS(Default::default()) {
+                            return Err(general_err!(
+                                "Cannot use millisecond unit on INT64 type"
+                            ));
+                        }
+                    }
+                    (LogicalType::TIMESTAMP(_), PhysicalType::INT64) => {}
+                    (LogicalType::INTEGER(t), PhysicalType::INT32)
+                        if t.bit_width <= 32 => {}
+                    (LogicalType::INTEGER(t), PhysicalType::INT64)
+                        if t.bit_width == 64 => {}
+                    // Null type
+                    (LogicalType::UNKNOWN(_), PhysicalType::INT32) => {}
+                    (LogicalType::STRING(_), PhysicalType::BYTE_ARRAY) => {}
+                    (LogicalType::JSON(_), PhysicalType::BYTE_ARRAY) => {}
+                    (LogicalType::BSON(_), PhysicalType::BYTE_ARRAY) => {}
+                    (LogicalType::UUID(_), PhysicalType::FIXED_LEN_BYTE_ARRAY) => {}
+                    (a, b) => {
+                        return Err(general_err!(
+                            "Cannot annotate {:?} from {} fields",
+                            a,
+                            b
+                        ))
+                    }
+                }
+            }
+            None => {}
         }
 
         match self.converted_type {
@@ -293,74 +380,7 @@ impl<'a> PrimitiveTypeBuilder<'a> {
                 }
             }
             ConvertedType::DECIMAL => {
-                match self.physical_type {
-                    PhysicalType::INT32
-                    | PhysicalType::INT64
-                    | PhysicalType::BYTE_ARRAY
-                    | PhysicalType::FIXED_LEN_BYTE_ARRAY => (),
-                    _ => {
-                        return Err(general_err!(
-                            "DECIMAL can only annotate INT32, INT64, BYTE_ARRAY and FIXED"
-                        ));
-                    }
-                }
-
-                // Precision is required and must be a non-zero positive integer.
-                if self.precision < 1 {
-                    return Err(general_err!(
-                        "Invalid DECIMAL precision: {}",
-                        self.precision
-                    ));
-                }
-
-                // Scale must be zero or a positive integer less than the precision.
-                if self.scale < 0 {
-                    return Err(general_err!("Invalid DECIMAL scale: {}", self.scale));
-                }
-
-                if self.scale >= self.precision {
-                    return Err(general_err!(
-                        "Invalid DECIMAL: scale ({}) cannot be greater than or equal to precision \
-                         ({})",
-                        self.scale,
-                        self.precision
-                    ));
-                }
-
-                // Check precision and scale based on physical type limitations.
-                match self.physical_type {
-                    PhysicalType::INT32 => {
-                        if self.precision > 9 {
-                            return Err(general_err!(
-                                "Cannot represent INT32 as DECIMAL with precision {}",
-                                self.precision
-                            ));
-                        }
-                    }
-                    PhysicalType::INT64 => {
-                        if self.precision > 18 {
-                            return Err(general_err!(
-                                "Cannot represent INT64 as DECIMAL with precision {}",
-                                self.precision
-                            ));
-                        }
-                    }
-                    PhysicalType::FIXED_LEN_BYTE_ARRAY => {
-                        let max_precision = (2f64.powi(8 * self.length - 1) - 1f64)
-                            .log10()
-                            .floor() as i32;
-
-                        if self.precision > max_precision {
-                            return Err(general_err!(
-                "Cannot represent FIXED_LEN_BYTE_ARRAY as DECIMAL with length {} and \
-                 precision {}",
-                self.length,
-                self.precision
-              ));
-                        }
-                    }
-                    _ => (), // For BYTE_ARRAY precision is not limited
-                }
+                self.check_decimal_precision_scale()?;
             }
             ConvertedType::DATE
             | ConvertedType::TIME_MILLIS
@@ -418,6 +438,80 @@ impl<'a> PrimitiveTypeBuilder<'a> {
             scale: self.scale,
             precision: self.precision,
         })
+    }
+
+    #[inline]
+    fn check_decimal_precision_scale(&self) -> Result<()> {
+        match self.physical_type {
+            PhysicalType::INT32
+            | PhysicalType::INT64
+            | PhysicalType::BYTE_ARRAY
+            | PhysicalType::FIXED_LEN_BYTE_ARRAY => (),
+            _ => {
+                return Err(general_err!(
+                    "DECIMAL can only annotate INT32, INT64, BYTE_ARRAY and FIXED_LEN_BYTE_ARRAY"
+                ));
+            }
+        }
+
+        // Precision is required and must be a non-zero positive integer.
+        if self.precision < 1 {
+            return Err(general_err!(
+                "Invalid DECIMAL precision: {}",
+                self.precision
+            ));
+        }
+
+        // Scale must be zero or a positive integer less than the precision.
+        if self.scale < 0 {
+            return Err(general_err!("Invalid DECIMAL scale: {}", self.scale));
+        }
+
+        if self.scale >= self.precision {
+            return Err(general_err!(
+            "Invalid DECIMAL: scale ({}) cannot be greater than or equal to precision \
+             ({})",
+            self.scale,
+            self.precision
+        ));
+        }
+
+        // Check precision and scale based on physical type limitations.
+        match self.physical_type {
+            PhysicalType::INT32 => {
+                if self.precision > 9 {
+                    return Err(general_err!(
+                        "Cannot represent INT32 as DECIMAL with precision {}",
+                        self.precision
+                    ));
+                }
+            }
+            PhysicalType::INT64 => {
+                if self.precision > 18 {
+                    return Err(general_err!(
+                        "Cannot represent INT64 as DECIMAL with precision {}",
+                        self.precision
+                    ));
+                }
+            }
+            PhysicalType::FIXED_LEN_BYTE_ARRAY => {
+                let max_precision =
+                    (2f64.powi(8 * self.length - 1) - 1f64).log10().floor() as i32;
+
+                if self.precision > max_precision {
+                    return Err(general_err!(
+                        "Cannot represent FIXED_LEN_BYTE_ARRAY as DECIMAL with length {} and \
+                        precision {}. The max precision can only be {}",
+                        self.length,
+                        self.precision,
+                        max_precision
+                    ));
+                }
+            }
+            _ => (), // For BYTE_ARRAY precision is not limited
+        }
+
+        Ok(())
     }
 }
 
@@ -479,13 +573,17 @@ impl<'a> GroupTypeBuilder<'a> {
 
     /// Creates a new `GroupType` instance from the gathered attributes.
     pub fn build(self) -> Result<Type> {
-        let basic_info = BasicTypeInfo {
+        let mut basic_info = BasicTypeInfo {
             name: String::from(self.name),
             repetition: self.repetition,
             converted_type: self.converted_type,
-            logical_type: self.logical_type,
+            logical_type: self.logical_type.clone(),
             id: self.id,
         };
+        // Populate the converted type if only the logical type is populated
+        if self.logical_type.is_some() && self.converted_type == ConvertedType::NONE {
+            basic_info.converted_type = self.logical_type.into();
+        }
         Ok(Type::GroupType {
             basic_info,
             fields: self.fields,
@@ -613,8 +711,7 @@ impl<'a> From<&'a str> for ColumnPath {
 
 impl From<String> for ColumnPath {
     fn from(single_path: String) -> Self {
-        let mut v = vec![];
-        v.push(single_path);
+        let v = vec![single_path];
         ColumnPath { parts: v }
     }
 }
@@ -1099,6 +1196,7 @@ fn to_thrift_helper(schema: &Type, elements: &mut Vec<SchemaElement>) {
 mod tests {
     use super::*;
 
+    use crate::basic::{DecimalType, IntType};
     use crate::schema::parser::parse_message_type;
 
     // TODO: add tests for v2 types
@@ -1106,7 +1204,10 @@ mod tests {
     #[test]
     fn test_primitive_type() {
         let mut result = Type::primitive_type_builder("foo", PhysicalType::INT32)
-            .with_converted_type(ConvertedType::INT_32)
+            .with_logical_type(Some(LogicalType::INTEGER(IntType {
+                bit_width: 32,
+                is_signed: true,
+            })))
             .with_id(0)
             .build();
         assert!(result.is_ok());
@@ -1116,6 +1217,13 @@ mod tests {
             assert!(!tp.is_group());
             let basic_info = tp.get_basic_info();
             assert_eq!(basic_info.repetition(), Repetition::OPTIONAL);
+            assert_eq!(
+                basic_info.logical_type(),
+                Some(LogicalType::INTEGER(IntType {
+                    bit_width: 32,
+                    is_signed: true
+                }))
+            );
             assert_eq!(basic_info.converted_type(), ConvertedType::INT_32);
             assert_eq!(basic_info.id(), 0);
             match tp {
@@ -1126,7 +1234,23 @@ mod tests {
             }
         }
 
-        // Test illegal inputs
+        // Test illegal inputs with logical type
+        result = Type::primitive_type_builder("foo", PhysicalType::INT64)
+            .with_repetition(Repetition::REPEATED)
+            .with_logical_type(Some(LogicalType::INTEGER(IntType {
+                is_signed: true,
+                bit_width: 8,
+            })))
+            .build();
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert_eq!(
+                format!("{}", e),
+                "Parquet error: Cannot annotate INTEGER(IntType { bit_width: 8, is_signed: true }) from INT64 fields"
+            );
+        }
+
+        // Test illegal inputs with converted type
         result = Type::primitive_type_builder("foo", PhysicalType::INT64)
             .with_repetition(Repetition::REPEATED)
             .with_converted_type(ConvertedType::BSON)
@@ -1149,7 +1273,24 @@ mod tests {
         if let Err(e) = result {
             assert_eq!(
                 format!("{}", e),
-                "Parquet error: DECIMAL can only annotate INT32, INT64, BYTE_ARRAY and FIXED"
+                "Parquet error: DECIMAL can only annotate INT32, INT64, BYTE_ARRAY and FIXED_LEN_BYTE_ARRAY"
+            );
+        }
+
+        result = Type::primitive_type_builder("foo", PhysicalType::BYTE_ARRAY)
+            .with_repetition(Repetition::REQUIRED)
+            .with_logical_type(Some(LogicalType::DECIMAL(DecimalType {
+                scale: 32,
+                precision: 12,
+            })))
+            .with_precision(-1)
+            .with_scale(-1)
+            .build();
+        assert!(result.is_err());
+        if let Err(e) = result {
+            assert_eq!(
+                format!("{}", e),
+                "Parquet error: DECIMAL logical type scale 32 must match self.scale -1"
             );
         }
 
@@ -1245,7 +1386,7 @@ mod tests {
         if let Err(e) = result {
             assert_eq!(
                 format!("{}", e),
-                "Parquet error: Cannot represent FIXED_LEN_BYTE_ARRAY as DECIMAL with length 5 and precision 12"
+                "Parquet error: Cannot represent FIXED_LEN_BYTE_ARRAY as DECIMAL with length 5 and precision 12. The max precision can only be 11"
             );
         }
 
@@ -1355,6 +1496,7 @@ mod tests {
 
         let result = Type::group_type_builder("foo")
             .with_repetition(Repetition::REPEATED)
+            .with_logical_type(Some(LogicalType::LIST(Default::default())))
             .with_fields(&mut fields)
             .with_id(1)
             .build();
@@ -1365,7 +1507,11 @@ mod tests {
         assert!(tp.is_group());
         assert!(!tp.is_primitive());
         assert_eq!(basic_info.repetition(), Repetition::REPEATED);
-        assert_eq!(basic_info.converted_type(), ConvertedType::NONE);
+        assert_eq!(
+            basic_info.logical_type(),
+            Some(LogicalType::LIST(Default::default()))
+        );
+        assert_eq!(basic_info.converted_type(), ConvertedType::LIST);
         assert_eq!(basic_info.id(), 1);
         assert_eq!(tp.get_fields().len(), 2);
         assert_eq!(tp.get_fields()[0].name(), "f1");

@@ -25,9 +25,6 @@ Arrow Flight RPC
 .. note:: Flight is currently unstable. APIs are subject to change,
           though we don't expect drastic changes.
 
-.. note:: Flight is currently only available when built from source
-          appropriately.
-
 Common Types
 ============
 
@@ -101,7 +98,7 @@ Clients
    :project: arrow_cpp
    :members:
 
-.. doxygenclass:: arrow::flight::FlightClientOptions
+.. doxygenstruct:: arrow::flight::FlightClientOptions
    :project: arrow_cpp
    :members:
 

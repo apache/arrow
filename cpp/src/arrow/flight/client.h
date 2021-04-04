@@ -92,10 +92,7 @@ class ARROW_FLIGHT_EXPORT FlightWriteSizeStatusDetail : public arrow::StatusDeta
   int64_t actual_;
 };
 
-class ARROW_FLIGHT_EXPORT FlightClientOptions {
- public:
-  FlightClientOptions();
-
+struct ARROW_FLIGHT_EXPORT FlightClientOptions {
   /// \brief Root certificates to use for validating server
   /// certificates.
   std::string tls_root_certs;
@@ -113,14 +110,14 @@ class ARROW_FLIGHT_EXPORT FlightClientOptions {
   /// Used to help limit server memory consumption. Only enabled if
   /// positive. When enabled, FlightStreamWriter.Write* may yield a
   /// IOError with error detail FlightWriteSizeStatusDetail.
-  int64_t write_size_limit_bytes;
+  int64_t write_size_limit_bytes = 0;
 
   /// \brief Generic connection options, passed to the underlying
   ///     transport; interpretation is implementation-dependent.
   std::vector<std::pair<std::string, util::Variant<int, std::string>>> generic_options;
 
   /// \brief Use TLS without validating the server certificate. Use with caution.
-  bool disable_server_verification;
+  bool disable_server_verification = false;
 
   /// \brief Get default options.
   static FlightClientOptions Defaults();

@@ -18,6 +18,7 @@
 example_data <- tibble::tibble(
   int = c(1:3, NA_integer_, 5:10),
   dbl = c(1:8, NA, 10) + .1,
+  dbl2 = rep(5, 10),
   lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
   false = logical(10),
   chr = letters[c(1:5, NA, 7:10)],
@@ -121,3 +122,48 @@ make_string_of_size <- function(size = 1) {
 
 example_with_extra_metadata <- example_with_metadata
 attributes(example_with_extra_metadata$b) <- list(lots = rep(make_string_of_size(1), 100))
+
+example_with_logical_factors <- tibble::tibble(
+  starting_a_fight = factor(c(FALSE, TRUE, TRUE, TRUE)),
+  consoling_a_child = factor(c(TRUE, FALSE, TRUE, TRUE)),
+  petting_a_dog = factor(c(TRUE, TRUE, FALSE, TRUE)),
+  saying = c(
+    "shhhhh, it's ok",
+    "you wanna go outside?",
+    "you want your mommy?",
+    "hey buddy"
+  )
+)
+
+# The values in each column of this tibble are in ascending order. There are
+# some ties, so tests should use two or more columns to ensure deterministic
+# sort order. The Arrow C++ library orders strings lexicographically as byte
+# strings. The order of a string array sorted by Arrow will not match the order
+# of an equivalent character vector sorted by R unless you set the R collation
+# locale to "C" by running:
+#   Sys.setlocale("LC_COLLATE", "C")
+# These test scripts set that, but if you are running individual tests you might
+# need to set it manually. When finished, you can restore the default
+# collation locale by running:
+#   Sys.setlocale("LC_COLLATE")
+# In the future, the string collation locale used by the Arrow C++ library might
+# be configurable (ARROW-12046).
+example_data_for_sorting <- tibble::tibble(
+  int = c(-.Machine$integer.max, -101L, -100L, 0L, 0L, 1L, 100L, 1000L, .Machine$integer.max, NA_integer_),
+  dbl = c(-Inf, -.Machine$double.xmax, -.Machine$double.xmin, 0, .Machine$double.xmin, pi, .Machine$double.xmax, Inf, NaN, NA_real_),
+  chr = c("", "", "\"", "&", "ABC", "NULL", "a", "abc", "zzz", NA_character_),
+  lgl = c(rep(FALSE, 4L), rep(TRUE, 5L), NA), # bool is not supported (ARROW-12016)
+  dttm = lubridate::ymd_hms(c(
+    "0000-01-01 00:00:00",
+    "1919-05-29 13:08:55",
+    "1955-06-20 04:10:42",
+    "1973-06-30 11:38:41",
+    "1987-03-29 12:49:47",
+    "1991-06-11 19:07:01",
+    NA_character_,
+    "2017-08-21 18:26:40",
+    "2017-08-21 18:26:40",
+    "9999-12-31 23:59:59"
+  )),
+  grp = c(rep("A", 5), rep("B", 5))
+)

@@ -35,7 +35,7 @@ RUN git clone https://github.com/Microsoft/vcpkg && \
 
 # Patch ports files as needed
 COPY ci/vcpkg arrow/ci/vcpkg
-RUN cd vcpkg && patch -p1 -i C:/arrow/ci/vcpkg/ports.patch
+RUN cd vcpkg && git apply --ignore-whitespace C:/arrow/ci/vcpkg/ports.patch
 
 # Configure vcpkg and install dependencies
 # NOTE: use windows batch environment notation for build arguments in RUN

@@ -49,7 +49,7 @@ class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
 
   /// \brief Open a file for scanning
   Result<ScanTaskIterator> ScanFile(
-      std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
+      std::shared_ptr<ScanOptions> options,
       const std::shared_ptr<FileFragment>& fragment) const override;
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(

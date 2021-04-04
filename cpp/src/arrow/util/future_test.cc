@@ -32,6 +32,7 @@
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
@@ -69,38 +70,6 @@ template <>
 struct IterationTraits<MoveOnlyDataType> {
   static MoveOnlyDataType End() { return MoveOnlyDataType(-1); }
 };
-
-template <typename T>
-void AssertNotFinished(const Future<T>& fut) {
-  ASSERT_FALSE(IsFutureFinished(fut.state()));
-}
-
-template <typename T>
-void AssertFinished(const Future<T>& fut) {
-  ASSERT_TRUE(IsFutureFinished(fut.state()));
-}
-
-// Assert the future is successful *now*
-template <typename T>
-void AssertSuccessful(const Future<T>& fut) {
-  if (IsFutureFinished(fut.state())) {
-    ASSERT_EQ(fut.state(), FutureState::SUCCESS);
-    ASSERT_OK(fut.status());
-  } else {
-    FAIL() << "Expected future to be completed successfully but it was still pending";
-  }
-}
-
-// Assert the future is failed *now*
-template <typename T>
-void AssertFailed(const Future<T>& fut) {
-  if (IsFutureFinished(fut.state())) {
-    ASSERT_EQ(fut.state(), FutureState::FAILURE);
-    ASSERT_FALSE(fut.status().ok());
-  } else {
-    FAIL() << "Expected future to have failed but it was still pending";
-  }
-}
 
 template <typename T>
 struct IteratorResults {
@@ -971,6 +940,13 @@ TEST(FutureCompletionTest, FutureVoid) {
   }
 }
 
+TEST(FutureAllTest, Empty) {
+  auto combined = arrow::All(std::vector<Future<int>>{});
+  auto after_assert = combined.Then(
+      [](std::vector<Result<int>> results) { ASSERT_EQ(0, results.size()); });
+  AssertSuccessful(after_assert);
+}
+
 TEST(FutureAllTest, Simple) {
   auto f1 = Future<int>::Make();
   auto f2 = Future<int>::Make();
@@ -1012,11 +988,16 @@ TEST(FutureAllTest, Failure) {
   AssertFinished(after_assert);
 }
 
+TEST(FutureAllCompleteTest, Empty) {
+  Future<> combined = AllComplete(std::vector<Future<>>{});
+  AssertSuccessful(combined);
+}
+
 TEST(FutureAllCompleteTest, Simple) {
   auto f1 = Future<int>::Make();
   auto f2 = Future<int>::Make();
   std::vector<Future<>> futures = {Future<>(f1), Future<>(f2)};
-  auto combined = arrow::AllComplete(futures);
+  auto combined = AllComplete(futures);
   AssertNotFinished(combined);
   f2.MarkFinished(2);
   AssertNotFinished(combined);
@@ -1029,7 +1010,7 @@ TEST(FutureAllCompleteTest, Failure) {
   auto f2 = Future<int>::Make();
   auto f3 = Future<int>::Make();
   std::vector<Future<>> futures = {Future<>(f1), Future<>(f2), Future<>(f3)};
-  auto combined = arrow::AllComplete(futures);
+  auto combined = AllComplete(futures);
   AssertNotFinished(combined);
   f1.MarkFinished(1);
   AssertNotFinished(combined);

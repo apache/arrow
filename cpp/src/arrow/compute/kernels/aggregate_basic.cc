@@ -250,15 +250,13 @@ const FunctionDoc min_max_doc{"Compute the minimum and maximum values of a numer
                               {"array"},
                               "MinMaxOptions"};
 
-const FunctionDoc any_doc{
-    "Test whether any element in a boolean array evaluates to true.",
-    ("Null values are ignored."),
-    {"array"}};
+const FunctionDoc any_doc{"Test whether any element in a boolean array evaluates to true",
+                          ("Null values are ignored."),
+                          {"array"}};
 
-const FunctionDoc all_doc{
-    "Test whether all elements in a boolean array evaluate to true.",
-    ("Null values are ignored."),
-    {"array"}};
+const FunctionDoc all_doc{"Test whether all elements in a boolean array evaluate to true",
+                          ("Null values are ignored."),
+                          {"array"}};
 
 }  // namespace
 

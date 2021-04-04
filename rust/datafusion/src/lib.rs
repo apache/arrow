@@ -18,19 +18,23 @@
 // Clippy lints, some should be disabled incrementally
 #![allow(
     clippy::float_cmp,
+    clippy::from_over_into,
     clippy::module_inception,
     clippy::new_without_default,
-    clippy::type_complexity
+    clippy::type_complexity,
+    clippy::upper_case_acronyms
 )]
 
-//! DataFusion is an extensible query execution framework that uses
+//! [DataFusion](https://github.com/apache/arrow/tree/master/rust/datafusion)
+//! is an extensible query execution framework that uses
 //! [Apache Arrow](https://arrow.apache.org) as its in-memory format.
 //!
 //! DataFusion supports both an SQL and a DataFrame API for building logical query plans
 //! as well as a query optimizer and execution engine capable of parallel execution
 //! against partitioned data sources (CSV and Parquet) using threads.
 //!
-//! Below is an example of how to execute a query against a CSV using [`DataFrames`](dataframe::DataFrame):
+//! Below is an example of how to execute a query against data stored
+//! in a CSV file using a [`DataFrame`](dataframe::DataFrame):
 //!
 //! ```rust
 //! # use datafusion::prelude::*;
@@ -46,11 +50,24 @@
 //!
 //! // create a plan
 //! let df = df.filter(col("a").lt_eq(col("b")))?
-//!            .aggregate(&[col("a")], &[min(col("b"))])?
+//!            .aggregate(vec![col("a")], vec![min(col("b"))])?
 //!            .limit(100)?;
 //!
 //! // execute the plan
 //! let results: Vec<RecordBatch> = df.collect().await?;
+//!
+//! // format the results
+//! let pretty_results = arrow::util::pretty::pretty_format_batches(&results)?;
+//!
+//! let expected = vec![
+//!     "+---+--------+",
+//!     "| a | MIN(b) |",
+//!     "+---+--------+",
+//!     "| 1 | 2      |",
+//!     "+---+--------+"
+//! ];
+//!
+//! assert_eq!(pretty_results.trim().lines().collect::<Vec<_>>(), expected);
 //! # Ok(())
 //! # }
 //! ```
@@ -73,6 +90,19 @@
 //!
 //! // execute the plan
 //! let results: Vec<RecordBatch> = df.collect().await?;
+//!
+//! // format the results
+//! let pretty_results = arrow::util::pretty::pretty_format_batches(&results)?;
+//!
+//! let expected = vec![
+//!     "+---+--------+",
+//!     "| a | MIN(b) |",
+//!     "+---+--------+",
+//!     "| 1 | 2      |",
+//!     "+---+--------+"
+//! ];
+//!
+//! assert_eq!(pretty_results.trim().lines().collect::<Vec<_>>(), expected);
 //! # Ok(())
 //! # }
 //! ```
@@ -156,6 +186,7 @@
 extern crate arrow;
 extern crate sqlparser;
 
+pub mod catalog;
 pub mod dataframe;
 pub mod datasource;
 pub mod error;
@@ -174,3 +205,6 @@ pub mod test;
 #[macro_use]
 #[cfg(feature = "regex_expressions")]
 extern crate lazy_static;
+
+#[cfg(doctest)]
+doc_comment::doctest!("../README.md", readme_example_test);

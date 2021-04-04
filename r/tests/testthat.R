@@ -19,4 +19,9 @@ library(testthat)
 library(arrow)
 library(tibble)
 
-test_check("arrow")
+if (identical(tolower(Sys.getenv("ARROW_R_DEV", "false")), "true")) {
+  arrow_reporter <- MultiReporter$new(list(CheckReporter$new(), LocationReporter$new()))
+} else {
+  arrow_reporter <- check_reporter()
+}
+test_check("arrow", reporter = arrow_reporter)

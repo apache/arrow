@@ -54,7 +54,7 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetType_FIXED_LEN_BYTE_ARRAY" parquet::Type::FIXED_LEN_BYTE_ARRAY"
 
     enum ParquetLogicalTypeId" parquet::LogicalType::Type::type":
-        ParquetLogicalType_UNKNOWN" parquet::LogicalType::Type::UNKNOWN"
+        ParquetLogicalType_UNDEFINED" parquet::LogicalType::Type::UNDEFINED"
         ParquetLogicalType_STRING" parquet::LogicalType::Type::STRING"
         ParquetLogicalType_MAP" parquet::LogicalType::Type::MAP"
         ParquetLogicalType_LIST" parquet::LogicalType::Type::LIST"
@@ -382,6 +382,8 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* allow_truncated_timestamps()
             Builder* disallow_truncated_timestamps()
             Builder* store_schema()
+            Builder* enable_compliant_nested_types()
+            Builder* disable_compliant_nested_types()
             Builder* set_engine_version(ArrowWriterEngineVersion version)
             shared_ptr[ArrowWriterProperties] build()
         c_bool support_deprecated_int96_timestamps()
@@ -501,7 +503,8 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
     use_deprecated_int96_timestamps=*,
     coerce_timestamps=*,
     allow_truncated_timestamps=*,
-    writer_engine_version=*) except *
+    writer_engine_version=*,
+    use_compliant_nested_type=*) except *
 
 cdef class ParquetSchema(_Weakrefable):
     cdef:

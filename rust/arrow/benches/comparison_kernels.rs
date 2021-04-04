@@ -121,10 +121,10 @@ fn bench_nlike_utf8_scalar(arr_a: &StringArray, value_b: &str) {
 
 fn add_benchmark(c: &mut Criterion) {
     let size = 65536;
-    let arr_a = create_primitive_array::<Float32Type>(size, 0.0);
-    let arr_b = create_primitive_array::<Float32Type>(size, 0.0);
+    let arr_a = create_primitive_array_with_seed::<Float32Type>(size, 0.0, 42);
+    let arr_b = create_primitive_array_with_seed::<Float32Type>(size, 0.0, 43);
 
-    let arr_string = create_string_array(size, 0.0);
+    let arr_string = create_string_array::<i32>(size, 0.0);
 
     c.bench_function("eq Float32", |b| b.iter(|| bench_eq(&arr_a, &arr_b)));
     c.bench_function("eq scalar Float32", |b| {

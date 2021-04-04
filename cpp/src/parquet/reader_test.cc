@@ -90,6 +90,29 @@ void AssertColumnValues(std::shared_ptr<TypedColumnReader<DType>> col, int64_t b
   ASSERT_EQ(expected_values_read, values_read);
 }
 
+void CheckRowGroupMetadata(const RowGroupMetaData* rg_metadata,
+                           bool allow_uncompressed_mismatch = false) {
+  const int64_t total_byte_size = rg_metadata->total_byte_size();
+  const int64_t total_compressed_size = rg_metadata->total_compressed_size();
+
+  ASSERT_GE(total_byte_size, 0);
+  ASSERT_GE(total_compressed_size, 0);
+
+  int64_t total_column_byte_size = 0;
+  int64_t total_column_compressed_size = 0;
+  for (int i = 0; i < rg_metadata->num_columns(); ++i) {
+    total_column_byte_size += rg_metadata->ColumnChunk(i)->total_uncompressed_size();
+    total_column_compressed_size += rg_metadata->ColumnChunk(i)->total_compressed_size();
+  }
+
+  if (!allow_uncompressed_mismatch) {
+    ASSERT_EQ(total_byte_size, total_column_byte_size);
+  }
+  if (total_compressed_size != 0) {
+    ASSERT_EQ(total_compressed_size, total_column_compressed_size);
+  }
+}
+
 class TestAllTypesPlain : public ::testing::Test {
  public:
   void SetUp() { reader_ = ParquetFileReader::OpenFile(alltypes_plain()); }
@@ -101,6 +124,11 @@ class TestAllTypesPlain : public ::testing::Test {
 };
 
 TEST_F(TestAllTypesPlain, NoopConstructDestruct) {}
+
+TEST_F(TestAllTypesPlain, RowGroupMetaData) {
+  auto group = reader_->RowGroup(0);
+  CheckRowGroupMetadata(group->metadata());
+}
 
 TEST_F(TestAllTypesPlain, TestBatchRead) {
   std::shared_ptr<RowGroupReader> group = reader_->RowGroup(0);
@@ -289,10 +317,11 @@ Number of RowGroups: 1
 Number of Real Columns: 2
 Number of Columns: 2
 Number of Selected Columns: 2
-Column 0: a.list.element.list.element.list.element (BYTE_ARRAY/UTF8)
+Column 0: a.list.element.list.element.list.element (BYTE_ARRAY / String / UTF8)
 Column 1: b (INT32)
 --- Row Group: 0 ---
 --- Total Bytes: 155 ---
+--- Total Compressed Bytes: 0 ---
 --- Rows: 3 ---
 Column 0
   Values: 18  Statistics Not Set
@@ -392,7 +421,7 @@ TEST(TestJSONWithLocalFile, JSONOutput) {
   ],
   "RowGroups": [
      {
-       "Id": "0",  "TotalBytes": "671",  "Rows": "8",
+       "Id": "0",  "TotalBytes": "671",  "TotalCompressedBytes": "0",  "Rows": "8",
        "ColumnChunks": [
           {"Id": "0", "Values": "8", "StatsSet": "False",
            "Compression": "UNCOMPRESSED", "Encodings": "RLE PLAIN_DICTIONARY PLAIN ", "UncompressedSize": "73", "CompressedSize": "73" },
@@ -527,6 +556,7 @@ class TestCodec : public ::testing::TestWithParam<std::string> {
 TEST_P(TestCodec, FileMetadataAndValues) {
   std::unique_ptr<ParquetFileReader> reader_ = ParquetFileReader::OpenFile(GetDataFile());
   std::shared_ptr<RowGroupReader> group = reader_->RowGroup(0);
+  const auto rg_metadata = group->metadata();
 
   // This file only has 4 rows
   ASSERT_EQ(4, reader_->metadata()->num_rows());
@@ -534,8 +564,17 @@ TEST_P(TestCodec, FileMetadataAndValues) {
   ASSERT_EQ(3, reader_->metadata()->num_columns());
   // This file only has 1 row group
   ASSERT_EQ(1, reader_->metadata()->num_row_groups());
+
   // This row group must have 4 rows
-  ASSERT_EQ(4, group->metadata()->num_rows());
+  ASSERT_EQ(4, rg_metadata->num_rows());
+
+  // Some parquet-cpp versions are susceptible to PARQUET-2008
+  const auto& app_ver = reader_->metadata()->writer_version();
+  const bool allow_uncompressed_mismatch =
+      (app_ver.application_ == "parquet-cpp" && app_ver.version.major == 1 &&
+       app_ver.version.minor == 5 && app_ver.version.patch == 1);
+
+  CheckRowGroupMetadata(rg_metadata, allow_uncompressed_mismatch);
 
   // column 0, c0
   auto col0 = checked_pointer_cast<Int64Reader>(group->Column(0));

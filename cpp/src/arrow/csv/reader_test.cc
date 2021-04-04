@@ -30,12 +30,41 @@
 #include "arrow/io/memory.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/future.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
+
+using RecordBatchGenerator = AsyncGenerator<std::shared_ptr<RecordBatch>>;
+
 namespace csv {
+
+// Allows the streaming reader to be used in tests that expect a table reader
+class StreamingReaderAsTableReader : public TableReader {
+ public:
+  explicit StreamingReaderAsTableReader(std::shared_ptr<StreamingReader> reader)
+      : reader_(std::move(reader)) {}
+  virtual ~StreamingReaderAsTableReader() = default;
+  virtual Result<std::shared_ptr<Table>> Read() {
+    auto table_fut = ReadAsync();
+    auto table_res = table_fut.result();
+    ARROW_ASSIGN_OR_RAISE(auto table, table_res);
+    return table;
+  }
+  virtual Future<std::shared_ptr<Table>> ReadAsync() {
+    auto reader = reader_;
+    RecordBatchGenerator rb_generator = [reader]() { return reader->ReadNextAsync(); };
+    return CollectAsyncGenerator(rb_generator).Then([](const RecordBatchVector& rbs) {
+      return Table::FromRecordBatches(rbs);
+    });
+  }
+
+ private:
+  std::shared_ptr<StreamingReader> reader_;
+};
 
 using TableReaderFactory =
     std::function<Result<std::shared_ptr<TableReader>>(std::shared_ptr<io::InputStream>)>;
@@ -148,6 +177,33 @@ TEST(AsyncReaderTests, StressInvalid) {
 TEST(AsyncReaderTests, NestedParallelism) {
   ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(1));
   ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactory(thread_pool));
+  TestNestedParallelism(thread_pool, table_factory);
+}
+
+Result<TableReaderFactory> MakeStreamingFactory() {
+  return [](std::shared_ptr<io::InputStream> input_stream)
+             -> Result<std::shared_ptr<TableReader>> {
+    auto read_options = ReadOptions::Defaults();
+    read_options.block_size = 1 << 10;
+    ARROW_ASSIGN_OR_RAISE(
+        auto streaming_reader,
+        StreamingReader::Make(io::default_io_context(), input_stream, read_options,
+                              ParseOptions::Defaults(), ConvertOptions::Defaults()));
+    return std::make_shared<StreamingReaderAsTableReader>(std::move(streaming_reader));
+  };
+}
+
+TEST(StreamingReaderTests, Stress) {
+  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeStreamingFactory());
+  StressTableReader(table_factory);
+}
+TEST(StreamingReaderTests, StressInvalid) {
+  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeStreamingFactory());
+  StressInvalidTableReader(table_factory);
+}
+TEST(StreamingReaderTests, NestedParallelism) {
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(1));
+  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeStreamingFactory());
   TestNestedParallelism(thread_pool, table_factory);
 }
 

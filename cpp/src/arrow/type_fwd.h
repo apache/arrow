@@ -35,6 +35,12 @@ class Result;
 
 class Status;
 
+namespace detail {
+struct Empty;
+}
+template <typename T = detail::Empty>
+class Future;
+
 namespace util {
 class Codec;
 }  // namespace util
@@ -628,6 +634,17 @@ std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type
 std::shared_ptr<Field> ARROW_EXPORT
 field(std::string name, std::shared_ptr<DataType> type, bool nullable = true,
       std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
+
+/// \brief Create a Field instance with metadata
+///
+/// The field will be assumed to be nullable.
+///
+/// \param name the field name
+/// \param type the field value type
+/// \param metadata any custom key-value metadata
+std::shared_ptr<Field> ARROW_EXPORT
+field(std::string name, std::shared_ptr<DataType> type,
+      std::shared_ptr<const KeyValueMetadata> metadata);
 
 /// \brief Create a Schema instance
 ///

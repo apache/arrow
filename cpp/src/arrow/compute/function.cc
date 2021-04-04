@@ -126,6 +126,11 @@ const Kernel* DispatchExactImpl(const Function* func,
         checked_cast<const ScalarAggregateFunction*>(func)->kernels(), values);
   }
 
+  if (func->kind() == Function::HASH_AGGREGATE) {
+    return DispatchExactImpl(checked_cast<const HashAggregateFunction*>(func)->kernels(),
+                             values);
+  }
+
   return nullptr;
 }
 
@@ -184,8 +189,10 @@ Result<Datum> Function::Execute(const std::vector<Datum>& args,
     executor = detail::KernelExecutor::MakeScalar();
   } else if (kind() == Function::VECTOR) {
     executor = detail::KernelExecutor::MakeVector();
-  } else {
+  } else if (kind() == Function::SCALAR_AGGREGATE) {
     executor = detail::KernelExecutor::MakeScalarAggregate();
+  } else {
+    return Status::NotImplemented("Direct execution of HASH_AGGREGATE functions");
   }
   RETURN_NOT_OK(executor->Init(&kernel_ctx, {kernel, inputs, options}));
 
@@ -255,6 +262,15 @@ Status VectorFunction::AddKernel(VectorKernel kernel) {
 }
 
 Status ScalarAggregateFunction::AddKernel(ScalarAggregateKernel kernel) {
+  RETURN_NOT_OK(CheckArity(kernel.signature->in_types()));
+  if (arity_.is_varargs && !kernel.signature->is_varargs()) {
+    return Status::Invalid("Function accepts varargs but kernel signature does not");
+  }
+  kernels_.emplace_back(std::move(kernel));
+  return Status::OK();
+}
+
+Status HashAggregateFunction::AddKernel(HashAggregateKernel kernel) {
   RETURN_NOT_OK(CheckArity(kernel.signature->in_types()));
   if (arity_.is_varargs && !kernel.signature->is_varargs()) {
     return Status::Invalid("Function accepts varargs but kernel signature does not");

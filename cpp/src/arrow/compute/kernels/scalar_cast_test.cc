@@ -404,7 +404,7 @@ TEST(Cast, IntToFloating) {
                  CastOptions::Safe(float64()));
 }
 
-TEST(Cast, DecimalToInt) {
+TEST(Cast, Decimal128ToInt) {
   auto options = CastOptions::Safe(int64());
 
   for (bool allow_int_overflow : {false, true}) {
@@ -494,7 +494,98 @@ TEST(Cast, DecimalToInt) {
   CheckCast(negative_scale, ArrayFromJSON(int64(), "[1234567890000, -120000]"), options);
 }
 
-TEST(Cast, DecimalToDecimal) {
+TEST(Cast, Decimal256ToInt) {
+  auto options = CastOptions::Safe(int64());
+
+  for (bool allow_int_overflow : {false, true}) {
+    for (bool allow_decimal_truncate : {false, true}) {
+      options.allow_int_overflow = allow_int_overflow;
+      options.allow_decimal_truncate = allow_decimal_truncate;
+
+      auto no_overflow_no_truncation = ArrayFromJSON(decimal256(40, 10), R"([
+          "02.0000000000",
+         "-11.0000000000",
+          "22.0000000000",
+        "-121.0000000000",
+        null])");
+      CheckCast(no_overflow_no_truncation,
+                ArrayFromJSON(int64(), "[2, -11, 22, -121, null]"), options);
+    }
+  }
+
+  for (bool allow_int_overflow : {false, true}) {
+    options.allow_int_overflow = allow_int_overflow;
+    auto truncation_but_no_overflow = ArrayFromJSON(decimal256(40, 10), R"([
+          "02.1000000000",
+         "-11.0000004500",
+          "22.0000004500",
+        "-121.1210000000",
+        null])");
+
+    options.allow_decimal_truncate = true;
+    CheckCast(truncation_but_no_overflow,
+              ArrayFromJSON(int64(), "[2, -11, 22, -121, null]"), options);
+
+    options.allow_decimal_truncate = false;
+    CheckCastFails(truncation_but_no_overflow, options);
+  }
+
+  for (bool allow_decimal_truncate : {false, true}) {
+    options.allow_decimal_truncate = allow_decimal_truncate;
+
+    auto overflow_no_truncation = ArrayFromJSON(decimal256(40, 10), R"([
+        "1234567890123456789000000.0000000000",
+        "9999999999999999999999999.0000000000",
+        null])");
+
+    options.allow_int_overflow = true;
+    CheckCast(overflow_no_truncation,
+              ArrayFromJSON(
+                  int64(),
+                  // 1234567890123456789000000 % 2**64, 9999999999999999999999999 % 2**64
+                  "[1096246371337547584, 1590897978359414783, null]"),
+              options);
+
+    options.allow_int_overflow = false;
+    CheckCastFails(overflow_no_truncation, options);
+  }
+
+  for (bool allow_int_overflow : {false, true}) {
+    for (bool allow_decimal_truncate : {false, true}) {
+      options.allow_int_overflow = allow_int_overflow;
+      options.allow_decimal_truncate = allow_decimal_truncate;
+
+      auto overflow_and_truncation = ArrayFromJSON(decimal256(40, 10), R"([
+        "1234567890123456789000000.0045345000",
+        "9999999999999999999999999.0000344300",
+        null])");
+
+      if (options.allow_int_overflow && options.allow_decimal_truncate) {
+        CheckCast(
+            overflow_and_truncation,
+            ArrayFromJSON(
+                int64(),
+                // 1234567890123456789000000 % 2**64, 9999999999999999999999999 % 2**64
+                "[1096246371337547584, 1590897978359414783, null]"),
+            options);
+      } else {
+        CheckCastFails(overflow_and_truncation, options);
+      }
+    }
+  }
+
+  Decimal256Builder builder(decimal256(40, -4));
+  for (auto d : {Decimal256("1234567890000."), Decimal256("-120000.")}) {
+    ASSERT_OK_AND_ASSIGN(d, d.Rescale(0, -4));
+    ASSERT_OK(builder.Append(d));
+  }
+  ASSERT_OK_AND_ASSIGN(auto negative_scale, builder.Finish());
+  options.allow_int_overflow = true;
+  options.allow_decimal_truncate = true;
+  CheckCast(negative_scale, ArrayFromJSON(int64(), "[1234567890000, -120000]"), options);
+}
+
+TEST(Cast, Decimal128ToDecimal128) {
   CastOptions options;
 
   for (bool allow_decimal_truncate : {false, true}) {
@@ -573,51 +664,306 @@ TEST(Cast, DecimalToDecimal) {
   }
 }
 
-TEST(Cast, FloatingToDecimal) {
-  for (auto float_type : {float32(), float64()}) {
-    CheckCast(
-        ArrayFromJSON(float_type, "[0.0, null, 123.45, 123.456, 999.994]"),
-        ArrayFromJSON(decimal(5, 2), R"(["0.00", null, "123.45", "123.46", "999.99"])"));
+TEST(Cast, Decimal256ToDecimal256) {
+  CastOptions options;
 
-    // Overflow
-    CastOptions options;
-    options.to_type = decimal(5, 2);
-    CheckCastFails(ArrayFromJSON(float_type, "[999.996]"), options);
+  for (bool allow_decimal_truncate : {false, true}) {
+    options.allow_decimal_truncate = allow_decimal_truncate;
 
-    options.allow_decimal_truncate = true;
-    CheckCast(
-        ArrayFromJSON(float_type, "[0.0, null, 999.996, 123.45, 999.994]"),
-        ArrayFromJSON(decimal(5, 2), R"(["0.00", null, "0.00", "123.45", "999.99"])"),
-        options);
+    auto no_truncation = ArrayFromJSON(decimal256(38, 10), R"([
+          "02.0000000000",
+          "30.0000000000",
+          "22.0000000000",
+        "-121.0000000000",
+        null])");
+    auto expected = ArrayFromJSON(decimal256(28, 0), R"([
+          "02.",
+          "30.",
+          "22.",
+        "-121.",
+        null])");
+
+    CheckCast(no_truncation, expected, options);
+    CheckCast(expected, no_truncation, options);
   }
 
-  // 2**64 + 2**41 (exactly representable as a float)
-  CheckCast(ArrayFromJSON(float32(), "[1.8446746e+19, -1.8446746e+19]"),
-            ArrayFromJSON(decimal(20, 0),
-                          R"(["18446746272732807168", "-18446746272732807168"])"));
+  for (bool allow_decimal_truncate : {false, true}) {
+    options.allow_decimal_truncate = allow_decimal_truncate;
 
-  CheckCast(ArrayFromJSON(float32(), "[1.8446746e+15, -1.8446746e+15]"),
-            ArrayFromJSON(decimal(20, 4),
-                          R"(["1844674627273280.7168", "-1844674627273280.7168"])"));
+    // Same scale, different precision
+    auto d_5_2 = ArrayFromJSON(decimal256(5, 2), R"([
+          "12.34",
+           "0.56"])");
+    auto d_4_2 = ArrayFromJSON(decimal256(4, 2), R"([
+          "12.34",
+           "0.56"])");
 
-  CheckCast(ArrayFromJSON(float64(), "[1.8446744073709556e+19, -1.8446744073709556e+19]"),
-            ArrayFromJSON(decimal(20, 0),
-                          R"(["18446744073709555712", "-18446744073709555712"])"));
+    CheckCast(d_5_2, d_4_2, options);
+    CheckCast(d_4_2, d_5_2, options);
+  }
 
-  CheckCast(ArrayFromJSON(float64(), "[1.8446744073709556e+15, -1.8446744073709556e+15]"),
-            ArrayFromJSON(decimal(20, 4),
-                          R"(["1844674407370955.5712", "-1844674407370955.5712"])"));
+  auto d_38_10 = ArrayFromJSON(decimal256(38, 10), R"([
+      "-02.1234567890",
+       "30.1234567890",
+      null])");
 
-  // Edge cases are tested for Decimal128::FromReal()
+  auto d_28_0 = ArrayFromJSON(decimal256(28, 0), R"([
+      "-02.",
+       "30.",
+      null])");
+
+  auto d_38_10_roundtripped = ArrayFromJSON(decimal256(38, 10), R"([
+      "-02.0000000000",
+       "30.0000000000",
+      null])");
+
+  // Rescale which leads to truncation
+  options.allow_decimal_truncate = true;
+  CheckCast(d_38_10, d_28_0, options);
+  CheckCast(d_28_0, d_38_10_roundtripped, options);
+
+  options.allow_decimal_truncate = false;
+  options.to_type = d_28_0->type();
+  CheckCastFails(d_38_10, options);
+  CheckCast(d_28_0, d_38_10_roundtripped, options);
+
+  // Precision loss without rescale leads to truncation
+  auto d_4_2 = ArrayFromJSON(decimal256(4, 2), R"(["12.34"])");
+  for (auto expected : {
+           ArrayFromJSON(decimal256(3, 2), R"(["12.34"])"),
+           ArrayFromJSON(decimal256(4, 3), R"(["12.340"])"),
+           ArrayFromJSON(decimal256(2, 1), R"(["12.3"])"),
+       }) {
+    options.allow_decimal_truncate = true;
+    CheckCast(d_4_2, expected, options);
+
+    options.allow_decimal_truncate = false;
+    options.to_type = expected->type();
+    CheckCastFails(d_4_2, options);
+  }
+}
+
+TEST(Cast, Decimal128ToDecimal256) {
+  CastOptions options;
+
+  for (bool allow_decimal_truncate : {false, true}) {
+    options.allow_decimal_truncate = allow_decimal_truncate;
+
+    auto no_truncation = ArrayFromJSON(decimal(38, 10), R"([
+          "02.0000000000",
+          "30.0000000000",
+          "22.0000000000",
+        "-121.0000000000",
+        null])");
+    auto expected = ArrayFromJSON(decimal256(48, 0), R"([
+          "02.",
+          "30.",
+          "22.",
+        "-121.",
+        null])");
+
+    CheckCast(no_truncation, expected, options);
+  }
+
+  for (bool allow_decimal_truncate : {false, true}) {
+    options.allow_decimal_truncate = allow_decimal_truncate;
+
+    // Same scale, different precision
+    auto d_5_2 = ArrayFromJSON(decimal(5, 2), R"([
+          "12.34",
+           "0.56"])");
+    auto d_4_2 = ArrayFromJSON(decimal256(4, 2), R"([
+          "12.34",
+           "0.56"])");
+    auto d_40_2 = ArrayFromJSON(decimal256(40, 2), R"([
+          "12.34",
+           "0.56"])");
+
+    CheckCast(d_5_2, d_4_2, options);
+    CheckCast(d_5_2, d_40_2, options);
+  }
+
+  auto d128_38_10 = ArrayFromJSON(decimal(38, 10), R"([
+      "-02.1234567890",
+       "30.1234567890",
+      null])");
+
+  auto d128_28_0 = ArrayFromJSON(decimal(28, 0), R"([
+      "-02.",
+       "30.",
+      null])");
+
+  auto d256_28_0 = ArrayFromJSON(decimal256(28, 0), R"([
+      "-02.",
+       "30.",
+      null])");
+
+  auto d256_38_10_roundtripped = ArrayFromJSON(decimal256(38, 10), R"([
+      "-02.0000000000",
+       "30.0000000000",
+      null])");
+
+  // Rescale which leads to truncation
+  options.allow_decimal_truncate = true;
+  CheckCast(d128_38_10, d256_28_0, options);
+  CheckCast(d128_28_0, d256_38_10_roundtripped, options);
+
+  options.allow_decimal_truncate = false;
+  options.to_type = d256_28_0->type();
+  CheckCastFails(d128_38_10, options);
+  CheckCast(d128_28_0, d256_38_10_roundtripped, options);
+
+  // Precision loss without rescale leads to truncation
+  auto d128_4_2 = ArrayFromJSON(decimal(4, 2), R"(["12.34"])");
+  for (auto expected : {
+           ArrayFromJSON(decimal256(3, 2), R"(["12.34"])"),
+           ArrayFromJSON(decimal256(4, 3), R"(["12.340"])"),
+           ArrayFromJSON(decimal256(2, 1), R"(["12.3"])"),
+       }) {
+    options.allow_decimal_truncate = true;
+    CheckCast(d128_4_2, expected, options);
+
+    options.allow_decimal_truncate = false;
+    options.to_type = expected->type();
+    CheckCastFails(d128_4_2, options);
+  }
+}
+
+TEST(Cast, Decimal256ToDecimal128) {
+  CastOptions options;
+
+  for (bool allow_decimal_truncate : {false, true}) {
+    options.allow_decimal_truncate = allow_decimal_truncate;
+
+    auto no_truncation = ArrayFromJSON(decimal256(42, 10), R"([
+          "02.0000000000",
+          "30.0000000000",
+          "22.0000000000",
+        "-121.0000000000",
+        null])");
+    auto expected = ArrayFromJSON(decimal(28, 0), R"([
+          "02.",
+          "30.",
+          "22.",
+        "-121.",
+        null])");
+
+    CheckCast(no_truncation, expected, options);
+  }
+
+  for (bool allow_decimal_truncate : {false, true}) {
+    options.allow_decimal_truncate = allow_decimal_truncate;
+
+    // Same scale, different precision
+    auto d_5_2 = ArrayFromJSON(decimal256(42, 2), R"([
+          "12.34",
+           "0.56"])");
+    auto d_4_2 = ArrayFromJSON(decimal(4, 2), R"([
+          "12.34",
+           "0.56"])");
+
+    CheckCast(d_5_2, d_4_2, options);
+  }
+
+  auto d256_52_10 = ArrayFromJSON(decimal256(52, 10), R"([
+      "-02.1234567890",
+       "30.1234567890",
+      null])");
+
+  auto d256_42_0 = ArrayFromJSON(decimal256(42, 0), R"([
+      "-02.",
+       "30.",
+      null])");
+
+  auto d128_28_0 = ArrayFromJSON(decimal(28, 0), R"([
+      "-02.",
+       "30.",
+      null])");
+
+  auto d128_38_10_roundtripped = ArrayFromJSON(decimal(38, 10), R"([
+      "-02.0000000000",
+       "30.0000000000",
+      null])");
+
+  // Rescale which leads to truncation
+  options.allow_decimal_truncate = true;
+  CheckCast(d256_52_10, d128_28_0, options);
+  CheckCast(d256_42_0, d128_38_10_roundtripped, options);
+
+  options.allow_decimal_truncate = false;
+  options.to_type = d128_28_0->type();
+  CheckCastFails(d256_52_10, options);
+  CheckCast(d256_42_0, d128_38_10_roundtripped, options);
+
+  // Precision loss without rescale leads to truncation
+  auto d256_4_2 = ArrayFromJSON(decimal256(4, 2), R"(["12.34"])");
+  for (auto expected : {
+           ArrayFromJSON(decimal(3, 2), R"(["12.34"])"),
+           ArrayFromJSON(decimal(4, 3), R"(["12.340"])"),
+           ArrayFromJSON(decimal(2, 1), R"(["12.3"])"),
+       }) {
+    options.allow_decimal_truncate = true;
+    CheckCast(d256_4_2, expected, options);
+
+    options.allow_decimal_truncate = false;
+    options.to_type = expected->type();
+    CheckCastFails(d256_4_2, options);
+  }
+}
+
+TEST(Cast, FloatingToDecimal) {
+  for (auto float_type : {float32(), float64()}) {
+    for (auto decimal_type : {decimal(5, 2), decimal256(5, 2)}) {
+      CheckCast(
+          ArrayFromJSON(float_type, "[0.0, null, 123.45, 123.456, 999.994]"),
+          ArrayFromJSON(decimal_type, R"(["0.00", null, "123.45", "123.46", "999.99"])"));
+
+      // Overflow
+      CastOptions options;
+      options.to_type = decimal_type;
+      CheckCastFails(ArrayFromJSON(float_type, "[999.996]"), options);
+
+      options.allow_decimal_truncate = true;
+      CheckCast(
+          ArrayFromJSON(float_type, "[0.0, null, 999.996, 123.45, 999.994]"),
+          ArrayFromJSON(decimal_type, R"(["0.00", null, "0.00", "123.45", "999.99"])"),
+          options);
+    }
+  }
+
+  for (auto decimal_type : {decimal128, decimal256}) {
+    // 2**64 + 2**41 (exactly representable as a float)
+    CheckCast(ArrayFromJSON(float32(), "[1.8446746e+19, -1.8446746e+19]"),
+              ArrayFromJSON(decimal_type(20, 0),
+                            R"(["18446746272732807168", "-18446746272732807168"])"));
+
+    CheckCast(
+        ArrayFromJSON(float64(), "[1.8446744073709556e+19, -1.8446744073709556e+19]"),
+        ArrayFromJSON(decimal_type(20, 0),
+                      R"(["18446744073709555712", "-18446744073709555712"])"));
+
+    CheckCast(ArrayFromJSON(float32(), "[1.8446746e+15, -1.8446746e+15]"),
+              ArrayFromJSON(decimal_type(20, 4),
+                            R"(["1844674627273280.7168", "-1844674627273280.7168"])"));
+
+    CheckCast(
+        ArrayFromJSON(float64(), "[1.8446744073709556e+15, -1.8446744073709556e+15]"),
+        ArrayFromJSON(decimal_type(20, 4),
+                      R"(["1844674407370955.5712", "-1844674407370955.5712"])"));
+
+    // Edge cases are tested for Decimal128::FromReal() and Decimal256::FromReal
+  }
 }
 
 TEST(Cast, DecimalToFloating) {
   for (auto float_type : {float32(), float64()}) {
-    CheckCast(ArrayFromJSON(decimal(5, 2), R"(["0.00", null, "123.45", "999.99"])"),
-              ArrayFromJSON(float_type, "[0.0, null, 123.45, 999.99]"));
+    for (auto decimal_type : {decimal(5, 2), decimal256(5, 2)}) {
+      CheckCast(ArrayFromJSON(decimal_type, R"(["0.00", null, "123.45", "999.99"])"),
+                ArrayFromJSON(float_type, "[0.0, null, 123.45, 999.99]"));
+    }
   }
 
-  // Edge cases are tested for Decimal128::ToReal()
+  // Edge cases are tested for Decimal128::ToReal() and Decimal256::ToReal()
 }
 
 TEST(Cast, TimestampToTimestamp) {

@@ -119,6 +119,8 @@ class ARROW_EXPORT ExecContext {
   bool use_threads_ = true;
 };
 
+ARROW_EXPORT ExecContext* default_exec_context();
+
 // TODO: Consider standardizing on uint16 selection vectors and only use them
 // when we can ensure that each value is 64K length or smaller
 
@@ -164,10 +166,14 @@ class ARROW_EXPORT SelectionVector {
 /// TODO: Datum uses arrow/util/variant.h which may be a bit heavier-weight
 /// than is desirable for this class. Microbenchmarks would help determine for
 /// sure. See ARROW-8928.
-struct ExecBatch {
+struct ARROW_EXPORT ExecBatch {
   ExecBatch() = default;
   ExecBatch(std::vector<Datum> values, int64_t length)
       : values(std::move(values)), length(length) {}
+
+  explicit ExecBatch(const RecordBatch& batch);
+
+  static Result<ExecBatch> Make(std::vector<Datum> values);
 
   /// The values representing positional arguments to be passed to a kernel's
   /// exec function for processing.

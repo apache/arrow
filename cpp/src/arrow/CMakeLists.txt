@@ -373,6 +373,7 @@ if(ARROW_COMPUTE)
               compute/kernels/aggregate_tdigest.cc
               compute/kernels/aggregate_var_std.cc
               compute/kernels/codegen_internal.cc
+              compute/kernels/hash_aggregate.cc
               compute/kernels/scalar_arithmetic.cc
               compute/kernels/scalar_boolean.cc
               compute/kernels/scalar_cast_boolean.cc
@@ -458,6 +459,8 @@ if(ARROW_JSON)
               json/chunked_builder.cc
               json/chunker.cc
               json/converter.cc
+              json/object_parser.cc
+              json/object_writer.cc
               json/parser.cc
               json/reader.cc)
 endif()

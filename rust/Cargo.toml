@@ -22,6 +22,7 @@ members = [
         "parquet_derive",
         "parquet_derive_test",
         "datafusion",
+        "datafusion-examples",
         "arrow-flight",
         "integration-testing",
 	"benchmarks",

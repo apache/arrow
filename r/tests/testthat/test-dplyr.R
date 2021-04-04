@@ -85,41 +85,6 @@ test_that("summarize", {
   )
 })
 
-test_that("group_by groupings are recorded", {
-  expect_dplyr_equal(
-    input %>%
-      group_by(chr) %>%
-      select(int, chr) %>%
-      filter(int > 5) %>%
-      summarize(min_int = min(int)),
-    tbl
-  )
-  # Test that the original object is not affected
-  expect_identical(collect(batch), tbl)
-})
-
-test_that("group_by doesn't yet support creating/renaming", {
-  expect_error(
-    record_batch(tbl) %>%
-      group_by(chr, numbers = int),
-    "Cannot create or rename columns in group_by on Arrow objects"
-  )
-})
-
-test_that("ungroup", {
-  expect_dplyr_equal(
-    input %>%
-      group_by(chr) %>%
-      select(int, chr) %>%
-      ungroup() %>%
-      filter(int > 5) %>%
-      summarize(min_int = min(int)),
-    tbl
-  )
-  # Test that the original object is not affected
-  expect_identical(collect(batch), tbl)
-})
-
 test_that("Empty select returns no columns", {
   expect_dplyr_equal(
     input %>% select() %>% collect(),
@@ -130,17 +95,6 @@ test_that("Empty select returns no columns", {
 test_that("Empty select still includes the group_by columns", {
   expect_dplyr_equal(
     input %>% group_by(chr) %>% select() %>% collect(),
-    tbl
-  )
-})
-
-test_that("arrange", {
-  expect_dplyr_equal(
-    input %>%
-      group_by(chr) %>%
-      select(int, chr) %>%
-      arrange(desc(int)) %>%
-      collect(),
     tbl
   )
 })
@@ -167,6 +121,21 @@ test_that("select/rename", {
   )
 })
 
+test_that("select/rename with selection helpers", {
+
+  # TODO: add some passing tests here
+
+  expect_error(
+    expect_dplyr_equal(
+      input %>%
+        select(where(is.numeric)) %>%
+        collect(),
+      tbl
+    ),
+    "Unsupported selection helper"
+  )
+})
+
 test_that("filtering with rename", {
   expect_dplyr_equal(
     input %>%
@@ -181,35 +150,6 @@ test_that("filtering with rename", {
       filter(string == "b") %>%
       collect(),
     tbl
-  )
-})
-
-test_that("group_by then rename", {
-  expect_dplyr_equal(
-    input %>%
-      group_by(chr) %>%
-      select(string = chr, int) %>%
-      collect(),
-    tbl
-  )
-})
-
-test_that("group_by with .drop", {
-  expect_identical(
-    Table$create(tbl) %>% 
-      group_by(chr, .drop = TRUE) %>%
-      group_vars(), 
-    "chr"
-  )
-  expect_dplyr_equal(
-    input %>%
-      group_by(chr, .drop = TRUE) %>%
-      collect(),
-    tbl
-  )
-  expect_error(
-    Table$create(tbl) %>% group_by(chr, .drop = FALSE),
-    "not supported"
   )
 })
 
@@ -332,4 +272,47 @@ test_that("tail", {
       rename(strng = chr) %>%
       group_by(int)
     )
+})
+
+test_that("relocate", {
+  df <- tibble(a = 1, b = 1, c = 1, d = "a", e = "a", f = "a")
+  expect_dplyr_equal(
+    input %>% relocate(f) %>% collect(),
+    df,
+  )
+  expect_dplyr_equal(
+    input %>% relocate(a, .after = c) %>% collect(),
+    df,
+  )
+  expect_dplyr_equal(
+    input %>% relocate(f, .before = b) %>% collect(),
+    df,
+  )
+  expect_dplyr_equal(
+    input %>% relocate(a, .after = last_col()) %>% collect(),
+    df,
+  )
+  expect_dplyr_equal(
+    input %>% relocate(ff = f) %>% collect(),
+    df,
+  )
+})
+
+test_that("relocate with selection helpers", {
+  expect_dplyr_equal(
+    input %>% relocate(any_of(c("a", "e", "i", "o", "u"))) %>% collect(),
+    df
+  )
+  expect_error(
+    df %>% Table$create() %>% relocate(where(is.character)),
+    "Unsupported selection helper"
+  )
+  expect_error(
+    df %>% Table$create() %>% relocate(a, b, c, .after = where(is.character)),
+    "Unsupported selection helper"
+  )
+  expect_error(
+    df %>% Table$create() %>% relocate(d, e, f, .before = where(is.numeric)),
+    "Unsupported selection helper"
+  )
 })

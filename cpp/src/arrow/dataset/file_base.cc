@@ -30,8 +30,10 @@
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/io/compressed.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
+#include "arrow/util/compression.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
@@ -56,6 +58,32 @@ Result<std::shared_ptr<io::RandomAccessFile>> FileSource::Open() const {
   return custom_open_();
 }
 
+Result<std::shared_ptr<io::InputStream>> FileSource::OpenCompressed(
+    util::optional<Compression::type> compression) const {
+  ARROW_ASSIGN_OR_RAISE(auto file, Open());
+  auto actual_compression = Compression::type::UNCOMPRESSED;
+  if (!compression.has_value()) {
+    // Guess compression from file extension
+    auto extension = fs::internal::GetAbstractPathExtension(path());
+    util::string_view file_path(path());
+    if (extension == "gz") {
+      actual_compression = Compression::type::GZIP;
+    } else {
+      auto maybe_compression = util::Codec::GetCompressionType(extension);
+      if (maybe_compression.ok()) {
+        ARROW_ASSIGN_OR_RAISE(actual_compression, maybe_compression);
+      }
+    }
+  } else {
+    actual_compression = compression.value();
+  }
+  if (actual_compression == Compression::type::UNCOMPRESSED) {
+    return file;
+  }
+  ARROW_ASSIGN_OR_RAISE(auto codec, util::Codec::Create(actual_compression));
+  return io::CompressedInputStream::Make(codec.get(), std::move(file));
+}
+
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
     FileSource source, std::shared_ptr<Schema> physical_schema) {
   return MakeFragment(std::move(source), literal(true), std::move(physical_schema));
@@ -78,10 +106,9 @@ Result<std::shared_ptr<Schema>> FileFragment::ReadPhysicalSchemaImpl() {
   return format_->Inspect(source_);
 }
 
-Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanOptions> options,
-                                            std::shared_ptr<ScanContext> context) {
+Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanOptions> options) {
   auto self = std::dynamic_pointer_cast<FileFragment>(shared_from_this());
-  return format_->ScanFile(std::move(options), std::move(context), self);
+  return format_->ScanFile(std::move(options), self);
 }
 
 struct FileSystemDataset::FragmentSubtrees {
@@ -333,13 +360,71 @@ class WriteQueue {
   std::shared_ptr<Schema> schema_;
 };
 
+struct WriteState {
+  explicit WriteState(FileSystemDatasetWriteOptions write_options)
+      : write_options(std::move(write_options)) {}
+
+  FileSystemDatasetWriteOptions write_options;
+  util::Mutex mutex;
+  std::unordered_map<std::string, std::unique_ptr<WriteQueue>> queues;
+};
+
+Status WriteNextBatch(WriteState& state, const std::shared_ptr<ScanTask>& scan_task,
+                      std::shared_ptr<RecordBatch> batch) {
+  ARROW_ASSIGN_OR_RAISE(auto groups, state.write_options.partitioning->Partition(batch));
+  batch.reset();  // drop to hopefully conserve memory
+
+  if (groups.batches.size() > static_cast<size_t>(state.write_options.max_partitions)) {
+    return Status::Invalid("Fragment would be written into ", groups.batches.size(),
+                           " partitions. This exceeds the maximum of ",
+                           state.write_options.max_partitions);
+  }
+
+  std::unordered_set<WriteQueue*> need_flushed;
+  for (size_t i = 0; i < groups.batches.size(); ++i) {
+    auto partition_expression = and_(std::move(groups.expressions[i]),
+                                     scan_task->fragment()->partition_expression());
+    auto batch = std::move(groups.batches[i]);
+
+    ARROW_ASSIGN_OR_RAISE(auto part,
+                          state.write_options.partitioning->Format(partition_expression));
+
+    WriteQueue* queue;
+    {
+      // lookup the queue to which batch should be appended
+      auto queues_lock = state.mutex.Lock();
+
+      queue = internal::GetOrInsertGenerated(
+                  &state.queues, std::move(part),
+                  [&](const std::string& emplaced_part) {
+                    // lookup in `queues` also failed,
+                    // generate a new WriteQueue
+                    size_t queue_index = state.queues.size() - 1;
+
+                    return internal::make_unique<WriteQueue>(emplaced_part, queue_index,
+                                                             batch->schema());
+                  })
+                  ->second.get();
+    }
+
+    queue->Push(std::move(batch));
+    need_flushed.insert(queue);
+  }
+
+  // flush all touched WriteQueues
+  for (auto queue : need_flushed) {
+    RETURN_NOT_OK(queue->Flush(state.write_options));
+  }
+  return Status::OK();
+}
+
 }  // namespace
 
 Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
                                 std::shared_ptr<Scanner> scanner) {
   RETURN_NOT_OK(ValidateBasenameTemplate(write_options.basename_template));
 
-  auto task_group = scanner->context()->TaskGroup();
+  auto task_group = scanner->options()->TaskGroup();
 
   // Things we'll un-lazy for the sake of simplicity, with the tradeoff they represent:
   //
@@ -355,15 +440,14 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   ARROW_ASSIGN_OR_RAISE(auto fragment_it, scanner->GetFragments());
   ARROW_ASSIGN_OR_RAISE(FragmentVector fragments, fragment_it.ToVector());
   ScanTaskVector scan_tasks;
-
-  // Avoid contention with multithreaded readers
-  auto context = std::make_shared<ScanContext>(*scanner->context());
-  context->use_threads = false;
+  std::vector<Future<>> scan_futs;
 
   for (const auto& fragment : fragments) {
     auto options = std::make_shared<ScanOptions>(*scanner->options());
+    // Avoid contention with multithreaded readers
+    options->use_threads = false;
     ARROW_ASSIGN_OR_RAISE(auto scan_task_it,
-                          Scanner(fragment, std::move(options), context).Scan());
+                          Scanner(fragment, std::move(options)).Scan());
     for (auto maybe_scan_task : scan_task_it) {
       ARROW_ASSIGN_OR_RAISE(auto scan_task, maybe_scan_task);
       scan_tasks.push_back(std::move(scan_task));
@@ -374,68 +458,35 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   // to a WriteQueue which flushes batches into that partition's output file. In principle
   // any thread could produce a batch for any partition, so each task alternates between
   // pushing batches and flushing them to disk.
-  util::Mutex queues_mutex;
-  std::unordered_map<std::string, std::unique_ptr<WriteQueue>> queues;
+  WriteState state(write_options);
 
   for (const auto& scan_task : scan_tasks) {
-    task_group->Append([&, scan_task] {
-      ARROW_ASSIGN_OR_RAISE(auto batches, scan_task->Execute());
+    if (scan_task->supports_async()) {
+      ARROW_ASSIGN_OR_RAISE(auto batches_gen, scan_task->ExecuteAsync());
+      std::function<Status(std::shared_ptr<RecordBatch> batch)> batch_visitor =
+          [&, scan_task](std::shared_ptr<RecordBatch> batch) {
+            return WriteNextBatch(state, scan_task, std::move(batch));
+          };
+      scan_futs.push_back(VisitAsyncGenerator(batches_gen, batch_visitor));
+    } else {
+      task_group->Append([&, scan_task] {
+        ARROW_ASSIGN_OR_RAISE(auto batches, scan_task->Execute());
 
-      for (auto maybe_batch : batches) {
-        ARROW_ASSIGN_OR_RAISE(auto batch, maybe_batch);
-        ARROW_ASSIGN_OR_RAISE(auto groups, write_options.partitioning->Partition(batch));
-        batch.reset();  // drop to hopefully conserve memory
-
-        if (groups.batches.size() > static_cast<size_t>(write_options.max_partitions)) {
-          return Status::Invalid("Fragment would be written into ", groups.batches.size(),
-                                 " partitions. This exceeds the maximum of ",
-                                 write_options.max_partitions);
+        for (auto maybe_batch : batches) {
+          ARROW_ASSIGN_OR_RAISE(auto batch, maybe_batch);
+          RETURN_NOT_OK(WriteNextBatch(state, scan_task, std::move(batch)));
         }
 
-        std::unordered_set<WriteQueue*> need_flushed;
-        for (size_t i = 0; i < groups.batches.size(); ++i) {
-          auto partition_expression = and_(std::move(groups.expressions[i]),
-                                           scan_task->fragment()->partition_expression());
-          auto batch = std::move(groups.batches[i]);
-
-          ARROW_ASSIGN_OR_RAISE(auto part,
-                                write_options.partitioning->Format(partition_expression));
-
-          WriteQueue* queue;
-          {
-            // lookup the queue to which batch should be appended
-            auto queues_lock = queues_mutex.Lock();
-
-            queue = internal::GetOrInsertGenerated(
-                        &queues, std::move(part),
-                        [&](const std::string& emplaced_part) {
-                          // lookup in `queues` also failed,
-                          // generate a new WriteQueue
-                          size_t queue_index = queues.size() - 1;
-
-                          return internal::make_unique<WriteQueue>(
-                              emplaced_part, queue_index, batch->schema());
-                        })
-                        ->second.get();
-          }
-
-          queue->Push(std::move(batch));
-          need_flushed.insert(queue);
-        }
-
-        // flush all touched WriteQueues
-        for (auto queue : need_flushed) {
-          RETURN_NOT_OK(queue->Flush(write_options));
-        }
-      }
-
-      return Status::OK();
-    });
+        return Status::OK();
+      });
+    }
   }
   RETURN_NOT_OK(task_group->Finish());
+  auto scan_futs_all_done = AllComplete(scan_futs);
+  RETURN_NOT_OK(scan_futs_all_done.status());
 
-  task_group = scanner->context()->TaskGroup();
-  for (const auto& part_queue : queues) {
+  task_group = scanner->options()->TaskGroup();
+  for (const auto& part_queue : state.queues) {
     task_group->Append([&] { return part_queue.second->writer()->Finish(); });
   }
   return task_group->Finish();

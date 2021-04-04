@@ -43,9 +43,9 @@
 
 #include "arrow/util/logging.h"
 
+#include "parquet/encryption/internal_file_decryptor.h"
+#include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/exception.h"
-#include "parquet/internal_file_decryptor.h"
-#include "parquet/internal_file_encryptor.h"
 #include "parquet/platform.h"
 #include "parquet/statistics.h"
 #include "parquet/types.h"
@@ -256,6 +256,9 @@ static inline format::Type::type ToThrift(Type::type type) {
 static inline format::ConvertedType::type ToThrift(ConvertedType::type type) {
   // item 0 is NONE
   DCHECK_NE(type, ConvertedType::NONE);
+  // it is forbidden to emit "NA" (PARQUET-1990)
+  DCHECK_NE(type, ConvertedType::NA);
+  DCHECK_NE(type, ConvertedType::UNDEFINED);
   return static_cast<format::ConvertedType::type>(static_cast<int>(type) - 1);
 }
 

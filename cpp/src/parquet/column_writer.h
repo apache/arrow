@@ -97,8 +97,10 @@ class PARQUET_EXPORT PageWriter {
   // page limit
   virtual void Close(bool has_dictionary, bool fallback) = 0;
 
+  // Return the number of uncompressed bytes written (including header size)
   virtual int64_t WriteDataPage(const DataPage& page) = 0;
 
+  // Return the number of uncompressed bytes written (including header size)
   virtual int64_t WriteDictionaryPage(const DictionaryPage& page) = 0;
 
   virtual bool has_compressor() = 0;

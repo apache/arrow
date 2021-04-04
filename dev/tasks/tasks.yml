@@ -121,9 +121,9 @@ groups:
   ######################## Tasks to run regularly #############################
 
   nightly:
-    - debian-*-amd64
-    - ubuntu-*-amd64
-    - centos-*-amd64
+    - debian-*
+    - ubuntu-*
+    - centos-*
     - conda-*
     - gandiva-*
     # List the homebrews explicitly because we don't care about running homebrew-cpp-autobrew
@@ -345,77 +345,117 @@ tasks:
 
   ############################## Wheel Linux ##################################
 
-  wheel-manylinux2010-cp36m:
+  # AMD64
+
+  wheel-manylinux2010-cp36m-amd64:
     ci: github
-    template: python-wheels/github.linux.yml
+    template: python-wheels/github.linux.amd64.yml
     params:
       python_version: 3.6
       manylinux_version: 2010
     artifacts:
       - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2010_x86_64.whl
 
-  wheel-manylinux2010-cp37m:
+  wheel-manylinux2010-cp37m-amd64:
     ci: github
-    template: python-wheels/github.linux.yml
+    template: python-wheels/github.linux.amd64.yml
     params:
       python_version: 3.7
       manylinux_version: 2010
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2010_x86_64.whl
 
-  wheel-manylinux2010-cp38:
+  wheel-manylinux2010-cp38-amd64:
     ci: github
-    template: python-wheels/github.linux.yml
+    template: python-wheels/github.linux.amd64.yml
     params:
       python_version: 3.8
       manylinux_version: 2010
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-manylinux2010_x86_64.whl
 
-  wheel-manylinux2010-cp39:
+  wheel-manylinux2010-cp39-amd64:
     ci: github
-    template: python-wheels/github.linux.yml
+    template: python-wheels/github.linux.amd64.yml
     params:
       python_version: 3.9
       manylinux_version: 2010
     artifacts:
       - pyarrow-{no_rc_version}-cp39-cp39-manylinux2010_x86_64.whl
 
-  wheel-manylinux2014-cp36m:
+  wheel-manylinux2014-cp36m-amd64:
     ci: github
-    template: python-wheels/github.linux.yml
+    template: python-wheels/github.linux.amd64.yml
     params:
       python_version: 3.6
       manylinux_version: 2014
     artifacts:
       - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2014_x86_64.whl
 
-  wheel-manylinux2014-cp37m:
+  wheel-manylinux2014-cp37m-amd64:
     ci: github
-    template: python-wheels/github.linux.yml
+    template: python-wheels/github.linux.amd64.yml
     params:
       python_version: 3.7
       manylinux_version: 2014
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2014_x86_64.whl
 
-  wheel-manylinux2014-cp38:
+  wheel-manylinux2014-cp38-amd64:
     ci: github
-    template: python-wheels/github.linux.yml
+    template: python-wheels/github.linux.amd64.yml
     params:
       python_version: 3.8
       manylinux_version: 2014
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-manylinux2014_x86_64.whl
 
-  wheel-manylinux2014-cp39:
+  wheel-manylinux2014-cp39-amd64:
     ci: github
-    template: python-wheels/github.linux.yml
+    template: python-wheels/github.linux.amd64.yml
     params:
       python_version: 3.9
       manylinux_version: 2014
     artifacts:
       - pyarrow-{no_rc_version}-cp39-cp39-manylinux2014_x86_64.whl
+
+  # ARM64v8
+
+  wheel-manylinux2014-cp36m-arm64:
+    ci: travis
+    template: python-wheels/travis.linux.arm64.yml
+    params:
+      python_version: 3.6
+      manylinux_version: 2014
+    artifacts:
+      - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2014_aarch64.whl
+
+  wheel-manylinux2014-cp37m-arm64:
+    ci: travis
+    template: python-wheels/travis.linux.arm64.yml
+    params:
+      python_version: 3.7
+      manylinux_version: 2014
+    artifacts:
+      - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2014_aarch64.whl
+
+  wheel-manylinux2014-cp38-arm64:
+    ci: travis
+    template: python-wheels/travis.linux.arm64.yml
+    params:
+      python_version: 3.8
+      manylinux_version: 2014
+    artifacts:
+      - pyarrow-{no_rc_version}-cp38-cp38-manylinux2014_aarch64.whl
+
+  wheel-manylinux2014-cp39-arm64:
+    ci: travis
+    template: python-wheels/travis.linux.arm64.yml
+    params:
+      python_version: 3.9
+      manylinux_version: 2014
+    artifacts:
+      - pyarrow-{no_rc_version}-cp39-cp39-manylinux2014_aarch64.whl
 
   ############################## Wheel OSX ####################################
 
@@ -1030,41 +1070,6 @@ tasks:
       - plasma-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
       - plasma-store-server-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
 
-  centos-7-aarch64:
-    ci: travis
-    template: linux-packages/travis.linux.arm64.yml
-    params:
-      target: "centos-7-aarch64"
-      task_namespace: yum
-      upload_extensions:
-        - .rpm
-    artifacts:
-      - arrow-{no_rc_version}-1.el7.src.rpm
-      - arrow-dataset-devel-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - arrow-dataset-glib-devel-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - arrow-dataset-glib-doc-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - arrow-dataset-glib-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - arrow-dataset-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - arrow-debuginfo-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - arrow-devel-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - arrow-glib-devel-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - arrow-glib-doc-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - arrow-glib-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - arrow-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - arrow-python-devel-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - arrow-python-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - parquet-devel-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - parquet-glib-devel-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - parquet-glib-doc-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - parquet-glib-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - parquet-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - plasma-devel-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - plasma-glib-devel-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - plasma-glib-doc-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - plasma-glib-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - plasma-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-      - plasma-store-server-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
-
   centos-8-amd64:
     ci: github
     template: linux-packages/github.linux.amd64.yml
@@ -1192,7 +1197,7 @@ tasks:
   homebrew-r-autobrew:
     # This tests that the autobrew formula + script work in practice
     ci: github
-    template: r/github.macos.yml
+    template: r/github.macos.autobrew.yml
 
   ############################## Gandiva Tasks ################################
 
@@ -1445,48 +1450,40 @@ tasks:
       run: conda-cpp-valgrind
 
   test-debian-10-cpp:
-    ci: circle
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         DEBIAN: 10
       run: debian-cpp
 
-  test-ubuntu-16.04-cpp:
-    ci: circle
-    template: docker-tests/circle.linux.yml
-    params:
-      env:
-        UBUNTU: 16.04
-      run: ubuntu-cpp
-
   test-ubuntu-18.04-cpp:
-    ci: circle
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         UBUNTU: 18.04
       run: ubuntu-cpp
 
   test-fedora-33-cpp:
-    ci: circle
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         FEDORA: 33
       run: fedora-cpp
 
   test-ubuntu-18.04-cpp-release:
-    ci: circle
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         UBUNTU: 18.04
       run: "-e ARROW_BUILD_TYPE=release ubuntu-cpp"
 
   test-ubuntu-18.04-cpp-static:
-    ci: circle
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         UBUNTU: 18.04
@@ -1526,20 +1523,20 @@ tasks:
       run: ubuntu-cpp-thread-sanitizer
 
   test-debian-c-glib:
-    ci: circle
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       run: debian-c-glib
 
   test-ubuntu-c-glib:
-    ci: circle
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       run: ubuntu-c-glib
 
   test-debian-ruby:
-    ci: circle
-    template: docker-tests/circle.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       run: debian-ruby
 
@@ -1625,6 +1622,10 @@ tasks:
     params:
       MATRIX: "${{ matrix.r_version }}"
 
+  test-r-install-local:
+    ci: github
+    template: r/github.macos-linux.local.yml
+
   test-r-rhub-ubuntu-gcc-release:
     ci: azure
     template: r/azure.linux.yml
@@ -1700,6 +1701,8 @@ tasks:
       arrow_dataset: "OFF"
       arrow_parquet: "OFF"
       arrow_s3: "OFF"
+      arrow_with_re2: "OFF"
+      arrow_with_utf8proc: "OFF"
       libarrow_minimal: "TRUE"
 
   test-ubuntu-18.04-r-sanitizer:

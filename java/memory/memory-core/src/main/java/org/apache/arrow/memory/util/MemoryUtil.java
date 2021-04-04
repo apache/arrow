@@ -21,6 +21,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 
@@ -47,6 +48,11 @@ public class MemoryUtil {
    * The offset of the address field with the {@link java.nio.ByteBuffer} object.
    */
   static final long BYTE_BUFFER_ADDRESS_OFFSET;
+
+  /**
+   * If the native byte order is little-endian.
+   */
+  public static final boolean LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
 
   static {
     try {
@@ -132,7 +138,7 @@ public class MemoryUtil {
   }
 
   /**
-   * Given a {@link ByteBuf}, gets the address the underlying memory space.
+   * Given a {@link ByteBuffer}, gets the address the underlying memory space.
    *
    * @param buf the byte buffer.
    * @return address of the underlying memory.

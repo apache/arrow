@@ -175,11 +175,9 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
 #' @section Factory:
 #'
 #' The `FeatherReader$create()` factory method instantiates the object and
-#' takes the following arguments:
+#' takes the following argument:
 #'
 #' - `file` an Arrow file connection object inheriting from `RandomAccessFile`.
-#' - `mmap` Logical: whether to memory-map the file (default `TRUE`)
-#' - `...` Additional arguments, currently ignored
 #'
 #' @section Methods:
 #'
@@ -206,7 +204,7 @@ FeatherReader <- R6Class("FeatherReader", inherit = ArrowObject,
 #' @export
 names.FeatherReader <- function(x) x$column_names
 
-FeatherReader$create <- function(file, mmap = TRUE, ...) {
+FeatherReader$create <- function(file) {
   assert_is(file, "RandomAccessFile")
   ipc___feather___Reader__Open(file)
 }

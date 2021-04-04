@@ -40,6 +40,12 @@ jobs:
       - name: Free Up Disk Space
         shell: bash
         run: arrow/ci/scripts/util_cleanup.sh
+      - name: Cache ccache
+        uses: actions/cache@v2
+        with:
+          path: arrow/dev/tasks/linux-packages/apache-arrow/{{ task_namespace }}/build/{{ target }}/ccache
+          key: linux-{{ task_namespace }}-ccache-{{ target }}-{{ "${{ hashFiles('arrow/cpp/**') }}" }}
+          restore-keys: linux-{{ task_namespace }}-ccache-{{ target }}-
       - name: Build
         run: |
           set -e
