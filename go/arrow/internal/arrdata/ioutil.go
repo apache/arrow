@@ -167,6 +167,9 @@ func WriteFile(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Sch
 		t.Fatalf("could not sync data to disk: %v", err)
 	}
 
+	// put the cursor back at the start of the file before returning rather than
+	// leaving it at the end so the reader can just start reading from the handle
+	// immediately for the test.
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
 		t.Fatalf("could not seek to start: %v", err)
@@ -210,6 +213,9 @@ func WriteFileCompressed(t *testing.T, f *os.File, mem memory.Allocator, schema 
 		t.Fatalf("could not sync data to disk: %v", err)
 	}
 
+	// put the cursor back at the start of the file before returning rather than
+	// leaving it at the end so the reader can just start reading from the handle
+	// immediately for the test.
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
 		t.Fatalf("could not seek to start: %v", err)
