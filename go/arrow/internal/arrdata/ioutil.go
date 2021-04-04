@@ -183,6 +183,8 @@ func WriteFileCompressed(t *testing.T, f *os.File, mem memory.Allocator, schema 
 		opts = append(opts, ipc.WithLZ4())
 	case flatbuf.CompressionTypeZSTD:
 		opts = append(opts, ipc.WithZstd())
+	default:
+		panic("invalid compression codec, only LZ4_FRAME or ZSTD is allowed")
 	}
 
 	w, err := ipc.NewFileWriter(f, opts...)
@@ -245,6 +247,8 @@ func WriteStreamCompressed(t *testing.T, f *os.File, mem memory.Allocator, schem
 		opts = append(opts, ipc.WithLZ4())
 	case flatbuf.CompressionTypeZSTD:
 		opts = append(opts, ipc.WithZstd())
+	default:
+		panic("invalid compression codec, only LZ4_FRAME or ZSTD is allowed")
 	}
 
 	w := ipc.NewWriter(f, opts...)

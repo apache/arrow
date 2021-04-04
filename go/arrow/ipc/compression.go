@@ -47,13 +47,13 @@ type zstdCompressor struct {
 	*zstd.Encoder
 }
 
-// from zstd.h
+// from zstd.h, ZSTD_COMPRESSBOUND
 func (zstdCompressor) MaxCompressedLen(len int) int {
-	extra := ((128 << 10) - len) >> 11
+	extra := uint((uint(128<<10) - uint(len)) >> 11)
 	if len >= (128 << 10) {
 		extra = 0
 	}
-	return len + (len >> 8) + extra
+	return int(uint(len+(len>>8)) + extra)
 }
 
 func (zstdCompressor) Type() flatbuf.CompressionType {
@@ -64,7 +64,8 @@ func getCompressor(codec flatbuf.CompressionType) compressor {
 	switch codec {
 	case flatbuf.CompressionTypeLZ4_FRAME:
 		w := lz4.NewWriter(nil)
-		w.Apply(lz4.ConcurrencyOption(1), lz4.ChecksumOption(false), lz4.BlockSizeOption(lz4.Block64Kb))
+		// options here chosen in order to match the C++ implementation
+		w.Apply(lz4.ChecksumOption(false), lz4.BlockSizeOption(lz4.Block64Kb))
 		return &lz4Compressor{w}
 	case flatbuf.CompressionTypeZSTD:
 		enc, err := zstd.NewWriter(nil)
