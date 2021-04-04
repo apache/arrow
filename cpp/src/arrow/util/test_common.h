@@ -64,6 +64,20 @@ inline Iterator<T> VectorIt(std::vector<T> v) {
 }
 
 template <typename T>
+inline Iterator<T> PossiblySlowVectorIt(std::vector<T> v, bool slow = false) {
+  auto iterator = MakeVectorIterator<T>(std::move(v));
+  if (slow) {
+    return MakeTransformedIterator<T, T>(std::move(iterator),
+                                         [](T item) -> Result<TransformFlow<T>> {
+                                           SleepABit();
+                                           return TransformYield(item);
+                                         });
+  } else {
+    return iterator;
+  }
+}
+
+template <typename T>
 inline void AssertIteratorExhausted(Iterator<T>& it) {
   ASSERT_OK_AND_ASSIGN(T next, it.Next());
   ASSERT_TRUE(IsIterationEnd(next));

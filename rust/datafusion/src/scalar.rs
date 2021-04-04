@@ -19,6 +19,11 @@
 
 use std::{convert::TryFrom, fmt, iter::repeat, sync::Arc};
 
+use arrow::array::{
+    ArrayRef, Int16Builder, Int32Builder, Int64Builder, Int8Builder, ListBuilder,
+    TimestampMicrosecondArray, TimestampMillisecondArray, TimestampNanosecondArray,
+    UInt16Builder, UInt32Builder, UInt64Builder, UInt8Builder,
+};
 use arrow::datatypes::{DataType, Field, IntervalUnit, TimeUnit};
 use arrow::{
     array::*,
@@ -67,6 +72,8 @@ pub enum ScalarValue {
     Date32(Option<i32>),
     /// Date stored as a signed 64bit int
     Date64(Option<i64>),
+    /// Timestamp Milliseconds
+    TimeMillisecond(Option<i64>),
     /// Timestamp Microseconds
     TimeMicrosecond(Option<i64>),
     /// Timestamp Nanoseconds
@@ -108,7 +115,7 @@ macro_rules! build_list {
                     for scalar_value in values {
                         match scalar_value {
                             ScalarValue::$SCALAR_TY(Some(v)) => {
-                                builder.values().append_value(*v).unwrap()
+                                builder.values().append_value(v.clone()).unwrap()
                             }
                             ScalarValue::$SCALAR_TY(None) => {
                                 builder.values().append_null().unwrap();
@@ -144,6 +151,9 @@ impl ScalarValue {
             ScalarValue::TimeNanosecond(_) => {
                 DataType::Timestamp(TimeUnit::Nanosecond, None)
             }
+            ScalarValue::TimeMillisecond(_) => {
+                DataType::Timestamp(TimeUnit::Millisecond, None)
+            }
             ScalarValue::Float32(_) => DataType::Float32,
             ScalarValue::Float64(_) => DataType::Float64,
             ScalarValue::Utf8(_) => DataType::Utf8,
@@ -177,7 +187,7 @@ impl ScalarValue {
             ScalarValue::Int16(Some(v)) => ScalarValue::Int16(Some(-v)),
             ScalarValue::Int32(Some(v)) => ScalarValue::Int32(Some(-v)),
             ScalarValue::Int64(Some(v)) => ScalarValue::Int64(Some(-v)),
-            _ => panic!("Cannot run arithmetic negate on scala value: {:?}", self),
+            _ => panic!("Cannot run arithmetic negate on scalar value: {:?}", self),
         }
     }
 
@@ -199,6 +209,9 @@ impl ScalarValue {
                 | ScalarValue::Utf8(None)
                 | ScalarValue::LargeUtf8(None)
                 | ScalarValue::List(None, _)
+                | ScalarValue::TimeMillisecond(None)
+                | ScalarValue::TimeMicrosecond(None)
+                | ScalarValue::TimeNanosecond(None)
         )
     }
 
@@ -252,6 +265,15 @@ impl ScalarValue {
             ScalarValue::UInt64(e) => match e {
                 Some(value) => Arc::new(UInt64Array::from_value(*value, size)),
                 None => new_null_array(&DataType::UInt64, size),
+            },
+            ScalarValue::TimeMillisecond(e) => match e {
+                Some(value) => Arc::new(TimestampMillisecondArray::from_iter_values(
+                    repeat(*value).take(size),
+                )),
+                None => new_null_array(
+                    &DataType::Timestamp(TimeUnit::Millisecond, None),
+                    size,
+                ),
             },
             ScalarValue::TimeMicrosecond(e) => match e {
                 Some(value) => {
@@ -313,6 +335,10 @@ impl ScalarValue {
                 DataType::UInt16 => build_list!(UInt16Builder, UInt16, values, size),
                 DataType::UInt32 => build_list!(UInt32Builder, UInt32, values, size),
                 DataType::UInt64 => build_list!(UInt64Builder, UInt64, values, size),
+                DataType::Utf8 => build_list!(StringBuilder, Utf8, values, size),
+                DataType::LargeUtf8 => {
+                    build_list!(LargeStringBuilder, LargeUtf8, values, size)
+                }
                 _ => panic!("Unexpected DataType for list"),
             }),
             ScalarValue::Date32(e) => match e {
@@ -571,6 +597,7 @@ impl fmt::Display for ScalarValue {
             ScalarValue::UInt16(e) => format_option!(f, e)?,
             ScalarValue::UInt32(e) => format_option!(f, e)?,
             ScalarValue::UInt64(e) => format_option!(f, e)?,
+            ScalarValue::TimeMillisecond(e) => format_option!(f, e)?,
             ScalarValue::TimeMicrosecond(e) => format_option!(f, e)?,
             ScalarValue::TimeNanosecond(e) => format_option!(f, e)?,
             ScalarValue::Utf8(e) => format_option!(f, e)?,
@@ -631,6 +658,7 @@ impl fmt::Debug for ScalarValue {
             ScalarValue::UInt16(_) => write!(f, "UInt16({})", self),
             ScalarValue::UInt32(_) => write!(f, "UInt32({})", self),
             ScalarValue::UInt64(_) => write!(f, "UInt64({})", self),
+            ScalarValue::TimeMillisecond(_) => write!(f, "TimeMillisecond({})", self),
             ScalarValue::TimeMicrosecond(_) => write!(f, "TimeMicrosecond({})", self),
             ScalarValue::TimeNanosecond(_) => write!(f, "TimeNanosecond({})", self),
             ScalarValue::Utf8(None) => write!(f, "Utf8({})", self),

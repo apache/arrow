@@ -2209,3 +2209,12 @@ The files in cpp/src/arrow/vendored/fast_float/ contain code from
 https://github.com/lemire/fast_float
 
 which is made available under the Apache License 2.0.
+
+--------------------------------------------------------------------------------
+
+The file python/pyarrow/vendored/version.py contains code from
+
+https://github.com/pypa/packaging/
+
+which is made available under both the Apache license v2.0 and the
+BSD 2-clause license.

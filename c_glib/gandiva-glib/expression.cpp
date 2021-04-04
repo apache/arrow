@@ -17,10 +17,6 @@
  * under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#  include <config.h>
-#endif
-
 #include <arrow-glib/field.hpp>
 
 #include <gandiva-glib/expression.hpp>
@@ -35,6 +31,8 @@ G_BEGIN_DECLS
  *
  * #GGandivaExpression is a class for an expression tree with a root node,
  * and a result field.
+ *
+ * #GGandivaCondition is a class for an expression that returns boolean.
  *
  * Since: 0.12.0
  */
@@ -217,6 +215,40 @@ ggandiva_expression_to_string(GGandivaExpression *expression)
   return g_strndup(string.data(), string.size());
 }
 
+
+G_DEFINE_TYPE(GGandivaCondition,
+              ggandiva_condition,
+              GGANDIVA_TYPE_EXPRESSION)
+
+static void
+ggandiva_condition_init(GGandivaCondition *object)
+{
+}
+
+static void
+ggandiva_condition_class_init(GGandivaConditionClass *klass)
+{
+}
+
+/**
+ * ggandiva_condition_new:
+ * @root_node: The root node for the condition.
+ *
+ * Returns: A newly created #GGandivaCondition.
+ *
+ * Since: 4.0.0
+ */
+GGandivaCondition *
+ggandiva_condition_new(GGandivaNode *root_node)
+{
+  auto gandiva_root_node = ggandiva_node_get_raw(root_node);
+  auto gandiva_condition =
+    gandiva::TreeExprBuilder::MakeCondition(gandiva_root_node);
+  return ggandiva_condition_new_raw(&gandiva_condition,
+                                    root_node);
+}
+
+
 G_END_DECLS
 
 GGandivaExpression *
@@ -237,4 +269,26 @@ ggandiva_expression_get_raw(GGandivaExpression *expression)
 {
   auto priv = GGANDIVA_EXPRESSION_GET_PRIVATE(expression);
   return priv->expression;
+}
+
+
+GGandivaCondition *
+ggandiva_condition_new_raw(std::shared_ptr<gandiva::Condition> *gandiva_condition,
+                           GGandivaNode *root_node)
+{
+  auto arrow_result_field = (*gandiva_condition)->result();
+  auto result_field = garrow_field_new_raw(&arrow_result_field, nullptr);
+  auto condition = g_object_new(GGANDIVA_TYPE_CONDITION,
+                                "expression", gandiva_condition,
+                                "root-node", root_node,
+                                "result-field", result_field,
+                                NULL);
+  return GGANDIVA_CONDITION(condition);
+}
+
+std::shared_ptr<gandiva::Condition>
+ggandiva_condition_get_raw(GGandivaCondition *condition)
+{
+  return std::static_pointer_cast<gandiva::Condition>(
+    ggandiva_expression_get_raw(GGANDIVA_EXPRESSION(condition)));
 }

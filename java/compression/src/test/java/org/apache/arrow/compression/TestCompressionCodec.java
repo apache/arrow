@@ -80,6 +80,10 @@ public class TestCompressionCodec {
 
       CompressionCodec lz4Codec = new Lz4CompressionCodec();
       params.add(new Object[]{lz4Codec.getCodecType(), len, lz4Codec});
+
+      CompressionCodec zstdCodec = new ZstdCompressionCodec();
+      params.add(new Object[]{zstdCodec.getCodecType(), len, zstdCodec});
+
     }
     return params;
   }

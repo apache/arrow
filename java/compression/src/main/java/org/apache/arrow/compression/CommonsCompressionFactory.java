@@ -21,7 +21,9 @@ import org.apache.arrow.vector.compression.CompressionCodec;
 import org.apache.arrow.vector.compression.CompressionUtil;
 
 /**
- * A factory implementation based on Apache Commons library.
+ * Default implementation of factory supported LZ4 and ZSTD compression.
+ *
+ * // TODO(ARROW-12115): Rename this class.
  */
 public class CommonsCompressionFactory implements CompressionCodec.Factory {
 
@@ -32,6 +34,8 @@ public class CommonsCompressionFactory implements CompressionCodec.Factory {
     switch (codecType) {
       case LZ4_FRAME:
         return new Lz4CompressionCodec();
+      case ZSTD:
+        return new ZstdCompressionCodec();
       default:
         throw new IllegalArgumentException("Compression type not supported: " + codecType);
     }

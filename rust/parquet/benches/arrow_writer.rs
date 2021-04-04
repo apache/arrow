@@ -143,7 +143,8 @@ fn write_batch(batch: &RecordBatch) -> Result<()> {
     let mut writer = ArrowWriter::try_new(cursor, batch.schema(), None)?;
 
     writer.write(&batch)?;
-    writer.close()
+    writer.close()?;
+    Ok(())
 }
 
 fn bench_primitive_writer(c: &mut Criterion) {
