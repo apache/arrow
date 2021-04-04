@@ -174,6 +174,15 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
   NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
                  date64(), kResultNullIfNull, ARROW_STRINGIFY(NAME##_from_##TYPE))
 
+// To timestamp functions (used with data/time types) that :
+// - NULL handling is of type NULL_IF_NULL
+//
+// The pre-compiled fn name includes the base name & input type name. eg:
+// - to_timestamp_date64
+#define TO_TIMESTAMP_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)                       \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
+                 timestamp(), kResultNullIfNull, ARROW_STRINGIFY(NAME##_##TYPE))
+
 // Hash32 functions that :
 // - NULL handling is of type NULL_NEVER
 //
