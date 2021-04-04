@@ -19,6 +19,7 @@ package ipc
 import (
 	"io"
 
+	"github.com/apache/arrow/go/arrow/internal/debug"
 	"github.com/apache/arrow/go/arrow/internal/flatbuf"
 	"github.com/klauspost/compress/zstd"
 	"github.com/pierrec/lz4/v4"
@@ -49,6 +50,7 @@ type zstdCompressor struct {
 
 // from zstd.h, ZSTD_COMPRESSBOUND
 func (zstdCompressor) MaxCompressedLen(len int) int {
+	debug.Assert(len >= 0, "MaxCompressedLen called with len less than 0")
 	extra := uint((uint(128<<10) - uint(len)) >> 11)
 	if len >= (128 << 10) {
 		extra = 0
