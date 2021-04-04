@@ -179,9 +179,9 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
 //
 // The pre-compiled fn name includes the base name & input type name. eg:
 // - to_time_date64
-#define TO_TIME_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)                           \
+#define TO_TIME_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)                            \
   NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
-                 date64(), kResultNullIfNull, ARROW_STRINGIFY(NAME##_from_##TYPE))
+                 date64(), kResultNullIfNull, ARROW_STRINGIFY(NAME##_##TYPE))
 
 // Hash32 functions that :
 // - NULL handling is of type NULL_NEVER
