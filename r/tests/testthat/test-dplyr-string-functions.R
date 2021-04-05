@@ -154,3 +154,19 @@ test_that("edge cases", {
   )
 
 })
+
+test_that("errors and warnings", {
+  skip_if_not_available("dataset")
+
+  df <- tibble(x = c("Foo", "bar"))
+  ds <- InMemoryDataset$create(df)
+
+  expect_error(
+    ds %>% transmute(x = str_replace_all(x, coll("o", locale = "en"), "ó")),
+    "not supported"
+  )
+  expect_warning(
+    ds %>% transmute(x = str_replace_all(x, regex("o", multiline = TRUE), "u")),
+    "Ignoring pattern modifier"
+  )
+})
