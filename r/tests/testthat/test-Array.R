@@ -262,17 +262,16 @@ test_that("array supports POSIXct (ARROW-3340)", {
 
 test_that("array supports POSIXct without timezone", {
   # Make sure timezone is not set
-  tz <- Sys.getenv("TZ")
-  Sys.setenv(TZ = "")
-  on.exit(Sys.setenv(TZ = tz))
-  times <- strptime("2019-02-03 12:34:56", format="%Y-%m-%d %H:%M:%S") + 1:10
-  expect_array_roundtrip(times, timestamp("us", ""))
+  withr::with_envvar(c(TZ = ""), {
+    times <- strptime("2019-02-03 12:34:56", format="%Y-%m-%d %H:%M:%S") + 1:10
+    expect_array_roundtrip(times, timestamp("us", ""))
 
-  # Also test the INTSXP code path
-  skip("Ingest_POSIXct only implemented for REALSXP")
-  times_int <- as.integer(times)
-  attributes(times_int) <- attributes(times)
-  expect_array_roundtrip(times_int, timestamp("us", ""))
+    # Also test the INTSXP code path
+    skip("Ingest_POSIXct only implemented for REALSXP")
+    times_int <- as.integer(times)
+    attributes(times_int) <- attributes(times)
+    expect_array_roundtrip(times_int, timestamp("us", ""))
+  })
 })
 
 test_that("Timezone handling in Arrow roundtrip (ARROW-3543)", {
@@ -803,14 +802,14 @@ test_that("Array$ApproxEquals", {
 })
 
 test_that("auto int64 conversion to int can be disabled (ARROW-10093)", {
-  op <- options(arrow.int64_downcast = FALSE); on.exit(options(op))
+  withr::with_options(list(arrow.int64_downcast = FALSE), {
+    a <- Array$create(1:10, int64())
+    expect_true(inherits(a$as_vector(), "integer64"))
 
-  a <- Array$create(1:10, int64())
-  expect_true(inherits(a$as_vector(), "integer64"))
+    batch <- RecordBatch$create(x = a)
+    expect_true(inherits(as.data.frame(batch)$x, "integer64"))
 
-  batch <- RecordBatch$create(x = a)
-  expect_true(inherits(as.data.frame(batch)$x, "integer64"))
-
-  tab <- Table$create(x = a)
-  expect_true(inherits(as.data.frame(batch)$x, "integer64"))
+    tab <- Table$create(x = a)
+    expect_true(inherits(as.data.frame(batch)$x, "integer64"))
+  })
 })
