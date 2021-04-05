@@ -325,16 +325,11 @@ impl ExtensionPlanner for TopKPlanner {
 
 /// Physical operator that implements TopK for u64 data types. This
 /// code is not general and is meant as an illustration only
+#[derive(Debug)]
 struct TopKExec {
     input: Arc<dyn ExecutionPlan>,
     /// The maxium number of values
     k: usize,
-}
-
-impl Debug for TopKExec {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "TopKExec")
-    }
 }
 
 #[async_trait]
