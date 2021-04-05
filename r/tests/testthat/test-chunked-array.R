@@ -383,3 +383,36 @@ test_that("Converting a chunked array unifies factors (ARROW-8374)", {
 
   expect_identical(ca$as_vector(), res)
 })
+
+test_that("Handling string data with embedded nuls", {
+  raws <- structure(list(
+    as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
+    as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
+    as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
+    as.raw(c(0x66, 0x00, 0x00, 0x61, 0x00, 0x6e)), # multiple nuls
+    as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
+    as.raw(c(0x74, 0x76))),
+    class = c("arrow_binary", "vctrs_vctr", "list"))
+  expect_error(
+    rawToChar(raws[[3]]),
+    "embedded nul in string: 'ma\\0n'", # See?
+    fixed = TRUE
+  )
+  array_with_nul <- ChunkedArray$create(raws)$cast(utf8())
+  expect_error(
+    as.vector(array_with_nul),
+    "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul = TRUE)",
+    fixed = TRUE
+  )
+
+  options(arrow.skip_nul = TRUE)
+  on.exit(options(arrow.skip_nul = NULL))
+  expect_warning(
+    expect_identical(
+      as.vector(array_with_nul),
+      c("person", "woman", "man", "fan", "camera", "tv")
+    ),
+    "Stripping '\\0' (nul) from character vector",
+    fixed = TRUE
+  )
+})

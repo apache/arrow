@@ -105,7 +105,12 @@ Array <- R6Class("Array",
       Array__Diff(self, other)
     },
     data = function() Array__data(self),
-    as_vector = function() Array__as_vector(self),
+    as_vector = function() {
+      tryCatch(
+        Array__as_vector(self),
+        error = handle_embedded_nul_error
+      )
+    },
     ToString = function() {
       typ <- paste0("<", self$type$ToString(), ">")
       paste(typ, Array__ToString(self), sep = "\n")

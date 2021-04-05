@@ -634,17 +634,27 @@ test_that("Handling string data with embedded nuls", {
     as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
     as.raw(c(0x74, 0x76))),
     class = c("arrow_binary", "vctrs_vctr", "list"))
-  expect_error(rawToChar(raws[[3]]), "nul") # See?
+  expect_error(
+    rawToChar(raws[[3]]),
+    "embedded nul in string: 'ma\\0n'", # See?
+    fixed = TRUE
+  )
   array_with_nul <- Array$create(raws)$cast(utf8())
-  expect_error(as.vector(array_with_nul), "nul")
+  expect_error(
+    as.vector(array_with_nul),
+    "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul = TRUE)",
+    fixed = TRUE
+  )
 
   options(arrow.skip_nul = TRUE)
+  on.exit(options(arrow.skip_nul = NULL))
   expect_warning(
     expect_identical(
       as.vector(array_with_nul),
       c("person", "woman", "man", "fan", "camera", "tv")
     ),
-    "Stripping '\\\\0' \\(nul\\) from character vector"
+    "Stripping '\\0' (nul) from character vector",
+    fixed = TRUE
   )
 })
 
