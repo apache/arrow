@@ -21,7 +21,7 @@
 
 #[cfg(feature = "memory-check")]
 mod tests {
-    use crate::memory::ALLOCATIONS;
+    use crate::alloc::ALLOCATIONS;
 
     // verify that there is no data un-allocated
     #[test]
