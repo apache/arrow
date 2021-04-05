@@ -86,3 +86,16 @@ all_names <- function(expr) {
 is_constant <- function(expr) {
   length(all_vars(expr)) == 0
 }
+
+read_compressed_error <- function(e) {
+  e <- as.character(e)
+  compression <- sub(".*Support for codec '(.*)'.*", "\\1", e)
+  msg <- c(
+    sprintf("Unsupported compressed format %s", compression),
+    "\nTry setting the environment variable LIBARROW_MINIMAL=false and reinstalling",
+    "\nfor a more complete installation ",
+    sprintf("(including %s) or setting", compression),
+    sprintf("\nARROW_WITH_%s=ON and reinstalling to enable support for this codec.", toupper(compression))
+  )
+  stop(msg, call. = FALSE)
+}
