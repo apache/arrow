@@ -353,7 +353,7 @@ impl ExecutionPlan for TopKExec {
     }
 
     fn required_child_distribution(&self) -> Distribution {
-        Distribution::UnspecifiedDistribution
+        Distribution::SinglePartition
     }
 
     fn children(&self) -> Vec<Arc<dyn ExecutionPlan>> {
