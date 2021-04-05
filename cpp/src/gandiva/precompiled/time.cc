@@ -828,12 +828,6 @@ gdv_int64 castBIGINT_daytimeinterval(gdv_day_time_interval in) {
          extractDay_daytimeinterval(in) * MILLIS_IN_DAY;
 }
 
-FORCE_INLINE
-gdv_timestamp to_timestamp(gdv_day_time_interval in) {
-  return extractMillis_daytimeinterval(in) +
-         extractDay_daytimeinterval(in) * MILLIS_IN_DAY;
-}
-
 #define TO_TIMESTAMP(TYPE)                                      \
   FORCE_INLINE                                                  \
   gdv_timestamp to_timestamp##_##TYPE(gdv_##TYPE seconds) {     \

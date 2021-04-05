@@ -100,7 +100,7 @@ gdv_int64 date_add_int64_timestamp(gdv_int64, gdv_timestamp);
 gdv_timestamp add_date64_int64(gdv_date64, gdv_int64);
 
 gdv_timestamp to_timestamp_date64(gdv_date64);
-gdv_timestamp to_timestamp_timestamp(gdv_date64);
+gdv_timestamp to_timestamp_timestamp(gdv_timestamp);
 
 gdv_int64 date_sub_timestamp_int32(gdv_timestamp, gdv_int32);
 gdv_int64 subtract_timestamp_int32(gdv_timestamp, gdv_int32);
