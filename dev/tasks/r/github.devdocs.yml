@@ -59,7 +59,8 @@ jobs:
           DEVDOCS_MACOS: {{ "${contains(matrix.os, 'macOS')}" }}
           DEVDOCS_UBUNTU: {{ "${contains(matrix.os, 'ubuntu')}" }}
         run: |
-          rmarkdown::render("arrow/r/vignettes/dev-docs.Rmd", knit_root_dir = ".")
+          # We knit three directories above to simulate being in the parent of the arrow directory.
+          rmarkdown::render("arrow/r/vignettes/dev-docs.Rmd", knit_root_dir = "../../..")
         shell: Rscript {0}
       - name: Save the vignette output
         uses: actions/upload-artifact@v2

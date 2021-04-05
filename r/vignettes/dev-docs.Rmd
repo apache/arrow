@@ -24,9 +24,8 @@ brew install openssl
 sudo apt install libcurl4-openssl-dev libssl-dev
 ```
 
-
 ```{bash, eval=run}
-cd ./arrow/cpp
+cd arrow/cpp
 mkdir build
 cd build
 
