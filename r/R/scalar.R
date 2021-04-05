@@ -37,7 +37,8 @@ Scalar <- R6Class("Scalar",
         Scalar__as_vector(self),
         error = handle_embedded_nul_error
       )
-    },    as_array = function() MakeArrayFromScalar(self),
+    },
+    as_array = function() MakeArrayFromScalar(self),
     Equals = function(other, ...) {
       inherits(other, "Scalar") && Scalar__Equals(self, other)
     },
