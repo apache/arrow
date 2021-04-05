@@ -21,63 +21,54 @@ library(stringr)
 test_that("sub and gsub", {
   df <- tibble(x = c("Foo", "bar"))
 
-  for(fun in list(quote(sub), quote(gsub))) {
+  for(fixed in c(TRUE, FALSE)) {
 
-    for(fixed in c(TRUE, FALSE)) {
+    expect_dplyr_equal(
+      input %>%
+        transmute(x = sub("Foo", "baz", x, fixed = fixed)) %>%
+        collect(),
+      df
+    )
+    expect_dplyr_equal(
+      input %>%
+        transmute(x = sub("^B.+", "baz", x, ignore.case = FALSE, fixed = fixed)) %>%
+        collect(),
+      df
+    )
+    expect_dplyr_equal(
+      input %>%
+        transmute(x = sub("Foo", "baz", x, ignore.case = FALSE, fixed = fixed)) %>%
+        collect(),
+      df
+    )
 
-      expect_dplyr_equal(
-        input %>%
-          transmute(x = eval(fun)("Foo", "baz", x, fixed = fixed)) %>%
-          collect(),
-        df
-      )
-      expect_dplyr_equal(
-        input %>%
-          transmute(x = eval(fun)("Foo", "baz", x, fixed = fixed)) %>%
-          collect(),
-        df
-      )
-      expect_dplyr_equal(
-        input %>%
-          transmute(x = eval(fun)("^B.+", "baz", x, ignore.case = FALSE, fixed = fixed)) %>%
-          collect(),
-        df
-      )
-      expect_dplyr_equal(
-        input %>%
-          transmute(x = eval(fun)("Foo", "baz", x, ignore.case = FALSE, fixed = fixed)) %>%
-          collect(),
-        df
-      )
-
-      # the tests below all use ignore.case = TRUE
-      # but base::sub and base::gsub ignore ignore.case = TRUE with a warning when fixed = TRUE
-      # so we can't use expect_dplyr_equal() for the tests below
-      expect_equal(
-        df %>%
-          Table$create() %>%
-          transmute(x = eval(fun)("Foo", "baz", x, ignore.case = TRUE, fixed = fixed)) %>%
-          collect(),
-        tibble(x = c("baz", "bar"))
-      )
-      expect_equal(
-        df %>%
-          Table$create() %>%
-          transmute(x = eval(fun)("o", "u", x, ignore.case = TRUE, fixed = fixed)) %>%
-          collect(),
-        if (fun == quote(sub)) tibble(x = c("Fuo", "bar")) else tibble(x = c("Fuu", "bar"))
-      )
-      expect_equal(
-        df %>%
-          Table$create() %>%
-          transmute(x = eval(fun)("^B.+", "baz", x, ignore.case = TRUE, fixed = fixed)) %>%
-          collect(),
-        if (fixed) tibble(x = c("Foo", "bar")) else tibble(x = c("Foo", "baz"))
-      )
-
-    }
+    # the tests below all use ignore.case = TRUE
+    # but base::sub and base::gsub ignore ignore.case = TRUE with a warning when fixed = TRUE
+    # so we can't use expect_dplyr_equal() for the tests below
+    expect_equal(
+      df %>%
+        Table$create() %>%
+        transmute(x = sub("O", "u", x, ignore.case = TRUE, fixed = fixed)) %>%
+        collect(),
+      tibble(x = c("Fuo", "bar"))
+    )
+    expect_equal(
+      df %>%
+        Table$create() %>%
+        transmute(x = gsub("o", "u", x, ignore.case = TRUE, fixed = fixed)) %>%
+        collect(),
+      tibble(x = c("Fuu", "bar"))
+    )
+    expect_equal(
+      df %>%
+        Table$create() %>%
+        transmute(x = sub("^B.+", "baz", x, ignore.case = TRUE, fixed = fixed)) %>%
+        collect(),
+      if (fixed) tibble(x = c("Foo", "bar")) else tibble(x = c("Foo", "baz"))
+    )
 
   }
+
 })
 
 test_that("str_replace and str_replace_all", {
@@ -93,13 +84,13 @@ test_that("str_replace and str_replace_all", {
   )
   expect_dplyr_equal(
     input %>%
-      transmute(x = str_replace_all(x, fixed("o"), "u")) %>%
+      transmute(x = str_replace(x, regex("^f[A-Z]{2}", ignore_case = TRUE), "baz")) %>%
       collect(),
     df
   )
   expect_dplyr_equal(
     input %>%
-      transmute(x = str_replace(x, fixed("o"), "u")) %>%
+      transmute(x = str_replace_all(x, fixed("o"), "u")) %>%
       collect(),
     df
   )
@@ -116,5 +107,48 @@ test_that("str_replace and str_replace_all", {
     df
   )
 
-  # TODO: add more tests of str_replace and str_replace_all
+})
+
+test_that("backreferences", {
+  expect_dplyr_equal(
+    input %>%
+      transmute(desc = sub(
+        "(?:https?|ftp)://([^/\r\n]+)(/[^\r\n]*)?",
+        "path `\\2` on server `\\1`",
+        url
+        )
+      ) %>%
+      collect(),
+    tibble(url = "https://arrow.apache.org/docs/r/")
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(x = str_replace(x, regex("^(\\w)o(.*)", ignore_case = TRUE), "\\1\\2p")) %>%
+      collect(),
+    df
+  )
+})
+
+test_that("edge cases", {
+
+  # in case-insensitive fixed replace, test that "\\E" in the search string and
+  # backslashes in the replacement string are interpreted literally
+  expect_equal(
+    tibble(x = c("\\Q\\e\\D")) %>%
+      Table$create() %>%
+      transmute(x = sub("\\E", "\\L", x, ignore.case = TRUE, fixed = TRUE)) %>%
+      collect(),
+    tibble(x = c("\\Q\\L\\D"))
+  )
+
+  # test that a user's "(?i)" prefix does not break the "(?i)" prefix that's
+  # added in case-insensitive regex replace
+  expect_equal(
+    tibble(x = c("ABC")) %>%
+      Table$create() %>%
+      transmute(x = sub("(?i)^[abc]{3}$", "123", x, ignore.case = TRUE, fixed = FALSE)) %>%
+      collect(),
+    tibble(x = c("123"))
+  )
+
 })
