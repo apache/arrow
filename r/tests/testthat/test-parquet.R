@@ -236,14 +236,18 @@ test_that("ParquetFileReader $ReadRowGroup(s) methods", {
 })
 
 test_that("Error messages are shown when the compression algorithm snappy is not found", {
+  msg <- c(
+    "Unsupported compressed format snappy",
+    "Try setting the environment variable LIBARROW_MINIMAL=false and reinstalling",
+    "for a more complete installation (including snappy) or setting",
+    "ARROW_WITH_SNAPPY=ON and reinstalling to enable support for this codec."
+  )
+
   if (codec_is_available("snappy")) {
     d <- read_parquet(pq_file)
     expect_is(d, "data.frame")
   } else {
-    expect_error(
-      read_feather(pq_file),
-      "Unsupported compressed format"
-    )
+    expect_error(read_parquet(pq_file), paste(msg, collapse = "\n"), fixed = TRUE)
   }
 })
 
