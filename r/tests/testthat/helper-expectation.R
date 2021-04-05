@@ -23,6 +23,11 @@ expect_data_frame <- function(x, y, ...) {
   expect_equal(as.data.frame(x), y, ...)
 }
 
+expect_r6_class <- function(object, class){
+  expect_s3_class(object, class)
+  expect_s3_class(object, c("R6"))
+}
+
 expect_equivalent <- function(object, expected, ...) {
   # HACK: dplyr includes an all.equal.tbl_df method that is causing failures.
   # They look spurious, like:
