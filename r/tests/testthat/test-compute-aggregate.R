@@ -229,7 +229,7 @@ test_that("quantile.Array and quantile.ChunkedArray", {
   }
 })
 
-test_that("quantile and median NAs and edge cases", {
+test_that("quantile and median NAs, edge cases, and exceptions", {
   expect_equal(
     quantile(Array$create(c(1, 2)), probs = c(0, 1)),
     Array$create(c(1, 2))
@@ -261,6 +261,10 @@ test_that("quantile and median NAs and edge cases", {
   expect_equal(
     median(Scalar$create(1L)),
     Scalar$create(1)
+  )
+  expect_error(
+    quantile(Array$create(1:3), type = 9),
+    "not supported"
   )
 })
 

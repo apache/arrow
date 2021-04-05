@@ -84,6 +84,7 @@ collect_arrays_from_dots <- function(dots) {
 quantile.ArrowDatum <- function(x,
                                 probs = seq(0, 1, 0.25),
                                 na.rm = FALSE,
+                                type = 7,
                                 interpolation = c("linear", "lower", "higher", "nearest", "midpoint"),
                                 ...) {
   if (inherits(x, "Scalar")) x <- Array$create(x)
@@ -92,6 +93,15 @@ quantile.ArrowDatum <- function(x,
   assert_that(all(probs >= 0 & probs <= 1))
   if (!na.rm && x$null_count > 0) {
     stop("Missing values not allowed if 'na.rm' is FALSE", call. = FALSE)
+  }
+  if (type != 7) {
+    stop(
+      "Argument `type` not supported in Arrow. To control the quantile ",
+      "interpolation algorithm, set argument `interpolation` to one of: ",
+      "\"linear\" (the default), \"lower\", \"higher\", \"nearest\", or ",
+      "\"midpoint\".",
+      call. = FALSE
+    )
   }
   interpolation <- QuantileInterpolation[[toupper(match.arg(interpolation))]]
   out <- call_function("quantile", x, options = list(q = probs, interpolation = interpolation))
