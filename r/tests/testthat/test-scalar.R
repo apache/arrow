@@ -91,14 +91,14 @@ test_that("Handling string data with embedded nuls", {
     fixed = TRUE
   )
 
-  options(arrow.skip_nul = TRUE)
-  on.exit(options(arrow.skip_nul = NULL))
-  expect_warning(
-    expect_identical(
-      as.vector(scalar_with_nul),
-      "man"
-    ),
-    "Stripping '\\0' (nul) from character vector",
-    fixed = TRUE
-  )
+  withr::with_options(list(arrow.skip_nul = TRUE), {
+    expect_warning(
+      expect_identical(
+        as.vector(scalar_with_nul),
+        "man"
+      ),
+      "Stripping '\\0' (nul) from character vector",
+      fixed = TRUE
+    )
+  })
 })

@@ -488,14 +488,14 @@ test_that("Handling string data with embedded nuls", {
     fixed = TRUE
   )
 
-  options(arrow.skip_nul = TRUE)
-  on.exit(options(arrow.skip_nul = NULL))
-  expect_warning(
-    expect_equivalent(
-      as.data.frame(batch_with_nul)$b,
-      c("person", "woman", "man", "camera", "tv")
-    ),
-    "Stripping '\\0' (nul) from character vector",
-    fixed = TRUE
-  )
+  withr::with_options(list(arrow.skip_nul = TRUE), {
+    expect_warning(
+      expect_equivalent(
+        as.data.frame(batch_with_nul)$b,
+        c("person", "woman", "man", "camera", "tv")
+      ),
+      "Stripping '\\0' (nul) from character vector",
+      fixed = TRUE
+    )
+  })
 })

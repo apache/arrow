@@ -62,12 +62,7 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowDatum,
   public = list(
     length = function() ChunkedArray__length(self),
     chunk = function(i) Array$create(ChunkedArray__chunk(self, i)),
-    as_vector = function() {
-      tryCatch(
-        ChunkedArray__as_vector(self),
-        error = handle_embedded_nul_error
-      )
-    },
+    as_vector = function() ChunkedArray__as_vector(self),
     Slice = function(offset, length = NULL){
       if (is.null(length)) {
         ChunkedArray__Slice1(self, offset)
