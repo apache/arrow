@@ -57,6 +57,8 @@ jobs:
             -e ARROW_WITH_RE2={{ arrow_with_re2|default("") }} \
             -e ARROW_WITH_UTF8PROC={{ arrow_with_utf8proc|default("") }} \
             -e LIBARROW_MINIMAL={{ libarrow_minimal|default("") }} \
+            -e LIBARROW_DOWNLOAD={{ libarrow_download|default("") }} \
+            -e LIBARROW_BUILD={{ libarrow_build|default("") }} \
             r
         displayName: Docker run
 

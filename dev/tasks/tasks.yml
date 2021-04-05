@@ -1835,6 +1835,16 @@ tasks:
       arrow_with_utf8proc: "OFF"
       libarrow_minimal: "TRUE"
 
+  test-r-without-arrow:
+    ci: azure
+    template: r/azure.linux.yml
+    params:
+      r_org: rocker
+      r_image: r-base
+      r_tag: latest
+      libarrow_download: "FALSE"
+      libarrow_build: "FALSE"
+
   test-ubuntu-18.04-r-sanitizer:
     ci: azure
     template: docker-tests/azure.linux.yml
