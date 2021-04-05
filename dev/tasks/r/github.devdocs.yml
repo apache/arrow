@@ -43,7 +43,7 @@ jobs:
       - uses: r-lib/actions/setup-r@v1
       - name: Install knitr, rmarkdown
         run: |
-          install.packages(c("rmarkdown", "knitr"))
+          install.packages(c("rmarkdown", "knitr", "sessioninfo"))
         shell: Rscript {0}
       - name: Session info
         run: |
