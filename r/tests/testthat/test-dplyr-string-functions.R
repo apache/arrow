@@ -110,6 +110,8 @@ test_that("str_replace and str_replace_all", {
 })
 
 test_that("backreferences", {
+  df <- tibble(x = c("Foo", "bar"))
+
   expect_dplyr_equal(
     input %>%
       transmute(desc = sub(

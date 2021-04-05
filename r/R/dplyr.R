@@ -476,7 +476,7 @@ arrow_stringr_string_replace_function <- function(FUN, max_replacements) {
       stop(
         "Pattern modifier `",
         match.call()[[1]],
-        "()` is not supportd in Arrow",
+        "()` is not supported in Arrow",
         call. = FALSE
       )
     }
