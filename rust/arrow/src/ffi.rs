@@ -81,7 +81,7 @@ use std::{
     ffi::CStr,
     ffi::CString,
     iter,
-    mem::{size_of, ManuallyDrop},
+    mem::size_of,
     os::raw::c_char,
     ptr::{self, NonNull},
     sync::Arc,
@@ -92,6 +92,11 @@ use crate::buffer::Buffer;
 use crate::datatypes::{DataType, Field, TimeUnit};
 use crate::error::{ArrowError, Result};
 use crate::util::bit_util;
+
+const FLAG_NONE: i64 = 0;
+const FLAG_DICTIONARY_ORDERED: i64 = 1;
+const FLAG_NULLABLE: i64 = 2;
+const FLAG_MAP_KEYS_SORTED: i64 = 4;
 
 /// ABI-compatible struct for `ArrowSchema` from C Data Interface
 /// See <https://arrow.apache.org/docs/format/CDataInterface.html#structure-definitions>
@@ -135,13 +140,14 @@ impl FFI_ArrowSchema {
         let n_children = children.len() as i64;
         let children_ptr = children.as_ptr() as *mut *mut FFI_ArrowSchema;
 
-        let flags = if nullable { 2 } else { 0 };
+        let flags = if nullable { FLAG_NULLABLE } else { FLAG_NONE };
 
         let private_data = Box::new(SchemaPrivateData { children });
         // <https://arrow.apache.org/docs/format/CDataInterface.html#c.ArrowSchema>
         FFI_ArrowSchema {
             format: CString::new(format).unwrap().into_raw(),
-            // For child data a non null string is expected and is called item
+            // TODO: get the field name for general nested data
+            // For List child data a non null string is expected and is called item
             name: CString::new("item").unwrap().into_raw(),
             metadata: std::ptr::null_mut(),
             flags,
@@ -159,7 +165,7 @@ impl FFI_ArrowSchema {
             format: std::ptr::null_mut(),
             name: std::ptr::null_mut(),
             metadata: std::ptr::null_mut(),
-            flags: 0,
+            flags: FLAG_NONE,
             n_children: 0,
             children: ptr::null_mut(),
             dictionary: std::ptr::null_mut(),
@@ -221,15 +227,13 @@ fn to_datatype(
         // at that point the child data is not yet known, but it is also not required to determine
         // the buffer length of the list arrays.
         "+l" => {
-            let nullable = schema.flags == 2;
+            let nullable = (schema.flags & FLAG_NULLABLE) != 0;
             // Safety
             // Should be set as this is expected from the C FFI definition
             debug_assert!(!schema.name.is_null());
-            let name = unsafe { CString::from_raw(schema.name as *mut c_char) }
-                .into_string()
+            let name = unsafe { CStr::from_ptr(schema.name as *const c_char) }
+                .to_str()
                 .unwrap();
-            // prevent a double free
-            let name = ManuallyDrop::new(name);
             DataType::List(Box::new(Field::new(
                 &name,
                 child_type.unwrap_or(DataType::Null),
@@ -237,15 +241,13 @@ fn to_datatype(
             )))
         }
         "+L" => {
-            let nullable = schema.flags == 2;
+            let nullable = (schema.flags & FLAG_NULLABLE) != 0;
             // Safety
             // Should be set as this is expected from the C FFI definition
             debug_assert!(!schema.name.is_null());
-            let name = unsafe { CString::from_raw(schema.name as *mut c_char) }
-                .into_string()
+            let name = unsafe { CStr::from_ptr(schema.name as *const c_char) }
+                .to_str()
                 .unwrap();
-            // prevent a double free
-            let name = ManuallyDrop::new(name);
             DataType::LargeList(Box::new(Field::new(
                 &name,
                 child_type.unwrap_or(DataType::Null),
@@ -394,6 +396,12 @@ unsafe extern "C" fn release_array(array: *mut FFI_ArrowArray) {
     let array = &mut *array;
     // take ownership of `private_data`, therefore dropping it
     Box::from_raw(array.private_data as *mut PrivateData);
+
+    // release children
+    for i in 0..array.n_children {
+        let child = *array.children.add(i as usize);
+        release_array(child);
+    }
 
     array.release = None;
 }
@@ -654,7 +662,7 @@ impl ArrowArray {
                 debug_assert_eq!(bits % 8, 0);
                 (self.array.length as usize + 1) * (bits / 8)
             }
-            (DataType::Utf8, 2) | (DataType::Binary, 2) | (DataType::List(_), 2) => {
+            (DataType::Utf8, 2) | (DataType::Binary, 2) => {
                 // the len of the data buffer (buffer 2) equals the last value of the offset buffer (buffer 1)
                 let len = self.buffer_len(1)?;
                 // first buffer is the null buffer => add(1)
@@ -666,9 +674,7 @@ impl ArrowArray {
                 // get last offset
                 (unsafe { *offset_buffer.add(len / size_of::<i32>() - 1) }) as usize
             }
-            (DataType::LargeUtf8, 2)
-            | (DataType::LargeBinary, 2)
-            | (DataType::LargeList(_), 2) => {
+            (DataType::LargeUtf8, 2) | (DataType::LargeBinary, 2) => {
                 // the len of the data buffer (buffer 2) equals the last value of the offset buffer (buffer 1)
                 let len = self.buffer_len(1)?;
                 // first buffer is the null buffer => add(1)
