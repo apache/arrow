@@ -54,6 +54,20 @@
   invisible()
 }
 
+.onAttach <- function(libname, pkgname) {
+  if (!arrow_available()) {
+    msg <- paste(
+      'The Arrow C++ library is not available. To retry installation with debug output, run:',
+
+      '    install_arrow(verbose = TRUE)',
+
+      'See `vignette("install", package = "arrow")` for more guidance and troubleshooting.',
+      sep = "\n\n"
+    )
+    packageStartupMessage(msg)
+  }
+}
+
 #' Is the C++ Arrow library available?
 #'
 #' You won't generally need to call these function, but they're made available
