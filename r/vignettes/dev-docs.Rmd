@@ -1,0 +1,58 @@
+---
+title: "Arrow R Package Developer Documentation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Arrow R Package Developer Documentation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+run <- tolower(Sys.getenv("RUN_DEVDOCS", "false")) == "true"
+run_macos <- run & tolower(Sys.getenv("DEVDOCS_MACOS", "false")) == "true"
+run_ubuntu <- run & tolower(Sys.getenv("DEVDOCS_UBUNTU", "false")) == "true"
+```
+
+Proof of concept for developer documentation that builds itself.
+
+```{bash, eval=run_macos}
+brew install openssl
+```
+
+
+```{bash, eval=run_ubuntu}
+sudo apt install libcurl4-openssl-dev libssl-dev
+```
+
+
+```{bash, eval=run}
+cd ~/arrow/cpp
+mkdir build
+cd build
+
+cmake \
+  -DARROW_COMPUTE=ON \
+  -DARROW_CSV=ON \
+  -DARROW_DATASET=ON \
+  -DARROW_FILESYSTEM=ON \
+  -DARROW_JEMALLOC=ON \
+  -DARROW_JSON=ON \
+  -DARROW_PARQUET=ON \
+  -DCMAKE_BUILD_TYPE=release \
+  -DARROW_WITH_SNAPPY=ON \
+  -DARROW_WITH_ZLIB=ON \
+  -DARROW_INSTALL_NAME_RPATH=OFF \
+      ..
+make install
+
+cd ../../r
+R -e 'install.packages("remotes"); remotes::install_deps(dependencies = TRUE)'
+
+R CMD INSTALL .
+```
+
+```{r, eval=run}
+library(arrow)
+
+arrow_info()
+```
