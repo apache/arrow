@@ -1171,6 +1171,18 @@ cdef class Table(_PandasConvertible):
                         "the `Table.from_*` functions instead.")
 
     def to_string(self, show_metadata=False):
+        """
+        Return human-readable string representation of Table.
+
+        Parameters
+        ----------
+        show_metadata : bool, default True
+            Display Field-level and Schema-level KeyValueMetadata.
+
+        Returns
+        -------
+        str
+        """
         # Use less verbose schema output.
         schema_as_string = self.schema.to_string(
             show_field_metadata=show_metadata,
