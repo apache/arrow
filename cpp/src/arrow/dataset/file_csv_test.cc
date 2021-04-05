@@ -227,18 +227,18 @@ TEST_P(TestCsvFileFormat, IsSupported) {
   ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(*source));
   ASSERT_EQ(supported, false);
 
-  //   source = GetFileSource(R"(declare,two
-  //   1,2,3)");
-  //   ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(*source));
-  //   ASSERT_EQ(supported, false);
+  source = GetFileSource(R"(declare,two
+    1,2,3)");
+  ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(*source));
+  ASSERT_EQ(supported, false);
 
-  //   source = GetFileSource(R"(f64
-  // 1.0
+  source = GetFileSource(R"(f64
+  1.0
 
-  // N/A
-  // 2)");
-  //   ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(*source));
-  //   EXPECT_EQ(supported, true);
+  N/A
+  2)");
+  ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(*source));
+  EXPECT_EQ(supported, true);
 }
 
 TEST_P(TestCsvFileFormat, NonProjectedFieldWithDifferingTypeFromInferred) {
