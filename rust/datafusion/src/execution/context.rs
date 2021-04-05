@@ -1728,38 +1728,25 @@ mod tests {
         ctx.register_table("t", table_with_sequence(1, 1000).unwrap())
             .unwrap();
 
-        let results = plan_and_collect(&mut ctx, "SELECT i FROM t ORDER BY i DESC limit 3")
-            .await
-            .unwrap();
+        let results =
+            plan_and_collect(&mut ctx, "SELECT i FROM t ORDER BY i DESC limit 3")
+                .await
+                .unwrap();
 
-        let expected = vec!
-            [
-                "+------+",
-                "| i    |",
-                "+------+",
-                "| 1000 |",
-                "| 999  |",
-                "| 998  |",
-                "+------+",
-            ];
+        let expected = vec![
+            "+------+", "| i    |", "+------+", "| 1000 |", "| 999  |", "| 998  |",
+            "+------+",
+        ];
 
         assert_batches_eq!(expected, &results);
-
 
         let results = plan_and_collect(&mut ctx, "SELECT i FROM t ORDER BY i limit 3")
             .await
             .unwrap();
 
-        let expected = vec!
-            [
-                "+---+",
-                "| i |",
-                "+---+",
-                "| 1 |",
-                "| 2 |",
-                "| 3 |",
-                "+---+",
-            ];
+        let expected = vec![
+            "+---+", "| i |", "+---+", "| 1 |", "| 2 |", "| 3 |", "+---+",
+        ];
 
         assert_batches_eq!(expected, &results);
 
@@ -1773,7 +1760,6 @@ mod tests {
 
         Ok(())
     }
-
 
     #[tokio::test]
     async fn case_sensitive_identifiers_functions() {
