@@ -134,7 +134,9 @@ test_that("backreferences", {
 test_that("edge cases", {
 
   # in case-insensitive fixed replace, test that "\\E" in the search string and
-  # backslashes in the replacement string are interpreted literally
+  # backslashes in the replacement string are interpreted literally.
+  # this test does not use expect_dplyr_equal() because base::sub() does not
+  # support ignore.case = TRUE when fixed = TRUE.
   expect_equal(
     tibble(x = c("\\Q\\e\\D")) %>%
       Table$create() %>%
@@ -145,28 +147,32 @@ test_that("edge cases", {
 
   # test that a user's "(?i)" prefix does not break the "(?i)" prefix that's
   # added in case-insensitive regex replace
-  expect_equal(
-    tibble(x = c("ABC")) %>%
-      Table$create() %>%
+  expect_dplyr_equal(
+    input %>%
       transmute(x = sub("(?i)^[abc]{3}$", "123", x, ignore.case = TRUE, fixed = FALSE)) %>%
       collect(),
-    tibble(x = c("123"))
+    tibble(x = c("ABC"))
   )
 
 })
 
 test_that("errors and warnings", {
   skip_if_not_available("dataset")
-
   df <- tibble(x = c("Foo", "bar"))
-  ds <- InMemoryDataset$create(df)
 
-  expect_error(
-    ds %>% transmute(x = str_replace_all(x, coll("o", locale = "en"), "ó")),
+  # This condition generates an error, but abandon_ship() catches the error,
+  # issues a warning, and pulls the data into R
+  expect_warning(
+    df %>%
+      Table$create() %>%
+      mutate(x = str_replace_all(x, coll("o", locale = "en"), "ó")) %>%
+      collect(),
     "not supported"
   )
   expect_warning(
-    ds %>% transmute(x = str_replace_all(x, regex("o", multiline = TRUE), "u")),
-    "Ignoring pattern modifier"
+    df %>%
+      Table$create() %>%
+      transmute(x = str_replace_all(x, regex("o", multiline = TRUE), "u")),
+    "Ignoring pattern modifier argument not supported in Arrow: \"multiline\""
   )
 })
