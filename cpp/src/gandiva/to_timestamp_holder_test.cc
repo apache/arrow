@@ -137,7 +137,7 @@ TEST_F(TestToTimestampHolder, TestSimpleDateTimeError) {
   std::string expected_error =
       "Error parsing value 1986-01-40 01:01:01 +0800 for given format";
   EXPECT_TRUE(execution_context_.get_error().find(expected_error) != std::string::npos)
-            << status.message();
+      << status.message();
 
   // not valid should not return error
   execution_context_.Reset();
@@ -149,7 +149,8 @@ TEST_F(TestToTimestampHolder, TestSimpleDateTimeError) {
 TEST_F(TestToTimestampHolder, TestWithTimezones) {
   std::shared_ptr<ToTimestampHolder> to_timestamp_holder;
   // Timezone information are yet not supported by the arrow formatters
-  auto status = ToTimestampHolder::Make("YYYY-MM-DD HH:MI:SS tzo", 0, &to_timestamp_holder);
+  auto status =
+      ToTimestampHolder::Make("YYYY-MM-DD HH:MI:SS tzo", 0, &to_timestamp_holder);
   EXPECT_EQ(status.IsInvalid(), true) << status.message();
 
   status = ToTimestampHolder::Make("YYYY-MM-DD HH:MI:SS tzd", 0, &to_timestamp_holder);
