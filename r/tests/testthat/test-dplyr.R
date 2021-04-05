@@ -32,7 +32,7 @@ test_that("basic select/filter/collect", {
     select(int, chr) %>%
     filter(int > 5)
 
-  expect_is(b2, "arrow_dplyr_query")
+  expect_s3_class(b2, "arrow_dplyr_query")
   t2 <- collect(b2)
   expect_equal(t2, tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")])
   # Test that the original object is not affected
@@ -187,7 +187,7 @@ test_that("collect(as_data_frame=FALSE)", {
     filter(int > 5) %>%
     collect(as_data_frame = FALSE)
 
-  expect_is(b2, "RecordBatch")
+  expect_r6_class(b2, "RecordBatch")
   expected <- tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")]
   expect_equal(as.data.frame(b2), expected)
 
@@ -195,7 +195,7 @@ test_that("collect(as_data_frame=FALSE)", {
     select(int, strng = chr) %>%
     filter(int > 5) %>%
     collect(as_data_frame = FALSE)
-  expect_is(b3, "RecordBatch")
+  expect_r6_class(b3, "RecordBatch")
   expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
@@ -203,7 +203,7 @@ test_that("collect(as_data_frame=FALSE)", {
     filter(int > 5) %>%
     group_by(int) %>%
     collect(as_data_frame = FALSE)
-  expect_is(b4, "arrow_dplyr_query")
+  expect_s3_class(b4, "arrow_dplyr_query")
   expect_equal(
     as.data.frame(b4),
     expected %>%
@@ -257,7 +257,7 @@ test_that("head", {
     filter(int > 5) %>%
     head(2)
 
-  expect_is(b2, "RecordBatch")
+  expect_r6_class(b2, "RecordBatch")
   expected <- tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")][1:2, ]
   expect_equal(as.data.frame(b2), expected)
 
@@ -265,7 +265,7 @@ test_that("head", {
     select(int, strng = chr) %>%
     filter(int > 5) %>%
     head(2)
-  expect_is(b3, "RecordBatch")
+  expect_r6_class(b3, "RecordBatch")
   expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
@@ -273,7 +273,7 @@ test_that("head", {
     filter(int > 5) %>%
     group_by(int) %>%
     head(2)
-  expect_is(b4, "arrow_dplyr_query")
+  expect_s3_class(b4, "arrow_dplyr_query")
   expect_equal(
     as.data.frame(b4),
     expected %>%
@@ -290,7 +290,7 @@ test_that("tail", {
     filter(int > 5) %>%
     tail(2)
 
-  expect_is(b2, "RecordBatch")
+  expect_r6_class(b2, "RecordBatch")
   expected <- tail(tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")], 2)
   expect_equal(as.data.frame(b2), expected)
 
@@ -298,7 +298,7 @@ test_that("tail", {
     select(int, strng = chr) %>%
     filter(int > 5) %>%
     tail(2)
-  expect_is(b3, "RecordBatch")
+  expect_r6_class(b3, "RecordBatch")
   expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
 
   b4 <- batch %>%
@@ -306,7 +306,7 @@ test_that("tail", {
     filter(int > 5) %>%
     group_by(int) %>%
     tail(2)
-  expect_is(b4, "arrow_dplyr_query")
+  expect_s3_class(b4, "arrow_dplyr_query")
   expect_equal(
     as.data.frame(b4),
     expected %>%

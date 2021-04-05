@@ -100,9 +100,9 @@ if(arrow_with_parquet()) {
 test_that("Simple interface for datasets", {
   skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-  expect_is(ds$format, "ParquetFileFormat")
-  expect_is(ds$filesystem, "LocalFileSystem")
-  expect_is(ds, "Dataset")
+  expect_r6_class(ds$format, "ParquetFileFormat")
+  expect_r6_class(ds$filesystem, "LocalFileSystem")
+  expect_r6_class(ds, "Dataset")
   expect_equivalent(
     ds %>%
       select(chr, dbl) %>%
@@ -208,7 +208,7 @@ test_that("dataset from directory URI", {
   skip_if_not_available("parquet")
   uri <- paste0("file://", dataset_dir)
   ds <- open_dataset(uri, partitioning = schema(part = uint8()))
-  expect_is(ds, "Dataset")
+  expect_r6_class(ds, "Dataset")
   expect_equivalent(
     ds %>%
       select(chr, dbl) %>%
@@ -276,7 +276,7 @@ test_that("Simple interface for datasets (custom ParquetFileFormat)", {
 test_that("Hive partitioning", {
   skip_if_not_available("parquet")
   ds <- open_dataset(hive_dir, partitioning = hive_partition(other = utf8(), group = uint8()))
-  expect_is(ds, "Dataset")
+  expect_r6_class(ds, "Dataset")
   expect_equivalent(
     ds %>%
       filter(group == 2) %>%
@@ -327,8 +327,8 @@ test_that("Partitioning inference", {
 
 test_that("IPC/Feather format data", {
   ds <- open_dataset(ipc_dir, partitioning = "part", format = "feather")
-  expect_is(ds$format, "IpcFileFormat")
-  expect_is(ds$filesystem, "LocalFileSystem")
+  expect_r6_class(ds$format, "IpcFileFormat")
+  expect_r6_class(ds$filesystem, "LocalFileSystem")
   expect_identical(names(ds), c(names(df1), "part"))
   expect_warning(
     expect_identical(dim(ds), c(NA, 7L))
@@ -356,8 +356,8 @@ test_that("IPC/Feather format data", {
 test_that("CSV dataset", {
   skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-12181
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
-  expect_is(ds$format, "CsvFileFormat")
-  expect_is(ds$filesystem, "LocalFileSystem")
+  expect_r6_class(ds$format, "CsvFileFormat")
+  expect_r6_class(ds$filesystem, "LocalFileSystem")
   expect_identical(names(ds), c(names(df1), "part"))
   expect_warning(
     expect_identical(dim(ds), c(NA, 7L))
@@ -426,8 +426,8 @@ test_that("compressed CSV dataset", {
   write.csv(df1, gzfile(dst_file), row.names = FALSE, quote = FALSE)
   format <- FileFormat$create("csv")
   ds <- open_dataset(dst_dir, format = format)
-  expect_is(ds$format, "CsvFileFormat")
-  expect_is(ds$filesystem, "LocalFileSystem")
+  expect_r6_class(ds$format, "CsvFileFormat")
+  expect_r6_class(ds$filesystem, "LocalFileSystem")
 
   expect_equivalent(
     ds %>%
@@ -590,7 +590,7 @@ test_that("Creating UnionDataset", {
   ds1 <- open_dataset(file.path(dataset_dir, 1))
   ds2 <- open_dataset(file.path(dataset_dir, 2))
   union1 <- open_dataset(list(ds1, ds2))
-  expect_is(union1, "UnionDataset")
+  expect_r6_class(union1, "UnionDataset")
   expect_equivalent(
     union1 %>%
       select(chr, dbl) %>%
@@ -605,7 +605,7 @@ test_that("Creating UnionDataset", {
 
   # Now with the c() method
   union2 <- c(ds1, ds2)
-  expect_is(union2, "UnionDataset")
+  expect_r6_class(union2, "UnionDataset")
   expect_equivalent(
     union2 %>%
       select(chr, dbl) %>%
@@ -624,7 +624,7 @@ test_that("Creating UnionDataset", {
 
 test_that("InMemoryDataset", {
   ds <- InMemoryDataset$create(rbind(df1, df2))
-  expect_is(ds, "InMemoryDataset")
+  expect_r6_class(ds, "InMemoryDataset")
   expect_equivalent(
     ds %>%
       select(chr, dbl) %>%
@@ -861,9 +861,9 @@ test_that("filter() on date32 columns", {
 test_that("filter() with expressions", {
   skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-  expect_is(ds$format, "ParquetFileFormat")
-  expect_is(ds$filesystem, "LocalFileSystem")
-  expect_is(ds, "Dataset")
+  expect_r6_class(ds$format, "ParquetFileFormat")
+  expect_r6_class(ds$filesystem, "LocalFileSystem")
+  expect_r6_class(ds, "Dataset")
   expect_equivalent(
     ds %>%
       select(chr, dbl) %>%
@@ -1314,7 +1314,7 @@ test_that("Dataset and query print methods", {
     ),
     fixed = TRUE
   )
-  expect_is(ds$metadata, "list")
+  expect_type(ds$metadata, "list")
   q <- select(ds, string = chr, lgl, integer = int)
   expect_output(
     print(q),
@@ -1348,16 +1348,16 @@ test_that("Dataset and query print methods", {
 
 expect_scan_result <- function(ds, schm) {
   sb <- ds$NewScan()
-  expect_is(sb, "ScannerBuilder")
+  expect_r6_class(sb, "ScannerBuilder")
   expect_equal(sb$schema, schm)
 
   sb$Project(c("chr", "lgl"))
   sb$Filter(Expression$field_ref("dbl") == 8)
   scn <- sb$Finish()
-  expect_is(scn, "Scanner")
+  expect_r6_class(scn, "Scanner")
 
   tab <- scn$ToTable()
-  expect_is(tab, "Table")
+  expect_r6_class(tab, "Table")
 
   expect_equivalent(
     as.data.frame(tab),
@@ -1373,19 +1373,19 @@ test_that("Assembling a Dataset manually and getting a Table", {
 
   fmt <- FileFormat$create("parquet")
   factory <- FileSystemDatasetFactory$create(fs, selector, NULL, fmt, partitioning = partitioning)
-  expect_is(factory, "FileSystemDatasetFactory")
-
+  expect_r6_class(factory, "FileSystemDatasetFactory")
+  
   schm <- factory$Inspect()
-  expect_is(schm, "Schema")
+  expect_r6_class(schm, "Schema")
 
   phys_schm <- ParquetFileReader$create(files[1])$GetSchema()
   expect_equal(names(phys_schm), names(df1))
   expect_equal(names(schm), c(names(phys_schm), "part"))
 
   child <- factory$Finish(schm)
-  expect_is(child, "FileSystemDataset")
-  expect_is(child$schema, "Schema")
-  expect_is(child$format, "ParquetFileFormat")
+  expect_r6_class(child, "FileSystemDataset")
+  expect_r6_class(child$schema, "Schema")
+  expect_r6_class(child$format, "ParquetFileFormat")
   expect_equal(names(schm), names(child$schema))
   expect_equivalent(child$files, files)
 
@@ -1396,22 +1396,22 @@ test_that("Assembling a Dataset manually and getting a Table", {
 test_that("Assembling multiple DatasetFactories with DatasetFactory", {
   skip_if_not_available("parquet")
   factory1 <- dataset_factory(file.path(dataset_dir, 1), format = "parquet")
-  expect_is(factory1, "FileSystemDatasetFactory")
+  expect_r6_class(factory1, "FileSystemDatasetFactory")
   factory2 <- dataset_factory(file.path(dataset_dir, 2), format = "parquet")
-  expect_is(factory2, "FileSystemDatasetFactory")
+  expect_r6_class(factory2, "FileSystemDatasetFactory")
 
   factory <- DatasetFactory$create(list(factory1, factory2))
-  expect_is(factory, "DatasetFactory")
+  expect_r6_class(factory, "DatasetFactory")
 
   schm <- factory$Inspect()
-  expect_is(schm, "Schema")
+  expect_r6_class(schm, "Schema")
 
   phys_schm <- ParquetFileReader$create(files[1])$GetSchema()
   expect_equal(names(phys_schm), names(df1))
 
   ds <- factory$Finish(schm)
-  expect_is(ds, "UnionDataset")
-  expect_is(ds$schema, "Schema")
+  expect_r6_class(ds, "UnionDataset")
+  expect_r6_class(ds$schema, "Schema")
   expect_equal(names(schm), names(ds$schema))
   expect_equivalent(map(ds$children, ~.$files), files)
 

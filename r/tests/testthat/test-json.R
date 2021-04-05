@@ -58,9 +58,9 @@ test_that("read_json_arrow() converts to tibble", {
   tab2 <- read_json_arrow(mmap_open(tf))
   tab3 <- read_json_arrow(ReadableFile$create(tf))
 
-  expect_is(tab1, "tbl_df")
-  expect_is(tab2, "tbl_df")
-  expect_is(tab3, "tbl_df")
+  expect_s3_class(tab1, "tbl_df")
+  expect_s3_class(tab2, "tbl_df")
+  expect_s3_class(tab3, "tbl_df")
 
   expect_equal(tab1, tab2)
   expect_equal(tab1, tab3)

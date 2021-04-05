@@ -24,10 +24,10 @@ test_that("MessageReader can be created from raw vectors", {
   reader <- MessageReader$create(bytes)
 
   message <- reader$ReadNextMessage()
-  expect_is(message, "Message")
+  expect_r6_class(message, "Message")
   expect_equal(message$type, MessageType$RECORD_BATCH)
-  expect_is(message$body, "Buffer")
-  expect_is(message$metadata, "Buffer")
+  expect_r6_class(message$body, "Buffer")
+  expect_r6_class(message$metadata, "Buffer")
 
   message <- reader$ReadNextMessage()
   expect_null(message)
@@ -38,10 +38,10 @@ test_that("MessageReader can be created from raw vectors", {
   reader <- MessageReader$create(bytes)
 
   message <- reader$ReadNextMessage()
-  expect_is(message, "Message")
+  expect_r6_class(message, "Message")
   expect_equal(message$type, MessageType$SCHEMA)
-  expect_is(message$body, "Buffer")
-  expect_is(message$metadata, "Buffer")
+  expect_r6_class(message$body, "Buffer")
+  expect_r6_class(message$metadata, "Buffer")
 
   message <- reader$ReadNextMessage()
   expect_null(message)
@@ -52,16 +52,16 @@ test_that("MessageReader can be created from input stream", {
   bytes <- batch$serialize()
 
   stream <- BufferReader$create(bytes)
-  expect_is(stream, "BufferReader")
+  expect_r6_class(stream, "BufferReader")
 
   reader <- MessageReader$create(stream)
-  expect_is(reader, "MessageReader")
+  expect_r6_class(reader, "MessageReader")
 
   message <- reader$ReadNextMessage()
-  expect_is(message, "Message")
+  expect_r6_class(message, "Message")
   expect_equal(message$type, MessageType$RECORD_BATCH)
-  expect_is(message$body, "Buffer")
-  expect_is(message$metadata, "Buffer")
+  expect_r6_class(message$body, "Buffer")
+  expect_r6_class(message$metadata, "Buffer")
 
   message <- reader$ReadNextMessage()
   expect_null(message)
@@ -70,16 +70,16 @@ test_that("MessageReader can be created from input stream", {
   bytes <- schema$serialize()
 
   stream <- BufferReader$create(bytes)
-  expect_is(stream, "BufferReader")
+  expect_r6_class(stream, "BufferReader")
 
   reader <- MessageReader$create(stream)
-  expect_is(reader, "MessageReader")
+  expect_r6_class(reader, "MessageReader")
 
   message <- reader$ReadNextMessage()
-  expect_is(message, "Message")
+  expect_r6_class(message, "Message")
   expect_equal(message$type, MessageType$SCHEMA)
-  expect_is(message$body, "Buffer")
-  expect_is(message$metadata, "Buffer")
+  expect_r6_class(message$body, "Buffer")
+  expect_r6_class(message$metadata, "Buffer")
 
   message <- reader$ReadNextMessage()
   expect_null(message)

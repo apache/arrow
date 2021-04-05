@@ -496,7 +496,7 @@ test_that("Array$create() supports tibble with no columns (ARROW-8354)", {
 
 test_that("Array$create() handles vector -> list arrays (ARROW-7662)", {
   # Should be able to create an empty list with a type hint.
-  expect_is(Array$create(list(), list_of(bool())), "ListArray")
+  expect_r6_class(Array$create(list(), list_of(bool())), "ListArray")
 
   # logical
   expect_array_roundtrip(list(NA), list_of(bool()))
@@ -542,7 +542,7 @@ test_that("Array$create() handles vector -> list arrays (ARROW-7662)", {
 
 test_that("Array$create() handles vector -> large list arrays", {
   # Should be able to create an empty list with a type hint.
-  expect_is(Array$create(list(), type = large_list_of(bool())), "LargeListArray")
+  expect_r6_class(Array$create(list(), type = large_list_of(bool())), "LargeListArray")
 
   # logical
   expect_array_roundtrip(list(NA), large_list_of(bool()), as = large_list_of(bool()))
@@ -587,7 +587,7 @@ test_that("Array$create() handles vector -> large list arrays", {
 
 test_that("Array$create() handles vector -> fixed size list arrays", {
   # Should be able to create an empty list with a type hint.
-  expect_is(Array$create(list(), type = fixed_size_list_of(bool(), 20)), "FixedSizeListArray")
+  expect_r6_class(Array$create(list(), type = fixed_size_list_of(bool(), 20)), "FixedSizeListArray")
 
   # logical
   expect_array_roundtrip(list(NA), fixed_size_list_of(bool(), 1L), as = fixed_size_list_of(bool(), 1L))

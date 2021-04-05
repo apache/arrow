@@ -392,17 +392,17 @@ test_that("decimal type and validation", {
   expect_error(decimal(100, 2), "Invalid: Decimal precision out of range: 100")
   expect_error(decimal(4, NA), '"scale" must be an integer')
 
-  expect_is(decimal(4, 2), "Decimal128Type")
+  expect_r6_class(decimal(4, 2), "Decimal128Type")
 
 })
 
 test_that("Binary", {
-  expect_is(binary(), "Binary")
+  expect_r6_class(binary(), "Binary")
   expect_equal(binary()$ToString(), "binary")
 })
 
 test_that("FixedSizeBinary", {
-  expect_is(fixed_size_binary(4), "FixedSizeBinary")
+  expect_r6_class(fixed_size_binary(4), "FixedSizeBinary")
   expect_equal(fixed_size_binary(4)$ToString(), "fixed_size_binary[4]")
 
   # input validation

@@ -38,7 +38,7 @@ if (arrow_with_s3() && process_is_running("minio server")) {
       scheme = "http",
       endpoint_override = paste0("localhost:", minio_port)
     )
-    expect_is(fs, "S3FileSystem")
+    expect_r6_class(fs, "S3FileSystem")
     now <- as.character(as.numeric(Sys.time()))
     # If minio isn't running, this will hang for a few seconds and fail with a
     # curl timeout, causing `run_these` to be set to FALSE and skipping the tests
