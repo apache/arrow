@@ -1279,7 +1279,8 @@ cdef class Table(_PandasConvertible):
 
     def filter(self, mask, object null_selection_behavior="drop"):
         """
-        Select records from a Table. See :func:`pyarrow.compute.filter` for full usage.
+        Select records from a Table. See :func:`pyarrow.compute.filter` for
+        full usage.
         """
         return _pc().filter(self, mask, null_selection_behavior)
 
