@@ -1677,6 +1677,7 @@ mod tests {
             let actual_vec = result_vec(&actual);
 
             // basic result comparison
+            assert_eq!(expected_vec.len(), actual_vec.len());
 
             // compare each row. this works as all TPC-H queries have determinisically ordered results
             for i in 0..actual_vec.len() {
