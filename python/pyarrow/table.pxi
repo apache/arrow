@@ -1241,7 +1241,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        value : ChunkedArray (index/column) or Table (slice)
+        ChunkedArray (index/column) or Table (slice)
         """
         if isinstance(key, slice):
             return _normalize_slice(self, key)
@@ -1262,7 +1262,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        sliced : Table
+        Table
         """
         cdef shared_ptr[CTable] result
 
@@ -1305,7 +1305,6 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         Table
-
         """
         cdef:
             shared_ptr[CTable] c_table
@@ -1333,7 +1332,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        shallow_copy : Table
+        Table
         """
         cdef:
             shared_ptr[const CKeyValueMetadata] c_meta
@@ -1358,7 +1357,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        result : Table
+        Table
         """
         cdef:
             shared_ptr[CTable] flattened
@@ -1383,7 +1382,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        result : Table
+        Table
         """
         cdef:
             shared_ptr[CTable] combined
@@ -1411,7 +1410,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        result : Table
+        Table
         """
         cdef:
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
@@ -1442,7 +1441,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        are_equal : bool
+        bool
         """
         if other is None:
             return False
@@ -1470,7 +1469,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        casted : Table
+        Table
         """
         cdef:
             ChunkedArray column, casted
@@ -1533,7 +1532,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.Table
+        Table
 
         Examples
         --------
@@ -1576,8 +1575,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.Table
-
+        Table
         """
         cdef:
             vector[shared_ptr[CChunkedArray]] columns
@@ -1620,8 +1618,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.Table
-
+        Table
         """
         arrays = []
         if schema is None:
@@ -1665,7 +1662,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        table : Table
+        Table
         """
         cdef:
             vector[shared_ptr[CRecordBatch]] c_batches
@@ -1702,7 +1699,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        batches : list of RecordBatch
+        list of RecordBatch
         """
         cdef:
             unique_ptr[TableBatchReader] reader
@@ -1770,7 +1767,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.Schema
+        Schema
         """
         return pyarrow_wrap_schema(self.table.schema())
 
@@ -1785,7 +1782,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.Field
+        Field
         """
         return self.schema.field(i)
 
@@ -1820,7 +1817,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.ChunkedArray
+        ChunkedArray
         """
         return self._column(self._ensure_integer_index(i))
 
@@ -1835,7 +1832,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.ChunkedArray
+        ChunkedArray
         """
         cdef int index = <int> _normalize_index(i, self.num_columns)
         cdef ChunkedArray result = pyarrow_wrap_chunked_array(
@@ -1849,7 +1846,7 @@ cdef class Table(_PandasConvertible):
 
         Yields
         ------
-        pyarrow.ChunkedArray
+        ChunkedArray
         """
         for i in range(self.num_columns):
             yield self._column(i)
@@ -1861,7 +1858,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        list of pa.ChunkedArray
+        list of ChunkedArray
         """
         return [self._column(i) for i in range(self.num_columns)]
 
@@ -1909,6 +1906,10 @@ cdef class Table(_PandasConvertible):
     def nbytes(self):
         """
         Total number of bytes consumed by the elements of the table.
+
+        Returns
+        -------
+        int
         """
         size = 0
         for column in self.itercolumns():
@@ -1937,7 +1938,8 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.Table : New table with the passed column added.
+        Table
+            New table with the passed column added.
         """
         cdef:
             shared_ptr[CTable] c_table
@@ -1974,7 +1976,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.Table :
+        Table
             New table with the passed column added.
         """
         return self.add_column(self.num_columns, field_, column)
@@ -1990,7 +1992,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.Table :
+        Table
             New table without the column.
         """
         cdef shared_ptr[CTable] c_table
@@ -2016,7 +2018,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.Table :
+        Table
             New table with the passed column set.
         """
         cdef:
@@ -2044,6 +2046,10 @@ cdef class Table(_PandasConvertible):
     def column_names(self):
         """
         Names of the table's columns
+
+        Returns
+        -------
+        list of str
         """
         names = self.table.ColumnNames()
         return [frombytes(name) for name in names]
@@ -2051,6 +2057,10 @@ cdef class Table(_PandasConvertible):
     def rename_columns(self, names):
         """
         Create new table with columns renamed to provided names.
+
+        Returns
+        -------
+        Table
         """
         cdef:
             shared_ptr[CTable] c_table
@@ -2079,7 +2089,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.Table :
+        Table
             New table without the columns.
         """
         indices = []
