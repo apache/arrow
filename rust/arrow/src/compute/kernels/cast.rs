@@ -1060,16 +1060,27 @@ where
     T: ArrowNumericType,
     <T as ArrowPrimitiveType>::Native: lexical_core::FromLexical,
 {
-    let vec = (0..from.len())
-        .map(|i| {
+    if cast_options.safe {
+        let iter = (0..from.len()).map(|i| {
             if from.is_null(i) {
-                Ok(None)
+                None
             } else {
-                let string = from.value(i);
-                let result = lexical_core::parse(string.as_bytes());
-                if cast_options.safe {
-                    Ok(result.ok())
+                lexical_core::parse(from.value(i).as_bytes()).ok()
+            }
+        });
+        // Benefit:
+        //     20% performance improvement
+        // Soundness:
+        //     The iterator is trustedLen because it comes from an `StringArray`.
+        Ok(unsafe { PrimitiveArray::<T>::from_trusted_len_iter(iter) })
+    } else {
+        let vec = (0..from.len())
+            .map(|i| {
+                if from.is_null(i) {
+                    Ok(None)
                 } else {
+                    let string = from.value(i);
+                    let result = lexical_core::parse(string.as_bytes());
                     Some(result.map_err(|_| {
                         ArrowError::CastError(format!(
                             "Cannot cast string '{}' to value of {} type",
@@ -1079,14 +1090,14 @@ where
                     }))
                     .transpose()
                 }
-            }
-        })
-        .collect::<Result<Vec<Option<_>>>>()?;
-    // Benefit:
-    //     20% performance improvement
-    // Soundness:
-    //     The iterator is trustedLen because it comes from an `StringArray`.
-    Ok(unsafe { PrimitiveArray::<T>::from_trusted_len_iter(vec.iter()) })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        // Benefit:
+        //     20% performance improvement
+        // Soundness:
+        //     The iterator is trustedLen because it comes from an `StringArray`.
+        Ok(unsafe { PrimitiveArray::<T>::from_trusted_len_iter(vec.iter()) })
+    }
 }
 
 /// Casts generic string arrays to Date32Array
@@ -1101,37 +1112,54 @@ fn cast_string_to_date32<Offset: StringOffsetSizeTrait>(
         .downcast_ref::<GenericStringArray<Offset>>()
         .unwrap();
 
-    let vec = (0..string_array.len())
-        .map(|i| {
+    let array = if cast_options.safe {
+        let iter = (0..string_array.len()).map(|i| {
             if string_array.is_null(i) {
-                Ok(None)
+                None
             } else {
-                let string = string_array
-                .value(i);
-
-                let result = string
+                string_array
+                    .value(i)
                     .parse::<chrono::NaiveDate>()
-                    .map(|date| date.num_days_from_ce() - EPOCH_DAYS_FROM_CE);
+                    .map(|date| date.num_days_from_ce() - EPOCH_DAYS_FROM_CE)
+                    .ok()
+            }
+        });
 
-                if cast_options.safe {
-                    Ok(result.ok())
+        // Benefit:
+        //     20% performance improvement
+        // Soundness:
+        //     The iterator is trustedLen because it comes from an `StringArray`.
+        unsafe { Date32Array::from_trusted_len_iter(iter) }
+    } else {
+        let vec = (0..string_array.len())
+            .map(|i| {
+                if string_array.is_null(i) {
+                    Ok(None)
                 } else {
+                    let string = string_array
+                        .value(i);
+
+                    let result = string
+                        .parse::<chrono::NaiveDate>()
+                        .map(|date| date.num_days_from_ce() - EPOCH_DAYS_FROM_CE);
+
                     Some(result.map_err(|_| {
                         ArrowError::CastError(
                             format!("Cannot cast string '{}' to value of arrow::datatypes::types::Date32Type type", string),
                         )
                     }))
-                    .transpose()
+                        .transpose()
                 }
-            }
-        })
-        .collect::<Result<Vec<Option<i32>>>>()?;
+            })
+            .collect::<Result<Vec<Option<i32>>>>()?;
 
-    // Benefit:
-    //     20% performance improvement
-    // Soundness:
-    //     The iterator is trustedLen because it comes from an `StringArray`.
-    let array = unsafe { Date32Array::from_trusted_len_iter(vec.iter()) };
+        // Benefit:
+        //     20% performance improvement
+        // Soundness:
+        //     The iterator is trustedLen because it comes from an `StringArray`.
+        unsafe { Date32Array::from_trusted_len_iter(vec.iter()) }
+    };
+
     Ok(Arc::new(array) as ArrayRef)
 }
 
@@ -1146,37 +1174,54 @@ fn cast_string_to_date64<Offset: StringOffsetSizeTrait>(
         .downcast_ref::<GenericStringArray<Offset>>()
         .unwrap();
 
-    let vec = (0..string_array.len())
-        .map(|i| {
+    let array = if cast_options.safe {
+        let iter = (0..string_array.len()).map(|i| {
             if string_array.is_null(i) {
-                Ok(None)
+                None
             } else {
-                let string = string_array
-                .value(i);
-
-                let result = string
+                string_array
+                    .value(i)
                     .parse::<chrono::NaiveDateTime>()
-                    .map(|datetime| datetime.timestamp_millis());
+                    .map(|datetime| datetime.timestamp_millis())
+                    .ok()
+            }
+        });
 
-                if cast_options.safe {
-                    Ok(result.ok())
+        // Benefit:
+        //     20% performance improvement
+        // Soundness:
+        //     The iterator is trustedLen because it comes from an `StringArray`.
+        unsafe { Date64Array::from_trusted_len_iter(iter) }
+    } else {
+        let vec = (0..string_array.len())
+            .map(|i| {
+                if string_array.is_null(i) {
+                    Ok(None)
                 } else {
+                let string = string_array
+                        .value(i);
+
+                    let result = string
+                        .parse::<chrono::NaiveDateTime>()
+                        .map(|datetime| datetime.timestamp_millis());
+
                     Some(result.map_err(|_| {
                         ArrowError::CastError(
                             format!("Cannot cast string '{}' to value of arrow::datatypes::types::Date64Type type", string),
                         )
                     }))
-                    .transpose()
+                        .transpose()
                 }
-            }
-        })
-        .collect::<Result<Vec<Option<i64>>>>()?;
+            })
+            .collect::<Result<Vec<Option<i64>>>>()?;
 
-    // Benefit:
-    //     20% performance improvement
-    // Soundness:
-    //     The iterator is trustedLen because it comes from an `StringArray`.
-    let array = unsafe { Date64Array::from_trusted_len_iter(vec.iter()) };
+        // Benefit:
+        //     20% performance improvement
+        // Soundness:
+        //     The iterator is trustedLen because it comes from an `StringArray`.
+        unsafe { Date64Array::from_trusted_len_iter(vec.iter()) }
+    };
+
     Ok(Arc::new(array) as ArrayRef)
 }
 
@@ -1191,26 +1236,38 @@ fn cast_string_to_timestamp_ns<Offset: StringOffsetSizeTrait>(
         .downcast_ref::<GenericStringArray<Offset>>()
         .unwrap();
 
-    let vec = (0..string_array.len())
-        .map(|i| {
+    let array = if cast_options.safe {
+        let iter = (0..string_array.len()).map(|i| {
             if string_array.is_null(i) {
-                Ok(None)
+                None
             } else {
-                let result = string_to_timestamp_nanos(string_array.value(i));
-                if cast_options.safe {
-                    Ok(result.ok())
+                string_to_timestamp_nanos(string_array.value(i)).ok()
+            }
+        });
+        // Benefit:
+        //     20% performance improvement
+        // Soundness:
+        //     The iterator is trustedLen because it comes from an `StringArray`.
+        unsafe { TimestampNanosecondArray::from_trusted_len_iter(iter) }
+    } else {
+        let vec = (0..string_array.len())
+            .map(|i| {
+                if string_array.is_null(i) {
+                    Ok(None)
                 } else {
+                    let result = string_to_timestamp_nanos(string_array.value(i));
                     Some(result).transpose()
                 }
-            }
-        })
-        .collect::<Result<Vec<Option<i64>>>>()?;
+            })
+            .collect::<Result<Vec<Option<i64>>>>()?;
 
-    // Benefit:
-    //     20% performance improvement
-    // Soundness:
-    //     The iterator is trustedLen because it comes from an `StringArray`.
-    let array = unsafe { TimestampNanosecondArray::from_trusted_len_iter(vec.iter()) };
+        // Benefit:
+        //     20% performance improvement
+        // Soundness:
+        //     The iterator is trustedLen because it comes from an `StringArray`.
+        unsafe { TimestampNanosecondArray::from_trusted_len_iter(vec.iter()) }
+    };
+
     Ok(Arc::new(array) as ArrayRef)
 }
 
