@@ -1347,7 +1347,9 @@ cdef class Table(_PandasConvertible):
 
     def flatten(self, MemoryPool memory_pool=None):
         """
-        Flatten this Table.  Each column with a struct type is flattened
+        Flatten this Table.
+
+        Each column with a struct type is flattened
         into one column per struct field.  Other columns are left unchanged.
 
         Parameters
