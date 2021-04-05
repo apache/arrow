@@ -25,7 +25,8 @@
 #'
 #' @param sources One of:
 #'   * a string path or URI to a directory containing data files
-#'   * a vector of one or more string paths or URIs to data files
+#'   * a string path or URI to a single file
+#'   * a character vector of paths or URIs to individual data files
 #'   * a list of `Dataset` objects as created by this function
 #'   * a list of `DatasetFactory` objects as created by [dataset_factory()].
 #'
