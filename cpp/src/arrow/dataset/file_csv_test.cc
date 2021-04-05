@@ -228,15 +228,15 @@ TEST_P(TestCsvFileFormat, IsSupported) {
   ASSERT_EQ(supported, false);
 
   source = GetFileSource(R"(declare,two
-    1,2,3)");
+  1,2,3)");
   ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(*source));
   ASSERT_EQ(supported, false);
 
   source = GetFileSource(R"(f64
-  1.0
+1.0
 
-  N/A
-  2)");
+N/A
+2)");
   ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(*source));
   EXPECT_EQ(supported, true);
 }
