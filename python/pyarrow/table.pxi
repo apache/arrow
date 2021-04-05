@@ -2058,6 +2058,11 @@ cdef class Table(_PandasConvertible):
         """
         Create new table with columns renamed to provided names.
 
+        Parameters
+        ----------
+        names : list of str
+            List of new column names.
+
         Returns
         -------
         Table
