@@ -69,7 +69,7 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
 
 void SerialExecutor::MarkFinished(bool& finished) {
   {
-    std::lock_guard<std::mutex>(state_->mutex);
+    std::lock_guard<std::mutex> lk(state_->mutex);
     finished = true;
   }
   state_->wait_for_tasks.notify_one();
