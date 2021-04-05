@@ -156,7 +156,7 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
 
   out <- tryCatch(
     reader$Read(columns),
-    error = function(e) { read_compressed_error(e) }
+    error = read_compressed_error
   )
 
   if (isTRUE(as_data_frame)) {

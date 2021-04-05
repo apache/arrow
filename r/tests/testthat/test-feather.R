@@ -210,3 +210,10 @@ test_that("Error messages are shown when the compression algorithm lz4 is not fo
     )
   }
 })
+
+test_that("Error is created when feather reads a parquet file", {
+  expect_error(
+    read_feather(system.file("v0.7.1.parquet", package = "arrow")),
+    "Not a Feather V1 or Arrow IPC file"
+  )
+})

@@ -60,7 +60,7 @@ read_parquet <- function(file,
     # read all columns
     tab <- tryCatch(
       reader$ReadTable(),
-      error = function(e) { read_compressed_error(e) }
+      error = read_compressed_error
     )
   }
 

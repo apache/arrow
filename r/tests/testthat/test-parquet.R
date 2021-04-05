@@ -234,3 +234,22 @@ test_that("ParquetFileReader $ReadRowGroup(s) methods", {
   expect_true(reader$ReadRowGroups(c(0, 1), 0) == Table$create(x = 1:20))
   expect_error(reader$ReadRowGroups(c(0, 1), 1))
 })
+
+test_that("Error messages are shown when the compression algorithm snappy is not found", {
+  if (codec_is_available("snappy")) {
+    d <- read_parquet(pq_file)
+    expect_is(d, "data.frame")
+  } else {
+    expect_error(
+      read_feather(pq_file),
+      "Unsupported compressed format"
+    )
+  }
+})
+
+test_that("Error is created when parquet reads a feather file", {
+  expect_error(
+    read_parquet(test_path("golden-files/data-arrow_2.0.0_lz4.feather")),
+    "Parquet magic bytes not found in footer"
+  )
+})
