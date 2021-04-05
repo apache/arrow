@@ -442,7 +442,9 @@ arrow_r_string_replace_function <- function(FUN, max_replacements) {
   function(pattern, replacement, x, ignore.case = FALSE, fixed = FALSE) {
     if (ignore.case) {
       if (fixed) {
+        pattern <- gsub("\\E", "\\e", pattern, fixed = TRUE)
         pattern <- paste0("(?i)\\Q", pattern, "\\E")
+        replacement <- gsub("\\", "\\\\", replacement, fixed = TRUE)
       } else {
         pattern <- paste0("(?i)", pattern)
       }
