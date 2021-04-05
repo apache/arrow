@@ -54,7 +54,7 @@ read_parquet <- function(file,
     indices <- match(vars_select(names, !!col_select), names) - 1L
     tab <- tryCatch(
       reader$ReadTable(indices),
-      error = function(e) { read_compressed_error(e) }
+      error = read_compressed_error
     )
   } else {
     # read all columns
