@@ -1231,13 +1231,13 @@ cdef class Table(_PandasConvertible):
 
     def __getitem__(self, key):
         """
-        Slice or return column at given index or column name
+        Slice or return column at given index or column name.
 
         Parameters
         ----------
         key : integer, str, or slice
             Slices with step not equal to 1 (or None) will produce a copy
-            rather than a zero-copy view
+            rather than a zero-copy view.
 
         Returns
         -------
@@ -1250,15 +1250,15 @@ cdef class Table(_PandasConvertible):
 
     def slice(self, offset=0, length=None):
         """
-        Compute zero-copy slice of this Table
+        Compute zero-copy slice of this Table.
 
         Parameters
         ----------
         offset : int, default 0
-            Offset from start of table to slice
+            Offset from start of table to slice.
         length : int, default None
             Length of slice (default is until end of table starting from
-            offset)
+            offset).
 
         Returns
         -------
@@ -1323,8 +1323,8 @@ cdef class Table(_PandasConvertible):
     def replace_schema_metadata(self, metadata=None):
         """
         EXPERIMENTAL: Create shallow copy of table by replacing schema
-        key-value metadata with the indicated new metadata (which may be None,
-        which deletes any existing metadata
+        key-value metadata with the indicated new metadata (which may be None),
+        which deletes any existing metadata.
 
         Parameters
         ----------
@@ -1378,7 +1378,7 @@ cdef class Table(_PandasConvertible):
         Parameters
         ----------
         memory_pool : MemoryPool, default None
-            For memory allocations, if required, otherwise use default pool
+            For memory allocations, if required, otherwise use default pool.
 
         Returns
         -------
@@ -1458,14 +1458,14 @@ cdef class Table(_PandasConvertible):
 
     def cast(self, Schema target_schema, bint safe=True):
         """
-        Cast table values to another schema
+        Cast table values to another schema.
 
         Parameters
         ----------
         target_schema : Schema
-            Schema to cast to, the names and order of fields must match
+            Schema to cast to, the names and order of fields must match.
         safe : bool, default True
-            Check for overflows or other unsafe conversions
+            Check for overflows or other unsafe conversions.
 
         Returns
         -------
@@ -1524,11 +1524,11 @@ cdef class Table(_PandasConvertible):
             ``preserve_index=True`` to force it to be stored as a column.
         nthreads : int, default None (may use up to system CPU count threads)
             If greater than 1, convert columns to Arrow in parallel using
-            indicated number of threads
+            indicated number of threads.
         columns : list, optional
            List of column to be converted. If None, use all columns.
         safe : bool, default True
-           Check for overflows or other unsafe conversions
+           Check for overflows or other unsafe conversions.
 
         Returns
         -------
@@ -1560,16 +1560,16 @@ cdef class Table(_PandasConvertible):
     @staticmethod
     def from_arrays(arrays, names=None, schema=None, metadata=None):
         """
-        Construct a Table from Arrow arrays
+        Construct a Table from Arrow arrays.
 
         Parameters
         ----------
         arrays : list of pyarrow.Array or pyarrow.ChunkedArray
             Equal-length arrays that should form the table.
         names : list of str, optional
-            Names for the table columns. If not passed, schema must be passed
+            Names for the table columns. If not passed, schema must be passed.
         schema : Schema, default None
-            Schema for the created table. If not passed, names must be passed
+            Schema for the created table. If not passed, names must be passed.
         metadata : dict or Mapping, default None
             Optional metadata for the schema (if inferred).
 
@@ -1605,14 +1605,14 @@ cdef class Table(_PandasConvertible):
     @staticmethod
     def from_pydict(mapping, schema=None, metadata=None):
         """
-        Construct a Table from Arrow arrays or columns
+        Construct a Table from Arrow arrays or columns.
 
         Parameters
         ----------
         mapping : dict or Mapping
             A mapping of strings to Arrays or Python lists.
         schema : Schema, default None
-            If not passed, will be inferred from the Mapping values
+            If not passed, will be inferred from the Mapping values.
         metadata : dict or Mapping, default None
             Optional metadata for the schema (if inferred).
 
@@ -2045,7 +2045,7 @@ cdef class Table(_PandasConvertible):
     @property
     def column_names(self):
         """
-        Names of the table's columns
+        Names of the table's columns.
 
         Returns
         -------
