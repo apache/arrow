@@ -2085,7 +2085,8 @@ cdef class Table(_PandasConvertible):
 
         Raises
         ------
-        KeyError : if any of the passed columns name are not existing.
+        KeyError
+            If any of the passed columns name are not existing.
 
         Returns
         -------
