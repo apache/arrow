@@ -78,6 +78,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/mutex.h"
 #include "arrow/util/optional.h"
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
@@ -1145,6 +1146,7 @@ struct TreeWalker : public std::enable_shared_from_this<TreeWalker> {
 
  private:
   std::shared_ptr<TaskGroup> task_group_;
+  util::Mutex mutex_;
 
   Status DoWalk() {
     task_group_ =
@@ -1173,7 +1175,10 @@ struct TreeWalker : public std::enable_shared_from_this<TreeWalker> {
       }
       const auto& outcome = *result;
       if (!outcome.IsSuccess()) {
-        return walker->error_handler_(outcome.GetError());
+        {
+          auto guard = walker->mutex_.Lock();
+          return walker->error_handler_(outcome.GetError());
+        }
       }
       return HandleResult(outcome.GetResult());
     }
@@ -1190,13 +1195,18 @@ struct TreeWalker : public std::enable_shared_from_this<TreeWalker> {
     }
 
     Status HandleResult(const S3Model::ListObjectsV2Result& result) {
-      bool recurse = result.GetCommonPrefixes().size() > 0;
-      if (recurse) {
-        ARROW_ASSIGN_OR_RAISE(auto maybe_recurse,
-                              walker->recursion_handler_(nesting_depth + 1));
-        recurse &= maybe_recurse;
+      bool recurse;
+      {
+        // Only one thread should be running result_handler_/recursion_handler_ at a time
+        auto guard = walker->mutex_.Lock();
+        recurse = result.GetCommonPrefixes().size() > 0;
+        if (recurse) {
+          ARROW_ASSIGN_OR_RAISE(auto maybe_recurse,
+                                walker->recursion_handler_(nesting_depth + 1));
+          recurse &= maybe_recurse;
+        }
+        RETURN_NOT_OK(walker->result_handler_(prefix, result));
       }
-      RETURN_NOT_OK(walker->result_handler_(prefix, result));
       if (recurse) {
         walker->WalkChildren(result, nesting_depth + 1);
       }
