@@ -108,7 +108,7 @@ if (arrow_with_s3() && process_is_running("minio server")) {
         open_dataset(
           c(
             minio_uri("test.feather"),
-             paste0("file://", file.path(td, "fake.feather"))
+            paste0("file://", file.path(td, "fake.feather"))
           ),
           format = "feather"
         ),
