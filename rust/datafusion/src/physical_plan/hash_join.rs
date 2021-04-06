@@ -95,8 +95,8 @@ pub struct HashJoinExec {
 pub enum PartitionMode {
     /// Left/right children are partitioned using the left and right keys
     Partitioned,
-    /// Left side will be merged and collected into one partition
-    MergeLeft,
+    /// Left side will collected into one partition
+    CollectLeft,
 }
 
 /// Information about the index and placement (left or right) of the columns
@@ -237,10 +237,10 @@ impl ExecutionPlan for HashJoinExec {
 
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         let on_left = self.on.iter().map(|on| on.0.clone()).collect::<Vec<_>>();
-        // we only want to compute the build side once for PartitionMode::MergeLeft
+        // we only want to compute the build side once for PartitionMode::CollectLeft
         let left_data = {
             match self.mode {
-                PartitionMode::MergeLeft => {
+                PartitionMode::CollectLeft => {
                     let mut build_side = self.build_side.lock().await;
 
                     match build_side.as_ref() {
@@ -920,7 +920,7 @@ mod tests {
             .iter()
             .map(|(l, r)| (l.to_string(), r.to_string()))
             .collect();
-        HashJoinExec::try_new(left, right, &on, join_type, PartitionMode::MergeLeft)
+        HashJoinExec::try_new(left, right, &on, join_type, PartitionMode::CollectLeft)
     }
 
     #[tokio::test]

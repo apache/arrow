@@ -369,7 +369,7 @@ impl DefaultPhysicalPlanner {
                         right,
                         &keys,
                         &physical_join_type,
-                        PartitionMode::MergeLeft,
+                        PartitionMode::CollectLeft,
                     )?))
                 }
             }

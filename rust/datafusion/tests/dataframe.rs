@@ -71,7 +71,9 @@ async fn join() -> Result<()> {
 
     let a = df1.join(df2, JoinType::Inner, &["a"], &["a"])?;
 
-    let _ = a.collect().await?;
+    let batches = a.collect().await?;
+
+    assert_eq!(batches.iter().map(|b| b.num_rows()).sum::<usize>(), 4);
 
     Ok(())
 }
