@@ -88,14 +88,15 @@ is_constant <- function(expr) {
 }
 
 read_compressed_error <- function(e) {
-  e <- as.character(e)
-  compression <- sub(".*Support for codec '(.*)'.*", "\\1", e)
-  msg <- c(
-    sprintf("Unsupported compressed format %s", compression),
-    "\nTry setting the environment variable LIBARROW_MINIMAL=false and reinstalling",
-    "\nfor a more complete installation ",
-    sprintf("(including %s) or setting", compression),
-    sprintf("\nARROW_WITH_%s=ON and reinstalling to enable support for this codec.", toupper(compression))
-  )
-  stop(msg, call. = FALSE)
+  msg <- conditionMessage(e)
+  if (grepl(" codec ", msg)) {
+    compression <- sub(".*Support for codec '(.*)'.*", "\\1", msg)
+    e$message <- paste0(
+      msg,
+      "\nTry setting the environment variable LIBARROW_MINIMAL=false and reinstalling",
+      sprintf(" for a more complete installation (including '%s') or setting", compression),
+      sprintf(" ARROW_WITH_%s=ON and reinstalling to enable support for this codec.", toupper(compression))
+    )
+  }
+  stop(e)
 }
