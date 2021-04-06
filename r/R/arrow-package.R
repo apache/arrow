@@ -58,12 +58,38 @@
 .onAttach <- function(libname, pkgname) {
   if (!arrow_available()) {
     msg <- paste(
-      'The Arrow C++ library is not available. To retry installation with debug output, run:',
-      '    install_arrow(verbose = TRUE)',
-      'See https://arrow.apache.org/docs/r/articles/install.html for more guidance and troubleshooting.',
+      "The Arrow C++ library is not available. To retry installation with debug output, run:",
+      "    install_arrow(verbose = TRUE)",
+      "See https://arrow.apache.org/docs/r/articles/install.html for more guidance and troubleshooting.",
       sep = "\n"
     )
     packageStartupMessage(msg)
+  } else {
+    # Just to be extra safe, let's wrap this in a try();
+    # we don't a failed startup message to prevent the package from loading
+    try({
+      features <- arrow_info()$capabilities
+      # That has all of the #ifdef features, plus the compression libs and the
+      # string libraries (but not the memory allocators, they're added elsewhere)
+      #
+      # Let's print a message if some are off
+      # (though let's also exclude some less relevant ones)
+      blocklist <- c("lzo", "bz2", "brotli")
+      features <- features[setdiff(names(features), blocklist)]
+      missing_features <- names(features[!features])
+      if (length(missing_features)) {
+        msg <- paste0(
+          "Note: the arrow package was compiled with some features disabled: ",
+          oxford_paste(missing_features),
+          "\nSee arrow_info() for more information.\n",
+          "If you need those features, you may try reinstalling using:\n",
+          "    install_arrow()\n",
+          "which should give you the most complete version available for your platform. ",
+          "See https://arrow.apache.org/docs/r/articles/install.html for details."
+        )
+        packageStartupMessage(msg)
+      }
+    })
   }
 }
 
