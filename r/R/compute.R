@@ -15,10 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
+#' Call an Arrow compute function
+#'
+#' This function provides a lower-level API to calling Arrow functions by their
+#' string function name. You won't use it directly for most applications.
+#' Many Arrow compute functions are mapped to R methods,
+#' and in a `dplyr` evaluation context, [all Arrow functions][list_compute_functions()]
+#' are callable with an `arrow_` prefix.
+#' @param function_name string Arrow compute function name
+#' @param ... Function arguments, which may include `Array`, `ChunkedArray`, `Scalar`,
+#' `RecordBatch`, or `Table`.
+#' @param args list arguments as an alternative to specifying in `...`
+#' @param options named list of C++ function options.
+#' @return An `Array`, `ChunkedArray`, `Scalar`, `RecordBatch`, or `Table`, whatever the compute function results in.
+#' @seealso [Arrow C++ documentation](https://arrow.apache.org/docs/cpp/compute.html) for the functions and their respective options.
+#' @export
 #' @include array.R
 #' @include chunked-array.R
 #' @include scalar.R
-
 call_function <- function(function_name, ..., args = list(...), options = empty_named_list()) {
   assert_that(is.string(function_name))
   assert_that(is.list(options), !is.null(names(options)))
@@ -32,6 +46,30 @@ call_function <- function(function_name, ..., args = list(...), options = empty_
   }
 
   compute__CallFunction(function_name, args, options)
+}
+
+#' List available Arrow C++ compute functions
+#'
+#' This function lists the names of all available Arrow compute functions.
+#' These can be called by passing to [call_function()], or they can be
+#' called by name with an `arrow_` prefix inside a `dplyr` verb.
+#'
+#' The resulting list describes the capabilities of your `arrow` build.
+#' Some functions, such as string and regular expression functions,
+#' require optional build-time C++ dependencies. If your `arrow` package
+#' was not compiled with those features enabled, those functions will
+#' not appear in this list.
+#'
+#' @param pattern Optional regular expression to filter the function list
+#' @param ... Additional parameters passed to `grep()`
+#' @return A character vector of available Arrow C++ function names
+#' @export
+list_compute_functions <- function(pattern = NULL, ...) {
+  funcs <- compute__GetFunctionNames()
+  if (!is.null(pattern)) {
+    funcs <- grep(pattern, funcs, value = TRUE, ...)
+  }
+  funcs
 }
 
 #' @export

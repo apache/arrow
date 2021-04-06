@@ -283,7 +283,7 @@ SEXP compute__GroupBy(cpp11::list arguments, cpp11::list keys, cpp11::list optio
 }
 
 // [[arrow::export]]
-std::vector<std::string> list_compute_functions() {
+std::vector<std::string> compute__GetFunctionNames() {
   return arrow::compute::GetFunctionRegistry()->GetFunctionNames();
 }
 

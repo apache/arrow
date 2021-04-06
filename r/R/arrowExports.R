@@ -288,8 +288,8 @@ compute__GroupBy <- function(arguments, keys, options){
     .Call(`_arrow_compute__GroupBy`, arguments, keys, options)
 }
 
-list_compute_functions <- function(){
-    .Call(`_arrow_list_compute_functions`)
+compute__GetFunctionNames <- function(){
+    .Call(`_arrow_compute__GetFunctionNames`)
 }
 
 csv___ReadOptions__initialize <- function(options){
