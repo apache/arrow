@@ -926,6 +926,14 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                 data_type: convert_data_type(data_type)?,
             }),
 
+            SQLExpr::TryCast {
+                ref expr,
+                ref data_type,
+            } => Ok(Expr::TryCast {
+                expr: Box::new(self.sql_expr_to_logical_expr(&expr)?),
+                data_type: convert_data_type(data_type)?,
+            }),
+
             SQLExpr::TypedString {
                 ref data_type,
                 ref value,

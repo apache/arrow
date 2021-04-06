@@ -32,7 +32,7 @@ use arrow::{
 };
 
 use datafusion::execution::context::ExecutionContext;
-use datafusion::logical_plan::{LogicalPlan, ToDFSchema};
+use datafusion::logical_plan::LogicalPlan;
 use datafusion::prelude::create_udf;
 use datafusion::{
     datasource::{csv::CsvReadOptions, MemTable},
@@ -1530,16 +1530,11 @@ async fn execute(ctx: &mut ExecutionContext, sql: &str) -> Vec<Vec<String>> {
 
     let msg = format!("Creating physical plan for '{}': {:?}", sql, plan);
     let plan = ctx.create_physical_plan(&plan).expect(&msg);
-    let physical_schema = plan.schema();
 
     let msg = format!("Executing physical plan for '{}': {:?}", sql, plan);
     let results = collect(plan).await.expect(&msg);
 
     assert_eq!(logical_schema.as_ref(), optimized_logical_schema.as_ref());
-    assert_eq!(
-        logical_schema.as_ref(),
-        &physical_schema.to_dfschema().unwrap()
-    );
 
     result_vec(&results)
 }
@@ -2583,7 +2578,7 @@ async fn in_list_array() -> Result<()> {
             ,c1 IN ('x', 'y') AS utf8_in_false
             ,c1 NOT IN ('x', 'y') AS utf8_not_in_true
             ,c1 NOT IN ('a', 'c') AS utf8_not_in_false
-            ,CAST(CAST(c1 AS int) AS varchar) IN ('a', 'c') AS utf8_in_null
+            ,NULL IN ('a', 'c') AS utf8_in_null
         FROM aggregate_test_100 WHERE c12 < 0.05";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![
@@ -2660,5 +2655,37 @@ async fn invalid_qualified_table_references() -> Result<()> {
         let sql = format!("SELECT COUNT(*) FROM {}", table_ref);
         assert!(matches!(ctx.sql(&sql), Err(DataFusionError::Plan(_))));
     }
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cast_expressions() -> Result<()> {
+    test_expression!("CAST('0' AS INT)", "0");
+    test_expression!("CAST(NULL AS INT)", "NULL");
+    test_expression!("TRY_CAST('0' AS INT)", "0");
+    test_expression!("TRY_CAST('x' AS INT)", "NULL");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cast_expressions_error() -> Result<()> {
+    // sin(utf8) should error
+    let mut ctx = create_ctx()?;
+    register_aggregate_csv(&mut ctx)?;
+    let sql = "SELECT CAST(c1 AS INT) FROM aggregate_test_100";
+    let plan = ctx.create_logical_plan(&sql).unwrap();
+    let plan = ctx.optimize(&plan).unwrap();
+    let plan = ctx.create_physical_plan(&plan).unwrap();
+    let result = collect(plan).await;
+
+    match result {
+        Ok(_) => panic!("expected error"),
+        Err(e) => {
+            assert!(e.to_string().contains(
+                "Cast error: Cannot cast string 'c' to value of arrow::datatypes::types::Int32Type type"
+            ))
+        }
+    }
+
     Ok(())
 }

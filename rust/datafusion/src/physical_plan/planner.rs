@@ -547,6 +547,11 @@ impl DefaultPhysicalPlanner {
                 input_schema,
                 data_type.clone(),
             ),
+            Expr::TryCast { expr, data_type } => expressions::try_cast(
+                self.create_physical_expr(expr, input_schema, ctx_state)?,
+                input_schema,
+                data_type.clone(),
+            ),
             Expr::Not(expr) => expressions::not(
                 self.create_physical_expr(expr, input_schema, ctx_state)?,
                 input_schema,
@@ -799,7 +804,8 @@ mod tests {
         let plan = plan(&logical_plan)?;
 
         // verify that the plan correctly casts u8 to i64
-        let expected = "BinaryExpr { left: Column { name: \"c7\" }, op: Lt, right: CastExpr { expr: Literal { value: UInt8(5) }, cast_type: Int64 } }";
+        // the cast here is implicit so has CastOptions with safe=true
+        let expected = "BinaryExpr { left: Column { name: \"c7\" }, op: Lt, right: TryCastExpr { expr: Literal { value: UInt8(5) }, cast_type: Int64 } }";
         assert!(format!("{:?}", plan).contains(expected));
 
         Ok(())
@@ -833,7 +839,8 @@ mod tests {
         let plan = plan(&logical_plan)?;
 
         // c12 is f64, c7 is u8 -> cast c7 to f64
-        let expected = "predicate: BinaryExpr { left: CastExpr { expr: Column { name: \"c7\" }, cast_type: Float64 }, op: Lt, right: Column { name: \"c12\" } }";
+        // the cast here is implicit so has CastOptions with safe=true
+        let expected = "predicate: BinaryExpr { left: TryCastExpr { expr: Column { name: \"c7\" }, cast_type: Float64 }, op: Lt, right: Column { name: \"c12\" } }";
         assert!(format!("{:?}", plan).contains(expected));
         Ok(())
     }
@@ -958,7 +965,8 @@ mod tests {
             .build()?;
         let execution_plan = plan(&logical_plan)?;
         // verify that the plan correctly adds cast from Int64(1) to Utf8
-        let expected = "InListExpr { expr: Column { name: \"c1\" }, list: [Literal { value: Utf8(\"a\") }, CastExpr { expr: Literal { value: Int64(1) }, cast_type: Utf8 }], negated: false }";
+        let expected = "InListExpr { expr: Column { name: \"c1\" }, list: [Literal { value: Utf8(\"a\") }, CastExpr { expr: Literal { value: Int64(1) }, cast_type: Utf8, cast_options: CastOptions { safe: false } }], negated: false }";
+        println!("{:?}", execution_plan);
         assert!(format!("{:?}", execution_plan).contains(expected));
 
         // expression: "a in (true, 'a')"
