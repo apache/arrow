@@ -73,21 +73,8 @@
       # string libraries (but not the memory allocators, they're added elsewhere)
       #
       # Let's print a message if some are off
-      # (though let's also exclude some less relevant ones)
-      blocklist <- c("lzo", "bz2", "brotli")
-      features <- features[setdiff(names(features), blocklist)]
-      missing_features <- names(features[!features])
-      if (length(missing_features)) {
-        msg <- paste0(
-          "Note: the arrow package was compiled with some features disabled: ",
-          oxford_paste(missing_features),
-          "\nSee arrow_info() for more information.\n",
-          "If you need those features, you may try reinstalling using:\n",
-          "    install_arrow()\n",
-          "which should give you the most complete version available for your platform. ",
-          "See https://arrow.apache.org/docs/r/articles/install.html for details."
-        )
-        packageStartupMessage(msg)
+      if (some_features_are_off(features)) {
+        packageStartupMessage("See arrow_info() for available features")
       }
     })
   }
@@ -182,6 +169,14 @@ arrow_info <- function() {
   structure(out, class = "arrow_info")
 }
 
+some_features_are_off <- function(features) {
+  # `features` is a named logical vector (as in arrow_info()$capabilities)
+  # Let's exclude some less relevant ones
+  blocklist <- c("lzo", "bz2", "brotli")
+  # Return TRUE if any of the other features are FALSE
+  !all(features[setdiff(names(features), blocklist)])
+}
+
 #' @export
 print.arrow_info <- function(x, ...) {
   print_key_values <- function(title, vals, ...) {
@@ -200,6 +195,9 @@ print.arrow_info <- function(x, ...) {
       jemalloc = "jemalloc" %in% x$memory_pool$available_backends,
       mimalloc = "mimalloc" %in% x$memory_pool$available_backends
     ))
+    if (some_features_are_off(x$capabilities)) {
+      cat("To reinstall with more features enabled, see\n  https://arrow.apache.org/docs/r/articles/install.html\n\n")
+    }
 
     if (length(x$options)) {
       print_key_values("Arrow options()", map_chr(x$options, format))
@@ -219,7 +217,7 @@ print.arrow_info <- function(x, ...) {
       `Detected SIMD Level` = x$runtime_info$detected_simd_level
     ))
   } else {
-    cat("Arrow C++ library not available\n")
+    cat("Arrow C++ library not available. See https://arrow.apache.org/docs/r/articles/install.html for troubleshooting.\n")
   }
   invisible(x)
 }
