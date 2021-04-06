@@ -103,12 +103,16 @@ expect_dplyr_equal <- function(expr, # A dplyr pipeline with `input` as its star
 expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its start
                                tbl,  # A tbl/df as reference, will make RB/Table with
                                ...) {
+  # ensure we have supplied tbl
+  tbl
+  
   expr <- rlang::enquo(expr)
   msg <- tryCatch(
     rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = tbl))),
     error = function (e) conditionMessage(e)
   )
-  expect_is(msg, "character", label = "dplyr on data.frame did not error")
+  # make sure msg is a character object (i.e. there has been an error)
+  expect_type(msg, "character")
 
   expect_error(
     rlang::eval_tidy(
