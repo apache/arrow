@@ -79,18 +79,19 @@ x-hierarchy:
   # Each node must be either a string scalar of a list containing the
   # descendant images if any. Archery checks that all node has a corresponding
   # service entry, so any new image/service must be listed here.
-  - conda-cpp:
-    - conda-cpp-hiveserver2
-    - conda-cpp-valgrind
+  - conda:
+    - conda-cpp:
+      - conda-cpp-hiveserver2
+      - conda-cpp-valgrind
+      - conda-python:
+        - conda-python-pandas
+        - conda-python-dask
+        - conda-python-hdfs
+        - conda-python-jpype
+        - conda-python-turbodbc
+        - conda-python-kartothek
+        - conda-python-spark
     - conda-integration
-    - conda-python:
-      - conda-python-pandas
-      - conda-python-dask
-      - conda-python-hdfs
-      - conda-python-jpype
-      - conda-python-turbodbc
-      - conda-python-kartothek
-      - conda-python-spark
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
@@ -160,6 +161,26 @@ services:
   #     -e ARROW_TEST_LINKAGE=static \
   #     conda-cpp|debian-cpp|...
 
+  conda:
+    # Base image for conda builds.
+    #
+    # Usage:
+    #   docker-compose build conda
+    #   docker-compose run --rm conda
+    # Parameters:
+    #   ARCH: amd64, arm32v7
+    image: ${REPO}:${ARCH}-conda
+    build:
+      context: .
+      dockerfile: ci/docker/conda.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda
+      args:
+        arch: ${ARCH}
+        prefix: /opt/conda
+    volumes:
+      - .:/arrow:delegated
+
   conda-cpp:
     # C++ build in conda environment, including the doxygen docs.
     #
@@ -175,8 +196,8 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-conda-cpp
       args:
+        repo: ${REPO}
         arch: ${ARCH}
-        prefix: /opt/conda
     shm_size: &shm-size 2G
     ulimits: &ulimits
       core: ${ULIMIT_CORE}
