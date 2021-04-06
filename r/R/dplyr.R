@@ -422,6 +422,7 @@ build_function_list <- function(FUN) {
         both = FUN("utf8_trim_whitespace", string)
       )
     },
+    grepl = arrow_r_string_match_function(FUN),
     sub = arrow_r_string_replace_function(FUN, 1L),
     gsub = arrow_r_string_replace_function(FUN, -1L),
     str_replace = arrow_stringr_string_replace_function(FUN, 1L),
@@ -436,6 +437,26 @@ build_function_list <- function(FUN) {
       paste0("arrow_", all_arrow_funs)
     )
   )
+}
+
+arrow_r_string_match_function <- function(FUN) {
+  function(pattern, x, ignore.case = FALSE, fixed = FALSE) {
+    if (ignore.case) {
+      # see the comments in the definition of `arrow_r_string_replace_function`
+      # below for an explanation of how this handles `ignore.case` and `fixed`
+      if (fixed) {
+        pattern <- gsub("\\E", "\\e", pattern, fixed = TRUE)
+        pattern <- paste0("(?i)\\Q", pattern, "\\E")
+      } else {
+        pattern <- paste0("(?i)", pattern)
+      }
+    }
+    FUN(
+      ifelse(fixed && !ignore.case, "match_substring", "match_substring_regex"),
+      x,
+      options = list(pattern = pattern)
+    )
+  }
 }
 
 arrow_r_string_replace_function <- function(FUN, max_replacements) {
