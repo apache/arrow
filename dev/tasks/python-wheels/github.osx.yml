@@ -31,6 +31,7 @@ env:
   PYARROW_BUILD_VERBOSE: 1
   PYARROW_VERSION: {{ arrow.no_rc_version }}
   PYTHON_VERSION: {{ python_version }}
+  SETUPTOOLS_SCM_PRETEND_VERSION: {{ arrow.no_rc_version }}
   VCPKG_DEFAULT_TRIPLET: x64-osx-static-release
   VCPKG_FEATURE_FLAGS: "-manifests"
   VCPKG_OVERLAY_TRIPLETS: {{ "${{ github.workspace }}/arrow/ci/vcpkg" }}

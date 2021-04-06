@@ -336,6 +336,13 @@ where
                 expr: Box::new(clone_with_replacement(&**nested_expr, replacement_fn)?),
                 data_type: data_type.clone(),
             }),
+            Expr::TryCast {
+                expr: nested_expr,
+                data_type,
+            } => Ok(Expr::TryCast {
+                expr: Box::new(clone_with_replacement(&**nested_expr, replacement_fn)?),
+                data_type: data_type.clone(),
+            }),
             Expr::Sort {
                 expr: nested_expr,
                 asc,
@@ -345,7 +352,6 @@ where
                 asc: *asc,
                 nulls_first: *nulls_first,
             }),
-
             Expr::Column(_) | Expr::Literal(_) | Expr::ScalarVariable(_) => {
                 Ok(expr.clone())
             }

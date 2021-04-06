@@ -30,6 +30,7 @@ Imports:
     purrr,
     R6,
     rlang,
+    stats,
     tidyselect,
     utils,
     vctrs

@@ -465,3 +465,9 @@ test_that("RecordBatch name assignment", {
   expect_error(names(rb) <- NULL)
   expect_error(names(rb) <- c(TRUE, FALSE))
 })
+
+test_that("record_batch() with different length arrays", {
+  msg <- "All arrays must have the same length"
+  expect_error(record_batch(a=1:5, b = 42), msg)
+  expect_error(record_batch(a=1:5, b = 1:6), msg)
+})

@@ -228,6 +228,12 @@ impl ExecutionContext {
     }
 
     /// Registers a scalar UDF within this context.
+    ///
+    /// Note in SQL queries, function names are looked up using
+    /// lowercase unless the query uses quotes. For example,
+    ///
+    /// `SELECT MY_FUNC(x)...` will look for a function named `"my_func"`
+    /// `SELECT "my_FUNC"(x)` will look for a function named `"my_FUNC"`
     pub fn register_udf(&mut self, f: ScalarUDF) {
         self.state
             .lock()
@@ -237,6 +243,12 @@ impl ExecutionContext {
     }
 
     /// Registers an aggregate UDF within this context.
+    ///
+    /// Note in SQL queries, aggregate names are looked up using
+    /// lowercase unless the query uses quotes. For example,
+    ///
+    /// `SELECT MY_UDAF(x)...` will look for an aggregate named `"my_udaf"`
+    /// `SELECT "my_UDAF"(x)` will look for an aggregate named `"my_UDAF"`
     pub fn register_udaf(&mut self, f: AggregateUDF) {
         self.state
             .lock()
@@ -1749,6 +1761,207 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn limit() -> Result<()> {
+        let tmp_dir = TempDir::new()?;
+        let mut ctx = create_ctx(&tmp_dir, 1)?;
+        ctx.register_table("t", table_with_sequence(1, 1000).unwrap())
+            .unwrap();
+
+        let results =
+            plan_and_collect(&mut ctx, "SELECT i FROM t ORDER BY i DESC limit 3")
+                .await
+                .unwrap();
+
+        let expected = vec![
+            "+------+", "| i    |", "+------+", "| 1000 |", "| 999  |", "| 998  |",
+            "+------+",
+        ];
+
+        assert_batches_eq!(expected, &results);
+
+        let results = plan_and_collect(&mut ctx, "SELECT i FROM t ORDER BY i limit 3")
+            .await
+            .unwrap();
+
+        let expected = vec![
+            "+---+", "| i |", "+---+", "| 1 |", "| 2 |", "| 3 |", "+---+",
+        ];
+
+        assert_batches_eq!(expected, &results);
+
+        let results = plan_and_collect(&mut ctx, "SELECT i FROM t limit 3")
+            .await
+            .unwrap();
+
+        // the actual rows are not guaranteed, so only check the count (should be 3)
+        let num_rows: usize = results.into_iter().map(|b| b.num_rows()).sum();
+        assert_eq!(num_rows, 3);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn case_sensitive_identifiers_functions() {
+        let mut ctx = ExecutionContext::new();
+        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+            .unwrap();
+
+        let expected = vec![
+            "+---------+",
+            "| sqrt(i) |",
+            "+---------+",
+            "| 1       |",
+            "+---------+",
+        ];
+
+        let results = plan_and_collect(&mut ctx, "SELECT sqrt(i) FROM t")
+            .await
+            .unwrap();
+
+        assert_batches_sorted_eq!(expected, &results);
+
+        let results = plan_and_collect(&mut ctx, "SELECT SQRT(i) FROM t")
+            .await
+            .unwrap();
+        assert_batches_sorted_eq!(expected, &results);
+
+        // Using double quotes allows specifying the function name with capitalization
+        let err = plan_and_collect(&mut ctx, "SELECT \"SQRT\"(i) FROM t")
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Error during planning: Invalid function 'SQRT'"
+        );
+
+        let results = plan_and_collect(&mut ctx, "SELECT \"sqrt\"(i) FROM t")
+            .await
+            .unwrap();
+        assert_batches_sorted_eq!(expected, &results);
+    }
+
+    #[tokio::test]
+    async fn case_sensitive_identifiers_user_defined_functions() -> Result<()> {
+        let mut ctx = ExecutionContext::new();
+        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+            .unwrap();
+
+        let myfunc = |args: &[ArrayRef]| Ok(Arc::clone(&args[0]));
+        let myfunc = make_scalar_function(myfunc);
+
+        ctx.register_udf(create_udf(
+            "MY_FUNC",
+            vec![DataType::Int32],
+            Arc::new(DataType::Int32),
+            myfunc,
+        ));
+
+        // doesn't work as it was registered with non lowercase
+        let err = plan_and_collect(&mut ctx, "SELECT MY_FUNC(i) FROM t")
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Error during planning: Invalid function \'my_func\'"
+        );
+
+        // Can call it if you put quotes
+        let result = plan_and_collect(&mut ctx, "SELECT \"MY_FUNC\"(i) FROM t").await?;
+
+        let expected = vec![
+            "+------------+",
+            "| MY_FUNC(i) |",
+            "+------------+",
+            "| 1          |",
+            "+------------+",
+        ];
+        assert_batches_eq!(expected, &result);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn case_sensitive_identifiers_aggregates() {
+        let mut ctx = ExecutionContext::new();
+        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+            .unwrap();
+
+        let expected = vec![
+            "+--------+",
+            "| MAX(i) |",
+            "+--------+",
+            "| 1      |",
+            "+--------+",
+        ];
+
+        let results = plan_and_collect(&mut ctx, "SELECT max(i) FROM t")
+            .await
+            .unwrap();
+
+        assert_batches_sorted_eq!(expected, &results);
+
+        let results = plan_and_collect(&mut ctx, "SELECT MAX(i) FROM t")
+            .await
+            .unwrap();
+        assert_batches_sorted_eq!(expected, &results);
+
+        // Using double quotes allows specifying the function name with capitalization
+        let err = plan_and_collect(&mut ctx, "SELECT \"MAX\"(i) FROM t")
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Error during planning: Invalid function 'MAX'"
+        );
+
+        let results = plan_and_collect(&mut ctx, "SELECT \"max\"(i) FROM t")
+            .await
+            .unwrap();
+        assert_batches_sorted_eq!(expected, &results);
+    }
+
+    #[tokio::test]
+    async fn case_sensitive_identifiers_user_defined_aggregates() -> Result<()> {
+        let mut ctx = ExecutionContext::new();
+        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+            .unwrap();
+
+        // Note capitalizaton
+        let my_avg = create_udaf(
+            "MY_AVG",
+            DataType::Float64,
+            Arc::new(DataType::Float64),
+            Arc::new(|| Ok(Box::new(AvgAccumulator::try_new(&DataType::Float64)?))),
+            Arc::new(vec![DataType::UInt64, DataType::Float64]),
+        );
+
+        ctx.register_udaf(my_avg);
+
+        // doesn't work as it was registered as non lowercase
+        let err = plan_and_collect(&mut ctx, "SELECT MY_AVG(i) FROM t")
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Error during planning: Invalid function \'my_avg\'"
+        );
+
+        // Can call it if you put quotes
+        let result = plan_and_collect(&mut ctx, "SELECT \"MY_AVG\"(i) FROM t").await?;
+
+        let expected = vec![
+            "+-----------+",
+            "| MY_AVG(i) |",
+            "+-----------+",
+            "| 1         |",
+            "+-----------+",
+        ];
+        assert_batches_eq!(expected, &result);
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn write_csv_results() -> Result<()> {
         // create partitioned input file and context
         let tmp_dir = TempDir::new()?;
@@ -2074,7 +2287,7 @@ mod tests {
 
         // define a udaf, using a DataFusion's accumulator
         let my_avg = create_udaf(
-            "MY_AVG",
+            "my_avg",
             DataType::Float64,
             Arc::new(DataType::Float64),
             Arc::new(|| Ok(Box::new(AvgAccumulator::try_new(&DataType::Float64)?))),
@@ -2087,7 +2300,7 @@ mod tests {
 
         let expected = vec![
             "+-----------+",
-            "| MY_AVG(a) |",
+            "| my_avg(a) |",
             "+-----------+",
             "| 3         |",
             "+-----------+",
@@ -2290,6 +2503,150 @@ mod tests {
         let result = plan_and_collect(&mut ctx, "SHOW tables").await.unwrap();
 
         assert_batches_sorted_eq!(expected, &result);
+    }
+
+    #[tokio::test]
+    async fn information_schema_show_columns_no_information_schema() {
+        let mut ctx = ExecutionContext::with_config(ExecutionConfig::new());
+
+        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+            .unwrap();
+
+        let err = plan_and_collect(&mut ctx, "SHOW COLUMNS FROM t")
+            .await
+            .unwrap_err();
+
+        assert_eq!(err.to_string(), "Error during planning: SHOW COLUMNS is not supported unless information_schema is enabled");
+    }
+
+    #[tokio::test]
+    async fn information_schema_show_columns_like_where() {
+        let mut ctx = ExecutionContext::with_config(ExecutionConfig::new());
+
+        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+            .unwrap();
+
+        let expected =
+            "Error during planning: SHOW COLUMNS with WHERE or LIKE is not supported";
+
+        let err = plan_and_collect(&mut ctx, "SHOW COLUMNS FROM t LIKE 'f'")
+            .await
+            .unwrap_err();
+        assert_eq!(err.to_string(), expected);
+
+        let err =
+            plan_and_collect(&mut ctx, "SHOW COLUMNS FROM t WHERE column_name = 'bar'")
+                .await
+                .unwrap_err();
+        assert_eq!(err.to_string(), expected);
+    }
+
+    #[tokio::test]
+    async fn information_schema_show_columns() {
+        let mut ctx = ExecutionContext::with_config(
+            ExecutionConfig::new().with_information_schema(true),
+        );
+
+        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+            .unwrap();
+
+        let result = plan_and_collect(&mut ctx, "SHOW COLUMNS FROM t")
+            .await
+            .unwrap();
+
+        let expected = vec![
+            "+---------------+--------------+------------+-------------+-----------+-------------+",
+            "| table_catalog | table_schema | table_name | column_name | data_type | is_nullable |",
+            "+---------------+--------------+------------+-------------+-----------+-------------+",
+            "| datafusion    | public       | t          | i           | Int32     | YES         |",
+            "+---------------+--------------+------------+-------------+-----------+-------------+",
+        ];
+        assert_batches_sorted_eq!(expected, &result);
+
+        let result = plan_and_collect(&mut ctx, "SHOW columns from t")
+            .await
+            .unwrap();
+        assert_batches_sorted_eq!(expected, &result);
+
+        // This isn't ideal but it is consistent behavior for `SELECT * from T`
+        let err = plan_and_collect(&mut ctx, "SHOW columns from T")
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Error during planning: Unknown relation for SHOW COLUMNS: T"
+        );
+    }
+
+    // test errors with WHERE and LIKE
+    #[tokio::test]
+    async fn information_schema_show_columns_full_extended() {
+        let mut ctx = ExecutionContext::with_config(
+            ExecutionConfig::new().with_information_schema(true),
+        );
+
+        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+            .unwrap();
+
+        let result = plan_and_collect(&mut ctx, "SHOW FULL COLUMNS FROM t")
+            .await
+            .unwrap();
+        let expected = vec![
+
+    "+---------------+--------------+------------+-------------+------------------+----------------+-------------+-----------+--------------------------+------------------------+-------------------+-------------------------+---------------+--------------------+---------------+",
+    "| table_catalog | table_schema | table_name | column_name | ordinal_position | column_default | is_nullable | data_type | character_maximum_length | character_octet_length | numeric_precision | numeric_precision_radix | numeric_scale | datetime_precision | interval_type |",
+    "+---------------+--------------+------------+-------------+------------------+----------------+-------------+-----------+--------------------------+------------------------+-------------------+-------------------------+---------------+--------------------+---------------+",
+    "| datafusion    | public       | t          | i           | 0                |                | YES         | Int32     |                          |                        | 32                | 2                       |               |                    |               |",
+    "+---------------+--------------+------------+-------------+------------------+----------------+-------------+-----------+--------------------------+------------------------+-------------------+-------------------------+---------------+--------------------+---------------+",
+
+        ];
+        assert_batches_sorted_eq!(expected, &result);
+
+        let result = plan_and_collect(&mut ctx, "SHOW EXTENDED COLUMNS FROM t")
+            .await
+            .unwrap();
+        assert_batches_sorted_eq!(expected, &result);
+    }
+
+    #[tokio::test]
+    async fn information_schema_show_table_table_names() {
+        let mut ctx = ExecutionContext::with_config(
+            ExecutionConfig::new().with_information_schema(true),
+        );
+
+        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+            .unwrap();
+
+        let result = plan_and_collect(&mut ctx, "SHOW COLUMNS FROM public.t")
+            .await
+            .unwrap();
+
+        let expected = vec![
+            "+---------------+--------------+------------+-------------+-----------+-------------+",
+            "| table_catalog | table_schema | table_name | column_name | data_type | is_nullable |",
+            "+---------------+--------------+------------+-------------+-----------+-------------+",
+            "| datafusion    | public       | t          | i           | Int32     | YES         |",
+            "+---------------+--------------+------------+-------------+-----------+-------------+",
+        ];
+        assert_batches_sorted_eq!(expected, &result);
+
+        let result = plan_and_collect(&mut ctx, "SHOW columns from datafusion.public.t")
+            .await
+            .unwrap();
+        assert_batches_sorted_eq!(expected, &result);
+
+        let err = plan_and_collect(&mut ctx, "SHOW columns from t2")
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Error during planning: Unknown relation for SHOW COLUMNS: t2"
+        );
+
+        let err = plan_and_collect(&mut ctx, "SHOW columns from datafusion.public.t2")
+            .await
+            .unwrap_err();
+        assert_eq!(err.to_string(), "Error during planning: Unknown relation for SHOW COLUMNS: datafusion.public.t2");
     }
 
     #[tokio::test]

@@ -115,7 +115,7 @@ impl InformationSchemaProvider {
             builder.add_system_table(&catalog_name, INFORMATION_SCHEMA, COLUMNS);
         }
 
-        let mem_table = builder.build();
+        let mem_table: MemTable = builder.into();
 
         Arc::new(mem_table)
     }
@@ -148,7 +148,7 @@ impl InformationSchemaProvider {
             }
         }
 
-        let mem_table = builder.build();
+        let mem_table: MemTable = builder.into();
 
         Arc::new(mem_table)
     }
@@ -231,8 +231,10 @@ impl InformationSchemaTablesBuilder {
         self.table_names.append_value(table_name.as_ref()).unwrap();
         self.table_types.append_value("VIEW").unwrap();
     }
+}
 
-    fn build(self) -> MemTable {
+impl From<InformationSchemaTablesBuilder> for MemTable {
+    fn from(value: InformationSchemaTablesBuilder) -> MemTable {
         let schema = Schema::new(vec![
             Field::new("table_catalog", DataType::Utf8, false),
             Field::new("table_schema", DataType::Utf8, false),
@@ -240,12 +242,12 @@ impl InformationSchemaTablesBuilder {
             Field::new("table_type", DataType::Utf8, false),
         ]);
 
-        let Self {
+        let InformationSchemaTablesBuilder {
             mut catalog_names,
             mut schema_names,
             mut table_names,
             mut table_types,
-        } = self;
+        } = value;
 
         let schema = Arc::new(schema);
         let batch = RecordBatch::try_new(
@@ -422,8 +424,10 @@ impl InformationSchemaColumnsBuilder {
         self.datetime_precisions.append_option(None).unwrap();
         self.interval_types.append_null().unwrap();
     }
+}
 
-    fn build(self) -> MemTable {
+impl From<InformationSchemaColumnsBuilder> for MemTable {
+    fn from(value: InformationSchemaColumnsBuilder) -> MemTable {
         let schema = Schema::new(vec![
             Field::new("table_catalog", DataType::Utf8, false),
             Field::new("table_schema", DataType::Utf8, false),
@@ -442,7 +446,7 @@ impl InformationSchemaColumnsBuilder {
             Field::new("interval_type", DataType::Utf8, false),
         ]);
 
-        let Self {
+        let InformationSchemaColumnsBuilder {
             mut catalog_names,
             mut schema_names,
             mut table_names,
@@ -458,7 +462,7 @@ impl InformationSchemaColumnsBuilder {
             mut numeric_scales,
             mut datetime_precisions,
             mut interval_types,
-        } = self;
+        } = value;
 
         let schema = Arc::new(schema);
         let batch = RecordBatch::try_new(
