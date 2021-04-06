@@ -18,7 +18,7 @@
 """Dataset is currently unstable. APIs subject to change without notice."""
 
 import pyarrow as pa
-from pyarrow.util import _stringify_path, _is_path_like
+from pyarrow.util import _is_iterable, _stringify_path, _is_path_like
 
 from pyarrow._dataset import (  # noqa
     CsvFileFormat,
@@ -37,6 +37,7 @@ from pyarrow._dataset import (  # noqa
     HivePartitioning,
     IpcFileFormat,
     IpcFileWriteOptions,
+    InMemoryDataset,
     ParquetDatasetFactory,
     ParquetFactoryOptions,
     ParquetFileFormat,
@@ -408,6 +409,13 @@ def _filesystem_dataset(source, schema=None, filesystem=None,
     return factory.finish(schema)
 
 
+def _in_memory_dataset(source, schema=None, **kwargs):
+    if any(v is not None for v in kwargs.values()):
+        raise ValueError(
+            "For in-memory datasets, you cannot pass any additional arguments")
+    return InMemoryDataset(source, schema)
+
+
 def _union_dataset(children, schema=None, **kwargs):
     if any(v is not None for v in kwargs.values()):
         raise ValueError(
@@ -508,7 +516,8 @@ def dataset(source, schema=None, format=None, filesystem=None,
 
     Parameters
     ----------
-    source : path, list of paths, dataset, list of datasets or URI
+    source : path, list of paths, dataset, list of datasets, (list of) batches
+             or tables, iterable of batches, RecordBatchReader, or URI
         Path pointing to a single file:
             Open a FileSystemDataset from a single file.
         Path pointing to a directory:
@@ -524,6 +533,11 @@ def dataset(source, schema=None, format=None, filesystem=None,
             A nested UnionDataset gets constructed, it allows arbitrary
             composition of other datasets.
             Note that additional keyword arguments are not allowed.
+        (List of) batches or tables, iterable of batches, or RecordBatchReader:
+            Create an InMemoryDataset. If an iterable or empty list is given,
+            a schema must also be given. If an iterable or RecordBatchReader
+            is given, the resulting dataset can only be scanned once; further
+            attempts will raise an error.
     schema : Schema, optional
         Optionally provide the Schema for the Dataset, in which case it will
         not be inferred from the source.
@@ -636,7 +650,6 @@ def dataset(source, schema=None, format=None, filesystem=None,
         selector_ignore_prefixes=ignore_prefixes
     )
 
-    # TODO(kszucs): support InMemoryDataset for a table input
     if _is_path_like(source):
         return _filesystem_dataset(source, **kwargs)
     elif isinstance(source, (tuple, list)):
@@ -644,13 +657,22 @@ def dataset(source, schema=None, format=None, filesystem=None,
             return _filesystem_dataset(source, **kwargs)
         elif all(isinstance(elem, Dataset) for elem in source):
             return _union_dataset(source, **kwargs)
+        elif all(isinstance(elem, (pa.RecordBatch, pa.Table))
+                 for elem in source):
+            return _in_memory_dataset(source, **kwargs)
         else:
             unique_types = set(type(elem).__name__ for elem in source)
             type_names = ', '.join('{}'.format(t) for t in unique_types)
             raise TypeError(
-                'Expected a list of path-like or dataset objects. The given '
-                'list contains the following types: {}'.format(type_names)
+                'Expected a list of path-like or dataset objects, or a list '
+                'of batches or tables. The given list contains the following '
+                'types: {}'.format(type_names)
             )
+    elif isinstance(source, (pa.RecordBatch, pa.ipc.RecordBatchReader,
+                             pa.Table)):
+        return _in_memory_dataset(source, **kwargs)
+    elif _is_iterable(source):
+        return _in_memory_dataset(source, **kwargs)
     else:
         raise TypeError(
             'Expected a path-like, list of path-likes or a list of Datasets '
@@ -676,9 +698,11 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
     Parameters
     ----------
-    data : Dataset, Table/RecordBatch, or list of Table/RecordBatch
+    data : Dataset, Table/RecordBatch, RecordBatchReader, list of
+           Table/RecordBatch, or iterable of RecordBatch
         The data to write. This can be a Dataset instance or
-        in-memory Arrow data.
+        in-memory Arrow data. If an iterable is given, the schema must
+        also be given.
     base_dir : str
         The root directory where to write the dataset.
     basename_template : str, optional
@@ -710,15 +734,17 @@ def write_dataset(data, base_dir, basename_template=None, format=None,
 
     if isinstance(data, Dataset):
         schema = schema or data.schema
-    elif isinstance(data, (pa.Table, pa.RecordBatch)):
-        schema = schema or data.schema
-        data = [data]
-    elif isinstance(data, list):
+    elif isinstance(data, (list, tuple)):
         schema = schema or data[0].schema
+        data = InMemoryDataset(data, schema=schema)
+    elif isinstance(data, (pa.RecordBatch, pa.ipc.RecordBatchReader,
+                           pa.Table)) or _is_iterable(data):
+        data = InMemoryDataset(data, schema=schema)
+        schema = schema or data.schema
     else:
         raise ValueError(
-            "Only Dataset, Table/RecordBatch or a list of Table/RecordBatch "
-            "objects are supported."
+            "Only Dataset, Table/RecordBatch, RecordBatchReader, a list "
+            "of Tables/RecordBatches, or iterable of batches are supported."
         )
 
     if format is None and isinstance(data, FileSystemDataset):
