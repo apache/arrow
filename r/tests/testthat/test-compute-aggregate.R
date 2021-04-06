@@ -247,8 +247,7 @@ test_that("quantile and median NAs, edge cases, and exceptions", {
     Array$create(rep(NA_real_, 5))
   )
   expect_error(
-    median(Array$create(c(1, 2)), probs = c(.25, .75)),
-    "formal argument \"probs\" matched by multiple actual arguments"
+    median(Array$create(c(1, 2)), probs = c(.25, .75))
   )
   expect_equal(
     median(Array$create(c(1, 2)), interpolation = "higher"),
