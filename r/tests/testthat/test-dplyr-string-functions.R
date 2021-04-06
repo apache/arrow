@@ -42,32 +42,35 @@ test_that("sub and gsub", {
       df
     )
 
-    # the tests below all use ignore.case = TRUE
-    # but base::sub and base::gsub ignore ignore.case = TRUE with a warning when fixed = TRUE
-    # so we can't use expect_dplyr_equal() for the tests below
-    expect_equal(
-      df %>%
-        Table$create() %>%
-        transmute(x = sub("O", "u", x, ignore.case = TRUE, fixed = fixed)) %>%
-        collect(),
-      tibble(x = c("Fuo", "bar"))
-    )
-    expect_equal(
-      df %>%
-        Table$create() %>%
-        transmute(x = gsub("o", "u", x, ignore.case = TRUE, fixed = fixed)) %>%
-        collect(),
-      tibble(x = c("Fuu", "bar"))
-    )
-    expect_equal(
-      df %>%
-        Table$create() %>%
-        transmute(x = sub("^B.+", "baz", x, ignore.case = TRUE, fixed = fixed)) %>%
-        collect(),
-      if (fixed) tibble(x = c("Foo", "bar")) else tibble(x = c("Foo", "baz"))
-    )
-
   }
+})
+
+test_that("sub and gsub with ignore.case = TRUE and fixed = TRUE", {
+  df <- tibble(x = c("Foo", "bar"))
+
+  # base::sub() and base::gsub() ignore ignore.case = TRUE with a warning when
+  # fixed = TRUE, so we can't use expect_dplyr_equal() for these tests
+  expect_equal(
+    df %>%
+      Table$create() %>%
+      transmute(x = sub("O", "u", x, ignore.case = TRUE, fixed = TRUE)) %>%
+      collect(),
+    tibble(x = c("Fuo", "bar"))
+  )
+  expect_equal(
+    df %>%
+      Table$create() %>%
+      transmute(x = gsub("o", "u", x, ignore.case = TRUE, fixed = TRUE)) %>%
+      collect(),
+    tibble(x = c("Fuu", "bar"))
+  )
+  expect_equal(
+    df %>%
+      Table$create() %>%
+      transmute(x = sub("^B.+", "baz", x, ignore.case = TRUE, fixed = TRUE)) %>%
+      collect(),
+    df # unchanged
+  )
 
 })
 
