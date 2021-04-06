@@ -155,6 +155,7 @@ Containment tests
    index_in
    is_in
    match_substring
+   match_substring_regex
 
 Conversions
 -----------
