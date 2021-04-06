@@ -106,6 +106,9 @@ quantile.ArrowDatum <- function(x,
   interpolation <- QuantileInterpolation[[toupper(match.arg(interpolation))]]
   out <- call_function("quantile", x, options = list(q = probs, interpolation = interpolation))
   if (length(out) == 0) {
+    # When there are no non-null values in the data, the Arrow quantile function
+    # returns an empty Array, but for consistency with the R quantile function,
+    # we want vector of NA_real_ with the same length as probs
     out <- Array$create(rep(NA_real_, length(probs)))
   }
   out
