@@ -46,7 +46,8 @@ use crate::prelude::JoinType;
 use sqlparser::ast::{
     BinaryOperator, DataType as SQLDataType, DateTimeField, Expr as SQLExpr, FunctionArg,
     Ident, Join, JoinConstraint, JoinOperator, ObjectName, Query, Select, SelectItem,
-    SetExpr, SetOperator, TableFactor, TableWithJoins, UnaryOperator, Value,
+    SetExpr, SetOperator, ShowStatementFilter, TableFactor, TableWithJoins,
+    UnaryOperator, Value,
 };
 use sqlparser::ast::{ColumnDef as SQLColumnDef, ColumnOption};
 use sqlparser::ast::{OrderByExpr, Statement};
@@ -100,6 +101,12 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             } => self.explain_statement_to_plan(*verbose, &statement),
             Statement::Query(query) => self.query_to_plan(&query),
             Statement::ShowVariable { variable } => self.show_variable_to_plan(&variable),
+            Statement::ShowColumns {
+                extended,
+                full,
+                table_name,
+                filter,
+            } => self.show_columns_to_plan(*extended, *full, table_name, filter.as_ref()),
             _ => Err(DataFusionError::NotImplemented(
                 "Only SELECT statements are implemented".to_string(),
             )),
@@ -1292,15 +1299,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
         // Special case SHOW TABLES
         let variable = ObjectName(variable.to_vec()).to_string();
         if variable.as_str().eq_ignore_ascii_case("tables") {
-            let tables_reference = TableReference::Partial {
-                schema: "information_schema",
-                table: "tables",
-            };
-            if self
-                .schema_provider
-                .get_table_provider(tables_reference)
-                .is_some()
-            {
+            if self.has_table("information_schema", "tables") {
                 let rewrite =
                     DFParser::parse_sql("SELECT * FROM information_schema.tables;")?;
                 self.statement_to_plan(&rewrite[0])
@@ -1316,6 +1315,74 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                 variable
             )))
         }
+    }
+
+    fn show_columns_to_plan(
+        &self,
+        extended: bool,
+        full: bool,
+        table_name: &ObjectName,
+        filter: Option<&ShowStatementFilter>,
+    ) -> Result<LogicalPlan> {
+        if filter.is_some() {
+            return Err(DataFusionError::Plan(
+                "SHOW COLUMNS with WHERE or LIKE is not supported".to_string(),
+            ));
+        }
+
+        if !self.has_table("information_schema", "columns") {
+            return Err(DataFusionError::Plan(
+                "SHOW COLUMNS is not supported unless information_schema is enabled"
+                    .to_string(),
+            ));
+        }
+
+        if self
+            .schema_provider
+            .get_table_provider(table_name.try_into()?)
+            .is_none()
+        {
+            return Err(DataFusionError::Plan(format!(
+                "Unknown relation for SHOW COLUMNS: {}",
+                table_name
+            )));
+        }
+
+        // Figure out the where clause
+        let columns = vec!["table_name", "table_schema", "table_catalog"].into_iter();
+        let where_clause = table_name
+            .0
+            .iter()
+            .rev()
+            .zip(columns)
+            .map(|(ident, column_name)| {
+                format!(r#"{} = '{}'"#, column_name, ident.to_string())
+            })
+            .collect::<Vec<_>>()
+            .join(" AND ");
+
+        // treat both FULL and EXTENDED as the same
+        let select_list = if full || extended {
+            "*"
+        } else {
+            "table_catalog, table_schema, table_name, column_name, data_type, is_nullable"
+        };
+
+        let query = format!(
+            "SELECT {} FROM information_schema.columns WHERE {}",
+            select_list, where_clause
+        );
+
+        let rewrite = DFParser::parse_sql(&query)?;
+        self.statement_to_plan(&rewrite[0])
+    }
+
+    /// Return true if there is a table provider available for "schema.table"
+    fn has_table(&self, schema: &str, table: &str) -> bool {
+        let tables_reference = TableReference::Partial { schema, table };
+        self.schema_provider
+            .get_table_provider(tables_reference)
+            .is_some()
     }
 }
 

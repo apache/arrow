@@ -2467,6 +2467,150 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn information_schema_show_columns_no_information_schema() {
+        let mut ctx = ExecutionContext::with_config(ExecutionConfig::new());
+
+        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+            .unwrap();
+
+        let err = plan_and_collect(&mut ctx, "SHOW COLUMNS FROM t")
+            .await
+            .unwrap_err();
+
+        assert_eq!(err.to_string(), "Error during planning: SHOW COLUMNS is not supported unless information_schema is enabled");
+    }
+
+    #[tokio::test]
+    async fn information_schema_show_columns_like_where() {
+        let mut ctx = ExecutionContext::with_config(ExecutionConfig::new());
+
+        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+            .unwrap();
+
+        let expected =
+            "Error during planning: SHOW COLUMNS with WHERE or LIKE is not supported";
+
+        let err = plan_and_collect(&mut ctx, "SHOW COLUMNS FROM t LIKE 'f'")
+            .await
+            .unwrap_err();
+        assert_eq!(err.to_string(), expected);
+
+        let err =
+            plan_and_collect(&mut ctx, "SHOW COLUMNS FROM t WHERE column_name = 'bar'")
+                .await
+                .unwrap_err();
+        assert_eq!(err.to_string(), expected);
+    }
+
+    #[tokio::test]
+    async fn information_schema_show_columns() {
+        let mut ctx = ExecutionContext::with_config(
+            ExecutionConfig::new().with_information_schema(true),
+        );
+
+        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+            .unwrap();
+
+        let result = plan_and_collect(&mut ctx, "SHOW COLUMNS FROM t")
+            .await
+            .unwrap();
+
+        let expected = vec![
+            "+---------------+--------------+------------+-------------+-----------+-------------+",
+            "| table_catalog | table_schema | table_name | column_name | data_type | is_nullable |",
+            "+---------------+--------------+------------+-------------+-----------+-------------+",
+            "| datafusion    | public       | t          | i           | Int32     | YES         |",
+            "+---------------+--------------+------------+-------------+-----------+-------------+",
+        ];
+        assert_batches_sorted_eq!(expected, &result);
+
+        let result = plan_and_collect(&mut ctx, "SHOW columns from t")
+            .await
+            .unwrap();
+        assert_batches_sorted_eq!(expected, &result);
+
+        // This isn't ideal but it is consistent behavior for `SELECT * from T`
+        let err = plan_and_collect(&mut ctx, "SHOW columns from T")
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Error during planning: Unknown relation for SHOW COLUMNS: T"
+        );
+    }
+
+    // test errors with WHERE and LIKE
+    #[tokio::test]
+    async fn information_schema_show_columns_full_extended() {
+        let mut ctx = ExecutionContext::with_config(
+            ExecutionConfig::new().with_information_schema(true),
+        );
+
+        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+            .unwrap();
+
+        let result = plan_and_collect(&mut ctx, "SHOW FULL COLUMNS FROM t")
+            .await
+            .unwrap();
+        let expected = vec![
+
+    "+---------------+--------------+------------+-------------+------------------+----------------+-------------+-----------+--------------------------+------------------------+-------------------+-------------------------+---------------+--------------------+---------------+",
+    "| table_catalog | table_schema | table_name | column_name | ordinal_position | column_default | is_nullable | data_type | character_maximum_length | character_octet_length | numeric_precision | numeric_precision_radix | numeric_scale | datetime_precision | interval_type |",
+    "+---------------+--------------+------------+-------------+------------------+----------------+-------------+-----------+--------------------------+------------------------+-------------------+-------------------------+---------------+--------------------+---------------+",
+    "| datafusion    | public       | t          | i           | 0                |                | YES         | Int32     |                          |                        | 32                | 2                       |               |                    |               |",
+    "+---------------+--------------+------------+-------------+------------------+----------------+-------------+-----------+--------------------------+------------------------+-------------------+-------------------------+---------------+--------------------+---------------+",
+
+        ];
+        assert_batches_sorted_eq!(expected, &result);
+
+        let result = plan_and_collect(&mut ctx, "SHOW EXTENDED COLUMNS FROM t")
+            .await
+            .unwrap();
+        assert_batches_sorted_eq!(expected, &result);
+    }
+
+    #[tokio::test]
+    async fn information_schema_show_table_table_names() {
+        let mut ctx = ExecutionContext::with_config(
+            ExecutionConfig::new().with_information_schema(true),
+        );
+
+        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+            .unwrap();
+
+        let result = plan_and_collect(&mut ctx, "SHOW COLUMNS FROM public.t")
+            .await
+            .unwrap();
+
+        let expected = vec![
+            "+---------------+--------------+------------+-------------+-----------+-------------+",
+            "| table_catalog | table_schema | table_name | column_name | data_type | is_nullable |",
+            "+---------------+--------------+------------+-------------+-----------+-------------+",
+            "| datafusion    | public       | t          | i           | Int32     | YES         |",
+            "+---------------+--------------+------------+-------------+-----------+-------------+",
+        ];
+        assert_batches_sorted_eq!(expected, &result);
+
+        let result = plan_and_collect(&mut ctx, "SHOW columns from datafusion.public.t")
+            .await
+            .unwrap();
+        assert_batches_sorted_eq!(expected, &result);
+
+        let err = plan_and_collect(&mut ctx, "SHOW columns from t2")
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Error during planning: Unknown relation for SHOW COLUMNS: t2"
+        );
+
+        let err = plan_and_collect(&mut ctx, "SHOW columns from datafusion.public.t2")
+            .await
+            .unwrap_err();
+        assert_eq!(err.to_string(), "Error during planning: Unknown relation for SHOW COLUMNS: datafusion.public.t2");
+    }
+
+    #[tokio::test]
     async fn show_unsupported() {
         let mut ctx = ExecutionContext::with_config(ExecutionConfig::new());
 
