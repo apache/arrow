@@ -442,20 +442,10 @@ build_function_list <- function(FUN) {
 
 arrow_r_string_match_function <- function(FUN) {
   function(pattern, x, ignore.case = FALSE, fixed = FALSE) {
-    if (ignore.case) {
-      # see the comments in the definition of `arrow_r_string_replace_function`
-      # below for an explanation of how this handles `ignore.case` and `fixed`
-      if (fixed) {
-        pattern <- gsub("\\E", "\\e", pattern, fixed = TRUE)
-        pattern <- paste0("(?i)\\Q", pattern, "\\E")
-      } else {
-        pattern <- paste0("(?i)", pattern)
-      }
-    }
     FUN(
       ifelse(fixed && !ignore.case, "match_substring", "match_substring_regex"),
       x,
-      options = list(pattern = pattern)
+      options = list(pattern = format_string_pattern(pattern, ignore.case, fixed))
     )
   }
 }
@@ -476,32 +466,12 @@ arrow_stringr_string_match_function <- function(FUN) {
 
 arrow_r_string_replace_function <- function(FUN, max_replacements) {
   function(pattern, replacement, x, ignore.case = FALSE, fixed = FALSE) {
-    if (ignore.case) {
-      # Prepend "(?i)" to the regex for case insensitivity
-      if (fixed) {
-        # Arrow lacks native support for case-insensitive literal string
-        # replacement, so we use the regular expression engine (RE2) to do this.
-        # https://github.com/google/re2/wiki/Syntax
-        #
-        # Everything between "\Q" and "\E" is treated as literal text.
-        #
-        # If the search text contains any literal "\E" strings, make them
-        # lowercase so they won't signal the end of the literal text:
-        pattern <- gsub("\\E", "\\e", pattern, fixed = TRUE)
-        pattern <- paste0("(?i)\\Q", pattern, "\\E")
-        # Escape single backslashes in the regex replacement text so they are
-        # interpreted as literal backslashes:
-        replacement <- gsub("\\", "\\\\", replacement, fixed = TRUE)
-      } else {
-        pattern <- paste0("(?i)", pattern)
-      }
-    }
     FUN(
       ifelse(fixed && !ignore.case, "replace_substring", "replace_substring_regex"),
       x,
       options = list(
-        pattern = pattern,
-        replacement = replacement,
+        pattern = format_string_pattern(pattern, ignore.case, fixed),
+        replacement =  format_string_replacement(replacement, ignore.case, fixed),
         max_replacements = max_replacements
       )
     )
@@ -519,6 +489,38 @@ arrow_stringr_string_replace_function <- function(FUN, max_replacements) {
       fixed = opts$fixed
     )
   }
+}
+
+# format `pattern` as needed for case insensitivity and literal matching by RE2
+format_string_pattern <- function(pattern, ignore.case, fixed) {
+  # Arrow lacks native support for case-insensitive literal string matching and
+  # replacement, so we use the regular expression engine (RE2) to do this.
+  # https://github.com/google/re2/wiki/Syntax
+  if (ignore.case) {
+    if (fixed) {
+      # Everything between "\Q" and "\E" is treated as literal text.
+      # If the search text contains any literal "\E" strings, make them
+      # lowercase so they won't signal the end of the literal text:
+      pattern <- gsub("\\E", "\\e", pattern, fixed = TRUE)
+      pattern <- paste0("\\Q", pattern, "\\E")
+    }
+    # Prepend "(?i)" for case-insensitive matching
+    pattern <- paste0("(?i)", pattern)
+  }
+  pattern
+}
+
+# format `replacement` as needed for literal replacement by RE2
+format_string_replacement <- function(replacement, ignore.case, fixed) {
+  # Arrow lacks native support for case-insensitive literal string
+  # replacement, so we use the regular expression engine (RE2) to do this.
+  # https://github.com/google/re2/wiki/Syntax
+  if (ignore.case && fixed) {
+    # Escape single backslashes in the regex replacement text so they are
+    # interpreted as literal backslashes:
+    replacement <- gsub("\\", "\\\\", replacement, fixed = TRUE)
+  }
+  replacement
 }
 
 # this function assigns definitions for the stringr pattern modifier functions
