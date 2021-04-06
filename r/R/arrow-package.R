@@ -195,8 +195,9 @@ print.arrow_info <- function(x, ...) {
       jemalloc = "jemalloc" %in% x$memory_pool$available_backends,
       mimalloc = "mimalloc" %in% x$memory_pool$available_backends
     ))
-    if (some_features_are_off(x$capabilities)) {
-      cat("To reinstall with more features enabled, see\n  https://arrow.apache.org/docs/r/articles/install.html\n\n")
+    if (some_features_are_off(x$capabilities) && identical(tolower(Sys.info()[["sysname"]]), "linux")) {
+      # Only on linux because (e.g.) we disable certain features on purpose on rtools35 and solaris
+      cat("To reinstall with more optional capabilities enabled, see\n  https://arrow.apache.org/docs/r/articles/install.html\n\n")
     }
 
     if (length(x$options)) {
