@@ -65,6 +65,6 @@ jobs:
       - name: Save the vignette output
         uses: actions/upload-artifact@v2
         with:
-          name: dev-docs
+          name: dev-docs-{{ "${{ matrix.os }}" }}
           path: arrow/r/vignettes/dev-docs.html
         if: always()

@@ -11,6 +11,10 @@ vignette: >
 run <- tolower(Sys.getenv("RUN_DEVDOCS", "false")) == "true"
 run_macos <- run & tolower(Sys.getenv("DEVDOCS_MACOS", "false")) == "true"
 run_ubuntu <- run & tolower(Sys.getenv("DEVDOCS_UBUNTU", "false")) == "true"
+
+print(run)
+print(run_macos)
+print(run_ubuntu)
 ```
 
 Proof of concept for developer documentation that builds itself.
