@@ -345,7 +345,8 @@ impl DefaultPhysicalPlanner {
                     JoinType::Left => hash_utils::JoinType::Left,
                     JoinType::Right => hash_utils::JoinType::Right,
                 };
-                if ctx_state.config.concurrency > 1 {
+                if ctx_state.config.concurrency > 1 && ctx_state.config.repartition_joins
+                {
                     let left_expr = keys.iter().map(|x| col(&x.0)).collect();
                     let right_expr = keys.iter().map(|x| col(&x.1)).collect();
 

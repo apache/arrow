@@ -604,6 +604,9 @@ pub struct ExecutionConfig {
     /// Should DataFusion provide access to `information_schema`
     /// virtual tables for displaying schema information
     information_schema: bool,
+    /// Should DataFusion repartition data using the join keys to execute joins in parallel
+    /// using the provided `concurrency` level
+    pub repartition_joins: bool,
 }
 
 impl ExecutionConfig {
@@ -624,6 +627,7 @@ impl ExecutionConfig {
             default_schema: "public".to_owned(),
             create_default_catalog_and_schema: true,
             information_schema: false,
+            repartition_joins: true,
         }
     }
 
@@ -681,6 +685,12 @@ impl ExecutionConfig {
     /// Enables or disables the inclusion of `information_schema` virtual tables
     pub fn with_information_schema(mut self, enabled: bool) -> Self {
         self.information_schema = enabled;
+        self
+    }
+
+    /// Enables or disables the use of repartitioning for joins to improve parallelism
+    pub fn with_repartition_joins(mut self, enabled: bool) -> Self {
+        self.repartition_joins = enabled;
         self
     }
 }
@@ -2566,7 +2576,8 @@ mod tests {
 
     /// Generate a partitioned CSV file and register it with an execution context
     fn create_ctx(tmp_dir: &TempDir, partition_count: usize) -> Result<ExecutionContext> {
-        let mut ctx = ExecutionContext::new();
+        let mut ctx =
+            ExecutionContext::with_config(ExecutionConfig::new().with_concurrency(8));
 
         let schema = populate_csv_partitions(tmp_dir, partition_count, ".csv")?;
 
