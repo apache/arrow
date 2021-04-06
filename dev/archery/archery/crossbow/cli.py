@@ -9,7 +9,7 @@ from ..utils.source import ArrowSources
 
 _default_arrow_path = ArrowSources.find().path
 _default_queue_path = _default_arrow_path.parent / "crossbow"
-_default_config_path = _default_arrow_path / "dev" / "tasks" / "tasks.yml"
+_default_config_path = _default_arrow_path / "dev" / "tasks" / "tasks.yml.j2"
 
 
 @click.group()
@@ -43,10 +43,14 @@ def crossbow(ctx, github_token, arrow_path, queue_path, queue_remote,
 @click.option('--config-path', '-c',
               type=click.Path(exists=True), default=_default_config_path,
               help='Task configuration yml. Defaults to tasks.yml')
-def check_config(config_path):
+@click.pass_obj
+def check_config(obj, config_path):
     # load available tasks configuration and groups from yaml
     config = Config.load_yaml(config_path)
     config.validate()
+
+    output = obj['output']
+    config.show(output)
 
 
 @crossbow.command()

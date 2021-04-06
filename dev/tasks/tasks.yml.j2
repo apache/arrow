@@ -343,239 +343,62 @@ tasks:
       - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  ############################## Wheel Linux ##################################
 
-  # AMD64
+{% for python_version, python_tag, abi_tag in [("3.6", "cp36", "cp36m"),
+                                               ("3.7", "cp37", "cp37m"),
+                                               ("3.8", "cp38", "cp38"),
+                                               ("3.9", "cp39", "cp39")] %}
 
-  wheel-manylinux2010-cp36m-amd64:
-    ci: github
-    template: python-wheels/github.linux.amd64.yml
+{############################## Wheel Linux ##################################}
+
+{% for ci, arch, arch_alias, manylinux in [("github", "amd64", "x86_64", "2010"),
+                                           ("github", "amd64", "x86_64", "2014"),
+                                           ("travis", "arm64", "aarch64", "2014")] %}
+  {% set platform_tag = "manylinux{}_{}".format(manylinux, arch_alias) %}
+
+  wheel-manylinux{{ manylinux }}-{{ python_tag }}-{{ arch }}:
+    ci: {{ ci }}
+    template: python-wheels/{{ ci }}.linux.{{ arch }}.yml
     params:
-      python_version: 3.6
-      manylinux_version: 2010
+      python_version: {{ python_version }}
+      manylinux_version: {{ manylinux }}
     artifacts:
-      - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2010_x86_64.whl
+      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
 
-  wheel-manylinux2010-cp37m-amd64:
-    ci: github
-    template: python-wheels/github.linux.amd64.yml
-    params:
-      python_version: 3.7
-      manylinux_version: 2010
-    artifacts:
-      - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2010_x86_64.whl
+{% endfor %}
 
-  wheel-manylinux2010-cp38-amd64:
-    ci: github
-    template: python-wheels/github.linux.amd64.yml
-    params:
-      python_version: 3.8
-      manylinux_version: 2010
-    artifacts:
-      - pyarrow-{no_rc_version}-cp38-cp38-manylinux2010_x86_64.whl
+{############################## Wheel OSX ####################################}
 
-  wheel-manylinux2010-cp39-amd64:
-    ci: github
-    template: python-wheels/github.linux.amd64.yml
-    params:
-      python_version: 3.9
-      manylinux_version: 2010
-    artifacts:
-      - pyarrow-{no_rc_version}-cp39-cp39-manylinux2010_x86_64.whl
+# enable S3 support from macOS 10.13 so we don't need to bundle curl, crypt and ssl
+{% for macos_version, macos_codename, arrow_s3 in [("10.9", "mavericks", "OFF"),
+                                                   ("10.13", "high-sierra", "ON")] %}
+  {% set platform_tag = "macosx_{}_{}".format(macos_version.replace('.', '_'), arch_alias) %}
 
-  wheel-manylinux2014-cp36m-amd64:
-    ci: github
-    template: python-wheels/github.linux.amd64.yml
-    params:
-      python_version: 3.6
-      manylinux_version: 2014
-    artifacts:
-      - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2014_x86_64.whl
-
-  wheel-manylinux2014-cp37m-amd64:
-    ci: github
-    template: python-wheels/github.linux.amd64.yml
-    params:
-      python_version: 3.7
-      manylinux_version: 2014
-    artifacts:
-      - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2014_x86_64.whl
-
-  wheel-manylinux2014-cp38-amd64:
-    ci: github
-    template: python-wheels/github.linux.amd64.yml
-    params:
-      python_version: 3.8
-      manylinux_version: 2014
-    artifacts:
-      - pyarrow-{no_rc_version}-cp38-cp38-manylinux2014_x86_64.whl
-
-  wheel-manylinux2014-cp39-amd64:
-    ci: github
-    template: python-wheels/github.linux.amd64.yml
-    params:
-      python_version: 3.9
-      manylinux_version: 2014
-    artifacts:
-      - pyarrow-{no_rc_version}-cp39-cp39-manylinux2014_x86_64.whl
-
-  # ARM64v8
-
-  wheel-manylinux2014-cp36m-arm64:
-    ci: travis
-    template: python-wheels/travis.linux.arm64.yml
-    params:
-      python_version: 3.6
-      manylinux_version: 2014
-    artifacts:
-      - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2014_aarch64.whl
-
-  wheel-manylinux2014-cp37m-arm64:
-    ci: travis
-    template: python-wheels/travis.linux.arm64.yml
-    params:
-      python_version: 3.7
-      manylinux_version: 2014
-    artifacts:
-      - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2014_aarch64.whl
-
-  wheel-manylinux2014-cp38-arm64:
-    ci: travis
-    template: python-wheels/travis.linux.arm64.yml
-    params:
-      python_version: 3.8
-      manylinux_version: 2014
-    artifacts:
-      - pyarrow-{no_rc_version}-cp38-cp38-manylinux2014_aarch64.whl
-
-  wheel-manylinux2014-cp39-arm64:
-    ci: travis
-    template: python-wheels/travis.linux.arm64.yml
-    params:
-      python_version: 3.9
-      manylinux_version: 2014
-    artifacts:
-      - pyarrow-{no_rc_version}-cp39-cp39-manylinux2014_aarch64.whl
-
-  ############################## Wheel OSX ####################################
-
-  wheel-osx-mavericks-cp36m:
+  wheel-osx-{{ macos_codename }}-{{ python_tag }}:
     ci: github
     template: python-wheels/github.osx.yml
     params:
-      python_version: 3.6
-      macos_deployment_target: 10.9
-      arrow_s3: "OFF"
+      python_version: {{ python_version }}
+      macos_deployment_target: {{ macos_version }}
+      arrow_s3: {{ arrow_s3 }}
     artifacts:
-      - pyarrow-{no_rc_version}-cp36-cp36m-macosx_10_9_x86_64.whl
+      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
 
-  wheel-osx-mavericks-cp37m:
-    ci: github
-    template: python-wheels/github.osx.yml
-    params:
-      python_version: 3.7
-      macos_deployment_target: 10.9
-      arrow_s3: "OFF"
-    artifacts:
-      - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_9_x86_64.whl
+{% endfor %}
 
-  wheel-osx-mavericks-cp38:
-    ci: github
-    template: python-wheels/github.osx.yml
-    params:
-      python_version: 3.8
-      macos_deployment_target: 10.9
-      arrow_s3: "OFF"
-    artifacts:
-      - pyarrow-{no_rc_version}-cp38-cp38-macosx_10_9_x86_64.whl
+{############################## Wheel Windows ################################}
 
-  wheel-osx-mavericks-cp39:
-    ci: github
-    template: python-wheels/github.osx.yml
-    params:
-      python_version: 3.9
-      macos_deployment_target: 10.9
-      arrow_s3: "OFF"
-    artifacts:
-      - pyarrow-{no_rc_version}-cp39-cp39-macosx_10_9_x86_64.whl
-
-  # enable S3 support from macOS 10.13 so we don't need to bundle curl, crypt and ssl
-
-  wheel-osx-high-sierra-cp36m:
-    ci: github
-    template: python-wheels/github.osx.yml
-    params:
-      python_version: 3.6
-      macos_deployment_target: 10.13
-      arrow_s3: "ON"
-    artifacts:
-      - pyarrow-{no_rc_version}-cp36-cp36m-macosx_10_13_x86_64.whl
-
-  wheel-osx-high-sierra-cp37m:
-    ci: github
-    template: python-wheels/github.osx.yml
-    params:
-      python_version: 3.7
-      macos_deployment_target: 10.13
-      arrow_s3: "ON"
-    artifacts:
-      - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_13_x86_64.whl
-
-  wheel-osx-high-sierra-cp38:
-    ci: github
-    template: python-wheels/github.osx.yml
-    params:
-      python_version: 3.8
-      macos_deployment_target: 10.13
-      arrow_s3: "ON"
-    artifacts:
-      - pyarrow-{no_rc_version}-cp38-cp38-macosx_10_13_x86_64.whl
-
-  wheel-osx-high-sierra-cp39:
-    ci: github
-    template: python-wheels/github.osx.yml
-    params:
-      python_version: 3.9
-      macos_deployment_target: 10.13
-      arrow_s3: "ON"
-    artifacts:
-      - pyarrow-{no_rc_version}-cp39-cp39-macosx_10_13_x86_64.whl
-
-  ############################## Wheel Windows ################################
-
-  wheel-windows-cp36m:
+  wheel-windows-{{ python_tag }}:
     ci: github
     template: python-wheels/github.windows.yml
     params:
-      python_version: 3.6
+      python_version: {{ python_version }}
     artifacts:
-      - pyarrow-{no_rc_version}-cp36-cp36m-win_amd64.whl
+      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-win_amd64.whl
 
-  wheel-windows-cp37m:
-    ci: github
-    template: python-wheels/github.windows.yml
-    params:
-      python_version: 3.7
-    artifacts:
-      - pyarrow-{no_rc_version}-cp37-cp37m-win_amd64.whl
+{% endfor %}
 
-  wheel-windows-cp38:
-    ci: github
-    template: python-wheels/github.windows.yml
-    params:
-      python_version: 3.8
-    artifacts:
-      - pyarrow-{no_rc_version}-cp38-cp38-win_amd64.whl
-
-  wheel-windows-cp39:
-    ci: github
-    template: python-wheels/github.windows.yml
-    params:
-      python_version: 3.9
-    artifacts:
-      - pyarrow-{no_rc_version}-cp39-cp39-win_amd64.whl
-
-  ############################ Python sdist ####################################
+{############################ Python sdist ####################################}
 
   python-sdist:
     ci: github
@@ -1740,7 +1563,7 @@ tasks:
     ci: github
     template: r/github.linux.cran.yml
     params:
-      MATRIX: "${{ matrix.r_image }}"
+      MATRIX: {{ "${{ matrix.r_image }}" }}
 
   test-r-version-compatibility:
     ci: github
@@ -1750,7 +1573,7 @@ tasks:
     ci: github
     template: r/github.linux.versions.yml
     params:
-      MATRIX: "${{ matrix.r_version }}"
+      MATRIX: {{ "${{ matrix.r_version }}" }}
 
   test-r-install-local:
     ci: github

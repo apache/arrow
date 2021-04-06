@@ -31,7 +31,7 @@ from pathlib import Path
 from datetime import date
 
 import toolz
-
+import jinja2
 from ruamel.yaml import YAML
 
 try:
@@ -112,6 +112,15 @@ def _unflatten_tree(files):
     """
     files = toolz.keymap(lambda path: tuple(path.split('/')), files)
     return _unflatten(files)
+
+
+def _render_jinja_template(searchpath, template, params):
+    loader = jinja2.FileSystemLoader(searchpath)
+    env = jinja2.Environment(loader=loader, trim_blocks=True,
+                             lstrip_blocks=True)
+    template = env.get_template(template)
+    params = toolz.merge(params, params)
+    return template.render(**params)
 
 
 # configurations for setting up branch skipping
@@ -724,17 +733,11 @@ class Task(Serializable):
         self._assets = None  # assets cache
 
     def render_files(self, **params):
-        import jinja2
-
         src = ArrowSources.find()
-        loader = jinja2.FileSystemLoader(searchpath=src.dev / "tasks")
-        env = jinja2.Environment(loader=loader, trim_blocks=True,
-                                 lstrip_blocks=True)
-        template = env.get_template(self.template)
-
-        params = toolz.merge(self.params, params)
+        params = toolz.merge(self.params, params, dict(task=self))
         try:
-            rendered = template.render(task=self, **params)
+            rendered = _render_jinja_template(src.dev / "tasks", self.template,
+                                              params=params)
         except jinja2.TemplateError as e:
             raise RuntimeError(
                 'Failed to render template `{}` with {}: {}'.format(
@@ -1018,8 +1021,13 @@ class Config(dict):
 
     @classmethod
     def load_yaml(cls, path):
-        with Path(path).open() as fp:
-            return cls(yaml.load(fp))
+        path = Path(path)
+        rendered = _render_jinja_template(searchpath=path.parent,
+                                          template=path.name, params={})
+        return cls(yaml.load(rendered))
+
+    def show(self, stream=None):
+        return yaml.dump(dict(self), stream=stream)
 
     def select(self, tasks=None, groups=None):
         config_groups = dict(self['groups'])
