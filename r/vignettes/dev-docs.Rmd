@@ -7,13 +7,15 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r, include = FALSE}
+```{r}
 run <- tolower(Sys.getenv("RUN_DEVDOCS", "false")) == "true"
 run_macos <- run & tolower(Sys.getenv("DEVDOCS_MACOS", "false")) == "true"
 run_ubuntu <- run & tolower(Sys.getenv("DEVDOCS_UBUNTU", "false")) == "true"
 
 print(run)
+print(Sys.getenv("DEVDOCS_MACOS"))
 print(run_macos)
+print(Sys.getenv("DEVDOCS_UBUNTU"))
 print(run_ubuntu)
 ```
 
