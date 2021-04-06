@@ -20,24 +20,24 @@ name: R
 on:
   push:
     paths:
-      - '.github/workflows/r.yml'
-      - 'ci/scripts/r_*.sh'
-      - 'ci/scripts/cpp_*.sh'
-      - 'ci/scripts/PKGBUILD'
-      - 'ci/etc/rprofile'
-      - 'ci/docker/**'
-      - 'cpp/**'
-      - 'r/**'
+      - ".github/workflows/r.yml"
+      - "ci/scripts/r_*.sh"
+      - "ci/scripts/cpp_*.sh"
+      - "ci/scripts/PKGBUILD"
+      - "ci/etc/rprofile"
+      - "ci/docker/**"
+      - "cpp/**"
+      - "r/**"
   pull_request:
     paths:
-      - '.github/workflows/r.yml'
-      - 'ci/scripts/r_*.sh'
-      - 'ci/scripts/cpp_*.sh'
-      - 'ci/scripts/PKGBUILD'
-      - 'ci/etc/rprofile'
-      - 'ci/docker/**'
-      - 'cpp/**'
-      - 'r/**'
+      - ".github/workflows/r.yml"
+      - "ci/scripts/r_*.sh"
+      - "ci/scripts/cpp_*.sh"
+      - "ci/scripts/PKGBUILD"
+      - "ci/etc/rprofile"
+      - "ci/docker/**"
+      - "cpp/**"
+      - "r/**"
 
 env:
   DOCKER_VOLUME_PREFIX: ".docker/"
@@ -86,6 +86,15 @@ jobs:
       - name: Dump install logs
         run: cat r/check/arrow.Rcheck/00install.out
         if: always()
+      - name: Dump test logs
+        run: cat r/check/arrow.Rcheck/tests/testthat.Rout*
+        if: always()
+      - name: Save the test output
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-output
+          path: r/check/arrow.Rcheck/tests/testthat.Rout*
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
@@ -99,8 +108,8 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - {org: 'rstudio', image: 'r-base', tag: '4.0-centos7'}
-          - {org: 'rhub', image: 'debian-gcc-devel', tag: 'latest'}
+          - { org: "rstudio", image: "r-base", tag: "4.0-centos7" }
+          - { org: "rhub", image: "debian-gcc-devel", tag: "latest" }
     env:
       R_ORG: ${{ matrix.config.org }}
       R_IMAGE: ${{ matrix.config.image }}
@@ -134,6 +143,15 @@ jobs:
       - name: Dump install logs
         run: cat r/check/arrow.Rcheck/00install.out
         if: always()
+      - name: Dump test logs
+        run: cat r/check/arrow.Rcheck/tests/testthat.Rout*
+        if: always()
+      - name: Save the test output
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-output
+          path: r/check/arrow.Rcheck/tests/testthat.Rout*
       - name: Docker Push
         if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
@@ -149,7 +167,7 @@ jobs:
         rtools: [35, 40]
     env:
       TEST_R_WITH_ARROW: "TRUE"
-      ARROW_R_CXXFLAGS: '-Werror'
+      ARROW_R_CXXFLAGS: "-Werror"
       _R_CHECK_TESTS_NLINES_: 0
     steps:
       - run: git config --global core.autocrlf false
@@ -187,13 +205,13 @@ jobs:
       - uses: r-lib/actions/setup-r@master
         with:
           rtools-version: 40
-          r-version: '4.0'
+          r-version: "4.0"
           Ncpus: 2
       - uses: r-lib/actions/setup-r@master
         if: ${{ matrix.rtools == 35 }}
         with:
           rtools-version: 35
-          r-version: '3.6'
+          r-version: "3.6"
           Ncpus: 2
       - name: Build Arrow C++
         shell: bash
@@ -221,7 +239,8 @@ jobs:
             build_args = '--no-build-vignettes',
             args = c('--no-manual', '--as-cran', '--ignore-vignettes', '--run-donttest'),
             error_on = 'warning',
-            check_dir = 'check'
+            check_dir = 'check',
+            timeout = 3600
           )
       - name: Dump install logs
         shell: cmd

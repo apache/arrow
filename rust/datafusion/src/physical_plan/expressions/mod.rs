@@ -42,11 +42,12 @@ mod negative;
 mod not;
 mod nullif;
 mod sum;
+mod try_cast;
 
 pub use average::{avg_return_type, Avg, AvgAccumulator};
 pub use binary::{binary, binary_operator_data_type, BinaryExpr};
 pub use case::{case, CaseExpr};
-pub use cast::{cast, CastExpr};
+pub use cast::{cast, cast_with_options, CastExpr};
 pub use column::{col, Column};
 pub use count::Count;
 pub use in_list::{in_list, InListExpr};
@@ -58,6 +59,7 @@ pub use negative::{negative, NegativeExpr};
 pub use not::{not, NotExpr};
 pub use nullif::{nullif_func, SUPPORTED_NULLIF_TYPES};
 pub use sum::{sum_return_type, Sum};
+pub use try_cast::{try_cast, TryCastExpr};
 /// returns the name of the state
 pub fn format_state_name(name: &str, state_name: &str) -> String {
     format!("{}[{}]", name, state_name)

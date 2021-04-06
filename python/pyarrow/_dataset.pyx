@@ -26,11 +26,11 @@ import os
 
 import pyarrow as pa
 from pyarrow.lib cimport *
-from pyarrow.lib import frombytes, tobytes
+from pyarrow.lib import ArrowTypeError, frombytes, tobytes
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow._fs cimport FileSystem, FileInfo, FileSelector
 from pyarrow._csv cimport ConvertOptions, ParseOptions, ReadOptions
-from pyarrow.util import _is_path_like, _stringify_path
+from pyarrow.util import _is_iterable, _is_path_like, _stringify_path
 
 from pyarrow._parquet cimport (
     _create_writer_properties, _create_arrow_writer_properties,
@@ -101,8 +101,9 @@ cdef class Expression(_Weakrefable):
     - Check whether the expression is contained in a list of values with
       the ``pyarrow.dataset.Expression.isin()`` member function.
 
-    Examples:
+    Examples
     --------
+
     >>> import pyarrow.dataset as ds
     >>> (ds.field("a") < ds.scalar(3)) | (ds.field("b") > 7)
     <pyarrow.dataset.Expression ((a < 3:int64) or (b > 7:int64))>
@@ -439,6 +440,76 @@ cdef class Dataset(_Weakrefable):
     def schema(self):
         """The common schema of the full Dataset"""
         return pyarrow_wrap_schema(self.dataset.schema())
+
+
+cdef class InMemoryDataset(Dataset):
+    """A Dataset wrapping in-memory data.
+
+    Parameters
+    ----------
+    source
+        The data for this dataset. Can be a RecordBatch, Table, list of
+        RecordBatch/Table, iterable of RecordBatch, or a RecordBatchReader.
+        If an iterable is provided, the schema must also be provided.
+    schema : Schema, optional
+        Only required if passing an iterable as the source.
+    """
+
+    cdef:
+        CInMemoryDataset* in_memory_dataset
+
+    def __init__(self, source, Schema schema=None):
+        cdef:
+            RecordBatchReader reader
+            shared_ptr[CInMemoryDataset] in_memory_dataset
+
+        if isinstance(source, (pa.RecordBatch, pa.Table)):
+            source = [source]
+
+        if isinstance(source, (list, tuple)):
+            batches = []
+            for item in source:
+                if isinstance(item, pa.RecordBatch):
+                    batches.append(item)
+                elif isinstance(item, pa.Table):
+                    batches.extend(item.to_batches())
+                else:
+                    raise TypeError(
+                        'Expected a list of tables or batches. The given list '
+                        'contains a ' + type(item).__name__)
+                if schema is None:
+                    schema = item.schema
+                elif not schema.equals(item.schema):
+                    raise ArrowTypeError(
+                        f'Item has schema\n{item.schema}\nwhich does not '
+                        f'match expected schema\n{schema}')
+            if not batches and schema is None:
+                raise ValueError('Must provide schema to construct in-memory '
+                                 'dataset from an empty list')
+            table = pa.Table.from_batches(batches, schema=schema)
+            in_memory_dataset = make_shared[CInMemoryDataset](
+                pyarrow_unwrap_table(table))
+        elif isinstance(source, pa.ipc.RecordBatchReader):
+            reader = source
+            in_memory_dataset = make_shared[CInMemoryDataset](reader.reader)
+        elif _is_iterable(source):
+            if schema is None:
+                raise ValueError('Must provide schema to construct in-memory '
+                                 'dataset from an iterable')
+            reader = pa.ipc.RecordBatchReader.from_batches(schema, source)
+            in_memory_dataset = make_shared[CInMemoryDataset](reader.reader)
+        else:
+            raise TypeError(
+                'Expected a table, batch, iterable of tables/batches, or a '
+                'record batch reader instead of the given type: ' +
+                type(source).__name__
+            )
+
+        self.init(<shared_ptr[CDataset]> in_memory_dataset)
+
+    cdef void init(self, const shared_ptr[CDataset]& sp):
+        Dataset.init(self, sp)
+        self.in_memory_dataset = <CInMemoryDataset*> sp.get()
 
 
 cdef class UnionDataset(Dataset):
@@ -2345,7 +2416,9 @@ cdef class RecordBatchIterator(_Weakrefable):
     """An iterator over a sequence of record batches."""
     cdef:
         ScanTask task
-        CRecordBatchIterator iterator
+        # Iterator is a non-POD type and Cython uses offsetof, leading
+        # to a compiler warning unless wrapped like so
+        shared_ptr[CRecordBatchIterator] iterator
 
     def __init__(self):
         _forbid_instantiation(self.__class__, subclasses_instead=False)
@@ -2355,7 +2428,7 @@ cdef class RecordBatchIterator(_Weakrefable):
         cdef RecordBatchIterator self = \
             RecordBatchIterator.__new__(RecordBatchIterator)
         self.task = task
-        self.iterator = move(iterator)
+        self.iterator = make_shared[CRecordBatchIterator](move(iterator))
         return self
 
     def __iter__(self):
@@ -2364,7 +2437,7 @@ cdef class RecordBatchIterator(_Weakrefable):
     def __next__(self):
         cdef shared_ptr[CRecordBatch] record_batch
         with nogil:
-            record_batch = GetResultValue(move(self.iterator.Next()))
+            record_batch = GetResultValue(move(self.iterator.get().Next()))
         if record_batch == NULL:
             raise StopIteration
         return pyarrow_wrap_batch(record_batch)
@@ -2600,10 +2673,14 @@ def _get_partition_keys(Expression partition_expression):
 
 
 def _filesystemdataset_write(
-    data not None, object base_dir not None, str basename_template not None,
-    Schema schema not None, FileSystem filesystem not None,
+    Dataset data not None,
+    object base_dir not None,
+    str basename_template not None,
+    Schema schema not None,
+    FileSystem filesystem not None,
     Partitioning partitioning not None,
-    FileWriteOptions file_options not None, bint use_threads,
+    FileWriteOptions file_options not None,
+    bint use_threads,
     int max_partitions,
 ):
     """
@@ -2621,21 +2698,7 @@ def _filesystemdataset_write(
     c_options.max_partitions = max_partitions
     c_options.basename_template = tobytes(basename_template)
 
-    if isinstance(data, Dataset):
-        scanner = data._scanner(use_threads=use_threads)
-    else:
-        # data is list of batches/tables
-        for table in data:
-            if isinstance(table, Table):
-                for batch in table.to_batches():
-                    c_batches.push_back((<RecordBatch> batch).sp_batch)
-            else:
-                c_batches.push_back((<RecordBatch> table).sp_batch)
-
-        data = Fragment.wrap(shared_ptr[CFragment](
-            new CInMemoryFragment(move(c_batches), _true.unwrap())))
-
-        scanner = Scanner.from_fragment(data, schema, use_threads=use_threads)
+    scanner = data._scanner(use_threads=use_threads)
 
     c_scanner = (<Scanner> scanner).unwrap()
     with nogil:

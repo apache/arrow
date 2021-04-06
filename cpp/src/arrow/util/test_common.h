@@ -56,11 +56,25 @@ struct IterationTraits<TestStr> {
   static bool IsEnd(const TestStr& val) { return val == IterationTraits<TestStr>::End(); }
 };
 
-std::vector<TestInt> RangeVector(unsigned int max);
+std::vector<TestInt> RangeVector(unsigned int max, unsigned int step = 1);
 
 template <typename T>
 inline Iterator<T> VectorIt(std::vector<T> v) {
   return MakeVectorIterator<T>(std::move(v));
+}
+
+template <typename T>
+inline Iterator<T> PossiblySlowVectorIt(std::vector<T> v, bool slow = false) {
+  auto iterator = MakeVectorIterator<T>(std::move(v));
+  if (slow) {
+    return MakeTransformedIterator<T, T>(std::move(iterator),
+                                         [](T item) -> Result<TransformFlow<T>> {
+                                           SleepABit();
+                                           return TransformYield(item);
+                                         });
+  } else {
+    return iterator;
+  }
 }
 
 template <typename T>

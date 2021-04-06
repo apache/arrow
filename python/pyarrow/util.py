@@ -62,6 +62,14 @@ def _deprecate_class(old_name, new_class, next_version,
     return _DeprecatedMeta(old_name, (new_class,), {})
 
 
+def _is_iterable(obj):
+    try:
+        iter(obj)
+        return True
+    except TypeError:
+        return False
+
+
 def _is_path_like(path):
     # PEP519 filesystem path protocol is available from python 3.6, so pathlib
     # doesn't implement __fspath__ for earlier versions

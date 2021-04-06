@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <arrow-glib/arrow-glib.h>
+#include <gandiva-glib/selection-vector.h>
 
 G_BEGIN_DECLS
 
@@ -35,11 +35,41 @@ struct _GGandivaProjectorClass
   GObjectClass parent_class;
 };
 
-GGandivaProjector *ggandiva_projector_new(GArrowSchema *schema,
-                                          GList *expressions,
-                                          GError **error);
-GList *ggandiva_projector_evaluate(GGandivaProjector *projector,
-                                   GArrowRecordBatch *record_batch,
-                                   GError **error);
+GGandivaProjector *
+ggandiva_projector_new(GArrowSchema *schema,
+                       GList *expressions,
+                       GError **error);
+GList *
+ggandiva_projector_evaluate(GGandivaProjector *projector,
+                            GArrowRecordBatch *record_batch,
+                            GError **error);
+
+
+#define GGANDIVA_TYPE_SELECTABLE_PROJECTOR      \
+  (ggandiva_selectable_projector_get_type())
+G_DECLARE_DERIVABLE_TYPE(GGandivaSelectableProjector,
+                         ggandiva_selectable_projector,
+                         GGANDIVA,
+                         SELECTABLE_PROJECTOR,
+                         GGandivaProjector)
+
+struct _GGandivaSelectableProjectorClass
+{
+  GGandivaProjectorClass parent_class;
+};
+
+GGANDIVA_AVAILABLE_IN_4_0
+GGandivaSelectableProjector *
+ggandiva_selectable_projector_new(GArrowSchema *schema,
+                                  GList *expressions,
+                                  GGandivaSelectionVectorMode mode,
+                                  GError **error);
+GGANDIVA_AVAILABLE_IN_4_0
+GList *
+ggandiva_selectable_projector_evaluate(GGandivaSelectableProjector *projector,
+                                       GArrowRecordBatch *record_batch,
+                                       GGandivaSelectionVector *selection_vector,
+                                       GError **error);
+
 
 G_END_DECLS

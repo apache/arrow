@@ -927,7 +927,7 @@ func writeFBBuilder(b *flatbuffers.Builder, mem memory.Allocator) *memory.Buffer
 func writeMessageFB(b *flatbuffers.Builder, mem memory.Allocator, hdrType flatbuf.MessageHeader, hdr flatbuffers.UOffsetT, bodyLen int64) *memory.Buffer {
 
 	flatbuf.MessageStart(b)
-	flatbuf.MessageAddVersion(b, int16(currentMetadataVersion))
+	flatbuf.MessageAddVersion(b, flatbuf.MetadataVersion(currentMetadataVersion))
 	flatbuf.MessageAddHeaderType(b, hdrType)
 	flatbuf.MessageAddHeader(b, hdr)
 	flatbuf.MessageAddBodyLength(b, bodyLen)
@@ -954,7 +954,7 @@ func writeFileFooter(schema *arrow.Schema, dicts, recs []fileBlock, w io.Writer)
 	recsFB := fileBlocksToFB(b, recs, flatbuf.FooterStartRecordBatchesVector)
 
 	flatbuf.FooterStart(b)
-	flatbuf.FooterAddVersion(b, int16(currentMetadataVersion))
+	flatbuf.FooterAddVersion(b, flatbuf.MetadataVersion(currentMetadataVersion))
 	flatbuf.FooterAddSchema(b, schemaFB)
 	flatbuf.FooterAddDictionaries(b, dictsFB)
 	flatbuf.FooterAddRecordBatches(b, recsFB)

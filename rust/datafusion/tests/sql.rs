@@ -18,6 +18,9 @@
 use std::convert::TryFrom;
 use std::sync::Arc;
 
+use chrono::prelude::*;
+use chrono::Duration;
+
 extern crate arrow;
 extern crate datafusion;
 
@@ -29,7 +32,7 @@ use arrow::{
 };
 
 use datafusion::execution::context::ExecutionContext;
-use datafusion::logical_plan::{LogicalPlan, ToDFSchema};
+use datafusion::logical_plan::LogicalPlan;
 use datafusion::prelude::create_udf;
 use datafusion::{
     datasource::{csv::CsvReadOptions, MemTable},
@@ -1527,16 +1530,11 @@ async fn execute(ctx: &mut ExecutionContext, sql: &str) -> Vec<Vec<String>> {
 
     let msg = format!("Creating physical plan for '{}': {:?}", sql, plan);
     let plan = ctx.create_physical_plan(&plan).expect(&msg);
-    let physical_schema = plan.schema();
 
     let msg = format!("Executing physical plan for '{}': {:?}", sql, plan);
     let results = collect(plan).await.expect(&msg);
 
     assert_eq!(logical_schema.as_ref(), optimized_logical_schema.as_ref());
-    assert_eq!(
-        logical_schema.as_ref(),
-        &physical_schema.to_dfschema().unwrap()
-    );
 
     result_vec(&results)
 }
@@ -2116,6 +2114,47 @@ async fn csv_group_by_date() -> Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn group_by_timestamp_millis() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+
+    let schema = Arc::new(Schema::new(vec![
+        Field::new(
+            "timestamp",
+            DataType::Timestamp(TimeUnit::Millisecond, None),
+            false,
+        ),
+        Field::new("count", DataType::Int32, false),
+    ]));
+    let base_dt = Utc.ymd(2018, 7, 1).and_hms(6, 0, 0); // 2018-Jul-01 06:00
+    let hour1 = Duration::hours(1);
+    let timestamps = vec![
+        base_dt.timestamp_millis(),
+        (base_dt + hour1).timestamp_millis(),
+        base_dt.timestamp_millis(),
+        base_dt.timestamp_millis(),
+        (base_dt + hour1).timestamp_millis(),
+        (base_dt + hour1).timestamp_millis(),
+    ];
+    let data = RecordBatch::try_new(
+        schema.clone(),
+        vec![
+            Arc::new(TimestampMillisecondArray::from(timestamps)),
+            Arc::new(Int32Array::from(vec![10, 20, 30, 40, 50, 60])),
+        ],
+    )?;
+    let t1_table = MemTable::try_new(schema, vec![vec![data]])?;
+    ctx.register_table("t1", Arc::new(t1_table)).unwrap();
+
+    let sql =
+        "SELECT timestamp, SUM(count) FROM t1 GROUP BY timestamp ORDER BY timestamp ASC";
+    let actual = execute(&mut ctx, sql).await;
+    let actual: Vec<String> = actual.iter().map(|row| row[1].clone()).collect();
+    let expected = vec!["80", "130"];
+    assert_eq!(expected, actual);
+    Ok(())
+}
+
 macro_rules! test_expression {
     ($SQL:expr, $EXPECTED:expr) => {
         let mut ctx = ExecutionContext::new();
@@ -2455,6 +2494,17 @@ async fn test_regex_expressions() -> Result<()> {
     test_expression!("regexp_replace('foobarbaz', NULL, 'X\\1Y', 'g')", "NULL");
     test_expression!("regexp_replace('Thomas', '.[mN]a.', 'M')", "ThM");
     test_expression!("regexp_replace(NULL, 'b(..)', 'X\\1Y', 'g')", "NULL");
+    test_expression!("regexp_match('foobarbequebaz', '')", "[]");
+    test_expression!(
+        "regexp_match('foobarbequebaz', '(bar)(beque)')",
+        "[bar, beque]"
+    );
+    test_expression!("regexp_match('foobarbequebaz', '(ba3r)(bequ34e)')", "NULL");
+    test_expression!("regexp_match('aaa-0', '.*-(\\d)')", "[0]");
+    test_expression!("regexp_match('bb-1', '.*-(\\d)')", "[1]");
+    test_expression!("regexp_match('aa', '.*-(\\d)')", "NULL");
+    test_expression!("regexp_match(NULL, '.*-(\\d)')", "NULL");
+    test_expression!("regexp_match('aaa-0', NULL)", "NULL");
     Ok(())
 }
 
@@ -2528,7 +2578,7 @@ async fn in_list_array() -> Result<()> {
             ,c1 IN ('x', 'y') AS utf8_in_false
             ,c1 NOT IN ('x', 'y') AS utf8_not_in_true
             ,c1 NOT IN ('a', 'c') AS utf8_not_in_false
-            ,CAST(CAST(c1 AS int) AS varchar) IN ('a', 'c') AS utf8_in_null
+            ,NULL IN ('a', 'c') AS utf8_in_null
         FROM aggregate_test_100 WHERE c12 < 0.05";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![
@@ -2605,5 +2655,37 @@ async fn invalid_qualified_table_references() -> Result<()> {
         let sql = format!("SELECT COUNT(*) FROM {}", table_ref);
         assert!(matches!(ctx.sql(&sql), Err(DataFusionError::Plan(_))));
     }
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cast_expressions() -> Result<()> {
+    test_expression!("CAST('0' AS INT)", "0");
+    test_expression!("CAST(NULL AS INT)", "NULL");
+    test_expression!("TRY_CAST('0' AS INT)", "0");
+    test_expression!("TRY_CAST('x' AS INT)", "NULL");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_cast_expressions_error() -> Result<()> {
+    // sin(utf8) should error
+    let mut ctx = create_ctx()?;
+    register_aggregate_csv(&mut ctx)?;
+    let sql = "SELECT CAST(c1 AS INT) FROM aggregate_test_100";
+    let plan = ctx.create_logical_plan(&sql).unwrap();
+    let plan = ctx.optimize(&plan).unwrap();
+    let plan = ctx.create_physical_plan(&plan).unwrap();
+    let result = collect(plan).await;
+
+    match result {
+        Ok(_) => panic!("expected error"),
+        Err(e) => {
+            assert!(e.to_string().contains(
+                "Cast error: Cannot cast string 'c' to value of arrow::datatypes::types::Int32Type type"
+            ))
+        }
+    }
+
     Ok(())
 }

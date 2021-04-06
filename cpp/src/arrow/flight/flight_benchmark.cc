@@ -27,6 +27,7 @@
 #include "arrow/ipc/api.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/compression.h"
 #include "arrow/util/stopwatch.h"
 #include "arrow/util/tdigest.h"
 #include "arrow/util/thread_pool.h"
@@ -52,6 +53,11 @@ DEFINE_int32(num_threads, 4, "Number of concurrent gets");
 DEFINE_int64(records_per_stream, 10000000, "Total records per stream");
 DEFINE_int32(records_per_batch, 4096, "Total records per batch within stream");
 DEFINE_bool(test_put, false, "Test DoPut instead of DoGet");
+DEFINE_string(compression, "",
+              "Select compression method (\"zstd\", \"lz4\"). "
+              "Leave blank to disable compression.\n"
+              "E.g., \"zstd\":   zstd with default compression level.\n"
+              "      \"zstd:7\": zstd with compression leve = 7.\n");
 
 namespace perf = arrow::flight::perf;
 
@@ -99,11 +105,11 @@ struct PerformanceStats {
   uint64_t quantile_latency(double q) const { return latencies.Quantile(q) / 1000; }
 };
 
-Status WaitForReady(FlightClient* client) {
+Status WaitForReady(FlightClient* client, const FlightCallOptions& call_options) {
   Action action{"ping", nullptr};
   for (int attempt = 0; attempt < 10; attempt++) {
     std::unique_ptr<ResultStream> stream;
-    if (client->DoAction(action, &stream).ok()) {
+    if (client->DoAction(call_options, action, &stream).ok()) {
       return Status::OK();
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -112,11 +118,12 @@ Status WaitForReady(FlightClient* client) {
 }
 
 arrow::Result<PerformanceResult> RunDoGetTest(FlightClient* client,
+                                              const FlightCallOptions& call_options,
                                               const perf::Token& token,
                                               const FlightEndpoint& endpoint,
                                               PerformanceStats* stats) {
   std::unique_ptr<FlightStreamReader> reader;
-  RETURN_NOT_OK(client->DoGet(endpoint.ticket, &reader));
+  RETURN_NOT_OK(client->DoGet(call_options, endpoint.ticket, &reader));
 
   FlightStreamChunk batch;
 
@@ -158,6 +165,7 @@ arrow::Result<PerformanceResult> RunDoGetTest(FlightClient* client,
 }
 
 arrow::Result<PerformanceResult> RunDoPutTest(FlightClient* client,
+                                              const FlightCallOptions& call_options,
                                               const perf::Token& token,
                                               const FlightEndpoint& endpoint,
                                               PerformanceStats* stats) {
@@ -166,7 +174,8 @@ arrow::Result<PerformanceResult> RunDoPutTest(FlightClient* client,
   std::shared_ptr<Schema> schema =
       arrow::schema({field("a", int64()), field("b", int64()), field("c", int64()),
                      field("d", int64())});
-  RETURN_NOT_OK(client->DoPut(FlightDescriptor{}, schema, &writer, &reader));
+  RETURN_NOT_OK(
+      client->DoPut(call_options, FlightDescriptor{}, schema, &writer, &reader));
 
   // This is hard-coded for right now, 4 columns each with int64
   const int bytes_per_record = 32;
@@ -216,7 +225,8 @@ arrow::Result<PerformanceResult> RunDoPutTest(FlightClient* client,
   return PerformanceResult{num_batches, num_records, num_bytes};
 }
 
-Status DoSinglePerfRun(FlightClient* client, bool test_put, PerformanceStats* stats) {
+Status DoSinglePerfRun(FlightClient* client, const FlightCallOptions& call_options,
+                       bool test_put, PerformanceStats* stats) {
   // schema not needed
   perf::Perf perf;
   perf.set_stream_count(FLAGS_num_streams);
@@ -229,7 +239,7 @@ Status DoSinglePerfRun(FlightClient* client, bool test_put, PerformanceStats* st
   perf.SerializeToString(&descriptor.cmd);
 
   std::unique_ptr<FlightInfo> plan;
-  RETURN_NOT_OK(client->GetFlightInfo(descriptor, &plan));
+  RETURN_NOT_OK(client->GetFlightInfo(call_options, descriptor, &plan));
 
   // Read the streams in parallel
   std::shared_ptr<Schema> schema;
@@ -239,7 +249,8 @@ Status DoSinglePerfRun(FlightClient* client, bool test_put, PerformanceStats* st
   int64_t start_total_records = stats->total_records;
 
   auto test_loop = test_put ? &RunDoPutTest : &RunDoGetTest;
-  auto ConsumeStream = [&stats, &test_loop](const FlightEndpoint& endpoint) {
+  auto ConsumeStream = [&stats, &test_loop,
+                        &call_options](const FlightEndpoint& endpoint) {
     // TODO(wesm): Use location from endpoint, same host/port for now
     std::unique_ptr<FlightClient> client;
     RETURN_NOT_OK(FlightClient::Connect(endpoint.locations.front(), &client));
@@ -247,7 +258,7 @@ Status DoSinglePerfRun(FlightClient* client, bool test_put, PerformanceStats* st
     perf::Token token;
     token.ParseFromString(endpoint.ticket.ticket);
 
-    const auto& result = test_loop(client.get(), token, endpoint, stats);
+    const auto& result = test_loop(client.get(), call_options, token, endpoint, stats);
     if (result.ok()) {
       const PerformanceResult& perf = result.ValueOrDie();
       stats->Update(perf.num_batches, perf.num_records, perf.num_bytes);
@@ -281,13 +292,14 @@ Status DoSinglePerfRun(FlightClient* client, bool test_put, PerformanceStats* st
   return Status::OK();
 }
 
-Status RunPerformanceTest(FlightClient* client, bool test_put) {
+Status RunPerformanceTest(FlightClient* client, const FlightCallOptions& call_options,
+                          bool test_put) {
   StopWatch timer;
   timer.Start();
 
   PerformanceStats stats;
   for (int i = 0; i < FLAGS_num_perf_runs; ++i) {
-    RETURN_NOT_OK(DoSinglePerfRun(client, test_put, &stats));
+    RETURN_NOT_OK(DoSinglePerfRun(client, call_options, test_put, &stats));
   }
 
   // Elapsed time in seconds
@@ -332,6 +344,44 @@ Status RunPerformanceTest(FlightClient* client, bool test_put) {
 int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
+  std::cout << "Testing method: ";
+  if (FLAGS_test_put) {
+    std::cout << "DoPut";
+  } else {
+    std::cout << "DoGet";
+  }
+  std::cout << std::endl;
+
+  arrow::flight::FlightCallOptions call_options;
+  if (!FLAGS_compression.empty()) {
+    if (!FLAGS_test_put) {
+      std::cerr << "Compression is only useful for Put test now, "
+                   "please append \"-test_put\" to command line"
+                << std::endl;
+      std::abort();
+    }
+
+    // "zstd"   -> name = "zstd", level = default
+    // "zstd:7" -> name = "zstd", level = 7
+    const size_t delim = FLAGS_compression.find(":");
+    const std::string name = FLAGS_compression.substr(0, delim);
+    const std::string level_str =
+        delim == std::string::npos
+            ? ""
+            : FLAGS_compression.substr(delim + 1, FLAGS_compression.length() - delim - 1);
+    const int level = level_str.empty() ? arrow::util::kUseDefaultCompressionLevel
+                                        : std::stoi(level_str);
+    const auto type = arrow::util::Codec::GetCompressionType(name).ValueOrDie();
+    auto codec = arrow::util::Codec::Create(type, level).ValueOrDie();
+    std::cout << "Compression method: " << name;
+    if (!level_str.empty()) {
+      std::cout << ", level " << level;
+    }
+    std::cout << std::endl;
+
+    call_options.write_options.codec = std::move(codec);
+  }
+
   std::unique_ptr<arrow::flight::TestServer> server;
   arrow::flight::Location location;
   if (FLAGS_test_unix || !FLAGS_server_unix.empty()) {
@@ -362,19 +412,12 @@ int main(int argc, char** argv) {
                                                      &location));
   }
 
-  std::cout << "Testing method: ";
-  if (FLAGS_test_put) {
-    std::cout << "DoPut";
-  } else {
-    std::cout << "DoGet";
-  }
-  std::cout << std::endl;
-
   std::unique_ptr<arrow::flight::FlightClient> client;
   ABORT_NOT_OK(arrow::flight::FlightClient::Connect(location, &client));
-  ABORT_NOT_OK(arrow::flight::WaitForReady(client.get()));
+  ABORT_NOT_OK(arrow::flight::WaitForReady(client.get(), call_options));
 
-  arrow::Status s = arrow::flight::RunPerformanceTest(client.get(), FLAGS_test_put);
+  arrow::Status s =
+      arrow::flight::RunPerformanceTest(client.get(), call_options, FLAGS_test_put);
 
   if (server) {
     server->Stop();

@@ -77,6 +77,12 @@ This project follows `Google's C++ Style Guide
 * We relax the line length restriction to 90 characters.
 * We use the ``NULLPTR`` macro in header files (instead of ``nullptr``) defined
   in ``src/arrow/util/macros.h`` to support building C++/CLI (ARROW-1134)
+* We relax the guide's rules regarding structs.  For public headers we should
+  use struct only for objects that are principally simple data containers where
+  it is OK to expose all the internal members and any methods are primarily
+  conveniences.  For private headers the rules are relaxed further and structs
+  can be used where convenient for types that do not need access control even
+  though they may not be simple data containers.
 
 Our continuous integration builds on GitHub Actions run the unit test
 suites on a variety of platforms and configuration, including using

@@ -179,6 +179,23 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return out;
   }
 
+  if (func_name == "quantile") {
+    using Options = arrow::compute::QuantileOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    SEXP q = options["q"];
+    if (!Rf_isNull(q) && TYPEOF(q) == REALSXP) {
+      out->q = cpp11::as_cpp<std::vector<double>>(q);
+    }
+    SEXP interpolation = options["interpolation"];
+    if (!Rf_isNull(interpolation) && TYPEOF(interpolation) == INTSXP &&
+        XLENGTH(interpolation) == 1) {
+      out->interpolation =
+          cpp11::as_cpp<enum arrow::compute::QuantileOptions::Interpolation>(
+              interpolation);
+    }
+    return out;
+  }
+
   if (func_name == "is_in" || func_name == "index_in") {
     using Options = arrow::compute::SetLookupOptions;
     return std::make_shared<Options>(cpp11::as_cpp<arrow::Datum>(options["value_set"]),
@@ -187,6 +204,17 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "cast") {
     return make_cast_options(options);
+  }
+
+  if (func_name == "replace_substring" || func_name == "replace_substring_regex") {
+    using Options = arrow::compute::ReplaceSubstringOptions;
+    int64_t max_replacements = -1;
+    if (!Rf_isNull(options["max_replacements"])) {
+      max_replacements = cpp11::as_cpp<int64_t>(options["max_replacements"]);
+    }
+    return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["pattern"]),
+                                     cpp11::as_cpp<std::string>(options["replacement"]),
+                                     max_replacements);
   }
 
   return nullptr;

@@ -317,7 +317,7 @@ Number of RowGroups: 1
 Number of Real Columns: 2
 Number of Columns: 2
 Number of Selected Columns: 2
-Column 0: a.list.element.list.element.list.element (BYTE_ARRAY/UTF8)
+Column 0: a.list.element.list.element.list.element (BYTE_ARRAY / String / UTF8)
 Column 1: b (INT32)
 --- Row Group: 0 ---
 --- Total Bytes: 155 ---

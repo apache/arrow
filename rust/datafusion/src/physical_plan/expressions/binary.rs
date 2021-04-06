@@ -21,7 +21,7 @@ use arrow::array::*;
 use arrow::compute::kernels::arithmetic::{
     add, divide, divide_scalar, multiply, subtract,
 };
-use arrow::compute::kernels::boolean::{and, or};
+use arrow::compute::kernels::boolean::{and_kleene, or_kleene};
 use arrow::compute::kernels::comparison::{eq, gt, gt_eq, lt, lt_eq, neq};
 use arrow::compute::kernels::comparison::{
     eq_scalar, gt_eq_scalar, gt_scalar, lt_eq_scalar, lt_scalar, neq_scalar,
@@ -39,7 +39,7 @@ use arrow::record_batch::RecordBatch;
 
 use crate::error::{DataFusionError, Result};
 use crate::logical_plan::Operator;
-use crate::physical_plan::expressions::cast;
+use crate::physical_plan::expressions::try_cast;
 use crate::physical_plan::{ColumnarValue, PhysicalExpr};
 use crate::scalar::ScalarValue;
 
@@ -505,7 +505,7 @@ impl PhysicalExpr for BinaryExpr {
             Operator::Divide => binary_primitive_array_op!(left, right, divide),
             Operator::And => {
                 if left_data_type == DataType::Boolean {
-                    boolean_op!(left, right, and)
+                    boolean_op!(left, right, and_kleene)
                 } else {
                     return Err(DataFusionError::Internal(format!(
                         "Cannot evaluate binary expression {:?} with types {:?} and {:?}",
@@ -517,7 +517,7 @@ impl PhysicalExpr for BinaryExpr {
             }
             Operator::Or => {
                 if left_data_type == DataType::Boolean {
-                    boolean_op!(left, right, or)
+                    boolean_op!(left, right, or_kleene)
                 } else {
                     return Err(DataFusionError::Internal(format!(
                         "Cannot evaluate binary expression {:?} with types {:?} and {:?}",
@@ -547,8 +547,8 @@ fn binary_cast(
     let cast_type = common_binary_type(lhs_type, op, rhs_type)?;
 
     Ok((
-        cast(lhs, input_schema, cast_type.clone())?,
-        cast(rhs, input_schema, cast_type)?,
+        try_cast(lhs, input_schema, cast_type.clone())?,
+        try_cast(rhs, input_schema, cast_type)?,
     ))
 }
 
@@ -975,6 +975,112 @@ mod tests {
         let result = arithmetic_op.evaluate(&batch)?.into_array(batch.num_rows());
 
         assert_eq!(result.as_ref(), &expected);
+        Ok(())
+    }
+
+    fn apply_logic_op(
+        schema: SchemaRef,
+        left: BooleanArray,
+        right: BooleanArray,
+        op: Operator,
+        expected: BooleanArray,
+    ) -> Result<()> {
+        let arithmetic_op = binary_simple(col("a"), op, col("b"));
+        let data: Vec<ArrayRef> = vec![Arc::new(left), Arc::new(right)];
+        let batch = RecordBatch::try_new(schema, data)?;
+        let result = arithmetic_op.evaluate(&batch)?.into_array(batch.num_rows());
+
+        assert_eq!(result.as_ref(), &expected);
+        Ok(())
+    }
+
+    #[test]
+    fn and_with_nulls_op() -> Result<()> {
+        let schema = Schema::new(vec![
+            Field::new("a", DataType::Boolean, true),
+            Field::new("b", DataType::Boolean, true),
+        ]);
+        let a = BooleanArray::from(vec![
+            Some(true),
+            Some(false),
+            None,
+            Some(true),
+            Some(false),
+            None,
+            Some(true),
+            Some(false),
+            None,
+        ]);
+        let b = BooleanArray::from(vec![
+            Some(true),
+            Some(true),
+            Some(true),
+            Some(false),
+            Some(false),
+            Some(false),
+            None,
+            None,
+            None,
+        ]);
+
+        let expected = BooleanArray::from(vec![
+            Some(true),
+            Some(false),
+            None,
+            Some(false),
+            Some(false),
+            Some(false),
+            None,
+            Some(false),
+            None,
+        ]);
+        apply_logic_op(Arc::new(schema), a, b, Operator::And, expected)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn or_with_nulls_op() -> Result<()> {
+        let schema = Schema::new(vec![
+            Field::new("a", DataType::Boolean, true),
+            Field::new("b", DataType::Boolean, true),
+        ]);
+        let a = BooleanArray::from(vec![
+            Some(true),
+            Some(false),
+            None,
+            Some(true),
+            Some(false),
+            None,
+            Some(true),
+            Some(false),
+            None,
+        ]);
+        let b = BooleanArray::from(vec![
+            Some(true),
+            Some(true),
+            Some(true),
+            Some(false),
+            Some(false),
+            Some(false),
+            None,
+            None,
+            None,
+        ]);
+
+        let expected = BooleanArray::from(vec![
+            Some(true),
+            Some(true),
+            Some(true),
+            Some(true),
+            Some(false),
+            None,
+            Some(true),
+            None,
+            None,
+        ]);
+        apply_logic_op(Arc::new(schema), a, b, Operator::Or, expected)?;
+
         Ok(())
     }
 

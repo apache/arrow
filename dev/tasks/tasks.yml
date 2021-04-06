@@ -1457,14 +1457,6 @@ tasks:
         DEBIAN: 10
       run: debian-cpp
 
-  test-ubuntu-16.04-cpp:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        UBUNTU: 16.04
-      run: ubuntu-cpp
-
   test-ubuntu-18.04-cpp:
     ci: github
     template: docker-tests/github.linux.yml
