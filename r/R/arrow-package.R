@@ -59,11 +59,9 @@
   if (!arrow_available()) {
     msg <- paste(
       'The Arrow C++ library is not available. To retry installation with debug output, run:',
-
       '    install_arrow(verbose = TRUE)',
-
-      'See `vignette("install", package = "arrow")` for more guidance and troubleshooting.',
-      sep = "\n\n"
+      'See https://arrow.apache.org/docs/r/articles/install.html for more guidance and troubleshooting.',
+      sep = "\n"
     )
     packageStartupMessage(msg)
   }
