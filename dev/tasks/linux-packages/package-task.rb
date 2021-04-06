@@ -247,8 +247,10 @@ class PackageTask
     # Disable arm64 targets by default for now
     # because they require some setups on host.
     [
+      "debian-bullseye",
+      # "debian-bullseye-arm64",
       "debian-buster",
-      # "debian-stretch-arm64",
+      # "debian-buster-arm64",
       "ubuntu-bionic",
       # "ubuntu-bionic-arm64",
       "ubuntu-focal",
