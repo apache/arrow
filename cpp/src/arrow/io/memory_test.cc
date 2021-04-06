@@ -424,7 +424,7 @@ struct SwappingTransform {
     ARROW_ASSIGN_OR_RAISE(auto dest, AllocateBuffer(dest_size));
     const uint8_t* data = buf->data();
     uint8_t* out_data = dest->mutable_data();
-    if (has_pending_) {
+    if (has_pending_ && dest_size > 0) {
       *out_data++ = *data++;
       *out_data++ = pending_byte_;
       dest_size -= 2;
