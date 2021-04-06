@@ -474,42 +474,14 @@ arrow_r_string_replace_function <- function(FUN, max_replacements) {
 
 arrow_stringr_string_replace_function <- function(FUN, max_replacements) {
   function(string, pattern, replacement) {
-    # Assign stringr pattern modifier functions locally
-    fixed <- function(pattern, ignore_case = FALSE, ...) {
-      check_dots(...)
-      list(pattern = pattern, fixed = TRUE, ignore_case = ignore_case)
-    }
-    regex <- function(pattern, ignore_case = FALSE, ...) {
-      check_dots(...)
-      list(pattern = pattern, fixed = FALSE, ignore_case = ignore_case)
-    }
-    coll <- boundary <- function(...) {
-      stop(
-        "Pattern modifier `",
-        match.call()[[1]],
-        "()` is not supported in Arrow",
-        call. = FALSE
-      )
-    }
-    check_dots <- function(...) {
-      dots <- list(...)
-      if (length(dots)) {
-        warning(
-          "Ignoring pattern modifier ",
-          ngettext(length(dots), "argument ", "arguments "),
-          "not supported in Arrow: ",
-          oxford_paste(names(dots)),
-          call. = FALSE
-        )
-      }
-    }
-    ensure_opts <- function(opts) {
-      if (is.character(opts)) {
-        opts <- list(pattern = opts, fixed = TRUE, ignore_case = FALSE)
-      }
-      opts
-    }
+
+    # Assign the stringr pattern modifier functions locally in this function
+    assign_stringr_helpers()
+
+    # Evaluate `pattern` in this function environment where the stringr pattern
+    # modifier functions are defined
     opts <- ensure_opts(eval(enexpr(pattern)))
+
     arrow_r_string_replace_function(FUN, max_replacements)(
       pattern = opts$pattern,
       replacement = replacement,
@@ -518,6 +490,60 @@ arrow_stringr_string_replace_function <- function(FUN, max_replacements) {
       fixed = opts$fixed
     )
   }
+}
+
+# this function assigns definitions for the stringr pattern modifier functions
+# (fixed, regex, etc.) plus a required helper function (ensure_opts) in the
+# calling function's environment, where they are required to evaluate `pattern`
+assign_stringr_helpers <- function() {
+  check_dots <- function(...) {
+    dots <- list(...)
+    if (length(dots)) {
+      warning(
+        "Ignoring pattern modifier ",
+        ngettext(length(dots), "argument ", "arguments "),
+        "not supported in Arrow: ",
+        oxford_paste(names(dots)),
+        call. = FALSE
+      )
+    }
+  }
+  assign(
+    "fixed",
+    function(pattern, ignore_case = FALSE, ...) {
+      check_dots(...)
+      list(pattern = pattern, fixed = TRUE, ignore_case = ignore_case)
+    },
+    parent.frame()
+  )
+  assign(
+    "regex",
+    function(pattern, ignore_case = FALSE, ...) {
+      check_dots(...)
+      list(pattern = pattern, fixed = FALSE, ignore_case = ignore_case)
+    },
+    parent.frame()
+  )
+  unsup <- function(...) {
+    stop(
+      "Pattern modifier `",
+      match.call()[[1]],
+      "()` is not supported in Arrow",
+      call. = FALSE
+    )
+  }
+  assign("coll", unsup, parent.frame())
+  assign("boundary", unsup, parent.frame())
+  assign(
+    "ensure_opts",
+    function(opts) {
+      if (is.character(opts)) {
+        opts <- list(pattern = opts, fixed = TRUE, ignore_case = FALSE)
+      }
+      opts
+    },
+    parent.frame()
+  )
 }
 
 # We'll populate these at package load time.
