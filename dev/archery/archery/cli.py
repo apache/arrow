@@ -1069,5 +1069,13 @@ def release_cherry_pick(obj, version, dry_run, recreate):
         click.echo('git cherry-pick {}'.format(commit.hexsha))
 
 
+try:
+    from .crossbow.cli import crossbow  # noqa
+except ImportError:
+    pass
+else:
+    archery.add_command(crossbow)
+
+
 if __name__ == "__main__":
     archery(obj={})

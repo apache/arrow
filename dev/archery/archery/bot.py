@@ -24,8 +24,8 @@ import tempfile
 import click
 import github
 
-from .utils.crossbow import Crossbow
 from .utils.git import Git
+from .utils.command import Command as CmdUtil, default_bin
 
 
 class EventError(Exception):
@@ -252,6 +252,20 @@ def crossbow(obj, crossbow):
     obj['crossbow_repo'] = crossbow
 
 
+class Pip(CmdUtil):
+    def __init__(self, pip_bin=None):
+        self.bin = default_bin(pip_bin, "pip")
+
+
+class Archery(CmdUtil):
+    def __init__(self, archery_bin=None):
+        self.bin = default_bin(archery_bin, "archery")
+
+
+pip = Pip()
+archery = Archery()
+
+
 @crossbow.command()
 @click.argument('tasks', nargs=-1, required=False)
 @click.option('--group', '-g', 'groups', multiple=True,
@@ -300,10 +314,13 @@ def submit(obj, tasks, groups, params, dry_run):
         # clone crossbow
         git.clone(crossbow_url, str(queue))
 
+        # install archery
+        pip.run("install", "{}[bot]".format(arrow / "dev" / "archery"))
+
         # submit the crossbow tasks
         result = Path('result.yml').resolve()
-        xbow = Crossbow(str(arrow / 'dev' / 'tasks' / 'crossbow.py'))
-        xbow.run(
+        archery.run(
+            'crossbow',
             '--queue-path', str(queue),
             '--output-file', str(result),
             'submit',

@@ -52,32 +52,17 @@ before_install:
       conda config --set show_channel_urls true
 
 install:
-  - |
-    conda install -y \
-      jinja2 \
-      pygit2 \
-      click \
-      ruamel.yaml \
-      setuptools_scm \
-      github3.py \
-      python-gnupg
-
-script:
+  - pushd ..
   # to build against a specific branch of a fork
   # git clone -b <branch> https://github.com/<user>/arrow
-  - pushd ..
-  - git clone -b master https://github.com/apache/arrow
+  - git clone https://github.com/apache/arrow
+  - pip install dev/archery[crossbow]
 
+script:
   # submit packaging tasks
   - |
     if [ $TRAVIS_EVENT_TYPE = "cron" ]; then
-      python arrow/dev/tasks/crossbow.py submit \
-        -g conda \
-        -g wheel \
-        -g linux
+      archery crossbow submit -g conda -g wheel -g linux
     else
-      python arrow/dev/tasks/crossbow.py submit --dry-run \
-        -g conda \
-        -g wheel \
-        -g linux
+      archery crossbow submit --dry-run -g conda -g wheel -g linux
     fi

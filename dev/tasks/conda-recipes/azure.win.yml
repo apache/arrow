@@ -81,13 +81,9 @@ jobs:
     # (don't know why).
     # The tag upload took 43 minutes because of this scan, so use an
     # alternative upload script.
-    - task: CondaEnvironment@1
-      inputs:
-        packageSpecs: 'click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz'
-        installOptions: '-c conda-forge'
-        updateConda: false
+    - script: pip install arrow/dev/archery[crossbow]
     - script: |
-        python arrow/dev/tasks/crossbow.py ^
+        archery crossbow ^
           --queue-path . ^
           --queue-remote {{ queue_remote_url }} ^
           upload-artifacts ^

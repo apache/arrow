@@ -1,0 +1,67 @@
+{%- macro github_header() -%}
+# NOTE: must set "Crossbow" as name to have the badge links working in the
+# github comment reports!
+name: Crossbow
+on:
+  push:
+    branches:
+      - "*-github-*"
+{% endmacro %}
+
+{%- macro github_checkout() -%}
+  - name: Checkout Arrow
+    run: |
+      git clone --no-checkout {{ arrow.remote }} arrow
+      git -C arrow config core.symlinks true
+      git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+      git -C arrow checkout FETCH_HEAD
+      git -C arrow submodule update --init --recursive
+  - name: Fetch Submodules and Tags
+    shell: bash
+    run: cd arrow && ci/scripts/util_checkout.sh
+{% endmacro %}
+
+{%- macro github_login_dockerhub() -%}
+  - name: Login to Dockerhub
+    uses: docker/login-action@v1
+    with:
+      username: {{ '${{ secrets.DOCKERHUB_USER }}' }}
+      password: {{ '${{ secrets.DOCKERHUB_TOKEN }}' }}
+{% endmacro %}
+
+{%- macro github_install_archery() -%}
+  - name: Set up Python
+    uses: actions/setup-python@v2
+    with:
+      python-version: 3.8
+  - name: Install Archery
+    run: pip install -e arrow/dev/archery[all]
+{% endmacro %}
+
+{%- macro github_upload(pattern) -%}
+  - name: Setup Crossbow
+    run: pip install arrow/dev/archery[crossbow]
+  - name: Upload artifacts
+    run: |
+      archery crossbow
+      --queue-path $(pwd) \
+      --queue-remote {{ queue_remote_url }} \
+      upload-artifacts \
+      --sha {{ task.branch }} \
+      --tag {{ task.tag }} \
+      --pattern "{{ pattern }}"
+    env:
+      CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN }}' }}
+{% endmacro %}
+
+{%- macro github_gemfury(pattern) -%}
+  {% if arrow.branch == 'master' %}
+  - name: Upload package to Gemfury
+    run: |
+      path=$(ls {{ patter }})
+      curl -F "package=@${path}" https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/
+    env:
+      CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
+      CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
+  {% endif %}
+{% endmacro %}
