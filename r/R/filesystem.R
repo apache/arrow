@@ -288,7 +288,6 @@ get_paths_and_filesystem <- function(x, filesystem = NULL) {
     if (!is.null(filesystem)) {
       # Stop? Can't have URL (which yields a fs) and another fs
     }
-    # TODO: do this more efficiently?
     x <- lapply(x, FileSystem$from_uri)
     if (length(unique(map(x, ~class(.$fs)))) > 1) {
       stop(

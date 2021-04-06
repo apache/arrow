@@ -74,8 +74,6 @@ open_dataset <- function(sources,
                          partitioning = hive_partition(),
                          unify_schemas = NULL,
                          ...) {
-  # TODO: default to unify_schemas = TRUE when `sources` is a vector of file paths/URIs?
-  # (if so, also change the unifiy_schemas param description in the docs entry above)
   if (is_list_of(sources, "Dataset")) {
     if (is.null(schema)) {
       if (is.null(unify_schemas) || isTRUE(unify_schemas)) {
