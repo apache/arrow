@@ -66,8 +66,11 @@ InMemoryFragment::InMemoryFragment(std::shared_ptr<Schema> schema,
 
 InMemoryFragment::InMemoryFragment(RecordBatchVector record_batches,
                                    Expression partition_expression)
-    : InMemoryFragment(record_batches.empty() ? schema({}) : record_batches[0]->schema(),
-                       std::move(record_batches), std::move(partition_expression)) {}
+    : Fragment(std::move(partition_expression), /*schema=*/nullptr),
+      record_batches_(std::move(record_batches)) {
+  // Order of argument evaluation is undefined, so compute physical_schema here
+  physical_schema_ = record_batches_.empty() ? schema({}) : record_batches_[0]->schema();
+}
 
 Result<ScanTaskIterator> InMemoryFragment::Scan(std::shared_ptr<ScanOptions> options) {
   // Make an explicit copy of record_batches_ to ensure Scan can be called
@@ -147,6 +150,28 @@ struct TableRecordBatchGenerator : InMemoryDataset::RecordBatchGenerator {
 InMemoryDataset::InMemoryDataset(std::shared_ptr<Table> table)
     : Dataset(table->schema()),
       get_batches_(new TableRecordBatchGenerator(std::move(table))) {}
+
+struct ReaderRecordBatchGenerator : InMemoryDataset::RecordBatchGenerator {
+  explicit ReaderRecordBatchGenerator(std::shared_ptr<RecordBatchReader> reader)
+      : reader_(std::move(reader)), consumed_(false) {}
+
+  RecordBatchIterator Get() const final {
+    if (consumed_) {
+      return MakeErrorIterator<std::shared_ptr<RecordBatch>>(Status::Invalid(
+          "RecordBatchReader-backed InMemoryDataset was already consumed"));
+    }
+    consumed_ = true;
+    auto reader = reader_;
+    return MakeFunctionIterator([reader] { return reader->Next(); });
+  }
+
+  std::shared_ptr<RecordBatchReader> reader_;
+  mutable bool consumed_;
+};
+
+InMemoryDataset::InMemoryDataset(std::shared_ptr<RecordBatchReader> reader)
+    : Dataset(reader->schema()),
+      get_batches_(new ReaderRecordBatchGenerator(std::move(reader))) {}
 
 Result<std::shared_ptr<Dataset>> InMemoryDataset::ReplaceSchema(
     std::shared_ptr<Schema> schema) const {

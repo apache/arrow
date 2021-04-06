@@ -124,6 +124,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
         CResult[shared_ptr[CScannerBuilder]] NewScan()
 
+    cdef cppclass CInMemoryDataset "arrow::dataset::InMemoryDataset"(
+            CDataset):
+        CInMemoryDataset(shared_ptr[CRecordBatchReader])
+        CInMemoryDataset(shared_ptr[CTable])
+
     cdef cppclass CUnionDataset "arrow::dataset::UnionDataset"(
             CDataset):
         @staticmethod
