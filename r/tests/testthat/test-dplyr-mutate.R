@@ -507,7 +507,7 @@ test_that("assignments don't overwrite variables (dplyr #315)", {
 
 # similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L77-L81
 test_that("can mutate a data frame with zero columns and `NULL` column names", {
-  df <- new_data_frame(n = 2L)
+  df <- vctrs::new_data_frame(n = 2L)
   colnames(df) <- NULL
   expect_dplyr_equal(
     df %>% mutate(x = 1) %>% collect(),
@@ -515,11 +515,60 @@ test_that("can mutate a data frame with zero columns and `NULL` column names", {
   )
 })
 
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L95-L100
+# glue is a dependency of tidyselect
+test_that("glue() is supported", {
+  expect_dplyr_equal(
+    tibble(x = 1) %>% mutate(y = glue::glue("")) %>% collect(),
+    tibble(x = 1, y = glue::glue(""))
+  )
+})
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L102-L106
+test_that("mutate disambiguates NA and NaN (#1448)", {
+  df <- tibble(x = c(1, NA, NaN))
+  expect_dplyr_equal(
+    df %>% mutate(y = x * 1) %>% select(y) %>% collect(),
+    df %>% select(x)
+  )
+})
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L102-L106
+test_that("mutate handles data frame columns", {
+  df <- data.frame("a" = c(1, 2, 3), "b" = c(2, 3, 4), "base_col" = c(3, 4, 5))
+  expect_dplyr_equal(
+    df %>% mutate(new_col = data.frame(x = 1:3)) %>% select(new_col) %>% collect(),
+    data.frame(x = 1:3)
+  )
+
+  expect_dplyr_equal(
+    df %>%
+      group_by(a) %>%
+      mutate(new_col = data.frame(x = a)) %>%
+      ungroup() %>%
+      select(new_col) %>%
+      collect(),
+    data.frame(x = 1:3)
+  )
+
+  expect_dplyr_equal(
+    df %>%
+      rowwise(a) %>%
+      mutate(new_col = data.frame(x = a)) %>%
+      ungroup() %>%
+      select(new_col) %>%
+      collect(),
+    data.frame(x = 1:3)
+  )
+})
+
 # QUESTIONS SO FAR ----
 
 # https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L56-L59
+# https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L108-L115
 # does it make sense to create expect_dplyr_named() to mimic the behaviour from dply tests?
 
 # https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L61-L69
 # https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L83-L91
-# does it make sense to create expect_dplyr_identical() to mimic the behaviour from dply tests?
+# https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L129-L142
+# does it make sense to create expect_dplyr_identical() to mimic the behaviour from dplyr tests?
