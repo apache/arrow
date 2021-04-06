@@ -246,13 +246,6 @@ test_that("quantile and median NAs, edge cases, and exceptions", {
     quantile(Array$create(rep(NA_integer_, 3)), na.rm = TRUE),
     Array$create(rep(NA_real_, 5))
   )
-  expect_error(
-    median(Array$create(c(1, 2)), probs = c(.25, .75))
-  )
-  expect_equal(
-    median(Array$create(c(1, 2)), interpolation = "higher"),
-    Scalar$create(2)
-  )
   expect_equal(
     quantile(Scalar$create(0L)),
     Array$create(rep(0, 5))
@@ -264,6 +257,20 @@ test_that("quantile and median NAs, edge cases, and exceptions", {
   expect_error(
     quantile(Array$create(1:3), type = 9),
     "not supported"
+  )
+})
+
+test_that("median passes ... args to quantile", {
+  skip_if(
+    !"..." %in% names(formals(median)),
+    "The median generic lacks dots in R 3.3.0 and earlier"
+  )
+  expect_equal(
+    median(Array$create(c(1, 2)), interpolation = "higher"),
+    Scalar$create(2)
+  )
+  expect_error(
+    median(Array$create(c(1, 2)), probs = c(.25, .75))
   )
 })
 

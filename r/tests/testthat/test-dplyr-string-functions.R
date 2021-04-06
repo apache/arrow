@@ -15,8 +15,31 @@
 # specific language governing permissions and limitations
 # under the License.
 
+skip_if_not_available("utf8proc")
+
 library(dplyr)
 library(stringr)
+
+test_that("sub and gsub with ignore.case = FALSE and fixed = TRUE", {
+  df <- tibble(x = c("Foo", "bar"))
+
+  expect_dplyr_equal(
+    input %>%
+      transmute(x = sub("Foo", "baz", x, fixed = TRUE)) %>%
+      collect(),
+    df
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(x = gsub("o", "u", x, fixed = TRUE)) %>%
+      collect(),
+    df
+  )
+
+})
+
+# many of the remainder of these tests require RE2
+skip_if_not_available("re2")
 
 test_that("sub and gsub", {
   df <- tibble(x = c("Foo", "bar"))
