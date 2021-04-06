@@ -99,15 +99,13 @@ resolving the build dependencies. This is equivalent to setting
    -DARROW_PACKAGE_PREFIX=%CONDA_PREFIX%\Library
 
 To use the Visual Studio IDE with this conda environment activated, launch it by
-running the command:
+running the command ``devenv`` from the same command prompt.
 
-.. code-block:: shell
-
-   devenv
-
-Note that these conda packages are only supported for release builds. If you
-intend to use ``-DCMAKE_BUILD_TYPE=debug`` then you must build the packages
-from source.
+Note that dependencies installed as conda packages are built in release mode and
+cannot link with debug builds. If you intend to use ``-DCMAKE_BUILD_TYPE=debug``
+then you must build the packages from source.
+``-DCMAKE_BUILD_TYPE=relwithdebinfo`` is also available, which produces a build
+that can both be linked with release libraries and be debugged.
 
 .. note::
 
