@@ -41,13 +41,12 @@ namespace compute {
 // ----------------------------------------------------------------------
 // Arithmetic
 
-#define SCALAR_ARITHMETIC_BINARY(NAME, REGISTRY_NAME, REGISTRY_CHECKED_NAME)            \
-  Result<Datum> NAME(const Datum& left, const Datum& right, ArithmeticOptions options,  \
-                     ExecContext* ctx) {                                                \
-    std::string func_name =                                                             \
-        (options.check_overflow) ? REGISTRY_CHECKED_NAME : REGISTRY_NAME;               \
-    func_name = (options.propagate_nulls) ? func_name + "_propagate_nulls" : func_name; \
-    return CallFunction(func_name, {left, right}, ctx);                                 \
+#define SCALAR_ARITHMETIC_BINARY(NAME, REGISTRY_NAME, REGISTRY_CHECKED_NAME)           \
+  Result<Datum> NAME(const Datum& left, const Datum& right, ArithmeticOptions options, \
+                     ExecContext* ctx) {                                               \
+    std::string func_name =                                                            \
+        (options.check_overflow) ? REGISTRY_CHECKED_NAME : REGISTRY_NAME;              \
+    return CallFunction(func_name, {left, right}, ctx);                                \
   }
 
 SCALAR_ARITHMETIC_BINARY(Add, "add", "add_checked")

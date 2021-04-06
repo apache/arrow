@@ -38,9 +38,8 @@ namespace compute {
 /// @{
 
 struct ArithmeticOptions : public FunctionOptions {
-  ArithmeticOptions() : check_overflow(false), propagate_nulls(false) {}
+  ArithmeticOptions() : check_overflow(false) {}
   bool check_overflow;
-  bool propagate_nulls;
 };
 
 struct ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {

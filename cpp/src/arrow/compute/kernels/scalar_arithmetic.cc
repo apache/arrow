@@ -20,6 +20,7 @@
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/type_traits.h"
 
 namespace arrow {
 
@@ -235,8 +236,8 @@ struct DivideChecked {
   }
 };
 
-template <typename T, typename Arg0, typename Arg1>
-inline T integer_power(KernelContext* ctx, Arg0 left, Arg1 right) {
+template <typename T>
+inline T integer_power(KernelContext* ctx, T left, T right) {
   if (right < 0) {
     ctx->SetStatus(
         Status::Invalid("integers to negative integer powers are not allowed"));
@@ -286,17 +287,6 @@ inline T integer_power_checked(KernelContext* ctx, Arg0 left, Arg1 right) {
 }
 
 template <typename T, typename Arg0, typename Arg1>
-inline T power_propagate_nulls(KernelContext* ctx, Arg0 left, Arg1 right) {
-  if (std::isnan(left) || std::isnan(right)) {
-    return NAN;
-  }
-  if (left == 0 && right < 0) {
-    ctx->SetStatus(Status::Invalid("divide by zero"));
-  }
-  return pow(left, right);
-}
-
-template <typename T, typename Arg0, typename Arg1>
 inline T power(KernelContext* ctx, Arg0 left, Arg1 right) {
   if (left == 0 && right < 0) {
     ctx->SetStatus(Status::Invalid("divide by zero"));
@@ -307,52 +297,15 @@ inline T power(KernelContext* ctx, Arg0 left, Arg1 right) {
   return pow(left, right);
 }
 
-struct PowerPropagateNulls {
-  template <typename T>
-  static enable_if_unsigned_integer<T> Call(KernelContext* ctx, T left, T right) {
-    return static_cast<uint64_t>(integer_power<T>(ctx, left, right));
-  }
-
-  template <typename T>
-  static enable_if_signed_integer<T> Call(KernelContext* ctx, T left, T right) {
-    return static_cast<int64_t>(integer_power<T>(ctx, left, right));
-  }
-
-  template <typename T>
-  static enable_if_floating_point<T> Call(KernelContext* ctx, T left, T right) {
-    return power_propagate_nulls<T>(ctx, left, right);
-  }
-};
-
-struct PowerCheckedPropagateNulls {
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_unsigned_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
-    static_assert(std::is_same<Arg0, Arg1>::value, "");
-    return static_cast<uint64_t>(integer_power_checked<uint64_t>(ctx, left, right));
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_signed_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
-    static_assert(std::is_same<Arg0, Arg1>::value, "");
-    return static_cast<int64_t>(integer_power_checked<T>(ctx, left, right));
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_point<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    return power_propagate_nulls<T>(ctx, left, right);
-  }
-};
-
 struct Power {
   template <typename T>
   static enable_if_unsigned_integer<T> Call(KernelContext* ctx, T left, T right) {
-    return static_cast<uint64_t>(integer_power<uint64_t>(ctx, left, right));
+    return integer_power<T>(ctx, left, right);
   }
 
   template <typename T>
   static enable_if_signed_integer<T> Call(KernelContext* ctx, T left, T right) {
-    return static_cast<int64_t>(integer_power<int64_t>(ctx, left, right));
+    return integer_power<T>(ctx, left, right);
   }
 
   template <typename T>
@@ -362,16 +315,16 @@ struct Power {
 };
 
 struct PowerChecked {
-  template <typename T, typename Arg0, typename Arg1>
+  template <typename T = void, typename Arg0 = void, typename Arg1 = void>
   static enable_if_unsigned_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
-    static_assert(std::is_same<Arg0, Arg1>::value, "");
-    return static_cast<uint64_t>(integer_power_checked<uint64_t>(ctx, left, right));
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    return integer_power_checked<T>(ctx, left, right);
   }
 
-  template <typename T, typename Arg0, typename Arg1>
+  template <typename T = void, typename Arg0 = void, typename Arg1 = void>
   static enable_if_signed_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
-    static_assert(std::is_same<Arg0, Arg1>::value, "");
-    return static_cast<int64_t>(integer_power_checked<int64_t>(ctx, left, right));
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    return integer_power_checked<T>(ctx, left, right);
   }
 
   template <typename T, typename Arg0, typename Arg1>
@@ -507,37 +460,18 @@ const FunctionDoc div_checked_doc{
      "integer overflow is encountered."),
     {"dividend", "divisor"}};
 
-const FunctionDoc pow_propagate_nulls_doc{
-    "Raise arguments to power element-wise",
-    ("Raising zero to negative integer returns an error. However, integer overflow\n"
-     "wraps around, and floating-point raising zero to negative integer returns an"
-     "infinite.\n"
-     "Use function \"power_checked\" if you want to get an error\n"
-     "in all the aforementioned cases."),
-    {"base", "power"}};
-
-const FunctionDoc pow_checked_propagate_nulls_doc{
-    "Raise arguments to power element-wise",
-    ("An error is returned when trying to raise zero to negative integer, or when\n"
-     "integer overflow is encountered."),
-    {"base", "power"}};
-
 const FunctionDoc pow_doc{
     "Raise arguments to power element-wise",
     ("Raising zero to negative integer returns an error. However, integer overflow\n"
      "wraps around, and floating-point raising zero to negative integer returns an"
      "infinite.\n"
-     "In certain cases nulls will be removed: power(0, null)=0, power(1, null)=1"
-     "and power(null, 0)=1.\n"
      "Use function \"power_checked_propagate_nulls\" if you want to get an error\n"
      "in all the aforementioned cases."),
     {"base", "power"}};
 
 const FunctionDoc pow_checked_doc{
     "Raise arguments to power element-wise",
-    ("In certain cases nulls will be removed: power(0, null)=0, power(1, null)=1"
-     "and power(null, 0)=1.\n"
-     "An error is returned when trying to raise zero to negative integer, or when\n"
+    ("An error is returned when trying to raise zero to negative integer, or when\n"
      "integer overflow is encountered."),
     {"base", "power"}};
 
@@ -598,17 +532,6 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto power_checked =
       MakeArithmeticFunctionNotNull<PowerChecked>("power_checked", &pow_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(power_checked)));
-
-  // ----------------------------------------------------------------------
-  auto power_propagate_nulls = MakeArithmeticFunction<PowerPropagateNulls>(
-      "power_propagate_nulls", &pow_propagate_nulls_doc);
-  DCHECK_OK(registry->AddFunction(std::move(power_propagate_nulls)));
-
-  // ----------------------------------------------------------------------
-  auto power_checked_propagate_nulls =
-      MakeArithmeticFunctionNotNull<PowerCheckedPropagateNulls>(
-          "power_checked_propagate_nulls", &pow_checked_propagate_nulls_doc);
-  DCHECK_OK(registry->AddFunction(std::move(power_checked_propagate_nulls)));
 }
 
 }  // namespace internal
