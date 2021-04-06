@@ -477,8 +477,8 @@ test_that("mutations applied progressively", {
 #   )
 # })
 
-# similar to # similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L37-L54
-test_that("can remove variables with NULL (#462)", {
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L37-L54
+test_that("can remove variables with NULL (dplyr #462)", {
   df <- tibble(x = 1:3, y = 1:3)
   gf <- group_by(df, x)
 
@@ -497,6 +497,24 @@ test_that("can remove variables with NULL (#462)", {
   )
 })
 
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L71-L75
+test_that("assignments don't overwrite variables (dplyr #315)", {
+  expect_dplyr_equal(
+    tibble(x = 1, y = 2) %>% mutate(z = {x <- 10; x}) %>% collect(),
+    tibble(x = 1, y = 2, z = 10)
+  )
+})
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L77-L81
+test_that("can mutate a data frame with zero columns and `NULL` column names", {
+  df <- new_data_frame(n = 2L)
+  colnames(df) <- NULL
+  expect_dplyr_equal(
+    df %>% mutate(x = 1) %>% collect(),
+    data.frame(x = c(1, 1))
+  )
+})
+
 # QUESTIONS SO FAR ----
 
 # https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L56-L59
@@ -505,6 +523,3 @@ test_that("can remove variables with NULL (#462)", {
 # https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L61-L69
 # https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L83-L91
 # does it make sense to create expect_dplyr_identical() to mimic the behaviour from dply tests?
-
-# should we need to add glue to Suggests?
-# https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L95-L100 use it
