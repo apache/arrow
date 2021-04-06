@@ -311,9 +311,10 @@ get_paths_and_filesystem <- function(x, filesystem = NULL) {
   )
 }
 
-# variant of the above function that asserts length(x) == 1
+# variant of the above function that asserts that x is either a scalar string
+# or a SubTreeFileSystem
 get_path_and_filesystem <- function(x, filesystem = NULL) {
-  assert_that(length(x) == 1)
+  assert_that(is.string(x) || inherits(x, "SubTreeFileSystem"))
   get_paths_and_filesystem(x, filesystem)
 }
 
