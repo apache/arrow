@@ -115,9 +115,13 @@ def _unflatten_tree(files):
 
 
 def _render_jinja_template(searchpath, template, params):
+    def format_all(items, pattern):
+        return [pattern.format(item) for item in items]
+
     loader = jinja2.FileSystemLoader(searchpath)
     env = jinja2.Environment(loader=loader, trim_blocks=True,
                              lstrip_blocks=True)
+    env.filters['format_all'] = format_all
     template = env.get_template(template)
     params = toolz.merge(params, params)
     return template.render(**params)

@@ -59,9 +59,9 @@ on:
       upload-artifacts \
       --sha {{ task.branch }} \
       --tag {{ task.tag }} \
-    {% if isinstance(pattern, str) %}
+    {% if pattern is string %}
       --pattern "{{ pattern }}"
-    {% elif isinstance(pattern, list) %}
+    {% elif pattern is iterable %}
       {% for p in pattern %}
       --pattern "{{ p }}"
       {% endfor %}
@@ -109,9 +109,9 @@ on:
       upload-artifacts \
       --sha {{ task.branch }} \
       --tag {{ task.tag }} \
-    {% if isinstance(pattern, str) %}
+    {% if pattern is string %}
       --pattern "{{ pattern }}"
-    {% elif isinstance(pattern, list) %}
+    {% elif pattern is iterable %}
       {% for p in pattern %}
       --pattern "{{ p }}"
       {% endfor %}

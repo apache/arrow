@@ -1183,198 +1183,49 @@ tasks:
 
   ########################### Release verification ############################
 
-  verify-rc-binaries-binary:
+{% for target in ["binary", "yum", "apt"] %}
+  verify-rc-binaries-{{ target }}:
     ci: github
     template: verify-rc/github.linux.yml
     params:
       env:
         TEST_DEFAULT: 0
-        TEST_BINARY: 1
+        TEST_{{ target|upper }}: 1
       artifact: "binaries"
+{% endfor %}
 
-  verify-rc-binaries-apt:
-    ci: github
-    template: verify-rc/github.linux.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_APT: 1
-      artifact: "binaries"
+{% for platform in ["linux", "macos"] %}
 
-  verify-rc-binaries-yum:
+  verify-rc-wheels-{{ platform }}:
     ci: github
-    template: verify-rc/github.linux.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_YUM: 1
-      artifact: "binaries"
-
-  verify-rc-wheels-linux:
-    ci: github
-    template: verify-rc/github.linux.yml
+    template: verify-rc/github.{{ platform }}.yml
     params:
       env:
         TEST_DEFAULT: 0
       artifact: "wheels"
 
-  verify-rc-wheels-macos:
-    ci: github
-    template: verify-rc/github.osx.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-      artifact: "wheels"
+{% for target in ["csharp",
+                  "go",
+                  "integration"
+                  "java",
+                  "js",
+                  "python",
+                  "ruby",
+                  "rust"] %}
 
-  verify-rc-source-macos-java:
+  verify-rc-source-{{ platform }}-{{ target }}:
     ci: github
-    template: verify-rc/github.osx.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_JAVA: 1
-      artifact: "source"
-
-  verify-rc-source-macos-csharp:
-    ci: github
-    template: verify-rc/github.osx.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_CSHARP: 1
-      artifact: "source"
-
-  verify-rc-source-macos-ruby:
-    ci: github
-    template: verify-rc/github.osx.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_RUBY: 1
-      artifact: "source"
-
-  verify-rc-source-macos-python:
-    ci: github
-    template: verify-rc/github.osx.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_PYTHON: 1
-        # https://stackoverflow.com/questions/56083725/macos-build-issues-lstdc-not-found-while-building-python-package
-        MACOSX_DEPLOYMENT_TARGET: "10.15"
-      artifact: "source"
-
-  verify-rc-source-macos-js:
-    ci: github
-    template: verify-rc/github.osx.yml
+    template: verify-rc/github.{{ platform }}.yml
     params:
       env:
         INSTALL_NODE: 0
         TEST_DEFAULT: 0
-        TEST_JS: 1
+        TEST_{{ target|upper }}: 1
       artifact: "source"
 
-  verify-rc-source-macos-go:
-    ci: github
-    template: verify-rc/github.osx.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_GO: 1
-      artifact: "source"
+{% endfor %}
 
-  verify-rc-source-macos-rust:
-    ci: github
-    template: verify-rc/github.osx.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_RUST: 1
-      artifact: "source"
-
-  verify-rc-source-macos-integration:
-    ci: github
-    template: verify-rc/github.osx.yml
-    params:
-      env:
-        INSTALL_NODE: 0
-        TEST_DEFAULT: 0
-        TEST_INTEGRATION: 1
-      artifact: "source"
-
-  verify-rc-source-linux-java:
-    ci: github
-    template: verify-rc/github.linux.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_JAVA: 1
-      artifact: "source"
-
-  verify-rc-source-linux-csharp:
-    ci: github
-    template: verify-rc/github.linux.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_CSHARP: 1
-      artifact: "source"
-
-  verify-rc-source-linux-ruby:
-    ci: github
-    template: verify-rc/github.linux.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_RUBY: 1
-      artifact: "source"
-
-  verify-rc-source-linux-python:
-    ci: github
-    template: verify-rc/github.linux.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_PYTHON: 1
-      artifact: "source"
-
-  verify-rc-source-linux-js:
-    ci: github
-    template: verify-rc/github.linux.yml
-    params:
-      env:
-        INSTALL_NODE: 0
-        TEST_DEFAULT: 0
-        TEST_JS: 1
-      artifact: "source"
-
-  verify-rc-source-linux-go:
-    ci: github
-    template: verify-rc/github.linux.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_GO: 1
-      artifact: "source"
-
-  verify-rc-source-linux-rust:
-    ci: github
-    template: verify-rc/github.linux.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_RUST: 1
-      artifact: "source"
-
-  verify-rc-source-linux-integration:
-    ci: github
-    template: verify-rc/github.linux.yml
-    params:
-      env:
-        INSTALL_NODE: 0
-        TEST_DEFAULT: 0
-        TEST_INTEGRATION: 1
-      artifact: "source"
+{% endfor %}
 
   verify-rc-source-windows:
     ci: github
@@ -1388,19 +1239,20 @@ tasks:
     params:
       script: "verify-release-candidate-wheels.bat"
 
-  ############################## Docker tests #################################
+{############################## Docker tests #################################}
 
-  test-conda-cpp:
+{% for image in ["conda-cpp",
+                 "conda-cpp-valgrind",
+                 "debian-c-glib",
+                 "ubuntu-c-glib",
+                 "debian-ruby",
+                 "ubuntu-ruby"] %}
+  test-{{ image }}:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      run: conda-cpp
-
-  test-conda-cpp-valgrind:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      run: conda-cpp-valgrind
+      run: {{ image }}
+{% endfor %}
 
   test-debian-10-cpp:
     ci: github
@@ -1450,21 +1302,15 @@ tasks:
         UBUNTU: 20.04
       run: ubuntu-cpp
 
-  test-ubuntu-20.04-cpp-14:
+{% for cpp_standard in [14, 17] %}
+  test-ubuntu-20.04-cpp-{{ cpp_standard }}:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
         UBUNTU: 20.04
-      run: "-e CMAKE_ARGS=-DCMAKE_CXX_STANDARD=14 ubuntu-cpp"
-
-  test-ubuntu-20.04-cpp-17:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        UBUNTU: 20.04
-      run: "-e CMAKE_ARGS=-DCMAKE_CXX_STANDARD=17 ubuntu-cpp"
+      run: "-e CMAKE_ARGS=-DCMAKE_CXX_STANDARD={{ cpp_standard }} ubuntu-cpp"
+{% endfor %}
 
   test-ubuntu-20.04-cpp-thread-sanitizer:
     ci: github
@@ -1475,53 +1321,15 @@ tasks:
         UBUNTU: 20.04
       run: ubuntu-cpp-thread-sanitizer
 
-  test-debian-c-glib:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      run: debian-c-glib
-
-  test-ubuntu-c-glib:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      run: ubuntu-c-glib
-
-  test-debian-ruby:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      run: debian-ruby
-
-  test-ubuntu-ruby:
-    ci: azure
-    template: docker-tests/azure.linux.yml
-    params:
-      run: ubuntu-ruby
-
-  test-conda-python-3.6:
+{% for python_version in ["3.6", "3.7", "3.8", "3.9"] %}
+  test-conda-python-{{ python_version }}:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        PYTHON: 3.6
+        PYTHON: {{ python_version }}
       run: conda-python
-
-  test-conda-python-3.7:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        PYTHON: 3.7
-      run: conda-python
-
-  test-conda-python-3.8:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        PYTHON: 3.8
-      run: conda-python
+{% endfor %}
 
   test-conda-python-3.8-hypothesis:
     ci: github

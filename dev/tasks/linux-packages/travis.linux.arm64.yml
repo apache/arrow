@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+{% import 'macros.jinja' as macros with context %}
+
 arch: arm64-graviton2
 virt: vm
 os: linux
@@ -142,5 +144,4 @@ script:
   - popd
 
 after_success:
-  {% set patterns = ["arrow/dev/tasks/linux-packages/**/*{}".format(ext) for ext in upload_extensions] %}
-  {{ macros.travis_upload("arrow/python/repaired_wheels/*.whl")|indent }}
+  {{ macros.github_upload(upload_extensions | format_all("arrow/python/repaired_wheels/*.whl")) | indent }}
