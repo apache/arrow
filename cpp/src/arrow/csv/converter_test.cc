@@ -15,17 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/csv/converter.h"
+
+#include <gtest/gtest.h>
+
 #include <cstdint>
 #include <memory>
 #include <set>
 #include <string>
 #include <vector>
 
-#include <gtest/gtest.h>
-
 #include "arrow/array.h"
 #include "arrow/array/builder_decimal.h"
-#include "arrow/csv/converter.h"
 #include "arrow/csv/options.h"
 #include "arrow/csv/test_common.h"
 #include "arrow/status.h"
@@ -243,6 +244,31 @@ TEST(FixedSizeBinaryConversion, Basics) {
 TEST(FixedSizeBinaryConversion, Errors) {
   // Wrong-sized string in column 0
   AssertConversionError(fixed_size_binary(2), {"ab,cd\n", "g,ij\n"}, {0});
+}
+
+TEST(FixedSizeBinaryConversion, Nulls) {
+  AssertConversion<FixedSizeBinaryType, std::string>(
+      fixed_size_binary(2), {"ab,N/A\n", ",ij\n"}, {{"ab", "\0\0"}, {"\0\0", "ij"}},
+      {{true, false}, {false, true}});
+
+  AssertConversionAllNulls<FixedSizeBinaryType, std::string>(fixed_size_binary(2));
+}
+
+TEST(FixedSizeBinaryConversion, CustomNulls) {
+  auto options = ConvertOptions::Defaults();
+  options.null_values = {"xxx", "zzz"};
+
+  AssertConversion<FixedSizeBinaryType, std::string>(
+      fixed_size_binary(2), {"ab,xxx\n", "zzz,ij\n"}, {{"ab", "\0\0"}, {"\0\0", "ij"}},
+      {{true, false}, {false, true}}, options);
+
+  AssertConversionError(fixed_size_binary(2), {",xxx,N/A\n"}, {0, 2}, options);
+
+  // Duplicate nulls allowed
+  options.null_values = {"xxx", "zzz", "xxx"};
+  AssertConversion<FixedSizeBinaryType, std::string>(
+      fixed_size_binary(2), {"ab,xxx\n", "zzz,ij\n"}, {{"ab", "\0,\0"}, {"\0\0", "ij"}},
+      {{true, false}, {false, true}}, options);
 }
 
 TEST(NullConversion, Basics) {
