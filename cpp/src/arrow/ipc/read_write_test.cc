@@ -964,24 +964,6 @@ struct FileWriterHelper {
     return Status::OK();
   }
 
-  virtual Status Read(const IpcReadOptions& options, RecordBatchVector* out_batches,
-                      ReadStats* out_stats = nullptr) {
-    auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
-    ARROW_ASSIGN_OR_RAISE(auto reader, RecordBatchFileReader::Open(
-                                           buf_reader.get(), footer_offset_, options));
-
-    EXPECT_EQ(num_batches_written_, reader->num_record_batches());
-    for (int i = 0; i < num_batches_written_; ++i) {
-      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> chunk,
-                            reader->ReadRecordBatch(i));
-      out_batches->push_back(chunk);
-    }
-    if (out_stats) {
-      *out_stats = reader->stats();
-    }
-    return Status::OK();
-  }
-
   Status ReadSchema(std::shared_ptr<Schema>* out) {
     return ReadSchema(ipc::IpcReadOptions::Defaults(), out);
   }
@@ -1019,10 +1001,11 @@ struct FileGeneratorWriterHelper : public FileWriterHelper {
     {
       auto fut =
           RecordBatchFileReader::OpenAsync(buf_reader.get(), footer_offset_, options);
-      RETURN_NOT_OK(fut.status());
-      EXPECT_FINISHES_OK_AND_ASSIGN(auto reader, fut);
+      // Do NOT assert OK since some tests check whether this fails properly
+      EXPECT_FINISHES(fut);
+      ARROW_ASSIGN_OR_RAISE(auto reader, fut.result());
       EXPECT_EQ(num_batches_written_, reader->num_record_batches());
-      // Generator's lifetime is independent of the reader's
+      // Generator will keep reader alive internally
       ARROW_ASSIGN_OR_RAISE(generator, reader->GetRecordBatchGenerator());
     }
 
@@ -1032,8 +1015,7 @@ struct FileGeneratorWriterHelper : public FileWriterHelper {
       futures.push_back(generator());
     }
     auto fut = generator();
-    EXPECT_FINISHES_OK_AND_ASSIGN(auto extra_read, fut);
-    EXPECT_EQ(nullptr, extra_read);
+    EXPECT_FINISHES_OK_AND_EQ(nullptr, fut);
     for (auto& future : futures) {
       EXPECT_FINISHES_OK_AND_ASSIGN(auto batch, future);
       out_batches->push_back(batch);
@@ -1043,11 +1025,6 @@ struct FileGeneratorWriterHelper : public FileWriterHelper {
     EXPECT_EQ(nullptr, out_stats);
 
     return Status::OK();
-  }
-
-  Status Read(const IpcReadOptions& options, RecordBatchVector* out_batches,
-              ReadStats* out_stats = nullptr) override {
-    return ReadBatches(options, out_batches, out_stats);
   }
 };
 

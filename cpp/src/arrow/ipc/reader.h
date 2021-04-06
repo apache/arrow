@@ -25,6 +25,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/io/caching.h"
 #include "arrow/io/type_fwd.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/options.h"
@@ -197,13 +198,17 @@ class ARROW_EXPORT RecordBatchFileReader
 
   /// \brief Get a reentrant generator of record batches.
   ///
+  /// \param[in] coalesce If true, enable I/O coalescing.
   /// \param[in] io_context The IOContext to use (controls which thread pool
   ///     is used for I/O).
+  /// \param[in] cache_options Options for coalescing (if enabled).
   /// \param[in] executor Optionally, an executor to use for decoding record
   ///     batches. This is generally only a benefit for very wide and/or
   ///     compressed batches.
   virtual Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> GetRecordBatchGenerator(
+      const bool coalesce = false,
       const io::IOContext& io_context = io::default_io_context(),
+      const io::CacheOptions cache_options = io::CacheOptions::LazyDefaults(),
       arrow::internal::Executor* executor = NULLPTR) = 0;
 };
 

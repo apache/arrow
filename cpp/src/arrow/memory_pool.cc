@@ -19,9 +19,9 @@
 
 #include <algorithm>  // IWYU pragma: keep
 #include <atomic>
-#include <cstdlib>    // IWYU pragma: keep
-#include <cstring>    // IWYU pragma: keep
-#include <iostream>   // IWYU pragma: keep
+#include <cstdlib>   // IWYU pragma: keep
+#include <cstring>   // IWYU pragma: keep
+#include <iostream>  // IWYU pragma: keep
 #include <limits>
 #include <memory>
 
@@ -507,12 +507,12 @@ static struct GlobalState {
   std::atomic<bool> finalizing{false};  // constructed first, destroyed last
 
   SystemMemoryPool system_pool;
-  #ifdef ARROW_JEMALLOC
+#ifdef ARROW_JEMALLOC
   JemallocMemoryPool jemalloc_pool;
-  #endif
-  #ifdef ARROW_MIMALLOC
+#endif
+#ifdef ARROW_MIMALLOC
   MimallocMemoryPool mimalloc_pool;
-  #endif
+#endif
 } global_state;
 
 MemoryPool* system_memory_pool() { return &global_state.system_pool; }

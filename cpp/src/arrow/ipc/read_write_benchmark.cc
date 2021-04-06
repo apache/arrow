@@ -160,14 +160,14 @@ static void DecodeStream(benchmark::State& state) {  // NOLINT non-const referen
 }
 
 #define GENERATE_COMPRESSED_DATA_IN_MEMORY()                                      \
-  constexpr int64_t kTotalSize = 1 << 20; /* 1 MB */                              \
+  constexpr int64_t kBatchSize = 1 << 20; /* 1 MB */                              \
   constexpr int64_t kBatches = 16;                                                \
   auto options = ipc::IpcWriteOptions::Defaults();                                \
   ASSIGN_OR_ABORT(options.codec,                                                  \
                   arrow::util::Codec::Create(arrow::Compression::type::ZSTD));    \
   std::shared_ptr<ResizableBuffer> buffer = *AllocateResizableBuffer(1024);       \
   {                                                                               \
-    auto record_batch = MakeRecordBatch(kTotalSize, state.range(0));              \
+    auto record_batch = MakeRecordBatch(kBatchSize, state.range(0));              \
     io::BufferOutputStream stream(buffer);                                        \
     auto writer = *ipc::MakeFileWriter(&stream, record_batch->schema(), options); \
     for (int i = 0; i < kBatches; i++) {                                          \
@@ -178,12 +178,12 @@ static void DecodeStream(benchmark::State& state) {  // NOLINT non-const referen
   }
 
 #define GENERATE_DATA_IN_MEMORY()                                                 \
-  constexpr int64_t kTotalSize = 1 << 20; /* 1 MB */                              \
+  constexpr int64_t kBatchSize = 1 << 20; /* 1 MB */                              \
   constexpr int64_t kBatches = 1;                                                 \
   auto options = ipc::IpcWriteOptions::Defaults();                                \
   std::shared_ptr<ResizableBuffer> buffer = *AllocateResizableBuffer(1024);       \
   {                                                                               \
-    auto record_batch = MakeRecordBatch(kTotalSize, state.range(0));              \
+    auto record_batch = MakeRecordBatch(kBatchSize, state.range(0));              \
     io::BufferOutputStream stream(buffer);                                        \
     auto writer = *ipc::MakeFileWriter(&stream, record_batch->schema(), options); \
     ABORT_NOT_OK(writer->WriteRecordBatch(*record_batch));                        \
@@ -192,12 +192,12 @@ static void DecodeStream(benchmark::State& state) {  // NOLINT non-const referen
   }
 
 #define GENERATE_DATA_TEMP_FILE()                                                 \
-  constexpr int64_t kTotalSize = 1 << 20; /* 1 MB */                              \
+  constexpr int64_t kBatchSize = 1 << 20; /* 1 MB */                              \
   constexpr int64_t kBatches = 16;                                                \
   auto options = ipc::IpcWriteOptions::Defaults();                                \
   ASSIGN_OR_ABORT(auto sink, io::FileOutputStream::Open("/tmp/benchmark.arrow")); \
   {                                                                               \
-    auto record_batch = MakeRecordBatch(kTotalSize, state.range(0));              \
+    auto record_batch = MakeRecordBatch(kBatchSize, state.range(0));              \
     auto writer = *ipc::MakeFileWriter(sink, record_batch->schema(), options);    \
     ABORT_NOT_OK(writer->WriteRecordBatch(*record_batch));                        \
     ABORT_NOT_OK(writer->Close());                                                \
@@ -223,7 +223,7 @@ static void DecodeStream(benchmark::State& state) {  // NOLINT non-const referen
         auto batch = *reader->ReadRecordBatch(i);                                       \
       }                                                                                 \
     }                                                                                   \
-    state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize * kBatches);       \
+    state.SetBytesProcessed(int64_t(state.iterations()) * kBatchSize * kBatches);       \
   }                                                                                     \
   BENCHMARK(NAME)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
 
@@ -240,7 +240,7 @@ static void DecodeStream(benchmark::State& state) {  // NOLINT non-const referen
         auto batch = *generator().result();                                             \
       }                                                                                 \
     }                                                                                   \
-    state.SetBytesProcessed(int64_t(state.iterations()) * kTotalSize * kBatches);       \
+    state.SetBytesProcessed(int64_t(state.iterations()) * kBatchSize * kBatches);       \
   }                                                                                     \
   BENCHMARK(NAME##Async)->RangeMultiplier(4)->Range(1, 1 << 13)->UseRealTime();
 
