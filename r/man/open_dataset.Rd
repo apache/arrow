@@ -16,7 +16,8 @@ open_dataset(
 \item{sources}{One of:
 \itemize{
 \item a string path or URI to a directory containing data files
-\item a vector of one or more string paths or URIs to data files
+\item a string path or URI to a single file
+\item a character vector of paths or URIs to individual data files
 \item a list of \code{Dataset} objects as created by this function
 \item a list of \code{DatasetFactory} objects as created by \code{\link[=dataset_factory]{dataset_factory()}}.
 }
