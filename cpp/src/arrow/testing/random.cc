@@ -390,8 +390,12 @@ std::shared_ptr<Array> GenerateOffsets(SeedType seed, int64_t size,
   uint8_t* null_bitmap = buffers[0]->mutable_data();
   options.GenerateBitmap(null_bitmap, size, &null_count);
   // Make sure the first and last entry are non-null
-  arrow::BitUtil::SetBit(null_bitmap, 0);
-  arrow::BitUtil::SetBit(null_bitmap, size - 1);
+  for (const int64_t offset : std::vector<int64_t>{0, size - 1}) {
+    if (!arrow::BitUtil::GetBit(null_bitmap, offset)) {
+      arrow::BitUtil::SetBit(null_bitmap, offset);
+      --null_count;
+    }
+  }
 
   buffers[1] = *AllocateBuffer(sizeof(typename OffsetArrayType::value_type) * size);
   auto data =
@@ -494,7 +498,7 @@ std::shared_ptr<Array> RandomArrayGenerator::LargeOffsets(int64_t size,
 std::shared_ptr<Array> RandomArrayGenerator::List(const Array& values, int64_t size,
                                                   double null_probability,
                                                   bool force_empty_nulls) {
-  auto offsets = Offsets(size, static_cast<int32_t>(values.offset()),
+  auto offsets = Offsets(size + 1, static_cast<int32_t>(values.offset()),
                          static_cast<int32_t>(values.offset() + values.length()),
                          null_probability, force_empty_nulls);
   return *::arrow::ListArray::FromArrays(*offsets, values);
