@@ -1146,7 +1146,7 @@ struct TreeWalker : public std::enable_shared_from_this<TreeWalker> {
 
  private:
   std::shared_ptr<TaskGroup> task_group_;
-  util::Mutex mutex_;
+  std::mutex mutex_;
 
   Status DoWalk() {
     task_group_ =
@@ -1176,7 +1176,7 @@ struct TreeWalker : public std::enable_shared_from_this<TreeWalker> {
       const auto& outcome = *result;
       if (!outcome.IsSuccess()) {
         {
-          auto guard = walker->mutex_.Lock();
+          std::lock_guard<std::mutex> guard(walker->mutex_);
           return walker->error_handler_(outcome.GetError());
         }
       }
@@ -1184,12 +1184,10 @@ struct TreeWalker : public std::enable_shared_from_this<TreeWalker> {
     }
 
     void SpawnListObjectsV2() {
-      auto walker = this->walker;
-      auto req = this->req;
       auto cb = *this;
-      walker->task_group_->Append([walker, req, cb]() mutable {
+      walker->task_group_->Append([cb]() mutable {
         Result<S3Model::ListObjectsV2Outcome> result =
-            walker->client_->ListObjectsV2(req);
+            cb.walker->client_->ListObjectsV2(cb.req);
         return cb(result);
       });
     }
@@ -1198,7 +1196,7 @@ struct TreeWalker : public std::enable_shared_from_this<TreeWalker> {
       bool recurse;
       {
         // Only one thread should be running result_handler_/recursion_handler_ at a time
-        auto guard = walker->mutex_.Lock();
+        std::lock_guard<std::mutex> guard(walker->mutex_);
         recurse = result.GetCommonPrefixes().size() > 0;
         if (recurse) {
           ARROW_ASSIGN_OR_RAISE(auto maybe_recurse,
