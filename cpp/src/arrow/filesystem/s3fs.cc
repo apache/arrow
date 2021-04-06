@@ -789,7 +789,7 @@ class ObjectOutputStream final : public io::OutputStream {
       : client_(std::move(client)),
         io_context_(io_context),
         path_(path),
-        options_(options) {}
+        background_writes_(options.background_writes) {}
 
   ~ObjectOutputStream() override {
     // For compliance with the rest of the IO stack, Close rather than Abort,
@@ -967,7 +967,7 @@ class ObjectOutputStream final : public io::OutputStream {
     req.SetPartNumber(part_number_);
     req.SetContentLength(nbytes);
 
-    if (!options_.background_writes) {
+    if (!background_writes_) {
       req.SetBody(std::make_shared<StringViewStream>(data, nbytes));
       auto outcome = client_->UploadPart(req);
       if (!outcome.IsSuccess()) {
@@ -1071,8 +1071,8 @@ class ObjectOutputStream final : public io::OutputStream {
  protected:
   std::shared_ptr<Aws::S3::S3Client> client_;
   const io::IOContext io_context_;
-  S3Path path_;
-  const S3Options& options_;
+  const S3Path path_;
+  const bool background_writes_;
 
   Aws::String upload_id_;
   bool closed_ = true;
