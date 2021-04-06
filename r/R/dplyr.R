@@ -423,6 +423,7 @@ build_function_list <- function(FUN) {
       )
     },
     grepl = arrow_r_string_match_function(FUN),
+    str_detect = arrow_stringr_string_match_function(FUN),
     sub = arrow_r_string_replace_function(FUN, 1L),
     gsub = arrow_r_string_replace_function(FUN, -1L),
     str_replace = arrow_stringr_string_replace_function(FUN, 1L),
@@ -456,6 +457,28 @@ arrow_r_string_match_function <- function(FUN) {
       x,
       options = list(pattern = pattern)
     )
+  }
+}
+
+arrow_stringr_string_match_function <- function(FUN) {
+  function(string, pattern, negate = FALSE) {
+    browser()
+
+    # Assign the stringr pattern modifier functions locally in this function
+    assign_stringr_helpers()
+
+    # Evaluate `pattern` in this function environment where the stringr pattern
+    # modifier functions are defined
+    opts <- ensure_opts(eval(enexpr(pattern)))
+
+    out <- arrow_r_string_match_function(FUN)(
+      pattern = opts$pattern,
+      x = string,
+      ignore.case = opts$ignore_case,
+      fixed = opts$fixed
+    )
+    if (negate) out <- FUN("invert", out)
+    out
   }
 }
 
