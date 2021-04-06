@@ -441,9 +441,20 @@ build_function_list <- function(FUN) {
 arrow_r_string_replace_function <- function(FUN, max_replacements) {
   function(pattern, replacement, x, ignore.case = FALSE, fixed = FALSE) {
     if (ignore.case) {
+      # Prepend "(?i)" to the regex for case insensitivity
       if (fixed) {
+        # Arrow lacks native support for case-insensitive literal string
+        # replacement, so we use the regular expression engine (RE2) to do this.
+        # https://github.com/google/re2/wiki/Syntax
+        #
+        # Everything between "\Q" and "\E" is treated as literal text.
+        #
+        # If the search text contains any literal "\E" strings, make them
+        # lowercase so they won't signal the end of the literal text:
         pattern <- gsub("\\E", "\\e", pattern, fixed = TRUE)
         pattern <- paste0("(?i)\\Q", pattern, "\\E")
+        # Escape single backslashes in the regex replacement text so they are
+        # interpreted as literal backslashes:
         replacement <- gsub("\\", "\\\\", replacement, fixed = TRUE)
       } else {
         pattern <- paste0("(?i)", pattern)
