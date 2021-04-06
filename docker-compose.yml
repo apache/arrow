@@ -165,7 +165,7 @@ services:
     # Base image for conda builds.
     #
     # Usage:
-    #   docker-compose build conda
+    #   docker-compose build con
     #   docker-compose run --rm conda
     # Parameters:
     #   ARCH: amd64, arm32v7
@@ -185,6 +185,7 @@ services:
     # C++ build in conda environment, including the doxygen docs.
     #
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose run --rm conda-cpp
     # Parameters:
@@ -217,6 +218,7 @@ services:
 
   conda-cpp-valgrind:
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose run --rm conda-cpp-valgrind
     # Parameters:
@@ -544,6 +546,7 @@ services:
 
   conda-python:
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose run --rm conda-python
@@ -816,6 +819,7 @@ services:
     #  - `master`: git master branch, use `docker-compose run --no-cache`
     #  - `<version>`: specific version available on conda-forge
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose build conda-python-pandas
@@ -844,6 +848,7 @@ services:
     #  - `master`: git master branch, use `docker-compose run --no-cache`
     #  - `<version>`: specific version available on conda-forge
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose build conda-python-dask
@@ -870,6 +875,7 @@ services:
 
   conda-python-jpype:
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose build conda-python-jpype
@@ -902,6 +908,7 @@ services:
     #  - `master`: git master branch, use `docker-compose run --no-cache`
     #  - `<version>`: specific version available under github releases
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose build conda-python-turbodbc
@@ -932,6 +939,7 @@ services:
     #  - `master`: git master branch, use `docker-compose run --no-cache`
     #  - `<version>`: specific version available under github releases
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose build conda-python-kartothek
