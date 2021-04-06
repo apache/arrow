@@ -183,14 +183,10 @@ CAST_NUMERIC_FROM_STRING(double, arrow::DoubleType, FLOAT8)
 
 #undef CAST_NUMERIC_FROM_STRING
 
-bool gdv_fn_is_date_utf8(int64_t ptr, const char* data, int data_len, bool in_validity) {
-  if (!in_validity) {
-    return false;
-  }
-  int64_t out = 0;
+bool gdv_fn_is_date_utf8(int64_t ptr, const char* data, int data_len) {
   return ::arrow::internal::ParseTimestampStrptime(
       data, data_len, "%Y-%m-%d", /*ignore_time_in_day=*/false,
-      /*allow_trailing_chars=*/false,::arrow::TimeUnit::SECOND, &out);
+      /*allow_trailing_chars=*/false,::arrow::TimeUnit::SECOND, &ptr);
 }
 }
 
@@ -301,8 +297,7 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   // gdv_fn_is_date_utf8
   args = {types->i64_type(),     // int64_t in holder ptr
           types->i8_ptr_type(),  // const char* value
-          types->i32_type(),     // int value_len
-          types->i1_type()};     // bool in_validity
+          types->i32_type()};    // int value_len
 
   engine->AddGlobalMappingForFunc("gdv_fn_is_date_utf8",
                                   types->i1_type() /*return_type*/, args,
