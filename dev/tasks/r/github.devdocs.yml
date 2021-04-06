@@ -54,10 +54,11 @@ jobs:
         shell: Rscript {0}
       - name: Install from the devdocs
         env:
+          LIBARROW_BINARY: FALSE
           ARROW_R_DEV: TRUE
           RUN_DEVDOCS: TRUE
-          DEVDOCS_MACOS: {{ "${contains(matrix.os, 'macOS')}" }}
-          DEVDOCS_UBUNTU: {{ "${contains(matrix.os, 'ubuntu')}" }}
+          DEVDOCS_MACOS: {{ "${{contains(matrix.os, 'macOS')}}" }}
+          DEVDOCS_UBUNTU: {{ "${{contains(matrix.os, 'ubuntu')}}" }}
         run: |
           # We knit three directories above to simulate being in the parent of the arrow directory.
           rmarkdown::render("arrow/r/vignettes/dev-docs.Rmd", knit_root_dir = "../../..")
