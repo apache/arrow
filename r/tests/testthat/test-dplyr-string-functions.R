@@ -160,7 +160,6 @@ test_that("edge cases", {
 })
 
 test_that("errors and warnings", {
-  skip_if_not_available("dataset")
   df <- tibble(x = c("Foo", "bar"))
 
   # This condition generates an error, but abandon_ship() catches the error,
