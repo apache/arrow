@@ -67,10 +67,10 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
   return Status::OK();
 }
 
-void SerialExecutor::MarkFinished(bool& finished) {
+void SerialExecutor::MarkFinished(bool* finished) {
   {
     std::lock_guard<std::mutex> lk(state_->mutex);
-    finished = true;
+    *finished = true;
   }
   state_->wait_for_tasks.notify_one();
 }
@@ -80,7 +80,8 @@ void SerialExecutor::RunLoop(const bool& finished) {
 
   while (!finished) {
     while (!state_->task_queue.empty()) {
-      Task& task = state_->task_queue.front();
+      Task task = std::move(state_->task_queue.front());
+      state_->task_queue.pop();
       lk.unlock();
       if (!task.stop_token.IsStopRequested()) {
         std::move(task.callable)();
@@ -92,7 +93,6 @@ void SerialExecutor::RunLoop(const bool& finished) {
         // need to run.
       }
       lk.lock();
-      state_->task_queue.pop();
     }
     // In this case we must be waiting on work from external (e.g. I/O) executors.  Wait
     // for tasks to arrive (typically via transferred futures).
@@ -405,6 +405,11 @@ std::shared_ptr<ThreadPool> ThreadPool::MakeCpuThreadPool() {
 ThreadPool* GetCpuThreadPool() {
   static std::shared_ptr<ThreadPool> singleton = ThreadPool::MakeCpuThreadPool();
   return singleton.get();
+}
+
+Status RunSynchronouslyVoid(FnOnce<Future<arrow::detail::Empty>(Executor*)> get_future,
+                            bool use_threads) {
+  return RunSynchronously(std::move(get_future), use_threads).status();
 }
 
 }  // namespace internal

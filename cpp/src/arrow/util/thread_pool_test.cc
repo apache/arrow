@@ -123,124 +123,97 @@ class AddTester {
   std::vector<int> outs_;
 };
 
-template <typename T = arrow::detail::Empty>
-struct TerminalCallback {
-  void operator()() {
-    auto result = std::move(callback)();
-    std::move(finish_signal)(result);
+class SerialExecutorTests : public testing::TestWithParam<bool> {
+ public:
+  bool UseThreads() { return GetParam(); }
+  template <typename T>
+  Result<T> Run(FnOnce<Future<T>(Executor*)> top_level_task) {
+    return RunSynchronously(std::move(top_level_task), UseThreads());
   }
-
-  FnOnce<Result<T>()> callback;
-  SerialExecutor::FinishSignal<T> finish_signal;
+  Status RunVoid(FnOnce<Future<>(Executor*)> top_level_task) {
+    return RunSynchronouslyVoid(std::move(top_level_task), UseThreads());
+  }
 };
 
-template <>
-struct TerminalCallback<arrow::detail::Empty> {
-  void operator()() {
-    auto st = std::move(callback)();
-    if (!st.ok()) {
-      std::move(finish_signal)(st);
-    } else {
-      std::move(finish_signal)(arrow::detail::Empty());
-    }
-  }
-
-  FnOnce<Status()> callback;
-  SerialExecutor::FinishSignal<> finish_signal;
-};
-
-TEST(TestSerialExecutor, Create) {
+TEST_P(SerialExecutorTests, SimpleRun) {
   bool task_ran = false;
-  SerialExecutor::Scheduler<> task = [&](Executor* executor,
-                                         SerialExecutor::FinishSignal<> finish_signal) {
-    EXPECT_TRUE(executor != nullptr);
+  auto task = [&](Executor* executor) {
+    EXPECT_NE(executor, nullptr);
     task_ran = true;
-    std::move(finish_signal)(arrow::detail::Empty());
-    return Status::OK();
+    return Future<>::MakeFinished(Status::OK());
   };
-  ASSERT_OK(SerialExecutor::RunInSerialExecutor(std::move(task)));
+  ASSERT_OK(RunVoid(std::move(task)));
   EXPECT_TRUE(task_ran);
 }
 
-TEST(TestSerialExecutor, SpawnNested) {
+TEST_P(SerialExecutorTests, SpawnNested) {
   bool nested_ran = false;
-  SerialExecutor::Scheduler<> scheduler =
-      [&](Executor* executor, SerialExecutor::FinishSignal<> finish_signal) {
-        return executor->Spawn(TerminalCallback<>{[&] {
-                                                    nested_ran = true;
-                                                    return Status::OK();
-                                                  },
-                                                  std::move(finish_signal)});
-      };
-  ASSERT_OK(SerialExecutor::RunInSerialExecutor(std::move(scheduler)));
+  auto top_level_task = [&](Executor* executor) {
+    return DeferNotOk(executor->Submit([&] {
+      nested_ran = true;
+      return Status::OK();
+    }));
+  };
+  ASSERT_OK(RunVoid(std::move(top_level_task)));
   EXPECT_TRUE(nested_ran);
 }
 
-TEST(TestSerialExecutor, WithResult) {
-  SerialExecutor::Scheduler<int> scheduler =
-      [&](Executor* executor, SerialExecutor::FinishSignal<int> finish_signal) {
-        return executor->Spawn(
-            TerminalCallback<int>{[] { return 42; }, std::move(finish_signal)});
-      };
-  ASSERT_OK_AND_EQ(42, SerialExecutor::RunInSerialExecutor(std::move(scheduler)));
+TEST_P(SerialExecutorTests, WithResult) {
+  auto top_level_task = [&](Executor* executor) {
+    return DeferNotOk(executor->Submit([] { return 42; }));
+  };
+  ASSERT_OK_AND_EQ(42, Run<int>(std::move(top_level_task)));
 }
 
-TEST(TestSerialExecutor, StopToken) {
+TEST_P(SerialExecutorTests, StopToken) {
   bool nested_ran = false;
   StopSource stop_source;
-  SerialExecutor::Scheduler<> scheduler =
-      [&](Executor* executor, SerialExecutor::FinishSignal<> finish_signal) {
-        RETURN_NOT_OK(executor->Spawn([&] { nested_ran = true; }, stop_source.token()));
-        RETURN_NOT_OK(executor->Spawn(
-            TerminalCallback<>{[&] { return Status::OK(); }, std::move(finish_signal)}));
-        stop_source.RequestStop(Status::Invalid("XYZ"));
-        return Status::OK();
-      };
-  ASSERT_OK(SerialExecutor::RunInSerialExecutor(std::move(scheduler)));
+  auto top_level_task = [&](Executor* executor) -> Future<> {
+    stop_source.RequestStop(Status::Invalid("XYZ"));
+    RETURN_NOT_OK(executor->Spawn([&] { nested_ran = true; }, stop_source.token()));
+    auto result = DeferNotOk(executor->Submit([&] { return Status::OK(); }));
+    return result;
+  };
+  ASSERT_OK(RunVoid(std::move(top_level_task)));
   EXPECT_FALSE(nested_ran);
 }
 
-TEST(TestSerialExecutor, ContinueAfterExternal) {
+TEST_P(SerialExecutorTests, ContinueAfterExternal) {
   bool continuation_ran = false;
-  EXPECT_OK_AND_ASSIGN(auto mockIoPool, ThreadPool::Make(1));
-  SerialExecutor::Scheduler<> scheduler =
-      [&](Executor* executor, SerialExecutor::FinishSignal<> finish_signal) {
-        struct Callback {
-          void operator()(const Result<arrow::detail::Empty>& emp) {
-            continuation_ran = true;
-            std::move(finish_signal)(emp);
-          }
-          SerialExecutor::FinishSignal<> finish_signal;
-          bool& continuation_ran;
-        };
-        executor
-            ->Transfer(DeferNotOk(mockIoPool->Submit([&] {
-              SleepABit();
-              return Status::OK();
-            })))
-            .AddCallback(Callback{std::move(finish_signal), continuation_ran});
+  EXPECT_OK_AND_ASSIGN(auto mock_io_pool, ThreadPool::Make(1));
+  auto top_level_task = [&](Executor* executor) {
+    struct Callback {
+      Status operator()(...) {
+        continuation_ran = true;
         return Status::OK();
-      };
-  ASSERT_OK(SerialExecutor::RunInSerialExecutor(std::move(scheduler)));
+      }
+      bool& continuation_ran;
+    };
+    return executor
+        ->Transfer(DeferNotOk(mock_io_pool->Submit([&] {
+          SleepABit();
+          return Status::OK();
+        })))
+        .Then(Callback{continuation_ran});
+  };
+  ASSERT_OK(RunVoid(std::move(top_level_task)));
   EXPECT_TRUE(continuation_ran);
 }
 
-TEST(TestSerialExecutor, SchedulerAbort) {
-  SerialExecutor::Scheduler<> scheduler =
-      [&](Executor* executor, SerialExecutor::FinishSignal<> finish_signal) {
-        return Status::Invalid("XYZ");
-      };
-  ASSERT_RAISES(Invalid, SerialExecutor::RunInSerialExecutor(std::move(scheduler)));
+TEST_P(SerialExecutorTests, SchedulerAbort) {
+  auto top_level_task = [&](Executor* executor) { return Status::Invalid("XYZ"); };
+  ASSERT_RAISES(Invalid, RunVoid(std::move(top_level_task)));
 }
 
-TEST(TestSerialExecutor, PropagatedError) {
-  SerialExecutor::Scheduler<> scheduler =
-      [&](Executor* executor, SerialExecutor::FinishSignal<> finish_signal) {
-        std::move(finish_signal)(Status::Invalid("XYZ"));
-        return Status::OK();
-      };
-  ASSERT_RAISES(Invalid, SerialExecutor::RunInSerialExecutor(std::move(scheduler)));
+TEST_P(SerialExecutorTests, PropagatedError) {
+  auto top_level_task = [&](Executor* executor) {
+    return DeferNotOk(executor->Submit([] { return Status::Invalid("XYZ"); }));
+  };
+  ASSERT_RAISES(Invalid, RunVoid(std::move(top_level_task)));
 }
+
+INSTANTIATE_TEST_SUITE_P(SerialExecutorTests, SerialExecutorTests,
+                         ::testing::Values(false, true));
 
 class TestThreadPool : public ::testing::Test {
  public:

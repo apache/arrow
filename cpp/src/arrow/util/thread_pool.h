@@ -201,7 +201,7 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   template <typename T = ::arrow::detail::Empty>
   using FinishSignal = internal::FnOnce<void(const Result<T>&)>;
   template <typename T = ::arrow::detail::Empty>
-  using Scheduler = internal::FnOnce<Status(Executor*, FinishSignal<T>)>;
+  using TopLevelTask = internal::FnOnce<Status(Executor*, FinishSignal<T>)>;
 
   SerialExecutor();
   ~SerialExecutor();
@@ -210,17 +210,17 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   Status SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken,
                    StopCallback&&) override;
 
-  /// \brief Runs the scheduler and any scheduled tasks
+  /// \brief Runs the TopLevelTask and any scheduled tasks
   ///
-  /// The scheduler must either return an invalid status or call the finish signal.
-  /// Failure to do this will result in a deadlock.  For this reason it is preferable (if
-  /// possible) to use the helper methods (below) RunSynchronously/RunSerially which
-  /// delegates the responsiblity onto a Future producer's existing responsibility to
-  /// always mark a future finished (which can someday be aided by ARROW-12207).
+  /// The TopLevelTask (or one of the tasks it schedules) must either return an invalid
+  /// status or call the finish signal. Failure to do this will result in a deadlock.  For
+  /// this reason it is preferable (if possible) to use the helper methods (below)
+  /// RunSynchronously/RunSerially which delegates the responsiblity onto a Future
+  /// producer's existing responsibility to always mark a future finished (which can
+  /// someday be aided by ARROW-12207).
   template <typename T>
-  static Result<T> RunInSerialExecutor(Scheduler<T> initial_task) {
-    auto serial_executor = std::make_shared<SerialExecutor>();
-    return serial_executor->Run<T>(std::move(initial_task));
+  static Result<T> RunInSerialExecutor(TopLevelTask<T> initial_task) {
+    return SerialExecutor().Run<T>(std::move(initial_task));
   }
 
  private:
@@ -229,7 +229,7 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   std::unique_ptr<State> state_;
 
   template <typename T>
-  Result<T> Run(Scheduler<T> initial_task) {
+  Result<T> Run(TopLevelTask<T> initial_task) {
     bool finished = false;
     Result<T> final_result;
     FinishSignal<T> finish_signal = [&](const Result<T>& res) {
@@ -238,18 +238,22 @@ class ARROW_EXPORT SerialExecutor : public Executor {
       // MarkFinished here to ensure we don't try and return it before it is finished
       // setting
       final_result = res;
-      MarkFinished(finished);
+      MarkFinished(&finished);
     };
     ARROW_RETURN_NOT_OK(std::move(initial_task)(this, std::move(finish_signal)));
     RunLoop(finished);
     return final_result;
   }
   void RunLoop(const bool& finished);
-  void MarkFinished(bool& finished);
+  void MarkFinished(bool* finished);
 };
 
-// An Executor implementation spawning tasks in FIFO manner on a fixed-size
-// pool of worker threads.
+/// An Executor implementation spawning tasks in FIFO manner on a fixed-size
+/// pool of worker threads.
+///
+/// Note: Any sort of nested parallelism will deadlock this executor.  Blocking waits are
+/// fine but if one task needs to wait for another task it must be expressed as an
+/// asynchronous continuation.
 class ARROW_EXPORT ThreadPool : public Executor {
  public:
   // Construct a thread pool with the given number of worker threads
@@ -321,10 +325,11 @@ class ARROW_EXPORT ThreadPool : public Executor {
 // Return the process-global thread pool for CPU-bound tasks.
 ARROW_EXPORT ThreadPool* GetCpuThreadPool();
 
-/// \brief Runs a potentially async operation serially
+/// \brief Run a potentially async operation serially
 ///
-/// This means that all CPU tasks spawned by the operation will run on the thread calling
-/// this method and the future will be completed before this call finishes.
+/// `get_future` is called with a special executor which uses the calling thread to run
+/// all thread tasks.  The future must eventually finish and when it does this method will
+/// return with the result of the future.
 template <typename T = arrow::detail::Empty>
 Result<T> RunSerially(FnOnce<Future<T>(Executor*)> get_future) {
   struct InnerCallback {
@@ -342,11 +347,14 @@ Result<T> RunSerially(FnOnce<Future<T>(Executor*)> get_future) {
   return SerialExecutor::RunInSerialExecutor<T>(OuterCallback{std::move(get_future)});
 }
 
-/// \brief Potentially runs an async operation serially if use_threads is true
+/// \brief Potentially run an async operation serially (if use_threads is false)
 /// \see RunSerially
 ///
-/// If `use_threads` is false then the operation is run normally but this method will
-/// still block the calling thread until the operation has completed.
+/// If `use_threads` is true, the global CPU executor is used.
+/// If `use_threads` is false, a temporary SerialExecutor is used.
+/// `get_future` is called (from this thread) with the chosen executor and must
+/// return a future that will eventually finish. This function returns once the
+/// future has finished.
 template <typename T>
 Result<T> RunSynchronously(FnOnce<Future<T>(Executor*)> get_future, bool use_threads) {
   if (use_threads) {
@@ -356,5 +364,7 @@ Result<T> RunSynchronously(FnOnce<Future<T>(Executor*)> get_future, bool use_thr
   }
 }
 
+Status RunSynchronouslyVoid(FnOnce<Future<arrow::detail::Empty>(Executor*)> get_future,
+                            bool use_threads);
 }  // namespace internal
 }  // namespace arrow

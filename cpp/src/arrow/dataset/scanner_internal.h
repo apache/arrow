@@ -29,7 +29,6 @@
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 
