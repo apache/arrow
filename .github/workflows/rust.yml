@@ -42,7 +42,7 @@ jobs:
     container:
       image: ${{ matrix.arch }}/rust
       env:
-        # Disable full debug symbol generation to speed up CI build
+        # Disable full debug symbol generation to speed up CI build and keep memory down
         # "1" means line tables only, which is useful for panic tracebacks.
         RUSTFLAGS: "-C debuginfo=1"
     steps:
@@ -70,8 +70,6 @@ jobs:
         run: |
           export CARGO_HOME="/github/home/.cargo"
           export CARGO_TARGET_DIR="/github/home/target"
-          # do not produce debug symbols to keep memory usage down
-          export RUSTFLAGS="-C debuginfo=0"
           cd rust
           cargo build
 
@@ -87,7 +85,7 @@ jobs:
     container:
       image: ${{ matrix.arch }}/rust
       env:
-        # Disable full debug symbol generation to speed up CI build
+        # Disable full debug symbol generation to speed up CI build and keep memory down
         # "1" means line tables only, which is useful for panic tracebacks.
         RUSTFLAGS: "-C debuginfo=1"
         ARROW_TEST_DATA: /__w/arrow/arrow/testing/data
@@ -117,8 +115,6 @@ jobs:
         run: |
           export CARGO_HOME="/github/home/.cargo"
           export CARGO_TARGET_DIR="/github/home/target"
-          # do not produce debug symbols to keep memory usage down
-          export RUSTFLAGS="-C debuginfo=0"
           cd rust
           # run tests on all workspace members with default feature list
           cargo test
@@ -147,7 +143,7 @@ jobs:
     container:
       image: ${{ matrix.arch }}/rust
       env:
-        # Disable full debug symbol generation to speed up CI build
+        # Disable full debug symbol generation to speed up CI build and keep memory down
         # "1" means line tables only, which is useful for panic tracebacks.
         RUSTFLAGS: "-C debuginfo=1"
         ARROW_TEST_DATA: /__w/arrow/arrow/testing/data
@@ -176,8 +172,6 @@ jobs:
         run: |
           export CARGO_HOME="/github/home/.cargo"
           export CARGO_TARGET_DIR="/github/home/target"
-          # do not produce debug symbols to keep memory usage down
-          export RUSTFLAGS="-C debuginfo=0"
           cd rust/arrow
           cargo test --features "simd"
 
@@ -204,6 +198,8 @@ jobs:
         run: |
           export ARROW_TEST_DATA=$(pwd)/testing/data
           export PARQUET_TEST_DATA=$(pwd)/cpp/submodules/parquet-testing/data
+          # do not produce debug symbols to keep memory usage down
+          export RUSTFLAGS="-C debuginfo=0"
           cd rust
           cargo test
 
@@ -218,7 +214,7 @@ jobs:
     container:
       image: ${{ matrix.arch }}/rust
       env:
-        # Disable full debug symbol generation to speed up CI build
+        # Disable full debug symbol generation to speed up CI build and keep memory down
         # "1" means line tables only, which is useful for panic tracebacks.
         RUSTFLAGS: "-C debuginfo=1"
     steps:
@@ -381,7 +377,7 @@ jobs:
     container:
       image: ${{ matrix.arch }}/rust
       env:
-        # Disable full debug symbol generation to speed up CI build
+        # Disable full debug symbol generation to speed up CI build and keep memory down
         # "1" means line tables only, which is useful for panic tracebacks.
         RUSTFLAGS: "-C debuginfo=1"
         ARROW_TEST_DATA: /__w/arrow/arrow/testing/data
@@ -411,8 +407,6 @@ jobs:
         run: |
           export CARGO_HOME="/github/home/.cargo"
           export CARGO_TARGET_DIR="/github/home/target"
-          # do not produce debug symbols to keep memory usage down
-          export RUSTFLAGS="-C debuginfo=0"
           cd rust/arrow
           cargo build --target wasm32-unknown-unknown
 
@@ -427,7 +421,7 @@ jobs:
     container:
       image: ${{ matrix.arch }}/rust
       env:
-        # Disable full debug symbol generation to speed up CI build
+        # Disable full debug symbol generation to speed up CI build and keep memory down
         # "1" means line tables only, which is useful for panic tracebacks.
         RUSTFLAGS: "-C debuginfo=1"
         ARROW_TEST_DATA: /__w/arrow/arrow/testing/data
