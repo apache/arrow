@@ -21,7 +21,6 @@ import os
 import pytest
 
 import pyarrow as pa
-from pyarrow.lib import ArrowInvalid
 
 try:
     import pyarrow.parquet as pq
@@ -390,7 +389,7 @@ def test_read_encrypted_disable_footer_signature_verification():
         retrieve_key=lambda *args: b""
     )
     with pytest.raises(IOError, match="No footer key or key metadata"):
-        f = pq.ParquetFile(
+        pq.ParquetFile(
             bio.getvalue(), low_level_decryption=decryption_props)
 
     # But if we tell it it's OK for footer to be unverified, that's OK:
