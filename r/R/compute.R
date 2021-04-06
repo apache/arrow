@@ -81,6 +81,49 @@ collect_arrays_from_dots <- function(dots) {
 }
 
 #' @export
+quantile.ArrowDatum <- function(x,
+                                probs = seq(0, 1, 0.25),
+                                na.rm = FALSE,
+                                type = 7,
+                                interpolation = c("linear", "lower", "higher", "nearest", "midpoint"),
+                                ...) {
+  if (inherits(x, "Scalar")) x <- Array$create(x)
+  assert_is(probs, c("numeric", "integer"))
+  assert_that(length(probs) > 0)
+  assert_that(all(probs >= 0 & probs <= 1))
+  if (!na.rm && x$null_count > 0) {
+    stop("Missing values not allowed if 'na.rm' is FALSE", call. = FALSE)
+  }
+  if (type != 7) {
+    stop(
+      "Argument `type` not supported in Arrow. To control the quantile ",
+      "interpolation algorithm, set argument `interpolation` to one of: ",
+      "\"linear\" (the default), \"lower\", \"higher\", \"nearest\", or ",
+      "\"midpoint\".",
+      call. = FALSE
+    )
+  }
+  interpolation <- QuantileInterpolation[[toupper(match.arg(interpolation))]]
+  out <- call_function("quantile", x, options = list(q = probs, interpolation = interpolation))
+  if (length(out) == 0) {
+    # When there are no non-missing values in the data, the Arrow quantile
+    # function returns an empty Array, but for consistency with the R quantile
+    # function, we want an Array of NA_real_ with the same length as probs
+    out <- Array$create(rep(NA_real_, length(probs)))
+  }
+  out
+}
+
+#' @export
+median.ArrowDatum <- function(x, na.rm = FALSE, ...) {
+  if (!na.rm && x$null_count > 0) {
+    Scalar$create(NA_real_)
+  } else {
+    Scalar$create(quantile(x, probs = 0.5, na.rm = TRUE, ...))
+  }
+}
+
+#' @export
 unique.ArrowDatum <- function(x, incomparables = FALSE, ...) {
   call_function("unique", x)
 }
