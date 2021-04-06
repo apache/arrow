@@ -22,6 +22,8 @@
 
 :root {
   --pst-color-active-navigation: 215, 70, 51;
+  --pst-color-link-hover: 215, 70, 51;
+  --pst-color-headerlink: 215, 70, 51;
   /* Use normal text color (like h3, ..) instead of primary color */
   --pst-color-h1: var(--color-text-base);
   --pst-color-h2: var(--color-text-base);
