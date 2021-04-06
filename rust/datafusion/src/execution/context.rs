@@ -1386,8 +1386,6 @@ mod tests {
             4,
         )
         .await?;
-        // 4 batches expected
-        assert_eq!(results.len(), 4);
 
         assert_eq!(
             results.iter().map(|b| b.num_rows()).sum::<usize>(),
