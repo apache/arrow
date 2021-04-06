@@ -78,6 +78,12 @@ if (arrow_with_s3() && process_is_running("minio server")) {
 
     library(dplyr)
 
+    make_temp_dir <- function() {
+      path <- tempfile()
+      dir.create(path)
+      normalizePath(path, winslash = "/")
+    }
+
     test_that("open_dataset with an S3 file (not directory) URI", {
       skip_if_not_available("parquet")
       expect_identical(
@@ -97,9 +103,13 @@ if (arrow_with_s3() && process_is_running("minio server")) {
     })
 
     test_that("open_dataset errors on URIs for different file systems", {
+      td <- make_temp_dir()
       expect_error(
         open_dataset(
-          c(minio_uri("test.feather"), "file://path/to/test2.feather"),
+          c(
+            minio_uri("test.feather"),
+             paste0("file://", file.path(td, "fake.feather"))
+          ),
           format = "feather"
         ),
         "Vectors of URIs for different file systems are not supported"
@@ -154,12 +164,6 @@ if (arrow_with_s3() && process_is_running("minio server")) {
       write_dataset(ds, fs$path(minio_path("new_dataset_dir")))
       expect_length(fs$ls(minio_path("new_dataset_dir")), 1)
     })
-
-    make_temp_dir <- function() {
-      path <- tempfile()
-      dir.create(path)
-      normalizePath(path, winslash = "/")
-    }
 
     test_that("Let's test copy_files too", {
       td <- make_temp_dir()
