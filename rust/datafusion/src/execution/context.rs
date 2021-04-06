@@ -1379,6 +1379,25 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn join_partitioned() -> Result<()> {
+        // self join on partition id (workaround for duplicate column name)
+        let results = execute(
+            "SELECT 1 FROM test JOIN (SELECT c1 AS id1 FROM test) ON c1=id1",
+            4,
+        )
+        .await?;
+        // 4 batches expected
+        assert_eq!(results.len(), 4);
+
+        assert_eq!(
+            results.iter().map(|b| b.num_rows()).sum::<usize>(),
+            4 * 10 * 10
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn count_basic() -> Result<()> {
         let results = execute("SELECT COUNT(c1), COUNT(c2) FROM test", 1).await?;
         assert_eq!(results.len(), 1);
