@@ -1179,6 +1179,9 @@ services:
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/go_build.sh /arrow &&
         /arrow/ci/scripts/java_build.sh /arrow /build &&
+        df -h &&
+        du -hx --threshold=100M / &&
+        du -hx --threshold=500M /arrow/ &&
         /arrow/ci/scripts/js_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_arrow.sh /arrow /build"]
 

@@ -415,3 +415,46 @@ jobs:
           export RUSTFLAGS="-C debuginfo=0"
           cd rust/arrow
           cargo build --target wasm32-unknown-unknown
+
+  # test the projects can build without default features
+  default-build:
+    name: AMD64 Debian 10 Rust ${{ matrix.rust }} test no defaults
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64]
+        rust: [nightly-2020-11-24]
+    container:
+      image: ${{ matrix.arch }}/rust
+      env:
+        # Disable full debug symbol generation to speed up CI build
+        # "1" means line tables only, which is useful for panic tracebacks.
+        RUSTFLAGS: "-C debuginfo=1"
+        ARROW_TEST_DATA: /__w/arrow/arrow/testing/data
+        PARQUET_TEST_DATA: /__w/arrow/arrow/cpp/submodules/parquet-testing/data
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+      - name: Cache Cargo
+        uses: actions/cache@v2
+        with:
+          path: /github/home/.cargo
+          # this key equals the ones on `linux-build-lib` for re-use
+          key: cargo-cache-
+      - name: Cache Rust dependencies
+        uses: actions/cache@v2
+        with:
+          path: /github/home/target
+          key: ${{ runner.os }}-${{ matrix.arch }}-target-wasm32-cache-${{ matrix.rust }}
+      - name: Setup Rust toolchain
+        run: |
+          rustup toolchain install ${{ matrix.rust }}
+          rustup override set ${{ matrix.rust }}
+          rustup component add rustfmt
+      - name: Build arrow crate
+        run: |
+          export CARGO_HOME="/github/home/.cargo"
+          export CARGO_TARGET_DIR="/github/home/target"
+          cd rust/arrow
+          cargo check --all-targets --no-default-features
