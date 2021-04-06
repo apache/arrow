@@ -1498,6 +1498,7 @@ pub fn convert_data_type(sql: &SQLDataType) -> Result<DataType> {
         SQLDataType::Double => Ok(DataType::Float64),
         SQLDataType::Char(_) | SQLDataType::Varchar(_) => Ok(DataType::Utf8),
         SQLDataType::Timestamp => Ok(DataType::Timestamp(TimeUnit::Nanosecond, None)),
+        SQLDataType::Time => Ok(DataType::Timestamp(TimeUnit::Millisecond, None)),
         SQLDataType::Date => Ok(DataType::Date32),
         other => Err(DataFusionError::NotImplemented(format!(
             "Unsupported SQL type {:?}",

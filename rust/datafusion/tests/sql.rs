@@ -758,6 +758,30 @@ async fn csv_query_cast() -> Result<()> {
 }
 
 #[tokio::test]
+async fn query_cast_time() {
+    let mut ctx = ExecutionContext::new();
+    register_alltypes_parquet(&mut ctx);
+    let sql = "SELECT CAST(timestamp_col AS Time) FROM alltypes_plain LIMIT 3";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![
+        vec!["2009-03-01 00:00:00"],
+        vec!["2009-03-01 00:01:00"],
+        vec!["2009-04-01 00:00:00"],
+    ];
+    assert_eq!(expected, actual);
+
+    // Now, check that the int64 values are also OK
+    let sql = "SELECT CAST(CAST(timestamp_col AS Time) AS BIGINT) FROM alltypes_plain LIMIT 3";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![
+        vec!["1235865600000"],
+        vec!["1235865660000"],
+        vec!["1238544000000"],
+    ];
+    assert_eq!(expected, actual);
+}
+
+#[tokio::test]
 async fn csv_query_cast_literal() -> Result<()> {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx)?;
