@@ -949,6 +949,44 @@ TEST_F(TestProjector, TestToDate) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestIsDate) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::utf8());
+  auto field_node = std::make_shared<FieldNode>(field0);
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto field_result = field("res", arrow::boolean());
+
+  // Build expression
+  auto fn_node = TreeExprBuilder::MakeFunction("is_date", {field_node},
+                                               arrow::boolean());
+  auto expr = TreeExprBuilder::MakeExpression(fn_node, field_result);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 3;
+  auto array0 =
+      MakeArrowArrayUtf8({"1986-12-01", "2012-12-01", "invalid"}, {true, true, true});
+  // expected output
+  auto exp = MakeArrowArrayBool({true, true, false}, {true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
 // ARROW-11617
 TEST_F(TestProjector, TestIfElseOpt) {
   // schema for input
