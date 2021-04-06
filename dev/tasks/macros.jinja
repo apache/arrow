@@ -29,6 +29,12 @@ on:
       password: {{ '${{ secrets.DOCKERHUB_TOKEN }}' }}
 {% endmacro %}
 
+{%- macro github_login_ghcr() -%}
+  - name: Login to GitHub Container Registry
+    shell: bash
+    run: docker login ghcr.io -u {{ '${{ github.repository_owner }}' }} -p {{ '${{ secrets.CROSSBOW_GHCR_TOKEN }}' }}
+{% endmacro %}
+
 {%- macro github_install_archery() -%}
   - name: Set up Python
     uses: actions/setup-python@v2
@@ -63,5 +69,45 @@ on:
     env:
       CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
       CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
+  {% endif %}
+{% endmacro %}
+
+{%- macro travis_checkout() -%}
+  - git clone --no-checkout {{ arrow.remote }} arrow
+  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
+  - git -C arrow checkout FETCH_HEAD
+  - git -C arrow submodule update --init --recursive
+{% endmacro %}
+
+{%- macro travis_install_archery() -%}
+  - sudo -H pip3 install --upgrade pip
+  - sudo -H pip3 install docker-compose
+  - sudo -H pip3 install arrow/dev/archery[docker]
+{% endmacro %}
+
+{%- macro travis_docker_login() -%}
+  - echo "${DOCKERHUB_TOKEN}" | docker login --username "${DOCKERHUB_USER}" --password-stdin
+{% endmacro %}
+
+{%- macro travis_upload(pattern) -%}
+  - sudo -H pip3 install pygit2==1.0
+  - sudo -H pip3 install arrow/dev/archery[crossbow]
+  - |
+    archery crossbow
+      --queue-path $(pwd) \
+      --queue-remote {{ queue_remote_url }} \
+      upload-artifacts \
+      --sha {{ task.branch }} \
+      --tag {{ task.tag }} \
+      --pattern "{{ pattern }}"
+{% endmacro %}
+
+{%- macro travis_gemfury(pattern) -%}
+  {% if arrow.branch == 'master' %}
+  - |
+    WHEEL_PATH=$(echo arrow/python/repaired_wheels/*.whl)
+    curl \
+      -F "package=@${WHEEL_PATH}" \
+      "https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/"
   {% endif %}
 {% endmacro %}

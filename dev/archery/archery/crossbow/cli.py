@@ -32,6 +32,9 @@ _default_config_path = _default_arrow_path / "dev" / "tasks" / "tasks.yml.j2"
 @click.pass_context
 def crossbow(ctx, github_token, arrow_path, queue_path, queue_remote,
              output_file):
+    """
+    Schedule packaging tasks or nightly builds on CI services.
+    """
     ctx.ensure_object(dict)
     ctx.obj['output'] = output_file
     ctx.obj['arrow'] = Repo(arrow_path)
