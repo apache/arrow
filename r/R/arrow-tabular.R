@@ -61,7 +61,10 @@ ArrowTabular <- R6Class("ArrowTabular", inherit = ArrowObject,
 
 #' @export
 as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ...) {
-  df <- x$to_data_frame()
+  tryCatch(
+    df <- x$to_data_frame(),
+    error = handle_embedded_nul_error
+  )
   if (!is.null(r_metadata <- x$metadata$r)) {
     df <- apply_arrow_r_metadata(df, .unserialize_arrow_r_metadata(r_metadata))
   }

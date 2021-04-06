@@ -76,3 +76,29 @@ test_that("Scalar$ApproxEquals", {
   expect_false(a$ApproxEquals(d))
   expect_false(a$ApproxEquals(aa))
 })
+
+test_that("Handling string data with embedded nuls", {
+  raws <- as.raw(c(0x6d, 0x61, 0x00, 0x6e))
+  expect_error(
+    rawToChar(raws),
+    "embedded nul in string: 'ma\\0n'", # See?
+    fixed = TRUE
+  )
+  scalar_with_nul <- Scalar$create(raws, binary())$cast(utf8())
+  expect_error(
+    as.vector(scalar_with_nul),
+    "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul = TRUE)",
+    fixed = TRUE
+  )
+
+  withr::with_options(list(arrow.skip_nul = TRUE), {
+    expect_warning(
+      expect_identical(
+        as.vector(scalar_with_nul),
+        "man"
+      ),
+      "Stripping '\\0' (nul) from character vector",
+      fixed = TRUE
+    )
+  })
+})
