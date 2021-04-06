@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Implementation of DataFrame API
+//! Implementation of DataFrame API.
 
 use std::sync::{Arc, Mutex};
 
