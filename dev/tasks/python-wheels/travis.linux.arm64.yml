@@ -46,13 +46,11 @@ env:
 
 before_script:
   {{ macros.travis_checkout()|indent }}
+  {{ macros.travis_docker_login()|indent }}
 
 script:
   # Install Archery and Crossbow dependencies
   {{ macros.travis_install_archery()|indent }}
-
-  # Docker Login
-  {{ macros.travis_docker_login()|indent }}
 
   # Build and Test packages
   # output something every minutes to prevent travis from killing the build

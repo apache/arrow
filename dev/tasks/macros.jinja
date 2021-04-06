@@ -45,6 +45,10 @@ on:
 {% endmacro %}
 
 {%- macro github_upload(pattern) -%}
+  - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
   - name: Setup Crossbow
     run: pip install arrow/dev/archery[crossbow]
   - name: Upload artifacts
@@ -55,7 +59,13 @@ on:
       upload-artifacts \
       --sha {{ task.branch }} \
       --tag {{ task.tag }} \
+    {% if isinstance(pattern, str) %}
       --pattern "{{ pattern }}"
+    {% elif isinstance(pattern, list) %}
+      {% for p in pattern %}
+      --pattern "{{ p }}"
+      {% endfor %}
+    {% endif %}
     env:
       CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN }}' }}
 {% endmacro %}
@@ -99,7 +109,13 @@ on:
       upload-artifacts \
       --sha {{ task.branch }} \
       --tag {{ task.tag }} \
+    {% if isinstance(pattern, str) %}
       --pattern "{{ pattern }}"
+    {% elif isinstance(pattern, list) %}
+      {% for p in pattern %}
+      --pattern "{{ p }}"
+      {% endfor %}
+    {% endif %}
 {% endmacro %}
 
 {%- macro travis_gemfury(pattern) -%}

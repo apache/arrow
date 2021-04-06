@@ -66,9 +66,8 @@ env:
     - YUM_TARGETS={{ target }}
 
 before_script:
-  - git clone --no-checkout {{ arrow.remote }} arrow
-  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-  - git -C arrow checkout FETCH_HEAD
+  {{ macros.travis_checkout()|indent }}
+  {{ macros.travis_docker_login()|indent }}
 
   # Build createrepo_c from source.
   # We can remove them when we can install createrepo_c package
@@ -143,15 +142,5 @@ script:
   - popd
 
 after_success:
-  - sudo -H pip3 install --upgrade pip
-  - sudo -H pip3 install -r arrow/dev/tasks/requirements-crossbow.txt pygit2==1.0
-  - |
-    python3 arrow/dev/tasks/crossbow.py \
-      --queue-path . \
-      --queue-remote {{ queue_remote_url }} \
-      upload-artifacts \
-    {%- for extension in upload_extensions %}
-      --pattern "arrow/dev/tasks/linux-packages/**/*{{ extension }}" \
-    {%- endfor %}
-      --sha {{ task.branch }} \
-      --tag {{ task.tag }}
+  {% set patterns = ["arrow/dev/tasks/linux-packages/**/*{}".format(ext) for ext in upload_extensions] %}
+  {{ macros.travis_upload("arrow/python/repaired_wheels/*.whl")|indent }}
