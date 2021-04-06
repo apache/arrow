@@ -29,7 +29,7 @@ test_that("sub and gsub with ignore.case = FALSE and fixed = TRUE", {
   )
   expect_dplyr_equal(
     input %>%
-      transmute(x = gub("Foo", "baz", x, fixed = TRUE)) %>%
+      transmute(x = gub("o", "u", x, fixed = TRUE)) %>%
       collect(),
     df
   )
