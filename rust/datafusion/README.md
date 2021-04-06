@@ -266,7 +266,7 @@ More information can be found in the [Postgres docs](https://www.postgresql.org/
 
 To show tables available for use in DataFusion, use the `SHOW TABLES`  command or the `information_schema.tables` view:
 
-```
+```sql
 > show tables;
 +---------------+--------------------+------------+------------+
 | table_catalog | table_schema       | table_name | table_type |
@@ -287,7 +287,7 @@ To show tables available for use in DataFusion, use the `SHOW TABLES`  command o
 
 To show the schema of a table in DataFusion, use the `SHOW COLUMNS`  command or the or `information_schema.columns` view:
 
-```
+```sql
 > show columns from t;
 +---------------+--------------+------------+-------------+-----------+-------------+
 | table_catalog | table_schema | table_name | column_name | data_type | is_nullable |
