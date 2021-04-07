@@ -37,7 +37,8 @@ if [ "$ARROW_R_DEV" = "TRUE" ]; then
   # Note that NOT_CRAN=true means (among other things) that optional dependencies are built
   export NOT_CRAN=true
 fi
-export TEST_R_WITH_ARROW=TRUE
+: ${TEST_R_WITH_ARROW:=TRUE}
+export TEST_R_WITH_ARROW=$TEST_R_WITH_ARROW
 export _R_CHECK_TESTS_NLINES_=0
 export _R_CHECK_CRAN_INCOMING_REMOTE_=FALSE
 export _R_CHECK_LIMIT_CORES_=FALSE

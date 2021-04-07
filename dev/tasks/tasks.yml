@@ -1836,6 +1836,7 @@ tasks:
       r_tag: latest
       libarrow_download: "FALSE"
       libarrow_build: "FALSE"
+      with_arrow: "FALSE"
 
   test-ubuntu-18.04-r-sanitizer:
     ci: azure
