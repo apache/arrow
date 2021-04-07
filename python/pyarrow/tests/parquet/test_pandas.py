@@ -671,6 +671,7 @@ def test_dataset_read_pandas_common_metadata(tempdir, preserve_index):
     tm.assert_frame_equal(result, expected)
 
 
+@pytest.mark.pandas
 def test_read_pandas_passthrough_keywords(tempdir):
     # ARROW-11464 - previously not all keywords were passed through (such as
     # the filesystem keyword)
