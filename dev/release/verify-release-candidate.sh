@@ -416,7 +416,6 @@ test_js() {
   fi
 
   yarn --frozen-lockfile
-  # clean, lint, and build JS source
   yarn run-s clean:all lint build
   yarn test
   popd
