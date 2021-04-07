@@ -150,9 +150,13 @@ Then in your ``cmake`` command, to use dependencies installed by vcpkg, set:
 You can optionally set other variables to override the default CMake
 configurations for vcpkg, including:
    
-* ``-DCMAKE_TOOLCHAIN_FILE``: sets the path to ``vcpkg.cmake``
-* ``-DVCPKG_TARGET_TRIPLET``: sets the vcpkg 
-  `triplet <https://github.com/microsoft/vcpkg/blob/master/docs/users/triplets.md>`_
+* ``-DCMAKE_TOOLCHAIN_FILE``: by default, the CMake scripts automatically find
+  the location of the vcpkg CMake toolchain file ``vcpkg.cmake``; use this to
+  instead specify its location
+* ``-DVCPKG_TARGET_TRIPLET``: by default, the CMake scripts attempt to infer the
+  vcpkg 
+  `triplet <https://github.com/microsoft/vcpkg/blob/master/docs/users/triplets.md>`_;
+  use this to instead specify the triplet
 * ``-DARROW_DEPENDENCY_USE_SHARED``: default is ``ON``; set to ``OFF`` for
   static libraries
 * ``-DVCPKG_MANIFEST_MODE``: default is ``ON``; set to ``OFF`` to ignore the
