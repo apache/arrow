@@ -959,8 +959,7 @@ TEST_F(TestProjector, TestIsDate) {
   auto field_result = field("res", arrow::boolean());
 
   // Build expression
-  auto fn_node = TreeExprBuilder::MakeFunction("is_date", {field_node},
-                                               arrow::boolean());
+  auto fn_node = TreeExprBuilder::MakeFunction("is_date", {field_node}, arrow::boolean());
   auto expr = TreeExprBuilder::MakeExpression(fn_node, field_result);
 
   // Build a projector for the expressions.

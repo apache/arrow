@@ -166,22 +166,22 @@ TEST(TestGdvFnStubs, TestIsDate) {
   auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
   std::string date = "2020-01-01";
-  EXPECT_EQ(gdv_fn_is_date_utf8(ctx_ptr,  date.c_str(), date.length(), true), true);
+  EXPECT_EQ(gdv_fn_is_date_utf8(ctx_ptr, date.c_str(), date.length()), true);
 
   date = "1524-12-31";
-  EXPECT_EQ(gdv_fn_is_date_utf8(ctx_ptr,  date.c_str(), date.length(), true), true);
+  EXPECT_EQ(gdv_fn_is_date_utf8(ctx_ptr, date.c_str(), date.length()), true);
 
   date = "0001-01-01";
-  EXPECT_EQ(gdv_fn_is_date_utf8(ctx_ptr,  date.c_str(), date.length(), true), true);
+  EXPECT_EQ(gdv_fn_is_date_utf8(ctx_ptr, date.c_str(), date.length()), true);
 
   date = "2020-01-01 12:00:00";
-  EXPECT_EQ(gdv_fn_is_date_utf8(ctx_ptr,  date.c_str(), date.length(), true), false);
+  EXPECT_EQ(gdv_fn_is_date_utf8(ctx_ptr, date.c_str(), date.length()), false);
 
   date = "1886-12-25 12:00:00 +0800";
-  EXPECT_EQ(gdv_fn_is_date_utf8(ctx_ptr,  date.c_str(), date.length(), true), false);
+  EXPECT_EQ(gdv_fn_is_date_utf8(ctx_ptr, date.c_str(), date.length()), false);
 
   date = "2020-55-01";
-  EXPECT_EQ(gdv_fn_is_date_utf8(ctx_ptr,  date.c_str(), date.length(), true), false);
+  EXPECT_EQ(gdv_fn_is_date_utf8(ctx_ptr, date.c_str(), date.length()), false);
 }
 
 }  // namespace gandiva

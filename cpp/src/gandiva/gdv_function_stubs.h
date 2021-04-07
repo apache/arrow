@@ -43,7 +43,8 @@ bool gdv_fn_in_expr_lookup_int32(int64_t ptr, int32_t value, bool in_validity);
 
 bool gdv_fn_in_expr_lookup_int64(int64_t ptr, int64_t value, bool in_validity);
 
-bool gdv_fn_in_expr_lookup_utf8(int64_t ptr, const char* data, int data_len, bool in_validity);
+bool gdv_fn_in_expr_lookup_utf8(int64_t ptr, const char* data, int data_len,
+                                bool in_validity);
 
 bool gdv_fn_is_date_utf8(int64_t ptr, const char* data, int data_len);
 
