@@ -247,13 +247,13 @@ inline T integer_power(KernelContext* ctx, T left, T right) {
   }
   while (true) {
     if (right % 2) {
-      MultiplyWithOverflow(result, left, &result);
+      result *= left;
     }
     right /= 2;
     if (!right) {
       break;
     }
-    MultiplyWithOverflow(left, left, &left);
+    left *= left;
   }
   return result;
 }
