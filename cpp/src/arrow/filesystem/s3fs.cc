@@ -169,6 +169,27 @@ Status EnsureS3Initialized() {
 }
 
 // -----------------------------------------------------------------------
+// S3ProxyOptions implementation
+
+Result<S3ProxyOptions> S3ProxyOptions::FromUri(const Uri& uri) {
+  S3ProxyOptions options;
+
+  options.scheme = uri.scheme();
+  options.host = uri.host();
+  options.port = uri.port();
+  options.username = uri.username();
+  options.password = uri.password();
+
+  return options;
+}
+
+Result<S3ProxyOptions> S3ProxyOptions::FromUri(const std::string& uri_string) {
+  Uri uri;
+  RETURN_NOT_OK(uri.Parse(uri_string));
+  return FromUri(uri);
+}
+
+// -----------------------------------------------------------------------
 // S3Options implementation
 
 void S3Options::ConfigureDefaultCredentials() {
@@ -511,6 +532,28 @@ class ClientBuilder {
     }
 
     const bool use_virtual_addressing = options_.endpoint_override.empty();
+
+    /// Set proxy options if provided
+    if (!options_.proxy_options.scheme.empty()) {
+      if (options_.proxy_options.scheme == "http") {
+        client_config_.proxyScheme = Aws::Http::Scheme::HTTP;
+      } else if (options_.proxy_options.scheme == "https") {
+        client_config_.proxyScheme = Aws::Http::Scheme::HTTPS;
+      } else {
+        return Status::Invalid("Invalid proxy connection scheme '", options_.proxy_options.scheme, "'");
+      }
+    }
+    if (!options_.proxy_options.host.empty()) {
+      client_config_.proxyHost = ToAwsString(options_.proxy_options.host);
+      client_config_.proxyPort = options_.proxy_options.port;
+    }
+    if (!options_.proxy_options.username.empty()) {
+      client_config_.proxyUserName = ToAwsString(options_.proxy_options.username);
+    }
+    if (!options_.proxy_options.password.empty()) {
+      client_config_.proxyPassword = ToAwsString(options_.proxy_options.password);
+    }
+    
     return std::make_shared<S3Client>(
         credentials_provider_, client_config_,
         Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,

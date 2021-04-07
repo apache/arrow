@@ -125,6 +125,17 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
     cdef struct CS3GlobalOptions "arrow::fs::S3GlobalOptions":
         CS3LogLevel log_level
 
+    cdef cppclass CS3ProxyOptions "arrow::fs::S3ProxyOptions":
+        c_string scheme
+        c_string host
+        int port
+        c_string username
+        c_string password
+
+        @staticmethod
+        CResult[CS3ProxyOptions] FromUriString "FromUri"(
+            const c_string& uri_string)
+
     cdef cppclass CS3Options "arrow::fs::S3Options":
         c_string region
         c_string endpoint_override
@@ -134,6 +145,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_string session_name
         c_string external_id
         int load_frequency
+        CS3ProxyOptions proxy_options
         void ConfigureDefaultCredentials()
         void ConfigureAccessKey(const c_string& access_key,
                                 const c_string& secret_key,

@@ -45,6 +45,64 @@ def finalize_s3():
     check_status(CFinalizeS3())
 
 
+cdef class S3ProxyOptions:
+    """
+    Proxy Options for S3
+
+    Parameters
+    ----------
+
+    scheme : str, default ''
+        Proxy scheme. Valid values: 'http' and 'https'.
+    host : str, default ''
+        Proxy host to connect to.
+    port : int, default -1
+        Proxy port to connect to.
+    username : str, default ''
+        Username to use to authenticate connection to proxy.
+    password : str, default ''
+        Password to use to authenticate connection to proxy.
+    """
+
+    def __init__(self, scheme="", host="", port=-1, username="", password=""):
+        self.scheme = scheme
+        self.host = host
+        self.port = port
+        self.username = username
+        self.password = password
+    
+    @staticmethod
+    def from_uri(uri):
+        """
+        Instantiate S3ProxyOptions from an URI string.
+
+        The following two calls are equivalent
+        * S3ProxyOptions.from_uri('http://username:password@localhost:8020')
+        * S3ProxyOptions(scheme='http', host='localhost', port=8020, 
+                         username='username', password='password')
+        
+        Parameters
+        ----------
+        uri : str
+            A string URI describing the connection to the proxy.
+        
+        Returns
+        -------
+        S3ProxyOptions
+        """
+        cdef:
+            S3ProxyOptions self = S3ProxyOptions.__new__(S3ProxyOptions)
+            CS3ProxyOptions options
+
+        options = GetResultValue(CS3ProxyOptions.FromUriString(tobytes(uri)))
+        self.scheme = frombytes(options.scheme)
+        self.host = frombytes(options.host)
+        self.port = options.port
+        self.username = frombytes(options.username)
+        self.password = frombytes(options.password)
+        return self
+
+
 cdef class S3FileSystem(FileSystem):
     """S3-backed FileSystem implementation
 
@@ -94,6 +152,10 @@ cdef class S3FileSystem(FileSystem):
     background_writes: boolean, default True
         Whether OutputStream writes will be issued in the background, without
         blocking.
+    proxy_options: dict, default None
+        If a proxy is used, provide the options here. Supported options are:
+        'scheme' (str: 'http' or 'https'; required), 'host' (str; required), 
+        'port' (int; required), 'username' (str; optional), 'password' (str; optional).
     """
 
     cdef:
@@ -103,7 +165,7 @@ cdef class S3FileSystem(FileSystem):
                  anonymous=False, region=None, scheme=None,
                  endpoint_override=None, bint background_writes=True,
                  role_arn=None, session_name=None, external_id=None,
-                 load_frequency=900):
+                 load_frequency=900, proxy_options=None):
         cdef:
             CS3Options options
             shared_ptr[CS3FileSystem] wrapped
@@ -167,6 +229,23 @@ cdef class S3FileSystem(FileSystem):
             options.endpoint_override = tobytes(endpoint_override)
         if background_writes is not None:
             options.background_writes = background_writes
+
+        if proxy_options is not None:
+            proxy_scheme = proxy_options.get("scheme", None)
+            if proxy_scheme:
+                options.proxy_options.schema = tobytes(proxy_scheme)
+            proxy_host = proxy_options.get("host", None)
+            if proxy_host:
+                options.proxy_options.host = tobytes(proxy_host)
+            proxy_port = proxy_options.get("port", None)
+            if proxy_port:
+                options.proxy_options.port = proxy_port
+            proxy_username = proxy_options.get("username", None)
+            if proxy_username:
+                options.proxy_options.username = tobytes(proxy_username)
+            proxy_password = proxy_options.get("password", None)
+            if proxy_password:
+                options.proxy_options.password = tobytes(proxy_password)
 
         with nogil:
             wrapped = GetResultValue(CS3FileSystem.Make(options))
