@@ -792,6 +792,22 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
   *out_len = out_idx;
   return out;
 }
+
+#define TO_NUMBER(OUT_TYPE, ARROW_TYPE, TYPE_NAME)                                   \
+  GANDIVA_EXPORT                                                                     \
+  OUT_TYPE gdv_fn_to_number##TYPE_NAME(int64_t context, const char* data,                  \
+       int32_t data_len, const char* format, int32_t format_len) {                   \
+    OUT_TYPE res = 0;                                                                \
+    gandiva::from_chars<OUT_TYPE>(context, data, data_len, res);                     \
+    return res;                                                                      \
+  }
+
+TO_NUMBER(int32_t, arrow::Int32Type, INT)
+TO_NUMBER(int64_t, arrow::Int64Type, BIGINT)
+TO_NUMBER(float, arrow::FloatType, FLOAT4)
+TO_NUMBER(double, arrow::DoubleType, FLOAT8)
+
+#undef TO_NUMBER
 }
 
 namespace gandiva {
