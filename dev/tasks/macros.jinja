@@ -96,20 +96,12 @@ on:
 {% endmacro %}
 
 {%- macro azure_upload_releases(pattern) -%}
-  - script: |
-      which pip
-      which python
-  - script: |
-      pip install -e arrow/dev/archery[crossbow]
-      which pip
-      which python
-      which archery
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.8'
+  - script: pip install -e arrow/dev/archery[crossbow]
     displayName: Install Crossbow
   - script: |
-      which pip
-      which python
-      which archery
-      archery --help
       archery crossbow \
         --queue-path $(pwd) \
         --queue-remote {{ queue_remote_url }} \
@@ -130,6 +122,11 @@ on:
 
 {%- macro azure_upload_anaconda(pattern) -%}
   {% if arrow.branch == 'master' %}
+  - task: CondaEnvironment@1
+    inputs:
+      packageSpecs: 'anaconda-client'
+      installOptions: '-c conda-forge'
+      updateConda: no
   - script: |
       conda install -y anaconda-client
       anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload --force {{ pattern }}
