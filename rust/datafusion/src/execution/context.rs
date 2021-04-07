@@ -1752,7 +1752,7 @@ mod tests {
     async fn limit() -> Result<()> {
         let tmp_dir = TempDir::new()?;
         let mut ctx = create_ctx(&tmp_dir, 1)?;
-        ctx.register_table("t", table_with_sequence(1, 1000).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1000).unwrap())
             .unwrap();
 
         let results =
@@ -1788,30 +1788,18 @@ mod tests {
         Ok(())
     }
 
-    /// Return a RecordBatch with a single Int32 array with values (0..sz)
-    fn make_partition(sz: i32) -> RecordBatch {
-        let seq_start = 0;
-        let seq_end = sz;
-        let values = (seq_start..seq_end).collect::<Vec<_>>();
-        let schema = Arc::new(Schema::new(vec![Field::new("i", DataType::Int32, true)]));
-        let arr = Arc::new(Int32Array::from(values));
-        let arr = arr as ArrayRef;
-
-        RecordBatch::try_new(schema, vec![arr]).unwrap()
-    }
-
     #[tokio::test]
     async fn limit_multi_partitions() -> Result<()> {
         let tmp_dir = TempDir::new()?;
         let mut ctx = create_ctx(&tmp_dir, 1)?;
 
         let partitions = vec![
-            vec![make_partition(0)],
-            vec![make_partition(1)],
-            vec![make_partition(2)],
-            vec![make_partition(3)],
-            vec![make_partition(4)],
-            vec![make_partition(5)],
+            vec![test::make_partition(0)],
+            vec![test::make_partition(1)],
+            vec![test::make_partition(2)],
+            vec![test::make_partition(3)],
+            vec![test::make_partition(4)],
+            vec![test::make_partition(5)],
         ];
         let schema = partitions[0][0].schema();
         let provider = Arc::new(MemTable::try_new(schema, partitions).unwrap());
@@ -1836,9 +1824,68 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn limit_multi_batch() -> Result<()> {
+        let tmp_dir = TempDir::new()?;
+        let mut ctx = create_ctx(&tmp_dir, 1)?;
+
+        let partitions = vec![
+            vec![
+                test::make_partition(0),
+                test::make_partition(1),
+                test::make_partition(2),
+            ],
+            vec![
+                test::make_partition(1),
+                test::make_partition(2),
+                test::make_partition(3),
+            ],
+            vec![
+                test::make_partition(2),
+                test::make_partition(3),
+                test::make_partition(4),
+            ],
+            vec![
+                test::make_partition(3),
+                test::make_partition(4),
+                test::make_partition(5),
+            ],
+            vec![
+                test::make_partition(4),
+                test::make_partition(5),
+                test::make_partition(6),
+            ],
+            vec![
+                test::make_partition(5),
+                test::make_partition(6),
+                test::make_partition(7),
+            ],
+        ];
+        let schema = partitions[0][0].schema();
+        let provider = Arc::new(MemTable::try_new(schema, partitions).unwrap());
+
+        ctx.register_table("t", provider).unwrap();
+
+        // select all rows
+        let results = plan_and_collect(&mut ctx, "SELECT i FROM t").await.unwrap();
+
+        let num_rows: usize = results.into_iter().map(|b| b.num_rows()).sum();
+        assert_eq!(num_rows, 63);
+
+        for limit in 1..10 {
+            let query = format!("SELECT i FROM t limit {}", limit);
+            let results = plan_and_collect(&mut ctx, &query).await.unwrap();
+
+            let num_rows: usize = results.into_iter().map(|b| b.num_rows()).sum();
+            assert_eq!(num_rows, limit, "mismatch with query {}", query);
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn case_sensitive_identifiers_functions() {
         let mut ctx = ExecutionContext::new();
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         let expected = vec![
@@ -1878,7 +1925,7 @@ mod tests {
     #[tokio::test]
     async fn case_sensitive_identifiers_user_defined_functions() -> Result<()> {
         let mut ctx = ExecutionContext::new();
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         let myfunc = |args: &[ArrayRef]| Ok(Arc::clone(&args[0]));
@@ -1918,7 +1965,7 @@ mod tests {
     #[tokio::test]
     async fn case_sensitive_identifiers_aggregates() {
         let mut ctx = ExecutionContext::new();
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         let expected = vec![
@@ -1958,7 +2005,7 @@ mod tests {
     #[tokio::test]
     async fn case_sensitive_identifiers_user_defined_aggregates() -> Result<()> {
         let mut ctx = ExecutionContext::new();
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         // Note capitalizaton
@@ -2356,19 +2403,6 @@ mod tests {
         Ok(())
     }
 
-    fn table_with_sequence(
-        seq_start: i32,
-        seq_end: i32,
-    ) -> Result<Arc<dyn TableProvider>> {
-        let schema = Arc::new(Schema::new(vec![Field::new("i", DataType::Int32, true)]));
-        let arr = Arc::new(Int32Array::from((seq_start..=seq_end).collect::<Vec<_>>()));
-        let partitions = vec![vec![RecordBatch::try_new(
-            schema.clone(),
-            vec![arr as ArrayRef],
-        )?]];
-        Ok(Arc::new(MemTable::try_new(schema, partitions)?))
-    }
-
     #[tokio::test]
     async fn information_schema_tables_not_exist_by_default() {
         let mut ctx = ExecutionContext::new();
@@ -2411,7 +2445,7 @@ mod tests {
         );
 
         // Now, register an empty table
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         let result =
@@ -2431,7 +2465,7 @@ mod tests {
         assert_batches_sorted_eq!(expected, &result);
 
         // Newly added tables should appear
-        ctx.register_table("t2", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t2", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         let result =
@@ -2460,10 +2494,10 @@ mod tests {
         let catalog = MemoryCatalogProvider::new();
         let schema = MemorySchemaProvider::new();
         schema
-            .register_table("t1".to_owned(), table_with_sequence(1, 1).unwrap())
+            .register_table("t1".to_owned(), test::table_with_sequence(1, 1).unwrap())
             .unwrap();
         schema
-            .register_table("t2".to_owned(), table_with_sequence(1, 1).unwrap())
+            .register_table("t2".to_owned(), test::table_with_sequence(1, 1).unwrap())
             .unwrap();
         catalog.register_schema("my_schema", Arc::new(schema));
         ctx.register_catalog("my_catalog", Arc::new(catalog));
@@ -2471,7 +2505,7 @@ mod tests {
         let catalog = MemoryCatalogProvider::new();
         let schema = MemorySchemaProvider::new();
         schema
-            .register_table("t3".to_owned(), table_with_sequence(1, 1).unwrap())
+            .register_table("t3".to_owned(), test::table_with_sequence(1, 1).unwrap())
             .unwrap();
         catalog.register_schema("my_other_schema", Arc::new(schema));
         ctx.register_catalog("my_other_catalog", Arc::new(catalog));
@@ -2503,7 +2537,7 @@ mod tests {
     async fn information_schema_show_tables_no_information_schema() {
         let mut ctx = ExecutionContext::with_config(ExecutionConfig::new());
 
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         // use show tables alias
@@ -2518,7 +2552,7 @@ mod tests {
             ExecutionConfig::new().with_information_schema(true),
         );
 
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         // use show tables alias
@@ -2544,7 +2578,7 @@ mod tests {
     async fn information_schema_show_columns_no_information_schema() {
         let mut ctx = ExecutionContext::with_config(ExecutionConfig::new());
 
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         let err = plan_and_collect(&mut ctx, "SHOW COLUMNS FROM t")
@@ -2558,7 +2592,7 @@ mod tests {
     async fn information_schema_show_columns_like_where() {
         let mut ctx = ExecutionContext::with_config(ExecutionConfig::new());
 
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         let expected =
@@ -2582,7 +2616,7 @@ mod tests {
             ExecutionConfig::new().with_information_schema(true),
         );
 
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         let result = plan_and_collect(&mut ctx, "SHOW COLUMNS FROM t")
@@ -2620,7 +2654,7 @@ mod tests {
             ExecutionConfig::new().with_information_schema(true),
         );
 
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         let result = plan_and_collect(&mut ctx, "SHOW FULL COLUMNS FROM t")
@@ -2649,7 +2683,7 @@ mod tests {
             ExecutionConfig::new().with_information_schema(true),
         );
 
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         let result = plan_and_collect(&mut ctx, "SHOW COLUMNS FROM public.t")
@@ -2752,7 +2786,7 @@ mod tests {
         let schema = MemorySchemaProvider::new();
 
         schema
-            .register_table("t1".to_owned(), table_with_sequence(1, 1).unwrap())
+            .register_table("t1".to_owned(), test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         schema
@@ -2790,7 +2824,7 @@ mod tests {
         );
 
         assert!(matches!(
-            ctx.register_table("test", table_with_sequence(1, 1)?),
+            ctx.register_table("test", test::table_with_sequence(1, 1)?),
             Err(DataFusionError::Plan(_))
         ));
 
@@ -2812,7 +2846,7 @@ mod tests {
 
         let catalog = MemoryCatalogProvider::new();
         let schema = MemorySchemaProvider::new();
-        schema.register_table("test".to_owned(), table_with_sequence(1, 1)?)?;
+        schema.register_table("test".to_owned(), test::table_with_sequence(1, 1)?)?;
         catalog.register_schema("my_schema", Arc::new(schema));
         ctx.register_catalog("my_catalog", Arc::new(catalog));
 
@@ -2842,13 +2876,15 @@ mod tests {
 
         let catalog_a = MemoryCatalogProvider::new();
         let schema_a = MemorySchemaProvider::new();
-        schema_a.register_table("table_a".to_owned(), table_with_sequence(1, 1)?)?;
+        schema_a
+            .register_table("table_a".to_owned(), test::table_with_sequence(1, 1)?)?;
         catalog_a.register_schema("schema_a", Arc::new(schema_a));
         ctx.register_catalog("catalog_a", Arc::new(catalog_a));
 
         let catalog_b = MemoryCatalogProvider::new();
         let schema_b = MemorySchemaProvider::new();
-        schema_b.register_table("table_b".to_owned(), table_with_sequence(1, 2)?)?;
+        schema_b
+            .register_table("table_b".to_owned(), test::table_with_sequence(1, 2)?)?;
         catalog_b.register_schema("schema_b", Arc::new(schema_b));
         ctx.register_catalog("catalog_b", Arc::new(catalog_b));
 
