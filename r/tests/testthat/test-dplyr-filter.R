@@ -283,7 +283,7 @@ test_that("filter environment scope", {
   )
   # Also for functions
   # 'could not find function "isEqualTo"' because we haven't defined it yet
-  expect_dplyr_error(filter(batch, isEqualTo(int, 4)), tbl)
+  expect_dplyr_error(input %>% filter(isEqualTo(int, 4)), tbl)
   
 
   skip("Need to substitute in user defined function too")
