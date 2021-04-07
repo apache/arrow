@@ -27,8 +27,10 @@ ARG go=1.15
 
 COPY ci/conda_env_archery.yml /arrow/ci/
 RUN conda install -q \
+        --file arrow/ci/conda_env_cpp.yml \
         --file arrow/ci/conda_env_archery.yml \
         numpy \
+        compilers \
         maven=${maven} \
         nodejs=${node} \
         openjdk=${jdk} && \
