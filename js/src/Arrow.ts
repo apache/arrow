@@ -24,7 +24,7 @@ export {
     MetadataVersion,
 } from './fb/Schema';
 
-export { MessageHeader } from './fb/Message'
+export { MessageHeader } from './fb/Message';
 
 export { Type, BufferType } from './enum';
 
