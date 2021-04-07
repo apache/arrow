@@ -619,8 +619,8 @@ TYPED_TEST(TestBinaryArithmeticFloating, Power) {
     this->AssertBinop(Power, "[3.4, NaN, 2.0]", "[1, 2, 2.0]", "[3.4, NaN, 4.0]");
     // Scalar exponentiated by scalar
     this->AssertBinop(Power, 21.0F, 3.0F, 9261.0F);
-    // Divide by zero raises
-    this->AssertBinopRaises(Power, MakeArray(0.0), MakeArray(-1.0), "divide by zero");
+    // Divide by zero
+    this->AssertBinop(Power, "[0.0, 0.0]", "[-1.0, -3.0]", "[Inf, Inf]");
     // Check overflow behaviour
     this->AssertBinop(Power, max, 10, INFINITY);
   }
@@ -628,7 +628,7 @@ TYPED_TEST(TestBinaryArithmeticFloating, Power) {
   // Edge cases - removing NaNs
   this->AssertBinop(Power, "[1, NaN, 0, null, 1.2, -Inf, Inf, 1.1, 1, 0, 1, 0]",
                     "[NaN, 0, NaN, 1, null, 1, 2, -Inf, Inf, 0, 0, 42]",
-                    "[1, 1, 0, null, null, -Inf, Inf, 0, 1, 1, 1, 0]");
+                    "[1, 1, NaN, null, null, -Inf, Inf, 0, 1, 1, 1, 0]");
 }
 
 TYPED_TEST(TestBinaryArithmeticIntegral, Power) {

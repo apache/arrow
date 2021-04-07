@@ -254,7 +254,7 @@ inline T integer_power(KernelContext* ctx, T left, T right) {
     if (!right) {
       break;
     }
-    left *= left;
+    left = to_unsigned(left) * to_unsigned(left);
   }
   return result;
 }
@@ -288,13 +288,7 @@ inline T integer_power_checked(KernelContext* ctx, Arg0 left, Arg1 right) {
 
 template <typename T, typename Arg0, typename Arg1>
 inline T power(KernelContext* ctx, Arg0 left, Arg1 right) {
-  if (left == 0 && right < 0) {
-    ctx->SetStatus(Status::Invalid("divide by zero"));
-  }
-  if (left == 0 && right != 0) {
-    return 0;
-  }
-  return pow(left, right);
+  return std::pow(left, right);
 }
 
 struct Power {
