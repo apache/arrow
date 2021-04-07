@@ -403,10 +403,26 @@ build_function_list <- function(FUN) {
       FUN("cast", x, options = cast_options(to_type = float64()))
     },
     as.integer = function(x) {
-      FUN("cast", x, options = cast_options(to_type = int32()))
+      FUN(
+        "cast",
+        x,
+        options = cast_options(
+          to_type = int32(),
+          allow_float_truncate = TRUE,
+          allow_decimal_truncate = TRUE
+        )
+      )
     },
     as.integer64 = function(x) {
-      FUN("cast", x, options = cast_options(to_type = int64()))
+      FUN(
+        "cast",
+        x,
+        options = cast_options(
+          to_type = int64(),
+          allow_float_truncate = TRUE,
+          allow_decimal_truncate = TRUE
+        )
+      )
     },
     as.logical = function(x) {
       FUN("cast", x, options = cast_options(to_type = boolean()))
