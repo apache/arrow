@@ -7,7 +7,7 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r}
+```{r, error=TRUE}
 run <- tolower(Sys.getenv("RUN_DEVDOCS", "false")) == "true"
 run_macos <- run & tolower(Sys.getenv("DEVDOCS_MACOS", "false")) == "true"
 run_ubuntu <- run & tolower(Sys.getenv("DEVDOCS_UBUNTU", "false")) == "true"
@@ -21,15 +21,15 @@ print(run_ubuntu)
 
 Proof of concept for developer documentation that builds itself.
 
-```{bash, eval=run_macos}
+```{bash, eval=run_macos, error=TRUE}
 brew install openssl
 ```
 
-```{bash, eval=run_ubuntu}
+```{bash, eval=run_ubuntu, error=TRUE}
 sudo apt install libcurl4-openssl-dev libssl-dev
 ```
 
-```{bash, eval=run}
+```{bash, eval=run, error=TRUE}
 cd arrow/cpp
 mkdir build
 cd build
@@ -46,12 +46,13 @@ cmake \
   -DARROW_WITH_SNAPPY=ON \
   -DARROW_WITH_ZLIB=ON \
   -DARROW_INSTALL_NAME_RPATH=OFF \
-      ..
+  ..
 make install
+
 ```
 
 
-```{bash, eval = run}
+```{bash, eval = run, error=TRUE}
 echo $(pkg-config --cflags --silence-errors arrow)
 echo $(pkg-config --libs-only-l --silence-errors arrow)
 echo $(pkg-config --libs-only-L --silence-errors arrow)
