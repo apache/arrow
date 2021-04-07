@@ -1770,7 +1770,7 @@ mod tests {
         let arr = Arc::new(Int32Array::from(values));
         let arr = arr as ArrayRef;
 
-        RecordBatch::try_new(schema.clone(), vec![arr]).unwrap()
+        RecordBatch::try_new(schema, vec![arr]).unwrap()
     }
 
     #[tokio::test]
