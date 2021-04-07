@@ -66,6 +66,7 @@ class FunctionHolderRegistry {
                                  {"to_date", LAMBDA_MAKER(ToDateHolder)},
                                  {"to_time", LAMBDA_MAKER(ToTimeHolder)},
                                  {"to_timestamp", LAMBDA_MAKER(ToTimestampHolder)},
+                                 {"unix_timestamp", LAMBDA_MAKER(UnixTimestampHolder)},
                                  {"random", LAMBDA_MAKER(RandomGeneratorHolder)},
                                  {"rand", LAMBDA_MAKER(RandomGeneratorHolder)},
                                  {"regexp_replace", LAMBDA_MAKER(ReplaceHolder)},

@@ -33,7 +33,7 @@
 namespace gandiva {
 
 /// Function Holder that is father for the class that executes `
-/// 'to_time', 'to_date' and 'to_timestamp' functions
+/// 'to_time', 'to_date', 'to_timestamp' and 'unix_timestamp' functions
 template <typename HOLDER_TYPE>
 class GANDIVA_EXPORT ToDateFunctionsHolder : public FunctionHolder {
  public:
@@ -207,6 +207,46 @@ class GANDIVA_EXPORT ToTimestampHolder : public ToDateFunctionsHolder<ToTimestam
                      std::shared_ptr<ToTimestampHolder>* holder) {
     return ToDateFunctionsHolder<ToTimestampHolder>::Make(sql_pattern, suppress_errors,
                                                           holder);
+  }
+};
+
+/// Function Holder for SQL 'unix_timestamp'
+class GANDIVA_EXPORT UnixTimestampHolder
+    : public ToDateFunctionsHolder<UnixTimestampHolder> {
+ public:
+  ~UnixTimestampHolder() override = default;
+
+  UnixTimestampHolder(const std::string& pattern, int32_t suppress_errors)
+      : ToDateFunctionsHolder<UnixTimestampHolder>(pattern, suppress_errors, false,
+                                                   ::arrow::TimeUnit::MILLI) {}
+
+  static Status Make(const FunctionNode& node,
+                     std::shared_ptr<UnixTimestampHolder>* holder) {
+    if (node.children().size() == 1) {
+      return Status::Invalid("unix_timestamp function requires at least one parameter");
+    }
+
+    if (node.children().size() > 1) {
+      // It means that the function called was
+      // unix_timestamp(given_string, format, [supress_error]) and
+      // it behaves like the to_timestamp(string, format, [supress_error])
+      // function
+      const std::string function_name("unix_timestamp");
+      return ToDateFunctionsHolder<UnixTimestampHolder>::Make(node, holder,
+                                                              function_name);
+    }
+
+    // It means that the function called was unix_timestamp(string)
+    // so the behavior will be like the function
+    // unix_timestamp(string, "YYYY-MM-DD HH24:MI:SS", 0)
+    const std::string pattern("YYYY-MM-DD HH24:MI:SS");
+    return Make(pattern, 0, holder);
+  }
+
+  static Status Make(const std::string& sql_pattern, int32_t suppress_errors,
+                     std::shared_ptr<UnixTimestampHolder>* holder) {
+    return ToDateFunctionsHolder<UnixTimestampHolder>::Make(sql_pattern, suppress_errors,
+                                                            holder);
   }
 };
 }  // namespace gandiva
