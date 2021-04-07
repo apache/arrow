@@ -1824,65 +1824,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn limit_multi_batch() -> Result<()> {
-        let tmp_dir = TempDir::new()?;
-        let mut ctx = create_ctx(&tmp_dir, 1)?;
-
-        let partitions = vec![
-            vec![
-                test::make_partition(0),
-                test::make_partition(1),
-                test::make_partition(2),
-            ],
-            vec![
-                test::make_partition(1),
-                test::make_partition(2),
-                test::make_partition(3),
-            ],
-            vec![
-                test::make_partition(2),
-                test::make_partition(3),
-                test::make_partition(4),
-            ],
-            vec![
-                test::make_partition(3),
-                test::make_partition(4),
-                test::make_partition(5),
-            ],
-            vec![
-                test::make_partition(4),
-                test::make_partition(5),
-                test::make_partition(6),
-            ],
-            vec![
-                test::make_partition(5),
-                test::make_partition(6),
-                test::make_partition(7),
-            ],
-        ];
-        let schema = partitions[0][0].schema();
-        let provider = Arc::new(MemTable::try_new(schema, partitions).unwrap());
-
-        ctx.register_table("t", provider).unwrap();
-
-        // select all rows
-        let results = plan_and_collect(&mut ctx, "SELECT i FROM t").await.unwrap();
-
-        let num_rows: usize = results.into_iter().map(|b| b.num_rows()).sum();
-        assert_eq!(num_rows, 63);
-
-        for limit in 1..10 {
-            let query = format!("SELECT i FROM t limit {}", limit);
-            let results = plan_and_collect(&mut ctx, &query).await.unwrap();
-
-            let num_rows: usize = results.into_iter().map(|b| b.num_rows()).sum();
-            assert_eq!(num_rows, limit, "mismatch with query {}", query);
-        }
-
-        Ok(())
-    }
-
-    #[tokio::test]
     async fn case_sensitive_identifiers_functions() {
         let mut ctx = ExecutionContext::new();
         ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())

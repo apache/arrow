@@ -182,6 +182,7 @@ pub fn make_partition(sz: i32) -> RecordBatch {
     RecordBatch::try_new(schema, vec![arr]).unwrap()
 }
 
+pub mod exec;
 pub mod user_defined;
 pub mod variable;
 
