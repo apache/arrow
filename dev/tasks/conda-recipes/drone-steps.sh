@@ -12,9 +12,11 @@ conda install -y mamba
 $FEEDSTOCK_ROOT/build_steps.sh ${OUTPUT_DIR}
 
 # Upload as Github release
-mamba install -y click github3.py jinja2 jira pygit2 ruamel.yaml setuptools_scm toolz anaconda-client shyaml -c conda-forge
+mamba install -y anaconda-client shyaml -c conda-forge
+pip install arrow/dev/archery[crossbow]
+
 pushd $DRONE_WORKSPACE
-python arrow/dev/tasks/crossbow.py \
+archery crossbow \
   --queue-path . \
   --queue-remote ${QUEUE_REMOTE_URL} \
   upload-artifacts \

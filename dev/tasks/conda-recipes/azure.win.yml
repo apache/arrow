@@ -1,3 +1,5 @@
+{% import 'macros.jinja' as macros with context %}
+
 jobs:
 - job: win
   pool:
@@ -41,12 +43,7 @@ jobs:
       displayName: Install conda-build and activate environment
     - script: set PYTHONUNBUFFERED=1
 
-    - script: |
-        git clone --no-checkout {{ arrow.remote }} arrow
-        git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-        git -C arrow checkout FETCH_HEAD
-        git -C arrow submodule update --init --recursive
-      displayName: Clone arrow
+    {{ macros.azure_checkout()|indent }}
 
     # Configure the VM
     - script: setup_conda_rc .\ .\ .\.ci_support\%CONFIG%.yaml
@@ -76,23 +73,7 @@ jobs:
         PYTHONUNBUFFERED: 1
       condition: contains(variables['R_CONFIG'], 'win')
 
-    # Using github release tries to find a common ancestor between the
-    # currently pushed tag and the latest tag of the github repository
-    # (don't know why).
-    # The tag upload took 43 minutes because of this scan, so use an
-    # alternative upload script.
-    - script: pip install arrow/dev/archery[crossbow]
-    - script: |
-        archery crossbow ^
-          --queue-path . ^
-          --queue-remote {{ queue_remote_url }} ^
-          upload-artifacts ^
-          --sha {{ task.branch }} ^
-          --tag {{ task.tag }} ^
-          --pattern "D:\bld\win-64\*.tar.bz2"
-      env:
-        CROSSBOW_GITHUB_TOKEN: $(CROSSBOW_GITHUB_TOKEN)
-      displayName: Upload packages as a GitHub release
+    {{ macros.azure_upload("D:\bld\win-64\*.tar.bz2")|indent }}
 
     {% if arrow.branch == 'master' %}
     # Upload to custom anaconda channel

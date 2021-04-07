@@ -39,7 +39,7 @@ jobs:
         with:
           python-version: 3.8
       - name: Install Archery and Crossbow dependencies
-        run: pip install -e arrow/dev/archery[bot]
+        run: pip install -e arrow/dev/archery[crossbow]
       - name: Handle Github comment event
         env:
           ARROW_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
