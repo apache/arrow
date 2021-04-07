@@ -803,8 +803,7 @@ class TaskStatus:
 
     def __init__(self, commit):
         status = commit.status()
-        check_runs = commit.check_runs()
-
+        check_runs = list(commit.check_runs())
         states = [s.state for s in status.statuses]
 
         for check in check_runs:
@@ -1093,10 +1092,11 @@ class ConsoleReport(Report):
     """Report the status of a Job to the console using click"""
 
     # output table's header template
-    HEADER = '[{state:>7}] {branch:<49} {content:>20}'
+    HEADER = '[{state:>7}] {branch:<52} {content:>16}'
+    DETAILS = ' └ {url}'
 
     # output table's row template for assets
-    ARTIFACT_NAME = '{artifact:>70} '
+    ARTIFACT_NAME = '{artifact:>69} '
     ARTIFACT_STATE = '[{state:>7}]'
 
     # state color mapping to highlight console output
@@ -1158,8 +1158,15 @@ class ConsoleReport(Report):
             # mapping of artifact pattern to asset or None of not uploaded
             n_expected = len(task.artifacts)
             n_uploaded = len(assets.uploaded_assets())
-            echo(self.lead(status.combined_state, task.branch, n_uploaded,
+            echo(self.lead(status.combined_state, task_name, n_uploaded,
                            n_expected))
+
+            # show link to the actual build, some of the CI providers implement
+            # the statuses API others implement the checks API, so display both
+            for s in status.github_status.statuses:
+                echo(self.DETAILS.format(url=s.target_url))
+            for c in status.github_check_runs:
+                echo(self.DETAILS.format(url=c.html_url))
 
             # write per asset status
             for artifact_pattern, asset in assets.items():

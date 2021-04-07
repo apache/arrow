@@ -22,6 +22,7 @@ import numpy as np
 import pytest
 
 import pyarrow as pa
+from pyarrow.fs import LocalFileSystem, SubTreeFileSystem
 from pyarrow.tests.parquet.common import (
     parametrize_legacy_dataset, parametrize_legacy_dataset_not_supported)
 from pyarrow.util import guid
@@ -668,3 +669,19 @@ def test_dataset_read_pandas_common_metadata(tempdir, preserve_index):
     expected.index.name = (
         df.index.name if preserve_index is not False else None)
     tm.assert_frame_equal(result, expected)
+
+
+@pytest.mark.pandas
+def test_read_pandas_passthrough_keywords(tempdir):
+    # ARROW-11464 - previously not all keywords were passed through (such as
+    # the filesystem keyword)
+    df = pd.DataFrame({'a': [1, 2, 3]})
+
+    filename = tempdir / 'data.parquet'
+    _write_table(df, filename)
+
+    result = pq.read_pandas(
+        'data.parquet',
+        filesystem=SubTreeFileSystem(str(tempdir), LocalFileSystem())
+    )
+    assert result.equals(pa.table(df))

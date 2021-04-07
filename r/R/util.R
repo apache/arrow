@@ -86,3 +86,11 @@ all_names <- function(expr) {
 is_constant <- function(expr) {
   length(all_vars(expr)) == 0
 }
+
+handle_embedded_nul_error <- function(e) {
+  msg <- conditionMessage(e)
+  if (grepl(" nul ", msg)) {
+    e$message <- paste0(msg, "; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul = TRUE)")
+  }
+  stop(e)
+}

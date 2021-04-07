@@ -39,7 +39,7 @@ use arrow::record_batch::RecordBatch;
 
 use crate::error::{DataFusionError, Result};
 use crate::logical_plan::Operator;
-use crate::physical_plan::expressions::cast;
+use crate::physical_plan::expressions::try_cast;
 use crate::physical_plan::{ColumnarValue, PhysicalExpr};
 use crate::scalar::ScalarValue;
 
@@ -547,8 +547,8 @@ fn binary_cast(
     let cast_type = common_binary_type(lhs_type, op, rhs_type)?;
 
     Ok((
-        cast(lhs, input_schema, cast_type.clone())?,
-        cast(rhs, input_schema, cast_type)?,
+        try_cast(lhs, input_schema, cast_type.clone())?,
+        try_cast(rhs, input_schema, cast_type)?,
     ))
 }
 

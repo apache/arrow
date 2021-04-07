@@ -30,6 +30,7 @@ Imports:
     purrr,
     R6,
     rlang,
+    stats,
     tidyselect,
     utils,
     vctrs
@@ -48,7 +49,8 @@ Suggests:
     rmarkdown,
     stringr,
     testthat,
-    tibble
+    tibble,
+    withr
 LinkingTo: cpp11 (>= 0.2.0)
 Collate:
     'enums.R'

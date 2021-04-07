@@ -15,53 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG arch=amd64
-FROM ${arch}/ubuntu:18.04
-
-# arch is unset after the FROM statement, so need to define it again
-ARG arch=amd64
-ARG prefix=/opt/conda
-
-# install build essentials
-RUN export DEBIAN_FRONTEND=noninteractive && \
-    apt-get update -y -q && \
-    apt-get install -y -q wget tzdata libc6-dbg \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-ENV PATH=${prefix}/bin:$PATH
-# install conda and minio
-COPY ci/scripts/install_conda.sh \
-     ci/scripts/install_minio.sh \
-     /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_conda.sh ${arch} linux latest ${prefix}
-RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest ${prefix}
+ARG repo
+ARG arch
+FROM ${repo}:${arch}-conda
 
 # install the required conda packages into the test environment
 COPY ci/conda_env_cpp.yml \
      ci/conda_env_gandiva.yml \
-     ci/conda_env_unix.yml \
      /arrow/ci/
-RUN conda create -n arrow -q \
-        --file arrow/ci/conda_env_unix.yml \
+RUN conda install \
         --file arrow/ci/conda_env_cpp.yml \
         --file arrow/ci/conda_env_gandiva.yml \
         compilers \
         doxygen \
         gdb \
-        git \
         valgrind && \
     conda clean --all
-
-# activate the created environment by default
-RUN echo "conda activate arrow" >> ~/.profile
-ENV CONDA_PREFIX=${prefix}/envs/arrow
-
-# use login shell to activate arrow environment un the RUN commands
-SHELL [ "/bin/bash", "-c", "-l" ]
-
-# use login shell when running the container
-ENTRYPOINT [ "/bin/bash", "-c", "-l" ]
 
 ENV ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \

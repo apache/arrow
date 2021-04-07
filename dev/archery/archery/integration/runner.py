@@ -134,7 +134,6 @@ class IntegrationRunner(object):
                 skip.add("JS")
                 skip.add("Rust")
             if prefix == '2.0.0-compression':
-                skip.add("Go")
                 skip.add("JS")
                 skip.add("Rust")
 

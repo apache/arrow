@@ -264,11 +264,7 @@ impl LogicalPlanBuilder {
             Ok(Self::from(&LogicalPlan::Join {
                 left: Arc::new(self.plan.clone()),
                 right: Arc::new(right.clone()),
-                on: left_keys
-                    .iter()
-                    .zip(right_keys.iter())
-                    .map(|(l, r)| (l.to_string(), r.to_string()))
-                    .collect(),
+                on,
                 join_type,
                 schema: DFSchemaRef::new(join_schema),
             }))
