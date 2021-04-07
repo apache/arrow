@@ -58,7 +58,7 @@ echo $(pkg-config --libs-only-L --silence-errors arrow)
 ```
 
 ```{bash, eval=run}
-cd ../../r
+cd arrow/r
 R -e 'install.packages("remotes"); remotes::install_deps(dependencies = TRUE)'
 
 R CMD INSTALL .
