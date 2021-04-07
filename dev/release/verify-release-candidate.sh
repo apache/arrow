@@ -414,10 +414,10 @@ test_js() {
     nvm install --lts
   fi
 
-  npm install
+  yarn --frozen-lockfile
   # clean, lint, and build JS source
   npx run-s clean:all lint build
-  npm run test
+  yarn test
   popd
 }
 
