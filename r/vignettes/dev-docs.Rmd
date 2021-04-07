@@ -97,7 +97,7 @@ cd build
 ```
 
 ```{bash, save=run & !sys_install}
-mkdir ARROW_HOME
+mkdir $ARROW_HOME
 
 echo $ARROW_HOME
 echo $LD_LIBRARY_PATH
