@@ -422,6 +422,8 @@ build_function_list <- function(FUN) {
         both = FUN("utf8_trim_whitespace", string)
       )
     },
+    grepl = arrow_r_string_match_function(FUN),
+    str_detect = arrow_stringr_string_match_function(FUN),
     sub = arrow_r_string_replace_function(FUN, 1L),
     gsub = arrow_r_string_replace_function(FUN, -1L),
     str_replace = arrow_stringr_string_replace_function(FUN, 1L),
@@ -438,34 +440,38 @@ build_function_list <- function(FUN) {
   )
 }
 
+arrow_r_string_match_function <- function(FUN) {
+  function(pattern, x, ignore.case = FALSE, fixed = FALSE) {
+    FUN(
+      ifelse(fixed && !ignore.case, "match_substring", "match_substring_regex"),
+      x,
+      options = list(pattern = format_string_pattern(pattern, ignore.case, fixed))
+    )
+  }
+}
+
+arrow_stringr_string_match_function <- function(FUN) {
+  function(string, pattern, negate = FALSE) {
+    opts <- get_stringr_pattern_options(enexpr(pattern))
+    out <- arrow_r_string_match_function(FUN)(
+      pattern = opts$pattern,
+      x = string,
+      ignore.case = opts$ignore_case,
+      fixed = opts$fixed
+    )
+    if (negate) out <- FUN("invert", out)
+    out
+  }
+}
+
 arrow_r_string_replace_function <- function(FUN, max_replacements) {
   function(pattern, replacement, x, ignore.case = FALSE, fixed = FALSE) {
-    if (ignore.case) {
-      # Prepend "(?i)" to the regex for case insensitivity
-      if (fixed) {
-        # Arrow lacks native support for case-insensitive literal string
-        # replacement, so we use the regular expression engine (RE2) to do this.
-        # https://github.com/google/re2/wiki/Syntax
-        #
-        # Everything between "\Q" and "\E" is treated as literal text.
-        #
-        # If the search text contains any literal "\E" strings, make them
-        # lowercase so they won't signal the end of the literal text:
-        pattern <- gsub("\\E", "\\e", pattern, fixed = TRUE)
-        pattern <- paste0("(?i)\\Q", pattern, "\\E")
-        # Escape single backslashes in the regex replacement text so they are
-        # interpreted as literal backslashes:
-        replacement <- gsub("\\", "\\\\", replacement, fixed = TRUE)
-      } else {
-        pattern <- paste0("(?i)", pattern)
-      }
-    }
     FUN(
       ifelse(fixed && !ignore.case, "replace_substring", "replace_substring_regex"),
       x,
       options = list(
-        pattern = pattern,
-        replacement = replacement,
+        pattern = format_string_pattern(pattern, ignore.case, fixed),
+        replacement =  format_string_replacement(replacement, ignore.case, fixed),
         max_replacements = max_replacements
       )
     )
@@ -474,42 +480,7 @@ arrow_r_string_replace_function <- function(FUN, max_replacements) {
 
 arrow_stringr_string_replace_function <- function(FUN, max_replacements) {
   function(string, pattern, replacement) {
-    # Assign stringr pattern modifier functions locally
-    fixed <- function(pattern, ignore_case = FALSE, ...) {
-      check_dots(...)
-      list(pattern = pattern, fixed = TRUE, ignore_case = ignore_case)
-    }
-    regex <- function(pattern, ignore_case = FALSE, ...) {
-      check_dots(...)
-      list(pattern = pattern, fixed = FALSE, ignore_case = ignore_case)
-    }
-    coll <- boundary <- function(...) {
-      stop(
-        "Pattern modifier `",
-        match.call()[[1]],
-        "()` is not supported in Arrow",
-        call. = FALSE
-      )
-    }
-    check_dots <- function(...) {
-      dots <- list(...)
-      if (length(dots)) {
-        warning(
-          "Ignoring pattern modifier ",
-          ngettext(length(dots), "argument ", "arguments "),
-          "not supported in Arrow: ",
-          oxford_paste(names(dots)),
-          call. = FALSE
-        )
-      }
-    }
-    ensure_opts <- function(opts) {
-      if (is.character(opts)) {
-        opts <- list(pattern = opts, fixed = TRUE, ignore_case = FALSE)
-      }
-      opts
-    }
-    opts <- ensure_opts(eval(enexpr(pattern)))
+    opts <- get_stringr_pattern_options(enexpr(pattern))
     arrow_r_string_replace_function(FUN, max_replacements)(
       pattern = opts$pattern,
       replacement = replacement,
@@ -518,6 +489,79 @@ arrow_stringr_string_replace_function <- function(FUN, max_replacements) {
       fixed = opts$fixed
     )
   }
+}
+
+# format `pattern` as needed for case insensitivity and literal matching by RE2
+format_string_pattern <- function(pattern, ignore.case, fixed) {
+  # Arrow lacks native support for case-insensitive literal string matching and
+  # replacement, so we use the regular expression engine (RE2) to do this.
+  # https://github.com/google/re2/wiki/Syntax
+  if (ignore.case) {
+    if (fixed) {
+      # Everything between "\Q" and "\E" is treated as literal text.
+      # If the search text contains any literal "\E" strings, make them
+      # lowercase so they won't signal the end of the literal text:
+      pattern <- gsub("\\E", "\\e", pattern, fixed = TRUE)
+      pattern <- paste0("\\Q", pattern, "\\E")
+    }
+    # Prepend "(?i)" for case-insensitive matching
+    pattern <- paste0("(?i)", pattern)
+  }
+  pattern
+}
+
+# format `replacement` as needed for literal replacement by RE2
+format_string_replacement <- function(replacement, ignore.case, fixed) {
+  # Arrow lacks native support for case-insensitive literal string
+  # replacement, so we use the regular expression engine (RE2) to do this.
+  # https://github.com/google/re2/wiki/Syntax
+  if (ignore.case && fixed) {
+    # Escape single backslashes in the regex replacement text so they are
+    # interpreted as literal backslashes:
+    replacement <- gsub("\\", "\\\\", replacement, fixed = TRUE)
+  }
+  replacement
+}
+
+# this function assigns definitions for the stringr pattern modifier functions
+# (fixed, regex, etc.) in itself, and uses them to evaluate the quoted
+# expression `pattern`
+get_stringr_pattern_options <- function(pattern) {
+  fixed <- function(pattern, ignore_case = FALSE, ...) {
+    check_dots(...)
+    list(pattern = pattern, fixed = TRUE, ignore_case = ignore_case)
+  }
+  regex <- function(pattern, ignore_case = FALSE, ...) {
+    check_dots(...)
+    list(pattern = pattern, fixed = FALSE, ignore_case = ignore_case)
+  }
+  coll <- boundary <- function(...) {
+    stop(
+      "Pattern modifier `",
+      match.call()[[1]],
+      "()` is not supported in Arrow",
+      call. = FALSE
+    )
+  }
+  check_dots <- function(...) {
+    dots <- list(...)
+    if (length(dots)) {
+      warning(
+        "Ignoring pattern modifier ",
+        ngettext(length(dots), "argument ", "arguments "),
+        "not supported in Arrow: ",
+        oxford_paste(names(dots)),
+        call. = FALSE
+      )
+    }
+  }
+  ensure_opts <- function(opts) {
+    if (is.character(opts)) {
+      opts <- list(pattern = opts, fixed = TRUE, ignore_case = FALSE)
+    }
+    opts
+  }
+  ensure_opts(eval(pattern))
 }
 
 # We'll populate these at package load time.
