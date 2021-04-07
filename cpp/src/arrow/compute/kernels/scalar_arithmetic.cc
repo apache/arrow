@@ -20,7 +20,6 @@
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/type_traits.h"
 
 namespace arrow {
 
@@ -248,13 +247,13 @@ inline T integer_power(KernelContext* ctx, T left, T right) {
   }
   while (true) {
     if (right % 2) {
-      result *= left;
+      MultiplyWithOverflow(result, left, &result);
     }
     right /= 2;
     if (!right) {
       break;
     }
-    left = to_unsigned(left) * to_unsigned(left);
+    MultiplyWithOverflow(left, left, &left);
   }
   return result;
 }
