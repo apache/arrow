@@ -1,6 +1,5 @@
 {% import 'macros.jinja' as macros with context %}
 
-
 jobs:
 - job: osx
   pool:
@@ -30,7 +29,7 @@ jobs:
       conda install -n base -c conda-forge --quiet --yes conda-forge-ci-setup=3 conda-build
     displayName: 'Add conda-forge-ci-setup=3'
 
-  {{ macros.azure_checkout()|indent }}
+  {{ macros.azure_checkout() }}
 
   - script: |
       source activate base
@@ -42,9 +41,8 @@ jobs:
       conda update --yes --quiet --override-channels -c conda-forge -c defaults --all
     displayName: Configure conda and conda-build
     workingDirectory: arrow/dev/tasks/conda-recipes
-    env: {
+    env:
       OSX_FORCE_SDK_DOWNLOAD: "1"
-    }
 
   - script: |
       source activate base
@@ -73,7 +71,7 @@ jobs:
     workingDirectory: arrow/dev/tasks/conda-recipes
     displayName: Build recipes
 
-  {{ macros.azure_upload("arrow/dev/tasks/conda-recipes/build_artifacts/osx-64/*.tar.bz2")|indent }}
+  {{ macros.azure_upload("arrow/dev/tasks/conda-recipes/build_artifacts/osx-64/*.tar.bz2") }}
 
   {% if arrow.branch == 'master' %}
   # Upload to custom anaconda channel

@@ -40,7 +40,7 @@ groups:
   linux-arm64:
     - debian-*-arm64
     - ubuntu-*-arm64
-    - centos-*-aarch64
+    - centos-*-arm64
 
   gandiva:
     - gandiva-*
@@ -236,7 +236,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cuda.tar.bz2
       - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cuda.tar.bz2
 
-  conda-linux-gcc-py36-aarch64:
+  conda-linux-gcc-py36-arm4:
     ci: drone
     template: conda-recipes/drone.yml
     params:
@@ -245,7 +245,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  conda-linux-gcc-py37-aarch64:
+  conda-linux-gcc-py37-arm64:
     ci: drone
     template: conda-recipes/drone.yml
     params:
@@ -254,7 +254,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  conda-linux-gcc-py38-aarch64:
+  conda-linux-gcc-py38-arm64:
     ci: drone
     template: conda-recipes/drone.yml
     params:
@@ -263,7 +263,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  conda-linux-gcc-py39-aarch64:
+  conda-linux-gcc-py39-arm64:
     ci: drone
     template: conda-recipes/drone.yml
     params:
@@ -1082,7 +1082,7 @@ tasks:
       - plasma-store-server-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - plasma-store-server-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
 
-  centos-8-aarch64:
+  centos-8-arm64:
     ci: travis
     template: linux-packages/travis.linux.arm64.yml
     params:
