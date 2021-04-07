@@ -166,14 +166,14 @@ Other flags that may be useful:
 
 You can `-j` here too!
 
-```{bash, save=run & !(system & ubuntu)}
+```{bash, save=run & !(sys_install & ubuntu)}
 make install
 ```
 
 If you are installing on linux, and you are installing to the system, you may  
 need to use `sudo`:
 
-```{bash, save=run & system & ubuntu)}
+```{bash, save=run & sys_install & ubuntu}
 sudo make install
 ```
 
