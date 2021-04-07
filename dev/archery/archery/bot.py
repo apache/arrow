@@ -135,30 +135,30 @@ class CrossbowCommentFormatter:
 
     def render(self, job):
         url = 'https://github.com/{repo}/branches/all?query={branch}'
-        sha = job['target']['head']
+        sha = job.target.head
 
         msg = 'Revision: {}\n\n'.format(sha)
         msg += 'Submitted crossbow builds: [{repo} @ {branch}]'
         msg += '({})\n'.format(url)
         msg += '\n|Task|Status|\n|----|------|'
 
-        tasks = sorted(job['tasks'].items(), key=operator.itemgetter(0))
+        tasks = sorted(job.tasks.items(), key=operator.itemgetter(0))
         for key, task in tasks:
-            branch = task['branch']
+            branch = task.branch
 
             try:
-                template = self.badges[task['ci']]
+                template = self.badges[task.ci]
                 badge = template.format(
                     repo=self.crossbow_repo,
                     repo_dotted=self.crossbow_repo.replace('/', '.'),
                     branch=branch
                 )
             except KeyError:
-                badge = 'unsupported CI service `{}`'.format(task['ci'])
+                badge = 'unsupported CI service `{}`'.format(task.ci)
 
             msg += '\n|{}|{}|'.format(key, badge)
 
-        return msg.format(repo=self.crossbow_repo, branch=job['branch'])
+        return msg.format(repo=self.crossbow_repo, branch=job.branch)
 
 
 class CommentBot:
@@ -280,7 +280,7 @@ def submit(obj, tasks, groups, params, dry_run):
 
     See groups defined in arrow/dev/tasks/tests.yml
     """
-    from ruamel.yaml import YAML
+    from .crossbow.core import yaml
 
     git = Git()
 
@@ -333,7 +333,6 @@ def submit(obj, tasks, groups, params, dry_run):
         )
 
     # parse the result yml describing the submitted job
-    yaml = YAML()
     with result.open() as fp:
         job = yaml.load(fp)
 

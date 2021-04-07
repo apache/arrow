@@ -216,6 +216,7 @@ class Repo:
     require_https : boolean, default False
         Raise exception for SSH origin URLs
     """
+
     def __init__(self, path, github_token=None, remote_url=None,
                  require_https=False):
         self.path = Path(path)
@@ -660,7 +661,8 @@ class Serializable:
 
 
 class Target(Serializable):
-    """Describes target repository and revision the builds run against
+    """
+    Describes target repository and revision the builds run against
 
     This serializable data container holding information about arrow's
     git remote, branch, sha and version number as well as some metadata
@@ -713,7 +715,8 @@ class Target(Serializable):
 
 
 class Task(Serializable):
-    """Describes a build task and metadata required to render CI templates
+    """
+    Describes a build task and metadata required to render CI templates
 
     A task is represented as a single git commit and branch containing jinja2
     rendered files (currently appveyor.yml or .travis.yml configurations).
@@ -790,7 +793,8 @@ class Task(Serializable):
 
 
 class TaskStatus:
-    """Combine the results from status and checks API to a single state.
+    """
+    Combine the results from status and checks API to a single state.
 
     Azure pipelines uses checks API which doesn't provide a combined
     interface like status API does, so we need to manually combine

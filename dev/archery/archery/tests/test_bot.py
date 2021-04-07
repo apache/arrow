@@ -23,8 +23,8 @@ import pytest
 import textwrap
 import responses as rsps
 import click
-from ruamel.yaml import YAML
 
+from archery.crossbow.core import yaml
 from archery.bot import (
     CommentBot, CommandError, CrossbowCommentFormatter, group
 )
@@ -36,13 +36,16 @@ def responses():
         yield mock
 
 
+def fixture_path(name):
+    return Path(__file__).parent / 'fixtures' / name
+
+
 def load_fixture(name):
-    path = Path(__file__).parent / 'fixtures' / name
+    path = fixture_path(name)
     with path.open('r') as fp:
         if name.endswith('.json'):
             return json.load(fp)
         elif name.endswith('.yaml'):
-            yaml = YAML()
             return yaml.load(fp)
         else:
             return fp.read()
@@ -87,8 +90,8 @@ def test_click_based_commands():
 
 
 def test_crossbow_comment_formatter():
-    job = load_fixture('crossbow-job.yaml')
     msg = load_fixture('crossbow-success-message.md')
+    job = load_fixture('crossbow-job.yaml')
 
     formatter = CrossbowCommentFormatter(crossbow_repo='ursa-labs/crossbow')
     response = formatter.render(job)
