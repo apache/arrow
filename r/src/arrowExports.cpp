@@ -931,6 +931,23 @@ extern "C" SEXP _arrow_dataset___UnionDatasetFactory__Make(SEXP children_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
+std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make0(const std::shared_ptr<fs::FileSystem>& fs, const std::vector<std::string>& paths, const std::shared_ptr<ds::FileFormat>& format);
+extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make0(SEXP fs_sexp, SEXP paths_sexp, SEXP format_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
+	arrow::r::Input<const std::vector<std::string>&>::type paths(paths_sexp);
+	arrow::r::Input<const std::shared_ptr<ds::FileFormat>&>::type format(format_sexp);
+	return cpp11::as_sexp(dataset___FileSystemDatasetFactory__Make0(fs, paths, format));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make0(SEXP fs_sexp, SEXP paths_sexp, SEXP format_sexp){
+	Rf_error("Cannot call dataset___FileSystemDatasetFactory__Make0(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make2(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::FileSelector>& selector, const std::shared_ptr<ds::FileFormat>& format, const std::shared_ptr<ds::Partitioning>& partitioning);
 extern "C" SEXP _arrow_dataset___FileSystemDatasetFactory__Make2(SEXP fs_sexp, SEXP selector_sexp, SEXP format_sexp, SEXP partitioning_sexp){
 BEGIN_CPP11
@@ -4290,6 +4307,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___DatasetFactory__Finish2", (DL_FUNC) &_arrow_dataset___DatasetFactory__Finish2, 2}, 
 		{ "_arrow_dataset___DatasetFactory__Inspect", (DL_FUNC) &_arrow_dataset___DatasetFactory__Inspect, 2}, 
 		{ "_arrow_dataset___UnionDatasetFactory__Make", (DL_FUNC) &_arrow_dataset___UnionDatasetFactory__Make, 1}, 
+		{ "_arrow_dataset___FileSystemDatasetFactory__Make0", (DL_FUNC) &_arrow_dataset___FileSystemDatasetFactory__Make0, 3}, 
 		{ "_arrow_dataset___FileSystemDatasetFactory__Make2", (DL_FUNC) &_arrow_dataset___FileSystemDatasetFactory__Make2, 4}, 
 		{ "_arrow_dataset___FileSystemDatasetFactory__Make1", (DL_FUNC) &_arrow_dataset___FileSystemDatasetFactory__Make1, 3}, 
 		{ "_arrow_dataset___FileSystemDatasetFactory__Make3", (DL_FUNC) &_arrow_dataset___FileSystemDatasetFactory__Make3, 4}, 

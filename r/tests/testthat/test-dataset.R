@@ -90,6 +90,13 @@ test_that("Setup (putting data in the dir)", {
   expect_length(dir(tsv_dir, recursive = TRUE), 2)
 })
 
+if(arrow_with_parquet()) {
+  files <- c(
+    file.path(dataset_dir, 1, "file1.parquet", fsep = "/"),
+    file.path(dataset_dir, 2, "file2.parquet", fsep = "/")
+  )
+}
+
 test_that("Simple interface for datasets", {
   skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
@@ -163,7 +170,40 @@ test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_
   )
 })
 
-test_that("dataset from URI", {
+test_that("dataset from single local file path", {
+  skip_on_os("windows")
+  skip_if_not_available("parquet")
+  ds <- open_dataset(files[1])
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7) %>%
+      collect() %>%
+      arrange(dbl),
+    df1[8:10, c("chr", "dbl")]
+  )
+})
+
+test_that("dataset from vector of file paths", {
+  skip_on_os("windows")
+  skip_if_not_available("parquet")
+  ds <- open_dataset(files)
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+})
+
+test_that("dataset from directory URI", {
   skip_on_os("windows")
   skip_if_not_available("parquet")
   uri <- paste0("file://", dataset_dir)
@@ -179,6 +219,50 @@ test_that("dataset from URI", {
       df1[8:10, c("chr", "dbl")],
       df2[1:2, c("chr", "dbl")]
     )
+  )
+})
+
+test_that("dataset from single file URI", {
+  skip_on_os("windows")
+  skip_if_not_available("parquet")
+  uri <- paste0("file://", files[1])
+  ds <- open_dataset(uri)
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7) %>%
+      collect() %>%
+      arrange(dbl),
+    df1[8:10, c("chr", "dbl")]
+  )
+})
+
+test_that("dataset from vector of file URIs", {
+  skip_on_os("windows")
+  skip_if_not_available("parquet")
+  uris <- paste0("file://", files)
+  ds <- open_dataset(uris)
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+})
+
+test_that("open_dataset errors on mixed paths and URIs", {
+  skip_on_os("windows")
+  skip_if_not_available("parquet")
+  expect_error(
+    open_dataset(c(files[1], paste0("file://", files[2]))),
+    "Vectors of mixed paths and URIs are not supported"
   )
 })
 
@@ -535,7 +619,7 @@ test_that("Creating UnionDataset", {
   )
 
   # Confirm c() method error handling
-  expect_error(c(ds1, 42), "string")
+  expect_error(c(ds1, 42), "character")
 })
 
 test_that("InMemoryDataset", {
@@ -1228,13 +1312,6 @@ expect_scan_result <- function(ds, schm) {
   )
 }
 
-if(arrow_with_parquet()) {
-  files <- c(
-    file.path(dataset_dir, 1, "file1.parquet", fsep = "/"),
-    file.path(dataset_dir, 2, "file2.parquet", fsep = "/")
-  )
-}
-
 test_that("Assembling a Dataset manually and getting a Table", {
   skip_if_not_available("parquet")
   fs <- LocalFileSystem$create()
@@ -1242,7 +1319,7 @@ test_that("Assembling a Dataset manually and getting a Table", {
   partitioning <- DirectoryPartitioning$create(schema(part = double()))
 
   fmt <- FileFormat$create("parquet")
-  factory <- FileSystemDatasetFactory$create(fs, selector, fmt, partitioning = partitioning)
+  factory <- FileSystemDatasetFactory$create(fs, selector, NULL, fmt, partitioning = partitioning)
   expect_is(factory, "FileSystemDatasetFactory")
 
   schm <- factory$Inspect()
