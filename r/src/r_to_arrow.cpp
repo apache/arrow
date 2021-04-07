@@ -1013,7 +1013,7 @@ Status vector_to_Array(SEXP x, const std::shared_ptr<arrow::DataType>& type,
   RConversionOptions options;
   options.strict = !type_inferred;
   options.type = type;
-  options.size = vctrs::short_vec_size(x);
+  options.size = vctrs::vec_size(x);
 
   // maybe short circuit when zero-copy is possible
   if (can_reuse_memory(x, options.type)) {
@@ -1061,6 +1061,21 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
 }  // namespace r
 }  // namespace arrow
 
+arrow::Status check_consistent_column_length(
+    const std::vector<std::shared_ptr<arrow::ChunkedArray>>& columns) {
+  if (columns.size()) {
+    int64_t num_rows = columns[0]->length();
+
+    for (const auto& column : columns) {
+      if (column->length() != num_rows) {
+        return arrow::Status::Invalid("All columns must have the same length");
+      }
+    }
+  }
+
+  return arrow::Status::OK();
+}
+
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
   bool infer_schema = !Rf_inherits(schema_sxp, "Schema");
@@ -1073,8 +1088,24 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
   StopIfNotOk(arrow::r::InferSchemaFromDots(lst, schema_sxp, num_fields, schema));
   StopIfNotOk(arrow::r::AddMetadataFromDots(lst, num_fields, schema));
 
+  if (!infer_schema && schema->num_fields() != num_fields) {
+    cpp11::stop("incompatible. schema has %d fields, and %d columns are supplied",
+                schema->num_fields(), num_fields);
+  }
+
   // table
   std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(num_fields);
+
+  if (!infer_schema) {
+    auto check_name = [&](int j, SEXP, cpp11::r_string name) {
+      std::string cpp_name(name);
+      if (schema->field(j)->name() != cpp_name) {
+        cpp11::stop("field at index %d has name '%s' != '%s'", j + 1,
+                    schema->field(j)->name().c_str(), cpp_name.c_str());
+      }
+    };
+    arrow::r::TraverseDots(lst, num_fields, check_name);
+  }
 
   auto parallel_tasks =
       arrow::internal::TaskGroup::MakeThreaded(arrow::internal::GetCpuThreadPool());
@@ -1083,7 +1114,6 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
   arrow::Status status = arrow::Status::OK();
 
   auto flatten_lst = arrow::r::FlattenDots(lst, num_fields);
-
   std::vector<std::unique_ptr<arrow::r::RConverter>> converters(num_fields);
 
   // init converters
@@ -1099,7 +1129,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
       arrow::r::RConversionOptions options;
       options.strict = !infer_schema;
       options.type = schema->field(j)->type();
-      options.size = vctrs::short_vec_size(x);
+      options.size = vctrs::vec_size(x);
 
       // maybe short circuit when zero-copy is possible
       if (arrow::r::can_reuse_memory(x, options.type)) {
@@ -1145,6 +1175,8 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
   }
 
   status &= parallel_tasks->Finish();
+  status &= check_consistent_column_length(columns);
+
   StopIfNotOk(status);
 
   return arrow::Table::Make(schema, columns);
