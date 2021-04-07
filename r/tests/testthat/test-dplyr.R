@@ -178,6 +178,10 @@ test_that("pull", {
 test_that("collect(as_data_frame=FALSE)", {
   batch <- record_batch(tbl)
 
+  b1 <- batch %>% collect(as_data_frame = FALSE)
+
+  expect_is(b1, "RecordBatch")
+
   b2 <- batch %>%
     select(int, chr) %>%
     filter(int > 5) %>%
@@ -206,6 +210,43 @@ test_that("collect(as_data_frame=FALSE)", {
       rename(strng = chr) %>%
       group_by(int)
     )
+})
+
+test_that("compute()", {
+  batch <- record_batch(tbl)
+
+  b1 <- batch %>% compute()
+
+  expect_is(b1, "RecordBatch")
+
+  b2 <- batch %>%
+    select(int, chr) %>%
+    filter(int > 5) %>%
+    compute()
+
+  expect_is(b2, "RecordBatch")
+  expected <- tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")]
+  expect_equal(as.data.frame(b2), expected)
+
+  b3 <- batch %>%
+    select(int, strng = chr) %>%
+    filter(int > 5) %>%
+    compute()
+  expect_is(b3, "RecordBatch")
+  expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
+
+  b4 <- batch %>%
+    select(int, strng = chr) %>%
+    filter(int > 5) %>%
+    group_by(int) %>%
+    compute()
+  expect_is(b4, "arrow_dplyr_query")
+  expect_equal(
+    as.data.frame(b4),
+    expected %>%
+      rename(strng = chr) %>%
+      group_by(int)
+  )
 })
 
 test_that("head", {

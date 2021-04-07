@@ -1152,6 +1152,59 @@ See $.data for the source Arrow object",
   )
 })
 
+test_that("compute()/collect(as_data_frame=FALSE)", {
+  skip_if_not_available("parquet")
+  ds <- open_dataset(dataset_dir)
+
+  tab1 <- ds %>% compute()
+  expect_is(tab1, "Table")
+
+  tab2 <- ds %>% collect(as_data_frame = FALSE)
+  expect_is(tab2, "Table")
+
+  tab3 <-  ds %>%
+    mutate(negint = -int) %>%
+    filter(negint > - 100) %>%
+    arrange(chr) %>%
+    select(negint) %>%
+    compute()
+
+  expect_is(tab3, "Table")
+
+  expect_equal(
+    tab3 %>% collect(),
+    tibble(negint = -1:-10)
+  )
+
+  tab4 <-  ds %>%
+    mutate(negint = -int) %>%
+    filter(negint > - 100) %>%
+    arrange(chr) %>%
+    select(negint) %>%
+    collect(as_data_frame = FALSE)
+
+  expect_is(tab3, "Table")
+
+  expect_equal(
+    tab4 %>% collect(),
+    tibble(negint = -1:-10)
+  )
+
+  tab5 <- ds %>%
+    mutate(negint = -int) %>%
+    group_by(fct) %>%
+    compute()
+
+  # the group_by() prevents compute() from returning a Table...
+  expect_is(tab5, "arrow_dplyr_query")
+
+  # ... but $.data is a Table...
+  expect_is(tab5$.data, "Table")
+  # ... and the mutate() was evaluated
+  expect_true("negint" %in% names(tab5$.data))
+
+})
+
 test_that("head/tail", {
   skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir)
