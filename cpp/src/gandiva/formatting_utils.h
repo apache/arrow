@@ -21,9 +21,6 @@
 #include "arrow/util/formatting.h"
 #include "arrow/vendored/double-conversion/double-conversion.h"
 
-#ifndef ARROW_SRC_GANDIVA_FORMATTING_UTILS_H_
-#define ARROW_SRC_GANDIVA_FORMATTING_UTILS_H_
-
 namespace gandiva {
 
 /// \brief The entry point for conversion to strings.
@@ -70,4 +67,3 @@ class GdvStringFormatter<arrow::DoubleType>
   using FloatToStringGdvMixin::FloatToStringGdvMixin;
 };
 }  // namespace gandiva
-#endif  // ARROW_SRC_GANDIVA_FORMATTING_UTILS_H_
