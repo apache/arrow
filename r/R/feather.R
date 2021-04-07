@@ -183,6 +183,8 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
 #'
 #' - `$Read(columns)`: Returns a `Table` of the selected columns, a vector of
 #'   integer indices
+#' - `$column_names`: Active binding, returns the column names in the Feather file
+#' - `$schema`: Active binding, returns the schema of the Feather file
 #' - `$version`: Active binding, returns `1` or `2`, according to the Feather
 #'   file version
 #'
@@ -192,12 +194,18 @@ FeatherReader <- R6Class("FeatherReader", inherit = ArrowObject,
   public = list(
     Read = function(columns) {
       ipc___feather___Reader__Read(self, columns)
+    },
+    print = function(...) {
+      cat("FeatherReader:\n")
+      print(self$schema)
+      invisible(self)
     }
   ),
   active = list(
     # versions are officially 2 for V1 and 3 for V2 :shrug:
     version = function() ipc___feather___Reader__version(self) - 1L,
-    column_names = function() ipc___feather___Reader__column_names(self)
+    column_names = function() names(self$schema),
+    schema = function() ipc___feather___Reader__schema(self)
   )
 )
 

@@ -2031,11 +2031,11 @@ BEGIN_CPP11
 END_CPP11
 }
 // feather.cpp
-cpp11::writable::strings ipc___feather___Reader__column_names(const std::shared_ptr<arrow::ipc::feather::Reader>& reader);
-extern "C" SEXP _arrow_ipc___feather___Reader__column_names(SEXP reader_sexp){
+std::shared_ptr<arrow::Schema> ipc___feather___Reader__schema(const std::shared_ptr<arrow::ipc::feather::Reader>& reader);
+extern "C" SEXP _arrow_ipc___feather___Reader__schema(SEXP reader_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::ipc::feather::Reader>&>::type reader(reader_sexp);
-	return cpp11::as_sexp(ipc___feather___Reader__column_names(reader));
+	return cpp11::as_sexp(ipc___feather___Reader__schema(reader));
 END_CPP11
 }
 // field.cpp
@@ -4406,7 +4406,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___feather___Reader__version", (DL_FUNC) &_arrow_ipc___feather___Reader__version, 1}, 
 		{ "_arrow_ipc___feather___Reader__Read", (DL_FUNC) &_arrow_ipc___feather___Reader__Read, 2}, 
 		{ "_arrow_ipc___feather___Reader__Open", (DL_FUNC) &_arrow_ipc___feather___Reader__Open, 1}, 
-		{ "_arrow_ipc___feather___Reader__column_names", (DL_FUNC) &_arrow_ipc___feather___Reader__column_names, 1}, 
+		{ "_arrow_ipc___feather___Reader__schema", (DL_FUNC) &_arrow_ipc___feather___Reader__schema, 1}, 
 		{ "_arrow_Field__initialize", (DL_FUNC) &_arrow_Field__initialize, 3}, 
 		{ "_arrow_Field__ToString", (DL_FUNC) &_arrow_Field__ToString, 1}, 
 		{ "_arrow_Field__name", (DL_FUNC) &_arrow_Field__name, 1}, 

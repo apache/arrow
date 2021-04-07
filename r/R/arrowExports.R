@@ -784,8 +784,8 @@ ipc___feather___Reader__Open <- function(stream){
     .Call(`_arrow_ipc___feather___Reader__Open`, stream)
 }
 
-ipc___feather___Reader__column_names <- function(reader){
-    .Call(`_arrow_ipc___feather___Reader__column_names`, reader)
+ipc___feather___Reader__schema <- function(reader){
+    .Call(`_arrow_ipc___feather___Reader__schema`, reader)
 }
 
 Field__initialize <- function(name, field, nullable){
