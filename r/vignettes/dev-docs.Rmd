@@ -8,31 +8,110 @@ vignette: >
 ---
 
 ```{r setup options, include=FALSE}
-knitr::opts_chunk$set(error = TRUE)
+knitr::opts_chunk$set(error = TRUE, eval = FALSE)
 
+# Get environment variables describing what to evaluate
 run <- tolower(Sys.getenv("RUN_DEVDOCS", "false")) == "true"
 macos <- tolower(Sys.getenv("DEVDOCS_MACOS", "false")) == "true"
 ubuntu <- tolower(Sys.getenv("DEVDOCS_UBUNTU", "false")) == "true"
-
-
 sys_install <- tolower(Sys.getenv("DEVDOCS_SYSTEM_INSTALL", "false")) == "true"
+
+# Update the source knit_hook to save the chunk (if it is marked to be saved)
+knit_hooks_source <- knitr::knit_hooks$get("source")
+knitr::knit_hooks$set(source = function(lines, options) {
+  if (run && !is.null(options$save) && options$save)
+    cat(lines, file = "script.sh", append = TRUE, sep = "\n")
+  NULL
+})
 ```
 
-Proof of concept for developer documentation that builds itself.
+## R-only development 
 
-```{bash, eval=run & macos}
+Windows and macOS users who wish to contribute to the R package and
+don’t need to alter the Arrow C++ library may be able to obtain a
+recent version of the library without building from source. On macOS,
+you may install the C++ library using [Homebrew](https://brew.sh/):
+
+``` shell
+# For the released version:
+brew install apache-arrow
+# Or for a development version, you can try:
+brew install apache-arrow --HEAD
+```
+
+On Windows, you can download a .zip file with the arrow dependencies from the
+[nightly repository](https://arrow-r-nightly.s3.amazonaws.com/libarrow/bin/windows/),
+and then set the `RWINLIB_LOCAL` environment variable to point to that
+zip file before installing the `arrow` R package. Version numbers in that
+repository correspond to dates, and you will likely want the most recent.
+
+## Developer envorinment setup
+
+If you need to alter both the Arrow C++ library and the R package code, or if you can’t get a binary version of the latest C++ library elsewhere, you’ll need to build it from source too.
+
+First, install the C++ library. See the [developer
+guide](https://arrow.apache.org/docs/developers/cpp/building.html) for details. 
+
+### Install dependencies {.tabset}
+
+These dependencies are technically only needed for S3 support(?)
+
+#### macOS
+```{bash, save=run & macos}
 brew install openssl
 ```
 
-```{bash, eval=run & ubuntu}
-sudo apt install libcurl4-openssl-dev libssl-dev
+#### ubuntu
+```{bash, save=run & ubuntu}
+sudo apt install -y libcurl4-openssl-dev libssl-dev
 ```
 
-```{bash, eval=run}
+
+### Building Arrow {.tabset}
+
+It’s recommended to make a build directory inside of the cpp directory of the Arrow git repository (it is git-ignored). Assuming you are inside cpp/build, you’ll first call cmake to configure the build and then make install. For the R package, you’ll need to enable several features in the C++ library using -D flags:
+
+```{bash, save=run}
+cd arrow/cpp
+mkdir build
+cd build
+```
+
+
+#### Installing to another directory
+
+If you would like to use arrow from an alternative directory
+
+```{bash, save=run & !sys_install}
+export ARROW_HOME=$(pwd)/dist
+export LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH
+
 cd arrow/cpp
 mkdir build
 cd build
 
+cmake \
+  -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+  -DCMAKE_INSTALL_LIBDIR=lib \
+  -DARROW_COMPUTE=ON \
+  -DARROW_CSV=ON \
+  -DARROW_DATASET=ON \
+  -DARROW_FILESYSTEM=ON \
+  -DARROW_JEMALLOC=ON \
+  -DARROW_JSON=ON \
+  -DARROW_PARQUET=ON \
+  -DCMAKE_BUILD_TYPE=release \
+  -DARROW_WITH_SNAPPY=ON \
+  -DARROW_WITH_ZLIB=ON \
+  -DARROW_INSTALL_NAME_RPATH=OFF \
+  ..
+```
+
+#### Installing to the system
+
+If you would like to install Arrow as a system library you can
+
+```{bash, save=run & sys_install}
 cmake \
   -DARROW_COMPUTE=ON \
   -DARROW_CSV=ON \
@@ -46,25 +125,31 @@ cmake \
   -DARROW_WITH_ZLIB=ON \
   -DARROW_INSTALL_NAME_RPATH=OFF \
   ..
+```
+
+### Now actually build
+
+You can `-j` here too!
+
+```{bash, save=run}
 make install
 ```
 
 
-```{bash, eval=run}
-echo $(pkg-config --cflags --silence-errors arrow)
-echo $(pkg-config --libs-only-l --silence-errors arrow)
-echo $(pkg-config --libs-only-L --silence-errors arrow)
-```
-
-```{bash, eval=run}
-cd arrow/r
+```{bash, save=run}
+cd ../../r
 R -e 'install.packages("remotes"); remotes::install_deps(dependencies = TRUE)'
 
 R CMD INSTALL .
 ```
 
-```{r, eval=FALSE}
-library(arrow)
-
-arrow_info()
+```{bash, save=TRUE}
+echo $ARROW_HOME
+echo $LD_LIBRARY_PATH
 ```
+
+```{bash, save=TRUE}
+echo $ARROW_HOME
+echo $LD_LIBRARY_PATH
+```
+

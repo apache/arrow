@@ -69,21 +69,26 @@ jobs:
           sudo apt update
           sudo apt install -y -V libarrow-dev
         if: contains(matrix.system-install, 'old') && contains(matrix.os, 'ubuntu')
-      - name: Install from the devdocs
+      - name: Write the install script
         env:
-          LIBARROW_BINARY: FALSE
-          ARROW_R_DEV: TRUE
           RUN_DEVDOCS: TRUE
           DEVDOCS_MACOS: {{ "${{contains(matrix.os, 'macOS')}}" }}
           DEVDOCS_UBUNTU: {{ "${{contains(matrix.os, 'ubuntu')}}" }}
           DEVDOCS_SYSTEM_INSTALL: {{ "${{contains(matrix.system-install, 'true')}}" }}
           DEVDOCS_PRIOR_SYSTEM_INSTALL: {{ "${{contains(matrix.system-install, 'old')}}" }}
         run: |
-          # We knit three directories above to simulate being in the parent of the arrow directory.
-          rmarkdown::render("arrow/r/vignettes/dev-docs.Rmd", knit_root_dir = "../../..")
+          # This isn't actually rendering the docs, but will save arrow/r/vignettes/script.sh 
+          # which can be sourced to install arrow.
+          rmarkdown::render("arrow/r/vignettes/dev-docs.Rmd")
         shell: Rscript {0}
-      - name: Save the vignette output
+      - name: Install from the devdocs
+        env:
+          LIBARROW_BINARY: FALSE
+          ARROW_R_DEV: TRUE
+        shell: bash arrow/r/vignettes/script.sh
+
+      - name: Save the install script
         uses: actions/upload-artifact@v2
         with:
-          path: arrow/r/vignettes/dev-docs.html
+          path: arrow/r/vignettes/script.sh
         if: always()
