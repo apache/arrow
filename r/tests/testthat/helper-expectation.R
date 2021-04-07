@@ -25,7 +25,7 @@ expect_data_frame <- function(x, y, ...) {
 
 expect_r6_class <- function(object, class){
   expect_s3_class(object, class)
-  expect_s3_class(object, c("R6"))
+  expect_s3_class(object, "R6")
 }
 
 expect_equivalent <- function(object, expected, ...) {
@@ -104,7 +104,7 @@ expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its star
                                tbl,  # A tbl/df as reference, will make RB/Table with
                                ...) {
   # ensure we have supplied tbl
-  tbl
+  force(tbl)
   
   expr <- rlang::enquo(expr)
   msg <- tryCatch(

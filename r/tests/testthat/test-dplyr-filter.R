@@ -272,7 +272,7 @@ test_that("filter() with string ops", {
 
 test_that("filter environment scope", {
   # "object 'b_var' not found"
-  expect_dplyr_error(filter(batch, chr == b_var), tbl)
+  expect_dplyr_error(input %>% filter(chr == b_var), tbl)
 
   b_var <- "b"
   expect_dplyr_equal(
@@ -390,10 +390,10 @@ test_that("filter() with .data pronoun", {
     tbl
   )
 
-  skip("test now faulty as code no longer gives error")
+  skip("test now faulty - code no longer gives error & outputs a empty tibble")
   # but there is an error if we don't override the masking with `.env`
   expect_dplyr_error(
-    tbl %>%
+    input %>%
       filter(.data$dbl > chr) %>%
       select(.data$chr, .data$int, .data$lgl) %>%
       collect(),
