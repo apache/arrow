@@ -814,6 +814,43 @@ TEST_P(BackgroundGeneratorTestFixture, StopAndRestart) {
   AssertGeneratorExhausted(generator);
 }
 
+struct TrackingIterator {
+  TrackingIterator(bool slow) : token(std::make_shared<bool>(false)), slow(slow) {}
+
+  Result<TestInt> Next() {
+    if (slow) {
+      SleepABit();
+    }
+    return TestInt(0);
+  }
+  std::weak_ptr<bool> GetWeakTargetRef() { return std::weak_ptr<bool>(token); }
+
+  std::shared_ptr<bool> token;
+  bool slow;
+};
+
+TEST_P(BackgroundGeneratorTestFixture, AbortReading) {
+  // If there is an error downstream then it is likely the chain will abort and the
+  // background generator will lose all references and should abandon reading
+  TrackingIterator source(IsSlow());
+  auto tracker = source.GetWeakTargetRef();
+  auto iter = Iterator<TestInt>(std::move(source));
+  std::shared_ptr<AsyncGenerator<TestInt>> generator;
+  {
+    ASSERT_OK_AND_ASSIGN(
+        auto gen, MakeBackgroundGenerator(std::move(iter), internal::GetCpuThreadPool()));
+    generator = std::make_shared<AsyncGenerator<TestInt>>(gen);
+  }
+
+  // Poll one item to start it up
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(0), (*generator)());
+  ASSERT_FALSE(tracker.expired());
+  // Remove last reference to generator, should trigger and wait for cleanup
+  generator.reset();
+  // Cleanup should have ensured no more reference to the source
+  ASSERT_TRUE(tracker.expired());
+}
+
 struct SlowEmptyIterator {
   Result<TestInt> Next() {
     if (called_) {

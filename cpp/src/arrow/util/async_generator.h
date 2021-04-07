@@ -1139,9 +1139,8 @@ class BackgroundGenerator {
  public:
   explicit BackgroundGenerator(Iterator<T> it, internal::Executor* io_executor, int max_q,
                                int q_restart)
-      : state_(std::make_shared<State>(io_executor, std::move(it), max_q, q_restart)) {}
-
-  ~BackgroundGenerator() {}
+      : state_(std::make_shared<State>(io_executor, std::move(it), max_q, q_restart)),
+        cleanup_(std::make_shared<Cleanup>(state_.get())) {}
 
   Future<T> operator()() {
     auto guard = state_->mutex.Lock();
@@ -1175,10 +1174,14 @@ class BackgroundGenerator {
     State(internal::Executor* io_executor, Iterator<T> it, int max_q, int q_restart)
         : io_executor(io_executor),
           it(std::move(it)),
+          started(false),
           running(false),
           finished(false),
+          should_shutdown(false),
           max_q(max_q),
-          q_restart(q_restart) {}
+          q_restart(q_restart) {
+      task_finished = Future<>::Make();
+    }
 
     void ClearQueue() {
       while (!queue.empty()) {
@@ -1187,6 +1190,7 @@ class BackgroundGenerator {
     }
 
     void RestartTask(std::shared_ptr<State> state, util::Mutex::Guard guard) {
+      state->started = true;
       if (!finished) {
         running = true;
         auto spawn_status = io_executor->Spawn([state]() { Task()(std::move(state)); });
@@ -1202,25 +1206,48 @@ class BackgroundGenerator {
             ClearQueue();
             queue.push(spawn_status);
           }
+          task_finished.MarkFinished();
         }
       }
     }
 
     internal::Executor* io_executor;
     Iterator<T> it;
+    bool started;
     bool running;
     bool finished;
+    bool should_shutdown;
     int max_q;
     int q_restart;
     std::queue<Result<T>> queue;
     util::optional<Future<T>> waiting_future;
     util::Mutex mutex;
+    Future<> task_finished;
+  };
+
+  struct Cleanup {
+    explicit Cleanup(State* state) : state(state) {}
+    ~Cleanup() {
+      Future<> finish_fut;
+      {
+        auto lock = state->mutex.Lock();
+        if (!state->started) {
+          return;
+        }
+        state->should_shutdown = true;
+        finish_fut = state->task_finished;
+      }
+      // Using future as a condition variable here
+      Status st = finish_fut.status();
+      ARROW_UNUSED(st);
+    }
+    State* state;
   };
 
   class Task {
    public:
     void operator()(std::shared_ptr<State> state) {
-      // while condition can't be based on state_ because it is run outside the mutex
+      // These conditions can't be based on state_ because they run outside the mutex
       bool running = true;
       while (running) {
         auto next = state->it.Next();
@@ -1228,6 +1255,12 @@ class BackgroundGenerator {
         Future<T> waiting_future;
         {
           auto guard = state->mutex.Lock();
+
+          if (state->should_shutdown) {
+            state->finished = true;
+            state->running = false;
+            break;
+          }
 
           if (!next.ok() || IsIterationEnd<T>(*next)) {
             state->finished = true;
@@ -1254,10 +1287,22 @@ class BackgroundGenerator {
           waiting_future.MarkFinished(next);
         }
       }
+      // It's safe to access this outside the mutex.  The only places finished is set to
+      // true are in this task and in a failure to spawn this task (in which case we are
+      // not here)
+      if (state->finished) {
+        state->task_finished.MarkFinished();
+      }
     }
   };
 
   std::shared_ptr<State> state_;
+  // state_ is held by both the generator and the background thread so it won't be cleaned
+  // up when all consumer references are relinquished.  cleanup_ is only held by the
+  // generator so it will be destructed when the last consumer reference is gone.  We use
+  // this to cleanup / stop the background generator in case the consuming end stops
+  // listening (e.g. due to a downstream error)
+  std::shared_ptr<Cleanup> cleanup_;
 };
 
 constexpr int kDefaultBackgroundMaxQ = 32;
