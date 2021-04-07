@@ -47,7 +47,7 @@ public class ParquetWriteSupport implements AutoCloseable {
   public ParquetWriteSupport(String schemaName, File outputFolder) throws Exception {
     avroSchema = readSchemaFromFile(schemaName);
     path = outputFolder.getPath() + File.separator + "generated.parquet";
-    uri = "file://" + path;
+    uri = new File(path).toURI().toString();
     writer = AvroParquetWriter.<GenericRecord>builder(new org.apache.hadoop.fs.Path(path))
         .withSchema(avroSchema)
         .build();

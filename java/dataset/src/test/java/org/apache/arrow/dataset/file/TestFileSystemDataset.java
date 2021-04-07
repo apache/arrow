@@ -81,6 +81,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
     checkParquetReadResult(schema, writeSupport.getWrittenRecords(), datum);
 
     AutoCloseables.close(datum);
+    AutoCloseables.close(factory);
   }
 
   @Test
@@ -107,6 +108,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
                 .build()), datum);
 
     AutoCloseables.close(datum);
+    AutoCloseables.close(factory);
   }
 
   @Test
@@ -126,6 +128,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
     checkParquetReadResult(schema, writeSupport.getWrittenRecords(), datum);
 
     AutoCloseables.close(datum);
+    AutoCloseables.close(factory);
   }
 
   @Test
@@ -140,6 +143,8 @@ public class TestFileSystemDataset extends TestNativeDataset {
       dataset.close();
       dataset.close();
     });
+
+    AutoCloseables.close(factory);
   }
 
   @Test
@@ -197,6 +202,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
     NativeScanner scanner = dataset.newScan(options);
     scanner.close();
     assertThrows(NativeInstanceReleasedException.class, scanner::scan);
+    AutoCloseables.close(factory);
   }
 
   @Test
@@ -212,6 +218,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
     NativeScanTask task = tasks.get(0);
     task.close();
     assertThrows(NativeInstanceReleasedException.class, task::execute);
+    AutoCloseables.close(factory);
   }
 
   @Test
@@ -228,6 +235,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
     ScanTask.BatchIterator iterator = task.execute();
     task.close();
     assertThrows(NativeInstanceReleasedException.class, iterator::hasNext);
+    AutoCloseables.close(factory);
   }
 
   @Test
@@ -247,6 +255,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
     long finalReservation = rootAllocator().getAllocatedMemory();
     Assert.assertEquals(expected_diff, reservation - initReservation);
     Assert.assertEquals(-expected_diff, finalReservation - reservation);
+    AutoCloseables.close(factory);
   }
 
   private void checkParquetReadResult(Schema schema, List<GenericRecord> expected, List<ArrowRecordBatch> actual) {

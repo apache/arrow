@@ -15,22 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.dataset.file;
+package org.apache.arrow.dataset.jni;
+
+import java.util.Iterator;
 
 /**
- * File format definitions.
+ * Iterate on protobuf-serialized {@link org.apache.arrow.vector.ipc.message.ArrowRecordBatch}.
+ * <p>
+ * {@link #next()} should be called from C++ scanner to read Java-generated Arrow data.
  */
-public enum FileFormat {
-  PARQUET(0),
-  NONE(-1);
+public interface NativeSerializedRecordBatchIterator extends Iterator<byte[]>, AutoCloseable {
 
-  private final int id;
-
-  FileFormat(int id) {
-    this.id = id;
-  }
-
-  public int id() {
-    return id;
-  }
+  /**
+   * Return next serialized {@link org.apache.arrow.vector.ipc.message.ArrowRecordBatch} Java
+   * byte array.
+   */
+  @Override
+  byte[] next();
 }

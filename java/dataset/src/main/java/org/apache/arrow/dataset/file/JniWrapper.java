@@ -18,6 +18,7 @@
 package org.apache.arrow.dataset.file;
 
 import org.apache.arrow.dataset.jni.JniLoader;
+import org.apache.arrow.dataset.jni.NativeSerializedRecordBatchIterator;
 
 /**
  * JniWrapper for filesystem based {@link org.apache.arrow.dataset.source.Dataset} implementations.
@@ -35,13 +36,47 @@ public class JniWrapper {
   }
 
   /**
+   * Create a Jni global reference for the object.
+   * @param object the input object
+   * @return the native pointer of global reference object.
+   */
+  public native long newJniGlobalReference(Object object);
+
+  /**
+   * Create a Jni method reference.
+   * @param classSignature signature of the class defining the target method
+   * @param methodName method name
+   * @param methodSignature signature of the target method
+   * @return the native pointer of method reference object.
+   */
+  public native long newJniMethodReference(String classSignature, String methodName,
+      String methodSignature);
+
+  /**
    * Create FileSystemDatasetFactory and return its native pointer. The pointer is pointing to a
    * intermediate shared_ptr of the factory instance.
+   *
    * @param uri file uri to read
    * @param fileFormat file format ID
    * @return the native pointer of the arrow::dataset::FileSystemDatasetFactory instance.
    * @see FileFormat
    */
   public native long makeFileSystemDatasetFactory(String uri, int fileFormat);
+
+  /**
+   * Write all record batches in a {@link NativeSerializedRecordBatchIterator} into files. This internally
+   * depends on C++ write API: FileSystemDataset::Write.
+   *
+   * @param itr iterator to be used for writing
+   * @param schema serialized schema of output files
+   * @param fileFormat target file format (ID)
+   * @param uri target file uri
+   * @param partitionColumns columns used to partition output files
+   * @param maxPartitions maximum partitions to be included in written files
+   * @param baseNameTemplate file name template used to make partitions. E.g. "dat_{i}", i is current partition
+   *                         ID around all written files.
+   */
+  public native void writeFromScannerToFile(NativeSerializedRecordBatchIterator itr, byte[] schema,
+      int fileFormat, String uri, String[] partitionColumns, int maxPartitions, String baseNameTemplate);
 
 }
