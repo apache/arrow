@@ -68,8 +68,8 @@ env:
     - YUM_TARGETS={{ target }}
 
 before_script:
-  {{ macros.travis_checkout()|indent }}
-  {{ macros.travis_docker_login()|indent }}
+  {{ macros.travis_checkout() }}
+  {{ macros.travis_docker_login() }}
 
   # Build createrepo_c from source.
   # We can remove them when we can install createrepo_c package
@@ -144,4 +144,4 @@ script:
   - popd
 
 after_success:
-  {{ macros.github_upload(upload_extensions | format_all("arrow/python/repaired_wheels/*.whl")) | indent }}
+  {{ macros.github_upload(upload_extensions | format_all("arrow/python/repaired_wheels/*.whl")) }}
