@@ -7,29 +7,28 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-```{r, error=TRUE}
-run <- tolower(Sys.getenv("RUN_DEVDOCS", "false")) == "true"
-run_macos <- run & tolower(Sys.getenv("DEVDOCS_MACOS", "false")) == "true"
-run_ubuntu <- run & tolower(Sys.getenv("DEVDOCS_UBUNTU", "false")) == "true"
+```{r setup options, include=FALSE}
+knitr::opts_chunk$set(error = TRUE)
 
-print(run)
-print(Sys.getenv("DEVDOCS_MACOS"))
-print(run_macos)
-print(Sys.getenv("DEVDOCS_UBUNTU"))
-print(run_ubuntu)
+run <- tolower(Sys.getenv("RUN_DEVDOCS", "false")) == "true"
+macos <- tolower(Sys.getenv("DEVDOCS_MACOS", "false")) == "true"
+ubuntu <- tolower(Sys.getenv("DEVDOCS_UBUNTU", "false")) == "true"
+
+
+sys_install <- tolower(Sys.getenv("DEVDOCS_SYSTEM_INSTALL", "false")) == "true"
 ```
 
 Proof of concept for developer documentation that builds itself.
 
-```{bash, eval=run_macos, error=TRUE}
+```{bash, eval=run & macos}
 brew install openssl
 ```
 
-```{bash, eval=run_ubuntu, error=TRUE}
+```{bash, eval=run & ubuntu}
 sudo apt install libcurl4-openssl-dev libssl-dev
 ```
 
-```{bash, eval=run, error=TRUE}
+```{bash, eval=run}
 cd arrow/cpp
 mkdir build
 cd build
@@ -48,17 +47,16 @@ cmake \
   -DARROW_INSTALL_NAME_RPATH=OFF \
   ..
 make install
-
 ```
 
 
-```{bash, eval = run, error=TRUE}
+```{bash, eval=run}
 echo $(pkg-config --cflags --silence-errors arrow)
 echo $(pkg-config --libs-only-l --silence-errors arrow)
 echo $(pkg-config --libs-only-L --silence-errors arrow)
 ```
 
-```{bash, eval=run, error=TRUE}
+```{bash, eval=run}
 cd arrow/r
 R -e 'install.packages("remotes"); remotes::install_deps(dependencies = TRUE)'
 

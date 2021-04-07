@@ -25,13 +25,14 @@ on:
       - "*-github-*"
 
 jobs:
-  autobrew:
+  devdocs:
     name: "install from the devdoc instructions"
     runs-on: {{ "${{ matrix.os }}" }}
     strategy:
       fail-fast: false
       matrix:
         os: [macOS-latest, ubuntu-20.04]
+
 
     steps:
       - name: Checkout Arrow
