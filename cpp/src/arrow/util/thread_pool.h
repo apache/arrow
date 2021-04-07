@@ -364,7 +364,7 @@ Result<T> RunSynchronously(FnOnce<Future<T>(Executor*)> get_future, bool use_thr
   }
 }
 
-Status RunSynchronouslyVoid(FnOnce<Future<arrow::detail::Empty>(Executor*)> get_future,
-                            bool use_threads);
+ARROW_EXPORT Status RunSynchronouslyVoid(
+    FnOnce<Future<arrow::detail::Empty>(Executor*)> get_future, bool use_threads);
 }  // namespace internal
 }  // namespace arrow
