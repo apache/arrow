@@ -26,8 +26,8 @@
     "lint:test": "tslint --fix --project -p test/tsconfig.json -c tslint.json \"test/**/*.ts\"",
     "lint:src:ci": "tslint --project -p tsconfig.json -c tslint.json \"src/**/*.ts\"",
     "lint:test:ci": "tslint --project -p test/tsconfig.json -c tslint.json \"test/**/*.ts\"",
-    "prepublishOnly": "echo \"Error: do 'npm run release' instead of 'npm publish'\" && exit 1",
-    "version": "npm install && npm run clean:all"
+    "prepublishOnly": "echo \"Error: do 'yarn release' instead of 'npm publish'\" && exit 1",
+    "version": "yarn && yarn clean:all"
   },
   "repository": {
     "type": "git",
