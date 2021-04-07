@@ -178,6 +178,10 @@ test_that("pull", {
 test_that("collect(as_data_frame=FALSE)", {
   batch <- record_batch(tbl)
 
+  b1 <- batch %>% collect(as_data_frame = FALSE)
+
+  expect_is(b1, "RecordBatch")
+
   b2 <- batch %>%
     select(int, chr) %>%
     filter(int > 5) %>%

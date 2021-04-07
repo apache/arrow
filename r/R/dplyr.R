@@ -619,7 +619,9 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
     restore_dplyr_features(tab, x)
   }
 }
-collect.ArrowTabular <- as.data.frame.ArrowTabular
+collect.ArrowTabular <- function(x, as_data_frame = TRUE, ...) {
+  if (as_data_frame) as.data.frame(x, ...) else x
+}
 collect.Dataset <- function(x, ...) dplyr::collect(arrow_dplyr_query(x), ...)
 
 ensure_group_vars <- function(x) {
