@@ -25,12 +25,15 @@ Proof of concept for developer documentation that builds itself.
 brew install openssl
 ```
 
-
 ```{bash, eval=run_ubuntu}
 sudo apt install libcurl4-openssl-dev libssl-dev
 ```
 
-```{bash, eval=run}
+```{bash, eval = run}
+pkg-config
+```
+
+```{bash, eval=FALSE}
 cd arrow/cpp
 mkdir build
 cd build
@@ -56,7 +59,7 @@ R -e 'install.packages("remotes"); remotes::install_deps(dependencies = TRUE)'
 R CMD INSTALL .
 ```
 
-```{r, eval=run}
+```{r, eval=FALSE}
 library(arrow)
 
 arrow_info()
