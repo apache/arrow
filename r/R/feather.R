@@ -125,7 +125,7 @@ write_feather <- function(x,
 #'
 #' @inheritParams read_ipc_stream
 #' @inheritParams read_delim_arrow
-#' @param ... additional parameters, passed to [FeatherReader$create()][FeatherReader]
+#' @param ... additional parameters.
 #'
 #' @return A `data.frame` if `as_data_frame` is `TRUE` (the default), or an
 #' Arrow [Table] otherwise
