@@ -181,8 +181,7 @@ def render(obj, task, config_path, arrow_version, arrow_remote, arrow_branch,
     config = Config.load_yaml(config_path)
     params = dict([p.split("=") for p in params])
     job = Job.from_config(config=config, target=target, tasks=[task],
-                          params=params,
-                          template_searchpath=arrow.path / "dev" / "tasks")
+                          params=params)
 
     for task_name, rendered_files in job.render_tasks().items():
         for path, content in _flatten(rendered_files).items():

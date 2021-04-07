@@ -733,8 +733,8 @@ class Task(Serializable):
         self._status = None  # status cache
         self._assets = None  # assets cache
 
-    def render_files(self, searchpath, params):
-        params = {**self.params, **params, "task": self}
+    def render_files(self, searchpath, params=None):
+        params = {**self.params, **(params or {}), "task": self}
         try:
             rendered = _render_jinja_template(searchpath, self.template,
                                               params=params)
@@ -919,13 +919,13 @@ class Job(Serializable):
         tree = {**_default_tree, "job.yml": content}
         return _unflatten_tree(tree)
 
-    def render_tasks(self, params):
+    def render_tasks(self, params=None):
         result = {}
         params = {
             **self.params,
             "target": self.target,
             "arrow": self.target,
-            **params
+            **(params or {})
         }
         for task_name, task in self.tasks.items():
             files = task.render_files(self._template_searchpath, params)

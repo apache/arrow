@@ -45,12 +45,12 @@ env:
     - PYTHON={{ python_version }}
 
 before_script:
-  {{ macros.travis_checkout()|indent }}
-  {{ macros.travis_docker_login()|indent }}
+  {{ macros.travis_checkout() }}
+  {{ macros.travis_docker_login() }}
 
 script:
   # Install Archery and Crossbow dependencies
-  {{ macros.travis_install_archery()|indent }}
+  {{ macros.travis_install_archery() }}
 
   # Build and Test packages
   # output something every minutes to prevent travis from killing the build
@@ -62,8 +62,8 @@ script:
 
 after_success:
   # Upload wheel as github artifact
-  {{ macros.travis_upload("arrow/python/repaired_wheels/*.whl")|indent }}
-  {{ macros.travis_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}
+  {{ macros.travis_upload("arrow/python/repaired_wheels/*.whl") }}
+  {{ macros.travis_gemfury("arrow/python/repaired_wheels/*.whl") }}
 
   {% if arrow.branch == 'master' %}
   # Push the docker image to dockerhub
