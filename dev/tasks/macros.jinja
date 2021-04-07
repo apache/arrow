@@ -50,7 +50,7 @@ on:
     with:
       python-version: 3.8
   - name: Setup Crossbow
-    run: pip install arrow/dev/archery[crossbow]
+    run: pip install -e arrow/dev/archery[crossbow]
   - name: Upload artifacts
     run: |
       archery crossbow
@@ -92,7 +92,7 @@ on:
 {% endmacro %}
 
 {%- macro azure_upload(pattern) -%}
-  - script: pip install arrow/dev/archery[crossbow]
+  - script: pip install -e arrow/dev/archery[crossbow]
     displayName: Install Crossbow
   - script: |
       archery crossbow \
@@ -123,7 +123,7 @@ on:
 {%- macro travis_install_archery() -%}
   - sudo -H pip3 install --upgrade pip
   - sudo -H pip3 install docker-compose
-  - sudo -H pip3 install arrow/dev/archery[docker]
+  - sudo -H pip3 install -e arrow/dev/archery[docker]
 {% endmacro %}
 
 {%- macro travis_docker_login() -%}

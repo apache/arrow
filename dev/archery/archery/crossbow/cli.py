@@ -126,7 +126,8 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
 
     # instantiate the job object
     job = Job.from_config(config=config, target=target, tasks=tasks,
-                          groups=groups, params=params)
+                          groups=groups, params=params,
+                          template_searchpath=arrow.path / "dev" / "tasks")
 
     if dry_run:
         job.show(output)
@@ -181,7 +182,9 @@ def render(obj, task, config_path, arrow_version, arrow_remote, arrow_branch,
     config = Config.load_yaml(config_path)
     params = dict([p.split("=") for p in params])
     job = Job.from_config(config=config, target=target, tasks=[task],
-                          params=params)
+                          params=params,
+                          template_searchpath=arrow.path / "dev" / "tasks")
+
     for task_name, rendered_files in job.render_tasks().items():
         for path, content in _flatten(rendered_files).items():
             click.echo('#' * 80)

@@ -202,7 +202,8 @@ def _git_ssh_to_https(url):
 
 
 class Repo:
-    """Base class for interaction with local git repositories
+    """
+    Base class for interaction with local git repositories
 
     A high level wrapper used for both reading revision information from
     arrow's repository and pushing continuous integration tasks to the queue
@@ -734,11 +735,10 @@ class Task(Serializable):
         self._status = None  # status cache
         self._assets = None  # assets cache
 
-    def render_files(self, **params):
-        src = ArrowSources.find()
+    def render_files(self, searchpath, params):
         params = toolz.merge(self.params, params, dict(task=self))
         try:
-            rendered = _render_jinja_template(src.dev / "tasks", self.template,
+            rendered = _render_jinja_template(searchpath, self.template,
                                               params=params)
         except jinja2.TemplateError as e:
             raise RuntimeError(
@@ -892,7 +892,7 @@ class TaskAssets(dict):
 class Job(Serializable):
     """Describes multiple tasks against a single target repository"""
 
-    def __init__(self, target, tasks, params=None):
+    def __init__(self, target, tasks, params=None, template_searchpath=None):
         if not tasks:
             raise ValueError('no tasks were provided for the job')
         if not all(isinstance(task, Task) for task in tasks.values()):
@@ -909,6 +909,10 @@ class Job(Serializable):
         self.params = params or {}  # additional parameters for the tasks
         self.branch = None  # filled after adding to a queue
         self._queue = None  # set by the queue object after put or get
+        if template_searchpath is None:
+            self._template_searchpath = ArrowSources.find().path
+        else:
+            self._template_searchpath = template_searchpath
 
     def render_files(self):
         with StringIO() as buf:
@@ -917,15 +921,12 @@ class Job(Serializable):
         tree = toolz.merge(_default_tree, {'job.yml': content})
         return _unflatten_tree(tree)
 
-    def render_tasks(self, **kwargs):
+    def render_tasks(self, params):
         result = {}
+        params = toolz.merge(**self.params, target=self.target,
+                             arrow=self.target, **params)
         for task_name, task in self.tasks.items():
-            files = task.render_files(
-                **self.params,
-                target=self.target,
-                arrow=self.target,
-                **kwargs
-            )
+            files = task.render_files(self._template_searchpath, params)
             result[task_name] = files
         return result
 
@@ -992,7 +993,8 @@ class Job(Serializable):
             artifacts = [fn.format(**versions) for fn in artifacts]
             tasks[task_name] = Task(artifacts=artifacts, **task)
 
-        return cls(target=target, tasks=tasks, params=params)
+        return cls(target=target, tasks=tasks, params=params,
+                   template_searchpath=config.template_searchpath)
 
     def is_finished(self):
         for task in self.tasks.values():
@@ -1021,12 +1023,18 @@ class Job(Serializable):
 
 class Config(dict):
 
+    def __init__(self, tasks, template_searchpath):
+        super().__init__(tasks)
+        self.template_searchpath = template_searchpath
+
     @classmethod
     def load_yaml(cls, path):
         path = Path(path)
-        rendered = _render_jinja_template(searchpath=path.parent,
-                                          template=path.name, params={})
-        return cls(yaml.load(rendered))
+        searchpath = path.parent
+        rendered = _render_jinja_template(searchpath, template=path.name,
+                                          params={})
+        config = yaml.load(rendered)
+        return cls(config, template_searchpath=searchpath)
 
     def show(self, stream=None):
         return yaml.dump(dict(self), stream=stream)
@@ -1107,8 +1115,11 @@ class Config(dict):
         for task_name, task in self['tasks'].items():
             task = Task(**task)
             files = task.render_files(
-                arrow=target,
-                queue_remote_url='https://github.com/org/crossbow'
+                self.template_searchpath,
+                params=dict(
+                    arrow=target,
+                    queue_remote_url='https://github.com/org/crossbow'
+                )
             )
             if not files:
                 raise ValueError('No files have been rendered for task `{}`'
