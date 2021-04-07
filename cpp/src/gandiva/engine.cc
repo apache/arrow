@@ -31,6 +31,8 @@
 #include <unordered_set>
 #include <utility>
 
+#include "arrow/util/logging.h"
+
 #if defined(_MSC_VER)
 #pragma warning(push)
 #pragma warning(disable : 4141)
@@ -69,11 +71,10 @@
 #pragma warning(pop)
 #endif
 
+#include "arrow/util/make_unique.h"
 #include "gandiva/configuration.h"
 #include "gandiva/decimal_ir.h"
 #include "gandiva/exported_funcs_registry.h"
-
-#include "arrow/util/make_unique.h"
 
 namespace gandiva {
 
@@ -82,6 +83,8 @@ extern const size_t kPrecompiledBitcodeSize;
 
 std::once_flag llvm_init_once_flag;
 static bool llvm_init = false;
+static llvm::StringRef cpu_name;
+static llvm::SmallVector<std::string, 10> cpu_attrs;
 
 void Engine::InitOnce() {
   DCHECK_EQ(llvm_init, false);
@@ -92,6 +95,19 @@ void Engine::InitOnce() {
   llvm::InitializeNativeTargetDisassembler();
   llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 
+  cpu_name = llvm::sys::getHostCPUName();
+  llvm::StringMap<bool> host_features;
+  std::string cpu_attrs_str;
+  if (llvm::sys::getHostCPUFeatures(host_features)) {
+    for (auto& f : host_features) {
+      std::string attr = f.second ? std::string("+") + f.first().str()
+                                  : std::string("-") + f.first().str();
+      cpu_attrs.push_back(attr);
+      cpu_attrs_str += " " + attr;
+    }
+  }
+  ARROW_LOG(INFO) << "Detected CPU Name : " << cpu_name.str();
+  ARROW_LOG(INFO) << "Detected CPU Features:" << cpu_attrs_str;
   llvm_init = true;
 }
 
@@ -129,13 +145,15 @@ Status Engine::Make(const std::shared_ptr<Configuration>& conf,
 
   auto opt_level =
       conf->optimize() ? llvm::CodeGenOpt::Aggressive : llvm::CodeGenOpt::None;
+
   // Note that the lifetime of the error string is not captured by the
   // ExecutionEngine but only for the lifetime of the builder. Found by
   // inspecting LLVM sources.
   std::string builder_error;
   std::unique_ptr<llvm::ExecutionEngine> exec_engine{
       llvm::EngineBuilder(std::move(module))
-          .setMCPU(llvm::sys::getHostCPUName())
+          .setMCPU(cpu_name)
+          .setMAttrs(cpu_attrs)
           .setEngineKind(llvm::EngineKind::JIT)
           .setOptLevel(opt_level)
           .setErrorStr(&builder_error)

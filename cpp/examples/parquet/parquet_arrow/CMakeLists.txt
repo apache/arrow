@@ -18,7 +18,7 @@
 # Require cmake that supports BYPRODUCTS in add_custom_command, ExternalProject_Add [1].
 cmake_minimum_required(VERSION 3.2.0)
 
-project(parquet-arrow-example)
+project(parquet_arrow_example)
 
 include(ExternalProject)
 include(FindPkgConfig)
@@ -38,5 +38,5 @@ find_package(Parquet REQUIRED)
 
 include_directories(SYSTEM ${ARROW_INCLUDE_DIR} ${PARQUET_INCLUDE_DIR})
 
-add_executable(parquet-arrow-example reader-writer.cc)
-target_link_libraries(parquet-arrow-example ${PARQUET_SHARED_LIB} ${ARROW_SHARED_LIB})
+add_executable(parquet_arrow_example reader_writer.cc)
+target_link_libraries(parquet_arrow_example ${PARQUET_SHARED_LIB} ${ARROW_SHARED_LIB})

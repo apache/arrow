@@ -56,7 +56,7 @@ have_flight=yes
 have_plasma=yes
 workaround_missing_packages=()
 case "${distribution}-${code_name}" in
-  debian-buster)
+  debian-*)
     sed \
       -i"" \
       -e "s/ main$/ main contrib non-free/g" \

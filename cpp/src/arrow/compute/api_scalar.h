@@ -45,7 +45,7 @@ struct ArithmeticOptions : public FunctionOptions {
 struct ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
   explicit MatchSubstringOptions(std::string pattern) : pattern(std::move(pattern)) {}
 
-  /// The exact substring to look for inside input values.
+  /// The exact substring (or regex, depending on kernel) to look for inside input values.
   std::string pattern;
 };
 

@@ -100,3 +100,11 @@ read_compressed_error <- function(e) {
   }
   stop(e)
 }
+
+handle_embedded_nul_error <- function(e) {
+  msg <- conditionMessage(e)
+  if (grepl(" nul ", msg)) {
+    e$message <- paste0(msg, "; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul = TRUE)")
+  }
+  stop(e)
+}

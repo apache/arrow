@@ -279,6 +279,13 @@ def test_match_substring():
     assert expected.equals(result)
 
 
+def test_match_substring_regex():
+    arr = pa.array(["ab", "abc", "ba", "c", None])
+    result = pc.match_substring_regex(arr, "^a?b")
+    expected = pa.array([True, True, True, False, None])
+    assert expected.equals(result)
+
+
 def test_trim():
     # \u3000 is unicode whitespace
     arr = pa.array([" foo", None, " \u3000foo bar \t"])
