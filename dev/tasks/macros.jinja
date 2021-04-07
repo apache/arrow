@@ -41,6 +41,7 @@ on:
     with:
       python-version: 3.8
   - name: Install Archery
+    shell: bash
     run: pip install -e arrow/dev/archery[all]
 {% endmacro %}
 
@@ -50,8 +51,10 @@ on:
     with:
       python-version: 3.8
   - name: Setup Crossbow
+    shell: bash
     run: pip install -e arrow/dev/archery[crossbow]
   - name: Upload artifacts
+    shell: bash
     run: |
       archery crossbow \
       --queue-path $(pwd) \
@@ -63,7 +66,7 @@ on:
       --pattern "{{ pattern }}"
     {% elif pattern is iterable %}
       {% for p in pattern %}
-      --pattern "{{ p }}"
+      --pattern "{{ p }}" {{ "\\" if not loop.last else "" }}
       {% endfor %}
     {% endif %}
     env:
@@ -73,6 +76,7 @@ on:
 {%- macro github_gemfury(pattern) -%}
   {% if arrow.branch == 'master' %}
   - name: Upload package to Gemfury
+    shell: bash
     run: |
       path=$(ls {{ patter }})
       curl -F "package=@${path}" https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/
@@ -105,7 +109,7 @@ on:
         --pattern "{{ pattern }}"
       {% elif pattern is iterable %}
         {% for p in pattern %}
-        --pattern "{{ p }}"
+        --pattern "{{ p }}" {{ "" if not loop.last else "" }}
         {% endfor %}
       {% endif %}
     env:
@@ -144,7 +148,7 @@ on:
       --pattern "{{ pattern }}"
     {% elif pattern is iterable %}
       {% for p in pattern %}
-      --pattern "{{ p }}"
+      --pattern "{{ p }}" {{ "\\" if not loop.last else "" }}
       {% endfor %}
     {% endif %}
 {% endmacro %}

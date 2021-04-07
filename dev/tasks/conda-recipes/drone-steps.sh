@@ -13,9 +13,9 @@ $FEEDSTOCK_ROOT/build_steps.sh ${OUTPUT_DIR}
 
 # Upload as Github release
 mamba install -y anaconda-client shyaml -c conda-forge
-pip install arrow/dev/archery[crossbow]
 
 pushd $DRONE_WORKSPACE
+pip install -e arrow/dev/archery[crossbow]
 archery crossbow \
   --queue-path . \
   --queue-remote ${QUEUE_REMOTE_URL} \
