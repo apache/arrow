@@ -53,7 +53,7 @@ on:
     run: pip install -e arrow/dev/archery[crossbow]
   - name: Upload artifacts
     run: |
-      archery crossbow
+      archery crossbow \
       --queue-path $(pwd) \
       --queue-remote {{ queue_remote_url }} \
       upload-artifacts \
@@ -96,7 +96,7 @@ on:
     displayName: Install Crossbow
   - script: |
       archery crossbow \
-        --queue-path . \
+        --queue-path $(pwd) \
         --queue-remote {{ queue_remote_url }} \
         upload-artifacts \
         --sha {{ task.branch }} \
