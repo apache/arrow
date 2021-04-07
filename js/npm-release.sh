@@ -19,7 +19,7 @@
 set -e
 
 # validate the targets pass all tests before publishing
-yarn
+yarn --frozen-lockfile
 npx gulp
 
 # publish the JS target modules to npm
