@@ -1263,7 +1263,10 @@ const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char*
                                                     const char* char_to_replace,
                                                     int32_t char_to_replace_len,
                                                     int32_t* out_len) {
-  if (char_to_replace_len > 1) {
+  if (char_to_replace_len == 0) {
+    *out_len = text_len;
+    return text_in;
+  } else if (char_to_replace_len != 1) {
     gdv_fn_context_set_error_msg(context, "Replacement of multiple bytes not supported");
     *out_len = 0;
     return "";

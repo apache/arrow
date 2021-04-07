@@ -160,6 +160,15 @@ TEST(TestStringOps, TestConvertReplaceInvalidUtf8Char) {
       ctx_ptr, e.data(), e_in_out_len, "ee", 2, &e_in_out_len);
   EXPECT_EQ(std::string(e_str, e_in_out_len), "");
   EXPECT_TRUE(ctx.has_error());
+  ctx.Reset();
+
+  // full valid utf8, but invalid replacement char length
+  std::string f("ok-\xa0\xa1-valid");
+  auto f_in_out_len = static_cast<int>(f.length());
+  const char* f_str = convert_replace_invalid_fromUTF8_binary(
+      ctx_ptr, f.data(), f_in_out_len, "", 0, &f_in_out_len);
+  EXPECT_EQ(std::string(f_str, f_in_out_len), "ok-\xa0\xa1-valid");
+  EXPECT_FALSE(ctx.has_error());
 
   ctx.Reset();
 }
