@@ -183,8 +183,8 @@ impl ExecutionPlan for LocalLimitExec {
         }
     }
 
-    async fn execute(&self, _: usize) -> Result<SendableRecordBatchStream> {
-        let stream = self.input.execute(0).await?;
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
+        let stream = self.input.execute(partition).await?;
         Ok(Box::pin(LimitStream::new(stream, self.limit)))
     }
 }
