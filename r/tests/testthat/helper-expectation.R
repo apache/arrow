@@ -109,7 +109,25 @@ expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its star
   expr <- rlang::enquo(expr)
   msg <- tryCatch(
     rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = tbl))),
-    error = function (e) conditionMessage(e)
+    error = function (e) {
+          msg <- conditionMessage(e)
+
+      # The error here is of the form:
+      #
+      # Problem with `filter()` input `..1`.
+      # x object 'b_var' not found
+      # ℹ Input `..1` is `chr == b_var`.
+      #
+      # but what we really care about is the `x` block
+      # so (temporarily) let's pull those blocks out when we find them
+      if (grepl("object '.*'.not.found", msg)) {
+        return(gsub("^.*(object '.*'.not found).*$", "\\1", msg))
+      }
+      if (grepl('could not find function ".*"', msg)) {
+        return(gsub('^.*(could not find function ".*").*$', "\\1", msg))
+      }
+      invisible(structure(msg, class = "try-error", condition = e))
+    }
   )
   # make sure msg is a character object (i.e. there has been an error)
   expect_type(msg, "character")
