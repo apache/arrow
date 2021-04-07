@@ -20,7 +20,7 @@ set -e
 
 # validate the targets pass all tests before publishing
 yarn --frozen-lockfile
-npx gulp
+yarn gulp
 
 # publish the JS target modules to npm
-npx lerna exec --no-bail -- npm publish
+yarn lerna exec --no-bail -- npm publish

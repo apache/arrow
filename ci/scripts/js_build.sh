@@ -30,7 +30,6 @@ yarn lint:ci
 yarn build
 
 if [ "${with_docs}" == "true" ]; then
-  yarn add typedoc
   yarn doc
 fi
 
