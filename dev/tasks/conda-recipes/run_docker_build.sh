@@ -5,13 +5,21 @@
 # changes to this script, consider a proposal to conda-smithy so that other feedstocks can also
 # benefit from the improvement.
 
+source .scripts/logging_utils.sh
+
+startgroup "Configure Docker"
+
 set -xeo pipefail
 
-build_dir=${1}
-
 THISDIR="$( cd "$( dirname "$0" )" >/dev/null && pwd )"
-ARROW_ROOT=$(cd "$THISDIR/../../.."; pwd;)
-FEEDSTOCK_ROOT=$THISDIR
+PROVIDER_DIR="$(basename $THISDIR)"
+
+FEEDSTOCK_ROOT=$(cd "$(dirname "$0")/.."; pwd;)
+RECIPE_ROOT="${FEEDSTOCK_ROOT}/recipe"
+
+if [ -z ${FEEDSTOCK_NAME} ]; then
+    export FEEDSTOCK_NAME=$(basename ${FEEDSTOCK_ROOT})
+fi
 
 docker info
 
@@ -24,6 +32,8 @@ export HOST_USER_ID=$(id -u)
 if hash docker-machine 2> /dev/null && docker-machine active > /dev/null; then
     export HOST_USER_ID=$(docker-machine ssh $(docker-machine active) id -u)
 fi
+
+ARTIFACTS="$FEEDSTOCK_ROOT/build_artifacts"
 
 if [ -z "$CONFIG" ]; then
     set +x
@@ -39,35 +49,49 @@ fi
 if [ -z "${DOCKER_IMAGE}" ]; then
     SHYAML_INSTALLED="$(shyaml -h || echo NO)"
     if [ "${SHYAML_INSTALLED}" == "NO" ]; then
-        echo "WARNING: DOCKER_IMAGE variable not set and shyaml not installed. Falling back to condaforge/linux-anvil-comp7"
-        DOCKER_IMAGE="condaforge/linux-anvil-comp7"
+        echo "WARNING: DOCKER_IMAGE variable not set and shyaml not installed. Trying to parse with coreutils"
+        DOCKER_IMAGE=$(cat .ci_support/${CONFIG}.yaml | grep '^docker_image:$' -A 1 | tail -n 1 | cut -b 3-)
+        if [ "${DOCKER_IMAGE}" = "" ]; then
+            echo "No docker_image entry found in ${CONFIG}. Falling back to condaforge/linux-anvil-comp7"
+            DOCKER_IMAGE="condaforge/linux-anvil-comp7"
+        fi
     else
         DOCKER_IMAGE="$(cat "${FEEDSTOCK_ROOT}/.ci_support/${CONFIG}.yaml" | shyaml get-value docker_image.0 condaforge/linux-anvil-comp7 )"
     fi
 fi
 
-mkdir -p "${build_dir}"
-DONE_CANARY="${build_dir}/conda-forge-build-done-${CONFIG}"
+mkdir -p "$ARTIFACTS"
+DONE_CANARY="$ARTIFACTS/conda-forge-build-done-${CONFIG}"
 rm -f "$DONE_CANARY"
 
+# Allow people to specify extra default arguments to `docker run` (e.g. `--rm`)
+DOCKER_RUN_ARGS="${CONDA_FORGE_DOCKER_RUN_ARGS}"
 if [ -z "${CI}" ]; then
-    DOCKER_RUN_ARGS="-it "
+    DOCKER_RUN_ARGS="-it ${DOCKER_RUN_ARGS}"
 fi
+endgroup "Configure Docker"
 
+startgroup "Start Docker"
 export UPLOAD_PACKAGES="${UPLOAD_PACKAGES:-True}"
 docker run ${DOCKER_RUN_ARGS} \
-           --shm-size=2G \
-           -v "${ARROW_ROOT}":/arrow:rw,z \
-           -v "${build_dir}":/build:rw \
-           -e FEEDSTOCK_ROOT="/arrow/dev/tasks/conda-recipes" \
+           -v "${RECIPE_ROOT}":/home/conda/recipe_root:rw,z,delegated \
+           -v "${FEEDSTOCK_ROOT}":/home/conda/feedstock_root:rw,z,delegated \
            -e CONFIG \
-           -e R_CONFIG \
            -e HOST_USER_ID \
            -e UPLOAD_PACKAGES \
-           -e ARROW_VERSION \
+           -e GIT_BRANCH \
+           -e UPLOAD_ON_BRANCH \
            -e CI \
+           -e FEEDSTOCK_NAME \
+           -e CPU_COUNT \
+           -e BUILD_WITH_CONDA_DEBUG \
+           -e BUILD_OUTPUT_ID \
+           -e BINSTAR_TOKEN \
+           -e FEEDSTOCK_TOKEN \
+           -e STAGING_BINSTAR_TOKEN \
            $DOCKER_IMAGE \
-           bash /arrow/dev/tasks/conda-recipes/build_steps.sh /build
+           bash \
+           /home/conda/feedstock_root/${PROVIDER_DIR}/build_steps.sh
 
 # verify that the end of the script was reached
 test -f "$DONE_CANARY"
