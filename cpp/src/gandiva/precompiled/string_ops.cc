@@ -1301,6 +1301,8 @@ const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char*
     }
     valid_bytes_to_cpy += char_len;
   }
+  // if invalid chars were not found, return the original string
+  if (out_byte_counter == 0) return text_in;
   // if there are still valid bytes to copy, do it
   if (valid_bytes_to_cpy != 0) {
     memcpy(ret + out_byte_counter, text_in + out_byte_counter, valid_bytes_to_cpy);
