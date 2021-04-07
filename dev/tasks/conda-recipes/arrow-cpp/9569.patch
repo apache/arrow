@@ -1,0 +1,283 @@
+From e768c3c1a480e7aa35012d8f92f6e031eddba6ca Mon Sep 17 00:00:00 2001
+From: David Li <david@ursacomputing.com>
+Date: Mon, 22 Feb 2021 17:20:29 -0500
+Subject: [PATCH] ARROW-11695: [C++][FlightRPC] fix option to disable TLS
+ verification
+
+---
+ cpp/src/arrow/flight/CMakeLists.txt           | 87 ++++++++++++-------
+ cpp/src/arrow/flight/client.cc                | 38 ++++++--
+ .../flight/try_compile/check_tls_opts_134.cc  | 44 ++++++++++
+ .../flight/try_compile/check_tls_opts_136.cc  | 38 ++++++++
+ 4 files changed, 166 insertions(+), 41 deletions(-)
+ create mode 100644 cpp/src/arrow/flight/try_compile/check_tls_opts_134.cc
+ create mode 100644 cpp/src/arrow/flight/try_compile/check_tls_opts_136.cc
+
+diff --git a/cpp/src/arrow/flight/CMakeLists.txt b/cpp/src/arrow/flight/CMakeLists.txt
+index 2fcb6ef077d..b44bab29074 100644
+--- a/cpp/src/arrow/flight/CMakeLists.txt
++++ b/cpp/src/arrow/flight/CMakeLists.txt
+@@ -73,44 +73,67 @@ string(REPLACE "-Werror " " " CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+ 
+ # Probe the version of gRPC being used to see if it supports disabling server
+ # verification when using TLS.
+-if(NOT DEFINED HAS_GRPC_132)
+-  message(STATUS "Checking support for TlsCredentialsOptions...")
+-  get_property(CURRENT_INCLUDE_DIRECTORIES
+-               DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+-               PROPERTY INCLUDE_DIRECTORIES)
+-  try_compile(HAS_GRPC_132 ${CMAKE_CURRENT_BINARY_DIR}/try_compile SOURCES
+-              "${CMAKE_CURRENT_SOURCE_DIR}/try_compile/check_tls_opts_132.cc"
+-              CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${CURRENT_INCLUDE_DIRECTORIES}"
+-              LINK_LIBRARIES gRPC::grpc
+-              OUTPUT_VARIABLE TSL_CREDENTIALS_OPTIONS_CHECK_OUTPUT CXX_STANDARD 11)
+-
+-  if(HAS_GRPC_132)
+-    message(STATUS "TlsCredentialsOptions found in grpc::experimental.")
+-    add_definitions(-DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
+-  else()
+-    message(STATUS "TlsCredentialsOptions not found in grpc::experimental.")
+-    message(DEBUG "Build output:")
+-    list(APPEND CMAKE_MESSAGE_INDENT "check_tls_opts_132.cc: ")
+-    message(DEBUG ${TSL_CREDENTIALS_OPTIONS_CHECK_OUTPUT})
+-    list(REMOVE_AT CMAKE_MESSAGE_INDENT -1)
+-
+-    try_compile(HAS_GRPC_127 ${CMAKE_CURRENT_BINARY_DIR}/try_compile SOURCES
+-                "${CMAKE_CURRENT_SOURCE_DIR}/try_compile/check_tls_opts_127.cc"
++function(test_grpc_version DST_VAR DETECT_VERSION TEST_FILE)
++  if(NOT DEFINED ${DST_VAR})
++    message(
++      STATUS "Checking support for TlsCredentialsOptions (gRPC >= ${DETECT_VERSION})...")
++    get_property(CURRENT_INCLUDE_DIRECTORIES
++                 DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
++                 PROPERTY INCLUDE_DIRECTORIES)
++    try_compile(HAS_GRPC_VERSION ${CMAKE_CURRENT_BINARY_DIR}/try_compile SOURCES
++                "${CMAKE_CURRENT_SOURCE_DIR}/try_compile/${TEST_FILE}"
+                 CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${CURRENT_INCLUDE_DIRECTORIES}"
+-                OUTPUT_VARIABLE TSL_CREDENTIALS_OPTIONS_CHECK_OUTPUT CXX_STANDARD 11)
+-
+-    if(HAS_GRPC_127)
+-      message(STATUS "TlsCredentialsOptions found in grpc_impl::experimental.")
+-      add_definitions(
+-        -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc_impl::experimental)
++                LINK_LIBRARIES gRPC::grpc gRPC::grpc++
++                OUTPUT_VARIABLE TLS_CREDENTIALS_OPTIONS_CHECK_OUTPUT CXX_STANDARD 11)
++    message(STATUS "${TLS_CREDENTIALS_OPTIONS_CHECK_OUTPUT}")
++    if(HAS_GRPC_VERSION)
++      set(${DST_VAR} "${DETECT_VERSION}" PARENT_SCOPE)
+     else()
+-      message(STATUS "TlsCredentialsOptions not found in grpc_impl::experimental.")
++      message(
++        STATUS
++          "TlsCredentialsOptions (for gRPC ${DETECT_VERSION}) not found in grpc::experimental."
++        )
+       message(DEBUG "Build output:")
+-      list(APPEND CMAKE_MESSAGE_INDENT "check_tls_opts_127.cc: ")
+-      message(DEBUG ${TSL_CREDENTIALS_OPTIONS_CHECK_OUTPUT})
++      list(APPEND CMAKE_MESSAGE_INDENT "${TEST_FILE}: ")
++      message(DEBUG ${TLS_CREDENTIALS_OPTIONS_CHECK_OUTPUT})
+       list(REMOVE_AT CMAKE_MESSAGE_INDENT -1)
+     endif()
+   endif()
++endfunction()
++
++test_grpc_version(GRPC_VERSION "1.36" "check_tls_opts_136.cc")
++test_grpc_version(GRPC_VERSION "1.34" "check_tls_opts_134.cc")
++test_grpc_version(GRPC_VERSION "1.32" "check_tls_opts_132.cc")
++test_grpc_version(GRPC_VERSION "1.27" "check_tls_opts_127.cc")
++message(
++  STATUS
++    "Found approximate gRPC version: ${GRPC_VERSION} (ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS=${ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS})"
++  )
++if(GRPC_VERSION EQUAL "1.27")
++  add_definitions(-DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc_impl::experimental)
++elseif(GRPC_VERSION EQUAL "1.32")
++  add_definitions(-DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
++elseif(GRPC_VERSION EQUAL "1.34")
++  add_definitions(-DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
++                  -DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS
++                  -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
++elseif(GRPC_VERSION EQUAL "1.36")
++  add_definitions(-DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
++                  -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
++else()
++  message(
++    STATUS
++      "A proper version of gRPC could not be found to support TlsCredentialsOptions in Arrow Flight."
++    )
++  message(
++    STATUS
++      "You may need a newer version of gRPC (>= 1.27), or the gRPC API has changed and Flight must be updated to match."
++    )
++  if(ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS)
++    message(
++      FATAL_ERROR "Halting build since ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS is set."
++      )
++  endif()
+ endif()
+ 
+ # </KLUDGE> Restore the CXXFLAGS that were modified above
+diff --git a/cpp/src/arrow/flight/client.cc b/cpp/src/arrow/flight/client.cc
+index 724f999fabe..cd6f3a97e58 100644
+--- a/cpp/src/arrow/flight/client.cc
++++ b/cpp/src/arrow/flight/client.cc
+@@ -860,7 +860,7 @@ namespace {
+ // requires root CA certs, even if you are skipping server
+ // verification.
+ #if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
+-constexpr char BLANK_ROOT_PEM[] =
++constexpr char kDummyRootCert[] =
+     "-----BEGIN CERTIFICATE-----\n"
+     "MIICwzCCAaugAwIBAgIJAM12DOkcaqrhMA0GCSqGSIb3DQEBBQUAMBQxEjAQBgNV\n"
+     "BAMTCWxvY2FsaG9zdDAeFw0yMDEwMDcwODIyNDFaFw0zMDEwMDUwODIyNDFaMBQx\n"
+@@ -893,11 +893,7 @@ class FlightClient::FlightClientImpl {
+ 
+       if (scheme == kSchemeGrpcTls) {
+         if (options.disable_server_verification) {
+-#if !defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
+-          return Status::NotImplemented(
+-              "Using encryption with server verification disabled is unsupported. "
+-              "Please use a release of Arrow Flight built with gRPC 1.27 or higher.");
+-#else
++#if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
+           namespace ge = GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS;
+ 
+           // A callback to supply to TlsCredentialsOptions that accepts any server
+@@ -910,16 +906,40 @@ class FlightClient::FlightClientImpl {
+               return 0;
+             }
+           };
+-
++          auto server_authorization_check = std::make_shared<NoOpTlsAuthorizationCheck>();
+           noop_auth_check_ = std::make_shared<ge::TlsServerAuthorizationCheckConfig>(
+-              std::make_shared<NoOpTlsAuthorizationCheck>());
++              server_authorization_check);
++#if defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS)
++          auto certificate_provider =
++              std::make_shared<grpc::experimental::StaticDataCertificateProvider>(
++                  kDummyRootCert);
++#if defined(GRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS)
++          grpc::experimental::TlsChannelCredentialsOptions tls_options(
++              certificate_provider);
++#else
++          // While gRPC >= 1.36 does not require a root cert (it has a default)
++          // in practice the path it hardcodes is broken. See grpc/grpc#21655.
++          grpc::experimental::TlsChannelCredentialsOptions tls_options;
++          tls_options.set_certificate_provider(certificate_provider);
++#endif
++          tls_options.watch_root_certs();
++          tls_options.set_root_cert_name("dummy");
++          tls_options.set_server_verification_option(
++              grpc_tls_server_verification_option::GRPC_TLS_SKIP_ALL_SERVER_VERIFICATION);
++          tls_options.set_server_authorization_check_config(noop_auth_check_);
++#elif defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
+           auto materials_config = std::make_shared<ge::TlsKeyMaterialsConfig>();
+-          materials_config->set_pem_root_certs(BLANK_ROOT_PEM);
++          materials_config->set_pem_root_certs(kDummyRootCert);
+           ge::TlsCredentialsOptions tls_options(
+               GRPC_SSL_DONT_REQUEST_CLIENT_CERTIFICATE,
+               GRPC_TLS_SKIP_ALL_SERVER_VERIFICATION, materials_config,
+               std::shared_ptr<ge::TlsCredentialReloadConfig>(), noop_auth_check_);
++#endif
+           creds = ge::TlsCredentials(tls_options);
++#else
++          return Status::NotImplemented(
++              "Using encryption with server verification disabled is unsupported. "
++              "Please use a release of Arrow Flight built with gRPC 1.27 or higher.");
+ #endif
+         } else {
+           grpc::SslCredentialsOptions ssl_options;
+diff --git a/cpp/src/arrow/flight/try_compile/check_tls_opts_134.cc b/cpp/src/arrow/flight/try_compile/check_tls_opts_134.cc
+new file mode 100644
+index 00000000000..4ee2122ef57
+--- /dev/null
++++ b/cpp/src/arrow/flight/try_compile/check_tls_opts_134.cc
+@@ -0,0 +1,44 @@
++// Licensed to the Apache Software Foundation (ASF) under one
++// or more contributor license agreements.  See the NOTICE file
++// distributed with this work for additional information
++// regarding copyright ownership.  The ASF licenses this file
++// to you under the Apache License, Version 2.0 (the
++// "License"); you may not use this file except in compliance
++// with the License.  You may obtain a copy of the License at
++//
++//   http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing,
++// software distributed under the License is distributed on an
++// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
++// KIND, either express or implied.  See the License for the
++// specific language governing permissions and limitations
++// under the License.
++
++// Dummy file for checking if TlsCredentialsOptions exists in
++// the grpc::experimental namespace. gRPC starting from 1.34
++// put it here. This is for supporting disabling server
++// validation when using TLS.
++
++#include <grpc/grpc_security_constants.h>
++#include <grpcpp/grpcpp.h>
++#include <grpcpp/security/tls_credentials_options.h>
++
++// Dummy file for checking if TlsCredentialsOptions exists in
++// the grpc::experimental namespace. gRPC starting from 1.34
++// puts it here. This is for supporting disabling server
++// validation when using TLS.
++
++static void check() {
++  // In 1.34, there's no parameterless constructor; in 1.36, there's
++  // only a parameterless constructor
++  auto options =
++      std::make_shared<grpc::experimental::TlsChannelCredentialsOptions>(nullptr);
++  options->set_server_verification_option(
++      grpc_tls_server_verification_option::GRPC_TLS_SERVER_VERIFICATION);
++}
++
++int main(int argc, const char** argv) {
++  check();
++  return 0;
++}
+diff --git a/cpp/src/arrow/flight/try_compile/check_tls_opts_136.cc b/cpp/src/arrow/flight/try_compile/check_tls_opts_136.cc
+new file mode 100644
+index 00000000000..638eec67ba7
+--- /dev/null
++++ b/cpp/src/arrow/flight/try_compile/check_tls_opts_136.cc
+@@ -0,0 +1,38 @@
++// Licensed to the Apache Software Foundation (ASF) under one
++// or more contributor license agreements.  See the NOTICE file
++// distributed with this work for additional information
++// regarding copyright ownership.  The ASF licenses this file
++// to you under the Apache License, Version 2.0 (the
++// "License"); you may not use this file except in compliance
++// with the License.  You may obtain a copy of the License at
++//
++//   http://www.apache.org/licenses/LICENSE-2.0
++//
++// Unless required by applicable law or agreed to in writing,
++// software distributed under the License is distributed on an
++// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
++// KIND, either express or implied.  See the License for the
++// specific language governing permissions and limitations
++// under the License.
++
++// Dummy file for checking if TlsCredentialsOptions exists in
++// the grpc::experimental namespace. gRPC starting from 1.36
++// puts it here. This is for supporting disabling server
++// validation when using TLS.
++
++#include <grpc/grpc_security_constants.h>
++#include <grpcpp/grpcpp.h>
++#include <grpcpp/security/tls_credentials_options.h>
++
++static void check() {
++  // In 1.34, there's no parameterless constructor; in 1.36, there's
++  // only a parameterless constructor
++  auto options = std::make_shared<grpc::experimental::TlsChannelCredentialsOptions>();
++  options->set_server_verification_option(
++      grpc_tls_server_verification_option::GRPC_TLS_SERVER_VERIFICATION);
++}
++
++int main(int argc, const char** argv) {
++  check();
++  return 0;
++}
