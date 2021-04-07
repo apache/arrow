@@ -605,8 +605,11 @@ class Queue(Repo):
             # adding CI's name to the end of the branch in order to use skip
             # patterns on travis and circleci
             task.branch = '{}-{}-{}'.format(job.branch, task.ci, task_name)
-            params = {**job.params, "arrow": job.target, "target": job.target,
-                      "queue_remote_url": self.remote_url}
+            params = {
+                **job.params,
+                "arrow": job.target,
+                "queue_remote_url": self.remote_url
+            }
             files = task.render_files(job.template_searchpath, params=params)
             branch = self.create_branch(task.branch, files=files)
             self.create_tag(task.tag, branch.target)
@@ -923,7 +926,6 @@ class Job(Serializable):
         result = {}
         params = {
             **self.params,
-            "target": self.target,
             "arrow": self.target,
             **(params or {})
         }
