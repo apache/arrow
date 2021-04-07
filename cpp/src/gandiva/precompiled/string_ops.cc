@@ -1271,8 +1271,8 @@ const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char*
     *out_len = 0;
     return "";
   }
-  // actually the convert_replace function replaces the invalid bytes with a single byte
-  // so the output length will be the same as the input length
+  // actually the convert_replace function replaces invalid chars with an ASCII
+  // character so the output length will be the same as the input length
   *out_len = text_len;
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
@@ -1294,7 +1294,7 @@ const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char*
       char_len = 1;
       // first copy the valid bytes until now and then replace the invalid character
       memcpy(ret + out_byte_counter, text_in + out_byte_counter, valid_bytes_to_cpy);
-      memcpy(ret + out_byte_counter + valid_bytes_to_cpy, char_to_replace, char_len);
+      ret[out_byte_counter + valid_bytes_to_cpy] = char_to_replace[0];
       out_byte_counter += valid_bytes_to_cpy + char_len;
       valid_bytes_to_cpy = 0;
       continue;
