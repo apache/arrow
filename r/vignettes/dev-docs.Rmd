@@ -29,11 +29,7 @@ brew install openssl
 sudo apt install libcurl4-openssl-dev libssl-dev
 ```
 
-```{bash, eval = run}
-pkg-config
-```
-
-```{bash, eval=FALSE}
+```{bash, eval=run}
 cd arrow/cpp
 mkdir build
 cd build
@@ -52,7 +48,16 @@ cmake \
   -DARROW_INSTALL_NAME_RPATH=OFF \
       ..
 make install
+```
 
+
+```{bash, eval = run}
+echo $(pkg-config --cflags --silence-errors arrow)
+echo $(pkg-config --libs-only-l --silence-errors arrow)
+echo $(pkg-config --libs-only-L --silence-errors arrow)
+```
+
+```{bash, eval=run}
 cd ../../r
 R -e 'install.packages("remotes"); remotes::install_deps(dependencies = TRUE)'
 
