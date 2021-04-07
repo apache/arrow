@@ -621,7 +621,7 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
 }
 collect.ArrowTabular <- function(x, as_data_frame = TRUE, ...) {
   if (as_data_frame) {
-    as.data.frame(x, ...) 
+    as.data.frame(x, ...)
   } else {
     x
   }
@@ -632,12 +632,6 @@ compute.arrow_dplyr_query <- function(x, ...) dplyr::collect(x, as_data_frame = 
 compute.ArrowTabular <- function(x, ...) x
 compute.Dataset <- function(x, ...) {
   dplyr::collect(arrow_dplyr_query(x), as_data_frame = FALSE, ...)
-}
-# for compatibility with dplyr 1.0.5 and earlier (https://github.com/tidyverse/dplyr/pull/5783):
-if ("name" %in% names(formals(dplyr::compute))) {
-  formals(compute.ArrowTabular) <-
-    formals(compute.arrow_dplyr_query) <-
-    formals(compute.Dataset) <- alist(x = , name = "", ... = )
 }
 
 ensure_group_vars <- function(x) {
