@@ -620,7 +620,11 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
   }
 }
 collect.ArrowTabular <- function(x, as_data_frame = TRUE, ...) {
-  if (as_data_frame) as.data.frame(x, ...) else x
+  if (as_data_frame) {
+    as.data.frame(x, ...) 
+  } else {
+    x
+  }
 }
 collect.Dataset <- function(x, ...) dplyr::collect(arrow_dplyr_query(x), ...)
 
