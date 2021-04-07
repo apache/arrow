@@ -222,7 +222,7 @@ class GANDIVA_EXPORT UnixTimestampHolder
 
   static Status Make(const FunctionNode& node,
                      std::shared_ptr<UnixTimestampHolder>* holder) {
-    if (node.children().size() == 1) {
+    if (node.children().empty()) {
       return Status::Invalid("unix_timestamp function requires at least one parameter");
     }
 
@@ -240,7 +240,8 @@ class GANDIVA_EXPORT UnixTimestampHolder
     // so the behavior will be like the function
     // unix_timestamp(string, "YYYY-MM-DD HH24:MI:SS", 0)
     const std::string pattern("YYYY-MM-DD HH24:MI:SS");
-    return Make(pattern, 0, holder);
+    const int32_t not_supress_errors = 0;
+    return Make(pattern, not_supress_errors, holder);
   }
 
   static Status Make(const std::string& sql_pattern, int32_t suppress_errors,

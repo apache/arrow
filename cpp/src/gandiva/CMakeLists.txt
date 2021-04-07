@@ -236,6 +236,7 @@ add_gandiva_test(internals-test
                  to_date_holder_test.cc
                  to_time_holder_test.cc
                  to_timestamp_holder_test.cc
+                 unix_timestamp_holder_test.cc
                  simple_arena_test.cc
                  like_holder_test.cc
                  replace_holder_test.cc
