@@ -76,20 +76,32 @@ sudo apt install -y libcurl4-openssl-dev libssl-dev
 
 It’s recommended to make a build directory inside of the cpp directory of the Arrow git repository (it is git-ignored). Assuming you are inside cpp/build, you’ll first call cmake to configure the build and then make install. For the R package, you’ll need to enable several features in the C++ library using -D flags:
 
+#### Installing to another directory
+
+If you would like to use arrow from an alternative directory
+
+```{bash, save=run & macos & !sys_install}
+export ARROW_HOME=$(pwd)/dist
+export R_LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH
+```
+
+```{bash, save=run & ubuntu & !sys_install}
+export ARROW_HOME=$(pwd)/dist
+export LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH
+```
+
 ```{bash, save=run}
 cd arrow/cpp
 mkdir build
 cd build
 ```
 
-
-#### Installing to another directory
-
-If you would like to use arrow from an alternative directory
-
 ```{bash, save=run & !sys_install}
-export ARROW_HOME=$(pwd)/dist
-export LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH
+mkdir ARROW_HOME
+
+echo $ARROW_HOME
+echo $LD_LIBRARY_PATH
+echo $R_LD_LIBRARY_PATH
 
 cmake \
   -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
@@ -105,6 +117,8 @@ cmake \
   -DARROW_WITH_SNAPPY=ON \
   -DARROW_WITH_ZLIB=ON \
   -DARROW_INSTALL_NAME_RPATH=OFF \
+  # TODO: where to put this? needed on system=old on macos only 
+  -DBOOST_SOURCE=BUNDLED \ 
   ..
 ```
 
