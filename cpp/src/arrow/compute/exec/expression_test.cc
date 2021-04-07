@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/dataset/expression.h"
+#include "arrow/compute/exec/expression.h"
 
 #include <cstdint>
 #include <memory>
@@ -26,8 +26,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/compute/exec/expression_internal.h"
 #include "arrow/compute/registry.h"
-#include "arrow/dataset/expression_internal.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/testing/gtest_util.h"
 
@@ -39,7 +39,7 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-namespace dataset {
+namespace compute {
 
 #define EXPECT_OK ARROW_EXPECT_OK
 
@@ -1278,5 +1278,5 @@ TEST(Projection, AugmentWithKnownValues) {
       }));
 }
 
-}  // namespace dataset
+}  // namespace compute
 }  // namespace arrow

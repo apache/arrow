@@ -30,6 +30,7 @@ namespace arrow {
 namespace compute {
 
 class ExecContext;
+class Expression;
 
 }  // namespace compute
 
@@ -72,8 +73,6 @@ class ParquetFileFragment;
 class ParquetFragmentScanOptions;
 class ParquetFileWriter;
 class ParquetFileWriteOptions;
-
-class Expression;
 
 class Partitioning;
 class PartitioningFactory;

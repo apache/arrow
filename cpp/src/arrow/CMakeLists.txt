@@ -367,6 +367,7 @@ if(ARROW_COMPUTE)
               compute/api_vector.cc
               compute/cast.cc
               compute/exec.cc
+              compute/exec/expression.cc
               compute/function.cc
               compute/kernel.cc
               compute/registry.cc

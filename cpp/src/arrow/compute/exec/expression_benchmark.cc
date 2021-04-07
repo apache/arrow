@@ -18,13 +18,13 @@
 #include "benchmark/benchmark.h"
 
 #include "arrow/compute/cast.h"
-#include "arrow/dataset/expression.h"
+#include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 
 namespace arrow {
-namespace dataset {
+namespace compute {
 
 static Expression GetPartitionExpression(const std::string& path, bool infer_dictionary) {
   auto options = HivePartitioningFactoryOptions();
@@ -87,5 +87,5 @@ BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee,
 BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee, positive_filter_cast_guarantee_dictionary,
                   filter_cast_positive, guarantee_dictionary);
 
-}  // namespace dataset
+}  // namespace compute
 }  // namespace arrow

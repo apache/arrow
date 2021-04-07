@@ -25,7 +25,7 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/dataset/expression.h"
+#include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/util/macros.h"

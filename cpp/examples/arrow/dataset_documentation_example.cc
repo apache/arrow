@@ -22,7 +22,7 @@
 #include <arrow/compute/cast.h>
 #include <arrow/dataset/dataset.h>
 #include <arrow/dataset/discovery.h>
-#include <arrow/dataset/expression.h>
+#include <arrow/compute/exec/expression.h>
 #include <arrow/dataset/file_base.h>
 #include <arrow/dataset/file_ipc.h>
 #include <arrow/dataset/file_parquet.h>

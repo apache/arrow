@@ -15,15 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/dataset/expression.h"
+#include "arrow/compute/exec/expression.h"
 
 #include <unordered_map>
 #include <unordered_set>
 
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/exec/expression_internal.h"
 #include "arrow/compute/exec_internal.h"
-#include "arrow/dataset/expression_internal.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
@@ -39,7 +39,7 @@ namespace arrow {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-namespace dataset {
+namespace compute {
 
 Expression::Expression(Call call) : impl_(std::make_shared<Impl>(std::move(call))) {}
 
@@ -1156,7 +1156,8 @@ Result<Expression> Deserialize(std::shared_ptr<Buffer> buffer) {
 
     Result<std::shared_ptr<Scalar>> GetScalar(const std::string& i) {
       int32_t column_index;
-      if (!internal::ParseValue<Int32Type>(i.data(), i.length(), &column_index)) {
+      if (!::arrow::internal::ParseValue<Int32Type>(i.data(), i.length(),
+                                                    &column_index)) {
         return Status::Invalid("Couldn't parse column_index");
       }
       if (column_index >= batch_.num_columns()) {
@@ -1279,5 +1280,5 @@ Expression operator||(Expression lhs, Expression rhs) {
   return or_(std::move(lhs), std::move(rhs));
 }
 
-}  // namespace dataset
+}  // namespace compute
 }  // namespace arrow
