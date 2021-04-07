@@ -166,8 +166,15 @@ Other flags that may be useful:
 
 You can `-j` here too!
 
-```{bash, save=run}
+```{bash, save=run & !(system & ubuntu)}
 make install
+```
+
+If you are installing on linux, and you are installing to the system, you may  
+need to use `sudo`:
+
+```{bash, save=run & system & ubuntu)}
+sudo make install
 ```
 
 Note that after any change to the C++ library, you must reinstall it and
