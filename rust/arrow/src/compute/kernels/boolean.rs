@@ -35,26 +35,6 @@ use crate::util::bit_util::{ceil, round_upto_multiple_of_64};
 use core::iter;
 use lexical_core::Integer;
 
-fn kleene_op<F>(
-    value_buffer: &mut MutableBuffer,
-    valid_buffer: &mut MutableBuffer,
-    op: &F,
-    ((left_data, left_valid), (right_data, right_valid)): ((u64, u64), (u64, u64)),
-) where
-    F: Fn(u64, u64, u64, u64) -> (u64, u64),
-{
-    let left_true = left_valid & left_data;
-    let left_false = left_valid & !left_data;
-
-    let right_true = right_valid & right_data;
-    let right_false = right_valid & !right_data;
-
-    let (value, valid) = op(left_true, left_false, right_true, right_false);
-
-    value_buffer.extend_from_slice(&[value]);
-    valid_buffer.extend_from_slice(&[valid]);
-}
-
 fn binary_boolean_kleene_kernel<F>(
     left: &BooleanArray,
     right: &BooleanArray,
@@ -73,10 +53,33 @@ where
     let len = left.len();
 
     // result length measured in bytes (incl. remainder)
-    let result_len = round_upto_multiple_of_64(len) / 8;
+    let mut result_len = round_upto_multiple_of_64(len) / 8;
+    // if remainder is absent, the kleene_op code would always resize the result buffers,
+    // which is both unnecessary and expensive. We can prevent the resizing by always
+    // adding 8 additional bytes to the length of both buffers. All bits of these 8 bytes
+    // will always be 0 though.
+    if len % 64 == 0 {
+        result_len += 8;
+    }
 
     let mut value_buffer = MutableBuffer::new(result_len);
     let mut valid_buffer = MutableBuffer::new(result_len);
+
+    let kleene_op = |((left_data, left_valid), (right_data, right_valid)): (
+        (u64, u64),
+        (u64, u64),
+    )| {
+        let left_true = left_valid & left_data;
+        let left_false = left_valid & !left_data;
+
+        let right_true = right_valid & right_data;
+        let right_false = right_valid & !right_data;
+
+        let (value, valid) = op(left_true, left_false, right_true, right_false);
+
+        value_buffer.extend_from_slice(&[value]);
+        valid_buffer.extend_from_slice(&[valid]);
+    };
 
     let left_offset = left.offset();
     let right_offset = right.offset();
@@ -113,62 +116,41 @@ where
                 .iter()
                 .zip(left_valid_chunks)
                 .zip(right_chunks.iter().zip(right_valid_chunks))
-                .for_each(|left_right| {
-                    kleene_op(&mut value_buffer, &mut valid_buffer, &op, left_right)
-                });
-            if left_chunks.remainder_len() > 0 {
-                iter::once(((left_rem, left_valid_rem), (right_rem, right_valid_rem)))
-                    .for_each(|left_right| {
-                        kleene_op(&mut value_buffer, &mut valid_buffer, &op, left_right)
-                    });
-            }
+                .chain(iter::once((
+                    (left_rem, left_valid_rem),
+                    (right_rem, right_valid_rem),
+                )))
+                .for_each(kleene_op);
         }
         (Some((left_valid_chunks, left_valid_rem)), None) => {
             left_chunks
                 .iter()
                 .zip(left_valid_chunks)
                 .zip(right_chunks.iter().zip(iter::repeat(u64::MAX)))
-                .for_each(|left_right| {
-                    kleene_op(&mut value_buffer, &mut valid_buffer, &op, left_right)
-                });
-            if left_chunks.remainder_len() > 0 {
-                iter::once(((left_rem, left_valid_rem), (right_rem, u64::MAX))).for_each(
-                    |left_right| {
-                        kleene_op(&mut value_buffer, &mut valid_buffer, &op, left_right)
-                    },
-                );
-            }
+                .chain(iter::once((
+                    (left_rem, left_valid_rem),
+                    (right_rem, u64::MAX),
+                )))
+                .for_each(kleene_op);
         }
         (None, Some((right_valid_chunks, right_valid_rem))) => {
             left_chunks
                 .iter()
                 .zip(iter::repeat(u64::MAX))
                 .zip(right_chunks.iter().zip(right_valid_chunks))
-                .for_each(|left_right| {
-                    kleene_op(&mut value_buffer, &mut valid_buffer, &op, left_right)
-                });
-            if left_chunks.remainder_len() > 0 {
-                iter::once(((left_rem, u64::MAX), (right_rem, right_valid_rem)))
-                    .for_each(|left_right| {
-                        kleene_op(&mut value_buffer, &mut valid_buffer, &op, left_right)
-                    });
-            }
+                .chain(iter::once((
+                    (left_rem, u64::MAX),
+                    (right_rem, right_valid_rem),
+                )))
+                .for_each(kleene_op);
         }
         (None, None) => {
             left_chunks
                 .iter()
                 .zip(iter::repeat(u64::MAX))
                 .zip(right_chunks.iter().zip(iter::repeat(u64::MAX)))
-                .for_each(|left_right| {
-                    kleene_op(&mut value_buffer, &mut valid_buffer, &op, left_right)
-                });
-            if left_chunks.remainder_len() > 0 {
-                iter::once(((left_rem, u64::MAX), (right_rem, u64::MAX))).for_each(
-                    |left_right| {
-                        kleene_op(&mut value_buffer, &mut valid_buffer, &op, left_right)
-                    },
-                );
-            }
+                .chain(iter::once(((left_rem, u64::MAX), (right_rem, u64::MAX))))
+                .for_each(kleene_op);
         }
     };
 
