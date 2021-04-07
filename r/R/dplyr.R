@@ -682,7 +682,7 @@ restore_dplyr_features <- function(df, query) {
         drop = dplyr::group_by_drop_default(query)
       )
     } else {
-      # This is a Table, via collect(as_data_frame = FALSE)
+      # This is a Table, via compute() or collect(as_data_frame = FALSE)
       df <- arrow_dplyr_query(df)
       df$group_by_vars <- query$group_by_vars
       df$drop_empty_groups <- query$drop_empty_groups
