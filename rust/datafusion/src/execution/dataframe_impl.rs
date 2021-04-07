@@ -254,12 +254,9 @@ mod tests {
         let right_rows = right.collect().await?;
         let join = left.join(right, JoinType::Inner, &["c1"], &["c1"])?;
         let join_rows = join.collect().await?;
-        assert_eq!(1, left_rows.len());
-        assert_eq!(100, left_rows[0].num_rows());
-        assert_eq!(1, right_rows.len());
-        assert_eq!(100, right_rows[0].num_rows());
-        assert_eq!(1, join_rows.len());
-        assert_eq!(2008, join_rows[0].num_rows());
+        assert_eq!(100, left_rows.iter().map(|x| x.num_rows()).sum::<usize>());
+        assert_eq!(100, right_rows.iter().map(|x| x.num_rows()).sum::<usize>());
+        assert_eq!(2008, join_rows.iter().map(|x| x.num_rows()).sum::<usize>());
         Ok(())
     }
 
