@@ -87,7 +87,11 @@ jobs:
           ARROW_R_DEV: TRUE
         run: bash arrow/r/vignettes/script.sh
         shell: bash
-
+      - name: Ensure that the Arrow package is loadable and we have the correct one
+        run: |
+          library(arrow)
+          arrow_info()
+        shell: Rscript {0}
       - name: Save the install script
         uses: actions/upload-artifact@v2
         with:
