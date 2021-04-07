@@ -21,7 +21,6 @@ import fnmatch
 import glob
 import time
 import logging
-import itertools
 import mimetypes
 import subprocess
 import textwrap
@@ -53,6 +52,10 @@ for pkg in ["requests", "urllib3", "github3"]:
     logging.getLogger(pkg).setLevel(logging.WARNING)
 
 logger = logging.getLogger("crossbow")
+
+
+class CrossbowError(Exception):
+    pass
 
 
 def _flatten(mapping):
@@ -188,7 +191,7 @@ class GitRemoteCallbacks(PygitRemoteCallbacks):
             # pygit2 doesn't propagate the exception properly
             msg = 'Wrong oauth personal access token'
             print(msg)
-            raise ValueError(msg)
+            raise CrossbowError(msg)
 
         if allowed_types & pygit2.credentials.GIT_CREDTYPE_USERPASS_PLAINTEXT:
             return pygit2.UserPass(self.token, 'x-oauth-basic')
@@ -244,8 +247,8 @@ class Repo:
     def origin(self):
         remote = self.repo.remotes['origin']
         if self.require_https and remote.url.startswith('git@github.com'):
-            raise ValueError("Change SSH origin URL to HTTPS to use "
-                             "Crossbow: {}".format(remote.url))
+            raise CrossbowError("Change SSH origin URL to HTTPS to use "
+                                "Crossbow: {}".format(remote.url))
         return remote
 
     def fetch(self):
@@ -385,9 +388,10 @@ class Repo:
     def _parse_github_user_repo(self):
         m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', self.remote_url)
         if m is None:
-            raise ValueError("Unable to parse the github owner and repository "
-                             "from the repository's remote url '{}'"
-                             .format(self.remote_url))
+            raise CrossbowError(
+                "Unable to parse the github owner and repository from the "
+                "repository's remote url '{}'".format(self.remote_url)
+            )
         user, repo = m.group(1), m.group(2)
         return user, repo
 
@@ -482,9 +486,9 @@ class Repo:
         #    sigmavirus24/github3.py/issues/779#issuecomment-379470626
         repo = self.as_github_repo()
         if not tag_name:
-            raise ValueError('Empty tag name')
+            raise CrossbowError('Empty tag name')
         if not target_commitish:
-            raise ValueError('Empty target commit for the release tag')
+            raise CrossbowError('Empty target commit for the release tag')
 
         # remove the whole release if it already exists
         try:
@@ -513,7 +517,7 @@ class Repo:
                     self.github_upload_asset_curl(release, path, name=name,
                                                   mime=mime)
                 else:
-                    raise ValueError(
+                    raise CrossbowError(
                         'Unsupported upload method {}'.format(method)
                     )
 
@@ -569,7 +573,9 @@ class Queue(Repo):
         try:
             content = self.file_contents(branch.target, 'job.yml')
         except KeyError:
-            raise ValueError('No job is found with name: {}'.format(job_name))
+            raise CrossbowError(
+                'No job is found with name: {}'.format(job_name)
+            )
 
         buffer = StringIO(content.decode('utf-8'))
         job = yaml.load(buffer)
@@ -578,19 +584,19 @@ class Queue(Repo):
 
     def put(self, job, prefix='build'):
         if not isinstance(job, Job):
-            raise ValueError('`job` must be an instance of Job')
+            raise CrossbowError('`job` must be an instance of Job')
         if job.branch is not None:
-            raise ValueError('`job.branch` is automatically generated, thus '
-                             'it must be blank')
+            raise CrossbowError('`job.branch` is automatically generated, '
+                                'thus it must be blank')
 
         if job.target.remote is None:
-            raise RuntimeError(
+            raise CrossbowError(
                 'Cannot determine git remote for the Arrow repository to '
                 'clone or push to, try to push the `{}` branch first to have '
                 'a remote tracking counterpart.'.format(job.target.branch)
             )
         if job.target.branch is None:
-            raise RuntimeError(
+            raise CrossbowError(
                 'Cannot determine the current branch of the Arrow repository '
                 'to clone or push to, perhaps it is in detached HEAD state. '
                 'Please checkout a branch.'
@@ -878,7 +884,7 @@ class TaskAssets(dict):
             elif num_matches == 1:
                 self[pattern] = github_assets[matches[0].group(0)]
             else:
-                raise ValueError(
+                raise CrossbowError(
                     'Only a single asset should match pattern `{}`, there are '
                     'multiple ones: {}'.format(pattern, ', '.join(matches))
                 )
@@ -1062,18 +1068,22 @@ class Config(dict):
             msg = 'Invalid group(s) {!r}. Must be one of {!r}'.format(
                 invalid_groups, valid_groups
             )
-            raise ValueError(msg)
+            raise CrossbowError(msg)
 
         # merge the tasks defined in the selected groups
         task_patterns = [list(config_groups[name]) for name in group_whitelist]
         task_patterns = set(sum(task_patterns, task_whitelist))
 
         # treat the task names as glob patterns to select tasks more easily
-        requested_tasks = set(
-            itertools.chain.from_iterable(
-                fnmatch.filter(valid_tasks, p) for p in task_patterns
-            )
-        )
+        requested_tasks = set()
+        for pattern in task_patterns:
+            matches = fnmatch.filter(valid_tasks, pattern)
+            if len(matches):
+                requested_tasks.update(matches)
+            else:
+                raise CrossbowError(
+                    "Unable to match any tasks for `{}`".format(pattern)
+                )
 
         # validate that the passed and matched tasks are defined in the config
         invalid_tasks = requested_tasks - valid_tasks
@@ -1081,7 +1091,7 @@ class Config(dict):
             msg = 'Invalid task(s) {!r}. Must be one of {!r}'.format(
                 invalid_tasks, valid_tasks
             )
-            raise ValueError(msg)
+            raise CrossbowError(msg)
 
         return {
             task_name: config_tasks[task_name] for task_name in requested_tasks
@@ -1093,7 +1103,7 @@ class Config(dict):
             for pattern in group:
                 tasks = self.select(tasks=[pattern])
                 if not tasks:
-                    raise ValueError(
+                    raise CrossbowError(
                         "The pattern `{}` defined for task group `{}` is not "
                         "matching any of the tasks defined in the "
                         "configuration file.".format(pattern, group_name)
@@ -1104,7 +1114,7 @@ class Config(dict):
             try:
                 Task(**task)
             except Exception as e:
-                raise ValueError(
+                raise CrossbowError(
                     'Unable to construct a task object from the '
                     'definition  of task `{}`. The original error message '
                     'is: `{}`'.format(task_name, str(e))
@@ -1130,8 +1140,8 @@ class Config(dict):
                 )
             )
             if not files:
-                raise ValueError('No files have been rendered for task `{}`'
-                                 .format(task_name))
+                raise CrossbowError('No files have been rendered for task `{}`'
+                                    .format(task_name))
 
 
 # configure yaml serializer

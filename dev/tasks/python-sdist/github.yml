@@ -25,10 +25,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       {{ macros.github_checkout_arrow()|indent }}
-
-      - uses: actions/setup-python@v2
-      - name: Setup Archery
-        run: pip install -e arrow/dev/archery[docker]
+      {{ macros.github_install_archery()|indent }}
 
       - name: Build sdist
         run: |

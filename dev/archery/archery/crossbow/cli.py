@@ -19,7 +19,7 @@ from pathlib import Path
 
 import click
 
-from .core import Config, Repo, Queue, Target, Job
+from .core import Config, Repo, Queue, Target, Job, CrossbowError
 from .reports import EmailReport, ConsoleReport
 from ..utils.source import ArrowSources
 
@@ -109,7 +109,10 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
 
     # load available tasks configuration and groups from yaml
     config = Config.load_yaml(config_path)
-    config.validate()
+    try:
+        config.validate()
+    except CrossbowError as e:
+        raise click.ClickException(str(e))
 
     # Override the detected repo url / remote, branch and sha - this aims to
     # make release procedure a bit simpler.
@@ -125,8 +128,11 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
     params = dict([p.split("=") for p in params])
 
     # instantiate the job object
-    job = Job.from_config(config=config, target=target, tasks=tasks,
-                          groups=groups, params=params)
+    try:
+        job = Job.from_config(config=config, target=target, tasks=tasks,
+                              groups=groups, params=params)
+    except CrossbowError as e:
+        raise click.ClickException(str(e))
 
     if dry_run:
         job.show(output)

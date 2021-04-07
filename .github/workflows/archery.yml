@@ -53,8 +53,7 @@ jobs:
         with:
           python-version: '3.6'
       - name: Install Archery, Crossbow- and Test Dependencies
-        working-directory: dev/archery
-        run: pip install pytest responses toolz jinja2 -e .[all]
+        run: pip install pytest responses -e dev/archery[all]
       - name: Archery Unittests
         working-directory: dev/archery
         run: pytest -v archery
