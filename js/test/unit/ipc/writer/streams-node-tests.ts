@@ -239,7 +239,7 @@ import {
                 // insert some asynchrony
                 .tap({ async next(table: Table) { tables.push(table); await sleep(1); } })
                 .pipe(writer);
-                
+
             for await (const reader of RecordBatchReader.readAll(stream)) {
                 const sourceTable = tables.shift()!;
                 const streamTable = await Table.from(reader);
@@ -261,7 +261,7 @@ import {
                 .tap({ async next(table: Table) { tables.push(table); await sleep(1); } })
                 .flatMap((table) => AsyncIterable.as(table.chunks))
                 .pipe(writer);
-                
+
             for await (const reader of RecordBatchReader.readAll(stream)) {
                 const sourceTable = tables.shift()!;
                 const streamTable = await Table.from(reader);

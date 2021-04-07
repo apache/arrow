@@ -162,7 +162,7 @@ import {
                     test('Promise<stream.Readable>', file.nodeReadableStream(wrapArgInPromise(validate)));
                     test('Promise<ReadableStream>', file.whatwgReadableStream(wrapArgInPromise(validate)));
                     test('Promise<ReadableByteStream>', file.whatwgReadableByteStream(wrapArgInPromise(validate)));
-    
+
                     async function validate(source: any) {
                         const writer = new RecordBatchFileWriter();
                         /* no await */ writer.writeAll(await RecordBatchReader.from(source));
@@ -259,7 +259,7 @@ import {
                 // flatMap from Table -> RecordBatches[]
                 .flatMap((table) => AsyncIterable.as(table.chunks))
                 .pipeThrough(RecordBatchStreamWriter.throughDOM(opts));
-    
+
             for await (const reader of RecordBatchReader.readAll(stream)) {
                 const sourceTable = tables.shift()!;
                 const streamTable = await Table.from(reader);
