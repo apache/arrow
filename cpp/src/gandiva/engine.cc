@@ -31,6 +31,8 @@
 #include <unordered_set>
 #include <utility>
 
+#include "arrow/util/logging.h"
+
 #if defined(_MSC_VER)
 #pragma warning(push)
 #pragma warning(disable : 4141)
@@ -95,13 +97,17 @@ void Engine::InitOnce() {
 
   cpu_name = llvm::sys::getHostCPUName();
   llvm::StringMap<bool> host_features;
+  std::string cpu_attrs_str;
   if (llvm::sys::getHostCPUFeatures(host_features)) {
     for (auto& f : host_features) {
       std::string attr = f.second ? std::string("+") + f.first().str()
                                   : std::string("-") + f.first().str();
       cpu_attrs.push_back(attr);
+      cpu_attrs_str += " " + attr;
     }
   }
+  ARROW_LOG(INFO) << "Detected CPU Name : " << cpu_name.str();
+  ARROW_LOG(INFO) << "Detected CPU Features:" << cpu_attrs_str;
   llvm_init = true;
 }
 
