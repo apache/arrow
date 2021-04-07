@@ -593,6 +593,7 @@ TYPED_TEST(TestBinaryArithmeticSigned, DivideOverflowRaises) {
 TYPED_TEST(TestBinaryArithmeticFloating, Power) {
   using CType = typename TestFixture::CType;
   auto max = std::numeric_limits<CType>::max();
+  this->SetNansEqual(true);
 
   for (auto check_overflow : {false, true}) {
     this->SetOverflowCheck(check_overflow);
@@ -615,7 +616,6 @@ TYPED_TEST(TestBinaryArithmeticFloating, Power) {
     this->AssertBinop(Power, "[3.4, Inf, -Inf, 1.1, 100000]", "[1, 2, 3, Inf, 100000]",
                       "[3.4, Inf, -Inf, Inf, Inf]");
     // Array with NaN
-    this->SetNansEqual(true);
     this->AssertBinop(Power, "[3.4, NaN, 2.0]", "[1, 2, 2.0]", "[3.4, NaN, 4.0]");
     // Scalar exponentiated by scalar
     this->AssertBinop(Power, 21.0F, 3.0F, 9261.0F);
@@ -670,8 +670,10 @@ TYPED_TEST(TestBinaryArithmeticSigned, Power) {
   for (auto check_overflow : {false, true}) {
     this->SetOverflowCheck(check_overflow);
 
+    // Empty arrays
+    this->AssertBinop(Power, "[]", "[]", "[]");
     // Ordinary arrays
-    this->AssertBinop(Power, "[-3, 2, -6]", "[1, 1, 2]", "[-3, 2, 36]");
+    this->AssertBinop(Power, "[-3, 2, -6, 2]", "[1, 1, 2, 0]", "[-3, 2, 36, 1]");
     // Array with nulls
     this->AssertBinop(Power, "[null, 10, 127, null, -20]", "[1, 2, 1, 5, 1]",
                       "[null, 100, 127, null, -20]");
@@ -686,9 +688,6 @@ TYPED_TEST(TestBinaryArithmeticSigned, Power) {
     // Divide by zero raises
     this->AssertBinopRaises(Power, MakeArray(0), MakeArray(-1),
                             "integers to negative integer powers are not allowed");
-    // Overflow raises
-    this->SetOverflowCheck(true);
-    this->AssertBinopRaises(Power, MakeArray(max), MakeArray(10), "overflow");
   }
 
   // Overflow raises
