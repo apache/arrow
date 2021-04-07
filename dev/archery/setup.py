@@ -29,7 +29,7 @@ extras = {
     'docker': ['ruamel.yaml', 'python-dotenv'],
     'release': ['jinja2', 'jira', 'semver', 'gitpython'],
     'crossbow': ['github3.py', 'jinja2', 'pygit2', 'ruamel.yaml',
-                 'setuptools_scm', 'toolz'],
+                 'setuptools_scm'],
 }
 extras['all'] = list(set(functools.reduce(operator.add, extras.values())))
 

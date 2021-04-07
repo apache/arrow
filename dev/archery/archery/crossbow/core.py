@@ -21,6 +21,7 @@ import fnmatch
 import glob
 import time
 import logging
+import itertools
 import mimetypes
 import subprocess
 import textwrap
@@ -28,7 +29,6 @@ from io import StringIO
 from pathlib import Path
 from datetime import date
 
-import toolz
 import jinja2
 from ruamel.yaml import YAML
 
@@ -108,7 +108,7 @@ def _unflatten_tree(files):
             }
         }
     """
-    files = toolz.keymap(lambda path: tuple(path.split('/')), files)
+    files = {tuple(k.split('/')): v for k, v in files.items()}
     return _unflatten(files)
 
 
@@ -121,7 +121,6 @@ def _render_jinja_template(searchpath, template, params):
                              lstrip_blocks=True)
     env.filters['format_all'] = format_all
     template = env.get_template(template)
-    params = toolz.merge(params, params)
     return template.render(**params)
 
 
@@ -606,10 +605,9 @@ class Queue(Repo):
             # adding CI's name to the end of the branch in order to use skip
             # patterns on travis and circleci
             task.branch = '{}-{}-{}'.format(job.branch, task.ci, task_name)
-            files = task.render_files(**job.params,
-                                      arrow=job.target,
-                                      target=job.target,
-                                      queue_remote_url=self.remote_url)
+            params = {**job.params, "arrow": job.target, "target": job.target,
+                      "queue_remote_url": self.remote_url}
+            files = task.render_files(job.template_searchpath, params=params)
             branch = self.create_branch(task.branch, files=files)
             self.create_tag(task.tag, branch.target)
             task.commit = str(branch.target)
@@ -736,7 +734,7 @@ class Task(Serializable):
         self._assets = None  # assets cache
 
     def render_files(self, searchpath, params):
-        params = toolz.merge(self.params, params, dict(task=self))
+        params = {**self.params, **params, "task": self}
         try:
             rendered = _render_jinja_template(searchpath, self.template,
                                               params=params)
@@ -747,7 +745,7 @@ class Task(Serializable):
                 )
             )
 
-        tree = toolz.merge(_default_tree, {self.filename: rendered})
+        tree = {**_default_tree, self.filename: rendered}
         return _unflatten_tree(tree)
 
     @property
@@ -918,17 +916,25 @@ class Job(Serializable):
         with StringIO() as buf:
             yaml.dump(self, buf)
             content = buf.getvalue()
-        tree = toolz.merge(_default_tree, {'job.yml': content})
+        tree = {**_default_tree, "job.yml": content}
         return _unflatten_tree(tree)
 
     def render_tasks(self, params):
         result = {}
-        params = toolz.merge(**self.params, target=self.target,
-                             arrow=self.target, **params)
+        params = {
+            **self.params,
+            "target": self.target,
+            "arrow": self.target,
+            **params
+        }
         for task_name, task in self.tasks.items():
             files = task.render_files(self._template_searchpath, params)
             result[task_name] = files
         return result
+
+    @property
+    def template_searchpath(self):
+        return self._template_searchpath
 
     @property
     def queue(self):
@@ -1062,7 +1068,7 @@ class Config(dict):
 
         # treat the task names as glob patterns to select tasks more easily
         requested_tasks = set(
-            toolz.concat(
+            itertools.chain.from_iterable(
                 fnmatch.filter(valid_tasks, p) for p in task_patterns
             )
         )

@@ -129,7 +129,7 @@ Install
 
    .. code:: bash
 
-      pip install arrow/dev/archery[crossbow]
+      pip install -e arrow/dev/archery[crossbow]
 
 9. Try running it:
 

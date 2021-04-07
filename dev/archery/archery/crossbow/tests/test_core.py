@@ -21,5 +21,5 @@ from archery.crossbow import Config
 
 def test_config():
     src = ArrowSources.find()
-    conf = Config.load_yaml(src.dev / "tasks" / "tasks.yml")
+    conf = Config.load_yaml(src.dev / "tasks" / "tasks.yml.j2")
     conf.validate()

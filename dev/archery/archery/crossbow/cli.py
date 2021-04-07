@@ -126,8 +126,7 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
 
     # instantiate the job object
     job = Job.from_config(config=config, target=target, tasks=tasks,
-                          groups=groups, params=params,
-                          template_searchpath=arrow.path / "dev" / "tasks")
+                          groups=groups, params=params)
 
     if dry_run:
         job.show(output)

@@ -16,11 +16,10 @@
 # under the License.
 
 import click
+import collections
 import functools
 from io import StringIO
 import textwrap
-
-import toolz
 
 
 # TODO(kszucs): use archery.report.JinjaReport instead
@@ -181,14 +180,14 @@ class EmailReport(Report):
         buffer = StringIO()
         buffer.write(self.header())
 
-        tasks_by_state = toolz.groupby(
-            lambda name_task_pair: name_task_pair[1].status().combined_state,
-            self.job.tasks.items()
-        )
+        tasks_by_state = collections.defaultdict(dict)
+        for task_name, task in self.job.tasks.items():
+            state = task.status().combined_state
+            tasks_by_state[state][task_name] = task
 
         for state in ('failure', 'error', 'pending', 'success'):
             if state in tasks_by_state:
-                tasks = dict(tasks_by_state[state])
+                tasks = tasks_by_state[state]
                 buffer.write('\n')
                 buffer.write(self.STATUS_HEADERS[state])
                 buffer.write('\n')
