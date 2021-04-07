@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("Feather")
-
 feather_file <- tempfile()
 tib <- tibble::tibble(x = 1:10, y = rnorm(10), z = letters[1:10])
 
@@ -193,6 +191,32 @@ test_that("Character vectors > 2GB can write to feather", {
   on.exit(unlink(tf))
   write_feather(df, tf)
   expect_identical(read_feather(tf), df)
+})
+
+test_that("FeatherReader methods", {
+  # Setup a feather file to use in the test
+  feather_temp <- tempfile()
+  on.exit({
+    unlink(feather_temp)
+  })
+  write_feather(tib, feather_temp)
+  feather_temp_RA <- make_readable_file(feather_temp)
+
+  reader <- FeatherReader$create(feather_temp_RA)
+  feather_temp_RA$close()
+
+  # column_names
+  expect_identical(
+    reader$column_names,
+    c("x", "y", "z")
+  )
+
+  # print method
+  expect_identical(
+    capture.output(print(reader)),
+    # TODO: can we get  rows/columns?
+    c("FeatherReader:", "Schema", "x: int32", "y: double", "z: string")
+  )
 })
 
 unlink(feather_file)
