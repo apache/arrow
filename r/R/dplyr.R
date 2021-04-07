@@ -630,9 +630,7 @@ collect.Dataset <- function(x, ...) dplyr::collect(arrow_dplyr_query(x), ...)
 
 compute.arrow_dplyr_query <- function(x, ...) dplyr::collect(x, as_data_frame = FALSE)
 compute.ArrowTabular <- function(x, ...) x
-compute.Dataset <- function(x, ...) {
-  dplyr::collect(arrow_dplyr_query(x), as_data_frame = FALSE, ...)
-}
+compute.Dataset <- compute.arrow_dplyr_query
 
 ensure_group_vars <- function(x) {
   if (inherits(x, "arrow_dplyr_query")) {
