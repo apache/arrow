@@ -40,7 +40,9 @@ std::shared_ptr<arrow::RecordBatch> RecordBatchReader__ReadNext(
 // [[arrow::export]]
 std::shared_ptr<arrow::ipc::RecordBatchStreamReader> ipc___RecordBatchStreamReader__Open(
     const std::shared_ptr<arrow::io::InputStream>& stream) {
-  return ValueOrStop(arrow::ipc::RecordBatchStreamReader::Open(stream));
+  auto options = arrow::ipc::IpcReadOptions::Defaults();
+  options.memory_pool = gc_memory_pool();
+  return ValueOrStop(arrow::ipc::RecordBatchStreamReader::Open(stream, options));
 }
 
 // [[arrow::export]]
@@ -85,7 +87,9 @@ std::shared_ptr<arrow::RecordBatch> ipc___RecordBatchFileReader__ReadRecordBatch
 // [[arrow::export]]
 std::shared_ptr<arrow::ipc::RecordBatchFileReader> ipc___RecordBatchFileReader__Open(
     const std::shared_ptr<arrow::io::RandomAccessFile>& file) {
-  return ValueOrStop(arrow::ipc::RecordBatchFileReader::Open(file));
+  auto options = arrow::ipc::IpcReadOptions::Defaults();
+  options.memory_pool = gc_memory_pool();
+  return ValueOrStop(arrow::ipc::RecordBatchFileReader::Open(file, options));
 }
 
 // [[arrow::export]]
