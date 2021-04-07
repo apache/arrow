@@ -452,7 +452,7 @@ arrow_r_string_match_function <- function(FUN) {
 
 arrow_stringr_string_match_function <- function(FUN) {
   function(string, pattern, negate = FALSE) {
-    opts <- get_stringr_pattern_options(pattern)
+    opts <- get_stringr_pattern_options(enexpr(pattern))
     out <- arrow_r_string_match_function(FUN)(
       pattern = opts$pattern,
       x = string,
@@ -480,7 +480,7 @@ arrow_r_string_replace_function <- function(FUN, max_replacements) {
 
 arrow_stringr_string_replace_function <- function(FUN, max_replacements) {
   function(string, pattern, replacement) {
-    opts <- get_stringr_pattern_options(pattern)
+    opts <- get_stringr_pattern_options(enexpr(pattern))
     arrow_r_string_replace_function(FUN, max_replacements)(
       pattern = opts$pattern,
       replacement = replacement,
@@ -524,7 +524,8 @@ format_string_replacement <- function(replacement, ignore.case, fixed) {
 }
 
 # this function assigns definitions for the stringr pattern modifier functions
-# functions (fixed, regex, etc.) in itself, and uses them to evaluate `pattern`
+# (fixed, regex, etc.) in itself, and uses them to evaluate the quoted
+# expression `pattern`
 get_stringr_pattern_options <- function(pattern) {
   fixed <- function(pattern, ignore_case = FALSE, ...) {
     check_dots(...)
@@ -560,7 +561,7 @@ get_stringr_pattern_options <- function(pattern) {
     }
     opts
   }
-  ensure_opts(eval(enexpr(pattern)))
+  ensure_opts(eval(pattern))
 }
 
 # We'll populate these at package load time.
