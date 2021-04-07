@@ -36,7 +36,7 @@ jobs:
     name: Build wheel for OS X
     runs-on: macos-latest
     steps:
-      {{ macros.github_checkout()|indent }}
+      {{ macros.github_checkout_arrow()|indent }}
 
       - name: Install System Dependencies
         run: brew install bison ninja
@@ -129,5 +129,5 @@ jobs:
           unset MACOSX_DEPLOYMENT_TARGET
           arrow/ci/scripts/python_wheel_macos_test.sh $(pwd)/arrow
 
-      {{ macros.github_upload("arrow/python/dist/*.whl")|indent }}
-      {{ macros.github_gemfury("arrow/python/dist/*.whl")|indent }}
+      {{ macros.github_upload_releases("arrow/python/dist/*.whl")|indent }}
+      {{ macros.github_upload_gemfury("arrow/python/dist/*.whl")|indent }}

@@ -44,4 +44,4 @@ jobs:
           OS_NAME: "linux"
           CHECK_SHARED_DEPENDENCIES: true
 
-      {{ macros.github_upload("arrow/dist/*.jar")|indent }}
+      {{ macros.github_upload_releases("arrow/dist/*.jar")|indent }}

@@ -45,7 +45,7 @@ env:
     - PYTHON={{ python_version }}
 
 before_script:
-  {{ macros.travis_checkout() }}
+  {{ macros.travis_checkout_arrow() }}
   {{ macros.travis_docker_login() }}
 
 script:
@@ -62,8 +62,8 @@ script:
 
 after_success:
   # Upload wheel as github artifact
-  {{ macros.travis_upload("arrow/python/repaired_wheels/*.whl") }}
-  {{ macros.travis_gemfury("arrow/python/repaired_wheels/*.whl") }}
+  {{ macros.travis_upload_releases("arrow/python/repaired_wheels/*.whl") }}
+  {{ macros.travis_upload_gemfury("arrow/python/repaired_wheels/*.whl") }}
 
   {% if arrow.branch == 'master' %}
   # Push the docker image to dockerhub

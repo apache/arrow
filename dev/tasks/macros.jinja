@@ -8,7 +8,7 @@ on:
       - "*-github-*"
 {% endmacro %}
 
-{%- macro github_checkout() -%}
+{%- macro github_checkout_arrow() -%}
   - name: Checkout Arrow
     run: |
       git clone --no-checkout {{ arrow.remote }} arrow
@@ -45,7 +45,7 @@ on:
     run: pip install -e arrow/dev/archery[all]
 {% endmacro %}
 
-{%- macro github_upload(pattern) -%}
+{%- macro github_upload_releases(pattern) -%}
   - name: Set up Python
     uses: actions/setup-python@v2
     with:
@@ -73,7 +73,7 @@ on:
       CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN }}' }}
 {% endmacro %}
 
-{%- macro github_gemfury(pattern) -%}
+{%- macro github_upload_gemfury(pattern) -%}
   {% if arrow.branch == 'master' %}
   - name: Upload package to Gemfury
     shell: bash
@@ -86,7 +86,7 @@ on:
   {% endif %}
 {% endmacro %}
 
-{%- macro azure_checkout() -%}
+{%- macro azure_checkout_arrow() -%}
   - script: |
       git clone --no-checkout {{ arrow.remote }} arrow
       git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
@@ -95,10 +95,21 @@ on:
     displayName: Clone arrow
 {% endmacro %}
 
-{%- macro azure_upload(pattern) -%}
-  - script: pip install -e arrow/dev/archery[crossbow]
+{%- macro azure_upload_releases(pattern) -%}
+  - script: |
+      which pip
+      which python
+  - script: |
+      pip install -e arrow/dev/archery[crossbow]
+      which pip
+      which python
+      which archery
     displayName: Install Crossbow
   - script: |
+      which pip
+      which python
+      which archery
+      archery --help
       archery crossbow \
         --queue-path $(pwd) \
         --queue-remote {{ queue_remote_url }} \
@@ -117,7 +128,16 @@ on:
     displayName: Upload packages as a GitHub release
 {% endmacro %}
 
-{%- macro travis_checkout() -%}
+{%- macro azure_upload_anaconda(pattern) -%}
+  {% if arrow.branch == 'master' %}
+  - script: |
+      conda install -y anaconda-client
+      anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload --force {{ pattern }}
+    displayName: Upload packages to Anaconda
+  {% endif %}
+{% endmacro %}
+
+{%- macro travis_checkout_arrow() -%}
   - git clone --no-checkout {{ arrow.remote }} arrow
   - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
   - git -C arrow checkout FETCH_HEAD
@@ -134,7 +154,7 @@ on:
   - echo "${DOCKERHUB_TOKEN}" | docker login --username "${DOCKERHUB_USER}" --password-stdin
 {% endmacro %}
 
-{%- macro travis_upload(pattern) -%}
+{%- macro travis_upload_releases(pattern) -%}
   - sudo -H pip3 install pygit2==1.0
   - sudo -H pip3 install arrow/dev/archery[crossbow]
   - |
@@ -153,7 +173,7 @@ on:
     {% endif %}
 {% endmacro %}
 
-{%- macro travis_gemfury(pattern) -%}
+{%- macro travis_upload_gemfury(pattern) -%}
   {% if arrow.branch == 'master' %}
   - |
     WHEEL_PATH=$(echo arrow/python/repaired_wheels/*.whl)

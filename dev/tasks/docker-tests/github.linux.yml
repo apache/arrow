@@ -24,7 +24,7 @@ jobs:
     name: Docker Test
     runs-on: ubuntu-latest
     steps:
-      {{ macros.github_checkout()|indent }}
+      {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
 
       - name: Free Up Disk Space

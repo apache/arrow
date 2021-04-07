@@ -43,7 +43,7 @@ jobs:
       displayName: Install conda-build and activate environment
     - script: set PYTHONUNBUFFERED=1
 
-    {{ macros.azure_checkout()|indent(2) }}
+    {{ macros.azure_checkout_arrow()|indent(2) }}
 
     # Configure the VM
     - script: setup_conda_rc .\ .\ .\.ci_support\%CONFIG%.yaml
@@ -73,14 +73,5 @@ jobs:
         PYTHONUNBUFFERED: 1
       condition: contains(variables['R_CONFIG'], 'win')
 
-    {{ macros.azure_upload("D:\bld\win-64\*.tar.bz2")|indent(2) }}
-
-    {% if arrow.branch == 'master' %}
-    # Upload to custom anaconda channel
-    - script: |
-        source activate base
-        conda install -y anaconda-client
-        anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload --force D:\bld\win-64\*.tar.bz2
-      displayName: Upload packages to Anaconda
-      workingDirectory: arrow/dev/tasks/conda-recipes
-    {% endif %}
+    {{ macros.azure_upload_releases("D:\bld\win-64\*.tar.bz2")|indent(2) }}
+    {{ macros.azure_upload_anaconda("D:\bld\win-64\*.tar.bz2")|indent(2) }}

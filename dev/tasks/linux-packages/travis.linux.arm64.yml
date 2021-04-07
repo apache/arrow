@@ -68,7 +68,7 @@ env:
     - YUM_TARGETS={{ target }}
 
 before_script:
-  {{ macros.travis_checkout() }}
+  {{ macros.travis_checkout_arrow() }}
   {{ macros.travis_docker_login() }}
 
   # Build createrepo_c from source.
@@ -144,4 +144,5 @@ script:
   - popd
 
 after_success:
-  {{ macros.github_upload(upload_extensions | format_all("arrow/python/repaired_wheels/*.whl")) }}
+  {% set patterns = upload_extensions | format_all("arrow/python/repaired_wheels/*.whl") %}
+  {{ macros.github_upload_releases(patterns) }}

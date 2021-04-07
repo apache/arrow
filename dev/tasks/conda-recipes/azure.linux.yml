@@ -13,31 +13,26 @@ jobs:
     UPLOAD_PACKAGES: False
 
   steps:
-  {{ macros.azure_checkout() }}
+  {{ macros.azure_checkout_arrow() }}
 
   # configure qemu binfmt-misc running.  This allows us to run docker containers
   # embedded qemu-static
-  - script: |
-      docker run --rm --privileged multiarch/qemu-user-static:register --reset --credential yes
-      ls /proc/sys/fs/binfmt_misc/
-    displayName: Configure binfmt_misc
-    condition: not(startsWith(variables['CONFIG'], 'linux_64'))
+  # - script: |
+  #     docker run --rm --privileged multiarch/qemu-user-static:register --reset --credential yes
+  #     ls /proc/sys/fs/binfmt_misc/
+  #   displayName: Configure binfmt_misc
+  #   condition: not(startsWith(variables['CONFIG'], 'linux_64'))
+
+  # - script: |
+  #     mkdir build_artifacts
+  #     CI=azure arrow/dev/tasks/conda-recipes/run_docker_build.sh $(pwd)/build_artifacts
+  #   displayName: Run docker build
 
   - task: CondaEnvironment@1
     inputs:
-      packageSpecs: 'anaconda-client shyaml'
+      packageSpecs: 'anaconda-client'
       installOptions: '-c conda-forge'
-      updateConda: false
+      updateConda: yes
 
-  - script: |
-      mkdir build_artifacts
-      CI=azure arrow/dev/tasks/conda-recipes/run_docker_build.sh $(pwd)/build_artifacts
-    displayName: Run docker build
-
-  {{ macros.azure_upload("build_artifacts/linux-64/*.tar.bz2") }}
-
-  {% if arrow.branch == 'master' %}
-  - script: |
-      anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload --force build_artifacts/linux-64/*.tar.bz2
-    displayName: Upload packages to Anaconda
-  {% endif %}
+  {{ macros.azure_upload_releases("build_artifacts/linux-64/*.tar.bz2") }}
+  {{ macros.azure_upload_anaconda("build_artifacts/linux-64/*.tar.bz2") }}

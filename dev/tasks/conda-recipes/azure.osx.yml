@@ -29,7 +29,7 @@ jobs:
       conda install -n base -c conda-forge --quiet --yes conda-forge-ci-setup=3 conda-build
     displayName: 'Add conda-forge-ci-setup=3'
 
-  {{ macros.azure_checkout() }}
+  {{ macros.azure_checkout_arrow() }}
 
   - script: |
       source activate base
@@ -71,14 +71,5 @@ jobs:
     workingDirectory: arrow/dev/tasks/conda-recipes
     displayName: Build recipes
 
-  {{ macros.azure_upload("arrow/dev/tasks/conda-recipes/build_artifacts/osx-64/*.tar.bz2") }}
-
-  {% if arrow.branch == 'master' %}
-  # Upload to custom anaconda channel
-  - script: |
-      source activate base
-      conda install -y anaconda-client
-      anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload --force build_artifacts/osx-64/*.tar.bz2
-    displayName: Upload packages to Anaconda
-    workingDirectory: arrow/dev/tasks/conda-recipes
-  {% endif %}
+  {{ macros.azure_upload_releases("arrow/dev/tasks/conda-recipes/build_artifacts/osx-64/*.tar.bz2") }}
+  {{ macros.azure_upload_anaconda("arrow/dev/tasks/conda-recipes/build_artifacts/osx-64/*.tar.bz2") }}

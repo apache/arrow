@@ -37,7 +37,7 @@ jobs:
       ARCHERY_USE_DOCKER_CLI: 1
 
     steps:
-      {{ macros.github_checkout()|indent }}
+      {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_login_ghcr()|indent }}
       {{ macros.github_install_archery()|indent }}
 
@@ -49,5 +49,5 @@ jobs:
         shell: cmd
         run: archery docker run python-wheel-windows-test
 
-      {{ macros.github_upload("arrow/python/dist/*.whl")|indent }}
-      {{ macros.github_gemfury("arrow/python/dist/*.whl")|indent }}
+      {{ macros.github_upload_releases("arrow/python/dist/*.whl")|indent }}
+      {{ macros.github_upload_gemfury("arrow/python/dist/*.whl")|indent }}

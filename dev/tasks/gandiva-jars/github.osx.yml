@@ -43,4 +43,4 @@ jobs:
           CHECK_SHARED_DEPENDENCIES: true
           MACOSX_DEPLOYMENT_TARGET: "10.11"
 
-      {{ macros.github_upload("arrow/dist/*.jar")|indent }}
+      {{ macros.github_upload_releases("arrow/dist/*.jar")|indent }}

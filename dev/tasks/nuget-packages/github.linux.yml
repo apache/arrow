@@ -24,7 +24,7 @@ jobs:
     name: Package
     runs-on: ubuntu-latest
     steps:
-      {{ macros.github_checkout()|indent }}
+      {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
 
       - name: Prepare version
@@ -40,4 +40,4 @@ jobs:
 
       {% set patterns = ["arrow/csharp/artifacts/**/*.nupkg",
                          "arrow/csharp/artifacts/**/*.snupkg"] %}
-      {{ macros.github_upload(patterns)|indent }}
+      {{ macros.github_upload_releases(patterns)|indent }}
