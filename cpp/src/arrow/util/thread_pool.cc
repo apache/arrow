@@ -48,6 +48,7 @@ struct SerialExecutor::State {
   std::queue<Task> task_queue;
   std::mutex mutex;
   std::condition_variable wait_for_tasks;
+  bool finished;
 };
 
 SerialExecutor::SerialExecutor() : state_(new State()) {}
@@ -67,18 +68,18 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
   return Status::OK();
 }
 
-void SerialExecutor::MarkFinished(bool* finished) {
+void SerialExecutor::MarkFinished() {
   {
     std::lock_guard<std::mutex> lk(state_->mutex);
-    *finished = true;
+    state_->finished = true;
   }
   state_->wait_for_tasks.notify_one();
 }
 
-void SerialExecutor::RunLoop(const bool& finished) {
+void SerialExecutor::RunLoop() {
   std::unique_lock<std::mutex> lk(state_->mutex);
 
-  while (!finished) {
+  while (!state_->finished) {
     while (!state_->task_queue.empty()) {
       Task task = std::move(state_->task_queue.front());
       state_->task_queue.pop();
@@ -96,8 +97,8 @@ void SerialExecutor::RunLoop(const bool& finished) {
     }
     // In this case we must be waiting on work from external (e.g. I/O) executors.  Wait
     // for tasks to arrive (typically via transferred futures).
-    state_->wait_for_tasks.wait(lk,
-                                [&] { return finished || !state_->task_queue.empty(); });
+    state_->wait_for_tasks.wait(
+        lk, [&] { return state_->finished || !state_->task_queue.empty(); });
   }
 }
 

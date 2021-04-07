@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
@@ -31,12 +32,11 @@
 #include "arrow/dataset/visibility.h"
 #include "arrow/memory_pool.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/async_generator.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/type_fwd.h"
 
 namespace arrow {
-using RecordBatchGenerator = AsyncGenerator<std::shared_ptr<RecordBatch>>;
+using RecordBatchGenerator = std::function<Future<std::shared_ptr<RecordBatch>>()>;
 namespace dataset {
 
 constexpr int64_t kDefaultBatchSize = 1 << 20;

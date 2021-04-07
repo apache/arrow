@@ -199,11 +199,8 @@ class ARROW_EXPORT Executor {
 class ARROW_EXPORT SerialExecutor : public Executor {
  public:
   template <typename T = ::arrow::detail::Empty>
-  using FinishSignal = internal::FnOnce<void(const Result<T>&)>;
-  template <typename T = ::arrow::detail::Empty>
-  using TopLevelTask = internal::FnOnce<Status(Executor*, FinishSignal<T>)>;
+  using TopLevelTask = internal::FnOnce<Future<T>(Executor*)>;
 
-  SerialExecutor();
   ~SerialExecutor();
 
   int GetCapacity() override { return 1; };
@@ -224,28 +221,32 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   }
 
  private:
+  SerialExecutor();
+
   // State uses mutex
   struct State;
   std::unique_ptr<State> state_;
 
   template <typename T>
   Result<T> Run(TopLevelTask<T> initial_task) {
-    bool finished = false;
-    Result<T> final_result;
-    FinishSignal<T> finish_signal = [&](const Result<T>& res) {
-      // The finish signal could be called from an external executor callback so need to
-      // protect it with the mutex.  Also, final_result must be set before the call to
-      // MarkFinished here to ensure we don't try and return it before it is finished
-      // setting
-      final_result = res;
-      MarkFinished(&finished);
-    };
-    ARROW_RETURN_NOT_OK(std::move(initial_task)(this, std::move(finish_signal)));
-    RunLoop(finished);
-    return final_result;
+    auto final_fut = std::move(initial_task)(this);
+    if (final_fut.is_finished()) {
+      return final_fut.result();
+    }
+    final_fut = final_fut.Then(
+        [this](const T& res) {
+          MarkFinished();
+          return res;
+        },
+        [this](const Status& st) -> Result<T> {
+          MarkFinished();
+          return st;
+        });
+    RunLoop();
+    return final_fut.result();
   }
-  void RunLoop(const bool& finished);
-  void MarkFinished(bool* finished);
+  void RunLoop();
+  void MarkFinished();
 };
 
 /// An Executor implementation spawning tasks in FIFO manner on a fixed-size
@@ -325,28 +326,6 @@ class ARROW_EXPORT ThreadPool : public Executor {
 // Return the process-global thread pool for CPU-bound tasks.
 ARROW_EXPORT ThreadPool* GetCpuThreadPool();
 
-/// \brief Run a potentially async operation serially
-///
-/// `get_future` is called with a special executor which uses the calling thread to run
-/// all thread tasks.  The future must eventually finish and when it does this method will
-/// return with the result of the future.
-template <typename T = arrow::detail::Empty>
-Result<T> RunSerially(FnOnce<Future<T>(Executor*)> get_future) {
-  struct InnerCallback {
-    void operator()(const Result<T> res) { std::move(finish_signal)(std::move(res)); }
-    SerialExecutor::FinishSignal<T> finish_signal;
-  };
-  struct OuterCallback {
-    Status operator()(Executor* executor, SerialExecutor::FinishSignal<T> finish_signal) {
-      auto fut = std::move(get_future)(executor);
-      fut.AddCallback(InnerCallback{std::move(finish_signal)});
-      return Status::OK();
-    }
-    FnOnce<Future<T>(Executor*)> get_future;
-  };
-  return SerialExecutor::RunInSerialExecutor<T>(OuterCallback{std::move(get_future)});
-}
-
 /// \brief Potentially run an async operation serially (if use_threads is false)
 /// \see RunSerially
 ///
@@ -360,7 +339,7 @@ Result<T> RunSynchronously(FnOnce<Future<T>(Executor*)> get_future, bool use_thr
   if (use_threads) {
     return std::move(get_future)(GetCpuThreadPool()).result();
   } else {
-    return RunSerially<T>(std::move(get_future));
+    return SerialExecutor::RunInSerialExecutor<T>(std::move(get_future));
   }
 }
 
