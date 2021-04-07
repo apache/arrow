@@ -86,10 +86,6 @@ If you would like to use arrow from an alternative directory
 export ARROW_HOME=$(pwd)/dist
 export LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH
 
-cd arrow/cpp
-mkdir build
-cd build
-
 cmake \
   -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
   -DCMAKE_INSTALL_LIBDIR=lib \

@@ -85,7 +85,8 @@ jobs:
         env:
           LIBARROW_BINARY: FALSE
           ARROW_R_DEV: TRUE
-        shell: bash arrow/r/vignettes/script.sh
+        run: bash arrow/r/vignettes/script.sh
+        shell: bash
 
       - name: Save the install script
         uses: actions/upload-artifact@v2
