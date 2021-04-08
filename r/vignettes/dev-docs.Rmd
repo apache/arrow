@@ -119,7 +119,6 @@ cmake \
   -DARROW_WITH_SNAPPY=ON \
   -DARROW_WITH_ZLIB=ON \
   -DARROW_INSTALL_NAME_RPATH=OFF \
-  # TODO: where to put this? needed on system=old on macos only 
   -DBOOST_SOURCE=BUNDLED \
   ..
 ```
