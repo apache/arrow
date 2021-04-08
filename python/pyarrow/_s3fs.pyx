@@ -131,14 +131,8 @@ cdef class S3ProxyOptions:
         """
         cdef:
             S3ProxyOptions self = S3ProxyOptions.__new__(S3ProxyOptions)
-            CS3ProxyOptions options
 
-        options = GetResultValue(CS3ProxyOptions.FromUriString(tobytes(uri)))
-        self.proxy_options.scheme = options.scheme
-        self.proxy_options.host = options.host
-        self.proxy_options.port = options.port
-        self.proxy_options.username = options.username
-        self.proxy_options.password = options.password
+        self.proxy_options = GetResultValue(CS3ProxyOptions.FromUriString(tobytes(uri)))
         return self
 
 
