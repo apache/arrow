@@ -22,6 +22,7 @@
 #include <deque>
 #include <list>
 #include <mutex>
+#include <queue>
 #include <string>
 #include <thread>
 #include <vector>
@@ -69,10 +70,10 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
 }
 
 void SerialExecutor::MarkFinished() {
-  {
-    std::lock_guard<std::mutex> lk(state_->mutex);
-    state_->finished = true;
-  }
+  std::lock_guard<std::mutex> lk(state_->mutex);
+  state_->finished = true;
+  // Keep the lock when notifying to avoid situations where the SerialExecutor
+  // would start being destroyed while the notify_one() call is still ongoing.
   state_->wait_for_tasks.notify_one();
 }
 

@@ -123,19 +123,21 @@ class AddTester {
   std::vector<int> outs_;
 };
 
-class SerialExecutorTests : public testing::TestWithParam<bool> {
+class TestRunSynchronously : public testing::TestWithParam<bool> {
  public:
   bool UseThreads() { return GetParam(); }
+
   template <typename T>
   Result<T> Run(FnOnce<Future<T>(Executor*)> top_level_task) {
     return RunSynchronously(std::move(top_level_task), UseThreads());
   }
+
   Status RunVoid(FnOnce<Future<>(Executor*)> top_level_task) {
     return RunSynchronouslyVoid(std::move(top_level_task), UseThreads());
   }
 };
 
-TEST_P(SerialExecutorTests, SimpleRun) {
+TEST_P(TestRunSynchronously, SimpleRun) {
   bool task_ran = false;
   auto task = [&](Executor* executor) {
     EXPECT_NE(executor, nullptr);
@@ -146,7 +148,7 @@ TEST_P(SerialExecutorTests, SimpleRun) {
   EXPECT_TRUE(task_ran);
 }
 
-TEST_P(SerialExecutorTests, SpawnNested) {
+TEST_P(TestRunSynchronously, SpawnNested) {
   bool nested_ran = false;
   auto top_level_task = [&](Executor* executor) {
     return DeferNotOk(executor->Submit([&] {
@@ -158,27 +160,55 @@ TEST_P(SerialExecutorTests, SpawnNested) {
   EXPECT_TRUE(nested_ran);
 }
 
-TEST_P(SerialExecutorTests, WithResult) {
+TEST_P(TestRunSynchronously, SpawnMoreNested) {
+  std::atomic<int> nested_ran{0};
+  auto top_level_task = [&](Executor* executor) -> Future<> {
+    auto fut_a = DeferNotOk(executor->Submit([&] { nested_ran++; }));
+    auto fut_b = DeferNotOk(executor->Submit([&] { nested_ran++; }));
+    return AllComplete({fut_a, fut_b})
+        .Then([&](const Result<arrow::detail::Empty>& result) {
+          nested_ran++;
+          return result;
+        });
+  };
+  ASSERT_OK(RunVoid(std::move(top_level_task)));
+  EXPECT_EQ(nested_ran, 3);
+}
+
+TEST_P(TestRunSynchronously, WithResult) {
   auto top_level_task = [&](Executor* executor) {
     return DeferNotOk(executor->Submit([] { return 42; }));
   };
   ASSERT_OK_AND_EQ(42, Run<int>(std::move(top_level_task)));
 }
 
-TEST_P(SerialExecutorTests, StopToken) {
+TEST_P(TestRunSynchronously, StopTokenSpawn) {
   bool nested_ran = false;
   StopSource stop_source;
   auto top_level_task = [&](Executor* executor) -> Future<> {
     stop_source.RequestStop(Status::Invalid("XYZ"));
     RETURN_NOT_OK(executor->Spawn([&] { nested_ran = true; }, stop_source.token()));
-    auto result = DeferNotOk(executor->Submit([&] { return Status::OK(); }));
-    return result;
+    return Future<>::MakeFinished();
   };
   ASSERT_OK(RunVoid(std::move(top_level_task)));
   EXPECT_FALSE(nested_ran);
 }
 
-TEST_P(SerialExecutorTests, ContinueAfterExternal) {
+TEST_P(TestRunSynchronously, StopTokenSubmit) {
+  bool nested_ran = false;
+  StopSource stop_source;
+  auto top_level_task = [&](Executor* executor) -> Future<> {
+    stop_source.RequestStop();
+    return DeferNotOk(executor->Submit(stop_source.token(), [&] {
+      nested_ran = true;
+      return Status::OK();
+    }));
+  };
+  ASSERT_RAISES(Cancelled, RunVoid(std::move(top_level_task)));
+  EXPECT_FALSE(nested_ran);
+}
+
+TEST_P(TestRunSynchronously, ContinueAfterExternal) {
   bool continuation_ran = false;
   EXPECT_OK_AND_ASSIGN(auto mock_io_pool, ThreadPool::Make(1));
   auto top_level_task = [&](Executor* executor) {
@@ -200,19 +230,19 @@ TEST_P(SerialExecutorTests, ContinueAfterExternal) {
   EXPECT_TRUE(continuation_ran);
 }
 
-TEST_P(SerialExecutorTests, SchedulerAbort) {
+TEST_P(TestRunSynchronously, SchedulerAbort) {
   auto top_level_task = [&](Executor* executor) { return Status::Invalid("XYZ"); };
   ASSERT_RAISES(Invalid, RunVoid(std::move(top_level_task)));
 }
 
-TEST_P(SerialExecutorTests, PropagatedError) {
+TEST_P(TestRunSynchronously, PropagatedError) {
   auto top_level_task = [&](Executor* executor) {
     return DeferNotOk(executor->Submit([] { return Status::Invalid("XYZ"); }));
   };
   ASSERT_RAISES(Invalid, RunVoid(std::move(top_level_task)));
 }
 
-INSTANTIATE_TEST_SUITE_P(SerialExecutorTests, SerialExecutorTests,
+INSTANTIATE_TEST_SUITE_P(TestRunSynchronously, TestRunSynchronously,
                          ::testing::Values(false, true));
 
 class TestThreadPool : public ::testing::Test {

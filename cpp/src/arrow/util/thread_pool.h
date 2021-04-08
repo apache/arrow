@@ -233,15 +233,7 @@ class ARROW_EXPORT SerialExecutor : public Executor {
     if (final_fut.is_finished()) {
       return final_fut.result();
     }
-    final_fut = final_fut.Then(
-        [this](const T& res) {
-          MarkFinished();
-          return res;
-        },
-        [this](const Status& st) -> Result<T> {
-          MarkFinished();
-          return st;
-        });
+    final_fut.AddCallback([this](const Result<T>&) { MarkFinished(); });
     RunLoop();
     return final_fut.result();
   }
