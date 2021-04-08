@@ -427,10 +427,10 @@ as_type <- function(type, name = "type") {
 }
 
 unmask_type_fun <- function(expr) {
-  # if `expr` is an unevaluated function call, try to evaulate it in the arrow
+  # if `expr` is an unevaluated function call, try to evaluate it in the arrow
   # package environment, and if that fails, return NULL
   if (is.call(expr)) {
-    try(return(eval(expr)), silent = TRUE)
+    return(tryCatch(eval(expr), error = function(e) NULL))
   }
   NULL
 }
