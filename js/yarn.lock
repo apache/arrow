@@ -4348,10 +4348,10 @@ flagged-respawn@^1.0.0:
   resolved "https://registry.yarnpkg.com/flagged-respawn/-/flagged-respawn-1.0.1.tgz#e7de6f1279ddd9ca9aac8a5971d618606b3aab41"
   integrity sha512-lNaHNVymajmk0OJMBn8fVUAU1BtDeKIqKoVhk4xAALB57aALg6b4W0MfJ/cUE0g9YBXy5XhSlPIpYIJ7HaY/3Q==
 
-flatbuffers@1.11.0:
-  version "1.11.0"
-  resolved "https://registry.yarnpkg.com/flatbuffers/-/flatbuffers-1.11.0.tgz#90a47e584dd7851ad7a913f5a0ee99c1d76ce59f"
-  integrity sha512-0PqFKtXI4MjxomI7jO4g5XfLPm/15g2R+5WGCHBGYGh0ihQiypnHlJ6bMmkkrAe0GzZ4d7PDAfCONKIPUxNF+A==
+flatbuffers@1.12.0:
+  version "1.12.0"
+  resolved "https://registry.yarnpkg.com/flatbuffers/-/flatbuffers-1.12.0.tgz#72e87d1726cb1b216e839ef02658aa87dcef68aa"
+  integrity sha512-c7CZADjRcl6j0PlvFy0ZqXQ67qSEZfrVPynmnL+2zPc+NtMvrF8Y0QceMo7QqnSPc7+uWjUIAbvCQ5WIKlMVdQ==
 
 flush-write-stream@^1.0.0, flush-write-stream@^1.0.2:
   version "1.1.1"
