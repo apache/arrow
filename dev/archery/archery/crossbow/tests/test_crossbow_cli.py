@@ -24,41 +24,28 @@ from archery.crossbow.cli import crossbow
 def test_crossbow_submit():
     runner = CliRunner()
     result = runner.invoke(crossbow, ['submit', '--dry-run', '-g', 'wheel'])
+    print(result)
     assert result.exit_code == 0
 
 
 @pytest.mark.integration
-def test_crossbow_status():
+def test_crossbow_commnds():
     runner = CliRunner()
-    result = runner.invoke(crossbow, ['status', 'build-1'])
-    assert result.exit_code == 0
 
-
-@pytest.mark.integration
-def test_crossbow_check_config():
-    runner = CliRunner()
     result = runner.invoke(crossbow, ['check-config'])
     assert result.exit_code == 0
 
-
-@pytest.mark.integration
-def test_crossbow_latest_prefix():
-    runner = CliRunner()
     result = runner.invoke(crossbow, ['latest-prefix', 'build'])
     assert result.exit_code == 0
+    build_id = result.stdout.strip()
 
-
-@pytest.mark.integration
-def test_crossbow_email_report():
-    runner = CliRunner()
-    result = runner.invoke(crossbow, ['report', '--dry-run', 'build-1'])
+    result = runner.invoke(crossbow, ['status', build_id])
     assert result.exit_code == 0
 
+    result = runner.invoke(crossbow, ['report', '--dry-run', build_id])
+    assert result.exit_code == 0
 
-@pytest.mark.integration
-def test_crossbow_download_artifacts():
-    runner = CliRunner()
     result = runner.invoke(
-        crossbow, ['download-artifacts', '--dry-run', 'build-1']
+        crossbow, ['download-artifacts', '--dry-run', build_id]
     )
     assert result.exit_code == 0
