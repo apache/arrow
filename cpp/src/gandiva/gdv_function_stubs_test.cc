@@ -161,15 +161,12 @@ TEST(TestGdvFnStubs, TestCastFloat8) {
 }
 
 TEST(TestGdvFnStubs, TestIsDate) {
-  gandiva::ExecutionContext ctx;
-  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
-
-  EXPECT_EQ(gdv_fn_is_date_utf8(ctx_ptr, "2020-01-01", 10), true);
-  EXPECT_EQ(gdv_fn_is_date_utf8(ctx_ptr, "1524-12-31", 10), true);
-  EXPECT_EQ(gdv_fn_is_date_utf8(ctx_ptr, "0001-01-01", 10), true);
-  EXPECT_EQ(gdv_fn_is_date_utf8(ctx_ptr, "2020-01-01 12:00:00", 19), false);
-  EXPECT_EQ(gdv_fn_is_date_utf8(ctx_ptr, "1886-12-25 12:00:00 +0800", 25), false);
-  EXPECT_EQ(gdv_fn_is_date_utf8(ctx_ptr, "2020-55-01", 10), false);
+  EXPECT_EQ(gdv_fn_is_date_utf8("2020-01-01", 10), true);
+  EXPECT_EQ(gdv_fn_is_date_utf8("1524-12-31", 10), true);
+  EXPECT_EQ(gdv_fn_is_date_utf8("0001-01-01", 10), true);
+  EXPECT_EQ(gdv_fn_is_date_utf8("2020-01-01 12:00:00", 19), false);
+  EXPECT_EQ(gdv_fn_is_date_utf8("1886-12-25 12:00:00 +0800", 25), false);
+  EXPECT_EQ(gdv_fn_is_date_utf8("2020-55-01", 10), false);
 }
 
 }  // namespace gandiva

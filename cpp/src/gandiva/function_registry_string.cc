@@ -101,7 +101,7 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      NativeFunction::kNeedsFunctionHolder),
 
       NativeFunction("is_date", {}, DataTypeVector{utf8()}, boolean(), kResultNullIfNull,
-                     "gdv_fn_is_date_utf8", NativeFunction::kNeedsContext),
+                     "gdv_fn_is_date_utf8"),
 
       NativeFunction("ltrim", {}, DataTypeVector{utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "ltrim_utf8_utf8", NativeFunction::kNeedsContext),
