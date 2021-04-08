@@ -1501,6 +1501,23 @@ def test_sequence_decimal_too_high_precision():
         pa.array([decimal.Decimal('1' * 80)])
 
 
+def test_sequence_decimal_infer():
+    # ARROW-12150 - ensure mixed precision gets correctly inferred to
+    # common type that can hold all input values
+    cases = [
+        ([decimal.Decimal('1.234'), decimal.Decimal('3.456')],
+         pa.decimal128(4, 3)),
+        ([decimal.Decimal('1.234'), decimal.Decimal('456.7')],
+         pa.decimal128(6, 3)),
+        ([decimal.Decimal('123.4'), decimal.Decimal('4.567')],
+         pa.decimal128(6, 3)),
+    ]
+    for data, typ in cases:
+        arr = pa.array(data)
+        assert arr.type == typ
+        assert arr.to_pylist() == data
+
+
 def test_range_types():
     arr1 = pa.array(range(3))
     arr2 = pa.array((0, 1, 2))
