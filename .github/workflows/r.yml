@@ -72,6 +72,8 @@ jobs:
           path: .docker
           key: ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-${{ hashFiles('cpp/**') }}
           restore-keys: ubuntu-${{ matrix.ubuntu }}-r-${{ matrix.r }}-
+      - name: Check pkgdown reference sections
+        run: ci/scripts/r_pkgdown_check.sh
       - name: Setup Python
         uses: actions/setup-python@v1
         with:
