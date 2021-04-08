@@ -1069,15 +1069,19 @@ def release_cherry_pick(obj, version, dry_run, recreate):
         click.echo('git cherry-pick {}'.format(commit.hexsha))
 
 
-from .crossbow.cli import crossbow  # noqa
 try:
     from .crossbow.cli import crossbow  # noqa
-except ImportError as e:
-    @archery.command('crossbow')
+except ImportError as exc:
+    missing_package = exc.name
+
+    @archery.command(
+        'crossbow',
+        context_settings={"ignore_unknown_options": True}
+    )
     def crossbow():
-        click.error(
+        raise click.ClickException(
             "Couldn't import crossbow because of missing dependency: {}"
-            .format(e.name)
+            .format(missing_package)
         )
 else:
     archery.add_command(crossbow)
