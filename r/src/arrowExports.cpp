@@ -626,10 +626,10 @@ BEGIN_CPP11
 END_CPP11
 }
 // compute.cpp
-std::vector<std::string> list_compute_functions();
-extern "C" SEXP _arrow_list_compute_functions(){
+std::vector<std::string> compute__GetFunctionNames();
+extern "C" SEXP _arrow_compute__GetFunctionNames(){
 BEGIN_CPP11
-	return cpp11::as_sexp(list_compute_functions());
+	return cpp11::as_sexp(compute__GetFunctionNames());
 END_CPP11
 }
 // csv.cpp
@@ -4282,7 +4282,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
 		{ "_arrow_compute__GroupBy", (DL_FUNC) &_arrow_compute__GroupBy, 3}, 
-		{ "_arrow_list_compute_functions", (DL_FUNC) &_arrow_list_compute_functions, 0}, 
+		{ "_arrow_compute__GetFunctionNames", (DL_FUNC) &_arrow_compute__GetFunctionNames, 0}, 
 		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1}, 
 		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1}, 
 		{ "_arrow_csv___ReadOptions__column_names", (DL_FUNC) &_arrow_csv___ReadOptions__column_names, 1}, 

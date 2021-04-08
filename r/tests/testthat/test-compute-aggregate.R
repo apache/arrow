@@ -17,6 +17,14 @@
 
 context("compute: aggregation")
 
+test_that("list_compute_functions", {
+  allfuncs <- list_compute_functions()
+  expect_false(all(grepl("min", allfuncs)))
+  justmins <- list_compute_functions("^min")
+  expect_true(length(justmins) > 0)
+  expect_true(all(grepl("min", justmins)))
+})
+
 test_that("sum.Array", {
   ints <- 1:5
   a <- Array$create(ints)

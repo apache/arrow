@@ -70,6 +70,7 @@ reference:
       - Scanner
       - FileFormat
       - FileWriteOptions
+      - FragmentScanOptions
       - map_batches
   - title: Reading and writing files
     contents:
@@ -95,15 +96,13 @@ reference:
       - CsvReadOptions
   - title: Arrow data containers
     contents:
-      - buffer
       - array
-      - ArrayData
-      - chunked_array
       - ChunkedArray
-      - record_batch
+      - Scalar
       - RecordBatch
       - Table
-      - Scalar
+      - ArrayData
+      - buffer
       - read_message
   - title: Arrow data types and schema
     contents:
@@ -144,8 +143,10 @@ reference:
       - codec_is_available
   - title: Computation
     contents:
+      - call_function
       - match_arrow
       - value_counts
+      - list_compute_functions
   - title: Configuration
     contents:
       - arrow_info
