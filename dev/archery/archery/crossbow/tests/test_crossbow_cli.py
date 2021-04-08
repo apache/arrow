@@ -19,33 +19,25 @@ from click.testing import CliRunner
 import pytest
 
 from archery.crossbow.cli import crossbow
-
-
-def test_crossbow_submit():
-    runner = CliRunner()
-    result = runner.invoke(crossbow, ['submit', '--dry-run', '-g', 'wheel'])
-    print(result)
-    assert result.exit_code == 0
+from archery.utils.git import git
 
 
 @pytest.mark.integration
-def test_crossbow_commnds():
+def test_crossbow_submit(tmp_path):
     runner = CliRunner()
 
-    result = runner.invoke(crossbow, ['check-config'])
+    def invoke(*args):
+        return runner.invoke(crossbow, ['--queue-path', str(tmp_path), *args])
+
+    # initialize an empty crossbow repository
+    git.run_cmd("init", str(tmp_path))
+    git.run_cmd("-C", str(tmp_path), "remote", "add", "origin",
+                "https://github.com/dummy/repo")
+    git.run_cmd("-C", str(tmp_path), "commit", "-m", "initial",
+                "--allow-empty")
+
+    result = invoke('check-config')
     assert result.exit_code == 0
 
-    result = runner.invoke(crossbow, ['latest-prefix', 'build'])
-    assert result.exit_code == 0
-    build_id = result.stdout.strip()
-
-    result = runner.invoke(crossbow, ['status', build_id])
-    assert result.exit_code == 0
-
-    result = runner.invoke(crossbow, ['report', '--dry-run', build_id])
-    assert result.exit_code == 0
-
-    result = runner.invoke(
-        crossbow, ['download-artifacts', '--dry-run', build_id]
-    )
+    result = invoke('submit', '--no-fetch', '--no-push', '-g', 'wheel')
     assert result.exit_code == 0

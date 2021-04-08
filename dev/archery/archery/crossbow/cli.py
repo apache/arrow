@@ -98,12 +98,14 @@ def check_config(obj, config_path):
                    'apache-arrow-0.11.1.')
 @click.option('--fetch/--no-fetch', default=True,
               help='Fetch references (branches and tags) from the remote')
-@click.option('--dry-run/--push', default=False,
+@click.option('--dry-run/--commit', default=False,
               help='Just display the rendered CI configurations without '
-                   'submitting them')
+                   'committing them')
+@click.option('--no-push/--push', default=False,
+              help='Don\'t push the changes')
 @click.pass_obj
 def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
-           arrow_remote, arrow_branch, arrow_sha, fetch, dry_run):
+           arrow_remote, arrow_branch, arrow_sha, fetch, dry_run, no_push):
     output = obj['output']
     queue, arrow = obj['queue'], obj['arrow']
 
@@ -136,10 +138,16 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
 
     if dry_run:
         job.show(output)
+        return
+
+    if fetch:
+        queue.fetch()
+    queue.put(job, prefix=job_prefix)
+
+    if no_push:
+        click.echo('Branches and commits created but not pushed: `{}`'
+                    .format(job.branch))
     else:
-        if fetch:
-            queue.fetch()
-        queue.put(job, prefix=job_prefix)
         queue.push()
         click.echo('Pushed job identifier is: `{}`'.format(job.branch))
 
@@ -199,23 +207,27 @@ def render(obj, task, config_path, arrow_version, arrow_remote, arrow_branch,
 
 @crossbow.command()
 @click.argument('job-name', required=True)
+@click.option('--fetch/--no-fetch', default=True,
+              help='Fetch references (branches and tags) from the remote')
 @click.pass_obj
-def status(obj, job_name):
+def status(obj, job_name, fetch):
     output = obj['output']
     queue = obj['queue']
-    queue.fetch()
-
+    if fetch:
+        queue.fetch()
     job = queue.get(job_name)
     ConsoleReport(job).show(output)
 
 
 @crossbow.command()
 @click.argument('prefix', required=True)
+@click.option('--fetch/--no-fetch', default=True,
+              help='Fetch references (branches and tags) from the remote')
 @click.pass_obj
-def latest_prefix(obj, prefix):
+def latest_prefix(obj, prefix, fetch):
     queue = obj['queue']
-    queue.fetch()
-
+    if fetch:
+        queue.fetch()
     latest = queue.latest_for_prefix(prefix)
     click.echo(latest.branch)
 
@@ -244,16 +256,19 @@ def latest_prefix(obj, prefix):
               help='Number of minutes to wait to check job status again')
 @click.option('--send/--dry-run', default=False,
               help='Just display the report, don\'t send it')
+@click.option('--fetch/--no-fetch', default=True,
+              help='Fetch references (branches and tags) from the remote')
 @click.pass_obj
 def report(obj, job_name, sender_name, sender_email, recipient_email,
            smtp_user, smtp_password, smtp_server, smtp_port, poll,
-           poll_max_minutes, poll_interval_minutes, send):
+           poll_max_minutes, poll_interval_minutes, send, fetch):
     """
     Send an e-mail report showing success/failure of tasks in a Crossbow run
     """
     output = obj['output']
     queue = obj['queue']
-    queue.fetch()
+    if fetch:
+        queue.fetch()
 
     job = queue.get(job_name)
     report = EmailReport(
@@ -288,14 +303,17 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
               help='Directory to download the build artifacts')
 @click.option('--dry-run/--execute', default=False,
               help='Just display process, don\'t download anything')
+@click.option('--fetch/--no-fetch', default=True,
+              help='Fetch references (branches and tags) from the remote')
 @click.pass_obj
-def download_artifacts(obj, job_name, target_dir, dry_run):
+def download_artifacts(obj, job_name, target_dir, dry_run, fetch):
     """Download build artifacts from GitHub releases"""
     output = obj['output']
 
     # fetch the queue repository
     queue = obj['queue']
-    queue.fetch()
+    if fetch:
+        queue.fetch()
 
     # query the job's artifacts
     job = queue.get(job_name)
