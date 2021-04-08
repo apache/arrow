@@ -15,20 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[workspace]
-members = [
-        "arrow",
-        "parquet",
-        "parquet_derive",
-        "parquet_derive_test",
-        "datafusion",
-        "datafusion-examples",
-        "arrow-flight",
-        "integration-testing",
-	"benchmarks",
-]
+FROM ubuntu
 
-# this package is excluded because it requires different compilation flags, thereby significantly changing
-# how it is compiled within the workspace, causing the whole workspace to be compiled from scratch
-# this way, this is a stand-alone package that compiles independently of the others.
-exclude = ["arrow-pyarrow-integration-testing", "ballista"]
+RUN apt-get update && \
+    apt-get install -y git build-essential
+
+RUN git clone https://github.com/databricks/tpch-dbgen.git && \
+    cd tpch-dbgen && \
+    make
+
+WORKDIR /tpch-dbgen
+ADD entrypoint.sh /tpch-dbgen/
+
+VOLUME data
+
+ENTRYPOINT [ "bash", "./entrypoint.sh" ]

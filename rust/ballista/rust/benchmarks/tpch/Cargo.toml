@@ -15,20 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[workspace]
-members = [
-        "arrow",
-        "parquet",
-        "parquet_derive",
-        "parquet_derive_test",
-        "datafusion",
-        "datafusion-examples",
-        "arrow-flight",
-        "integration-testing",
-	"benchmarks",
-]
+[package]
+name = "tpch"
+version = "0.4.2-SNAPSHOT"
+homepage = "https://github.com/apache/arrow"
+repository = "https://github.com/apache/arrow"
+authors = ["Apache Arrow <dev@arrow.apache.org>"]
+license = "Apache-2.0"
+edition = "2018"
 
-# this package is excluded because it requires different compilation flags, thereby significantly changing
-# how it is compiled within the workspace, causing the whole workspace to be compiled from scratch
-# this way, this is a stand-alone package that compiles independently of the others.
-exclude = ["arrow-pyarrow-integration-testing", "ballista"]
+[dependencies]
+ballista = { path="../../client" }
+
+arrow = { git = "https://github.com/apache/arrow", rev="46161d2" }
+datafusion = { git = "https://github.com/apache/arrow", rev="46161d2" }
+parquet = { git = "https://github.com/apache/arrow", rev="46161d2" }
+
+
+env_logger = "0.8"
+tokio = { version = "1.0", features = ["macros", "rt", "rt-multi-thread"] }
+structopt = "0.3"

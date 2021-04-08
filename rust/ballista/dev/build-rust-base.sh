@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -14,21 +16,6 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-[workspace]
-members = [
-        "arrow",
-        "parquet",
-        "parquet_derive",
-        "parquet_derive_test",
-        "datafusion",
-        "datafusion-examples",
-        "arrow-flight",
-        "integration-testing",
-	"benchmarks",
-]
-
-# this package is excluded because it requires different compilation flags, thereby significantly changing
-# how it is compiled within the workspace, causing the whole workspace to be compiled from scratch
-# this way, this is a stand-alone package that compiles independently of the others.
-exclude = ["arrow-pyarrow-integration-testing", "ballista"]
+BALLISTA_VERSION=0.4.2-SNAPSHOT
+set -e
+docker build -t ballistacompute/rust-base:$BALLISTA_VERSION -f docker/rust-base.dockerfile .

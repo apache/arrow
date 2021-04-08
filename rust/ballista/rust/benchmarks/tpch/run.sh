@@ -1,3 +1,4 @@
+#!/bin/bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -14,21 +15,11 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+set -e
 
-[workspace]
-members = [
-        "arrow",
-        "parquet",
-        "parquet_derive",
-        "parquet_derive_test",
-        "datafusion",
-        "datafusion-examples",
-        "arrow-flight",
-        "integration-testing",
-	"benchmarks",
-]
+# This bash script is meant to be run inside the docker-compose environment. Check the README for instructions
 
-# this package is excluded because it requires different compilation flags, thereby significantly changing
-# how it is compiled within the workspace, causing the whole workspace to be compiled from scratch
-# this way, this is a stand-alone package that compiles independently of the others.
-exclude = ["arrow-pyarrow-integration-testing", "ballista"]
+for query in 1 3 5 6 10 12
+do
+  /tpch benchmark --host ballista-scheduler --port 50050 --query $query --path /data --format tbl --iterations 1 --debug
+done

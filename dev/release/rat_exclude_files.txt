@@ -195,3 +195,5 @@ julia/Arrow/docs/mkdocs.yml
 julia/Arrow/docs/src/index.md
 julia/Arrow/docs/src/manual.md
 julia/Arrow/docs/src/reference.md
+rust/ballista/rust/benchmarks/tpch/queries/q*.sql
+rust/ballista/rust/scheduler/testdata/*
