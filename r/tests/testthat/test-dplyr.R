@@ -515,11 +515,13 @@ test_that("bad explicit type conversions with as.*()", {
   # Arrow fails to parse these strings as numbers (instead of returning NAs with
   # a warning like R does)
   expect_error(
-    expect_dplyr_equal(
-      input %>%
-        transmute(chr2num = as.numeric(chr)) %>%
-        collect(),
-      tibble(chr = c("l.O", "S.S", ""))
+    expect_warning(
+      expect_dplyr_equal(
+        input %>%
+          transmute(chr2num = as.numeric(chr)) %>%
+          collect(),
+        tibble(chr = c("l.O", "S.S", ""))
+      )
     )
   )
 
