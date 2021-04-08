@@ -31,6 +31,7 @@ extras = {
     'crossbow': ['github3.py', 'jinja2', 'pygit2', 'ruamel.yaml',
                  'setuptools_scm'],
 }
+extras['bot'] = extras['crossbow'] + ['pygithub', 'jira']
 extras['all'] = list(set(functools.reduce(operator.add, extras.values())))
 
 setup(

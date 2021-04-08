@@ -26,7 +26,7 @@ from ..utils.source import ArrowSources
 
 _default_arrow_path = ArrowSources.find().path
 _default_queue_path = _default_arrow_path.parent / "crossbow"
-_default_config_path = _default_arrow_path / "dev" / "tasks" / "tasks.yml.j2"
+_default_config_path = _default_arrow_path / "dev" / "tasks" / "tasks.yml"
 
 
 @click.group()
