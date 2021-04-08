@@ -25,11 +25,21 @@ call_function(
 An \code{Array}, \code{ChunkedArray}, \code{Scalar}, \code{RecordBatch}, or \code{Table}, whatever the compute function results in.
 }
 \description{
-This function provides a lower-level API to calling Arrow functions by their
+This function provides a lower-level API for calling Arrow functions by their
 string function name. You won't use it directly for most applications.
 Many Arrow compute functions are mapped to R methods,
 and in a \code{dplyr} evaluation context, \link[=list_compute_functions]{all Arrow functions}
 are callable with an \code{arrow_} prefix.
+}
+\examples{
+\donttest{
+a <- Array$create(c(1L, 2L, 3L, NA, 5L))
+s <- Scalar$create(4L)
+call_function("fill_null", a, s)
+
+a <- Array$create(rnorm(10000))
+call_function("quantile", a, options = list(q = seq(0, 1, 0.25)))
+}
 }
 \seealso{
 \href{https://arrow.apache.org/docs/cpp/compute.html}{Arrow C++ documentation} for the functions and their respective options.

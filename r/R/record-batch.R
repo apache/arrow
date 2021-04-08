@@ -76,6 +76,7 @@
 #' - `$columns`: Returns a list of `Array`s
 #' @rdname RecordBatch
 #' @name RecordBatch
+#' @export
 RecordBatch <- R6Class("RecordBatch", inherit = ArrowTabular,
   public = list(
     column = function(i) RecordBatch__column(self, i),

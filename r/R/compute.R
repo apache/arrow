@@ -69,6 +69,17 @@ call_function <- function(function_name, ..., args = list(...), options = empty_
 #' was not compiled with those features enabled, those functions will
 #' not appear in this list.
 #'
+#' Some functions take options that need to be passed when calling them
+#' (in a list called `options`). These options require custom handling
+#' in C++; many functions already have that handling set up but not all do.
+#' If you encounter one that needs special handling for options, please
+#' report an issue.
+#'
+#' Note that this list does *not* enumerate all of the R bindings for these functions.
+#' The package includes Arrow methods for many base R functions that can
+#' be called directly on Arrow objects, as well as some tidyverse-flavored versions
+#' available inside `dplyr` verbs.
+#'
 #' @param pattern Optional regular expression to filter the function list
 #' @param ... Additional parameters passed to `grep()`
 #' @return A character vector of available Arrow C++ function names
