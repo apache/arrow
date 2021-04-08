@@ -230,7 +230,7 @@ class CommentReport(Report):
             title='Github Actions',
             url='https://github.com/{repo}/actions?query=branch:{branch}',
             badge=(
-                'https://github.com/{repo}/workflows/crossbow.yml/'
+                'https://github.com/{repo}/workflows/Crossbow/'
                 'badge.svg?branch={branch}'
             ),
         ),
