@@ -24,12 +24,14 @@ Developing on Windows
 Like Linux and macOS, we have worked to enable builds to work "out of the box"
 with CMake for a reasonably large subset of the project.
 
+.. _windows-system-setup:
+
 System Setup
 ============
 
 Microsoft provides the free Visual Studio Community edition. When doing
-development in the shell, you must initialize the development
-environment.
+development in the shell, you must initialize the development environment
+each time you open the shell.
 
 For Visual Studio 2015, execute the following batch script:
 
@@ -42,6 +44,12 @@ For Visual Studio 2017, the script is:
 .. code-block:: shell
 
    "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tools\VsDevCmd.bat" -arch=amd64
+
+For Visual Studio 2019, the script is:
+
+.. code-block:: shell
+
+  "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\Common7\Tools\VsDevCmd.bat" -arch=amd64
 
 One can configure a console emulator like `cmder <https://cmder.net/>`_ to
 automatically launch this when starting a new development console.
@@ -60,7 +68,9 @@ download and install a 64-bit distribution from the `Miniconda homepage
 <https://conda.io/miniconda.html>`_
 
 To configure ``conda`` to use the ``conda-forge`` channel by default, launch a
-command prompt (``cmd.exe``) and run the command:
+command prompt (``cmd.exe``), run the initialization command shown
+:ref:`above<windows-system-setup>` (``vcvarsall.bat`` or ``VsDevCmd.bat``), then
+run the command:
 
 .. code-block:: shell
 
@@ -88,9 +98,14 @@ resolving the build dependencies. This is equivalent to setting
    -DARROW_DEPENDENCY_SOURCE=SYSTEM ^
    -DARROW_PACKAGE_PREFIX=%CONDA_PREFIX%\Library
 
-Note that these packages are only supported for release builds. If you intend
-to use ``-DCMAKE_BUILD_TYPE=debug`` then you must build the packages from
-source.
+To use the Visual Studio IDE with this conda environment activated, launch it by
+running the command ``devenv`` from the same command prompt.
+
+Note that dependencies installed as conda packages are built in release mode and
+cannot link with debug builds. If you intend to use ``-DCMAKE_BUILD_TYPE=debug``
+then you must build the packages from source.
+``-DCMAKE_BUILD_TYPE=relwithdebinfo`` is also available, which produces a build
+that can both be linked with release libraries and be debugged.
 
 .. note::
 
@@ -98,6 +113,56 @@ source.
    common problem is mixing packages from the ``defaults`` channel with those
    from ``conda-forge``. You can examine the installed packages in your
    environment (and their origin) with ``conda list``
+
+Using vcpkg for build dependencies
+========================================
+
+`vcpkg <https://github.com/microsoft/vcpkg>`_ is an open source package manager
+from Microsoft. It hosts community-contributed ports of C and C++ packages and
+their dependencies. Arrow includes a manifest file `cpp/vcpkg.json
+<https://github.com/apache/arrow/blob/master/cpp/vcpkg.json>`_ that specifies
+which vcpkg packages are required to build the C++ library.
+
+To use vcpkg for C++ build dependencies on Windows, first
+`install <https://docs.microsoft.com/en-us/cpp/build/install-vcpkg>`_ and
+`integrate <https://docs.microsoft.com/en-us/cpp/build/integrate-vcpkg>`_
+vcpkg. Then change working directory in ``cmd.exe`` to the root directory
+of Arrow and run the command:
+
+.. code-block:: shell
+
+   vcpkg install ^
+     --triplet x64-windows ^
+     --x-manifest-root cpp  ^
+     --clean-after-build
+
+On Windows, vcpkg builds dynamic link libraries by default. Use the triplet
+``x64-windows-static`` to build static libraries. vcpkg downloads source 
+packages and compiles them locally, so installing dependencies with vcpkg is
+more time-consuming than with conda.
+
+Then in your ``cmake`` command, to use dependencies installed by vcpkg, set:
+
+.. code-block:: shell
+
+   -DARROW_DEPENDENCY_SOURCE=VCPKG
+
+You can optionally set other variables to override the default CMake
+configurations for vcpkg, including:
+   
+* ``-DCMAKE_TOOLCHAIN_FILE``: by default, the CMake scripts automatically find
+  the location of the vcpkg CMake toolchain file ``vcpkg.cmake``; use this to
+  instead specify its location
+* ``-DVCPKG_TARGET_TRIPLET``: by default, the CMake scripts attempt to infer the
+  vcpkg 
+  `triplet <https://github.com/microsoft/vcpkg/blob/master/docs/users/triplets.md>`_;
+  use this to instead specify the triplet
+* ``-DARROW_DEPENDENCY_USE_SHARED``: default is ``ON``; set to ``OFF`` for
+  static libraries
+* ``-DVCPKG_MANIFEST_MODE``: default is ``ON``; set to ``OFF`` to ignore the
+  ``vcpkg.json`` manifest file and only look for vcpkg packages that are
+  already installed under the directory where vcpkg is installed
+
 
 Building using Visual Studio (MSVC) Solution Files
 ==================================================
@@ -110,20 +175,29 @@ an out of source build by generating a MSVC solution:
    cd cpp
    mkdir build
    cd build
-   cmake .. -G "Visual Studio 14 2015 Win64" ^
+   cmake .. -G "Visual Studio 14 2015" -A x64 ^
          -DARROW_BUILD_TESTS=ON
    cmake --build . --config Release
+
+For newer versions of Visual Studio, specify the generator
+``Visual Studio 15 2017`` or ``Visual Studio 16 2019``.
 
 Building with Ninja and clcache
 ===============================
 
-The `Ninja <https://ninja-build.org/>`_ build system offsets better build
+The `Ninja <https://ninja-build.org/>`_ build system offers better build
 parallelization, and the optional `clcache
-<https://github.com/frerich/clcache/>`_ compiler cache which keeps track of
+<https://github.com/frerich/clcache/>`_ compiler cache keeps track of
 past compilations to avoid running them over and over again (in a way similar
 to the Unix-specific ``ccache``).
 
-Activate your conda build environment to first install those utilities:
+Newer versions of Visual Studio include Ninja. To see if your Visual Studio
+includes Ninja, run the initialization command shown
+:ref:`above<windows-system-setup>` (``vcvarsall.bat`` or ``VsDevCmd.bat``), then
+ run ``ninja --version``.
+
+If Ninja is not included in your version of Visual Studio, and you are using
+conda, activate your conda environment and install Ninja and clcache:
 
 .. code-block:: shell
 
@@ -131,7 +205,13 @@ Activate your conda build environment to first install those utilities:
    conda install -c conda-forge ninja
    pip install git+https://github.com/frerich/clcache.git
 
-Change working directory in ``cmd.exe`` to the root directory of Arrow and
+If you are not using conda,
+`install Ninja from another source <https://github.com/ninja-build/ninja/wiki/Pre-built-Ninja-packages>`_
+and optionally
+`install clcache from another source <https://github.com/frerich/clcache/wiki/Installation>`_
+.
+
+After installation is complete, change working directory in ``cmd.exe`` to the root directory of Arrow and
 do an out of source build by generating Ninja files:
 
 .. code-block:: shell
@@ -214,8 +294,8 @@ Debug builds
 ============
 
 To build a Debug version of Arrow, you should have pre-installed a Debug
-version of Boost. It's recommended to configure cmake build with the
-following variables for Debug build:
+version of Boost. It's recommended to configure ``cmake`` with the following
+variables for Debug build:
 
 * ``-DARROW_BOOST_USE_SHARED=OFF``: enables static linking with boost debug
   libs and simplifies run-time loading of 3rd parties
@@ -229,7 +309,7 @@ The command line to build Arrow in Debug mode will look something like this:
    cd cpp
    mkdir build
    cd build
-   cmake .. -G "Visual Studio 14 2015 Win64" ^
+   cmake .. -G "Visual Studio 14 2015" -A x64 ^
          -DARROW_BOOST_USE_SHARED=OFF ^
          -DCMAKE_BUILD_TYPE=Debug ^
          -DBOOST_ROOT=C:/local/boost_1_63_0  ^
