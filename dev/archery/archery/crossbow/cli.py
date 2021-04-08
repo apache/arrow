@@ -146,7 +146,7 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
 
     if no_push:
         click.echo('Branches and commits created but not pushed: `{}`'
-                    .format(job.branch))
+                   .format(job.branch))
     else:
         queue.push()
         click.echo('Pushed job identifier is: `{}`'.format(job.branch))

@@ -58,7 +58,7 @@ jobs:
         run: git init ../crossbow
       - name: Archery Unittests
         working-directory: dev/archery
-        run: pytest -v archery
+        run: pytest -v --enable-integration archery
       - name: Archery Docker Validation
         run: archery docker
       - name: Crossbow Check Config
