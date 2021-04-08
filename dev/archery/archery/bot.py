@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import os
 import operator
 import shlex
 from pathlib import Path
@@ -24,8 +25,9 @@ import tempfile
 import click
 import github
 
-from .utils.git import Git
-from .utils.command import Command as CmdUtil, default_bin
+from .utils.git import git
+from .utils.logger import logger
+from .crossbow import Repo, Queue, Config, Target, Job
 
 
 class EventError(Exception):
@@ -220,14 +222,13 @@ class CommentBot:
 
         comment = pull.get_issue_comment(payload['comment']['id'])
         try:
-            self.handler(command, issue=issue, pull=pull, comment=comment)
+            self.handler(command, issue=issue, pull_request=pull,
+                         comment=comment)
         except CommandError as e:
-            # TODO(kszucs): log
-            print(e)
+            logger.error(e)
             pull.create_issue_comment("```\n{}\n```".format(e.message))
         except Exception as e:
-            # TODO(kszucs): log
-            print(e)
+            logger.error(e)
             comment.create_reaction('-1')
         else:
             comment.create_reaction('+1')
@@ -248,22 +249,47 @@ def actions(ctx):
               help='Crossbow repository on github to use')
 @click.pass_obj
 def crossbow(obj, crossbow):
-    """Trigger crossbow builds for this pull request"""
+    """
+    Trigger crossbow builds for this pull request
+    """
     obj['crossbow_repo'] = crossbow
 
 
-class Pip(CmdUtil):
-    def __init__(self, pip_bin=None):
-        self.bin = default_bin(pip_bin, "pip")
+def _clone_arrow_and_crossbow(dest, crossbow_repo, pull_request):
+    """
+    Clone the repositories and initialize crossbow objects.
 
+    Parameters
+    ----------
+    dest : Path
+        Filesystem path to clone the repositories to.
+    crossbow_repo : str
+        Github repository name, like kszucs/crossbow.
+    pull_request : pygithub.PullRequest
+        Object containing information about the pull request the comment bot
+        was triggered from.
+    """
+    arrow_path = dest / 'arrow'
+    queue_path = dest / 'crossbow'
 
-class Archery(CmdUtil):
-    def __init__(self, archery_bin=None):
-        self.bin = default_bin(archery_bin, "archery")
+    # clone arrow and checkout the pull request's branch
+    pull_request_ref = 'pull/{}/head:{}'.format(
+        pull_request.number, pull_request.head.ref
+    )
+    git.clone(pull_request.base.repo.clone_url, str(arrow_path))
+    git.fetch('origin', pull_request_ref, git_dir=arrow_path)
+    git.checkout(pull_request.head.ref, git_dir=arrow_path)
 
+    # clone crossbow repository
+    crossbow_url = 'https://github.com/{}'.format(crossbow_repo)
+    git.clone(crossbow_url, str(queue_path))
 
-pip = Pip()
-archery = Archery()
+    # initialize crossbow objects
+    github_token = os.environ['CROSSBOW_GITHUB_TOKEN']
+    arrow = Repo(arrow_path)
+    queue = Queue(queue_path, github_token=github_token, require_https=True)
+
+    return (arrow, queue)
 
 
 @crossbow.command()
@@ -272,75 +298,43 @@ archery = Archery()
               help='Submit task groups as defined in tests.yml')
 @click.option('--param', '-p', 'params', multiple=True,
               help='Additional task parameters for rendering the CI templates')
-@click.option('--dry-run/--push', default=False,
-              help='Just display the new changelog, don\'t write it')
+@click.option('--arrow-version', '-v', default=None,
+              help='Set target version explicitly.')
 @click.pass_obj
-def submit(obj, tasks, groups, params, dry_run):
-    """Submit crossbow testing tasks.
+def submit(obj, tasks, groups, params, arrow_version):
+    """
+    Submit crossbow testing tasks.
 
     See groups defined in arrow/dev/tasks/tests.yml
     """
-    from .crossbow.core import yaml
-
-    git = Git()
-
-    # construct crossbow arguments
-    args = []
-    if dry_run:
-        args.append('--dry-run')
-
-    for p in params:
-        args.extend(['-p', p])
-    for g in groups:
-        args.extend(['-g', g])
-    for t in tasks:
-        args.append(t)
-
-    # pygithub pull request object
-    pr = obj['pull']
-    crossbow_url = 'https://github.com/{}'.format(obj['crossbow_repo'])
-
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        arrow = tmpdir / 'arrow'
-        queue = tmpdir / 'crossbow'
-
-        # clone arrow and checkout the pull request's branch
-        git.clone(pr.base.repo.clone_url, str(arrow))
-        git.fetch('origin', 'pull/{}/head:{}'.format(pr.number, pr.head.ref),
-                  git_dir=str(arrow))
-        git.checkout(pr.head.ref, git_dir=str(arrow))
-
-        # clone crossbow
-        git.clone(crossbow_url, str(queue))
-
-        # install archery
-        pip.run("install", "-e", "{}[bot]".format(arrow / "dev" / "archery"))
-
-        # submit the crossbow tasks
-        result = Path('result.yml').resolve()
-        print(str(result))
-        archery.run(
-            'crossbow',
-            '--queue-path', str(queue),
-            '--output-file', str(result),
-            'submit',
-            '--job-prefix', 'actions',
-            # don't rely on crossbow's remote and branch detection, because
-            # it doesn't work without a tracking upstream branch
-            '--arrow-remote', pr.head.repo.clone_url,
-            '--arrow-branch', pr.head.ref,
-            *args
+        arrow, queue = _clone_arrow_and_crossbow(
+            dest=Path(tmpdir),
+            crossbow_repo=obj['crossbow_repo'],
+            pull_request=obj['pull_request']
         )
+        # load available tasks configuration and groups from yaml
+        config = Config.load_yaml(arrow.path / "dev" / "tasks" / "tasks.yml")
+        config.validate()
 
+        # initialize the crossbow build's target repository
+        target = Target.from_repo(arrow, version=arrow_version)
 
-    # parse the result yml describing the submitted job
-    with result.open() as fp:
-        job = yaml.load(fp)
+        # parse additional job parameters
+        params = dict([p.split("=") for p in params])
 
-    # render the response comment's content
-    formatter = CrossbowCommentFormatter(obj['crossbow_repo'])
-    response = formatter.render(job)
+        # instantiate the job object
+        job = Job.from_config(config=config, target=target, tasks=tasks,
+                              groups=groups, params=params)
 
-    # send the response
-    pr.create_issue_comment(response)
+        # add the job to the crossbow queue and push to the remote repository
+        queue.put(job, prefix="actions")
+        queue.push()
+
+        # render the response comment's content
+        formatter = CrossbowCommentFormatter(obj['crossbow_repo'])
+        response = formatter.render(job)
+
+        # send the response
+        obj['pull_request'].create_issue_comment(response)

@@ -15,4 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from .core import Config, Repo, Queue  # noqa
+from .core import Config, Repo, Queue, Target, Job  # noqa

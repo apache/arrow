@@ -136,7 +136,6 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
     except CrossbowError as e:
         raise click.ClickException(str(e))
 
-    click.echo("Writing job.yml to output file...")
     job.show(output)
     if dry_run:
         return
