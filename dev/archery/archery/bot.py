@@ -315,7 +315,7 @@ def submit(obj, tasks, groups, params, dry_run):
         git.clone(crossbow_url, str(queue))
 
         # install archery
-        pip.run("install", "{}[bot]".format(arrow / "dev" / "archery"))
+        pip.run("install", "-e", "{}[bot]".format(arrow / "dev" / "archery"))
 
         # submit the crossbow tasks
         result = Path('result.yml').resolve()
