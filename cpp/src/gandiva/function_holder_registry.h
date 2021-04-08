@@ -64,6 +64,7 @@ class FunctionHolderRegistry {
     static map_type maker_map = {{"like", LAMBDA_MAKER(LikeHolder)},
                                  {"ilike", LAMBDA_MAKER(LikeHolder)},
                                  {"to_date", LAMBDA_MAKER(ToDateHolder)},
+                                 {"is_date", LAMBDA_MAKER(IsDateHolder)},
                                  {"to_time", LAMBDA_MAKER(ToTimeHolder)},
                                  {"to_timestamp", LAMBDA_MAKER(ToTimestampHolder)},
                                  {"unix_timestamp", LAMBDA_MAKER(UnixTimestampHolder)},
