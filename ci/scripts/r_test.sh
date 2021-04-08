@@ -62,8 +62,9 @@ fi
 BEFORE=$(ls -alh ~/)
 
 SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
+  run_donttest <- identical(tolower(Sys.getenv('TEST_R_WITH_ARROW', 'true')), 'true')
   if (as_cran) {
-    rcmdcheck::rcmdcheck(args = c('--as-cran', '--run-donttest'), error_on = 'warning', check_dir = 'check', timeout = 3600)
+    rcmdcheck::rcmdcheck(args = c('--as-cran', if (run_donttest) '--run-donttest'), error_on = 'warning', check_dir = 'check', timeout = 3600)
   } else {
     if (nzchar(Sys.which('minio'))) {
       message('Running minio for S3 tests (if build supports them)')
@@ -72,7 +73,7 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
       pid <- sys::exec_background('minio', c('server', minio_dir))
       on.exit(tools::pskill(pid))
     }
-    rcmdcheck::rcmdcheck(build_args = '--no-build-vignettes', args = c('--no-manual', '--ignore-vignettes', '--run-donttest'), error_on = 'warning', check_dir = 'check', timeout = 3600)
+    rcmdcheck::rcmdcheck(build_args = '--no-build-vignettes', args = c('--no-manual', '--ignore-vignettes', if (run_donttest) '--run-donttest'), error_on = 'warning', check_dir = 'check', timeout = 3600)
   }"
 echo "$SCRIPT" | ${R_BIN} --no-save
 
