@@ -30,7 +30,7 @@ use crate::{
 };
 use arrow::{
     array::{Array, BinaryArray, GenericStringArray, StringOffsetSizeTrait},
-    datatypes::DataType,
+    datatypes::{DataType, Schema},
 };
 
 use super::{string_expressions::unary_string_function, ColumnarValue};
@@ -144,7 +144,7 @@ fn md5_array<T: StringOffsetSizeTrait>(
 }
 
 /// crypto function that accepts Utf8 or LargeUtf8 and returns a [`ColumnarValue`]
-pub fn md5(args: &[ColumnarValue]) -> Result<ColumnarValue> {
+pub fn md5(args: &[ColumnarValue], _: &Schema) -> Result<ColumnarValue> {
     match &args[0] {
         ColumnarValue::Array(a) => match a.data_type() {
             DataType::Utf8 => Ok(ColumnarValue::Array(Arc::new(md5_array::<i32>(&[
@@ -178,21 +178,21 @@ pub fn md5(args: &[ColumnarValue]) -> Result<ColumnarValue> {
 }
 
 /// crypto function that accepts Utf8 or LargeUtf8 and returns a [`ColumnarValue`]
-pub fn sha224(args: &[ColumnarValue]) -> Result<ColumnarValue> {
+pub fn sha224(args: &[ColumnarValue], _: &Schema) -> Result<ColumnarValue> {
     handle(args, sha_process::<Sha224>, "ssh224")
 }
 
 /// crypto function that accepts Utf8 or LargeUtf8 and returns a [`ColumnarValue`]
-pub fn sha256(args: &[ColumnarValue]) -> Result<ColumnarValue> {
+pub fn sha256(args: &[ColumnarValue], _: &Schema) -> Result<ColumnarValue> {
     handle(args, sha_process::<Sha256>, "sha256")
 }
 
 /// crypto function that accepts Utf8 or LargeUtf8 and returns a [`ColumnarValue`]
-pub fn sha384(args: &[ColumnarValue]) -> Result<ColumnarValue> {
+pub fn sha384(args: &[ColumnarValue], _: &Schema) -> Result<ColumnarValue> {
     handle(args, sha_process::<Sha384>, "sha384")
 }
 
 /// crypto function that accepts Utf8 or LargeUtf8 and returns a [`ColumnarValue`]
-pub fn sha512(args: &[ColumnarValue]) -> Result<ColumnarValue> {
+pub fn sha512(args: &[ColumnarValue], _: &Schema) -> Result<ColumnarValue> {
     handle(args, sha_process::<Sha512>, "sha512")
 }

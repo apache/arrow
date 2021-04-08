@@ -76,7 +76,7 @@ pub enum Signature {
 
 /// Scalar function
 pub type ScalarFunctionImplementation =
-    Arc<dyn Fn(&[ColumnarValue]) -> Result<ColumnarValue> + Send + Sync>;
+    Arc<dyn Fn(&[ColumnarValue], &Schema) -> Result<ColumnarValue> + Send + Sync>;
 
 /// A function's return type
 pub type ReturnTypeFunction =
@@ -200,6 +200,8 @@ pub enum BuiltinScalarFunction {
     Upper,
     /// regexp_match
     RegexpMatch,
+    /// input_file_name
+    InputFileName,
 }
 
 impl fmt::Display for BuiltinScalarFunction {
@@ -245,6 +247,7 @@ impl FromStr for BuiltinScalarFunction {
             "date_part" => BuiltinScalarFunction::DatePart,
             "date_trunc" => BuiltinScalarFunction::DateTrunc,
             "initcap" => BuiltinScalarFunction::InitCap,
+            "input_file_name" => BuiltinScalarFunction::InputFileName,
             "left" => BuiltinScalarFunction::Left,
             "length" => BuiltinScalarFunction::CharacterLength,
             "lower" => BuiltinScalarFunction::Lower,
@@ -253,6 +256,7 @@ impl FromStr for BuiltinScalarFunction {
             "md5" => BuiltinScalarFunction::MD5,
             "nullif" => BuiltinScalarFunction::NullIf,
             "octet_length" => BuiltinScalarFunction::OctetLength,
+            "regexp_match" => BuiltinScalarFunction::RegexpMatch,
             "regexp_replace" => BuiltinScalarFunction::RegexpReplace,
             "repeat" => BuiltinScalarFunction::Repeat,
             "replace" => BuiltinScalarFunction::Replace,
@@ -273,7 +277,6 @@ impl FromStr for BuiltinScalarFunction {
             "translate" => BuiltinScalarFunction::Translate,
             "trim" => BuiltinScalarFunction::Trim,
             "upper" => BuiltinScalarFunction::Upper,
-            "regexp_match" => BuiltinScalarFunction::RegexpMatch,
             _ => {
                 return Err(DataFusionError::Plan(format!(
                     "There is no built-in function named {}",
@@ -294,15 +297,6 @@ pub fn return_type(
 
     // verify that this is a valid set of data types for this function
     data_types(&arg_types, &signature(fun))?;
-
-    if arg_types.is_empty() {
-        // functions currently cannot be evaluated without arguments, as they can't
-        // know the number of rows to return.
-        return Err(DataFusionError::Plan(format!(
-            "Function '{}' requires at least one argument",
-            fun
-        )));
-    }
 
     // the return type of the built in function.
     // Some built-in functions' return type depends on the incoming type.
@@ -359,6 +353,7 @@ pub fn return_type(
                 ));
             }
         }),
+        BuiltinScalarFunction::InputFileName => Ok(DataType::Utf8),
         BuiltinScalarFunction::Left => Ok(match arg_types[0] {
             DataType::LargeUtf8 => DataType::LargeUtf8,
             DataType::Utf8 => DataType::Utf8,
@@ -733,19 +728,20 @@ pub fn create_physical_expr(
 
         // string functions
         BuiltinScalarFunction::Array => array_expressions::array,
-        BuiltinScalarFunction::Ascii => |args| match args[0].data_type() {
+
+        BuiltinScalarFunction::Ascii => |args, input_schema| match args[0].data_type() {
             DataType::Utf8 => {
-                make_scalar_function(string_expressions::ascii::<i32>)(args)
+                make_scalar_function(string_expressions::ascii::<i32>)(args, input_schema)
             }
             DataType::LargeUtf8 => {
-                make_scalar_function(string_expressions::ascii::<i64>)(args)
+                make_scalar_function(string_expressions::ascii::<i64>)(args, input_schema)
             }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?} for function ascii",
                 other,
             ))),
         },
-        BuiltinScalarFunction::BitLength => |args| match &args[0] {
+        BuiltinScalarFunction::BitLength => |args, _| match &args[0] {
             ColumnarValue::Array(v) => Ok(ColumnarValue::Array(bit_length(v.as_ref())?)),
             ColumnarValue::Scalar(v) => match v {
                 ScalarValue::Utf8(v) => Ok(ColumnarValue::Scalar(ScalarValue::Int32(
@@ -757,69 +753,73 @@ pub fn create_physical_expr(
                 _ => unreachable!(),
             },
         },
-        BuiltinScalarFunction::Btrim => |args| match args[0].data_type() {
+        BuiltinScalarFunction::Btrim => |args, input_schema| match args[0].data_type() {
             DataType::Utf8 => {
-                make_scalar_function(string_expressions::btrim::<i32>)(args)
+                make_scalar_function(string_expressions::btrim::<i32>)(args, input_schema)
             }
             DataType::LargeUtf8 => {
-                make_scalar_function(string_expressions::btrim::<i64>)(args)
+                make_scalar_function(string_expressions::btrim::<i64>)(args, input_schema)
             }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?} for function btrim",
                 other,
             ))),
         },
-        BuiltinScalarFunction::CharacterLength => |args| match args[0].data_type() {
-            DataType::Utf8 => {
-                let func = invoke_if_unicode_expressions_feature_flag!(
-                    character_length,
-                    Int32Type,
-                    "character_length"
-                );
-                make_scalar_function(func)(args)
+        BuiltinScalarFunction::CharacterLength => {
+            |args, input_schema| match args[0].data_type() {
+                DataType::Utf8 => {
+                    let func = invoke_if_unicode_expressions_feature_flag!(
+                        character_length,
+                        Int32Type,
+                        "character_length"
+                    );
+                    make_scalar_function(func)(args, input_schema)
+                }
+                DataType::LargeUtf8 => {
+                    let func = invoke_if_unicode_expressions_feature_flag!(
+                        character_length,
+                        Int64Type,
+                        "character_length"
+                    );
+                    make_scalar_function(func)(args, input_schema)
+                }
+                other => Err(DataFusionError::Internal(format!(
+                    "Unsupported data type {:?} for function character_length",
+                    other,
+                ))),
             }
-            DataType::LargeUtf8 => {
-                let func = invoke_if_unicode_expressions_feature_flag!(
-                    character_length,
-                    Int64Type,
-                    "character_length"
-                );
-                make_scalar_function(func)(args)
-            }
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function character_length",
-                other,
-            ))),
+        }
+        BuiltinScalarFunction::Chr => |args, input_schema| {
+            make_scalar_function(string_expressions::chr)(args, input_schema)
         },
-        BuiltinScalarFunction::Chr => {
-            |args| make_scalar_function(string_expressions::chr)(args)
-        }
         BuiltinScalarFunction::Concat => string_expressions::concat,
-        BuiltinScalarFunction::ConcatWithSeparator => {
-            |args| make_scalar_function(string_expressions::concat_ws)(args)
-        }
+        BuiltinScalarFunction::ConcatWithSeparator => |args, input_schema| {
+            make_scalar_function(string_expressions::concat_ws)(args, input_schema)
+        },
         BuiltinScalarFunction::DatePart => datetime_expressions::date_part,
         BuiltinScalarFunction::DateTrunc => datetime_expressions::date_trunc,
-        BuiltinScalarFunction::InitCap => |args| match args[0].data_type() {
-            DataType::Utf8 => {
-                make_scalar_function(string_expressions::initcap::<i32>)(args)
+        BuiltinScalarFunction::InitCap => {
+            |args, input_schema| match args[0].data_type() {
+                DataType::Utf8 => make_scalar_function(
+                    string_expressions::initcap::<i32>,
+                )(args, input_schema),
+                DataType::LargeUtf8 => make_scalar_function(
+                    string_expressions::initcap::<i64>,
+                )(args, input_schema),
+                other => Err(DataFusionError::Internal(format!(
+                    "Unsupported data type {:?} for function initcap",
+                    other,
+                ))),
             }
-            DataType::LargeUtf8 => {
-                make_scalar_function(string_expressions::initcap::<i64>)(args)
-            }
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function initcap",
-                other,
-            ))),
-        },
-        BuiltinScalarFunction::Left => |args| match args[0].data_type() {
+        }
+        BuiltinScalarFunction::Left => |args, input_schema| match args[0].data_type() {
             DataType::Utf8 => {
                 let func = invoke_if_unicode_expressions_feature_flag!(left, i32, "left");
-                make_scalar_function(func)(args)
+                make_scalar_function(func)(args, input_schema)
             }
             DataType::LargeUtf8 => {
                 let func = invoke_if_unicode_expressions_feature_flag!(left, i64, "left");
-                make_scalar_function(func)(args)
+                make_scalar_function(func)(args, input_schema)
             }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?} for function left",
@@ -827,37 +827,40 @@ pub fn create_physical_expr(
             ))),
         },
         BuiltinScalarFunction::Lower => string_expressions::lower,
-        BuiltinScalarFunction::Lpad => |args| match args[0].data_type() {
+        BuiltinScalarFunction::Lpad => |args, input_schema| match args[0].data_type() {
             DataType::Utf8 => {
                 let func = invoke_if_unicode_expressions_feature_flag!(lpad, i32, "lpad");
-                make_scalar_function(func)(args)
+                make_scalar_function(func)(args, input_schema)
             }
             DataType::LargeUtf8 => {
                 let func = invoke_if_unicode_expressions_feature_flag!(lpad, i64, "lpad");
-                make_scalar_function(func)(args)
+                make_scalar_function(func)(args, input_schema)
             }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?} for function lpad",
                 other,
             ))),
         },
-        BuiltinScalarFunction::Ltrim => |args| match args[0].data_type() {
+        BuiltinScalarFunction::Ltrim => |args, input_schema| match args[0].data_type() {
             DataType::Utf8 => {
-                make_scalar_function(string_expressions::ltrim::<i32>)(args)
+                make_scalar_function(string_expressions::ltrim::<i32>)(args, input_schema)
             }
             DataType::LargeUtf8 => {
-                make_scalar_function(string_expressions::ltrim::<i64>)(args)
+                make_scalar_function(string_expressions::ltrim::<i64>)(args, input_schema)
             }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?} for function ltrim",
                 other,
             ))),
         },
+        BuiltinScalarFunction::InputFileName => |args, input_schema| {
+            make_scalar_function(string_expressions::input_file_name)(args, input_schema)
+        },
         BuiltinScalarFunction::MD5 => {
             invoke_if_crypto_expressions_feature_flag!(md5, "md5")
         }
         BuiltinScalarFunction::NullIf => nullif_func,
-        BuiltinScalarFunction::OctetLength => |args| match &args[0] {
+        BuiltinScalarFunction::OctetLength => |args, _| match &args[0] {
             ColumnarValue::Array(v) => Ok(ColumnarValue::Array(length(v.as_ref())?)),
             ColumnarValue::Scalar(v) => match v {
                 ScalarValue::Utf8(v) => Ok(ColumnarValue::Scalar(ScalarValue::Int32(
@@ -869,126 +872,137 @@ pub fn create_physical_expr(
                 _ => unreachable!(),
             },
         },
-        BuiltinScalarFunction::RegexpMatch => |args| match args[0].data_type() {
-            DataType::Utf8 => {
-                let func = invoke_if_regex_expressions_feature_flag!(
-                    regexp_match,
-                    i32,
-                    "regexp_match"
-                );
-                make_scalar_function(func)(args)
+        BuiltinScalarFunction::RegexpMatch => {
+            |args, input_schema| match args[0].data_type() {
+                DataType::Utf8 => {
+                    let func = invoke_if_regex_expressions_feature_flag!(
+                        regexp_match,
+                        i32,
+                        "regexp_match"
+                    );
+                    make_scalar_function(func)(args, input_schema)
+                }
+                DataType::LargeUtf8 => {
+                    let func = invoke_if_regex_expressions_feature_flag!(
+                        regexp_match,
+                        i64,
+                        "regexp_match"
+                    );
+                    make_scalar_function(func)(args, input_schema)
+                }
+                other => Err(DataFusionError::Internal(format!(
+                    "Unsupported data type {:?} for function regexp_match",
+                    other
+                ))),
             }
-            DataType::LargeUtf8 => {
-                let func = invoke_if_regex_expressions_feature_flag!(
-                    regexp_match,
-                    i64,
-                    "regexp_match"
-                );
-                make_scalar_function(func)(args)
+        }
+        BuiltinScalarFunction::RegexpReplace => {
+            |args, input_schema| match args[0].data_type() {
+                DataType::Utf8 => {
+                    let func = invoke_if_regex_expressions_feature_flag!(
+                        regexp_replace,
+                        i32,
+                        "regexp_replace"
+                    );
+                    make_scalar_function(func)(args, input_schema)
+                }
+                DataType::LargeUtf8 => {
+                    let func = invoke_if_regex_expressions_feature_flag!(
+                        regexp_replace,
+                        i64,
+                        "regexp_replace"
+                    );
+                    make_scalar_function(func)(args, input_schema)
+                }
+                other => Err(DataFusionError::Internal(format!(
+                    "Unsupported data type {:?} for function regexp_replace",
+                    other,
+                ))),
             }
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function regexp_match",
-                other
-            ))),
-        },
-        BuiltinScalarFunction::RegexpReplace => |args| match args[0].data_type() {
-            DataType::Utf8 => {
-                let func = invoke_if_regex_expressions_feature_flag!(
-                    regexp_replace,
-                    i32,
-                    "regexp_replace"
-                );
-                make_scalar_function(func)(args)
-            }
-            DataType::LargeUtf8 => {
-                let func = invoke_if_regex_expressions_feature_flag!(
-                    regexp_replace,
-                    i64,
-                    "regexp_replace"
-                );
-                make_scalar_function(func)(args)
-            }
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function regexp_replace",
-                other,
-            ))),
-        },
-        BuiltinScalarFunction::Repeat => |args| match args[0].data_type() {
-            DataType::Utf8 => {
-                make_scalar_function(string_expressions::repeat::<i32>)(args)
-            }
-            DataType::LargeUtf8 => {
-                make_scalar_function(string_expressions::repeat::<i64>)(args)
-            }
+        }
+        BuiltinScalarFunction::Repeat => |args, input_schema| match args[0].data_type() {
+            DataType::Utf8 => make_scalar_function(string_expressions::repeat::<i32>)(
+                args,
+                input_schema,
+            ),
+            DataType::LargeUtf8 => make_scalar_function(
+                string_expressions::repeat::<i64>,
+            )(args, input_schema),
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?} for function repeat",
                 other,
             ))),
         },
-        BuiltinScalarFunction::Replace => |args| match args[0].data_type() {
-            DataType::Utf8 => {
-                make_scalar_function(string_expressions::replace::<i32>)(args)
+        BuiltinScalarFunction::Replace => {
+            |args, input_schema| match args[0].data_type() {
+                DataType::Utf8 => make_scalar_function(
+                    string_expressions::replace::<i32>,
+                )(args, input_schema),
+                DataType::LargeUtf8 => make_scalar_function(
+                    string_expressions::replace::<i64>,
+                )(args, input_schema),
+                other => Err(DataFusionError::Internal(format!(
+                    "Unsupported data type {:?} for function replace",
+                    other,
+                ))),
             }
-            DataType::LargeUtf8 => {
-                make_scalar_function(string_expressions::replace::<i64>)(args)
+        }
+        BuiltinScalarFunction::Reverse => {
+            |args, input_schema| match args[0].data_type() {
+                DataType::Utf8 => {
+                    let func = invoke_if_unicode_expressions_feature_flag!(
+                        reverse, i32, "reverse"
+                    );
+                    make_scalar_function(func)(args, input_schema)
+                }
+                DataType::LargeUtf8 => {
+                    let func = invoke_if_unicode_expressions_feature_flag!(
+                        reverse, i64, "reverse"
+                    );
+                    make_scalar_function(func)(args, input_schema)
+                }
+                other => Err(DataFusionError::Internal(format!(
+                    "Unsupported data type {:?} for function reverse",
+                    other,
+                ))),
             }
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function replace",
-                other,
-            ))),
-        },
-        BuiltinScalarFunction::Reverse => |args| match args[0].data_type() {
-            DataType::Utf8 => {
-                let func =
-                    invoke_if_unicode_expressions_feature_flag!(reverse, i32, "reverse");
-                make_scalar_function(func)(args)
-            }
-            DataType::LargeUtf8 => {
-                let func =
-                    invoke_if_unicode_expressions_feature_flag!(reverse, i64, "reverse");
-                make_scalar_function(func)(args)
-            }
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function reverse",
-                other,
-            ))),
-        },
-        BuiltinScalarFunction::Right => |args| match args[0].data_type() {
+        }
+        BuiltinScalarFunction::Right => |args, input_schema| match args[0].data_type() {
             DataType::Utf8 => {
                 let func =
                     invoke_if_unicode_expressions_feature_flag!(right, i32, "right");
-                make_scalar_function(func)(args)
+                make_scalar_function(func)(args, input_schema)
             }
             DataType::LargeUtf8 => {
                 let func =
                     invoke_if_unicode_expressions_feature_flag!(right, i64, "right");
-                make_scalar_function(func)(args)
+                make_scalar_function(func)(args, input_schema)
             }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?} for function right",
                 other,
             ))),
         },
-        BuiltinScalarFunction::Rpad => |args| match args[0].data_type() {
+        BuiltinScalarFunction::Rpad => |args, input_schema| match args[0].data_type() {
             DataType::Utf8 => {
                 let func = invoke_if_unicode_expressions_feature_flag!(rpad, i32, "rpad");
-                make_scalar_function(func)(args)
+                make_scalar_function(func)(args, input_schema)
             }
             DataType::LargeUtf8 => {
                 let func = invoke_if_unicode_expressions_feature_flag!(rpad, i64, "rpad");
-                make_scalar_function(func)(args)
+                make_scalar_function(func)(args, input_schema)
             }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?} for function rpad",
                 other,
             ))),
         },
-        BuiltinScalarFunction::Rtrim => |args| match args[0].data_type() {
+        BuiltinScalarFunction::Rtrim => |args, input_schema| match args[0].data_type() {
             DataType::Utf8 => {
-                make_scalar_function(string_expressions::rtrim::<i32>)(args)
+                make_scalar_function(string_expressions::rtrim::<i32>)(args, input_schema)
             }
             DataType::LargeUtf8 => {
-                make_scalar_function(string_expressions::rtrim::<i64>)(args)
+                make_scalar_function(string_expressions::rtrim::<i64>)(args, input_schema)
             }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?} for function rtrim",
@@ -1007,105 +1021,111 @@ pub fn create_physical_expr(
         BuiltinScalarFunction::SHA512 => {
             invoke_if_crypto_expressions_feature_flag!(sha512, "sha512")
         }
-        BuiltinScalarFunction::SplitPart => |args| match args[0].data_type() {
-            DataType::Utf8 => {
-                make_scalar_function(string_expressions::split_part::<i32>)(args)
+        BuiltinScalarFunction::SplitPart => {
+            |args, input_schema| match args[0].data_type() {
+                DataType::Utf8 => make_scalar_function(
+                    string_expressions::split_part::<i32>,
+                )(args, input_schema),
+                DataType::LargeUtf8 => make_scalar_function(
+                    string_expressions::split_part::<i64>,
+                )(args, input_schema),
+                other => Err(DataFusionError::Internal(format!(
+                    "Unsupported data type {:?} for function split_part",
+                    other,
+                ))),
             }
-            DataType::LargeUtf8 => {
-                make_scalar_function(string_expressions::split_part::<i64>)(args)
+        }
+        BuiltinScalarFunction::StartsWith => {
+            |args, input_schema| match args[0].data_type() {
+                DataType::Utf8 => make_scalar_function(
+                    string_expressions::starts_with::<i32>,
+                )(args, input_schema),
+                DataType::LargeUtf8 => make_scalar_function(
+                    string_expressions::starts_with::<i64>,
+                )(args, input_schema),
+                other => Err(DataFusionError::Internal(format!(
+                    "Unsupported data type {:?} for function starts_with",
+                    other,
+                ))),
             }
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function split_part",
-                other,
-            ))),
-        },
-        BuiltinScalarFunction::StartsWith => |args| match args[0].data_type() {
-            DataType::Utf8 => {
-                make_scalar_function(string_expressions::starts_with::<i32>)(args)
-            }
-            DataType::LargeUtf8 => {
-                make_scalar_function(string_expressions::starts_with::<i64>)(args)
-            }
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function starts_with",
-                other,
-            ))),
-        },
-        BuiltinScalarFunction::Strpos => |args| match args[0].data_type() {
+        }
+        BuiltinScalarFunction::Strpos => |args, input_schema| match args[0].data_type() {
             DataType::Utf8 => {
                 let func = invoke_if_unicode_expressions_feature_flag!(
                     strpos, Int32Type, "strpos"
                 );
-                make_scalar_function(func)(args)
+                make_scalar_function(func)(args, input_schema)
             }
             DataType::LargeUtf8 => {
                 let func = invoke_if_unicode_expressions_feature_flag!(
                     strpos, Int64Type, "strpos"
                 );
-                make_scalar_function(func)(args)
+                make_scalar_function(func)(args, input_schema)
             }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?} for function strpos",
                 other,
             ))),
         },
-        BuiltinScalarFunction::Substr => |args| match args[0].data_type() {
+        BuiltinScalarFunction::Substr => |args, input_schema| match args[0].data_type() {
             DataType::Utf8 => {
                 let func =
                     invoke_if_unicode_expressions_feature_flag!(substr, i32, "substr");
-                make_scalar_function(func)(args)
+                make_scalar_function(func)(args, input_schema)
             }
             DataType::LargeUtf8 => {
                 let func =
                     invoke_if_unicode_expressions_feature_flag!(substr, i64, "substr");
-                make_scalar_function(func)(args)
+                make_scalar_function(func)(args, input_schema)
             }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?} for function substr",
                 other,
             ))),
         },
-        BuiltinScalarFunction::ToHex => |args| match args[0].data_type() {
-            DataType::Int32 => {
-                make_scalar_function(string_expressions::to_hex::<Int32Type>)(args)
-            }
-            DataType::Int64 => {
-                make_scalar_function(string_expressions::to_hex::<Int64Type>)(args)
-            }
+        BuiltinScalarFunction::ToHex => |args, input_schema| match args[0].data_type() {
+            DataType::Int32 => make_scalar_function(
+                string_expressions::to_hex::<Int32Type>,
+            )(args, input_schema),
+            DataType::Int64 => make_scalar_function(
+                string_expressions::to_hex::<Int64Type>,
+            )(args, input_schema),
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?} for function to_hex",
                 other,
             ))),
         },
         BuiltinScalarFunction::ToTimestamp => datetime_expressions::to_timestamp,
-        BuiltinScalarFunction::Translate => |args| match args[0].data_type() {
+        BuiltinScalarFunction::Translate => {
+            |args, input_schema| match args[0].data_type() {
+                DataType::Utf8 => {
+                    let func = invoke_if_unicode_expressions_feature_flag!(
+                        translate,
+                        i32,
+                        "translate"
+                    );
+                    make_scalar_function(func)(args, input_schema)
+                }
+                DataType::LargeUtf8 => {
+                    let func = invoke_if_unicode_expressions_feature_flag!(
+                        translate,
+                        i64,
+                        "translate"
+                    );
+                    make_scalar_function(func)(args, input_schema)
+                }
+                other => Err(DataFusionError::Internal(format!(
+                    "Unsupported data type {:?} for function translate",
+                    other,
+                ))),
+            }
+        }
+        BuiltinScalarFunction::Trim => |args, input_schema| match args[0].data_type() {
             DataType::Utf8 => {
-                let func = invoke_if_unicode_expressions_feature_flag!(
-                    translate,
-                    i32,
-                    "translate"
-                );
-                make_scalar_function(func)(args)
+                make_scalar_function(string_expressions::btrim::<i32>)(args, input_schema)
             }
             DataType::LargeUtf8 => {
-                let func = invoke_if_unicode_expressions_feature_flag!(
-                    translate,
-                    i64,
-                    "translate"
-                );
-                make_scalar_function(func)(args)
-            }
-            other => Err(DataFusionError::Internal(format!(
-                "Unsupported data type {:?} for function translate",
-                other,
-            ))),
-        },
-        BuiltinScalarFunction::Trim => |args| match args[0].data_type() {
-            DataType::Utf8 => {
-                make_scalar_function(string_expressions::btrim::<i32>)(args)
-            }
-            DataType::LargeUtf8 => {
-                make_scalar_function(string_expressions::btrim::<i64>)(args)
+                make_scalar_function(string_expressions::btrim::<i64>)(args, input_schema)
             }
             other => Err(DataFusionError::Internal(format!(
                 "Unsupported data type {:?} for function trim",
@@ -1273,6 +1293,7 @@ fn signature(fun: &BuiltinScalarFunction) -> Signature {
             Signature::Exact(vec![DataType::Utf8, DataType::Utf8, DataType::Utf8]),
             Signature::Exact(vec![DataType::LargeUtf8, DataType::Utf8, DataType::Utf8]),
         ]),
+        BuiltinScalarFunction::InputFileName => Signature::Exact(vec![]),
         // math expressions expect 1 argument of type f64 or f32
         // priority is given to f64 because e.g. `sqrt(1i32)` is in IR (real numbers) and thus we
         // return the best approximation for it (in f64).
@@ -1375,9 +1396,18 @@ impl PhysicalExpr for ScalarFunctionExpr {
             .map(|e| e.evaluate(batch))
             .collect::<Result<Vec<_>>>()?;
 
+        // if no arguments are passed create a dummy null column
+        let inputs = if inputs.is_empty() {
+            vec![ColumnarValue::Array(
+                ScalarValue::Utf8(None).to_array_of_size(batch.num_rows()),
+            )]
+        } else {
+            inputs
+        };
+
         // evaluate the function
         let fun = self.fun.as_ref();
-        (fun)(&inputs)
+        fun(&inputs, &*batch.schema())
     }
 }
 
@@ -1385,9 +1415,9 @@ impl PhysicalExpr for ScalarFunctionExpr {
 /// and vice-versa after evaluation.
 pub fn make_scalar_function<F>(inner: F) -> ScalarFunctionImplementation
 where
-    F: Fn(&[ArrayRef]) -> Result<ArrayRef> + Sync + Send + 'static,
+    F: Fn(&[ArrayRef], &Schema) -> Result<ArrayRef> + Sync + Send + 'static,
 {
-    Arc::new(move |args: &[ColumnarValue]| {
+    Arc::new(move |args: &[ColumnarValue], schema| {
         // first, identify if any of the arguments is an Array. If yes, store its `len`,
         // as any scalar will need to be converted to an array of len `len`.
         let len = args
@@ -1408,7 +1438,7 @@ where
                 .collect::<Vec<ArrayRef>>()
         };
 
-        let result = (inner)(&args);
+        let result = (inner)(&args, schema);
 
         // maybe back to scalar
         if len.is_some() {
@@ -3609,18 +3639,6 @@ mod tests {
             StringArray
         );
         Ok(())
-    }
-
-    #[test]
-    fn test_concat_error() -> Result<()> {
-        let result = return_type(&BuiltinScalarFunction::Concat, &[]);
-        if result.is_ok() {
-            Err(DataFusionError::Plan(
-                "Function 'concat' cannot accept zero arguments".to_string(),
-            ))
-        } else {
-            Ok(())
-        }
     }
 
     fn generic_test_array(

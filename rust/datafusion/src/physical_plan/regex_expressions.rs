@@ -27,6 +27,7 @@ use std::sync::Arc;
 use crate::error::{DataFusionError, Result};
 use arrow::array::{ArrayRef, GenericStringArray, StringOffsetSizeTrait};
 use arrow::compute;
+use arrow::datatypes::Schema;
 use hashbrown::HashMap;
 use regex::Regex;
 
@@ -45,7 +46,10 @@ macro_rules! downcast_string_arg {
 }
 
 /// extract a specific group from a string column, using a regular expression
-pub fn regexp_match<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
+pub fn regexp_match<T: StringOffsetSizeTrait>(
+    args: &[ArrayRef],
+    _: &Schema,
+) -> Result<ArrayRef> {
     match args.len() {
         2 => compute::regexp_match(downcast_string_arg!(args[0], "string", T), downcast_string_arg!(args[1], "pattern", T), None)
         .map_err(DataFusionError::ArrowError),
@@ -72,7 +76,10 @@ fn regex_replace_posix_groups(replacement: &str) -> String {
 /// Replaces substring(s) matching a POSIX regular expression.
 ///
 /// example: `regexp_replace('Thomas', '.[mN]a.', 'M') = 'ThM'`
-pub fn regexp_replace<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
+pub fn regexp_replace<T: StringOffsetSizeTrait>(
+    args: &[ArrayRef],
+    _: &Schema,
+) -> Result<ArrayRef> {
     // creating Regex is expensive so create hashmap for memoization
     let mut patterns: HashMap<String, Regex> = HashMap::new();
 

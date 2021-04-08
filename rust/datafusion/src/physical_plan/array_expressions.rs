@@ -16,11 +16,11 @@
 // under the License.
 
 //! Array expressions
+use std::sync::Arc;
 
 use crate::error::{DataFusionError, Result};
 use arrow::array::*;
-use arrow::datatypes::DataType;
-use std::sync::Arc;
+use arrow::datatypes::{DataType, Schema};
 
 use super::ColumnarValue;
 
@@ -90,7 +90,7 @@ fn array_array(args: &[&dyn Array]) -> Result<ArrayRef> {
 }
 
 /// put values in an array.
-pub fn array(values: &[ColumnarValue]) -> Result<ColumnarValue> {
+pub fn array(values: &[ColumnarValue], _: &Schema) -> Result<ColumnarValue> {
     let arrays: Vec<&dyn Array> = values
         .iter()
         .map(|value| {

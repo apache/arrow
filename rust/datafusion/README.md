@@ -172,11 +172,13 @@ DataFusion also includes a simple command-line interactive SQL utility. See the 
   - [x] concat
   - [x] concat_ws
   - [x] initcap
+  - [x] input_file_name
   - [x] left
   - [x] length
   - [x] lpad
   - [x] ltrim
   - [x] octet_length
+  - [x] regexp_match
   - [x] regexp_replace
   - [x] repeat
   - [x] replace

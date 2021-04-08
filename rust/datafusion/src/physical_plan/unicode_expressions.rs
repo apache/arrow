@@ -30,7 +30,7 @@ use arrow::{
     array::{
         ArrayRef, GenericStringArray, Int64Array, PrimitiveArray, StringOffsetSizeTrait,
     },
-    datatypes::{ArrowNativeType, ArrowPrimitiveType},
+    datatypes::{ArrowNativeType, ArrowPrimitiveType, Schema},
 };
 use hashbrown::HashMap;
 use unicode_segmentation::UnicodeSegmentation;
@@ -63,7 +63,10 @@ macro_rules! downcast_arg {
 
 /// Returns number of characters in the string.
 /// character_length('josé') = 4
-pub fn character_length<T: ArrowPrimitiveType>(args: &[ArrayRef]) -> Result<ArrayRef>
+pub fn character_length<T: ArrowPrimitiveType>(
+    args: &[ArrayRef],
+    _: &Schema,
+) -> Result<ArrayRef>
 where
     T::Native: StringOffsetSizeTrait,
 {
@@ -90,7 +93,7 @@ where
 
 /// Returns first n characters in the string, or when n is negative, returns all but last |n| characters.
 /// left('abcde', 2) = 'ab'
-pub fn left<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
+pub fn left<T: StringOffsetSizeTrait>(args: &[ArrayRef], _: &Schema) -> Result<ArrayRef> {
     let string_array = downcast_string_arg!(args[0], "string", T);
     let n_array = downcast_arg!(args[1], "n", Int64Array);
 
@@ -124,7 +127,7 @@ pub fn left<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
 
 /// Extends the string to length 'length' by prepending the characters fill (a space by default). If the string is already longer than length then it is truncated (on the right).
 /// lpad('hi', 5, 'xy') = 'xyxhi'
-pub fn lpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
+pub fn lpad<T: StringOffsetSizeTrait>(args: &[ArrayRef], _: &Schema) -> Result<ArrayRef> {
     match args.len() {
         2 => {
             let string_array = downcast_string_arg!(args[0], "string", T);
@@ -213,7 +216,10 @@ pub fn lpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
 
 /// Reverses the order of the characters in the string.
 /// reverse('abcde') = 'edcba'
-pub fn reverse<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
+pub fn reverse<T: StringOffsetSizeTrait>(
+    args: &[ArrayRef],
+    _: &Schema,
+) -> Result<ArrayRef> {
     let string_array = downcast_string_arg!(args[0], "string", T);
 
     let result = string_array
@@ -228,7 +234,10 @@ pub fn reverse<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> 
 
 /// Returns last n characters in the string, or when n is negative, returns all but first |n| characters.
 /// right('abcde', 2) = 'de'
-pub fn right<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
+pub fn right<T: StringOffsetSizeTrait>(
+    args: &[ArrayRef],
+    _: &Schema,
+) -> Result<ArrayRef> {
     let string_array = downcast_string_arg!(args[0], "string", T);
     let n_array = downcast_arg!(args[1], "n", Int64Array);
 
@@ -276,7 +285,7 @@ pub fn right<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
 
 /// Extends the string to length 'length' by appending the characters fill (a space by default). If the string is already longer than length then it is truncated.
 /// rpad('hi', 5, 'xy') = 'hixyx'
-pub fn rpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
+pub fn rpad<T: StringOffsetSizeTrait>(args: &[ArrayRef], _: &Schema) -> Result<ArrayRef> {
     match args.len() {
         2 => {
             let string_array = downcast_string_arg!(args[0], "string", T);
@@ -353,7 +362,7 @@ pub fn rpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
 
 /// Returns starting index of specified substring within string, or zero if it's not present. (Same as position(substring in string), but note the reversed argument order.)
 /// strpos('high', 'ig') = 2
-pub fn strpos<T: ArrowPrimitiveType>(args: &[ArrayRef]) -> Result<ArrayRef>
+pub fn strpos<T: ArrowPrimitiveType>(args: &[ArrayRef], _: &Schema) -> Result<ArrayRef>
 where
     T::Native: StringOffsetSizeTrait,
 {
@@ -412,7 +421,10 @@ where
 /// Extracts the substring of string starting at the start'th character, and extending for count characters if that is specified. (Same as substring(string from start for count).)
 /// substr('alphabet', 3) = 'phabet'
 /// substr('alphabet', 3, 2) = 'ph'
-pub fn substr<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
+pub fn substr<T: StringOffsetSizeTrait>(
+    args: &[ArrayRef],
+    _: &Schema,
+) -> Result<ArrayRef> {
     match args.len() {
         2 => {
             let string_array = downcast_string_arg!(args[0], "string", T);
@@ -489,7 +501,10 @@ pub fn substr<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
 
 /// Replaces each character in string that matches a character in the from set with the corresponding character in the to set. If from is longer than to, occurrences of the extra characters in from are deleted.
 /// translate('12345', '143', 'ax') = 'a2x5'
-pub fn translate<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
+pub fn translate<T: StringOffsetSizeTrait>(
+    args: &[ArrayRef],
+    _: &Schema,
+) -> Result<ArrayRef> {
     let string_array = downcast_string_arg!(args[0], "string", T);
     let from_array = downcast_string_arg!(args[1], "from", T);
     let to_array = downcast_string_arg!(args[2], "to", T);

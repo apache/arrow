@@ -914,9 +914,16 @@ fn read_files(
         loop {
             match batch_reader.next() {
                 Some(Ok(batch)) => {
-                    //println!("ParquetExec got new batch from {}", filename);
+                    let mut metadata = HashMap::new();
+                    metadata.insert("filename".to_string(), filename.to_string());
+                    let schema = Arc::new(Schema::new_with_metadata(
+                        batch.schema().fields().clone(),
+                        metadata,
+                    ));
+                    let metadata_batch =
+                        RecordBatch::try_new(schema, batch.columns().to_vec()).unwrap();
                     total_rows += batch.num_rows();
-                    send_result(&response_tx, Ok(batch))?;
+                    send_result(&response_tx, Ok(metadata_batch))?;
                     if limit.map(|l| total_rows >= l).unwrap_or(false) {
                         break 'outer;
                     }

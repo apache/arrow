@@ -36,14 +36,14 @@
 //!
 //! let file = File::open("test/data/uk_cities.csv").unwrap();
 //!
-//! let mut csv = csv::Reader::new(file, Arc::new(schema), false, None, 1024, None, None);
+//! let mut csv = csv::Reader::new(None, file, Arc::new(schema), false, None, 1024, None, None);
 //! let batch = csv.next().unwrap().unwrap();
 //! ```
 
 use core::cmp::min;
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
@@ -251,6 +251,8 @@ pub struct Reader<R: Read> {
     projection: Option<Vec<usize>>,
     /// File reader
     reader: csv_crate::Reader<R>,
+    /// Current file
+    filename: Option<String>,
     /// Current line number
     line_number: usize,
     /// Maximum number of rows to read
@@ -280,7 +282,9 @@ impl<R: Read> Reader<R> {
     /// If reading a `File` or an input that supports `std::io::Read` and `std::io::Seek`;
     /// you can customise the Reader, such as to enable schema inference, use
     /// `ReaderBuilder`.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
+        filename: Option<String>,
         reader: R,
         schema: SchemaRef,
         has_header: bool,
@@ -290,7 +294,8 @@ impl<R: Read> Reader<R> {
         projection: Option<Vec<usize>>,
     ) -> Self {
         Self::from_reader(
-            reader, schema, has_header, delimiter, batch_size, bounds, projection,
+            filename, reader, schema, has_header, delimiter, batch_size, bounds,
+            projection,
         )
     }
 
@@ -313,7 +318,9 @@ impl<R: Read> Reader<R> {
     ///
     /// This constructor allows you more flexibility in what records are processed by the
     /// csv reader.
+    #[allow(clippy::too_many_arguments)]
     pub fn from_reader(
+        filename: Option<String>,
         reader: R,
         schema: SchemaRef,
         has_header: bool,
@@ -359,6 +366,7 @@ impl<R: Read> Reader<R> {
             schema,
             projection,
             reader: csv_reader,
+            filename,
             line_number: if has_header { start + 1 } else { start },
             batch_size,
             end,
@@ -405,6 +413,19 @@ impl<R: Read> Iterator for Reader<R> {
         );
 
         self.line_number += read_records;
+
+        let result = result.map(|batch| match self.filename.clone() {
+            Some(filename) => {
+                let mut metadata = HashMap::new();
+                metadata.insert("filename".to_string(), filename);
+                let schema = Arc::new(Schema::new_with_metadata(
+                    batch.schema().fields().clone(),
+                    metadata,
+                ));
+                RecordBatch::try_new(schema, batch.columns().to_vec()).unwrap()
+            }
+            None => batch,
+        });
 
         Some(result)
     }
@@ -670,6 +691,8 @@ fn build_boolean_array(
 /// CSV file reader builder
 #[derive(Debug)]
 pub struct ReaderBuilder {
+    /// Optional filename
+    filename: Option<String>,
     /// Optional schema for the CSV file
     ///
     /// If the schema is not supplied, the reader will try to infer the schema
@@ -699,6 +722,7 @@ pub struct ReaderBuilder {
 impl Default for ReaderBuilder {
     fn default() -> Self {
         Self {
+            filename: None,
             schema: None,
             has_header: false,
             delimiter: None,
@@ -736,6 +760,12 @@ impl ReaderBuilder {
     /// ```
     pub fn new() -> ReaderBuilder {
         ReaderBuilder::default()
+    }
+
+    /// Set the CSV file's schema
+    pub fn with_file_name(mut self, file_name: String) -> Self {
+        self.filename = Some(file_name);
+        self
     }
 
     /// Set the CSV file's schema
@@ -794,6 +824,7 @@ impl ReaderBuilder {
             }
         };
         Ok(Reader::from_reader(
+            self.filename,
             reader,
             schema,
             self.has_header,
@@ -827,6 +858,7 @@ mod tests {
         let file = File::open("test/data/uk_cities.csv").unwrap();
 
         let mut csv = Reader::new(
+            None,
             file,
             Arc::new(schema.clone()),
             false,
@@ -874,6 +906,7 @@ mod tests {
         let file = File::open("test/data/uk_cities.csv").unwrap();
 
         let mut csv = Reader::new(
+            None,
             file,
             Arc::new(schema.clone()),
             false,
@@ -905,6 +938,7 @@ mod tests {
             .chain(Cursor::new("\n".to_string()))
             .chain(file_without_headers);
         let mut csv = Reader::from_reader(
+            None,
             both_files,
             Arc::new(schema),
             true,
@@ -1002,6 +1036,7 @@ mod tests {
         let file = File::open("test/data/uk_cities.csv").unwrap();
 
         let mut csv = Reader::new(
+            None,
             file,
             Arc::new(schema),
             false,
@@ -1031,7 +1066,8 @@ mod tests {
 
         let file = File::open("test/data/null_test.csv").unwrap();
 
-        let mut csv = Reader::new(file, Arc::new(schema), true, None, 1024, None, None);
+        let mut csv =
+            Reader::new(None, file, Arc::new(schema), true, None, 1024, None, None);
         let batch = csv.next().unwrap().unwrap();
 
         assert_eq!(false, batch.column(1).is_null(0));
@@ -1227,6 +1263,7 @@ mod tests {
         let reader = std::io::Cursor::new(data);
 
         let mut csv = Reader::new(
+            None,
             reader,
             Arc::new(schema),
             false,

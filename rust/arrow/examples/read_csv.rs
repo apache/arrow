@@ -34,7 +34,8 @@ fn main() {
 
     let file = File::open("test/data/uk_cities.csv").unwrap();
 
-    let mut csv = csv::Reader::new(file, Arc::new(schema), false, None, 1024, None, None);
+    let mut csv =
+        csv::Reader::new(None, file, Arc::new(schema), false, None, 1024, None, None);
     let _batch = csv.next().unwrap().unwrap();
     #[cfg(feature = "prettyprint")]
     {

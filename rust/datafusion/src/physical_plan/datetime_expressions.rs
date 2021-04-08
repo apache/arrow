@@ -25,7 +25,7 @@ use crate::{
 };
 use arrow::{
     array::{Array, ArrayRef, GenericStringArray, PrimitiveArray, StringOffsetSizeTrait},
-    datatypes::{ArrowPrimitiveType, DataType, TimestampNanosecondType},
+    datatypes::{ArrowPrimitiveType, DataType, Schema, TimestampNanosecondType},
 };
 use arrow::{
     array::{
@@ -260,7 +260,7 @@ where
 }
 
 /// to_timestamp SQL function
-pub fn to_timestamp(args: &[ColumnarValue]) -> Result<ColumnarValue> {
+pub fn to_timestamp(args: &[ColumnarValue], _: &Schema) -> Result<ColumnarValue> {
     handle::<TimestampNanosecondType, _, TimestampNanosecondType>(
         args,
         string_to_timestamp_nanos,
@@ -308,7 +308,7 @@ fn date_trunc_single(granularity: &str, value: i64) -> Result<i64> {
 }
 
 /// date_trunc SQL function
-pub fn date_trunc(args: &[ColumnarValue]) -> Result<ColumnarValue> {
+pub fn date_trunc(args: &[ColumnarValue], _: &Schema) -> Result<ColumnarValue> {
     let (granularity, array) = (&args[0], &args[1]);
 
     let granularity =
@@ -397,7 +397,7 @@ macro_rules! extract_date_part {
 }
 
 /// DATE_PART SQL function
-pub fn date_part(args: &[ColumnarValue]) -> Result<ColumnarValue> {
+pub fn date_part(args: &[ColumnarValue], _: &Schema) -> Result<ColumnarValue> {
     if args.len() != 2 {
         return Err(DataFusionError::Execution(
             "Expected two arguments in DATE_PART".to_string(),
@@ -463,7 +463,7 @@ mod tests {
 
         let string_array =
             ColumnarValue::Array(Arc::new(string_builder.finish()) as ArrayRef);
-        let parsed_timestamps = to_timestamp(&[string_array])
+        let parsed_timestamps = to_timestamp(&[string_array], &Schema::empty())
             .expect("that to_timestamp parsed values without error");
         if let ColumnarValue::Array(parsed_array) = parsed_timestamps {
             assert_eq!(parsed_array.len(), 2);
@@ -543,7 +543,7 @@ mod tests {
 
         let expected_err =
             "Internal error: Unsupported data type Int64 for function to_timestamp";
-        match to_timestamp(&[int64array]) {
+        match to_timestamp(&[int64array], &Schema::empty()) {
             Ok(_) => panic!("Expected error but got success"),
             Err(e) => {
                 assert!(

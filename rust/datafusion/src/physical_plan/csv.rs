@@ -306,6 +306,7 @@ impl CsvStream {
         let bounds = limit.map(|x| (0, x + start_line));
 
         let reader = csv::Reader::new(
+            Some(filename.to_string()),
             file,
             schema,
             has_header,

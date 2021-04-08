@@ -121,6 +121,31 @@ async fn parquet_query() {
 }
 
 #[tokio::test]
+async fn parquet_input_file_name() {
+    let mut ctx = ExecutionContext::new();
+    register_alltypes_parquet(&mut ctx);
+    // NOTE that string_col is actually a binary column and does not have the UTF8 logical type
+    // so we need an explicit cast
+    let sql = "SELECT id, input_file_name() FROM alltypes_plain";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![
+        vec!["4"],
+        vec!["5"],
+        vec!["6"],
+        vec!["7"],
+        vec!["2"],
+        vec!["3"],
+        vec!["0"],
+        vec!["1"],
+    ];
+
+    for i in 0..actual.len() {
+        assert_eq!(actual[i][0], expected[i][0]);
+        assert!(actual[i][1].contains("alltypes_plain.parquet"));
+    }
+}
+
+#[tokio::test]
 async fn parquet_single_nan_schema() {
     let mut ctx = ExecutionContext::new();
     let testdata = arrow::util::test_util::parquet_test_data();
@@ -272,6 +297,31 @@ async fn csv_count_star() -> Result<()> {
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![vec!["100", "100", "100"]];
     assert_eq!(expected, actual);
+    Ok(())
+}
+
+#[tokio::test]
+async fn csv_input_file_name() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx)?;
+    let sql = "SELECT c1, input_file_name() FROM aggregate_test_100";
+    let actual = execute(&mut ctx, sql).await;
+    let expected = vec![
+        vec!["c"],
+        vec!["d"],
+        vec!["b"],
+        vec!["a"],
+        vec!["b"],
+        vec!["b"],
+        vec!["e"],
+        vec!["a"],
+        vec!["d"],
+        vec!["a"],
+    ];
+    for i in 0..expected.len() {
+        assert_eq!(actual[i][0], expected[i][0]);
+        assert!(actual[i][1].contains("aggregate_test_100.csv"));
+    }
     Ok(())
 }
 
@@ -575,7 +625,7 @@ fn create_ctx() -> Result<ExecutionContext> {
     Ok(ctx)
 }
 
-fn custom_sqrt(args: &[ColumnarValue]) -> Result<ColumnarValue> {
+fn custom_sqrt(args: &[ColumnarValue], _: &Schema) -> Result<ColumnarValue> {
     let arg = &args[0];
     if let ColumnarValue::Array(v) = arg {
         let input = v
@@ -2670,7 +2720,7 @@ async fn test_cast_expressions() -> Result<()> {
 #[tokio::test]
 async fn test_cast_expressions_error() -> Result<()> {
     // sin(utf8) should error
-    let mut ctx = create_ctx()?;
+    let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx)?;
     let sql = "SELECT CAST(c1 AS INT) FROM aggregate_test_100";
     let plan = ctx.create_logical_plan(&sql).unwrap();
@@ -2686,6 +2736,18 @@ async fn test_cast_expressions_error() -> Result<()> {
             ))
         }
     }
+    Ok(())
+}
 
+#[tokio::test]
+async fn input_file_name() -> Result<()> {
+    let mut ctx = ExecutionContext::new();
+    let sql = "SELECT
+        input_file_name()
+    ";
+    let actual = execute(&mut ctx, sql).await;
+
+    let expected = vec![vec!["NULL"]];
+    assert_eq!(expected, actual);
     Ok(())
 }

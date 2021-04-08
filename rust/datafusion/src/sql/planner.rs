@@ -2704,7 +2704,7 @@ mod tests {
 
         fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>> {
             let f: ScalarFunctionImplementation =
-                Arc::new(|_| Err(DataFusionError::NotImplemented("".to_string())));
+                Arc::new(|_, _| Err(DataFusionError::NotImplemented("".to_string())));
             match name {
                 "my_sqrt" => Some(Arc::new(create_udf(
                     "my_sqrt",

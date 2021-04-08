@@ -15,20 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::sync::Arc;
+
 use arrow::{
     array::{ArrayRef, Float32Array, Float64Array},
-    datatypes::DataType,
+    datatypes::{DataType, Field, Schema},
     record_batch::RecordBatch,
     util::pretty,
 };
 
 use datafusion::prelude::*;
 use datafusion::{error::Result, physical_plan::functions::make_scalar_function};
-use std::sync::Arc;
 
 // create local execution context with an in-memory table
 fn create_context() -> Result<ExecutionContext> {
-    use arrow::datatypes::{Field, Schema};
     use datafusion::datasource::MemTable;
     // define a schema.
     let schema = Arc::new(Schema::new(vec![
@@ -60,7 +60,7 @@ async fn main() -> Result<()> {
     let mut ctx = create_context()?;
 
     // First, declare the actual implementation of the calculation
-    let pow = |args: &[ArrayRef]| {
+    let pow = |args: &[ArrayRef], _: &Schema| {
         // in DataFusion, all `args` and output are dynamically-typed arrays, which means that we need to:
         // 1. cast the values to the type we want
         // 2. perform the computation for every element in the array (using a loop or SIMD) and construct the result

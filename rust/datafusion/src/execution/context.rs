@@ -1881,7 +1881,7 @@ mod tests {
         ctx.register_table("t", table_with_sequence(1, 1).unwrap())
             .unwrap();
 
-        let myfunc = |args: &[ArrayRef]| Ok(Arc::clone(&args[0]));
+        let myfunc = |args: &[ArrayRef], _: &Schema| Ok(Arc::clone(&args[0]));
         let myfunc = make_scalar_function(myfunc);
 
         ctx.register_udf(create_udf(
@@ -2181,7 +2181,7 @@ mod tests {
         let provider = MemTable::try_new(Arc::new(schema), vec![vec![batch]])?;
         ctx.register_table("t", Arc::new(provider))?;
 
-        let myfunc = |args: &[ArrayRef]| {
+        let myfunc = |args: &[ArrayRef], _: &Schema| {
             let l = &args[0]
                 .as_any()
                 .downcast_ref::<Int32Array>()

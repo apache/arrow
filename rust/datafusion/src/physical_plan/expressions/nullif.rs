@@ -28,7 +28,7 @@ use arrow::array::{
 };
 use arrow::compute::kernels::boolean::nullif;
 use arrow::compute::kernels::comparison::{eq, eq_scalar, eq_utf8, eq_utf8_scalar};
-use arrow::datatypes::{DataType, TimeUnit};
+use arrow::datatypes::{DataType, Schema, TimeUnit};
 
 /// Invoke a compute kernel on a primitive array and a Boolean Array
 macro_rules! compute_bool_array_op {
@@ -71,7 +71,7 @@ macro_rules! primitive_bool_array_op {
 /// Args: 0 - left expr is any array
 ///       1 - if the left is equal to this expr2, then the result is NULL, otherwise left value is passed.
 ///
-pub fn nullif_func(args: &[ColumnarValue]) -> Result<ColumnarValue> {
+pub fn nullif_func(args: &[ColumnarValue], _: &Schema) -> Result<ColumnarValue> {
     if args.len() != 2 {
         return Err(DataFusionError::Internal(format!(
             "{:?} args were supplied but NULLIF takes exactly two args",
@@ -142,7 +142,7 @@ mod tests {
 
         let lit_array = ColumnarValue::Scalar(ScalarValue::Int32(Some(2i32)));
 
-        let result = nullif_func(&[a, lit_array])?;
+        let result = nullif_func(&[a, lit_array], &Schema::empty())?;
         let result = result.into_array(0);
 
         let expected = Arc::new(Int32Array::from(vec![
@@ -168,7 +168,7 @@ mod tests {
 
         let lit_array = ColumnarValue::Scalar(ScalarValue::Int32(Some(1i32)));
 
-        let result = nullif_func(&[a, lit_array])?;
+        let result = nullif_func(&[a, lit_array], &Schema::empty())?;
         let result = result.into_array(0);
 
         let expected = Arc::new(Int32Array::from(vec![
