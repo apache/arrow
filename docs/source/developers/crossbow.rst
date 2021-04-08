@@ -91,7 +91,7 @@ Install
    authentication. Although it overwrites the repository urls provided with ssh
    protocol, it's advisable to use the HTTPS repository URLs.
 
-4. `Create a Personal Access Token`_ with ``repo`` permissions (other
+4. `Create a Personal Access Token`_ with ``repo`` and ``workflow`` permissions (other
    permissions are not needed)
 
 5. Locally export the token as an environment variable:
