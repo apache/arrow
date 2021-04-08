@@ -1063,6 +1063,86 @@ AsyncGenerator<T> MakeConcatenatedGenerator(AsyncGenerator<AsyncGenerator<T>> so
   return MergedGenerator<T>(std::move(source), 1);
 }
 
+template <typename T>
+struct Enumerated {
+  util::optional<T> value;
+  int index;
+  bool last;
+};
+
+template <typename T>
+struct IterationTraits<Enumerated<T>> {
+  static Enumerated<T> End() { return Enumerated<T>{{}, -1, false}; }
+  static bool IsEnd(const Enumerated<T>& val) { return !val.value.has_value(); }
+};
+
+/// \see MakeEnumeratedGenerator
+template <typename T>
+class EnumeratingGenerator {
+ public:
+  EnumeratingGenerator(AsyncGenerator<T> source, T initial_value)
+      : state_(std::make_shared<State>(std::move(source), std::move(initial_value))) {}
+
+  Future<Enumerated<T>> operator()() {
+    if (state_->finished) {
+      return AsyncGeneratorEnd<Enumerated<T>>();
+    } else {
+      auto state = state_;
+      return state->source().Then([state](const T& next) {
+        auto finished = IsIterationEnd<T>(next);
+        auto prev = Enumerated<T>{state->prev_value, state->prev_index, finished};
+        state->prev_value = next;
+        state->prev_index++;
+        state->finished = finished;
+        return prev;
+      });
+    }
+  }
+
+ private:
+  struct State {
+    State(AsyncGenerator<T> source, T initial_value)
+        : source(std::move(source)), prev_value(std::move(initial_value)), prev_index(0) {
+      finished = IsIterationEnd<T>(prev_value);
+    }
+
+    AsyncGenerator<T> source;
+    T prev_value;
+    int prev_index;
+    bool finished;
+  };
+
+  std::shared_ptr<State> state_;
+};
+
+/// Wraps items from a source generator with positional information
+///
+/// When reqsequencing items from multiple streams that have been merged into
+/// one it helps to know when an item is the last item in the stream.
+///
+/// Note: Another potential use for this could be resequencing items from a
+/// jittery source.  However, the readahead generator will not emit items out of
+/// order today so this is not needed.  Furthermore, this generator would need to
+/// support async reentrancy which, while possible, is not done currently.
+///
+/// Note: Since this generator is not actually taking in out-of-order sources it isn't
+/// strictly neccesary to add the index, it could be added by a map generator.  However,
+/// since this generator is usually used as laster input to the sequencing generator and
+/// the sequencing generator needs the index we go ahead and add it for utility's sake
+///
+/// \see MakeSequencingGenerator for an example of putting items back in order
+///
+/// This generator is not async-reentrant
+///
+/// This generator buffers one item (so it knows which item is the last item)
+template <typename T>
+AsyncGenerator<Enumerated<T>> MakeEnumeratedGenerator(AsyncGenerator<T> source) {
+  return FutureFirstGenerator<Enumerated<T>>(
+      source().Then([source](const T& initial_value) -> AsyncGenerator<Enumerated<T>> {
+        return EnumeratingGenerator<T>(std::move(source), initial_value);
+      }));
+}
+
 /// \see MakeTransferredGenerator
 template <typename T>
 class TransferringGenerator {
