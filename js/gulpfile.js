@@ -33,7 +33,7 @@ const {
 for (const [target, format] of combinations([`all`], [`all`])) {
     const task = taskName(target, format);
     gulp.task(`clean:${task}`, cleanTask(target, format));
-    gulp.task( `test:${task}`,  testTask(target, format));
+    gulp.task(`test:${task}`,  testTask(target, format));
     gulp.task(`compile:${task}`, compileTask(target, format));
     gulp.task(`package:${task}`, packageTask(target, format));
     gulp.task(`build:${task}`, gulp.series(
