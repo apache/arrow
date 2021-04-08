@@ -146,15 +146,15 @@ function batchesToString(state: ToStringState, schema: Schema) {
             cb();
         },
         transform(batch: RecordBatch, _enc: string, cb: (error?: Error, data?: any) => void) {
-    
+
             batch = !(state.schema && state.schema.length) ? batch : batch.select(...state.schema);
-    
+
             if (state.closed) { return cb(undefined, null); }
-    
+
             // Pass one to convert to strings and count max column widths
             state.maxColWidths = measureColumnWidths(rowId, batch, header.map((x, i) => Math.max(maxColWidths[i] || 0, x.length)));
-    
-            // If this is the first batch in a stream, print a top horizontal rule, schema metadata, and 
+
+            // If this is the first batch in a stream, print a top horizontal rule, schema metadata, and
             if (++batchId === 0) {
                 hr && this.push(`${horizontalRule(state.maxColWidths, hr, sep)}\n`);
                 if (state.metadata && batch.schema.metadata.size > 0) {
@@ -165,7 +165,7 @@ function batchesToString(state: ToStringState, schema: Schema) {
                     this.push(`${formatRow(header, maxColWidths = state.maxColWidths, sep)}\n`);
                 }
             }
-    
+
             if (batch.length > 0 && batch.numCols > 0) {
                 // If any of the column widths changed, print the header again
                 if (rowId % 350 !== 0 && JSON.stringify(state.maxColWidths) !== JSON.stringify(maxColWidths)) {
@@ -225,7 +225,7 @@ function measureColumnWidths(rowId: number, batch: RecordBatch, maxColWidths: nu
                 // 6 |                                          null
                 // 7 |     [2755142991,4192423256,2994359,467878370]
                 const elementWidth = typedArrayElementWidths.get(val.constructor)!;
-    
+
                 maxColWidths[j + 1] = Math.max(maxColWidths[j + 1] || 0,
                     2 + // brackets on each end
                     (val.length - 1) + // commas between elements
@@ -295,7 +295,7 @@ function cliOpts() {
             name: 'help', optional: true, default: false,
             description: 'Print this usage guide.'
         }
-    ];    
+    ];
 }
 
 function print_usage() {
