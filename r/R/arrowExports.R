@@ -1052,8 +1052,12 @@ json___ReadOptions__initialize <- function(use_threads, block_size){
     .Call(`_arrow_json___ReadOptions__initialize`, use_threads, block_size)
 }
 
-json___ParseOptions__initialize <- function(newlines_in_values){
-    .Call(`_arrow_json___ParseOptions__initialize`, newlines_in_values)
+json___ParseOptions__initialize1 <- function(newlines_in_values){
+    .Call(`_arrow_json___ParseOptions__initialize1`, newlines_in_values)
+}
+
+json___ParseOptions__initialize2 <- function(newlines_in_values, explicit_schema){
+    .Call(`_arrow_json___ParseOptions__initialize2`, newlines_in_values, explicit_schema)
 }
 
 json___TableReader__Make <- function(input, read_options, parse_options){
