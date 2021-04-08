@@ -58,10 +58,11 @@ jobs:
 
   - script: |
       source activate base
+      set +x
       if [[ "${CONFIG}" == osx_arm* ]]; then
         EXTRA_CB_OPTIONS="${EXTRA_CB_OPTIONS:-} --no-test"
       fi
-      conda build arrow-cpp parquet-cpp \
+      conda build arrow-cpp \
         -m ./.ci_support/${CONFIG}.yaml \
         --clobber-file ./.ci_support/clobber_${CONFIG}.yaml \
         ${EXTRA_CB_OPTIONS:-} \
