@@ -48,6 +48,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    print "Writing {} {}-element batches to '{}'".format(args.num_batches, args.batch_size, args.filename)
-    with open(args.filename, 'w') as fd:
-        write_record_batches(fd, args.batch_size, args.num_batches)
+    print("Writing {} {}-element batches to '{}'".format(args.num_batches, args.batch_size, args.filename))
+    write_record_batches(args.filename, args.batch_size, args.num_batches)
