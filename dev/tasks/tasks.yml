@@ -1837,6 +1837,7 @@ tasks:
       libarrow_download: "FALSE"
       libarrow_build: "FALSE"
       with_arrow: "FALSE"
+      not_cran: "FALSE"
 
   test-ubuntu-18.04-r-sanitizer:
     ci: azure
