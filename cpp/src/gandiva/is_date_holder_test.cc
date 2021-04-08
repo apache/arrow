@@ -49,7 +49,7 @@ TEST_F(TestIsDateHolder, TestSimpleDateTime) {
   EXPECT_EQ(valid, true);
 
   s = std::string(" ");
-   valid = is_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
+  valid = is_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
   EXPECT_EQ(valid, false);
 
   s = std::string("1986-12-01 01:01:01 +0800");
@@ -133,29 +133,28 @@ TEST_F(TestIsDateHolder, TestSimpleDateTimeWithoutPattern) {
   auto& is_date = *is_date_holder;
   bool out_valid;
   std::string s("1986-12-01 01:01:01");
-  bool valid =
-      is_date(&execution_context_, s.data(), static_cast<int>(s.length()),
-              true, &out_valid);
+  bool valid = is_date(&execution_context_, s.data(), static_cast<int>(s.length()), true,
+                       &out_valid);
   EXPECT_EQ(valid, true);
 
   s = std::string(" ");
-  valid = is_date(&execution_context_, s.data(), static_cast<int>(s.length()),
-                  true, &out_valid);
+  valid = is_date(&execution_context_, s.data(), static_cast<int>(s.length()), true,
+                  &out_valid);
   EXPECT_EQ(valid, false);
 
   s = std::string("1986-12-01 01:01:01 +0800");
-  valid = is_date(&execution_context_, s.data(), static_cast<int>(s.length()),
-                  true, &out_valid);
+  valid = is_date(&execution_context_, s.data(), static_cast<int>(s.length()), true,
+                  &out_valid);
   EXPECT_EQ(valid, true);
 
   s = std::string("1886-12-01 01:01:01");
-  valid = is_date(&execution_context_, s.data(), static_cast<int>(s.length()),
-                         true, &out_valid);
+  valid = is_date(&execution_context_, s.data(), static_cast<int>(s.length()), true,
+                  &out_valid);
   EXPECT_EQ(valid, true);
 
   s = std::string("1986-12-11 01:30:00");
-  valid = is_date(&execution_context_, s.data(), static_cast<int>(s.length()),
-                  true, &out_valid);
+  valid = is_date(&execution_context_, s.data(), static_cast<int>(s.length()), true,
+                  &out_valid);
   EXPECT_EQ(valid, true);
 }
 

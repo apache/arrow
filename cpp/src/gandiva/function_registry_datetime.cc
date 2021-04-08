@@ -78,21 +78,20 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
       NativeFunction("is_date", {}, DataTypeVector{utf8()}, timestamp(),
                      kResultNullInternal, "gdv_fn_is_date_utf8",
                      NativeFunction::kNeedsContext |
-                     NativeFunction::kNeedsFunctionHolder |
-                     NativeFunction::kCanReturnErrors),
-
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
 
       NativeFunction("is_date", {}, DataTypeVector{utf8(), utf8()}, boolean(),
                      kResultNullInternal, "gdv_fn_is_date_utf8_utf8",
                      NativeFunction::kNeedsContext |
-                     NativeFunction::kNeedsFunctionHolder |
-                     NativeFunction::kCanReturnErrors),
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
 
       NativeFunction("is_date", {}, DataTypeVector{utf8(), utf8(), int32()}, boolean(),
                      kResultNullInternal, "gdv_fn_is_date_utf8_utf8_int32",
                      NativeFunction::kNeedsContext |
-                     NativeFunction::kNeedsFunctionHolder |
-                     NativeFunction::kCanReturnErrors),
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
 
       NativeFunction("to_date", {}, DataTypeVector{utf8(), utf8(), int32()}, date64(),
                      kResultNullInternal, "gdv_fn_to_date_utf8_utf8_int32",
