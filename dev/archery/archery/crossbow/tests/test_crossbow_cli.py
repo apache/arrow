@@ -40,4 +40,5 @@ def test_crossbow_submit(tmp_path):
     assert result.exit_code == 0
 
     result = invoke('submit', '--no-fetch', '--no-push', '-g', 'wheel')
+    print(result)
     assert result.exit_code == 0

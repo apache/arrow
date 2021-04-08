@@ -58,6 +58,7 @@ jobs:
         run: |
           git config --global user.email "you@example.com"
           git config --global user.name "Your Name"
+          git config --global init.defaultBranch master
       - name: Archery Unittests
         working-directory: dev/archery
         run: pytest -v --enable-integration archery
