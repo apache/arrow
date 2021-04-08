@@ -125,8 +125,7 @@ write_feather <- function(x,
 #'
 #' @inheritParams read_ipc_stream
 #' @inheritParams read_delim_arrow
-#' @param ... additional parameters, passed to the internal function
-#' `make_readable_file()`
+#' @param ... additional parameters, passed to [make_readable_file()].
 #'
 #' @return A `data.frame` if `as_data_frame` is `TRUE` (the default), or an
 #' Arrow [Table] otherwise
