@@ -48,6 +48,7 @@ jobs:
           archery trigger-bot \
             --event-name ${{ github.event_name }} \
             --event-payload ${{ github.event_path }}
+          ls -lah
 
   autotune:
     name: "Fix all the things"

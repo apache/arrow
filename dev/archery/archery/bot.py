@@ -319,6 +319,7 @@ def submit(obj, tasks, groups, params, dry_run):
 
         # submit the crossbow tasks
         result = Path('result.yml').resolve()
+        print(str(result))
         archery.run(
             'crossbow',
             '--queue-path', str(queue),
@@ -331,6 +332,7 @@ def submit(obj, tasks, groups, params, dry_run):
             '--arrow-branch', pr.head.ref,
             *args
         )
+
 
     # parse the result yml describing the submitted job
     with result.open() as fp:
