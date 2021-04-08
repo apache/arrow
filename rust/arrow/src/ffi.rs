@@ -121,6 +121,14 @@ unsafe extern "C" fn release_schema(schema: *mut FFI_ArrowSchema) {
 
     // take ownership back to release it.
     CString::from_raw(schema.format as *mut std::os::raw::c_char);
+    CString::from_raw(schema.name as *mut std::os::raw::c_char);
+
+    // release children
+    for i in 0..schema.n_children {
+        let child_ptr = *schema.children.add(i as usize);
+        let child = &*child_ptr;
+        child.release.map(|release| release(child_ptr));
+    }
 
     schema.release = None;
 }
@@ -399,8 +407,9 @@ unsafe extern "C" fn release_array(array: *mut FFI_ArrowArray) {
 
     // release children
     for i in 0..array.n_children {
-        let child = *array.children.add(i as usize);
-        release_array(child);
+        let child_ptr = *array.children.add(i as usize);
+        let child = &*child_ptr;
+        child.release.map(|release| release(child_ptr));
     }
 
     array.release = None;
