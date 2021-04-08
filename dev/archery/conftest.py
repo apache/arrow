@@ -15,10 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import json
 import pathlib
 
-import yaml
 import pytest
 
 
@@ -57,8 +55,10 @@ def load_fixture(request):
     def decoder(path):
         with path.open('r') as fp:
             if path.suffix == '.json':
+                import json
                 return json.load(fp)
             elif path.suffix == '.yaml':
+                import yaml
                 return yaml.load(fp)
             else:
                 return fp.read()
