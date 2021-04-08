@@ -102,6 +102,9 @@ gdv_timestamp add_date64_int64(gdv_date64, gdv_int64);
 gdv_timestamp to_timestamp_int32(gdv_int32);
 gdv_timestamp to_timestamp_int64(gdv_int64);
 
+gdv_time32 to_time_int32(gdv_int32);
+gdv_time32 to_time_int64(gdv_int64);
+
 gdv_int64 date_sub_timestamp_int32(gdv_timestamp, gdv_int32);
 gdv_int64 subtract_timestamp_int32(gdv_timestamp, gdv_int32);
 gdv_int64 date_diff_timestamp_int64(gdv_timestamp, gdv_int64);

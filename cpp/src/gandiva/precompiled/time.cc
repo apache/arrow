@@ -847,6 +847,15 @@ gdv_int64 castBIGINT_daytimeinterval(gdv_day_time_interval in) {
     return static_cast<gdv_timestamp>(seconds) * MILLIS_IN_SEC; \
   }
 
-NUMERIC_TYPES(TO_TIMESTAMP);
+NUMERIC_TYPES(TO_TIMESTAMP)
+
+// Convert milliseconds to time, considering the quantity of milliseconds after midnight
+#define TO_TIME(TYPE)                                 \
+  FORCE_INLINE                                        \
+  gdv_time32 to_time##_##TYPE(gdv_##TYPE millis) {    \
+    return static_cast<gdv_time32>(millis);           \
+  }
+
+NUMERIC_TYPES(TO_TIME)
 
 }  // extern "C"

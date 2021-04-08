@@ -770,4 +770,26 @@ TEST(TestTime, TestToTimestamp) {
   EXPECT_EQ(ts, to_timestamp_int64(seconds));
 }
 
+TEST(TestTime, TestToTimeNumeric) {
+  auto millis = 0;
+  EXPECT_EQ(millis, to_time_int32(millis));
+  EXPECT_EQ(millis, to_time_int64(millis));
+
+  millis = 1000;
+  EXPECT_EQ(millis, to_time_int32(millis));
+  EXPECT_EQ(millis, to_time_int64(millis));
+
+  millis = 600000;
+  EXPECT_EQ(millis, to_time_int32(millis));
+  EXPECT_EQ(millis, to_time_int64(millis));
+
+  millis = 360000;
+  EXPECT_EQ(millis, to_time_int32(millis));
+  EXPECT_EQ(millis, to_time_int64(millis));
+
+  millis = 86400000;
+  EXPECT_EQ(millis, to_time_int32(millis));
+  EXPECT_EQ(millis, to_time_int64(millis));
+}
+
 }  // namespace gandiva
