@@ -234,6 +234,13 @@ class TestIpcFileSystemDataset : public testing::Test,
     format_ = ipc_format;
     SetWriteOptions(ipc_format->DefaultWriteOptions());
   }
+
+  std::shared_ptr<Scanner> MakeScanner(const std::shared_ptr<Dataset>& dataset,
+                                       const std::shared_ptr<ScanOptions>& scan_options) {
+    ScannerBuilder builder(dataset, scan_options);
+    EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+    return scanner;
+  }
 };
 
 TEST_F(TestIpcFileSystemDataset, WriteWithIdenticalPartitioningSchema) {
@@ -259,7 +266,7 @@ TEST_F(TestIpcFileSystemDataset, WriteExceedsMaxPartitions) {
   // require that no batch be grouped into more than 2 written batches:
   write_options_.max_partitions = 2;
 
-  auto scanner = std::make_shared<Scanner>(dataset_, scan_options_);
+  auto scanner = MakeScanner(dataset_, scan_options_);
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("This exceeds the maximum"),
                                   FileSystemDataset::Write(write_options_, scanner));
 }

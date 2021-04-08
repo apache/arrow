@@ -64,9 +64,6 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
   /// To receive a record batch stream which is fully filtered and projected, use Scanner.
   virtual Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) = 0;
 
-  /// \brief Return true if the fragment can benefit from parallel scanning.
-  virtual bool splittable() const = 0;
-
   virtual std::string type_name() const = 0;
   virtual std::string ToString() const { return type_name(); }
 
@@ -110,8 +107,6 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
   explicit InMemoryFragment(RecordBatchVector record_batches, Expression = literal(true));
 
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override;
-
-  bool splittable() const override { return false; }
 
   std::string type_name() const override { return "in-memory"; }
 

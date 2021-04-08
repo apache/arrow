@@ -42,8 +42,6 @@ class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
     return type_name() == other.type_name();
   }
 
-  bool splittable() const override { return true; }
-
   Result<bool> IsSupported(const FileSource& source) const override;
 
   /// \brief Return the schema of the file if possible.

@@ -43,10 +43,12 @@
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 namespace dataset {
@@ -584,7 +586,8 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
 
   void DoWrite(std::shared_ptr<Partitioning> desired_partitioning) {
     write_options_.partitioning = desired_partitioning;
-    auto scanner = std::make_shared<Scanner>(dataset_, scan_options_);
+    auto scanner_builder = ScannerBuilder(dataset_, scan_options_);
+    ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder.Finish());
     ASSERT_OK(FileSystemDataset::Write(write_options_, scanner));
 
     // re-discover the written dataset
