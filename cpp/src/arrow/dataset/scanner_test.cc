@@ -301,6 +301,41 @@ TEST_P(TestScanner, ScanBatchesFailure) {
   }
 }
 
+TEST_P(TestScanner, Head) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+
+  auto scanner = MakeScanner(batch);
+  std::shared_ptr<Table> expected, actual;
+
+  ASSERT_OK_AND_ASSIGN(expected, Table::FromRecordBatches(schema_, {}));
+  ASSERT_OK_AND_ASSIGN(actual, scanner->Head(0));
+  AssertTablesEqual(*expected, *actual);
+
+  ASSERT_OK_AND_ASSIGN(expected, Table::FromRecordBatches(schema_, {batch}));
+  ASSERT_OK_AND_ASSIGN(actual, scanner->Head(kBatchSize));
+  AssertTablesEqual(*expected, *actual);
+
+  ASSERT_OK_AND_ASSIGN(expected, Table::FromRecordBatches(schema_, {batch->Slice(0, 1)}));
+  ASSERT_OK_AND_ASSIGN(actual, scanner->Head(1));
+  AssertTablesEqual(*expected, *actual);
+
+  ASSERT_OK_AND_ASSIGN(expected,
+                       Table::FromRecordBatches(schema_, {batch, batch->Slice(0, 1)}));
+  ASSERT_OK_AND_ASSIGN(actual, scanner->Head(kBatchSize + 1));
+  AssertTablesEqual(*expected, *actual);
+
+  ASSERT_OK_AND_ASSIGN(expected, scanner->ToTable());
+  ASSERT_OK_AND_ASSIGN(actual,
+                       scanner->Head(kBatchSize * kNumberBatches * kNumberChildDatasets));
+  AssertTablesEqual(*expected, *actual);
+
+  ASSERT_OK_AND_ASSIGN(expected, scanner->ToTable());
+  ASSERT_OK_AND_ASSIGN(
+      actual, scanner->Head(kBatchSize * kNumberBatches * kNumberChildDatasets + 100));
+  AssertTablesEqual(*expected, *actual);
+}
+
 INSTANTIATE_TEST_SUITE_P(TestScannerThreading, TestScanner, ::testing::Bool());
 
 class TestScannerBuilder : public ::testing::Test {

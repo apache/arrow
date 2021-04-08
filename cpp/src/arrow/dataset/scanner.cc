@@ -547,5 +547,21 @@ Result<std::shared_ptr<Table>> Scanner::TakeRows(const Array& indices) {
   return out.table();
 }
 
+Result<std::shared_ptr<Table>> Scanner::Head(int64_t num_rows) {
+  if (num_rows == 0) {
+    return Table::FromRecordBatches(options()->projected_schema, {});
+  }
+  ARROW_ASSIGN_OR_RAISE(auto batch_iterator, ScanBatches());
+  RecordBatchVector batches;
+  while (true) {
+    ARROW_ASSIGN_OR_RAISE(auto batch, batch_iterator.Next());
+    if (IsIterationEnd(batch)) break;
+    batches.push_back(batch.record_batch->Slice(0, num_rows));
+    num_rows -= batch.record_batch->num_rows();
+    if (num_rows <= 0) break;
+  }
+  return Table::FromRecordBatches(options()->projected_schema, batches);
+}
+
 }  // namespace dataset
 }  // namespace arrow
