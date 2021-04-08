@@ -1,6 +1,6 @@
-{% set version = "3.0.0" %}
+{% set version = ARROW_VERSION %}
 {% set cuda_enabled = cuda_compiler_version != "None" %}
-{% set build_ext_version = "3.0.0" %}
+{% set build_ext_version = ARROW_VERSION %}
 {% set build_ext = "cuda" if cuda_enabled else "cpu" %}
 {% set proc_build_number = "0" %}
 
