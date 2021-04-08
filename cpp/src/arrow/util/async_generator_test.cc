@@ -851,6 +851,26 @@ TEST_P(BackgroundGeneratorTestFixture, AbortReading) {
   ASSERT_TRUE(tracker.expired());
 }
 
+TEST_P(BackgroundGeneratorTestFixture, AbortOnIdleBackground) {
+  // Tests what happens when the downstream aborts while the background thread is idle
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(1));
+
+  auto source = PossiblySlowVectorIt(RangeVector(100), IsSlow());
+  std::shared_ptr<AsyncGenerator<TestInt>> generator;
+  {
+    ASSERT_OK_AND_ASSIGN(auto gen,
+                         MakeBackgroundGenerator(std::move(source), thread_pool.get()));
+    generator = std::make_shared<AsyncGenerator<TestInt>>(gen);
+  }
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(0), (*generator)());
+
+  // The generator should pretty quickly fill up the queue and idle
+  BusyWait(10, [&thread_pool] { return thread_pool->GetNumTasks() == 0; });
+
+  // Now delete the generator and hope we don't deadlock
+  generator.reset();
+}
+
 struct SlowEmptyIterator {
   Result<TestInt> Next() {
     if (called_) {

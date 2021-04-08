@@ -1155,13 +1155,13 @@ class BackgroundGenerator {
     } else {
       auto next = Future<T>::MakeFinished(std::move(state_->queue.front()));
       state_->queue.pop();
-      if (!state_->running &&
+      if (!state_->running_in_loop &&
           static_cast<int>(state_->queue.size()) <= state_->q_restart) {
         state_->RestartTask(state_, std::move(guard));
       }
       return next;
     }
-    if (!state_->running) {
+    if (!state_->running_in_loop) {
       // This branch should only be needed to start the background thread on the first
       // call
       state_->RestartTask(state_, std::move(guard));
@@ -1174,8 +1174,8 @@ class BackgroundGenerator {
     State(internal::Executor* io_executor, Iterator<T> it, int max_q, int q_restart)
         : io_executor(io_executor),
           it(std::move(it)),
-          started(false),
-          running(false),
+          running_in_loop(false),
+          running_at_all(false),
           finished(false),
           should_shutdown(false),
           max_q(max_q),
@@ -1190,12 +1190,12 @@ class BackgroundGenerator {
     }
 
     void RestartTask(std::shared_ptr<State> state, util::Mutex::Guard guard) {
-      state->started = true;
+      state->running_at_all = true;
       if (!finished) {
-        running = true;
+        running_in_loop = true;
         auto spawn_status = io_executor->Spawn([state]() { Task()(std::move(state)); });
         if (!spawn_status.ok()) {
-          running = false;
+          running_in_loop = false;
           finished = true;
           if (waiting_future.has_value()) {
             auto to_deliver = std::move(waiting_future.value());
@@ -1213,8 +1213,14 @@ class BackgroundGenerator {
 
     internal::Executor* io_executor;
     Iterator<T> it;
-    bool started;
-    bool running;
+    // True if we are still running in the loop and will be adding more items to the
+    // queue, don't restart the task if this is true.  However, even if this is false we
+    // might still be running some finish callbacks or marking the finish future.
+    bool running_in_loop;
+    // If this is false then the background thread is done with everything.  It will not
+    // be running any additional callbacks or marking the finish future.  There is no need
+    // to wait for it when cleaning up.
+    bool running_at_all;
     bool finished;
     bool should_shutdown;
     int max_q;
@@ -1231,7 +1237,7 @@ class BackgroundGenerator {
       Future<> finish_fut;
       {
         auto lock = state->mutex.Lock();
-        if (!state->started) {
+        if (!state->running_at_all) {
           return;
         }
         state->should_shutdown = true;
@@ -1248,8 +1254,8 @@ class BackgroundGenerator {
    public:
     void operator()(std::shared_ptr<State> state) {
       // These conditions can't be based on state_ because they run outside the mutex
-      bool running = true;
-      while (running) {
+      bool running_in_loop = true;
+      while (running_in_loop) {
         auto next = state->it.Next();
         // Need to capture state->waiting_future inside the mutex to mark finished outside
         Future<T> waiting_future;
@@ -1258,13 +1264,13 @@ class BackgroundGenerator {
 
           if (state->should_shutdown) {
             state->finished = true;
-            state->running = false;
+            state->running_in_loop = false;
             break;
           }
 
           if (!next.ok() || IsIterationEnd<T>(*next)) {
             state->finished = true;
-            state->running = false;
+            state->running_in_loop = false;
             if (!next.ok()) {
               state->ClearQueue();
             }
@@ -1275,10 +1281,10 @@ class BackgroundGenerator {
           } else {
             state->queue.push(std::move(next));
             if (static_cast<int>(state->queue.size()) >= state->max_q) {
-              state->running = false;
+              state->running_in_loop = false;
             }
           }
-          running = state->running;
+          running_in_loop = state->running_in_loop;
         }
         // This must happen outside the task.  Although presumably there is a transferring
         // generator on the other end that will quickly transfer any callbacks off of this
@@ -1287,11 +1293,12 @@ class BackgroundGenerator {
           waiting_future.MarkFinished(next);
         }
       }
-      // It's safe to access this outside the mutex.  The only places finished is set to
-      // true are in this task and in a failure to spawn this task (in which case we are
-      // not here)
-      if (state->finished) {
-        state->task_finished.MarkFinished();
+      {
+        auto guard = state->mutex.Lock();
+        state->running_at_all = false;
+        if (state->finished) {
+          state->task_finished.MarkFinished();
+        }
       }
     }
   };
