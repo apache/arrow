@@ -358,7 +358,70 @@ test_that("relocate with selection helpers", {
   )
 })
 
-test_that("explicit type conversions", {
+test_that("explicit type conversions with cast()", {
+  num_int32 <- 12L
+  num_int64 <- bit64::as.integer64(10)
+
+  int_types <- c(int8(), int16(), int32(), int64())
+  uint_types <- c(uint8(), uint16(), uint32(), uint64())
+  float_types <- c(float32(), float64())
+
+  types <- c(
+    int_types,
+    uint_types,
+    float_types,
+    double(), # not actually a type, a base R function but should be alias for float64
+    string()
+  )
+
+  for (type in types) {
+    expect_type_equal(
+      {
+        t1 <- Table$create(x = num_int32) %>%
+          transmute(x = cast(x, type)) %>%
+          compute()
+        t1$schema[[1]]$type
+      },
+      as_type(type)
+    )
+    expect_type_equal(
+      {
+        t1 <- Table$create(x = num_int64) %>%
+          transmute(x = cast(x, type)) %>%
+          compute()
+        t1$schema[[1]]$type
+      },
+      as_type(type)
+    )
+  }
+
+  # Arrow errors when truncating floats...
+  expect_error(
+    expect_type_equal(
+      {
+        t1 <- Table$create(pi = pi) %>%
+          transmute(three = cast(pi, int32())) %>%
+          compute()
+        t1$schema[[1]]$type
+      },
+      as_type(int32())
+    ),
+    "truncated"
+  )
+
+  # ... unless safe = FALSE (or allow_float_truncate = TRUE)
+  expect_type_equal(
+    {
+      t1 <- Table$create(pi = pi) %>%
+        transmute(three = cast(pi, int32(), safe = FALSE)) %>%
+        compute()
+      t1$schema[[1]]$type
+    },
+    as_type(int32())
+  )
+})
+
+test_that("explicit type conversions with as.*()", {
   library(bit64)
   expect_dplyr_equal(
     input %>%
@@ -436,7 +499,7 @@ test_that("explicit type conversions", {
   )
 })
 
-test_that("bad explicit type conversions", {
+test_that("bad explicit type conversions with as.*()", {
 
   # Arrow returns lowercase "true", "false" (instead of "TRUE", "FALSE" like R)
   expect_error(
