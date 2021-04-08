@@ -256,6 +256,8 @@ namespace dataset {
 /// the future.
 class ARROW_DS_EXPORT Scanner {
  public:
+  virtual ~Scanner() = default;
+
   /// \brief The Scan operator returns a stream of ScanTask. The caller is
   /// responsible to dispatch/schedule said tasks. Tasks should be safe to run
   /// in a concurrent fashion and outlive the iterator.
@@ -286,9 +288,12 @@ class ARROW_DS_EXPORT Scanner {
   /// positional information.
   virtual Result<EnumeratedRecordBatchIterator> ScanBatchesUnordered();
 
-  virtual const std::shared_ptr<ScanOptions>& options() const { return scan_options_; }
+  const std::shared_ptr<ScanOptions>& options() const { return scan_options_; }
 
  protected:
+  explicit Scanner(std::shared_ptr<ScanOptions> scan_options)
+      : scan_options_(std::move(scan_options)) {}
+
   Result<EnumeratedRecordBatchIterator> AddPositioningToInOrderScan(
       TaggedRecordBatchIterator scan);
 
@@ -298,11 +303,11 @@ class ARROW_DS_EXPORT Scanner {
 class ARROW_DS_EXPORT SyncScanner : public Scanner {
  public:
   SyncScanner(std::shared_ptr<Dataset> dataset, std::shared_ptr<ScanOptions> scan_options)
-      : dataset_(std::move(dataset)), scan_options_(std::move(scan_options)) {}
+      : Scanner(std::move(scan_options)), dataset_(std::move(dataset)) {}
 
   SyncScanner(std::shared_ptr<Fragment> fragment,
               std::shared_ptr<ScanOptions> scan_options)
-      : fragment_(std::move(fragment)), scan_options_(std::move(scan_options)) {}
+      : Scanner(std::move(scan_options)), fragment_(std::move(fragment)) {}
 
   Result<TaggedRecordBatchIterator> ScanBatches() override;
 
@@ -310,22 +315,14 @@ class ARROW_DS_EXPORT SyncScanner : public Scanner {
 
   Result<std::shared_ptr<Table>> ToTable() override;
 
+ protected:
   /// \brief GetFragments returns an iterator over all Fragments in this scan.
   Result<FragmentIterator> GetFragments();
-
-  const std::shared_ptr<Schema>& schema() const {
-    return scan_options_->projected_schema;
-  }
-
-  const std::shared_ptr<ScanOptions>& options() const { return scan_options_; }
-
- protected:
   Future<std::shared_ptr<Table>> ToTableInternal(internal::Executor* cpu_executor);
 
   std::shared_ptr<Dataset> dataset_;
   // TODO(ARROW-8065) remove fragment_ after a Dataset is constuctible from fragments
   std::shared_ptr<Fragment> fragment_;
-  std::shared_ptr<ScanOptions> scan_options_;
 };
 
 /// \brief ScannerBuilder is a factory class to construct a Scanner. It is used
