@@ -160,7 +160,7 @@ If the type is not registered in the receiving application, it will fall back
 to the storage type.
 
 Parameterized extension type
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The above example used a fixed storage type with no further metadata. But
 more flexible, parameterized extension types are also possible.
