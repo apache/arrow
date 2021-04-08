@@ -30,6 +30,7 @@
 #include "gandiva/random_generator_holder.h"
 #include "gandiva/replace_holder.h"
 #include "gandiva/to_date_holder.h"
+#include "decimal_format_holder.h"
 
 namespace gandiva {
 
@@ -65,6 +66,7 @@ class FunctionHolderRegistry {
         {"like", LAMBDA_MAKER(LikeHolder)},
         {"ilike", LAMBDA_MAKER(LikeHolder)},
         {"to_date", LAMBDA_MAKER(ToDateHolder)},
+        {"to_number", LAMBDA_MAKER(DecimalFormatHolder)},
         {"random", LAMBDA_MAKER(RandomGeneratorHolder)},
         {"rand", LAMBDA_MAKER(RandomGeneratorHolder)},
         {"regexp_replace", LAMBDA_MAKER(ReplaceHolder)},
