@@ -155,8 +155,6 @@ struct FixedSizeBinaryValueDecoder : public ValueDecoder {
     return Status::OK();
   }
 
-  bool IsNull(const uint8_t* data, uint32_t size, bool quoted) { return false; }
-
  protected:
   const uint32_t byte_width_;
 };
