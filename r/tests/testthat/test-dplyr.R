@@ -490,6 +490,7 @@ test_that("explicit type conversions with as.*()", {
         lgl2lgl = as.logical(lgl)
       ) %>%
       collect() %>%
+      # need to use toupper() *after* collect() or else skip if utf8proc not available
       mutate(lgl2chr = toupper(lgl2chr)), # ... but we need "TRUE", "FALSE"
     tibble(
       dbl = c(1, 0, NA_real_),
@@ -497,6 +498,57 @@ test_that("explicit type conversions with as.*()", {
       lgl = c(TRUE, FALSE, NA)
     )
   )
+})
+
+test_that("as.factor()/dictionary_encode()", {
+  df1 <- tibble(x = c("C", "D", "B", NA, "D", "B", "S", "A", "B", "Z", "B"))
+  df2 <- tibble(x = c(5, 5, 5, NA, 2, 3, 6, 8))
+
+  expect_dplyr_equal(
+    input %>%
+      transmute(x = as.factor(x)) %>%
+      collect(),
+    df1
+  )
+
+  expect_warning(
+    expect_dplyr_equal(
+      input %>%
+        transmute(x = as.factor(x)) %>%
+        collect(),
+      df2
+    ),
+    "Coercing dictionary values to R character factor levels"
+  )
+
+  # dictionary values with default null encoding behavior ("mask") omits
+  # nulls from the dictionary values
+  expect_equal(
+    {
+      rb1 <- df1 %>%
+        record_batch() %>%
+        transmute(x = dictionary_encode(x)) %>%
+        compute()
+      dict <- rb1$x$dictionary()
+      as.vector(dict$Take(dict$SortIndices()))
+    },
+    sort(unique(df1$x), na.last = NA)
+  )
+
+  # dictionary values with "encode" null encoding behavior includes nulls in
+  # the dictionary values
+  expect_equal(
+    {
+      rb1 <- df1 %>%
+        record_batch() %>%
+        transmute(x = dictionary_encode(x, null_encoding_behavior = "encode")) %>%
+        compute()
+      dict <- rb1$x$dictionary()
+      as.vector(dict$Take(dict$SortIndices()))
+    },
+    sort(unique(df1$x), na.last = TRUE)
+  )
+
 })
 
 test_that("bad explicit type conversions with as.*()", {
