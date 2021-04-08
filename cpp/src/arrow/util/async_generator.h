@@ -1332,4 +1332,49 @@ Result<Iterator<T>> MakeReadaheadIterator(Iterator<T> it, int readahead_queue_si
   return MakeGeneratorIterator(std::move(owned_bg_generator));
 }
 
+/// \brief Make a generator that returns a single pre-generated future
+template <typename T>
+std::function<Future<T>()> MakeSingleFutureGenerator(Future<T> future) {
+  assert(future.is_valid());
+  struct Generator {
+    Future<T> future;
+
+    Future<T> operator()() {
+      if (future.is_valid()) {
+        return std::move(future);
+      } else {
+        return IterationEnd<T>();
+      }
+    }
+  };
+  return Generator{std::move(future)};
+}
+
+/// \brief Make a generator that always fails with a given error
+template <typename T>
+AsyncGenerator<T> MakeFailingGenerator(Status st) {
+  assert(!st.ok());
+  struct State {
+    Status status;
+    bool finished;
+  };
+  auto state = std::make_shared<State>(State{std::move(st), false});
+  return [state]() -> Future<T> {
+    if (state->finished) {
+      return IterationEnd<T>();
+    } else {
+      state->finished = true;
+      return state->status;
+    }
+  };
+}
+
+/// \brief Make a generator that always fails with a given error
+///
+/// This overload allows inferring the return type from the argument.
+template <typename T>
+AsyncGenerator<T> MakeFailingGenerator(const Result<T>& result) {
+  return MakeFailingGenerator<T>(result.status());
+}
+
 }  // namespace arrow

@@ -29,6 +29,8 @@ namespace arrow {
 
 template <typename T>
 class Iterator;
+template <typename T>
+struct IterationTraits;
 
 template <typename T>
 class Result;
