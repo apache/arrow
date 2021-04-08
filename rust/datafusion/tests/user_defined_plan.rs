@@ -482,7 +482,6 @@ impl Stream for TopKReader {
             .try_fold(
                 BTreeMap::<i64, String>::new(),
                 move |top_values, batch| async move {
-                    println!("xxx");
                     accumulate_batch(&batch, top_values, &k)
                         .map_err(DataFusionError::into_arrow_external_error)
                 },
