@@ -61,4 +61,4 @@ jobs:
         run: archery docker
       - name: Crossbow Check Config
         working-directory: dev/tasks
-        run: python crossbow.py check-config
+        run: archery crossbow check-config
