@@ -25,6 +25,7 @@ import { Message } from './metadata/message';
 import * as metadata from './metadata/message';
 import { FileBlock, Footer } from './metadata/file';
 import { MessageHeader, MetadataVersion } from '../enum';
+import { compareSchemas } from '../visitor/typecomparator';
 import { WritableSink, AsyncByteQueue } from '../io/stream';
 import { VectorAssembler } from '../visitor/vectorassembler';
 import { JSONTypeAssembler } from '../visitor/jsontypeassembler';
@@ -144,7 +145,7 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
         this._recordBatchBlocks = [];
         this._dictionaryDeltaOffsets = new Map();
 
-        if (!schema || !(schema.compareTo(this._schema))) {
+        if (!schema || !(compareSchemas(schema, this._schema))) {
             if (schema === null) {
                 this._position = 0;
                 this._schema = null;
@@ -172,7 +173,7 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
             return this.finish() && undefined;
         }
 
-        if (schema && !schema.compareTo(this._schema)) {
+        if (schema && !compareSchemas(schema, this._schema)) {
             if (this._started && this._autoDestroy) {
                 return this.close();
             }
