@@ -203,6 +203,22 @@ cdef class Expression(_Weakrefable):
         other = Expression._expr_or_scalar(other)
         return Expression._call("or_kleene", [self, other])
 
+    def __add__(Expression self, other):
+        other = Expression._expr_or_scalar(other)
+        return Expression._call("add_checked", [self, other])
+
+    def __mul__(Expression self, other):
+        other = Expression._expr_or_scalar(other)
+        return Expression._call("multiply_checked", [self, other])
+
+    def __sub__(Expression self, other):
+        other = Expression._expr_or_scalar(other)
+        return Expression._call("subtract_checked", [self, other])
+
+    def __truediv__(Expression self, other):
+        other = Expression._expr_or_scalar(other)
+        return Expression._call("divide_checked", [self, other])
+
     def is_valid(self):
         """Checks whether the expression is not-null (valid)"""
         return Expression._call("is_valid", [self])

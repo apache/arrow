@@ -150,14 +150,18 @@ Status Engine::Make(const std::shared_ptr<Configuration>& conf,
   // ExecutionEngine but only for the lifetime of the builder. Found by
   // inspecting LLVM sources.
   std::string builder_error;
-  std::unique_ptr<llvm::ExecutionEngine> exec_engine{
-      llvm::EngineBuilder(std::move(module))
-          .setMCPU(cpu_name)
-          .setMAttrs(cpu_attrs)
-          .setEngineKind(llvm::EngineKind::JIT)
-          .setOptLevel(opt_level)
-          .setErrorStr(&builder_error)
-          .create()};
+
+  llvm::EngineBuilder engine_builder(std::move(module));
+
+  engine_builder.setEngineKind(llvm::EngineKind::JIT)
+      .setOptLevel(opt_level)
+      .setErrorStr(&builder_error);
+
+  if (conf->target_host_cpu()) {
+    engine_builder.setMCPU(cpu_name);
+    engine_builder.setMAttrs(cpu_attrs);
+  }
+  std::unique_ptr<llvm::ExecutionEngine> exec_engine{engine_builder.create()};
 
   if (exec_engine == nullptr) {
     return Status::CodeGenError("Could not instantiate llvm::ExecutionEngine: ",

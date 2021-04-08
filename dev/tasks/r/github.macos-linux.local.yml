@@ -48,6 +48,7 @@ jobs:
       - name: Configure non-autobrew dependencies (linux)
         run: |
           cd arrow/r
+          sudo apt-get update
           sudo apt install libcurl4-openssl-dev libssl-dev
         if: contains(matrix.os, 'ubuntu')
       - uses: r-lib/actions/setup-r@v1

@@ -94,8 +94,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     return varBufs(strings, utf16Charset);
   }
 
-  @Test
-  public void testMakeProjectorParallel() throws GandivaException, InterruptedException {
+  private void testMakeProjectorParallel(ConfigurationBuilder.ConfigOptions configOptions) throws InterruptedException {
     List<Schema> schemas = Lists.newArrayList();
     Field a = Field.nullable("a", int64);
     Field b = Field.nullable("b", int64);
@@ -128,8 +127,9 @@ public class ProjectorTest extends BaseEvaluatorTest {
               executors.submit(
                   () -> {
                     try {
-                      Projector evaluator =
-                          Projector.make(schemas.get((int) (Math.random() * 100)), exprs);
+                      Projector evaluator = configOptions == null ?
+                          Projector.make(schemas.get((int) (Math.random() * 100)), exprs) :
+                          Projector.make(schemas.get((int) (Math.random() * 100)), exprs, configOptions);
                       evaluator.close();
                     } catch (GandivaException e) {
                       e.printStackTrace();
@@ -138,6 +138,13 @@ public class ProjectorTest extends BaseEvaluatorTest {
             });
     executors.shutdown();
     executors.awaitTermination(100, java.util.concurrent.TimeUnit.SECONDS);
+  }
+
+  @Test
+  public void testMakeProjectorParallel() throws Exception {
+    testMakeProjectorParallel(null);
+    testMakeProjectorParallel(new ConfigurationBuilder.ConfigOptions().withTargetCPU(false));
+    testMakeProjectorParallel(new ConfigurationBuilder.ConfigOptions().withTargetCPU(false).withOptimize(false));
   }
 
   // Will be fixed by https://issues.apache.org/jira/browse/ARROW-4371
@@ -1928,4 +1935,56 @@ public class ProjectorTest extends BaseEvaluatorTest {
       releaseValueVectors(output);
     }
   }
+
+  @Test
+  public void testEvaluateWithUnsetTargetHostCPU() throws Exception {
+    Field a = Field.nullable("a", int32);
+    Field b = Field.nullable("b", int32);
+    List<Field> args = Lists.newArrayList(a, b);
+
+    Field retType = Field.nullable("c", int32);
+    ExpressionTree root = TreeBuilder.makeExpression("add", args, retType);
+
+    List<ExpressionTree> exprs = Lists.newArrayList(root);
+
+    Schema schema = new Schema(args);
+    Projector eval = Projector.make(schema, exprs, new ConfigurationBuilder.ConfigOptions().withTargetCPU(false ));
+
+    int numRows = 16;
+    byte[] validity = new byte[]{(byte) 255, 0};
+    // second half is "undefined"
+    int[] aValues = new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    int[] bValues = new int[]{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
+
+    ArrowBuf validitya = buf(validity);
+    ArrowBuf valuesa = intBuf(aValues);
+    ArrowBuf validityb = buf(validity);
+    ArrowBuf valuesb = intBuf(bValues);
+    ArrowRecordBatch batch =
+            new ArrowRecordBatch(
+                    numRows,
+                    Lists.newArrayList(new ArrowFieldNode(numRows, 8), new ArrowFieldNode(numRows, 8)),
+                    Lists.newArrayList(validitya, valuesa, validityb, valuesb));
+
+    IntVector intVector = new IntVector(EMPTY_SCHEMA_PATH, allocator);
+    intVector.allocateNew(numRows);
+
+    List<ValueVector> output = new ArrayList<ValueVector>();
+    output.add(intVector);
+    eval.evaluate(batch, output);
+
+    for (int i = 0; i < 8; i++) {
+      assertFalse(intVector.isNull(i));
+      assertEquals(17, intVector.get(i));
+    }
+    for (int i = 8; i < 16; i++) {
+      assertTrue(intVector.isNull(i));
+    }
+
+    // free buffers
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+    eval.close();
+  }
+
 }
