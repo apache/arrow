@@ -92,10 +92,10 @@ jobs:
           Sys.getenv("LD_LIBRARY_PATH")
           library(arrow)
           arrow_info()
-        shell: Rscript {0}
+        shell: bash -l Rscript {0}
       - name: Save the install script
         uses: actions/upload-artifact@v2
         with:
-          name: {{ "${{ matrix.config.artifact }}" }}
+          name: {{ "devdocs-script_os-${{ matrix.os }}_sysinstall-${{ matrix.system-install }}" }}
           path: arrow/r/vignettes/script.sh
         if: always()
