@@ -84,6 +84,12 @@ Result<std::shared_ptr<io::InputStream>> FileSource::OpenCompressed(
   return io::CompressedInputStream::Make(codec.get(), std::move(file));
 }
 
+util::optional<Future<int64_t>> FileFormat::CountRows(
+    const std::shared_ptr<FileFragment>&, compute::Expression,
+    std::shared_ptr<ScanOptions>) {
+  return util::nullopt;
+}
+
 Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
     FileSource source, std::shared_ptr<Schema> physical_schema) {
   return MakeFragment(std::move(source), compute::literal(true),
@@ -167,6 +173,17 @@ Result<RecordBatchGenerator> FileFragment::ScanBatchesAsync(
     const std::shared_ptr<ScanOptions>& options) {
   auto self = std::dynamic_pointer_cast<FileFragment>(shared_from_this());
   return format_->ScanBatchesAsync(options, self);
+}
+
+util::optional<Future<int64_t>> FileFragment::CountRows(
+    compute::Expression predicate, std::shared_ptr<ScanOptions> options) {
+  ARROW_ASSIGN_OR_RAISE(predicate, compute::SimplifyWithGuarantee(std::move(predicate),
+                                                                  partition_expression_));
+  if (!predicate.IsSatisfiable()) {
+    return Future<int64_t>::MakeFinished(0);
+  }
+  auto self = internal::checked_pointer_cast<FileFragment>(shared_from_this());
+  return format()->CountRows(self, std::move(predicate), std::move(options));
 }
 
 struct FileSystemDataset::FragmentSubtrees {

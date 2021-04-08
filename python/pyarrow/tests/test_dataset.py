@@ -355,6 +355,12 @@ def test_scanner(dataset):
     with pytest.raises(pa.ArrowIndexError):
         scanner.take(pa.array([table.num_rows]))
 
+    assert table.num_rows == scanner.count_rows()
+    scanner = ds.Scanner.from_dataset(dataset, filter=ds.field("i64") >= 3)
+    assert scanner.count_rows() == 4
+    scanner = ds.Scanner.from_dataset(dataset, filter=ds.field("i64") < 0)
+    assert scanner.count_rows() == 0
+
 
 def test_head(dataset):
     result = dataset.head(0)

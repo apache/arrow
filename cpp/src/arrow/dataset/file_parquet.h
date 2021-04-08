@@ -99,6 +99,10 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& file) const override;
 
+  util::optional<Future<int64_t>> CountRows(
+      const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
+      std::shared_ptr<ScanOptions> options) override;
+
   using FileFormat::MakeFragment;
 
   /// \brief Create a Fragment targeting all RowGroups.

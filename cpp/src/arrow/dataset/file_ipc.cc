@@ -173,6 +173,25 @@ Result<ScanTaskIterator> IpcFileFormat::ScanFile(
   return IpcScanTaskIterator::Make(options, fragment);
 }
 
+util::optional<Future<int64_t>> IpcFileFormat::CountRows(
+    const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
+    std::shared_ptr<ScanOptions> options) {
+  ARROW_ASSIGN_OR_RAISE(predicate, SimplifyWithGuarantee(std::move(predicate),
+                                                         file->partition_expression()));
+  if (!predicate.IsSatisfiable()) {
+    return Future<int64_t>::MakeFinished(0);
+  }
+  if (FieldsInExpression(predicate).size() > 0) {
+    return util::nullopt;
+  }
+  auto self = internal::checked_pointer_cast<IpcFileFormat>(shared_from_this());
+  return DeferNotOk(
+      options->io_context.executor()->Submit([self, file]() -> Result<int64_t> {
+        ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(file->source()));
+        return reader->CountRows();
+      }));
+}
+
 //
 // IpcFileWriter, IpcFileWriteOptions
 //

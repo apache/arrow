@@ -30,6 +30,7 @@
 #include "arrow/dataset/visibility.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/mutex.h"
+#include "arrow/util/optional.h"
 
 namespace arrow {
 namespace dataset {
@@ -69,6 +70,13 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
   /// An asynchronous version of Scan
   virtual Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options) = 0;
+
+  /// \brief Count the number of rows in this fragment matching the filter using metadata
+  /// only. That is, this method may perform I/O, but will not load data.
+  ///
+  /// If this is not possible, return an empty optional.
+  virtual util::optional<Future<int64_t>> CountRows(compute::Expression predicate,
+                                                    std::shared_ptr<ScanOptions> options);
 
   virtual std::string type_name() const = 0;
   virtual std::string ToString() const { return type_name(); }

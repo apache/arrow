@@ -2838,6 +2838,13 @@ cdef class Scanner(_Weakrefable):
             result = self.scanner.Head(num_rows)
         return pyarrow_wrap_table(GetResultValue(result))
 
+    def count_rows(self):
+        """Count rows matching the scanner filter."""
+        cdef CResult[int64_t] result
+        with nogil:
+            result = self.scanner.CountRows()
+        return GetResultValue(result)
+
 
 def _get_partition_keys(Expression partition_expression):
     """

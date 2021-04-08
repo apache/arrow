@@ -145,13 +145,11 @@ test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_
   skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
 
-  expect_warning(
-    expect_identical(
-      ds %>%
-        filter(chr == 'a') %>%
-        dim(),
-      c(NA, 7L)
-    )
+  expect_identical(
+    ds %>%
+      filter(chr == 'a') %>%
+      dim(),
+    c(2L, 7L)
   )
   expect_equal(
     ds %>%
@@ -159,14 +157,12 @@ test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_
       dim(),
     c(20L, 3L)
   )
-  expect_warning(
-    expect_identical(
-      ds %>%
-        select(chr, fct, int) %>%
-        filter(chr == 'a') %>%
-        dim(),
-      c(NA, 3L)
-    )
+  expect_identical(
+    ds %>%
+      select(chr, fct, int) %>%
+      filter(chr == 'a') %>%
+      dim(),
+    c(2L, 3L)
   )
 })
 
@@ -330,9 +326,7 @@ test_that("IPC/Feather format data", {
   expect_r6_class(ds$format, "IpcFileFormat")
   expect_r6_class(ds$filesystem, "LocalFileSystem")
   expect_identical(names(ds), c(names(df1), "part"))
-  expect_warning(
-    expect_identical(dim(ds), c(NA, 7L))
-  )
+  expect_identical(dim(ds), c(20L, 7L))
 
   expect_equivalent(
     ds %>%
@@ -358,9 +352,7 @@ test_that("CSV dataset", {
   expect_r6_class(ds$format, "CsvFileFormat")
   expect_r6_class(ds$filesystem, "LocalFileSystem")
   expect_identical(names(ds), c(names(df1), "part"))
-  expect_warning(
-    expect_identical(dim(ds), c(NA, 7L))
-  )
+  expect_identical(dim(ds), c(20L, 7L))
   expect_equivalent(
     ds %>%
       select(string = chr, integer = int, part) %>%

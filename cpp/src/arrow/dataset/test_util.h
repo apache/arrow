@@ -42,6 +42,7 @@
 #include "arrow/filesystem/test_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -363,6 +364,13 @@ class FileFormatFixtureMixin : public ::testing::Test {
     return fragment;
   }
 
+  std::shared_ptr<FileFragment> MakeFragment(const FileSource& source,
+                                             compute::Expression partition_expression) {
+    EXPECT_OK_AND_ASSIGN(auto fragment,
+                         format_->MakeFragment(source, partition_expression));
+    return fragment;
+  }
+
   std::shared_ptr<FileSource> GetFileSource(RecordBatchReader* reader) {
     EXPECT_OK_AND_ASSIGN(auto buffer, FormatHelper::Write(reader));
     return std::make_shared<FileSource>(std::move(buffer));
@@ -449,6 +457,39 @@ class FileFormatFixtureMixin : public ::testing::Test {
     auto source = this->GetFileSource(reader.get());
     auto written = this->WriteToBuffer(reader->schema());
     AssertBufferEqual(*written, *source->buffer());
+  }
+  void TestCountRows() {
+    auto options = std::make_shared<ScanOptions>();
+    auto reader = this->GetRecordBatchReader(schema({field("f64", float64())}));
+    auto full_schema = schema({field("f64", float64()), field("part", int64())});
+    auto source = this->GetFileSource(reader.get());
+
+    auto fragment = this->MakeFragment(*source);
+    auto optional = fragment->CountRows(literal(true), options);
+    ASSERT_TRUE(optional.has_value());
+    ASSERT_FINISHES_OK_AND_EQ(expected_rows(), optional.value());
+
+    fragment = this->MakeFragment(*source, equal(field_ref("part"), literal(2)));
+    optional = fragment->CountRows(literal(true), options);
+    ASSERT_TRUE(optional.has_value());
+    ASSERT_FINISHES_OK_AND_EQ(expected_rows(), optional.value());
+
+    auto predicate = equal(field_ref("part"), literal(1));
+    ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
+    optional = fragment->CountRows(predicate, options);
+    ASSERT_TRUE(optional.has_value());
+    ASSERT_FINISHES_OK_AND_EQ(0, optional.value());
+
+    predicate = equal(field_ref("part"), literal(2));
+    ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
+    optional = fragment->CountRows(predicate, options);
+    ASSERT_TRUE(optional.has_value());
+    ASSERT_FINISHES_OK_AND_EQ(expected_rows(), optional.value());
+
+    predicate = equal(field_ref("f64"), literal(2));
+    ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*full_schema));
+    optional = fragment->CountRows(predicate, options);
+    ASSERT_FALSE(optional.has_value());
   }
 
  protected:

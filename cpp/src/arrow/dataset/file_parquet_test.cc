@@ -220,6 +220,8 @@ TEST_F(TestParquetFileFormat, WriteRecordBatchReaderCustomOptions) {
                     *actual_schema);
 }
 
+TEST_F(TestParquetFileFormat, CountRows) { TestCountRows(); }
+
 class TestParquetFileSystemDataset : public WriteFileSystemDatasetMixin,
                                      public testing::Test {
  public:

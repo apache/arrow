@@ -385,6 +385,23 @@ Result<ScanTaskIterator> ParquetFileFormat::ScanFile(
   return MakeVectorIterator(std::move(tasks));
 }
 
+util::optional<Future<int64_t>> ParquetFileFormat::CountRows(
+    const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
+    std::shared_ptr<ScanOptions> options) {
+  auto parquet_file = internal::checked_pointer_cast<ParquetFileFragment>(file);
+  if (FieldsInExpression(predicate).size() > 0) {
+    return util::nullopt;
+  } else if (parquet_file->metadata()) {
+    return Future<int64_t>::MakeFinished(parquet_file->metadata()->num_rows());
+  } else {
+    return DeferNotOk(
+        options->io_context.executor()->Submit([parquet_file]() -> Result<int64_t> {
+          RETURN_NOT_OK(parquet_file->EnsureCompleteMetadata());
+          return parquet_file->metadata()->num_rows();
+        }));
+  }
+}
+
 Result<std::shared_ptr<ParquetFileFragment>> ParquetFileFormat::MakeFragment(
     FileSource source, compute::Expression partition_expression,
     std::shared_ptr<Schema> physical_schema, std::vector<int> row_groups) {
