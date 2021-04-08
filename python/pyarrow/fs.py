@@ -64,7 +64,8 @@ def __getattr__(name):
             "'{0}'".format(name)
         )
 
-    raise AttributeError("module 'pyarrow.fs' has no attribute '{0}'".format(name))
+    raise AttributeError(
+        "module 'pyarrow.fs' has no attribute '{0}'".format(name))
 
 
 def _filesystem_from_str(uri):
@@ -121,7 +122,8 @@ def _ensure_filesystem(filesystem, use_mmap=False, allow_legacy_filesystem=False
 
     raise TypeError(
         "Unrecognized filesystem: {}. `filesystem` argument must be a "
-        "FileSystem instance or a valid file system URI'".format(type(filesystem))
+        "FileSystem instance or a valid file system URI'".format(
+            type(filesystem))
     )
 
 

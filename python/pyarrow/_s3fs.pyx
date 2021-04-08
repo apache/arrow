@@ -74,42 +74,42 @@ cdef class S3ProxyOptions:
         self.proxy_options.port = port
         self.proxy_options.username = tobytes(username)
         self.proxy_options.password = tobytes(password)
-    
+
     @property
     def scheme(self):
         """
         The scheme this proxy uses.
         """
         return frombytes(self.proxy_options.scheme)
-    
+
     @property
     def host(self):
         """
         The host for this proxy.
         """
         return frombytes(self.proxy_options.host)
-    
+
     @property
     def port(self):
         """
         The port for this proxy.
         """
         return self.proxy_options.port
-    
+
     @property
     def username(self):
         """
         The username uses to authenticate connection to proxy.
         """
         return frombytes(self.proxy_options.username)
-    
+
     @property
     def password(self):
         """
         The password uses to authenticate connection to proxy.
         """
         return frombytes(self.proxy_options.password)
-    
+
     @staticmethod
     def from_uri(uri):
         """
@@ -119,12 +119,12 @@ cdef class S3ProxyOptions:
         * S3ProxyOptions.from_uri('http://username:password@localhost:8020')
         * S3ProxyOptions(scheme='http', host='localhost', port=8020, 
                          username='username', password='password')
-        
+
         Parameters
         ----------
         uri : str
             A string URI describing the connection to the proxy.
-        
+
         Returns
         -------
         S3ProxyOptions
@@ -132,7 +132,8 @@ cdef class S3ProxyOptions:
         cdef:
             S3ProxyOptions self = S3ProxyOptions.__new__(S3ProxyOptions)
 
-        self.proxy_options = GetResultValue(CS3ProxyOptions.FromUriString(tobytes(uri)))
+        self.proxy_options = GetResultValue(
+            CS3ProxyOptions.FromUriString(tobytes(uri)))
         return self
 
 
@@ -284,10 +285,13 @@ cdef class S3FileSystem(FileSystem):
                 options.proxy_options.scheme = tobytes(proxy_options.scheme)
                 options.proxy_options.host = tobytes(proxy_options.host)
                 options.proxy_options.port = proxy_options.port
-                options.proxy_options.username = tobytes(proxy_options.username)
-                options.proxy_options.password = tobytes(proxy_options.password)
+                options.proxy_options.username = tobytes(
+                    proxy_options.username)
+                options.proxy_options.password = tobytes(
+                    proxy_options.password)
             else:
-                raise TypeError(f"'proxy_options' expected to be of type 'dict' or 'S3ProxyOptions', got {type(proxy_options)} instead.")
+                raise TypeError(
+                    f"'proxy_options' expected to be of type 'dict' or 'S3ProxyOptions', got {type(proxy_options)} instead.")
 
         with nogil:
             wrapped = GetResultValue(CS3FileSystem.Make(options))
