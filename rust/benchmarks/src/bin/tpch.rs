@@ -1459,7 +1459,7 @@ mod tests {
             3 => Schema::new(vec![
                 Field::new("l_orderkey", DataType::Int32, true),
                 Field::new("revenue", DataType::Float64, true),
-                Field::new("o_orderdat", DataType::Date32, true),
+                Field::new("o_orderdate", DataType::Date32, true),
                 Field::new("o_shippriority", DataType::Int32, true),
             ]),
 
@@ -1537,7 +1537,7 @@ mod tests {
                 Field::new("c_name", DataType::Utf8, true),
                 Field::new("c_custkey", DataType::Int32, true),
                 Field::new("o_orderkey", DataType::Int32, true),
-                Field::new("o_orderdat", DataType::Date32, true),
+                Field::new("o_orderdate", DataType::Date32, true),
                 Field::new("o_totalprice", DataType::Float64, true),
                 Field::new("sum_l_quantity", DataType::Float64, true),
             ]),

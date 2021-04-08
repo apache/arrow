@@ -206,6 +206,11 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return make_cast_options(options);
   }
 
+  if (func_name == "match_substring" || func_name == "match_substring_regex") {
+    using Options = arrow::compute::MatchSubstringOptions;
+    return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["pattern"]));
+  }
+
   if (func_name == "replace_substring" || func_name == "replace_substring_regex") {
     using Options = arrow::compute::ReplaceSubstringOptions;
     int64_t max_replacements = -1;

@@ -86,6 +86,17 @@ pub struct HashJoinExec {
     build_side: Arc<Mutex<Option<JoinLeftData>>>,
     /// Shares the `RandomState` for the hashing algorithm
     random_state: RandomState,
+    /// Partitioning mode to use
+    mode: PartitionMode,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+/// Partitioning mode to use for hash join
+pub enum PartitionMode {
+    /// Left/right children are partitioned using the left and right keys
+    Partitioned,
+    /// Left side will collected into one partition
+    CollectLeft,
 }
 
 /// Information about the index and placement (left or right) of the columns
@@ -105,6 +116,7 @@ impl HashJoinExec {
         right: Arc<dyn ExecutionPlan>,
         on: &JoinOn,
         join_type: &JoinType,
+        partition_mode: PartitionMode,
     ) -> Result<Self> {
         let left_schema = left.schema();
         let right_schema = right.schema();
@@ -122,7 +134,7 @@ impl HashJoinExec {
             .map(|(l, r)| (l.to_string(), r.to_string()))
             .collect();
 
-        let random_state = RandomState::new();
+        let random_state = RandomState::with_seeds(0, 0, 0, 0);
 
         Ok(HashJoinExec {
             left,
@@ -132,6 +144,7 @@ impl HashJoinExec {
             schema,
             build_side: Arc::new(Mutex::new(None)),
             random_state,
+            mode: partition_mode,
         })
     }
 
@@ -210,6 +223,7 @@ impl ExecutionPlan for HashJoinExec {
                 children[1].clone(),
                 &self.on,
                 &self.join_type,
+                self.mode,
             )?)),
             _ => Err(DataFusionError::Internal(
                 "HashJoinExec wrong number of children".to_string(),
@@ -223,18 +237,76 @@ impl ExecutionPlan for HashJoinExec {
 
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         let on_left = self.on.iter().map(|on| on.0.clone()).collect::<Vec<_>>();
-
-        // we only want to compute the build side once
+        // we only want to compute the build side once for PartitionMode::CollectLeft
         let left_data = {
-            let mut build_side = self.build_side.lock().await;
-            match build_side.as_ref() {
-                Some(stream) => stream.clone(),
-                None => {
+            match self.mode {
+                PartitionMode::CollectLeft => {
+                    let mut build_side = self.build_side.lock().await;
+
+                    match build_side.as_ref() {
+                        Some(stream) => stream.clone(),
+                        None => {
+                            let start = Instant::now();
+
+                            // merge all left parts into a single stream
+                            let merge = MergeExec::new(self.left.clone());
+                            let stream = merge.execute(0).await?;
+
+                            // This operation performs 2 steps at once:
+                            // 1. creates a [JoinHashMap] of all batches from the stream
+                            // 2. stores the batches in a vector.
+                            let initial = (
+                                JoinHashMap::with_hasher(IdHashBuilder {}),
+                                Vec::new(),
+                                0,
+                                Vec::new(),
+                            );
+                            let (hashmap, batches, num_rows, _) = stream
+                                .try_fold(initial, |mut acc, batch| async {
+                                    let hash = &mut acc.0;
+                                    let values = &mut acc.1;
+                                    let offset = acc.2;
+                                    acc.3.clear();
+                                    acc.3.resize(batch.num_rows(), 0);
+                                    update_hash(
+                                        &on_left,
+                                        &batch,
+                                        hash,
+                                        offset,
+                                        &self.random_state,
+                                        &mut acc.3,
+                                    )
+                                    .unwrap();
+                                    acc.2 += batch.num_rows();
+                                    values.push(batch);
+                                    Ok(acc)
+                                })
+                                .await?;
+
+                            // Merge all batches into a single batch, so we
+                            // can directly index into the arrays
+                            let single_batch =
+                                concat_batches(&self.left.schema(), &batches, num_rows)?;
+
+                            let left_side = Arc::new((hashmap, single_batch));
+
+                            *build_side = Some(left_side.clone());
+
+                            debug!(
+                            "Built build-side of hash join containing {} rows in {} ms",
+                            num_rows,
+                            start.elapsed().as_millis()
+                        );
+
+                            left_side
+                        }
+                    }
+                }
+                PartitionMode::Partitioned => {
                     let start = Instant::now();
 
-                    // merge all left parts into a single stream
-                    let merge = MergeExec::new(self.left.clone());
-                    let stream = merge.execute(0).await?;
+                    // Load 1 partition of left side in memory
+                    let stream = self.left.execute(partition).await?;
 
                     // This operation performs 2 steps at once:
                     // 1. creates a [JoinHashMap] of all batches from the stream
@@ -274,10 +346,9 @@ impl ExecutionPlan for HashJoinExec {
 
                     let left_side = Arc::new((hashmap, single_batch));
 
-                    *build_side = Some(left_side.clone());
-
                     debug!(
-                        "Built build-side of hash join containing {} rows in {} ms",
+                        "Built build-side {} of hash join containing {} rows in {} ms",
+                        partition,
                         num_rows,
                         start.elapsed().as_millis()
                     );
@@ -849,7 +920,7 @@ mod tests {
             .iter()
             .map(|(l, r)| (l.to_string(), r.to_string()))
             .collect();
-        HashJoinExec::try_new(left, right, &on, join_type)
+        HashJoinExec::try_new(left, right, &on, join_type, PartitionMode::CollectLeft)
     }
 
     #[tokio::test]

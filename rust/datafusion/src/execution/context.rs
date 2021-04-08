@@ -616,6 +616,9 @@ pub struct ExecutionConfig {
     /// Should DataFusion provide access to `information_schema`
     /// virtual tables for displaying schema information
     information_schema: bool,
+    /// Should DataFusion repartition data using the join keys to execute joins in parallel
+    /// using the provided `concurrency` level
+    pub repartition_joins: bool,
 }
 
 impl ExecutionConfig {
@@ -636,6 +639,7 @@ impl ExecutionConfig {
             default_schema: "public".to_owned(),
             create_default_catalog_and_schema: true,
             information_schema: false,
+            repartition_joins: true,
         }
     }
 
@@ -693,6 +697,12 @@ impl ExecutionConfig {
     /// Enables or disables the inclusion of `information_schema` virtual tables
     pub fn with_information_schema(mut self, enabled: bool) -> Self {
         self.information_schema = enabled;
+        self
+    }
+
+    /// Enables or disables the use of repartitioning for joins to improve parallelism
+    pub fn with_repartition_joins(mut self, enabled: bool) -> Self {
+        self.repartition_joins = enabled;
         self
     }
 }
@@ -1391,6 +1401,23 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn join_partitioned() -> Result<()> {
+        // self join on partition id (workaround for duplicate column name)
+        let results = execute(
+            "SELECT 1 FROM test JOIN (SELECT c1 AS id1 FROM test) ON c1=id1",
+            4,
+        )
+        .await?;
+
+        assert_eq!(
+            results.iter().map(|b| b.num_rows()).sum::<usize>(),
+            4 * 10 * 10
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn count_basic() -> Result<()> {
         let results = execute("SELECT COUNT(c1), COUNT(c2) FROM test", 1).await?;
         assert_eq!(results.len(), 1);
@@ -1757,6 +1784,53 @@ mod tests {
         // the actual rows are not guaranteed, so only check the count (should be 3)
         let num_rows: usize = results.into_iter().map(|b| b.num_rows()).sum();
         assert_eq!(num_rows, 3);
+
+        Ok(())
+    }
+
+    /// Return a RecordBatch with a single Int32 array with values (0..sz)
+    fn make_partition(sz: i32) -> RecordBatch {
+        let seq_start = 0;
+        let seq_end = sz;
+        let values = (seq_start..seq_end).collect::<Vec<_>>();
+        let schema = Arc::new(Schema::new(vec![Field::new("i", DataType::Int32, true)]));
+        let arr = Arc::new(Int32Array::from(values));
+        let arr = arr as ArrayRef;
+
+        RecordBatch::try_new(schema, vec![arr]).unwrap()
+    }
+
+    #[tokio::test]
+    async fn limit_multi_partitions() -> Result<()> {
+        let tmp_dir = TempDir::new()?;
+        let mut ctx = create_ctx(&tmp_dir, 1)?;
+
+        let partitions = vec![
+            vec![make_partition(0)],
+            vec![make_partition(1)],
+            vec![make_partition(2)],
+            vec![make_partition(3)],
+            vec![make_partition(4)],
+            vec![make_partition(5)],
+        ];
+        let schema = partitions[0][0].schema();
+        let provider = Arc::new(MemTable::try_new(schema, partitions).unwrap());
+
+        ctx.register_table("t", provider).unwrap();
+
+        // select all rows
+        let results = plan_and_collect(&mut ctx, "SELECT i FROM t").await.unwrap();
+
+        let num_rows: usize = results.into_iter().map(|b| b.num_rows()).sum();
+        assert_eq!(num_rows, 15);
+
+        for limit in 1..10 {
+            let query = format!("SELECT i FROM t limit {}", limit);
+            let results = plan_and_collect(&mut ctx, &query).await.unwrap();
+
+            let num_rows: usize = results.into_iter().map(|b| b.num_rows()).sum();
+            assert_eq!(num_rows, limit, "mismatch with query {}", query);
+        }
 
         Ok(())
     }
@@ -2906,7 +2980,8 @@ mod tests {
 
     /// Generate a partitioned CSV file and register it with an execution context
     fn create_ctx(tmp_dir: &TempDir, partition_count: usize) -> Result<ExecutionContext> {
-        let mut ctx = ExecutionContext::new();
+        let mut ctx =
+            ExecutionContext::with_config(ExecutionConfig::new().with_concurrency(8));
 
         let schema = populate_csv_partitions(tmp_dir, partition_count, ".csv")?;
 

@@ -20,6 +20,7 @@ import datetime
 import decimal
 import itertools
 import math
+import re
 
 import hypothesis as h
 import numpy as np
@@ -42,7 +43,7 @@ int_type_pairs = [
     (np.uint64, pa.uint64())]
 
 
-np_int_types, _ = zip(*int_type_pairs)
+np_int_types, pa_int_types = zip(*int_type_pairs)
 
 
 class StrangeIterable:
@@ -431,6 +432,14 @@ def test_unsigned_integer_overflow(bits):
         pa.array([2 ** bits], ty)
     with pytest.raises((OverflowError, pa.ArrowInvalid)):
         pa.array([-1], ty)
+
+
+@parametrize_with_iterable_types
+@pytest.mark.parametrize("typ", pa_int_types)
+def test_integer_from_string_error(seq, typ):
+    # ARROW-9451: pa.array(['1'], type=pa.uint32()) should not succeed
+    with pytest.raises(pa.ArrowInvalid):
+        pa.array(seq(['1']), type=typ)
 
 
 def test_convert_with_mask():
@@ -1684,7 +1693,7 @@ def test_struct_from_list_of_pairs_errors():
     # type inference
     template = (
         r"Could not convert {} with type {}: was expecting tuple of "
-        r"\(key, value\) pair"
+        r"(key, value) pair"
     )
     cases = [
         tuple(),  # empty key-value pair
@@ -1693,10 +1702,9 @@ def test_struct_from_list_of_pairs_errors():
         'string',  # not a tuple
     ]
     for key_value_pair in cases:
-        msg = template.format(
-            str(key_value_pair).replace('(', r'\(').replace(')', r'\)'),
-            type(key_value_pair).__name__
-        )
+        msg = re.escape(template.format(
+            repr(key_value_pair), type(key_value_pair).__name__
+        ))
 
         with pytest.raises(TypeError, match=msg):
             pa.array([

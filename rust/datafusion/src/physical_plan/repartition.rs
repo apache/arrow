@@ -129,7 +129,8 @@ impl ExecutionPlan for RepartitionExec {
                 >();
                 channels.insert(partition, (sender, receiver));
             }
-            let random = ahash::RandomState::new();
+            // Use fixed random state
+            let random = ahash::RandomState::with_seeds(0, 0, 0, 0);
 
             // launch one async task per *input* partition
             for i in 0..num_input_partitions {
@@ -143,6 +144,8 @@ impl ExecutionPlan for RepartitionExec {
                 let _: JoinHandle<Result<()>> = tokio::spawn(async move {
                     let mut stream = input.execute(i).await?;
                     let mut counter = 0;
+                    let hashes_buf = &mut vec![];
+
                     while let Some(result) = stream.next().await {
                         match &partitioning {
                             Partitioning::RoundRobinBatch(_) => {
@@ -162,8 +165,9 @@ impl ExecutionPlan for RepartitionExec {
                                             .into_array(input_batch.num_rows()))
                                     })
                                     .collect::<Result<Vec<_>>>()?;
+                                hashes_buf.clear();
+                                hashes_buf.resize(arrays[0].len(), 0);
                                 // Hash arrays and compute buckets based on number of partitions
-                                let hashes_buf = &mut vec![0; arrays[0].len()];
                                 let hashes =
                                     create_hashes(&arrays, &random_state, hashes_buf)?;
                                 let mut indices = vec![vec![]; num_output_partitions];

@@ -18,5 +18,5 @@
 #pragma once
 
 namespace vctrs {
-R_len_t short_vec_size(SEXP);
+R_len_t vec_size(SEXP);
 }

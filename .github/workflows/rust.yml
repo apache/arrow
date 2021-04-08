@@ -33,7 +33,7 @@ jobs:
 
   # build the library, a compilation step used by multiple steps below
   linux-build-lib:
-    name: AMD64 Debian 10 Rust ${{ matrix.rust }} build libraries
+    name: Build Libraries on AMD64 Rust ${{ matrix.rust }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -42,7 +42,7 @@ jobs:
     container:
       image: ${{ matrix.arch }}/rust
       env:
-        # Disable full debug symbol generation to speed up CI build
+        # Disable full debug symbol generation to speed up CI build and keep memory down
         # "1" means line tables only, which is useful for panic tracebacks.
         RUSTFLAGS: "-C debuginfo=1"
     steps:
@@ -70,14 +70,12 @@ jobs:
         run: |
           export CARGO_HOME="/github/home/.cargo"
           export CARGO_TARGET_DIR="/github/home/target"
-          # do not produce debug symbols to keep memory usage down
-          export RUSTFLAGS="-C debuginfo=0"
           cd rust
           cargo build
 
   # test the crate
   linux-test:
-    name: AMD64 Debian 10 Rust ${{ matrix.rust }} test workspace
+    name: Test Workspace on AMD64 Rust ${{ matrix.rust }}
     needs: [linux-build-lib]
     runs-on: ubuntu-latest
     strategy:
@@ -87,7 +85,7 @@ jobs:
     container:
       image: ${{ matrix.arch }}/rust
       env:
-        # Disable full debug symbol generation to speed up CI build
+        # Disable full debug symbol generation to speed up CI build and keep memory down
         # "1" means line tables only, which is useful for panic tracebacks.
         RUSTFLAGS: "-C debuginfo=1"
         ARROW_TEST_DATA: /__w/arrow/arrow/testing/data
@@ -117,8 +115,6 @@ jobs:
         run: |
           export CARGO_HOME="/github/home/.cargo"
           export CARGO_TARGET_DIR="/github/home/target"
-          # do not produce debug symbols to keep memory usage down
-          export RUSTFLAGS="-C debuginfo=0"
           cd rust
           # run tests on all workspace members with default feature list
           cargo test
@@ -138,7 +134,7 @@ jobs:
 
   # test the --features "simd" of the arrow crate. This requires nightly.
   linux-test-simd:
-    name: AMD64 Debian 10 Rust ${{ matrix.rust }} test arrow simd
+    name: Test SIMD on AMD64 Rust ${{ matrix.rust }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -147,7 +143,7 @@ jobs:
     container:
       image: ${{ matrix.arch }}/rust
       env:
-        # Disable full debug symbol generation to speed up CI build
+        # Disable full debug symbol generation to speed up CI build and keep memory down
         # "1" means line tables only, which is useful for panic tracebacks.
         RUSTFLAGS: "-C debuginfo=1"
         ARROW_TEST_DATA: /__w/arrow/arrow/testing/data
@@ -176,13 +172,11 @@ jobs:
         run: |
           export CARGO_HOME="/github/home/.cargo"
           export CARGO_TARGET_DIR="/github/home/target"
-          # do not produce debug symbols to keep memory usage down
-          export RUSTFLAGS="-C debuginfo=0"
           cd rust/arrow
           cargo test --features "simd"
 
   windows-and-macos:
-    name: ${{ matrix.os }} Rust ${{ matrix.rust }}
+    name: Test on ${{ matrix.os }} Rust ${{ matrix.rust }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -204,6 +198,8 @@ jobs:
         run: |
           export ARROW_TEST_DATA=$(pwd)/testing/data
           export PARQUET_TEST_DATA=$(pwd)/cpp/submodules/parquet-testing/data
+          # do not produce debug symbols to keep memory usage down
+          export RUSTFLAGS="-C debuginfo=0"
           cd rust
           cargo test
 
@@ -218,7 +214,7 @@ jobs:
     container:
       image: ${{ matrix.arch }}/rust
       env:
-        # Disable full debug symbol generation to speed up CI build
+        # Disable full debug symbol generation to speed up CI build and keep memory down
         # "1" means line tables only, which is useful for panic tracebacks.
         RUSTFLAGS: "-C debuginfo=1"
     steps:
@@ -250,7 +246,7 @@ jobs:
           cargo clippy --all-targets --workspace -- -D warnings -A clippy::redundant_field_names
 
   miri-checks:
-    name: Miri Checks
+    name: MIRI
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -326,7 +322,7 @@ jobs:
 
   # test FFI against the C-Data interface exposed by pyarrow
   pyarrow-integration-test:
-    name: Pyarrow C data interface integration test
+    name: Test Pyarrow C Data Interface
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -372,7 +368,7 @@ jobs:
 
   # test the arrow crate builds against wasm32 in stable rust
   wasm32-build:
-    name: AMD64 Debian 10 Rust ${{ matrix.rust }} test arrow wasm32
+    name: Build wasm32 on AMD64 Rust ${{ matrix.rust }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -381,7 +377,7 @@ jobs:
     container:
       image: ${{ matrix.arch }}/rust
       env:
-        # Disable full debug symbol generation to speed up CI build
+        # Disable full debug symbol generation to speed up CI build and keep memory down
         # "1" means line tables only, which is useful for panic tracebacks.
         RUSTFLAGS: "-C debuginfo=1"
         ARROW_TEST_DATA: /__w/arrow/arrow/testing/data
@@ -411,23 +407,21 @@ jobs:
         run: |
           export CARGO_HOME="/github/home/.cargo"
           export CARGO_TARGET_DIR="/github/home/target"
-          # do not produce debug symbols to keep memory usage down
-          export RUSTFLAGS="-C debuginfo=0"
           cd rust/arrow
           cargo build --target wasm32-unknown-unknown
 
   # test the projects can build without default features
   default-build:
-    name: AMD64 Debian 10 Rust ${{ matrix.rust }} test no defaults
+    name: Check No Defaults on AMD64 Rust ${{ matrix.rust }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
         arch: [amd64]
-        rust: [nightly-2020-11-24]
+        rust: [stable]
     container:
       image: ${{ matrix.arch }}/rust
       env:
-        # Disable full debug symbol generation to speed up CI build
+        # Disable full debug symbol generation to speed up CI build and keep memory down
         # "1" means line tables only, which is useful for panic tracebacks.
         RUSTFLAGS: "-C debuginfo=1"
         ARROW_TEST_DATA: /__w/arrow/arrow/testing/data
