@@ -55,7 +55,8 @@ Field <- R6Class("Field", inherit = ArrowObject,
 )
 Field$create <- function(name, type, metadata) {
   assert_that(inherits(name, "character"), length(name) == 1L)
-  type <- as_type(eval(substitute(type)), name)
+  type <- unmask_type_fun(enexpr(type)) %||% type
+  type <- as_type(type, name)
   assert_that(missing(metadata), msg = "metadata= is currently ignored")
   Field__initialize(enc2utf8(name), type, TRUE)
 }

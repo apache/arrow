@@ -397,8 +397,9 @@ build_function_list <- function(FUN) {
     lapply(set_names(names(.array_function_map)), wrapper),
     # Plus some special handling where it's not 1:1
     cast = function(x, target_type, safe = TRUE, ...) {
+      target_type <- unmask_type_fun(enexpr(target_type)) %||% target_type
       opts <- cast_options(safe, ...)
-      opts$to_type <- as_type(eval(substitute(target_type)))
+      opts$to_type <- as_type(target_type)
       FUN("cast", x, options = opts)
     },
     as.character = function(x) {

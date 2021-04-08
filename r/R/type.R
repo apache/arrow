@@ -415,7 +415,7 @@ fixed_size_list_of <- function(type, list_size) fixed_size_list__(type, list_siz
 as_type <- function(type, name = "type") {
   # work around other packages possibly masking the Arrow data type functions,
   # for example rlang masking string()
-  type <- eval(substitute(type))
+  type <- unmask_type_fun(enexpr(type)) %||% type
 
   # magic so we don't have to mask base::double()
   if (identical(type, double())) type <- float64()
@@ -424,6 +424,15 @@ as_type <- function(type, name = "type") {
     stop(name, " must be a DataType, not ", class(type), call. = FALSE)
   }
   type
+}
+
+unmask_type_fun <- function(expr) {
+  # if `expr` is an unevaluated function call, try to evaulate it in the arrow
+  # package environment, and if that fails, return NULL
+  if (is.call(expr)) {
+    try(return(eval(expr)), silent = TRUE)
+  }
+  NULL
 }
 
 

@@ -48,6 +48,7 @@ Scalar <- R6Class("Scalar",
   )
 )
 Scalar$create <- function(x, type = NULL) {
+  type <- unmask_type_fun(enexpr(type)) %||% type
   if (is.null(x)) {
     x <- vctrs::unspecified(1)
   } else if (length(x) != 1 && !is.data.frame(x)) {
