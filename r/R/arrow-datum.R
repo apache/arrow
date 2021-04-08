@@ -23,7 +23,7 @@ ArrowDatum <- R6Class("ArrowDatum", inherit = ArrowObject,
   public = list(
     cast = function(target_type, safe = TRUE, ...) {
       opts <- cast_options(safe, ...)
-      opts$to_type <- as_type(target_type)
+      opts$to_type <- as_type(enexpr(target_type))
       call_function("cast", self, options = opts)
     }
   )

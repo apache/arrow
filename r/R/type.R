@@ -413,10 +413,15 @@ FixedSizeListType <- R6Class("FixedSizeListType",
 fixed_size_list_of <- function(type, list_size) fixed_size_list__(type, list_size)
 
 as_type <- function(type, name = "type") {
-  if (identical(type, double())) {
-    # Magic so that we don't have to mask this base function
-    type <- float64()
-  }
+  # quotation magic so we don't have to mask base::double() and to work around
+  # rlang possibly masking string(), etc.
+  double <- float64
+  if (!is.call(type)) type <- enexpr(type)
+  type <- eval(type)
+
+  # more magic just in case double() was evaluated before we could defuse it
+  if (identical(type, double())) type <- float64()
+
   if (!inherits(type, "DataType")) {
     stop(name, " must be a DataType, not ", class(type), call. = FALSE)
   }

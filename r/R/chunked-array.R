@@ -98,7 +98,7 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowDatum,
       )
     },
     View = function(type) {
-      ChunkedArray__View(self, as_type(type))
+      ChunkedArray__View(self, as_type(enexpr(type)))
     },
     Validate = function() {
       ChunkedArray__Validate(self)
@@ -120,7 +120,7 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = ArrowDatum,
 
 ChunkedArray$create <- function(..., type = NULL) {
   if (!is.null(type)) {
-    type <- as_type(type)
+    type <- as_type(enexpr(type))
   }
   ChunkedArray__from_list(list2(...), type)
 }
