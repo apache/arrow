@@ -421,12 +421,13 @@ test_that("explicit type conversions", {
         int2dbl = as.double(int),
         int2int = as.integer(int),
         int2lgl = as.logical(int),
-        lgl2chr = toupper(as.character(lgl)), # Arrow returns "true", "false"
+        lgl2chr = as.character(lgl), # Arrow returns "true", "false" here ...
         lgl2dbl = as.double(lgl),
         lgl2int = as.integer(lgl),
-        lgl2lgl = as.logical(lgl),
+        lgl2lgl = as.logical(lgl)
       ) %>%
-      collect(),
+      collect() %>%
+      mutate(lgl2chr = toupper(lgl2chr)), # ... but we need "TRUE", "FALSE"
     tibble(
       dbl = c(1, 0, NA_real_),
       int = c(1L, 0L, NA_integer_),
@@ -437,7 +438,7 @@ test_that("explicit type conversions", {
 
 test_that("bad explicit type conversions", {
 
-  # Arrow returns lowercase "true", "false"
+  # Arrow returns lowercase "true", "false" (instead of "TRUE", "FALSE" like R)
   expect_error(
     expect_dplyr_equal(
       input %>%
@@ -448,7 +449,19 @@ test_that("bad explicit type conversions", {
     )
   )
 
-  # Arrow fails to parse these strings as Booleans
+  # Arrow fails to parse these strings as numbers (instead of returning NAs with
+  # a warning like R does)
+  expect_error(
+    expect_dplyr_equal(
+      input %>%
+        transmute(chr2num = as.numeric(chr)) %>%
+        collect(),
+      tibble(chr = c("l.O", "S.S", ""))
+    )
+  )
+
+  # Arrow fails to parse these strings as Booleans (instead of returning NAs
+  # like R does)
   expect_error(
     expect_dplyr_equal(
       input %>%
