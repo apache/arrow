@@ -96,6 +96,6 @@ jobs:
       - name: Save the install script
         uses: actions/upload-artifact@v2
         with:
-          name: ${{ matrix.config.artifact }}
+          name: {{ "${{ matrix.config.artifact }}" }}
           path: arrow/r/vignettes/script.sh
         if: always()
