@@ -247,6 +247,29 @@ inline T integer_power(KernelContext* ctx, T left, T right) {
   }
   while (true) {
     if (right % 2) {
+      result *= left;
+    }
+    right /= 2;
+    if (!right) {
+      break;
+    }
+    left *= left;
+  }
+  return result;
+}
+
+template <typename T>
+inline T signed_integer_power(KernelContext* ctx, T left, T right) {
+  if (right < 0) {
+    ctx->SetStatus(
+        Status::Invalid("integers to negative integer powers are not allowed"));
+  }
+  T result = 1;
+  if (left == 0 && right != 0) {
+    return 0;
+  }
+  while (true) {
+    if (right % 2) {
       result = to_unsigned(result) * to_unsigned(left);
     }
     right /= 2;
@@ -298,7 +321,7 @@ struct Power {
 
   template <typename T>
   static enable_if_signed_integer<T> Call(KernelContext* ctx, T left, T right) {
-    return integer_power<T>(ctx, left, right);
+    return signed_integer_power<T>(ctx, left, right);
   }
 
   template <typename T>
