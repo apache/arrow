@@ -396,6 +396,40 @@ build_function_list <- function(FUN) {
     # Include mappings from R function name spellings
     lapply(set_names(names(.array_function_map)), wrapper),
     # Plus some special handling where it's not 1:1
+    as.character = function(x) {
+      FUN("cast", x, options = cast_options(to_type = string()))
+    },
+    as.double = function(x) {
+      FUN("cast", x, options = cast_options(to_type = float64()))
+    },
+    as.integer = function(x) {
+      FUN(
+        "cast",
+        x,
+        options = cast_options(
+          to_type = int32(),
+          allow_float_truncate = TRUE,
+          allow_decimal_truncate = TRUE
+        )
+      )
+    },
+    as.integer64 = function(x) {
+      FUN(
+        "cast",
+        x,
+        options = cast_options(
+          to_type = int64(),
+          allow_float_truncate = TRUE,
+          allow_decimal_truncate = TRUE
+        )
+      )
+    },
+    as.logical = function(x) {
+      FUN("cast", x, options = cast_options(to_type = boolean()))
+    },
+    as.numeric = function(x) {
+      FUN("cast", x, options = cast_options(to_type = float64()))
+    },
     nchar = function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
       if (allowNA) {
         stop("allowNA = TRUE not supported for Arrow", call. = FALSE)

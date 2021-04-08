@@ -357,3 +357,105 @@ test_that("relocate with selection helpers", {
     "Unsupported selection helper"
   )
 })
+
+test_that("explicit type conversions", {
+  library(bit64)
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        int2chr = as.character(int),
+        int2dbl = as.double(int),
+        int2int = as.integer(int),
+        int2num = as.numeric(int),
+        dbl2chr = as.character(dbl),
+        dbl2dbl = as.double(dbl),
+        dbl2int = as.integer(dbl),
+        dbl2num = as.numeric(dbl),
+      ) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        chr2chr = as.character(chr),
+        chr2dbl = as.double(chr),
+        chr2int = as.integer(chr),
+        chr2num = as.numeric(chr)
+      ) %>%
+      collect(),
+    tibble(chr = c("1", "2", "3"))
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        chr2i64 = as.integer64(chr),
+        dbl2i64 = as.integer64(dbl),
+        i642i64 = as.integer64(i64),
+      ) %>%
+      collect(),
+    tibble(chr = "10000000000", dbl = 10000000000, i64 = as.integer64(1e10))
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        chr2lgl = as.logical(chr),
+        dbl2lgl = as.logical(dbl),
+        int2lgl = as.logical(int)
+      ) %>%
+      collect(),
+    tibble(
+      chr = c("TRUE", "FALSE", "true", "false"),
+      dbl = c(1, 0, -99, 0),
+      int = c(1L, 0L, -99L, 0L)
+    )
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        dbl2chr = as.character(dbl),
+        dbl2dbl = as.double(dbl),
+        dbl2int = as.integer(dbl),
+        dbl2lgl = as.logical(dbl),
+        int2chr = as.character(int),
+        int2dbl = as.double(int),
+        int2int = as.integer(int),
+        int2lgl = as.logical(int),
+        lgl2chr = toupper(as.character(lgl)), # Arrow returns "true", "false"
+        lgl2dbl = as.double(lgl),
+        lgl2int = as.integer(lgl),
+        lgl2lgl = as.logical(lgl),
+      ) %>%
+      collect(),
+    tibble(
+      dbl = c(1, 0, NA_real_),
+      int = c(1L, 0L, NA_integer_),
+      lgl = c(TRUE, FALSE, NA)
+    )
+  )
+})
+
+test_that("bad explicit type conversions", {
+
+  # Arrow returns lowercase "true", "false"
+  expect_error(
+    expect_dplyr_equal(
+      input %>%
+        transmute(lgl2chr = as.character(lgl)) %>%
+        collect(),
+      tibble(lgl = c(TRUE, FALSE, NA)
+      )
+    )
+  )
+
+  # Arrow fails to parse these strings as Booleans
+  expect_error(
+    expect_dplyr_equal(
+      input %>%
+        transmute(chr2lgl = as.logical(chr)) %>%
+        collect(),
+      tibble(chr = c("TRU", "FAX", ""))
+    )
+  )
+
+})
