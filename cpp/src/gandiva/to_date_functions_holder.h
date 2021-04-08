@@ -60,10 +60,6 @@ class GANDIVA_EXPORT ToDateFunctionsHolder : public FunctionHolder {
 
     *out_valid = true;
 
-    if (time_unit_ == ::arrow::TimeUnit::SECOND) {
-      return unit_time_since_epoch * 1000;
-    }
-
     return unit_time_since_epoch;
   }
 
@@ -153,7 +149,7 @@ class GANDIVA_EXPORT ToDateHolder : public gandiva::ToDateFunctionsHolder<ToDate
 
   ToDateHolder(const std::string& pattern, int32_t suppress_errors)
       : ToDateFunctionsHolder<ToDateHolder>(pattern, suppress_errors, true,
-                                            ::arrow::TimeUnit::SECOND) {}
+                                            ::arrow::TimeUnit::MILLI) {}
 
   static Status Make(const FunctionNode& node, std::shared_ptr<ToDateHolder>* holder) {
     const std::string function_name("to_date");
@@ -256,7 +252,7 @@ class GANDIVA_EXPORT UnixTimestampHolder
 
   UnixTimestampHolder(const std::string& pattern, int32_t suppress_errors)
       : ToDateFunctionsHolder<UnixTimestampHolder>(pattern, suppress_errors, false,
-                                                   ::arrow::TimeUnit::MILLI) {}
+                                                   ::arrow::TimeUnit::SECOND) {}
 
   static Status Make(const FunctionNode& node,
                      std::shared_ptr<UnixTimestampHolder>* holder) {
