@@ -234,6 +234,7 @@ add_gandiva_test(internals-test
                  greedy_dual_size_cache_test.cc
                  lru_cache_test.cc
                  to_date_holder_test.cc
+                 is_date_holder_test.cc
                  to_time_holder_test.cc
                  to_timestamp_holder_test.cc
                  unix_timestamp_holder_test.cc
