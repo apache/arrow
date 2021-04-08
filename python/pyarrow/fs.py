@@ -45,7 +45,12 @@ except ImportError:
 
 try:
     from pyarrow._s3fs import (  # noqa
-        S3FileSystem, S3LogLevel, initialize_s3, finalize_s3)
+        S3FileSystem,
+        S3LogLevel,
+        initialize_s3,
+        finalize_s3,
+        S3ProxyOptions,
+    )
 except ImportError:
     _not_imported.append("S3FileSystem")
 else:
@@ -59,9 +64,7 @@ def __getattr__(name):
             "'{0}'".format(name)
         )
 
-    raise AttributeError(
-        "module 'pyarrow.fs' has no attribute '{0}'".format(name)
-    )
+    raise AttributeError("module 'pyarrow.fs' has no attribute '{0}'".format(name))
 
 
 def _filesystem_from_str(uri):
@@ -84,9 +87,7 @@ def _filesystem_from_str(uri):
     return filesystem
 
 
-def _ensure_filesystem(
-    filesystem, use_mmap=False, allow_legacy_filesystem=False
-):
+def _ensure_filesystem(filesystem, use_mmap=False, allow_legacy_filesystem=False):
     if isinstance(filesystem, FileSystem):
         return filesystem
     elif isinstance(filesystem, str):
@@ -104,7 +105,7 @@ def _ensure_filesystem(
         pass
     else:
         if isinstance(filesystem, fsspec.AbstractFileSystem):
-            if type(filesystem).__name__ == 'LocalFileSystem':
+            if type(filesystem).__name__ == "LocalFileSystem":
                 # In case its a simple LocalFileSystem, use native arrow one
                 return LocalFileSystem(use_mmap=use_mmap)
             return PyFileSystem(FSSpecHandler(filesystem))
@@ -120,14 +121,11 @@ def _ensure_filesystem(
 
     raise TypeError(
         "Unrecognized filesystem: {}. `filesystem` argument must be a "
-        "FileSystem instance or a valid file system URI'".format(
-            type(filesystem))
+        "FileSystem instance or a valid file system URI'".format(type(filesystem))
     )
 
 
-def _resolve_filesystem_and_path(
-    path, filesystem=None, allow_legacy_filesystem=False
-):
+def _resolve_filesystem_and_path(path, filesystem=None, allow_legacy_filesystem=False):
     """
     Return filesystem/path from path which could be an URI or a plain
     filesystem path.
@@ -165,7 +163,7 @@ def _resolve_filesystem_and_path(
         file_info = None
         exists_locally = False
     else:
-        exists_locally = (file_info.type != FileType.NotFound)
+        exists_locally = file_info.type != FileType.NotFound
 
     # if the file or directory doesn't exists locally, then assume that
     # the path is an URI describing the file system as well
@@ -277,8 +275,7 @@ class FSSpecHandler(FileSystemHandler):
 
     def delete_dir_contents(self, path):
         if path.strip("/") == "":
-            raise ValueError(
-                "delete_dir_contents called on path '", path, "'")
+            raise ValueError("delete_dir_contents called on path '", path, "'")
         self._delete_dir_contents(path)
 
     def delete_root_dir_contents(self):

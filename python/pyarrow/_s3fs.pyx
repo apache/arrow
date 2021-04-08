@@ -64,12 +64,51 @@ cdef class S3ProxyOptions:
         Password to use to authenticate connection to proxy.
     """
 
+    cdef:
+        CS3ProxyOptions proxy_options
+
     def __init__(self, scheme="", host="", port=-1, username="", password=""):
-        self.scheme = scheme
-        self.host = host
-        self.port = port
-        self.username = username
-        self.password = password
+
+        self.proxy_options.scheme = tobytes(scheme)
+        self.proxy_options.host = tobytes(host)
+        self.proxy_options.port = port
+        self.proxy_options.username = tobytes(username)
+        self.proxy_options.password = tobytes(password)
+    
+    @property
+    def scheme(self):
+        """
+        The scheme this proxy uses.
+        """
+        return frombytes(self.proxy_options.scheme)
+    
+    @property
+    def host(self):
+        """
+        The host for this proxy.
+        """
+        return frombytes(self.proxy_options.host)
+    
+    @property
+    def port(self):
+        """
+        The port for this proxy.
+        """
+        return self.proxy_options.port
+    
+    @property
+    def username(self):
+        """
+        The username uses to authenticate connection to proxy.
+        """
+        return frombytes(self.proxy_options.username)
+    
+    @property
+    def password(self):
+        """
+        The password uses to authenticate connection to proxy.
+        """
+        return frombytes(self.proxy_options.password)
     
     @staticmethod
     def from_uri(uri):
@@ -95,11 +134,11 @@ cdef class S3ProxyOptions:
             CS3ProxyOptions options
 
         options = GetResultValue(CS3ProxyOptions.FromUriString(tobytes(uri)))
-        self.scheme = frombytes(options.scheme)
-        self.host = frombytes(options.host)
-        self.port = options.port
-        self.username = frombytes(options.username)
-        self.password = frombytes(options.password)
+        self.proxy_options.scheme = options.scheme
+        self.proxy_options.host = options.host
+        self.proxy_options.port = options.port
+        self.proxy_options.username = options.username
+        self.proxy_options.password = options.password
         return self
 
 
