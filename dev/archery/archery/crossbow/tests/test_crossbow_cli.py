@@ -35,6 +35,7 @@ def test_crossbow_submit(tmp_path):
                 "https://github.com/dummy/repo")
     git.run_cmd("-C", str(tmp_path), "commit", "-m", "initial",
                 "--allow-empty")
+    git.run_cmd("-C", str(tmp_path), "checkout", "master")
 
     result = invoke('check-config')
     assert result.exit_code == 0
