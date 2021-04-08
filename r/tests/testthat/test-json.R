@@ -118,6 +118,18 @@ test_that("read_json_arrow(schema=) with partial schema", {
   
   tab1 <- read_json_arrow(tf, schema = schema(third_col = float64(), world = float64()))
   
+  print("input:")
+  print("schema:")
+  print(schema(third_col = float64(), world = float64()))
+  print('
+    { "hello": 3.5, "world": 2, "third_col": 99}
+    { "hello": 3.25, "world": 5, "third_col": 98}
+    { "hello": 3.125, "world": 8, "third_col": 97 }
+    { "hello": 0.0, "world": 10, "third_col": 96}
+  ')
+  print("output:")
+  print(tab1)
+  
   expect_identical(
     tab1, 
     tibble::tibble(
