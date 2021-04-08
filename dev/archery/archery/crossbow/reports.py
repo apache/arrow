@@ -17,6 +17,7 @@
 
 import click
 import collections
+import operator
 import functools
 from io import StringIO
 import textwrap
@@ -218,3 +219,84 @@ class EmailReport(Report):
         server.login(smtp_user, smtp_password)
         server.sendmail(smtp_user, self.recipient_email, email)
         server.close()
+
+
+class CommentReport(Report):
+
+    _markdown_badge = '[![{title}]({badge})]({url})'
+
+    badges = {
+        'github': _markdown_badge.format(
+            title='Github Actions',
+            url='https://github.com/{repo}/actions?query=branch:{branch}',
+            badge=(
+                'https://github.com/{repo}/workflows/crossbow.yml/'
+                'badge.svg?branch={branch}'
+            ),
+        ),
+        'azure': _markdown_badge.format(
+            title='Azure',
+            url=(
+                'https://dev.azure.com/{repo}/_build/latest'
+                '?definitionId=1&branchName={branch}'
+            ),
+            badge=(
+                'https://dev.azure.com/{repo}/_apis/build/status/'
+                '{repo_dotted}?branchName={branch}'
+            )
+        ),
+        'travis': _markdown_badge.format(
+            title='TravisCI',
+            url='https://travis-ci.com/{repo}/branches',
+            badge='https://img.shields.io/travis/{repo}/{branch}.svg'
+        ),
+        'circle': _markdown_badge.format(
+            title='CircleCI',
+            url='https://circleci.com/gh/{repo}/tree/{branch}',
+            badge=(
+                'https://img.shields.io/circleci/build/github'
+                '/{repo}/{branch}.svg'
+            )
+        ),
+        'appveyor': _markdown_badge.format(
+            title='Appveyor',
+            url='https://ci.appveyor.com/project/{repo}/history',
+            badge='https://img.shields.io/appveyor/ci/{repo}/{branch}.svg'
+        ),
+        'drone': _markdown_badge.format(
+            title='Drone',
+            url='https://cloud.drone.io/{repo}',
+            badge='https://img.shields.io/drone/build/{repo}/{branch}.svg'
+        ),
+    }
+
+    def __init__(self, job, crossbow_repo):
+        self.crossbow_repo = crossbow_repo
+        super().__init__(job)
+
+    def show(self):
+        url = 'https://github.com/{repo}/branches/all?query={branch}'
+        sha = self.job.target.head
+
+        msg = 'Revision: {}\n\n'.format(sha)
+        msg += 'Submitted crossbow builds: [{repo} @ {branch}]'
+        msg += '({})\n'.format(url)
+        msg += '\n|Task|Status|\n|----|------|'
+
+        tasks = sorted(self.job.tasks.items(), key=operator.itemgetter(0))
+        for key, task in tasks:
+            branch = task.branch
+
+            try:
+                template = self.badges[task.ci]
+                badge = template.format(
+                    repo=self.crossbow_repo,
+                    repo_dotted=self.crossbow_repo.replace('/', '.'),
+                    branch=branch
+                )
+            except KeyError:
+                badge = 'unsupported CI service `{}`'.format(task.ci)
+
+            msg += '\n|{}|{}|'.format(key, badge)
+
+        return msg.format(repo=self.crossbow_repo, branch=self.job.branch)

@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import json
+import pathlib
+
+import yaml
 import pytest
 
 
@@ -44,3 +48,23 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if "integration" in item.keywords:
             item.add_marker(marker)
+
+
+@pytest.fixture
+def load_fixture(request):
+    current_test_directory = pathlib.Path(request.node.fspath).parent
+
+    def decoder(path):
+        with path.open('r') as fp:
+            if path.suffix == '.json':
+                return json.load(fp)
+            elif path.suffix == '.yaml':
+                return yaml.load(fp)
+            else:
+                return fp.read()
+
+    def loader(name, decoder=decoder):
+        path = current_test_directory / 'fixtures' / name
+        return decoder(path)
+
+    return loader

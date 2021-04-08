@@ -15,5 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from .core import Config, Repo, Queue, Target, Job  # noqa
-from .reports import CommentReport, ConsoleReport, EmailReport  # noqa
+import textwrap
+
+from archery.crossbow.core import yaml
+from archery.crossbow.reports import CommentReport
+
+
+def test_crossbow_comment_formatter(load_fixture):
+    msg = load_fixture('crossbow-success-message.md')
+    job = load_fixture('crossbow-job.yaml', decoder=yaml.load)
+
+    report = CommentReport(job, crossbow_repo='ursa-labs/crossbow')
+    expected = msg.format(
+        repo='ursa-labs/crossbow',
+        branch='ursabot-1',
+        revision='f766a1d615dd1b7ee706d05102e579195951a61c',
+        status='has been succeeded.'
+    )
+    assert report.show() == textwrap.dedent(expected).strip()
