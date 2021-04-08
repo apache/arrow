@@ -185,7 +185,7 @@ cdef class S3FileSystem(FileSystem):
     background_writes: boolean, default True
         Whether OutputStream writes will be issued in the background, without
         blocking.
-    proxy_options: dict, default None
+    proxy_options: dict or pyarrow._s3fs.S3ProxyOptions, default None
         If a proxy is used, provide the options here. Supported options are:
         'scheme' (str: 'http' or 'https'; required), 'host' (str; required), 
         'port' (int; required), 'username' (str; optional), 'password' (str; optional).
@@ -264,21 +264,30 @@ cdef class S3FileSystem(FileSystem):
             options.background_writes = background_writes
 
         if proxy_options is not None:
-            proxy_scheme = proxy_options.get("scheme", None)
-            if proxy_scheme:
-                options.proxy_options.scheme = tobytes(proxy_scheme)
-            proxy_host = proxy_options.get("host", None)
-            if proxy_host:
-                options.proxy_options.host = tobytes(proxy_host)
-            proxy_port = proxy_options.get("port", None)
-            if proxy_port:
-                options.proxy_options.port = proxy_port
-            proxy_username = proxy_options.get("username", None)
-            if proxy_username:
-                options.proxy_options.username = tobytes(proxy_username)
-            proxy_password = proxy_options.get("password", None)
-            if proxy_password:
-                options.proxy_options.password = tobytes(proxy_password)
+            if isinstance(proxy_options, dict):
+                proxy_scheme = proxy_options.get("scheme", None)
+                if proxy_scheme:
+                    options.proxy_options.scheme = tobytes(proxy_scheme)
+                proxy_host = proxy_options.get("host", None)
+                if proxy_host:
+                    options.proxy_options.host = tobytes(proxy_host)
+                proxy_port = proxy_options.get("port", None)
+                if proxy_port:
+                    options.proxy_options.port = proxy_port
+                proxy_username = proxy_options.get("username", None)
+                if proxy_username:
+                    options.proxy_options.username = tobytes(proxy_username)
+                proxy_password = proxy_options.get("password", None)
+                if proxy_password:
+                    options.proxy_options.password = tobytes(proxy_password)
+            elif isinstance(proxy_options, S3ProxyOptions):
+                options.proxy_options.scheme = tobytes(proxy_options.scheme)
+                options.proxy_options.host = tobytes(proxy_options.host)
+                options.proxy_options.port = proxy_options.port
+                options.proxy_options.username = tobytes(proxy_options.username)
+                options.proxy_options.password = tobytes(proxy_options.password)
+            else:
+                raise TypeError(f"'proxy_options' expected to be of type 'dict' or 'S3ProxyOptions', got {type(proxy_options)} instead.")
 
         with nogil:
             wrapped = GetResultValue(CS3FileSystem.Make(options))
