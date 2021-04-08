@@ -445,6 +445,13 @@ class DictionaryHashKernel : public HashKernel {
     if (!dictionary_) {
       dictionary_ = arr.dictionary;
     } else if (!MakeArray(dictionary_)->Equals(*MakeArray(arr.dictionary))) {
+      // NOTE: This approach computes a new dictionary unification per chunk.
+      // This is in effect O(n*k) where n is the total chunked array length and
+      // k is the number of chunks (therefore O(n**2) if chunks have a fixed size).
+      //
+      // A better approach may be to run the kernel over each individual chunk,
+      // and then hash-aggregate all results (for example sum-group-by for
+      // the "value_counts" kernel).
       auto out_dict_type = dictionary_->type;
       std::shared_ptr<Buffer> transpose_map;
       std::shared_ptr<Array> out_dict;
