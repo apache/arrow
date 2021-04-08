@@ -82,16 +82,11 @@ It’s recommended to make a build directory inside of the cpp directory of the 
 
 If you would like to use arrow from an alternative directory
 
-```{bash, save=run & macos & !sys_install}
+```{bash, save=run & !sys_install}
 export ARROW_HOME=$(pwd)/dist
 export LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH
-export INCLUDE_DIR=$(pwd)/dist/include
-export LIB_DIR=$(pwd)/dist/lib
-```
-
-```{bash, save=run & ubuntu & !sys_install}
-export ARROW_HOME=$(pwd)/dist
-export LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH
+export INCLUDE_DIR=$ARROW_HOME/include
+export LIB_DIR=$ARROW_HOME/lib
 ```
 
 ```{bash, save=run}
