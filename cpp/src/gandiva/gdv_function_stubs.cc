@@ -185,9 +185,10 @@ CAST_NUMERIC_FROM_STRING(double, arrow::DoubleType, FLOAT8)
 
 bool gdv_fn_is_date_utf8(const char* data, int64_t data_len) {
   int64_t out = 0;
-  return ::arrow::internal::ParseTimestampStrptime(
-      data, data_len, "%Y-%m-%d", /*ignore_time_in_day=*/false,
-      /*allow_trailing_chars=*/false, ::arrow::TimeUnit::SECOND, &out);
+  auto test = ::arrow::internal::ParseTimestampStrptime(
+      data, data_len, "%Y-%m-%d", /*ignore_time_in_day=*/true,
+      /*allow_trailing_chars=*/true, ::arrow::TimeUnit::SECOND, &out);
+  return test;
 }
 }
 
