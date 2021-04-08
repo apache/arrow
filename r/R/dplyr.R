@@ -402,6 +402,16 @@ build_function_list <- function(FUN) {
       opts$to_type <- as_type(target_type)
       FUN("cast", x, options = opts)
     },
+    dictionary_encode = function(x, null_encoding_behavior = c("mask", "encode")) {
+      null_encoding_behavior <-
+        NullEncodingBehavior[[toupper(match.arg(null_encoding_behavior))]]
+      FUN(
+        "dictionary_encode",
+        x,
+        options = list(null_encoding_behavior = null_encoding_behavior)
+      )
+    },
+    # as.factor() is mapped in expression.R
     as.character = function(x) {
       FUN("cast", x, options = cast_options(to_type = string()))
     },

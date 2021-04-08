@@ -202,6 +202,17 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
                                      cpp11::as_cpp<bool>(options["skip_nulls"]));
   }
 
+  if (func_name == "dictionary_encode") {
+    using Options = arrow::compute::DictionaryEncodeOptions;
+    auto out = std::make_shared<Options>(Options::Defaults());
+    if (!Rf_isNull(options["null_encoding_behavior"])) {
+      out->null_encoding_behavior = cpp11::as_cpp<
+          enum arrow::compute::DictionaryEncodeOptions::NullEncodingBehavior>(
+          options["null_encoding_behavior"]);
+    }
+    return out;
+  }
+
   if (func_name == "cast") {
     return make_cast_options(options);
   }
