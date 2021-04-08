@@ -247,13 +247,13 @@ inline T integer_power(KernelContext* ctx, T left, T right) {
   }
   while (true) {
     if (right % 2) {
-      result *= left;
+      result = to_unsigned(result) * to_unsigned(left);
     }
     right /= 2;
     if (!right) {
       break;
     }
-    left *= left;
+    left = to_unsigned(left) * to_unsigned(left);
   }
   return result;
 }
@@ -304,6 +304,20 @@ struct Power {
   template <typename T>
   static enable_if_floating_point<T> Call(KernelContext* ctx, T left, T right) {
     return power<T>(ctx, left, right);
+  }
+
+  // See comment about 16 bit integer multiplication in Multiply kernel.
+  template <typename T = void>
+  static int16_t Call(KernelContext* ctx, int16_t left, int16_t right) {
+    if (right < 0) {
+      ctx->SetStatus(
+          Status::Invalid("integers to negative integer powers are not allowed"));
+    }
+    return integer_power(ctx, static_cast<uint32_t>(left), static_cast<uint32_t>(right));
+  }
+  template <typename T = void>
+  static uint16_t Call(KernelContext* ctx, uint16_t left, uint16_t right) {
+    return integer_power(ctx, static_cast<uint32_t>(left), static_cast<uint32_t>(right));
   }
 };
 

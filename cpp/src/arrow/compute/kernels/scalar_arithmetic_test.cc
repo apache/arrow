@@ -673,7 +673,7 @@ TYPED_TEST(TestBinaryArithmeticSigned, Power) {
     // Empty arrays
     this->AssertBinop(Power, "[]", "[]", "[]");
     // Ordinary arrays
-    this->AssertBinop(Power, "[-3, 2, -6, 2]", "[1, 1, 2, 0]", "[-3, 2, 36, 1]");
+    this->AssertBinop(Power, "[-3, 2, -6, 2]", "[3, 1, 2, 0]", "[-27, 2, 36, 1]");
     // Array with nulls
     this->AssertBinop(Power, "[null, 10, 127, null, -20]", "[1, 2, 1, 5, 1]",
                       "[null, 100, 127, null, -20]");
