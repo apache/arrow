@@ -144,7 +144,7 @@ Array <- R6Class("Array",
       Array__RangeEquals(self, other, start_idx, end_idx, other_start_idx)
     },
     View = function(type) {
-      Array$create(Array__View(self, as_type(enexpr(type))))
+      Array$create(Array__View(self, as_type(eval(substitute(type)))))
     },
     Validate = function() Array__Validate(self)
   ),
@@ -155,8 +155,9 @@ Array <- R6Class("Array",
   )
 )
 Array$create <- function(x, type = NULL) {
+  type <- eval(substitute(type))
   if (!is.null(type)) {
-    type <- as_type(enexpr(type))
+    type <- as_type(type)
   }
   if (inherits(x, "Scalar")) {
     out <- x$as_array()

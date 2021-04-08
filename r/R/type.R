@@ -413,13 +413,11 @@ FixedSizeListType <- R6Class("FixedSizeListType",
 fixed_size_list_of <- function(type, list_size) fixed_size_list__(type, list_size)
 
 as_type <- function(type, name = "type") {
-  # quotation magic so we don't have to mask base::double() and to work around
-  # rlang possibly masking string(), etc.
-  double <- float64
-  if (!is.call(type)) type <- enexpr(type)
-  type <- eval(type)
+  # work around other packages possibly masking the Arrow data type functions,
+  # for example rlang masking string()
+  type <- eval(substitute(type))
 
-  # more magic just in case double() was evaluated before we could defuse it
+  # magic so we don't have to mask base::double()
   if (identical(type, double())) type <- float64()
 
   if (!inherits(type, "DataType")) {
