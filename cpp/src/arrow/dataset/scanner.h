@@ -263,7 +263,7 @@ class ARROW_DS_EXPORT Scanner {
   /// in a concurrent fashion and outlive the iterator.
   ///
   /// Note: Not supported by the async scanner
-  ARROW_DEPRECATED("Deprecated in 3.0.0 Use ScanBatches")
+  /// TODO(ARROW-11797) Deprecate Scan()
   virtual Result<ScanTaskIterator> Scan();
   /// \brief Convert a Scanner into a Table.
   ///
