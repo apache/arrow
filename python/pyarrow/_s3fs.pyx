@@ -233,7 +233,7 @@ cdef class S3FileSystem(FileSystem):
         if proxy_options is not None:
             proxy_scheme = proxy_options.get("scheme", None)
             if proxy_scheme:
-                options.proxy_options.schema = tobytes(proxy_scheme)
+                options.proxy_options.scheme = tobytes(proxy_scheme)
             proxy_host = proxy_options.get("host", None)
             if proxy_host:
                 options.proxy_options.host = tobytes(proxy_host)
