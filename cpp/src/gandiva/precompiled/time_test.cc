@@ -744,30 +744,30 @@ TEST(TestTime, TestLastDay) {
 }
 
 TEST(TestTime, TestToTimestamp) {
-  gdv_timestamp ts = StringToTimestamp("1970-01-01 00:00:00");
+  auto ts = StringToTimestamp("1970-01-01 00:00:00");
   auto seconds = 0;
-  EXPECT_EQ(ts, to_timestamp_date64(seconds));
-  EXPECT_EQ(ts, to_timestamp_timestamp(seconds));
+  EXPECT_EQ(ts, to_timestamp_int32(seconds));
+  EXPECT_EQ(ts, to_timestamp_int64(seconds));
 
   ts = StringToTimestamp("1970-01-01 00:00:01");
   seconds = 1;
-  EXPECT_EQ(ts, to_timestamp_date64(seconds));
-  EXPECT_EQ(ts, to_timestamp_timestamp(seconds));
+  EXPECT_EQ(ts, to_timestamp_int32(seconds));
+  EXPECT_EQ(ts, to_timestamp_int64(seconds));
 
   ts = StringToTimestamp("1970-01-01 00:01:00");
   seconds = 60;
-  EXPECT_EQ(ts, to_timestamp_date64(seconds));
-  EXPECT_EQ(ts, to_timestamp_timestamp(seconds));
+  EXPECT_EQ(ts, to_timestamp_int32(seconds));
+  EXPECT_EQ(ts, to_timestamp_int64(seconds));
 
   ts = StringToTimestamp("1970-01-01 01:00:00");
   seconds = 60 * 60;
-  EXPECT_EQ(ts, to_timestamp_date64(seconds));
-  EXPECT_EQ(ts, to_timestamp_timestamp(seconds));
+  EXPECT_EQ(ts, to_timestamp_int32(seconds));
+  EXPECT_EQ(ts, to_timestamp_int64(seconds));
 
   ts = StringToTimestamp("1970-01-02 00:00:00");
   seconds = 24 * 60 * 60;
-  EXPECT_EQ(ts, to_timestamp_date64(seconds));
-  EXPECT_EQ(ts, to_timestamp_timestamp(seconds));
+  EXPECT_EQ(ts, to_timestamp_int32(seconds));
+  EXPECT_EQ(ts, to_timestamp_int64(seconds));
 }
 
 }  // namespace gandiva

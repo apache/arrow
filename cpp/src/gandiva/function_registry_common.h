@@ -174,15 +174,6 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
   NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
                  date64(), kResultNullIfNull, ARROW_STRINGIFY(NAME##_from_##TYPE))
 
-// To timestamp functions (used with data/time types) that :
-// - NULL handling is of type NULL_IF_NULL
-//
-// The pre-compiled fn name includes the base name & input type name. eg:
-// - to_timestamp_date64
-#define TO_TIMESTAMP_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)                       \
-  NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
-                 timestamp(), kResultNullIfNull, ARROW_STRINGIFY(NAME##_##TYPE))
-
 // Hash32 functions that :
 // - NULL handling is of type NULL_NEVER
 //
@@ -238,12 +229,16 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
                  NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
 
 // Iterate the inner macro over all numeric types
-#define NUMERIC_TYPES(INNER, NAME, ALIASES)                                             \
+#define BASE_NUMERIC_TYPES(INNER, NAME, ALIASES)                                        \
   INNER(NAME, ALIASES, int8), INNER(NAME, ALIASES, int16), INNER(NAME, ALIASES, int32), \
       INNER(NAME, ALIASES, int64), INNER(NAME, ALIASES, uint8),                         \
       INNER(NAME, ALIASES, uint16), INNER(NAME, ALIASES, uint32),                       \
       INNER(NAME, ALIASES, uint64), INNER(NAME, ALIASES, float32),                      \
-      INNER(NAME, ALIASES, float64), INNER(NAME, ALIASES, decimal128)
+      INNER(NAME, ALIASES, float64)
+
+// Iterate the inner macro over all base numeric types
+#define NUMERIC_TYPES(INNER, NAME, ALIASES) \
+  BASE_NUMERIC_TYPES(INNER, NAME, ALIASES), INNER(NAME, ALIASES, decimal128)
 
 // Iterate the inner macro over numeric and date/time types
 #define NUMERIC_DATE_TYPES(INNER, NAME, ALIASES)                         \

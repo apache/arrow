@@ -40,6 +40,19 @@ extern "C" {
   INNER(date64)           \
   INNER(timestamp)
 
+// Expand inner macro for all base numeric types.
+#define NUMERIC_TYPES(INNER)                                                     \
+  INNER(int8)                                                                    \
+  INNER(int16)                                                                   \
+  INNER(int32)                                                                   \
+  INNER(int64)                                                                   \
+  INNER(uint8)                                                                   \
+  INNER(uint16)                                                                  \
+  INNER(uint32)                                                                  \
+  INNER(uint64)                                                                  \
+  INNER(float32)                                                                 \
+  INNER(float64)
+
 // Extract millennium
 #define EXTRACT_MILLENNIUM(TYPE)                            \
   FORCE_INLINE                                              \
@@ -834,6 +847,6 @@ gdv_int64 castBIGINT_daytimeinterval(gdv_day_time_interval in) {
     return static_cast<gdv_timestamp>(seconds) * MILLIS_IN_SEC; \
   }
 
-DATE_TYPES(TO_TIMESTAMP)
+NUMERIC_TYPES(TO_TIMESTAMP);
 
 }  // extern "C"
