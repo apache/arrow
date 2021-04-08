@@ -30,6 +30,8 @@ def test_crossbow_submit(tmp_path):
         return runner.invoke(crossbow, ['--queue-path', str(tmp_path), *args])
 
     # initialize an empty crossbow repository
+    git.run_cmd("config", "--global", "user.email", "archery@example.com")
+    git.run_cmd("config", "--global", "user.name", "Archery")
     git.run_cmd("init", str(tmp_path))
     git.run_cmd("-C", str(tmp_path), "remote", "add", "origin",
                 "https://github.com/dummy/repo")
