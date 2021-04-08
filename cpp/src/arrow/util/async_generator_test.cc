@@ -848,8 +848,9 @@ TEST_P(BackgroundGeneratorTestFixture, AbortReading) {
   ASSERT_FALSE(tracker.expired());
   // Remove last reference to generator, should trigger and wait for cleanup
   generator.reset();
-  // Cleanup should have ensured no more reference to the source
-  ASSERT_TRUE(tracker.expired());
+  // Cleanup should have ensured no more reference to the source.  It may take a moment
+  // to expire because the background thread has to destruct itself
+  BusyWait(10, [&tracker] { return tracker.expired(); });
 }
 
 TEST_P(BackgroundGeneratorTestFixture, AbortOnIdleBackground) {
