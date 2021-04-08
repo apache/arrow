@@ -54,8 +54,10 @@ jobs:
           python-version: '3.6'
       - name: Install Archery, Crossbow- and Test Dependencies
         run: pip install pytest responses -e dev/archery[all]
-      - name: Create an Empty Crossbow Repository
-        run: git init ../crossbow
+      - name: Git Config
+        run: |
+          git config --global user.email "you@example.com"
+          git config --global user.name "Your Name"
       - name: Archery Unittests
         working-directory: dev/archery
         run: pytest -v --enable-integration archery
