@@ -89,6 +89,12 @@ export INCLUDE_DIR=$ARROW_HOME/include
 export LIB_DIR=$ARROW_HOME/lib
 ```
 
+On linux, you will need to set `LD_LIBRARY_PATH` to this same directory before launching R and using Arrow. One way to do this is to add it to your profile. # TODO: do we want to recommend this? 
+
+```{bash, save=run & ubuntu & !sys_install}
+echo "export LD_LIBRARY_PATH=$(pwd)/dist/lib" >> ~/.profile
+```
+
 TODO: how to add these vars separated by colons if they have other things in them already (eg LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH)
 
 ```{bash, save=run}
@@ -114,7 +120,7 @@ cmake \
   -DARROW_WITH_SNAPPY=ON \
   -DARROW_WITH_ZLIB=ON \
   -DARROW_INSTALL_NAME_RPATH=OFF \
-  -DBoost_SOURCE=BUNDLED \
+  -DARROW_BOOST_USE_SHARED=OFF \
   ..
 ```
 
