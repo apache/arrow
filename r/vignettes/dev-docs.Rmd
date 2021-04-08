@@ -84,10 +84,12 @@ If you would like to use arrow from an alternative directory
 
 ```{bash, save=run & !sys_install}
 export ARROW_HOME=$(pwd)/dist
-export LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$(pwd)/dist/lib
 export INCLUDE_DIR=$ARROW_HOME/include
 export LIB_DIR=$ARROW_HOME/lib
 ```
+
+TODO: how to add these vars separated by colons if they have other things in them already (eg LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH)
 
 ```{bash, save=run}
 cd arrow/cpp
@@ -112,7 +114,7 @@ cmake \
   -DARROW_WITH_SNAPPY=ON \
   -DARROW_WITH_ZLIB=ON \
   -DARROW_INSTALL_NAME_RPATH=OFF \
-  -DBOOST_SOURCE=BUNDLED \
+  -DBoost_SOURCE=BUNDLED \
   ..
 ```
 
@@ -154,7 +156,8 @@ To enable optional features including S3 support, an alternative memory allocato
 Other flags that may be useful:
 
 * `-DARROW_EXTRA_ERROR_CONTEXT=ON` makes errors coming from the C++ library point to files and line numbers
-* `-DBOOST_SOURCE=BUNDLED`, for example, or any other dependency `*_SOURCE`, if you have a system version of a C++ dependency that doesn't work correctly with Arrow. This tells the build to compile its own version of the dependency from source.
+* `-DBoost_SOURCE=BUNDLED`, for example, or any other dependency `*_SOURCE`, if you have a system version of a C++ dependency that doesn't work correctly with Arrow. This tells the build to compile its own version of the dependency from source. # TODO: BOOST_SOURCE is supposed to be accepted, is it???
+
 
 ### Now actually build Arrow
 
