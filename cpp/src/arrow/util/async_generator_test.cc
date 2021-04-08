@@ -815,7 +815,8 @@ TEST_P(BackgroundGeneratorTestFixture, StopAndRestart) {
 }
 
 struct TrackingIterator {
-  TrackingIterator(bool slow) : token(std::make_shared<bool>(false)), slow(slow) {}
+  explicit TrackingIterator(bool slow)
+      : token(std::make_shared<bool>(false)), slow(slow) {}
 
   Result<TestInt> Next() {
     if (slow) {
