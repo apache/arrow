@@ -366,6 +366,7 @@ services:
       ARROW_FUZZING: "ON"  # Check fuzz regressions
       ARROW_JEMALLOC: "OFF"
       ARROW_ORC: "OFF"
+      ARROW_S3: "OFF"
       ARROW_USE_ASAN: "ON"
       ARROW_USE_UBSAN: "ON"
       # utf8proc 2.1.0 in Ubuntu Bionic has test failures
