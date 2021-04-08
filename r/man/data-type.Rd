@@ -135,8 +135,8 @@ A few functions have aliases:
 \item \code{float16()} and \code{halffloat()}
 \item \code{float32()} and \code{float()}
 \item \code{bool()} and \code{boolean()}
-\item Called from \code{schema()} or \code{struct()}, \code{double()} also is supported as a
-way of creating a \code{float64()}
+\item Called from \code{schema()} or \code{struct()} or from \code{cast()} in a dplyr verb,
+\code{double()} also is supported as a way of creating a \code{float64()}
 }
 
 \code{date32()} creates a datetime type with a "day" unit, like the R \code{Date}
