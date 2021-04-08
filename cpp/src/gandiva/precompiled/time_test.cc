@@ -745,71 +745,66 @@ TEST(TestTime, TestLastDay) {
 
 TEST(TestTime, TestToTimestamp) {
   auto ts = StringToTimestamp("1970-01-01 00:00:00");
-  auto seconds = 0;
-  EXPECT_EQ(ts, to_timestamp_int32(seconds));
-  EXPECT_EQ(ts, to_timestamp_int64(seconds));
-  EXPECT_EQ(ts, to_timestamp_float32(seconds));
-  EXPECT_EQ(ts, to_timestamp_float64(seconds));
+  EXPECT_EQ(ts, to_timestamp_int32(0));
+  EXPECT_EQ(ts, to_timestamp_int64(0));
+  EXPECT_EQ(ts, to_timestamp_float32(0));
+  EXPECT_EQ(ts, to_timestamp_float64(0));
 
   ts = StringToTimestamp("1970-01-01 00:00:01");
-  seconds = 1;
-  EXPECT_EQ(ts, to_timestamp_int32(seconds));
-  EXPECT_EQ(ts, to_timestamp_int64(seconds));
-  EXPECT_EQ(ts, to_timestamp_float32(seconds));
-  EXPECT_EQ(ts, to_timestamp_float64(seconds));
+  EXPECT_EQ(ts, to_timestamp_int32(1));
+  EXPECT_EQ(ts, to_timestamp_int64(1));
+  EXPECT_EQ(ts, to_timestamp_float32(1));
+  EXPECT_EQ(ts, to_timestamp_float64(1));
 
   ts = StringToTimestamp("1970-01-01 00:01:00");
-  seconds = 60;
-  EXPECT_EQ(ts, to_timestamp_int32(seconds));
-  EXPECT_EQ(ts, to_timestamp_int64(seconds));
-  EXPECT_EQ(ts, to_timestamp_float32(seconds));
-  EXPECT_EQ(ts, to_timestamp_float64(seconds));
+  EXPECT_EQ(ts, to_timestamp_int32(60));
+  EXPECT_EQ(ts, to_timestamp_int64(60));
+  EXPECT_EQ(ts, to_timestamp_float32(60));
+  EXPECT_EQ(ts, to_timestamp_float64(60));
 
   ts = StringToTimestamp("1970-01-01 01:00:00");
-  seconds = 60 * 60;
-  EXPECT_EQ(ts, to_timestamp_int32(seconds));
-  EXPECT_EQ(ts, to_timestamp_int64(seconds));
-  EXPECT_EQ(ts, to_timestamp_float32(seconds));
-  EXPECT_EQ(ts, to_timestamp_float64(seconds));
+  EXPECT_EQ(ts, to_timestamp_int32(3600));
+  EXPECT_EQ(ts, to_timestamp_int64(3600));
+  EXPECT_EQ(ts, to_timestamp_float32(3600));
+  EXPECT_EQ(ts, to_timestamp_float64(3600));
 
   ts = StringToTimestamp("1970-01-02 00:00:00");
-  seconds = 24 * 60 * 60;
-  EXPECT_EQ(ts, to_timestamp_int32(seconds));
-  EXPECT_EQ(ts, to_timestamp_int64(seconds));
-  EXPECT_EQ(ts, to_timestamp_float32(seconds));
-  EXPECT_EQ(ts, to_timestamp_float64(seconds));
+  EXPECT_EQ(ts, to_timestamp_int32(86400));
+  EXPECT_EQ(ts, to_timestamp_int64(86400));
+  EXPECT_EQ(ts, to_timestamp_float32(86400));
+  EXPECT_EQ(ts, to_timestamp_float64(86400));
 }
 
 TEST(TestTime, TestToTimeNumeric) {
   auto millis = 0;
-  EXPECT_EQ(millis, to_time_int32(millis));
-  EXPECT_EQ(millis, to_time_int64(millis));
-  EXPECT_EQ(millis, to_time_float32(millis));
-  EXPECT_EQ(millis, to_time_float64(millis));
+  EXPECT_EQ(millis, to_time_int32(0));
+  EXPECT_EQ(millis, to_time_int64(0));
+  EXPECT_EQ(millis, to_time_float32(0));
+  EXPECT_EQ(millis, to_time_float64(0));
 
   millis = 1000;
-  EXPECT_EQ(millis, to_time_int32(millis));
-  EXPECT_EQ(millis, to_time_int64(millis));
-  EXPECT_EQ(millis, to_time_float32(millis));
-  EXPECT_EQ(millis, to_time_float64(millis));
+  EXPECT_EQ(millis, to_time_int32(1000));
+  EXPECT_EQ(millis, to_time_int64(1000));
+  EXPECT_EQ(millis, to_time_float32(1000));
+  EXPECT_EQ(millis, to_time_float64(1000));
 
   millis = 600000;
-  EXPECT_EQ(millis, to_time_int32(millis));
-  EXPECT_EQ(millis, to_time_int64(millis));
-  EXPECT_EQ(millis, to_time_float32(millis));
-  EXPECT_EQ(millis, to_time_float64(millis));
+  EXPECT_EQ(millis, to_time_int32(600000));
+  EXPECT_EQ(millis, to_time_int64(600000));
+  EXPECT_EQ(millis, to_time_float32(600000));
+  EXPECT_EQ(millis, to_time_float64(600000));
 
   millis = 360000;
-  EXPECT_EQ(millis, to_time_int32(millis));
-  EXPECT_EQ(millis, to_time_int64(millis));
-  EXPECT_EQ(millis, to_time_float32(millis));
-  EXPECT_EQ(millis, to_time_float64(millis));
+  EXPECT_EQ(millis, to_time_int32(360000));
+  EXPECT_EQ(millis, to_time_int64(360000));
+  EXPECT_EQ(millis, to_time_float32(360000));
+  EXPECT_EQ(millis, to_time_float64(360000));
 
   millis = 86400000;
-  EXPECT_EQ(millis, to_time_int32(millis));
-  EXPECT_EQ(millis, to_time_int64(millis));
-  EXPECT_EQ(millis, to_time_float32(millis));
-  EXPECT_EQ(millis, to_time_float64(millis));
+  EXPECT_EQ(millis, to_time_int32(86400000));
+  EXPECT_EQ(millis, to_time_int64(86400000));
+  EXPECT_EQ(millis, to_time_float32(86400000));
+  EXPECT_EQ(millis, to_time_float64(86400000));
 }
 
 }  // namespace gandiva
