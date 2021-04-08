@@ -268,10 +268,23 @@ class ARROW_DS_EXPORT Scanner {
   /// Use this convenience utility with care. This will serially materialize the
   /// Scan result in memory before creating the Table.
   virtual Result<std::shared_ptr<Table>> ToTable() = 0;
+  /// \brief Scan the dataset into a stream of record batches.  Each batch is tagged
+  /// with the fragment it originated from.  The batches will arrive in order.  The
+  /// order of fragments is determined by the dataset.
+  ///
+  /// Note: The scanner will perform some readahead but will avoid materializing too
+  /// much in memory (this is goverended by the readahead options and use_threads option).
+  /// If the readahead queue fills up then I/O will pause until the calling thread catches
+  /// up.
   virtual Result<TaggedRecordBatchIterator> ScanBatches() = 0;
+  /// \brief Scan the dataset into a stream of record batches.  Unlike ScanBatches this
+  /// method may allow record batches to be returned out of order.  This allows for more
+  /// efficient scanning some fragments may be accessed more quickly than others (e.g. may
+  /// be cached in RAM or just happen to get scheduled earlier by the I/O)
+  ///
+  /// To make up for the out-of-order iteration each batch is further tagged with
+  /// positional information.
   virtual Result<EnumeratedRecordBatchIterator> ScanBatchesUnordered();
-  virtual Result<TaggedRecordBatchGenerator> ScanBatchesAsync();
-  virtual Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync();
 
   virtual const std::shared_ptr<ScanOptions>& options() const { return scan_options_; }
 
@@ -292,7 +305,6 @@ class ARROW_DS_EXPORT SyncScanner : public Scanner {
       : fragment_(std::move(fragment)), scan_options_(std::move(scan_options)) {}
 
   Result<TaggedRecordBatchIterator> ScanBatches() override;
-  Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync() override;
 
   Result<ScanTaskIterator> Scan() override;
 

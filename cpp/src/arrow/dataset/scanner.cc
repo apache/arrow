@@ -70,18 +70,6 @@ Result<RecordBatchGenerator> ScanTask::ExecuteAsync(internal::Executor*) {
 
 bool ScanTask::supports_async() const { return false; }
 
-Result<TaggedRecordBatchGenerator> Scanner::ScanBatchesAsync() {
-  // TODO(ARROW-12289) A default implementation based on
-  // Scanner::ScanBatchesUnorderedAsync() will be provided in Scanner
-  return Status::NotImplemented("This scanner does not support asynchronous scanning");
-};
-
-Result<EnumeratedRecordBatchGenerator> Scanner::ScanBatchesUnorderedAsync() {
-  // TODO(ARROW-12289) This is the primary override for the async scanner, all other scan
-  // methods will be based on this
-  return Status::NotImplemented("This scanner does not support asynchronous scanning");
-}
-
 Result<ScanTaskIterator> Scanner::Scan() {
   // TODO(ARROW-12289) This is overridden in SyncScanner and will never be implemented in
   // AsyncScanner.  It is deprecated and will eventually go away.
@@ -177,14 +165,6 @@ Result<TaggedRecordBatchIterator> SyncScanner::ScanBatches() {
     std::shared_ptr<ScanTask> current_task;
   };
   return TaggedRecordBatchIterator(BatchIter(std::move(scan_task_it)));
-}
-
-Result<EnumeratedRecordBatchGenerator> SyncScanner::ScanBatchesUnorderedAsync() {
-  // TODO(ARROW-12289) This will never be implemented and will remain this way until
-  // the SyncScanner goes away.  Since the async interfaces are not publically exposed
-  // this should be fine.
-  return Status::NotImplemented(
-      "Asynchronous dataset scanning is not supported by the synchronous scanner");
 }
 
 Result<FragmentIterator> SyncScanner::GetFragments() {
