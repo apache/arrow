@@ -307,19 +307,22 @@ def submit(obj, tasks, groups, params, arrow_version):
 
     See groups defined in arrow/dev/tasks/tests.yml
     """
+    crossbow_repo = obj['crossbow_repo']
+    pull_request = obj['pull_request']
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         arrow, queue = _clone_arrow_and_crossbow(
             dest=Path(tmpdir),
-            crossbow_repo=obj['crossbow_repo'],
-            pull_request=obj['pull_request']
+            crossbow_repo=crossbow_repo,
+            pull_request=pull_request,
         )
         # load available tasks configuration and groups from yaml
         config = Config.load_yaml(arrow.path / "dev" / "tasks" / "tasks.yml")
         config.validate()
 
         # initialize the crossbow build's target repository
-        target = Target.from_repo(arrow, version=arrow_version)
+        target = Target.from_repo(arrow, version=arrow_version,
+                                  remote=pull_request.base.repo.clone_url)
 
         # parse additional job parameters
         params = dict([p.split("=") for p in params])
@@ -333,8 +336,8 @@ def submit(obj, tasks, groups, params, arrow_version):
         queue.push()
 
         # render the response comment's content
-        formatter = CrossbowCommentFormatter(obj['crossbow_repo'])
+        formatter = CrossbowCommentFormatter(crossbow_repo)
         response = formatter.render(job)
 
         # send the response
-        obj['pull_request'].create_issue_comment(response)
+        pull_request.create_issue_comment(response)
