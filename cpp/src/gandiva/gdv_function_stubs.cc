@@ -42,6 +42,7 @@
 #include "gandiva/precompiled/types.h"
 #include "gandiva/random_generator_holder.h"
 #include "gandiva/to_date_functions_holder.h"
+#include "gandiva/precompiled/epoch_time_point.h"
 #include "gandiva/replace_holder.h"
 
 /// Stub functions that can be accessed from LLVM or the pre-compiled library.
@@ -158,17 +159,27 @@ int64_t gdv_fn_to_date_utf8_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
   return (*holder)(context, data, data_len, in1_validity, out_valid);
 }
 
-int64_t gdv_fn_to_time_utf8_utf8(int64_t context_ptr, int64_t holder_ptr,
+// The TO_TIME functions returns the number of milliseconds since midnight
+int32_t gdv_fn_to_time_utf8_utf8(int64_t context_ptr, int64_t holder_ptr,
                                  const char* data, int data_len, bool in1_validity,
                                  const char* pattern, int pattern_len, bool in2_validity,
                                  bool* out_valid) {
   gandiva::ExecutionContext* context =
       reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
   gandiva::ToTimeHolder* holder = reinterpret_cast<gandiva::ToTimeHolder*>(holder_ptr);
-  return (*holder)(context, data, data_len, in1_validity, out_valid);
+
+  int64_t millis_since_epoch = (*holder)(context, data, data_len, in1_validity, out_valid);
+
+  EpochTimePoint base_epoch(millis_since_epoch);
+  EpochTimePoint base_epoch_without_time = base_epoch.ClearTimeOfDay();
+
+  int64_t millis_since_midnight = base_epoch.MillisSinceEpoch() -
+                                  base_epoch_without_time.MillisSinceEpoch();
+
+  return static_cast<int32_t>(millis_since_midnight);
 }
 
-int64_t gdv_fn_to_time_utf8_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
+int32_t gdv_fn_to_time_utf8_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
                                        const char* data, int data_len, bool in1_validity,
                                        const char* pattern, int pattern_len,
                                        bool in2_validity, int32_t suppress_errors,
@@ -176,7 +187,16 @@ int64_t gdv_fn_to_time_utf8_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
   gandiva::ExecutionContext* context =
       reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
   gandiva::ToTimeHolder* holder = reinterpret_cast<gandiva::ToTimeHolder*>(holder_ptr);
-  return (*holder)(context, data, data_len, in1_validity, out_valid);
+
+  int64_t millis_since_epoch = (*holder)(context, data, data_len, in1_validity, out_valid);
+
+  EpochTimePoint base_epoch(millis_since_epoch);
+  EpochTimePoint base_epoch_without_time = base_epoch.ClearTimeOfDay();
+
+  int64_t millis_since_midnight = base_epoch.MillisSinceEpoch() -
+      base_epoch_without_time.MillisSinceEpoch();
+
+  return static_cast<int32_t>(millis_since_midnight);
 }
 
 int64_t gdv_fn_to_timestamp_utf8_utf8(int64_t context_ptr, int64_t holder_ptr,
@@ -1495,7 +1515,7 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
           types->ptr_type(types->i8_type())};  // bool* out_valid
 
   engine->AddGlobalMappingForFunc("gdv_fn_to_time_utf8_utf8",
-                                  types->i64_type() /*return_type*/, args,
+                                  types->i32_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_to_time_utf8_utf8));
 
   // gdv_fn_to_time_utf8_utf8_int32
@@ -1512,7 +1532,7 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
           types->ptr_type(types->i8_type())};  // bool* out_valid
 
   engine->AddGlobalMappingForFunc(
-      "gdv_fn_to_time_utf8_utf8_int32", types->i64_type() /*return_type*/, args,
+      "gdv_fn_to_time_utf8_utf8_int32", types->i32_type() /*return_type*/, args,
       reinterpret_cast<void*>(gdv_fn_to_time_utf8_utf8_int32));
 
   // gdv_fn_to_timestamp_utf8_utf8
