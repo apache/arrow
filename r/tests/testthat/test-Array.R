@@ -381,40 +381,6 @@ test_that("Array$create() supports the type= argument. conversion from INTSXP an
     Array$create(5, type = "not a type"),
     "type must be a DataType, not character"
   )
-
-  # Works when type function is masked
-  string <- rlang::string
-  expect_type_equal(
-    Array$create("abc", type = string()),
-    arrow::string()
-  )
-  rm(string)
-
-  # Works when with non-Arrow function that returns an Arrow type
-  # when the non-Arrow function has the same name as a base R function...
-  str <- arrow::string
-  expect_type_equal(
-    Array$create("abc", type = str()),
-    arrow::string()
-  )
-  rm(str)
-
-  # ... and when it has the same name as an Arrow function
-  type <- arrow::string
-  expect_type_equal(
-    Array$create("abc", type = type()),
-    arrow::string()
-  )
-  rm(type)
-
-  # Works with local variable whose value is an Arrow type
-  type <- arrow::string()
-  expect_type_equal(
-    Array$create("abc", type = type),
-    arrow::string()
-  )
-  rm(type)
-
 })
 
 test_that("Array$create() aborts on overflow", {

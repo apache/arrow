@@ -398,7 +398,7 @@ build_function_list <- function(FUN) {
     # Plus some special handling where it's not 1:1
     cast = function(x, target_type, safe = TRUE, ...) {
       opts <- cast_options(safe, ...)
-      opts$to_type <- as_type(enexpr(target_type))
+      opts$to_type <- as_type(target_type)
       FUN("cast", x, options = opts)
     },
     dictionary_encode = function(x, null_encoding_behavior = c("mask", "encode")) {

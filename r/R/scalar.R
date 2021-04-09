@@ -54,7 +54,7 @@ Scalar$create <- function(x, type = NULL) {
     # Wrap in a list type
     x <- list(x)
   }
-  Array__GetScalar(Array$create(x, type = enexpr(type)), 0)
+  Array__GetScalar(Array$create(x, type = type), 0)
 }
 
 #' @rdname array

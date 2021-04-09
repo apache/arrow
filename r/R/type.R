@@ -413,37 +413,15 @@ FixedSizeListType <- R6Class("FixedSizeListType",
 fixed_size_list_of <- function(type, list_size) fixed_size_list__(type, list_size)
 
 as_type <- function(type, name = "type") {
-  # work around other packages possibly masking the Arrow data type functions,
-  # for example rlang masking string()
-  type <- unmask_type_fun(type)
-
   # magic so we don't have to mask base::double()
   if (identical(type, double())) {
     type <- float64()
   }
-
-  if (!is.null(type) && !inherits(type, "DataType")) {
+  if (!inherits(type, "DataType")) {
     stop(name, " must be a DataType, not ", class(type), call. = FALSE)
   }
   type
 }
-
-unmask_type_fun <- function(expr) {
-  # if `expr` is an unevaluated expression, try to evaluate it here in the arrow
-  # package environment. If that fails or returns something that is not a
-  # DataType, then evaluate it in the calling environment outside of the arrow
-  # package.
-  if (is.call(expr)) {
-    type <- tryCatch(eval(expr), error = function(e) NULL)
-    if (inherits(type, "DataType")) return(type)
-  }
-  i <- 2L
-  while (identical(packageName(parent.frame(i)), "arrow")) {
-    i <- i + 1L
-  }
-  eval.parent(expr, n = i)
-}
-
 
 # vctrs support -----------------------------------------------------------
 str_dup <- function(x, times) {
