@@ -386,7 +386,7 @@ test_that("Array$create() supports the type= argument. conversion from INTSXP an
   string <- rlang::string
   expect_type_equal(
     Array$create("abc", type = string()),
-    as_type(arrow::string())
+    arrow::string()
   )
   rm(string)
 
@@ -394,7 +394,7 @@ test_that("Array$create() supports the type= argument. conversion from INTSXP an
   str <- arrow::string
   expect_type_equal(
     Array$create("abc", type = str()),
-    as_type(arrow::string())
+    arrow::string()
   )
   rm(str)
 
