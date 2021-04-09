@@ -117,7 +117,7 @@ cdef class S3ProxyOptions:
 
         The following two calls are equivalent
         * S3ProxyOptions.from_uri('http://username:password@localhost:8020')
-        * S3ProxyOptions(scheme='http', host='localhost', port=8020, 
+        * S3ProxyOptions(scheme='http', host='localhost', port=8020,
                          username='username', password='password')
 
         Parameters
@@ -188,8 +188,9 @@ cdef class S3FileSystem(FileSystem):
         blocking.
     proxy_options: dict or pyarrow._s3fs.S3ProxyOptions, default None
         If a proxy is used, provide the options here. Supported options are:
-        'scheme' (str: 'http' or 'https'; required), 'host' (str; required), 
-        'port' (int; required), 'username' (str; optional), 'password' (str; optional).
+        'scheme' (str: 'http' or 'https'; required), 'host' (str; required),
+        'port' (int; required), 'username' (str; optional),
+        'password' (str; optional).
     """
 
     cdef:
@@ -291,7 +292,8 @@ cdef class S3FileSystem(FileSystem):
                     proxy_options.password)
             else:
                 raise TypeError(
-                    f"'proxy_options' expected to be of type 'dict' or 'S3ProxyOptions', got {type(proxy_options)} instead.")
+                    "'proxy_options': expected 'dict' or 'S3ProxyOptions', "
+                    f"got {type(proxy_options)} instead.")
 
         with nogil:
             wrapped = GetResultValue(CS3FileSystem.Make(options))
