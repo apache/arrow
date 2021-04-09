@@ -448,7 +448,7 @@ Future<> WriteInternal(const ScanOptions& scan_options, WriteState& state,
       });
     }
   }
-  RETURN_NOT_OK(task_group->Finish());
+  scan_futs.push_back(task_group->FinishAsync());
   return AllComplete(scan_futs);
 }
 

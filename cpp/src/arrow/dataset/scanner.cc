@@ -241,17 +241,15 @@ Future<std::shared_ptr<Table>> Scanner::ToTableInternal(
     }
   }
   auto scan_options = scan_options_;
-  // Wait for all async tasks to complete, or the first error
+  scan_futures.push_back(task_group->FinishAsync());
+  // Wait for all tasks to complete, or the first error
   return AllComplete(scan_futures)
-      .Then([task_group, scan_options,
-             state](const detail::Empty&) -> Result<std::shared_ptr<Table>> {
-        // Wait for all sync tasks to complete, or the first error.
-        RETURN_NOT_OK(task_group->Finish());
-
-        return Table::FromRecordBatches(
-            scan_options->projected_schema,
-            FlattenRecordBatchVector(std::move(state->batches)));
-      });
+      .Then(
+          [scan_options, state](const detail::Empty&) -> Result<std::shared_ptr<Table>> {
+            return Table::FromRecordBatches(
+                scan_options->projected_schema,
+                FlattenRecordBatchVector(std::move(state->batches)));
+          });
 }
 
 }  // namespace dataset
