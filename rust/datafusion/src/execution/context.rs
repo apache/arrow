@@ -2837,6 +2837,52 @@ mod tests {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn create_external_table_with_timestamps() {
+        let mut ctx = ExecutionContext::new();
+
+        let data = "Jorge,2018-12-13T12:12:10.011\n\
+                    Andrew,2018-11-13T17:11:10.011";
+
+        let tmp_dir = TempDir::new().unwrap();
+        let file_path = tmp_dir.path().join("timestamps.csv");
+
+        // scope to ensure the file is closed and written
+        {
+            File::create(&file_path)
+                .expect("creating temp file")
+                .write_all(data.as_bytes())
+                .expect("writing data");
+        }
+
+        let sql = format!(
+            "CREATE EXTERNAL TABLE csv_with_timestamps (
+                  name VARCHAR,
+                  ts TIMESTAMP
+              )
+              STORED AS CSV
+              LOCATION '{}'
+              ",
+            file_path.to_str().expect("path is utf8")
+        );
+
+        plan_and_collect(&mut ctx, &sql)
+            .await
+            .expect("Executing CREATE EXTERNAL TABLE");
+
+        let sql = "SELECT * from csv_with_timestamps";
+        let result = plan_and_collect(&mut ctx, &sql).await.unwrap();
+        let expected = vec![
+            "+--------+-------------------------+",
+            "| name   | ts                      |",
+            "+--------+-------------------------+",
+            "| Andrew | 2018-11-13 17:11:10.011 |",
+            "| Jorge  | 2018-12-13 12:12:10.011 |",
+            "+--------+-------------------------+",
+        ];
+        assert_batches_sorted_eq!(expected, &result);
+    }
+
     struct MyPhysicalPlanner {}
 
     impl PhysicalPlanner for MyPhysicalPlanner {
@@ -2869,10 +2915,7 @@ mod tests {
         ctx: &mut ExecutionContext,
         sql: &str,
     ) -> Result<Vec<RecordBatch>> {
-        let logical_plan = ctx.create_logical_plan(sql)?;
-        let logical_plan = ctx.optimize(&logical_plan)?;
-        let physical_plan = ctx.create_physical_plan(&logical_plan)?;
-        collect(physical_plan).await
+        ctx.sql(sql)?.collect().await
     }
 
     /// Execute SQL and return results
