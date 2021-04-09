@@ -2889,8 +2889,6 @@ mod tests {
             file_path.to_str().expect("path is utf8")
         );
 
-        println!("{}", sql);
-
         plan_and_collect(&mut ctx, &sql)
             .await
             .expect("Executing CREATE EXTERNAL TABLE");
