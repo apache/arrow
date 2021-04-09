@@ -90,7 +90,7 @@ Result<EnumeratedRecordBatchIterator> Scanner::AddPositioningToInOrderScan(
     return MakeEmptyIterator<EnumeratedRecordBatch>();
   }
   struct State {
-    State(TaggedRecordBatchIterator source, TaggedRecordBatch first)
+    State(TaggedRecordBatchIterator source)
         : source(std::move(source)),
           batch_index(1),
           finished(false),
@@ -101,7 +101,7 @@ Result<EnumeratedRecordBatchIterator> Scanner::AddPositioningToInOrderScan(
     bool finished;
     TaggedRecordBatch prev_batch;
   };
-  struct TaggingIterator {
+  struct EnumeratingIterator {
     Result<EnumeratedRecordBatch> Next() {
       if (state->finished) {
         return IterationEnd<EnumeratedRecordBatch>();
@@ -132,7 +132,7 @@ Result<EnumeratedRecordBatchIterator> Scanner::AddPositioningToInOrderScan(
     std::shared_ptr<State> state;
   };
   return EnumeratedRecordBatchIterator(
-      TaggingIterator{std::make_shared<State>(std::move(scan), std::move(first))});
+      EnumeratingIterator{std::make_shared<State>(std::move(scan), std::move(first))});
 }
 
 Result<TaggedRecordBatchIterator> SyncScanner::ScanBatches() {
