@@ -1831,8 +1831,8 @@ tasks:
     ci: azure
     template: r/azure.linux.yml
     params:
-      r_org: rocker
-      r_image: r-base
+      r_org: rhub
+      r_image: ubuntu-gcc-release
       r_tag: latest
       libarrow_download: "FALSE"
       libarrow_build: "FALSE"

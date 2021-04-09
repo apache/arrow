@@ -39,9 +39,15 @@ if [ "$ARROW_R_DEV" = "TRUE" ]; then
 fi
 : ${TEST_R_WITH_ARROW:=TRUE}
 export TEST_R_WITH_ARROW=$TEST_R_WITH_ARROW
-export _R_CHECK_TESTS_NLINES_=0
+
 export _R_CHECK_CRAN_INCOMING_REMOTE_=FALSE
+# --run-donttest was used in R < 4.0, this is used now
+export _R_CHECK_DONTTEST_EXAMPLES_=$TEST_R_WITH_ARROW
+# Not all Suggested packages are needed for checking, so in case they aren't installed don't fail
+export _R_CHECK_FORCE_SUGGESTS_=FALSE
 export _R_CHECK_LIMIT_CORES_=FALSE
+export _R_CHECK_TESTS_NLINES_=0
+
 # By default, aws-sdk tries to contact a non-existing local ip host
 # to retrieve metadata. Disable this so that S3FileSystem tests run faster.
 export AWS_EC2_METADATA_DISABLED=TRUE
@@ -49,9 +55,6 @@ export AWS_EC2_METADATA_DISABLED=TRUE
 # Hack so that texlive2020 doesn't pollute the home dir
 export TEXMFCONFIG=/tmp/texmf-config
 export TEXMFVAR=/tmp/texmf-var
-
-# Not all Suggested packages are needed for checking, so in case they aren't installed don't fail
-export _R_CHECK_FORCE_SUGGESTS_=FALSE
 
 if [[ "$DEVTOOLSET_VERSION" -gt 0 ]]; then
   # enable the devtoolset version to use it
@@ -62,7 +65,7 @@ fi
 BEFORE=$(ls -alh ~/)
 
 SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
-  run_donttest <- identical(tolower(Sys.getenv('TEST_R_WITH_ARROW', 'true')), 'true')
+  run_donttest <- identical(tolower(Sys.getenv('_R_CHECK_DONTTEST_EXAMPLES_', 'true')), 'true')
   if (as_cran) {
     rcmdcheck::rcmdcheck(args = c('--as-cran', if (run_donttest) '--run-donttest'), error_on = 'warning', check_dir = 'check', timeout = 3600)
   } else {
