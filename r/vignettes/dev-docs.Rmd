@@ -198,11 +198,18 @@ Once you’ve built the C++ library, you can install the R package and its
 dependencies, along with additional dev dependencies, from the git
 checkout:
 
-```{bash, save=run}
+```{bash, save=run & (sys_install | ubuntu)}
 cd ../../r
 R -e 'install.packages("remotes"); remotes::install_deps(dependencies = TRUE)'
 
 R CMD INSTALL .
+```
+
+```{bash, save=run & (!sys_install & macos)}
+cd ../../r
+R -e 'install.packages("remotes"); remotes::install_deps(dependencies = TRUE)'
+
+MAKEFLAGS="LDFLAGS=" R CMD INSTALL .
 ```
 
 ### Compilation flags
@@ -309,6 +316,16 @@ variables or other settings:
   `minio server` process is found running. If you're running MinIO with custom
   settings, you can set `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, and
   `MINIO_PORT` to override the defaults.
+
+## Github workflows
+
+Crossbow:
+
+* `@github-actions crossbow submit -g r` for extended R CI tests
+* `@github-actions crossbow submit {task-name}` for running a specific task
+
+* `@github-actions autotune` will run and fix lint c++ linting errors + run R documentation (among other cleanup tasks) and commit them to the branch
+
 
 ## Useful functions for Arrow developers
 
