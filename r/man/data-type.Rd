@@ -135,7 +135,7 @@ A few functions have aliases:
 \item \code{float16()} and \code{halffloat()}
 \item \code{float32()} and \code{float()}
 \item \code{bool()} and \code{boolean()}
-\item Called from \code{schema()} or \code{struct()} or from \code{cast()} in a dplyr verb,
+\item When called inside an \code{arrow} function, such as \code{schema()} or \code{cast()},
 \code{double()} also is supported as a way of creating a \code{float64()}
 }
 
