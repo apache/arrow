@@ -18,15 +18,19 @@ sys_install <- tolower(Sys.getenv("DEVDOCS_SYSTEM_INSTALL", "false")) == "true"
 
 # Update the source knit_hook to save the chunk (if it is marked to be saved)
 knit_hooks_source <- knitr::knit_hooks$get("source")
-knitr::knit_hooks$set(source = function(lines, options) {
+knitr::knit_hooks$set(source = function(x, options) {
   # Extra paranoia about when this will write the chunks to the script, we will
   # only save when:
   #   * CI is true
   #   * RUN_DEVDOCS is true
   #   * options$save is TRUE (and a check that not NULL won't crash it)
   if (as.logical(Sys.getenv("CI", FALSE)) && run && !is.null(options$save) && options$save)
-    cat(lines, file = "script.sh", append = TRUE, sep = "\n")
-  NULL
+    cat(x, file = "script.sh", append = TRUE, sep = "\n")
+  # but hide the blocks we want hidden:
+  if (!is.null(options$hide) && options$hide) {
+    return(NULL)
+  } 
+  knit_hooks_source(x, options)
 })
 ```
 
@@ -238,14 +242,14 @@ To solve errors like these, make sure that your arrow library is up to date and 
 * Using {withr}'s `with_makevars(list(LDFLAGS = ""), ...)`
 * adding `LDFLAGS=` to your `~/.R/Makevars` file (the least recommended way, though it is a common debugging approach suggested online)
 
-```{bash, save=run & !sys_install & macos, include=FALSE}
+```{bash, save=run & !sys_install & macos, hide=TRUE}
 # Setup troubleshooting section
 # install a system-level arrow on macOS
 brew install apache-arrow
 ```
 
 
-```{bash, save=run & !sys_install & ubuntu, include=FALSE}
+```{bash, save=run & !sys_install & ubuntu, hide=TRUE}
 # Setup troubleshooting section
 # install a system-level arrow on macOS
 sudo apt update
