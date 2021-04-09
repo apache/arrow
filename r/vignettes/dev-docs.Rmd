@@ -72,7 +72,7 @@ These dependencies are technically only needed for S3 support(?)
 brew install openssl
 ```
 
-#### ubuntu
+#### Ubuntu
 ```{bash, save=run & ubuntu}
 sudo apt install -y libcurl4-openssl-dev libssl-dev
 ```
@@ -84,20 +84,20 @@ It’s recommended to make a build directory inside of the cpp directory of the 
 
 #### Installing to another directory
 
-If you would like to use arrow from an alternative directory
+It is recommended that you install the arrow library to a user-level directory to be used in development. In this example we will install it to a directory called `dist` that has the same parent as our `arrow` checkout.
 
 ```{bash, save=run & !sys_install}
 export ARROW_HOME=$(pwd)/dist
-export LD_LIBRARY_PATH=$(pwd)/dist/lib
 export INCLUDE_DIR=$ARROW_HOME/include
 export LIB_DIR=$ARROW_HOME/lib
 ```
 
 TODO: how to add these vars separated by colons if they have other things in them already (eg LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH)
 
-On linux, you will need to set `LD_LIBRARY_PATH` to this same directory before launching R and using Arrow. One way to do this is to add it to your profile. # TODO: do we want to recommend this? Is there any other alternative?
+On linux, you will need to set `LD_LIBRARY_PATH` to the same directory as `LIB_DIR` before launching R and using Arrow. One way to do this is to add it to your profile. # TODO: do we want to recommend this? Is there any other alternative?
 
 ```{bash, save=run & ubuntu & !sys_install}
+export LD_LIBRARY_PATH=$(pwd)/dist/lib
 echo "export LD_LIBRARY_PATH=$(pwd)/dist/lib" >> ~/.bash_profile
 ```
 
@@ -124,7 +124,6 @@ cmake \
   -DARROW_WITH_SNAPPY=ON \
   -DARROW_WITH_ZLIB=ON \
   -DARROW_INSTALL_NAME_RPATH=OFF \
-  -DThrift_SOURCE=BUNDLED \
   ..
 ```
 
@@ -198,17 +197,66 @@ Once you’ve built the C++ library, you can install the R package and its
 dependencies, along with additional dev dependencies, from the git
 checkout:
 
-```{bash, save=run & (sys_install | ubuntu)}
+
+```{bash, save=run}
 cd ../../r
 R -e 'install.packages("remotes"); remotes::install_deps(dependencies = TRUE)'
 
 R CMD INSTALL .
 ```
 
-```{bash, save=run & (!sys_install & macos)}
-cd ../../r
-R -e 'install.packages("remotes"); remotes::install_deps(dependencies = TRUE)'
+### Troubleshooting 
 
+If you are installing from a user-level directory (like XXX above) and you already have a previous installation of libarrow in a system directory, you may get errors like the following when you install the R package:
+
+```bash
+Error: package or namespace load failed for ‘arrow’ in dyn.load(file, DLLpath = DLLpath, ...):
+ unable to load shared object '/Library/Frameworks/R.framework/Versions/4.0/Resources/library/00LOCK-r/00new/arrow/libs/arrow.so':
+  dlopen(/Library/Frameworks/R.framework/Versions/4.0/Resources/library/00LOCK-r/00new/arrow/libs/arrow.so, 6): Symbol not found: __ZN5arrow2io16RandomAccessFile9ReadAsyncERKNS0_9IOContextExx
+  Referenced from: /Library/Frameworks/R.framework/Versions/4.0/Resources/library/00LOCK-r/00new/arrow/libs/arrow.so
+  Expected in: flat namespace
+ in /Library/Frameworks/R.framework/Versions/4.0/Resources/library/00LOCK-r/00new/arrow/libs/arrow.so
+Error: loading failed
+Execution halted
+ERROR: loading failed
+```
+
+or
+
+```bash
+Error: package or namespace load failed for ‘arrow’ in dyn.load(file, DLLpath = DLLpath, ...):
+ unable to load shared object '/Library/Frameworks/R.framework/Versions/4.0/Resources/library/00LOCK-r/00new/arrow/libs/arrow.so':
+  dlopen(/Library/Frameworks/R.framework/Versions/4.0/Resources/library/00LOCK-r/00new/arrow/libs/arrow.so, 6): Library not loaded: /usr/local/lib/libarrow.400.dylib
+  Referenced from: /usr/local/lib/libparquet.400.dylib
+  Reason: image not found
+```
+
+To solve errors like these, make sure that your arrow library is up to date and make sure that you don't let R link to your system library when building arrow. You can do this a number of different ways: 
+
+
+* Setting the `MAKEFLAGS` environment variable to `"LDFLAGS="` (see below for an example) this is the recommended way to accomplish this
+* Using {withr}'s `with_makevars(list(LDFLAGS = ""), ...)`
+* adding `LDFLAGS=` to your `~/.R/Makevars` file (the least recommended way, though it is a common debugging approach suggested online)
+
+```{bash, save=run & !sys_install & macos, include=FALSE}
+# Setup troubleshooting section
+# install a system-level arrow on macOS
+brew install apache-arrow
+```
+
+
+```{bash, save=run & !sys_install & ubuntu, include=FALSE}
+# Setup troubleshooting section
+# install a system-level arrow on macOS
+sudo apt update
+sudo apt install -y -V ca-certificates lsb-release wget
+wget https://apache.bintray.com/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-archive-keyring-latest-$(lsb_release --codename --short).deb
+sudo apt install -y -V ./apache-arrow-archive-keyring-latest-$(lsb_release --codename --short).deb
+sudo apt update
+sudo apt install -y -V libarrow-dev
+```
+
+```{bash, save=run & !sys_install & macos}
 MAKEFLAGS="LDFLAGS=" R CMD INSTALL .
 ```
 

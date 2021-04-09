@@ -36,7 +36,7 @@ jobs:
         # or a temporary directory. old is the same as a temporary
         # directory, but an old version of libarrow will be installed
         # into a system directory first (to make sure we can link correctly when building)
-        system-install: [true, false, old]
+        system-install: [true, false]
 
     steps:
       - name: Checkout Arrow
@@ -57,18 +57,6 @@ jobs:
           pkgs <- installed.packages()[, "Package"]
           sessioninfo::session_info(pkgs, include_base = TRUE)
         shell: Rscript {0}
-      - name: Install a conflicting system libarrow (macOS)
-        run: brew install apache-arrow
-        if: contains(matrix.system-install, 'old') && contains(matrix.os, 'macOS')
-      - name: Install a conflicting system libarrow (ubuntu)
-        run: |
-          sudo apt update
-          sudo apt install -y -V ca-certificates lsb-release wget
-          wget https://apache.bintray.com/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-archive-keyring-latest-$(lsb_release --codename --short).deb
-          sudo apt install -y -V ./apache-arrow-archive-keyring-latest-$(lsb_release --codename --short).deb
-          sudo apt update
-          sudo apt install -y -V libarrow-dev
-        if: contains(matrix.system-install, 'old') && contains(matrix.os, 'ubuntu')
       - name: Write the install script
         env:
           RUN_DEVDOCS: TRUE
