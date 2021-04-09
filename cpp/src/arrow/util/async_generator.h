@@ -1065,15 +1065,15 @@ AsyncGenerator<T> MakeConcatenatedGenerator(AsyncGenerator<AsyncGenerator<T>> so
 
 template <typename T>
 struct Enumerated {
-  util::optional<T> value;
+  T value;
   int index;
   bool last;
 };
 
 template <typename T>
 struct IterationTraits<Enumerated<T>> {
-  static Enumerated<T> End() { return Enumerated<T>{{}, -1, false}; }
-  static bool IsEnd(const Enumerated<T>& val) { return !val.value.has_value(); }
+  static Enumerated<T> End() { return Enumerated<T>{IterationEnd<T>(), -1, false}; }
+  static bool IsEnd(const Enumerated<T>& val) { return val.index < 0; }
 };
 
 /// \see MakeEnumeratedGenerator
@@ -1127,7 +1127,7 @@ class EnumeratingGenerator {
 ///
 /// Note: Since this generator is not actually taking in out-of-order sources it isn't
 /// strictly neccesary to add the index, it could be added by a map generator.  However,
-/// since this generator is usually used as laster input to the sequencing generator and
+/// since this generator is usually used as later input to the sequencing generator and
 /// the sequencing generator needs the index we go ahead and add it for utility's sake
 ///
 /// \see MakeSequencingGenerator for an example of putting items back in order

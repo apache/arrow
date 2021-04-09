@@ -1028,8 +1028,7 @@ class EnumeratorTestFixture : public GeneratorTestFixture {
     EXPECT_EQ(num_items, items.size());
 
     for (const auto& item : items) {
-      ASSERT_TRUE(item.value.has_value());
-      ASSERT_EQ(item.index, (*item.value).value);
+      ASSERT_EQ(item.index, item.value.value);
       bool last = item.index == num_items - 1;
       ASSERT_EQ(last, item.last);
     }
