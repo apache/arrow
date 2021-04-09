@@ -87,6 +87,22 @@ is_constant <- function(expr) {
   length(all_vars(expr)) == 0
 }
 
+read_compressed_error <- function(e) {
+  msg <- conditionMessage(e)
+  if (grepl(" codec ", msg)) {
+    compression <- sub(".*Support for codec '(.*)'.*", "\\1", msg)
+    e$message <- paste0(
+      msg,
+      "\nIn order to read this file, you will need to reinstall arrow with additional features enabled.",
+      "\nSet one of these environment variables before installing:",
+      sprintf("\n\n * LIBARROW_MINIMAL=false (for all optional features, including '%s')", compression),
+      sprintf("\n * ARROW_WITH_%s=ON (for just '%s')", toupper(compression), compression),
+      "\n\nSee https://arrow.apache.org/docs/r/articles/install.html for details"
+    )
+  }
+  stop(e)
+}
+
 handle_embedded_nul_error <- function(e) {
   msg <- conditionMessage(e)
   if (grepl(" nul ", msg)) {

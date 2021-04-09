@@ -52,10 +52,16 @@ read_parquet <- function(file,
     schema <- reader$GetSchema()
     names <- names(schema)
     indices <- match(vars_select(names, !!col_select), names) - 1L
-    tab <- reader$ReadTable(indices)
+    tab <- tryCatch(
+      reader$ReadTable(indices),
+      error = read_compressed_error
+    )
   } else {
     # read all columns
-    tab <- reader$ReadTable()
+    tab <- tryCatch(
+      reader$ReadTable(),
+      error = read_compressed_error
+    )
   }
 
   if (as_data_frame) {
