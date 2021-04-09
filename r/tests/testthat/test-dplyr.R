@@ -404,7 +404,7 @@ test_that("explicit type conversions with cast()", {
           compute()
         t1$schema[[1]]$type
       },
-      as_type(int32())
+      int32()
     ),
     "truncated"
   )
