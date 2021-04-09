@@ -19,15 +19,19 @@ sys_install <- tolower(Sys.getenv("DEVDOCS_SYSTEM_INSTALL", "false")) == "true"
 # Update the source knit_hook to save the chunk (if it is marked to be saved)
 knit_hooks_source <- knitr::knit_hooks$get("source")
 knitr::knit_hooks$set(source = function(lines, options) {
-  if (run && !is.null(options$save) && options$save)
+  # Extra paranoia about when this will write the chunks to the script, we will
+  # only save when:
+  #   * CI is true
+  #   * RUN_DEVDOCS is true
+  #   * options$save is TRUE (and a check that not NULL won't crash it)
+  if (Sys.getenv("CI", FALSE) && run && !is.null(options$save) && options$save)
     cat(lines, file = "script.sh", append = TRUE, sep = "\n")
   NULL
 })
 ```
 
 ```{bash, save=run}
-# Stop on failure
-# Stop on failure, echo input
+# Stop on failure, echo input as we go
 set -e
 set -x
 ```
@@ -89,13 +93,13 @@ export INCLUDE_DIR=$ARROW_HOME/include
 export LIB_DIR=$ARROW_HOME/lib
 ```
 
-On linux, you will need to set `LD_LIBRARY_PATH` to this same directory before launching R and using Arrow. One way to do this is to add it to your profile. # TODO: do we want to recommend this? 
+TODO: how to add these vars separated by colons if they have other things in them already (eg LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH)
+
+On linux, you will need to set `LD_LIBRARY_PATH` to this same directory before launching R and using Arrow. One way to do this is to add it to your profile. # TODO: do we want to recommend this? Is there any other alternative?
 
 ```{bash, save=run & ubuntu & !sys_install}
-echo "export LD_LIBRARY_PATH=$(pwd)/dist/lib" >> ~/.profile
+echo "export LD_LIBRARY_PATH=$(pwd)/dist/lib" >> ~/.bash_profile
 ```
-
-TODO: how to add these vars separated by colons if they have other things in them already (eg LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH)
 
 ```{bash, save=run}
 cd arrow/cpp
@@ -162,7 +166,7 @@ To enable optional features including S3 support, an alternative memory allocato
 Other flags that may be useful:
 
 * `-DARROW_EXTRA_ERROR_CONTEXT=ON` makes errors coming from the C++ library point to files and line numbers
-* `-DBoost_SOURCE=BUNDLED`, for example, or any other dependency `*_SOURCE`, if you have a system version of a C++ dependency that doesn't work correctly with Arrow. This tells the build to compile its own version of the dependency from source. # TODO: BOOST_SOURCE is supposed to be accepted, is it???
+* `-DBoost_SOURCE=BUNDLED` and `-DThrift_SOURCE=bundled`, for example, or any other dependency `*_SOURCE`, if you have a system version of a C++ dependency that doesn't work correctly with Arrow. This tells the build to compile its own version of the dependency from source. 
 
 
 ### Now actually build Arrow
@@ -201,6 +205,7 @@ R -e 'install.packages("remotes"); remotes::install_deps(dependencies = TRUE)'
 R CMD INSTALL .
 ```
 
+### Compilation flags
 
 If you need to set any compilation flags while building the C++
 extensions, you can use the `ARROW_R_CXXFLAGS` environment variable. For
@@ -211,12 +216,16 @@ need to set
 export ARROW_R_CXXFLAGS=-fno-omit-frame-pointer
 ```
 
+### Troublshooting
+
 If the package fails to install/load with an error like this:
 
-    ** testing if installed package can be loaded from temporary location
-    Error: package or namespace load failed for 'arrow' in dyn.load(file, DLLpath = DLLpath, ...):
-    unable to load shared object '/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so':
-    dlopen(/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so, 6): Library not loaded: @rpath/libarrow.14.dylib
+```
+  ** testing if installed package can be loaded from temporary location
+  Error: package or namespace load failed for 'arrow' in dyn.load(file, DLLpath = DLLpath, ...):
+  unable to load shared object '/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so':
+  dlopen(/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so, 6): Library not loaded: @rpath/libarrow.14.dylib
+```
 
 ensure that `-DARROW_INSTALL_NAME_RPATH=OFF` was passed (this is important on
 macOS to prevent problems at link time and is a no-op on other platforms).
@@ -232,7 +241,32 @@ Arrow C++ library first.
 For any other build/configuration challenges, see the [C++ developer
 guide](https://arrow.apache.org/docs/developers/cpp/building.html).
 
-### Editing C++ code
+
+## Using `remotes::install_github(...)`
+
+If you need an Arrow installation from a specific repository or at a specific ref,
+`remotes::install_github("apache/arrow/r", build = FALSE)`
+should work on most platforms (with the notable exception of Windows).
+The `build = FALSE` argument is important so that the installation can access the
+C++ source in the `cpp/` directory in `apache/arrow`.
+
+As with other installation methods, setting the environment variables `LIBARROW_MINIMAL=false` and `ARROW_R_DEV=true` will provide a more full-featured version of Arrow and provide more verbose output, respectively.
+
+For example, to install from the (fictional) branch `bugfix` from `apache/arrow` one could:
+
+```r
+Sys.setenv(LIBARROW_MINIMAL="false")
+remotes::install_github("apache/arrow/r@bugfix", build = FALSE)
+```
+
+Developers may wish to use this method of installing a specific commit
+separate from another Arrow development environment or system installation
+(e.g. we use this in [arrowbench](https://github.com/ursacomputing/arrowbench) to install development versions of arrow isolated from the system install). If you already have Arrow C++ libraries installed system-wide, you may need to set some additional variables in order to isolate this build from your system libraries:
+
+* Setting the environment variable `FORCE_BUNDLED_BUILD` to `true` will skip the `pkg-config` search for Arrow libraries and attempt to build from the same source at the repository+ref given.
+* You may also need to set the Makevars `CPPFLAGS` and `LDFLAGS` to `""` in order to prevent the installation process from attempting to link to already installed system versions of Arrow. One way to do this temporarily is wrapping your `remotes::install_github()` call like so: `withr::with_makevars(list(CPPFLAGS = "", LDFLAGS = ""), remotes::install_github(...))`.
+
+## Editing C++ code
 
 The `arrow` package uses some customized tools on top of `cpp11` to
 prepare its C++ code in `src/`. If you change C++ code in the R package,
@@ -255,7 +289,7 @@ isn’t found, you can explicitly provide the path to it like
 this by installing LLVM via Homebrew and running the script as
 `CLANG_FORMAT=$(brew --prefix llvm@8)/bin/clang-format ./lint.sh`
 
-### Running tests
+## Running tests
 
 Some tests are conditionally enabled based on the availability of certain
 features in the package build (S3 support, compression libraries, etc.).
@@ -276,17 +310,31 @@ variables or other settings:
   settings, you can set `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, and
   `MINIO_PORT` to override the defaults.
 
-### Useful functions
+## Useful functions for Arrow developers
 
 Within an R session, these can help with package development:
 
 ``` r
-devtools::load_all() # Load the dev package
-devtools::test(filter="^regexp$") # Run the test suite, optionally filtering file names
-devtools::document() # Update roxygen documentation
-pkgdown::build_site() # To preview the documentation website
-devtools::check() # All package checks; see also below
-covr::package_coverage() # See test coverage statistics
+# Load the dev package
+devtools::load_all() 
+
+# Run the test suite, optionally filtering file names
+devtools::test(filter="^regexp$") 
+# or the Makefile alternative from the arrow/r directory in a shell:
+make test file=regexp
+
+# Update roxygen documentation
+devtools::document() 
+
+# To preview the documentation website
+pkgdown::build_site()
+
+# All package checks; see also below
+devtools::check()
+
+# See test coverage statistics
+covr::report()
+covr::package_coverage()
 ```
 
 Any of those can be run from the command line by wrapping them in `R -e

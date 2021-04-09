@@ -89,10 +89,13 @@ jobs:
         shell: bash
       - name: Ensure that the Arrow package is loadable and we have the correct one
         run: |
+          echo $LD_LIBRARY_PATH
+          R --no-save <<EOF
           Sys.getenv("LD_LIBRARY_PATH")
           library(arrow)
           arrow_info()
-        shell: bash -l Rscript {0}
+          EOF
+        shell: bash -l {0}
       - name: Save the install script
         uses: actions/upload-artifact@v2
         with:
