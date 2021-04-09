@@ -43,7 +43,7 @@ std::shared_ptr<arrow::json::ParseOptions> json___ParseOptions__initialize1(
 std::shared_ptr<arrow::json::ParseOptions> json___ParseOptions__initialize2(
     bool newlines_in_values, const std::shared_ptr<arrow::Schema>& explicit_schema) {
   auto res =
-    std::make_shared<arrow::json::ParseOptions>(arrow::json::ParseOptions::Defaults());
+      std::make_shared<arrow::json::ParseOptions>(arrow::json::ParseOptions::Defaults());
   res->newlines_in_values = newlines_in_values;
   res->explicit_schema = explicit_schema;
   return res;
