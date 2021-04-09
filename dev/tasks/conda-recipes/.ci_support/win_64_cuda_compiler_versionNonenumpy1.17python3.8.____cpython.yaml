@@ -1,7 +1,5 @@
 aws_sdk_cpp:
-- 1.8.63
-boost_cpp:
-- 1.74.0
+- 1.8.151
 bzip2:
 - '1'
 c_compiler:
@@ -10,6 +8,8 @@ channel_sources:
 - conda-forge,defaults
 channel_targets:
 - conda-forge main
+cuda_compiler:
+- nvcc
 cuda_compiler_version:
 - None
 cxx_compiler:
@@ -19,16 +19,14 @@ gflags:
 glog:
 - 0.4.0
 grpc_cpp:
-- '1.32'
+- '1.36'
 libprotobuf:
-- '3.13'
+- '3.15'
 lz4_c:
-- 1.9.2
+- 1.9.3
 numpy:
-- '1.19'
+- '1.17'
 pin_run_as_build:
-  boost-cpp:
-    max_pin: x.x.x
   bzip2:
     max_pin: x
   lz4-c:
@@ -39,13 +37,15 @@ pin_run_as_build:
   zlib:
     max_pin: x.x
 python:
-- 3.9.* *_cpython
+- 3.8.* *_cpython
 re2:
-- 2020.10.01
+- 2021.04.01
 snappy:
 - '1'
 target_platform:
 - win-64
+thrift_cpp:
+- 0.14.1
 zip_keys:
 - - numpy
   - python
