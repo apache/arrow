@@ -429,10 +429,12 @@ as_type <- function(type, name = "type") {
 }
 
 unmask_type_fun <- function(expr) {
-  # if `expr` is an unevaluated function call, try to evaluate it in the arrow
-  # package environment, and if that fails, return NULL
+  # if `expr` is an unevaluated expression, try to evaluate it here in the arrow
+  # package environment. If that fails or returns something that is not a
+  # DataType, then return NULL.
   if (is.call(expr)) {
-    return(tryCatch(eval(expr), error = function(e) NULL))
+    type <- tryCatch(eval(expr), error = function(e) NULL)
+    if (inherits(type, "DataType")) return(type)
   }
   NULL
 }
