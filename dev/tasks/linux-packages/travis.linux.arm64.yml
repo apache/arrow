@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+{% import 'macros.jinja' as macros with context %}
+
 arch: arm64-graviton2
 virt: vm
 os: linux
@@ -66,9 +68,8 @@ env:
     - YUM_TARGETS={{ target }}
 
 before_script:
-  - git clone --no-checkout {{ arrow.remote }} arrow
-  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-  - git -C arrow checkout FETCH_HEAD
+  {{ macros.travis_checkout_arrow() }}
+  {{ macros.travis_docker_login() }}
 
   # Build createrepo_c from source.
   # We can remove them when we can install createrepo_c package
@@ -143,15 +144,5 @@ script:
   - popd
 
 after_success:
-  - sudo -H pip3 install --upgrade pip
-  - sudo -H pip3 install -r arrow/dev/tasks/requirements-crossbow.txt pygit2==1.0
-  - |
-    python3 arrow/dev/tasks/crossbow.py \
-      --queue-path . \
-      --queue-remote {{ queue_remote_url }} \
-      upload-artifacts \
-    {%- for extension in upload_extensions %}
-      --pattern "arrow/dev/tasks/linux-packages/**/*{{ extension }}" \
-    {%- endfor %}
-      --sha {{ task.branch }} \
-      --tag {{ task.tag }}
+  {% set patterns = upload_extensions | format_all("arrow/python/repaired_wheels/*.whl") %}
+  {{ macros.github_upload_releases(patterns) }}

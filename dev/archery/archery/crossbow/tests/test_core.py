@@ -15,28 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-{% import 'macros.jinja' as macros with context %}
+from archery.utils.source import ArrowSources
+from archery.crossbow import Config
 
-{{ macros.github_header() }}
 
-jobs:
-  test:
-    name: Docker Test
-    runs-on: ubuntu-latest
-    steps:
-      {{ macros.github_checkout_arrow()|indent }}
-      {{ macros.github_install_archery()|indent }}
-
-      - name: Free Up Disk Space
-        shell: bash
-        run: arrow/ci/scripts/util_cleanup.sh
-
-      - name: Execute Docker Build
-        shell: bash
-        {% if env is defined %}
-        env:
-        {% for key, value in env.items() %}
-          {{ key }}: {{ value }}
-        {% endfor %}
-        {% endif %}
-        run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ run }}
+def test_config():
+    src = ArrowSources.find()
+    conf = Config.load_yaml(src.dev / "tasks" / "tasks.yml")
+    conf.validate()

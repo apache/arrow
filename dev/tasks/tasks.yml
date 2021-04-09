@@ -40,7 +40,7 @@ groups:
   linux-arm64:
     - debian-*-arm64
     - ubuntu-*-arm64
-    - centos-*-aarch64
+    - centos-*-arm64
 
   gandiva:
     - gandiva-*
@@ -236,7 +236,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py39(h[a-z0-9]+)_0_cuda.tar.bz2
       - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cuda.tar.bz2
 
-  conda-linux-gcc-py36-aarch64:
+  conda-linux-gcc-py36-arm64:
     ci: drone
     template: conda-recipes/drone.yml
     params:
@@ -245,7 +245,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py36(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  conda-linux-gcc-py37-aarch64:
+  conda-linux-gcc-py37-arm64:
     ci: drone
     template: conda-recipes/drone.yml
     params:
@@ -254,7 +254,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py37(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  conda-linux-gcc-py38-aarch64:
+  conda-linux-gcc-py38-arm64:
     ci: drone
     template: conda-recipes/drone.yml
     params:
@@ -263,7 +263,7 @@ tasks:
       - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  conda-linux-gcc-py39-aarch64:
+  conda-linux-gcc-py39-arm64:
     ci: drone
     template: conda-recipes/drone.yml
     params:
@@ -343,239 +343,62 @@ tasks:
       - arrow-cpp-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.tar.bz2
 
-  ############################## Wheel Linux ##################################
 
-  # AMD64
+{% for python_version, python_tag, abi_tag in [("3.6", "cp36", "cp36m"),
+                                               ("3.7", "cp37", "cp37m"),
+                                               ("3.8", "cp38", "cp38"),
+                                               ("3.9", "cp39", "cp39")] %}
 
-  wheel-manylinux2010-cp36m-amd64:
-    ci: github
-    template: python-wheels/github.linux.amd64.yml
+{############################## Wheel Linux ##################################}
+
+{% for ci, arch, arch_alias, manylinux in [("github", "amd64", "x86_64", "2010"),
+                                           ("github", "amd64", "x86_64", "2014"),
+                                           ("travis", "arm64", "aarch64", "2014")] %}
+  {% set platform_tag = "manylinux{}_{}".format(manylinux, arch_alias) %}
+
+  wheel-manylinux{{ manylinux }}-{{ python_tag }}-{{ arch }}:
+    ci: {{ ci }}
+    template: python-wheels/{{ ci }}.linux.{{ arch }}.yml
     params:
-      python_version: 3.6
-      manylinux_version: 2010
+      python_version: {{ python_version }}
+      manylinux_version: {{ manylinux }}
     artifacts:
-      - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2010_x86_64.whl
+      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
 
-  wheel-manylinux2010-cp37m-amd64:
-    ci: github
-    template: python-wheels/github.linux.amd64.yml
-    params:
-      python_version: 3.7
-      manylinux_version: 2010
-    artifacts:
-      - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2010_x86_64.whl
+{% endfor %}
 
-  wheel-manylinux2010-cp38-amd64:
-    ci: github
-    template: python-wheels/github.linux.amd64.yml
-    params:
-      python_version: 3.8
-      manylinux_version: 2010
-    artifacts:
-      - pyarrow-{no_rc_version}-cp38-cp38-manylinux2010_x86_64.whl
+{############################## Wheel OSX ####################################}
 
-  wheel-manylinux2010-cp39-amd64:
-    ci: github
-    template: python-wheels/github.linux.amd64.yml
-    params:
-      python_version: 3.9
-      manylinux_version: 2010
-    artifacts:
-      - pyarrow-{no_rc_version}-cp39-cp39-manylinux2010_x86_64.whl
+# enable S3 support from macOS 10.13 so we don't need to bundle curl, crypt and ssl
+{% for macos_version, macos_codename, arrow_s3 in [("10.9", "mavericks", "OFF"),
+                                                   ("10.13", "high-sierra", "ON")] %}
+  {% set platform_tag = "macosx_{}_{}".format(macos_version.replace('.', '_'), arch_alias) %}
 
-  wheel-manylinux2014-cp36m-amd64:
-    ci: github
-    template: python-wheels/github.linux.amd64.yml
-    params:
-      python_version: 3.6
-      manylinux_version: 2014
-    artifacts:
-      - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2014_x86_64.whl
-
-  wheel-manylinux2014-cp37m-amd64:
-    ci: github
-    template: python-wheels/github.linux.amd64.yml
-    params:
-      python_version: 3.7
-      manylinux_version: 2014
-    artifacts:
-      - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2014_x86_64.whl
-
-  wheel-manylinux2014-cp38-amd64:
-    ci: github
-    template: python-wheels/github.linux.amd64.yml
-    params:
-      python_version: 3.8
-      manylinux_version: 2014
-    artifacts:
-      - pyarrow-{no_rc_version}-cp38-cp38-manylinux2014_x86_64.whl
-
-  wheel-manylinux2014-cp39-amd64:
-    ci: github
-    template: python-wheels/github.linux.amd64.yml
-    params:
-      python_version: 3.9
-      manylinux_version: 2014
-    artifacts:
-      - pyarrow-{no_rc_version}-cp39-cp39-manylinux2014_x86_64.whl
-
-  # ARM64v8
-
-  wheel-manylinux2014-cp36m-arm64:
-    ci: travis
-    template: python-wheels/travis.linux.arm64.yml
-    params:
-      python_version: 3.6
-      manylinux_version: 2014
-    artifacts:
-      - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2014_aarch64.whl
-
-  wheel-manylinux2014-cp37m-arm64:
-    ci: travis
-    template: python-wheels/travis.linux.arm64.yml
-    params:
-      python_version: 3.7
-      manylinux_version: 2014
-    artifacts:
-      - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2014_aarch64.whl
-
-  wheel-manylinux2014-cp38-arm64:
-    ci: travis
-    template: python-wheels/travis.linux.arm64.yml
-    params:
-      python_version: 3.8
-      manylinux_version: 2014
-    artifacts:
-      - pyarrow-{no_rc_version}-cp38-cp38-manylinux2014_aarch64.whl
-
-  wheel-manylinux2014-cp39-arm64:
-    ci: travis
-    template: python-wheels/travis.linux.arm64.yml
-    params:
-      python_version: 3.9
-      manylinux_version: 2014
-    artifacts:
-      - pyarrow-{no_rc_version}-cp39-cp39-manylinux2014_aarch64.whl
-
-  ############################## Wheel OSX ####################################
-
-  wheel-osx-mavericks-cp36m:
+  wheel-osx-{{ macos_codename }}-{{ python_tag }}:
     ci: github
     template: python-wheels/github.osx.yml
     params:
-      python_version: 3.6
-      macos_deployment_target: 10.9
-      arrow_s3: "OFF"
+      python_version: {{ python_version }}
+      macos_deployment_target: {{ macos_version }}
+      arrow_s3: {{ arrow_s3 }}
     artifacts:
-      - pyarrow-{no_rc_version}-cp36-cp36m-macosx_10_9_x86_64.whl
+      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
 
-  wheel-osx-mavericks-cp37m:
-    ci: github
-    template: python-wheels/github.osx.yml
-    params:
-      python_version: 3.7
-      macos_deployment_target: 10.9
-      arrow_s3: "OFF"
-    artifacts:
-      - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_9_x86_64.whl
+{% endfor %}
 
-  wheel-osx-mavericks-cp38:
-    ci: github
-    template: python-wheels/github.osx.yml
-    params:
-      python_version: 3.8
-      macos_deployment_target: 10.9
-      arrow_s3: "OFF"
-    artifacts:
-      - pyarrow-{no_rc_version}-cp38-cp38-macosx_10_9_x86_64.whl
+{############################## Wheel Windows ################################}
 
-  wheel-osx-mavericks-cp39:
-    ci: github
-    template: python-wheels/github.osx.yml
-    params:
-      python_version: 3.9
-      macos_deployment_target: 10.9
-      arrow_s3: "OFF"
-    artifacts:
-      - pyarrow-{no_rc_version}-cp39-cp39-macosx_10_9_x86_64.whl
-
-  # enable S3 support from macOS 10.13 so we don't need to bundle curl, crypt and ssl
-
-  wheel-osx-high-sierra-cp36m:
-    ci: github
-    template: python-wheels/github.osx.yml
-    params:
-      python_version: 3.6
-      macos_deployment_target: 10.13
-      arrow_s3: "ON"
-    artifacts:
-      - pyarrow-{no_rc_version}-cp36-cp36m-macosx_10_13_x86_64.whl
-
-  wheel-osx-high-sierra-cp37m:
-    ci: github
-    template: python-wheels/github.osx.yml
-    params:
-      python_version: 3.7
-      macos_deployment_target: 10.13
-      arrow_s3: "ON"
-    artifacts:
-      - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_13_x86_64.whl
-
-  wheel-osx-high-sierra-cp38:
-    ci: github
-    template: python-wheels/github.osx.yml
-    params:
-      python_version: 3.8
-      macos_deployment_target: 10.13
-      arrow_s3: "ON"
-    artifacts:
-      - pyarrow-{no_rc_version}-cp38-cp38-macosx_10_13_x86_64.whl
-
-  wheel-osx-high-sierra-cp39:
-    ci: github
-    template: python-wheels/github.osx.yml
-    params:
-      python_version: 3.9
-      macos_deployment_target: 10.13
-      arrow_s3: "ON"
-    artifacts:
-      - pyarrow-{no_rc_version}-cp39-cp39-macosx_10_13_x86_64.whl
-
-  ############################## Wheel Windows ################################
-
-  wheel-windows-cp36m:
+  wheel-windows-{{ python_tag }}:
     ci: github
     template: python-wheels/github.windows.yml
     params:
-      python_version: 3.6
+      python_version: {{ python_version }}
     artifacts:
-      - pyarrow-{no_rc_version}-cp36-cp36m-win_amd64.whl
+      - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-win_amd64.whl
 
-  wheel-windows-cp37m:
-    ci: github
-    template: python-wheels/github.windows.yml
-    params:
-      python_version: 3.7
-    artifacts:
-      - pyarrow-{no_rc_version}-cp37-cp37m-win_amd64.whl
+{% endfor %}
 
-  wheel-windows-cp38:
-    ci: github
-    template: python-wheels/github.windows.yml
-    params:
-      python_version: 3.8
-    artifacts:
-      - pyarrow-{no_rc_version}-cp38-cp38-win_amd64.whl
-
-  wheel-windows-cp39:
-    ci: github
-    template: python-wheels/github.windows.yml
-    params:
-      python_version: 3.9
-    artifacts:
-      - pyarrow-{no_rc_version}-cp39-cp39-win_amd64.whl
-
-  ############################ Python sdist ####################################
+{############################ Python sdist ####################################}
 
   python-sdist:
     ci: github
@@ -1259,7 +1082,7 @@ tasks:
       - plasma-store-server-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - plasma-store-server-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
 
-  centos-8-aarch64:
+  centos-8-arm64:
     ci: travis
     template: linux-packages/travis.linux.arm64.yml
     params:
@@ -1360,198 +1183,49 @@ tasks:
 
   ########################### Release verification ############################
 
-  verify-rc-binaries-binary:
+{% for target in ["binary", "yum", "apt"] %}
+  verify-rc-binaries-{{ target }}:
     ci: github
     template: verify-rc/github.linux.yml
     params:
       env:
         TEST_DEFAULT: 0
-        TEST_BINARY: 1
+        TEST_{{ target|upper }}: 1
       artifact: "binaries"
+{% endfor %}
 
-  verify-rc-binaries-apt:
-    ci: github
-    template: verify-rc/github.linux.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_APT: 1
-      artifact: "binaries"
+{% for platform in ["linux", "macos"] %}
 
-  verify-rc-binaries-yum:
+  verify-rc-wheels-{{ platform }}:
     ci: github
-    template: verify-rc/github.linux.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_YUM: 1
-      artifact: "binaries"
-
-  verify-rc-wheels-linux:
-    ci: github
-    template: verify-rc/github.linux.yml
+    template: verify-rc/github.{{ platform }}.yml
     params:
       env:
         TEST_DEFAULT: 0
       artifact: "wheels"
 
-  verify-rc-wheels-macos:
-    ci: github
-    template: verify-rc/github.osx.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-      artifact: "wheels"
+{% for target in ["csharp",
+                  "go",
+                  "integration"
+                  "java",
+                  "js",
+                  "python",
+                  "ruby",
+                  "rust"] %}
 
-  verify-rc-source-macos-java:
+  verify-rc-source-{{ platform }}-{{ target }}:
     ci: github
-    template: verify-rc/github.osx.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_JAVA: 1
-      artifact: "source"
-
-  verify-rc-source-macos-csharp:
-    ci: github
-    template: verify-rc/github.osx.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_CSHARP: 1
-      artifact: "source"
-
-  verify-rc-source-macos-ruby:
-    ci: github
-    template: verify-rc/github.osx.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_RUBY: 1
-      artifact: "source"
-
-  verify-rc-source-macos-python:
-    ci: github
-    template: verify-rc/github.osx.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_PYTHON: 1
-        # https://stackoverflow.com/questions/56083725/macos-build-issues-lstdc-not-found-while-building-python-package
-        MACOSX_DEPLOYMENT_TARGET: "10.15"
-      artifact: "source"
-
-  verify-rc-source-macos-js:
-    ci: github
-    template: verify-rc/github.osx.yml
+    template: verify-rc/github.{{ platform }}.yml
     params:
       env:
         INSTALL_NODE: 0
         TEST_DEFAULT: 0
-        TEST_JS: 1
+        TEST_{{ target|upper }}: 1
       artifact: "source"
 
-  verify-rc-source-macos-go:
-    ci: github
-    template: verify-rc/github.osx.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_GO: 1
-      artifact: "source"
+{% endfor %}
 
-  verify-rc-source-macos-rust:
-    ci: github
-    template: verify-rc/github.osx.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_RUST: 1
-      artifact: "source"
-
-  verify-rc-source-macos-integration:
-    ci: github
-    template: verify-rc/github.osx.yml
-    params:
-      env:
-        INSTALL_NODE: 0
-        TEST_DEFAULT: 0
-        TEST_INTEGRATION: 1
-      artifact: "source"
-
-  verify-rc-source-linux-java:
-    ci: github
-    template: verify-rc/github.linux.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_JAVA: 1
-      artifact: "source"
-
-  verify-rc-source-linux-csharp:
-    ci: github
-    template: verify-rc/github.linux.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_CSHARP: 1
-      artifact: "source"
-
-  verify-rc-source-linux-ruby:
-    ci: github
-    template: verify-rc/github.linux.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_RUBY: 1
-      artifact: "source"
-
-  verify-rc-source-linux-python:
-    ci: github
-    template: verify-rc/github.linux.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_PYTHON: 1
-      artifact: "source"
-
-  verify-rc-source-linux-js:
-    ci: github
-    template: verify-rc/github.linux.yml
-    params:
-      env:
-        INSTALL_NODE: 0
-        TEST_DEFAULT: 0
-        TEST_JS: 1
-      artifact: "source"
-
-  verify-rc-source-linux-go:
-    ci: github
-    template: verify-rc/github.linux.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_GO: 1
-      artifact: "source"
-
-  verify-rc-source-linux-rust:
-    ci: github
-    template: verify-rc/github.linux.yml
-    params:
-      env:
-        TEST_DEFAULT: 0
-        TEST_RUST: 1
-      artifact: "source"
-
-  verify-rc-source-linux-integration:
-    ci: github
-    template: verify-rc/github.linux.yml
-    params:
-      env:
-        INSTALL_NODE: 0
-        TEST_DEFAULT: 0
-        TEST_INTEGRATION: 1
-      artifact: "source"
+{% endfor %}
 
   verify-rc-source-windows:
     ci: github
@@ -1565,19 +1239,20 @@ tasks:
     params:
       script: "verify-release-candidate-wheels.bat"
 
-  ############################## Docker tests #################################
+{############################## Docker tests #################################}
 
-  test-conda-cpp:
+{% for image in ["conda-cpp",
+                 "conda-cpp-valgrind",
+                 "debian-c-glib",
+                 "ubuntu-c-glib",
+                 "debian-ruby",
+                 "ubuntu-ruby"] %}
+  test-{{ image }}:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      run: conda-cpp
-
-  test-conda-cpp-valgrind:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      run: conda-cpp-valgrind
+      run: {{ image }}
+{% endfor %}
 
   test-debian-10-cpp:
     ci: github
@@ -1627,21 +1302,15 @@ tasks:
         UBUNTU: 20.04
       run: ubuntu-cpp
 
-  test-ubuntu-20.04-cpp-14:
+{% for cpp_standard in [14, 17] %}
+  test-ubuntu-20.04-cpp-{{ cpp_standard }}:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
         UBUNTU: 20.04
-      run: "-e CMAKE_ARGS=-DCMAKE_CXX_STANDARD=14 ubuntu-cpp"
-
-  test-ubuntu-20.04-cpp-17:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        UBUNTU: 20.04
-      run: "-e CMAKE_ARGS=-DCMAKE_CXX_STANDARD=17 ubuntu-cpp"
+      run: "-e CMAKE_ARGS=-DCMAKE_CXX_STANDARD={{ cpp_standard }} ubuntu-cpp"
+{% endfor %}
 
   test-ubuntu-20.04-cpp-thread-sanitizer:
     ci: github
@@ -1652,53 +1321,15 @@ tasks:
         UBUNTU: 20.04
       run: ubuntu-cpp-thread-sanitizer
 
-  test-debian-c-glib:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      run: debian-c-glib
-
-  test-ubuntu-c-glib:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      run: ubuntu-c-glib
-
-  test-debian-ruby:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      run: debian-ruby
-
-  test-ubuntu-ruby:
-    ci: azure
-    template: docker-tests/azure.linux.yml
-    params:
-      run: ubuntu-ruby
-
-  test-conda-python-3.6:
+{% for python_version in ["3.6", "3.7", "3.8", "3.9"] %}
+  test-conda-python-{{ python_version }}:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        PYTHON: 3.6
+        PYTHON: {{ python_version }}
       run: conda-python
-
-  test-conda-python-3.7:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        PYTHON: 3.7
-      run: conda-python
-
-  test-conda-python-3.8:
-    ci: github
-    template: docker-tests/github.linux.yml
-    params:
-      env:
-        PYTHON: 3.8
-      run: conda-python
+{% endfor %}
 
   test-conda-python-3.8-hypothesis:
     ci: github
@@ -1740,7 +1371,7 @@ tasks:
     ci: github
     template: r/github.linux.cran.yml
     params:
-      MATRIX: "${{ matrix.r_image }}"
+      MATRIX: {{ "${{ matrix.r_image }}" }}
 
   test-r-version-compatibility:
     ci: github
@@ -1750,7 +1381,7 @@ tasks:
     ci: github
     template: r/github.linux.versions.yml
     params:
-      MATRIX: "${{ matrix.r_version }}"
+      MATRIX: {{ "${{ matrix.r_version }}" }}
 
   test-r-install-local:
     ci: github

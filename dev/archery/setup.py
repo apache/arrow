@@ -26,12 +26,12 @@ if sys.version_info < (3, 6):
 
 extras = {
     'benchmark': ['pandas'],
-    # bot extra includes crossbow's dependencies
-    'bot': ['ruamel.yaml', 'pygithub', 'github3.py', 'jinja2', 'jira',
-            'pygit2', 'setuptools_scm', 'toolz'],
     'docker': ['ruamel.yaml', 'python-dotenv'],
-    'release': ['jinja2', 'jira', 'semver', 'gitpython']
+    'release': ['jinja2', 'jira', 'semver', 'gitpython'],
+    'crossbow': ['github3.py', 'jinja2', 'pygit2', 'ruamel.yaml',
+                 'setuptools_scm'],
 }
+extras['bot'] = extras['crossbow'] + ['pygithub', 'jira']
 extras['all'] = list(set(functools.reduce(operator.add, extras.values())))
 
 setup(
