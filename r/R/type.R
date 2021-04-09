@@ -156,7 +156,7 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' * `float16()` and `halffloat()`
 #' * `float32()` and `float()`
 #' * `bool()` and `boolean()`
-#' * Called from `schema()` or `struct()` or from `cast()` in a dplyr verb,
+#' * When called inside an `arrow` function, such as `schema()` or `cast()`,
 #' `double()` also is supported as a way of creating a `float64()`
 #'
 #' `date32()` creates a datetime type with a "day" unit, like the R `Date`
