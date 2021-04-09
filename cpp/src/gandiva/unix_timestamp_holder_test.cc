@@ -93,28 +93,27 @@ TEST_F(TestUnixTimestampHolder, TestSimpleDate) {
   std::string s("1986-12-01");
   int64_t millis_since_epoch =
       unix_timestamp(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
-  EXPECT_EQ(millis_since_epoch, 533779200);
-
-  s = std::string("1986-12-01");
-  millis_since_epoch =
-      unix_timestamp(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
-  EXPECT_EQ(millis_since_epoch, 533779200);
+  int64_t expected_result = 533779200;
+  EXPECT_EQ(millis_since_epoch, expected_result);
 
   s = std::string("1886-12-1");
   millis_since_epoch =
       unix_timestamp(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
-  EXPECT_EQ(millis_since_epoch, -2621894400);
+  expected_result = -2621894400;
+  EXPECT_EQ(millis_since_epoch, expected_result);
 
   s = std::string("2012-12-1");
   millis_since_epoch =
       unix_timestamp(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
-  EXPECT_EQ(millis_since_epoch, 1354320000);
+  expected_result = 1354320000;
+  EXPECT_EQ(millis_since_epoch, expected_result);
 
   // wrong month. should return 0 since we are suppressing errors.
   s = std::string("1986-21-01 01:01:01 +0800");
   millis_since_epoch =
       unix_timestamp(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
-  EXPECT_EQ(millis_since_epoch, 0);
+  expected_result = 0;
+  EXPECT_EQ(millis_since_epoch, expected_result);
 }
 
 TEST_F(TestUnixTimestampHolder, TestSimpleDateTimeError) {
