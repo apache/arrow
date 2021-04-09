@@ -1443,7 +1443,7 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
           types->i1_type(),                    // bool in2_validity
           types->ptr_type(types->i8_type())};  // bool* out_valid
 
-  engine->AddGlobalMappingForFunc("gdv_is_date_utf8_utf8",
+  engine->AddGlobalMappingForFunc("gdv_fn_is_date_utf8_utf8",
                                   types->i1_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_is_date_utf8_utf8));
 
