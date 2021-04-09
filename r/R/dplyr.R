@@ -208,12 +208,13 @@ tail.arrow_dplyr_query <- function(x, n = 6L, ...) {
 tbl_vars.arrow_dplyr_query <- function(x) names(x$selected_columns)
 
 select.arrow_dplyr_query <- function(.data, ...) {
+  check_select_helpers(enexprs(...))
   column_select(arrow_dplyr_query(.data), !!!enquos(...))
 }
 select.Dataset <- select.ArrowTabular <- select.arrow_dplyr_query
 
-#' @importFrom tidyselect vars_rename
 rename.arrow_dplyr_query <- function(.data, ...) {
+  check_select_helpers(enexprs(...))
   column_select(arrow_dplyr_query(.data), !!!enquos(...), .FUN = vars_rename)
 }
 rename.Dataset <- rename.ArrowTabular <- rename.arrow_dplyr_query
@@ -239,6 +240,70 @@ column_select <- function(.data, ..., .FUN = vars_select) {
     # No need to massage filters because those contain references to Arrow objects
   }
   .data
+}
+
+relocate.arrow_dplyr_query <- function(.data, ..., .before = NULL, .after = NULL) {
+  # The code in this function is adapted from the code in dplyr::relocate.data.frame
+  # at https://github.com/tidyverse/dplyr/blob/master/R/relocate.R
+  # TODO: revisit this after https://github.com/tidyverse/dplyr/issues/5829
+  check_select_helpers(c(enexprs(...), enexpr(.before), enexpr(.after)))
+
+  .data <- arrow_dplyr_query(.data)
+
+  to_move <- eval_select(expr(c(...)), .data$selected_columns)
+
+  .before <- enquo(.before)
+  .after <- enquo(.after)
+  has_before <- !quo_is_null(.before)
+  has_after <- !quo_is_null(.after)
+
+  if (has_before && has_after) {
+    abort("Must supply only one of `.before` and `.after`.")
+  } else if (has_before) {
+    where <- min(unname(eval_select(.before, .data$selected_columns)))
+    if (!where %in% to_move) {
+      to_move <- c(to_move, where)
+    }
+  } else if (has_after) {
+    where <- max(unname(eval_select(.after, .data$selected_columns)))
+    if (!where %in% to_move) {
+      to_move <- c(where, to_move)
+    }
+  } else {
+    where <- 1L
+    if (!where %in% to_move) {
+      to_move <- c(to_move, where)
+    }
+  }
+
+  lhs <- setdiff(seq2(1, where - 1), to_move)
+  rhs <- setdiff(seq2(where + 1, length(.data$selected_columns)), to_move)
+
+  pos <- vec_unique(c(lhs, to_move, rhs))
+  new_names <- names(pos)
+  .data$selected_columns <- .data$selected_columns[pos]
+
+  if (!is.null(new_names)) {
+    names(.data$selected_columns)[new_names != ""] <- new_names[new_names != ""]
+  }
+  .data
+}
+relocate.Dataset <- relocate.ArrowTabular <- relocate.arrow_dplyr_query
+
+check_select_helpers <- function(exprs) {
+  # Throw an error if unsupported tidyselect selection helpers in `exprs`
+  exprs <- lapply(exprs, function(x) if (is_quosure(x)) quo_get_expr(x) else x)
+  unsup_select_helpers <- "where"
+  funs_in_exprs <- unlist(lapply(exprs, all_funs))
+  unsup_funs <- funs_in_exprs[funs_in_exprs %in% unsup_select_helpers]
+  if (length(unsup_funs)) {
+    stop(
+      "Unsupported selection ",
+      ngettext(length(unsup_funs), "helper: ", "helpers: "),
+      oxford_paste(paste0(unsup_funs, "()"), quote = FALSE),
+      call. = FALSE
+    )
+  }
 }
 
 filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
@@ -331,6 +396,40 @@ build_function_list <- function(FUN) {
     # Include mappings from R function name spellings
     lapply(set_names(names(.array_function_map)), wrapper),
     # Plus some special handling where it's not 1:1
+    as.character = function(x) {
+      FUN("cast", x, options = cast_options(to_type = string()))
+    },
+    as.double = function(x) {
+      FUN("cast", x, options = cast_options(to_type = float64()))
+    },
+    as.integer = function(x) {
+      FUN(
+        "cast",
+        x,
+        options = cast_options(
+          to_type = int32(),
+          allow_float_truncate = TRUE,
+          allow_decimal_truncate = TRUE
+        )
+      )
+    },
+    as.integer64 = function(x) {
+      FUN(
+        "cast",
+        x,
+        options = cast_options(
+          to_type = int64(),
+          allow_float_truncate = TRUE,
+          allow_decimal_truncate = TRUE
+        )
+      )
+    },
+    as.logical = function(x) {
+      FUN("cast", x, options = cast_options(to_type = boolean()))
+    },
+    as.numeric = function(x) {
+      FUN("cast", x, options = cast_options(to_type = float64()))
+    },
     nchar = function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
       if (allowNA) {
         stop("allowNA = TRUE not supported for Arrow", call. = FALSE)
@@ -357,6 +456,12 @@ build_function_list <- function(FUN) {
         both = FUN("utf8_trim_whitespace", string)
       )
     },
+    grepl = arrow_r_string_match_function(FUN),
+    str_detect = arrow_stringr_string_match_function(FUN),
+    sub = arrow_r_string_replace_function(FUN, 1L),
+    gsub = arrow_r_string_replace_function(FUN, -1L),
+    str_replace = arrow_stringr_string_replace_function(FUN, 1L),
+    str_replace_all = arrow_stringr_string_replace_function(FUN, -1L),
     between = function(x, left, right) {
       x >= left & x <= right
     },
@@ -367,6 +472,130 @@ build_function_list <- function(FUN) {
       paste0("arrow_", all_arrow_funs)
     )
   )
+}
+
+arrow_r_string_match_function <- function(FUN) {
+  function(pattern, x, ignore.case = FALSE, fixed = FALSE) {
+    FUN(
+      ifelse(fixed && !ignore.case, "match_substring", "match_substring_regex"),
+      x,
+      options = list(pattern = format_string_pattern(pattern, ignore.case, fixed))
+    )
+  }
+}
+
+arrow_stringr_string_match_function <- function(FUN) {
+  function(string, pattern, negate = FALSE) {
+    opts <- get_stringr_pattern_options(enexpr(pattern))
+    out <- arrow_r_string_match_function(FUN)(
+      pattern = opts$pattern,
+      x = string,
+      ignore.case = opts$ignore_case,
+      fixed = opts$fixed
+    )
+    if (negate) out <- FUN("invert", out)
+    out
+  }
+}
+
+arrow_r_string_replace_function <- function(FUN, max_replacements) {
+  function(pattern, replacement, x, ignore.case = FALSE, fixed = FALSE) {
+    FUN(
+      ifelse(fixed && !ignore.case, "replace_substring", "replace_substring_regex"),
+      x,
+      options = list(
+        pattern = format_string_pattern(pattern, ignore.case, fixed),
+        replacement =  format_string_replacement(replacement, ignore.case, fixed),
+        max_replacements = max_replacements
+      )
+    )
+  }
+}
+
+arrow_stringr_string_replace_function <- function(FUN, max_replacements) {
+  function(string, pattern, replacement) {
+    opts <- get_stringr_pattern_options(enexpr(pattern))
+    arrow_r_string_replace_function(FUN, max_replacements)(
+      pattern = opts$pattern,
+      replacement = replacement,
+      x = string,
+      ignore.case = opts$ignore_case,
+      fixed = opts$fixed
+    )
+  }
+}
+
+# format `pattern` as needed for case insensitivity and literal matching by RE2
+format_string_pattern <- function(pattern, ignore.case, fixed) {
+  # Arrow lacks native support for case-insensitive literal string matching and
+  # replacement, so we use the regular expression engine (RE2) to do this.
+  # https://github.com/google/re2/wiki/Syntax
+  if (ignore.case) {
+    if (fixed) {
+      # Everything between "\Q" and "\E" is treated as literal text.
+      # If the search text contains any literal "\E" strings, make them
+      # lowercase so they won't signal the end of the literal text:
+      pattern <- gsub("\\E", "\\e", pattern, fixed = TRUE)
+      pattern <- paste0("\\Q", pattern, "\\E")
+    }
+    # Prepend "(?i)" for case-insensitive matching
+    pattern <- paste0("(?i)", pattern)
+  }
+  pattern
+}
+
+# format `replacement` as needed for literal replacement by RE2
+format_string_replacement <- function(replacement, ignore.case, fixed) {
+  # Arrow lacks native support for case-insensitive literal string
+  # replacement, so we use the regular expression engine (RE2) to do this.
+  # https://github.com/google/re2/wiki/Syntax
+  if (ignore.case && fixed) {
+    # Escape single backslashes in the regex replacement text so they are
+    # interpreted as literal backslashes:
+    replacement <- gsub("\\", "\\\\", replacement, fixed = TRUE)
+  }
+  replacement
+}
+
+# this function assigns definitions for the stringr pattern modifier functions
+# (fixed, regex, etc.) in itself, and uses them to evaluate the quoted
+# expression `pattern`
+get_stringr_pattern_options <- function(pattern) {
+  fixed <- function(pattern, ignore_case = FALSE, ...) {
+    check_dots(...)
+    list(pattern = pattern, fixed = TRUE, ignore_case = ignore_case)
+  }
+  regex <- function(pattern, ignore_case = FALSE, ...) {
+    check_dots(...)
+    list(pattern = pattern, fixed = FALSE, ignore_case = ignore_case)
+  }
+  coll <- boundary <- function(...) {
+    stop(
+      "Pattern modifier `",
+      match.call()[[1]],
+      "()` is not supported in Arrow",
+      call. = FALSE
+    )
+  }
+  check_dots <- function(...) {
+    dots <- list(...)
+    if (length(dots)) {
+      warning(
+        "Ignoring pattern modifier ",
+        ngettext(length(dots), "argument ", "arguments "),
+        "not supported in Arrow: ",
+        oxford_paste(names(dots)),
+        call. = FALSE
+      )
+    }
+  }
+  ensure_opts <- function(opts) {
+    if (is.character(opts)) {
+      opts <- list(pattern = opts, fixed = TRUE, ignore_case = FALSE)
+    }
+    opts
+  }
+  ensure_opts(eval(pattern))
 }
 
 # We'll populate these at package load time.
@@ -468,10 +697,19 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
     restore_dplyr_features(tab, x)
   }
 }
-collect.ArrowTabular <- as.data.frame.ArrowTabular
+collect.ArrowTabular <- function(x, as_data_frame = TRUE, ...) {
+  if (as_data_frame) {
+    as.data.frame(x, ...)
+  } else {
+    x
+  }
+}
 collect.Dataset <- function(x, ...) dplyr::collect(arrow_dplyr_query(x), ...)
 
-#' @importFrom rlang .data
+compute.arrow_dplyr_query <- function(x, ...) dplyr::collect(x, as_data_frame = FALSE)
+compute.ArrowTabular <- function(x, ...) x
+compute.Dataset <- compute.arrow_dplyr_query
+
 ensure_group_vars <- function(x) {
   if (inherits(x, "arrow_dplyr_query")) {
     # Before pulling data from Arrow, make sure all group vars are in the projection
@@ -520,7 +758,7 @@ restore_dplyr_features <- function(df, query) {
         drop = dplyr::group_by_drop_default(query)
       )
     } else {
-      # This is a Table, via collect(as_data_frame = FALSE)
+      # This is a Table, via compute() or collect(as_data_frame = FALSE)
       df <- arrow_dplyr_query(df)
       df$group_by_vars <- query$group_by_vars
       df$drop_empty_groups <- query$drop_empty_groups
@@ -529,7 +767,6 @@ restore_dplyr_features <- function(df, query) {
   df
 }
 
-#' @importFrom tidyselect vars_pull
 pull.arrow_dplyr_query <- function(.data, var = -1) {
   .data <- arrow_dplyr_query(.data)
   var <- vars_pull(names(.data), !!enquo(var))
@@ -609,10 +846,8 @@ group_by.arrow_dplyr_query <- function(.data,
   new_groups <- enquos(...)
   new_groups <- new_groups[nzchar(names(new_groups))]
   if (length(new_groups)) {
-    # TODO(ARROW-11658): either find a way to let group_by_prepare handle this
-    # (it may call mutate() for us)
-    # or essentially reimplement it here (see dplyr:::add_computed_columns)
-    stop("Cannot create or rename columns in group_by on Arrow objects", call. = FALSE)
+    # Add them to the data
+    .data <- dplyr::mutate(.data, !!!new_groups)
   }
   if (".add" %in% names(formals(dplyr::group_by))) {
     # dplyr >= 1.0
@@ -666,10 +901,7 @@ mutate.arrow_dplyr_query <- function(.data,
   .data <- arrow_dplyr_query(.data)
 
   # Restrict the cases we support for now
-  if (!quo_is_null(.before) || !quo_is_null(.after)) {
-    # TODO(ARROW-11701)
-    return(abandon_ship(call, .data, '.before and .after arguments are not supported in Arrow'))
-  } else if (length(dplyr::group_vars(.data)) > 0) {
+  if (length(dplyr::group_vars(.data)) > 0) {
     # mutate() on a grouped dataset does calculations within groups
     # This doesn't matter on scalar ops (arithmetic etc.) but it does
     # for things with aggregations (e.g. subtracting the mean)
@@ -706,25 +938,36 @@ mutate.arrow_dplyr_query <- function(.data,
     mask[[new_var]] <- mask$.data[[new_var]] <- results[[new_var]]
   }
 
-  # Assign the new columns into the .data$selected_columns, respecting the .keep param
+  old_vars <- names(.data$selected_columns)
+  # Note that this is names(exprs) not names(results):
+  # if results$new_var is NULL, that means we are supposed to remove it
+  new_vars <- names(exprs)
+
+  # Assign the new columns into the .data$selected_columns
+  for (new_var in new_vars) {
+    .data$selected_columns[[new_var]] <- results[[new_var]]
+  }
+
+  # Deduplicate new_vars and remove NULL columns from new_vars
+  new_vars <- intersect(new_vars, names(.data$selected_columns))
+
+  # Respect .before and .after
+  if (!quo_is_null(.before) || !quo_is_null(.after)) {
+    new <- setdiff(new_vars, old_vars)
+    .data <- dplyr::relocate(.data, !!new, .before = !!.before, .after = !!.after)
+  }
+
+  # Respect .keep
   if (.keep == "none") {
-    .data$selected_columns <- results
-  } else {
-    if (.keep != "all") {
-      # "used" or "unused"
-      used_vars <- unlist(lapply(exprs, all.vars), use.names = FALSE)
-      old_vars <- names(.data$selected_columns)
-      if (.keep == "used") {
-        .data$selected_columns <- .data$selected_columns[intersect(old_vars, used_vars)]
-      } else {
-        # "unused"
-        .data$selected_columns <- .data$selected_columns[setdiff(old_vars, used_vars)]
-      }
-    }
-    # Note that this is names(exprs) not names(results):
-    # if results$new_var is NULL, that means we are supposed to remove it
-    for (new_var in names(exprs)) {
-      .data$selected_columns[[new_var]] <- results[[new_var]]
+    .data$selected_columns <- .data$selected_columns[new_vars]
+  } else if (.keep != "all") {
+    # "used" or "unused"
+    used_vars <- unlist(lapply(exprs, all.vars), use.names = FALSE)
+    if (.keep == "used") {
+      .data$selected_columns[setdiff(old_vars, used_vars)] <- NULL
+    } else {
+      # "unused"
+      .data$selected_columns[intersect(old_vars, used_vars)] <- NULL
     }
   }
   # Even if "none", we still keep group vars

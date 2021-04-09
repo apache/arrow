@@ -21,6 +21,13 @@ set -ex
 
 source_dir=${1}/rust
 
+# This file is used to build the rust binaries needed for the
+# archery integration tests. Testing of the rust implementation
+# in normal CI is handled by github workflows
+
+# Disable full debug symbol generation to speed up CI build / reduce memory required
+export RUSTFLAGS="-C debuginfo=1"
+
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
 export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data
 
@@ -29,12 +36,10 @@ rustup show
 
 pushd ${source_dir}
 
-# build entire project
-cargo build --all-targets
+# build only the integration testing binaries
+cargo build -p arrow-integration-testing
 
-# make sure we can build Arrow sub-crate without default features
-pushd arrow
-cargo check --all-targets --no-default-features
-popd
+# Remove incremental build artifacts to save space
+rm -rf  target/debug/deps/ target/debug/build/
 
 popd

@@ -778,7 +778,7 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
           arrow::dictionary(result_type->index_type(), result_type->value_type(), true);
     }
 
-    return result;
+    return std::make_shared<DictionaryArray>(result->data());
   }
 };
 
@@ -809,15 +809,7 @@ class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
     }
 
     auto append_value = [this](SEXP value) {
-      // TODO: this should always use vctrs::short_vec_size
-      //       but that introduced a regression:
-      //       https://github.com/apache/arrow/pull/8650#issuecomment-786940734
-      int n;
-      if (TYPEOF(value) == VECSXP && !Rf_inherits(value, "data.frame")) {
-        n = Rf_length(value);
-      } else {
-        n = vctrs::short_vec_size(value);
-      }
+      int n = vctrs::vec_size(value);
 
       RETURN_NOT_OK(this->list_builder_->ValidateOverflow(n));
       RETURN_NOT_OK(this->list_builder_->Append());
@@ -879,7 +871,7 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
 
     for (R_xlen_t i = 0; i < n_columns; i++) {
       SEXP x_i = VECTOR_ELT(x, i);
-      if (vctrs::short_vec_size(x_i) < size) {
+      if (vctrs::vec_size(x_i) < size) {
         return Status::RError("Degenerated data frame");
       }
     }
@@ -1011,7 +1003,7 @@ std::shared_ptr<arrow::Array> vec_to_arrow(SEXP x,
   RConversionOptions options;
   options.strict = !type_inferred;
   options.type = type;
-  options.size = vctrs::short_vec_size(x);
+  options.size = vctrs::vec_size(x);
 
   // maybe short circuit when zero-copy is possible
   if (can_reuse_memory(x, options.type)) {

@@ -249,6 +249,35 @@ TEST_F(TestFileSystemDataset, FragmentPartitions) {
                 });
 }
 
+class TestFilesystemDatasetNestedParallelism : public NestedParallelismMixin {};
+
+TEST_F(TestFilesystemDatasetNestedParallelism, Write) {
+  constexpr int NUM_BATCHES = 32;
+  RecordBatchVector batches;
+  for (int i = 0; i < NUM_BATCHES; i++) {
+    batches.push_back(ConstantArrayGenerator::Zeroes(/*size=*/1, schema_));
+  }
+  auto dataset = std::make_shared<NestedParallelismDataset>(schema_, std::move(batches));
+  ScannerBuilder builder{dataset, options_};
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto output_dir, TemporaryDir::Make("nested-parallel-dataset"));
+
+  auto format = std::make_shared<DiscardingRowCountingFormat>();
+  auto rows_written = std::make_shared<std::atomic<int>>(0);
+  std::shared_ptr<FileWriteOptions> file_write_options =
+      std::make_shared<DiscardingRowCountingFileWriteOptions>(rows_written);
+  FileSystemDatasetWriteOptions dataset_write_options;
+  dataset_write_options.file_write_options = file_write_options;
+  dataset_write_options.basename_template = "{i}";
+  dataset_write_options.partitioning = std::make_shared<HivePartitioning>(schema({}));
+  dataset_write_options.base_dir = output_dir->path().ToString();
+  dataset_write_options.filesystem = std::make_shared<fs::LocalFileSystem>();
+
+  ASSERT_OK(FileSystemDataset::Write(dataset_write_options, scanner));
+  ASSERT_EQ(NUM_BATCHES, rows_written->load());
+}
+
 // Tests of subtree pruning
 
 struct TestPathTree {

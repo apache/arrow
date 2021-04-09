@@ -21,30 +21,36 @@ project_name = 'gandiva-glib'
 
 sources = files(
   'expression.cpp',
+  'filter.cpp',
   'function-registry.cpp',
   'function-signature.cpp',
-  'node.cpp',
   'native-function.cpp',
+  'node.cpp',
   'projector.cpp',
+  'selection-vector.cpp',
 )
 
 c_headers = files(
   'expression.h',
+  'filter.h',
   'function-registry.h',
   'function-signature.h',
   'gandiva-glib.h',
-  'node.h',
   'native-function.h',
+  'node.h',
   'projector.h',
+  'selection-vector.h',
 )
 
 cpp_headers = files(
   'expression.hpp',
+  'filter.hpp',
   'function-signature.hpp',
   'gandiva-glib.hpp',
-  'node.hpp',
   'native-function.hpp',
+  'node.hpp',
   'projector.hpp',
+  'selection-vector.hpp',
 )
 
 version_h_conf = configuration_data()

@@ -30,6 +30,7 @@ use arrow::{
     compute,
     datatypes::{TimeUnit, UInt32Type, UInt64Type},
 };
+use smallvec::{smallvec, SmallVec};
 use std::time::Instant;
 use std::{any::Any, collections::HashSet};
 use std::{hash::Hasher, sync::Arc};
@@ -64,7 +65,7 @@ use log::debug;
 // Maps a `u64` hash value based on the left ["on" values] to a list of indices with this key's value.
 // E.g. 1 -> [3, 6, 8] indicates that the column values map to rows 3, 6 and 8 for hash value 1
 // As the key is a hash value, we need to check possible hash collisions in the probe stage
-type JoinHashMap = HashMap<u64, Vec<u64>, IdHashBuilder>;
+type JoinHashMap = HashMap<u64, SmallVec<[u64; 1]>, IdHashBuilder>;
 type JoinLeftData = Arc<(JoinHashMap, RecordBatch)>;
 
 /// join execution plan executes partitions in parallel and combines them into a set of
@@ -85,6 +86,17 @@ pub struct HashJoinExec {
     build_side: Arc<Mutex<Option<JoinLeftData>>>,
     /// Shares the `RandomState` for the hashing algorithm
     random_state: RandomState,
+    /// Partitioning mode to use
+    mode: PartitionMode,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+/// Partitioning mode to use for hash join
+pub enum PartitionMode {
+    /// Left/right children are partitioned using the left and right keys
+    Partitioned,
+    /// Left side will collected into one partition
+    CollectLeft,
 }
 
 /// Information about the index and placement (left or right) of the columns
@@ -104,6 +116,7 @@ impl HashJoinExec {
         right: Arc<dyn ExecutionPlan>,
         on: &JoinOn,
         join_type: &JoinType,
+        partition_mode: PartitionMode,
     ) -> Result<Self> {
         let left_schema = left.schema();
         let right_schema = right.schema();
@@ -121,7 +134,7 @@ impl HashJoinExec {
             .map(|(l, r)| (l.to_string(), r.to_string()))
             .collect();
 
-        let random_state = RandomState::new();
+        let random_state = RandomState::with_seeds(0, 0, 0, 0);
 
         Ok(HashJoinExec {
             left,
@@ -131,6 +144,7 @@ impl HashJoinExec {
             schema,
             build_side: Arc::new(Mutex::new(None)),
             random_state,
+            mode: partition_mode,
         })
     }
 
@@ -209,6 +223,7 @@ impl ExecutionPlan for HashJoinExec {
                 children[1].clone(),
                 &self.on,
                 &self.join_type,
+                self.mode,
             )?)),
             _ => Err(DataFusionError::Internal(
                 "HashJoinExec wrong number of children".to_string(),
@@ -222,18 +237,76 @@ impl ExecutionPlan for HashJoinExec {
 
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
         let on_left = self.on.iter().map(|on| on.0.clone()).collect::<Vec<_>>();
-
-        // we only want to compute the build side once
+        // we only want to compute the build side once for PartitionMode::CollectLeft
         let left_data = {
-            let mut build_side = self.build_side.lock().await;
-            match build_side.as_ref() {
-                Some(stream) => stream.clone(),
-                None => {
+            match self.mode {
+                PartitionMode::CollectLeft => {
+                    let mut build_side = self.build_side.lock().await;
+
+                    match build_side.as_ref() {
+                        Some(stream) => stream.clone(),
+                        None => {
+                            let start = Instant::now();
+
+                            // merge all left parts into a single stream
+                            let merge = MergeExec::new(self.left.clone());
+                            let stream = merge.execute(0).await?;
+
+                            // This operation performs 2 steps at once:
+                            // 1. creates a [JoinHashMap] of all batches from the stream
+                            // 2. stores the batches in a vector.
+                            let initial = (
+                                JoinHashMap::with_hasher(IdHashBuilder {}),
+                                Vec::new(),
+                                0,
+                                Vec::new(),
+                            );
+                            let (hashmap, batches, num_rows, _) = stream
+                                .try_fold(initial, |mut acc, batch| async {
+                                    let hash = &mut acc.0;
+                                    let values = &mut acc.1;
+                                    let offset = acc.2;
+                                    acc.3.clear();
+                                    acc.3.resize(batch.num_rows(), 0);
+                                    update_hash(
+                                        &on_left,
+                                        &batch,
+                                        hash,
+                                        offset,
+                                        &self.random_state,
+                                        &mut acc.3,
+                                    )
+                                    .unwrap();
+                                    acc.2 += batch.num_rows();
+                                    values.push(batch);
+                                    Ok(acc)
+                                })
+                                .await?;
+
+                            // Merge all batches into a single batch, so we
+                            // can directly index into the arrays
+                            let single_batch =
+                                concat_batches(&self.left.schema(), &batches, num_rows)?;
+
+                            let left_side = Arc::new((hashmap, single_batch));
+
+                            *build_side = Some(left_side.clone());
+
+                            debug!(
+                            "Built build-side of hash join containing {} rows in {} ms",
+                            num_rows,
+                            start.elapsed().as_millis()
+                        );
+
+                            left_side
+                        }
+                    }
+                }
+                PartitionMode::Partitioned => {
                     let start = Instant::now();
 
-                    // merge all left parts into a single stream
-                    let merge = MergeExec::new(self.left.clone());
-                    let stream = merge.execute(0).await?;
+                    // Load 1 partition of left side in memory
+                    let stream = self.left.execute(partition).await?;
 
                     // This operation performs 2 steps at once:
                     // 1. creates a [JoinHashMap] of all batches from the stream
@@ -273,10 +346,9 @@ impl ExecutionPlan for HashJoinExec {
 
                     let left_side = Arc::new((hashmap, single_batch));
 
-                    *build_side = Some(left_side.clone());
-
                     debug!(
-                        "Built build-side of hash join containing {} rows in {} ms",
+                        "Built build-side {} of hash join containing {} rows in {} ms",
+                        partition,
                         num_rows,
                         start.elapsed().as_millis()
                     );
@@ -335,7 +407,7 @@ fn update_hash(
         hash.raw_entry_mut()
             .from_key_hashed_nocheck(*hash_value, hash_value)
             .and_modify(|_, v| v.push((row + offset) as u64))
-            .or_insert_with(|| (*hash_value, vec![(row + offset) as u64]));
+            .or_insert_with(|| (*hash_value, smallvec![(row + offset) as u64]));
     }
     Ok(())
 }
@@ -656,42 +728,20 @@ fn equal_rows(
         .zip(right_arrays)
         .all(|(l, r)| match l.data_type() {
             DataType::Null => true,
-            DataType::Boolean => {
-                equal_rows_elem!(BooleanArray, l, r, left, right)
-            }
-            DataType::Int8 => {
-                equal_rows_elem!(Int8Array, l, r, left, right)
-            }
-            DataType::Int16 => {
-                equal_rows_elem!(Int16Array, l, r, left, right)
-            }
-            DataType::Int32 => {
-                equal_rows_elem!(Int32Array, l, r, left, right)
-            }
-            DataType::Int64 => {
-                equal_rows_elem!(Int64Array, l, r, left, right)
-            }
-            DataType::UInt8 => {
-                equal_rows_elem!(UInt8Array, l, r, left, right)
-            }
-            DataType::UInt16 => {
-                equal_rows_elem!(UInt16Array, l, r, left, right)
-            }
-            DataType::UInt32 => {
-                equal_rows_elem!(UInt32Array, l, r, left, right)
-            }
-            DataType::UInt64 => {
-                equal_rows_elem!(UInt64Array, l, r, left, right)
-            }
+            DataType::Boolean => equal_rows_elem!(BooleanArray, l, r, left, right),
+            DataType::Int8 => equal_rows_elem!(Int8Array, l, r, left, right),
+            DataType::Int16 => equal_rows_elem!(Int16Array, l, r, left, right),
+            DataType::Int32 => equal_rows_elem!(Int32Array, l, r, left, right),
+            DataType::Int64 => equal_rows_elem!(Int64Array, l, r, left, right),
+            DataType::UInt8 => equal_rows_elem!(UInt8Array, l, r, left, right),
+            DataType::UInt16 => equal_rows_elem!(UInt16Array, l, r, left, right),
+            DataType::UInt32 => equal_rows_elem!(UInt32Array, l, r, left, right),
+            DataType::UInt64 => equal_rows_elem!(UInt64Array, l, r, left, right),
             DataType::Timestamp(_, None) => {
                 equal_rows_elem!(Int64Array, l, r, left, right)
             }
-            DataType::Utf8 => {
-                equal_rows_elem!(StringArray, l, r, left, right)
-            }
-            DataType::LargeUtf8 => {
-                equal_rows_elem!(LargeStringArray, l, r, left, right)
-            }
+            DataType::Utf8 => equal_rows_elem!(StringArray, l, r, left, right),
+            DataType::LargeUtf8 => equal_rows_elem!(LargeStringArray, l, r, left, right),
             _ => {
                 // This is internal because we should have caught this before.
                 err = Some(Err(DataFusionError::Internal(
@@ -870,7 +920,7 @@ mod tests {
             .iter()
             .map(|(l, r)| (l.to_string(), r.to_string()))
             .collect();
-        HashJoinExec::try_new(left, right, &on, join_type)
+        HashJoinExec::try_new(left, right, &on, join_type, PartitionMode::CollectLeft)
     }
 
     #[tokio::test]
@@ -1178,8 +1228,8 @@ mod tests {
             create_hashes(&[left.columns()[0].clone()], &random_state, hashes_buff)?;
 
         // Create hash collisions
-        hashmap_left.insert(hashes[0], vec![0, 1]);
-        hashmap_left.insert(hashes[1], vec![0, 1]);
+        hashmap_left.insert(hashes[0], smallvec![0, 1]);
+        hashmap_left.insert(hashes[1], smallvec![0, 1]);
 
         let right = build_table_i32(
             ("a", &vec![10, 20]),

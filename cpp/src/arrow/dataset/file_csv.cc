@@ -34,6 +34,7 @@
 #include "arrow/io/compressed.h"
 #include "arrow/result.h"
 #include "arrow/type.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 
@@ -42,6 +43,7 @@ namespace dataset {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+using RecordBatchGenerator = AsyncGenerator<std::shared_ptr<RecordBatch>>;
 
 Result<std::unordered_set<std::string>> GetColumnNames(
     const csv::ParseOptions& parse_options, util::string_view first_block,
@@ -110,35 +112,47 @@ static inline Result<csv::ReadOptions> GetReadOptions(
   return read_options;
 }
 
-static inline Result<std::shared_ptr<csv::StreamingReader>> OpenReader(
+static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
     const FileSource& source, const CsvFileFormat& format,
     const std::shared_ptr<ScanOptions>& scan_options = nullptr,
     MemoryPool* pool = default_memory_pool()) {
   ARROW_ASSIGN_OR_RAISE(auto reader_options, GetReadOptions(format, scan_options));
 
-  util::string_view first_block;
   ARROW_ASSIGN_OR_RAISE(auto input, source.OpenCompressed());
   ARROW_ASSIGN_OR_RAISE(
       input, io::BufferedInputStream::Create(reader_options.block_size,
                                              default_memory_pool(), std::move(input)));
-  ARROW_ASSIGN_OR_RAISE(first_block, input->Peek(reader_options.block_size));
 
-  const auto& parse_options = format.parse_options;
-  auto convert_options = csv::ConvertOptions::Defaults();
-  if (scan_options != nullptr) {
-    ARROW_ASSIGN_OR_RAISE(convert_options,
-                          GetConvertOptions(format, scan_options, first_block, pool));
-  }
+  auto peek_fut = DeferNotOk(input->io_context().executor()->Submit(
+      [input, reader_options] { return input->Peek(reader_options.block_size); }));
 
-  auto maybe_reader =
-      csv::StreamingReader::Make(io::IOContext(pool), std::move(input), reader_options,
-                                 parse_options, convert_options);
-  if (!maybe_reader.ok()) {
-    return maybe_reader.status().WithMessage("Could not open CSV input source '",
-                                             source.path(), "': ", maybe_reader.status());
-  }
+  return peek_fut.Then([=](const util::string_view& first_block)
+                           -> Future<std::shared_ptr<csv::StreamingReader>> {
+    const auto& parse_options = format.parse_options;
+    auto convert_options = csv::ConvertOptions::Defaults();
+    if (scan_options != nullptr) {
+      ARROW_ASSIGN_OR_RAISE(convert_options,
+                            GetConvertOptions(format, scan_options, first_block, pool));
+    }
 
-  return std::move(maybe_reader).ValueOrDie();
+    return csv::StreamingReader::MakeAsync(io::default_io_context(), std::move(input),
+                                           reader_options, parse_options, convert_options)
+        .Then(
+            [](const std::shared_ptr<csv::StreamingReader>& maybe_reader)
+                -> Result<std::shared_ptr<csv::StreamingReader>> { return maybe_reader; },
+            [source](const Status& err) -> Result<std::shared_ptr<csv::StreamingReader>> {
+              return err.WithMessage("Could not open CSV input source '", source.path(),
+                                     "': ", err);
+            });
+  });
+}
+
+static inline Result<std::shared_ptr<csv::StreamingReader>> OpenReader(
+    const FileSource& source, const CsvFileFormat& format,
+    const std::shared_ptr<ScanOptions>& scan_options = nullptr,
+    MemoryPool* pool = default_memory_pool()) {
+  auto open_reader_fut = OpenReaderAsync(source, format, scan_options, pool);
+  return open_reader_fut.result();
 }
 
 /// \brief A ScanTask backed by an Csv file.
@@ -152,9 +166,19 @@ class CsvScanTask : public ScanTask {
         source_(fragment->source()) {}
 
   Result<RecordBatchIterator> Execute() override {
-    ARROW_ASSIGN_OR_RAISE(auto reader,
-                          OpenReader(source_, *format_, options(), options()->pool));
-    return IteratorFromReader(std::move(reader));
+    ARROW_ASSIGN_OR_RAISE(auto gen, ExecuteAsync());
+    return MakeGeneratorIterator(std::move(gen));
+  }
+
+  bool supports_async() const override { return true; }
+
+  Result<RecordBatchGenerator> ExecuteAsync() override {
+    auto reader_fut = OpenReaderAsync(source_, *format_, options(), options()->pool);
+    auto generator_fut = reader_fut.Then(
+        [](const std::shared_ptr<csv::StreamingReader>& reader) -> RecordBatchGenerator {
+          return [reader]() { return reader->ReadNextAsync(); };
+        });
+    return MakeFromFuture(generator_fut);
   }
 
  private:

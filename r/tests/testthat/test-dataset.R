@@ -90,6 +90,13 @@ test_that("Setup (putting data in the dir)", {
   expect_length(dir(tsv_dir, recursive = TRUE), 2)
 })
 
+if(arrow_with_parquet()) {
+  files <- c(
+    file.path(dataset_dir, 1, "file1.parquet", fsep = "/"),
+    file.path(dataset_dir, 2, "file2.parquet", fsep = "/")
+  )
+}
+
 test_that("Simple interface for datasets", {
   skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
@@ -163,7 +170,40 @@ test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_
   )
 })
 
-test_that("dataset from URI", {
+test_that("dataset from single local file path", {
+  skip_on_os("windows")
+  skip_if_not_available("parquet")
+  ds <- open_dataset(files[1])
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7) %>%
+      collect() %>%
+      arrange(dbl),
+    df1[8:10, c("chr", "dbl")]
+  )
+})
+
+test_that("dataset from vector of file paths", {
+  skip_on_os("windows")
+  skip_if_not_available("parquet")
+  ds <- open_dataset(files)
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+})
+
+test_that("dataset from directory URI", {
   skip_on_os("windows")
   skip_if_not_available("parquet")
   uri <- paste0("file://", dataset_dir)
@@ -179,6 +219,50 @@ test_that("dataset from URI", {
       df1[8:10, c("chr", "dbl")],
       df2[1:2, c("chr", "dbl")]
     )
+  )
+})
+
+test_that("dataset from single file URI", {
+  skip_on_os("windows")
+  skip_if_not_available("parquet")
+  uri <- paste0("file://", files[1])
+  ds <- open_dataset(uri)
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7) %>%
+      collect() %>%
+      arrange(dbl),
+    df1[8:10, c("chr", "dbl")]
+  )
+})
+
+test_that("dataset from vector of file URIs", {
+  skip_on_os("windows")
+  skip_if_not_available("parquet")
+  uris <- paste0("file://", files)
+  ds <- open_dataset(uris)
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+})
+
+test_that("open_dataset errors on mixed paths and URIs", {
+  skip_on_os("windows")
+  skip_if_not_available("parquet")
+  expect_error(
+    open_dataset(c(files[1], paste0("file://", files[2]))),
+    "Vectors of mixed paths and URIs are not supported"
   )
 })
 
@@ -270,6 +354,7 @@ test_that("IPC/Feather format data", {
 })
 
 test_that("CSV dataset", {
+  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-12181
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   expect_is(ds$format, "CsvFileFormat")
   expect_is(ds$filesystem, "LocalFileSystem")
@@ -534,7 +619,7 @@ test_that("Creating UnionDataset", {
   )
 
   # Confirm c() method error handling
-  expect_error(c(ds1, 42), "string")
+  expect_error(c(ds1, 42), "character")
 })
 
 test_that("InMemoryDataset", {
@@ -659,6 +744,7 @@ test_that("filter() with strings", {
     tibble(chr = "b", part = 1)
   )
 
+  skip_if_not_available("utf8proc")
   expect_equivalent(
     ds %>%
       select(chr, part) %>%
@@ -1066,6 +1152,59 @@ See $.data for the source Arrow object",
   )
 })
 
+test_that("compute()/collect(as_data_frame=FALSE)", {
+  skip_if_not_available("parquet")
+  ds <- open_dataset(dataset_dir)
+
+  tab1 <- ds %>% compute()
+  expect_is(tab1, "Table")
+
+  tab2 <- ds %>% collect(as_data_frame = FALSE)
+  expect_is(tab2, "Table")
+
+  tab3 <-  ds %>%
+    mutate(negint = -int) %>%
+    filter(negint > - 100) %>%
+    arrange(chr) %>%
+    select(negint) %>%
+    compute()
+
+  expect_is(tab3, "Table")
+
+  expect_equal(
+    tab3 %>% collect(),
+    tibble(negint = -1:-10)
+  )
+
+  tab4 <-  ds %>%
+    mutate(negint = -int) %>%
+    filter(negint > - 100) %>%
+    arrange(chr) %>%
+    select(negint) %>%
+    collect(as_data_frame = FALSE)
+
+  expect_is(tab3, "Table")
+
+  expect_equal(
+    tab4 %>% collect(),
+    tibble(negint = -1:-10)
+  )
+
+  tab5 <- ds %>%
+    mutate(negint = -int) %>%
+    group_by(fct) %>%
+    compute()
+
+  # the group_by() prevents compute() from returning a Table...
+  expect_is(tab5, "arrow_dplyr_query")
+
+  # ... but $.data is a Table...
+  expect_is(tab5$.data, "Table")
+  # ... and the mutate() was evaluated
+  expect_true("negint" %in% names(tab5$.data))
+
+})
+
 test_that("head/tail", {
   skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir)
@@ -1226,13 +1365,6 @@ expect_scan_result <- function(ds, schm) {
   )
 }
 
-if(arrow_with_parquet()) {
-  files <- c(
-    file.path(dataset_dir, 1, "file1.parquet", fsep = "/"),
-    file.path(dataset_dir, 2, "file2.parquet", fsep = "/")
-  )
-}
-
 test_that("Assembling a Dataset manually and getting a Table", {
   skip_if_not_available("parquet")
   fs <- LocalFileSystem$create()
@@ -1240,7 +1372,7 @@ test_that("Assembling a Dataset manually and getting a Table", {
   partitioning <- DirectoryPartitioning$create(schema(part = double()))
 
   fmt <- FileFormat$create("parquet")
-  factory <- FileSystemDatasetFactory$create(fs, selector, fmt, partitioning = partitioning)
+  factory <- FileSystemDatasetFactory$create(fs, selector, NULL, fmt, partitioning = partitioning)
   expect_is(factory, "FileSystemDatasetFactory")
 
   schm <- factory$Inspect()

@@ -33,7 +33,7 @@ const {
 for (const [target, format] of combinations([`all`], [`all`])) {
     const task = taskName(target, format);
     gulp.task(`clean:${task}`, cleanTask(target, format));
-    gulp.task( `test:${task}`,  testTask(target, format));
+    gulp.task(`test:${task}`,  testTask(target, format));
     gulp.task(`compile:${task}`, compileTask(target, format));
     gulp.task(`package:${task}`, packageTask(target, format));
     gulp.task(`build:${task}`, gulp.series(
@@ -56,8 +56,8 @@ knownTargets.forEach((target) => {
     ));
 });
 
-// The main "apache-arrow" module builds the es5/umd, es2015/cjs,
-// es2015/esm, and es2015/umd targets, then copies and renames the
+// The main "apache-arrow" module builds the es5/umd, esnext/cjs,
+// esnext/esm, and esnext/umd targets, then copies and renames the
 // compiled output into the apache-arrow folder
 gulp.task(`build:${npmPkgName}`,
     gulp.series(

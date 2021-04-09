@@ -28,6 +28,7 @@ pub mod concat;
 pub mod filter;
 pub mod length;
 pub mod limit;
+pub mod regexp;
 pub mod sort;
 pub mod substring;
 pub mod take;

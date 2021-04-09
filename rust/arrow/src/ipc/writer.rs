@@ -546,6 +546,53 @@ impl<W: Write> StreamWriter<W> {
 
         Ok(())
     }
+
+    /// Unwraps the BufWriter housed in StreamWriter.writer, returning the underlying
+    /// writer
+    ///
+    /// The buffer is flushed and the StreamWriter is finished before returning the
+    /// writer.
+    ///
+    /// # Errors
+    ///
+    /// An ['Err'] may be returned if an error occurs while finishing the StreamWriter
+    /// or while flushing the buffer.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use arrow::datatypes::Schema;
+    /// # use arrow::ipc::writer::StreamWriter;
+    /// # use arrow::error::ArrowError;
+    /// # fn main() -> Result<(), ArrowError> {
+    /// // The result we expect from an empty schema
+    /// let expected = vec![
+    ///     255, 255, 255, 255,  64,   0,   0,   0,
+    ///      16,   0,   0,   0,   0,   0,  10,   0,
+    ///      14,   0,  12,   0,  11,   0,   4,   0,
+    ///      10,   0,   0,   0,  20,   0,   0,   0,
+    ///       0,   0,   0,   1,   4,   0,  10,   0,
+    ///      12,   0,   0,   0,   8,   0,   4,   0,
+    ///      10,   0,   0,   0,   8,   0,   0,   0,
+    ///       8,   0,   0,   0,   0,   0,   0,   0,
+    ///       0,   0,   0,   0,   0,   0,   0,   0,
+    ///     255, 255, 255, 255,   0,   0,   0,   0
+    /// ];
+    ///
+    /// let schema = Schema::new(vec![]);
+    /// let buffer: Vec<u8> = Vec::new();
+    /// let stream_writer = StreamWriter::try_new(buffer, &schema)?;
+    ///
+    /// assert_eq!(stream_writer.into_inner()?, expected);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn into_inner(mut self) -> Result<W> {
+        if !self.finished {
+            self.finish()?;
+        }
+        self.writer.into_inner().map_err(ArrowError::from)
+    }
 }
 
 /// Stores the encoded data, which is an ipc::Message, and optional Arrow data

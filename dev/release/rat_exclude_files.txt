@@ -124,9 +124,11 @@ go/arrow/internal/cpu/*
 go/arrow/type_string.go
 go/*.tmpldata
 go/*.s
+go/parquet/go.sum
 js/.npmignore
 js/closure-compiler-scripts/*
 js/src/fb/*.ts
+js/yarn.lock
 python/cmake_modules
 python/cmake_modules/FindPythonLibsNew.cmake
 python/cmake_modules/SnappyCMakeLists.txt
@@ -135,6 +137,7 @@ python/MANIFEST.in
 python/manylinux1/.dockerignore
 python/pyarrow/includes/__init__.pxd
 python/pyarrow/tests/__init__.py
+python/pyarrow/vendored/*
 python/requirements*.txt
 pax_global_header
 MANIFEST.in
@@ -193,3 +196,5 @@ julia/Arrow/docs/mkdocs.yml
 julia/Arrow/docs/src/index.md
 julia/Arrow/docs/src/manual.md
 julia/Arrow/docs/src/reference.md
+rust/ballista/rust/benchmarks/tpch/queries/q*.sql
+rust/ballista/rust/scheduler/testdata/*

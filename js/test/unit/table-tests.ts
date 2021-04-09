@@ -18,7 +18,7 @@
 import '../jest-extensions';
 import {
     predicate,
-    Data, Schema, Table, RecordBatch, Column,
+    Data, Schema, Field, Table, RecordBatch, Column,
     Vector, Int32Vector, Float32Vector, Utf8Vector, DictionaryVector,
     Struct, Float32, Int32, Dictionary, Utf8, Int8
 } from '../Arrow';
@@ -595,7 +595,9 @@ export function getSingleRecordBatchTable() {
 
 function getMultipleRecordBatchesTable() {
 
-    const schema = Schema.from<TestDataSchema>(getTestVectors([], [], []), NAMES);
+    const types = getTestVectors([], [], []).map((vec) => vec.type);
+    const fields = NAMES.map((name, i) => Field.new(name, types[i]));
+    const schema = new Schema<TestDataSchema>(fields);
 
     const b1 = new RecordBatch(schema, 3, getTestVectors(
         [-0.3, -0.2, -0.1],

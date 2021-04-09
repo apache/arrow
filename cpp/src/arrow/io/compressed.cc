@@ -342,7 +342,7 @@ class CompressedInputStream::Impl {
       RETURN_NOT_OK(EnsureCompressedData());
       if (compressed_pos_ == compressed_->size()) {
         // No more data to decompress
-        if (!fresh_decompressor_) {
+        if (!fresh_decompressor_ && !decompressor_->IsFinished()) {
           return Status::IOError("Truncated compressed stream");
         }
         *has_data = false;

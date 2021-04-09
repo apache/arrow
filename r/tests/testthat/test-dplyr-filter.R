@@ -226,6 +226,8 @@ test_that("filter() with between()", {
 })
 
 test_that("filter() with string ops", {
+  skip_if_not_available("utf8proc")
+  skip_if(getRversion() < "3.4.0", "R < 3.4")
   # Extra instrumentation to ensure that we're calling Arrow compute here
   # because many base R string functions implicitly call as.character,
   # which means they still work on Arrays but actually force data into R
@@ -233,9 +235,6 @@ test_that("filter() with string ops", {
   #    the whole test because as.character apparently gets called in other
   #    (presumably legitimate) places
   # 2) Wrap the test in expect_warning(expr, NA) to catch the warning
-
-  skip_if(getRversion() < "3.4.0", "R < 3.4")
-
   with_no_as_character <- function(expr) {
     trace(
       "as.character",

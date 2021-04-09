@@ -76,8 +76,47 @@ if (arrow_with_s3() && process_is_running("minio server")) {
 
   if (arrow_with_dataset()) {
 
-    # Dataset test setup, cf. test-dataset.R
     library(dplyr)
+
+    make_temp_dir <- function() {
+      path <- tempfile()
+      dir.create(path)
+      normalizePath(path, winslash = "/")
+    }
+
+    test_that("open_dataset with an S3 file (not directory) URI", {
+      skip_if_not_available("parquet")
+      expect_identical(
+        open_dataset(minio_uri("test.parquet")) %>% collect(),
+        example_data
+      )
+    })
+
+    test_that("open_dataset with vector of S3 file URIs", {
+      expect_identical(
+        open_dataset(
+          c(minio_uri("test.feather"), minio_uri("test2.feather")),
+          format = "feather"
+        ) %>% collect(),
+        rbind(example_data, example_data)
+      )
+    })
+
+    test_that("open_dataset errors on URIs for different file systems", {
+      td <- make_temp_dir()
+      expect_error(
+        open_dataset(
+          c(
+            minio_uri("test.feather"),
+            paste0("file://", file.path(td, "fake.feather"))
+          ),
+          format = "feather"
+        ),
+        "Vectors of URIs for different file systems are not supported"
+      )
+    })
+
+    # Dataset test setup, cf. test-dataset.R
     first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
     df1 <- tibble(
       int = 1:10,
@@ -125,12 +164,6 @@ if (arrow_with_s3() && process_is_running("minio server")) {
       write_dataset(ds, fs$path(minio_path("new_dataset_dir")))
       expect_length(fs$ls(minio_path("new_dataset_dir")), 1)
     })
-
-    make_temp_dir <- function() {
-      path <- tempfile()
-      dir.create(path)
-      normalizePath(path, winslash = "/")
-    }
 
     test_that("Let's test copy_files too", {
       td <- make_temp_dir()

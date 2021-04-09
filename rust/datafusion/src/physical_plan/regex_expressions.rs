@@ -26,6 +26,7 @@ use std::sync::Arc;
 
 use crate::error::{DataFusionError, Result};
 use arrow::array::{ArrayRef, GenericStringArray, StringOffsetSizeTrait};
+use arrow::compute;
 use hashbrown::HashMap;
 use regex::Regex;
 
@@ -41,6 +42,20 @@ macro_rules! downcast_string_arg {
                 ))
             })?
     }};
+}
+
+/// extract a specific group from a string column, using a regular expression
+pub fn regexp_match<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
+    match args.len() {
+        2 => compute::regexp_match(downcast_string_arg!(args[0], "string", T), downcast_string_arg!(args[1], "pattern", T), None)
+        .map_err(DataFusionError::ArrowError),
+        3 => compute::regexp_match(downcast_string_arg!(args[0], "string", T), downcast_string_arg!(args[1], "pattern", T),  Some(downcast_string_arg!(args[1], "flags", T)))
+        .map_err(DataFusionError::ArrowError),
+        other => Err(DataFusionError::Internal(format!(
+            "regexp_match was called with {} arguments. It requires at least 2 and at most 3.",
+            other
+        ))),
+    }
 }
 
 /// replace POSIX capture groups (like \1) with Rust Regex group (like ${1})

@@ -160,6 +160,8 @@ DataFusion also includes a simple command-line interactive SQL utility. See the 
 - [x] Limit
 - [x] Aggregate
 - [x] Common math functions
+- [x] cast
+- [x] try_cast
 - Postgres compatible String functions
   - [x] ascii
   - [x] bit_length
@@ -197,10 +199,21 @@ DataFusion also includes a simple command-line interactive SQL utility. See the 
   - [x] Basic timestamp functions
 - nested functions
   - [x] Array of columns
+- [x] Schema Queries
+  - [x] SHOW TABLES
+  - [x] SHOW COLUMNS
+  - [x] information_schema.{tables, columns}
+  - [ ] information_schema other views
 - [x] Sorting
 - [ ] Nested types
 - [ ] Lists
 - [x] Subqueries
+- [x] Common table expressions
+- [ ] Set Operations
+  - [x] UNION ALL
+  - [ ] UNION
+  - [ ] INTERSECT
+  - [ ] MINUS
 - [x] Joins
   - [x] INNER JOIN
   - [ ] CROSS JOIN
@@ -239,11 +252,64 @@ This library currently supports many SQL constructs, including
 * `GROUP BY` together with one of the following aggregations: `MIN`, `MAX`, `COUNT`, `SUM`, `AVG`
 * `ORDER BY` together with an expression and optional `ASC` or `DESC` and also optional `NULLS FIRST` or `NULLS LAST`
 
+
 ## Supported Functions
 
 DataFusion strives to implement a subset of the [PostgreSQL SQL dialect](https://www.postgresql.org/docs/current/functions.html) where possible. We explicitly choose a single dialect to maximize interoperability with other tools and allow reuse of the PostgreSQL documents and tutorials as much as possible.
 
 Currently, only a subset of the PosgreSQL dialect is implemented, and we will document any deviations.
+
+## Schema Metadata / Information Schema Support
+
+DataFusion supports the showing metadata about the tables available. This information can be accessed using the views of the ISO SQL `information_schema` schema or the DataFusion specific `SHOW TABLES` and `SHOW COLUMNS` commands.
+
+More information can be found in the [Postgres docs](https://www.postgresql.org/docs/13/infoschema-schema.html)).
+
+
+To show tables available for use in DataFusion, use the `SHOW TABLES`  command or the `information_schema.tables` view:
+
+```sql
+> show tables;
++---------------+--------------------+------------+------------+
+| table_catalog | table_schema       | table_name | table_type |
++---------------+--------------------+------------+------------+
+| datafusion    | public             | t          | BASE TABLE |
+| datafusion    | information_schema | tables     | VIEW       |
++---------------+--------------------+------------+------------+
+
+> select * from information_schema.tables;
+
++---------------+--------------------+------------+--------------+
+| table_catalog | table_schema       | table_name | table_type   |
++---------------+--------------------+------------+--------------+
+| datafusion    | public             | t          | BASE TABLE   |
+| datafusion    | information_schema | TABLES     | SYSTEM TABLE |
++---------------+--------------------+------------+--------------+
+```
+
+To show the schema of a table in DataFusion, use the `SHOW COLUMNS`  command or the or `information_schema.columns` view:
+
+```sql
+> show columns from t;
++---------------+--------------+------------+-------------+-----------+-------------+
+| table_catalog | table_schema | table_name | column_name | data_type | is_nullable |
++---------------+--------------+------------+-------------+-----------+-------------+
+| datafusion    | public       | t          | a           | Int32     | NO          |
+| datafusion    | public       | t          | b           | Utf8      | NO          |
+| datafusion    | public       | t          | c           | Float32   | NO          |
++---------------+--------------+------------+-------------+-----------+-------------+
+
+>   select table_name, column_name, ordinal_position, is_nullable, data_type from information_schema.columns;
++------------+-------------+------------------+-------------+-----------+
+| table_name | column_name | ordinal_position | is_nullable | data_type |
++------------+-------------+------------------+-------------+-----------+
+| t          | a           | 0                | NO          | Int32     |
+| t          | b           | 1                | NO          | Utf8      |
+| t          | c           | 2                | NO          | Float32   |
++------------+-------------+------------------+-------------+-----------+
+```
+
+
 
 ## Supported Data Types
 

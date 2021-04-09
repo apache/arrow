@@ -485,7 +485,7 @@ function generateUnion<T extends Union>(this: TestDataVectorGenerator, type: T, 
     const typeIdToChildIndex = typeIds.reduce((typeIdToChildIndex, typeId, idx) => {
         return (typeIdToChildIndex[typeId] = idx) && typeIdToChildIndex || typeIdToChildIndex;
     }, Object.create(null) as { [key: number]: number })
-    
+
     if (type.mode === UnionMode.Sparse) {
         const values = memoize(() => {
             const values = [] as any[];

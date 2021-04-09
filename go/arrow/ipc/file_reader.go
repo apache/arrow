@@ -312,16 +312,23 @@ func (f *FileReader) ReadAt(i int64) (array.Record, error) {
 
 func newRecord(schema *arrow.Schema, meta *memory.Buffer, body ReadAtSeeker) array.Record {
 	var (
-		msg = flatbuf.GetRootAsMessage(meta.Bytes(), 0)
-		md  flatbuf.RecordBatch
+		msg   = flatbuf.GetRootAsMessage(meta.Bytes(), 0)
+		md    flatbuf.RecordBatch
+		codec decompressor
 	)
 	initFB(&md, msg.Header)
 	rows := md.Length()
 
+	bodyCompress := md.Compression(nil)
+	if bodyCompress != nil {
+		codec = getDecompressor(bodyCompress.Codec())
+	}
+
 	ctx := &arrayLoaderContext{
 		src: ipcSource{
-			meta: &md,
-			r:    body,
+			meta:  &md,
+			r:     body,
+			codec: codec,
 		},
 		max: kMaxNestingDepth,
 	}
@@ -335,8 +342,9 @@ func newRecord(schema *arrow.Schema, meta *memory.Buffer, body ReadAtSeeker) arr
 }
 
 type ipcSource struct {
-	meta *flatbuf.RecordBatch
-	r    ReadAtSeeker
+	meta  *flatbuf.RecordBatch
+	r     ReadAtSeeker
+	codec decompressor
 }
 
 func (src *ipcSource) buffer(i int) *memory.Buffer {
@@ -348,10 +356,35 @@ func (src *ipcSource) buffer(i int) *memory.Buffer {
 		return memory.NewBufferBytes(nil)
 	}
 
-	raw := make([]byte, buf.Length())
-	_, err := src.r.ReadAt(raw, buf.Offset())
-	if err != nil {
-		panic(err)
+	var raw []byte
+	if src.codec == nil {
+		raw = make([]byte, buf.Length())
+		_, err := src.r.ReadAt(raw, buf.Offset())
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		sr := io.NewSectionReader(src.r, buf.Offset(), buf.Length())
+		var uncompressedSize uint64
+
+		err := binary.Read(sr, binary.LittleEndian, &uncompressedSize)
+		if err != nil {
+			panic(err)
+		}
+
+		var r io.Reader = sr
+		// check for an uncompressed buffer
+		if int64(uncompressedSize) != -1 {
+			raw = make([]byte, uncompressedSize)
+			src.codec.Reset(sr)
+			r = src.codec
+		} else {
+			raw = make([]byte, buf.Length())
+		}
+
+		if _, err = io.ReadFull(r, raw); err != nil {
+			panic(err)
+		}
 	}
 
 	return memory.NewBufferBytes(raw)

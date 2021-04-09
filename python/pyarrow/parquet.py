@@ -549,23 +549,22 @@ use_compliant_nested_type: bool, default False
     with 3-level structure where the middle level, named ``list``,
     is a repeated group with a single field named ``element``
     ::
-      <list-repetition> group <name> (LIST) {
-        repeated group list {
-          <element-repetition> <element-type> element;
+        <list-repetition> group <name> (LIST) {
+            repeated group list {
+                  <element-repetition> <element-type> element;
+            }
         }
-      }
 
     For ``use_compliant_nested_type=False``, this will also write into a list
     with 3-level structure, where the name of the single field of the middle
     level ``list`` is taken from the element name for nested columns in Arrow,
     which defaults to ``item``
     ::
-      <list-repetition> group <name> (LIST) {
-        repeated group list {
-          <element-repetition> <element-type> item;
-       }
-      }
-
+        <list-repetition> group <name> (LIST) {
+            repeated group list {
+                <element-repetition> <element-type> item;
+            }
+        }
 """
 
 
@@ -1758,26 +1757,15 @@ switched to False.""",
     "\n".join((_read_docstring_common,
                """use_pandas_metadata : bool, default False
     If True and file has custom pandas schema metadata, ensure that
-    index columns are also loaded""")),
+    index columns are also loaded.""")),
     """pyarrow.Table
     Content of the file as a table (of columns)""",
     _DNF_filter_doc)
 
 
-def read_pandas(source, columns=None, use_threads=True, memory_map=False,
-                metadata=None, filters=None, buffer_size=0,
-                use_legacy_dataset=True, ignore_prefixes=None):
+def read_pandas(source, columns=None, **kwargs):
     return read_table(
-        source,
-        columns=columns,
-        use_threads=use_threads,
-        metadata=metadata,
-        filters=filters,
-        memory_map=memory_map,
-        buffer_size=buffer_size,
-        use_pandas_metadata=True,
-        use_legacy_dataset=use_legacy_dataset,
-        ignore_prefixes=ignore_prefixes
+        source, columns=columns, use_pandas_metadata=True, **kwargs
     )
 
 

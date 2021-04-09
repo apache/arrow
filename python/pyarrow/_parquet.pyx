@@ -809,7 +809,7 @@ cdef physical_type_name_from_enum(ParquetType type_):
 
 cdef logical_type_name_from_enum(ParquetLogicalTypeId type_):
     return {
-        ParquetLogicalType_UNKNOWN: 'UNKNOWN',
+        ParquetLogicalType_UNDEFINED: 'UNDEFINED',
         ParquetLogicalType_STRING: 'STRING',
         ParquetLogicalType_MAP: 'MAP',
         ParquetLogicalType_LIST: 'LIST',

@@ -469,3 +469,9 @@ test_that("Table name assignment", {
   expect_error(names(tab) <- NULL)
   expect_error(names(tab) <- c(TRUE, FALSE))
 })
+
+test_that("Table$create() with different length columns", {
+  msg <- "All columns must have the same length"
+  expect_error(Table$create(a=1:5, b = 42), msg)
+  expect_error(Table$create(a=1:5, b = 1:6), msg)
+})

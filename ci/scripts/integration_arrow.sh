@@ -33,3 +33,4 @@ archery integration --with-all --run-flight \
     --gold-dirs=$gold_dir/1.0.0-bigendian \
     --gold-dirs=$gold_dir/1.0.0-littleendian \
     --gold-dirs=$gold_dir/2.0.0-compression \
+    --gold-dirs=$gold_dir/4.0.0-shareddict \

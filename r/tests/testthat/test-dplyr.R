@@ -85,41 +85,6 @@ test_that("summarize", {
   )
 })
 
-test_that("group_by groupings are recorded", {
-  expect_dplyr_equal(
-    input %>%
-      group_by(chr) %>%
-      select(int, chr) %>%
-      filter(int > 5) %>%
-      summarize(min_int = min(int)),
-    tbl
-  )
-  # Test that the original object is not affected
-  expect_identical(collect(batch), tbl)
-})
-
-test_that("group_by doesn't yet support creating/renaming", {
-  expect_error(
-    record_batch(tbl) %>%
-      group_by(chr, numbers = int),
-    "Cannot create or rename columns in group_by on Arrow objects"
-  )
-})
-
-test_that("ungroup", {
-  expect_dplyr_equal(
-    input %>%
-      group_by(chr) %>%
-      select(int, chr) %>%
-      ungroup() %>%
-      filter(int > 5) %>%
-      summarize(min_int = min(int)),
-    tbl
-  )
-  # Test that the original object is not affected
-  expect_identical(collect(batch), tbl)
-})
-
 test_that("Empty select returns no columns", {
   expect_dplyr_equal(
     input %>% select() %>% collect(),
@@ -156,6 +121,21 @@ test_that("select/rename", {
   )
 })
 
+test_that("select/rename with selection helpers", {
+
+  # TODO: add some passing tests here
+
+  expect_error(
+    expect_dplyr_equal(
+      input %>%
+        select(where(is.numeric)) %>%
+        collect(),
+      tbl
+    ),
+    "Unsupported selection helper"
+  )
+})
+
 test_that("filtering with rename", {
   expect_dplyr_equal(
     input %>%
@@ -170,82 +150,6 @@ test_that("filtering with rename", {
       filter(string == "b") %>%
       collect(),
     tbl
-  )
-})
-
-test_that("group_by then rename", {
-  expect_dplyr_equal(
-    input %>%
-      group_by(chr) %>%
-      select(string = chr, int) %>%
-      collect(),
-    tbl
-  )
-})
-
-test_that("group_by with .drop", {
-  test_groups <- c("starting_a_fight", "consoling_a_child", "petting_a_dog")
-  expect_dplyr_equal(
-    input %>%
-      group_by(!!!syms(test_groups), .drop = TRUE) %>%
-      collect(),
-    example_with_logical_factors
-  )
-  expect_dplyr_equal(
-    input %>%
-      group_by(!!!syms(test_groups), .drop = FALSE) %>%
-      collect(),
-    example_with_logical_factors
-  )
-  expect_equal(
-    example_with_logical_factors %>%
-      group_by(!!!syms(test_groups), .drop = TRUE) %>%
-      collect() %>%
-      n_groups(),
-    4L
-  )
-  expect_equal(
-    example_with_logical_factors %>%
-      group_by(!!!syms(test_groups), .drop = FALSE) %>%
-      collect() %>%
-      n_groups(),
-    8L
-  )
-  expect_equal(
-    example_with_logical_factors %>%
-      group_by(!!!syms(test_groups), .drop = FALSE) %>%
-      group_by_drop_default(),
-    FALSE
-  )
-  expect_equal(
-    example_with_logical_factors %>%
-      group_by(!!!syms(test_groups), .drop = TRUE) %>%
-      group_by_drop_default(),
-    TRUE
-  )
-  expect_dplyr_equal(
-    input %>%
-      group_by(.drop = FALSE) %>% # no group by vars
-      group_by_drop_default(),
-    example_with_logical_factors
-  )
-  expect_dplyr_equal(
-    input %>%
-      group_by_drop_default(),
-    example_with_logical_factors
-  )
-  expect_dplyr_equal(
-    input %>%
-      group_by(!!!syms(test_groups)) %>%
-      group_by_drop_default(),
-    example_with_logical_factors
-  )
-  expect_dplyr_equal(
-    input %>%
-      group_by(!!!syms(test_groups), .drop = FALSE) %>%
-      ungroup() %>%
-      group_by_drop_default(),
-    example_with_logical_factors
   )
 })
 
@@ -273,6 +177,10 @@ test_that("pull", {
 
 test_that("collect(as_data_frame=FALSE)", {
   batch <- record_batch(tbl)
+
+  b1 <- batch %>% collect(as_data_frame = FALSE)
+
+  expect_is(b1, "RecordBatch")
 
   b2 <- batch %>%
     select(int, chr) %>%
@@ -302,6 +210,43 @@ test_that("collect(as_data_frame=FALSE)", {
       rename(strng = chr) %>%
       group_by(int)
     )
+})
+
+test_that("compute()", {
+  batch <- record_batch(tbl)
+
+  b1 <- batch %>% compute()
+
+  expect_is(b1, "RecordBatch")
+
+  b2 <- batch %>%
+    select(int, chr) %>%
+    filter(int > 5) %>%
+    compute()
+
+  expect_is(b2, "RecordBatch")
+  expected <- tbl[tbl$int > 5 & !is.na(tbl$int), c("int", "chr")]
+  expect_equal(as.data.frame(b2), expected)
+
+  b3 <- batch %>%
+    select(int, strng = chr) %>%
+    filter(int > 5) %>%
+    compute()
+  expect_is(b3, "RecordBatch")
+  expect_equal(as.data.frame(b3), set_names(expected, c("int", "strng")))
+
+  b4 <- batch %>%
+    select(int, strng = chr) %>%
+    filter(int > 5) %>%
+    group_by(int) %>%
+    compute()
+  expect_is(b4, "arrow_dplyr_query")
+  expect_equal(
+    as.data.frame(b4),
+    expected %>%
+      rename(strng = chr) %>%
+      group_by(int)
+  )
 })
 
 test_that("head", {
@@ -368,4 +313,149 @@ test_that("tail", {
       rename(strng = chr) %>%
       group_by(int)
     )
+})
+
+test_that("relocate", {
+  df <- tibble(a = 1, b = 1, c = 1, d = "a", e = "a", f = "a")
+  expect_dplyr_equal(
+    input %>% relocate(f) %>% collect(),
+    df,
+  )
+  expect_dplyr_equal(
+    input %>% relocate(a, .after = c) %>% collect(),
+    df,
+  )
+  expect_dplyr_equal(
+    input %>% relocate(f, .before = b) %>% collect(),
+    df,
+  )
+  expect_dplyr_equal(
+    input %>% relocate(a, .after = last_col()) %>% collect(),
+    df,
+  )
+  expect_dplyr_equal(
+    input %>% relocate(ff = f) %>% collect(),
+    df,
+  )
+})
+
+test_that("relocate with selection helpers", {
+  expect_dplyr_equal(
+    input %>% relocate(any_of(c("a", "e", "i", "o", "u"))) %>% collect(),
+    df
+  )
+  expect_error(
+    df %>% Table$create() %>% relocate(where(is.character)),
+    "Unsupported selection helper"
+  )
+  expect_error(
+    df %>% Table$create() %>% relocate(a, b, c, .after = where(is.character)),
+    "Unsupported selection helper"
+  )
+  expect_error(
+    df %>% Table$create() %>% relocate(d, e, f, .before = where(is.numeric)),
+    "Unsupported selection helper"
+  )
+})
+
+test_that("explicit type conversions", {
+  library(bit64)
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        int2chr = as.character(int),
+        int2dbl = as.double(int),
+        int2int = as.integer(int),
+        int2num = as.numeric(int),
+        dbl2chr = as.character(dbl),
+        dbl2dbl = as.double(dbl),
+        dbl2int = as.integer(dbl),
+        dbl2num = as.numeric(dbl),
+      ) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        chr2chr = as.character(chr),
+        chr2dbl = as.double(chr),
+        chr2int = as.integer(chr),
+        chr2num = as.numeric(chr)
+      ) %>%
+      collect(),
+    tibble(chr = c("1", "2", "3"))
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        chr2i64 = as.integer64(chr),
+        dbl2i64 = as.integer64(dbl),
+        i642i64 = as.integer64(i64),
+      ) %>%
+      collect(),
+    tibble(chr = "10000000000", dbl = 10000000000, i64 = as.integer64(1e10))
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        chr2lgl = as.logical(chr),
+        dbl2lgl = as.logical(dbl),
+        int2lgl = as.logical(int)
+      ) %>%
+      collect(),
+    tibble(
+      chr = c("TRUE", "FALSE", "true", "false"),
+      dbl = c(1, 0, -99, 0),
+      int = c(1L, 0L, -99L, 0L)
+    )
+  )
+  expect_dplyr_equal(
+    input %>%
+      transmute(
+        dbl2chr = as.character(dbl),
+        dbl2dbl = as.double(dbl),
+        dbl2int = as.integer(dbl),
+        dbl2lgl = as.logical(dbl),
+        int2chr = as.character(int),
+        int2dbl = as.double(int),
+        int2int = as.integer(int),
+        int2lgl = as.logical(int),
+        lgl2chr = toupper(as.character(lgl)), # Arrow returns "true", "false"
+        lgl2dbl = as.double(lgl),
+        lgl2int = as.integer(lgl),
+        lgl2lgl = as.logical(lgl),
+      ) %>%
+      collect(),
+    tibble(
+      dbl = c(1, 0, NA_real_),
+      int = c(1L, 0L, NA_integer_),
+      lgl = c(TRUE, FALSE, NA)
+    )
+  )
+})
+
+test_that("bad explicit type conversions", {
+
+  # Arrow returns lowercase "true", "false"
+  expect_error(
+    expect_dplyr_equal(
+      input %>%
+        transmute(lgl2chr = as.character(lgl)) %>%
+        collect(),
+      tibble(lgl = c(TRUE, FALSE, NA)
+      )
+    )
+  )
+
+  # Arrow fails to parse these strings as Booleans
+  expect_error(
+    expect_dplyr_equal(
+      input %>%
+        transmute(chr2lgl = as.logical(chr)) %>%
+        collect(),
+      tibble(chr = c("TRU", "FAX", ""))
+    )
+  )
+
 })

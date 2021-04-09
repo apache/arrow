@@ -155,7 +155,9 @@ class LocalBinaryTask < BinaryTask
     # because they require some setups on host.
     [
       "debian-buster",
-      # "debian-stretch-arm64",
+      # "debian-buster-arm64",
+      "debian-bullseye",
+      # "debian-bullseye-arm64",
       "ubuntu-xenial",
       # "ubuntu-xenial-arm64",
       "ubuntu-bionic",

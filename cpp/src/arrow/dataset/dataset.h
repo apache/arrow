@@ -184,6 +184,7 @@ class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
   InMemoryDataset(std::shared_ptr<Schema> schema, RecordBatchVector batches);
 
   explicit InMemoryDataset(std::shared_ptr<Table> table);
+  explicit InMemoryDataset(std::shared_ptr<RecordBatchReader> reader);
 
   std::string type_name() const override { return "in-memory"; }
 

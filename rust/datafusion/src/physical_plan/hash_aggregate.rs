@@ -58,7 +58,9 @@ use hashbrown::HashMap;
 use ordered_float::OrderedFloat;
 use pin_project_lite::pin_project;
 
-use arrow::array::{TimestampMicrosecondArray, TimestampNanosecondArray};
+use arrow::array::{
+    TimestampMicrosecondArray, TimestampMillisecondArray, TimestampNanosecondArray,
+};
 use async_trait::async_trait;
 
 use super::{
@@ -496,6 +498,13 @@ fn create_key_for_col(col: &ArrayRef, row: usize, vec: &mut Vec<u8>) -> Result<(
             let array = col.as_any().downcast_ref::<Int64Array>().unwrap();
             vec.extend_from_slice(&array.value(row).to_le_bytes());
         }
+        DataType::Timestamp(TimeUnit::Millisecond, None) => {
+            let array = col
+                .as_any()
+                .downcast_ref::<TimestampMillisecondArray>()
+                .unwrap();
+            vec.extend_from_slice(&array.value(row).to_le_bytes());
+        }
         DataType::Timestamp(TimeUnit::Microsecond, None) => {
             let array = col
                 .as_any()
@@ -923,6 +932,9 @@ fn create_batch_from_map(
                         Arc::new(StringArray::from(vec![&***str]))
                     }
                     GroupByScalar::Boolean(b) => Arc::new(BooleanArray::from(vec![*b])),
+                    GroupByScalar::TimeMillisecond(n) => {
+                        Arc::new(TimestampMillisecondArray::from(vec![*n]))
+                    }
                     GroupByScalar::TimeMicrosecond(n) => {
                         Arc::new(TimestampMicrosecondArray::from(vec![*n]))
                     }
@@ -1072,6 +1084,13 @@ fn create_group_by_value(col: &ArrayRef, row: usize) -> Result<GroupByScalar> {
         DataType::Boolean => {
             let array = col.as_any().downcast_ref::<BooleanArray>().unwrap();
             Ok(GroupByScalar::Boolean(array.value(row)))
+        }
+        DataType::Timestamp(TimeUnit::Millisecond, None) => {
+            let array = col
+                .as_any()
+                .downcast_ref::<TimestampMillisecondArray>()
+                .unwrap();
+            Ok(GroupByScalar::TimeMillisecond(array.value(row)))
         }
         DataType::Timestamp(TimeUnit::Microsecond, None) => {
             let array = col

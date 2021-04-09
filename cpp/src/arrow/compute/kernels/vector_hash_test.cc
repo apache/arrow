@@ -591,12 +591,15 @@ TEST_F(TestHashKernel, DictionaryUniqueAndValueCounts) {
     CheckUnique(chunked, ex_uniques);
     CheckValueCounts(chunked, ex_uniques, ex_counts);
 
-    // Different dictionaries not supported
-    auto dict2 = ArrayFromJSON(int64(), "[30, 40, 50, 60]");
-    auto input2 = std::make_shared<DictionaryArray>(dict_ty, indices, dict2);
-    auto different_dictionaries = *ChunkedArray::Make({input, input2});
-    ASSERT_RAISES(Invalid, Unique(different_dictionaries));
-    ASSERT_RAISES(Invalid, ValueCounts(different_dictionaries));
+    // Different chunk dictionaries
+    auto input_2 = DictArrayFromJSON(dict_ty, "[1, null, 2, 3]", "[30, 40, 50, 60]");
+    auto ex_uniques_2 =
+        DictArrayFromJSON(dict_ty, "[3, 0, 1, null, 4, 5]", "[10, 20, 30, 40, 50, 60]");
+    auto ex_counts_2 = ArrayFromJSON(int64(), "[4, 5, 4, 1, 1, 1]");
+    auto different_dictionaries = *ChunkedArray::Make({input, input_2}, dict_ty);
+
+    CheckUnique(different_dictionaries, ex_uniques_2);
+    CheckValueCounts(different_dictionaries, ex_uniques_2, ex_counts_2);
 
     // Dictionary with encoded nulls
     auto dict_with_null = ArrayFromJSON(int64(), "[10, null, 30, 40]");

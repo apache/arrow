@@ -93,8 +93,7 @@ fn create_column(field: &str, columns: &[ArrayRef]) -> Result<Table> {
 
     for col in columns {
         for row in 0..col.len() {
-            let mut cells = Vec::new();
-            cells.push(Cell::new(&array_value_to_string(&col, row)?));
+            let cells = vec![Cell::new(&array_value_to_string(&col, row)?)];
             table.add_row(Row::new(cells));
         }
     }

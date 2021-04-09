@@ -248,7 +248,9 @@ class PackageTask
     # because they require some setups on host.
     [
       "debian-buster",
-      # "debian-stretch-arm64",
+      # "debian-buster-arm64",
+      "debian-bullseye",
+      # "debian-bullseye-arm64",
       "ubuntu-bionic",
       # "ubuntu-bionic-arm64",
       "ubuntu-focal",
