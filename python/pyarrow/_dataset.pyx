@@ -2791,6 +2791,7 @@ cdef class Scanner(_Weakrefable):
 
         return pyarrow_wrap_table(GetResultValue(result))
 
+
 def _get_partition_keys(Expression partition_expression):
     """
     Extract partition keys (equality constraints between a field and a scalar)
