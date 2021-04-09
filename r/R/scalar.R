@@ -48,14 +48,13 @@ Scalar <- R6Class("Scalar",
   )
 )
 Scalar$create <- function(x, type = NULL) {
-  type <- unmask_type_fun(enexpr(type)) %||% type
   if (is.null(x)) {
     x <- vctrs::unspecified(1)
   } else if (length(x) != 1 && !is.data.frame(x)) {
     # Wrap in a list type
     x <- list(x)
   }
-  Array__GetScalar(Array$create(x, type = type), 0)
+  Array__GetScalar(Array$create(x, type = enexpr(type)), 0)
 }
 
 #' @rdname array

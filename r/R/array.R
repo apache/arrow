@@ -144,8 +144,7 @@ Array <- R6Class("Array",
       Array__RangeEquals(self, other, start_idx, end_idx, other_start_idx)
     },
     View = function(type) {
-      type <- unmask_type_fun(enexpr(type)) %||% type
-      Array$create(Array__View(self, as_type(type)))
+      Array$create(Array__View(self, as_type(enexpr(type))))
     },
     Validate = function() Array__Validate(self)
   ),
@@ -156,7 +155,7 @@ Array <- R6Class("Array",
   )
 )
 Array$create <- function(x, type = NULL) {
-  type <- unmask_type_fun(enexpr(type)) %||% type
+  type <- enexpr(type) # this needs to be before the null check
   if (!is.null(type)) {
     type <- as_type(type)
   }

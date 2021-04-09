@@ -107,7 +107,7 @@ option_use_threads <- function() {
 #' statistics from Arrow's memory allocator, and also Arrow's run-time
 #' information.
 #' @export
-#' @importFrom utils packageVersion
+#' @importFrom utils packageName packageVersion
 arrow_info <- function() {
   opts <- options()
   out <- list(
