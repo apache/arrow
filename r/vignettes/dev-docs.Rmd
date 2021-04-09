@@ -1,8 +1,8 @@
 ---
-title: "Arrow R Package Developer Documentation"
+title: "Developer Documentation"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Arrow R Package Developer Documentation}
+  %\VignetteIndexEntry{Developer Documentation}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
