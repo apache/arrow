@@ -1770,6 +1770,7 @@ test_that("Dataset writing: unsupported features/input validation", {
 
 # see https://issues.apache.org/jira/browse/ARROW-11328
 test_that("Collecting zero columns from a dataset doesn't return entire dataset", {
+  skip_if_not_available("parquet")
   tmp <- tempfile()
   write_dataset(mtcars, tmp, format = "parquet")
   expect_equal(
