@@ -457,7 +457,7 @@ cpp11::list dataset___Scanner__Scan(const std::shared_ptr<ds::Scanner>& scanner)
 // [[dataset::export]]
 std::shared_ptr<arrow::Schema> dataset___Scanner__schema(
     const std::shared_ptr<ds::Scanner>& sc) {
-  return sc->schema();
+  return sc->options()->projected_schema;
 }
 
 // [[dataset::export]]
