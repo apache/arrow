@@ -64,9 +64,15 @@ impl TryFrom<&ScalarValue> for GroupByScalar {
             ScalarValue::UInt16(Some(v)) => GroupByScalar::UInt16(*v),
             ScalarValue::UInt32(Some(v)) => GroupByScalar::UInt32(*v),
             ScalarValue::UInt64(Some(v)) => GroupByScalar::UInt64(*v),
-            ScalarValue::TimeMillisecond(Some(v)) => GroupByScalar::TimeMillisecond(*v),
-            ScalarValue::TimeMicrosecond(Some(v)) => GroupByScalar::TimeMicrosecond(*v),
-            ScalarValue::TimeNanosecond(Some(v)) => GroupByScalar::TimeNanosecond(*v),
+            ScalarValue::TimestampMillisecond(Some(v)) => {
+                GroupByScalar::TimeMillisecond(*v)
+            }
+            ScalarValue::TimestampMicrosecond(Some(v)) => {
+                GroupByScalar::TimeMicrosecond(*v)
+            }
+            ScalarValue::TimestampNanosecond(Some(v)) => {
+                GroupByScalar::TimeNanosecond(*v)
+            }
             ScalarValue::Utf8(Some(v)) => GroupByScalar::Utf8(Box::new(v.clone())),
             ScalarValue::Float32(None)
             | ScalarValue::Float64(None)
@@ -110,9 +116,15 @@ impl From<&GroupByScalar> for ScalarValue {
             GroupByScalar::UInt32(v) => ScalarValue::UInt32(Some(*v)),
             GroupByScalar::UInt64(v) => ScalarValue::UInt64(Some(*v)),
             GroupByScalar::Utf8(v) => ScalarValue::Utf8(Some(v.to_string())),
-            GroupByScalar::TimeMillisecond(v) => ScalarValue::TimeMillisecond(Some(*v)),
-            GroupByScalar::TimeMicrosecond(v) => ScalarValue::TimeMicrosecond(Some(*v)),
-            GroupByScalar::TimeNanosecond(v) => ScalarValue::TimeNanosecond(Some(*v)),
+            GroupByScalar::TimeMillisecond(v) => {
+                ScalarValue::TimestampMillisecond(Some(*v))
+            }
+            GroupByScalar::TimeMicrosecond(v) => {
+                ScalarValue::TimestampMicrosecond(Some(*v))
+            }
+            GroupByScalar::TimeNanosecond(v) => {
+                ScalarValue::TimestampNanosecond(Some(*v))
+            }
             GroupByScalar::Date32(v) => ScalarValue::Date32(Some(*v)),
         }
     }
