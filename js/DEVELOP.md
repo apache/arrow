@@ -58,8 +58,8 @@ Examples:
 * `yarn build` -- builds all ES targets in all module formats
 * `yarn build -t es5 -m all` -- builds the ES5 target in all module formats
 * `yarn build -t all -m cjs` -- builds all ES targets in the CommonJS module format
-* `yarn build --targets es5 es2015 -m all` -- builds the ES5 and ES2015 targets in all module formats
-* `yarn build -t es5 --modules cjs esm` -- builds the ES5 target in CommonJS and ESModules module formats
+* `yarn build -t es5 -t es2015 -m all` -- builds the ES5 and ES2015 targets in all module formats
+* `yarn build -t es5 -m cjs -m esm` -- builds the ES5 target in CommonJS and ESModules module formats
 
 This argument configuration also applies to `clean` and `test` scripts.
 
