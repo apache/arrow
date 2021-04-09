@@ -15,13 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! This module contains a query optimizer that operates against a logical plan and applies
-//! some simple rules to a logical plan, such as "Projection Push Down" and "Type Coercion".
+//! Physical optimizer traits
 
-pub mod constant_folding;
-pub mod filter_push_down;
-pub mod hash_build_probe_order;
-pub mod limit_push_down;
-pub mod optimizer;
-pub mod projection_push_down;
-pub mod utils;
+use std::sync::Arc;
+
+use crate::{
+    error::Result, execution::context::ExecutionConfig, physical_plan::ExecutionPlan,
+};
+
+/// `PhysicalOptimizerRule` transforms one ['ExecutionPlan'] into another which
+/// computes the same results, but in a potentially more efficient
+/// way.
+pub trait PhysicalOptimizerRule {
+    /// Rewrite `plan` to an optimized form
+    fn optimize(
+        &self,
+        plan: Arc<dyn ExecutionPlan>,
+        config: &ExecutionConfig,
+    ) -> Result<Arc<dyn ExecutionPlan>>;
+
+    /// A human readable name for this optimizer rule
+    fn name(&self) -> &str;
+}

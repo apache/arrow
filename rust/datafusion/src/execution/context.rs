@@ -22,6 +22,7 @@ use crate::{
         information_schema::CatalogWithInformationSchema,
     },
     optimizer::hash_build_probe_order::HashBuildProbeOrder,
+    physical_optimizer::optimizer::PhysicalOptimizerRule,
 };
 use log::debug;
 use std::fs;
@@ -56,6 +57,10 @@ use crate::optimizer::filter_push_down::FilterPushDown;
 use crate::optimizer::limit_push_down::LimitPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
+use crate::physical_optimizer::coalesce_batches::CoalesceBatches;
+use crate::physical_optimizer::merge_exec::AddMergeExec;
+use crate::physical_optimizer::repartition::Repartition;
+
 use crate::physical_plan::csv::CsvReadOptions;
 use crate::physical_plan::planner::DefaultPhysicalPlanner;
 use crate::physical_plan::udf::ScalarUDF;
@@ -605,6 +610,8 @@ pub struct ExecutionConfig {
     pub batch_size: usize,
     /// Responsible for optimizing a logical plan
     optimizers: Vec<Arc<dyn OptimizerRule + Send + Sync>>,
+    /// Responsible for optimizing a physical execution plan
+    pub physical_optimizers: Vec<Arc<dyn PhysicalOptimizerRule + Send + Sync>>,
     /// Responsible for planning `LogicalPlan`s, and `ExecutionPlan`
     query_planner: Arc<dyn QueryPlanner + Send + Sync>,
     /// Default catalog name for table resolution
@@ -633,6 +640,11 @@ impl ExecutionConfig {
                 Arc::new(FilterPushDown::new()),
                 Arc::new(HashBuildProbeOrder::new()),
                 Arc::new(LimitPushDown::new()),
+            ],
+            physical_optimizers: vec![
+                Arc::new(Repartition::new()),
+                Arc::new(CoalesceBatches::new()),
+                Arc::new(AddMergeExec::new()),
             ],
             query_planner: Arc::new(DefaultQueryPlanner {}),
             default_catalog: "datafusion".to_owned(),
@@ -674,6 +686,15 @@ impl ExecutionConfig {
         optimizer_rule: Arc<dyn OptimizerRule + Send + Sync>,
     ) -> Self {
         self.optimizers.push(optimizer_rule);
+        self
+    }
+
+    /// Adds a new [`PhysicalOptimizerRule`]
+    pub fn add_physical_optimizer_rule(
+        mut self,
+        optimizer_rule: Arc<dyn PhysicalOptimizerRule + Send + Sync>,
+    ) -> Self {
+        self.physical_optimizers.push(optimizer_rule);
         self
     }
 
@@ -835,15 +856,6 @@ mod tests {
         let partition_count = 4;
         let results = execute("SELECT c1, c2 FROM test", partition_count).await?;
 
-        // there should be one batch per partition
-        assert_eq!(results.len(), partition_count);
-
-        // each batch should contain 2 columns and 10 rows with correct field names
-        for batch in &results {
-            assert_eq!(batch.num_columns(), 2);
-            assert_eq!(batch.num_rows(), 10);
-        }
-
         let expected = vec![
             "+----+----+",
             "| c1 | c2 |",
@@ -953,21 +965,14 @@ mod tests {
         println!("{:?}", physical_plan);
 
         let results = collect_partitioned(physical_plan).await?;
-        assert_eq!(results.len(), partition_count);
-
-        // there should be a total of 2 batches with 20 rows because the where clause filters
-        // out results from 2 partitions
 
         // note that the order of partitions is not deterministic
-        let mut num_batches = 0;
         let mut num_rows = 0;
         for partition in &results {
             for batch in partition {
-                num_batches += 1;
                 num_rows += batch.num_rows();
             }
         }
-        assert_eq!(2, num_batches);
         assert_eq!(20, num_rows);
 
         let results: Vec<RecordBatch> = results.into_iter().flatten().collect();
@@ -1039,9 +1044,7 @@ mod tests {
         assert_eq!("c2", physical_plan.schema().field(0).name().as_str());
 
         let batches = collect(physical_plan).await?;
-        assert_eq!(4, batches.len());
-        assert_eq!(1, batches[0].num_columns());
-        assert_eq!(10, batches[0].num_rows());
+        assert_eq!(40, batches.iter().map(|x| x.num_rows()).sum::<usize>());
 
         Ok(())
     }
@@ -2017,27 +2020,15 @@ mod tests {
         // register each partition as well as the top level dir
         let csv_read_option = CsvReadOptions::new().schema(&schema);
         ctx.register_csv("part0", &format!("{}/part-0.csv", out_dir), csv_read_option)?;
-        ctx.register_csv("part1", &format!("{}/part-1.csv", out_dir), csv_read_option)?;
-        ctx.register_csv("part2", &format!("{}/part-2.csv", out_dir), csv_read_option)?;
-        ctx.register_csv("part3", &format!("{}/part-3.csv", out_dir), csv_read_option)?;
         ctx.register_csv("allparts", &out_dir, csv_read_option)?;
 
         let part0 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part0").await?;
-        let part1 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part1").await?;
-        let part2 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part2").await?;
-        let part3 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part3").await?;
         let allparts = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM allparts").await?;
 
-        let part0_count: usize = part0.iter().map(|batch| batch.num_rows()).sum();
-        let part1_count: usize = part1.iter().map(|batch| batch.num_rows()).sum();
-        let part2_count: usize = part2.iter().map(|batch| batch.num_rows()).sum();
-        let part3_count: usize = part3.iter().map(|batch| batch.num_rows()).sum();
         let allparts_count: usize = allparts.iter().map(|batch| batch.num_rows()).sum();
 
-        assert_eq!(part0_count, 10);
-        assert_eq!(part1_count, 10);
-        assert_eq!(part2_count, 10);
-        assert_eq!(part3_count, 10);
+        assert_eq!(part0[0].schema(), allparts[0].schema());
+
         assert_eq!(allparts_count, 40);
 
         Ok(())
@@ -2064,21 +2055,12 @@ mod tests {
         ctx.register_parquet("allparts", &out_dir)?;
 
         let part0 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part0").await?;
-        let part1 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part1").await?;
-        let part2 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part2").await?;
-        let part3 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part3").await?;
         let allparts = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM allparts").await?;
 
-        let part0_count: usize = part0.iter().map(|batch| batch.num_rows()).sum();
-        let part1_count: usize = part1.iter().map(|batch| batch.num_rows()).sum();
-        let part2_count: usize = part2.iter().map(|batch| batch.num_rows()).sum();
-        let part3_count: usize = part3.iter().map(|batch| batch.num_rows()).sum();
         let allparts_count: usize = allparts.iter().map(|batch| batch.num_rows()).sum();
 
-        assert_eq!(part0_count, 10);
-        assert_eq!(part1_count, 10);
-        assert_eq!(part2_count, 10);
-        assert_eq!(part3_count, 10);
+        assert_eq!(part0[0].schema(), allparts[0].schema());
+
         assert_eq!(allparts_count, 40);
 
         Ok(())

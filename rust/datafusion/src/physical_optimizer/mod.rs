@@ -15,13 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! This module contains a query optimizer that operates against a logical plan and applies
-//! some simple rules to a logical plan, such as "Projection Push Down" and "Type Coercion".
+//! This module contains a query optimizer that operates against a physical plan and applies
+//! rules to a physical plan, such as "Repartition".
 
-pub mod constant_folding;
-pub mod filter_push_down;
-pub mod hash_build_probe_order;
-pub mod limit_push_down;
+pub mod coalesce_batches;
+pub mod merge_exec;
 pub mod optimizer;
-pub mod projection_push_down;
-pub mod utils;
+pub mod repartition;
