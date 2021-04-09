@@ -34,6 +34,7 @@ RUN conda install -q \
         compilers \
         maven=${maven} \
         nodejs=${node} \
+        yarn \
         openjdk=${jdk} && \
     conda clean --all --force-pkgs-dirs
 

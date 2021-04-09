@@ -22,14 +22,14 @@
 Even if you do not plan to contribute to Apache Arrow itself or Arrow
 integrations in other projects, we'd be happy to have you involved:
 
-* Join the mailing list: send an email to
-  [dev-subscribe@arrow.apache.org][1]. Share your ideas and use cases for the
-  project.
+* Join the mailing list: send an email to [dev-subscribe@arrow.apache.org][1].
+  Share your ideas and use cases for the project.
 * [Follow our activity on JIRA][3]
 * [Learn the format][2]
 * Contribute code to one of the reference implementations
 
-We prefer to receive contributions in the form of GitHub pull requests. Please send pull requests against the [github.com/apache/arrow][4] repository.
+We prefer to receive contributions in the form of GitHub pull requests.
+Please send pull requests against the [github.com/apache/arrow][4] repository.
 
 If you are looking for some ideas on what to contribute, check out the [JIRA
 issues][3] for the Apache Arrow project. Comment on the issue and/or contact
@@ -40,28 +40,30 @@ If you’d like to report a bug but don’t have time to fix it, you can still p
 it on JIRA, or email the mailing list
 [dev@arrow.apache.org](http://mail-archives.apache.org/mod_mbox/arrow-dev/)
 
-# The npm scripts
+# The package.json scripts
 
-* `npm run clean` - cleans targets
-* `npm run build` - cleans and compiles all targets
-* `npm test` - executes tests against built targets
+We use [yarn](https://yarnpkg.com/) to install dependencies and run scrips.
 
-These npm scripts accept argument lists of targets × modules:
+* `yarn clean` - cleans targets
+* `yarn build` - cleans and compiles all targets
+* `yarn test` - executes tests against built targets
+
+These scripts accept argument lists of targets × modules:
 
 * Available `targets` are `es5`, `es2015`, `esnext`, and `all` (default: `all`)
 * Available `modules` are `cjs`, `esm`, `umd`, and `all` (default: `all`)
 
 Examples:
 
-* `npm run build` -- builds all ES targets in all module formats
-* `npm run build -- -t es5 -m all` -- builds the ES5 target in all module formats
-* `npm run build -- -t all -m cjs` -- builds all ES targets in the CommonJS module format
-* `npm run build -- --targets es5 es2015 -m all` -- builds the ES5 and ES2015 targets in all module formats
-* `npm run build -- -t es5 --modules cjs esm` -- builds the ES5 target in CommonJS and ESModules module formats
+* `yarn build` -- builds all ES targets in all module formats
+* `yarn build -t es5 -m all` -- builds the ES5 target in all module formats
+* `yarn build -t all -m cjs` -- builds all ES targets in the CommonJS module format
+* `yarn build --targets es5 es2015 -m all` -- builds the ES5 and ES2015 targets in all module formats
+* `yarn build -t es5 --modules cjs esm` -- builds the ES5 target in CommonJS and ESModules module formats
 
 This argument configuration also applies to `clean` and `test` scripts.
 
-* `npm run deploy`
+* `yarn deploy`
 
 Uses [lerna](https://github.com/lerna/lerna) to publish each build target to npm with [conventional](https://conventionalcommits.org/) [changelogs](https://github.com/conventional-changelog/conventional-changelog/tree/master/packages/conventional-changelog-cli).
 
@@ -103,7 +105,7 @@ Uses [lerna](https://github.com/lerna/lerna) to publish each build target to npm
     mv File{_generated,}.ts && mv Schema{_generated,}.ts && mv Message{_generated,}.ts
     ```
 
-2. Execute `npm run lint` from the `js` directory to fix the linting errors
+2. Execute `yarn lint` from the `js` directory to fix the linting errors
 
 [1]: mailto:dev-subscribe@arrow.apache.org
 [2]: https://github.com/apache/arrow/tree/master/format
