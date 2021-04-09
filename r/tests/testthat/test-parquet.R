@@ -236,15 +236,7 @@ test_that("ParquetFileReader $ReadRowGroup(s) methods", {
 })
 
 test_that("Error messages are shown when the compression algorithm snappy is not found", {
-  msg <- paste0(
-    "NotImplemented: Support for codec 'snappy' not built",
-    paste(
-      "\nTry setting the environment variable LIBARROW_MINIMAL=false and reinstalling",
-      "for a more complete installation (including 'snappy') or setting",
-      "ARROW_WITH_SNAPPY=ON and reinstalling to enable support for this codec.",
-      collapse = " "
-    )
-  )
+  msg <- "NotImplemented: Support for codec 'snappy' not built\nIn order to read this file, you will need to reinstall arrow with additional features enabled.\nSet one of these environment variables before installing:\n\n * LIBARROW_MINIMAL=false (for all optional features, including 'snappy')\n * ARROW_WITH_SNAPPY=ON (for just 'snappy')\n\nSee https://arrow.apache.org/docs/r/articles/install.html for details"
 
   if (codec_is_available("snappy")) {
     d <- read_parquet(pq_file)

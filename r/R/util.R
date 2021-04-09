@@ -93,9 +93,11 @@ read_compressed_error <- function(e) {
     compression <- sub(".*Support for codec '(.*)'.*", "\\1", msg)
     e$message <- paste0(
       msg,
-      "\nTry setting the environment variable LIBARROW_MINIMAL=false and reinstalling",
-      sprintf(" for a more complete installation (including '%s') or setting", compression),
-      sprintf(" ARROW_WITH_%s=ON and reinstalling to enable support for this codec.", toupper(compression))
+      "\nIn order to read this file, you will need to reinstall arrow with additional features enabled.",
+      "\nSet one of these environment variables before installing:",
+      sprintf("\n\n * LIBARROW_MINIMAL=false (for all optional features, including '%s')", compression),
+      sprintf("\n * ARROW_WITH_%s=ON (for just '%s')", toupper(compression), compression),
+      "\n\nSee https://arrow.apache.org/docs/r/articles/install.html for details"
     )
   }
   stop(e)
