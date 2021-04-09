@@ -64,7 +64,7 @@ TEST_F(TestUnixTimestampHolder, TestSimpleDateTime) {
   s = std::string("1886-12-01 01:01:01");
   millis_since_epoch =
       to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
-  expected_result = -2621890739;
+  expected_result = -2621890739LL;
   EXPECT_EQ(millis_since_epoch, expected_result);
 
   s = std::string("1986-12-11 01:30:00");
@@ -104,7 +104,7 @@ TEST_F(TestUnixTimestampHolder, TestSimpleDate) {
   s = std::string("1886-12-1");
   millis_since_epoch =
       unix_timestamp(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
-  expected_result = -2621894400;
+  expected_result = -2621894400LL;
   EXPECT_EQ(millis_since_epoch, expected_result);
 
   s = std::string("2012-12-1");
@@ -186,7 +186,7 @@ TEST_F(TestUnixTimestampHolder, TestSimpleDateTimeWithoutPattern) {
   s = std::string("1886-12-01 01:01:01");
   millis_since_epoch = unix_timestamp(&execution_context_, s.data(),
                                       static_cast<int>(s.length()), true, &out_valid);
-  expected_result = -2621890739;
+  expected_result = -2621890739LL;
   EXPECT_EQ(millis_since_epoch, expected_result);
 
   s = std::string("1986-12-11 01:30:00");
