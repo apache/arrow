@@ -97,7 +97,6 @@
     "rxjs": "5.5.11",
     "source-map-loader": "0.2.4",
     "terser-webpack-plugin": "4.2.2",
-    "trash": "4.3.0",
     "ts-jest": "26.3.0",
     "ts-node": "9.0.0",
     "tslint": "6.1.3",
