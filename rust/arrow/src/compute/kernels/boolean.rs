@@ -644,15 +644,12 @@ mod tests {
 
     #[test]
     fn test_boolean_array_kleene_no_remainder() {
-        let array_lengths = vec![1024];
-        for n in array_lengths {
-            let a = BooleanArray::from(vec![true; n]);
-            let b = BooleanArray::from(vec![None; n]);
+        let n = 1024;
+        let a = BooleanArray::from(vec![true; n]);
+        let b = BooleanArray::from(vec![None; n]);
+        let result = or_kleene(&a, &b).unwrap();
 
-            let result = or_kleene(&a, &b).unwrap();
-
-            assert_eq!(result, a);
-        }
+        assert_eq!(result, a);
     }
 
     #[test]
