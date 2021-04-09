@@ -105,7 +105,7 @@ Uses [lerna](https://github.com/lerna/lerna) to publish each build target to npm
     mv File{_generated,}.ts && mv Schema{_generated,}.ts && mv Message{_generated,}.ts
     ```
 
-2. Execute `npm run lint` from the `js` directory to fix the linting errors
+2. Execute `yarn lint` from the `js` directory to fix the linting errors
 
 [1]: mailto:dev-subscribe@arrow.apache.org
 [2]: https://github.com/apache/arrow/tree/master/format
