@@ -846,19 +846,25 @@ class TaskStatus:
                 states.append('pending')
 
         # it could be more effective, but the following is more descriptive
-        if any(state in {'error', 'failure'} for state in states):
-            combined_state = 'failure'
-        elif any(state == 'pending' for state in states):
-            combined_state = 'pending'
-        elif all(state == 'success' for state in states):
-            combined_state = 'success'
-        else:
-            combined_state = 'error'
+        combined_state = 'error'
+        if len(states):
+            if any(state in {'error', 'failure'} for state in states):
+                combined_state = 'failure'
+            elif any(state == 'pending' for state in states):
+                combined_state = 'pending'
+            elif all(state == 'success' for state in states):
+                combined_state = 'success'
+
+        # show link to the actual build, some of the CI providers implement
+        # the statuses API others implement the checks API, so display both
+        build_links = [s.target_url for s in status.statuses]
+        build_links += [c.html_url for c in check_runs]
 
         self.combined_state = combined_state
         self.github_status = status
         self.github_check_runs = check_runs
         self.total_count = len(states)
+        self.build_links = build_links
 
 
 class TaskAssets(dict):

@@ -96,6 +96,8 @@ class ConsoleReport(Report):
 
         # write table's body
         for task_name, task in sorted(self.job.tasks.items()):
+            # if not task_name.startswith("test-debian-10-python-3"):
+            #     continue
             # write summary of the uploaded vs total assets
             status = task.status()
             assets = task.assets()
@@ -108,10 +110,8 @@ class ConsoleReport(Report):
 
             # show link to the actual build, some of the CI providers implement
             # the statuses API others implement the checks API, so display both
-            for s in status.github_status.statuses:
-                echo(self.DETAILS.format(url=s.target_url))
-            for c in status.github_check_runs:
-                echo(self.DETAILS.format(url=c.html_url))
+            for link in status.build_links:
+                echo(self.DETAILS.format(url=link))
 
             # write per asset status
             for artifact_pattern, asset in assets.items():
