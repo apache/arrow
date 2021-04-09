@@ -103,7 +103,7 @@ const createClosureArgs = (entry_point, externs) => ({
     assume_function_wrapper: true,
     js_output_file: `${mainExport}.js`,
     language_in: gCCLanguageNames[`esnext`],
-    language_out: gCCLanguageNames[`es5`],
+    language_out: gCCLanguageNames[`es2015`],
     output_wrapper:`${apacheHeader()}
 (function (global, factory) {
     typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :

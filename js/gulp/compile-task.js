@@ -25,12 +25,12 @@ const typescriptTask = require('./typescript-task');
 const { arrowTask, arrowTSTask } = require('./arrow-task');
 
 const compileTask = ((cache) => memoizeTask(cache, function compile(target, format, ...args) {
-    return target === `src`                    ? Observable.empty()
-         : target === npmPkgName               ? arrowTask(target, format, ...args)()
-         : target === `ts`                     ? arrowTSTask(target, format, ...args)()
-         : format === `umd` ? target === `es5` ? closureTask(target, format, ...args)()
-                                               : minifyTask(target, format, ...args)()
-                                               : typescriptTask(target, format, ...args)();
+    return target === `src`                       ? Observable.empty()
+         : target === npmPkgName                  ? arrowTask(target, format, ...args)()
+         : target === `ts`                        ? arrowTSTask(target, format, ...args)()
+         : format === `umd` ? target === `es2015` ? closureTask(target, format, ...args)()
+                                                  : minifyTask(target, format, ...args)()
+                                                  : typescriptTask(target, format, ...args)();
 }))({});
 
 module.exports = compileTask;
