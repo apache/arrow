@@ -46,27 +46,32 @@ TEST_F(TestUnixTimestampHolder, TestSimpleDateTime) {
   std::string s("1986-12-01 01:01:01");
   int64_t millis_since_epoch =
       to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
-  EXPECT_EQ(millis_since_epoch, 533782861);
+  int64_t expected_result = 533782861;
+  EXPECT_EQ(millis_since_epoch, expected_result);
 
   s = std::string(" ");
   millis_since_epoch =
       to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
-  EXPECT_EQ(millis_since_epoch, 0);
+  expected_result = 0;
+  EXPECT_EQ(millis_since_epoch, expected_result);
 
   s = std::string("1986-12-01 01:01:01 +0800");
   millis_since_epoch =
       to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
-  EXPECT_EQ(millis_since_epoch, 533782861);
+  expected_result = 533782861;
+  EXPECT_EQ(millis_since_epoch, expected_result);
 
   s = std::string("1886-12-01 01:01:01");
   millis_since_epoch =
       to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
-  EXPECT_EQ(millis_since_epoch, -2621890739);
+  expected_result = -2621890739;
+  EXPECT_EQ(millis_since_epoch, expected_result);
 
   s = std::string("1986-12-11 01:30:00");
   millis_since_epoch =
       to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
-  EXPECT_EQ(millis_since_epoch, 534648600);
+  expected_result = 534648600;
+  EXPECT_EQ(millis_since_epoch, expected_result);
 }
 
 TEST_F(TestUnixTimestampHolder, TestSimpleDateTimeWithMillis) {
@@ -163,27 +168,32 @@ TEST_F(TestUnixTimestampHolder, TestSimpleDateTimeWithoutPattern) {
   std::string s("1986-12-01 01:01:01");
   int64_t millis_since_epoch = unix_timestamp(
       &execution_context_, s.data(), static_cast<int>(s.length()), true, &out_valid);
-  EXPECT_EQ(millis_since_epoch, 533782861);
+  int64_t expected_result = 533782861;
+  EXPECT_EQ(millis_since_epoch, expected_result);
 
   s = std::string(" ");
   millis_since_epoch = unix_timestamp(&execution_context_, s.data(),
                                       static_cast<int>(s.length()), true, &out_valid);
-  EXPECT_EQ(millis_since_epoch, 0);
+  expected_result = 0;
+  EXPECT_EQ(millis_since_epoch, expected_result);
 
   s = std::string("1986-12-01 01:01:01 +0800");
   millis_since_epoch = unix_timestamp(&execution_context_, s.data(),
                                       static_cast<int>(s.length()), true, &out_valid);
-  EXPECT_EQ(millis_since_epoch, 533782861);
+  expected_result = 533782861;
+  EXPECT_EQ(millis_since_epoch, expected_result);
 
   s = std::string("1886-12-01 01:01:01");
   millis_since_epoch = unix_timestamp(&execution_context_, s.data(),
                                       static_cast<int>(s.length()), true, &out_valid);
-  EXPECT_EQ(millis_since_epoch, -2621890739);
+  expected_result = -2621890739;
+  EXPECT_EQ(millis_since_epoch, expected_result);
 
   s = std::string("1986-12-11 01:30:00");
   millis_since_epoch = unix_timestamp(&execution_context_, s.data(),
                                       static_cast<int>(s.length()), true, &out_valid);
-  EXPECT_EQ(millis_since_epoch, 534648600);
+  expected_result = 534648600;
+  EXPECT_EQ(millis_since_epoch, expected_result);
 }
 
 TEST_F(TestUnixTimestampHolder, TestSimpleDateTimeErrorWithoutPattern) {
