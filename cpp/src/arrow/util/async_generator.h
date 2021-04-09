@@ -1168,7 +1168,6 @@ class BackgroundGenerator {
   }
 
  protected:
-  enum class BackgroundThreadState : char { Reading = 0, Quitting = 1, Idle = 2 };
   struct State {
     State(internal::Executor* io_executor, Iterator<T> it, int max_q, int q_restart)
         : io_executor(io_executor),
