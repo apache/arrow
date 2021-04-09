@@ -545,6 +545,8 @@ class ClientBuilder {
     }
     if (!options_.proxy_options.host.empty()) {
       client_config_.proxyHost = ToAwsString(options_.proxy_options.host);
+    }
+    if (options_.proxy_options.port != -1) {
       client_config_.proxyPort = options_.proxy_options.port;
     }
     if (!options_.proxy_options.username.empty()) {

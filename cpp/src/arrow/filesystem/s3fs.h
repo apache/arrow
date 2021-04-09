@@ -44,7 +44,7 @@ namespace fs {
 struct ARROW_EXPORT S3ProxyOptions {
     std::string scheme;
     std::string host;
-    int port;
+    int port = -1;
     std::string username;
     std::string password;
 
