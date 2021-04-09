@@ -230,6 +230,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-conda-cpp
       args:
+        repo: ${REPO}
         arch: ${ARCH}
         prefix: /opt/conda
     shm_size: *shm-size
