@@ -140,7 +140,8 @@ Result<TaggedRecordBatchIterator> SyncScanner::ScanBatches() {
   // unit testing
   ARROW_ASSIGN_OR_RAISE(auto scan_task_it, Scan());
   struct BatchIter {
-    BatchIter(ScanTaskIterator scan_task_it) : scan_task_it(std::move(scan_task_it)) {}
+    explicit BatchIter(ScanTaskIterator scan_task_it)
+        : scan_task_it(std::move(scan_task_it)) {}
 
     Result<TaggedRecordBatch> Next() {
       while (true) {
