@@ -5907,6 +5907,56 @@ extern "C" SEXP _arrow_Schema__field(SEXP s_sexp, SEXP i_sexp){
 
 // schema.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Schema> Schema__AddField(const std::shared_ptr<arrow::Schema>& s, int i, const std::shared_ptr<arrow::Field>& field);
+extern "C" SEXP _arrow_Schema__AddField(SEXP s_sexp, SEXP i_sexp, SEXP field_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);
+	arrow::r::Input<int>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	return cpp11::as_sexp(Schema__AddField(s, i, field));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Schema__AddField(SEXP s_sexp, SEXP i_sexp, SEXP field_sexp){
+	Rf_error("Cannot call Schema__AddField(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// schema.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Schema> Schema__SetField(const std::shared_ptr<arrow::Schema>& s, int i, const std::shared_ptr<arrow::Field>& field);
+extern "C" SEXP _arrow_Schema__SetField(SEXP s_sexp, SEXP i_sexp, SEXP field_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);
+	arrow::r::Input<int>::type i(i_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	return cpp11::as_sexp(Schema__SetField(s, i, field));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Schema__SetField(SEXP s_sexp, SEXP i_sexp, SEXP field_sexp){
+	Rf_error("Cannot call Schema__SetField(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// schema.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Schema> Schema__RemoveField(const std::shared_ptr<arrow::Schema>& s, int i);
+extern "C" SEXP _arrow_Schema__RemoveField(SEXP s_sexp, SEXP i_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type s(s_sexp);
+	arrow::r::Input<int>::type i(i_sexp);
+	return cpp11::as_sexp(Schema__RemoveField(s, i));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_Schema__RemoveField(SEXP s_sexp, SEXP i_sexp){
+	Rf_error("Cannot call Schema__RemoveField(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// schema.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Field> Schema__GetFieldByName(const std::shared_ptr<arrow::Schema>& s, std::string x);
 extern "C" SEXP _arrow_Schema__GetFieldByName(SEXP s_sexp, SEXP x_sexp){
 BEGIN_CPP11
@@ -6882,6 +6932,9 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Schema__ToString", (DL_FUNC) &_arrow_Schema__ToString, 1}, 
 		{ "_arrow_Schema__num_fields", (DL_FUNC) &_arrow_Schema__num_fields, 1}, 
 		{ "_arrow_Schema__field", (DL_FUNC) &_arrow_Schema__field, 2}, 
+		{ "_arrow_Schema__AddField", (DL_FUNC) &_arrow_Schema__AddField, 3}, 
+		{ "_arrow_Schema__SetField", (DL_FUNC) &_arrow_Schema__SetField, 3}, 
+		{ "_arrow_Schema__RemoveField", (DL_FUNC) &_arrow_Schema__RemoveField, 2}, 
 		{ "_arrow_Schema__GetFieldByName", (DL_FUNC) &_arrow_Schema__GetFieldByName, 2}, 
 		{ "_arrow_Schema__fields", (DL_FUNC) &_arrow_Schema__fields, 1}, 
 		{ "_arrow_Schema__field_names", (DL_FUNC) &_arrow_Schema__field_names, 1}, 
