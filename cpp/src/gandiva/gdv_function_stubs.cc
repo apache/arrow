@@ -795,16 +795,19 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
 
 #define TO_NUMBER(OUT_TYPE, ARROW_TYPE, TYPE_NAME)                                   \
   GANDIVA_EXPORT                                                                     \
-  OUT_TYPE gdv_fn_to_number##TYPE_NAME(int64_t context, const char* data,                  \
+  OUT_TYPE gdv_fn_to_number##TYPE_NAME(int64_t ptr, const char* data,                \
        int32_t data_len, const char* format, int32_t format_len) {                   \
-    OUT_TYPE res;                                                                \
-    gandiva::DecimalFormatHolder* holder = reinterpret_cast<gandiva::DecimalFormatHolder*>(context);              \
-    auto parse = holder->Parse<OUT_TYPE>(data, data_len, res);                                          \
+    OUT_TYPE res;                                                                    \
+    gandiva::DecimalFormatHolder* holder =                                           \
+    reinterpret_cast<gandiva::DecimalFormatHolder*>(ptr);                            \
+    auto parse = holder->Parse<OUT_TYPE>(data, data_len, res);                       \
+                                                                                     \
     if (parse.ec != std::errc()){                                                    \
       std::string err =                                                              \
-          "Failed to cast the string " + std::string(data, data_len) + " to " #OUT_TYPE;  \
-      gdv_fn_context_set_error_msg(context, err.c_str());                                                                                \
-    }\
+          "Failed to cast the string " + std::string(data, data_len) +               \
+          " to " #OUT_TYPE;                                                          \
+      gdv_fn_context_set_error_msg(ptr, err.c_str());                                \
+    }                                                                                \
     return res;                                                                      \
   }
 
@@ -1393,6 +1396,28 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_sha256_uint8",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_sha256_uint8));
+
+  args = {types->i64_type(),     // int64_t context_ptr
+          types->i8_ptr_type(),  // const char* data
+          types->i32_type(),     // int32_t lenr
+          types->i8_ptr_type(),  // const char* format
+          types->i32_type()};    // int32_t format_len
+
+
+  engine->AddGlobalMappingForFunc("gdv_fn_to_numberFLOAT4",
+                                  types->float_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_to_numberFLOAT4));
+
+  args = {types->i64_type(),     // int64_t context_ptr
+          types->i8_ptr_type(),  // const char* data
+          types->i32_type(),     // int32_t lenr
+          types->i8_ptr_type(),  // const char* format
+          types->i32_type()};    // int32_t format_len
+
+  engine->AddGlobalMappingForFunc("gdv_fn_to_numberFLOAT8",
+                                  types->double_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_to_numberFLOAT8));
+
 
   // gdv_fn_sha256_uint16
   args = {

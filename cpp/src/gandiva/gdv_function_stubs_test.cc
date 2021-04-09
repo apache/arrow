@@ -280,7 +280,7 @@ TEST(TestGdvFnStubs, TestToNumberInt){
 
   int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
 
-  EXPECT_EQ(gdv_fn_to_numberFLOAT4(ctx_ptr,"2,500.000", 9, "#,###.###", 9),2500.0f);
+  EXPECT_EQ(gdv_fn_to_numberFLOAT4(ctx_ptr,"2,500.000", 9, "#,######", 8),2500.0f);
   EXPECT_EQ(gdv_fn_to_numberFLOAT8(ctx_ptr,"2,500.000", 9, "#,###.###", 9),2500.0);
 }
 
