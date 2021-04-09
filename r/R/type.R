@@ -418,7 +418,9 @@ as_type <- function(type, name = "type") {
   type <- unmask_type_fun(enexpr(type)) %||% type
 
   # magic so we don't have to mask base::double()
-  if (identical(type, double())) type <- float64()
+  if (identical(type, double())) {
+    type <- float64()
+  }
 
   if (!inherits(type, "DataType")) {
     stop(name, " must be a DataType, not ", class(type), call. = FALSE)
