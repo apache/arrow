@@ -34,7 +34,7 @@ knitr::knit_hooks$set(source = function(x, options) {
 })
 ```
 
-```{bash, save=run}
+```{bash, save=run, hide=TRUE}
 # Stop on failure, echo input as we go
 set -e
 set -x
@@ -92,16 +92,14 @@ It is recommended that you install the arrow library to a user-level directory t
 
 ```{bash, save=run & !sys_install}
 export ARROW_HOME=$(pwd)/dist
-export INCLUDE_DIR=$ARROW_HOME/include
-export LIB_DIR=$ARROW_HOME/lib
+export INCLUDE_DIR=$ARROW_HOME/include:$INCLUDE_DIR
+export LIB_DIR=$ARROW_HOME/lib:$LIB_DIR
 ```
-
-TODO: how to add these vars separated by colons if they have other things in them already (eg LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH)
 
 On linux, you will need to set `LD_LIBRARY_PATH` to the same directory as `LIB_DIR` before launching R and using Arrow. One way to do this is to add it to your profile. # TODO: do we want to recommend this? Is there any other alternative?
 
 ```{bash, save=run & ubuntu & !sys_install}
-export LD_LIBRARY_PATH=$(pwd)/dist/lib
+export LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH
 echo "export LD_LIBRARY_PATH=$(pwd)/dist/lib" >> ~/.bash_profile
 ```
 
@@ -174,7 +172,7 @@ Other flags that may be useful:
 
 ### Now actually build Arrow
 
-You can `-j` here too!
+You can `-j#` here too to speed up compilation by running in parallel.
 
 ```{bash, save=run & !(sys_install & ubuntu)}
 make install
@@ -201,7 +199,6 @@ Once you’ve built the C++ library, you can install the R package and its
 dependencies, along with additional dev dependencies, from the git
 checkout:
 
-
 ```{bash, save=run}
 cd ../../r
 R -e 'install.packages("remotes"); remotes::install_deps(dependencies = TRUE)'
@@ -209,11 +206,24 @@ R -e 'install.packages("remotes"); remotes::install_deps(dependencies = TRUE)'
 R CMD INSTALL .
 ```
 
-### Troubleshooting 
+### Compilation flags
 
-If you are installing from a user-level directory (like XXX above) and you already have a previous installation of libarrow in a system directory, you may get errors like the following when you install the R package:
+If you need to set any compilation flags while building the C++
+extensions, you can use the `ARROW_R_CXXFLAGS` environment variable. For
+example, if you are using `perf` to profile the R extensions, you may
+need to set
 
-```bash
+``` shell
+export ARROW_R_CXXFLAGS=-fno-omit-frame-pointer
+```
+
+### Troublshooting
+
+#### Arrow library-R package mismatches 
+
+If the Arrow library and the R package have diverged, you will see errors like:
+
+```
 Error: package or namespace load failed for ‘arrow’ in dyn.load(file, DLLpath = DLLpath, ...):
  unable to load shared object '/Library/Frameworks/R.framework/Versions/4.0/Resources/library/00LOCK-r/00new/arrow/libs/arrow.so':
   dlopen(/Library/Frameworks/R.framework/Versions/4.0/Resources/library/00LOCK-r/00new/arrow/libs/arrow.so, 6): Symbol not found: __ZN5arrow2io16RandomAccessFile9ReadAsyncERKNS0_9IOContextExx
@@ -225,9 +235,13 @@ Execution halted
 ERROR: loading failed
 ```
 
-or
+To resolve this, try rebuilding the Arrow library from [Building Arrow above](#building-arrow). 
 
-```bash
+#### Multiple versions of Arrow library
+
+If rebuilding the Arrow library doesn't work and you are [installing from a user-level directory](#installing-to-another-directory) and you already have a previous installation of libarrow in a system directory or you get you may get errors like the following when you install the R package:
+
+```
 Error: package or namespace load failed for ‘arrow’ in dyn.load(file, DLLpath = DLLpath, ...):
  unable to load shared object '/Library/Frameworks/R.framework/Versions/4.0/Resources/library/00LOCK-r/00new/arrow/libs/arrow.so':
   dlopen(/Library/Frameworks/R.framework/Versions/4.0/Resources/library/00LOCK-r/00new/arrow/libs/arrow.so, 6): Library not loaded: /usr/local/lib/libarrow.400.dylib
@@ -235,8 +249,7 @@ Error: package or namespace load failed for ‘arrow’ in dyn.load(file, DLLpat
   Reason: image not found
 ```
 
-To solve errors like these, make sure that your arrow library is up to date and make sure that you don't let R link to your system library when building arrow. You can do this a number of different ways: 
-
+You need to make sure that you don't let R link to your system library when building arrow. You can do this a number of different ways: 
 
 * Setting the `MAKEFLAGS` environment variable to `"LDFLAGS="` (see below for an example) this is the recommended way to accomplish this
 * Using {withr}'s `with_makevars(list(LDFLAGS = ""), ...)`
@@ -264,18 +277,8 @@ sudo apt install -y -V libarrow-dev
 MAKEFLAGS="LDFLAGS=" R CMD INSTALL .
 ```
 
-### Compilation flags
 
-If you need to set any compilation flags while building the C++
-extensions, you can use the `ARROW_R_CXXFLAGS` environment variable. For
-example, if you are using `perf` to profile the R extensions, you may
-need to set
-
-``` shell
-export ARROW_R_CXXFLAGS=-fno-omit-frame-pointer
-```
-
-### Troublshooting
+#### `rpath` issues
 
 If the package fails to install/load with an error like this:
 
