@@ -1377,6 +1377,17 @@ def test_write_to_dataset_with_partitions_and_custom_filenames(
     assert sorted(expected_basenames) == sorted(output_basenames)
 
 
+@pytest.mark.pandas
+def test_write_to_dataset_filesystem(tempdir):
+    df = pd.DataFrame({'A': [1, 2, 3]})
+    table = pa.Table.from_pandas(df)
+    path = str(tempdir)
+
+    pq.write_to_dataset(table, path, filesystem=fs.LocalFileSystem())
+    result = pq.read_table(path)
+    assert result.equals(table)
+
+
 # TODO(dataset) support pickling
 def _make_dataset_for_pickling(tempdir, N=100):
     path = tempdir / 'data.parquet'
