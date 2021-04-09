@@ -61,12 +61,40 @@ class TestScanner : public DatasetFixtureMixin {
     // structures of the scanner, i.e. Scanner[Dataset[ScanTask[RecordBatch]]]
     AssertScannerEquals(expected.get(), scanner.get());
   }
+
+  void AssertScanBatchesEqualRepetitionsOf(
+      std::shared_ptr<Scanner> scanner, std::shared_ptr<RecordBatch> batch,
+      const int64_t total_batches = kNumberChildDatasets * kNumberBatches) {
+    auto expected = ConstantArrayGenerator::Repeat(total_batches, batch);
+
+    AssertScanBatchesEquals(expected.get(), scanner.get());
+  }
+
+  void AssertScanBatchesUnorderedEqualRepetitionsOf(
+      std::shared_ptr<Scanner> scanner, std::shared_ptr<RecordBatch> batch,
+      const int64_t total_batches = kNumberChildDatasets * kNumberBatches) {
+    auto expected = ConstantArrayGenerator::Repeat(total_batches, batch);
+
+    AssertScanBatchesUnorderedEquals(expected.get(), scanner.get());
+  }
 };
 
 TEST_F(TestScanner, Scan) {
   SetSchema({field("i32", int32()), field("f64", float64())});
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
   AssertScannerEqualsRepetitionsOf(MakeScanner(batch), batch);
+}
+
+TEST_F(TestScanner, ScanBatches) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  AssertScanBatchesEqualRepetitionsOf(MakeScanner(batch), batch);
+}
+
+TEST_F(TestScanner, ScanBatchesUnordered) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  AssertScanBatchesUnorderedEqualRepetitionsOf(MakeScanner(batch), batch);
 }
 
 TEST_F(TestScanner, ScanWithCappedBatchSize) {

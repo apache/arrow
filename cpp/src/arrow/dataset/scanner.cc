@@ -90,11 +90,12 @@ Result<EnumeratedRecordBatchIterator> Scanner::AddPositioningToInOrderScan(
     return MakeEmptyIterator<EnumeratedRecordBatch>();
   }
   struct State {
-    State(TaggedRecordBatchIterator source)
+    State(TaggedRecordBatchIterator source, TaggedRecordBatch first)
         : source(std::move(source)),
-          batch_index(1),
+          batch_index(0),
+          fragment_index(0),
           finished(false),
-          prev_batch(TaggedRecordBatch{nullptr, nullptr}) {}
+          prev_batch(std::move(first)) {}
     TaggedRecordBatchIterator source;
     int batch_index;
     int fragment_index;
@@ -115,6 +116,8 @@ Result<EnumeratedRecordBatchIterator> Scanner::AddPositioningToInOrderScan(
       }
       auto prev = std::move(state->prev_batch);
       bool prev_is_last_batch = false;
+      auto prev_batch_index = state->batch_index;
+      auto prev_fragment_index = state->fragment_index;
       // Reference equality here seems risky but a dataset should have a constant set of
       // fragments which should be consistent for the lifetime of a scan
       if (prev.fragment.get() != next.fragment.get()) {
@@ -126,8 +129,8 @@ Result<EnumeratedRecordBatchIterator> Scanner::AddPositioningToInOrderScan(
       }
       state->prev_batch = std::move(next);
       return EnumeratedRecordBatch{
-          {std::move(prev.record_batch), state->batch_index, prev_is_last_batch},
-          {std::move(prev.fragment), state->fragment_index, false}};
+          {std::move(prev.record_batch), prev_batch_index, prev_is_last_batch},
+          {std::move(prev.fragment), prev_fragment_index, false}};
     }
     std::shared_ptr<State> state;
   };

@@ -139,6 +139,15 @@ class DatasetFixtureMixin : public ::testing::Test {
     }
   }
 
+  /// \brief Ensure a record batch yielded by the fragment matches the next batch yielded
+  /// by the reader
+  void AssertBatchEquals(RecordBatchReader* expected, RecordBatch* batch) {
+    std::shared_ptr<RecordBatch> lhs;
+    ASSERT_OK(expected->ReadNext(&lhs));
+    EXPECT_NE(lhs, nullptr);
+    AssertBatchesEqual(*lhs, *batch);
+  }
+
   /// \brief Ensure that record batches found in reader are equals to the
   /// record batches yielded by the data fragment.
   void AssertFragmentEquals(RecordBatchReader* expected, Fragment* fragment,
@@ -189,6 +198,45 @@ class DatasetFixtureMixin : public ::testing::Test {
   }
 
   /// \brief Ensure that record batches found in reader are equals to the
+  /// record batches yielded by a scanner.
+  void AssertScanBatchesEquals(RecordBatchReader* expected, Scanner* scanner,
+                               bool ensure_drained = true) {
+    ASSERT_OK_AND_ASSIGN(auto it, scanner->ScanBatches());
+
+    ARROW_EXPECT_OK(it.Visit([&](TaggedRecordBatch batch) -> Status {
+      AssertBatchEquals(expected, batch.record_batch.get());
+      return Status::OK();
+    }));
+
+    if (ensure_drained) {
+      EnsureRecordBatchReaderDrained(expected);
+    }
+  }
+
+  /// \brief Ensure that record batches found in reader are equals to the
+  /// record batches yielded by a scanner.
+  void AssertScanBatchesUnorderedEquals(RecordBatchReader* expected, Scanner* scanner,
+                                        bool ensure_drained = true) {
+    ASSERT_OK_AND_ASSIGN(auto it, scanner->ScanBatchesUnordered());
+
+    int fragment_counter = 0;
+    bool saw_last_fragment = false;
+    ARROW_EXPECT_OK(it.Visit([&](EnumeratedRecordBatch batch) -> Status {
+      EXPECT_EQ(0, batch.record_batch.index);
+      EXPECT_EQ(true, batch.record_batch.last);
+      EXPECT_EQ(fragment_counter++, batch.fragment.index);
+      EXPECT_FALSE(saw_last_fragment);
+      saw_last_fragment = batch.fragment.last;
+      AssertBatchEquals(expected, batch.record_batch.value.get());
+      return Status::OK();
+    }));
+
+    if (ensure_drained) {
+      EnsureRecordBatchReaderDrained(expected);
+    }
+  }
+
+  /// \brief Ensure that record batches found in reader are equals to the
   /// record batches yielded by a dataset.
   void AssertDatasetEquals(RecordBatchReader* expected, Dataset* dataset,
                            bool ensure_drained = true) {
@@ -216,7 +264,7 @@ class DatasetFixtureMixin : public ::testing::Test {
 
   std::shared_ptr<Schema> schema_;
   std::shared_ptr<ScanOptions> options_;
-};
+};  // namespace dataset
 
 /// \brief A dummy FileFormat implementation
 class DummyFileFormat : public FileFormat {
