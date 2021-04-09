@@ -1774,6 +1774,6 @@ test_that("Collecting zero columns from a dataset doesn't return entire dataset"
   write_dataset(mtcars, tmp, format = "parquet")
   expect_equal(
     open_dataset(tmp) %>% select() %>% collect() %>% dim(),
-    c(32,0)
+    c(32, 0)
   )
 })
