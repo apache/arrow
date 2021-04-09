@@ -24,7 +24,7 @@ knitr::knit_hooks$set(source = function(lines, options) {
   #   * CI is true
   #   * RUN_DEVDOCS is true
   #   * options$save is TRUE (and a check that not NULL won't crash it)
-  if (Sys.getenv("CI", FALSE) && run && !is.null(options$save) && options$save)
+  if (as.logical(Sys.getenv("CI", FALSE)) && run && !is.null(options$save) && options$save)
     cat(lines, file = "script.sh", append = TRUE, sep = "\n")
   NULL
 })
