@@ -422,7 +422,7 @@ as_type <- function(type, name = "type") {
     type <- float64()
   }
 
-  if (!inherits(type, "DataType")) {
+  if (!is.null(type) && !inherits(type, "DataType")) {
     stop(name, " must be a DataType, not ", class(type), call. = FALSE)
   }
   type
