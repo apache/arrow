@@ -111,7 +111,7 @@ struct ARROW_DS_EXPORT ScanOptions {
 
   /// If true then an asycnhronous implementation of the scanner will be used.
   /// This implementation is newer and generally performs better.  However, it
-  /// makes extensive use of testing and is still considered experimental
+  /// makes extensive use of threading and is still considered experimental
   bool use_async = false;
 
   /// Fragment-specific scan options.
@@ -236,7 +236,7 @@ namespace dataset {
 /// \brief A scanner glues together several dataset classes to load in data.
 /// The dataset contains a collection of fragments and partitioning rules.
 ///
-/// The fragments identify independently loadable units of data (e.g. each fragment has
+/// The fragments identify independently loadable units of data (i.e. each fragment has
 /// a potentially unique schema and possibly even format.  It should be possible to read
 /// fragments in parallel if desired).
 ///
