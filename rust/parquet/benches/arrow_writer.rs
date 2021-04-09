@@ -26,9 +26,7 @@ use std::sync::Arc;
 
 use arrow::datatypes::*;
 use arrow::{record_batch::RecordBatch, util::data_gen::*};
-use parquet::{
-    arrow::ArrowWriter, errors::Result, file::writer::InMemoryWriteableCursor,
-};
+use parquet::{arrow::ArrowWriter, errors::Result, file::{properties::WriterProperties, writer::InMemoryWriteableCursor}};
 
 fn create_primitive_bench_batch(
     size: usize,
@@ -36,25 +34,7 @@ fn create_primitive_bench_batch(
     true_density: f32,
 ) -> Result<RecordBatch> {
     let fields = vec![
-        Field::new("_1", DataType::Int8, true),
-        Field::new("_2", DataType::Int16, true),
-        Field::new("_3", DataType::Int32, true),
         Field::new("_4", DataType::Int64, true),
-        Field::new("_5", DataType::UInt8, true),
-        Field::new("_6", DataType::UInt16, true),
-        Field::new("_7", DataType::UInt32, true),
-        Field::new("_8", DataType::UInt64, true),
-        Field::new("_9", DataType::Float32, true),
-        Field::new("_10", DataType::Float64, true),
-        Field::new("_11", DataType::Date32, true),
-        Field::new("_12", DataType::Date64, true),
-        Field::new("_13", DataType::Time32(TimeUnit::Second), true),
-        Field::new("_14", DataType::Time32(TimeUnit::Millisecond), true),
-        Field::new("_15", DataType::Time64(TimeUnit::Microsecond), true),
-        Field::new("_16", DataType::Time64(TimeUnit::Nanosecond), true),
-        Field::new("_17", DataType::Utf8, true),
-        Field::new("_18", DataType::LargeUtf8, true),
-        Field::new("_19", DataType::Boolean, true),
     ];
     let schema = Schema::new(fields);
     Ok(create_random_batch(
@@ -140,7 +120,13 @@ fn _create_nested_bench_batch(
 fn write_batch(batch: &RecordBatch) -> Result<()> {
     // Write batch to an in-memory writer
     let cursor = InMemoryWriteableCursor::default();
-    let mut writer = ArrowWriter::try_new(cursor, batch.schema(), None)?;
+    let props = WriterProperties::builder()
+        .set_dictionary_enabled(false)
+        .set_write_batch_size(2usize.pow(5))
+        .set_max_row_group_size(2usize.pow(5))
+        .set_data_pagesize_limit(2usize.pow(10))
+        .build();
+    let mut writer = ArrowWriter::try_new(cursor, batch.schema(), Some(props))?;
 
     writer.write(&batch)?;
     writer.close()?;
@@ -168,6 +154,16 @@ fn bench_primitive_writer(c: &mut Criterion) {
             .sum(),
     ));
     group.bench_function("4096 values", |b| b.iter(|| write_batch(&batch).unwrap()));
+
+    let batch = create_primitive_bench_batch(4096 * 4, 0.25, 0.75).unwrap();
+    group.throughput(Throughput::Bytes(
+        batch
+            .columns()
+            .iter()
+            .map(|f| f.get_array_memory_size() as u64)
+            .sum(),
+    ));
+    group.bench_function("2^14 values", |b| b.iter(|| write_batch(&batch).unwrap()));
 
     group.finish();
 }

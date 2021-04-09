@@ -76,3 +76,7 @@ required-features = ["cli"]
 [[bench]]
 name = "arrow_writer"
 harness = false
+
+[[bench]]
+name = "read_parquet"
+harness = false
