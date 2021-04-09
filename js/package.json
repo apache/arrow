@@ -19,7 +19,7 @@
     "clean:testdata": "gulp clean:testdata",
     "create:testdata": "gulp create:testdata",
     "test:coverage": "gulp test -t src --coverage",
-    "doc": "del ./doc && typedoc --options typedoc.js",
+    "doc": "del-cli ./doc && typedoc --options typedoc.js",
     "lint": "run-p lint:src lint:test",
     "lint:ci": "run-p lint:src:ci lint:test:ci",
     "lint:src": "tslint --fix --project -p tsconfig.json -c tslint.json \"src/**/*.ts\"",
