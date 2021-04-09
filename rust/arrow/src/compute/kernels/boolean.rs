@@ -335,7 +335,6 @@ pub fn or(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
 ///
 /// If the operands have different lengths
 pub fn or_kleene(left: &BooleanArray, right: &BooleanArray) -> Result<BooleanArray> {
-    // dbg!(right.data_ref().null_buffer().unwrap().count_set_bits());
     if left.null_count().is_zero() && right.null_count().is_zero() {
         return or(left, right);
     }
@@ -623,7 +622,7 @@ mod tests {
         for &value in [true, false].iter() {
             for &is_valid in [true, false].iter() {
                 for &n in [0usize, 1, 63, 64, 65, 127, 128].iter() {
-                    let a = BooleanArray::from(vec![true; n]);
+                    let a = BooleanArray::from(vec![Some(true); n]);
                     let b = BooleanArray::from(vec![None; n]);
 
                     let result = binary_boolean_kleene_kernel(&a, &b, |_, _, _, _| {
