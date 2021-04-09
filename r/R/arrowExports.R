@@ -1504,6 +1504,18 @@ Schema__field <- function(s, i){
     .Call(`_arrow_Schema__field`, s, i)
 }
 
+Schema__AddField <- function(s, i, field){
+    .Call(`_arrow_Schema__AddField`, s, i, field)
+}
+
+Schema__SetField <- function(s, i, field){
+    .Call(`_arrow_Schema__SetField`, s, i, field)
+}
+
+Schema__RemoveField <- function(s, i){
+    .Call(`_arrow_Schema__RemoveField`, s, i)
+}
+
 Schema__GetFieldByName <- function(s, x){
     .Call(`_arrow_Schema__GetFieldByName`, s, x)
 }
