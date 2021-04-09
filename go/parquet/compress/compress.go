@@ -44,7 +44,7 @@ var Codecs = struct {
 	Uncompressed Compression
 	Snappy       Compression
 	Gzip         Compression
-	// LZO is unsupported in this library as I haven't yet found a good implementation of it for golang.
+	// LZO is unsupported in this library since LZO license is incompatible with Apache License
 	Lzo    Compression
 	Brotli Compression
 	// LZ4 unsupported in this library due to problematic issues between the Hadoop LZ4 spec vs regular lz4
@@ -68,13 +68,16 @@ type Codec interface {
 	NewReader(io.Reader) io.ReadCloser
 	// NewWriter provides a wrapper around a write stream to compress data before writing it.
 	NewWriter(io.Writer) io.WriteCloser
-	// NewWriterLevel is like NewWrapper but allows specifying the compression level
+	// NewWriterLevel is like NewWriter but allows specifying the compression level
 	NewWriterLevel(io.Writer, int) (io.WriteCloser, error)
-	// Encode encodes a block of data given by src and returns the compressed block. dst needs to be either nil
+	// Encode encodes a block of data given by src and returns the compressed block. dst should be either nil
 	// or sized large enough to fit the compressed block (use CompressBound to allocate). dst and src should not
 	// overlap since some of the compression types don't allow it.
 	//
-	// The returned slice *might* be a slice of dst if it was able to fit the whole compressed data in it.
+	// The returned slice will be one of the following:
+	//	1. If dst was nil or dst was too small to fit the compressed data, it will be a newly allocated slice
+	//	2. If dst was large enough to fit the compressed data (depending on the compression algorithm it might
+	//		 be required to be at least CompressBound length) then it might be a slice of dst.
 	Encode(dst, src []byte) []byte
 	// EncodeLevel is like Encode, but specifies a particular encoding level instead of the default.
 	EncodeLevel(dst, src []byte, level int) []byte

@@ -20,6 +20,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/apache/arrow/go/parquet/internal/debug"
 	"github.com/klauspost/compress/zstd"
 )
 
@@ -96,8 +97,9 @@ func (z zstdCodec) EncodeLevel(dst, src []byte, level int) []byte {
 	return enc.EncodeAll(src, dst[:0])
 }
 
-// from zstd.h
+// from zstd.h, ZSTD_COMPRESSBOUND
 func (zstdCodec) CompressBound(len int64) int64 {
+	debug.Assert(len > 0, "len for zstd CompressBound should be > 0")
 	extra := ((128 << 10) - len) >> 11
 	if len >= (128 << 10) {
 		extra = 0

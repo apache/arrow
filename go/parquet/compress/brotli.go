@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 
 	"github.com/andybalholm/brotli"
+	"github.com/apache/arrow/go/parquet/internal/debug"
 )
 
 type brotliCodec struct{}
@@ -81,9 +82,11 @@ func (brotliCodec) Decode(dst, src []byte) []byte {
 	return dst
 }
 
-// taken from brotli/enc/encode.c
+// taken from brotli/enc/encode.c:1426
+// BrotliEncoderMaxCompressedSize
 func (brotliCodec) CompressBound(len int64) int64 {
 	// [window bits / empty metadata] + N * [uncompressed] + [last empty]
+	debug.Assert(len > 0, "brotli compressbound should be > 0")
 	nlarge := len >> 14
 	overhead := 2 + (4 * nlarge) + 3 + 1
 	result := len + overhead

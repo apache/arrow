@@ -35,6 +35,12 @@ type ReaderProperties struct {
 	// If this is set to true, then the reader will use SectionReader to
 	// just use the read stream when reading data. Otherwise we will buffer
 	// the data we're going to read into memory first and then read that buffer.
+	//
+	// If reading from higher latency IO, like S3, it might improve performance to
+	// set this to true in order to read the entire row group in at once rather than
+	// make multiple smaller data requests. For low latency IO streams or if only
+	// reading small portions / subsets  of the parquet file, this can be set to false
+	// to reduce the amount of IO performed in order to avoid reading excess amounts of data.
 	BufferedStreamEnabled bool
 }
 
