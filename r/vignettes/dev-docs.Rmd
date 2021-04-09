@@ -92,8 +92,8 @@ It is recommended that you install the arrow library to a user-level directory t
 
 ```{bash, save=run & !sys_install}
 export ARROW_HOME=$(pwd)/dist
-export INCLUDE_DIR=$ARROW_HOME/include:$INCLUDE_DIR
-export LIB_DIR=$ARROW_HOME/lib:$LIB_DIR
+export INCLUDE_DIR=$ARROW_HOME/include
+export LIB_DIR=$ARROW_HOME/lib
 ```
 
 On linux, you will need to set `LD_LIBRARY_PATH` to the same directory as `LIB_DIR` before launching R and using Arrow. One way to do this is to add it to your profile. # TODO: do we want to recommend this? Is there any other alternative?
@@ -351,6 +351,13 @@ isn’t found, you can explicitly provide the path to it like
 this by installing LLVM via Homebrew and running the script as
 `CLANG_FORMAT=$(brew --prefix llvm@8)/bin/clang-format ./lint.sh`
 
+_note_ that the lint script requires python3 and the python dependencies (note that `cmake_format is pinned to a specific version):
+
+* autopep8
+* flake8
+* cmake_format==0.5.2
+
+
 ## Running tests
 
 Some tests are conditionally enabled based on the availability of certain
@@ -374,11 +381,10 @@ variables or other settings:
 
 ## Github workflows
 
-Crossbow:
+Crossbow is our extended test suite runner [more documentation is available](https://arrow.apache.org/docs/developers/crossbow.html) but important GitHub comment commads include:
 
 * `@github-actions crossbow submit -g r` for extended R CI tests
 * `@github-actions crossbow submit {task-name}` for running a specific task
-
 * `@github-actions autotune` will run and fix lint c++ linting errors + run R documentation (among other cleanup tasks) and commit them to the branch
 
 
