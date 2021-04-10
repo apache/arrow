@@ -1,5 +1,5 @@
-// Licensed to the Apache Software Found filename: (), num_rows: (), total_byte_size: (), column_statistics: ()ation (ASF) under one
-// or more c total_byte_size: (), column_statistics: ()ontri, total_byte_size: (), column_statistics: ()butor license agreements.  See the NOTICE file
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
 // regarding copyright ownership.  The ASF licenses this file
 // to you under the Apache License, Version 2.0 (the
@@ -13,7 +13,7 @@
 // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
-// under the License
+// under the License.
 
 //! Optimizer rule to switch build and probe order of hash join
 //! based on statistics of a `TableProvider`. If the number of
