@@ -142,7 +142,7 @@ jobs:
         run: |
           export CARGO_HOME="/github/home/.cargo"
           export CARGO_TARGET_DIR="/github/home/target"
-          cd rust/ballilsta
+          cd rust/ballista
           cargo test
 
   # test the --features "simd" of the arrow crate. This requires nightly.
