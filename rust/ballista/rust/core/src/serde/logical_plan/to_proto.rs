@@ -33,17 +33,21 @@ use datafusion::logical_plan::{Expr, JoinType, LogicalPlan};
 use datafusion::physical_plan::aggregates::AggregateFunction;
 use datafusion::{datasource::parquet::ParquetTable, logical_plan::exprlist_to_fields};
 use protobuf::{
-    arrow_type, logical_expr_node::ExprType, scalar_type, DateUnit, Field, PrimitiveScalarType,
-    ScalarListValue, ScalarType,
+    arrow_type, logical_expr_node::ExprType, scalar_type, DateUnit, Field,
+    PrimitiveScalarType, ScalarListValue, ScalarType,
 };
 
 use super::super::proto_error;
 use datafusion::physical_plan::functions::BuiltinScalarFunction;
 
 impl protobuf::IntervalUnit {
-    pub fn from_arrow_interval_unit(interval_unit: &arrow::datatypes::IntervalUnit) -> Self {
+    pub fn from_arrow_interval_unit(
+        interval_unit: &arrow::datatypes::IntervalUnit,
+    ) -> Self {
         match interval_unit {
-            arrow::datatypes::IntervalUnit::YearMonth => protobuf::IntervalUnit::YearMonth,
+            arrow::datatypes::IntervalUnit::YearMonth => {
+                protobuf::IntervalUnit::YearMonth
+            }
             arrow::datatypes::IntervalUnit::DayTime => protobuf::IntervalUnit::DayTime,
         }
     }
@@ -91,7 +95,9 @@ impl protobuf::TimeUnit {
     pub fn from_arrow_time_unit(val: &arrow::datatypes::TimeUnit) -> Self {
         match val {
             arrow::datatypes::TimeUnit::Second => protobuf::TimeUnit::Second,
-            arrow::datatypes::TimeUnit::Millisecond => protobuf::TimeUnit::TimeMillisecond,
+            arrow::datatypes::TimeUnit::Millisecond => {
+                protobuf::TimeUnit::TimeMillisecond
+            }
             arrow::datatypes::TimeUnit::Microsecond => protobuf::TimeUnit::Microsecond,
             arrow::datatypes::TimeUnit::Nanosecond => protobuf::TimeUnit::Nanosecond,
         }
@@ -169,22 +175,26 @@ impl TryInto<arrow::datatypes::DataType> for &protobuf::ArrowType {
             protobuf::arrow_type::ArrowTypeEnum::Duration(time_unit_i32) => {
                 DataType::Duration(protobuf::TimeUnit::from_i32_to_arrow(*time_unit_i32)?)
             }
-            protobuf::arrow_type::ArrowTypeEnum::Timestamp(timestamp) => DataType::Timestamp(
-                protobuf::TimeUnit::from_i32_to_arrow(timestamp.time_unit)?,
-                match timestamp.timezone.is_empty() {
-                    true => None,
-                    false => Some(timestamp.timezone.to_owned()),
-                },
-            ),
+            protobuf::arrow_type::ArrowTypeEnum::Timestamp(timestamp) => {
+                DataType::Timestamp(
+                    protobuf::TimeUnit::from_i32_to_arrow(timestamp.time_unit)?,
+                    match timestamp.timezone.is_empty() {
+                        true => None,
+                        false => Some(timestamp.timezone.to_owned()),
+                    },
+                )
+            }
             protobuf::arrow_type::ArrowTypeEnum::Time32(time_unit_i32) => {
                 DataType::Time32(protobuf::TimeUnit::from_i32_to_arrow(*time_unit_i32)?)
             }
             protobuf::arrow_type::ArrowTypeEnum::Time64(time_unit_i32) => {
                 DataType::Time64(protobuf::TimeUnit::from_i32_to_arrow(*time_unit_i32)?)
             }
-            protobuf::arrow_type::ArrowTypeEnum::Interval(interval_unit_i32) => DataType::Interval(
-                protobuf::IntervalUnit::from_i32_to_arrow(*interval_unit_i32)?,
-            ),
+            protobuf::arrow_type::ArrowTypeEnum::Interval(interval_unit_i32) => {
+                DataType::Interval(protobuf::IntervalUnit::from_i32_to_arrow(
+                    *interval_unit_i32,
+                )?)
+            }
             protobuf::arrow_type::ArrowTypeEnum::Decimal(protobuf::Decimal {
                 whole,
                 fractional,
@@ -295,15 +305,15 @@ impl From<&arrow::datatypes::DataType> for protobuf::arrow_type::ArrowTypeEnum {
             }
             DataType::Date32 => ArrowTypeEnum::Date32(EmptyMessage {}),
             DataType::Date64 => ArrowTypeEnum::Date64(EmptyMessage {}),
-            DataType::Time32(time_unit) => {
-                ArrowTypeEnum::Time32(protobuf::TimeUnit::from_arrow_time_unit(time_unit) as i32)
-            }
-            DataType::Time64(time_unit) => {
-                ArrowTypeEnum::Time64(protobuf::TimeUnit::from_arrow_time_unit(time_unit) as i32)
-            }
-            DataType::Duration(time_unit) => {
-                ArrowTypeEnum::Duration(protobuf::TimeUnit::from_arrow_time_unit(time_unit) as i32)
-            }
+            DataType::Time32(time_unit) => ArrowTypeEnum::Time32(
+                protobuf::TimeUnit::from_arrow_time_unit(time_unit) as i32,
+            ),
+            DataType::Time64(time_unit) => ArrowTypeEnum::Time64(
+                protobuf::TimeUnit::from_arrow_time_unit(time_unit) as i32,
+            ),
+            DataType::Duration(time_unit) => ArrowTypeEnum::Duration(
+                protobuf::TimeUnit::from_arrow_time_unit(time_unit) as i32,
+            ),
             DataType::Interval(interval_unit) => ArrowTypeEnum::Interval(
                 protobuf::IntervalUnit::from_arrow_interval_unit(interval_unit) as i32,
             ),
@@ -321,9 +331,11 @@ impl From<&arrow::datatypes::DataType> for protobuf::arrow_type::ArrowTypeEnum {
                     list_size: *size,
                 }))
             }
-            DataType::LargeList(item_type) => ArrowTypeEnum::LargeList(Box::new(protobuf::List {
-                field_type: Some(Box::new(item_type.as_ref().into())),
-            })),
+            DataType::LargeList(item_type) => {
+                ArrowTypeEnum::LargeList(Box::new(protobuf::List {
+                    field_type: Some(Box::new(item_type.as_ref().into())),
+                }))
+            }
             DataType::Struct(struct_fields) => ArrowTypeEnum::Struct(protobuf::Struct {
                 sub_field_types: struct_fields
                     .iter()
@@ -342,10 +354,12 @@ impl From<&arrow::datatypes::DataType> for protobuf::arrow_type::ArrowTypeEnum {
                     value: Some(Box::new(value_type.as_ref().into())),
                 }))
             }
-            DataType::Decimal(whole, fractional) => ArrowTypeEnum::Decimal(protobuf::Decimal {
-                whole: *whole as u64,
-                fractional: *fractional as u64,
-            }),
+            DataType::Decimal(whole, fractional) => {
+                ArrowTypeEnum::Decimal(protobuf::Decimal {
+                    whole: *whole as u64,
+                    fractional: *fractional as u64,
+                })
+            }
         }
     }
 }
@@ -369,7 +383,8 @@ fn is_valid_scalar_type_no_list_check(datatype: &arrow::datatypes::DataType) -> 
         | DataType::Date32 => true,
         DataType::Time64(time_unit) => matches!(
             time_unit,
-            arrow::datatypes::TimeUnit::Microsecond | arrow::datatypes::TimeUnit::Nanosecond
+            arrow::datatypes::TimeUnit::Microsecond
+                | arrow::datatypes::TimeUnit::Nanosecond
         ),
 
         DataType::List(_) => true,
@@ -663,7 +678,8 @@ impl TryInto<protobuf::LogicalPlanNode> for &LogicalPlan {
                 let schema = source.schema();
 
                 // unwrap the DFTableAdapter to get to the real TableProvider
-                let source = if let Some(adapter) = source.as_any().downcast_ref::<DFTableAdapter>()
+                let source = if let Some(adapter) =
+                    source.as_any().downcast_ref::<DFTableAdapter>()
                 {
                     match &adapter.logical_plan {
                         LogicalPlan::TableScan { source, .. } => Ok(source.as_any()),
@@ -708,8 +724,9 @@ impl TryInto<protobuf::LogicalPlanNode> for &LogicalPlan {
                     })
                 } else if let Some(csv) = source.downcast_ref::<CsvFile>() {
                     let delimiter = [csv.delimiter()];
-                    let delimiter = std::str::from_utf8(&delimiter)
-                        .map_err(|_| BallistaError::General("Invalid CSV delimiter".to_owned()))?;
+                    let delimiter = std::str::from_utf8(&delimiter).map_err(|_| {
+                        BallistaError::General("Invalid CSV delimiter".to_owned())
+                    })?;
                     Ok(protobuf::LogicalPlanNode {
                         logical_plan_type: Some(LogicalPlanType::CsvScan(
                             protobuf::CsvTableScanNode {
@@ -731,18 +748,19 @@ impl TryInto<protobuf::LogicalPlanNode> for &LogicalPlan {
                     )))
                 }
             }
-            LogicalPlan::Projection { expr, input, .. } => Ok(protobuf::LogicalPlanNode {
-                logical_plan_type: Some(LogicalPlanType::Projection(Box::new(
-                    protobuf::ProjectionNode {
-                        input: Some(Box::new(input.as_ref().try_into()?)),
-                        expr: expr.iter().map(|expr| expr.try_into()).collect::<Result<
-                            Vec<_>,
-                            BallistaError,
-                        >>(
-                        )?,
-                    },
-                ))),
-            }),
+            LogicalPlan::Projection { expr, input, .. } => {
+                Ok(protobuf::LogicalPlanNode {
+                    logical_plan_type: Some(LogicalPlanType::Projection(Box::new(
+                        protobuf::ProjectionNode {
+                            input: Some(Box::new(input.as_ref().try_into()?)),
+                            expr: expr
+                                .iter()
+                                .map(|expr| expr.try_into())
+                                .collect::<Result<Vec<_>, BallistaError>>()?,
+                        },
+                    ))),
+                })
+            }
             LogicalPlan::Filter { predicate, input } => {
                 let input: protobuf::LogicalPlanNode = input.as_ref().try_into()?;
                 Ok(protobuf::LogicalPlanNode {
@@ -794,13 +812,15 @@ impl TryInto<protobuf::LogicalPlanNode> for &LogicalPlan {
                 let left_join_column = on.iter().map(|on| on.0.to_owned()).collect();
                 let right_join_column = on.iter().map(|on| on.1.to_owned()).collect();
                 Ok(protobuf::LogicalPlanNode {
-                    logical_plan_type: Some(LogicalPlanType::Join(Box::new(protobuf::JoinNode {
-                        left: Some(Box::new(left)),
-                        right: Some(Box::new(right)),
-                        join_type: join_type.into(),
-                        left_join_column,
-                        right_join_column,
-                    }))),
+                    logical_plan_type: Some(LogicalPlanType::Join(Box::new(
+                        protobuf::JoinNode {
+                            left: Some(Box::new(left)),
+                            right: Some(Box::new(right)),
+                            join_type: join_type.into(),
+                            left_join_column,
+                            right_join_column,
+                        },
+                    ))),
                 })
             }
             LogicalPlan::Limit { input, n } => {
@@ -821,10 +841,12 @@ impl TryInto<protobuf::LogicalPlanNode> for &LogicalPlan {
                     .map(|expr| expr.try_into())
                     .collect::<Result<Vec<_>, BallistaError>>()?;
                 Ok(protobuf::LogicalPlanNode {
-                    logical_plan_type: Some(LogicalPlanType::Sort(Box::new(protobuf::SortNode {
-                        input: Some(Box::new(input)),
-                        expr: selection_expr,
-                    }))),
+                    logical_plan_type: Some(LogicalPlanType::Sort(Box::new(
+                        protobuf::SortNode {
+                            input: Some(Box::new(input)),
+                            expr: selection_expr,
+                        },
+                    ))),
                 })
             }
             LogicalPlan::Repartition {
@@ -841,11 +863,10 @@ impl TryInto<protobuf::LogicalPlanNode> for &LogicalPlan {
                 let pb_partition_method = match partitioning_scheme {
                     Partitioning::Hash(exprs, partition_count) => {
                         PartitionMethod::Hash(protobuf::HashRepartition {
-                            hash_expr: exprs.iter().map(|expr| expr.try_into()).collect::<Result<
-                                Vec<_>,
-                                BallistaError,
-                            >>(
-                            )?,
+                            hash_expr: exprs
+                                .iter()
+                                .map(|expr| expr.try_into())
+                                .collect::<Result<Vec<_>, BallistaError>>()?,
                             partition_count: *partition_count as u64,
                         })
                     }
@@ -1000,17 +1021,19 @@ impl TryInto<protobuf::LogicalExprNode> for &Expr {
             Expr::ScalarVariable(_) => unimplemented!(),
             Expr::ScalarFunction { ref fun, ref args } => {
                 let fun: protobuf::ScalarFunction = fun.try_into()?;
-                let expr: Vec<protobuf::LogicalExprNode> =
-                    args.iter()
-                        .map(|e| Ok(e.try_into()?))
-                        .collect::<Result<Vec<protobuf::LogicalExprNode>, BallistaError>>()?;
+                let expr: Vec<protobuf::LogicalExprNode> = args
+                    .iter()
+                    .map(|e| Ok(e.try_into()?))
+                    .collect::<Result<Vec<protobuf::LogicalExprNode>, BallistaError>>()?;
                 Ok(protobuf::LogicalExprNode {
-                    expr_type: Some(protobuf::logical_expr_node::ExprType::ScalarFunction(
-                        protobuf::ScalarFunctionNode {
-                            fun: fun.into(),
-                            expr,
-                        },
-                    )),
+                    expr_type: Some(
+                        protobuf::logical_expr_node::ExprType::ScalarFunction(
+                            protobuf::ScalarFunctionNode {
+                                fun: fun.into(),
+                                expr,
+                            },
+                        ),
+                    ),
                 })
             }
             Expr::ScalarUDF { .. } => unimplemented!(),
@@ -1112,7 +1135,9 @@ impl TryInto<protobuf::LogicalExprNode> for &Expr {
                     expr: Some(Box::new(expr.as_ref().try_into()?)),
                 });
                 Ok(protobuf::LogicalExprNode {
-                    expr_type: Some(protobuf::logical_expr_node::ExprType::Negative(expr)),
+                    expr_type: Some(protobuf::logical_expr_node::ExprType::Negative(
+                        expr,
+                    )),
                 })
             }
             Expr::InList {
@@ -1122,10 +1147,11 @@ impl TryInto<protobuf::LogicalExprNode> for &Expr {
             } => {
                 let expr = Box::new(protobuf::InListNode {
                     expr: Some(Box::new(expr.as_ref().try_into()?)),
-                    list: list
-                        .iter()
-                        .map(|expr| expr.try_into())
-                        .collect::<Result<Vec<_>, BallistaError>>()?,
+                    list: list.iter().map(|expr| expr.try_into()).collect::<Result<
+                        Vec<_>,
+                        BallistaError,
+                    >>(
+                    )?,
                     negated: *negated,
                 });
                 Ok(protobuf::LogicalExprNode {
@@ -1184,14 +1210,18 @@ impl TryInto<protobuf::ScalarFunction> for &BuiltinScalarFunction {
             BuiltinScalarFunction::Round => Ok(protobuf::ScalarFunction::Round),
             BuiltinScalarFunction::Trunc => Ok(protobuf::ScalarFunction::Trunc),
             BuiltinScalarFunction::Abs => Ok(protobuf::ScalarFunction::Abs),
-            BuiltinScalarFunction::OctetLength => Ok(protobuf::ScalarFunction::Octetlength),
+            BuiltinScalarFunction::OctetLength => {
+                Ok(protobuf::ScalarFunction::Octetlength)
+            }
             BuiltinScalarFunction::Concat => Ok(protobuf::ScalarFunction::Concat),
             BuiltinScalarFunction::Lower => Ok(protobuf::ScalarFunction::Lower),
             BuiltinScalarFunction::Upper => Ok(protobuf::ScalarFunction::Upper),
             BuiltinScalarFunction::Trim => Ok(protobuf::ScalarFunction::Trim),
             BuiltinScalarFunction::Ltrim => Ok(protobuf::ScalarFunction::Ltrim),
             BuiltinScalarFunction::Rtrim => Ok(protobuf::ScalarFunction::Rtrim),
-            BuiltinScalarFunction::ToTimestamp => Ok(protobuf::ScalarFunction::Totimestamp),
+            BuiltinScalarFunction::ToTimestamp => {
+                Ok(protobuf::ScalarFunction::Totimestamp)
+            }
             BuiltinScalarFunction::Array => Ok(protobuf::ScalarFunction::Array),
             BuiltinScalarFunction::NullIf => Ok(protobuf::ScalarFunction::Nullif),
             BuiltinScalarFunction::DateTrunc => Ok(protobuf::ScalarFunction::Datetrunc),

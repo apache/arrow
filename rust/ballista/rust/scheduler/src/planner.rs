@@ -42,7 +42,8 @@ use datafusion::physical_plan::ExecutionPlan;
 use log::{debug, info};
 use tokio::task::JoinHandle;
 
-type SendableExecutionPlan = Pin<Box<dyn Future<Output = Result<Arc<dyn ExecutionPlan>>> + Send>>;
+type SendableExecutionPlan =
+    Pin<Box<dyn Future<Output = Result<Arc<dyn ExecutionPlan>>> + Send>>;
 type PartialQueryStageResult = (Arc<dyn ExecutionPlan>, Vec<Arc<QueryStageExec>>);
 
 pub struct DistributedPlanner {
@@ -102,7 +103,8 @@ impl DistributedPlanner {
         execution_plan: Arc<dyn ExecutionPlan>,
     ) -> Result<Vec<Arc<QueryStageExec>>> {
         info!("planning query stages");
-        let (new_plan, mut stages) = self.plan_query_stages_internal(job_id, execution_plan)?;
+        let (new_plan, mut stages) =
+            self.plan_query_stages_internal(job_id, execution_plan)?;
         stages.push(create_query_stage(
             job_id.to_string(),
             self.next_stage_id(),
@@ -149,7 +151,9 @@ impl DistributedPlanner {
             ));
             stages.push(query_stage);
             Ok((merge.with_new_children(vec![unresolved_shuffle])?, stages))
-        } else if let Some(agg) = execution_plan.as_any().downcast_ref::<HashAggregateExec>() {
+        } else if let Some(agg) =
+            execution_plan.as_any().downcast_ref::<HashAggregateExec>()
+        {
             //TODO should insert query stages in more generic way based on partitioning metadata
             // and not specifically for this operator
             match agg.mode() {
@@ -172,7 +176,8 @@ impl DistributedPlanner {
                 }
                 AggregateMode::Partial => Ok((agg.with_new_children(children)?, stages)),
             }
-        } else if let Some(join) = execution_plan.as_any().downcast_ref::<HashJoinExec>() {
+        } else if let Some(join) = execution_plan.as_any().downcast_ref::<HashJoinExec>()
+        {
             Ok((join.with_new_children(children)?, stages))
         } else {
             // TODO check for compatible partitioning schema, not just count
@@ -212,7 +217,8 @@ fn execute(
     executors: Vec<ExecutorMeta>,
 ) -> SendableExecutionPlan {
     Box::pin(async move {
-        let mut partition_locations: HashMap<usize, Vec<PartitionLocation>> = HashMap::new();
+        let mut partition_locations: HashMap<usize, Vec<PartitionLocation>> =
+            HashMap::new();
         let mut result_partition_locations = vec![];
         for stage in &stages {
             debug!("execute() {}", &format!("{:?}", stage)[0..60]);
@@ -225,13 +231,15 @@ fn execute(
                 executors.clone(),
             )
             .await?;
-            partition_locations.insert(stage.stage_id, result_partition_locations.clone());
+            partition_locations
+                .insert(stage.stage_id, result_partition_locations.clone());
         }
 
-        let shuffle_reader: Arc<dyn ExecutionPlan> = Arc::new(ShuffleReaderExec::try_new(
-            result_partition_locations,
-            stages.last().unwrap().schema(),
-        )?);
+        let shuffle_reader: Arc<dyn ExecutionPlan> =
+            Arc::new(ShuffleReaderExec::try_new(
+                result_partition_locations,
+                stages.last().unwrap().schema(),
+            )?);
         Ok(shuffle_reader)
     })
 }
@@ -242,7 +250,9 @@ pub fn remove_unresolved_shuffles(
 ) -> Result<Arc<dyn ExecutionPlan>> {
     let mut new_children: Vec<Arc<dyn ExecutionPlan>> = vec![];
     for child in stage.children() {
-        if let Some(unresolved_shuffle) = child.as_any().downcast_ref::<UnresolvedShuffleExec>() {
+        if let Some(unresolved_shuffle) =
+            child.as_any().downcast_ref::<UnresolvedShuffleExec>()
+        {
             let mut relevant_locations = vec![];
             for id in &unresolved_shuffle.query_stage_ids {
                 relevant_locations.append(
@@ -439,14 +449,16 @@ mod test {
         let final_hash = downcast_exec!(final_hash, HashAggregateExec);
 
         let unresolved_shuffle = final_hash.children()[0].clone();
-        let unresolved_shuffle = downcast_exec!(unresolved_shuffle, UnresolvedShuffleExec);
+        let unresolved_shuffle =
+            downcast_exec!(unresolved_shuffle, UnresolvedShuffleExec);
         assert_eq!(unresolved_shuffle.query_stage_ids, vec![2]);
 
         let merge_exec = stages[1].children()[0].clone();
         let merge_exec = downcast_exec!(merge_exec, MergeExec);
 
         let unresolved_shuffle = merge_exec.children()[0].clone();
-        let unresolved_shuffle = downcast_exec!(unresolved_shuffle, UnresolvedShuffleExec);
+        let unresolved_shuffle =
+            downcast_exec!(unresolved_shuffle, UnresolvedShuffleExec);
         assert_eq!(unresolved_shuffle.query_stage_ids, vec![1]);
 
         let partial_hash = stages[0].children()[0].clone();

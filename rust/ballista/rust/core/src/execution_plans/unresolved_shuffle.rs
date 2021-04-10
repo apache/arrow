@@ -49,7 +49,11 @@ pub struct UnresolvedShuffleExec {
 
 impl UnresolvedShuffleExec {
     /// Create a new UnresolvedShuffleExec
-    pub fn new(query_stage_ids: Vec<usize>, schema: SchemaRef, partition_count: usize) -> Self {
+    pub fn new(
+        query_stage_ids: Vec<usize>,
+        schema: SchemaRef,
+        partition_count: usize,
+    ) -> Self {
         Self {
             query_stage_ids,
             schema,
@@ -81,7 +85,8 @@ impl ExecutionPlan for UnresolvedShuffleExec {
         _children: Vec<Arc<dyn ExecutionPlan>>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         Err(DataFusionError::Plan(
-            "Ballista UnresolvedShuffleExec does not support with_new_children()".to_owned(),
+            "Ballista UnresolvedShuffleExec does not support with_new_children()"
+                .to_owned(),
         ))
     }
 

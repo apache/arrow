@@ -67,7 +67,12 @@ impl ConfigBackendClient for EtcdClient {
             .collect())
     }
 
-    async fn put(&self, key: String, value: Vec<u8>, lease_time: Option<Duration>) -> Result<()> {
+    async fn put(
+        &self,
+        key: String,
+        value: Vec<u8>,
+        lease_time: Option<Duration>,
+    ) -> Result<()> {
         let mut etcd = self.etcd.clone();
         let put_options = if let Some(lease_time) = lease_time {
             etcd.lease_grant(lease_time.as_secs() as i64, None)

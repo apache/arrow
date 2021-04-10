@@ -21,7 +21,9 @@ use std::{net::SocketAddr, sync::Arc};
 
 use anyhow::{Context, Result};
 use ballista_core::BALLISTA_VERSION;
-use ballista_core::{print_version, serde::protobuf::scheduler_grpc_server::SchedulerGrpcServer};
+use ballista_core::{
+    print_version, serde::protobuf::scheduler_grpc_server::SchedulerGrpcServer,
+};
 #[cfg(feature = "etcd")]
 use ballista_scheduler::state::EtcdClient;
 #[cfg(feature = "sled")]
@@ -54,7 +56,8 @@ async fn start_server(
         "Ballista v{} Scheduler listening on {:?}",
         BALLISTA_VERSION, addr
     );
-    let server = SchedulerGrpcServer::new(SchedulerServer::new(config_backend, namespace));
+    let server =
+        SchedulerGrpcServer::new(SchedulerServer::new(config_backend, namespace));
     Ok(Server::builder()
         .add_service(server)
         .serve(addr)
@@ -68,7 +71,8 @@ async fn main() -> Result<()> {
 
     // parse options
     let (opt, _remaining_args) =
-        Config::including_optional_config_files(&["/etc/ballista/scheduler.toml"]).unwrap_or_exit();
+        Config::including_optional_config_files(&["/etc/ballista/scheduler.toml"])
+            .unwrap_or_exit();
 
     if opt.version {
         print_version();

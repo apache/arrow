@@ -30,8 +30,9 @@ use ballista_core::serde::protobuf::{
     execute_query_params::Query, job_status, scheduler_grpc_server::SchedulerGrpc,
     ExecuteQueryParams, ExecuteQueryResult, FailedJob, FilePartitionMetadata, FileType,
     GetExecutorMetadataParams, GetExecutorMetadataResult, GetFileMetadataParams,
-    GetFileMetadataResult, GetJobStatusParams, GetJobStatusResult, JobStatus, PartitionId,
-    PollWorkParams, PollWorkResult, QueuedJob, RunningJob, TaskDefinition, TaskStatus,
+    GetFileMetadataResult, GetJobStatusParams, GetJobStatusResult, JobStatus,
+    PartitionId, PollWorkParams, PollWorkResult, QueuedJob, RunningJob, TaskDefinition,
+    TaskStatus,
 };
 use ballista_core::serde::scheduler::ExecutorMeta;
 
@@ -198,8 +199,8 @@ impl SchedulerGrpc for SchedulerServer {
 
         match file_type {
             FileType::Parquet => {
-                let parquet_exec =
-                    ParquetExec::try_from_path(&path, None, None, 1024, 1).map_err(|e| {
+                let parquet_exec = ParquetExec::try_from_path(&path, None, None, 1024, 1)
+                    .map_err(|e| {
                         let msg = format!("Error opening parquet files: {}", e);
                         error!("{}", msg);
                         tonic::Status::internal(msg)
@@ -301,9 +302,11 @@ impl SchedulerGrpc for SchedulerServer {
                                         &namespace,
                                         &job_id_spawn,
                                         &JobStatus {
-                                            status: Some(job_status::Status::Failed(FailedJob {
-                                                error: format!("{}", error),
-                                            })),
+                                            status: Some(job_status::Status::Failed(
+                                                FailedJob {
+                                                    error: format!("{}", error),
+                                                },
+                                            )),
                                         },
                                     )
                                     .await
@@ -313,15 +316,17 @@ impl SchedulerGrpc for SchedulerServer {
                             Ok(value) => value,
                         }
                     }};
-                };
+                }
 
                 let start = Instant::now();
 
-                let optimized_plan = fail_job!(datafusion_ctx.optimize(&plan).map_err(|e| {
-                    let msg = format!("Could not create optimized logical plan: {}", e);
-                    error!("{}", msg);
-                    tonic::Status::internal(msg)
-                }));
+                let optimized_plan =
+                    fail_job!(datafusion_ctx.optimize(&plan).map_err(|e| {
+                        let msg =
+                            format!("Could not create optimized logical plan: {}", e);
+                        error!("{}", msg);
+                        tonic::Status::internal(msg)
+                    }));
 
                 debug!("Calculated optimized plan: {:?}", optimized_plan);
 
@@ -354,13 +359,15 @@ impl SchedulerGrpc for SchedulerServer {
                         job_id_spawn, e
                     );
                 }
-                let mut planner = fail_job!(DistributedPlanner::try_new(executors).map_err(|e| {
-                    let msg = format!("Could not create distributed planner: {}", e);
-                    error!("{}", msg);
-                    tonic::Status::internal(msg)
-                }));
-                let stages =
-                    fail_job!(planner.plan_query_stages(&job_id_spawn, plan).map_err(|e| {
+                let mut planner = fail_job!(DistributedPlanner::try_new(executors)
+                    .map_err(|e| {
+                        let msg = format!("Could not create distributed planner: {}", e);
+                        error!("{}", msg);
+                        tonic::Status::internal(msg)
+                    }));
+                let stages = fail_job!(planner
+                    .plan_query_stages(&job_id_spawn, plan)
+                    .map_err(|e| {
                         let msg = format!("Could not plan query stages: {}", e);
                         error!("{}", msg);
                         tonic::Status::internal(msg)

@@ -40,7 +40,11 @@ pub struct QueryStageExec {
 
 impl QueryStageExec {
     /// Create a new query stage
-    pub fn try_new(job_id: String, stage_id: usize, child: Arc<dyn ExecutionPlan>) -> Result<Self> {
+    pub fn try_new(
+        job_id: String,
+        stage_id: usize,
+        child: Arc<dyn ExecutionPlan>,
+    ) -> Result<Self> {
         Ok(Self {
             job_id,
             stage_id,

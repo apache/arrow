@@ -70,7 +70,8 @@ impl TryInto<Arc<dyn ExecutionPlan>> for &protobuf::PhysicalPlanNode {
         })?;
         match plan {
             PhysicalPlanType::Projection(projection) => {
-                let input: Arc<dyn ExecutionPlan> = convert_box_required!(projection.input)?;
+                let input: Arc<dyn ExecutionPlan> =
+                    convert_box_required!(projection.input)?;
                 let exprs = projection
                     .expr
                     .iter()
@@ -86,7 +87,8 @@ impl TryInto<Arc<dyn ExecutionPlan>> for &protobuf::PhysicalPlanNode {
                 let predicate = compile_expr(
                     filter.expr.as_ref().ok_or_else(|| {
                         BallistaError::General(
-                            "filter (FilterExecNode) in PhysicalPlanNode is missing.".to_owned(),
+                            "filter (FilterExecNode) in PhysicalPlanNode is missing."
+                                .to_owned(),
                         )
                     })?,
                     &input.schema(),
@@ -113,7 +115,8 @@ impl TryInto<Arc<dyn ExecutionPlan>> for &protobuf::PhysicalPlanNode {
             }
             PhysicalPlanType::ParquetScan(scan) => {
                 let projection = scan.projection.iter().map(|i| *i as usize).collect();
-                let filenames: Vec<&str> = scan.filename.iter().map(|s| s.as_str()).collect();
+                let filenames: Vec<&str> =
+                    scan.filename.iter().map(|s| s.as_str()).collect();
                 Ok(Arc::new(ParquetExec::try_from_files(
                     &filenames,
                     Some(projection),
@@ -123,7 +126,8 @@ impl TryInto<Arc<dyn ExecutionPlan>> for &protobuf::PhysicalPlanNode {
                 )?))
             }
             PhysicalPlanType::CoalesceBatches(coalesce_batches) => {
-                let input: Arc<dyn ExecutionPlan> = convert_box_required!(coalesce_batches.input)?;
+                let input: Arc<dyn ExecutionPlan> =
+                    convert_box_required!(coalesce_batches.input)?;
                 Ok(Arc::new(CoalesceBatchesExec::new(
                     input,
                     coalesce_batches.target_batch_size as usize,
@@ -145,19 +149,26 @@ impl TryInto<Arc<dyn ExecutionPlan>> for &protobuf::PhysicalPlanNode {
 
                         Ok(Arc::new(RepartitionExec::try_new(
                             input,
-                            Partitioning::Hash(expr, hash_part.partition_count.try_into().unwrap()),
+                            Partitioning::Hash(
+                                expr,
+                                hash_part.partition_count.try_into().unwrap(),
+                            ),
                         )?))
                     }
                     Some(PartitionMethod::RoundRobin(partition_count)) => {
                         Ok(Arc::new(RepartitionExec::try_new(
                             input,
-                            Partitioning::RoundRobinBatch(partition_count.try_into().unwrap()),
+                            Partitioning::RoundRobinBatch(
+                                partition_count.try_into().unwrap(),
+                            ),
                         )?))
                     }
                     Some(PartitionMethod::Unknown(partition_count)) => {
                         Ok(Arc::new(RepartitionExec::try_new(
                             input,
-                            Partitioning::UnknownPartitioning(partition_count.try_into().unwrap()),
+                            Partitioning::UnknownPartitioning(
+                                partition_count.try_into().unwrap(),
+                            ),
                         )?))
                     }
                     _ => Err(BallistaError::General(
@@ -174,7 +185,8 @@ impl TryInto<Arc<dyn ExecutionPlan>> for &protobuf::PhysicalPlanNode {
                 Ok(Arc::new(LocalLimitExec::new(input, limit.limit as usize)))
             }
             PhysicalPlanType::HashAggregate(hash_agg) => {
-                let input: Arc<dyn ExecutionPlan> = convert_box_required!(hash_agg.input)?;
+                let input: Arc<dyn ExecutionPlan> =
+                    convert_box_required!(hash_agg.input)?;
                 let mode = protobuf::AggregateMode::from_i32(hash_agg.mode).ok_or_else(|| {
                     proto_error(format!(
                         "Received a HashAggregateNode message with unknown AggregateMode {}",
@@ -220,7 +232,8 @@ impl TryInto<Arc<dyn ExecutionPlan>> for &protobuf::PhysicalPlanNode {
                         )
                     })?
                     .clone();
-                let physical_schema: SchemaRef = SchemaRef::new((&input_schema).try_into()?);
+                let physical_schema: SchemaRef =
+                    SchemaRef::new((&input_schema).try_into()?);
 
                 let mut physical_aggr_expr = vec![];
 
@@ -228,8 +241,14 @@ impl TryInto<Arc<dyn ExecutionPlan>> for &protobuf::PhysicalPlanNode {
                     match expr {
                         Expr::AggregateFunction { fun, args, .. } => {
                             let arg = df_planner
-                                .create_physical_expr(&args[0], &physical_schema, &ctx_state)
-                                .map_err(|e| BallistaError::General(format!("{:?}", e)))?;
+                                .create_physical_expr(
+                                    &args[0],
+                                    &physical_schema,
+                                    &ctx_state,
+                                )
+                                .map_err(|e| {
+                                    BallistaError::General(format!("{:?}", e))
+                                })?;
                             physical_aggr_expr.push(create_aggregate_expr(
                                 &fun,
                                 false,
@@ -255,14 +274,15 @@ impl TryInto<Arc<dyn ExecutionPlan>> for &protobuf::PhysicalPlanNode {
             }
             PhysicalPlanType::HashJoin(hashjoin) => {
                 let left: Arc<dyn ExecutionPlan> = convert_box_required!(hashjoin.left)?;
-                let right: Arc<dyn ExecutionPlan> = convert_box_required!(hashjoin.right)?;
+                let right: Arc<dyn ExecutionPlan> =
+                    convert_box_required!(hashjoin.right)?;
                 let on: Vec<(String, String)> = hashjoin
                     .on
                     .iter()
                     .map(|col| (col.left.clone(), col.right.clone()))
                     .collect();
-                let join_type =
-                    protobuf::JoinType::from_i32(hashjoin.join_type).ok_or_else(|| {
+                let join_type = protobuf::JoinType::from_i32(hashjoin.join_type)
+                    .ok_or_else(|| {
                         proto_error(format!(
                             "Received a HashJoinNode message with unknown JoinType {}",
                             hashjoin.join_type
@@ -284,7 +304,8 @@ impl TryInto<Arc<dyn ExecutionPlan>> for &protobuf::PhysicalPlanNode {
                     .iter()
                     .map(|p| p.clone().try_into())
                     .collect::<Result<Vec<_>, BallistaError>>()?;
-                let shuffle_reader = ShuffleReaderExec::try_new(partition_location, schema)?;
+                let shuffle_reader =
+                    ShuffleReaderExec::try_new(partition_location, schema)?;
                 Ok(Arc::new(shuffle_reader))
             }
             PhysicalPlanType::Empty(empty) => {
