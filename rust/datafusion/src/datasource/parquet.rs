@@ -48,7 +48,9 @@ impl ParquetTable {
         Ok(Self {
             path: path.to_string(),
             schema,
-            statistics: parquet_exec.statistics().to_owned(),
+            statistics: Statistics {
+                partition_statistics: parquet_exec.partitions().to_owned(),
+            },
             max_concurrency,
         })
     }
@@ -130,8 +132,8 @@ mod tests {
             .await;
 
         // test metadata
-        assert_eq!(table.statistics().num_rows, Some(8));
-        assert_eq!(table.statistics().total_byte_size, Some(671));
+        assert_eq!(table.statistics().num_rows(), Some(8));
+        assert_eq!(table.statistics().total_byte_size(), Some(671));
 
         Ok(())
     }

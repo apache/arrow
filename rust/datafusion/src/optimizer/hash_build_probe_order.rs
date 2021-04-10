@@ -1,5 +1,5 @@
-// Licensed to the Apache Software Foundation (ASF) under one
-// or more contributor license agreements.  See the NOTICE file
+// Licensed to the Apache Software Found filename: (), num_rows: (), total_byte_size: (), column_statistics: ()ation (ASF) under one
+// or more c total_byte_size: (), column_statistics: ()ontri, total_byte_size: (), column_statistics: ()butor license agreements.  See the NOTICE file
 // distributed with this work for additional information
 // regarding copyright ownership.  The ASF licenses this file
 // to you under the Apache License, Version 2.0 (the
@@ -39,7 +39,7 @@ pub struct HashBuildProbeOrder {}
 // Gets exact number of rows, if known by the statistics of the underlying
 fn get_num_rows(logical_plan: &LogicalPlan) -> Option<usize> {
     match logical_plan {
-        LogicalPlan::TableScan { source, .. } => source.statistics().num_rows,
+        LogicalPlan::TableScan { source, .. } => source.statistics().num_rows(),
         LogicalPlan::EmptyRelation {
             produce_one_row, ..
         } => {
@@ -187,13 +187,14 @@ mod tests {
     use std::sync::Arc;
 
     use crate::{
-        datasource::{datasource::Statistics, TableProvider},
+        datasource::datasource::{PartitionStatistics, Statistics},
+        datasource::TableProvider,
         logical_plan::{DFSchema, Expr},
         test::*,
     };
 
     struct TestTableProvider {
-        num_rows: usize,
+        partition_statistics: Vec<PartitionStatistics>,
     }
 
     impl TableProvider for TestTableProvider {
@@ -215,9 +216,7 @@ mod tests {
         }
         fn statistics(&self) -> crate::datasource::datasource::Statistics {
             Statistics {
-                num_rows: Some(self.num_rows),
-                total_byte_size: None,
-                column_statistics: None,
+                partition_statistics: self.partition_statistics.clone(),
             }
         }
     }
@@ -236,7 +235,14 @@ mod tests {
         let lp_left = LogicalPlan::TableScan {
             table_name: "left".to_string(),
             projection: None,
-            source: Arc::new(TestTableProvider { num_rows: 1000 }),
+            source: Arc::new(TestTableProvider {
+                partition_statistics: vec![PartitionStatistics {
+                    filename: None,
+                    num_rows: Some(1000),
+                    total_byte_size: None,
+                    column_statistics: None,
+                }],
+            }),
             projected_schema: Arc::new(DFSchema::empty()),
             filters: vec![],
             limit: None,
@@ -245,7 +251,14 @@ mod tests {
         let lp_right = LogicalPlan::TableScan {
             table_name: "right".to_string(),
             projection: None,
-            source: Arc::new(TestTableProvider { num_rows: 100 }),
+            source: Arc::new(TestTableProvider {
+                partition_statistics: vec![PartitionStatistics {
+                    filename: None,
+                    num_rows: Some(100),
+                    total_byte_size: None,
+                    column_statistics: None,
+                }],
+            }),
             projected_schema: Arc::new(DFSchema::empty()),
             filters: vec![],
             limit: None,

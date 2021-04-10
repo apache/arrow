@@ -34,7 +34,7 @@ use crate::physical_plan::common;
 use crate::physical_plan::memory::MemoryExec;
 use crate::physical_plan::ExecutionPlan;
 use crate::{
-    datasource::datasource::Statistics,
+    datasource::datasource::{PartitionStatistics, Statistics},
     physical_plan::{repartition::RepartitionExec, Partitioning},
 };
 
@@ -48,40 +48,32 @@ pub struct MemTable {
 }
 
 // Calculates statistics based on partitions
-fn calculate_statistics(
-    schema: &SchemaRef,
-    partitions: &[Vec<RecordBatch>],
-) -> Statistics {
-    let num_rows: usize = partitions
+fn calculate_statistics(partitions: &[Vec<RecordBatch>]) -> Statistics {
+    let partition_statistics = partitions
         .iter()
-        .flat_map(|batches| batches.iter().map(RecordBatch::num_rows))
-        .sum();
-
-    let mut null_count: Vec<usize> = vec![0; schema.fields().len()];
-    for partition in partitions.iter() {
-        for batch in partition {
-            for (i, array) in batch.columns().iter().enumerate() {
-                null_count[i] += array.null_count();
-            }
-        }
-    }
-
-    let column_statistics = Some(
-        null_count
-            .iter()
-            .map(|null_count| ColumnStatistics {
-                null_count: Some(*null_count),
-                distinct_count: None,
-                max_value: None,
-                min_value: None,
+        .flat_map(|batches| {
+            batches.iter().map(|batch| PartitionStatistics {
+                filename: None,
+                num_rows: Some(batch.num_rows()),
+                total_byte_size: None,
+                column_statistics: Some(
+                    batch
+                        .columns()
+                        .iter()
+                        .map(|array| ColumnStatistics {
+                            null_count: Some(array.null_count()),
+                            distinct_count: None,
+                            max_value: None,
+                            min_value: None,
+                        })
+                        .collect::<Vec<ColumnStatistics>>(),
+                ),
             })
-            .collect(),
-    );
+        })
+        .collect::<Vec<PartitionStatistics>>();
 
     Statistics {
-        num_rows: Some(num_rows),
-        total_byte_size: None,
-        column_statistics,
+        partition_statistics,
     }
 }
 
@@ -93,7 +85,7 @@ impl MemTable {
             .flatten()
             .all(|batches| schema.contains(&batches.schema()))
         {
-            let statistics = calculate_statistics(&schema, &partitions);
+            let statistics = calculate_statistics(&partitions);
             debug!("MemTable statistics: {:?}", statistics);
 
             Ok(Self {
@@ -247,35 +239,15 @@ mod tests {
 
         let provider = MemTable::try_new(schema, vec![vec![batch]])?;
 
-        assert_eq!(provider.statistics().num_rows, Some(3));
+        assert_eq!(provider.statistics().num_rows(), Some(3));
         assert_eq!(
-            provider.statistics().column_statistics,
-            Some(vec![
-                ColumnStatistics {
-                    null_count: Some(0),
-                    max_value: None,
-                    min_value: None,
-                    distinct_count: None,
-                },
-                ColumnStatistics {
-                    null_count: Some(0),
-                    max_value: None,
-                    min_value: None,
-                    distinct_count: None,
-                },
-                ColumnStatistics {
-                    null_count: Some(0),
-                    max_value: None,
-                    min_value: None,
-                    distinct_count: None,
-                },
-                ColumnStatistics {
-                    null_count: Some(2),
-                    max_value: None,
-                    min_value: None,
-                    distinct_count: None,
-                },
-            ])
+            provider.statistics().column_statistics(),
+            Some(vec![ColumnStatistics {
+                null_count: Some(2),
+                max_value: None,
+                min_value: None,
+                distinct_count: None,
+            },])
         );
 
         // scan with projection
@@ -465,7 +437,7 @@ mod tests {
         let batch1 = it.next().await.unwrap()?;
         assert_eq!(3, batch1.schema().fields().len());
         assert_eq!(3, batch1.num_columns());
-        assert_eq!(provider.statistics().num_rows, Some(6));
+        assert_eq!(provider.statistics().num_rows(), Some(6));
 
         Ok(())
     }

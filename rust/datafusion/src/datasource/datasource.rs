@@ -25,18 +25,58 @@ use crate::logical_plan::Expr;
 use crate::physical_plan::ExecutionPlan;
 use crate::{arrow::datatypes::SchemaRef, scalar::ScalarValue};
 
-/// This table statistics are estimates.
+/// These table statistics are estimates.
 /// It can not be used directly in the precise compute
 #[derive(Debug, Clone, Default)]
 pub struct Statistics {
+    /// The partition level statistics
+    pub partition_statistics: Vec<PartitionStatistics>,
+}
+
+impl Statistics {
     /// The number of table rows
+    pub fn num_rows(&self) -> Option<usize> {
+        self.partition_statistics.iter().map(|ps| ps.num_rows).sum()
+    }
+
+    /// total bytes of the table rows
+    pub fn total_byte_size(&self) -> Option<usize> {
+        self.partition_statistics
+            .iter()
+            .map(|ps| ps.total_byte_size)
+            .sum()
+    }
+
+    /// Statistics on a column level for the table
+    pub fn column_statistics(&self) -> Option<Vec<ColumnStatistics>> {
+        self.partition_statistics
+            .iter()
+            .map(|ps| {
+                ps.clone().column_statistics.map(|cs| ColumnStatistics {
+                    null_count: cs.iter().map(|cs| cs.null_count).sum(),
+                    distinct_count: None,
+                    max_value: None,
+                    min_value: None,
+                })
+            })
+            .collect()
+    }
+}
+
+/// These partitions statistics are estimates about the partition
+#[derive(Clone, Default, Debug, PartialEq)]
+pub struct PartitionStatistics {
+    /// The filename for this partition
+    pub filename: Option<String>,
+    /// The number of partition rows
     pub num_rows: Option<usize>,
-    /// total byte of the table rows
+    /// total byte of the partition rows
     pub total_byte_size: Option<usize>,
-    /// Statistics on a column level
+    /// Statistics on a column level for this partition
     pub column_statistics: Option<Vec<ColumnStatistics>>,
 }
-/// This table statistics are estimates about column
+
+/// These table statistics are estimates about column
 #[derive(Clone, Debug, PartialEq)]
 pub struct ColumnStatistics {
     /// Number of null values on column

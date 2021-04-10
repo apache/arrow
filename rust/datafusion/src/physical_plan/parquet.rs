@@ -65,7 +65,7 @@ use tokio::{
 };
 use tokio_stream::wrappers::ReceiverStream;
 
-use crate::datasource::datasource::{ColumnStatistics, Statistics};
+use crate::datasource::datasource::{ColumnStatistics, PartitionStatistics};
 use async_trait::async_trait;
 use futures::stream::{Stream, StreamExt};
 
@@ -73,36 +73,17 @@ use futures::stream::{Stream, StreamExt};
 #[derive(Debug, Clone)]
 pub struct ParquetExec {
     /// Parquet partitions to read
-    partitions: Vec<ParquetPartition>,
+    partitions: Vec<PartitionStatistics>,
     /// Schema after projection is applied
     schema: SchemaRef,
     /// Projection for which columns to load
     projection: Vec<usize>,
     /// Batch size
     batch_size: usize,
-    /// Statistics for the data set (sum of statistics for all partitions)
-    statistics: Statistics,
     /// Optional predicate builder
     predicate_builder: Option<RowGroupPredicateBuilder>,
     /// Optional limit of the number of rows
     limit: Option<usize>,
-}
-
-/// Represents one partition of a Parquet data set and this currently means one Parquet file.
-///
-/// In the future it would be good to support subsets of files based on ranges of row groups
-/// so that we can better parallelize reads of large files across available cores (see
-/// [ARROW-10995](https://issues.apache.org/jira/browse/ARROW-10995)).
-///
-/// We may also want to support reading Parquet files that are partitioned based on a key and
-/// in this case we would want this partition struct to represent multiple files for a given
-/// partition key (see [ARROW-11019](https://issues.apache.org/jira/browse/ARROW-11019)).
-#[derive(Debug, Clone)]
-pub struct ParquetPartition {
-    /// The Parquet filename for this partition
-    pub filenames: Vec<String>,
-    /// Statistics for this partition
-    pub statistics: Statistics,
 }
 
 impl ParquetExec {
@@ -209,16 +190,13 @@ impl ParquetExec {
                 })
                 .collect();
 
-            let statistics = Statistics {
+            // remove files that are not needed in case of limit
+            filenames.truncate(total_files);
+            partitions.push(PartitionStatistics {
+                filename: filenames.first().cloned(),
                 num_rows: Some(num_rows as usize),
                 total_byte_size: Some(total_byte_size as usize),
                 column_statistics: Some(column_stats),
-            };
-            // remove files that are not needed in case of limit
-            filenames.truncate(total_files);
-            partitions.push(ParquetPartition {
-                filenames,
-                statistics,
             });
             if limit_exhausted {
                 break;
@@ -252,7 +230,7 @@ impl ParquetExec {
 
     /// Create a new Parquet reader execution plan with provided partitions and schema
     pub fn new(
-        partitions: Vec<ParquetPartition>,
+        partition_statistics: Vec<PartitionStatistics>,
         schema: Schema,
         projection: Option<Vec<usize>>,
         predicate_builder: Option<RowGroupPredicateBuilder>,
@@ -271,62 +249,18 @@ impl ParquetExec {
                 .collect(),
         );
 
-        // sum the statistics
-        let mut num_rows: Option<usize> = None;
-        let mut total_byte_size: Option<usize> = None;
-        let mut null_counts: Vec<usize> = vec![0; schema.fields().len()];
-        let mut has_null_counts = false;
-        for part in &partitions {
-            if let Some(n) = part.statistics.num_rows {
-                num_rows = Some(num_rows.unwrap_or(0) + n)
-            }
-            if let Some(n) = part.statistics.total_byte_size {
-                total_byte_size = Some(total_byte_size.unwrap_or(0) + n)
-            }
-            if let Some(x) = &part.statistics.column_statistics {
-                let part_nulls: Vec<Option<usize>> =
-                    x.iter().map(|c| c.null_count).collect();
-                has_null_counts = true;
-
-                for &i in projection.iter() {
-                    null_counts[i] = part_nulls[i].unwrap_or(0);
-                }
-            }
-        }
-        let column_stats = if has_null_counts {
-            Some(
-                null_counts
-                    .iter()
-                    .map(|null_count| ColumnStatistics {
-                        null_count: Some(*null_count),
-                        distinct_count: None,
-                        max_value: None,
-                        min_value: None,
-                    })
-                    .collect(),
-            )
-        } else {
-            None
-        };
-
-        let statistics = Statistics {
-            num_rows,
-            total_byte_size,
-            column_statistics: column_stats,
-        };
         Self {
-            partitions,
+            partitions: partition_statistics,
             schema: Arc::new(projected_schema),
             projection,
             predicate_builder,
             batch_size,
-            statistics,
             limit,
         }
     }
 
     /// Parquet partitions to read
-    pub fn partitions(&self) -> &[ParquetPartition] {
+    pub fn partitions(&self) -> &[PartitionStatistics] {
         &self.partitions
     }
 
@@ -338,31 +272,6 @@ impl ParquetExec {
     /// Batch size
     pub fn batch_size(&self) -> usize {
         self.batch_size
-    }
-
-    /// Statistics for the data set (sum of statistics for all partitions)
-    pub fn statistics(&self) -> &Statistics {
-        &self.statistics
-    }
-}
-
-impl ParquetPartition {
-    /// Create a new parquet partition
-    pub fn new(filenames: Vec<String>, statistics: Statistics) -> Self {
-        Self {
-            filenames,
-            statistics,
-        }
-    }
-
-    /// The Parquet filename for this partition
-    pub fn filenames(&self) -> &[String] {
-        &self.filenames
-    }
-
-    /// Statistics for this partition
-    pub fn statistics(&self) -> &Statistics {
-        &self.statistics
     }
 }
 
@@ -854,7 +763,7 @@ impl ExecutionPlan for ParquetExec {
             Receiver<ArrowResult<RecordBatch>>,
         ) = channel(2);
 
-        let filenames = self.partitions[partition].filenames.clone();
+        let filenames = vec![self.partitions[partition].filename.clone().unwrap()];
         let projection = self.projection.clone();
         let predicate_builder = self.predicate_builder.clone();
         let batch_size = self.batch_size;
