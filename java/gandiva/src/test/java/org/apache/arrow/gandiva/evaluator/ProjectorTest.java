@@ -2046,6 +2046,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     eval.close();
   }  
 
+  @Test
   public void testCastVarcharFromInteger() throws Exception {
     Field inField = Field.nullable("input", int32);
     Field lenField = Field.nullable("outLength", int64);
