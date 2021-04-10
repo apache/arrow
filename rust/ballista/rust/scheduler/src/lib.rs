@@ -316,7 +316,7 @@ impl SchedulerGrpc for SchedulerServer {
                             Ok(value) => value,
                         }
                     }};
-                };
+                }
 
                 let start = Instant::now();
 
