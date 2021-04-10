@@ -110,15 +110,45 @@ class JavaMicrobenchmarkHarnessObservation:
             "measurementTime": counters["measurementTime"],
             "jvmArgs": counters["jvmArgs"]
         }
+        self.reciprocalValue = True if self.scoreUnit.endswith("/op") else False
+        if self.scoreUnit.startswith("ops/"):
+            idx = self.scoreUnit.find("/")
+            self.normalizePerSec(self.scoreUnit[idx+1:])
+        elif self.scoreUnit.endswith("/op"):
+            idx = self.scoreUnit.find("/")
+            self.normalizePerSec(self.scoreUnit[:idx])
+        else:
+            self.normalizeFactor = 1
 
     @property
     def value(self):
         """ Return the benchmark value."""
-        return self.score
+        val = 1 / self.score if self.reciprocalValue else self.score
+        return val * self.normalzeFactor
+
+    def normalizePerSec(self, unit):
+        if unit == "ns":
+            self.normalizeFactor = 1000 * 1000 * 1000
+        elif unit == "us":
+            self.normalizeFactor = 1000 * 1000
+        elif unit == "ms":
+            self.normalizeFactor = 1000
+        elif unit == "min":
+            self.normalizeFactor = 1 / 60
+        elif unit == "hr":
+            self.normalizeFactor = 1 / (60 * 60)
+        elif unit == "day":
+            self.normalizeFactor = 1 / (60 * 60 * 24)
+        else:
+            self.normalizeFactor = 1
 
     @property
     def unit(self):
-        return self.scoreUnit
+        if self.scoreUnit.startswith("ops/"):
+            return "bytes_per_second"
+        elif self.scoreUnit.endswith("/op"):
+            return "items_per_second"
+        return "?"
 
     def __repr__(self):
         return str(self.value)
@@ -144,7 +174,7 @@ class JavaMicrobenchmarkHarness(Benchmark):
         self.name = name
         self.runs = sorted(runs, key=lambda b: b.value)
         unit = self.runs[0].unit
-        less_is_better = unit.endswith("/op")
+        less_is_better = False
         values = [b.value for b in self.runs]
         # Slight kludge to extract the UserCounters for each benchmark
         self.counters = self.runs[0].counters

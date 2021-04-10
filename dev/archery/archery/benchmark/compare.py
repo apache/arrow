@@ -54,14 +54,6 @@ def formatter_for_unit(unit):
         return bytes_per_seconds_fmt
     elif unit == "items_per_second":
         return items_per_seconds_fmt
-    elif unit.startswith("ops/"):
-        def ops_per_time_fmt(value):
-            return "{:.3f} {}".format(value, unit)
-        return ops_per_time_fmt
-    elif unit.endswith("/op"):
-        def time_per_op_fmt(value):
-            return "{:.3f} {}".format(value, unit)
-        return time_per_op_fmt
     else:
         return lambda x: x
 
