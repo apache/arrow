@@ -15,7 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::{any::type_name, collections::HashMap, convert::TryInto, sync::Arc, time::Duration};
+use std::{
+    any::type_name, collections::HashMap, convert::TryInto, sync::Arc, time::Duration,
+};
 
 use datafusion::physical_plan::ExecutionPlan;
 use log::{debug, info};
@@ -23,13 +25,14 @@ use prost::Message;
 use tokio::sync::OwnedMutexGuard;
 
 use ballista_core::serde::protobuf::{
-    job_status, task_status, CompletedJob, CompletedTask, ExecutorMetadata, FailedJob, FailedTask,
-    JobStatus, PhysicalPlanNode, RunningJob, RunningTask, TaskStatus,
+    job_status, task_status, CompletedJob, CompletedTask, ExecutorMetadata, FailedJob,
+    FailedTask, JobStatus, PhysicalPlanNode, RunningJob, RunningTask, TaskStatus,
 };
 use ballista_core::serde::scheduler::PartitionStats;
 use ballista_core::{error::BallistaError, serde::scheduler::ExecutorMeta};
 use ballista_core::{
-    error::Result, execution_plans::UnresolvedShuffleExec, serde::protobuf::PartitionLocation,
+    error::Result, execution_plans::UnresolvedShuffleExec,
+    serde::protobuf::PartitionLocation,
 };
 
 use super::planner::remove_unresolved_shuffles;
@@ -58,7 +61,12 @@ pub trait ConfigBackendClient: Send + Sync {
     async fn get_from_prefix(&self, prefix: &str) -> Result<Vec<(String, Vec<u8>)>>;
 
     /// Saves the value into the provided key, overriding any previous data that might have been associated to that key.
-    async fn put(&self, key: String, value: Vec<u8>, lease_time: Option<Duration>) -> Result<()>;
+    async fn put(
+        &self,
+        key: String,
+        value: Vec<u8>,
+        lease_time: Option<Duration>,
+    ) -> Result<()>;
 
     async fn lock(&self) -> Result<Box<dyn Lock>>;
 }
@@ -73,7 +81,10 @@ impl SchedulerState {
         Self { config_client }
     }
 
-    pub async fn get_executors_metadata(&self, namespace: &str) -> Result<Vec<ExecutorMeta>> {
+    pub async fn get_executors_metadata(
+        &self,
+        namespace: &str,
+    ) -> Result<Vec<ExecutorMeta>> {
         let mut result = vec![];
 
         let entries = self
@@ -87,7 +98,11 @@ impl SchedulerState {
         Ok(result)
     }
 
-    pub async fn save_executor_metadata(&self, namespace: &str, meta: ExecutorMeta) -> Result<()> {
+    pub async fn save_executor_metadata(
+        &self,
+        namespace: &str,
+        meta: ExecutorMeta,
+    ) -> Result<()> {
         let key = get_executor_key(namespace, &meta.id);
         let meta: ExecutorMetadata = meta.into();
         let value: Vec<u8> = encode_protobuf(&meta)?;
@@ -106,7 +121,11 @@ impl SchedulerState {
         self.config_client.put(key, value, None).await
     }
 
-    pub async fn get_job_metadata(&self, namespace: &str, job_id: &str) -> Result<JobStatus> {
+    pub async fn get_job_metadata(
+        &self,
+        namespace: &str,
+        job_id: &str,
+    ) -> Result<JobStatus> {
         let key = get_job_key(namespace, job_id);
         let value = &self.config_client.get(&key).await?;
         if value.is_empty() {
@@ -119,7 +138,11 @@ impl SchedulerState {
         Ok(value)
     }
 
-    pub async fn save_task_status(&self, namespace: &str, status: &TaskStatus) -> Result<()> {
+    pub async fn save_task_status(
+        &self,
+        namespace: &str,
+        status: &TaskStatus,
+    ) -> Result<()> {
         let partition_id = status.partition_id.as_ref().unwrap();
         let key = get_task_status_key(
             namespace,
@@ -201,7 +224,11 @@ impl SchedulerState {
             if status.status.is_none() {
                 let partition = status.partition_id.as_ref().unwrap();
                 let plan = self
-                    .get_stage_plan(namespace, &partition.job_id, partition.stage_id as usize)
+                    .get_stage_plan(
+                        namespace,
+                        &partition.job_id,
+                        partition.stage_id as usize,
+                    )
                     .await?;
 
                 // Let's try to resolve any unresolved shuffles we find
@@ -221,7 +248,8 @@ impl SchedulerState {
                                     partition_id,
                                 ))
                                 .unwrap();
-                            let referenced_task: TaskStatus = decode_protobuf(referenced_task)?;
+                            let referenced_task: TaskStatus =
+                                decode_protobuf(referenced_task)?;
                             if let Some(task_status::Status::Completed(CompletedTask {
                                 executor_id,
                             })) = referenced_task.status
@@ -251,7 +279,8 @@ impl SchedulerState {
                         }
                     }
                 }
-                let plan = remove_unresolved_shuffles(plan.as_ref(), &partition_locations)?;
+                let plan =
+                    remove_unresolved_shuffles(plan.as_ref(), &partition_locations)?;
 
                 // If we get here, there are no more unresolved shuffled and the task can be run
                 status.status = Some(task_status::Status::Running(RunningTask {
@@ -335,7 +364,9 @@ impl SchedulerState {
                     .into_iter()
                     .map(|(status, execution_id)| PartitionLocation {
                         partition_id: status.partition_id.to_owned(),
-                        executor_meta: executors.get(execution_id).map(|e| e.clone().into()),
+                        executor_meta: executors
+                            .get(execution_id)
+                            .map(|e| e.clone().into()),
                         partition_stats: None,
                     })
                     .collect();
@@ -347,7 +378,8 @@ impl SchedulerState {
             for status in statuses {
                 match status.status {
                     Some(task_status::Status::Failed(FailedTask { error })) => {
-                        job_status = Some(job_status::Status::Failed(FailedJob { error }));
+                        job_status =
+                            Some(job_status::Status::Failed(FailedJob { error }));
                         break;
                     }
                     Some(task_status::Status::Running(_)) if job_status == None => {
@@ -374,8 +406,12 @@ impl<T: Send + Sync> Lock for OwnedMutexGuard<T> {
 }
 
 /// Returns the the unresolved shuffles in the execution plan
-fn find_unresolved_shuffles(plan: &Arc<dyn ExecutionPlan>) -> Result<Vec<UnresolvedShuffleExec>> {
-    if let Some(unresolved_shuffle) = plan.as_any().downcast_ref::<UnresolvedShuffleExec>() {
+fn find_unresolved_shuffles(
+    plan: &Arc<dyn ExecutionPlan>,
+) -> Result<Vec<UnresolvedShuffleExec>> {
+    if let Some(unresolved_shuffle) =
+        plan.as_any().downcast_ref::<UnresolvedShuffleExec>()
+    {
         Ok(vec![unresolved_shuffle.clone()])
     } else {
         Ok(plan
@@ -402,10 +438,9 @@ fn get_job_prefix(namespace: &str) -> String {
 }
 
 fn extract_job_id_from_key(job_key: &str) -> Result<&str> {
-    job_key
-        .split('/')
-        .nth(4)
-        .ok_or_else(|| BallistaError::Internal(format!("Unexpected job key: {}", job_key)))
+    job_key.split('/').nth(4).ok_or_else(|| {
+        BallistaError::Internal(format!("Unexpected job key: {}", job_key))
+    })
 }
 
 fn get_job_key(namespace: &str, id: &str) -> String {
@@ -440,14 +475,22 @@ fn get_stage_plan_key(namespace: &str, job_id: &str, stage_id: usize) -> String 
 
 fn decode_protobuf<T: Message + Default>(bytes: &[u8]) -> Result<T> {
     T::decode(bytes).map_err(|e| {
-        BallistaError::Internal(format!("Could not deserialize {}: {}", type_name::<T>(), e))
+        BallistaError::Internal(format!(
+            "Could not deserialize {}: {}",
+            type_name::<T>(),
+            e
+        ))
     })
 }
 
 fn encode_protobuf<T: Message + Default>(msg: &T) -> Result<Vec<u8>> {
     let mut value: Vec<u8> = Vec::with_capacity(msg.encoded_len());
     msg.encode(&mut value).map_err(|e| {
-        BallistaError::Internal(format!("Could not serialize {}: {}", type_name::<T>(), e))
+        BallistaError::Internal(format!(
+            "Could not serialize {}: {}",
+            type_name::<T>(),
+            e
+        ))
     })?;
     Ok(value)
 }
@@ -457,8 +500,8 @@ mod test {
     use std::sync::Arc;
 
     use ballista_core::serde::protobuf::{
-        job_status, task_status, CompletedTask, FailedTask, JobStatus, PartitionId, QueuedJob,
-        RunningJob, RunningTask, TaskStatus,
+        job_status, task_status, CompletedTask, FailedTask, JobStatus, PartitionId,
+        QueuedJob, RunningJob, RunningTask, TaskStatus,
     };
     use ballista_core::{error::BallistaError, serde::scheduler::ExecutorMeta};
 

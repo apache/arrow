@@ -62,14 +62,15 @@ impl BallistaClient {
     pub async fn try_new(host: &str, port: u16) -> Result<Self> {
         let addr = format!("http://{}:{}", host, port);
         debug!("BallistaClient connecting to {}", addr);
-        let flight_client = FlightServiceClient::connect(addr.clone())
-            .await
-            .map_err(|e| {
-                BallistaError::General(format!(
-                    "Error connecting to Ballista scheduler or executor at {}: {:?}",
-                    addr, e
-                ))
-            })?;
+        let flight_client =
+            FlightServiceClient::connect(addr.clone())
+                .await
+                .map_err(|e| {
+                    BallistaError::General(format!(
+                        "Error connecting to Ballista scheduler or executor at {}: {:?}",
+                        addr, e
+                    ))
+                })?;
         debug!("BallistaClient connected OK");
 
         Ok(Self { flight_client })
@@ -105,13 +106,17 @@ impl BallistaClient {
                         .column(0)
                         .as_any()
                         .downcast_ref::<StringArray>()
-                        .expect("execute_partition expected column 0 to be a StringArray");
+                        .expect(
+                            "execute_partition expected column 0 to be a StringArray",
+                        );
 
                     let stats = batch
                         .column(1)
                         .as_any()
                         .downcast_ref::<StructArray>()
-                        .expect("execute_partition expected column 1 to be a StructArray");
+                        .expect(
+                            "execute_partition expected column 1 to be a StructArray",
+                        );
 
                     Ok(ExecutePartitionResult::new(
                         path.value(0),
@@ -129,12 +134,16 @@ impl BallistaClient {
         stage_id: usize,
         partition_id: usize,
     ) -> Result<SendableRecordBatchStream> {
-        let action = Action::FetchPartition(PartitionId::new(job_id, stage_id, partition_id));
+        let action =
+            Action::FetchPartition(PartitionId::new(job_id, stage_id, partition_id));
         self.execute_action(&action).await
     }
 
     /// Execute an action and retrieve the results
-    pub async fn execute_action(&mut self, action: &Action) -> Result<SendableRecordBatchStream> {
+    pub async fn execute_action(
+        &mut self,
+        action: &Action,
+    ) -> Result<SendableRecordBatchStream> {
         let serialized_action: protobuf::Action = action.to_owned().try_into()?;
 
         let mut buf: Vec<u8> = Vec::with_capacity(serialized_action.encoded_len());
@@ -195,7 +204,11 @@ impl Stream for FlightDataStream {
                 let converted_chunk = flight_data_chunk_result
                     .map_err(|e| ArrowError::from_external_error(Box::new(e)))
                     .and_then(|flight_data_chunk| {
-                        flight_data_to_arrow_batch(&flight_data_chunk, self.schema.clone(), &[])
+                        flight_data_to_arrow_batch(
+                            &flight_data_chunk,
+                            self.schema.clone(),
+                            &[],
+                        )
                     });
                 Some(converted_chunk)
             }

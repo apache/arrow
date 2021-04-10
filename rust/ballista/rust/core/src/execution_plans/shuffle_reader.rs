@@ -42,7 +42,10 @@ pub struct ShuffleReaderExec {
 
 impl ShuffleReaderExec {
     /// Create a new ShuffleReaderExec
-    pub fn try_new(partition_meta: Vec<PartitionLocation>, schema: SchemaRef) -> Result<Self> {
+    pub fn try_new(
+        partition_meta: Vec<PartitionLocation>,
+        schema: SchemaRef,
+    ) -> Result<Self> {
         Ok(Self {
             partition_location: partition_meta,
             schema,

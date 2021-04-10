@@ -113,7 +113,11 @@ impl Default for PartitionStats {
 }
 
 impl PartitionStats {
-    pub fn new(num_rows: Option<u64>, num_batches: Option<u64>, num_bytes: Option<u64>) -> Self {
+    pub fn new(
+        num_rows: Option<u64>,
+        num_batches: Option<u64>,
+        num_bytes: Option<u64>,
+    ) -> Self {
         Self {
             num_rows,
             num_batches,
@@ -160,7 +164,8 @@ impl PartitionStats {
         }
         field_builders.push(Box::new(num_bytes_builder) as Box<dyn ArrayBuilder>);
 
-        let mut struct_builder = StructBuilder::new(self.arrow_struct_fields(), field_builders);
+        let mut struct_builder =
+            StructBuilder::new(self.arrow_struct_fields(), field_builders);
         struct_builder.append(true)?;
         Ok(Arc::new(struct_builder.finish()))
     }

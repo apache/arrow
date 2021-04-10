@@ -28,8 +28,8 @@ use ballista_core::serde::scheduler::ExecutorMeta;
 use ballista_core::{
     client::BallistaClient,
     serde::protobuf::{
-        self, scheduler_grpc_client::SchedulerGrpcClient, task_status, FailedTask, PartitionId,
-        PollWorkParams, PollWorkResult, TaskDefinition, TaskStatus,
+        self, scheduler_grpc_client::SchedulerGrpcClient, task_status, FailedTask,
+        PartitionId, PollWorkParams, PollWorkResult, TaskDefinition, TaskStatus,
     },
 };
 use protobuf::CompletedTask;
@@ -42,21 +42,25 @@ pub async fn poll_loop(
 ) {
     let executor_meta: protobuf::ExecutorMetadata = executor_meta.into();
     let available_tasks_slots = Arc::new(AtomicUsize::new(concurrent_tasks));
-    let (task_status_sender, mut task_status_receiver) = std::sync::mpsc::channel::<TaskStatus>();
+    let (task_status_sender, mut task_status_receiver) =
+        std::sync::mpsc::channel::<TaskStatus>();
 
     loop {
         debug!("Starting registration loop with scheduler");
 
-        let task_status: Vec<TaskStatus> = sample_tasks_status(&mut task_status_receiver).await;
+        let task_status: Vec<TaskStatus> =
+            sample_tasks_status(&mut task_status_receiver).await;
 
-        let poll_work_result: anyhow::Result<tonic::Response<PollWorkResult>, tonic::Status> =
-            scheduler
-                .poll_work(PollWorkParams {
-                    metadata: Some(executor_meta.clone()),
-                    can_accept_task: available_tasks_slots.load(Ordering::SeqCst) > 0,
-                    task_status,
-                })
-                .await;
+        let poll_work_result: anyhow::Result<
+            tonic::Response<PollWorkResult>,
+            tonic::Status,
+        > = scheduler
+            .poll_work(PollWorkParams {
+                metadata: Some(executor_meta.clone()),
+                can_accept_task: available_tasks_slots.load(Ordering::SeqCst) > 0,
+                task_status,
+            })
+            .await;
 
         let task_status_sender = task_status_sender.clone();
 
@@ -145,7 +149,9 @@ fn as_task_status(
     }
 }
 
-async fn sample_tasks_status(task_status_receiver: &mut Receiver<TaskStatus>) -> Vec<TaskStatus> {
+async fn sample_tasks_status(
+    task_status_receiver: &mut Receiver<TaskStatus>,
+) -> Vec<TaskStatus> {
     let mut task_status: Vec<TaskStatus> = vec![];
 
     loop {

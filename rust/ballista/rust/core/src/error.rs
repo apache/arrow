@@ -140,10 +140,14 @@ impl From<tokio::task::JoinError> for BallistaError {
 impl Display for BallistaError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            BallistaError::NotImplemented(ref desc) => write!(f, "Not implemented: {}", desc),
+            BallistaError::NotImplemented(ref desc) => {
+                write!(f, "Not implemented: {}", desc)
+            }
             BallistaError::General(ref desc) => write!(f, "General error: {}", desc),
             BallistaError::ArrowError(ref desc) => write!(f, "Arrow error: {}", desc),
-            BallistaError::DataFusionError(ref desc) => write!(f, "DataFusion error: {:?}", desc),
+            BallistaError::DataFusionError(ref desc) => {
+                write!(f, "DataFusion error: {:?}", desc)
+            }
             BallistaError::SqlError(ref desc) => write!(f, "SQL error: {:?}", desc),
             BallistaError::IoError(ref desc) => write!(f, "IO error: {}", desc),
             // BallistaError::ReqwestError(ref desc) => write!(f, "Reqwest error: {}", desc),
@@ -157,7 +161,9 @@ impl Display for BallistaError {
             // }
             BallistaError::TonicError(desc) => write!(f, "Tonic error: {}", desc),
             BallistaError::GrpcError(desc) => write!(f, "Grpc error: {}", desc),
-            BallistaError::Internal(desc) => write!(f, "Internal Ballista error: {}", desc),
+            BallistaError::Internal(desc) => {
+                write!(f, "Internal Ballista error: {}", desc)
+            }
             BallistaError::TokioError(desc) => write!(f, "Tokio join error: {}", desc),
         }
     }

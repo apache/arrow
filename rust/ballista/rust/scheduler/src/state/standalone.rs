@@ -88,7 +88,12 @@ impl ConfigBackendClient for StandaloneClient {
     }
 
     // TODO: support lease_time. See https://github.com/spacejam/sled/issues/1119 for how to approach this
-    async fn put(&self, key: String, value: Vec<u8>, _lease_time: Option<Duration>) -> Result<()> {
+    async fn put(
+        &self,
+        key: String,
+        value: Vec<u8>,
+        _lease_time: Option<Duration>,
+    ) -> Result<()> {
         self.db
             .insert(key, value)
             .map_err(|e| {

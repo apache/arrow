@@ -42,7 +42,8 @@ impl TryInto<Action> for protobuf::Action {
                         .as_ref()
                         .ok_or_else(|| {
                             BallistaError::General(
-                                "PhysicalPlanNode in ExecutePartition is missing".to_owned(),
+                                "PhysicalPlanNode in ExecutePartition is missing"
+                                    .to_owned(),
                             )
                         })?
                         .try_into()?,

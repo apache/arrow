@@ -100,7 +100,11 @@ impl BallistaContext {
 
     /// Create a DataFrame representing a CSV table scan
 
-    pub fn read_csv(&self, path: &str, options: CsvReadOptions) -> Result<BallistaDataFrame> {
+    pub fn read_csv(
+        &self,
+        path: &str,
+        options: CsvReadOptions,
+    ) -> Result<BallistaDataFrame> {
         // convert to absolute path because the executor likely has a different working directory
         let path = PathBuf::from(path);
         let path = fs::canonicalize(&path)?;
@@ -120,7 +124,12 @@ impl BallistaContext {
         Ok(())
     }
 
-    pub fn register_csv(&self, name: &str, path: &str, options: CsvReadOptions) -> Result<()> {
+    pub fn register_csv(
+        &self,
+        name: &str,
+        path: &str,
+        options: CsvReadOptions,
+    ) -> Result<()> {
         let df = self.read_csv(path, options)?;
         self.register_table(name, &df)
     }
@@ -213,14 +222,20 @@ impl BallistaDataFrame {
                     let mut result = vec![];
                     for location in completed.partition_location {
                         let metadata = location.executor_meta.ok_or_else(|| {
-                            BallistaError::Internal("Received empty executor metadata".to_owned())
+                            BallistaError::Internal(
+                                "Received empty executor metadata".to_owned(),
+                            )
                         })?;
                         let partition_id = location.partition_id.ok_or_else(|| {
-                            BallistaError::Internal("Received empty partition id".to_owned())
+                            BallistaError::Internal(
+                                "Received empty partition id".to_owned(),
+                            )
                         })?;
-                        let mut ballista_client =
-                            BallistaClient::try_new(metadata.host.as_str(), metadata.port as u16)
-                                .await?;
+                        let mut ballista_client = BallistaClient::try_new(
+                            metadata.host.as_str(),
+                            metadata.port as u16,
+                        )
+                        .await?;
                         let stream = ballista_client
                             .fetch_partition(
                                 &partition_id.job_id,
@@ -228,8 +243,10 @@ impl BallistaDataFrame {
                                 partition_id.partition_id as usize,
                             )
                             .await?;
-                        result
-                            .append(&mut datafusion::physical_plan::common::collect(stream).await?);
+                        result.append(
+                            &mut datafusion::physical_plan::common::collect(stream)
+                                .await?,
+                        );
                     }
                     break Ok(Box::pin(MemoryStream::try_new(
                         result,
@@ -264,7 +281,11 @@ impl BallistaDataFrame {
         ))
     }
 
-    pub fn aggregate(&self, group_expr: &[Expr], aggr_expr: &[Expr]) -> Result<BallistaDataFrame> {
+    pub fn aggregate(
+        &self,
+        group_expr: &[Expr],
+        aggr_expr: &[Expr],
+    ) -> Result<BallistaDataFrame> {
         Ok(Self::from(
             self.state.clone(),
             self.df
@@ -292,7 +313,10 @@ impl BallistaDataFrame {
     // Result<BallistaDataFrame> {     Ok(Self::from(self.state.clone(), self.df.join(right, join_type, &left_cols,
     // &right_cols).map_err(BallistaError::from)?)) }
 
-    pub fn repartition(&self, partitioning_scheme: Partitioning) -> Result<BallistaDataFrame> {
+    pub fn repartition(
+        &self,
+        partitioning_scheme: Partitioning,
+    ) -> Result<BallistaDataFrame> {
         Ok(Self::from(
             self.state.clone(),
             self.df

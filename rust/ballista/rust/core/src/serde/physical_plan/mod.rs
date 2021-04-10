@@ -34,7 +34,9 @@ mod roundtrip_tests {
         sort::SortExec,
         ExecutionPlan,
     };
-    use datafusion::physical_plan::{AggregateExpr, Distribution, Partitioning, PhysicalExpr};
+    use datafusion::physical_plan::{
+        AggregateExpr, Distribution, Partitioning, PhysicalExpr,
+    };
 
     use super::super::super::error::Result;
     use super::super::protobuf;
@@ -92,7 +94,8 @@ mod roundtrip_tests {
     #[test]
     fn rountrip_hash_aggregate() -> Result<()> {
         use arrow::datatypes::{DataType, Field, Schema};
-        let groups: Vec<(Arc<dyn PhysicalExpr>, String)> = vec![(col("a"), "unused".to_string())];
+        let groups: Vec<(Arc<dyn PhysicalExpr>, String)> =
+            vec![(col("a"), "unused".to_string())];
 
         let aggregates: Vec<Arc<dyn AggregateExpr>> = vec![Arc::new(Avg::new(
             col("b"),
