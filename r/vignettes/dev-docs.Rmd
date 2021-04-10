@@ -60,7 +60,7 @@ and then set the `RWINLIB_LOCAL` environment variable to point to that
 zip file before installing the `arrow` R package. Version numbers in that
 repository correspond to dates, and you will likely want the most recent.
 
-## Developer envorinment setup
+## Developer environment setup
 
 If you need to alter both the Arrow C++ library and the R package code, or if you can’t get a binary version of the latest C++ library elsewhere, you’ll need to build it from source too.
 
@@ -84,7 +84,7 @@ sudo apt install -y libcurl4-openssl-dev libssl-dev
 
 ### Building Arrow {.tabset}
 
-It’s recommended to make a build directory inside of the cpp directory of the Arrow git repository (it is git-ignored). Assuming you are inside cpp/build, you’ll first call cmake to configure the build and then make install. For the R package, you’ll need to enable several features in the C++ library using -D flags:
+It’s recommended to make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored). Assuming you are inside `cpp/build`, you’ll first call `cmake` to configure the build and then `make install`. For the R package, you’ll need to enable several features in the C++ library using `-D` flags:
 
 #### Installing to another directory
 
