@@ -77,7 +77,7 @@ jobs:
         run: |
           export CARGO_HOME="/github/home/.cargo"
           export CARGO_TARGET_DIR="/github/home/target"
-          cd rust/ballista
+          cd rust/ballista/rust
           cargo build
 
   # test the crate
@@ -138,11 +138,12 @@ jobs:
           cargo run --example dynamic_types
           cargo run --example read_csv
           cargo run --example read_csv_infer_schema
+      # Ballista is currently not part of the main workspace so requires a separate test step
       - name: Run Ballista tests
         run: |
           export CARGO_HOME="/github/home/.cargo"
           export CARGO_TARGET_DIR="/github/home/target"
-          cd rust/ballista
+          cd rust/ballista/rust
           cargo test
 
   # test the --features "simd" of the arrow crate. This requires nightly.
