@@ -89,6 +89,7 @@ class MavenDefinition:
                 )
 
         cmd_kwargs = cmd_kwargs if cmd_kwargs else {}
+        assert MavenBuild.is_build_dir(build_dir)
         maven(*self.build_arguments, cwd=build_dir, env=self.env, **cmd_kwargs)
         return MavenBuild(build_dir, definition=self, **kwargs)
 
