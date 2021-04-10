@@ -43,18 +43,16 @@ class JavaConfiguration:
         self.java_home = java_home
         self.java_options = java_options
 
-        self.build_extras = build_extras
-        self.benchmark_extras = benchmark_extras
+        self.build_extras = list(build_extras) if build_extras else []
+        self.benchmark_extras = list(self.benchmark_extras) if self.benchmark_extras else []
 
     @property
     def build_definitions(self):
-        extras = list(self.build_extras) if self.build_extras else []
-        return extras
+        return self.build_extras
 
     @property
     def benchmark_definitions(self):
-        extras = list(self.benchmark_extras) if self.benchmark_extras else []
-        return extras
+        return self.benchmark_extras
 
     @property
     def environment(self):
