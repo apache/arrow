@@ -2534,35 +2534,37 @@ macro(build_grpc)
                         PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GPR}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
-  add_library(gRPC::grpc STATIC IMPORTED)
-  set_target_properties(gRPC::grpc
-                        PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPC}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
-
   add_library(gRPC::address_sorting STATIC IMPORTED)
   set_target_properties(gRPC::address_sorting
                         PROPERTIES IMPORTED_LOCATION
                                    "${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
-  add_library(gRPC::grpc++ STATIC IMPORTED)
+  add_library(gRPC::grpc STATIC IMPORTED)
   set(GRPC_LINK_LIBRARIES
-      gRPC::grpc
       gRPC::gpr
       gRPC::upb
       gRPC::address_sorting
       ${ABSL_LIBRARIES}
-      ${ARROW_PROTOBUF_LIBPROTOBUF}
       c-ares::cares
       ZLIB::ZLIB
       Threads::Threads)
+  set_target_properties(gRPC::grpc
+                        PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPC}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}"
+                                   INTERFACE_LINK_LIBRARIES "${GRPC_LINK_LIBRARIES}")
+
+  add_library(gRPC::grpc++ STATIC IMPORTED)
+  set(GRPCPP_LINK_LIBRARIES
+      gRPC::grpc
+      ${ARROW_PROTOBUF_LIBPROTOBUF})
   set_target_properties(gRPC::grpc++
                         PROPERTIES IMPORTED_LOCATION
                                    "${GRPC_STATIC_LIBRARY_GRPCPP}"
-                                   INTERFACE_LINK_LIBRARIES
-                                   ${GRPC_LINK_LIBRARIES}
                                    INTERFACE_INCLUDE_DIRECTORIES
-                                   "${GRPC_INCLUDE_DIR}")
+                                   "${GRPC_INCLUDE_DIR}"
+                                   INTERFACE_LINK_LIBRARIES
+                                   "${GRPCPP_LINK_LIBRARIES}")
 
   add_executable(gRPC::grpc_cpp_plugin IMPORTED)
   set_target_properties(gRPC::grpc_cpp_plugin
@@ -2601,11 +2603,11 @@ macro(build_grpc)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS
               ${ABSL_LIBRARIES}
-              gRPC::upb
+              gRPC::address_sorting
               gRPC::gpr
               gRPC::grpc
-              gRPC::address_sorting
-              gRPC::grpcpp_for_bundling)
+              gRPC::grpcpp_for_bundling
+              gRPC::upb)
 endmacro()
 
 if(ARROW_WITH_GRPC)
