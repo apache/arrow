@@ -23,7 +23,7 @@ import { BufferType } from '../enum';
 import { RecordBatch } from '../recordbatch';
 import { VectorType as V } from '../interfaces';
 import { UnionMode, DateUnit, TimeUnit } from '../enum';
-import { iterateBits, getBit, getBool } from '../util/bit';
+import { BitIterator, getBit, getBool } from '../util/bit';
 import { selectColumnChildrenArgs } from '../util/args';
 import {
     DataType,
@@ -75,13 +75,13 @@ export class JSONVectorAssembler extends Visitor {
             'count': length,
             'VALIDITY': DataType.isNull(type) ? undefined
                 : nullCount <= 0 ? Array.from({ length }, () => 1)
-                : [...iterateBits(nullBitmap, offset, length, null, getBit)],
+                : [...new BitIterator(nullBitmap, offset, length, null, getBit)],
             ...super.visit(Vector.new(data.clone(type, offset, length, 0, buffers)))
         };
     }
     public visitNull() { return {}; }
     public visitBool<T extends Bool>({ values, offset, length }: V<T>) {
-        return { 'DATA': [...iterateBits(values, offset, length, null, getBool)] };
+        return { 'DATA': [...new BitIterator(values, offset, length, null, getBool)] };
     }
     public visitInt<T extends Int>(vector: V<T>) {
         return {

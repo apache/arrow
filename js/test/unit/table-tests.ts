@@ -22,6 +22,7 @@ import {
     Vector, Int32Vector, Float32Vector, Utf8Vector, DictionaryVector,
     Struct, Float32, Int32, Dictionary, Utf8, Int8
 } from '../Arrow';
+import { arange } from './utils';
 
 const { col, lit, custom, and, or, And, Or } = predicate;
 
@@ -97,12 +98,6 @@ describe(`Table`, () => {
     });
 
     describe(`new()`, () => {
-
-        const arange = <T extends { length: number; [n: number]: number; }>(arr: T, n = arr.length) => {
-            for (let i = -1; ++i < n; arr[i] = i) { }
-            return arr;
-        };
-
         test(`creates an empty Table with Columns`, () => {
             let i32 = Column.new('i32', Data.new(new Int32(), 0, 0));
             let f32 = Column.new('f32', Data.new(new Float32(), 0, 0));

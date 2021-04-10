@@ -19,7 +19,7 @@ import { Data } from '../data';
 import { Type } from '../enum';
 import { Visitor } from '../visitor';
 import { VectorType } from '../interfaces';
-import { iterateBits } from '../util/bit';
+import { BitIterator } from '../util/bit';
 import { instance as getVisitor } from './get';
 import {
     DataType, Dictionary,
@@ -90,7 +90,7 @@ export class IteratorVisitor extends Visitor {}
 /** @ignore */
 function nullableIterator<T extends DataType>(vector: VectorType<T>): IterableIterator<T['TValue'] | null> {
     const getFn = getVisitor.getVisitFn(vector);
-    return iterateBits<T['TValue'] | null>(
+    return new BitIterator<T['TValue'] | null>(
         vector.data.nullBitmap, vector.data.offset, vector.length, vector,
         (vec: VectorType<T>, idx: number, nullByte: number, nullBit: number) =>
             ((nullByte & 1 << nullBit) !== 0) ? getFn(vec, idx) : null
