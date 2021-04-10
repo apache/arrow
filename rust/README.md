@@ -31,6 +31,7 @@ This part of the Arrow project is divided in 4 main components:
 |Parquet      | Parquet support | [(README)](parquet/README.md) |
 |Arrow-flight | Arrow data between processes | [(README)](arrow-flight/README.md) |
 |DataFusion   | In-memory query engine with SQL support | [(README)](datafusion/README.md) |
+|Ballista     | Distributed query execution | [(README)](ballista/README.md) |
 
 Independently, they support a vast array of functionality for in-memory computations.
 
