@@ -240,7 +240,8 @@ def submit(obj, tasks, groups, params, arrow_version):
 
         # initialize the crossbow build's target repository
         target = Target.from_repo(arrow, version=arrow_version,
-                                  remote=pull_request.base.repo.clone_url)
+                                  remote=pull_request.head.repo.clone_url,
+                                  branch=pull_request.head.ref)
 
         # parse additional job parameters
         params = dict([p.split("=") for p in params])
