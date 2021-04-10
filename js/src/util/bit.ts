@@ -64,18 +64,97 @@ export function packBools(values: Iterable<any>) {
 }
 
 /** @ignore */
-export function* iterateBits<T>(bytes: Uint8Array, begin: number, length: number, context: any,
-                                get: (context: any, index: number, byte: number, bit: number) => T) {
-    let bit = begin % 8;
-    let byteIndex = begin >> 3;
-    let index = 0, remaining = length;
-    for (; remaining > 0; bit = 0) {
-        let byte = bytes[byteIndex++];
-        do {
-            yield get(context, index++, byte, bit);
-        } while (--remaining > 0 && ++bit < 8);
+// @ts-ignore
+class BitIterator<T> implements IterableIterator<T> {
+    bit: number;
+    byte: number;
+    byteIndex: number;
+    index: number;
+
+    constructor(
+        private bytes: Uint8Array, 
+        begin: number, 
+        private length: number, 
+        private context: any,
+        private get: (context: any, index: number, byte: number, bit: number) => T
+    ) {
+        this.bit = begin % 8;
+        this.byteIndex = begin >> 3;
+        this.byte = bytes[this.byteIndex++];
+        this.index = 0;
+    }
+
+    next(): IteratorResult<T> {
+        if (this.index >= this.length) {
+            return {
+                done: true,
+                value: null
+            }
+        }
+
+        if (this.bit < 8) {
+            return {
+                value: this.get(this.context, this.index++, this.byte, this.bit++)
+            }
+        }
+
+        this.byteIndex++;
+        this.bit = 0;
+
+        if (this.byteIndex < this.bytes.length) {
+            this.byte = this.bytes[this.byteIndex]
+        }
+
+        return this.next();
+    }
+
+    [Symbol.iterator]() {
+        return this;
     }
 }
+
+/** @ignore */
+// export function* iterateBits<T>(bytes: Uint8Array, begin: number, length: number, context: any,
+//                                 get: (context: any, index: number, byte: number, bit: number) => T) {
+//     let bit = begin % 8;
+//     let byteIndex = begin >> 3;
+//     let index = 0, remaining = length;
+//     for (; remaining > 0; bit = 0) {
+//         let byte = bytes[byteIndex++];
+//         do {
+//             yield get(context, index++, byte, bit);
+//         } while (--remaining > 0 && ++bit < 8);
+//     }
+
+//     throw new Error("foo")
+// }
+
+// export function getBits<T>(bytes: Uint8Array, begin: number, length: number, context: any,
+//                            get: (context: any, index: number, byte: number, bit: number) => T): T[] {
+//     const out = Array<T>(length);
+//     let bit = begin % 8;
+//     let byteIndex = begin >> 3;
+//     let index = 0, remaining = length;
+//     for (; remaining > 0; bit = 0) {
+//         let byte = bytes[byteIndex++];
+//         do {
+//             out[index++] = get(context, index++, byte, bit);
+//         } while (--remaining > 0 && ++bit < 8);
+//     }
+//     throw new Error("bar")
+//     // @ts-ignore
+//     return out;
+
+//     // return [...iterateBits(bytes, begin, length, context, get)]
+// }
+
+/** @ignore */
+export function iterateBits<T>(bytes: Uint8Array, begin: number, length: number, context: any,
+                                get: (context: any, index: number, byte: number, bit: number) => T): IterableIterator<T> {
+    return new BitIterator(bytes, begin, length, context, get);
+}
+
+
 
 /**
  * Compute the population count (the number of bits set to 1) for a range of bits in a Uint8Array.
