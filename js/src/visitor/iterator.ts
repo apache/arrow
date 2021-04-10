@@ -98,6 +98,34 @@ function nullableIterator<T extends DataType>(vector: VectorType<T>): IterableIt
 }
 
 /** @ignore */
+class VectorIterator<T extends DataType> implements IterableIterator<T['TValue'] | null> {
+    private index = 0;
+
+    constructor(
+        private vector: VectorType<T>,
+        private getFn: (vector: VectorType<T>, index: number) => VectorType<T>['TValue']
+    ) {}
+
+    next(): IteratorResult<T['TValue'] | null> {
+        if (this.index >= this.vector.length) {
+            return {
+                done: true,
+                value: null
+            };
+        }
+
+        return {
+            value: this.getFn(this.vector, this.index++)
+        };
+    }
+
+    [Symbol.iterator]() {
+        this.index = 0;
+        return this;
+    }
+}
+
+/** @ignore */
 function vectorIterator<T extends DataType>(vector: VectorType<T>): IterableIterator<T['TValue'] | null> {
 
     // If nullable, iterate manually
@@ -118,11 +146,7 @@ function vectorIterator<T extends DataType>(vector: VectorType<T>): IterableIter
     }
 
     // Otherwise, iterate manually
-    return (function* (getFn) {
-        for (let index = -1; ++index < length;) {
-            yield getFn(vector, index);
-        }
-    })(getVisitor.getVisitFn(vector));
+    return new VectorIterator(vector, getVisitor.getVisitFn(vector));
 }
 
 IteratorVisitor.prototype.visitNull                 = vectorIterator;

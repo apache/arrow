@@ -33,6 +33,48 @@ type ChunkedKeys<T extends DataType> = T extends Dictionary ? Vector<T['indices'
 export type SearchContinuation<T extends Chunked> = (column: T, chunkIndex: number, valueIndex: number) => any;
 
 /** @ignore */
+class ChunkedIterator<T extends DataType> implements IterableIterator<T['TValue'] | null> {
+    private chunkIndex = 0;
+    private chunkIterator: IterableIterator<T['TValue'] | null>;
+
+    constructor(
+        private chunks: Vector<T>[],
+    ) {
+        this.chunkIterator = this.getChunkIterator();
+    }
+
+    next(): IteratorResult<T['TValue'] | null> {
+        if (this.chunkIndex >= this.chunks.length) {
+            return { done: true, value: null };
+        }
+
+        const next = this.chunkIterator.next();
+
+        if (!next.done) {
+            return next;
+        }
+
+        this.chunkIndex++;
+
+        if (this.chunkIndex < this.chunks.length) {
+            this.chunkIterator = this.getChunkIterator();
+        }
+
+        return this.next();
+    }
+
+    getChunkIterator() {
+        return this.chunks[this.chunkIndex][Symbol.iterator]();
+    }
+
+    [Symbol.iterator]() {
+        this.chunkIndex = 0;
+        this.chunkIterator = this.getChunkIterator();
+        return this;
+    }
+}
+
+/** @ignore */
 export class Chunked<T extends DataType = any>
     extends AbstractVector<T>
     implements Clonable<Chunked<T>>,
@@ -110,10 +152,8 @@ export class Chunked<T extends DataType = any>
         return null;
     }
 
-    public *[Symbol.iterator](): IterableIterator<T['TValue'] | null> {
-        for (const chunk of this._chunks) {
-            yield* chunk;
-        }
+    public [Symbol.iterator](): IterableIterator<T['TValue'] | null> {
+        return new ChunkedIterator(this._chunks);
     }
 
     public clone(chunks = this._chunks): Chunked<T> {
