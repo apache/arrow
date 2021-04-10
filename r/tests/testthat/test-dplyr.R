@@ -358,7 +358,70 @@ test_that("relocate with selection helpers", {
   )
 })
 
-test_that("explicit type conversions", {
+test_that("explicit type conversions with cast()", {
+  num_int32 <- 12L
+  num_int64 <- bit64::as.integer64(10)
+
+  int_types <- c(int8(), int16(), int32(), int64())
+  uint_types <- c(uint8(), uint16(), uint32(), uint64())
+  float_types <- c(float32(), float64())
+
+  types <- c(
+    int_types,
+    uint_types,
+    float_types,
+    double(), # not actually a type, a base R function but should be alias for float64
+    string()
+  )
+
+  for (type in types) {
+    expect_type_equal(
+      {
+        t1 <- Table$create(x = num_int32) %>%
+          transmute(x = cast(x, type)) %>%
+          compute()
+        t1$schema[[1]]$type
+      },
+      as_type(type)
+    )
+    expect_type_equal(
+      {
+        t1 <- Table$create(x = num_int64) %>%
+          transmute(x = cast(x, type)) %>%
+          compute()
+        t1$schema[[1]]$type
+      },
+      as_type(type)
+    )
+  }
+
+  # Arrow errors when truncating floats...
+  expect_error(
+    expect_type_equal(
+      {
+        t1 <- Table$create(pi = pi) %>%
+          transmute(three = cast(pi, int32())) %>%
+          compute()
+        t1$schema[[1]]$type
+      },
+      int32()
+    ),
+    "truncated"
+  )
+
+  # ... unless safe = FALSE (or allow_float_truncate = TRUE)
+  expect_type_equal(
+    {
+      t1 <- Table$create(pi = pi) %>%
+        transmute(three = cast(pi, int32(), safe = FALSE)) %>%
+        compute()
+      t1$schema[[1]]$type
+    },
+    int32()
+  )
+})
+
+test_that("explicit type conversions with as.*()", {
   library(bit64)
   expect_dplyr_equal(
     input %>%
@@ -421,12 +484,14 @@ test_that("explicit type conversions", {
         int2dbl = as.double(int),
         int2int = as.integer(int),
         int2lgl = as.logical(int),
-        lgl2chr = toupper(as.character(lgl)), # Arrow returns "true", "false"
+        lgl2chr = as.character(lgl), # Arrow returns "true", "false" here ...
         lgl2dbl = as.double(lgl),
         lgl2int = as.integer(lgl),
-        lgl2lgl = as.logical(lgl),
+        lgl2lgl = as.logical(lgl)
       ) %>%
-      collect(),
+      collect() %>%
+      # need to use toupper() *after* collect() or else skip if utf8proc not available
+      mutate(lgl2chr = toupper(lgl2chr)), # ... but we need "TRUE", "FALSE"
     tibble(
       dbl = c(1, 0, NA_real_),
       int = c(1L, 0L, NA_integer_),
@@ -435,9 +500,60 @@ test_that("explicit type conversions", {
   )
 })
 
-test_that("bad explicit type conversions", {
+test_that("as.factor()/dictionary_encode()", {
+  df1 <- tibble(x = c("C", "D", "B", NA, "D", "B", "S", "A", "B", "Z", "B"))
+  df2 <- tibble(x = c(5, 5, 5, NA, 2, 3, 6, 8))
 
-  # Arrow returns lowercase "true", "false"
+  expect_dplyr_equal(
+    input %>%
+      transmute(x = as.factor(x)) %>%
+      collect(),
+    df1
+  )
+
+  expect_warning(
+    expect_dplyr_equal(
+      input %>%
+        transmute(x = as.factor(x)) %>%
+        collect(),
+      df2
+    ),
+    "Coercing dictionary values to R character factor levels"
+  )
+
+  # dictionary values with default null encoding behavior ("mask") omits
+  # nulls from the dictionary values
+  expect_equal(
+    {
+      rb1 <- df1 %>%
+        record_batch() %>%
+        transmute(x = dictionary_encode(x)) %>%
+        compute()
+      dict <- rb1$x$dictionary()
+      as.vector(dict$Take(dict$SortIndices()))
+    },
+    sort(unique(df1$x), na.last = NA)
+  )
+
+  # dictionary values with "encode" null encoding behavior includes nulls in
+  # the dictionary values
+  expect_equal(
+    {
+      rb1 <- df1 %>%
+        record_batch() %>%
+        transmute(x = dictionary_encode(x, null_encoding_behavior = "encode")) %>%
+        compute()
+      dict <- rb1$x$dictionary()
+      as.vector(dict$Take(dict$SortIndices()))
+    },
+    sort(unique(df1$x), na.last = TRUE)
+  )
+
+})
+
+test_that("bad explicit type conversions with as.*()", {
+
+  # Arrow returns lowercase "true", "false" (instead of "TRUE", "FALSE" like R)
   expect_error(
     expect_dplyr_equal(
       input %>%
@@ -448,7 +564,21 @@ test_that("bad explicit type conversions", {
     )
   )
 
-  # Arrow fails to parse these strings as Booleans
+  # Arrow fails to parse these strings as numbers (instead of returning NAs with
+  # a warning like R does)
+  expect_error(
+    expect_warning(
+      expect_dplyr_equal(
+        input %>%
+          transmute(chr2num = as.numeric(chr)) %>%
+          collect(),
+        tibble(chr = c("l.O", "S.S", ""))
+      )
+    )
+  )
+
+  # Arrow fails to parse these strings as Booleans (instead of returning NAs
+  # like R does)
   expect_error(
     expect_dplyr_equal(
       input %>%
