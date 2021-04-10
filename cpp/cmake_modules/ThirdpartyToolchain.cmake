@@ -2550,14 +2550,15 @@ macro(build_grpc)
       ZLIB::ZLIB
       Threads::Threads)
   set_target_properties(gRPC::grpc
-                        PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPC}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}"
-                                   INTERFACE_LINK_LIBRARIES "${GRPC_LINK_LIBRARIES}")
+                        PROPERTIES IMPORTED_LOCATION
+                                   "${GRPC_STATIC_LIBRARY_GRPC}"
+                                   INTERFACE_INCLUDE_DIRECTORIES
+                                   "${GRPC_INCLUDE_DIR}"
+                                   INTERFACE_LINK_LIBRARIES
+                                   "${GRPC_LINK_LIBRARIES}")
 
   add_library(gRPC::grpc++ STATIC IMPORTED)
-  set(GRPCPP_LINK_LIBRARIES
-      gRPC::grpc
-      ${ARROW_PROTOBUF_LIBPROTOBUF})
+  set(GRPCPP_LINK_LIBRARIES gRPC::grpc ${ARROW_PROTOBUF_LIBPROTOBUF})
   set_target_properties(gRPC::grpc++
                         PROPERTIES IMPORTED_LOCATION
                                    "${GRPC_STATIC_LIBRARY_GRPCPP}"
