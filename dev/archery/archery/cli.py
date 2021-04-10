@@ -367,7 +367,7 @@ def benchmark(ctx):
 
 def benchmark_common_options(cmd):
     def check_language(ctx, param, value):
-        if value != "cpp" and value != "java":
+        if value not in {"cpp", "java"}:
             raise click.BadParameter("cpp or java is supported now")
         return value
 
@@ -386,10 +386,10 @@ def benchmark_common_options(cmd):
                      help="Specify target language for the benchmark"),
         click.option("--build-extras", type=str, multiple=True,
                      help="Extra flags/options to pass to mvn build. "
-                     "Can be stackd. For language=java"),
+                     "Can be stacked. For language=java"),
         click.option("--benchmark-extras", type=str, multiple=True,
                      help="Extra flags/options to pass to mvn benchmark. "
-                     "Can be stackd. For language=java"),
+                     "Can be stacked. For language=java"),
         click.option("--cmake-extras", type=str, multiple=True,
                      help="Extra flags/options to pass to cmake invocation. "
                      "Can be stacked. For language=cpp"),

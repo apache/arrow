@@ -286,7 +286,7 @@ class JavaBenchmarkRunner(BenchmarkRunner):
         run in a file or a string.
 
         Second, it checks if `rev_or_path` points to a valid Maven build
-        directory.  If so, it creates a JavaenchmarkRunner with this existing
+        directory.  If so, it creates a JavaBenchmarkRunner with this existing
         MavenBuild.
 
         Otherwise, it assumes `rev_or_path` is a revision and clone/checkout

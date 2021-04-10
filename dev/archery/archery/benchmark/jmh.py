@@ -21,6 +21,7 @@ import subprocess
 from tempfile import NamedTemporaryFile
 
 from .core import Benchmark
+from ..utils.command import Command
 from ..utils.maven import Maven
 
 
@@ -30,11 +31,11 @@ def partition(pred, iterable):
     return list(filter(pred, t1)), list(filterfalse(pred, t2))
 
 
-class JavaMicrobenchmarkHarnessCommand(Maven):
+class JavaMicrobenchmarkHarnessCommand(Command):
     """ Run a Java Micro Benchmark Harness
 
     This assumes the binary supports the standard command line options,
-    notably `--benchmark_filter`, `--benchmark_format`, etc...
+    notably `-Dbenchmark_filter`
     """
 
     def __init__(self, build, benchmark_filter=None):
@@ -42,23 +43,23 @@ class JavaMicrobenchmarkHarnessCommand(Maven):
         self.build = build
         self.maven = Maven()
 
+    """ Extract benchmark names from output between "Benchmarks:" and "[INFO]".
+    Assume the following output:
+      ...
+      Benchmarks:
+      org.apache.arrow.vector.IntBenchmarks.setIntDirectly
+      ...
+      org.apache.arrow.vector.IntBenchmarks.setWithValueHolder
+      org.apache.arrow.vector.IntBenchmarks.setWithWriter
+      ...
+      [INFO]
+    """
     def list_benchmarks(self):
         argv = []
         if self.benchmark_filter:
             argv.append("-Dbenchmark.filter={}".format(self.benchmark_filter))
         result = self.build.list(
             *argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-        """ Extract benchmark names from output. Assume the following output
-          ...
-          Benchmarks:
-          org.apache.arrow.vector.IntBenchmarks.setIntDirectly
-          ...
-          org.apache.arrow.vector.IntBenchmarks.setWithValueHolder
-          org.apache.arrow.vector.IntBenchmarks.setWithWriter
-          ...
-          [INFO]
-        """
 
         lists = []
         benchmarks = False
@@ -70,7 +71,6 @@ class JavaMicrobenchmarkHarnessCommand(Maven):
                 if line.startswith("org.apache.arrow"):
                     lists.append(line)
                 if line.startswith("[INFO]"):
-                    benchmarks = False
                     break
         return lists
 
@@ -151,7 +151,7 @@ class JavaMicrobenchmarkHarness(Benchmark):
         super().__init__(name, unit, less_is_better, values)
 
     def __repr__(self):
-        return "JavaMicrobenchmarkHarness[name={},runs={}]".format(
+        return "JavaMicrobenchmark[name={},runs={}]".format(
             self.name, self.runs)
 
     @classmethod
