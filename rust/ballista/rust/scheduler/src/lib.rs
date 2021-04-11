@@ -17,6 +17,7 @@
 
 //! Support for distributed schedulers, such as Kubernetes
 
+pub mod api;
 pub mod planner;
 pub mod state;
 
@@ -68,6 +69,7 @@ use self::state::{ConfigBackendClient, SchedulerState};
 use datafusion::physical_plan::parquet::ParquetExec;
 use std::time::Instant;
 
+#[derive(Clone)]
 pub struct SchedulerServer {
     state: SchedulerState,
     namespace: String,
