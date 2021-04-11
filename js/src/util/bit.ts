@@ -90,7 +90,6 @@ export class BitIterator<T> implements IterableIterator<T> {
                 this.byte = this.bytes[this.byteIndex++];
             }
             return {
-                done: false,
                 value: this.get(this.context, this.index++, this.byte, this.bit++)
             };
         }
