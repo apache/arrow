@@ -18,6 +18,7 @@
 const del = require('del');
 const path = require('path');
 const mkdirp = require('mkdirp');
+const cpy = require('cpy');
 const { argv } = require('./argv');
 const { promisify } = require('util');
 const glob = promisify(require('glob'));
@@ -92,7 +93,7 @@ async function cleanTestData() {
 
 async function createTestJSON() {
     await mkdirp(jsonFilesDir);
-    await exec(`shx cp ${ARROW_INTEGRATION_DIR}/data/*.json ${jsonFilesDir}`);
+    await cpy(`cp ${ARROW_INTEGRATION_DIR}/data/*.json`, jsonFilesDir);
     await exec(`python3 ${ARROW_INTEGRATION_DIR}/integration_test.py --write_generated_json ${jsonFilesDir}`);
 }
 
