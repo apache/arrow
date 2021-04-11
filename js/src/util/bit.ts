@@ -79,7 +79,7 @@ export class BitIterator<T> implements IterableIterator<T> {
     ) {
         this.bit = begin % 8;
         this.byteIndex = begin >> 3;
-        this.byte = bytes[this.byteIndex];
+        this.byte = bytes[this.byteIndex++];
         this.index = 0;
     }
 
