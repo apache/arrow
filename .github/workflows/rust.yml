@@ -66,12 +66,20 @@ jobs:
           rustup toolchain install ${{ matrix.rust }}
           rustup default ${{ matrix.rust }}
           rustup component add rustfmt
-      - name: Build
+      - name: Build Workspace
         run: |
           export CARGO_HOME="/github/home/.cargo"
           export CARGO_TARGET_DIR="/github/home/target"
           cd rust
           cargo build
+      # Ballista is currently not part of the main workspace so requires a separate build step
+      - name: Build Ballista
+        run: |
+          export CARGO_HOME="/github/home/.cargo"
+          export CARGO_TARGET_DIR="/github/home/target"
+          cd rust/ballista/rust
+          # snmalloc requires cmake so build without default features
+          cargo build --no-default-features
 
   # test the crate
   linux-test:
@@ -131,6 +139,14 @@ jobs:
           cargo run --example dynamic_types
           cargo run --example read_csv
           cargo run --example read_csv_infer_schema
+      # Ballista is currently not part of the main workspace so requires a separate test step
+      - name: Run Ballista tests
+        run: |
+          export CARGO_HOME="/github/home/.cargo"
+          export CARGO_TARGET_DIR="/github/home/target"
+          cd rust/ballista/rust
+          # snmalloc requires cmake so build without default features
+          cargo test --no-default-features
 
   # test the --features "simd" of the arrow crate. This requires nightly.
   linux-test-simd:
