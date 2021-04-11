@@ -44,23 +44,19 @@ class ChunkedIterator<T extends DataType> implements IterableIterator<T['TValue'
     }
 
     next(): IteratorResult<T['TValue'] | null> {
-        if (this.chunkIndex >= this.chunks.length) {
-            return { done: true, value: null };
+        while (this.chunkIndex < this.chunks.length) {
+            const next = this.chunkIterator.next();
+
+            if (!next.done) {
+                return next;
+            }
+
+            if (++this.chunkIndex < this.chunks.length) {
+                this.chunkIterator = this.getChunkIterator();
+            }
         }
 
-        const next = this.chunkIterator.next();
-
-        if (!next.done) {
-            return next;
-        }
-
-        this.chunkIndex++;
-
-        if (this.chunkIndex < this.chunks.length) {
-            this.chunkIterator = this.getChunkIterator();
-        }
-
-        return this.next();
+        return {done: true, value: null};
     }
 
     getChunkIterator() {

@@ -107,16 +107,13 @@ class VectorIterator<T extends DataType> implements IterableIterator<T['TValue']
     ) {}
 
     next(): IteratorResult<T['TValue'] | null> {
-        if (this.index >= this.vector.length) {
+        if (this.index < this.vector.length) {
             return {
-                done: true,
-                value: null
+                value: this.getFn(this.vector, this.index++)
             };
         }
 
-        return {
-            value: this.getFn(this.vector, this.index++)
-        };
+        return {done: true, value: null};
     }
 
     [Symbol.iterator]() {

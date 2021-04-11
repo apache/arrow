@@ -134,28 +134,24 @@ class FilteredBatchIterator<T extends { [key: string]: DataType }> implements It
     }
 
     next(): IteratorResult<Struct<T>['TValue']> {
-        if (this.batchIndex >= this.batches.length) {
-            return { done: true, value: null };
-        }
-
-        while (this.index < this.batch.length) {
-            if (this.predicateFunc(this.index, this.batch)) {
-                return {
-                    value: this.batch.get(this.index++) as any,
-                };
+        while (this.batchIndex < this.batches.length) {
+            while (this.index < this.batch.length) {
+                if (this.predicateFunc(this.index, this.batch)) {
+                    return {
+                        value: this.batch.get(this.index++) as any,
+                    };
+                }
+                this.index++;
             }
-            this.index++;
+
+            if (++this.batchIndex < this.batches.length) {
+                this.index = 0;
+                this.batch = this.batches[this.batchIndex];
+                this.predicateFunc = this.predicate.bind(this.batch);
+            }
         }
 
-        this.batchIndex++;
-        this.index = 0;
-
-        if (this.batchIndex < this.batches.length) {
-            this.batch = this.batches[this.batchIndex];
-            this.predicateFunc = this.predicate.bind(this.batch);
-        }
-
-        return this.next();
+        return {done: true, value: null};
     }
 
     [Symbol.iterator]() {
