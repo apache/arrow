@@ -57,6 +57,7 @@ impl TableProvider for DFTableAdapter {
         _projection: &Option<Vec<usize>>,
         _batch_size: usize,
         _filters: &[Expr],
+        _limit: Option<usize>,
     ) -> DFResult<Arc<dyn ExecutionPlan>> {
         Ok(self.plan.clone())
     }

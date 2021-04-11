@@ -82,7 +82,7 @@ mod roundtrip_tests {
                 CsvReadOptions::new().schema(&schema).has_header(true),
                 Some(vec![3, 4]),
             )
-            .and_then(|plan| plan.sort(&[col("salary")]))
+            .and_then(|plan| plan.sort(vec![col("salary")]))
             .and_then(|plan| plan.build())
             .map_err(BallistaError::DataFusionError)?,
         );
@@ -679,7 +679,7 @@ mod roundtrip_tests {
             CsvReadOptions::new().schema(&schema).has_header(true),
             Some(vec![3, 4]),
         )
-        .and_then(|plan| plan.sort(&[col("salary")]))
+        .and_then(|plan| plan.sort(vec![col("salary")]))
         .and_then(|plan| plan.explain(true))
         .and_then(|plan| plan.build())
         .map_err(BallistaError::DataFusionError)?;
@@ -689,7 +689,7 @@ mod roundtrip_tests {
             CsvReadOptions::new().schema(&schema).has_header(true),
             Some(vec![3, 4]),
         )
-        .and_then(|plan| plan.sort(&[col("salary")]))
+        .and_then(|plan| plan.sort(vec![col("salary")]))
         .and_then(|plan| plan.explain(false))
         .and_then(|plan| plan.build())
         .map_err(BallistaError::DataFusionError)?;
@@ -742,7 +742,7 @@ mod roundtrip_tests {
             CsvReadOptions::new().schema(&schema).has_header(true),
             Some(vec![3, 4]),
         )
-        .and_then(|plan| plan.sort(&[col("salary")]))
+        .and_then(|plan| plan.sort(vec![col("salary")]))
         .and_then(|plan| plan.build())
         .map_err(BallistaError::DataFusionError)?;
         roundtrip_test!(plan);
@@ -784,7 +784,7 @@ mod roundtrip_tests {
             CsvReadOptions::new().schema(&schema).has_header(true),
             Some(vec![3, 4]),
         )
-        .and_then(|plan| plan.aggregate(&[col("state")], &[max(col("salary"))]))
+        .and_then(|plan| plan.aggregate(vec![col("state")], vec![max(col("salary"))]))
         .and_then(|plan| plan.build())
         .map_err(BallistaError::DataFusionError)?;
 

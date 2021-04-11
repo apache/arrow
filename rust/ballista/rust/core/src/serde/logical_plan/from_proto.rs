@@ -52,14 +52,13 @@ impl TryInto<LogicalPlan> for &protobuf::LogicalPlanNode {
         match plan {
             LogicalPlanType::Projection(projection) => {
                 let input: LogicalPlan = convert_box_required!(projection.input)?;
+                let x: Vec<Expr> = projection
+                    .expr
+                    .iter()
+                    .map(|expr| expr.try_into())
+                    .collect::<Result<Vec<_>, _>>()?;
                 LogicalPlanBuilder::from(&input)
-                    .project(
-                        &projection
-                            .expr
-                            .iter()
-                            .map(|expr| expr.try_into())
-                            .collect::<Result<Vec<_>, _>>()?,
-                    )?
+                    .project(x)?
                     .build()
                     .map_err(|e| e.into())
             }
@@ -89,7 +88,7 @@ impl TryInto<LogicalPlan> for &protobuf::LogicalPlanNode {
                     .map(|expr| expr.try_into())
                     .collect::<Result<Vec<_>, _>>()?;
                 LogicalPlanBuilder::from(&input)
-                    .aggregate(&group_expr, &aggr_expr)?
+                    .aggregate(group_expr, aggr_expr)?
                     .build()
                     .map_err(|e| e.into())
             }
@@ -148,7 +147,7 @@ impl TryInto<LogicalPlan> for &protobuf::LogicalPlanNode {
                     .map(|expr| expr.try_into())
                     .collect::<Result<Vec<Expr>, _>>()?;
                 LogicalPlanBuilder::from(&input)
-                    .sort(&sort_expr)?
+                    .sort(sort_expr)?
                     .build()
                     .map_err(|e| e.into())
             }

@@ -39,9 +39,9 @@ sqlparser = "0.8"
 tokio = "1.0"
 tonic = "0.4"
 uuid = { version = "0.8", features = ["v4"] }
-arrow = { git = "https://github.com/apache/arrow", rev="46161d2" }
-arrow-flight = { git = "https://github.com/apache/arrow", rev="46161d2" }
-datafusion = { git = "https://github.com/apache/arrow", rev="46161d2" }
+arrow = { git = "https://github.com/apache/arrow", rev="f1f4f2b" }
+arrow-flight = { git = "https://github.com/apache/arrow", rev="f1f4f2b" }
+datafusion = { git = "https://github.com/apache/arrow", rev="f1f4f2b" }
 
 
 [dev-dependencies]

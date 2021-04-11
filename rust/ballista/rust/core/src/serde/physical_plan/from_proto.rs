@@ -30,11 +30,15 @@ use crate::serde::{proto_error, protobuf};
 use crate::{convert_box_required, convert_required};
 
 use arrow::datatypes::{DataType, Schema, SchemaRef};
+use datafusion::catalog::catalog::{
+    CatalogList, CatalogProvider, MemoryCatalogList, MemoryCatalogProvider,
+};
 use datafusion::execution::context::{ExecutionConfig, ExecutionContextState};
 use datafusion::logical_plan::{DFSchema, Expr};
 use datafusion::physical_plan::aggregates::{create_aggregate_expr, AggregateFunction};
 use datafusion::physical_plan::expressions::col;
 use datafusion::physical_plan::hash_aggregate::{AggregateMode, HashAggregateExec};
+use datafusion::physical_plan::hash_join::PartitionMode;
 use datafusion::physical_plan::merge::MergeExec;
 use datafusion::physical_plan::planner::DefaultPhysicalPlanner;
 use datafusion::physical_plan::{
@@ -111,6 +115,7 @@ impl TryInto<Arc<dyn ExecutionPlan>> for &protobuf::PhysicalPlanNode {
                     options,
                     Some(projection),
                     batch_size,
+                    None,
                 )?))
             }
             PhysicalPlanType::ParquetScan(scan) => {
@@ -123,6 +128,7 @@ impl TryInto<Arc<dyn ExecutionPlan>> for &protobuf::PhysicalPlanNode {
                     None,
                     scan.batch_size as usize,
                     scan.num_partitions as usize,
+                    None,
                 )?))
             }
             PhysicalPlanType::CoalesceBatches(coalesce_batches) => {
@@ -215,8 +221,10 @@ impl TryInto<Arc<dyn ExecutionPlan>> for &protobuf::PhysicalPlanNode {
                     .collect::<Result<Vec<_>, _>>()?;
 
                 let df_planner = DefaultPhysicalPlanner::default();
+                let catalog_list =
+                    Arc::new(MemoryCatalogList::new()) as Arc<dyn CatalogList>;
                 let ctx_state = ExecutionContextState {
-                    datasources: Default::default(),
+                    catalog_list,
                     scalar_functions: Default::default(),
                     var_provider: Default::default(),
                     aggregate_functions: Default::default(),
@@ -294,7 +302,11 @@ impl TryInto<Arc<dyn ExecutionPlan>> for &protobuf::PhysicalPlanNode {
                     protobuf::JoinType::Right => JoinType::Right,
                 };
                 Ok(Arc::new(HashJoinExec::try_new(
-                    left, right, &on, &join_type,
+                    left,
+                    right,
+                    &on,
+                    &join_type,
+                    PartitionMode::CollectLeft,
                 )?))
             }
             PhysicalPlanType::ShuffleReader(shuffle_reader) => {
@@ -374,8 +386,9 @@ fn compile_expr(
     schema: &Schema,
 ) -> Result<Arc<dyn PhysicalExpr>, BallistaError> {
     let df_planner = DefaultPhysicalPlanner::default();
+    let catalog_list = Arc::new(MemoryCatalogList::new()) as Arc<dyn CatalogList>;
     let state = ExecutionContextState {
-        datasources: HashMap::new(),
+        catalog_list,
         scalar_functions: HashMap::new(),
         var_provider: HashMap::new(),
         aggregate_functions: HashMap::new(),
