@@ -19,9 +19,23 @@ import * as Arrow from '../Arrow';
 const { BitIterator, getBool } = Arrow.util;
 
 describe('Bits', () => {
-    test('BitIterator produces correct bits', () => {
-        const actual = [...new BitIterator(new Uint8Array([0b11110000]), 0, 8, null, getBool)];
-        const expected = [false, false, false, false, true, true, true, true];
-        expect(actual).toEqual(expected);
+    test('BitIterator produces correct bits for single byte', () => {
+        const byte = new Uint8Array([0b11110000]);
+        expect([...new BitIterator(byte, 0, 8, null, getBool)]).toEqual(
+            [false, false, false, false, true, true, true, true]);
+
+        expect([...new BitIterator(byte, 2, 5, null, getBool)]).toEqual(
+            [false, false, true, true, true]);
+    });
+
+    test('BitIterator produces correct bits for multiple bytes', () => {
+        const byte = new Uint8Array([0b11110000, 0b10101010]);
+        expect([...new BitIterator(byte, 0, 16, null, getBool)]).toEqual(
+            [false, false, false, false, true, true, true, true,
+             false, true, false, true, false, true, false, true]);
+
+        expect([...new BitIterator(byte, 2, 11, null, getBool)]).toEqual(
+            [false, false, true, true, true, true,
+             false, true, false, true, false]);
     });
 });
