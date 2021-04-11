@@ -78,7 +78,8 @@ jobs:
           export CARGO_HOME="/github/home/.cargo"
           export CARGO_TARGET_DIR="/github/home/target"
           cd rust/ballista/rust
-          cargo build
+          # snmalloc requires cmake so build without default features
+          cargo build --no-default-features
 
   # test the crate
   linux-test:
@@ -144,7 +145,8 @@ jobs:
           export CARGO_HOME="/github/home/.cargo"
           export CARGO_TARGET_DIR="/github/home/target"
           cd rust/ballista/rust
-          cargo test
+          # snmalloc requires cmake so build without default features
+          cargo test --no-default-features
 
   # test the --features "simd" of the arrow crate. This requires nightly.
   linux-test-simd:
