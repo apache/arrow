@@ -84,27 +84,17 @@ export class BitIterator<T> implements IterableIterator<T> {
     }
 
     next(): IteratorResult<T> {
-        if (this.index >= this.length) {
+        if (this.index < this.length) {
+            if (this.bit === 8) {
+                this.bit = 0;
+                this.byte = this.bytes[this.byteIndex++];
+            }
             return {
-                done: true,
-                value: null
-            };
-        }
-
-        if (this.bit < 8) {
-            return {
+                done: false,
                 value: this.get(this.context, this.index++, this.byte, this.bit++)
             };
         }
-
-        this.byteIndex++;
-        this.bit = 0;
-
-        if (this.byteIndex < this.bytes.length) {
-            this.byte = this.bytes[this.byteIndex];
-        }
-
-        return this.next();
+        return { done: true, value: null };
     }
 
     [Symbol.iterator]() {
