@@ -384,7 +384,7 @@ function decodeField(f: _Field, dictionaries?: Map<number, DataType>) {
         type = decodeFieldType(f, decodeFieldChildren(f, dictionaries));
         field = new Field(f.name()!, type, f.nullable(), decodeCustomMetadata(f));
     }
-    // tslint:disable
+    /* eslint-disable */
     // If dictionary encoded and the first time we've seen this dictionary id, decode
     // the data type and child fields, then wrap in a Dictionary type and insert the
     // data type into the dictionary types map.

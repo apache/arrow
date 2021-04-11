@@ -17,7 +17,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/* tslint:disable */
+/* eslint-disable */
 
 import * as fs from 'fs';
 import * as stream from 'stream';

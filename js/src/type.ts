@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/* tslint:disable:class-name */
+/* eslint-disable @typescript-eslint/naming-convention */
 
 import { Field } from './schema';
 import { flatbuffers } from 'flatbuffers';
