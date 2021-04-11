@@ -159,8 +159,6 @@ class FilteredBatchIterator<T extends { [key: string]: DataType }> implements It
     }
 
     [Symbol.iterator]() {
-        this.batchIndex = 0;
-        this.index = 0;
         return this;
     }
 }

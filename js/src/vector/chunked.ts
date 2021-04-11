@@ -68,8 +68,6 @@ class ChunkedIterator<T extends DataType> implements IterableIterator<T['TValue'
     }
 
     [Symbol.iterator]() {
-        this.chunkIndex = 0;
-        this.chunkIterator = this.getChunkIterator();
         return this;
     }
 }

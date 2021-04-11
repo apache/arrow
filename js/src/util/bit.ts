@@ -64,7 +64,6 @@ export function packBools(values: Iterable<any>) {
 }
 
 /** @ignore */
-// @ts-ignore
 export class BitIterator<T> implements IterableIterator<T> {
     bit: number;
     byte: number;

@@ -120,7 +120,6 @@ class VectorIterator<T extends DataType> implements IterableIterator<T['TValue']
     }
 
     [Symbol.iterator]() {
-        this.index = 0;
         return this;
     }
 }
