@@ -378,6 +378,22 @@ const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t i
   return ret;
 }
 
+double gdv_fn_to_number(int64_t ptr, const char* data,
+     int32_t data_len, const char* format, int32_t format_len) {
+  double res;
+  gandiva::DecimalFormatHolder* holder =
+  reinterpret_cast<gandiva::DecimalFormatHolder*>(ptr);
+  auto parse = holder->Parse(data, data_len, res);
+
+  if (parse.ec != std::errc()){
+    std::string err =
+        "Failed to cast the string " + std::string(data, data_len) +
+        " to double";
+    gdv_fn_context_set_error_msg(ptr, err.c_str());
+  }
+  return res;
+}
+
 #define CAST_NUMERIC_FROM_VARLEN_TYPES(OUT_TYPE, ARROW_TYPE, TYPE_NAME, INNER_TYPE)  \
   GANDIVA_EXPORT                                                                     \
   OUT_TYPE gdv_fn_cast##TYPE_NAME##_##INNER_TYPE(int64_t context, const char* data,  \
@@ -508,6 +524,7 @@ CAST_VARLEN_TYPE_FROM_NUMERIC(VARBINARY)
 #undef GDV_FN_CAST_VARLEN_TYPE_FROM_REAL
 #undef GDV_FN_CAST_VARCHAR_INTEGER
 #undef GDV_FN_CAST_VARCHAR_REAL
+#undef GDV_FN_CAST_VARCHAR_INTEGER
 
 GDV_FORCE_INLINE
 int32_t gdv_fn_utf8_char_length(char c) {
@@ -792,29 +809,6 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
   *out_len = out_idx;
   return out;
 }
-
-#define TO_NUMBER(OUT_TYPE, ARROW_TYPE, TYPE_NAME)                                   \
-  GANDIVA_EXPORT                                                                     \
-  OUT_TYPE gdv_fn_to_number##TYPE_NAME(int64_t ptr, const char* data,                \
-       int32_t data_len, const char* format, int32_t format_len) {                   \
-    OUT_TYPE res;                                                                    \
-    gandiva::DecimalFormatHolder* holder =                                           \
-    reinterpret_cast<gandiva::DecimalFormatHolder*>(ptr);                            \
-    auto parse = holder->Parse<OUT_TYPE>(data, data_len, res);                       \
-                                                                                     \
-    if (parse.ec != std::errc()){                                                    \
-      std::string err =                                                              \
-          "Failed to cast the string " + std::string(data, data_len) +               \
-          " to " #OUT_TYPE;                                                          \
-      gdv_fn_context_set_error_msg(ptr, err.c_str());                                \
-    }                                                                                \
-    return res;                                                                      \
-  }
-
-TO_NUMBER(float, arrow::FloatType, FLOAT4)
-TO_NUMBER(double, arrow::DoubleType, FLOAT8)
-
-#undef TO_NUMBER
 }
 
 namespace gandiva {
@@ -1403,20 +1397,9 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
           types->i8_ptr_type(),  // const char* format
           types->i32_type()};    // int32_t format_len
 
-
-  engine->AddGlobalMappingForFunc("gdv_fn_to_numberFLOAT4",
-                                  types->float_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_to_numberFLOAT4));
-
-  args = {types->i64_type(),     // int64_t context_ptr
-          types->i8_ptr_type(),  // const char* data
-          types->i32_type(),     // int32_t lenr
-          types->i8_ptr_type(),  // const char* format
-          types->i32_type()};    // int32_t format_len
-
-  engine->AddGlobalMappingForFunc("gdv_fn_to_numberFLOAT8",
+  engine->AddGlobalMappingForFunc("gdv_fn_to_number",
                                   types->double_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_to_numberFLOAT8));
+                                  reinterpret_cast<void*>(gdv_fn_to_number));
 
 
   // gdv_fn_sha256_uint16

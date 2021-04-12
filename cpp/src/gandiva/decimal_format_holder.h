@@ -27,7 +27,6 @@
 
 namespace gandiva{
 
-template <typename Type>
 class GANDIVA_EXPORT DecimalFormatHolder : public FunctionHolder{
   public:
     ~DecimalFormatHolder() override = default;
@@ -37,7 +36,7 @@ class GANDIVA_EXPORT DecimalFormatHolder : public FunctionHolder{
     static Status Make(const std::string& decimal_format, std::shared_ptr<DecimalFormatHolder>* holder);
 
     arrow_vendored::fast_float::from_chars_result Parse(
-        const char* number, int32_t number_size, Type &answer){
+        const char* number, int32_t number_size, double &answer){
       using arrow_vendored::fast_float::from_chars;
       using arrow_vendored::fast_float::chars_format;
 

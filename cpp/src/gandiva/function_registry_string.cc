@@ -123,12 +123,8 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "gdv_fn_castFLOAT8_varbinary",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("to_numberFLOAT4", {}, DataTypeVector{utf8(), utf8()}, float32(),
-                     kResultNullIfNull, "gdv_fn_to_numberFLOAT4",
-                     NativeFunction::kNeedsFunctionHolder | NativeFunction::kCanReturnErrors),
-
-      NativeFunction("to_numberFLOAT8", {}, DataTypeVector{utf8(), utf8()}, float64(),
-                     kResultNullIfNull, "gdv_fn_to_numberFLOAT8",
+      NativeFunction("to_number", {}, DataTypeVector{utf8(), utf8()}, float64(),
+                     kResultNullIfNull, "gdv_fn_to_number",
                      NativeFunction::kNeedsFunctionHolder | NativeFunction::kCanReturnErrors),
 
       NativeFunction("castVARCHAR", {}, DataTypeVector{boolean(), int64()}, utf8(),

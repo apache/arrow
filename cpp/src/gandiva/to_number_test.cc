@@ -33,14 +33,14 @@ class TestToNumber : public ::testing::Test {
       arrow::MemoryPool* pool_;
 };
 
-TEST_F(TestToNumber, TestToNumberFloat){
+TEST_F(TestToNumber, TestToNumber){
   auto field0 = field("f0", arrow::utf8());
   auto schema = arrow::schema({field0});
   auto node = TreeExprBuilder::MakeField(field0);
 
-  auto res = field("r0", arrow::float32());
+  auto res = field("r0", arrow::float64());
   auto pattern_literal = TreeExprBuilder::MakeStringLiteral("##,###,###.###");
-  auto to_number_node1 = TreeExprBuilder::MakeFunction("to_numberFLOAT4",{node, pattern_literal},arrow::float32());
+  auto to_number_node1 = TreeExprBuilder::MakeFunction("to_number",{node, pattern_literal},arrow::float64());
   auto expr = TreeExprBuilder::MakeExpression(to_number_node1,res);
 
   // Build filter for the expression
@@ -53,7 +53,7 @@ TEST_F(TestToNumber, TestToNumberFloat){
 
   int num_records = 4;
   auto array_a = MakeArrowArrayUtf8({"500.6667", "-600,000.3333", "0", ""}, {true, true, true, true});
-  auto exp = MakeArrowArrayFloat32({500.6667f, -600000.3333f, 0, 0});
+  auto exp = MakeArrowArrayFloat64({500.6667, -600000.3333, 0, 0});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
@@ -64,8 +64,8 @@ TEST_F(TestToNumber, TestToNumberFloat){
   EXPECT_TRUE(status.ok());
 
   // Validate results
-  auto float_arr = std::dynamic_pointer_cast<arrow::FloatArray>(outputs.at(0));
-  EXPECT_EQ(float_arr->null_count(), 0);
-  EXPECT_ARROW_ARRAY_EQUALS(exp, float_arr);
+  auto double_arr = std::dynamic_pointer_cast<arrow::DoubleArray>(outputs.at(0));
+  EXPECT_EQ(double_arr->null_count(), 0);
+  EXPECT_ARROW_ARRAY_EQUALS(exp, double_arr);
 }
 }  // namespace gandiva

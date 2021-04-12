@@ -275,16 +275,6 @@ TEST(TestGdvFnStubs, TestCastFloat8) {
   ctx.Reset();
 }
 
-TEST(TestGdvFnStubs, TestToNumberInt){
-  gandiva::ExecutionContext ctx;
-
-  int64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
-
-  EXPECT_EQ(gdv_fn_to_numberFLOAT4(ctx_ptr,"2,500.000", 9, "#,######", 8),2500.0f);
-  EXPECT_EQ(gdv_fn_to_numberFLOAT8(ctx_ptr,"2,500.000", 9, "#,###.###", 9),2500.0);
-}
-
-
 TEST(TestGdvFnStubs, TestCastVARCHARFromInt32) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
