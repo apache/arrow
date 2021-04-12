@@ -418,7 +418,12 @@ TEST(FutureRefTest, HeadRemoved) {
 }
 
 TEST(FutureStressTest, Callback) {
-  for (unsigned int n = 0; n < 1000; n++) {
+#ifdef ARROW_VALGRIND
+  const int NITERS = 2;
+#else
+  const int NITERS = 1000;
+#endif
+  for (unsigned int n = 0; n < NITERS; n++) {
     auto fut = Future<>::Make();
     std::atomic<unsigned int> count_finished_immediately(0);
     std::atomic<unsigned int> count_finished_deferred(0);
@@ -437,6 +442,11 @@ TEST(FutureStressTest, Callback) {
           }
         });
         callbacks_added++;
+        if (callbacks_added.load() > 10000) {
+          // If we've added many callbacks already and the main thread hasn't noticed yet,
+          // help it a bit (this seems especially useful in Valgrind).
+          SleepABit();
+        }
       }
     });
 
@@ -485,6 +495,11 @@ TEST(FutureStressTest, TryAddCallback) {
         auto callback_added = fut.TryAddCallback(callback_factory);
         if (callback_added) {
           callbacks_added++;
+          if (callbacks_added.load() > 10000) {
+            // If we've added many callbacks already and the main thread hasn't
+            // noticed yet, help it a bit (this seems especially useful in Valgrind).
+            SleepABit();
+          }
         } else {
           break;
         }
@@ -1299,7 +1314,11 @@ class FutureTestBase : public ::testing::Test {
   }
 
   void TestStressWait() {
+#ifdef ARROW_VALGRIND
+    const int N = 20;
+#else
     const int N = 2000;
+#endif
     MakeExecutor(N);
     const auto& futures = executor_->futures();
     const auto spans = RandomSequenceSpans(N);
@@ -1391,7 +1410,11 @@ class FutureTestBase : public ::testing::Test {
   }
 
   void TestStressWaitForAny() {
+#ifdef ARROW_VALGRIND
+    const int N = 5;
+#else
     const int N = 300;
+#endif
     MakeExecutor(N);
     const auto& futures = executor_->futures();
     const auto spans = RandomSequenceSpans(N);
@@ -1416,7 +1439,11 @@ class FutureTestBase : public ::testing::Test {
   }
 
   void TestStressWaitForAll() {
+#ifdef ARROW_VALGRIND
+    const int N = 5;
+#else
     const int N = 300;
+#endif
     MakeExecutor(N);
     const auto& futures = executor_->futures();
     const auto spans = RandomSequenceSpans(N);
@@ -1471,7 +1498,11 @@ class FutureTestBase : public ::testing::Test {
   }
 
   void TestStressAsCompleted() {
+#ifdef ARROW_VALGRIND
+    const int N = 10;
+#else
     const int N = 1000;
+#endif
     MakeExecutor(N);
 
     // Launch a worker thread that will finish random spans of futures,
