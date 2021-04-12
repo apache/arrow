@@ -29,11 +29,9 @@ use arrow::datatypes::DataType;
 use arrow::{
     array::{
         ArrayRef, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array,
-        Int8Array, TimestampMicrosecondArray, TimestampMillisecondArray,
-        TimestampNanosecondArray, TimestampSecondArray, UInt16Array, UInt32Array,
-        UInt64Array, UInt8Array,
+        Int8Array, UInt16Array, UInt32Array, UInt64Array, UInt8Array,
     },
-    datatypes::{Field, TimeUnit},
+    datatypes::Field,
 };
 
 use super::format_state_name;
@@ -56,7 +54,6 @@ pub fn sum_return_type(arg_type: &DataType) -> Result<DataType> {
         DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => {
             Ok(DataType::UInt64)
         }
-        ts @ DataType::Timestamp(_, _) => Ok(ts.clone()),
         DataType::Float32 => Ok(DataType::Float32),
         DataType::Float64 => Ok(DataType::Float64),
         other => Err(DataFusionError::Plan(format!(
@@ -145,22 +142,6 @@ pub(super) fn sum_batch(values: &ArrayRef) -> Result<ScalarValue> {
         DataType::UInt32 => typed_sum_delta_batch!(values, UInt32Array, UInt32),
         DataType::UInt16 => typed_sum_delta_batch!(values, UInt16Array, UInt16),
         DataType::UInt8 => typed_sum_delta_batch!(values, UInt8Array, UInt8),
-        DataType::Timestamp(TimeUnit::Second, _) => {
-            typed_sum_delta_batch!(values, TimestampSecondArray, TimestampSecond)
-        }
-        DataType::Timestamp(TimeUnit::Millisecond, _) => typed_sum_delta_batch!(
-            values,
-            TimestampMillisecondArray,
-            TimestampMillisecond
-        ),
-        DataType::Timestamp(TimeUnit::Microsecond, _) => typed_sum_delta_batch!(
-            values,
-            TimestampMicrosecondArray,
-            TimestampMicrosecond
-        ),
-        DataType::Timestamp(TimeUnit::Nanosecond, _) => {
-            typed_sum_delta_batch!(values, TimestampNanosecondArray, TimestampNanosecond)
-        }
         e => {
             return Err(DataFusionError::Internal(format!(
                 "Sum is not expected to receive the type {:?}",
@@ -244,27 +225,6 @@ pub(super) fn sum(lhs: &ScalarValue, rhs: &ScalarValue) -> Result<ScalarValue> {
         }
         (ScalarValue::Int64(lhs), ScalarValue::Int8(rhs)) => {
             typed_sum!(lhs, rhs, Int64, i64)
-        }
-        (ScalarValue::TimestampSecond(lhs), ScalarValue::TimestampSecond(rhs)) => {
-            typed_sum!(lhs, rhs, TimestampSecond, i64)
-        }
-        (
-            ScalarValue::TimestampMillisecond(lhs),
-            ScalarValue::TimestampMillisecond(rhs),
-        ) => {
-            typed_sum!(lhs, rhs, TimestampMillisecond, i64)
-        }
-        (
-            ScalarValue::TimestampMicrosecond(lhs),
-            ScalarValue::TimestampMicrosecond(rhs),
-        ) => {
-            typed_sum!(lhs, rhs, TimestampMicrosecond, i64)
-        }
-        (
-            ScalarValue::TimestampNanosecond(lhs),
-            ScalarValue::TimestampNanosecond(rhs),
-        ) => {
-            typed_sum!(lhs, rhs, TimestampNanosecond, i64)
         }
         e => {
             return Err(DataFusionError::Internal(format!(

@@ -196,18 +196,8 @@ fn signature(fun: &AggregateFunction) -> Signature {
                 .collect::<Vec<_>>();
             Signature::Uniform(1, valid)
         }
-        AggregateFunction::Sum => {
-            let valid = NUMERICS
-                .iter()
-                .chain(TIMESTAMPS.iter())
-                .cloned()
-                .collect::<Vec<_>>();
-            Signature::Uniform(1, valid)
-        }
-        AggregateFunction::Avg => {
-            // Note AVG doesn't yet support timestamps
-            let valid = NUMERICS.to_vec();
-            Signature::Uniform(1, valid)
+        AggregateFunction::Avg | AggregateFunction::Sum => {
+            Signature::Uniform(1, NUMERICS.to_vec())
         }
     }
 }

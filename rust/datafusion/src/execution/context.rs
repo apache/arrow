@@ -1415,16 +1415,9 @@ mod tests {
             "SELECT sum(nanos), sum(micros), sum(millis), sum(secs) FROM t",
         )
         .await
-        .unwrap();
+        .unwrap_err();
 
-        let expected = vec![
-            "+-------------------------------+----------------------------+-------------------------+---------------------+",
-            "| SUM(nanos)                    | SUM(micros)                | SUM(millis)             | SUM(secs)           |",
-            "+-------------------------------+----------------------------+-------------------------+---------------------+",
-            "| 2111-10-27 09:35:30.566825885 | 2111-10-27 09:35:30.566825 | 2111-10-27 09:35:30.566 | 2111-10-27 09:35:30 |",
-            "+-------------------------------+----------------------------+-------------------------+---------------------+",
-];
-        assert_batches_sorted_eq!(expected, &results);
+        assert_eq!(results.to_string(), "Error during planning: Coercion from [Timestamp(Nanosecond, None)] to the signature Uniform(1, [Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, UInt64, Float32, Float64]) failed.");
 
         Ok(())
     }
