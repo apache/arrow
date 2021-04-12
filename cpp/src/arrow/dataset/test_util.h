@@ -139,13 +139,12 @@ class DatasetFixtureMixin : public ::testing::Test {
     }
   }
 
-  /// \brief Ensure a record batch yielded by the fragment matches the next batch yielded
-  /// by the reader
-  void AssertBatchEquals(RecordBatchReader* expected, RecordBatch* batch) {
+  /// \brief Assert the value of the next batch yielded by the reader
+  void AssertBatchEquals(RecordBatchReader* expected, const RecordBatch& batch) {
     std::shared_ptr<RecordBatch> lhs;
     ASSERT_OK(expected->ReadNext(&lhs));
     EXPECT_NE(lhs, nullptr);
-    AssertBatchesEqual(*lhs, *batch);
+    AssertBatchesEqual(*lhs, batch);
   }
 
   /// \brief Ensure that record batches found in reader are equals to the
@@ -204,7 +203,7 @@ class DatasetFixtureMixin : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(auto it, scanner->ScanBatches());
 
     ARROW_EXPECT_OK(it.Visit([&](TaggedRecordBatch batch) -> Status {
-      AssertBatchEquals(expected, batch.record_batch.get());
+      AssertBatchEquals(expected, *batch.record_batch);
       return Status::OK();
     }));
 
@@ -214,7 +213,8 @@ class DatasetFixtureMixin : public ::testing::Test {
   }
 
   /// \brief Ensure that record batches found in reader are equals to the
-  /// record batches yielded by a scanner.
+  /// record batches yielded by a scanner.  Each fragment in the scanner is
+  /// expected to have a single batch.
   void AssertScanBatchesUnorderedEquals(RecordBatchReader* expected, Scanner* scanner,
                                         bool ensure_drained = true) {
     ASSERT_OK_AND_ASSIGN(auto it, scanner->ScanBatchesUnordered());
@@ -227,7 +227,7 @@ class DatasetFixtureMixin : public ::testing::Test {
       EXPECT_EQ(fragment_counter++, batch.fragment.index);
       EXPECT_FALSE(saw_last_fragment);
       saw_last_fragment = batch.fragment.last;
-      AssertBatchEquals(expected, batch.record_batch.value.get());
+      AssertBatchEquals(expected, *batch.record_batch.value);
       return Status::OK();
     }));
 
@@ -264,7 +264,7 @@ class DatasetFixtureMixin : public ::testing::Test {
 
   std::shared_ptr<Schema> schema_;
   std::shared_ptr<ScanOptions> options_;
-};  // namespace dataset
+};
 
 /// \brief A dummy FileFormat implementation
 class DummyFileFormat : public FileFormat {

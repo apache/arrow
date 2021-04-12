@@ -247,12 +247,12 @@ namespace dataset {
 /// The scanner is then responsible for creating scan tasks from every fragment in the
 /// dataset and (potentially) sequencing the loaded record batches together.
 ///
-/// The scanner should not buffer the entire dataset in memory (unless asked) but should
-/// return record batches as soon as they are ready to scan.  Various readahead
+/// The scanner should not buffer the entire dataset in memory (unless asked) instead
+/// yielding record batches as soon as they are ready to scan.  Various readahead
 /// properties control how much data is allowed to be scanned before pausing to let a
 /// slow consumer catchup.
 ///
-/// Today the scanner also delegates projection & filtering although that may change in
+/// Today the scanner also handles projection & filtering although that may change in
 /// the future.
 class ARROW_DS_EXPORT Scanner {
  public:
@@ -281,8 +281,8 @@ class ARROW_DS_EXPORT Scanner {
   virtual Result<TaggedRecordBatchIterator> ScanBatches() = 0;
   /// \brief Scan the dataset into a stream of record batches.  Unlike ScanBatches this
   /// method may allow record batches to be returned out of order.  This allows for more
-  /// efficient scanning some fragments may be accessed more quickly than others (e.g. may
-  /// be cached in RAM or just happen to get scheduled earlier by the I/O)
+  /// efficient scanning: some fragments may be accessed more quickly than others (e.g.
+  /// may be cached in RAM or just happen to get scheduled earlier by the I/O)
   ///
   /// To make up for the out-of-order iteration each batch is further tagged with
   /// positional information.
