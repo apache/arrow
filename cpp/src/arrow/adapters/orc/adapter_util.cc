@@ -30,6 +30,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/range.h"
+#include "arrow/util/string_view.h"
 #include "arrow/visitor_inline.h"
 #include "orc/Exceptions.hh"
 #include "orc/MemoryPool.hh"
@@ -514,7 +515,6 @@ struct Appender<arrow::Date32Type, liborc::LongVectorBatch> {
 template <class DataType>
 struct Appender<DataType, liborc::StringVectorBatch> {
   using ArrayType = typename arrow::TypeTraits<DataType>::ArrayType;
-  using ValueType = typename arrow::util::string_view;
   using COffsetType = typename arrow::TypeTraits<DataType>::OffsetType::c_type;
   arrow::Status VisitNull() {
     batch->notNull[running_orc_offset] = false;
@@ -522,7 +522,7 @@ struct Appender<DataType, liborc::StringVectorBatch> {
     running_arrow_offset++;
     return arrow::Status::OK();
   }
-  arrow::Status VisitValue(ValueType v) {
+  arrow::Status VisitValue(arrow::util::string_view v) {
     batch->notNull[running_orc_offset] = true;
     COffsetType data_length = 0;
     batch->data[running_orc_offset] = reinterpret_cast<char*>(
@@ -787,9 +787,10 @@ arrow::Status WriteMapBatch(const arrow::Array& array, int64_t orc_offset,
           map_array.value_offset(running_arrow_offset);
       int64_t subarray_arrow_offset = map_array.value_offset(running_arrow_offset),
               subarray_orc_offset = batch->offsets[running_orc_offset],
-              subarray_orc_length = batch->offsets[running_orc_offset + 1];
-      key_batch->resize(subarray_orc_length);
-      element_batch->resize(subarray_orc_length);
+              new_subarray_orc_offset = batch->offsets[running_orc_offset + 1],
+              subarray_orc_length = new_subarray_orc_offset - subarray_orc_offset;
+      key_batch->resize(new_subarray_orc_offset);
+      element_batch->resize(new_subarray_orc_offset);
       RETURN_NOT_OK(
           WriteBatch(*(key_array->Slice(subarray_arrow_offset, subarray_orc_length)),
                      subarray_orc_offset, key_batch));
