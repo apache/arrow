@@ -974,7 +974,9 @@ def test_dataset_read_pandas(tempdir, use_legacy_dataset):
 
     # also be able to pass the columns as a set (ARROW-12314)
     result = dataset.read_pandas(columns=set(columns)).to_pandas()
-    tm.assert_frame_equal(result, expected)
+    assert result.shape == expected.shape
+    # column order can be different because of using a set
+    tm.assert_frame_equal(result.reindex(columns=expected.columns), expected)
 
 
 @pytest.mark.pandas
