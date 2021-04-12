@@ -1845,7 +1845,7 @@ def _mkdir_if_not_exists(fs, path):
 
 def write_to_dataset(table, root_path, partition_cols=None,
                      partition_filename_cb=None, filesystem=None,
-                     use_legacy_dataset=True, **kwargs):
+                     use_legacy_dataset=None, **kwargs):
     """Wrapper around parquet.write_table for writing a Table to
     Parquet format by partitions.
     For each combination of partition columns and values,
@@ -1879,7 +1879,8 @@ def write_to_dataset(table, root_path, partition_cols=None,
         A callback function that takes the partition key(s) as an argument
         and allow you to override the partition filename. If nothing is
         passed, the filename will consist of a uuid.
-    use_legacy_dataset : bool, default True
+    use_legacy_dataset : bool
+        Default is True unless a ``pyarrow.fs`` filesystem is passed.
         Set to False to enable the new code path (experimental, using the
         new Arrow Dataset API). This is more efficient when using partition
         columns, but does not (yet) support `partition_filename_cb` and
@@ -1891,6 +1892,14 @@ def write_to_dataset(table, root_path, partition_cols=None,
         file metadata instances of dataset pieces. The file paths in the
         ColumnChunkMetaData will be set relative to `root_path`.
     """
+    if use_legacy_dataset is None:
+        # if a new filesystem is passed -> default to new implementation
+        if isinstance(filesystem, FileSystem):
+            use_legacy_dataset = False
+        # otherwise the default is still True
+        else:
+            use_legacy_dataset = True
+
     if not use_legacy_dataset:
         import pyarrow.dataset as ds
 
