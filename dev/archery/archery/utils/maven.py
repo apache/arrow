@@ -106,7 +106,7 @@ class MavenDefinition:
         """" Return the arguments to maven invocation for benchmark """
         arguments = self.benchmark_definitions + [
             "-Dskip.perf.benchmarks=false", "-Dbenchmark.fork=1",
-            "-Dbenchmark.jvmargs=\"-Darrow.enable_null_check_for_get=false"
+            "-Dbenchmark.jvmargs=\"-Darrow.enable_null_check_for_get=false "
             "-Darrow.enable_unsafe_memory_access=true\"",
             "install"
         ]

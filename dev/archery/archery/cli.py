@@ -393,7 +393,7 @@ def benchmark_common_options(cmd):
                      "Can be stacked. For language=java"),
         click.option("--cmake-extras", type=str, multiple=True,
                      help="Extra flags/options to pass to cmake invocation. "
-                     "Can be stacked. For language=cpp"),
+                     "Can be stacked. For language=cpp")
     ]
 
     cmd = java_toolchain_options(cmd)
@@ -417,6 +417,7 @@ def benchmark_filter_options(cmd):
 @click.argument("rev_or_path", metavar="[<rev_or_path>]",
                 default="WORKSPACE", required=False)
 @benchmark_common_options
+@benchmark_filter_options
 @click.pass_context
 def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
                    java_home, java_options, build_extras, benchmark_extras,
@@ -453,12 +454,14 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
                 default="WORKSPACE", required=False)
 @benchmark_common_options
 @benchmark_filter_options
-@click.option("--repetitions", type=int, default=1, show_default=True,
+@click.option("--repetitions", type=int, default=-1,
               help=("Number of repetitions of each benchmark. Increasing "
-                    "may improve result precision."))
+                    "may improve result precision. "
+                    "[default: 1 for cpp, 5 for java"))
 @click.pass_context
 def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
-                  language, suite_filter, benchmark_filter, repetations,
+                  java_home, java_options, build_extras, benchmark_extras,
+                  language, suite_filter, benchmark_filter, repetitions,
                   **kwargs):
     """ Run benchmark suite.
 
@@ -499,17 +502,21 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
             conf = CppBenchmarkRunner.default_configuration(
                 cmake_extras=cmake_extras, **kwargs)
 
+            repetitions = repetitions if repetitions != -1 else 1
             runner_base = CppBenchmarkRunner.from_rev_or_path(
                 src, root, rev_or_path, conf,
                 repetitions=repetitions,
                 suite_filter=suite_filter, benchmark_filter=benchmark_filter)
 
         elif language == "java":
+            for key in { 'cpp_package_prefix', 'cxx_flags', 'cxx', 'cc'}:
+                del kwargs[key]
             conf = JavaBenchmarkRunner.default_configuration(
                 java_home=java_home, java_options=java_options,
                 build_extras=build_extras, benchmark_extras=benchmark_extras,
                 **kwargs)
 
+            repetitions = repetitions if repetitions != -1 else 5
             runner_base = JavaBenchmarkRunner.from_rev_or_path(
                 src, root, rev_or_path, conf,
                 repetitions=repetitions,
@@ -526,7 +533,8 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
               help="Regression failure threshold in percentage.")
 @click.option("--repetitions", type=int, default=1, show_default=True,
               help=("Number of repetitions of each benchmark. Increasing "
-                    "may improve result precision."))
+                    "may improve result precision. "
+                    "[default: 1 for cpp, 5 for java"))
 @click.option("--no-counters", type=BOOL, default=False, is_flag=True,
               help="Hide counters field in diff report.")
 @click.argument("contender", metavar="[<contender>",
@@ -535,7 +543,8 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
                 required=False)
 @click.pass_context
 def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
-                   suite_filter, benchmark_filter, repitations, no_counters,
+                   suite_filter, benchmark_filter, repetitions, no_counters,
+                   java_home, java_options, build_extras, benchmark_extras,
                    threshold, contender, baseline, **kwargs):
     """Compare (diff) benchmark runs.
 
@@ -615,6 +624,7 @@ def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
             conf = CppBenchmarkRunner.default_configuration(
                 cmake_extras=cmake_extras, **kwargs)
 
+            repetitions = repetitions if repetitions != -1 else 1
             runner_cont = CppBenchmarkRunner.from_rev_or_path(
                 src, root, contender, conf,
                 repetitions=repetitions,
@@ -627,11 +637,14 @@ def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
                 benchmark_filter=benchmark_filter)
 
         elif language == "java":
+            for key in { 'cpp_package_prefix', 'cxx_flags', 'cxx', 'cc'}:
+                del kwargs[key]
             conf = JavaBenchmarkRunner.default_configuration(
                 java_home=java_home, java_options=java_options,
                 build_extras=build_extras, benchmark_extras=benchmark_extras,
                 **kwargs)
 
+            repetitions = repetitions if repetitions != -1 else 5
             runner_cont = JavaBenchmarkRunner.from_rev_or_path(
                 src, root, contender, conf,
                 repetitions=repetitions,
@@ -645,8 +658,9 @@ def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
 
         # TODO(kszucs): test that the output is properly formatted jsonlines
         comparisons_json = _get_comparisons_as_json(runner_comp.comparisons)
+        ren_counters = language == "java"
         formatted = _format_comparisons_with_pandas(comparisons_json,
-                                                    no_counters)
+                                                    no_counters, ren_counters)
         output.write(formatted)
         output.write('\n')
 
@@ -660,7 +674,8 @@ def _get_comparisons_as_json(comparisons):
     return buf.getvalue()
 
 
-def _format_comparisons_with_pandas(comparisons_json, no_counters):
+def _format_comparisons_with_pandas(comparisons_json, no_counters,
+                                    ren_counters):
     import pandas as pd
     df = pd.read_json(StringIO(comparisons_json), lines=True)
     # parse change % so we can sort by it
@@ -670,9 +685,11 @@ def _format_comparisons_with_pandas(comparisons_json, no_counters):
     fields = ['benchmark', 'baseline', 'contender', 'change %']
     if not no_counters:
         fields += ['counters']
-        # fields += ['configurations']
 
-    df = df[fields].sort_values(by='change %', ascending=False)
+    df = df[fields]
+    if ren_counters:
+        df = df.rename(columns={'counters': 'configurations'})
+    df = df.sort_values(by='change %', ascending=False)
 
     def labelled(title, df):
         if len(df) == 0:

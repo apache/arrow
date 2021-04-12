@@ -74,7 +74,7 @@ class JavaMicrobenchmarkHarnessCommand(Command):
                     break
         return lists
 
-    def results(self, repetitions=1):
+    def results(self, repetitions):
         with NamedTemporaryFile(suffix=".json") as out:
             argv = ["-Dbenchmark.runs={}".format(repetitions),
                     "-Dbenchmark.resultfile={}".format(out.name),
@@ -97,7 +97,7 @@ class JavaMicrobenchmarkHarnessObservation:
         self.name = benchmark
         self.primaryMetric = primaryMetric
         self.score = primaryMetric["score"]
-        self.scoreUnit = primaryMetric["scoreUnit"]
+        self.score_unit = primaryMetric["scoreUnit"]
         self.forks = forks
         self.warmups = warmupIterations
         self.runs = measurementIterations
@@ -110,21 +110,21 @@ class JavaMicrobenchmarkHarnessObservation:
             "measurementTime": counters["measurementTime"],
             "jvmArgs": counters["jvmArgs"]
         }
-        self.reciprocalValue = True if self.scoreUnit.endswith("/op") else False
-        if self.scoreUnit.startswith("ops/"):
-            idx = self.scoreUnit.find("/")
-            self.normalizePerSec(self.scoreUnit[idx+1:])
-        elif self.scoreUnit.endswith("/op"):
-            idx = self.scoreUnit.find("/")
-            self.normalizePerSec(self.scoreUnit[:idx])
+        self.reciprocal_value = True if self.score_unit.endswith("/op") else False
+        if self.score_unit.startswith("ops/"):
+            idx = self.score_unit.find("/")
+            self.normalizePerSec(self.score_unit[idx+1:])
+        elif self.score_unit.endswith("/op"):
+            idx = self.score_unit.find("/")
+            self.normalizePerSec(self.score_unit[:idx])
         else:
             self.normalizeFactor = 1
 
     @property
     def value(self):
         """ Return the benchmark value."""
-        val = 1 / self.score if self.reciprocalValue else self.score
-        return val * self.normalzeFactor
+        val = 1 / self.score if self.reciprocal_value else self.score
+        return val * self.normalizeFactor
 
     def normalizePerSec(self, unit):
         if unit == "ns":
@@ -144,11 +144,12 @@ class JavaMicrobenchmarkHarnessObservation:
 
     @property
     def unit(self):
-        if self.scoreUnit.startswith("ops/"):
-            return "bytes_per_second"
-        elif self.scoreUnit.endswith("/op"):
+        if self.score_unit.startswith("ops/"):
             return "items_per_second"
-        return "?"
+        elif self.score_unit.endswith("/op"):
+            return "items_per_second"
+        else:
+            return "?"
 
     def __repr__(self):
         return str(self.value)
@@ -174,11 +175,14 @@ class JavaMicrobenchmarkHarness(Benchmark):
         self.name = name
         self.runs = sorted(runs, key=lambda b: b.value)
         unit = self.runs[0].unit
-        less_is_better = False
+        time_unit = "N/A"
+        less_is_better = not unit.endswith("per_second")
         values = [b.value for b in self.runs]
+        times = []
         # Slight kludge to extract the UserCounters for each benchmark
-        self.counters = self.runs[0].counters
-        super().__init__(name, unit, less_is_better, values)
+        counters = self.runs[0].counters
+        super().__init__(name, unit, less_is_better, values, time_unit, times,
+                         counters)
 
     def __repr__(self):
         return "JavaMicrobenchmark[name={},runs={}]".format(

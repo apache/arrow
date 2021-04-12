@@ -223,10 +223,10 @@ class CppBenchmarkRunner(BenchmarkRunner):
 class JavaBenchmarkRunner(BenchmarkRunner):
     """ Run suites for Java. """
 
+    # default repetitions is 5 for Java microbenchmark harness
     def __init__(self, build, **kwargs):
         """ Initialize a JavaBenchmarkRunner. """
         self.build = build
-        self.repetitions = 5  # default repetitions for Java
         super().__init__(**kwargs)
 
     @staticmethod
