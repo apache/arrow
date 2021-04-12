@@ -53,7 +53,7 @@ TEST_F(TestToNumber, TestToNumber){
 
   int num_records = 4;
   auto array_a = MakeArrowArrayUtf8({"500.6667", "-600,000.3333", "0", ""}, {true, true, true, true});
-  auto exp = MakeArrowArrayFloat64({500.6667, -600000.3333, 0, 0});
+  auto exp = MakeArrowArrayFloat64({500.667, -600000.3333, 0, 0});
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});

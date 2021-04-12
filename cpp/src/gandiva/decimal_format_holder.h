@@ -35,29 +35,7 @@ class GANDIVA_EXPORT DecimalFormatHolder : public FunctionHolder{
 
     static Status Make(const std::string& decimal_format, std::shared_ptr<DecimalFormatHolder>* holder);
 
-    arrow_vendored::fast_float::from_chars_result Parse(
-        const char* number, int32_t number_size, double &answer){
-      using arrow_vendored::fast_float::from_chars;
-      using arrow_vendored::fast_float::chars_format;
-
-      if (has_dolar_sign_){
-        number++;
-        number_size--;
-      }
-
-      std::string res;
-
-      for (int i = 0; i < number_size; ++i) {
-        if (number[i] != ','){
-          res.push_back(number[i]);
-        }
-      }
-
-      const char* res_ptr = res.c_str();
-      auto result = from_chars(res_ptr, res_ptr + res.size(), answer, chars_format::fixed);
-
-      return result;
-    }
+    double Parse(const char* number, int32_t number_size);
 
   private:
     explicit DecimalFormatHolder(const char* pattern, int32_t pattern_size) :

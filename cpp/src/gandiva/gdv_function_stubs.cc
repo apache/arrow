@@ -380,17 +380,10 @@ const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t i
 
 double gdv_fn_to_number(int64_t ptr, const char* data,
      int32_t data_len, const char* format, int32_t format_len) {
-  double res;
+
   gandiva::DecimalFormatHolder* holder =
   reinterpret_cast<gandiva::DecimalFormatHolder*>(ptr);
-  auto parse = holder->Parse(data, data_len, res);
-
-  if (parse.ec != std::errc()){
-    std::string err =
-        "Failed to cast the string " + std::string(data, data_len) +
-        " to double";
-    gdv_fn_context_set_error_msg(ptr, err.c_str());
-  }
+  double res = holder->Parse(data, data_len);
   return res;
 }
 
