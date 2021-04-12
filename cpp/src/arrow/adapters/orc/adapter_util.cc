@@ -510,31 +510,7 @@ struct Appender<arrow::Date32Type, liborc::LongVectorBatch> {
   int64_t running_orc_offset, running_arrow_offset;
 };
 
-// Date64
-template <>
-struct Appender<arrow::Date64Type, liborc::TimestampVectorBatch> {
-  arrow::Status VisitNull() {
-    batch->notNull[running_orc_offset] = false;
-    running_orc_offset++;
-    running_arrow_offset++;
-    return arrow::Status::OK();
-  }
-  arrow::Status VisitValue(int64_t v) {
-    int64_t data = array.Value(running_arrow_offset);
-    batch->notNull[running_orc_offset] = true;
-    batch->data[running_orc_offset] =
-        static_cast<int64_t>(std::floor(data / kOneSecondMillis));
-    batch->nanoseconds[running_orc_offset] =
-        (data - kOneSecondMillis * batch->data[running_orc_offset]) * kOneMilliNanos;
-    running_orc_offset++;
-    running_arrow_offset++;
-    return arrow::Status::OK();
-  }
-  const arrow::Date64Array& array;
-  liborc::TimestampVectorBatch* batch;
-  int64_t running_orc_offset, running_arrow_offset;
-};
-
+// Binary
 template <class DataType>
 struct Appender<DataType, liborc::StringVectorBatch> {
   using ArrayType = typename arrow::TypeTraits<DataType>::ArrayType;
@@ -607,8 +583,10 @@ struct Appender<arrow::Decimal128Type, liborc::Decimal128VectorBatch> {
   int64_t running_orc_offset, running_arrow_offset;
 };
 
-// Timestamp
+// Date64 and Timestamp
+template <class DataType>
 struct TimestampAppender {
+  using ArrayType = typename arrow::TypeTraits<DataType>::ArrayType;
   arrow::Status VisitNull() {
     batch->notNull[running_orc_offset] = false;
     running_orc_offset++;
@@ -627,7 +605,7 @@ struct TimestampAppender {
     running_arrow_offset++;
     return arrow::Status::OK();
   }
-  const arrow::TimestampArray& array;
+  const ArrayType& array;
   liborc::TimestampVectorBatch* batch;
   int64_t running_orc_offset, running_arrow_offset;
   int64_t conversion_factor_from_second, conversion_factor_to_nano;
@@ -680,17 +658,18 @@ arrow::Status WriteTimestampBatch(const arrow::Array& array, int64_t orc_offset,
                                   liborc::ColumnVectorBatch* column_vector_batch,
                                   const int64_t& conversion_factor_from_second,
                                   const int64_t& conversion_factor_to_nano) {
-  const arrow::TimestampArray& array_(checked_cast<const arrow::TimestampArray&>(array));
+  using ArrayType = typename arrow::TypeTraits<DataType>::ArrayType;
+  const ArrayType& array_(checked_cast<const ArrayType&>(array));
   auto batch = checked_cast<liborc::TimestampVectorBatch*>(column_vector_batch);
   if (array.null_count()) {
     batch->hasNulls = true;
   }
-  TimestampAppender appender{array_,
-                             batch,
-                             orc_offset,
-                             0,
-                             conversion_factor_from_second,
-                             conversion_factor_to_nano};
+  TimestampAppender<DataType> appender{array_,
+                                       batch,
+                                       orc_offset,
+                                       0,
+                                       conversion_factor_from_second,
+                                       conversion_factor_to_nano};
   arrow::ArrayDataVisitor<DataType> visitor;
   RETURN_NOT_OK(visitor.Visit(*(array_.data()), &appender));
   return arrow::Status::OK();
@@ -867,8 +846,8 @@ arrow::Status WriteBatch(const arrow::Array& array, int64_t orc_offset,
       return WriteGenericBatch<arrow::Date32Type, liborc::LongVectorBatch>(
           array, orc_offset, column_vector_batch);
     case arrow::Type::type::DATE64:
-      return WriteGenericBatch<arrow::Date64Type, liborc::TimestampVectorBatch>(
-          array, orc_offset, column_vector_batch);
+      return WriteTimestampBatch<arrow::Date64Type>(
+          array, orc_offset, column_vector_batch, kOneSecondMillis, kOneMilliNanos);
     case arrow::Type::type::TIMESTAMP: {
       switch (arrow::internal::checked_pointer_cast<arrow::TimestampType>(array.type())
                   ->unit()) {
