@@ -67,7 +67,7 @@ jobs:
         run: |
           # This isn't actually rendering the docs, but will save arrow/r/vignettes/script.sh 
           # which can be sourced to install arrow.
-          rmarkdown::render("arrow/r/vignettes/dev-docs.Rmd")
+          rmarkdown::render("arrow/r/vignettes/developing.Rmd")
         shell: Rscript {0}
       - name: Install from the devdocs
         env:
