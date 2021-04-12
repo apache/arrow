@@ -69,6 +69,7 @@ set(SRC_FILES
     expression_registry.cc
     exported_funcs_registry.cc
     filter.cc
+    null_ops.cc
     function_ir_builder.cc
     function_registry.cc
     function_registry_arithmetic.cc
@@ -236,6 +237,7 @@ add_gandiva_test(internals-test
                  random_generator_holder_test.cc
                  hash_utils_test.cc
                  gdv_function_stubs_test.cc
+                 null_ops_test.cc
                  EXTRA_DEPENDENCIES
                  LLVM::LLVM_INTERFACE
                  ${GANDIVA_OPENSSL_LIBS}

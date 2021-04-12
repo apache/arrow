@@ -77,13 +77,21 @@ void Annotator::PrepareBuffersForField(const FieldDescriptor& desc,
     ++buffer_idx;
   }
 
-  uint8_t* data_buf = const_cast<uint8_t*>(array_data.buffers[buffer_idx]->data());
-  eval_batch->SetBuffer(desc.data_idx(), data_buf, array_data.offset);
+  if (array_data.type->id() == arrow::Type::NA) {
+    eval_batch->SetBuffer(desc.data_idx(), nullptr, array_data.offset);
+  } else {
+    uint8_t* data_buf = const_cast<uint8_t*>(array_data.buffers[buffer_idx]->data());
+    eval_batch->SetBuffer(desc.data_idx(), data_buf, array_data.offset);
+  }
   if (is_output) {
     // pass in the Buffer object for output data buffers. Can be used for resizing.
-    uint8_t* data_buf_ptr =
-        reinterpret_cast<uint8_t*>(array_data.buffers[buffer_idx].get());
-    eval_batch->SetBuffer(desc.data_buffer_ptr_idx(), data_buf_ptr, array_data.offset);
+    if (array_data.type->id() == arrow::Type::NA) {
+      eval_batch->SetBuffer(desc.data_buffer_ptr_idx(), nullptr, array_data.offset);
+    } else {
+      uint8_t* data_buf_ptr =
+          reinterpret_cast<uint8_t*>(array_data.buffers[buffer_idx].get());
+      eval_batch->SetBuffer(desc.data_buffer_ptr_idx(), data_buf_ptr, array_data.offset);
+    }
   }
 }
 

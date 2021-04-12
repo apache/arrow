@@ -225,6 +225,13 @@ Status ExprDecomposer::Visit(const LiteralNode& node) {
   return Status::OK();
 }
 
+Status ExprDecomposer::Visit(const NullLiteralNode& node) {
+  auto value_dex = std::make_shared<NullLiteralDex>();
+  auto validity_dex = std::make_shared<FalseDex>();
+  result_ = std::make_shared<ValueValidityPair>(validity_dex, value_dex);
+  return Status::OK();
+}
+
 // The bolow functions use a stack to detect :
 // a. nested if-else expressions.
 //    In such cases,  the local bitmap can be re-used.

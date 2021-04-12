@@ -31,6 +31,7 @@ class FieldNode;
 class FunctionNode;
 class IfNode;
 class LiteralNode;
+class NullLiteralNode;
 class BooleanNode;
 template <typename Type>
 class InExpressionNode;
@@ -44,6 +45,7 @@ class GANDIVA_EXPORT NodeVisitor {
   virtual Status Visit(const FunctionNode& node) = 0;
   virtual Status Visit(const IfNode& node) = 0;
   virtual Status Visit(const LiteralNode& node) = 0;
+  virtual Status Visit(const NullLiteralNode& node) = 0;
   virtual Status Visit(const BooleanNode& node) = 0;
   virtual Status Visit(const InExpressionNode<int32_t>& node) = 0;
   virtual Status Visit(const InExpressionNode<int64_t>& node) = 0;

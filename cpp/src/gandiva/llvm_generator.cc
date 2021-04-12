@@ -170,6 +170,9 @@ llvm::Value* LLVMGenerator::GetDataReference(llvm::Value* arg_addrs, int idx,
   llvm::Value* load = LoadVectorAtIndex(arg_addrs, idx, name);
   llvm::Type* base_type = types()->DataVecType(field->type());
   llvm::Value* ret;
+  if (base_type == nullptr) {
+    return nullptr;
+  }
   if (base_type->isPointerTy()) {
     ret = ir_builder()->CreateIntToPtr(load, base_type, name + "_darray");
   } else {
@@ -363,6 +366,8 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
     AddFunctionCall("gdv_fn_populate_varlen_vector", types()->i32_type(),
                     {arg_context_ptr, output_buffer_ptr_ref, output_offset_ref, loop_var,
                      output_value->data(), output_value->length()});
+  } else if (output_type_id == arrow::Type::NA) {
+    // Do nothing when data type is null
   } else {
     return Status::NotImplemented("output type ", output->Type()->ToString(),
                                   " not supported");
@@ -452,6 +457,10 @@ void LLVMGenerator::ComputeBitMapsForExpr(const CompiledExpr& compiled_expr,
   // Extract the destination bitmap address.
   int out_idx = compiled_expr.output()->validity_idx();
   uint8_t* dst_bitmap = eval_batch.GetBuffer(out_idx);
+  if (dst_bitmap == nullptr) {
+    // Return when dst_bitmap is null meaning data type is null
+    return;
+  }
   // Compute the destination bitmap.
   if (selection_vector == nullptr) {
     accumulator.ComputeResult(dst_bitmap);
@@ -555,6 +564,9 @@ void LLVMGenerator::Visitor::Visit(const VectorReadFixedLenValueDex& dex) {
       lvalue = generator_->BuildDecimalLValue(slot_value, dex.FieldType());
       break;
     }
+
+    case arrow::Type::NA:
+      break;
 
     default: {
       auto slot_offset = builder->CreateGEP(slot_ref, slot_index);
@@ -717,6 +729,13 @@ void LLVMGenerator::Visitor::Visit(const LiteralDex& dex) {
       DCHECK(0);
   }
   ADD_VISITOR_TRACE("visit Literal %T", value);
+  result_.reset(new LValue(value, len));
+}
+
+void LLVMGenerator::Visitor::Visit(const NullLiteralDex& dex) {
+  llvm::Value* value = nullptr;
+  llvm::Value* len = nullptr;
+  ADD_VISITOR_TRACE("visit Literal null");
   result_.reset(new LValue(value, len));
 }
 
@@ -1248,10 +1267,11 @@ std::vector<llvm::Value*> LLVMGenerator::Visitor::BuildParams(
     // build value.
     DexPtr value_expr = pair->value_expr();
     value_expr->Accept(*this);
-    LValue& result_ref = *result();
-
-    // append all the parameters corresponding to this LValue.
-    result_ref.AppendFunctionParams(&params);
+    if (auto result_ptr = result()) {
+      LValue& result_ref = *result_ptr;
+      // append all the parameters corresponding to this LValue.
+      result_ref.AppendFunctionParams(&params);
+    }
 
     // build validity.
     if (with_validity) {

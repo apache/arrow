@@ -205,6 +205,14 @@ class GANDIVA_EXPORT LiteralDex : public Dex {
   LiteralHolder holder_;
 };
 
+/// decomposed expression for a null literal.
+class GANDIVA_EXPORT NullLiteralDex : public Dex {
+ public:
+  NullLiteralDex() {}
+
+  void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
+};
+
 /// decomposed if-else expression.
 class GANDIVA_EXPORT IfDex : public Dex {
  public:

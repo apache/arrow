@@ -31,6 +31,7 @@ class VectorReadFixedLenValueDex;
 class VectorReadVarLenValueDex;
 class LocalBitMapValidityDex;
 class LiteralDex;
+class NullLiteralDex;
 class TrueDex;
 class FalseDex;
 class NonNullableFuncDex;
@@ -54,6 +55,7 @@ class GANDIVA_EXPORT DexVisitor {
   virtual void Visit(const TrueDex& dex) = 0;
   virtual void Visit(const FalseDex& dex) = 0;
   virtual void Visit(const LiteralDex& dex) = 0;
+  virtual void Visit(const NullLiteralDex& dex) = 0;
   virtual void Visit(const NonNullableFuncDex& dex) = 0;
   virtual void Visit(const NullableNeverFuncDex& dex) = 0;
   virtual void Visit(const NullableInternalFuncDex& dex) = 0;
@@ -80,6 +82,7 @@ class GANDIVA_EXPORT DexDefaultVisitor : public DexVisitor {
   VISIT_DCHECK(TrueDex)
   VISIT_DCHECK(FalseDex)
   VISIT_DCHECK(LiteralDex)
+  VISIT_DCHECK(NullLiteralDex)
   VISIT_DCHECK(NonNullableFuncDex)
   VISIT_DCHECK(NullableNeverFuncDex)
   VISIT_DCHECK(NullableInternalFuncDex)

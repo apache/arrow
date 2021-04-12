@@ -24,7 +24,6 @@
 
 #include "arrow/util/hash_util.h"
 #include "arrow/util/logging.h"
-
 #include "gandiva/cache.h"
 #include "gandiva/expr_validator.h"
 #include "gandiva/llvm_generator.h"
@@ -296,6 +295,8 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
   } else if (arrow::is_binary_like(type_id)) {
     // we don't know the expected size for varlen output vectors.
     data_len = 0;
+  } else if (type_id == arrow::Type::NA) {
+    data_len = 0;
   } else {
     return Status::Invalid("Unsupported output data type " + type->ToString());
   }
@@ -308,7 +309,11 @@ Status Projector::AllocArrayData(const DataTypePtr& type, int64_t num_records,
   }
   buffers.push_back(std::move(data_buffer));
 
-  *array_data = arrow::ArrayData::Make(type, num_records, std::move(buffers));
+  if (type_id == arrow::Type::NA) {
+    *array_data = arrow::ArrayData::Make(type, num_records, {nullptr});
+  } else {
+    *array_data = arrow::ArrayData::Make(type, num_records, std::move(buffers));
+  }
   return Status::OK();
 }
 
@@ -357,6 +362,10 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
     int64_t data_len = array_data.buffers[1]->capacity();
     ARROW_RETURN_IF(data_len < min_data_len,
                     Status::Invalid("Data buffer too small for ", field.name()));
+  } else if (type_id == arrow::Type::NA) {
+    ARROW_RETURN_IF(array_data.buffers.size() == 1 && array_data.buffers[0] == nullptr,
+                    Status::Invalid("Data buffer should be nullptr for null typed field",
+                                    field.name()));
   } else {
     return Status::Invalid("Unsupported output data type " + field.type()->ToString());
   }

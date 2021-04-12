@@ -23,7 +23,6 @@
 #include <vector>
 
 #include "arrow/status.h"
-
 #include "gandiva/arrow.h"
 #include "gandiva/func_descriptor.h"
 #include "gandiva/gandiva_aliases.h"
@@ -92,6 +91,20 @@ class GANDIVA_EXPORT LiteralNode : public Node {
  private:
   LiteralHolder holder_;
   bool is_null_;
+};
+
+/// \brief Node in the expression tree, representing a NullLiteralNode.
+class GANDIVA_EXPORT NullLiteralNode : public Node {
+ public:
+  NullLiteralNode() : Node(arrow::null()) {}
+
+  Status Accept(NodeVisitor& visitor) const override { return visitor.Visit(*this); }
+
+  std::string ToString() const override {
+    std::stringstream ss;
+    ss << "(const " << return_type()->ToString() << ") null";
+    return ss.str();
+  }
 };
 
 /// \brief Node in the expression tree, representing an arrow field.
