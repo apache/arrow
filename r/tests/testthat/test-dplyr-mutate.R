@@ -415,3 +415,160 @@ test_that("mutate and write_dataset", {
       summarize(mean = mean(integer))
   )
 })
+
+# PACHA ADDITIONS ----
+# READ THIS CAREFULLY PLEASE, IT'S MY 1ST DAY WRITING THIS KIND OF SENSITIVE TESTS
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L1-L10
+# the rest of that test belongs in L55-62 here
+test_that("empty mutate returns input", {
+  # dbl2 = 5, so I'm grouping by a constant
+  gtbl <- group_by(tbl, dbl2)
+
+  expect_dplyr_equal(input %>% mutate(!!!list()) %>% collect(), tbl)
+
+  expect_dplyr_equal(input %>% mutate() %>% collect(), gtbl)
+  expect_dplyr_equal(input %>% mutate(!!!list()) %>% collect(), gtbl)
+})
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L12-L6
+# THIS WON'T WORK
+# test_that("rownames preserved", {
+#   df <- data.frame(x = c(1, 2), row.names = c("a", "b"))
+#   expect_dplyr_equal(input %>% mutate(y = 2) %>% collect(), df)
+# })
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L18-L29
+test_that("mutations applied progressively", {
+  df <- tibble(x = 1)
+
+  expect_dplyr_equal(
+    input %>% mutate(y = x + 1, z = y + 1) %>% collect(),
+    tibble(x = 1, y = 2, z = 3)
+  )
+  expect_dplyr_equal(
+    input %>% mutate(x = x + 1, x = x + 1) %>% collect(),
+    tibble(x = 3)
+  )
+  expect_dplyr_equal(
+    input %>% mutate(x = 2, y = x) %>% collect(),
+    tibble(x = 2, y = 2)
+  )
+
+  df <- data.frame(x = 1, y = 2)
+  expect_dplyr_equal(
+    input %>% mutate(x2 = x, x3 = x2 + 1) %>% collect(),
+    df %>% mutate(x2 = x + 0, x3 = x2 + 1)
+  )
+})
+
+# similar to # similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L31-L35
+# SEE LINE 175 IN THIS SCRIPT!
+# THIS WON'T WORK
+# https://issues.apache.org/jira/browse/ARROW-11705
+#  Error in UseMethod("mutate") :
+# no applicable method for 'mutate' applied to an object of class "c('double', 'numeric')"
+# test_that("length-1 vectors are recycled (#152)", {
+#   df <- tibble(x = 1:4)
+#
+#   expect_dplyr_equal(
+#     collect(mutate(input, y = 1))$y,
+#     rep(1, 4)
+#   )
+# })
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L37-L54
+test_that("can remove variables with NULL (dplyr #462)", {
+  df <- tibble(x = 1:3, y = 1:3)
+  gf <- group_by(df, x)
+
+  expect_dplyr_equal(input %>% mutate(y = NULL) %>% collect(), df[1])
+  expect_dplyr_equal(input %>% mutate(y = NULL) %>% collect(), gf[1])
+
+  # even if it doesn't exist
+  expect_dplyr_equal(input %>% mutate(z = NULL) %>% collect(), df)
+  # or was just created
+  expect_dplyr_equal(input %>% mutate(z = 1, z = NULL) %>% collect(), df)
+
+  # regression test for https://github.com/tidyverse/dplyr/issues/4974
+  expect_dplyr_equal(
+    data.frame(x = 1, y = 1) %>% mutate(z = 1, x = NULL, y = NULL) %>% collect(),
+    data.frame(z = 1)
+  )
+})
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L71-L75
+test_that("assignments don't overwrite variables (dplyr #315)", {
+  expect_dplyr_equal(
+    tibble(x = 1, y = 2) %>% mutate(z = {x <- 10; x}) %>% collect(),
+    tibble(x = 1, y = 2, z = 10)
+  )
+})
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L77-L81
+test_that("can mutate a data frame with zero columns and `NULL` column names", {
+  df <- vctrs::new_data_frame(n = 2L)
+  colnames(df) <- NULL
+  expect_dplyr_equal(
+    df %>% mutate(x = 1) %>% collect(),
+    data.frame(x = c(1, 1))
+  )
+})
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L95-L100
+# glue is a dependency of tidyselect
+test_that("glue() is supported", {
+  expect_dplyr_equal(
+    tibble(x = 1) %>% mutate(y = glue::glue("")) %>% collect(),
+    tibble(x = 1, y = glue::glue(""))
+  )
+})
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L102-L106
+test_that("mutate disambiguates NA and NaN (#1448)", {
+  df <- tibble(x = c(1, NA, NaN))
+  expect_dplyr_equal(
+    df %>% mutate(y = x * 1) %>% select(y) %>% collect(),
+    df %>% select(x)
+  )
+})
+
+# similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L102-L106
+test_that("mutate handles data frame columns", {
+  df <- data.frame("a" = c(1, 2, 3), "b" = c(2, 3, 4), "base_col" = c(3, 4, 5))
+  expect_dplyr_equal(
+    df %>% mutate(new_col = data.frame(x = 1:3)) %>% select(new_col) %>% collect(),
+    data.frame(x = 1:3)
+  )
+
+  expect_dplyr_equal(
+    df %>%
+      group_by(a) %>%
+      mutate(new_col = data.frame(x = a)) %>%
+      ungroup() %>%
+      select(new_col) %>%
+      collect(),
+    data.frame(x = 1:3)
+  )
+
+  expect_dplyr_equal(
+    df %>%
+      rowwise(a) %>%
+      mutate(new_col = data.frame(x = a)) %>%
+      ungroup() %>%
+      select(new_col) %>%
+      collect(),
+    data.frame(x = 1:3)
+  )
+})
+
+# QUESTIONS SO FAR ----
+
+# https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L56-L59
+# https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L108-L115
+# does it make sense to create expect_dplyr_named() to mimic the behaviour from dply tests?
+
+# https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L61-L69
+# https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L83-L91
+# https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L129-L142
+# does it make sense to create expect_dplyr_identical() to mimic the behaviour from dplyr tests?
