@@ -135,6 +135,55 @@ test_that("ChunkedArray handles NaN", {
   expect_equal(as.vector(is.nan(x)), c(is.nan(data[[1]]), is.nan(data[[2]]), is.nan(data[[3]])))
 })
 
+test_that("ChunkedArray handles any", {
+  data <- list(as.numeric(1:10), c(NA, 2:10), c(1:3, NA, 5L))
+  x <- chunked_array(!!!data)
+  
+  expect_equal(x$type, float64())
+  expect_equal(x$num_chunks, 3L)
+  expect_equal(length(x), 25L)
+  expect_equal(as.vector(x), c(1:10, c(NaN, 2:10), c(1:3, NaN, 5)))
+  
+  chunk <- x$chunks
+  expect_equal(as.vector(any(chunk[[1]] > 5)), any(data[[1]] > 5))
+  expect_equal(as.vector(any(chunk[[2]] < 1)), any(data[[2]] < 1))
+  expect_equal(as.vector(any(chunk[[2]] < 1, na.rm =TRUE)), any(data[[2]] < 1, na.rm = TRUE))
+  
+  data_logical <- list(c(TRUE, FALSE, TRUE), c(NA, FALSE))
+  x2 <- chunked_array(!!!data_logical)
+  chunks2 <- x2$chunks
+  expect_equal(any(chunks2), any(data_logical[[1]]))
+  expect_equal(any(chunks2[[2]]), any(data_logical[[2]]))
+  expect_equal(any(chunks2[[2]], na.rm =TRUE), any(data_logical[[2]], na.rm =TRUE))
+  
+  
+  
+})
+
+test_that("ChunkedArray handles all", {
+  data <- list(as.numeric(1:10), c(NaN, 2:10), c(1:3, NaN, 5L))
+  x <- chunked_array(!!!data)
+  
+  expect_equal(x$type, float64())
+  expect_equal(x$num_chunks, 3L)
+  expect_equal(length(x), 25L)
+  expect_equal(as.vector(x), c(1:10, c(NaN, 2:10), c(1:3, NaN, 5)))
+  
+  chunk <- x$chunks
+  expect_equal(as.vector(all(chunk[[1]] > 5)), all(data[[1]] > 5))
+  expect_equal(as.vector(all(chunk[[2]] < 1)), all(data[[2]] < 1))
+  expect_equal(as.vector(all(chunk[[2]] < 1, na.rm =TRUE)), all(data[[2]] < 1, na.rm = TRUE))
+  
+  data_logical <- list(c(TRUE, FALSE, TRUE), c(NA, FALSE))
+  x2 <- chunked_array(!!!data_logical)
+  chunks2 <- x2$chunks
+  expect_equal(all(chunks2[[1]]), all(data_logical[[1]]))
+  expect_equal(all(chunks2[[2]]), all(data_logical[[2]]))
+  expect_equal(all(chunks2[[2]], na.rm =TRUE), all(data_logical[[2]], na.rm =TRUE))
+  
+  
+})
+
 test_that("ChunkedArray supports logical vectors (ARROW-3341)", {
   # with NA
   data <- purrr::rerun(3, sample(c(TRUE, FALSE, NA), 100, replace = TRUE))
