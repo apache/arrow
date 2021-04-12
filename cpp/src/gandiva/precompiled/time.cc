@@ -751,7 +751,7 @@ gdv_date64 castDATE_timestamp(gdv_timestamp timestamp_in_millis) {
   return tp.ClearTimeOfDay().MillisSinceEpoch();
 }
 
-int32_t castTIME_timestamp(int64_t timestamp_in_millis) {
+gdv_time32 castTIME_timestamp(gdv_timestamp timestamp_in_millis) {
   // Retrieves a timestamp and returns the number of milliseconds since the midnight
   EpochTimePoint tp(timestamp_in_millis);
   auto tp_at_midnight = tp.ClearTimeOfDay();
