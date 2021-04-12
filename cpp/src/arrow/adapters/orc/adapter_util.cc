@@ -30,6 +30,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/range.h"
+#include "arrow/visitor_inline.h"
 #include "orc/Exceptions.hh"
 #include "orc/MemoryPool.hh"
 #include "orc/OrcFile.hh"
@@ -350,49 +351,6 @@ namespace {
 
 using arrow::internal::checked_cast;
 
-// template <class ValueType, class BatchType>
-// struct NumericAppender {
-//   void VisitNull() {
-//     batch->notNull[orc_offset] = false;
-//     orc_offset++;
-//   }
-//   void VisitValue(ValueType value) {
-//     batch->data[orc_offset] = value;
-//     batch->notNull[orc_offset] = true;
-//     orc_offset++;
-//   }
-//   BatchType* batch;
-//   int orc_offset;
-//   int arrow_offset;
-// };
-
-// template <class ArrowType, class ArrayType, class BatchType, class TargetType>
-// arrow::Status WriteNonNestedBatch(liborc::ColumnVectorBatch* column_vector_batch,
-//                                   int64_t* arrow_offset, int64_t* orc_offset,
-//                                   const int64_t& length, const arrow::Array& array) {
-//   const ArrayType& subtyped_array(checked_cast<const ArrayType&>(array));
-//   auto batch = checked_cast<BatchType*>(column_vector_batch);
-//   int64_t arrow_length = array.length();
-//   if (array.null_count()) {
-//     batch->hasNulls = true;
-//   }
-//   NonNestedAppender appender;
-//   ArrayDataVisitor<ArrowType> visitor;
-//   ASSERT_OK(visitor.Visit(*array->data(), &appender));
-//   for (; *orc_offset < length && *arrow_offset < arrow_length;
-//        (*orc_offset)++, (*arrow_offset)++) {
-//     if (array.IsNull(*arrow_offset)) {
-//       batch->notNull[*orc_offset] = false;
-//     } else {
-//       batch->data[*orc_offset] =
-//           static_cast<TargetType>(numeric_array.Value(*arrow_offset));
-//       batch->notNull[*orc_offset] = true;
-//     }
-//   }
-//   batch->numElements = *orc_offset;
-//   return arrow::Status::OK();
-// }
-
 arrow::Status WriteBatch(const arrow::Array& parray, int64_t orc_offset,
                          liborc::ColumnVectorBatch* column_vector_batch,
                          bool normalized = false);
@@ -401,6 +359,24 @@ arrow::Status WriteBatch(const arrow::Array& parray, int64_t orc_offset,
 std::shared_ptr<arrow::Array> NormalizeArray(const std::shared_ptr<arrow::Array>& array) {
   arrow::Type::type kind = array->type_id();
   switch (kind) {
+    case arrow::Type::type::BOOL:
+    case arrow::Type::type::INT8:
+    case arrow::Type::type::INT16:
+    case arrow::Type::type::INT32:
+    case arrow::Type::type::INT64:
+    case arrow::Type::type::FLOAT:
+    case arrow::Type::type::DOUBLE:
+    case arrow::Type::type::STRING:
+    case arrow::Type::type::LARGE_STRING:
+    case arrow::Type::type::BINARY:
+    case arrow::Type::type::LARGE_BINARY:
+    case arrow::Type::type::FIXED_SIZE_BINARY:
+    case arrow::Type::type::DATE32:
+    case arrow::Type::type::DATE64:
+    case arrow::Type::type::TIMESTAMP:
+    case arrow::Type::type::DECIMAL128: {
+      return array;
+    }
     case arrow::Type::type::STRUCT: {
       if (array->null_count() == 0) {
         return array;
@@ -466,177 +442,278 @@ std::shared_ptr<arrow::Array> NormalizeArray(const std::shared_ptr<arrow::Array>
   }
 }
 
-// incoming_mask is exclusively used by FillStructBatch. The cause is that ORC is much
-// stricter than Arrow in terms of consistency. In this case if a struct scalar is null
-// all its children must be set to null or ORC is not going to function properly. This is
-// why I added incoming_mask to pass on null status from a struct to its children.
-//
+template <class DataType, class BatchType, typename Enable = void>
+struct Appender {};
+
+// Numerical
+template <class DataType, class BatchType>
+struct Appender<DataType, BatchType, arrow::enable_if_number<DataType>> {
+  using ArrayType = typename arrow::TypeTraits<DataType>::ArrayType;
+  using ValueType = typename arrow::TypeTraits<DataType>::CType;
+  arrow::Status VisitNull() {
+    batch->notNull[running_orc_offset] = false;
+    running_orc_offset++;
+    running_arrow_offset++;
+    return arrow::Status::OK();
+  }
+  arrow::Status VisitValue(ValueType v) {
+    batch->data[running_orc_offset] = array.Value(running_arrow_offset);
+    batch->notNull[running_orc_offset] = true;
+    running_orc_offset++;
+    running_arrow_offset++;
+    return arrow::Status::OK();
+  }
+  const ArrayType& array;
+  BatchType* batch;
+  int64_t running_orc_offset, running_arrow_offset;
+};
+
+// Boolean
+template <>
+struct Appender<arrow::BooleanType, liborc::LongVectorBatch> {
+  arrow::Status VisitNull() {
+    batch->notNull[running_orc_offset] = false;
+    running_orc_offset++;
+    running_arrow_offset++;
+    return arrow::Status::OK();
+  }
+  arrow::Status VisitValue(bool v) {
+    batch->data[running_orc_offset] = array.Value(running_arrow_offset);
+    batch->notNull[running_orc_offset] = true;
+    running_orc_offset++;
+    running_arrow_offset++;
+    return arrow::Status::OK();
+  }
+  const arrow::BooleanArray& array;
+  liborc::LongVectorBatch* batch;
+  int64_t running_orc_offset, running_arrow_offset;
+};
+
+// Date32
+template <>
+struct Appender<arrow::Date32Type, liborc::LongVectorBatch> {
+  arrow::Status VisitNull() {
+    batch->notNull[running_orc_offset] = false;
+    running_orc_offset++;
+    running_arrow_offset++;
+    return arrow::Status::OK();
+  }
+  arrow::Status VisitValue(int32_t v) {
+    batch->data[running_orc_offset] = array.Value(running_arrow_offset);
+    batch->notNull[running_orc_offset] = true;
+    running_orc_offset++;
+    running_arrow_offset++;
+    return arrow::Status::OK();
+  }
+  const arrow::Date32Array& array;
+  liborc::LongVectorBatch* batch;
+  int64_t running_orc_offset, running_arrow_offset;
+};
+
+// Date64
+template <>
+struct Appender<arrow::Date64Type, liborc::TimestampVectorBatch> {
+  arrow::Status VisitNull() {
+    batch->notNull[running_orc_offset] = false;
+    running_orc_offset++;
+    running_arrow_offset++;
+    return arrow::Status::OK();
+  }
+  arrow::Status VisitValue(int64_t v) {
+    int64_t data = array.Value(running_arrow_offset);
+    batch->notNull[running_orc_offset] = true;
+    batch->data[running_orc_offset] =
+        static_cast<int64_t>(std::floor(data / kOneSecondMillis));
+    batch->nanoseconds[running_orc_offset] =
+        (data - kOneSecondMillis * batch->data[running_orc_offset]) * kOneMilliNanos;
+    running_orc_offset++;
+    running_arrow_offset++;
+    return arrow::Status::OK();
+  }
+  const arrow::Date64Array& array;
+  liborc::TimestampVectorBatch* batch;
+  int64_t running_orc_offset, running_arrow_offset;
+};
+
+template <class DataType>
+struct Appender<DataType, liborc::StringVectorBatch> {
+  using ArrayType = typename arrow::TypeTraits<DataType>::ArrayType;
+  using ValueType = typename arrow::util::string_view;
+  using COffsetType = typename arrow::TypeTraits<DataType>::OffsetType::c_type;
+  arrow::Status VisitNull() {
+    batch->notNull[running_orc_offset] = false;
+    running_orc_offset++;
+    running_arrow_offset++;
+    return arrow::Status::OK();
+  }
+  arrow::Status VisitValue(ValueType v) {
+    batch->notNull[running_orc_offset] = true;
+    COffsetType data_length = 0;
+    batch->data[running_orc_offset] = reinterpret_cast<char*>(
+        const_cast<uint8_t*>(array.GetValue(running_arrow_offset, &data_length)));
+    batch->length[running_orc_offset] = data_length;
+    running_orc_offset++;
+    running_arrow_offset++;
+    return arrow::Status::OK();
+  }
+  const ArrayType& array;
+  liborc::StringVectorBatch* batch;
+  int64_t running_orc_offset, running_arrow_offset;
+};
+
+// Decimal
+template <>
+struct Appender<arrow::Decimal128Type, liborc::Decimal64VectorBatch> {
+  arrow::Status VisitNull() {
+    batch->notNull[running_orc_offset] = false;
+    running_orc_offset++;
+    running_arrow_offset++;
+    return arrow::Status::OK();
+  }
+  arrow::Status VisitValue(arrow::util::string_view v) {
+    batch->notNull[running_orc_offset] = true;
+    uint8_t* raw_int128 = const_cast<uint8_t*>(array.GetValue(running_arrow_offset));
+    int64_t* lower_bits = reinterpret_cast<int64_t*>(raw_int128);
+    batch->values[running_orc_offset] = *lower_bits;
+    running_orc_offset++;
+    running_arrow_offset++;
+    return arrow::Status::OK();
+  }
+  const arrow::Decimal128Array& array;
+  liborc::Decimal64VectorBatch* batch;
+  int64_t running_orc_offset, running_arrow_offset;
+};
+
+template <>
+struct Appender<arrow::Decimal128Type, liborc::Decimal128VectorBatch> {
+  arrow::Status VisitNull() {
+    batch->notNull[running_orc_offset] = false;
+    running_orc_offset++;
+    running_arrow_offset++;
+    return arrow::Status::OK();
+  }
+  arrow::Status VisitValue(arrow::util::string_view v) {
+    batch->notNull[running_orc_offset] = true;
+    uint8_t* raw_int128 = const_cast<uint8_t*>(array.GetValue(running_arrow_offset));
+    uint64_t* lower_bits = reinterpret_cast<uint64_t*>(raw_int128);
+    int64_t* higher_bits = reinterpret_cast<int64_t*>(raw_int128 + 8);
+    batch->values[running_orc_offset] = liborc::Int128(*higher_bits, *lower_bits);
+    running_orc_offset++;
+    running_arrow_offset++;
+    return arrow::Status::OK();
+  }
+  const arrow::Decimal128Array& array;
+  liborc::Decimal128VectorBatch* batch;
+  int64_t running_orc_offset, running_arrow_offset;
+};
+
+// Timestamp
+struct TimestampAppender {
+  arrow::Status VisitNull() {
+    batch->notNull[running_orc_offset] = false;
+    running_orc_offset++;
+    running_arrow_offset++;
+    return arrow::Status::OK();
+  }
+  arrow::Status VisitValue(int64_t v) {
+    int64_t data = array.Value(running_arrow_offset);
+    batch->notNull[running_orc_offset] = true;
+    batch->data[running_orc_offset] =
+        static_cast<int64_t>(std::floor(data / conversion_factor_from_second));
+    batch->nanoseconds[running_orc_offset] =
+        (data - conversion_factor_from_second * batch->data[running_orc_offset]) *
+        conversion_factor_to_nano;
+    running_orc_offset++;
+    running_arrow_offset++;
+    return arrow::Status::OK();
+  }
+  const arrow::TimestampArray& array;
+  liborc::TimestampVectorBatch* batch;
+  int64_t running_orc_offset, running_arrow_offset;
+  int64_t conversion_factor_from_second, conversion_factor_to_nano;
+};
+
+// FSB
+struct FixedSizeBinaryAppender {
+  arrow::Status VisitNull() {
+    batch->notNull[running_orc_offset] = false;
+    running_orc_offset++;
+    running_arrow_offset++;
+    return arrow::Status::OK();
+  }
+  arrow::Status VisitValue(arrow::util::string_view v) {
+    batch->notNull[running_orc_offset] = true;
+    batch->data[running_orc_offset] = reinterpret_cast<char*>(
+        const_cast<uint8_t*>(array.GetValue(running_arrow_offset)));
+    batch->length[running_orc_offset] = data_length;
+    running_orc_offset++;
+    running_arrow_offset++;
+    return arrow::Status::OK();
+  }
+  const arrow::FixedSizeBinaryArray& array;
+  liborc::StringVectorBatch* batch;
+  int64_t running_orc_offset, running_arrow_offset;
+  const int32_t data_length;
+};
+
 // static_cast from int64_t or double to itself shouldn't introduce overhead
 // Pleae see
 // https://stackoverflow.com/questions/19106826/
 // can-static-cast-to-same-type-introduce-runtime-overhead
-template <class ArrayType, class BatchType, class TargetType>
-arrow::Status WriteNumericBatch(const arrow::Array& array, int64_t orc_offset,
+template <class DataType, class BatchType>
+arrow::Status WriteGenericBatch(const arrow::Array& array, int64_t orc_offset,
                                 liborc::ColumnVectorBatch* column_vector_batch) {
-  const ArrayType& numeric_array(checked_cast<const ArrayType&>(array));
+  using ArrayType = typename arrow::TypeTraits<DataType>::ArrayType;
+  const ArrayType& array_(checked_cast<const ArrayType&>(array));
   auto batch = checked_cast<BatchType*>(column_vector_batch);
-  int64_t arrow_length = array.length();
-  int64_t running_arrow_offset = 0, running_orc_offset = orc_offset;
   if (array.null_count()) {
     batch->hasNulls = true;
   }
-  for (; running_arrow_offset < arrow_length;
-       running_orc_offset++, running_arrow_offset++) {
-    if (array.IsNull(running_arrow_offset)) {
-      batch->notNull[running_orc_offset] = false;
-    } else {
-      batch->data[running_orc_offset] =
-          static_cast<TargetType>(numeric_array.Value(running_arrow_offset));
-      batch->notNull[running_orc_offset] = true;
-    }
-  }
+  Appender<DataType, BatchType> appender{array_, batch, orc_offset, 0};
+  arrow::ArrayDataVisitor<DataType> visitor;
+  RETURN_NOT_OK(visitor.Visit(*(array_.data()), &appender));
   return arrow::Status::OK();
 }
 
-template <class ArrayType>
+template <class DataType>
 arrow::Status WriteTimestampBatch(const arrow::Array& array, int64_t orc_offset,
                                   liborc::ColumnVectorBatch* column_vector_batch,
                                   const int64_t& conversion_factor_from_second,
                                   const int64_t& conversion_factor_to_nano) {
-  const ArrayType& timestamp_array(checked_cast<const ArrayType&>(array));
+  const arrow::TimestampArray& array_(checked_cast<const arrow::TimestampArray&>(array));
   auto batch = checked_cast<liborc::TimestampVectorBatch*>(column_vector_batch);
-  int64_t arrow_length = array.length();
-  int64_t running_arrow_offset = 0, running_orc_offset = orc_offset;
   if (array.null_count()) {
     batch->hasNulls = true;
   }
-  for (; running_arrow_offset < arrow_length;
-       running_orc_offset++, running_arrow_offset++) {
-    if (array.IsNull(running_arrow_offset)) {
-      batch->notNull[running_orc_offset] = false;
-    } else {
-      int64_t data = timestamp_array.Value(running_arrow_offset);
-      batch->notNull[running_orc_offset] = true;
-      batch->data[running_orc_offset] =
-          static_cast<int64_t>(std::floor(data / conversion_factor_from_second));
-      batch->nanoseconds[running_orc_offset] =
-          (data - conversion_factor_from_second * batch->data[running_orc_offset]) *
-          conversion_factor_to_nano;
-    }
-  }
-  return arrow::Status::OK();
-}
-
-template <class ArrayType, class OffsetType>
-arrow::Status WriteBinaryBatch(const arrow::Array& array, int64_t orc_offset,
-                               liborc::ColumnVectorBatch* column_vector_batch) {
-  const ArrayType& binary_array(checked_cast<const ArrayType&>(array));
-  auto batch = checked_cast<liborc::StringVectorBatch*>(column_vector_batch);
-  int64_t arrow_length = array.length();
-  int64_t running_arrow_offset = 0, running_orc_offset = orc_offset;
-  if (array.null_count()) {
-    batch->hasNulls = true;
-  }
-  for (; running_arrow_offset < arrow_length;
-       running_orc_offset++, running_arrow_offset++) {
-    if (array.IsNull(running_arrow_offset)) {
-      batch->notNull[running_orc_offset] = false;
-    } else {
-      batch->notNull[running_orc_offset] = true;
-      OffsetType data_length = 0;
-      batch->data[running_orc_offset] = reinterpret_cast<char*>(const_cast<uint8_t*>(
-          binary_array.GetValue(running_arrow_offset, &data_length)));
-      batch->length[running_orc_offset] = data_length;
-    }
-  }
+  TimestampAppender appender{array_,
+                             batch,
+                             orc_offset,
+                             0,
+                             conversion_factor_from_second,
+                             conversion_factor_to_nano};
+  arrow::ArrayDataVisitor<DataType> visitor;
+  RETURN_NOT_OK(visitor.Visit(*(array_.data()), &appender));
   return arrow::Status::OK();
 }
 
 arrow::Status WriteFixedSizeBinaryBatch(const arrow::Array& array, int64_t orc_offset,
                                         liborc::ColumnVectorBatch* column_vector_batch) {
-  const arrow::FixedSizeBinaryArray& fixed_size_binary_array(
+  const arrow::FixedSizeBinaryArray& array_(
       checked_cast<const arrow::FixedSizeBinaryArray&>(array));
   auto batch = checked_cast<liborc::StringVectorBatch*>(column_vector_batch);
-  int64_t arrow_length = array.length();
-  int64_t running_arrow_offset = 0, running_orc_offset = orc_offset;
-  const int32_t data_length = fixed_size_binary_array.byte_width();
   if (array.null_count()) {
     batch->hasNulls = true;
   }
-  for (; running_arrow_offset < arrow_length;
-       running_orc_offset++, running_arrow_offset++) {
-    if (array.IsNull(running_arrow_offset)) {
-      batch->notNull[running_orc_offset] = false;
-    } else {
-      batch->notNull[running_orc_offset] = true;
-      batch->data[running_orc_offset] = reinterpret_cast<char*>(
-          const_cast<uint8_t*>(fixed_size_binary_array.GetValue(running_arrow_offset)));
-      batch->length[running_orc_offset] = data_length;
-    }
-  }
-  return arrow::Status::OK();
-}
-
-// If Arrow supports 256-bit decimals we can not support it unless ORC does it
-arrow::Status WriteDecimal64Batch(const arrow::Array& array, int64_t orc_offset,
-                                  liborc::ColumnVectorBatch* column_vector_batch) {
-  const arrow::Decimal128Array& decimal128_array(
-      checked_cast<const arrow::Decimal128Array&>(array));
-  auto batch = checked_cast<liborc::Decimal64VectorBatch*>(column_vector_batch);
-  // Arrow uses 128 bits for decimal type and in the future, 256 bits will also be
-  // supported.
-  int64_t arrow_length = array.length();
-  int64_t running_arrow_offset = 0, running_orc_offset = orc_offset;
-  if (array.null_count()) {
-    batch->hasNulls = true;
-  }
-  for (; running_arrow_offset < arrow_length;
-       running_orc_offset++, running_arrow_offset++) {
-    if (array.IsNull(running_arrow_offset)) {
-      batch->notNull[running_orc_offset] = false;
-    } else {
-      batch->notNull[running_orc_offset] = true;
-      uint8_t* raw_int128 =
-          const_cast<uint8_t*>(decimal128_array.GetValue(running_arrow_offset));
-      int64_t* lower_bits = reinterpret_cast<int64_t*>(raw_int128);
-      batch->values[running_orc_offset] = *lower_bits;
-    }
-  }
-  return arrow::Status::OK();
-}
-
-arrow::Status WriteDecimal128Batch(const arrow::Array& array, int64_t orc_offset,
-                                   liborc::ColumnVectorBatch* column_vector_batch) {
-  const arrow::Decimal128Array& decimal128_array(
-      checked_cast<const arrow::Decimal128Array&>(array));
-  auto batch = checked_cast<liborc::Decimal128VectorBatch*>(column_vector_batch);
-  // Arrow uses 128 bits for decimal type and in the future, 256 bits will also be
-  // supported.
-  int64_t arrow_length = array.length();
-  int64_t running_arrow_offset = 0, running_orc_offset = orc_offset;
-  if (array.null_count()) {
-    batch->hasNulls = true;
-  }
-  for (; running_arrow_offset < arrow_length;
-       running_orc_offset++, running_arrow_offset++) {
-    if (array.IsNull(running_arrow_offset)) {
-      batch->notNull[running_orc_offset] = false;
-    } else {
-      batch->notNull[running_orc_offset] = true;
-      uint8_t* raw_int128 =
-          const_cast<uint8_t*>(decimal128_array.GetValue(running_arrow_offset));
-      uint64_t* lower_bits = reinterpret_cast<uint64_t*>(raw_int128);
-      int64_t* higher_bits = reinterpret_cast<int64_t*>(raw_int128 + 8);
-      batch->values[running_orc_offset] = liborc::Int128(*higher_bits, *lower_bits);
-    }
-  }
+  FixedSizeBinaryAppender appender{array_, batch, orc_offset, 0, array_.byte_width()};
+  arrow::ArrayDataVisitor<arrow::FixedSizeBinaryType> visitor;
+  RETURN_NOT_OK(visitor.Visit(*(array_.data()), &appender));
   return arrow::Status::OK();
 }
 
 arrow::Status WriteStructBatch(const arrow::Array& array, int64_t orc_offset,
                                liborc::ColumnVectorBatch* column_vector_batch,
                                bool normalized) {
-  std::shared_ptr<arrow::Array> array_ = NormalizeArray(arrow::MakeArray(array.data()));
+  std::shared_ptr<arrow::Array> array_ = arrow::MakeArray(array.data());
   std::shared_ptr<arrow::StructArray> struct_array(
       std::static_pointer_cast<arrow::StructArray>(array_));
   auto batch = checked_cast<liborc::StructVectorBatch*>(column_vector_batch);
@@ -657,7 +734,7 @@ arrow::Status WriteStructBatch(const arrow::Array& array, int64_t orc_offset,
   }
   // Fill the fields
   for (std::size_t i = 0; i < size; i++) {
-    batch->fields[i]->resize(running_orc_offset);
+    batch->fields[i]->resize(orc_offset + arrow_length);
     RETURN_NOT_OK(
         WriteBatch(*(struct_array->field(i)), orc_offset, batch->fields[i], true));
   }
@@ -752,67 +829,60 @@ arrow::Status WriteBatch(const arrow::Array& array, int64_t orc_offset,
   column_vector_batch->numElements = orc_offset;
   switch (kind) {
     case arrow::Type::type::BOOL:
-      return WriteNumericBatch<arrow::BooleanArray, liborc::LongVectorBatch, int64_t>(
+      return WriteGenericBatch<arrow::BooleanType, liborc::LongVectorBatch>(
           array, orc_offset, column_vector_batch);
     case arrow::Type::type::INT8:
-      return WriteNumericBatch<arrow::NumericArray<arrow::Int8Type>,
-                               liborc::LongVectorBatch, int64_t>(array, orc_offset,
-                                                                 column_vector_batch);
+      return WriteGenericBatch<arrow::Int8Type, liborc::LongVectorBatch>(
+          array, orc_offset, column_vector_batch);
     case arrow::Type::type::INT16:
-      return WriteNumericBatch<arrow::NumericArray<arrow::Int16Type>,
-                               liborc::LongVectorBatch, int64_t>(array, orc_offset,
-                                                                 column_vector_batch);
+      return WriteGenericBatch<arrow::Int16Type, liborc::LongVectorBatch>(
+          array, orc_offset, column_vector_batch);
     case arrow::Type::type::INT32:
-      return WriteNumericBatch<arrow::NumericArray<arrow::Int32Type>,
-                               liborc::LongVectorBatch, int64_t>(array, orc_offset,
-                                                                 column_vector_batch);
+      return WriteGenericBatch<arrow::Int32Type, liborc::LongVectorBatch>(
+          array, orc_offset, column_vector_batch);
     case arrow::Type::type::INT64:
-      return WriteNumericBatch<arrow::NumericArray<arrow::Int64Type>,
-                               liborc::LongVectorBatch, int64_t>(array, orc_offset,
-                                                                 column_vector_batch);
+      return WriteGenericBatch<arrow::Int64Type, liborc::LongVectorBatch>(
+          array, orc_offset, column_vector_batch);
     case arrow::Type::type::FLOAT:
-      return WriteNumericBatch<arrow::NumericArray<arrow::FloatType>,
-                               liborc::DoubleVectorBatch, double>(array, orc_offset,
-                                                                  column_vector_batch);
+      return WriteGenericBatch<arrow::FloatType, liborc::DoubleVectorBatch>(
+          array, orc_offset, column_vector_batch);
     case arrow::Type::type::DOUBLE:
-      return WriteNumericBatch<arrow::NumericArray<arrow::DoubleType>,
-                               liborc::DoubleVectorBatch, double>(array, orc_offset,
-                                                                  column_vector_batch);
+      return WriteGenericBatch<arrow::DoubleType, liborc::DoubleVectorBatch>(
+          array, orc_offset, column_vector_batch);
     case arrow::Type::type::BINARY:
-      return WriteBinaryBatch<arrow::BinaryArray, int32_t>(array, orc_offset,
-                                                           column_vector_batch);
+      return WriteGenericBatch<arrow::BinaryType, liborc::StringVectorBatch>(
+          array, orc_offset, column_vector_batch);
     case arrow::Type::type::LARGE_BINARY:
-      return WriteBinaryBatch<arrow::LargeBinaryArray, int64_t>(array, orc_offset,
-                                                                column_vector_batch);
+      return WriteGenericBatch<arrow::LargeBinaryType, liborc::StringVectorBatch>(
+          array, orc_offset, column_vector_batch);
     case arrow::Type::type::STRING:
-      return WriteBinaryBatch<arrow::StringArray, int32_t>(array, orc_offset,
-                                                           column_vector_batch);
+      return WriteGenericBatch<arrow::StringType, liborc::StringVectorBatch>(
+          array, orc_offset, column_vector_batch);
     case arrow::Type::type::LARGE_STRING:
-      return WriteBinaryBatch<arrow::LargeStringArray, int64_t>(array, orc_offset,
-                                                                column_vector_batch);
+      return WriteGenericBatch<arrow::LargeStringType, liborc::StringVectorBatch>(
+          array, orc_offset, column_vector_batch);
     case arrow::Type::type::FIXED_SIZE_BINARY:
       return WriteFixedSizeBinaryBatch(array, orc_offset, column_vector_batch);
     case arrow::Type::type::DATE32:
-      return WriteNumericBatch<arrow::NumericArray<arrow::Date32Type>,
-                               liborc::LongVectorBatch, int64_t>(array, orc_offset,
-                                                                 column_vector_batch);
+      return WriteGenericBatch<arrow::Date32Type, liborc::LongVectorBatch>(
+          array, orc_offset, column_vector_batch);
     case arrow::Type::type::DATE64:
-      return WriteTimestampBatch<arrow::Date64Array>(
-          array, orc_offset, column_vector_batch, kOneSecondMillis, kOneMilliNanos);
+      return WriteGenericBatch<arrow::Date64Type, liborc::TimestampVectorBatch>(
+          array, orc_offset, column_vector_batch);
     case arrow::Type::type::TIMESTAMP: {
       switch (arrow::internal::checked_pointer_cast<arrow::TimestampType>(array.type())
                   ->unit()) {
         case arrow::TimeUnit::type::SECOND:
-          return WriteTimestampBatch<arrow::TimestampArray>(
+          return WriteTimestampBatch<arrow::TimestampType>(
               array, orc_offset, column_vector_batch, 1, kOneSecondNanos);
         case arrow::TimeUnit::type::MILLI:
-          return WriteTimestampBatch<arrow::TimestampArray>(
+          return WriteTimestampBatch<arrow::TimestampType>(
               array, orc_offset, column_vector_batch, kOneSecondMillis, kOneMilliNanos);
         case arrow::TimeUnit::type::MICRO:
-          return WriteTimestampBatch<arrow::TimestampArray>(
+          return WriteTimestampBatch<arrow::TimestampType>(
               array, orc_offset, column_vector_batch, kOneSecondMicros, kOneMicroNanos);
         case arrow::TimeUnit::type::NANO:
-          return WriteTimestampBatch<arrow::TimestampArray>(
+          return WriteTimestampBatch<arrow::TimestampType>(
               array, orc_offset, column_vector_batch, kOneSecondNanos, 1);
         default:
           return arrow::Status::Invalid("Unknown or unsupported Arrow type: ",
@@ -820,13 +890,14 @@ arrow::Status WriteBatch(const arrow::Array& array, int64_t orc_offset,
       }
     }
     case arrow::Type::type::DECIMAL128: {
-      auto arrow_decimal_type =
-          std::static_pointer_cast<arrow::DecimalType>(array.type());
-      int32_t precision = arrow_decimal_type->precision();
+      int32_t precision =
+          std::static_pointer_cast<arrow::Decimal128Type>(array.type())->precision();
       if (precision > 18) {
-        return WriteDecimal128Batch(array, orc_offset, column_vector_batch);
+        return WriteGenericBatch<arrow::Decimal128Type, liborc::Decimal128VectorBatch>(
+            array, orc_offset, column_vector_batch);
       } else {
-        return WriteDecimal64Batch(array, orc_offset, column_vector_batch);
+        return WriteGenericBatch<arrow::Decimal128Type, liborc::Decimal64VectorBatch>(
+            array, orc_offset, column_vector_batch);
       }
     }
     case arrow::Type::type::STRUCT:
@@ -956,7 +1027,8 @@ Status WriteBatch(liborc::ColumnVectorBatch* column_vector_batch,
   int num_batch = chunked_array.num_chunks();
   int64_t orc_offset = 0;
   while (*arrow_chunk_offset < num_batch && orc_offset < length) {
-    std::shared_ptr<Array> array = chunked_array.chunk(*arrow_chunk_offset);
+    std::shared_ptr<Array> array =
+        NormalizeArray(chunked_array.chunk(*arrow_chunk_offset));
     int64_t num_written_elements =
         std::min(length - orc_offset, array->length() - *arrow_index_offset);
     if (num_written_elements > 0) {

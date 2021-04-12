@@ -508,36 +508,36 @@ class TestORCWriterSingleArray : public ::testing::Test {
 // Nested types
 TEST_F(TestORCWriterSingleArray, WriteStruct) {
   std::vector<std::shared_ptr<Field>> subfields{field("int32", boolean())};
-  int64_t num_rows = 10;
+  int64_t num_rows = 10000;
   int num_subcols = subfields.size();
   ArrayVector av0(num_subcols);
   for (int i = 0; i < num_subcols; i++) {
-    av0[i] = rand.ArrayOf(subfields[i]->type(), num_rows, 0);
+    av0[i] = rand.ArrayOf(subfields[i]->type(), num_rows, 0.4);
   }
-  std::shared_ptr<Buffer> bitmap = rand.NullBitmap(num_rows, 0.2);
+  std::shared_ptr<Buffer> bitmap = rand.NullBitmap(num_rows, 0.5);
   std::shared_ptr<Array> array =
       std::make_shared<StructArray>(struct_(subfields), num_rows, av0, bitmap);
   AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 10);
 }
 TEST_F(TestORCWriterSingleArray, WriteStructOfStruct) {
-  // std::vector<std::shared_ptr<Field>> subsubfields{
-  //     field("bool", boolean()),
-  //     field("int8", int8()),
-  //     field("int16", int16()),
-  //     field("int32", int32()),
-  //     field("int64", int64()),
-  //     field("date32", date32()),
-  //     field("ts3", timestamp(TimeUnit::NANO)),
-  //     field("string", utf8()),
-  //     field("binary", binary())};
-  std::vector<std::shared_ptr<Field>> subsubfields{field("bool", boolean())};
+  std::vector<std::shared_ptr<Field>> subsubfields{
+      field("bool", boolean()),
+      field("int8", int8()),
+      field("int16", int16()),
+      field("int32", int32()),
+      field("int64", int64()),
+      field("date32", date32()),
+      field("ts3", timestamp(TimeUnit::NANO)),
+      field("string", utf8()),
+      field("binary", binary())};
+  // std::vector<std::shared_ptr<Field>> subsubfields{field("bool", boolean())};
   // , field("int8", int8()), field("int16", int16()),
   // field("int32", int32()), field("int64", int64())
   // field("date32", date32()),
   // field("ts3", timestamp(TimeUnit::NANO)),
   // field("string", utf8()),
   // field("binary", binary())
-  int64_t num_rows = 6;
+  int64_t num_rows = 10000;
   int num_subsubcols = subsubfields.size();
   ArrayVector av00(num_subsubcols), av0(1);
   for (int i = 0; i < num_subsubcols; i++) {
