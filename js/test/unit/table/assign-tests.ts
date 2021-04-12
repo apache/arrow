@@ -29,7 +29,7 @@ const partialOverlapWith1 = toSchema(['a', new Int32()], ['b', new Float32()], [
 const schema2             = toSchema(['d', new Int32()], ['e', new Float32()], ['f', new Utf8()]);
 
 describe('Table.assign()', () => {
-    it(`should assign non-overlapping fields`, () => {
+    describe(`should assign non-overlapping fields`, () => {
         const lhs = generate.table([20], schema1);
         const rhs = generate.table([20], schema2);
         const table = lhs.table.assign(rhs.table);
@@ -37,7 +37,7 @@ describe('Table.assign()', () => {
         expect(table.schema.fields.map((f) => f.name)).toEqual(['a', 'b', 'c', 'd', 'e', 'f']);
         validateTable({ ...f([0,1,2], [3,4,5]), table }).run();
     });
-    it(`should assign partially-overlapping fields`, () => {
+    describe(`should assign partially-overlapping fields`, () => {
         const lhs = generate.table([20], schema1);
         const rhs = generate.table([20], partialOverlapWith1);
         const table = lhs.table.assign(rhs.table);
@@ -46,7 +46,7 @@ describe('Table.assign()', () => {
         // eslint-disable-next-line no-sparse-arrays
         validateTable({ ...f([ , , 2], [0,1,3]), table }).run();
     });
-    it(`should assign completely-overlapping fields`, () => {
+    describe(`should assign completely-overlapping fields`, () => {
         const lhs = generate.table([20], schema2);
         const rhs = generate.table([20], schema2);
         const table = lhs.table.assign(rhs.table);
