@@ -104,14 +104,16 @@ Result<std::unique_ptr<KernelState>> CountInit(KernelContext*,
 
 template <typename ArrowType>
 struct SumImplDefault : public SumImpl<ArrowType, SimdLevel::NONE> {
-  explicit SumImplDefault(const ScalarAggregateOptions options) : options(std::move(options)) {}
-  ScalarAggregateOptions options;
+  explicit SumImplDefault(const ScalarAggregateOptions& options_) {
+    this->options = options_;
+  }
 };
 
 template <typename ArrowType>
 struct MeanImplDefault : public MeanImpl<ArrowType, SimdLevel::NONE> {
-  explicit MeanImplDefault(const ScalarAggregateOptions options) : options(std::move(options)) {}
-  ScalarAggregateOptions options;
+  explicit MeanImplDefault(const ScalarAggregateOptions& options_) {
+    this->options = options_;
+  }
 };
 
 Result<std::unique_ptr<KernelState>> SumInit(KernelContext* ctx,
@@ -254,9 +256,6 @@ void AddMinMaxKernels(KernelInit init,
 
 namespace internal {
 namespace {
-
-//using ScalarAggregateState = internal::OptionsWrapper<ScalarAggregateOptions>;
-////const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
 
 const FunctionDoc count_doc{"Count the number of null / non-null values",
                             ("By default, non-null values are counted.\n"

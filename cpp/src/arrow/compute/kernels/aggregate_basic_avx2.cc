@@ -26,14 +26,16 @@ namespace aggregate {
 
 template <typename ArrowType>
 struct SumImplAvx2 : public SumImpl<ArrowType, SimdLevel::AVX2> {
-  explicit SumImplAvx2(const ScalarAggregateOptions options) : options(std::move(options)) {}
-  ScalarAggregateOptions options;
+  explicit SumImplAvx2(const ScalarAggregateOptions& options_) {
+    this->options = options_;
+  }
 };
 
 template <typename ArrowType>
 struct MeanImplAvx2 : public MeanImpl<ArrowType, SimdLevel::AVX2> {
-  explicit MeanImplAvx2(const ScalarAggregateOptions options) : options(std::move(options)) {}
-  ScalarAggregateOptions options;
+  explicit MeanImplAvx2(const ScalarAggregateOptions& options_) {
+    this->options = options_;
+  }
 };
 
 Result<std::unique_ptr<KernelState>> SumInitAvx2(KernelContext* ctx,

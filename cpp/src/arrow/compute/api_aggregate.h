@@ -42,10 +42,10 @@ class ExecContext;
 /// By default, null values are ignored
 struct ARROW_EXPORT ScalarAggregateOptions : public FunctionOptions {
   enum Mode {
-    /// Skip null values.
-    SKIPNA = 0,
     /// Calculate over all values.
-    KEEPNA,
+    KEEPNA = 0,
+    /// Skip null values.
+    SKIPNA,
   };
 
   explicit ScalarAggregateOptions(enum Mode null_handling = SKIPNA,
@@ -55,7 +55,7 @@ struct ARROW_EXPORT ScalarAggregateOptions : public FunctionOptions {
   static ScalarAggregateOptions Defaults() { return ScalarAggregateOptions{}; }
 
   enum Mode null_handling;
-  uint32_t min_count = 0;
+  uint32_t min_count;
 };
 
 /// \addtogroup compute-concrete-options

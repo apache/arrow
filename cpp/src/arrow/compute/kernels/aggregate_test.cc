@@ -171,14 +171,14 @@ TEST(TestBooleanAggregation, Sum) {
                           ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 1));
   ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
                           ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 2));
-    ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(),
-    ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 3));
+  ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(),
+                          ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 3));
   ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
                           ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 1));
   ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
                           ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 2));
-    ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(),
-    ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 3));
+  ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(),
+                          ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 3));
 }
 
 TEST(TestBooleanAggregation, Mean) {
@@ -200,14 +200,14 @@ TEST(TestBooleanAggregation, Mean) {
                            ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 1));
   ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.5),
                            ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 2));
-  //  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(),
-  //  ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 3));
-  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.5),
+  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(),
+                           ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 3));
+  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.25),
                            ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 1));
-  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.5),
+  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.25),
                            ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 2));
-  //  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(),
-  //  ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 3));
+  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(),
+                           ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 3));
 }
 
 template <typename ArrowType>
@@ -262,15 +262,14 @@ TYPED_TEST(TestNumericSumKernel, ScalarAggregateOptions) {
                          ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 3));
   ValidateSum<TypeParam>(json, result,
                          ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 4));
-  //  ValidateSum<TypeParam>(json, null_result,
-  //  ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 5));
-
+  ValidateSum<TypeParam>(json, null_result,
+                         ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 5));
   ValidateSum<TypeParam>(json, result,
                          ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 3));
   ValidateSum<TypeParam>(json, result,
                          ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 4));
-  //  ValidateSum<TypeParam>(json, null_result,
-  //  ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 5));
+  ValidateSum<TypeParam>(json, null_result,
+                         ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 5));
 }
 
 template <typename ArrowType>
@@ -500,8 +499,8 @@ TYPED_TEST(TestMeanKernelNumeric, ScalarAggregateOptions) {
                           ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 3));
   ValidateMean<TypeParam>(json, expected_result_skipna,
                           ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 4));
-  //  ValidateMean<TypeParam>(json, null_result,
-  //  ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 5));
+  ValidateMean<TypeParam>(json, null_result,
+                          ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 5));
 
   ValidateMean<TypeParam>(json, expected_result_keepna,
                           ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 0));
@@ -509,8 +508,8 @@ TYPED_TEST(TestMeanKernelNumeric, ScalarAggregateOptions) {
                           ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 3));
   ValidateMean<TypeParam>(json, expected_result_keepna,
                           ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 4));
-  //  ValidateMean<TypeParam>(json, null_result,
-  //  ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 15));
+  ValidateMean<TypeParam>(json, null_result,
+                          ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 15));
 }
 
 template <typename ArrowType>

@@ -81,17 +81,8 @@ struct SumImpl : public ScalarAggregator {
 
   Status Finalize(KernelContext*, Datum* out) override {
     const auto& state = checked_cast<const SumImpl&>(*ctx->state());
-//    ARROW_LOG(INFO) << "options.min_count: " << options.min_count;
-    ARROW_LOG(INFO) << "SumImpl: options.null_handling: " << options.null_handling << " options.min_count: " << options.min_count;
 
-//    ARROW_LOG(INFO) << "state.options.min_count: " << state.options.min_count;
-//    ARROW_LOG(INFO) << "state.options.null_handling: " << state.options.null_handling;
-
-    if (state.options.min_count != 0 ||  options.min_count != 0) {
-      ARROW_LOG(FATAL) << "state.options.min_count: " << state.options.min_count;
-    }
-
-    if (this->count == 0) {
+    if (this->count == 0 || this->count < options.min_count) {
       out->value = std::make_shared<OutputType>();
     } else {
       out->value = MakeScalar(this->sum);
@@ -110,22 +101,14 @@ struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
   Status Finalize(KernelContext*, Datum* out) override {
     //    const ScalarAggregateOptions& options = checked_cast<const ScalarAggregateState&>(*ctx->state()).options;
     const auto& state = checked_cast<const MeanImpl&>(*ctx->state());
-//    ARROW_LOG(INFO) << "options.min_count: " << options.min_count;
-    ARROW_LOG(INFO) << "SumImpl: options.null_handling: " << options.null_handling << " options.min_count: " << options.min_count;
-
-//    ARROW_LOG(INFO) << "state.options.min_count: " << state.options.min_count;
-//    ARROW_LOG(INFO) << "state.options.null_handling: " << state.options.null_handling;
-    if (state.options.min_count != 0 || options.min_count != 0) {
-      ARROW_LOG(FATAL) << "state.options.min_count: " << state.options.min_count;
-    }
 
     if (this->count == 0 || this->count < options.min_count) {
       out->value = std::make_shared<DoubleScalar>();
-    } else if (options.null_handling == ScalarAggregateOptions::SKIPNA) {
-      const double mean = static_cast<double>(this->sum) / this->count;
+    } else if (options.null_handling == ScalarAggregateOptions::KEEPNA) {
+      const double mean = static_cast<double>(this->sum) / this->length;
       out->value = std::make_shared<DoubleScalar>(mean);
     } else {
-      const double mean = static_cast<double>(this->sum) / this->length;
+      const double mean = static_cast<double>(this->sum) / this->count;
       out->value = std::make_shared<DoubleScalar>(mean);
     }
     return Status::OK();
@@ -138,7 +121,7 @@ struct SumLikeInit {
   std::unique_ptr<KernelState> state;
   KernelContext* ctx;
   const DataType& type;
-  ScalarAggregateOptions options;
+  const ScalarAggregateOptions& options;
 
   SumLikeInit(KernelContext* ctx, const DataType& type,
               const ScalarAggregateOptions& options)
