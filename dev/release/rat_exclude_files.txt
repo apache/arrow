@@ -131,9 +131,6 @@ js/closure-compiler-scripts/*
 js/src/fb/*.ts
 js/yarn.lock
 js/.eslintignore
-js/.eslintrc.js
-js/src/fb/.eslintrc.js
-js/test/.eslintrc.js
 python/cmake_modules
 python/cmake_modules/FindPythonLibsNew.cmake
 python/cmake_modules/SnappyCMakeLists.txt
