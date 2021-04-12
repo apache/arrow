@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+/* eslint-disable jest/no-standalone-expect */
+
 import '../../jest-extensions';
 import { zip } from 'ix/iterable';
 import * as generate from '../../generate-test-data';
