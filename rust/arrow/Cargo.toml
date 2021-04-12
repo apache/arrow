@@ -51,6 +51,7 @@ flatbuffers = "^0.8"
 hex = "0.4"
 prettytable-rs = { version = "0.8.0", optional = true }
 lexical-core = "^0.7"
+multiversion = "0.6.1"
 
 [features]
 default = []
