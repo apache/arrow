@@ -158,7 +158,7 @@ abstract class Row<K extends PropertyKey = any, V = any> implements Map<K, V> {
 }
 
 export class MapRow<K extends DataType = any, V extends DataType = any> extends Row<K['TValue'], V['TValue'] | null> {
-    constructor(slice: Vector<Struct<{ key: K, value: V }>>) {
+    constructor(slice: Vector<Struct<{ key: K; value: V }>>) {
         super(slice, slice.length);
         return createRowProxy(this);
     }

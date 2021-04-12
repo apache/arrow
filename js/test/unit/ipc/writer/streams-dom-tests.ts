@@ -245,7 +245,7 @@ import {
                 expect(streamTable).toEqualTable(sourceTable);
             }
 
-            expect(tables.length).toBe(0);
+            expect(tables).toHaveLength(0);
             expect(stream.locked).toBe(false);
         });
 
@@ -265,7 +265,7 @@ import {
                 expect(streamTable).toEqualTable(sourceTable);
             }
 
-            expect(tables.length).toBe(0);
+            expect(tables).toHaveLength(0);
             expect(stream.locked).toBe(false);
         });
     });

@@ -23,9 +23,9 @@ export const ITERATOR_DONE: any = Object.freeze({ done: true, value: void (0) })
 /** @ignore */
 export type FileHandle = import('fs').promises.FileHandle;
 /** @ignore */
-export type ArrowJSONLike = { schema: any, batches?: any[], dictionaries?: any[] };
+export type ArrowJSONLike = { schema: any; batches?: any[]; dictionaries?: any[] };
 /** @ignore */
-export type ReadableDOMStreamOptions = { type: 'bytes' | undefined, autoAllocateChunkSize?: number, highWaterMark?: number };
+export type ReadableDOMStreamOptions = { type: 'bytes' | undefined; autoAllocateChunkSize?: number; highWaterMark?: number };
 
 /** @ignore */
 export class ArrowJSON {
@@ -72,11 +72,11 @@ export abstract class ReadableInterop<T> {
     public tee(): [ReadableStream<T>, ReadableStream<T>] {
         return this._getDOMStream().tee();
     }
-    public pipe<R extends NodeJS.WritableStream>(writable: R, options?: { end?: boolean; }) {
+    public pipe<R extends NodeJS.WritableStream>(writable: R, options?: { end?: boolean }) {
         return this._getNodeStream().pipe(writable, options);
     }
     public pipeTo(writable: WritableStream<T>, options?: PipeOptions) { return this._getDOMStream().pipeTo(writable, options); }
-    public pipeThrough<R extends ReadableStream<any>>(duplex: { writable: WritableStream<T>, readable: R }, options?: PipeOptions) {
+    public pipeThrough<R extends ReadableStream<any>>(duplex: { writable: WritableStream<T>; readable: R }, options?: PipeOptions) {
         return this._getDOMStream().pipeThrough(duplex, options);
     }
 
@@ -92,14 +92,14 @@ export abstract class ReadableInterop<T> {
 }
 
 /** @ignore */
-type Resolution<T> = { resolve: (value?: T | PromiseLike<T>) => void; reject: (reason?: any) => void; };
+type Resolution<T> = { resolve: (value?: T | PromiseLike<T>) => void; reject: (reason?: any) => void };
 
 /** @ignore */
 export class AsyncQueue<TReadable = Uint8Array, TWritable = TReadable> extends ReadableInterop<TReadable>
     implements AsyncIterableIterator<TReadable>, ReadableWritable<TReadable, TWritable> {
 
     protected _values: TWritable[] = [];
-    protected _error?: { error: any; };
+    protected _error?: { error: any };
     protected _closedPromise: Promise<void>;
     protected _closedPromiseResolve?: (value?: any) => void;
     protected resolvers: Resolution<IteratorResult<TReadable>>[] = [];

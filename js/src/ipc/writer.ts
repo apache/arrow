@@ -61,8 +61,8 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
         // @ts-ignore
         writableStrategy?: QueuingStrategy<RecordBatch<T>> & { autoDestroy: boolean },
         // @ts-ignore
-        readableStrategy?: { highWaterMark?: number, size?: any }
-    ): { writable: WritableStream<Table<T> | RecordBatch<T>>, readable: ReadableStream<Uint8Array> } {
+        readableStrategy?: { highWaterMark?: number; size?: any }
+    ): { writable: WritableStream<Table<T> | RecordBatch<T>>; readable: ReadableStream<Uint8Array> } {
         throw new Error(`"throughDOM" not available in this environment`);
     }
 

@@ -76,7 +76,7 @@ export class Schema<T extends { [key: string]: DataType } = any> {
 
 export class Field<T extends DataType = any> {
 
-    public static new<T extends DataType = any>(props: { name: string | number, type: T, nullable?: boolean, metadata?: Map<string, string> | null }): Field<T>;
+    public static new<T extends DataType = any>(props: { name: string | number; type: T; nullable?: boolean; metadata?: Map<string, string> | null }): Field<T>;
     public static new<T extends DataType = any>(name: string | number | Field<T>, type: T, nullable?: boolean, metadata?: Map<string, string> | null): Field<T>;
     /** @nocollapse */
     public static new<T extends DataType = any>(...args: any[]) {
@@ -105,7 +105,7 @@ export class Field<T extends DataType = any> {
     public get typeId() { return this.type.typeId; }
     public get [Symbol.toStringTag]() { return 'Field'; }
     public toString() { return `${this.name}: ${this.type}`; }
-    public clone<R extends DataType = T>(props: { name?: string | number, type?: R, nullable?: boolean, metadata?: Map<string, string> | null }): Field<R>;
+    public clone<R extends DataType = T>(props: { name?: string | number; type?: R; nullable?: boolean; metadata?: Map<string, string> | null }): Field<R>;
     public clone<R extends DataType = T>(name?: string | number | Field<T>, type?: R, nullable?: boolean, metadata?: Map<string, string> | null): Field<R>;
     public clone<R extends DataType = T>(...args: any[]) {
         let [name, type, nullable, metadata] = args;

@@ -90,9 +90,9 @@ function newVector<T extends DataType>(data: Data<T>, ...args: VectorCtorArgs<V<
 }
 
 /** @ignore */
-export interface VectorBuilderOptions<T extends DataType, TNull = any> extends IterableBuilderOptions<T, TNull> { values: Iterable<T['TValue'] | TNull>; }
+export interface VectorBuilderOptions<T extends DataType, TNull = any> extends IterableBuilderOptions<T, TNull> { values: Iterable<T['TValue'] | TNull> }
 /** @ignore */
-export interface VectorBuilderOptionsAsync<T extends DataType, TNull = any> extends IterableBuilderOptions<T, TNull> { values: AsyncIterable<T['TValue'] | TNull>; }
+export interface VectorBuilderOptionsAsync<T extends DataType, TNull = any> extends IterableBuilderOptions<T, TNull> { values: AsyncIterable<T['TValue'] | TNull> }
 
 /** @ignore */
 export function vectorFromValuesWithType<T extends DataType, TNull = any>(newDataType: () => T, input: Iterable<T['TValue'] | TNull> | AsyncIterable<T['TValue'] | TNull> | VectorBuilderOptions<T, TNull> | VectorBuilderOptionsAsync<T, TNull>) {

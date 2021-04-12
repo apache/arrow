@@ -24,7 +24,7 @@ import { RecordBatchWriter } from '../../ipc/writer';
 export function recordBatchWriterThroughDOMStream<T extends { [key: string]: DataType } = any>(
     this: typeof RecordBatchWriter,
     writableStrategy?: QueuingStrategy<RecordBatch<T>> & { autoDestroy: boolean },
-    readableStrategy?: { highWaterMark?: number, size?: any }
+    readableStrategy?: { highWaterMark?: number; size?: any }
 ) {
 
     const writer = new this<T>(writableStrategy);

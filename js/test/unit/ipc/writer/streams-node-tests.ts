@@ -245,7 +245,7 @@ import {
                 expect(streamTable).toEqualTable(sourceTable);
             }
 
-            expect(tables.length).toBe(0);
+            expect(tables).toHaveLength(0);
             expect(writer.readable).toBe(false);
             expect((writer as any).destroyed).toBe(true);
         });
@@ -267,7 +267,7 @@ import {
                 expect(streamTable).toEqualTable(sourceTable);
             }
 
-            expect(tables.length).toBe(0);
+            expect(tables).toHaveLength(0);
             expect(writer.readable).toBe(false);
             expect((writer as any).destroyed).toBe(true);
         });

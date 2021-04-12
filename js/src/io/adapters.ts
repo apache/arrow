@@ -25,9 +25,9 @@ import {
 
 import { ReadableDOMStreamOptions } from './interfaces';
 
-interface ReadableStreamReadResult<T> { done: boolean, value: T }
-type Uint8ArrayGenerator = Generator<Uint8Array, null, { cmd: 'peek' | 'read', size: number }>;
-type AsyncUint8ArrayGenerator = AsyncGenerator<Uint8Array, null, { cmd: 'peek' | 'read', size: number }>;
+interface ReadableStreamReadResult<T> { done: boolean; value: T }
+type Uint8ArrayGenerator = Generator<Uint8Array, null, { cmd: 'peek' | 'read'; size: number }>;
+type AsyncUint8ArrayGenerator = AsyncGenerator<Uint8Array, null, { cmd: 'peek' | 'read'; size: number }>;
 
 /** @ignore */
 export default {

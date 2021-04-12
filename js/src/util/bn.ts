@@ -84,9 +84,9 @@ function bignumToNumber<T extends BN<BigNumArray>>(bn: T) {
 }
 
 /** @ignore */
-export let bignumToString: { <T extends BN<BigNumArray>>(a: T): string; };
+export let bignumToString: { <T extends BN<BigNumArray>>(a: T): string };
 /** @ignore */
-export let bignumToBigInt: { <T extends BN<BigNumArray>>(a: T): bigint; };
+export let bignumToBigInt: { <T extends BN<BigNumArray>>(a: T): bigint };
 
 if (!BigIntAvailable) {
     bignumToString = decimalToString;
