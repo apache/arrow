@@ -38,7 +38,7 @@ jobs:
           export CC="gcc-4.9" CXX="g++-4.9"
           ulimit -c unlimited -S
           set -e
-          docker run -v $PWD:/arrow quay.io/projjal/arrow:gandivadocker /arrow/dev/tasks/gandiva-jars/build-cpp-linux.sh
+          docker run -v $PWD:/arrow quay.io/anthonylouisbsb/arrow:gandivadocker /arrow/dev/tasks/gandiva-jars/build-cpp-linux.sh
           dev/tasks/gandiva-jars/build-java.sh
         env:
           OS_NAME: "linux"
