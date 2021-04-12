@@ -435,7 +435,7 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
                 src, root, rev_or_path, conf)
 
         elif language == "java":
-            for key in { 'cpp_package_prefix', 'cxx_flags', 'cxx', 'cc'}:
+            for key in {'cpp_package_prefix', 'cxx_flags', 'cxx', 'cc'}:
                 del kwargs[key]
             conf = JavaBenchmarkRunner.default_configuration(
                 java_home=java_home, java_options=java_options,
@@ -509,7 +509,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
                 suite_filter=suite_filter, benchmark_filter=benchmark_filter)
 
         elif language == "java":
-            for key in { 'cpp_package_prefix', 'cxx_flags', 'cxx', 'cc'}:
+            for key in {'cpp_package_prefix', 'cxx_flags', 'cxx', 'cc'}:
                 del kwargs[key]
             conf = JavaBenchmarkRunner.default_configuration(
                 java_home=java_home, java_options=java_options,
@@ -637,7 +637,7 @@ def benchmark_diff(ctx, src, preserve, output, language, cmake_extras,
                 benchmark_filter=benchmark_filter)
 
         elif language == "java":
-            for key in { 'cpp_package_prefix', 'cxx_flags', 'cxx', 'cc'}:
+            for key in {'cpp_package_prefix', 'cxx_flags', 'cxx', 'cc'}:
                 del kwargs[key]
             conf = JavaBenchmarkRunner.default_configuration(
                 java_home=java_home, java_options=java_options,

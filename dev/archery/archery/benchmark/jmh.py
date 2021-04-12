@@ -54,6 +54,7 @@ class JavaMicrobenchmarkHarnessCommand(Command):
       ...
       [INFO]
     """
+
     def list_benchmarks(self):
         argv = []
         if self.benchmark_filter:
@@ -110,7 +111,8 @@ class JavaMicrobenchmarkHarnessObservation:
             "measurementTime": counters["measurementTime"],
             "jvmArgs": counters["jvmArgs"]
         }
-        self.reciprocal_value = True if self.score_unit.endswith("/op") else False
+        self.reciprocal_value = True if self.score_unit.endswith(
+            "/op") else False
         if self.score_unit.startswith("ops/"):
             idx = self.score_unit.find("/")
             self.normalizePerSec(self.score_unit[idx+1:])

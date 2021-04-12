@@ -44,7 +44,8 @@ class JavaConfiguration:
         self.java_options = java_options
 
         self.build_extras = list(build_extras) if build_extras else []
-        self.benchmark_extras = list(benchmark_extras) if benchmark_extras else []
+        self.benchmark_extras = list(
+            benchmark_extras) if benchmark_extras else []
 
     @property
     def build_definitions(self):
