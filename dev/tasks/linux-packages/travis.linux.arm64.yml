@@ -131,7 +131,7 @@ script:
        echo "Name-Real: Test"; \
        echo "Name-Email: test@example.com"; \
        echo "%no-protection") | \
-        gpg --full-generate-key --batch
+       gpg --full-generate-key --batch
   - |
       GPG_KEY_ID=$(gpg --list-keys --with-colon test@example.com | grep fpr | cut -d: -f10)
   - gpg --export --armor test@example.com > arrow/dev/tasks/linux-packages/KEYS
@@ -144,5 +144,4 @@ script:
   - popd
 
 after_success:
-  {% set patterns = upload_extensions | format_all("arrow/python/repaired_wheels/*.whl") %}
-  {{ macros.github_upload_releases(patterns) }}
+  {{ macros.travis_upload_releases(upload_extensions) }}
