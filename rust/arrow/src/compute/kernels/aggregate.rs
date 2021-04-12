@@ -104,7 +104,6 @@ pub fn min_string<T: StringOffsetSizeTrait>(
 }
 
 /// Helper function to perform min/max lambda function on values from a numeric array.
-
 #[multiversion]
 #[clone(target = "x86_64+avx")]
 fn min_max_helper<T, F>(array: &PrimitiveArray<T>, cmp: F) -> Option<T::Native>
