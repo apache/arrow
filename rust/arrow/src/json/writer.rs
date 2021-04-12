@@ -402,6 +402,46 @@ fn set_column_for_json_rows(
                 value_as_time
             );
         }
+        DataType::Duration(TimeUnit::Second) => {
+            set_temporal_column_by_array_type!(
+                DurationSecondArray,
+                col_name,
+                rows,
+                array,
+                row_count,
+                value_as_duration
+            );
+        }
+        DataType::Duration(TimeUnit::Millisecond) => {
+            set_temporal_column_by_array_type!(
+                DurationMillisecondArray,
+                col_name,
+                rows,
+                array,
+                row_count,
+                value_as_duration
+            );
+        }
+        DataType::Duration(TimeUnit::Microsecond) => {
+            set_temporal_column_by_array_type!(
+                DurationMicrosecondArray,
+                col_name,
+                rows,
+                array,
+                row_count,
+                value_as_duration
+            );
+        }
+        DataType::Duration(TimeUnit::Nanosecond) => {
+            set_temporal_column_by_array_type!(
+                DurationNanosecondArray,
+                col_name,
+                rows,
+                array,
+                row_count,
+                value_as_duration
+            );
+        }
         DataType::Struct(_) => {
             let inner_objs =
                 struct_array_to_jsonmap_array(as_struct_array(array), row_count);
@@ -809,6 +849,49 @@ mod tests {
         assert_eq!(
             String::from_utf8(buf).unwrap(),
             r#"{"time32sec":"00:02:00","time32msec":"00:00:00.120","time64usec":"00:00:00.000120","time64nsec":"00:00:00.000000120","name":"a"}
+{"name":"b"}
+"#
+        );
+    }
+
+    #[test]
+    fn write_durations() {
+        let arr_durationsec = DurationSecondArray::from(vec![Some(120), None]);
+        let arr_durationmsec = DurationMillisecondArray::from(vec![Some(120), None]);
+        let arr_durationusec = DurationMicrosecondArray::from(vec![Some(120), None]);
+        let arr_durationnsec = DurationNanosecondArray::from(vec![Some(120), None]);
+        let arr_names = StringArray::from(vec![Some("a"), Some("b")]);
+
+        let schema = Schema::new(vec![
+            Field::new("duration_sec", arr_durationsec.data_type().clone(), false),
+            Field::new("duration_msec", arr_durationmsec.data_type().clone(), false),
+            Field::new("duration_usec", arr_durationusec.data_type().clone(), false),
+            Field::new("duration_nsec", arr_durationnsec.data_type().clone(), false),
+            Field::new("name", arr_names.data_type().clone(), false),
+        ]);
+        let schema = Arc::new(schema);
+
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(arr_durationsec),
+                Arc::new(arr_durationmsec),
+                Arc::new(arr_durationusec),
+                Arc::new(arr_durationnsec),
+                Arc::new(arr_names),
+            ],
+        )
+        .unwrap();
+
+        let mut buf = Vec::new();
+        {
+            let mut writer = LineDelimitedWriter::new(&mut buf);
+            writer.write_batches(&[batch]).unwrap();
+        }
+
+        assert_eq!(
+            String::from_utf8(buf).unwrap(),
+            r#"{"duration_sec":"PT120S","duration_msec":"PT0.120S","duration_usec":"PT0.000120S","duration_nsec":"PT0.000000120S","name":"a"}
 {"name":"b"}
 "#
         );
