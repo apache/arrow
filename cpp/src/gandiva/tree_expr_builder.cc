@@ -105,6 +105,8 @@ NodePtr TreeExprBuilder::MakeNull(DataTypePtr data_type) {
       DecimalScalar128 literal(decimal_type->precision(), decimal_type->scale());
       return std::make_shared<LiteralNode>(data_type, LiteralHolder(literal), true);
     }
+    case arrow::Type::NA:
+      return std::make_shared<NullLiteralNode>();
     default:
       return nullptr;
   }

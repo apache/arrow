@@ -32,6 +32,12 @@ class ExportedFuncsBase {
   virtual void AddMappings(Engine* engine) const = 0;
 };
 
+// Class for exporting Null functions
+class ExportedNullFunctions : public ExportedFuncsBase {
+  void AddMappings(Engine* engine) const override;
+};
+REGISTER_EXPORTED_FUNCS(ExportedNullFunctions);
+
 // Class for exporting Stub functions
 class ExportedStubFunctions : public ExportedFuncsBase {
   void AddMappings(Engine* engine) const override;

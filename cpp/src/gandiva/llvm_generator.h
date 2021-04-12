@@ -100,6 +100,7 @@ class GANDIVA_EXPORT LLVMGenerator {
     void Visit(const TrueDex& dex) override;
     void Visit(const FalseDex& dex) override;
     void Visit(const LiteralDex& dex) override;
+    void Visit(const NullLiteralDex& dex) override;
     void Visit(const NonNullableFuncDex& dex) override;
     void Visit(const NullableNeverFuncDex& dex) override;
     void Visit(const NullableInternalFuncDex& dex) override;

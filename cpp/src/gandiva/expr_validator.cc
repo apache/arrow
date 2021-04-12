@@ -42,11 +42,14 @@ Status ExprValidator::Validate(const ExpressionPtr& expr) {
 }
 
 Status ExprValidator::Visit(const FieldNode& node) {
-  auto llvm_type = types_->IRType(node.return_type()->id());
-  ARROW_RETURN_IF(llvm_type == nullptr,
-                  Status::ExpressionValidationError("Field ", node.field()->name(),
-                                                    " has unsupported data type ",
-                                                    node.return_type()->name()));
+  auto return_type = node.return_type();
+  if (return_type->id() != arrow::Type::NA) {
+    auto llvm_type = types_->DataVecType(node.return_type());
+    ARROW_RETURN_IF(llvm_type == nullptr,
+                    Status::ExpressionValidationError("Field ", node.field()->name(),
+                                                      " has unsupported data type ",
+                                                      node.return_type()->name()));
+  }
 
   // Ensure that field is found in schema
   auto field_in_schema_entry = field_map_.find(node.field()->name());
@@ -115,6 +118,15 @@ Status ExprValidator::Visit(const LiteralNode& node) {
   ARROW_RETURN_IF(llvm_type == nullptr,
                   Status::ExpressionValidationError("Value ", ToString(node.holder()),
                                                     " has unsupported data type ",
+                                                    node.return_type()->name()));
+
+  return Status::OK();
+}
+
+Status ExprValidator::Visit(const NullLiteralNode& node) {
+  auto llvm_type = types_->DataVecType(node.return_type());
+  ARROW_RETURN_IF(llvm_type != nullptr,
+                  Status::ExpressionValidationError("Should be data type ",
                                                     node.return_type()->name()));
 
   return Status::OK();
