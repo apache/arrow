@@ -146,7 +146,7 @@ async function createTestData() {
             { maxBuffer: Math.pow(2, 53) - 1 }
         );
     }
-    
+
     async function generateCPPStream(filePath, streamPath) {
         await del(streamPath);
         return await exec(
@@ -154,7 +154,7 @@ async function createTestData() {
             { maxBuffer: Math.pow(2, 53) - 1 }
         );
     }
-    
+
     async function generateJavaFile(jsonPath, filePath) {
         await del(filePath);
         return await exec(
@@ -164,7 +164,7 @@ async function createTestData() {
             { maxBuffer: Math.pow(2, 53) - 1 }
         );
     }
-    
+
     async function generateJavaStream(filePath, streamPath) {
         await del(streamPath);
         return await exec(

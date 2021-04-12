@@ -55,7 +55,7 @@ const createMainPackageJson = (target, format) => (orig) => ({
     sideEffects: false,
     esm: { mode: `all`, sourceMap: true },
 });
-  
+
 const createTypeScriptPackageJson = (target, format) => (orig) => ({
     ...createScopedPackageJSON(target, format)(orig),
     bin: undefined,
@@ -69,7 +69,7 @@ const createTypeScriptPackageJson = (target, format) => (orig) => ({
         ...orig.dependencies
     }
 });
-  
+
 const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
     packageJSONFields.reduce(
         (xs, key) => ({ ...xs, [key]: xs[key] || orig[key] }),
