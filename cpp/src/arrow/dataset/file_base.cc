@@ -470,12 +470,7 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   // NB: neither of these will have any impact whatsoever on the common case of writing
   //     an in-memory table to disk.
   ARROW_ASSIGN_OR_RAISE(auto scan_task_it, scanner->Scan());
-  ScanTaskVector scan_tasks;
-
-  for (const auto& maybe_scan_task : scan_task_it) {
-    ARROW_ASSIGN_OR_RAISE(auto scan_task, maybe_scan_task);
-    scan_tasks.push_back(scan_task);
-  }
+  ARROW_ASSIGN_OR_RAISE(ScanTaskVector scan_tasks, scan_task_it.ToVector());
 
   WriteState state(write_options);
   auto res = internal::RunSynchronously<arrow::detail::Empty>(
