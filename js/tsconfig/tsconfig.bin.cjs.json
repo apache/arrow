@@ -1,4 +1,4 @@
-//Compiler configuration to build the ES5 CommonJS bin files
+// Compiler configuration to build the ES5 CommonJS bin files
 {
     "extends": "./tsconfig.base.json",
     "exclude": ["../node_modules"],

@@ -288,8 +288,8 @@ compute__GroupBy <- function(arguments, keys, options){
     .Call(`_arrow_compute__GroupBy`, arguments, keys, options)
 }
 
-list_compute_functions <- function(){
-    .Call(`_arrow_list_compute_functions`)
+compute__GetFunctionNames <- function(){
+    .Call(`_arrow_compute__GetFunctionNames`)
 }
 
 csv___ReadOptions__initialize <- function(options){
@@ -386,6 +386,10 @@ dataset___DatasetFactory__Inspect <- function(factory, unify_schemas){
 
 dataset___UnionDatasetFactory__Make <- function(children){
     .Call(`_arrow_dataset___UnionDatasetFactory__Make`, children)
+}
+
+dataset___FileSystemDatasetFactory__Make0 <- function(fs, paths, format){
+    .Call(`_arrow_dataset___FileSystemDatasetFactory__Make0`, fs, paths, format)
 }
 
 dataset___FileSystemDatasetFactory__Make2 <- function(fs, selector, format, partitioning){
@@ -780,8 +784,8 @@ ipc___feather___Reader__Open <- function(stream){
     .Call(`_arrow_ipc___feather___Reader__Open`, stream)
 }
 
-ipc___feather___Reader__column_names <- function(reader){
-    .Call(`_arrow_ipc___feather___Reader__column_names`, reader)
+ipc___feather___Reader__schema <- function(reader){
+    .Call(`_arrow_ipc___feather___Reader__schema`, reader)
 }
 
 Field__initialize <- function(name, field, nullable){
@@ -1498,6 +1502,18 @@ Schema__num_fields <- function(s){
 
 Schema__field <- function(s, i){
     .Call(`_arrow_Schema__field`, s, i)
+}
+
+Schema__AddField <- function(s, i, field){
+    .Call(`_arrow_Schema__AddField`, s, i, field)
+}
+
+Schema__SetField <- function(s, i, field){
+    .Call(`_arrow_Schema__SetField`, s, i, field)
+}
+
+Schema__RemoveField <- function(s, i){
+    .Call(`_arrow_Schema__RemoveField`, s, i)
 }
 
 Schema__GetFieldByName <- function(s, x){

@@ -487,6 +487,23 @@ def test_expression_boolean_operators():
         not true
 
 
+def test_expression_arithmetic_operators():
+    dataset = ds.dataset(pa.table({'a': [1, 2, 3], 'b': [2, 2, 2]}))
+    a = ds.field("a")
+    b = ds.field("b")
+    result = dataset.to_table(columns={
+        "a+1": a + 1,
+        "b-a": b - a,
+        "a*2": a * 2,
+        "a/b": a.cast("float64") / b,
+    })
+    expected = pa.table({
+        "a+1": [2, 3, 4], "b-a": [1, 0, -1],
+        "a*2": [2, 4, 6], "a/b": [0.5, 1.0, 1.5],
+    })
+    assert result.equals(expected)
+
+
 def test_partition_keys():
     a, b, c = [ds.field(f) == f for f in 'abc']
     assert ds._get_partition_keys(a) == {'a': 'a'}
@@ -1622,13 +1639,16 @@ def test_construct_from_invalid_sources_raise(multisourcefs):
         fs.FileSelector('/schema'),
         format=ds.ParquetFileFormat()
     )
+    batch1 = pa.RecordBatch.from_arrays([pa.array(range(10))], names=["a"])
+    batch2 = pa.RecordBatch.from_arrays([pa.array(range(10))], names=["b"])
 
     with pytest.raises(TypeError, match='Expected.*FileSystemDatasetFactory'):
         ds.dataset([child1, child2])
 
     expected = (
-        "Expected a list of path-like or dataset objects. The given list "
-        "contains the following types: int"
+        "Expected a list of path-like or dataset objects, or a list "
+        "of batches or tables. The given list contains the following "
+        "types: int"
     )
     with pytest.raises(TypeError, match=expected):
         ds.dataset([1, 2, 3])
@@ -1639,6 +1659,85 @@ def test_construct_from_invalid_sources_raise(multisourcefs):
     )
     with pytest.raises(TypeError, match=expected):
         ds.dataset(None)
+
+    expected = (
+        "Must provide schema to construct in-memory dataset from an iterable"
+    )
+    with pytest.raises(ValueError, match=expected):
+        ds.dataset((batch1 for _ in range(3)))
+
+    expected = (
+        "Must provide schema to construct in-memory dataset from an empty list"
+    )
+    with pytest.raises(ValueError, match=expected):
+        ds.InMemoryDataset([])
+
+    expected = (
+        "Item has schema\nb: int64\nwhich does not match expected schema\n"
+        "a: int64"
+    )
+    with pytest.raises(TypeError, match=expected):
+        ds.dataset([batch1, batch2])
+
+    expected = (
+        "Expected a list of path-like or dataset objects, or a list of "
+        "batches or tables. The given list contains the following types:"
+    )
+    with pytest.raises(TypeError, match=expected):
+        ds.dataset([batch1, 0])
+
+    expected = (
+        "Expected a list of tables or batches. The given list contains a int"
+    )
+    with pytest.raises(TypeError, match=expected):
+        ds.InMemoryDataset([batch1, 0])
+
+
+def test_construct_in_memory():
+    batch = pa.RecordBatch.from_arrays([pa.array(range(10))], names=["a"])
+    table = pa.Table.from_batches([batch])
+    reader = pa.ipc.RecordBatchReader.from_batches(batch.schema, [batch])
+    iterable = (batch for _ in range(1))
+
+    for source in (batch, table, reader, [batch], [table]):
+        dataset = ds.dataset(source)
+        assert dataset.to_table() == table
+
+    assert ds.dataset(iterable, schema=batch.schema).to_table().equals(table)
+    assert ds.dataset([], schema=pa.schema([])).to_table() == pa.table([])
+
+    # When constructed from batches/tables, should be reusable
+    for source in (batch, table, [batch], [table]):
+        dataset = ds.dataset(source)
+        assert len(list(dataset.get_fragments())) == 1
+        assert len(list(dataset.get_fragments())) == 1
+        assert dataset.to_table() == table
+        assert dataset.to_table() == table
+        assert next(dataset.get_fragments()).to_table() == table
+
+    # When constructed from readers/iterators, should be one-shot
+    match = "InMemoryDataset was already consumed"
+    for factory in (
+            lambda: pa.ipc.RecordBatchReader.from_batches(
+                batch.schema, [batch]),
+            lambda: (batch for _ in range(1)),
+    ):
+        dataset = ds.dataset(factory(), schema=batch.schema)
+        # Getting fragments consumes the underlying iterator
+        fragments = list(dataset.get_fragments())
+        assert len(fragments) == 1
+        assert fragments[0].to_table() == table
+        with pytest.raises(pa.ArrowInvalid, match=match):
+            list(dataset.get_fragments())
+        with pytest.raises(pa.ArrowInvalid, match=match):
+            dataset.to_table()
+        # Materializing consumes the underlying iterator
+        dataset = ds.dataset(factory(), schema=batch.schema)
+        assert dataset.to_table() == table
+        with pytest.raises(pa.ArrowInvalid, match=match):
+            list(dataset.get_fragments())
+        with pytest.raises(pa.ArrowInvalid, match=match):
+            dataset.to_table()
 
 
 @pytest.mark.parquet
@@ -2854,6 +2953,28 @@ def test_write_table_multiple_fragments(tempdir):
     assert ds.dataset(base_dir, format="ipc").to_table().equals(
         pa.concat_tables([table]*2)
     )
+
+
+def test_write_iterable(tempdir):
+    table = pa.table([
+        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(np.repeat(['a', 'b'], 10))
+    ], names=["f1", "f2", "part"])
+
+    base_dir = tempdir / 'inmemory_iterable'
+    ds.write_dataset((batch for batch in table.to_batches()), base_dir,
+                     schema=table.schema,
+                     basename_template='dat_{i}.arrow', format="feather")
+    result = ds.dataset(base_dir, format="ipc").to_table()
+    assert result.equals(table)
+
+    base_dir = tempdir / 'inmemory_reader'
+    reader = pa.ipc.RecordBatchReader.from_batches(table.schema,
+                                                   table.to_batches())
+    ds.write_dataset(reader, base_dir,
+                     basename_template='dat_{i}.arrow', format="feather")
+    result = ds.dataset(base_dir, format="ipc").to_table()
+    assert result.equals(table)
 
 
 def test_write_table_partitioned_dict(tempdir):

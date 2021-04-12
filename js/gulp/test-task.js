@@ -18,10 +18,10 @@
 const del = require('del');
 const path = require('path');
 const mkdirp = require('mkdirp');
+const cpy = require('cpy');
 const { argv } = require('./argv');
 const { promisify } = require('util');
 const glob = promisify(require('glob'));
-const rimraf = promisify(require('rimraf'));
 const child_process = require(`child_process`);
 const { memoizeTask } = require('./memoize-task');
 const readFile = promisify(require('fs').readFile);
@@ -93,7 +93,7 @@ async function cleanTestData() {
 
 async function createTestJSON() {
     await mkdirp(jsonFilesDir);
-    await exec(`shx cp ${ARROW_INTEGRATION_DIR}/data/*.json ${jsonFilesDir}`);
+    await cpy(`cp ${ARROW_INTEGRATION_DIR}/data/*.json`, jsonFilesDir);
     await exec(`python3 ${ARROW_INTEGRATION_DIR}/integration_test.py --write_generated_json ${jsonFilesDir}`);
 }
 
@@ -138,7 +138,7 @@ async function createTestData() {
     }
 
     async function generateCPPFile(jsonPath, filePath) {
-        await rimraf(filePath);
+        await del(filePath);
         return await exec(
             `${CPP_JSON_TO_ARROW} ${
             `--integration --mode=JSON_TO_ARROW`} ${
@@ -148,7 +148,7 @@ async function createTestData() {
     }
     
     async function generateCPPStream(filePath, streamPath) {
-        await rimraf(streamPath);
+        await del(streamPath);
         return await exec(
             `${CPP_FILE_TO_STREAM} ${filePath} > ${streamPath}`,
             { maxBuffer: Math.pow(2, 53) - 1 }
@@ -156,7 +156,7 @@ async function createTestData() {
     }
     
     async function generateJavaFile(jsonPath, filePath) {
-        await rimraf(filePath);
+        await del(filePath);
         return await exec(
             `java -cp ${JAVA_TOOLS_JAR} ${
             `org.apache.arrow.tools.Integration -c JSON_TO_ARROW`} ${
@@ -166,7 +166,7 @@ async function createTestData() {
     }
     
     async function generateJavaStream(filePath, streamPath) {
-        await rimraf(streamPath);
+        await del(streamPath);
         return await exec(
             `java -cp ${JAVA_TOOLS_JAR} ${
             `org.apache.arrow.tools.FileToStream`} ${filePath} ${streamPath}`,

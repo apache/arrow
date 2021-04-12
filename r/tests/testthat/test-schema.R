@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("Schema")
 
 test_that("Alternate type names are supported", {
   expect_equal(
@@ -48,6 +47,11 @@ test_that("Schema $GetFieldByName", {
 })
 
 test_that("Schema extract (returns Field)", {
+  # TODO: should this return a Field or the Type?
+  # I think of Schema like list(name = type, name = type, ...)
+  # but in practice it is more like list(list(name, type), list(name, type), ...)
+  # -> Field names in a Schema may be duplicated
+  # -> Fields may have metadata (though we don't really handle that in R)
   schm <- schema(b = double(), c = string())
   expect_equal(schm$b, field("b", double()))
   expect_equal(schm[["b"]], field("b", double()))
@@ -65,7 +69,51 @@ test_that("Schema slicing", {
   expect_equal(schm[c(FALSE, TRUE, TRUE)], schema(c = string(), d = int8()))
   expect_error(schm[c("c", "ZZZ")], 'Invalid field name: "ZZZ"')
   expect_error(schm[c("XXX", "c", "ZZZ")], 'Invalid field names: "XXX" and "ZZZ"')
+})
 
+test_that("Schema modification", {
+  schm <- schema(b = double(), c = string(), d = int8())
+  schm$c <- boolean()
+  expect_equal(schm, schema(b = double(), c = boolean(), d = int8()))
+  schm[["d"]] <- int16()
+  expect_equal(schm, schema(b = double(), c = boolean(), d = int16()))
+  schm$b <- NULL
+  expect_equal(schm, schema(c = boolean(), d = int16()))
+  # NULL assigning something that doesn't exist doesn't modify
+  schm$zzzz <- NULL
+  expect_equal(schm, schema(c = boolean(), d = int16()))
+  # Adding a field
+  schm$fff <- int32()
+  expect_equal(schm, schema(c = boolean(), d = int16(), fff = int32()))
+
+  # By index
+  schm <- schema(b = double(), c = string(), d = int8())
+  schm[[2]] <- int32()
+  expect_equal(schm, schema(b = double(), c = int32(), d = int8()))
+
+  # Adding actual Fields
+  # If assigning by name, note that this can modify the resulting name
+  schm <- schema(b = double(), c = string(), d = int8())
+  schm$c <- field("x", int32())
+  expect_equal(schm, schema(b = double(), x = int32(), d = int8()))
+  schm[[2]] <- field("y", int64())
+  expect_equal(schm, schema(b = double(), y = int64(), d = int8()))
+
+  # Error handling
+  expect_error(schm$c <- 4, "value must be a DataType")
+  expect_error(schm[[-3]] <- int32(), "i not greater than 0")
+  expect_error(schm[[0]] <- int32(), "i not greater than 0")
+  expect_error(schm[[NA_integer_]] <- int32(), "!is.na(i) is not TRUE", fixed = TRUE)
+  expect_error(schm[[TRUE]] <- int32(), "i is not a numeric or integer vector")
+  expect_error(schm[[c(2, 4)]] <- int32(), "length(i) not equal to 1", fixed = TRUE)
+})
+
+test_that("Metadata is preserved when modifying Schema", {
+  schm <- schema(b = double(), c = string(), d = int8())
+  schm$metadata$foo <- "bar"
+  expect_identical(schm$metadata, list(foo = "bar"))
+  schm$c <- field("x", int32())
+  expect_identical(schm$metadata, list(foo = "bar"))
 })
 
 test_that("reading schema from Buffer", {

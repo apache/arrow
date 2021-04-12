@@ -150,7 +150,7 @@ impl Partitioning {
 }
 
 /// Distribution schemes
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Distribution {
     /// Unspecified distribution
     UnspecifiedDistribution,

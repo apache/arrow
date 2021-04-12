@@ -418,51 +418,18 @@ Status WriteNextBatch(WriteState& state, const std::shared_ptr<ScanTask>& scan_t
   return Status::OK();
 }
 
-}  // namespace
-
-Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
-                                std::shared_ptr<Scanner> scanner) {
-  RETURN_NOT_OK(ValidateBasenameTemplate(write_options.basename_template));
-
-  auto task_group = scanner->options()->TaskGroup();
-
-  // Things we'll un-lazy for the sake of simplicity, with the tradeoff they represent:
-  //
-  // - Fragment iteration. Keeping this lazy would allow us to start partitioning/writing
-  //   any fragments we have before waiting for discovery to complete. This isn't
-  //   currently implemented for FileSystemDataset anyway: ARROW-8613
-  //
-  // - ScanTask iteration. Keeping this lazy would save some unnecessary blocking when
-  //   writing Fragments which produce scan tasks slowly. No Fragments do this.
-  //
-  // NB: neither of these will have any impact whatsoever on the common case of writing
-  //     an in-memory table to disk.
-  ARROW_ASSIGN_OR_RAISE(auto fragment_it, scanner->GetFragments());
-  ARROW_ASSIGN_OR_RAISE(FragmentVector fragments, fragment_it.ToVector());
-  ScanTaskVector scan_tasks;
-  std::vector<Future<>> scan_futs;
-
-  for (const auto& fragment : fragments) {
-    auto options = std::make_shared<ScanOptions>(*scanner->options());
-    // Avoid contention with multithreaded readers
-    options->use_threads = false;
-    ARROW_ASSIGN_OR_RAISE(auto scan_task_it,
-                          Scanner(fragment, std::move(options)).Scan());
-    for (auto maybe_scan_task : scan_task_it) {
-      ARROW_ASSIGN_OR_RAISE(auto scan_task, maybe_scan_task);
-      scan_tasks.push_back(std::move(scan_task));
-    }
-  }
-
+Future<> WriteInternal(const ScanOptions& scan_options, WriteState& state,
+                       ScanTaskVector scan_tasks, internal::Executor* cpu_executor) {
   // Store a mapping from partitions (represened by their formatted partition expressions)
   // to a WriteQueue which flushes batches into that partition's output file. In principle
   // any thread could produce a batch for any partition, so each task alternates between
   // pushing batches and flushing them to disk.
-  WriteState state(write_options);
+  std::vector<Future<>> scan_futs;
+  auto task_group = scan_options.TaskGroup();
 
   for (const auto& scan_task : scan_tasks) {
     if (scan_task->supports_async()) {
-      ARROW_ASSIGN_OR_RAISE(auto batches_gen, scan_task->ExecuteAsync());
+      ARROW_ASSIGN_OR_RAISE(auto batches_gen, scan_task->ExecuteAsync(cpu_executor));
       std::function<Status(std::shared_ptr<RecordBatch> batch)> batch_visitor =
           [&, scan_task](std::shared_ptr<RecordBatch> batch) {
             return WriteNextBatch(state, scan_task, std::move(batch));
@@ -481,11 +448,53 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
       });
     }
   }
-  RETURN_NOT_OK(task_group->Finish());
-  auto scan_futs_all_done = AllComplete(scan_futs);
-  RETURN_NOT_OK(scan_futs_all_done.status());
+  scan_futs.push_back(task_group->FinishAsync());
+  return AllComplete(scan_futs);
+}
 
-  task_group = scanner->options()->TaskGroup();
+}  // namespace
+
+Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_options,
+                                std::shared_ptr<Scanner> scanner) {
+  RETURN_NOT_OK(ValidateBasenameTemplate(write_options.basename_template));
+
+  // Things we'll un-lazy for the sake of simplicity, with the tradeoff they represent:
+  //
+  // - Fragment iteration. Keeping this lazy would allow us to start partitioning/writing
+  //   any fragments we have before waiting for discovery to complete. This isn't
+  //   currently implemented for FileSystemDataset anyway: ARROW-8613
+  //
+  // - ScanTask iteration. Keeping this lazy would save some unnecessary blocking when
+  //   writing Fragments which produce scan tasks slowly. No Fragments do this.
+  //
+  // NB: neither of these will have any impact whatsoever on the common case of writing
+  //     an in-memory table to disk.
+  ARROW_ASSIGN_OR_RAISE(auto fragment_it, scanner->GetFragments());
+  ARROW_ASSIGN_OR_RAISE(FragmentVector fragments, fragment_it.ToVector());
+  ScanTaskVector scan_tasks;
+
+  for (const auto& fragment : fragments) {
+    auto options = std::make_shared<ScanOptions>(*scanner->options());
+    // Avoid contention with multithreaded readers
+    options->use_threads = false;
+    ARROW_ASSIGN_OR_RAISE(auto scan_task_it,
+                          Scanner(fragment, std::move(options)).Scan());
+    for (auto maybe_scan_task : scan_task_it) {
+      ARROW_ASSIGN_OR_RAISE(auto scan_task, maybe_scan_task);
+      scan_tasks.push_back(std::move(scan_task));
+    }
+  }
+
+  WriteState state(write_options);
+  auto res = internal::RunSynchronously<arrow::detail::Empty>(
+      [&](internal::Executor* cpu_executor) -> Future<> {
+        return WriteInternal(*scanner->options(), state, std::move(scan_tasks),
+                             cpu_executor);
+      },
+      scanner->options()->use_threads);
+  RETURN_NOT_OK(res);
+
+  auto task_group = scanner->options()->TaskGroup();
   for (const auto& part_queue : state.queues) {
     task_group->Append([&] { return part_queue.second->writer()->Finish(); });
   }

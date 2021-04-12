@@ -1001,9 +1001,8 @@ Result<std::shared_ptr<TableReader>> MakeTableReader(
 
 Future<std::shared_ptr<StreamingReader>> MakeStreamingReader(
     io::IOContext io_context, std::shared_ptr<io::InputStream> input,
-    const ReadOptions& read_options, const ParseOptions& parse_options,
-    const ConvertOptions& convert_options) {
-  auto cpu_executor = internal::GetCpuThreadPool();
+    internal::Executor* cpu_executor, const ReadOptions& read_options,
+    const ParseOptions& parse_options, const ConvertOptions& convert_options) {
   std::shared_ptr<BaseStreamingReader> reader;
   reader = std::make_shared<SerialStreamingReader>(
       io_context, cpu_executor, input, read_options, parse_options, convert_options);
@@ -1036,8 +1035,9 @@ Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
     const ReadOptions& read_options, const ParseOptions& parse_options,
     const ConvertOptions& convert_options) {
   auto io_context = io::IOContext(pool);
-  auto reader_fut = MakeStreamingReader(io_context, std::move(input), read_options,
-                                        parse_options, convert_options);
+  auto cpu_executor = internal::GetCpuThreadPool();
+  auto reader_fut = MakeStreamingReader(io_context, std::move(input), cpu_executor,
+                                        read_options, parse_options, convert_options);
   auto reader_result = reader_fut.result();
   ARROW_ASSIGN_OR_RAISE(auto reader, reader_result);
   return reader;
@@ -1047,8 +1047,9 @@ Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
     io::IOContext io_context, std::shared_ptr<io::InputStream> input,
     const ReadOptions& read_options, const ParseOptions& parse_options,
     const ConvertOptions& convert_options) {
-  auto reader_fut = MakeStreamingReader(io_context, std::move(input), read_options,
-                                        parse_options, convert_options);
+  auto cpu_executor = internal::GetCpuThreadPool();
+  auto reader_fut = MakeStreamingReader(io_context, std::move(input), cpu_executor,
+                                        read_options, parse_options, convert_options);
   auto reader_result = reader_fut.result();
   ARROW_ASSIGN_OR_RAISE(auto reader, reader_result);
   return reader;
@@ -1056,10 +1057,10 @@ Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
 
 Future<std::shared_ptr<StreamingReader>> StreamingReader::MakeAsync(
     io::IOContext io_context, std::shared_ptr<io::InputStream> input,
-    const ReadOptions& read_options, const ParseOptions& parse_options,
-    const ConvertOptions& convert_options) {
-  return MakeStreamingReader(io_context, std::move(input), read_options, parse_options,
-                             convert_options);
+    internal::Executor* cpu_executor, const ReadOptions& read_options,
+    const ParseOptions& parse_options, const ConvertOptions& convert_options) {
+  return MakeStreamingReader(io_context, std::move(input), cpu_executor, read_options,
+                             parse_options, convert_options);
 }
 
 }  // namespace csv

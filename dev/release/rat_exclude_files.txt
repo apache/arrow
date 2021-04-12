@@ -47,6 +47,7 @@ dev/requirements*.txt
 dev/archery/MANIFEST.in
 dev/archery/requirements*.txt
 dev/archery/archery/tests/fixtures/*
+dev/archery/archery/crossbow/tests/fixtures/*
 dev/release/rat_exclude_files.txt
 dev/tasks/homebrew-formulae/apache-arrow.rb
 dev/tasks/linux-packages/apache-arrow-archive-keyring/debian/apache-arrow-archive-keyring.install
@@ -128,6 +129,7 @@ go/parquet/go.sum
 js/.npmignore
 js/closure-compiler-scripts/*
 js/src/fb/*.ts
+js/yarn.lock
 python/cmake_modules
 python/cmake_modules/FindPythonLibsNew.cmake
 python/cmake_modules/SnappyCMakeLists.txt
@@ -195,3 +197,5 @@ julia/Arrow/docs/mkdocs.yml
 julia/Arrow/docs/src/index.md
 julia/Arrow/docs/src/manual.md
 julia/Arrow/docs/src/reference.md
+rust/ballista/rust/benchmarks/tpch/queries/q*.sql
+rust/ballista/rust/scheduler/testdata/*

@@ -813,15 +813,15 @@ class NestedParallelismMixin : public ::testing::Test {
       // supports_async() to false (will deadlock)
       ADD_FAILURE() << "NestedParallelismScanTask::Execute should never be called.  You "
                        "should be deadlocked right now";
-      ARROW_ASSIGN_OR_RAISE(auto batch_gen, ExecuteAsync());
+      ARROW_ASSIGN_OR_RAISE(auto batch_gen, ExecuteAsync(internal::GetCpuThreadPool()));
       return MakeGeneratorIterator(std::move(batch_gen));
     }
 
-    Result<RecordBatchGenerator> ExecuteAsync() override {
+    Result<RecordBatchGenerator> ExecuteAsync(internal::Executor* cpu_executor) override {
       ARROW_ASSIGN_OR_RAISE(auto batches_it, target_->Execute());
       ARROW_ASSIGN_OR_RAISE(auto batches, batches_it.ToVector());
-      auto generator_fut = DeferNotOk(internal::GetCpuThreadPool()->Submit(
-          [batches] { return MakeVectorGenerator(batches); }));
+      auto generator_fut = DeferNotOk(
+          cpu_executor->Submit([batches] { return MakeVectorGenerator(batches); }));
       return MakeFromFuture(generator_fut);
     }
 

@@ -150,6 +150,21 @@ std::shared_ptr<arrow::Table> Table__SelectColumns(
 namespace arrow {
 namespace r {
 
+arrow::Status check_consistent_column_length(
+    const std::vector<std::shared_ptr<arrow::ChunkedArray>>& columns) {
+  if (columns.size()) {
+    int64_t num_rows = columns[0]->length();
+
+    for (const auto& column : columns) {
+      if (column->length() != num_rows) {
+        return arrow::Status::Invalid("All columns must have the same length");
+      }
+    }
+  }
+
+  return arrow::Status::OK();
+}
+
 arrow::Status InferSchemaFromDots(SEXP lst, SEXP schema_sxp, int num_fields,
                                   std::shared_ptr<arrow::Schema>& schema) {
   // maybe a schema was given
@@ -326,6 +341,8 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
   std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(num_fields);
   StopIfNotOk(
       arrow::r::CollectTableColumns(lst, schema, num_fields, infer_schema, columns));
+
+  StopIfNotOk(arrow::r::check_consistent_column_length(columns));
 
   return arrow::Table::Make(schema, columns);
 }

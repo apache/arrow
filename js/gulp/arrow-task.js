@@ -54,7 +54,7 @@ const arrowTask = ((cache) => memoizeTask(cache, function copyMain(target) {
 const arrowTSTask = ((cache) => memoizeTask(cache, async function copyTS(target, format) {
     const out = targetDir(target, format);
     await mkdirp(out);
-    await pipeline(gulp.src(`src/*`), gulp.dest(out));
+    await pipeline(gulp.src(`src/**/*`), gulp.dest(out));
     await del(`${out}/**/*.js`);
 }))({});
   

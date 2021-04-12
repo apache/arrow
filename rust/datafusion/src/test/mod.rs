@@ -20,6 +20,7 @@
 use crate::datasource::{MemTable, TableProvider};
 use crate::error::Result;
 use crate::logical_plan::{LogicalPlan, LogicalPlanBuilder};
+use array::ArrayRef;
 use arrow::array::{self, Int32Array};
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
@@ -154,6 +155,34 @@ pub fn columns(schema: &Schema) -> Vec<String> {
     schema.fields().iter().map(|f| f.name().clone()).collect()
 }
 
+/// Return a new table provider that has a single Int32 column with
+/// values between `seq_start` and `seq_end`
+pub fn table_with_sequence(
+    seq_start: i32,
+    seq_end: i32,
+) -> Result<Arc<dyn TableProvider>> {
+    let schema = Arc::new(Schema::new(vec![Field::new("i", DataType::Int32, true)]));
+    let arr = Arc::new(Int32Array::from((seq_start..=seq_end).collect::<Vec<_>>()));
+    let partitions = vec![vec![RecordBatch::try_new(
+        schema.clone(),
+        vec![arr as ArrayRef],
+    )?]];
+    Ok(Arc::new(MemTable::try_new(schema, partitions)?))
+}
+
+/// Return a RecordBatch with a single Int32 array with values (0..sz)
+pub fn make_partition(sz: i32) -> RecordBatch {
+    let seq_start = 0;
+    let seq_end = sz;
+    let values = (seq_start..seq_end).collect::<Vec<_>>();
+    let schema = Arc::new(Schema::new(vec![Field::new("i", DataType::Int32, true)]));
+    let arr = Arc::new(Int32Array::from(values));
+    let arr = arr as ArrayRef;
+
+    RecordBatch::try_new(schema, vec![arr]).unwrap()
+}
+
+pub mod exec;
 pub mod user_defined;
 pub mod variable;
 

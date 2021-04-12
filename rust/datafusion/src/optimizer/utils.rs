@@ -73,6 +73,7 @@ impl ExpressionVisitor for ColumnNameVisitor<'_> {
             Expr::Between { .. } => {}
             Expr::Case { .. } => {}
             Expr::Cast { .. } => {}
+            Expr::TryCast { .. } => {}
             Expr::Sort { .. } => {}
             Expr::ScalarFunction { .. } => {}
             Expr::ScalarUDF { .. } => {}
@@ -261,6 +262,7 @@ pub fn expr_sub_expressions(expr: &Expr) -> Result<Vec<Expr>> {
             Ok(expr_list)
         }
         Expr::Cast { expr, .. } => Ok(vec![expr.as_ref().to_owned()]),
+        Expr::TryCast { expr, .. } => Ok(vec![expr.as_ref().to_owned()]),
         Expr::Column(_) => Ok(vec![]),
         Expr::Alias(expr, ..) => Ok(vec![expr.as_ref().to_owned()]),
         Expr::Literal(_) => Ok(vec![]),
@@ -354,6 +356,10 @@ pub fn rewrite_expression(expr: &Expr, expressions: &[Expr]) -> Result<Expr> {
             })
         }
         Expr::Cast { data_type, .. } => Ok(Expr::Cast {
+            expr: Box::new(expressions[0].clone()),
+            data_type: data_type.clone(),
+        }),
+        Expr::TryCast { data_type, .. } => Ok(Expr::TryCast {
             expr: Box::new(expressions[0].clone()),
             data_type: data_type.clone(),
         }),

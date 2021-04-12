@@ -117,6 +117,7 @@ cast_array_expression <- function(x, to_type, safe = TRUE, ...) {
 
 .unary_function_map <- list(
   "!" = "invert",
+  "as.factor" = "dictionary_encode",
   "is.na" = "is_null",
   "is.nan" = "is_nan",
   # nchar is defined in dplyr.R because it is more complex

@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("Feather")
-
 feather_file <- tempfile()
 tib <- tibble::tibble(x = 1:10, y = rnorm(10), z = letters[1:10])
 
@@ -195,4 +193,50 @@ test_that("Character vectors > 2GB can write to feather", {
   expect_identical(read_feather(tf), df)
 })
 
+test_that("FeatherReader methods", {
+  # Setup a feather file to use in the test
+  feather_temp <- tempfile()
+  on.exit({
+    unlink(feather_temp)
+  })
+  write_feather(tib, feather_temp)
+  feather_temp_RA <- make_readable_file(feather_temp)
+
+  reader <- FeatherReader$create(feather_temp_RA)
+  feather_temp_RA$close()
+
+  # column_names
+  expect_identical(
+    reader$column_names,
+    c("x", "y", "z")
+  )
+
+  # print method
+  expect_identical(
+    capture.output(print(reader)),
+    # TODO: can we get  rows/columns?
+    c("FeatherReader:", "Schema", "x: int32", "y: double", "z: string")
+  )
+})
+
 unlink(feather_file)
+
+ft_file <- test_path("golden-files/data-arrow_2.0.0_lz4.feather")
+
+test_that("Error messages are shown when the compression algorithm lz4 is not found", {
+  msg <- "NotImplemented: Support for codec 'lz4' not built\nIn order to read this file, you will need to reinstall arrow with additional features enabled.\nSet one of these environment variables before installing:\n\n * LIBARROW_MINIMAL=false (for all optional features, including 'lz4')\n * ARROW_WITH_LZ4=ON (for just 'lz4')\n\nSee https://arrow.apache.org/docs/r/articles/install.html for details"
+
+  if (codec_is_available("lz4")) {
+    d <- read_feather(ft_file)
+    expect_is(d, "data.frame")
+  } else {
+    expect_error(read_feather(ft_file), msg, fixed = TRUE)
+  }
+})
+
+test_that("Error is created when feather reads a parquet file", {
+  expect_error(
+    read_feather(system.file("v0.7.1.parquet", package = "arrow")),
+    "Not a Feather V1 or Arrow IPC file"
+  )
+})

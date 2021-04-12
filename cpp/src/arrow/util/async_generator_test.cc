@@ -222,8 +222,7 @@ class GeneratorTestFixture : public ::testing::TestWithParam<bool> {
   AsyncGenerator<TestInt> MakeSource(const std::vector<TestInt>& items) {
     std::vector<TestInt> wrapped(items.begin(), items.end());
     auto gen = AsyncVectorIt(std::move(wrapped));
-    bool slow = GetParam();
-    if (slow) {
+    if (IsSlow()) {
       return SlowdownABit(std::move(gen));
     }
     return gen;
@@ -233,22 +232,22 @@ class GeneratorTestFixture : public ::testing::TestWithParam<bool> {
     AsyncGenerator<TestInt> gen = [] {
       return Future<TestInt>::MakeFinished(Status::Invalid("XYZ"));
     };
-    bool slow = GetParam();
-    if (slow) {
+    if (IsSlow()) {
       return SlowdownABit(std::move(gen));
     }
     return gen;
   }
 
   int GetNumItersForStress() {
-    bool slow = GetParam();
     // Run fewer trials for the slow case since they take longer
-    if (slow) {
+    if (IsSlow()) {
       return 10;
     } else {
       return 100;
     }
   }
+
+  bool IsSlow() { return GetParam(); }
 };
 
 template <typename T>
@@ -460,6 +459,30 @@ TEST(TestAsyncUtil, Concatenated) {
   auto concat = MakeConcatenatedGenerator(gen);
   AssertAsyncGeneratorMatch(expected, concat);
 }
+
+class FromFutureFixture : public GeneratorTestFixture {};
+
+TEST_P(FromFutureFixture, Basic) {
+  auto source = Future<std::vector<TestInt>>::MakeFinished(RangeVector(3));
+  if (IsSlow()) {
+    source = SleepABitAsync().Then(
+        [](...) -> Result<std::vector<TestInt>> { return RangeVector(3); });
+  }
+  auto slow = IsSlow();
+  auto to_gen = source.Then([slow](const std::vector<TestInt>& vec) {
+    auto vec_gen = MakeVectorGenerator(vec);
+    if (slow) {
+      return SlowdownABit(std::move(vec_gen));
+    }
+    return vec_gen;
+  });
+  auto gen = MakeFromFuture(std::move(to_gen));
+  auto collected = CollectAsyncGenerator(std::move(gen));
+  ASSERT_FINISHES_OK_AND_EQ(RangeVector(3), collected);
+}
+
+INSTANTIATE_TEST_SUITE_P(FromFutureTests, FromFutureFixture,
+                         ::testing::Values(false, true));
 
 class MergedGeneratorTestFixture : public GeneratorTestFixture {};
 

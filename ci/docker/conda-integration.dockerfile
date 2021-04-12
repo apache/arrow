@@ -25,16 +25,23 @@ ARG node=14
 ARG jdk=8
 ARG go=1.15
 
+# Install Archery and integration dependencies
 COPY ci/conda_env_archery.yml /arrow/ci/
 RUN conda install -q \
+        --file arrow/ci/conda_env_cpp.yml \
         --file arrow/ci/conda_env_archery.yml \
         numpy \
+        compilers \
         maven=${maven} \
         nodejs=${node} \
+        yarn \
         openjdk=${jdk} && \
-    conda clean --all
+    conda clean --all --force-pkgs-dirs
 
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+# Install Rust with only the needed components
+# (rustfmt is needed for tonic-build to compile the protobuf definitions)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --profile=minimal -y && \
+    $HOME/.cargo/bin/rustup component add rustfmt
 
 ENV GOROOT=/opt/go \
     GOBIN=/opt/go/bin \
@@ -43,14 +50,20 @@ ENV GOROOT=/opt/go \
 RUN wget -nv -O - https://dl.google.com/go/go${go}.linux-${arch}.tar.gz | tar -xzf - -C /opt
 
 ENV ARROW_BUILD_INTEGRATION=ON \
+    ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
-    ARROW_FLIGHT=ON \
-    ARROW_ORC=OFF \
+    ARROW_COMPUTE=OFF \
+    ARROW_CSV=OFF \
     ARROW_DATASET=OFF \
-    ARROW_GANDIVA=OFF \
-    ARROW_PLASMA=OFF \
     ARROW_FILESYSTEM=OFF \
+    ARROW_FLIGHT=ON \
+    ARROW_GANDIVA=OFF \
     ARROW_HDFS=OFF \
     ARROW_JEMALLOC=OFF \
     ARROW_JSON=OFF \
-    ARROW_USE_GLOG=OFF
+    ARROW_ORC=OFF \
+    ARROW_PARQUET=OFF \
+    ARROW_PLASMA=OFF \
+    ARROW_S3=OFF \
+    ARROW_USE_GLOG=OFF \
+    CMAKE_UNITY_BUILD=ON

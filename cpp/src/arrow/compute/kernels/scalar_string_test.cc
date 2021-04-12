@@ -348,6 +348,27 @@ TYPED_TEST(TestStringKernels, MatchSubstring) {
                    &options_double_char_2);
 }
 
+#ifdef ARROW_WITH_RE2
+TYPED_TEST(TestStringKernels, MatchSubstringRegex) {
+  MatchSubstringOptions options{"ab"};
+  this->CheckUnary("match_substring_regex", "[]", boolean(), "[]", &options);
+  this->CheckUnary("match_substring_regex", R"(["abc", "acb", "cab", null, "bac"])",
+                   boolean(), "[true, false, true, null, false]", &options);
+  MatchSubstringOptions options_repeated{"(ab){2}"};
+  this->CheckUnary("match_substring_regex", R"(["abab", "ab", "cababc", null, "bac"])",
+                   boolean(), "[true, false, true, null, false]", &options_repeated);
+  MatchSubstringOptions options_digit{"\\d"};
+  this->CheckUnary("match_substring_regex", R"(["aacb", "a2ab", "", "24"])", boolean(),
+                   "[false, true, false, true]", &options_digit);
+  MatchSubstringOptions options_star{"a*b"};
+  this->CheckUnary("match_substring_regex", R"(["aacb", "aab", "dab", "caaab", "b", ""])",
+                   boolean(), "[true, true, true, true, true, false]", &options_star);
+  MatchSubstringOptions options_plus{"a+b"};
+  this->CheckUnary("match_substring_regex", R"(["aacb", "aab", "dab", "caaab", "b", ""])",
+                   boolean(), "[false, true, true, true, false, false]", &options_plus);
+}
+#endif
+
 TYPED_TEST(TestStringKernels, SplitBasics) {
   SplitPatternOptions options{" "};
   // basics

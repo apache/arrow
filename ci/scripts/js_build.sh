@@ -24,14 +24,13 @@ with_docs=${2:-false}
 
 pushd ${source_dir}
 
-npm install
+yarn --frozen-lockfile
 # TODO(kszucs): linting should be moved to archery
-npm run lint:ci
-npm run build
+yarn lint:ci
+yarn build
 
 if [ "${with_docs}" == "true" ]; then
-  npm install typedoc
-  npm run doc
+  yarn doc
 fi
 
 popd

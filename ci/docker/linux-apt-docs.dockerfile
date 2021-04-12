@@ -69,14 +69,15 @@ ARG node=14
 RUN wget -q -O - https://deb.nodesource.com/setup_${node}.x | bash - && \
     apt-get install -y nodejs && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    npm install -g yarn
 
 # Sphinx is pinned because of ARROW-9693
 RUN pip install \
         meson \
         breathe \
         ipython \
-        sphinx==3.1.2 \
+        sphinx \
         sphinx_rtd_theme
 
 COPY c_glib/Gemfile /arrow/c_glib/

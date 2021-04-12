@@ -131,7 +131,7 @@ We can define the same type using the other option::
             pa.ExtensionType.__init__(self, pa.binary(16), "my_package.uuid")
 
         def __arrow_ext_serialize__(self):
-            # since we don't have a parametrized type, we don't need extra
+            # since we don't have a parameterized type, we don't need extra
             # metadata to be deserialized
             return b''
 
@@ -159,11 +159,11 @@ type to receive it.
 If the type is not registered in the receiving application, it will fall back
 to the storage type.
 
-Parametrized extension type
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Parameterized extension type
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The above example used a fixed storage type with no further metadata. But
-more flexible, parametrized extension types are also possible.
+more flexible, parameterized extension types are also possible.
 
 The example given here implements an extension type for the `pandas "period"
 data type <https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#time-span-representation>`__,
@@ -207,7 +207,7 @@ the reconstruction of the type instance after IPC will be incorrect.
 In the example above, the ``freq`` parameter is therefore stored in a private
 attribute with a public read-only property to access it.
 
-Parametrized extension types are also possible using the pickle-based type
+Parameterized extension types are also possible using the pickle-based type
 subclassing :class:`PyExtensionType`. The equivalent example for the period
 data type from above would look like::
 
@@ -224,7 +224,7 @@ data type from above would look like::
         def __reduce__(self):
             return PeriodType, (self.freq,)
 
-Also the storage type does not need to be fixed but can be parametrized.
+Also the storage type does not need to be fixed but can be parameterized.
 
 Custom extension array class
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -21,9 +21,13 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+
 namespace random {
 
 // Use short arrays since especially in debug mode, generating list(list()) is slow
@@ -158,6 +162,7 @@ TYPED_TEST(RandomNumericArrayTest, GenerateMinMax) {
   auto field = this->GetField()->WithMetadata(
       key_value_metadata({{"min", "0"}, {"max", "127"}, {"nan_probability", "0.0"}}));
   auto batch = GenerateBatch({field}, kExpectedLength, 0xDEADBEEF);
+  ASSERT_OK(batch->ValidateFull());
   AssertSchemaEqual(schema({field}), batch->schema());
   auto array = this->Downcast(batch->column(0));
   for (auto slot : *array) {
@@ -223,6 +228,7 @@ TEST(TypeSpecificTests, ListLengths) {
     AssertTypeEqual(field->type(), base_array->type());
     auto array = internal::checked_pointer_cast<ListArray>(base_array);
     ASSERT_OK(array->ValidateFull());
+    ASSERT_EQ(array->length(), kExpectedLength);
     for (int i = 0; i < kExpectedLength; i++) {
       if (!array->IsNull(i)) {
         ASSERT_EQ(1, array->value_length(i));
@@ -236,6 +242,7 @@ TEST(TypeSpecificTests, ListLengths) {
     auto base_array = GenerateArray(*field, kExpectedLength, 0xDEADBEEF);
     AssertTypeEqual(field->type(), base_array->type());
     auto array = internal::checked_pointer_cast<LargeListArray>(base_array);
+    ASSERT_EQ(array->length(), kExpectedLength);
     ASSERT_OK(array->ValidateFull());
     for (int i = 0; i < kExpectedLength; i++) {
       if (!array->IsNull(i)) {
@@ -324,6 +331,24 @@ TEST(TypeSpecificTests, StringLengths) {
         ASSERT_EQ(10, array->value_length(i));
       }
     }
+  }
+}
+
+TEST(RandomList, Basics) {
+  random::RandomArrayGenerator rng(42);
+  for (const double null_probability : {0.0, 0.1, 0.98}) {
+    SCOPED_TRACE("null_probability = " + std::to_string(null_probability));
+    auto values = rng.Int16(1234, 0, 10000, null_probability);
+    auto array = rng.List(*values, 45, null_probability);
+    ASSERT_OK(array->ValidateFull());
+    ASSERT_EQ(array->length(), 45);
+    const auto& list_array = checked_cast<const ListArray&>(*array);
+    ASSERT_EQ(list_array.values()->length(), 1234);
+    int64_t null_count = 0;
+    for (int64_t i = 0; i < array->length(); ++i) {
+      null_count += array->IsNull(i);
+    }
+    ASSERT_EQ(null_count, array->data()->null_count);
   }
 }
 
