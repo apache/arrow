@@ -86,7 +86,6 @@
     "gulp-typescript": "5.0.1",
     "ix": "2.5.3",
     "jest": "26.3.0",
-    "jest-environment-node-debug": "2.0.0",
     "jest-silent-reporter": "0.1.2",
     "json": "9.0.6",
     "lerna": "3.22.1",
