@@ -540,7 +540,8 @@ class ClientBuilder {
       } else if (options_.proxy_options.scheme == "https") {
         client_config_.proxyScheme = Aws::Http::Scheme::HTTPS;
       } else {
-        return Status::Invalid("Invalid proxy connection scheme '", options_.proxy_options.scheme, "'");
+        return Status::Invalid("Invalid proxy connection scheme '",
+                                options_.proxy_options.scheme, "'");
       }
     }
     if (!options_.proxy_options.host.empty()) {
@@ -555,7 +556,7 @@ class ClientBuilder {
     if (!options_.proxy_options.password.empty()) {
       client_config_.proxyPassword = ToAwsString(options_.proxy_options.password);
     }
-    
+
     return std::make_shared<S3Client>(
         credentials_provider_, client_config_,
         Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,

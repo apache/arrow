@@ -83,7 +83,7 @@ struct ARROW_EXPORT S3Options {
 
   /// If connection is through a proxy, set options here
   S3ProxyOptions proxy_options;
-  
+
   /// AWS credentials provider
   std::shared_ptr<Aws::Auth::AWSCredentialsProvider> credentials_provider;
 
