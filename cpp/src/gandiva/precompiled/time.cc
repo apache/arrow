@@ -41,16 +41,16 @@ extern "C" {
   INNER(timestamp)
 
 // Expand inner macro for all base numeric types.
-#define NUMERIC_TYPES(INNER)                                                     \
-  INNER(int8)                                                                    \
-  INNER(int16)                                                                   \
-  INNER(int32)                                                                   \
-  INNER(int64)                                                                   \
-  INNER(uint8)                                                                   \
-  INNER(uint16)                                                                  \
-  INNER(uint32)                                                                  \
-  INNER(uint64)                                                                  \
-  INNER(float32)                                                                 \
+#define NUMERIC_TYPES(INNER) \
+  INNER(int8)                \
+  INNER(int16)               \
+  INNER(int32)               \
+  INNER(int64)               \
+  INNER(uint8)               \
+  INNER(uint16)              \
+  INNER(uint32)              \
+  INNER(uint64)              \
+  INNER(float32)             \
   INNER(float64)
 
 // Extract millennium
@@ -850,10 +850,10 @@ gdv_int64 castBIGINT_daytimeinterval(gdv_day_time_interval in) {
 NUMERIC_TYPES(TO_TIMESTAMP)
 
 // Convert milliseconds to time, considering the quantity of milliseconds after midnight
-#define TO_TIME(TYPE)                                 \
-  FORCE_INLINE                                        \
-  gdv_time32 to_time##_##TYPE(gdv_##TYPE millis) {    \
-    return static_cast<gdv_time32>(millis);           \
+#define TO_TIME(TYPE)                              \
+  FORCE_INLINE                                     \
+  gdv_time32 to_time##_##TYPE(gdv_##TYPE millis) { \
+    return static_cast<gdv_time32>(millis);        \
   }
 
 NUMERIC_TYPES(TO_TIME)
