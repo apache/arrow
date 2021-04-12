@@ -385,8 +385,10 @@ def_numeric_from_vec!(DurationSecondType);
 def_numeric_from_vec!(DurationMillisecondType);
 def_numeric_from_vec!(DurationMicrosecondType);
 def_numeric_from_vec!(DurationNanosecondType);
+def_numeric_from_vec!(TimestampSecondType);
 def_numeric_from_vec!(TimestampMillisecondType);
 def_numeric_from_vec!(TimestampMicrosecondType);
+def_numeric_from_vec!(TimestampNanosecondType);
 
 impl<T: ArrowTimestampType> PrimitiveArray<T> {
     /// Construct a timestamp array from a vec of i64 values and an optional timezone
