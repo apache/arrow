@@ -62,6 +62,7 @@ export class BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = Da
     public get reservedLength() { return this.buffer.length / this.stride; }
     public get reservedByteLength() { return this.buffer.byteLength; }
 
+    // @ts-ignore
     public set(index: number, value: TValue) { return this; }
     public append(value: TValue) { return this.set(this.length, value); }
     public reserve(extra: number) {

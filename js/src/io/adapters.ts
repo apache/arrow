@@ -43,9 +43,11 @@ export default {
     fromNodeStream(stream: NodeJS.ReadableStream): AsyncUint8ArrayGenerator {
         return pump(fromNodeStream(stream));
     },
+    // @ts-ignore
     toDOMStream<T>(source: Iterable<T> | AsyncIterable<T>, options?: ReadableDOMStreamOptions): ReadableStream<T> {
         throw new Error(`"toDOMStream" not available in this environment`);
     },
+    // @ts-ignore
     toNodeStream<T>(source: Iterable<T> | AsyncIterable<T>, options?: import('stream').ReadableOptions): import('stream').Readable {
         throw new Error(`"toNodeStream" not available in this environment`);
     },

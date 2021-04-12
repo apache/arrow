@@ -67,6 +67,7 @@ export abstract class UnionBuilder<T extends Union, TNull = any> extends Builder
     }
 
     /** @ignore */
+    // @ts-ignore
     protected _valueToChildTypeId(builder: UnionBuilder<T, TNull>, value: any, offset: number): number {
         throw new Error(`Cannot map UnionBuilder value to child typeId. \
 Pass the \`childTypeId\` as the second argument to unionBuilder.append(), \

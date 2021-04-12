@@ -336,6 +336,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
         return valid;
     }
 
+    // @ts-ignore
     public addChild(child: Builder, name = `${this.numChildren}`) {
         throw new Error(`Cannot append children to non-nested type "${this.type}"`);
     }
