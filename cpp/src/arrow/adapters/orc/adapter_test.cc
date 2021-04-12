@@ -545,9 +545,9 @@ TEST_F(TestORCWriterSingleArray, WriteStructOfStruct) {
 }
 TEST_F(TestORCWriterSingleArray, WriteList) {
   int64_t num_rows = 10000;
-  auto value_array = rand.ArrayOf(int32(), 1250 * num_rows, 0);
+  auto value_array = rand.ArrayOf(int32(), 125 * num_rows, 0);
   std::shared_ptr<Array> array = rand.List(*value_array, num_rows, 1);
-  AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 1000);
+  AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 100);
 }
 TEST_F(TestORCWriterSingleArray, WriteLargeList) {
   int64_t num_rows = 10000;

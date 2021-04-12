@@ -446,9 +446,18 @@ std::shared_ptr<arrow::Array> NormalizeArray(const std::shared_ptr<arrow::Array>
 template <class DataType, class BatchType, typename Enable = void>
 struct Appender {};
 
-// Numerical
+// Types for long/double-like Appender, that is, numeric, boolean or date32
+template <typename T>
+using is_generic_type =
+    std::integral_constant<bool, arrow::is_number_type<T>::value ||
+                                     std::is_same<arrow::Date32Type, T>::value ||
+                                     arrow::is_boolean_type<T>::value>;
+template <typename T, typename R = void>
+using enable_if_generic = arrow::enable_if_t<is_generic_type<T>::value, R>;
+
+// Number-like
 template <class DataType, class BatchType>
-struct Appender<DataType, BatchType, arrow::enable_if_number<DataType>> {
+struct Appender<DataType, BatchType, enable_if_generic<DataType>> {
   using ArrayType = typename arrow::TypeTraits<DataType>::ArrayType;
   using ValueType = typename arrow::TypeTraits<DataType>::CType;
   arrow::Status VisitNull() {
@@ -466,48 +475,6 @@ struct Appender<DataType, BatchType, arrow::enable_if_number<DataType>> {
   }
   const ArrayType& array;
   BatchType* batch;
-  int64_t running_orc_offset, running_arrow_offset;
-};
-
-// Boolean
-template <>
-struct Appender<arrow::BooleanType, liborc::LongVectorBatch> {
-  arrow::Status VisitNull() {
-    batch->notNull[running_orc_offset] = false;
-    running_orc_offset++;
-    running_arrow_offset++;
-    return arrow::Status::OK();
-  }
-  arrow::Status VisitValue(bool v) {
-    batch->data[running_orc_offset] = array.Value(running_arrow_offset);
-    batch->notNull[running_orc_offset] = true;
-    running_orc_offset++;
-    running_arrow_offset++;
-    return arrow::Status::OK();
-  }
-  const arrow::BooleanArray& array;
-  liborc::LongVectorBatch* batch;
-  int64_t running_orc_offset, running_arrow_offset;
-};
-
-// Date32
-template <>
-struct Appender<arrow::Date32Type, liborc::LongVectorBatch> {
-  arrow::Status VisitNull() {
-    batch->notNull[running_orc_offset] = false;
-    running_orc_offset++;
-    running_arrow_offset++;
-    return arrow::Status::OK();
-  }
-  arrow::Status VisitValue(int32_t v) {
-    batch->data[running_orc_offset] = array.Value(running_arrow_offset);
-    batch->notNull[running_orc_offset] = true;
-    running_orc_offset++;
-    running_arrow_offset++;
-    return arrow::Status::OK();
-  }
-  const arrow::Date32Array& array;
-  liborc::LongVectorBatch* batch;
   int64_t running_orc_offset, running_arrow_offset;
 };
 
