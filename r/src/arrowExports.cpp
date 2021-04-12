@@ -4114,7 +4114,7 @@ extern "C" SEXP _arrow_json___ReadOptions__initialize(SEXP use_threads_sexp, SEX
 #endif
 
 // json.cpp
-
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::json::ParseOptions> json___ParseOptions__initialize1(bool newlines_in_values);
 extern "C" SEXP _arrow_json___ParseOptions__initialize1(SEXP newlines_in_values_sexp){
 BEGIN_CPP11
@@ -4122,7 +4122,14 @@ BEGIN_CPP11
 	return cpp11::as_sexp(json___ParseOptions__initialize1(newlines_in_values));
 END_CPP11
 }
+#else
+extern "C" SEXP _arrow_json___ParseOptions__initialize1(SEXP newlines_in_values_sexp){
+	Rf_error("Cannot call json___ParseOptions__initialize1(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
 // json.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::json::ParseOptions> json___ParseOptions__initialize2(bool newlines_in_values, const std::shared_ptr<arrow::Schema>& explicit_schema);
 extern "C" SEXP _arrow_json___ParseOptions__initialize2(SEXP newlines_in_values_sexp, SEXP explicit_schema_sexp){
 BEGIN_CPP11
@@ -4132,8 +4139,8 @@ BEGIN_CPP11
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_json___ParseOptions__initialize(SEXP newlines_in_values_sexp){
-	Rf_error("Cannot call json___ParseOptions__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_json___ParseOptions__initialize2(SEXP newlines_in_values_sexp, SEXP explicit_schema_sexp){
+	Rf_error("Cannot call json___ParseOptions__initialize2(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
