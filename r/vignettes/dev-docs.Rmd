@@ -1,0 +1,430 @@
+---
+title: "Developer Documentation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Developer Documentation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup options, include=FALSE}
+knitr::opts_chunk$set(error = TRUE, eval = FALSE)
+
+# Get environment variables describing what to evaluate
+run <- tolower(Sys.getenv("RUN_DEVDOCS", "false")) == "true"
+macos <- tolower(Sys.getenv("DEVDOCS_MACOS", "false")) == "true"
+ubuntu <- tolower(Sys.getenv("DEVDOCS_UBUNTU", "false")) == "true"
+sys_install <- tolower(Sys.getenv("DEVDOCS_SYSTEM_INSTALL", "false")) == "true"
+
+# Update the source knit_hook to save the chunk (if it is marked to be saved)
+knit_hooks_source <- knitr::knit_hooks$get("source")
+knitr::knit_hooks$set(source = function(x, options) {
+  # Extra paranoia about when this will write the chunks to the script, we will
+  # only save when:
+  #   * CI is true
+  #   * RUN_DEVDOCS is true
+  #   * options$save is TRUE (and a check that not NULL won't crash it)
+  if (as.logical(Sys.getenv("CI", FALSE)) && run && !is.null(options$save) && options$save)
+    cat(x, file = "script.sh", append = TRUE, sep = "\n")
+  # but hide the blocks we want hidden:
+  if (!is.null(options$hide) && options$hide) {
+    return(NULL)
+  } 
+  knit_hooks_source(x, options)
+})
+```
+
+```{bash, save=run, hide=TRUE}
+# Stop on failure, echo input as we go
+set -e
+set -x
+```
+
+## R-only development 
+
+Windows and macOS users who wish to contribute to the R package and
+don’t need to alter the Arrow C++ library may be able to obtain a
+recent version of the library without building from source. On macOS,
+you may install the C++ library using [Homebrew](https://brew.sh/):
+
+``` shell
+# For the released version:
+brew install apache-arrow
+# Or for a development version, you can try:
+brew install apache-arrow --HEAD
+```
+
+On Windows, you can download a .zip file with the arrow dependencies from the
+[nightly repository](https://arrow-r-nightly.s3.amazonaws.com/libarrow/bin/windows/),
+and then set the `RWINLIB_LOCAL` environment variable to point to that
+zip file before installing the `arrow` R package. Version numbers in that
+repository correspond to dates, and you will likely want the most recent.
+
+## Developer environment setup
+
+If you need to alter both the Arrow C++ library and the R package code, or if you can’t get a binary version of the latest C++ library elsewhere, you’ll need to build it from source too.
+
+First, install the C++ library. See the [developer
+guide](https://arrow.apache.org/docs/developers/cpp/building.html) for more details and a full list of configuration options. 
+
+### Install dependencies {.tabset}
+
+The Arrow library will by default use system dependencies if they are suitable or build them during its own build process. The only dependencies that one should need to install outside of the build process are `cmake` (for configuring the build) and `openssl` if you are building with S3 support.
+
+#### macOS
+```{bash, save=run & macos}
+brew install cmake openssl
+```
+
+#### Ubuntu
+```{bash, save=run & ubuntu}
+sudo apt install -y cmake libcurl4-openssl-dev libssl-dev
+```
+
+
+### Configure the Arrow build {.tabset}
+
+It’s recommended to make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored). 
+
+#### Install to another directory
+
+It is recommended that you install the arrow library to a user-level directory to be used in development. In this example we will install it to a directory called `dist` that has the same parent as our `arrow` checkout. The directory name `dist` and the location is merely a convention. It could be named or located anywhere you would like. However, note that your installation of the Arrow R package will point to this directory and need it to remain intact for the package to continue to work. This is one reason we recommend *not* placing it inside of the arrow git checkout. 
+
+```{bash, save=run & !sys_install}
+export ARROW_HOME=$(pwd)/dist
+mkdir $ARROW_HOME
+```
+
+On linux, you will need to set `LD_LIBRARY_PATH` to the same directory as `LIB_DIR` before launching R and using Arrow. One way to do this is to add it to your profile. On macOS we do not need to do this becuase the macOS shared library paths are hardcoded to their locations during buildt ime. # TODO: do we want to recommend this? Is there any other alternative? Setting Makevars?
+
+```{bash, save=run & ubuntu & !sys_install}
+echo "export LD_LIBRARY_PATH=$ARROW_HOME/dist/lib" >> ~/.Renviron
+```
+
+```{bash, save=run}
+cd arrow/cpp
+mkdir build
+cd build
+```
+
+Assuming you are inside `cpp/build`, you’ll first call `cmake` to configure the build and then `make install`. For the R package, you’ll need to enable several features in the C++ library using `-D` flags:
+
+```{bash, save=run & !sys_install}
+cmake \
+  -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+  -DCMAKE_INSTALL_LIBDIR=lib \
+  -DARROW_COMPUTE=ON \
+  -DARROW_CSV=ON \
+  -DARROW_DATASET=ON \
+  -DARROW_FILESYSTEM=ON \
+  -DARROW_JEMALLOC=ON \
+  -DARROW_S3=ON \
+  -DARROW_JSON=ON \
+  -DARROW_PARQUET=ON \
+  -DARROW_WITH_SNAPPY=ON \
+  -DARROW_WITH_ZLIB=ON \
+  -DARROW_INSTALL_NAME_RPATH=OFF \
+  ..
+```
+
+#### Install to the system
+
+If you would like to install Arrow as a system library you can do that as well. 
+
+Assuming you are inside `cpp/build`, you’ll first call `cmake` to configure the build and then `make install`. For the R package, you’ll need to enable several features in the C++ library using `-D` flags:
+
+```{bash, save=run & sys_install}
+cmake \
+  -DARROW_COMPUTE=ON \
+  -DARROW_CSV=ON \
+  -DARROW_DATASET=ON \
+  -DARROW_FILESYSTEM=ON \
+  -DARROW_JEMALLOC=ON \
+  -DARROW_JSON=ON \
+  -DARROW_PARQUET=ON \
+  -DARROW_WITH_SNAPPY=ON \
+  -DARROW_WITH_ZLIB=ON \
+  -DARROW_INSTALL_NAME_RPATH=OFF \
+  ..
+```
+
+### More Arrow features
+
+To enable optional features including S3 support, an alternative memory allocator, and additional compression libraries, add some or all of these flags:
+
+```bash
+  -DARROW_MIMALLOC=ON \
+  -DARROW_WITH_BROTLI=ON \
+  -DARROW_WITH_BZ2=ON \
+  -DARROW_WITH_LZ4=ON \
+  -DARROW_WITH_SNAPPY=ON \
+  -DARROW_WITH_ZLIB=ON \
+  -DARROW_WITH_ZSTD=ON \
+```
+
+Other flags that may be useful:
+
+* `-DARROW_EXTRA_ERROR_CONTEXT=ON` makes errors coming from the C++ library point to files and line numbers
+* `-DBoost_SOURCE=BUNDLED` and `-DThrift_SOURCE=bundled`, for example, or any other dependency `*_SOURCE`, if you have a system version of a C++ dependency that doesn't work correctly with Arrow. This tells the build to compile its own version of the dependency from source. 
+* `-DCMAKE_BUILD_TYPE=debug` and `-DCMAKE_BUILD_TYPE=relwithdebinfo` can be useful for debugging, though they are both slower to compile than the default `release`.
+
+
+### Build Arrow
+
+You can `-j#` here too to speed up compilation by running in parallel.
+
+```{bash, save=run & !(sys_install & ubuntu)}
+make install
+```
+
+If you are installing on linux, and you are installing to the system, you may  
+need to use `sudo`:
+
+```{bash, save=run & sys_install & ubuntu}
+sudo make install
+```
+
+Note that after any change to the C++ library, you must reinstall it and
+run `make clean` or `git clean -fdx .` to remove any cached object code
+in the `r/src/` directory before reinstalling the R package. This is
+only necessary if you make changes to the C++ library source; you do not
+need to manually purge object files if you are only editing R or C++
+code inside `r/`.
+
+
+### Build the Arrow R package
+
+Once you’ve built the C++ library, you can install the R package and its
+dependencies, along with additional dev dependencies, from the git
+checkout:
+
+```{bash, save=run}
+cd ../../r
+R -e 'install.packages("remotes"); remotes::install_deps(dependencies = TRUE)'
+
+R CMD INSTALL .
+```
+
+### Compilation flags
+
+If you need to set any compilation flags while building the C++
+extensions, you can use the `ARROW_R_CXXFLAGS` environment variable. For
+example, if you are using `perf` to profile the R extensions, you may
+need to set
+
+``` shell
+export ARROW_R_CXXFLAGS=-fno-omit-frame-pointer
+```
+
+## Troublshooting
+
+### Arrow library-R package mismatches 
+
+If the Arrow library and the R package have diverged, you will see errors like:
+
+```
+Error: package or namespace load failed for ‘arrow’ in dyn.load(file, DLLpath = DLLpath, ...):
+ unable to load shared object '/Library/Frameworks/R.framework/Versions/4.0/Resources/library/00LOCK-r/00new/arrow/libs/arrow.so':
+  dlopen(/Library/Frameworks/R.framework/Versions/4.0/Resources/library/00LOCK-r/00new/arrow/libs/arrow.so, 6): Symbol not found: __ZN5arrow2io16RandomAccessFile9ReadAsyncERKNS0_9IOContextExx
+  Referenced from: /Library/Frameworks/R.framework/Versions/4.0/Resources/library/00LOCK-r/00new/arrow/libs/arrow.so
+  Expected in: flat namespace
+ in /Library/Frameworks/R.framework/Versions/4.0/Resources/library/00LOCK-r/00new/arrow/libs/arrow.so
+Error: loading failed
+Execution halted
+ERROR: loading failed
+```
+
+To resolve this, try rebuilding the Arrow library from [Building Arrow above](#building-arrow). 
+
+### Multiple versions of Arrow library
+
+If rebuilding the Arrow library doesn't work and you are [installing from a user-level directory](#installing-to-another-directory) and you already have a previous installation of libarrow in a system directory or you get you may get errors like the following when you install the R package:
+
+```
+Error: package or namespace load failed for ‘arrow’ in dyn.load(file, DLLpath = DLLpath, ...):
+ unable to load shared object '/Library/Frameworks/R.framework/Versions/4.0/Resources/library/00LOCK-r/00new/arrow/libs/arrow.so':
+  dlopen(/Library/Frameworks/R.framework/Versions/4.0/Resources/library/00LOCK-r/00new/arrow/libs/arrow.so, 6): Library not loaded: /usr/local/lib/libarrow.400.dylib
+  Referenced from: /usr/local/lib/libparquet.400.dylib
+  Reason: image not found
+```
+
+You need to make sure that you don't let R link to your system library when building arrow. You can do this a number of different ways: 
+
+* Setting the `MAKEFLAGS` environment variable to `"LDFLAGS="` (see below for an example) this is the recommended way to accomplish this
+* Using {withr}'s `with_makevars(list(LDFLAGS = ""), ...)`
+* adding `LDFLAGS=` to your `~/.R/Makevars` file (the least recommended way, though it is a common debugging approach suggested online)
+
+```{bash, save=run & !sys_install & macos, hide=TRUE}
+# Setup troubleshooting section
+# install a system-level arrow on macOS
+brew install apache-arrow
+```
+
+
+```{bash, save=run & !sys_install & ubuntu, hide=TRUE}
+# Setup troubleshooting section
+# install a system-level arrow on macOS
+sudo apt update
+sudo apt install -y -V ca-certificates lsb-release wget
+wget https://apache.bintray.com/arrow/$(lsb_release --id --short | tr 'A-Z' 'a-z')/apache-arrow-archive-keyring-latest-$(lsb_release --codename --short).deb
+sudo apt install -y -V ./apache-arrow-archive-keyring-latest-$(lsb_release --codename --short).deb
+sudo apt update
+sudo apt install -y -V libarrow-dev
+```
+
+```{bash, save=run & !sys_install & macos}
+MAKEFLAGS="LDFLAGS=" R CMD INSTALL .
+```
+
+
+### `rpath` issues
+
+If the package fails to install/load with an error like this:
+
+```
+  ** testing if installed package can be loaded from temporary location
+  Error: package or namespace load failed for 'arrow' in dyn.load(file, DLLpath = DLLpath, ...):
+  unable to load shared object '/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so':
+  dlopen(/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so, 6): Library not loaded: @rpath/libarrow.14.dylib
+```
+
+ensure that `-DARROW_INSTALL_NAME_RPATH=OFF` was passed (this is important on
+macOS to prevent problems at link time and is a no-op on other platforms).
+Alternatively, try setting the environment variable `R_LD_LIBRARY_PATH` to
+wherever Arrow C++ was put in `make install`, e.g. `export
+R_LD_LIBRARY_PATH=/usr/local/lib`, and retry installing the R package.
+
+When installing from source, if the R and C++ library versions do not
+match, installation may fail. If you’ve previously installed the
+libraries and want to upgrade the R package, you’ll need to update the
+Arrow C++ library first.
+
+For any other build/configuration challenges, see the [C++ developer
+guide](https://arrow.apache.org/docs/developers/cpp/building.html).
+
+
+## Using `remotes::install_github(...)`
+
+If you need an Arrow installation from a specific repository or at a specific ref,
+`remotes::install_github("apache/arrow/r", build = FALSE)`
+should work on most platforms (with the notable exception of Windows).
+The `build = FALSE` argument is important so that the installation can access the
+C++ source in the `cpp/` directory in `apache/arrow`.
+
+As with other installation methods, setting the environment variables `LIBARROW_MINIMAL=false` and `ARROW_R_DEV=true` will provide a more full-featured version of Arrow and provide more verbose output, respectively.
+
+For example, to install from the (fictional) branch `bugfix` from `apache/arrow` one could:
+
+```r
+Sys.setenv(LIBARROW_MINIMAL="false")
+remotes::install_github("apache/arrow/r@bugfix", build = FALSE)
+```
+
+Developers may wish to use this method of installing a specific commit
+separate from another Arrow development environment or system installation
+(e.g. we use this in [arrowbench](https://github.com/ursacomputing/arrowbench) to install development versions of arrow isolated from the system install). If you already have Arrow C++ libraries installed system-wide, you may need to set some additional variables in order to isolate this build from your system libraries:
+
+* Setting the environment variable `FORCE_BUNDLED_BUILD` to `true` will skip the `pkg-config` search for Arrow libraries and attempt to build from the same source at the repository+ref given.
+* You may also need to set the Makevars `CPPFLAGS` and `LDFLAGS` to `""` in order to prevent the installation process from attempting to link to already installed system versions of Arrow. One way to do this temporarily is wrapping your `remotes::install_github()` call like so: `withr::with_makevars(list(CPPFLAGS = "", LDFLAGS = ""), remotes::install_github(...))`.
+
+## Editing C++ code
+
+The `arrow` package uses some customized tools on top of `cpp11` to
+prepare its C++ code in `src/`. If you change C++ code in the R package,
+you will need to set the `ARROW_R_DEV` environment variable to `true`
+(optionally, add it to your`~/.Renviron` file to persist across
+sessions) so that the `data-raw/codegen.R` file is used for code
+generation.
+
+We use Google C++ style in our C++ code. Check for style errors with
+
+``` shell
+./lint.sh
+```
+
+Fix any style issues before committing with
+
+``` shell
+./lint.sh --fix
+```
+
+The lint script requires Python 3 and `clang-format-8`. If the command
+isn’t found, you can explicitly provide the path to it like
+`CLANG_FORMAT=$(which clang-format-8) ./lint.sh`. On macOS, you can get
+this by installing LLVM via Homebrew and running the script as
+`CLANG_FORMAT=$(brew --prefix llvm@8)/bin/clang-format ./lint.sh`
+
+_Note_ that the lint script requires Python 3 and the Python dependencies (note that `cmake_format is pinned to a specific version):
+
+* autopep8
+* flake8
+* cmake_format==0.5.2
+
+
+## Running tests
+
+Some tests are conditionally enabled based on the availability of certain
+features in the package build (S3 support, compression libraries, etc.).
+Others are generally skipped by default but can be enabled with environment
+variables or other settings:
+
+* All tests are skipped on Linux if the package builds without the C++ libarrow.
+  To make the build fail if libarrow is not available (as in, to test that
+  the C++ build was successful), set `TEST_R_WITH_ARROW=true`
+* Some tests are disabled unless `ARROW_R_DEV=true`
+* Tests that require allocating >2GB of memory to test Large types are disabled
+  unless `ARROW_LARGE_MEMORY_TESTS=true`
+* Integration tests against a real S3 bucket are disabled unless credentials
+  are set in `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`; these are available
+  on request
+* S3 tests using [MinIO](https://min.io/) locally are enabled if the
+  `minio server` process is found running. If you're running MinIO with custom
+  settings, you can set `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, and
+  `MINIO_PORT` to override the defaults.
+
+## Github workflows
+
+Crossbow is our extended test suite runner [more documentation is available](https://arrow.apache.org/docs/developers/crossbow.html) but important GitHub comment commads include:
+
+* `@github-actions crossbow submit -g r` for extended R CI tests
+* `@github-actions crossbow submit {task-name}` for running a specific task
+* `@github-actions autotune` will run and fix lint c++ linting errors + run R documentation (among other cleanup tasks) and commit them to the branch
+
+
+## Useful functions for Arrow developers
+
+Within an R session, these can help with package development:
+
+``` r
+# Load the dev package
+devtools::load_all() 
+
+# Run the test suite, optionally filtering file names
+devtools::test(filter="^regexp$") 
+# or the Makefile alternative from the arrow/r directory in a shell:
+make test file=regexp
+
+# Update roxygen documentation
+devtools::document() 
+
+# To preview the documentation website
+pkgdown::build_site()
+
+# All package checks; see also below
+devtools::check()
+
+# See test coverage statistics
+covr::report()
+covr::package_coverage()
+```
+
+Any of those can be run from the command line by wrapping them in `R -e
+'$COMMAND'`. There’s also a `Makefile` to help with some common tasks
+from the command line (`make test`, `make doc`, `make clean`, etc.)
+
+### Full package validation
+
+``` shell
+R CMD build .
+R CMD check arrow_*.tar.gz --as-cran
+```
