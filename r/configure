@@ -66,8 +66,12 @@ if [ "$FORCE_AUTOBREW" = "true" ] || [ "$FORCE_BUNDLED_BUILD" = "true" ]; then
 fi
 
 # Note that cflags may be empty in case of success
-if [ "$INCLUDE_DIR" ] || [ "$LIB_DIR" ]; then
-  echo "*** Using INCLUDE_DIR/LIB_DIR"
+if [ "$ARROW_HOME" ]; then
+  echo "*** Using ARROW_HOME as the source of libarrow"
+  PKG_CFLAGS="-I$ARROW_HOME/include $PKG_CFLAGS"
+  PKG_DIRS="-L$ARROW_HOME/lib"
+el if[ "$INCLUDE_DIR" ] || [ "$LIB_DIR" ]; then
+  echo "*** Using INCLUDE_DIR/LIB_DIR as the source of libarrow"
   PKG_CFLAGS="-I$INCLUDE_DIR $PKG_CFLAGS"
   PKG_DIRS="-L$LIB_DIR"
 else

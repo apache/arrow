@@ -69,16 +69,16 @@ guide](https://arrow.apache.org/docs/developers/cpp/building.html) for details.
 
 ### Install dependencies {.tabset}
 
-These dependencies are technically only needed for S3 support(?)
+The Arrow library will by default use system dependencies if they are suitable or build them during its own build process. The only dependencies that one should need to install outside of the build process are `cmake` (for configuring the build) and `openssl` if you are building with S3 support.
 
 #### macOS
 ```{bash, save=run & macos}
-brew install openssl
+brew install cmake openssl
 ```
 
 #### Ubuntu
 ```{bash, save=run & ubuntu}
-sudo apt install -y libcurl4-openssl-dev libssl-dev
+sudo apt install -y cmake libcurl4-openssl-dev libssl-dev
 ```
 
 
@@ -88,12 +88,11 @@ It’s recommended to make a `build` directory inside of the `cpp` directory of 
 
 #### Installing to another directory
 
-It is recommended that you install the arrow library to a user-level directory to be used in development. In this example we will install it to a directory called `dist` that has the same parent as our `arrow` checkout.
+It is recommended that you install the arrow library to a user-level directory to be used in development. In this example we will install it to a directory called `dist` that has the same parent as our `arrow` checkout. The directory name `dist` and the location is merely a convention. It could be named or located anywhere you would like. However, note that your installation of the Arrow R package will point to this directory and need it to remain intact for the package to continue to work. This is one reason we recommend *not* placing it inside of the arrow git checkout. 
 
 ```{bash, save=run & !sys_install}
 export ARROW_HOME=$(pwd)/dist
-export INCLUDE_DIR=$ARROW_HOME/include
-export LIB_DIR=$ARROW_HOME/lib
+mkdir $ARROW_HOME
 ```
 
 On linux, you will need to set `LD_LIBRARY_PATH` to the same directory as `LIB_DIR` before launching R and using Arrow. One way to do this is to add it to your profile. # TODO: do we want to recommend this? Is there any other alternative?
@@ -110,8 +109,6 @@ cd build
 ```
 
 ```{bash, save=run & !sys_install}
-mkdir $ARROW_HOME
-
 cmake \
   -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
   -DCMAKE_INSTALL_LIBDIR=lib \
@@ -120,9 +117,9 @@ cmake \
   -DARROW_DATASET=ON \
   -DARROW_FILESYSTEM=ON \
   -DARROW_JEMALLOC=ON \
+  -DARROW_S3=ON \
   -DARROW_JSON=ON \
   -DARROW_PARQUET=ON \
-  -DCMAKE_BUILD_TYPE=release \
   -DARROW_WITH_SNAPPY=ON \
   -DARROW_WITH_ZLIB=ON \
   -DARROW_INSTALL_NAME_RPATH=OFF \
@@ -142,7 +139,6 @@ cmake \
   -DARROW_JEMALLOC=ON \
   -DARROW_JSON=ON \
   -DARROW_PARQUET=ON \
-  -DCMAKE_BUILD_TYPE=release \
   -DARROW_WITH_SNAPPY=ON \
   -DARROW_WITH_ZLIB=ON \
   -DARROW_INSTALL_NAME_RPATH=OFF \
@@ -154,7 +150,6 @@ where `..` is the path to the `cpp/` directory when you're in `cpp/build`.
 To enable optional features including S3 support, an alternative memory allocator, and additional compression libraries, add some or all of these flags:
 
 ```bash
-  -DARROW_S3=ON \
   -DARROW_MIMALLOC=ON \
   -DARROW_WITH_BROTLI=ON \
   -DARROW_WITH_BZ2=ON \
@@ -168,6 +163,7 @@ Other flags that may be useful:
 
 * `-DARROW_EXTRA_ERROR_CONTEXT=ON` makes errors coming from the C++ library point to files and line numbers
 * `-DBoost_SOURCE=BUNDLED` and `-DThrift_SOURCE=bundled`, for example, or any other dependency `*_SOURCE`, if you have a system version of a C++ dependency that doesn't work correctly with Arrow. This tells the build to compile its own version of the dependency from source. 
+* `-DCMAKE_BUILD_TYPE=debug` and `-DCMAKE_BUILD_TYPE=relwithdebinfo` can be useful for debugging, though they are both slower to compile than the default `release`.
 
 
 ### Now actually build Arrow
