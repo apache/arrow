@@ -1195,7 +1195,8 @@ class BackgroundGenerator {
       // task_finished future for it
       state->task_finished = Future<>::Make();
       state->reading = true;
-      auto spawn_status = io_executor->Spawn([state]() { Task()(std::move(state)); });
+      auto spawn_status = io_executor->Spawn(
+          [state]() { BackgroundGenerator::WorkerTask(std::move(state)); });
       if (!spawn_status.ok()) {
         // If we can't spawn a new task then send an error to the consumer (either via a
         // waiting future or the queue) and mark ourselves finished
@@ -1277,66 +1278,63 @@ class BackgroundGenerator {
     State* state;
   };
 
-  class Task {
-   public:
-    void operator()(std::shared_ptr<State> state) {
-      // We need to capture the state to read while outside the mutex
-      bool reading = true;
-      while (reading) {
-        auto next = state->it.Next();
-        // Need to capture state->waiting_future inside the mutex to mark finished outside
-        Future<T> waiting_future;
-        {
-          auto guard = state->mutex.Lock();
-
-          if (state->should_shutdown) {
-            state->finished = true;
-            break;
-          }
-
-          if (!next.ok() || IsIterationEnd<T>(*next)) {
-            // Terminal item.  Mark finished to true, send this last item, and quit
-            state->finished = true;
-            if (!next.ok()) {
-              state->ClearQueue();
-            }
-          }
-          // At this point we are going to send an item.  Either we will add it to the
-          // queue or deliver it to a waiting future.
-          if (state->waiting_future.has_value()) {
-            waiting_future = std::move(state->waiting_future.value());
-            state->waiting_future.reset();
-          } else {
-            state->queue.push(std::move(next));
-            // We just filled up the queue so it is time to quit.  We may need to notify
-            // a cleanup task so we transition to Quitting
-            if (static_cast<int>(state->queue.size()) >= state->max_q) {
-              state->reading = false;
-            }
-          }
-          reading = state->reading && !state->finished;
-        }
-        // This should happen outside the mutex.  Presumably there is a
-        // transferring generator on the other end that will quickly transfer any
-        // callbacks off of this thread so we can continue looping.  Still, best not to
-        // rely on that
-        if (waiting_future.is_valid()) {
-          waiting_future.MarkFinished(next);
-        }
-      }
-      // Once we've sent our last item we can notify any waiters that we are done and so
-      // either state can be cleaned up or a new background task can be started
-      Future<> task_finished;
+  static void WorkerTask(std::shared_ptr<State> state) {
+    // We need to capture the state to read while outside the mutex
+    bool reading = true;
+    while (reading) {
+      auto next = state->it.Next();
+      // Need to capture state->waiting_future inside the mutex to mark finished outside
+      Future<T> waiting_future;
       {
         auto guard = state->mutex.Lock();
-        // After we give up the mutex state can be safely deleted.  We will no longer
-        // reference it.  We can safely transition to idle now.
-        task_finished = state->task_finished;
-        state->task_finished = Future<>();
+
+        if (state->should_shutdown) {
+          state->finished = true;
+          break;
+        }
+
+        if (!next.ok() || IsIterationEnd<T>(*next)) {
+          // Terminal item.  Mark finished to true, send this last item, and quit
+          state->finished = true;
+          if (!next.ok()) {
+            state->ClearQueue();
+          }
+        }
+        // At this point we are going to send an item.  Either we will add it to the
+        // queue or deliver it to a waiting future.
+        if (state->waiting_future.has_value()) {
+          waiting_future = std::move(state->waiting_future.value());
+          state->waiting_future.reset();
+        } else {
+          state->queue.push(std::move(next));
+          // We just filled up the queue so it is time to quit.  We may need to notify
+          // a cleanup task so we transition to Quitting
+          if (static_cast<int>(state->queue.size()) >= state->max_q) {
+            state->reading = false;
+          }
+        }
+        reading = state->reading && !state->finished;
       }
-      task_finished.MarkFinished();
+      // This should happen outside the mutex.  Presumably there is a
+      // transferring generator on the other end that will quickly transfer any
+      // callbacks off of this thread so we can continue looping.  Still, best not to
+      // rely on that
+      if (waiting_future.is_valid()) {
+        waiting_future.MarkFinished(next);
+      }
     }
-  };
+    // Once we've sent our last item we can notify any waiters that we are done and so
+    // either state can be cleaned up or a new background task can be started
+    Future<> task_finished;
+    {
+      auto guard = state->mutex.Lock();
+      // After we give up the mutex state can be safely deleted.  We will no longer
+      // reference it.  We can safely transition to idle now.
+      task_finished = state->task_finished;
+      state->task_finished = Future<>();
+    }
+    task_finished.MarkFinished();
+  }
 
   std::shared_ptr<State> state_;
   // state_ is held by both the generator and the background thread so it won't be cleaned
