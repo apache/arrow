@@ -148,7 +148,7 @@ function externBody({ exportName, staticNames, instanceNames }) {
 function externsHeader() {
     return (`${apacheHeader()}
 // @ts-nocheck
-/* tslint:disable */
+/* eslint-disable */
 /**
  * @fileoverview Closure Compiler externs for Arrow
  * @externs

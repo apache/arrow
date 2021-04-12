@@ -39,8 +39,8 @@ export type IsSigned = { 'true': true; 'false': false };
 export type RowLike<T extends { [key: string]: DataType }> =
       ( Iterable<[string, T[keyof T]['TValue'] | null]> )
     & { [P in keyof T]: T[P]['TValue'] | null }
-    & { get<K extends keyof T>(key: K): T[K]['TValue'] | null; }
-    & { set<K extends keyof T>(key: K, val: T[K]['TValue'] | null): void; }
+    & { get<K extends keyof T>(key: K): T[K]['TValue'] | null }
+    & { set<K extends keyof T>(key: K, val: T[K]['TValue'] | null): void }
     ;
 
 /** @ignore */
@@ -63,7 +63,6 @@ export interface DataType<TType extends Type = Type, TChildren extends { [key: s
  */
 export abstract class DataType<TType extends Type = Type, TChildren extends { [key: string]: DataType } = any> {
 
-    // @ts-ignore
     public [Symbol.toStringTag]: string;
 
     /** @nocollapse */ static            isNull (x: any): x is Null            { return x && x.typeId === Type.Null;            }
@@ -109,15 +108,15 @@ export class Null extends DataType<Type.Null> {
 type Ints = Type.Int | Type.Int8 | Type.Int16 | Type.Int32 | Type.Int64 | Type.Uint8 | Type.Uint16 | Type.Uint32 | Type.Uint64;
 /** @ignore */
 type IType = {
-    [Type.Int   ]: { bitWidth: IntBitWidth; isSigned: true | false; TArray: IntArray;    TValue: number | bigint | Int32Array | Uint32Array; };
-    [Type.Int8  ]: { bitWidth:           8; isSigned: true;         TArray: Int8Array;   TValue: number; };
-    [Type.Int16 ]: { bitWidth:          16; isSigned: true;         TArray: Int16Array;  TValue: number; };
-    [Type.Int32 ]: { bitWidth:          32; isSigned: true;         TArray: Int32Array;  TValue: number; };
-    [Type.Int64 ]: { bitWidth:          64; isSigned: true;         TArray: Int32Array;  TValue: bigint | Int32Array | Uint32Array; };
-    [Type.Uint8 ]: { bitWidth:           8; isSigned: false;        TArray: Uint8Array;  TValue: number; };
-    [Type.Uint16]: { bitWidth:          16; isSigned: false;        TArray: Uint16Array; TValue: number; };
-    [Type.Uint32]: { bitWidth:          32; isSigned: false;        TArray: Uint32Array; TValue: number; };
-    [Type.Uint64]: { bitWidth:          64; isSigned: false;        TArray: Uint32Array; TValue: bigint | Int32Array | Uint32Array; };
+    [Type.Int   ]: { bitWidth: IntBitWidth; isSigned: true | false; TArray: IntArray;    TValue: number | bigint | Int32Array | Uint32Array };
+    [Type.Int8  ]: { bitWidth:           8; isSigned: true;         TArray: Int8Array;   TValue: number };
+    [Type.Int16 ]: { bitWidth:          16; isSigned: true;         TArray: Int16Array;  TValue: number };
+    [Type.Int32 ]: { bitWidth:          32; isSigned: true;         TArray: Int32Array;  TValue: number };
+    [Type.Int64 ]: { bitWidth:          64; isSigned: true;         TArray: Int32Array;  TValue: bigint | Int32Array | Uint32Array };
+    [Type.Uint8 ]: { bitWidth:           8; isSigned: false;        TArray: Uint8Array;  TValue: number };
+    [Type.Uint16]: { bitWidth:          16; isSigned: false;        TArray: Uint16Array; TValue: number };
+    [Type.Uint32]: { bitWidth:          32; isSigned: false;        TArray: Uint32Array; TValue: number };
+    [Type.Uint64]: { bitWidth:          64; isSigned: false;        TArray: Uint32Array; TValue: bigint | Int32Array | Uint32Array };
 };
 
 /** @ignore */

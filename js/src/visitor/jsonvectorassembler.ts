@@ -34,11 +34,11 @@ import {
 /** @ignore */
 export interface JSONVectorAssembler extends Visitor {
 
-    visit     <T extends Column>  (node: T  ): object;
-    visitMany <T extends Column>  (cols: T[]): object[];
+    visit     <T extends Column>  (node: T  ): Record<string, unknown>;
+    visitMany <T extends Column>  (cols: T[]): Record<string, unknown>[];
     getVisitFn<T extends DataType>(node: Column<T>): (column: Column<T>) => { name: string, count: number, VALIDITY: (0 | 1)[], DATA?: any[], OFFSET?: number[], TYPE?: number[], children?: any[] };
 
-    visitNull                 <T extends Null>            (vector: V<T>): { };
+    visitNull                 <T extends Null>            (vector: V<T>): Record<string, never>;
     visitBool                 <T extends Bool>            (vector: V<T>): { DATA: boolean[] };
     visitInt                  <T extends Int>             (vector: V<T>): { DATA: (number | string)[]  };
     visitFloat                <T extends Float>           (vector: V<T>): { DATA: number[]  };

@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/* tslint:disable */
 const randomatic = require('randomatic');
 import { TextEncoder } from 'text-encoding-utf-8';
 import { VectorType as V } from '../src/interfaces';

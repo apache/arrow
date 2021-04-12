@@ -224,8 +224,8 @@ const defineRowProxyProperties = (() => {
             ktoi.set(key, ++idx);
             desc.get = getter(key);
             desc.set = setter(key);
-            row.hasOwnProperty(key) || (desc.enumerable = true, Object.defineProperty(row, key, desc));
-            row.hasOwnProperty(idx) || (desc.enumerable = false, Object.defineProperty(row, idx, desc));
+            Object.prototype.hasOwnProperty.call(row, key) || (desc.enumerable = true, Object.defineProperty(row, key, desc));
+            Object.prototype.hasOwnProperty.call(row, idx) || (desc.enumerable = false, Object.defineProperty(row, idx, desc));
         }
         desc.get = desc.set = null;
         return row;

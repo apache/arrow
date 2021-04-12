@@ -7,5 +7,6 @@
   "compilerOptions": {
     "target": "ESNEXT",
     "module": "commonjs"
-  }
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"],
 }

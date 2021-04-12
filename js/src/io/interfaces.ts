@@ -23,13 +23,12 @@ export const ITERATOR_DONE: any = Object.freeze({ done: true, value: void (0) })
 /** @ignore */
 export type FileHandle = import('fs').promises.FileHandle;
 /** @ignore */
-export type ArrowJSONLike = { schema: any; batches?: any[]; dictionaries?: any[]; };
+export type ArrowJSONLike = { schema: any, batches?: any[], dictionaries?: any[] };
 /** @ignore */
 export type ReadableDOMStreamOptions = { type: 'bytes' | undefined, autoAllocateChunkSize?: number, highWaterMark?: number };
 
 /** @ignore */
 export class ArrowJSON {
-    // @ts-ignore
     constructor(private _json: ArrowJSONLike) {}
     public get schema(): any { return this._json['schema']; }
     public get batches(): any[] { return (this._json['batches'] || []) as any[]; }

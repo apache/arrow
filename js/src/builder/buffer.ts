@@ -62,7 +62,6 @@ export class BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = Da
     public get reservedLength() { return this.buffer.length / this.stride; }
     public get reservedByteLength() { return this.buffer.byteLength; }
 
-    // @ts-ignore
     public set(index: number, value: TValue) { return this; }
     public append(value: TValue) { return this.set(this.length, value); }
     public reserve(extra: number) {
@@ -157,10 +156,8 @@ export class OffsetsBufferBuilder extends DataBufferBuilder<Int32Array> {
 
 /** @ignore */
 export class WideBufferBuilder<T extends TypedArray, R extends BigIntArray> extends BufferBuilder<T, DataValue<T>> {
-    // @ts-ignore
-    public buffer64: R;
-    // @ts-ignore
-    protected _ArrayType64: BigIntArrayConstructor<R>;
+    public buffer64!: R;
+    protected _ArrayType64!: BigIntArrayConstructor<R>;
     public get ArrayType64() {
         return this._ArrayType64 || (this._ArrayType64 = <BigIntArrayConstructor<R>> (this.buffer instanceof Int32Array ? BigInt64Array : BigUint64Array));
     }

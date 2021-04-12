@@ -53,13 +53,11 @@ export abstract class UnionBuilder<T extends Union, TNull = any> extends Builder
         return this;
     }
 
-    // @ts-ignore
     public setValue(index: number, value: T['TValue'], childTypeId?: number) {
         this._typeIds.set(index, childTypeId!);
         super.setValue(index, value);
     }
 
-    // @ts-ignore
     public addChild(child: Builder, name = `${this.children.length}`) {
         const childTypeId = this.children.push(child);
         const { type: { children, mode, typeIds } } = this;
@@ -69,7 +67,6 @@ export abstract class UnionBuilder<T extends Union, TNull = any> extends Builder
     }
 
     /** @ignore */
-    // @ts-ignore
     protected _valueToChildTypeId(builder: UnionBuilder<T, TNull>, value: any, offset: number): number {
         throw new Error(`Cannot map UnionBuilder value to child typeId. \
 Pass the \`childTypeId\` as the second argument to unionBuilder.append(), \

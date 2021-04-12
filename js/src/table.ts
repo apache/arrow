@@ -57,9 +57,9 @@ export class Table<T extends { [key: string]: DataType } = any>
                Applicative<Struct<T>, Table<T>> {
 
     /** @nocollapse */
-    public static empty<T extends { [key: string]: DataType } = {}>(schema = new Schema<T>([])) { return new Table<T>(schema, []); }
+    public static empty<T extends { [key: string]: DataType } = Record<string, never>>(schema = new Schema<T>([])) { return new Table<T>(schema, []); }
 
-    public static from(): Table<{}>;
+    public static from(): Table<Record<string, never>>;
     public static from<T extends { [key: string]: DataType } = any>(source: RecordBatchReader<T>): Table<T>;
     public static from<T extends { [key: string]: DataType } = any>(source: import('./ipc/reader').FromArg0): Table<T>;
     public static from<T extends { [key: string]: DataType } = any>(source: import('./ipc/reader').FromArg2): Table<T>;

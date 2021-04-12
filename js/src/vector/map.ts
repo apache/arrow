@@ -28,8 +28,8 @@ export class MapVector<K extends DataType = any, V extends DataType = any> exten
         return Vector.new(this.data.clone(new List<Struct<{ key: K, value: V }>>(child)));
     }
     public bind(index: number): Map_<K, V>['TValue'] {
-        const child = this.getChildAt<Struct<{ key: K, value: V }>>(0);
+        const child = this.getChildAt<Struct<{ key: K, value: V }>>(0)!;
         const { [index]: begin, [index + 1]: end } = this.valueOffsets;
-        return new MapRow(child!.slice(begin, end));
+        return new MapRow(child.slice(begin, end));
     }
 }

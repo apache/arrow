@@ -104,7 +104,7 @@ export class CountByResult<T extends DataType = any, TCount extends Int = Int> e
         ]);
         super(new RecordBatch<R>(schema, counts.length, [values, counts]));
     }
-    public toJSON(): Object {
+    public toJSON(): Record<string, unknown> {
         const values = this.getColumnAt(0)!;
         const counts = this.getColumnAt(1)!;
         const result = {} as { [k: string]: number | null };

@@ -69,10 +69,8 @@ class Footer_ {
         return b.asUint8Array();
     }
 
-    // @ts-ignore
-    protected _recordBatches: FileBlock[];
-    // @ts-ignore
-    protected _dictionaryBatches: FileBlock[];
+    protected _recordBatches!: FileBlock[];
+    protected _dictionaryBatches!: FileBlock[];
     public get numRecordBatches() { return this._recordBatches.length; }
     public get numDictionaries() { return this._dictionaryBatches.length; }
 

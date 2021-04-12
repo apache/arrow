@@ -48,7 +48,6 @@ import {
         return test('not testing node streams because process.env.TEST_NODE_STREAMS !== "true"', () => {});
     }
 
-    /* tslint:disable */
     const { parse: bignumJSONParse } = require('json-bignum');
 
     for (const table of generateRandomTables([10, 20, 30])) {

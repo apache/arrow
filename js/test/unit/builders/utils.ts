@@ -22,7 +22,6 @@ import { Builder } from '../../Arrow';
 import { DataType, Vector, Chunked } from '../../Arrow';
 
 const rand = Math.random.bind(Math);
-/* tslint:disable */
 const randstr = require('randomatic');
 const randnulls = <T, TNull = null>(values: T[], n: TNull = <any> null) => values.map((x) => Math.random() > 0.25 ? x : n) as (T | TNull)[];
 

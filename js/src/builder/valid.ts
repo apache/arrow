@@ -42,7 +42,6 @@ import { BigIntAvailable } from '../util/compat';
 export function createIsValidFunction<T extends DataType = any, TNull = any>(nullValues?: ReadonlyArray<TNull>) {
 
     if (!nullValues || nullValues.length <= 0) {
-        // @ts-ignore
         return function isValid(value: any) { return true; };
     }
 
