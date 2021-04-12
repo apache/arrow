@@ -110,7 +110,7 @@ expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its star
   msg <- tryCatch(
     rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = tbl))),
     error = function (e) {
-          msg <- conditionMessage(e)
+      msg <- conditionMessage(e)
 
       # The error here is of the form:
       #
@@ -120,17 +120,18 @@ expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its star
       #
       # but what we really care about is the `x` block
       # so (temporarily) let's pull those blocks out when we find them
-      if (grepl("object '.*'.not.found", msg)) {
-        return(gsub("^.*(object '.*'.not found).*$", "\\1", msg))
+      pattern <- i18ize_error_messages()
+      
+      if (grepl(pattern, msg)) {
+        msg <- sub(paste0("^.*(", pattern, ").*$"), "\\1", msg)
       }
-      if (grepl('could not find function ".*"', msg)) {
-        return(gsub('^.*(could not find function ".*").*$', "\\1", msg))
-      }
-      invisible(structure(msg, class = "try-error", condition = e))
+      msg
     }
   )
   # make sure msg is a character object (i.e. there has been an error)
-  expect_type(msg, "character")
+  # If it did not error, we would get a data.frame or whatever
+  # This expectation will tell us "dplyr on data.frame errored is not TRUE"
+  expect_true(identical(typeof(msg), "character"), label = "dplyr on data.frame errored")
 
   expect_error(
     rlang::eval_tidy(
