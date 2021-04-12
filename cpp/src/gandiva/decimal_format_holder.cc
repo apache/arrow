@@ -101,7 +101,6 @@ namespace gandiva{
 
       const char* res_ptr = res.c_str();
       from_chars(res_ptr, res_ptr + res.size(), answer, chars_format::fixed);
-      double test = round_decimal_digits(answer,maximumFractionDigits_);
-      return test;
+      return round_decimal_digits(answer,maximumFractionDigits_);
     }
 }
