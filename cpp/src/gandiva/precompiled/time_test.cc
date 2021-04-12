@@ -699,6 +699,25 @@ TEST(TestTime, TestCastTimestampToDate) {
   EXPECT_EQ(StringToTimestamp("2000-05-01 00:00:00"), out);
 }
 
+TEST(TestTime, TestCastTimestampToTime) {
+  gdv_timestamp ts = StringToTimestamp("2000-05-01 10:20:34");
+  auto expected_response =
+      static_cast<int32_t>(ts - StringToTimestamp("2000-05-01 00:00:00"));
+  auto out = castTIME_timestamp(ts);
+  EXPECT_EQ(expected_response, out);
+
+  // Test when the defined value is midnight, so the returned value must 0
+  ts = StringToTimestamp("1998-12-01 00:00:00");
+  expected_response = 0;
+  out = castTIME_timestamp(ts);
+  EXPECT_EQ(expected_response, out);
+
+  ts = StringToTimestamp("2015-09-16 23:59:59");
+  expected_response = static_cast<int32_t>(ts - StringToTimestamp("2015-09-16 00:00:00"));
+  out = castTIME_timestamp(ts);
+  EXPECT_EQ(expected_response, out);
+}
+
 TEST(TestTime, TestLastDay) {
   // leap year test
   gdv_timestamp ts = StringToTimestamp("2016-02-11 03:20:34");
