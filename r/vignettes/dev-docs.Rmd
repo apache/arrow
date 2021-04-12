@@ -65,7 +65,7 @@ repository correspond to dates, and you will likely want the most recent.
 If you need to alter both the Arrow C++ library and the R package code, or if you can’t get a binary version of the latest C++ library elsewhere, you’ll need to build it from source too.
 
 First, install the C++ library. See the [developer
-guide](https://arrow.apache.org/docs/developers/cpp/building.html) for details. 
+guide](https://arrow.apache.org/docs/developers/cpp/building.html) for more details and a full list of configuration options. 
 
 ### Install dependencies {.tabset}
 
@@ -82,11 +82,11 @@ sudo apt install -y cmake libcurl4-openssl-dev libssl-dev
 ```
 
 
-### Building Arrow {.tabset}
+### Configure the Arrow build {.tabset}
 
-It’s recommended to make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored). Assuming you are inside `cpp/build`, you’ll first call `cmake` to configure the build and then `make install`. For the R package, you’ll need to enable several features in the C++ library using `-D` flags:
+It’s recommended to make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored). 
 
-#### Installing to another directory
+#### Install to another directory
 
 It is recommended that you install the arrow library to a user-level directory to be used in development. In this example we will install it to a directory called `dist` that has the same parent as our `arrow` checkout. The directory name `dist` and the location is merely a convention. It could be named or located anywhere you would like. However, note that your installation of the Arrow R package will point to this directory and need it to remain intact for the package to continue to work. This is one reason we recommend *not* placing it inside of the arrow git checkout. 
 
@@ -108,6 +108,8 @@ mkdir build
 cd build
 ```
 
+Assuming you are inside `cpp/build`, you’ll first call `cmake` to configure the build and then `make install`. For the R package, you’ll need to enable several features in the C++ library using `-D` flags:
+
 ```{bash, save=run & !sys_install}
 cmake \
   -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
@@ -126,9 +128,11 @@ cmake \
   ..
 ```
 
-#### Installing to the system
+#### Install to the system
 
-If you would like to install Arrow as a system library you can
+If you would like to install Arrow as a system library you can do that as well. 
+
+Assuming you are inside `cpp/build`, you’ll first call `cmake` to configure the build and then `make install`. For the R package, you’ll need to enable several features in the C++ library using `-D` flags:
 
 ```{bash, save=run & sys_install}
 cmake \
@@ -145,7 +149,7 @@ cmake \
   ..
 ```
 
-where `..` is the path to the `cpp/` directory when you're in `cpp/build`.
+### More Arrow features
 
 To enable optional features including S3 support, an alternative memory allocator, and additional compression libraries, add some or all of these flags:
 
@@ -166,7 +170,7 @@ Other flags that may be useful:
 * `-DCMAKE_BUILD_TYPE=debug` and `-DCMAKE_BUILD_TYPE=relwithdebinfo` can be useful for debugging, though they are both slower to compile than the default `release`.
 
 
-### Now actually build Arrow
+### Build Arrow
 
 You can `-j#` here too to speed up compilation by running in parallel.
 
@@ -189,7 +193,7 @@ need to manually purge object files if you are only editing R or C++
 code inside `r/`.
 
 
-### Now actually build the Arrow R package
+### Build the Arrow R package
 
 Once you’ve built the C++ library, you can install the R package and its
 dependencies, along with additional dev dependencies, from the git
@@ -213,9 +217,9 @@ need to set
 export ARROW_R_CXXFLAGS=-fno-omit-frame-pointer
 ```
 
-### Troublshooting
+## Troublshooting
 
-#### Arrow library-R package mismatches 
+### Arrow library-R package mismatches 
 
 If the Arrow library and the R package have diverged, you will see errors like:
 
@@ -233,7 +237,7 @@ ERROR: loading failed
 
 To resolve this, try rebuilding the Arrow library from [Building Arrow above](#building-arrow). 
 
-#### Multiple versions of Arrow library
+### Multiple versions of Arrow library
 
 If rebuilding the Arrow library doesn't work and you are [installing from a user-level directory](#installing-to-another-directory) and you already have a previous installation of libarrow in a system directory or you get you may get errors like the following when you install the R package:
 
@@ -274,7 +278,7 @@ MAKEFLAGS="LDFLAGS=" R CMD INSTALL .
 ```
 
 
-#### `rpath` issues
+### `rpath` issues
 
 If the package fails to install/load with an error like this:
 
