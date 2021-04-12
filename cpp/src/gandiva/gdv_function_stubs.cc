@@ -27,6 +27,7 @@
 #include "arrow/util/formatting.h"
 #include "arrow/util/utf8.h"
 #include "arrow/util/value_parsing.h"
+#include "gandiva/decimal_format_holder.h"
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
 #include "gandiva/formatting_utils.h"

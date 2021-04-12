@@ -20,7 +20,6 @@
 #include <cstdint>
 
 #include "gandiva/visibility.h"
-#include "gandiva/decimal_format_holder.h"
 
 /// Stub functions that can be accessed from LLVM.
 extern "C" {
