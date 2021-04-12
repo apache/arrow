@@ -84,7 +84,7 @@ else
     # TODO: what about --libs-only-other?
   fi
 
-  if [ "$PKGCONFIG_CFLAGS" ] || [ "$PKGCONFIG_LIBS" ]; then
+  if [ "$PKGCONFIG_CFLAGS" ] && [ "$PKGCONFIG_LIBS" ]; then
     echo "*** Arrow C++ libraries found via pkg-config"
     PKG_CFLAGS="$PKGCONFIG_CFLAGS"
     PKG_LIBS=${PKGCONFIG_LIBS}
