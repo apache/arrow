@@ -545,9 +545,9 @@ TEST_F(TestORCWriterSingleArray, WriteStructOfStruct) {
 }
 TEST_F(TestORCWriterSingleArray, WriteList) {
   int64_t num_rows = 10000;
-  auto value_array = rand.ArrayOf(int32(), 125 * num_rows, 0);
+  auto value_array = rand.ArrayOf(int32(), 1250 * num_rows, 0);
   std::shared_ptr<Array> array = rand.List(*value_array, num_rows, 1);
-  AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 100);
+  AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 1000);
 }
 TEST_F(TestORCWriterSingleArray, WriteLargeList) {
   int64_t num_rows = 10000;
@@ -571,13 +571,6 @@ TEST_F(TestORCWriterSingleArray, WriteFixedSizeList) {
                          output_array = std::make_shared<ListArray>(
                              list(int32()), num_rows, buffer, value_array, bitmap);
   AssertArrayWriteReadEqual(input_array, output_array, kDefaultSmallMemStreamSize * 10);
-}
-TEST_F(TestORCWriterSingleArray, WriteMap) {
-  int64_t num_rows = 10000;
-  auto key_array = rand.ArrayOf(int32(), 20 * num_rows, 0);
-  auto item_array = rand.ArrayOf(int32(), 20 * num_rows, 1);
-  std::shared_ptr<Array> array = rand.Map(key_array, item_array, num_rows, 0.4);
-  AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 25);
 }
 TEST_F(TestORCWriterSingleArray, WriteListOfList) {
   int64_t num_rows = 10000;
@@ -613,6 +606,13 @@ TEST_F(TestORCWriterSingleArray, WriteStructOfList) {
   std::shared_ptr<Array> array = std::make_shared<StructArray>(
       struct_({field("a", list(int32()))}), num_rows, av0, bitmap);
   AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 20);
+}
+TEST_F(TestORCWriterSingleArray, WriteMap) {
+  int64_t num_rows = 10000;
+  auto key_array = rand.ArrayOf(int32(), 20 * num_rows, 0);
+  auto item_array = rand.ArrayOf(int32(), 20 * num_rows, 1);
+  std::shared_ptr<Array> array = rand.Map(key_array, item_array, num_rows, 0.1);
+  AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 50);
 }
 TEST_F(TestORCWriterSingleArray, WriteStructOfMap) {
   int64_t num_rows = 10000, num_values = 5 * num_rows;
