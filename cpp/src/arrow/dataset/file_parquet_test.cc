@@ -272,8 +272,10 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderPreBuffer) {
   SetSchema(reader->schema()->fields());
   SetFilter(literal(true));
 
-  format_->reader_options.pre_buffer = true;
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+  auto fragment_scan_options = std::make_shared<ParquetFragmentScanOptions>();
+  fragment_scan_options->arrow_reader_properties->set_pre_buffer(true);
+  opts_->fragment_scan_options = fragment_scan_options;
   ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
 
   int64_t task_count = 0;
@@ -636,6 +638,7 @@ TEST_F(TestParquetFileFormat, WriteRecordBatchReaderCustomOptions) {
 
   options->arrow_writer_properties = parquet::ArrowWriterProperties::Builder()
                                          .coerce_timestamps(coerce_timestamps_to)
+                                         ->allow_truncated_timestamps()
                                          ->build();
 
   EXPECT_OK_AND_ASSIGN(auto writer, format_->MakeWriter(sink, reader->schema(), options));

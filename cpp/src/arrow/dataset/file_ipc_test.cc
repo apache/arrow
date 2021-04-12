@@ -134,6 +134,28 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReader) {
   ASSERT_EQ(row_count, kNumRows);
 }
 
+TEST_F(TestIpcFileFormat, FragmentScanOptions) {
+  auto reader = GetRecordBatchReader(
+      // ARROW-12077: on Windows/mimalloc/release, nullable list column leads to crash
+      schema({field("list", list(float64()), false,
+                    key_value_metadata({{"max_length", "1"}})),
+              field("f64", float64())}));
+  auto source = GetFileSource(reader.get());
+
+  SetSchema(reader->schema()->fields());
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+
+  // Set scan options that ensure reading fails
+  auto fragment_scan_options = std::make_shared<IpcFragmentScanOptions>();
+  fragment_scan_options->options = std::make_shared<ipc::IpcReadOptions>();
+  fragment_scan_options->options->max_recursion_depth = 0;
+  opts_->fragment_scan_options = fragment_scan_options;
+  ASSERT_OK_AND_ASSIGN(auto scan_tasks, fragment->Scan(opts_));
+  ASSERT_OK_AND_ASSIGN(auto scan_task, scan_tasks.Next());
+  ASSERT_OK_AND_ASSIGN(auto batches, scan_task->Execute());
+  ASSERT_RAISES(Invalid, batches.Next());
+}
+
 TEST_F(TestIpcFileFormat, ScanRecordBatchReaderWithVirtualColumn) {
   auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
   auto source = GetFileSource(reader.get());

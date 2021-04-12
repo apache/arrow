@@ -31,10 +31,12 @@
 namespace arrow {
 namespace dataset {
 
+constexpr char kIpcTypeName[] = "ipc";
+
 /// \brief A FileFormat implementation that reads from and writes to Ipc files
 class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
  public:
-  std::string type_name() const override { return "ipc"; }
+  std::string type_name() const override { return kIpcTypeName; }
 
   bool Equals(const FileFormat& other) const override {
     return type_name() == other.type_name();
@@ -57,6 +59,16 @@ class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
       std::shared_ptr<FileWriteOptions> options) const override;
 
   std::shared_ptr<FileWriteOptions> DefaultWriteOptions() override;
+};
+
+/// \brief Per-scan options for IPC fragments
+class ARROW_DS_EXPORT IpcFragmentScanOptions : public FragmentScanOptions {
+ public:
+  std::string type_name() const override { return kIpcTypeName; }
+
+  /// Options passed to the IPC file reader.
+  /// included_fields, memory_pool, and use_threads are ignored.
+  std::shared_ptr<ipc::IpcReadOptions> options;
 };
 
 class ARROW_DS_EXPORT IpcFileWriteOptions : public FileWriteOptions {

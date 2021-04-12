@@ -191,7 +191,7 @@ inline bool operator==(const SubtreeImpl::Encoded& l, const SubtreeImpl::Encoded
 ///     but of the wrong type, an error is returned.
 template <typename T>
 arrow::Result<std::shared_ptr<T>> GetFragmentScanOptions(
-    const std::string& type_name, ScanOptions* scan_options,
+    const std::string& type_name, const ScanOptions* scan_options,
     const std::shared_ptr<FragmentScanOptions>& default_options) {
   auto source = default_options;
   if (scan_options && scan_options->fragment_scan_options) {
