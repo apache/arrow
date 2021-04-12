@@ -333,18 +333,22 @@ separate from another Arrow development environment or system installation
 
 The `arrow` package uses some customized tools on top of `cpp11` to
 prepare its C++ code in `src/`. If you change C++ code in the R package,
-you will need to set the `ARROW_R_DEV` environment variable to `TRUE`
+you will need to set the `ARROW_R_DEV` environment variable to `true`
 (optionally, add it to your`~/.Renviron` file to persist across
 sessions) so that the `data-raw/codegen.R` file is used for code
 generation.
 
 We use Google C++ style in our C++ code. Check for style errors with
 
-    ./lint.sh
+``` shell
+./lint.sh
+```
 
 Fix any style issues before committing with
 
-    ./lint.sh --fix
+``` shell
+./lint.sh --fix
+```
 
 The lint script requires Python 3 and `clang-format-8`. If the command
 isn’t found, you can explicitly provide the path to it like
@@ -352,7 +356,7 @@ isn’t found, you can explicitly provide the path to it like
 this by installing LLVM via Homebrew and running the script as
 `CLANG_FORMAT=$(brew --prefix llvm@8)/bin/clang-format ./lint.sh`
 
-_note_ that the lint script requires python3 and the python dependencies (note that `cmake_format is pinned to a specific version):
+_Note_ that the lint script requires Python 3 and the Python dependencies (note that `cmake_format is pinned to a specific version):
 
 * autopep8
 * flake8
@@ -368,10 +372,10 @@ variables or other settings:
 
 * All tests are skipped on Linux if the package builds without the C++ libarrow.
   To make the build fail if libarrow is not available (as in, to test that
-  the C++ build was successful), set `TEST_R_WITH_ARROW=TRUE`
-* Some tests are disabled unless `ARROW_R_DEV=TRUE`
+  the C++ build was successful), set `TEST_R_WITH_ARROW=true`
+* Some tests are disabled unless `ARROW_R_DEV=true`
 * Tests that require allocating >2GB of memory to test Large types are disabled
-  unless `ARROW_LARGE_MEMORY_TESTS=TRUE`
+  unless `ARROW_LARGE_MEMORY_TESTS=true`
 * Integration tests against a real S3 bucket are disabled unless credentials
   are set in `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`; these are available
   on request
