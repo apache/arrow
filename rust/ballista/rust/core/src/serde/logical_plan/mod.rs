@@ -119,7 +119,11 @@ mod roundtrip_tests {
         Ok(())
     }
 
-    fn new_box_field(name: &str, dt: DataType, nullable: bool) -> Box<arrow::datatypes::Field> {
+    fn new_box_field(
+        name: &str,
+        dt: DataType,
+        nullable: bool,
+    ) -> Box<arrow::datatypes::Field> {
         Box::new(arrow::datatypes::Field::new(name, dt, nullable))
     }
 
@@ -613,7 +617,8 @@ mod roundtrip_tests {
 
         for test_case in test_types.into_iter() {
             let proto_scalar: protobuf::ScalarValue = (&test_case).try_into()?;
-            let returned_scalar: datafusion::scalar::ScalarValue = (&proto_scalar).try_into()?;
+            let returned_scalar: datafusion::scalar::ScalarValue =
+                (&proto_scalar).try_into()?;
             assert_eq!(
                 format!("{:?}", &test_case),
                 format!("{:?}", returned_scalar)
@@ -640,7 +645,8 @@ mod roundtrip_tests {
 
         use datafusion::sql::parser::FileType;
 
-        let filetypes: [FileType; 3] = [FileType::NdJson, FileType::Parquet, FileType::CSV];
+        let filetypes: [FileType; 3] =
+            [FileType::NdJson, FileType::Parquet, FileType::CSV];
 
         for file in filetypes.iter() {
             let create_table_node = LogicalPlan::CreateExternalTable {

@@ -125,7 +125,7 @@ write_feather <- function(x,
 #'
 #' @inheritParams read_ipc_stream
 #' @inheritParams read_delim_arrow
-#' @param ... additional parameters, passed to [FeatherReader$create()][FeatherReader]
+#' @param ... additional parameters, passed to [make_readable_file()].
 #'
 #' @return A `data.frame` if `as_data_frame` is `TRUE` (the default), or an
 #' Arrow [Table] otherwise
@@ -144,17 +144,20 @@ write_feather <- function(x,
 #' }
 read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
   if (!inherits(file, "RandomAccessFile")) {
-    file <- make_readable_file(file)
+    file <- make_readable_file(file, ...)
     on.exit(file$close())
   }
-  reader <- FeatherReader$create(file, ...)
+  reader <- FeatherReader$create(file)
 
   col_select <- enquo(col_select)
   columns <- if (!quo_is_null(col_select)) {
     vars_select(names(reader), !!col_select)
   }
 
-  out <- reader$Read(columns)
+  out <- tryCatch(
+    reader$Read(columns),
+    error = read_compressed_error
+  )
 
   if (isTRUE(as_data_frame)) {
     out <- as.data.frame(out)

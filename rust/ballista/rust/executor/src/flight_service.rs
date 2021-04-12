@@ -36,9 +36,9 @@ use arrow::ipc::reader::FileReader;
 use arrow::ipc::writer::IpcWriteOptions;
 use arrow::record_batch::RecordBatch;
 use arrow_flight::{
-    flight_service_server::FlightService, Action, ActionType, Criteria, Empty, FlightData,
-    FlightDescriptor, FlightInfo, HandshakeRequest, HandshakeResponse, PutResult, SchemaResult,
-    Ticket,
+    flight_service_server::FlightService, Action, ActionType, Criteria, Empty,
+    FlightData, FlightDescriptor, FlightInfo, HandshakeRequest, HandshakeResponse,
+    PutResult, SchemaResult, Ticket,
 };
 use datafusion::error::DataFusionError;
 use futures::{Stream, StreamExt};
@@ -68,7 +68,8 @@ impl BallistaFlightService {
     }
 }
 
-type BoxedFlightStream<T> = Pin<Box<dyn Stream<Item = Result<T, Status>> + Send + Sync + 'static>>;
+type BoxedFlightStream<T> =
+    Pin<Box<dyn Stream<Item = Result<T, Status>> + Send + Sync + 'static>>;
 
 #[tonic::async_trait]
 impl FlightService for BallistaFlightService {
@@ -87,7 +88,8 @@ impl FlightService for BallistaFlightService {
         let ticket = request.into_inner();
         info!("Received do_get request");
 
-        let action = decode_protobuf(&ticket.ticket).map_err(|e| from_ballista_err(&e))?;
+        let action =
+            decode_protobuf(&ticket.ticket).map_err(|e| from_ballista_err(&e))?;
 
         match &action {
             BallistaAction::ExecutePartition(partition) => {
@@ -96,7 +98,8 @@ impl FlightService for BallistaFlightService {
                     partition.job_id,
                     partition.stage_id,
                     partition.partition_id,
-                    format_plan(partition.plan.as_ref(), 0).map_err(|e| from_ballista_err(&e))?
+                    format_plan(partition.plan.as_ref(), 0)
+                        .map_err(|e| from_ballista_err(&e))?
                 );
 
                 let mut tasks: Vec<JoinHandle<Result<_, BallistaError>>> = vec![];
@@ -149,8 +152,11 @@ impl FlightService for BallistaFlightService {
                         let path: ArrayRef = Arc::new(c0.finish());
 
                         let stats: ArrayRef = stats.to_arrow_arrayref()?;
-                        let results =
-                            vec![RecordBatch::try_new(schema, vec![path, stats]).unwrap()];
+                        let results = vec![RecordBatch::try_new(
+                            schema,
+                            vec![path, stats],
+                        )
+                        .unwrap()];
 
                         let mut batches: Vec<Result<FlightData, Status>> = results
                             .iter()
@@ -178,15 +184,20 @@ impl FlightService for BallistaFlightService {
                     stats.arrow_struct_repr(),
                 ]));
                 let schema_flight_data =
-                    arrow_flight::utils::flight_data_from_arrow_schema(schema.as_ref(), &options);
+                    arrow_flight::utils::flight_data_from_arrow_schema(
+                        schema.as_ref(),
+                        &options,
+                    );
                 flights.push(Ok(schema_flight_data));
 
                 // collect statistics from each executed partition
                 for result in results {
-                    let result =
-                        result.map_err(|e| Status::internal(format!("Ballista Error: {:?}", e)))?;
-                    let batches =
-                        result.map_err(|e| Status::internal(format!("Ballista Error: {:?}", e)))?;
+                    let result = result.map_err(|e| {
+                        Status::internal(format!("Ballista Error: {:?}", e))
+                    })?;
+                    let batches = result.map_err(|e| {
+                        Status::internal(format!("Ballista Error: {:?}", e))
+                    })?;
                     flights.extend_from_slice(&batches);
                 }
 
@@ -279,7 +290,8 @@ impl FlightService for BallistaFlightService {
     ) -> Result<Response<Self::DoActionStream>, Status> {
         let action = request.into_inner();
 
-        let _action = decode_protobuf(&action.body.to_vec()).map_err(|e| from_ballista_err(&e))?;
+        let _action =
+            decode_protobuf(&action.body.to_vec()).map_err(|e| from_ballista_err(&e))?;
 
         Err(Status::unimplemented("do_action"))
     }
@@ -315,13 +327,18 @@ fn create_flight_iter(
     )
 }
 
-async fn stream_flight_data<T>(reader: FileReader<T>, tx: FlightDataSender) -> Result<(), Status>
+async fn stream_flight_data<T>(
+    reader: FileReader<T>,
+    tx: FlightDataSender,
+) -> Result<(), Status>
 where
     T: Read + Seek,
 {
     let options = arrow::ipc::writer::IpcWriteOptions::default();
-    let schema_flight_data =
-        arrow_flight::utils::flight_data_from_arrow_schema(reader.schema().as_ref(), &options);
+    let schema_flight_data = arrow_flight::utils::flight_data_from_arrow_schema(
+        reader.schema().as_ref(),
+        &options,
+    );
     send_response(&tx, Ok(schema_flight_data)).await?;
 
     for batch in reader {

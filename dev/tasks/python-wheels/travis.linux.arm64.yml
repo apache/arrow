@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+{% import 'macros.jinja' as macros with context %}
+
 arch: arm64-graviton2
 virt: vm
 os: linux
@@ -43,23 +45,14 @@ env:
     - PYTHON={{ python_version }}
 
 before_script:
-  - git clone --no-checkout {{ arrow.remote }} arrow
-  - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-  - git -C arrow checkout FETCH_HEAD
-  - git -C arrow submodule update --init --recursive
+  {{ macros.travis_checkout_arrow() }}
+  {{ macros.travis_docker_login() }}
 
 script:
   # Install Archery and Crossbow dependencies
-  - sudo -H pip3 install --upgrade pip
-  - sudo -H pip3 install docker-compose
-  - sudo -H pip3 install -e arrow/dev/archery[docker]
-  - sudo -H pip3 install -r arrow/dev/tasks/requirements-crossbow.txt pygit2==1.0
-
-  # Docker Login:
-  - echo "${DOCKERHUB_TOKEN}" | docker login --username "${DOCKERHUB_USER}" --password-stdin
+  {{ macros.travis_install_archery() }}
 
   # Build and Test packages
-
   # output something every minutes to prevent travis from killing the build
   - while sleep 1m; do echo "=====[ $SECONDS seconds still running ]====="; done &
   - archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-manylinux-{{ manylinux_version }}
@@ -69,23 +62,11 @@ script:
 
 after_success:
   # Upload wheel as github artifact
-  - |
-    python3 arrow/dev/tasks/crossbow.py \
-      --queue-path . \
-      --queue-remote {{ queue_remote_url }} \
-      upload-artifacts \
-      --pattern "arrow/python/repaired_wheels/*.whl" \
-      --sha {{ task.branch }} \
-      --tag {{ task.tag }}
+  {{ macros.travis_upload_releases("arrow/python/repaired_wheels/*.whl") }}
+  {{ macros.travis_upload_gemfury("arrow/python/repaired_wheels/*.whl") }}
 
   {% if arrow.branch == 'master' %}
   # Push the docker image to dockerhub
   - archery docker push python-wheel-manylinux-{{ manylinux_version }}
   - archery docker push python-wheel-manylinux-test-unittests
-  # Upload as nightly wheel to gemfury
-  - |
-    WHEEL_PATH=$(echo arrow/python/repaired_wheels/*.whl)
-    curl \
-      -F "package=@${WHEEL_PATH}" \
-      "https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/"
   {% endif %}

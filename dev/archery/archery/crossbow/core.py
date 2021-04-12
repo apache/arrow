@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -28,13 +26,9 @@ import subprocess
 import textwrap
 from io import StringIO
 from pathlib import Path
-from textwrap import dedent
 from datetime import date
-from functools import partial
 
-import click
-import toolz
-
+import jinja2
 from ruamel.yaml import YAML
 
 try:
@@ -51,22 +45,37 @@ except ImportError:
 else:
     PygitRemoteCallbacks = pygit2.RemoteCallbacks
 
-
-# initialize logging
-logging.basicConfig()
-logging.getLogger().setLevel(logging.ERROR)
-
-# enable verbose logging for requests
-# http_client.HTTPConnection.debuglevel = 1
-requests_log = logging.getLogger("requests.packages.urllib3")
-requests_log.setLevel(logging.ERROR)
-requests_log.propagate = True
+from ..utils.source import ArrowSources
 
 
-CWD = Path(__file__).parent.absolute()
+for pkg in ["requests", "urllib3", "github3"]:
+    logging.getLogger(pkg).setLevel(logging.WARNING)
+
+logger = logging.getLogger("crossbow")
 
 
-def unflatten(mapping):
+class CrossbowError(Exception):
+    pass
+
+
+def _flatten(mapping):
+    """Converts a hierarchical mapping to a flat dictionary"""
+    result = {}
+    for k, v in mapping.items():
+        if isinstance(v, dict):
+            for ik, iv in _flatten(v).items():
+                ik = ik if isinstance(ik, tuple) else (ik,)
+                result[(k,) + ik] = iv
+        elif isinstance(v, list):
+            for ik, iv in enumerate(_flatten(v)):
+                ik = ik if isinstance(ik, tuple) else (ik,)
+                result[(k,) + ik] = iv
+        else:
+            result[(k,)] = v
+    return result
+
+
+def _unflatten(mapping):
     """Converts a flat tuple => object mapping to hierarchical one"""
     result = {}
     for path, value in mapping.items():
@@ -82,7 +91,7 @@ def unflatten(mapping):
     return result
 
 
-def unflatten_tree(files):
+def _unflatten_tree(files):
     """Converts a flat path => object mapping to a hierarchical directories
 
     Input:
@@ -102,8 +111,20 @@ def unflatten_tree(files):
             }
         }
     """
-    files = toolz.keymap(lambda path: tuple(path.split('/')), files)
-    return unflatten(files)
+    files = {tuple(k.split('/')): v for k, v in files.items()}
+    return _unflatten(files)
+
+
+def _render_jinja_template(searchpath, template, params):
+    def format_all(items, pattern):
+        return [pattern.format(item) for item in items]
+
+    loader = jinja2.FileSystemLoader(searchpath)
+    env = jinja2.Environment(loader=loader, trim_blocks=True,
+                             lstrip_blocks=True)
+    env.filters['format_all'] = format_all
+    template = env.get_template(template)
+    return template.render(**params)
 
 
 # configurations for setting up branch skipping
@@ -170,7 +191,7 @@ class GitRemoteCallbacks(PygitRemoteCallbacks):
             # pygit2 doesn't propagate the exception properly
             msg = 'Wrong oauth personal access token'
             print(msg)
-            raise ValueError(msg)
+            raise CrossbowError(msg)
 
         if allowed_types & pygit2.credentials.GIT_CREDTYPE_USERPASS_PLAINTEXT:
             return pygit2.UserPass(self.token, 'x-oauth-basic')
@@ -183,7 +204,8 @@ def _git_ssh_to_https(url):
 
 
 class Repo:
-    """Base class for interaction with local git repositories
+    """
+    Base class for interaction with local git repositories
 
     A high level wrapper used for both reading revision information from
     arrow's repository and pushing continuous integration tasks to the queue
@@ -194,6 +216,7 @@ class Repo:
     require_https : boolean, default False
         Raise exception for SSH origin URLs
     """
+
     def __init__(self, path, github_token=None, remote_url=None,
                  require_https=False):
         self.path = Path(path)
@@ -205,7 +228,7 @@ class Repo:
         self._updated_refs = []
 
     def __str__(self):
-        tpl = dedent('''
+        tpl = textwrap.dedent('''
             Repo: {remote}@{branch}
             Commit: {head}
         ''')
@@ -225,8 +248,8 @@ class Repo:
     def origin(self):
         remote = self.repo.remotes['origin']
         if self.require_https and remote.url.startswith('git@github.com'):
-            raise ValueError("Change SSH origin URL to HTTPS to use "
-                             "Crossbow: {}".format(remote.url))
+            raise CrossbowError("Change SSH origin URL to HTTPS to use "
+                                "Crossbow: {}".format(remote.url))
         return remote
 
     def fetch(self):
@@ -236,7 +259,7 @@ class Repo:
     def push(self, refs=None, github_token=None):
         github_token = github_token or self.github_token
         if github_token is None:
-            raise click.ClickException(
+            raise RuntimeError(
                 'Could not determine GitHub token. Please set the '
                 'CROSSBOW_GITHUB_TOKEN environment variable to a '
                 'valid GitHub access token or pass one to --github-token.'
@@ -366,9 +389,10 @@ class Repo:
     def _parse_github_user_repo(self):
         m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', self.remote_url)
         if m is None:
-            raise ValueError("Unable to parse the github owner and repository "
-                             "from the repository's remote url '{}'"
-                             .format(self.remote_url))
+            raise CrossbowError(
+                "Unable to parse the github owner and repository from the "
+                "repository's remote url '{}'".format(self.remote_url)
+            )
         user, repo = m.group(1), m.group(2)
         return user, repo
 
@@ -412,12 +436,12 @@ class Repo:
                     result = release.upload_asset(name=name, asset=fp,
                                                   content_type=mime)
             except github3.exceptions.ResponseError as e:
-                click.echo('Attempt {} has failed with message: {}.'
-                           .format(i + 1, str(e)))
-                click.echo('Error message {}'.format(e.msg))
-                click.echo('List of errors provided by Github:')
+                logger.error('Attempt {} has failed with message: {}.'
+                             .format(i + 1, str(e)))
+                logger.error('Error message {}'.format(e.msg))
+                logger.error('List of errors provided by Github:')
                 for err in e.errors:
-                    click.echo(' - {}'.format(err))
+                    logger.error(' - {}'.format(err))
 
                 if e.code == 422:
                     # 422 Validation Failed, probably raised because
@@ -425,16 +449,16 @@ class Repo:
                     # reattempting the asset upload
                     for asset in release.assets():
                         if asset.name == name:
-                            click.echo('Release asset {} already exists, '
-                                       'removing it...'.format(name))
+                            logger.info('Release asset {} already exists, '
+                                        'removing it...'.format(name))
                             asset.delete()
-                            click.echo('Asset {} removed.'.format(name))
+                            logger.info('Asset {} removed.'.format(name))
                             break
             except github3.exceptions.ConnectionError as e:
-                click.echo('Attempt {} has failed with message: {}.'
-                           .format(i + 1, str(e)))
+                logger.error('Attempt {} has failed with message: {}.'
+                             .format(i + 1, str(e)))
             else:
-                click.echo('Attempt {} has finished.'.format(i + 1))
+                logger.info('Attempt {} has finished.'.format(i + 1))
                 return result
 
             time.sleep(retry_backoff)
@@ -463,9 +487,9 @@ class Repo:
         #    sigmavirus24/github3.py/issues/779#issuecomment-379470626
         repo = self.as_github_repo()
         if not tag_name:
-            raise ValueError('Empty tag name')
+            raise CrossbowError('Empty tag name')
         if not target_commitish:
-            raise ValueError('Empty target commit for the release tag')
+            raise CrossbowError('Empty target commit for the release tag')
 
         # remove the whole release if it already exists
         try:
@@ -482,7 +506,7 @@ class Repo:
                 size = os.path.getsize(path)
                 mime = mimetypes.guess_type(name)[0] or 'application/zip'
 
-                click.echo(
+                logger.info(
                     'Uploading asset `{}` with mimetype {} and size {}...'
                     .format(name, mime, size)
                 )
@@ -494,7 +518,7 @@ class Repo:
                     self.github_upload_asset_curl(release, path, name=name,
                                                   mime=mime)
                 else:
-                    raise ValueError(
+                    raise CrossbowError(
                         'Unsupported upload method {}'.format(method)
                     )
 
@@ -550,7 +574,9 @@ class Queue(Repo):
         try:
             content = self.file_contents(branch.target, 'job.yml')
         except KeyError:
-            raise ValueError('No job is found with name: {}'.format(job_name))
+            raise CrossbowError(
+                'No job is found with name: {}'.format(job_name)
+            )
 
         buffer = StringIO(content.decode('utf-8'))
         job = yaml.load(buffer)
@@ -559,19 +585,19 @@ class Queue(Repo):
 
     def put(self, job, prefix='build'):
         if not isinstance(job, Job):
-            raise ValueError('`job` must be an instance of Job')
+            raise CrossbowError('`job` must be an instance of Job')
         if job.branch is not None:
-            raise ValueError('`job.branch` is automatically generated, thus '
-                             'it must be blank')
+            raise CrossbowError('`job.branch` is automatically generated, '
+                                'thus it must be blank')
 
         if job.target.remote is None:
-            raise RuntimeError(
+            raise CrossbowError(
                 'Cannot determine git remote for the Arrow repository to '
                 'clone or push to, try to push the `{}` branch first to have '
                 'a remote tracking counterpart.'.format(job.target.branch)
             )
         if job.target.branch is None:
-            raise RuntimeError(
+            raise CrossbowError(
                 'Cannot determine the current branch of the Arrow repository '
                 'to clone or push to, perhaps it is in detached HEAD state. '
                 'Please checkout a branch.'
@@ -586,9 +612,12 @@ class Queue(Repo):
             # adding CI's name to the end of the branch in order to use skip
             # patterns on travis and circleci
             task.branch = '{}-{}-{}'.format(job.branch, task.ci, task_name)
-            files = task.render_files(**job.params,
-                                      arrow=job.target,
-                                      queue_remote_url=self.remote_url)
+            params = {
+                **job.params,
+                "arrow": job.target,
+                "queue_remote_url": self.remote_url
+            }
+            files = task.render_files(job.template_searchpath, params=params)
             branch = self.create_branch(task.branch, files=files)
             self.create_tag(task.tag, branch.target)
             task.commit = str(branch.target)
@@ -632,7 +661,8 @@ class Serializable:
 
 
 class Target(Serializable):
-    """Describes target repository and revision the builds run against
+    """
+    Describes target repository and revision the builds run against
 
     This serializable data container holding information about arrow's
     git remote, branch, sha and version number as well as some metadata
@@ -685,7 +715,8 @@ class Target(Serializable):
 
 
 class Task(Serializable):
-    """Describes a build task and metadata required to render CI templates
+    """
+    Describes a build task and metadata required to render CI templates
 
     A task is represented as a single git commit and branch containing jinja2
     rendered files (currently appveyor.yml or .travis.yml configurations).
@@ -714,24 +745,20 @@ class Task(Serializable):
         self._status = None  # status cache
         self._assets = None  # assets cache
 
-    def render_files(self, **params):
-        from jinja2 import Template, StrictUndefined
-        from jinja2.exceptions import TemplateError
-
-        path = CWD / self.template
-        params = toolz.merge(self.params, params)
-        template = Template(path.read_text(), undefined=StrictUndefined)
+    def render_files(self, searchpath, params=None):
+        params = {**self.params, **(params or {}), "task": self}
         try:
-            rendered = template.render(task=self, **params)
-        except TemplateError as e:
+            rendered = _render_jinja_template(searchpath, self.template,
+                                              params=params)
+        except jinja2.TemplateError as e:
             raise RuntimeError(
                 'Failed to render template `{}` with {}: {}'.format(
-                    path, e.__class__.__name__, str(e)
+                    self.template, e.__class__.__name__, str(e)
                 )
             )
 
-        tree = toolz.merge(_default_tree, {self.filename: rendered})
-        return unflatten_tree(tree)
+        tree = {**_default_tree, self.filename: rendered}
+        return _unflatten_tree(tree)
 
     @property
     def tag(self):
@@ -766,7 +793,8 @@ class Task(Serializable):
 
 
 class TaskStatus:
-    """Combine the results from status and checks API to a single state.
+    """
+    Combine the results from status and checks API to a single state.
 
     Azure pipelines uses checks API which doesn't provide a combined
     interface like status API does, so we need to manually combine
@@ -818,19 +846,25 @@ class TaskStatus:
                 states.append('pending')
 
         # it could be more effective, but the following is more descriptive
-        if any(state in {'error', 'failure'} for state in states):
-            combined_state = 'failure'
-        elif any(state == 'pending' for state in states):
-            combined_state = 'pending'
-        elif all(state == 'success' for state in states):
-            combined_state = 'success'
-        else:
-            combined_state = 'error'
+        combined_state = 'error'
+        if len(states):
+            if any(state in {'error', 'failure'} for state in states):
+                combined_state = 'failure'
+            elif any(state == 'pending' for state in states):
+                combined_state = 'pending'
+            elif all(state == 'success' for state in states):
+                combined_state = 'success'
+
+        # show link to the actual build, some of the CI providers implement
+        # the statuses API others implement the checks API, so display both
+        build_links = [s.target_url for s in status.statuses]
+        build_links += [c.html_url for c in check_runs]
 
         self.combined_state = combined_state
         self.github_status = status
         self.github_check_runs = check_runs
         self.total_count = len(states)
+        self.build_links = build_links
 
 
 class TaskAssets(dict):
@@ -860,7 +894,7 @@ class TaskAssets(dict):
             elif num_matches == 1:
                 self[pattern] = github_assets[matches[0].group(0)]
             else:
-                raise ValueError(
+                raise CrossbowError(
                     'Only a single asset should match pattern `{}`, there are '
                     'multiple ones: {}'.format(pattern, ', '.join(matches))
                 )
@@ -875,7 +909,7 @@ class TaskAssets(dict):
 class Job(Serializable):
     """Describes multiple tasks against a single target repository"""
 
-    def __init__(self, target, tasks, params=None):
+    def __init__(self, target, tasks, params=None, template_searchpath=None):
         if not tasks:
             raise ValueError('no tasks were provided for the job')
         if not all(isinstance(task, Task) for task in tasks.values()):
@@ -892,13 +926,33 @@ class Job(Serializable):
         self.params = params or {}  # additional parameters for the tasks
         self.branch = None  # filled after adding to a queue
         self._queue = None  # set by the queue object after put or get
+        if template_searchpath is None:
+            self._template_searchpath = ArrowSources.find().path
+        else:
+            self._template_searchpath = template_searchpath
 
     def render_files(self):
         with StringIO() as buf:
             yaml.dump(self, buf)
             content = buf.getvalue()
-        tree = toolz.merge(_default_tree, {'job.yml': content})
-        return unflatten_tree(tree)
+        tree = {**_default_tree, "job.yml": content}
+        return _unflatten_tree(tree)
+
+    def render_tasks(self, params=None):
+        result = {}
+        params = {
+            **self.params,
+            "arrow": self.target,
+            **(params or {})
+        }
+        for task_name, task in self.tasks.items():
+            files = task.render_files(self._template_searchpath, params)
+            result[task_name] = files
+        return result
+
+    @property
+    def template_searchpath(self):
+        return self._template_searchpath
 
     @property
     def queue(self):
@@ -919,6 +973,9 @@ class Job(Serializable):
     @property
     def date(self):
         return self.queue.date_of(self)
+
+    def show(self, stream=None):
+        return yaml.dump(self, stream=stream)
 
     @classmethod
     def from_config(cls, config, target, tasks=None, groups=None, params=None):
@@ -945,7 +1002,7 @@ class Job(Serializable):
 
         Raises
         ------
-        click.ClickException
+        Exception:
             If invalid groups or tasks has been passed.
         """
         task_definitions = config.select(tasks, groups=groups)
@@ -960,7 +1017,8 @@ class Job(Serializable):
             artifacts = [fn.format(**versions) for fn in artifacts]
             tasks[task_name] = Task(artifacts=artifacts, **task)
 
-        return cls(target=target, tasks=tasks, params=params)
+        return cls(target=target, tasks=tasks, params=params,
+                   template_searchpath=config.template_searchpath)
 
     def is_finished(self):
         for task in self.tasks.values():
@@ -982,18 +1040,28 @@ class Job(Serializable):
                        'to finish, waited for {} minutes.')
                 raise RuntimeError(msg.format(waited_for_minutes))
 
-            # TODO(kszucs): use logging
-            click.echo('Waiting {} minutes and then checking again'
-                       .format(poll_interval_minutes))
+            logger.info('Waiting {} minutes and then checking again'
+                        .format(poll_interval_minutes))
             time.sleep(poll_interval_minutes * 60)
 
 
 class Config(dict):
 
+    def __init__(self, tasks, template_searchpath):
+        super().__init__(tasks)
+        self.template_searchpath = template_searchpath
+
     @classmethod
     def load_yaml(cls, path):
-        with Path(path).open() as fp:
-            return cls(yaml.load(fp))
+        path = Path(path)
+        searchpath = path.parent
+        rendered = _render_jinja_template(searchpath, template=path.name,
+                                          params={})
+        config = yaml.load(rendered)
+        return cls(config, template_searchpath=searchpath)
+
+    def show(self, stream=None):
+        return yaml.dump(dict(self), stream=stream)
 
     def select(self, tasks=None, groups=None):
         config_groups = dict(self['groups'])
@@ -1010,18 +1078,22 @@ class Config(dict):
             msg = 'Invalid group(s) {!r}. Must be one of {!r}'.format(
                 invalid_groups, valid_groups
             )
-            raise ValueError(msg)
+            raise CrossbowError(msg)
 
         # merge the tasks defined in the selected groups
         task_patterns = [list(config_groups[name]) for name in group_whitelist]
         task_patterns = set(sum(task_patterns, task_whitelist))
 
         # treat the task names as glob patterns to select tasks more easily
-        requested_tasks = set(
-            toolz.concat(
-                fnmatch.filter(valid_tasks, p) for p in task_patterns
-            )
-        )
+        requested_tasks = set()
+        for pattern in task_patterns:
+            matches = fnmatch.filter(valid_tasks, pattern)
+            if len(matches):
+                requested_tasks.update(matches)
+            else:
+                raise CrossbowError(
+                    "Unable to match any tasks for `{}`".format(pattern)
+                )
 
         # validate that the passed and matched tasks are defined in the config
         invalid_tasks = requested_tasks - valid_tasks
@@ -1029,7 +1101,7 @@ class Config(dict):
             msg = 'Invalid task(s) {!r}. Must be one of {!r}'.format(
                 invalid_tasks, valid_tasks
             )
-            raise ValueError(msg)
+            raise CrossbowError(msg)
 
         return {
             task_name: config_tasks[task_name] for task_name in requested_tasks
@@ -1041,7 +1113,7 @@ class Config(dict):
             for pattern in group:
                 tasks = self.select(tasks=[pattern])
                 if not tasks:
-                    raise ValueError(
+                    raise CrossbowError(
                         "The pattern `{}` defined for task group `{}` is not "
                         "matching any of the tasks defined in the "
                         "configuration file.".format(pattern, group_name)
@@ -1052,7 +1124,7 @@ class Config(dict):
             try:
                 Task(**task)
             except Exception as e:
-                raise ValueError(
+                raise CrossbowError(
                     'Unable to construct a task object from the '
                     'definition  of task `{}`. The original error message '
                     'is: `{}`'.format(task_name, str(e))
@@ -1071,308 +1143,15 @@ class Config(dict):
         for task_name, task in self['tasks'].items():
             task = Task(**task)
             files = task.render_files(
-                arrow=target,
-                queue_remote_url='https://github.com/org/crossbow'
+                self.template_searchpath,
+                params=dict(
+                    arrow=target,
+                    queue_remote_url='https://github.com/org/crossbow'
+                )
             )
             if not files:
-                raise ValueError('No files have been rendered for task `{}`'
-                                 .format(task_name))
-
-
-class Report:
-
-    def __init__(self, job):
-        self.job = job
-
-    def show(self):
-        raise NotImplementedError()
-
-
-class ConsoleReport(Report):
-    """Report the status of a Job to the console using click"""
-
-    # output table's header template
-    HEADER = '[{state:>7}] {branch:<52} {content:>16}'
-    DETAILS = ' └ {url}'
-
-    # output table's row template for assets
-    ARTIFACT_NAME = '{artifact:>69} '
-    ARTIFACT_STATE = '[{state:>7}]'
-
-    # state color mapping to highlight console output
-    COLORS = {
-        # from CombinedStatus
-        'error': 'red',
-        'failure': 'red',
-        'pending': 'yellow',
-        'success': 'green',
-        # custom state messages
-        'ok': 'green',
-        'missing': 'red'
-    }
-
-    def lead(self, state, branch, n_uploaded, n_expected):
-        line = self.HEADER.format(
-            state=state.upper(),
-            branch=branch,
-            content='uploaded {} / {}'.format(n_uploaded, n_expected)
-        )
-        return click.style(line, fg=self.COLORS[state.lower()])
-
-    def header(self):
-        header = self.HEADER.format(
-            state='state',
-            branch='Task / Branch',
-            content='Artifacts'
-        )
-        delimiter = '-' * len(header)
-        return '{}\n{}'.format(header, delimiter)
-
-    def artifact(self, state, pattern, asset):
-        if asset is None:
-            artifact = pattern
-            state = 'pending' if state == 'pending' else 'missing'
-        else:
-            artifact = asset.name
-            state = 'ok'
-
-        name_ = self.ARTIFACT_NAME.format(artifact=artifact)
-        state_ = click.style(
-            self.ARTIFACT_STATE.format(state=state.upper()),
-            self.COLORS[state]
-        )
-        return name_ + state_
-
-    def show(self, outstream, asset_callback=None):
-        echo = partial(click.echo, file=outstream)
-
-        # write table's header
-        echo(self.header())
-
-        # write table's body
-        for task_name, task in sorted(self.job.tasks.items()):
-            # write summary of the uploaded vs total assets
-            status = task.status()
-            assets = task.assets()
-
-            # mapping of artifact pattern to asset or None of not uploaded
-            n_expected = len(task.artifacts)
-            n_uploaded = len(assets.uploaded_assets())
-            echo(self.lead(status.combined_state, task_name, n_uploaded,
-                           n_expected))
-
-            # show link to the actual build, some of the CI providers implement
-            # the statuses API others implement the checks API, so display both
-            for s in status.github_status.statuses:
-                echo(self.DETAILS.format(url=s.target_url))
-            for c in status.github_check_runs:
-                echo(self.DETAILS.format(url=c.html_url))
-
-            # write per asset status
-            for artifact_pattern, asset in assets.items():
-                if asset_callback is not None:
-                    asset_callback(task_name, task, asset)
-                echo(self.artifact(status.combined_state, artifact_pattern,
-                                   asset))
-
-
-class EmailReport(Report):
-
-    HEADER = textwrap.dedent("""
-        Arrow Build Report for Job {job_name}
-
-        All tasks: {all_tasks_url}
-    """)
-
-    TASK = textwrap.dedent("""
-          - {name}:
-            URL: {url}
-    """).strip()
-
-    EMAIL = textwrap.dedent("""
-        From: {sender_name} <{sender_email}>
-        To: {recipient_email}
-        Subject: {subject}
-
-        {body}
-    """).strip()
-
-    STATUS_HEADERS = {
-        # from CombinedStatus
-        'error': 'Errored Tasks:',
-        'failure': 'Failed Tasks:',
-        'pending': 'Pending Tasks:',
-        'success': 'Succeeded Tasks:',
-    }
-
-    def __init__(self, job, sender_name, sender_email, recipient_email):
-        self.sender_name = sender_name
-        self.sender_email = sender_email
-        self.recipient_email = recipient_email
-        super().__init__(job)
-
-    def url(self, query):
-        repo_url = self.job.queue.remote_url.strip('.git')
-        return '{}/branches/all?query={}'.format(repo_url, query)
-
-    def listing(self, tasks):
-        return '\n'.join(
-            sorted(
-                self.TASK.format(name=task_name, url=self.url(task.branch))
-                for task_name, task in tasks.items()
-            )
-        )
-
-    def header(self):
-        url = self.url(self.job.branch)
-        return self.HEADER.format(job_name=self.job.branch, all_tasks_url=url)
-
-    def subject(self):
-        return (
-            "[NIGHTLY] Arrow Build Report for Job {}".format(self.job.branch)
-        )
-
-    def body(self):
-        buffer = StringIO()
-        buffer.write(self.header())
-
-        tasks_by_state = toolz.groupby(
-            lambda name_task_pair: name_task_pair[1].status().combined_state,
-            self.job.tasks.items()
-        )
-
-        for state in ('failure', 'error', 'pending', 'success'):
-            if state in tasks_by_state:
-                tasks = dict(tasks_by_state[state])
-                buffer.write('\n')
-                buffer.write(self.STATUS_HEADERS[state])
-                buffer.write('\n')
-                buffer.write(self.listing(tasks))
-                buffer.write('\n')
-
-        return buffer.getvalue()
-
-    def email(self):
-        return self.EMAIL.format(
-            sender_name=self.sender_name,
-            sender_email=self.sender_email,
-            recipient_email=self.recipient_email,
-            subject=self.subject(),
-            body=self.body()
-        )
-
-    def show(self, outstream):
-        outstream.write(self.email())
-
-    def send(self, smtp_user, smtp_password, smtp_server, smtp_port):
-        import smtplib
-
-        email = self.email()
-
-        server = smtplib.SMTP_SSL(smtp_server, smtp_port)
-        server.ehlo()
-        server.login(smtp_user, smtp_password)
-        server.sendmail(smtp_user, self.recipient_email, email)
-        server.close()
-
-
-class GithubPage:
-
-    def __init__(self, jobs):
-        self.jobs = list(jobs)
-
-    def _generate_page(self, links):
-        links = ['<li><a href="{}">{}</a></li>'.format(url, name)
-                 for name, url in sorted(links.items())]
-        return '<html><body><ul>{}</ul></body></html>'.format(''.join(links))
-
-    def _generate_toc(self, files):
-        result, links = {}, {}
-        for k, v in files.items():
-            if isinstance(v, dict):
-                result[k] = self._generate_toc(v)
-                links[k] = '{}/'.format(k)
-            else:
-                result[k] = v
-
-        if links:
-            result['index.html'] = self._generate_page(links)
-
-        return result
-
-    def _is_failed(self, status, task_name):
-        # for showing task statuses during the rendering procedure
-        if status.combined_state == 'success':
-            msg = click.style('[  OK] {}'.format(task_name), fg='green')
-            failed = False
-        else:
-            msg = click.style('[FAIL] {}'.format(task_name), fg='yellow')
-            failed = True
-
-        click.echo(msg)
-        return failed
-
-    def render_nightlies(self):
-        click.echo('\n\nRENDERING NIGHTLIES')
-        nightly_files = {}
-
-        for job in self.jobs:
-            click.echo('\nJOB: {}'.format(job.branch))
-            job_files = {}
-
-            for task_name, task in sorted(job.tasks.items()):
-                # TODO: also render check runs?
-                status = task.status()
-
-                task_files = {'status.json': status.github_status.as_json()}
-                links = {'status.json': 'status.json'}
-
-                if not self._is_failed(status, task_name):
-                    # accumulate links to uploaded assets
-                    for asset in task.assets().uploaded_assets():
-                        links[asset.name] = asset.browser_download_url
-
-                if links:
-                    page_content = self._generate_page(links)
-                    task_files['index.html'] = page_content
-
-                job_files[task_name] = task_files
-
-            nightly_files[str(job.date)] = job_files
-
-        # write the most recent wheels under the latest directory
-        if 'latest' not in nightly_files:
-            nightly_files['latest'] = job_files
-
-        return nightly_files
-
-    def render_pypi_simple(self):
-        click.echo('\n\nRENDERING PYPI')
-
-        wheels = {}
-        for job in self.jobs:
-            click.echo('\nJOB: {}'.format(job.branch))
-
-            for task_name, task in sorted(job.tasks.items()):
-                if not task_name.startswith('wheel'):
-                    continue
-                status = task.status()
-                if self._is_failed(status, task_name):
-                    continue
-                for asset in task.assets().uploaded_assets():
-                    wheels[asset.name] = asset.browser_download_url
-
-        return {'pyarrow': {'index.html': self._generate_page(wheels)}}
-
-    def render(self):
-        # directory structure for the github pages, only wheels are supported
-        # at the moment
-        files = self._generate_toc({
-            'nightly': self.render_nightlies(),
-            'pypi': self.render_pypi_simple(),
-        })
-        files['.nojekyll'] = ''
-        return files
+                raise CrossbowError('No files have been rendered for task `{}`'
+                                    .format(task_name))
 
 
 # configure yaml serializer
@@ -1380,302 +1159,3 @@ yaml = YAML()
 yaml.register_class(Job)
 yaml.register_class(Task)
 yaml.register_class(Target)
-
-
-# define default paths
-DEFAULT_CONFIG_PATH = str(CWD / 'tasks.yml')
-DEFAULT_ARROW_PATH = CWD.parents[1]
-DEFAULT_QUEUE_PATH = CWD.parents[2] / 'crossbow'
-
-
-@click.group()
-@click.option('--github-token', '-t', default=None,
-              help='OAuth token for GitHub authentication')
-@click.option('--arrow-path', '-a',
-              type=click.Path(), default=str(DEFAULT_ARROW_PATH),
-              help='Arrow\'s repository path. Defaults to the repository of '
-                   'this script')
-@click.option('--queue-path', '-q',
-              type=click.Path(), default=str(DEFAULT_QUEUE_PATH),
-              help='The repository path used for scheduling the tasks. '
-                   'Defaults to crossbow directory placed next to arrow')
-@click.option('--queue-remote', '-qr', default=None,
-              help='Force to use this remote URL for the Queue repository')
-@click.option('--output-file', metavar='<output>',
-              type=click.File('w', encoding='utf8'), default='-',
-              help='Capture output result into file.')
-@click.pass_context
-def crossbow(ctx, github_token, arrow_path, queue_path, queue_remote,
-             output_file):
-    ctx.ensure_object(dict)
-    ctx.obj['output'] = output_file
-    ctx.obj['arrow'] = Repo(arrow_path)
-    ctx.obj['queue'] = Queue(queue_path, remote_url=queue_remote,
-                             github_token=github_token, require_https=True)
-
-
-@crossbow.command()
-@click.option('--config-path', '-c',
-              type=click.Path(exists=True), default=DEFAULT_CONFIG_PATH,
-              help='Task configuration yml. Defaults to tasks.yml')
-def check_config(config_path):
-    # load available tasks configuration and groups from yaml
-    config = Config.load_yaml(config_path)
-    config.validate()
-
-
-@crossbow.command()
-@click.argument('tasks', nargs=-1, required=False)
-@click.option('--group', '-g', 'groups', multiple=True,
-              help='Submit task groups as defined in task.yml')
-@click.option('--param', '-p', 'params', multiple=True,
-              help='Additional task parameters for rendering the CI templates')
-@click.option('--job-prefix', default='build',
-              help='Arbitrary prefix for branch names, e.g. nightly')
-@click.option('--config-path', '-c',
-              type=click.Path(exists=True), default=DEFAULT_CONFIG_PATH,
-              help='Task configuration yml. Defaults to tasks.yml')
-@click.option('--arrow-version', '-v', default=None,
-              help='Set target version explicitly.')
-@click.option('--arrow-remote', '-r', default=None,
-              help='Set GitHub remote explicitly, which is going to be cloned '
-                   'on the CI services. Note, that no validation happens '
-                   'locally. Examples: https://github.com/apache/arrow or '
-                   'https://github.com/kszucs/arrow.')
-@click.option('--arrow-branch', '-b', default=None,
-              help='Give the branch name explicitly, e.g. master, ARROW-1949.')
-@click.option('--arrow-sha', '-t', default=None,
-              help='Set commit SHA or Tag name explicitly, e.g. f67a515, '
-                   'apache-arrow-0.11.1.')
-@click.option('--fetch/--no-fetch', default=True,
-              help='Fetch references (branches and tags) from the remote')
-@click.option('--dry-run/--push', default=False,
-              help='Just display the rendered CI configurations without '
-                   'submitting them')
-@click.pass_obj
-def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
-           arrow_remote, arrow_branch, arrow_sha, fetch, dry_run):
-    output = obj['output']
-    queue, arrow = obj['queue'], obj['arrow']
-
-    # load available tasks configuration and groups from yaml
-    config = Config.load_yaml(config_path)
-    config.validate()
-
-    # Override the detected repo url / remote, branch and sha - this aims to
-    # make release procedure a bit simpler.
-    # Note, that the target resivion's crossbow templates must be
-    # compatible with the locally checked out version of crossbow (which is
-    # in case of the release procedure), because the templates still
-    # contain some business logic (dependency installation, deployments)
-    # which will be reduced to a single command in the future.
-    target = Target.from_repo(arrow, remote=arrow_remote, branch=arrow_branch,
-                              head=arrow_sha, version=arrow_version)
-
-    # parse additional job parameters
-    params = dict([p.split("=") for p in params])
-
-    # instantiate the job object
-    job = Job.from_config(config=config, target=target, tasks=tasks,
-                          groups=groups, params=params)
-
-    if dry_run:
-        yaml.dump(job, output)
-    else:
-        if fetch:
-            queue.fetch()
-        queue.put(job, prefix=job_prefix)
-        queue.push()
-        yaml.dump(job, output)
-        click.echo('Pushed job identifier is: `{}`'.format(job.branch))
-
-
-@crossbow.command()
-@click.argument('job-name', required=True)
-@click.pass_obj
-def status(obj, job_name):
-    output = obj['output']
-    queue = obj['queue']
-    queue.fetch()
-
-    job = queue.get(job_name)
-    ConsoleReport(job).show(output)
-
-
-@crossbow.command()
-@click.argument('prefix', required=True)
-@click.pass_obj
-def latest_prefix(obj, prefix):
-    queue = obj['queue']
-    queue.fetch()
-
-    latest = queue.latest_for_prefix(prefix)
-    click.echo(latest.branch)
-
-
-@crossbow.command()
-@click.argument('job-name', required=True)
-@click.option('--sender-name', '-n',
-              help='Name to use for report e-mail.')
-@click.option('--sender-email', '-e',
-              help='E-mail to use for report e-mail.')
-@click.option('--recipient-email', '-r',
-              help='Where to send the e-mail report')
-@click.option('--smtp-user', '-u',
-              help='E-mail address to use for SMTP login')
-@click.option('--smtp-password', '-P',
-              help='SMTP password to use for report e-mail.')
-@click.option('--smtp-server', '-s', default='smtp.gmail.com',
-              help='SMTP server to use for report e-mail.')
-@click.option('--smtp-port', '-p', default=465,
-              help='SMTP port to use for report e-mail.')
-@click.option('--poll/--no-poll', default=False,
-              help='Wait for completion if there are tasks pending')
-@click.option('--poll-max-minutes', default=180,
-              help='Maximum amount of time waiting for job completion')
-@click.option('--poll-interval-minutes', default=10,
-              help='Number of minutes to wait to check job status again')
-@click.option('--send/--dry-run', default=False,
-              help='Just display the report, don\'t send it')
-@click.pass_obj
-def report(obj, job_name, sender_name, sender_email, recipient_email,
-           smtp_user, smtp_password, smtp_server, smtp_port, poll,
-           poll_max_minutes, poll_interval_minutes, send):
-    """
-    Send an e-mail report showing success/failure of tasks in a Crossbow run
-    """
-    output = obj['output']
-    queue = obj['queue']
-    queue.fetch()
-
-    job = queue.get(job_name)
-    report = EmailReport(
-        job=job,
-        sender_name=sender_name,
-        sender_email=sender_email,
-        recipient_email=recipient_email
-    )
-
-    if poll:
-        job.wait_until_finished(
-            poll_max_minutes=poll_max_minutes,
-            poll_interval_minutes=poll_interval_minutes
-        )
-
-    if send:
-        report.send(
-            smtp_user=smtp_user,
-            smtp_password=smtp_password,
-            smtp_server=smtp_server,
-            smtp_port=smtp_port
-        )
-    else:
-        report.show(output)
-
-
-@crossbow.group()
-@click.pass_context
-def github_page(ctx):
-    # currently We only list links to nightly binary wheels
-    pass
-
-
-@github_page.command('generate')
-@click.option('-n', default=10,
-              help='Number of most recent jobs')
-@click.option('--gh-branch', default='gh-pages',
-              help='Github pages branch')
-@click.option('--job-prefix', default='nightly',
-              help='Job/tag prefix the wheel links should be generated for')
-@click.option('--dry-run/--push', default=False,
-              help='Just render the files without pushing')
-@click.option('--github-push-token', '-t', default=None,
-              help='OAuth token for GitHub authentication only used for '
-                   'pushing to the crossbow repository, the API requests '
-                   'will consume the token passed to the top level crossbow '
-                   'command.')
-@click.pass_context
-def generate_github_page(ctx, n, gh_branch, job_prefix, dry_run,
-                         github_push_token):
-    queue = ctx.obj['queue']
-    queue.fetch()
-
-    # fail early if the requested branch is not available in the local checkout
-    remote = 'origin'
-    branch = queue.repo.branches['{}/{}'.format(remote, gh_branch)]
-    head = queue.repo[branch.target]
-
-    # $ at the end of the pattern is important because we're only looking for
-    # branches belonging to jobs not branches belonging to tasks
-    # the branches we're looking for are like 2020-01-01-0
-    jobs = queue.jobs(pattern=r"^nightly-(\d{4})-(\d{2})-(\d{2})-(\d+)$")
-    page = GithubPage(toolz.take(n, jobs))
-    files = page.render()
-    files.update(unflatten_tree(_default_tree))
-
-    if dry_run:
-        click.echo(files)
-        return
-
-    refname = 'refs/heads/{}'.format(gh_branch)
-    message = 'Update nightly wheel links {}'.format(date.today())
-    commit = queue.create_commit(files, parents=[head.id], message=message,
-                                 reference_name=refname)
-    click.echo('Updated `{}` branch\'s head to `{}`'
-               .format(gh_branch, commit.id))
-    queue.push([refname], github_token=github_push_token)
-
-
-@crossbow.command()
-@click.argument('job-name', required=True)
-@click.option('-t', '--target-dir',
-              default=str(DEFAULT_ARROW_PATH / 'packages'),
-              type=click.Path(file_okay=False, dir_okay=True),
-              help='Directory to download the build artifacts')
-@click.pass_obj
-def download_artifacts(obj, job_name, target_dir):
-    """Download build artifacts from GitHub releases"""
-    output = obj['output']
-
-    # fetch the queue repository
-    queue = obj['queue']
-    queue.fetch()
-
-    # query the job's artifacts
-    job = queue.get(job_name)
-
-    # create directory to download the assets to
-    target_dir = Path(target_dir).absolute() / job_name
-    target_dir.mkdir(parents=True, exist_ok=True)
-
-    # download the assets while showing the job status
-    def asset_callback(task_name, task, asset):
-        if asset is not None:
-            path = target_dir / task_name / asset.name
-            path.parent.mkdir(exist_ok=True)
-            asset.download(path)
-
-    click.echo('Downloading {}\'s artifacts.'.format(job_name))
-    click.echo('Destination directory is {}'.format(target_dir))
-    click.echo()
-
-    report = ConsoleReport(job)
-    report.show(output, asset_callback=asset_callback)
-
-
-@crossbow.command()
-@click.option('--sha', required=True, help='Target committish')
-@click.option('--tag', required=True, help='Target tag')
-@click.option('--method', default='curl', help='Use cURL to upload')
-@click.option('--pattern', '-p', 'patterns', required=True, multiple=True,
-              help='File pattern to upload as assets')
-@click.pass_obj
-def upload_artifacts(obj, tag, sha, patterns, method):
-    queue = obj['queue']
-    queue.github_overwrite_release_assets(
-        tag_name=tag, target_commitish=sha, method=method, patterns=patterns
-    )
-
-
-if __name__ == '__main__':
-    crossbow(obj={}, auto_envvar_prefix='CROSSBOW')

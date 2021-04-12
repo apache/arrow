@@ -15,14 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# NOTE: must set "Crossbow" as name to have the badge links working in the
-# github comment reports!
-name: Crossbow
+{% import 'macros.jinja' as macros with context %}
 
-on:
-  push:
-    branches:
-      - "*-github-*"
+{{ macros.github_header() }}
 
 jobs:
   package:
@@ -48,21 +43,5 @@ jobs:
         env:
           OS_NAME: "linux"
           CHECK_SHARED_DEPENDENCIES: true
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.8
-      - name: Set up Crossbow
-        run: |
-          pip install --requirement arrow/dev/tasks/requirements-crossbow.txt
-      - name: Upload artifacts
-        run: |
-          python arrow/dev/tasks/crossbow.py \
-            --queue-path arrow \
-            --queue-remote {{ queue_remote_url }} \
-            upload-artifacts \
-            --sha {{ task.branch }} \
-            --tag {{ task.tag }} \
-            --pattern "arrow/dist/*.jar"
-        env:
-          CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN }}' }}
+
+      {{ macros.github_upload_releases("arrow/dist/*.jar")|indent }}

@@ -68,3 +68,41 @@ test_that("DataType$Equals", {
   expect_failure(expect_type_equal(a, z), "int32 not equal to double")
   expect_false(a$Equals(32L))
 })
+
+test_that("Masked data type functions still work", {
+  skip("Work around masking of data type functions (ARROW-12322)")
+
+  # Works when type function is masked
+  string <- rlang::string
+  expect_type_equal(
+    Array$create("abc", type = string()),
+    arrow::string()
+  )
+  rm(string)
+
+  # Works when with non-Arrow function that returns an Arrow type
+  # when the non-Arrow function has the same name as a base R function...
+  str <- arrow::string
+  expect_type_equal(
+    Array$create("abc", type = str()),
+    arrow::string()
+  )
+  rm(str)
+
+  # ... and when it has the same name as an Arrow function
+  type <- arrow::string
+  expect_type_equal(
+    Array$create("abc", type = type()),
+    arrow::string()
+  )
+  rm(type)
+
+  # Works with local variable whose value is an Arrow type
+  type <- arrow::string()
+  expect_type_equal(
+    Array$create("abc", type = type),
+    arrow::string()
+  )
+  rm(type)
+
+})

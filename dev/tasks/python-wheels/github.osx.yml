@@ -14,14 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# NOTE: must set "Crossbow" as name to have the badge links working in the
-# github comment reports!
-name: Crossbow
+{% import 'macros.jinja' as macros with context %}
 
-on:
-  push:
-    branches:
-      - "*-github-*"
+{{ macros.github_header() }}
 
 env:
   ARROW_S3: {{ arrow_s3 }}
@@ -41,13 +36,7 @@ jobs:
     name: Build wheel for OS X
     runs-on: macos-latest
     steps:
-      - name: Checkout Arrow
-        run: |
-          set -ex
-          git clone --no-checkout {{ arrow.remote }} arrow
-          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-          git -C arrow checkout FETCH_HEAD
-          git -C arrow submodule update --init --recursive
+      {{ macros.github_checkout_arrow()|indent }}
 
       - name: Install System Dependencies
         run: brew install bison ninja
@@ -140,28 +129,5 @@ jobs:
           unset MACOSX_DEPLOYMENT_TARGET
           arrow/ci/scripts/python_wheel_macos_test.sh $(pwd)/arrow
 
-      - name: Setup Crossbow
-        run: pip install --requirement arrow/dev/tasks/requirements-crossbow.txt
-
-      - name: Upload artifacts
-        run: |
-          python arrow/dev/tasks/crossbow.py \
-            --queue-path $(pwd) \
-            --queue-remote {{ queue_remote_url }} \
-            upload-artifacts \
-            --sha {{ task.branch }} \
-            --tag {{ task.tag }} \
-            --pattern "arrow/python/dist/*.whl"
-        env:
-          CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN }}' }}
-
-      {% if arrow.branch == 'master' %}
-      - name: Upload package to Gemfury
-        run: |
-          # upload to gemfury pypi repository, there should be a single wheel
-          path=$(ls arrow/python/dist/*.whl)
-          curl -F "package=@${path}" https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/
-        env:
-          CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
-          CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
-      {% endif %}
+      {{ macros.github_upload_releases("arrow/python/dist/*.whl")|indent }}
+      {{ macros.github_upload_gemfury("arrow/python/dist/*.whl")|indent }}

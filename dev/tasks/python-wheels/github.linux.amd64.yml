@@ -15,14 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# NOTE: must set "Crossbow" as name to have the badge links working in the
-# github comment reports!
-name: Crossbow
+{% import 'macros.jinja' as macros with context %}
 
-on:
-  push:
-    branches:
-      - "*-github-*"
+{{ macros.github_header() }}
 
 jobs:
   build:
@@ -34,38 +29,14 @@ jobs:
       PYTHON: {{ python_version }}
 
     steps:
-      ############################ Checkout ###################################
-      - name: Checkout Arrow
-        shell: bash
-        run: |
-          git clone --no-checkout {{ arrow.remote }} arrow
-          git -C arrow config core.symlinks true
-          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-          git -C arrow checkout FETCH_HEAD
-          git -C arrow submodule update --init --recursive
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: cd arrow && ci/scripts/util_checkout.sh
+      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_install_archery()|indent }}
+      {{ macros.github_login_dockerhub()|indent }}
 
-      ############################ Docker Registry ############################
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v1
-        with:
-          username: {{ '${{ secrets.DOCKERHUB_USER }}' }}
-          password: {{ '${{ secrets.DOCKERHUB_TOKEN }}' }}
-
-      ############################ Archery Installation #######################
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.8
-      - name: Install Archery and Crossbow dependencies
-        run: pip install -e arrow/dev/archery[all]
-
-      ############################ Build & Test ###############################
       - name: Build wheel
         shell: bash
         run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-manylinux-{{ manylinux_version }}
+
       # TODO(kszucs): auditwheel show
       - name: Test wheel
         shell: bash
@@ -73,35 +44,5 @@ jobs:
           archery docker run python-wheel-manylinux-test-imports
           archery docker run python-wheel-manylinux-test-unittests
 
-      ############################ Artifact Uploading #########################
-      - name: Upload artifacts
-        shell: bash
-        run: |
-          python arrow/dev/tasks/crossbow.py \
-            --queue-path . \
-            --queue-remote {{ queue_remote_url }} \
-            upload-artifacts \
-            --pattern "arrow/python/repaired_wheels/*.whl" \
-            --sha {{ task.branch }} \
-            --tag {{ task.tag }}
-        env:
-          CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN }}' }}
-
-      {% if arrow.branch == 'master' %}
-      - name: Push the docker image
-        shell: bash
-        run: |
-          archery docker push python-wheel-manylinux-{{ manylinux_version }}
-          archery docker push python-wheel-manylinux-test-unittests
-
-      - name: Upload to gemfury
-        shell: bash
-        run: |
-          WHEEL_PATH=$(echo arrow/python/repaired_wheels/*.whl)
-          curl \
-            -F "package=@${WHEEL_PATH}" \
-            "https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/"
-        env:
-          CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
-          CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
-      {% endif %}
+      {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}
+      {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}

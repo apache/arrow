@@ -26,6 +26,7 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/future.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -72,7 +73,8 @@ class ARROW_EXPORT StreamingReader : public RecordBatchReader {
   /// parsing (see ARROW-11889)
   static Future<std::shared_ptr<StreamingReader>> MakeAsync(
       io::IOContext io_context, std::shared_ptr<io::InputStream> input,
-      const ReadOptions&, const ParseOptions&, const ConvertOptions&);
+      internal::Executor* cpu_executor, const ReadOptions&, const ParseOptions&,
+      const ConvertOptions&);
 
   static Result<std::shared_ptr<StreamingReader>> Make(
       io::IOContext io_context, std::shared_ptr<io::InputStream> input,

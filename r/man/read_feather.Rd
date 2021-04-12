@@ -21,7 +21,7 @@ of columns, as used in \code{dplyr::select()}.}
 \item{as_data_frame}{Should the function return a \code{data.frame} (default) or
 an Arrow \link{Table}?}
 
-\item{...}{additional parameters, passed to \link[=FeatherReader]{FeatherReader$create()}}
+\item{...}{additional parameters, passed to \code{\link[=make_readable_file]{make_readable_file()}}.}
 }
 \value{
 A \code{data.frame} if \code{as_data_frame} is \code{TRUE} (the default), or an

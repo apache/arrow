@@ -20,12 +20,12 @@ jobs:
   pool:
     vmImage: ubuntu-16.04
   timeoutInMinutes: 360
-  {%- if env is defined %}
+  {% if env is defined %}
   variables:
-  {%- for key, value in env.items() %}
+  {% for key, value in env.items() %}
     {{ key }}: {{ value }}
-  {%- endfor %}
-  {%- endif %}
+  {% endfor %}
+  {% endif %}
 
   steps:
   - task: DockerInstaller@0

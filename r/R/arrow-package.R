@@ -48,10 +48,36 @@
   }
 
   # Create these once, at package build time
-  dplyr_functions$dataset <- build_function_list(build_dataset_expression)
-  dplyr_functions$array <- build_function_list(build_array_expression)
-
+  if (arrow_available()) {
+    dplyr_functions$dataset <- build_function_list(build_dataset_expression)
+    dplyr_functions$array <- build_function_list(build_array_expression)
+  }
   invisible()
+}
+
+.onAttach <- function(libname, pkgname) {
+  if (!arrow_available()) {
+    msg <- paste(
+      "The Arrow C++ library is not available. To retry installation with debug output, run:",
+      "    install_arrow(verbose = TRUE)",
+      "See https://arrow.apache.org/docs/r/articles/install.html for more guidance and troubleshooting.",
+      sep = "\n"
+    )
+    packageStartupMessage(msg)
+  } else {
+    # Just to be extra safe, let's wrap this in a try();
+    # we don't a failed startup message to prevent the package from loading
+    try({
+      features <- arrow_info()$capabilities
+      # That has all of the #ifdef features, plus the compression libs and the
+      # string libraries (but not the memory allocators, they're added elsewhere)
+      #
+      # Let's print a message if some are off
+      if (some_features_are_off(features)) {
+        packageStartupMessage("See arrow_info() for available features")
+      }
+    })
+  }
 }
 
 #' Is the C++ Arrow library available?
@@ -74,25 +100,25 @@
 #' `vignette("install", package = "arrow")` for guidance on reinstalling the
 #' package.
 arrow_available <- function() {
-  .Call(`_arrow_available`)
+  tryCatch(.Call(`_arrow_available`), error = function(e) return(FALSE))
 }
 
 #' @rdname arrow_available
 #' @export
 arrow_with_dataset <- function() {
-  .Call(`_dataset_available`)
+  tryCatch(.Call(`_dataset_available`), error = function(e) return(FALSE))
 }
 
 #' @rdname arrow_available
 #' @export
 arrow_with_parquet <- function() {
-  .Call(`_parquet_available`)
+  tryCatch(.Call(`_parquet_available`), error = function(e) return(FALSE))
 }
 
 #' @rdname arrow_available
 #' @export
 arrow_with_s3 <- function() {
-  .Call(`_s3_available`)
+  tryCatch(.Call(`_s3_available`), error = function(e) return(FALSE))
 }
 
 option_use_threads <- function() {
@@ -143,6 +169,14 @@ arrow_info <- function() {
   structure(out, class = "arrow_info")
 }
 
+some_features_are_off <- function(features) {
+  # `features` is a named logical vector (as in arrow_info()$capabilities)
+  # Let's exclude some less relevant ones
+  blocklist <- c("lzo", "bz2", "brotli")
+  # Return TRUE if any of the other features are FALSE
+  !all(features[setdiff(names(features), blocklist)])
+}
+
 #' @export
 print.arrow_info <- function(x, ...) {
   print_key_values <- function(title, vals, ...) {
@@ -161,6 +195,10 @@ print.arrow_info <- function(x, ...) {
       jemalloc = "jemalloc" %in% x$memory_pool$available_backends,
       mimalloc = "mimalloc" %in% x$memory_pool$available_backends
     ))
+    if (some_features_are_off(x$capabilities) && identical(tolower(Sys.info()[["sysname"]]), "linux")) {
+      # Only on linux because (e.g.) we disable certain features on purpose on rtools35 and solaris
+      cat("To reinstall with more optional capabilities enabled, see\n  https://arrow.apache.org/docs/r/articles/install.html\n\n")
+    }
 
     if (length(x$options)) {
       print_key_values("Arrow options()", map_chr(x$options, format))
@@ -180,7 +218,7 @@ print.arrow_info <- function(x, ...) {
       `Detected SIMD Level` = x$runtime_info$detected_simd_level
     ))
   } else {
-    cat("Arrow C++ library not available\n")
+    cat("Arrow C++ library not available. See https://arrow.apache.org/docs/r/articles/install.html for troubleshooting.\n")
   }
   invisible(x)
 }

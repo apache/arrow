@@ -41,6 +41,7 @@
 # #if defined(ARROW_R_WITH_FEATURE)
 # and each feature is written to its own set of export files.
 
+# Ensure that all machines are sorting the same way
 invisible(Sys.setlocale("LC_COLLATE", "C"))
 
 features <- c("arrow", "dataset", "parquet", "s3")
@@ -111,17 +112,17 @@ all_decorations <- cpp_decorations()
 arrow_exports <- get_exported_functions(all_decorations, features)
 
 arrow_classes <- c(
-  "Table"   = "arrow::Table",
+  "Table" = "arrow::Table",
   "RecordBatch" = "arrow::RecordBatch"
 )
 
 # This takes a cpp11 C wrapper and conditionally makes it available based on
 # a feature decoration
 ifdef_wrap <- function(cpp11_wrapped, name, sexp_signature, decoration) {
-  if (identical(decoration, "arrow")) {
-    # Arrow is now required
-    return(cpp11_wrapped)
-  }
+  # if (identical(decoration, "arrow")) {
+  #   # Arrow is now required
+  #   return(cpp11_wrapped)
+  # }
   glue('
   #if defined(ARROW_R_WITH_{toupper(decoration)})
   {cpp11_wrapped}

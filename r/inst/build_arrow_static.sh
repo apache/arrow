@@ -18,7 +18,7 @@
 # under the License.
 
 # Quit on failure
-# set -e
+set -e
 
 # Print commands for debugging
 set -x

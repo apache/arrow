@@ -34,7 +34,9 @@ use ballista_core::{
     print_version, serde::protobuf::scheduler_grpc_server::SchedulerGrpcServer,
     serde::scheduler::ExecutorMeta, BALLISTA_VERSION,
 };
-use ballista_executor::{flight_service::BallistaFlightService, BallistaExecutor, ExecutorConfig};
+use ballista_executor::{
+    flight_service::BallistaFlightService, BallistaExecutor, ExecutorConfig,
+};
 use ballista_scheduler::{state::StandaloneClient, SchedulerServer};
 use config::prelude::*;
 
@@ -60,7 +62,8 @@ async fn main() -> Result<()> {
 
     // parse command-line arguments
     let (opt, _remaining_args) =
-        Config::including_optional_config_files(&["/etc/ballista/executor.toml"]).unwrap_or_exit();
+        Config::including_optional_config_files(&["/etc/ballista/executor.toml"])
+            .unwrap_or_exit();
 
     if opt.version {
         print_version();
@@ -92,7 +95,8 @@ async fn main() -> Result<()> {
             .into_string()
             .unwrap(),
     );
-    let config = ExecutorConfig::new(&external_host, port, &work_dir, opt.concurrent_tasks);
+    let config =
+        ExecutorConfig::new(&external_host, port, &work_dir, opt.concurrent_tasks);
     info!("Running with config: {:?}", config);
 
     let executor_meta = ExecutorMeta {
@@ -105,7 +109,8 @@ async fn main() -> Result<()> {
         info!("Running in local mode. Scheduler will be run in-proc");
         let client = StandaloneClient::try_new_temporary()
             .context("Could not create standalone config backend")?;
-        let server = SchedulerGrpcServer::new(SchedulerServer::new(Arc::new(client), namespace));
+        let server =
+            SchedulerGrpcServer::new(SchedulerServer::new(Arc::new(client), namespace));
         let addr = format!("{}:{}", bind_host, scheduler_port);
         let addr = addr
             .parse()
@@ -114,7 +119,8 @@ async fn main() -> Result<()> {
             "Ballista v{} Rust Scheduler listening on {:?}",
             BALLISTA_VERSION, addr
         );
-        let scheduler_future = tokio::spawn(Server::builder().add_service(server).serve(addr));
+        let scheduler_future =
+            tokio::spawn(Server::builder().add_service(server).serve(addr));
         let mut scheduler_result = futures::future::maybe_done(scheduler_future);
 
         // Ensure scheduler is ready to receive connections
@@ -133,7 +139,9 @@ async fn main() -> Result<()> {
                         "Scheduler unexpectedly finished successfully"
                     ))
                 }
-                MaybeDone::Gone => panic!("Received Gone from recently created MaybeDone"),
+                MaybeDone::Gone => {
+                    panic!("Received Gone from recently created MaybeDone")
+                }
             };
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
             scheduler_result = futures::future::maybe_done(scheduler_future);

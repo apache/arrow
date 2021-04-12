@@ -112,7 +112,10 @@ struct MergedRecordBatchStream {
 impl Stream for MergedRecordBatchStream {
     type Item = ArrowResult<RecordBatch>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(
+        mut self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
         self.select_all.as_mut().poll_next(cx)
     }
 }
