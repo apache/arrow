@@ -18,7 +18,6 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
 
 #include "arrow/vendored/fast_float/fast_float.h"
 
