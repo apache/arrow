@@ -541,7 +541,7 @@ class ClientBuilder {
         client_config_.proxyScheme = Aws::Http::Scheme::HTTPS;
       } else {
         return Status::Invalid("Invalid proxy connection scheme '",
-                                options_.proxy_options.scheme, "'");
+                               options_.proxy_options.scheme, "'");
       }
     }
     if (!options_.proxy_options.host.empty()) {

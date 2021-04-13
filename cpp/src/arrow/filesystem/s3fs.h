@@ -42,17 +42,16 @@ namespace fs {
 
 /// Options for using a proxy for S3
 struct ARROW_EXPORT S3ProxyOptions {
-    std::string scheme;
-    std::string host;
-    int port = -1;
-    std::string username;
-    std::string password;
+  std::string scheme;
+  std::string host;
+  int port = -1;
+  std::string username;
+  std::string password;
 
-    /// Initialize from URI such as http://username:password@host:port
-    /// or http://host:port
-    static Result<S3ProxyOptions> FromUri(const std::string& uri);
-
-    static Result<S3ProxyOptions> FromUri(const ::arrow::internal::Uri& uri);
+  /// Initialize from URI such as http://username:password@host:port
+  /// or http://host:port
+  static Result<S3ProxyOptions> FromUri(const std::string& uri);
+  static Result<S3ProxyOptions> FromUri(const ::arrow::internal::Uri& uri);
 };
 
 /// Options for the S3FileSystem implementation.
