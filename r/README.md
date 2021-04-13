@@ -50,7 +50,7 @@ install from there:
 install.packages("arrow", repos = "https://arrow-r-nightly.s3.amazonaws.com")
 ```
 
-Or to switch to the latest nightly development version:
+If you have `arrow` installed and want to switch to the latest nightly development version, you can use the included `install_arrow()` utility function:
 
 ``` r
 arrow::install_arrow(nightly = TRUE)
