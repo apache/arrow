@@ -33,6 +33,7 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/type_fwd.h"
@@ -50,6 +51,8 @@ namespace dataset {
 constexpr int64_t kDefaultBatchSize = 1 << 20;
 constexpr int32_t kDefaultBatchReadahead = 32;
 constexpr int32_t kDefaultFragmentReadahead = 8;
+
+using FragmentGenerator = std::function<Future<std::shared_ptr<Fragment>>()>;
 
 /// Scan-specific options, which can be changed between scans of the same dataset.
 struct ARROW_DS_EXPORT ScanOptions {
@@ -164,13 +167,6 @@ class ARROW_DS_EXPORT ScanTask {
 
   std::shared_ptr<ScanOptions> options_;
   std::shared_ptr<Fragment> fragment_;
-};
-
-template <typename T>
-struct Enumerated {
-  T value;
-  int index;
-  bool last;
 };
 
 /// \brief Combines a record batch with the fragment that the record batch originated
@@ -315,11 +311,8 @@ class ARROW_DS_EXPORT SyncScanner : public Scanner {
       : Scanner(std::move(scan_options)), fragment_(std::move(fragment)) {}
 
   Result<TaggedRecordBatchIterator> ScanBatches() override;
-
   Result<ScanTaskIterator> Scan() override;
-
   Status Scan(std::function<Status(TaggedRecordBatch)> visitor) override;
-
   Result<std::shared_ptr<Table>> ToTable() override;
 
  protected:
@@ -331,6 +324,28 @@ class ARROW_DS_EXPORT SyncScanner : public Scanner {
   std::shared_ptr<Dataset> dataset_;
   // TODO(ARROW-8065) remove fragment_ after a Dataset is constuctible from fragments
   std::shared_ptr<Fragment> fragment_;
+};
+
+class ARROW_DS_EXPORT AsyncScanner : public Scanner,
+                                     public std::enable_shared_from_this<AsyncScanner> {
+ public:
+  AsyncScanner(std::shared_ptr<Dataset> dataset,
+               std::shared_ptr<ScanOptions> scan_options)
+      : Scanner(std::move(scan_options)), dataset_(std::move(dataset)) {}
+
+  Result<TaggedRecordBatchIterator> ScanBatches() override;
+  Result<EnumeratedRecordBatchIterator> ScanBatchesUnordered() override;
+  Result<std::shared_ptr<Table>> ToTable() override;
+
+ private:
+  Result<TaggedRecordBatchGenerator> ScanBatchesAsync(internal::Executor* executor);
+  Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync(
+      internal::Executor* executor);
+  Future<std::shared_ptr<Table>> ToTableAsync(internal::Executor* executor);
+
+  Result<FragmentGenerator> GetFragments() const;
+
+  std::shared_ptr<Dataset> dataset_;
 };
 
 /// \brief ScannerBuilder is a factory class to construct a Scanner. It is used
@@ -385,6 +400,12 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// \brief Indicate if the Scanner should make use of the available
   ///        ThreadPool found in ScanOptions;
   Status UseThreads(bool use_threads = true);
+
+  /// \brief Indicate if the Scanner should run in experimental "async" mode
+  ///
+  /// This mode should have considerably better performance on high-latency or parallel
+  /// filesystems but is still experimental
+  void UseAsync(bool use_async = true);
 
   /// \brief Set the maximum number of rows per RecordBatch.
   ///

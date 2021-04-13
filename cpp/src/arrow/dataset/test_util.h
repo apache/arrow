@@ -265,9 +265,17 @@ class DatasetFixtureMixin : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(options_->filter, filter.Bind(*schema_));
   }
 
+  void SetProjectedColumns(std::vector<std::string> column_names) {
+    ASSERT_OK(SetProjection(options_.get(), std::move(column_names)));
+  }
+
   std::shared_ptr<Schema> schema_;
   std::shared_ptr<ScanOptions> options_;
 };
+
+template <typename P>
+class DatasetFixtureMixinWithParam : public DatasetFixtureMixin,
+                                     public ::testing::WithParamInterface<P> {};
 
 /// \brief A dummy FileFormat implementation
 class DummyFileFormat : public FileFormat {

@@ -152,6 +152,9 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
       std::shared_ptr<ScanOptions> options,
       const std::shared_ptr<FileFragment>& file) const = 0;
 
+  virtual Result<RecordBatchGenerator> ScanBatchesAsync(
+      const ScanOptions& options, const std::shared_ptr<FileFragment>& file);
+
   /// \brief Open a fragment
   virtual Result<std::shared_ptr<FileFragment>> MakeFragment(
       FileSource source, Expression partition_expression,
@@ -178,6 +181,7 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 class ARROW_DS_EXPORT FileFragment : public Fragment {
  public:
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override;
+  Result<RecordBatchGenerator> ScanBatchesAsync(const ScanOptions& options) override;
 
   std::string type_name() const override { return format_->type_name(); }
   std::string ToString() const override { return source_.path(); };

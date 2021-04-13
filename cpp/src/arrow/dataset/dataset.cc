@@ -95,6 +95,55 @@ Result<ScanTaskIterator> InMemoryFragment::Scan(std::shared_ptr<ScanOptions> opt
   return MakeMapIterator(fn, std::move(batches_it));
 }
 
+Result<RecordBatchGenerator> InMemoryFragment::ScanBatchesAsync(
+    const ScanOptions& options) {
+  struct State {
+    State(std::shared_ptr<InMemoryFragment> fragment, int64_t batch_size)
+        : fragment(std::move(fragment)),
+          batch_index(0),
+          offset(0),
+          batch_size(batch_size) {}
+
+    std::shared_ptr<RecordBatch> Next() {
+      const auto& next_parent = fragment->record_batches_[batch_index];
+      if (offset < next_parent->num_rows()) {
+        auto next = next_parent->Slice(offset, batch_size);
+        offset += batch_size;
+        return next;
+      }
+      batch_index++;
+      offset = 0;
+      return nullptr;
+    }
+
+    bool Finished() { return batch_index >= fragment->record_batches_.size(); }
+
+    std::shared_ptr<InMemoryFragment> fragment;
+    std::size_t batch_index;
+    int64_t offset;
+    int64_t batch_size;
+  };
+
+  struct Generator {
+    Generator(std::shared_ptr<InMemoryFragment> fragment, int64_t batch_size)
+        : state(std::make_shared<State>(std::move(fragment), batch_size)) {}
+
+    Future<std::shared_ptr<RecordBatch>> operator()() {
+      while (!state->Finished()) {
+        auto next = state->Next();
+        if (next) {
+          return Future<std::shared_ptr<RecordBatch>>::MakeFinished(std::move(next));
+        }
+      }
+      return AsyncGeneratorEnd<std::shared_ptr<RecordBatch>>();
+    }
+
+    std::shared_ptr<State> state;
+  };
+  return Generator(std::dynamic_pointer_cast<InMemoryFragment>(shared_from_this()),
+                   options.batch_size);
+}
+
 Dataset::Dataset(std::shared_ptr<Schema> schema, Expression partition_expression)
     : schema_(std::move(schema)),
       partition_expression_(std::move(partition_expression)) {}

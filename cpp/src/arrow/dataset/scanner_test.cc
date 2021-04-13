@@ -21,6 +21,7 @@
 
 #include <gmock/gmock.h>
 
+#include "arrow/compute/api.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
@@ -43,11 +44,29 @@ constexpr int64_t kNumberChildDatasets = 2;
 constexpr int64_t kNumberBatches = 16;
 constexpr int64_t kBatchSize = 1024;
 
-class TestScanner : public DatasetFixtureMixin,
-                    public ::testing::WithParamInterface<bool> {
- protected:
-  bool UseThreads() { return GetParam(); }
+struct TestScannerParams {
+  bool use_async;
+  bool use_threads;
 
+  static std::vector<TestScannerParams> Values() {
+    std::vector<TestScannerParams> values;
+    for (int sync = 0; sync < 2; sync++) {
+      for (int use_threads = 0; use_threads < 2; use_threads++) {
+        values.push_back({static_cast<bool>(sync), static_cast<bool>(use_threads)});
+      }
+    }
+    return values;
+  }
+};
+
+std::ostream& operator<<(std::ostream& out, const TestScannerParams& params) {
+  out << (params.use_async ? "async-" : "sync-")
+      << (params.use_threads ? "threaded" : "serial");
+  return out;
+}
+class TestScanner : public DatasetFixtureMixin,
+                    public ::testing::WithParamInterface<TestScannerParams> {
+ protected:
   std::shared_ptr<Scanner> MakeScanner(std::shared_ptr<RecordBatch> batch) {
     std::vector<std::shared_ptr<RecordBatch>> batches{static_cast<size_t>(kNumberBatches),
                                                       batch};
@@ -58,7 +77,8 @@ class TestScanner : public DatasetFixtureMixin,
     EXPECT_OK_AND_ASSIGN(auto dataset, UnionDataset::Make(batch->schema(), children));
 
     ScannerBuilder builder(dataset, options_);
-    ARROW_EXPECT_OK(builder.UseThreads(UseThreads()));
+    ARROW_EXPECT_OK(builder.UseThreads(GetParam().use_threads));
+    builder.UseAsync(GetParam().use_async);
     EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
     return scanner;
   }
@@ -93,7 +113,7 @@ class TestScanner : public DatasetFixtureMixin,
 TEST_P(TestScanner, Scan) {
   SetSchema({field("i32", int32()), field("f64", float64())});
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
-  AssertScannerEqualsRepetitionsOf(MakeScanner(batch), batch);
+  AssertScanBatchesUnorderedEqualRepetitionsOf(MakeScanner(batch), batch);
 }
 
 TEST_P(TestScanner, ScanBatches) {
@@ -113,8 +133,8 @@ TEST_P(TestScanner, ScanWithCappedBatchSize) {
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
   options_->batch_size = kBatchSize / 2;
   auto expected = batch->Slice(kBatchSize / 2);
-  AssertScannerEqualsRepetitionsOf(MakeScanner(batch), expected,
-                                   kNumberChildDatasets * kNumberBatches * 2);
+  AssertScanBatchesEqualRepetitionsOf(MakeScanner(batch), expected,
+                                      kNumberChildDatasets * kNumberBatches * 2);
 }
 
 TEST_P(TestScanner, FilteredScan) {
@@ -144,7 +164,16 @@ TEST_P(TestScanner, FilteredScan) {
   auto filtered_batch =
       RecordBatch::Make(schema_, f64_filtered->length(), {f64_filtered});
 
-  AssertScannerEqualsRepetitionsOf(MakeScanner(batch), filtered_batch);
+  AssertScanBatchesEqualRepetitionsOf(MakeScanner(batch), filtered_batch);
+}
+
+TEST_P(TestScanner, ProjectedScan) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  SetProjectedColumns({"i32"});
+  auto batch_in = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  auto batch_out =
+      ConstantArrayGenerator::Zeroes(kBatchSize, schema({field("i32", int32())}));
+  AssertScanBatchesUnorderedEqualRepetitionsOf(MakeScanner(batch_in), batch_out);
 }
 
 TEST_P(TestScanner, MaterializeMissingColumn) {
@@ -167,7 +196,7 @@ TEST_P(TestScanner, MaterializeMissingColumn) {
   ScannerBuilder builder{schema_, fragment_missing_f64, options_};
   ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
 
-  AssertScannerEqualsRepetitionsOf(scanner, batch_with_f64);
+  AssertScanBatchesEqualRepetitionsOf(scanner, batch_with_f64);
 }
 
 TEST_P(TestScanner, ToTable) {
@@ -280,7 +309,7 @@ TEST_P(TestScanner, ScanBatchesFailure) {
   RecordBatchVector batches = {batch, batch, batch, batch};
 
   ScannerBuilder builder(schema_, std::make_shared<FailingFragment>(batches), options_);
-  ASSERT_OK(builder.UseThreads(UseThreads()));
+  ASSERT_OK(builder.UseThreads(GetParam().use_threads));
   ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
 
   ASSERT_OK_AND_ASSIGN(auto batch_it, scanner->ScanBatches());
@@ -336,7 +365,8 @@ TEST_P(TestScanner, Head) {
   AssertTablesEqual(*expected, *actual);
 }
 
-INSTANTIATE_TEST_SUITE_P(TestScannerThreading, TestScanner, ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(TestScannerThreading, TestScanner,
+                         ::testing::ValuesIn(TestScannerParams::Values()));
 
 class TestScannerBuilder : public ::testing::Test {
   void SetUp() override {
