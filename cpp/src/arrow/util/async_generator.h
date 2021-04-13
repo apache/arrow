@@ -1117,18 +1117,12 @@ class EnumeratingGenerator {
 
 /// Wraps items from a source generator with positional information
 ///
-/// When reqsequencing items from multiple streams that have been merged into
-/// one it helps to know when an item is the last item in the stream.
+/// When used with MakeMergedGenerator and MakeSequencingGenerator this allows items to be
+/// processed in a "first-available" fashion and later reqsequenced which can reduce the
+/// impact of sources with erratic performance (e.g. a filesystem where some items may
+/// take longer to read than others).
 ///
-/// Note: Another potential use for this could be resequencing items from a
-/// jittery source.  However, the readahead generator will not emit items out of
-/// order today so this is not needed.  Furthermore, this generator would need to
-/// support async reentrancy which, while possible, is not done currently.
-///
-/// Note: Since this generator is not actually taking in out-of-order sources it isn't
-/// strictly neccesary to add the index, it could be added by a map generator.  However,
-/// since this generator is usually used as later input to the sequencing generator and
-/// the sequencing generator needs the index we go ahead and add it for utility's sake
+/// TODO(ARROW-12371) Would require this generator be async-reentrant
 ///
 /// \see MakeSequencingGenerator for an example of putting items back in order
 ///
