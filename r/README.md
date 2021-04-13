@@ -50,16 +50,17 @@ install from there:
 install.packages("arrow", repos = "https://arrow-r-nightly.s3.amazonaws.com")
 ```
 
-If you have `arrow` installed and want to switch to the latest nightly development version, you can use the included `install_arrow()` utility function:
-
-``` r
-arrow::install_arrow(nightly = TRUE)
-```
-
 Conda users can install `arrow` nightly builds with
 
 ``` shell
 conda install -c arrow-nightlies -c conda-forge --strict-channel-priority r-arrow
+```
+
+If you already have a version of `arrow` installed, you can switch to
+the latest nightly development version with
+
+``` r
+arrow::install_arrow(nightly = TRUE)
 ```
 
 These nightly package builds are not official Apache releases and are
@@ -98,7 +99,7 @@ interacting with instances of these classes.
 
 The `arrow` package provides functions for reading data from several
 common file formats. By default, calling any of these functions returns
-an R data frame. To return an Arrow `Table`, set argument
+an R `data.frame`. To return an Arrow `Table`, set argument
 `as_data_frame = FALSE`.
 
 -   `read_parquet()`: read a file in Parquet format (an efficient
@@ -143,7 +144,7 @@ write_parquet(starwars, data_file <- tempfile()) # write file to demonstrate rea
 sw <- read_parquet(data_file, as_data_frame = FALSE)
 ```
 
-For larger or multi-file datasets, load the data into a `Dataset` as
+Or, for larger or multi-file datasets, load the data into a `Dataset` as
 described in `vignette("dataset", package = "arrow")`.
 
 Next, pipe on `dplyr` verbs:
@@ -157,9 +158,9 @@ result <- sw %>%
   select(name, height_in, mass_lbs)
 ```
 
-The `arrow` package uses lazy evaluation. `result` is an object with
-class `arrow_dplyr_query` which represents the computations to be
-performed.
+The `arrow` package uses lazy evaluation to delay computation until the
+result is required. `result` is an object with class `arrow_dplyr_query`
+which represents the computations to be performed:
 
 ``` r
 result
@@ -173,9 +174,9 @@ result
 #> See $.data for the source Arrow object
 ```
 
-To execute these computations and obtain the result, call `compute()` or
-`collect()`. `compute()` returns an Arrow `Table`, suitable for passing
-to other `arrow` or `dplyr` functions.
+To execute these computations and obtain the actual result, call
+`compute()` or `collect()`. `compute()` returns an Arrow `Table`,
+suitable for passing to other `arrow` or `dplyr` functions:
 
 ``` r
 result %>% compute()
@@ -186,8 +187,8 @@ result %>% compute()
 #> $mass_lbs <double>
 ```
 
-`collect()` returns an R data frame or tibble, suitable for viewing or
-passing to other R functions for analysis or visualization:
+`collect()` returns an R `data.frame`, suitable for viewing or passing
+to other R functions for analysis or visualization:
 
 ``` r
 result %>% collect()
@@ -214,24 +215,28 @@ about available compute functions, see `help("list_compute_functions")`.
 
 For `dplyr` queries on `Table` and `RecordBatch` objects, if the `arrow`
 package detects an unsupported function within a `dplyr` verb, it
-automatically calls `collect()` to return the data as an R data frame
-before processing that `dplyr` verb.
+automatically calls `collect()` to return the data as an R `data.frame`
+before processing that `dplyr` verb. This differs from how `arrow`
+handles unsupported queries on `Dataset` objects; see
+`vignette("install", package = "arrow")` for details.
 
 ## Getting help
 
 If you encounter a bug, please file an issue with a minimal reproducible
-example on [the Apache Jira issue
-tracker](https://issues.apache.org/jira/). Choose the project **Apache
-Arrow (ARROW)**, select the component **R**, and begin the issue summary
-with **\[R\]** followed by a space. For more information, see the
-**Report bugs and propose features** section of the [Contributing to
-Apache
+example on the [Apache Jira issue
+tracker](https://issues.apache.org/jira/projects/ARROW/issues). Create
+an account or log in, then click **Create** to file an issue. Select the
+project **Apache Arrow (ARROW)**, select the component **R**, and begin
+the issue summary with **\[R\]** followed by a space. For more
+information, see the **Report bugs and propose features** section of the
+[Contributing to Apache
 Arrow](https://arrow.apache.org/docs/developers/contributing.html) page
 in the Arrow developer documentation.
 
-We welcome questions and discussion about the `arrow` package. For
-information about mailing lists and other venues for engaging with the
-Arrow developer and user communities, please see the [Apache Arrow
+We welcome questions, discussion, and contributions from users of the
+`arrow` package. For information about mailing lists and other venues
+for engaging with the Apache Arrow developer and user communities,
+please see the [Apache Arrow
 Community](https://arrow.apache.org/community/) page.
 
 ------------------------------------------------------------------------
