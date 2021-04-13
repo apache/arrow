@@ -22,9 +22,9 @@
 /// Stub functions that can be accessed from LLVM.
 extern "C" {
 
-bool compare_null_null();
+void compare_null_null(bool in1_valid, bool in2_valid);
 
-bool isnull_null();
+bool isnull_null(bool in_valid);
 
-bool isnotnull_null();
+bool isnotnull_null(bool in_valid);
 }

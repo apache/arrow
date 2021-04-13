@@ -76,12 +76,12 @@ TEST_F(TestNull, TestOps) {
   auto schema = arrow::schema({field_null});
 
   // output fields
-  auto res_1 = field("res1", boolean());
-  auto res_2 = field("res2", boolean());
-  auto res_3 = field("res3", boolean());
-  auto res_4 = field("res4", boolean());
-  auto res_5 = field("res5", boolean());
-  auto res_6 = field("res6", boolean());
+  auto res_1 = field("res1", null());
+  auto res_2 = field("res2", null());
+  auto res_3 = field("res3", null());
+  auto res_4 = field("res4", null());
+  auto res_5 = field("res5", null());
+  auto res_6 = field("res6", null());
   auto res_7 = field("res7", boolean());
   auto res_8 = field("res8", boolean());
   auto expr_1 = TreeExprBuilder::MakeExpression("equal", {field_null, field_null}, res_1);
@@ -118,13 +118,11 @@ TEST_F(TestNull, TestOps) {
   auto exp_true = MakeArrowArrayBool({true, true, true, true}, {true, true, true, true});
   auto exp_false =
       MakeArrowArrayBool({false, false, false, false}, {true, true, true, true});
-  for (int i = 0; i < 8; i++) {
-    if (i == 6) {
-      EXPECT_ARROW_ARRAY_EQUALS(exp_true, outputs.at(i));
-    } else {
-      EXPECT_ARROW_ARRAY_EQUALS(exp_false, outputs.at(i));
-    }
+  for (int i = 0; i < 6; i++) {
+    EXPECT_EQ(outputs.at(i)->null_count(), 4);
   }
+  EXPECT_ARROW_ARRAY_EQUALS(exp_true, outputs.at(6));
+  EXPECT_ARROW_ARRAY_EQUALS(exp_false, outputs.at(7));
 }
 
 }  // namespace gandiva

@@ -23,8 +23,8 @@
 namespace gandiva {
 
 TEST(TestNullOps, Test) {
-  EXPECT_FALSE(compare_null_null());
-  EXPECT_TRUE(isnull_null());
-  EXPECT_FALSE(isnotnull_null());
+  compare_null_null(true, true);
+  EXPECT_TRUE(isnull_null(true));
+  EXPECT_FALSE(isnotnull_null(true));
 }
 }  // namespace gandiva

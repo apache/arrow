@@ -23,11 +23,11 @@
 /// Stub functions that can be accessed from LLVM or the pre-compiled library.
 
 extern "C" {
-bool compare_null_null() { return false; }
+void compare_null_null(bool in1_valid, bool in2_valid) {}
 
-bool isnull_null() { return true; }
+bool isnull_null(bool in_valid) { return true; }
 
-bool isnotnull_null() { return false; }
+bool isnotnull_null(bool in_valid) { return false; }
 }
 
 namespace gandiva {
@@ -36,7 +36,7 @@ void ExportedNullFunctions::AddMappings(Engine* engine) const {
   auto types = engine->types();
 
   args = {types->i1_type(), types->i1_type()};
-  engine->AddGlobalMappingForFunc("compare_null_null", types->i1_type() /*return_type*/,
+  engine->AddGlobalMappingForFunc("compare_null_null", types->void_type() /*return_type*/,
                                   args, reinterpret_cast<void*>(compare_null_null));
 
   args = {types->i1_type()};

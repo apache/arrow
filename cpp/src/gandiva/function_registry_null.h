@@ -28,7 +28,7 @@ std::vector<NativeFunction> GetNullFunctionRegistry() {
       NativeFunction("equal",
                      {"not_equal", "less_than", "less_than_or_equal_to", "greater_than",
                       "greater_than_or_equal_to"},
-                     DataTypeVector{null(), null()}, boolean(), kResultNullNever,
+                     DataTypeVector{null(), null()}, null(), kResultNullNever,
                      "compare_null_null"),
       NativeFunction("isnull", {}, DataTypeVector{null()}, boolean(), kResultNullNever,
                      "isnull_null"),
