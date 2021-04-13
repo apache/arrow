@@ -29,6 +29,8 @@ jobs:
 
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '2.6'
       - name: Free Up Disk Space
         shell: bash
         run: arrow/ci/scripts/util_cleanup.sh
