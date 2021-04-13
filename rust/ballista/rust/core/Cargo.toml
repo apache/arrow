@@ -34,6 +34,7 @@ async-trait = "0.1.36"
 futures = "0.3"
 log = "0.4"
 prost = "0.7"
+serde = {version = "1", features = ["derive"]}
 sqlparser = "0.8"
 tokio = "1.0"
 tonic = "0.4"
