@@ -379,11 +379,10 @@ const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t i
   return ret;
 }
 
-double gdv_fn_to_number(int64_t ptr, const char* data,
-     int32_t data_len, const char* format, int32_t format_len) {
-
+double gdv_fn_to_number(int64_t ptr, const char* data, int32_t data_len,
+                        const char* format, int32_t format_len) {
   gandiva::DecimalFormatHolder* holder =
-  reinterpret_cast<gandiva::DecimalFormatHolder*>(ptr);
+      reinterpret_cast<gandiva::DecimalFormatHolder*>(ptr);
   double res = holder->Parse(data, data_len);
   return res;
 }
@@ -1394,7 +1393,6 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_to_number",
                                   types->double_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_to_number));
-
 
   // gdv_fn_sha256_uint16
   args = {

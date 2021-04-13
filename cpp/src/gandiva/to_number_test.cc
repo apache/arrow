@@ -17,42 +17,43 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow.h"
 #include "arrow/memory_pool.h"
 #include "gandiva/filter.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
-#include "arrow.h"
 #include "projector.h"
 
-namespace gandiva{
+namespace gandiva {
 class TestToNumber : public ::testing::Test {
-  public:
-      void SetUp() { pool_ = arrow::default_memory_pool(); }
+ public:
+  void SetUp() { pool_ = arrow::default_memory_pool(); }
 
-  protected:
-      arrow::MemoryPool* pool_;
+ protected:
+  arrow::MemoryPool* pool_;
 };
 
-TEST_F(TestToNumber, TestToNumber){
+TEST_F(TestToNumber, TestToNumber) {
   auto field0 = field("f0", arrow::utf8());
   auto schema = arrow::schema({field0});
   auto node = TreeExprBuilder::MakeField(field0);
 
   auto res = field("r0", arrow::float64());
   auto pattern_literal = TreeExprBuilder::MakeStringLiteral("##,###,###.###");
-  auto to_number_node1 = TreeExprBuilder::MakeFunction("to_number",{node, pattern_literal},arrow::float64());
-  auto expr = TreeExprBuilder::MakeExpression(to_number_node1,res);
+  auto to_number_node1 = TreeExprBuilder::MakeFunction(
+      "to_number", {node, pattern_literal}, arrow::float64());
+  auto expr = TreeExprBuilder::MakeExpression(to_number_node1, res);
 
   // Build filter for the expression
   std::shared_ptr<Projector> projector;
-  auto status =
-      Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Create a row-batch with some sample data
 
   int num_records = 4;
-  auto array_a = MakeArrowArrayUtf8({"500.6667", "-600,000.3333", "0", ""}, {true, true, true, true});
+  auto array_a = MakeArrowArrayUtf8({"500.6667", "-600,000.3333", "0", ""},
+                                    {true, true, true, true});
   auto exp = MakeArrowArrayFloat64({500.667, -600000.3333, 0, 0});
 
   // prepare input record batch

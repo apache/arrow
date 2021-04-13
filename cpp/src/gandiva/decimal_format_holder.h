@@ -24,57 +24,58 @@
 #include "gandiva/function_holder.h"
 #include "gandiva/node.h"
 
+namespace gandiva {
 
-namespace gandiva{
+class GANDIVA_EXPORT DecimalFormatHolder : public FunctionHolder {
+ public:
+  ~DecimalFormatHolder() override = default;
 
-class GANDIVA_EXPORT DecimalFormatHolder : public FunctionHolder{
-  public:
-    ~DecimalFormatHolder() override = default;
+  static Status Make(const FunctionNode& node,
+                     std::shared_ptr<DecimalFormatHolder>* holder);
 
-    static Status Make(const FunctionNode& node, std::shared_ptr<DecimalFormatHolder>* holder);
+  static Status Make(const std::string& decimal_format,
+                     std::shared_ptr<DecimalFormatHolder>* holder);
 
-    static Status Make(const std::string& decimal_format, std::shared_ptr<DecimalFormatHolder>* holder);
+  double Parse(const char* number, int32_t number_size);
 
-    double Parse(const char* number, int32_t number_size);
+ private:
+  explicit DecimalFormatHolder(const char* pattern, size_t pattern_size)
+      : pattern_(pattern), pattern_size_(pattern_size) {
+    maximumFractionDigits_ = Setup();
+  }
 
-  private:
-    explicit DecimalFormatHolder(const char* pattern, int32_t pattern_size) :
-        pattern_(pattern), pattern_size_(pattern_size){
-      maximumFractionDigits_ = Setup();
-    }
-
-    // Setups all classes variables and returns the max quantity of fraction digits for
-    // this format.
-    int32_t Setup(){
-      int32_t ret=0;
-      const char* aux = pattern_;
-      bool is_decimal_part = false;
-      has_dolar_sign_= false;
-      for (int i = 0; i < pattern_size_; ++i) {
-        if (*aux == '$'){
-          has_dolar_sign_= true;
-        }
-
-        if (*aux == '.'){
-          decimal_start_idx_ = i;
-          is_decimal_part = true;
-        }
-
-        if (is_decimal_part){
-          ret++;
-        }
-
-        aux++;
+  // Setups all classes variables and returns the max quantity of fraction digits for
+  // this format.
+  int32_t Setup() {
+    int32_t ret = 0;
+    const char* aux = pattern_;
+    bool is_decimal_part = false;
+    has_dolar_sign_ = false;
+    for (size_t i = 0; i < pattern_size_; ++i) {
+      if (*aux == '$') {
+        has_dolar_sign_ = true;
       }
 
-      return ret;
+      if (*aux == '.') {
+        decimal_start_idx_ = i;
+        is_decimal_part = true;
+      }
+
+      if (is_decimal_part) {
+        ret++;
+      }
+
+      aux++;
     }
 
-    const char* pattern_;
-    int32_t pattern_size_;
-    int32_t maximumFractionDigits_;
-    int32_t decimal_start_idx_;
-    bool has_dolar_sign_;
+    return ret;
+  }
+
+  const char* pattern_;
+  size_t pattern_size_;
+  int32_t maximumFractionDigits_;
+  int32_t decimal_start_idx_;
+  bool has_dolar_sign_;
 };
 
 }  // namespace gandiva

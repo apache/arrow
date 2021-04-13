@@ -24,13 +24,13 @@
 
 #include "arrow/status.h"
 
+#include "decimal_format_holder.h"
 #include "gandiva/function_holder.h"
 #include "gandiva/like_holder.h"
 #include "gandiva/node.h"
 #include "gandiva/random_generator_holder.h"
 #include "gandiva/replace_holder.h"
 #include "gandiva/to_date_holder.h"
-#include "decimal_format_holder.h"
 
 namespace gandiva {
 
