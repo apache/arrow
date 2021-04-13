@@ -225,6 +225,11 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      "convert_replace_invalid_fromUTF8_binary",
                      NativeFunction::kNeedsContext),
 
+      NativeFunction("convert_toDOUBLE", {"convert_todouble"},
+                     DataTypeVector{float64()}, binary(), kResultNullIfNull,
+                     "convert_toDOUBLE_binary",
+                     NativeFunction::kNeedsContext),
+
       NativeFunction("locate", {"position"}, DataTypeVector{utf8(), utf8(), int32()},
                      int32(), kResultNullIfNull, "locate_utf8_utf8_int32",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
