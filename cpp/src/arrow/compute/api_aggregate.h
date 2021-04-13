@@ -58,27 +58,6 @@ struct ARROW_EXPORT ScalarAggregateOptions : public FunctionOptions {
   uint32_t min_count;
 };
 
-/// \addtogroup compute-concrete-options
-/// @{
-
-/// \brief Control Count kernel behavior
-///
-/// By default, all non-null values are counted.
-struct ARROW_EXPORT CountOptions : public FunctionOptions {
-  enum Mode {
-    /// Count all non-null values.
-    COUNT_NON_NULL = 0,
-    /// Count all null values.
-    COUNT_NULL,
-  };
-
-  explicit CountOptions(enum Mode count_mode = COUNT_NON_NULL) : count_mode(count_mode) {}
-
-  static CountOptions Defaults() { return CountOptions(COUNT_NON_NULL); }
-
-  enum Mode count_mode;
-};
-
 /// \brief Control Mode kernel behavior
 ///
 /// Returns top-n common values and counts.
@@ -156,7 +135,7 @@ struct ARROW_EXPORT TDigestOptions : public FunctionOptions {
 
 /// \brief Count non-null (or null) values in an array.
 ///
-/// \param[in] options counting options, see CountOptions for more information
+/// \param[in] options counting options, see ScalarAggregateOptions for more information
 /// \param[in] datum to count
 /// \param[in] ctx the function execution context, optional
 /// \return out resulting datum
@@ -164,7 +143,8 @@ struct ARROW_EXPORT TDigestOptions : public FunctionOptions {
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> Count(const Datum& datum, CountOptions options = CountOptions::Defaults(),
+Result<Datum> Count(const Datum& datum,
+                    ScalarAggregateOptions options = ScalarAggregateOptions::Defaults(),
                     ExecContext* ctx = NULLPTR);
 
 /// \brief Compute the mean of a numeric array.
@@ -210,9 +190,10 @@ Result<Datum> Sum(
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> MinMax(const Datum& value,
-                     const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
-                     ExecContext* ctx = NULLPTR);
+Result<Datum> MinMax(
+    const Datum& value,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Test whether any element in a boolean array evaluates to true.
 ///

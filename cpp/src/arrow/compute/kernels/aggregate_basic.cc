@@ -56,7 +56,7 @@ namespace aggregate {
 // Count implementation
 
 struct CountImpl : public ScalarAggregator {
-  explicit CountImpl(CountOptions options) : options(std::move(options)) {}
+  explicit CountImpl(ScalarAggregateOptions options) : options(std::move(options)) {}
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
     const ArrayData& input = *batch[0].array();
@@ -75,20 +75,20 @@ struct CountImpl : public ScalarAggregator {
 
   Status Finalize(KernelContext* ctx, Datum* out) override {
     const auto& state = checked_cast<const CountImpl&>(*ctx->state());
-    switch (state.options.count_mode) {
-      case CountOptions::COUNT_NON_NULL:
+    switch (state.options.null_handling) {
+      case ScalarAggregateOptions::SKIPNA:
         *out = Datum(state.non_nulls);
         break;
-      case CountOptions::COUNT_NULL:
+      case ScalarAggregateOptions::KEEPNA:
         *out = Datum(state.nulls);
         break;
       default:
-        return Status::Invalid("Unknown CountOptions encountered");
+        return Status::Invalid("Unknown ScalarAggregateOptions encountered");
     }
     return Status::OK();
   }
 
-  CountOptions options;
+  ScalarAggregateOptions options;
   int64_t non_nulls = 0;
   int64_t nulls = 0;
 };
@@ -96,7 +96,7 @@ struct CountImpl : public ScalarAggregator {
 Result<std::unique_ptr<KernelState>> CountInit(KernelContext*,
                                                const KernelInitArgs& args) {
   return ::arrow::internal::make_unique<CountImpl>(
-      static_cast<const CountOptions&>(*args.options));
+      static_cast<const ScalarAggregateOptions&>(*args.options));
 }
 
 // ----------------------------------------------------------------------
@@ -259,9 +259,9 @@ namespace {
 
 const FunctionDoc count_doc{"Count the number of null / non-null values",
                             ("By default, non-null values are counted.\n"
-                             "This can be changed through CountOptions."),
+                             "This can be changed through ScalarAggregateOptions."),
                             {"array"},
-                            "CountOptions"};
+                            "ScalarAggregateOptions"};
 
 const FunctionDoc sum_doc{
     "Sum values of a numeric array", ("Null values are ignored."), {"array"}};
@@ -288,9 +288,10 @@ const FunctionDoc all_doc{"Test whether all elements in a boolean array evaluate
 }  // namespace
 
 void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
-  static auto default_count_options = CountOptions::Defaults();
+  static auto default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
+
   auto func = std::make_shared<ScalarAggregateFunction>(
-      "count", Arity::Unary(), &count_doc, &default_count_options);
+      "count", Arity::Unary(), &count_doc, &default_scalar_aggregate_options);
 
   // Takes any array input, outputs int64 scalar
   InputType any_array(ValueDescr::ARRAY);
@@ -298,10 +299,8 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
                aggregate::CountInit, func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
-  static ScalarAggregateOptions sum_default_scalar_aggregate_options =
-      ScalarAggregateOptions::Defaults();
   func = std::make_shared<ScalarAggregateFunction>("sum", Arity::Unary(), &sum_doc,
-                                                   &sum_default_scalar_aggregate_options);
+                                                   &default_scalar_aggregate_options);
   aggregate::AddBasicAggKernels(aggregate::SumInit, {boolean()}, int64(), func.get());
   aggregate::AddBasicAggKernels(aggregate::SumInit, SignedIntTypes(), int64(),
                                 func.get());
@@ -325,9 +324,8 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 #endif
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
-  static ScalarAggregateOptions mean_default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
-  func = std::make_shared<ScalarAggregateFunction>(
-      "mean", Arity::Unary(), &mean_doc, &mean_default_scalar_aggregate_options);
+  func = std::make_shared<ScalarAggregateFunction>("mean", Arity::Unary(), &mean_doc,
+                                                   &default_scalar_aggregate_options);
   aggregate::AddBasicAggKernels(aggregate::MeanInit, {boolean()}, float64(), func.get());
   aggregate::AddBasicAggKernels(aggregate::MeanInit, NumericTypes(), float64(),
                                 func.get());
@@ -344,9 +342,8 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 #endif
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
-  static auto minmax_default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
-  func = std::make_shared<ScalarAggregateFunction>("min_max", Arity::Unary(),
-                                                   &min_max_doc, &minmax_default_scalar_aggregate_options);
+  func = std::make_shared<ScalarAggregateFunction>(
+      "min_max", Arity::Unary(), &min_max_doc, &default_scalar_aggregate_options);
   aggregate::AddMinMaxKernels(aggregate::MinMaxInit, {boolean()}, func.get());
   aggregate::AddMinMaxKernels(aggregate::MinMaxInit, NumericTypes(), func.get());
   // Add the SIMD variants for min max

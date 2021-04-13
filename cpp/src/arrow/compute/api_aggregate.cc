@@ -25,7 +25,8 @@ namespace compute {
 // ----------------------------------------------------------------------
 // Scalar aggregates
 
-Result<Datum> Count(const Datum& value, CountOptions options, ExecContext* ctx) {
+Result<Datum> Count(const Datum& value, ScalarAggregateOptions options,
+                    ExecContext* ctx) {
   return CallFunction("count", {value}, &options, ctx);
 }
 
@@ -39,7 +40,8 @@ Result<Datum> Sum(const Datum& value, const ScalarAggregateOptions& options,
   return CallFunction("sum", {value}, &options, ctx);
 }
 
-Result<Datum> MinMax(const Datum& value, const ScalarAggregateOptions& options, ExecContext* ctx) {
+Result<Datum> MinMax(const Datum& value, const ScalarAggregateOptions& options,
+                     ExecContext* ctx) {
   return CallFunction("min_max", {value}, &options, ctx);
 }
 

@@ -233,7 +233,8 @@ struct MinMaxImpl : public ScalarAggregator {
   using ThisType = MinMaxImpl<ArrowType, SimdLevel>;
   using StateType = MinMaxState<ArrowType, SimdLevel>;
 
-  MinMaxImpl(const std::shared_ptr<DataType>& out_type, const ScalarAggregateOptions& options)
+  MinMaxImpl(const std::shared_ptr<DataType>& out_type,
+             const ScalarAggregateOptions& options)
       : out_type(out_type), options(options) {}
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
@@ -387,7 +388,8 @@ struct MinMaxInitState {
   const ScalarAggregateOptions& options;
 
   MinMaxInitState(KernelContext* ctx, const DataType& in_type,
-                  const std::shared_ptr<DataType>& out_type, const ScalarAggregateOptions& options)
+                  const std::shared_ptr<DataType>& out_type,
+                  const ScalarAggregateOptions& options)
       : ctx(ctx), in_type(in_type), out_type(out_type), options(options) {}
 
   Status Visit(const DataType&) {

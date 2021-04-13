@@ -373,8 +373,8 @@ static CountPair NaiveCount(const Array& array) {
 }
 
 void ValidateCount(const Array& input, CountPair expected) {
-  CountOptions all = CountOptions(CountOptions::COUNT_NON_NULL);
-  CountOptions nulls = CountOptions(CountOptions::COUNT_NULL);
+  ScalarAggregateOptions all = ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA);
+  ScalarAggregateOptions nulls = ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA);
 
   ASSERT_OK_AND_ASSIGN(Datum result, Count(input, all));
   AssertDatumsEqual(result, Datum(expected.first));
@@ -596,7 +596,8 @@ class TestPrimitiveMinMaxKernel : public ::testing::Test {
     }
   }
 
-  void AssertMinMaxIsNull(const std::string& json, const ScalarAggregateOptions& options) {
+  void AssertMinMaxIsNull(const std::string& json,
+                          const ScalarAggregateOptions& options) {
     auto array = ArrayFromJSON(type_singleton(), json);
     AssertMinMaxIsNull(array, options);
   }
@@ -619,7 +620,7 @@ class TestFloatingMinMaxKernel : public TestPrimitiveMinMaxKernel<ArrowType> {};
 class TestBooleanMinMaxKernel : public TestPrimitiveMinMaxKernel<BooleanType> {};
 
 TEST_F(TestBooleanMinMaxKernel, Basics) {
-ScalarAggregateOptions options;
+  ScalarAggregateOptions options;
   std::vector<std::string> chunked_input0 = {"[]", "[]"};
   std::vector<std::string> chunked_input1 = {"[true, true, null]", "[true, null]"};
   std::vector<std::string> chunked_input2 = {"[false, false, false]", "[false]"};
@@ -654,7 +655,7 @@ ScalarAggregateOptions options;
 
 TYPED_TEST_SUITE(TestIntegerMinMaxKernel, IntegralArrowTypes);
 TYPED_TEST(TestIntegerMinMaxKernel, Basics) {
-ScalarAggregateOptions options;
+  ScalarAggregateOptions options;
   std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 1, null, 3, 4]"};
   std::vector<std::string> chunked_input2 = {"[5, null, 2, 3, 4]", "[9, 1, 2, 3, 4]"};
   std::vector<std::string> chunked_input3 = {"[5, 1, 2, 3, null]", "[9, 1, null, 3, 4]"};
@@ -680,7 +681,7 @@ ScalarAggregateOptions options;
 
 TYPED_TEST_SUITE(TestFloatingMinMaxKernel, RealArrowTypes);
 TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
-ScalarAggregateOptions options;
+  ScalarAggregateOptions options;
   std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 1, null, 3, 4]"};
   std::vector<std::string> chunked_input2 = {"[5, null, 2, 3, 4]", "[9, 1, 2, 3, 4]"};
   std::vector<std::string> chunked_input3 = {"[5, 1, 2, 3, null]", "[9, 1, null, 3, 4]"};

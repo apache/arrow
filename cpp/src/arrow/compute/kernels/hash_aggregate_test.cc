@@ -567,7 +567,7 @@ TEST(GroupBy, CountAndSum) {
     [null,  3]
   ])");
 
-  CountOptions count_options;
+  ScalarAggregateOptions count_options;
   ASSERT_OK_AND_ASSIGN(
       Datum aggregated_and_grouped,
       internal::GroupBy(
@@ -659,16 +659,14 @@ TEST(GroupBy, ConcreteCaseWithValidateGroupBy) {
     [null,  "gama"]
   ])");
 
-  CountOptions count_non_null{CountOptions::COUNT_NON_NULL},
-      count_null{CountOptions::COUNT_NULL};
-
-ScalarAggregateOptions skipna{ScalarAggregateOptions::KEEPNA};
+  ScalarAggregateOptions keepna{ScalarAggregateOptions::KEEPNA};
+  ScalarAggregateOptions skipna{ScalarAggregateOptions::KEEPNA};
 
   using internal::Aggregate;
   for (auto agg : {
            Aggregate{"hash_sum", nullptr},
-           Aggregate{"hash_count", &count_non_null},
-           Aggregate{"hash_count", &count_null},
+           Aggregate{"hash_count", &skipna},
+           Aggregate{"hash_count", &keepna},
            Aggregate{"hash_min_max", nullptr},
            Aggregate{"hash_min_max", &skipna},
        }) {

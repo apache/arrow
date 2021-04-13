@@ -466,7 +466,7 @@ struct GroupedAggregator : KernelState {
 struct GroupedCountImpl : public GroupedAggregator {
   Status Init(ExecContext* ctx, const FunctionOptions* options,
               const std::shared_ptr<DataType>&) override {
-    options_ = checked_cast<const CountOptions&>(*options);
+    options_ = checked_cast<const ScalarAggregateOptions&>(*options);
     counts_ = BufferBuilder(ctx->memory_pool());
     return Status::OK();
   }
@@ -482,8 +482,8 @@ struct GroupedCountImpl : public GroupedAggregator {
 
     const auto& input = batch[0].array();
 
-    if (options_.count_mode == CountOptions::COUNT_NULL) {
-      if (input->GetNullCount() != 0) {
+    if (options_.null_handling == ScalarAggregateOptions::KEEPNA) {
+      if (input->GetNullCount() >= options_.min_count) {
         for (int64_t i = 0, input_i = input->offset; i < input->length; ++i, ++input_i) {
           auto g = group_ids[i];
           raw_counts[g] += !BitUtil::GetBit(input->buffers[0]->data(), input_i);
@@ -512,7 +512,7 @@ struct GroupedCountImpl : public GroupedAggregator {
   std::shared_ptr<DataType> out_type() const override { return int64(); }
 
   int64_t num_groups_ = 0;
-  CountOptions options_;
+  ScalarAggregateOptions options_;
   BufferBuilder counts_;
 };
 
@@ -1020,9 +1020,9 @@ Result<std::shared_ptr<ListArray>> Grouper::MakeGroupings(const UInt32Array& ids
 namespace {
 const FunctionDoc hash_count_doc{"Count the number of null / non-null values",
                                  ("By default, non-null values are counted.\n"
-                                  "This can be changed through CountOptions."),
+                                  "This can be changed through ScalarAggregateOptions."),
                                  {"array", "group_id_array", "group_count"},
-                                 "CountOptions"};
+                                 "ScalarAggregateOptions"};
 
 const FunctionDoc hash_sum_doc{"Sum values of a numeric array",
                                ("Null values are ignored."),
@@ -1038,9 +1038,10 @@ const FunctionDoc hash_min_max_doc{
 
 void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   {
-    static auto default_count_options = CountOptions::Defaults();
+    static auto default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_count", Arity::Ternary(), &hash_count_doc, &default_count_options);
+        "hash_count", Arity::Ternary(), &hash_count_doc,
+        &default_scalar_aggregate_options);
     DCHECK_OK(func->AddKernel(MakeKernel<GroupedCountImpl>(ValueDescr::ARRAY)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
@@ -1053,9 +1054,10 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   }
 
   {
-    static auto default_scalaraggregate_options = ScalarAggregateOptions::Defaults();
+    static auto default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_min_max", Arity::Ternary(), &hash_min_max_doc, &default_scalaraggregate_options);
+        "hash_min_max", Arity::Ternary(), &hash_min_max_doc,
+        &default_scalar_aggregate_options);
     DCHECK_OK(func->AddKernel(MakeKernel<GroupedMinMaxImpl>(ValueDescr::ARRAY)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
