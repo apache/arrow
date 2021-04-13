@@ -45,12 +45,7 @@ except ImportError:
 
 try:
     from pyarrow._s3fs import (  # noqa
-        S3FileSystem,
-        S3LogLevel,
-        initialize_s3,
-        finalize_s3,
-        S3ProxyOptions,
-    )
+        S3FileSystem, S3LogLevel, initialize_s3, finalize_s3,)
 except ImportError:
     _not_imported.append("S3FileSystem")
 else:

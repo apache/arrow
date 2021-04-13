@@ -45,98 +45,6 @@ def finalize_s3():
     check_status(CFinalizeS3())
 
 
-cdef class S3ProxyOptions:
-    """
-    Proxy Options for S3
-
-    Parameters
-    ----------
-
-    scheme : str, default ''
-        Proxy scheme. Valid values: 'http' and 'https'.
-    host : str, default ''
-        Proxy host to connect to.
-    port : int, default -1
-        Proxy port to connect to.
-    username : str, default ''
-        Username to use to authenticate connection to proxy.
-    password : str, default ''
-        Password to use to authenticate connection to proxy.
-    """
-
-    cdef:
-        CS3ProxyOptions proxy_options
-
-    def __init__(self, scheme="", host="", port=-1, username="", password=""):
-
-        self.proxy_options.scheme = tobytes(scheme)
-        self.proxy_options.host = tobytes(host)
-        self.proxy_options.port = port
-        self.proxy_options.username = tobytes(username)
-        self.proxy_options.password = tobytes(password)
-
-    @property
-    def scheme(self):
-        """
-        The scheme this proxy uses.
-        """
-        return frombytes(self.proxy_options.scheme)
-
-    @property
-    def host(self):
-        """
-        The host for this proxy.
-        """
-        return frombytes(self.proxy_options.host)
-
-    @property
-    def port(self):
-        """
-        The port for this proxy.
-        """
-        return self.proxy_options.port
-
-    @property
-    def username(self):
-        """
-        The username uses to authenticate connection to proxy.
-        """
-        return frombytes(self.proxy_options.username)
-
-    @property
-    def password(self):
-        """
-        The password uses to authenticate connection to proxy.
-        """
-        return frombytes(self.proxy_options.password)
-
-    @staticmethod
-    def from_uri(uri):
-        """
-        Instantiate S3ProxyOptions from an URI string.
-
-        The following two calls are equivalent
-        * S3ProxyOptions.from_uri('http://username:password@localhost:8020')
-        * S3ProxyOptions(scheme='http', host='localhost', port=8020,
-                         username='username', password='password')
-
-        Parameters
-        ----------
-        uri : str
-            A string URI describing the connection to the proxy.
-
-        Returns
-        -------
-        S3ProxyOptions
-        """
-        cdef:
-            S3ProxyOptions self = S3ProxyOptions.__new__(S3ProxyOptions)
-
-        self.proxy_options = GetResultValue(
-            CS3ProxyOptions.FromUriString(tobytes(uri)))
-        return self
-
-
 cdef class S3FileSystem(FileSystem):
     """S3-backed FileSystem implementation
 
@@ -186,11 +94,18 @@ cdef class S3FileSystem(FileSystem):
     background_writes: boolean, default True
         Whether OutputStream writes will be issued in the background, without
         blocking.
-    proxy_options: dict or pyarrow._s3fs.S3ProxyOptions, default None
+    proxy_options: dict or str, default None
         If a proxy is used, provide the options here. Supported options are:
         'scheme' (str: 'http' or 'https'; required), 'host' (str; required),
         'port' (int; required), 'username' (str; optional),
         'password' (str; optional).
+        A proxy URI (str) can also be provided, in which case these options
+        will be derived from the provided URI.
+        The following are equivalent:
+        * S3FileSystem(proxy_options='http://username:password@localhost:8020')
+        * S3FileSystem(proxy_options={'scheme': 'http', 'host': 'localhost',
+                                      'port': 8020, 'username': 'username',
+                                      'password': 'password'})
     """
 
     cdef:
@@ -282,17 +197,12 @@ cdef class S3FileSystem(FileSystem):
                 proxy_password = proxy_options.get("password", None)
                 if proxy_password:
                     options.proxy_options.password = tobytes(proxy_password)
-            elif isinstance(proxy_options, S3ProxyOptions):
-                options.proxy_options.scheme = tobytes(proxy_options.scheme)
-                options.proxy_options.host = tobytes(proxy_options.host)
-                options.proxy_options.port = proxy_options.port
-                options.proxy_options.username = tobytes(
-                    proxy_options.username)
-                options.proxy_options.password = tobytes(
-                    proxy_options.password)
+            elif isinstance(proxy_options, str):
+                options.proxy_options = GetResultValue(
+                    CS3ProxyOptions.FromUriString(tobytes(proxy_options)))
             else:
                 raise TypeError(
-                    "'proxy_options': expected 'dict' or 'S3ProxyOptions', "
+                    "'proxy_options': expected 'dict' or 'str', "
                     f"got {type(proxy_options)} instead.")
 
         with nogil:
