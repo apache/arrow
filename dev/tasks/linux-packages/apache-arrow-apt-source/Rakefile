@@ -20,12 +20,12 @@
 require_relative "../helper"
 require_relative "../package-task"
 
-class ApacheArrowArchiveKeyringPackageTask < PackageTask
+class ApacheArrowAptSourcePackageTask < PackageTask
   include Helper::ApacheArrow
 
   def initialize
     release_time = detect_release_time
-    super("apache-arrow-archive-keyring",
+    super("apache-arrow-apt-source",
           detect_version(release_time),
           release_time,
           :rc_build_type => :release)
@@ -60,5 +60,5 @@ class ApacheArrowArchiveKeyringPackageTask < PackageTask
   end
 end
 
-task = ApacheArrowArchiveKeyringPackageTask.new
+task = ApacheArrowAptSourcePackageTask.new
 task.define
