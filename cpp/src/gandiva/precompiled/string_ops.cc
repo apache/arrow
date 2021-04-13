@@ -1328,6 +1328,31 @@ const char* convert_toDOUBLE_binary(int64_t context, double value, int32_t* out_
   return ret;
 }
 
+FORCE_INLINE
+const char* convert_toINT_binary(int64_t context, int32_t value, int32_t* out_len) {
+  *out_len = sizeof(value);
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context,
+                                 "Could not allocate memory for the output string");
+
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, &value, *out_len);
+
+  return ret;
+}
+
+FORCE_INLINE
+const char* convert_toUTF8_binary(int64_t context, const char* value, int32_t value_len,
+                                  int32_t* out_len){
+  *out_len = value_len;
+  return value;
+}
+
 // Search for a string within another string
 FORCE_INLINE
 gdv_int32 locate_utf8_utf8(gdv_int64 context, const char* sub_str, gdv_int32 sub_str_len,

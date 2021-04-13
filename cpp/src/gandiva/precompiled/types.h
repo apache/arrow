@@ -427,6 +427,11 @@ const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char*
 
 const char* convert_toDOUBLE_binary(int64_t context, double value, int32_t* out_len);
 
+const char* convert_toINT_binary(int64_t context, int32_t value, int32_t* out_len);
+
+const char* convert_toUTF8_binary(int64_t context, const char* value, int32_t value_len,
+                                  int32_t* out_len);
+
 const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
                        const char* splitter, gdv_int32 split_len, gdv_int32 index,
                        gdv_int32* out_len);
