@@ -95,10 +95,11 @@ export ARROW_HOME=$(pwd)/dist
 mkdir $ARROW_HOME
 ```
 
-On linux, you will need to set `LD_LIBRARY_PATH` to the same directory as `LIB_DIR` before launching R and using Arrow. One way to do this is to add it to your profile. On macOS we do not need to do this becuase the macOS shared library paths are hardcoded to their locations during buildt ime. # TODO: do we want to recommend this? Is there any other alternative? Setting Makevars?
+On linux, you will need to set `LD_LIBRARY_PATH` to the same directory as `LIB_DIR` before launching R and using Arrow. One way to do this is to add it to your profile. On macOS we do not need to do this because the macOS shared library paths are hardcoded to their locations during build time.
 
 ```{bash, save=run & ubuntu & !sys_install}
-echo "export LD_LIBRARY_PATH=$ARROW_HOME/dist/lib" >> ~/.Renviron
+export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
+echo "export LD_LIBRARY_PATH=$(pwd)/dist/lib" >> ~/.bash_profile
 ```
 
 ```{bash, save=run}
@@ -384,7 +385,7 @@ variables or other settings:
 
 ## Github workflows
 
-Crossbow is our extended test suite runner [more documentation is available](https://arrow.apache.org/docs/developers/crossbow.html) but important GitHub comment commads include:
+Crossbow is our extended test suite runner [more documentation is available](https://arrow.apache.org/docs/developers/crossbow.html) but important GitHub comment commands include:
 
 * `@github-actions crossbow submit -g r` for extended R CI tests
 * `@github-actions crossbow submit {task-name}` for running a specific task
