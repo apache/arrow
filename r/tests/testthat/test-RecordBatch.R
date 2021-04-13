@@ -438,8 +438,8 @@ test_that("RecordBatch$Equals(check_metadata)", {
   rb1 <- record_batch(df)
   rb2 <- record_batch(df, schema = rb1$schema$WithMetadata(list(some="metadata")))
 
-  expect_is(rb1, "RecordBatch")
-  expect_is(rb2, "RecordBatch")
+  expect_r6_class(rb1, "RecordBatch")
+  expect_r6_class(rb2, "RecordBatch")
   expect_false(rb1$schema$HasMetadata)
   expect_true(rb2$schema$HasMetadata)
   expect_identical(rb2$schema$metadata, list(some = "metadata"))

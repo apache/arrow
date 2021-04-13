@@ -44,18 +44,18 @@ expect_feather_roundtrip <- function(write_fun) {
 
   # Read both back
   tab2 <- read_feather(tf2)
-  expect_is(tab2, "data.frame")
+  expect_s3_class(tab2, "data.frame")
 
   tab3 <- read_feather(tf3)
-  expect_is(tab3, "data.frame")
+  expect_s3_class(tab3, "data.frame")
 
   # reading directly from arrow::io::MemoryMappedFile
   tab4 <- read_feather(mmap_open(tf3))
-  expect_is(tab4, "data.frame")
+  expect_s3_class(tab4, "data.frame")
 
   # reading directly from arrow::io::ReadableFile
   tab5 <- read_feather(ReadableFile$create(tf3))
-  expect_is(tab5, "data.frame")
+  expect_s3_class(tab5, "data.frame")
 
   expect_equal(tib, tab2)
   expect_equal(tib, tab3)
@@ -105,7 +105,7 @@ test_that("write_feather option error handling", {
 
 test_that("read_feather supports col_select = <names>", {
   tab1 <- read_feather(feather_file, col_select = c("x", "y"))
-  expect_is(tab1, "data.frame")
+  expect_s3_class(tab1, "data.frame")
 
   expect_equal(tib$x, tab1$x)
   expect_equal(tib$y, tab1$y)
@@ -113,7 +113,7 @@ test_that("read_feather supports col_select = <names>", {
 
 test_that("feather handles col_select = <integer>", {
   tab1 <- read_feather(feather_file, col_select = 1:2)
-  expect_is(tab1, "data.frame")
+  expect_s3_class(tab1, "data.frame")
 
   expect_equal(tib$x, tab1$x)
   expect_equal(tib$y, tab1$y)
@@ -135,7 +135,7 @@ test_that("feather handles col_select = <tidyselect helper>", {
 
 test_that("feather read/write round trip", {
   tab1 <- read_feather(feather_file, as_data_frame = FALSE)
-  expect_is(tab1, "Table")
+  expect_r6_class(tab1, "Table")
 
   expect_equal(tib, as.data.frame(tab1))
 })
@@ -143,7 +143,7 @@ test_that("feather read/write round trip", {
 test_that("Read feather from raw vector", {
   test_raw <- readBin(feather_file, what = "raw", n = 5000)
   df <- read_feather(test_raw)
-  expect_is(df, "data.frame")
+  expect_s3_class(df, "data.frame")
 })
 
 test_that("FeatherReader", {

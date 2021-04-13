@@ -120,27 +120,27 @@ test_that("reading schema from Buffer", {
   # TODO: this uses the streaming format, i.e. from RecordBatchStreamWriter
   #       maybe there is an easier way to serialize a schema
   batch <- record_batch(x = 1:10)
-  expect_is(batch, "RecordBatch")
+  expect_r6_class(batch, "RecordBatch")
 
   stream <- BufferOutputStream$create()
   writer <- RecordBatchStreamWriter$create(stream, batch$schema)
-  expect_is(writer, "RecordBatchWriter")
+  expect_r6_class(writer, "RecordBatchWriter")
   writer$close()
 
   buffer <- stream$finish()
-  expect_is(buffer, "Buffer")
+  expect_r6_class(buffer, "Buffer")
 
   reader <- MessageReader$create(buffer)
-  expect_is(reader, "MessageReader")
+  expect_r6_class(reader, "MessageReader")
 
   message <- reader$ReadNextMessage()
-  expect_is(message, "Message")
+  expect_r6_class(message, "Message")
   expect_equal(message$type, MessageType$SCHEMA)
 
   stream <- BufferReader$create(buffer)
-  expect_is(stream, "BufferReader")
+  expect_r6_class(stream, "BufferReader")
   message <- read_message(stream)
-  expect_is(message, "Message")
+  expect_r6_class(message, "Message")
   expect_equal(message$type, MessageType$SCHEMA)
 })
 

@@ -177,7 +177,7 @@ test_that("ChunkedArray supports integer64 (ARROW-3716)", {
   expect_type_equal(zero, int64())
   ca <- ChunkedArray$create(zero, x)
   expect_type_equal(ca, int64())
-  expect_is(as.vector(ca), "integer64")
+  expect_s3_class(as.vector(ca), "integer64")
   expect_identical(as.vector(ca), c(bit64::as.integer64(0L), x))
 })
 
@@ -199,12 +199,12 @@ test_that("integer types casts for ChunkedArray (ARROW-3741)", {
   a <- chunked_array(1:10, 1:10)
   for (type in c(int_types, uint_types)) {
     casted <- a$cast(type)
-    expect_is(casted, "ChunkedArray")
+    expect_r6_class(casted, "ChunkedArray")
     expect_type_equal(casted$type, type)
   }
   # Also test casting to double(), not actually a type, a base R function but should be alias for float64
   dbl <- a$cast(double())
-  expect_is(dbl, "ChunkedArray")
+  expect_r6_class(dbl, "ChunkedArray")
   expect_type_equal(dbl$type, float64())
 })
 

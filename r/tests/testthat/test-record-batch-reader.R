@@ -28,7 +28,7 @@ test_that("RecordBatchStreamReader / Writer", {
   sink <- BufferOutputStream$create()
   expect_equal(sink$tell(), 0)
   writer <- RecordBatchStreamWriter$create(sink, batch$schema)
-  expect_is(writer, "RecordBatchWriter")
+  expect_r6_class(writer, "RecordBatchWriter")
   writer$write(batch)
   writer$write(tab)
   writer$write(tbl)
@@ -36,19 +36,19 @@ test_that("RecordBatchStreamReader / Writer", {
   writer$close()
 
   buf <- sink$finish()
-  expect_is(buf, "Buffer")
+  expect_r6_class(buf, "Buffer")
 
   reader <- RecordBatchStreamReader$create(buf)
-  expect_is(reader, "RecordBatchStreamReader")
+  expect_r6_class(reader, "RecordBatchStreamReader")
 
   batch1 <- reader$read_next_batch()
-  expect_is(batch1, "RecordBatch")
+  expect_r6_class(batch1, "RecordBatch")
   expect_equal(batch, batch1)
   batch2 <- reader$read_next_batch()
-  expect_is(batch2, "RecordBatch")
+  expect_r6_class(batch2, "RecordBatch")
   expect_equal(batch, batch2)
   batch3 <- reader$read_next_batch()
-  expect_is(batch3, "RecordBatch")
+  expect_r6_class(batch3, "RecordBatch")
   expect_equal(batch, batch3)
   expect_null(reader$read_next_batch())
 })
@@ -56,20 +56,20 @@ test_that("RecordBatchStreamReader / Writer", {
 test_that("RecordBatchFileReader / Writer", {
   sink <- BufferOutputStream$create()
   writer <- RecordBatchFileWriter$create(sink, batch$schema)
-  expect_is(writer, "RecordBatchWriter")
+  expect_r6_class(writer, "RecordBatchWriter")
   writer$write(batch)
   writer$write(tab)
   writer$write(tbl)
   writer$close()
 
   buf <- sink$finish()
-  expect_is(buf, "Buffer")
+  expect_r6_class(buf, "Buffer")
 
   reader <- RecordBatchFileReader$create(buf)
-  expect_is(reader, "RecordBatchFileReader")
+  expect_r6_class(reader, "RecordBatchFileReader")
 
   batch1 <- reader$get_batch(0)
-  expect_is(batch1, "RecordBatch")
+  expect_r6_class(batch1, "RecordBatch")
   expect_equal(batch, batch1)
 
   expect_equal(reader$num_record_batches, 3)
@@ -78,7 +78,7 @@ test_that("RecordBatchFileReader / Writer", {
 test_that("StreamReader read_table", {
   sink <- BufferOutputStream$create()
   writer <- RecordBatchStreamWriter$create(sink, batch$schema)
-  expect_is(writer, "RecordBatchWriter")
+  expect_r6_class(writer, "RecordBatchWriter")
   writer$write(batch)
   writer$write(tab)
   writer$write(tbl)
@@ -93,7 +93,7 @@ test_that("StreamReader read_table", {
 test_that("FileReader read_table", {
   sink <- BufferOutputStream$create()
   writer <- RecordBatchFileWriter$create(sink, batch$schema)
-  expect_is(writer, "RecordBatchWriter")
+  expect_r6_class(writer, "RecordBatchWriter")
   writer$write(batch)
   writer$write(tab)
   writer$write(tbl)
@@ -137,6 +137,6 @@ test_that("reader with 0 batches", {
 
   reader <- RecordBatchStreamReader$create(buf)
   tab <- reader$read_table()
-  expect_is(tab, "Table")
+  expect_r6_class(tab, "Table")
   expect_identical(dim(tab), c(0L, 1L))
 })
