@@ -79,6 +79,11 @@ test_that("Division", {
   expect_equal(a %% 2, Array$create(c(1L, 0L, 1L, 0L, NA_integer_)))
 
   expect_equal(b %% 2, Array$create(c(1:4 %% 2, NA_real_)))
+
+  expect_equal(a^0, Array$create(c(1, 1, 1, 1, NA_real_)))
+  expect_equal(a^2, Array$create(c(1, 4, 9, 16, NA_real_)))
+  expect_equal(a^(-1), Array$create(c(1, 1/2, 1/3, 1/4, NA_real_)))
+  expect_equal(a^(.5), Array$create(c(1, sqrt(2), sqrt(3), sqrt(4), NA_real_)))
 })
 
 test_that("Dates casting", {
