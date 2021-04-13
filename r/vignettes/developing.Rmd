@@ -84,7 +84,7 @@ sudo apt install -y cmake libcurl4-openssl-dev libssl-dev
 
 ### Configure the Arrow build {.tabset}
 
-It’s recommended to make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored). 
+You can choose to build and then install the Arrow library into a user-defined directory or into a system-level directory. You only need to do one of these two options. It’s recommended to make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored). 
 
 #### Install to another directory
 
