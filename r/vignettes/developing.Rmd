@@ -98,9 +98,7 @@ mkdir $ARROW_HOME
 On linux, you will need to set `LD_LIBRARY_PATH` to the same directory as `LIB_DIR` before launching R and using Arrow. One way to do this is to add it to your profile. On macOS we do not need to do this becuase the macOS shared library paths are hardcoded to their locations during buildt ime. # TODO: do we want to recommend this? Is there any other alternative? Setting Makevars?
 
 ```{bash, save=run & ubuntu & !sys_install}
-mkdir -p ~/.R/
-touch ~/.R/Makevars
-echo "export LD_LIBRARY_PATH=$(pwd)/dist/lib" >> ~/.R/Makevars
+echo "export LD_LIBRARY_PATH=$ARROW_HOME/dist/lib" >> ~/.Renviron
 ```
 
 ```{bash, save=run}
