@@ -235,132 +235,67 @@ struct DivideChecked {
   }
 };
 
-template <typename T>
-inline T integer_power(KernelContext* ctx, T left, T right) {
-  if (right < 0) {
-    ctx->SetStatus(
-        Status::Invalid("integers to negative integer powers are not allowed"));
-  }
-  T result = 1;
-  if (left == 0 && right != 0) {
-    return 0;
-  }
-  while (true) {
-    if (right % 2) {
-      result *= left;
-    }
-    right /= 2;
-    if (!right) {
-      break;
-    }
-    left *= left;
-  }
-  return result;
-}
-
-template <typename T>
-inline T signed_integer_power(KernelContext* ctx, T left, T right) {
-  if (right < 0) {
-    ctx->SetStatus(
-        Status::Invalid("integers to negative integer powers are not allowed"));
-  }
-  T result = 1;
-  if (left == 0 && right != 0) {
-    return 0;
-  }
-  while (true) {
-    if (right % 2) {
-      result = to_unsigned(result) * to_unsigned(left);
-    }
-    right /= 2;
-    if (!right) {
-      break;
-    }
-    left = to_unsigned(left) * to_unsigned(left);
-  }
-  return result;
-}
-
-template <typename T, typename Arg0, typename Arg1>
-inline T integer_power_checked(KernelContext* ctx, Arg0 left, Arg1 right) {
-  if (right < 0) {
-    ctx->SetStatus(
-        Status::Invalid("integers to negative integer powers are not allowed"));
-  }
-  T result = 1;
-  if (left == 0 && right != 0) {
-    return 0;
-  }
-  while (true) {
-    if (right % 2) {
-      if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(result, left, &result))) {
-        ctx->SetStatus(Status::Invalid("overflow"));
-      }
-    }
-    right /= 2;
-    if (!right) {
-      break;
-    }
-    if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(left, left, &left))) {
-      ctx->SetStatus(Status::Invalid("overflow"));
-    }
-  }
-  return result;
-}
-
-template <typename T, typename Arg0, typename Arg1>
-inline T power(KernelContext* ctx, Arg0 left, Arg1 right) {
-  return std::pow(left, right);
-}
-
 struct Power {
-  template <typename T>
-  static enable_if_unsigned_integer<T> Call(KernelContext* ctx, T left, T right) {
-    return integer_power<T>(ctx, left, right);
+  ARROW_NOINLINE
+  static uint64_t IntegerPower(uint64_t base, uint64_t exp) {
+    // right to left O(logn) power
+    uint64_t pow = 1;
+    while (exp) {
+      pow *= (exp & 1) ? base : 1;
+      base *= base;
+      exp >>= 1;
+    }
+    return pow;
   }
 
   template <typename T>
-  static enable_if_signed_integer<T> Call(KernelContext* ctx, T left, T right) {
-    return signed_integer_power<T>(ctx, left, right);
-  }
-
-  template <typename T>
-  static enable_if_floating_point<T> Call(KernelContext* ctx, T left, T right) {
-    return power<T>(ctx, left, right);
-  }
-
-  // See comment about 16 bit integer multiplication in Multiply kernel.
-  template <typename T = void>
-  static int16_t Call(KernelContext* ctx, int16_t left, int16_t right) {
-    if (right < 0) {
+  static enable_if_integer<T> Call(KernelContext* ctx, T base, T exp) {
+    if (exp < 0) {
       ctx->SetStatus(
           Status::Invalid("integers to negative integer powers are not allowed"));
+      return 0;
     }
-    return integer_power(ctx, static_cast<uint32_t>(left), static_cast<uint32_t>(right));
+    return static_cast<T>(IntegerPower(base, exp));
   }
-  template <typename T = void>
-  static uint16_t Call(KernelContext* ctx, uint16_t left, uint16_t right) {
-    return integer_power(ctx, static_cast<uint32_t>(left), static_cast<uint32_t>(right));
+
+  template <typename T>
+  static enable_if_floating_point<T> Call(KernelContext* ctx, T base, T exp) {
+    return std::pow(base, exp);
   }
 };
 
 struct PowerChecked {
-  template <typename T = void, typename Arg0 = void, typename Arg1 = void>
-  static enable_if_unsigned_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    return integer_power_checked<T>(ctx, left, right);
-  }
-
-  template <typename T = void, typename Arg0 = void, typename Arg1 = void>
-  static enable_if_signed_integer<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    return integer_power_checked<T>(ctx, left, right);
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer<T> Call(KernelContext* ctx, Arg0 base, Arg1 exp) {
+    if (exp < 0) {
+      ctx->SetStatus(
+          Status::Invalid("integers to negative integer powers are not allowed"));
+      return 0;
+    } else if (exp == 0) {
+      return 1;
+    }
+    // left to right O(logn) power with overflow checks
+    bool overflow = false;
+    uint64_t bitmask =
+        1ULL << (63 - BitUtil::CountLeadingZeros(static_cast<uint64_t>(exp)));
+    T pow = 1;
+    while (bitmask) {
+      overflow |= MultiplyWithOverflow(pow, pow, &pow);
+      if (exp & bitmask) {
+        overflow |= MultiplyWithOverflow(pow, base, &pow);
+      }
+      bitmask >>= 1;
+    }
+    if (overflow) {
+      ctx->SetStatus(Status::Invalid("overflow"));
+    }
+    return pow;
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_point<T> Call(KernelContext* ctx, Arg0 left, Arg1 right) {
+  static enable_if_floating_point<T> Call(KernelContext* ctx, Arg0 base, Arg1 exp) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    return power<T>(ctx, left, right);
+    return std::pow(base, exp);
   }
 };
 
@@ -492,18 +427,15 @@ const FunctionDoc div_checked_doc{
 
 const FunctionDoc pow_doc{
     "Raise arguments to power element-wise",
-    ("Raising zero to negative integer returns an error. However, integer overflow\n"
-     "wraps around, and floating-point raising zero to negative integer returns an"
-     "infinite.\n"
-     "Use function \"power_checked_propagate_nulls\" if you want to get an error\n"
-     "in all the aforementioned cases."),
-    {"base", "power"}};
+    ("Integer to negative integer power returns an error. However, integer overflow\n"
+     "wraps around. Floating poing power follows std::pow() behaviour.\n"),
+    {"base", "exponent"}};
 
 const FunctionDoc pow_checked_doc{
     "Raise arguments to power element-wise",
-    ("An error is returned when trying to raise zero to negative integer, or when\n"
-     "integer overflow is encountered."),
-    {"base", "power"}};
+    ("An error is returned when integer to negative integer power is encountered,\n"
+     "or integer overflow is encountered."),
+    {"base", "exponent"}};
 
 }  // namespace
 
