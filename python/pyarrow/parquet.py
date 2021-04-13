@@ -1536,7 +1536,7 @@ class _ParquetDatasetV2:
             self._enable_parallel_column_conversion = True
             read_options.update(enable_parallel_column_conversion=True)
 
-            parquet_format = ds.ParquetFileFormat(read_options=read_options)
+            parquet_format = ds.ParquetFileFormat(**read_options)
             fragment = parquet_format.make_fragment(single_file, filesystem)
 
             self._dataset = ds.FileSystemDataset(
@@ -1548,7 +1548,7 @@ class _ParquetDatasetV2:
         else:
             self._enable_parallel_column_conversion = False
 
-        parquet_format = ds.ParquetFileFormat(read_options=read_options)
+        parquet_format = ds.ParquetFileFormat(**read_options)
 
         # check partitioning to enable dictionary encoding
         if partitioning == "hive":
@@ -1595,7 +1595,9 @@ class _ParquetDatasetV2:
                     col for col in _get_pandas_index_columns(metadata)
                     if not isinstance(col, dict)
                 ]
-                columns = columns + list(set(index_columns) - set(columns))
+                columns = (
+                    list(columns) + list(set(index_columns) - set(columns))
+                )
 
         if self._enable_parallel_column_conversion:
             if use_threads:

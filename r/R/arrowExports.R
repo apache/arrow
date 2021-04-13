@@ -412,8 +412,8 @@ dataset___FileFormat__DefaultWriteOptions <- function(fmt){
     .Call(`_arrow_dataset___FileFormat__DefaultWriteOptions`, fmt)
 }
 
-dataset___ParquetFileFormat__Make <- function(use_buffered_stream, buffer_size, dict_columns){
-    .Call(`_arrow_dataset___ParquetFileFormat__Make`, use_buffered_stream, buffer_size, dict_columns)
+dataset___ParquetFileFormat__Make <- function(options, dict_columns){
+    .Call(`_arrow_dataset___ParquetFileFormat__Make`, options, dict_columns)
 }
 
 dataset___FileWriteOptions__type_name <- function(options){
@@ -446,6 +446,10 @@ dataset___FragmentScanOptions__type_name <- function(fragment_scan_options){
 
 dataset___CsvFragmentScanOptions__Make <- function(convert_options, read_options){
     .Call(`_arrow_dataset___CsvFragmentScanOptions__Make`, convert_options, read_options)
+}
+
+dataset___ParquetFragmentScanOptions__Make <- function(use_buffered_stream, buffer_size, pre_buffer){
+    .Call(`_arrow_dataset___ParquetFragmentScanOptions__Make`, use_buffered_stream, buffer_size, pre_buffer)
 }
 
 dataset___DirectoryPartitioning <- function(schm){

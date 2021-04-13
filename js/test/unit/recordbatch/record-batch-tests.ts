@@ -20,11 +20,7 @@ import {
     Data, RecordBatch,
     Vector, Int32Vector, Float32Vector, Float32, Int32,
 } from '../../Arrow';
-
-function arange<T extends { length: number; [n: number]: number; }>(arr: T, n = arr.length) {
-    for (let i = -1; ++i < n; arr[i] = i) { }
-    return arr;
-}
+import { arange } from '../utils';
 
 function numsRecordBatch(i32Len: number, f32Len: number) {
     return RecordBatch.new({
