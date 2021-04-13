@@ -53,6 +53,8 @@ throws an ``ArrowInvalid`` exception when overflow is detected.
    multiply_checked
    subtract
    subtract_checked
+   power
+   power_checked
 
 Comparisons
 -----------
