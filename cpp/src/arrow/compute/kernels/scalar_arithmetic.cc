@@ -428,7 +428,7 @@ const FunctionDoc div_checked_doc{
 const FunctionDoc pow_doc{
     "Raise arguments to power element-wise",
     ("Integer to negative integer power returns an error. However, integer overflow\n"
-     "wraps around. Floating poing power follows std::pow() behaviour.\n"),
+     "wraps around. If either base or exponent is null the result will be null."),
     {"base", "exponent"}};
 
 const FunctionDoc pow_checked_doc{
