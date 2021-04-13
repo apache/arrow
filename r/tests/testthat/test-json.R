@@ -128,6 +128,39 @@ test_that("read_json_arrow(schema=) with partial schema", {
   )
 })
 
+test_that("read_json_arrow(schema=) with partial schema and strings", {
+  
+  tf <- tempfile()
+  writeLines('
+    { "hello": 3.5, "world": 2, "third_col": 99}
+    { "hello": 3.25, "world": 5, "third_col": 98}
+    { "hello": 3.125, "world": 8, "third_col": 97}
+  ', tf)
+  
+  sch <- schema(third_col = string(), world = float64())
+  
+  # String not an allowed Arrow data type for explicit conversion of JSON Number objects
+  expect_error(read_json_arrow(tf, schema = sch))
+  
+  tf2 <- tempfile()
+  writeLines('
+    { "hello": 3.5, "world": 2, "third_col": "99"}
+    { "hello": 3.25, "world": 5, "third_col": "98"}
+    { "hello": 3.125, "world": 8, "third_col": "97" }
+  ', tf2)
+  
+  tab2 <- read_json_arrow(tf2, schema = sch)
+  
+  expect_identical(
+    tab2, 
+    tibble::tibble(
+      third_col = c("99","98","97"),
+      world = c(2, 5, 8),
+      hello = c(3.5, 3.25, 3.125)
+    )               
+  )
+})
+
 test_that("read_json_arrow(schema=) with full schema", {
   tf <- tempfile()
   writeLines('
