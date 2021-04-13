@@ -288,7 +288,7 @@ class ARROW_DS_EXPORT Scanner {
   /// \brief A convenience to synchronously load the given rows by index.
   ///
   /// Will only consume as many batches as needed from ScanBatches().
-  Result<std::shared_ptr<Table>> TakeRows(const Array& indices);
+  virtual Result<std::shared_ptr<Table>> TakeRows(const Array& indices);
 
   /// \brief Get the options for this scan.
   const std::shared_ptr<ScanOptions>& options() const { return scan_options_; }
