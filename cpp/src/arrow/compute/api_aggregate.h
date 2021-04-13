@@ -42,10 +42,10 @@ class ExecContext;
 /// By default, null values are ignored
 struct ARROW_EXPORT ScalarAggregateOptions : public FunctionOptions {
   enum Mode {
-    /// Calculate over all values.
-    KEEPNA = 0,
     /// Skip null values.
-    SKIPNA,
+    SKIPNA = 0,
+    /// Calculate over all values.
+    KEEPNA,
   };
 
   explicit ScalarAggregateOptions(enum Mode null_handling = SKIPNA,
@@ -77,24 +77,6 @@ struct ARROW_EXPORT CountOptions : public FunctionOptions {
   static CountOptions Defaults() { return CountOptions(COUNT_NON_NULL); }
 
   enum Mode count_mode;
-};
-
-/// \brief Control MinMax kernel behavior
-///
-/// By default, null values are ignored
-struct ARROW_EXPORT MinMaxOptions : public FunctionOptions {
-  enum Mode {
-    /// Skip null values
-    SKIP = 0,
-    /// Any nulls will result in null output
-    EMIT_NULL
-  };
-
-  explicit MinMaxOptions(enum Mode null_handling = SKIP) : null_handling(null_handling) {}
-
-  static MinMaxOptions Defaults() { return MinMaxOptions{}; }
-
-  enum Mode null_handling;
 };
 
 /// \brief Control Mode kernel behavior
@@ -221,7 +203,7 @@ Result<Datum> Sum(
 /// struct<min: T, max: T>, where T is the input type
 ///
 /// \param[in] value input datum, expecting Array or ChunkedArray
-/// \param[in] options see MinMaxOptions for more information
+/// \param[in] options see ScalarAggregateOptions for more information
 /// \param[in] ctx the function execution context, optional
 /// \return resulting datum as a struct<min: T, max: T> scalar
 ///
@@ -229,7 +211,7 @@ Result<Datum> Sum(
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> MinMax(const Datum& value,
-                     const MinMaxOptions& options = MinMaxOptions::Defaults(),
+                     const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
                      ExecContext* ctx = NULLPTR);
 
 /// \brief Test whether any element in a boolean array evaluates to true.

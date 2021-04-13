@@ -81,7 +81,6 @@ struct SumImpl : public ScalarAggregator {
 
   Status Finalize(KernelContext*, Datum* out) override {
     const auto& state = checked_cast<const SumImpl&>(*ctx->state());
-
     if (this->count == 0 || this->count < options.min_count) {
       out->value = std::make_shared<OutputType>();
     } else {
@@ -234,7 +233,7 @@ struct MinMaxImpl : public ScalarAggregator {
   using ThisType = MinMaxImpl<ArrowType, SimdLevel>;
   using StateType = MinMaxState<ArrowType, SimdLevel>;
 
-  MinMaxImpl(const std::shared_ptr<DataType>& out_type, const MinMaxOptions& options)
+  MinMaxImpl(const std::shared_ptr<DataType>& out_type, const ScalarAggregateOptions& options)
       : out_type(out_type), options(options) {}
 
   Status Consume(KernelContext*, const ExecBatch& batch) override {
@@ -246,7 +245,7 @@ struct MinMaxImpl : public ScalarAggregator {
     local.has_nulls = null_count > 0;
     local.has_values = (arr.length() - null_count) > 0;
 
-    if (local.has_nulls && options.null_handling == MinMaxOptions::EMIT_NULL) {
+    if (local.has_nulls && options.null_handling == ScalarAggregateOptions::KEEPNA) {
       this->state = local;
       return Status::OK();
     }
@@ -273,7 +272,7 @@ struct MinMaxImpl : public ScalarAggregator {
 
     std::vector<std::shared_ptr<Scalar>> values;
     if (!state.has_values ||
-        (state.has_nulls && options.null_handling == MinMaxOptions::EMIT_NULL)) {
+        (state.has_nulls && options.null_handling == ScalarAggregateOptions::KEEPNA)) {
       // (null, null)
       values = {std::make_shared<ScalarType>(), std::make_shared<ScalarType>()};
     } else {
@@ -285,7 +284,7 @@ struct MinMaxImpl : public ScalarAggregator {
   }
 
   std::shared_ptr<DataType> out_type;
-  MinMaxOptions options;
+  ScalarAggregateOptions options;
   MinMaxState<ArrowType, SimdLevel> state;
 
  private:
@@ -364,7 +363,7 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
 
     local.has_nulls = null_count > 0;
     local.has_values = valid_count > 0;
-    if (local.has_nulls && options.null_handling == MinMaxOptions::EMIT_NULL) {
+    if (local.has_nulls && options.null_handling == ScalarAggregateOptions::KEEPNA) {
       this->state = local;
       return Status::OK();
     }
@@ -385,10 +384,10 @@ struct MinMaxInitState {
   KernelContext* ctx;
   const DataType& in_type;
   const std::shared_ptr<DataType>& out_type;
-  const MinMaxOptions& options;
+  const ScalarAggregateOptions& options;
 
   MinMaxInitState(KernelContext* ctx, const DataType& in_type,
-                  const std::shared_ptr<DataType>& out_type, const MinMaxOptions& options)
+                  const std::shared_ptr<DataType>& out_type, const ScalarAggregateOptions& options)
       : ctx(ctx), in_type(in_type), out_type(out_type), options(options) {}
 
   Status Visit(const DataType&) {

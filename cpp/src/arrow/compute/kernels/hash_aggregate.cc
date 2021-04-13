@@ -699,7 +699,7 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
 
   Status Init(ExecContext* ctx, const FunctionOptions* options,
               const std::shared_ptr<DataType>& input_type) override {
-    options_ = *checked_cast<const MinMaxOptions*>(options);
+    options_ = *checked_cast<const ScalarAggregateOptions*>(options);
     type_ = input_type;
 
     mins_ = BufferBuilder(ctx->memory_pool());
@@ -739,7 +739,7 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
     // aggregation for group is valid if there was at least one value in that group
     ARROW_ASSIGN_OR_RAISE(auto null_bitmap, has_values_.Finish());
 
-    if (options_.null_handling == MinMaxOptions::EMIT_NULL) {
+    if (options_.null_handling == ScalarAggregateOptions::KEEPNA) {
       // ... and there were no nulls in that group
       ARROW_ASSIGN_OR_RAISE(auto has_nulls, has_nulls_.Finish());
       arrow::internal::BitmapAndNot(null_bitmap->data(), 0, has_nulls->data(), 0,
@@ -764,7 +764,7 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
   std::shared_ptr<DataType> type_;
   ConsumeImpl consume_impl_;
   ResizeImpl resize_min_impl_, resize_max_impl_, resize_bitmap_impl_;
-  MinMaxOptions options_;
+  ScalarAggregateOptions options_;
 };
 
 template <typename Impl>
@@ -1031,9 +1031,9 @@ const FunctionDoc hash_sum_doc{"Sum values of a numeric array",
 const FunctionDoc hash_min_max_doc{
     "Compute the minimum and maximum values of a numeric array",
     ("Null values are ignored by default.\n"
-     "This can be changed through MinMaxOptions."),
+     "This can be changed through ScalarAggregateOptions."),
     {"array", "group_id_array", "group_count"},
-    "MinMaxOptions"};
+    "ScalarAggregateOptions"};
 }  // namespace
 
 void RegisterHashAggregateBasic(FunctionRegistry* registry) {
@@ -1053,9 +1053,9 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   }
 
   {
-    static auto default_minmax_options = MinMaxOptions::Defaults();
+    static auto default_scalaraggregate_options = ScalarAggregateOptions::Defaults();
     auto func = std::make_shared<HashAggregateFunction>(
-        "hash_min_max", Arity::Ternary(), &hash_min_max_doc, &default_minmax_options);
+        "hash_min_max", Arity::Ternary(), &hash_min_max_doc, &default_scalaraggregate_options);
     DCHECK_OK(func->AddKernel(MakeKernel<GroupedMinMaxImpl>(ValueDescr::ARRAY)));
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }

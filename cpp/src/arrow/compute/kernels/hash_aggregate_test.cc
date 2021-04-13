@@ -662,7 +662,7 @@ TEST(GroupBy, ConcreteCaseWithValidateGroupBy) {
   CountOptions count_non_null{CountOptions::COUNT_NON_NULL},
       count_null{CountOptions::COUNT_NULL};
 
-  MinMaxOptions emit_null{MinMaxOptions::EMIT_NULL};
+ScalarAggregateOptions skipna{ScalarAggregateOptions::KEEPNA};
 
   using internal::Aggregate;
   for (auto agg : {
@@ -670,7 +670,7 @@ TEST(GroupBy, ConcreteCaseWithValidateGroupBy) {
            Aggregate{"hash_count", &count_non_null},
            Aggregate{"hash_count", &count_null},
            Aggregate{"hash_min_max", nullptr},
-           Aggregate{"hash_min_max", &emit_null},
+           Aggregate{"hash_min_max", &skipna},
        }) {
     SCOPED_TRACE(agg.function);
     ValidateGroupBy({agg}, {batch->GetColumnByName("argument")},

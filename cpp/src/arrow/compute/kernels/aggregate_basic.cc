@@ -139,7 +139,7 @@ Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
                                                 const KernelInitArgs& args) {
   MinMaxInitState<SimdLevel::NONE> visitor(
       ctx, *args.inputs[0].type, args.kernel->signature->out_type().type(),
-      static_cast<const MinMaxOptions&>(*args.options));
+      static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
 
@@ -273,9 +273,9 @@ const FunctionDoc mean_doc{"Compute the mean of a numeric array",
 
 const FunctionDoc min_max_doc{"Compute the minimum and maximum values of a numeric array",
                               ("Null values are ignored by default.\n"
-                               "This can be changed through MinMaxOptions."),
+                               "This can be changed through ScalarAggregateOptions."),
                               {"array"},
-                              "MinMaxOptions"};
+                              "ScalarAggregateOptions"};
 
 const FunctionDoc any_doc{"Test whether any element in a boolean array evaluates to true",
                           ("Null values are ignored."),
@@ -325,8 +325,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 #endif
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
-  static ScalarAggregateOptions mean_default_scalar_aggregate_options =
-      ScalarAggregateOptions::Defaults();
+  static ScalarAggregateOptions mean_default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
   func = std::make_shared<ScalarAggregateFunction>(
       "mean", Arity::Unary(), &mean_doc, &mean_default_scalar_aggregate_options);
   aggregate::AddBasicAggKernels(aggregate::MeanInit, {boolean()}, float64(), func.get());
@@ -345,9 +344,9 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 #endif
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
-  static auto default_minmax_options = MinMaxOptions::Defaults();
+  static auto minmax_default_scalar_aggregate_options = ScalarAggregateOptions::Defaults();
   func = std::make_shared<ScalarAggregateFunction>("min_max", Arity::Unary(),
-                                                   &min_max_doc, &default_minmax_options);
+                                                   &min_max_doc, &minmax_default_scalar_aggregate_options);
   aggregate::AddMinMaxKernels(aggregate::MinMaxInit, {boolean()}, func.get());
   aggregate::AddMinMaxKernels(aggregate::MinMaxInit, NumericTypes(), func.get());
   // Add the SIMD variants for min max

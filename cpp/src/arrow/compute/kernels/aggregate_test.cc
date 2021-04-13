@@ -566,7 +566,7 @@ class TestPrimitiveMinMaxKernel : public ::testing::Test {
 
  public:
   void AssertMinMaxIs(const Datum& array, c_type expected_min, c_type expected_max,
-                      const MinMaxOptions& options) {
+                      const ScalarAggregateOptions& options) {
     ASSERT_OK_AND_ASSIGN(Datum out, MinMax(array, options));
     const StructScalar& value = out.scalar_as<StructScalar>();
 
@@ -578,31 +578,31 @@ class TestPrimitiveMinMaxKernel : public ::testing::Test {
   }
 
   void AssertMinMaxIs(const std::string& json, c_type expected_min, c_type expected_max,
-                      const MinMaxOptions& options) {
+                      const ScalarAggregateOptions& options) {
     auto array = ArrayFromJSON(type_singleton(), json);
     AssertMinMaxIs(array, expected_min, expected_max, options);
   }
 
   void AssertMinMaxIs(const std::vector<std::string>& json, c_type expected_min,
-                      c_type expected_max, const MinMaxOptions& options) {
+                      c_type expected_max, const ScalarAggregateOptions& options) {
     auto array = ChunkedArrayFromJSON(type_singleton(), json);
     AssertMinMaxIs(array, expected_min, expected_max, options);
   }
 
-  void AssertMinMaxIsNull(const Datum& array, const MinMaxOptions& options) {
+  void AssertMinMaxIsNull(const Datum& array, const ScalarAggregateOptions& options) {
     ASSERT_OK_AND_ASSIGN(Datum out, MinMax(array, options));
     for (const auto& val : out.scalar_as<StructScalar>().value) {
       ASSERT_FALSE(val->is_valid);
     }
   }
 
-  void AssertMinMaxIsNull(const std::string& json, const MinMaxOptions& options) {
+  void AssertMinMaxIsNull(const std::string& json, const ScalarAggregateOptions& options) {
     auto array = ArrayFromJSON(type_singleton(), json);
     AssertMinMaxIsNull(array, options);
   }
 
   void AssertMinMaxIsNull(const std::vector<std::string>& json,
-                          const MinMaxOptions& options) {
+                          const ScalarAggregateOptions& options) {
     auto array = ChunkedArrayFromJSON(type_singleton(), json);
     AssertMinMaxIsNull(array, options);
   }
@@ -619,7 +619,7 @@ class TestFloatingMinMaxKernel : public TestPrimitiveMinMaxKernel<ArrowType> {};
 class TestBooleanMinMaxKernel : public TestPrimitiveMinMaxKernel<BooleanType> {};
 
 TEST_F(TestBooleanMinMaxKernel, Basics) {
-  MinMaxOptions options;
+ScalarAggregateOptions options;
   std::vector<std::string> chunked_input0 = {"[]", "[]"};
   std::vector<std::string> chunked_input1 = {"[true, true, null]", "[true, null]"};
   std::vector<std::string> chunked_input2 = {"[false, false, false]", "[false]"};
@@ -638,7 +638,7 @@ TEST_F(TestBooleanMinMaxKernel, Basics) {
   this->AssertMinMaxIs(chunked_input2, false, false, options);
   this->AssertMinMaxIs(chunked_input3, false, true, options);
 
-  options = MinMaxOptions(MinMaxOptions::EMIT_NULL);
+  options = ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA);
   this->AssertMinMaxIsNull("[]", options);
   this->AssertMinMaxIsNull("[null, null, null]", options);
   this->AssertMinMaxIsNull("[false, null, false]", options);
@@ -654,7 +654,7 @@ TEST_F(TestBooleanMinMaxKernel, Basics) {
 
 TYPED_TEST_SUITE(TestIntegerMinMaxKernel, IntegralArrowTypes);
 TYPED_TEST(TestIntegerMinMaxKernel, Basics) {
-  MinMaxOptions options;
+ScalarAggregateOptions options;
   std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 1, null, 3, 4]"};
   std::vector<std::string> chunked_input2 = {"[5, null, 2, 3, 4]", "[9, 1, 2, 3, 4]"};
   std::vector<std::string> chunked_input3 = {"[5, 1, 2, 3, null]", "[9, 1, null, 3, 4]"};
@@ -668,7 +668,7 @@ TYPED_TEST(TestIntegerMinMaxKernel, Basics) {
   this->AssertMinMaxIs(chunked_input2, 1, 9, options);
   this->AssertMinMaxIs(chunked_input3, 1, 9, options);
 
-  options = MinMaxOptions(MinMaxOptions::EMIT_NULL);
+  options = ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA);
   this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
   // output null
   this->AssertMinMaxIsNull("[5, null, 2, 3, 4]", options);
@@ -680,7 +680,7 @@ TYPED_TEST(TestIntegerMinMaxKernel, Basics) {
 
 TYPED_TEST_SUITE(TestFloatingMinMaxKernel, RealArrowTypes);
 TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
-  MinMaxOptions options;
+ScalarAggregateOptions options;
   std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 1, null, 3, 4]"};
   std::vector<std::string> chunked_input2 = {"[5, null, 2, 3, 4]", "[9, 1, 2, 3, 4]"};
   std::vector<std::string> chunked_input3 = {"[5, 1, 2, 3, null]", "[9, 1, null, 3, 4]"};
@@ -695,7 +695,7 @@ TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
   this->AssertMinMaxIs(chunked_input2, 1, 9, options);
   this->AssertMinMaxIs(chunked_input3, 1, 9, options);
 
-  options = MinMaxOptions(MinMaxOptions::EMIT_NULL);
+  options = ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA);
   this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
   this->AssertMinMaxIs("[5, -Inf, 2, 3, 4]", -INFINITY, 5, options);
   // output null
@@ -713,7 +713,7 @@ TYPED_TEST(TestFloatingMinMaxKernel, DefaultOptions) {
 
   ASSERT_OK_AND_ASSIGN(auto no_options_provided, CallFunction("min_max", {values}));
 
-  auto default_options = MinMaxOptions::Defaults();
+  auto default_options = ScalarAggregateOptions::Defaults();
   ASSERT_OK_AND_ASSIGN(auto explicit_defaults,
                        CallFunction("min_max", {values}, &default_options));
 

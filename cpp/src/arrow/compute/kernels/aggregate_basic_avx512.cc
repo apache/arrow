@@ -61,7 +61,7 @@ Result<std::unique_ptr<KernelState>> MinMaxInitAvx512(KernelContext* ctx,
                                                       const KernelInitArgs& args) {
   MinMaxInitState<SimdLevel::AVX512> visitor(
       ctx, *args.inputs[0].type, args.kernel->signature->out_type().type(),
-      static_cast<const MinMaxOptions&>(*args.options));
+      static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
 }
 
