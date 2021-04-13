@@ -18,6 +18,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <limits>
+
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/types.h"
 
@@ -1086,6 +1088,31 @@ TEST(TestStringOps, TestSplitPart) {
 
   out_str = split_part(ctx_ptr, "ç†ååçåå†", 18, "†", 3, 2, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "ååçåå");
+}
+
+TEST(TestStringOps, TestConvertTo) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+  const char* out_str;
+
+  const int32_t ALL_BYTES_MATCH = 0;
+
+  int32_t integer_value = std::numeric_limits<int32_t>::max();
+  out_str = convert_toINT_binary(ctx_ptr, integer_value, &out_len);
+  EXPECT_EQ(out_len, sizeof(integer_value));
+  EXPECT_EQ(ALL_BYTES_MATCH, memcmp(out_str, &integer_value, out_len));
+
+  int64_t big_integer_value = std::numeric_limits<int64_t>::max();
+  out_str = convert_toBIGINT_binary(ctx_ptr, big_integer_value, &out_len);
+  EXPECT_EQ(out_len, sizeof(big_integer_value));
+  EXPECT_EQ(ALL_BYTES_MATCH, memcmp(out_str, &big_integer_value, out_len));
+
+  const char* test_string = "test string";
+  int32_t str_len = 11;
+  out_str = convert_toUTF8_binary(ctx_ptr, test_string, str_len, &out_len);
+  EXPECT_EQ(out_len, str_len);
+  EXPECT_EQ(ALL_BYTES_MATCH, memcmp(out_str, test_string, out_len));
 }
 
 }  // namespace gandiva
