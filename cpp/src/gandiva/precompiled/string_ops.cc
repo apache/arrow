@@ -1330,6 +1330,42 @@ const char* convert_toDOUBLE_binary(int64_t context, double value, int32_t* out_
 }
 
 FORCE_INLINE
+const char* convert_toFLOAT_binary(int64_t context, float value, int32_t* out_len) {
+  *out_len = sizeof(value);
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context,
+                                 "Could not allocate memory for the output string");
+
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, &value, *out_len);
+
+  return ret;
+}
+
+FORCE_INLINE
+const char* convert_toBIGINT_binary(int64_t context, int64_t value, int32_t* out_len) {
+  *out_len = sizeof(value);
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context,
+                                 "Could not allocate memory for the output string");
+
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, &value, *out_len);
+
+  return ret;
+}
+
+FORCE_INLINE
 const char* convert_toINT_binary(int64_t context, int32_t value, int32_t* out_len) {
   *out_len = sizeof(value);
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));

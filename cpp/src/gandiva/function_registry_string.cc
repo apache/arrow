@@ -229,8 +229,16 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      binary(), kResultNullIfNull, "convert_toDOUBLE_binary",
                      NativeFunction::kNeedsContext),
 
+      NativeFunction("convert_toFLOAT", {"convert_tofloat"}, DataTypeVector{float32()},
+                     binary(), kResultNullIfNull, "convert_toFLOAT_binary",
+                     NativeFunction::kNeedsContext),
+
       NativeFunction("convert_toINT", {"convert_toint"}, DataTypeVector{int32()},
                      binary(), kResultNullIfNull, "convert_toINT_binary",
+                     NativeFunction::kNeedsContext),
+
+      NativeFunction("convert_toBIGINT", {"convert_tobigint"}, DataTypeVector{int64()},
+                     binary(), kResultNullIfNull, "convert_toBIGINT_binary",
                      NativeFunction::kNeedsContext),
 
       NativeFunction("convert_toTIME_EPOCH", {"convert_totime_epoch"},
