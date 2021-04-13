@@ -113,7 +113,7 @@ void SortInfos(std::vector<FileInfo>* infos) {
   std::sort(infos->begin(), infos->end(), FileInfo::ByPath{});
 }
 
-void AssertFileInfoGenerator(FileInfoGenerator gen, FileInfoVector* out_infos) {
+void CollectFileInfoGenerator(FileInfoGenerator gen, FileInfoVector* out_infos) {
   auto fut = CollectAsyncGenerator(gen);
   ASSERT_FINISHES_OK_AND_ASSIGN(auto nested_infos, fut);
   *out_infos = ::arrow::internal::FlattenVectors(nested_infos);
@@ -703,7 +703,7 @@ void GenericFileSystemTest::TestGetFileInfoGenerator(FileSystem* fs) {
 
   // Non-recursive
   auto gen = fs->GetFileInfoGenerator(s);
-  AssertFileInfoGenerator(std::move(gen), &infos);
+  CollectFileInfoGenerator(std::move(gen), &infos);
   SortInfos(&infos);
   ASSERT_EQ(infos.size(), 2);
   AssertFileInfo(infos[0], "AB", FileType::Directory);
@@ -712,7 +712,7 @@ void GenericFileSystemTest::TestGetFileInfoGenerator(FileSystem* fs) {
   // Recursive
   s.base_dir = "AB";
   s.recursive = true;
-  AssertFileInfoGenerator(fs->GetFileInfoGenerator(s), &infos);
+  CollectFileInfoGenerator(fs->GetFileInfoGenerator(s), &infos);
   SortInfos(&infos);
   ASSERT_EQ(infos.size(), 4);
   AssertFileInfo(infos[0], "AB/CD", FileType::Directory);
@@ -725,7 +725,7 @@ void GenericFileSystemTest::TestGetFileInfoGenerator(FileSystem* fs) {
   auto fut = CollectAsyncGenerator(fs->GetFileInfoGenerator(s));
   ASSERT_FINISHES_AND_RAISES(IOError, fut);
   s.allow_not_found = true;
-  AssertFileInfoGenerator(fs->GetFileInfoGenerator(s), &infos);
+  CollectFileInfoGenerator(fs->GetFileInfoGenerator(s), &infos);
   ASSERT_EQ(infos.size(), 0);
 }
 

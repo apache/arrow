@@ -1877,10 +1877,11 @@ FileInfoGenerator S3FileSystem::GetFileInfoGenerator(const FileSelector& select)
             buckets.push_back(FileInfo{bucket, FileType::Directory});
           }
           // Generate all bucket infos
-          producer.Push(MakeVectorGenerator(std::vector<FileInfoVector>{buckets}));
+          auto buckets_fut = Future<FileInfoVector>::MakeFinished(std::move(buckets));
+          producer.Push(MakeSingleFutureGenerator(buckets_fut));
           if (select.recursive) {
             // Generate recursive walk for each bucket in turn
-            for (const auto& bucket : buckets) {
+            for (const auto& bucket : *buckets_fut.result()) {
               producer.Push(impl->WalkAsync(select, bucket.path(), ""));
             }
           }

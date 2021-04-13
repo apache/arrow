@@ -650,7 +650,7 @@ TEST_F(TestS3FS, GetFileInfoGenerator) {
 
   // Root dir
   select.base_dir = "";
-  AssertFileInfoGenerator(fs_->GetFileInfoGenerator(select), &infos);
+  CollectFileInfoGenerator(fs_->GetFileInfoGenerator(select), &infos);
   ASSERT_EQ(infos.size(), 2);
   SortInfos(&infos);
   AssertFileInfo(infos[0], "bucket", FileType::Directory);
@@ -658,7 +658,7 @@ TEST_F(TestS3FS, GetFileInfoGenerator) {
 
   // Root dir, recursive
   select.recursive = true;
-  AssertFileInfoGenerator(fs_->GetFileInfoGenerator(select), &infos);
+  CollectFileInfoGenerator(fs_->GetFileInfoGenerator(select), &infos);
   ASSERT_EQ(infos.size(), 7);
   SortInfos(&infos);
   AssertFileInfo(infos[0], "bucket", FileType::Directory);

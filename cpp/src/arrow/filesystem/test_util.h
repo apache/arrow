@@ -46,7 +46,7 @@ ARROW_TESTING_EXPORT
 void SortInfos(FileInfoVector* infos);
 
 ARROW_TESTING_EXPORT
-void AssertFileInfoGenerator(FileInfoGenerator gen, FileInfoVector* out_infos);
+void CollectFileInfoGenerator(FileInfoGenerator gen, FileInfoVector* out_infos);
 
 ARROW_TESTING_EXPORT
 void AssertFileInfo(const FileInfo& info, const std::string& path, FileType type);

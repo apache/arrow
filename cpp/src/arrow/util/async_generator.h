@@ -44,7 +44,7 @@ namespace arrow {
 // the utilities Visit/Collect/Await take care to do this).
 //
 // Asynchronous reentrancy on the other hand means the function is called again before the
-// future returned by the function is marekd finished (but after the call to get the
+// future returned by the function is marked finished (but after the call to get the
 // future returns).  Some of these generators are async-reentrant while others (e.g.
 // those that depend on ordered processing like decompression) are not.  Read the MakeXYZ
 // function comments to determine which generators support async reentrancy.
@@ -1333,38 +1333,35 @@ Result<Iterator<T>> MakeReadaheadIterator(Iterator<T> it, int readahead_queue_si
 }
 
 /// \brief Make a generator that returns a single pre-generated future
+///
+/// This generator is async-reentrant.
 template <typename T>
 std::function<Future<T>()> MakeSingleFutureGenerator(Future<T> future) {
   assert(future.is_valid());
-  struct Generator {
-    Future<T> future;
-
-    Future<T> operator()() {
-      if (future.is_valid()) {
-        return std::move(future);
-      } else {
-        return IterationEnd<T>();
-      }
+  auto state = std::make_shared<Future<T>>(std::move(future));
+  return [state]() -> Future<T> {
+    auto fut = std::move(*state);
+    if (fut.is_valid()) {
+      return fut;
+    } else {
+      return AsyncGeneratorEnd<T>();
     }
   };
-  return Generator{std::move(future)};
 }
 
 /// \brief Make a generator that always fails with a given error
+///
+/// This generator is async-reentrant.
 template <typename T>
 AsyncGenerator<T> MakeFailingGenerator(Status st) {
   assert(!st.ok());
-  struct State {
-    Status status;
-    bool finished;
-  };
-  auto state = std::make_shared<State>(State{std::move(st), false});
+  auto state = std::make_shared<Status>(std::move(st));
   return [state]() -> Future<T> {
-    if (state->finished) {
-      return IterationEnd<T>();
+    auto st = std::move(*state);
+    if (!st.ok()) {
+      return std::move(st);
     } else {
-      state->finished = true;
-      return state->status;
+      return AsyncGeneratorEnd<T>();
     }
   };
 }

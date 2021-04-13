@@ -197,6 +197,9 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   virtual Future<FileInfoVector> GetFileInfoAsync(const std::vector<std::string>& paths);
 
   /// EXPERIMENTAL: streaming async version of GetFileInfo
+  ///
+  /// The returned generator is not async-reentrant, i.e. you need to wait for
+  /// the returned future to complete before calling the generator again.
   virtual FileInfoGenerator GetFileInfoGenerator(const FileSelector& select);
 
   /// Create a directory and subdirectories.
