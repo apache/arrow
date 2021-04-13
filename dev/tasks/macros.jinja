@@ -91,11 +91,11 @@ on:
 {% endmacro %}
 
 {%- macro github_upload_gemfury(pattern) -%}
-  {% if arrow.branch == 'master' %}
+  {%- if arrow.branch == 'master' -%}
   - name: Upload package to Gemfury
     shell: bash
     run: |
-      path=$(ls {{ patter }})
+      path=$(ls {{ pattern }})
       curl -F "package=@${path}" https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/
     env:
       CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
@@ -138,7 +138,7 @@ on:
 {% endmacro %}
 
 {%- macro azure_upload_anaconda(pattern) -%}
-  {% if arrow.branch == 'master' %}
+  {%- if arrow.branch == 'master' -%}
   - task: CondaEnvironment@1
     inputs:
       packageSpecs: 'anaconda-client'
@@ -188,7 +188,7 @@ on:
 {% endmacro %}
 
 {%- macro travis_upload_gemfury(pattern) -%}
-  {% if arrow.branch == 'master' %}
+  {%- if arrow.branch == 'master' -%}
   - |
     WHEEL_PATH=$(echo arrow/python/repaired_wheels/*.whl)
     curl \
