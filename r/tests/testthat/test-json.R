@@ -189,7 +189,6 @@ test_that("read_json_arrow(schema=) with full schema", {
   )
 })
 
-
 test_that("Can read json file with nested columns (ARROW-5503)", {
   tf <- tempfile()
   on.exit(unlink(tf))
