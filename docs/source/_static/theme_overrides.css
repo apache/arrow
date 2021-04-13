@@ -58,12 +58,13 @@ a.navbar-brand img {
 /* Limit the max height of the sidebar navigation section. Because in our
 custimized template, there is more content above the navigation, i.e.
 larger logo: if we don't decrease the max-height, it will overlap with
-the footer. */
+the footer.
+Details: min(15vh, 110px) for the logo size, 8rem for search box etc*/
 
 @media (min-width:720px) {
   @supports (position:-webkit-sticky) or (position:sticky) {
     .bd-links {
-      max-height: calc(100vh - 18rem)
+      max-height: calc(100vh - min(15vh, 110px) - 8rem)
     }
   }
 }
