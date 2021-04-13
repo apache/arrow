@@ -23,6 +23,7 @@ from cpython.object cimport Py_LT, Py_EQ, Py_GT, Py_LE, Py_NE, Py_GE
 from cython.operator cimport dereference as deref
 
 import os
+import warnings
 
 import pyarrow as pa
 from pyarrow.lib cimport *
@@ -1113,10 +1114,14 @@ cdef class FragmentScanOptions(_Weakrefable):
 
     @staticmethod
     cdef wrap(const shared_ptr[CFragmentScanOptions]& sp):
+        if not sp:
+            return None
+
         type_name = frombytes(sp.get().type_name())
 
         classes = {
             'csv': CsvFragmentScanOptions,
+            'parquet': ParquetFragmentScanOptions,
         }
 
         class_ = classes.get(type_name, None)
@@ -1287,62 +1292,30 @@ cdef class ParquetReadOptions(_Weakrefable):
 
     Parameters
     ----------
-    use_buffered_stream : bool, default False
-        Read files through buffered input streams rather than loading entire
-        row groups at once. This may be enabled to reduce memory overhead.
-        Disabled by default.
-    buffer_size : int, default 8192
-        Size of buffered stream, if enabled. Default is 8KB.
     dictionary_columns : list of string, default None
         Names of columns which should be dictionary encoded as
         they are read.
-    pre_buffer : bool, default False
-        If enabled, pre-buffer the raw Parquet data instead of issuing one
-        read per column chunk. This can improve performance on high-latency
-        filesystems.
-    enable_parallel_column_conversion : bool, default False
-        EXPERIMENTAL: Parallelize conversion across columns. This option is
-        ignored if a scan is already parallelized across input files to avoid
-        thread contention. This option will be removed after support is added
-        for simultaneous parallelization across files and columns.
     """
 
     cdef public:
-        bint use_buffered_stream
-        uint32_t buffer_size
         set dictionary_columns
-        bint pre_buffer
-        bint enable_parallel_column_conversion
 
-    def __init__(self, bint use_buffered_stream=False,
-                 buffer_size=8192,
-                 dictionary_columns=None,
-                 bint pre_buffer=False,
-                 bint enable_parallel_column_conversion=False):
-        self.use_buffered_stream = use_buffered_stream
-        if buffer_size <= 0:
-            raise ValueError("Buffer size must be larger than zero")
-        self.buffer_size = buffer_size
+    # Also see _PARQUET_READ_OPTIONS
+    def __init__(self, dictionary_columns=None):
         self.dictionary_columns = set(dictionary_columns or set())
-        self.pre_buffer = pre_buffer
-        self.enable_parallel_column_conversion = \
-            enable_parallel_column_conversion
 
     def equals(self, ParquetReadOptions other):
-        return (
-            self.use_buffered_stream == other.use_buffered_stream and
-            self.buffer_size == other.buffer_size and
-            self.dictionary_columns == other.dictionary_columns and
-            self.pre_buffer == other.pre_buffer and
-            self.enable_parallel_column_conversion ==
-            other.enable_parallel_column_conversion
-        )
+        return self.dictionary_columns == other.dictionary_columns
 
     def __eq__(self, other):
         try:
             return self.equals(other)
         except TypeError:
             return False
+
+    def __repr__(self):
+        return (f"<ParquetReadOptions"
+                f" dictionary_columns={self.dictionary_columns}>")
 
 
 cdef class ParquetFileWriteOptions(FileWriteOptions):
@@ -1425,38 +1398,74 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
         self._set_arrow_properties()
 
 
+cdef set _PARQUET_READ_OPTIONS = {'dictionary_columns'}
+
+
 cdef class ParquetFileFormat(FileFormat):
 
     cdef:
         CParquetFileFormat* parquet_format
 
-    def __init__(self, read_options=None):
+    def __init__(self, read_options=None,
+                 default_fragment_scan_options=None, **kwargs):
         cdef:
             shared_ptr[CParquetFileFormat] wrapped
             CParquetFileFormatReaderOptions* options
 
-        # Read options
+        # Read/scan options
+        read_options_args = {option: kwargs[option] for option in kwargs
+                             if option in _PARQUET_READ_OPTIONS}
+        scan_args = {option: kwargs[option] for option in kwargs
+                     if option not in _PARQUET_READ_OPTIONS}
+        if read_options and read_options_args:
+            duplicates = ', '.join(sorted(read_options_args))
+            raise ValueError(f'If `read_options` is given, '
+                             f'cannot specify {duplicates}')
+        if default_fragment_scan_options and scan_args:
+            duplicates = ', '.join(sorted(scan_args))
+            raise ValueError(f'If `default_fragment_scan_options` is given, '
+                             f'cannot specify {duplicates}')
 
         if read_options is None:
-            read_options = ParquetReadOptions()
+            read_options = ParquetReadOptions(**read_options_args)
         elif isinstance(read_options, dict):
-            read_options = ParquetReadOptions(**read_options)
+            # For backwards compatibility
+            duplicates = []
+            for option, value in read_options.items():
+                if option in _PARQUET_READ_OPTIONS:
+                    read_options_args[option] = value
+                else:
+                    duplicates.append(option)
+                    scan_args[option] = value
+            if duplicates:
+                duplicates = ", ".join(duplicates)
+                warnings.warn(f'The scan options {duplicates} should be '
+                              'specified directly as keyword arguments')
+            read_options = ParquetReadOptions(**read_options_args)
         elif not isinstance(read_options, ParquetReadOptions):
             raise TypeError('`read_options` must be either a dictionary or an '
                             'instance of ParquetReadOptions')
 
+        if default_fragment_scan_options is None:
+            default_fragment_scan_options = ParquetFragmentScanOptions(
+                **scan_args)
+        elif isinstance(default_fragment_scan_options, dict):
+            default_fragment_scan_options = ParquetFragmentScanOptions(
+                **default_fragment_scan_options)
+        elif not isinstance(default_fragment_scan_options,
+                            ParquetFragmentScanOptions):
+            raise TypeError('`default_fragment_scan_options` must be either a '
+                            'dictionary or an instance of '
+                            'ParquetFragmentScanOptions')
+
         wrapped = make_shared[CParquetFileFormat]()
         options = &(wrapped.get().reader_options)
-        options.use_buffered_stream = read_options.use_buffered_stream
-        options.buffer_size = read_options.buffer_size
-        options.pre_buffer = read_options.pre_buffer
-        options.enable_parallel_column_conversion = \
-            read_options.enable_parallel_column_conversion
         if read_options.dictionary_columns is not None:
             for column in read_options.dictionary_columns:
                 options.dict_columns.insert(tobytes(column))
 
         self.init(<shared_ptr[CFileFormat]> wrapped)
+        self.default_fragment_scan_options = default_fragment_scan_options
 
     cdef void init(self, const shared_ptr[CFileFormat]& sp):
         FileFormat.init(self, sp)
@@ -1467,14 +1476,8 @@ cdef class ParquetFileFormat(FileFormat):
         cdef CParquetFileFormatReaderOptions* options
         options = &self.parquet_format.reader_options
         return ParquetReadOptions(
-            use_buffered_stream=options.use_buffered_stream,
-            buffer_size=options.buffer_size,
             dictionary_columns={frombytes(col)
                                 for col in options.dict_columns},
-            pre_buffer=options.pre_buffer,
-            enable_parallel_column_conversion=(
-                options.enable_parallel_column_conversion
-            )
         )
 
     def make_write_options(self, **kwargs):
@@ -1482,13 +1485,25 @@ cdef class ParquetFileFormat(FileFormat):
         (<ParquetFileWriteOptions> opts).update(**kwargs)
         return opts
 
+    cdef _set_default_fragment_scan_options(self, FragmentScanOptions options):
+        if options.type_name == 'parquet':
+            self.parquet_format.default_fragment_scan_options = options.wrapped
+        else:
+            super()._set_default_fragment_scan_options(options)
+
     def equals(self, ParquetFileFormat other):
         return (
-            self.read_options.equals(other.read_options)
+            self.read_options.equals(other.read_options) and
+            self.default_fragment_scan_options ==
+            other.default_fragment_scan_options
         )
 
     def __reduce__(self):
-        return ParquetFileFormat, (self.read_options, )
+        return ParquetFileFormat, (self.read_options,
+                                   self.default_fragment_scan_options)
+
+    def __repr__(self):
+        return f"<ParquetFileFormat read_options={self.read_options}>"
 
     def make_fragment(self, file, filesystem=None,
                       Expression partition_expression=None, row_groups=None):
@@ -1511,6 +1526,109 @@ cdef class ParquetFileFormat(FileFormat):
                                              <shared_ptr[CSchema]>nullptr,
                                              move(c_row_groups)))
         return Fragment.wrap(move(c_fragment))
+
+
+cdef class ParquetFragmentScanOptions(FragmentScanOptions):
+    """Scan-specific options for Parquet fragments.
+
+    Parameters
+    ----------
+    use_buffered_stream : bool, default False
+        Read files through buffered input streams rather than loading entire
+        row groups at once. This may be enabled to reduce memory overhead.
+        Disabled by default.
+    buffer_size : int, default 8192
+        Size of buffered stream, if enabled. Default is 8KB.
+    pre_buffer : bool, default False
+        If enabled, pre-buffer the raw Parquet data instead of issuing one
+        read per column chunk. This can improve performance on high-latency
+        filesystems.
+    enable_parallel_column_conversion : bool, default False
+        EXPERIMENTAL: Parallelize conversion across columns. This option is
+        ignored if a scan is already parallelized across input files to avoid
+        thread contention. This option will be removed after support is added
+        for simultaneous parallelization across files and columns.
+    """
+
+    cdef:
+        CParquetFragmentScanOptions* parquet_options
+
+    # Avoid mistakingly creating attributes
+    __slots__ = ()
+
+    def __init__(self, bint use_buffered_stream=False,
+                 buffer_size=8192,
+                 bint pre_buffer=False,
+                 bint enable_parallel_column_conversion=False):
+        self.init(shared_ptr[CFragmentScanOptions](
+            new CParquetFragmentScanOptions()))
+        self.use_buffered_stream = use_buffered_stream
+        self.buffer_size = buffer_size
+        self.pre_buffer = pre_buffer
+        self.enable_parallel_column_conversion = \
+            enable_parallel_column_conversion
+
+    cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
+        FragmentScanOptions.init(self, sp)
+        self.parquet_options = <CParquetFragmentScanOptions*> sp.get()
+
+    cdef CReaderProperties* reader_properties(self):
+        return self.parquet_options.reader_properties.get()
+
+    cdef ArrowReaderProperties* arrow_reader_properties(self):
+        return self.parquet_options.arrow_reader_properties.get()
+
+    @property
+    def use_buffered_stream(self):
+        return self.reader_properties().is_buffered_stream_enabled()
+
+    @use_buffered_stream.setter
+    def use_buffered_stream(self, bint use_buffered_stream):
+        if use_buffered_stream:
+            self.reader_properties().enable_buffered_stream()
+        else:
+            self.reader_properties().disable_buffered_stream()
+
+    @property
+    def buffer_size(self):
+        return self.reader_properties().buffer_size()
+
+    @buffer_size.setter
+    def buffer_size(self, buffer_size):
+        if buffer_size <= 0:
+            raise ValueError("Buffer size must be larger than zero")
+        self.reader_properties().set_buffer_size(buffer_size)
+
+    @property
+    def pre_buffer(self):
+        return self.arrow_reader_properties().pre_buffer()
+
+    @pre_buffer.setter
+    def pre_buffer(self, bint pre_buffer):
+        self.arrow_reader_properties().set_pre_buffer(pre_buffer)
+
+    @property
+    def enable_parallel_column_conversion(self):
+        return self.parquet_options.enable_parallel_column_conversion
+
+    @enable_parallel_column_conversion.setter
+    def enable_parallel_column_conversion(
+            self, bint enable_parallel_column_conversion):
+        self.parquet_options.enable_parallel_column_conversion = \
+            enable_parallel_column_conversion
+
+    def equals(self, ParquetFragmentScanOptions other):
+        return (
+            self.use_buffered_stream == other.use_buffered_stream and
+            self.buffer_size == other.buffer_size and
+            self.pre_buffer == other.pre_buffer and
+            self.enable_parallel_column_conversion ==
+            other.enable_parallel_column_conversion)
+
+    def __reduce__(self):
+        return ParquetFragmentScanOptions, (
+            self.use_buffered_stream, self.buffer_size, self.pre_buffer,
+            self.enable_parallel_column_conversion)
 
 
 cdef class IpcFileWriteOptions(FileWriteOptions):
@@ -1543,14 +1661,28 @@ cdef class CsvFileFormat(FileFormat):
     __slots__ = ()
 
     def __init__(self, ParseOptions parse_options=None,
+                 default_fragment_scan_options=None,
                  ConvertOptions convert_options=None,
                  ReadOptions read_options=None):
         self.init(shared_ptr[CFileFormat](new CCsvFileFormat()))
         if parse_options is not None:
             self.parse_options = parse_options
         if convert_options is not None or read_options is not None:
+            if default_fragment_scan_options:
+                raise ValueError('If `default_fragment_scan_options` is '
+                                 'given, cannot specify convert_options '
+                                 'or read_options')
             self.default_fragment_scan_options = CsvFragmentScanOptions(
                 convert_options=convert_options, read_options=read_options)
+        elif isinstance(default_fragment_scan_options, dict):
+            self.default_fragment_scan_options = CsvFragmentScanOptions(
+                **default_fragment_scan_options)
+        elif isinstance(default_fragment_scan_options, CsvFragmentScanOptions):
+            self.default_fragment_scan_options = default_fragment_scan_options
+        elif default_fragment_scan_options is not None:
+            raise TypeError('`default_fragment_scan_options` must be either '
+                            'a dictionary or an instance of '
+                            'CsvFragmentScanOptions')
 
     cdef void init(self, const shared_ptr[CFileFormat]& sp):
         FileFormat.init(self, sp)
@@ -1574,10 +1706,14 @@ cdef class CsvFileFormat(FileFormat):
             super()._set_default_fragment_scan_options(options)
 
     def equals(self, CsvFileFormat other):
-        return self.parse_options.equals(other.parse_options)
+        return (
+            self.parse_options.equals(other.parse_options) and
+            self.default_fragment_scan_options ==
+            other.default_fragment_scan_options)
 
     def __reduce__(self):
-        return CsvFileFormat, (self.parse_options,)
+        return CsvFileFormat, (self.parse_options,
+                               self.default_fragment_scan_options)
 
     def __repr__(self):
         return f"<CsvFileFormat parse_options={self.parse_options}>"
@@ -1622,8 +1758,10 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
         self.csv_options.read_options = read_options.options
 
     def equals(self, CsvFragmentScanOptions other):
-        return (self.convert_options.equals(other.convert_options) and
-                self.read_options.equals(other.read_options))
+        return (
+            other and
+            self.convert_options.equals(other.convert_options) and
+            self.read_options.equals(other.read_options))
 
     def __reduce__(self):
         return CsvFragmentScanOptions, (self.convert_options,

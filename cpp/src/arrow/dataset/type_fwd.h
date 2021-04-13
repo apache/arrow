@@ -65,9 +65,11 @@ struct CsvFragmentScanOptions;
 class IpcFileFormat;
 class IpcFileWriter;
 class IpcFileWriteOptions;
+class IpcFragmentScanOptions;
 
 class ParquetFileFormat;
 class ParquetFileFragment;
+class ParquetFragmentScanOptions;
 class ParquetFileWriter;
 class ParquetFileWriteOptions;
 

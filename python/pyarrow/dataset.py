@@ -43,6 +43,7 @@ from pyarrow._dataset import (  # noqa
     ParquetFileFormat,
     ParquetFileFragment,
     ParquetFileWriteOptions,
+    ParquetFragmentScanOptions,
     ParquetReadOptions,
     Partitioning,
     PartitioningFactory,

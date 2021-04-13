@@ -19,7 +19,7 @@ import { Table } from '../table';
 import { Vector } from '../vector';
 import { IntVector } from '../vector/int';
 import { Field, Schema } from '../schema';
-import { Predicate, Col } from './predicate';
+import { Predicate, Col, PredicateFunc } from './predicate';
 import { RecordBatch } from '../recordbatch';
 import { VectorType as V } from '../interfaces';
 import { DataType, Int, Struct, Dictionary } from '../type';
@@ -116,6 +116,50 @@ export class CountByResult<T extends DataType = any, TCount extends Int = Int> e
 }
 
 /** @ignore */
+class FilteredBatchIterator<T extends { [key: string]: DataType }> implements IterableIterator<Struct<T>['TValue']> {
+    private batchIndex = 0;
+    private batch: RecordBatch<T>;
+    private index = 0;
+    private predicateFunc: PredicateFunc;
+
+    constructor(
+        private batches: RecordBatch<T>[],
+        private predicate: Predicate
+    ) {
+        // TODO: bind batches lazily
+        // If predicate doesn't match anything in the batch we don't need
+        // to bind the callback
+        this.batch = this.batches[this.batchIndex];
+        this.predicateFunc = this.predicate.bind(this.batch);
+    }
+
+    next(): IteratorResult<Struct<T>['TValue']> {
+        while (this.batchIndex < this.batches.length) {
+            while (this.index < this.batch.length) {
+                if (this.predicateFunc(this.index, this.batch)) {
+                    return {
+                        value: this.batch.get(this.index++) as any,
+                    };
+                }
+                this.index++;
+            }
+
+            if (++this.batchIndex < this.batches.length) {
+                this.index = 0;
+                this.batch = this.batches[this.batchIndex];
+                this.predicateFunc = this.predicate.bind(this.batch);
+            }
+        }
+
+        return {done: true, value: null};
+    }
+
+    [Symbol.iterator]() {
+        return this;
+    }
+}
+
+/** @ignore */
 export class FilteredDataFrame<T extends { [key: string]: DataType } = any> extends DataFrame<T> {
     private _predicate: Predicate;
     constructor (batches: RecordBatch<T>[], predicate: Predicate) {
@@ -184,32 +228,19 @@ export class FilteredDataFrame<T extends { [key: string]: DataType } = any> exte
             // load batches
             const batch = batches[batchIndex];
             const predicate = this._predicate.bind(batch);
-            // yield all indices
             for (let index = -1, numRows = batch.length; ++index < numRows;) {
                 if (predicate(index, batch)) { ++sum; }
             }
         }
         return sum;
     }
-    public *[Symbol.iterator](): IterableIterator<Struct<T>['TValue']> {
+
+    public [Symbol.iterator](): IterableIterator<Struct<T>['TValue']> {
         // inlined version of this:
         // this.parent.scan((idx, columns) => {
         //     if (this.predicate(idx, columns)) next(idx, columns);
         // });
-        const batches = this._chunks;
-        const numBatches = batches.length;
-        for (let batchIndex = -1; ++batchIndex < numBatches;) {
-            // load batches
-            const batch = batches[batchIndex];
-            // TODO: bind batches lazily
-            // If predicate doesn't match anything in the batch we don't need
-            // to bind the callback
-            const predicate = this._predicate.bind(batch);
-            // yield all indices
-            for (let index = -1, numRows = batch.length; ++index < numRows;) {
-                if (predicate(index, batch)) { yield batch.get(index) as any; }
-            }
-        }
+        return new FilteredBatchIterator<T>(this._chunks, this._predicate);
     }
     public filter(predicate: Predicate): FilteredDataFrame<T> {
         return new FilteredDataFrame<T>(

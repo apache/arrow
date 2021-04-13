@@ -31,6 +31,7 @@
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/make_unique.h"
 #include "arrow/visitor_inline.h"
@@ -38,6 +39,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::FirstTimeBitmapWriter;
 
 namespace compute {
 namespace internal {
@@ -70,12 +72,19 @@ struct KeyEncoder {
 
     if (*null_count > 0) {
       ARROW_ASSIGN_OR_RAISE(*null_bitmap, AllocateBitmap(length, pool));
-
       uint8_t* validity = (*null_bitmap)->mutable_data();
+
+      FirstTimeBitmapWriter writer(validity, 0, length);
       for (int32_t i = 0; i < length; ++i) {
-        BitUtil::SetBitTo(validity, i, encoded_bytes[i][0] == kValidByte);
+        if (encoded_bytes[i][0] == kValidByte) {
+          writer.Set();
+        } else {
+          writer.Clear();
+        }
+        writer.Next();
         encoded_bytes[i] += 1;
       }
+      writer.Finish();
     } else {
       for (int32_t i = 0; i < length; ++i) {
         encoded_bytes[i] += 1;

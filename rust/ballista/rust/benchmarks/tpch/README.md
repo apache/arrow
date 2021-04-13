@@ -41,8 +41,8 @@ To run the benchmarks it is necessary to have at least one Ballista scheduler an
 To run the scheduler from source:
 
 ```bash
-cd $BALLISTA_HOME/rust/ballista
-RUST_LOG=info cargo run --release --bin scheduler
+cd $ARROW_HOME/rust/ballista/rust/scheduler
+RUST_LOG=info cargo run --release
 ```
 
 By default the scheduler will bind to `0.0.0.0` and listen on port 50050.
@@ -50,8 +50,8 @@ By default the scheduler will bind to `0.0.0.0` and listen on port 50050.
 To run the executor from source:
 
 ```bash
-cd $BALLISTA_HOME/rust/ballista
-RUST_LOG=info cargo run --release --bin executor
+cd $ARROW_HOME/rust/ballista/rust/executor
+RUST_LOG=info cargo run --release
 ```
 
 By default the executor will bind to `0.0.0.0` and listen on port 50051.
@@ -65,7 +65,8 @@ RUST_LOG=info RUSTFLAGS='-C target-cpu=native -C lto -C codegen-units=1 -C embed
 To run the benchmarks:
 
 ```bash
-cargo run benchmark --host localhost --port 50050 --query 1 --path $(pwd)/data --format tbl
+cd $ARROW_HOME/rust/ballista/rust/benchmarks/tpch
+cargo run --release benchmark --host localhost --port 50050 --query 1 --path $(pwd)/data --format tbl
 ```
 
 ## Running the Benchmarks on docker-compose
@@ -87,7 +88,7 @@ docker-compose run ballista-client cargo run benchmark --host ballista-scheduler
 
 ## Expected output
 
-The result of query 1 should produce the following output:
+The result of query 1 should produce the following output when executed against the SF=1 dataset.
 
 ```
 +--------------+--------------+----------+--------------------+--------------------+--------------------+--------------------+--------------------+----------------------+-------------+
