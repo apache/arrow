@@ -182,15 +182,9 @@ cdef class S3FileSystem(FileSystem):
 
         if proxy_options is not None:
             if isinstance(proxy_options, dict):
-                proxy_scheme = proxy_options.get("scheme", None)
-                if proxy_scheme:
-                    options.proxy_options.scheme = tobytes(proxy_scheme)
-                proxy_host = proxy_options.get("host", None)
-                if proxy_host:
-                    options.proxy_options.host = tobytes(proxy_host)
-                proxy_port = proxy_options.get("port", None)
-                if proxy_port:
-                    options.proxy_options.port = proxy_port
+                options.proxy_options.scheme = tobytes(proxy_options["scheme"])
+                options.proxy_options.host = tobytes(proxy_options["host"])
+                options.proxy_options.port = proxy_options["port"]
                 proxy_username = proxy_options.get("username", None)
                 if proxy_username:
                     options.proxy_options.username = tobytes(proxy_username)
