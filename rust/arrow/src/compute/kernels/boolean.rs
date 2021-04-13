@@ -54,9 +54,12 @@ where
 
     // result length measured in bytes (incl. remainder)
     let mut result_len = round_upto_multiple_of_64(len) / 8;
-    // if remainder is absent, the kleene_op code would resize the result buffers, which
-    // is both unnecessary and expensive. We can prevent the resizing by adding 8 bytes
-    // to the length of both buffers. All bits of these 8 bytes will be always 0 though.
+    // The iterator that applies the kleene_op closure always chains an additional iteration
+    // for the remainder chunk, even without a remainder. If the remainder is absent
+    // (length % 64 == 0), kleene_op would resize the result buffers (value_buffer and
+    // valid_buffer) to store 8 additional bytes, because result_len wouldn't include a remainder
+    // chunk. The resizing is unnecessary and expensive. We can prevent it by adding 8 bytes to
+    // result_len here. Nonetheless, all bits of these 8 bytes will be 0.
     if len % 64 == 0 {
         result_len += 8;
     }
