@@ -429,6 +429,8 @@ const char* convert_toDOUBLE_binary(int64_t context, double value, int32_t* out_
 
 const char* convert_toINT_binary(int64_t context, int32_t value, int32_t* out_len);
 
+const char* convert_toTIME_EPOCH_binary(int64_t context, int32_t value, int32_t* out_len);
+
 const char* convert_toUTF8_binary(int64_t context, const char* value, int32_t value_len,
                                   int32_t* out_len);
 

@@ -233,6 +233,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      binary(), kResultNullIfNull, "convert_toINT_binary",
                      NativeFunction::kNeedsContext),
 
+      NativeFunction("convert_toTIME_EPOCH", {"convert_totime_epoch"},
+                     DataTypeVector{time32()}, binary(), kResultNullIfNull,
+                     "convert_toTIME_EPOCH_binary", NativeFunction::kNeedsContext),
+
       NativeFunction("convert_toUTF8", {"convert_toutf8"}, DataTypeVector{utf8()},
                      binary(), kResultNullIfNull, "convert_toUTF8_binary",
                      NativeFunction::kNeedsContext),
