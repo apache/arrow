@@ -64,12 +64,6 @@ Result<RecordBatchIterator> InMemoryScanTask::Execute() {
   return MakeVectorIterator(record_batches_);
 }
 
-Result<RecordBatchGenerator> ScanTask::ExecuteAsync(internal::Executor*) {
-  return Status::NotImplemented("Async is not implemented for this scan task yet");
-}
-
-bool ScanTask::supports_async() const { return false; }
-
 Result<ScanTaskIterator> Scanner::Scan() {
   // TODO(ARROW-12289) This is overridden in SyncScanner and will never be implemented in
   // AsyncScanner.  It is deprecated and will eventually go away.
@@ -331,37 +325,22 @@ Future<std::shared_ptr<Table>> SyncScanner::ToTableInternal(
 
   // TODO (ARROW-11797) Migrate to using ScanBatches()
   size_t scan_task_id = 0;
-  std::vector<Future<>> scan_futures;
   for (auto maybe_scan_task : scan_task_it) {
     ARROW_ASSIGN_OR_RAISE(auto scan_task, maybe_scan_task);
 
     auto id = scan_task_id++;
-    if (scan_task->supports_async()) {
-      ARROW_ASSIGN_OR_RAISE(auto scan_gen, scan_task->ExecuteAsync(cpu_executor));
-      auto scan_fut = CollectAsyncGenerator(std::move(scan_gen))
-                          .Then([state, id](const RecordBatchVector& rbs) {
-                            state->Emplace(rbs, id);
-                          });
-      scan_futures.push_back(std::move(scan_fut));
-    } else {
-      task_group->Append([state, id, scan_task] {
-        ARROW_ASSIGN_OR_RAISE(auto batch_it, scan_task->Execute());
-        ARROW_ASSIGN_OR_RAISE(auto local, batch_it.ToVector());
-        state->Emplace(std::move(local), id);
-        return Status::OK();
-      });
-    }
+    task_group->Append([state, id, scan_task] {
+      ARROW_ASSIGN_OR_RAISE(auto batch_it, scan_task->Execute());
+      ARROW_ASSIGN_OR_RAISE(auto local, batch_it.ToVector());
+      state->Emplace(std::move(local), id);
+      return Status::OK();
+    });
   }
   auto scan_options = scan_options_;
-  scan_futures.push_back(task_group->FinishAsync());
   // Wait for all tasks to complete, or the first error
-  return AllComplete(scan_futures)
-      .Then(
-          [scan_options, state](const detail::Empty&) -> Result<std::shared_ptr<Table>> {
-            return Table::FromRecordBatches(
-                scan_options->projected_schema,
-                FlattenRecordBatchVector(std::move(state->batches)));
-          });
+  RETURN_NOT_OK(task_group->Finish());
+  return Table::FromRecordBatches(scan_options->projected_schema,
+                                  FlattenRecordBatchVector(std::move(state->batches)));
 }
 
 }  // namespace dataset

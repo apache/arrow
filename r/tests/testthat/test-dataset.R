@@ -354,7 +354,6 @@ test_that("IPC/Feather format data", {
 })
 
 test_that("CSV dataset", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-12181
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   expect_r6_class(ds$format, "CsvFileFormat")
   expect_r6_class(ds$filesystem, "LocalFileSystem")
