@@ -1052,6 +1052,45 @@ def test_s3_options(monkeypatch):
         )
 
 
+@pytest.mark.s3
+def test_s3_proxy_options(monkeypatch):
+    from pyarrow.fs import S3FileSystem
+
+    # Avoid wait for unavailable metadata server in ARN role example below
+    monkeypatch.setenv("AWS_EC2_METADATA_DISABLED", "true")
+
+    # Check dict case for 'proxy_options'
+    fs = S3FileSystem(proxy_options={'scheme': 'http', 'host': 'localhost',
+                                     'port': 8999})
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    # Check str case for 'proxy_options'
+    fs = S3FileSystem(proxy_options='http://localhost:8999')
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    # Only dict and str are supported
+    with pytest.raises(TypeError):
+        S3FileSystem(proxy_options=('http', 'localhost', 9090))
+    # Missing scheme
+    with pytest.raises(KeyError):
+        S3FileSystem(proxy_options={'host': 'localhost', 'port': 9090})
+    # Missing host
+    with pytest.raises(KeyError):
+        S3FileSystem(proxy_options={'scheme': 'http', 'port': 9090})
+    # Missing port
+    with pytest.raises(KeyError):
+        S3FileSystem(proxy_options={'scheme': 'http', 'host': 'localhost'})
+    # Invalid proxy URI (invalid scheme htttps)
+    with pytest.raises(pa.ArrowInvalid):
+        S3FileSystem(proxy_options='htttps://localhost:9000')
+    # Invalid proxy_options dict (invalid scheme htttps)
+    with pytest.raises(pa.ArrowInvalid):
+        S3FileSystem(proxy_options={'scheme': 'htttp', 'host': 'localhost',
+                                    'port': 8999})
+
+
 @pytest.mark.hdfs
 def test_hdfs_options(hdfs_connection):
     from pyarrow.fs import HadoopFileSystem
