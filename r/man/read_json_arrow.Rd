@@ -28,8 +28,7 @@ of columns, as used in \code{dplyr::select()}.}
 \item{as_data_frame}{Should the function return a \code{data.frame} (default) or
 an Arrow \link{Table}?}
 
-\item{schema}{\link{Schema} that describes the table.  If provided, it will be
-used to satisfy both \code{col_names} and \code{col_types}.}
+\item{schema}{\link{Schema} that describes the table.}
 
 \item{...}{Additional options passed to \code{JsonTableReader$create()}}
 }
