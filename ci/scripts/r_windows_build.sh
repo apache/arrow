@@ -28,13 +28,8 @@ if [ "$RTOOLS_VERSION" = "35" ]; then
   curl https://raw.githubusercontent.com/r-windows/rtools-backports/master/pacman.conf > /etc/pacman.conf
   # Update keys: https://www.msys2.org/news/#2020-06-29-new-packagers
   msys2_repo_base_url=https://repo.msys2.org/msys
-  # Mirror
-  msys2_repo_base_url=https://sourceforge.net/projects/msys2/files/REPOS/MSYS2
   curl -OSsL "${msys2_repo_base_url}/x86_64/msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz"
   pacman -U --noconfirm msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz && rm msys2-keyring-r21.b39fb11-1-any.pkg.tar.xz
-  # Use sf.net instead of http://repo.msys2.org/ temporary.
-  sed -i -e "s,^Server = http://repo\.msys2\.org/msys,Server = ${msys2_repo_base_url},g" \
-    /etc/pacman.conf
   pacman --noconfirm -Scc
   pacman --noconfirm -Syy
   # lib-4.9.3 is for libraries compiled with gcc 4.9 (Rtools 3.5)
