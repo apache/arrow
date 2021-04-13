@@ -15,8 +15,8 @@ The `arrow` package exposes an interface to the Arrow C++ library to
 access many of its features in R. This includes support for analyzing
 large, multi-file datasets (`open_dataset()`), working with individual
 Parquet (`read_parquet()`, `write_parquet()`) and Feather
-(`read_feather()`, `write_feather()`) files, as well as lower-level
-access to Arrow memory and messages.
+(`read_feather()`, `write_feather()`) files, as well as a `dplyr`
+backend and lower-level access to Arrow memory and messages.
 
 ## Installation
 
@@ -211,16 +211,16 @@ result %>% collect()
 #> 10 R5-D4                   38.2     70.5
 ```
 
-Arrow supports most dplyr verbs except those that compute aggregates
-(such as `summarise()` and `mutate()` after `group_by()`). Inside dplyr
-verbs, Arrow offers limited support for functions and operators, with
-broader support expected in upcoming releases. For more information
+Arrow supports most `dplyr` verbs except those that compute aggregates
+(such as `summarise()` and `mutate()` after `group_by()`). Inside
+`dplyr` verbs, Arrow offers limited support for functions and operators,
+with broader support expected in upcoming releases. For more information
 about available compute functions, see `help("list_compute_functions")`.
 
-For dplyr queries on `Table` and `RecordBatch` objects, if the `arrow` R
-package detects an unsupported function within a dplyr verb, it
+For `dplyr` queries on `Table` and `RecordBatch` objects, if the `arrow`
+package detects an unsupported function within a `dplyr` verb, it
 automatically calls `collect()` to return the data as an R data frame
-before processing that dplyr verb.
+before processing that `dplyr` verb.
 
 ## Getting help
 
