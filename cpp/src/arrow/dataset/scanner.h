@@ -30,8 +30,11 @@
 #include "arrow/dataset/projector.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/iterator.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/type_fwd.h"
 
 namespace arrow {
@@ -41,6 +44,8 @@ using RecordBatchGenerator = std::function<Future<std::shared_ptr<RecordBatch>>(
 namespace dataset {
 
 constexpr int64_t kDefaultBatchSize = 1 << 20;
+constexpr int32_t kDefaultBatchReadahead = 32;
+constexpr int32_t kDefaultFragmentReadahead = 8;
 
 struct ARROW_DS_EXPORT ScanOptions {
   // Filter and projection
@@ -67,11 +72,47 @@ struct ARROW_DS_EXPORT ScanOptions {
   // Maximum row count for scanned batches.
   int64_t batch_size = kDefaultBatchSize;
 
+  /// How many batches to read ahead within a file
+  ///
+  /// Set to 0 to disable batch readahead
+  ///
+  /// Note: May not be supported by all formats
+  /// Note: May not be supported by all scanners
+  /// Note: Will be ignored if use_threads is set to false
+  int32_t batch_readahead = kDefaultBatchReadahead;
+
+  /// How many files to read ahead
+  ///
+  /// Set to 0 to disable fragment readahead
+  ///
+  /// Note: May not be enforced by all scanners
+  /// Note: Will be ignored if use_threads is set to false
+  int32_t fragment_readahead = kDefaultFragmentReadahead;
+
   /// A pool from which materialized and scanned arrays will be allocated.
   MemoryPool* pool = arrow::default_memory_pool();
 
-  /// Indicate if the Scanner should make use of a ThreadPool.
+  /// Executor on which to run any CPU tasks
+  ///
+  /// Note: Will be ignored if use_threads is set to false
+  internal::Executor* cpu_executor = internal::GetCpuThreadPool();
+
+  /// IOContext for any IO tasks
+  ///
+  /// Note: The IOContext executor will be ignored if use_threads is set to false
+  io::IOContext io_context;
+
+  /// If true the scanner will scan in parallel
+  ///
+  /// Note: If true, this will use threads from both the cpu_executor and the
+  /// io_context.executor
+  /// Note: This  must be true in order for any readahead to happen
   bool use_threads = false;
+
+  /// If true then an asycnhronous implementation of the scanner will be used.
+  /// This implementation is newer and generally performs better.  However, it
+  /// makes extensive use of threading and is still considered experimental
+  bool use_async = false;
 
   /// Fragment-specific scan options.
   std::shared_ptr<FragmentScanOptions> fragment_scan_options;
@@ -140,49 +181,148 @@ ARROW_DS_EXPORT Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
     std::vector<std::shared_ptr<RecordBatch>> batches,
     std::shared_ptr<ScanOptions> options);
 
-/// \brief Scanner is a materialized scan operation with context and options
-/// bound. A scanner is the class that glues ScanTask, Fragment,
-/// and Dataset. In python pseudo code, it performs the following:
+template <typename T>
+struct Enumerated {
+  T value;
+  int index;
+  bool last;
+};
+
+/// \brief Combines a record batch with the fragment that the record batch originated
+/// from
 ///
-///  def Scan():
-///    for fragment in self.dataset.GetFragments(this.options.filter):
-///      for scan_task in fragment.Scan(this.options):
-///        yield scan_task
+/// Knowing the source fragment can be useful for debugging & understanding loaded data
+struct TaggedRecordBatch {
+  std::shared_ptr<RecordBatch> record_batch;
+  std::shared_ptr<Fragment> fragment;
+};
+using TaggedRecordBatchGenerator = std::function<Future<TaggedRecordBatch>()>;
+using TaggedRecordBatchIterator = Iterator<TaggedRecordBatch>;
+
+/// \brief Combines a tagged batch with positional information
+///
+/// This is returned when scanning batches in an unordered fashion.  This information is
+/// needed if you ever want to reassemble the batches in order
+struct EnumeratedRecordBatch {
+  Enumerated<std::shared_ptr<RecordBatch>> record_batch;
+  Enumerated<std::shared_ptr<Fragment>> fragment;
+};
+using EnumeratedRecordBatchGenerator = std::function<Future<EnumeratedRecordBatch>()>;
+using EnumeratedRecordBatchIterator = Iterator<EnumeratedRecordBatch>;
+
+}  // namespace dataset
+
+template <>
+struct IterationTraits<dataset::TaggedRecordBatch> {
+  static dataset::TaggedRecordBatch End() {
+    return dataset::TaggedRecordBatch{NULL, NULL};
+  }
+  static bool IsEnd(const dataset::TaggedRecordBatch& val) {
+    return val.record_batch == NULL;
+  }
+};
+
+template <>
+struct IterationTraits<dataset::EnumeratedRecordBatch> {
+  static dataset::EnumeratedRecordBatch End() {
+    return dataset::EnumeratedRecordBatch{{NULL, -1, false}, {NULL, -1, false}};
+  }
+  static bool IsEnd(const dataset::EnumeratedRecordBatch& val) {
+    return val.fragment.value == NULL;
+  }
+};
+
+namespace dataset {
+/// \brief A scanner glues together several dataset classes to load in data.
+/// The dataset contains a collection of fragments and partitioning rules.
+///
+/// The fragments identify independently loadable units of data (i.e. each fragment has
+/// a potentially unique schema and possibly even format.  It should be possible to read
+/// fragments in parallel if desired).
+///
+/// The fragment's format contains the logic necessary to actually create a task to load
+/// the fragment into memory.  That task may or may not support parallel execution of
+/// its own.
+///
+/// The scanner is then responsible for creating scan tasks from every fragment in the
+/// dataset and (potentially) sequencing the loaded record batches together.
+///
+/// The scanner should not buffer the entire dataset in memory (unless asked) instead
+/// yielding record batches as soon as they are ready to scan.  Various readahead
+/// properties control how much data is allowed to be scanned before pausing to let a
+/// slow consumer catchup.
+///
+/// Today the scanner also handles projection & filtering although that may change in
+/// the future.
 class ARROW_DS_EXPORT Scanner {
  public:
-  Scanner(std::shared_ptr<Dataset> dataset, std::shared_ptr<ScanOptions> scan_options)
-      : dataset_(std::move(dataset)), scan_options_(std::move(scan_options)) {}
-
-  Scanner(std::shared_ptr<Fragment> fragment, std::shared_ptr<ScanOptions> scan_options)
-      : fragment_(std::move(fragment)), scan_options_(std::move(scan_options)) {}
+  virtual ~Scanner() = default;
 
   /// \brief The Scan operator returns a stream of ScanTask. The caller is
   /// responsible to dispatch/schedule said tasks. Tasks should be safe to run
   /// in a concurrent fashion and outlive the iterator.
-  Result<ScanTaskIterator> Scan();
-
+  ///
+  /// Note: Not supported by the async scanner
+  /// TODO(ARROW-11797) Deprecate Scan()
+  virtual Result<ScanTaskIterator> Scan();
   /// \brief Convert a Scanner into a Table.
   ///
   /// Use this convenience utility with care. This will serially materialize the
   /// Scan result in memory before creating the Table.
-  Result<std::shared_ptr<Table>> ToTable();
-
-  /// \brief GetFragments returns an iterator over all Fragments in this scan.
-  Result<FragmentIterator> GetFragments();
-
-  const std::shared_ptr<Schema>& schema() const {
-    return scan_options_->projected_schema;
-  }
+  virtual Result<std::shared_ptr<Table>> ToTable() = 0;
+  /// \brief Scan the dataset into a stream of record batches.  Each batch is tagged
+  /// with the fragment it originated from.  The batches will arrive in order.  The
+  /// order of fragments is determined by the dataset.
+  ///
+  /// Note: The scanner will perform some readahead but will avoid materializing too
+  /// much in memory (this is goverended by the readahead options and use_threads option).
+  /// If the readahead queue fills up then I/O will pause until the calling thread catches
+  /// up.
+  virtual Result<TaggedRecordBatchIterator> ScanBatches() = 0;
+  /// \brief Scan the dataset into a stream of record batches.  Unlike ScanBatches this
+  /// method may allow record batches to be returned out of order.  This allows for more
+  /// efficient scanning: some fragments may be accessed more quickly than others (e.g.
+  /// may be cached in RAM or just happen to get scheduled earlier by the I/O)
+  ///
+  /// To make up for the out-of-order iteration each batch is further tagged with
+  /// positional information.
+  virtual Result<EnumeratedRecordBatchIterator> ScanBatchesUnordered();
 
   const std::shared_ptr<ScanOptions>& options() const { return scan_options_; }
 
  protected:
+  explicit Scanner(std::shared_ptr<ScanOptions> scan_options)
+      : scan_options_(std::move(scan_options)) {}
+
+  Result<EnumeratedRecordBatchIterator> AddPositioningToInOrderScan(
+      TaggedRecordBatchIterator scan);
+
+  const std::shared_ptr<ScanOptions> scan_options_;
+};
+
+class ARROW_DS_EXPORT SyncScanner : public Scanner {
+ public:
+  SyncScanner(std::shared_ptr<Dataset> dataset, std::shared_ptr<ScanOptions> scan_options)
+      : Scanner(std::move(scan_options)), dataset_(std::move(dataset)) {}
+
+  SyncScanner(std::shared_ptr<Fragment> fragment,
+              std::shared_ptr<ScanOptions> scan_options)
+      : Scanner(std::move(scan_options)), fragment_(std::move(fragment)) {}
+
+  Result<TaggedRecordBatchIterator> ScanBatches() override;
+
+  Result<ScanTaskIterator> Scan() override;
+
+  Result<std::shared_ptr<Table>> ToTable() override;
+
+ protected:
+  /// \brief GetFragments returns an iterator over all Fragments in this scan.
+  Result<FragmentIterator> GetFragments();
   Future<std::shared_ptr<Table>> ToTableInternal(internal::Executor* cpu_executor);
 
   std::shared_ptr<Dataset> dataset_;
   // TODO(ARROW-8065) remove fragment_ after a Dataset is constuctible from fragments
   std::shared_ptr<Fragment> fragment_;
-  std::shared_ptr<ScanOptions> scan_options_;
 };
 
 /// \brief ScannerBuilder is a factory class to construct a Scanner. It is used
@@ -209,7 +349,8 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///         Schema.
   Status Project(std::vector<std::string> columns);
 
-  /// \brief Set expressions which will be evaluated to produce the materialized columns.
+  /// \brief Set expressions which will be evaluated to produce the materialized
+  /// columns.
   ///
   /// Columns which are not referenced may not be read from fragments.
   ///
@@ -255,6 +396,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   Result<std::shared_ptr<Scanner>> Finish();
 
   const std::shared_ptr<Schema>& schema() const;
+  const std::shared_ptr<Schema>& projected_schema() const;
 
  private:
   std::shared_ptr<Dataset> dataset_;

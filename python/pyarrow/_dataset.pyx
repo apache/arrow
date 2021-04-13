@@ -2791,14 +2791,6 @@ cdef class Scanner(_Weakrefable):
 
         return pyarrow_wrap_table(GetResultValue(result))
 
-    def get_fragments(self):
-        """Returns an iterator over the fragments in this scan.
-        """
-        cdef CFragmentIterator c_fragments = move(GetResultValue(
-            self.scanner.GetFragments()))
-        for maybe_fragment in c_fragments:
-            yield Fragment.wrap(GetResultValue(move(maybe_fragment)))
-
 
 def _get_partition_keys(Expression partition_expression):
     """

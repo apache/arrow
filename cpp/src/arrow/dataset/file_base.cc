@@ -369,7 +369,7 @@ struct WriteState {
   std::unordered_map<std::string, std::unique_ptr<WriteQueue>> queues;
 };
 
-Status WriteNextBatch(WriteState& state, const std::shared_ptr<ScanTask>& scan_task,
+Status WriteNextBatch(WriteState& state, const std::shared_ptr<Fragment>& fragment,
                       std::shared_ptr<RecordBatch> batch) {
   ARROW_ASSIGN_OR_RAISE(auto groups, state.write_options.partitioning->Partition(batch));
   batch.reset();  // drop to hopefully conserve memory
@@ -382,8 +382,8 @@ Status WriteNextBatch(WriteState& state, const std::shared_ptr<ScanTask>& scan_t
 
   std::unordered_set<WriteQueue*> need_flushed;
   for (size_t i = 0; i < groups.batches.size(); ++i) {
-    auto partition_expression = and_(std::move(groups.expressions[i]),
-                                     scan_task->fragment()->partition_expression());
+    auto partition_expression =
+        and_(std::move(groups.expressions[i]), fragment->partition_expression());
     auto batch = std::move(groups.batches[i]);
 
     ARROW_ASSIGN_OR_RAISE(auto part,
@@ -432,7 +432,7 @@ Future<> WriteInternal(const ScanOptions& scan_options, WriteState& state,
       ARROW_ASSIGN_OR_RAISE(auto batches_gen, scan_task->ExecuteAsync(cpu_executor));
       std::function<Status(std::shared_ptr<RecordBatch> batch)> batch_visitor =
           [&, scan_task](std::shared_ptr<RecordBatch> batch) {
-            return WriteNextBatch(state, scan_task, std::move(batch));
+            return WriteNextBatch(state, scan_task->fragment(), std::move(batch));
           };
       scan_futs.push_back(VisitAsyncGenerator(batches_gen, batch_visitor));
     } else {
@@ -441,7 +441,7 @@ Future<> WriteInternal(const ScanOptions& scan_options, WriteState& state,
 
         for (auto maybe_batch : batches) {
           ARROW_ASSIGN_OR_RAISE(auto batch, maybe_batch);
-          RETURN_NOT_OK(WriteNextBatch(state, scan_task, std::move(batch)));
+          RETURN_NOT_OK(WriteNextBatch(state, scan_task->fragment(), std::move(batch)));
         }
 
         return Status::OK();
@@ -469,21 +469,8 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   //
   // NB: neither of these will have any impact whatsoever on the common case of writing
   //     an in-memory table to disk.
-  ARROW_ASSIGN_OR_RAISE(auto fragment_it, scanner->GetFragments());
-  ARROW_ASSIGN_OR_RAISE(FragmentVector fragments, fragment_it.ToVector());
-  ScanTaskVector scan_tasks;
-
-  for (const auto& fragment : fragments) {
-    auto options = std::make_shared<ScanOptions>(*scanner->options());
-    // Avoid contention with multithreaded readers
-    options->use_threads = false;
-    ARROW_ASSIGN_OR_RAISE(auto scan_task_it,
-                          Scanner(fragment, std::move(options)).Scan());
-    for (auto maybe_scan_task : scan_task_it) {
-      ARROW_ASSIGN_OR_RAISE(auto scan_task, maybe_scan_task);
-      scan_tasks.push_back(std::move(scan_task));
-    }
-  }
+  ARROW_ASSIGN_OR_RAISE(auto scan_task_it, scanner->Scan());
+  ARROW_ASSIGN_OR_RAISE(ScanTaskVector scan_tasks, scan_task_it.ToVector());
 
   WriteState state(write_options);
   auto res = internal::RunSynchronously<arrow::detail::Empty>(

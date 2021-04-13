@@ -43,10 +43,12 @@
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/make_unique.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 namespace dataset {
@@ -137,6 +139,14 @@ class DatasetFixtureMixin : public ::testing::Test {
     }
   }
 
+  /// \brief Assert the value of the next batch yielded by the reader
+  void AssertBatchEquals(RecordBatchReader* expected, const RecordBatch& batch) {
+    std::shared_ptr<RecordBatch> lhs;
+    ASSERT_OK(expected->ReadNext(&lhs));
+    EXPECT_NE(lhs, nullptr);
+    AssertBatchesEqual(*lhs, batch);
+  }
+
   /// \brief Ensure that record batches found in reader are equals to the
   /// record batches yielded by the data fragment.
   void AssertFragmentEquals(RecordBatchReader* expected, Fragment* fragment,
@@ -178,6 +188,46 @@ class DatasetFixtureMixin : public ::testing::Test {
 
     ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<ScanTask> task) -> Status {
       AssertScanTaskEquals(expected, task.get(), false);
+      return Status::OK();
+    }));
+
+    if (ensure_drained) {
+      EnsureRecordBatchReaderDrained(expected);
+    }
+  }
+
+  /// \brief Ensure that record batches found in reader are equals to the
+  /// record batches yielded by a scanner.
+  void AssertScanBatchesEquals(RecordBatchReader* expected, Scanner* scanner,
+                               bool ensure_drained = true) {
+    ASSERT_OK_AND_ASSIGN(auto it, scanner->ScanBatches());
+
+    ARROW_EXPECT_OK(it.Visit([&](TaggedRecordBatch batch) -> Status {
+      AssertBatchEquals(expected, *batch.record_batch);
+      return Status::OK();
+    }));
+
+    if (ensure_drained) {
+      EnsureRecordBatchReaderDrained(expected);
+    }
+  }
+
+  /// \brief Ensure that record batches found in reader are equals to the
+  /// record batches yielded by a scanner.  Each fragment in the scanner is
+  /// expected to have a single batch.
+  void AssertScanBatchesUnorderedEquals(RecordBatchReader* expected, Scanner* scanner,
+                                        bool ensure_drained = true) {
+    ASSERT_OK_AND_ASSIGN(auto it, scanner->ScanBatchesUnordered());
+
+    int fragment_counter = 0;
+    bool saw_last_fragment = false;
+    ARROW_EXPECT_OK(it.Visit([&](EnumeratedRecordBatch batch) -> Status {
+      EXPECT_EQ(0, batch.record_batch.index);
+      EXPECT_EQ(true, batch.record_batch.last);
+      EXPECT_EQ(fragment_counter++, batch.fragment.index);
+      EXPECT_FALSE(saw_last_fragment);
+      saw_last_fragment = batch.fragment.last;
+      AssertBatchEquals(expected, *batch.record_batch.value);
       return Status::OK();
     }));
 
@@ -584,7 +634,8 @@ class WriteFileSystemDatasetMixin : public MakeFileSystemDatasetMixin {
 
   void DoWrite(std::shared_ptr<Partitioning> desired_partitioning) {
     write_options_.partitioning = desired_partitioning;
-    auto scanner = std::make_shared<Scanner>(dataset_, scan_options_);
+    auto scanner_builder = ScannerBuilder(dataset_, scan_options_);
+    ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder.Finish());
     ASSERT_OK(FileSystemDataset::Write(write_options_, scanner));
 
     // re-discover the written dataset

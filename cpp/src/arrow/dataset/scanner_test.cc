@@ -38,7 +38,7 @@ constexpr int64_t kBatchSize = 1024;
 
 class TestScanner : public DatasetFixtureMixin {
  protected:
-  Scanner MakeScanner(std::shared_ptr<RecordBatch> batch) {
+  std::shared_ptr<Scanner> MakeScanner(std::shared_ptr<RecordBatch> batch) {
     std::vector<std::shared_ptr<RecordBatch>> batches{static_cast<size_t>(kNumberBatches),
                                                       batch};
 
@@ -47,17 +47,35 @@ class TestScanner : public DatasetFixtureMixin {
 
     EXPECT_OK_AND_ASSIGN(auto dataset, UnionDataset::Make(batch->schema(), children));
 
-    return Scanner{dataset, options_};
+    ScannerBuilder builder(dataset, options_);
+    EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+    return scanner;
   }
 
   void AssertScannerEqualsRepetitionsOf(
-      Scanner scanner, std::shared_ptr<RecordBatch> batch,
+      std::shared_ptr<Scanner> scanner, std::shared_ptr<RecordBatch> batch,
       const int64_t total_batches = kNumberChildDatasets * kNumberBatches) {
     auto expected = ConstantArrayGenerator::Repeat(total_batches, batch);
 
     // Verifies that the unified BatchReader is equivalent to flattening all the
     // structures of the scanner, i.e. Scanner[Dataset[ScanTask[RecordBatch]]]
-    AssertScannerEquals(expected.get(), &scanner);
+    AssertScannerEquals(expected.get(), scanner.get());
+  }
+
+  void AssertScanBatchesEqualRepetitionsOf(
+      std::shared_ptr<Scanner> scanner, std::shared_ptr<RecordBatch> batch,
+      const int64_t total_batches = kNumberChildDatasets * kNumberBatches) {
+    auto expected = ConstantArrayGenerator::Repeat(total_batches, batch);
+
+    AssertScanBatchesEquals(expected.get(), scanner.get());
+  }
+
+  void AssertScanBatchesUnorderedEqualRepetitionsOf(
+      std::shared_ptr<Scanner> scanner, std::shared_ptr<RecordBatch> batch,
+      const int64_t total_batches = kNumberChildDatasets * kNumberBatches) {
+    auto expected = ConstantArrayGenerator::Repeat(total_batches, batch);
+
+    AssertScanBatchesUnorderedEquals(expected.get(), scanner.get());
   }
 };
 
@@ -65,6 +83,18 @@ TEST_F(TestScanner, Scan) {
   SetSchema({field("i32", int32()), field("f64", float64())});
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
   AssertScannerEqualsRepetitionsOf(MakeScanner(batch), batch);
+}
+
+TEST_F(TestScanner, ScanBatches) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  AssertScanBatchesEqualRepetitionsOf(MakeScanner(batch), batch);
+}
+
+TEST_F(TestScanner, ScanBatchesUnordered) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  AssertScanBatchesUnorderedEqualRepetitionsOf(MakeScanner(batch), batch);
 }
 
 TEST_F(TestScanner, ScanWithCappedBatchSize) {
@@ -126,7 +156,7 @@ TEST_F(TestScanner, MaterializeMissingColumn) {
   ScannerBuilder builder{schema_, fragment_missing_f64, options_};
   ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
 
-  AssertScannerEqualsRepetitionsOf(*scanner, batch_with_f64);
+  AssertScannerEqualsRepetitionsOf(scanner, batch_with_f64);
 }
 
 TEST_F(TestScanner, ToTable) {
@@ -141,13 +171,13 @@ TEST_F(TestScanner, ToTable) {
   std::shared_ptr<Table> actual;
 
   options_->use_threads = false;
-  ASSERT_OK_AND_ASSIGN(actual, scanner.ToTable());
+  ASSERT_OK_AND_ASSIGN(actual, scanner->ToTable());
   AssertTablesEqual(*expected, *actual);
 
   // There is no guarantee on the ordering when using multiple threads, but
   // since the RecordBatch is always the same it will pass.
   options_->use_threads = true;
-  ASSERT_OK_AND_ASSIGN(actual, scanner.ToTable());
+  ASSERT_OK_AND_ASSIGN(actual, scanner->ToTable());
   AssertTablesEqual(*expected, *actual);
 }
 

@@ -475,7 +475,8 @@ Java_org_apache_arrow_dataset_jni_JniWrapper_getSchemaFromScanner(JNIEnv* env, j
   std::shared_ptr<arrow::Schema> schema =
       RetrieveNativeInstance<DisposableScannerAdaptor>(scanner_id)
           ->GetScanner()
-          ->schema();
+          ->options()
+          ->projected_schema;
   return JniGetOrThrow(ToSchemaByteArray(env, schema));
   JNI_METHOD_END(nullptr)
 }

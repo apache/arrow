@@ -70,8 +70,6 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 
   std::string type_name() const override { return kParquetTypeName; }
 
-  bool splittable() const override { return true; }
-
   bool Equals(const FileFormat& other) const override;
 
   struct ReaderOptions {

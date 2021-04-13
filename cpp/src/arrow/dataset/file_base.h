@@ -134,9 +134,6 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
   /// \brief The name identifying the kind of file format
   virtual std::string type_name() const = 0;
 
-  /// \brief Return true if fragments of this format can benefit from parallel scanning.
-  virtual bool splittable() const { return false; }
-
   virtual bool Equals(const FileFormat& other) const = 0;
 
   /// \brief Indicate if the FileSource is supported/readable by this format.
@@ -176,7 +173,6 @@ class ARROW_DS_EXPORT FileFragment : public Fragment {
 
   std::string type_name() const override { return format_->type_name(); }
   std::string ToString() const override { return source_.path(); };
-  bool splittable() const override { return format_->splittable(); }
 
   const FileSource& source() const { return source_; }
   const std::shared_ptr<FileFormat>& format() const { return format_; }

@@ -70,7 +70,108 @@ Result<RecordBatchGenerator> ScanTask::ExecuteAsync(internal::Executor*) {
 
 bool ScanTask::supports_async() const { return false; }
 
-Result<FragmentIterator> Scanner::GetFragments() {
+Result<ScanTaskIterator> Scanner::Scan() {
+  // TODO(ARROW-12289) This is overridden in SyncScanner and will never be implemented in
+  // AsyncScanner.  It is deprecated and will eventually go away.
+  return Status::NotImplemented("This scanner does not support the legacy Scan() method");
+}
+
+Result<EnumeratedRecordBatchIterator> Scanner::ScanBatchesUnordered() {
+  // If a scanner doesn't support unordered scanning (i.e. SyncScanner) then we just
+  // fall back to an ordered scan and assign the appropriate tagging
+  ARROW_ASSIGN_OR_RAISE(auto ordered_scan, ScanBatches());
+  return AddPositioningToInOrderScan(std::move(ordered_scan));
+}
+
+Result<EnumeratedRecordBatchIterator> Scanner::AddPositioningToInOrderScan(
+    TaggedRecordBatchIterator scan) {
+  ARROW_ASSIGN_OR_RAISE(auto first, scan.Next());
+  if (IsIterationEnd(first)) {
+    return MakeEmptyIterator<EnumeratedRecordBatch>();
+  }
+  struct State {
+    State(TaggedRecordBatchIterator source, TaggedRecordBatch first)
+        : source(std::move(source)),
+          batch_index(0),
+          fragment_index(0),
+          finished(false),
+          prev_batch(std::move(first)) {}
+    TaggedRecordBatchIterator source;
+    int batch_index;
+    int fragment_index;
+    bool finished;
+    TaggedRecordBatch prev_batch;
+  };
+  struct EnumeratingIterator {
+    Result<EnumeratedRecordBatch> Next() {
+      if (state->finished) {
+        return IterationEnd<EnumeratedRecordBatch>();
+      }
+      ARROW_ASSIGN_OR_RAISE(auto next, state->source.Next());
+      if (IsIterationEnd<TaggedRecordBatch>(next)) {
+        state->finished = true;
+        return EnumeratedRecordBatch{
+            {std::move(state->prev_batch.record_batch), state->batch_index, true},
+            {std::move(state->prev_batch.fragment), state->fragment_index, true}};
+      }
+      auto prev = std::move(state->prev_batch);
+      bool prev_is_last_batch = false;
+      auto prev_batch_index = state->batch_index;
+      auto prev_fragment_index = state->fragment_index;
+      // Reference equality here seems risky but a dataset should have a constant set of
+      // fragments which should be consistent for the lifetime of a scan
+      if (prev.fragment.get() != next.fragment.get()) {
+        state->batch_index = 0;
+        state->fragment_index++;
+        prev_is_last_batch = true;
+      } else {
+        state->batch_index++;
+      }
+      state->prev_batch = std::move(next);
+      return EnumeratedRecordBatch{
+          {std::move(prev.record_batch), prev_batch_index, prev_is_last_batch},
+          {std::move(prev.fragment), prev_fragment_index, false}};
+    }
+    std::shared_ptr<State> state;
+  };
+  return EnumeratedRecordBatchIterator(
+      EnumeratingIterator{std::make_shared<State>(std::move(scan), std::move(first))});
+}
+
+Result<TaggedRecordBatchIterator> SyncScanner::ScanBatches() {
+  // TODO(ARROW-11797) Provide a better implementation that does readahead.  Also, add
+  // unit testing
+  ARROW_ASSIGN_OR_RAISE(auto scan_task_it, Scan());
+  struct BatchIter {
+    explicit BatchIter(ScanTaskIterator scan_task_it)
+        : scan_task_it(std::move(scan_task_it)) {}
+
+    Result<TaggedRecordBatch> Next() {
+      while (true) {
+        if (current_task == nullptr) {
+          ARROW_ASSIGN_OR_RAISE(current_task, scan_task_it.Next());
+          if (IsIterationEnd<std::shared_ptr<ScanTask>>(current_task)) {
+            return IterationEnd<TaggedRecordBatch>();
+          }
+          ARROW_ASSIGN_OR_RAISE(batch_it, current_task->Execute());
+        }
+        ARROW_ASSIGN_OR_RAISE(auto next, batch_it.Next());
+        if (IsIterationEnd<std::shared_ptr<RecordBatch>>(next)) {
+          current_task = nullptr;
+        } else {
+          return TaggedRecordBatch{next, current_task->fragment()};
+        }
+      }
+    }
+
+    ScanTaskIterator scan_task_it;
+    RecordBatchIterator batch_it;
+    std::shared_ptr<ScanTask> current_task;
+  };
+  return TaggedRecordBatchIterator(BatchIter(std::move(scan_task_it)));
+}
+
+Result<FragmentIterator> SyncScanner::GetFragments() {
   if (fragment_ != nullptr) {
     return MakeVectorIterator(FragmentVector{fragment_});
   }
@@ -81,7 +182,7 @@ Result<FragmentIterator> Scanner::GetFragments() {
   return GetFragmentsFromDatasets({dataset_}, scan_options_->filter);
 }
 
-Result<ScanTaskIterator> Scanner::Scan() {
+Result<ScanTaskIterator> SyncScanner::Scan() {
   // Transforms Iterator<Fragment> into a unified
   // Iterator<ScanTask>. The first Iterator::Next invocation is going to do
   // all the work of unwinding the chained iterators.
@@ -110,7 +211,7 @@ ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,
       fragment_(nullptr),
       scan_options_(std::move(scan_options)) {
   scan_options_->dataset_schema = dataset_->schema();
-  DCHECK_OK(Filter(literal(true)));
+  DCHECK_OK(Filter(scan_options_->filter));
 }
 
 ScannerBuilder::ScannerBuilder(std::shared_ptr<Schema> schema,
@@ -120,11 +221,15 @@ ScannerBuilder::ScannerBuilder(std::shared_ptr<Schema> schema,
       fragment_(std::move(fragment)),
       scan_options_(std::move(scan_options)) {
   scan_options_->dataset_schema = std::move(schema);
-  DCHECK_OK(Filter(literal(true)));
+  DCHECK_OK(Filter(scan_options_->filter));
 }
 
 const std::shared_ptr<Schema>& ScannerBuilder::schema() const {
   return scan_options_->dataset_schema;
+}
+
+const std::shared_ptr<Schema>& ScannerBuilder::projected_schema() const {
+  return scan_options_->projected_schema;
 }
 
 Status ScannerBuilder::Project(std::vector<std::string> columns) {
@@ -170,9 +275,15 @@ Result<std::shared_ptr<Scanner>> ScannerBuilder::Finish() {
   }
 
   if (dataset_ == nullptr) {
-    return std::make_shared<Scanner>(fragment_, scan_options_);
+    // AsyncScanner does not support this method of running.  It may in the future
+    return std::make_shared<SyncScanner>(fragment_, scan_options_);
   }
-  return std::make_shared<Scanner>(dataset_, scan_options_);
+  if (scan_options_->use_async) {
+    // TODO(ARROW-12289)
+    return Status::NotImplemented("The asynchronous scanner is not yet available");
+  } else {
+    return std::make_shared<SyncScanner>(dataset_, scan_options_);
+  }
 }
 
 static inline RecordBatchVector FlattenRecordBatchVector(
@@ -202,13 +313,13 @@ struct TableAssemblyState {
   }
 };
 
-Result<std::shared_ptr<Table>> Scanner::ToTable() {
+Result<std::shared_ptr<Table>> SyncScanner::ToTable() {
   return internal::RunSynchronously<std::shared_ptr<Table>>(
       [this](Executor* executor) { return ToTableInternal(executor); },
       scan_options_->use_threads);
 }
 
-Future<std::shared_ptr<Table>> Scanner::ToTableInternal(
+Future<std::shared_ptr<Table>> SyncScanner::ToTableInternal(
     internal::Executor* cpu_executor) {
   ARROW_ASSIGN_OR_RAISE(auto scan_task_it, Scan());
   auto task_group = scan_options_->TaskGroup();
@@ -218,6 +329,7 @@ Future<std::shared_ptr<Table>> Scanner::ToTableInternal(
   /// and the mutex/batches fail out of scope.
   auto state = std::make_shared<TableAssemblyState>();
 
+  // TODO (ARROW-11797) Migrate to using ScanBatches()
   size_t scan_task_id = 0;
   std::vector<Future<>> scan_futures;
   for (auto maybe_scan_task : scan_task_it) {
