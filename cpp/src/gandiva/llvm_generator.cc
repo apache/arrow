@@ -500,7 +500,7 @@ llvm::Value* LLVMGenerator::AddFunctionCall(const std::string& full_name,
 
   // build a call to the llvm function.
   llvm::Value* value;
-  if (ret_type->isVoidTy()) {
+  if (ret_type == nullptr || ret_type->isVoidTy()) {
     // void functions can't have a name for the call.
     value = ir_builder()->CreateCall(fn, args);
   } else {
