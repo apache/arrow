@@ -152,6 +152,12 @@ def test_items_per_second():
         "time_unit": "ns",
     }
     archery_result = {
+        "counters": {"iterations": 5964,
+                     "null_percent": 0.0,
+                     "repetition_index": 0,
+                     "repetitions": 0,
+                     "run_name": "ArrayArrayKernel<AddChecked, UInt8Type>/32768/0",
+                     "threads": 1},
         "name": name,
         "unit": "items_per_second",
         "less_is_better": False,
@@ -180,6 +186,11 @@ def test_bytes_per_second():
         "time_unit": "ns",
     }
     archery_result = {
+        "counters": {"iterations": 47,
+                     "repetition_index": 1,
+                     "repetitions": 0,
+                     "run_name": "BufferOutputStreamLargeWrites/real_time",
+                     "threads": 1},
         "name": name,
         "unit": "bytes_per_second",
         "less_is_better": False,
@@ -212,6 +223,12 @@ def test_both_items_and_bytes_per_second():
     }
     # Note that bytes_per_second trumps items_per_second
     archery_result = {
+        "counters": {"iterations": 5964,
+                     "null_percent": 0.0,
+                     "repetition_index": 0,
+                     "repetitions": 0,
+                     "run_name": "ArrayArrayKernel<AddChecked, UInt8Type>/32768/0",
+                     "threads": 1},
         "name": name,
         "unit": "bytes_per_second",
         "less_is_better": False,
@@ -239,6 +256,11 @@ def test_neither_items_nor_bytes_per_second():
         "time_unit": "ns",
     }
     archery_result = {
+        "counters": {"iterations": 352765,
+                     "repetition_index": 0,
+                     "repetitions": 0,
+                     "run_name": "AllocateDeallocate<Jemalloc>/size:1048576/real_time",
+                     "threads": 1},
         "name": name,
         "unit": "ns",
         "less_is_better": True,
@@ -266,6 +288,11 @@ def test_prefer_real_time():
         "time_unit": "ns",
     }
     archery_result = {
+        "counters": {"iterations": 352765,
+                     "repetition_index": 0,
+                     "repetitions": 0,
+                     "run_name": "AllocateDeallocate<Jemalloc>/size:1048576/real_time",
+                     "threads": 1},
         "name": name,
         "unit": "ns",
         "less_is_better": True,
@@ -298,6 +325,11 @@ def test_prefer_cpu_time():
         "values": [1778.6004847419827],
         "time_unit": "ns",
         "times": [1835.3137357788837],
+        "counters": {"iterations": 352765,
+                      "repetition_index": 0,
+                      "repetitions": 0,
+                      "run_name": "AllocateDeallocate<Jemalloc>/size:1048576",
+                      "threads": 1},
     }
     assert not name.endswith("/real_time")
     assert_benchmark(name, google_result, archery_result)
@@ -330,6 +362,11 @@ def test_omits_aggregates():
         "time_unit": "ns",
     }
     archery_result = {
+        "counters": {"iterations": 352765,
+                     "repetition_index": 0,
+                     "repetitions": 0,
+                     "run_name": "AllocateDeallocate<Jemalloc>/size:1048576/real_time",
+                     "threads": 1},
         "name": name,
         "unit": "ns",
         "less_is_better": True,
