@@ -22,232 +22,225 @@ access to Arrow memory and messages.
 
 Install the latest release of `arrow` from CRAN with
 
-```r
+``` r
 install.packages("arrow")
 ```
 
 Conda users can install `arrow` from conda-forge with
 
-```
-conda install -c conda-forge --strict-channel-priority r-arrow
-```
+    conda install -c conda-forge --strict-channel-priority r-arrow
 
 Installing a released version of the `arrow` package requires no
 additional system dependencies. For macOS and Windows, CRAN hosts binary
 packages that contain the Arrow C++ library. On Linux, source package
 installation will also build necessary C++ dependencies. For a faster,
-more complete installation, set the environment variable `NOT_CRAN=true`.
-See `vignette("install", package = "arrow")` for details.
+more complete installation, set the environment variable
+`NOT_CRAN=true`. See `vignette("install", package = "arrow")` for
+details.
 
 ## Installing a development version
 
-Development versions of the package (binary and source) are built daily and hosted at
-<https://arrow-r-nightly.s3.amazonaws.com>. To install from there:
+Development versions of the package (binary and source) are built
+nightly and hosted at <https://arrow-r-nightly.s3.amazonaws.com>. To
+install from there:
 
 ``` r
 install.packages("arrow", repos = "https://arrow-r-nightly.s3.amazonaws.com")
 ```
 
-Or
+Or to switch to the latest nightly development version:
 
-```r
+``` r
 arrow::install_arrow(nightly = TRUE)
 ```
 
-Conda users can install `arrow` nightlies from our nightlies channel using:
+Conda users can install `arrow` nightly builds with
 
-```
-conda install -c arrow-nightlies -c conda-forge --strict-channel-priority r-arrow
-```
+    conda install -c arrow-nightlies -c conda-forge --strict-channel-priority r-arrow
 
-These daily package builds are not official Apache releases and are not
-recommended for production use. They may be useful for testing bug fixes
-and new features under active development.
+These nightly package builds are not official Apache releases and are
+not recommended for production use. They may be useful for testing bug
+fixes and new features under active development.
 
-## Developing
+## Apache Arrow metadata and data objects
 
-Windows and macOS users who wish to contribute to the R package and
-don’t need to alter the Arrow C++ library may be able to obtain a
-recent version of the library without building from source. On macOS,
-you may install the C++ library using [Homebrew](https://brew.sh/):
+Arrow defines the following classes for representing metadata:
 
-``` shell
-# For the released version:
-brew install apache-arrow
-# Or for a development version, you can try:
-brew install apache-arrow --HEAD
-```
+| Class      | Description                                      | How to create an instance        |
+|------------|--------------------------------------------------|----------------------------------|
+| `DataType` | attribute controlling how values are represented | functions in `help("data-type")` |
+| `Field`    | string name and a `DataType`                     | `field(name, type)`              |
+| `Schema`   | list of `Field`s                                 | `schema(...)`                    |
 
-On Windows, you can download a .zip file with the arrow dependencies from the
-[nightly repository](https://arrow-r-nightly.s3.amazonaws.com/libarrow/bin/windows/),
-and then set the `RWINLIB_LOCAL` environment variable to point to that
-zip file before installing the `arrow` R package. Version numbers in that
-repository correspond to dates, and you will likely want the most recent.
+Arrow defines the following classes for representing 0-dimensional
+(scalar), 1-dimensional (vector), and 2-dimensional (tabular/data
+frame-like) data:
 
-If you need to alter both the Arrow C++ library and the R package code,
-or if you can’t get a binary version of the latest C++ library
-elsewhere, you’ll need to build it from source too.
+| Dim | Class          | Description                               | How to create an instance                          |
+|-----|----------------|-------------------------------------------|----------------------------------------------------|
+| 0   | `Scalar`       | single value and its `DataType`           | `Scalar$create(value, type)`                       |
+| 1   | `Array`        | vector of values and its `DataType`       | `Array$create(vector, type)`                       |
+| 1   | `ChunkedArray` | list of `Array`s with the same `DataType` | `chunked_array(..., type)`                         |
+| 2   | `RecordBatch`  | list of `Array`s with a `Schema`          | `record_batch(...)`                                |
+| 2   | `Table`        | list of `ChunkedArray` with a `Schema`    | `Table$create(...)` or `arrow::read_*()` functions |
+| 2   | `Dataset`      | list of `Table`s with the same `Schema`   | see `vignette("dataset", package = "arrow")`       |
 
-First, install the C++ library. See the [developer
-guide](https://arrow.apache.org/docs/developers/cpp/building.html) for details.
-It's recommended to make a `build` directory inside of the `cpp` directory of
-the Arrow git repository (it is git-ignored). Assuming you are inside `cpp/build`,
-you'll first call `cmake` to configure the build and then `make install`.
-For the R package, you'll need to enable several features in the C++ library
-using `-D` flags:
+These classes exist in the `arrow` R package and correspond to classes
+of the same names in the Arrow C++ library. For convenience, the `arrow`
+package also defines several synthetic classes that do not exist in the
+C++ library, including:
 
-```
-cmake \
-  -DARROW_COMPUTE=ON \
-  -DARROW_CSV=ON \
-  -DARROW_DATASET=ON \
-  -DARROW_FILESYSTEM=ON \
-  -DARROW_JEMALLOC=ON \
-  -DARROW_JSON=ON \
-  -DARROW_PARQUET=ON \
-  -DCMAKE_BUILD_TYPE=release \
-  -DARROW_INSTALL_NAME_RPATH=OFF \
-  ..
-```
+-   `ArrowDatum`: inherited by `Scalar`, `Array`, and `ChunkedArray`
+-   `ArrowTabular`: inherited by `RecordBatch` and `Table`
+-   `ArrowObject`: inherited by all Arrow objects
 
-where `..` is the path to the `cpp/` directory when you're in `cpp/build`.
+These are all defined as `R6` classes. The `arrow` package provides a
+variety of `R6` and S3 methods for interacting with instances of these
+classes.
 
-To enable optional features including S3 support, an alternative memory allocator, and additional compression libraries, add some or all of these flags:
+## Reading and writing data files with Arrow
 
-```
-  -DARROW_S3=ON \
-  -DARROW_MIMALLOC=ON \
-  -DARROW_WITH_BROTLI=ON \
-  -DARROW_WITH_BZ2=ON \
-  -DARROW_WITH_LZ4=ON \
-  -DARROW_WITH_SNAPPY=ON \
-  -DARROW_WITH_ZLIB=ON \
-  -DARROW_WITH_ZSTD=ON \
-```
+The `arrow` package provides functions for reading data from several
+common file formats. By default, calling any of these functions returns
+an R data frame. To return an Arrow `Table`, set argument
+`as_data_frame = FALSE`.
 
-Other flags that may be useful:
+-   `read_delim_arrow()`: read a delimited text file (default delimiter
+    is comma)
+-   `read_csv_arrow()`: read a comma-separated values (CSV) file
+-   `read_tsv_arrow()`: a tab-separated values (TSV) file
+-   `read_json_arrow()`: read a JSON data file
+-   `read_feather()`: read a file in Feather format (the Apache Arrow
+    IPC format)
+-   `read_parquet()`: read a file in Parquet format (an efficient
+    columnar data format)
 
-* `-DARROW_EXTRA_ERROR_CONTEXT=ON` makes errors coming from the C++ library point to files and line numbers
-* `-DBOOST_SOURCE=BUNDLED`, for example, or any other dependency `*_SOURCE`, if you have a system version of a C++ dependency that doesn't work correctly with Arrow. This tells the build to compile its own version of the dependency from source.
+For writing Arrow tabular data structures to files, the `arrow` package
+provides the functions `write_feather()` and `write_parquet()`. These
+functions also accept R data frames.
 
-Note that after any change to the C++ library, you must reinstall it and
-run `make clean` or `git clean -fdx .` to remove any cached object code
-in the `r/src/` directory before reinstalling the R package. This is
-only necessary if you make changes to the C++ library source; you do not
-need to manually purge object files if you are only editing R or C++
-code inside `r/`.
+## Using dplyr with Arrow
 
-Once you’ve built the C++ library, you can install the R package and its
-dependencies, along with additional dev dependencies, from the git
-checkout:
-
-``` shell
-cd ../../r
-
-Rscript -e '
-options(repos = "https://cloud.r-project.org/")
-if (!require("remotes")) install.packages("remotes")
-remotes::install_deps(dependencies = TRUE)
-'
-
-R CMD INSTALL .
-```
-
-If you need to set any compilation flags while building the C++
-extensions, you can use the `ARROW_R_CXXFLAGS` environment variable. For
-example, if you are using `perf` to profile the R extensions, you may
-need to set
-
-``` shell
-export ARROW_R_CXXFLAGS=-fno-omit-frame-pointer
-```
-
-If the package fails to install/load with an error like this:
-
-    ** testing if installed package can be loaded from temporary location
-    Error: package or namespace load failed for 'arrow' in dyn.load(file, DLLpath = DLLpath, ...):
-    unable to load shared object '/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so':
-    dlopen(/Users/you/R/00LOCK-r/00new/arrow/libs/arrow.so, 6): Library not loaded: @rpath/libarrow.14.dylib
-
-ensure that `-DARROW_INSTALL_NAME_RPATH=OFF` was passed (this is important on
-macOS to prevent problems at link time and is a no-op on other platforms).
-Alternativelly, try setting the environment variable `R_LD_LIBRARY_PATH` to
-wherever Arrow C++ was put in `make install`, e.g. `export
-R_LD_LIBRARY_PATH=/usr/local/lib`, and retry installing the R package.
-
-When installing from source, if the R and C++ library versions do not
-match, installation may fail. If you’ve previously installed the
-libraries and want to upgrade the R package, you’ll need to update the
-Arrow C++ library first.
-
-For any other build/configuration challenges, see the [C++ developer
-guide](https://arrow.apache.org/docs/developers/cpp/building.html) and
-`vignette("install", package = "arrow")`.
-
-### Editing C++ code
-
-The `arrow` package uses some customized tools on top of `cpp11` to
-prepare its C++ code in `src/`. If you change C++ code in the R package,
-you will need to set the `ARROW_R_DEV` environment variable to `TRUE`
-(optionally, add it to your`~/.Renviron` file to persist across
-sessions) so that the `data-raw/codegen.R` file is used for code
-generation.
-
-We use Google C++ style in our C++ code. Check for style errors with
-
-    ./lint.sh
-
-Fix any style issues before committing with
-
-    ./lint.sh --fix
-
-The lint script requires Python 3 and `clang-format-8`. If the command
-isn’t found, you can explicitly provide the path to it like
-`CLANG_FORMAT=$(which clang-format-8) ./lint.sh`. On macOS, you can get
-this by installing LLVM via Homebrew and running the script as
-`CLANG_FORMAT=$(brew --prefix llvm@8)/bin/clang-format ./lint.sh`
-
-### Running tests
-
-Some tests are conditionally enabled based on the availability of certain
-features in the package build (S3 support, compression libraries, etc.).
-Others are generally skipped by default but can be enabled with environment
-variables or other settings:
-
-* All tests are skipped on Linux if the package builds without the C++ libarrow.
-  To make the build fail if libarrow is not available (as in, to test that
-  the C++ build was successful), set `TEST_R_WITH_ARROW=TRUE`
-* Some tests are disabled unless `ARROW_R_DEV=TRUE`
-* Tests that require allocating >2GB of memory to test Large types are disabled
-  unless `ARROW_LARGE_MEMORY_TESTS=TRUE`
-* Integration tests against a real S3 bucket are disabled unless credentials
-  are set in `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`; these are available
-  on request
-* S3 tests using [MinIO](https://min.io/) locally are enabled if the
-  `minio server` process is found running. If you're running MinIO with custom
-  settings, you can set `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, and
-  `MINIO_PORT` to override the defaults.
-
-### Useful functions
-
-Within an R session, these can help with package development:
+The `arrow` package provides a `dplyr` backend, enabling manipulation of
+Arrow tabular data with `dplyr` verbs. To start, load both `arrow` and
+`dplyr`:
 
 ``` r
-devtools::load_all() # Load the dev package
-devtools::test(filter="^regexp$") # Run the test suite, optionally filtering file names
-devtools::document() # Update roxygen documentation
-pkgdown::build_site() # To preview the documentation website
-devtools::check() # All package checks; see also below
-covr::package_coverage() # See test coverage statistics
+library(arrow, warn.conflicts = FALSE)
+library(dplyr, warn.conflicts = FALSE)
 ```
 
-Any of those can be run from the command line by wrapping them in `R -e
-'$COMMAND'`. There’s also a `Makefile` to help with some common tasks
-from the command line (`make test`, `make doc`, `make clean`, etc.)
+Then create an Arrow `Table` or `RecordBatch` using one of the creation
+or file loading functions listed above. For example, create a `Table`
+named `sw` with the Star Wars characters data frame that’s included in
+`dplyr`:
 
-### Full package validation
-
-``` shell
-R CMD build .
-R CMD check arrow_*.tar.gz --as-cran
+``` r
+sw <- Table$create(starwars)
 ```
+
+Or read the same data from a Parquet file, using `as_data_frame = FALSE`
+to create a `Table` named `sw`:
+
+``` r
+data_file <- tempfile()
+write_parquet(starwars, data_file)
+sw <- read_parquet(data_file, as_data_frame = FALSE)
+```
+
+For larger or multi-file datasets, load the data into a `Dataset` as
+described in `vignette("dataset", package = "arrow")`.
+
+Next, pipe on `dplyr` verbs:
+
+``` r
+result <- sw %>% 
+  filter(homeworld == "Tatooine") %>% 
+  rename(height_cm = height, mass_kg = mass) %>%
+  mutate(height_in = height_cm / 2.54, mass_lbs = mass_kg * 2.2046) %>%
+  arrange(desc(birth_year)) %>%
+  select(name, height_in, mass_lbs)
+```
+
+The `arrow` package uses lazy evaluation. `result` is an object with
+class `arrow_dplyr_query` which represents the computations to be
+performed.
+
+``` r
+result
+#> Table (query)
+#> name: string
+#> height_in: expr
+#> mass_lbs: expr
+#> 
+#> * Filter: equal(homeworld, "Tatooine")
+#> * Sorted by birth_year [desc]
+#> See $.data for the source Arrow object
+```
+
+To execute these computations and obtain the result, call `compute()` or
+`collect()`. `compute()` returns an Arrow `Table`, suitable for passing
+to other `arrow` or `dplyr` functions.
+
+``` r
+result %>% compute()
+#> Table
+#> 10 rows x 3 columns
+#> $name <string>
+#> $height_in <double>
+#> $mass_lbs <double>
+```
+
+`collect()` returns an R data frame or tibble, suitable for viewing or
+passing to other R functions for analysis or visualization:
+
+``` r
+result %>% collect()
+#> # A tibble: 10 x 3
+#>    name               height_in mass_lbs
+#>    <chr>                  <dbl>    <dbl>
+#>  1 C-3PO                   65.7    165. 
+#>  2 Cliegg Lars             72.0     NA  
+#>  3 Shmi Skywalker          64.2     NA  
+#>  4 Owen Lars               70.1    265. 
+#>  5 Beru Whitesun lars      65.0    165. 
+#>  6 Darth Vader             79.5    300. 
+#>  7 Anakin Skywalker        74.0    185. 
+#>  8 Biggs Darklighter       72.0    185. 
+#>  9 Luke Skywalker          67.7    170. 
+#> 10 R5-D4                   38.2     70.5
+```
+
+Arrow supports most dplyr verbs except those that compute aggregates
+(such as `summarise()` and `mutate()` after `group_by()`). Inside dplyr
+verbs, Arrow offers limited support for functions and operators, with
+broader support expected in upcoming releases. For more information
+about available compute functions, see `help("list_compute_functions")`.
+
+For dplyr queries on `Table` and `RecordBatch` objects, if the `arrow` R
+package detects an unsupported function within a dplyr verb, it
+automatically calls `collect()` to return the data as an R data frame
+before processing that dplyr verb.
+
+## Getting help
+
+If you encounter a bug, please file an issue with a minimal reproducible
+example on [the Apache Jira issue
+tracker](https://issues.apache.org/jira/). Choose the project **Apache
+Arrow (ARROW)**, select the component **R**, and begin the issue summary
+with **\[R\]** followed by a space. For more information, see the
+**Report bugs and propose features** section of the [Contributing to
+Apache
+Arrow](https://arrow.apache.org/docs/developers/contributing.html) page
+in the Arrow developer documentation.
+
+We welcome questions and discussion about the `arrow` package. For
+information about mailing lists and other venues for engaging with the
+Arrow developer and user communities, please see the [Apache Arrow
+Community](https://arrow.apache.org/community/) page.
+
+------------------------------------------------------------------------
+
+All participation in the Apache Arrow project is governed by the Apache
+Software Foundation’s [code of
+conduct](https://www.apache.org/foundation/policies/conduct.html).
