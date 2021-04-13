@@ -108,7 +108,7 @@ an R data frame. To return an Arrow `Table`, set argument
 -   `read_delim_arrow()`: read a delimited text file (default delimiter
     is comma)
 -   `read_csv_arrow()`: read a comma-separated values (CSV) file
--   `read_tsv_arrow()`: a tab-separated values (TSV) file
+-   `read_tsv_arrow()`: read a tab-separated values (TSV) file
 -   `read_json_arrow()`: read a JSON data file
 -   `read_feather()`: read a file in Feather format (the Apache Arrow
     IPC format)
@@ -211,7 +211,7 @@ result %>% collect()
 ```
 
 Arrow supports most `dplyr` verbs except those that compute aggregates
-(such as `summarise()` and `mutate()` after `group_by()`). Inside
+(such as `summarise()`, and `mutate()` after `group_by()`). Inside
 `dplyr` verbs, Arrow offers limited support for functions and operators,
 with broader support expected in upcoming releases. For more information
 about available compute functions, see `help("list_compute_functions")`.
