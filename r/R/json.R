@@ -20,8 +20,7 @@
 #' Using [JsonTableReader]
 #'
 #' @inheritParams read_delim_arrow
-#' @param schema [Schema] that describes the table.  If provided, it will be
-#' used to satisfy both `col_names` and `col_types`.
+#' @param schema [Schema] that describes the table.
 #' @param ... Additional options passed to `JsonTableReader$create()`
 #'
 #' @return A `data.frame`, or a Table if `as_data_frame = FALSE`.
