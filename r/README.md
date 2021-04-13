@@ -80,27 +80,19 @@ Arrow defines the following classes for representing zero-dimensional
 (scalar), one-dimensional (array/vector-like), and two-dimensional
 (tabular/data frame-like) data:
 
-| Dim | Class          | Description                               | How to create an instance                          |
-|-----|----------------|-------------------------------------------|----------------------------------------------------|
-| 0   | `Scalar`       | single value and its `DataType`           | `Scalar$create(value, type)`                       |
-| 1   | `Array`        | vector of values and its `DataType`       | `Array$create(vector, type)`                       |
-| 1   | `ChunkedArray` | list of `Array`s with the same `DataType` | `chunked_array(..., type)`                         |
-| 2   | `RecordBatch`  | list of `Array`s with a `Schema`          | `record_batch(...)`                                |
-| 2   | `Table`        | list of `ChunkedArray` with a `Schema`    | `Table$create(...)` or `arrow::read_*()` functions |
-| 2   | `Dataset`      | list of `Table`s with the same `Schema`   | see `vignette("dataset", package = "arrow")`       |
+| Dim | Class          | Description                             | How to create an instance                                     |
+|-----|----------------|-----------------------------------------|---------------------------------------------------------------|
+| 0   | `Scalar`       | single value and its `DataType`         | `Scalar$create(value, type)`                                  |
+| 1   | `Array`        | vector of values and its `DataType`     | `Array$create(vector, type)`                                  |
+| 1   | `ChunkedArray` | vectors of values and their `DataType`  | `ChunkedArray$create(..., type)`                              |
+| 2   | `RecordBatch`  | list of `Array`s with a `Schema`        | `RecordBatch$create(...)`                                     |
+| 2   | `Table`        | list of `ChunkedArray` with a `Schema`  | `Table$create(...)` or `arrow::read_*(as_data_frame = FALSE)` |
+| 2   | `Dataset`      | list of `Table`s with the same `Schema` | see `vignette("dataset", package = "arrow")`                  |
 
-These classes exist in the `arrow` R package and correspond to classes
-of the same names in the Arrow C++ library. For convenience, the `arrow`
-package also defines several synthetic classes that do not exist in the
-C++ library, including:
-
--   `ArrowDatum`: inherited by `Scalar`, `Array`, and `ChunkedArray`
--   `ArrowTabular`: inherited by `RecordBatch` and `Table`
--   `ArrowObject`: inherited by all Arrow objects
-
-These are all defined as `R6` classes. The `arrow` package provides a
-variety of `R6` and S3 methods for interacting with instances of these
-classes.
+Each of these is defined as an `R6` class in the `arrow` R package and
+corresponds to a class of the same name in the Arrow C++ library. The
+`arrow` package provides a variety of `R6` and S3 methods for
+interacting with instances of these classes.
 
 ## Reading and writing data files with Arrow
 
@@ -109,18 +101,18 @@ common file formats. By default, calling any of these functions returns
 an R data frame. To return an Arrow `Table`, set argument
 `as_data_frame = FALSE`.
 
+-   `read_parquet()`: read a file in Parquet format (an efficient
+    columnar data format)
+-   `read_feather()`: read a file in Feather format (the Apache Arrow
+    IPC format)
 -   `read_delim_arrow()`: read a delimited text file (default delimiter
     is comma)
 -   `read_csv_arrow()`: read a comma-separated values (CSV) file
 -   `read_tsv_arrow()`: read a tab-separated values (TSV) file
 -   `read_json_arrow()`: read a JSON data file
--   `read_feather()`: read a file in Feather format (the Apache Arrow
-    IPC format)
--   `read_parquet()`: read a file in Parquet format (an efficient
-    columnar data format)
 
 For writing Arrow tabular data structures to files, the `arrow` package
-provides the functions `write_feather()` and `write_parquet()`. These
+provides the functions `write_parquet()` and `write_feather()`. These
 functions also accept R data frames.
 
 ## Using dplyr with Arrow
