@@ -28,7 +28,9 @@ install.packages("arrow")
 
 Conda users can install `arrow` from conda-forge with
 
-    conda install -c conda-forge --strict-channel-priority r-arrow
+``` shell
+conda install -c conda-forge --strict-channel-priority r-arrow
+```
 
 Installing a released version of the `arrow` package requires no
 additional system dependencies. For macOS and Windows, CRAN hosts binary
@@ -56,7 +58,9 @@ arrow::install_arrow(nightly = TRUE)
 
 Conda users can install `arrow` nightly builds with
 
-    conda install -c arrow-nightlies -c conda-forge --strict-channel-priority r-arrow
+``` shell
+conda install -c arrow-nightlies -c conda-forge --strict-channel-priority r-arrow
+```
 
 These nightly package builds are not official Apache releases and are
 not recommended for production use. They may be useful for testing bug
