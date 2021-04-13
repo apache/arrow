@@ -212,13 +212,23 @@ TEST_P(TestScanner, TakeIndices) {
     ArrayFromVector<Int64Type>(internal::Iota(kBatchSize), &indices);
     ASSERT_OK_AND_ASSIGN(auto taken, scanner->TakeRows(*indices));
     ASSERT_OK_AND_ASSIGN(auto expected, Table::FromRecordBatches({batch}));
+    ASSERT_EQ(expected->num_rows(), kBatchSize);
     AssertTablesEqual(*expected, *taken);
   }
   {
-    ArrayFromVector<Int64Type>({1, 3, 5, 7}, &indices);
+    ArrayFromVector<Int64Type>({7, 5, 3, 1}, &indices);
     ASSERT_OK_AND_ASSIGN(auto taken, scanner->TakeRows(*indices));
     ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
     ASSERT_OK_AND_ASSIGN(auto expected, compute::Take(table, *indices));
+    ASSERT_EQ(expected.table()->num_rows(), 4);
+    AssertTablesEqual(*expected.table(), *taken);
+  }
+  {
+    ArrayFromVector<Int64Type>({kBatchSize + 2, kBatchSize + 1}, &indices);
+    ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
+    ASSERT_OK_AND_ASSIGN(auto taken, scanner->TakeRows(*indices));
+    ASSERT_OK_AND_ASSIGN(auto expected, compute::Take(table, *indices));
+    ASSERT_EQ(expected.table()->num_rows(), 2);
     AssertTablesEqual(*expected.table(), *taken);
   }
   {
@@ -227,7 +237,24 @@ TEST_P(TestScanner, TakeIndices) {
     ASSERT_OK_AND_ASSIGN(auto taken, scanner->TakeRows(*indices));
     ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
     ASSERT_OK_AND_ASSIGN(auto expected, compute::Take(table, *indices));
+    ASSERT_EQ(expected.table()->num_rows(), 6);
     AssertTablesEqual(*expected.table(), *taken);
+  }
+  {
+    auto base = kNumberChildDatasets * kNumberBatches * kBatchSize;
+    ArrayFromVector<Int64Type>({base + 1}, &indices);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IndexError, ::testing::HasSubstr("Some indices were out of bounds: 32769"),
+        scanner->TakeRows(*indices));
+  }
+  {
+    auto base = kNumberChildDatasets * kNumberBatches * kBatchSize;
+    ArrayFromVector<Int64Type>(
+        {1, 2, base + 1, base + 2, base + 3, base + 4, base + 5, base + 6}, &indices);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        IndexError,
+        ::testing::HasSubstr("Some indices were out of bounds: 32769, 32770, 32771, ..."),
+        scanner->TakeRows(*indices));
   }
 }
 

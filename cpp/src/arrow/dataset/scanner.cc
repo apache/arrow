@@ -21,6 +21,7 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <sstream>
 
 #include "arrow/array/array_primitive.h"
 #include "arrow/compute/api_scalar.h"
@@ -509,6 +510,10 @@ Result<std::shared_ptr<Table>> Scanner::TakeRows(const Array& indices) {
       ++length;
     }
     DCHECK_LE(offset + length, original_indices->length());
+    if (length == 0) {
+      row_begin += batch.record_batch->num_rows();
+      continue;
+    }
 
     Datum rel_indices = original_indices->Slice(offset, length);
     ARROW_ASSIGN_OR_RAISE(rel_indices,
@@ -524,9 +529,19 @@ Result<std::shared_ptr<Table>> Scanner::TakeRows(const Array& indices) {
     row_begin += batch.record_batch->num_rows();
   }
 
+  if (offset < original_indices->length()) {
+    std::stringstream error;
+    const int64_t max_values_shown = 3;
+    const int64_t num_remaining = original_indices->length() - offset;
+    for (int64_t i = 0; i < std::min<int64_t>(max_values_shown, num_remaining); i++) {
+      if (i > 0) error << ", ";
+      error << static_cast<const Int64Array*>(original_indices)->Value(offset + i);
+    }
+    if (num_remaining > max_values_shown) error << ", ...";
+    return Status::IndexError("Some indices were out of bounds: ", error.str());
+  }
   ARROW_ASSIGN_OR_RAISE(Datum out, Table::FromRecordBatches(options()->projected_schema,
                                                             std::move(out_batches)));
-
   ARROW_ASSIGN_OR_RAISE(
       out, compute::Take(out, unsort_indices, compute::TakeOptions::Defaults(), &ctx));
   return out.table();
