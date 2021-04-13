@@ -35,9 +35,12 @@ use ballista_core::{
     serde::scheduler::PartitionLocation,
 };
 use datafusion::execution::context::ExecutionContext;
+use datafusion::physical_optimizer::coalesce_batches::CoalesceBatches;
+use datafusion::physical_optimizer::optimizer::PhysicalOptimizerRule;
 use datafusion::physical_plan::hash_aggregate::{AggregateMode, HashAggregateExec};
 use datafusion::physical_plan::hash_join::HashJoinExec;
 use datafusion::physical_plan::merge::MergeExec;
+use datafusion::physical_optimizer::merge_exec::AddMergeExec;
 use datafusion::physical_plan::ExecutionPlan;
 use log::{debug, info};
 use tokio::task::JoinHandle;
@@ -136,7 +139,12 @@ impl DistributedPlanner {
         }
 
         if let Some(adapter) = execution_plan.as_any().downcast_ref::<DFTableAdapter>() {
-            let ctx = ExecutionContext::new();
+            let rules: Vec<Arc<dyn PhysicalOptimizerRule + Send + Sync>> = vec![
+                Arc::new(CoalesceBatches::new()),
+                Arc::new(AddMergeExec::new()),
+            ];
+            let mut ctx = ExecutionContext::new();
+            let ctx = ctx.with_physical_optimizers(rules);
             Ok((ctx.create_physical_plan(&adapter.logical_plan)?, stages))
         } else if let Some(merge) = execution_plan.as_any().downcast_ref::<MergeExec>() {
             let query_stage = create_query_stage(
