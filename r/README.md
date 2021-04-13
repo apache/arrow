@@ -69,12 +69,12 @@ Arrow defines the following classes for representing metadata:
 | Class      | Description                                      | How to create an instance        |
 |------------|--------------------------------------------------|----------------------------------|
 | `DataType` | attribute controlling how values are represented | functions in `help("data-type")` |
-| `Field`    | string name and a `DataType`                     | `field(name, type)`              |
+| `Field`    | a character string name and a `DataType`         | `field(name, type)`              |
 | `Schema`   | list of `Field`s                                 | `schema(...)`                    |
 
-Arrow defines the following classes for representing 0-dimensional
-(scalar), 1-dimensional (vector), and 2-dimensional (tabular/data
-frame-like) data:
+Arrow defines the following classes for representing zero-dimensional
+(scalar), one-dimensional (array/vector-like), and two-dimensional
+(tabular/data frame-like) data:
 
 | Dim | Class          | Description                               | How to create an instance                          |
 |-----|----------------|-------------------------------------------|----------------------------------------------------|
@@ -122,7 +122,7 @@ functions also accept R data frames.
 ## Using dplyr with Arrow
 
 The `arrow` package provides a `dplyr` backend, enabling manipulation of
-Arrow tabular data with `dplyr` verbs. To start, load both `arrow` and
+Arrow tabular data with `dplyr` verbs. To begin, load both `arrow` and
 `dplyr`:
 
 ``` r
@@ -130,10 +130,10 @@ library(arrow, warn.conflicts = FALSE)
 library(dplyr, warn.conflicts = FALSE)
 ```
 
-Then create an Arrow `Table` or `RecordBatch` using one of the creation
-or file loading functions listed above. For example, create a `Table`
-named `sw` with the Star Wars characters data frame that’s included in
-`dplyr`:
+Then create an Arrow `Table` or `RecordBatch` using one of the object
+creation or file loading functions listed above. For example, create a
+`Table` named `sw` with the Star Wars characters data frame that’s
+included in `dplyr`:
 
 ``` r
 sw <- Table$create(starwars)
@@ -143,8 +143,7 @@ Or read the same data from a Parquet file, using `as_data_frame = FALSE`
 to create a `Table` named `sw`:
 
 ``` r
-data_file <- tempfile()
-write_parquet(starwars, data_file)
+write_parquet(starwars, data_file <- tempfile()) # write file to demonstrate reading it
 sw <- read_parquet(data_file, as_data_frame = FALSE)
 ```
 
