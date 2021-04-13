@@ -241,9 +241,21 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      binary(), kResultNullIfNull, "convert_toBIGINT_binary",
                      NativeFunction::kNeedsContext),
 
+      NativeFunction("convert_toBOOLEAN_BYTE", {"convert_toboolean_byte"},
+                     DataTypeVector{boolean()}, binary(), kResultNullIfNull,
+                     "convert_toBOOLEAN_binary", NativeFunction::kNeedsContext),
+
       NativeFunction("convert_toTIME_EPOCH", {"convert_totime_epoch"},
                      DataTypeVector{time32()}, binary(), kResultNullIfNull,
                      "convert_toTIME_EPOCH_binary", NativeFunction::kNeedsContext),
+
+      NativeFunction("convert_toTIMESTAMP_EPOCH", {"convert_totimestamp_epoch"},
+                     DataTypeVector{timestamp()}, binary(), kResultNullIfNull,
+                     "convert_toTIMESTAMP_EPOCH_binary", NativeFunction::kNeedsContext),
+
+      NativeFunction("convert_toDATE_EPOCH", {"convert_todate_epoch"},
+                     DataTypeVector{date64()}, binary(), kResultNullIfNull,
+                     "convert_toDATE_EPOCH_binary", NativeFunction::kNeedsContext),
 
       NativeFunction("convert_toUTF8", {"convert_toutf8"}, DataTypeVector{utf8()},
                      binary(), kResultNullIfNull, "convert_toUTF8_binary",

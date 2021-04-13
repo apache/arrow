@@ -1384,9 +1384,38 @@ const char* convert_toINT_binary(int64_t context, int32_t value, int32_t* out_le
 }
 
 FORCE_INLINE
+const char* convert_toBOOLEAN_binary(int64_t context, bool value, int32_t* out_len) {
+  *out_len = sizeof(value);
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context,
+                                 "Could not allocate memory for the output string");
+
+    *out_len = 0;
+    return "";
+  }
+
+  memcpy(ret, &value, *out_len);
+
+  return ret;
+}
+
+FORCE_INLINE
 const char* convert_toTIME_EPOCH_binary(int64_t context, int32_t value,
                                         int32_t* out_len) {
   return convert_toINT_binary(context, value, out_len);
+}
+
+FORCE_INLINE
+const char* convert_toTIMESTAMP_EPOCH_binary(int64_t context, int64_t timestamp,
+                                             int32_t* out_len) {
+  return convert_toBIGINT_binary(context, timestamp, out_len);
+}
+
+FORCE_INLINE
+const char* convert_toDATE_EPOCH_binary(int64_t context, int64_t date, int32_t* out_len) {
+  return convert_toBIGINT_binary(context, date, out_len);
 }
 
 FORCE_INLINE

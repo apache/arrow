@@ -433,7 +433,14 @@ const char* convert_toBIGINT_binary(int64_t context, int64_t value, int32_t* out
 
 const char* convert_toINT_binary(int64_t context, int32_t value, int32_t* out_len);
 
+const char* convert_toBOOLEAN_binary(int64_t context, bool value, int32_t* out_len);
+
 const char* convert_toTIME_EPOCH_binary(int64_t context, int32_t value, int32_t* out_len);
+
+const char* convert_toTIMESTAMP_EPOCH_binary(int64_t context, int64_t timestamp,
+                                             int32_t* out_len);
+
+const char* convert_toDATE_EPOCH_binary(int64_t context, int64_t date, int32_t* out_len);
 
 const char* convert_toUTF8_binary(int64_t context, const char* value, int32_t value_len,
                                   int32_t* out_len);
