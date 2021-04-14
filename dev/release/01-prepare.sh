@@ -294,7 +294,7 @@ if [ ${PREPARE_BRANCH} -gt 0 ]; then
   echo "Create release branch ${release_branch}"
   if [[ $(git branch -l "${release_candidate_branch}") ]]; then
     echo "Branch already exists, deleting it."
-    git branch -d ${release_branch}
+    git branch -D ${release_branch}
   fi
   git checkout -b ${release_branch}
 fi
