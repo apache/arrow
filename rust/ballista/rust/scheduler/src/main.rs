@@ -29,12 +29,12 @@ use ballista_core::BALLISTA_VERSION;
 use ballista_core::{
     print_version, serde::protobuf::scheduler_grpc_server::SchedulerGrpcServer,
 };
+use ballista_scheduler::api::{get_routes, EitherBody, Error};
 #[cfg(feature = "etcd")]
 use ballista_scheduler::state::EtcdClient;
 #[cfg(feature = "sled")]
 use ballista_scheduler::state::StandaloneClient;
 use ballista_scheduler::{state::ConfigBackendClient, ConfigBackend, SchedulerServer};
-use ballista_scheduler::api::{get_routes, EitherBody, Error};
 
 use log::info;
 
@@ -63,8 +63,10 @@ async fn start_server(
     );
     Ok(Server::bind(&addr)
         .serve(make_service_fn(move |_| {
-            let scheduler_server = SchedulerServer::new(config_backend.clone(), namespace.clone());
-            let scheduler_grpc_server = SchedulerGrpcServer::new(scheduler_server.clone());
+            let scheduler_server =
+                SchedulerServer::new(config_backend.clone(), namespace.clone());
+            let scheduler_grpc_server =
+                SchedulerGrpcServer::new(scheduler_server.clone());
 
             let mut tonic = TonicServer::builder()
                 .add_service(scheduler_grpc_server)

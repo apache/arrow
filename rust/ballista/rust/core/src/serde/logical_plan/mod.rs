@@ -212,8 +212,8 @@ mod roundtrip_tests {
             ScalarValue::LargeUtf8(None),
             ScalarValue::List(None, DataType::Boolean),
             ScalarValue::Date32(None),
-            ScalarValue::TimeMicrosecond(None),
-            ScalarValue::TimeNanosecond(None),
+            ScalarValue::TimestampMicrosecond(None),
+            ScalarValue::TimestampNanosecond(None),
             ScalarValue::Boolean(Some(true)),
             ScalarValue::Boolean(Some(false)),
             ScalarValue::Float32(Some(1.0)),
@@ -252,11 +252,11 @@ mod roundtrip_tests {
             ScalarValue::LargeUtf8(Some(String::from("Test Large utf8"))),
             ScalarValue::Date32(Some(0)),
             ScalarValue::Date32(Some(i32::MAX)),
-            ScalarValue::TimeNanosecond(Some(0)),
-            ScalarValue::TimeNanosecond(Some(i64::MAX)),
-            ScalarValue::TimeMicrosecond(Some(0)),
-            ScalarValue::TimeMicrosecond(Some(i64::MAX)),
-            ScalarValue::TimeMicrosecond(None),
+            ScalarValue::TimestampNanosecond(Some(0)),
+            ScalarValue::TimestampNanosecond(Some(i64::MAX)),
+            ScalarValue::TimestampMicrosecond(Some(0)),
+            ScalarValue::TimestampMicrosecond(Some(i64::MAX)),
+            ScalarValue::TimestampMicrosecond(None),
             ScalarValue::List(
                 Some(vec![
                     ScalarValue::Float32(Some(-213.1)),
@@ -610,8 +610,8 @@ mod roundtrip_tests {
             ScalarValue::Utf8(None),
             ScalarValue::LargeUtf8(None),
             ScalarValue::Date32(None),
-            ScalarValue::TimeMicrosecond(None),
-            ScalarValue::TimeNanosecond(None),
+            ScalarValue::TimestampMicrosecond(None),
+            ScalarValue::TimestampNanosecond(None),
             //ScalarValue::List(None, DataType::Boolean)
         ];
 

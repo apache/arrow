@@ -106,15 +106,12 @@ impl TryInto<Arc<dyn ExecutionPlan>> for &protobuf::PhysicalPlanNode {
                     .file_extension(&scan.file_extension)
                     .delimiter(scan.delimiter.as_bytes()[0])
                     .schema(&schema);
-                // TODO we don't care what the DataFusion batch size was because Ballista will
-                // have its own configs. Hard-code for now.
-                let batch_size = 32768;
                 let projection = scan.projection.iter().map(|i| *i as usize).collect();
                 Ok(Arc::new(CsvExec::try_new(
                     &scan.path,
                     options,
                     Some(projection),
-                    batch_size,
+                    scan.batch_size as usize,
                     None,
                 )?))
             }

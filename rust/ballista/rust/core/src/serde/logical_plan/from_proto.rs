@@ -510,10 +510,10 @@ fn typechecked_scalar_value_conversion(
             ScalarValue::Date32(Some(*v))
         }
         (Value::TimeMicrosecondValue(v), PrimitiveScalarType::TimeMicrosecond) => {
-            ScalarValue::TimeMicrosecond(Some(*v))
+            ScalarValue::TimestampMicrosecond(Some(*v))
         }
         (Value::TimeNanosecondValue(v), PrimitiveScalarType::TimeMicrosecond) => {
-            ScalarValue::TimeNanosecond(Some(*v))
+            ScalarValue::TimestampNanosecond(Some(*v))
         }
         (Value::Utf8Value(v), PrimitiveScalarType::Utf8) => {
             ScalarValue::Utf8(Some(v.to_owned()))
@@ -546,10 +546,10 @@ fn typechecked_scalar_value_conversion(
                     PrimitiveScalarType::LargeUtf8 => ScalarValue::LargeUtf8(None),
                     PrimitiveScalarType::Date32 => ScalarValue::Date32(None),
                     PrimitiveScalarType::TimeMicrosecond => {
-                        ScalarValue::TimeMicrosecond(None)
+                        ScalarValue::TimestampMicrosecond(None)
                     }
                     PrimitiveScalarType::TimeNanosecond => {
-                        ScalarValue::TimeNanosecond(None)
+                        ScalarValue::TimestampNanosecond(None)
                     }
                     PrimitiveScalarType::Null => {
                         return Err(proto_error(
@@ -609,10 +609,10 @@ impl TryInto<datafusion::scalar::ScalarValue> for &protobuf::scalar_value::Value
                 ScalarValue::Date32(Some(*v))
             }
             protobuf::scalar_value::Value::TimeMicrosecondValue(v) => {
-                ScalarValue::TimeMicrosecond(Some(*v))
+                ScalarValue::TimestampMicrosecond(Some(*v))
             }
             protobuf::scalar_value::Value::TimeNanosecondValue(v) => {
-                ScalarValue::TimeNanosecond(Some(*v))
+                ScalarValue::TimestampNanosecond(Some(*v))
             }
             protobuf::scalar_value::Value::ListValue(v) => v.try_into()?,
             protobuf::scalar_value::Value::NullListValue(v) => {
@@ -775,10 +775,10 @@ impl TryInto<datafusion::scalar::ScalarValue> for protobuf::PrimitiveScalarType 
             protobuf::PrimitiveScalarType::LargeUtf8 => ScalarValue::LargeUtf8(None),
             protobuf::PrimitiveScalarType::Date32 => ScalarValue::Date32(None),
             protobuf::PrimitiveScalarType::TimeMicrosecond => {
-                ScalarValue::TimeMicrosecond(None)
+                ScalarValue::TimestampMicrosecond(None)
             }
             protobuf::PrimitiveScalarType::TimeNanosecond => {
-                ScalarValue::TimeNanosecond(None)
+                ScalarValue::TimestampNanosecond(None)
             }
         })
     }
@@ -828,10 +828,10 @@ impl TryInto<datafusion::scalar::ScalarValue> for &protobuf::ScalarValue {
                 ScalarValue::Date32(Some(*v))
             }
             protobuf::scalar_value::Value::TimeMicrosecondValue(v) => {
-                ScalarValue::TimeMicrosecond(Some(*v))
+                ScalarValue::TimestampMicrosecond(Some(*v))
             }
             protobuf::scalar_value::Value::TimeNanosecondValue(v) => {
-                ScalarValue::TimeNanosecond(Some(*v))
+                ScalarValue::TimestampNanosecond(Some(*v))
             }
             protobuf::scalar_value::Value::ListValue(scalar_list) => {
                 let protobuf::ScalarListValue {
@@ -960,6 +960,15 @@ impl TryInto<Expr> for &protobuf::LogicalExprNode {
                     .ok_or_else(|| proto_error("Protobuf deserialization error: CastNode message missing required field 'arrow_type'"))?;
                 let data_type = arrow_type.try_into()?;
                 Ok(Expr::Cast { expr, data_type })
+            }
+            ExprType::TryCast(cast) => {
+                let expr = Box::new(parse_required_expr(&cast.expr)?);
+                let arrow_type: &protobuf::ArrowType = cast
+                    .arrow_type
+                    .as_ref()
+                    .ok_or_else(|| proto_error("Protobuf deserialization error: CastNode message missing required field 'arrow_type'"))?;
+                let data_type = arrow_type.try_into()?;
+                Ok(Expr::TryCast { expr, data_type })
             }
             ExprType::Sort(sort) => Ok(Expr::Sort {
                 expr: Box::new(parse_required_expr(&sort.expr)?),
