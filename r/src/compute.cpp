@@ -174,16 +174,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
   if (func_name == "min_max" || func_name == "sum" || func_name == "mean" || func_name == "count") {
     using Options = arrow::compute::ScalarAggregateOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
-
-    SEXP min_count = options["na.min_count"];
-    if (!Rf_isNull(min_count)) {
-      out->min_count = cpp11::as_cpp<int>(options["na.min_count"]);
-    }
-    SEXP null_handling = options["na.rm"];
-    if (!Rf_isNull(null_handling)) {
-      out->null_handling = cpp11::as_cpp<bool>(options["na.rm"]) ? Options::SKIPNA : Options::KEEPNA;
-    }
-
+    out->min_count = cpp11::as_cpp<int>(options["na.min_count"]);
+    out->null_handling = cpp11::as_cpp<bool>(options["na.rm"]) ? Options::SKIPNA : Options::KEEPNA;
     return out;
   }
 

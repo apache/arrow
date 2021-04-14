@@ -81,7 +81,7 @@ struct SumImpl : public ScalarAggregator {
 
   Status Finalize(KernelContext*, Datum* out) override {
     const auto& state = checked_cast<const SumImpl&>(*ctx->state());
-    if (this->count == 0 || this->count < options.min_count) {
+    if (this->count < options.min_count) {
       out->value = std::make_shared<OutputType>();
     } else {
       out->value = MakeScalar(this->sum);
@@ -101,7 +101,9 @@ struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
     //    const ScalarAggregateOptions& options = checked_cast<const ScalarAggregateState&>(*ctx->state()).options;
     const auto& state = checked_cast<const MeanImpl&>(*ctx->state());
 
-    if (this->count == 0 || this->count < options.min_count) {
+    if (this->count == 0 && options.min_count == 0) {
+      out->value = std::make_shared<DoubleScalar>(0);
+    } else if (this->count < options.min_count) {
       out->value = std::make_shared<DoubleScalar>();
     } else if (options.null_handling == ScalarAggregateOptions::KEEPNA) {
       const double mean = static_cast<double>(this->sum) / this->length;

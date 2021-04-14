@@ -95,32 +95,30 @@ list_compute_functions <- function(pattern = NULL, ...) {
 }
 
 #' @export
-sum.ArrowDatum <- function(..., na.rm = FALSE, na.min_count = NULL) {
-  a <- collect_arrays_from_dots(list(...))
-  if (is.null(na.min_count)) {
-    na.min_count = 0
-  }
+sum.ArrowDatum <- function(..., na.rm = FALSE, na.min_count = 0) {
   scalar_aggregate("sum", ..., na.rm = na.rm, na.min_count = na.min_count)
 }
 
 #' @export
-mean.ArrowDatum <- function(..., na.rm = FALSE, na.min_count = 0) {
-  a <- collect_arrays_from_dots(list(...))
+mean.ArrowDatum <- function(..., na.rm = FALSE, na.min_count = 1) {
   scalar_aggregate("mean", ..., na.rm = na.rm, na.min_count = na.min_count)
 }
 
 #' @export
-min.ArrowDatum <- function(..., na.rm = FALSE, na.min_count = 0) {
+min.ArrowDatum <- function(..., na.rm = FALSE, na.min_count = 1) {
   scalar_aggregate("min_max", ..., na.rm = na.rm, na.min_count = na.min_count)$GetFieldByName("min")
 }
 
 #' @export
-max.ArrowDatum <- function(..., na.rm = FALSE, na.min_count = 0) {
+max.ArrowDatum <- function(..., na.rm = FALSE, na.min_count = 1) {
   scalar_aggregate("min_max", ..., na.rm = na.rm, na.min_count = na.min_count)$GetFieldByName("max")
 }
 
 scalar_aggregate <- function(FUN, ..., na.rm, na.min_count) {
   a <- collect_arrays_from_dots(list(...))
+  if (!na.rm) {
+    na.min_count = length(a)
+  }
   call_function(FUN, a, options = list(na.rm = na.rm, na.min_count = na.min_count))
 }
 

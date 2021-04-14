@@ -49,7 +49,7 @@ struct ARROW_EXPORT ScalarAggregateOptions : public FunctionOptions {
   };
 
   explicit ScalarAggregateOptions(enum Mode null_handling = SKIPNA,
-                                  uint32_t min_count = 0)
+                                  uint32_t min_count = 1)
       : null_handling(null_handling), min_count(min_count) {}
 
   static ScalarAggregateOptions Defaults() { return ScalarAggregateOptions{}; }
