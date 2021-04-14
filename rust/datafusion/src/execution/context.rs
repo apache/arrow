@@ -680,6 +680,15 @@ impl ExecutionConfig {
         self
     }
 
+    /// Replace the physical optimizer rules
+    pub fn with_physical_optimizer_rules(
+        mut self,
+        physical_optimizers: Vec<Arc<dyn PhysicalOptimizerRule + Send + Sync>>,
+    ) -> Self {
+        self.physical_optimizers = physical_optimizers;
+        self
+    }
+
     /// Adds a new [`OptimizerRule`]
     pub fn add_optimizer_rule(
         mut self,
