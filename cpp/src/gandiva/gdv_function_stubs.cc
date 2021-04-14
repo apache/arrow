@@ -450,10 +450,10 @@ const char* gdv_fn_upper_utf8(int64_t context, const char* data, int32_t data_le
     return "";
   }
 
-  gdv_int32 char_len, out_char_len, out_idx = 0;
-  gdv_uint32 char_codepoint;
+  int32_t char_len, out_char_len, out_idx = 0;
+  uint32_t char_codepoint;
 
-  for (gdv_int32 i = 0; i < data_len; i += char_len) {
+  for (int32_t i = 0; i < data_len; i += char_len) {
     char_len = gdv_fn_utf8_char_length(data[i]);
     // For single byte characters:
     // If it is a lowercase ASCII character, set the output to its corresponding uppercase
@@ -471,7 +471,7 @@ const char* gdv_fn_upper_utf8(int64_t context, const char* data, int32_t data_le
     }
 
     // Control reaches here when we encounter a multibyte character
-    const gdv_uint8* in_char = (const gdv_uint8*)(data + i);
+    const auto* in_char = (const uint8_t*)(data + i);
 
     // Decode the multibyte character
     bool is_valid_utf8_char =
@@ -485,17 +485,17 @@ const char* gdv_fn_upper_utf8(int64_t context, const char* data, int32_t data_le
     }
 
     // Convert the encoded codepoint to its uppercase codepoint
-    gdv_int32 upper_codepoint = utf8proc_toupper(char_codepoint);
+    int32_t upper_codepoint = utf8proc_toupper(char_codepoint);
 
     // UTF8Encode advances the pointer by the number of bytes present in the uppercase
     // character
-    gdv_uint8* out_char = (gdv_uint8*)(out + out_idx);
-    gdv_uint8* out_char_start = out_char;
+    auto* out_char = (uint8_t*)(out + out_idx);
+    uint8_t* out_char_start = out_char;
 
     // Encode the uppercase character
     out_char = arrow::util::UTF8Encode(out_char, upper_codepoint);
 
-    out_char_len = static_cast<gdv_int32>(out_char - out_char_start);
+    out_char_len = static_cast<int32_t>(out_char - out_char_start);
     out_idx += out_char_len;
   }
 
@@ -522,10 +522,10 @@ const char* gdv_fn_lower_utf8(int64_t context, const char* data, int32_t data_le
     return "";
   }
 
-  gdv_int32 char_len, out_char_len, out_idx = 0;
-  gdv_uint32 char_codepoint;
+  int32_t char_len, out_char_len, out_idx = 0;
+  uint32_t char_codepoint;
 
-  for (gdv_int32 i = 0; i < data_len; i += char_len) {
+  for (int32_t i = 0; i < data_len; i += char_len) {
     char_len = gdv_fn_utf8_char_length(data[i]);
     // For single byte characters:
     // If it is an uppercase ASCII character, set the output to its corresponding
@@ -543,7 +543,7 @@ const char* gdv_fn_lower_utf8(int64_t context, const char* data, int32_t data_le
     }
 
     // Control reaches here when we encounter a multibyte character
-    const gdv_uint8* in_char = (const gdv_uint8*)(data + i);
+    const auto* in_char = (const uint8_t*)(data + i);
 
     // Decode the multibyte character
     bool is_valid_utf8_char =
@@ -557,17 +557,17 @@ const char* gdv_fn_lower_utf8(int64_t context, const char* data, int32_t data_le
     }
 
     // Convert the encoded codepoint to its lowercase codepoint
-    gdv_int32 lower_codepoint = utf8proc_tolower(char_codepoint);
+    int32_t lower_codepoint = utf8proc_tolower(char_codepoint);
 
     // UTF8Encode advances the pointer by the number of bytes present in the lowercase
     // character
-    gdv_uint8* out_char = (gdv_uint8*)(out + out_idx);
-    gdv_uint8* out_char_start = out_char;
+    auto* out_char = (uint8_t*)(out + out_idx);
+    uint8_t* out_char_start = out_char;
 
     // Encode the lowercase character
     out_char = arrow::util::UTF8Encode(out_char, lower_codepoint);
 
-    out_char_len = static_cast<gdv_int32>(out_char - out_char_start);
+    out_char_len = static_cast<int32_t>(out_char - out_char_start);
     out_idx += out_char_len;
   }
 
