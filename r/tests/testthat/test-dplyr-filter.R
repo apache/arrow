@@ -115,6 +115,14 @@ test_that("filtering with arithmetic", {
       collect(),
     tbl
   )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl^2 > 3) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl
+  )
 })
 
 test_that("filtering with expression + autocasting", {
@@ -129,6 +137,14 @@ test_that("filtering with expression + autocasting", {
   expect_dplyr_equal(
     input %>%
       filter(int + 1 > 3) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(int^2 > 3) %>%
       select(string = chr, int, dbl) %>%
       collect(),
     tbl
@@ -284,7 +300,6 @@ test_that("filter environment scope", {
   # Also for functions
   # 'could not find function "isEqualTo"' because we haven't defined it yet
   expect_dplyr_error(input %>% filter(isEqualTo(int, 4)), tbl)
-  
 
   skip("Need to substitute in user defined function too")
   # TODO: fix this: this isEqualTo function is eagerly evaluating; it should
@@ -399,5 +414,4 @@ test_that("filter() with .data pronoun", {
       collect(),
     tbl
   )
-  
 })
