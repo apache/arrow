@@ -44,13 +44,10 @@ update_versions() {
 
   cd "${SOURCE_DIR}/../../c_glib"
   sed -i.bak -E -e \
-    "s/^m4_define\(\[arrow_glib_version\], .+\)/m4_define([arrow_glib_version], ${version})/" \
-    configure.ac
-  sed -i.bak -E -e \
     "s/^version = '.+'/version = '${version}'/" \
     meson.build
-  rm -f configure.ac.bak meson.build.bak
-  git add configure.ac meson.build
+  rm -f meson.build.bak
+  git add meson.build
   cd -
 
   cd "${SOURCE_DIR}/../../ci/scripts"
@@ -67,6 +64,12 @@ update_versions() {
     CMakeLists.txt
   rm -f CMakeLists.txt.bak
   git add CMakeLists.txt
+
+  sed -i.bak -E -e \
+    "s/\"version-string\": \".+\"/\"version-string\": \"${version}\"/" \
+    vcpkg.json
+  rm -f vcpkg.json.bak
+  git add vcpkg.json
   cd -
 
   cd "${SOURCE_DIR}/../../csharp"
@@ -88,10 +91,6 @@ update_versions() {
     apache-arrow.rb
   rm -f apache-arrow.rb.bak
   git add apache-arrow.rb
-  cd -
-
-  cd "${SOURCE_DIR}/../../java"
-  mvn versions:set versions:commit -DnewVersion=${version}
   cd -
 
   cd "${SOURCE_DIR}/../../js"
