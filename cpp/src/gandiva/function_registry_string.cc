@@ -63,10 +63,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnotnull, {}),
 
       NativeFunction("upper", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
-                     "upper_utf8", NativeFunction::kNeedsContext),
+                     "gdv_fn_upper_utf8", NativeFunction::kNeedsContext),
 
       NativeFunction("lower", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
-                     "lower_utf8", NativeFunction::kNeedsContext),
+                     "gdv_fn_lower_utf8", NativeFunction::kNeedsContext),
 
       NativeFunction("castINT", {}, DataTypeVector{utf8()}, int32(), kResultNullIfNull,
                      "gdv_fn_castINT_utf8",

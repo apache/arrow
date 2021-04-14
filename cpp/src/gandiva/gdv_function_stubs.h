@@ -108,4 +108,13 @@ const char* gdv_fn_castVARCHAR_float32_int64(int64_t context, float value, int64
 GANDIVA_EXPORT
 const char* gdv_fn_castVARCHAR_float64_int64(int64_t context, double value, int64_t len,
                                              int32_t* out_len);
+int32_t gdv_fn_utf8_char_length(char c);
+
+void gdv_fn_set_error_for_invalid_utf(int64_t execution_context, char val);
+
+const char* gdv_fn_upper_utf8(int64_t context, const char* data, int32_t data_len,
+                              int32_t* out_len);
+
+const char* gdv_fn_lower_utf8(int64_t context, const char* data, int32_t data_len,
+                              int32_t* out_len);
 }

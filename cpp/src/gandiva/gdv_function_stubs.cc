@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "arrow/util/formatting.h"
+#include "arrow/util/utf8.h"
 #include "arrow/util/value_parsing.h"
 #include "gandiva/engine.h"
 #include "gandiva/exported_funcs.h"
@@ -31,6 +32,7 @@
 #include "gandiva/precompiled/types.h"
 #include "gandiva/random_generator_holder.h"
 #include "gandiva/to_date_holder.h"
+#include "utf8proc.h"
 
 /// Stub functions that can be accessed from LLVM or the pre-compiled library.
 
@@ -402,6 +404,171 @@ GDV_FN_CAST_VARCHAR_REAL(float64, DoubleType)
 
 #undef GDV_FN_CAST_VARCHAR_INTEGER
 #undef GDV_FN_CAST_VARCHAR_REAL
+
+int32_t gdv_fn_utf8_char_length(char c) {
+  if ((signed char)c >= 0) {  // 1-byte char (0x00 ~ 0x7F)
+    return 1;
+  } else if ((c & 0xE0) == 0xC0) {  // 2-byte char
+    return 2;
+  } else if ((c & 0xF0) == 0xE0) {  // 3-byte char
+    return 3;
+  } else if ((c & 0xF8) == 0xF0) {  // 4-byte char
+    return 4;
+  }
+  // invalid char
+  return 0;
+}
+
+void gdv_fn_set_error_for_invalid_utf(int64_t execution_context, char val) {
+  char const* fmt = "unexpected byte \\%02hhx encountered while decoding utf8 string";
+  int size = static_cast<int>(strlen(fmt)) + 64;
+  char* error = reinterpret_cast<char*>(malloc(size));
+  snprintf(error, size, fmt, (unsigned char)val);
+  gdv_fn_context_set_error_msg(execution_context, error);
+  free(error);
+}
+
+// Convert an utf8 string to its corresponding uppercase string
+const char* gdv_fn_upper_utf8(int64_t context, const char* data, int32_t data_len,
+                              int32_t* out_len) {
+  if (data_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  // If it is a single-byte character (ASCII), corresponding uppercase is always 1-byte
+  // long; if it is >= 2 bytes long, uppercase can be at most 4 bytes long, so length of
+  // the output can be at most twice the length of the input
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, 2 * data_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  gdv_int32 char_len, out_char_len, out_idx = 0;
+  gdv_uint32 char_codepoint;
+
+  for (gdv_int32 i = 0; i < data_len; i += char_len) {
+    char_len = gdv_fn_utf8_char_length(data[i]);
+    // For single byte characters:
+    // If it is a lowercase ASCII character, set the output to its corresponding uppercase
+    // character; else, set the output to the read character
+    if (char_len == 1) {
+      char cur = data[i];
+      // 'A' - 'Z' : 0x41 - 0x5a
+      // 'a' - 'z' : 0x61 - 0x7a
+      if (cur >= 0x61 && cur <= 0x7a) {
+        out[out_idx++] = static_cast<char>(cur - 0x20);
+      } else {
+        out[out_idx++] = cur;
+      }
+      continue;
+    }
+
+    // Control reaches here when we encounter a multibyte character
+    const gdv_uint8* in_char = (const gdv_uint8*)(data + i);
+
+    // Decode the multibyte character
+    bool is_valid_utf8_char =
+        arrow::util::UTF8Decode((const uint8_t**)&in_char, &char_codepoint);
+
+    // If it is an invalid utf8 character, UTF8Decode evaluates to false
+    if (!is_valid_utf8_char) {
+      gdv_fn_set_error_for_invalid_utf(context, data[i]);
+      *out_len = 0;
+      return "";
+    }
+
+    // Convert the encoded codepoint to its uppercase codepoint
+    gdv_int32 upper_codepoint = utf8proc_toupper(char_codepoint);
+
+    // UTF8Encode advances the pointer by the number of bytes present in the uppercase
+    // character
+    gdv_uint8* out_char = (gdv_uint8*)(out + out_idx);
+    gdv_uint8* out_char_start = out_char;
+
+    // Encode the uppercase character
+    out_char = arrow::util::UTF8Encode(out_char, upper_codepoint);
+
+    out_char_len = static_cast<gdv_int32>(out_char - out_char_start);
+    out_idx += out_char_len;
+  }
+
+  *out_len = out_idx;
+  return out;
+}
+
+// Convert an utf8 string to its corresponding lowercase string
+const char* gdv_fn_lower_utf8(int64_t context, const char* data, int32_t data_len,
+                              int32_t* out_len) {
+  if (data_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  // If it is a single-byte character (ASCII), corresponding lowercase is always 1-byte
+  // long; if it is >= 2 bytes long, lowercase can be at most 4 bytes long, so length of
+  // the output can be at most twice the length of the input
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, 2 * data_len));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  gdv_int32 char_len, out_char_len, out_idx = 0;
+  gdv_uint32 char_codepoint;
+
+  for (gdv_int32 i = 0; i < data_len; i += char_len) {
+    char_len = gdv_fn_utf8_char_length(data[i]);
+    // For single byte characters:
+    // If it is an uppercase ASCII character, set the output to its corresponding
+    // lowercase character; else, set the output to the read character
+    if (char_len == 1) {
+      char cur = data[i];
+      // 'A' - 'Z' : 0x41 - 0x5a
+      // 'a' - 'z' : 0x61 - 0x7a
+      if (cur >= 0x41 && cur <= 0x5a) {
+        out[out_idx++] = static_cast<char>(cur + 0x20);
+      } else {
+        out[out_idx++] = cur;
+      }
+      continue;
+    }
+
+    // Control reaches here when we encounter a multibyte character
+    const gdv_uint8* in_char = (const gdv_uint8*)(data + i);
+
+    // Decode the multibyte character
+    bool is_valid_utf8_char =
+        arrow::util::UTF8Decode((const uint8_t**)&in_char, &char_codepoint);
+
+    // If it is an invalid utf8 character, UTF8Decode evaluates to false
+    if (!is_valid_utf8_char) {
+      gdv_fn_set_error_for_invalid_utf(context, data[i]);
+      *out_len = 0;
+      return "";
+    }
+
+    // Convert the encoded codepoint to its lowercase codepoint
+    gdv_int32 lower_codepoint = utf8proc_tolower(char_codepoint);
+
+    // UTF8Encode advances the pointer by the number of bytes present in the lowercase
+    // character
+    gdv_uint8* out_char = (gdv_uint8*)(out + out_idx);
+    gdv_uint8* out_char_start = out_char;
+
+    // Encode the lowercase character
+    out_char = arrow::util::UTF8Encode(out_char, lower_codepoint);
+
+    out_char_len = static_cast<gdv_int32>(out_char - out_char_start);
+    out_idx += out_char_len;
+  }
+
+  *out_len = out_idx;
+  return out;
+}
 }
 
 namespace gandiva {
