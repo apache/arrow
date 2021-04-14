@@ -459,9 +459,11 @@ class Union_<T extends Unions = Unions> extends DataType<T> {
         }, Object.create(null) as { [key: number]: number });
     }
     public get typeId() { return Type.Union as T; }
-    public toString() { return `${this[Symbol.toStringTag]}<${
+    public toString() {
+ return `${this[Symbol.toStringTag]}<${
         this.children.map((x) => `${x.type}`).join(` | `)
-    }>`; }
+    }>`;
+}
     protected static [Symbol.toStringTag] = ((proto: Union_) => {
         (<any> proto).mode = null;
         (<any> proto).typeIds = null;

@@ -76,15 +76,14 @@ module.exports = {
             "destructuring": "all"
         }],
         "curly": ["error", "multi-line"],
+        "brace-style": ["error", "1tbs", { "allowSingleLine": true }],
         "eol-last": "error",
         "no-multiple-empty-lines": "error",
         "no-trailing-spaces": "error",
         "no-var": "error",
-        "brace-style": "off",
         "no-empty": "off",
         "no-cond-assign": "off",
 
-        // "brace-style": ["error", "1tbs", { "allowSingleLine": true }],
         // "one-var": ["error", "never"],
     },
 };
