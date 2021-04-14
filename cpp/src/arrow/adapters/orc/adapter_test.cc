@@ -114,8 +114,15 @@ std::shared_ptr<Array> CastInt64ArrayToTemporalArray(
   return std::make_shared<TargetArrayType>(new_array_data);
 }
 
+/// \brief Construct a random weak composition of a nonnegative integer
+/// i.e. a way of writing it as the sum of a sequence of n non-negative
+/// integers.
+///
+/// \param[in] n the number of integers in the weak composition
+/// \param[in] sum the integer of which a random weak composition is generated
+/// \param[out] out The generated weak composition
 template <typename T, typename U>
-void randintpartition(int64_t n, T sum, std::vector<U>* out) {
+void RandWeakComposition(int64_t n, T sum, std::vector<U>* out) {
   const int random_seed = 0;
   std::default_random_engine gen(random_seed);
   out->resize(n, static_cast<T>(0));
@@ -177,7 +184,7 @@ std::shared_ptr<ChunkedArray> GenerateRandomChunkedArray(
   arrow::randint<int64_t, int64_t>(1, min_num_chunks, max_num_chunks, &num_chunks);
   int64_t current_num_chunks = num_chunks[0];
   ArrayVector arrays(current_num_chunks, nullptr);
-  randintpartition(current_num_chunks, size, &current_size_chunks);
+  RandWeakComposition(current_num_chunks, size, &current_size_chunks);
   for (int j = 0; j < current_num_chunks; j++) {
     switch (data_type->id()) {
       case arrow::Type::type::DATE64: {
