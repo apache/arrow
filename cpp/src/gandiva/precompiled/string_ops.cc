@@ -1489,7 +1489,7 @@ const char* convert_toDATE_EPOCH_binary(int64_t context, int64_t date, int32_t* 
 FORCE_INLINE
 const char* convert_toDATE_EPOCH_binary_be(int64_t context, int64_t date,
                                            int32_t* out_len) {
-  // The function behaves as convert_toBIGINT_binary, but
+  // The function behaves as convert_toDATE_EPOCH_binary, but
   // returns the bytes in big endian format
   return convert_toBIGINT_binary_be(context, date, out_len);
 }
