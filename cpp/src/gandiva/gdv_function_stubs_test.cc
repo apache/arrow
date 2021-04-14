@@ -418,5 +418,4 @@ TEST(TestGdvFnStubs, TestLower) {
   ctx.Reset();
 }
 
-
 }  // namespace gandiva
