@@ -102,7 +102,7 @@ cdef class S3FileSystem(FileSystem):
         A proxy URI (str) can also be provided, in which case these options
         will be derived from the provided URI.
         The following are equivalent::
-        
+
             S3FileSystem(proxy_options='http://username:password@localhost:8020')
             S3FileSystem(proxy_options={'scheme': 'http', 'host': 'localhost',
                                         'port': 8020, 'username': 'username',
