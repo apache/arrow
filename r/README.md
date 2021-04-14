@@ -255,7 +255,7 @@ Other uses of `arrow` are described in the following vignettes:
     `reticulate` to pass data between R and Python
 -   `vignette("flight", package = "arrow")`: connect to Arrow Flight RPC
     servers to send and receive data
--   `vignette("flight", package = "arrow")`: access and manipulate Arrow
+-   `vignette("arrow", package = "arrow")`: access and manipulate Arrow
     objects through low-level bindings to the C++ library
 
 ## Getting help
