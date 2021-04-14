@@ -102,7 +102,7 @@ Either way, you will need to create a directory into which the C++ build will pu
 
 Starting from the directory that contains your git checkout of `apache/arrow`,
 
-```{bash, save=run & !sys_install}
+```{bash, save=run}
 mkdir -p arrow/cpp/build
 ```
 
