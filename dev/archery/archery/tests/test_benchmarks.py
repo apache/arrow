@@ -319,17 +319,17 @@ def test_prefer_cpu_time():
         "time_unit": "ns",
     }
     archery_result = {
+        "counters": {"iterations": 352765,
+                     "repetition_index": 0,
+                     "repetitions": 0,
+                     "run_name": "AllocateDeallocate<Jemalloc>/size:1048576",
+                     "threads": 1},
         "name": name,
         "unit": "ns",
         "less_is_better": True,
         "values": [1778.6004847419827],
         "time_unit": "ns",
         "times": [1835.3137357788837],
-        "counters": {"iterations": 352765,
-                      "repetition_index": 0,
-                      "repetitions": 0,
-                      "run_name": "AllocateDeallocate<Jemalloc>/size:1048576",
-                      "threads": 1},
     }
     assert not name.endswith("/real_time")
     assert_benchmark(name, google_result, archery_result)
