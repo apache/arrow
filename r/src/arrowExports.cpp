@@ -4115,16 +4115,32 @@ extern "C" SEXP _arrow_json___ReadOptions__initialize(SEXP use_threads_sexp, SEX
 
 // json.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::json::ParseOptions> json___ParseOptions__initialize(bool newlines_in_values);
-extern "C" SEXP _arrow_json___ParseOptions__initialize(SEXP newlines_in_values_sexp){
+std::shared_ptr<arrow::json::ParseOptions> json___ParseOptions__initialize1(bool newlines_in_values);
+extern "C" SEXP _arrow_json___ParseOptions__initialize1(SEXP newlines_in_values_sexp){
 BEGIN_CPP11
 	arrow::r::Input<bool>::type newlines_in_values(newlines_in_values_sexp);
-	return cpp11::as_sexp(json___ParseOptions__initialize(newlines_in_values));
+	return cpp11::as_sexp(json___ParseOptions__initialize1(newlines_in_values));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_json___ParseOptions__initialize(SEXP newlines_in_values_sexp){
-	Rf_error("Cannot call json___ParseOptions__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+extern "C" SEXP _arrow_json___ParseOptions__initialize1(SEXP newlines_in_values_sexp){
+	Rf_error("Cannot call json___ParseOptions__initialize1(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// json.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::json::ParseOptions> json___ParseOptions__initialize2(bool newlines_in_values, const std::shared_ptr<arrow::Schema>& explicit_schema);
+extern "C" SEXP _arrow_json___ParseOptions__initialize2(SEXP newlines_in_values_sexp, SEXP explicit_schema_sexp){
+BEGIN_CPP11
+	arrow::r::Input<bool>::type newlines_in_values(newlines_in_values_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type explicit_schema(explicit_schema_sexp);
+	return cpp11::as_sexp(json___ParseOptions__initialize2(newlines_in_values, explicit_schema));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_json___ParseOptions__initialize2(SEXP newlines_in_values_sexp, SEXP explicit_schema_sexp){
+	Rf_error("Cannot call json___ParseOptions__initialize2(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6835,7 +6851,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_io___BufferOutputStream__Tell", (DL_FUNC) &_arrow_io___BufferOutputStream__Tell, 1}, 
 		{ "_arrow_io___BufferOutputStream__Write", (DL_FUNC) &_arrow_io___BufferOutputStream__Write, 2}, 
 		{ "_arrow_json___ReadOptions__initialize", (DL_FUNC) &_arrow_json___ReadOptions__initialize, 2}, 
-		{ "_arrow_json___ParseOptions__initialize", (DL_FUNC) &_arrow_json___ParseOptions__initialize, 1}, 
+		{ "_arrow_json___ParseOptions__initialize1", (DL_FUNC) &_arrow_json___ParseOptions__initialize1, 1}, 
+		{ "_arrow_json___ParseOptions__initialize2", (DL_FUNC) &_arrow_json___ParseOptions__initialize2, 2}, 
 		{ "_arrow_json___TableReader__Make", (DL_FUNC) &_arrow_json___TableReader__Make, 3}, 
 		{ "_arrow_json___TableReader__Read", (DL_FUNC) &_arrow_json___TableReader__Read, 1}, 
 		{ "_arrow_MemoryPool__default", (DL_FUNC) &_arrow_MemoryPool__default, 0}, 
