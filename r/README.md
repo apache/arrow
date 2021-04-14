@@ -23,19 +23,18 @@ access to the Arrow C++ library API and higher-level access through a
 -   Read and write **Feather files** (`read_feather()`,
     `write_feather()`), a format optimized for speed and
     interoperability
--   Open or write **large, multi-file datasets** with a single function
-    call (`open_dataset()`, `write_dataset()`)
+-   Analyze, process, and write **multi-file, larger-than-memory
+    datasets** (`open_dataset()`, `write_dataset()`)
 -   Read **large CSV and JSON files** with excellent **speed and
     efficiency** (`read_csv_arrow()`, `read_json_arrow()`)
+-   Manipulate and analyze Arrow data with **`dplyr` verbs**
 -   Read and write files in **Amazon S3** buckets with no additional
     function calls
--   Exercise **full control over data types** of columns when reading
-    and writing data files
+-   Exercise **fine control over column types** for seamless
+    interoperability with databases and data warehouse systems
 -   Use **compression codecs** including Snappy, gzip, Brotli,
     Zstandard, LZ4, LZO, and bzip2 for reading and writing data
--   Manipulate and analyze **larger-than-memory datasets** with
-    **`dplyr` verbs**
--   Pass data between **R and Python** in the same process
+-   Enables **zero-copy data sharing** between **R and Python**
 -   Connect to **Arrow Flight** RPC servers to send and receive large
     datasets over networks
 -   Access and manipulate Arrow objects through **low-level bindings**
@@ -44,6 +43,8 @@ access to the Arrow C++ library API and higher-level access through a
     and services that use Arrow
 
 ## Installation
+
+### Installing the latest release version
 
 Install the latest release of `arrow` from CRAN with
 
@@ -65,7 +66,7 @@ more complete installation, set the environment variable
 `NOT_CRAN=true`. See `vignette("install", package = "arrow")` for
 details.
 
-## Installing a development version
+### Installing a development version
 
 Development versions of the package (binary and source) are built
 nightly and hosted at <https://arrow-r-nightly.s3.amazonaws.com>. To
@@ -268,7 +269,7 @@ example on the [Apache Jira issue
 tracker](https://issues.apache.org/jira/projects/ARROW/issues). Create
 an account or log in, then click **Create** to file an issue. Select the
 project **Apache Arrow (ARROW)**, select the component **R**, and begin
-the issue summary with **\[R\]** followed by a space. For more
+the issue summary with **`[R]`** followed by a space. For more
 information, see the **Report bugs and propose features** section of the
 [Contributing to Apache
 Arrow](https://arrow.apache.org/docs/developers/contributing.html) page
