@@ -263,6 +263,7 @@ impl MutableBuffer {
     /// buffer.extend_from_slice(&[2u32, 0]);
     /// assert_eq!(buffer.len(), 8) // u32 has 4 bytes
     /// ```
+    #[inline]
     pub fn extend_from_slice<T: ToByteSlice>(&mut self, items: &[T]) {
         let len = items.len();
         let additional = len * std::mem::size_of::<T>();
