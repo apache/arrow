@@ -24,11 +24,14 @@ from setuptools import setup
 if sys.version_info < (3, 6):
     sys.exit('Python < 3.6 is not supported')
 
+# For pathlib.Path compatibility
+jinja_req = 'jinja2>=2.11'
+
 extras = {
     'benchmark': ['pandas'],
     'docker': ['ruamel.yaml', 'python-dotenv'],
-    'release': ['jinja2', 'jira', 'semver', 'gitpython'],
-    'crossbow': ['github3.py', 'jinja2', 'pygit2', 'ruamel.yaml',
+    'release': [jinja_req, 'jira', 'semver', 'gitpython'],
+    'crossbow': ['github3.py', jinja_req, 'pygit2', 'ruamel.yaml',
                  'setuptools_scm'],
 }
 extras['bot'] = extras['crossbow'] + ['pygithub', 'jira']

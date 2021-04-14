@@ -27,6 +27,9 @@
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
 #include "arrow/util/bpacking_avx512.h"
 #endif
+#if defined(ARROW_HAVE_NEON)
+#include "arrow/util/bpacking_neon.h"
+#endif
 
 namespace arrow {
 namespace internal {
@@ -163,8 +166,12 @@ struct Unpack32DynamicFunction {
 }  // namespace
 
 int unpack32(const uint32_t* in, uint32_t* out, int batch_size, int num_bits) {
+#if defined(ARROW_HAVE_NEON)
+  return unpack32_neon(in, out, batch_size, num_bits);
+#else
   static DynamicDispatch<Unpack32DynamicFunction> dispatch;
   return dispatch.func(in, out, batch_size, num_bits);
+#endif
 }
 
 }  // namespace internal

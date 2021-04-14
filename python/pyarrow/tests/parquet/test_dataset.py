@@ -972,6 +972,12 @@ def test_dataset_read_pandas(tempdir, use_legacy_dataset):
 
     tm.assert_frame_equal(result, expected)
 
+    # also be able to pass the columns as a set (ARROW-12314)
+    result = dataset.read_pandas(columns=set(columns)).to_pandas()
+    assert result.shape == expected.shape
+    # column order can be different because of using a set
+    tm.assert_frame_equal(result.reindex(columns=expected.columns), expected)
+
 
 @pytest.mark.pandas
 @parametrize_legacy_dataset
@@ -1375,6 +1381,17 @@ def test_write_to_dataset_with_partitions_and_custom_filenames(
     output_basenames = [os.path.basename(p.path) for p in dataset.pieces]
 
     assert sorted(expected_basenames) == sorted(output_basenames)
+
+
+@pytest.mark.pandas
+def test_write_to_dataset_filesystem(tempdir):
+    df = pd.DataFrame({'A': [1, 2, 3]})
+    table = pa.Table.from_pandas(df)
+    path = str(tempdir)
+
+    pq.write_to_dataset(table, path, filesystem=fs.LocalFileSystem())
+    result = pq.read_table(path)
+    assert result.equals(table)
 
 
 # TODO(dataset) support pickling

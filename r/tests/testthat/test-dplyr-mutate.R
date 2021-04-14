@@ -26,7 +26,7 @@ tbl$verses <- verses[[1]]
 tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2*(1:10)+1, side = "both")
 
 test_that("mutate() is lazy", {
-  expect_is(
+  expect_s3_class(
     tbl %>% record_batch() %>% mutate(int = int + 6L),
     "arrow_dplyr_query"
   )

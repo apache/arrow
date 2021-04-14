@@ -19,7 +19,7 @@ context("Scalar")
 
 expect_scalar_roundtrip <- function(x, type) {
   s <- Scalar$create(x)
-  expect_is(s, "Scalar")
+  expect_r6_class(s, "Scalar")
   expect_type_equal(s$type, type)
   expect_identical(length(s), 1L)
   if (inherits(type, "NestedType")) {

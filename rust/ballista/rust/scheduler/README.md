@@ -30,3 +30,14 @@ $ RUST_LOG=info cargo run --release
 ```
 
 By default, the scheduler will bind to `localhost` and listen on port `50051`.
+
+## Connecting to Scheduler
+Scheduler supports REST model also using content negotiation. 
+For e.x if you want to get list of executors connected to the scheduler, 
+you can do (assuming you use default config)
+
+```bash
+curl --request GET \
+  --url http://localhost:50050/executors \
+  --header 'Accept: application/json'
+```

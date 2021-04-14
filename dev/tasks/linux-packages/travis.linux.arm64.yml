@@ -144,5 +144,4 @@ script:
   - popd
 
 after_success:
-  {% set patterns = upload_extensions | format_all("arrow/python/repaired_wheels/*.whl") %}
-  {{ macros.github_upload_releases(patterns) }}
+  {{ macros.travis_upload_releases(upload_extensions) }}

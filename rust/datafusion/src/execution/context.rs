@@ -1404,6 +1404,121 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn aggregate_timestamps_sum() -> Result<()> {
+        let tmp_dir = TempDir::new()?;
+        let mut ctx = create_ctx(&tmp_dir, 1)?;
+        ctx.register_table("t", test::table_with_timestamps())
+            .unwrap();
+
+        let results = plan_and_collect(
+            &mut ctx,
+            "SELECT sum(nanos), sum(micros), sum(millis), sum(secs) FROM t",
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(results.to_string(), "Error during planning: Coercion from [Timestamp(Nanosecond, None)] to the signature Uniform(1, [Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, UInt64, Float32, Float64]) failed.");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn aggregate_timestamps_count() -> Result<()> {
+        let tmp_dir = TempDir::new()?;
+        let mut ctx = create_ctx(&tmp_dir, 1)?;
+        ctx.register_table("t", test::table_with_timestamps())
+            .unwrap();
+
+        let results = plan_and_collect(
+            &mut ctx,
+            "SELECT count(nanos), count(micros), count(millis), count(secs) FROM t",
+        )
+        .await
+        .unwrap();
+
+        let expected = vec![
+            "+--------------+---------------+---------------+-------------+",
+            "| COUNT(nanos) | COUNT(micros) | COUNT(millis) | COUNT(secs) |",
+            "+--------------+---------------+---------------+-------------+",
+            "| 3            | 3             | 3             | 3           |",
+            "+--------------+---------------+---------------+-------------+",
+        ];
+        assert_batches_sorted_eq!(expected, &results);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn aggregate_timestamps_min() -> Result<()> {
+        let tmp_dir = TempDir::new()?;
+        let mut ctx = create_ctx(&tmp_dir, 1)?;
+        ctx.register_table("t", test::table_with_timestamps())
+            .unwrap();
+
+        let results = plan_and_collect(
+            &mut ctx,
+            "SELECT min(nanos), min(micros), min(millis), min(secs) FROM t",
+        )
+        .await
+        .unwrap();
+
+        let expected = vec![
+            "+----------------------------+----------------------------+-------------------------+---------------------+",
+            "| MIN(nanos)                 | MIN(micros)                | MIN(millis)             | MIN(secs)           |",
+            "+----------------------------+----------------------------+-------------------------+---------------------+",
+            "| 2011-12-13 11:13:10.123450 | 2011-12-13 11:13:10.123450 | 2011-12-13 11:13:10.123 | 2011-12-13 11:13:10 |",
+            "+----------------------------+----------------------------+-------------------------+---------------------+",
+        ];
+        assert_batches_sorted_eq!(expected, &results);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn aggregate_timestamps_max() -> Result<()> {
+        let tmp_dir = TempDir::new()?;
+        let mut ctx = create_ctx(&tmp_dir, 1)?;
+        ctx.register_table("t", test::table_with_timestamps())
+            .unwrap();
+
+        let results = plan_and_collect(
+            &mut ctx,
+            "SELECT max(nanos), max(micros), max(millis), max(secs) FROM t",
+        )
+        .await
+        .unwrap();
+
+        let expected = vec![
+            "+-------------------------+-------------------------+-------------------------+---------------------+",
+            "| MAX(nanos)              | MAX(micros)             | MAX(millis)             | MAX(secs)           |",
+            "+-------------------------+-------------------------+-------------------------+---------------------+",
+            "| 2021-01-01 05:11:10.432 | 2021-01-01 05:11:10.432 | 2021-01-01 05:11:10.432 | 2021-01-01 05:11:10 |",
+            "+-------------------------+-------------------------+-------------------------+---------------------+",
+];
+        assert_batches_sorted_eq!(expected, &results);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn aggregate_timestamps_avg() -> Result<()> {
+        let tmp_dir = TempDir::new()?;
+        let mut ctx = create_ctx(&tmp_dir, 1)?;
+        ctx.register_table("t", test::table_with_timestamps())
+            .unwrap();
+
+        let results = plan_and_collect(
+            &mut ctx,
+            "SELECT avg(nanos), avg(micros), avg(millis), avg(secs) FROM t",
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(results.to_string(), "Error during planning: Coercion from [Timestamp(Nanosecond, None)] to the signature Uniform(1, [Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, UInt64, Float32, Float64]) failed.");
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn join_partitioned() -> Result<()> {
         // self join on partition id (workaround for duplicate column name)
         let results = execute(

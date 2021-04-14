@@ -70,8 +70,13 @@ using TableReaderFactory =
     std::function<Result<std::shared_ptr<TableReader>>(std::shared_ptr<io::InputStream>)>;
 
 void StressTableReader(TableReaderFactory reader_factory) {
+#ifdef ARROW_VALGRIND
+  const int NTASKS = 10;
+  const int NROWS = 100;
+#else
   const int NTASKS = 100;
   const int NROWS = 1000;
+#endif
   ASSERT_OK_AND_ASSIGN(auto table_buffer, MakeSampleCsvBuffer(NROWS));
 
   std::vector<Future<std::shared_ptr<Table>>> task_futures(NTASKS);
@@ -92,8 +97,13 @@ void StressTableReader(TableReaderFactory reader_factory) {
 }
 
 void StressInvalidTableReader(TableReaderFactory reader_factory) {
+#ifdef ARROW_VALGRIND
+  const int NTASKS = 10;
+  const int NROWS = 100;
+#else
   const int NTASKS = 100;
   const int NROWS = 1000;
+#endif
   ASSERT_OK_AND_ASSIGN(auto table_buffer, MakeSampleCsvBuffer(NROWS, false));
 
   std::vector<Future<std::shared_ptr<Table>>> task_futures(NTASKS);

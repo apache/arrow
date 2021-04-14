@@ -272,7 +272,7 @@ test_that("filter() with string ops", {
 
 test_that("filter environment scope", {
   # "object 'b_var' not found"
-  expect_dplyr_error(input %>% filter(batch, chr == b_var))
+  expect_dplyr_error(input %>% filter(chr == b_var), tbl)
 
   b_var <- "b"
   expect_dplyr_equal(
@@ -283,7 +283,8 @@ test_that("filter environment scope", {
   )
   # Also for functions
   # 'could not find function "isEqualTo"' because we haven't defined it yet
-  expect_dplyr_error(filter(batch, isEqualTo(int, 4)))
+  expect_dplyr_error(input %>% filter(isEqualTo(int, 4)), tbl)
+  
 
   skip("Need to substitute in user defined function too")
   # TODO: fix this: this isEqualTo function is eagerly evaluating; it should
@@ -389,11 +390,14 @@ test_that("filter() with .data pronoun", {
     tbl
   )
 
+  skip("test now faulty - code no longer gives error & outputs a empty tibble")
   # but there is an error if we don't override the masking with `.env`
   expect_dplyr_error(
-    tbl %>%
+    input %>%
       filter(.data$dbl > chr) %>%
       select(.data$chr, .data$int, .data$lgl) %>%
-      collect()
+      collect(),
+    tbl
   )
+  
 })

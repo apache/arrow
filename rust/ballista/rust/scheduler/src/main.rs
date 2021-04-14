@@ -17,9 +17,14 @@
 
 //! Ballista Rust scheduler binary.
 
-use std::{net::SocketAddr, sync::Arc};
-
 use anyhow::{Context, Result};
+use futures::future::{self, Either, TryFutureExt};
+use hyper::{service::make_service_fn, Server};
+use std::convert::Infallible;
+use std::{net::SocketAddr, sync::Arc};
+use tonic::transport::Server as TonicServer;
+use tower::Service;
+
 use ballista_core::BALLISTA_VERSION;
 use ballista_core::{
     print_version, serde::protobuf::scheduler_grpc_server::SchedulerGrpcServer,
@@ -29,9 +34,9 @@ use ballista_scheduler::state::EtcdClient;
 #[cfg(feature = "sled")]
 use ballista_scheduler::state::StandaloneClient;
 use ballista_scheduler::{state::ConfigBackendClient, ConfigBackend, SchedulerServer};
+use ballista_scheduler::api::{get_routes, EitherBody, Error};
 
 use log::info;
-use tonic::transport::Server;
 
 #[macro_use]
 extern crate configure_me;
@@ -56,11 +61,35 @@ async fn start_server(
         "Ballista v{} Scheduler listening on {:?}",
         BALLISTA_VERSION, addr
     );
-    let server =
-        SchedulerGrpcServer::new(SchedulerServer::new(config_backend, namespace));
-    Ok(Server::builder()
-        .add_service(server)
-        .serve(addr)
+    Ok(Server::bind(&addr)
+        .serve(make_service_fn(move |_| {
+            let scheduler_server = SchedulerServer::new(config_backend.clone(), namespace.clone());
+            let scheduler_grpc_server = SchedulerGrpcServer::new(scheduler_server.clone());
+
+            let mut tonic = TonicServer::builder()
+                .add_service(scheduler_grpc_server)
+                .into_service();
+            let mut warp = warp::service(get_routes(scheduler_server));
+
+            future::ok::<_, Infallible>(tower::service_fn(
+                move |req: hyper::Request<hyper::Body>| {
+                    let header = req.headers().get(hyper::header::ACCEPT);
+                    if header.is_some() && header.unwrap().eq("application/json") {
+                        return Either::Left(
+                            warp.call(req)
+                                .map_ok(|res| res.map(EitherBody::Left))
+                                .map_err(Error::from),
+                        );
+                    }
+                    Either::Right(
+                        tonic
+                            .call(req)
+                            .map_ok(|res| res.map(EitherBody::Right))
+                            .map_err(Error::from),
+                    )
+                },
+            ))
+        }))
         .await
         .context("Could not start grpc server")?)
 }

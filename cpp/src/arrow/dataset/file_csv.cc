@@ -45,7 +45,7 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::Executor;
 using internal::SerialExecutor;
-using RecordBatchGenerator = AsyncGenerator<std::shared_ptr<RecordBatch>>;
+using RecordBatchGenerator = std::function<Future<std::shared_ptr<RecordBatch>>()>;
 
 Result<std::unordered_set<std::string>> GetColumnNames(
     const csv::ParseOptions& parse_options, util::string_view first_block,

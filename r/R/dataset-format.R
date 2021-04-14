@@ -34,11 +34,8 @@
 #' * `...`: Additional format-specific options
 #'
 #'   `format = "parquet"``:
-#'   * `use_buffered_stream`: Read files through buffered input streams rather than
-#'                            loading entire row groups at once. This may be enabled
-#'                            to reduce memory overhead. Disabled by default.
-#'   * `buffer_size`: Size of buffered stream, if enabled. Default is 8KB.
 #'   * `dict_columns`: Names of columns which should be read as dictionaries.
+#'   * Any Parquet options from [FragmentScanOptions].
 #'
 #'   `format = "text"`: see [CsvParseOptions]. Note that you can specify them either
 #'   with the Arrow C++ library naming ("delimiter", "quoting", etc.) or the
@@ -91,10 +88,10 @@ as.character.FileFormat <- function(x, ...) {
 #' @rdname FileFormat
 #' @export
 ParquetFileFormat <- R6Class("ParquetFileFormat", inherit = FileFormat)
-ParquetFileFormat$create <- function(use_buffered_stream = FALSE,
-                                     buffer_size = 8196,
+ParquetFileFormat$create <- function(...,
                                      dict_columns = character(0)) {
- dataset___ParquetFileFormat__Make(use_buffered_stream, buffer_size, dict_columns)
+ options <- ParquetFragmentScanOptions$create(...)
+ dataset___ParquetFileFormat__Make(options, dict_columns)
 }
 
 #' @usage NULL
@@ -217,9 +214,18 @@ csv_file_format_read_options <- function(...) {
 #' @section Factory:
 #' `FragmentScanOptions$create()` takes the following arguments:
 #' * `format`: A string identifier of the file format. Currently supported values:
+#'   * "parquet"
 #'   * "csv"/"text", aliases for the same format.
 #' * `...`: Additional format-specific options
 #'
+#'   `format = "parquet"``:
+#'   * `use_buffered_stream`: Read files through buffered input streams rather than
+#'                            loading entire row groups at once. This may be enabled
+#'                            to reduce memory overhead. Disabled by default.
+#'   * `buffer_size`: Size of buffered stream, if enabled. Default is 8KB.
+#'   * `pre_buffer`: Pre-buffer the raw Parquet data. This can improve performance
+#'                   on high-latency filesystems. Disabled by default.
+#
 #'   `format = "text"`: see [CsvConvertOptions]. Note that options can only be
 #'   specified with the Arrow C++ library naming. Also, "block_size" from
 #'   [CsvReadOptions] may be given.
@@ -240,6 +246,8 @@ FragmentScanOptions$create <- function(format, ...) {
   opt_names <- names(list(...))
   if (format %in% c("csv", "text", "tsv")) {
     CsvFragmentScanOptions$create(...)
+  } else if (format == "parquet") {
+    ParquetFragmentScanOptions$create(...)
   } else {
     stop("Unsupported file format: ", format, call. = FALSE)
   }
@@ -259,6 +267,17 @@ CsvFragmentScanOptions$create <- function(...,
                                           convert_opts = csv_file_format_convert_options(...),
                                           read_opts = csv_file_format_read_options(...)) {
   dataset___CsvFragmentScanOptions__Make(convert_opts, read_opts)
+}
+
+#' @usage NULL
+#' @format NULL
+#' @rdname FragmentScanOptions
+#' @export
+ParquetFragmentScanOptions <- R6Class("ParquetFragmentScanOptions", inherit = FragmentScanOptions)
+ParquetFragmentScanOptions$create <- function(use_buffered_stream = FALSE,
+                                              buffer_size = 8196,
+                                              pre_buffer = FALSE) {
+  dataset___ParquetFragmentScanOptions__Make(use_buffered_stream, buffer_size, pre_buffer)
 }
 
 #' Format-specific write options

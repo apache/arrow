@@ -303,6 +303,37 @@ class InExprDexBase : public Dex {
 };
 
 template <>
+class InExprDexBase<gandiva::DecimalScalar128> : public Dex {
+ public:
+  InExprDexBase(const ValueValidityPairVector& args,
+                const std::unordered_set<gandiva::DecimalScalar128>& values,
+                int32_t precision, int32_t scale)
+      : args_(args), precision_(precision), scale_(scale) {
+    in_holder_.reset(new InHolder<gandiva::DecimalScalar128>(values));
+  }
+
+  int32_t get_precision() const { return precision_; }
+
+  int32_t get_scale() const { return scale_; }
+
+  const ValueValidityPairVector& args() const { return args_; }
+
+  void Accept(DexVisitor& visitor) override { visitor.Visit(*this); }
+
+  const std::string& runtime_function() const { return runtime_function_; }
+
+  const std::shared_ptr<InHolder<gandiva::DecimalScalar128>>& in_holder() const {
+    return in_holder_;
+  }
+
+ protected:
+  ValueValidityPairVector args_;
+  std::string runtime_function_;
+  std::shared_ptr<InHolder<gandiva::DecimalScalar128>> in_holder_;
+  int32_t precision_, scale_;
+};
+
+template <>
 class InExprDex<int32_t> : public InExprDexBase<int32_t> {
  public:
   InExprDex(const ValueValidityPairVector& args,
@@ -319,6 +350,18 @@ class InExprDex<int64_t> : public InExprDexBase<int64_t> {
             const std::unordered_set<int64_t>& values)
       : InExprDexBase(args, values) {
     runtime_function_ = "gdv_fn_in_expr_lookup_int64";
+  }
+};
+
+template <>
+class InExprDex<gandiva::DecimalScalar128>
+    : public InExprDexBase<gandiva::DecimalScalar128> {
+ public:
+  InExprDex(const ValueValidityPairVector& args,
+            const std::unordered_set<gandiva::DecimalScalar128>& values,
+            int32_t precision, int32_t scale)
+      : InExprDexBase<gandiva::DecimalScalar128>(args, values, precision, scale) {
+    runtime_function_ = "gdv_fn_in_expr_lookup_decimal";
   }
 };
 

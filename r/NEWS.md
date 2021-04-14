@@ -21,14 +21,49 @@
 
 ## dplyr methods
 
-* `dplyr::mutate()` is now supported in Arrow for many applications. For queries on `Table` and `RecordBatch` that are not yet supported in Arrow, the implementation falls back to pulling data into an R `data.frame` first, as in the previous release. For queries on `Dataset`, it raises an error if the feature is not implemented.
+Many more `dplyr` verbs are supported on Arrow objects:
+
+* `dplyr::mutate()` is now supported in Arrow for many applications. For queries on `Table` and `RecordBatch` that are not yet supported in Arrow, the implementation falls back to pulling data into an in-memory R `data.frame` first, as in the previous release. For queries on `Dataset` (which can be larger than memory), it raises an error if the function is not implemented. The main `mutate()` features that cannot yet be called on Arrow objects are (1) `mutate()` after `group_by()` (which is typically used in combination with aggregation) and (2) queries that use `dplyr::across()`.
+* `dplyr::transmute()` (which calls `mutate()`)
+* `dplyr::group_by()` now preserves the `.drop()` argument and supports on-the-fly definition of columns
+* `dplyr::relocate()` to reorder columns
+* `dplyr::arrange()` to sort rows
+* `dplyr::compute()` to evaluate the lazy expressions and return an Arrow Table. This is equivalent to `dplyr::collect(as_data_frame = FALSE)`, which was added in 2.0.0.
+
+Over 100 functions can now be called on Arrow objects inside a `dplyr` verb:
+
 * String functions `nchar()`, `tolower()`, and `toupper()`, along with their `stringr` spellings `str_length()`, `str_to_lower()`, and `str_to_upper()`, are supported in Arrow `dplyr` calls. `str_trim()` is also supported.
+* Regular expression functions `sub()`, `gsub()`, and `grepl()`, along with `str_replace()`, `str_replace_all()`, and `str_detect()`, are supported.
+* `cast(x, type)` and `dictionary_encode()` allow changing the type of columns in Arrow objects; `as.numeric()`, `as.character()`, etc. are exposed as similar type-altering conveniences
+* `dplyr::between()`; the Arrow version also allows the `left` and `right` arguments to be columns in the data and not just scalars
+* Additionally, any Arrow C++ compute function can be called inside a `dplyr` verb. This enables you to access Arrow functions that don't have a direct R mapping. See `list_compute_functions()` for all available functions, which are available in `dplyr` prefixed by `arrow_`.
+
+## Datasets
+
+* `open_dataset()` now accepts a vector of file paths (or even a single file path). Among other things, this enables you to open a single very large file and use `write_dataset()` to partition it without having to read the whole file into memory.
+* Datasets can now detect and read a directory of compressed CSVs
+* `write_dataset()` now defaults to `format = "parquet"` and better validates the `format` argument
+* Invalid input for `schema` in `open_dataset()` is now correctly handled
+* Collecting 0 columns from a Dataset now no longer returns all of the columns
 
 ## Other improvements
 
 * `value_counts()` to tabulate values in an `Array` or `ChunkedArray`, similar to `base::table()`.
 * `StructArray` objects gain data.frame-like methods, including `names()`, `$`, `[[`, and `dim()`.
 * RecordBatch columns can now be added, replaced, or removed by assigning (`<-`) with either `$` or `[[`
+* Similarly, `Schema` can now be edited by assigning in new types. This enables using the CSV reader to detect the schema of a file, modify the `Schema` object for any columns that you want to read in as a different type, and then use that `Schema` to read the data.
+* Better validation when creating a `Table` with a schema, with columns of different lengths, and with scalar value recycling
+* Reading Parquet files in Japanese or other multi-byte locales on Windows no longer hangs (workaround for a [bug in libstdc++](https://gcc.gnu.org/bugzilla/show_bug.cgi?id=98723); thanks @yutannihilation for the persistence in discovering this!)
+* If you attempt to read string data that has embedded nul (`\0`) characters, the error message now informs you that you can set `options(arrow.skip_nul = TRUE)` to strip them out. It is not recommended to set this option by default since this code path is sigificantly slower, and most string data does not contain nuls.
+
+## Installation and configuration
+
+* The R package can now support working with an Arrow C++ library that has additional features (such as dataset, parquet, string libraries) disabled, and the bundled build script enables setting environment variables to disable them. See `vignette("install", package = "arrow")` for details. This allows a faster, smaller package build in cases where that is useful, and it enables a minimal, functioning R package build on Solaris.
+* On macOS, it is now possible to use the same bundled C++ build that is used by default on Linux, along with all of its customization parameters, by setting the environment variable `FORCE_BUNDLED_BUILD=true`.
+* `arrow` now uses the `mimalloc` memory allocator by default on macOS, if available (as it is in CRAN binaries), instead of `jemalloc`. There are [configuration issues](https://issues.apache.org/jira/browse/ARROW-6994) with `jemalloc` on macOS, and [benchmark analysis](https://ursalabs.org/blog/2021-r-benchmarks-part-1/) shows that this has negative effects on performance, especially on memory-intensive workflows. `jemalloc` remains the default on Linux; `mimalloc` is default on Windows.
+* Setting the `ARROW_DEFAULT_MEMORY_POOL` environment variable to switch memory allocators now works correctly when the Arrow C++ library has been statically linked (as is usually the case when installing from CRAN).
+* The `arrow_info()` function now reports on the additional optional features, as well as the detected SIMD level. If key features or compression libraries are not enabled in the build, `arrow_info()` will refer to the installation vignette for guidance on how to install a more complete build, if desired.
+* If you attempt to read a file that was compressed with a codec that your Arrow build does not contain support for, the error message now will tell you how to reinstall Arrow with that feature enabled.
 
 # arrow 3.0.0
 

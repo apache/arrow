@@ -121,7 +121,8 @@ def _render_jinja_template(searchpath, template, params):
 
     loader = jinja2.FileSystemLoader(searchpath)
     env = jinja2.Environment(loader=loader, trim_blocks=True,
-                             lstrip_blocks=True)
+                             lstrip_blocks=True,
+                             undefined=jinja2.StrictUndefined)
     env.filters['format_all'] = format_all
     template = env.get_template(template)
     return template.render(**params)
