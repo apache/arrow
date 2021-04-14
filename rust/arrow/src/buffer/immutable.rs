@@ -288,6 +288,7 @@ impl Buffer {
     /// # Safety
     /// This method assumes that the iterator's size is correct and is undefined behavior
     /// to use it on an iterator that reports an incorrect length.
+    #[inline]
     pub unsafe fn try_from_trusted_len_iter<
         E,
         T: ArrowNativeType,
