@@ -166,7 +166,7 @@ export class Chunked<T extends DataType = any>
 
         if (index < 0 || index >= this._numChildren) { return null; }
 
-        let columns = this._children || (this._children = []);
+        const columns = this._children || (this._children = []);
         let child: Chunked<R>, field: Field<R>, chunks: Vector<R>[];
 
         if (child = columns[index]) { return child; }
@@ -185,9 +185,10 @@ export class Chunked<T extends DataType = any>
     public search(index: number): [number, number] | null;
     public search<N extends SearchContinuation<Chunked<T>>>(index: number, then?: N): ReturnType<N>;
     public search<N extends SearchContinuation<Chunked<T>>>(index: number, then?: N) {
-        let idx = index;
+        const idx = index;
         // binary search to find the child vector and value indices
-        let offsets = this._chunkOffsets, rhs = offsets.length - 1;
+        const offsets = this._chunkOffsets;
+        let rhs = offsets.length - 1;
         // return early if out of bounds, or if there's just one child
         if (idx < 0            ) { return null; }
         if (idx >= offsets[rhs]) { return null; }
@@ -228,15 +229,16 @@ export class Chunked<T extends DataType = any>
         let ArrayType: any = this._type.ArrayType;
         if (n <= 0) { return new ArrayType(0); }
         if (n <= 1) { return chunks[0].toArray(); }
-        let len = 0, src = new Array(n);
+        let len = 0;
+        const src = new Array(n);
         for (let i = -1; ++i < n;) {
             len += (src[i] = chunks[i].toArray()).length;
         }
         if (ArrayType !== src[0].constructor) {
             ArrayType = src[0].constructor;
         }
-        let dst = new ArrayType(len);
-        let set: any = ArrayType === Array ? arraySet : typedSet;
+        const dst = new ArrayType(len);
+        const set: any = ArrayType === Array ? arraySet : typedSet;
         for (let i = -1, idx = 0; ++i < n;) {
             idx = set(src[i], dst, idx);
         }
@@ -246,7 +248,8 @@ export class Chunked<T extends DataType = any>
     protected getInternal({ _chunks }: Chunked<T>, i: number, j: number) { return _chunks[i].get(j); }
     protected isValidInternal({ _chunks }: Chunked<T>, i: number, j: number) { return _chunks[i].isValid(j); }
     protected indexOfInternal({ _chunks }: Chunked<T>, chunkIndex: number, fromIndex: number, element: T['TValue']) {
-        let i = chunkIndex - 1, n = _chunks.length;
+        let i = chunkIndex - 1;
+        const n = _chunks.length;
         let start = fromIndex, offset = 0, found = -1;
         while (++i < n) {
             if (~(found = _chunks[i].indexOf(element, start))) {
@@ -285,8 +288,9 @@ export class Chunked<T extends DataType = any>
 
 /** @ignore */
 function calculateOffsets<T extends DataType>(vectors: Vector<T>[]) {
-    let offsets = new Uint32Array((vectors || []).length + 1);
-    let offset = offsets[0] = 0, length = offsets.length;
+    const offsets = new Uint32Array((vectors || []).length + 1);
+    let offset = offsets[0] = 0;
+    const length = offsets.length;
     for (let index = 0; ++index < length;) {
         offsets[index] = (offset += vectors[index - 1].length);
     }

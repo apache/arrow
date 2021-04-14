@@ -90,8 +90,8 @@ export class AsyncRandomAccessFile extends AsyncByteStream {
         if (file && position < size) {
             if (typeof nBytes !== 'number') { nBytes = Infinity; }
             let pos = position, offset = 0, bytesRead = 0;
-            let end = Math.min(size, pos + Math.min(size - pos, nBytes));
-            let buffer = new Uint8Array(Math.max(0, (this.position = end) - pos));
+            const end = Math.min(size, pos + Math.min(size - pos, nBytes));
+            const buffer = new Uint8Array(Math.max(0, (this.position = end) - pos));
             while ((pos += bytesRead) < end && (offset += bytesRead) < buffer.byteLength) {
                 ({ bytesRead } = await file.read(buffer, offset, buffer.byteLength - offset, pos));
             }

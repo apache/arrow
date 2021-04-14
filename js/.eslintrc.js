@@ -72,25 +72,19 @@ module.exports = {
         "@typescript-eslint/no-non-null-assertion": "off",
         "@typescript-eslint/no-unused-vars": "off",  // ts already takes care of this
 
-        "brace-style": "off",
+        "prefer-const": ["error", {
+            "destructuring": "all"
+        }],
         "curly": ["error", "multi-line"],
         "eol-last": "error",
-        "no-empty": "off",
         "no-multiple-empty-lines": "error",
         "no-trailing-spaces": "error",
         "no-var": "error",
-
+        "brace-style": "off",
+        "no-empty": "off",
         "no-cond-assign": "off",
 
-        // rules for later:
-
-        "prefer-const": ["off"],
-        // "prefer-const": ["error", {
-        //     "destructuring": "all"
-        // }],
-
-        // "one-var": ["error", "never"],
-
         // "brace-style": ["error", "1tbs", { "allowSingleLine": true }],
+        // "one-var": ["error", "never"],
     },
 };

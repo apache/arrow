@@ -217,7 +217,8 @@ Object.setPrototypeOf(Row.prototype, Map.prototype);
 const defineRowProxyProperties = (() => {
     const desc = { enumerable: true, configurable: false, get: null as any, set: null as any };
     return <T extends Row>(row: T) => {
-        let idx = -1, ktoi = row[kKeyToIdx] || (row[kKeyToIdx] = new Map());
+        let idx = -1;
+        const ktoi = row[kKeyToIdx] || (row[kKeyToIdx] = new Map());
         const getter = (key: any) => function(this: T) { return this.get(key); };
         const setter = (key: any) => function(this: T, val: any) { return this.set(key, val); };
         for (const key of row.keys()) {

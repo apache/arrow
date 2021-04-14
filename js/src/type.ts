@@ -596,7 +596,7 @@ export type IntArray = Int8Array | Int16Array | Int32Array | Uint8Array | Uint16
 
 /** @ignore */
 export function strideForType(type: DataType) {
-    let t: any = type;
+    const t: any = type;
     switch (type.typeId) {
         case Type.Decimal: return 4;
         case Type.Timestamp: return 2;

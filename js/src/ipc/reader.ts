@@ -413,7 +413,8 @@ class RecordBatchStreamReaderImpl<T extends { [key: string]: DataType } = any> e
     }
     public next(): IteratorResult<RecordBatch<T>> {
         if (this.closed) { return ITERATOR_DONE; }
-        let message: Message | null, { _reader: reader } = this;
+        let message: Message | null;
+        const { _reader: reader } = this;
         while (message = this._readNextMessageAndValidate()) {
             if (message.isSchema()) {
                 this.reset(message.header());
@@ -487,7 +488,8 @@ class AsyncRecordBatchStreamReaderImpl<T extends { [key: string]: DataType } = a
     }
     public async next() {
         if (this.closed) { return ITERATOR_DONE; }
-        let message: Message | null, { _reader: reader } = this;
+        let message: Message | null;
+        const { _reader: reader } = this;
         while (message = await this._readNextMessageAndValidate()) {
             if (message.isSchema()) {
                 await this.reset(message.header());

@@ -82,7 +82,7 @@ export class Data<T extends DataType = DataType> {
     }
     public get byteLength(): number {
         let byteLength = 0;
-        let { valueOffsets, values, nullBitmap, typeIds } = this;
+        const { valueOffsets, values, nullBitmap, typeIds } = this;
         valueOffsets && (byteLength += valueOffsets.byteLength);
         values       && (byteLength += values.byteLength);
         nullBitmap   && (byteLength += nullBitmap.byteLength);
@@ -162,7 +162,8 @@ export class Data<T extends DataType = DataType> {
     }
 
     protected _sliceBuffers(offset: number, length: number, stride: number, typeId: T['TType']): Buffers<T> {
-        let arr: any, { buffers } = this;
+        let arr: any;
+        const { buffers } = this;
         // If typeIds exist, slice the typeIds buffer
         (arr = buffers[BufferType.TYPE]) && (buffers[BufferType.TYPE] = arr.subarray(offset, offset + length));
         // If offsets exist, only slice the offsets buffer
