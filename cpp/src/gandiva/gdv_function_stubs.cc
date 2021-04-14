@@ -406,6 +406,7 @@ GDV_FN_CAST_VARCHAR_REAL(float64, DoubleType)
 #undef GDV_FN_CAST_VARCHAR_INTEGER
 #undef GDV_FN_CAST_VARCHAR_REAL
 
+GANDIVA_EXPORT
 int32_t gdv_fn_utf8_char_length(char c) {
   if ((signed char)c >= 0) {  // 1-byte char (0x00 ~ 0x7F)
     return 1;
@@ -420,7 +421,8 @@ int32_t gdv_fn_utf8_char_length(char c) {
   return 0;
 }
 
-void gdv_fn_set_error_for_invalid_utf(int64_t execution_context, char val) {
+GANDIVA_EXPORT
+void gdv_fn_set_error_for_invalid_utf8(int64_t execution_context, char val) {
   char const* fmt = "unexpected byte \\%02hhx encountered while decoding utf8 string";
   int size = static_cast<int>(strlen(fmt)) + 64;
   char* error = reinterpret_cast<char*>(malloc(size));
@@ -430,6 +432,7 @@ void gdv_fn_set_error_for_invalid_utf(int64_t execution_context, char val) {
 }
 
 // Convert an utf8 string to its corresponding uppercase string
+GANDIVA_EXPORT
 const char* gdv_fn_upper_utf8(int64_t context, const char* data, int32_t data_len,
                               int32_t* out_len) {
   if (data_len == 0) {
@@ -476,7 +479,7 @@ const char* gdv_fn_upper_utf8(int64_t context, const char* data, int32_t data_le
 
     // If it is an invalid utf8 character, UTF8Decode evaluates to false
     if (!is_valid_utf8_char) {
-      gdv_fn_set_error_for_invalid_utf(context, data[i]);
+      gdv_fn_set_error_for_invalid_utf8(context, data[i]);
       *out_len = 0;
       return "";
     }
@@ -501,6 +504,7 @@ const char* gdv_fn_upper_utf8(int64_t context, const char* data, int32_t data_le
 }
 
 // Convert an utf8 string to its corresponding lowercase string
+GANDIVA_EXPORT
 const char* gdv_fn_lower_utf8(int64_t context, const char* data, int32_t data_len,
                               int32_t* out_len) {
   if (data_len == 0) {
@@ -547,7 +551,7 @@ const char* gdv_fn_lower_utf8(int64_t context, const char* data, int32_t data_le
 
     // If it is an invalid utf8 character, UTF8Decode evaluates to false
     if (!is_valid_utf8_char) {
-      gdv_fn_set_error_for_invalid_utf(context, data[i]);
+      gdv_fn_set_error_for_invalid_utf8(context, data[i]);
       *out_len = 0;
       return "";
     }
@@ -1199,5 +1203,47 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_sha256_decimal128",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_sha256_decimal128));
+
+  // gdv_fn_utf8_char_length
+  args = {
+      types->i8_type(),  // char
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_utf8_char_length",
+                                  types->i32_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_utf8_char_length));
+
+  // gdv_fn_set_error_for_invalid_utf8
+  args = {
+      types->i64_type(),  // context
+      types->i8_type(),   // value
+  };
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_set_error_for_invalid_utf8", types->void_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_set_error_for_invalid_utf8));
+
+  // gdv_fn_upper_utf8
+  args = {
+      types->i64_type(),      // context
+      types->i8_ptr_type(),   // data
+      types->i32_type(),      // data_len
+      types->i32_ptr_type(),  // out_len
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_upper_utf8",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_upper_utf8));
+  // gdv_fn_lower_utf8
+  args = {
+      types->i64_type(),      // context
+      types->i8_ptr_type(),   // data
+      types->i32_type(),      // data_len
+      types->i32_ptr_type(),  // out_len
+  };
+
+  engine->AddGlobalMappingForFunc("gdv_fn_lower_utf8",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_lower_utf8));
 }
 }  // namespace gandiva
