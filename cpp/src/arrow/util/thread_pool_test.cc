@@ -135,6 +135,30 @@ class TestRunSynchronously : public testing::TestWithParam<bool> {
   Status RunVoid(FnOnce<Future<>(Executor*)> top_level_task) {
     return RunSynchronouslyVoid(std::move(top_level_task), UseThreads());
   }
+
+  void TestContinueAfterExternal(bool transfer_to_main_thread) {
+    bool continuation_ran = false;
+    EXPECT_OK_AND_ASSIGN(auto external_pool, ThreadPool::Make(1));
+    auto top_level_task = [&](Executor* executor) {
+      struct Callback {
+        Status operator()(...) {
+          *continuation_ran = true;
+          return Status::OK();
+        }
+        bool* continuation_ran;
+      };
+      auto fut = DeferNotOk(external_pool->Submit([&] {
+        SleepABit();
+        return Status::OK();
+      }));
+      if (transfer_to_main_thread) {
+        fut = executor->Transfer(fut);
+      }
+      return fut.Then(Callback{&continuation_ran});
+    };
+    ASSERT_OK(RunVoid(std::move(top_level_task)));
+    EXPECT_TRUE(continuation_ran);
+  }
 };
 
 TEST_P(TestRunSynchronously, SimpleRun) {
@@ -209,25 +233,16 @@ TEST_P(TestRunSynchronously, StopTokenSubmit) {
 }
 
 TEST_P(TestRunSynchronously, ContinueAfterExternal) {
-  bool continuation_ran = false;
-  EXPECT_OK_AND_ASSIGN(auto mock_io_pool, ThreadPool::Make(1));
-  auto top_level_task = [&](Executor* executor) {
-    struct Callback {
-      Status operator()(...) {
-        continuation_ran = true;
-        return Status::OK();
-      }
-      bool& continuation_ran;
-    };
-    return executor
-        ->Transfer(DeferNotOk(mock_io_pool->Submit([&] {
-          SleepABit();
-          return Status::OK();
-        })))
-        .Then(Callback{continuation_ran});
-  };
-  ASSERT_OK(RunVoid(std::move(top_level_task)));
-  EXPECT_TRUE(continuation_ran);
+  // The future returned by the top-level task completes on another thread.
+  // This can trigger delicate race conditions in the SerialExecutor code,
+  // especially destruction.
+  this->TestContinueAfterExternal(/*transfer_to_main_thread=*/false);
+}
+
+TEST_P(TestRunSynchronously, ContinueAfterExternalTransferred) {
+  // Like above, but the future is transferred back to the serial executor
+  // after completion on an external thread.
+  this->TestContinueAfterExternal(/*transfer_to_main_thread=*/true);
 }
 
 TEST_P(TestRunSynchronously, SchedulerAbort) {

@@ -225,7 +225,7 @@ class ARROW_EXPORT SerialExecutor : public Executor {
 
   // State uses mutex
   struct State;
-  std::unique_ptr<State> state_;
+  std::shared_ptr<State> state_;
 
   template <typename T>
   Result<T> Run(TopLevelTask<T> initial_task) {
