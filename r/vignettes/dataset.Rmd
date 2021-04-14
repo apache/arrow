@@ -379,10 +379,9 @@ ds %>%
   write_dataset("nyc-taxi/feather", format = "feather")
 ```
 
-The other thing we can do when writing datasets is select a subset of columns,
-reorder columns, and/or rename columns. Suppose we never care about `vendor_id`,
-and being a string column, it can take up a lot of space when we read it in, so
-let's drop it:
+The other thing we can do when writing datasets is select a subset of and/or reorder
+columns. Suppose we never care about `vendor_id`, and being a string column,
+it can take up a lot of space when we read it in, so let's drop it:
 
 ```r
 ds %>%
@@ -390,3 +389,6 @@ ds %>%
   select(-vendor_id) %>%
   write_dataset("nyc-taxi/feather", format = "feather")
 ```
+
+Note that while you can select a subset of columns,
+you cannot currently rename columns when writing a dataset.
