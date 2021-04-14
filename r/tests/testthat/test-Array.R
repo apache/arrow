@@ -818,3 +818,34 @@ test_that("auto int64 conversion to int can be disabled (ARROW-10093)", {
     expect_true(inherits(as.data.frame(batch)$x, "integer64"))
   })
 })
+
+test_that("Array handles any", {
+  
+  data <- c(1:10, NA)
+  array_data <- Array$create(data)
+
+  expect_equal(any(array_data > 5), any(data > 5))
+  expect_equal(any(array_data < 1), any(data < 1))
+  expect_equal(any(array_data < 1, na.rm = TRUE), any(data < 1, na.rm = TRUE))
+  
+  data_logical <- c(TRUE, FALSE, TRUE, NA, FALSE)
+  array_data_logical <- Array$create(data_logical)
+  
+  expect_equal(any(array_data_logical), any(data_logical))
+  expect_equal(any(array_data_logical, na.rm =TRUE), any(data_logical, na.rm =TRUE))
+})
+
+test_that("Array handles all", {
+  data <- c(1:10, NA)
+  array_data <- Array$create(data)
+  
+  expect_equal(all(array_data > 5), all(data > 5))
+  expect_equal(all(array_data < 11), all(data < 11))
+  expect_equal(all(array_data < 11, na.rm = TRUE), all(data < 11, na.rm = TRUE))
+  
+  data_logical <- c(TRUE, FALSE, TRUE, NA, FALSE)
+  array_data_logical <- Array$create(data_logical)
+  
+  expect_equal(all(array_data_logical), all(data_logical))
+  expect_equal(all(array_data_logical, na.rm =TRUE), all(data_logical, na.rm =TRUE))
+})
