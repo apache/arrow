@@ -228,6 +228,8 @@ class GeneratorTestFixture : public ::testing::TestWithParam<bool> {
     return gen;
   }
 
+  AsyncGenerator<TestInt> MakeEmptySource() { return MakeSource({}); }
+
   AsyncGenerator<TestInt> MakeFailingSource() {
     AsyncGenerator<TestInt> gen = [] {
       return Future<TestInt>::MakeFinished(Status::Invalid("XYZ"));
@@ -1039,6 +1041,50 @@ TEST(TestAsyncUtil, ReadaheadFailed) {
   ASSERT_FINISHES_OK_AND_ASSIGN(auto definitely_last, readahead());
   ASSERT_TRUE(IsIterationEnd(definitely_last));
 }
+
+class EnumeratorTestFixture : public GeneratorTestFixture {
+ protected:
+  void AssertEnumeratedCorrectly(AsyncGenerator<Enumerated<TestInt>>& gen,
+                                 int num_items) {
+    auto collected = CollectAsyncGenerator(gen);
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto items, collected);
+    EXPECT_EQ(num_items, items.size());
+
+    for (const auto& item : items) {
+      ASSERT_EQ(item.index, item.value.value);
+      bool last = item.index == num_items - 1;
+      ASSERT_EQ(last, item.last);
+    }
+    AssertGeneratorExhausted(gen);
+  }
+};
+
+TEST_P(EnumeratorTestFixture, Basic) {
+  constexpr int NITEMS = 100;
+
+  auto source = MakeSource(RangeVector(NITEMS));
+  auto enumerated = MakeEnumeratedGenerator(std::move(source));
+
+  AssertEnumeratedCorrectly(enumerated, NITEMS);
+}
+
+TEST_P(EnumeratorTestFixture, Empty) {
+  auto source = MakeEmptySource();
+  auto enumerated = MakeEnumeratedGenerator(std::move(source));
+  AssertGeneratorExhausted(enumerated);
+}
+
+TEST_P(EnumeratorTestFixture, Error) {
+  auto source = FailsAt(MakeSource({1, 2, 3}), 1);
+  auto enumerated = MakeEnumeratedGenerator(std::move(source));
+
+  // Even though the first item finishes ok the enumerator buffers it.  The error then
+  // takes priority over the buffered result.
+  ASSERT_FINISHES_AND_RAISES(Invalid, enumerated());
+}
+
+INSTANTIATE_TEST_SUITE_P(EnumeratedTests, EnumeratorTestFixture,
+                         ::testing::Values(false, true));
 
 class SequencerTestFixture : public GeneratorTestFixture {
  protected:

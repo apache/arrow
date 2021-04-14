@@ -1070,6 +1070,80 @@ AsyncGenerator<T> MakeConcatenatedGenerator(AsyncGenerator<AsyncGenerator<T>> so
   return MergedGenerator<T>(std::move(source), 1);
 }
 
+template <typename T>
+struct Enumerated {
+  T value;
+  int index;
+  bool last;
+};
+
+template <typename T>
+struct IterationTraits<Enumerated<T>> {
+  static Enumerated<T> End() { return Enumerated<T>{IterationEnd<T>(), -1, false}; }
+  static bool IsEnd(const Enumerated<T>& val) { return val.index < 0; }
+};
+
+/// \see MakeEnumeratedGenerator
+template <typename T>
+class EnumeratingGenerator {
+ public:
+  EnumeratingGenerator(AsyncGenerator<T> source, T initial_value)
+      : state_(std::make_shared<State>(std::move(source), std::move(initial_value))) {}
+
+  Future<Enumerated<T>> operator()() {
+    if (state_->finished) {
+      return AsyncGeneratorEnd<Enumerated<T>>();
+    } else {
+      auto state = state_;
+      return state->source().Then([state](const T& next) {
+        auto finished = IsIterationEnd<T>(next);
+        auto prev = Enumerated<T>{state->prev_value, state->prev_index, finished};
+        state->prev_value = next;
+        state->prev_index++;
+        state->finished = finished;
+        return prev;
+      });
+    }
+  }
+
+ private:
+  struct State {
+    State(AsyncGenerator<T> source, T initial_value)
+        : source(std::move(source)), prev_value(std::move(initial_value)), prev_index(0) {
+      finished = IsIterationEnd<T>(prev_value);
+    }
+
+    AsyncGenerator<T> source;
+    T prev_value;
+    int prev_index;
+    bool finished;
+  };
+
+  std::shared_ptr<State> state_;
+};
+
+/// Wraps items from a source generator with positional information
+///
+/// When used with MakeMergedGenerator and MakeSequencingGenerator this allows items to be
+/// processed in a "first-available" fashion and later resequenced which can reduce the
+/// impact of sources with erratic performance (e.g. a filesystem where some items may
+/// take longer to read than others).
+///
+/// TODO(ARROW-12371) Would require this generator be async-reentrant
+///
+/// \see MakeSequencingGenerator for an example of putting items back in order
+///
+/// This generator is not async-reentrant
+///
+/// This generator buffers one item (so it knows which item is the last item)
+template <typename T>
+AsyncGenerator<Enumerated<T>> MakeEnumeratedGenerator(AsyncGenerator<T> source) {
+  return FutureFirstGenerator<Enumerated<T>>(
+      source().Then([source](const T& initial_value) -> AsyncGenerator<Enumerated<T>> {
+        return EnumeratingGenerator<T>(std::move(source), initial_value);
+      }));
+}
+
 /// \see MakeTransferredGenerator
 template <typename T>
 class TransferringGenerator {
