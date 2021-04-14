@@ -88,12 +88,31 @@ These nightly package builds are not official Apache releases and are
 not recommended for production use. They may be useful for testing bug
 fixes and new features under active development.
 
+## Usage
 
-## Reading and writing data files with Arrow
+Among the many uses of the `arrow` package, two of the most accessible
+uses are:
 
-The `arrow` package provides functions for reading data from several
-common file formats. By default, calling any of these functions returns
-an R `data.frame`. To return an Arrow `Table`, set argument
+-   Reading and writing data files
+-   Manipulating Arrow data with `dplyr` verbs
+
+The sections below describe these two uses and illustrate them with
+basic examples. The sections below mention two Arrow data structures:
+
+-   `Table`: a tabular, column-oriented data structure capable of
+    storing and processing large amounts of data more efficiently than
+    R’s built-in `data.frame` and with SQL-like column data types that
+    afford better interoperability with databases and data warehouse
+    systems
+-   `Dataset`: a data structure functionally similar to `Table` but with
+    the capability to read larger-than-memory data partitioned across
+    multiple files
+
+### Reading and writing data files with Arrow
+
+The `arrow` package provides functions for reading single data files in
+several common formats. By default, calling any of these functions
+returns an R `data.frame`. To return an Arrow `Table`, set argument
 `as_data_frame = FALSE`.
 
 -   `read_parquet()`: read a file in Parquet format (an efficient
@@ -106,40 +125,54 @@ an R `data.frame`. To return an Arrow `Table`, set argument
 -   `read_tsv_arrow()`: read a tab-separated values (TSV) file
 -   `read_json_arrow()`: read a JSON data file
 
-For writing Arrow tabular data structures to files, the `arrow` package
-provides the functions `write_parquet()` and `write_feather()`. These
-functions also accept R data frames.
+For writing data to single files, the `arrow` package provides the
+functions `write_parquet()` and `write_feather()`. These can be used
+with R `data.frame` and Arrow `Table` objects.
 
-## Using dplyr with Arrow
-
-The `arrow` package provides a `dplyr` backend, enabling manipulation of
-Arrow tabular data with `dplyr` verbs. To begin, load both `arrow` and
-`dplyr`:
+For example, let’s write the Star Wars characters data that’s included
+in `dplyr` to a Parquet file, then read it back in. First load the
+`arrow` and `dplyr` packages:
 
 ``` r
 library(arrow, warn.conflicts = FALSE)
 library(dplyr, warn.conflicts = FALSE)
 ```
 
-Then create an Arrow `Table` or `RecordBatch` using one of the object
-creation or file loading functions listed above. For example, create a
-`Table` named `sw` with the Star Wars characters data frame that’s
-included in `dplyr`:
+Then write the `data.frame` named `starwars` to a Parquet file at
+`file_path`:
 
 ``` r
-sw <- Table$create(starwars)
+file_path <- tempfile()
+write_parquet(starwars, file_path)
 ```
 
-Or read the same data from a Parquet file, using `as_data_frame = FALSE`
-to create a `Table` named `sw`:
+Then read the Parquet file into an R `data.frame` named `sw`:
 
 ``` r
-write_parquet(starwars, data_file <- tempfile()) # write file to demonstrate reading it
-sw <- read_parquet(data_file, as_data_frame = FALSE)
+sw <- read_parquet(file_path)
 ```
 
-Or, for larger or multi-file datasets, load the data into a `Dataset` as
-described in `vignette("dataset", package = "arrow")`.
+For reading and writing larger files or multiple files with Arrow
+`Dataset` objects, `arrow` provides the functions `open_dataset()` and
+`write_dataset()`. For examples of these, see
+`vignette("dataset", package = "arrow")`.
+
+All these functions can read and write files in the local filesystem (by
+passing unqualified paths or `file://` URIs) or files in Amazon S3 (by
+passing S3 URIs beginning with `s3://`). For more details, see
+`vignette("fs", package = "arrow")`
+
+### Using dplyr with Arrow
+
+The `arrow` package provides a `dplyr` backend enabling manipulation of
+Arrow tabular data with `dplyr` verbs. To use it, first load both
+packages `arrow` and `dplyr`. Then load data into an Arrow `Table` or
+`Dataset` object. For example, read the Parquet file written in the
+previous example into an Arrow `Table` named `sw`:
+
+``` r
+sw <- read_parquet(file_path, as_data_frame = FALSE)
+```
 
 Next, pipe on `dplyr` verbs:
 
@@ -168,7 +201,7 @@ result
 #> See $.data for the source Arrow object
 ```
 
-To execute these computations and obtain the actual result, call
+To execute these computations and materialize the result, call
 `compute()` or `collect()`. `compute()` returns an Arrow `Table`,
 suitable for passing to other `arrow` or `dplyr` functions:
 
@@ -201,18 +234,29 @@ result %>% collect()
 #> 10 R5-D4                   38.2     70.5
 ```
 
-Arrow supports most `dplyr` verbs except those that compute aggregates
-(such as `summarise()`, and `mutate()` after `group_by()`). Inside
-`dplyr` verbs, Arrow offers limited support for functions and operators,
-with broader support expected in upcoming releases. For more information
-about available compute functions, see `help("list_compute_functions")`.
+The `arrow` package works with most `dplyr` verbs except those that
+compute aggregates (such as `summarise()`, and `mutate()` after
+`group_by()`). Inside `dplyr` verbs, Arrow offers limited support for
+functions and operators, with broader support expected in upcoming
+releases. For more information about available compute functions, see
+`help("list_compute_functions")`.
 
-For `dplyr` queries on `Table` and `RecordBatch` objects, if the `arrow`
-package detects an unsupported function within a `dplyr` verb, it
-automatically calls `collect()` to return the data as an R `data.frame`
-before processing that `dplyr` verb. This differs from how `arrow`
-handles unsupported queries on `Dataset` objects; see
-`vignette("install", package = "arrow")` for details.
+For `dplyr` queries on `Table` objects, if the `arrow` package detects
+an unimplemented function within a `dplyr` verb, it automatically calls
+`collect()` to return the data as an R `data.frame` before processing
+that `dplyr` verb. For queries on `Dataset` objects (which can be larger
+than memory), it raises an error if the function is unimplemented.
+
+### Other uses
+
+Other uses of `arrow` are described in the following vignettes:
+
+-   `vignette("python", package = "arrow")`: use `arrow` and
+    `reticulate` to pass data between R and Python
+-   `vignette("flight", package = "arrow")`: connect to Arrow Flight RPC
+    servers to send and receive data
+-   `vignette("flight", package = "arrow")`: access and manipulate Arrow
+    objects through low-level bindings to the C++ library
 
 ## Getting help
 
