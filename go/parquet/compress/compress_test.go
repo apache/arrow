@@ -49,6 +49,14 @@ func makeCompressibleData(size int) []byte {
 	return data
 }
 
+func TestErrorForUnimplemented(t *testing.T) {
+	_, err := compress.GetCodec(compress.Codecs.Lzo)
+	assert.Error(t, err)
+
+	_, err = compress.GetCodec(compress.Codecs.Lz4)
+	assert.Error(t, err)
+}
+
 func TestCompressDataOneShot(t *testing.T) {
 	tests := []struct {
 		c compress.Compression
@@ -56,15 +64,16 @@ func TestCompressDataOneShot(t *testing.T) {
 		{compress.Codecs.Uncompressed},
 		{compress.Codecs.Snappy},
 		{compress.Codecs.Gzip},
-		// {compress.Codecs.Lzo},
 		{compress.Codecs.Brotli},
-		// {compress.Codecs.Lz4},
 		{compress.Codecs.Zstd},
+		// {compress.Codecs.Lzo},
+		// {compress.Codecs.Lz4},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.c.String(), func(t *testing.T) {
-			codec := compress.GetCodec(tt.c)
+			codec, err := compress.GetCodec(tt.c)
+			assert.NoError(t, err)
 			data := makeCompressibleData(CompressibleDataSize)
 
 			buf := make([]byte, codec.CompressBound(int64(len(data))))
@@ -87,16 +96,17 @@ func TestCompressReaderWriter(t *testing.T) {
 		{compress.Codecs.Uncompressed},
 		{compress.Codecs.Snappy},
 		{compress.Codecs.Gzip},
-		// {compress.Codecs.Lzo},
 		{compress.Codecs.Brotli},
-		// {compress.Codecs.Lz4},
 		{compress.Codecs.Zstd},
+		// {compress.Codecs.Lzo},
+		// {compress.Codecs.Lz4},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.c.String(), func(t *testing.T) {
 			var buf bytes.Buffer
-			codec := compress.GetCodec(tt.c)
+			codec, err := compress.GetCodec(tt.c)
+			assert.NoError(t, err)
 			data := makeRandomData(RandomDataSize)
 
 			wr := codec.NewWriter(&buf)

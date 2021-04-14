@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 
 	"github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
+	"golang.org/x/xerrors"
 )
 
 // Compression is an alias to the thrift compression codec enum type for easy use
@@ -146,11 +147,10 @@ func init() {
 }
 
 // GetCodec returns a Codec interface for the requested Compression type
-func GetCodec(typ Compression) Codec {
+func GetCodec(typ Compression) (Codec, error) {
 	ret, ok := codecs[typ]
 	if !ok {
-		// return codecs[Codecs.Uncompressed]
-		panic("compression for " + typ.String() + " unimplemented")
+		return nil, xerrors.Errorf("compression for %s unimplemented", typ.String())
 	}
-	return ret
+	return ret, nil
 }
