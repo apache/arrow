@@ -121,7 +121,6 @@ export class Message<T extends MessageHeader = any> {
         throw new Error(`Unrecognized Message header: ${header}`);
     }
 
-    // @ts-ignore
     public body: Uint8Array;
     protected _headerType: T;
     protected _bodyLength: number;
@@ -130,8 +129,7 @@ export class Message<T extends MessageHeader = any> {
     public get version() { return this._version; }
     public get headerType() { return this._headerType; }
     public get bodyLength() { return this._bodyLength; }
-    // @ts-ignore
-    protected _createHeader: MessageHeaderDecoder;
+    protected _createHeader!: MessageHeaderDecoder;
     public header() { return this._createHeader<T>(); }
     public isSchema(): this is Message<MessageHeader.Schema> { return this.headerType === MessageHeader.Schema; }
     public isRecordBatch(): this is Message<MessageHeader.RecordBatch> { return this.headerType === MessageHeader.RecordBatch; }
@@ -180,7 +178,7 @@ export class DictionaryBatch {
     public get nodes(): FieldNode[] { return this.data.nodes; }
     public get buffers(): BufferRegion[] { return this.data.buffers; }
 
-    constructor(data: RecordBatch, id: Long | number, isDelta: boolean = false) {
+    constructor(data: RecordBatch, id: Long | number, isDelta = false) {
         this._data = data;
         this._isDelta = isDelta;
         this._id = typeof id === 'number' ? id : id.low;
@@ -384,7 +382,6 @@ function decodeField(f: _Field, dictionaries?: Map<number, DataType>) {
         type = decodeFieldType(f, decodeFieldChildren(f, dictionaries));
         field = new Field(f.name()!, type, f.nullable(), decodeCustomMetadata(f));
     }
-    // tslint:disable
     // If dictionary encoded and the first time we've seen this dictionary id, decode
     // the data type and child fields, then wrap in a Dictionary type and insert the
     // data type into the dictionary types map.

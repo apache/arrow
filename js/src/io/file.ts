@@ -22,7 +22,7 @@ import { ArrayBufferViewInput, toUint8Array } from '../util/buffer';
 /** @ignore */
 export class RandomAccessFile extends ByteStream {
     public size: number;
-    public position: number = 0;
+    public position = 0;
     protected buffer: Uint8Array | null;
     constructor(buffer: ArrayBufferViewInput, byteLength?: number) {
         super();
@@ -59,9 +59,8 @@ export class RandomAccessFile extends ByteStream {
 
 /** @ignore */
 export class AsyncRandomAccessFile extends AsyncByteStream {
-    // @ts-ignore
-    public size: number;
-    public position: number = 0;
+    public size!: number;
+    public position = 0;
     public _pending?: Promise<void>;
     protected _handle: FileHandle | null;
     constructor(file: FileHandle, byteLength?: number) {

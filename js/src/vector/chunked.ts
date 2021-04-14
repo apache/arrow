@@ -91,7 +91,7 @@ export class Chunked<T extends DataType = any>
     protected _chunks: Vector<T>[];
     protected _numChildren: number;
     protected _children?: Chunked[];
-    protected _nullCount: number = -1;
+    protected _nullCount = -1;
     protected _chunkOffsets: Uint32Array;
 
     constructor(type: T, chunks: Vector<T>[] = [], offsets = calculateOffsets(chunks)) {

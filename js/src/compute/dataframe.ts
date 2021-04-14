@@ -95,16 +95,16 @@ export class DataFrame<T extends { [key: string]: DataType } = any> extends Tabl
 }
 
 /** @ignore */
-export class CountByResult<T extends DataType = any, TCount extends Int = Int> extends Table<{ values: T,  counts: TCount }> {
+export class CountByResult<T extends DataType = any, TCount extends Int = Int> extends Table<{ values: T;  counts: TCount }> {
     constructor(values: Vector<T>, counts: V<TCount>) {
-        type R = { values: T, counts: TCount };
+        type R = { values: T; counts: TCount };
         const schema = new Schema<R>([
             new Field('values', values.type),
             new Field('counts', counts.type)
         ]);
         super(new RecordBatch<R>(schema, counts.length, [values, counts]));
     }
-    public toJSON(): Object {
+    public toJSON(): Record<string, unknown> {
         const values = this.getColumnAt(0)!;
         const counts = this.getColumnAt(1)!;
         const result = {} as { [k: string]: number | null };

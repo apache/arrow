@@ -15,34 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const fs = require('fs');
-const path = require('path');
-const glob = require('glob');
-
-const config = [];
-const filenames = glob.sync(path.resolve(__dirname, `../test/data/tables/`, `*.arrow`));
-
-const countBys = {
-    tracks: ['origin', 'destination']
-}
-const counts = {
-    tracks: [
-        {col: 'lat',    test: 'gt', value: 0        },
-        {col: 'lng',    test: 'gt', value: 0        },
-        {col: 'origin', test: 'eq', value: 'Seattle'},
-    ]
-}
-
-for (const filename of filenames) {
-    const { name } = path.parse(filename);
-    if (name in counts) {
-        config.push({
-            name,
-            buffers: [fs.readFileSync(filename)],
-            countBys: countBys[name],
-            counts: counts[name],
-        });
-    }
-}
-
-module.exports = config;
+module.exports = {
+    rules: {
+        "@typescript-eslint/no-require-imports": "off",
+        "@typescript-eslint/no-inferrable-types": "off"
+    },
+};

@@ -107,7 +107,6 @@ export function fieldFromJSON(_field: any, dictionaries?: Map<number, DataType>)
         type = typeFromJSON(_field, fieldChildrenFromJSON(_field, dictionaries));
         field = new Field(_field['name'], type, _field['nullable'], customMetadataFromJSON(_field['customMetadata']));
     }
-    // tslint:disable
     // If dictionary encoded and the first time we've seen this dictionary id, decode
     // the data type and child fields, then wrap in a Dictionary type and insert the
     // data type into the dictionary types map.
@@ -130,7 +129,7 @@ export function fieldFromJSON(_field: any, dictionaries?: Map<number, DataType>)
 }
 
 /** @ignore */
-function customMetadataFromJSON(_metadata?: object) {
+function customMetadataFromJSON(_metadata?: Record<string, string>) {
     return new Map<string, string>(Object.entries(_metadata || {}));
 }
 

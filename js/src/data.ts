@@ -70,14 +70,10 @@ export class Data<T extends DataType = DataType> {
      */
     public dictionary?: Vector;
 
-    // @ts-ignore
-    public readonly values: Buffers<T>[BufferType.DATA];
-    // @ts-ignore
-    public readonly typeIds: Buffers<T>[BufferType.TYPE];
-    // @ts-ignore
-    public readonly nullBitmap: Buffers<T>[BufferType.VALIDITY];
-    // @ts-ignore
-    public readonly valueOffsets: Buffers<T>[BufferType.OFFSET];
+    public readonly values!: Buffers<T>[BufferType.DATA];
+    public readonly typeIds!: Buffers<T>[BufferType.TYPE];
+    public readonly nullBitmap!: Buffers<T>[BufferType.VALIDITY];
+    public readonly valueOffsets!: Buffers<T>[BufferType.OFFSET];
 
     public get typeId(): T['TType'] { return this.type.typeId; }
     public get ArrayType(): T['ArrayType'] { return this.type.ArrayType; }

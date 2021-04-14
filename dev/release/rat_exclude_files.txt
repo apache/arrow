@@ -130,6 +130,7 @@ js/.npmignore
 js/closure-compiler-scripts/*
 js/src/fb/*.ts
 js/yarn.lock
+js/.eslintignore
 python/cmake_modules
 python/cmake_modules/FindPythonLibsNew.cmake
 python/cmake_modules/SnappyCMakeLists.txt

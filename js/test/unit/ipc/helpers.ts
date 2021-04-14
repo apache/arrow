@@ -29,7 +29,6 @@ import * as fs from 'fs';
 import { fs as memfs } from 'memfs';
 import { Readable, PassThrough } from 'stream';
 
-/* tslint:disable */
 const randomatic = require('randomatic');
 
 export abstract class ArrowIOTestHelper {
@@ -173,8 +172,6 @@ export async function* readableDOMStreamToAsyncIterator<T>(stream: ReadableStrea
             // Else yield the chunk
             yield value as T;
         }
-    } catch (e) {
-        throw e;
     } finally {
         try { stream.locked && reader.releaseLock(); } catch (e) {}
     }

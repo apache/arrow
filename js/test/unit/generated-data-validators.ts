@@ -25,7 +25,7 @@ import {
 import { util } from '../Arrow';
 const { createElementComparator: compare } = util;
 
-type DeferredTest = { description: string, tests?: DeferredTest[], run: (...args: any[]) => any };
+type DeferredTest = { description: string; tests?: DeferredTest[]; run: (...args: any[]) => any };
 
 function deferTest(description: string, run: (...args: any[]) => any) {
     return { description, run: () => test(description, run) } as DeferredTest;
@@ -73,7 +73,7 @@ export function validateVector({ values: createTestValues, vector, keys }: Gener
     const suites = [
         deferDescribe(`Validate ${vector.type} (sliced=${sliced})`, [
             deferTest(`length is correct`, () => {
-                expect(vector.length).toBe(values.length);
+                expect(vector).toHaveLength(values.length);
             }),
             deferTest(`gets expected values`, () => {
                 expect.hasAssertions();
@@ -94,7 +94,7 @@ export function validateVector({ values: createTestValues, vector, keys }: Gener
                     while (++i < n) {
                         indices.isValid(i)
                             ? expect(indices.get(i)).toBe(keys[i])
-                            : expect(indices.get(i)).toBe(null);
+                            : expect(indices.get(i)).toBeNull();
                     }
                 } catch (e) { throw new Error(`${indices}[${i}]: ${e}`); }
             }) || null as any as DeferredTest,

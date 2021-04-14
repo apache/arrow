@@ -158,7 +158,7 @@ abstract class Row<K extends PropertyKey = any, V = any> implements Map<K, V> {
 }
 
 export class MapRow<K extends DataType = any, V extends DataType = any> extends Row<K['TValue'], V['TValue'] | null> {
-    constructor(slice: Vector<Struct<{ key: K, value: V }>>) {
+    constructor(slice: Vector<Struct<{ key: K; value: V }>>) {
         super(slice, slice.length);
         return createRowProxy(this);
     }
@@ -224,8 +224,8 @@ const defineRowProxyProperties = (() => {
             ktoi.set(key, ++idx);
             desc.get = getter(key);
             desc.set = setter(key);
-            row.hasOwnProperty(key) || (desc.enumerable = true, Object.defineProperty(row, key, desc));
-            row.hasOwnProperty(idx) || (desc.enumerable = false, Object.defineProperty(row, idx, desc));
+            Object.prototype.hasOwnProperty.call(row, key) || (desc.enumerable = true, Object.defineProperty(row, key, desc));
+            Object.prototype.hasOwnProperty.call(row, idx) || (desc.enumerable = false, Object.defineProperty(row, idx, desc));
         }
         desc.get = desc.set = null;
         return row;
