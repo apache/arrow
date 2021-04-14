@@ -424,7 +424,7 @@ CAST_NUMERIC_FROM_VARBINARY(int64_t, arrow::Int64Type, BIGINT)
 CAST_NUMERIC_FROM_VARBINARY(float, arrow::FloatType, FLOAT4)
 CAST_NUMERIC_FROM_VARBINARY(double, arrow::DoubleType, FLOAT8)
 
-#undef CAST_NUMERIC_FROM_STRING
+#undef CAST_NUMERIC_FROM_VARBINARY
 
 #define GDV_FN_CAST_VARLEN_TYPE_FROM_INTEGER(IN_TYPE, CAST_NAME, ARROW_TYPE)      \
   GANDIVA_EXPORT                                                                  \
