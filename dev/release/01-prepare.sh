@@ -183,7 +183,6 @@ release_candidate_branch="release-${version}-rc${rc_number}"
 : ${PREPARE_CHANGELOG:=${PREPARE_DEFAULT}}
 : ${PREPARE_LINUX_PACKAGES:=${PREPARE_DEFAULT}}
 : ${PREPARE_VERSION_PRE_TAG:=${PREPARE_DEFAULT}}
-: ${PREPARE_BRANCH:=${PREPARE_DEFAULT}}
 : ${PREPARE_TAG:=${PREPARE_DEFAULT}}
 : ${PREPARE_VERSION_POST_TAG:=${PREPARE_DEFAULT}}
 : ${PREPARE_DEB_PACKAGE_NAMES:=${PREPARE_DEFAULT}}
@@ -286,15 +285,4 @@ if [ ${PREPARE_DEB_PACKAGE_NAMES} -gt 0 ]; then
     git commit -m "[Release] Update .deb package names for $next_version"
     cd -
   fi
-fi
-
-############################## Create Release Branch #########################
-
-if [ ${PREPARE_BRANCH} -gt 0 ]; then
-  echo "Create release branch ${release_branch}"
-  if [[ $(git branch -l "${release_candidate_branch}") ]]; then
-    echo "Branch already exists, deleting it."
-    git branch -D ${release_branch}
-  fi
-  git checkout -b ${release_branch}
 fi
