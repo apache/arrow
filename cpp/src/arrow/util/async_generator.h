@@ -1118,7 +1118,7 @@ class EnumeratingGenerator {
 /// Wraps items from a source generator with positional information
 ///
 /// When used with MakeMergedGenerator and MakeSequencingGenerator this allows items to be
-/// processed in a "first-available" fashion and later reqsequenced which can reduce the
+/// processed in a "first-available" fashion and later resequenced which can reduce the
 /// impact of sources with erratic performance (e.g. a filesystem where some items may
 /// take longer to read than others).
 ///
