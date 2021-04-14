@@ -37,7 +37,7 @@ tabular, potentially larger than memory, and multi-file datasets. This includes:
   Parquet, Feather / Arrow IPC, and CSV files) and different file systems (local,
   cloud).
 * Discovery of sources (crawling directories, handling partitioned datasets with
-  various partitioning schemes, basic schema normalization, ..)
+  various partitioning schemes, basic schema normalization, ...)
 * Optimized reading with predicate pushdown (filtering rows), projection
   (selecting and deriving columns), and optionally parallel reading.
 
@@ -80,8 +80,8 @@ S3, or between Parquet and CSV.
 In addition to searching a base directory, we can list file paths manually.
 
 Creating a :class:`arrow::dataset::Dataset` does not begin reading the data
-itself. If needed, it only crawls the directory to find all the files
-(:func:`arrow::dataset::FileSystemDataset::files`):
+itself. It only crawls the directory to find all the files (if needed), which can
+be retrieved with :func:`arrow::dataset::FileSystemDataset::files`:
 
 .. code-block:: cpp
 
@@ -116,7 +116,7 @@ method:
 Reading different file formats
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The above examples use Parquet files on local disk but the Dataset API
+The above examples use Parquet files on local disk, but the Dataset API
 provides a consistent interface across multiple file formats and filesystems.
 (See :ref:`cpp-dataset-cloud-storage` for more information on the latter.)
 Currently, Parquet, Feather / Arrow IPC, and CSV file formats are supported;
@@ -130,7 +130,7 @@ If we save the table as Feather files instead of Parquet files:
    :linenos:
    :lineno-match:
 
-…then we can read the Feather file by passing a :class:`arrow::dataset::IpcFileFormat`:
+…then we can read the Feather file by passing an :class:`arrow::dataset::IpcFileFormat`:
 
 .. literalinclude:: ../../../cpp/examples/arrow/dataset_documentation_example.cc
    :language: cpp
@@ -146,7 +146,14 @@ files are read. For example::
   auto format = std::make_shared<ds::ParquetFileFormat>();
   format->reader_options.dict_columns.insert("a");
 
-Will configure column ``"a"`` to be dictionary-encoded when read.
+Will configure column ``"a"`` to be dictionary-encoded when read. Similarly,
+setting :member:`arrow::dataset::CsvFileFormat::parse_options` lets us change
+things like reading comma-separated or tab-separated data.
+
+Additionally, passing an :class:`arrow::dataset::FragmentScanOptions` to
+:func:`arrow::dataset::ScannerBuilder::FragmentScanOptions` offers fine-grained
+control over data scanning. For example, for CSV files, we can change what values
+are converted into Boolean true and false at scan time.
 
 .. _cpp-dataset-filtering-data:
 
@@ -188,7 +195,9 @@ Projecting columns
 ------------------
 
 In addition to selecting columns, :func:`arrow::dataset::ScannerBuilder::Project`
-can also be used for more complex projections.
+can also be used for more complex projections, such as renaming columns, casting
+them to other types, and even deriving new columns based on evaluating
+expressions.
 
 In this case, we pass a vector of expressions used to construct column values
 and a vector of names for the columns:
@@ -211,6 +220,11 @@ dataset schema:
    :emphasize-lines: 17-27
    :linenos:
    :lineno-match:
+
+.. note:: When combining filters and projections, Arrow will determine all
+          necessary columns to read. For instance, if you filter on a column that
+          isn't ultimately selected, Arrow will still read the column to evaluate
+          the filter.
 
 Reading and writing partitioned data
 ------------------------------------

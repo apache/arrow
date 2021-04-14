@@ -53,7 +53,7 @@ constexpr int32_t kDefaultFragmentReadahead = 8;
 
 /// Scan-specific options, which can be changed between scans of the same dataset.
 struct ARROW_DS_EXPORT ScanOptions {
-  /// A row filter (which can be pushed down to partitioning/reading if supported).
+  /// A row filter (which will be pushed down to partitioning/reading if supported).
   Expression filter = literal(true);
   /// A projection expression (which can add/remove/rename columns).
   Expression projection;
