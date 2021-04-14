@@ -27,6 +27,7 @@ RUN \
   apt install -y -V ${quiet} \
     apt-utils \
     createrepo \
+    curl \
     devscripts \
     gpg \
     locales \
@@ -34,9 +35,15 @@ RUN \
     rake \
     rpm \
     ruby \
-    sudo && \
+    sudo \
+    unzip && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*
+
+RUN \
+  curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" && \
+  unzip awscliv2.zip && \
+  ./aws/install
 
 RUN locale-gen en_US.UTF-8
 

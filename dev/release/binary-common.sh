@@ -61,6 +61,7 @@ docker_run() {
     --publish-all \
     --rm \
     --volume "$PWD":/host \
+    --volume "$HOME/.aws":/home/arrow/.aws \
     ${docker_image_name} \
     bash -c "
 if [ \$(id -u) -ne ${docker_uid} ]; then

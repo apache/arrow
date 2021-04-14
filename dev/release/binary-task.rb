@@ -493,8 +493,12 @@ class BinaryTask
     end
   end
 
+  # TODO: Rewrite this once Artifactory is ready.
+  # We use a S3 as a temporary upload location.
   class BintrayDownloader
     include HashChekable
+
+    include Rake::DSL
 
     def initialize(repository:,
                    distribution:,
@@ -513,6 +517,12 @@ class BinaryTask
     end
 
     def download
+      sh("aws", "s3", "sync",
+         "s3://apache-arrow/#{package}/#{full_version}",
+         @destination)
+    end
+
+    def download_bintray
       client.ensure_repository
 
       progress_label = "Downloading: #{package} #{full_version}"
@@ -571,6 +581,11 @@ class BinaryTask
       rescue BintrayClient::Error
         []
       end
+    end
+
+    def download_file(path, output_path)
+      source = "s3://apache-arrow/#{path}"
+      sh("aws", "s3", "cp", source, output_path, verbose: false)
     end
 
     def download_file(path, output_path)
@@ -640,7 +655,11 @@ class BinaryTask
     end
   end
 
+  # TODO: Rewrite this once Artifactory is ready.
+  # We use a S3 as a temporary upload location.
   class BintrayUploader
+    include Rake::DSL
+
     include HashChekable
 
     def initialize(repository:,
@@ -664,6 +683,12 @@ class BinaryTask
     end
 
     def upload
+      sh("aws", "s3", "sync",
+         @source,
+         "s3://apache-arrow/#{package}/#{full_version}/")
+    end
+
+    def upload_bintray
       client.ensure_repository
       client.ensure_package(package_description)
       client.ensure_version(full_version, version_description)
@@ -936,6 +961,8 @@ class BinaryTask
       next if path.directory?
       existing_paths[path.to_s] = true
     end
+    # TODO: Enable this again.
+    with_source_repository = false
     if with_source_repository
       source_client = BintrayClient.new(repository: source_bintray_repository,
                                         package: distribution,
@@ -1047,7 +1074,11 @@ class BinaryTask
     else
       available_apt_targets.select do |distribution, code_name, component|
         env_apt_targets.any? do |env_apt_target|
-          env_apt_target.start_with?("#{distribution}-#{code_name}")
+          if env_apt_target.include?("-")
+            env_apt_target.start_with?("#{distribution}-#{code_name}")
+          else
+            env_apt_target == distribution
+          end
         end
       end
     end
@@ -1078,8 +1109,8 @@ class BinaryTask
           Dir.glob("#{source_dir_prefix}*/**/*") do |path|
             next if File.directory?(path)
             base_name = File.basename(path)
-            if base_name.start_with?("apache-arrow-archive-keyring")
-              package_name = "apache-arrow-archive-keyring"
+            if base_name.start_with?("apache-arrow-apt-source")
+              package_name = "apache-arrow-apt-source"
             else
               package_name = "apache-arrow"
             end
@@ -1100,13 +1131,13 @@ class BinaryTask
                           destination_path,
                           progress_reporter)
             case base_name
-            when /\A[^_]+-archive-keyring_.*\.deb\z/
-              latest_archive_keyring_package_path = [
+            when /\A[^_]+-apt-source_.*\.deb\z/
+              latest_apt_source_package_path = [
                 distribution_dir,
                 "#{package_name}-latest-#{code_name}.deb"
               ].join("/")
               copy_artifact(path,
-                            latest_archive_keyring_package_path,
+                            latest_apt_source_package_path,
                             progress_reporter)
             end
           end
@@ -1316,7 +1347,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
 
         desc "Update RC APT repositories"
         task :update do
-          apt_update(apt_rc_repositiries_dir)
+          apt_update(apt_rc_repositories_dir)
           apt_targets.each do |distribution, code_name, component|
             base_dir = "#{apt_rc_repositories_dir}/#{distribution}"
             dists_dir = "#{base_dir}/dists/#{code_name}"
