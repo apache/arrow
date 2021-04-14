@@ -2,7 +2,7 @@
 title: "Arrow R Developer Guide"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Developer Documentation}
+  %\VignetteIndexEntry{Arrow R Developer Guide}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
