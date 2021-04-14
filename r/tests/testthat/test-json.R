@@ -144,7 +144,6 @@ test_that("read_json_arrow(schema=) with partial schema", {
       hello = c(3.5, 3.25, 3.125)
     )               
   )
-  
 })
 
 test_that("read_json_arrow(schema=) with full schema", {
