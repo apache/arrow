@@ -24,7 +24,7 @@ require_relative "helper"
 
 packages = [
   "apache-arrow",
-  "apache-arrow-archive-keyring",
+  "apache-arrow-apt-source",
   "apache-arrow-release",
 ]
 

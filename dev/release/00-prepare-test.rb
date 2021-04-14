@@ -97,9 +97,9 @@ class PrepareTest < Test::Unit::TestCase
     today = Time.now.utc.strftime("%a %b %d %Y")
     expected_changes = [
       {
-        path: "#{base_dir}/apache-arrow-archive-keyring/debian/changelog",
+        path: "#{base_dir}/apache-arrow-apt-source/debian/changelog",
         sampled_hunks: [
-          "+apache-arrow-archive-keyring (#{@release_version}-1) " +
+          "+apache-arrow-apt-source (#{@release_version}-1) " +
           "unstable; urgency=low",
         ],
       },

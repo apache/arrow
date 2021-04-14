@@ -50,11 +50,11 @@ dev/archery/archery/tests/fixtures/*
 dev/archery/archery/crossbow/tests/fixtures/*
 dev/release/rat_exclude_files.txt
 dev/tasks/homebrew-formulae/apache-arrow.rb
-dev/tasks/linux-packages/apache-arrow-archive-keyring/debian/apache-arrow-archive-keyring.install
-dev/tasks/linux-packages/apache-arrow-archive-keyring/debian/compat
-dev/tasks/linux-packages/apache-arrow-archive-keyring/debian/control
-dev/tasks/linux-packages/apache-arrow-archive-keyring/debian/rules
-dev/tasks/linux-packages/apache-arrow-archive-keyring/debian/source/format
+dev/tasks/linux-packages/apache-arrow-apt-source/debian/apache-arrow-apt-source.install
+dev/tasks/linux-packages/apache-arrow-apt-source/debian/compat
+dev/tasks/linux-packages/apache-arrow-apt-source/debian/control
+dev/tasks/linux-packages/apache-arrow-apt-source/debian/rules
+dev/tasks/linux-packages/apache-arrow-apt-source/debian/source/format
 dev/tasks/linux-packages/apache-arrow/debian/compat
 dev/tasks/linux-packages/apache-arrow/debian/control.in
 dev/tasks/linux-packages/apache-arrow/debian/gir1.2-arrow-1.0.install

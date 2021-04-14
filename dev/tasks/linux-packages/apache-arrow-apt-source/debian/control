@@ -1,4 +1,4 @@
-Source: apache-arrow-archive-keyring
+Source: apache-arrow-apt-source
 Section: misc
 Priority: important
 Maintainer: Apache Arrow Developers <dev@arrow.apache.org>
@@ -9,9 +9,11 @@ Build-Depends:
 Standards-Version: 3.9.7
 Homepage: https://arrow.apache.org/
 
-Package: apache-arrow-archive-keyring
+Package: apache-arrow-apt-source
 Section: misc
 Architecture: all
+Replaces: apache-arrow-archive-keyring
+Breaks: apache-arrow-archive-keyring
 Depends:
   ${misc:Depends},
   apt-transport-https,

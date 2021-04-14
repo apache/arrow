@@ -95,7 +95,7 @@ script:
   - rake version:update
   - |
       rake docker:pull || :
-  - pushd apache-arrow-archive-keyring/apt
+  - pushd apache-arrow-apt-source/apt
   - |
       for target in debian-* ubuntu-*; do
         cp -a ${target} ${target}-arm64
