@@ -4,40 +4,44 @@
 [![CI](https://github.com/apache/arrow/workflows/R/badge.svg?event=push)](https://github.com/apache/arrow/actions?query=workflow%3AR+branch%3Amaster+event%3Apush)
 [![conda-forge](https://img.shields.io/conda/vn/conda-forge/r-arrow.svg)](https://anaconda.org/conda-forge/r-arrow)
 
-[Apache Arrow](https://arrow.apache.org/) is a cross-language
-development platform for in-memory data. It specifies a standardized
+**[Apache Arrow](https://arrow.apache.org/) is a cross-language
+development platform for in-memory data.** It specifies a standardized
 language-independent columnar memory format for flat and hierarchical
 data, organized for efficient analytic operations on modern hardware. It
 also provides computational libraries and zero-copy streaming messaging
 and interprocess communication.
 
-The `arrow` package exposes an interface to the Arrow C++ library,
-enabling access to many of its features in R. It provides low-level
-access to the Arrow C++ library API as well as higher-level access
-through a `dplyr` backend and many R-flavored functions.
+**The `arrow` package exposes an interface to the Arrow C++ library,
+enabling access to many of its features in R.** It provides low-level
+access to the Arrow C++ library API and higher-level access through a
+`dplyr` backend and familiar R functions.
 
-## What can `arrow` do?
+## What can the `arrow` package do?
 
--   Read and write Parquet files (`read_parquet()`, `write_parquet()`)
--   Read and write Feather files (`read_feather()`, `write_feather()`)
--   Read or write large, multi-file datasets with a single function call
-    (`open_dataset()`, `write_dataset()`)
--   Read very large CSV and JSON files with excellent speed and
-    efficiency (`read_csv_arrow()`, `read_json_arrow()`)
--   Read and write files in Amazon S3 buckets
--   Exercise full control over the data types of columns when reading
+-   Read and write **Parquet files** (`read_parquet()`,
+    `write_parquet()`), an efficient and widely used columnar format
+-   Read and write **Feather files** (`read_feather()`,
+    `write_feather()`), a format optimized for speed and
+    interoperability
+-   Open or write **large, multi-file datasets** with a single function
+    call (`open_dataset()`, `write_dataset()`)
+-   Read **large CSV and JSON files** with excellent **speed and
+    efficiency** (`read_csv_arrow()`, `read_json_arrow()`)
+-   Read and write files in **Amazon S3** buckets with no additional
+    function calls
+-   Exercise **full control over data types** of columns when reading
     and writing data files
--   Use compression codecs including Snappy, gzip, Brotli, Zstandard,
-    LZ4, LZO, and bzip2 when reading and writing data
--   Manipulate and analyze larger-than-memory datasets with `dplyr`
-    verbs
--   Pass data between R and Python in the same process
--   Connect to Arrow Flight RPC servers to send and receive large
+-   Use **compression codecs** including Snappy, gzip, Brotli,
+    Zstandard, LZ4, LZO, and bzip2 for reading and writing data
+-   Manipulate and analyze **larger-than-memory datasets** with
+    **`dplyr` verbs**
+-   Pass data between **R and Python** in the same process
+-   Connect to **Arrow Flight** RPC servers to send and receive large
     datasets over networks
--   Access and manipulate Arrow objects through low-level bindings to
-    the C++ library
--   Provide a toolkit for building connectors to other applications and
-    services that use Arrow
+-   Access and manipulate Arrow objects through **low-level bindings**
+    to the C++ library
+-   Provide a **toolkit for building connectors** to other applications
+    and services that use Arrow
 
 ## Installation
 
