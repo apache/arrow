@@ -816,6 +816,65 @@ TEST_P(BackgroundGeneratorTestFixture, StopAndRestart) {
   AssertGeneratorExhausted(generator);
 }
 
+struct TrackingIterator {
+  explicit TrackingIterator(bool slow)
+      : token(std::make_shared<bool>(false)), slow(slow) {}
+
+  Result<TestInt> Next() {
+    if (slow) {
+      SleepABit();
+    }
+    return TestInt(0);
+  }
+  std::weak_ptr<bool> GetWeakTargetRef() { return std::weak_ptr<bool>(token); }
+
+  std::shared_ptr<bool> token;
+  bool slow;
+};
+
+TEST_P(BackgroundGeneratorTestFixture, AbortReading) {
+  // If there is an error downstream then it is likely the chain will abort and the
+  // background generator will lose all references and should abandon reading
+  TrackingIterator source(IsSlow());
+  auto tracker = source.GetWeakTargetRef();
+  auto iter = Iterator<TestInt>(std::move(source));
+  std::shared_ptr<AsyncGenerator<TestInt>> generator;
+  {
+    ASSERT_OK_AND_ASSIGN(
+        auto gen, MakeBackgroundGenerator(std::move(iter), internal::GetCpuThreadPool()));
+    generator = std::make_shared<AsyncGenerator<TestInt>>(gen);
+  }
+
+  // Poll one item to start it up
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(0), (*generator)());
+  ASSERT_FALSE(tracker.expired());
+  // Remove last reference to generator, should trigger and wait for cleanup
+  generator.reset();
+  // Cleanup should have ensured no more reference to the source.  It may take a moment
+  // to expire because the background thread has to destruct itself
+  BusyWait(10, [&tracker] { return tracker.expired(); });
+}
+
+TEST_P(BackgroundGeneratorTestFixture, AbortOnIdleBackground) {
+  // Tests what happens when the downstream aborts while the background thread is idle
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(1));
+
+  auto source = PossiblySlowVectorIt(RangeVector(100), IsSlow());
+  std::shared_ptr<AsyncGenerator<TestInt>> generator;
+  {
+    ASSERT_OK_AND_ASSIGN(auto gen,
+                         MakeBackgroundGenerator(std::move(source), thread_pool.get()));
+    generator = std::make_shared<AsyncGenerator<TestInt>>(gen);
+  }
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(0), (*generator)());
+
+  // The generator should pretty quickly fill up the queue and idle
+  BusyWait(10, [&thread_pool] { return thread_pool->GetNumTasks() == 0; });
+
+  // Now delete the generator and hope we don't deadlock
+  generator.reset();
+}
+
 struct SlowEmptyIterator {
   Result<TestInt> Next() {
     if (called_) {
