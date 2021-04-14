@@ -211,13 +211,13 @@ git checkout -b ${release_candidate_branch}
 
 ############################## Pre-Tag Commits ##############################
 
-if [ ${PREPARE_CHANGELOG} -gt 0 ]; then
-  echo "Updating changelog for $version"
-  # Update changelog
-  archery release changelog add $version
-  git add ${SOURCE_DIR}/../../CHANGELOG.md
-  git commit -m "[Release] Update CHANGELOG.md for $version"
-fi
+# if [ ${PREPARE_CHANGELOG} -gt 0 ]; then
+#   echo "Updating changelog for $version"
+#   # Update changelog
+#   archery release changelog add $version
+#   git add ${SOURCE_DIR}/../../CHANGELOG.md
+#   git commit -m "[Release] Update CHANGELOG.md for $version"
+# fi
 
 if [ ${PREPARE_LINUX_PACKAGES} -gt 0 ]; then
   echo "Updating .deb/.rpm changelogs for $version"
@@ -294,7 +294,7 @@ if [ ${PREPARE_BRANCH} -gt 0 ]; then
   echo "Create release branch ${release_branch}"
   if [[ $(git branch -l "${release_candidate_branch}") ]]; then
     echo "Branch already exists, deleting it."
-    git branch -d -r ${release_branch}
+    git branch -d ${release_branch}
   fi
   git checkout -b ${release_branch}
 fi
