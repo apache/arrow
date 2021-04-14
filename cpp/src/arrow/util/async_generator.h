@@ -44,7 +44,7 @@ namespace arrow {
 // the utilities Visit/Collect/Await take care to do this).
 //
 // Asynchronous reentrancy on the other hand means the function is called again before the
-// future returned by the function is marekd finished (but after the call to get the
+// future returned by the function is marked finished (but after the call to get the
 // future returns).  Some of these generators are async-reentrant while others (e.g.
 // those that depend on ordered processing like decompression) are not.  Read the MakeXYZ
 // function comments to determine which generators support async reentrancy.
@@ -1330,6 +1330,48 @@ Result<Iterator<T>> MakeReadaheadIterator(Iterator<T> it, int readahead_queue_si
     return background_generator();
   };
   return MakeGeneratorIterator(std::move(owned_bg_generator));
+}
+
+/// \brief Make a generator that returns a single pre-generated future
+///
+/// This generator is async-reentrant.
+template <typename T>
+std::function<Future<T>()> MakeSingleFutureGenerator(Future<T> future) {
+  assert(future.is_valid());
+  auto state = std::make_shared<Future<T>>(std::move(future));
+  return [state]() -> Future<T> {
+    auto fut = std::move(*state);
+    if (fut.is_valid()) {
+      return fut;
+    } else {
+      return AsyncGeneratorEnd<T>();
+    }
+  };
+}
+
+/// \brief Make a generator that always fails with a given error
+///
+/// This generator is async-reentrant.
+template <typename T>
+AsyncGenerator<T> MakeFailingGenerator(Status st) {
+  assert(!st.ok());
+  auto state = std::make_shared<Status>(std::move(st));
+  return [state]() -> Future<T> {
+    auto st = std::move(*state);
+    if (!st.ok()) {
+      return std::move(st);
+    } else {
+      return AsyncGeneratorEnd<T>();
+    }
+  };
+}
+
+/// \brief Make a generator that always fails with a given error
+///
+/// This overload allows inferring the return type from the argument.
+template <typename T>
+AsyncGenerator<T> MakeFailingGenerator(const Result<T>& result) {
+  return MakeFailingGenerator<T>(result.status());
 }
 
 }  // namespace arrow

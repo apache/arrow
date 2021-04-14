@@ -1299,4 +1299,26 @@ TEST(PushGenerator, Stress) {
   }
 }
 
+TEST(SingleFutureGenerator, Basics) {
+  auto fut = Future<TestInt>::Make();
+  auto gen = MakeSingleFutureGenerator(fut);
+  auto collect_fut = CollectAsyncGenerator(gen);
+  AssertNotFinished(collect_fut);
+  fut.MarkFinished(TestInt{42});
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto collected, collect_fut);
+  ASSERT_EQ(collected, std::vector<TestInt>{42});
+  // Generator exhausted
+  collect_fut = CollectAsyncGenerator(gen);
+  ASSERT_FINISHES_OK_AND_EQ(std::vector<TestInt>{}, collect_fut);
+}
+
+TEST(FailingGenerator, Basics) {
+  auto gen = MakeFailingGenerator<TestInt>(Status::IOError("zzz"));
+  auto collect_fut = CollectAsyncGenerator(gen);
+  ASSERT_FINISHES_AND_RAISES(IOError, collect_fut);
+  // Generator exhausted
+  collect_fut = CollectAsyncGenerator(gen);
+  ASSERT_FINISHES_OK_AND_EQ(std::vector<TestInt>{}, collect_fut);
+}
+
 }  // namespace arrow

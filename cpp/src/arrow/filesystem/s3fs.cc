@@ -74,6 +74,7 @@
 #include "arrow/io/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/atomic_shared_ptr.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
@@ -87,6 +88,7 @@ namespace arrow {
 
 using internal::TaskGroup;
 using internal::Uri;
+using io::internal::SubmitIO;
 
 namespace fs {
 
@@ -994,10 +996,9 @@ class ObjectOutputStream final : public io::OutputStream {
         ++upload_state_->parts_in_progress;
       }
       auto client = client_;
-      ARROW_ASSIGN_OR_RAISE(auto fut, io_context_.executor()->Submit(
-                                          io_context_.stop_token(), [client, req]() {
-                                            return client->UploadPart(req);
-                                          }));
+      ARROW_ASSIGN_OR_RAISE(auto fut, SubmitIO(io_context_, [client, req]() {
+                              return client->UploadPart(req);
+                            }));
       // The closure keeps the buffer and the upload state alive
       auto state = upload_state_;
       auto part_number = part_number_;
@@ -1126,6 +1127,11 @@ struct TreeWalker : public std::enable_shared_from_this<TreeWalker> {
 
   template <typename... Args>
   static Status Walk(Args&&... args) {
+    return WalkAsync(std::forward<Args>(args)...).status();
+  }
+
+  template <typename... Args>
+  static Future<> WalkAsync(Args&&... args) {
     auto self = std::make_shared<TreeWalker>(std::forward<Args>(args)...);
     return self->DoWalk();
   }
@@ -1147,12 +1153,12 @@ struct TreeWalker : public std::enable_shared_from_this<TreeWalker> {
   std::shared_ptr<TaskGroup> task_group_;
   std::mutex mutex_;
 
-  Status DoWalk() {
+  Future<> DoWalk() {
     task_group_ =
         TaskGroup::MakeThreaded(io_context_.executor(), io_context_.stop_token());
     WalkChild(base_dir_, /*nesting_depth=*/0);
     // When this returns, ListObjectsV2 tasks either have finished or will exit early
-    return task_group_->Finish();
+    return task_group_->FinishAsync();
   }
 
   bool ok() const { return task_group_->ok(); }
@@ -1249,7 +1255,7 @@ struct TreeWalker : public std::enable_shared_from_this<TreeWalker> {
 // -----------------------------------------------------------------------
 // S3 filesystem implementation
 
-class S3FileSystem::Impl {
+class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Impl> {
  public:
   ClientBuilder builder_;
   io::IOContext io_context_;
@@ -1404,32 +1410,20 @@ class S3FileSystem::Impl {
     return Status::OK();
   }
 
-  // Workhorse for GetTargetStats(FileSelector...)
-  Status Walk(const FileSelector& select, const std::string& bucket,
-              const std::string& key, std::vector<FileInfo>* out) {
-    bool is_empty = true;
+  // A helper class for Walk and WalkAsync
+  struct FileInfoCollector {
+    FileInfoCollector(std::string bucket, std::string key, const FileSelector& select)
+        : bucket(std::move(bucket)),
+          key(std::move(key)),
+          allow_not_found(select.allow_not_found) {}
 
-    auto handle_error = [&](const AWSError<S3Errors>& error) -> Status {
-      if (select.allow_not_found && IsNotFound(error)) {
-        return Status::OK();
-      }
-      return ErrorToStatus(std::forward_as_tuple("When listing objects under key '", key,
-                                                 "' in bucket '", bucket, "': "),
-                           error);
-    };
-
-    auto handle_recursion = [&](int32_t nesting_depth) -> Result<bool> {
-      RETURN_NOT_OK(CheckNestingDepth(nesting_depth));
-      return select.recursive && nesting_depth <= select.max_recursion;
-    };
-
-    auto handle_results = [&](const std::string& prefix,
-                              const S3Model::ListObjectsV2Result& result) -> Status {
+    Status Collect(const std::string& prefix, const S3Model::ListObjectsV2Result& result,
+                   std::vector<FileInfo>* out) {
       // Walk "directories"
-      for (const auto& prefix : result.GetCommonPrefixes()) {
+      for (const auto& child_prefix : result.GetCommonPrefixes()) {
         is_empty = false;
         const auto child_key =
-            internal::RemoveTrailingSlash(FromAwsString(prefix.GetPrefix()));
+            internal::RemoveTrailingSlash(FromAwsString(child_prefix.GetPrefix()));
         std::stringstream child_path;
         child_path << bucket << kSep << child_key;
         FileInfo info;
@@ -1453,6 +1447,49 @@ class S3FileSystem::Impl {
         out->push_back(std::move(info));
       }
       return Status::OK();
+    }
+
+    Status Finish(Impl* impl) {
+      // If no contents were found, perhaps it's an empty "directory",
+      // or perhaps it's a nonexistent entry.  Check.
+      if (is_empty && !allow_not_found) {
+        bool is_actually_empty;
+        RETURN_NOT_OK(impl->IsEmptyDirectory(bucket, key, &is_actually_empty));
+        if (!is_actually_empty) {
+          return PathNotFound(bucket, key);
+        }
+      }
+      return Status::OK();
+    }
+
+    std::string bucket;
+    std::string key;
+    bool allow_not_found;
+    bool is_empty = true;
+  };
+
+  // Workhorse for GetFileInfo(FileSelector...)
+  Status Walk(const FileSelector& select, const std::string& bucket,
+              const std::string& key, std::vector<FileInfo>* out) {
+    FileInfoCollector collector(bucket, key, select);
+
+    auto handle_error = [&](const AWSError<S3Errors>& error) -> Status {
+      if (select.allow_not_found && IsNotFound(error)) {
+        return Status::OK();
+      }
+      return ErrorToStatus(std::forward_as_tuple("When listing objects under key '", key,
+                                                 "' in bucket '", bucket, "': "),
+                           error);
+    };
+
+    auto handle_recursion = [&](int32_t nesting_depth) -> Result<bool> {
+      RETURN_NOT_OK(CheckNestingDepth(nesting_depth));
+      return select.recursive && nesting_depth <= select.max_recursion;
+    };
+
+    auto handle_results = [&](const std::string& prefix,
+                              const S3Model::ListObjectsV2Result& result) -> Status {
+      return collector.Collect(prefix, result, out);
     };
 
     RETURN_NOT_OK(TreeWalker::Walk(client_, io_context_, bucket, key, kListObjectsMaxKeys,
@@ -1460,15 +1497,57 @@ class S3FileSystem::Impl {
 
     // If no contents were found, perhaps it's an empty "directory",
     // or perhaps it's a nonexistent entry.  Check.
-    if (is_empty && !select.allow_not_found) {
-      RETURN_NOT_OK(IsEmptyDirectory(bucket, key, &is_empty));
-      if (!is_empty) {
-        return PathNotFound(bucket, key);
-      }
-    }
+    RETURN_NOT_OK(collector.Finish(this));
     // Sort results for convenience, since they can come massively out of order
     std::sort(out->begin(), out->end(), FileInfo::ByPath{});
     return Status::OK();
+  }
+
+  // Workhorse for GetFileInfoGenerator(FileSelector...)
+  FileInfoGenerator WalkAsync(const FileSelector& select, const std::string& bucket,
+                              const std::string& key) {
+    PushGenerator<std::vector<FileInfo>> gen;
+    auto producer = gen.producer();
+    auto collector = std::make_shared<FileInfoCollector>(bucket, key, select);
+    auto self = shared_from_this();
+
+    auto handle_error = [select, bucket, key](const AWSError<S3Errors>& error) -> Status {
+      if (select.allow_not_found && IsNotFound(error)) {
+        return Status::OK();
+      }
+      return ErrorToStatus(std::forward_as_tuple("When listing objects under key '", key,
+                                                 "' in bucket '", bucket, "': "),
+                           error);
+    };
+
+    auto handle_recursion = [select, self](int32_t nesting_depth) -> Result<bool> {
+      RETURN_NOT_OK(self->CheckNestingDepth(nesting_depth));
+      return select.recursive && nesting_depth <= select.max_recursion;
+    };
+
+    auto handle_results =
+        [collector, producer](
+            const std::string& prefix,
+            const S3Model::ListObjectsV2Result& result) mutable -> Status {
+      std::vector<FileInfo> out;
+      RETURN_NOT_OK(collector->Collect(prefix, result, &out));
+      if (!out.empty()) {
+        producer.Push(std::move(out));
+      }
+      return Status::OK();
+    };
+
+    TreeWalker::WalkAsync(client_, io_context_, bucket, key, kListObjectsMaxKeys,
+                          handle_results, handle_error, handle_recursion)
+        .AddCallback([collector, producer,
+                      self](const Result<::arrow::detail::Empty>& res) mutable {
+          auto st = collector->Finish(self.get());
+          if (!st.ok()) {
+            producer.Push(st);
+          }
+          producer.Close();
+        });
+    return gen;
   }
 
   Status WalkForDeleteDir(const std::string& bucket, const std::string& key,
@@ -1550,10 +1629,9 @@ class S3FileSystem::Impl {
       }
       req.SetBucket(ToAwsString(bucket));
       req.SetDelete(std::move(del));
-      ARROW_ASSIGN_OR_RAISE(auto fut, io_context_.executor()->Submit(
-                                          io_context_.stop_token(), [client, req]() {
-                                            return client->DeleteObjects(req);
-                                          }));
+      ARROW_ASSIGN_OR_RAISE(auto fut, SubmitIO(io_context_, [client, req]() {
+                              return client->DeleteObjects(req);
+                            }));
       futures.push_back(std::move(fut).Then(delete_cb));
     }
 
@@ -1598,17 +1676,29 @@ class S3FileSystem::Impl {
     return Status::OK();
   }
 
-  Status ListBuckets(std::vector<std::string>* out) {
-    out->clear();
-    auto outcome = client_->ListBuckets();
+  static Result<std::vector<std::string>> ProcessListBuckets(
+      const Aws::S3::Model::ListBucketsOutcome& outcome) {
     if (!outcome.IsSuccess()) {
       return ErrorToStatus(std::forward_as_tuple("When listing buckets: "),
                            outcome.GetError());
     }
+    std::vector<std::string> buckets;
+    buckets.reserve(outcome.GetResult().GetBuckets().size());
     for (const auto& bucket : outcome.GetResult().GetBuckets()) {
-      out->emplace_back(FromAwsString(bucket.GetName()));
+      buckets.emplace_back(FromAwsString(bucket.GetName()));
     }
-    return Status::OK();
+    return buckets;
+  }
+
+  Result<std::vector<std::string>> ListBuckets() {
+    auto outcome = client_->ListBuckets();
+    return ProcessListBuckets(outcome);
+  }
+
+  Future<std::vector<std::string>> ListBucketsAsync(io::IOContext ctx) {
+    auto self = shared_from_this();
+    return DeferNotOk(SubmitIO(ctx, [self]() { return self->client_->ListBuckets(); }))
+        .Then(Impl::ProcessListBuckets);
   }
 
   Result<std::shared_ptr<ObjectInputFile>> OpenInputFile(const std::string& s,
@@ -1641,7 +1731,7 @@ class S3FileSystem::Impl {
 };
 
 S3FileSystem::S3FileSystem(const S3Options& options, const io::IOContext& io_context)
-    : FileSystem(io_context), impl_(new Impl{options, io_context}) {
+    : FileSystem(io_context), impl_(std::make_shared<Impl>(options, io_context)) {
   default_async_is_sync_ = false;
 }
 
@@ -1736,15 +1826,14 @@ Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
   }
 }
 
-Result<std::vector<FileInfo>> S3FileSystem::GetFileInfo(const FileSelector& select) {
+Result<FileInfoVector> S3FileSystem::GetFileInfo(const FileSelector& select) {
   ARROW_ASSIGN_OR_RAISE(auto base_path, S3Path::FromString(select.base_dir));
 
-  std::vector<FileInfo> results;
+  FileInfoVector results;
 
   if (base_path.empty()) {
     // List all buckets
-    std::vector<std::string> buckets;
-    RETURN_NOT_OK(impl_->ListBuckets(&buckets));
+    ARROW_ASSIGN_OR_RAISE(auto buckets, impl_->ListBuckets());
     for (const auto& bucket : buckets) {
       FileInfo info;
       info.set_path(bucket);
@@ -1760,6 +1849,51 @@ Result<std::vector<FileInfo>> S3FileSystem::GetFileInfo(const FileSelector& sele
   // Nominal case -> walk a single bucket
   RETURN_NOT_OK(impl_->Walk(select, base_path.bucket, base_path.key, &results));
   return results;
+}
+
+FileInfoGenerator S3FileSystem::GetFileInfoGenerator(const FileSelector& select) {
+  auto maybe_base_path = S3Path::FromString(select.base_dir);
+  if (!maybe_base_path.ok()) {
+    return MakeFailingGenerator<FileInfoVector>(maybe_base_path.status());
+  }
+  auto base_path = *std::move(maybe_base_path);
+
+  if (base_path.empty()) {
+    // List all buckets, then possibly recurse
+    PushGenerator<AsyncGenerator<FileInfoVector>> gen;
+    auto producer = gen.producer();
+
+    auto fut = impl_->ListBucketsAsync(io_context());
+    auto impl = impl_->shared_from_this();
+    fut.AddCallback(
+        [producer, select, impl](const Result<std::vector<std::string>>& res) mutable {
+          if (!res.ok()) {
+            producer.Push(res.status());
+            producer.Close();
+            return;
+          }
+          FileInfoVector buckets;
+          for (const auto& bucket : *res) {
+            buckets.push_back(FileInfo{bucket, FileType::Directory});
+          }
+          // Generate all bucket infos
+          auto buckets_fut = Future<FileInfoVector>::MakeFinished(std::move(buckets));
+          producer.Push(MakeSingleFutureGenerator(buckets_fut));
+          if (select.recursive) {
+            // Generate recursive walk for each bucket in turn
+            for (const auto& bucket : *buckets_fut.result()) {
+              producer.Push(impl->WalkAsync(select, bucket.path(), ""));
+            }
+          }
+          producer.Close();
+        });
+
+    return MakeConcatenatedGenerator(
+        AsyncGenerator<AsyncGenerator<FileInfoVector>>{std::move(gen)});
+  }
+
+  // Nominal case -> walk a single bucket
+  return impl_->WalkAsync(select, base_path.bucket, base_path.key);
 }
 
 Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {

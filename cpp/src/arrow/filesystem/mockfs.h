@@ -114,6 +114,17 @@ class ARROW_EXPORT MockFileSystem : public FileSystem {
   std::unique_ptr<Impl> impl_;
 };
 
+class ARROW_EXPORT MockAsyncFileSystem : public MockFileSystem {
+ public:
+  explicit MockAsyncFileSystem(TimePoint current_time,
+                               const io::IOContext& io_context = io::default_io_context())
+      : MockFileSystem(current_time, io_context) {
+    default_async_is_sync_ = false;
+  }
+
+  FileInfoGenerator GetFileInfoGenerator(const FileSelector& select) override;
+};
+
 }  // namespace internal
 }  // namespace fs
 }  // namespace arrow
