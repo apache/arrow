@@ -35,7 +35,6 @@ module.exports = {
         "plugin:@typescript-eslint/recommended",
     ],
     rules: {
-        "@typescript-eslint/indent": "off",
         "@typescript-eslint/member-delimiter-style": [
             "error",
             {
@@ -50,9 +49,6 @@ module.exports = {
             },
         ],
         "@typescript-eslint/no-namespace": ["error", { "allowDeclarations": true }],
-        "@typescript-eslint/no-empty-function": "off",
-        "@typescript-eslint/no-unused-expressions": "off",
-        "@typescript-eslint/no-use-before-define": "off",
         "@typescript-eslint/no-require-imports": "error",
         "@typescript-eslint/no-var-requires": "off",  // handled by rule above
         "@typescript-eslint/quotes": [
@@ -65,6 +61,10 @@ module.exports = {
         ],
         "@typescript-eslint/semi": ["error", "always"],
         "@typescript-eslint/type-annotation-spacing": "error",
+        "@typescript-eslint/indent": "off",
+        "@typescript-eslint/no-empty-function": "off",
+        "@typescript-eslint/no-unused-expressions": "off",
+        "@typescript-eslint/no-use-before-define": "off",
         "@typescript-eslint/explicit-module-boundary-types": "off",
         "@typescript-eslint/no-explicit-any": "off",
         "@typescript-eslint/no-misused-new": "off",
@@ -82,8 +82,6 @@ module.exports = {
         "no-trailing-spaces": "error",
         "no-var": "error",
         "no-empty": "off",
-        "no-cond-assign": "off",
-
-        // "one-var": ["error", "never"],
+        "no-cond-assign": "off"
     },
 };
