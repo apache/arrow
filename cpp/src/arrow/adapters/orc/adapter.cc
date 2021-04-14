@@ -47,7 +47,9 @@
 #include "arrow/util/visibility.h"
 #include "orc/Exceptions.hh"
 
-constexpr uint64_t kOrcWriterBatchSize = 100000;
+// The following are required by ORC to be uint64_t
+constexpr uint64_t kOrcWriterBatchSize = 128 * 1024;
+constexpr uint64_t kOrcNaturalWriteSize = 128 * 1024;
 
 // alias to not interfere with nested orc namespace
 namespace liborc = orc;
@@ -70,8 +72,6 @@ namespace liborc = orc;
 #define ORC_ASSIGN_OR_THROW(lhs, rexpr)                                              \
   ORC_ASSIGN_OR_THROW_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
                            lhs, rexpr);
-
-const uint64_t ORC_NATURAL_WRITE_SIZE = 128 * 1024;  // Required by liborc::Outstream
 
 namespace arrow {
 
@@ -483,7 +483,7 @@ class ArrowOutputStream : public liborc::OutputStream {
 
   uint64_t getLength() const override { return length_; }
 
-  uint64_t getNaturalWriteSize() const override { return ORC_NATURAL_WRITE_SIZE; }
+  uint64_t getNaturalWriteSize() const override { return kOrcNaturalWriteSize; }
 
   void write(const void* buf, size_t length) override {
     ORC_THROW_NOT_OK(output_stream_.Write(buf, static_cast<int64_t>(length)));
