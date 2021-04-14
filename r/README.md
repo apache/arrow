@@ -109,18 +109,17 @@ basic examples. The sections below mention two Arrow data structures:
     afford better interoperability with databases and data warehouse
     systems
 -   `Dataset`: a data structure functionally similar to `Table` but with
-    the capability to read larger-than-memory data partitioned across
+    the capability to work on larger-than-memory data partitioned across
     multiple files
 
-### Reading and writing data files with Arrow
+### Reading and writing data files with `arrow`
 
 The `arrow` package provides functions for reading single data files in
 several common formats. By default, calling any of these functions
 returns an R `data.frame`. To return an Arrow `Table`, set argument
 `as_data_frame = FALSE`.
 
--   `read_parquet()`: read a file in Parquet format (an efficient
-    columnar data format)
+-   `read_parquet()`: read a file in Parquet format
 -   `read_feather()`: read a file in Feather format (the Apache Arrow
     IPC format)
 -   `read_delim_arrow()`: read a delimited text file (default delimiter
@@ -166,7 +165,7 @@ passing unqualified paths or `file://` URIs) or files in Amazon S3 (by
 passing S3 URIs beginning with `s3://`). For more details, see
 `vignette("fs", package = "arrow")`
 
-### Using dplyr with Arrow
+### Using `dplyr` with `arrow`
 
 The `arrow` package provides a `dplyr` backend enabling manipulation of
 Arrow tabular data with `dplyr` verbs. To use it, first load both
