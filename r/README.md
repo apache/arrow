@@ -67,33 +67,6 @@ These nightly package builds are not official Apache releases and are
 not recommended for production use. They may be useful for testing bug
 fixes and new features under active development.
 
-## Apache Arrow metadata and data objects
-
-Arrow defines the following classes for representing metadata:
-
-| Class      | Description                                      | How to create an instance        |
-|------------|--------------------------------------------------|----------------------------------|
-| `DataType` | attribute controlling how values are represented | functions in `help("data-type")` |
-| `Field`    | a character string name and a `DataType`         | `field(name, type)`              |
-| `Schema`   | list of `Field`s                                 | `schema(...)`                    |
-
-Arrow defines the following classes for representing zero-dimensional
-(scalar), one-dimensional (array/vector-like), and two-dimensional
-(tabular/data frame-like) data:
-
-| Dim | Class          | Description                             | How to create an instance                                     |
-|-----|----------------|-----------------------------------------|---------------------------------------------------------------|
-| 0   | `Scalar`       | single value and its `DataType`         | `Scalar$create(value, type)`                                  |
-| 1   | `Array`        | vector of values and its `DataType`     | `Array$create(vector, type)`                                  |
-| 1   | `ChunkedArray` | vectors of values and their `DataType`  | `ChunkedArray$create(..., type)`                              |
-| 2   | `RecordBatch`  | list of `Array`s with a `Schema`        | `RecordBatch$create(...)`                                     |
-| 2   | `Table`        | list of `ChunkedArray` with a `Schema`  | `Table$create(...)` or `arrow::read_*(as_data_frame = FALSE)` |
-| 2   | `Dataset`      | list of `Table`s with the same `Schema` | see `vignette("dataset", package = "arrow")`                  |
-
-Each of these is defined as an `R6` class in the `arrow` R package and
-corresponds to a class of the same name in the Arrow C++ library. The
-`arrow` package provides a variety of `R6` and S3 methods for
-interacting with instances of these classes.
 
 ## Reading and writing data files with Arrow
 
