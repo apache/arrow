@@ -273,9 +273,8 @@ in the Arrow developer documentation.
 
 We welcome questions, discussion, and contributions from users of the
 `arrow` package. For information about mailing lists and other venues
-for engaging with the Apache Arrow developer and user communities,
-please see the [Apache Arrow
-Community](https://arrow.apache.org/community/) page.
+for engaging with the Arrow developer and user communities, please see
+the [Apache Arrow Community](https://arrow.apache.org/community/) page.
 
 ------------------------------------------------------------------------
 
