@@ -89,9 +89,9 @@ function pipeTo(source: NodeJS.ReadableStream, sink: NodeJS.WritableStream, opts
 
 async function *recordBatchReaders(createSourceStream: () => NodeJS.ReadableStream) {
 
-    let json = new AsyncByteQueue();
-    let stream = new AsyncByteQueue();
-    let source = createSourceStream();
+    const json = new AsyncByteQueue();
+    const stream = new AsyncByteQueue();
+    const source = createSourceStream();
     let reader: RecordBatchReader | null = null;
     let readers: AsyncIterable<RecordBatchReader> | null = null;
     // tee the input source, just in case it's JSON

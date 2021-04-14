@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+/* eslint-disable brace-style */
+
 import { Schema, Field } from '../../schema';
 import {
     DataType, Dictionary, TimeBitWidth,

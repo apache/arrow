@@ -70,7 +70,7 @@ export class RecordBatch<T extends { [key: string]: DataType } = any>
     constructor(schema: Schema<T>, data: Data<Struct<T>>, children?: Vector[]);
     constructor(...args: any[]) {
         let data: Data<Struct<T>>;
-        let schema = args[0] as Schema<T>;
+        const schema = args[0] as Schema<T>;
         let children: Vector[] | undefined;
         if (args[1] instanceof Data) {
             [, data, children] = (args as [any, Data<Struct<T>>, Vector<T[keyof T]>[]?]);

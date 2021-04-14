@@ -87,11 +87,11 @@ export class IntVector<T extends Int = Int> extends BaseVector<T> {
     /** @nocollapse */
     public static from<T extends Int, TNull = any>(this: IntVectorConstructors, ...args: FromArgs<T, TNull>) {
 
-        let [input, is64bit = false] = args;
+        const [input, is64bit = false] = args;
         let ArrowType = vectorTypeToDataType(this, is64bit);
 
         if ((input instanceof ArrayBuffer) || ArrayBuffer.isView(input)) {
-            let InputType = arrayTypeToDataType(input.constructor as IntArrayCtor, is64bit) || ArrowType;
+            const InputType = arrayTypeToDataType(input.constructor as IntArrayCtor, is64bit) || ArrowType;
             // Special case, infer the Arrow DataType from the input if calling the base
             // IntVector.from with a TypedArray, e.g. `IntVector.from(new Int32Array())`
             if (ArrowType === null) {
@@ -100,7 +100,7 @@ export class IntVector<T extends Int = Int> extends BaseVector<T> {
             // If the DataType inferred from the Vector constructor matches the
             // DataType inferred from the input arguments, return zero-copy view
             if (ArrowType && ArrowType === InputType) {
-                let type = new ArrowType();
+                const type = new ArrowType();
                 let length = input.byteLength / type.ArrayType.BYTES_PER_ELEMENT;
                 // If the ArrowType is 64bit but the input type is 32bit pairs, update the logical length
                 if (convert32To64Bit(ArrowType, input.constructor)) {

@@ -49,7 +49,8 @@ export class AsyncByteQueue<T extends ArrayBufferViewInput = Uint8Array> extends
     public toUint8Array(sync?: false): Promise<Uint8Array>;
     public toUint8Array(sync = false) {
         return sync ? joinUint8Arrays(this._values as any[])[0] : (async () => {
-            let buffers = [], byteLength = 0;
+            const buffers = [];
+            let byteLength = 0;
             for await (const chunk of this) {
                 buffers.push(chunk);
                 byteLength += chunk.byteLength;

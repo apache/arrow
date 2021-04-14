@@ -492,7 +492,7 @@ function throughIterable<T extends DataType = any, TNull = any>(options: Iterabl
     const sizeProperty: 'length' | 'byteLength' = queueingStrategy !== 'bytes' ? 'length' : 'byteLength';
     return function*(source: Iterable<T['TValue'] | TNull>) {
         let numChunks = 0;
-        let builder = Builder.new(options);
+        const builder = Builder.new(options);
         for (const value of source) {
             if (builder.append(value)[sizeProperty] >= highWaterMark) {
                 ++numChunks && (yield builder.toVector());
@@ -514,7 +514,7 @@ function throughAsyncIterable<T extends DataType = any, TNull = any>(options: It
     const sizeProperty: 'length' | 'byteLength' = queueingStrategy !== 'bytes' ? 'length' : 'byteLength';
     return async function* (source: Iterable<T['TValue'] | TNull> | AsyncIterable<T['TValue'] | TNull>) {
         let numChunks = 0;
-        let builder = Builder.new(options);
+        const builder = Builder.new(options);
         for await (const value of source) {
             if (builder.append(value)[sizeProperty] >= highWaterMark) {
                 ++numChunks && (yield builder.toVector());

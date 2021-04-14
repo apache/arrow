@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+/* eslint-disable brace-style */
+
 import { flatbuffers } from 'flatbuffers';
 
 import {
@@ -90,7 +92,8 @@ export class Message<T extends MessageHeader = any> {
 
     /** @nocollapse */
     public static encode<T extends MessageHeader>(message: Message<T>) {
-        let b = new Builder(), headerOffset = -1;
+        const b = new Builder();
+        let headerOffset = -1;
         if (message.isSchema()) {
             headerOffset = Schema.encode(b, message.header() as Schema);
         } else if (message.isRecordBatch()) {
@@ -520,7 +523,7 @@ function encodeField(b: Builder, field: Field) {
     let typeOffset = -1;
     let dictionaryOffset = -1;
 
-    let type = field.type;
+    const type = field.type;
     let typeId: Type = <any> field.typeId;
 
     if (!DataType.isDictionary(type)) {

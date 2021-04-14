@@ -48,7 +48,7 @@ export function truncateBitmap(offset: number, length: number, bitmap: Uint8Arra
 
 /** @ignore */
 export function packBools(values: Iterable<any>) {
-    let xs: number[] = [];
+    const xs: number[] = [];
     let i = 0, bit = 0, byte = 0;
     for (const value of values) {
         value && (byte |= 1 << bit);
@@ -58,7 +58,7 @@ export function packBools(values: Iterable<any>) {
         }
     }
     if (i === 0 || bit > 0) { xs[i++] = byte; }
-    let b = new Uint8Array((xs.length + 7) & ~7);
+    const b = new Uint8Array((xs.length + 7) & ~7);
     b.set(xs);
     return b;
 }

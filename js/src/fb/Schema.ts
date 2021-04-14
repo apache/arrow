@@ -230,7 +230,7 @@ export class Null {
      * @returns flatbuffers.Offset
      */
     static endNull(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -292,7 +292,7 @@ export class Struct_ {
      * @returns flatbuffers.Offset
      */
     static endStruct_(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -350,7 +350,7 @@ export class List {
      * @returns flatbuffers.Offset
      */
     static endList(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -411,7 +411,7 @@ export class LargeList {
      * @returns flatbuffers.Offset
      */
     static endLargeList(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -463,7 +463,7 @@ export class FixedSizeList {
      * @returns number
      */
     listSize(): number {
-        let offset = this.bb!.__offset(this.bb_pos, 4);
+        const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? this.bb!.readInt32(this.bb_pos + offset) : 0;
     }
 
@@ -487,7 +487,7 @@ export class FixedSizeList {
      * @returns flatbuffers.Offset
      */
     static endFixedSizeList(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -565,7 +565,7 @@ export class Map {
      * @returns boolean
      */
     keysSorted(): boolean {
-        let offset = this.bb!.__offset(this.bb_pos, 4);
+        const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
     }
 
@@ -589,7 +589,7 @@ export class Map {
      * @returns flatbuffers.Offset
      */
     static endMap(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -645,7 +645,7 @@ export class Union {
      * @returns UnionMode
      */
     mode(): UnionMode {
-        let offset = this.bb!.__offset(this.bb_pos, 4);
+        const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? /**  */ (this.bb!.readInt16(this.bb_pos + offset)) : UnionMode.Sparse;
     }
 
@@ -654,7 +654,7 @@ export class Union {
      * @returns number
      */
     typeIds(index: number): number | null {
-        let offset = this.bb!.__offset(this.bb_pos, 6);
+        const offset = this.bb!.__offset(this.bb_pos, 6);
         return offset ? this.bb!.readInt32(this.bb!.__vector(this.bb_pos + offset) + index * 4) : 0;
     }
 
@@ -662,7 +662,7 @@ export class Union {
      * @returns number
      */
     typeIdsLength(): number {
-        let offset = this.bb!.__offset(this.bb_pos, 6);
+        const offset = this.bb!.__offset(this.bb_pos, 6);
         return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
     }
 
@@ -670,7 +670,7 @@ export class Union {
      * @returns Int32Array
      */
     typeIdsArray(): Int32Array | null {
-        let offset = this.bb!.__offset(this.bb_pos, 6);
+        const offset = this.bb!.__offset(this.bb_pos, 6);
         return offset ? new Int32Array(this.bb!.bytes().buffer, this.bb!.bytes().byteOffset + this.bb!.__vector(this.bb_pos + offset), this.bb!.__vector_len(this.bb_pos + offset)) : null;
     }
 
@@ -723,7 +723,7 @@ export class Union {
      * @returns flatbuffers.Offset
      */
     static endUnion(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -775,7 +775,7 @@ export class Int {
      * @returns number
      */
     bitWidth(): number {
-        let offset = this.bb!.__offset(this.bb_pos, 4);
+        const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? this.bb!.readInt32(this.bb_pos + offset) : 0;
     }
 
@@ -783,7 +783,7 @@ export class Int {
      * @returns boolean
      */
     isSigned(): boolean {
-        let offset = this.bb!.__offset(this.bb_pos, 6);
+        const offset = this.bb!.__offset(this.bb_pos, 6);
         return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
     }
 
@@ -815,7 +815,7 @@ export class Int {
      * @returns flatbuffers.Offset
      */
     static endInt(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -867,7 +867,7 @@ export class FloatingPoint {
      * @returns Precision
      */
     precision(): Precision {
-        let offset = this.bb!.__offset(this.bb_pos, 4);
+        const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? /**  */ (this.bb!.readInt16(this.bb_pos + offset)) : Precision.HALF;
     }
 
@@ -891,7 +891,7 @@ export class FloatingPoint {
      * @returns flatbuffers.Offset
      */
     static endFloatingPoint(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -952,7 +952,7 @@ export class Utf8 {
      * @returns flatbuffers.Offset
      */
     static endUtf8(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -1012,7 +1012,7 @@ export class Binary {
      * @returns flatbuffers.Offset
      */
     static endBinary(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -1073,7 +1073,7 @@ export class LargeUtf8 {
      * @returns flatbuffers.Offset
      */
     static endLargeUtf8(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -1134,7 +1134,7 @@ export class LargeBinary {
      * @returns flatbuffers.Offset
      */
     static endLargeBinary(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -1186,7 +1186,7 @@ export class FixedSizeBinary {
      * @returns number
      */
     byteWidth(): number {
-        let offset = this.bb!.__offset(this.bb_pos, 4);
+        const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? this.bb!.readInt32(this.bb_pos + offset) : 0;
     }
 
@@ -1210,7 +1210,7 @@ export class FixedSizeBinary {
      * @returns flatbuffers.Offset
      */
     static endFixedSizeBinary(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -1269,7 +1269,7 @@ export class Bool {
      * @returns flatbuffers.Offset
      */
     static endBool(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -1326,7 +1326,7 @@ export class Decimal {
      * @returns number
      */
     precision(): number {
-        let offset = this.bb!.__offset(this.bb_pos, 4);
+        const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? this.bb!.readInt32(this.bb_pos + offset) : 0;
     }
 
@@ -1336,7 +1336,7 @@ export class Decimal {
      * @returns number
      */
     scale(): number {
-        let offset = this.bb!.__offset(this.bb_pos, 6);
+        const offset = this.bb!.__offset(this.bb_pos, 6);
         return offset ? this.bb!.readInt32(this.bb_pos + offset) : 0;
     }
 
@@ -1347,7 +1347,7 @@ export class Decimal {
      * @returns number
      */
     bitWidth(): number {
-        let offset = this.bb!.__offset(this.bb_pos, 8);
+        const offset = this.bb!.__offset(this.bb_pos, 8);
         return offset ? this.bb!.readInt32(this.bb_pos + offset) : 128;
     }
 
@@ -1387,7 +1387,7 @@ export class Decimal {
      * @returns flatbuffers.Offset
      */
     static endDecimal(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -1447,7 +1447,7 @@ export class Date {
      * @returns DateUnit
      */
     unit(): DateUnit {
-        let offset = this.bb!.__offset(this.bb_pos, 4);
+        const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? /**  */ (this.bb!.readInt16(this.bb_pos + offset)) : DateUnit.MILLISECOND;
     }
 
@@ -1471,7 +1471,7 @@ export class Date {
      * @returns flatbuffers.Offset
      */
     static endDate(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -1526,7 +1526,7 @@ export class Time {
      * @returns TimeUnit
      */
     unit(): TimeUnit {
-        let offset = this.bb!.__offset(this.bb_pos, 4);
+        const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? /**  */ (this.bb!.readInt16(this.bb_pos + offset)) : TimeUnit.MILLISECOND;
     }
 
@@ -1534,7 +1534,7 @@ export class Time {
      * @returns number
      */
     bitWidth(): number {
-        let offset = this.bb!.__offset(this.bb_pos, 6);
+        const offset = this.bb!.__offset(this.bb_pos, 6);
         return offset ? this.bb!.readInt32(this.bb_pos + offset) : 32;
     }
 
@@ -1566,7 +1566,7 @@ export class Time {
      * @returns flatbuffers.Offset
      */
     static endTime(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -1625,7 +1625,7 @@ export class Timestamp {
      * @returns TimeUnit
      */
     unit(): TimeUnit {
-        let offset = this.bb!.__offset(this.bb_pos, 4);
+        const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? /**  */ (this.bb!.readInt16(this.bb_pos + offset)) : TimeUnit.SECOND;
     }
 
@@ -1657,7 +1657,7 @@ export class Timestamp {
     timezone(): string | null;
     timezone(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null;
     timezone(optionalEncoding?: any): string | Uint8Array | null {
-        let offset = this.bb!.__offset(this.bb_pos, 6);
+        const offset = this.bb!.__offset(this.bb_pos, 6);
         return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
     }
 
@@ -1689,7 +1689,7 @@ export class Timestamp {
      * @returns flatbuffers.Offset
      */
     static endTimestamp(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -1741,7 +1741,7 @@ export class Interval {
      * @returns IntervalUnit
      */
     unit(): IntervalUnit {
-        let offset = this.bb!.__offset(this.bb_pos, 4);
+        const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? /**  */ (this.bb!.readInt16(this.bb_pos + offset)) : IntervalUnit.YEAR_MONTH;
     }
 
@@ -1765,7 +1765,7 @@ export class Interval {
      * @returns flatbuffers.Offset
      */
     static endInterval(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -1816,7 +1816,7 @@ export class Duration {
      * @returns TimeUnit
      */
     unit(): TimeUnit {
-        let offset = this.bb!.__offset(this.bb_pos, 4);
+        const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? /**  */ (this.bb!.readInt16(this.bb_pos + offset)) : TimeUnit.MILLISECOND;
     }
 
@@ -1840,7 +1840,7 @@ export class Duration {
      * @returns flatbuffers.Offset
      */
     static endDuration(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -1898,7 +1898,7 @@ export class KeyValue {
     key(): string | null;
     key(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null;
     key(optionalEncoding?: any): string | Uint8Array | null {
-        let offset = this.bb!.__offset(this.bb_pos, 4);
+        const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
     }
 
@@ -1909,7 +1909,7 @@ export class KeyValue {
     value(): string | null;
     value(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null;
     value(optionalEncoding?: any): string | Uint8Array | null {
-        let offset = this.bb!.__offset(this.bb_pos, 6);
+        const offset = this.bb!.__offset(this.bb_pos, 6);
         return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
     }
 
@@ -1941,7 +1941,7 @@ export class KeyValue {
      * @returns flatbuffers.Offset
      */
     static endKeyValue(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -1997,7 +1997,7 @@ export class DictionaryEncoding {
      * @returns flatbuffers.Long
      */
     id(): flatbuffers.Long {
-        let offset = this.bb!.__offset(this.bb_pos, 4);
+        const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? this.bb!.readInt64(this.bb_pos + offset) : this.bb!.createLong(0, 0);
     }
 
@@ -2012,7 +2012,7 @@ export class DictionaryEncoding {
      * @returns Int|null
      */
     indexType(obj?: Int): Int | null {
-        let offset = this.bb!.__offset(this.bb_pos, 6);
+        const offset = this.bb!.__offset(this.bb_pos, 6);
         return offset ? (obj || new Int()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
     }
 
@@ -2025,7 +2025,7 @@ export class DictionaryEncoding {
      * @returns boolean
      */
     isOrdered(): boolean {
-        let offset = this.bb!.__offset(this.bb_pos, 8);
+        const offset = this.bb!.__offset(this.bb_pos, 8);
         return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
     }
 
@@ -2033,7 +2033,7 @@ export class DictionaryEncoding {
      * @returns DictionaryKind
      */
     dictionaryKind(): DictionaryKind {
-        let offset = this.bb!.__offset(this.bb_pos, 10);
+        const offset = this.bb!.__offset(this.bb_pos, 10);
         return offset ? /**  */ (this.bb!.readInt16(this.bb_pos + offset)) : DictionaryKind.DenseArray;
     }
 
@@ -2081,7 +2081,7 @@ export class DictionaryEncoding {
      * @returns flatbuffers.Offset
      */
     static endDictionaryEncoding(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -2144,7 +2144,7 @@ export class Field {
     name(): string | null;
     name(optionalEncoding: flatbuffers.Encoding): string | Uint8Array | null;
     name(optionalEncoding?: any): string | Uint8Array | null {
-        let offset = this.bb!.__offset(this.bb_pos, 4);
+        const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? this.bb!.__string(this.bb_pos + offset, optionalEncoding) : null;
     }
 
@@ -2154,7 +2154,7 @@ export class Field {
      * @returns boolean
      */
     nullable(): boolean {
-        let offset = this.bb!.__offset(this.bb_pos, 6);
+        const offset = this.bb!.__offset(this.bb_pos, 6);
         return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
     }
 
@@ -2162,7 +2162,7 @@ export class Field {
      * @returns Type
      */
     typeType(): Type {
-        let offset = this.bb!.__offset(this.bb_pos, 8);
+        const offset = this.bb!.__offset(this.bb_pos, 8);
         return offset ? /**  */ (this.bb!.readUint8(this.bb_pos + offset)) : Type.NONE;
     }
 
@@ -2173,7 +2173,7 @@ export class Field {
      * @returns ?flatbuffers.Table
      */
     type<T extends flatbuffers.Table>(obj: T): T | null {
-        let offset = this.bb!.__offset(this.bb_pos, 10);
+        const offset = this.bb!.__offset(this.bb_pos, 10);
         return offset ? this.bb!.__union(obj, this.bb_pos + offset) : null;
     }
 
@@ -2184,7 +2184,7 @@ export class Field {
      * @returns DictionaryEncoding|null
      */
     dictionary(obj?: DictionaryEncoding): DictionaryEncoding | null {
-        let offset = this.bb!.__offset(this.bb_pos, 12);
+        const offset = this.bb!.__offset(this.bb_pos, 12);
         return offset ? (obj || new DictionaryEncoding()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
     }
 
@@ -2197,7 +2197,7 @@ export class Field {
      * @returns Field
      */
     children(index: number, obj?: Field): Field | null {
-        let offset = this.bb!.__offset(this.bb_pos, 14);
+        const offset = this.bb!.__offset(this.bb_pos, 14);
         return offset ? (obj || new Field()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
     }
 
@@ -2205,7 +2205,7 @@ export class Field {
      * @returns number
      */
     childrenLength(): number {
-        let offset = this.bb!.__offset(this.bb_pos, 14);
+        const offset = this.bb!.__offset(this.bb_pos, 14);
         return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
     }
 
@@ -2217,7 +2217,7 @@ export class Field {
      * @returns KeyValue
      */
     customMetadata(index: number, obj?: KeyValue): KeyValue | null {
-        let offset = this.bb!.__offset(this.bb_pos, 16);
+        const offset = this.bb!.__offset(this.bb_pos, 16);
         return offset ? (obj || new KeyValue()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
     }
 
@@ -2225,7 +2225,7 @@ export class Field {
      * @returns number
      */
     customMetadataLength(): number {
-        let offset = this.bb!.__offset(this.bb_pos, 16);
+        const offset = this.bb!.__offset(this.bb_pos, 16);
         return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
     }
 
@@ -2339,7 +2339,7 @@ export class Field {
      * @returns flatbuffers.Offset
      */
     static endField(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -2461,7 +2461,7 @@ export class Schema {
      * @returns Endianness
      */
     endianness(): Endianness {
-        let offset = this.bb!.__offset(this.bb_pos, 4);
+        const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? /**  */ (this.bb!.readInt16(this.bb_pos + offset)) : Endianness.Little;
     }
 
@@ -2471,7 +2471,7 @@ export class Schema {
      * @returns Field
      */
     fields(index: number, obj?: Field): Field | null {
-        let offset = this.bb!.__offset(this.bb_pos, 6);
+        const offset = this.bb!.__offset(this.bb_pos, 6);
         return offset ? (obj || new Field()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
     }
 
@@ -2479,7 +2479,7 @@ export class Schema {
      * @returns number
      */
     fieldsLength(): number {
-        let offset = this.bb!.__offset(this.bb_pos, 6);
+        const offset = this.bb!.__offset(this.bb_pos, 6);
         return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
     }
 
@@ -2489,7 +2489,7 @@ export class Schema {
      * @returns KeyValue
      */
     customMetadata(index: number, obj?: KeyValue): KeyValue | null {
-        let offset = this.bb!.__offset(this.bb_pos, 8);
+        const offset = this.bb!.__offset(this.bb_pos, 8);
         return offset ? (obj || new KeyValue()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
     }
 
@@ -2497,7 +2497,7 @@ export class Schema {
      * @returns number
      */
     customMetadataLength(): number {
-        let offset = this.bb!.__offset(this.bb_pos, 8);
+        const offset = this.bb!.__offset(this.bb_pos, 8);
         return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
     }
 
@@ -2508,7 +2508,7 @@ export class Schema {
      * @returns flatbuffers.Long
      */
     features(index: number): flatbuffers.Long | null {
-        let offset = this.bb!.__offset(this.bb_pos, 10);
+        const offset = this.bb!.__offset(this.bb_pos, 10);
         return offset ? /**  */ (this.bb!.readInt64(this.bb!.__vector(this.bb_pos + offset) + index * 8)) : this.bb!.createLong(0, 0);
     }
 
@@ -2516,7 +2516,7 @@ export class Schema {
      * @returns number
      */
     featuresLength(): number {
-        let offset = this.bb!.__offset(this.bb_pos, 10);
+        const offset = this.bb!.__offset(this.bb_pos, 10);
         return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
     }
 
@@ -2627,7 +2627,7 @@ export class Schema {
      * @returns flatbuffers.Offset
      */
     static endSchema(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 

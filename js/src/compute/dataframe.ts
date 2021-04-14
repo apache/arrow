@@ -86,7 +86,7 @@ export class DataFrame<T extends { [key: string]: DataType } = any> extends Tabl
             const keys = (count_by.vector as V<Dictionary>).indices;
             // yield all indices
             for (let index = -1, numRows = batch.length; ++index < numRows;) {
-                let key = keys.get(index);
+                const key = keys.get(index);
                 if (key !== null) { counts[key]++; }
             }
         }
@@ -274,7 +274,7 @@ export class FilteredDataFrame<T extends { [key: string]: DataType } = any> exte
             const keys = (count_by.vector as V<Dictionary>).indices;
             // yield all indices
             for (let index = -1, numRows = batch.length; ++index < numRows;) {
-                let key = keys.get(index);
+                const key = keys.get(index);
                 if (key !== null && predicate(index, batch)) { counts[key]++; }
             }
         }
