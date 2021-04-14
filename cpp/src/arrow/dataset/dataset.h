@@ -91,12 +91,18 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
 /// the results of a scan. These are options which make sense to change between
 /// repeated reads of the same dataset, such as format-specific conversion options
 /// (that do not affect the schema).
+///
+/// \ingroup dataset-scanning
 class ARROW_DS_EXPORT FragmentScanOptions {
  public:
   virtual std::string type_name() const = 0;
   virtual std::string ToString() const { return type_name(); }
   virtual ~FragmentScanOptions() = default;
 };
+
+/// \defgroup dataset-implementations Concrete implementations
+///
+/// @{
 
 /// \brief A trivial Fragment that yields ScanTask out of a fixed set of
 /// RecordBatch.
@@ -115,6 +121,8 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
 
   RecordBatchVector record_batches_;
 };
+
+/// @}
 
 /// \brief A container of zero or more Fragments.
 ///
@@ -160,6 +168,10 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
   Expression partition_expression_ = literal(true);
 };
 
+/// \addtogroup dataset-implementations
+///
+/// @{
+
 /// \brief A Source which yields fragments wrapping a stream of record batches.
 ///
 /// The record batches must match the schema provided to the source at construction.
@@ -171,13 +183,15 @@ class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
     virtual RecordBatchIterator Get() const = 0;
   };
 
+  /// Construct a dataset from a schema and a factory of record batch iterators.
   InMemoryDataset(std::shared_ptr<Schema> schema,
                   std::shared_ptr<RecordBatchGenerator> get_batches)
       : Dataset(std::move(schema)), get_batches_(std::move(get_batches)) {}
 
-  // Convenience constructor taking a fixed list of batches
+  /// Convenience constructor taking a fixed list of batches
   InMemoryDataset(std::shared_ptr<Schema> schema, RecordBatchVector batches);
 
+  /// Convenience constructor taking a Table
   explicit InMemoryDataset(std::shared_ptr<Table> table);
   explicit InMemoryDataset(std::shared_ptr<RecordBatchReader> reader);
 
@@ -220,6 +234,8 @@ class ARROW_DS_EXPORT UnionDataset : public Dataset {
 
   friend class UnionDatasetFactory;
 };
+
+/// @}
 
 }  // namespace dataset
 }  // namespace arrow

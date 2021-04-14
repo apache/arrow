@@ -57,6 +57,10 @@ struct SchemaManifest;
 namespace arrow {
 namespace dataset {
 
+/// \addtogroup dataset-file-formats
+///
+/// @{
+
 constexpr char kParquetTypeName[] = "parquet";
 
 /// \brief A FileFormat implementation that reads from Parquet files
@@ -166,13 +170,13 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
     return physical_schema_;
   }
 
-  // Return a filtered subset of row group indices.
+  /// Return a filtered subset of row group indices.
   Result<std::vector<int>> FilterRowGroups(Expression predicate);
 
   ParquetFileFormat& parquet_format_;
 
-  // Indices of row groups selected by this fragment,
-  // or util::nullopt if all row groups are selected.
+  /// Indices of row groups selected by this fragment,
+  /// or util::nullopt if all row groups are selected.
   util::optional<std::vector<int>> row_groups_;
 
   std::vector<Expression> statistics_expressions_;
@@ -207,8 +211,10 @@ class ARROW_DS_EXPORT ParquetFragmentScanOptions : public FragmentScanOptions {
 
 class ARROW_DS_EXPORT ParquetFileWriteOptions : public FileWriteOptions {
  public:
+  /// \brief Parquet writer properties.
   std::shared_ptr<parquet::WriterProperties> writer_properties;
 
+  /// \brief Parquet Arrow writer properties.
   std::shared_ptr<parquet::ArrowWriterProperties> arrow_writer_properties;
 
  protected:
@@ -237,38 +243,39 @@ class ARROW_DS_EXPORT ParquetFileWriter : public FileWriter {
   friend class ParquetFileFormat;
 };
 
+/// \brief Options for making a FileSystemDataset from a Parquet _metadata file.
 struct ParquetFactoryOptions {
-  // Either an explicit Partitioning or a PartitioningFactory to discover one.
-  //
-  // If a factory is provided, it will be used to infer a schema for partition fields
-  // based on file and directory paths then construct a Partitioning. The default
-  // is a Partitioning which will yield no partition information.
-  //
-  // The (explicit or discovered) partitioning will be applied to discovered files
-  // and the resulting partition information embedded in the Dataset.
+  /// Either an explicit Partitioning or a PartitioningFactory to discover one.
+  ///
+  /// If a factory is provided, it will be used to infer a schema for partition fields
+  /// based on file and directory paths then construct a Partitioning. The default
+  /// is a Partitioning which will yield no partition information.
+  ///
+  /// The (explicit or discovered) partitioning will be applied to discovered files
+  /// and the resulting partition information embedded in the Dataset.
   PartitioningOrFactory partitioning{Partitioning::Default()};
 
-  // For the purposes of applying the partitioning, paths will be stripped
-  // of the partition_base_dir. Files not matching the partition_base_dir
-  // prefix will be skipped for partition discovery. The ignored files will still
-  // be part of the Dataset, but will not have partition information.
-  //
-  // Example:
-  // partition_base_dir = "/dataset";
-  //
-  // - "/dataset/US/sales.csv" -> "US/sales.csv" will be given to the partitioning
-  //
-  // - "/home/john/late_sales.csv" -> Will be ignored for partition discovery.
-  //
-  // This is useful for partitioning which parses directory when ordering
-  // is important, e.g. DirectoryPartitioning.
+  /// For the purposes of applying the partitioning, paths will be stripped
+  /// of the partition_base_dir. Files not matching the partition_base_dir
+  /// prefix will be skipped for partition discovery. The ignored files will still
+  /// be part of the Dataset, but will not have partition information.
+  ///
+  /// Example:
+  /// partition_base_dir = "/dataset";
+  ///
+  /// - "/dataset/US/sales.csv" -> "US/sales.csv" will be given to the partitioning
+  ///
+  /// - "/home/john/late_sales.csv" -> Will be ignored for partition discovery.
+  ///
+  /// This is useful for partitioning which parses directory when ordering
+  /// is important, e.g. DirectoryPartitioning.
   std::string partition_base_dir;
 
-  // Assert that all ColumnChunk paths are consistent. The parquet spec allows for
-  // ColumnChunk data to be stored in multiple files, but ParquetDatasetFactory
-  // supports only a single file with all ColumnChunk data. If this flag is set
-  // construction of a ParquetDatasetFactory will raise an error if ColumnChunk
-  // data is not resident in a single file.
+  /// Assert that all ColumnChunk paths are consistent. The parquet spec allows for
+  /// ColumnChunk data to be stored in multiple files, but ParquetDatasetFactory
+  /// supports only a single file with all ColumnChunk data. If this flag is set
+  /// construction of a ParquetDatasetFactory will raise an error if ColumnChunk
+  /// data is not resident in a single file.
   bool validate_column_chunk_paths = false;
 };
 
@@ -350,6 +357,8 @@ class ARROW_DS_EXPORT ParquetDatasetFactory : public DatasetFactory {
 
   Result<std::shared_ptr<Schema>> PartitionSchema();
 };
+
+/// @}
 
 }  // namespace dataset
 }  // namespace arrow

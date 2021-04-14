@@ -15,28 +15,13 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-*************
-API Reference
-*************
+.. default-domain:: cpp
+.. highlight:: cpp
 
-.. toctree::
-   :maxdepth: 3
+Arrow Datasets example
+=========================
 
-   api/support
-   api/memory
-   api/datatype
-   api/array
-   api/scalar
-   api/builder
-   api/table
-   api/c_abi
-   api/compute
-   api/tensor
-   api/utilities
-   api/io
-   api/ipc
-   api/formats
-   api/cuda
-   api/flight
-   api/filesystem
-   api/dataset
+The file ``cpp/examples/arrow/dataset_documentation_example.cc``
+located inside the source tree contains an example of using Arrow
+Datasets to read, write, select, and filter data. :doc:`../dataset`
+has a full walkthrough of the example.
