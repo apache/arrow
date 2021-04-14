@@ -92,7 +92,7 @@ test_that("mean.Array", {
 
   bools <- c(TRUE, NA, TRUE, FALSE)
   b <- Array$create(bools)
-  expect_identical(as.vector(mean(b)), mean(bools))
+  expect_identical(as.vector(mean(b, na.min_count=length(b))), mean(bools))
   expect_identical(as.integer(sum(b, na.rm = TRUE)), sum(bools, na.rm = TRUE))
 })
 

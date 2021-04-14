@@ -255,6 +255,7 @@ TYPED_TEST(TestNumericSumKernel, ScalarAggregateOptions) {
 
   const T expected_result = static_cast<T>(14);
   auto null_result = Datum(std::make_shared<ScalarType>());
+  auto zero_result = Datum(std::make_shared<ScalarType>(static_cast<T>(0)));
   auto result = Datum(std::make_shared<ScalarType>(expected_result));
   const char* json = "[1, null, 3, null, 3, null, 7]";
 
@@ -270,6 +271,34 @@ TYPED_TEST(TestNumericSumKernel, ScalarAggregateOptions) {
                          ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 4));
   ValidateSum<TypeParam>(json, null_result,
                          ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 5));
+
+  //  ValidateSum<TypeParam>("[null]", zero_result,
+  //  ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 0));
+  //  ValidateSum<TypeParam>("[null]", zero_result,
+  //  ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 1));
+  //  ValidateSum<TypeParam>("[null]", zero_result,
+  //  ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 2));
+
+  //  ValidateSum<TypeParam>("[null]", null_result,
+  //  ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 0));
+  //  ValidateSum<TypeParam>("[null]", null_result,
+  //  ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 1));
+  //  ValidateSum<TypeParam>("[null]", null_result,
+  //  ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 2));
+  //
+  //  ValidateSum<TypeParam>("[]", null_result,
+  //  ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 0));
+  //  ValidateSum<TypeParam>("[]", null_result,
+  //  ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 1));
+  //  ValidateSum<TypeParam>("[]", null_result,
+  //  ScalarAggregateOptions(ScalarAggregateOptions::KEEPNA, 2));
+  //
+  //  ValidateSum<TypeParam>("[]", zero_result,
+  //  ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 0));
+  //  ValidateSum<TypeParam>("[]", zero_result,
+  //  ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 1));
+  //  ValidateSum<TypeParam>("[]", zero_result,
+  //  ScalarAggregateOptions(ScalarAggregateOptions::SKIPNA, 2));
 }
 
 template <typename ArrowType>

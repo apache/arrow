@@ -82,15 +82,15 @@ Many compute functions are also available directly as concrete APIs, here
 Some functions accept or require an options structure that determines the
 exact semantics of the function::
 
-   MinMaxOptions min_max_options;
-   min_max_options.null_handling = MinMaxOptions::EMIT_NULL;
+   ScalarAggregateOptions min_max_options;
+   scalar_aggregate_options.null_handling = ScalarAggregateOptions::KEEPNA;
 
    std::shared_ptr<arrow::Array> array = ...;
    arrow::Datum min_max;
 
    ARROW_ASSIGN_OR_RAISE(min_max,
                          arrow::compute::CallFunction("min_max", {array},
-                                                      &min_max_options));
+                                                      &scalar_aggregate_options));
 
    // Unpack struct scalar result (a two-field {"min", "max"} scalar)
    std::shared_ptr<arrow::Scalar> min_value, max_value;
@@ -190,11 +190,11 @@ Aggregations
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | any                      | Unary      | Boolean            | Scalar Boolean        |                                            |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
-| count                    | Unary      | Any                | Scalar Int64          | :struct:`CountOptions`                     |
+| count                    | Unary      | Any                | Scalar Int64          | :struct:`ScalarAggregateOptions`           |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
-| mean                     | Unary      | Numeric            | Scalar Float64        |                                            |
+| mean                     | Unary      | Numeric            | Scalar Float64        | :struct:`ScalarAggregateOptions`           |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
-| min_max                  | Unary      | Numeric            | Scalar Struct  (1)    | :struct:`MinMaxOptions`                    |
+| min_max                  | Unary      | Numeric            | Scalar Struct  (1)    | :struct:`ScalarAggregateOptions`           |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | mode                     | Unary      | Numeric            | Struct  (2)           | :struct:`ModeOptions`                      |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
@@ -202,7 +202,7 @@ Aggregations
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | stddev                   | Unary      | Numeric            | Scalar Float64        | :struct:`VarianceOptions`                  |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
-| sum                      | Unary      | Numeric            | Scalar Numeric (4)    |                                            |
+| sum                      | Unary      | Numeric            | Scalar Numeric (4)    | :struct:`ScalarAggregateOptions`           |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
 | tdigest                  | Unary      | Numeric            | Scalar Float64        | :struct:`TDigestOptions`                   |
 +--------------------------+------------+--------------------+-----------------------+--------------------------------------------+
