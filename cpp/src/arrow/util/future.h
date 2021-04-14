@@ -718,7 +718,7 @@ Future<BreakValueType> Loop(Iterate iterate) {
         return true;
       }
       if (control_res->has_value()) {
-        break_fut.MarkFinished(*std::move(*control_res));
+        break_fut.MarkFinished(**control_res);
         return true;
       }
       return false;

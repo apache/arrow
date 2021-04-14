@@ -106,9 +106,8 @@ class ARROW_EXPORT Executor {
   Future<T> Transfer(Future<T> future) {
     auto transferred = Future<T>::Make();
     auto callback = [this, transferred](const Result<T>& result) mutable {
-      auto spawn_status = Spawn([transferred, result]() mutable {
-        transferred.MarkFinished(std::move(result));
-      });
+      auto spawn_status =
+          Spawn([transferred, result]() mutable { transferred.MarkFinished(result); });
       if (!spawn_status.ok()) {
         transferred.MarkFinished(spawn_status);
       }

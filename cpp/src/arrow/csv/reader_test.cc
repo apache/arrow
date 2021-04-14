@@ -32,14 +32,10 @@
 #include "arrow/table.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/async_generator.h"
 #include "arrow/util/future.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
-
-using RecordBatchGenerator = AsyncGenerator<std::shared_ptr<RecordBatch>>;
-
 namespace csv {
 
 // Allows the streaming reader to be used in tests that expect a table reader
@@ -49,17 +45,12 @@ class StreamingReaderAsTableReader : public TableReader {
       : reader_(std::move(reader)) {}
   virtual ~StreamingReaderAsTableReader() = default;
   virtual Result<std::shared_ptr<Table>> Read() {
-    auto table_fut = ReadAsync();
-    auto table_res = table_fut.result();
-    ARROW_ASSIGN_OR_RAISE(auto table, table_res);
+    std::shared_ptr<Table> table;
+    RETURN_NOT_OK(reader_->ReadAll(&table));
     return table;
   }
   virtual Future<std::shared_ptr<Table>> ReadAsync() {
-    auto reader = reader_;
-    RecordBatchGenerator rb_generator = [reader]() { return reader->ReadNextAsync(); };
-    return CollectAsyncGenerator(rb_generator).Then([](const RecordBatchVector& rbs) {
-      return Table::FromRecordBatches(rbs);
-    });
+    return Future<std::shared_ptr<Table>>::MakeFinished(Read());
   }
 
  private:

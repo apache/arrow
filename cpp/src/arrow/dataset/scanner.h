@@ -152,8 +152,6 @@ class ARROW_DS_EXPORT ScanTask {
   /// resulting from the Scan. Execution semantics are encapsulated in the
   /// particular ScanTask implementation
   virtual Result<RecordBatchIterator> Execute() = 0;
-  virtual Result<RecordBatchGenerator> ExecuteAsync(internal::Executor* cpu_executor);
-  virtual bool supports_async() const;
 
   virtual ~ScanTask() = default;
 
