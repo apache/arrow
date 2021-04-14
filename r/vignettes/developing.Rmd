@@ -60,8 +60,8 @@ brew install apache-arrow
 brew install apache-arrow --HEAD
 ```
 
-On Windows and Linuc, you can download a .zip file with the arrow dependencies from the
-[nightly repository](https://arrow-r-nightly.s3.amazonaws.com/libarrow/bin/windows/),
+On Windows and Linux, you can download a .zip file with the arrow dependencies from the
+nightly repository,
 and then set the `RWINLIB_LOCAL` environment variable to point to that
 zip file before installing the `arrow` R package. Version numbers in that
 repository correspond to dates, and you will likely want the most recent.
@@ -398,7 +398,7 @@ separate from another Arrow development environment or system installation
 
 There are a number of scripts that are triggered when `R CMD INSTALL .`. For Arrow users, these should all just work without configuration and pull in the most complete pieces (e.g. official binaries that we host) so the installation process is easy. However knowing about these scripts can help troubleshoot if things go wrong in them or things go wrong in an install:
 
-* `configure` and `configure.win` These scripts are triggered during `R CMD INSTALL .` on non-windows and windows platforms respectively. They handle finding the Arrow library, setting up the build variables necesary, and writing the package Makevars file that is used to compile the C++ code in the R package.
+* `configure` and `configure.win` These scripts are triggered during `R CMD INSTALL .` on non-windows and windows platforms respectively. They handle finding the Arrow library, setting up the build variables necessary, and writing the package Makevars file that is used to compile the C++ code in the R package.
 * `tools/nixlibs.R` This script is called by `configure` on Linux (or on any non-windows OS with the environment variable `FORCE_BUNDLED_BUILD=true`). This sets up the build process for our bundled builds (which is the default on linux). The operative logic is at the end of the script, but it will do the following (and it will stop with the first one that succeeds and some of the steps are only checked if they are enabled via an environment variable):
   * Check if there is an already built libarrow in `arrow/r/libarrow-{version}`, use that to link against if it exists.
   * Check if a binary is available from our hosted official builds.
