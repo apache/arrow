@@ -145,6 +145,23 @@ void AssertIteratorNext(T expected, Iterator<T>& it) {
   ASSERT_EQ(expected, actual);
 }
 
+template <typename T>
+Iterator<T> FailsAt(Iterator<T> source, int failure_index, Status failure) {
+  struct Iter {
+    Result<T> Next() {
+      if (index++ == failure_index) {
+        return failure;
+      }
+      return source.Next();
+    }
+    Iterator<T> source;
+    int failure_index;
+    Status failure;
+    int index;
+  };
+  return Iterator<T>(Iter{std::move(source), failure_index, std::move(failure), 0});
+}
+
 // --------------------------------------------------------------------
 // Synchronous iterator tests
 
@@ -314,6 +331,43 @@ TEST(TestFunctionIterator, RangeForLoop) {
     ASSERT_LE(expected_i, 3) << "iteration stops after an error is encountered";
     ++expected_i;
   }
+}
+
+void AssertBufferIteratorMatch(std::vector<std::vector<TestInt>> expected,
+                               Iterator<Iterator<TestInt>> actual) {
+  auto batches = IteratorToVector(std::move(actual));
+  ASSERT_EQ(expected.size(), batches.size());
+  for (std::size_t i = 0; i < expected.size(); i++) {
+    AssertIteratorMatch(expected[i], std::move(batches[i]));
+  }
+}
+
+TEST(BufferIterator, Basic) {
+  auto it = MakeBufferedIterator(VectorIt({1, 2, 3, 4, 5}), 2);
+  AssertBufferIteratorMatch({{1, 2}, {3, 4}, {5}}, std::move(it));
+
+  it = MakeBufferedIterator(VectorIt({1, 2, 3, 4}), 2);
+  AssertBufferIteratorMatch({{1, 2}, {3, 4}}, std::move(it));
+}
+
+TEST(BufferIterator, Error) {
+  // Beginning of stream
+  auto it =
+      MakeBufferedIterator(FailsAt(VectorIt({1, 2, 3, 4}), 0, Status::Invalid("Xyz")), 2);
+  ASSERT_RAISES(Invalid, it.Next());
+
+  // End of batch
+  it =
+      MakeBufferedIterator(FailsAt(VectorIt({1, 2, 3, 4}), 2, Status::Invalid("Xyz")), 2);
+  ASSERT_OK(it.Next());
+  ASSERT_RAISES(Invalid, it.Next());
+
+  // Mid-batch
+  it = MakeBufferedIterator(FailsAt(VectorIt({1, 2, 3, 4, 5}), 4, Status::Invalid("Xyz")),
+                            2);
+  ASSERT_OK(it.Next());
+  ASSERT_OK(it.Next());
+  ASSERT_RAISES(Invalid, it.Next());
 }
 
 TEST(FilterIterator, Basic) {

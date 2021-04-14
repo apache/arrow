@@ -140,7 +140,7 @@ Result<RecordBatchGenerator> InMemoryFragment::ScanBatchesAsync(
 
     std::shared_ptr<State> state;
   };
-  return Generator(std::dynamic_pointer_cast<InMemoryFragment>(shared_from_this()),
+  return Generator(internal::checked_pointer_cast<InMemoryFragment>(shared_from_this()),
                    options.batch_size);
 }
 
@@ -179,9 +179,10 @@ struct VectorRecordBatchGenerator : InMemoryDataset::RecordBatchGenerator {
 };
 
 InMemoryDataset::InMemoryDataset(std::shared_ptr<Schema> schema,
-                                 RecordBatchVector batches)
+                                 RecordBatchVector batches, int tasks_per_fragment)
     : Dataset(std::move(schema)),
-      get_batches_(new VectorRecordBatchGenerator(std::move(batches))) {}
+      get_batches_(new VectorRecordBatchGenerator(std::move(batches))),
+      tasks_per_fragment_(tasks_per_fragment) {}
 
 struct TableRecordBatchGenerator : InMemoryDataset::RecordBatchGenerator {
   explicit TableRecordBatchGenerator(std::shared_ptr<Table> table)
@@ -198,7 +199,8 @@ struct TableRecordBatchGenerator : InMemoryDataset::RecordBatchGenerator {
 
 InMemoryDataset::InMemoryDataset(std::shared_ptr<Table> table)
     : Dataset(table->schema()),
-      get_batches_(new TableRecordBatchGenerator(std::move(table))) {}
+      get_batches_(new TableRecordBatchGenerator(std::move(table))),
+      tasks_per_fragment_(1) {}
 
 struct ReaderRecordBatchGenerator : InMemoryDataset::RecordBatchGenerator {
   explicit ReaderRecordBatchGenerator(std::shared_ptr<RecordBatchReader> reader)
@@ -220,7 +222,8 @@ struct ReaderRecordBatchGenerator : InMemoryDataset::RecordBatchGenerator {
 
 InMemoryDataset::InMemoryDataset(std::shared_ptr<RecordBatchReader> reader)
     : Dataset(reader->schema()),
-      get_batches_(new ReaderRecordBatchGenerator(std::move(reader))) {}
+      get_batches_(new ReaderRecordBatchGenerator(std::move(reader))),
+      tasks_per_fragment_(1) {}
 
 Result<std::shared_ptr<Dataset>> InMemoryDataset::ReplaceSchema(
     std::shared_ptr<Schema> schema) const {
@@ -232,17 +235,22 @@ Result<FragmentIterator> InMemoryDataset::GetFragmentsImpl(Expression) {
   auto schema = this->schema();
 
   auto create_fragment =
-      [schema](std::shared_ptr<RecordBatch> batch) -> Result<std::shared_ptr<Fragment>> {
-    if (!batch->schema()->Equals(schema)) {
-      return Status::TypeError("yielded batch had schema ", *batch->schema(),
-                               " which did not match InMemorySource's: ", *schema);
+      [schema](RecordBatchIterator batch_it) -> Result<std::shared_ptr<Fragment>> {
+    ARROW_ASSIGN_OR_RAISE(auto batches, batch_it.ToVector());
+    for (const auto& batch : batches) {
+      if (!batch->schema()->Equals(schema)) {
+        return Status::TypeError("yielded batch had schema ", *batch->schema(),
+                                 " which did not match InMemorySource's: ", *schema);
+      }
     }
 
-    RecordBatchVector batches{batch};
     return std::make_shared<InMemoryFragment>(std::move(batches));
   };
 
-  return MakeMaybeMapIterator(std::move(create_fragment), get_batches_->Get());
+  auto batches_it = get_batches_->Get();
+  auto buffered_batches_it =
+      MakeBufferedIterator(std::move(batches_it), tasks_per_fragment_);
+  return MakeMaybeMapIterator(std::move(create_fragment), std::move(buffered_batches_it));
 }
 
 Result<std::shared_ptr<UnionDataset>> UnionDataset::Make(std::shared_ptr<Schema> schema,

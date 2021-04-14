@@ -216,23 +216,30 @@ class DatasetFixtureMixin : public ::testing::Test {
   }
 
   /// \brief Ensure that record batches found in reader are equals to the
-  /// record batches yielded by a scanner.  Each fragment in the scanner is
-  /// expected to have a single batch.
+  /// record batches yielded by a scanner.
   void AssertScanBatchesUnorderedEquals(RecordBatchReader* expected, Scanner* scanner,
+                                        int expected_batches_per_fragment,
                                         bool ensure_drained = true) {
     ASSERT_OK_AND_ASSIGN(auto it, scanner->ScanBatchesUnordered());
 
     int fragment_counter = 0;
+    int batch_counter = 0;
     bool saw_last_fragment = false;
-    ARROW_EXPECT_OK(it.Visit([&](EnumeratedRecordBatch batch) -> Status {
-      EXPECT_EQ(0, batch.record_batch.index);
-      EXPECT_EQ(true, batch.record_batch.last);
-      EXPECT_EQ(fragment_counter++, batch.fragment.index);
+    auto visitor = [&](EnumeratedRecordBatch batch) -> Status {
+      EXPECT_EQ(batch_counter++, batch.record_batch.index);
+      auto last_batch = batch_counter == expected_batches_per_fragment;
+      EXPECT_EQ(last_batch, batch.record_batch.last);
+      EXPECT_EQ(fragment_counter, batch.fragment.index);
+      if (last_batch) {
+        fragment_counter++;
+        batch_counter = 0;
+      }
       EXPECT_FALSE(saw_last_fragment);
       saw_last_fragment = batch.fragment.last;
       AssertBatchEquals(expected, *batch.record_batch.value);
       return Status::OK();
-    }));
+    };
+    ARROW_EXPECT_OK(it.Visit(visitor));
 
     if (ensure_drained) {
       EnsureRecordBatchReaderDrained(expected);

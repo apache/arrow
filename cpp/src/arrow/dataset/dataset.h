@@ -192,10 +192,13 @@ class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
   /// Construct a dataset from a schema and a factory of record batch iterators.
   InMemoryDataset(std::shared_ptr<Schema> schema,
                   std::shared_ptr<RecordBatchGenerator> get_batches)
-      : Dataset(std::move(schema)), get_batches_(std::move(get_batches)) {}
+      : Dataset(std::move(schema)),
+        get_batches_(std::move(get_batches)),
+        tasks_per_fragment_(1) {}
 
   /// Convenience constructor taking a fixed list of batches
-  InMemoryDataset(std::shared_ptr<Schema> schema, RecordBatchVector batches);
+  InMemoryDataset(std::shared_ptr<Schema> schema, RecordBatchVector batches,
+                  int tasks_per_fragment = 1);
 
   /// Convenience constructor taking a Table
   explicit InMemoryDataset(std::shared_ptr<Table> table);
@@ -210,6 +213,7 @@ class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
   Result<FragmentIterator> GetFragmentsImpl(Expression predicate) override;
 
   std::shared_ptr<RecordBatchGenerator> get_batches_;
+  int tasks_per_fragment_;
 };
 
 /// \brief A Dataset wrapping child Datasets.
