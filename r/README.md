@@ -34,7 +34,7 @@ access to the Arrow C++ library API and higher-level access through a
     interoperability with databases and data warehouse systems
 -   Use **compression codecs** including Snappy, gzip, Brotli,
     Zstandard, LZ4, LZO, and bzip2 for reading and writing data
--   Enables **zero-copy data sharing** between **R and Python**
+-   Enable **zero-copy data sharing** between **R and Python**
 -   Connect to **Arrow Flight** RPC servers to send and receive large
     datasets over networks
 -   Access and manipulate Arrow objects through **low-level bindings**
@@ -98,8 +98,11 @@ fixes and new features under active development.
 Among the many uses of the `arrow` package, two of the most accessible
 uses are:
 
--   Reading and writing data files
--   Manipulating Arrow data with `dplyr` verbs
+-   High-performance reading and writing of data files with multiple
+    file formats and compression codecs, including built-in support for
+    cloud storage
+-   Analyzing and manipulating bigger-than-memory data with `dplyr`
+    verbs
 
 The sections below describe these two uses and illustrate them with
 basic examples. The sections below mention two Arrow data structures:
@@ -134,8 +137,12 @@ functions `write_parquet()` and `write_feather()`. These can be used
 with R `data.frame` and Arrow `Table` objects.
 
 For example, let’s write the Star Wars characters data that’s included
-in `dplyr` to a Parquet file, then read it back in. First load the
-`arrow` and `dplyr` packages:
+in `dplyr` to a Parquet file, then read it back in. Parquet is a popular
+choice for storing analytic data; it is optimized for reduced file sizes
+and fast read performance, especially for column-based access patterns.
+Parquet is widely supported by many tools and platforms.
+
+First load the `arrow` and `dplyr` packages:
 
 ``` r
 library(arrow, warn.conflicts = FALSE)
@@ -156,15 +163,22 @@ Then read the Parquet file into an R `data.frame` named `sw`:
 sw <- read_parquet(file_path)
 ```
 
-For reading and writing larger files or multiple files with Arrow
-`Dataset` objects, `arrow` provides the functions `open_dataset()` and
-`write_dataset()`. For examples of these, see
-`vignette("dataset", package = "arrow")`.
+R object attributes are preserved when writing data to Parquet or
+Feather files and when reading those files back into R. This enables
+round-trip writing and reading of `sf::sf` objects, R `data.frame`s with
+with `haven::labelled` columns, and `data.frame`s with other custom
+attributes.
 
-All these functions can read and write files in the local filesystem (by
-passing unqualified paths or `file://` URIs) or files in Amazon S3 (by
-passing S3 URIs beginning with `s3://`). For more details, see
-`vignette("fs", package = "arrow")`
+For reading and writing larger files or sets of multiple files, `arrow`
+defines `Dataset` objects and provides the functions `open_dataset()`
+and `write_dataset()` which enable analysis and processing of
+bigger-than-memory data, including the ability to partition data into
+smaller chunks without loading the full data into memory. For examples
+of these functions, see `vignette("dataset", package = "arrow")`.
+
+All these functions can read and write files in the local filesystem or
+in Amazon S3 (by passing S3 URIs beginning with `s3://`). For more
+details, see `vignette("fs", package = "arrow")`
 
 ### Using `dplyr` with `arrow`
 
@@ -190,8 +204,10 @@ result <- sw %>%
 ```
 
 The `arrow` package uses lazy evaluation to delay computation until the
-result is required. `result` is an object with class `arrow_dplyr_query`
-which represents the computations to be performed:
+result is required. This speeds up processing by enabling the Arrow C++
+library to perform multiple computations in one operation. `result` is
+an object with class `arrow_dplyr_query` which represents all the
+computations to be performed:
 
 ``` r
 result
@@ -205,7 +221,7 @@ result
 #> See $.data for the source Arrow object
 ```
 
-To execute these computations and materialize the result, call
+To perform these computations and materialize the result, call
 `compute()` or `collect()`. `compute()` returns an Arrow `Table`,
 suitable for passing to other `arrow` or `dplyr` functions:
 
@@ -240,10 +256,10 @@ result %>% collect()
 
 The `arrow` package works with most `dplyr` verbs except those that
 compute aggregates (such as `summarise()`, and `mutate()` after
-`group_by()`). Inside `dplyr` verbs, Arrow offers limited support for
-functions and operators, with broader support expected in upcoming
-releases. For more information about available compute functions, see
-`help("list_compute_functions")`.
+`group_by()`). Inside `dplyr` verbs, Arrow offers support for many
+functions and operators. If there are additional functions you would
+like to see implemented, please file an issue as described in the
+[Geting help](#getting-help) section below.
 
 For `dplyr` queries on `Table` objects, if the `arrow` package detects
 an unimplemented function within a `dplyr` verb, it automatically calls
