@@ -210,13 +210,13 @@ git checkout -b ${release_candidate_branch}
 
 ############################## Pre-Tag Commits ##############################
 
-# if [ ${PREPARE_CHANGELOG} -gt 0 ]; then
-#   echo "Updating changelog for $version"
-#   # Update changelog
-#   archery release changelog add $version
-#   git add ${SOURCE_DIR}/../../CHANGELOG.md
-#   git commit -m "[Release] Update CHANGELOG.md for $version"
-# fi
+if [ ${PREPARE_CHANGELOG} -gt 0 ]; then
+  echo "Updating changelog for $version"
+  # Update changelog
+  archery release changelog add $version
+  git add ${SOURCE_DIR}/../../CHANGELOG.md
+  git commit -m "[Release] Update CHANGELOG.md for $version"
+fi
 
 if [ ${PREPARE_LINUX_PACKAGES} -gt 0 ]; then
   echo "Updating .deb/.rpm changelogs for $version"
