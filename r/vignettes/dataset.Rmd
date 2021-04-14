@@ -139,7 +139,7 @@ passenger_count: int8
 trip_distance: float
 pickup_longitude: float
 pickup_latitude: float
-rate_code_id: string
+rate_code_id: null
 store_and_fwd_flag: string
 dropoff_longitude: float
 dropoff_latitude: float
@@ -150,10 +150,6 @@ mta_tax: float
 tip_amount: float
 tolls_amount: float
 total_amount: float
-improvement_surcharge: float
-pickup_location_id: int32
-dropoff_location_id: int32
-congestion_surcharge: float
 year: int32
 month: int32
 
@@ -330,9 +326,10 @@ by calling `write_dataset()` on it:
 write_dataset(ds, "nyc-taxi/feather", format = "feather")
 ```
 
-Next, let's imagine that the `payment_type` column is something we often filter on,
-so we want to partition the data by that variable. By doing so we ensure that a filter like
-`payment_type == 3` will touch only a subset of files where `payment_type `is always 3.
+Next, let's imagine that the `payment_type` column is something we often filter
+on, so we want to partition the data by that variable. By doing so we ensure
+that a filter like `payment_type == "Cash"` will touch only a subset of files
+where `payment_type` is always `"Cash"`.
 
 One natural way to express the columns you want to partition on is to use the
 `group_by()` method:
@@ -352,30 +349,30 @@ system("tree nyc-taxi/feather")
 ```
 ## feather
 ## ├── payment_type=1
-## │   └── part-5.feather
+## │   └── part-18.feather
 ## ├── payment_type=2
-## │   └── part-0.feather
+## │   └── part-19.feather
 ## ...
-## └── payment_type=5
-##     └── part-2.feather
+## └── payment_type=UNK
+##     └── part-17.feather
 ##
-## 5 directories, 25 files
+## 18 directories, 23 files
 ```
 
-Note that the directory names are `payment_type=1` and similar:
+Note that the directory names are `payment_type=Cash` and similar:
 this is the Hive-style partitioning described above. This means that when
 we call `open_dataset()` on this directory, we don't have to declare what the
 partitions are because they can be read from the file paths.
-(To instead write bare values for partition segments,
-i.e. `1` rather than `payment_type=1`, call `write_dataset()` with `hive_style = FALSE`.)
+(To instead write bare values for partition segments, i.e. `Cash` rather than 
+`payment_type=Cash`, call `write_dataset()` with `hive_style = FALSE`.)
 
-Perhaps, though, `payment_type == 3` is the only data we ever care about,
+Perhaps, though, `payment_type == "Cash"` is the only data we ever care about,
 and we just want to drop the rest and have a smaller working set.
 For this, we can `filter()` them out when writing:
 
 ```r
 ds %>%
-  filter(payment_type == 3) %>%
+  filter(payment_type == "Cash") %>%
   write_dataset("nyc-taxi/feather", format = "feather")
 ```
 
