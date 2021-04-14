@@ -156,7 +156,7 @@ If you would like to install Arrow as a system library you can do that as well. 
 
 Now we can move into the arrow repository to start the build process. To build, change directories to be inside `arrow/cpp/build` (we do this in two steps so that we can use `popd` later to return to the `arrow` directory):
 
-```{bash, save=run & !sys_install}
+```{bash, save=run & sys_install}
 pushd arrow
 pushd cpp/build
 ```
