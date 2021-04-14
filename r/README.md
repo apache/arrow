@@ -11,12 +11,33 @@ data, organized for efficient analytic operations on modern hardware. It
 also provides computational libraries and zero-copy streaming messaging
 and interprocess communication.
 
-The `arrow` package exposes an interface to the Arrow C++ library to
-access many of its features in R. This includes support for analyzing
-large, multi-file datasets (`open_dataset()`), working with individual
-Parquet (`read_parquet()`, `write_parquet()`) and Feather
-(`read_feather()`, `write_feather()`) files, as well as a `dplyr`
-backend and lower-level access to Arrow memory and messages.
+The `arrow` package exposes an interface to the Arrow C++ library,
+enabling access to many of its features in R. It provides low-level
+access to the Arrow C++ library API as well as higher-level access
+through a `dplyr` backend and many R-flavored functions.
+
+## What can `arrow` do?
+
+-   Read and write Parquet files (`read_parquet()`, `write_parquet()`)
+-   Read and write Feather files (`read_feather()`, `write_feather()`)
+-   Read or write large, multi-file datasets with a single function call
+    (`open_dataset()`, `write_dataset()`)
+-   Read very large CSV and JSON files with excellent speed and
+    efficiency (`read_csv_arrow()`, `read_json_arrow()`)
+-   Read and write files in Amazon S3 buckets
+-   Exercise full control over the data types of columns when reading
+    and writing data files
+-   Use compression codecs including Snappy, gzip, Brotli, Zstandard,
+    LZ4, LZO, and bzip2 when reading and writing data
+-   Manipulate and analyze larger-than-memory datasets with `dplyr`
+    verbs
+-   Pass data between R and Python in the same process
+-   Connect to Arrow Flight RPC servers to send and receive large
+    datasets over networks
+-   Access and manipulate Arrow objects through low-level bindings to
+    the C++ library
+-   Provide a toolkit for building connectors to other applications and
+    services that use Arrow
 
 ## Installation
 
