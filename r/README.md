@@ -95,8 +95,7 @@ fixes and new features under active development.
 
 ## Usage
 
-Among the many uses of the `arrow` package, two of the most accessible
-uses are:
+Among the many applications of the `arrow` package, two of the most accessible are:
 
 -   High-performance reading and writing of data files with multiple
     file formats and compression codecs, including built-in support for
@@ -171,7 +170,7 @@ attributes.
 
 For reading and writing larger files or sets of multiple files, `arrow`
 defines `Dataset` objects and provides the functions `open_dataset()`
-and `write_dataset()` which enable analysis and processing of
+and `write_dataset()`, which enable analysis and processing of
 bigger-than-memory data, including the ability to partition data into
 smaller chunks without loading the full data into memory. For examples
 of these functions, see `vignette("dataset", package = "arrow")`.
@@ -195,8 +194,8 @@ sw <- read_parquet(file_path, as_data_frame = FALSE)
 Next, pipe on `dplyr` verbs:
 
 ``` r
-result <- sw %>% 
-  filter(homeworld == "Tatooine") %>% 
+result <- sw %>%
+  filter(homeworld == "Tatooine") %>%
   rename(height_cm = height, mass_kg = mass) %>%
   mutate(height_in = height_cm / 2.54, mass_lbs = mass_kg * 2.2046) %>%
   arrange(desc(birth_year)) %>%
@@ -215,7 +214,7 @@ result
 #> name: string
 #> height_in: expr
 #> mass_lbs: expr
-#> 
+#>
 #> * Filter: equal(homeworld, "Tatooine")
 #> * Sorted by birth_year [desc]
 #> See $.data for the source Arrow object
@@ -242,34 +241,38 @@ result %>% collect()
 #> # A tibble: 10 x 3
 #>    name               height_in mass_lbs
 #>    <chr>                  <dbl>    <dbl>
-#>  1 C-3PO                   65.7    165. 
+#>  1 C-3PO                   65.7    165.
 #>  2 Cliegg Lars             72.0     NA  
 #>  3 Shmi Skywalker          64.2     NA  
-#>  4 Owen Lars               70.1    265. 
-#>  5 Beru Whitesun lars      65.0    165. 
-#>  6 Darth Vader             79.5    300. 
-#>  7 Anakin Skywalker        74.0    185. 
-#>  8 Biggs Darklighter       72.0    185. 
-#>  9 Luke Skywalker          67.7    170. 
+#>  4 Owen Lars               70.1    265.
+#>  5 Beru Whitesun lars      65.0    165.
+#>  6 Darth Vader             79.5    300.
+#>  7 Anakin Skywalker        74.0    185.
+#>  8 Biggs Darklighter       72.0    185.
+#>  9 Luke Skywalker          67.7    170.
 #> 10 R5-D4                   38.2     70.5
 ```
 
-The `arrow` package works with most `dplyr` verbs except those that
-compute aggregates (such as `summarise()`, and `mutate()` after
-`group_by()`). Inside `dplyr` verbs, Arrow offers support for many
-functions and operators. If there are additional functions you would
+The `arrow` package works with most single-table `dplyr` verbs except those that
+compute aggregates, such as `summarise()` and `mutate()` after
+`group_by()`. Inside `dplyr` verbs, Arrow offers support for many
+functions and operators, with common functions mapped to their base R and
+tidyverse equivalents. The
+[changelog](https://arrow.apache.org/docs/r/news/index.html) lists many of them.
+If there are additional functions you would
 like to see implemented, please file an issue as described in the
-[Geting help](#getting-help) section below.
+[Getting help](#getting-help) section below.
 
 For `dplyr` queries on `Table` objects, if the `arrow` package detects
 an unimplemented function within a `dplyr` verb, it automatically calls
 `collect()` to return the data as an R `data.frame` before processing
 that `dplyr` verb. For queries on `Dataset` objects (which can be larger
-than memory), it raises an error if the function is unimplemented.
+than memory), it raises an error if the function is unimplemented;
+you need to explicitly tell it to `collect()`.
 
-### Other uses
+### Additional features
 
-Other uses of `arrow` are described in the following vignettes:
+Other applications of `arrow` are described in the following vignettes:
 
 -   `vignette("python", package = "arrow")`: use `arrow` and
     `reticulate` to pass data between R and Python
