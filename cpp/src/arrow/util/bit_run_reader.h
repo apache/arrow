@@ -462,8 +462,8 @@ using ReverseSetBitRunReader = BaseSetBitRunReader</*Reverse=*/true>;
 // - don't inline SetBitRunReader constructor, it doesn't hurt performance
 // - un-inline NextRun hurts 'many null' cases a bit, but improves normal cases
 template <typename Visit>
-Status VisitSetBitRuns(const uint8_t* bitmap, int64_t offset, int64_t length,
-                       Visit&& visit) {
+inline Status VisitSetBitRuns(const uint8_t* bitmap, int64_t offset, int64_t length,
+                              Visit&& visit) {
   if (bitmap == NULLPTR) {
     // Assuming all set (as in a null bitmap)
     return visit(static_cast<int64_t>(0), static_cast<int64_t>(length));
@@ -480,8 +480,8 @@ Status VisitSetBitRuns(const uint8_t* bitmap, int64_t offset, int64_t length,
 }
 
 template <typename Visit>
-void VisitSetBitRunsVoid(const uint8_t* bitmap, int64_t offset, int64_t length,
-                         Visit&& visit) {
+inline void VisitSetBitRunsVoid(const uint8_t* bitmap, int64_t offset, int64_t length,
+                                Visit&& visit) {
   if (bitmap == NULLPTR) {
     // Assuming all set (as in a null bitmap)
     visit(static_cast<int64_t>(0), static_cast<int64_t>(length));
@@ -498,15 +498,15 @@ void VisitSetBitRunsVoid(const uint8_t* bitmap, int64_t offset, int64_t length,
 }
 
 template <typename Visit>
-Status VisitSetBitRuns(const std::shared_ptr<Buffer>& bitmap, int64_t offset,
-                       int64_t length, Visit&& visit) {
+inline Status VisitSetBitRuns(const std::shared_ptr<Buffer>& bitmap, int64_t offset,
+                              int64_t length, Visit&& visit) {
   return VisitSetBitRuns(bitmap ? bitmap->data() : NULLPTR, offset, length,
                          std::forward<Visit>(visit));
 }
 
 template <typename Visit>
-void VisitSetBitRunsVoid(const std::shared_ptr<Buffer>& bitmap, int64_t offset,
-                         int64_t length, Visit&& visit) {
+inline void VisitSetBitRunsVoid(const std::shared_ptr<Buffer>& bitmap, int64_t offset,
+                                int64_t length, Visit&& visit) {
   VisitSetBitRunsVoid(bitmap ? bitmap->data() : NULLPTR, offset, length,
                       std::forward<Visit>(visit));
 }

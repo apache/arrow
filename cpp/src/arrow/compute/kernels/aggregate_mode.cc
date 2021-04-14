@@ -22,10 +22,10 @@
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/stl_allocator.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit_run_reader.h"
 
 namespace arrow {
 namespace compute {
@@ -33,13 +33,12 @@ namespace internal {
 
 namespace {
 
-using arrow::internal::checked_pointer_cast;
-using arrow::internal::VisitSetBitRunsVoid;
-
 using ModeState = OptionsWrapper<ModeOptions>;
 
 constexpr char kModeFieldName[] = "mode";
 constexpr char kCountFieldName[] = "count";
+
+constexpr uint64_t kCountEOF = ~0ULL;
 
 template <typename InType, typename CType = typename InType::c_type>
 Result<std::pair<CType*, int64_t*>> PrepareOutput(int64_t n, KernelContext* ctx,
@@ -75,7 +74,7 @@ template <typename InType, typename Generator>
 void Finalize(KernelContext* ctx, Datum* out, Generator&& gen) {
   using CType = typename InType::c_type;
 
-  using ValueCountPair = std::pair<CType, int64_t>;
+  using ValueCountPair = std::pair<CType, uint64_t>;
   auto gt = [](const ValueCountPair& lhs, const ValueCountPair& rhs) {
     const bool rhs_is_nan = rhs.first != rhs.first;  // nan as largest value
     return lhs.second > rhs.second ||
@@ -89,7 +88,7 @@ void Finalize(KernelContext* ctx, Datum* out, Generator&& gen) {
   while (true) {
     const ValueCountPair& value_count = gen();
     DCHECK_NE(value_count.second, 0);
-    if (value_count.second < 0) break;  // EOF reached
+    if (value_count.second == kCountEOF) break;
     if (static_cast<int64_t>(min_heap.size()) < options.n) {
       min_heap.push(value_count);
     } else if (gt(value_count, min_heap.top())) {
@@ -117,7 +116,7 @@ struct CountModer {
   using CType = typename T::c_type;
 
   CType min;
-  std::vector<int64_t> counts;
+  std::vector<uint64_t> counts;
 
   CountModer(CType min, CType max) {
     uint32_t value_range = static_cast<uint32_t>(max - min) + 1;
@@ -129,19 +128,7 @@ struct CountModer {
   void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // count values in all chunks, ignore nulls
     const Datum& datum = batch[0];
-    const int64_t in_length = datum.length() - datum.null_count();
-    if (in_length > 0) {
-      for (const auto& array : datum.chunks()) {
-        const ArrayData& data = *array->data();
-        const CType* values = data.GetValues<CType>(1);
-        VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
-                            [&](int64_t pos, int64_t len) {
-                              for (int64_t i = 0; i < len; ++i) {
-                                ++this->counts[values[pos + i] - this->min];
-                              }
-                            });
-      }
-    }
+    CountValues<CType>(this->counts.data(), datum, this->min);
 
     // generator to emit next value:count pair
     int index = 0;
@@ -154,7 +141,7 @@ struct CountModer {
           return value_count;
         }
       }
-      return std::make_pair<CType, int64_t>(0, -1);  // EOF
+      return std::pair<CType, uint64_t>(0, kCountEOF);
     };
 
     Finalize<T>(ctx, out, std::move(gen));
@@ -171,11 +158,11 @@ struct CountModer<BooleanType> {
     for (const auto& array : datum.chunks()) {
       if (array->length() > array->null_count()) {
         const int64_t true_count =
-            checked_pointer_cast<BooleanArray>(array)->true_count();
+            arrow::internal::checked_pointer_cast<BooleanArray>(array)->true_count();
         const int64_t false_count = array->length() - array->null_count() - true_count;
         counts[true] += true_count;
         counts[false] += false_count;
-      };
+      }
     }
 
     const ModeOptions& options = ModeState::Get(ctx);
@@ -206,27 +193,22 @@ struct SortModer {
   using CType = typename T::c_type;
   using Allocator = arrow::stl::allocator<CType>;
 
-  int64_t nan_count = 0;
-
   void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // copy all chunks to a buffer, ignore nulls and nans
     std::vector<CType, Allocator> in_buffer(Allocator(ctx->memory_pool()));
 
+    uint64_t nan_count = 0;
     const Datum& datum = batch[0];
     const int64_t in_length = datum.length() - datum.null_count();
     if (in_length > 0) {
       in_buffer.resize(in_length);
-
-      int64_t index = 0;
-      for (const auto& array : datum.chunks()) {
-        index += CopyArray(in_buffer.data() + index, *array);
-      }
+      CopyArray<sizeof(CType)>(in_buffer.data(), datum);
 
       // drop nan
       if (is_floating_type<T>::value) {
         const auto& it = std::remove_if(in_buffer.begin(), in_buffer.end(),
                                         [](CType v) { return v != v; });
-        this->nan_count = in_buffer.end() - it;
+        nan_count = in_buffer.end() - it;
         in_buffer.resize(it - in_buffer.begin());
       }
     }
@@ -236,20 +218,19 @@ struct SortModer {
 
     // generator to emit next value:count pair
     auto it = in_buffer.cbegin();
-    int64_t nan_count_copy = this->nan_count;
     auto gen = [&]() {
       if (ARROW_PREDICT_FALSE(it == in_buffer.cend())) {
         // handle NAN at last
-        if (nan_count_copy > 0) {
-          auto value_count = std::make_pair(static_cast<CType>(NAN), nan_count_copy);
-          nan_count_copy = 0;
+        if (nan_count > 0) {
+          auto value_count = std::make_pair(static_cast<CType>(NAN), nan_count);
+          nan_count = 0;
           return value_count;
         }
-        return std::make_pair<CType, int64_t>(0, -1);  // EOF
+        return std::pair<CType, uint64_t>(static_cast<CType>(0), kCountEOF);
       }
       // count same values
       const CType value = *it;
-      int64_t count = 0;
+      uint64_t count = 0;
       do {
         ++it;
         ++count;
@@ -258,22 +239,6 @@ struct SortModer {
     };
 
     Finalize<T>(ctx, out, std::move(gen));
-  }
-
-  static int64_t CopyArray(CType* buffer, const Array& array) {
-    const int64_t n = array.length() - array.null_count();
-    if (n > 0) {
-      int64_t index = 0;
-      const ArrayData& data = *array.data();
-      const CType* values = data.GetValues<CType>(1);
-      VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
-                          [&](int64_t pos, int64_t len) {
-                            memcpy(buffer + index, values + pos, len * sizeof(CType));
-                            index += len;
-                          });
-      DCHECK_EQ(index, n);
-    }
-    return n;
   }
 };
 
@@ -290,20 +255,8 @@ struct CountOrSortModer {
 
     const Datum& datum = batch[0];
     if (datum.length() - datum.null_count() >= kMinArraySize) {
-      CType min = std::numeric_limits<CType>::max();
-      CType max = std::numeric_limits<CType>::min();
-
-      for (const auto& array : datum.chunks()) {
-        const ArrayData& data = *array->data();
-        const CType* values = data.GetValues<CType>(1);
-        VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
-                            [&](int64_t pos, int64_t len) {
-                              for (int64_t i = 0; i < len; ++i) {
-                                min = std::min(min, values[pos + i]);
-                                max = std::max(max, values[pos + i]);
-                              }
-                            });
-      }
+      CType min, max;
+      std::tie(min, max) = GetMinMax<CType>(datum);
 
       if (static_cast<uint64_t>(max) - static_cast<uint64_t>(min) <= kMaxValueRange) {
         CountModer<T>(min, max).Exec(ctx, batch, out);
@@ -355,7 +308,7 @@ struct ModeExecutor {
     }
     const ModeOptions& options = ModeState::Get(ctx);
     if (options.n <= 0) {
-      ctx->SetStatus(Status::Invalid("ModeOption::n must be positive"));
+      ctx->SetStatus(Status::Invalid("ModeOption::n must be strictly positive"));
       return;
     }
 
