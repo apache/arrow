@@ -518,7 +518,7 @@ class BinaryTask
 
     def download
       sh("aws", "s3", "sync",
-         "s3://apache-arrow/#{package}/#{full_version}",
+         "s3://apache-arrow/binaries/#{package}/#{full_version}",
          @destination)
     end
 
@@ -584,7 +584,7 @@ class BinaryTask
     end
 
     def download_file(path, output_path)
-      source = "s3://apache-arrow/#{path}"
+      source = "s3://apache-arrow/binaries/#{path}"
       sh("aws", "s3", "cp", source, output_path, verbose: false)
     end
 
@@ -685,7 +685,7 @@ class BinaryTask
     def upload
       sh("aws", "s3", "sync",
          @source,
-         "s3://apache-arrow/#{package}/#{full_version}/")
+         "s3://apache-arrow/binaries/#{package}/#{full_version}/")
     end
 
     def upload_bintray
