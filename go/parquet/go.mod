@@ -27,7 +27,6 @@ require (
 	github.com/klauspost/compress v1.11.12
 	github.com/minio/asm2plan9s v0.0.0-20200509001527-cdd76441f9d8
 	github.com/minio/c2goasm v0.0.0-20190812172519-36a3d3bbc4f3
-	github.com/pierrec/lz4/v4 v4.1.3
 	github.com/stretchr/testify v1.7.0
 	golang.org/x/exp v0.0.0-20210220032938-85be41e4509f
 	golang.org/x/sys v0.0.0-20210309074719-68d13333faf2
