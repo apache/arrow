@@ -588,6 +588,32 @@ CAST_VARCHAR_FROM_VARLEN_TYPE(binary)
 
 #undef CAST_VARCHAR_FROM_VARLEN_TYPE
 
+// Add functions for castVARBINARY
+#define CAST_VARBINARY_FROM_STRING_AND_BINARY(TYPE)                                    \
+  GANDIVA_EXPORT                                                                       \
+  const char* castVARBINARY_##TYPE##_int64(gdv_int64 context, const char* data,        \
+                                           gdv_int32 data_len, int64_t out_len,        \
+                                           int32_t* out_length) {                      \
+    int32_t len = static_cast<int32_t>(out_len);                                       \
+    if (len < 0) {                                                                     \
+      gdv_fn_context_set_error_msg(context, "Output buffer length can't be negative"); \
+      *out_length = 0;                                                                 \
+      return "";                                                                       \
+    }                                                                                  \
+                                                                                       \
+    if (len >= data_len || len == 0) {                                                 \
+      *out_length = data_len;                                                          \
+    } else {                                                                           \
+      *out_length = len;                                                               \
+    }                                                                                  \
+    return data;                                                                       \
+  }
+
+CAST_VARBINARY_FROM_STRING_AND_BINARY(utf8)
+CAST_VARBINARY_FROM_STRING_AND_BINARY(binary)
+
+#undef CAST_VARBINARY_FROM_STRING_AND_BINARY
+
 #define IS_NULL(NAME, TYPE)                                                \
   FORCE_INLINE                                                             \
   bool NAME##_##TYPE(gdv_##TYPE in, gdv_int32 len, gdv_boolean is_valid) { \
