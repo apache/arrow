@@ -70,7 +70,7 @@ navbar:
           href: articles/python.html
         - text: Connecting to Flight RPC Servers
           href: articles/flight.html
-        - text: Developer Documentation
+        - text: Arrow R Developer Guide
           href: articles/developing.html
 reference:
   - title: Multi-file datasets

@@ -44,6 +44,8 @@ If you're looking to contribute to `arrow`, this document can help you set up a 
 
 This document is intended only for developers of Apache Arrow or the Arrow R package. Users of the package in R do not need to do any of this setup. If you're looking for how to install Arrow, see [the instructions in the readme](https://arrow.apache.org/docs/r/#installation); Linux users can find more details on building from source at `vignette("install", package = "arrow")`.
 
+This document is a work in progress and will grow + change as the Apache Arrow project grows and changes. We have tried to make these steps as robust as possible (in fact, we even test exactly these instructions on our nightly CI to ensure they don't become stale!), but certain custom configurations might conflict with these instructions and there are differences of opinion across developers about if and what the one true way to set up development environments like this is.  We also solicit any feedback you have about things that are confusing or additions you would like to see here. Please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues) if there you see anything that is confusing, odd, or just plain wrong.
+
 ## R-only development
 
 Windows and macOS users who wish to contribute to the R package and
@@ -58,11 +60,18 @@ brew install apache-arrow
 brew install apache-arrow --HEAD
 ```
 
-On Windows, you can download a .zip file with the arrow dependencies from the
+On Windows and Linuc, you can download a .zip file with the arrow dependencies from the
 [nightly repository](https://arrow-r-nightly.s3.amazonaws.com/libarrow/bin/windows/),
 and then set the `RWINLIB_LOCAL` environment variable to point to that
 zip file before installing the `arrow` R package. Version numbers in that
 repository correspond to dates, and you will likely want the most recent.
+
+To see what nightlies are available, you can use Arrow's (or any other S3 client's) S3 listing functionality to see what is in the bucket `s3://arrow-r-nightly/libarrow/bin`:
+
+```
+nightly <- s3_bucket("arrow-r-nightly")
+nightly$ls("libarrow/bin")
+```
 
 ## Developer environment setup
 
@@ -107,7 +116,7 @@ mkdir $ARROW_HOME
 ```
 
 
-_Special instructions on Linux:_ You will need to set `LD_LIBRARY_PATH` to the same directory as `LIB_DIR` before launching R and using Arrow. One way to do this is to add it to your profile (we use `~/.bash_profile` here, but you might need to put this in a different file depending on your setup). On macOS we do not need to do this because the macOS shared library paths are hardcoded to their locations during build time.
+_Special instructions on Linux:_ You will need to set `LD_LIBRARY_PATH` to the `lib` directory that will is under where we set `$ARROW_HOME`, before launching R and using Arrow. One way to do this is to add it to your profile (we use `~/.bash_profile` here, but you might need to put this in a different file depending on your setup). On macOS we do not need to do this because the macOS shared library paths are hardcoded to their locations during build time.
 
 ```{bash, save=run & ubuntu & !sys_install}
 export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
@@ -168,9 +177,11 @@ cmake \
   ..
 ```
 
+`..` refers to the C++ source directory: we're in `cpp/build`, and the source is in `cpp`.
+
 ### More Arrow features
 
-To enable optional features including: S3 support, an alternative memory allocator, and additional compression libraries, add some or all of these flags:
+To enable optional features including: S3 support, an alternative memory allocator, and additional compression libraries, add some or all of these flags (the trailing `\` makes them easier to paste into a bash shell on a new line):
 
 ``` shell
   -DARROW_MIMALLOC=ON \
@@ -178,7 +189,6 @@ To enable optional features including: S3 support, an alternative memory allocat
   -DARROW_WITH_BZ2=ON \
   -DARROW_WITH_LZ4=ON \
   -DARROW_WITH_SNAPPY=ON \
-  -DARROW_WITH_ZLIB=ON \
   -DARROW_WITH_ZSTD=ON \
 ```
 
@@ -188,10 +198,11 @@ Other flags that may be useful:
 * `-DBoost_SOURCE=BUNDLED` and `-DThrift_SOURCE=bundled`, for example, or any other dependency `*_SOURCE`, if you have a system version of a C++ dependency that doesn't work correctly with Arrow. This tells the build to compile its own version of the dependency from source.
 * `-DCMAKE_BUILD_TYPE=debug` and `-DCMAKE_BUILD_TYPE=relwithdebinfo` can be useful for debugging, though they are both slower to compile than the default `release`.
 
+_Note_ `cmake` is particularly sensitive to whitespacing, if you see errors, check that you don't have any errant whitespace around
 
 ### Build Arrow
 
-You can `-j#` here too to speed up compilation by running in parallel (where `#` is the number of cores you have available).
+You can add `-j#` between `make` and `install` here too to speed up compilation by running in parallel (where `#` is the number of cores you have available).
 
 ```{bash, save=run & !(sys_install & ubuntu)}
 make install
@@ -237,6 +248,39 @@ need to set
 ``` shell
 export ARROW_R_CXXFLAGS=-fno-omit-frame-pointer
 ```
+
+### Developer Experience
+
+With the setups described here, you should not need to rebuild the Arrow library or even the C++ source in the R package as you iterated and work on the R package. The only time those should need to be rebuilt is if you have changed the C++ in the R package (and even then, `R CMD INSTALL .` should only need to recompile the files that have changed) _or_ if the Arrow library C++ has changed and there is a mismatch between the Arrow Library and the R package. If you find yourself rebuilding either or both each time you install the package or run tests, something is probably wrong with your set up.
+
+<details>
+<summary>For a full build: a `cmake` command with all of the R-relevant optional dependencies turned on</summary>
+<p>
+
+``` shell
+cmake \
+  -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+  -DCMAKE_INSTALL_LIBDIR=lib \
+  -DARROW_COMPUTE=ON \
+  -DARROW_CSV=ON \
+  -DARROW_DATASET=ON \
+  -DARROW_FILESYSTEM=ON \
+  -DARROW_JEMALLOC=ON \
+  -DARROW_JSON=ON \
+  -DARROW_PARQUET=ON \
+  -DARROW_WITH_SNAPPY=ON \
+  -DARROW_WITH_ZLIB=ON \
+  -DARROW_INSTALL_NAME_RPATH=OFF \
+  -DARROW_MIMALLOC=ON \
+  -DARROW_WITH_BROTLI=ON \
+  -DARROW_WITH_BZ2=ON \
+  -DARROW_WITH_LZ4=ON \
+  -DARROW_WITH_SNAPPY=ON \
+  -DARROW_WITH_ZSTD=ON \
+  ..
+```
+</p>
+</details>  
 
 ## Troublshooting
 
