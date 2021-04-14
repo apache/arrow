@@ -674,6 +674,8 @@ tasks:
     params:
       target: "ubuntu-bionic"
       task_namespace: "apt"
+      env:
+        UBUNTU: 18.04
       upload_extensions:
         - .ddeb
         - .deb
@@ -1474,6 +1476,8 @@ tasks:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
+      env:
+        UBUNTU: 18.04
       run: ubuntu-r-sanitizer
 
   test-debian-10-go-1.15:
@@ -1484,12 +1488,12 @@ tasks:
         GO: 1.15
       run: debian-go
 
-  test-ubuntu-18.04-docs:
+  test-ubuntu-20.10-docs:
     ci: azure
     template: docker-tests/azure.linux.yml
     params:
       env:
-        UBUNTU: 18.04
+        UBUNTU: "20.10"
       run: ubuntu-docs
 
   ############################## vcpkg tests ##################################
