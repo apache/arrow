@@ -31,7 +31,7 @@ class PrepareTest < Test::Unit::TestCase
       Dir.chdir(@test_git_repository) do
         @tag_name = "apache-arrow-#{@release_version}"
         @release_branch = "release-#{@release_version}-rc0"
-        @script = "dev/release/00-prepare.sh"
+        @script = "dev/release/01-prepare.sh"
         git("checkout", "-b", @release_branch, @current_commit)
         yield
       end
@@ -111,6 +111,12 @@ class PrepareTest < Test::Unit::TestCase
         ],
       },
       {
+        path: "#{base_dir}/apache-arrow/debian.ubuntu-xenial/changelog",
+        sampled_hunks: [
+          "+apache-arrow (#{@release_version}-1) unstable; urgency=low",
+        ],
+      },
+      {
         path: "#{base_dir}/apache-arrow/debian/changelog",
         sampled_hunks: [
           "+apache-arrow (#{@release_version}-1) unstable; urgency=low",
@@ -131,6 +137,13 @@ class PrepareTest < Test::Unit::TestCase
     prepare("VERSION_PRE_TAG")
     assert_equal([
                    {
+                     path: "c_glib/configure.ac",
+                     hunks: [
+                       ["-m4_define([arrow_glib_version], #{@snapshot_version})",
+                        "+m4_define([arrow_glib_version], #{@release_version})"],
+                     ],
+                   },
+                   {
                      path: "c_glib/meson.build",
                      hunks: [
                        ["-version = '#{@snapshot_version}'",
@@ -149,13 +162,6 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-set(ARROW_VERSION \"#{@snapshot_version}\")",
                         "+set(ARROW_VERSION \"#{@release_version}\")"],
-                     ],
-                   },
-                   {
-                     path: "cpp/vcpkg.json",
-                     hunks: [
-                       ["-  \"version-string\": \"#{@snapshot_version}\",",
-                        "+  \"version-string\": \"#{@release_version}\","],
                      ],
                    },
                    {
@@ -289,13 +295,6 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
-                    path: "rust/datafusion-examples/Cargo.toml",
-                    hunks: [
-                      ["-version = \"#{@snapshot_version}\"",
-                       "+version = \"#{@release_version}\""],
-                    ],
-                   },
-                   {
                      path: "rust/datafusion/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@snapshot_version}\"",
@@ -304,6 +303,8 @@ class PrepareTest < Test::Unit::TestCase
                         "-parquet = { path = \"../parquet\", version = \"#{@snapshot_version}\", features = [\"arrow\"] }",
                         "+arrow = { path = \"../arrow\", version = \"#{@release_version}\", features = [\"prettyprint\"] }",
                         "+parquet = { path = \"../parquet\", version = \"#{@release_version}\", features = [\"arrow\"] }"],
+                       ["-arrow-flight = { path = \"../arrow-flight\", version = \"#{@snapshot_version}\" }",
+                        "+arrow-flight = { path = \"../arrow-flight\", version = \"#{@release_version}\" }"]
                      ],
                    },
                    {
@@ -382,6 +383,13 @@ class PrepareTest < Test::Unit::TestCase
     end
     assert_equal([
                    {
+                     path: "c_glib/configure.ac",
+                     hunks: [
+                       ["-m4_define([arrow_glib_version], #{@release_version})",
+                        "+m4_define([arrow_glib_version], #{@next_snapshot_version})"],
+                     ],
+                   },
+                   {
                      path: "c_glib/meson.build",
                      hunks: [
                        ["-version = '#{@release_version}'",
@@ -400,13 +408,6 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-set(ARROW_VERSION \"#{@release_version}\")",
                         "+set(ARROW_VERSION \"#{@next_snapshot_version}\")"],
-                     ],
-                   },
-                   {
-                     path: "cpp/vcpkg.json",
-                     hunks: [
-                       ["-  \"version-string\": \"#{@release_version}\",",
-                        "+  \"version-string\": \"#{@next_snapshot_version}\","],
                      ],
                    },
                    {
@@ -541,13 +542,6 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
-                    path: "rust/datafusion-examples/Cargo.toml",
-                    hunks: [
-                      ["-version = \"#{@release_version}\"",
-                      "+version = \"#{@next_snapshot_version}\""],
-                  ],
-                   },
-                   {
                      path: "rust/datafusion/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@release_version}\"",
@@ -556,6 +550,8 @@ class PrepareTest < Test::Unit::TestCase
                         "-parquet = { path = \"../parquet\", version = \"#{@release_version}\", features = [\"arrow\"] }",
                         "+arrow = { path = \"../arrow\", version = \"#{@next_snapshot_version}\", features = [\"prettyprint\"] }",
                         "+parquet = { path = \"../parquet\", version = \"#{@next_snapshot_version}\", features = [\"arrow\"] }"],
+                       ["-arrow-flight = { path = \"../arrow-flight\", version = \"#{@release_version}\" }",
+                        "+arrow-flight = { path = \"../arrow-flight\", version = \"#{@next_snapshot_version}\" }"]
                      ],
                    },
                    {
@@ -640,10 +636,17 @@ class PrepareTest < Test::Unit::TestCase
     expected_changes = [
       {
         sampled_diff: [
-          "-dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib#{@so_version}.install",
-          "+dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib#{@next_so_version}.install",
+          "-dev/tasks/linux-packages/apache-arrow/debian.ubuntu-xenial/libarrow-glib#{@so_version}.install",
+          "+dev/tasks/linux-packages/apache-arrow/debian.ubuntu-xenial/libarrow-glib#{@next_so_version}.install",
         ],
         path: "dev/release/rat_exclude_files.txt"
+      },
+      {
+        sampled_diff: [
+          "-Package: libarrow#{@so_version}",
+          "+Package: libarrow#{@next_so_version}",
+        ],
+        path: "dev/tasks/linux-packages/apache-arrow/debian.ubuntu-xenial/control"
       },
       {
         sampled_diff: [
