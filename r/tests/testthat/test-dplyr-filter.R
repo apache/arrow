@@ -301,7 +301,6 @@ test_that("filter environment scope", {
   # 'could not find function "isEqualTo"' because we haven't defined it yet
   expect_dplyr_error(input %>% filter(isEqualTo(int, 4)), tbl)
 
-
   skip("Need to substitute in user defined function too")
   # TODO: fix this: this isEqualTo function is eagerly evaluating; it should
   # instead yield array_expressions. Probably bc the parent env of the function
@@ -415,5 +414,4 @@ test_that("filter() with .data pronoun", {
       collect(),
     tbl
   )
-
 })
