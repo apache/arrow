@@ -195,13 +195,15 @@ if [ ${PREPARE_TAG} -gt 0 ]; then
   fi
 fi
 
-if [ $(git branch -l "${release_candidate_branch}") ]; then
+if [[ $(git branch -l "${release_candidate_branch}") ]]; then
   next_rc_number=$(($rc_number+1))
   echo "Branch ${release_candidate_branch} already exists, so create a new release candidate:"
   echo "1. Checkout the master branch for major releases and maint-<version> for patch releases."
-  echo "   git checkout master"
   echo "2. Execute the script again with bumped RC number."
+  echo "Commands:"
+  echo "   git checkout master"
   echo "   dev/release/01-prepare.sh ${version} ${next_version} ${next_rc_number}"
+  exit 1
 fi
 
 echo "Create local branch ${release_candidate_branch} for release candidate ${rc_number}"
@@ -290,7 +292,7 @@ fi
 
 if [ ${PREPARE_BRANCH} -gt 0 ]; then
   echo "Create release branch ${release_branch}"
-  if [ $(git branch -l "${release_candidate_branch}") ]; then
+  if [[ $(git branch -l "${release_candidate_branch}") ]]; then
     echo "Branch already exists, deleting it."
     git branch -d -r ${release_branch}
   fi
