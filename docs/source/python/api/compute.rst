@@ -53,6 +53,8 @@ throws an ``ArrowInvalid`` exception when overflow is detected.
    multiply_checked
    subtract
    subtract_checked
+   power
+   power_checked
 
 Comparisons
 -----------
@@ -155,6 +157,7 @@ Containment tests
    index_in
    is_in
    match_substring
+   match_substring_regex
 
 Conversions
 -----------

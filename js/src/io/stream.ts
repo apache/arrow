@@ -61,8 +61,7 @@ export class AsyncByteQueue<T extends ArrayBufferViewInput = Uint8Array> extends
 
 /** @ignore */
 export class ByteStream implements IterableIterator<Uint8Array> {
-    // @ts-ignore
-    private source: ByteStreamSource<Uint8Array>;
+    private source!: ByteStreamSource<Uint8Array>;
     constructor(source?: Iterable<ArrayBufferViewInput> | ArrayBufferViewInput) {
         if (source) {
             this.source = new ByteStreamSource(streamAdapters.fromIterable(source));
@@ -78,8 +77,7 @@ export class ByteStream implements IterableIterator<Uint8Array> {
 
 /** @ignore */
 export class AsyncByteStream implements Readable<Uint8Array>, AsyncIterableIterator<Uint8Array> {
-    // @ts-ignore
-    private source: AsyncByteStreamSource<Uint8Array>;
+    private source!: AsyncByteStreamSource<Uint8Array>;
     constructor(source?: PromiseLike<ArrayBufferViewInput> | Response | ReadableStream<ArrayBufferViewInput> | NodeJS.ReadableStream | AsyncIterable<ArrayBufferViewInput> | Iterable<ArrayBufferViewInput>) {
         if (source instanceof AsyncByteStream) {
             this.source = (source as AsyncByteStream).source;
@@ -110,9 +108,9 @@ export class AsyncByteStream implements Readable<Uint8Array>, AsyncIterableItera
 }
 
 /** @ignore */
-type ByteStreamSourceIterator<T> = Generator<T, null, { cmd: 'peek' | 'read', size?: number | null }>;
+type ByteStreamSourceIterator<T> = Generator<T, null, { cmd: 'peek' | 'read'; size?: number | null }>;
 /** @ignore */
-type AsyncByteStreamSourceIterator<T> = AsyncGenerator<T, null, { cmd: 'peek' | 'read', size?: number | null }>;
+type AsyncByteStreamSourceIterator<T> = AsyncGenerator<T, null, { cmd: 'peek' | 'read'; size?: number | null }>;
 
 /** @ignore */
 class ByteStreamSource<T> {

@@ -35,11 +35,15 @@
 #include "arrow/memory_pool.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
 using std::size_t;
 
 namespace arrow {
+
+using internal::IOErrorFromErrno;
+
 namespace io {
 
 namespace {
@@ -497,12 +501,15 @@ class HadoopFileSystem::HadoopFileSystemImpl {
   Status OpenReadable(const std::string& path, int32_t buffer_size,
                       const io::IOContext& io_context,
                       std::shared_ptr<HdfsReadableFile>* file) {
+    errno = 0;
     hdfsFile handle = driver_->OpenFile(fs_, path.c_str(), O_RDONLY, buffer_size, 0, 0);
 
     if (handle == nullptr) {
-      const char* msg = !Exists(path) ? "HDFS file does not exist: "
-                                      : "HDFS path exists, but opening file failed: ";
-      return Status::IOError(msg, path);
+      if (errno) {
+        return IOErrorFromErrno(errno, "Opening HDFS file '", path, "' failed");
+      } else {
+        return Status::IOError("Opening HDFS file '", path, "' failed");
+      }
     }
 
     // std::make_shared does not work with private ctors
@@ -519,12 +526,17 @@ class HadoopFileSystem::HadoopFileSystemImpl {
     int flags = O_WRONLY;
     if (append) flags |= O_APPEND;
 
+    errno = 0;
     hdfsFile handle =
         driver_->OpenFile(fs_, path.c_str(), flags, buffer_size, replication,
                           static_cast<tSize>(default_block_size));
 
     if (handle == nullptr) {
-      return Status::IOError("Unable to open file ", path);
+      if (errno) {
+        return IOErrorFromErrno(errno, "Opening HDFS file '", path, "' failed");
+      } else {
+        return Status::IOError("Opening HDFS file '", path, "' failed");
+      }
     }
 
     // std::make_shared does not work with private ctors

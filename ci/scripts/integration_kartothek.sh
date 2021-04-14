@@ -27,4 +27,5 @@ python -c "import pyarrow.parquet"
 python -c "import kartothek"
 
 pushd /kartothek
-pytest -n0 --ignore tests/cli/test_query.py
+# See ARROW-12314, test_load_dataframes_columns_raises_missing skipped because of changed error message
+pytest -n0 --ignore tests/cli/test_query.py -k "not test_load_dataframes_columns_raises_missing"

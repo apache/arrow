@@ -22,11 +22,13 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -39,6 +41,7 @@ import org.apache.arrow.gandiva.expression.TreeNode;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
+import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.ValueVector;
@@ -94,8 +97,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     return varBufs(strings, utf16Charset);
   }
 
-  @Test
-  public void testMakeProjectorParallel() throws GandivaException, InterruptedException {
+  private void testMakeProjectorParallel(ConfigurationBuilder.ConfigOptions configOptions) throws InterruptedException {
     List<Schema> schemas = Lists.newArrayList();
     Field a = Field.nullable("a", int64);
     Field b = Field.nullable("b", int64);
@@ -128,8 +130,9 @@ public class ProjectorTest extends BaseEvaluatorTest {
               executors.submit(
                   () -> {
                     try {
-                      Projector evaluator =
-                          Projector.make(schemas.get((int) (Math.random() * 100)), exprs);
+                      Projector evaluator = configOptions == null ?
+                          Projector.make(schemas.get((int) (Math.random() * 100)), exprs) :
+                          Projector.make(schemas.get((int) (Math.random() * 100)), exprs, configOptions);
                       evaluator.close();
                     } catch (GandivaException e) {
                       e.printStackTrace();
@@ -138,6 +141,13 @@ public class ProjectorTest extends BaseEvaluatorTest {
             });
     executors.shutdown();
     executors.awaitTermination(100, java.util.concurrent.TimeUnit.SECONDS);
+  }
+
+  @Test
+  public void testMakeProjectorParallel() throws Exception {
+    testMakeProjectorParallel(null);
+    testMakeProjectorParallel(new ConfigurationBuilder.ConfigOptions().withTargetCPU(false));
+    testMakeProjectorParallel(new ConfigurationBuilder.ConfigOptions().withTargetCPU(false).withOptimize(false));
   }
 
   // Will be fixed by https://issues.apache.org/jira/browse/ARROW-4371
@@ -1223,6 +1233,62 @@ public class ProjectorTest extends BaseEvaluatorTest {
   }
 
   @Test
+  public void testInExprDecimal() throws GandivaException, Exception {
+    Integer precision = 26;
+    Integer scale = 5;
+    ArrowType.Decimal decimal = new ArrowType.Decimal(precision, scale, 128);
+    Field c1 = Field.nullable("c1", decimal);
+
+    String[] values = new String[]{"1", "2", "3", "4"};
+    Set<BigDecimal> decimalSet = decimalSet(values, scale);
+    decimalSet.add(new BigDecimal(-0.0));
+    decimalSet.add(new BigDecimal(Long.MAX_VALUE));
+    decimalSet.add(new BigDecimal(Long.MIN_VALUE));
+    TreeNode inExpr =
+            TreeBuilder.makeInExpressionDecimal(TreeBuilder.makeField(c1),
+                    decimalSet, precision, scale);
+    ExpressionTree expr = TreeBuilder.makeExpression(inExpr,
+            Field.nullable("result", boolType));
+    Schema schema = new Schema(Lists.newArrayList(c1));
+    Projector eval = Projector.make(schema, Lists.newArrayList(expr));
+
+    int numRows = 16;
+    byte[] validity = new byte[]{(byte) 255, 0};
+    String[] c1Values =
+            new String[]{"1", "2", "3", "4", "-0.0", "6", "7", "8", "9", "10", "11", "12", "13", "14",
+                    String.valueOf(Long.MAX_VALUE),
+                    String.valueOf(Long.MIN_VALUE)};
+
+    DecimalVector c1Data = decimalVector(c1Values, precision, scale);
+    ArrowBuf c1Validity = buf(validity);
+
+    ArrowFieldNode fieldNode = new ArrowFieldNode(numRows, 0);
+    ArrowRecordBatch batch =
+            new ArrowRecordBatch(
+                    numRows,
+                    Lists.newArrayList(fieldNode, fieldNode),
+                    Lists.newArrayList(c1Validity, c1Data.getDataBuffer(), c1Data.getValidityBuffer()));
+
+    BitVector bitVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
+    bitVector.allocateNew(numRows);
+
+    List<ValueVector> output = new ArrayList<ValueVector>();
+    output.add(bitVector);
+    eval.evaluate(batch, output);
+
+    for (int i = 1; i < 5; i++) {
+      assertTrue(bitVector.getObject(i).booleanValue());
+    }
+    for (int i = 5; i < 16; i++) {
+      assertFalse(bitVector.getObject(i).booleanValue());
+    }
+
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+    eval.close();
+  }
+
+  @Test
   public void testInExprStrings() throws GandivaException, Exception {
     Field c1 = Field.nullable("c1", new ArrowType.Utf8());
 
@@ -1928,4 +1994,56 @@ public class ProjectorTest extends BaseEvaluatorTest {
       releaseValueVectors(output);
     }
   }
+
+  @Test
+  public void testEvaluateWithUnsetTargetHostCPU() throws Exception {
+    Field a = Field.nullable("a", int32);
+    Field b = Field.nullable("b", int32);
+    List<Field> args = Lists.newArrayList(a, b);
+
+    Field retType = Field.nullable("c", int32);
+    ExpressionTree root = TreeBuilder.makeExpression("add", args, retType);
+
+    List<ExpressionTree> exprs = Lists.newArrayList(root);
+
+    Schema schema = new Schema(args);
+    Projector eval = Projector.make(schema, exprs, new ConfigurationBuilder.ConfigOptions().withTargetCPU(false ));
+
+    int numRows = 16;
+    byte[] validity = new byte[]{(byte) 255, 0};
+    // second half is "undefined"
+    int[] aValues = new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    int[] bValues = new int[]{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
+
+    ArrowBuf validitya = buf(validity);
+    ArrowBuf valuesa = intBuf(aValues);
+    ArrowBuf validityb = buf(validity);
+    ArrowBuf valuesb = intBuf(bValues);
+    ArrowRecordBatch batch =
+            new ArrowRecordBatch(
+                    numRows,
+                    Lists.newArrayList(new ArrowFieldNode(numRows, 8), new ArrowFieldNode(numRows, 8)),
+                    Lists.newArrayList(validitya, valuesa, validityb, valuesb));
+
+    IntVector intVector = new IntVector(EMPTY_SCHEMA_PATH, allocator);
+    intVector.allocateNew(numRows);
+
+    List<ValueVector> output = new ArrayList<ValueVector>();
+    output.add(intVector);
+    eval.evaluate(batch, output);
+
+    for (int i = 0; i < 8; i++) {
+      assertFalse(intVector.isNull(i));
+      assertEquals(17, intVector.get(i));
+    }
+    for (int i = 8; i < 16; i++) {
+      assertTrue(intVector.isNull(i));
+    }
+
+    // free buffers
+    releaseRecordBatch(batch);
+    releaseValueVectors(output);
+    eval.close();
+  }
+
 }

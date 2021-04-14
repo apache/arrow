@@ -156,8 +156,8 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' * `float16()` and `halffloat()`
 #' * `float32()` and `float()`
 #' * `bool()` and `boolean()`
-#' * Called from `schema()` or `struct()`, `double()` also is supported as a
-#' way of creating a `float64()`
+#' * When called inside an `arrow` function, such as `schema()` or `cast()`,
+#' `double()` also is supported as a way of creating a `float64()`
 #'
 #' `date32()` creates a datetime type with a "day" unit, like the R `Date`
 #' class. `date64()` has a "ms" unit.
@@ -413,8 +413,8 @@ FixedSizeListType <- R6Class("FixedSizeListType",
 fixed_size_list_of <- function(type, list_size) fixed_size_list__(type, list_size)
 
 as_type <- function(type, name = "type") {
+  # magic so we don't have to mask base::double()
   if (identical(type, double())) {
-    # Magic so that we don't have to mask this base function
     type <- float64()
   }
   if (!inherits(type, "DataType")) {
@@ -422,7 +422,6 @@ as_type <- function(type, name = "type") {
   }
   type
 }
-
 
 # vctrs support -----------------------------------------------------------
 str_dup <- function(x, times) {

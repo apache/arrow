@@ -299,7 +299,7 @@ test_that("table active bindings", {
   tab <- Table$create(tbl)
 
   expect_identical(dim(tbl), dim(tab))
-  expect_is(tab$columns, "list")
+  expect_type(tab$columns, "list")
   expect_equal(tab$columns[[1]], tab[[1]])
 })
 
@@ -400,8 +400,8 @@ test_that("Table$Equals(check_metadata)", {
   tab2 <- Table$create(x = 1:2, y = c("a", "b"),
                        schema = tab1$schema$WithMetadata(list(some="metadata")))
 
-  expect_is(tab1, "Table")
-  expect_is(tab2, "Table")
+  expect_r6_class(tab1, "Table")
+  expect_r6_class(tab2, "Table")
   expect_false(tab1$schema$HasMetadata)
   expect_true(tab2$schema$HasMetadata)
   expect_identical(tab2$schema$metadata, list(some = "metadata"))

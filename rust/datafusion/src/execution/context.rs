@@ -22,6 +22,7 @@ use crate::{
         information_schema::CatalogWithInformationSchema,
     },
     optimizer::hash_build_probe_order::HashBuildProbeOrder,
+    physical_optimizer::optimizer::PhysicalOptimizerRule,
 };
 use log::debug;
 use std::fs;
@@ -56,6 +57,10 @@ use crate::optimizer::filter_push_down::FilterPushDown;
 use crate::optimizer::limit_push_down::LimitPushDown;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
+use crate::physical_optimizer::coalesce_batches::CoalesceBatches;
+use crate::physical_optimizer::merge_exec::AddMergeExec;
+use crate::physical_optimizer::repartition::Repartition;
+
 use crate::physical_plan::csv::CsvReadOptions;
 use crate::physical_plan::planner::DefaultPhysicalPlanner;
 use crate::physical_plan::udf::ScalarUDF;
@@ -626,6 +631,8 @@ pub struct ExecutionConfig {
     pub case_style: CaseStyle,
     /// Responsible for optimizing a logical plan
     optimizers: Vec<Arc<dyn OptimizerRule + Send + Sync>>,
+    /// Responsible for optimizing a physical execution plan
+    pub physical_optimizers: Vec<Arc<dyn PhysicalOptimizerRule + Send + Sync>>,
     /// Responsible for planning `LogicalPlan`s, and `ExecutionPlan`
     query_planner: Arc<dyn QueryPlanner + Send + Sync>,
     /// Default catalog name for table resolution
@@ -637,6 +644,9 @@ pub struct ExecutionConfig {
     /// Should DataFusion provide access to `information_schema`
     /// virtual tables for displaying schema information
     information_schema: bool,
+    /// Should DataFusion repartition data using the join keys to execute joins in parallel
+    /// using the provided `concurrency` level
+    pub repartition_joins: bool,
 }
 
 impl ExecutionConfig {
@@ -654,11 +664,17 @@ impl ExecutionConfig {
                 Arc::new(HashBuildProbeOrder::new()),
                 Arc::new(LimitPushDown::new()),
             ],
+            physical_optimizers: vec![
+                Arc::new(Repartition::new()),
+                Arc::new(CoalesceBatches::new()),
+                Arc::new(AddMergeExec::new()),
+            ],
             query_planner: Arc::new(DefaultQueryPlanner {}),
             default_catalog: "datafusion".to_owned(),
             default_schema: "public".to_owned(),
             create_default_catalog_and_schema: true,
             information_schema: false,
+            repartition_joins: true,
         }
     }
 
@@ -699,12 +715,30 @@ impl ExecutionConfig {
         self
     }
 
+    /// Replace the physical optimizer rules
+    pub fn with_physical_optimizer_rules(
+        mut self,
+        physical_optimizers: Vec<Arc<dyn PhysicalOptimizerRule + Send + Sync>>,
+    ) -> Self {
+        self.physical_optimizers = physical_optimizers;
+        self
+    }
+
     /// Adds a new [`OptimizerRule`]
     pub fn add_optimizer_rule(
         mut self,
         optimizer_rule: Arc<dyn OptimizerRule + Send + Sync>,
     ) -> Self {
         self.optimizers.push(optimizer_rule);
+        self
+    }
+
+    /// Adds a new [`PhysicalOptimizerRule`]
+    pub fn add_physical_optimizer_rule(
+        mut self,
+        optimizer_rule: Arc<dyn PhysicalOptimizerRule + Send + Sync>,
+    ) -> Self {
+        self.physical_optimizers.push(optimizer_rule);
         self
     }
 
@@ -728,6 +762,12 @@ impl ExecutionConfig {
     /// Enables or disables the inclusion of `information_schema` virtual tables
     pub fn with_information_schema(mut self, enabled: bool) -> Self {
         self.information_schema = enabled;
+        self
+    }
+
+    /// Enables or disables the use of repartitioning for joins to improve parallelism
+    pub fn with_repartition_joins(mut self, enabled: bool) -> Self {
+        self.repartition_joins = enabled;
         self
     }
 }
@@ -864,15 +904,6 @@ mod tests {
         let partition_count = 4;
         let results = execute("SELECT c1, c2 FROM test", partition_count).await?;
 
-        // there should be one batch per partition
-        assert_eq!(results.len(), partition_count);
-
-        // each batch should contain 2 columns and 10 rows with correct field names
-        for batch in &results {
-            assert_eq!(batch.num_columns(), 2);
-            assert_eq!(batch.num_rows(), 10);
-        }
-
         let expected = vec![
             "+----+----+",
             "| c1 | c2 |",
@@ -982,21 +1013,14 @@ mod tests {
         println!("{:?}", physical_plan);
 
         let results = collect_partitioned(physical_plan).await?;
-        assert_eq!(results.len(), partition_count);
-
-        // there should be a total of 2 batches with 20 rows because the where clause filters
-        // out results from 2 partitions
 
         // note that the order of partitions is not deterministic
-        let mut num_batches = 0;
         let mut num_rows = 0;
         for partition in &results {
             for batch in partition {
-                num_batches += 1;
                 num_rows += batch.num_rows();
             }
         }
-        assert_eq!(2, num_batches);
         assert_eq!(20, num_rows);
 
         let results: Vec<RecordBatch> = results.into_iter().flatten().collect();
@@ -1068,9 +1092,7 @@ mod tests {
         assert_eq!("c2", physical_plan.schema().field(0).name().as_str());
 
         let batches = collect(physical_plan).await?;
-        assert_eq!(4, batches.len());
-        assert_eq!(1, batches[0].num_columns());
-        assert_eq!(10, batches[0].num_rows());
+        assert_eq!(40, batches.iter().map(|x| x.num_rows()).sum::<usize>());
 
         Ok(())
     }
@@ -1430,6 +1452,138 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn aggregate_timestamps_sum() -> Result<()> {
+        let tmp_dir = TempDir::new()?;
+        let mut ctx = create_ctx(&tmp_dir, 1)?;
+        ctx.register_table("t", test::table_with_timestamps())
+            .unwrap();
+
+        let results = plan_and_collect(
+            &mut ctx,
+            "SELECT sum(nanos), sum(micros), sum(millis), sum(secs) FROM t",
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(results.to_string(), "Error during planning: Coercion from [Timestamp(Nanosecond, None)] to the signature Uniform(1, [Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, UInt64, Float32, Float64]) failed.");
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn aggregate_timestamps_count() -> Result<()> {
+        let tmp_dir = TempDir::new()?;
+        let mut ctx = create_ctx(&tmp_dir, 1)?;
+        ctx.register_table("t", test::table_with_timestamps())
+            .unwrap();
+
+        let results = plan_and_collect(
+            &mut ctx,
+            "SELECT count(nanos), count(micros), count(millis), count(secs) FROM t",
+        )
+        .await
+        .unwrap();
+
+        let expected = vec![
+            "+--------------+---------------+---------------+-------------+",
+            "| COUNT(nanos) | COUNT(micros) | COUNT(millis) | COUNT(secs) |",
+            "+--------------+---------------+---------------+-------------+",
+            "| 3            | 3             | 3             | 3           |",
+            "+--------------+---------------+---------------+-------------+",
+        ];
+        assert_batches_sorted_eq!(expected, &results);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn aggregate_timestamps_min() -> Result<()> {
+        let tmp_dir = TempDir::new()?;
+        let mut ctx = create_ctx(&tmp_dir, 1)?;
+        ctx.register_table("t", test::table_with_timestamps())
+            .unwrap();
+
+        let results = plan_and_collect(
+            &mut ctx,
+            "SELECT min(nanos), min(micros), min(millis), min(secs) FROM t",
+        )
+        .await
+        .unwrap();
+
+        let expected = vec![
+            "+----------------------------+----------------------------+-------------------------+---------------------+",
+            "| MIN(nanos)                 | MIN(micros)                | MIN(millis)             | MIN(secs)           |",
+            "+----------------------------+----------------------------+-------------------------+---------------------+",
+            "| 2011-12-13 11:13:10.123450 | 2011-12-13 11:13:10.123450 | 2011-12-13 11:13:10.123 | 2011-12-13 11:13:10 |",
+            "+----------------------------+----------------------------+-------------------------+---------------------+",
+        ];
+        assert_batches_sorted_eq!(expected, &results);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn aggregate_timestamps_max() -> Result<()> {
+        let tmp_dir = TempDir::new()?;
+        let mut ctx = create_ctx(&tmp_dir, 1)?;
+        ctx.register_table("t", test::table_with_timestamps())
+            .unwrap();
+
+        let results = plan_and_collect(
+            &mut ctx,
+            "SELECT max(nanos), max(micros), max(millis), max(secs) FROM t",
+        )
+        .await
+        .unwrap();
+
+        let expected = vec![
+            "+-------------------------+-------------------------+-------------------------+---------------------+",
+            "| MAX(nanos)              | MAX(micros)             | MAX(millis)             | MAX(secs)           |",
+            "+-------------------------+-------------------------+-------------------------+---------------------+",
+            "| 2021-01-01 05:11:10.432 | 2021-01-01 05:11:10.432 | 2021-01-01 05:11:10.432 | 2021-01-01 05:11:10 |",
+            "+-------------------------+-------------------------+-------------------------+---------------------+",
+];
+        assert_batches_sorted_eq!(expected, &results);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn aggregate_timestamps_avg() -> Result<()> {
+        let tmp_dir = TempDir::new()?;
+        let mut ctx = create_ctx(&tmp_dir, 1)?;
+        ctx.register_table("t", test::table_with_timestamps())
+            .unwrap();
+
+        let results = plan_and_collect(
+            &mut ctx,
+            "SELECT avg(nanos), avg(micros), avg(millis), avg(secs) FROM t",
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(results.to_string(), "Error during planning: Coercion from [Timestamp(Nanosecond, None)] to the signature Uniform(1, [Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, UInt64, Float32, Float64]) failed.");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn join_partitioned() -> Result<()> {
+        // self join on partition id (workaround for duplicate column name)
+        let results = execute(
+            "SELECT 1 FROM test JOIN (SELECT c1 AS id1 FROM test) ON c1=id1",
+            4,
+        )
+        .await?;
+
+        assert_eq!(
+            results.iter().map(|b| b.num_rows()).sum::<usize>(),
+            4 * 10 * 10
+        );
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn count_basic() -> Result<()> {
         let results = execute("SELECT COUNT(c1), COUNT(c2) FROM test", 1).await?;
         assert_eq!(results.len(), 1);
@@ -1764,7 +1918,7 @@ mod tests {
     async fn limit() -> Result<()> {
         let tmp_dir = TempDir::new()?;
         let mut ctx = create_ctx(&tmp_dir, 1)?;
-        ctx.register_table("t", table_with_sequence(1, 1000).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1000).unwrap())
             .unwrap();
 
         let results =
@@ -1801,9 +1955,44 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn limit_multi_partitions() -> Result<()> {
+        let tmp_dir = TempDir::new()?;
+        let mut ctx = create_ctx(&tmp_dir, 1)?;
+
+        let partitions = vec![
+            vec![test::make_partition(0)],
+            vec![test::make_partition(1)],
+            vec![test::make_partition(2)],
+            vec![test::make_partition(3)],
+            vec![test::make_partition(4)],
+            vec![test::make_partition(5)],
+        ];
+        let schema = partitions[0][0].schema();
+        let provider = Arc::new(MemTable::try_new(schema, partitions).unwrap());
+
+        ctx.register_table("t", provider).unwrap();
+
+        // select all rows
+        let results = plan_and_collect(&mut ctx, "SELECT i FROM t").await.unwrap();
+
+        let num_rows: usize = results.into_iter().map(|b| b.num_rows()).sum();
+        assert_eq!(num_rows, 15);
+
+        for limit in 1..10 {
+            let query = format!("SELECT i FROM t limit {}", limit);
+            let results = plan_and_collect(&mut ctx, &query).await.unwrap();
+
+            let num_rows: usize = results.into_iter().map(|b| b.num_rows()).sum();
+            assert_eq!(num_rows, limit, "mismatch with query {}", query);
+        }
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn case_sensitive_identifiers_functions() {
         let mut ctx = ExecutionContext::new();
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         let expected = vec![
@@ -1843,7 +2032,7 @@ mod tests {
     #[tokio::test]
     async fn case_sensitive_identifiers_user_defined_functions() -> Result<()> {
         let mut ctx = ExecutionContext::new();
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         let myfunc = |args: &[ArrayRef]| Ok(Arc::clone(&args[0]));
@@ -1883,7 +2072,7 @@ mod tests {
     #[tokio::test]
     async fn case_sensitive_identifiers_aggregates() {
         let mut ctx = ExecutionContext::new();
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         let expected = vec![
@@ -1923,7 +2112,7 @@ mod tests {
     #[tokio::test]
     async fn case_sensitive_identifiers_user_defined_aggregates() -> Result<()> {
         let mut ctx = ExecutionContext::new();
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         // Note capitalizaton
@@ -1982,27 +2171,15 @@ mod tests {
         // register each partition as well as the top level dir
         let csv_read_option = CsvReadOptions::new().schema(&schema);
         ctx.register_csv("part0", &format!("{}/part-0.csv", out_dir), csv_read_option)?;
-        ctx.register_csv("part1", &format!("{}/part-1.csv", out_dir), csv_read_option)?;
-        ctx.register_csv("part2", &format!("{}/part-2.csv", out_dir), csv_read_option)?;
-        ctx.register_csv("part3", &format!("{}/part-3.csv", out_dir), csv_read_option)?;
         ctx.register_csv("allparts", &out_dir, csv_read_option)?;
 
         let part0 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part0").await?;
-        let part1 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part1").await?;
-        let part2 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part2").await?;
-        let part3 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part3").await?;
         let allparts = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM allparts").await?;
 
-        let part0_count: usize = part0.iter().map(|batch| batch.num_rows()).sum();
-        let part1_count: usize = part1.iter().map(|batch| batch.num_rows()).sum();
-        let part2_count: usize = part2.iter().map(|batch| batch.num_rows()).sum();
-        let part3_count: usize = part3.iter().map(|batch| batch.num_rows()).sum();
         let allparts_count: usize = allparts.iter().map(|batch| batch.num_rows()).sum();
 
-        assert_eq!(part0_count, 10);
-        assert_eq!(part1_count, 10);
-        assert_eq!(part2_count, 10);
-        assert_eq!(part3_count, 10);
+        assert_eq!(part0[0].schema(), allparts[0].schema());
+
         assert_eq!(allparts_count, 40);
 
         Ok(())
@@ -2029,21 +2206,12 @@ mod tests {
         ctx.register_parquet("allparts", &out_dir)?;
 
         let part0 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part0").await?;
-        let part1 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part1").await?;
-        let part2 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part2").await?;
-        let part3 = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM part3").await?;
         let allparts = plan_and_collect(&mut ctx, "SELECT c1, c2 FROM allparts").await?;
 
-        let part0_count: usize = part0.iter().map(|batch| batch.num_rows()).sum();
-        let part1_count: usize = part1.iter().map(|batch| batch.num_rows()).sum();
-        let part2_count: usize = part2.iter().map(|batch| batch.num_rows()).sum();
-        let part3_count: usize = part3.iter().map(|batch| batch.num_rows()).sum();
         let allparts_count: usize = allparts.iter().map(|batch| batch.num_rows()).sum();
 
-        assert_eq!(part0_count, 10);
-        assert_eq!(part1_count, 10);
-        assert_eq!(part2_count, 10);
-        assert_eq!(part3_count, 10);
+        assert_eq!(part0[0].schema(), allparts[0].schema());
+
         assert_eq!(allparts_count, 40);
 
         Ok(())
@@ -2321,19 +2489,6 @@ mod tests {
         Ok(())
     }
 
-    fn table_with_sequence(
-        seq_start: i32,
-        seq_end: i32,
-    ) -> Result<Arc<dyn TableProvider>> {
-        let schema = Arc::new(Schema::new(vec![Field::new("i", DataType::Int32, true)]));
-        let arr = Arc::new(Int32Array::from((seq_start..=seq_end).collect::<Vec<_>>()));
-        let partitions = vec![vec![RecordBatch::try_new(
-            schema.clone(),
-            vec![arr as ArrayRef],
-        )?]];
-        Ok(Arc::new(MemTable::try_new(schema, partitions)?))
-    }
-
     #[tokio::test]
     async fn information_schema_tables_not_exist_by_default() {
         let mut ctx = ExecutionContext::new();
@@ -2376,7 +2531,7 @@ mod tests {
         );
 
         // Now, register an empty table
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         let result =
@@ -2396,7 +2551,7 @@ mod tests {
         assert_batches_sorted_eq!(expected, &result);
 
         // Newly added tables should appear
-        ctx.register_table("t2", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t2", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         let result =
@@ -2425,10 +2580,10 @@ mod tests {
         let catalog = MemoryCatalogProvider::new();
         let schema = MemorySchemaProvider::new();
         schema
-            .register_table("t1".to_owned(), table_with_sequence(1, 1).unwrap())
+            .register_table("t1".to_owned(), test::table_with_sequence(1, 1).unwrap())
             .unwrap();
         schema
-            .register_table("t2".to_owned(), table_with_sequence(1, 1).unwrap())
+            .register_table("t2".to_owned(), test::table_with_sequence(1, 1).unwrap())
             .unwrap();
         catalog.register_schema("my_schema", Arc::new(schema));
         ctx.register_catalog("my_catalog", Arc::new(catalog));
@@ -2436,7 +2591,7 @@ mod tests {
         let catalog = MemoryCatalogProvider::new();
         let schema = MemorySchemaProvider::new();
         schema
-            .register_table("t3".to_owned(), table_with_sequence(1, 1).unwrap())
+            .register_table("t3".to_owned(), test::table_with_sequence(1, 1).unwrap())
             .unwrap();
         catalog.register_schema("my_other_schema", Arc::new(schema));
         ctx.register_catalog("my_other_catalog", Arc::new(catalog));
@@ -2468,7 +2623,7 @@ mod tests {
     async fn information_schema_show_tables_no_information_schema() {
         let mut ctx = ExecutionContext::with_config(ExecutionConfig::new());
 
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         // use show tables alias
@@ -2483,7 +2638,7 @@ mod tests {
             ExecutionConfig::new().with_information_schema(true),
         );
 
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         // use show tables alias
@@ -2509,7 +2664,7 @@ mod tests {
     async fn information_schema_show_columns_no_information_schema() {
         let mut ctx = ExecutionContext::with_config(ExecutionConfig::new());
 
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         let err = plan_and_collect(&mut ctx, "SHOW COLUMNS FROM t")
@@ -2523,7 +2678,7 @@ mod tests {
     async fn information_schema_show_columns_like_where() {
         let mut ctx = ExecutionContext::with_config(ExecutionConfig::new());
 
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         let expected =
@@ -2547,7 +2702,7 @@ mod tests {
             ExecutionConfig::new().with_information_schema(true),
         );
 
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         let result = plan_and_collect(&mut ctx, "SHOW COLUMNS FROM t")
@@ -2585,7 +2740,7 @@ mod tests {
             ExecutionConfig::new().with_information_schema(true),
         );
 
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         let result = plan_and_collect(&mut ctx, "SHOW FULL COLUMNS FROM t")
@@ -2614,7 +2769,7 @@ mod tests {
             ExecutionConfig::new().with_information_schema(true),
         );
 
-        ctx.register_table("t", table_with_sequence(1, 1).unwrap())
+        ctx.register_table("t", test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         let result = plan_and_collect(&mut ctx, "SHOW COLUMNS FROM public.t")
@@ -2717,7 +2872,7 @@ mod tests {
         let schema = MemorySchemaProvider::new();
 
         schema
-            .register_table("t1".to_owned(), table_with_sequence(1, 1).unwrap())
+            .register_table("t1".to_owned(), test::table_with_sequence(1, 1).unwrap())
             .unwrap();
 
         schema
@@ -2755,7 +2910,7 @@ mod tests {
         );
 
         assert!(matches!(
-            ctx.register_table("test", table_with_sequence(1, 1)?),
+            ctx.register_table("test", test::table_with_sequence(1, 1)?),
             Err(DataFusionError::Plan(_))
         ));
 
@@ -2777,7 +2932,7 @@ mod tests {
 
         let catalog = MemoryCatalogProvider::new();
         let schema = MemorySchemaProvider::new();
-        schema.register_table("test".to_owned(), table_with_sequence(1, 1)?)?;
+        schema.register_table("test".to_owned(), test::table_with_sequence(1, 1)?)?;
         catalog.register_schema("my_schema", Arc::new(schema));
         ctx.register_catalog("my_catalog", Arc::new(catalog));
 
@@ -2807,13 +2962,15 @@ mod tests {
 
         let catalog_a = MemoryCatalogProvider::new();
         let schema_a = MemorySchemaProvider::new();
-        schema_a.register_table("table_a".to_owned(), table_with_sequence(1, 1)?)?;
+        schema_a
+            .register_table("table_a".to_owned(), test::table_with_sequence(1, 1)?)?;
         catalog_a.register_schema("schema_a", Arc::new(schema_a));
         ctx.register_catalog("catalog_a", Arc::new(catalog_a));
 
         let catalog_b = MemoryCatalogProvider::new();
         let schema_b = MemorySchemaProvider::new();
-        schema_b.register_table("table_b".to_owned(), table_with_sequence(1, 2)?)?;
+        schema_b
+            .register_table("table_b".to_owned(), test::table_with_sequence(1, 2)?)?;
         catalog_b.register_schema("schema_b", Arc::new(schema_b));
         ctx.register_catalog("catalog_b", Arc::new(catalog_b));
 
@@ -2841,6 +2998,52 @@ mod tests {
         assert_batches_eq!(expected, &result);
 
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn create_external_table_with_timestamps() {
+        let mut ctx = ExecutionContext::new();
+
+        let data = "Jorge,2018-12-13T12:12:10.011\n\
+                    Andrew,2018-11-13T17:11:10.011";
+
+        let tmp_dir = TempDir::new().unwrap();
+        let file_path = tmp_dir.path().join("timestamps.csv");
+
+        // scope to ensure the file is closed and written
+        {
+            File::create(&file_path)
+                .expect("creating temp file")
+                .write_all(data.as_bytes())
+                .expect("writing data");
+        }
+
+        let sql = format!(
+            "CREATE EXTERNAL TABLE csv_with_timestamps (
+                  name VARCHAR,
+                  ts TIMESTAMP
+              )
+              STORED AS CSV
+              LOCATION '{}'
+              ",
+            file_path.to_str().expect("path is utf8")
+        );
+
+        plan_and_collect(&mut ctx, &sql)
+            .await
+            .expect("Executing CREATE EXTERNAL TABLE");
+
+        let sql = "SELECT * from csv_with_timestamps";
+        let result = plan_and_collect(&mut ctx, &sql).await.unwrap();
+        let expected = vec![
+            "+--------+-------------------------+",
+            "| name   | ts                      |",
+            "+--------+-------------------------+",
+            "| Andrew | 2018-11-13 17:11:10.011 |",
+            "| Jorge  | 2018-12-13 12:12:10.011 |",
+            "+--------+-------------------------+",
+        ];
+        assert_batches_sorted_eq!(expected, &result);
     }
 
     struct MyPhysicalPlanner {}
@@ -2875,10 +3078,7 @@ mod tests {
         ctx: &mut ExecutionContext,
         sql: &str,
     ) -> Result<Vec<RecordBatch>> {
-        let logical_plan = ctx.create_logical_plan(sql)?;
-        let logical_plan = ctx.optimize(&logical_plan)?;
-        let physical_plan = ctx.create_physical_plan(&logical_plan)?;
-        collect(physical_plan).await
+        ctx.sql(sql)?.collect().await
     }
 
     /// Execute SQL and return results
@@ -2945,7 +3145,8 @@ mod tests {
 
     /// Generate a partitioned CSV file and register it with an execution context
     fn create_ctx(tmp_dir: &TempDir, partition_count: usize) -> Result<ExecutionContext> {
-        let mut ctx = ExecutionContext::new();
+        let mut ctx =
+            ExecutionContext::with_config(ExecutionConfig::new().with_concurrency(8));
 
         let schema = populate_csv_partitions(tmp_dir, partition_count, ".csv")?;
 

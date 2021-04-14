@@ -100,9 +100,9 @@ pub struct ParquetExec {
 #[derive(Debug, Clone)]
 pub struct ParquetPartition {
     /// The Parquet filename for this partition
-    filenames: Vec<String>,
+    pub filenames: Vec<String>,
     /// Statistics for this partition
-    statistics: Statistics,
+    pub statistics: Statistics,
 }
 
 impl ParquetExec {

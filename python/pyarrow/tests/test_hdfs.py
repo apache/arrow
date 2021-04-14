@@ -251,14 +251,15 @@ class HdfsTestCases:
             result = f.read(10)
             assert result == data
 
-    def test_open_not_exist_error_message(self):
-        # ARROW-226
+    def test_open_not_exist(self):
         path = pjoin(self.tmp_path, 'does-not-exist-123')
 
-        try:
+        with pytest.raises(FileNotFoundError):
             self.hdfs.open(path)
-        except Exception as e:
-            assert 'file does not exist' in e.args[0].lower()
+
+    def test_open_write_error(self):
+        with pytest.raises((FileExistsError, IsADirectoryError)):
+            self.hdfs.open('/', 'wb')
 
     def test_read_whole_file(self):
         path = pjoin(self.tmp_path, 'read-whole-file')

@@ -45,7 +45,7 @@ struct ArithmeticOptions : public FunctionOptions {
 struct ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
   explicit MatchSubstringOptions(std::string pattern) : pattern(std::move(pattern)) {}
 
-  /// The exact substring to look for inside input values.
+  /// The exact substring (or regex, depending on kernel) to look for inside input values.
   std::string pattern;
 };
 
@@ -203,6 +203,20 @@ ARROW_EXPORT
 Result<Datum> Divide(const Datum& left, const Datum& right,
                      ArithmeticOptions options = ArithmeticOptions(),
                      ExecContext* ctx = NULLPTR);
+
+/// \brief Raise the values of base array to the power of the exponent array values.
+/// Array values must be the same length. If either base or exponent is null the result
+/// will be null.
+///
+/// \param[in] left the base
+/// \param[in] right the exponent
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise base value raised to the power of exponent
+ARROW_EXPORT
+Result<Datum> Power(const Datum& left, const Datum& right,
+                    ArithmeticOptions options = ArithmeticOptions(),
+                    ExecContext* ctx = NULLPTR);
 
 /// \brief Compare a numeric array with a scalar.
 ///

@@ -353,7 +353,7 @@ impl ExecutionPlan for TopKExec {
     }
 
     fn required_child_distribution(&self) -> Distribution {
-        Distribution::UnspecifiedDistribution
+        Distribution::SinglePartition
     }
 
     fn children(&self) -> Vec<Arc<dyn ExecutionPlan>> {
@@ -471,12 +471,10 @@ impl Stream for TopKReader {
             return Poll::Ready(None);
         }
         // this aggregates and thus returns a single RecordBatch.
-        self.done = true;
 
         // take this as immutable
         let k = self.k;
         let schema = self.schema();
-
         let top_values = self
             .input
             .as_mut()
@@ -508,7 +506,10 @@ impl Stream for TopKReader {
         });
         let mut top_values = Box::pin(top_values.into_stream());
 
-        top_values.poll_next_unpin(cx)
+        top_values.poll_next_unpin(cx).map(|batch| {
+            self.done = true;
+            batch
+        })
     }
 }
 

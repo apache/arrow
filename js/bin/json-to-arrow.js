@@ -37,7 +37,7 @@ const arrowPaths = [...(argv.arrow || [])];
     }
 
     await Promise.all(jsonPaths.map(async (path, i) => {
-        
+
         const RecordBatchWriter = argv.format !== 'stream'
             ? RecordBatchFileWriter
             : RecordBatchStreamWriter;

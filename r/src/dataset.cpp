@@ -25,6 +25,7 @@
 #include <arrow/table.h>
 #include <arrow/util/checked_cast.h>
 #include <arrow/util/iterator.h>
+#include <parquet/properties.h>
 
 namespace ds = ::arrow::dataset;
 namespace fs = ::arrow::fs;
@@ -161,6 +162,17 @@ std::shared_ptr<ds::DatasetFactory> dataset___UnionDatasetFactory__Make(
 }
 
 // [[dataset::export]]
+std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make0(
+    const std::shared_ptr<fs::FileSystem>& fs, const std::vector<std::string>& paths,
+    const std::shared_ptr<ds::FileFormat>& format) {
+  // TODO(fsaintjacques): Make options configurable
+  auto options = ds::FileSystemFactoryOptions{};
+
+  return arrow::internal::checked_pointer_cast<ds::FileSystemDatasetFactory>(
+      ValueOrStop(ds::FileSystemDatasetFactory::Make(fs, paths, format, options)));
+}
+
+// [[dataset::export]]
 std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make2(
     const std::shared_ptr<fs::FileSystem>& fs,
     const std::shared_ptr<fs::FileSelector>& selector,
@@ -216,11 +228,10 @@ std::shared_ptr<ds::FileWriteOptions> dataset___FileFormat__DefaultWriteOptions(
 
 // [[dataset::export]]
 std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(
-    bool use_buffered_stream, int64_t buffer_size, cpp11::strings dict_columns) {
+    const std::shared_ptr<ds::ParquetFragmentScanOptions>& options,
+    cpp11::strings dict_columns) {
   auto fmt = std::make_shared<ds::ParquetFileFormat>();
-
-  fmt->reader_options.use_buffered_stream = use_buffered_stream;
-  fmt->reader_options.buffer_size = buffer_size;
+  fmt->default_fragment_scan_options = std::move(options);
 
   auto dict_columns_vector = cpp11::as_cpp<std::vector<std::string>>(dict_columns);
   auto& d = fmt->reader_options.dict_columns;
@@ -284,7 +295,7 @@ std::shared_ptr<ds::CsvFileFormat> dataset___CsvFileFormat__Make(
   return format;
 }
 
-// FragmentScanOptions, CsvFragmentScanOptions
+// FragmentScanOptions, CsvFragmentScanOptions, ParquetFragmentScanOptions
 
 // [[dataset::export]]
 std::string dataset___FragmentScanOptions__type_name(
@@ -299,6 +310,21 @@ std::shared_ptr<ds::CsvFragmentScanOptions> dataset___CsvFragmentScanOptions__Ma
   auto options = std::make_shared<ds::CsvFragmentScanOptions>();
   options->convert_options = *convert_options;
   options->read_options = *read_options;
+  return options;
+}
+
+// [[dataset::export]]
+std::shared_ptr<ds::ParquetFragmentScanOptions>
+dataset___ParquetFragmentScanOptions__Make(bool use_buffered_stream, int64_t buffer_size,
+                                           bool pre_buffer) {
+  auto options = std::make_shared<ds::ParquetFragmentScanOptions>();
+  if (use_buffered_stream) {
+    options->reader_properties->enable_buffered_stream();
+  } else {
+    options->reader_properties->disable_buffered_stream();
+  }
+  options->reader_properties->set_buffer_size(buffer_size);
+  options->arrow_reader_properties->set_pre_buffer(pre_buffer);
   return options;
 }
 
@@ -431,7 +457,7 @@ cpp11::list dataset___Scanner__Scan(const std::shared_ptr<ds::Scanner>& scanner)
 // [[dataset::export]]
 std::shared_ptr<arrow::Schema> dataset___Scanner__schema(
     const std::shared_ptr<ds::Scanner>& sc) {
-  return sc->schema();
+  return sc->options()->projected_schema;
 }
 
 // [[dataset::export]]

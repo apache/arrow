@@ -1,4 +1,4 @@
-//Compiler configuration to build the ESNext Closure Compiler target
+// Compiler configuration to build the ESNext Closure Compiler target
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {

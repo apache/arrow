@@ -283,7 +283,7 @@ record 3...
 		},
 		{
 			name: "primitives",
-			want: `version: V4
+			want: `version: V5
 record 1/3...
   col[0] "bools": [true (null) (null) false true]
   col[1] "int8s": [-1 (null) (null) -4 -5]
@@ -333,7 +333,7 @@ record 2...
 		},
 		{
 			name: "structs",
-			want: `version: V4
+			want: `version: V5
 record 1/2...
   col[0] "struct_nullable": {[-1 (null) (null) -4 -5 -11 (null) (null) -14 -15 -21 (null) (null) -24 -25 -31 (null) (null) -34 -35 -41 (null) (null) -44 -45] ["111" (null) (null) "444" "555" "1111" (null) (null) "1444" "1555" "2111" (null) (null) "2444" "2555" "3111" (null) (null) "3444" "3555" "4111" (null) (null) "4444" "4555"]}
 record 2/2...
@@ -355,7 +355,7 @@ record 4...
 		},
 		{
 			name: "lists",
-			want: `version: V4
+			want: `version: V5
 record 1/4...
   col[0] "list_nullable": [[1 (null) (null) 4 5] [11 (null) (null) 14 15] [21 (null) (null) 24 25]]
 record 2/4...
@@ -382,7 +382,7 @@ record 3...
 		},
 		{
 			name: "strings",
-			want: `version: V4
+			want: `version: V5
 record 1/3...
   col[0] "strings": ["1é" (null) (null) "4" "5"]
   col[1] "bytes": ["1é" (null) (null) "4" "5"]
@@ -407,7 +407,7 @@ record 3...
 		},
 		{
 			name: "fixed_size_lists",
-			want: `version: V4
+			want: `version: V5
 record 1/3...
   col[0] "fixed_size_list_nullable": [[1 (null) 3] [11 (null) 13] [21 (null) 23]]
 record 2/3...
@@ -459,7 +459,7 @@ record 3...
 		},
 		{
 			name: "fixed_width_types",
-			want: `version: V4
+			want: `version: V5
 record 1/3...
   col[0] "float16s": [1 (null) (null) 4 5]
   col[1] "time32ms": [-2 (null) (null) 1 2]
@@ -511,7 +511,7 @@ record 3...
 		},
 		{
 			name: "fixed_size_binaries",
-			want: `version: V4
+			want: `version: V5
 record 1/3...
   col[0] "fixed_size_binary_3": ["001" (null) (null) "004" "005"]
 record 2/3...

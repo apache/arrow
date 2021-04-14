@@ -412,12 +412,12 @@ test_js() {
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
     nvm install --lts
+    npm install -g yarn
   fi
 
-  npm install
-  # clean, lint, and build JS source
-  npx run-s clean:all lint build
-  npm run test
+  yarn --frozen-lockfile
+  yarn run-s clean:all lint build
+  yarn test
   popd
 }
 

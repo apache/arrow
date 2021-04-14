@@ -47,15 +47,15 @@
 
 #define ASSERT_FINISHES_AND_RAISES(ENUM, expr) \
   do {                                         \
-    auto&& fut = (expr);                       \
-    ASSERT_FINISHES_IMPL(fut);                 \
-    ASSERT_RAISES(ENUM, fut.status());         \
+    auto&& _fut = (expr);                      \
+    ASSERT_FINISHES_IMPL(_fut);                \
+    ASSERT_RAISES(ENUM, _fut.status());        \
   } while (false)
 
-#define ASSERT_FINISHES_OK_AND_ASSIGN_IMPL(lhs, rexpr, future_name) \
-  auto future_name = (rexpr);                                       \
-  ASSERT_FINISHES_IMPL(future_name);                                \
-  ASSERT_OK_AND_ASSIGN(lhs, future_name.result());
+#define ASSERT_FINISHES_OK_AND_ASSIGN_IMPL(lhs, rexpr, _future_name) \
+  auto _future_name = (rexpr);                                       \
+  ASSERT_FINISHES_IMPL(_future_name);                                \
+  ASSERT_OK_AND_ASSIGN(lhs, _future_name.result());
 
 #define ASSERT_FINISHES_OK_AND_ASSIGN(lhs, rexpr) \
   ASSERT_FINISHES_OK_AND_ASSIGN_IMPL(lhs, rexpr,  \

@@ -49,6 +49,26 @@ std::shared_ptr<arrow::Field> Schema__field(const std::shared_ptr<arrow::Schema>
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::Schema> Schema__AddField(
+    const std::shared_ptr<arrow::Schema>& s, int i,
+    const std::shared_ptr<arrow::Field>& field) {
+  return ValueOrStop(s->AddField(i, field));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Schema> Schema__SetField(
+    const std::shared_ptr<arrow::Schema>& s, int i,
+    const std::shared_ptr<arrow::Field>& field) {
+  return ValueOrStop(s->SetField(i, field));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Schema> Schema__RemoveField(
+    const std::shared_ptr<arrow::Schema>& s, int i) {
+  return ValueOrStop(s->RemoveField(i));
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::Field> Schema__GetFieldByName(
     const std::shared_ptr<arrow::Schema>& s, std::string x) {
   return s->GetFieldByName(x);

@@ -24,14 +24,17 @@ from setuptools import setup
 if sys.version_info < (3, 6):
     sys.exit('Python < 3.6 is not supported')
 
+# For pathlib.Path compatibility
+jinja_req = 'jinja2>=2.11'
+
 extras = {
     'benchmark': ['pandas'],
-    # bot extra includes crossbow's dependencies
-    'bot': ['ruamel.yaml', 'pygithub', 'github3.py', 'jinja2', 'jira',
-            'pygit2', 'setuptools_scm', 'toolz'],
     'docker': ['ruamel.yaml', 'python-dotenv'],
-    'release': ['jinja2', 'jira', 'semver', 'gitpython']
+    'release': [jinja_req, 'jira', 'semver', 'gitpython'],
+    'crossbow': ['github3.py', jinja_req, 'pygit2', 'ruamel.yaml',
+                 'setuptools_scm'],
 }
+extras['bot'] = extras['crossbow'] + ['pygithub', 'jira']
 extras['all'] = list(set(functools.reduce(operator.add, extras.values())))
 
 setup(

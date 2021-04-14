@@ -37,7 +37,8 @@ pushd cpp
           -DARROW_DATASET=OFF \
           -DARROW_BOOST_USE_SHARED=OFF \
           -DARROW_PROTOBUF_USE_SHARED=OFF \
-          -DARROW_GFLAGS_USE_SHARED=OFF"
+          -DARROW_GFLAGS_USE_SHARED=OFF \
+          -DARROW_OPENSSL_USE_SHARED=OFF"
 
     cmake $CMAKE_FLAGS ..
     make -j4

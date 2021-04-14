@@ -25,9 +25,9 @@ import {
 
 import { ReadableDOMStreamOptions } from './interfaces';
 
-interface ReadableStreamReadResult<T> { done: boolean; value: T; }
-type Uint8ArrayGenerator = Generator<Uint8Array, null, { cmd: 'peek' | 'read', size: number }>;
-type AsyncUint8ArrayGenerator = AsyncGenerator<Uint8Array, null, { cmd: 'peek' | 'read', size: number }>;
+interface ReadableStreamReadResult<T> { done: boolean; value: T }
+type Uint8ArrayGenerator = Generator<Uint8Array, null, { cmd: 'peek' | 'read'; size: number }>;
+type AsyncUint8ArrayGenerator = AsyncGenerator<Uint8Array, null, { cmd: 'peek' | 'read'; size: number }>;
 
 /** @ignore */
 export default {
@@ -212,7 +212,7 @@ class AdaptiveByteReader<T extends ArrayBufferViewInput> {
         try {
             this.supportsBYOB = !!(this.reader = this.getBYOBReader());
         } catch (e) {
-            this.supportsBYOB = !!!(this.reader = this.getDefaultReader());
+            this.supportsBYOB = !(this.reader = this.getDefaultReader());
         }
     }
 
@@ -379,7 +379,7 @@ async function* fromNodeStream(stream: NodeJS.ReadableStream): AsyncUint8ArrayGe
 
     function cleanup<T extends Error | null | void>(events: Event[], err?: T) {
         buffer = buffers = <any> null;
-        return new Promise<T>(async (resolve, reject) => {
+        return new Promise<T>((resolve, reject) => {
             for (const [evt, fn] of events) {
                 stream['off'](evt, fn);
             }

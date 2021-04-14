@@ -23,6 +23,11 @@ expect_data_frame <- function(x, y, ...) {
   expect_equal(as.data.frame(x), y, ...)
 }
 
+expect_r6_class <- function(object, class){
+  expect_s3_class(object, class)
+  expect_s3_class(object, "R6")
+}
+
 expect_equivalent <- function(object, expected, ...) {
   # HACK: dplyr includes an all.equal.tbl_df method that is causing failures.
   # They look spurious, like:
@@ -98,12 +103,35 @@ expect_dplyr_equal <- function(expr, # A dplyr pipeline with `input` as its star
 expect_dplyr_error <- function(expr, # A dplyr pipeline with `input` as its start
                                tbl,  # A tbl/df as reference, will make RB/Table with
                                ...) {
+  # ensure we have supplied tbl
+  force(tbl)
+  
   expr <- rlang::enquo(expr)
   msg <- tryCatch(
     rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = tbl))),
-    error = function (e) conditionMessage(e)
+    error = function (e) {
+      msg <- conditionMessage(e)
+
+      # The error here is of the form:
+      #
+      # Problem with `filter()` input `..1`.
+      # x object 'b_var' not found
+      # ℹ Input `..1` is `chr == b_var`.
+      #
+      # but what we really care about is the `x` block
+      # so (temporarily) let's pull those blocks out when we find them
+      pattern <- i18ize_error_messages()
+      
+      if (grepl(pattern, msg)) {
+        msg <- sub(paste0("^.*(", pattern, ").*$"), "\\1", msg)
+      }
+      msg
+    }
   )
-  expect_is(msg, "character", label = "dplyr on data.frame did not error")
+  # make sure msg is a character object (i.e. there has been an error)
+  # If it did not error, we would get a data.frame or whatever
+  # This expectation will tell us "dplyr on data.frame errored is not TRUE"
+  expect_true(identical(typeof(msg), "character"), label = "dplyr on data.frame errored")
 
   expect_error(
     rlang::eval_tidy(

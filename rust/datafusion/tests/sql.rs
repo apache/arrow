@@ -1954,7 +1954,8 @@ async fn query_cte() -> Result<()> {
     assert_eq!(expected, actual);
 
     // with + union
-    let sql = "WITH t AS (SELECT 1 AS a), u AS (SELECT 2 AS a) SELECT * FROM t UNION ALL SELECT * FROM u";
+    let sql =
+        "WITH t AS (SELECT 1 AS a), u AS (SELECT 2 AS a) SELECT * FROM t UNION ALL SELECT * FROM u";
     let actual = execute(&mut ctx, sql).await;
     let expected = vec![vec!["1"], vec!["2"]];
     assert_eq!(expected, actual);
@@ -2623,6 +2624,21 @@ async fn inner_join_qualified_names() -> Result<()> {
         assert_eq!(expected, actual);
     }
     Ok(())
+}
+
+#[tokio::test]
+#[ignore = "https://issues.apache.org/jira/browse/ARROW-12266"]
+async fn inner_join_nulls() {
+    let sql = "SELECT * FROM (SELECT null AS id1) t1
+            INNER JOIN (SELECT null AS id2) t2 ON id1 = id2";
+
+    let expected: &[&[&str]] = &[&[]];
+
+    let mut ctx = create_join_context_qualified().unwrap();
+    let actual = execute(&mut ctx, sql).await;
+
+    // left and right shouldn't match anything
+    assert_eq!(expected, actual);
 }
 
 #[tokio::test]

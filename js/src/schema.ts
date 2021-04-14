@@ -15,34 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from './data';
-import { Vector } from './vector';
 import { DataType } from './type';
-import { selectArgs } from './util/args';
-import { selectFieldArgs } from './util/args';
-import { instance as comparer } from './visitor/typecomparator';
-
-type VectorMap = { [key: string]: Vector };
-type Fields<T extends { [key: string]: DataType }> = (keyof T)[] | Field<T[keyof T]>[];
-type ChildData<T extends { [key: string]: DataType }> = T[keyof T][] | Data<T[keyof T]>[] | Vector<T[keyof T]>[];
 
 export class Schema<T extends { [key: string]: DataType } = any> {
-
-    public static from<T extends { [key: string]: DataType } = any>(children: T): Schema<T>;
-    public static from<T extends VectorMap = any>(children: T): Schema<{ [P in keyof T]: T[P]['type'] }>;
-    public static from<T extends { [key: string]: DataType } = any>(children: ChildData<T>, fields?: Fields<T>): Schema<T>;
-    /** @nocollapse */
-    public static from(...args: any[]) {
-        return Schema.new(args[0], args[1]);
-    }
-
-    public static new<T extends { [key: string]: DataType } = any>(children: T): Schema<T>;
-    public static new<T extends VectorMap = any>(children: T): Schema<{ [P in keyof T]: T[P]['type'] }>;
-    public static new<T extends { [key: string]: DataType } = any>(children: ChildData<T>, fields?: Fields<T>): Schema<T>;
-    /** @nocollapse */
-    public static new(...args: any[]) {
-        return new Schema(selectFieldArgs(args)[0]);
-    }
 
     public readonly fields: Field<T[keyof T]>[];
     public readonly metadata: Map<string, string>;
@@ -63,10 +38,6 @@ export class Schema<T extends { [key: string]: DataType } = any> {
         return `Schema<{ ${this.fields.map((f, i) => `${i}: ${f}`).join(', ')} }>`;
     }
 
-    public compareTo(other?: Schema | null): other is Schema<T> {
-        return comparer.compareSchemas(this, other);
-    }
-
     public select<K extends keyof T = any>(...columnNames: K[]) {
         const names = columnNames.reduce((xs, x) => (xs[x] = true) && xs, Object.create(null));
         return new Schema<{ [P in K]: T[P] }>(this.fields.filter((f) => names[f.name]), this.metadata);
@@ -79,8 +50,11 @@ export class Schema<T extends { [key: string]: DataType } = any> {
     public assign<R extends { [key: string]: DataType } = any>(...fields: (Field<R[keyof R]> | Field<R[keyof R]>[])[]): Schema<T & R>;
     public assign<R extends { [key: string]: DataType } = any>(...args: (Schema<R> | Field<R[keyof R]> | Field<R[keyof R]>[])[]) {
 
-        const other = args[0] instanceof Schema ? args[0] as Schema<R>
-            : new Schema<R>(selectArgs<Field<R[keyof R]>>(Field, args));
+        const other = (args[0] instanceof Schema
+            ? args[0] as Schema<R>
+            : Array.isArray(args[0])
+                ? new Schema<R>(<Field<R[keyof R]>[]> args[0])
+                : new Schema<R>(<Field<R[keyof R]>[]> args));
 
         const curFields = [...this.fields] as Field[];
         const metadata = mergeMaps(mergeMaps(new Map(), this.metadata), other.metadata);
@@ -102,7 +76,7 @@ export class Schema<T extends { [key: string]: DataType } = any> {
 
 export class Field<T extends DataType = any> {
 
-    public static new<T extends DataType = any>(props: { name: string | number, type: T, nullable?: boolean, metadata?: Map<string, string> | null }): Field<T>;
+    public static new<T extends DataType = any>(props: { name: string | number; type: T; nullable?: boolean; metadata?: Map<string, string> | null }): Field<T>;
     public static new<T extends DataType = any>(name: string | number | Field<T>, type: T, nullable?: boolean, metadata?: Map<string, string> | null): Field<T>;
     /** @nocollapse */
     public static new<T extends DataType = any>(...args: any[]) {
@@ -131,10 +105,7 @@ export class Field<T extends DataType = any> {
     public get typeId() { return this.type.typeId; }
     public get [Symbol.toStringTag]() { return 'Field'; }
     public toString() { return `${this.name}: ${this.type}`; }
-    public compareTo(other?: Field | null): other is Field<T> {
-        return comparer.compareField(this, other);
-    }
-    public clone<R extends DataType = T>(props: { name?: string | number, type?: R, nullable?: boolean, metadata?: Map<string, string> | null }): Field<R>;
+    public clone<R extends DataType = T>(props: { name?: string | number; type?: R; nullable?: boolean; metadata?: Map<string, string> | null }): Field<R>;
     public clone<R extends DataType = T>(name?: string | number | Field<T>, type?: R, nullable?: boolean, metadata?: Map<string, string> | null): Field<R>;
     public clone<R extends DataType = T>(...args: any[]) {
         let [name, type, nullable, metadata] = args;

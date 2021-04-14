@@ -70,7 +70,7 @@ function uniformlyDistributeChunksAcrossRecordBatches<T extends { [key: string]:
     const memo = { numBatches: columns.reduce((n, c) => Math.max(n, c.length), 0) };
 
     let numBatches = 0, batchLength = 0;
-    let i: number = -1, numColumns = columns.length;
+    let i = -1, numColumns = columns.length;
     let child: Data<T[keyof T]>, childData: Data<T[keyof T]>[] = [];
 
     while (memo.numBatches-- > 0) {

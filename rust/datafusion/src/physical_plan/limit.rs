@@ -183,8 +183,8 @@ impl ExecutionPlan for LocalLimitExec {
         }
     }
 
-    async fn execute(&self, _: usize) -> Result<SendableRecordBatchStream> {
-        let stream = self.input.execute(0).await?;
+    async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
+        let stream = self.input.execute(partition).await?;
         Ok(Box::pin(LimitStream::new(stream, self.limit)))
     }
 }
@@ -200,23 +200,31 @@ pub fn truncate_batch(batch: &RecordBatch, n: usize) -> RecordBatch {
 
 /// A Limit stream limits the stream to up to `limit` rows.
 struct LimitStream {
+    /// The maximum number of rows to produce
     limit: usize,
-    input: SendableRecordBatchStream,
-    // the current count
+    /// The input to read from. This is set to None once the limit is
+    /// reached to enable early termination
+    input: Option<SendableRecordBatchStream>,
+    /// Copy of the input schema
+    schema: SchemaRef,
+    // the current number of rows which have been produced
     current_len: usize,
 }
 
 impl LimitStream {
     fn new(input: SendableRecordBatchStream, limit: usize) -> Self {
+        let schema = input.schema();
         Self {
             limit,
-            input,
+            input: Some(input),
+            schema,
             current_len: 0,
         }
     }
 
     fn stream_limit(&mut self, batch: RecordBatch) -> Option<RecordBatch> {
         if self.current_len == self.limit {
+            self.input = None; // clear input so it can be dropped early
             None
         } else if self.current_len + batch.num_rows() <= self.limit {
             self.current_len += batch.num_rows();
@@ -224,6 +232,7 @@ impl LimitStream {
         } else {
             let batch_rows = self.limit - self.current_len;
             self.current_len = self.limit;
+            self.input = None; // clear input so it can be dropped early
             Some(truncate_batch(&batch, batch_rows))
         }
     }
@@ -236,22 +245,28 @@ impl Stream for LimitStream {
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Self::Item>> {
-        self.input.poll_next_unpin(cx).map(|x| match x {
-            Some(Ok(batch)) => Ok(self.stream_limit(batch)).transpose(),
-            other => other,
-        })
+        match &mut self.input {
+            Some(input) => input.poll_next_unpin(cx).map(|x| match x {
+                Some(Ok(batch)) => Ok(self.stream_limit(batch)).transpose(),
+                other => other,
+            }),
+            // input has been cleared
+            None => Poll::Ready(None),
+        }
     }
 }
 
 impl RecordBatchStream for LimitStream {
     /// Get the schema
     fn schema(&self) -> SchemaRef {
-        self.input.schema()
+        self.schema.clone()
     }
 }
 
 #[cfg(test)]
 mod tests {
+
+    use common::collect;
 
     use super::*;
     use crate::physical_plan::common;
@@ -287,6 +302,36 @@ mod tests {
         // there should be a total of 100 rows
         let row_count: usize = batches.iter().map(|batch| batch.num_rows()).sum();
         assert_eq!(row_count, 7);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn limit_early_shutdown() -> Result<()> {
+        let batches = vec![
+            test::make_partition(5),
+            test::make_partition(10),
+            test::make_partition(15),
+            test::make_partition(20),
+            test::make_partition(25),
+        ];
+        let input = test::exec::TestStream::new(batches);
+
+        let index = input.index();
+        assert_eq!(index.value(), 0);
+
+        // limit of six needs to consume the entire first record batch
+        // (5 rows) and 1 row from the second (1 row)
+        let limit_stream = LimitStream::new(Box::pin(input), 6);
+        assert_eq!(index.value(), 0);
+
+        let results = collect(Box::pin(limit_stream)).await.unwrap();
+        let num_rows: usize = results.into_iter().map(|b| b.num_rows()).sum();
+        // Only 6 rows should have been produced
+        assert_eq!(num_rows, 6);
+
+        // Only the first two batches should be consumed
+        assert_eq!(index.value(), 2);
 
         Ok(())
     }

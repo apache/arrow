@@ -231,7 +231,9 @@ std::string fs___FileSystem__type_name(
 
 // [[arrow::export]]
 std::shared_ptr<fs::LocalFileSystem> fs___LocalFileSystem__create() {
-  return std::make_shared<fs::LocalFileSystem>();
+  // Affects OpenInputFile/OpenInputStream
+  auto io_context = arrow::io::IOContext(gc_memory_pool());
+  return std::make_shared<fs::LocalFileSystem>(io_context);
 }
 
 // [[arrow::export]]
@@ -315,7 +317,8 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
   s3_opts.background_writes = background_writes;
 
   StopIfNotOk(fs::EnsureS3Initialized());
-  return ValueOrStop(fs::S3FileSystem::Make(s3_opts));
+  auto io_context = arrow::io::IOContext(gc_memory_pool());
+  return ValueOrStop(fs::S3FileSystem::Make(s3_opts, io_context));
 }
 
 // [[s3::export]]

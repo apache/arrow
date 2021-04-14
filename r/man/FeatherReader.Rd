@@ -24,6 +24,8 @@ takes the following argument:
 \itemize{
 \item \verb{$Read(columns)}: Returns a \code{Table} of the selected columns, a vector of
 integer indices
+\item \verb{$column_names}: Active binding, returns the column names in the Feather file
+\item \verb{$schema}: Active binding, returns the schema of the Feather file
 \item \verb{$version}: Active binding, returns \code{1} or \code{2}, according to the Feather
 file version
 }
