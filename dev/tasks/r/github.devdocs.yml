@@ -26,7 +26,7 @@ on:
 
 jobs:
   devdocs:
-    name: "install from the devdoc instructions"
+    name: 'R devdocs {{ "${{ matrix.os }}" }} system install: {{ "${{ matrix.system-install }}" }}'
     runs-on: {{ "${{ matrix.os }}" }}
     strategy:
       fail-fast: false
