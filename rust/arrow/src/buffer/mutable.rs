@@ -391,6 +391,7 @@ impl MutableBuffer {
     // 1. there is no trait `TrustedLen` in stable rust and therefore
     //    we can't specialize `extend` for `TrustedLen` like `Vec` does.
     // 2. `from_trusted_len_iter` is faster.
+    #[inline]
     pub unsafe fn from_trusted_len_iter<T: ArrowNativeType, I: Iterator<Item = T>>(
         iterator: I,
     ) -> Self {
