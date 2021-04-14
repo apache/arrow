@@ -28,7 +28,9 @@ jobs:
       {{ macros.github_login_dockerhub()|indent }}
 
       - name: Set up Ruby
-        uses: actions/setup-ruby@v1
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '2.6'
       - name: Free Up Disk Space
         shell: bash
         run: arrow/ci/scripts/util_cleanup.sh
