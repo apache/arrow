@@ -22,7 +22,6 @@
 #include <deque>
 #include <list>
 #include <mutex>
-#include <queue>
 #include <string>
 #include <thread>
 #include <vector>
@@ -46,44 +45,54 @@ struct Task {
 }  // namespace
 
 struct SerialExecutor::State {
-  std::queue<Task> task_queue;
+  std::deque<Task> task_queue;
   std::mutex mutex;
   std::condition_variable wait_for_tasks;
-  bool finished;
+  bool finished{false};
 };
 
-SerialExecutor::SerialExecutor() : state_(new State()) {}
-SerialExecutor::~SerialExecutor() {}
+SerialExecutor::SerialExecutor() : state_(std::make_shared<State>()) {}
+
+SerialExecutor::~SerialExecutor() = default;
 
 Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
                                  StopToken stop_token, StopCallback&& stop_callback) {
-  // The serial task queue is truly serial (no mutex needed) but SpawnReal may be called
-  // from external threads (e.g. when transferring back from blocking I/O threads) so a
-  // mutex is needed
+  // While the SerialExecutor runs tasks synchronously on its main thread,
+  // SpawnReal may be called from external threads (e.g. when transferring back
+  // from blocking I/O threads), so we need to keep the state alive *and* to
+  // lock its contents.
+  //
+  // Note that holding the lock while notifying the condition variable may
+  // not be sufficient, as some exit paths in the main thread are unlocked.
+  auto state = state_;
   {
-    std::lock_guard<std::mutex> lg(state_->mutex);
-    state_->task_queue.push(
+    std::lock_guard<std::mutex> lk(state->mutex);
+    state->task_queue.push_back(
         Task{std::move(task), std::move(stop_token), std::move(stop_callback)});
   }
-  state_->wait_for_tasks.notify_one();
+  state->wait_for_tasks.notify_one();
   return Status::OK();
 }
 
 void SerialExecutor::MarkFinished() {
-  std::lock_guard<std::mutex> lk(state_->mutex);
-  state_->finished = true;
-  // Keep the lock when notifying to avoid situations where the SerialExecutor
-  // would start being destroyed while the notify_one() call is still ongoing.
-  state_->wait_for_tasks.notify_one();
+  // Same comment as SpawnReal above
+  auto state = state_;
+  {
+    std::lock_guard<std::mutex> lk(state->mutex);
+    state->finished = true;
+  }
+  state->wait_for_tasks.notify_one();
 }
 
 void SerialExecutor::RunLoop() {
+  // This is called from the SerialExecutor's main thread, so the
+  // state is guaranteed to be kept alive.
   std::unique_lock<std::mutex> lk(state_->mutex);
 
   while (!state_->finished) {
     while (!state_->task_queue.empty()) {
       Task task = std::move(state_->task_queue.front());
-      state_->task_queue.pop();
+      state_->task_queue.pop_front();
       lk.unlock();
       if (!task.stop_token.IsStopRequested()) {
         std::move(task.callable)();
