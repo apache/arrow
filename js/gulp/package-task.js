@@ -50,12 +50,12 @@ const createMainPackageJson = (target, format) => (orig) => ({
     browser: `${mainExport}.dom`,
     module: `${mainExport}.dom.mjs`,
     types: `${mainExport}.node.d.ts`,
-    unpkg: `${mainExport}.es5.min.js`,
-    jsdelivr: `${mainExport}.es5.min.js`,
+    unpkg: `${mainExport}.es2015.min.js`,
+    jsdelivr: `${mainExport}.es2015.min.js`,
     sideEffects: false,
     esm: { mode: `all`, sourceMap: true },
 });
-  
+
 const createTypeScriptPackageJson = (target, format) => (orig) => ({
     ...createScopedPackageJSON(target, format)(orig),
     bin: undefined,
@@ -69,7 +69,7 @@ const createTypeScriptPackageJson = (target, format) => (orig) => ({
         ...orig.dependencies
     }
 });
-  
+
 const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
     packageJSONFields.reduce(
         (xs, key) => ({ ...xs, [key]: xs[key] || orig[key] }),
