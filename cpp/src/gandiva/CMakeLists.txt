@@ -93,10 +93,9 @@ set(SRC_FILES
     ${GANDIVA_PRECOMPILED_CC_PATH})
 
 set(GANDIVA_SHARED_PRIVATE_LINK_LIBS arrow_shared LLVM::LLVM_INTERFACE
-                                     ${GANDIVA_OPENSSL_LIBS} utf8proc::utf8proc)
+                                     ${GANDIVA_OPENSSL_LIBS})
 
-set(GANDIVA_STATIC_LINK_LIBS arrow_static LLVM::LLVM_INTERFACE ${GANDIVA_OPENSSL_LIBS}
-                             utf8proc::utf8proc)
+set(GANDIVA_STATIC_LINK_LIBS arrow_static LLVM::LLVM_INTERFACE ${GANDIVA_OPENSSL_LIBS})
 
 if(ARROW_GANDIVA_STATIC_LIBSTDCPP
    AND (CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX))
@@ -238,7 +237,6 @@ add_gandiva_test(internals-test
                  EXTRA_DEPENDENCIES
                  LLVM::LLVM_INTERFACE
                  ${GANDIVA_OPENSSL_LIBS}
-                 utf8proc::utf8proc
                  EXTRA_INCLUDES
                  $<TARGET_PROPERTY:LLVM::LLVM_INTERFACE,INTERFACE_INCLUDE_DIRECTORIES>
                  ${GANDIVA_INTERNALS_TEST_ARGUMENTS}
