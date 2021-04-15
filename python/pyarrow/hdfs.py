@@ -28,13 +28,13 @@ import pyarrow.lib as lib
 
 class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
     """
-    FileSystem interface for HDFS cluster.
+    DEPRECATED: FileSystem interface for HDFS cluster.
 
     See pyarrow.hdfs.connect for full connection details
 
     .. deprecated:: 2.0
-        `pyarrow.hdfs.HadoopFileSystem` is deprecated,
-        please use `pyarrow.fs.HadoopFileSystem instead.
+        ``pyarrow.hdfs.HadoopFileSystem`` is deprecated,
+        please use ``pyarrow.fs.HadoopFileSystem`` instead.
     """
 
     def __init__(self, host="default", port=0, user=None, kerb_ticket=None,
@@ -198,8 +198,8 @@ def connect(host="default", port=0, user=None, kerb_ticket=None,
     be required.
 
     .. deprecated:: 2.0
-        `pyarrow.hdfs.connect` is deprecated,
-        please use `pyarrow.fs.HadoopFileSystem instead.
+        ``pyarrow.hdfs.connect`` is deprecated,
+        please use ``pyarrow.fs.HadoopFileSystem`` instead.
 
     Parameters
     ----------

@@ -498,7 +498,8 @@ def deserialize_from(source, object base, SerializationContext context=None):
 
 def deserialize_components(components, SerializationContext context=None):
     """
-    Reconstruct Python object from output of SerializedPyObject.to_components.
+    DEPRECATED: Reconstruct Python object from output of
+    SerializedPyObject.to_components.
 
     .. deprecated:: 2.0
         The custom serialization functionality is deprecated in pyarrow 2.0,
