@@ -31,7 +31,7 @@ class PrepareTest < Test::Unit::TestCase
       Dir.chdir(@test_git_repository) do
         @tag_name = "apache-arrow-#{@release_version}"
         @release_branch = "release-#{@release_version}-rc0"
-        @script = "dev/release/00-prepare.sh"
+        @script = "dev/release/01-prepare.sh"
         git("checkout", "-b", @release_branch, @current_commit)
         yield
       end
