@@ -296,6 +296,7 @@ Some features are optional when you build Arrow from source. With the exception 
 * `ARROW_WITH_RE2` for the RE2 regular expression library, used in some string compute functions
 * `ARROW_WITH_UTF8PROC` for the UTF8Proc string library, used in many other string compute functions
 
+There are a number of other variables that affect the `configure` script and the bundled build script.
 By default, these are all unset. All boolean variables are case-insensitive.
 
 * `ARROW_USE_PKG_CONFIG`: If set to `false`, the configure script
