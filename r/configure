@@ -148,7 +148,7 @@ else
       if [ "$UNAME" = "Darwin" ] && [ "${OPENSSL_ROOT_DIR}" = "" ]; then
         brew --prefix openssl >/dev/null 2>&1
         if [ $? -eq 0 ]; then
-          export OPENSSL_ROOT_DIR="$(brew --prefix openssl)"
+          OPENSSL_ROOT_DIR="`brew --prefix openssl`"; export OPENSSL_ROOT_DIR
         fi
       fi
 
