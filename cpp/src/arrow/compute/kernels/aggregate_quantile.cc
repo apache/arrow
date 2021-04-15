@@ -87,7 +87,7 @@ struct SortQuantiler {
     const int64_t in_length = datum.length() - datum.null_count();
     if (in_length > 0) {
       in_buffer.resize(in_length);
-      CopyArray<sizeof(CType)>(in_buffer.data(), datum);
+      CopyNonNullValues<sizeof(CType)>(datum, in_buffer.data());
 
       // drop nan
       if (is_floating_type<InType>::value) {

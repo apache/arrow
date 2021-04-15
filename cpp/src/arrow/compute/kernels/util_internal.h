@@ -126,8 +126,8 @@ int64_t CountValues(uint64_t* counts, const Datum& datum, T min) {
 
 // Copy numerical array values to a buffer, ignore nulls.
 template <size_t SizeOfCType>
-ARROW_NOINLINE int64_t CopyArray(void* buffer, const ArrayData& data) {
-  uint8_t* u8_buffer = static_cast<uint8_t*>(buffer);
+ARROW_NOINLINE int64_t CopyNonNullValues(const ArrayData& data, void* out) {
+  uint8_t* u8_buffer = reinterpret_cast<uint8_t*>(out);
   const int64_t n = data.length - data.GetNullCount();
   if (n > 0) {
     int64_t index = 0;
@@ -143,11 +143,11 @@ ARROW_NOINLINE int64_t CopyArray(void* buffer, const ArrayData& data) {
 }
 
 template <size_t SizeOfCType>
-int64_t CopyArray(void* buffer, const Datum& datum) {
-  uint8_t* u8_buffer = static_cast<uint8_t*>(buffer);
+int64_t CopyNonNullValues(const Datum& datum, void* out) {
+  uint8_t* u8_buffer = reinterpret_cast<uint8_t*>(out);
   int64_t n = 0;
   for (const auto& array : datum.chunks()) {
-    n += CopyArray<SizeOfCType>(u8_buffer + n * SizeOfCType, *array->data());
+    n += CopyNonNullValues<SizeOfCType>(*array->data(), u8_buffer + n * SizeOfCType);
   }
   return n;
 }
