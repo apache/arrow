@@ -49,7 +49,6 @@ from pyarrow._dataset import (  # noqa
     PartitioningFactory,
     RowGroupInfo,
     Scanner,
-    ScanTask,
     TaggedRecordBatch,
     UnionDataset,
     UnionDatasetFactory,
