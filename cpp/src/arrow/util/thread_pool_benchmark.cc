@@ -112,7 +112,7 @@ static void RunInSerialExecutor(benchmark::State& state) {  // NOLINT non-const 
   for (auto _ : state) {
     SerialExecutor::RunInSerialExecutor<arrow::detail::Empty>(
         [&](internal::Executor* executor) {
-          return DeferNotOk(executor->Submit(workload));
+          return DeferNotOk(executor->Submit(std::ref(workload)));
         });
   }
 
