@@ -1016,7 +1016,7 @@ services:
     shm_size: *shm-size
     environment:
       LIBARROW_DOWNLOAD: "false"
-      ARROW_HOME: "/arrow"
+      ARROW_SOURCE_HOME: "/arrow"
       ARROW_R_DEV: ${ARROW_R_DEV}
       # To test for CRAN release, delete ^^ these two env vars so we download the Apache release
       ARROW_USE_PKG_CONFIG: "false"

@@ -261,7 +261,7 @@ apache_download <- function(destfile, n_mirrors = 3) {
   downloaded
 }
 
-find_local_source <- function(arrow_home = Sys.getenv("ARROW_HOME", "..")) {
+find_local_source <- function(arrow_home = Sys.getenv("ARROW_SOURCE_HOME", "..")) {
   if (file.exists(paste0(arrow_home, "/cpp/src/arrow/api.h"))) {
     # We're in a git checkout of arrow, so we can build it
     cat("*** Found local C++ source\n")

@@ -1389,6 +1389,10 @@ tasks:
     ci: github
     template: r/github.macos-linux.local.yml
 
+  test-r-devdocs:
+    ci: github
+    template: r/github.devdocs.yml
+
   test-r-rhub-ubuntu-gcc-release:
     ci: azure
     template: r/azure.linux.yml
