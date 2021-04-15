@@ -74,6 +74,8 @@ struct TaskHints {
   int64_t external_id = -1;
 };
 
+struct ProxyExecutor;
+
 class ARROW_EXPORT Executor {
  public:
   using StopCallback = internal::FnOnce<void(const Status&)>;
@@ -187,6 +189,19 @@ class ARROW_EXPORT Executor {
   // Subclassing API
   virtual Status SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken,
                            StopCallback&&) = 0;
+
+  friend struct ProxyExecutor;
+};
+
+struct ProxyExecutor : public internal::Executor {
+  inline Status SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken stop_token,
+                          StopCallback&& stop_callback) override {
+    return target->SpawnReal(std::move(hints), std::move(task), std::move(stop_token),
+                             std::move(stop_callback));
+  }
+  inline int GetCapacity() override { return target->GetCapacity(); }
+
+  internal::Executor* target;
 };
 
 /// \brief An executor implementation that runs all tasks on a single thread using an

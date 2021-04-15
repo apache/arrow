@@ -52,6 +52,7 @@
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/windows_compatibility.h"
 
 namespace arrow {
@@ -642,12 +643,19 @@ Future<> SleepAsync(double seconds) {
   return out;
 }
 
-Future<> SleepABitAsync() {
+Future<> SleepABitAsync(internal::Executor* cpu_executor) {
   auto out = Future<>::Make();
-  std::thread([out]() mutable {
-    SleepABit();
-    out.MarkFinished(Status::OK());
-  }).detach();
+  if (cpu_executor == nullptr) {
+    std::thread([out]() mutable {
+      SleepABit();
+      out.MarkFinished(Status::OK());
+    }).detach();
+  } else {
+    cpu_executor->Spawn([out]() mutable {
+      SleepABit();
+      out.MarkFinished(Status::OK());
+    });
+  }
   return out;
 }
 

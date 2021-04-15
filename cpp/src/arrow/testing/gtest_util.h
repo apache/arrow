@@ -452,7 +452,7 @@ Future<> SleepAsync(double seconds);
 
 // \see SleepABit
 ARROW_TESTING_EXPORT
-Future<> SleepABitAsync();
+Future<> SleepABitAsync(internal::Executor* = nullptr);
 
 template <typename T>
 std::vector<T> IteratorToVector(Iterator<T> iterator) {

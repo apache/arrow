@@ -50,11 +50,13 @@ AsyncGenerator<T> FailsAt(AsyncGenerator<T> src, int failing_index) {
 }
 
 template <typename T>
-AsyncGenerator<T> SlowdownABit(AsyncGenerator<T> source) {
-  return MakeMappedGenerator<T, T>(std::move(source), [](const T& res) -> Future<T> {
-    return SleepABitAsync().Then(
-        [res](const Result<detail::Empty>& empty) { return res; });
-  });
+AsyncGenerator<T> SlowdownABit(AsyncGenerator<T> source,
+                               internal::Executor* cpu_executor = nullptr) {
+  return MakeMappedGenerator<T, T>(
+      std::move(source), [cpu_executor](const T& res) -> Future<T> {
+        return SleepABitAsync(cpu_executor)
+            .Then([res](const Result<detail::Empty>& empty) { return res; });
+      });
 }
 
 template <typename T>
@@ -220,11 +222,12 @@ ReentrantCheckerGuard<T> ExpectNotAccessedReentrantly(AsyncGenerator<T>* generat
 
 class GeneratorTestFixture : public ::testing::TestWithParam<bool> {
  protected:
-  AsyncGenerator<TestInt> MakeSource(const std::vector<TestInt>& items) {
+  AsyncGenerator<TestInt> MakeSource(const std::vector<TestInt>& items,
+                                     internal::Executor* cpu_executor = nullptr) {
     std::vector<TestInt> wrapped(items.begin(), items.end());
     auto gen = AsyncVectorIt(std::move(wrapped));
     if (IsSlow()) {
-      return SlowdownABit(std::move(gen));
+      return SlowdownABit(std::move(gen), cpu_executor);
     }
     return gen;
   }
@@ -618,9 +621,9 @@ TEST(TestAsyncUtil, SynchronousFinish) {
   ASSERT_EQ(std::vector<TestStr>(), actual);
 }
 
-TEST(TestAsyncUtil, GeneratorIterator) {
+TEST(TestAsyncUtil, SimpleGeneratorIterator) {
   auto generator = BackgroundAsyncVectorIt({1, 2, 3});
-  ASSERT_OK_AND_ASSIGN(auto iterator, MakeGeneratorIterator(std::move(generator)));
+  ASSERT_OK_AND_ASSIGN(auto iterator, MakeSimpleGeneratorIterator(std::move(generator)));
   ASSERT_OK_AND_EQ(TestInt(1), iterator.Next());
   ASSERT_OK_AND_EQ(TestInt(2), iterator.Next());
   ASSERT_OK_AND_EQ(TestInt(3), iterator.Next());
@@ -1101,6 +1104,46 @@ TEST(TestAsyncUtil, ReadaheadFailed) {
   ASSERT_FINISHES_OK_AND_ASSIGN(auto definitely_last, readahead());
   ASSERT_TRUE(IsIterationEnd(definitely_last));
 }
+
+class GeneratorIteratorTestFixture : public GeneratorTestFixture {};
+
+TEST_P(GeneratorIteratorTestFixture, Basic) {
+  ASSERT_OK_AND_ASSIGN(
+      auto it, MakeGeneratorIterator(
+                   [this](internal::Executor* executor) -> AsyncGenerator<TestInt> {
+                     return MakeSource({1, 2, 3}, executor);
+                   }));
+
+  ASSERT_OK_AND_ASSIGN(auto actual, it.ToVector());
+  ASSERT_EQ(std::vector<TestInt>({1, 2, 3}), actual);
+}
+
+TEST_P(GeneratorIteratorTestFixture, Error) {
+  ASSERT_OK_AND_ASSIGN(
+      auto it, MakeGeneratorIterator(
+                   [this](internal::Executor* executor) -> AsyncGenerator<TestInt> {
+                     return FailsAt(MakeSource({1, 2, 3}, executor), 1);
+                   }));
+
+  ASSERT_RAISES(Invalid, it.ToVector());
+}
+
+TEST_P(GeneratorIteratorTestFixture, Transferred) {
+  ASSERT_OK_AND_ASSIGN(auto mock_io_executor, internal::ThreadPool::Make(1));
+  ASSERT_OK_AND_ASSIGN(
+      auto it,
+      MakeGeneratorIterator([this, &mock_io_executor](internal::Executor* executor) {
+        auto source = MakeSource({1, 2, 3}, executor);
+        auto to_io = MakeTransferredGenerator(std::move(source), mock_io_executor.get());
+        auto back = MakeTransferredGenerator(std::move(to_io), executor);
+        return back;
+      }));
+  ASSERT_OK_AND_ASSIGN(auto actual, it.ToVector());
+  ASSERT_EQ(std::vector<TestInt>({1, 2, 3}), actual);
+}
+
+INSTANTIATE_TEST_SUITE_P(GeneratorIteratorTests, GeneratorIteratorTestFixture,
+                         ::testing::Values(false, true));
 
 class EnumeratorTestFixture : public GeneratorTestFixture {
  protected:

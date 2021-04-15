@@ -1475,11 +1475,44 @@ static Result<AsyncGenerator<T>> MakeBackgroundGenerator(
   return BackgroundGenerator<T>(std::move(iterator), io_executor, max_q, q_restart);
 }
 
-/// \see MakeGeneratorIterator
-template <typename T>
+template <typename GeneratorFactory,
+          typename Generator = internal::call_traits::return_type<GeneratorFactory>,
+          typename FT = typename Generator::result_type,
+          typename T = typename FT::ValueType>
 class GeneratorIterator {
  public:
-  explicit GeneratorIterator(AsyncGenerator<T> source) : source_(std::move(source)) {}
+  explicit GeneratorIterator(GeneratorFactory factory)
+      : proxy_executor_(new internal::ProxyExecutor()) {
+    source_ = factory(proxy_executor_.get());
+  }
+
+  Result<T> Next() {
+    return internal::SerialExecutor::RunInSerialExecutor<T>(
+        [this](internal::Executor* executor) {
+          proxy_executor_->target = executor;
+          return source_();
+        });
+  }
+
+ private:
+  AsyncGenerator<T> source_;
+  std::unique_ptr<internal::ProxyExecutor> proxy_executor_;
+};
+
+template <typename GeneratorFactory,
+          typename Generator = internal::call_traits::return_type<GeneratorFactory>,
+          typename FT = typename Generator::result_type,
+          typename T = typename FT::ValueType>
+Result<Iterator<T>> MakeGeneratorIterator(GeneratorFactory factory) {
+  return Iterator<T>(GeneratorIterator<GeneratorFactory>(std::move(factory)));
+}
+
+/// \see MakeSimpleGeneratorIterator
+template <typename T>
+class SimpleGeneratorIterator {
+ public:
+  explicit SimpleGeneratorIterator(AsyncGenerator<T> source)
+      : source_(std::move(source)) {}
 
   Result<T> Next() { return source_().result(); }
 
@@ -1489,9 +1522,14 @@ class GeneratorIterator {
 
 /// \brief Converts an AsyncGenerator<T> to an Iterator<T> by blocking until each future
 /// is finished
+///
+/// If this underlying generator transfers to the CPU pool then this blocking call will be
+/// considered "nested parallelism" and is not safe to call from a CPU pool thread.
+///
+/// To avoid this you can use MakeGeneratorIterator
 template <typename T>
-Result<Iterator<T>> MakeGeneratorIterator(AsyncGenerator<T> source) {
-  return Iterator<T>(GeneratorIterator<T>(std::move(source)));
+Result<Iterator<T>> MakeSimpleGeneratorIterator(AsyncGenerator<T> source) {
+  return Iterator<T>(SimpleGeneratorIterator<T>(std::move(source)));
 }
 
 /// \brief Adds readahead to an iterator using a background thread.
@@ -1499,7 +1537,8 @@ Result<Iterator<T>> MakeGeneratorIterator(AsyncGenerator<T> source) {
 /// Under the hood this is converting the iterator to a generator using
 /// MakeBackgroundGenerator, adding readahead to the converted generator with
 /// MakeReadaheadGenerator, and then converting back to an iterator using
-/// MakeGeneratorIterator.
+/// MakeSimpleGeneratorIterator (this is safe because we the generator never
+/// spawns any CPU tasks).
 template <typename T>
 Result<Iterator<T>> MakeReadaheadIterator(Iterator<T> it, int readahead_queue_size) {
   ARROW_ASSIGN_OR_RAISE(auto io_executor, internal::ThreadPool::Make(1));
@@ -1513,7 +1552,7 @@ Result<Iterator<T>> MakeReadaheadIterator(Iterator<T> it, int readahead_queue_si
   AsyncGenerator<T> owned_bg_generator = [io_executor, background_generator]() {
     return background_generator();
   };
-  return MakeGeneratorIterator(std::move(owned_bg_generator));
+  return MakeSimpleGeneratorIterator(std::move(owned_bg_generator));
 }
 
 /// \brief Make a generator that returns a single pre-generated future
