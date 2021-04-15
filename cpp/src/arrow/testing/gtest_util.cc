@@ -651,10 +651,10 @@ Future<> SleepABitAsync(internal::Executor* cpu_executor) {
       out.MarkFinished(Status::OK());
     }).detach();
   } else {
-    cpu_executor->Spawn([out]() mutable {
+    ARROW_EXPECT_OK(cpu_executor->Spawn([out]() mutable {
       SleepABit();
       out.MarkFinished(Status::OK());
-    });
+    }));
   }
   return out;
 }
