@@ -142,6 +142,9 @@ def test_invalid_source(use_legacy_dataset):
     with pytest.raises(TypeError, match="instead of the given type: NoneType"):
         pq.read_table(None, use_legacy_dataset=use_legacy_dataset)
 
+    with pytest.raises(TypeError, match="instead of the given type: NoneType"):
+        pq.ParquetFile(None)
+
 
 @pytest.mark.slow
 def test_file_with_over_int16_max_row_groups():
