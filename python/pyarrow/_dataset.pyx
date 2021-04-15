@@ -458,7 +458,7 @@ cdef class Dataset(_Weakrefable):
         return self._scanner(**kwargs).to_table()
 
     def head(self, int num_rows, **kwargs):
-        """Load the first N rows of the table.
+        """Load the first N rows of the dataset.
 
         See scan method parameters documentation.
 
@@ -1001,7 +1001,7 @@ cdef class Fragment(_Weakrefable):
         return self._scanner(schema=schema, **kwargs).to_table()
 
     def head(self, int num_rows, **kwargs):
-        """Load the first N rows of the table.
+        """Load the first N rows of the fragment.
 
         See scan method parameters documentation.
 
@@ -2906,7 +2906,7 @@ cdef class Scanner(_Weakrefable):
         return pyarrow_wrap_table(GetResultValue(result))
 
     def head(self, int num_rows):
-        """Load the first N rows of the table.
+        """Load the first N rows of the dataset.
 
         Returns
         -------

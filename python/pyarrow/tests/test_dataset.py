@@ -385,6 +385,13 @@ def test_head(dataset):
     result = dataset.head(1024, columns=['i64']).to_pydict()
     assert result == {'i64': list(range(5)) * 2}
 
+    fragment = next(dataset.get_fragments())
+    result = fragment.head(1, columns=['i64']).to_pydict()
+    assert result == {'i64': [0]}
+
+    result = fragment.head(1024, columns=['i64']).to_pydict()
+    assert result == {'i64': list(range(5))}
+
 
 def test_abstract_classes():
     classes = [
