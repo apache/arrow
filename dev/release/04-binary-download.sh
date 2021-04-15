@@ -33,6 +33,7 @@ crossbow_job_prefix="release-${version_with_rc}"
 # archery will submit a job with id: "${crossbow_job_prefix}-0" unless there
 # are jobs submitted with the same prefix (the integer at the end is auto
 # incremented)
-: ${CROSSBOW_JOB_ID:="${crossbow_job_prefix}-0"}
+: ${CROSSBOW_JOB_NUMBER:="0"}
+: ${CROSSBOW_JOB_ID:="${crossbow_job_prefix}-${CROSSBOW_JOB_NUMBER}"}
 
 archery crossbow download-artifacts ${CROSSBOW_JOB_ID}
