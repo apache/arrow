@@ -533,6 +533,37 @@ const char* castVARCHAR_bool_int64(gdv_int64 context, gdv_boolean value,
   return out;
 }
 
+FORCE_INLINE
+const char* castVARCHAR_binary_int64(gdv_int64 context, const char* data,
+                                     gdv_int32 data_len, int64_t out_len,
+                                     int64_t* out_length) {
+  // count the number of utf8 characters in data
+  if (out_len < 0) {
+    gdv_fn_context_set_error_msg(context, "Output buffer length can't be negative");
+    *out_length = 0;
+    return "";
+  }
+  int32_t char_len = utf8_length(context, data, data_len);
+  if (char_len == 0) {
+    // the error was already set on context by the utf8_length function
+    *out_length = 0;
+    return "";
+  }
+  // if the defined target length is greater than the binary char length or it equals
+  // zero, do nothing
+  if (out_len >= char_len || out_len == 0) {
+    *out_length = data_len;
+  } else {
+    int32_t byte_pos = utf8_byte_pos(context, data, data_len, out_len);
+    if (byte_pos < 0) {
+      *out_length = 0;
+      return "";
+    }
+    *out_length = byte_pos;
+  }
+  return data;
+}
+
 // Truncates the string to given length
 FORCE_INLINE
 const char* castVARCHAR_utf8_int64(gdv_int64 context, const char* data,
