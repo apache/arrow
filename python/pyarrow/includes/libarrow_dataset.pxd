@@ -100,6 +100,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[CTaggedRecordBatchIterator] ScanBatches()
         CResult[shared_ptr[CTable]] ToTable()
         CResult[shared_ptr[CTable]] TakeRows(const CArray& indices)
+        CResult[shared_ptr[CTable]] Head(int64_t num_rows)
         CResult[CFragmentIterator] GetFragments()
         const shared_ptr[CScanOptions]& options()
 

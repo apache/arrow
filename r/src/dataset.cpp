@@ -438,16 +438,7 @@ cpp11::list dataset___Scanner__ScanBatches(const std::shared_ptr<ds::Scanner>& s
 std::shared_ptr<arrow::Table> dataset___Scanner__head(
     const std::shared_ptr<ds::Scanner>& scanner, int n) {
   // TODO: make this a full Slice with offset > 0
-  auto it = ValueOrStop(scanner->ScanBatches());
-  std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
-  while (true) {
-    auto current_batch = ValueOrStop(it.Next());
-    if (arrow::IsIterationEnd(current_batch)) break;
-    batches.push_back(current_batch.record_batch->Slice(0, n));
-    n -= current_batch.record_batch->num_rows();
-    if (n < 0) break;
-  }
-  return ValueOrStop(arrow::Table::FromRecordBatches(std::move(batches)));
+  return ValueOrStop(scanner->Head(n));
 }
 
 // TODO (ARROW-11782) Remove calls to Scan()

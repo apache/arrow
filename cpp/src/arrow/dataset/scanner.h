@@ -289,6 +289,8 @@ class ARROW_DS_EXPORT Scanner {
   ///
   /// Will only consume as many batches as needed from ScanBatches().
   virtual Result<std::shared_ptr<Table>> TakeRows(const Array& indices);
+  /// \brief Get the first N rows.
+  virtual Result<std::shared_ptr<Table>> Head(int64_t num_rows);
 
   /// \brief Get the options for this scan.
   const std::shared_ptr<ScanOptions>& options() const { return scan_options_; }
