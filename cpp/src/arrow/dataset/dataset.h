@@ -206,7 +206,6 @@ class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
 
   /// Convenience constructor taking a Table
   explicit InMemoryDataset(std::shared_ptr<Table> table);
-  explicit InMemoryDataset(std::shared_ptr<RecordBatchReader> reader);
 
   std::string type_name() const override { return "in-memory"; }
 
@@ -217,6 +216,22 @@ class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
   Result<FragmentIterator> GetFragmentsImpl(compute::Expression predicate) override;
 
   std::shared_ptr<RecordBatchGenerator> get_batches_;
+};
+
+/// \brief A Source which yields fragments wrapping a one-shot stream
+/// of record batches.
+///
+/// Unlike other datasets, this can be scanned only once. This is
+/// intended to support writing data from streaming sources or other
+/// sources that can be iterated only once.
+class ARROW_DS_EXPORT OneShotDataset : public InMemoryDataset {
+ public:
+  /// Construct a dataset from a reader
+  explicit OneShotDataset(std::shared_ptr<RecordBatchReader> reader);
+  std::string type_name() const override { return "one-shot"; }
+
+ protected:
+  Result<FragmentIterator> GetFragmentsImpl(compute::Expression predicate) override;
 };
 
 /// \brief A Dataset wrapping child Datasets.

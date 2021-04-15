@@ -298,6 +298,8 @@ cdef class Dataset(_Weakrefable):
         classes = {
             'union': UnionDataset,
             'filesystem': FileSystemDataset,
+            'in-memory': InMemoryDataset,
+            'one-shot': InMemoryDataset,
         }
 
         class_ = classes.get(type_name, None)
@@ -513,13 +515,15 @@ cdef class InMemoryDataset(Dataset):
                 pyarrow_unwrap_table(table))
         elif isinstance(source, pa.ipc.RecordBatchReader):
             reader = source
-            in_memory_dataset = make_shared[CInMemoryDataset](reader.reader)
+            in_memory_dataset = <shared_ptr[CInMemoryDataset]> \
+                make_shared[COneShotDataset](reader.reader)
         elif _is_iterable(source):
             if schema is None:
                 raise ValueError('Must provide schema to construct in-memory '
                                  'dataset from an iterable')
             reader = pa.ipc.RecordBatchReader.from_batches(schema, source)
-            in_memory_dataset = make_shared[CInMemoryDataset](reader.reader)
+            in_memory_dataset = <shared_ptr[CInMemoryDataset]> \
+                make_shared[COneShotDataset](reader.reader)
         else:
             raise TypeError(
                 'Expected a table, batch, iterable of tables/batches, or a '

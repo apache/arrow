@@ -1738,26 +1738,29 @@ def test_construct_in_memory():
         assert pa.Table.from_batches(list(dataset.to_batches())) == table
 
     # When constructed from readers/iterators, should be one-shot
-    match = "InMemoryDataset was already consumed"
+    match = "OneShotDataset was already consumed"
     for factory in (
             lambda: pa.ipc.RecordBatchReader.from_batches(
                 batch.schema, [batch]),
             lambda: (batch for _ in range(1)),
     ):
+        # Scanning the fragment consumes the underlying iterator
         dataset = ds.dataset(factory(), schema=batch.schema)
-        # Getting fragments consumes the underlying iterator
         fragments = list(dataset.get_fragments())
         assert len(fragments) == 1
         assert fragments[0].to_table() == table
+        # But you can still get fragments
+        fragments = list(dataset.get_fragments())
         with pytest.raises(pa.ArrowInvalid, match=match):
-            list(dataset.get_fragments())
+            fragments[0].to_table()
         with pytest.raises(pa.ArrowInvalid, match=match):
             dataset.to_table()
-        # Materializing consumes the underlying iterator
+        # So does scanning the dataset
         dataset = ds.dataset(factory(), schema=batch.schema)
         assert dataset.to_table() == table
+        fragments = list(dataset.get_fragments())
         with pytest.raises(pa.ArrowInvalid, match=match):
-            list(dataset.get_fragments())
+            fragments[0].to_table()
         with pytest.raises(pa.ArrowInvalid, match=match):
             dataset.to_table()
 
