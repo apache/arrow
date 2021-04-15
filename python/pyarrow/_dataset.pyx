@@ -22,6 +22,7 @@
 from cpython.object cimport Py_LT, Py_EQ, Py_GT, Py_LE, Py_NE, Py_GE
 from cython.operator cimport dereference as deref
 
+import collections
 import os
 import warnings
 
@@ -368,6 +369,9 @@ cdef class Dataset(_Weakrefable):
         to be dispatched. The tasks are not executed automatically, the user is
         responsible to execute and dispatch the individual tasks, so custom
         local task scheduling can be implemented.
+
+        .. deprecated:: 4.0.0
+           Use `to_batches` instead.
 
         Parameters
         ----------
@@ -913,6 +917,9 @@ cdef class Fragment(_Weakrefable):
         to be dispatched. The tasks are not executed automatically, the user is
         responsible to execute and dispatch the individual tasks, so custom
         local task scheduling can be implemented.
+
+        .. deprecated:: 4.0.0
+           Use `to_batches` instead.
 
         Parameters
         ----------
@@ -2569,7 +2576,8 @@ cdef class ScanTask(_Weakrefable):
 cdef class RecordBatchIterator(_Weakrefable):
     """An iterator over a sequence of record batches."""
     cdef:
-        ScanTask task
+        # An object that must be kept alive with the iterator.
+        object iterator_owner
         # Iterator is a non-POD type and Cython uses offsetof, leading
         # to a compiler warning unless wrapped like so
         shared_ptr[CRecordBatchIterator] iterator
@@ -2578,10 +2586,10 @@ cdef class RecordBatchIterator(_Weakrefable):
         _forbid_instantiation(self.__class__, subclasses_instead=False)
 
     @staticmethod
-    cdef wrap(ScanTask task, CRecordBatchIterator iterator):
+    cdef wrap(object owner, CRecordBatchIterator iterator):
         cdef RecordBatchIterator self = \
             RecordBatchIterator.__new__(RecordBatchIterator)
-        self.task = task
+        self.iterator_owner = owner
         self.iterator = make_shared[CRecordBatchIterator](move(iterator))
         return self
 
@@ -2595,6 +2603,43 @@ cdef class RecordBatchIterator(_Weakrefable):
         if record_batch == NULL:
             raise StopIteration
         return pyarrow_wrap_batch(record_batch)
+
+
+class TaggedRecordBatch(collections.namedtuple(
+        "TaggedRecordBatch", ["record_batch", "fragment"])):
+    """A combination of a record batch and the fragment it came from."""
+
+
+cdef class TaggedRecordBatchIterator(_Weakrefable):
+    """An iterator over a sequence of record batches with fragments."""
+    cdef:
+        object iterator_owner
+        shared_ptr[CTaggedRecordBatchIterator] iterator
+
+    def __init__(self):
+        _forbid_instantiation(self.__class__, subclasses_instead=False)
+
+    @staticmethod
+    cdef wrap(object owner, CTaggedRecordBatchIterator iterator):
+        cdef TaggedRecordBatchIterator self = \
+            TaggedRecordBatchIterator.__new__(TaggedRecordBatchIterator)
+        self.iterator_owner = owner
+        self.iterator = make_shared[CTaggedRecordBatchIterator](
+            move(iterator))
+        return self
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        cdef CTaggedRecordBatch batch
+        with nogil:
+            batch = GetResultValue(move(self.iterator.get().Next()))
+        if batch.record_batch == NULL:
+            raise StopIteration
+        return TaggedRecordBatch(
+            record_batch=pyarrow_wrap_batch(batch.record_batch),
+            fragment=Fragment.wrap(batch.fragment))
 
 
 _DEFAULT_BATCH_SIZE = 2**20
@@ -2753,10 +2798,22 @@ cdef class Scanner(_Weakrefable):
         The caller is responsible to dispatch/schedule said tasks. Tasks should
         be safe to run in a concurrent fashion and outlive the iterator.
 
+        .. deprecated:: 4.0.0
+           Use `to_batches` instead.
+
         Returns
         -------
         scan_tasks : iterator of ScanTask
         """
+        import warnings
+        warnings.warn("Scanner.scan is deprecated as of 4.0.0, "
+                      "please use Scanner.to_batches instead.",
+                      DeprecationWarning)
+        # Planned for removal in ARROW-11782
+        # Make this method eager so the warning appears immediately
+        return self._scan()
+
+    def _scan(self):
         for maybe_task in GetResultValue(self.scanner.Scan()):
             yield ScanTask.wrap(GetResultValue(move(maybe_task)))
 
@@ -2770,9 +2827,27 @@ cdef class Scanner(_Weakrefable):
         -------
         record_batches : iterator of RecordBatch
         """
-        for task in self.scan():
-            for batch in task.execute():
-                yield batch
+        def _iterator(batch_iter):
+            for batch in batch_iter:
+                yield batch.record_batch
+        # Don't make ourselves a generator so errors are raised immediately
+        return _iterator(self.scan_batches())
+
+    def scan_batches(self):
+        """Consume a Scanner in record batches with corresponding fragments.
+
+        Sequentially executes the ScanTasks as the returned generator gets
+        consumed.
+
+        Returns
+        -------
+        record_batches : iterator of TaggedRecordBatch
+        """
+        cdef CTaggedRecordBatchIterator iterator
+        with nogil:
+            iterator = move(GetResultValue(self.scanner.ScanBatches()))
+        # Don't make ourselves a generator so errors are raised immediately
+        return TaggedRecordBatchIterator.wrap(self, move(iterator))
 
     def to_table(self):
         """Convert a Scanner into a Table.
@@ -2789,6 +2864,23 @@ cdef class Scanner(_Weakrefable):
         with nogil:
             result = self.scanner.ToTable()
 
+        return pyarrow_wrap_table(GetResultValue(result))
+
+    def take(self, object indices):
+        """Select rows of data by index.
+
+        Will only consume as many batches of the underlying dataset as
+        needed. Otherwise, this is equivalent to
+        ``to_table().take(indices)``.
+
+        Returns
+        -------
+        table : Table
+        """
+        cdef CResult[shared_ptr[CTable]] result
+        cdef shared_ptr[CArray] c_indices = pyarrow_unwrap_array(indices)
+        with nogil:
+            result = self.scanner.TakeRows(deref(c_indices))
         return pyarrow_wrap_table(GetResultValue(result))
 
 

@@ -19,6 +19,8 @@
 
 #if defined(ARROW_R_WITH_DATASET)
 
+#include <arrow/array.h>
+#include <arrow/compute/api.h>
 #include <arrow/dataset/api.h>
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/ipc/writer.h>
@@ -422,23 +424,40 @@ std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(
 }
 
 // [[dataset::export]]
+cpp11::list dataset___Scanner__ScanBatches(const std::shared_ptr<ds::Scanner>& scanner) {
+  auto it = ValueOrStop(scanner->ScanBatches());
+  arrow::RecordBatchVector batches;
+  StopIfNotOk(it.Visit([&](ds::TaggedRecordBatch tagged_batch) {
+    batches.push_back(std::move(tagged_batch.record_batch));
+    return arrow::Status::OK();
+  }));
+  return arrow::r::to_r_list(batches);
+}
+
+// [[dataset::export]]
 std::shared_ptr<arrow::Table> dataset___Scanner__head(
     const std::shared_ptr<ds::Scanner>& scanner, int n) {
   // TODO: make this a full Slice with offset > 0
+  auto it = ValueOrStop(scanner->ScanBatches());
   std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
-  std::shared_ptr<arrow::RecordBatch> current_batch;
-
-  for (auto st : ValueOrStop(scanner->Scan())) {
-    for (auto b : ValueOrStop(ValueOrStop(st)->Execute())) {
-      current_batch = ValueOrStop(b);
-      batches.push_back(current_batch->Slice(0, n));
-      n -= current_batch->num_rows();
-      if (n < 0) break;
-    }
+  while (true) {
+    auto current_batch = ValueOrStop(it.Next());
+    if (arrow::IsIterationEnd(current_batch)) break;
+    batches.push_back(current_batch.record_batch->Slice(0, n));
+    n -= current_batch.record_batch->num_rows();
     if (n < 0) break;
   }
   return ValueOrStop(arrow::Table::FromRecordBatches(std::move(batches)));
 }
+
+// TODO (ARROW-11782) Remove calls to Scan()
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4996)
+#endif
 
 // [[dataset::export]]
 cpp11::list dataset___Scanner__Scan(const std::shared_ptr<ds::Scanner>& scanner) {
@@ -453,6 +472,12 @@ cpp11::list dataset___Scanner__Scan(const std::shared_ptr<ds::Scanner>& scanner)
 
   return arrow::r::to_r_list(out);
 }
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
 // [[dataset::export]]
 std::shared_ptr<arrow::Schema> dataset___Scanner__schema(
@@ -487,6 +512,13 @@ void dataset___Dataset__Write(
   opts.partitioning = partitioning;
   opts.basename_template = basename_template;
   StopIfNotOk(ds::FileSystemDataset::Write(opts, scanner));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> dataset___Scanner__TakeRows(
+    const std::shared_ptr<ds::Scanner>& scanner,
+    const std::shared_ptr<arrow::Array>& indices) {
+  return ValueOrStop(scanner->TakeRows(*indices));
 }
 
 #endif

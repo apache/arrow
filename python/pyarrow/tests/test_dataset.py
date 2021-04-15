@@ -307,14 +307,17 @@ def test_dataset(dataset):
     # TODO(kszucs): test non-boolean Exprs for filter do raise
     expected_i64 = pa.array([0, 1, 2, 3, 4], type=pa.int64())
     expected_f64 = pa.array([0, 1, 2, 3, 4], type=pa.float64())
-    for task in dataset.scan():
-        assert isinstance(task, ds.ScanTask)
-        for batch in task.execute():
-            assert batch.column(0).equals(expected_i64)
-            assert batch.column(1).equals(expected_f64)
+    with pytest.deprecated_call():
+        dataset.scan()
 
-    batches = dataset.to_batches()
-    assert all(isinstance(batch, pa.RecordBatch) for batch in batches)
+    for batch in dataset.to_batches():
+        assert isinstance(batch, pa.RecordBatch)
+        assert batch.column(0).equals(expected_i64)
+        assert batch.column(1).equals(expected_f64)
+
+    for batch in ds.Scanner.from_dataset(dataset).scan_batches():
+        assert isinstance(batch, ds.TaggedRecordBatch)
+        assert isinstance(batch.fragment, ds.Fragment)
 
     table = dataset.to_table()
     assert isinstance(table, pa.Table)
@@ -334,7 +337,8 @@ def test_dataset_execute_iterator(dataset):
     # ARROW-11596: this would segfault due to Cython raising
     # StopIteration without holding the GIL. (Fixed on Cython master,
     # post 3.0a6)
-    tasks = dataset.scan()
+    with pytest.deprecated_call():
+        tasks = dataset.scan()
     task = next(tasks)
     iterator = task.execute()
     thread = threading.Thread(target=lambda: next(iterator))
@@ -348,7 +352,6 @@ def test_scanner(dataset):
     scanner = ds.Scanner.from_dataset(dataset,
                                       memory_pool=pa.default_memory_pool())
     assert isinstance(scanner, ds.Scanner)
-    assert len(list(scanner.scan())) == 2
 
     with pytest.raises(pa.ArrowInvalid):
         ds.Scanner.from_dataset(dataset, columns=['unknown'])
@@ -357,10 +360,15 @@ def test_scanner(dataset):
                                       memory_pool=pa.default_memory_pool())
 
     assert isinstance(scanner, ds.Scanner)
-    assert len(list(scanner.scan())) == 2
-    for task in scanner.scan():
-        for batch in task.execute():
-            assert batch.num_columns == 1
+    for batch in scanner.to_batches():
+        assert batch.num_columns == 1
+
+    table = scanner.to_table()
+    for i in range(table.num_rows):
+        indices = pa.array([i])
+        assert table.take(indices) == scanner.take(indices)
+    with pytest.raises(pa.ArrowIndexError):
+        scanner.take(pa.array([table.num_rows]))
 
 
 def test_abstract_classes():
@@ -640,7 +648,6 @@ def test_filesystem_factory(mockfs, paths_or_selector, pre_buffer):
 
     dataset = factory.finish()
     assert isinstance(dataset, ds.FileSystemDataset)
-    assert len(list(dataset.scan())) == 2
 
     scanner = ds.Scanner.from_dataset(dataset)
     expected_i64 = pa.array([0, 1, 2, 3, 4], type=pa.int64())
@@ -649,18 +656,20 @@ def test_filesystem_factory(mockfs, paths_or_selector, pre_buffer):
         pa.array([0, 1, 2, 3, 4], type=pa.int32()),
         pa.array("0 1 2 3 4".split(), type=pa.string())
     )
-    for task, group, key in zip(scanner.scan(), [1, 2], ['xxx', 'yyy']):
+    iterator = scanner.scan_batches()
+    for (batch, fragment), group, key in zip(iterator, [1, 2], ['xxx', 'yyy']):
         expected_group = pa.array([group] * 5, type=pa.int32())
         expected_key = pa.array([key] * 5, type=pa.string())
         expected_const = pa.array([group - 1] * 5, type=pa.int64())
-        for batch in task.execute():
-            assert batch.num_columns == 6
-            assert batch[0].equals(expected_i64)
-            assert batch[1].equals(expected_f64)
-            assert batch[2].equals(expected_str)
-            assert batch[3].equals(expected_const)
-            assert batch[4].equals(expected_group)
-            assert batch[5].equals(expected_key)
+        # Can't compare or really introspect expressions from Python
+        assert fragment.partition_expression is not None
+        assert batch.num_columns == 6
+        assert batch[0].equals(expected_i64)
+        assert batch[1].equals(expected_f64)
+        assert batch[2].equals(expected_str)
+        assert batch[3].equals(expected_const)
+        assert batch[4].equals(expected_group)
+        assert batch[5].equals(expected_key)
 
     table = dataset.to_table()
     assert isinstance(table, pa.Table)
@@ -1719,6 +1728,7 @@ def test_construct_in_memory():
         assert dataset.to_table() == table
         assert dataset.to_table() == table
         assert next(dataset.get_fragments()).to_table() == table
+        assert pa.Table.from_batches(list(dataset.to_batches())) == table
 
     # When constructed from readers/iterators, should be one-shot
     match = "InMemoryDataset was already consumed"

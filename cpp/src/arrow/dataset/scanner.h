@@ -255,8 +255,14 @@ class ARROW_DS_EXPORT Scanner {
   /// in a concurrent fashion and outlive the iterator.
   ///
   /// Note: Not supported by the async scanner
-  /// TODO(ARROW-11797) Deprecate Scan()
+  /// Planned for removal from the public API in ARROW-11782.
+  ARROW_DEPRECATED("Deprecated in 4.0.0 for removal in 5.0.0. Use ScanBatches().")
   virtual Result<ScanTaskIterator> Scan();
+
+  /// \brief Apply a visitor to each RecordBatch as it is scanned. If multiple threads
+  /// are used (via use_threads), the visitor will be invoked from those threads and is
+  /// responsible for any synchronization.
+  virtual Status Scan(std::function<Status(TaggedRecordBatch)> visitor) = 0;
   /// \brief Convert a Scanner into a Table.
   ///
   /// Use this convenience utility with care. This will serially materialize the
@@ -279,6 +285,10 @@ class ARROW_DS_EXPORT Scanner {
   /// To make up for the out-of-order iteration each batch is further tagged with
   /// positional information.
   virtual Result<EnumeratedRecordBatchIterator> ScanBatchesUnordered();
+  /// \brief A convenience to synchronously load the given rows by index.
+  ///
+  /// Will only consume as many batches as needed from ScanBatches().
+  virtual Result<std::shared_ptr<Table>> TakeRows(const Array& indices);
 
   /// \brief Get the options for this scan.
   const std::shared_ptr<ScanOptions>& options() const { return scan_options_; }
@@ -306,12 +316,15 @@ class ARROW_DS_EXPORT SyncScanner : public Scanner {
 
   Result<ScanTaskIterator> Scan() override;
 
+  Status Scan(std::function<Status(TaggedRecordBatch)> visitor) override;
+
   Result<std::shared_ptr<Table>> ToTable() override;
 
  protected:
   /// \brief GetFragments returns an iterator over all Fragments in this scan.
   Result<FragmentIterator> GetFragments();
   Future<std::shared_ptr<Table>> ToTableInternal(internal::Executor* cpu_executor);
+  Result<ScanTaskIterator> ScanInternal();
 
   std::shared_ptr<Dataset> dataset_;
   // TODO(ARROW-8065) remove fragment_ after a Dataset is constuctible from fragments

@@ -184,10 +184,13 @@ class DatasetFixtureMixin : public ::testing::Test {
   /// record batches yielded by a scanner.
   void AssertScannerEquals(RecordBatchReader* expected, Scanner* scanner,
                            bool ensure_drained = true) {
-    ASSERT_OK_AND_ASSIGN(auto it, scanner->Scan());
+    ASSERT_OK_AND_ASSIGN(auto it, scanner->ScanBatches());
 
-    ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<ScanTask> task) -> Status {
-      AssertScanTaskEquals(expected, task.get(), false);
+    ARROW_EXPECT_OK(it.Visit([&](TaggedRecordBatch batch) -> Status {
+      std::shared_ptr<RecordBatch> lhs;
+      RETURN_NOT_OK(expected->ReadNext(&lhs));
+      EXPECT_NE(lhs, nullptr);
+      AssertBatchesEqual(*lhs, *batch.record_batch);
       return Status::OK();
     }));
 

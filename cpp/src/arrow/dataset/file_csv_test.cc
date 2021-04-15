@@ -270,17 +270,11 @@ N/A,bar
   ASSERT_OK(builder.Project({"str"}));
   ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
 
-  ASSERT_OK_AND_ASSIGN(auto scan_task_it, scanner->Scan());
-  for (auto maybe_scan_task : scan_task_it) {
-    ASSERT_OK_AND_ASSIGN(auto scan_task, maybe_scan_task);
-    ASSERT_OK_AND_ASSIGN(auto batch_it, scan_task->Execute());
-    for (auto maybe_batch : batch_it) {
-      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-      // Run through the scan checking for errors to ensure that "f64" is read with the
-      // specified type and does not revert to the inferred type (if it reverts to
-      // inferring float64 then evaluation of the comparison expression should break)
-    }
-  }
+  ASSERT_OK_AND_ASSIGN(auto batch_it, scanner->ScanBatches());
+  // Run through the scan checking for errors to ensure that "f64" is read with the
+  // specified type and does not revert to the inferred type (if it reverts to
+  // inferring float64 then evaluation of the comparison expression should break)
+  ASSERT_OK(batch_it.Visit([](TaggedRecordBatch) { return Status::OK(); }));
 }
 
 INSTANTIATE_TEST_SUITE_P(TestUncompressedCsv, TestCsvFileFormat,
