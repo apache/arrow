@@ -1572,7 +1572,11 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
                            error);
     };
 
-    auto handle_recursion = [select, self](int32_t nesting_depth) -> Result<bool> {
+    auto handle_recursion = [producer, select,
+                             self](int32_t nesting_depth) -> Result<bool> {
+      if (producer.is_closed()) {
+        return false;
+      }
       RETURN_NOT_OK(self->CheckNestingDepth(nesting_depth));
       return select.recursive && nesting_depth <= select.max_recursion;
     };
