@@ -26,6 +26,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/optional.h"
 #include "arrow/util/test_common.h"
 #include "arrow/util/vector.h"
 
@@ -1270,13 +1271,16 @@ TEST(PushGenerator, Empty) {
 
   auto fut = gen();
   AssertNotFinished(fut);
-  producer.Close();
+  ASSERT_FALSE(producer.is_closed());
+  ASSERT_TRUE(producer.Close());
+  ASSERT_TRUE(producer.is_closed());
   ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), fut);
   ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), gen());
 
   // Close idempotent
   fut = gen();
-  producer.Close();
+  ASSERT_FALSE(producer.Close());
+  ASSERT_TRUE(producer.is_closed());
   ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), fut);
   ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), gen());
   ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), gen());
@@ -1287,8 +1291,8 @@ TEST(PushGenerator, Success) {
   auto producer = gen.producer();
   std::vector<Future<TestInt>> futures;
 
-  producer.Push(TestInt{1});
-  producer.Push(TestInt{2});
+  ASSERT_TRUE(producer.Push(TestInt{1}));
+  ASSERT_TRUE(producer.Push(TestInt{2}));
   for (int i = 0; i < 3; ++i) {
     futures.push_back(gen());
   }
@@ -1296,13 +1300,16 @@ TEST(PushGenerator, Success) {
   ASSERT_FINISHES_OK_AND_EQ(TestInt{2}, futures[1]);
   AssertNotFinished(futures[2]);
 
-  producer.Push(TestInt{3});
+  ASSERT_TRUE(producer.Push(TestInt{3}));
   ASSERT_FINISHES_OK_AND_EQ(TestInt{3}, futures[2]);
-  producer.Push(TestInt{4});
+  ASSERT_TRUE(producer.Push(TestInt{4}));
   futures.push_back(gen());
   ASSERT_FINISHES_OK_AND_EQ(TestInt{4}, futures[3]);
-  producer.Push(TestInt{5});
-  producer.Close();
+  ASSERT_TRUE(producer.Push(TestInt{5}));
+
+  ASSERT_FALSE(producer.is_closed());
+  ASSERT_TRUE(producer.Close());
+  ASSERT_TRUE(producer.is_closed());
   for (int i = 0; i < 4; ++i) {
     futures.push_back(gen());
   }
@@ -1318,8 +1325,8 @@ TEST(PushGenerator, Errors) {
   auto producer = gen.producer();
   std::vector<Future<TestInt>> futures;
 
-  producer.Push(TestInt{1});
-  producer.Push(Status::Invalid("2"));
+  ASSERT_TRUE(producer.Push(TestInt{1}));
+  ASSERT_TRUE(producer.Push(Status::Invalid("2")));
   for (int i = 0; i < 3; ++i) {
     futures.push_back(gen());
   }
@@ -1327,12 +1334,15 @@ TEST(PushGenerator, Errors) {
   ASSERT_FINISHES_AND_RAISES(Invalid, futures[1]);
   AssertNotFinished(futures[2]);
 
-  producer.Push(Status::IOError("3"));
-  producer.Push(TestInt{4});
+  ASSERT_TRUE(producer.Push(Status::IOError("3")));
+  ASSERT_TRUE(producer.Push(TestInt{4}));
   ASSERT_FINISHES_AND_RAISES(IOError, futures[2]);
   futures.push_back(gen());
   ASSERT_FINISHES_OK_AND_EQ(TestInt{4}, futures[3]);
-  producer.Close();
+
+  ASSERT_FALSE(producer.is_closed());
+  ASSERT_TRUE(producer.Close());
+  ASSERT_TRUE(producer.is_closed());
   ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), gen());
 }
 
@@ -1341,18 +1351,35 @@ TEST(PushGenerator, CloseEarly) {
   auto producer = gen.producer();
   std::vector<Future<TestInt>> futures;
 
-  producer.Push(TestInt{1});
-  producer.Push(TestInt{2});
+  ASSERT_TRUE(producer.Push(TestInt{1}));
+  ASSERT_TRUE(producer.Push(TestInt{2}));
   for (int i = 0; i < 3; ++i) {
     futures.push_back(gen());
   }
-  producer.Close();
-  producer.Push(TestInt{3});
+  ASSERT_FALSE(producer.is_closed());
+  ASSERT_TRUE(producer.Close());
+  ASSERT_TRUE(producer.is_closed());
+  ASSERT_FALSE(producer.Push(TestInt{3}));
+  ASSERT_FALSE(producer.Close());
+  ASSERT_TRUE(producer.is_closed());
 
   ASSERT_FINISHES_OK_AND_EQ(TestInt{1}, futures[0]);
   ASSERT_FINISHES_OK_AND_EQ(TestInt{2}, futures[1]);
   ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), futures[2]);
   ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), gen());
+}
+
+TEST(PushGenerator, DanglingProducer) {
+  util::optional<PushGenerator<TestInt>> gen;
+  gen.emplace();
+  auto producer = gen->producer();
+
+  ASSERT_TRUE(producer.Push(TestInt{1}));
+  ASSERT_FALSE(producer.is_closed());
+  gen.reset();
+  ASSERT_TRUE(producer.is_closed());
+  ASSERT_FALSE(producer.Push(TestInt{2}));
+  ASSERT_FALSE(producer.Close());
 }
 
 TEST(PushGenerator, Stress) {
