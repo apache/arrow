@@ -33,6 +33,7 @@ use async_trait::async_trait;
 use futures::stream::Stream;
 
 use self::merge::MergeExec;
+use hashbrown::HashMap;
 
 /// Trait for types that stream [arrow::record_batch::RecordBatch]
 pub trait RecordBatchStream: Stream<Item = ArrowResult<RecordBatch>> {
@@ -45,6 +46,46 @@ pub trait RecordBatchStream: Stream<Item = ArrowResult<RecordBatch>> {
 
 /// Trait for a stream of record batches.
 pub type SendableRecordBatchStream = Pin<Box<dyn RecordBatchStream + Send + Sync>>;
+
+/// SQL metric type
+#[derive(Debug, Clone)]
+pub enum MetricType {
+    /// Simple counter
+    Counter,
+}
+
+/// SQL metric such as counter (number of input or output rows) or timing information about
+/// a physical operator.
+#[derive(Debug, Clone)]
+pub struct SQLMetric {
+    /// Metric name
+    name: String,
+    /// Metric value
+    value: usize,
+    /// Metric type
+    metric_type: MetricType,
+}
+
+impl SQLMetric {
+    /// Create a new SQLMetric
+    pub fn new(name: &str, metric_type: MetricType) -> Self {
+        Self {
+            name: name.to_owned(),
+            value: 0,
+            metric_type,
+        }
+    }
+
+    /// Add to the value
+    pub fn add(&mut self, n: usize) {
+        self.value += n;
+    }
+
+    /// Get the current value
+    pub fn value(&self) -> usize {
+        self.value
+    }
+}
 
 /// Physical query planner that converts a `LogicalPlan` to an
 /// `ExecutionPlan` suitable for execution.
@@ -84,6 +125,11 @@ pub trait ExecutionPlan: Debug + Send + Sync {
 
     /// creates an iterator
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream>;
+
+    /// Return a snapshot of the metrics collected during execution
+    fn metrics(&self) -> HashMap<String, SQLMetric> {
+        HashMap::new()
+    }
 }
 
 /// Execute the [ExecutionPlan] and collect the results in memory
