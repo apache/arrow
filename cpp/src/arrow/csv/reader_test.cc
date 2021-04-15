@@ -32,6 +32,7 @@
 #include "arrow/table.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/future.h"
 #include "arrow/util/thread_pool.h"
 
@@ -50,7 +51,14 @@ class StreamingReaderAsTableReader : public TableReader {
     return table;
   }
   virtual Future<std::shared_ptr<Table>> ReadAsync() {
-    return Future<std::shared_ptr<Table>>::MakeFinished(Read());
+    auto reader = reader_;
+    AsyncGenerator<std::shared_ptr<RecordBatch>> gen = [reader] {
+      return reader->ReadNextAsync();
+    };
+    return CollectAsyncGenerator(std::move(gen))
+        .Then([](const RecordBatchVector& batches) {
+          return Table::FromRecordBatches(batches);
+        });
   }
 
  private:
