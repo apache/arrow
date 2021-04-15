@@ -52,6 +52,8 @@ struct ARROW_EXPORT S3ProxyOptions {
   /// or http://host:port
   static Result<S3ProxyOptions> FromUri(const std::string& uri);
   static Result<S3ProxyOptions> FromUri(const ::arrow::internal::Uri& uri);
+
+  bool Equals(const S3ProxyOptions& other) const;
 };
 
 /// Options for the S3FileSystem implementation.

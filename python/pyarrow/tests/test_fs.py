@@ -1060,15 +1060,20 @@ def test_s3_proxy_options(monkeypatch):
     monkeypatch.setenv("AWS_EC2_METADATA_DISABLED", "true")
 
     # Check dict case for 'proxy_options'
-    fs = S3FileSystem(proxy_options={'scheme': 'http', 'host': 'localhost',
-                                     'port': 8999})
-    assert isinstance(fs, S3FileSystem)
-    assert pickle.loads(pickle.dumps(fs)) == fs
+    fs1 = S3FileSystem(proxy_options={'scheme': 'http', 'host': 'localhost',
+                                      'port': 8999})
+    assert isinstance(fs1, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs1)) == fs1
 
     # Check str case for 'proxy_options'
-    fs = S3FileSystem(proxy_options='http://localhost:8999')
-    assert isinstance(fs, S3FileSystem)
-    assert pickle.loads(pickle.dumps(fs)) == fs
+    fs2 = S3FileSystem(proxy_options='http://localhost:9000')
+    assert isinstance(fs2, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs2)) == fs2
+
+    # Check that filesystems with different proxy_options are not equal
+    assert fs1 != fs2
+    # Check that filesystems with and without proxy_options are not equal
+    assert fs1 != S3FileSystem()
 
     # Only dict and str are supported
     with pytest.raises(TypeError):

@@ -241,7 +241,14 @@ cdef class S3FileSystem(FileSystem):
                 session_name=frombytes(opts.session_name),
                 external_id=frombytes(opts.external_id),
                 load_frequency=opts.load_frequency,
-                background_writes=opts.background_writes
+                background_writes=opts.background_writes,
+                proxy_options={'scheme': frombytes(opts.proxy_options.scheme),
+                               'host': frombytes(opts.proxy_options.host),
+                               'port': opts.proxy_options.port,
+                               'username': frombytes(
+                                   opts.proxy_options.username),
+                               'password': frombytes(
+                                   opts.proxy_options.password)}
             ),)
         )
 

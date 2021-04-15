@@ -131,6 +131,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         int port
         c_string username
         c_string password
+        c_bool Equals(const CS3ProxyOptions& other)
 
         @staticmethod
         CResult[CS3ProxyOptions] FromUriString "FromUri"(

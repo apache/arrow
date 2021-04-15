@@ -189,6 +189,11 @@ Result<S3ProxyOptions> S3ProxyOptions::FromUri(const std::string& uri_string) {
   return FromUri(uri);
 }
 
+bool S3ProxyOptions::Equals(const S3ProxyOptions& other) const {
+  return (scheme == other.scheme && host == other.host && port == other.port &&
+          username == other.username && password == other.password);
+}
+
 // -----------------------------------------------------------------------
 // S3Options implementation
 
@@ -334,6 +339,7 @@ Result<S3Options> S3Options::FromUri(const std::string& uri_string,
 bool S3Options::Equals(const S3Options& other) const {
   return (region == other.region && endpoint_override == other.endpoint_override &&
           scheme == other.scheme && background_writes == other.background_writes &&
+          proxy_options.Equals(other.proxy_options) &&
           GetAccessKey() == other.GetAccessKey() &&
           GetSecretKey() == other.GetSecretKey() &&
           GetSessionToken() == other.GetSessionToken());
