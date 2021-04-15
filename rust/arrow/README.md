@@ -19,8 +19,6 @@
 
 # Native Rust implementation of Apache Arrow
 
-[![Coverage Status](https://coveralls.io/repos/github/apache/arrow/badge.svg)](https://coveralls.io/github/apache/arrow)
-
 This crate contains a native Rust implementation of the [Arrow columnar format](https://arrow.apache.org/docs/format/Columnar.html).
 
 ## Developer's guide
