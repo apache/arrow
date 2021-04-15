@@ -1237,7 +1237,7 @@ mod tests {
         builder.append_value(b"1112").unwrap();
         let array = Arc::new(builder.finish());
 
-        one_column_roundtrip("timestamp_millisecond_single_column", array, true);
+        one_column_roundtrip("fixed_size_binary_single_column", array, true);
     }
 
     #[test]
