@@ -127,7 +127,7 @@ def _decorate_compute_function(wrapper, exposed_name, func, option_class):
             options : pyarrow.compute.{0}, optional
                 Parameters altering compute function semantics
             **kwargs : optional
-                Parameters for {0} constructor.  Either `options`
+                Parameters for {0} constructor. Either `options`
                 or `**kwargs` can be passed, but not both at the same time.
             """.format(option_class.__name__))
 

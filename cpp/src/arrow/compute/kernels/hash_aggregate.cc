@@ -482,7 +482,7 @@ struct GroupedCountImpl : public GroupedAggregator {
 
     const auto& input = batch[0].array();
 
-    if (options_.null_handling == ScalarAggregateOptions::KEEPNA) {
+    if (!options_.skip_nulls) {
       if (input->GetNullCount() >= options_.min_count) {
         for (int64_t i = 0, input_i = input->offset; i < input->length; ++i, ++input_i) {
           auto g = group_ids[i];
@@ -739,7 +739,7 @@ struct GroupedMinMaxImpl : public GroupedAggregator {
     // aggregation for group is valid if there was at least one value in that group
     ARROW_ASSIGN_OR_RAISE(auto null_bitmap, has_values_.Finish());
 
-    if (options_.null_handling == ScalarAggregateOptions::KEEPNA) {
+    if (!options_.skip_nulls) {
       // ... and there were no nulls in that group
       ARROW_ASSIGN_OR_RAISE(auto has_nulls, has_nulls_.Finish());
       arrow::internal::BitmapAndNot(null_bitmap->data(), 0, has_nulls->data(), 0,

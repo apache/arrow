@@ -659,8 +659,8 @@ TEST(GroupBy, ConcreteCaseWithValidateGroupBy) {
     [null,  "gama"]
   ])");
 
-  ScalarAggregateOptions keepna{ScalarAggregateOptions::KEEPNA};
-  ScalarAggregateOptions skipna{ScalarAggregateOptions::KEEPNA};
+  ScalarAggregateOptions keepna{false};
+  ScalarAggregateOptions skipna{true};
 
   using internal::Aggregate;
   for (auto agg : {

@@ -831,22 +831,14 @@ cdef class _ScalarAggregateOptions(FunctionOptions):
     cdef const CFunctionOptions* get_options(self) except NULL:
         return self.scalar_aggregate_options.get()
 
-    def _set_options(self, null_handling):
-        if null_handling == 'skipna':
-            self.scalar_aggregate_options.reset(
-                new CScalarAggregateOptions(CScalarAggregateMode_SKIPNA))
-        elif null_handling == 'keepna':
-            self.scalar_aggregate_options.reset(
-                new CScalarAggregateOptions(CScalarAggregateMode_KEEPNA))
-        else:
-            raise ValueError(
-                '{!r} is not a valid null_handling'
-                .format(null_handling))
+    def _set_options(self, skip_nulls, min_count):
+        self.scalar_aggregate_options.reset(
+            new CScalarAggregateOptions(skip_nulls, min_count))
 
 
 class ScalarAggregateOptions(_ScalarAggregateOptions):
-    def __init__(self, null_handling='skipna'):
-        self._set_options(null_handling)
+    def __init__(self, skip_nulls=True, min_count=1):
+        self._set_options(skip_nulls, min_count)
 
 
 cdef class _ModeOptions(FunctionOptions):

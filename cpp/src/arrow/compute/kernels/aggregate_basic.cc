@@ -75,15 +75,10 @@ struct CountImpl : public ScalarAggregator {
 
   Status Finalize(KernelContext* ctx, Datum* out) override {
     const auto& state = checked_cast<const CountImpl&>(*ctx->state());
-    switch (state.options.null_handling) {
-      case ScalarAggregateOptions::SKIPNA:
-        *out = Datum(state.non_nulls);
-        break;
-      case ScalarAggregateOptions::KEEPNA:
-        *out = Datum(state.nulls);
-        break;
-      default:
-        return Status::Invalid("Unknown ScalarAggregateOptions encountered");
+    if (state.options.skip_nulls) {
+      *out = Datum(state.non_nulls);
+    } else {
+      *out = Datum(state.nulls);
     }
     return Status::OK();
   }

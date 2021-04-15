@@ -101,15 +101,15 @@ struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
     //    const ScalarAggregateOptions& options = checked_cast<const ScalarAggregateState&>(*ctx->state()).options;
     const auto& state = checked_cast<const MeanImpl&>(*ctx->state());
 
-    if (this->count == 0 && options.min_count == 0) {
+    if (this->count == 0 || this->count < options.min_count) {
       out->value = std::make_shared<DoubleScalar>(0);
     } else if (this->count < options.min_count) {
       out->value = std::make_shared<DoubleScalar>();
-    } else if (options.null_handling == ScalarAggregateOptions::KEEPNA) {
-      const double mean = static_cast<double>(this->sum) / this->length;
+    } else if (options.skip_nulls) {
+      const double mean = static_cast<double>(this->sum) / this->count;
       out->value = std::make_shared<DoubleScalar>(mean);
     } else {
-      const double mean = static_cast<double>(this->sum) / this->count;
+      const double mean = static_cast<double>(this->sum) / this->length;
       out->value = std::make_shared<DoubleScalar>(mean);
     }
     return Status::OK();
@@ -248,7 +248,7 @@ struct MinMaxImpl : public ScalarAggregator {
     local.has_nulls = null_count > 0;
     local.has_values = (arr.length() - null_count) > 0;
 
-    if (local.has_nulls && options.null_handling == ScalarAggregateOptions::KEEPNA) {
+    if (local.has_nulls && !options.skip_nulls) {
       this->state = local;
       return Status::OK();
     }
@@ -274,8 +274,11 @@ struct MinMaxImpl : public ScalarAggregator {
     using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
 
     std::vector<std::shared_ptr<Scalar>> values;
-    if (!state.has_values ||
-        (state.has_nulls && options.null_handling == ScalarAggregateOptions::KEEPNA)) {
+    if (!state.has_values && options.skip_nulls && options.min_count == 0) {
+      // (Inf, -Inf)
+      values = {std::make_shared<ScalarType>(INFINITY),
+                std::make_shared<ScalarType>(-INFINITY)};
+    } else if (!state.has_values || (state.has_nulls && !options.skip_nulls)) {
       // (null, null)
       values = {std::make_shared<ScalarType>(), std::make_shared<ScalarType>()};
     } else {
@@ -366,7 +369,7 @@ struct BooleanMinMaxImpl : public MinMaxImpl<BooleanType, SimdLevel> {
 
     local.has_nulls = null_count > 0;
     local.has_values = valid_count > 0;
-    if (local.has_nulls && options.null_handling == ScalarAggregateOptions::KEEPNA) {
+    if (local.has_nulls && !options.skip_nulls) {
       this->state = local;
       return Status::OK();
     }

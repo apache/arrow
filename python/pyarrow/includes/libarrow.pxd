@@ -1872,17 +1872,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CVarianceOptions(int ddof)
         int ddof
 
-    enum CScalarAggregateMode \
-            "arrow::compute::ScalarAggregateOptions::Mode":
-        CScalarAggregateMode_SKIPNA \
-            "arrow::compute::ScalarAggregateOptions::SKIPNA"
-        CScalarAggregateMode_KEEPNA \
-            "arrow::compute::ScalarAggregateOptions::KEEPNA"
-
     cdef cppclass CScalarAggregateOptions \
             "arrow::compute::ScalarAggregateOptions"(CFunctionOptions):
-        CScalarAggregateOptions(CScalarAggregateMode null_handling)
-        CScalarAggregateMode null_handling
+        CScalarAggregateOptions(c_bool skip_nulls, int64_t min_count)
+        c_bool skip_nulls
+        int64_t min_count
 
     cdef cppclass CModeOptions \
             "arrow::compute::ModeOptions"(CFunctionOptions):

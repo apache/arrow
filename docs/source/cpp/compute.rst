@@ -82,8 +82,8 @@ Many compute functions are also available directly as concrete APIs, here
 Some functions accept or require an options structure that determines the
 exact semantics of the function::
 
-   ScalarAggregateOptions min_max_options;
-   scalar_aggregate_options.null_handling = ScalarAggregateOptions::KEEPNA;
+   ScalarAggregateOptions scalar_aggregate_options;
+   scalar_aggregate_options.skip_nulls = false;
 
    std::shared_ptr<arrow::Array> array = ...;
    arrow::Datum min_max;

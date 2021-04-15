@@ -176,7 +176,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     using Options = arrow::compute::ScalarAggregateOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
     out->min_count = cpp11::as_cpp<int>(options["na.min_count"]);
-    out->null_handling = cpp11::as_cpp<bool>(options["na.rm"]) ? Options::SKIPNA : Options::KEEPNA;
+    out->skip_nulls = cpp11::as_cpp<bool>(options["na.rm"]);
     return out;
   }
 
