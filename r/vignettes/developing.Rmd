@@ -61,9 +61,9 @@ brew install apache-arrow --HEAD
 ```
 
 On Windows and Linux, you can download a .zip file with the arrow dependencies from the
-nightly repository,
-and then set the `RWINLIB_LOCAL` environment variable to point to that
-zip file before installing the `arrow` R package. Version numbers in that
+nightly repository.
+Windows users then can set the `RWINLIB_LOCAL` environment variable to point to that
+zip file before installing the `arrow` R package. On Linux, you'll need to create a `libarrow` directory inside the R package directory and unzip that file into it. Version numbers in that
 repository correspond to dates, and you will likely want the most recent.
 
 To see what nightlies are available, you can use Arrow's (or any other S3 client's) S3 listing functionality to see what is in the bucket `s3://arrow-r-nightly/libarrow/bin`:

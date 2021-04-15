@@ -286,15 +286,15 @@ See discussion [here](https://issues.apache.org/jira/browse/ARROW-8556).
 
 ## Summary of build environment variables
 
-Some features are optional when you build Arrow from source
+Some features are optional when you build Arrow from source. With the exception of `ARROW_S3`, these are all `ON` by default in the bundled C++ build, but you can set them to `OFF` to disable them.
 
-* `ARROW_S3`: If set to `true` S3 support will be built (as long as the 
-  dependencies are met, if they are not met, this may be automatically turned off) (default: false)
-* `ARROW_JEMALLOC`: If set to `true` jemalloc support will be included (default: true)
-* `ARROW_PARQUET`: If set to `true` parquet support will be included (default: true)
-* `ARROW_DATASET`: If set to `true` dataset support will be included (default: true)
-* `ARROW_WITH_RE2`: If set to `true` RE2 regular expression library support will be included (default: true)
-* `ARROW_WITH_UTF8PROC`: If set to `true` UTF8Proc string library support will be included (default: true)
+* `ARROW_S3`: If set to `ON` S3 support will be built as long as the 
+  dependencies are met; if they are not met, the build script will turn this `OFF` 
+* `ARROW_JEMALLOC` for the `jemalloc` memory allocator
+* `ARROW_PARQUET`
+* `ARROW_DATASET`
+* `ARROW_WITH_RE2` for the RE2 regular expression library, used in some string compute functions
+* `ARROW_WITH_UTF8PROC` for the UTF8Proc string library, used in many other string compute functions
 
 By default, these are all unset. All boolean variables are case-insensitive.
 
