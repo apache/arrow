@@ -201,4 +201,3 @@ julia/Arrow/docs/src/reference.md
 rust/ballista/rust/benchmarks/tpch/queries/q*.sql
 rust/ballista/rust/scheduler/testdata/*
 rust/ballista/ui/scheduler/yarn.lock
-rust/ballista/ui/scheduler/yarn.lock
