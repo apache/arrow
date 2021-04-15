@@ -15,19 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gandiva/like_holder.h"
-#include "gandiva/regex_util.h"
+#include "gandiva/regex_functions_holder.h"
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 #include <memory>
 #include <vector>
 
-#include <gtest/gtest.h>
+#include "gandiva/regex_util.h"
 
 namespace gandiva {
 
 class TestLikeHolder : public ::testing::Test {
  public:
-  RE2::Options regex_op;
   FunctionNode BuildLike(std::string pattern) {
     auto field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
     auto pattern_node =
@@ -49,7 +50,7 @@ class TestLikeHolder : public ::testing::Test {
 TEST_F(TestLikeHolder, TestMatchAny) {
   std::shared_ptr<LikeHolder> like_holder;
 
-  auto status = LikeHolder::Make("ab%", &like_holder, regex_op);
+  auto status = LikeHolder::Make("ab%", &like_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& like = *like_holder;
@@ -64,7 +65,7 @@ TEST_F(TestLikeHolder, TestMatchAny) {
 TEST_F(TestLikeHolder, TestMatchOne) {
   std::shared_ptr<LikeHolder> like_holder;
 
-  auto status = LikeHolder::Make("ab_", &like_holder, regex_op);
+  auto status = LikeHolder::Make("ab_", &like_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& like = *like_holder;
@@ -79,7 +80,7 @@ TEST_F(TestLikeHolder, TestMatchOne) {
 TEST_F(TestLikeHolder, TestPcreSpecial) {
   std::shared_ptr<LikeHolder> like_holder;
 
-  auto status = LikeHolder::Make(".*ab_", &like_holder, regex_op);
+  auto status = LikeHolder::Make(".*ab_", &like_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& like = *like_holder;
@@ -98,7 +99,7 @@ TEST_F(TestLikeHolder, TestRegexEscape) {
 TEST_F(TestLikeHolder, TestDot) {
   std::shared_ptr<LikeHolder> like_holder;
 
-  auto status = LikeHolder::Make("abc.", &like_holder, regex_op);
+  auto status = LikeHolder::Make("abc.", &like_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
   auto& like = *like_holder;
@@ -212,6 +213,189 @@ TEST_F(TestLikeHolder, TestMultipleEscapeChar) {
   auto status = LikeHolder::Make("ab\\_", "\\\\", &like_holder);
   EXPECT_EQ(status.ok(), false) << status.message();
 }
+
+// Tests related to the REGEXP_EXTRACT function
+class TestExtractHolder : public ::testing::Test {
+ protected:
+  ExecutionContext execution_context_;
+};
+
+TEST_F(TestExtractHolder, TestSimpleExtract) {
+  std::shared_ptr<ExtractHolder> extract_holder;
+
+  // Pattern to match of two group of letters
+  auto status = ExtractHolder::Make(R"((\w+) (\w+))", &extract_holder);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  std::string input_string = "John Doe";
+  int32_t extract_index = 2;  // Retrieve the surname
+  int32_t out_length = 0;
+
+  auto& extract = *extract_holder;
+  const char* ret =
+      extract(&execution_context_, input_string.c_str(),
+              static_cast<int32_t>(input_string.length()), extract_index, &out_length);
+  std::string ret_as_str(ret, out_length);
+  EXPECT_EQ(out_length, 3);
+  EXPECT_EQ(ret_as_str, "Doe");
+
+  input_string = "Ringo Beast";
+  extract_index = 1;  // Retrieve the first name
+
+  ret = extract(&execution_context_, input_string.c_str(),
+                static_cast<int32_t>(input_string.length()), extract_index, &out_length);
+  ret_as_str = std::string(ret, out_length);
+  EXPECT_EQ(out_length, 5);
+  EXPECT_EQ(ret_as_str, "Ringo");
+
+  input_string = "Paul Test";
+  extract_index = 0;  // Retrieve all match
+
+  ret = extract(&execution_context_, input_string.c_str(),
+                static_cast<int32_t>(input_string.length()), extract_index, &out_length);
+  ret_as_str = std::string(ret, out_length);
+  EXPECT_EQ(out_length, 9);
+  EXPECT_EQ(ret_as_str, "Paul Test");
+}
+
+TEST_F(TestExtractHolder, TestNoMatches) {
+  std::shared_ptr<ExtractHolder> extract_holder;
+
+  // Pattern to match of two group of letters
+  auto status = ExtractHolder::Make(R"((\w+) (\w+))", &extract_holder);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  std::string input_string = "John";
+  int32_t extract_index = 2;  // The regex will not match with the input string
+  int32_t out_length = 0;
+
+  auto& extract = *extract_holder;
+  const char* ret =
+      extract(&execution_context_, input_string.c_str(),
+              static_cast<int32_t>(input_string.length()), extract_index, &out_length);
+  std::string ret_as_str(ret, out_length);
+  EXPECT_EQ(out_length, 0);
+  EXPECT_FALSE(execution_context_.has_error());
+
+  // Pattern to match only numbers
+  status = ExtractHolder::Make(R"(\d+)", &extract_holder);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  auto& extract_numbers = *extract_holder;
+
+  input_string = "12345";
+  extract_index = 0;  // Retrieve all matched string
+
+  ret = extract_numbers(&execution_context_, input_string.c_str(),
+                        static_cast<int32_t>(input_string.length()), extract_index,
+                        &out_length);
+  ret_as_str = std::string(ret, out_length);
+  EXPECT_EQ(out_length, 5);
+  EXPECT_EQ(ret_as_str, "12345");
+
+  input_string = "12345A";
+  extract_index = 0;  // Retrieve all matched string
+
+  ret = extract_numbers(&execution_context_, input_string.c_str(),
+                        static_cast<int32_t>(input_string.length()), extract_index,
+                        &out_length);
+  ret_as_str = std::string(ret, out_length);
+  EXPECT_EQ(out_length, 0);
+  EXPECT_FALSE(execution_context_.has_error());
+}
+
+TEST_F(TestExtractHolder, TestInvalidRange) {
+  std::shared_ptr<ExtractHolder> extract_holder;
+
+  // Pattern to match of two group of letters
+  auto status = ExtractHolder::Make(R"((\w+) (\w+))", &extract_holder);
+  EXPECT_EQ(status.ok(), true) << status.message();
+
+  std::string input_string = "John Doe";
+  int32_t extract_index = -1;
+  int32_t out_length = 0;
+
+  auto& extract = *extract_holder;
+  const char* ret =
+      extract(&execution_context_, input_string.c_str(),
+              static_cast<int32_t>(input_string.length()), extract_index, &out_length);
+  std::string ret_as_str(ret, out_length);
+  EXPECT_EQ(out_length, 0);
+  EXPECT_TRUE(execution_context_.has_error());
+
+  execution_context_.Reset();
+
+  // The test regex has two capturing groups, so the higher index
+  // allowed for the test regex is 2
+  extract_index = 3;
+
+  ret = extract(&execution_context_, input_string.c_str(),
+                static_cast<int32_t>(input_string.length()), extract_index, &out_length);
+  ret_as_str = std::string(ret, out_length);
+  EXPECT_EQ(out_length, 0);
+  EXPECT_TRUE(execution_context_.has_error());
+
+  execution_context_.Reset();
+}
+
+TEST_F(TestExtractHolder, TestExtractInvalidPattern) {
+  std::shared_ptr<ExtractHolder> extract_holder;
+
+  auto status = ExtractHolder::Make("+", &extract_holder);
+  EXPECT_EQ(status.ok(), false) << status.message();
+
+  execution_context_.Reset();
+}
+
+TEST_F(TestExtractHolder, TestErrorWhileBuildingHolder) {
+  std::shared_ptr<ExtractHolder> extract_holder;
+
+  // Create function with incorrect number of params
+  auto field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
+  auto pattern_node = std::make_shared<LiteralNode>(
+      arrow::utf8(), LiteralHolder(R"((\w+) (\w+))"), false);
+  auto function_node =
+      FunctionNode("regexp_extract", {field, pattern_node}, arrow::utf8());
+
+  auto status = ExtractHolder::Make(function_node, &extract_holder);
+  EXPECT_EQ(status.ok(), false);
+  EXPECT_THAT(status.message(),
+              ::testing::HasSubstr("'extract' function requires three parameters"));
+
+  execution_context_.Reset();
+
+  // Create function with non-utf8 literal parameter as pattern
+  field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
+  pattern_node = std::make_shared<LiteralNode>(arrow::int32(), LiteralHolder(2), false);
+  auto index_node = std::make_shared<FieldNode>(arrow::field("idx", arrow::int32()));
+  function_node =
+      FunctionNode("regexp_extract", {field, pattern_node, index_node}, arrow::utf8());
+
+  status = ExtractHolder::Make(function_node, &extract_holder);
+  EXPECT_EQ(status.ok(), false);
+  EXPECT_THAT(status.message(),
+              ::testing::HasSubstr(
+                  "'extract' function requires a literal as the second parameter"));
+
+  execution_context_.Reset();
+
+  // Create function not using a literal parameter as pattern
+  field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
+  auto pattern_as_node =
+      std::make_shared<FieldNode>(arrow::field("pattern", arrow::utf8()));
+  index_node = std::make_shared<FieldNode>(arrow::field("idx", arrow::int32()));
+  function_node =
+      FunctionNode("regexp_extract", {field, pattern_as_node, index_node}, arrow::utf8());
+
+  status = ExtractHolder::Make(function_node, &extract_holder);
+  EXPECT_EQ(status.ok(), false);
+  EXPECT_THAT(status.message(),
+              ::testing::HasSubstr(
+                  "'extract' function requires a literal as the second parameter"));
+
+  execution_context_.Reset();
+}
+
 class TestILikeHolder : public ::testing::Test {
  public:
   RE2::Options regex_op;
@@ -277,5 +461,4 @@ TEST_F(TestILikeHolder, TestDot) {
   auto& like = *like_holder;
   EXPECT_FALSE(like("abcd"));
 }
-
 }  // namespace gandiva

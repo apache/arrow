@@ -15,9 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gandiva/like_holder.h"
+#include "gandiva/regex_functions_holder.h"
 
 #include <regex>
+
 #include "gandiva/node.h"
 #include "gandiva/regex_util.h"
 
@@ -145,8 +146,79 @@ Status LikeHolder::Make(const std::string& sql_pattern,
 
   ARROW_RETURN_IF(!lholder->regex_.ok(),
                   Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
+  *holder = lholder;
+  return Status::OK();
+}
+
+Status ExtractHolder::Make(const FunctionNode& node,
+                           std::shared_ptr<ExtractHolder>* holder) {
+  ARROW_RETURN_IF(node.children().size() != 3,
+                  Status::Invalid("'extract' function requires three parameters"));
+
+  auto literal = dynamic_cast<LiteralNode*>(node.children().at(1).get());
+  ARROW_RETURN_IF(
+      literal == nullptr || !IsArrowStringLiteral(literal->return_type()->id()),
+      Status::Invalid("'extract' function requires a literal as the second parameter"));
+
+  return ExtractHolder::Make(arrow::util::get<std::string>(literal->holder()), holder);
+}
+
+Status ExtractHolder::Make(const std::string& sql_pattern,
+                           std::shared_ptr<ExtractHolder>* holder) {
+  auto lholder = std::shared_ptr<ExtractHolder>(new ExtractHolder(sql_pattern));
+  ARROW_RETURN_IF(!lholder->regex_.ok(),
+                  Status::Invalid("Building RE2 pattern '", sql_pattern, "' failed"));
 
   *holder = lholder;
   return Status::OK();
+}
+
+const char* ExtractHolder::operator()(ExecutionContext* ctx, const char* user_input,
+                                      int32_t user_input_len, int32_t extract_index,
+                                      int32_t* out_length) {
+  if (extract_index < 0 || extract_index >= num_groups_pattern_) {
+    ctx->set_error_msg("Index to extract out of range");
+    *out_length = 0;
+    return "";
+  }
+
+  std::string user_input_as_str(user_input, user_input_len);
+
+  // Create the vectors that will store the arguments to be captured by the regex
+  // groups.
+  std::vector<std::string> arguments_as_str(num_groups_pattern_);
+  std::vector<RE2::Arg> arguments(num_groups_pattern_);
+  std::vector<RE2::Arg*> arguments_ptrs(num_groups_pattern_);
+
+  for (int32_t i = 0; i < num_groups_pattern_; i++) {
+    // Bind argument to string from vector.
+    arguments[i] = &arguments_as_str[i];
+    // Save pointer to argument.
+    arguments_ptrs[i] = &arguments[i];
+  }
+
+  if (!RE2::FullMatchN(re2::StringPiece(user_input_as_str), regex_, arguments_ptrs.data(),
+                       num_groups_pattern_)) {
+    *out_length = 0;
+    return "";
+  }
+
+  auto out_str = arguments_as_str[extract_index];
+  *out_length = static_cast<int32_t>(out_str.size());
+
+  // This condition treats the case where the return is an empty string
+  if (*out_length == 0) {
+    return "";
+  }
+
+  char* result_buffer = reinterpret_cast<char*>(ctx->arena()->Allocate(*out_length));
+  if (result_buffer == NULLPTR) {
+    ctx->set_error_msg("Could not allocate memory for result");
+    *out_length = 0;
+    return "";
+  }
+
+  memcpy(result_buffer, out_str.data(), *out_length);
+  return result_buffer;
 }
 }  // namespace gandiva

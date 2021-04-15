@@ -23,11 +23,10 @@
 #include <unordered_map>
 
 #include "arrow/status.h"
-
 #include "gandiva/function_holder.h"
-#include "gandiva/like_holder.h"
 #include "gandiva/node.h"
 #include "gandiva/random_generator_holder.h"
+#include "gandiva/regex_functions_holder.h"
 #include "gandiva/replace_holder.h"
 #include "gandiva/to_date_holder.h"
 
@@ -68,6 +67,7 @@ class FunctionHolderRegistry {
         {"random", LAMBDA_MAKER(RandomGeneratorHolder)},
         {"rand", LAMBDA_MAKER(RandomGeneratorHolder)},
         {"regexp_replace", LAMBDA_MAKER(ReplaceHolder)},
+        {"regexp_extract", LAMBDA_MAKER(ExtractHolder)},
     };
     return maker_map;
   }

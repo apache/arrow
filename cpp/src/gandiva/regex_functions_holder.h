@@ -17,13 +17,13 @@
 
 #pragma once
 
+#include <re2/re2.h>
+
 #include <memory>
 #include <string>
 
-#include <re2/re2.h>
-
 #include "arrow/status.h"
-
+#include "gandiva/execution_context.h"
 #include "gandiva/function_holder.h"
 #include "gandiva/node.h"
 #include "gandiva/visibility.h"
@@ -63,6 +63,33 @@ class GANDIVA_EXPORT LikeHolder : public FunctionHolder {
   static RE2 starts_with_regex_;  // pre-compiled pattern for matching starts_with
   static RE2 ends_with_regex_;    // pre-compiled pattern for matching ends_with
   static RE2 is_substr_regex_;    // pre-compiled pattern for matching is_substr
+};
+
+/// Function Holder for 'regexp_extract' function
+class GANDIVA_EXPORT ExtractHolder : public FunctionHolder {
+ public:
+  ~ExtractHolder() override = default;
+
+  static Status Make(const FunctionNode& node, std::shared_ptr<ExtractHolder>* holder);
+
+  static Status Make(const std::string& sql_pattern,
+                     std::shared_ptr<ExtractHolder>* holder);
+
+  /// Extracts the matching text from a string using a regex
+  const char* operator()(ExecutionContext* ctx, const char* user_input,
+                         int32_t user_input_len, int32_t extract_index,
+                         int32_t* out_length);
+
+ private:
+  // The pattern must be enclosed inside an outside group to be able to catch the string
+  // piece that matched with the entire regex when the user define the group "0". It is
+  // used because the RE2 library does not provide that defined behavior by default.
+  explicit ExtractHolder(const std::string& pattern) : regex_("(" + pattern + ")") {
+    num_groups_pattern_ = regex_.NumberOfCapturingGroups();
+  }
+
+  RE2 regex_;                   // compiled regex for the pattern
+  int32_t num_groups_pattern_;  // number of groups that user defined inside the regex
 };
 
 }  // namespace gandiva

@@ -34,9 +34,9 @@
 #include "gandiva/formatting_utils.h"
 #include "gandiva/hash_utils.h"
 #include "gandiva/in_holder.h"
-#include "gandiva/like_holder.h"
 #include "gandiva/precompiled/types.h"
 #include "gandiva/random_generator_holder.h"
+#include "gandiva/regex_functions_holder.h"
 #include "gandiva/replace_holder.h"
 #include "gandiva/to_date_holder.h"
 
@@ -91,6 +91,19 @@ const char* gdv_fn_regexp_replace_utf8_utf8(
 
   return (*holder)(context, data, data_len, replace_string, replace_string_len,
                    out_length);
+}
+
+const char* gdv_fn_regexp_extract_utf8_utf8_int32(int64_t ptr, int64_t holder_ptr,
+                                                  const char* data, int32_t data_len,
+                                                  const char* /*pattern*/,
+                                                  int32_t /*pattern_len*/,
+                                                  int32_t extract_index,
+                                                  int32_t* out_length) {
+  gandiva::ExecutionContext* context = reinterpret_cast<gandiva::ExecutionContext*>(ptr);
+
+  gandiva::ExtractHolder* holder = reinterpret_cast<gandiva::ExtractHolder*>(holder_ptr);
+
+  return (*holder)(context, data, data_len, extract_index, out_length);
 }
 
 double gdv_fn_random(int64_t ptr) {
@@ -1253,6 +1266,20 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc(
       "gdv_fn_regexp_replace_utf8_utf8", types->i8_ptr_type() /*return_type*/, args,
       reinterpret_cast<void*>(gdv_fn_regexp_replace_utf8_utf8));
+
+  // gdv_fn_regexp_extract_utf8_utf8_int32
+  args = {types->i64_type(),       // int64_t ptr
+          types->i64_type(),       // int64_t holder_ptr
+          types->i8_ptr_type(),    // const char* data
+          types->i32_type(),       // int data_len
+          types->i8_ptr_type(),    // const char* pattern
+          types->i32_type(),       // int pattern_len
+          types->i32_type(),       // int32_t extract_index
+          types->i32_ptr_type()};  // int32_t* out_length
+
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_regexp_extract_utf8_utf8_int32", types->i8_ptr_type() /*return_type*/, args,
+      reinterpret_cast<void*>(gdv_fn_regexp_extract_utf8_utf8_int32));
 
   // gdv_fn_to_date_utf8_utf8
   args = {types->i64_type(),                   // int64_t execution_context
