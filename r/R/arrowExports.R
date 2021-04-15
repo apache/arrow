@@ -512,10 +512,6 @@ dataset___Scanner__head <- function(scanner, n){
     .Call(`_arrow_dataset___Scanner__head`, scanner, n)
 }
 
-dataset___Scanner__Scan <- function(scanner){
-    .Call(`_arrow_dataset___Scanner__Scan`, scanner)
-}
-
 dataset___Scanner__schema <- function(sc){
     .Call(`_arrow_dataset___Scanner__schema`, sc)
 }

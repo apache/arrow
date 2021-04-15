@@ -441,35 +441,6 @@ std::shared_ptr<arrow::Table> dataset___Scanner__head(
   return ValueOrStop(scanner->Head(n));
 }
 
-// TODO (ARROW-11782) Remove calls to Scan()
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#elif defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4996)
-#endif
-
-// [[dataset::export]]
-cpp11::list dataset___Scanner__Scan(const std::shared_ptr<ds::Scanner>& scanner) {
-  auto it = ValueOrStop(scanner->Scan());
-  std::vector<std::shared_ptr<ds::ScanTask>> out;
-  std::shared_ptr<ds::ScanTask> scan_task;
-  // TODO(npr): can this iteration be parallelized?
-  for (auto st : it) {
-    scan_task = ValueOrStop(st);
-    out.push_back(scan_task);
-  }
-
-  return arrow::r::to_r_list(out);
-}
-
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
-#elif defined(_MSC_VER)
-#pragma warning(pop)
-#endif
-
 // [[dataset::export]]
 std::shared_ptr<arrow::Schema> dataset___Scanner__schema(
     const std::shared_ptr<ds::Scanner>& sc) {

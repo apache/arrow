@@ -1345,14 +1345,6 @@ test_that("Dataset and query print methods", {
   )
 })
 
-test_that("Scanner$Scan is deprecated", {
-  ds <- open_dataset(ipc_dir, partitioning = "part", format = "feather")
-  expect_deprecated(
-    ds$NewScan()$Finish()$Scan(),
-    "ScanBatches"
-  )
-})
-
 test_that("Scanner$ScanBatches", {
   ds <- open_dataset(ipc_dir, format = "feather")
   batches <- ds$NewScan()$Finish()$ScanBatches()
@@ -1388,7 +1380,7 @@ test_that("Assembling a Dataset manually and getting a Table", {
   fmt <- FileFormat$create("parquet")
   factory <- FileSystemDatasetFactory$create(fs, selector, NULL, fmt, partitioning = partitioning)
   expect_r6_class(factory, "FileSystemDatasetFactory")
-  
+
   schm <- factory$Inspect()
   expect_r6_class(schm, "Schema")
 

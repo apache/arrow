@@ -45,6 +45,7 @@ Over 100 functions can now be called on Arrow objects inside a `dplyr` verb:
 * `write_dataset()` now defaults to `format = "parquet"` and better validates the `format` argument
 * Invalid input for `schema` in `open_dataset()` is now correctly handled
 * Collecting 0 columns from a Dataset now no longer returns all of the columns
+* The `Scanner$Scan()` method has been removed; use `Scanner$ScanBatches()`
 
 ## Other improvements
 
