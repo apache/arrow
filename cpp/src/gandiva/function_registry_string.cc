@@ -130,19 +130,19 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      utf8(), kResultNullIfNull, "substr_utf8_int64_int64",
                      NativeFunction::kNeedsContext),
 
-      NativeFunction("to_char", {}, DataTypeVector{int32(), int64()}, utf8(),
+      NativeFunction("to_char", {}, DataTypeVector{int32(), int64(), utf8()}, utf8(),
                      kResultNullIfNull, "gdv_fn_to_char_int32_int64",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("to_char", {}, DataTypeVector{int64(), int64()}, utf8(),
+      NativeFunction("to_char", {}, DataTypeVector{int64(), int64(), utf8()}, utf8(),
                      kResultNullIfNull, "gdv_fn_to_char_int64_int64",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("to_char", {}, DataTypeVector{float32(), int64()}, utf8(),
+      NativeFunction("to_char", {}, DataTypeVector{float32(), int64(), utf8()}, utf8(),
                      kResultNullIfNull, "gdv_fn_to_char_float32_int64",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("to_char", {}, DataTypeVector{float64(), int64()}, utf8(),
+      NativeFunction("to_char", {}, DataTypeVector{float64(), int64(), utf8()}, utf8(),
                      kResultNullIfNull, "gdv_fn_to_char_float64_int64",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
