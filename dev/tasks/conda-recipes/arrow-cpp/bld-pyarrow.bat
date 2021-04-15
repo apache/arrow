@@ -2,6 +2,7 @@
 pushd "%SRC_DIR%"\python
 
 @rem the symlinks for cmake modules don't work here
+@rem NOTE: In contrast to conda-forge, they work here as we clone from git.
 @rem del cmake_modules\BuildUtils.cmake
 @rem del cmake_modules\SetupCxxFlags.cmake
 @rem del cmake_modules\CompilerInfo.cmake
