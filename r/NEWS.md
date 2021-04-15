@@ -37,6 +37,7 @@ Over 100 functions can now be called on Arrow objects inside a `dplyr` verb:
 * `cast(x, type)` and `dictionary_encode()` allow changing the type of columns in Arrow objects; `as.numeric()`, `as.character()`, etc. are exposed as similar type-altering conveniences
 * `dplyr::between()`; the Arrow version also allows the `left` and `right` arguments to be columns in the data and not just scalars
 * Additionally, any Arrow C++ compute function can be called inside a `dplyr` verb. This enables you to access Arrow functions that don't have a direct R mapping. See `list_compute_functions()` for all available functions, which are available in `dplyr` prefixed by `arrow_`.
+* Arrow C++ compute functions now do more systematic type promotion when called on data with different types (e.g. int32 and float64). Previously, Scalars in an expressions were always cast to match the type of the corresponding Array, so this new type promotion enables, among other things, operations on two columns (Arrays) in a dataset. As a side effect, some comparisons that worked in prior versions are no longer supported: for example, `dplyr::filter(arrow_dataset, string_column == 3)` will error with a message about the type mismatch between the numeric `3` and the string type of `string_column`.
 
 ## Datasets
 
