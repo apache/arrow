@@ -518,8 +518,8 @@ def dataset(source, schema=None, format=None, filesystem=None,
 
     Parameters
     ----------
-    source : path, list of paths, dataset, list of datasets, (list of) batches
-             or tables, iterable of batches, RecordBatchReader, or URI
+    source : path, list of paths, dataset, list of datasets, (list of) batches\
+or tables, iterable of batches, RecordBatchReader, or URI
         Path pointing to a single file:
             Open a FileSystemDataset from a single file.
         Path pointing to a directory:
