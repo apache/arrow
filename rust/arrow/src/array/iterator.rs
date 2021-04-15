@@ -371,6 +371,13 @@ mod tests {
 
         let expected = Int32Array::from(vec![Some(1), None, Some(3), None, Some(5)]);
         assert_eq!(result, expected);
+
+        // check if DoubleEndedIterator is implemented
+        let result: Int32Array = array.iter().rev().collect();
+        let rev_array = Int32Array::from(vec![Some(4), None, Some(2), None, Some(0)]);
+        assert_eq!(result, rev_array);
+        // check if ExactSizeIterator is implemented
+        let _ = array.iter().rposition(|opt_b| opt_b == Some(1));
     }
 
     #[test]
@@ -410,6 +417,14 @@ mod tests {
         let expected =
             StringArray::from(vec![Some("ab"), None, Some("aaab"), None, Some("aaaaab")]);
         assert_eq!(result, expected);
+
+        // check if DoubleEndedIterator is implemented
+        let result: StringArray = array.iter().rev().collect();
+        let rev_array =
+            StringArray::from(vec![Some("aaaaa"), None, Some("aaa"), None, Some("a")]);
+        assert_eq!(result, rev_array);
+        // check if ExactSizeIterator is implemented
+        let _ = array.iter().rposition(|opt_b| opt_b == Some("a"));
     }
 
     #[test]
@@ -426,6 +441,20 @@ mod tests {
         let result: BinaryArray = array.iter().collect();
 
         assert_eq!(result, array);
+
+        // check if DoubleEndedIterator is implemented
+        let result: BinaryArray = array.iter().rev().collect();
+        let rev_array = BinaryArray::from(vec![
+            Some(b"aaaaa" as &[u8]),
+            None,
+            Some(b"aaa"),
+            None,
+            Some(b"a"),
+        ]);
+        assert_eq!(result, rev_array);
+
+        // check if ExactSizeIterator is implemented
+        let _ = array.iter().rposition(|opt_b| opt_b == Some(&[9]));
     }
 
     #[test]
@@ -436,5 +465,13 @@ mod tests {
         let result: BooleanArray = array.iter().collect();
 
         assert_eq!(result, array);
+
+        // check if DoubleEndedIterator is implemented
+        let result: BooleanArray = array.iter().rev().collect();
+        let rev_array = BooleanArray::from(vec![Some(false), None, Some(true)]);
+        assert_eq!(result, rev_array);
+
+        // check if ExactSizeIterator is implemented
+        let _ = array.iter().rposition(|opt_b| opt_b == Some(true));
     }
 }
