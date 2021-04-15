@@ -2742,6 +2742,31 @@ def test_dataset_validate_schema_keyword(tempdir):
 
 
 @pytest.mark.parquet
+def test_dataset_validate_schema_unify(tempdir):
+    # ARROW-8221
+    import pyarrow.parquet as pq
+
+    basedir = tempdir / "dataset_mismatched_schemas"
+    basedir.mkdir()
+
+    table1 = pa.table({'a': [1, 2, 3], 'b': [1, 2, 3]})
+    pq.write_table(table1, basedir / "data1.parquet")
+    table2 = pa.table({'b': [4, 5, 6], 'c': ["a", "b", "c"]})
+    pq.write_table(table2, basedir / "data2.parquet")
+
+    dataset = ds.dataset(basedir)
+    # default (inspecting first fragments)
+    dataset = ds.dataset(basedir)
+    assert dataset.to_table().schema.equals(table1.schema)
+
+    # Inspecting all fragments -> unify schemas
+    dataset = ds.dataset(basedir, validate_schema=True)
+    expected_schema = pa.schema(
+        [("a", "int64"), ("b", "int64"), ("c", "string")])
+    assert dataset.to_table().schema.equals(expected_schema)
+
+
+@pytest.mark.parquet
 @pytest.mark.pandas
 def test_dataset_project_only_partition_columns(tempdir):
     # ARROW-8729
