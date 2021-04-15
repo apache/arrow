@@ -22,7 +22,7 @@ use std::fmt;
 use std::iter::{FromIterator, IntoIterator};
 use std::mem;
 
-use chrono::prelude::*;
+use chrono::{prelude::*, Duration};
 
 use super::array::print_long_array;
 use super::raw_pointer::RawPtrBox;
@@ -202,6 +202,24 @@ fn as_time<T: ArrowPrimitiveType>(v: i64) -> Option<NaiveTime> {
     }
 }
 
+fn as_duration<T: ArrowPrimitiveType>(v: i64) -> Option<Duration> {
+    match T::DATA_TYPE {
+        DataType::Duration(unit) => match unit {
+            TimeUnit::Second => Some(temporal_conversions::duration_s_to_duration(v)),
+            TimeUnit::Millisecond => {
+                Some(temporal_conversions::duration_ms_to_duration(v))
+            }
+            TimeUnit::Microsecond => {
+                Some(temporal_conversions::duration_us_to_duration(v))
+            }
+            TimeUnit::Nanosecond => {
+                Some(temporal_conversions::duration_ns_to_duration(v))
+            }
+        },
+        _ => None,
+    }
+}
+
 impl<T: ArrowTemporalType + ArrowNumericType> PrimitiveArray<T>
 where
     i64: std::convert::From<T::Native>,
@@ -226,6 +244,13 @@ where
     /// `Date32` and `Date64` return UTC midnight as they do not have time resolution
     pub fn value_as_time(&self, i: usize) -> Option<NaiveTime> {
         as_time::<T>(i64::from(self.value(i)))
+    }
+
+    /// Returns a value as a chrono `Duration`
+    ///
+    /// If a data type cannot be converted to `Duration`, a `None` is returned
+    pub fn value_as_duration(&self, i: usize) -> Option<Duration> {
+        as_duration::<T>(i64::from(self.value(i)))
     }
 }
 
@@ -385,8 +410,10 @@ def_numeric_from_vec!(DurationSecondType);
 def_numeric_from_vec!(DurationMillisecondType);
 def_numeric_from_vec!(DurationMicrosecondType);
 def_numeric_from_vec!(DurationNanosecondType);
+def_numeric_from_vec!(TimestampSecondType);
 def_numeric_from_vec!(TimestampMillisecondType);
 def_numeric_from_vec!(TimestampMicrosecondType);
+def_numeric_from_vec!(TimestampNanosecondType);
 
 impl<T: ArrowTimestampType> PrimitiveArray<T> {
     /// Construct a timestamp array from a vec of i64 values and an optional timezone
