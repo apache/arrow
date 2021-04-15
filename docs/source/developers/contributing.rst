@@ -94,6 +94,7 @@ right people see it:
   ``[Python] issue name`` ; this helps when navigating lists of open issues,
   and it also makes our changelogs more readable. Most prefixes are exactly the 
   same as the **Component** name, with the following exceptions:
+
   * **Component:** Continuous Integration — **Summary prefix:** [CI]
   * **Component:** Developer Tools — **Summary prefix:** [Dev]
   * **Component:** Documentation — **Summary prefix:** [Docs]
