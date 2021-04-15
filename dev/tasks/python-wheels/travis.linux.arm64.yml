@@ -45,6 +45,7 @@ env:
     - PYTHON={{ python_version }}
 
 before_script:
+  - set -e
   {{ macros.travis_checkout_arrow() }}
   {{ macros.travis_docker_login() }}
 
