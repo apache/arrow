@@ -1145,6 +1145,10 @@ TEST(TestStringOps, TestConvertToBigEndian) {
   for (auto i = 0; i < out_len; i++) {
     EXPECT_EQ(out_str[i], out_str_big_endian[out_len - (i + 1)]);
   }
+#else
+  for (auto i = 0; i < out_len; i++) {
+    EXPECT_EQ(out_str[i], out_str_big_endian[i]);
+  }
 #endif
 
   double double_value = std::numeric_limits<double>::max();
@@ -1158,6 +1162,10 @@ TEST(TestStringOps, TestConvertToBigEndian) {
   // Checks that bytes are in reverse order
   for (auto i = 0; i < out_len; i++) {
     EXPECT_EQ(out_str[i], out_str_big_endian[out_len - (i + 1)]);
+  }
+#else
+  for (auto i = 0; i < out_len; i++) {
+    EXPECT_EQ(out_str[i], out_str_big_endian[i]);
   }
 #endif
 }
