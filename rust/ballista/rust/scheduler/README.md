@@ -43,7 +43,9 @@ curl --request GET \
 ```
 
 ## Scheduler UI
-A basic ui for the scheduler is in `ui/scheduler` of the ballista repo. It can be started using
+A basic ui for the scheduler is in `ui/scheduler` of the ballista repo. 
+It can be started using the following [yarn](https://yarnpkg.com/) command
+
 ```bash
 yarn && yarn start
 ```
