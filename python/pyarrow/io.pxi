@@ -1449,6 +1449,10 @@ cdef shared_ptr[CBuffer] as_c_buffer(object o) except *:
 
 
 cdef NativeFile get_native_file(object source, c_bool use_memory_map):
+    if source is None:
+        raise TypeError("Expected a path-like or file-like source "
+                        f"instead of the given type: {type(source).__name__}")
+
     try:
         source_path = _stringify_path(source)
     except TypeError:

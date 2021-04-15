@@ -137,6 +137,12 @@ def test_special_chars_filename(tempdir, use_legacy_dataset):
     assert table_read.equals(table)
 
 
+@parametrize_legacy_dataset
+def test_invalid_source(use_legacy_dataset):
+    with pytest.raises(TypeError, match="instead of the given type: NoneType"):
+        pq.read_table(None, use_legacy_dataset=use_legacy_dataset)
+
+
 @pytest.mark.slow
 def test_file_with_over_int16_max_row_groups():
     # PARQUET-1857: Parquet encryption support introduced a INT16_MAX upper
