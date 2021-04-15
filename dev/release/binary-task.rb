@@ -1316,7 +1316,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
 
         desc "Update RC APT repositories"
         task :update do
-          apt_update(apt_rc_repositiries_dir)
+          apt_update(apt_rc_repositories_dir)
           apt_targets.each do |distribution, code_name, component|
             base_dir = "#{apt_rc_repositories_dir}/#{distribution}"
             dists_dir = "#{base_dir}/dists/#{code_name}"

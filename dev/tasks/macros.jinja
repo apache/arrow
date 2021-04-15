@@ -172,7 +172,7 @@ on:
   - sudo -H pip3 install pygit2==1.0
   - sudo -H pip3 install arrow/dev/archery[crossbow]
   - |
-    archery crossbow
+    archery crossbow submit \
       --queue-path $(pwd) \
       --queue-remote {{ queue_remote_url }} \
       upload-artifacts \
