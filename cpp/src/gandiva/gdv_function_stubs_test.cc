@@ -160,7 +160,7 @@ TEST(TestGdvFnStubs, TestCastFloat8) {
   ctx.Reset();
 }
 
-    TEST(TestGdvFnStubs, TestCastVARCHARFromInt32) {
+    TEST(TestGdvFnStubs, TestToCharFromInt32) {
         gandiva::ExecutionContext ctx;
         uint64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
         int32_t out_len = 0;
@@ -195,7 +195,7 @@ TEST(TestGdvFnStubs, TestCastFloat8) {
         ctx.Reset();
     }
 
-    TEST(TestGdvFnStubs, TestCastVARCHARFromInt64) {
+    TEST(TestGdvFnStubs, TestToCharFromInt64) {
         gandiva::ExecutionContext ctx;
         uint64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
         int32_t out_len = 0;
@@ -220,7 +220,7 @@ TEST(TestGdvFnStubs, TestCastFloat8) {
         EXPECT_FALSE(ctx.has_error());
     }
 
-    TEST(TestGdvFnStubs, TestCastVARCHARFromFloat) {
+    TEST(TestGdvFnStubs, TestToCharFromFloat) {
         gandiva::ExecutionContext ctx;
         uint64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
         int32_t out_len = 0;
@@ -247,7 +247,7 @@ TEST(TestGdvFnStubs, TestCastFloat8) {
         EXPECT_FALSE(ctx.has_error());
     }
 
-    TEST(TestGdvFnStubs, TestCastVARCHARFromDouble) {
+    TEST(TestGdvFnStubs, TestToCharFromDouble) {
         gandiva::ExecutionContext ctx;
         uint64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
         int32_t out_len = 0;
