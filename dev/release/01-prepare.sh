@@ -21,8 +21,8 @@ set -ue
 
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-if [ "$#" -ne 2 ]; then
-  echo "Usage: $0 <version> <next_version>"
+if [ "$#" -ne 3 ]; then
+  echo "Usage: $0 <version> <next_version> <rc-num>"
   exit 1
 fi
 
@@ -172,16 +172,46 @@ update_versions() {
 
 version=$1
 next_version=$2
-next_version_snapshot=${next_version}-SNAPSHOT
-tag=apache-arrow-${version}
+next_version_snapshot="${next_version}-SNAPSHOT"
+rc_number=$3
+
+release_tag="apache-arrow-${version}"
+release_branch="release-${version}"
+release_candidate_branch="release-${version}-rc${rc_number}"
 
 : ${PREPARE_DEFAULT:=1}
 : ${PREPARE_CHANGELOG:=${PREPARE_DEFAULT}}
 : ${PREPARE_LINUX_PACKAGES:=${PREPARE_DEFAULT}}
 : ${PREPARE_VERSION_PRE_TAG:=${PREPARE_DEFAULT}}
+: ${PREPARE_BRANCH:=${PREPARE_DEFAULT}}
 : ${PREPARE_TAG:=${PREPARE_DEFAULT}}
 : ${PREPARE_VERSION_POST_TAG:=${PREPARE_DEFAULT}}
 : ${PREPARE_DEB_PACKAGE_NAMES:=${PREPARE_DEFAULT}}
+
+if [ ${PREPARE_TAG} -gt 0 ]; then
+  if [ $(git tag -l "${release_tag}") ]; then
+    echo "Delete existing git tag $release_tag"
+    git tag -d "${release_tag}"
+  fi
+fi
+
+if [ ${PREPARE_BRANCH} -gt 0 ]; then
+  if [[ $(git branch -l "${release_candidate_branch}") ]]; then
+    next_rc_number=$(($rc_number+1))
+    echo "Branch ${release_candidate_branch} already exists, so create a new release candidate:"
+    echo "1. Checkout the master branch for major releases and maint-<version> for patch releases."
+    echo "2. Execute the script again with bumped RC number."
+    echo "Commands:"
+    echo "   git checkout master"
+    echo "   dev/release/01-prepare.sh ${version} ${next_version} ${next_rc_number}"
+    exit 1
+  fi
+
+  echo "Create local branch ${release_candidate_branch} for release candidate ${rc_number}"
+  git checkout -b ${release_candidate_branch}
+fi
+
+############################## Pre-Tag Commits ##############################
 
 if [ ${PREPARE_CHANGELOG} -gt 0 ]; then
   echo "Updating changelog for $version"
@@ -204,40 +234,16 @@ if [ ${PREPARE_LINUX_PACKAGES} -gt 0 ]; then
 fi
 
 if [ ${PREPARE_VERSION_PRE_TAG} -gt 0 ]; then
-  echo "prepare release ${version} on tag ${tag} then reset to version ${next_version_snapshot}"
+  echo "Prepare release ${version} on tag ${release_tag} then reset to version ${next_version_snapshot}"
 
   update_versions "${version}" "${next_version}" "release"
   git commit -m "[Release] Update versions for ${version}"
 fi
 
+############################## Tag the Release ##############################
+
 if [ ${PREPARE_TAG} -gt 0 ]; then
-  profile=arrow-jni # this includes components which depend on arrow cpp.
-  pushd "${SOURCE_DIR}/../../java"
-  git submodule update --init --recursive
-  cpp_dir="${PWD}/../cpp"
-  cpp_build_dir=$(mktemp -d -t "apache-arrow-cpp.XXXXX")
-  pushd ${cpp_build_dir}
-  cmake \
-    -DARROW_GANDIVA=ON \
-    -DARROW_GANDIVA_JAVA=ON \
-    -DARROW_JNI=ON \
-    -DARROW_ORC=ON \
-    -DCMAKE_BUILD_TYPE=release \
-    -G Ninja \
-    "${cpp_dir}"
-  ninja
-  popd
-  mvn release:clean
-  mvn \
-    release:prepare \
-    -Darguments=-Darrow.cpp.build.dir=${cpp_build_dir}/release \
-    -DautoVersionSubmodules \
-    -DdevelopmentVersion=${next_version_snapshot} \
-    -DreleaseVersion=${version} \
-    -Dtag=${tag} \
-    -P ${profile}
-  rm -rf ${cpp_build_dir}
-  popd
+  git tag -a "${release_tag}" -m "[Release] Apache Arrow Release ${version}"
 fi
 
 ############################## Post-Tag Commits #############################
@@ -283,5 +289,3 @@ if [ ${PREPARE_DEB_PACKAGE_NAMES} -gt 0 ]; then
     cd -
   fi
 fi
-
-echo "Finish staging binary artifacts by running: dev/release/01-perform.sh"

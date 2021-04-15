@@ -401,17 +401,7 @@
             <argLine>-Darrow.vector.max_allocation_bytes=1048576</argLine>
           </configuration>
         </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-release-plugin</artifactId>
-          <version>2.5.2</version>
-          <configuration>
-            <useReleaseProfile>false</useReleaseProfile>
-            <pushChanges>false</pushChanges>
-            <goals>deploy</goals>
-            <arguments>-Papache-release ${arguments}</arguments>
-          </configuration>
-        </plugin>
+
 
         <!--This plugin's configuration is used to store Eclipse m2e settings
           only. It has no influence on the Maven build itself. -->

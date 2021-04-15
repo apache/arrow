@@ -16,35 +16,31 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-#
+
 set -e
 
-SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <version> <rc-num>"
+  exit
+fi
 
-pushd "${SOURCE_DIR}/../../java"
-git submodule update --init --recursive
+version=$1
+rc_number=$2
+version_with_rc="${version}-rc${rc_number}"
+crossbow_job_prefix="release-${version_with_rc}"
 
-profile=arrow-jni # this includes components which depend on arrow cpp.
+release_tag="apache-arrow-${version}"
+release_candidate_branch="release-${version}-rc${rc_number}"
 
-cpp_dir="${PWD}/../cpp"
-cpp_build_dir=$(mktemp -d -t "apache-arrow-cpp.XXXXX")
-pushd ${cpp_build_dir}
-cmake \
-  -DARROW_GANDIVA=ON \
-  -DARROW_GANDIVA_JAVA=ON \
-  -DARROW_JNI=ON \
-  -DARROW_ORC=ON \
-  -DCMAKE_BUILD_TYPE=release \
-  -G Ninja \
-  "${cpp_dir}"
-ninja
-popd
+: ${GIT_REMOTE:="origin"}
 
-export ARROW_TEST_DATA=${PWD}/../testing/data
-mvn \
-  release:perform \
-  -Darguments=-Darrow.cpp.build.dir=${cpp_build_dir}/release \
-  -P ${profile}
-rm -rf ${cpp_build_dir}
+git checkout ${release_candidate_branch}
+git push -u ${GIT_REMOTE} ${release_candidate_branch}
 
-popd
+# archery will submit a job with id: "${crossbow_job_prefix}-0" unless there
+# are jobs submitted with the same prefix (the integer at the end is auto
+# incremented)
+archery crossbow submit \
+    --job-prefix ${crossbow_job_prefix} \
+    --arrow-version ${version_with_rc} \
+    --group packaging
