@@ -23,6 +23,7 @@
 
 #include "gandiva/function_holder.h"
 #include "gandiva/node.h"
+#include "precompiled/types.h"
 
 namespace gandiva {
 
