@@ -90,10 +90,21 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
 
     /// Returns the primitive value at index `i`.
     ///
+    /// # Safety
+    ///
+    /// caller must ensure that the passed in offset is less than the array len()
+    pub unsafe fn value_unchecked(&self, i: usize) -> T::Native {
+        let offset = i + self.offset();
+        *self.raw_values.as_ptr().add(offset)
+    }
+
+    /// Returns the primitive value at index `i`.
+    ///
     /// Note this doesn't do any bound checking, for performance reason.
     /// # Safety
     /// caller must ensure that the passed in offset is less than the array len()
     pub fn value(&self, i: usize) -> T::Native {
+        debug_assert!(i < self.len());
         let offset = i + self.offset();
         unsafe { *self.raw_values.as_ptr().add(offset) }
     }
