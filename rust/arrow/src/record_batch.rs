@@ -295,6 +295,12 @@ impl RecordBatch {
     }
 }
 
+impl Default for RecordBatch {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Options that control the behaviour used when creating a [`RecordBatch`].
 #[derive(Debug)]
 pub struct RecordBatchOptions {
@@ -389,7 +395,13 @@ mod tests {
 
     #[test]
     fn create_record_batch_builder() {
-        let a = Arc::new(Int32Array::from(vec![Some(1), Some(2), None, Some(4), Some(5)]));
+        let a = Arc::new(Int32Array::from(vec![
+            Some(1),
+            Some(2),
+            None,
+            Some(4),
+            Some(5),
+        ]));
         let b = Arc::new(StringArray::from(vec!["a", "b", "c", "d", "e"]));
 
         let record_batch = RecordBatch::new()
