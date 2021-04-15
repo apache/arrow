@@ -54,7 +54,8 @@ Over 100 functions can now be called on Arrow objects inside a `dplyr` verb:
 * Similarly, `Schema` can now be edited by assigning in new types. This enables using the CSV reader to detect the schema of a file, modify the `Schema` object for any columns that you want to read in as a different type, and then use that `Schema` to read the data.
 * Better validation when creating a `Table` with a schema, with columns of different lengths, and with scalar value recycling
 * Reading Parquet files in Japanese or other multi-byte locales on Windows no longer hangs (workaround for a [bug in libstdc++](https://gcc.gnu.org/bugzilla/show_bug.cgi?id=98723); thanks @yutannihilation for the persistence in discovering this!)
-* If you attempt to read string data that has embedded nul (`\0`) characters, the error message now informs you that you can set `options(arrow.skip_nul = TRUE)` to strip them out. It is not recommended to set this option by default since this code path is sigificantly slower, and most string data does not contain nuls.
+* If you attempt to read string data that has embedded nul (`\0`) characters, the error message now informs you that you can set `options(arrow.skip_nul = TRUE)` to strip them out. It is not recommended to set this option by default since this code path is significantly slower, and most string data does not contain nuls.
+* `read_json_arrow()` now accepts a schema: `read_json_arrow("file.json", schema = schema(col_a = float64(), col_b = string()))`
 
 ## Installation and configuration
 
@@ -64,6 +65,8 @@ Over 100 functions can now be called on Arrow objects inside a `dplyr` verb:
 * Setting the `ARROW_DEFAULT_MEMORY_POOL` environment variable to switch memory allocators now works correctly when the Arrow C++ library has been statically linked (as is usually the case when installing from CRAN).
 * The `arrow_info()` function now reports on the additional optional features, as well as the detected SIMD level. If key features or compression libraries are not enabled in the build, `arrow_info()` will refer to the installation vignette for guidance on how to install a more complete build, if desired.
 * If you attempt to read a file that was compressed with a codec that your Arrow build does not contain support for, the error message now will tell you how to reinstall Arrow with that feature enabled.
+* A new vignette about developer environment setup `vignette("developing", package = "arrow")`.
+* When building from source, you can use the environment variable `ARROW_HOME` to point to a specific directory where the Arrow libraries are. This is similar to passing `INCLUDE_DIR` and `LIB_DIR`.
 
 # arrow 3.0.0
 

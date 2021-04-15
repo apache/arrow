@@ -78,6 +78,13 @@ nightly$ls("libarrow/bin")
 If you need to alter both the Arrow C++ library and the R package code, or if you can’t get a binary version of the latest C++ library elsewhere, you’ll need to build it from source too. This section discusses how to set up a C++ build configured to work with the R package. For more general resources, see the [Arrow C++ developer
 guide](https://arrow.apache.org/docs/developers/cpp/building.html).
 
+There are four major steps to the process — the first three are relevant to all Arrow developers, and the last one is specific to the R bindings:
+
+1. Configuring the Arrow library build (using `cmake`) — this specifies how you want the build to go, what features to include, etc.
+2. Building the Arrow library — this actually compiles the Arrow library
+3. Install the Arrow library — this organizes and moves the compiled Arrow library files into the location specified in the configuration
+4. Building the R package — this builds the C++ code in the R package, and installs the R package for you
+
 ### Install dependencies {.tabset}
 
 The Arrow C++ library will by default use system dependencies if suitable versions are found; if they are not present, it will build them during its own build process. The only dependencies that one needs to install outside of the build process are `cmake` (for configuring the build) and `openssl` if you are building with S3 support.
@@ -98,34 +105,29 @@ sudo apt install -y cmake libcurl4-openssl-dev libssl-dev
 
 You can choose to build and then install the Arrow library into a user-defined directory or into a system-level directory. You only need to do one of these two options.
 
-Either way, you will need to create a directory into which the C++ build will put its contents. It is recommended to make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored, so you won't accidentally check it in).
+It is recommended that you install the arrow library to a user-level directory to be used in development. This is so that the development version you are using doesn't overwrite a released version of Arrow you may have installed. You are also able to have more than one version of the Arrow library to link to with this approach (by using different `ARROW_HOME` directories for the different versions). This approach also matches the recommendations for other Arrow bindings like [Python](http://arrow.apache.org/docs/developers/python.html). 
 
-Starting from the directory that contains your git checkout of `apache/arrow`,
+#### Configure for installing to a user directory
 
-```{bash, save=run}
-mkdir -p arrow/cpp/build
-```
-
-#### Install to another directory
-
-It is recommended that you install the arrow library to a user-level directory to be used in development. In this example we will install it to a directory called `dist` that has the same parent as our `arrow` checkout, but it could be named or located anywhere you would like. However, note that your installation of the Arrow R package will point to this directory and need it to remain intact for the package to continue to work. This is one reason we recommend *not* placing it inside of the arrow git checkout.
+In this example we will install it to a directory called `dist` that has the same parent as our `arrow` checkout, but it could be named or located anywhere you would like. However, note that your installation of the Arrow R package will point to this directory and need it to remain intact for the package to continue to work. This is one reason we recommend *not* placing it inside of the arrow git checkout.
 
 ```{bash, save=run & !sys_install}
 export ARROW_HOME=$(pwd)/dist
 mkdir $ARROW_HOME
 ```
 
-_Special instructions on Linux:_ You will need to set `LD_LIBRARY_PATH` to the `lib` directory that will is under where we set `$ARROW_HOME`, before launching R and using Arrow. One way to do this is to add it to your profile (we use `~/.bash_profile` here, but you might need to put this in a different file depending on your setup). On macOS we do not need to do this because the macOS shared library paths are hardcoded to their locations during build time.
+_Special instructions on Linux:_ You will need to set `LD_LIBRARY_PATH` to the `lib` directory that will is under where we set `$ARROW_HOME`, before launching R and using Arrow. One way to do this is to add it to your profile (we use `~/.bash_profile` here, but you might need to put this in a different file depending on your setup, e.g. if you use a shell other than `bash`). On macOS we do not need to do this because the macOS shared library paths are hardcoded to their locations during build time.
 
 ```{bash, save=run & ubuntu & !sys_install}
 export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
 echo "export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH" >> ~/.bash_profile
 ```
 
-Now we can move into the arrow repository to start the build process. To build, change directories to be inside `arrow/cpp/build` (we do this in two steps so that we can use `popd` later to return to the `arrow` directory):
+Now we can move into the arrow repository to start the build process. You will need to create a directory into which the C++ build will put its contents. It is recommended to make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored, so you won't accidentally check it in). And then, change directories to be inside `cpp/build`:
 
 ```{bash, save=run & !sys_install}
 pushd arrow
+mkdir -p cpp/build
 pushd cpp/build
 ```
 
@@ -145,19 +147,21 @@ cmake \
   -DARROW_WITH_SNAPPY=ON \
   -DARROW_WITH_ZLIB=ON \
   -DARROW_INSTALL_NAME_RPATH=OFF \
+  -DARROW_EXTRA_ERROR_CONTEXT=ON \
   ..
 ```
 
 `..` refers to the C++ source directory: we're in `cpp/build`, and the source is in `cpp`.
 
-#### Install to the system
+#### Configure to install to a system directory
 
 If you would like to install Arrow as a system library you can do that as well. This is in some respects simpler, but if you already have Arrow libraries installed there, it would disrupt them and possibly require `sudo` permissions.
 
-Now we can move into the arrow repository to start the build process. To build, change directories to be inside `arrow/cpp/build` (we do this in two steps so that we can use `popd` later to return to the `arrow` directory):
+Now we can move into the arrow repository to start the build process. You will need to create a directory into which the C++ build will put its contents. It is recommended to make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored, so you won't accidentally check it in). And then, change directories to be inside `cpp/build`:
 
 ```{bash, save=run & sys_install}
 pushd arrow
+mkdir -p cpp/build
 pushd cpp/build
 ```
 
@@ -175,6 +179,7 @@ cmake \
   -DARROW_WITH_SNAPPY=ON \
   -DARROW_WITH_ZLIB=ON \
   -DARROW_INSTALL_NAME_RPATH=OFF \
+  -DARROW_EXTRA_ERROR_CONTEXT=ON \
   ..
 ```
 
@@ -195,9 +200,8 @@ To enable optional features including: S3 support, an alternative memory allocat
 
 Other flags that may be useful:
 
-* `-DARROW_EXTRA_ERROR_CONTEXT=ON` makes errors coming from the C++ library point to files and line numbers
 * `-DBoost_SOURCE=BUNDLED` and `-DThrift_SOURCE=bundled`, for example, or any other dependency `*_SOURCE`, if you have a system version of a C++ dependency that doesn't work correctly with Arrow. This tells the build to compile its own version of the dependency from source.
-* `-DCMAKE_BUILD_TYPE=debug` and `-DCMAKE_BUILD_TYPE=relwithdebinfo` can be useful for debugging, though they are both slower to compile than the default `release`.
+* `-DCMAKE_BUILD_TYPE=debug` or `-DCMAKE_BUILD_TYPE=relwithdebinfo` can be useful for debugging. You probably don't want to do this generally because a debug build is much slower at runtime than the default `release` build.
 
 _Note_ `cmake` is particularly sensitive to whitespacing, if you see errors, check that you don't have any errant whitespace around
 
@@ -215,13 +219,6 @@ need to use `sudo`:
 ```{bash, save=run & sys_install & ubuntu}
 sudo make install
 ```
-
-Note that after any change to the C++ library, you must reinstall it and
-run `make clean` or `git clean -fdx .` to remove any cached object code
-in the `r/src/` directory before reinstalling the R package. This is
-only necessary if you make changes to the C++ library source; you do not
-need to manually purge object files if you are only editing R or C++
-code inside `r/`.
 
 
 ### Build the Arrow R package
@@ -272,6 +269,7 @@ cmake \
   -DARROW_WITH_SNAPPY=ON \
   -DARROW_WITH_ZLIB=ON \
   -DARROW_INSTALL_NAME_RPATH=OFF \
+  -DARROW_EXTRA_ERROR_CONTEXT=ON \
   -DARROW_MIMALLOC=ON \
   -DARROW_WITH_BROTLI=ON \
   -DARROW_WITH_BZ2=ON \
@@ -284,6 +282,13 @@ cmake \
 </details>  
 
 ## Troublshooting
+
+Note that after any change to the C++ library, you must reinstall it and
+run `make clean` or `git clean -fdx .` to remove any cached object code
+in the `r/src/` directory before reinstalling the R package. This is
+only necessary if you make changes to the C++ library source; you do not
+need to manually purge object files if you are only editing R or C++
+code inside `r/`.
 
 ### Arrow library-R package mismatches
 
@@ -394,28 +399,34 @@ separate from another Arrow development environment or system installation
 * Setting the environment variable `FORCE_BUNDLED_BUILD` to `true` will skip the `pkg-config` search for Arrow libraries and attempt to build from the same source at the repository+ref given.
 * You may also need to set the Makevars `CPPFLAGS` and `LDFLAGS` to `""` in order to prevent the installation process from attempting to link to already installed system versions of Arrow. One way to do this temporarily is wrapping your `remotes::install_github()` call like so: `withr::with_makevars(list(CPPFLAGS = "", LDFLAGS = ""), remotes::install_github(...))`.
 
-## How does our automated building actually work?
+## What happens when you `R CMD INSTALL`?
 
 There are a number of scripts that are triggered when `R CMD INSTALL .`. For Arrow users, these should all just work without configuration and pull in the most complete pieces (e.g. official binaries that we host) so the installation process is easy. However knowing about these scripts can help troubleshoot if things go wrong in them or things go wrong in an install:
 
 * `configure` and `configure.win` These scripts are triggered during `R CMD INSTALL .` on non-Windows and Windows platforms, respectively. They handle finding the Arrow library, setting up the build variables necessary, and writing the package Makevars file that is used to compile the C++ code in the R package.
-* `tools/nixlibs.R` This script is called by `configure` on Linux (or on any non-windows OS with the environment variable `FORCE_BUNDLED_BUILD=true`). This sets up the build process for our bundled builds (which is the default on linux). The operative logic is at the end of the script, but it will do the following (and it will stop with the first one that succeeds and some of the steps are only checked if they are enabled via an environment variable):
+* `tools/nixlibs.R` This script is sometimes called by `configure` on Linux (or on any non-windows OS with the environment variable `FORCE_BUNDLED_BUILD=true`). This sets up the build process for our bundled builds (which is the default on linux). The operative logic is at the end of the script, but it will do the following (and it will stop with the first one that succeeds and some of the steps are only checked if they are enabled via an environment variable):
   * Check if there is an already built libarrow in `arrow/r/libarrow-{version}`, use that to link against if it exists.
-  * Check if a binary is available from our hosted official builds.
+  * Check if a binary is available from our hosted unofficial builds.
   * Download the Arrow source and build the Arrow Library from source.
   * `*** Proceed without C++` dependencies (this is an error and the package will not work, but if you see this message you know the previous steps have not succeeded/were not enabled)
-* `inst/build_arrow_static.sh` this script builds Arrow for a bundled, static build. It is called by `tools/nixlibs.R` when the Arrow library is being built.
+* `inst/build_arrow_static.sh` this script builds Arrow for a bundled, static build. It is called by `tools/nixlibs.R` when the Arrow library is being built. (If you're looking at this script, and you've gotten this far, it should look _incredibly_ familiar: it's basically the contents of this guide in script form — with a few important changes)
 
 ## Editing C++ code in the R package
 
-The `arrow` package uses some customized tools on top of `cpp11` to
-prepare its C++ code in `src/`. If you change C++ code in the R package,
-you will need to set the `ARROW_R_DEV` environment variable to `true`
-(optionally, add it to your `~/.Renviron` file to persist across
-sessions) so that the `data-raw/codegen.R` file is used for code
-generation.
+The `arrow` package uses some customized tools on top of `cpp11` to prepare its
+C++ code in `src/`. This is because we have some features that are only enabled
+and built conditionally during build time. If you change C++ code in the R
+package, you will need to set the `ARROW_R_DEV` environment variable to `true`
+(optionally, add it to your `~/.Renviron` file to persist across sessions) so
+that the `data-raw/codegen.R` file is used for code generation. The `Makefile` 
+commands also handles this automatically.
 
-We use Google C++ style in our C++ code. Check for style errors with
+We use Google C++ style in our C++ code. The easiest way to accomplish this is
+use an editors/IDE that formats your code for you. Many popular editors/IDEs 
+have support for running `clang-format` on C++ files when you save them. 
+Installing/enabling the appropriate plugin may save you much frustration.
+
+Check for style errors with
 
 ``` shell
 ./lint.sh
@@ -433,13 +444,12 @@ isn’t found, you can explicitly provide the path to it like
 this by installing LLVM via Homebrew and running the script as
 `CLANG_FORMAT=$(brew --prefix llvm@8)/bin/clang-format ./lint.sh`
 
-_Note_ that the lint script requires Python 3 and the Python dependencies (note that `cmake_format is pinned to a specific version):
+_Note_ that the lint script requires Python 3 and the Python dependencies 
+(note that `cmake_format is pinned to a specific version):
 
 * autopep8
 * flake8
 * cmake_format==0.5.2
-
-Many popular editors/IDEs have support for running `clang-format` on C++ files when you save them. Installing/enabling the appropriate plugin may save you much frustration.
 
 ## Running tests
 
@@ -464,7 +474,7 @@ variables or other settings:
 
 ## Github workflows
 
-Crossbow is our extended test suite runner [more documentation is available](https://arrow.apache.org/docs/developers/crossbow.html) but important GitHub comment commands include:
+On a pull request, there are some actions you can trigger by commenting on the PR. We have additional CI checks that run nightly and can be requested on demand using an internal tool called [crosssbow](https://arrow.apache.org/docs/developers/crossbow.html). A few important GitHub comment commands include:
 
 * `@github-actions crossbow submit -g r` for all extended R CI tests
 * `@github-actions crossbow submit {task-name}` for running a specific task. See the `r:` group definition near the beginning of the [crossbow configuration](https://github.com/apache/arrow/blob/master/dev/tasks/tasks.yml) for a list of glob expression patterns that match names of items in the `tasks:` list below it.

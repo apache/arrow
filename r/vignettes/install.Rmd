@@ -286,6 +286,16 @@ See discussion [here](https://issues.apache.org/jira/browse/ARROW-8556).
 
 ## Summary of build environment variables
 
+Some features are optional when you build Arrow from source
+
+* `ARROW_S3`: If set to `true` S3 support will be built (as long as the 
+  dependencies are met, if they are not met, this may be automatically turned off) (default: false)
+* `ARROW_JEMALLOC`: If set to `true` jemalloc support will be included (default: true)
+* `ARROW_PARQUET`: If set to `true` parquet support will be included (default: true)
+* `ARROW_DATASET`: If set to `true` dataset support will be included (default: true)
+* `ARROW_WITH_RE2`: If set to `true` RE2 regular expression library support will be included (default: true)
+* `ARROW_WITH_UTF8PROC`: If set to `true` UTF8Proc string library support will be included (default: true)
+
 By default, these are all unset. All boolean variables are case-insensitive.
 
 * `ARROW_USE_PKG_CONFIG`: If set to `false`, the configure script
@@ -330,14 +340,8 @@ By default, these are all unset. All boolean variables are case-insensitive.
   The directory will be created if it does not exist.
 * `CMAKE`: When building the C++ library from source, you can specify a
   `/path/to/cmake` to use a different version than whatever is found on the `$PATH`
-* `ARROW_S3`: If set to `true` S3 support will be built (as long as the 
-  dependencies are met, if they are not met, this may be automatically turned off).
-* `ARROW_JEMALLOC`: If set to `true` jemalloc support will be included.
-* `ARROW_PARQUET`: If set to `true` parquet support will be included.
-* `ARROW_DATASET`: If set to `true` dataset support will be included.
-* `ARROW_WITH_RE2`: If set to `true` RE2 regular expression library support will be included.
-* `ARROW_WITH_UTF8PROC`: If set to `true` UTF8Proc string library support will be included.
-
+  
+  
 # Contributing
 
 As mentioned above, please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues)
