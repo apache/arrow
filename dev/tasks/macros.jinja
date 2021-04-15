@@ -170,7 +170,7 @@ on:
 
 {%- macro travis_upload_releases(pattern) -%}
   - sudo -H pip3 install pygit2==1.0
-  - sudo -H pip3 install arrow/dev/archery[crossbow]
+  - sudo -H pip3 install -e arrow/dev/archery[crossbow]
   - |
     archery crossbow \
       --queue-path $(pwd) \
