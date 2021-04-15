@@ -1872,34 +1872,22 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CVarianceOptions(int ddof)
         int ddof
 
-    enum CMinMaxMode \
-            "arrow::compute::MinMaxOptions::Mode":
-        CMinMaxMode_SKIP \
-            "arrow::compute::MinMaxOptions::SKIP"
-        CMinMaxMode_EMIT_NULL \
-            "arrow::compute::MinMaxOptions::EMIT_NULL"
+    enum CScalarAggregateMode \
+            "arrow::compute::ScalarAggregateOptions::Mode":
+        CScalarAggregateMode_SKIPNA \
+            "arrow::compute::ScalarAggregateOptions::SKIPNA"
+        CScalarAggregateMode_KEEPNA \
+            "arrow::compute::ScalarAggregateOptions::KEEPNA"
 
-    cdef cppclass CMinMaxOptions \
-            "arrow::compute::MinMaxOptions"(CFunctionOptions):
-        CMinMaxOptions(CMinMaxMode null_handling)
-        CMinMaxMode null_handling
+    cdef cppclass CScalarAggregateOptions \
+            "arrow::compute::ScalarAggregateOptions"(CFunctionOptions):
+        CScalarAggregateOptions(CScalarAggregateMode null_handling)
+        CScalarAggregateMode null_handling
 
     cdef cppclass CModeOptions \
             "arrow::compute::ModeOptions"(CFunctionOptions):
         CModeOptions(int64_t n)
         int64_t n
-
-    enum CCountMode \
-            "arrow::compute::CountOptions::Mode":
-        CCountMode_COUNT_NON_NULL \
-            "arrow::compute::CountOptions::COUNT_NON_NULL"
-        CCountMode_COUNT_NULL \
-            "arrow::compute::CountOptions::COUNT_NULL"
-
-    cdef cppclass CCountOptions \
-            "arrow::compute::CountOptions"(CFunctionOptions):
-        CCountOptions(CCountMode count_mode)
-        CCountMode count_mode
 
     cdef cppclass CPartitionNthOptions \
             "arrow::compute::PartitionNthOptions"(CFunctionOptions):

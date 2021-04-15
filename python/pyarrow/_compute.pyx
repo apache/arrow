@@ -824,54 +824,29 @@ class ProjectOptions(_ProjectOptions):
         self._set_options(field_names)
 
 
-cdef class _MinMaxOptions(FunctionOptions):
+cdef class _ScalarAggregateOptions(FunctionOptions):
     cdef:
-        unique_ptr[CMinMaxOptions] min_max_options
+        unique_ptr[CScalarAggregateOptions] scalar_aggregate_options
 
     cdef const CFunctionOptions* get_options(self) except NULL:
-        return self.min_max_options.get()
+        return self.scalar_aggregate_options.get()
 
     def _set_options(self, null_handling):
-        if null_handling == 'skip':
-            self.min_max_options.reset(
-                new CMinMaxOptions(CMinMaxMode_SKIP))
-        elif null_handling == 'emit_null':
-            self.min_max_options.reset(
-                new CMinMaxOptions(CMinMaxMode_EMIT_NULL))
+        if null_handling == 'skipna':
+            self.scalar_aggregate_options.reset(
+                new CScalarAggregateOptions(CScalarAggregateMode_SKIPNA))
+        elif null_handling == 'keepna':
+            self.scalar_aggregate_options.reset(
+                new CScalarAggregateOptions(CScalarAggregateMode_KEEPNA))
         else:
             raise ValueError(
                 '{!r} is not a valid null_handling'
                 .format(null_handling))
 
 
-class MinMaxOptions(_MinMaxOptions):
-    def __init__(self, null_handling='skip'):
+class ScalarAggregateOptions(_ScalarAggregateOptions):
+    def __init__(self, null_handling='skipna'):
         self._set_options(null_handling)
-
-
-cdef class _CountOptions(FunctionOptions):
-    cdef:
-        unique_ptr[CCountOptions] count_options
-
-    cdef const CFunctionOptions* get_options(self) except NULL:
-        return self.count_options.get()
-
-    def _set_options(self, count_mode):
-        if count_mode == 'count_null':
-            self.count_options.reset(
-                new CCountOptions(CCountMode_COUNT_NULL))
-        elif count_mode == 'count_non_null':
-            self.count_options.reset(
-                new CCountOptions(CCountMode_COUNT_NON_NULL))
-        else:
-            raise ValueError(
-                '{!r} is not a valid count_mode'
-                .format(count_mode))
-
-
-class CountOptions(_CountOptions):
-    def __init__(self, count_mode='count_non_null'):
-        self._set_options(count_mode)
 
 
 cdef class _ModeOptions(FunctionOptions):

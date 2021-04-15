@@ -707,7 +707,7 @@ garrow_scalar_aggregate_options_get_property(GObject *object,
 
   switch (prop_id) {
   case PROP_MODE:
-    g_value_set_enum(value, priv->options.count_mode);
+    g_value_set_enum(value, priv->options.scalar_aggregate_mode);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);

@@ -84,7 +84,7 @@ GArrowCastOptions *garrow_cast_options_new(void);
 
 
 /**
- * GArrowCountMode:
+ * GArrowScalarAggregateMode:
  * @GARROW_SKIPNA: Count all non-null values.
  * @GARROW_KEEPNA: Count all null values.
  *
@@ -93,7 +93,7 @@ GArrowCastOptions *garrow_cast_options_new(void);
 typedef enum {
   GARROW_SKIPNA,
   GARROW_KEEPNA,
-} GArrowCountMode;
+} GArrowScalarAggregateMode;
 
 #define GARROW_TYPE_SCALAR_AGGREGATE_OPTIONS (garrow_scalar_aggregate_options_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowScalarAggregateOptions,

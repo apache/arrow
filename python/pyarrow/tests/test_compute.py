@@ -354,24 +354,28 @@ def test_min_max():
     data = [4, 5, 6, None, 1]
     s = pc.min_max(data)
     assert s.as_py() == {'min': 1, 'max': 6}
-    s = pc.min_max(data, options=pc.MinMaxOptions())
+    s = pc.min_max(data, options=pc.ScalarAggregateOptions())
     assert s.as_py() == {'min': 1, 'max': 6}
-    s = pc.min_max(data, options=pc.MinMaxOptions(null_handling='skip'))
+    s = pc.min_max(data, options=pc.ScalarAggregateOptions(
+        null_handling='skipna'))
     assert s.as_py() == {'min': 1, 'max': 6}
-    s = pc.min_max(data, options=pc.MinMaxOptions(null_handling='emit_null'))
+    s = pc.min_max(data, options=pc.ScalarAggregateOptions(
+        null_handling='keepna'))
     assert s.as_py() == {'min': None, 'max': None}
 
     # Options as dict of kwargs
-    s = pc.min_max(data, options={'null_handling': 'emit_null'})
+    s = pc.min_max(data, options={
+        'null_handling': 'keepna'})
     assert s.as_py() == {'min': None, 'max': None}
     # Options as named functions arguments
-    s = pc.min_max(data, null_handling='emit_null')
+    s = pc.min_max(data,
+                   null_handling='keepna')
     assert s.as_py() == {'min': None, 'max': None}
 
     # Both options and named arguments
     with pytest.raises(TypeError):
-        s = pc.min_max(data, options=pc.MinMaxOptions(),
-                       null_handling='emit_null')
+        s = pc.min_max(data, options=pc.ScalarAggregateOptions(),
+                       null_handling='keepna')
 
     # Wrong options type
     options = pc.TakeOptions()
@@ -427,7 +431,7 @@ def test_generated_docstrings():
         Compute the minimum and maximum values of a numeric array.
 
         Null values are ignored by default.
-        This can be changed through MinMaxOptions.
+        This can be changed through ScalarAggregateOptions.
 
         Parameters
         ----------
@@ -435,11 +439,12 @@ def test_generated_docstrings():
             Argument to compute function
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
-        options : pyarrow.compute.MinMaxOptions, optional
+        options : pyarrow.compute.ScalarAggregateOptions, optional
             Parameters altering compute function semantics
         **kwargs : optional
-            Parameters for MinMaxOptions constructor.  Either `options`
-            or `**kwargs` can be passed, but not both at the same time.
+            Parameters for ScalarAggregateOptions constructor.  Either
+            `options` or `**kwargs` can be passed, but not both at the same
+            time.
         """)
     assert pc.add.__doc__ == textwrap.dedent("""\
         Add the arguments element-wise.

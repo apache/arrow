@@ -21,7 +21,7 @@ class TestCount < Test::Unit::TestCase
 
   sub_test_case("ScalarAggregateOptions") do
     def test_default_mode
-      assert_equal(Arrow::CountMode::ALL,
+      assert_equal(Arrow::ScalarAggregateMode::KEEPNA,
                    Arrow::ScalarAggregateOptions.new.mode)
     end
   end
