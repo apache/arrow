@@ -485,9 +485,7 @@ test_rust() {
   # raises on any formatting errors
   rustup component add rustfmt --toolchain stable
   cargo +stable fmt --all -- --check
-
-  # we are targeting Rust nightly for releases
-  rustup default nightly
+  rustup default stable
 
   # use local modules because we don't publish modules to crates.io yet
   sed \
