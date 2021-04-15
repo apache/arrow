@@ -223,9 +223,12 @@ class DatasetFixtureMixin : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(auto it, scanner->ScanBatchesUnordered());
 
     int fragment_counter = 0;
-    int batch_counter = 0;
     bool saw_last_fragment = false;
+    int batch_counter = 0;
     auto visitor = [&](EnumeratedRecordBatch batch) -> Status {
+      if (batch_counter == 0) {
+        EXPECT_FALSE(saw_last_fragment);
+      }
       EXPECT_EQ(batch_counter++, batch.record_batch.index);
       auto last_batch = batch_counter == expected_batches_per_fragment;
       EXPECT_EQ(last_batch, batch.record_batch.last);
@@ -234,7 +237,6 @@ class DatasetFixtureMixin : public ::testing::Test {
         fragment_counter++;
         batch_counter = 0;
       }
-      EXPECT_FALSE(saw_last_fragment);
       saw_last_fragment = batch.fragment.last;
       AssertBatchEquals(expected, *batch.record_batch.value);
       return Status::OK();

@@ -85,6 +85,7 @@ TEST(FileSource, BufferBased) {
 
 constexpr int kNumScanTasks = 2;
 constexpr int kBatchesPerScanTask = 2;
+constexpr int kRowsPerBatch = 1024;
 class MockFileFormat : public FileFormat {
   virtual std::string type_name() const { return "mock"; }
   virtual bool Equals(const FileFormat& other) const { return false; }
@@ -107,7 +108,7 @@ class MockFileFormat : public FileFormat {
     for (int i = 0; i < kNumScanTasks; i++) {
       RecordBatchVector batches;
       for (int j = 0; j < kBatchesPerScanTask; j++) {
-        batches.push_back(ConstantArrayGenerator::Zeroes(kDefaultBatchSize, sch));
+        batches.push_back(ConstantArrayGenerator::Zeroes(kRowsPerBatch, sch));
       }
       scan_tasks.push_back(std::make_shared<InMemoryScanTask>(
           std::move(batches), std::make_shared<ScanOptions>(), nullptr));
@@ -123,7 +124,7 @@ TEST(FileFormat, ScanAsync) {
   ASSERT_FINISHES_OK_AND_ASSIGN(auto batches, CollectAsyncGenerator(batch_gen));
   ASSERT_EQ(kNumScanTasks * kBatchesPerScanTask, static_cast<int>(batches.size()));
   for (int i = 0; i < kNumScanTasks * kBatchesPerScanTask; i++) {
-    ASSERT_EQ(kDefaultBatchSize, batches[i]->num_rows());
+    ASSERT_EQ(kRowsPerBatch, batches[i]->num_rows());
   }
 }
 
