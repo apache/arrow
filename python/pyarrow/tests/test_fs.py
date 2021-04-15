@@ -1060,11 +1060,15 @@ def test_s3_proxy_options(monkeypatch):
     proxy_opts_1_dict = {'scheme': 'http', 'host': 'localhost', 'port': 8999}
     proxy_opts_1_str = 'http://localhost:8999'
     # The following two are equivalent:
-    proxy_opts_2_dict = {'scheme': 'http', 'host': 'localhost', 'port': 8080}
+    proxy_opts_2_dict = {'scheme': 'https', 'host': 'localhost', 'port': 8080}
     proxy_opts_2_str = 'http://localhost:8080'
 
     # Check dict case for 'proxy_options'
     fs = S3FileSystem(proxy_options=proxy_opts_1_dict)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs = S3FileSystem(proxy_options=proxy_opts_2_dict)
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
 
@@ -1073,27 +1077,64 @@ def test_s3_proxy_options(monkeypatch):
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
 
+    fs = S3FileSystem(proxy_options=proxy_opts_2_str)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
     # Check that two FSs using the same proxy_options dict are equal
-    assert S3FileSystem(proxy_options=proxy_opts_1_dict) == S3FileSystem(
-        proxy_options=proxy_opts_1_dict)
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_dict)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_1_dict)
+    assert fs1 == fs2
+    assert pickle.loads(pickle.dumps(fs1)) == fs2
+    assert pickle.loads(pickle.dumps(fs2)) == fs1
+
     # Check that two FSs using the same proxy_options str are equal
-    assert S3FileSystem(proxy_options=proxy_opts_1_str) == S3FileSystem(
-        proxy_options=proxy_opts_1_str)
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_str)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_1_str)
+    assert fs1 == fs2
+    assert pickle.loads(pickle.dumps(fs1)) == fs2
+    assert pickle.loads(pickle.dumps(fs2)) == fs1
+
     # Check that two FSs using equivalent proxy_options
     # (one dict, one str) are equal
-    assert S3FileSystem(proxy_options=proxy_opts_1_dict) == S3FileSystem(
-        proxy_options=proxy_opts_1_str)
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_dict)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_1_str)
+    assert fs1 == fs2
+    assert pickle.loads(pickle.dumps(fs1)) == fs2
+    assert pickle.loads(pickle.dumps(fs2)) == fs1
+
     # Check that two FSs using nonequivalent proxy_options are not equal
-    assert S3FileSystem(proxy_options=proxy_opts_1_dict) != S3FileSystem(
-        proxy_options=proxy_opts_2_dict)
-    assert S3FileSystem(proxy_options=proxy_opts_1_dict) != S3FileSystem(
-        proxy_options=proxy_opts_2_str)
-    assert S3FileSystem(proxy_options=proxy_opts_1_str) != S3FileSystem(
-        proxy_options=proxy_opts_2_str)
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_dict)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_2_dict)
+    assert fs1 != fs2
+    assert pickle.loads(pickle.dumps(fs1)) != fs2
+    assert pickle.loads(pickle.dumps(fs2)) != fs1
+
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_dict)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_2_str)
+    assert fs1 != fs2
+    assert pickle.loads(pickle.dumps(fs1)) != fs2
+    assert pickle.loads(pickle.dumps(fs2)) != fs1
+
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_str)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_2_str)
+    assert fs1 != fs2
+    assert pickle.loads(pickle.dumps(fs1)) != fs2
+    assert pickle.loads(pickle.dumps(fs2)) != fs1
+
     # Check that two FSs (one using proxy_options and the other not)
     # are not equal
-    assert S3FileSystem(proxy_options=proxy_opts_1_dict) != S3FileSystem()
-    assert S3FileSystem(proxy_options=proxy_opts_1_str) != S3FileSystem()
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_dict)
+    fs2 = S3FileSystem()
+    assert fs1 != fs2
+    assert pickle.loads(pickle.dumps(fs1)) != fs2
+    assert pickle.loads(pickle.dumps(fs2)) != fs1
+
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_str)
+    fs2 = S3FileSystem()
+    assert fs1 != fs2
+    assert pickle.loads(pickle.dumps(fs1)) != fs2
+    assert pickle.loads(pickle.dumps(fs2)) != fs1
 
     # Only dict and str are supported
     with pytest.raises(TypeError):
@@ -1103,7 +1144,7 @@ def test_s3_proxy_options(monkeypatch):
         S3FileSystem(proxy_options={'host': 'localhost', 'port': 9090})
     # Missing host
     with pytest.raises(KeyError):
-        S3FileSystem(proxy_options={'scheme': 'http', 'port': 9090})
+        S3FileSystem(proxy_options={'scheme': 'https', 'port': 9090})
     # Missing port
     with pytest.raises(KeyError):
         S3FileSystem(proxy_options={'scheme': 'http', 'host': 'localhost'})
