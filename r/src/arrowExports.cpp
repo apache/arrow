@@ -2067,7 +2067,7 @@ extern "C" SEXP _arrow_dataset___Dataset__Write(SEXP file_write_options_sexp, SE
 #endif
 
 // dataset.cpp
-#if defined(ARROW_R_WITH_ARROW)
+#if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<arrow::Table> dataset___Scanner__TakeRows(const std::shared_ptr<ds::Scanner>& scanner, const std::shared_ptr<arrow::Array>& indices);
 extern "C" SEXP _arrow_dataset___Scanner__TakeRows(SEXP scanner_sexp, SEXP indices_sexp){
 BEGIN_CPP11

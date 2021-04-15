@@ -476,7 +476,7 @@ void dataset___Dataset__Write(
   StopIfNotOk(ds::FileSystemDataset::Write(opts, scanner));
 }
 
-// [[arrow::export]]
+// [[dataset::export]]
 std::shared_ptr<arrow::Table> dataset___Scanner__TakeRows(
     const std::shared_ptr<ds::Scanner>& scanner,
     const std::shared_ptr<arrow::Array>& indices) {
