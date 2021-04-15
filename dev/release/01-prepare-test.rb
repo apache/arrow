@@ -54,7 +54,7 @@ class PrepareTest < Test::Unit::TestCase
       env["PREPARE_#{target}"] = "1"
     end
     env = env.merge(additional_env)
-    sh(env, @script, @release_version, @next_version)
+    sh(env, @script, @release_version, @next_version, "0")
   end
 
   def parse_patch(patch)

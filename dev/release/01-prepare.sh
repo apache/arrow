@@ -183,6 +183,7 @@ release_candidate_branch="release-${version}-rc${rc_number}"
 : ${PREPARE_CHANGELOG:=${PREPARE_DEFAULT}}
 : ${PREPARE_LINUX_PACKAGES:=${PREPARE_DEFAULT}}
 : ${PREPARE_VERSION_PRE_TAG:=${PREPARE_DEFAULT}}
+: ${PREPARE_BRANCH:=${PREPARE_DEFAULT}}
 : ${PREPARE_TAG:=${PREPARE_DEFAULT}}
 : ${PREPARE_VERSION_POST_TAG:=${PREPARE_DEFAULT}}
 : ${PREPARE_DEB_PACKAGE_NAMES:=${PREPARE_DEFAULT}}
@@ -194,19 +195,21 @@ if [ ${PREPARE_TAG} -gt 0 ]; then
   fi
 fi
 
-if [[ $(git branch -l "${release_candidate_branch}") ]]; then
-  next_rc_number=$(($rc_number+1))
-  echo "Branch ${release_candidate_branch} already exists, so create a new release candidate:"
-  echo "1. Checkout the master branch for major releases and maint-<version> for patch releases."
-  echo "2. Execute the script again with bumped RC number."
-  echo "Commands:"
-  echo "   git checkout master"
-  echo "   dev/release/01-prepare.sh ${version} ${next_version} ${next_rc_number}"
-  exit 1
-fi
+if [ ${PREPARE_BRANCH} -gt 0 ]; then
+  if [[ $(git branch -l "${release_candidate_branch}") ]]; then
+    next_rc_number=$(($rc_number+1))
+    echo "Branch ${release_candidate_branch} already exists, so create a new release candidate:"
+    echo "1. Checkout the master branch for major releases and maint-<version> for patch releases."
+    echo "2. Execute the script again with bumped RC number."
+    echo "Commands:"
+    echo "   git checkout master"
+    echo "   dev/release/01-prepare.sh ${version} ${next_version} ${next_rc_number}"
+    exit 1
+  fi
 
-echo "Create local branch ${release_candidate_branch} for release candidate ${rc_number}"
-git checkout -b ${release_candidate_branch}
+  echo "Create local branch ${release_candidate_branch} for release candidate ${rc_number}"
+  git checkout -b ${release_candidate_branch}
+fi
 
 ############################## Pre-Tag Commits ##############################
 
