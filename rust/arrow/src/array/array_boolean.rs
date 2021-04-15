@@ -81,8 +81,7 @@ impl BooleanArray {
     /// Note this doesn't do any bound checking, for performance reason.
     pub fn value(&self, i: usize) -> bool {
         debug_assert!(i < self.len());
-        let offset = i + self.offset();
-        unsafe { bit_util::get_bit_raw(self.raw_values.as_ptr(), offset) }
+        unsafe { self.value_unchecked(i) }
     }
 }
 

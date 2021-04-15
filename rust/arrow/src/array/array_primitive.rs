@@ -105,8 +105,7 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
     /// caller must ensure that the passed in offset is less than the array len()
     pub fn value(&self, i: usize) -> T::Native {
         debug_assert!(i < self.len());
-        let offset = i + self.offset();
-        unsafe { *self.raw_values.as_ptr().add(offset) }
+        unsafe { self.value_unchecked(i) }
     }
 
     /// Creates a PrimitiveArray based on an iterator of values without nulls
