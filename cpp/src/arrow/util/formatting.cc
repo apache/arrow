@@ -43,10 +43,28 @@ struct FloatToStringFormatter::Impl {
       : converter_(DoubleToStringConverter::EMIT_POSITIVE_EXPONENT_SIGN, "inf", "nan",
                    'e', -6, 10, 6, 0) {}
 
+  Impl(int flags, const char* inf_symbol, const char* nan_symbol, char exp_character,
+       int decimal_in_shortest_low, int decimal_in_shortest_high,
+       int max_leading_padding_zeroes_in_precision_mode,
+       int max_trailing_padding_zeroes_in_precision_mode)
+      : converter_(flags, inf_symbol, nan_symbol, exp_character, decimal_in_shortest_low,
+                   decimal_in_shortest_high, max_leading_padding_zeroes_in_precision_mode,
+                   max_trailing_padding_zeroes_in_precision_mode) {}
+
   DoubleToStringConverter converter_;
 };
 
 FloatToStringFormatter::FloatToStringFormatter() : impl_(new Impl()) {}
+
+FloatToStringFormatter::FloatToStringFormatter(
+    int flags, const char* inf_symbol, const char* nan_symbol, char exp_character,
+    int decimal_in_shortest_low, int decimal_in_shortest_high,
+    int max_leading_padding_zeroes_in_precision_mode,
+    int max_trailing_padding_zeroes_in_precision_mode)
+    : impl_(new Impl(flags, inf_symbol, nan_symbol, exp_character,
+                     decimal_in_shortest_low, decimal_in_shortest_high,
+                     max_leading_padding_zeroes_in_precision_mode,
+                     max_trailing_padding_zeroes_in_precision_mode)) {}
 
 FloatToStringFormatter::~FloatToStringFormatter() {}
 
