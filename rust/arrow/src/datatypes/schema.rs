@@ -152,6 +152,12 @@ impl Schema {
             })
     }
 
+    /// Appends a new field to this `Schema` as a field named
+    /// `field_name`.
+    pub fn push(&mut self, field: Field) {
+        self.fields.push(field)
+    }
+
     /// Returns an immutable reference of the vector of `Field` instances.
     #[inline]
     pub const fn fields(&self) -> &Vec<Field> {
