@@ -1056,24 +1056,44 @@ def test_s3_options(monkeypatch):
 def test_s3_proxy_options(monkeypatch):
     from pyarrow.fs import S3FileSystem
 
-    # Avoid wait for unavailable metadata server in ARN role example below
-    monkeypatch.setenv("AWS_EC2_METADATA_DISABLED", "true")
+    # The following two are equivalent:
+    proxy_opts_1_dict = {'scheme': 'http', 'host': 'localhost', 'port': 8999}
+    proxy_opts_1_str = 'http://localhost:8999'
+    # The following two are equivalent:
+    proxy_opts_2_dict = {'scheme': 'http', 'host': 'localhost', 'port': 8080}
+    proxy_opts_2_str = 'http://localhost:8080'
 
     # Check dict case for 'proxy_options'
-    fs1 = S3FileSystem(proxy_options={'scheme': 'http', 'host': 'localhost',
-                                      'port': 8999})
-    assert isinstance(fs1, S3FileSystem)
-    assert pickle.loads(pickle.dumps(fs1)) == fs1
+    fs = S3FileSystem(proxy_options=proxy_opts_1_dict)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
 
     # Check str case for 'proxy_options'
-    fs2 = S3FileSystem(proxy_options='http://localhost:9000')
-    assert isinstance(fs2, S3FileSystem)
-    assert pickle.loads(pickle.dumps(fs2)) == fs2
+    fs = S3FileSystem(proxy_options=proxy_opts_1_str)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
 
-    # Check that filesystems with different proxy_options are not equal
-    assert fs1 != fs2
-    # Check that filesystems with and without proxy_options are not equal
-    assert fs1 != S3FileSystem()
+    # Check that two FSs using the same proxy_options dict are equal
+    assert S3FileSystem(proxy_options=proxy_opts_1_dict) == S3FileSystem(
+        proxy_options=proxy_opts_1_dict)
+    # Check that two FSs using the same proxy_options str are equal
+    assert S3FileSystem(proxy_options=proxy_opts_1_str) == S3FileSystem(
+        proxy_options=proxy_opts_1_str)
+    # Check that two FSs using equivalent proxy_options
+    # (one dict, one str) are equal
+    assert S3FileSystem(proxy_options=proxy_opts_1_dict) == S3FileSystem(
+        proxy_options=proxy_opts_1_str)
+    # Check that two FSs using nonequivalent proxy_options are not equal
+    assert S3FileSystem(proxy_options=proxy_opts_1_dict) != S3FileSystem(
+        proxy_options=proxy_opts_2_dict)
+    assert S3FileSystem(proxy_options=proxy_opts_1_dict) != S3FileSystem(
+        proxy_options=proxy_opts_2_str)
+    assert S3FileSystem(proxy_options=proxy_opts_1_str) != S3FileSystem(
+        proxy_options=proxy_opts_2_str)
+    # Check that two FSs (one using proxy_options and the other not)
+    # are not equal
+    assert S3FileSystem(proxy_options=proxy_opts_1_dict) != S3FileSystem()
+    assert S3FileSystem(proxy_options=proxy_opts_1_str) != S3FileSystem()
 
     # Only dict and str are supported
     with pytest.raises(TypeError):
