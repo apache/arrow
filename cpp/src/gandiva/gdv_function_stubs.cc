@@ -389,6 +389,7 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
     args = {types->i64_type(),       // int64_t execution_context
             types->i32_type(),       // int32_t value
             types->i64_type(),       // int64_t len
+            types->i8_ptr_type(),       // const char* pattern
             types->i32_ptr_type()};  // int32_t* out_len
     engine->AddGlobalMappingForFunc(
             "gdv_fn_to_char_int32_int64", types->i8_ptr_type() /*return_type*/, args,
