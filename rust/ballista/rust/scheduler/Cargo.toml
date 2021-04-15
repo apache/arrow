@@ -52,8 +52,11 @@ tonic = "0.4"
 tower = { version = "0.4" }
 warp = "0.3"
 
-arrow = { git = "https://github.com/apache/arrow", rev="46161d2" }
-datafusion = { git = "https://github.com/apache/arrow", rev="46161d2" }
+#arrow = { path = "../../../arrow"  }
+#datafusion = { path = "../../../datafusion" }
+
+arrow = { git = "https://github.com/apache/arrow", rev="fe83dca" }
+datafusion = { git = "https://github.com/apache/arrow", rev="fe83dca" }
 
 [dev-dependencies]
 ballista-core = { path = "../core" }

@@ -201,12 +201,13 @@ impl SchedulerGrpc for SchedulerServer {
 
         match file_type {
             FileType::Parquet => {
-                let parquet_exec = ParquetExec::try_from_path(&path, None, None, 1024, 1)
-                    .map_err(|e| {
-                        let msg = format!("Error opening parquet files: {}", e);
-                        error!("{}", msg);
-                        tonic::Status::internal(msg)
-                    })?;
+                let parquet_exec =
+                    ParquetExec::try_from_path(&path, None, None, 1024, 1, None)
+                        .map_err(|e| {
+                            let msg = format!("Error opening parquet files: {}", e);
+                            error!("{}", msg);
+                            tonic::Status::internal(msg)
+                        })?;
 
                 //TODO include statistics and any other info needed to reconstruct ParquetExec
                 Ok(Response::new(GetFileMetadataResult {
