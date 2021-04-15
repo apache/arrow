@@ -1,34 +1,40 @@
+MACOSX_DEPLOYMENT_TARGET:
+- '11.0'
 aws_sdk_cpp:
-- 1.8.63
-boost_cpp:
-- 1.74.0
+- 1.8.151
 bzip2:
 - '1'
 c_compiler:
-- vs2017
+- clang
+c_compiler_version:
+- '11'
 channel_sources:
-- conda-forge,defaults
+- conda-forge/label/rust_dev,conda-forge
 channel_targets:
 - conda-forge main
 cuda_compiler_version:
 - None
 cxx_compiler:
-- vs2017
+- clangxx
+cxx_compiler_version:
+- '11'
 gflags:
 - '2.2'
 glog:
 - 0.4.0
 grpc_cpp:
-- '1.32'
+- '1.36'
 libprotobuf:
-- '3.13'
+- '3.15'
 lz4_c:
-- 1.9.2
+- 1.9.3
+macos_machine:
+- arm64-apple-darwin20.0.0
 numpy:
-- '1.16'
+- '1.19'
+orc:
+- 1.6.7
 pin_run_as_build:
-  boost-cpp:
-    max_pin: x.x.x
   bzip2:
     max_pin: x
   lz4-c:
@@ -39,16 +45,20 @@ pin_run_as_build:
   zlib:
     max_pin: x.x
 python:
-- 3.6.* *_cpython
+- 3.9.* *_cpython
 re2:
-- 2020.10.01
+- 2021.04.01
 snappy:
 - '1'
 target_platform:
-- win-64
+- osx-arm64
+thrift_cpp:
+- 0.14.1
 zip_keys:
-- - numpy
-  - python
+- - c_compiler_version
+  - cxx_compiler_version
+- - python
+  - numpy
 zlib:
 - '1.2'
 zstd:
