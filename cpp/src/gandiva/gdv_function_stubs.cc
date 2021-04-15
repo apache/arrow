@@ -613,6 +613,7 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
     args = {types->i64_type(),       // int64_t execution_context
             types->i64_type(),       // int64_t value
             types->i64_type(),       // int64_t len
+            types->i8_ptr_type(),       // const char* pattern
             types->i32_ptr_type()};  // int32_t* out_len
     engine->AddGlobalMappingForFunc(
             "gdv_fn_to_char_int64_int64", types->i8_ptr_type() /*return_type*/, args,
@@ -622,6 +623,7 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
     args = {types->i64_type(),       // int64_t execution_context
             types->float_type(),     // float value
             types->i64_type(),       // int64_t len
+            types->i8_ptr_type(),       // const char* pattern
             types->i32_ptr_type()};  // int32_t* out_len
     engine->AddGlobalMappingForFunc(
             "gdv_fn_to_char_float32_int64", types->i8_ptr_type() /*return_type*/, args,
@@ -631,6 +633,7 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
     args = {types->i64_type(),       // int64_t execution_context
             types->double_type(),    // double value
             types->i64_type(),       // int64_t len
+            types->i8_ptr_type(),       // const char* pattern
             types->i32_ptr_type()};  // int32_t* out_len
     engine->AddGlobalMappingForFunc(
             "gdv_fn_to_char_float64_int64", types->i8_ptr_type() /*return_type*/, args,
