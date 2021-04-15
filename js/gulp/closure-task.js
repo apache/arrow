@@ -77,7 +77,9 @@ const closureTask = ((cache) => memoizeTask(cache, async function closure(target
                 `${src}/**/*.js` /* <-- then source globs */
             ], { base: `./` }),
             sourcemaps.init(),
-            closureCompiler(createClosureArgs(entry_point, externs)),
+            closureCompiler(createClosureArgs(entry_point, externs), {
+                platform: ['native', 'java', 'javascript']
+            }),
             // rename the sourcemaps from *.js.map files to *.min.js.map
             sourcemaps.write(`.`, { mapFile: (mapPath) => mapPath.replace(`.js.map`, `.${target}.min.js.map`) }),
             gulp.dest(out)
