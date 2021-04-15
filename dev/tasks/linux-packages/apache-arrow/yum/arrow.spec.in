@@ -750,6 +750,9 @@ Documentation for Apache Parquet GLib.
 %{_datadir}/gtk-doc/html/parquet-glib/
 
 %changelog
+* Thu Apr 15 2021 Krisztián Szűcs <szucs.krisztian@gmail.com> - 4.0.0-1
+- New upstream release.
+
 * Mon Jan 18 2021 Krisztián Szűcs <szucs.krisztian@gmail.com> - 3.0.0-1
 - New upstream release.
 
