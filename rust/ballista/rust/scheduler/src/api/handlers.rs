@@ -44,7 +44,7 @@ pub(crate) async fn scheduler_state(
                 })
                 .collect()
         }
-        Err(_) => vec![]
+        Err(_) => vec![],
     };
     let response = StateResponse {
         executors: metadata,

@@ -84,7 +84,10 @@ impl SchedulerServer {
         Self {
             state: SchedulerState::new(config),
             namespace,
-            start_time: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis(),
+            start_time: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis(),
             version: VERSION.unwrap_or("Unknown").to_string(),
         }
     }
