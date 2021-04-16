@@ -61,17 +61,18 @@ async fn start_server(
         "Ballista v{} Scheduler listening on {:?}",
         BALLISTA_VERSION, addr
     );
+
+    let scheduler_server =
+        SchedulerServer::new(config_backend.clone(), namespace.clone());
     Ok(Server::bind(&addr)
         .serve(make_service_fn(move |_| {
-            let scheduler_server =
-                SchedulerServer::new(config_backend.clone(), namespace.clone());
             let scheduler_grpc_server =
                 SchedulerGrpcServer::new(scheduler_server.clone());
 
             let mut tonic = TonicServer::builder()
                 .add_service(scheduler_grpc_server)
                 .into_service();
-            let mut warp = warp::service(get_routes(scheduler_server));
+            let mut warp = warp::service(get_routes(scheduler_server.clone()));
 
             future::ok::<_, Infallible>(tower::service_fn(
                 move |req: hyper::Request<hyper::Body>| {

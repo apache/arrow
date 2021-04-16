@@ -80,8 +80,8 @@ fn with_data_server(
 }
 
 pub fn get_routes(scheduler_server: SchedulerServer) -> BoxedFilter<(impl Reply,)> {
-    let routes = warp::path("executors")
+    let routes = warp::path("state")
         .and(with_data_server(scheduler_server))
-        .and_then(handlers::list_executors_data);
+        .and_then(handlers::scheduler_state);
     routes.boxed()
 }

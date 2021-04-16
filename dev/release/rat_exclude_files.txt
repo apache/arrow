@@ -169,6 +169,7 @@ csharp/src/Apache.Arrow.Flight.AspNetCore/Apache.Arrow.Flight.AspNetCore.csproj
 *.sgml
 *.css
 *.png
+*.ico
 *.svg
 *.devhelp2
 *.scss
@@ -203,3 +204,4 @@ julia/Arrow/docs/src/manual.md
 julia/Arrow/docs/src/reference.md
 rust/ballista/rust/benchmarks/tpch/queries/q*.sql
 rust/ballista/rust/scheduler/testdata/*
+rust/ballista/ui/scheduler/yarn.lock

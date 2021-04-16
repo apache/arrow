@@ -499,7 +499,7 @@ pub mod flight_service_server {
     #[async_trait]
     pub trait FlightService: Send + Sync + 'static {
         #[doc = "Server streaming response type for the Handshake method."]
-        type HandshakeStream: Stream<Item = Result<super::HandshakeResponse, tonic::Status>>
+        type HandshakeStream: futures_core::Stream<Item = Result<super::HandshakeResponse, tonic::Status>>
             + Send
             + Sync
             + 'static;
@@ -513,7 +513,7 @@ pub mod flight_service_server {
             request: tonic::Request<tonic::Streaming<super::HandshakeRequest>>,
         ) -> Result<tonic::Response<Self::HandshakeStream>, tonic::Status>;
         #[doc = "Server streaming response type for the ListFlights method."]
-        type ListFlightsStream: Stream<Item = Result<super::FlightInfo, tonic::Status>>
+        type ListFlightsStream: futures_core::Stream<Item = Result<super::FlightInfo, tonic::Status>>
             + Send
             + Sync
             + 'static;
@@ -553,7 +553,7 @@ pub mod flight_service_server {
             request: tonic::Request<super::FlightDescriptor>,
         ) -> Result<tonic::Response<super::SchemaResult>, tonic::Status>;
         #[doc = "Server streaming response type for the DoGet method."]
-        type DoGetStream: Stream<Item = Result<super::FlightData, tonic::Status>>
+        type DoGetStream: futures_core::Stream<Item = Result<super::FlightData, tonic::Status>>
             + Send
             + Sync
             + 'static;
@@ -567,7 +567,7 @@ pub mod flight_service_server {
             request: tonic::Request<super::Ticket>,
         ) -> Result<tonic::Response<Self::DoGetStream>, tonic::Status>;
         #[doc = "Server streaming response type for the DoPut method."]
-        type DoPutStream: Stream<Item = Result<super::PutResult, tonic::Status>>
+        type DoPutStream: futures_core::Stream<Item = Result<super::PutResult, tonic::Status>>
             + Send
             + Sync
             + 'static;
@@ -583,7 +583,7 @@ pub mod flight_service_server {
             request: tonic::Request<tonic::Streaming<super::FlightData>>,
         ) -> Result<tonic::Response<Self::DoPutStream>, tonic::Status>;
         #[doc = "Server streaming response type for the DoExchange method."]
-        type DoExchangeStream: Stream<Item = Result<super::FlightData, tonic::Status>>
+        type DoExchangeStream: futures_core::Stream<Item = Result<super::FlightData, tonic::Status>>
             + Send
             + Sync
             + 'static;
@@ -598,7 +598,7 @@ pub mod flight_service_server {
             request: tonic::Request<tonic::Streaming<super::FlightData>>,
         ) -> Result<tonic::Response<Self::DoExchangeStream>, tonic::Status>;
         #[doc = "Server streaming response type for the DoAction method."]
-        type DoActionStream: Stream<Item = Result<super::Result, tonic::Status>>
+        type DoActionStream: futures_core::Stream<Item = Result<super::Result, tonic::Status>>
             + Send
             + Sync
             + 'static;
@@ -614,7 +614,7 @@ pub mod flight_service_server {
             request: tonic::Request<super::Action>,
         ) -> Result<tonic::Response<Self::DoActionStream>, tonic::Status>;
         #[doc = "Server streaming response type for the ListActions method."]
-        type ListActionsStream: Stream<Item = Result<super::ActionType, tonic::Status>>
+        type ListActionsStream: futures_core::Stream<Item = Result<super::ActionType, tonic::Status>>
             + Send
             + Sync
             + 'static;

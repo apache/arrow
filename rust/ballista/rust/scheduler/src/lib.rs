@@ -67,19 +67,28 @@ use tonic::{Request, Response};
 
 use self::state::{ConfigBackendClient, SchedulerState};
 use datafusion::physical_plan::parquet::ParquetExec;
-use std::time::Instant;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 #[derive(Clone)]
 pub struct SchedulerServer {
     state: SchedulerState,
     namespace: String,
+    start_time: u128,
+    version: String,
 }
 
 impl SchedulerServer {
     pub fn new(config: Arc<dyn ConfigBackendClient>, namespace: String) -> Self {
+        const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
+
         Self {
             state: SchedulerState::new(config),
             namespace,
+            start_time: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis(),
+            version: VERSION.unwrap_or("Unknown").to_string(),
         }
     }
 }
