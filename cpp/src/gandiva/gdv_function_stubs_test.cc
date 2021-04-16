@@ -290,118 +290,121 @@ TEST(TestGdvFnStubs, TestCastVARCHARFromDouble) {
   EXPECT_FALSE(ctx.has_error());
 }
 
-    TEST(TestGdvFnStubs, TestToCharFromInt32) {
-        gandiva::ExecutionContext ctx;
-        uint64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
-        int32_t out_len = 0;
+TEST(TestGdvFnStubs, TestToCharFromInt32) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
 
-        const char* out_str = gdv_fn_to_char_int32_int64(ctx_ptr, -46, 100, "##", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "-46");
-        EXPECT_FALSE(ctx.has_error());
+  const char* out_str = gdv_fn_to_char_int32_int64(ctx_ptr, -46, 100, "##", &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "-46");
+  EXPECT_FALSE(ctx.has_error());
 
-        out_str = gdv_fn_to_char_int32_int64(ctx_ptr, 2147483647, 100, "##########", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "2147483647");
-        EXPECT_FALSE(ctx.has_error());
+  out_str = gdv_fn_to_char_int32_int64(ctx_ptr, 2147483647, 100, "##########", &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "2147483647");
+  EXPECT_FALSE(ctx.has_error());
 
-        out_str = gdv_fn_to_char_int32_int64(ctx_ptr, -2147483647 - 1, 100, "##########", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "-2147483648");
-        EXPECT_FALSE(ctx.has_error());
+  out_str =
+      gdv_fn_to_char_int32_int64(ctx_ptr, -2147483647 - 1, 100, "##########", &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "-2147483648");
+  EXPECT_FALSE(ctx.has_error());
 
-        out_str = gdv_fn_to_char_int32_int64(ctx_ptr, 0, 100, "#", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "0");
-        EXPECT_FALSE(ctx.has_error());
+  out_str = gdv_fn_to_char_int32_int64(ctx_ptr, 0, 100, "#", &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0");
+  EXPECT_FALSE(ctx.has_error());
 
-        // test with required length less than actual buffer length
-        out_str = gdv_fn_to_char_int32_int64(ctx_ptr, 34567, 3, "###", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "345");
-        EXPECT_FALSE(ctx.has_error());
+  // test with required length less than actual buffer length
+  out_str = gdv_fn_to_char_int32_int64(ctx_ptr, 34567, 3, "###", &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "345");
+  EXPECT_FALSE(ctx.has_error());
 
-        out_str = gdv_fn_to_char_int32_int64(ctx_ptr, 347, 0, "#", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "");
-        EXPECT_FALSE(ctx.has_error());
+  out_str = gdv_fn_to_char_int32_int64(ctx_ptr, 347, 0, "#", &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
 
-        out_str = gdv_fn_to_char_int32_int64(ctx_ptr, 347, -1, "%1", &out_len);
-        EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length can not be negative"));
-        ctx.Reset();
-    }
+  out_str = gdv_fn_to_char_int32_int64(ctx_ptr, 347, -1, "%1", &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length can not be negative"));
+  ctx.Reset();
+}
 
-    TEST(TestGdvFnStubs, TestToCharFromInt64) {
-        gandiva::ExecutionContext ctx;
-        uint64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
-        int32_t out_len = 0;
+TEST(TestGdvFnStubs, TestToCharFromInt64) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
 
-        const char* out_str =
-                gdv_fn_to_char_int64_int64(ctx_ptr, 9223372036854775807LL, 100, "%1", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "9223372036854775807");
-        EXPECT_FALSE(ctx.has_error());
+  const char* out_str =
+      gdv_fn_to_char_int64_int64(ctx_ptr, 9223372036854775807LL, 100, "%1", &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "9223372036854775807");
+  EXPECT_FALSE(ctx.has_error());
 
-        out_str =
-                gdv_fn_to_char_int64_int64(ctx_ptr, -9223372036854775807LL - 1, 100, "%1", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "-9223372036854775808");
-        EXPECT_FALSE(ctx.has_error());
+  out_str = gdv_fn_to_char_int64_int64(ctx_ptr, -9223372036854775807LL - 1, 100, "%1",
+                                       &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "-9223372036854775808");
+  EXPECT_FALSE(ctx.has_error());
 
-        out_str = gdv_fn_to_char_int64_int64(ctx_ptr, 0, 100, "#", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "0");
-        EXPECT_FALSE(ctx.has_error());
+  out_str = gdv_fn_to_char_int64_int64(ctx_ptr, 0, 100, "#", &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0");
+  EXPECT_FALSE(ctx.has_error());
 
-        // test with required length less than actual buffer length
-        out_str = gdv_fn_to_char_int64_int64(ctx_ptr, 12345, 3, "###", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "123");
-        EXPECT_FALSE(ctx.has_error());
-    }
+  // test with required length less than actual buffer length
+  out_str = gdv_fn_to_char_int64_int64(ctx_ptr, 12345, 3, "###", &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "123");
+  EXPECT_FALSE(ctx.has_error());
+}
 
-    TEST(TestGdvFnStubs, TestToCharFromFloat) {
-        gandiva::ExecutionContext ctx;
-        uint64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
-        int32_t out_len = 0;
+TEST(TestGdvFnStubs, TestToCharFromFloat) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
 
-        const char* out_str = gdv_fn_to_char_float32_int64(ctx_ptr, 4.567f, 100, "#.###", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "4.567");
-        EXPECT_FALSE(ctx.has_error());
+  const char* out_str =
+      gdv_fn_to_char_float32_int64(ctx_ptr, 4.567f, 100, "#.###", &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "4.567");
+  EXPECT_FALSE(ctx.has_error());
 
-        out_str = gdv_fn_to_char_float32_int64(ctx_ptr, -3.4567f, 100, "#.####", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "-3.4567");
-        EXPECT_FALSE(ctx.has_error());
+  out_str = gdv_fn_to_char_float32_int64(ctx_ptr, -3.4567f, 100, "#.####", &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "-3.4567");
+  EXPECT_FALSE(ctx.has_error());
 
-        out_str = gdv_fn_to_char_float32_int64(ctx_ptr, 0.00001f, 100, "#.#####", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "0.00001");
-        EXPECT_FALSE(ctx.has_error());
+  out_str = gdv_fn_to_char_float32_int64(ctx_ptr, 0.00001f, 100, "#.#####", &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0.00001");
+  EXPECT_FALSE(ctx.has_error());
 
-        out_str = gdv_fn_to_char_float32_int64(ctx_ptr, 0.0f, 100, "#", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "0");
-        EXPECT_FALSE(ctx.has_error());
+  out_str = gdv_fn_to_char_float32_int64(ctx_ptr, 0.0f, 100, "#", &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0");
+  EXPECT_FALSE(ctx.has_error());
 
-        // test with required length less than actual buffer length
-        out_str = gdv_fn_to_char_float32_int64(ctx_ptr, 1.2345f, 3, "#.#", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "1.2");
-        EXPECT_FALSE(ctx.has_error());
-    }
+  // test with required length less than actual buffer length
+  out_str = gdv_fn_to_char_float32_int64(ctx_ptr, 1.2345f, 3, "#.#", &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "1.2");
+  EXPECT_FALSE(ctx.has_error());
+}
 
-    TEST(TestGdvFnStubs, TestToCharFromDouble) {
-        gandiva::ExecutionContext ctx;
-        uint64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
-        int32_t out_len = 0;
+TEST(TestGdvFnStubs, TestToCharFromDouble) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 0;
 
-        const char* out_str = gdv_fn_to_char_float64_int64(ctx_ptr, 4.567, 100, "#.###", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "4.567");
-        EXPECT_FALSE(ctx.has_error());
+  const char* out_str =
+      gdv_fn_to_char_float64_int64(ctx_ptr, 4.567, 100, "#.###", &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "4.567");
+  EXPECT_FALSE(ctx.has_error());
 
-        out_str = gdv_fn_to_char_float64_int64(ctx_ptr, -3.4567, 100, "#.####", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "-3.4567");
-        EXPECT_FALSE(ctx.has_error());
+  out_str = gdv_fn_to_char_float64_int64(ctx_ptr, -3.4567, 100, "#.####", &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "-3.4567");
+  EXPECT_FALSE(ctx.has_error());
 
-        out_str = gdv_fn_to_char_float64_int64(ctx_ptr, 0.00001, 100, "#.#####", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "0.00001");
-        EXPECT_FALSE(ctx.has_error());
+  out_str = gdv_fn_to_char_float64_int64(ctx_ptr, 0.00001, 100, "#.#####", &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0.00001");
+  EXPECT_FALSE(ctx.has_error());
 
-        out_str = gdv_fn_to_char_float64_int64(ctx_ptr, 0.0, 100, "#", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "0");
-        EXPECT_FALSE(ctx.has_error());
+  out_str = gdv_fn_to_char_float64_int64(ctx_ptr, 0.0, 100, "#", &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0");
+  EXPECT_FALSE(ctx.has_error());
 
-        // test with required length less than actual buffer length
-        out_str = gdv_fn_to_char_float64_int64(ctx_ptr, 1.2345, 3, "#.#", &out_len);
-        EXPECT_EQ(std::string(out_str, out_len), "1.2");
-        EXPECT_FALSE(ctx.has_error());
-    }
+  // test with required length less than actual buffer length
+  out_str = gdv_fn_to_char_float64_int64(ctx_ptr, 1.2345, 3, "#.#", &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "1.2");
+  EXPECT_FALSE(ctx.has_error());
+}
 
 }  // namespace gandiva
