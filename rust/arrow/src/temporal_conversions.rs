@@ -17,7 +17,7 @@
 
 //! Conversion methods for dates and times.
 
-use chrono::{NaiveDateTime, NaiveTime};
+use chrono::{Duration, NaiveDateTime, NaiveTime};
 
 /// Number of seconds in a day
 const SECONDS_IN_DAY: i64 = 86_400;
@@ -124,4 +124,28 @@ pub fn timestamp_ns_to_datetime(v: i64) -> NaiveDateTime {
         // discard extracted seconds
         (v % NANOSECONDS) as u32,
     )
+}
+
+/// converts a `i64` representing a `duration(s)` to [`Duration`]
+#[inline]
+pub fn duration_s_to_duration(v: i64) -> Duration {
+    Duration::seconds(v)
+}
+
+/// converts a `i64` representing a `duration(ms)` to [`Duration`]
+#[inline]
+pub fn duration_ms_to_duration(v: i64) -> Duration {
+    Duration::milliseconds(v)
+}
+
+/// converts a `i64` representing a `duration(us)` to [`Duration`]
+#[inline]
+pub fn duration_us_to_duration(v: i64) -> Duration {
+    Duration::microseconds(v)
+}
+
+/// converts a `i64` representing a `duration(ns)` to [`Duration`]
+#[inline]
+pub fn duration_ns_to_duration(v: i64) -> Duration {
+    Duration::nanoseconds(v)
 }

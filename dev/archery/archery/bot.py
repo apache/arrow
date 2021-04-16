@@ -146,7 +146,7 @@ class CommentBot:
             logger.error(e)
             pull.create_issue_comment("```\n{}\n```".format(e.message))
         except Exception as e:
-            logger.error(e)
+            logger.exception(e)
             comment.create_reaction('-1')
         else:
             comment.create_reaction('+1')

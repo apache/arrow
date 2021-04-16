@@ -19,6 +19,8 @@
 
 #if defined(ARROW_R_WITH_DATASET)
 
+#include <arrow/array.h>
+#include <arrow/compute/api.h>
 #include <arrow/dataset/api.h>
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/ipc/writer.h>
@@ -422,36 +424,21 @@ std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(
 }
 
 // [[dataset::export]]
-std::shared_ptr<arrow::Table> dataset___Scanner__head(
-    const std::shared_ptr<ds::Scanner>& scanner, int n) {
-  // TODO: make this a full Slice with offset > 0
-  std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
-  std::shared_ptr<arrow::RecordBatch> current_batch;
-
-  for (auto st : ValueOrStop(scanner->Scan())) {
-    for (auto b : ValueOrStop(ValueOrStop(st)->Execute())) {
-      current_batch = ValueOrStop(b);
-      batches.push_back(current_batch->Slice(0, n));
-      n -= current_batch->num_rows();
-      if (n < 0) break;
-    }
-    if (n < 0) break;
-  }
-  return ValueOrStop(arrow::Table::FromRecordBatches(std::move(batches)));
+cpp11::list dataset___Scanner__ScanBatches(const std::shared_ptr<ds::Scanner>& scanner) {
+  auto it = ValueOrStop(scanner->ScanBatches());
+  arrow::RecordBatchVector batches;
+  StopIfNotOk(it.Visit([&](ds::TaggedRecordBatch tagged_batch) {
+    batches.push_back(std::move(tagged_batch.record_batch));
+    return arrow::Status::OK();
+  }));
+  return arrow::r::to_r_list(batches);
 }
 
 // [[dataset::export]]
-cpp11::list dataset___Scanner__Scan(const std::shared_ptr<ds::Scanner>& scanner) {
-  auto it = ValueOrStop(scanner->Scan());
-  std::vector<std::shared_ptr<ds::ScanTask>> out;
-  std::shared_ptr<ds::ScanTask> scan_task;
-  // TODO(npr): can this iteration be parallelized?
-  for (auto st : it) {
-    scan_task = ValueOrStop(st);
-    out.push_back(scan_task);
-  }
-
-  return arrow::r::to_r_list(out);
+std::shared_ptr<arrow::Table> dataset___Scanner__head(
+    const std::shared_ptr<ds::Scanner>& scanner, int n) {
+  // TODO: make this a full Slice with offset > 0
+  return ValueOrStop(scanner->Head(n));
 }
 
 // [[dataset::export]]
@@ -487,6 +474,13 @@ void dataset___Dataset__Write(
   opts.partitioning = partitioning;
   opts.basename_template = basename_template;
   StopIfNotOk(ds::FileSystemDataset::Write(opts, scanner));
+}
+
+// [[dataset::export]]
+std::shared_ptr<arrow::Table> dataset___Scanner__TakeRows(
+    const std::shared_ptr<ds::Scanner>& scanner,
+    const std::shared_ptr<arrow::Array>& indices) {
+  return ValueOrStop(scanner->TakeRows(*indices));
 }
 
 #endif

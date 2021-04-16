@@ -155,8 +155,8 @@ where
     T: StringOffsetSizeTrait,
 {
     array: &'a GenericStringArray<T>,
-    i: usize,
-    len: usize,
+    current: usize,
+    current_end: usize,
 }
 
 impl<'a, T: StringOffsetSizeTrait> GenericStringIter<'a, T> {
@@ -164,8 +164,8 @@ impl<'a, T: StringOffsetSizeTrait> GenericStringIter<'a, T> {
     pub fn new(array: &'a GenericStringArray<T>) -> Self {
         GenericStringIter::<T> {
             array,
-            i: 0,
-            len: array.len(),
+            current: 0,
+            current_end: array.len(),
         }
     }
 }
@@ -174,20 +174,40 @@ impl<'a, T: StringOffsetSizeTrait> std::iter::Iterator for GenericStringIter<'a,
     type Item = Option<&'a str>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let i = self.i;
-        if i >= self.len {
+        let i = self.current;
+        if i >= self.current_end {
             None
         } else if self.array.is_null(i) {
-            self.i += 1;
+            self.current += 1;
             Some(None)
         } else {
-            self.i += 1;
+            self.current += 1;
             Some(Some(self.array.value(i)))
         }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.len - self.i, Some(self.len - self.i))
+        (
+            self.current_end - self.current,
+            Some(self.current_end - self.current),
+        )
+    }
+}
+
+impl<'a, T: StringOffsetSizeTrait> std::iter::DoubleEndedIterator
+    for GenericStringIter<'a, T>
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.current_end == self.current {
+            None
+        } else {
+            self.current_end -= 1;
+            Some(if self.array.is_null(self.current_end) {
+                None
+            } else {
+                Some(self.array.value(self.current_end))
+            })
+        }
     }
 }
 
@@ -204,8 +224,8 @@ where
     T: BinaryOffsetSizeTrait,
 {
     array: &'a GenericBinaryArray<T>,
-    i: usize,
-    len: usize,
+    current: usize,
+    current_end: usize,
 }
 
 impl<'a, T: BinaryOffsetSizeTrait> GenericBinaryIter<'a, T> {
@@ -213,8 +233,8 @@ impl<'a, T: BinaryOffsetSizeTrait> GenericBinaryIter<'a, T> {
     pub fn new(array: &'a GenericBinaryArray<T>) -> Self {
         GenericBinaryIter::<T> {
             array,
-            i: 0,
-            len: array.len(),
+            current: 0,
+            current_end: array.len(),
         }
     }
 }
@@ -223,21 +243,47 @@ impl<'a, T: BinaryOffsetSizeTrait> std::iter::Iterator for GenericBinaryIter<'a,
     type Item = Option<&'a [u8]>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let i = self.i;
-        if i >= self.len {
+        let i = self.current;
+        if i >= self.current_end {
             None
         } else if self.array.is_null(i) {
-            self.i += 1;
+            self.current += 1;
             Some(None)
         } else {
-            self.i += 1;
+            self.current += 1;
             Some(Some(self.array.value(i)))
         }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.len - self.i, Some(self.len - self.i))
+        (
+            self.current_end - self.current,
+            Some(self.current_end - self.current),
+        )
     }
+}
+
+impl<'a, T: BinaryOffsetSizeTrait> std::iter::DoubleEndedIterator
+    for GenericBinaryIter<'a, T>
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.current_end == self.current {
+            None
+        } else {
+            self.current_end -= 1;
+            Some(if self.array.is_null(self.current_end) {
+                None
+            } else {
+                Some(self.array.value(self.current_end))
+            })
+        }
+    }
+}
+
+/// all arrays have known size.
+impl<'a, T: BinaryOffsetSizeTrait> std::iter::ExactSizeIterator
+    for GenericBinaryIter<'a, T>
+{
 }
 
 #[derive(Debug)]
@@ -246,16 +292,16 @@ where
     S: OffsetSizeTrait,
 {
     array: &'a GenericListArray<S>,
-    i: usize,
-    len: usize,
+    current: usize,
+    current_end: usize,
 }
 
 impl<'a, S: OffsetSizeTrait> GenericListArrayIter<'a, S> {
     pub fn new(array: &'a GenericListArray<S>) -> Self {
         GenericListArrayIter::<S> {
             array,
-            i: 0,
-            len: array.len(),
+            current: 0,
+            current_end: array.len(),
         }
     }
 }
@@ -264,26 +310,46 @@ impl<'a, S: OffsetSizeTrait> std::iter::Iterator for GenericListArrayIter<'a, S>
     type Item = Option<ArrayRef>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let i = self.i;
-        if i >= self.len {
+        let i = self.current;
+        if i >= self.current_end {
             None
         } else if self.array.is_null(i) {
-            self.i += 1;
+            self.current += 1;
             Some(None)
         } else {
-            self.i += 1;
+            self.current += 1;
             Some(Some(self.array.value(i)))
         }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.len - self.i, Some(self.len - self.i))
+        (
+            self.current_end - self.current,
+            Some(self.current_end - self.current),
+        )
+    }
+}
+
+impl<'a, S: OffsetSizeTrait> std::iter::DoubleEndedIterator
+    for GenericListArrayIter<'a, S>
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.current_end == self.current {
+            None
+        } else {
+            self.current_end -= 1;
+            Some(if self.array.is_null(self.current_end) {
+                None
+            } else {
+                Some(self.array.value(self.current_end))
+            })
+        }
     }
 }
 
 /// all arrays have known size.
-impl<'a, T: BinaryOffsetSizeTrait> std::iter::ExactSizeIterator
-    for GenericBinaryIter<'a, T>
+impl<'a, S: OffsetSizeTrait> std::iter::ExactSizeIterator
+    for GenericListArrayIter<'a, S>
 {
 }
 
@@ -305,6 +371,13 @@ mod tests {
 
         let expected = Int32Array::from(vec![Some(1), None, Some(3), None, Some(5)]);
         assert_eq!(result, expected);
+
+        // check if DoubleEndedIterator is implemented
+        let result: Int32Array = array.iter().rev().collect();
+        let rev_array = Int32Array::from(vec![Some(4), None, Some(2), None, Some(0)]);
+        assert_eq!(result, rev_array);
+        // check if ExactSizeIterator is implemented
+        let _ = array.iter().rposition(|opt_b| opt_b == Some(1));
     }
 
     #[test]
@@ -344,6 +417,14 @@ mod tests {
         let expected =
             StringArray::from(vec![Some("ab"), None, Some("aaab"), None, Some("aaaaab")]);
         assert_eq!(result, expected);
+
+        // check if DoubleEndedIterator is implemented
+        let result: StringArray = array.iter().rev().collect();
+        let rev_array =
+            StringArray::from(vec![Some("aaaaa"), None, Some("aaa"), None, Some("a")]);
+        assert_eq!(result, rev_array);
+        // check if ExactSizeIterator is implemented
+        let _ = array.iter().rposition(|opt_b| opt_b == Some("a"));
     }
 
     #[test]
@@ -360,6 +441,20 @@ mod tests {
         let result: BinaryArray = array.iter().collect();
 
         assert_eq!(result, array);
+
+        // check if DoubleEndedIterator is implemented
+        let result: BinaryArray = array.iter().rev().collect();
+        let rev_array = BinaryArray::from(vec![
+            Some(b"aaaaa" as &[u8]),
+            None,
+            Some(b"aaa"),
+            None,
+            Some(b"a"),
+        ]);
+        assert_eq!(result, rev_array);
+
+        // check if ExactSizeIterator is implemented
+        let _ = array.iter().rposition(|opt_b| opt_b == Some(&[9]));
     }
 
     #[test]
@@ -370,5 +465,13 @@ mod tests {
         let result: BooleanArray = array.iter().collect();
 
         assert_eq!(result, array);
+
+        // check if DoubleEndedIterator is implemented
+        let result: BooleanArray = array.iter().rev().collect();
+        let rev_array = BooleanArray::from(vec![Some(false), None, Some(true)]);
+        assert_eq!(result, rev_array);
+
+        // check if ExactSizeIterator is implemented
+        let _ = array.iter().rposition(|opt_b| opt_b == Some(true));
     }
 }

@@ -26,6 +26,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/optional.h"
 #include "arrow/util/test_common.h"
 #include "arrow/util/vector.h"
 
@@ -227,6 +228,8 @@ class GeneratorTestFixture : public ::testing::TestWithParam<bool> {
     }
     return gen;
   }
+
+  AsyncGenerator<TestInt> MakeEmptySource() { return MakeSource({}); }
 
   AsyncGenerator<TestInt> MakeFailingSource() {
     AsyncGenerator<TestInt> gen = [] {
@@ -814,6 +817,65 @@ TEST_P(BackgroundGeneratorTestFixture, StopAndRestart) {
   AssertGeneratorExhausted(generator);
 }
 
+struct TrackingIterator {
+  explicit TrackingIterator(bool slow)
+      : token(std::make_shared<bool>(false)), slow(slow) {}
+
+  Result<TestInt> Next() {
+    if (slow) {
+      SleepABit();
+    }
+    return TestInt(0);
+  }
+  std::weak_ptr<bool> GetWeakTargetRef() { return std::weak_ptr<bool>(token); }
+
+  std::shared_ptr<bool> token;
+  bool slow;
+};
+
+TEST_P(BackgroundGeneratorTestFixture, AbortReading) {
+  // If there is an error downstream then it is likely the chain will abort and the
+  // background generator will lose all references and should abandon reading
+  TrackingIterator source(IsSlow());
+  auto tracker = source.GetWeakTargetRef();
+  auto iter = Iterator<TestInt>(std::move(source));
+  std::shared_ptr<AsyncGenerator<TestInt>> generator;
+  {
+    ASSERT_OK_AND_ASSIGN(
+        auto gen, MakeBackgroundGenerator(std::move(iter), internal::GetCpuThreadPool()));
+    generator = std::make_shared<AsyncGenerator<TestInt>>(gen);
+  }
+
+  // Poll one item to start it up
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(0), (*generator)());
+  ASSERT_FALSE(tracker.expired());
+  // Remove last reference to generator, should trigger and wait for cleanup
+  generator.reset();
+  // Cleanup should have ensured no more reference to the source.  It may take a moment
+  // to expire because the background thread has to destruct itself
+  BusyWait(10, [&tracker] { return tracker.expired(); });
+}
+
+TEST_P(BackgroundGeneratorTestFixture, AbortOnIdleBackground) {
+  // Tests what happens when the downstream aborts while the background thread is idle
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(1));
+
+  auto source = PossiblySlowVectorIt(RangeVector(100), IsSlow());
+  std::shared_ptr<AsyncGenerator<TestInt>> generator;
+  {
+    ASSERT_OK_AND_ASSIGN(auto gen,
+                         MakeBackgroundGenerator(std::move(source), thread_pool.get()));
+    generator = std::make_shared<AsyncGenerator<TestInt>>(gen);
+  }
+  ASSERT_FINISHES_OK_AND_EQ(TestInt(0), (*generator)());
+
+  // The generator should pretty quickly fill up the queue and idle
+  BusyWait(10, [&thread_pool] { return thread_pool->GetNumTasks() == 0; });
+
+  // Now delete the generator and hope we don't deadlock
+  generator.reset();
+}
+
 struct SlowEmptyIterator {
   Result<TestInt> Next() {
     if (called_) {
@@ -1040,6 +1102,50 @@ TEST(TestAsyncUtil, ReadaheadFailed) {
   ASSERT_TRUE(IsIterationEnd(definitely_last));
 }
 
+class EnumeratorTestFixture : public GeneratorTestFixture {
+ protected:
+  void AssertEnumeratedCorrectly(AsyncGenerator<Enumerated<TestInt>>& gen,
+                                 int num_items) {
+    auto collected = CollectAsyncGenerator(gen);
+    ASSERT_FINISHES_OK_AND_ASSIGN(auto items, collected);
+    EXPECT_EQ(num_items, items.size());
+
+    for (const auto& item : items) {
+      ASSERT_EQ(item.index, item.value.value);
+      bool last = item.index == num_items - 1;
+      ASSERT_EQ(last, item.last);
+    }
+    AssertGeneratorExhausted(gen);
+  }
+};
+
+TEST_P(EnumeratorTestFixture, Basic) {
+  constexpr int NITEMS = 100;
+
+  auto source = MakeSource(RangeVector(NITEMS));
+  auto enumerated = MakeEnumeratedGenerator(std::move(source));
+
+  AssertEnumeratedCorrectly(enumerated, NITEMS);
+}
+
+TEST_P(EnumeratorTestFixture, Empty) {
+  auto source = MakeEmptySource();
+  auto enumerated = MakeEnumeratedGenerator(std::move(source));
+  AssertGeneratorExhausted(enumerated);
+}
+
+TEST_P(EnumeratorTestFixture, Error) {
+  auto source = FailsAt(MakeSource({1, 2, 3}), 1);
+  auto enumerated = MakeEnumeratedGenerator(std::move(source));
+
+  // Even though the first item finishes ok the enumerator buffers it.  The error then
+  // takes priority over the buffered result.
+  ASSERT_FINISHES_AND_RAISES(Invalid, enumerated());
+}
+
+INSTANTIATE_TEST_SUITE_P(EnumeratedTests, EnumeratorTestFixture,
+                         ::testing::Values(false, true));
+
 class SequencerTestFixture : public GeneratorTestFixture {
  protected:
   void RandomShuffle(std::vector<TestInt>& values) {
@@ -1165,13 +1271,16 @@ TEST(PushGenerator, Empty) {
 
   auto fut = gen();
   AssertNotFinished(fut);
-  producer.Close();
+  ASSERT_FALSE(producer.is_closed());
+  ASSERT_TRUE(producer.Close());
+  ASSERT_TRUE(producer.is_closed());
   ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), fut);
   ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), gen());
 
   // Close idempotent
   fut = gen();
-  producer.Close();
+  ASSERT_FALSE(producer.Close());
+  ASSERT_TRUE(producer.is_closed());
   ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), fut);
   ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), gen());
   ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), gen());
@@ -1182,8 +1291,8 @@ TEST(PushGenerator, Success) {
   auto producer = gen.producer();
   std::vector<Future<TestInt>> futures;
 
-  producer.Push(TestInt{1});
-  producer.Push(TestInt{2});
+  ASSERT_TRUE(producer.Push(TestInt{1}));
+  ASSERT_TRUE(producer.Push(TestInt{2}));
   for (int i = 0; i < 3; ++i) {
     futures.push_back(gen());
   }
@@ -1191,13 +1300,16 @@ TEST(PushGenerator, Success) {
   ASSERT_FINISHES_OK_AND_EQ(TestInt{2}, futures[1]);
   AssertNotFinished(futures[2]);
 
-  producer.Push(TestInt{3});
+  ASSERT_TRUE(producer.Push(TestInt{3}));
   ASSERT_FINISHES_OK_AND_EQ(TestInt{3}, futures[2]);
-  producer.Push(TestInt{4});
+  ASSERT_TRUE(producer.Push(TestInt{4}));
   futures.push_back(gen());
   ASSERT_FINISHES_OK_AND_EQ(TestInt{4}, futures[3]);
-  producer.Push(TestInt{5});
-  producer.Close();
+  ASSERT_TRUE(producer.Push(TestInt{5}));
+
+  ASSERT_FALSE(producer.is_closed());
+  ASSERT_TRUE(producer.Close());
+  ASSERT_TRUE(producer.is_closed());
   for (int i = 0; i < 4; ++i) {
     futures.push_back(gen());
   }
@@ -1213,8 +1325,8 @@ TEST(PushGenerator, Errors) {
   auto producer = gen.producer();
   std::vector<Future<TestInt>> futures;
 
-  producer.Push(TestInt{1});
-  producer.Push(Status::Invalid("2"));
+  ASSERT_TRUE(producer.Push(TestInt{1}));
+  ASSERT_TRUE(producer.Push(Status::Invalid("2")));
   for (int i = 0; i < 3; ++i) {
     futures.push_back(gen());
   }
@@ -1222,12 +1334,15 @@ TEST(PushGenerator, Errors) {
   ASSERT_FINISHES_AND_RAISES(Invalid, futures[1]);
   AssertNotFinished(futures[2]);
 
-  producer.Push(Status::IOError("3"));
-  producer.Push(TestInt{4});
+  ASSERT_TRUE(producer.Push(Status::IOError("3")));
+  ASSERT_TRUE(producer.Push(TestInt{4}));
   ASSERT_FINISHES_AND_RAISES(IOError, futures[2]);
   futures.push_back(gen());
   ASSERT_FINISHES_OK_AND_EQ(TestInt{4}, futures[3]);
-  producer.Close();
+
+  ASSERT_FALSE(producer.is_closed());
+  ASSERT_TRUE(producer.Close());
+  ASSERT_TRUE(producer.is_closed());
   ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), gen());
 }
 
@@ -1236,18 +1351,35 @@ TEST(PushGenerator, CloseEarly) {
   auto producer = gen.producer();
   std::vector<Future<TestInt>> futures;
 
-  producer.Push(TestInt{1});
-  producer.Push(TestInt{2});
+  ASSERT_TRUE(producer.Push(TestInt{1}));
+  ASSERT_TRUE(producer.Push(TestInt{2}));
   for (int i = 0; i < 3; ++i) {
     futures.push_back(gen());
   }
-  producer.Close();
-  producer.Push(TestInt{3});
+  ASSERT_FALSE(producer.is_closed());
+  ASSERT_TRUE(producer.Close());
+  ASSERT_TRUE(producer.is_closed());
+  ASSERT_FALSE(producer.Push(TestInt{3}));
+  ASSERT_FALSE(producer.Close());
+  ASSERT_TRUE(producer.is_closed());
 
   ASSERT_FINISHES_OK_AND_EQ(TestInt{1}, futures[0]);
   ASSERT_FINISHES_OK_AND_EQ(TestInt{2}, futures[1]);
   ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), futures[2]);
   ASSERT_FINISHES_OK_AND_EQ(IterationTraits<TestInt>::End(), gen());
+}
+
+TEST(PushGenerator, DanglingProducer) {
+  util::optional<PushGenerator<TestInt>> gen;
+  gen.emplace();
+  auto producer = gen->producer();
+
+  ASSERT_TRUE(producer.Push(TestInt{1}));
+  ASSERT_FALSE(producer.is_closed());
+  gen.reset();
+  ASSERT_TRUE(producer.is_closed());
+  ASSERT_FALSE(producer.Push(TestInt{2}));
+  ASSERT_FALSE(producer.Close());
 }
 
 TEST(PushGenerator, Stress) {
@@ -1297,6 +1429,28 @@ TEST(PushGenerator, Stress) {
   for (int i = NVALUES; i < NFUTURES; ++i) {
     ASSERT_OK_AND_EQ(IterationTraits<TestInt>::End(), results[i]);
   }
+}
+
+TEST(SingleFutureGenerator, Basics) {
+  auto fut = Future<TestInt>::Make();
+  auto gen = MakeSingleFutureGenerator(fut);
+  auto collect_fut = CollectAsyncGenerator(gen);
+  AssertNotFinished(collect_fut);
+  fut.MarkFinished(TestInt{42});
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto collected, collect_fut);
+  ASSERT_EQ(collected, std::vector<TestInt>{42});
+  // Generator exhausted
+  collect_fut = CollectAsyncGenerator(gen);
+  ASSERT_FINISHES_OK_AND_EQ(std::vector<TestInt>{}, collect_fut);
+}
+
+TEST(FailingGenerator, Basics) {
+  auto gen = MakeFailingGenerator<TestInt>(Status::IOError("zzz"));
+  auto collect_fut = CollectAsyncGenerator(gen);
+  ASSERT_FINISHES_AND_RAISES(IOError, collect_fut);
+  // Generator exhausted
+  collect_fut = CollectAsyncGenerator(gen);
+  ASSERT_FINISHES_OK_AND_EQ(std::vector<TestInt>{}, collect_fut);
 }
 
 }  // namespace arrow

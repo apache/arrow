@@ -30,5 +30,9 @@ ballista-core = { path = "../core" }
 futures = "0.3"
 log = "0.4"
 tokio = "1.0"
-arrow = { git = "https://github.com/apache/arrow", rev="46161d2" }
-datafusion = { git = "https://github.com/apache/arrow", rev="46161d2" }
+
+#arrow = { path = "../../../arrow"  }
+#datafusion = { path = "../../../datafusion" }
+
+arrow = { git = "https://github.com/apache/arrow", rev="fe83dca" }
+datafusion = { git = "https://github.com/apache/arrow", rev="fe83dca" }

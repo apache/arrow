@@ -39,3 +39,4 @@ API Reference
    api/cuda
    api/flight
    api/filesystem
+   api/dataset

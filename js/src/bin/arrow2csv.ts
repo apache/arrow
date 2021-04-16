@@ -17,12 +17,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/* tslint:disable */
-
 import * as fs from 'fs';
 import * as stream from 'stream';
 import { valueToString } from '../util/pretty';
 import { Schema, RecordBatch, RecordBatchReader, AsyncByteQueue } from '../Arrow.node';
+
+/* eslint-disable @typescript-eslint/no-require-imports */
 
 const padLeft = require('pad-left');
 const bignumJSONParse = require('json-bignum').parse;
@@ -78,7 +78,7 @@ function pipeTo(source: NodeJS.ReadableStream, sink: NodeJS.WritableStream, opts
         source.on('end', onEnd).pipe(sink, opts).on('error', onErr);
 
         function onEnd() { done(undefined, resolve); }
-        function onErr(err:any) { done(err, reject); }
+        function onErr(err: any) { done(err, reject); }
         function done(e: any, cb: (e?: any) => void) {
             source.removeListener('end', onEnd);
             sink.removeListener('error', onErr);
@@ -89,9 +89,9 @@ function pipeTo(source: NodeJS.ReadableStream, sink: NodeJS.WritableStream, opts
 
 async function *recordBatchReaders(createSourceStream: () => NodeJS.ReadableStream) {
 
-    let json = new AsyncByteQueue();
-    let stream = new AsyncByteQueue();
-    let source = createSourceStream();
+    const json = new AsyncByteQueue();
+    const stream = new AsyncByteQueue();
+    const source = createSourceStream();
     let reader: RecordBatchReader | null = null;
     let readers: AsyncIterable<RecordBatchReader> | null = null;
     // tee the input source, just in case it's JSON
@@ -199,7 +199,7 @@ function formatMetadata(metadata: Map<string, string>) {
         `  ${key}: ${formatMetadataValue(val)}`
     ).join(',  \n');
 
-    function formatMetadataValue(value: string = '') {
+    function formatMetadataValue(value = '') {
         let parsed = value;
         try {
             parsed = JSON.stringify(JSON.parse(value), null, 2);
@@ -256,7 +256,7 @@ const typedArrayElementWidths = (() => {
         [Float32Array, maxElementWidth(Float32Array)],
         [Float64Array, maxElementWidth(Float64Array)],
         [Uint8ClampedArray, maxElementWidth(Uint8ClampedArray)]
-    ])
+    ]);
 })();
 
 function cliOpts() {

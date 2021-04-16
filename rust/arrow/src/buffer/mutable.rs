@@ -263,6 +263,7 @@ impl MutableBuffer {
     /// buffer.extend_from_slice(&[2u32, 0]);
     /// assert_eq!(buffer.len(), 8) // u32 has 4 bytes
     /// ```
+    #[inline]
     pub fn extend_from_slice<T: ToByteSlice>(&mut self, items: &[T]) {
         let len = items.len();
         let additional = len * std::mem::size_of::<T>();
@@ -391,6 +392,7 @@ impl MutableBuffer {
     // 1. there is no trait `TrustedLen` in stable rust and therefore
     //    we can't specialize `extend` for `TrustedLen` like `Vec` does.
     // 2. `from_trusted_len_iter` is faster.
+    #[inline]
     pub unsafe fn from_trusted_len_iter<T: ArrowNativeType, I: Iterator<Item = T>>(
         iterator: I,
     ) -> Self {
@@ -432,6 +434,7 @@ impl MutableBuffer {
     // 1. there is no trait `TrustedLen` in stable rust and therefore
     //    we can't specialize `extend` for `TrustedLen` like `Vec` does.
     // 2. `from_trusted_len_iter_bool` is faster.
+    #[inline]
     pub unsafe fn from_trusted_len_iter_bool<I: Iterator<Item = bool>>(
         mut iterator: I,
     ) -> Self {
@@ -476,6 +479,7 @@ impl MutableBuffer {
     /// # Safety
     /// This method assumes that the iterator's size is correct and is undefined behavior
     /// to use it on an iterator that reports an incorrect length.
+    #[inline]
     pub unsafe fn try_from_trusted_len_iter<
         E,
         T: ArrowNativeType,

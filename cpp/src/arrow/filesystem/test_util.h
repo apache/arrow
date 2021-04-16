@@ -43,7 +43,10 @@ void CreateFile(FileSystem* fs, const std::string& path, const std::string& data
 
 // Sort a vector of FileInfo by lexicographic path order
 ARROW_TESTING_EXPORT
-void SortInfos(std::vector<FileInfo>* infos);
+void SortInfos(FileInfoVector* infos);
+
+ARROW_TESTING_EXPORT
+void CollectFileInfoGenerator(FileInfoGenerator gen, FileInfoVector* out_infos);
 
 ARROW_TESTING_EXPORT
 void AssertFileInfo(const FileInfo& info, const std::string& path, FileType type);
@@ -109,7 +112,7 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   void TestGetFileInfoSelector();
   void TestGetFileInfoSelectorWithRecursion();
   void TestGetFileInfoAsync();
-  void TestGetFileInfoSelectorAsync();
+  void TestGetFileInfoGenerator();
   void TestOpenOutputStream();
   void TestOpenAppendStream();
   void TestOpenInputStream();
@@ -154,7 +157,7 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   void TestGetFileInfoSelector(FileSystem* fs);
   void TestGetFileInfoSelectorWithRecursion(FileSystem* fs);
   void TestGetFileInfoAsync(FileSystem* fs);
-  void TestGetFileInfoSelectorAsync(FileSystem* fs);
+  void TestGetFileInfoGenerator(FileSystem* fs);
   void TestOpenOutputStream(FileSystem* fs);
   void TestOpenAppendStream(FileSystem* fs);
   void TestOpenInputStream(FileSystem* fs);
@@ -185,7 +188,7 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetFileInfoSelector)              \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetFileInfoSelectorWithRecursion) \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetFileInfoAsync)                 \
-  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetFileInfoSelectorAsync)         \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetFileInfoGenerator)             \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenOutputStream)                 \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenAppendStream)                 \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputStream)                  \

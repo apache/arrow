@@ -428,25 +428,16 @@ Future<> WriteInternal(const ScanOptions& scan_options, WriteState& state,
   auto task_group = scan_options.TaskGroup();
 
   for (const auto& scan_task : scan_tasks) {
-    if (scan_task->supports_async()) {
-      ARROW_ASSIGN_OR_RAISE(auto batches_gen, scan_task->ExecuteAsync(cpu_executor));
-      std::function<Status(std::shared_ptr<RecordBatch> batch)> batch_visitor =
-          [&, scan_task](std::shared_ptr<RecordBatch> batch) {
-            return WriteNextBatch(state, scan_task->fragment(), std::move(batch));
-          };
-      scan_futs.push_back(VisitAsyncGenerator(batches_gen, batch_visitor));
-    } else {
-      task_group->Append([&, scan_task] {
-        ARROW_ASSIGN_OR_RAISE(auto batches, scan_task->Execute());
+    task_group->Append([&, scan_task] {
+      ARROW_ASSIGN_OR_RAISE(auto batches, scan_task->Execute());
 
-        for (auto maybe_batch : batches) {
-          ARROW_ASSIGN_OR_RAISE(auto batch, maybe_batch);
-          RETURN_NOT_OK(WriteNextBatch(state, scan_task->fragment(), std::move(batch)));
-        }
+      for (auto maybe_batch : batches) {
+        ARROW_ASSIGN_OR_RAISE(auto batch, maybe_batch);
+        RETURN_NOT_OK(WriteNextBatch(state, scan_task->fragment(), std::move(batch)));
+      }
 
-        return Status::OK();
-      });
-    }
+      return Status::OK();
+    });
   }
   scan_futs.push_back(task_group->FinishAsync());
   return AllComplete(scan_futs);
@@ -469,8 +460,24 @@ Status FileSystemDataset::Write(const FileSystemDatasetWriteOptions& write_optio
   //
   // NB: neither of these will have any impact whatsoever on the common case of writing
   //     an in-memory table to disk.
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4996)
+#endif
+
+  // TODO: (ARROW-11782/ARROW-12288) Remove calls to Scan()
   ARROW_ASSIGN_OR_RAISE(auto scan_task_it, scanner->Scan());
   ARROW_ASSIGN_OR_RAISE(ScanTaskVector scan_tasks, scan_task_it.ToVector());
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
   WriteState state(write_options);
   auto res = internal::RunSynchronously<arrow::detail::Empty>(

@@ -59,6 +59,7 @@ message LogicalExprNode {
     InListNode in_list = 14;
     bool wildcard = 15;
     ScalarFunctionNode scalar_function = 16;
+    TryCastNode try_cast = 17;
   }
 }
 
@@ -168,6 +169,11 @@ message WhenThen {
 }
 
 message CastNode {
+  LogicalExprNode expr = 1;
+  ArrowType arrow_type = 2;
+}
+
+message TryCastNode {
   LogicalExprNode expr = 1;
   ArrowType arrow_type = 2;
 }

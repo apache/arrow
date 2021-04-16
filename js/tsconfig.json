@@ -8,5 +8,6 @@
     "target": "ESNEXT",
     "module": "commonjs",
     "noEmit": true
-  }
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
 }

@@ -647,7 +647,6 @@ def get_datetimetz_type(values, dtype, type_):
 
 
 def dataframe_to_serialized_dict(frame):
-    import pandas.core.internals as _int
     block_manager = frame._data
 
     blocks = []
@@ -657,11 +656,11 @@ def dataframe_to_serialized_dict(frame):
         values = block.values
         block_data = {}
 
-        if isinstance(block, _int.DatetimeTZBlock):
+        if _pandas_api.is_datetimetz(values.dtype):
             block_data['timezone'] = pa.lib.tzinfo_to_string(values.tz)
             if hasattr(values, 'values'):
                 values = values.values
-        elif isinstance(block, _int.CategoricalBlock):
+        elif _pandas_api.is_categorical(values):
             block_data.update(dictionary=values.categories,
                               ordered=values.ordered)
             values = values.codes
@@ -670,10 +669,8 @@ def dataframe_to_serialized_dict(frame):
             block=values
         )
 
-        # If we are dealing with an object array, pickle it instead. Note that
-        # we do not use isinstance here because _int.CategoricalBlock is a
-        # subclass of _int.ObjectBlock.
-        if type(block) == _int.ObjectBlock:
+        # If we are dealing with an object array, pickle it instead.
+        if values.dtype == np.dtype(object):
             block_data['object'] = None
             block_data['block'] = builtin_pickle.dumps(
                 values, protocol=builtin_pickle.HIGHEST_PROTOCOL)
@@ -731,8 +728,7 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
         cat = _pandas_api.categorical_type.from_codes(
             block_arr, categories=item['dictionary'],
             ordered=item['ordered'])
-        block = _int.make_block(cat, placement=placement,
-                                klass=_int.CategoricalBlock)
+        block = _int.make_block(cat, placement=placement)
     elif 'timezone' in item:
         dtype = make_datetimetz(item['timezone'])
         block = _int.make_block(block_arr, placement=placement,
@@ -740,7 +736,7 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
                                 dtype=dtype)
     elif 'object' in item:
         block = _int.make_block(builtin_pickle.loads(block_arr),
-                                placement=placement, klass=_int.ObjectBlock)
+                                placement=placement)
     elif 'py_array' in item:
         # create ExtensionBlock
         arr = item['py_array']
@@ -751,8 +747,7 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
             raise ValueError("This column does not support to be converted "
                              "to a pandas ExtensionArray")
         pd_ext_arr = pandas_dtype.__from_arrow__(arr)
-        block = _int.make_block(pd_ext_arr, placement=placement,
-                                klass=_int.ExtensionBlock)
+        block = _int.make_block(pd_ext_arr, placement=placement)
     else:
         block = _int.make_block(block_arr, placement=placement)
 

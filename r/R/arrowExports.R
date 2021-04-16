@@ -504,12 +504,12 @@ dataset___Scanner__ToTable <- function(scanner){
     .Call(`_arrow_dataset___Scanner__ToTable`, scanner)
 }
 
-dataset___Scanner__head <- function(scanner, n){
-    .Call(`_arrow_dataset___Scanner__head`, scanner, n)
+dataset___Scanner__ScanBatches <- function(scanner){
+    .Call(`_arrow_dataset___Scanner__ScanBatches`, scanner)
 }
 
-dataset___Scanner__Scan <- function(scanner){
-    .Call(`_arrow_dataset___Scanner__Scan`, scanner)
+dataset___Scanner__head <- function(scanner, n){
+    .Call(`_arrow_dataset___Scanner__head`, scanner, n)
 }
 
 dataset___Scanner__schema <- function(sc){
@@ -522,6 +522,10 @@ dataset___ScanTask__get_batches <- function(scan_task){
 
 dataset___Dataset__Write <- function(file_write_options, filesystem, base_dir, partitioning, basename_template, scanner){
     invisible(.Call(`_arrow_dataset___Dataset__Write`, file_write_options, filesystem, base_dir, partitioning, basename_template, scanner))
+}
+
+dataset___Scanner__TakeRows <- function(scanner, indices){
+    .Call(`_arrow_dataset___Scanner__TakeRows`, scanner, indices)
 }
 
 Int8__initialize <- function(){
@@ -1052,8 +1056,12 @@ json___ReadOptions__initialize <- function(use_threads, block_size){
     .Call(`_arrow_json___ReadOptions__initialize`, use_threads, block_size)
 }
 
-json___ParseOptions__initialize <- function(newlines_in_values){
-    .Call(`_arrow_json___ParseOptions__initialize`, newlines_in_values)
+json___ParseOptions__initialize1 <- function(newlines_in_values){
+    .Call(`_arrow_json___ParseOptions__initialize1`, newlines_in_values)
+}
+
+json___ParseOptions__initialize2 <- function(newlines_in_values, explicit_schema){
+    .Call(`_arrow_json___ParseOptions__initialize2`, newlines_in_values, explicit_schema)
 }
 
 json___TableReader__Make <- function(input, read_options, parse_options){

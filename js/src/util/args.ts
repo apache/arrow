@@ -49,7 +49,8 @@ export const selectColumnChildrenArgs = <T extends Column>(Ctor: RecordBatchCtor
 /** @ignore */
 function _selectArgs<T>(Ctor: any, vals: any[], res: T[], idx: number) {
     let value: any, j = idx;
-    let i = -1, n = vals.length;
+    let i = -1;
+    const n = vals.length;
     while (++i < n) {
         if (isArray(value = vals[i])) {
             j = _selectArgs(Ctor, value, res, j).length;
@@ -61,7 +62,8 @@ function _selectArgs<T>(Ctor: any, vals: any[], res: T[], idx: number) {
 /** @ignore */
 function _selectChunkArgs<T>(Ctor: any, vals: any[], res: T[], idx: number) {
     let value: any, j = idx;
-    let i = -1, n = vals.length;
+    let i = -1;
+    const n = vals.length;
     while (++i < n) {
         if (isArray(value = vals[i])) {
             j = _selectChunkArgs(Ctor, value, res, j).length;
@@ -75,7 +77,8 @@ function _selectChunkArgs<T>(Ctor: any, vals: any[], res: T[], idx: number) {
 /** @ignore */
 function _selectVectorChildrenArgs<T extends Vector>(Ctor: RecordBatchCtor, vals: any[], res: T[], idx: number) {
     let value: any, j = idx;
-    let i = -1, n = vals.length;
+    let i = -1;
+    const n = vals.length;
     while (++i < n) {
         if (isArray(value = vals[i])) {
             j = _selectVectorChildrenArgs(Ctor, value, res, j).length;
@@ -89,7 +92,8 @@ function _selectVectorChildrenArgs<T extends Vector>(Ctor: RecordBatchCtor, vals
 /** @ignore */
 function _selectColumnChildrenArgs<T extends Column>(Ctor: RecordBatchCtor, vals: any[], res: T[], idx: number) {
     let value: any, j = idx;
-    let i = -1, n = vals.length;
+    let i = -1;
+    const n = vals.length;
     while (++i < n) {
         if (isArray(value = vals[i])) {
             j = _selectColumnChildrenArgs(Ctor, value, res, j).length;
@@ -105,7 +109,8 @@ const toKeysAndValues = (xs: [any[], any[]], [k, v]: [any, any], i: number) => (
 
 /** @ignore */
 function _selectFieldArgs<T extends { [key: string]: DataType }>(vals: any[], ret: [Field<T[keyof T]>[], Vector<T[keyof T]>[]]): [Field<T[keyof T]>[], (T[keyof T] | Vector<T[keyof T]>)[]] {
-    let keys: any[], n: number;
+    let keys: any[];
+    let n: number;
     switch (n = vals.length) {
         case 0: return ret;
         case 1:
@@ -124,10 +129,11 @@ function _selectFieldArgs<T extends { [key: string]: DataType }>(vals: any[], re
 
     let fieldIndex = -1;
     let valueIndex = -1;
-    let idx = -1, len = vals.length;
+    let idx = -1;
+    const len = vals.length;
     let field: number | string | Field<T[keyof T]>;
     let val: Vector<T[keyof T]> | Data<T[keyof T]>;
-    let [fields, values] = ret as [Field<T[keyof T]>[], any[]];
+    const [fields, values] = ret as [Field<T[keyof T]>[], any[]];
 
     while (++idx < len) {
         val = vals[idx];

@@ -58,9 +58,14 @@ jobs:
 
   - script: |
       source activate base
-      conda build arrow-cpp parquet-cpp \
+      set +x
+      if [[ "${CONFIG}" == osx_arm* ]]; then
+        EXTRA_CB_OPTIONS="${EXTRA_CB_OPTIONS:-} --no-test"
+      fi
+      conda build arrow-cpp \
         -m ./.ci_support/${CONFIG}.yaml \
         --clobber-file ./.ci_support/clobber_${CONFIG}.yaml \
+        ${EXTRA_CB_OPTIONS:-} \
         --output-folder ./build_artifacts
 
       if [ ! -z "${R_CONFIG}" ]; then
@@ -71,5 +76,5 @@ jobs:
     workingDirectory: arrow/dev/tasks/conda-recipes
     displayName: Build recipes
 
-  {{ macros.azure_upload_releases("arrow/dev/tasks/conda-recipes/build_artifacts/osx-64/*.tar.bz2") }}
-  {{ macros.azure_upload_anaconda("arrow/dev/tasks/conda-recipes/build_artifacts/osx-64/*.tar.bz2") }}
+  {{ macros.azure_upload_releases("arrow/dev/tasks/conda-recipes/build_artifacts/osx-*/*.tar.bz2") }}
+  {{ macros.azure_upload_anaconda("arrow/dev/tasks/conda-recipes/build_artifacts/osx-*/*.tar.bz2") }}

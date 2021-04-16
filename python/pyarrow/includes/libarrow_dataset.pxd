@@ -86,11 +86,21 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CInMemoryFragment(vector[shared_ptr[CRecordBatch]] record_batches,
                           CExpression partition_expression)
 
+    cdef cppclass CTaggedRecordBatch "arrow::dataset::TaggedRecordBatch":
+        shared_ptr[CRecordBatch] record_batch
+        shared_ptr[CFragment] fragment
+
+    ctypedef CIterator[CTaggedRecordBatch] CTaggedRecordBatchIterator \
+        "arrow::dataset::TaggedRecordBatchIterator"
+
     cdef cppclass CScanner "arrow::dataset::Scanner":
         CScanner(shared_ptr[CDataset], shared_ptr[CScanOptions])
         CScanner(shared_ptr[CFragment], shared_ptr[CScanOptions])
         CResult[CScanTaskIterator] Scan()
+        CResult[CTaggedRecordBatchIterator] ScanBatches()
         CResult[shared_ptr[CTable]] ToTable()
+        CResult[shared_ptr[CTable]] TakeRows(const CArray& indices)
+        CResult[shared_ptr[CTable]] Head(int64_t num_rows)
         CResult[CFragmentIterator] GetFragments()
         const shared_ptr[CScanOptions]& options()
 

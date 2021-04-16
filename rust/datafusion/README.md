@@ -69,10 +69,7 @@ use arrow::record_batch::RecordBatch;
 
 #[tokio::main]
 async fn main() -> datafusion::error::Result<()> {
-  // create the dataframe
-  let mut ctx = ExecutionContext::new();
-  let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
-
+  // register the table
   let mut ctx = ExecutionContext::new();
   ctx.register_csv("example", "tests/example.csv", CsvReadOptions::new())?;
 

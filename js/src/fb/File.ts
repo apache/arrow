@@ -47,7 +47,7 @@ export class Footer {
      * @returns MetadataVersion
      */
     version(): NS13596923344997147894.MetadataVersion {
-        let offset = this.bb!.__offset(this.bb_pos, 4);
+        const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? /**  */ (this.bb!.readInt16(this.bb_pos + offset)) : NS13596923344997147894.MetadataVersion.V1;
     }
 
@@ -56,7 +56,7 @@ export class Footer {
      * @returns Schema|null
      */
     schema(obj?: NS13596923344997147894.Schema): NS13596923344997147894.Schema | null {
-        let offset = this.bb!.__offset(this.bb_pos, 6);
+        const offset = this.bb!.__offset(this.bb_pos, 6);
         return offset ? (obj || new NS13596923344997147894.Schema()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
     }
 
@@ -66,7 +66,7 @@ export class Footer {
      * @returns Block
      */
     dictionaries(index: number, obj?: Block): Block | null {
-        let offset = this.bb!.__offset(this.bb_pos, 8);
+        const offset = this.bb!.__offset(this.bb_pos, 8);
         return offset ? (obj || new Block()).__init(this.bb!.__vector(this.bb_pos + offset) + index * 24, this.bb!) : null;
     }
 
@@ -74,7 +74,7 @@ export class Footer {
      * @returns number
      */
     dictionariesLength(): number {
-        let offset = this.bb!.__offset(this.bb_pos, 8);
+        const offset = this.bb!.__offset(this.bb_pos, 8);
         return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
     }
 
@@ -84,7 +84,7 @@ export class Footer {
      * @returns Block
      */
     recordBatches(index: number, obj?: Block): Block | null {
-        let offset = this.bb!.__offset(this.bb_pos, 10);
+        const offset = this.bb!.__offset(this.bb_pos, 10);
         return offset ? (obj || new Block()).__init(this.bb!.__vector(this.bb_pos + offset) + index * 24, this.bb!) : null;
     }
 
@@ -92,7 +92,7 @@ export class Footer {
      * @returns number
      */
     recordBatchesLength(): number {
-        let offset = this.bb!.__offset(this.bb_pos, 10);
+        const offset = this.bb!.__offset(this.bb_pos, 10);
         return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
     }
 
@@ -104,7 +104,7 @@ export class Footer {
      * @returns KeyValue
      */
     customMetadata(index: number, obj?: NS13596923344997147894.KeyValue): NS13596923344997147894.KeyValue | null {
-        let offset = this.bb!.__offset(this.bb_pos, 12);
+        const offset = this.bb!.__offset(this.bb_pos, 12);
         return offset ? (obj || new NS13596923344997147894.KeyValue()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
     }
 
@@ -112,7 +112,7 @@ export class Footer {
      * @returns number
      */
     customMetadataLength(): number {
-        let offset = this.bb!.__offset(this.bb_pos, 12);
+        const offset = this.bb!.__offset(this.bb_pos, 12);
         return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
     }
 
@@ -205,7 +205,7 @@ export class Footer {
      * @returns flatbuffers.Offset
      */
     static endFooter(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 

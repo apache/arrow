@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/* tslint:disable:class-name */
+/* eslint-disable @typescript-eslint/naming-convention */
 
 import {
     Block as _Block,
@@ -69,10 +69,8 @@ class Footer_ {
         return b.asUint8Array();
     }
 
-    // @ts-ignore
-    protected _recordBatches: FileBlock[];
-    // @ts-ignore
-    protected _dictionaryBatches: FileBlock[];
+    protected _recordBatches!: FileBlock[];
+    protected _dictionaryBatches!: FileBlock[];
     public get numRecordBatches() { return this._recordBatches.length; }
     public get numDictionaries() { return this._dictionaryBatches.length; }
 

@@ -28,10 +28,10 @@ use std::{
 
 use datafusion::physical_plan::coalesce_batches::CoalesceBatchesExec;
 use datafusion::physical_plan::csv::CsvExec;
-use datafusion::physical_plan::expressions::CastExpr;
 use datafusion::physical_plan::expressions::{
     CaseExpr, InListExpr, IsNotNullExpr, IsNullExpr, NegativeExpr, NotExpr,
 };
+use datafusion::physical_plan::expressions::{CastExpr, TryCastExpr};
 use datafusion::physical_plan::filter::FilterExec;
 use datafusion::physical_plan::hash_aggregate::AggregateMode;
 use datafusion::physical_plan::hash_join::HashJoinExec;
@@ -236,7 +236,7 @@ impl TryInto<protobuf::PhysicalPlanNode> for Arc<dyn ExecutionPlan> {
                         schema: Some(exec.file_schema().as_ref().into()),
                         has_header: exec.has_header(),
                         delimiter: delimiter.to_string(),
-                        batch_size: 32768,
+                        batch_size: exec.batch_size() as u32,
                     },
                 )),
             })
@@ -509,6 +509,15 @@ impl TryFrom<Arc<dyn PhysicalExpr>> for protobuf::LogicalExprNode {
                         arrow_type: Some(cast.cast_type().into()),
                     },
                 ))),
+            })
+        } else if let Some(cast) = expr.downcast_ref::<TryCastExpr>() {
+            Ok(protobuf::LogicalExprNode {
+                expr_type: Some(protobuf::logical_expr_node::ExprType::TryCast(
+                    Box::new(protobuf::TryCastNode {
+                        expr: Some(Box::new(cast.expr().clone().try_into()?)),
+                        arrow_type: Some(cast.cast_type().into()),
+                    }),
+                )),
             })
         } else if let Some(expr) = expr.downcast_ref::<ScalarFunctionExpr>() {
             let fun: BuiltinScalarFunction =

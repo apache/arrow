@@ -161,7 +161,7 @@ export class BodyCompression {
      * @returns CompressionType
      */
     codec(): CompressionType {
-        let offset = this.bb!.__offset(this.bb_pos, 4);
+        const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? /**  */ (this.bb!.readInt8(this.bb_pos + offset)) : CompressionType.LZ4_FRAME;
     }
 
@@ -171,7 +171,7 @@ export class BodyCompression {
      * @returns BodyCompressionMethod
      */
     method(): BodyCompressionMethod {
-        let offset = this.bb!.__offset(this.bb_pos, 6);
+        const offset = this.bb!.__offset(this.bb_pos, 6);
         return offset ? /**  */ (this.bb!.readInt8(this.bb_pos + offset)) : BodyCompressionMethod.BUFFER;
     }
 
@@ -203,7 +203,7 @@ export class BodyCompression {
      * @returns flatbuffers.Offset
      */
     static endBodyCompression(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -262,7 +262,7 @@ export class RecordBatch {
      * @returns flatbuffers.Long
      */
     length(): flatbuffers.Long {
-        let offset = this.bb!.__offset(this.bb_pos, 4);
+        const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? this.bb!.readInt64(this.bb_pos + offset) : this.bb!.createLong(0, 0);
     }
 
@@ -274,7 +274,7 @@ export class RecordBatch {
      * @returns FieldNode
      */
     nodes(index: number, obj?: FieldNode): FieldNode | null {
-        let offset = this.bb!.__offset(this.bb_pos, 6);
+        const offset = this.bb!.__offset(this.bb_pos, 6);
         return offset ? (obj || new FieldNode()).__init(this.bb!.__vector(this.bb_pos + offset) + index * 16, this.bb!) : null;
     }
 
@@ -282,7 +282,7 @@ export class RecordBatch {
      * @returns number
      */
     nodesLength(): number {
-        let offset = this.bb!.__offset(this.bb_pos, 6);
+        const offset = this.bb!.__offset(this.bb_pos, 6);
         return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
     }
 
@@ -299,7 +299,7 @@ export class RecordBatch {
      * @returns Buffer
      */
     buffers(index: number, obj?: NS13596923344997147894.Buffer): NS13596923344997147894.Buffer | null {
-        let offset = this.bb!.__offset(this.bb_pos, 8);
+        const offset = this.bb!.__offset(this.bb_pos, 8);
         return offset ? (obj || new NS13596923344997147894.Buffer()).__init(this.bb!.__vector(this.bb_pos + offset) + index * 16, this.bb!) : null;
     }
 
@@ -307,7 +307,7 @@ export class RecordBatch {
      * @returns number
      */
     buffersLength(): number {
-        let offset = this.bb!.__offset(this.bb_pos, 8);
+        const offset = this.bb!.__offset(this.bb_pos, 8);
         return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
     }
 
@@ -318,7 +318,7 @@ export class RecordBatch {
      * @returns BodyCompression|null
      */
     compression(obj?: BodyCompression): BodyCompression | null {
-        let offset = this.bb!.__offset(this.bb_pos, 10);
+        const offset = this.bb!.__offset(this.bb_pos, 10);
         return offset ? (obj || new BodyCompression()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
     }
 
@@ -382,7 +382,7 @@ export class RecordBatch {
      * @returns flatbuffers.Offset
      */
     static endRecordBatch(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -443,7 +443,7 @@ export class DictionaryBatch {
      * @returns flatbuffers.Long
      */
     id(): flatbuffers.Long {
-        let offset = this.bb!.__offset(this.bb_pos, 4);
+        const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? this.bb!.readInt64(this.bb_pos + offset) : this.bb!.createLong(0, 0);
     }
 
@@ -452,7 +452,7 @@ export class DictionaryBatch {
      * @returns RecordBatch|null
      */
     data(obj?: RecordBatch): RecordBatch | null {
-        let offset = this.bb!.__offset(this.bb_pos, 6);
+        const offset = this.bb!.__offset(this.bb_pos, 6);
         return offset ? (obj || new RecordBatch()).__init(this.bb!.__indirect(this.bb_pos + offset), this.bb!) : null;
     }
 
@@ -464,7 +464,7 @@ export class DictionaryBatch {
      * @returns boolean
      */
     isDelta(): boolean {
-        let offset = this.bb!.__offset(this.bb_pos, 8);
+        const offset = this.bb!.__offset(this.bb_pos, 8);
         return offset ? !!this.bb!.readInt8(this.bb_pos + offset) : false;
     }
 
@@ -504,7 +504,7 @@ export class DictionaryBatch {
      * @returns flatbuffers.Offset
      */
     static endDictionaryBatch(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 
@@ -557,7 +557,7 @@ export class Message {
      * @returns MetadataVersion
      */
     version(): NS13596923344997147894.MetadataVersion {
-        let offset = this.bb!.__offset(this.bb_pos, 4);
+        const offset = this.bb!.__offset(this.bb_pos, 4);
         return offset ? /**  */ (this.bb!.readInt16(this.bb_pos + offset)) : NS13596923344997147894.MetadataVersion.V1;
     }
 
@@ -565,7 +565,7 @@ export class Message {
      * @returns MessageHeader
      */
     headerType(): MessageHeader {
-        let offset = this.bb!.__offset(this.bb_pos, 6);
+        const offset = this.bb!.__offset(this.bb_pos, 6);
         return offset ? /**  */ (this.bb!.readUint8(this.bb_pos + offset)) : MessageHeader.NONE;
     }
 
@@ -574,7 +574,7 @@ export class Message {
      * @returns ?flatbuffers.Table
      */
     header<T extends flatbuffers.Table>(obj: T): T | null {
-        let offset = this.bb!.__offset(this.bb_pos, 8);
+        const offset = this.bb!.__offset(this.bb_pos, 8);
         return offset ? this.bb!.__union(obj, this.bb_pos + offset) : null;
     }
 
@@ -582,7 +582,7 @@ export class Message {
      * @returns flatbuffers.Long
      */
     bodyLength(): flatbuffers.Long {
-        let offset = this.bb!.__offset(this.bb_pos, 10);
+        const offset = this.bb!.__offset(this.bb_pos, 10);
         return offset ? this.bb!.readInt64(this.bb_pos + offset) : this.bb!.createLong(0, 0);
     }
 
@@ -592,7 +592,7 @@ export class Message {
      * @returns KeyValue
      */
     customMetadata(index: number, obj?: NS13596923344997147894.KeyValue): NS13596923344997147894.KeyValue | null {
-        let offset = this.bb!.__offset(this.bb_pos, 12);
+        const offset = this.bb!.__offset(this.bb_pos, 12);
         return offset ? (obj || new NS13596923344997147894.KeyValue()).__init(this.bb!.__indirect(this.bb!.__vector(this.bb_pos + offset) + index * 4), this.bb!) : null;
     }
 
@@ -600,7 +600,7 @@ export class Message {
      * @returns number
      */
     customMetadataLength(): number {
-        let offset = this.bb!.__offset(this.bb_pos, 12);
+        const offset = this.bb!.__offset(this.bb_pos, 12);
         return offset ? this.bb!.__vector_len(this.bb_pos + offset) : 0;
     }
 
@@ -677,7 +677,7 @@ export class Message {
      * @returns flatbuffers.Offset
      */
     static endMessage(builder: flatbuffers.Builder): flatbuffers.Offset {
-        let offset = builder.endObject();
+        const offset = builder.endObject();
         return offset;
     }
 

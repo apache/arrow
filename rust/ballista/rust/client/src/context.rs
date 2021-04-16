@@ -36,6 +36,7 @@ use ballista_core::{
 };
 
 use arrow::datatypes::Schema;
+use datafusion::catalog::TableReference;
 use datafusion::execution::context::ExecutionContext;
 use datafusion::logical_plan::{DFSchema, Expr, LogicalPlan, Partitioning};
 use datafusion::physical_plan::csv::CsvReadOptions;
@@ -148,7 +149,10 @@ impl BallistaContext {
         for (name, plan) in &state.tables {
             let plan = ctx.optimize(plan)?;
             let execution_plan = ctx.create_physical_plan(&plan)?;
-            ctx.register_table(name, Arc::new(DFTableAdapter::new(plan, execution_plan)));
+            ctx.register_table(
+                TableReference::Bare { table: name },
+                Arc::new(DFTableAdapter::new(plan, execution_plan)),
+            )?;
         }
         let df = ctx.sql(sql)?;
         Ok(BallistaDataFrame::from(self.state.clone(), df))
@@ -267,7 +271,7 @@ impl BallistaDataFrame {
         ))
     }
 
-    pub fn select(&self, expr: &[Expr]) -> Result<BallistaDataFrame> {
+    pub fn select(&self, expr: Vec<Expr>) -> Result<BallistaDataFrame> {
         Ok(Self::from(
             self.state.clone(),
             self.df.select(expr).map_err(BallistaError::from)?,
@@ -283,8 +287,8 @@ impl BallistaDataFrame {
 
     pub fn aggregate(
         &self,
-        group_expr: &[Expr],
-        aggr_expr: &[Expr],
+        group_expr: Vec<Expr>,
+        aggr_expr: Vec<Expr>,
     ) -> Result<BallistaDataFrame> {
         Ok(Self::from(
             self.state.clone(),
@@ -301,7 +305,7 @@ impl BallistaDataFrame {
         ))
     }
 
-    pub fn sort(&self, expr: &[Expr]) -> Result<BallistaDataFrame> {
+    pub fn sort(&self, expr: Vec<Expr>) -> Result<BallistaDataFrame> {
         Ok(Self::from(
             self.state.clone(),
             self.df.sort(expr).map_err(BallistaError::from)?,

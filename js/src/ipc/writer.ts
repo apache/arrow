@@ -61,8 +61,8 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
         // @ts-ignore
         writableStrategy?: QueuingStrategy<RecordBatch<T>> & { autoDestroy: boolean },
         // @ts-ignore
-        readableStrategy?: { highWaterMark?: number, size?: any }
-    ): { writable: WritableStream<Table<T> | RecordBatch<T>>, readable: ReadableStream<Uint8Array> } {
+        readableStrategy?: { highWaterMark?: number; size?: any }
+    ): { writable: WritableStream<Table<T> | RecordBatch<T>>; readable: ReadableStream<Uint8Array> } {
         throw new Error(`"throughDOM" not available in this environment`);
     }
 
@@ -124,7 +124,6 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
         return this;
     }
     public reset(sink: WritableSink<ArrayBufferViewInput> = this._sink, schema: Schema<T> | null = null) {
-
         if ((sink === this._sink) || (sink instanceof AsyncByteQueue)) {
             this._sink = sink as AsyncByteQueue;
         } else {
@@ -160,7 +159,6 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
     }
 
     public write(payload?: Table<T> | RecordBatch<T> | Iterable<RecordBatch<T>> | null) {
-
         let schema: Schema<T> | null = null;
 
         if (!this._sink) {
@@ -192,7 +190,6 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
     }
 
     protected _writeMessage<T extends MessageHeader>(message: Message<T>, alignment = 8) {
-
         const a = alignment - 1;
         const buffer = Message.encode(message);
         const flatbufferSize = buffer.byteLength;
@@ -458,7 +455,7 @@ async function writeAllAsync<T extends { [key: string]: DataType } = any>(writer
 }
 
 /** @ignore */
-function fieldToJSON({ name, type, nullable }: Field): object {
+function fieldToJSON({ name, type, nullable }: Field): Record<string, unknown> {
     const assembler = new JSONTypeAssembler();
     return {
         'name': name, 'nullable': nullable,

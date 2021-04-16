@@ -59,7 +59,7 @@ jobs:
           - image: conda-cpp
             title: AMD64 Conda C++
           - image: ubuntu-cpp-sanitizer
-            title: AMD64 Ubuntu 18.04 C++ ASAN UBSAN
+            title: AMD64 Ubuntu 20.04 C++ ASAN UBSAN
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2

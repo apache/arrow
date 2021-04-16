@@ -354,7 +354,6 @@ test_that("IPC/Feather format data", {
 })
 
 test_that("CSV dataset", {
-  skip_on_os("windows") # https://issues.apache.org/jira/browse/ARROW-12181
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   expect_r6_class(ds$format, "CsvFileFormat")
   expect_r6_class(ds$filesystem, "LocalFileSystem")
@@ -1346,6 +1345,13 @@ test_that("Dataset and query print methods", {
   )
 })
 
+test_that("Scanner$ScanBatches", {
+  ds <- open_dataset(ipc_dir, format = "feather")
+  batches <- ds$NewScan()$Finish()$ScanBatches()
+  table <- Table$create(!!!batches)
+  expect_equivalent(as.data.frame(table), rbind(df1, df2))
+})
+
 expect_scan_result <- function(ds, schm) {
   sb <- ds$NewScan()
   expect_r6_class(sb, "ScannerBuilder")
@@ -1374,7 +1380,7 @@ test_that("Assembling a Dataset manually and getting a Table", {
   fmt <- FileFormat$create("parquet")
   factory <- FileSystemDatasetFactory$create(fs, selector, NULL, fmt, partitioning = partitioning)
   expect_r6_class(factory, "FileSystemDatasetFactory")
-  
+
   schm <- factory$Inspect()
   expect_r6_class(schm, "Schema")
 

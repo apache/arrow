@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+/* eslint-disable jest/no-identical-title */
+
 import {
     util,
     Data, Vector,

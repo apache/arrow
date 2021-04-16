@@ -62,12 +62,12 @@ console.log('Running apache-arrow performance tests...\n');
 run();
 
 function run() {
-    var suite = suites.shift();
+    const suite = suites.shift();
     suite && suite.on('complete', function() {
         console.log(suite.name + ':\n' + this.map(function(x) {
-            var str = x.toString();
-            var meanMsPerOp = Math.round(x.stats.mean * 100000)/100;
-            var sliceOf60FPS = Math.round((meanMsPerOp / (1000/60)) * 100000)/1000;
+            const str = x.toString();
+            const meanMsPerOp = Math.round(x.stats.mean * 100000)/100;
+            const sliceOf60FPS = Math.round((meanMsPerOp / (1000/60)) * 100000)/1000;
             return `${str}\n   avg: ${meanMsPerOp}ms\n   ${sliceOf60FPS}% of a frame @ 60FPS ${x.suffix || ''}`;
         }).join('\n') + '\n');
         if (suites.length > 0) {
@@ -149,7 +149,7 @@ function createTableIterateTest(table) {
 }
 
 function createDataFrameDirectCountTest(table, column, test, value) {
-    let sum, colidx = table.schema.fields.findIndex((c)=>c.name === column);
+    let sum, colidx = table.schema.fields.findIndex((c)=>c.name === column), op;
 
     if (test == 'gt') {
         op = () => {

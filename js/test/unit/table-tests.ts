@@ -73,7 +73,7 @@ const test_data = [
 ];
 
 function compareBatchAndTable(source: Table, offset: number, batch: RecordBatch, table: Table) {
-    expect(batch.length).toEqual(table.length);
+    expect(batch).toHaveLength(table.length);
     expect(table.numCols).toEqual(source.numCols);
     expect(batch.numCols).toEqual(source.numCols);
     for (let i = -1, n = source.numCols; ++i < n;) {
@@ -88,13 +88,13 @@ function compareBatchAndTable(source: Table, offset: number, batch: RecordBatch,
 
 describe(`Table`, () => {
     test(`can create an empty table`, () => {
-        expect(Table.empty().length).toEqual(0);
+        expect(Table.empty()).toHaveLength(0);
     });
     test(`Table.from([]) creates an empty table`, () => {
-        expect(Table.from([]).length).toEqual(0);
+        expect(Table.from([])).toHaveLength(0);
     });
     test(`Table.from() creates an empty table`, () => {
-        expect(Table.from().length).toEqual(0);
+        expect(Table.from()).toHaveLength(0);
     });
 
     describe(`new()`, () => {
@@ -104,9 +104,9 @@ describe(`Table`, () => {
             const table = Table.new(i32, f32);
             i32 = table.getColumn('i32')!;
             f32 = table.getColumn('f32')!;
-            expect(table.length).toBe(0);
-            expect(i32.length).toBe(0);
-            expect(f32.length).toBe(0);
+            expect(table).toHaveLength(0);
+            expect(i32).toHaveLength(0);
+            expect(f32).toHaveLength(0);
             expect(i32.toArray()).toBeInstanceOf(Int32Array);
             expect(f32.toArray()).toBeInstanceOf(Float32Array);
         });
@@ -117,7 +117,7 @@ describe(`Table`, () => {
 
             let i32 = Column.new('i32', Data.Int(new Int32(), 0, i32s.length, 0, null, i32s));
             expect(i32.name).toBe('i32');
-            expect(i32.length).toBe(i32s.length);
+            expect(i32).toHaveLength(i32s.length);
             expect(i32.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
 
@@ -125,7 +125,7 @@ describe(`Table`, () => {
             i32 = table.getColumnAt(0)!;
 
             expect(i32.name).toBe('i32');
-            expect(i32.length).toBe(i32s.length);
+            expect(i32).toHaveLength(i32s.length);
             expect(i32.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
 
@@ -141,8 +141,8 @@ describe(`Table`, () => {
             let f32 = Column.new('f32', Data.Float(new Float32(), 0, f32s.length, 0, null, f32s));
             expect(i32.name).toBe('i32');
             expect(f32.name).toBe('f32');
-            expect(i32.length).toBe(i32s.length);
-            expect(f32.length).toBe(f32s.length);
+            expect(i32).toHaveLength(i32s.length);
+            expect(f32).toHaveLength(f32s.length);
             expect(i32.nullable).toBe(true);
             expect(f32.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
@@ -154,8 +154,8 @@ describe(`Table`, () => {
 
             expect(i32.name).toBe('i32');
             expect(f32.name).toBe('f32');
-            expect(i32.length).toBe(i32s.length);
-            expect(f32.length).toBe(f32s.length);
+            expect(i32).toHaveLength(i32s.length);
+            expect(f32).toHaveLength(f32s.length);
             expect(i32.nullable).toBe(true);
             expect(f32.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
@@ -175,8 +175,8 @@ describe(`Table`, () => {
 
             expect(i32.name).toBe('i32');
             expect(f32.name).toBe('f32');
-            expect(i32.length).toBe(i32s.length);
-            expect(f32.length).toBe(f32s.length);
+            expect(i32).toHaveLength(i32s.length);
+            expect(f32).toHaveLength(f32s.length);
             expect(i32.nullable).toBe(true);
             expect(f32.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
@@ -188,8 +188,8 @@ describe(`Table`, () => {
 
             expect(i32.name).toBe('i32');
             expect(f32.name).toBe('f32');
-            expect(i32.length).toBe(i32s.length);
-            expect(f32.length).toBe(i32s.length); // new length should be the same as the longest sibling
+            expect(i32).toHaveLength(i32s.length);
+            expect(f32).toHaveLength(i32s.length); // new length should be the same as the longest sibling
             expect(i32.nullable).toBe(true);
             expect(f32.nullable).toBe(true); // true, with 12 additional nulls
             expect(i32.nullCount).toBe(0);
@@ -214,8 +214,8 @@ describe(`Table`, () => {
 
             expect(i32.name).toBe('i32');
             expect(f32.name).toBe('f32');
-            expect(i32.length).toBe(i32s.length);
-            expect(f32.length).toBe(f32s.length);
+            expect(i32).toHaveLength(i32s.length);
+            expect(f32).toHaveLength(f32s.length);
             expect(i32.nullable).toBe(true);
             expect(f32.nullable).toBe(true);
             expect(i32.nullCount).toBe(0);
@@ -227,8 +227,8 @@ describe(`Table`, () => {
 
             expect(i32.name).toBe('i32Renamed');
             expect(f32.name).toBe('f32Renamed');
-            expect(i32.length).toBe(i32s.length);
-            expect(f32.length).toBe(i32s.length); // new length should be the same as the longest sibling
+            expect(i32).toHaveLength(i32s.length);
+            expect(f32).toHaveLength(i32s.length); // new length should be the same as the longest sibling
             expect(i32.nullable).toBe(true);
             expect(f32.nullable).toBe(true); // true, with 4 additional nulls
             expect(i32.nullCount).toBe(0);
@@ -273,7 +273,7 @@ describe(`Table`, () => {
             test(`has the correct length`, () => {
                 const table = datum.table();
                 const values = datum.values();
-                expect(table.length).toEqual(values.length);
+                expect(table).toHaveLength(values.length);
             });
             test(`gets expected values`, () => {
                 const table = datum.table();
@@ -497,11 +497,11 @@ describe(`Table`, () => {
             });
             test(`table.select() basic tests`, () => {
                 let selected = table.select('f32', 'dictionary');
-                expect(selected.schema.fields.length).toEqual(2);
+                expect(selected.schema.fields).toHaveLength(2);
                 expect(selected.schema.fields[0]).toEqual(table.schema.fields[0]);
                 expect(selected.schema.fields[1]).toEqual(table.schema.fields[2]);
 
-                expect(selected.length).toEqual(values.length);
+                expect(selected).toHaveLength(values.length);
                 let idx = 0, expected_row;
                 for (let row of selected) {
                     expected_row = values[idx++];
@@ -567,7 +567,7 @@ describe(`Predicate`, () => {
 //     return (new Array(n + 1).join(fill) + str).slice(-1 * n);
 // }
 
-type TestDataSchema = { f32: Float32; i32: Int32; dictionary: Dictionary<Utf8, Int8>; };
+type TestDataSchema = { f32: Float32; i32: Int32; dictionary: Dictionary<Utf8, Int8> };
 
 function getTestVectors(f32Values: number[], i32Values: number[], dictIndices: number[]) {
 

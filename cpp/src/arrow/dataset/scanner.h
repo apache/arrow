@@ -43,33 +43,39 @@ using RecordBatchGenerator = std::function<Future<std::shared_ptr<RecordBatch>>(
 
 namespace dataset {
 
+/// \defgroup dataset-scanning Scanning API
+///
+/// @{
+
 constexpr int64_t kDefaultBatchSize = 1 << 20;
 constexpr int32_t kDefaultBatchReadahead = 32;
 constexpr int32_t kDefaultFragmentReadahead = 8;
 
+/// Scan-specific options, which can be changed between scans of the same dataset.
 struct ARROW_DS_EXPORT ScanOptions {
-  // Filter and projection
+  /// A row filter (which will be pushed down to partitioning/reading if supported).
   Expression filter = literal(true);
+  /// A projection expression (which can add/remove/rename columns).
   Expression projection;
 
-  // Schema with which batches will be read from fragments. This is also known as the
-  // "reader schema" it will be used (for example) in constructing CSV file readers to
-  // identify column types for parsing. Usually only a subset of its fields (see
-  // MaterializedFields) will be materialized during a scan.
+  /// Schema with which batches will be read from fragments. This is also known as the
+  /// "reader schema" it will be used (for example) in constructing CSV file readers to
+  /// identify column types for parsing. Usually only a subset of its fields (see
+  /// MaterializedFields) will be materialized during a scan.
   std::shared_ptr<Schema> dataset_schema;
 
-  // Schema of projected record batches. This is independent of dataset_schema as its
-  // fields are derived from the projection. For example, let
-  //
-  //   dataset_schema = {"a": int32, "b": int32, "id": utf8}
-  //   projection = project({equal(field_ref("a"), field_ref("b"))}, {"a_plus_b"})
-  //
-  // (no filter specified). In this case, the projected_schema would be
-  //
-  //   {"a_plus_b": int32}
+  /// Schema of projected record batches. This is independent of dataset_schema as its
+  /// fields are derived from the projection. For example, let
+  ///
+  ///   dataset_schema = {"a": int32, "b": int32, "id": utf8}
+  ///   projection = project({equal(field_ref("a"), field_ref("b"))}, {"a_plus_b"})
+  ///
+  /// (no filter specified). In this case, the projected_schema would be
+  ///
+  ///   {"a_plus_b": int32}
   std::shared_ptr<Schema> projected_schema;
 
-  // Maximum row count for scanned batches.
+  /// Maximum row count for scanned batches.
   int64_t batch_size = kDefaultBatchSize;
 
   /// How many batches to read ahead within a file
@@ -133,7 +139,7 @@ struct ARROW_DS_EXPORT ScanOptions {
   // sub-selection optimization.
   std::vector<std::string> MaterializedFields() const;
 
-  /// Return a threaded or serial TaskGroup according to use_threads.
+  // Return a threaded or serial TaskGroup according to use_threads.
   std::shared_ptr<internal::TaskGroup> TaskGroup() const;
 };
 
@@ -146,8 +152,6 @@ class ARROW_DS_EXPORT ScanTask {
   /// resulting from the Scan. Execution semantics are encapsulated in the
   /// particular ScanTask implementation
   virtual Result<RecordBatchIterator> Execute() = 0;
-  virtual Result<RecordBatchGenerator> ExecuteAsync(internal::Executor* cpu_executor);
-  virtual bool supports_async() const;
 
   virtual ~ScanTask() = default;
 
@@ -161,25 +165,6 @@ class ARROW_DS_EXPORT ScanTask {
   std::shared_ptr<ScanOptions> options_;
   std::shared_ptr<Fragment> fragment_;
 };
-
-/// \brief A trivial ScanTask that yields the RecordBatch of an array.
-class ARROW_DS_EXPORT InMemoryScanTask : public ScanTask {
- public:
-  InMemoryScanTask(std::vector<std::shared_ptr<RecordBatch>> record_batches,
-                   std::shared_ptr<ScanOptions> options,
-                   std::shared_ptr<Fragment> fragment)
-      : ScanTask(std::move(options), std::move(fragment)),
-        record_batches_(std::move(record_batches)) {}
-
-  Result<RecordBatchIterator> Execute() override;
-
- protected:
-  std::vector<std::shared_ptr<RecordBatch>> record_batches_;
-};
-
-ARROW_DS_EXPORT Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
-    std::vector<std::shared_ptr<RecordBatch>> batches,
-    std::shared_ptr<ScanOptions> options);
 
 template <typename T>
 struct Enumerated {
@@ -210,6 +195,8 @@ struct EnumeratedRecordBatch {
 using EnumeratedRecordBatchGenerator = std::function<Future<EnumeratedRecordBatch>()>;
 using EnumeratedRecordBatchIterator = Iterator<EnumeratedRecordBatch>;
 
+/// @}
+
 }  // namespace dataset
 
 template <>
@@ -233,6 +220,11 @@ struct IterationTraits<dataset::EnumeratedRecordBatch> {
 };
 
 namespace dataset {
+
+/// \defgroup dataset-scanning Scanning API
+///
+/// @{
+
 /// \brief A scanner glues together several dataset classes to load in data.
 /// The dataset contains a collection of fragments and partitioning rules.
 ///
@@ -263,8 +255,14 @@ class ARROW_DS_EXPORT Scanner {
   /// in a concurrent fashion and outlive the iterator.
   ///
   /// Note: Not supported by the async scanner
-  /// TODO(ARROW-11797) Deprecate Scan()
+  /// Planned for removal from the public API in ARROW-11782.
+  ARROW_DEPRECATED("Deprecated in 4.0.0 for removal in 5.0.0. Use ScanBatches().")
   virtual Result<ScanTaskIterator> Scan();
+
+  /// \brief Apply a visitor to each RecordBatch as it is scanned. If multiple threads
+  /// are used (via use_threads), the visitor will be invoked from those threads and is
+  /// responsible for any synchronization.
+  virtual Status Scan(std::function<Status(TaggedRecordBatch)> visitor) = 0;
   /// \brief Convert a Scanner into a Table.
   ///
   /// Use this convenience utility with care. This will serially materialize the
@@ -287,7 +285,14 @@ class ARROW_DS_EXPORT Scanner {
   /// To make up for the out-of-order iteration each batch is further tagged with
   /// positional information.
   virtual Result<EnumeratedRecordBatchIterator> ScanBatchesUnordered();
+  /// \brief A convenience to synchronously load the given rows by index.
+  ///
+  /// Will only consume as many batches as needed from ScanBatches().
+  virtual Result<std::shared_ptr<Table>> TakeRows(const Array& indices);
+  /// \brief Get the first N rows.
+  virtual Result<std::shared_ptr<Table>> Head(int64_t num_rows);
 
+  /// \brief Get the options for this scan.
   const std::shared_ptr<ScanOptions>& options() const { return scan_options_; }
 
  protected:
@@ -313,12 +318,15 @@ class ARROW_DS_EXPORT SyncScanner : public Scanner {
 
   Result<ScanTaskIterator> Scan() override;
 
+  Status Scan(std::function<Status(TaggedRecordBatch)> visitor) override;
+
   Result<std::shared_ptr<Table>> ToTable() override;
 
  protected:
   /// \brief GetFragments returns an iterator over all Fragments in this scan.
   Result<FragmentIterator> GetFragments();
   Future<std::shared_ptr<Table>> ToTableInternal(internal::Executor* cpu_executor);
+  Result<ScanTaskIterator> ScanInternal();
 
   std::shared_ptr<Dataset> dataset_;
   // TODO(ARROW-8065) remove fragment_ after a Dataset is constuctible from fragments
@@ -403,6 +411,27 @@ class ARROW_DS_EXPORT ScannerBuilder {
   std::shared_ptr<Fragment> fragment_;
   std::shared_ptr<ScanOptions> scan_options_;
 };
+
+/// @}
+
+/// \brief A trivial ScanTask that yields the RecordBatch of an array.
+class ARROW_DS_EXPORT InMemoryScanTask : public ScanTask {
+ public:
+  InMemoryScanTask(std::vector<std::shared_ptr<RecordBatch>> record_batches,
+                   std::shared_ptr<ScanOptions> options,
+                   std::shared_ptr<Fragment> fragment)
+      : ScanTask(std::move(options), std::move(fragment)),
+        record_batches_(std::move(record_batches)) {}
+
+  Result<RecordBatchIterator> Execute() override;
+
+ protected:
+  std::vector<std::shared_ptr<RecordBatch>> record_batches_;
+};
+
+ARROW_DS_EXPORT Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
+    std::vector<std::shared_ptr<RecordBatch>> batches,
+    std::shared_ptr<ScanOptions> options);
 
 }  // namespace dataset
 }  // namespace arrow

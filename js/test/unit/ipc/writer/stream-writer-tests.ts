@@ -101,7 +101,7 @@ describe('RecordBatchStreamWriter', () => {
 
         expect(resultTable).toEqualTable(sourceTable);
         expect((dictionary as Chunked)).toBeInstanceOf(Chunked);
-        expect((dictionary as Chunked).chunks.length).toBe(20);
+        expect((dictionary as Chunked).chunks).toHaveLength(20);
     });
 });
 

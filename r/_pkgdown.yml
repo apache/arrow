@@ -57,6 +57,21 @@ navbar:
           href: https://arrow.apache.org/docs/python
         - text: R
           href: index.html
+    articles:
+      text: Articles
+      menu:
+        - text: Installing the Arrow Package on Linux
+          href: articles/install.html
+        - text: Working with Arrow Datasets and dplyr
+          href: articles/dataset.html
+        - text: Working with Cloud Storage (S3)
+          href: articles/fs.html
+        - text: Apache Arrow in Python and R with reticulate
+          href: articles/python.html
+        - text: Connecting to Flight RPC Servers
+          href: articles/flight.html
+        - text: Arrow R Developer Guide
+          href: articles/developing.html
 reference:
   - title: Multi-file datasets
     contents:

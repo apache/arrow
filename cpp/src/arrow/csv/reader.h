@@ -65,17 +65,6 @@ class ARROW_EXPORT StreamingReader : public RecordBatchReader {
   virtual ~StreamingReader() = default;
 
   /// Create a StreamingReader instance
-  ///
-  /// This involves some I/O as the first batch must be loaded during the creation process
-  /// so it is returned as a future
-  ///
-  /// Currently, the StreamingReader is not async-reentrant and does not do any fan-out
-  /// parsing (see ARROW-11889)
-  static Future<std::shared_ptr<StreamingReader>> MakeAsync(
-      io::IOContext io_context, std::shared_ptr<io::InputStream> input,
-      internal::Executor* cpu_executor, const ReadOptions&, const ParseOptions&,
-      const ConvertOptions&);
-
   static Result<std::shared_ptr<StreamingReader>> Make(
       io::IOContext io_context, std::shared_ptr<io::InputStream> input,
       const ReadOptions&, const ParseOptions&, const ConvertOptions&);

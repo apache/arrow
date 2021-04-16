@@ -398,7 +398,6 @@ impl<'a> MutableArrayData<'a> {
     }
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use std::{convert::TryFrom, sync::Arc};
@@ -424,8 +423,7 @@ mod tests {
     #[test]
     fn test_primitive() {
         let b = UInt8Array::from(vec![Some(1), Some(2), Some(3)]);
-        let b = b.data();
-        let arrays = vec![b];
+        let arrays = vec![b.data()];
         let mut a = MutableArrayData::new(arrays, false, 3);
         a.extend(0, 0, 2);
         let result = a.freeze();
@@ -439,8 +437,7 @@ mod tests {
     fn test_primitive_offset() {
         let b = UInt8Array::from(vec![Some(1), Some(2), Some(3)]);
         let b = b.slice(1, 2);
-        let b = b.data();
-        let arrays = vec![b];
+        let arrays = vec![b.data()];
         let mut a = MutableArrayData::new(arrays, false, 2);
         a.extend(0, 0, 2);
         let result = a.freeze();
@@ -453,8 +450,8 @@ mod tests {
     #[test]
     fn test_primitive_null_offset() {
         let b = UInt8Array::from(vec![Some(1), None, Some(3)]);
-        let b = b.slice(1, 2).data();
-        let arrays = vec![b];
+        let b = b.slice(1, 2);
+        let arrays = vec![b.data()];
         let mut a = MutableArrayData::new(arrays, false, 2);
         a.extend(0, 0, 2);
         let result = a.freeze();
@@ -466,8 +463,8 @@ mod tests {
     #[test]
     fn test_primitive_null_offset_nulls() {
         let b = UInt8Array::from(vec![Some(1), Some(2), Some(3)]);
-        let b = b.slice(1, 2).data();
-        let arrays = vec![b];
+        let b = b.slice(1, 2);
+        let arrays = vec![b.data()];
         let mut a = MutableArrayData::new(arrays, true, 2);
         a.extend(0, 0, 2);
         a.extend_nulls(3);
@@ -489,8 +486,8 @@ mod tests {
         builder.append(true)?;
         builder.values().append_slice(&[6, 7, 8])?;
         builder.append(true)?;
-        let array = builder.finish().data();
-        let arrays = vec![array];
+        let array = builder.finish();
+        let arrays = vec![array.data()];
 
         let mut mutable = MutableArrayData::new(arrays, false, 0);
         mutable.extend(0, 0, 1);
@@ -512,9 +509,8 @@ mod tests {
     /// tests extending from a variable-sized (strings and binary) array w/ offset with nulls
     #[test]
     fn test_variable_sized_nulls() {
-        let array =
-            StringArray::from(vec![Some("a"), Some("bc"), None, Some("defh")]).data();
-        let arrays = vec![array];
+        let array = StringArray::from(vec![Some("a"), Some("bc"), None, Some("defh")]);
+        let arrays = vec![array.data()];
 
         let mut mutable = MutableArrayData::new(arrays, false, 0);
 
@@ -531,11 +527,10 @@ mod tests {
     /// with an offset and nulls
     #[test]
     fn test_variable_sized_offsets() {
-        let array =
-            StringArray::from(vec![Some("a"), Some("bc"), None, Some("defh")]).data();
+        let array = StringArray::from(vec![Some("a"), Some("bc"), None, Some("defh")]);
         let array = array.slice(1, 3);
 
-        let arrays = vec![&array];
+        let arrays = vec![array.data()];
 
         let mut mutable = MutableArrayData::new(arrays, false, 0);
 
@@ -550,11 +545,10 @@ mod tests {
 
     #[test]
     fn test_string_offsets() {
-        let array =
-            StringArray::from(vec![Some("a"), Some("bc"), None, Some("defh")]).data();
+        let array = StringArray::from(vec![Some("a"), Some("bc"), None, Some("defh")]);
         let array = array.slice(1, 3);
 
-        let arrays = vec![&array];
+        let arrays = vec![array.data()];
 
         let mut mutable = MutableArrayData::new(arrays, false, 0);
 
@@ -569,10 +563,10 @@ mod tests {
 
     #[test]
     fn test_multiple_with_nulls() {
-        let array1 = StringArray::from(vec!["hello", "world"]).data();
-        let array2 = StringArray::from(vec![Some("1"), None]).data();
+        let array1 = StringArray::from(vec!["hello", "world"]);
+        let array2 = StringArray::from(vec![Some("1"), None]);
 
-        let arrays = vec![array1, array2];
+        let arrays = vec![array1.data(), array2.data()];
 
         let mut mutable = MutableArrayData::new(arrays, false, 5);
 
@@ -589,11 +583,10 @@ mod tests {
 
     #[test]
     fn test_string_null_offset_nulls() {
-        let array =
-            StringArray::from(vec![Some("a"), Some("bc"), None, Some("defh")]).data();
+        let array = StringArray::from(vec![Some("a"), Some("bc"), None, Some("defh")]);
         let array = array.slice(1, 3);
 
-        let arrays = vec![&array];
+        let arrays = vec![array.data()];
 
         let mut mutable = MutableArrayData::new(arrays, true, 0);
 
@@ -609,9 +602,8 @@ mod tests {
 
     #[test]
     fn test_bool() {
-        let array =
-            BooleanArray::from(vec![Some(false), Some(true), None, Some(false)]).data();
-        let arrays = vec![array];
+        let array = BooleanArray::from(vec![Some(false), Some(true), None, Some(false)]);
+        let arrays = vec![array.data()];
 
         let mut mutable = MutableArrayData::new(arrays, false, 0);
 
@@ -626,9 +618,9 @@ mod tests {
 
     #[test]
     fn test_null() {
-        let array1 = NullArray::new(10).data();
-        let array2 = NullArray::new(5).data();
-        let arrays = vec![array1, array2];
+        let array1 = NullArray::new(10);
+        let array2 = NullArray::new(5);
+        let arrays = vec![array1.data(), array2.data()];
 
         let mut mutable = MutableArrayData::new(arrays, false, 0);
 
@@ -698,9 +690,8 @@ mod tests {
 
         let array =
             StructArray::try_from(vec![("f1", strings.clone()), ("f2", ints.clone())])
-                .unwrap()
-                .data();
-        let arrays = vec![array];
+                .unwrap();
+        let arrays = vec![array.data()];
         let mut mutable = MutableArrayData::new(arrays, false, 0);
 
         mutable.extend(0, 1, 3);
@@ -735,14 +726,13 @@ mod tests {
         let array =
             StructArray::try_from(vec![("f1", strings.clone()), ("f2", ints.clone())])
                 .unwrap()
-                .slice(1, 3)
-                .data();
-        let arrays = vec![array.as_ref()];
+                .slice(1, 3);
+        let arrays = vec![array.data()];
         let mut mutable = MutableArrayData::new(arrays, false, 0);
 
         mutable.extend(0, 1, 3);
         let data = mutable.freeze();
-        let array = StructArray::from(Arc::new(data));
+        let array = StructArray::from(data);
 
         let expected_strings: ArrayRef =
             Arc::new(StringArray::from(vec![None, Some("mark")]));
@@ -774,9 +764,8 @@ mod tests {
 
         let array =
             StructArray::try_from(vec![("f1", strings.clone()), ("f2", ints.clone())])
-                .unwrap()
-                .data();
-        let arrays = vec![array];
+                .unwrap();
+        let arrays = vec![array.data()];
 
         let mut mutable = MutableArrayData::new(arrays, false, 0);
 
@@ -812,9 +801,8 @@ mod tests {
 
         let array =
             StructArray::try_from(vec![("f1", strings.clone()), ("f2", ints.clone())])
-                .unwrap()
-                .data();
-        let arrays = vec![array, array];
+                .unwrap();
+        let arrays = vec![array.data(), array.data()];
         let mut mutable = MutableArrayData::new(arrays, false, 0);
 
         mutable.extend(0, 1, 3);
@@ -838,12 +826,11 @@ mod tests {
         let array = FixedSizeBinaryArray::try_from_iter(
             vec![vec![0, 0], vec![0, 1], vec![0, 2]].into_iter(),
         )
-        .expect("Failed to create FixedSizeBinaryArray from iterable")
-        .data();
+        .expect("Failed to create FixedSizeBinaryArray from iterable");
         let array = array.slice(1, 2);
         // = [[0, 1], [0, 2]] due to the offset = 1
 
-        let arrays = vec![&array];
+        let arrays = vec![array.data()];
 
         let mut mutable = MutableArrayData::new(arrays, false, 0);
 
@@ -869,7 +856,7 @@ mod tests {
         builder.values().append_slice(&[6, 7, 8])?;
         builder.values().append_slice(&[9, 10, 11])?;
         builder.append(true)?;
-        let a = builder.finish().data();
+        let a = builder.finish();
 
         let a_builder = Int64Builder::new(24);
         let mut a_builder = ListBuilder::<Int64Builder>::new(a_builder);
@@ -880,10 +867,10 @@ mod tests {
         a_builder.append(true)?;
         let b = a_builder.finish();
 
-        let b = b.data();
         let c = b.slice(1, 2);
 
-        let mut mutable = MutableArrayData::new(vec![a, b, &c], false, 1);
+        let mut mutable =
+            MutableArrayData::new(vec![a.data(), b.data(), c.data()], false, 1);
         mutable.extend(0, 0, a.len());
         mutable.extend(1, 0, b.len());
         mutable.extend(2, 0, c.len());
@@ -1016,7 +1003,7 @@ mod tests {
         builder.values().append_value("Arrow")?;
         builder.values().append_null()?;
         builder.append(true)?;
-        let a = builder.finish().data();
+        let a = builder.finish();
 
         // [["alpha", "beta"], [None], ["gamma", "delta", None]]
         let mut builder = ListBuilder::new(StringBuilder::new(32));
@@ -1029,9 +1016,9 @@ mod tests {
         builder.values().append_value("delta")?;
         builder.values().append_null()?;
         builder.append(true)?;
-        let b = builder.finish().data();
+        let b = builder.finish();
 
-        let mut mutable = MutableArrayData::new(vec![a, b], false, 10);
+        let mut mutable = MutableArrayData::new(vec![a.data(), b.data()], false, 10);
 
         mutable.extend(0, 0, a.len());
         mutable.extend(1, 0, b.len());
@@ -1082,8 +1069,7 @@ mod tests {
     fn test_fixed_size_binary_append() {
         let a = vec![Some(vec![1, 2]), Some(vec![3, 4]), Some(vec![5, 6])];
         let a = FixedSizeBinaryArray::try_from_sparse_iter(a.into_iter())
-            .expect("Failed to create FixedSizeBinaryArray from iterable")
-            .data();
+            .expect("Failed to create FixedSizeBinaryArray from iterable");
 
         let b = vec![
             None,
@@ -1094,10 +1080,9 @@ mod tests {
             None,
         ];
         let b = FixedSizeBinaryArray::try_from_sparse_iter(b.into_iter())
-            .expect("Failed to create FixedSizeBinaryArray from iterable")
-            .data();
+            .expect("Failed to create FixedSizeBinaryArray from iterable");
 
-        let mut mutable = MutableArrayData::new(vec![a, b], false, 10);
+        let mut mutable = MutableArrayData::new(vec![a.data(), b.data()], false, 10);
 
         mutable.extend(0, 0, a.len());
         mutable.extend(1, 0, b.len());
@@ -1127,9 +1112,8 @@ mod tests {
             // b[4..4]
         ];
         let expected = FixedSizeBinaryArray::try_from_sparse_iter(expected.into_iter())
-            .expect("Failed to create FixedSizeBinaryArray from iterable")
-            .data();
-        assert_eq!(&result, expected.as_ref());
+            .expect("Failed to create FixedSizeBinaryArray from iterable");
+        assert_eq!(&result, expected.data());
     }
 
     /*
@@ -1220,4 +1204,3 @@ mod tests {
     }
     */
 }
- */

@@ -37,6 +37,7 @@ Over 100 functions can now be called on Arrow objects inside a `dplyr` verb:
 * `cast(x, type)` and `dictionary_encode()` allow changing the type of columns in Arrow objects; `as.numeric()`, `as.character()`, etc. are exposed as similar type-altering conveniences
 * `dplyr::between()`; the Arrow version also allows the `left` and `right` arguments to be columns in the data and not just scalars
 * Additionally, any Arrow C++ compute function can be called inside a `dplyr` verb. This enables you to access Arrow functions that don't have a direct R mapping. See `list_compute_functions()` for all available functions, which are available in `dplyr` prefixed by `arrow_`.
+* Arrow C++ compute functions now do more systematic type promotion when called on data with different types (e.g. int32 and float64). Previously, Scalars in an expressions were always cast to match the type of the corresponding Array, so this new type promotion enables, among other things, operations on two columns (Arrays) in a dataset. As a side effect, some comparisons that worked in prior versions are no longer supported: for example, `dplyr::filter(arrow_dataset, string_column == 3)` will error with a message about the type mismatch between the numeric `3` and the string type of `string_column`.
 
 ## Datasets
 
@@ -45,6 +46,7 @@ Over 100 functions can now be called on Arrow objects inside a `dplyr` verb:
 * `write_dataset()` now defaults to `format = "parquet"` and better validates the `format` argument
 * Invalid input for `schema` in `open_dataset()` is now correctly handled
 * Collecting 0 columns from a Dataset now no longer returns all of the columns
+* The `Scanner$Scan()` method has been removed; use `Scanner$ScanBatches()`
 
 ## Other improvements
 
@@ -54,7 +56,8 @@ Over 100 functions can now be called on Arrow objects inside a `dplyr` verb:
 * Similarly, `Schema` can now be edited by assigning in new types. This enables using the CSV reader to detect the schema of a file, modify the `Schema` object for any columns that you want to read in as a different type, and then use that `Schema` to read the data.
 * Better validation when creating a `Table` with a schema, with columns of different lengths, and with scalar value recycling
 * Reading Parquet files in Japanese or other multi-byte locales on Windows no longer hangs (workaround for a [bug in libstdc++](https://gcc.gnu.org/bugzilla/show_bug.cgi?id=98723); thanks @yutannihilation for the persistence in discovering this!)
-* If you attempt to read string data that has embedded nul (`\0`) characters, the error message now informs you that you can set `options(arrow.skip_nul = TRUE)` to strip them out. It is not recommended to set this option by default since this code path is sigificantly slower, and most string data does not contain nuls.
+* If you attempt to read string data that has embedded nul (`\0`) characters, the error message now informs you that you can set `options(arrow.skip_nul = TRUE)` to strip them out. It is not recommended to set this option by default since this code path is significantly slower, and most string data does not contain nuls.
+* `read_json_arrow()` now accepts a schema: `read_json_arrow("file.json", schema = schema(col_a = float64(), col_b = string()))`
 
 ## Installation and configuration
 
@@ -64,6 +67,8 @@ Over 100 functions can now be called on Arrow objects inside a `dplyr` verb:
 * Setting the `ARROW_DEFAULT_MEMORY_POOL` environment variable to switch memory allocators now works correctly when the Arrow C++ library has been statically linked (as is usually the case when installing from CRAN).
 * The `arrow_info()` function now reports on the additional optional features, as well as the detected SIMD level. If key features or compression libraries are not enabled in the build, `arrow_info()` will refer to the installation vignette for guidance on how to install a more complete build, if desired.
 * If you attempt to read a file that was compressed with a codec that your Arrow build does not contain support for, the error message now will tell you how to reinstall Arrow with that feature enabled.
+* A new vignette about developer environment setup `vignette("developing", package = "arrow")`.
+* When building from source, you can use the environment variable `ARROW_HOME` to point to a specific directory where the Arrow libraries are. This is similar to passing `INCLUDE_DIR` and `LIB_DIR`.
 
 # arrow 3.0.0
 

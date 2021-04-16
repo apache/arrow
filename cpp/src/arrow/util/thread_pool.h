@@ -106,9 +106,8 @@ class ARROW_EXPORT Executor {
   Future<T> Transfer(Future<T> future) {
     auto transferred = Future<T>::Make();
     auto callback = [this, transferred](const Result<T>& result) mutable {
-      auto spawn_status = Spawn([transferred, result]() mutable {
-        transferred.MarkFinished(std::move(result));
-      });
+      auto spawn_status =
+          Spawn([transferred, result]() mutable { transferred.MarkFinished(result); });
       if (!spawn_status.ok()) {
         transferred.MarkFinished(spawn_status);
       }
@@ -225,7 +224,7 @@ class ARROW_EXPORT SerialExecutor : public Executor {
 
   // State uses mutex
   struct State;
-  std::unique_ptr<State> state_;
+  std::shared_ptr<State> state_;
 
   template <typename T>
   Result<T> Run(TopLevelTask<T> initial_task) {
@@ -263,6 +262,9 @@ class ARROW_EXPORT ThreadPool : public Executor {
   // The actual number of workers may lag a bit before being adjusted to
   // match this value.
   int GetCapacity() override;
+
+  // Return the number of tasks either running or in the queue.
+  int GetNumTasks();
 
   // Dynamically change the number of worker threads.
   //

@@ -30,7 +30,7 @@ type CB = (error?: Error | null | undefined) => void;
 
 /** @ignore */
 class RecordBatchWriterDuplex<T extends { [key: string]: DataType } = any> extends Duplex {
-    private _pulling: boolean = false;
+    private _pulling = false;
     private _reader: AsyncByteStream | null;
     private _writer: RecordBatchWriter | null;
     constructor(writer: RecordBatchWriter<T>, options?: DuplexOptions) {

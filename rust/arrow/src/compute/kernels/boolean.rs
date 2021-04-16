@@ -34,7 +34,6 @@ use crate::error::{ArrowError, Result};
 use crate::util::bit_util::{ceil, round_upto_multiple_of_64};
 use core::iter;
 use lexical_core::Integer;
-use std::iter::FromIterator;
 
 fn binary_boolean_kleene_kernel<F>(
     left: &BooleanArray,
@@ -52,37 +51,19 @@ where
 
     // length and offset of boolean array is measured in bits
     let len = left.len();
-    let left_offset = left.offset();
-    let right_offset = right.offset();
-
-    let left_buffer = left.values();
-    let right_buffer = right.values();
-
-    // If we do not have a validity bitmap, we just use an empty buffer
-    let (left_validity, left_validity_len) = left.data_ref().null_buffer().map_or_else(
-        || (Buffer::from_iter(iter::empty::<bool>()), 0),
-        |buffer| (buffer.clone(), len),
-    );
-    let (right_validity, right_validity_len) =
-        right.data_ref().null_buffer().map_or_else(
-            || (Buffer::from_iter(iter::empty::<bool>()), 0),
-            |buffer| (buffer.clone(), len),
-        );
-
-    let left_chunks = left_buffer.bit_chunks(left_offset, len);
-    let left_valid_chunks = left_validity.bit_chunks(left_offset, left_validity_len);
-    let right_chunks = right_buffer.bit_chunks(right_offset, len);
-    let right_valid_chunks = right_validity.bit_chunks(right_offset, right_validity_len);
 
     // result length measured in bytes (incl. remainder)
     let mut result_len = round_upto_multiple_of_64(len) / 8;
-    // if remainder is absent, the kleene_op code would always resize the result buffers,
-    // which is both unnecessary and expensive. We can prevent the resizing by always
-    // adding 8 additional bytes to the length of both buffers. All bits of these 8 bytes
-    // will always be 0 though.
-    if left_chunks.remainder_len().is_zero() {
+    // The iterator that applies the kleene_op closure always chains an additional iteration
+    // for the remainder chunk, even without a remainder. If the remainder is absent
+    // (length % 64 == 0), kleene_op would resize the result buffers (value_buffer and
+    // valid_buffer) to store 8 additional bytes, because result_len wouldn't include a remainder
+    // chunk. The resizing is unnecessary and expensive. We can prevent it by adding 8 bytes to
+    // result_len here. Nonetheless, all bits of these 8 bytes will be 0.
+    if len % 64 == 0 {
         result_len += 8;
     }
+
     let mut value_buffer = MutableBuffer::new(result_len);
     let mut valid_buffer = MutableBuffer::new(result_len);
 
@@ -102,41 +83,77 @@ where
         valid_buffer.extend_from_slice(&[valid]);
     };
 
-    // To get rid off the additional remainder logic we would need an iterator
-    // which contains a possible remainder word.
-    let remainder = (
-        (
-            left_chunks.remainder_bits(),
-            left_valid_chunks.remainder_bits(),
-        ),
-        (
-            right_chunks.remainder_bits(),
-            right_valid_chunks.remainder_bits(),
-        ),
-    );
+    let left_offset = left.offset();
+    let right_offset = right.offset();
 
-    let base_iter = left_chunks
-        .iter()
-        .zip(left_valid_chunks.iter())
-        .zip(right_chunks.iter().zip(right_valid_chunks.iter()))
-        .chain(iter::once(remainder));
+    let left_buffer = left.values();
+    let right_buffer = right.values();
+
+    let left_chunks = left_buffer.bit_chunks(left_offset, len);
+    let right_chunks = right_buffer.bit_chunks(right_offset, len);
+
+    let left_rem = left_chunks.remainder_bits();
+    let right_rem = right_chunks.remainder_bits();
+
+    let opt_left_valid_chunks_and_rem = left
+        .data_ref()
+        .null_buffer()
+        .map(|b| b.bit_chunks(left_offset, len))
+        .map(|chunks| (chunks.iter(), chunks.remainder_bits()));
+    let opt_right_valid_chunks_and_rem = right
+        .data_ref()
+        .null_buffer()
+        .map(|b| b.bit_chunks(right_offset, len))
+        .map(|chunks| (chunks.iter(), chunks.remainder_bits()));
 
     match (
-        left.data_ref().null_buffer().is_some(),
-        right.data_ref().null_buffer().is_some(),
+        opt_left_valid_chunks_and_rem,
+        opt_right_valid_chunks_and_rem,
     ) {
-        (true, true) => base_iter.for_each(kleene_op),
-        (true, false) => base_iter
-            .map(|(left, (right_data, _))| (left, (right_data, u64::MAX)))
-            .for_each(kleene_op),
-        (false, true) => base_iter
-            .map(|((left_data, _), right)| ((left_data, u64::MAX), right))
-            .for_each(kleene_op),
-        (false, false) => base_iter
-            .map(|((left_data, _), (right_data, _))| {
-                ((left_data, u64::MAX), (right_data, u64::MAX))
-            })
-            .for_each(kleene_op),
+        (
+            Some((left_valid_chunks, left_valid_rem)),
+            Some((right_valid_chunks, right_valid_rem)),
+        ) => {
+            left_chunks
+                .iter()
+                .zip(left_valid_chunks)
+                .zip(right_chunks.iter().zip(right_valid_chunks))
+                .chain(iter::once((
+                    (left_rem, left_valid_rem),
+                    (right_rem, right_valid_rem),
+                )))
+                .for_each(kleene_op);
+        }
+        (Some((left_valid_chunks, left_valid_rem)), None) => {
+            left_chunks
+                .iter()
+                .zip(left_valid_chunks)
+                .zip(right_chunks.iter().zip(iter::repeat(u64::MAX)))
+                .chain(iter::once((
+                    (left_rem, left_valid_rem),
+                    (right_rem, u64::MAX),
+                )))
+                .for_each(kleene_op);
+        }
+        (None, Some((right_valid_chunks, right_valid_rem))) => {
+            left_chunks
+                .iter()
+                .zip(iter::repeat(u64::MAX))
+                .zip(right_chunks.iter().zip(right_valid_chunks))
+                .chain(iter::once((
+                    (left_rem, u64::MAX),
+                    (right_rem, right_valid_rem),
+                )))
+                .for_each(kleene_op);
+        }
+        (None, None) => {
+            left_chunks
+                .iter()
+                .zip(iter::repeat(u64::MAX))
+                .zip(right_chunks.iter().zip(iter::repeat(u64::MAX)))
+                .chain(iter::once(((left_rem, u64::MAX), (right_rem, u64::MAX))))
+                .for_each(kleene_op);
+        }
     };
 
     let bool_buffer: Buffer = value_buffer.into();
@@ -626,6 +643,16 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_boolean_array_kleene_no_remainder() {
+        let n = 1024;
+        let a = BooleanArray::from(vec![true; n]);
+        let b = BooleanArray::from(vec![None; n]);
+        let result = or_kleene(&a, &b).unwrap();
+
+        assert_eq!(result, a);
     }
 
     #[test]

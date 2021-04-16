@@ -15,10 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::sync::Arc;
+
 use ballista_core::error::Result;
 
 use arrow::datatypes::{DataType, Field, Schema};
-use datafusion::execution::context::ExecutionContext;
+use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
+use datafusion::physical_optimizer::coalesce_batches::CoalesceBatches;
+use datafusion::physical_optimizer::merge_exec::AddMergeExec;
+use datafusion::physical_optimizer::optimizer::PhysicalOptimizerRule;
 use datafusion::physical_plan::csv::CsvReadOptions;
 
 pub const TPCH_TABLES: &[&str] = &[
@@ -26,7 +31,14 @@ pub const TPCH_TABLES: &[&str] = &[
 ];
 
 pub fn datafusion_test_context(path: &str) -> Result<ExecutionContext> {
-    let mut ctx = ExecutionContext::new();
+    // remove Repartition rule because that isn't supported yet
+    let rules: Vec<Arc<dyn PhysicalOptimizerRule + Send + Sync>> = vec![
+        Arc::new(CoalesceBatches::new()),
+        Arc::new(AddMergeExec::new()),
+    ];
+    let config = ExecutionConfig::new().with_physical_optimizer_rules(rules);
+    let mut ctx = ExecutionContext::with_config(config);
+
     for table in TPCH_TABLES {
         let schema = get_tpch_schema(table);
         let options = CsvReadOptions::new()

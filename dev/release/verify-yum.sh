@@ -21,26 +21,22 @@ set -exu
 
 if [ $# -lt 2 ]; then
   echo "Usage: $0 VERSION rc"
-  echo "       $0 VERSION rc BINTRAY_REPOSITORY"
   echo "       $0 VERSION release"
-  echo "       $0 VERSION release BINTRAY_REPOSITORY"
   echo "       $0 VERSION local"
   echo " e.g.: $0 0.13.0 rc           # Verify 0.13.0 RC"
   echo " e.g.: $0 0.13.0 release      # Verify 0.13.0"
-  echo " e.g.: $0 0.13.0 rc kou/arrow # Verify 0.13.0 RC at https://bintray.com/kou/arrow"
   echo " e.g.: $0 0.13.0-dev20210203 local # Verify 0.13.0-dev20210203 on local"
   exit 1
 fi
 
 VERSION="$1"
 TYPE="$2"
-BINTRAY_REPOSITORY="${3:-apache/arrow}"
 
 local_prefix="/arrow/dev/tasks/linux-packages"
 
-bintray_base_url="https://dl.bintray.com/${BINTRAY_REPOSITORY}/centos"
+artifactory_base_url="https://apache.jfrog.io/artifactory/arrow/centos"
 if [ "${TYPE}" = "rc" ]; then
-  bintray_base_url="${bintray_base_url}-rc"
+  artifactory_base_url+="-rc"
 fi
 
 distribution=$(. /etc/os-release && echo "${ID}")
@@ -87,30 +83,23 @@ if [ "${TYPE}" = "local" ]; then
 else
   package_version="${VERSION}"
   ${install_command} \
-    ${bintray_base_url}/${distribution_version}/apache-arrow-release-latest.rpm
+    ${artifactory_base_url}/${distribution_version}/apache-arrow-release-latest.rpm
 fi
 
 if [ "${TYPE}" = "local" ]; then
   sed \
     -i"" \
-    -e "s,baseurl=https://apache.bintray.com/arrow/,baseurl=file://${local_prefix}/yum/repositories/,g" \
+    -e "s,baseurl=https://apache\.jfrog\.io/artifactory/arrow/,baseurl=file://${local_prefix}/yum/repositories/,g" \
     /etc/yum.repos.d/Apache-Arrow.repo
   keys="${local_prefix}/KEYS"
   if [ -f "${keys}" ]; then
     cp "${keys}" /etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow
   fi
 else
-  if [ "${BINTRAY_REPOSITORY}" = "apache/arrow" ]; then
-    if [ "${TYPE}" = "rc" ]; then
-      sed \
-        -i"" \
-        -e "s,/centos/,/centos-rc/,g" \
-        /etc/yum.repos.d/Apache-Arrow.repo
-    fi
-  else
+  if [ "${TYPE}" = "rc" ]; then
     sed \
       -i"" \
-      -e "s,baseurl=https://apache.bintray.com/arrow/centos,baseurl=${bintray_base_url},g" \
+      -e "s,/centos/,/centos-rc/,g" \
       /etc/yum.repos.d/Apache-Arrow.repo
   fi
 fi
