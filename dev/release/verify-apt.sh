@@ -21,10 +21,12 @@ set -exu
 
 if [ $# -lt 2 ]; then
   echo "Usage: $0 VERSION rc"
+  echo "       $0 VERSION rc BINTRAY_REPOSITORY"
   echo "       $0 VERSION release"
   echo "       $0 VERSION local"
   echo " e.g.: $0 0.13.0 rc           # Verify 0.13.0 RC"
   echo " e.g.: $0 0.13.0 release      # Verify 0.13.0"
+  echo " e.g.: $0 0.13.0 rc kszucs/arrow # Verify 0.13.0 RC at https://bintray.com/kszucs/arrow"
   echo " e.g.: $0 0.13.0-dev20210203 local # Verify 0.13.0-dev20210203 on local"
   exit 1
 fi
@@ -84,9 +86,15 @@ if [ "${TYPE}" = "local" ]; then
 else
   package_version="${VERSION}-1"
   apt_source_base_name="apache-arrow-apt-source-latest-${code_name}.deb"
-  curl \
-    --output "${apt_source_base_name}" \
-    "${artifactory_base_url}/${apt_source_base_name}"
+  if [ $# -eq 3 ]; then
+    curl \
+      --output "${apt_source_base_name}" \
+      "https://dl.bintray.com/$3/${distribution}-rc/${apt_source_base_name}"
+  else
+    curl \
+      --output "${apt_source_base_name}" \
+      "${artifactory_base_url}/${apt_source_base_name}"
+  fi
   apt install -y -V "./${apt_source_base_name}"
 fi
 
@@ -104,10 +112,17 @@ if [ "${TYPE}" = "local" ]; then
   fi
 else
   if [ "${TYPE}" = "rc" ]; then
-    sed \
-      -i"" \
-      -e "s,^URIs: \\(.*\\)/,URIs: \\1-rc/,g" \
-      /etc/apt/sources.list.d/apache-arrow.sources
+    if [ $# -eq 3 ]; then
+      sed \
+        -i"" \
+        -e "s,^URIs: .*/,URIs: https://dl.bintray.com/$3/${distribution}-rc/,g" \
+        /etc/apt/sources.list.d/apache-arrow.sources
+    else
+      sed \
+        -i"" \
+        -e "s,^URIs: \\(.*\\)/,URIs: \\1-rc/,g" \
+        /etc/apt/sources.list.d/apache-arrow.sources
+    fi
   fi
 fi
 
