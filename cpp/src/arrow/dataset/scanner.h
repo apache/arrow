@@ -333,12 +333,15 @@ class ARROW_DS_EXPORT AsyncScanner : public Scanner,
                std::shared_ptr<ScanOptions> scan_options)
       : Scanner(std::move(scan_options)), dataset_(std::move(dataset)) {}
 
+  Status Scan(std::function<Status(TaggedRecordBatch)> visitor) override;
   Result<TaggedRecordBatchIterator> ScanBatches() override;
   Result<EnumeratedRecordBatchIterator> ScanBatchesUnordered() override;
   Result<std::shared_ptr<Table>> ToTable() override;
 
  private:
   Result<TaggedRecordBatchGenerator> ScanBatchesAsync(internal::Executor* executor);
+  Future<> VisitBatchesAsync(std::function<Status(TaggedRecordBatch)> visitor,
+                             internal::Executor* executor);
   Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync(
       internal::Executor* executor);
   Future<std::shared_ptr<Table>> ToTableAsync(internal::Executor* executor);

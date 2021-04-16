@@ -270,7 +270,7 @@ TEST_P(TestScanner, TakeIndices) {
     ASSERT_EQ(expected.table()->num_rows(), 4);
     AssertTablesEqual(*expected.table(), *taken);
   }
-  {
+  if (num_batches > 1) {
     ArrayFromVector<Int64Type>({batch_size + 2, batch_size + 1}, &indices);
     ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
     ASSERT_OK_AND_ASSIGN(auto taken, scanner->TakeRows(*indices));
@@ -278,7 +278,7 @@ TEST_P(TestScanner, TakeIndices) {
     ASSERT_EQ(expected.table()->num_rows(), 2);
     AssertTablesEqual(*expected.table(), *taken);
   }
-  {
+  if (num_batches > 1) {
     ArrayFromVector<Int64Type>({1, 3, 5, 7, batch_size + 1, 2 * batch_size + 2},
                                &indices);
     ASSERT_OK_AND_ASSIGN(auto taken, scanner->TakeRows(*indices));
@@ -291,7 +291,9 @@ TEST_P(TestScanner, TakeIndices) {
     auto base = num_datasets * num_batches * batch_size;
     ArrayFromVector<Int64Type>({base + 1}, &indices);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        IndexError, ::testing::HasSubstr("Some indices were out of bounds: 32769"),
+        IndexError,
+        ::testing::HasSubstr("Some indices were out of bounds: " +
+                             std::to_string(base + 1)),
         scanner->TakeRows(*indices));
   }
   {
@@ -300,7 +302,9 @@ TEST_P(TestScanner, TakeIndices) {
         {1, 2, base + 1, base + 2, base + 3, base + 4, base + 5, base + 6}, &indices);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         IndexError,
-        ::testing::HasSubstr("Some indices were out of bounds: 32769, 32770, 32771, ..."),
+        ::testing::HasSubstr(
+            "Some indices were out of bounds: " + std::to_string(base + 1) + ", " +
+            std::to_string(base + 2) + ", " + std::to_string(base + 3) + ", ..."),
         scanner->TakeRows(*indices));
   }
 }
@@ -370,10 +374,12 @@ TEST_P(TestScanner, Head) {
   ASSERT_OK_AND_ASSIGN(actual, scanner->Head(1));
   AssertTablesEqual(*expected, *actual);
 
-  ASSERT_OK_AND_ASSIGN(expected,
-                       Table::FromRecordBatches(schema_, {batch, batch->Slice(0, 1)}));
-  ASSERT_OK_AND_ASSIGN(actual, scanner->Head(batch_size + 1));
-  AssertTablesEqual(*expected, *actual);
+  if (num_batches > 1) {
+    ASSERT_OK_AND_ASSIGN(expected,
+                         Table::FromRecordBatches(schema_, {batch, batch->Slice(0, 1)}));
+    ASSERT_OK_AND_ASSIGN(actual, scanner->Head(batch_size + 1));
+    AssertTablesEqual(*expected, *actual);
+  }
 
   ASSERT_OK_AND_ASSIGN(expected, scanner->ToTable());
   ASSERT_OK_AND_ASSIGN(actual, scanner->Head(batch_size * num_batches * num_datasets));

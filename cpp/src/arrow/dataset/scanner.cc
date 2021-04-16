@@ -764,6 +764,20 @@ struct AsyncTableAssemblyState {
   }
 };
 
+Status AsyncScanner::Scan(std::function<Status(TaggedRecordBatch)> visitor) {
+  return internal::RunSynchronouslyVoid(
+      [this, &visitor](Executor* executor) {
+        return VisitBatchesAsync(visitor, executor);
+      },
+      scan_options_->use_threads);
+}
+
+Future<> AsyncScanner::VisitBatchesAsync(std::function<Status(TaggedRecordBatch)> visitor,
+                                         internal::Executor* executor) {
+  ARROW_ASSIGN_OR_RAISE(auto batches_gen, ScanBatchesAsync(executor));
+  return VisitAsyncGenerator(std::move(batches_gen), visitor);
+}
+
 Future<std::shared_ptr<Table>> AsyncScanner::ToTableAsync(
     internal::Executor* cpu_executor) {
   auto scan_options = scan_options_;
@@ -786,7 +800,6 @@ Future<std::shared_ptr<Table>> AsyncScanner::ToTableAsync(
       .Then([state, scan_options](const detail::Empty&) {
         return Table::FromRecordBatches(scan_options->projected_schema, state->Finish());
       });
->>>>>>> ARROW-12289: Initial "naive" implementation of AsyncScanner
 }
 
 }  // namespace dataset
