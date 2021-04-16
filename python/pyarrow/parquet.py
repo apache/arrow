@@ -209,13 +209,17 @@ class ParquetFile:
     buffer_size : int, default 0
         If positive, perform read buffering when deserializing individual
         column chunks. Otherwise IO calls are unbuffered.
+    pre_buffer : bool, default False
+        Coalesce and issue file reads in parallel to improve performance on
+        high-latency filesystems (e.g. S3).
     """
 
     def __init__(self, source, metadata=None, common_metadata=None,
-                 read_dictionary=None, memory_map=False, buffer_size=0):
+                 read_dictionary=None, memory_map=False, buffer_size=0,
+                 pre_buffer=False):
         self.reader = ParquetReader()
         self.reader.open(source, use_memory_map=memory_map,
-                         buffer_size=buffer_size,
+                         buffer_size=buffer_size, pre_buffer=pre_buffer,
                          read_dictionary=read_dictionary, metadata=metadata)
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
@@ -1212,13 +1216,19 @@ use_legacy_dataset : bool, default True
     new Arrow Dataset API). Among other things, this allows to pass
     `filters` for all columns and not only the partition keys, enables
     different partitioning schemes, etc.
+pre_buffer : bool, default True
+    Coalesce and issue file reads in parallel to improve performance on
+    high-latency filesystems (e.g. S3). This option is only supported for
+    use_legacy_dataset=True. If using a filesystem layer that itself
+    performs readahead (e.g. fsspec's S3FS), disable readahead for best
+    results.
 """.format(_read_docstring_common, _DNF_filter_doc)
 
     def __new__(cls, path_or_paths=None, filesystem=None, schema=None,
                 metadata=None, split_row_groups=False, validate_schema=True,
                 filters=None, metadata_nthreads=1, read_dictionary=None,
                 memory_map=False, buffer_size=0, partitioning="hive",
-                use_legacy_dataset=None):
+                use_legacy_dataset=None, pre_buffer=True):
         if use_legacy_dataset is None:
             # if a new filesystem is passed -> default to new implementation
             if isinstance(filesystem, FileSystem):
@@ -1234,6 +1244,7 @@ use_legacy_dataset : bool, default True
                                      read_dictionary=read_dictionary,
                                      memory_map=memory_map,
                                      buffer_size=buffer_size,
+                                     pre_buffer=pre_buffer,
                                      # unsupported keywords
                                      schema=schema, metadata=metadata,
                                      split_row_groups=split_row_groups,
@@ -1246,7 +1257,7 @@ use_legacy_dataset : bool, default True
                  metadata=None, split_row_groups=False, validate_schema=True,
                  filters=None, metadata_nthreads=1, read_dictionary=None,
                  memory_map=False, buffer_size=0, partitioning="hive",
-                 use_legacy_dataset=True):
+                 use_legacy_dataset=True, pre_buffer=True):
         if partitioning != "hive":
             raise ValueError(
                 'Only "hive" for hive-like partitioning is supported when '
@@ -1480,7 +1491,8 @@ class _ParquetDatasetV2:
 
     def __init__(self, path_or_paths, filesystem=None, filters=None,
                  partitioning="hive", read_dictionary=None, buffer_size=None,
-                 memory_map=False, ignore_prefixes=None, **kwargs):
+                 memory_map=False, ignore_prefixes=None, pre_buffer=True,
+                 **kwargs):
         import pyarrow.dataset as ds
 
         # Raise error for not supported keywords
@@ -1494,7 +1506,7 @@ class _ParquetDatasetV2:
                     "Dataset API".format(keyword))
 
         # map format arguments
-        read_options = {}
+        read_options = {"pre_buffer": pre_buffer}
         if buffer_size:
             read_options.update(use_buffered_stream=True,
                                 buffer_size=buffer_size)
@@ -1676,6 +1688,12 @@ filters : List[Tuple] or List[List[Tuple]] or None (default)
     keys and only a hive-style directory structure is supported. When
     setting `use_legacy_dataset` to False, also within-file level filtering
     and different partitioning schemes are supported.
+pre_buffer : bool, default True
+    Coalesce and issue file reads in parallel to improve performance on
+    high-latency filesystems (e.g. S3). This option is only supported for
+    use_legacy_dataset=True. If using a filesystem layer that itself
+    performs readahead (e.g. fsspec's S3FS), disable readahead for best
+    results.
 
     {3}
 
@@ -1689,7 +1707,7 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                use_pandas_metadata=False, memory_map=False,
                read_dictionary=None, filesystem=None, filters=None,
                buffer_size=0, partitioning="hive", use_legacy_dataset=False,
-               ignore_prefixes=None):
+               ignore_prefixes=None, pre_buffer=True):
     if not use_legacy_dataset:
         if metadata is not None:
             raise ValueError(
@@ -1708,6 +1726,7 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
                 buffer_size=buffer_size,
                 filters=filters,
                 ignore_prefixes=ignore_prefixes,
+                pre_buffer=pre_buffer,
             )
         except ImportError:
             # fall back on ParquetFile for simple cases when pyarrow.dataset
@@ -1728,7 +1747,8 @@ def read_table(source, columns=None, use_threads=True, metadata=None,
             # TODO test that source is not a directory or a list
             dataset = ParquetFile(
                 source, metadata=metadata, read_dictionary=read_dictionary,
-                memory_map=memory_map, buffer_size=buffer_size)
+                memory_map=memory_map, buffer_size=buffer_size,
+                pre_buffer=pre_buffer)
 
         return dataset.read(columns=columns, use_threads=use_threads,
                             use_pandas_metadata=use_pandas_metadata)

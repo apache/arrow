@@ -110,6 +110,7 @@ class build_ext(_build_ext):
                      ('with-flight', None, 'build the Flight extension'),
                      ('with-dataset', None, 'build the Dataset extension'),
                      ('with-parquet', None, 'build the Parquet extension'),
+                     ('with-s3', None, 'build the Amazon S3 extension'),
                      ('with-static-parquet', None, 'link parquet statically'),
                      ('with-static-boost', None, 'link boost statically'),
                      ('with-plasma', None, 'build the Plasma extension'),
