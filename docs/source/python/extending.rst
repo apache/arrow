@@ -121,22 +121,22 @@ C++ objects.
 
 .. function:: bool arrow::py::is_sparse_coo_tensor(PyObject* obj)
 
-   Return whether *obj* wraps an Arrow C++ :class:`SparseCOOTensor` pointer;
+   Return whether *obj* wraps an Arrow C++ :type:`SparseCOOTensor` pointer;
    in other words, whether *obj* is a :py:class:`pyarrow.SparseCOOTensor` instance.
 
 .. function:: bool arrow::py::is_sparse_csc_matrix(PyObject* obj)
 
-   Return whether *obj* wraps an Arrow C++ :class:`SparseCSCMatrix` pointer;
+   Return whether *obj* wraps an Arrow C++ :type:`SparseCSCMatrix` pointer;
    in other words, whether *obj* is a :py:class:`pyarrow.SparseCSCMatrix` instance.
 
 .. function:: bool arrow::py::is_sparse_csf_tensor(PyObject* obj)
 
-   Return whether *obj* wraps an Arrow C++ :class:`SparseCSFTensor` pointer;
+   Return whether *obj* wraps an Arrow C++ :type:`SparseCSFTensor` pointer;
    in other words, whether *obj* is a :py:class:`pyarrow.SparseCSFTensor` instance.
 
 .. function:: bool arrow::py::is_sparse_csr_matrix(PyObject* obj)
 
-   Return whether *obj* wraps an Arrow C++ :class:`SparseCSRMatrix` pointer;
+   Return whether *obj* wraps an Arrow C++ :type:`SparseCSRMatrix` pointer;
    in other words, whether *obj* is a :py:class:`pyarrow.SparseCSRMatrix` instance.
 
 
@@ -182,19 +182,19 @@ may be returned if the input object doesn't have the expected type.
 
 .. function:: Result<std::shared_ptr<SparseCOOTensor>> arrow::py::unwrap_sparse_coo_tensor(PyObject* obj)
 
-   Unwrap and return the Arrow C++ :class:`SparseCOOTensor` pointer from *obj*.
+   Unwrap and return the Arrow C++ :type:`SparseCOOTensor` pointer from *obj*.
 
 .. function:: Result<std::shared_ptr<SparseCSCMatrix>> arrow::py::unwrap_sparse_csc_matrix(PyObject* obj)
 
-   Unwrap and return the Arrow C++ :class:`SparseCSCMatrix` pointer from *obj*.
+   Unwrap and return the Arrow C++ :type:`SparseCSCMatrix` pointer from *obj*.
 
 .. function:: Result<std::shared_ptr<SparseCSFTensor>> arrow::py::unwrap_sparse_csf_tensor(PyObject* obj)
 
-   Unwrap and return the Arrow C++ :class:`SparseCSFTensor` pointer from *obj*.
+   Unwrap and return the Arrow C++ :type:`SparseCSFTensor` pointer from *obj*.
 
 .. function:: Result<std::shared_ptr<SparseCSRMatrix>> arrow::py::unwrap_sparse_csr_matrix(PyObject* obj)
 
-   Unwrap and return the Arrow C++ :class:`SparseCSRMatrix` pointer from *obj*.
+   Unwrap and return the Arrow C++ :type:`SparseCSRMatrix` pointer from *obj*.
 
 
 The following functions take an Arrow C++ API pointer and wrap it in a
@@ -315,19 +315,19 @@ an exception) if the input is not of the right type.
 
 .. function:: pyarrow_unwrap_sparse_coo_tensor(obj) -> shared_ptr[CSparseCOOTensor]
 
-   Unwrap the Arrow C++ :cpp:class:`SparseCOOTensor` pointer from *obj*.
+   Unwrap the Arrow C++ :cpp:type:`SparseCOOTensor` pointer from *obj*.
 
 .. function:: pyarrow_unwrap_sparse_csc_matrix(obj) -> shared_ptr[CSparseCSCMatrix]
 
-   Unwrap the Arrow C++ :cpp:class:`SparseCSCMatrix` pointer from *obj*.
+   Unwrap the Arrow C++ :cpp:type:`SparseCSCMatrix` pointer from *obj*.
 
 .. function:: pyarrow_unwrap_sparse_csf_tensor(obj) -> shared_ptr[CSparseCSFTensor]
 
-   Unwrap the Arrow C++ :cpp:class:`SparseCSFTensor` pointer from *obj*.
+   Unwrap the Arrow C++ :cpp:type:`SparseCSFTensor` pointer from *obj*.
 
 .. function:: pyarrow_unwrap_sparse_csr_matrix(obj) -> shared_ptr[CSparseCSRMatrix]
 
-   Unwrap the Arrow C++ :cpp:class:`SparseCSRMatrix` pointer from *obj*.
+   Unwrap the Arrow C++ :cpp:type:`SparseCSRMatrix` pointer from *obj*.
 
 
 The following functions take a Arrow C++ API pointer and wrap it in a

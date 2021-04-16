@@ -53,7 +53,7 @@ function toArrowCompare(this: jest.MatcherUtils, actual: any, expected: any) {
 
 function toEqualTable(this: jest.MatcherUtils, actual: Table, expected: Table) {
     const failures = [] as string[];
-    try { expect(actual.length).toEqual(expected.length); } catch (e) { failures.push(`${e}`); }
+    try { expect(actual).toHaveLength(expected.length); } catch (e) { failures.push(`${e}`); }
     try { expect(actual.numCols).toEqual(expected.numCols); } catch (e) { failures.push(`${e}`); }
     try { expect(actual.schema.metadata).toEqual(expected.schema.metadata); } catch (e) { failures.push(`${e}`); }
     (() => {
@@ -74,7 +74,7 @@ function toEqualTable(this: jest.MatcherUtils, actual: Table, expected: Table) {
 
 function toEqualRecordBatch(this: jest.MatcherUtils, actual: RecordBatch, expected: RecordBatch) {
     const failures = [] as string[];
-    try { expect(actual.length).toEqual(expected.length); } catch (e) { failures.push(`${e}`); }
+    try { expect(actual).toHaveLength(expected.length); } catch (e) { failures.push(`${e}`); }
     try { expect(actual.numCols).toEqual(expected.numCols); } catch (e) { failures.push(`${e}`); }
     (() => {
         for (let i = -1, n = actual.numCols; ++i < n;) {

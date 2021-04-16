@@ -52,6 +52,7 @@ SCALAR_ARITHMETIC_BINARY(Add, "add", "add_checked")
 SCALAR_ARITHMETIC_BINARY(Subtract, "subtract", "subtract_checked")
 SCALAR_ARITHMETIC_BINARY(Multiply, "multiply", "multiply_checked")
 SCALAR_ARITHMETIC_BINARY(Divide, "divide", "divide_checked")
+SCALAR_ARITHMETIC_BINARY(Power, "power", "power_checked")
 
 // ----------------------------------------------------------------------
 // Set-related operations

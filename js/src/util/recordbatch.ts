@@ -36,7 +36,8 @@ export function ensureSameLengthData<T extends { [key: string]: DataType } = any
 ) {
     let data: Data<T[keyof T]>;
     let field: Field<T[keyof T]>;
-    let i = -1, n = chunks.length;
+    let i = -1;
+    const n = chunks.length;
     const fields = [...schema.fields];
     const batchData = [] as Data<T[keyof T]>[];
     const bitmapLength = ((batchLength + 63) & ~63) >> 3;
@@ -70,7 +71,8 @@ function uniformlyDistributeChunksAcrossRecordBatches<T extends { [key: string]:
     const memo = { numBatches: columns.reduce((n, c) => Math.max(n, c.length), 0) };
 
     let numBatches = 0, batchLength = 0;
-    let i: number = -1, numColumns = columns.length;
+    let i = -1;
+    const numColumns = columns.length;
     let child: Data<T[keyof T]>, childData: Data<T[keyof T]>[] = [];
 
     while (memo.numBatches-- > 0) {
@@ -97,7 +99,8 @@ function uniformlyDistributeChunksAcrossRecordBatches<T extends { [key: string]:
 function distributeChildData<T extends { [key: string]: DataType } = any>(fields: Field<T[keyof T]>[], batchLength: number, childData: Data<T[keyof T]>[], columns: Data<T[keyof T]>[][], memo: { numBatches: number }) {
     let data: Data<T[keyof T]>;
     let field: Field<T[keyof T]>;
-    let length = 0, i = -1, n = columns.length;
+    let length = 0, i = -1;
+    const n = columns.length;
     const bitmapLength = ((batchLength + 63) & ~63) >> 3;
     while (++i < n) {
         if ((data = childData[i]) && ((length = data.length) >= batchLength)) {

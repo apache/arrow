@@ -51,7 +51,8 @@ class IterableReadable<T extends Uint8Array | any> extends Readable {
         }
     }
     _destroy(e: Error | null, cb: (e: Error | null) => void) {
-        let it = this._iterator, fn: any;
+        const it = this._iterator;
+        let fn: any;
         it && (fn = e != null && it.throw || it.return);
         fn && fn.call(it, e);
         cb && cb(null);
@@ -90,7 +91,8 @@ class AsyncIterableReadable<T extends Uint8Array | any> extends Readable {
         }
     }
     _destroy(e: Error | null, cb: (e: Error | null) => void) {
-        let it = this._iterator, fn: any;
+        const it = this._iterator;
+        let fn: any;
         it && (fn = e != null && it.throw || it.return);
         fn && fn.call(it, e).then(() => cb && cb(null)) || (cb && cb(null));
     }

@@ -19,6 +19,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <iosfwd>
 #include <memory>
 #include <string>
@@ -141,6 +142,19 @@ struct ARROW_EXPORT FileLocator {
   std::string path;
 };
 
+using FileInfoVector = std::vector<FileInfo>;
+using FileInfoGenerator = std::function<Future<FileInfoVector>()>;
+
+}  // namespace fs
+
+template <>
+struct IterationTraits<fs::FileInfoVector> {
+  static fs::FileInfoVector End() { return {}; }
+  static bool IsEnd(const fs::FileInfoVector& val) { return val.empty(); }
+};
+
+namespace fs {
+
 /// \brief Abstract file system API
 class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> {
  public:
@@ -171,20 +185,22 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   /// a truly exceptional condition (low-level I/O error, etc.).
   virtual Result<FileInfo> GetFileInfo(const std::string& path) = 0;
   /// Same, for many targets at once.
-  virtual Result<std::vector<FileInfo>> GetFileInfo(
-      const std::vector<std::string>& paths);
+  virtual Result<FileInfoVector> GetFileInfo(const std::vector<std::string>& paths);
   /// Same, according to a selector.
   ///
   /// The selector's base directory will not be part of the results, even if
   /// it exists.
   /// If it doesn't exist, see `FileSelector::allow_not_found`.
-  virtual Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) = 0;
+  virtual Result<FileInfoVector> GetFileInfo(const FileSelector& select) = 0;
 
   /// EXPERIMENTAL: async version of GetFileInfo
-  virtual Future<std::vector<FileInfo>> GetFileInfoAsync(
-      const std::vector<std::string>& paths);
-  /// EXPERIMENTAL: async version of GetFileInfo
-  virtual Future<std::vector<FileInfo>> GetFileInfoAsync(const FileSelector& select);
+  virtual Future<FileInfoVector> GetFileInfoAsync(const std::vector<std::string>& paths);
+
+  /// EXPERIMENTAL: streaming async version of GetFileInfo
+  ///
+  /// The returned generator is not async-reentrant, i.e. you need to wait for
+  /// the returned future to complete before calling the generator again.
+  virtual FileInfoGenerator GetFileInfoGenerator(const FileSelector& select);
 
   /// Create a directory and subdirectories.
   ///
@@ -314,7 +330,9 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
   using FileSystem::GetFileInfo;
   /// \endcond
   Result<FileInfo> GetFileInfo(const std::string& path) override;
-  Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) override;
+  Result<FileInfoVector> GetFileInfo(const FileSelector& select) override;
+
+  FileInfoGenerator GetFileInfoGenerator(const FileSelector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
@@ -335,6 +353,16 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
       const std::string& path) override;
   Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
       const FileInfo& info) override;
+
+  Future<std::shared_ptr<io::InputStream>> OpenInputStreamAsync(
+      const std::string& path) override;
+  Future<std::shared_ptr<io::InputStream>> OpenInputStreamAsync(
+      const FileInfo& info) override;
+  Future<std::shared_ptr<io::RandomAccessFile>> OpenInputFileAsync(
+      const std::string& path) override;
+  Future<std::shared_ptr<io::RandomAccessFile>> OpenInputFileAsync(
+      const FileInfo& info) override;
+
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
       const std::string& path) override;
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
@@ -370,7 +398,7 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
 
   using FileSystem::GetFileInfo;
   Result<FileInfo> GetFileInfo(const std::string& path) override;
-  Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) override;
+  Result<FileInfoVector> GetFileInfo(const FileSelector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 

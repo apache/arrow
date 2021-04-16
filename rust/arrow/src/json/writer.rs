@@ -219,6 +219,24 @@ macro_rules! set_column_by_array_type {
     };
 }
 
+macro_rules! set_temporal_column_by_array_type {
+    ($array_type:ident, $col_name:ident, $rows:ident, $array:ident, $row_count:ident, $cast_fn:ident) => {
+        let arr = $array.as_any().downcast_ref::<$array_type>().unwrap();
+
+        $rows
+            .iter_mut()
+            .enumerate()
+            .take($row_count)
+            .for_each(|(i, row)| {
+                if !arr.is_null(i) {
+                    if let Some(v) = arr.$cast_fn(i) {
+                        row.insert($col_name.to_string(), v.to_string().into());
+                    }
+                }
+            });
+    };
+}
+
 fn set_column_by_primitive_type<T: ArrowPrimitiveType>(
     rows: &mut [JsonMap<String, Value>],
     row_count: usize,
@@ -283,6 +301,146 @@ fn set_column_for_json_rows(
         }
         DataType::Utf8 => {
             set_column_by_array_type!(as_string_array, col_name, rows, array, row_count);
+        }
+        DataType::Date32 => {
+            set_temporal_column_by_array_type!(
+                Date32Array,
+                col_name,
+                rows,
+                array,
+                row_count,
+                value_as_date
+            );
+        }
+        DataType::Date64 => {
+            set_temporal_column_by_array_type!(
+                Date64Array,
+                col_name,
+                rows,
+                array,
+                row_count,
+                value_as_date
+            );
+        }
+        DataType::Timestamp(TimeUnit::Second, _) => {
+            set_temporal_column_by_array_type!(
+                TimestampSecondArray,
+                col_name,
+                rows,
+                array,
+                row_count,
+                value_as_datetime
+            );
+        }
+        DataType::Timestamp(TimeUnit::Millisecond, _) => {
+            set_temporal_column_by_array_type!(
+                TimestampMillisecondArray,
+                col_name,
+                rows,
+                array,
+                row_count,
+                value_as_datetime
+            );
+        }
+        DataType::Timestamp(TimeUnit::Microsecond, _) => {
+            set_temporal_column_by_array_type!(
+                TimestampMicrosecondArray,
+                col_name,
+                rows,
+                array,
+                row_count,
+                value_as_datetime
+            );
+        }
+        DataType::Timestamp(TimeUnit::Nanosecond, _) => {
+            set_temporal_column_by_array_type!(
+                TimestampNanosecondArray,
+                col_name,
+                rows,
+                array,
+                row_count,
+                value_as_datetime
+            );
+        }
+        DataType::Time32(TimeUnit::Second) => {
+            set_temporal_column_by_array_type!(
+                Time32SecondArray,
+                col_name,
+                rows,
+                array,
+                row_count,
+                value_as_time
+            );
+        }
+        DataType::Time32(TimeUnit::Millisecond) => {
+            set_temporal_column_by_array_type!(
+                Time32MillisecondArray,
+                col_name,
+                rows,
+                array,
+                row_count,
+                value_as_time
+            );
+        }
+        DataType::Time64(TimeUnit::Microsecond) => {
+            set_temporal_column_by_array_type!(
+                Time64MicrosecondArray,
+                col_name,
+                rows,
+                array,
+                row_count,
+                value_as_time
+            );
+        }
+        DataType::Time64(TimeUnit::Nanosecond) => {
+            set_temporal_column_by_array_type!(
+                Time64NanosecondArray,
+                col_name,
+                rows,
+                array,
+                row_count,
+                value_as_time
+            );
+        }
+        DataType::Duration(TimeUnit::Second) => {
+            set_temporal_column_by_array_type!(
+                DurationSecondArray,
+                col_name,
+                rows,
+                array,
+                row_count,
+                value_as_duration
+            );
+        }
+        DataType::Duration(TimeUnit::Millisecond) => {
+            set_temporal_column_by_array_type!(
+                DurationMillisecondArray,
+                col_name,
+                rows,
+                array,
+                row_count,
+                value_as_duration
+            );
+        }
+        DataType::Duration(TimeUnit::Microsecond) => {
+            set_temporal_column_by_array_type!(
+                DurationMicrosecondArray,
+                col_name,
+                rows,
+                array,
+                row_count,
+                value_as_duration
+            );
+        }
+        DataType::Duration(TimeUnit::Nanosecond) => {
+            set_temporal_column_by_array_type!(
+                DurationNanosecondArray,
+                col_name,
+                rows,
+                array,
+                row_count,
+                value_as_duration
+            );
         }
         DataType::Struct(_) => {
             let inner_objs =
@@ -509,6 +667,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::convert::TryFrom;
     use std::fs::{read_to_string, File};
     use std::sync::Arc;
 
@@ -546,6 +705,194 @@ mod tests {
 {"c1":3,"c2":"c"}
 {"c2":"d"}
 {"c1":5}
+"#
+        );
+    }
+
+    #[test]
+    fn write_timestamps() {
+        let ts_string = "2018-11-13T17:11:10.011375885995";
+        let ts_nanos = ts_string
+            .parse::<chrono::NaiveDateTime>()
+            .unwrap()
+            .timestamp_nanos();
+        let ts_micros = ts_nanos / 1000;
+        let ts_millis = ts_micros / 1000;
+        let ts_secs = ts_millis / 1000;
+
+        let arr_nanos =
+            TimestampNanosecondArray::from_opt_vec(vec![Some(ts_nanos), None], None);
+        let arr_micros =
+            TimestampMicrosecondArray::from_opt_vec(vec![Some(ts_micros), None], None);
+        let arr_millis =
+            TimestampMillisecondArray::from_opt_vec(vec![Some(ts_millis), None], None);
+        let arr_secs =
+            TimestampSecondArray::from_opt_vec(vec![Some(ts_secs), None], None);
+        let arr_names = StringArray::from(vec![Some("a"), Some("b")]);
+
+        let schema = Schema::new(vec![
+            Field::new("nanos", arr_nanos.data_type().clone(), false),
+            Field::new("micros", arr_micros.data_type().clone(), false),
+            Field::new("millis", arr_millis.data_type().clone(), false),
+            Field::new("secs", arr_secs.data_type().clone(), false),
+            Field::new("name", arr_names.data_type().clone(), false),
+        ]);
+        let schema = Arc::new(schema);
+
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(arr_nanos),
+                Arc::new(arr_micros),
+                Arc::new(arr_millis),
+                Arc::new(arr_secs),
+                Arc::new(arr_names),
+            ],
+        )
+        .unwrap();
+
+        let mut buf = Vec::new();
+        {
+            let mut writer = LineDelimitedWriter::new(&mut buf);
+            writer.write_batches(&[batch]).unwrap();
+        }
+
+        assert_eq!(
+            String::from_utf8(buf).unwrap(),
+            r#"{"nanos":"2018-11-13 17:11:10.011375885","micros":"2018-11-13 17:11:10.011375","millis":"2018-11-13 17:11:10.011","secs":"2018-11-13 17:11:10","name":"a"}
+{"name":"b"}
+"#
+        );
+    }
+
+    #[test]
+    fn write_dates() {
+        let ts_string = "2018-11-13T17:11:10.011375885995";
+        let ts_millis = ts_string
+            .parse::<chrono::NaiveDateTime>()
+            .unwrap()
+            .timestamp_millis();
+
+        let arr_date32 = Date32Array::from(vec![
+            Some(i32::try_from(ts_millis / 1000 / (60 * 60 * 24)).unwrap()),
+            None,
+        ]);
+        let arr_date64 = Date64Array::from(vec![Some(ts_millis), None]);
+        let arr_names = StringArray::from(vec![Some("a"), Some("b")]);
+
+        let schema = Schema::new(vec![
+            Field::new("date32", arr_date32.data_type().clone(), false),
+            Field::new("date64", arr_date64.data_type().clone(), false),
+            Field::new("name", arr_names.data_type().clone(), false),
+        ]);
+        let schema = Arc::new(schema);
+
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(arr_date32),
+                Arc::new(arr_date64),
+                Arc::new(arr_names),
+            ],
+        )
+        .unwrap();
+
+        let mut buf = Vec::new();
+        {
+            let mut writer = LineDelimitedWriter::new(&mut buf);
+            writer.write_batches(&[batch]).unwrap();
+        }
+
+        assert_eq!(
+            String::from_utf8(buf).unwrap(),
+            r#"{"date32":"2018-11-13","date64":"2018-11-13","name":"a"}
+{"name":"b"}
+"#
+        );
+    }
+
+    #[test]
+    fn write_times() {
+        let arr_time32sec = Time32SecondArray::from(vec![Some(120), None]);
+        let arr_time32msec = Time32MillisecondArray::from(vec![Some(120), None]);
+        let arr_time64usec = Time64MicrosecondArray::from(vec![Some(120), None]);
+        let arr_time64nsec = Time64NanosecondArray::from(vec![Some(120), None]);
+        let arr_names = StringArray::from(vec![Some("a"), Some("b")]);
+
+        let schema = Schema::new(vec![
+            Field::new("time32sec", arr_time32sec.data_type().clone(), false),
+            Field::new("time32msec", arr_time32msec.data_type().clone(), false),
+            Field::new("time64usec", arr_time64usec.data_type().clone(), false),
+            Field::new("time64nsec", arr_time64nsec.data_type().clone(), false),
+            Field::new("name", arr_names.data_type().clone(), false),
+        ]);
+        let schema = Arc::new(schema);
+
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(arr_time32sec),
+                Arc::new(arr_time32msec),
+                Arc::new(arr_time64usec),
+                Arc::new(arr_time64nsec),
+                Arc::new(arr_names),
+            ],
+        )
+        .unwrap();
+
+        let mut buf = Vec::new();
+        {
+            let mut writer = LineDelimitedWriter::new(&mut buf);
+            writer.write_batches(&[batch]).unwrap();
+        }
+
+        assert_eq!(
+            String::from_utf8(buf).unwrap(),
+            r#"{"time32sec":"00:02:00","time32msec":"00:00:00.120","time64usec":"00:00:00.000120","time64nsec":"00:00:00.000000120","name":"a"}
+{"name":"b"}
+"#
+        );
+    }
+
+    #[test]
+    fn write_durations() {
+        let arr_durationsec = DurationSecondArray::from(vec![Some(120), None]);
+        let arr_durationmsec = DurationMillisecondArray::from(vec![Some(120), None]);
+        let arr_durationusec = DurationMicrosecondArray::from(vec![Some(120), None]);
+        let arr_durationnsec = DurationNanosecondArray::from(vec![Some(120), None]);
+        let arr_names = StringArray::from(vec![Some("a"), Some("b")]);
+
+        let schema = Schema::new(vec![
+            Field::new("duration_sec", arr_durationsec.data_type().clone(), false),
+            Field::new("duration_msec", arr_durationmsec.data_type().clone(), false),
+            Field::new("duration_usec", arr_durationusec.data_type().clone(), false),
+            Field::new("duration_nsec", arr_durationnsec.data_type().clone(), false),
+            Field::new("name", arr_names.data_type().clone(), false),
+        ]);
+        let schema = Arc::new(schema);
+
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(arr_durationsec),
+                Arc::new(arr_durationmsec),
+                Arc::new(arr_durationusec),
+                Arc::new(arr_durationnsec),
+                Arc::new(arr_names),
+            ],
+        )
+        .unwrap();
+
+        let mut buf = Vec::new();
+        {
+            let mut writer = LineDelimitedWriter::new(&mut buf);
+            writer.write_batches(&[batch]).unwrap();
+        }
+
+        assert_eq!(
+            String::from_utf8(buf).unwrap(),
+            r#"{"duration_sec":"PT120S","duration_msec":"PT0.120S","duration_usec":"PT0.000120S","duration_nsec":"PT0.000000120S","name":"a"}
+{"name":"b"}
 "#
         );
     }
@@ -831,7 +1178,6 @@ mod tests {
         writer.finish().unwrap();
         assert_eq!(String::from_utf8(writer.into_inner()).unwrap(), "");
     }
-
     #[test]
     fn json_writer_one_row() {
         let mut writer = ArrayWriter::new(vec![] as Vec<u8>);

@@ -307,14 +307,17 @@ def test_dataset(dataset):
     # TODO(kszucs): test non-boolean Exprs for filter do raise
     expected_i64 = pa.array([0, 1, 2, 3, 4], type=pa.int64())
     expected_f64 = pa.array([0, 1, 2, 3, 4], type=pa.float64())
-    for task in dataset.scan():
-        assert isinstance(task, ds.ScanTask)
-        for batch in task.execute():
-            assert batch.column(0).equals(expected_i64)
-            assert batch.column(1).equals(expected_f64)
+    with pytest.deprecated_call():
+        dataset.scan()
 
-    batches = dataset.to_batches()
-    assert all(isinstance(batch, pa.RecordBatch) for batch in batches)
+    for batch in dataset.to_batches():
+        assert isinstance(batch, pa.RecordBatch)
+        assert batch.column(0).equals(expected_i64)
+        assert batch.column(1).equals(expected_f64)
+
+    for batch in ds.Scanner.from_dataset(dataset).scan_batches():
+        assert isinstance(batch, ds.TaggedRecordBatch)
+        assert isinstance(batch.fragment, ds.Fragment)
 
     table = dataset.to_table()
     assert isinstance(table, pa.Table)
@@ -334,7 +337,8 @@ def test_dataset_execute_iterator(dataset):
     # ARROW-11596: this would segfault due to Cython raising
     # StopIteration without holding the GIL. (Fixed on Cython master,
     # post 3.0a6)
-    tasks = dataset.scan()
+    with pytest.deprecated_call():
+        tasks = dataset.scan()
     task = next(tasks)
     iterator = task.execute()
     thread = threading.Thread(target=lambda: next(iterator))
@@ -348,7 +352,6 @@ def test_scanner(dataset):
     scanner = ds.Scanner.from_dataset(dataset,
                                       memory_pool=pa.default_memory_pool())
     assert isinstance(scanner, ds.Scanner)
-    assert len(list(scanner.scan())) == 2
 
     with pytest.raises(pa.ArrowInvalid):
         ds.Scanner.from_dataset(dataset, columns=['unknown'])
@@ -357,10 +360,15 @@ def test_scanner(dataset):
                                       memory_pool=pa.default_memory_pool())
 
     assert isinstance(scanner, ds.Scanner)
-    assert len(list(scanner.scan())) == 2
-    for task in scanner.scan():
-        for batch in task.execute():
-            assert batch.num_columns == 1
+    for batch in scanner.to_batches():
+        assert batch.num_columns == 1
+
+    table = scanner.to_table()
+    for i in range(table.num_rows):
+        indices = pa.array([i])
+        assert table.take(indices) == scanner.take(indices)
+    with pytest.raises(pa.ArrowIndexError):
+        scanner.take(pa.array([table.num_rows]))
 
 
 def test_abstract_classes():
@@ -487,6 +495,23 @@ def test_expression_boolean_operators():
         not true
 
 
+def test_expression_arithmetic_operators():
+    dataset = ds.dataset(pa.table({'a': [1, 2, 3], 'b': [2, 2, 2]}))
+    a = ds.field("a")
+    b = ds.field("b")
+    result = dataset.to_table(columns={
+        "a+1": a + 1,
+        "b-a": b - a,
+        "a*2": a * 2,
+        "a/b": a.cast("float64") / b,
+    })
+    expected = pa.table({
+        "a+1": [2, 3, 4], "b-a": [1, 0, -1],
+        "a*2": [2, 4, 6], "a/b": [0.5, 1.0, 1.5],
+    })
+    assert result.equals(expected)
+
+
 def test_partition_keys():
     a, b, c = [ds.field(f) == f for f in 'abc']
     assert ds._get_partition_keys(a) == {'a': 'a'}
@@ -502,32 +527,38 @@ def test_partition_keys():
 
 def test_parquet_read_options():
     opts1 = ds.ParquetReadOptions()
-    opts2 = ds.ParquetReadOptions(buffer_size=4096,
-                                  dictionary_columns=['a', 'b'])
-    opts3 = ds.ParquetReadOptions(buffer_size=2**13, use_buffered_stream=True,
-                                  dictionary_columns={'a', 'b'})
-    opts4 = ds.ParquetReadOptions(buffer_size=2**13, pre_buffer=True,
-                                  dictionary_columns={'a', 'b'})
+    opts2 = ds.ParquetReadOptions(dictionary_columns=['a', 'b'])
+
+    assert opts1.dictionary_columns == set()
+
+    assert opts2.dictionary_columns == {'a', 'b'}
+
+    assert opts1 == opts1
+    assert opts1 != opts2
+
+
+def test_parquet_scan_options():
+    opts1 = ds.ParquetFragmentScanOptions()
+    opts2 = ds.ParquetFragmentScanOptions(buffer_size=4096)
+    opts3 = ds.ParquetFragmentScanOptions(
+        buffer_size=2**13, use_buffered_stream=True)
+    opts4 = ds.ParquetFragmentScanOptions(buffer_size=2**13, pre_buffer=True)
 
     assert opts1.use_buffered_stream is False
     assert opts1.buffer_size == 2**13
     assert opts1.pre_buffer is False
-    assert opts1.dictionary_columns == set()
 
     assert opts2.use_buffered_stream is False
     assert opts2.buffer_size == 2**12
     assert opts2.pre_buffer is False
-    assert opts2.dictionary_columns == {'a', 'b'}
 
     assert opts3.use_buffered_stream is True
     assert opts3.buffer_size == 2**13
     assert opts3.pre_buffer is False
-    assert opts3.dictionary_columns == {'a', 'b'}
 
     assert opts4.use_buffered_stream is False
     assert opts4.buffer_size == 2**13
     assert opts4.pre_buffer is True
-    assert opts4.dictionary_columns == {'a', 'b'}
 
     assert opts1 == opts1
     assert opts1 != opts2
@@ -546,14 +577,11 @@ def test_file_format_pickling():
         ds.CsvFileFormat(read_options=pa.csv.ReadOptions(
             skip_rows=3, block_size=2**20)),
         ds.ParquetFileFormat(),
+        ds.ParquetFileFormat(dictionary_columns={'a'}),
+        ds.ParquetFileFormat(use_buffered_stream=True),
         ds.ParquetFileFormat(
-            read_options=ds.ParquetReadOptions(use_buffered_stream=True)
-        ),
-        ds.ParquetFileFormat(
-            read_options={
-                'use_buffered_stream': True,
-                'buffer_size': 4096,
-            }
+            use_buffered_stream=True,
+            buffer_size=4096,
         )
     ]
     for file_format in formats:
@@ -567,6 +595,8 @@ def test_fragment_scan_options_pickling():
             convert_options=pa.csv.ConvertOptions(strings_can_be_null=True)),
         ds.CsvFragmentScanOptions(
             read_options=pa.csv.ReadOptions(block_size=2**16)),
+        ds.ParquetFragmentScanOptions(buffer_size=4096),
+        ds.ParquetFragmentScanOptions(pre_buffer=True),
     ]
     for option in options:
         assert pickle.loads(pickle.dumps(option)) == option
@@ -582,8 +612,8 @@ def test_fragment_scan_options_pickling():
 @pytest.mark.parametrize('pre_buffer', [False, True])
 def test_filesystem_factory(mockfs, paths_or_selector, pre_buffer):
     format = ds.ParquetFileFormat(
-        read_options=ds.ParquetReadOptions(dictionary_columns={"str"},
-                                           pre_buffer=pre_buffer)
+        read_options=ds.ParquetReadOptions(dictionary_columns={"str"}),
+        pre_buffer=pre_buffer
     )
 
     options = ds.FileSystemFactoryOptions('subdir')
@@ -618,7 +648,6 @@ def test_filesystem_factory(mockfs, paths_or_selector, pre_buffer):
 
     dataset = factory.finish()
     assert isinstance(dataset, ds.FileSystemDataset)
-    assert len(list(dataset.scan())) == 2
 
     scanner = ds.Scanner.from_dataset(dataset)
     expected_i64 = pa.array([0, 1, 2, 3, 4], type=pa.int64())
@@ -627,18 +656,20 @@ def test_filesystem_factory(mockfs, paths_or_selector, pre_buffer):
         pa.array([0, 1, 2, 3, 4], type=pa.int32()),
         pa.array("0 1 2 3 4".split(), type=pa.string())
     )
-    for task, group, key in zip(scanner.scan(), [1, 2], ['xxx', 'yyy']):
+    iterator = scanner.scan_batches()
+    for (batch, fragment), group, key in zip(iterator, [1, 2], ['xxx', 'yyy']):
         expected_group = pa.array([group] * 5, type=pa.int32())
         expected_key = pa.array([key] * 5, type=pa.string())
         expected_const = pa.array([group - 1] * 5, type=pa.int64())
-        for batch in task.execute():
-            assert batch.num_columns == 6
-            assert batch[0].equals(expected_i64)
-            assert batch[1].equals(expected_f64)
-            assert batch[2].equals(expected_str)
-            assert batch[3].equals(expected_const)
-            assert batch[4].equals(expected_group)
-            assert batch[5].equals(expected_key)
+        # Can't compare or really introspect expressions from Python
+        assert fragment.partition_expression is not None
+        assert batch.num_columns == 6
+        assert batch[0].equals(expected_i64)
+        assert batch[1].equals(expected_f64)
+        assert batch[2].equals(expected_str)
+        assert batch[3].equals(expected_const)
+        assert batch[4].equals(expected_group)
+        assert batch[5].equals(expected_key)
 
     table = dataset.to_table()
     assert isinstance(table, pa.Table)
@@ -702,10 +733,10 @@ def test_make_parquet_fragment_from_buffer():
     ]
     dictionary_format = ds.ParquetFileFormat(
         read_options=ds.ParquetReadOptions(
-            use_buffered_stream=True,
-            buffer_size=4096,
             dictionary_columns=['alpha', 'animal']
-        )
+        ),
+        use_buffered_stream=True,
+        buffer_size=4096,
     )
 
     cases = [
@@ -1622,13 +1653,16 @@ def test_construct_from_invalid_sources_raise(multisourcefs):
         fs.FileSelector('/schema'),
         format=ds.ParquetFileFormat()
     )
+    batch1 = pa.RecordBatch.from_arrays([pa.array(range(10))], names=["a"])
+    batch2 = pa.RecordBatch.from_arrays([pa.array(range(10))], names=["b"])
 
     with pytest.raises(TypeError, match='Expected.*FileSystemDatasetFactory'):
         ds.dataset([child1, child2])
 
     expected = (
-        "Expected a list of path-like or dataset objects. The given list "
-        "contains the following types: int"
+        "Expected a list of path-like or dataset objects, or a list "
+        "of batches or tables. The given list contains the following "
+        "types: int"
     )
     with pytest.raises(TypeError, match=expected):
         ds.dataset([1, 2, 3])
@@ -1639,6 +1673,86 @@ def test_construct_from_invalid_sources_raise(multisourcefs):
     )
     with pytest.raises(TypeError, match=expected):
         ds.dataset(None)
+
+    expected = (
+        "Must provide schema to construct in-memory dataset from an iterable"
+    )
+    with pytest.raises(ValueError, match=expected):
+        ds.dataset((batch1 for _ in range(3)))
+
+    expected = (
+        "Must provide schema to construct in-memory dataset from an empty list"
+    )
+    with pytest.raises(ValueError, match=expected):
+        ds.InMemoryDataset([])
+
+    expected = (
+        "Item has schema\nb: int64\nwhich does not match expected schema\n"
+        "a: int64"
+    )
+    with pytest.raises(TypeError, match=expected):
+        ds.dataset([batch1, batch2])
+
+    expected = (
+        "Expected a list of path-like or dataset objects, or a list of "
+        "batches or tables. The given list contains the following types:"
+    )
+    with pytest.raises(TypeError, match=expected):
+        ds.dataset([batch1, 0])
+
+    expected = (
+        "Expected a list of tables or batches. The given list contains a int"
+    )
+    with pytest.raises(TypeError, match=expected):
+        ds.InMemoryDataset([batch1, 0])
+
+
+def test_construct_in_memory():
+    batch = pa.RecordBatch.from_arrays([pa.array(range(10))], names=["a"])
+    table = pa.Table.from_batches([batch])
+    reader = pa.ipc.RecordBatchReader.from_batches(batch.schema, [batch])
+    iterable = (batch for _ in range(1))
+
+    for source in (batch, table, reader, [batch], [table]):
+        dataset = ds.dataset(source)
+        assert dataset.to_table() == table
+
+    assert ds.dataset(iterable, schema=batch.schema).to_table().equals(table)
+    assert ds.dataset([], schema=pa.schema([])).to_table() == pa.table([])
+
+    # When constructed from batches/tables, should be reusable
+    for source in (batch, table, [batch], [table]):
+        dataset = ds.dataset(source)
+        assert len(list(dataset.get_fragments())) == 1
+        assert len(list(dataset.get_fragments())) == 1
+        assert dataset.to_table() == table
+        assert dataset.to_table() == table
+        assert next(dataset.get_fragments()).to_table() == table
+        assert pa.Table.from_batches(list(dataset.to_batches())) == table
+
+    # When constructed from readers/iterators, should be one-shot
+    match = "InMemoryDataset was already consumed"
+    for factory in (
+            lambda: pa.ipc.RecordBatchReader.from_batches(
+                batch.schema, [batch]),
+            lambda: (batch for _ in range(1)),
+    ):
+        dataset = ds.dataset(factory(), schema=batch.schema)
+        # Getting fragments consumes the underlying iterator
+        fragments = list(dataset.get_fragments())
+        assert len(fragments) == 1
+        assert fragments[0].to_table() == table
+        with pytest.raises(pa.ArrowInvalid, match=match):
+            list(dataset.get_fragments())
+        with pytest.raises(pa.ArrowInvalid, match=match):
+            dataset.to_table()
+        # Materializing consumes the underlying iterator
+        dataset = ds.dataset(factory(), schema=batch.schema)
+        assert dataset.to_table() == table
+        with pytest.raises(pa.ArrowInvalid, match=match):
+            list(dataset.get_fragments())
+        with pytest.raises(pa.ArrowInvalid, match=match):
+            dataset.to_table()
 
 
 @pytest.mark.parquet
@@ -2854,6 +2968,28 @@ def test_write_table_multiple_fragments(tempdir):
     assert ds.dataset(base_dir, format="ipc").to_table().equals(
         pa.concat_tables([table]*2)
     )
+
+
+def test_write_iterable(tempdir):
+    table = pa.table([
+        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(np.repeat(['a', 'b'], 10))
+    ], names=["f1", "f2", "part"])
+
+    base_dir = tempdir / 'inmemory_iterable'
+    ds.write_dataset((batch for batch in table.to_batches()), base_dir,
+                     schema=table.schema,
+                     basename_template='dat_{i}.arrow', format="feather")
+    result = ds.dataset(base_dir, format="ipc").to_table()
+    assert result.equals(table)
+
+    base_dir = tempdir / 'inmemory_reader'
+    reader = pa.ipc.RecordBatchReader.from_batches(table.schema,
+                                                   table.to_batches())
+    ds.write_dataset(reader, base_dir,
+                     basename_template='dat_{i}.arrow', format="feather")
+    result = ds.dataset(base_dir, format="ipc").to_table()
+    assert result.equals(table)
 
 
 def test_write_table_partitioned_dict(tempdir):

@@ -44,7 +44,7 @@ namespace arrow {
 // the utilities Visit/Collect/Await take care to do this).
 //
 // Asynchronous reentrancy on the other hand means the function is called again before the
-// future returned by the function is marekd finished (but after the call to get the
+// future returned by the function is marked finished (but after the call to get the
 // future returns).  Some of these generators are async-reentrant while others (e.g.
 // those that depend on ordered processing like decompression) are not.  Read the MakeXYZ
 // function comments to determine which generators support async reentrancy.
@@ -280,7 +280,156 @@ AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator,
   return MappingGenerator<T, V>(std::move(source_generator), std::move(map));
 }
 
-/// \see MakeAsyncGenerator
+/// \see MakeSequencingGenerator
+template <typename T, typename ComesAfter, typename IsNext>
+class SequencingGenerator {
+ public:
+  SequencingGenerator(AsyncGenerator<T> source, ComesAfter compare, IsNext is_next,
+                      T initial_value)
+      : state_(std::make_shared<State>(std::move(source), std::move(compare),
+                                       std::move(is_next), std::move(initial_value))) {}
+
+  Future<T> operator()() {
+    {
+      auto guard = state_->mutex.Lock();
+      // We can send a result immediately if the top of the queue is either an
+      // error or the next item
+      if (!state_->queue.empty() &&
+          (!state_->queue.top().ok() ||
+           state_->is_next(state_->previous_value, *state_->queue.top()))) {
+        auto result = std::move(state_->queue.top());
+        if (result.ok()) {
+          state_->previous_value = *result;
+        }
+        state_->queue.pop();
+        return Future<T>::MakeFinished(result);
+      }
+      if (state_->finished) {
+        return AsyncGeneratorEnd<T>();
+      }
+      // The next item is not in the queue so we will need to wait
+      auto new_waiting_fut = Future<T>::Make();
+      state_->waiting_future = new_waiting_fut;
+      guard.Unlock();
+      state_->source().AddCallback(Callback{state_});
+      return new_waiting_fut;
+    }
+  }
+
+ private:
+  struct WrappedComesAfter {
+    bool operator()(const Result<T>& left, const Result<T>& right) {
+      if (!left.ok() || !right.ok()) {
+        // Should never happen
+        return false;
+      }
+      return compare(*left, *right);
+    }
+    ComesAfter compare;
+  };
+
+  struct State {
+    State(AsyncGenerator<T> source, ComesAfter compare, IsNext is_next, T initial_value)
+        : source(std::move(source)),
+          is_next(std::move(is_next)),
+          previous_value(std::move(initial_value)),
+          waiting_future(),
+          queue(WrappedComesAfter{compare}),
+          finished(false),
+          mutex() {}
+
+    AsyncGenerator<T> source;
+    IsNext is_next;
+    T previous_value;
+    Future<T> waiting_future;
+    std::priority_queue<Result<T>, std::vector<Result<T>>, WrappedComesAfter> queue;
+    bool finished;
+    util::Mutex mutex;
+  };
+
+  class Callback {
+   public:
+    explicit Callback(std::shared_ptr<State> state) : state_(std::move(state)) {}
+
+    void operator()(const Result<T> result) {
+      Future<T> to_deliver;
+      bool finished;
+      {
+        auto guard = state_->mutex.Lock();
+        bool ready_to_deliver = false;
+        if (!result.ok()) {
+          // Clear any cached results
+          while (!state_->queue.empty()) {
+            state_->queue.pop();
+          }
+          ready_to_deliver = true;
+          state_->finished = true;
+        } else if (IsIterationEnd<T>(result.ValueUnsafe())) {
+          ready_to_deliver = state_->queue.empty();
+          state_->finished = true;
+        } else {
+          ready_to_deliver = state_->is_next(state_->previous_value, *result);
+        }
+
+        if (ready_to_deliver && state_->waiting_future.is_valid()) {
+          to_deliver = state_->waiting_future;
+          if (result.ok()) {
+            state_->previous_value = *result;
+          }
+        } else {
+          state_->queue.push(result);
+        }
+        // Capture state_->finished so we can access it outside the mutex
+        finished = state_->finished;
+      }
+      // Must deliver result outside of the mutex
+      if (to_deliver.is_valid()) {
+        to_deliver.MarkFinished(result);
+      } else {
+        // Otherwise, if we didn't get the next item (or a terminal item), we
+        // need to keep looking
+        if (!finished) {
+          state_->source().AddCallback(Callback{state_});
+        }
+      }
+    }
+
+   private:
+    const std::shared_ptr<State> state_;
+  };
+
+  const std::shared_ptr<State> state_;
+};
+
+/// \brief Buffers an AsyncGenerator to return values in sequence order  ComesAfter
+/// and IsNext determine the sequence order.
+///
+/// ComesAfter should be a BinaryPredicate that only returns true if a comes after b
+///
+/// IsNext should be a BinaryPredicate that returns true, given `a` and `b`, only if
+/// `b` follows immediately after `a`.  It should return true given `initial_value` and
+/// `b` if `b` is the first item in the sequence.
+///
+/// This operator will queue unboundedly while waiting for the next item.  It is intended
+/// for jittery sources that might scatter an ordered sequence.  It is NOT intended to
+/// sort.  Using it to try and sort could result in excessive RAM usage.  This generator
+/// will queue up to N blocks where N is the max "out of order"ness of the source.
+///
+/// For example, if the source is 1,6,2,5,4,3 it will queue 3 blocks because 3 is 3
+/// blocks beyond where it belongs.
+///
+/// This generator is not async-reentrant but it consists only of a simple log(n)
+/// insertion into a priority queue.
+template <typename T, typename ComesAfter, typename IsNext>
+AsyncGenerator<T> MakeSequencingGenerator(AsyncGenerator<T> source_generator,
+                                          ComesAfter compare, IsNext is_next,
+                                          T initial_value) {
+  return SequencingGenerator<T, ComesAfter, IsNext>(
+      std::move(source_generator), std::move(compare), std::move(is_next),
+      std::move(initial_value));
+}
+
+/// \see MakeTransformedGenerator
 template <typename T, typename V>
 class TransformingGenerator {
   // The transforming generator state will be referenced as an async generator but will
@@ -382,8 +531,8 @@ class TransformingGenerator {
 ///
 /// This generator may queue up to 1 instance of T
 template <typename T, typename V>
-AsyncGenerator<V> MakeAsyncGenerator(AsyncGenerator<T> generator,
-                                     Transformer<T, V> transformer) {
+AsyncGenerator<V> MakeTransformedGenerator(AsyncGenerator<T> generator,
+                                           Transformer<T, V> transformer) {
   return TransformingGenerator<T, V>(generator, transformer);
 }
 
@@ -490,6 +639,47 @@ class SerialReadaheadGenerator {
 
   std::shared_ptr<State> state_;
 };
+
+/// \see MakeFromFuture
+template <typename T>
+class FutureFirstGenerator {
+ public:
+  explicit FutureFirstGenerator(Future<AsyncGenerator<T>> future)
+      : state_(std::make_shared<State>(std::move(future))) {}
+
+  Future<T> operator()() {
+    if (state_->source_) {
+      return state_->source_();
+    } else {
+      auto state = state_;
+      return state_->future_.Then([state](const AsyncGenerator<T>& source) {
+        state->source_ = source;
+        return state->source_();
+      });
+    }
+  }
+
+ private:
+  struct State {
+    explicit State(Future<AsyncGenerator<T>> future) : future_(future), source_() {}
+
+    Future<AsyncGenerator<T>> future_;
+    AsyncGenerator<T> source_;
+  };
+
+  std::shared_ptr<State> state_;
+};
+
+/// \brief Transforms a Future<AsyncGenerator<T>> into an AsyncGenerator<T>
+/// that waits for the future to complete as part of the first item.
+///
+/// This generator is not async-reentrant (even if the generator yielded by future is)
+///
+/// This generator does not queue
+template <typename T>
+AsyncGenerator<T> MakeFromFuture(Future<AsyncGenerator<T>> future) {
+  return FutureFirstGenerator<T>(std::move(future));
+}
 
 /// \brief Creates a generator that will pull from the source into a queue.  Unlike
 /// MakeReadaheadGenerator this will not pull reentrantly from the source.
@@ -880,6 +1070,80 @@ AsyncGenerator<T> MakeConcatenatedGenerator(AsyncGenerator<AsyncGenerator<T>> so
   return MergedGenerator<T>(std::move(source), 1);
 }
 
+template <typename T>
+struct Enumerated {
+  T value;
+  int index;
+  bool last;
+};
+
+template <typename T>
+struct IterationTraits<Enumerated<T>> {
+  static Enumerated<T> End() { return Enumerated<T>{IterationEnd<T>(), -1, false}; }
+  static bool IsEnd(const Enumerated<T>& val) { return val.index < 0; }
+};
+
+/// \see MakeEnumeratedGenerator
+template <typename T>
+class EnumeratingGenerator {
+ public:
+  EnumeratingGenerator(AsyncGenerator<T> source, T initial_value)
+      : state_(std::make_shared<State>(std::move(source), std::move(initial_value))) {}
+
+  Future<Enumerated<T>> operator()() {
+    if (state_->finished) {
+      return AsyncGeneratorEnd<Enumerated<T>>();
+    } else {
+      auto state = state_;
+      return state->source().Then([state](const T& next) {
+        auto finished = IsIterationEnd<T>(next);
+        auto prev = Enumerated<T>{state->prev_value, state->prev_index, finished};
+        state->prev_value = next;
+        state->prev_index++;
+        state->finished = finished;
+        return prev;
+      });
+    }
+  }
+
+ private:
+  struct State {
+    State(AsyncGenerator<T> source, T initial_value)
+        : source(std::move(source)), prev_value(std::move(initial_value)), prev_index(0) {
+      finished = IsIterationEnd<T>(prev_value);
+    }
+
+    AsyncGenerator<T> source;
+    T prev_value;
+    int prev_index;
+    bool finished;
+  };
+
+  std::shared_ptr<State> state_;
+};
+
+/// Wraps items from a source generator with positional information
+///
+/// When used with MakeMergedGenerator and MakeSequencingGenerator this allows items to be
+/// processed in a "first-available" fashion and later resequenced which can reduce the
+/// impact of sources with erratic performance (e.g. a filesystem where some items may
+/// take longer to read than others).
+///
+/// TODO(ARROW-12371) Would require this generator be async-reentrant
+///
+/// \see MakeSequencingGenerator for an example of putting items back in order
+///
+/// This generator is not async-reentrant
+///
+/// This generator buffers one item (so it knows which item is the last item)
+template <typename T>
+AsyncGenerator<Enumerated<T>> MakeEnumeratedGenerator(AsyncGenerator<T> source) {
+  return FutureFirstGenerator<Enumerated<T>>(
+      source().Then([source](const T& initial_value) -> AsyncGenerator<Enumerated<T>> {
+        return EnumeratingGenerator<T>(std::move(source), initial_value);
+      }));
+}
+
 /// \see MakeTransferredGenerator
 template <typename T>
 class TransferringGenerator {
@@ -947,65 +1211,243 @@ AsyncGenerator<T> MakeIteratorGenerator(Iterator<T> it) {
 template <typename T>
 class BackgroundGenerator {
  public:
-  explicit BackgroundGenerator(Iterator<T> it, internal::Executor* io_executor)
-      : io_executor_(io_executor) {
-    task_ = Task{std::make_shared<Iterator<T>>(std::move(it)),
-                 std::make_shared<std::atomic<bool>>(false)};
-  }
-
-  ~BackgroundGenerator() {
-    // The thread pool will be disposed of automatically.  By default it will not wait
-    // so the background thread may outlive this object.  That should be ok.  Any task
-    // objects in the thread pool are copies of task_ and have their own shared_ptr to
-    // the iterator.
-  }
-
-  ARROW_DEFAULT_MOVE_AND_ASSIGN(BackgroundGenerator);
-  ARROW_DISALLOW_COPY_AND_ASSIGN(BackgroundGenerator);
+  explicit BackgroundGenerator(Iterator<T> it, internal::Executor* io_executor, int max_q,
+                               int q_restart)
+      : state_(std::make_shared<State>(io_executor, std::move(it), max_q, q_restart)),
+        cleanup_(std::make_shared<Cleanup>(state_.get())) {}
 
   Future<T> operator()() {
-    auto submitted_future = io_executor_->Submit(task_);
-    if (!submitted_future.ok()) {
-      return Future<T>::MakeFinished(submitted_future.status());
-    }
-    return std::move(*submitted_future);
-  }
-
- protected:
-  struct Task {
-    Result<T> operator()() {
-      if (*done_) {
-        return IterationTraits<T>::End();
+    auto guard = state_->mutex.Lock();
+    Future<T> waiting_future;
+    if (state_->queue.empty()) {
+      if (state_->finished) {
+        return AsyncGeneratorEnd<T>();
+      } else {
+        waiting_future = Future<T>::Make();
+        state_->waiting_future = waiting_future;
       }
-      auto next = it_->Next();
-      if (!next.ok() || IsIterationEnd(*next)) {
-        *done_ = true;
+    } else {
+      auto next = Future<T>::MakeFinished(std::move(state_->queue.front()));
+      state_->queue.pop();
+      if (state_->NeedsRestart()) {
+        return state_->RestartTask(state_, std::move(guard), std::move(next));
       }
       return next;
     }
-    // This task is going to be copied so we need to convert the iterator ptr to
-    // a shared ptr.  This should be safe however because the background executor only
-    // has a single thread so it can't access it_ across multiple threads.
-    std::shared_ptr<Iterator<T>> it_;
-    std::shared_ptr<std::atomic<bool>> done_;
+    // This should only trigger the very first time this method is called
+    if (state_->NeedsRestart()) {
+      return state_->RestartTask(state_, std::move(guard), std::move(waiting_future));
+    }
+    return waiting_future;
+  }
+
+ protected:
+  struct State {
+    State(internal::Executor* io_executor, Iterator<T> it, int max_q, int q_restart)
+        : io_executor(io_executor),
+          max_q(max_q),
+          q_restart(q_restart),
+          it(std::move(it)),
+          reading(false),
+          finished(false),
+          should_shutdown(false) {}
+
+    void ClearQueue() {
+      while (!queue.empty()) {
+        queue.pop();
+      }
+    }
+
+    bool TaskIsRunning() const { return task_finished.is_valid(); }
+
+    bool NeedsRestart() const {
+      return !finished && !reading && static_cast<int>(queue.size()) <= q_restart;
+    }
+
+    void DoRestartTask(std::shared_ptr<State> state, util::Mutex::Guard guard) {
+      // If we get here we are actually going to start a new task so let's create a
+      // task_finished future for it
+      state->task_finished = Future<>::Make();
+      state->reading = true;
+      auto spawn_status = io_executor->Spawn(
+          [state]() { BackgroundGenerator::WorkerTask(std::move(state)); });
+      if (!spawn_status.ok()) {
+        // If we can't spawn a new task then send an error to the consumer (either via a
+        // waiting future or the queue) and mark ourselves finished
+        state->finished = true;
+        state->task_finished = Future<>();
+        if (waiting_future.has_value()) {
+          auto to_deliver = std::move(waiting_future.value());
+          waiting_future.reset();
+          guard.Unlock();
+          to_deliver.MarkFinished(spawn_status);
+        } else {
+          ClearQueue();
+          queue.push(spawn_status);
+        }
+      }
+    }
+
+    Future<T> RestartTask(std::shared_ptr<State> state, util::Mutex::Guard guard,
+                          Future<T> next) {
+      if (TaskIsRunning()) {
+        // If the task is still cleaning up we need to wait for it to finish before
+        // restarting.  We also want to block the consumer until we've restarted the
+        // reader to avoid multiple restarts
+        return task_finished.Then([state, next](...) {
+          // This may appear dangerous (recursive mutex) but we should be guaranteed the
+          // outer guard has been released by this point.  We know...
+          // * task_finished is not already finished (it would be invalid in that case)
+          // * task_finished will not be marked complete until we've given up the mutex
+          auto guard_ = state->mutex.Lock();
+          state->DoRestartTask(state, std::move(guard_));
+          return next;
+        });
+      }
+      // Otherwise we can restart immediately
+      DoRestartTask(std::move(state), std::move(guard));
+      return next;
+    }
+
+    internal::Executor* io_executor;
+    const int max_q;
+    const int q_restart;
+    Iterator<T> it;
+
+    // If true, the task is actively pumping items from the queue and does not need a
+    // restart
+    bool reading;
+    // Set to true when a terminal item arrives
+    bool finished;
+    // Signal to the background task to end early because consumers have given up on it
+    bool should_shutdown;
+    // If the queue is empty then the consumer will create a waiting future and wait for
+    // it
+    std::queue<Result<T>> queue;
+    util::optional<Future<T>> waiting_future;
+    // Every background task is given a future to complete when it is entirely finished
+    // processing and ready for the next task to start or for State to be destroyed
+    Future<> task_finished;
+    util::Mutex mutex;
   };
 
-  Task task_;
-  internal::Executor* io_executor_;
+  // Cleanup task that will be run when all consumer references to the generator are lost
+  struct Cleanup {
+    explicit Cleanup(State* state) : state(state) {}
+    ~Cleanup() {
+      Future<> finish_fut;
+      {
+        auto lock = state->mutex.Lock();
+        if (!state->TaskIsRunning()) {
+          return;
+        }
+        // Signal the current task to stop and wait for it to finish
+        state->should_shutdown = true;
+        finish_fut = state->task_finished;
+      }
+      // Using future as a condition variable here
+      Status st = finish_fut.status();
+      ARROW_UNUSED(st);
+    }
+    State* state;
+  };
+
+  static void WorkerTask(std::shared_ptr<State> state) {
+    // We need to capture the state to read while outside the mutex
+    bool reading = true;
+    while (reading) {
+      auto next = state->it.Next();
+      // Need to capture state->waiting_future inside the mutex to mark finished outside
+      Future<T> waiting_future;
+      {
+        auto guard = state->mutex.Lock();
+
+        if (state->should_shutdown) {
+          state->finished = true;
+          break;
+        }
+
+        if (!next.ok() || IsIterationEnd<T>(*next)) {
+          // Terminal item.  Mark finished to true, send this last item, and quit
+          state->finished = true;
+          if (!next.ok()) {
+            state->ClearQueue();
+          }
+        }
+        // At this point we are going to send an item.  Either we will add it to the
+        // queue or deliver it to a waiting future.
+        if (state->waiting_future.has_value()) {
+          waiting_future = std::move(state->waiting_future.value());
+          state->waiting_future.reset();
+        } else {
+          state->queue.push(std::move(next));
+          // We just filled up the queue so it is time to quit.  We may need to notify
+          // a cleanup task so we transition to Quitting
+          if (static_cast<int>(state->queue.size()) >= state->max_q) {
+            state->reading = false;
+          }
+        }
+        reading = state->reading && !state->finished;
+      }
+      // This should happen outside the mutex.  Presumably there is a
+      // transferring generator on the other end that will quickly transfer any
+      // callbacks off of this thread so we can continue looping.  Still, best not to
+      // rely on that
+      if (waiting_future.is_valid()) {
+        waiting_future.MarkFinished(next);
+      }
+    }
+    // Once we've sent our last item we can notify any waiters that we are done and so
+    // either state can be cleaned up or a new background task can be started
+    Future<> task_finished;
+    {
+      auto guard = state->mutex.Lock();
+      // After we give up the mutex state can be safely deleted.  We will no longer
+      // reference it.  We can safely transition to idle now.
+      task_finished = state->task_finished;
+      state->task_finished = Future<>();
+    }
+    task_finished.MarkFinished();
+  }
+
+  std::shared_ptr<State> state_;
+  // state_ is held by both the generator and the background thread so it won't be cleaned
+  // up when all consumer references are relinquished.  cleanup_ is only held by the
+  // generator so it will be destructed when the last consumer reference is gone.  We use
+  // this to cleanup / stop the background generator in case the consuming end stops
+  // listening (e.g. due to a downstream error)
+  std::shared_ptr<Cleanup> cleanup_;
 };
+
+constexpr int kDefaultBackgroundMaxQ = 32;
+constexpr int kDefaultBackgroundQRestart = 16;
 
 /// \brief Creates an AsyncGenerator<T> by iterating over an Iterator<T> on a background
 /// thread
 ///
-/// This generator is async-reentrant
+/// The parameter max_q and q_restart control queue size and background thread task
+/// management. If the background task is fast you typically don't want it creating a
+/// thread task for every item.  Instead the background thread will run until it fills
+/// up a readahead queue.
 ///
-/// This generator will not queue
+/// Once the queue has filled up the background thread task will terminate (allowing other
+/// I/O tasks to use the thread).  Once the queue has been drained enough (specified by
+/// q_restart) then the background thread task will be restarted.  If q_restart is too low
+/// then you may exhaust the queue waiting for the background thread task to start running
+/// again.  If it is too high then it will be constantly stopping and restarting the
+/// background queue task
+///
+/// This generator is not async-reentrant
+///
+/// This generator will queue up to max_q blocks
 template <typename T>
 static Result<AsyncGenerator<T>> MakeBackgroundGenerator(
-    Iterator<T> iterator, internal::Executor* io_executor) {
-  auto background_iterator = std::make_shared<BackgroundGenerator<T>>(
-      std::move(iterator), std::move(io_executor));
-  return [background_iterator]() { return (*background_iterator)(); };
+    Iterator<T> iterator, internal::Executor* io_executor,
+    int max_q = kDefaultBackgroundMaxQ, int q_restart = kDefaultBackgroundQRestart) {
+  if (max_q < q_restart) {
+    return Status::Invalid("max_q must be >= q_restart");
+  }
+  return BackgroundGenerator<T>(std::move(iterator), io_executor, max_q, q_restart);
 }
 
 /// \see MakeGeneratorIterator
@@ -1036,16 +1478,59 @@ Result<Iterator<T>> MakeGeneratorIterator(AsyncGenerator<T> source) {
 template <typename T>
 Result<Iterator<T>> MakeReadaheadIterator(Iterator<T> it, int readahead_queue_size) {
   ARROW_ASSIGN_OR_RAISE(auto io_executor, internal::ThreadPool::Make(1));
-  ARROW_ASSIGN_OR_RAISE(auto background_generator,
-                        MakeBackgroundGenerator(std::move(it), io_executor.get()));
+  auto max_q = readahead_queue_size;
+  auto q_restart = std::max(1, max_q / 2);
+  ARROW_ASSIGN_OR_RAISE(
+      auto background_generator,
+      MakeBackgroundGenerator(std::move(it), io_executor.get(), max_q, q_restart));
   // Capture io_executor to keep it alive as long as owned_bg_generator is still
   // referenced
   AsyncGenerator<T> owned_bg_generator = [io_executor, background_generator]() {
     return background_generator();
   };
-  auto readahead_generator =
-      MakeReadaheadGenerator(std::move(owned_bg_generator), readahead_queue_size);
-  return MakeGeneratorIterator(std::move(readahead_generator));
+  return MakeGeneratorIterator(std::move(owned_bg_generator));
+}
+
+/// \brief Make a generator that returns a single pre-generated future
+///
+/// This generator is async-reentrant.
+template <typename T>
+std::function<Future<T>()> MakeSingleFutureGenerator(Future<T> future) {
+  assert(future.is_valid());
+  auto state = std::make_shared<Future<T>>(std::move(future));
+  return [state]() -> Future<T> {
+    auto fut = std::move(*state);
+    if (fut.is_valid()) {
+      return fut;
+    } else {
+      return AsyncGeneratorEnd<T>();
+    }
+  };
+}
+
+/// \brief Make a generator that always fails with a given error
+///
+/// This generator is async-reentrant.
+template <typename T>
+AsyncGenerator<T> MakeFailingGenerator(Status st) {
+  assert(!st.ok());
+  auto state = std::make_shared<Status>(std::move(st));
+  return [state]() -> Future<T> {
+    auto st = std::move(*state);
+    if (!st.ok()) {
+      return std::move(st);
+    } else {
+      return AsyncGeneratorEnd<T>();
+    }
+  };
+}
+
+/// \brief Make a generator that always fails with a given error
+///
+/// This overload allows inferring the return type from the argument.
+template <typename T>
+AsyncGenerator<T> MakeFailingGenerator(const Result<T>& result) {
+  return MakeFailingGenerator<T>(result.status());
 }
 
 }  // namespace arrow

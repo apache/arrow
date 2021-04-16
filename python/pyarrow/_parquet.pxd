@@ -54,7 +54,7 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetType_FIXED_LEN_BYTE_ARRAY" parquet::Type::FIXED_LEN_BYTE_ARRAY"
 
     enum ParquetLogicalTypeId" parquet::LogicalType::Type::type":
-        ParquetLogicalType_UNKNOWN" parquet::LogicalType::Type::UNKNOWN"
+        ParquetLogicalType_UNDEFINED" parquet::LogicalType::Type::UNDEFINED"
         ParquetLogicalType_STRING" parquet::LogicalType::Type::STRING"
         ParquetLogicalType_MAP" parquet::LogicalType::Type::MAP"
         ParquetLogicalType_LIST" parquet::LogicalType::Type::LIST"
@@ -329,6 +329,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
                                        uint32_t* metadata_len)
 
     cdef cppclass CReaderProperties" parquet::ReaderProperties":
+        c_bool is_buffered_stream_enabled() const
         void enable_buffered_stream()
         void disable_buffered_stream()
         void set_buffer_size(int64_t buf_size)
@@ -342,6 +343,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         c_bool read_dictionary()
         void set_batch_size(int64_t batch_size)
         int64_t batch_size()
+        void set_pre_buffer(c_bool pre_buffer)
+        c_bool pre_buffer() const
 
     ArrowReaderProperties default_arrow_reader_properties()
 

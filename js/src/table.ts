@@ -57,9 +57,9 @@ export class Table<T extends { [key: string]: DataType } = any>
                Applicative<Struct<T>, Table<T>> {
 
     /** @nocollapse */
-    public static empty<T extends { [key: string]: DataType } = {}>(schema = new Schema<T>([])) { return new Table<T>(schema, []); }
+    public static empty<T extends { [key: string]: DataType } = Record<string, never>>(schema = new Schema<T>([])) { return new Table<T>(schema, []); }
 
-    public static from(): Table<{}>;
+    public static from(): Table<Record<string, never>>;
     public static from<T extends { [key: string]: DataType } = any>(source: RecordBatchReader<T>): Table<T>;
     public static from<T extends { [key: string]: DataType } = any>(source: import('./ipc/reader').FromArg0): Table<T>;
     public static from<T extends { [key: string]: DataType } = any>(source: import('./ipc/reader').FromArg2): Table<T>;
@@ -76,7 +76,7 @@ export class Table<T extends { [key: string]: DataType } = any>
         if (!input) { return Table.empty(); }
 
         if (typeof input === 'object') {
-            let table = isIterable(input['values']) ? tableFromIterable<T, TNull>(input)
+            const table = isIterable(input['values']) ? tableFromIterable<T, TNull>(input)
                  : isAsyncIterable(input['values']) ? tableFromAsyncIterable<T, TNull>(input)
                                                     : null;
             if (table !== null) { return table; }
@@ -95,7 +95,7 @@ export class Table<T extends { [key: string]: DataType } = any>
             const schema = reader.schema;
             const batches: RecordBatch[] = [];
             if (schema) {
-                for await (let batch of reader) {
+                for await (const batch of reader) {
                     batches.push(batch);
                 }
                 return new Table<T>(schema, batches);
@@ -182,7 +182,7 @@ export class Table<T extends { [key: string]: DataType } = any>
 
         if (args[0] instanceof Schema) { schema = args.shift(); }
 
-        let chunks = selectArgs<RecordBatch<T>>(RecordBatch, args);
+        const chunks = selectArgs<RecordBatch<T>>(RecordBatch, args);
 
         if (!schema && !(schema = chunks[0] && chunks[0].schema)) {
             throw new TypeError('Table must be initialized with a Schema or at least one RecordBatch');

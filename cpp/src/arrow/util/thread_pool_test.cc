@@ -123,6 +123,143 @@ class AddTester {
   std::vector<int> outs_;
 };
 
+class TestRunSynchronously : public testing::TestWithParam<bool> {
+ public:
+  bool UseThreads() { return GetParam(); }
+
+  template <typename T>
+  Result<T> Run(FnOnce<Future<T>(Executor*)> top_level_task) {
+    return RunSynchronously(std::move(top_level_task), UseThreads());
+  }
+
+  Status RunVoid(FnOnce<Future<>(Executor*)> top_level_task) {
+    return RunSynchronouslyVoid(std::move(top_level_task), UseThreads());
+  }
+
+  void TestContinueAfterExternal(bool transfer_to_main_thread) {
+    bool continuation_ran = false;
+    EXPECT_OK_AND_ASSIGN(auto external_pool, ThreadPool::Make(1));
+    auto top_level_task = [&](Executor* executor) {
+      struct Callback {
+        Status operator()(...) {
+          *continuation_ran = true;
+          return Status::OK();
+        }
+        bool* continuation_ran;
+      };
+      auto fut = DeferNotOk(external_pool->Submit([&] {
+        SleepABit();
+        return Status::OK();
+      }));
+      if (transfer_to_main_thread) {
+        fut = executor->Transfer(fut);
+      }
+      return fut.Then(Callback{&continuation_ran});
+    };
+    ASSERT_OK(RunVoid(std::move(top_level_task)));
+    EXPECT_TRUE(continuation_ran);
+  }
+};
+
+TEST_P(TestRunSynchronously, SimpleRun) {
+  bool task_ran = false;
+  auto task = [&](Executor* executor) {
+    EXPECT_NE(executor, nullptr);
+    task_ran = true;
+    return Future<>::MakeFinished(Status::OK());
+  };
+  ASSERT_OK(RunVoid(std::move(task)));
+  EXPECT_TRUE(task_ran);
+}
+
+TEST_P(TestRunSynchronously, SpawnNested) {
+  bool nested_ran = false;
+  auto top_level_task = [&](Executor* executor) {
+    return DeferNotOk(executor->Submit([&] {
+      nested_ran = true;
+      return Status::OK();
+    }));
+  };
+  ASSERT_OK(RunVoid(std::move(top_level_task)));
+  EXPECT_TRUE(nested_ran);
+}
+
+TEST_P(TestRunSynchronously, SpawnMoreNested) {
+  std::atomic<int> nested_ran{0};
+  auto top_level_task = [&](Executor* executor) -> Future<> {
+    auto fut_a = DeferNotOk(executor->Submit([&] { nested_ran++; }));
+    auto fut_b = DeferNotOk(executor->Submit([&] { nested_ran++; }));
+    return AllComplete({fut_a, fut_b})
+        .Then([&](const Result<arrow::detail::Empty>& result) {
+          nested_ran++;
+          return result;
+        });
+  };
+  ASSERT_OK(RunVoid(std::move(top_level_task)));
+  EXPECT_EQ(nested_ran, 3);
+}
+
+TEST_P(TestRunSynchronously, WithResult) {
+  auto top_level_task = [&](Executor* executor) {
+    return DeferNotOk(executor->Submit([] { return 42; }));
+  };
+  ASSERT_OK_AND_EQ(42, Run<int>(std::move(top_level_task)));
+}
+
+TEST_P(TestRunSynchronously, StopTokenSpawn) {
+  bool nested_ran = false;
+  StopSource stop_source;
+  auto top_level_task = [&](Executor* executor) -> Future<> {
+    stop_source.RequestStop(Status::Invalid("XYZ"));
+    RETURN_NOT_OK(executor->Spawn([&] { nested_ran = true; }, stop_source.token()));
+    return Future<>::MakeFinished();
+  };
+  ASSERT_OK(RunVoid(std::move(top_level_task)));
+  EXPECT_FALSE(nested_ran);
+}
+
+TEST_P(TestRunSynchronously, StopTokenSubmit) {
+  bool nested_ran = false;
+  StopSource stop_source;
+  auto top_level_task = [&](Executor* executor) -> Future<> {
+    stop_source.RequestStop();
+    return DeferNotOk(executor->Submit(stop_source.token(), [&] {
+      nested_ran = true;
+      return Status::OK();
+    }));
+  };
+  ASSERT_RAISES(Cancelled, RunVoid(std::move(top_level_task)));
+  EXPECT_FALSE(nested_ran);
+}
+
+TEST_P(TestRunSynchronously, ContinueAfterExternal) {
+  // The future returned by the top-level task completes on another thread.
+  // This can trigger delicate race conditions in the SerialExecutor code,
+  // especially destruction.
+  this->TestContinueAfterExternal(/*transfer_to_main_thread=*/false);
+}
+
+TEST_P(TestRunSynchronously, ContinueAfterExternalTransferred) {
+  // Like above, but the future is transferred back to the serial executor
+  // after completion on an external thread.
+  this->TestContinueAfterExternal(/*transfer_to_main_thread=*/true);
+}
+
+TEST_P(TestRunSynchronously, SchedulerAbort) {
+  auto top_level_task = [&](Executor* executor) { return Status::Invalid("XYZ"); };
+  ASSERT_RAISES(Invalid, RunVoid(std::move(top_level_task)));
+}
+
+TEST_P(TestRunSynchronously, PropagatedError) {
+  auto top_level_task = [&](Executor* executor) {
+    return DeferNotOk(executor->Submit([] { return Status::Invalid("XYZ"); }));
+  };
+  ASSERT_RAISES(Invalid, RunVoid(std::move(top_level_task)));
+}
+
+INSTANTIATE_TEST_SUITE_P(TestRunSynchronously, TestRunSynchronously,
+                         ::testing::Values(false, true));
+
 class TestThreadPool : public ::testing::Test {
  public:
   void TearDown() override {

@@ -49,7 +49,6 @@ import {
         return test('not testing DOM streams because process.env.TEST_DOM_STREAMS !== "true"', () => {});
     }
 
-    /* tslint:disable */
     const { parse: bignumJSONParse } = require('json-bignum');
 
     for (const table of generateRandomTables([10, 20, 30])) {
@@ -162,7 +161,7 @@ import {
                     test('Promise<stream.Readable>', file.nodeReadableStream(wrapArgInPromise(validate)));
                     test('Promise<ReadableStream>', file.whatwgReadableStream(wrapArgInPromise(validate)));
                     test('Promise<ReadableByteStream>', file.whatwgReadableByteStream(wrapArgInPromise(validate)));
-    
+
                     async function validate(source: any) {
                         const writer = new RecordBatchFileWriter();
                         /* no await */ writer.writeAll(await RecordBatchReader.from(source));
@@ -246,7 +245,7 @@ import {
                 expect(streamTable).toEqualTable(sourceTable);
             }
 
-            expect(tables.length).toBe(0);
+            expect(tables).toHaveLength(0);
             expect(stream.locked).toBe(false);
         });
 
@@ -259,14 +258,14 @@ import {
                 // flatMap from Table -> RecordBatches[]
                 .flatMap((table) => AsyncIterable.as(table.chunks))
                 .pipeThrough(RecordBatchStreamWriter.throughDOM(opts));
-    
+
             for await (const reader of RecordBatchReader.readAll(stream)) {
                 const sourceTable = tables.shift()!;
                 const streamTable = await Table.from(reader);
                 expect(streamTable).toEqualTable(sourceTable);
             }
 
-            expect(tables.length).toBe(0);
+            expect(tables).toHaveLength(0);
             expect(stream.locked).toBe(false);
         });
     });

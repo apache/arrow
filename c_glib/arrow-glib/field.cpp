@@ -17,10 +17,6 @@
  * under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#  include <config.h>
-#endif
-
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/field.hpp>
 #include <arrow-glib/internal-hash-table.hpp>

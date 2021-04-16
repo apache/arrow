@@ -306,6 +306,24 @@ def match_substring(array, pattern):
                          MatchSubstringOptions(pattern))
 
 
+def match_substring_regex(array, pattern):
+    """
+    Test if regex *pattern* matches at any position a value of a string array.
+
+    Parameters
+    ----------
+    array : pyarrow.Array or pyarrow.ChunkedArray
+    pattern : str
+        regex pattern to search
+
+    Returns
+    -------
+    result : pyarrow.Array or pyarrow.ChunkedArray
+    """
+    return call_function("match_substring_regex", [array],
+                         MatchSubstringOptions(pattern))
+
+
 def sum(array):
     """
     Sum the values in a numerical (chunked) array.

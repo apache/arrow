@@ -47,13 +47,14 @@ dev/requirements*.txt
 dev/archery/MANIFEST.in
 dev/archery/requirements*.txt
 dev/archery/archery/tests/fixtures/*
+dev/archery/archery/crossbow/tests/fixtures/*
 dev/release/rat_exclude_files.txt
 dev/tasks/homebrew-formulae/apache-arrow.rb
-dev/tasks/linux-packages/apache-arrow-archive-keyring/debian/apache-arrow-archive-keyring.install
-dev/tasks/linux-packages/apache-arrow-archive-keyring/debian/compat
-dev/tasks/linux-packages/apache-arrow-archive-keyring/debian/control
-dev/tasks/linux-packages/apache-arrow-archive-keyring/debian/rules
-dev/tasks/linux-packages/apache-arrow-archive-keyring/debian/source/format
+dev/tasks/linux-packages/apache-arrow-apt-source/debian/apache-arrow-apt-source.install
+dev/tasks/linux-packages/apache-arrow-apt-source/debian/compat
+dev/tasks/linux-packages/apache-arrow-apt-source/debian/control
+dev/tasks/linux-packages/apache-arrow-apt-source/debian/rules
+dev/tasks/linux-packages/apache-arrow-apt-source/debian/source/format
 dev/tasks/linux-packages/apache-arrow/debian/compat
 dev/tasks/linux-packages/apache-arrow/debian/control.in
 dev/tasks/linux-packages/apache-arrow/debian/gir1.2-arrow-1.0.install
@@ -128,6 +129,8 @@ go/parquet/go.sum
 js/.npmignore
 js/closure-compiler-scripts/*
 js/src/fb/*.ts
+js/yarn.lock
+js/.eslintignore
 python/cmake_modules
 python/cmake_modules/FindPythonLibsNew.cmake
 python/cmake_modules/SnappyCMakeLists.txt
@@ -136,6 +139,7 @@ python/MANIFEST.in
 python/manylinux1/.dockerignore
 python/pyarrow/includes/__init__.pxd
 python/pyarrow/tests/__init__.py
+python/pyarrow/vendored/*
 python/requirements*.txt
 pax_global_header
 MANIFEST.in
@@ -194,3 +198,5 @@ julia/Arrow/docs/mkdocs.yml
 julia/Arrow/docs/src/index.md
 julia/Arrow/docs/src/manual.md
 julia/Arrow/docs/src/reference.md
+rust/ballista/rust/benchmarks/tpch/queries/q*.sql
+rust/ballista/rust/scheduler/testdata/*

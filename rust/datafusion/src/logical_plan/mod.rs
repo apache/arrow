@@ -37,10 +37,10 @@ pub use expr::{
     ceil, character_length, chr, col, combine_filters, concat, concat_ws, cos, count,
     count_distinct, create_udaf, create_udf, exp, exprlist_to_fields, floor, in_list,
     initcap, left, length, lit, ln, log10, log2, lower, lpad, ltrim, max, md5, min,
-    octet_length, or, regexp_replace, repeat, replace, reverse, right, round, rpad,
-    rtrim, sha224, sha256, sha384, sha512, signum, sin, split_part, sqrt, starts_with,
-    strpos, substr, sum, tan, to_hex, translate, trim, trunc, upper, when, Expr,
-    ExprRewriter, ExpressionVisitor, Literal, Recursion,
+    octet_length, or, regexp_match, regexp_replace, repeat, replace, reverse, right,
+    round, rpad, rtrim, sha224, sha256, sha384, sha512, signum, sin, split_part, sqrt,
+    starts_with, strpos, substr, sum, tan, to_hex, translate, trim, trunc, upper, when,
+    Expr, ExprRewriter, ExpressionVisitor, Literal, Recursion,
 };
 pub use extension::UserDefinedLogicalNode;
 pub use operators::Operator;

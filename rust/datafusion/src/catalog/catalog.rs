@@ -23,6 +23,67 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
+/// Represent a list of named catalogs
+pub trait CatalogList: Sync + Send {
+    /// Returns the catalog list as [`Any`](std::any::Any)
+    /// so that it can be downcast to a specific implementation.
+    fn as_any(&self) -> &dyn Any;
+
+    /// Adds a new catalog to this catalog list
+    /// If a catalog of the same name existed before, it is replaced in the list and returned.
+    fn register_catalog(
+        &self,
+        name: String,
+        catalog: Arc<dyn CatalogProvider>,
+    ) -> Option<Arc<dyn CatalogProvider>>;
+
+    /// Retrieves the list of available catalog names
+    fn catalog_names(&self) -> Vec<String>;
+
+    /// Retrieves a specific catalog by name, provided it exists.
+    fn catalog(&self, name: &str) -> Option<Arc<dyn CatalogProvider>>;
+}
+
+/// Simple in-memory list of catalogs
+pub struct MemoryCatalogList {
+    /// Collection of catalogs containing schemas and ultimately TableProviders
+    pub catalogs: RwLock<HashMap<String, Arc<dyn CatalogProvider>>>,
+}
+
+impl MemoryCatalogList {
+    /// Instantiates a new `MemoryCatalogList` with an empty collection of catalogs
+    pub fn new() -> Self {
+        Self {
+            catalogs: RwLock::new(HashMap::new()),
+        }
+    }
+}
+
+impl CatalogList for MemoryCatalogList {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn register_catalog(
+        &self,
+        name: String,
+        catalog: Arc<dyn CatalogProvider>,
+    ) -> Option<Arc<dyn CatalogProvider>> {
+        let mut catalogs = self.catalogs.write().unwrap();
+        catalogs.insert(name, catalog)
+    }
+
+    fn catalog_names(&self) -> Vec<String> {
+        let catalogs = self.catalogs.read().unwrap();
+        catalogs.keys().map(|s| s.to_string()).collect()
+    }
+
+    fn catalog(&self, name: &str) -> Option<Arc<dyn CatalogProvider>> {
+        let catalogs = self.catalogs.read().unwrap();
+        catalogs.get(name).cloned()
+    }
+}
+
 /// Represents a catalog, comprising a number of named schemas.
 pub trait CatalogProvider: Sync + Send {
     /// Returns the catalog provider as [`Any`](std::any::Any)

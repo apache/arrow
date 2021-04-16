@@ -79,6 +79,23 @@ TEST_F(TestInMemoryDataset, ReplaceSchema) {
                     .status());
 }
 
+TEST_F(TestInMemoryDataset, FromReader) {
+  constexpr int64_t kBatchSize = 1024;
+  constexpr int64_t kNumberBatches = 16;
+
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  auto source_reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
+  auto target_reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
+
+  auto dataset = std::make_shared<InMemoryDataset>(source_reader);
+
+  AssertDatasetEquals(target_reader.get(), dataset.get());
+  // Such datasets can only be scanned once
+  ASSERT_OK_AND_ASSIGN(auto fragments, dataset->GetFragments());
+  ASSERT_RAISES(Invalid, fragments.Next());
+}
+
 TEST_F(TestInMemoryDataset, GetFragments) {
   constexpr int64_t kBatchSize = 1024;
   constexpr int64_t kNumberBatches = 16;
@@ -91,6 +108,20 @@ TEST_F(TestInMemoryDataset, GetFragments) {
       schema_, RecordBatchVector{static_cast<size_t>(kNumberBatches), batch});
 
   AssertDatasetEquals(reader.get(), dataset.get());
+}
+
+TEST_F(TestInMemoryDataset, InMemoryFragment) {
+  constexpr int64_t kBatchSize = 1024;
+
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  RecordBatchVector batches{batch};
+
+  // Regression test: previously this constructor relied on undefined behavior (order of
+  // evaluation of arguments) leading to fragments being constructed with empty schemas
+  auto fragment = std::make_shared<InMemoryFragment>(batches);
+  ASSERT_OK_AND_ASSIGN(auto schema, fragment->ReadPhysicalSchema());
+  AssertSchemaEqual(batch->schema(), schema);
 }
 
 class TestUnionDataset : public DatasetFixtureMixin {};
@@ -411,7 +442,7 @@ TEST_F(TestEndToEnd, EndToEndSingleDataset) {
   // In the simplest case, consumption is simply conversion to a Table.
   ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
 
-  auto expected = TableFromJSON(scanner->schema(), {R"([
+  auto expected = TableFromJSON(scanner_builder->projected_schema(), {R"([
     {"sales": 152.25, "model": "3", "country": "CA"},
     {"sales": 273.5, "model": "3", "country": "US"}
   ])"});
@@ -516,7 +547,7 @@ class TestSchemaUnification : public TestUnionDataset {
   void AssertScanEquals(std::shared_ptr<Scanner> scanner,
                         const std::vector<TupleType>& expected_rows) {
     std::vector<std::string> columns;
-    for (const auto& field : scanner->schema()->fields()) {
+    for (const auto& field : scanner->options()->projected_schema->fields()) {
       columns.push_back(field->name());
     }
 

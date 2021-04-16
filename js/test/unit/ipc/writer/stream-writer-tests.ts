@@ -24,13 +24,13 @@ import * as generate from '../../../generate-test-data';
 import { validateRecordBatchIterator } from '../validate';
 import { RecordBatchStreamWriterOptions } from '../../../../src/ipc/writer';
 import { DictionaryVector, Dictionary, Uint32, Int32 } from '../../../Arrow';
-import { Table, Schema, Chunked, Builder, RecordBatch, RecordBatchReader, RecordBatchStreamWriter } from '../../../Arrow';
+import { Table, Schema, Field, Chunked, Builder, RecordBatch, RecordBatchReader, RecordBatchStreamWriter } from '../../../Arrow';
 
 describe('RecordBatchStreamWriter', () => {
 
     (() => {
         const type = generate.sparseUnion(0, 0).vector.type;
-        const schema = Schema.new({ 'dictSparseUnion': type });
+        const schema = new Schema([new Field('dictSparseUnion', type)]);
         const table = generate.table([10, 20, 30], schema).table;
         const testName = `[${table.schema.fields.join(', ')}]`;
         testStreamWriter(table, testName, { writeLegacyIpcFormat: true });
@@ -101,7 +101,7 @@ describe('RecordBatchStreamWriter', () => {
 
         expect(resultTable).toEqualTable(sourceTable);
         expect((dictionary as Chunked)).toBeInstanceOf(Chunked);
-        expect((dictionary as Chunked).chunks.length).toBe(20);
+        expect((dictionary as Chunked).chunks).toHaveLength(20);
     });
 });
 

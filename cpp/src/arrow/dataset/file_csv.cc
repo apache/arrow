@@ -42,6 +42,9 @@ namespace dataset {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+using internal::Executor;
+using internal::SerialExecutor;
+using RecordBatchGenerator = std::function<Future<std::shared_ptr<RecordBatch>>()>;
 
 Result<std::unordered_set<std::string>> GetColumnNames(
     const csv::ParseOptions& parse_options, util::string_view first_block,
@@ -105,7 +108,7 @@ static inline Result<csv::ReadOptions> GetReadOptions(
   auto read_options = csv_scan_options->read_options;
   // Multithreaded conversion of individual files would lead to excessive thread
   // contention when ScanTasks are also executed in multiple threads, so we disable it
-  // here.
+  // here.  Also, this is a no-op since the streaming CSV reader is currently serial
   read_options.use_threads = false;
   return read_options;
 }
@@ -137,8 +140,7 @@ static inline Result<std::shared_ptr<csv::StreamingReader>> OpenReader(
     return maybe_reader.status().WithMessage("Could not open CSV input source '",
                                              source.path(), "': ", maybe_reader.status());
   }
-
-  return std::move(maybe_reader).ValueOrDie();
+  return maybe_reader;
 }
 
 /// \brief A ScanTask backed by an Csv file.
@@ -192,8 +194,8 @@ Result<ScanTaskIterator> CsvFileFormat::ScanFile(
     std::shared_ptr<ScanOptions> options,
     const std::shared_ptr<FileFragment>& fragment) const {
   auto this_ = checked_pointer_cast<const CsvFileFormat>(shared_from_this());
-  auto task = std::make_shared<CsvScanTask>(std::move(this_), std::move(options),
-                                            std::move(fragment));
+  auto task =
+      std::make_shared<CsvScanTask>(std::move(this_), std::move(options), fragment);
 
   return MakeVectorIterator<std::shared_ptr<ScanTask>>({std::move(task)});
 }

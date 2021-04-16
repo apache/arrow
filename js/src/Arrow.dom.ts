@@ -17,8 +17,8 @@
 
 import streamAdapters from './io/adapters';
 import { Builder } from './builder/index';
-import { RecordBatchReader } from './ipc/reader';
-import { RecordBatchWriter } from './ipc/writer';
+import { RecordBatchReader, RecordBatchFileReader, RecordBatchStreamReader, } from './ipc/reader';
+import { RecordBatchWriter, RecordBatchFileWriter, RecordBatchStreamWriter, } from './ipc/writer';
 import { toDOMStream } from './io/whatwg/iterable';
 import { builderThroughDOMStream } from './io/whatwg/builder';
 import { recordBatchReaderThroughDOMStream } from './io/whatwg/reader';
@@ -27,10 +27,14 @@ import { recordBatchWriterThroughDOMStream } from './io/whatwg/writer';
 streamAdapters.toDOMStream = toDOMStream;
 Builder['throughDOM'] = builderThroughDOMStream;
 RecordBatchReader['throughDOM'] = recordBatchReaderThroughDOMStream;
+RecordBatchFileReader['throughDOM'] = recordBatchReaderThroughDOMStream;
+RecordBatchStreamReader['throughDOM'] = recordBatchReaderThroughDOMStream;
 RecordBatchWriter['throughDOM'] = recordBatchWriterThroughDOMStream;
+RecordBatchFileWriter['throughDOM'] = recordBatchWriterThroughDOMStream;
+RecordBatchStreamWriter['throughDOM'] = recordBatchWriterThroughDOMStream;
 
 export {
-    ArrowType, DateUnit, IntervalUnit, MessageHeader, MetadataVersion, Precision, TimeUnit, Type, UnionMode, BufferType,
+    DateUnit, IntervalUnit, MessageHeader, MetadataVersion, Precision, TimeUnit, Type, UnionMode, BufferType,
     Data,
     DataType,
     Null,

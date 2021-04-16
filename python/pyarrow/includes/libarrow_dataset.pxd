@@ -86,11 +86,20 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CInMemoryFragment(vector[shared_ptr[CRecordBatch]] record_batches,
                           CExpression partition_expression)
 
+    cdef cppclass CTaggedRecordBatch "arrow::dataset::TaggedRecordBatch":
+        shared_ptr[CRecordBatch] record_batch
+        shared_ptr[CFragment] fragment
+
+    ctypedef CIterator[CTaggedRecordBatch] CTaggedRecordBatchIterator \
+        "arrow::dataset::TaggedRecordBatchIterator"
+
     cdef cppclass CScanner "arrow::dataset::Scanner":
         CScanner(shared_ptr[CDataset], shared_ptr[CScanOptions])
         CScanner(shared_ptr[CFragment], shared_ptr[CScanOptions])
         CResult[CScanTaskIterator] Scan()
+        CResult[CTaggedRecordBatchIterator] ScanBatches()
         CResult[shared_ptr[CTable]] ToTable()
+        CResult[shared_ptr[CTable]] TakeRows(const CArray& indices)
         CResult[CFragmentIterator] GetFragments()
         const shared_ptr[CScanOptions]& options()
 
@@ -123,6 +132,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[shared_ptr[CDataset]] ReplaceSchema(shared_ptr[CSchema])
 
         CResult[shared_ptr[CScannerBuilder]] NewScan()
+
+    cdef cppclass CInMemoryDataset "arrow::dataset::InMemoryDataset"(
+            CDataset):
+        CInMemoryDataset(shared_ptr[CRecordBatchReader])
+        CInMemoryDataset(shared_ptr[CTable])
 
     cdef cppclass CUnionDataset "arrow::dataset::UnionDataset"(
             CDataset):
@@ -232,11 +246,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CParquetFileFormatReaderOptions \
             "arrow::dataset::ParquetFileFormat::ReaderOptions":
-        c_bool use_buffered_stream
-        int64_t buffer_size
         unordered_set[c_string] dict_columns
-        c_bool pre_buffer
-        c_bool enable_parallel_column_conversion
 
     cdef cppclass CParquetFileFormat "arrow::dataset::ParquetFileFormat"(
             CFileFormat):
@@ -246,6 +256,12 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CExpression partition_expression,
             shared_ptr[CSchema] physical_schema,
             vector[int] row_groups)
+
+    cdef cppclass CParquetFragmentScanOptions \
+            "arrow::dataset::ParquetFragmentScanOptions"(CFragmentScanOptions):
+        shared_ptr[CReaderProperties] reader_properties
+        shared_ptr[ArrowReaderProperties] arrow_reader_properties
+        c_bool enable_parallel_column_conversion
 
     cdef cppclass CIpcFileWriteOptions \
             "arrow::dataset::IpcFileWriteOptions"(CFileWriteOptions):

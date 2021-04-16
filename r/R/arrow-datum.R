@@ -39,7 +39,12 @@ is.na.ArrowDatum <- function(x) call_function("is_null", x)
 is.nan.ArrowDatum <- function(x) call_function("is_nan", x)
 
 #' @export
-as.vector.ArrowDatum <- function(x, mode) x$as_vector()
+as.vector.ArrowDatum <- function(x, mode) {
+  tryCatch(
+    x$as_vector(),
+    error = handle_embedded_nul_error
+  )
+}
 
 filter_rows <- function(x, i, keep_na = TRUE, ...) {
   # General purpose function for [ row subsetting with R semantics

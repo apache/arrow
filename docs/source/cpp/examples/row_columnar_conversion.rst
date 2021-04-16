@@ -24,4 +24,4 @@ Row to columnar conversion
 The following example converts an array of structs to a :class:`arrow::Table`
 instance, and then converts it back to the original array of structs.
 
-.. literalinclude:: ../../../../cpp/examples/arrow/row-wise-conversion-example.cc
+.. literalinclude:: ../../../../cpp/examples/arrow/row_wise_conversion_example.cc

@@ -63,7 +63,7 @@ struct BenchmarkOpt {
     concurrency: usize,
 
     /// Batch size when reading CSV or Parquet files
-    #[structopt(short = "s", long = "batch-size", default_value = "32768")]
+    #[structopt(short = "s", long = "batch-size", default_value = "8192")]
     batch_size: usize,
 
     /// Path to data files
@@ -106,7 +106,7 @@ struct ConvertOpt {
     partitions: usize,
 
     /// Batch size when reading CSV or Parquet files
-    #[structopt(short = "s", long = "batch-size", default_value = "4096")]
+    #[structopt(short = "s", long = "batch-size", default_value = "8192")]
     batch_size: usize,
 }
 
@@ -1459,7 +1459,7 @@ mod tests {
             3 => Schema::new(vec![
                 Field::new("l_orderkey", DataType::Int32, true),
                 Field::new("revenue", DataType::Float64, true),
-                Field::new("o_orderdat", DataType::Date32, true),
+                Field::new("o_orderdate", DataType::Date32, true),
                 Field::new("o_shippriority", DataType::Int32, true),
             ]),
 
@@ -1537,7 +1537,7 @@ mod tests {
                 Field::new("c_name", DataType::Utf8, true),
                 Field::new("c_custkey", DataType::Int32, true),
                 Field::new("o_orderkey", DataType::Int32, true),
-                Field::new("o_orderdat", DataType::Date32, true),
+                Field::new("o_orderdate", DataType::Date32, true),
                 Field::new("o_totalprice", DataType::Float64, true),
                 Field::new("sum_l_quantity", DataType::Float64, true),
             ]),
@@ -1658,7 +1658,7 @@ mod tests {
                 debug: false,
                 iterations: 1,
                 concurrency: 2,
-                batch_size: 4096,
+                batch_size: 8192,
                 path: PathBuf::from(path.to_string()),
                 file_format: "tbl".to_string(),
                 mem_table: false,

@@ -28,11 +28,13 @@
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
 
 using internal::checked_cast;
+using internal::Executor;
 
 namespace dataset {
 

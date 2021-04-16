@@ -44,6 +44,74 @@ struct Task {
 
 }  // namespace
 
+struct SerialExecutor::State {
+  std::deque<Task> task_queue;
+  std::mutex mutex;
+  std::condition_variable wait_for_tasks;
+  bool finished{false};
+};
+
+SerialExecutor::SerialExecutor() : state_(std::make_shared<State>()) {}
+
+SerialExecutor::~SerialExecutor() = default;
+
+Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
+                                 StopToken stop_token, StopCallback&& stop_callback) {
+  // While the SerialExecutor runs tasks synchronously on its main thread,
+  // SpawnReal may be called from external threads (e.g. when transferring back
+  // from blocking I/O threads), so we need to keep the state alive *and* to
+  // lock its contents.
+  //
+  // Note that holding the lock while notifying the condition variable may
+  // not be sufficient, as some exit paths in the main thread are unlocked.
+  auto state = state_;
+  {
+    std::lock_guard<std::mutex> lk(state->mutex);
+    state->task_queue.push_back(
+        Task{std::move(task), std::move(stop_token), std::move(stop_callback)});
+  }
+  state->wait_for_tasks.notify_one();
+  return Status::OK();
+}
+
+void SerialExecutor::MarkFinished() {
+  // Same comment as SpawnReal above
+  auto state = state_;
+  {
+    std::lock_guard<std::mutex> lk(state->mutex);
+    state->finished = true;
+  }
+  state->wait_for_tasks.notify_one();
+}
+
+void SerialExecutor::RunLoop() {
+  // This is called from the SerialExecutor's main thread, so the
+  // state is guaranteed to be kept alive.
+  std::unique_lock<std::mutex> lk(state_->mutex);
+
+  while (!state_->finished) {
+    while (!state_->task_queue.empty()) {
+      Task task = std::move(state_->task_queue.front());
+      state_->task_queue.pop_front();
+      lk.unlock();
+      if (!task.stop_token.IsStopRequested()) {
+        std::move(task.callable)();
+      } else {
+        if (task.stop_callback) {
+          std::move(task.stop_callback)(task.stop_token.Poll());
+        }
+        // Can't break here because there may be cleanup tasks down the chain we still
+        // need to run.
+      }
+      lk.lock();
+    }
+    // In this case we must be waiting on work from external (e.g. I/O) executors.  Wait
+    // for tasks to arrive (typically via transferred futures).
+    state_->wait_for_tasks.wait(
+        lk, [&] { return state_->finished || !state_->task_queue.empty(); });
+  }
+}
+
 struct ThreadPool::State {
   State() = default;
 
@@ -213,6 +281,12 @@ int ThreadPool::GetCapacity() {
   return state_->desired_capacity_;
 }
 
+int ThreadPool::GetNumTasks() {
+  ProtectAgainstFork();
+  std::unique_lock<std::mutex> lock(state_->mutex_);
+  return state_->tasks_queued_or_running_;
+}
+
 int ThreadPool::GetActualCapacity() {
   ProtectAgainstFork();
   std::unique_lock<std::mutex> lock(state_->mutex_);
@@ -348,6 +422,11 @@ std::shared_ptr<ThreadPool> ThreadPool::MakeCpuThreadPool() {
 ThreadPool* GetCpuThreadPool() {
   static std::shared_ptr<ThreadPool> singleton = ThreadPool::MakeCpuThreadPool();
   return singleton.get();
+}
+
+Status RunSynchronouslyVoid(FnOnce<Future<arrow::detail::Empty>(Executor*)> get_future,
+                            bool use_threads) {
+  return RunSynchronously(std::move(get_future), use_threads).status();
 }
 
 }  // namespace internal

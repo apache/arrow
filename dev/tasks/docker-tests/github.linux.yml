@@ -15,42 +15,28 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# NOTE: must set "Crossbow" as name to have the badge links working in the
-# github comment reports!
-name: Crossbow
+{% import 'macros.jinja' as macros with context %}
 
-on:
-  push:
-    branches:
-      - "*-github-*"
+{{ macros.github_header() }}
 
 jobs:
   test:
     name: Docker Test
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Arrow
-        shell: bash
-        run: |
-          git clone --no-checkout {{ arrow.remote }} arrow
-          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-          git -C arrow checkout FETCH_HEAD
-          git -C arrow submodule update --init --recursive
+      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_install_archery()|indent }}
+
       - name: Free Up Disk Space
         shell: bash
         run: arrow/ci/scripts/util_cleanup.sh
-      - name: Setup Python
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.9
-      - name: Setup Archery
-        run: pip install -e arrow/dev/archery[docker]
+
       - name: Execute Docker Build
         shell: bash
-        {%- if env is defined %}
+        {% if env is defined %}
         env:
-        {%- for key, value in env.items() %}
+        {% for key, value in env.items() %}
           {{ key }}: {{ value }}
-        {%- endfor %}
-        {%- endif %}
+        {% endfor %}
+        {% endif %}
         run: archery docker run -e SETUPTOOLS_SCM_PRETEND_VERSION="{{ arrow.no_rc_version }}" {{ run }}

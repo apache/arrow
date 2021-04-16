@@ -140,55 +140,29 @@ class ReserveFromJava : public arrow::dataset::jni::ReservationListener {
 class DisposableScannerAdaptor {
  public:
   DisposableScannerAdaptor(std::shared_ptr<arrow::dataset::Scanner> scanner,
-                           arrow::dataset::ScanTaskIterator task_itr) {
-    this->scanner_ = std::move(scanner);
-    this->task_itr_ = std::move(task_itr);
-  }
+                           arrow::dataset::TaggedRecordBatchIterator batch_itr)
+      : scanner_(std::move(scanner)), batch_itr_(std::move(batch_itr)) {}
 
   static arrow::Result<std::shared_ptr<DisposableScannerAdaptor>> Create(
       std::shared_ptr<arrow::dataset::Scanner> scanner) {
-    ARROW_ASSIGN_OR_RAISE(arrow::dataset::ScanTaskIterator task_itr, scanner->Scan())
-    return std::make_shared<DisposableScannerAdaptor>(scanner, std::move(task_itr));
+    ARROW_ASSIGN_OR_RAISE(auto batch_itr, scanner->ScanBatches())
+    return std::make_shared<DisposableScannerAdaptor>(scanner, std::move(batch_itr));
   }
 
   arrow::Result<std::shared_ptr<arrow::RecordBatch>> Next() {
-    do {
-      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::RecordBatch> batch, NextBatch())
-      if (batch != nullptr) {
-        return batch;
-      }
-      // batch is null, current task is fully consumed
-      ARROW_ASSIGN_OR_RAISE(bool has_next_task, NextTask())
-      if (!has_next_task) {
-        // no more tasks
-        return nullptr;
-      }
-      // new task appended, read again
-    } while (true);
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::RecordBatch> batch, NextBatch());
+    return batch;
   }
 
   const std::shared_ptr<arrow::dataset::Scanner>& GetScanner() const { return scanner_; }
 
  private:
-  arrow::dataset::ScanTaskIterator task_itr_;
   std::shared_ptr<arrow::dataset::Scanner> scanner_;
-  std::shared_ptr<arrow::dataset::ScanTask> current_task_ = nullptr;
-  arrow::RecordBatchIterator current_batch_itr_ =
-      arrow::MakeEmptyIterator<std::shared_ptr<arrow::RecordBatch>>();
-
-  arrow::Result<bool> NextTask() {
-    ARROW_ASSIGN_OR_RAISE(current_task_, task_itr_.Next())
-    if (current_task_ == nullptr) {
-      return false;
-    }
-    ARROW_ASSIGN_OR_RAISE(current_batch_itr_, current_task_->Execute())
-    return true;
-  }
+  arrow::dataset::TaggedRecordBatchIterator batch_itr_;
 
   arrow::Result<std::shared_ptr<arrow::RecordBatch>> NextBatch() {
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::RecordBatch> batch,
-                          current_batch_itr_.Next())
-    return batch;
+    ARROW_ASSIGN_OR_RAISE(auto batch, batch_itr_.Next())
+    return batch.record_batch;
   }
 };
 
@@ -475,7 +449,8 @@ Java_org_apache_arrow_dataset_jni_JniWrapper_getSchemaFromScanner(JNIEnv* env, j
   std::shared_ptr<arrow::Schema> schema =
       RetrieveNativeInstance<DisposableScannerAdaptor>(scanner_id)
           ->GetScanner()
-          ->schema();
+          ->options()
+          ->projected_schema;
   return JniGetOrThrow(ToSchemaByteArray(env, schema));
   JNI_METHOD_END(nullptr)
 }

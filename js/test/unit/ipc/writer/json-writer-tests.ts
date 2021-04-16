@@ -23,7 +23,6 @@ import {
 import { validateRecordBatchIterator } from '../validate';
 import { Table, RecordBatchJSONWriter } from '../../../Arrow';
 
-/* tslint:disable */
 const { parse: bignumJSONParse } = require('json-bignum');
 
 describe('RecordBatchJSONWriter', () => {

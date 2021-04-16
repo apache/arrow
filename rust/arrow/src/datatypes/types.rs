@@ -152,6 +152,10 @@ impl ArrowTemporalType for Time64MicrosecondType {}
 impl ArrowTemporalType for Time64NanosecondType {}
 // impl ArrowTemporalType for IntervalYearMonthType {}
 // impl ArrowTemporalType for IntervalDayTimeType {}
+impl ArrowTemporalType for DurationSecondType {}
+impl ArrowTemporalType for DurationMillisecondType {}
+impl ArrowTemporalType for DurationMicrosecondType {}
+impl ArrowTemporalType for DurationNanosecondType {}
 
 /// A timestamp type allows us to create array builders that take a timestamp.
 pub trait ArrowTimestampType: ArrowTemporalType {

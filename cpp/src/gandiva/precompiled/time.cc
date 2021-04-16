@@ -751,6 +751,17 @@ gdv_date64 castDATE_timestamp(gdv_timestamp timestamp_in_millis) {
   return tp.ClearTimeOfDay().MillisSinceEpoch();
 }
 
+gdv_time32 castTIME_timestamp(gdv_timestamp timestamp_in_millis) {
+  // Retrieves a timestamp and returns the number of milliseconds since the midnight
+  EpochTimePoint tp(timestamp_in_millis);
+  auto tp_at_midnight = tp.ClearTimeOfDay();
+
+  int64_t millis_since_midnight =
+      tp.MillisSinceEpoch() - tp_at_midnight.MillisSinceEpoch();
+
+  return static_cast<int32_t>(millis_since_midnight);
+}
+
 const char* castVARCHAR_timestamp_int64(gdv_int64 context, gdv_timestamp in,
                                         gdv_int64 length, gdv_int32* out_len) {
   gdv_int64 year = extractYear_timestamp(in);

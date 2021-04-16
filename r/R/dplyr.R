@@ -396,6 +396,55 @@ build_function_list <- function(FUN) {
     # Include mappings from R function name spellings
     lapply(set_names(names(.array_function_map)), wrapper),
     # Plus some special handling where it's not 1:1
+    cast = function(x, target_type, safe = TRUE, ...) {
+      opts <- cast_options(safe, ...)
+      opts$to_type <- as_type(target_type)
+      FUN("cast", x, options = opts)
+    },
+    dictionary_encode = function(x, null_encoding_behavior = c("mask", "encode")) {
+      null_encoding_behavior <-
+        NullEncodingBehavior[[toupper(match.arg(null_encoding_behavior))]]
+      FUN(
+        "dictionary_encode",
+        x,
+        options = list(null_encoding_behavior = null_encoding_behavior)
+      )
+    },
+    # as.factor() is mapped in expression.R
+    as.character = function(x) {
+      FUN("cast", x, options = cast_options(to_type = string()))
+    },
+    as.double = function(x) {
+      FUN("cast", x, options = cast_options(to_type = float64()))
+    },
+    as.integer = function(x) {
+      FUN(
+        "cast",
+        x,
+        options = cast_options(
+          to_type = int32(),
+          allow_float_truncate = TRUE,
+          allow_decimal_truncate = TRUE
+        )
+      )
+    },
+    as.integer64 = function(x) {
+      FUN(
+        "cast",
+        x,
+        options = cast_options(
+          to_type = int64(),
+          allow_float_truncate = TRUE,
+          allow_decimal_truncate = TRUE
+        )
+      )
+    },
+    as.logical = function(x) {
+      FUN("cast", x, options = cast_options(to_type = boolean()))
+    },
+    as.numeric = function(x) {
+      FUN("cast", x, options = cast_options(to_type = float64()))
+    },
     nchar = function(x, type = "chars", allowNA = FALSE, keepNA = NA) {
       if (allowNA) {
         stop("allowNA = TRUE not supported for Arrow", call. = FALSE)
@@ -422,6 +471,12 @@ build_function_list <- function(FUN) {
         both = FUN("utf8_trim_whitespace", string)
       )
     },
+    grepl = arrow_r_string_match_function(FUN),
+    str_detect = arrow_stringr_string_match_function(FUN),
+    sub = arrow_r_string_replace_function(FUN, 1L),
+    gsub = arrow_r_string_replace_function(FUN, -1L),
+    str_replace = arrow_stringr_string_replace_function(FUN, 1L),
+    str_replace_all = arrow_stringr_string_replace_function(FUN, -1L),
     between = function(x, left, right) {
       x >= left & x <= right
     },
@@ -432,6 +487,130 @@ build_function_list <- function(FUN) {
       paste0("arrow_", all_arrow_funs)
     )
   )
+}
+
+arrow_r_string_match_function <- function(FUN) {
+  function(pattern, x, ignore.case = FALSE, fixed = FALSE) {
+    FUN(
+      ifelse(fixed && !ignore.case, "match_substring", "match_substring_regex"),
+      x,
+      options = list(pattern = format_string_pattern(pattern, ignore.case, fixed))
+    )
+  }
+}
+
+arrow_stringr_string_match_function <- function(FUN) {
+  function(string, pattern, negate = FALSE) {
+    opts <- get_stringr_pattern_options(enexpr(pattern))
+    out <- arrow_r_string_match_function(FUN)(
+      pattern = opts$pattern,
+      x = string,
+      ignore.case = opts$ignore_case,
+      fixed = opts$fixed
+    )
+    if (negate) out <- FUN("invert", out)
+    out
+  }
+}
+
+arrow_r_string_replace_function <- function(FUN, max_replacements) {
+  function(pattern, replacement, x, ignore.case = FALSE, fixed = FALSE) {
+    FUN(
+      ifelse(fixed && !ignore.case, "replace_substring", "replace_substring_regex"),
+      x,
+      options = list(
+        pattern = format_string_pattern(pattern, ignore.case, fixed),
+        replacement =  format_string_replacement(replacement, ignore.case, fixed),
+        max_replacements = max_replacements
+      )
+    )
+  }
+}
+
+arrow_stringr_string_replace_function <- function(FUN, max_replacements) {
+  function(string, pattern, replacement) {
+    opts <- get_stringr_pattern_options(enexpr(pattern))
+    arrow_r_string_replace_function(FUN, max_replacements)(
+      pattern = opts$pattern,
+      replacement = replacement,
+      x = string,
+      ignore.case = opts$ignore_case,
+      fixed = opts$fixed
+    )
+  }
+}
+
+# format `pattern` as needed for case insensitivity and literal matching by RE2
+format_string_pattern <- function(pattern, ignore.case, fixed) {
+  # Arrow lacks native support for case-insensitive literal string matching and
+  # replacement, so we use the regular expression engine (RE2) to do this.
+  # https://github.com/google/re2/wiki/Syntax
+  if (ignore.case) {
+    if (fixed) {
+      # Everything between "\Q" and "\E" is treated as literal text.
+      # If the search text contains any literal "\E" strings, make them
+      # lowercase so they won't signal the end of the literal text:
+      pattern <- gsub("\\E", "\\e", pattern, fixed = TRUE)
+      pattern <- paste0("\\Q", pattern, "\\E")
+    }
+    # Prepend "(?i)" for case-insensitive matching
+    pattern <- paste0("(?i)", pattern)
+  }
+  pattern
+}
+
+# format `replacement` as needed for literal replacement by RE2
+format_string_replacement <- function(replacement, ignore.case, fixed) {
+  # Arrow lacks native support for case-insensitive literal string
+  # replacement, so we use the regular expression engine (RE2) to do this.
+  # https://github.com/google/re2/wiki/Syntax
+  if (ignore.case && fixed) {
+    # Escape single backslashes in the regex replacement text so they are
+    # interpreted as literal backslashes:
+    replacement <- gsub("\\", "\\\\", replacement, fixed = TRUE)
+  }
+  replacement
+}
+
+# this function assigns definitions for the stringr pattern modifier functions
+# (fixed, regex, etc.) in itself, and uses them to evaluate the quoted
+# expression `pattern`
+get_stringr_pattern_options <- function(pattern) {
+  fixed <- function(pattern, ignore_case = FALSE, ...) {
+    check_dots(...)
+    list(pattern = pattern, fixed = TRUE, ignore_case = ignore_case)
+  }
+  regex <- function(pattern, ignore_case = FALSE, ...) {
+    check_dots(...)
+    list(pattern = pattern, fixed = FALSE, ignore_case = ignore_case)
+  }
+  coll <- boundary <- function(...) {
+    stop(
+      "Pattern modifier `",
+      match.call()[[1]],
+      "()` is not supported in Arrow",
+      call. = FALSE
+    )
+  }
+  check_dots <- function(...) {
+    dots <- list(...)
+    if (length(dots)) {
+      warning(
+        "Ignoring pattern modifier ",
+        ngettext(length(dots), "argument ", "arguments "),
+        "not supported in Arrow: ",
+        oxford_paste(names(dots)),
+        call. = FALSE
+      )
+    }
+  }
+  ensure_opts <- function(opts) {
+    if (is.character(opts)) {
+      opts <- list(pattern = opts, fixed = TRUE, ignore_case = FALSE)
+    }
+    opts
+  }
+  ensure_opts(eval(pattern))
 }
 
 # We'll populate these at package load time.
@@ -533,8 +712,18 @@ collect.arrow_dplyr_query <- function(x, as_data_frame = TRUE, ...) {
     restore_dplyr_features(tab, x)
   }
 }
-collect.ArrowTabular <- as.data.frame.ArrowTabular
+collect.ArrowTabular <- function(x, as_data_frame = TRUE, ...) {
+  if (as_data_frame) {
+    as.data.frame(x, ...)
+  } else {
+    x
+  }
+}
 collect.Dataset <- function(x, ...) dplyr::collect(arrow_dplyr_query(x), ...)
+
+compute.arrow_dplyr_query <- function(x, ...) dplyr::collect(x, as_data_frame = FALSE)
+compute.ArrowTabular <- function(x, ...) x
+compute.Dataset <- compute.arrow_dplyr_query
 
 ensure_group_vars <- function(x) {
   if (inherits(x, "arrow_dplyr_query")) {
@@ -584,7 +773,7 @@ restore_dplyr_features <- function(df, query) {
         drop = dplyr::group_by_drop_default(query)
       )
     } else {
-      # This is a Table, via collect(as_data_frame = FALSE)
+      # This is a Table, via compute() or collect(as_data_frame = FALSE)
       df <- arrow_dplyr_query(df)
       df$group_by_vars <- query$group_by_vars
       df$drop_empty_groups <- query$drop_empty_groups

@@ -438,8 +438,8 @@ test_that("RecordBatch$Equals(check_metadata)", {
   rb1 <- record_batch(df)
   rb2 <- record_batch(df, schema = rb1$schema$WithMetadata(list(some="metadata")))
 
-  expect_is(rb1, "RecordBatch")
-  expect_is(rb2, "RecordBatch")
+  expect_r6_class(rb1, "RecordBatch")
+  expect_r6_class(rb2, "RecordBatch")
   expect_false(rb1$schema$HasMetadata)
   expect_true(rb2$schema$HasMetadata)
   expect_identical(rb2$schema$metadata, list(some = "metadata"))
@@ -464,4 +464,38 @@ test_that("RecordBatch name assignment", {
   expect_error(names(rb) <- character(0))
   expect_error(names(rb) <- NULL)
   expect_error(names(rb) <- c(TRUE, FALSE))
+})
+
+test_that("record_batch() with different length arrays", {
+  msg <- "All arrays must have the same length"
+  expect_error(record_batch(a=1:5, b = 42), msg)
+  expect_error(record_batch(a=1:5, b = 1:6), msg)
+})
+
+test_that("Handling string data with embedded nuls", {
+  raws <- structure(list(
+    as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
+    as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
+    as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
+    as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
+    as.raw(c(0x74, 0x76))),
+    class = c("arrow_binary", "vctrs_vctr", "list"))
+  batch_with_nul <- record_batch(a = 1:5, b = raws)
+  batch_with_nul$b <- batch_with_nul$b$cast(utf8())
+  expect_error(
+    as.data.frame(batch_with_nul),
+    "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul = TRUE)",
+    fixed = TRUE
+  )
+
+  withr::with_options(list(arrow.skip_nul = TRUE), {
+    expect_warning(
+      expect_equivalent(
+        as.data.frame(batch_with_nul)$b,
+        c("person", "woman", "man", "camera", "tv")
+      ),
+      "Stripping '\\0' (nul) from character vector",
+      fixed = TRUE
+    )
+  })
 })

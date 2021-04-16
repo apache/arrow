@@ -79,18 +79,19 @@ x-hierarchy:
   # Each node must be either a string scalar of a list containing the
   # descendant images if any. Archery checks that all node has a corresponding
   # service entry, so any new image/service must be listed here.
-  - conda-cpp:
-    - conda-cpp-hiveserver2
-    - conda-cpp-valgrind
+  - conda:
+    - conda-cpp:
+      - conda-cpp-hiveserver2
+      - conda-cpp-valgrind
+      - conda-python:
+        - conda-python-pandas
+        - conda-python-dask
+        - conda-python-hdfs
+        - conda-python-jpype
+        - conda-python-turbodbc
+        - conda-python-kartothek
+        - conda-python-spark
     - conda-integration
-    - conda-python:
-      - conda-python-pandas
-      - conda-python-dask
-      - conda-python-hdfs
-      - conda-python-jpype
-      - conda-python-turbodbc
-      - conda-python-kartothek
-      - conda-python-spark
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
@@ -159,15 +160,32 @@ services:
   #     -e ARROW_BUILD_SHARED=OFF \
   #     -e ARROW_TEST_LINKAGE=static \
   #     conda-cpp|debian-cpp|...
-  # Minimum boost - Ubuntu Xenial 16.04 has Boost 1.58:
-  #   UBUNTU=16.04 docker-compose build \
-  #     -e BOOST_SOURCE=SYSTEM \
-  #     ubuntu-cpp
+
+  conda:
+    # Base image for conda builds.
+    #
+    # Usage:
+    #   docker-compose build con
+    #   docker-compose run --rm conda
+    # Parameters:
+    #   ARCH: amd64, arm32v7
+    image: ${REPO}:${ARCH}-conda
+    build:
+      context: .
+      dockerfile: ci/docker/conda.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda
+      args:
+        arch: ${ARCH}
+        prefix: /opt/conda
+    volumes:
+      - .:/arrow:delegated
 
   conda-cpp:
     # C++ build in conda environment, including the doxygen docs.
     #
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose run --rm conda-cpp
     # Parameters:
@@ -179,8 +197,8 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-conda-cpp
       args:
+        repo: ${REPO}
         arch: ${ARCH}
-        prefix: /opt/conda
     shm_size: &shm-size 2G
     ulimits: &ulimits
       core: ${ULIMIT_CORE}
@@ -200,6 +218,7 @@ services:
 
   conda-cpp-valgrind:
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose run --rm conda-cpp-valgrind
     # Parameters:
@@ -211,6 +230,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-conda-cpp
       args:
+        repo: ${REPO}
         arch: ${ARCH}
         prefix: /opt/conda
     shm_size: *shm-size
@@ -265,7 +285,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, s390x, ...
-    #   UBUNTU: 16.04, 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
@@ -322,7 +342,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp-sanitizer
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 16.04, 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     cap_add:
       # For LeakSanitizer
@@ -346,6 +366,7 @@ services:
       ARROW_FUZZING: "ON"  # Check fuzz regressions
       ARROW_JEMALLOC: "OFF"
       ARROW_ORC: "OFF"
+      ARROW_S3: "OFF"
       ARROW_USE_ASAN: "ON"
       ARROW_USE_UBSAN: "ON"
       # utf8proc 2.1.0 in Ubuntu Bionic has test failures
@@ -358,7 +379,7 @@ services:
     #   docker-compose run --rm ubuntu-cpp-thread-sanitizer
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 16.04, 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     build:
       context: .
@@ -447,7 +468,7 @@ services:
     #   docker-compose run --rm ubuntu-c-glib
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 16.04, 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-c-glib
     build:
       context: .
@@ -507,7 +528,7 @@ services:
     #   docker-compose run --rm ubuntu-ruby
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 16.04, 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-ruby
     build:
       context: .
@@ -527,6 +548,7 @@ services:
 
   conda-python:
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose run --rm conda-python
@@ -608,7 +630,7 @@ services:
     #   docker-compose run --rm ubuntu-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 16.04, 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     build:
       context: .
@@ -673,7 +695,7 @@ services:
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
     #   PYARROW_VERSION: The test target pyarrow version such as "3.0.0"
-    #   UBUNTU: 16.04, 18.04, 20.04
+    #   UBUNTU: 18.04, 20.04
     image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     build:
       context: .
@@ -799,6 +821,7 @@ services:
     #  - `master`: git master branch, use `docker-compose run --no-cache`
     #  - `<version>`: specific version available on conda-forge
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose build conda-python-pandas
@@ -827,6 +850,7 @@ services:
     #  - `master`: git master branch, use `docker-compose run --no-cache`
     #  - `<version>`: specific version available on conda-forge
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose build conda-python-dask
@@ -853,6 +877,7 @@ services:
 
   conda-python-jpype:
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose build conda-python-jpype
@@ -885,6 +910,7 @@ services:
     #  - `master`: git master branch, use `docker-compose run --no-cache`
     #  - `<version>`: specific version available under github releases
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose build conda-python-turbodbc
@@ -915,6 +941,7 @@ services:
     #  - `master`: git master branch, use `docker-compose run --no-cache`
     #  - `<version>`: specific version available under github releases
     # Usage:
+    #   docker-compose build conda
     #   docker-compose build conda-cpp
     #   docker-compose build conda-python
     #   docker-compose build conda-python-kartothek
@@ -989,7 +1016,7 @@ services:
     shm_size: *shm-size
     environment:
       LIBARROW_DOWNLOAD: "false"
-      ARROW_HOME: "/arrow"
+      ARROW_SOURCE_HOME: "/arrow"
       ARROW_R_DEV: ${ARROW_R_DEV}
       # To test for CRAN release, delete ^^ these two env vars so we download the Apache release
       ARROW_USE_PKG_CONFIG: "false"
@@ -1168,16 +1195,8 @@ services:
     volumes: *conda-volumes
     environment:
       <<: *ccache
-      ARROW_BUILD_STATIC: "OFF"
-      ARROW_COMPUTE: "OFF"
-      ARROW_CSV: "OFF"
-      ARROW_FLIGHT: "ON"
-      ARROW_GANDIVA: "OFF"
-      ARROW_PARQUET: "OFF"
-      ARROW_S3: "OFF"
       # tell archery where the arrow binaries are located
       ARROW_CPP_EXE_PATH: /build/cpp/debug
-      CMAKE_UNITY_BUILD: "ON"
     command:
       ["/arrow/ci/scripts/rust_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&

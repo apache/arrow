@@ -111,7 +111,7 @@ describe('Visitor', () => {
         test(`visits Dictionary types`, () => validateBasicVisitor(new Dictionary(null as any, null as any)));
         test(`visits Interval types`, () => validateBasicVisitor(new Interval(0)));
         test(`visits FixedSizeList types`, () => validateBasicVisitor(new FixedSizeList(2, null as any)));
-        test(`visits Map types`, () => validateBasicVisitor(new Map_(new Field('', new Struct<{ key: Int, value: Int }>([] as any[])))));
+        test(`visits Map types`, () => validateBasicVisitor(new Map_(new Field('', new Struct<{ key: Int; value: Int }>([] as any[])))));
         function validateBasicVisitor<T extends DataType>(type: T) {
             const visitor = new BasicVisitor();
             const result = visitor.visit(type);
@@ -157,7 +157,7 @@ describe('Visitor', () => {
         test(`visits IntervalDayTime types`, () => validateFeatureVisitor(new IntervalDayTime()));
         test(`visits IntervalYearMonth types`, () => validateFeatureVisitor(new IntervalYearMonth()));
         test(`visits FixedSizeList types`, () => validateFeatureVisitor(new FixedSizeList(2, null as any)));
-        test(`visits Map types`, () => validateFeatureVisitor(new Map_(new Field('', new Struct<{ key: Int, value: Int }>([] as any[])))));
+        test(`visits Map types`, () => validateFeatureVisitor(new Map_(new Field('', new Struct<{ key: Int; value: Int }>([] as any[])))));
 
         function validateFeatureVisitor<T extends DataType>(type: T) {
             const visitor = new FeatureVisitor();

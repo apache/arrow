@@ -25,9 +25,9 @@ import {
 
 import { ReadableDOMStreamOptions } from './interfaces';
 
-interface ReadableStreamReadResult<T> { done: boolean; value: T; }
-type Uint8ArrayGenerator = Generator<Uint8Array, null, { cmd: 'peek' | 'read', size: number }>;
-type AsyncUint8ArrayGenerator = AsyncGenerator<Uint8Array, null, { cmd: 'peek' | 'read', size: number }>;
+interface ReadableStreamReadResult<T> { done: boolean; value: T }
+type Uint8ArrayGenerator = Generator<Uint8Array, null, { cmd: 'peek' | 'read'; size: number }>;
+type AsyncUint8ArrayGenerator = AsyncGenerator<Uint8Array, null, { cmd: 'peek' | 'read'; size: number }>;
 
 /** @ignore */
 export default {
@@ -75,7 +75,7 @@ function* fromIterable<T extends ArrayBufferViewInput>(source: Iterable<T> | T):
     ({ cmd, size } = yield <any> null);
 
     // initialize the iterator
-    let it = toUint8ArrayIterator(source)[Symbol.iterator]();
+    const it = toUint8ArrayIterator(source)[Symbol.iterator]();
 
     try {
         do {
@@ -121,7 +121,7 @@ async function* fromAsyncIterable<T extends ArrayBufferViewInput>(source: AsyncI
     ({ cmd, size } = (yield <any> null)!);
 
     // initialize the iterator
-    let it = toUint8ArrayAsyncIterator(source)[Symbol.asyncIterator]();
+    const it = toUint8ArrayAsyncIterator(source)[Symbol.asyncIterator]();
 
     try {
         do {
@@ -171,7 +171,7 @@ async function* fromDOMStream<T extends ArrayBufferViewInput>(source: ReadableSt
     ({ cmd, size } = yield <any> null);
 
     // initialize the reader and lock the stream
-    let it = new AdaptiveByteReader(source);
+    const it = new AdaptiveByteReader(source);
 
     try {
         do {
@@ -212,7 +212,7 @@ class AdaptiveByteReader<T extends ArrayBufferViewInput> {
         try {
             this.supportsBYOB = !!(this.reader = this.getBYOBReader());
         } catch (e) {
-            this.supportsBYOB = !!!(this.reader = this.getDefaultReader());
+            this.supportsBYOB = !(this.reader = this.getDefaultReader());
         }
     }
 
@@ -297,7 +297,7 @@ type EventName = 'end' | 'error' | 'readable';
 type Event = [EventName, (_: any) => void, Promise<[EventName, Error | null]>];
 /** @ignore */
 const onEvent = <T extends string>(stream: NodeJS.ReadableStream, event: T) => {
-    let handler = (_: any) => resolve([event, _]);
+    const handler = (_: any) => resolve([event, _]);
     let resolve: (value?: [T, any] | PromiseLike<[T, any]>) => void;
     return [event, handler, new Promise<[T, any]>(
         (r) => (resolve = r) && stream['once'](event, handler)
@@ -307,7 +307,7 @@ const onEvent = <T extends string>(stream: NodeJS.ReadableStream, event: T) => {
 /** @ignore */
 async function* fromNodeStream(stream: NodeJS.ReadableStream): AsyncUint8ArrayGenerator {
 
-    let events: Event[] = [];
+    const events: Event[] = [];
     let event: EventName = 'error';
     let done = false, err: Error | null = null;
     let cmd: 'peek' | 'read', size: number, bufferLength = 0;
@@ -379,7 +379,7 @@ async function* fromNodeStream(stream: NodeJS.ReadableStream): AsyncUint8ArrayGe
 
     function cleanup<T extends Error | null | void>(events: Event[], err?: T) {
         buffer = buffers = <any> null;
-        return new Promise<T>(async (resolve, reject) => {
+        return new Promise<T>((resolve, reject) => {
             for (const [evt, fn] of events) {
                 stream['off'](evt, fn);
             }

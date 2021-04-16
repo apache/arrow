@@ -17,9 +17,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# this script is github actions specific to free up disk space
+# This script is Github Actions-specific to free up disk space,
+# to avoid disk full errors on some builds
 
 if [ $RUNNER_OS = "Linux" ]; then
+    df -h
+
     # remove swap
     sudo swapoff -a
     sudo rm -f /swapfile
@@ -30,8 +33,22 @@ if [ $RUNNER_OS = "Linux" ]; then
     # remove haskell, consumes 8.6 GB
     sudo rm -rf /opt/ghc
 
+    # 1 GB
+    sudo rm -rf /home/linuxbrew/.linuxbrew
+
+    # 1+ GB
+    sudo rm -rf /opt/hostedtoolcache/CodeQL
+
+    # 1+ GB
+    sudo rm -rf /usr/share/swift
+
+    # 12 GB, but takes a lot of time to delete
+    #sudo rm -rf /usr/local/lib/android
+
     # remove cached docker images, around 13 GB
     docker rmi $(docker image ls -aq)
+
+    # NOTE: /usr/share/dotnet is 25 GB
 fi
 
 df -h

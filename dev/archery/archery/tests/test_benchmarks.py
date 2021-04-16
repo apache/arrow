@@ -52,8 +52,7 @@ def test_benchmark_comparator():
     ).regression
 
 
-def test_static_runner_from_json():
-    # full output of `archery benchmark run`
+def test_static_runner_from_json_not_a_regression():
     archery_result = {
         "suites": [
             {
@@ -71,18 +70,35 @@ def test_static_runner_from_json():
                             9095.800104330105
                         ]
                     },
+                ]
+            }
+        ]
+    }
+
+    contender = StaticBenchmarkRunner.from_json(json.dumps(archery_result))
+    baseline = StaticBenchmarkRunner.from_json(json.dumps(archery_result))
+    [comparison] = RunnerComparator(contender, baseline).comparisons
+    assert not comparison.regression
+
+
+def test_static_runner_from_json_regression():
+    archery_result = {
+        "suites": [
+            {
+                "name": "arrow-value-parsing-benchmark",
+                "benchmarks": [
                     {
-                        "name": "FloatParsing<FloatType>",
+                        "name": "FloatParsing<DoubleType>",
                         "unit": "items_per_second",
                         "less_is_better": False,
                         "values": [
-                            105982641.9337845
+                            109941112.87296811
                         ],
                         "time_unit": "ns",
                         "times": [
-                            9435.567922160235
+                            9095.800104330105
                         ]
-                    }
+                    },
                 ]
             }
         ]
@@ -90,14 +106,12 @@ def test_static_runner_from_json():
 
     contender = StaticBenchmarkRunner.from_json(json.dumps(archery_result))
 
-    # introduce artificial regression:
+    # introduce artificial regression
     archery_result['suites'][0]['benchmarks'][0]['values'][0] *= 2
     baseline = StaticBenchmarkRunner.from_json(json.dumps(archery_result))
 
-    artificial_reg, normal = RunnerComparator(contender, baseline).comparisons
-
-    assert artificial_reg.regression
-    assert not normal.regression
+    [comparison] = RunnerComparator(contender, baseline).comparisons
+    assert comparison.regression
 
 
 def test_benchmark_median():
@@ -138,6 +152,12 @@ def test_items_per_second():
         "time_unit": "ns",
     }
     archery_result = {
+        "counters": {"iterations": 5964,
+                     "null_percent": 0.0,
+                     "repetition_index": 0,
+                     "repetitions": 0,
+                     "run_name": name,
+                     "threads": 1},
         "name": name,
         "unit": "items_per_second",
         "less_is_better": False,
@@ -166,6 +186,11 @@ def test_bytes_per_second():
         "time_unit": "ns",
     }
     archery_result = {
+        "counters": {"iterations": 47,
+                     "repetition_index": 1,
+                     "repetitions": 0,
+                     "run_name": name,
+                     "threads": 1},
         "name": name,
         "unit": "bytes_per_second",
         "less_is_better": False,
@@ -198,6 +223,12 @@ def test_both_items_and_bytes_per_second():
     }
     # Note that bytes_per_second trumps items_per_second
     archery_result = {
+        "counters": {"iterations": 5964,
+                     "null_percent": 0.0,
+                     "repetition_index": 0,
+                     "repetitions": 0,
+                     "run_name": name,
+                     "threads": 1},
         "name": name,
         "unit": "bytes_per_second",
         "less_is_better": False,
@@ -225,6 +256,11 @@ def test_neither_items_nor_bytes_per_second():
         "time_unit": "ns",
     }
     archery_result = {
+        "counters": {"iterations": 352765,
+                     "repetition_index": 0,
+                     "repetitions": 0,
+                     "run_name": name,
+                     "threads": 1},
         "name": name,
         "unit": "ns",
         "less_is_better": True,
@@ -252,6 +288,11 @@ def test_prefer_real_time():
         "time_unit": "ns",
     }
     archery_result = {
+        "counters": {"iterations": 352765,
+                     "repetition_index": 0,
+                     "repetitions": 0,
+                     "run_name": name,
+                     "threads": 1},
         "name": name,
         "unit": "ns",
         "less_is_better": True,
@@ -278,6 +319,11 @@ def test_prefer_cpu_time():
         "time_unit": "ns",
     }
     archery_result = {
+        "counters": {"iterations": 352765,
+                     "repetition_index": 0,
+                     "repetitions": 0,
+                     "run_name": name,
+                     "threads": 1},
         "name": name,
         "unit": "ns",
         "less_is_better": True,
@@ -316,6 +362,11 @@ def test_omits_aggregates():
         "time_unit": "ns",
     }
     archery_result = {
+        "counters": {"iterations": 352765,
+                     "repetition_index": 0,
+                     "repetitions": 0,
+                     "run_name": name,
+                     "threads": 1},
         "name": name,
         "unit": "ns",
         "less_is_better": True,

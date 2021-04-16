@@ -17,6 +17,7 @@
 
 package org.apache.arrow.gandiva.expression;
 
+import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.util.Set;
 
@@ -33,33 +34,50 @@ public class InNode implements TreeNode {
 
   private final Set<Integer> intValues;
   private final Set<Long> longValues;
+  private final Set<BigDecimal> decimalValues;
   private final Set<String> stringValues;
   private final Set<byte[]> binaryValues;
   private final TreeNode input;
 
+  private final Integer precision;
+  private final Integer scale;
+
   private InNode(Set<Integer> values, Set<Long> longValues, Set<String> stringValues, Set<byte[]>
-          binaryValues, TreeNode node) {
+          binaryValues, Set<BigDecimal> decimalValues, Integer precision, Integer scale, TreeNode node) {
     this.intValues = values;
     this.longValues = longValues;
+    this.decimalValues = decimalValues;
+    this.precision = precision;
+    this.scale = scale;
     this.stringValues = stringValues;
     this.binaryValues = binaryValues;
     this.input = node;
   }
 
   public static InNode makeIntInExpr(TreeNode node, Set<Integer> intValues) {
-    return new InNode(intValues, null, null, null, node);
+    return new InNode(intValues,
+            null, null, null, null, null, null, node);
   }
 
   public static InNode makeLongInExpr(TreeNode node, Set<Long> longValues) {
-    return new InNode(null, longValues, null, null, node);
+    return new InNode(null, longValues,
+            null, null, null, null, null, node);
+  }
+
+  public static InNode makeDecimalInExpr(TreeNode node, Set<BigDecimal> decimalValues,
+                                         Integer precision, Integer scale) {
+    return new InNode(null, null, null, null,
+            decimalValues, precision, scale, node);
   }
 
   public static InNode makeStringInExpr(TreeNode node, Set<String> stringValues) {
-    return new InNode(null, null, stringValues, null, node);
+    return new InNode(null, null, stringValues, null,
+            null, null, null, node);
   }
 
   public static InNode makeBinaryInExpr(TreeNode node, Set<byte[]> binaryValues) {
-    return new InNode(null, null, null, binaryValues, node);
+    return new InNode(null, null, null, binaryValues,
+            null, null, null, node);
   }
 
   @Override
@@ -78,6 +96,11 @@ public class InNode implements TreeNode {
       longValues.stream().forEach(val -> longConstants.addLongValues(GandivaTypes.LongNode.newBuilder()
               .setValue(val).build()));
       inNode.setLongValues(longConstants.build());
+    } else if (decimalValues != null) {
+      GandivaTypes.DecimalConstants.Builder decimalConstants = GandivaTypes.DecimalConstants.newBuilder();
+      decimalValues.stream().forEach(val -> decimalConstants.addDecimalValues(GandivaTypes.DecimalNode.newBuilder()
+              .setValue(val.toPlainString()).setPrecision(precision).setScale(scale).build()));
+      inNode.setDecimalValues(decimalConstants.build());
     } else if (stringValues != null) {
       GandivaTypes.StringConstants.Builder stringConstants = GandivaTypes.StringConstants
               .newBuilder();
@@ -94,6 +117,5 @@ public class InNode implements TreeNode {
     GandivaTypes.TreeNode.Builder builder = GandivaTypes.TreeNode.newBuilder();
     builder.setInNode(inNode.build());
     return builder.build();
-
   }
 }

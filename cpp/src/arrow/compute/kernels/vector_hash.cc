@@ -22,6 +22,7 @@
 #include "arrow/array/array_dict.h"
 #include "arrow/array/array_nested.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/array/dict_internal.h"
 #include "arrow/array/util.h"
 #include "arrow/compute/api_vector.h"
@@ -440,19 +441,35 @@ class DictionaryHashKernel : public HashKernel {
 
   Status Reset() override { return indices_kernel_->Reset(); }
 
-  Status HandleDictionary(const std::shared_ptr<ArrayData>& dict) {
-    if (!dictionary_) {
-      dictionary_ = dict;
-    } else if (!MakeArray(dictionary_)->Equals(*MakeArray(dict))) {
-      return Status::Invalid(
-          "Only hashing for data with equal dictionaries "
-          "currently supported");
-    }
-    return Status::OK();
-  }
-
   Status Append(const ArrayData& arr) override {
-    RETURN_NOT_OK(HandleDictionary(arr.dictionary));
+    if (!dictionary_) {
+      dictionary_ = arr.dictionary;
+    } else if (!MakeArray(dictionary_)->Equals(*MakeArray(arr.dictionary))) {
+      // NOTE: This approach computes a new dictionary unification per chunk.
+      // This is in effect O(n*k) where n is the total chunked array length and
+      // k is the number of chunks (therefore O(n**2) if chunks have a fixed size).
+      //
+      // A better approach may be to run the kernel over each individual chunk,
+      // and then hash-aggregate all results (for example sum-group-by for
+      // the "value_counts" kernel).
+      auto out_dict_type = dictionary_->type;
+      std::shared_ptr<Buffer> transpose_map;
+      std::shared_ptr<Array> out_dict;
+      ARROW_ASSIGN_OR_RAISE(auto unifier, DictionaryUnifier::Make(out_dict_type));
+
+      ARROW_CHECK_OK(unifier->Unify(*MakeArray(dictionary_)));
+      ARROW_CHECK_OK(unifier->Unify(*MakeArray(arr.dictionary), &transpose_map));
+      ARROW_CHECK_OK(unifier->GetResult(&out_dict_type, &out_dict));
+
+      this->dictionary_ = out_dict->data();
+      auto transpose = reinterpret_cast<const int32_t*>(transpose_map->data());
+      auto in_dict_array = MakeArray(std::make_shared<ArrayData>(arr));
+      ARROW_ASSIGN_OR_RAISE(
+          auto tmp, arrow::internal::checked_cast<const DictionaryArray&>(*in_dict_array)
+                        .Transpose(arr.type, out_dict, transpose));
+      return indices_kernel_->Append(*tmp->data());
+    }
+
     return indices_kernel_->Append(arr);
   }
 

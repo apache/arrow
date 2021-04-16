@@ -18,7 +18,7 @@
 expect_bool_function_equal <- function(array_exp, r_exp) {
   # Assert that the Array operation returns a boolean array
   # and that its contents are equal to expected
-  expect_is(array_exp, "ArrowDatum")
+  expect_r6_class(array_exp, "ArrowDatum")
   expect_type_equal(array_exp, bool())
   expect_identical(as.vector(array_exp), r_exp)
 }

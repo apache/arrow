@@ -117,6 +117,7 @@ cast_array_expression <- function(x, to_type, safe = TRUE, ...) {
 
 .unary_function_map <- list(
   "!" = "invert",
+  "as.factor" = "dictionary_encode",
   "is.na" = "is_null",
   "is.nan" = "is_nan",
   # nchar is defined in dplyr.R because it is more complex
@@ -147,7 +148,7 @@ cast_array_expression <- function(x, to_type, safe = TRUE, ...) {
   # we don't actually use divide_checked with `%%`, rather it is rewritten to
   # use %/% above.
   "%%" = "divide_checked",
-  # TODO: "^"  (ARROW-11070)
+  "^" = "power_checked",
   "%in%" = "is_in_meta_binary"
 )
 

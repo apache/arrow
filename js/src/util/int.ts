@@ -147,7 +147,7 @@ export class Uint64 extends BaseInt64 {
     public static fromString(str: string, out_buffer = new Uint32Array(2)): Uint64 {
         const length = str.length;
 
-        let out = new Uint64(out_buffer);
+        const out = new Uint64(out_buffer);
         for (let posn = 0; posn < length;) {
             const group = kInt32DecimalDigits < length - posn ?
                           kInt32DecimalDigits : length - posn;
@@ -174,13 +174,13 @@ export class Uint64 extends BaseInt64 {
 
     /** @nocollapse */
     public static multiply(left: Uint64, right: Uint64): Uint64 {
-        let rtrn = new Uint64(new Uint32Array(left.buffer));
+        const rtrn = new Uint64(new Uint32Array(left.buffer));
         return rtrn.times(right);
     }
 
     /** @nocollapse */
     public static add(left: Uint64, right: Uint64): Uint64 {
-        let rtrn = new Uint64(new Uint32Array(left.buffer));
+        const rtrn = new Uint64(new Uint32Array(left.buffer));
         return rtrn.plus(right);
     }
 }
@@ -238,7 +238,7 @@ export class Int64 extends BaseInt64 {
         const negate = str.startsWith('-');
         const length = str.length;
 
-        let out = new Int64(out_buffer);
+        const out = new Int64(out_buffer);
         for (let posn = negate ? 1 : 0; posn < length;) {
             const group = kInt32DecimalDigits < length - posn ?
                           kInt32DecimalDigits : length - posn;
@@ -264,13 +264,13 @@ export class Int64 extends BaseInt64 {
 
     /** @nocollapse */
     public static multiply(left: Int64, right: Int64): Int64 {
-        let rtrn = new Int64(new Uint32Array(left.buffer));
+        const rtrn = new Int64(new Uint32Array(left.buffer));
         return rtrn.times(right);
     }
 
     /** @nocollapse */
     public static add(left: Int64, right: Int64): Int64 {
-        let rtrn = new Int64(new Uint32Array(left.buffer));
+        const rtrn = new Int64(new Uint32Array(left.buffer));
         return rtrn.plus(right);
     }
 }
@@ -320,7 +320,7 @@ export class Int128 {
         let product = Uint64.multiply(L3, R3);
         this.buffer[0] = product.low();
 
-        let sum = new Uint64(new Uint32Array([product.high(), 0]));
+        const sum = new Uint64(new Uint32Array([product.high(), 0]));
 
         product = Uint64.multiply(L2, R3);
         sum.plus(product);
@@ -333,7 +333,7 @@ export class Int128 {
         this.buffer[3] = (sum.lessThan(product) ? 1 : 0);
 
         this.buffer[2] = sum.high();
-        let high = new Uint64(new Uint32Array(this.buffer.buffer, this.buffer.byteOffset + 8, 2));
+        const high = new Uint64(new Uint32Array(this.buffer.buffer, this.buffer.byteOffset + 8, 2));
 
         high.plus(Uint64.multiply(L1, R3))
             .plus(Uint64.multiply(L2, R2))
@@ -347,7 +347,7 @@ export class Int128 {
     }
 
     public plus(other: Int128): Int128 {
-        let sums = new Uint32Array(4);
+        const sums = new Uint32Array(4);
         sums[3] = (this.buffer[3] + other.buffer[3]) >>> 0;
         sums[2] = (this.buffer[2] + other.buffer[2]) >>> 0;
         sums[1] = (this.buffer[1] + other.buffer[1]) >>> 0;
@@ -377,13 +377,13 @@ export class Int128 {
 
     /** @nocollapse */
     public static multiply(left: Int128, right: Int128): Int128 {
-        let rtrn = new Int128(new Uint32Array(left.buffer));
+        const rtrn = new Int128(new Uint32Array(left.buffer));
         return rtrn.times(right);
     }
 
     /** @nocollapse */
     public static add(left: Int128, right: Int128): Int128 {
-        let rtrn = new Int128(new Uint32Array(left.buffer));
+        const rtrn = new Int128(new Uint32Array(left.buffer));
         return rtrn.plus(right);
     }
 
@@ -412,7 +412,7 @@ export class Int128 {
         const negate = str.startsWith('-');
         const length = str.length;
 
-        let out = new Int128(out_buffer);
+        const out = new Int128(out_buffer);
         for (let posn = negate ? 1 : 0; posn < length;) {
             const group = kInt32DecimalDigits < length - posn ?
                           kInt32DecimalDigits : length - posn;

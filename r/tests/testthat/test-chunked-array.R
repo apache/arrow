@@ -177,7 +177,7 @@ test_that("ChunkedArray supports integer64 (ARROW-3716)", {
   expect_type_equal(zero, int64())
   ca <- ChunkedArray$create(zero, x)
   expect_type_equal(ca, int64())
-  expect_is(as.vector(ca), "integer64")
+  expect_s3_class(as.vector(ca), "integer64")
   expect_identical(as.vector(ca), c(bit64::as.integer64(0L), x))
 })
 
@@ -199,12 +199,12 @@ test_that("integer types casts for ChunkedArray (ARROW-3741)", {
   a <- chunked_array(1:10, 1:10)
   for (type in c(int_types, uint_types)) {
     casted <- a$cast(type)
-    expect_is(casted, "ChunkedArray")
+    expect_r6_class(casted, "ChunkedArray")
     expect_type_equal(casted$type, type)
   }
   # Also test casting to double(), not actually a type, a base R function but should be alias for float64
   dbl <- a$cast(double())
-  expect_is(dbl, "ChunkedArray")
+  expect_r6_class(dbl, "ChunkedArray")
   expect_type_equal(dbl$type, float64())
 })
 
@@ -382,4 +382,32 @@ test_that("Converting a chunked array unifies factors (ARROW-8374)", {
   ca <- ChunkedArray$create(f1, f2, f3, f4)
 
   expect_identical(ca$as_vector(), res)
+})
+
+test_that("Handling string data with embedded nuls", {
+  raws <- structure(list(
+    as.raw(c(0x70, 0x65, 0x72, 0x73, 0x6f, 0x6e)),
+    as.raw(c(0x77, 0x6f, 0x6d, 0x61, 0x6e)),
+    as.raw(c(0x6d, 0x61, 0x00, 0x6e)), # <-- there's your nul, 0x00
+    as.raw(c(0x66, 0x00, 0x00, 0x61, 0x00, 0x6e)), # multiple nuls
+    as.raw(c(0x63, 0x61, 0x6d, 0x65, 0x72, 0x61)),
+    as.raw(c(0x74, 0x76))),
+    class = c("arrow_binary", "vctrs_vctr", "list"))
+  chunked_array_with_nul <- ChunkedArray$create(raws)$cast(utf8())
+  expect_error(
+    as.vector(chunked_array_with_nul),
+    "embedded nul in string: 'ma\\0n'; to strip nuls when converting from Arrow to R, set options(arrow.skip_nul = TRUE)",
+    fixed = TRUE
+  )
+
+  withr::with_options(list(arrow.skip_nul = TRUE), {
+    expect_warning(
+      expect_identical(
+        as.vector(chunked_array_with_nul),
+        c("person", "woman", "man", "fan", "camera", "tv")
+      ),
+      "Stripping '\\0' (nul) from character vector",
+      fixed = TRUE
+    )
+  })
 })

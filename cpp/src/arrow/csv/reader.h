@@ -26,6 +26,7 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/future.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -64,17 +65,15 @@ class ARROW_EXPORT StreamingReader : public RecordBatchReader {
   virtual ~StreamingReader() = default;
 
   /// Create a StreamingReader instance
-  ///
-  /// Currently, the StreamingReader is always single-threaded (parallel
-  /// readahead is not supported).
   static Result<std::shared_ptr<StreamingReader>> Make(
       io::IOContext io_context, std::shared_ptr<io::InputStream> input,
       const ReadOptions&, const ParseOptions&, const ConvertOptions&);
 
   ARROW_DEPRECATED("Use IOContext-based overload")
   static Result<std::shared_ptr<StreamingReader>> Make(
-      MemoryPool* pool, std::shared_ptr<io::InputStream> input, const ReadOptions&,
-      const ParseOptions&, const ConvertOptions&);
+      MemoryPool* pool, std::shared_ptr<io::InputStream> input,
+      const ReadOptions& read_options, const ParseOptions& parse_options,
+      const ConvertOptions& convert_options);
 };
 
 }  // namespace csv

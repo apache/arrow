@@ -99,7 +99,7 @@ impl<W: 'static + ParquetWriter> ArrowWriter<W> {
     }
 
     /// Close and finalize the underlying Parquet writer
-    pub fn close(&mut self) -> Result<()> {
+    pub fn close(&mut self) -> Result<parquet_format::FileMetaData> {
         self.writer.close()
     }
 }
@@ -1237,7 +1237,7 @@ mod tests {
         builder.append_value(b"1112").unwrap();
         let array = Arc::new(builder.finish());
 
-        one_column_roundtrip("timestamp_millisecond_single_column", array, true);
+        one_column_roundtrip("fixed_size_binary_single_column", array, true);
     }
 
     #[test]

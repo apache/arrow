@@ -20,8 +20,12 @@ go 1.12
 
 require (
 	github.com/davecgh/go-spew v1.1.0 // indirect
+	github.com/frankban/quicktest v1.11.3 // indirect
 	github.com/golang/protobuf v1.4.2
 	github.com/google/flatbuffers v1.11.0
+	github.com/klauspost/compress v1.11.13
+	github.com/pierrec/lz4 v2.6.0+incompatible
+	github.com/pierrec/lz4/v4 v4.1.4 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/stretchr/testify v1.2.0
 	golang.org/x/net v0.0.0-20200904194848-62affa334b73 // indirect
@@ -30,6 +34,5 @@ require (
 	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543
 	google.golang.org/genproto v0.0.0-20200911024640-645f7a48b24f // indirect
 	google.golang.org/grpc v1.32.0
-	google.golang.org/grpc/cmd/protoc-gen-go-grpc v0.0.0-20200910201057-6591123024b3 // indirect
 	google.golang.org/protobuf v1.25.0
 )

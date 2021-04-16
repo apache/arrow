@@ -293,3 +293,17 @@ Used together, the call
 
 will yield significantly lower memory usage in some scenarios. Without these
 options, ``to_pandas`` will always double memory.
+
+Note that ``self_destruct=True`` is not guaranteed to save memory. Since the
+conversion happens column by column, memory is also freed column by column. But
+if multiple columns share an underlying buffer, then no memory will be freed
+until all of those columns are converted. In particular, due to implementation
+details, data that comes from IPC or Flight is prone to this, as memory will be
+laid out as follows::
+
+  Record Batch 0: Allocation 0: array 0 chunk 0, array 1 chunk 0, ...
+  Record Batch 1: Allocation 1: array 0 chunk 1, array 1 chunk 1, ...
+  ...
+
+In this case, no memory can be freed until the entire table is converted, even
+with ``self_destruct=True``.

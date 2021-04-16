@@ -78,16 +78,11 @@ std::shared_ptr<FlightStatusDetail> FlightStatusDetail::UnwrapStatus(
   return std::dynamic_pointer_cast<FlightStatusDetail>(status.detail());
 }
 
-Status MakeFlightError(FlightStatusCode code, const std::string& message) {
+Status MakeFlightError(FlightStatusCode code, std::string message,
+                       std::string extra_info) {
   StatusCode arrow_code = arrow::StatusCode::IOError;
-  return arrow::Status(arrow_code, message, std::make_shared<FlightStatusDetail>(code));
-}
-
-Status MakeFlightError(FlightStatusCode code, const std::string& message,
-                       const std::string& extra_info) {
-  StatusCode arrow_code = arrow::StatusCode::IOError;
-  return arrow::Status(arrow_code, message,
-                       std::make_shared<FlightStatusDetail>(code, extra_info));
+  return arrow::Status(arrow_code, std::move(message),
+                       std::make_shared<FlightStatusDetail>(code, std::move(extra_info)));
 }
 
 bool FlightDescriptor::Equals(const FlightDescriptor& other) const {

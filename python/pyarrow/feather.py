@@ -22,10 +22,11 @@ from pyarrow.pandas_compat import _pandas_api  # noqa
 from pyarrow.lib import (Codec, FeatherError, Table,  # noqa
                          concat_tables, schema)
 import pyarrow.lib as ext
+from pyarrow.vendored.version import Version
 
 
 def _check_pandas_version():
-    if _pandas_api.loose_version < '0.17.0':
+    if _pandas_api.loose_version < Version('0.17.0'):
         raise ImportError("feather requires pandas >= 0.17.0")
 
 

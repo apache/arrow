@@ -57,6 +57,21 @@ navbar:
           href: https://arrow.apache.org/docs/python
         - text: R
           href: index.html
+    articles:
+      text: Articles
+      menu:
+        - text: Installing the Arrow Package on Linux
+          href: articles/install.html
+        - text: Working with Arrow Datasets and dplyr
+          href: articles/dataset.html
+        - text: Working with Cloud Storage (S3)
+          href: articles/fs.html
+        - text: Apache Arrow in Python and R with reticulate
+          href: articles/python.html
+        - text: Connecting to Flight RPC Servers
+          href: articles/flight.html
+        - text: Arrow R Developer Guide
+          href: articles/developing.html
 reference:
   - title: Multi-file datasets
     contents:
@@ -70,6 +85,7 @@ reference:
       - Scanner
       - FileFormat
       - FileWriteOptions
+      - FragmentScanOptions
       - map_batches
   - title: Reading and writing files
     contents:
@@ -95,15 +111,13 @@ reference:
       - CsvReadOptions
   - title: Arrow data containers
     contents:
-      - buffer
       - array
-      - ArrayData
-      - chunked_array
       - ChunkedArray
-      - record_batch
+      - Scalar
       - RecordBatch
       - Table
-      - Scalar
+      - ArrayData
+      - buffer
       - read_message
   - title: Arrow data types and schema
     contents:
@@ -144,8 +158,10 @@ reference:
       - codec_is_available
   - title: Computation
     contents:
+      - call_function
       - match_arrow
       - value_counts
+      - list_compute_functions
   - title: Configuration
     contents:
       - arrow_info

@@ -309,8 +309,8 @@ impl Field {
                 };
                 Ok(Field {
                     name,
-                    nullable,
                     data_type,
+                    nullable,
                     dict_id,
                     dict_is_ordered,
                     metadata,

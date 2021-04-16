@@ -28,19 +28,19 @@ Tabular Datasets
     and a stable API is not yet guaranteed.
 
 The ``pyarrow.dataset`` module provides functionality to efficiently work with
-tabular, potentially larger than memory and multi-file datasets:
+tabular, potentially larger than memory, and multi-file datasets. This includes:
 
-* A unified interface for different sources: supporting different sources and
-  file formats (Parquet, Feather files) and different file systems (local,
-  cloud).
+* A unified interface that supports different sources and file formats
+  (Parquet, Feather / Arrow IPC, and CSV files) and different file systems
+  (local, cloud).
 * Discovery of sources (crawling directories, handle directory-based partitioned
   datasets, basic schema normalization, ..)
 * Optimized reading with predicate pushdown (filtering rows), projection
-  (selecting columns), parallel reading or fine-grained managing of tasks.
+  (selecting and deriving columns), and optionally parallel reading.
 
-Currently, only Parquet and Feather / Arrow IPC files are supported. The goal
-is to expand this in the future to other file formats and data sources (e.g.
-database connections).
+Currently, only Parquet, Feather / Arrow IPC, and CSV files are supported. The
+goal is to expand this in the future to other file formats and data sources
+(e.g. database connections).
 
 For those familiar with the existing :class:`pyarrow.parquet.ParquetDataset` for
 reading Parquet datasets: ``pyarrow.dataset``'s goal is similar but not specific
@@ -87,11 +87,11 @@ can pass it the path to the directory containing the data files:
     dataset = ds.dataset(base / "parquet_dataset", format="parquet")
     dataset
 
-In addition to a base directory path, :func:`dataset` accepts a path to a single
-file or a list of file paths.
+In addition to searching a base directory, :func:`dataset` accepts a path to a
+single file or a list of file paths.
 
-Creating a :class:`Dataset` object loads nothing into memory, it only crawls the
-directory to find all the files:
+Creating a :class:`Dataset` object does not begin reading the data itself. If
+needed, it only crawls the directory to find all the files:
 
 .. ipython:: python
 
@@ -117,11 +117,11 @@ Reading different file formats
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The above examples use Parquet files as dataset source but the Dataset API
-provides a consistent interface across multiple file formats and sources.
-Currently, Parquet and Feather / Arrow IPC file format are supported; more
-formats are planned in the future.
+provides a consistent interface across multiple file formats and filesystems.
+Currently, Parquet, Feather / Arrow IPC, and CSV file formats are supported;
+more formats are planned in the future.
 
-If we save the table as a Feather file instead of Parquet files:
+If we save the table as Feather files instead of Parquet files:
 
 .. ipython:: python
 
@@ -129,7 +129,7 @@ If we save the table as a Feather file instead of Parquet files:
 
     feather.write_feather(table, base / "data.feather")
 
-then we can read the Feather file using the same functions, but with specifying
+…then we can read the Feather file using the same functions, but with specifying
 ``format="feather"``:
 
 .. ipython:: python
@@ -272,7 +272,7 @@ and the Parquet files written in those directories no longer include the "part"
 column.
 
 Reading this dataset with :func:`dataset`, we now specify that the dataset
-uses a hive-like partitioning scheme with the `partitioning` keyword:
+should use a hive-like partitioning scheme with the `partitioning` keyword:
 
 .. ipython:: python
 
@@ -288,7 +288,7 @@ they will be added back to the resulting table when scanning this dataset:
     dataset.to_table().to_pandas().head(3)
 
 We can now filter on the partition keys, which avoids loading files
-altogether if they do not match the predicate:
+altogether if they do not match the filter:
 
 .. ipython:: python
 

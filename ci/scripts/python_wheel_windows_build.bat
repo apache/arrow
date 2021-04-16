@@ -64,7 +64,7 @@ cmake ^
     -DARROW_HDFS=%ARROW_HDFS% ^
     -DARROW_MIMALLOC=%ARROW_MIMALLOC% ^
     -DARROW_ORC=%ARROW_ORC% ^
-    -DARROW_PACKAGE_KIND="wheel-windows" ^
+    -DARROW_PACKAGE_KIND="python-wheel-windows" ^
     -DARROW_PARQUET=%ARROW_PARQUET% ^
     -DARROW_PYTHON=ON ^
     -DARROW_S3=%ARROW_S3% ^

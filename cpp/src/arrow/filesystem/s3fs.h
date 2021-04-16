@@ -149,6 +149,8 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   Result<FileInfo> GetFileInfo(const std::string& path) override;
   Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) override;
 
+  FileInfoGenerator GetFileInfoGenerator(const FileSelector& select) override;
+
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
   Status DeleteDir(const std::string& path) override;
@@ -206,7 +208,7 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   explicit S3FileSystem(const S3Options& options, const io::IOContext&);
 
   class Impl;
-  std::unique_ptr<Impl> impl_;
+  std::shared_ptr<Impl> impl_;
 };
 
 enum class S3LogLevel : int8_t { Off, Fatal, Error, Warn, Info, Debug, Trace };

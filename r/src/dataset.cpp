@@ -19,12 +19,15 @@
 
 #if defined(ARROW_R_WITH_DATASET)
 
+#include <arrow/array.h>
+#include <arrow/compute/api.h>
 #include <arrow/dataset/api.h>
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/ipc/writer.h>
 #include <arrow/table.h>
 #include <arrow/util/checked_cast.h>
 #include <arrow/util/iterator.h>
+#include <parquet/properties.h>
 
 namespace ds = ::arrow::dataset;
 namespace fs = ::arrow::fs;
@@ -161,6 +164,17 @@ std::shared_ptr<ds::DatasetFactory> dataset___UnionDatasetFactory__Make(
 }
 
 // [[dataset::export]]
+std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make0(
+    const std::shared_ptr<fs::FileSystem>& fs, const std::vector<std::string>& paths,
+    const std::shared_ptr<ds::FileFormat>& format) {
+  // TODO(fsaintjacques): Make options configurable
+  auto options = ds::FileSystemFactoryOptions{};
+
+  return arrow::internal::checked_pointer_cast<ds::FileSystemDatasetFactory>(
+      ValueOrStop(ds::FileSystemDatasetFactory::Make(fs, paths, format, options)));
+}
+
+// [[dataset::export]]
 std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make2(
     const std::shared_ptr<fs::FileSystem>& fs,
     const std::shared_ptr<fs::FileSelector>& selector,
@@ -216,11 +230,10 @@ std::shared_ptr<ds::FileWriteOptions> dataset___FileFormat__DefaultWriteOptions(
 
 // [[dataset::export]]
 std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(
-    bool use_buffered_stream, int64_t buffer_size, cpp11::strings dict_columns) {
+    const std::shared_ptr<ds::ParquetFragmentScanOptions>& options,
+    cpp11::strings dict_columns) {
   auto fmt = std::make_shared<ds::ParquetFileFormat>();
-
-  fmt->reader_options.use_buffered_stream = use_buffered_stream;
-  fmt->reader_options.buffer_size = buffer_size;
+  fmt->default_fragment_scan_options = std::move(options);
 
   auto dict_columns_vector = cpp11::as_cpp<std::vector<std::string>>(dict_columns);
   auto& d = fmt->reader_options.dict_columns;
@@ -284,7 +297,7 @@ std::shared_ptr<ds::CsvFileFormat> dataset___CsvFileFormat__Make(
   return format;
 }
 
-// FragmentScanOptions, CsvFragmentScanOptions
+// FragmentScanOptions, CsvFragmentScanOptions, ParquetFragmentScanOptions
 
 // [[dataset::export]]
 std::string dataset___FragmentScanOptions__type_name(
@@ -299,6 +312,21 @@ std::shared_ptr<ds::CsvFragmentScanOptions> dataset___CsvFragmentScanOptions__Ma
   auto options = std::make_shared<ds::CsvFragmentScanOptions>();
   options->convert_options = *convert_options;
   options->read_options = *read_options;
+  return options;
+}
+
+// [[dataset::export]]
+std::shared_ptr<ds::ParquetFragmentScanOptions>
+dataset___ParquetFragmentScanOptions__Make(bool use_buffered_stream, int64_t buffer_size,
+                                           bool pre_buffer) {
+  auto options = std::make_shared<ds::ParquetFragmentScanOptions>();
+  if (use_buffered_stream) {
+    options->reader_properties->enable_buffered_stream();
+  } else {
+    options->reader_properties->disable_buffered_stream();
+  }
+  options->reader_properties->set_buffer_size(buffer_size);
+  options->arrow_reader_properties->set_pre_buffer(pre_buffer);
   return options;
 }
 
@@ -396,23 +424,40 @@ std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(
 }
 
 // [[dataset::export]]
+cpp11::list dataset___Scanner__ScanBatches(const std::shared_ptr<ds::Scanner>& scanner) {
+  auto it = ValueOrStop(scanner->ScanBatches());
+  arrow::RecordBatchVector batches;
+  StopIfNotOk(it.Visit([&](ds::TaggedRecordBatch tagged_batch) {
+    batches.push_back(std::move(tagged_batch.record_batch));
+    return arrow::Status::OK();
+  }));
+  return arrow::r::to_r_list(batches);
+}
+
+// [[dataset::export]]
 std::shared_ptr<arrow::Table> dataset___Scanner__head(
     const std::shared_ptr<ds::Scanner>& scanner, int n) {
   // TODO: make this a full Slice with offset > 0
+  auto it = ValueOrStop(scanner->ScanBatches());
   std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
-  std::shared_ptr<arrow::RecordBatch> current_batch;
-
-  for (auto st : ValueOrStop(scanner->Scan())) {
-    for (auto b : ValueOrStop(ValueOrStop(st)->Execute())) {
-      current_batch = ValueOrStop(b);
-      batches.push_back(current_batch->Slice(0, n));
-      n -= current_batch->num_rows();
-      if (n < 0) break;
-    }
+  while (true) {
+    auto current_batch = ValueOrStop(it.Next());
+    if (arrow::IsIterationEnd(current_batch)) break;
+    batches.push_back(current_batch.record_batch->Slice(0, n));
+    n -= current_batch.record_batch->num_rows();
     if (n < 0) break;
   }
   return ValueOrStop(arrow::Table::FromRecordBatches(std::move(batches)));
 }
+
+// TODO (ARROW-11782) Remove calls to Scan()
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4996)
+#endif
 
 // [[dataset::export]]
 cpp11::list dataset___Scanner__Scan(const std::shared_ptr<ds::Scanner>& scanner) {
@@ -428,10 +473,16 @@ cpp11::list dataset___Scanner__Scan(const std::shared_ptr<ds::Scanner>& scanner)
   return arrow::r::to_r_list(out);
 }
 
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#elif defined(_MSC_VER)
+#pragma warning(pop)
+#endif
+
 // [[dataset::export]]
 std::shared_ptr<arrow::Schema> dataset___Scanner__schema(
     const std::shared_ptr<ds::Scanner>& sc) {
-  return sc->schema();
+  return sc->options()->projected_schema;
 }
 
 // [[dataset::export]]
@@ -461,6 +512,13 @@ void dataset___Dataset__Write(
   opts.partitioning = partitioning;
   opts.basename_template = basename_template;
   StopIfNotOk(ds::FileSystemDataset::Write(opts, scanner));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> dataset___Scanner__TakeRows(
+    const std::shared_ptr<ds::Scanner>& scanner,
+    const std::shared_ptr<arrow::Array>& indices) {
+  return ValueOrStop(scanner->TakeRows(*indices));
 }
 
 #endif

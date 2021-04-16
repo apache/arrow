@@ -261,7 +261,7 @@ apache_download <- function(destfile, n_mirrors = 3) {
   downloaded
 }
 
-find_local_source <- function(arrow_home = Sys.getenv("ARROW_HOME", "..")) {
+find_local_source <- function(arrow_home = Sys.getenv("ARROW_SOURCE_HOME", "..")) {
   if (file.exists(paste0(arrow_home, "/cpp/src/arrow/api.h"))) {
     # We're in a git checkout of arrow, so we can build it
     cat("*** Found local C++ source\n")
@@ -333,10 +333,10 @@ build_libarrow <- function(src_dir, dst_dir) {
     env_vars <- paste(env_vars, "ARROW_JEMALLOC=OFF ARROW_PARQUET=OFF ARROW_DATASET=OFF ARROW_WITH_RE2=OFF ARROW_WITH_UTF8PROC=OFF EXTRA_CMAKE_FLAGS=-DARROW_SIMD_LEVEL=NONE")
   }
   cat("**** arrow", ifelse(quietly, "", paste("with", env_vars)), "\n")
-  status <- system(
+  status <- suppressWarnings(system(
     paste(env_vars, "inst/build_arrow_static.sh"),
     ignore.stdout = quietly, ignore.stderr = quietly
-  )
+  ))
   if (status != 0) {
     # It failed :(
     cat("**** Error building Arrow C++. Re-run with ARROW_R_DEV=true for debug information.\n")

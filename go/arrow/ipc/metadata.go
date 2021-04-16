@@ -32,7 +32,7 @@ import (
 var Magic = []byte("ARROW1")
 
 const (
-	currentMetadataVersion = MetadataV4
+	currentMetadataVersion = MetadataV5
 	minMetadataVersion     = MetadataV4
 
 	kExtensionTypeKeyName = "arrow_extension_name"
@@ -927,7 +927,7 @@ func writeFBBuilder(b *flatbuffers.Builder, mem memory.Allocator) *memory.Buffer
 func writeMessageFB(b *flatbuffers.Builder, mem memory.Allocator, hdrType flatbuf.MessageHeader, hdr flatbuffers.UOffsetT, bodyLen int64) *memory.Buffer {
 
 	flatbuf.MessageStart(b)
-	flatbuf.MessageAddVersion(b, int16(currentMetadataVersion))
+	flatbuf.MessageAddVersion(b, flatbuf.MetadataVersion(currentMetadataVersion))
 	flatbuf.MessageAddHeaderType(b, hdrType)
 	flatbuf.MessageAddHeader(b, hdr)
 	flatbuf.MessageAddBodyLength(b, bodyLen)
@@ -954,7 +954,7 @@ func writeFileFooter(schema *arrow.Schema, dicts, recs []fileBlock, w io.Writer)
 	recsFB := fileBlocksToFB(b, recs, flatbuf.FooterStartRecordBatchesVector)
 
 	flatbuf.FooterStart(b)
-	flatbuf.FooterAddVersion(b, int16(currentMetadataVersion))
+	flatbuf.FooterAddVersion(b, flatbuf.MetadataVersion(currentMetadataVersion))
 	flatbuf.FooterAddSchema(b, schemaFB)
 	flatbuf.FooterAddDictionaries(b, dictsFB)
 	flatbuf.FooterAddRecordBatches(b, recsFB)
@@ -966,20 +966,28 @@ func writeFileFooter(schema *arrow.Schema, dicts, recs []fileBlock, w io.Writer)
 	return err
 }
 
-func writeRecordMessage(mem memory.Allocator, size, bodyLength int64, fields []fieldMetadata, meta []bufferMetadata) *memory.Buffer {
+func writeRecordMessage(mem memory.Allocator, size, bodyLength int64, fields []fieldMetadata, meta []bufferMetadata, codec flatbuf.CompressionType) *memory.Buffer {
 	b := flatbuffers.NewBuilder(0)
-	recFB := recordToFB(b, size, bodyLength, fields, meta)
+	recFB := recordToFB(b, size, bodyLength, fields, meta, codec)
 	return writeMessageFB(b, mem, flatbuf.MessageHeaderRecordBatch, recFB, bodyLength)
 }
 
-func recordToFB(b *flatbuffers.Builder, size, bodyLength int64, fields []fieldMetadata, meta []bufferMetadata) flatbuffers.UOffsetT {
+func recordToFB(b *flatbuffers.Builder, size, bodyLength int64, fields []fieldMetadata, meta []bufferMetadata, codec flatbuf.CompressionType) flatbuffers.UOffsetT {
 	fieldsFB := writeFieldNodes(b, fields, flatbuf.RecordBatchStartNodesVector)
 	metaFB := writeBuffers(b, meta, flatbuf.RecordBatchStartBuffersVector)
+	var bodyCompressFB flatbuffers.UOffsetT
+	if codec != -1 {
+		bodyCompressFB = writeBodyCompression(b, codec)
+	}
 
 	flatbuf.RecordBatchStart(b)
 	flatbuf.RecordBatchAddLength(b, size)
 	flatbuf.RecordBatchAddNodes(b, fieldsFB)
 	flatbuf.RecordBatchAddBuffers(b, metaFB)
+	if codec != -1 {
+		flatbuf.RecordBatchAddCompression(b, bodyCompressFB)
+	}
+
 	return flatbuf.RecordBatchEnd(b)
 }
 
@@ -1004,6 +1012,13 @@ func writeBuffers(b *flatbuffers.Builder, buffers []bufferMetadata, start startV
 		flatbuf.CreateBuffer(b, buffer.Offset, buffer.Len)
 	}
 	return b.EndVector(len(buffers))
+}
+
+func writeBodyCompression(b *flatbuffers.Builder, codec flatbuf.CompressionType) flatbuffers.UOffsetT {
+	flatbuf.BodyCompressionStart(b)
+	flatbuf.BodyCompressionAddCodec(b, codec)
+	flatbuf.BodyCompressionAddMethod(b, flatbuf.BodyCompressionMethodBUFFER)
+	return flatbuf.BodyCompressionEnd(b)
 }
 
 func writeMessage(msg *memory.Buffer, alignment int32, w io.Writer) (int, error) {

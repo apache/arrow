@@ -38,12 +38,36 @@
 namespace arrow {
 namespace csv {
 
+// Allows the streaming reader to be used in tests that expect a table reader
+class StreamingReaderAsTableReader : public TableReader {
+ public:
+  explicit StreamingReaderAsTableReader(std::shared_ptr<StreamingReader> reader)
+      : reader_(std::move(reader)) {}
+  virtual ~StreamingReaderAsTableReader() = default;
+  virtual Result<std::shared_ptr<Table>> Read() {
+    std::shared_ptr<Table> table;
+    RETURN_NOT_OK(reader_->ReadAll(&table));
+    return table;
+  }
+  virtual Future<std::shared_ptr<Table>> ReadAsync() {
+    return Future<std::shared_ptr<Table>>::MakeFinished(Read());
+  }
+
+ private:
+  std::shared_ptr<StreamingReader> reader_;
+};
+
 using TableReaderFactory =
     std::function<Result<std::shared_ptr<TableReader>>(std::shared_ptr<io::InputStream>)>;
 
 void StressTableReader(TableReaderFactory reader_factory) {
+#ifdef ARROW_VALGRIND
+  const int NTASKS = 10;
+  const int NROWS = 100;
+#else
   const int NTASKS = 100;
   const int NROWS = 1000;
+#endif
   ASSERT_OK_AND_ASSIGN(auto table_buffer, MakeSampleCsvBuffer(NROWS));
 
   std::vector<Future<std::shared_ptr<Table>>> task_futures(NTASKS);
@@ -64,8 +88,13 @@ void StressTableReader(TableReaderFactory reader_factory) {
 }
 
 void StressInvalidTableReader(TableReaderFactory reader_factory) {
+#ifdef ARROW_VALGRIND
+  const int NTASKS = 10;
+  const int NROWS = 100;
+#else
   const int NTASKS = 100;
   const int NROWS = 1000;
+#endif
   ASSERT_OK_AND_ASSIGN(auto table_buffer, MakeSampleCsvBuffer(NROWS, false));
 
   std::vector<Future<std::shared_ptr<Table>>> task_futures(NTASKS);
@@ -149,6 +178,33 @@ TEST(AsyncReaderTests, StressInvalid) {
 TEST(AsyncReaderTests, NestedParallelism) {
   ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(1));
   ASSERT_OK_AND_ASSIGN(auto table_factory, MakeAsyncFactory(thread_pool));
+  TestNestedParallelism(thread_pool, table_factory);
+}
+
+Result<TableReaderFactory> MakeStreamingFactory() {
+  return [](std::shared_ptr<io::InputStream> input_stream)
+             -> Result<std::shared_ptr<TableReader>> {
+    auto read_options = ReadOptions::Defaults();
+    read_options.block_size = 1 << 10;
+    ARROW_ASSIGN_OR_RAISE(
+        auto streaming_reader,
+        StreamingReader::Make(io::default_io_context(), input_stream, read_options,
+                              ParseOptions::Defaults(), ConvertOptions::Defaults()));
+    return std::make_shared<StreamingReaderAsTableReader>(std::move(streaming_reader));
+  };
+}
+
+TEST(StreamingReaderTests, Stress) {
+  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeStreamingFactory());
+  StressTableReader(table_factory);
+}
+TEST(StreamingReaderTests, StressInvalid) {
+  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeStreamingFactory());
+  StressInvalidTableReader(table_factory);
+}
+TEST(StreamingReaderTests, NestedParallelism) {
+  ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(1));
+  ASSERT_OK_AND_ASSIGN(auto table_factory, MakeStreamingFactory());
   TestNestedParallelism(thread_pool, table_factory);
 }
 

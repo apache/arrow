@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/* tslint:disable */
 const randomatic = require('randomatic');
 import { TextEncoder } from 'text-encoding-utf-8';
 import { VectorType as V } from '../src/interfaces';
@@ -127,7 +126,7 @@ const defaultStructChildren = () => [
 ];
 
 const defaultMapChild = () => [
-    new Field('', new Struct<{ key: Utf8, value: Float32 }>([
+    new Field('', new Struct<{ key: Utf8; value: Float32 }>([
         new Field('key', new Utf8()),
         new Field('value', new Float32())
     ]))
@@ -228,7 +227,7 @@ export const dictionary = <T extends DataType = Utf8, TKey extends TKeys = Int32
 export const intervalDayTime = (length = 100, nullCount = length * 0.2 | 0) => vectorGenerator.visit(new IntervalDayTime(), length, nullCount);
 export const intervalYearMonth = (length = 100, nullCount = length * 0.2 | 0) => vectorGenerator.visit(new IntervalYearMonth(), length, nullCount);
 export const fixedSizeList = (length = 100, nullCount = length * 0.2 | 0, listSize = 2, child = defaultListChild) => vectorGenerator.visit(new FixedSizeList(listSize, child), length, nullCount);
-export const map = <TKey extends DataType = any, TValue extends DataType = any>(length = 100, nullCount = length * 0.2 | 0, child: Field<Struct<{key: TKey, value: TValue}>> = <any> defaultMapChild()) => vectorGenerator.visit(new Map_<TKey, TValue>(child), length, nullCount);
+export const map = <TKey extends DataType = any, TValue extends DataType = any>(length = 100, nullCount = length * 0.2 | 0, child: Field<Struct<{key: TKey; value: TValue}>> = <any> defaultMapChild()) => vectorGenerator.visit(new Map_<TKey, TValue>(child), length, nullCount);
 
 export const vecs = {
     null_, bool, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float16, float32, float64, utf8, binary, fixedSizeBinary, dateDay, dateMillisecond, timestampSecond, timestampMillisecond, timestampMicrosecond, timestampNanosecond, timeSecond, timeMillisecond, timeMicrosecond, timeNanosecond, decimal, list, struct, denseUnion, sparseUnion, dictionary, intervalDayTime, intervalYearMonth, fixedSizeList, map
@@ -399,7 +398,7 @@ function generateInterval<T extends Interval>(this: TestDataVectorGenerator, typ
         return values;
     });
     iterateBitmap(length, nullBitmap, (i: number, valid: boolean) => {
-        !valid && data.set(new Int32Array(stride), i * stride)
+        !valid && data.set(new Int32Array(stride), i * stride);
     });
     return { values, vector: Vector.new(Data.Interval(type, 0, length, nullCount, nullBitmap, data)) };
 }
@@ -484,8 +483,8 @@ function generateUnion<T extends Union>(this: TestDataVectorGenerator, type: T, 
     const nullBitmap = createBitmap(length, nullCount);
     const typeIdToChildIndex = typeIds.reduce((typeIdToChildIndex, typeId, idx) => {
         return (typeIdToChildIndex[typeId] = idx) && typeIdToChildIndex || typeIdToChildIndex;
-    }, Object.create(null) as { [key: number]: number })
-    
+    }, Object.create(null) as { [key: number]: number });
+
     if (type.mode === UnionMode.Sparse) {
         const values = memoize(() => {
             const values = [] as any[];
@@ -556,7 +555,7 @@ function generateMap<T extends Map_>(this: TestDataVectorGenerator,
     const stride = childVec.length / (length - nullCount);
     const offsets = createVariableWidthOffsets(length, nullBitmap, childVec.length, stride);
     const values = memoize(() => {
-        const childValues = child.values() as { key: K; value: V; }[];
+        const childValues = child.values() as { key: K; value: V }[];
         const values: (T['TValue'] | null)[] = [...offsets.slice(1)]
             .map((offset, i) => isValid(nullBitmap, i) ? offset : null)
             .map((o, i) => o == null ? null : (() => {

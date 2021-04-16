@@ -15,10 +15,33 @@
 # specific language governing permissions and limitations
 # under the License.
 
+#' Call an Arrow compute function
+#'
+#' This function provides a lower-level API for calling Arrow functions by their
+#' string function name. You won't use it directly for most applications.
+#' Many Arrow compute functions are mapped to R methods,
+#' and in a `dplyr` evaluation context, [all Arrow functions][list_compute_functions()]
+#' are callable with an `arrow_` prefix.
+#' @param function_name string Arrow compute function name
+#' @param ... Function arguments, which may include `Array`, `ChunkedArray`, `Scalar`,
+#' `RecordBatch`, or `Table`.
+#' @param args list arguments as an alternative to specifying in `...`
+#' @param options named list of C++ function options.
+#' @return An `Array`, `ChunkedArray`, `Scalar`, `RecordBatch`, or `Table`, whatever the compute function results in.
+#' @seealso [Arrow C++ documentation](https://arrow.apache.org/docs/cpp/compute.html) for the functions and their respective options.
+#' @examples
+#' \donttest{
+#' a <- Array$create(c(1L, 2L, 3L, NA, 5L))
+#' s <- Scalar$create(4L)
+#' call_function("fill_null", a, s)
+#'
+#' a <- Array$create(rnorm(10000))
+#' call_function("quantile", a, options = list(q = seq(0, 1, 0.25)))
+#' }
+#' @export
 #' @include array.R
 #' @include chunked-array.R
 #' @include scalar.R
-
 call_function <- function(function_name, ..., args = list(...), options = empty_named_list()) {
   assert_that(is.string(function_name))
   assert_that(is.list(options), !is.null(names(options)))
@@ -32,6 +55,41 @@ call_function <- function(function_name, ..., args = list(...), options = empty_
   }
 
   compute__CallFunction(function_name, args, options)
+}
+
+#' List available Arrow C++ compute functions
+#'
+#' This function lists the names of all available Arrow C++ library compute functions.
+#' These can be called by passing to [call_function()], or they can be
+#' called by name with an `arrow_` prefix inside a `dplyr` verb.
+#'
+#' The resulting list describes the capabilities of your `arrow` build.
+#' Some functions, such as string and regular expression functions,
+#' require optional build-time C++ dependencies. If your `arrow` package
+#' was not compiled with those features enabled, those functions will
+#' not appear in this list.
+#'
+#' Some functions take options that need to be passed when calling them
+#' (in a list called `options`). These options require custom handling
+#' in C++; many functions already have that handling set up but not all do.
+#' If you encounter one that needs special handling for options, please
+#' report an issue.
+#'
+#' Note that this list does *not* enumerate all of the R bindings for these functions.
+#' The package includes Arrow methods for many base R functions that can
+#' be called directly on Arrow objects, as well as some tidyverse-flavored versions
+#' available inside `dplyr` verbs.
+#'
+#' @param pattern Optional regular expression to filter the function list
+#' @param ... Additional parameters passed to `grep()`
+#' @return A character vector of available Arrow C++ function names
+#' @export
+list_compute_functions <- function(pattern = NULL, ...) {
+  funcs <- compute__GetFunctionNames()
+  if (!is.null(pattern)) {
+    funcs <- grep(pattern, funcs, value = TRUE, ...)
+  }
+  funcs
 }
 
 #' @export
@@ -78,6 +136,49 @@ collect_arrays_from_dots <- function(dots) {
     }
   }))
   ChunkedArray$create(!!!arrays)
+}
+
+#' @export
+quantile.ArrowDatum <- function(x,
+                                probs = seq(0, 1, 0.25),
+                                na.rm = FALSE,
+                                type = 7,
+                                interpolation = c("linear", "lower", "higher", "nearest", "midpoint"),
+                                ...) {
+  if (inherits(x, "Scalar")) x <- Array$create(x)
+  assert_is(probs, c("numeric", "integer"))
+  assert_that(length(probs) > 0)
+  assert_that(all(probs >= 0 & probs <= 1))
+  if (!na.rm && x$null_count > 0) {
+    stop("Missing values not allowed if 'na.rm' is FALSE", call. = FALSE)
+  }
+  if (type != 7) {
+    stop(
+      "Argument `type` not supported in Arrow. To control the quantile ",
+      "interpolation algorithm, set argument `interpolation` to one of: ",
+      "\"linear\" (the default), \"lower\", \"higher\", \"nearest\", or ",
+      "\"midpoint\".",
+      call. = FALSE
+    )
+  }
+  interpolation <- QuantileInterpolation[[toupper(match.arg(interpolation))]]
+  out <- call_function("quantile", x, options = list(q = probs, interpolation = interpolation))
+  if (length(out) == 0) {
+    # When there are no non-missing values in the data, the Arrow quantile
+    # function returns an empty Array, but for consistency with the R quantile
+    # function, we want an Array of NA_real_ with the same length as probs
+    out <- Array$create(rep(NA_real_, length(probs)))
+  }
+  out
+}
+
+#' @export
+median.ArrowDatum <- function(x, na.rm = FALSE, ...) {
+  if (!na.rm && x$null_count > 0) {
+    Scalar$create(NA_real_)
+  } else {
+    Scalar$create(quantile(x, probs = 0.5, na.rm = TRUE, ...))
+  }
 }
 
 #' @export

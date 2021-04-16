@@ -140,11 +140,12 @@ const setNumericX2       = <T extends Numeric2X>      (vector: VectorType<T>, in
     switch (typeof value) {
         case 'bigint': vector.values64[index] = value; break;
         case 'number': vector.values[index * vector.stride] = value; break;
-        default:
+        default: {
             const val = value as T['TArray'];
             const { stride, ArrayType } = vector;
             const long = toArrayBufferView<T['TArray']>(ArrayType, val);
             vector.values.set(long.subarray(0, stride), stride * index);
+        }
     }
 };
 /** @ignore */

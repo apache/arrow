@@ -20,13 +20,12 @@ import pickle
 import sys
 import weakref
 
-from distutils.version import LooseVersion
-
 import pytest
 import numpy as np
 import pyarrow as pa
 
 import pyarrow.tests.util as test_util
+from pyarrow.vendored.version import Version
 
 
 def test_schema_constructor_errors():
@@ -656,7 +655,7 @@ def test_schema_from_pandas():
             '2010-08-13T05:46:57.437699912'
         ], dtype='datetime64[ns]'),
     ]
-    if LooseVersion(pd.__version__) >= '1.0.0':
+    if Version(pd.__version__) >= Version('1.0.0'):
         inputs.append(pd.array([1, 2, None], dtype=pd.Int32Dtype()))
     for data in inputs:
         df = pd.DataFrame({'a': data})

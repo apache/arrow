@@ -48,7 +48,6 @@ import {
         return test('not testing node streams because process.env.TEST_NODE_STREAMS !== "true"', () => {});
     }
 
-    /* tslint:disable */
     const { parse: bignumJSONParse } = require('json-bignum');
 
     for (const table of generateRandomTables([10, 20, 30])) {
@@ -239,14 +238,14 @@ import {
                 // insert some asynchrony
                 .tap({ async next(table: Table) { tables.push(table); await sleep(1); } })
                 .pipe(writer);
-                
+
             for await (const reader of RecordBatchReader.readAll(stream)) {
                 const sourceTable = tables.shift()!;
                 const streamTable = await Table.from(reader);
                 expect(streamTable).toEqualTable(sourceTable);
             }
 
-            expect(tables.length).toBe(0);
+            expect(tables).toHaveLength(0);
             expect(writer.readable).toBe(false);
             expect((writer as any).destroyed).toBe(true);
         });
@@ -261,14 +260,14 @@ import {
                 .tap({ async next(table: Table) { tables.push(table); await sleep(1); } })
                 .flatMap((table) => AsyncIterable.as(table.chunks))
                 .pipe(writer);
-                
+
             for await (const reader of RecordBatchReader.readAll(stream)) {
                 const sourceTable = tables.shift()!;
                 const streamTable = await Table.from(reader);
                 expect(streamTable).toEqualTable(sourceTable);
             }
 
-            expect(tables.length).toBe(0);
+            expect(tables).toHaveLength(0);
             expect(writer.readable).toBe(false);
             expect((writer as any).destroyed).toBe(true);
         });
