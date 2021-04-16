@@ -211,6 +211,31 @@ head.ArrowTabular <- head.ArrowDatum
 #' @export
 tail.ArrowTabular <- tail.ArrowDatum
 
+#' @export
+na.fail.ArrowTabular <- function(x){
+  
+  na_count <- sum(purrr::map_int(x$columns, ~.x$null_count))
+  if(na_count > 0){
+    stop("missing values in object")
+  }
+  x
+  
+}
+
+#' @export
+na.omit.ArrowTabular <- function(x){
+  
+  na_expr <- paste0("!is.na(", names(x), ")", collapse = ",")
+  filter_expr <- paste0("dplyr::filter(x,", na_expr, ")")
+  expression <- rlang::parse_expr(filter_expr)
+  
+  rlang::eval_tidy(expression)
+
+}
+
+#' @export
+na.exclude.ArrowTabular <- na.omit.ArrowTabular 
+
 ToString_tabular <- function(x, ...) {
   # Generic to work with both RecordBatch and Table
   sch <- unlist(strsplit(x$schema$ToString(), "\n"))
