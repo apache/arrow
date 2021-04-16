@@ -154,7 +154,7 @@ struct InitStateVisitor {
   // Handle Decimal128Type, FixedSizeBinaryType
   Status Visit(const FixedSizeBinaryType& type) { return Init<FixedSizeBinaryType>(); }
 
-  Status GetResult(std::unique_ptr<KernelState>* out) {
+  Result<std::unique_ptr<KernelState>> GetResult() {
     if (!options.value_set.type()->Equals(arg_type)) {
       ARROW_ASSIGN_OR_RAISE(
           options.value_set,
@@ -162,22 +162,18 @@ struct InitStateVisitor {
     }
 
     RETURN_NOT_OK(VisitTypeInline(*arg_type, this));
-    *out = std::move(result);
-    return Status::OK();
+    return std::move(result);
   }
 };
 
-std::unique_ptr<KernelState> InitSetLookup(KernelContext* ctx,
-                                           const KernelInitArgs& args) {
+Result<std::unique_ptr<KernelState>> InitSetLookup(KernelContext* ctx,
+                                                   const KernelInitArgs& args) {
   if (args.options == nullptr) {
-    ctx->SetStatus(Status::Invalid(
-        "Attempted to call a set lookup function without SetLookupOptions"));
-    return nullptr;
+    return Status::Invalid(
+        "Attempted to call a set lookup function without SetLookupOptions");
   }
 
-  std::unique_ptr<KernelState> result;
-  ctx->SetStatus(InitStateVisitor{ctx, args}.GetResult(&result));
-  return result;
+  return InitStateVisitor{ctx, args}.GetResult();
 }
 
 struct IndexInVisitor {
@@ -271,8 +267,8 @@ struct IndexInVisitor {
   }
 };
 
-void ExecIndexIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  KERNEL_RETURN_IF_ERROR(ctx, IndexInVisitor(ctx, *batch[0].array(), out).Execute());
+Status ExecIndexIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  return IndexInVisitor(ctx, *batch[0].array(), out).Execute();
 }
 
 // ----------------------------------------------------------------------
@@ -351,8 +347,8 @@ struct IsInVisitor {
   Status Execute() { return VisitTypeInline(*data.type, this); }
 };
 
-void ExecIsIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  KERNEL_RETURN_IF_ERROR(ctx, IsInVisitor(ctx, *batch[0].array(), out).Execute());
+Status ExecIsIn(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  return IsInVisitor(ctx, *batch[0].array(), out).Execute();
 }
 
 // Unary set lookup kernels available for the following input types

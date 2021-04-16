@@ -77,7 +77,7 @@ struct SortQuantiler {
   using CType = typename InType::c_type;
   using Allocator = arrow::stl::allocator<CType>;
 
-  void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const QuantileOptions& options = QuantileState::Get(ctx);
 
     // copy all chunks to a buffer, ignore nulls and nans
@@ -111,8 +111,8 @@ struct SortQuantiler {
 
     // calculate quantiles
     if (out_length > 0) {
-      KERNEL_ASSIGN_OR_RAISE(out_data->buffers[1], ctx,
-                             ctx->Allocate(out_length * GetBitWidth(*out_type) / 8));
+      ARROW_ASSIGN_OR_RAISE(out_data->buffers[1],
+                            ctx->Allocate(out_length * GetBitWidth(*out_type) / 8));
 
       // find quantiles in descending order
       std::vector<int64_t> q_indices(out_length);
@@ -143,6 +143,7 @@ struct SortQuantiler {
     }
 
     *out = Datum(std::move(out_data));
+    return Status::OK();
   }
 
   // return quantile located exactly at some input data point
@@ -226,7 +227,7 @@ struct CountQuantiler {
     this->counts.resize(value_range, 0);
   }
 
-  void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const QuantileOptions& options = QuantileState::Get(ctx);
 
     // count values in all chunks, ignore nulls
@@ -247,8 +248,8 @@ struct CountQuantiler {
 
     // calculate quantiles
     if (out_length > 0) {
-      KERNEL_ASSIGN_OR_RAISE(out_data->buffers[1], ctx,
-                             ctx->Allocate(out_length * GetBitWidth(*out_type) / 8));
+      ARROW_ASSIGN_OR_RAISE(out_data->buffers[1],
+                            ctx->Allocate(out_length * GetBitWidth(*out_type) / 8));
 
       // find quantiles in ascending order
       std::vector<int64_t> q_indices(out_length);
@@ -277,6 +278,7 @@ struct CountQuantiler {
     }
 
     *out = Datum(std::move(out_data));
+    return Status::OK();
   }
 
   // return quantile located exactly at some input data point
@@ -341,7 +343,7 @@ template <typename InType>
 struct CountOrSortQuantiler {
   using CType = typename InType::c_type;
 
-  void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     // cross point to benefit from histogram approach
     // parameters estimated from ad-hoc benchmarks manually
     static constexpr int kMinArraySize = 65536;
@@ -353,12 +355,11 @@ struct CountOrSortQuantiler {
       std::tie(min, max) = GetMinMax<CType>(datum);
 
       if (static_cast<uint64_t>(max) - static_cast<uint64_t>(min) <= kMaxValueRange) {
-        CountQuantiler<InType>(min, max).Exec(ctx, batch, out);
-        return;
+        return CountQuantiler<InType>(min, max).Exec(ctx, batch, out);
       }
     }
 
-    SortQuantiler<InType>().Exec(ctx, batch, out);
+    return SortQuantiler<InType>().Exec(ctx, batch, out);
   }
 };
 
@@ -390,25 +391,22 @@ struct ExactQuantiler<InType, enable_if_t<is_floating_type<InType>::value>> {
 
 template <typename _, typename InType>
 struct QuantileExecutor {
-  static void Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     if (ctx->state() == nullptr) {
-      ctx->SetStatus(Status::Invalid("Quantile requires QuantileOptions"));
-      return;
+      return Status::Invalid("Quantile requires QuantileOptions");
     }
 
     const QuantileOptions& options = QuantileState::Get(ctx);
     if (options.q.empty()) {
-      ctx->SetStatus(Status::Invalid("Requires quantile argument"));
-      return;
+      return Status::Invalid("Requires quantile argument");
     }
     for (double q : options.q) {
       if (q < 0 || q > 1) {
-        ctx->SetStatus(Status::Invalid("Quantile must be between 0 and 1"));
-        return;
+        return Status::Invalid("Quantile must be between 0 and 1");
       }
     }
 
-    ExactQuantiler<InType>().impl.Exec(ctx, batch, out);
+    return ExactQuantiler<InType>().impl.Exec(ctx, batch, out);
   }
 };
 

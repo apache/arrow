@@ -27,16 +27,16 @@ namespace compute {
 
 namespace {
 
-void AggregateConsume(KernelContext* ctx, const ExecBatch& batch) {
-  checked_cast<ScalarAggregator*>(ctx->state())->Consume(ctx, batch);
+Status AggregateConsume(KernelContext* ctx, const ExecBatch& batch) {
+  return checked_cast<ScalarAggregator*>(ctx->state())->Consume(ctx, batch);
 }
 
-void AggregateMerge(KernelContext* ctx, KernelState&& src, KernelState* dst) {
-  checked_cast<ScalarAggregator*>(dst)->MergeFrom(ctx, std::move(src));
+Status AggregateMerge(KernelContext* ctx, KernelState&& src, KernelState* dst) {
+  return checked_cast<ScalarAggregator*>(dst)->MergeFrom(ctx, std::move(src));
 }
 
-void AggregateFinalize(KernelContext* ctx, Datum* out) {
-  checked_cast<ScalarAggregator*>(ctx->state())->Finalize(ctx, out);
+Status AggregateFinalize(KernelContext* ctx, Datum* out) {
+  return checked_cast<ScalarAggregator*>(ctx->state())->Finalize(ctx, out);
 }
 
 }  // namespace
@@ -58,20 +58,22 @@ namespace aggregate {
 struct CountImpl : public ScalarAggregator {
   explicit CountImpl(CountOptions options) : options(std::move(options)) {}
 
-  void Consume(KernelContext*, const ExecBatch& batch) override {
+  Status Consume(KernelContext*, const ExecBatch& batch) override {
     const ArrayData& input = *batch[0].array();
     const int64_t nulls = input.GetNullCount();
     this->nulls += nulls;
     this->non_nulls += input.length - nulls;
+    return Status::OK();
   }
 
-  void MergeFrom(KernelContext*, KernelState&& src) override {
+  Status MergeFrom(KernelContext*, KernelState&& src) override {
     const auto& other_state = checked_cast<const CountImpl&>(src);
     this->non_nulls += other_state.non_nulls;
     this->nulls += other_state.nulls;
+    return Status::OK();
   }
 
-  void Finalize(KernelContext* ctx, Datum* out) override {
+  Status Finalize(KernelContext* ctx, Datum* out) override {
     const auto& state = checked_cast<const CountImpl&>(*ctx->state());
     switch (state.options.count_mode) {
       case CountOptions::COUNT_NON_NULL:
@@ -81,9 +83,9 @@ struct CountImpl : public ScalarAggregator {
         *out = Datum(state.nulls);
         break;
       default:
-        ctx->SetStatus(Status::Invalid("Unknown CountOptions encountered"));
-        break;
+        return Status::Invalid("Unknown CountOptions encountered");
     }
+    return Status::OK();
   }
 
   CountOptions options;
@@ -91,7 +93,8 @@ struct CountImpl : public ScalarAggregator {
   int64_t nulls = 0;
 };
 
-std::unique_ptr<KernelState> CountInit(KernelContext*, const KernelInitArgs& args) {
+Result<std::unique_ptr<KernelState>> CountInit(KernelContext*,
+                                               const KernelInitArgs& args) {
   return ::arrow::internal::make_unique<CountImpl>(
       static_cast<const CountOptions&>(*args.options));
 }
@@ -105,12 +108,14 @@ struct SumImplDefault : public SumImpl<ArrowType, SimdLevel::NONE> {};
 template <typename ArrowType>
 struct MeanImplDefault : public MeanImpl<ArrowType, SimdLevel::NONE> {};
 
-std::unique_ptr<KernelState> SumInit(KernelContext* ctx, const KernelInitArgs& args) {
+Result<std::unique_ptr<KernelState>> SumInit(KernelContext* ctx,
+                                             const KernelInitArgs& args) {
   SumLikeInit<SumImplDefault> visitor(ctx, *args.inputs[0].type);
   return visitor.Create();
 }
 
-std::unique_ptr<KernelState> MeanInit(KernelContext* ctx, const KernelInitArgs& args) {
+Result<std::unique_ptr<KernelState>> MeanInit(KernelContext* ctx,
+                                              const KernelInitArgs& args) {
   SumLikeInit<MeanImplDefault> visitor(ctx, *args.inputs[0].type);
   return visitor.Create();
 }
@@ -118,7 +123,8 @@ std::unique_ptr<KernelState> MeanInit(KernelContext* ctx, const KernelInitArgs& 
 // ----------------------------------------------------------------------
 // MinMax implementation
 
-std::unique_ptr<KernelState> MinMaxInit(KernelContext* ctx, const KernelInitArgs& args) {
+Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
+                                                const KernelInitArgs& args) {
   MinMaxInitState<SimdLevel::NONE> visitor(
       ctx, *args.inputs[0].type, args.kernel->signature->out_type().type(),
       static_cast<const MinMaxOptions&>(*args.options));
@@ -129,10 +135,10 @@ std::unique_ptr<KernelState> MinMaxInit(KernelContext* ctx, const KernelInitArgs
 // Any implementation
 
 struct BooleanAnyImpl : public ScalarAggregator {
-  void Consume(KernelContext*, const ExecBatch& batch) override {
+  Status Consume(KernelContext*, const ExecBatch& batch) override {
     // short-circuit if seen a True already
     if (this->any == true) {
-      return;
+      return Status::OK();
     }
 
     const auto& data = *batch[0].array();
@@ -147,20 +153,24 @@ struct BooleanAnyImpl : public ScalarAggregator {
       }
       position += block.length;
     }
+    return Status::OK();
   }
 
-  void MergeFrom(KernelContext*, KernelState&& src) override {
+  Status MergeFrom(KernelContext*, KernelState&& src) override {
     const auto& other = checked_cast<const BooleanAnyImpl&>(src);
     this->any |= other.any;
+    return Status::OK();
   }
 
-  void Finalize(KernelContext*, Datum* out) override {
+  Status Finalize(KernelContext*, Datum* out) override {
     out->value = std::make_shared<BooleanScalar>(this->any);
+    return Status::OK();
   }
+
   bool any = false;
 };
 
-std::unique_ptr<KernelState> AnyInit(KernelContext*, const KernelInitArgs& args) {
+Result<std::unique_ptr<KernelState>> AnyInit(KernelContext*, const KernelInitArgs& args) {
   return ::arrow::internal::make_unique<BooleanAnyImpl>();
 }
 
@@ -168,10 +178,10 @@ std::unique_ptr<KernelState> AnyInit(KernelContext*, const KernelInitArgs& args)
 // All implementation
 
 struct BooleanAllImpl : public ScalarAggregator {
-  void Consume(KernelContext*, const ExecBatch& batch) override {
+  Status Consume(KernelContext*, const ExecBatch& batch) override {
     // short-circuit if seen a false already
     if (this->all == false) {
-      return;
+      return Status::OK();
     }
 
     const auto& data = *batch[0].array();
@@ -186,20 +196,25 @@ struct BooleanAllImpl : public ScalarAggregator {
       }
       position += block.length;
     }
+
+    return Status::OK();
   }
 
-  void MergeFrom(KernelContext*, KernelState&& src) override {
+  Status MergeFrom(KernelContext*, KernelState&& src) override {
     const auto& other = checked_cast<const BooleanAllImpl&>(src);
     this->all &= other.all;
+    return Status::OK();
   }
 
-  void Finalize(KernelContext*, Datum* out) override {
+  Status Finalize(KernelContext*, Datum* out) override {
     out->value = std::make_shared<BooleanScalar>(this->all);
+    return Status::OK();
   }
+
   bool all = true;
 };
 
-std::unique_ptr<KernelState> AllInit(KernelContext*, const KernelInitArgs& args) {
+Result<std::unique_ptr<KernelState>> AllInit(KernelContext*, const KernelInitArgs& args) {
   return ::arrow::internal::make_unique<BooleanAllImpl>();
 }
 
