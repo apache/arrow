@@ -62,7 +62,7 @@ def fix_example_values(actual_cols, expected_cols):
                     exp = d.as_tuple().exponent
                     factor = 10 ** -exp
                     converted_decimals[i] = decimal\
-                    .Decimal(round(v * factor)).scaleb(
+                        .Decimal(round(v * factor)).scaleb(
                         exp
                     )
             expected = pd.Series(converted_decimals)
