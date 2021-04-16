@@ -307,7 +307,7 @@ class DummyFileFormat : public FileFormat {
 
   /// \brief Open a file for scanning (always returns an empty iterator)
   Result<ScanTaskIterator> ScanFile(
-      std::shared_ptr<ScanOptions> options,
+      const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& fragment) const override {
     return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
   }
@@ -347,7 +347,7 @@ class JSONRecordBatchFileFormat : public FileFormat {
 
   /// \brief Open a file for scanning
   Result<ScanTaskIterator> ScanFile(
-      std::shared_ptr<ScanOptions> options,
+      const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& fragment) const override {
     ARROW_ASSIGN_OR_RAISE(auto file, fragment->source().Open());
     ARROW_ASSIGN_OR_RAISE(int64_t size, file->GetSize());

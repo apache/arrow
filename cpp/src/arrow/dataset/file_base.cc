@@ -106,8 +106,8 @@ Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
 // implementation of ScanBatchesAsync is both ugly and terribly ineffecient.  Each of the
 // formats should provide their own efficient implementation.
 Result<RecordBatchGenerator> FileFormat::ScanBatchesAsync(
-    const ScanOptions& options, const std::shared_ptr<FileFragment>& file) {
-  std::shared_ptr<ScanOptions> scan_options = std::make_shared<ScanOptions>(options);
+    const std::shared_ptr<ScanOptions>& scan_options,
+    const std::shared_ptr<FileFragment>& file) {
   ARROW_ASSIGN_OR_RAISE(auto scan_task_it, ScanFile(scan_options, file));
   struct State {
     State(std::shared_ptr<ScanOptions> scan_options, ScanTaskIterator scan_task_it)
@@ -150,8 +150,7 @@ Result<RecordBatchGenerator> FileFormat::ScanBatchesAsync(
     }
     std::shared_ptr<State> state;
   };
-  return Generator{
-      std::make_shared<State>(std::move(scan_options), std::move(scan_task_it))};
+  return Generator{std::make_shared<State>(scan_options, std::move(scan_task_it))};
 }
 
 Result<std::shared_ptr<Schema>> FileFragment::ReadPhysicalSchemaImpl() {
@@ -160,10 +159,11 @@ Result<std::shared_ptr<Schema>> FileFragment::ReadPhysicalSchemaImpl() {
 
 Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanOptions> options) {
   auto self = std::dynamic_pointer_cast<FileFragment>(shared_from_this());
-  return format_->ScanFile(std::move(options), self);
+  return format_->ScanFile(options, self);
 }
 
-Result<RecordBatchGenerator> FileFragment::ScanBatchesAsync(const ScanOptions& options) {
+Result<RecordBatchGenerator> FileFragment::ScanBatchesAsync(
+    const std::shared_ptr<ScanOptions>& options) {
   auto self = std::dynamic_pointer_cast<FileFragment>(shared_from_this());
   return format_->ScanBatchesAsync(options, self);
 }

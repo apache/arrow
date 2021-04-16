@@ -417,44 +417,6 @@ Iterator<T*> MakeVectorPointingIterator(std::vector<T> v) {
   return Iterator<T*>(VectorPointingIterator<T>(std::move(v)));
 }
 
-template <typename T>
-class BufferingIterator {
- public:
-  BufferingIterator(Iterator<T> source, int items_per_batch)
-      : source_(std::move(source)), items_per_batch_(items_per_batch), finished_(false) {}
-
-  Result<Iterator<T>> Next() {
-    if (finished_) {
-      return IterationEnd<Iterator<T>>();
-    }
-    std::vector<T> next;
-    for (int i = 0; i < items_per_batch_; i++) {
-      ARROW_ASSIGN_OR_RAISE(auto next_item, source_.Next());
-      if (IsIterationEnd(next_item)) {
-        finished_ = true;
-        if (next.empty()) {
-          return IterationEnd<Iterator<T>>();
-        } else {
-          break;
-        }
-      }
-      next.push_back(std::move(next_item));
-    }
-
-    return MakeVectorIterator(std::move(next));
-  }
-
- private:
-  Iterator<T> source_;
-  int items_per_batch_;
-  bool finished_;
-};
-
-template <typename T>
-Iterator<Iterator<T>> MakeBufferedIterator(Iterator<T> source, int items_per_batch) {
-  return Iterator<Iterator<T>>(BufferingIterator<T>(std::move(source), items_per_batch));
-}
-
 /// \brief MapIterator takes ownership of an iterator and a function to apply
 /// on every element. The mapped function is not allowed to fail.
 template <typename Fn, typename I, typename O>

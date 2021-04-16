@@ -342,34 +342,6 @@ void AssertBufferIteratorMatch(std::vector<std::vector<TestInt>> expected,
   }
 }
 
-TEST(BufferIterator, Basic) {
-  auto it = MakeBufferedIterator(VectorIt({1, 2, 3, 4, 5}), 2);
-  AssertBufferIteratorMatch({{1, 2}, {3, 4}, {5}}, std::move(it));
-
-  it = MakeBufferedIterator(VectorIt({1, 2, 3, 4}), 2);
-  AssertBufferIteratorMatch({{1, 2}, {3, 4}}, std::move(it));
-}
-
-TEST(BufferIterator, Error) {
-  // Beginning of stream
-  auto it =
-      MakeBufferedIterator(FailsAt(VectorIt({1, 2, 3, 4}), 0, Status::Invalid("Xyz")), 2);
-  ASSERT_RAISES(Invalid, it.Next());
-
-  // End of batch
-  it =
-      MakeBufferedIterator(FailsAt(VectorIt({1, 2, 3, 4}), 2, Status::Invalid("Xyz")), 2);
-  ASSERT_OK(it.Next());
-  ASSERT_RAISES(Invalid, it.Next());
-
-  // Mid-batch
-  it = MakeBufferedIterator(FailsAt(VectorIt({1, 2, 3, 4, 5}), 4, Status::Invalid("Xyz")),
-                            2);
-  ASSERT_OK(it.Next());
-  ASSERT_OK(it.Next());
-  ASSERT_RAISES(Invalid, it.Next());
-}
-
 TEST(FilterIterator, Basic) {
   AssertIteratorMatch({1, 2, 3, 4}, FilterIt(VectorIt({1, 2, 3, 4}), [](TestInt i) {
                         return FilterIterator::Accept(std::move(i));

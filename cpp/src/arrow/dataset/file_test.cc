@@ -101,7 +101,7 @@ class MockFileFormat : public FileFormat {
   virtual std::shared_ptr<FileWriteOptions> DefaultWriteOptions() { return nullptr; }
 
   virtual Result<ScanTaskIterator> ScanFile(
-      std::shared_ptr<ScanOptions> options,
+      const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& file) const {
     auto sch = schema({field("i32", int32())});
     ScanTaskVector scan_tasks;
@@ -119,7 +119,7 @@ class MockFileFormat : public FileFormat {
 
 TEST(FileFormat, ScanAsync) {
   MockFileFormat format;
-  ScanOptions scan_options;
+  auto scan_options = std::make_shared<ScanOptions>();
   ASSERT_OK_AND_ASSIGN(auto batch_gen, format.ScanBatchesAsync(scan_options, nullptr));
   ASSERT_FINISHES_OK_AND_ASSIGN(auto batches, CollectAsyncGenerator(batch_gen));
   ASSERT_EQ(kNumScanTasks * kBatchesPerScanTask, static_cast<int>(batches.size()));

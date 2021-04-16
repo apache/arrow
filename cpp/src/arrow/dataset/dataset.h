@@ -67,7 +67,8 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
   virtual Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) = 0;
 
   /// An asynchronous version of Scan
-  virtual Result<RecordBatchGenerator> ScanBatchesAsync(const ScanOptions& options) = 0;
+  virtual Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>& options) = 0;
 
   virtual std::string type_name() const = 0;
   virtual std::string ToString() const { return type_name(); }
@@ -118,7 +119,8 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
   explicit InMemoryFragment(RecordBatchVector record_batches, Expression = literal(true));
 
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override;
-  Result<RecordBatchGenerator> ScanBatchesAsync(const ScanOptions& options) override;
+  Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>& options) override;
 
   std::string type_name() const override { return "in-memory"; }
 
@@ -192,13 +194,10 @@ class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
   /// Construct a dataset from a schema and a factory of record batch iterators.
   InMemoryDataset(std::shared_ptr<Schema> schema,
                   std::shared_ptr<RecordBatchGenerator> get_batches)
-      : Dataset(std::move(schema)),
-        get_batches_(std::move(get_batches)),
-        tasks_per_fragment_(1) {}
+      : Dataset(std::move(schema)), get_batches_(std::move(get_batches)) {}
 
   /// Convenience constructor taking a fixed list of batches
-  InMemoryDataset(std::shared_ptr<Schema> schema, RecordBatchVector batches,
-                  int tasks_per_fragment = 1);
+  InMemoryDataset(std::shared_ptr<Schema> schema, RecordBatchVector batches);
 
   /// Convenience constructor taking a Table
   explicit InMemoryDataset(std::shared_ptr<Table> table);
@@ -213,7 +212,6 @@ class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
   Result<FragmentIterator> GetFragmentsImpl(Expression predicate) override;
 
   std::shared_ptr<RecordBatchGenerator> get_batches_;
-  int tasks_per_fragment_;
 };
 
 /// \brief A Dataset wrapping child Datasets.

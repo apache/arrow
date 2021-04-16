@@ -168,9 +168,9 @@ Result<std::shared_ptr<Schema>> IpcFileFormat::Inspect(const FileSource& source)
 }
 
 Result<ScanTaskIterator> IpcFileFormat::ScanFile(
-    std::shared_ptr<ScanOptions> options,
+    const std::shared_ptr<ScanOptions>& options,
     const std::shared_ptr<FileFragment>& fragment) const {
-  return IpcScanTaskIterator::Make(std::move(options), std::move(fragment));
+  return IpcScanTaskIterator::Make(options, fragment);
 }
 
 //
