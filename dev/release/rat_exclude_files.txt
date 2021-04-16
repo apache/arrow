@@ -126,6 +126,9 @@ go/arrow/type_string.go
 go/*.tmpldata
 go/*.s
 go/parquet/go.sum
+go/parquet/internal/gen-go/parquet/GoUnusedProtection__.go
+go/parquet/internal/gen-go/parquet/parquet-consts.go
+go/parquet/internal/gen-go/parquet/parquet.go
 js/.npmignore
 js/closure-compiler-scripts/*
 js/src/fb/*.ts
