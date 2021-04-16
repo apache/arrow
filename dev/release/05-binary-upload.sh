@@ -35,7 +35,8 @@ version_with_rc="${version}-rc${rc}"
 crossbow_job_prefix="release-${version_with_rc}"
 crossbow_package_dir="${SOURCE_DIR}/../../packages"
 
-: ${CROSSBOW_JOB_ID:="${crossbow_job_prefix}-0"}
+: ${CROSSBOW_JOB_NUMBER:="0"}
+: ${CROSSBOW_JOB_ID:="${crossbow_job_prefix}-${CROSSBOW_JOB_NUMBER}"}
 artifact_dir="${crossbow_package_dir}/${CROSSBOW_JOB_ID}"
 
 if [ ! -e "$artifact_dir" ]; then
