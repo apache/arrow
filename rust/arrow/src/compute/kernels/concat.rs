@@ -384,4 +384,51 @@ mod tests {
 
         Ok(())
     }
+
+    fn collect_string_dictionary(
+        dictionary: &DictionaryArray<Int32Type>,
+    ) -> Vec<Option<String>> {
+        let values = dictionary.values();
+        let values = values.as_any().downcast_ref::<StringArray>().unwrap();
+
+        (0..dictionary.len())
+            .map(move |i| match dictionary.keys().is_valid(i) {
+                true => {
+                    let key = dictionary.keys().value(i);
+                    Some(values.value(key as _).to_string())
+                }
+                false => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn test_string_dictionary_array() -> Result<()> {
+        let input_1: DictionaryArray<Int32Type> =
+            vec!["hello", "A", "B", "hello", "hello", "C"]
+                .into_iter()
+                .collect();
+        let input_2: DictionaryArray<Int32Type> =
+            vec!["hello", "E", "E", "hello", "F", "E"]
+                .into_iter()
+                .collect();
+
+        let concat = concat(&[&input_1 as _, &input_2 as _]).unwrap();
+        let concat = concat
+            .as_any()
+            .downcast_ref::<DictionaryArray<Int32Type>>()
+            .unwrap();
+
+        let concat_collected = collect_string_dictionary(concat);
+        let input_1_collected = collect_string_dictionary(&input_1);
+        let input_2_collected = collect_string_dictionary(&input_2);
+        let expected: Vec<_> = input_1_collected
+            .into_iter()
+            .chain(input_2_collected.into_iter())
+            .collect();
+
+        assert_eq!(concat_collected, expected);
+
+        Ok(())
+    }
 }

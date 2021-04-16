@@ -16,6 +16,7 @@
 // under the License.
 
 use std::mem::size_of;
+use std::ops::Add;
 
 use crate::{array::ArrayData, datatypes::ArrowNativeType};
 
@@ -28,6 +29,20 @@ pub(super) fn build_extend<T: ArrowNativeType>(array: &ArrayData) -> Extend {
             mutable
                 .buffer1
                 .extend_from_slice(&values[start..start + len]);
+        },
+    )
+}
+
+pub(super) fn build_extend_with_offset<T>(array: &ArrayData, offset: T) -> Extend
+where
+    T: ArrowNativeType + Add<Output = T>,
+{
+    let values = array.buffer::<T>(0);
+    Box::new(
+        move |mutable: &mut _MutableArrayData, _, start: usize, len: usize| {
+            mutable
+                .buffer1
+                .extend(values[start..start + len].iter().map(|x| *x + offset));
         },
     )
 }
