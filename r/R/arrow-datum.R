@@ -46,6 +46,29 @@ as.vector.ArrowDatum <- function(x, mode) {
   )
 }
 
+#'@export
+na.omit.ArrowDatum <- function(x){
+  x$Filter(!is.na(x))
+}
+
+#'@export
+na.exclude.ArrowDatum <- function(x){
+  x$Filter(!is.na(x))
+}
+
+#'@export
+na.pass.ArrowDatum <- function(x){
+  x
+}
+
+#'@export
+na.fail.ArrowDatum <- function(x){
+  if(x$null_count > 0){
+    stop("missing values in object")
+  }
+  x
+}
+
 filter_rows <- function(x, i, keep_na = TRUE, ...) {
   # General purpose function for [ row subsetting with R semantics
   # Based on the input for `i`, calls x$Filter, x$Slice, or x$Take
@@ -163,3 +186,4 @@ sort.ArrowDatum <- function(x, decreasing = FALSE, na.last = NA, ...) {
     tbl$x$Take(tbl$SortIndices(names = c("is_na", "x"), descending = c(TRUE, decreasing)))
   }
 }
+
