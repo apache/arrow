@@ -212,7 +212,7 @@ head.ArrowTabular <- head.ArrowDatum
 tail.ArrowTabular <- tail.ArrowDatum
 
 #' @export
-na.fail.ArrowTabular <- function(x){
+na.fail.ArrowTabular <- function(x, ...){
   
   na_count <- sum(purrr::map_int(x$columns, ~.x$null_count))
   if(na_count > 0){
@@ -223,7 +223,7 @@ na.fail.ArrowTabular <- function(x){
 }
 
 #' @export
-na.omit.ArrowTabular <- function(x){
+na.omit.ArrowTabular <- function(x, ...){
   
   na_expr <- paste0("!is.na(", names(x), ")", collapse = ",")
   filter_expr <- paste0("dplyr::filter(x,", na_expr, ")")
