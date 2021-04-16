@@ -1353,4 +1353,59 @@ TEST_F(TestProjector, TestBinRepresentation) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestBigIntCastFunction) {
+  // input fields
+  auto field0 = field("f0", arrow::float32());
+  auto field1 = field("f1", arrow::float64());
+  auto field2 = field("f2", arrow::day_time_interval());
+  auto field3 = field("f3", arrow::month_interval());
+  auto schema = arrow::schema({field0, field1, field2, field3});
+
+  // output fields
+  auto res_int64 = field("res", arrow::int64());
+
+  // Build expression
+  auto cast_expr_float4 =
+      TreeExprBuilder::MakeExpression("castBIGINT", {field0}, res_int64);
+  auto cast_expr_float8 =
+      TreeExprBuilder::MakeExpression("castBIGINT", {field1}, res_int64);
+  auto cast_expr_day_interval = TreeExprBuilder::MakeExpression("castBIGINT", {field2}, res_int64);
+  auto cast_expr_year_interval = TreeExprBuilder::MakeExpression("castBIGINT", {field3}, res_int64);
+
+  std::shared_ptr<Projector> projector;
+
+  //  {cast_expr_float4, cast_expr_float8, cast_expr_day_interval, cast_expr_year_interval}
+  auto status = Projector::Make(
+      schema, {cast_expr_float4, cast_expr_float8, cast_expr_day_interval, cast_expr_year_interval},
+      TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+
+  // Last validity is false and the cast functions throw error when input is empty. Should
+  // not be evaluated due to addition of NativeFunction::kCanReturnErrors
+  auto array0 = MakeArrowArrayUtf8({"6.6", "-6,6", "9.999999", ""}, {true, true, true, false});
+  auto array1 = MakeArrowArrayUtf8({"6.6", "-6.6", "9.99999999999", ""}, {true, true, true, false});
+  auto array2 = MakeArrowArrayUtf8({"100", "-25", "-0", ""}, {true, true, true, false});
+  auto array3 = MakeArrowArrayUtf8({"25", "-25", "-0", ""}, {true, true, true, false});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1 ,array2, array3});
+
+  auto out_float4 = MakeArrowArrayInt64({7, 7, 10, 0}, {true, true, true, false});
+  auto out_float8 = MakeArrowArrayInt64({7, 7, 10, 0}, {true, true, true, false});
+  auto out_days_interval = MakeArrowArrayInt64({100, -25, 0, 0}, {true, true, true, false});
+  auto out_year_interval = MakeArrowArrayInt64({2, -2, 0, 0}, {true, true, true, false});
+
+  arrow::ArrayVector outputs;
+
+  // Evaluate expression
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  EXPECT_ARROW_ARRAY_EQUALS(out_float4, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(out_float8, outputs.at(1));
+  EXPECT_ARROW_ARRAY_EQUALS(out_days_interval, outputs.at(2));
+  EXPECT_ARROW_ARRAY_EQUALS(out_days_interval, outputs.at(3));
+}
+
 }  // namespace gandiva

@@ -52,7 +52,6 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       UNARY_CAST_TO_INT32(float32), UNARY_CAST_TO_INT32(float64),
 
       // cast to int64
-
       UNARY_CAST_TO_INT64(float32), UNARY_CAST_TO_INT64(float64),
 
       // cast to float64

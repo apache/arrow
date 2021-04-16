@@ -551,4 +551,14 @@ int64_t castBIGINT_float32(gdv_float32 value);
 
 int64_t castBIGINT_float64(gdv_float64 value);
 
+int64_t castBIGINT_daytimeinterval(gdv_day_time_interval in);
+
+int32_t castINT_dayinterval(gdv_day_time_interval in);
+
+int64_t castBIGINT_dayinterval(gdv_day_time_interval in);
+
+int32_t castINT_year_interval(gdv_year_interval in);
+
+int64_t castBIGINT_year_interval(gdv_year_interval in);
+
 }  // extern "C"
