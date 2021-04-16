@@ -36,14 +36,22 @@
 #include "orc/MemoryPool.hh"
 #include "orc/OrcFile.hh"
 
-// The number of milliseconds, microseconds and nanoseconds in a second
-constexpr int64_t kOneSecondMillis = 1000LL;
-constexpr int64_t kOneMicroNanos = 1000LL;
-constexpr int64_t kOneSecondMicros = 1000000LL;
-constexpr int64_t kOneMilliNanos = 1000000LL;
-constexpr int64_t kOneSecondNanos = 1000000000LL;
 // alias to not interfere with nested orc namespace
 namespace liborc = orc;
+
+namespace arrow {
+
+namespace adapters {
+
+namespace orc {
+
+// The number of milliseconds, microseconds and nanoseconds in a second
+static constexpr int64_t kOneSecondMillis = 1000LL;
+static constexpr int64_t kOneMicroNanos = 1000LL;
+static constexpr int64_t kOneSecondMicros = 1000000LL;
+static constexpr int64_t kOneMilliNanos = 1000000LL;
+static constexpr int64_t kOneSecondNanos = 1000000000LL;
+using internal::checked_cast;
 
 namespace {
 
@@ -287,12 +295,6 @@ arrow::Status AppendDecimalBatch(const liborc::Type* type,
 
 }  // namespace
 
-namespace arrow {
-
-namespace adapters {
-
-namespace orc {
-
 Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
                    int64_t offset, int64_t length, arrow::ArrayBuilder* builder) {
   if (type == nullptr) {
@@ -344,9 +346,6 @@ Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
       return Status::NotImplemented("Not implemented type kind: ", kind);
   }
 }
-}  // namespace orc
-}  // namespace adapters
-}  // namespace arrow
 
 namespace {
 
@@ -961,13 +960,6 @@ arrow::Result<ORC_UNIQUE_PTR<liborc::Type>> GetORCType(const arrow::DataType& ty
 }
 }  // namespace
 
-namespace arrow {
-
-namespace adapters {
-
-namespace orc {
-
-using internal::checked_cast;
 Status WriteBatch(liborc::ColumnVectorBatch* column_vector_batch,
                   int64_t* arrow_index_offset, int* arrow_chunk_offset, int64_t length,
                   const ChunkedArray& chunked_array) {
@@ -979,9 +971,8 @@ Status WriteBatch(liborc::ColumnVectorBatch* column_vector_batch,
     int64_t num_written_elements =
         std::min(length - orc_offset, array->length() - *arrow_index_offset);
     if (num_written_elements > 0) {
-      RETURN_NOT_OK(
-          ::WriteBatch(*(array->Slice(*arrow_index_offset, num_written_elements)),
-                       orc_offset, column_vector_batch));
+      RETURN_NOT_OK(WriteBatch(*(array->Slice(*arrow_index_offset, num_written_elements)),
+                               orc_offset, column_vector_batch));
       orc_offset += num_written_elements;
       *arrow_index_offset += num_written_elements;
     }
@@ -1109,8 +1100,7 @@ Result<ORC_UNIQUE_PTR<liborc::Type>> GetORCType(const Schema& schema) {
     std::shared_ptr<Field> field = schema.field(i);
     std::string field_name = field->name();
     std::shared_ptr<DataType> arrow_child_type = field->type();
-    ORC_UNIQUE_PTR<liborc::Type> orc_subtype =
-        ::GetORCType(*arrow_child_type).ValueOrDie();
+    ORC_UNIQUE_PTR<liborc::Type> orc_subtype = GetORCType(*arrow_child_type).ValueOrDie();
     out_type->addStructField(field_name, std::move(orc_subtype));
   }
   return out_type;

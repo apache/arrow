@@ -310,16 +310,6 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> FixedSizeBinary(int64_t size, int32_t byte_width,
                                          double null_probability = 0);
 
-  // /// \brief Generate a random StructArray
-  // ///
-  // /// \param[in] children Vector of Arrays containing the data for each child
-  // /// \param[in] size The size of the generated list array
-  // /// \param[in] null_probability the probability of a list value being null
-  // ///
-  // /// \return a generated Array
-  // std::shared_ptr<Array> Struct(const ArrayVector& children, int64_t size,
-  //                               double null_probability);
-
   /// \brief Generate a random ListArray
   ///
   /// \param[in] values The underlying values array

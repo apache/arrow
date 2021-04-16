@@ -48,8 +48,8 @@
 #include "orc/Exceptions.hh"
 
 // The following are required by ORC to be uint64_t
-constexpr uint64_t kOrcWriterBatchSize = 128 * 1024;
-constexpr uint64_t kOrcNaturalWriteSize = 128 * 1024;
+static constexpr uint64_t kOrcWriterBatchSize = 128 * 1024;
+static constexpr uint64_t kOrcNaturalWriteSize = 128 * 1024;
 
 // alias to not interfere with nested orc namespace
 namespace liborc = orc;
