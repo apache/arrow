@@ -543,4 +543,12 @@ float castFLOAT4_utf8(int64_t context, const char* data, int32_t len);
 
 double castFLOAT8_utf8(int64_t context, const char* data, int32_t len);
 
+int32_t castINT_float32(gdv_float32 value);
+
+int32_t castINT_float64(gdv_float64 value);
+
+int64_t castBIGINT_float32(gdv_float32 value);
+
+int64_t castBIGINT_float64(gdv_float64 value);
+
 }  // extern "C"
