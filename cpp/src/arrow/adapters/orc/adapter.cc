@@ -74,11 +74,10 @@ namespace liborc = orc;
                            lhs, rexpr);
 
 namespace arrow {
-
-using internal::checked_cast;
-
 namespace adapters {
 namespace orc {
+
+using internal::checked_cast;
 
 class ArrowInputFile : public liborc::InputStream {
  public:
@@ -490,6 +489,8 @@ class ArrowOutputStream : public liborc::OutputStream {
     length_ += static_cast<int64_t>(length);
   }
 
+  // Mandatory due to us implementing an ORC virtual class.
+  // Used by ORC for error messages, not used by Arrow
   const std::string& getName() const override {
     static const std::string filename("ArrowOutputFile");
     return filename;
@@ -512,13 +513,13 @@ class ORCFileWriter::Impl {
  public:
   Status Open(arrow::io::OutputStream* output_stream) {
     out_stream_ = std::unique_ptr<liborc::OutputStream>(
-        static_cast<liborc::OutputStream*>(new ArrowOutputStream(*output_stream)));
+        checked_cast<liborc::OutputStream*>(new ArrowOutputStream(*output_stream)));
     return Status::OK();
   }
   Status Write(const Table& table) {
     std::unique_ptr<liborc::WriterOptions> orc_options =
         std::unique_ptr<liborc::WriterOptions>(new liborc::WriterOptions());
-    std::unique_ptr<liborc::Type> orc_schema = GetORCType(*(table.schema())).ValueOrDie();
+    ARROW_ASSIGN_OR_RAISE(auto orc_schema, GetOrcType(*(table.schema())));
     try {
       writer_ = liborc::createWriter(*orc_schema, out_stream_.get(), *orc_options);
     } catch (const liborc::ParseError& e) {

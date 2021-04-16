@@ -34,7 +34,7 @@ namespace orc {
 
 Status GetArrowType(const liborc::Type* type, std::shared_ptr<DataType>* out);
 
-Result<ORC_UNIQUE_PTR<liborc::Type>> GetORCType(const Schema& schema);
+Result<ORC_UNIQUE_PTR<liborc::Type>> GetOrcType(const Schema& schema);
 
 Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
                    int64_t offset, int64_t length, arrow::ArrayBuilder* builder);

@@ -41,6 +41,8 @@ namespace liborc = orc;
 
 namespace arrow {
 
+using internal::checked_pointer_cast;
+
 constexpr int kDefaultSmallMemStreamSize = 16384 * 5;  // 80KB
 constexpr int kDefaultMemStreamSize = 10 * 1024 * 1024;
 constexpr int64_t kNanoMax = std::numeric_limits<int64_t>::max();
@@ -98,7 +100,7 @@ std::shared_ptr<Buffer> GenerateFixedDifferenceBuffer(int32_t fixed_length,
 
 std::shared_ptr<Array> CastFixedSizeBinaryArrayToBinaryArray(
     std::shared_ptr<Array> array) {
-  auto fixed_size_binary_array = std::static_pointer_cast<FixedSizeBinaryArray>(array);
+  auto fixed_size_binary_array = checked_pointer_cast<FixedSizeBinaryArray>(array);
   std::shared_ptr<Buffer> value_offsets = GenerateFixedDifferenceBuffer(
       fixed_size_binary_array->byte_width(), array->length() + 1);
   return std::make_shared<BinaryArray>(array->length(), value_offsets,
@@ -170,7 +172,7 @@ Result<std::shared_ptr<Array>> GenerateRandomTimestampArray(int64_t size,
           rand.Int64(size, kNanoMin, kNanoMax, null_probability));
     }
     default: {
-      return arrow::Status::Invalid("Unknown or unsupported Arrow TimeUnit: ", type);
+      return arrow::Status::TypeError("Unknown or unsupported Arrow TimeUnit: ", type);
     }
   }
 }
@@ -333,8 +335,8 @@ TEST(TestAdapterRead, readIntAndStringFileMultipleStripes) {
     std::shared_ptr<RecordBatch> record_batch;
     EXPECT_TRUE(stripe_reader->ReadNext(&record_batch).ok());
     while (record_batch) {
-      auto int32_array = std::static_pointer_cast<Int32Array>(record_batch->column(0));
-      auto str_array = std::static_pointer_cast<StringArray>(record_batch->column(1));
+      auto int32_array = checked_pointer_cast<Int32Array>(record_batch->column(0));
+      auto str_array = checked_pointer_cast<StringArray>(record_batch->column(1));
       for (int j = 0; j < record_batch->num_rows(); ++j) {
         EXPECT_EQ(accumulated % stripe_row_count, int32_array->Value(j));
         EXPECT_EQ(std::to_string(accumulated % stripe_row_count),

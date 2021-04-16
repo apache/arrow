@@ -160,7 +160,7 @@ class ARROW_EXPORT ORCFileWriter {
   /// \return Status
   Status Write(const Table& table);
 
-  /// \brief Close a file
+  /// \brief Close an ORC writer (orc::Writer)
   ///
   /// \return Status
   Status Close();
