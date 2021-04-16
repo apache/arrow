@@ -45,7 +45,7 @@ if [ -n "${BINTRAY_REPOSITORY_CUSTOM}" ]; then
   BINTRAY_REPOSITORY=${BINTRAY_REPOSITORY_CUSTOM}
 fi
 
-. binary-common.sh
+. utils-binary.sh
 
 # By default deploy all artifacts.
 # To deactivate one category, deactivate the category and all of its dependents.
