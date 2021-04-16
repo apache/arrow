@@ -52,14 +52,7 @@ na.omit.ArrowDatum <- function(x){
 }
 
 #'@export
-na.exclude.ArrowDatum <- function(x){
-  x$Filter(!is.na(x))
-}
-
-#'@export
-na.pass.ArrowDatum <- function(x){
-  x
-}
+na.exclude.ArrowDatum <- na.omit.ArrowDatum
 
 #'@export
 na.fail.ArrowDatum <- function(x){
