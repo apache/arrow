@@ -135,48 +135,6 @@ test_that("ChunkedArray handles NaN", {
   expect_equal(as.vector(is.nan(x)), c(is.nan(data[[1]]), is.nan(data[[2]]), is.nan(data[[3]])))
 })
 
-test_that("ChunkedArray handles na.omit", {
-  data <- list(as.numeric(1:10), c(NA_real_, 2:10), c(NA_real_))
-  x <- chunked_array(!!!data)
-  chunks <- x$chunks
-  expect_equal(na.omit(chunks[[1]]), na.omit(data[[1]]))
-  expect_equal(na.omit(chunks[[2]]), na.omit(data[[2]]))
-  expect_equal(na.omit(chunks[[3]]), na.omit(data[[3]]))
-  expect_vector(na.omit(x), na.omit(c(data[[1]], data[[2]], data[[3]])))
-})
-
-test_that("ChunkedArray handles na.exclude", {
-  data <- list(as.numeric(1:10), c(NA_real_, 2:10), c(NA_real_))
-  x <- chunked_array(!!!data)
-  chunks <- x$chunks
-  expect_equal(na.exclude(chunks[[1]]), na.exclude(data[[1]]))
-  expect_equal(na.exclude(chunks[[2]]), na.exclude(data[[2]]))
-  expect_equal(na.exclude(chunks[[3]]), na.exclude(data[[3]]))
-  expect_vector(na.exclude(x), na.exclude(c(data[[1]], data[[2]], data[[3]])))
-})
-
-test_that("ChunkedArray handles na.fail", {
-  data <- list(as.numeric(1:10), c(NA_real_, 2:10), c(NA_real_))
-  x <- chunked_array(!!!data)
-  chunks <- x$chunks
-  expect_equal(na.fail(chunks[[1]]), na.fail(data[[1]]))
-  expect_equal(na.fail(chunks[[2]]), na.fail(data[[2]]))
-  expect_equal(na.fail(chunks[[3]]), na.fail(data[[3]]))
-  expect_error(na.fail(x), regexp = "missing values in object")
-  
-})
-
-test_that("ChunkedArray handles na.pass", {
-  data <- list(as.numeric(1:10), c(NA_real_, 2:10), c(NA_real_))
-  x <- chunked_array(!!!data)
-  chunks <- x$chunks
-  expect_equal(na.pass(chunks[[1]]), na.pass(data[[1]]))
-  expect_equal(na.pass(chunks[[2]]), na.pass(data[[2]]))
-  expect_equal(na.pass(chunks[[3]]), na.pass(data[[3]]))
-  expect_vector(as.vector(na.pass(x)), unlist(na.pass(data)))
-})
-
-
 test_that("ChunkedArray supports logical vectors (ARROW-3341)", {
   # with NA
   data <- purrr::rerun(3, sample(c(TRUE, FALSE, NA), 100, replace = TRUE))
