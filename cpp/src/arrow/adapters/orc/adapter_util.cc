@@ -496,9 +496,8 @@ struct Appender<arrow::Decimal128Type, liborc::Decimal64VectorBatch> {
   }
   arrow::Status VisitValue(arrow::util::string_view v) {
     batch->notNull[running_orc_offset] = true;
-    uint8_t* raw_int128 = const_cast<uint8_t*>(array.GetValue(running_arrow_offset));
-    int64_t* lower_bits = reinterpret_cast<int64_t*>(raw_int128);
-    batch->values[running_orc_offset] = *lower_bits;
+    const Decimal128 dec_value(array.GetValue(running_arrow_offset));
+    batch->values[running_orc_offset] = static_cast<int64_t>(dec_value.low_bits());
     running_orc_offset++;
     running_arrow_offset++;
     return arrow::Status::OK();
@@ -518,10 +517,9 @@ struct Appender<arrow::Decimal128Type, liborc::Decimal128VectorBatch> {
   }
   arrow::Status VisitValue(arrow::util::string_view v) {
     batch->notNull[running_orc_offset] = true;
-    uint8_t* raw_int128 = const_cast<uint8_t*>(array.GetValue(running_arrow_offset));
-    uint64_t* lower_bits = reinterpret_cast<uint64_t*>(raw_int128);
-    int64_t* higher_bits = reinterpret_cast<int64_t*>(raw_int128 + 8);
-    batch->values[running_orc_offset] = liborc::Int128(*higher_bits, *lower_bits);
+    const Decimal128 dec_value(array.GetValue(running_arrow_offset));
+    batch->values[running_orc_offset] =
+        liborc::Int128(dec_value.high_bits(), dec_value.low_bits());
     running_orc_offset++;
     running_arrow_offset++;
     return arrow::Status::OK();
