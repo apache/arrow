@@ -116,29 +116,6 @@ std::shared_ptr<Array> CastInt64ArrayToTemporalArray(
   return std::make_shared<TargetArrayType>(new_array_data);
 }
 
-/// \brief Construct a random weak composition of a nonnegative integer
-/// i.e. a way of writing it as the sum of a sequence of n non-negative
-/// integers.
-///
-/// \param[in] n the number of integers in the weak composition
-/// \param[in] sum the integer of which a random weak composition is generated
-/// \param[out] out The generated weak composition
-template <typename T, typename U>
-void RandWeakComposition(int64_t n, T sum, std::vector<U>* out) {
-  const int random_seed = 0;
-  std::default_random_engine gen(random_seed);
-  out->resize(n, static_cast<T>(0));
-  T remaining_sum = sum;
-  std::generate(out->begin(), out->end() - 1, [&gen, &remaining_sum] {
-    std::uniform_int_distribution<T> d(static_cast<T>(0), remaining_sum);
-    auto res = d(gen);
-    remaining_sum -= res;
-    return static_cast<U>(res);
-  });
-  (*out)[n - 1] += remaining_sum;
-  std::random_shuffle(out->begin(), out->end());
-}
-
 Result<std::shared_ptr<Array>> GenerateRandomDate64Array(int64_t size,
                                                          double null_probability) {
   arrow::random::RandomArrayGenerator rand(kRandomSeed);
@@ -177,6 +154,29 @@ Result<std::shared_ptr<Array>> GenerateRandomTimestampArray(int64_t size,
   }
 }
 
+/// \brief Construct a random weak composition of a nonnegative integer
+/// i.e. a way of writing it as the sum of a sequence of n non-negative
+/// integers.
+///
+/// \param[in] n the number of integers in the weak composition
+/// \param[in] sum the integer of which a random weak composition is generated
+/// \param[out] out The generated weak composition
+template <typename T, typename U>
+void RandWeakComposition(int64_t n, T sum, std::vector<U>* out) {
+  const int random_seed = 0;
+  std::default_random_engine gen(random_seed);
+  out->resize(n, static_cast<T>(0));
+  T remaining_sum = sum;
+  std::generate(out->begin(), out->end() - 1, [&gen, &remaining_sum] {
+    std::uniform_int_distribution<T> d(static_cast<T>(0), remaining_sum);
+    auto res = d(gen);
+    remaining_sum -= res;
+    return static_cast<U>(res);
+  });
+  (*out)[n - 1] += remaining_sum;
+  std::random_shuffle(out->begin(), out->end());
+}
+
 std::shared_ptr<ChunkedArray> GenerateRandomChunkedArray(
     const std::shared_ptr<DataType>& data_type, int64_t size, int64_t min_num_chunks,
     int64_t max_num_chunks, double null_probability) {
@@ -186,22 +186,22 @@ std::shared_ptr<ChunkedArray> GenerateRandomChunkedArray(
   arrow::randint<int64_t, int64_t>(1, min_num_chunks, max_num_chunks, &num_chunks);
   int64_t current_num_chunks = num_chunks[0];
   ArrayVector arrays(current_num_chunks, nullptr);
-  RandWeakComposition(current_num_chunks, size, &current_size_chunks);
+  arrow::RandWeakComposition(current_num_chunks, size, &current_size_chunks);
   for (int j = 0; j < current_num_chunks; j++) {
     switch (data_type->id()) {
       case arrow::Type::type::DATE64: {
-        arrays[j] = GenerateRandomDate64Array(current_size_chunks[j], null_probability)
-                        .ValueOrDie();
+        EXPECT_OK_AND_ASSIGN(arrays[j], GenerateRandomDate64Array(current_size_chunks[j],
+                                                                  null_probability));
         break;
       }
       case arrow::Type::type::TIMESTAMP: {
-        arrays[j] =
+        EXPECT_OK_AND_ASSIGN(
+            arrays[j],
             GenerateRandomTimestampArray(
                 current_size_chunks[j],
                 arrow::internal::checked_pointer_cast<arrow::TimestampType>(data_type)
                     ->unit(),
-                null_probability)
-                .ValueOrDie();
+                null_probability));
         break;
       }
       default:
@@ -228,13 +228,13 @@ std::shared_ptr<Table> GenerateRandomTable(const std::shared_ptr<Schema>& schema
 void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
                                const std::shared_ptr<Table>& expected_output_table,
                                const int64_t max_size = kDefaultSmallMemStreamSize) {
-  std::shared_ptr<io::BufferOutputStream> buffer_output_stream =
-      io::BufferOutputStream::Create(max_size).ValueOrDie();
-  std::unique_ptr<adapters::orc::ORCFileWriter> writer =
-      adapters::orc::ORCFileWriter::Open(buffer_output_stream.get()).ValueOrDie();
+  EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
+                       io::BufferOutputStream::Create(max_size));
+  EXPECT_OK_AND_ASSIGN(auto writer,
+                       adapters::orc::ORCFileWriter::Open(buffer_output_stream.get()));
   ARROW_EXPECT_OK(writer->Write(*input_table));
   ARROW_EXPECT_OK(writer->Close());
-  std::shared_ptr<Buffer> buffer = buffer_output_stream->Finish().ValueOrDie();
+  EXPECT_OK_AND_ASSIGN(auto buffer, buffer_output_stream->Finish());
   std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(buffer));
   std::unique_ptr<adapters::orc::ORCFileReader> reader;
   ARROW_EXPECT_OK(
@@ -489,9 +489,9 @@ class TestORCWriterWithConversion : public ::testing::Test {
         GenerateRandomTable(input_schema, num_rows, 1, 1, null_possibility);
     ArrayVector av(num_cols);
     for (int i = 0; i < num_cols - 2; i++) {
-      av[i] = arrow::compute::Cast(*(input_table->column(i)->chunk(0)),
-                                   output_schema->field(i)->type())
-                  .ValueOrDie();
+      EXPECT_OK_AND_ASSIGN(av[i],
+                           arrow::compute::Cast(*(input_table->column(i)->chunk(0)),
+                                                output_schema->field(i)->type()));
     }
     for (int i = num_cols - 2; i < num_cols; i++) {
       av[i] = CastFixedSizeBinaryArrayToBinaryArray(input_table->column(i)->chunk(0));
@@ -562,12 +562,12 @@ TEST_F(TestORCWriterSingleArray, WriteLargeList) {
   int64_t num_rows = 10000;
   auto value_array = rand.ArrayOf(int32(), 5 * num_rows, 0.5);
   auto output_offsets = rand.Offsets(num_rows + 1, 0, 5 * num_rows, 0.6, false);
-  auto input_offsets = arrow::compute::Cast(*output_offsets, int64()).ValueOrDie();
-  std::shared_ptr<Array>
-      input_array =
-          arrow::LargeListArray::FromArrays(*input_offsets, *value_array).ValueOrDie(),
-      output_array =
-          arrow::ListArray::FromArrays(*output_offsets, *value_array).ValueOrDie();
+  EXPECT_OK_AND_ASSIGN(auto input_offsets,
+                       arrow::compute::Cast(*output_offsets, int64()));
+  EXPECT_OK_AND_ASSIGN(auto input_array,
+                       arrow::LargeListArray::FromArrays(*input_offsets, *value_array));
+  EXPECT_OK_AND_ASSIGN(auto output_array,
+                       arrow::ListArray::FromArrays(*output_offsets, *value_array));
   AssertArrayWriteReadEqual(input_array, output_array, kDefaultSmallMemStreamSize * 10);
 }
 TEST_F(TestORCWriterSingleArray, WriteFixedSizeList) {

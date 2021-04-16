@@ -39,9 +39,18 @@ Result<ORC_UNIQUE_PTR<liborc::Type>> GetOrcType(const Schema& schema);
 Status AppendBatch(const liborc::Type* type, liborc::ColumnVectorBatch* batch,
                    int64_t offset, int64_t length, arrow::ArrayBuilder* builder);
 
-Status WriteBatch(liborc::ColumnVectorBatch* column_vector_batch,
-                  int64_t* arrow_index_offset, int* arrow_chunk_offset, int64_t length,
-                  const ChunkedArray& chunked_array);
+/// \brief Write a chunked array to an orc::ColumnVectorBatch
+///
+/// \param[in] chunked_array the chunked array
+/// \param[in] length the orc::ColumnVectorBatch size limit
+/// \param[in,out] arrow_chunk_offset The current chunk being processed
+/// \param[in,out] arrow_index_offset The index of the arrow_chunk_offset array
+/// before or after a process
+/// \param[in,out] column_vector_batch the orc::ColumnVectorBatch to be filled
+/// \return Status
+Status WriteBatch(const ChunkedArray& chunked_array, int64_t length,
+                  int* arrow_chunk_offset, int64_t* arrow_index_offset,
+                  liborc::ColumnVectorBatch* column_vector_batch);
 
 }  // namespace orc
 }  // namespace adapters

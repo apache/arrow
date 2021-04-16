@@ -524,6 +524,10 @@ class ORCFileWriter::Impl {
       writer_ = liborc::createWriter(*orc_schema, out_stream_.get(), *orc_options);
     } catch (const liborc::ParseError& e) {
       return Status::IOError(e.what());
+    } catch (const liborc::InvalidArgument& e) {
+      return ::arrow::Status::Invalid(e.what());
+    } catch (const liborc::NotImplementedYet& e) {
+      return ::arrow::Status::NotImplemented(e.what());
     }
     int64_t num_rows = table.num_rows();
     const int num_cols_ = table.num_columns();
@@ -536,8 +540,8 @@ class ORCFileWriter::Impl {
     while (num_rows > 0) {
       for (int i = 0; i < num_cols_; i++) {
         RETURN_NOT_OK(adapters::orc::WriteBatch(
-            (root->fields)[i], &(arrow_index_offset[i]), &(arrow_chunk_offset[i]),
-            kOrcWriterBatchSize, *(table.column(i))));
+            *(table.column(i)), kOrcWriterBatchSize, &(arrow_chunk_offset[i]),
+            &(arrow_index_offset[i]), (root->fields)[i]));
       }
       root->numElements = (root->fields)[0]->numElements;
       writer_->add(*batch);

@@ -356,7 +356,8 @@ arrow::Status WriteBatch(const arrow::Array& parray, int64_t orc_offset,
                          liborc::ColumnVectorBatch* column_vector_batch);
 
 // Make sure children of StructArray have appropriate null.
-std::shared_ptr<arrow::Array> NormalizeArray(const std::shared_ptr<arrow::Array>& array) {
+Result<std::shared_ptr<arrow::Array>> NormalizeArray(
+    const std::shared_ptr<arrow::Array>& array) {
   arrow::Type::type kind = array->type_id();
   switch (kind) {
     case arrow::Type::type::STRUCT: {
@@ -375,10 +376,11 @@ std::shared_ptr<arrow::Array> NormalizeArray(const std::shared_ptr<arrow::Array>
           if (child_bitmap == nullptr) {
             final_child_bitmap = bitmap;
           } else {
-            final_child_bitmap = arrow::internal::BitmapAnd(
-                                     arrow::default_memory_pool(), bitmap->data(), 0,
-                                     child_bitmap->data(), 0, struct_array->length(), 0)
-                                     .ValueOrDie();
+            ARROW_ASSIGN_OR_RAISE(
+                final_child_bitmap,
+                arrow::internal::BitmapAnd(arrow::default_memory_pool(), bitmap->data(),
+                                           0, child_bitmap->data(), 0,
+                                           struct_array->length(), 0));
           }
           std::shared_ptr<arrow::ArrayData> child_array_data = child->data();
           std::vector<std::shared_ptr<arrow::Buffer>> child_buffers =
@@ -387,7 +389,8 @@ std::shared_ptr<arrow::Array> NormalizeArray(const std::shared_ptr<arrow::Array>
           std::shared_ptr<arrow::ArrayData> new_child_array_data = arrow::ArrayData::Make(
               child->type(), child->length(), child_buffers, child_array_data->child_data,
               child_array_data->dictionary);
-          new_children[i] = NormalizeArray(arrow::MakeArray(new_child_array_data));
+          ARROW_ASSIGN_OR_RAISE(new_children[i],
+                                NormalizeArray(arrow::MakeArray(new_child_array_data)));
         }
         return std::make_shared<arrow::StructArray>(struct_type, struct_array->length(),
                                                     new_children, bitmap);
@@ -395,28 +398,32 @@ std::shared_ptr<arrow::Array> NormalizeArray(const std::shared_ptr<arrow::Array>
     }
     case arrow::Type::type::LIST: {
       auto list_array = checked_pointer_cast<arrow::ListArray>(array);
-      return std::make_shared<arrow::ListArray>(
-          list_array->type(), list_array->length(), list_array->value_offsets(),
-          NormalizeArray(list_array->values()), list_array->null_bitmap());
+      ARROW_ASSIGN_OR_RAISE(auto value_array, NormalizeArray(list_array->values()));
+      return std::make_shared<arrow::ListArray>(list_array->type(), list_array->length(),
+                                                list_array->value_offsets(), value_array,
+                                                list_array->null_bitmap());
     }
     case arrow::Type::type::LARGE_LIST: {
       auto list_array = checked_pointer_cast<arrow::LargeListArray>(array);
+      ARROW_ASSIGN_OR_RAISE(auto value_array, NormalizeArray(list_array->values()));
       return std::make_shared<arrow::LargeListArray>(
           list_array->type(), list_array->length(), list_array->value_offsets(),
-          NormalizeArray(list_array->values()), list_array->null_bitmap());
+          value_array, list_array->null_bitmap());
     }
     case arrow::Type::type::FIXED_SIZE_LIST: {
       auto list_array = checked_pointer_cast<arrow::FixedSizeListArray>(array);
+      ARROW_ASSIGN_OR_RAISE(auto value_array, NormalizeArray(list_array->values()));
       return std::make_shared<arrow::FixedSizeListArray>(
-          list_array->type(), list_array->length(), NormalizeArray(list_array->values()),
+          list_array->type(), list_array->length(), value_array,
           list_array->null_bitmap());
     }
     case arrow::Type::type::MAP: {
       auto map_array = checked_pointer_cast<arrow::MapArray>(array);
-      return std::make_shared<arrow::MapArray>(
-          map_array->type(), map_array->length(), map_array->value_offsets(),
-          NormalizeArray(map_array->keys()), NormalizeArray(map_array->items()),
-          map_array->null_bitmap());
+      ARROW_ASSIGN_OR_RAISE(auto key_array, NormalizeArray(map_array->keys()));
+      ARROW_ASSIGN_OR_RAISE(auto item_array, NormalizeArray(map_array->items()));
+      return std::make_shared<arrow::MapArray>(map_array->type(), map_array->length(),
+                                               map_array->value_offsets(), key_array,
+                                               item_array, map_array->null_bitmap());
     }
     default: {
       return array;
@@ -932,14 +939,14 @@ arrow::Result<ORC_UNIQUE_PTR<liborc::Type>> GetOrcType(const arrow::DataType& ty
 }
 }  // namespace
 
-Status WriteBatch(liborc::ColumnVectorBatch* column_vector_batch,
-                  int64_t* arrow_index_offset, int* arrow_chunk_offset, int64_t length,
-                  const ChunkedArray& chunked_array) {
+Status WriteBatch(const ChunkedArray& chunked_array, int64_t length,
+                  int* arrow_chunk_offset, int64_t* arrow_index_offset,
+                  liborc::ColumnVectorBatch* column_vector_batch) {
   int num_batch = chunked_array.num_chunks();
   int64_t orc_offset = 0;
   while (*arrow_chunk_offset < num_batch && orc_offset < length) {
-    std::shared_ptr<Array> array =
-        NormalizeArray(chunked_array.chunk(*arrow_chunk_offset));
+    ARROW_ASSIGN_OR_RAISE(auto array,
+                          NormalizeArray(chunked_array.chunk(*arrow_chunk_offset)));
     int64_t num_written_elements =
         std::min(length - orc_offset, array->length() - *arrow_index_offset);
     if (num_written_elements > 0) {
