@@ -17,10 +17,10 @@
 
 #include "gandiva/gdv_function_stubs.h"
 
+#include <boost/format.hpp>
 #include <cstdlib>
 #include <string>
 #include <vector>
-#include <boost/format.hpp>
 
 #include "arrow/util/formatting.h"
 #include "arrow/util/value_parsing.h"
@@ -302,40 +302,41 @@ char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
     return val;                                                                      \
   }
 
-#define GDV_FN_TO_CHAR(IN_TYPE, ARROW_TYPE)                                         \
-  GANDIVA_EXPORT                                                                         \
+#define GDV_FN_TO_CHAR(IN_TYPE, ARROW_TYPE)                                          \
+  GANDIVA_EXPORT                                                                     \
   const char* gdv_fn_to_char_##IN_TYPE##_int64(int64_t context, gdv_##IN_TYPE value, \
-                                                   int64_t len, const char* pattern, int32_t * out_len) {     \
-    if (len < 0) {                                                                       \
-      gdv_fn_context_set_error_msg(context, "Buffer length can not be negative");        \
-      *out_len = 0;                                                                      \
-      return "";                                                                         \
-    }                                                                                    \
-    if (len == 0) {                                                                      \
-      *out_len = 0;                                                                      \
-      return "";                                                                         \
-    }                                                                                    \
-    arrow::internal::StringFormatter<arrow::ARROW_TYPE> formatter;                       \
-    char* ret = reinterpret_cast<char*>(                                                 \
-        gdv_fn_context_arena_malloc(context, static_cast<int32_t>(len)));                \
-    if (ret == nullptr) {                                                                \
-      gdv_fn_context_set_error_msg(context, "Could not allocate memory");                \
-      *out_len = 0;                                                                      \
-      return "";                                                                         \
-    }                                                                                    \
-    arrow::Status status = formatter(value, [&](arrow::util::string_view v) {            \
-      int64_t size = static_cast<int64_t>(v.size());                                     \
-      *out_len = static_cast<int32_t>(len < size ? len : size);                          \
-      memcpy(ret, v.data(), *out_len);                                                   \
-      return arrow::Status::OK();                                                        \
-    });                                                                                  \
-    if (!status.ok()) {                                                                  \
-      std::string err = "Could not cast " + std::to_string(value) + " to string";        \
-      gdv_fn_context_set_error_msg(context, err.c_str());                                \
-      *out_len = 0;                                                                      \
-      return "";                                                                         \
-    }                                                                                    \
-    return ret;                                                                          \
+                                               int64_t len, const char* pattern,     \
+                                               int32_t* out_len) {                   \
+    if (len < 0) {                                                                   \
+      gdv_fn_context_set_error_msg(context, "Buffer length can not be negative");    \
+      *out_len = 0;                                                                  \
+      return "";                                                                     \
+    }                                                                                \
+    if (len == 0) {                                                                  \
+      *out_len = 0;                                                                  \
+      return "";                                                                     \
+    }                                                                                \
+    arrow::internal::StringFormatter<arrow::ARROW_TYPE> formatter;                   \
+    char* ret = reinterpret_cast<char*>(                                             \
+        gdv_fn_context_arena_malloc(context, static_cast<int32_t>(len)));            \
+    if (ret == nullptr) {                                                            \
+      gdv_fn_context_set_error_msg(context, "Could not allocate memory");            \
+      *out_len = 0;                                                                  \
+      return "";                                                                     \
+    }                                                                                \
+    arrow::Status status = formatter(value, [&](arrow::util::string_view v) {        \
+      int64_t size = static_cast<int64_t>(v.size());                                 \
+      *out_len = static_cast<int32_t>(len < size ? len : size);                      \
+      memcpy(ret, v.data(), *out_len);                                               \
+      return arrow::Status::OK();                                                    \
+    });                                                                              \
+    if (!status.ok()) {                                                              \
+      std::string err = "Could not cast " + std::to_string(value) + " to string";    \
+      gdv_fn_context_set_error_msg(context, err.c_str());                            \
+      *out_len = 0;                                                                  \
+      return "";                                                                     \
+    }                                                                                \
+    return ret;                                                                      \
   }
 
 GDV_FN_TO_CHAR(int32, Int32Type)
@@ -964,6 +965,46 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc("gdv_fn_sha256_float32",
                                   types->i8_ptr_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_sha256_float32));
+
+  // gdv_fn_to_char_int32_int64
+  args = {types->i64_type(),       // int64_t execution_context
+          types->i32_type(),       // int32_t value
+          types->i64_type(),       // int64_t len
+          types->i8_ptr_type(),    // const char* pattern
+          types->i32_ptr_type()};  // int32_t* out_len
+  engine->AddGlobalMappingForFunc("gdv_fn_to_char_int32_int64",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_to_char_int32_int64));
+
+  // gdv_fn_to_char_int64_int64
+  args = {types->i64_type(),       // int64_t execution_context
+          types->i64_type(),       // int64_t value
+          types->i64_type(),       // int64_t len
+          types->i8_ptr_type(),    // const char* pattern
+          types->i32_ptr_type()};  // int32_t* out_len
+  engine->AddGlobalMappingForFunc("gdv_fn_to_char_int64_int64",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_to_char_int64_int64));
+
+  // gdv_fn_to_char_float32_int64
+  args = {types->i64_type(),       // int64_t execution_context
+          types->float_type(),     // float value
+          types->i64_type(),       // int64_t len
+          types->i8_ptr_type(),    // const char* pattern
+          types->i32_ptr_type()};  // int32_t* out_len
+  engine->AddGlobalMappingForFunc("gdv_fn_to_char_float32_int64",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_to_char_float32_int64));
+
+  // gdv_fn_to_char_float64_int64
+  args = {types->i64_type(),       // int64_t execution_context
+          types->double_type(),    // double value
+          types->i64_type(),       // int64_t len
+          types->i8_ptr_type(),    // const char* pattern
+          types->i32_ptr_type()};  // int32_t* out_len
+  engine->AddGlobalMappingForFunc("gdv_fn_to_char_float64_int64",
+                                  types->i8_ptr_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_to_char_float64_int64));
 
   // gdv_fn_sha256_float64
   args = {
