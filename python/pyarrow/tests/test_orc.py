@@ -62,7 +62,7 @@ def fix_example_values(actual_cols, expected_cols):
                     exp = d.as_tuple().exponent
                     factor = 10 ** -exp
                     converted_decimals[i] = decimal\
-                        .Decimal(round(v * factor)).scaleb(
+                    .Decimal(round(v * factor)).scaleb(
                         exp
                     )
             expected = pd.Series(converted_decimals)
@@ -116,10 +116,6 @@ def check_example_file(orc_path, expected_df, need_fix=False):
 
 
 @pytest.mark.pandas
-@pytest.mark.parametrize(
-    "filename", ["TestOrcFile.test1.orc",
-                 "TestOrcFile.testDate1900.orc", "decimal.orc"]
-)
 def test_orcfile_empty(datadir):
     from pyarrow import orc
 
