@@ -47,19 +47,19 @@ as.vector.ArrowDatum <- function(x, mode) {
 }
 
 #'@export
-na.omit.ArrowDatum <- function(x, ...){
-  x$Filter(!is.na(x))
+na.omit.ArrowDatum <- function(object, ...){
+  object$Filter(!is.na(object))
 }
 
 #'@export
 na.exclude.ArrowDatum <- na.omit.ArrowDatum
 
 #'@export
-na.fail.ArrowDatum <- function(x, ...){
-  if(x$null_count > 0){
+na.fail.ArrowDatum <- function(object, ...){
+  if(object$null_count > 0){
     stop("missing values in object")
   }
-  x
+  object
 }
 
 filter_rows <- function(x, i, keep_na = TRUE, ...) {
