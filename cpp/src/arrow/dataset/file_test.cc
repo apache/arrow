@@ -97,7 +97,7 @@ class MockFileFormat : public FileFormat {
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
       std::shared_ptr<FileWriteOptions> options) const {
     return Status::NotImplemented("Not needed for test");
-  };
+  }
   virtual std::shared_ptr<FileWriteOptions> DefaultWriteOptions() { return nullptr; }
 
   virtual Result<ScanTaskIterator> ScanFile(
