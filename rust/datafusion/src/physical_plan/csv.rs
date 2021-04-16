@@ -17,12 +17,6 @@
 
 //! Execution plan for reading CSV files
 
-use std::any::Any;
-use std::fs::File;
-use std::pin::Pin;
-use std::sync::Arc;
-use std::task::{Context, Poll};
-
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::ExecutionPlan;
 use crate::physical_plan::{common, Partitioning};
@@ -31,6 +25,13 @@ use arrow::datatypes::{Schema, SchemaRef};
 use arrow::error::Result as ArrowResult;
 use arrow::record_batch::RecordBatch;
 use futures::Stream;
+use std::any::Any;
+use std::fs::File;
+use std::io::Read;
+use std::pin::Pin;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::task::{Context, Poll};
 
 use super::{RecordBatchStream, SendableRecordBatchStream};
 use async_trait::async_trait;
@@ -106,13 +107,71 @@ impl<'a> CsvReadOptions<'a> {
     }
 }
 
+///  SourceReader represents where the data comes from.
+enum SourceReader {
+    /// The data comes from partitioned files
+    PartitionedFiles {
+        /// Path to directory containing partitioned files with the same schema
+        path: String,
+        /// The individual files under path
+        filenames: Vec<String>,
+    },
+
+    /// The data comes from anything impl Read trait
+    Reader(Mutex<Option<Box<dyn Read + Send + Sync + 'static>>>),
+}
+
+impl std::fmt::Debug for SourceReader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SourceReader::PartitionedFiles { path, filenames } => f
+                .debug_struct("PartitionedFiles")
+                .field("path", path)
+                .field("filenames", filenames)
+                .finish()?,
+            SourceReader::Reader(_) => f.write_str("Reader")?,
+        };
+        Ok(())
+    }
+}
+
+impl Clone for SourceReader {
+    fn clone(&self) -> Self {
+        match self {
+            SourceReader::PartitionedFiles { path, filenames } => {
+                Self::PartitionedFiles {
+                    path: path.clone(),
+                    filenames: filenames.clone(),
+                }
+            }
+            SourceReader::Reader(_) => Self::Reader(Mutex::new(None)),
+        }
+    }
+}
+
+impl SourceReader {
+    /// Path to directory containing partitioned files with the same schema
+    pub fn path(&self) -> &str {
+        match self {
+            SourceReader::PartitionedFiles { path, .. } => path.as_str(),
+            SourceReader::Reader(_) => "",
+        }
+    }
+
+    /// The individual files under path
+    pub fn filenames(&self) -> &[String] {
+        match self {
+            SourceReader::PartitionedFiles { filenames, .. } => filenames,
+            SourceReader::Reader(_) => &[],
+        }
+    }
+}
+
 /// Execution plan for scanning a CSV file
 #[derive(Debug, Clone)]
 pub struct CsvExec {
-    /// Path to directory containing partitioned CSV files with the same schema
-    path: String,
-    /// The individual files under path
-    filenames: Vec<String>,
+    /// Where the data comes from.
+    source: SourceReader,
     /// Schema representing the CSV file
     schema: SchemaRef,
     /// Does the CSV file have a header?
@@ -163,8 +222,10 @@ impl CsvExec {
         };
 
         Ok(Self {
-            path: path.to_string(),
-            filenames,
+            source: SourceReader::PartitionedFiles {
+                path: path.to_string(),
+                filenames,
+            },
             schema: Arc::new(schema),
             has_header: options.has_header,
             delimiter: Some(options.delimiter),
@@ -175,15 +236,50 @@ impl CsvExec {
             limit,
         })
     }
+    /// Create a new execution plan for reading from a reader
+    pub fn try_new_from_reader(
+        reader: impl Read + Send + Sync + 'static,
+        options: CsvReadOptions,
+        projection: Option<Vec<usize>>,
+        batch_size: usize,
+        limit: Option<usize>,
+    ) -> Result<Self> {
+        let schema = match options.schema {
+            Some(s) => s.clone(),
+            None => {
+                return Err(DataFusionError::Execution(
+                    "The schema must be provided in options when reading from a reader"
+                        .to_string(),
+                ));
+            }
+        };
+
+        let projected_schema = match &projection {
+            None => schema.clone(),
+            Some(p) => Schema::new(p.iter().map(|i| schema.field(*i).clone()).collect()),
+        };
+
+        Ok(Self {
+            source: SourceReader::Reader(Mutex::new(Some(Box::new(reader)))),
+            schema: Arc::new(schema),
+            has_header: options.has_header,
+            delimiter: Some(options.delimiter),
+            file_extension: String::new(),
+            projection,
+            projected_schema: Arc::new(projected_schema),
+            batch_size,
+            limit,
+        })
+    }
 
     /// Path to directory containing partitioned CSV files with the same schema
     pub fn path(&self) -> &str {
-        &self.path
+        self.source.path()
     }
 
     /// The individual files under path
     pub fn filenames(&self) -> &[String] {
-        &self.filenames
+        self.source.filenames()
     }
 
     /// Does the CSV file have a header?
@@ -249,7 +345,10 @@ impl ExecutionPlan for CsvExec {
 
     /// Get the output partitioning of this plan
     fn output_partitioning(&self) -> Partitioning {
-        Partitioning::UnknownPartitioning(self.filenames.len())
+        Partitioning::UnknownPartitioning(match &self.source {
+            SourceReader::PartitionedFiles { filenames, .. } => filenames.len(),
+            SourceReader::Reader(_) => 1,
+        })
     }
 
     fn children(&self) -> Vec<Arc<dyn ExecutionPlan>> {
@@ -272,25 +371,46 @@ impl ExecutionPlan for CsvExec {
     }
 
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
-        Ok(Box::pin(CsvStream::try_new(
-            &self.filenames[partition],
-            self.schema.clone(),
-            self.has_header,
-            self.delimiter,
-            &self.projection,
-            self.batch_size,
-            self.limit,
-        )?))
+        match &self.source {
+            SourceReader::PartitionedFiles { filenames, .. } => {
+                Ok(Box::pin(CsvStream::try_new(
+                    &filenames[partition],
+                    self.schema.clone(),
+                    self.has_header,
+                    self.delimiter,
+                    &self.projection,
+                    self.batch_size,
+                    self.limit,
+                )?))
+            }
+            SourceReader::Reader(rdr) => {
+                if let Some(rdr) = rdr.lock().unwrap().take() {
+                    Ok(Box::pin(CsvStream::try_new_from_reader(
+                        rdr,
+                        self.schema.clone(),
+                        self.has_header,
+                        self.delimiter,
+                        &self.projection,
+                        self.batch_size,
+                        self.limit,
+                    )?))
+                } else {
+                    Err(DataFusionError::Execution(
+                        "You can only read once if the data comes from a reader"
+                            .to_string(),
+                    ))
+                }
+            }
+        }
     }
 }
 
 /// Iterator over batches
-struct CsvStream {
+struct CsvStream<R: Read> {
     /// Arrow CSV reader
-    reader: csv::Reader<File>,
+    reader: csv::Reader<R>,
 }
-
-impl CsvStream {
+impl CsvStream<File> {
     /// Create an iterator for a CSV file
     pub fn try_new(
         filename: &str,
@@ -302,11 +422,27 @@ impl CsvStream {
         limit: Option<usize>,
     ) -> Result<Self> {
         let file = File::open(filename)?;
+        Self::try_new_from_reader(
+            file, schema, has_header, delimiter, projection, batch_size, limit,
+        )
+    }
+}
+impl<R: Read> CsvStream<R> {
+    /// Create an iterator for a reader
+    pub fn try_new_from_reader(
+        reader: R,
+        schema: SchemaRef,
+        has_header: bool,
+        delimiter: Option<u8>,
+        projection: &Option<Vec<usize>>,
+        batch_size: usize,
+        limit: Option<usize>,
+    ) -> Result<CsvStream<R>> {
         let start_line = if has_header { 1 } else { 0 };
         let bounds = limit.map(|x| (0, x + start_line));
 
         let reader = csv::Reader::new(
-            file,
+            reader,
             schema,
             has_header,
             delimiter,
@@ -319,7 +455,7 @@ impl CsvStream {
     }
 }
 
-impl Stream for CsvStream {
+impl<R: Read + Unpin> Stream for CsvStream<R> {
     type Item = ArrowResult<RecordBatch>;
 
     fn poll_next(
@@ -330,7 +466,7 @@ impl Stream for CsvStream {
     }
 }
 
-impl RecordBatchStream for CsvStream {
+impl<R: Read + Unpin> RecordBatchStream for CsvStream<R> {
     /// Get the schema
     fn schema(&self) -> SchemaRef {
         self.reader.schema()
@@ -396,6 +532,36 @@ mod tests {
         assert_eq!("c1", batch_schema.field(0).name());
         assert_eq!("c2", batch_schema.field(1).name());
         assert_eq!("c3", batch_schema.field(2).name());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn csv_exec_with_reader() -> Result<()> {
+        let schema = aggr_test_schema();
+        let testdata = arrow::util::test_util::arrow_test_data();
+        let filename = "aggregate_test_100.csv";
+        let path = format!("{}/csv/{}", testdata, filename);
+        let buf = std::fs::read(path).unwrap();
+        let rdr = std::io::Cursor::new(buf);
+        let csv = CsvExec::try_new_from_reader(
+            rdr,
+            CsvReadOptions::new().schema(&schema),
+            Some(vec![0, 2, 4]),
+            1024,
+            None,
+        )?;
+        assert_eq!(13, csv.schema.fields().len());
+        assert_eq!(3, csv.projected_schema.fields().len());
+        assert_eq!(13, csv.file_schema().fields().len());
+        assert_eq!(3, csv.schema().fields().len());
+        let mut stream = csv.execute(0).await?;
+        let batch = stream.next().await.unwrap()?;
+        assert_eq!(3, batch.num_columns());
+        let batch_schema = batch.schema();
+        assert_eq!(3, batch_schema.fields().len());
+        assert_eq!("c1", batch_schema.field(0).name());
+        assert_eq!("c3", batch_schema.field(1).name());
+        assert_eq!("c5", batch_schema.field(2).name());
         Ok(())
     }
 }
