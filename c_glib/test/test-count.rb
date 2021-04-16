@@ -19,10 +19,10 @@ class TestCount < Test::Unit::TestCase
   include Helper::Buildable
   include Helper::Omittable
 
-  sub_test_case("ScalarAggregateOptions") do
+  sub_test_case("CountOptions") do
     def test_default_mode
-      assert_equal(Arrow::ScalarAggregateMode::KEEPNA,
-                   Arrow::ScalarAggregateOptions.new.mode)
+      assert_equal(Arrow::CountMode::ALL,
+                   Arrow::CountOptions.new.mode)
     end
   end
 
@@ -32,13 +32,13 @@ class TestCount < Test::Unit::TestCase
     end
 
     def test_all
-      options = Arrow::ScalarAggregateOptions.new
+      options = Arrow::CountOptions.new
       options.mode = :all
       assert_equal(2, build_int32_array([1, nil, 3]).count(options))
     end
 
     def test_null
-      options = Arrow::ScalarAggregateOptions.new
+      options = Arrow::CountOptions.new
       options.mode = :null
       assert_equal(1, build_int32_array([1, nil, 3]).count(options))
     end
