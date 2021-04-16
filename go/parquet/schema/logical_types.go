@@ -22,6 +22,7 @@ import (
 	"math"
 
 	"github.com/apache/arrow/go/parquet"
+	"github.com/apache/arrow/go/parquet/internal/debug"
 	format "github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
 )
 
@@ -386,7 +387,7 @@ func (t DecimalLogicalType) IsApplicable(typ parquet.Type, tlen int32) bool {
 		return 1 <= t.typ.Precision && t.typ.Precision <= 9
 	case parquet.Types.Int64:
 		if t.typ.Precision < 10 {
-			// TODO(mtopol): warn that int32 can be used
+			debug.Log("int64 used for decimal logical, precision is small enough to use int32")
 		}
 		return 1 <= t.typ.Precision && t.typ.Precision <= 18
 	case parquet.Types.FixedLenByteArray:

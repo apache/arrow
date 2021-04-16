@@ -60,7 +60,7 @@ type Schema struct {
 
 // FromParquet converts a slice of thrift Schema Elements to the correct node type
 func FromParquet(elems []*format.SchemaElement) Node {
-	if elems == nil || len(elems) == 0 {
+	if len(elems) == 0 {
 		panic("parquet: empty schema (no root)")
 	}
 

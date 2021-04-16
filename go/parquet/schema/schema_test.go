@@ -39,26 +39,26 @@ func TestColumnPath(t *testing.T) {
 	assert.Equal(t, "toplevel.leaf.anotherlevel", extend.String())
 }
 
-func NewPrimitive(name string, repetition format.FieldRepetitionType, typ format.Type, fieldId int32) *format.SchemaElement {
+func NewPrimitive(name string, repetition format.FieldRepetitionType, typ format.Type, fieldID int32) *format.SchemaElement {
 	ret := &format.SchemaElement{
 		Name:           name,
 		RepetitionType: format.FieldRepetitionTypePtr(repetition),
 		Type:           format.TypePtr(typ),
 	}
-	if fieldId >= 0 {
-		ret.FieldID = &fieldId
+	if fieldID >= 0 {
+		ret.FieldID = &fieldID
 	}
 	return ret
 }
 
-func NewGroup(name string, repetition format.FieldRepetitionType, numChildren, fieldId int32) *format.SchemaElement {
+func NewGroup(name string, repetition format.FieldRepetitionType, numChildren, fieldID int32) *format.SchemaElement {
 	ret := &format.SchemaElement{
 		Name:           name,
 		RepetitionType: format.FieldRepetitionTypePtr(repetition),
 		NumChildren:    &numChildren,
 	}
-	if fieldId >= 0 {
-		ret.FieldID = &fieldId
+	if fieldID >= 0 {
+		ret.FieldID = &fieldID
 	}
 	return ret
 }

@@ -86,6 +86,7 @@ func ColumnPathFromNode(n Node) parquet.ColumnPath {
 	return c
 }
 
+// node is the base embedded struct for both group and primitive nodes
 type node struct {
 	typ    NodeType
 	parent Node
