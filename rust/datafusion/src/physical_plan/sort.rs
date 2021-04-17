@@ -41,7 +41,7 @@ use super::{RecordBatchStream, SendableRecordBatchStream};
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::expressions::PhysicalSortExpr;
 use crate::physical_plan::{
-    common, Distribution, ExecutionPlan, MetricType, Partitioning, SQLMetric,
+    common, Distribution, ExecutionPlan, Partitioning, SQLMetric,
 };
 
 /// Sort execution plan
@@ -66,14 +66,8 @@ impl SortExec {
         Ok(Self {
             expr,
             input,
-            output_rows: Arc::new(Mutex::new(SQLMetric::new(
-                "outputRows",
-                MetricType::Counter,
-            ))),
-            sort_time_nanos: Arc::new(Mutex::new(SQLMetric::new(
-                "sortTime",
-                MetricType::TimeNanos,
-            ))),
+            output_rows: SQLMetric::counter("outputRows"),
+            sort_time_nanos: SQLMetric::time_nanos("sortTime"),
         })
     }
 
@@ -163,7 +157,6 @@ impl ExecutionPlan for SortExec {
         );
         metrics
     }
-
 }
 
 fn sort_batches(
@@ -437,7 +430,8 @@ mod tests {
         assert_eq!(DataType::Float32, *sort_exec.schema().field(0).data_type());
         assert_eq!(DataType::Float64, *sort_exec.schema().field(1).data_type());
 
-        let result: Vec<RecordBatch> = collect(sort_exec).await?;
+        let result: Vec<RecordBatch> = collect(sort_exec.clone()).await?;
+        assert_eq!(sort_exec.metrics().get("outputRows").unwrap().value, 8);
         assert_eq!(result.len(), 1);
 
         let columns = result[0].columns();

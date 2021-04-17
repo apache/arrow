@@ -18,7 +18,7 @@
 //! Traits for physical query plan, supporting parallel execution for partitioned relations.
 
 use std::fmt::{Debug, Display};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::{any::Any, pin::Pin};
 
 use crate::execution::context::ExecutionContextState;
@@ -69,6 +69,16 @@ pub struct SQLMetric {
 }
 
 impl SQLMetric {
+    /// Create a new metric for tracking a counter
+    pub fn counter(name: &str) -> Arc<Mutex<SQLMetric>> {
+        Arc::new(Mutex::new(SQLMetric::new(name, MetricType::Counter)))
+    }
+
+    /// Create a new metric for tracking time in nanoseconds
+    pub fn time_nanos(name: &str) -> Arc<Mutex<SQLMetric>> {
+        Arc::new(Mutex::new(SQLMetric::new(name, MetricType::TimeNanos)))
+    }
+
     /// Create a new SQLMetric
     pub fn new(name: &str, metric_type: MetricType) -> Self {
         Self {
