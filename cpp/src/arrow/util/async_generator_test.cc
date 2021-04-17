@@ -594,7 +594,7 @@ TEST_P(MergedGeneratorTestFixture, MergedParallelStress) {
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(MergedGeneratorTests, GeneratorTestFixture,
+INSTANTIATE_TEST_SUITE_P(MergedGeneratorTests, MergedGeneratorTestFixture,
                          ::testing::Values(false, true));
 
 TEST(TestAsyncUtil, FromVector) {
