@@ -463,18 +463,18 @@ Result<FragmentGenerator> AsyncScanner::GetFragments() const {
 }
 
 Result<TaggedRecordBatchIterator> AsyncScanner::ScanBatches() {
-  ARROW_ASSIGN_OR_RAISE(auto batches_gen, ScanBatchesAsync(scan_options_->cpu_executor));
+  ARROW_ASSIGN_OR_RAISE(auto batches_gen, ScanBatchesAsync(internal::GetCpuThreadPool()));
   return MakeGeneratorIterator(std::move(batches_gen));
 }
 
 Result<EnumeratedRecordBatchIterator> AsyncScanner::ScanBatchesUnordered() {
   ARROW_ASSIGN_OR_RAISE(auto batches_gen,
-                        ScanBatchesUnorderedAsync(scan_options_->cpu_executor));
+                        ScanBatchesUnorderedAsync(internal::GetCpuThreadPool()));
   return MakeGeneratorIterator(std::move(batches_gen));
 }
 
 Result<std::shared_ptr<Table>> AsyncScanner::ToTable() {
-  auto table_fut = ToTableAsync(scan_options_->cpu_executor);
+  auto table_fut = ToTableAsync(internal::GetCpuThreadPool());
   return table_fut.result();
 }
 

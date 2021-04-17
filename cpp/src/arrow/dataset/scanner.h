@@ -101,11 +101,6 @@ struct ARROW_DS_EXPORT ScanOptions {
   /// A pool from which materialized and scanned arrays will be allocated.
   MemoryPool* pool = arrow::default_memory_pool();
 
-  /// Executor on which to run any CPU tasks
-  ///
-  /// Note: Will be ignored if use_threads is set to false
-  internal::Executor* cpu_executor = internal::GetCpuThreadPool();
-
   /// IOContext for any IO tasks
   ///
   /// Note: The IOContext executor will be ignored if use_threads is set to false
