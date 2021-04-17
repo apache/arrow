@@ -25,13 +25,6 @@ name = "version"
 doc = "Print version of this executable"
 
 [[param]]
-abbr = "n"
-name = "namespace"
-type = "String"
-doc = "Namespace for the ballista cluster that this executor will join. yippee"
-default = "std::string::String::from(\"ballista\")"
-
-[[param]]
 name = "scheduler_host"
 type = "String"
 default = "std::string::String::from(\"localhost\")"
