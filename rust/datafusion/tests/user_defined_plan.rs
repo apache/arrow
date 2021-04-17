@@ -180,6 +180,7 @@ async fn topk_plan() -> Result<()> {
 fn make_topk_context() -> ExecutionContext {
     let config = ExecutionConfig::new()
         .with_query_planner(Arc::new(TopKQueryPlanner {}))
+        .with_concurrency(48)
         .add_optimizer_rule(Arc::new(TopKOptimizerRule {}));
 
     ExecutionContext::with_config(config)
