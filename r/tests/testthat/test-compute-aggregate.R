@@ -209,8 +209,6 @@ test_that("Edge cases", {
   for (type in c(int32(), float64(), bool())) {
     expect_equal(as.vector(sum(a$cast(type), na.rm = TRUE)), sum(NA, na.rm = TRUE))
     expect_equal(as.vector(mean(a$cast(type), na.rm = TRUE)), mean(NA, na.rm = TRUE))
-  }
-  for (type in c(float64())) {
     expect_equal(as.vector(min(a$cast(type), na.rm = TRUE)), min(NA, na.rm = TRUE))
     expect_equal(as.vector(max(a$cast(type), na.rm = TRUE)), max(NA, na.rm = TRUE))
   }
