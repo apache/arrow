@@ -284,6 +284,8 @@ class ARROW_DS_EXPORT SyncScanner : public Scanner {
   Result<ScanTaskIterator> Scan() override;
   Status Scan(std::function<Status(TaggedRecordBatch)> visitor) override;
   Result<std::shared_ptr<Table>> ToTable() override;
+  Result<TaggedRecordBatchGenerator> ScanBatchesAsync();
+  Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync() override;
 
  protected:
   /// \brief GetFragments returns an iterator over all Fragments in this scan.
@@ -309,6 +311,14 @@ Result<TaggedRecordBatchIterator> SyncScanner::ScanBatches() {
     RETURN_NOT_OK(task_group->Finish());
     return IterationEnd<TaggedRecordBatch>();
   });
+}
+
+Result<TaggedRecordBatchGenerator> SyncScanner::ScanBatchesAsync() {
+  return Status::NotImplemented("Asynchronous scanning is not supported by SyncScanner");
+}
+
+Result<EnumeratedRecordBatchGenerator> SyncScanner::ScanBatchesUnorderedAsync() {
+  return Status::NotImplemented("Asynchronous scanning is not supported by SyncScanner");
 }
 
 Result<FragmentIterator> SyncScanner::GetFragments() {
@@ -374,7 +384,9 @@ class ARROW_DS_EXPORT AsyncScanner : public Scanner,
 
   Status Scan(std::function<Status(TaggedRecordBatch)> visitor) override;
   Result<TaggedRecordBatchIterator> ScanBatches() override;
+  Result<TaggedRecordBatchGenerator> ScanBatchesAsync() override;
   Result<EnumeratedRecordBatchIterator> ScanBatchesUnordered() override;
+  Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync() override;
   Result<std::shared_ptr<Table>> ToTable() override;
 
  private:
@@ -507,13 +519,24 @@ Result<std::shared_ptr<Table>> AsyncScanner::ToTable() {
   return table_fut.result();
 }
 
+Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync() {
+  return ScanBatchesUnorderedAsync(internal::GetCpuThreadPool());
+}
+
 Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
     internal::Executor* cpu_executor) {
   auto self = shared_from_this();
   ARROW_ASSIGN_OR_RAISE(auto fragment_gen, GetFragments());
   ARROW_ASSIGN_OR_RAISE(auto batch_gen_gen,
                         FragmentsToBatches(self, std::move(fragment_gen)));
-  return MakeConcatenatedGenerator(std::move(batch_gen_gen));
+  auto batch_gen_gen_readahead = MakeSerialReadaheadGenerator(
+      std::move(batch_gen_gen), scan_options_->fragment_readahead);
+  return MakeMergedGenerator(std::move(batch_gen_gen_readahead),
+                             scan_options_->fragment_readahead);
+}
+
+Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync() {
+  return ScanBatchesAsync(internal::GetCpuThreadPool());
 }
 
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync(
@@ -673,6 +696,15 @@ Status ScannerBuilder::Filter(const Expression& filter) {
 
 Status ScannerBuilder::UseThreads(bool use_threads) {
   scan_options_->use_threads = use_threads;
+  return Status::OK();
+}
+
+Status ScannerBuilder::FragmentReadahead(int fragment_readahead) {
+  if (fragment_readahead <= 0) {
+    return Status::Invalid("FragmentReadahead must be greater than 0, got ",
+                           fragment_readahead);
+  }
+  scan_options_->fragment_readahead = fragment_readahead;
   return Status::OK();
 }
 
