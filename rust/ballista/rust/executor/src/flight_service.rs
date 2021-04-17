@@ -132,10 +132,12 @@ impl FlightService for BallistaFlightService {
                             .map_err(|e| from_ballista_err(&e))?;
 
                         info!(
-                            "Executed partition {} in {} seconds. Statistics: {:?}",
+                            "Executed partition {} in {} seconds. Statistics: {:?}\n{}",
                             part,
                             now.elapsed().as_secs(),
-                            stats
+                            stats,
+                            format_plan(partition.plan.as_ref(), 0)
+                                .map_err(|e| from_ballista_err(&e))?
                         );
 
                         let mut flights: Vec<Result<FlightData, Status>> = vec![];

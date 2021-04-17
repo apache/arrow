@@ -81,6 +81,16 @@ impl SQLMetric {
         self.value += n;
     }
 
+    /// Get the metric name
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Get the metric type
+    pub fn metric_type(&self) -> &MetricType {
+        &self.metric_type
+    }
+
     /// Get the current value
     pub fn value(&self) -> usize {
         self.value

@@ -23,7 +23,7 @@ use std::sync::Arc;
 use std::{fs::File, pin::Pin};
 
 use crate::error::{BallistaError, Result};
-use crate::execution_plans::{QueryStageExec, UnresolvedShuffleExec};
+use crate::execution_plans::{QueryStageExec, ShuffleReaderExec, UnresolvedShuffleExec};
 use crate::memory_stream::MemoryStream;
 use crate::serde::scheduler::PartitionStats;
 use arrow::array::{
@@ -148,12 +148,28 @@ pub fn format_plan(plan: &dyn ExecutionPlan, indent: usize) -> Result<String> {
                 "CoalesceBatchesExec: batchSize={}",
                 exec.target_batch_size()
             )
+        } else if let Some(exec) = plan.as_any().downcast_ref::<ShuffleReaderExec>() {
+            format!(
+                "ShuffleReaderExec: partitions={}",
+                exec.partition_location
+                    .iter()
+                    .map(|p| format!("{:?}", p.partition_id))
+                    .collect::<Vec<String>>()
+                    .join(",")
+            )
         } else if plan.as_any().downcast_ref::<MergeExec>().is_some() {
             "MergeExec".to_string()
         } else {
             let str = format!("{:?}", plan);
             String::from(&str[0..120])
         };
+
+    let metrics_str = plan
+        .metrics()
+        .values()
+        .map(|m| format!("{}={}", m.name(), m.value()))
+        .collect::<Vec<String>>()
+        .join(",");
 
     let children_str = plan
         .children()
@@ -164,9 +180,15 @@ pub fn format_plan(plan: &dyn ExecutionPlan, indent: usize) -> Result<String> {
 
     let indent_str = "  ".repeat(indent);
     if plan.children().is_empty() {
-        Ok(format!("{}{}{}", indent_str, &operator_str, children_str))
+        Ok(format!(
+            "{}{}\n{}Metrics: {}{}",
+            indent_str, &operator_str, indent_str, metrics_str, children_str
+        ))
     } else {
-        Ok(format!("{}{}\n{}", indent_str, &operator_str, children_str))
+        Ok(format!(
+            "{}{}\n{}Metrics: {}\n{}",
+            indent_str, &operator_str, indent_str, metrics_str, children_str
+        ))
     }
 }
 
