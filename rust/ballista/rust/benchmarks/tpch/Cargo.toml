@@ -27,14 +27,9 @@ edition = "2018"
 [dependencies]
 ballista = { path="../../client" }
 
-#arrow = { path = "../../../../arrow"  }
-#datafusion = { path = "../../../../datafusion" }
-#parquet = { path = "../../../../parquet"  }
-
-arrow = { git = "https://github.com/apache/arrow", rev="fe83dca" }
-datafusion = { git = "https://github.com/apache/arrow", rev="fe83dca" }
-parquet = { git = "https://github.com/apache/arrow", rev="fe83dca" }
-
+arrow = { path = "../../../../arrow"  }
+datafusion = { path = "../../../../datafusion" }
+parquet = { path = "../../../../parquet"  }
 
 env_logger = "0.8"
 tokio = { version = "1.0", features = ["macros", "rt", "rt-multi-thread"] }
