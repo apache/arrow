@@ -184,3 +184,5 @@ If sometimes you want to commit without checking, just run `git commit` with `--
 ```bash
 git commit --no-verify -m "... commit message ..."
 ```
+
+# testing
