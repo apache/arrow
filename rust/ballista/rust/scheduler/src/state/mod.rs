@@ -349,6 +349,15 @@ impl SchedulerState {
         }
 
         // Check for job completion
+        let last_stage = statuses
+            .iter()
+            .map(|task| task.partition_id.as_ref().unwrap().stage_id)
+            .max()
+            .unwrap();
+        let statuses: Vec<_> = statuses
+            .into_iter()
+            .filter(|task| task.partition_id.as_ref().unwrap().stage_id == last_stage)
+            .collect();
         let mut job_status = statuses
             .iter()
             .map(|status| match &status.status {
