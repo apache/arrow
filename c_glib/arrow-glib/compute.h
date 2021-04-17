@@ -94,7 +94,7 @@ struct _GArrowScalarAggregateOptionsClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_0_13
+GARROW_AVAILABLE_IN_5_0
 GArrowScalarAggregateOptions *
 garrow_scalar_aggregate_options_new(void);
 

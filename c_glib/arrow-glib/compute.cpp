@@ -130,8 +130,9 @@ G_BEGIN_DECLS
  * #GArrowCastOptions is a class to customize the `cast` function and
  * garrow_array_cast().
  *
- * #GArrowScalarAggregateOptions is a class to customize the `count` function and
- * garrow_array_count().
+ * #GArrowScalarAggregateOptions is a class to customize the scalar
+ * aggregate functions such as `count` function and convenient
+ * functions of them such as garrow_array_count().
  *
  * #GArrowFilterOptions is a class to customize the `filter` function and
  * garrow_array_filter() family.
@@ -641,13 +642,16 @@ typedef struct GArrowScalarAggregateOptionsPrivate_ {
 } GArrowScalarAggregateOptionsPrivate;
 
 enum {
-  PROP_MODE = 1,
+  PROP_SKIP_NULLS = 1,
+  PROP_MIN_COUNT,
 };
 
 static arrow::compute::FunctionOptions *
-garrow_scalar_aggregate_options_get_raw_function_options(GArrowFunctionOptions *options)
+garrow_scalar_aggregate_options_get_raw_function_options(
+  GArrowFunctionOptions *options)
 {
-  return garrow_scalar_aggregate_options_get_raw(GARROW_SCALAR_AGGREGATE_OPTIONS(options));
+  return garrow_scalar_aggregate_options_get_raw(
+    GARROW_SCALAR_AGGREGATE_OPTIONS(options));
 }
 
 static void
@@ -666,7 +670,7 @@ G_DEFINE_TYPE_WITH_CODE(GArrowScalarAggregateOptions,
                           garrow_scalar_aggregate_options_function_options_interface_init))
 
 #define GARROW_SCALAR_AGGREGATE_OPTIONS_GET_PRIVATE(object)        \
-  static_cast<GArrowScalarAggregateOptionsPrivate *>(             \
+  static_cast<GArrowScalarAggregateOptionsPrivate *>(              \
     garrow_scalar_aggregate_options_get_instance_private(          \
       GARROW_SCALAR_AGGREGATE_OPTIONS(object)))
 
@@ -680,15 +684,18 @@ garrow_scalar_aggregate_options_finalize(GObject *object)
 
 static void
 garrow_scalar_aggregate_options_set_property(GObject *object,
-                                  guint prop_id,
-                                  const GValue *value,
-                                  GParamSpec *pspec)
+                                             guint prop_id,
+                                             const GValue *value,
+                                             GParamSpec *pspec)
 {
   auto priv = GARROW_SCALAR_AGGREGATE_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
-  case PROP_MODE:
+  case PROP_SKIP_NULLS:
     priv->options.skip_nulls = g_value_get_boolean(value);
+    break;
+  case PROP_MIN_COUNT:
+    priv->options.skip_nulls = g_value_get_uint(value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -698,15 +705,18 @@ garrow_scalar_aggregate_options_set_property(GObject *object,
 
 static void
 garrow_scalar_aggregate_options_get_property(GObject *object,
-                                 guint prop_id,
-                                 GValue *value,
-                                 GParamSpec *pspec)
+                                             guint prop_id,
+                                             GValue *value,
+                                             GParamSpec *pspec)
 {
   auto priv = GARROW_SCALAR_AGGREGATE_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
-  case PROP_MODE:
-    g_value_set_enum(value, priv->options.skip_nulls);
+  case PROP_SKIP_NULLS:
+    g_value_set_boolean(value, priv->options.skip_nulls);
+    break;
+  case PROP_MIN_COUNT:
+    g_value_set_uint(value, priv->options.min_count);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -718,12 +728,12 @@ static void
 garrow_scalar_aggregate_options_init(GArrowScalarAggregateOptions *object)
 {
   auto priv = GARROW_SCALAR_AGGREGATE_OPTIONS_GET_PRIVATE(object);
-  new(&priv->options) arrow::compute::ScalarAggregateOptions(
-    TRUE);
+  new(&priv->options) arrow::compute::ScalarAggregateOptions();
 }
 
 static void
-garrow_scalar_aggregate_options_class_init(GArrowScalarAggregateOptionsClass *klass)
+garrow_scalar_aggregate_options_class_init(
+  GArrowScalarAggregateOptionsClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
@@ -731,20 +741,38 @@ garrow_scalar_aggregate_options_class_init(GArrowScalarAggregateOptionsClass *kl
   gobject_class->set_property = garrow_scalar_aggregate_options_set_property;
   gobject_class->get_property = garrow_scalar_aggregate_options_get_property;
 
+  auto options = arrow::compute::ScalarAggregateOptions::Defaults();
+
   GParamSpec *spec;
   /**
-   * GArrowScalarAggregateOptions:skip_nulls:
+   * GArrowScalarAggregateOptions:skip-nulls:
    *
-   * How to count values.
+   * Whether NULLs are skipped or not.
    *
-   * Since: 0.13.0
+   * Since: 5.0.0
    */
-  spec = g_param_spec_boolean("skip_nulls",
-                              "Skip nulls",
-                              "How to count values",
-                              TRUE,
+  spec = g_param_spec_boolean("skip-nulls",
+                              "Skip NULLs",
+                              "Whether NULLs are skipped or not",
+                              options.skip_nulls,
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class, PROP_MODE, spec);
+  g_object_class_install_property(gobject_class, PROP_SKIP_NULLS, spec);
+
+  /**
+   * GArrowScalarAggregateOptions:min-count:
+   *
+   * The minimum required number of values.
+   *
+   * Since: 5.0.0
+   */
+  spec = g_param_spec_uint("min-count",
+                           "Min count",
+                           "The minimum required number of values",
+                           0,
+                           G_MAXUINT,
+                           options.min_count,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_MIN_COUNT, spec);
 }
 
 /**
@@ -752,12 +780,13 @@ garrow_scalar_aggregate_options_class_init(GArrowScalarAggregateOptionsClass *kl
  *
  * Returns: A newly created #GArrowScalarAggregateOptions.
  *
- * Since: 0.13.0
+ * Since: 5.0.0
  */
 GArrowScalarAggregateOptions *
 garrow_scalar_aggregate_options_new(void)
 {
-  auto scalar_aggregate_options = g_object_new(GARROW_TYPE_SCALAR_AGGREGATE_OPTIONS, NULL);
+  auto scalar_aggregate_options =
+    g_object_new(GARROW_TYPE_SCALAR_AGGREGATE_OPTIONS, NULL);
   return GARROW_SCALAR_AGGREGATE_OPTIONS(scalar_aggregate_options);
 }
 
@@ -861,14 +890,14 @@ garrow_filter_options_class_init(GArrowFilterOptionsClass *klass)
 
   GParamSpec *spec;
   /**
-   * GArrowFilterOptions:null_selection_behavior:
+   * GArrowFilterOptions:null-selection-behavior:
    *
    * How to handle filtered values.
    *
    * Since: 0.17.0
    */
-  spec = g_param_spec_enum("null_selection_behavior",
-                           "Null selection behavior",
+  spec = g_param_spec_enum("null-selection-behavior",
+                           "NULL selection behavior",
                            "How to handle filtered values",
                            GARROW_TYPE_FILTER_NULL_SELECTION_BEHAVIOR,
                            static_cast<GArrowFilterNullSelectionBehavior>(
