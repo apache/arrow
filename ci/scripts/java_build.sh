@@ -30,15 +30,6 @@ if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   wget="wget"
   bintray_base_url="https://dl.bintray.com/apache/arrow"
 
-  bintray_dir="flatc-binary"
-  group="com.github.icexelloss"
-  artifact="flatc-linux-s390_64"
-  ver="1.9.0"
-  extension="exe"
-  target=${artifact}-${ver}.${extension}
-  ${wget} ${bintray_base_url}/${bintray_dir}/${ver}/${target}
-  ${mvn_install} -DgroupId=${group} -DartifactId=${artifact} -Dversion=${ver} -Dpackaging=${extension} -Dfile=$(pwd)/${target}
-
   bintray_dir="protoc-binary"
   group="com.google.protobuf"
   artifact="protoc"
