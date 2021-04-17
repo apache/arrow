@@ -510,12 +510,11 @@ TYPED_TEST(TestMeanKernelNumeric, SimpleMean) {
 TYPED_TEST_SUITE(TestMeanKernelNumeric, NumericArrowTypes);
 TYPED_TEST(TestMeanKernelNumeric, ScalarAggregateOptions) {
   using ScalarType = typename TypeTraits<DoubleType>::ScalarType;
-  using T = typename TypeParam::c_type;
 
-  auto expected_result_keepna = Datum(std::make_shared<ScalarType>(static_cast<T>(2)));
-  auto expected_result_skipna = Datum(std::make_shared<ScalarType>(static_cast<T>(3)));
+  auto expected_result_keepna = Datum(std::make_shared<ScalarType>(2));
+  auto expected_result_skipna = Datum(std::make_shared<ScalarType>(3));
   auto null_result = Datum(std::make_shared<ScalarType>());
-  auto zero_result = Datum(std::make_shared<ScalarType>(static_cast<T>(0)));
+  auto zero_result = Datum(std::make_shared<ScalarType>(0));
   const char* json = "[1, null, 2, 2, null, 7]";
 
   ValidateMean<TypeParam>("[]", null_result, ScalarAggregateOptions(true, 0));
@@ -678,8 +677,8 @@ TEST_F(TestBooleanMinMaxKernel, Basics) {
   this->AssertMinMaxIsNull(chunked_input3, options);
 
   options = ScalarAggregateOptions(true, 0);
-  this->AssertMinMaxIs("[]", INFINITY, -INFINITY, options);
-  this->AssertMinMaxIs("[null]", INFINITY, -INFINITY, options);
+  this->AssertMinMaxIs("[]", true, false, options);
+  this->AssertMinMaxIs("[null]", true, false, options);
 }
 
 TYPED_TEST_SUITE(TestIntegerMinMaxKernel, IntegralArrowTypes);

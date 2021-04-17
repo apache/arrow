@@ -275,9 +275,8 @@ struct MinMaxImpl : public ScalarAggregator {
 
     std::vector<std::shared_ptr<Scalar>> values;
     if (!state.has_values && options.skip_nulls && options.min_count == 0) {
-      // (Inf, -Inf)
-      values = {std::make_shared<ScalarType>(INFINITY),
-                std::make_shared<ScalarType>(-INFINITY)};
+      values = {std::make_shared<ScalarType>(state.min),
+                std::make_shared<ScalarType>(state.max)};
     } else if (!state.has_values || (state.has_nulls && !options.skip_nulls)) {
       // (null, null)
       values = {std::make_shared<ScalarType>(), std::make_shared<ScalarType>()};
