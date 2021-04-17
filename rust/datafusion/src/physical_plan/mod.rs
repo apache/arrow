@@ -52,6 +52,8 @@ pub type SendableRecordBatchStream = Pin<Box<dyn RecordBatchStream + Send + Sync
 pub enum MetricType {
     /// Simple counter
     Counter,
+    /// Time in nanoseconds
+    TimeNanos,
 }
 
 /// SQL metric such as counter (number of input or output rows) or timing information about
