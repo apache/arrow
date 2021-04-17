@@ -60,12 +60,12 @@ impl parse_arg::ParseArgFromStr for ConfigBackend {
 
 use crate::planner::DistributedPlanner;
 
-use datafusion::execution::context::ExecutionContext;
 use log::{debug, error, info, warn};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use tonic::{Request, Response};
 
 use self::state::{ConfigBackendClient, SchedulerState};
+use ballista_core::utils::create_datafusion_context;
 use datafusion::physical_plan::parquet::ParquetExec;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
@@ -254,7 +254,7 @@ impl SchedulerGrpc for SchedulerServer {
                 Query::Sql(sql) => {
                     //TODO we can't just create a new context because we need a context that has
                     // tables registered from previous SQL statements that have been executed
-                    let mut ctx = ExecutionContext::new();
+                    let mut ctx = create_datafusion_context();
                     let df = ctx.sql(&sql).map_err(|e| {
                         let msg = format!("Error parsing SQL: {}", e);
                         error!("{}", msg);
@@ -303,7 +303,7 @@ impl SchedulerGrpc for SchedulerServer {
             let job_id_spawn = job_id.clone();
             tokio::spawn(async move {
                 // create physical plan using DataFusion
-                let datafusion_ctx = ExecutionContext::new();
+                let datafusion_ctx = create_datafusion_context();
                 macro_rules! fail_job {
                     ($code :expr) => {{
                         match $code {
