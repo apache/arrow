@@ -17,15 +17,18 @@
 
 //! Etcd config backend.
 
-use std::time::Duration;
+use std::{task::Poll, time::Duration};
 
 use crate::state::ConfigBackendClient;
 use ballista_core::error::{ballista_error, Result};
 
-use etcd_client::{GetOptions, LockResponse, PutOptions};
+use etcd_client::{
+    GetOptions, LockResponse, PutOptions, WatchOptions, WatchStream, Watcher,
+};
+use futures::{Stream, StreamExt};
 use log::warn;
 
-use super::Lock;
+use super::{Lock, Watch, WatchEvent};
 
 /// A [`ConfigBackendClient`] implementation that uses etcd to save cluster configuration.
 #[derive(Clone)]
@@ -104,6 +107,87 @@ impl ConfigBackendClient for EtcdClient {
                 ballista_error("etcd lock failed")
             })?;
         Ok(Box::new(EtcdLockGuard { etcd, lock }))
+    }
+
+    async fn watch(&self, prefix: String) -> Result<Box<dyn Watch>> {
+        let mut etcd = self.etcd.clone();
+        let options = WatchOptions::new().with_prefix();
+        let (watcher, stream) = etcd.watch(prefix, Some(options)).await.map_err(|e| {
+            warn!("etcd watch failed: {}", e);
+            ballista_error("etcd watch failed")
+        })?;
+        Ok(Box::new(EtcdWatch {
+            watcher,
+            stream,
+            buffered_events: Vec::new(),
+        }))
+    }
+}
+
+struct EtcdWatch {
+    watcher: Watcher,
+    stream: WatchStream,
+    buffered_events: Vec<WatchEvent>,
+}
+
+#[tonic::async_trait]
+impl Watch for EtcdWatch {
+    async fn cancel(&mut self) -> Result<()> {
+        self.watcher.cancel().await.map_err(|e| {
+            warn!("etcd watch cancel failed: {}", e);
+            ballista_error("etcd watch cancel failed")
+        })
+    }
+}
+
+impl Stream for EtcdWatch {
+    type Item = WatchEvent;
+
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
+        let self_mut = self.get_mut();
+        if let Some(event) = self_mut.buffered_events.pop() {
+            Poll::Ready(Some(event))
+        } else {
+            loop {
+                match self_mut.stream.poll_next_unpin(cx) {
+                    Poll::Ready(Some(Err(e))) => {
+                        warn!("Error when watching etcd prefix: {}", e);
+                        continue;
+                    }
+                    Poll::Ready(Some(Ok(v))) => {
+                        self_mut.buffered_events.extend(v.events().iter().map(|ev| {
+                            match ev.event_type() {
+                                etcd_client::EventType::Put => {
+                                    let kv = ev.kv().unwrap();
+                                    WatchEvent::Put(
+                                        kv.key_str().unwrap().to_string(),
+                                        kv.value().to_owned(),
+                                    )
+                                }
+                                etcd_client::EventType::Delete => {
+                                    let kv = ev.kv().unwrap();
+                                    WatchEvent::Delete(kv.key_str().unwrap().to_string())
+                                }
+                            }
+                        }));
+                        if let Some(event) = self_mut.buffered_events.pop() {
+                            return Poll::Ready(Some(event));
+                        } else {
+                            continue;
+                        }
+                    }
+                    Poll::Ready(None) => return Poll::Ready(None),
+                    Poll::Pending => return Poll::Pending,
+                }
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.stream.size_hint()
     }
 }
 
