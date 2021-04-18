@@ -52,7 +52,7 @@ pub type SendableRecordBatchStream = Pin<Box<dyn RecordBatchStream + Send + Sync
 pub enum MetricType {
     /// Simple counter
     Counter,
-    /// Time in nanoseconds
+    /// Wall clock time in nanoseconds
     TimeNanos,
 }
 
