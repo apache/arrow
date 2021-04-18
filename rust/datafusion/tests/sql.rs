@@ -1296,7 +1296,8 @@ async fn cartesian_join() -> Result<()> {
     //let maybe_plan = ctx.create_logical_plan(&sql);
     let actual = execute(&mut ctx, sql).await;
 
-    println!("{:?}", actual);
+    assert_eq!(4 * 4, actual.len());
+
 
     Ok(())
 }
