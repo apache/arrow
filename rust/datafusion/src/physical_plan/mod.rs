@@ -333,6 +333,7 @@ pub trait Accumulator: Send + Sync + Debug {
 
 pub mod aggregates;
 pub mod array_expressions;
+pub mod cartesian_join;
 pub mod coalesce_batches;
 pub mod common;
 #[cfg(feature = "crypto_expressions")]
@@ -348,7 +349,6 @@ pub mod functions;
 pub mod group_scalar;
 pub mod hash_aggregate;
 pub mod hash_join;
-pub mod cartesian_join;
 pub mod hash_utils;
 pub mod limit;
 pub mod math_expressions;
