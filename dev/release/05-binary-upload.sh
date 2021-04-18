@@ -35,7 +35,8 @@ version_with_rc="${version}-rc${rc}"
 crossbow_job_prefix="release-${version_with_rc}"
 crossbow_package_dir="${SOURCE_DIR}/../../packages"
 
-: ${CROSSBOW_JOB_ID:="${crossbow_job_prefix}-0"}
+: ${CROSSBOW_JOB_NUMBER:="0"}
+: ${CROSSBOW_JOB_ID:="${crossbow_job_prefix}-${CROSSBOW_JOB_NUMBER}"}
 artifact_dir="${crossbow_package_dir}/${CROSSBOW_JOB_ID}"
 
 if [ ! -e "$artifact_dir" ]; then
@@ -68,7 +69,7 @@ if [ -n "${SOURCE_BINTRAY_REPOSITORY_CUSTOM}" ]; then
   SOURCE_BINTRAY_REPOSITORY=${SOURCE_BINTRAY_REPOSITORY_CUSTOM}
 fi
 
-. binary-common.sh
+. utils-binary.sh
 
 # By default upload all artifacts.
 # To deactivate one category, deactivate the category and all of its dependents.

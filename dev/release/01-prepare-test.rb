@@ -30,7 +30,7 @@ class PrepareTest < Test::Unit::TestCase
       git("clone", @original_git_repository.to_s, @test_git_repository.to_s)
       Dir.chdir(@test_git_repository) do
         @tag_name = "apache-arrow-#{@release_version}"
-        @release_branch = "release-#{@release_version}-rc0"
+        @release_branch = "testing-release-#{@release_version}-rc0"
         @script = "dev/release/01-prepare.sh"
         git("checkout", "-b", @release_branch, @current_commit)
         yield
@@ -43,18 +43,18 @@ class PrepareTest < Test::Unit::TestCase
     omit("Not for release branch") if on_release_branch?
   end
 
-  def prepare(*targets)
+  def prepare(script, *targets)
     if targets.last.is_a?(Hash)
       additional_env = targets.pop
     else
       additional_env = {}
     end
-    env = {"PREPARE_DEFAULT" => "0"}
+    env = { "PREPARE_DEFAULT" => "0" }
     targets.each do |target|
       env["PREPARE_#{target}"] = "1"
     end
     env = env.merge(additional_env)
-    sh(env, @script, @release_version, @next_version, "0")
+    sh(env, script, @release_version, @next_version, "0")
   end
 
   def parse_patch(patch)
@@ -64,7 +64,7 @@ class PrepareTest < Test::Unit::TestCase
       case line
       when /\A--- a\//
         path = $POSTMATCH.chomp
-        diffs << {path: path, hunks: []}
+        diffs << { path: path, hunks: [] }
         in_hunk = false
       when /\A@@/
         in_hunk = true
@@ -82,7 +82,8 @@ class PrepareTest < Test::Unit::TestCase
   def test_linux_packages
     user = "Arrow Developers"
     email = "dev@arrow.apache.org"
-    prepare("LINUX_PACKAGES",
+    prepare("dev/release/01-prepare.sh",
+            "LINUX_PACKAGES",
             "DEBFULLNAME" => user,
             "DEBEMAIL" => email)
     changes = parse_patch(git("log", "-n", "1", "-p"))
@@ -90,7 +91,6 @@ class PrepareTest < Test::Unit::TestCase
       {
         path: change[:path],
         sampled_hunks: change[:hunks].collect(&:first),
-        # sampled_hunks: change[:hunks],
       }
     end
     base_dir = "dev/tasks/linux-packages"
@@ -104,8 +104,7 @@ class PrepareTest < Test::Unit::TestCase
         ],
       },
       {
-        path:
-          "#{base_dir}/apache-arrow-release/yum/apache-arrow-release.spec.in",
+        path: "#{base_dir}/apache-arrow-release/yum/apache-arrow-release.spec.in",
         sampled_hunks: [
           "+* #{today} #{user} <#{email}> - #{@release_version}-1",
         ],
@@ -128,7 +127,7 @@ class PrepareTest < Test::Unit::TestCase
 
   def test_version_pre_tag
     omit_on_release_branch
-    prepare("VERSION_PRE_TAG")
+    prepare("dev/release/01-prepare.sh", "VERSION_PRE_TAG")
     assert_equal([
                    {
                      path: "c_glib/meson.build",
@@ -180,10 +179,79 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
+                     path: "java/adapter/avro/pom.xml",
+                     hunks: [
+                       ["-    <version>#{@snapshot_version}</version>",
+                        "+    <version>#{@release_version}</version>"],
+                     ],
+                   },
+                   {
+                     hunks: [
+                       ["-        <version>#{@snapshot_version}</version>",
+                        "+        <version>#{@release_version}</version>"],
+                     ],
+                     path: "java/adapter/jdbc/pom.xml",
+                   },
+                   {
+                     hunks: [
+                       ["-        <version>#{@snapshot_version}</version>",
+                        "+        <version>#{@release_version}</version>"],
+                     ],
+                     path: "java/adapter/orc/pom.xml",
+                   },
+                   { hunks: [["-    <version>#{@snapshot_version}</version>",
+                              "+    <version>#{@release_version}</version>"]],
+                     path: "java/algorithm/pom.xml" },
+                   { hunks: [["-    <version>#{@snapshot_version}</version>",
+                              "+    <version>#{@release_version}</version>"]],
+                     path: "java/compression/pom.xml" },
+                   { hunks: [["-        <version>#{@snapshot_version}</version>",
+                              "+        <version>#{@release_version}</version>"]],
+                     path: "java/dataset/pom.xml" },
+                   { hunks: [["-    <version>#{@snapshot_version}</version>",
+                              "+    <version>#{@release_version}</version>"]],
+                     path: "java/flight/flight-core/pom.xml" },
+                   { hunks: [["-    <version>#{@snapshot_version}</version>",
+                              "+    <version>#{@release_version}</version>"]],
+                     path: "java/flight/flight-grpc/pom.xml" },
+                   { hunks: [["-  <version>#{@snapshot_version}</version>", "+  <version>#{@release_version}</version>"]],
+                     path: "java/format/pom.xml" },
+                   { hunks: [["-      <version>#{@snapshot_version}</version>",
+                              "+      <version>#{@release_version}</version>"]],
+                     path: "java/gandiva/pom.xml" },
+                   { hunks: [["-    <version>#{@snapshot_version}</version>",
+                              "+    <version>#{@release_version}</version>"]],
+                     path: "java/memory/memory-core/pom.xml" },
+                   { hunks: [["-    <version>#{@snapshot_version}</version>",
+                              "+    <version>#{@release_version}</version>"]],
+                     path: "java/memory/memory-netty/pom.xml" },
+                   { hunks: [["-    <version>#{@snapshot_version}</version>",
+                              "+    <version>#{@release_version}</version>"]],
+                     path: "java/memory/memory-unsafe/pom.xml" },
+                   { hunks: [["-    <version>#{@snapshot_version}</version>",
+                              "+    <version>#{@release_version}</version>"]],
+                     path: "java/memory/pom.xml" },
+                   { hunks: [["-        <version>#{@snapshot_version}</version>",
+                              "+        <version>#{@release_version}</version>"],
+                             ["-            <version>#{@snapshot_version}</version>",
+                              "+            <version>#{@release_version}</version>"]],
+                     path: "java/performance/pom.xml" },
+                   { hunks: [["-        <version>#{@snapshot_version}</version>",
+                              "+        <version>#{@release_version}</version>"]],
+                     path: "java/plasma/pom.xml" },
+                   { hunks: [["-  <version>#{@snapshot_version}</version>", "+  <version>#{@release_version}</version>"]],
+                     path: "java/pom.xml" },
+                   { hunks: [["-        <version>#{@snapshot_version}</version>",
+                              "+        <version>#{@release_version}</version>"]],
+                     path: "java/tools/pom.xml" },
+                   { hunks: [["-    <version>#{@snapshot_version}</version>",
+                              "+    <version>#{@release_version}</version>"]],
+                     path: "java/vector/pom.xml" },
+                   {
                      path: "js/package.json",
                      hunks: [
                        ["-  \"version\": \"#{@snapshot_version}\"",
-                        "+  \"version\": \"#{@release_version}\""]
+                        "+  \"version\": \"#{@release_version}\""],
                      ],
                    },
                    {
@@ -289,11 +357,11 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
-                    path: "rust/datafusion-examples/Cargo.toml",
-                    hunks: [
-                      ["-version = \"#{@snapshot_version}\"",
-                       "+version = \"#{@release_version}\""],
-                    ],
+                     path: "rust/datafusion-examples/Cargo.toml",
+                     hunks: [
+                       ["-version = \"#{@snapshot_version}\"",
+                        "+version = \"#{@release_version}\""],
+                     ],
                    },
                    {
                      path: "rust/datafusion/Cargo.toml",
@@ -328,7 +396,7 @@ class PrepareTest < Test::Unit::TestCase
                        ["-arrow = { path = \"../arrow\", version = \"#{@snapshot_version}\", optional = true }",
                         "+arrow = { path = \"../arrow\", version = \"#{@release_version}\", optional = true }"],
                        ["-arrow = { path = \"../arrow\", version = \"#{@snapshot_version}\" }",
-                        "+arrow = { path = \"../arrow\", version = \"#{@release_version}\" }"]
+                        "+arrow = { path = \"../arrow\", version = \"#{@release_version}\" }"],
                      ],
                    },
                    {
@@ -375,10 +443,10 @@ class PrepareTest < Test::Unit::TestCase
 
   def test_version_post_tag
     if on_release_branch?
-      prepare("VERSION_POST_TAG")
+      prepare("dev/release/post-12-version.sh", "VERSION_POST_TAG")
     else
-      prepare("VERSION_PRE_TAG",
-              "VERSION_POST_TAG")
+      prepare("dev/release/01-prepare.sh", "VERSION_PRE_TAG")
+      prepare("dev/release/post-12-version.sh", "VERSION_POST_TAG")
     end
     assert_equal([
                    {
@@ -430,6 +498,63 @@ class PrepareTest < Test::Unit::TestCase
                         "+  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@release_version}.9000/apache-arrow-#{@release_version}.9000.tar.gz\""],
                      ],
                    },
+                   { path: "java/adapter/avro/pom.xml",
+                     hunks: [["-    <version>#{@release_version}</version>",
+                             "+    <version>#{@next_snapshot_version}</version>"]] },
+                   { hunks: [["-        <version>#{@release_version}</version>",
+                              "+        <version>#{@next_snapshot_version}</version>"]],
+                     path: "java/adapter/jdbc/pom.xml" },
+                   { hunks: [["-        <version>#{@release_version}</version>",
+                              "+        <version>#{@next_snapshot_version}</version>"]],
+                     path: "java/adapter/orc/pom.xml" },
+                   { hunks: [["-    <version>#{@release_version}</version>",
+                              "+    <version>#{@next_snapshot_version}</version>"]],
+                     path: "java/algorithm/pom.xml" },
+                   { hunks: [["-    <version>#{@release_version}</version>",
+                              "+    <version>#{@next_snapshot_version}</version>"]],
+                     path: "java/compression/pom.xml" },
+                   { hunks: [["-        <version>#{@release_version}</version>",
+                              "+        <version>#{@next_snapshot_version}</version>"]],
+                     path: "java/dataset/pom.xml" },
+                   { hunks: [["-    <version>#{@release_version}</version>",
+                              "+    <version>#{@next_snapshot_version}</version>"]],
+                     path: "java/flight/flight-core/pom.xml" },
+                   { hunks: [["-    <version>#{@release_version}</version>",
+                              "+    <version>#{@next_snapshot_version}</version>"]],
+                     path: "java/flight/flight-grpc/pom.xml" },
+                   { hunks: [["-  <version>#{@release_version}</version>", "+  <version>#{@next_snapshot_version}</version>"]],
+                     path: "java/format/pom.xml" },
+                   { hunks: [["-      <version>#{@release_version}</version>",
+                              "+      <version>#{@next_snapshot_version}</version>"]],
+                     path: "java/gandiva/pom.xml" },
+                   { hunks: [["-    <version>#{@release_version}</version>",
+                              "+    <version>#{@next_snapshot_version}</version>"]],
+                     path: "java/memory/memory-core/pom.xml" },
+                   { hunks: [["-    <version>#{@release_version}</version>",
+                              "+    <version>#{@next_snapshot_version}</version>"]],
+                     path: "java/memory/memory-netty/pom.xml" },
+                   { hunks: [["-    <version>#{@release_version}</version>",
+                              "+    <version>#{@next_snapshot_version}</version>"]],
+                     path: "java/memory/memory-unsafe/pom.xml" },
+                   { hunks: [["-    <version>#{@release_version}</version>",
+                              "+    <version>#{@next_snapshot_version}</version>"]],
+                     path: "java/memory/pom.xml" },
+                   { hunks: [["-        <version>#{@release_version}</version>",
+                              "+        <version>#{@next_snapshot_version}</version>"],
+                             ["-            <version>#{@release_version}</version>",
+                              "+            <version>#{@next_snapshot_version}</version>"]],
+                     path: "java/performance/pom.xml" },
+                   { hunks: [["-        <version>#{@release_version}</version>",
+                              "+        <version>#{@next_snapshot_version}</version>"]],
+                     path: "java/plasma/pom.xml" },
+                   { hunks: [["-  <version>#{@release_version}</version>", "+  <version>#{@next_snapshot_version}</version>"]],
+                     path: "java/pom.xml" },
+                   { hunks: [["-        <version>#{@release_version}</version>",
+                              "+        <version>#{@next_snapshot_version}</version>"]],
+                     path: "java/tools/pom.xml" },
+                   { hunks: [["-    <version>#{@release_version}</version>",
+                              "+    <version>#{@next_snapshot_version}</version>"]],
+                     path: "java/vector/pom.xml" },
                    {
                      path: "js/package.json",
                      hunks: [
@@ -541,11 +666,11 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
-                    path: "rust/datafusion-examples/Cargo.toml",
-                    hunks: [
-                      ["-version = \"#{@release_version}\"",
-                      "+version = \"#{@next_snapshot_version}\""],
-                  ],
+                     path: "rust/datafusion-examples/Cargo.toml",
+                     hunks: [
+                       ["-version = \"#{@release_version}\"",
+                        "+version = \"#{@next_snapshot_version}\""],
+                     ],
                    },
                    {
                      path: "rust/datafusion/Cargo.toml",
@@ -580,7 +705,7 @@ class PrepareTest < Test::Unit::TestCase
                        ["-arrow = { path = \"../arrow\", version = \"#{@release_version}\", optional = true }",
                         "+arrow = { path = \"../arrow\", version = \"#{@next_snapshot_version}\", optional = true }"],
                        ["-arrow = { path = \"../arrow\", version = \"#{@release_version}\" }",
-                        "+arrow = { path = \"../arrow\", version = \"#{@next_snapshot_version}\" }"]
+                        "+arrow = { path = \"../arrow\", version = \"#{@next_snapshot_version}\" }"],
                      ],
                    },
                    {
@@ -626,12 +751,12 @@ class PrepareTest < Test::Unit::TestCase
   end
 
   def test_deb_package_names
-    prepare("DEB_PACKAGE_NAMES")
+    prepare("dev/release/post-12-version.sh", "DEB_PACKAGE_NAMES")
     changes = parse_patch(git("log", "-n", "1", "-p"))
     sampled_changes = changes.collect do |change|
       first_hunk = change[:hunks][0]
-      first_removed_line = first_hunk.find {|line| line.start_with?("-")}
-      first_added_line = first_hunk.find {|line| line.start_with?("+")}
+      first_removed_line = first_hunk.find { |line| line.start_with?("-") }
+      first_added_line = first_hunk.find { |line| line.start_with?("+") }
       {
         sampled_diff: [first_removed_line, first_added_line],
         path: change[:path],
@@ -643,14 +768,14 @@ class PrepareTest < Test::Unit::TestCase
           "-dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib#{@so_version}.install",
           "+dev/tasks/linux-packages/apache-arrow/debian/libarrow-glib#{@next_so_version}.install",
         ],
-        path: "dev/release/rat_exclude_files.txt"
+        path: "dev/release/rat_exclude_files.txt",
       },
       {
         sampled_diff: [
           "-Package: libarrow#{@so_version}",
           "+Package: libarrow#{@next_so_version}",
         ],
-        path: "dev/tasks/linux-packages/apache-arrow/debian/control.in"
+        path: "dev/tasks/linux-packages/apache-arrow/debian/control.in",
       },
       {
         sampled_diff: [

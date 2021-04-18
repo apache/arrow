@@ -1047,7 +1047,11 @@ class BinaryTask
     else
       available_apt_targets.select do |distribution, code_name, component|
         env_apt_targets.any? do |env_apt_target|
-          env_apt_target.start_with?("#{distribution}-#{code_name}")
+          if env_apt_target.include?("-")
+            env_apt_target.start_with?("#{distribution}-#{code_name}")
+          else
+            env_apt_target == distribution
+          end
         end
       end
     end
@@ -1078,8 +1082,8 @@ class BinaryTask
           Dir.glob("#{source_dir_prefix}*/**/*") do |path|
             next if File.directory?(path)
             base_name = File.basename(path)
-            if base_name.start_with?("apache-arrow-archive-keyring")
-              package_name = "apache-arrow-archive-keyring"
+            if base_name.start_with?("apache-arrow-apt-source")
+              package_name = "apache-arrow-apt-source"
             else
               package_name = "apache-arrow"
             end
@@ -1100,13 +1104,13 @@ class BinaryTask
                           destination_path,
                           progress_reporter)
             case base_name
-            when /\A[^_]+-archive-keyring_.*\.deb\z/
-              latest_archive_keyring_package_path = [
+            when /\A[^_]+-apt-source_.*\.deb\z/
+              latest_apt_source_package_path = [
                 distribution_dir,
                 "#{package_name}-latest-#{code_name}.deb"
               ].join("/")
               copy_artifact(path,
-                            latest_archive_keyring_package_path,
+                            latest_apt_source_package_path,
                             progress_reporter)
             end
           end
@@ -1435,7 +1439,11 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
     else
       available_yum_targets.select do |distribution, distribution_version|
         env_yum_targets.any? do |env_yum_target|
-          env_yum_target.start_with?("#{distribution}-#{distribution_version}")
+          if env_yum_target.include?("-")
+            env_yum_target.start_with?("#{distribution}-#{distribution_version}")
+          else
+            env_yum_target == distribution
+          end
         end
       end
     end

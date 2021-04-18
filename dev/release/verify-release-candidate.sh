@@ -135,7 +135,9 @@ test_binary() {
 }
 
 test_apt() {
-  for target in "debian:buster" \
+  for target in "debian:bullseye" \
+                "arm64v8/debian:bullseye" \
+                "debian:buster" \
                 "arm64v8/debian:buster" \
                 "ubuntu:bionic" \
                 "arm64v8/ubuntu:bionic" \
@@ -144,6 +146,11 @@ test_apt() {
                 "ubuntu:groovy" \
                 "arm64v8/ubuntu:groovy"; do \
     case "${target}" in
+      arm64v8/debian:bullseye)
+        # qemu-user-static in Ubuntu 20.04 has a crash bug:
+        #   https://bugs.launchpad.net/qemu/+bug/1749393
+        continue
+        ;;
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
           : # OK
@@ -485,9 +492,7 @@ test_rust() {
   # raises on any formatting errors
   rustup component add rustfmt --toolchain stable
   cargo +stable fmt --all -- --check
-
-  # we are targeting Rust nightly for releases
-  rustup default nightly
+  rustup default stable
 
   # use local modules because we don't publish modules to crates.io yet
   sed \
@@ -686,6 +691,7 @@ test_wheels() {
   fi
 
   python $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
+         --package_type python \
          --regex=${filter_regex} \
          --dest=${download_dir}
 
