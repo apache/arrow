@@ -120,10 +120,10 @@ cdef class S3FileSystem(FileSystem):
         CS3FileSystem* s3fs
 
     def __init__(self, *, access_key=None, secret_key=None, session_token=None,
-                 bint anonymous=False, bint use_web_identity=False, region=None, scheme=None,
-                 endpoint_override=None, bint background_writes=True,
-                 role_arn=None, session_name=None, external_id=None,
-                 load_frequency=900, proxy_options=None):
+                 bint anonymous=False, bint use_web_identity=False,
+                 region=None, scheme=None, endpoint_override=None,
+                 bint background_writes=True, role_arn=None, session_name=None,
+                 external_id=None, load_frequency=900, proxy_options=None):
         cdef:
             CS3Options options
             shared_ptr[CS3FileSystem] wrapped
@@ -179,12 +179,14 @@ cdef class S3FileSystem(FileSystem):
 
             if use_web_identity:
                 raise ValueError(
-                    'Cannot pass both use_web_identity=True and anonymous=True')
+                    'Cannot pass both use_web_identity=True and '
+                    'anonymous=True')
 
             options = CS3Options.Anonymous()
         elif role_arn:
             if use_web_identity:
-                raise ValueError('Cannot provide role_arn with use_web_identity=True')
+                raise ValueError(
+                    'Cannot provide role_arn with use_web_identity=True')
 
             options = CS3Options.FromAssumeRole(
                 tobytes(role_arn),
