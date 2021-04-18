@@ -43,7 +43,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Git Fixup
-        if: ${{ github.event_name == 'pull_request' }}
+        if: ${{ github.ref != 'master' }}
         shell: bash
         run: git branch master origin/master
       - name: Free Up Disk Space
