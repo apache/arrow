@@ -71,7 +71,7 @@ impl CartesianJoinExec {
 
         let left_schema = left.schema();
         let left_fields = left_schema.fields().iter();
-        let right_schema = left.schema();
+        let right_schema = right.schema();
 
         let right_fields = right_schema.fields().iter();
 
@@ -235,14 +235,12 @@ fn build_batch(
 
             let batch = RecordBatch::try_new(
                 Arc::new(schema.clone()),
-                arrays
-                    .iter()
-                    .chain(left.columns().iter())
+                left.columns().iter()
+                    .chain(arrays.iter())
                     .cloned()
                     .collect(),
             )?;
-            println!("{:?}", batch);
-
+            
             batches.push(batch);
             num_rows += left.num_rows();
         }
