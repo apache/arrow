@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+ARROW_DIR="${SOURCE_DIR}/../.."
+
 update_versions() {
   local base_version=$1
   local next_version=$2
@@ -31,23 +33,23 @@ update_versions() {
       ;;
   esac
 
-  cd "${SOURCE_DIR}/../../c_glib"
+  pushd "${ARROW_DIR}/c_glib"
   sed -i.bak -E -e \
     "s/^version = '.+'/version = '${version}'/" \
     meson.build
   rm -f meson.build.bak
   git add meson.build
-  cd -
+  popd
 
-  cd "${SOURCE_DIR}/../../ci/scripts"
+  pushd "${ARROW_DIR}/ci/scripts"
   sed -i.bak -E -e \
     "s/^pkgver=.+/pkgver=${r_version}/" \
     PKGBUILD
   rm -f PKGBUILD.bak
   git add PKGBUILD
-  cd -
+  popd
 
-  cd "${SOURCE_DIR}/../../cpp"
+  pushd "${ARROW_DIR}/cpp"
   sed -i.bak -E -e \
     "s/^set\(ARROW_VERSION \".+\"\)/set(ARROW_VERSION \"${version}\")/" \
     CMakeLists.txt
@@ -59,17 +61,21 @@ update_versions() {
     vcpkg.json
   rm -f vcpkg.json.bak
   git add vcpkg.json
-  cd -
+  popd
 
-  cd "${SOURCE_DIR}/../../csharp"
+  pushd "${ARROW_DIR}/java"
+  mvn versions:set -DnewVersion=${version}
+  popd
+
+  pushd "${ARROW_DIR}/csharp"
   sed -i.bak -E -e \
     "s/^    <Version>.+<\/Version>/    <Version>${version}<\/Version>/" \
     Directory.Build.props
   rm -f Directory.Build.props.bak
   git add Directory.Build.props
-  cd -
+  popd
 
-  cd "${SOURCE_DIR}/../../dev/tasks/homebrew-formulae"
+  pushd "${ARROW_DIR}/dev/tasks/homebrew-formulae"
   sed -i.bak -E -e \
     "s/arrow-[0-9.]+[0-9]+/arrow-${r_version}/g" \
     autobrew/apache-arrow.rb
@@ -80,33 +86,33 @@ update_versions() {
     apache-arrow.rb
   rm -f apache-arrow.rb.bak
   git add apache-arrow.rb
-  cd -
+  popd
 
-  cd "${SOURCE_DIR}/../../js"
+  pushd "${ARROW_DIR}/js"
   sed -i.bak -E -e \
     "s/^  \"version\": \".+\"/  \"version\": \"${version}\"/" \
     package.json
   rm -f package.json.bak
   git add package.json
-  cd -
+  popd
 
-  cd "${SOURCE_DIR}/../../matlab"
+  pushd "${ARROW_DIR}/matlab"
   sed -i.bak -E -e \
     "s/^set\(MLARROW_VERSION \".+\"\)/set(MLARROW_VERSION \"${version}\")/" \
     CMakeLists.txt
   rm -f CMakeLists.txt.bak
   git add CMakeLists.txt
-  cd -
+  popd
 
-  cd "${SOURCE_DIR}/../../python"
+  pushd "${ARROW_DIR}/python"
   sed -i.bak -E -e \
     "s/^default_version = '.+'/default_version = '${version}'/" \
     setup.py
   rm -f setup.py.bak
   git add setup.py
-  cd -
+  popd
 
-  cd "${SOURCE_DIR}/../../r"
+  pushd "${ARROW_DIR}/r"
   sed -i.bak -E -e \
     "s/^Version: .+/Version: ${r_version}/" \
     DESCRIPTION
@@ -127,17 +133,17 @@ update_versions() {
   fi
   rm -f NEWS.md.bak
   git add NEWS.md
-  cd -
+  popd
 
-  cd "${SOURCE_DIR}/../../ruby"
+  pushd "${ARROW_DIR}/ruby"
   sed -i.bak -E -e \
     "s/^  VERSION = \".+\"/  VERSION = \"${version}\"/g" \
     */*/*/version.rb
   rm -f */*/*/version.rb.bak
   git add */*/*/version.rb
-  cd -
+  popd
 
-  cd "${SOURCE_DIR}/../../rust"
+  pushd "${ARROW_DIR}/rust"
   sed -i.bak -E \
     -e "s/^version = \".+\"/version = \"${version}\"/g" \
     -e "s/^(arrow = .* version = )\".*\"(( .*)|(, features = .*)|(, optional = .*))$/\\1\"${version}\"\\2/g" \
@@ -154,5 +160,5 @@ update_versions() {
     */README.md
   rm -f */README.md.bak
   git add */README.md
-  cd -
+  popd
 }
