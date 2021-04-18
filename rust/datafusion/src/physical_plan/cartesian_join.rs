@@ -223,7 +223,7 @@ fn build_batch(
                 .iter()
                 .map(|arr| {
                     let scalar = ScalarValue::try_from_array(arr, i)?;
-                    Ok(scalar.to_array_of_size(left.num_rows()))
+                    Ok(scalar.to_array_of_size(batch.num_rows()))
                 })
                 .collect::<Result<Vec<_>>>()
                 .map_err(|x| x.into_arrow_external_error())?;
