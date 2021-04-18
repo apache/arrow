@@ -940,6 +940,7 @@ impl TryInto<protobuf::LogicalPlanNode> for &LogicalPlan {
             }
             LogicalPlan::Extension { .. } => unimplemented!(),
             LogicalPlan::Union { .. } => unimplemented!(),
+            LogicalPlan::CrossJoin { .. } => unimplemented!(),
         }
     }
 }
