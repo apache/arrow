@@ -194,6 +194,7 @@ def render(obj, task, config_path, arrow_version, arrow_remote, arrow_branch,
                               head=arrow_sha, version=arrow_version)
     config = Config.load_yaml(config_path)
     params = dict([p.split("=") for p in params])
+    params["queue_remote_url"] = "https://github.com/org/crossbow"
     job = Job.from_config(config=config, target=target, tasks=[task],
                           params=params)
 
