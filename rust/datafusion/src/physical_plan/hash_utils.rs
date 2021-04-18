@@ -52,11 +52,6 @@ fn check_join_set_is_valid(
     right: &HashSet<String>,
     on: &JoinOn,
 ) -> Result<()> {
-    // if on.is_empty() {
-    //     return Err(DataFusionError::Plan(
-    //         "The 'on' clause of a join cannot be empty".to_string(),
-    //     ));
-    // }
     let on_left = &on.iter().map(|on| on.0.to_string()).collect::<HashSet<_>>();
     let left_missing = on_left.difference(left).collect::<HashSet<_>>();
 

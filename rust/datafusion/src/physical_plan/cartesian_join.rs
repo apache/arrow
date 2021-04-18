@@ -133,7 +133,7 @@ impl ExecutionPlan for CartesianJoinExec {
     }
 
     async fn execute(&self, partition: usize) -> Result<SendableRecordBatchStream> {
-        // we only want to compute the build side once for PartitionMode::CollectLeft
+        // we only want to compute the build side once
         let left_data = {
             let mut build_side = self.build_side.lock().await;
 
@@ -146,9 +146,7 @@ impl ExecutionPlan for CartesianJoinExec {
                     let merge = MergeExec::new(self.left.clone());
                     let stream = merge.execute(0).await?;
 
-                    // This operation performs 2 steps at once:
-                    // 1. creates a [JoinHashMap] of all batches from the stream
-                    // 2. stores the batches in a vector.
+                    // Load all batches and count the rows
                     let (batches, num_rows) = stream
                         .try_fold((Vec::new(), 0 as usize), |mut acc, batch| async {
                             acc.1 += batch.num_rows();
@@ -169,9 +167,6 @@ impl ExecutionPlan for CartesianJoinExec {
                 }
             }
         };
-
-        // we have the batches and the hash map with their keys. We can how create a stream
-        // over the right that uses this information to issue new batches.
 
         let stream = self.right.execute(partition).await?;
 
@@ -240,7 +235,7 @@ fn build_batch(
                     .cloned()
                     .collect(),
             )?;
-            
+
             batches.push(batch);
             num_rows += left.num_rows();
         }

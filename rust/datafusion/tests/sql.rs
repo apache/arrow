@@ -1297,12 +1297,37 @@ async fn cartesian_join() -> Result<()> {
 
     assert_eq!(4 * 4, actual.len());
 
-
     let sql = "SELECT t1_id, t1_name, t2_name FROM t1, t2 WHERE 1=1 ORDER BY t1_id";
     let actual = execute(&mut ctx, sql).await;
 
     assert_eq!(4 * 4, actual.len());
 
+    let sql = "SELECT t1_id, t1_name, t2_name FROM t1 CROSS JOIN t2";
+    let actual = execute(&mut ctx, sql).await;
+
+    assert_eq!(4 * 4, actual.len());
+
+    assert_eq!(
+        actual,
+        [
+            ["11", "a", "z"],
+            ["22", "b", "z"],
+            ["33", "c", "z"],
+            ["44", "d", "z"],
+            ["11", "a", "y"],
+            ["22", "b", "y"],
+            ["33", "c", "y"],
+            ["44", "d", "y"],
+            ["11", "a", "x"],
+            ["22", "b", "x"],
+            ["33", "c", "x"],
+            ["44", "d", "x"],
+            ["11", "a", "w"],
+            ["22", "b", "w"],
+            ["33", "c", "w"],
+            ["44", "d", "w"]
+        ]
+    );
 
     Ok(())
 }

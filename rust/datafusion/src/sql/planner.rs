@@ -355,11 +355,21 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             JoinOperator::Inner(constraint) => {
                 self.parse_join(left, &right, constraint, JoinType::Inner)
             }
+            JoinOperator::CrossJoin => self.parse_cross_join(left, &right),
             other => Err(DataFusionError::NotImplemented(format!(
                 "Unsupported JOIN operator {:?}",
                 other
             ))),
         }
+    }
+    fn parse_cross_join(
+        &self,
+        left: &LogicalPlan,
+        right: &LogicalPlan,
+    ) -> Result<LogicalPlan> {
+        LogicalPlanBuilder::from(&left)
+            .cartesian_join(&right)?
+            .build()
     }
 
     fn parse_join(
