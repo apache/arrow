@@ -88,12 +88,12 @@ impl CartesianJoinExec {
         })
     }
 
-    /// left (build) side which gets hashed
+    /// left (build) side which gets loaded in memory
     pub fn left(&self) -> &Arc<dyn ExecutionPlan> {
         &self.left
     }
 
-    /// right (probe) side which are filtered by the hash table
+    /// right side which gets combined with left side
     pub fn right(&self) -> &Arc<dyn ExecutionPlan> {
         &self.right
     }
@@ -123,7 +123,7 @@ impl ExecutionPlan for CartesianJoinExec {
                 children[1].clone(),
             )?)),
             _ => Err(DataFusionError::Internal(
-                "HashJoinExec wrong number of children".to_string(),
+                "CartesianJoinExec wrong number of children".to_string(),
             )),
         }
     }
@@ -230,7 +230,8 @@ fn build_batch(
 
             let batch = RecordBatch::try_new(
                 Arc::new(schema.clone()),
-                left.columns().iter()
+                left.columns()
+                    .iter()
                     .chain(arrays.iter())
                     .cloned()
                     .collect(),
