@@ -28,7 +28,7 @@ use futures::{
 };
 
 use crate::error::{DataFusionError, Result};
-use crate::physical_plan::{Accumulator, AggregateExpr, MetricType, SQLMetric};
+use crate::physical_plan::{Accumulator, AggregateExpr, SQLMetric};
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning, PhysicalExpr};
 
 use arrow::{
@@ -144,10 +144,7 @@ impl HashAggregateExec {
 
         let schema = Arc::new(schema);
 
-        let output_rows = Arc::new(Mutex::new(SQLMetric::new(
-            "outputRows",
-            MetricType::Counter,
-        )));
+        let output_rows = SQLMetric::counter("outputRows");
 
         Ok(HashAggregateExec {
             mode,
