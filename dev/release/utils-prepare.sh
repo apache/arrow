@@ -65,6 +65,9 @@ update_versions() {
 
   pushd "${ARROW_DIR}/java"
   mvn versions:set -DnewVersion=${version}
+  find . -type f -name pom.xml.versionsBackup -delete
+  git add "pom.xml"
+  git add "**/pom.xml"
   popd
 
   pushd "${ARROW_DIR}/csharp"
