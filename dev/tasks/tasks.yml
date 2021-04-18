@@ -1235,7 +1235,7 @@ tasks:
 
 {% for target in ["csharp",
                   "go",
-                  "integration"
+                  "integration",
                   "java",
                   "js",
                   "python",
