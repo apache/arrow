@@ -1375,6 +1375,11 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn run_q9() -> Result<()> {
+        run_query(9).await
+    }
+
+    #[tokio::test]
     async fn run_q10() -> Result<()> {
         run_query(10).await
     }
