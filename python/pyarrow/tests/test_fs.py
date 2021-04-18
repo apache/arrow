@@ -1038,6 +1038,14 @@ def test_s3_options(monkeypatch):
     assert isinstance(fs, S3FileSystem)
     assert pickle.loads(pickle.dumps(fs)) == fs
 
+    fs = S3FileSystem(anonymous=True)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs = S3FileSystem(use_web_identity=True)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
     with pytest.raises(ValueError):
         S3FileSystem(access_key='access')
     with pytest.raises(ValueError):
@@ -1049,6 +1057,26 @@ def test_s3_options(monkeypatch):
     with pytest.raises(ValueError):
         S3FileSystem(
             access_key='access', secret_key='secret', role_arn='arn'
+        )
+    with pytest.raises(ValueError):
+        S3FileSystem(
+            access_key='access', secret_key='secret', anonymous=True
+        )
+    with pytest.raises(ValueError):
+        S3FileSystem(
+            access_key='access', secret_key='secret', use_web_identity=True
+        )
+    with pytest.raises(ValueError):
+        S3FileSystem(
+            role_arn='arn', anonymous=True
+        )
+    with pytest.raises(ValueError):
+        S3FileSystem(
+            anonymous=True, use_web_identity=True
+        )
+    with pytest.raises(ValueError):
+        S3FileSystem(
+            role_arn='arn', use_web_identity=True
         )
 
 

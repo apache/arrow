@@ -73,6 +73,9 @@ struct ARROW_EXPORT S3Options {
   /// S3 connection transport, default "https"
   std::string scheme = "https";
 
+  /// Whether S3 access should be anonymous (no credentials used)
+  bool anonymous = false;
+
   /// ARN of role to assume
   std::string role_arn;
   /// Optional identifier for an assumed role session.
@@ -91,6 +94,12 @@ struct ARROW_EXPORT S3Options {
   /// Whether OutputStream writes will be issued in the background, without blocking.
   bool background_writes = true;
 
+  /// True when using SimpleAWSCredentialsProvider, else false.
+  bool creds_provided = false;
+
+  /// True when using web identity token to assume role
+  bool use_web_identity = false;
+
   /// Configure with the default AWS credentials provider chain.
   void ConfigureDefaultCredentials();
 
@@ -106,6 +115,9 @@ struct ARROW_EXPORT S3Options {
       const std::string& role_arn, const std::string& session_name = "",
       const std::string& external_id = "", int load_frequency = 900,
       const std::shared_ptr<Aws::STS::STSClient>& stsClient = NULLPTR);
+
+  /// Configure with credentials from role assumed using a web identitiy token
+  void ConfigureAssumeRoleWithWebIdentityCredentials();
 
   std::string GetAccessKey() const;
   std::string GetSecretKey() const;
@@ -137,6 +149,11 @@ struct ARROW_EXPORT S3Options {
       const std::string& role_arn, const std::string& session_name = "",
       const std::string& external_id = "", int load_frequency = 900,
       const std::shared_ptr<Aws::STS::STSClient>& stsClient = NULLPTR);
+
+  /// \brief Initialize from an assumed role with web-identity.
+  /// Uses the AWS SDK which uses environment variables to
+  /// generate temporary credentials.
+  static S3Options FromAssumeRoleWithWebIdentity();
 
   static Result<S3Options> FromUri(const ::arrow::internal::Uri& uri,
                                    std::string* out_path = NULLPTR);

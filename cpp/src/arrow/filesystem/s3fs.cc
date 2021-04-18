@@ -40,6 +40,7 @@
 #include <aws/core/Region.h>
 #include <aws/core/auth/AWSCredentials.h>
 #include <aws/core/auth/AWSCredentialsProviderChain.h>
+#include <aws/core/auth/STSCredentialsProvider.h>
 #include <aws/core/client/RetryStrategy.h>
 #include <aws/core/http/HttpResponse.h>
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
@@ -226,6 +227,13 @@ void S3Options::ConfigureAssumeRoleCredentials(
       load_frequency, stsClient);
 }
 
+void S3Options::ConfigureAssumeRoleWithWebIdentityCredentials() {
+  // The AWS SDK uses environment variables AWS_DEFAULT_REGION,
+  // AWS_ROLE_ARN, AWS_WEB_IDENTITY_TOKEN_FILE and AWS_ROLE_SESSION_NAME
+  // to configure the required credentials
+  credentials_provider = std::make_shared<Aws::Auth::STSAssumeRoleWebIdentityCredentialsProvider>();
+}
+
 std::string S3Options::GetAccessKey() const {
   auto credentials = credentials_provider->GetAWSCredentials();
   return std::string(FromAwsString(credentials.GetAWSAccessKeyId()));
@@ -249,6 +257,7 @@ S3Options S3Options::Defaults() {
 
 S3Options S3Options::Anonymous() {
   S3Options options;
+  options.anonymous = true;
   options.ConfigureAnonymousCredentials();
   return options;
 }
@@ -257,6 +266,7 @@ S3Options S3Options::FromAccessKey(const std::string& access_key,
                                    const std::string& secret_key,
                                    const std::string& session_token) {
   S3Options options;
+  options.creds_provided = true;
   options.ConfigureAccessKey(access_key, secret_key, session_token);
   return options;
 }
@@ -272,6 +282,13 @@ S3Options S3Options::FromAssumeRole(
   options.load_frequency = load_frequency;
   options.ConfigureAssumeRoleCredentials(role_arn, session_name, external_id,
                                          load_frequency, stsClient);
+  return options;
+}
+
+S3Options S3Options::FromAssumeRoleWithWebIdentity() {
+  S3Options options;
+  options.use_web_identity = true;
+  options.ConfigureAssumeRoleWithWebIdentityCredentials();
   return options;
 }
 
@@ -306,6 +323,7 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
 
   const auto username = uri.username();
   if (!username.empty()) {
+    options.creds_provided = true;
     options.ConfigureAccessKey(username, uri.password());
   } else {
     options.ConfigureDefaultCredentials();
