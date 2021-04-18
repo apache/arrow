@@ -69,10 +69,19 @@ impl BooleanArray {
 
     /// Returns the boolean value at index `i`.
     ///
+    /// # Safety
+    /// This doesn't check bounds, the caller must ensure that index < self.len()
+    pub unsafe fn value_unchecked(&self, i: usize) -> bool {
+        let offset = i + self.offset();
+        bit_util::get_bit_raw(self.raw_values.as_ptr(), offset)
+    }
+
+    /// Returns the boolean value at index `i`.
+    ///
     /// Note this doesn't do any bound checking, for performance reason.
     pub fn value(&self, i: usize) -> bool {
-        let offset = i + self.offset();
-        unsafe { bit_util::get_bit_raw(self.raw_values.as_ptr(), offset) }
+        debug_assert!(i < self.len());
+        unsafe { self.value_unchecked(i) }
     }
 }
 

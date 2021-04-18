@@ -56,7 +56,12 @@ impl<'a, T: ArrowPrimitiveType> std::iter::Iterator for PrimitiveIter<'a, T> {
         } else {
             let old = self.current;
             self.current += 1;
-            Some(Some(self.array.value(old)))
+            // Safety:
+            // we just checked bounds in `self.current_end == self.current`
+            // this is safe on the premise that this struct is initialized with
+            // current = array.len()
+            // and that current_end is ever only decremented
+            unsafe { Some(Some(self.array.value_unchecked(old))) }
         }
     }
 
@@ -77,7 +82,12 @@ impl<'a, T: ArrowPrimitiveType> std::iter::DoubleEndedIterator for PrimitiveIter
             Some(if self.array.is_null(self.current_end) {
                 None
             } else {
-                Some(self.array.value(self.current_end))
+                // Safety:
+                // we just checked bounds in `self.current_end == self.current`
+                // this is safe on the premise that this struct is initialized with
+                // current = array.len()
+                // and that current_end is ever only decremented
+                unsafe { Some(self.array.value_unchecked(self.current_end)) }
             })
         }
     }
@@ -118,7 +128,12 @@ impl<'a> std::iter::Iterator for BooleanIter<'a> {
         } else {
             let old = self.current;
             self.current += 1;
-            Some(Some(self.array.value(old)))
+            // Safety:
+            // we just checked bounds in `self.current_end == self.current`
+            // this is safe on the premise that this struct is initialized with
+            // current = array.len()
+            // and that current_end is ever only decremented
+            unsafe { Some(Some(self.array.value_unchecked(old))) }
         }
     }
 
@@ -139,7 +154,12 @@ impl<'a> std::iter::DoubleEndedIterator for BooleanIter<'a> {
             Some(if self.array.is_null(self.current_end) {
                 None
             } else {
-                Some(self.array.value(self.current_end))
+                // Safety:
+                // we just checked bounds in `self.current_end == self.current`
+                // this is safe on the premise that this struct is initialized with
+                // current = array.len()
+                // and that current_end is ever only decremented
+                unsafe { Some(self.array.value_unchecked(self.current_end)) }
             })
         }
     }
@@ -182,7 +202,12 @@ impl<'a, T: StringOffsetSizeTrait> std::iter::Iterator for GenericStringIter<'a,
             Some(None)
         } else {
             self.current += 1;
-            Some(Some(self.array.value(i)))
+            // Safety:
+            // we just checked bounds in `self.current_end == self.current`
+            // this is safe on the premise that this struct is initialized with
+            // current = array.len()
+            // and that current_end is ever only decremented
+            unsafe { Some(Some(self.array.value_unchecked(i))) }
         }
     }
 
@@ -205,7 +230,12 @@ impl<'a, T: StringOffsetSizeTrait> std::iter::DoubleEndedIterator
             Some(if self.array.is_null(self.current_end) {
                 None
             } else {
-                Some(self.array.value(self.current_end))
+                // Safety:
+                // we just checked bounds in `self.current_end == self.current`
+                // this is safe on the premise that this struct is initialized with
+                // current = array.len()
+                // and that current_end is ever only decremented
+                unsafe { Some(self.array.value_unchecked(self.current_end)) }
             })
         }
     }
@@ -251,7 +281,12 @@ impl<'a, T: BinaryOffsetSizeTrait> std::iter::Iterator for GenericBinaryIter<'a,
             Some(None)
         } else {
             self.current += 1;
-            Some(Some(self.array.value(i)))
+            // Safety:
+            // we just checked bounds in `self.current_end == self.current`
+            // this is safe on the premise that this struct is initialized with
+            // current = array.len()
+            // and that current_end is ever only decremented
+            unsafe { Some(Some(self.array.value_unchecked(i))) }
         }
     }
 
@@ -274,7 +309,12 @@ impl<'a, T: BinaryOffsetSizeTrait> std::iter::DoubleEndedIterator
             Some(if self.array.is_null(self.current_end) {
                 None
             } else {
-                Some(self.array.value(self.current_end))
+                // Safety:
+                // we just checked bounds in `self.current_end == self.current`
+                // this is safe on the premise that this struct is initialized with
+                // current = array.len()
+                // and that current_end is ever only decremented
+                unsafe { Some(self.array.value_unchecked(self.current_end)) }
             })
         }
     }
@@ -318,7 +358,12 @@ impl<'a, S: OffsetSizeTrait> std::iter::Iterator for GenericListArrayIter<'a, S>
             Some(None)
         } else {
             self.current += 1;
-            Some(Some(self.array.value(i)))
+            // Safety:
+            // we just checked bounds in `self.current_end == self.current`
+            // this is safe on the premise that this struct is initialized with
+            // current = array.len()
+            // and that current_end is ever only decremented
+            unsafe { Some(Some(self.array.value_unchecked(i))) }
         }
     }
 
@@ -341,7 +386,12 @@ impl<'a, S: OffsetSizeTrait> std::iter::DoubleEndedIterator
             Some(if self.array.is_null(self.current_end) {
                 None
             } else {
-                Some(self.array.value(self.current_end))
+                // Safety:
+                // we just checked bounds in `self.current_end == self.current`
+                // this is safe on the premise that this struct is initialized with
+                // current = array.len()
+                // and that current_end is ever only decremented
+                unsafe { Some(self.array.value_unchecked(self.current_end)) }
             })
         }
     }
