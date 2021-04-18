@@ -20,8 +20,8 @@
 use std::sync::Arc;
 
 use super::{
-    aggregates, empty::EmptyExec, expressions::binary, functions,
-    hash_join::PartitionMode, udaf, union::UnionExec,
+    aggregates, cartesian_join::CartesianJoinExec, empty::EmptyExec, expressions::binary,
+    functions, hash_join::PartitionMode, udaf, union::UnionExec,
 };
 use crate::error::{DataFusionError, Result};
 use crate::execution::context::ExecutionContextState;
@@ -327,6 +327,11 @@ impl DefaultPhysicalPlanner {
                         PartitionMode::CollectLeft,
                     )?))
                 }
+            }
+            LogicalPlan::CartesianJoin { left, right, .. } => {
+                let left = self.create_initial_plan(left, ctx_state)?;
+                let right = self.create_initial_plan(right, ctx_state)?;
+                Ok(Arc::new(CartesianJoinExec::try_new(left, right)?))
             }
             LogicalPlan::EmptyRelation {
                 produce_one_row,

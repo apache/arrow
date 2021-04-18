@@ -348,6 +348,7 @@ pub mod functions;
 pub mod group_scalar;
 pub mod hash_aggregate;
 pub mod hash_join;
+pub mod cartesian_join;
 pub mod hash_utils;
 pub mod limit;
 pub mod math_expressions;

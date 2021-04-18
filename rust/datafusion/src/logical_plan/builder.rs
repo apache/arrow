@@ -270,6 +270,20 @@ impl LogicalPlanBuilder {
             }))
         }
     }
+    /// Apply a cartesian join
+    pub fn cartesian_join(&self, right: &LogicalPlan) -> Result<Self> {
+        let left_fields = self.plan.schema().fields().iter();
+        let right_fields = right.schema().fields();
+        let fields = left_fields.chain(right_fields).cloned().collect();
+
+        let schema = DFSchema::new(fields)?;
+
+        Ok(Self::from(&LogicalPlan::CartesianJoin {
+            left: Arc::new(self.plan.clone()),
+            right: Arc::new(right.clone()),
+            schema: DFSchemaRef::new(schema),
+        }))
+    }
 
     /// Repartition
     pub fn repartition(&self, partitioning_scheme: Partitioning) -> Result<Self> {

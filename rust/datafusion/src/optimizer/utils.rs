@@ -208,6 +208,11 @@ pub fn from_plan(
             on: on.clone(),
             schema: schema.clone(),
         }),
+        LogicalPlan::CartesianJoin { schema, .. } => Ok(LogicalPlan::CartesianJoin {
+            left: Arc::new(inputs[0].clone()),
+            right: Arc::new(inputs[1].clone()),
+            schema: schema.clone(),
+        }),
         LogicalPlan::Limit { n, .. } => Ok(LogicalPlan::Limit {
             n: *n,
             input: Arc::new(inputs[0].clone()),

@@ -67,6 +67,13 @@ fn get_num_rows(logical_plan: &LogicalPlan) -> Option<usize> {
             // we cannot predict the cardinality of the join output
             None
         }
+        LogicalPlan::CartesianJoin { left, right, .. } => {
+            get_num_rows(left).and_then(|x|
+                get_num_rows(right).and_then(|y|
+                    Some(x * y)
+                )
+            )
+        }
         LogicalPlan::Repartition { .. } => {
             // we cannot predict how rows will be repartitioned
             None
@@ -134,6 +141,29 @@ impl OptimizerRule for HashBuildProbeOrder {
                         right: Arc::new(right),
                         on: on.clone(),
                         join_type: *join_type,
+                        schema: schema.clone(),
+                    })
+                }
+            }
+            LogicalPlan::CartesianJoin {
+                left,
+                right,
+                schema,
+            } => {
+                let left = self.optimize(left)?;
+                let right = self.optimize(right)?;
+                if should_swap_join_order(&left, &right) {
+                    // Swap left and right, change join type and (equi-)join key order
+                    Ok(LogicalPlan::CartesianJoin {
+                        left: Arc::new(right),
+                        right: Arc::new(left),
+                        schema: schema.clone(),
+                    })
+                } else {
+                    // Keep join as is
+                    Ok(LogicalPlan::CartesianJoin {
+                        left: Arc::new(left),
+                        right: Arc::new(right),
                         schema: schema.clone(),
                     })
                 }
