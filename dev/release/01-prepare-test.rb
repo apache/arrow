@@ -378,9 +378,8 @@ class PrepareTest < Test::Unit::TestCase
     if on_release_branch?
       prepare("dev/release/post-12-version.sh", "VERSION_POST_TAG")
     else
-      prepare("dev/release/post-12-version.sh",
-              "VERSION_PRE_TAG",
-              "VERSION_POST_TAG")
+      prepare("dev/release/01-prepare.sh", "VERSION_PRE_TAG")
+      prepare("dev/release/post-12-version.sh", "VERSION_POST_TAG")
     end
     assert_equal([
                    {
