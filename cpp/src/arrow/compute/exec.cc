@@ -704,6 +704,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
     preallocate_contiguous_ =
         (exec_context()->preallocate_contiguous() && kernel_->can_write_into_slices &&
          validity_preallocated_ && !is_nested(output_descr_.type->id()) &&
+         !is_dictionary(output_descr_.type->id()) &&
          data_preallocated_.size() == static_cast<size_t>(output_num_buffers_ - 1) &&
          std::all_of(data_preallocated_.begin(), data_preallocated_.end(),
                      [](const BufferPreallocation& prealloc) {
