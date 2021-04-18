@@ -421,14 +421,17 @@ pub fn new_null_array(data_type: &DataType, length: usize) -> ArrayRef {
         DataType::Union(_) => {
             unimplemented!("Creating null Union array not yet supported")
         }
-        DataType::Dictionary(_, value) => {
+        DataType::Dictionary(key, value) => {
+            let keys = new_null_array(key, length);
+            let keys = keys.data();
+
             make_array(ArrayData::new(
                 data_type.clone(),
                 length,
                 Some(length),
-                Some(MutableBuffer::new_null(length).into()),
+                keys.null_buffer().cloned(),
                 0,
-                vec![MutableBuffer::new(0).into()], // values are empty
+                keys.buffers().into(),
                 vec![new_empty_array(value.as_ref()).data().clone()],
             ))
         }
@@ -629,5 +632,9 @@ mod tests {
 
         let null_array = new_null_array(array.data_type(), 9);
         assert_eq!(&array, &null_array);
+        assert_eq!(
+            array.data().buffers()[0].len(),
+            null_array.data().buffers()[0].len()
+        );
     }
 }

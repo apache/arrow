@@ -46,7 +46,7 @@ COPY ci/scripts/install_iwyu.sh /arrow/ci/scripts/
 RUN arrow/ci/scripts/install_iwyu.sh /tmp/iwyu /usr/local ${clang_tools}
 
 # Rust linter
-ARG rust=nightly-2019-09-25
+ARG rust=nightly-2021-03-24
 RUN curl https://sh.rustup.rs -sSf | \
     sh -s -- --default-toolchain stable -y
 ENV PATH /root/.cargo/bin:$PATH

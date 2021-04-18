@@ -155,7 +155,7 @@ jobs:
     strategy:
       matrix:
         arch: [amd64]
-        rust: [nightly-2020-11-24]
+        rust: [nightly-2021-03-24]
     container:
       image: ${{ matrix.arch }}/rust
       env:
@@ -267,7 +267,7 @@ jobs:
     strategy:
       matrix:
         arch: [amd64]
-        rust: [nightly-2021-01-19]
+        rust: [nightly-2021-03-24]
     steps:
       - uses: actions/checkout@v2
         with:
@@ -389,7 +389,7 @@ jobs:
     strategy:
       matrix:
         arch: [amd64]
-        rust: [nightly-2020-11-24]
+        rust: [nightly-2021-03-24]
     container:
       image: ${{ matrix.arch }}/rust
       env:

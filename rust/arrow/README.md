@@ -80,7 +80,7 @@ Arrow uses the following features:
 * `simd` - Arrow uses the [packed_simd](https://crates.io/crates/packed_simd) crate to optimize many of the
  implementations in the [compute](https://github.com/apache/arrow/tree/master/rust/arrow/src/compute)
  module using SIMD intrinsics. These optimizations are turned *off* by default.
- If the `simd` feature is enabled, an unstable version of Rust is required (we test with `nightly-2020-11-24`)
+ If the `simd` feature is enabled, an unstable version of Rust is required (we test with `nightly-2021-03-24`)
 * `flight` which contains useful functions to convert between the Flight wire format and Arrow data
 * `prettyprint` which is a utility for printing record batches
 
