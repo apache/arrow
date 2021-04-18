@@ -1358,12 +1358,13 @@ def test_cast_from_null():
         pa.struct([pa.field('a', pa.int32()),
                    pa.field('b', pa.list_(pa.int8())),
                    pa.field('c', pa.string())]),
+        pa.dictionary(pa.int32(), pa.string()),
     ]
     for out_type in out_types:
         _check_cast_case((in_data, in_type, in_data, out_type))
 
     out_types = [
-        pa.dictionary(pa.int32(), pa.string()),
+
         pa.union([pa.field('a', pa.binary(10)),
                   pa.field('b', pa.string())], mode=pa.lib.UnionMode_DENSE),
         pa.union([pa.field('a', pa.binary(10)),
