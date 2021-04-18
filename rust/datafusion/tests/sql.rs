@@ -1291,7 +1291,14 @@ async fn equijoin_implicit_syntax_reversed() -> Result<()> {
 #[tokio::test]
 async fn cartesian_join() -> Result<()> {
     let mut ctx = create_join_context("t1_id", "t2_id")?;
-    // TODO: without filter
+
+    let sql = "SELECT t1_id, t1_name, t2_name FROM t1, t2 ORDER BY t1_id";
+    //let maybe_plan = ctx.create_logical_plan(&sql);
+    let actual = execute(&mut ctx, sql).await;
+
+    assert_eq!(4 * 4, actual.len());
+
+
     let sql = "SELECT t1_id, t1_name, t2_name FROM t1, t2 WHERE 1=1 ORDER BY t1_id";
     //let maybe_plan = ctx.create_logical_plan(&sql);
     let actual = execute(&mut ctx, sql).await;

@@ -217,7 +217,7 @@ fn build_batch(
     batch: &RecordBatch,
     left_data: &JoinLeftData,
     schema: &Schema,
-) -> Result<RecordBatch> {
+) -> ArrowResult<RecordBatch> {
     let mut batches = Vec::new();
     let mut num_rows = 0;
     for left in left_data.iter() {
@@ -230,7 +230,8 @@ fn build_batch(
                     let scalar = ScalarValue::try_from_array(arr, x)?;
                     Ok(scalar.to_array_of_size(left.num_rows()))
                 })
-                .collect::<Result<Vec<_>>>()?;
+                .collect::<Result<Vec<_>>>()
+                .map_err(|x| x.into_arrow_external_error())?;
 
             let batch = RecordBatch::try_new(
                 Arc::new(schema.clone()),
@@ -240,11 +241,13 @@ fn build_batch(
                     .cloned()
                     .collect(),
             )?;
+            println!("{:?}", batch);
+
             batches.push(batch);
             num_rows += left.num_rows();
         }
     }
-    Ok(concat_batches(&Arc::new(schema.clone()), &batches, num_rows).unwrap())
+    concat_batches(&Arc::new(schema.clone()), &batches, num_rows)
 }
 
 impl Stream for CartesianJoinStream {
@@ -267,7 +270,7 @@ impl Stream for CartesianJoinStream {
                         self.num_output_batches += 1;
                         self.num_output_rows += batch.num_rows();
                     }
-                    Some(result.map_err(|x| x.into_arrow_external_error()))
+                    Some(result)
                 }
                 other => {
                     debug!(

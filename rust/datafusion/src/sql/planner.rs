@@ -489,9 +489,9 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                         }
                     }
                     if join_keys.is_empty() {
-                        let builder = LogicalPlanBuilder::from(&left);
-
-                        return Ok(builder.cartesian_join(right)?.build()?);
+                        left = LogicalPlanBuilder::from(&left)
+                            .cartesian_join(right)?
+                            .build()?;
                     } else {
                         let left_keys: Vec<_> =
                             join_keys.iter().map(|(l, _)| *l).collect();
@@ -517,9 +517,13 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                 if plans.len() == 1 {
                     Ok(plans[0].clone())
                 } else {
-                    Err(DataFusionError::NotImplemented(
-                        "Cartesian joins are not supported".to_string(),
-                    ))
+                    let mut left = plans[0].clone();
+                    for right in plans.iter().skip(1) {
+                        left = LogicalPlanBuilder::from(&left)
+                            .cartesian_join(right)?
+                            .build()?;
+                    }
+                    Ok(left)
                 }
             }
         };
