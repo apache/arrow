@@ -69,7 +69,7 @@ fn get_num_rows(logical_plan: &LogicalPlan) -> Option<usize> {
         }
         LogicalPlan::CartesianJoin { left, right, .. } => {
             // number of rows is equal to num_left * num_right
-            get_num_rows(left).and_then(|x| get_num_rows(right).and_then(|y| Some(x * y)))
+            get_num_rows(left).and_then(|x| get_num_rows(right).map(|y| x * y))
         }
         LogicalPlan::Repartition { .. } => {
             // we cannot predict how rows will be repartitioned

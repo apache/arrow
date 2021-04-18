@@ -148,7 +148,7 @@ impl ExecutionPlan for CartesianJoinExec {
 
                     // Load all batches and count the rows
                     let (batches, num_rows) = stream
-                        .try_fold((Vec::new(), 0 as usize), |mut acc, batch| async {
+                        .try_fold((Vec::new(), 0usize), |mut acc, batch| async {
                             acc.1 += batch.num_rows();
                             acc.0.push(batch);
                             Ok(acc)
@@ -210,19 +210,19 @@ impl RecordBatchStream for CartesianJoinStream {
 }
 fn build_batch(
     batch: &RecordBatch,
-    left_data: &JoinLeftData,
+    left_data: &[RecordBatch],
     schema: &Schema,
 ) -> ArrowResult<RecordBatch> {
     let mut batches = Vec::new();
     let mut num_rows = 0;
     for left in left_data.iter() {
-        for x in 0..batch.num_rows() {
+        for i in 0..left.num_rows() {
             // for each value on the left, repeat the value of the right
-            let arrays = batch
+            let arrays = left
                 .columns()
                 .iter()
                 .map(|arr| {
-                    let scalar = ScalarValue::try_from_array(arr, x)?;
+                    let scalar = ScalarValue::try_from_array(arr, i)?;
                     Ok(scalar.to_array_of_size(left.num_rows()))
                 })
                 .collect::<Result<Vec<_>>>()
@@ -230,9 +230,9 @@ fn build_batch(
 
             let batch = RecordBatch::try_new(
                 Arc::new(schema.clone()),
-                left.columns()
+                arrays
                     .iter()
-                    .chain(arrays.iter())
+                    .chain(batch.columns().iter())
                     .cloned()
                     .collect(),
             )?;
