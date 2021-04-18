@@ -231,7 +231,8 @@ void S3Options::ConfigureAssumeRoleWithWebIdentityCredentials() {
   // The AWS SDK uses environment variables AWS_DEFAULT_REGION,
   // AWS_ROLE_ARN, AWS_WEB_IDENTITY_TOKEN_FILE and AWS_ROLE_SESSION_NAME
   // to configure the required credentials
-  credentials_provider = std::make_shared<Aws::Auth::STSAssumeRoleWebIdentityCredentialsProvider>();
+  credentials_provider =
+      std::make_shared<Aws::Auth::STSAssumeRoleWebIdentityCredentialsProvider>();
 }
 
 std::string S3Options::GetAccessKey() const {
