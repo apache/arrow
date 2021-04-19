@@ -1172,7 +1172,7 @@ cdef class Array(_PandasConvertible):
         if isinstance(array, dict):
             missings = array["indices"] < 0
             array = np.take(array['dictionary'], array['indices'])
-            array[missings] = None
+            array[missings] = np.NaN
 
         if writable and not array.flags.writeable:
             # if the conversion already needed to a copy, writeable is True

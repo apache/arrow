@@ -694,7 +694,7 @@ def test_dictionary_to_numpy():
         pa.array(['foo', 'bar'])
     )
 
-    expected = ["foo", "bar", None, "foo"]
+    expected = ["foo", "bar", np.NaN, "foo"]
     assert a.to_numpy(zero_copy_only=False).tolist() == expected
 
 
