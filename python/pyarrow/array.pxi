@@ -2182,10 +2182,12 @@ cdef class StructArray(Array):
 
         arrays = [asarray(x) for x in arrays]
         for arr in arrays:
-            if pyarrow_is_chunked_array(arr):
-                raise ValueError("ChunkedArray of more than one chunk "
-                                 "are not currently supported")
-            c_arrays.push_back(pyarrow_unwrap_array(arr))
+            c_array = pyarrow_unwrap_array(arr)
+            if c_array == nullptr:
+                raise TypeError(f"Unsupported arrays type {arr}, "
+                                 "if it's a ChunkedArray, only chunked arrays "
+                                 "of a single chunk are currently supported.")
+            c_arrays.push_back(c_array)
         if names is not None:
             for name in names:
                 c_names.push_back(tobytes(name))

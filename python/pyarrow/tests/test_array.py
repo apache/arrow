@@ -669,7 +669,7 @@ def test_struct_from_arrays():
 def test_struct_array_from_chunked():
     chunked_arr = pa.chunked_array([[1, 2, 3], [4, 5, 6]])
 
-    with pytest.raises(ValueError, match="more than one chunk"):
+    with pytest.raises(TypeError, match="Unsupported arrays type"):
         arr = pa.StructArray.from_arrays([chunked_arr], ["foo"])
 
     chunked_arr = pa.chunked_array([[1, 2, 3]])
