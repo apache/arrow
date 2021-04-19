@@ -670,7 +670,7 @@ def test_struct_array_from_chunked():
     chunked_arr = pa.chunked_array([[1, 2, 3], [4, 5, 6]])
 
     with pytest.raises(TypeError, match="Unsupported array type"):
-        arr = pa.StructArray.from_arrays([chunked_arr], ["foo"])
+        pa.StructArray.from_arrays([chunked_arr], ["foo"])
 
 
 def test_dictionary_from_numpy():
