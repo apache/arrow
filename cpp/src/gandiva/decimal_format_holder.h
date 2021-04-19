@@ -23,7 +23,6 @@
 
 #include "gandiva/function_holder.h"
 #include "gandiva/node.h"
-#include "precompiled/types.h"
 
 namespace gandiva {
 
@@ -45,28 +44,25 @@ class GANDIVA_EXPORT DecimalFormatHolder : public FunctionHolder {
     maximumFractionDigits_ = Setup();
   }
 
-  // Setups all classes variables and returns the max quantity of fraction digits for
-  // this format.
+  // Sets the format's metadata, such as the maximum number of decimal digits and if
+  // the patterns contains a dollar sign.
   int32_t Setup() {
     int32_t ret = 0;
-    const char* aux = pattern_;
     bool is_decimal_part = false;
-    has_dolar_sign_ = false;
+    has_dollar_sign_ = false;
     for (size_t i = 0; i < pattern_size_; ++i) {
-      if (*aux == '$') {
-        has_dolar_sign_ = true;
+      if (pattern_[i] == '$') {
+        has_dollar_sign_ = true;
       }
 
-      if (*aux == '.') {
-        decimal_start_idx_ = i;
+      if (pattern_[i] == '.') {
         is_decimal_part = true;
+        continue;
       }
 
       if (is_decimal_part) {
         ret++;
       }
-
-      aux++;
     }
 
     return ret;
@@ -75,8 +71,7 @@ class GANDIVA_EXPORT DecimalFormatHolder : public FunctionHolder {
   const char* pattern_;
   size_t pattern_size_;
   int32_t maximumFractionDigits_;
-  int32_t decimal_start_idx_;
-  bool has_dolar_sign_;
+  bool has_dollar_sign_;
 };
 
 }  // namespace gandiva

@@ -21,6 +21,38 @@ namespace gandiva {
 static bool IsArrowStringLiteral(arrow::Type::type type) {
   return type == arrow::Type::STRING || type == arrow::Type::BINARY;
 }
+inline double get_scale_multiplier(int32_t scale) {
+  static const double values[] = {1.0,
+                                  10.0,
+                                  100.0,
+                                  1000.0,
+                                  10000.0,
+                                  100000.0,
+                                  1000000.0,
+                                  10000000.0,
+                                  100000000.0,
+                                  1000000000.0,
+                                  10000000000.0,
+                                  100000000000.0,
+                                  1000000000000.0,
+                                  10000000000000.0,
+                                  100000000000000.0,
+                                  1000000000000000.0,
+                                  10000000000000000.0,
+                                  100000000000000000.0,
+                                  1000000000000000000.0,
+                                  10000000000000000000.0};
+  if (scale >= 0 && scale < 20) {
+    return values[scale];
+  }
+  return static_cast<double>(powl(10.0, scale));
+}
+
+inline double round_decimal_digits(double to_round, int32_t scale) {
+  double scale_multiplier = get_scale_multiplier(scale);
+  long result = trunc(to_round * scale_multiplier + ((to_round >= 0) ? 0.5 : -0.5));
+  return result / scale_multiplier;
+}
 
 Status DecimalFormatHolder::Make(const FunctionNode& node,
                                  std::shared_ptr<DecimalFormatHolder>* holder) {
@@ -55,7 +87,7 @@ double DecimalFormatHolder::Parse(const char* number, int32_t number_size) {
 
   double answer;
 
-  if (has_dolar_sign_) {
+  if (has_dollar_sign_) {
     number++;
     number_size--;
   }
@@ -70,6 +102,8 @@ double DecimalFormatHolder::Parse(const char* number, int32_t number_size) {
 
   const char* res_ptr = res.c_str();
   from_chars(res_ptr, res_ptr + res.size(), answer, chars_format::fixed);
-  return round_float64_int32(answer, maximumFractionDigits_);
+
+  double rounded = round_decimal_digits(answer, maximumFractionDigits_);
+  return rounded;
 }
 }  // namespace gandiva

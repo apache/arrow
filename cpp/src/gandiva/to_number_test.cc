@@ -16,6 +16,7 @@
 // under the License.
 
 #include <gtest/gtest.h>
+#include <cmath>
 
 #include "arrow.h"
 #include "arrow/memory_pool.h"
@@ -25,6 +26,7 @@
 #include "projector.h"
 
 namespace gandiva {
+static const double MAX_ERROR = 0.00005;
 class TestToNumber : public ::testing::Test {
  public:
   void SetUp() { pool_ = arrow::default_memory_pool(); }
@@ -32,6 +34,10 @@ class TestToNumber : public ::testing::Test {
  protected:
   arrow::MemoryPool* pool_;
 };
+
+void VerifyFuzzyEquals(double actual, double expected, double max_error = MAX_ERROR) {
+  EXPECT_TRUE(fabs(actual - expected) < max_error) << actual << " != " << expected;
+}
 
 TEST_F(TestToNumber, TestToNumber) {
   auto field0 = field("f0", arrow::utf8());
@@ -52,9 +58,9 @@ TEST_F(TestToNumber, TestToNumber) {
   // Create a row-batch with some sample data
 
   int num_records = 4;
-  auto array_a = MakeArrowArrayUtf8({"500.6667", "-600,000.3333", "0", ""},
+  auto array_a = MakeArrowArrayUtf8({"500.6667", "-600,000.3333", "-0", ""},
                                     {true, true, true, true});
-  auto exp = MakeArrowArrayFloat64({500.667, -600000.3333, 0, 0});
+  double exp[] = {500.667, -600000.333, -0, 0};
 
   // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a});
@@ -67,6 +73,8 @@ TEST_F(TestToNumber, TestToNumber) {
   // Validate results
   auto double_arr = std::dynamic_pointer_cast<arrow::DoubleArray>(outputs.at(0));
   EXPECT_EQ(double_arr->null_count(), 0);
-  EXPECT_ARROW_ARRAY_EQUALS(exp, double_arr);
+  for (int i = 0; i < num_records; ++i) {
+    VerifyFuzzyEquals(exp[i],double_arr->GetView(i));
+  }
 }
 }  // namespace gandiva
