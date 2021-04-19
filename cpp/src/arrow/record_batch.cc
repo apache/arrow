@@ -268,8 +268,8 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::SelectColumns(const std::vecto
     columns[i] = column(pos);
   }
   
-  auto schema = std::make_shared<arrow::Schema>(std::move(fields));
-  return RecordBatch::Make(schema, num_rows(), columns);
+  auto new_schema = std::make_shared<arrow::Schema>(std::move(fields), schema()->metadata());
+  return RecordBatch::Make(new_schema, num_rows(), columns);
 }
 
 
