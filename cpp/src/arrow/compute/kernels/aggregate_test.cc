@@ -151,9 +151,13 @@ void ValidateBooleanAgg(const std::string& json,
                         const std::shared_ptr<ScalarType>& expected,
                         const ScalarAggregateOptions& options) {
   auto array = ArrayFromJSON(boolean(), json);
-  auto exp = Datum(expected);
   ASSERT_OK_AND_ASSIGN(Datum result, Op(array, options, nullptr));
-  ASSERT_TRUE(result.Equals(exp));
+
+  const auto& exp = Datum(expected);
+  const auto& res = checked_pointer_cast<ScalarType>(result.scalar());
+  if (!(std::isnan((double)res->value) && std::isnan((double)expected->value))) {
+    ASSERT_TRUE(result.Equals(exp));
+  }
 }
 
 TEST(TestBooleanAggregation, Sum) {
@@ -190,8 +194,8 @@ TEST(TestBooleanAggregation, Sum) {
 
 TEST(TestBooleanAggregation, Mean) {
   const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults();
-  ValidateBooleanAgg<Mean>("[]", std::make_shared<DoubleScalar>(), options);
-  ValidateBooleanAgg<Mean>("[null]", std::make_shared<DoubleScalar>(), options);
+  ValidateBooleanAgg<Mean>("[]", std::make_shared<DoubleScalar>(NAN), options);
+  ValidateBooleanAgg<Mean>("[null]", std::make_shared<DoubleScalar>(NAN), options);
   ValidateBooleanAgg<Mean>("[null, false]", std::make_shared<DoubleScalar>(0), options);
   ValidateBooleanAgg<Mean>("[true]", std::make_shared<DoubleScalar>(1), options);
   ValidateBooleanAgg<Mean>("[true, false, true, false]",
@@ -204,9 +208,9 @@ TEST(TestBooleanAggregation, Mean) {
 
   const ScalarAggregateOptions& options_min_count_zero =
       ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
-  ValidateBooleanAgg<Mean>("[]", std::make_shared<DoubleScalar>(),
+  ValidateBooleanAgg<Mean>("[]", std::make_shared<DoubleScalar>(NAN),
                            options_min_count_zero);
-  ValidateBooleanAgg<Mean>("[null]", std::make_shared<DoubleScalar>(),
+  ValidateBooleanAgg<Mean>("[null]", std::make_shared<DoubleScalar>(NAN),
                            options_min_count_zero);
 
   const char* json = "[true, null, false, null]";
@@ -477,7 +481,12 @@ void ValidateMean(const Array& input, Datum expected,
   using OutputType = typename FindAccumulatorType<DoubleType>::Type;
 
   ASSERT_OK_AND_ASSIGN(Datum result, Mean(input, options, nullptr));
-  DatumEqual<OutputType>::EnsureEqual(result, expected);
+  using ScalarType = typename TypeTraits<OutputType>::ScalarType;
+  const auto& res = checked_pointer_cast<ScalarType>(result.scalar());
+  const auto& exp = checked_pointer_cast<ScalarType>(expected.scalar());
+  if (!(std::isnan(res->value) && std::isnan(exp->value))) {
+    DatumEqual<OutputType>::EnsureEqual(result, expected);
+  }
 }
 
 template <typename ArrowType>
@@ -489,9 +498,9 @@ void ValidateMean(
 }
 
 template <typename ArrowType>
-void ValidateMean(const Array& array) {
-  ValidateMean<ArrowType>(array, NaiveMean<ArrowType>(array),
-                          ScalarAggregateOptions::Defaults());
+void ValidateMean(const Array& array, const ScalarAggregateOptions& options =
+                                          ScalarAggregateOptions::Defaults()) {
+  ValidateMean<ArrowType>(array, NaiveMean<ArrowType>(array), options);
 }
 
 template <typename ArrowType>
@@ -501,16 +510,20 @@ TYPED_TEST_SUITE(TestMeanKernelNumeric, NumericArrowTypes);
 TYPED_TEST(TestMeanKernelNumeric, SimpleMean) {
   using ScalarType = typename TypeTraits<DoubleType>::ScalarType;
 
+  ValidateMean<TypeParam>("[]", Datum(std::make_shared<ScalarType>(NAN)));
+
+  ValidateMean<TypeParam>("[null]", Datum(std::make_shared<ScalarType>(NAN)));
+
   const ScalarAggregateOptions& options =
-      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
 
   ValidateMean<TypeParam>("[]", Datum(std::make_shared<ScalarType>()), options);
 
   ValidateMean<TypeParam>("[null]", Datum(std::make_shared<ScalarType>()), options);
 
-  ValidateMean<TypeParam>("[]", Datum(std::make_shared<ScalarType>()));
+  ValidateMean<TypeParam>("[]", Datum(std::make_shared<ScalarType>(NAN)));
 
-  ValidateMean<TypeParam>("[null]", Datum(std::make_shared<ScalarType>()));
+  ValidateMean<TypeParam>("[null]", Datum(std::make_shared<ScalarType>(NAN)));
 
   ValidateMean<TypeParam>("[1, null, 1]", Datum(std::make_shared<ScalarType>(1.0)));
 
@@ -531,12 +544,13 @@ TYPED_TEST(TestMeanKernelNumeric, ScalarAggregateOptions) {
   auto expected_result_keepna = Datum(std::make_shared<ScalarType>(2));
   auto expected_result_skipna = Datum(std::make_shared<ScalarType>(3));
   auto null_result = Datum(std::make_shared<ScalarType>());
+  auto nan_result = Datum(std::make_shared<ScalarType>(NAN));
   auto zero_result = Datum(std::make_shared<ScalarType>(0));
   const char* json = "[1, null, 2, 2, null, 7]";
 
-  ValidateMean<TypeParam>("[]", null_result,
+  ValidateMean<TypeParam>("[]", nan_result,
                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0));
-  ValidateMean<TypeParam>("[null]", null_result,
+  ValidateMean<TypeParam>("[null]", nan_result,
                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0));
   ValidateMean<TypeParam>("[]", null_result,
                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
@@ -551,9 +565,9 @@ TYPED_TEST(TestMeanKernelNumeric, ScalarAggregateOptions) {
   ValidateMean<TypeParam>(json, null_result,
                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/5));
 
-  ValidateMean<TypeParam>("[]", null_result,
+  ValidateMean<TypeParam>("[]", nan_result,
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
-  ValidateMean<TypeParam>("[null]", null_result,
+  ValidateMean<TypeParam>("[null]", zero_result,
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
   ValidateMean<TypeParam>("[]", null_result,
                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
@@ -575,13 +589,15 @@ class TestRandomNumericMeanKernel : public ::testing::Test {};
 TYPED_TEST_SUITE(TestRandomNumericMeanKernel, NumericArrowTypes);
 TYPED_TEST(TestRandomNumericMeanKernel, RandomArrayMean) {
   auto rand = random::RandomArrayGenerator(0x8afc055);
+  const ScalarAggregateOptions& options =
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
   // Test size up to 1<<13 (8192).
   for (size_t i = 3; i < 14; i += 2) {
     for (auto null_probability : {0.0, 0.001, 0.1, 0.5, 0.999, 1.0}) {
       for (auto length_adjust : {-2, -1, 0, 1, 2}) {
         int64_t length = (1UL << i) + length_adjust;
         auto array = rand.Numeric<TypeParam>(length, 0, 100, null_probability);
-        ValidateMean<TypeParam>(*array);
+        ValidateMean<TypeParam>(*array, options);
       }
     }
   }
@@ -601,12 +617,14 @@ TYPED_TEST(TestRandomNumericMeanKernel, RandomArrayMeanOverflow) {
   int64_t length = 1024;
 
   auto rand = random::RandomArrayGenerator(0x8afc055);
+  const ScalarAggregateOptions& options =
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
   for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
     // Test overflow on the original type
     auto array = rand.Numeric<TypeParam>(length, max - 200, max - 100, null_probability);
-    ValidateMean<TypeParam>(*array);
+    ValidateMean<TypeParam>(*array, options);
     array = rand.Numeric<TypeParam>(length, min + 100, min + 200, null_probability);
-    ValidateMean<TypeParam>(*array);
+    ValidateMean<TypeParam>(*array, options);
   }
 }
 

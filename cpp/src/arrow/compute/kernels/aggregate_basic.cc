@@ -258,13 +258,23 @@ const FunctionDoc count_doc{"Count the number of null / non-null values",
                             {"array"},
                             "ScalarAggregateOptions"};
 
-const FunctionDoc sum_doc{
-    "Sum values of a numeric array", ("Null values are ignored."), {"array"}};
+const FunctionDoc sum_doc{"Sum values of a numeric array",
+                          ("Null values are ignored. Minimum count of non-NA\n"
+                           "values can be set and NAN is returned if too "
+                           "few are present.\n"
+                           "This can be changed through ScalarAggregateOptions."),
+                          {"array"},
+                          "ScalarAggregateOptions"};
 
-const FunctionDoc mean_doc{"Compute the mean of a numeric array",
-                           ("Null values are ignored. The result is always computed\n"
-                            "as a double, regardless of the input types"),
-                           {"array"}};
+const FunctionDoc mean_doc{
+    "Compute the mean of a numeric array",
+    ("Null values are ignored by default. Minimum count of non-NA\n"
+     "values can be set and NAN is returned if too few are \n"
+     "present. The result is always computed as a double, \n"
+     "regardless of the input types.\n"
+     "This can be changed through ScalarAggregateOptions."),
+    {"array"},
+    "ScalarAggregateOptions"};
 
 const FunctionDoc min_max_doc{"Compute the minimum and maximum values of a numeric array",
                               ("Null values are ignored by default.\n"

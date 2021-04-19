@@ -101,9 +101,8 @@ struct MeanImpl : public SumImpl<ArrowType, SimdLevel> {
     //    const ScalarAggregateOptions& options = checked_cast<const ScalarAggregateState&>(*ctx->state()).options;
     const auto& state = checked_cast<const MeanImpl&>(*ctx->state());
 
-    if (this->count == 0 || this->count < options.min_count) {
-      out->value = std::make_shared<DoubleScalar>(0);
-    } else if (this->count < options.min_count) {
+  void Finalize(KernelContext*, Datum* out) override {
+    if (this->count < options.min_count) {
       out->value = std::make_shared<DoubleScalar>();
     } else if (options.skip_nulls) {
       const double mean = static_cast<double>(this->sum) / this->count;

@@ -207,7 +207,7 @@ def test_sum_array(arrow_type):
     assert pc.sum(arr).as_py() == 10
 
     arr = pa.array([], type=arrow_type)
-    assert arr.sum().as_py() is None  # noqa: E711
+    assert arr.sum().as_py() == 0
 
 
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
@@ -229,7 +229,7 @@ def test_sum_chunked_array(arrow_type):
 
     arr = pa.chunked_array((), type=arrow_type)
     assert arr.num_chunks == 0
-    assert pc.sum(arr).as_py() is None  # noqa: E711
+    assert pc.sum(arr).as_py() == 0
 
 
 def test_mode_array():
