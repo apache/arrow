@@ -522,6 +522,9 @@ def test_array_eq():
     assert (arr1 == arr3) is False
     assert (arr1 != arr3) is True
 
+    assert (arr1 == 1) is False
+    assert (arr1 == None) is False  # noqa: E711
+
 
 def test_array_from_buffers():
     values_buf = pa.py_buffer(np.int16([4, 5, 6, 7]))
@@ -2614,8 +2617,6 @@ def test_array_protocol():
     result = pa.array(arr, type=pa.float64())
     expected = pa.array([1, 2, 3], type=pa.float64())
     assert result.equals(expected)
-
-    assert (result == None) is False
 
     # raise error when passing size or mask keywords
     with pytest.raises(ValueError):
