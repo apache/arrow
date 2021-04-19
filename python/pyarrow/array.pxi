@@ -325,9 +325,6 @@ def asarray(values, type=None):
     -------
     arr : Array or ChunkedArray
     """
-    if isinstance(values, ChunkedArray) and values.num_chunks == 1:
-        values = values.chunk(0)
-
     if isinstance(values, (Array, ChunkedArray)):
         if type is not None and not values.type.equals(type):
             values = values.cast(type)
@@ -2184,9 +2181,7 @@ cdef class StructArray(Array):
         for arr in arrays:
             c_array = pyarrow_unwrap_array(arr)
             if c_array == nullptr:
-                raise TypeError(f"Unsupported arrays type {arr}, "
-                                 "if it's a ChunkedArray, only chunked arrays "
-                                 "of a single chunk are currently supported.")
+                raise TypeError(f"Unsupported array type {arr.__class__}")
             c_arrays.push_back(c_array)
         if names is not None:
             for name in names:

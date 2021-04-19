@@ -669,12 +669,8 @@ def test_struct_from_arrays():
 def test_struct_array_from_chunked():
     chunked_arr = pa.chunked_array([[1, 2, 3], [4, 5, 6]])
 
-    with pytest.raises(TypeError, match="Unsupported arrays type"):
+    with pytest.raises(TypeError, match="Unsupported array type"):
         arr = pa.StructArray.from_arrays([chunked_arr], ["foo"])
-
-    chunked_arr = pa.chunked_array([[1, 2, 3]])
-    arr = pa.StructArray.from_arrays([chunked_arr], ["foo"])
-    assert arr.to_pylist() == [{'foo': 1}, {'foo': 2}, {'foo': 3}]
 
 
 def test_dictionary_from_numpy():
