@@ -166,7 +166,7 @@ TEST(TestBooleanAggregation, Sum) {
   ValidateBooleanAgg<Sum>("[true, false, true, true, null]",
                           std::make_shared<UInt64Scalar>(3), options);
 
-  const ScalarAggregateOptions& options_min_count_zero = ScalarAggregateOptions(true, 0);
+  const ScalarAggregateOptions& options_min_count_zero = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
   ValidateBooleanAgg<Sum>("[]", std::make_shared<UInt64Scalar>(0),
                           options_min_count_zero);
   ValidateBooleanAgg<Sum>("[null]", std::make_shared<UInt64Scalar>(0),
