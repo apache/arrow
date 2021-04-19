@@ -45,7 +45,8 @@ public class InNode implements TreeNode {
   private final Integer scale;
 
   private InNode(Set<Integer> values, Set<Long> longValues, Set<String> stringValues, Set<byte[]>
-          binaryValues, Set<BigDecimal> decimalValues, Integer precision, Integer scale, Set<Float> floatValues, Set<Double> doubleValues, TreeNode node) {
+          binaryValues, Set<BigDecimal> decimalValues, Integer precision, Integer scale,
+                 Set<Float> floatValues, Set<Double> doubleValues, TreeNode node) {
     this.intValues = values;
     this.longValues = longValues;
     this.decimalValues = decimalValues;
