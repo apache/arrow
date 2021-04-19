@@ -316,7 +316,7 @@ def asarray(values, type=None):
         This can be a sequence, numpy.ndarray, pyarrow.Array or
         pyarrow.ChunkedArray. 
         If a ChunkedArray with more than one chunk is passed, the output will be
-        an ChunkedArray, otherwise the output will be a Array.
+        a ChunkedArray, otherwise the output will be a Array.
     type : string or DataType
         Explicitly construct the array with this type. Attempt to cast if
         indicated type is different.
