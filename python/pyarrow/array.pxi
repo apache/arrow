@@ -306,7 +306,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
         return _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
 
 
-def asarray(values, type=None, combine_chunked=False):
+def asarray(values, type=None):
     """
     Convert to pyarrow.Array, inferring type if not provided.
 
@@ -314,24 +314,23 @@ def asarray(values, type=None, combine_chunked=False):
     ----------
     values : array-like
         This can be a sequence, numpy.ndarray, pyarrow.Array or
-        pyarrow.ChunkedArray. If a ChunkedArray is passed, the output will be
-        a ChunkedArray, otherwise the output will be a Array.
+        pyarrow.ChunkedArray. 
+        If a ChunkedArray with more than one chunk is passed, the output will be
+        an ChunkedArray, otherwise the output will be a Array.
     type : string or DataType
         Explicitly construct the array with this type. Attempt to cast if
         indicated type is different.
-    combine_chunked : bool
-        If values is a :class:`pyarrow.ChunkedArray` combine the chunks
-        into a single :class:`pyarrow.Array`.
 
     Returns
     -------
     arr : Array or ChunkedArray
     """
+    if isinstance(values, ChunkedArray) and values.num_chunks == 1:
+        values = values.chunk(0)
+
     if isinstance(values, (Array, ChunkedArray)):
         if type is not None and not values.type.equals(type):
             values = values.cast(type)
-        if combine_chunked and isinstance(values, ChunkedArray):
-            values = values.combine_chunks()
         return values
     else:
         return array(values, type=type)
@@ -2181,8 +2180,11 @@ cdef class StructArray(Array):
         if names is not None and fields is not None:
             raise ValueError('Must pass either names or fields, not both')
 
-        arrays = [asarray(x, combine_chunked=True) for x in arrays]
+        arrays = [asarray(x) for x in arrays]
         for arr in arrays:
+            if pyarrow_is_chunked_array(arr):
+                raise ValueError("ChunkedArray of more than one chunk "
+                                 "are not currently supported")
             c_arrays.push_back(pyarrow_unwrap_array(arr))
         if names is not None:
             for name in names:
