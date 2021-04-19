@@ -688,6 +688,16 @@ def test_dictionary_from_numpy():
             assert d2[i].as_py() == dictionary[indices[i]]
 
 
+def test_dictionary_to_numpy():
+    a = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, None, 0]), 
+        pa.array(['foo', 'bar'])
+    )
+
+    expected = ["foo", "bar", None, "foo"]
+    assert a.to_numpy(zero_copy_only=False).tolist() == expected
+
+
 def test_dictionary_from_boxed_arrays():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
