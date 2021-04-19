@@ -690,12 +690,15 @@ def test_dictionary_from_numpy():
 
 def test_dictionary_to_numpy():
     a = pa.DictionaryArray.from_arrays(
-        pa.array([0, 1, None, 0]), 
+        pa.array([0, 1, None, 0]),
         pa.array(['foo', 'bar'])
     )
 
     expected = ["foo", "bar", np.NaN, "foo"]
-    assert a.to_numpy(zero_copy_only=False).tolist() == expected
+    result = a.to_numpy(zero_copy_only=False).tolist()
+    assert result == expected
+
+    assert result == a.to_pandas().tolist()
 
 
 def test_dictionary_from_boxed_arrays():
