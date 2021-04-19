@@ -2615,6 +2615,8 @@ def test_array_protocol():
     expected = pa.array([1, 2, 3], type=pa.float64())
     assert result.equals(expected)
 
+    assert (result == None) is False
+
     # raise error when passing size or mask keywords
     with pytest.raises(ValueError):
         pa.array(arr, mask=np.array([True, False, True]))
