@@ -666,6 +666,14 @@ def test_struct_from_arrays():
         pa.StructArray.from_arrays([a, b, c], fields=[fa2, fb, fc])
 
 
+def test_struct_array_from_chunked():
+    chunked_arr = pa.chunked_array([[1, 2, 3], [4, 5, 6]])
+    arr = pa.StructArray.from_arrays([chunked_arr], ["foo"])
+
+    assert arr.to_pylist() == [{'foo': 1}, {'foo': 2}, {'foo': 3},
+                               {'foo': 4}, {'foo': 5}, {'foo': 6}]
+
+
 def test_dictionary_from_numpy():
     indices = np.repeat([0, 1, 2], 2)
     dictionary = np.array(['foo', 'bar', 'baz'], dtype=object)
