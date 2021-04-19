@@ -102,13 +102,70 @@ Result<std::shared_ptr<FileFragment>> FileFormat::MakeFragment(
                        std::move(partition_expression), std::move(physical_schema)));
 }
 
+// TODO(ARROW-12355[CSV], ARROW-11772[IPC], ARROW-11843[Parquet]) The following
+// implementation of ScanBatchesAsync is both ugly and terribly ineffecient.  Each of the
+// formats should provide their own efficient implementation.
+Result<RecordBatchGenerator> FileFormat::ScanBatchesAsync(
+    const std::shared_ptr<ScanOptions>& scan_options,
+    const std::shared_ptr<FileFragment>& file) {
+  ARROW_ASSIGN_OR_RAISE(auto scan_task_it, ScanFile(scan_options, file));
+  struct State {
+    State(std::shared_ptr<ScanOptions> scan_options, ScanTaskIterator scan_task_it)
+        : scan_options(std::move(scan_options)),
+          scan_task_it(std::move(scan_task_it)),
+          current_rb_it(),
+          finished(false) {}
+
+    std::shared_ptr<ScanOptions> scan_options;
+    ScanTaskIterator scan_task_it;
+    RecordBatchIterator current_rb_it;
+    bool finished;
+  };
+  struct Generator {
+    Future<std::shared_ptr<RecordBatch>> operator()() {
+      while (!state->finished) {
+        if (!state->current_rb_it) {
+          RETURN_NOT_OK(PumpScanTask());
+          if (state->finished) {
+            return AsyncGeneratorEnd<std::shared_ptr<RecordBatch>>();
+          }
+        }
+        ARROW_ASSIGN_OR_RAISE(auto next_batch, state->current_rb_it.Next());
+        if (IsIterationEnd(next_batch)) {
+          state->current_rb_it = RecordBatchIterator();
+        } else {
+          return Future<std::shared_ptr<RecordBatch>>::MakeFinished(next_batch);
+        }
+      }
+      return AsyncGeneratorEnd<std::shared_ptr<RecordBatch>>();
+    }
+    Status PumpScanTask() {
+      ARROW_ASSIGN_OR_RAISE(auto next_task, state->scan_task_it.Next());
+      if (IsIterationEnd(next_task)) {
+        state->finished = true;
+      } else {
+        ARROW_ASSIGN_OR_RAISE(state->current_rb_it, next_task->Execute());
+      }
+      return Status::OK();
+    }
+    std::shared_ptr<State> state;
+  };
+  return Generator{std::make_shared<State>(scan_options, std::move(scan_task_it))};
+}
+
 Result<std::shared_ptr<Schema>> FileFragment::ReadPhysicalSchemaImpl() {
   return format_->Inspect(source_);
 }
 
 Result<ScanTaskIterator> FileFragment::Scan(std::shared_ptr<ScanOptions> options) {
   auto self = std::dynamic_pointer_cast<FileFragment>(shared_from_this());
-  return format_->ScanFile(std::move(options), self);
+  return format_->ScanFile(options, self);
+}
+
+Result<RecordBatchGenerator> FileFragment::ScanBatchesAsync(
+    const std::shared_ptr<ScanOptions>& options) {
+  auto self = std::dynamic_pointer_cast<FileFragment>(shared_from_this());
+  return format_->ScanBatchesAsync(options, self);
 }
 
 struct FileSystemDataset::FragmentSubtrees {

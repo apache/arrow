@@ -326,7 +326,7 @@ Result<std::unique_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
 }
 
 Result<ScanTaskIterator> ParquetFileFormat::ScanFile(
-    std::shared_ptr<ScanOptions> options,
+    const std::shared_ptr<ScanOptions>& options,
     const std::shared_ptr<FileFragment>& fragment) const {
   auto* parquet_fragment = checked_cast<ParquetFileFragment*>(fragment.get());
   std::vector<int> row_groups;

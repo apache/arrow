@@ -96,7 +96,7 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 
   /// \brief Open a file for scanning
   Result<ScanTaskIterator> ScanFile(
-      std::shared_ptr<ScanOptions> options,
+      const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& file) const override;
 
   using FileFormat::MakeFragment;
