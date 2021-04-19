@@ -211,7 +211,8 @@ class ParquetFile:
         column chunks. Otherwise IO calls are unbuffered.
     pre_buffer : bool, default False
         Coalesce and issue file reads in parallel to improve performance on
-        high-latency filesystems (e.g. S3).
+        high-latency filesystems (e.g. S3). If True, Arrow will use a
+        background I/O thread pool.
     """
 
     def __init__(self, source, metadata=None, common_metadata=None,
@@ -1218,7 +1219,8 @@ use_legacy_dataset : bool, default True
     different partitioning schemes, etc.
 pre_buffer : bool, default True
     Coalesce and issue file reads in parallel to improve performance on
-    high-latency filesystems (e.g. S3). This option is only supported for
+    high-latency filesystems (e.g. S3). If True, Arrow will use a
+    background I/O thread pool. This option is only supported for
     use_legacy_dataset=True. If using a filesystem layer that itself
     performs readahead (e.g. fsspec's S3FS), disable readahead for best
     results.
@@ -1690,7 +1692,8 @@ filters : List[Tuple] or List[List[Tuple]] or None (default)
     and different partitioning schemes are supported.
 pre_buffer : bool, default True
     Coalesce and issue file reads in parallel to improve performance on
-    high-latency filesystems (e.g. S3). This option is only supported for
+    high-latency filesystems (e.g. S3). If True, Arrow will use a
+    background I/O thread pool. This option is only supported for
     use_legacy_dataset=True. If using a filesystem layer that itself
     performs readahead (e.g. fsspec's S3FS), disable readahead for best
     results.
