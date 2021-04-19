@@ -21,6 +21,7 @@
 
 from cython.operator cimport dereference as deref
 from libcpp.vector cimport vector as std_vector
+from libcpp.utility cimport move
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport (check_status, _Weakrefable,
@@ -29,7 +30,10 @@ from pyarrow.lib cimport (check_status, _Weakrefable,
                           pyarrow_wrap_batch,
                           RecordBatch,
                           pyarrow_wrap_table,
-                          get_reader)
+                          pyarrow_unwrap_schema,
+                          pyarrow_unwrap_table,
+                          get_reader,
+                          get_writer)
 
 
 cdef class ORCReader(_Weakrefable):
@@ -109,3 +113,27 @@ cdef class ORCReader(_Weakrefable):
                 check_status(deref(self.reader).Read(indices, &sp_table))
 
         return pyarrow_wrap_table(sp_table)
+
+cdef class ORCWriter(_Weakrefable):
+    cdef:
+        object source
+        unique_ptr[ORCFileWriter] writer
+        shared_ptr[COutputStream] rd_handle
+
+    def open(self, object source):
+        self.source = source
+        get_writer(source, &self.rd_handle)
+        with nogil:
+            self.writer = move(GetResultValue[unique_ptr[ORCFileWriter]](
+                ORCFileWriter.Open(self.rd_handle.get())))
+
+    def write(self, object table):
+        cdef:
+            shared_ptr[CTable] sp_table
+        sp_table = pyarrow_unwrap_table(table)
+        with nogil:
+            check_status(deref(self.writer).Write(deref(sp_table)))
+
+    def close(self):
+        with nogil:
+            check_status(deref(self.writer).Close())

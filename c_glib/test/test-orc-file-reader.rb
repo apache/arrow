@@ -40,7 +40,7 @@ bytes1: binary
 string1: string
 middle: struct<list: list<item: struct<int1: int32, string1: string>>>
 list: list<item: struct<int1: int32, string1: string>>
-map: list<item: struct<key: string, value: struct<int1: int32, string1: string>>>
+map: map<string, struct<int1: int32, string1: string>>
     SCHEMA
   end
 
@@ -78,21 +78,6 @@ map: list<item: struct<key: string, value: struct<int1: int32, string1: string>>
 
   def build_middle_array(middles)
     build_struct_array(middle_fields, middles)
-  end
-
-  def key_value_fields
-    [
-      Arrow::Field.new("key", Arrow::StringDataType.new),
-      Arrow::Field.new("value", item_data_type),
-    ]
-  end
-
-  def key_value_data_type
-    Arrow::StructDataType.new(key_value_fields)
-  end
-
-  def build_key_value_array(key_value_array)
-    build_list_array(key_value_data_type, key_value_array, field_name: "item")
   end
 
   def middle_array
@@ -154,26 +139,21 @@ map: list<item: struct<key: string, value: struct<int1: int32, string1: string>>
   end
 
   def map_array
-    build_key_value_array([
-                            [
-                            ],
-                            [
-                              {
-                                "key" => "chani",
-                                "value" => {
-                                  "int1" => 5,
-                                  "string1" => "chani",
-                                },
-                              },
-                              {
-                                "key" => "mauddib",
-                                "value" => {
-                                  "int1" => 1,
-                                  "string1" => "mauddib",
-                                },
-                              },
-                            ],
-                          ])
+    build_map_array(Arrow::StringDataType.new,
+                    item_data_type,
+                    [
+                      {},
+                      {
+                        "chani" => {
+                          "int1" => 5,
+                          "string1" => "chani",
+                        },
+                        "mauddib" => {
+                          "int1" => 1,
+                          "string1" => "mauddib",
+                        },
+                      },
+                    ])
   end
 
   def all_columns

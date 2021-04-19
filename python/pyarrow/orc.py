@@ -147,3 +147,56 @@ class ORCFile:
         """
         include_indices = self._select_indices(columns)
         return self.reader.read(include_indices=include_indices)
+
+
+class ORCWriter:
+    """
+    Writer interface for a single ORC file
+
+    Parameters
+    ----------
+    where : str or pyarrow.io.NativeFile
+        Writable target. For passing Python file objects or byte buffers,
+        see pyarrow.io.PythonFileInterface, pyarrow.io.BufferOutputStream
+        or pyarrow.io.FixedSizeBufferWriter.
+    """
+
+    def __init__(self, where):
+        self.writer = _orc.ORCWriter()
+        self.writer.open(where)
+
+    def write(self, table):
+        """
+        Write the table into an ORC file. The schema of the table must
+        be equal to the schema used when opening the ORC file.
+
+        Parameters
+        ----------
+        schema : pyarrow.lib.Table
+            The table to be written into the ORC file
+        """
+        self.writer.write(table)
+
+    def close(self):
+        """
+        Close the ORC file
+        """
+        self.writer.close()
+
+
+def write_table(where, table):
+    """
+    Write a table into an ORC file
+
+    Parameters
+    ----------
+    where : str or pyarrow.io.NativeFile
+        Writable target. For passing Python file objects or byte buffers,
+        see pyarrow.io.PythonFileInterface, pyarrow.io.BufferOutputStream
+        or pyarrow.io.FixedSizeBufferWriter.
+    table : pyarrow.lib.Table
+        The table to be written into the ORC file
+    """
+    writer = ORCWriter(where)
+    writer.write(table)
+    writer.close()

@@ -321,6 +321,19 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::shared_ptr<Array> List(const Array& values, int64_t size, double null_probability,
                               bool force_empty_nulls = false);
 
+  /// \brief Generate a random MapArray
+  ///
+  /// \param[in] keys The underlying keys array
+  /// \param[in] items The underlying items array
+  /// \param[in] size The size of the generated map array
+  /// \param[in] null_probability the probability of a map value being null
+  /// \param[in] force_empty_nulls if true, null map entries must have 0 length
+  ///
+  /// \return a generated Array
+  std::shared_ptr<Array> Map(const std::shared_ptr<Array>& keys,
+                             const std::shared_ptr<Array>& items, int64_t size,
+                             double null_probability, bool force_empty_nulls = false);
+
   /// \brief Generate a random SparseUnionArray
   ///
   /// The type ids are chosen randomly, according to a uniform distribution,
