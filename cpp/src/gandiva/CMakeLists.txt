@@ -138,7 +138,7 @@ add_arrow_lib(gandiva
               EXTRA_INCLUDES
               $<TARGET_PROPERTY:LLVM::LLVM_INTERFACE,INTERFACE_INCLUDE_DIRECTORIES>
               ${GANDIVA_OPENSSL_INCLUDE_DIR}
-              ${utf8proc_INCLUDE_DIR}
+              ${UTF8PROC_INCLUDE_DIR}
               SHARED_LINK_FLAGS
               ${GANDIVA_SHARED_LINK_FLAGS}
               SHARED_LINK_LIBS
@@ -241,7 +241,7 @@ add_gandiva_test(internals-test
                  $<TARGET_PROPERTY:LLVM::LLVM_INTERFACE,INTERFACE_INCLUDE_DIRECTORIES>
                  ${GANDIVA_INTERNALS_TEST_ARGUMENTS}
                  ${GANDIVA_OPENSSL_INCLUDE_DIR}
-                 ${utf8proc_INCLUDE_DIR})
+                 ${UTF8PROC_INCLUDE_DIR})
 
 if(ARROW_GANDIVA_JAVA)
   add_subdirectory(jni)
