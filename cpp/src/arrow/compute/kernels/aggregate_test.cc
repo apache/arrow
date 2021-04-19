@@ -139,8 +139,9 @@ void ValidateSum(
 }
 
 template <typename ArrowType>
-void ValidateSum(const Array& array) {
-  ValidateSum<ArrowType>(array, NaiveSum<ArrowType>(array));
+void ValidateSum(const Array& array, const ScalarAggregateOptions& options =
+                                         ScalarAggregateOptions::Defaults()) {
+  ValidateSum<ArrowType>(array, NaiveSum<ArrowType>(array), options);
 }
 
 using UnaryOp = Result<Datum>(const Datum&, const ScalarAggregateOptions&, ExecContext*);
@@ -157,8 +158,8 @@ void ValidateBooleanAgg(const std::string& json,
 
 TEST(TestBooleanAggregation, Sum) {
   const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults();
-  ValidateBooleanAgg<Sum>("[]", std::make_shared<UInt64Scalar>(), options);
-  ValidateBooleanAgg<Sum>("[null]", std::make_shared<UInt64Scalar>(), options);
+  ValidateBooleanAgg<Sum>("[]", std::make_shared<UInt64Scalar>(0), options);
+  ValidateBooleanAgg<Sum>("[null]", std::make_shared<UInt64Scalar>(0), options);
   ValidateBooleanAgg<Sum>("[null, false]", std::make_shared<UInt64Scalar>(0), options);
   ValidateBooleanAgg<Sum>("[true]", std::make_shared<UInt64Scalar>(1), options);
   ValidateBooleanAgg<Sum>("[true, false, true]", std::make_shared<UInt64Scalar>(2),
@@ -166,25 +167,25 @@ TEST(TestBooleanAggregation, Sum) {
   ValidateBooleanAgg<Sum>("[true, false, true, true, null]",
                           std::make_shared<UInt64Scalar>(3), options);
 
-  const ScalarAggregateOptions& options_min_count_zero = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
-  ValidateBooleanAgg<Sum>("[]", std::make_shared<UInt64Scalar>(0),
-                          options_min_count_zero);
-  ValidateBooleanAgg<Sum>("[null]", std::make_shared<UInt64Scalar>(0),
+  const ScalarAggregateOptions& options_min_count_zero =
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
+  ValidateBooleanAgg<Sum>("[]", std::make_shared<UInt64Scalar>(), options_min_count_zero);
+  ValidateBooleanAgg<Sum>("[null]", std::make_shared<UInt64Scalar>(),
                           options_min_count_zero);
 
   const char* json = "[true, null, false, null]";
   ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
-                          ScalarAggregateOptions(true, 1));
+                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
   ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
-                          ScalarAggregateOptions(true, 2));
+                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2));
   ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(),
-                          ScalarAggregateOptions(true, 3));
+                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3));
   ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
-                          ScalarAggregateOptions(false, 1));
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
   ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(1),
-                          ScalarAggregateOptions(false, 2));
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/2));
   ValidateBooleanAgg<Sum>(json, std::make_shared<UInt64Scalar>(),
-                          ScalarAggregateOptions(false, 3));
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
 }
 
 TEST(TestBooleanAggregation, Mean) {
@@ -201,7 +202,8 @@ TEST(TestBooleanAggregation, Mean) {
   ValidateBooleanAgg<Mean>("[true, null, false, false, false]",
                            std::make_shared<DoubleScalar>(0.25), options);
 
-  const ScalarAggregateOptions& options_min_count_zero = ScalarAggregateOptions(true, 0);
+  const ScalarAggregateOptions& options_min_count_zero =
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
   ValidateBooleanAgg<Mean>("[]", std::make_shared<DoubleScalar>(),
                            options_min_count_zero);
   ValidateBooleanAgg<Mean>("[null]", std::make_shared<DoubleScalar>(),
@@ -209,17 +211,17 @@ TEST(TestBooleanAggregation, Mean) {
 
   const char* json = "[true, null, false, null]";
   ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.5),
-                           ScalarAggregateOptions(true, 1));
+                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
   ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.5),
-                           ScalarAggregateOptions(true, 2));
+                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2));
   ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(),
-                           ScalarAggregateOptions(true, 3));
+                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3));
   ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.25),
-                           ScalarAggregateOptions(false, 1));
+                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
   ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.25),
-                           ScalarAggregateOptions(false, 2));
+                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/2));
   ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(),
-                           ScalarAggregateOptions(false, 3));
+                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
 }
 
 template <typename ArrowType>
@@ -230,17 +232,11 @@ TYPED_TEST(TestNumericSumKernel, SimpleSum) {
   using SumType = typename FindAccumulatorType<TypeParam>::Type;
   using ScalarType = typename TypeTraits<SumType>::ScalarType;
   using T = typename TypeParam::c_type;
-  const ScalarAggregateOptions& options = ScalarAggregateOptions(true, 0);
 
-  ValidateSum<TypeParam>("[]", Datum(std::make_shared<ScalarType>(static_cast<T>(0))),
-                         options);
+  ValidateSum<TypeParam>("[]", Datum(std::make_shared<ScalarType>(static_cast<T>(0))));
 
-  ValidateSum<TypeParam>("[null]", Datum(std::make_shared<ScalarType>(static_cast<T>(0))),
-                         options);
-
-  ValidateSum<TypeParam>("[]", Datum(std::make_shared<ScalarType>()));
-
-  ValidateSum<TypeParam>("[null]", Datum(std::make_shared<ScalarType>()));
+  ValidateSum<TypeParam>("[null]",
+                         Datum(std::make_shared<ScalarType>(static_cast<T>(0))));
 
   ValidateSum<TypeParam>("[0, 1, 2, 3, 4, 5]",
                          Datum(std::make_shared<ScalarType>(static_cast<T>(5 * 6 / 2))));
@@ -257,13 +253,19 @@ TYPED_TEST(TestNumericSumKernel, SimpleSum) {
   ValidateSum<TypeParam>(chunks,
                          Datum(std::make_shared<ScalarType>(static_cast<T>(5 * 6 / 2))));
 
+  const ScalarAggregateOptions& options =
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
+
+  ValidateSum<TypeParam>("[]", Datum(std::make_shared<ScalarType>()), options);
+
+  ValidateSum<TypeParam>("[null]", Datum(std::make_shared<ScalarType>()), options);
+
   chunks = {};
-  ValidateSum<TypeParam>(chunks,
-                         Datum(std::make_shared<ScalarType>()));  // null
+  ValidateSum<TypeParam>(chunks, Datum(std::make_shared<ScalarType>()), options);  // null
 
   const T expected_result = static_cast<T>(14);
   ValidateSum<TypeParam>("[1, null, 3, null, 3, null, 7]",
-                         Datum(std::make_shared<ScalarType>(expected_result)));
+                         Datum(std::make_shared<ScalarType>(expected_result)), options);
 }
 
 TYPED_TEST_SUITE(TestNumericSumKernel, NumericArrowTypes);
@@ -278,16 +280,26 @@ TYPED_TEST(TestNumericSumKernel, ScalarAggregateOptions) {
   auto result = Datum(std::make_shared<ScalarType>(expected_result));
   const char* json = "[1, null, 3, null, 3, null, 7]";
 
-  ValidateSum<TypeParam>("[]", zero_result, ScalarAggregateOptions(true, 0));
-  ValidateSum<TypeParam>("[null]", zero_result, ScalarAggregateOptions(true, 0));
-  ValidateSum<TypeParam>(json, result, ScalarAggregateOptions(true, 3));
-  ValidateSum<TypeParam>(json, result, ScalarAggregateOptions(true, 4));
-  ValidateSum<TypeParam>(json, null_result, ScalarAggregateOptions(true, 5));
-  ValidateSum<TypeParam>("[]", null_result, ScalarAggregateOptions(true, 1));
-  ValidateSum<TypeParam>("[null]", null_result, ScalarAggregateOptions(true, 1));
-  ValidateSum<TypeParam>(json, result, ScalarAggregateOptions(false, 3));
-  ValidateSum<TypeParam>(json, result, ScalarAggregateOptions(false, 4));
-  ValidateSum<TypeParam>(json, null_result, ScalarAggregateOptions(false, 5));
+  ValidateSum<TypeParam>("[]", zero_result,
+                         ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0));
+  ValidateSum<TypeParam>("[null]", zero_result,
+                         ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0));
+  ValidateSum<TypeParam>(json, result,
+                         ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3));
+  ValidateSum<TypeParam>(json, result,
+                         ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/4));
+  ValidateSum<TypeParam>(json, null_result,
+                         ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/5));
+  ValidateSum<TypeParam>("[]", null_result,
+                         ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
+  ValidateSum<TypeParam>("[null]", null_result,
+                         ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
+  ValidateSum<TypeParam>(json, result,
+                         ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
+  ValidateSum<TypeParam>(json, result,
+                         ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/4));
+  ValidateSum<TypeParam>(json, null_result,
+                         ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/5));
 }
 
 template <typename ArrowType>
@@ -296,13 +308,15 @@ class TestRandomNumericSumKernel : public ::testing::Test {};
 TYPED_TEST_SUITE(TestRandomNumericSumKernel, NumericArrowTypes);
 TYPED_TEST(TestRandomNumericSumKernel, RandomArraySum) {
   auto rand = random::RandomArrayGenerator(0x5487655);
+  const ScalarAggregateOptions& options =
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
   // Test size up to 1<<13 (8192).
   for (size_t i = 3; i < 14; i += 2) {
     for (auto null_probability : {0.0, 0.001, 0.1, 0.5, 0.999, 1.0}) {
       for (auto length_adjust : {-2, -1, 0, 1, 2}) {
         int64_t length = (1UL << i) + length_adjust;
         auto array = rand.Numeric<TypeParam>(length, 0, 100, null_probability);
-        ValidateSum<TypeParam>(*array);
+        ValidateSum<TypeParam>(*array, options);
       }
     }
   }
@@ -322,12 +336,14 @@ TYPED_TEST(TestRandomNumericSumKernel, RandomArraySumOverflow) {
   int64_t length = 1024;
 
   auto rand = random::RandomArrayGenerator(0x5487655);
+  const ScalarAggregateOptions& options =
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
   for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
     // Test overflow on the original type
     auto array = rand.Numeric<TypeParam>(length, max - 200, max - 100, null_probability);
-    ValidateSum<TypeParam>(*array);
+    ValidateSum<TypeParam>(*array, options);
     array = rand.Numeric<TypeParam>(length, min + 100, min + 200, null_probability);
-    ValidateSum<TypeParam>(*array);
+    ValidateSum<TypeParam>(*array, options);
   }
 }
 
@@ -391,8 +407,8 @@ static CountPair NaiveCount(const Array& array) {
 }
 
 void ValidateCount(const Array& input, CountPair expected) {
-  ScalarAggregateOptions all = ScalarAggregateOptions(true);
-  ScalarAggregateOptions nulls = ScalarAggregateOptions(false);
+  ScalarAggregateOptions all = ScalarAggregateOptions(/*skip_nulls=*/true);
+  ScalarAggregateOptions nulls = ScalarAggregateOptions(/*skip_nulls=*/false);
 
   ASSERT_OK_AND_ASSIGN(Datum result, Count(input, all));
   AssertDatumsEqual(result, Datum(expected.first));
@@ -485,7 +501,8 @@ TYPED_TEST_SUITE(TestMeanKernelNumeric, NumericArrowTypes);
 TYPED_TEST(TestMeanKernelNumeric, SimpleMean) {
   using ScalarType = typename TypeTraits<DoubleType>::ScalarType;
 
-  const ScalarAggregateOptions& options = ScalarAggregateOptions(true, 0);
+  const ScalarAggregateOptions& options =
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
 
   ValidateMean<TypeParam>("[]", Datum(std::make_shared<ScalarType>()), options);
 
@@ -517,23 +534,39 @@ TYPED_TEST(TestMeanKernelNumeric, ScalarAggregateOptions) {
   auto zero_result = Datum(std::make_shared<ScalarType>(0));
   const char* json = "[1, null, 2, 2, null, 7]";
 
-  ValidateMean<TypeParam>("[]", null_result, ScalarAggregateOptions(true, 0));
-  ValidateMean<TypeParam>("[null]", null_result, ScalarAggregateOptions(true, 0));
-  ValidateMean<TypeParam>("[]", null_result, ScalarAggregateOptions(true, 1));
-  ValidateMean<TypeParam>("[null]", null_result, ScalarAggregateOptions(true, 1));
-  ValidateMean<TypeParam>(json, expected_result_skipna, ScalarAggregateOptions(true, 0));
-  ValidateMean<TypeParam>(json, expected_result_skipna, ScalarAggregateOptions(true, 3));
-  ValidateMean<TypeParam>(json, expected_result_skipna, ScalarAggregateOptions(true, 4));
-  ValidateMean<TypeParam>(json, null_result, ScalarAggregateOptions(true, 5));
+  ValidateMean<TypeParam>("[]", null_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0));
+  ValidateMean<TypeParam>("[null]", null_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0));
+  ValidateMean<TypeParam>("[]", null_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
+  ValidateMean<TypeParam>("[null]", null_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
+  ValidateMean<TypeParam>(json, expected_result_skipna,
+                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0));
+  ValidateMean<TypeParam>(json, expected_result_skipna,
+                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3));
+  ValidateMean<TypeParam>(json, expected_result_skipna,
+                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/4));
+  ValidateMean<TypeParam>(json, null_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/5));
 
-  ValidateMean<TypeParam>("[]", null_result, ScalarAggregateOptions(false, 0));
-  ValidateMean<TypeParam>("[null]", null_result, ScalarAggregateOptions(false, 0));
-  ValidateMean<TypeParam>("[]", null_result, ScalarAggregateOptions(false, 1));
-  ValidateMean<TypeParam>("[null]", null_result, ScalarAggregateOptions(false, 1));
-  ValidateMean<TypeParam>(json, expected_result_keepna, ScalarAggregateOptions(false, 0));
-  ValidateMean<TypeParam>(json, expected_result_keepna, ScalarAggregateOptions(false, 3));
-  ValidateMean<TypeParam>(json, expected_result_keepna, ScalarAggregateOptions(false, 4));
-  ValidateMean<TypeParam>(json, null_result, ScalarAggregateOptions(false, 15));
+  ValidateMean<TypeParam>("[]", null_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+  ValidateMean<TypeParam>("[null]", null_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+  ValidateMean<TypeParam>("[]", null_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
+  ValidateMean<TypeParam>("[null]", null_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
+  ValidateMean<TypeParam>(json, expected_result_keepna,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+  ValidateMean<TypeParam>(json, expected_result_keepna,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
+  ValidateMean<TypeParam>(json, expected_result_keepna,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/4));
+  ValidateMean<TypeParam>(json, null_result,
+                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/15));
 }
 
 template <typename ArrowType>
@@ -651,6 +684,7 @@ TEST_F(TestBooleanMinMaxKernel, Basics) {
   std::vector<std::string> chunked_input3 = {"[true, null]", "[null, false]"};
 
   // SKIP nulls by default
+  options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
   this->AssertMinMaxIsNull("[]", options);
   this->AssertMinMaxIsNull("[null, null, null]", options);
   this->AssertMinMaxIs("[false, false, false]", false, false, options);
@@ -663,7 +697,7 @@ TEST_F(TestBooleanMinMaxKernel, Basics) {
   this->AssertMinMaxIs(chunked_input2, false, false, options);
   this->AssertMinMaxIs(chunked_input3, false, true, options);
 
-  options = ScalarAggregateOptions(false);
+  options = ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1);
   this->AssertMinMaxIsNull("[]", options);
   this->AssertMinMaxIsNull("[null, null, null]", options);
   this->AssertMinMaxIsNull("[false, null, false]", options);
@@ -676,28 +710,32 @@ TEST_F(TestBooleanMinMaxKernel, Basics) {
   this->AssertMinMaxIs(chunked_input2, false, false, options);
   this->AssertMinMaxIsNull(chunked_input3, options);
 
-  options = ScalarAggregateOptions(true, 0);
+  options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
   this->AssertMinMaxIs("[]", true, false, options);
   this->AssertMinMaxIs("[null]", true, false, options);
 }
 
 TYPED_TEST_SUITE(TestIntegerMinMaxKernel, IntegralArrowTypes);
 TYPED_TEST(TestIntegerMinMaxKernel, Basics) {
+  using T = typename TypeParam::c_type;
+  T min = std::numeric_limits<T>::max();
+  T max = std::numeric_limits<T>::min();
+
   ScalarAggregateOptions options;
   std::vector<std::string> chunked_input1 = {"[5, 1, 2, 3, 4]", "[9, 1, null, 3, 4]"};
   std::vector<std::string> chunked_input2 = {"[5, null, 2, 3, 4]", "[9, 1, 2, 3, 4]"};
   std::vector<std::string> chunked_input3 = {"[5, 1, 2, 3, null]", "[9, 1, null, 3, 4]"};
 
-  // SKIP nulls by default
-  this->AssertMinMaxIsNull("[]", options);
-  this->AssertMinMaxIsNull("[null, null, null]", options);
+  // Default behaviour
+  this->AssertMinMaxIs("[]", min, max, options);
+  this->AssertMinMaxIs("[null, null, null]", min, max, options);
   this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
   this->AssertMinMaxIs("[5, null, 2, 3, 4]", 2, 5, options);
   this->AssertMinMaxIs(chunked_input1, 1, 9, options);
   this->AssertMinMaxIs(chunked_input2, 1, 9, options);
   this->AssertMinMaxIs(chunked_input3, 1, 9, options);
 
-  options = ScalarAggregateOptions(false);
+  options = ScalarAggregateOptions(/*skip_nulls=*/false);
   this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
   // output null
   this->AssertMinMaxIsNull("[5, null, 2, 3, 4]", options);
@@ -724,7 +762,7 @@ TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
   this->AssertMinMaxIs(chunked_input2, 1, 9, options);
   this->AssertMinMaxIs(chunked_input3, 1, 9, options);
 
-  options = ScalarAggregateOptions(false);
+  options = ScalarAggregateOptions(/*skip_nulls=*/false);
   this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
   this->AssertMinMaxIs("[5, -Inf, 2, 3, 4]", -INFINITY, 5, options);
   // output null
@@ -736,11 +774,11 @@ TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
   this->AssertMinMaxIsNull(chunked_input2, options);
   this->AssertMinMaxIsNull(chunked_input3, options);
 
-  options = ScalarAggregateOptions(true, 0);
+  options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
   this->AssertMinMaxIs("[]", INFINITY, -INFINITY, options);
   this->AssertMinMaxIs("[null]", INFINITY, -INFINITY, options);
 
-  options = ScalarAggregateOptions(false, 1);
+  options = ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1);
   this->AssertMinMaxIsNull("[]", options);
   this->AssertMinMaxIsNull("[null]", options);
 }
@@ -845,11 +883,11 @@ static enable_if_floating_point<ArrowType, MinMaxResult<ArrowType>> NaiveMinMax(
 }
 
 template <typename ArrowType>
-void ValidateMinMax(const Array& array) {
+void ValidateMinMax(const Array& array, const ScalarAggregateOptions& options) {
   using Traits = TypeTraits<ArrowType>;
   using ScalarType = typename Traits::ScalarType;
 
-  ASSERT_OK_AND_ASSIGN(Datum out, MinMax(array));
+  ASSERT_OK_AND_ASSIGN(Datum out, MinMax(array, options));
   const StructScalar& value = out.scalar_as<StructScalar>();
 
   auto expected = NaiveMinMax<ArrowType>(array);
@@ -873,6 +911,8 @@ class TestRandomNumericMinMaxKernel : public ::testing::Test {};
 TYPED_TEST_SUITE(TestRandomNumericMinMaxKernel, NumericArrowTypes);
 TYPED_TEST(TestRandomNumericMinMaxKernel, RandomArrayMinMax) {
   auto rand = random::RandomArrayGenerator(0x8afc055);
+  const ScalarAggregateOptions& options =
+      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1);
   // Test size up to 1<<11 (2048).
   for (size_t i = 3; i < 12; i += 2) {
     for (auto null_probability : {0.0, 0.01, 0.1, 0.5, 0.99, 1.0}) {
@@ -880,7 +920,7 @@ TYPED_TEST(TestRandomNumericMinMaxKernel, RandomArrayMinMax) {
       auto array = rand.Numeric<TypeParam>(base_length, 0, 100, null_probability);
       for (auto length_adjust : {-2, -1, 0, 1, 2}) {
         int64_t length = (1UL << i) + length_adjust;
-        ValidateMinMax<TypeParam>(*array->Slice(0, length));
+        ValidateMinMax<TypeParam>(*array->Slice(0, length), options);
       }
     }
   }

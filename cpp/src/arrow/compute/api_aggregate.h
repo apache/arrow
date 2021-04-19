@@ -41,13 +41,13 @@ class ExecContext;
 ///
 /// By default, null values are ignored
 struct ARROW_EXPORT ScalarAggregateOptions : public FunctionOptions {
-  explicit ScalarAggregateOptions(bool skip_nulls = true, uint32_t min_count = 1)
+  explicit ScalarAggregateOptions(bool skip_nulls = true, uint32_t min_count = 0)
       : skip_nulls(skip_nulls), min_count(min_count) {}
 
   static ScalarAggregateOptions Defaults() { return ScalarAggregateOptions{}; }
 
   bool skip_nulls = true;
-  uint32_t min_count = 1;
+  uint32_t min_count = 0;
 };
 
 /// \brief Control Mode kernel behavior

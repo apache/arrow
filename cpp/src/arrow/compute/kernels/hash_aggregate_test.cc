@@ -659,15 +659,16 @@ TEST(GroupBy, ConcreteCaseWithValidateGroupBy) {
     [null,  "gama"]
   ])");
 
-  ScalarAggregateOptions keepna{false};
-  ScalarAggregateOptions skipna{true};
+  ScalarAggregateOptions keepna{false, 1};
+  ScalarAggregateOptions skipna{true, 1};
+  ScalarAggregateOptions other{true, 1};
 
   using internal::Aggregate;
   for (auto agg : {
-           Aggregate{"hash_sum", nullptr},
+           Aggregate{"hash_sum", &other},
            Aggregate{"hash_count", &skipna},
            Aggregate{"hash_count", &keepna},
-           Aggregate{"hash_min_max", nullptr},
+           Aggregate{"hash_min_max", &other},
            Aggregate{"hash_min_max", &skipna},
        }) {
     SCOPED_TRACE(agg.function);
@@ -700,6 +701,8 @@ TEST(GroupBy, CountNull) {
 }
 
 TEST(GroupBy, RandomArraySum) {
+  ScalarAggregateOptions skipna{true, 1};
+
   for (int64_t length : {1 << 10, 1 << 12, 1 << 15}) {
     for (auto null_probability : {0.0, 0.01, 0.5, 1.0}) {
       auto batch = random::GenerateBatch(
@@ -713,7 +716,7 @@ TEST(GroupBy, RandomArraySum) {
 
       ValidateGroupBy(
           {
-              {"hash_sum", nullptr},
+              {"hash_sum", &skipna},
           },
           {batch->GetColumnByName("argument")}, {batch->GetColumnByName("key")});
     }
