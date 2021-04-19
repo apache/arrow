@@ -610,7 +610,7 @@ const char* castVARCHAR_bool_int64(gdv_int64 context, gdv_boolean value,
                                                                                        \
     /* detected multibyte utf8 characters; slow path */                                \
     int32_t byte_pos =                                                                 \
-        utf8_byte_pos(context, data + index, data_len - index, len - index);             \
+        utf8_byte_pos(context, data + index, data_len - index, len - index);           \
     if (byte_pos < 0) {                                                                \
       *out_length = 0;                                                                 \
       return "";                                                                       \
