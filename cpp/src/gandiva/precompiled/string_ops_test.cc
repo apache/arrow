@@ -263,7 +263,7 @@ TEST(TestStringOps, TestCastVarchar) {
 
   std::string z("aa\xc3");
   out_str = castVARCHAR_binary_int64(ctx_ptr, z.data(), static_cast<int>(z.length()), 2,
-                                   &out_len);
+                                     &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "aa");
   EXPECT_FALSE(ctx.has_error());
 
@@ -321,7 +321,7 @@ TEST(TestStringOps, TestCastVarchar) {
 
   std::string f("123456781234çåå\xc3");
   out_str = castVARCHAR_binary_int64(ctx_ptr, f.data(), static_cast<int32_t>(f.length()),
-                                   16, &out_len);
+                                     16, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr(
