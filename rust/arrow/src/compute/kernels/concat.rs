@@ -391,28 +391,17 @@ mod tests {
         let values = dictionary.values();
         let values = values.as_any().downcast_ref::<StringArray>().unwrap();
 
-        (0..dictionary.len())
-            .map(move |i| match dictionary.keys().is_valid(i) {
-                true => {
-                    let key = dictionary.keys().value(i);
-                    Some(values.value(key as _).to_string())
-                }
-                false => None,
-            })
+        dictionary
+            .keys()
+            .iter()
+            .map(|key| key.map(|key| values.value(key as _).to_string()))
             .collect()
     }
 
-    #[test]
-    fn test_string_dictionary_array() -> Result<()> {
-        let input_1: DictionaryArray<Int32Type> =
-            vec!["hello", "A", "B", "hello", "hello", "C"]
-                .into_iter()
-                .collect();
-        let input_2: DictionaryArray<Int32Type> =
-            vec!["hello", "E", "E", "hello", "F", "E"]
-                .into_iter()
-                .collect();
-
+    fn test_dictionary_concat(
+        input_1: DictionaryArray<Int32Type>,
+        input_2: DictionaryArray<Int32Type>,
+    ) {
         let concat = concat(&[&input_1 as _, &input_2 as _]).unwrap();
         let concat = concat
             .as_any()
@@ -428,7 +417,32 @@ mod tests {
             .collect();
 
         assert_eq!(concat_collected, expected);
+    }
 
+    #[test]
+    fn test_string_dictionary_array() -> Result<()> {
+        let input_1: DictionaryArray<Int32Type> =
+            vec!["hello", "A", "B", "hello", "hello", "C"]
+                .into_iter()
+                .collect();
+        let input_2: DictionaryArray<Int32Type> =
+            vec!["hello", "E", "E", "hello", "F", "E"]
+                .into_iter()
+                .collect();
+
+        test_dictionary_concat(input_1, input_2);
+        Ok(())
+    }
+
+    #[test]
+    fn test_string_dictionary_array_nulls() -> Result<()> {
+        let input_1: DictionaryArray<Int32Type> =
+            vec![Some("foo"), Some("bar"), None, Some("fiz")]
+                .into_iter()
+                .collect();
+        let input_2: DictionaryArray<Int32Type> = vec![None].into_iter().collect();
+
+        test_dictionary_concat(input_1, input_2);
         Ok(())
     }
 }

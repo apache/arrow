@@ -437,8 +437,8 @@ impl<'a> MutableArrayData<'a> {
                     .map(|array| {
                         let offset = next_offset;
                         next_offset += array.child_data()[0].len();
-                        Ok(build_extend_dictionary(array, offset, next_offset)
-                            .ok_or(ArrowError::DictionaryKeyOverflowError)?)
+                        build_extend_dictionary(array, offset, next_offset)
+                            .ok_or(ArrowError::DictionaryKeyOverflowError)
                     })
                     .collect();
 
