@@ -869,24 +869,20 @@ TEST(TestTime, TestToTimeNumeric) {
   EXPECT_EQ(expected_output, to_time_float64(3601.500));
 }
 
-TEST(TestTime, TestCastIntDayInterval){
-  EXPECT_EQ(castINT_dayinterval(10),10);
-  EXPECT_EQ(castINT_dayinterval(-100),-100);
-  EXPECT_EQ(castINT_dayinterval(-0),0);
-
-  EXPECT_EQ(castBIGINT_dayinterval(10),10);
-  EXPECT_EQ(castBIGINT_dayinterval(-100),-100);
-  EXPECT_EQ(castBIGINT_dayinterval(-0),0);
+TEST(TestTime, TestCastIntDayInterval) {
+  EXPECT_EQ(castBIGINT_daytimeinterval(10), 864000000);
+  EXPECT_EQ(castBIGINT_daytimeinterval(-100), -8640000001);
+  EXPECT_EQ(castBIGINT_daytimeinterval(-0), 0);
 }
 
-TEST(TestTime, TestCastIntYearInterval){
-  EXPECT_EQ(castINT_year_interval(24),2);
-  EXPECT_EQ(castINT_year_interval(-24),-2);
-  EXPECT_EQ(castINT_year_interval(-23),-1);
+TEST(TestTime, TestCastIntYearInterval) {
+  EXPECT_EQ(castINT_year_interval(24), 2);
+  EXPECT_EQ(castINT_year_interval(-24), -2);
+  EXPECT_EQ(castINT_year_interval(-23), -1);
 
-  EXPECT_EQ(castBIGINT_year_interval(24),2);
-  EXPECT_EQ(castBIGINT_year_interval(-24),-2);
-  EXPECT_EQ(castBIGINT_year_interval(-23),-1);
+  EXPECT_EQ(castBIGINT_year_interval(24), 2);
+  EXPECT_EQ(castBIGINT_year_interval(-24), -2);
+  EXPECT_EQ(castBIGINT_year_interval(-23), -1);
 }
 
 }  // namespace gandiva

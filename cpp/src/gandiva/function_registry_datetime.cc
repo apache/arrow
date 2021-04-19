@@ -93,17 +93,13 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
       NativeFunction("castBIGINT", {}, DataTypeVector{day_time_interval()}, int64(),
                      kResultNullIfNull, "castBIGINT_daytimeinterval"),
 
-      NativeFunction("castINT", {}, DataTypeVector{day_time_interval()}, int32(),
-                     kResultNullIfNull, "castINT_dayinterval", NativeFunction::kCanReturnErrors),
-
-      NativeFunction("castBIGINT", {}, DataTypeVector{day_time_interval()}, int64(),
-                     kResultNullIfNull, "castBIGINT_dayinterval", NativeFunction::kCanReturnErrors),
-
       NativeFunction("castINT", {}, DataTypeVector{month_interval()}, int32(),
-                     kResultNullIfNull, "castINT_year_interval", NativeFunction::kCanReturnErrors),
+                     kResultNullIfNull, "castINT_year_interval",
+                     NativeFunction::kCanReturnErrors),
 
       NativeFunction("castBIGINT", {}, DataTypeVector{month_interval()}, int64(),
-                     kResultNullIfNull, "castBIGINT_year_interval", NativeFunction::kCanReturnErrors),
+                     kResultNullIfNull, "castBIGINT_year_interval",
+                     NativeFunction::kCanReturnErrors),
 
       NativeFunction("extractDay", {}, DataTypeVector{day_time_interval()}, int64(),
                      kResultNullIfNull, "extractDay_daytimeinterval"),

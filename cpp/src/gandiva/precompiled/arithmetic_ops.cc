@@ -123,22 +123,22 @@ CAST_UNARY(castFLOAT4, float64, float32)
 #undef CAST_UNARY
 
 FORCE_INLINE
-  gdv_int64 castBIGINT_float32(gdv_float32 in) {
-    gdv_int64 out;
-    bool sign = (in < 0);
-    in = fabs(in);
-    double fractional = fmod(in, 1);
-    int64_t digit = ((int64_t)(fractional * 10));
-    int carry = 0;
-    if (digit > 4) {
-      carry = 1;
-    }
-    out = ((gdv_int64)in) + carry;
-    if (sign == true) {
-      out *= -1;
-    }
-    return out;
+gdv_int64 castBIGINT_float32(gdv_float32 in) {
+  gdv_int64 out;
+  bool sign = (in < 0);
+  in = fabs(in);
+  double fractional = fmod(in, 1);
+  int64_t digit = ((int64_t)(fractional * 10));
+  int carry = 0;
+  if (digit > 4) {
+    carry = 1;
   }
+  out = ((gdv_int64)in) + carry;
+  if (sign == true) {
+    out *= -1;
+  }
+  return out;
+}
 
 // cast float types to int types.
 #define CAST_INT_FLOAT(NAME, IN_TYPE, OUT_TYPE)       \
@@ -148,19 +148,19 @@ FORCE_INLINE
     bool sign = (in < 0);                             \
     in = fabs(in);                                    \
     double fractional = fmod(in, 1);                  \
-    int64_t digit = ((int64_t)(fractional * 10));             \
+    int64_t digit = ((int64_t)(fractional * 10));     \
     int carry = 0;                                    \
     if (digit > 4) {                                  \
       carry = 1;                                      \
     }                                                 \
     out = ((gdv_##OUT_TYPE)in) + carry;               \
-    if (sign) {                               \
+    if (sign) {                                       \
       out *= -1;                                      \
     }                                                 \
     return out;                                       \
   }
 
-//CAST_INT_FLOAT(castBIGINT, float32, int64)
+// CAST_INT_FLOAT(castBIGINT, float32, int64)
 CAST_INT_FLOAT(castBIGINT, float64, int64)
 CAST_INT_FLOAT(castINT, float32, int32)
 CAST_INT_FLOAT(castINT, float64, int32)
