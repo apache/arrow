@@ -70,7 +70,7 @@ public class InNode implements TreeNode {
   }
 
   public static InNode makeFloatInExpr(TreeNode node, Set<Float> floatValues) {
-    return new InNode(null, null, null, null, null, null, null ,floatValues, null, node);
+    return new InNode(null, null, null, null, null, null, null, floatValues, null, node);
   }
 
   public static InNode makeDoubleInExpr(TreeNode node, Set<Double> doubleValues) {
