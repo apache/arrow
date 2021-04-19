@@ -40,6 +40,8 @@
 namespace arrow {
 namespace dataset {
 
+using FragmentGenerator = std::function<Future<std::shared_ptr<Fragment>>()>;
+
 std::vector<std::string> ScanOptions::MaterializedFields() const {
   std::vector<std::string> fields;
 

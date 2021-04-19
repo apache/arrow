@@ -145,23 +145,6 @@ void AssertIteratorNext(T expected, Iterator<T>& it) {
   ASSERT_EQ(expected, actual);
 }
 
-template <typename T>
-Iterator<T> FailsAt(Iterator<T> source, int failure_index, Status failure) {
-  struct Iter {
-    Result<T> Next() {
-      if (index++ == failure_index) {
-        return failure;
-      }
-      return source.Next();
-    }
-    Iterator<T> source;
-    int failure_index;
-    Status failure;
-    int index;
-  };
-  return Iterator<T>(Iter{std::move(source), failure_index, std::move(failure), 0});
-}
-
 // --------------------------------------------------------------------
 // Synchronous iterator tests
 
@@ -330,15 +313,6 @@ TEST(TestFunctionIterator, RangeForLoop) {
     }
     ASSERT_LE(expected_i, 3) << "iteration stops after an error is encountered";
     ++expected_i;
-  }
-}
-
-void AssertBufferIteratorMatch(std::vector<std::vector<TestInt>> expected,
-                               Iterator<Iterator<TestInt>> actual) {
-  auto batches = IteratorToVector(std::move(actual));
-  ASSERT_EQ(expected.size(), batches.size());
-  for (std::size_t i = 0; i < expected.size(); i++) {
-    AssertIteratorMatch(expected[i], std::move(batches[i]));
   }
 }
 

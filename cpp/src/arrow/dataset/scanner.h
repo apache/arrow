@@ -52,8 +52,6 @@ constexpr int64_t kDefaultBatchSize = 1 << 20;
 constexpr int32_t kDefaultBatchReadahead = 32;
 constexpr int32_t kDefaultFragmentReadahead = 8;
 
-using FragmentGenerator = std::function<Future<std::shared_ptr<Fragment>>()>;
-
 /// Scan-specific options, which can be changed between scans of the same dataset.
 struct ARROW_DS_EXPORT ScanOptions {
   /// A row filter (which will be pushed down to partitioning/reading if supported).
