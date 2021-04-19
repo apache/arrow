@@ -398,25 +398,17 @@ mod tests {
             .collect()
     }
 
-    fn test_dictionary_concat(
+    fn concat_dictionary(
         input_1: DictionaryArray<Int32Type>,
         input_2: DictionaryArray<Int32Type>,
-    ) {
+    ) -> Vec<Option<String>> {
         let concat = concat(&[&input_1 as _, &input_2 as _]).unwrap();
         let concat = concat
             .as_any()
             .downcast_ref::<DictionaryArray<Int32Type>>()
             .unwrap();
 
-        let concat_collected = collect_string_dictionary(concat);
-        let input_1_collected = collect_string_dictionary(&input_1);
-        let input_2_collected = collect_string_dictionary(&input_2);
-        let expected: Vec<_> = input_1_collected
-            .into_iter()
-            .chain(input_2_collected.into_iter())
-            .collect();
-
-        assert_eq!(concat_collected, expected);
+        collect_string_dictionary(concat)
     }
 
     #[test]
@@ -430,7 +422,16 @@ mod tests {
                 .into_iter()
                 .collect();
 
-        test_dictionary_concat(input_1, input_2);
+        let expected: Vec<_> = vec![
+            "hello", "A", "B", "hello", "hello", "C", "hello", "E", "E", "hello", "F",
+            "E",
+        ]
+        .into_iter()
+        .map(|x| Some(x.to_string()))
+        .collect();
+
+        let concat = concat_dictionary(input_1, input_2);
+        assert_eq!(concat, expected);
         Ok(())
     }
 
@@ -441,8 +442,16 @@ mod tests {
                 .into_iter()
                 .collect();
         let input_2: DictionaryArray<Int32Type> = vec![None].into_iter().collect();
+        let expected = vec![
+            Some("foo".to_string()),
+            Some("bar".to_string()),
+            None,
+            Some("fiz".to_string()),
+            None,
+        ];
 
-        test_dictionary_concat(input_1, input_2);
+        let concat = concat_dictionary(input_1, input_2);
+        assert_eq!(concat, expected);
         Ok(())
     }
 }
