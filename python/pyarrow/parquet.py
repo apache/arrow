@@ -1519,7 +1519,7 @@ class _ParquetDatasetV2:
                 single_file = path_or_paths[0]
         else:
             if _is_path_like(path_or_paths):
-                path_or_paths = str(path_or_paths)
+                path_or_paths = _stringify_path(path_or_paths)
                 if filesystem is None:
                     # path might be a URI describing the FileSystem as well
                     try:
