@@ -30,9 +30,7 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
 namespace adapters {
-
 namespace orc {
 
 /// \class ORCFileReader
@@ -174,7 +172,5 @@ class ARROW_EXPORT ORCFileWriter {
 };
 
 }  // namespace orc
-
 }  // namespace adapters
-
 }  // namespace arrow
