@@ -172,10 +172,12 @@ GANDIVA_EXPORT
 double gdv_fn_castFLOAT8_varbinary(gdv_int64 context, const char* in, int32_t in_len);
 
 GANDIVA_EXPORT
-int32_t gdv_fn_to_numberINT(int64_t context, const char* data, int32_t data_len, const char* format, int32_t format_len);
+int32_t gdv_fn_to_numberINT(int64_t context, const char* data, int32_t data_len,
+                            const char* format, int32_t format_len);
 
 GANDIVA_EXPORT
-int64_t gdv_fn_to_numberBIGINT(int64_t context, const char* data, int32_t data_len, const char* format, int32_t format_len);
+int64_t gdv_fn_to_numberBIGINT(int64_t context, const char* data, int32_t data_len,
+                               const char* format, int32_t format_len);
 
 GANDIVA_EXPORT
 double gdv_fn_to_number(int64_t context, const char* data, int32_t data_len,

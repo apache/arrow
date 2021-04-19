@@ -74,7 +74,7 @@ TEST_F(TestToNumber, TestToNumber) {
   auto double_arr = std::dynamic_pointer_cast<arrow::DoubleArray>(outputs.at(0));
   EXPECT_EQ(double_arr->null_count(), 0);
   for (int i = 0; i < num_records; ++i) {
-    VerifyFuzzyEquals(exp[i],double_arr->GetView(i));
+    VerifyFuzzyEquals(exp[i], double_arr->GetView(i));
   }
 }
 }  // namespace gandiva
