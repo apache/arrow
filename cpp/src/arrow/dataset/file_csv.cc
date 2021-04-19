@@ -82,9 +82,10 @@ Result<std::unordered_set<std::string>> GetColumnNames(
 
 static inline Result<csv::ConvertOptions> GetConvertOptions(
     const CsvFileFormat& format, const std::shared_ptr<ScanOptions>& scan_options,
-    const util::string_view first_block, MemoryPool* pool) {
-  ARROW_ASSIGN_OR_RAISE(auto column_names,
-                        GetColumnNames(format.parse_options, first_block, pool));
+    const util::string_view first_block) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto column_names,
+      GetColumnNames(format.parse_options, first_block, scan_options->pool));
 
   ARROW_ASSIGN_OR_RAISE(
       auto csv_scan_options,
@@ -122,8 +123,7 @@ static inline Result<csv::ReadOptions> GetReadOptions(
 
 static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
     const FileSource& source, const CsvFileFormat& format,
-    const std::shared_ptr<ScanOptions>& scan_options, internal::Executor* cpu_executor,
-    MemoryPool* pool) {
+    const std::shared_ptr<ScanOptions>& scan_options, internal::Executor* cpu_executor) {
   ARROW_ASSIGN_OR_RAISE(auto reader_options, GetReadOptions(format, scan_options));
 
   ARROW_ASSIGN_OR_RAISE(auto input, source.OpenCompressed());
@@ -139,8 +139,8 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
         const auto& parse_options = format.parse_options;
         auto convert_options = csv::ConvertOptions::Defaults();
         if (scan_options != nullptr) {
-          ARROW_ASSIGN_OR_RAISE(convert_options, GetConvertOptions(format, scan_options,
-                                                                   first_block, pool));
+          ARROW_ASSIGN_OR_RAISE(convert_options,
+                                GetConvertOptions(format, scan_options, first_block));
         }
 
         auto reader_fut = csv::StreamingReader::MakeAsync(
@@ -162,7 +162,7 @@ static inline Result<std::shared_ptr<csv::StreamingReader>> OpenReader(
     const std::shared_ptr<ScanOptions>& scan_options = nullptr,
     MemoryPool* pool = default_memory_pool()) {
   auto open_reader_fut =
-      OpenReaderAsync(source, format, scan_options, internal::GetCpuThreadPool(), pool);
+      OpenReaderAsync(source, format, scan_options, internal::GetCpuThreadPool());
   return open_reader_fut.result();
 }
 
@@ -186,15 +186,14 @@ class CsvScanTask : public ScanTask {
         source_(fragment->source()) {}
 
   Result<RecordBatchIterator> Execute() override {
-    auto reader_fut = OpenReaderAsync(source_, *format_, options(),
-                                      internal::GetCpuThreadPool(), options()->pool);
+    auto reader_fut =
+        OpenReaderAsync(source_, *format_, options(), internal::GetCpuThreadPool());
     auto reader_gen = GeneratorFromReader(std::move(reader_fut));
     return MakeGeneratorIterator(std::move(reader_gen));
   }
 
   Future<RecordBatchVector> SafeExecute(internal::Executor* executor) override {
-    auto reader_fut =
-        OpenReaderAsync(source_, *format_, options(), executor, options()->pool);
+    auto reader_fut = OpenReaderAsync(source_, *format_, options(), executor);
     auto reader_gen = GeneratorFromReader(std::move(reader_fut));
     return CollectAsyncGenerator(reader_gen);
   }
@@ -202,8 +201,7 @@ class CsvScanTask : public ScanTask {
   Future<> SafeVisit(
       internal::Executor* executor,
       std::function<Status(std::shared_ptr<RecordBatch>)> visitor) override {
-    auto reader_fut =
-        OpenReaderAsync(source_, *format_, options(), executor, options()->pool);
+    auto reader_fut = OpenReaderAsync(source_, *format_, options(), executor);
     auto reader_gen = GeneratorFromReader(std::move(reader_fut));
     return VisitAsyncGenerator(reader_gen, visitor);
   }
@@ -246,6 +244,16 @@ Result<ScanTaskIterator> CsvFileFormat::ScanFile(
   auto task = std::make_shared<CsvScanTask>(std::move(this_), options, fragment);
 
   return MakeVectorIterator<std::shared_ptr<ScanTask>>({std::move(task)});
+}
+
+Result<RecordBatchGenerator> CsvFileFormat::ScanBatchesAsync(
+    const std::shared_ptr<ScanOptions>& scan_options,
+    const std::shared_ptr<FileFragment>& file) const {
+  auto this_ = checked_pointer_cast<const CsvFileFormat>(shared_from_this());
+  auto source = file->source();
+  auto reader_fut =
+      OpenReaderAsync(source, *this, scan_options, internal::GetCpuThreadPool());
+  return GeneratorFromReader(std::move(reader_fut));
 }
 
 }  // namespace dataset
