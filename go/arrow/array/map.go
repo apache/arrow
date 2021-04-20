@@ -21,17 +21,25 @@ import (
 	"github.com/apache/arrow/go/arrow/memory"
 )
 
+// Map represents an immutable sequence of Key/Value structs. It is a
+// logical type that is implemented as a List<Struct: key, value>.
 type Map struct {
 	*List
 	keys, items Interface
 }
 
+// NewMapData returns a new Map array value, from data
 func NewMapData(data *Data) *Map {
 	a := &Map{List: &List{}}
 	a.refCount = 1
 	a.setData(data)
 	return a
 }
+
+// KeysSorted checks the datatype that was used to construct this array and
+// returns the KeysSorted boolean value used to denote if the key array is
+// sorted for each list element.
+func (a *Map) KeysSorted() bool { return a.DataType().(*arrow.MapType).KeysSorted }
 
 func (a *Map) validateData(data *Data) {
 	if len(data.childData) != 1 || data.childData[0] == nil {
@@ -63,7 +71,12 @@ func (a *Map) setData(data *Data) {
 	a.items = MakeFromData(data.childData[0].childData[1])
 }
 
-func (a *Map) Keys() Interface  { return a.keys }
+// Keys returns the full Array of Key values, equivalent to grabbing
+// the key field of the child struct.
+func (a *Map) Keys() Interface { return a.keys }
+
+// Items returns the full Array of Item values, equivalent to grabbing
+// the Value field (the second field) of the child struct.
 func (a *Map) Items() Interface { return a.items }
 
 func (a *Map) Retain() {
@@ -79,6 +92,7 @@ func (a *Map) Release() {
 }
 
 func arrayEqualMap(left, right *Map) bool {
+	// since Map is implemented using a list, we can just use arrayEqualList
 	return arrayEqualList(left.List, right.List)
 }
 
@@ -91,6 +105,9 @@ type MapBuilder struct {
 	keysSorted              bool
 }
 
+// NewMapBuilder returns a builder, using the provided memory allocator.
+// The created Map builder will create a map array whose keys will be a non-nullable
+// array of type `keytype` and whose mapped items will be a nullable array of itemtype.
 func NewMapBuilder(mem memory.Allocator, keytype, itemtype arrow.DataType, keysSorted bool) *MapBuilder {
 	etype := arrow.MapOf(keytype, itemtype)
 	etype.KeysSorted = keysSorted
@@ -122,20 +139,34 @@ func (b *MapBuilder) Release() {
 	b.itemBuilder.Release()
 }
 
-func (b *MapBuilder) Len() int   { return b.listBuilder.Len() }
+// Len returns the current number of Maps that are in the builder
+func (b *MapBuilder) Len() int { return b.listBuilder.Len() }
+
 func (b *MapBuilder) Cap() int   { return b.listBuilder.Cap() }
 func (b *MapBuilder) NullN() int { return b.listBuilder.NullN() }
+
+// Append adds a new Map element to the array, calling Append(false) is
+// equivalent to calling AppendNull.
 func (b *MapBuilder) Append(v bool) {
 	b.adjustStructBuilderLen()
 	b.listBuilder.Append(v)
 }
 
+// AppendNull adds a null map entry to the array.
 func (b *MapBuilder) AppendNull() {
 	b.adjustStructBuilderLen()
 	b.listBuilder.AppendNull()
 }
+
+// Reserve enough space for n maps
 func (b *MapBuilder) Reserve(n int) { b.listBuilder.Reserve(n) }
-func (b *MapBuilder) Resize(n int)  { b.listBuilder.Resize(n) }
+
+// Resize adjust the space allocated by b to n map elements. If n is greater than
+// b.Cap(), additional memory will be allocated. If n is smaller, the allocated memory may be reduced.
+func (b *MapBuilder) Resize(n int) { b.listBuilder.Resize(n) }
+
+// AppendValues is for bulk appending a group of elements with offsets provided
+// and validity booleans provided.
 func (b *MapBuilder) AppendValues(offsets []int32, valid []bool) {
 	b.adjustStructBuilderLen()
 	b.listBuilder.AppendValues(offsets, valid)
@@ -155,10 +186,14 @@ func (b *MapBuilder) adjustStructBuilderLen() {
 	}
 }
 
+// NewArray creates a new Map array from the memory buffers used by the builder, and
+// resets the builder so it can be used again to build a new Map array.
 func (b *MapBuilder) NewArray() Interface {
 	return b.NewMapArray()
 }
 
+// NewMapArray creates a new Map array from the memory buffers used by the builder, and
+// resets the builder so it can be used again to build a new Map array.
 func (b *MapBuilder) NewMapArray() (a *Map) {
 	data := b.newData()
 	defer data.Release()
@@ -177,12 +212,19 @@ func (b *MapBuilder) newData() (data *Data) {
 	return
 }
 
+// KeyBuilder returns a builder that can be used to populate the keys of the maps.
+func (b *MapBuilder) KeyBuilder() Builder { return b.keyBuilder }
+
+// ItemBuilder returns a builder that can be used to populate the values that the
+// keys point to.
+func (b *MapBuilder) ItemBuilder() Builder { return b.itemBuilder }
+
+// ValueBuilder can be used instead of separately using the Key/Item builders
+// to build the list as a List of Structs rather than building the keys/items
+// separately.
 func (b *MapBuilder) ValueBuilder() *StructBuilder {
 	return b.listBuilder.ValueBuilder().(*StructBuilder)
 }
-
-func (b *MapBuilder) KeyBuilder() Builder  { return b.keyBuilder }
-func (b *MapBuilder) ItemBuilder() Builder { return b.itemBuilder }
 
 var (
 	_ Interface = (*Map)(nil)
