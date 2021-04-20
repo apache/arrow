@@ -863,7 +863,7 @@ NUMERIC_TYPES(TO_TIME)
 #define CAST_INT_YEAR_INTERVAL(NAME, OUT_TYPE)                \
   FORCE_INLINE                                                \
   gdv_##OUT_TYPE NAME##_year_interval(gdv_year_interval in) { \
-    return static_cast<gdv_##OUT_TYPE>(in / 12.0);              \
+    return static_cast<gdv_##OUT_TYPE>(in / 12.0);            \
   }
 
 CAST_INT_YEAR_INTERVAL(castBIGINT, int64)
