@@ -118,12 +118,9 @@ void CheckScalar(std::string func_name, const ArrayVector& inputs,
                             expected->Slice(2 * slice_length), options);
   }
 
-  // should also work with an empty slice
-  // a zero slice will not call the kernel, so we cannot cuntruct an empty struct with
-  // fields
-  if (expected->type_id() != Type::STRUCT)
-    CheckScalarNonRecursive(func_name, SliceAll(inputs, 0, 0), expected->Slice(0, 0),
-                            options);
+  // Should also work with an empty slice
+  CheckScalarNonRecursive(func_name, SliceAll(inputs, 0, 0), expected->Slice(0, 0),
+                          options);
 
   // Ditto with ChunkedArray inputs
   if (slice_length > 0) {

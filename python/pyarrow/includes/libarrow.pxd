@@ -1823,9 +1823,9 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         c_string replacement
         int64_t max_replacements
 
-    cdef cppclass CRE2Options \
-            "arrow::compute::RE2Options"(CFunctionOptions):
-        CRE2Options(c_string regex)
+    cdef cppclass CExtractRegexOptions \
+            "arrow::compute::ExtractRegexOptions"(CFunctionOptions):
+        CExtractRegexOptions(c_string regex)
         c_string regex
 
     cdef cppclass CCastOptions" arrow::compute::CastOptions"(CFunctionOptions):

@@ -598,9 +598,9 @@ def test_replace_regex():
     assert ar.tolist() == ['f00', 'm00d', None]
 
 
-def test_extract_re2():
-    ar = pa.array(['a1', 'b2'])
-    struct = pc.utf8_extract_re2(ar, regex='(?P<letter>[ab])(?P<digit>\\d)')
+def test_extract_regex():
+    ar = pa.array(['a1', 'zb2z'])
+    struct = pc.extract_regex(ar, regex=r'(?P<letter>[ab])(?P<digit>\d)')
     assert struct.tolist() == [{'letter': 'a', 'digit': '1'}, {
         'letter': 'b', 'digit': '2'}]
 

@@ -704,19 +704,19 @@ class ReplaceSubstringOptions(_ReplaceSubstringOptions):
         self._set_options(pattern, replacement, max_replacements)
 
 
-cdef class _RE2Options(FunctionOptions):
+cdef class _ExtractRegexOptions(FunctionOptions):
     cdef:
-        unique_ptr[CRE2Options] re2_options
+        unique_ptr[CExtractRegexOptions] re2_options
 
     cdef const CFunctionOptions* get_options(self) except NULL:
         return self.re2_options.get()
 
     def _set_options(self, regex):
         self.re2_options.reset(
-            new CRE2Options(tobytes(regex)))
+            new CExtractRegexOptions(tobytes(regex)))
 
 
-class RE2Options(_RE2Options):
+class ExtractRegexOptions(_ExtractRegexOptions):
     def __init__(self, regex):
         self._set_options(regex)
 

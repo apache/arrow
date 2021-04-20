@@ -71,7 +71,9 @@ struct ARROW_EXPORT SplitPatternOptions : public SplitOptions {
 struct ARROW_EXPORT ReplaceSubstringOptions : public FunctionOptions {
   explicit ReplaceSubstringOptions(std::string pattern, std::string replacement,
                                    int64_t max_replacements = -1)
-      : pattern(pattern), replacement(replacement), max_replacements(max_replacements) {}
+      : pattern(std::move(pattern)),
+        replacement(std::move(replacement)),
+        max_replacements(max_replacements) {}
 
   /// Pattern to match, literal, or regular expression depending on which kernel is used
   std::string pattern;
@@ -81,10 +83,10 @@ struct ARROW_EXPORT ReplaceSubstringOptions : public FunctionOptions {
   int64_t max_replacements;
 };
 
-struct ARROW_EXPORT RE2Options : public FunctionOptions {
-  explicit RE2Options(std::string regex) : regex(regex) {}
+struct ARROW_EXPORT ExtractRegexOptions : public FunctionOptions {
+  explicit ExtractRegexOptions(std::string regex) : regex(std::move(regex)) {}
 
-  /// Regular expression
+  /// Regular expression with named capture fields
   std::string regex;
 };
 
