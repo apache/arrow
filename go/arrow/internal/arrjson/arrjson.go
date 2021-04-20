@@ -37,16 +37,24 @@ type Schema struct {
 	Fields []FieldWrapper `json:"fields"`
 }
 
+// FieldWrapper gets used in order to hook into the JSON marshalling and
+// unmarshalling without creating an infinite loop when dealing with the
+// children fields.
 type FieldWrapper struct {
 	Field
 }
 
 type Field struct {
-	Name      string          `json:"name"`
-	arrowType arrow.DataType  `json:"-"`
-	Type      json.RawMessage `json:"type"`
-	Nullable  bool            `json:"nullable"`
-	Children  []FieldWrapper  `json:"children"`
+	Name string `json:"name"`
+	// the arrowType will get populated during unmarshalling by processing the
+	// Type, and will be used to generate the Type during Marshalling to JSON
+	arrowType arrow.DataType `json:"-"`
+	// leave this as a json RawMessage in order to partially unmarshal as needed
+	// during marshal/unmarshal time so we can determine what the structure is
+	// actually expected to be.
+	Type     json.RawMessage `json:"type"`
+	Nullable bool            `json:"nullable"`
+	Children []FieldWrapper  `json:"children"`
 }
 
 func (f FieldWrapper) MarshalJSON() ([]byte, error) {
@@ -57,192 +65,85 @@ func (f FieldWrapper) MarshalJSON() ([]byte, error) {
 	case *arrow.BooleanType:
 		typ = nameJSON{"bool"}
 	case *arrow.Int8Type:
-		typ = struct {
-			nameJSON
-			signedJSON
-			bitWidthJSON
-		}{nameJSON{"int"}, signedJSON{true}, bitWidthJSON{8}}
+		typ = bitWidthJSON{Name: "int", Signed: true, BitWidth: 8}
 	case *arrow.Int16Type:
-		typ = struct {
-			nameJSON
-			signedJSON
-			bitWidthJSON
-		}{nameJSON{"int"}, signedJSON{true}, bitWidthJSON{16}}
+		typ = bitWidthJSON{Name: "int", Signed: true, BitWidth: 16}
 	case *arrow.Int32Type:
-		typ = struct {
-			nameJSON
-			signedJSON
-			bitWidthJSON
-		}{nameJSON{"int"}, signedJSON{true}, bitWidthJSON{32}}
+		typ = bitWidthJSON{Name: "int", Signed: true, BitWidth: 32}
 	case *arrow.Int64Type:
-		typ = struct {
-			nameJSON
-			signedJSON
-			bitWidthJSON
-		}{nameJSON{"int"}, signedJSON{true}, bitWidthJSON{64}}
+		typ = bitWidthJSON{Name: "int", Signed: true, BitWidth: 64}
 	case *arrow.Uint8Type:
-		typ = struct {
-			nameJSON
-			signedJSON
-			bitWidthJSON
-		}{nameJSON{"int"}, signedJSON{false}, bitWidthJSON{8}}
+		typ = bitWidthJSON{Name: "int", Signed: false, BitWidth: 8}
 	case *arrow.Uint16Type:
-		typ = struct {
-			nameJSON
-			signedJSON
-			bitWidthJSON
-		}{nameJSON{"int"}, signedJSON{false}, bitWidthJSON{16}}
+		typ = bitWidthJSON{Name: "int", Signed: false, BitWidth: 16}
 	case *arrow.Uint32Type:
-		typ = struct {
-			nameJSON
-			signedJSON
-			bitWidthJSON
-		}{nameJSON{"int"}, signedJSON{false}, bitWidthJSON{32}}
+		typ = bitWidthJSON{Name: "int", Signed: false, BitWidth: 32}
 	case *arrow.Uint64Type:
-		typ = struct {
-			nameJSON
-			signedJSON
-			bitWidthJSON
-		}{nameJSON{"int"}, signedJSON{false}, bitWidthJSON{64}}
+		typ = bitWidthJSON{Name: "int", Signed: false, BitWidth: 64}
 	case *arrow.Float16Type:
-		typ = struct {
-			nameJSON
-			strPrecisionJSON
-		}{nameJSON{"floatingpoint"}, strPrecisionJSON{"HALF"}}
+		typ = floatJSON{"floatingpoint", "HALF"}
 	case *arrow.Float32Type:
-		typ = struct {
-			nameJSON
-			strPrecisionJSON
-		}{nameJSON{"floatingpoint"}, strPrecisionJSON{"SINGLE"}}
+		typ = floatJSON{"floatingpoint", "SINGLE"}
 	case *arrow.Float64Type:
-		typ = struct {
-			nameJSON
-			strPrecisionJSON
-		}{nameJSON{"floatingpoint"}, strPrecisionJSON{"DOUBLE"}}
+		typ = floatJSON{"floatingpoint", "DOUBLE"}
 	case *arrow.BinaryType:
 		typ = nameJSON{"binary"}
 	case *arrow.StringType:
 		typ = nameJSON{"utf8"}
 	case *arrow.Date32Type:
-		typ = struct {
-			nameJSON
-			unitJSON
-		}{nameJSON{"date"}, unitJSON{"DAY"}}
+		typ = unitZoneJSON{Name: "date", Unit: "DAY"}
 	case *arrow.Date64Type:
-		typ = struct {
-			nameJSON
-			unitJSON
-		}{nameJSON{"date"}, unitJSON{"MILLISECOND"}}
+		typ = unitZoneJSON{Name: "date", Unit: "MILLISECOND"}
+	case *arrow.MonthIntervalType:
+		typ = unitZoneJSON{Name: "interval", Unit: "YEAR_MONTH"}
+	case *arrow.DayTimeIntervalType:
+		typ = unitZoneJSON{Name: "interval", Unit: "DAY_TIME"}
+	case *arrow.DurationType:
+		switch dt.Unit {
+		case arrow.Second:
+			typ = unitZoneJSON{Name: "duration", Unit: "SECOND"}
+		case arrow.Millisecond:
+			typ = unitZoneJSON{Name: "duration", Unit: "MILLISECOND"}
+		case arrow.Microsecond:
+			typ = unitZoneJSON{Name: "duration", Unit: "MICROSECOND"}
+		case arrow.Nanosecond:
+			typ = unitZoneJSON{Name: "duration", Unit: "NANOSECOND"}
+		}
 	case *arrow.Time32Type:
 		switch dt.Unit {
 		case arrow.Second:
-			typ = struct {
-				nameJSON
-				bitWidthJSON
-				unitJSON
-			}{nameJSON{"time"}, bitWidthJSON{dt.BitWidth()}, unitJSON{"SECOND"}}
+			typ = bitWidthJSON{Name: "time", BitWidth: dt.BitWidth(), Unit: "SECOND"}
 		case arrow.Millisecond:
-			typ = struct {
-				nameJSON
-				bitWidthJSON
-				unitJSON
-			}{nameJSON{"time"}, bitWidthJSON{dt.BitWidth()}, unitJSON{"MILLISECOND"}}
+			typ = bitWidthJSON{Name: "time", BitWidth: dt.BitWidth(), Unit: "MILLISECOND"}
 		}
 	case *arrow.Time64Type:
 		switch dt.Unit {
 		case arrow.Microsecond:
-			typ = struct {
-				nameJSON
-				bitWidthJSON
-				unitJSON
-			}{nameJSON{"time"}, bitWidthJSON{dt.BitWidth()}, unitJSON{"MICROSECOND"}}
+			typ = bitWidthJSON{Name: "time", BitWidth: dt.BitWidth(), Unit: "MICROSECOND"}
 		case arrow.Nanosecond:
-			typ = struct {
-				nameJSON
-				bitWidthJSON
-				unitJSON
-			}{nameJSON{"time"}, bitWidthJSON{dt.BitWidth()}, unitJSON{"NANOSECOND"}}
+			typ = bitWidthJSON{Name: "time", BitWidth: dt.BitWidth(), Unit: "NANOSECOND"}
 		}
 	case *arrow.TimestampType:
 		switch dt.Unit {
 		case arrow.Second:
-			typ = struct {
-				nameJSON
-				unitJSON
-				timeZoneJSON
-			}{nameJSON{"timestamp"}, unitJSON{"SECOND"}, timeZoneJSON{dt.TimeZone}}
+			typ = unitZoneJSON{Name: "timestamp", Unit: "SECOND", TimeZone: dt.TimeZone}
 		case arrow.Millisecond:
-			typ = struct {
-				nameJSON
-				unitJSON
-				timeZoneJSON
-			}{nameJSON{"timestamp"}, unitJSON{"MILLISECOND"}, timeZoneJSON{dt.TimeZone}}
+			typ = unitZoneJSON{Name: "timestamp", Unit: "MILLISECOND", TimeZone: dt.TimeZone}
 		case arrow.Microsecond:
-			typ = struct {
-				nameJSON
-				unitJSON
-				timeZoneJSON
-			}{nameJSON{"timestamp"}, unitJSON{"MICROSECOND"}, timeZoneJSON{dt.TimeZone}}
+			typ = unitZoneJSON{Name: "timestamp", Unit: "MICROSECOND", TimeZone: dt.TimeZone}
 		case arrow.Nanosecond:
-			typ = struct {
-				nameJSON
-				unitJSON
-				timeZoneJSON
-			}{nameJSON{"timestamp"}, unitJSON{"NANOSECOND"}, timeZoneJSON{dt.TimeZone}}
-		}
-	case *arrow.MonthIntervalType:
-		typ = struct {
-			nameJSON
-			unitJSON
-		}{nameJSON{"interval"}, unitJSON{"YEAR_MONTH"}}
-	case *arrow.DayTimeIntervalType:
-		typ = struct {
-			nameJSON
-			unitJSON
-		}{nameJSON{"interval"}, unitJSON{"DAY_TIME"}}
-	case *arrow.DurationType:
-		switch dt.Unit {
-		case arrow.Second:
-			typ = struct {
-				nameJSON
-				unitJSON
-			}{nameJSON{"duration"}, unitJSON{"SECOND"}}
-		case arrow.Millisecond:
-			typ = struct {
-				nameJSON
-				unitJSON
-			}{nameJSON{"duration"}, unitJSON{"MILLISECOND"}}
-		case arrow.Microsecond:
-			typ = struct {
-				nameJSON
-				unitJSON
-			}{nameJSON{"duration"}, unitJSON{"MICROSECOND"}}
-		case arrow.Nanosecond:
-			typ = struct {
-				nameJSON
-				unitJSON
-			}{nameJSON{"duration"}, unitJSON{"NANOSECOND"}}
+			typ = unitZoneJSON{Name: "timestamp", Unit: "NANOSECOND", TimeZone: dt.TimeZone}
 		}
 	case *arrow.ListType:
 		typ = nameJSON{"list"}
 	case *arrow.StructType:
 		typ = nameJSON{"struct"}
 	case *arrow.FixedSizeListType:
-		typ = struct {
-			nameJSON
-			listSizeJSON
-		}{nameJSON{"fixedsizelist"}, listSizeJSON{dt.Len()}}
+		typ = listSizeJSON{"fixedsizelist", dt.Len()}
 	case *arrow.FixedSizeBinaryType:
-		typ = struct {
-			nameJSON
-			byteWidthJSON
-		}{nameJSON{"fixedsizebinary"}, byteWidthJSON{dt.ByteWidth}}
+		typ = byteWidthJSON{"fixedsizebinary", dt.ByteWidth}
 	case *arrow.Decimal128Type:
-		typ = struct {
-			nameJSON
-			scaleJSON
-			intPrecisionJSON
-		}{nameJSON{"decimal"}, scaleJSON{int(dt.Scale)}, intPrecisionJSON{int(dt.Precision)}}
+		typ = decimalJSON{"decimal", int(dt.Scale), int(dt.Precision)}
 	default:
 		return nil, xerrors.Errorf("unknown arrow.DataType %v", f.arrowType)
 	}
@@ -252,10 +153,6 @@ func (f FieldWrapper) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 	return json.Marshal(f.Field)
-}
-
-type nameJSON struct {
-	Name string `json:"name"`
 }
 
 func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
@@ -274,10 +171,7 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 	case "bool":
 		f.arrowType = arrow.FixedWidthTypes.Boolean
 	case "int":
-		t := struct {
-			signedJSON
-			bitWidthJSON
-		}{}
+		t := bitWidthJSON{}
 		if err := json.Unmarshal(f.Type, &t); err != nil {
 			return err
 		}
@@ -306,9 +200,7 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 			}
 		}
 	case "floatingpoint":
-		t := struct {
-			strPrecisionJSON
-		}{}
+		t := floatJSON{}
 		if err := json.Unmarshal(f.Type, &t); err != nil {
 			return err
 		}
@@ -325,9 +217,7 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 	case "utf8":
 		f.arrowType = arrow.BinaryTypes.String
 	case "date":
-		t := struct {
-			unitJSON
-		}{}
+		t := unitZoneJSON{}
 		if err := json.Unmarshal(f.Type, &t); err != nil {
 			return err
 		}
@@ -338,10 +228,7 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 			f.arrowType = arrow.FixedWidthTypes.Date64
 		}
 	case "time":
-		t := struct {
-			bitWidthJSON
-			unitJSON
-		}{}
+		t := bitWidthJSON{}
 		if err := json.Unmarshal(f.Type, &t); err != nil {
 			return err
 		}
@@ -362,10 +249,7 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 			}
 		}
 	case "timestamp":
-		t := struct {
-			unitJSON
-			timeZoneJSON
-		}{}
+		t := unitZoneJSON{}
 		if err := json.Unmarshal(f.Type, &t); err != nil {
 			return err
 		}
@@ -385,19 +269,19 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 	case "struct":
 		f.arrowType = arrow.StructOf(fieldsFromJSON(f.Children)...)
 	case "fixedsizebinary":
-		t := struct{ byteWidthJSON }{}
+		t := byteWidthJSON{}
 		if err := json.Unmarshal(f.Type, &t); err != nil {
 			return err
 		}
 		f.arrowType = &arrow.FixedSizeBinaryType{ByteWidth: t.ByteWidth}
 	case "fixedsizelist":
-		t := struct{ listSizeJSON }{}
+		t := listSizeJSON{}
 		if err := json.Unmarshal(f.Type, &t); err != nil {
 			return err
 		}
 		f.arrowType = arrow.FixedSizeListOf(t.ListSize, f.Children[0].arrowType)
 	case "interval":
-		t := struct{ unitJSON }{}
+		t := unitZoneJSON{}
 		if err := json.Unmarshal(f.Type, &t); err != nil {
 			return err
 		}
@@ -408,7 +292,7 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 			f.arrowType = arrow.FixedWidthTypes.DayTimeInterval
 		}
 	case "duration":
-		t := struct{ unitJSON }{}
+		t := unitZoneJSON{}
 		if err := json.Unmarshal(f.Type, &t); err != nil {
 			return err
 		}
@@ -423,10 +307,7 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 			f.arrowType = arrow.FixedWidthTypes.Duration_ns
 		}
 	case "decimal":
-		t := struct {
-			intPrecisionJSON
-			scaleJSON
-		}{}
+		t := decimalJSON{}
 		if err := json.Unmarshal(f.Type, &t); err != nil {
 			return err
 		}
@@ -438,40 +319,48 @@ func (f *FieldWrapper) UnmarshalJSON(data []byte) error {
 	return xerrors.Errorf("unhandled type unmarshalling from json: %s", tmp.Name)
 }
 
+// the structs below represent various configurations of the Type
+// json block and what fields will be expected. Sometimes there is
+// overlap between the same key used with different types, so it's
+// easier to partial unmarshal and then use these to ensure correct
+// typing.
+
+type nameJSON struct {
+	Name string `json:"name"`
+}
+
 type listSizeJSON struct {
-	ListSize int32 `json:"listSize,omitempty"`
+	Name     string `json:"name"`
+	ListSize int32  `json:"listSize,omitempty"`
 }
 
 type bitWidthJSON struct {
-	BitWidth int `json:"bitWidth,omitempty"`
+	Name     string `json:"name"`
+	Signed   bool   `json:"isSigned,omitempty"`
+	BitWidth int    `json:"bitWidth,omitempty"`
+	Unit     string `json:"unit,omitempty"`
 }
 
-type signedJSON struct {
-	Signed bool `json:"isSigned,omitempty"`
-}
-
-type unitJSON struct {
-	Unit string `json:"unit,omitempty"`
-}
-
-type scaleJSON struct {
-	Scale int `json:"scale,omitempty"`
-}
-
-type intPrecisionJSON struct {
-	Precision int `json:"precision,omitempty"`
-}
-
-type strPrecisionJSON struct {
+type floatJSON struct {
+	Name      string `json:"name"`
 	Precision string `json:"precision,omitempty"`
 }
 
-type timeZoneJSON struct {
+type unitZoneJSON struct {
+	Name     string `json:"name"`
+	Unit     string `json:"unit,omitempty"`
 	TimeZone string `json:"timezone,omitempty"`
 }
 
+type decimalJSON struct {
+	Name      string `json:"name"`
+	Scale     int    `json:"scale,omitempty"`
+	Precision int    `json:"precision,omitempty"`
+}
+
 type byteWidthJSON struct {
-	ByteWidth int `json:"byteWidth,omitempty"`
+	Name      string `json:"name"`
+	ByteWidth int    `json:"byteWidth,omitempty"`
 }
 
 func schemaToJSON(schema *arrow.Schema) Schema {

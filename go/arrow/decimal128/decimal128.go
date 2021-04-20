@@ -61,6 +61,9 @@ func FromI64(v int64) Num {
 
 func fromBigIntPositive(v *big.Int) Num {
 	var buf [16]byte
+	// bigint will zero pad the bytes and write them as bigendian
+	// which we can then read out the high and low bytes to construct
+	// our 128bit value.
 	v.FillBytes(buf[:])
 	return Num{
 		lo: binary.BigEndian.Uint64(buf[8:]),
@@ -70,15 +73,20 @@ func fromBigIntPositive(v *big.Int) Num {
 
 func FromBigInt(v *big.Int) Num {
 	if v.Sign() < 0 {
-		n := fromBigIntPositive((&big.Int{}).Abs(v))
-		n.lo = ^n.lo + 1
-		n.hi = ^n.hi
-		if n.lo == 0 {
-			n.hi += 1
-		}
-		return n
+		// if the value is negative, then get the high and low bytes from the
+		// absolute value of v, and then negate it.
+		return fromBigIntPositive((&big.Int{}).Abs(v)).negated()
 	}
 	return fromBigIntPositive(v)
+}
+
+func (n Num) negated() Num {
+	n.lo = ^n.lo + 1
+	n.hi = ^n.hi
+	if n.lo == 0 {
+		n.hi += 1
+	}
+	return n
 }
 
 // LowBits returns the low bits of the two's complement representation of the number.
@@ -99,20 +107,19 @@ func (n Num) Sign() int {
 	return int(1 | (n.hi >> 63))
 }
 
-func toBigInt(n Num) *big.Int {
+// to construct a bigint from our decimal128, we just need to
+// left shift the high bytes by 64, then add the low bytes.
+func toBigIntPositive(n Num) *big.Int {
 	hi := big.NewInt(n.hi)
 	return hi.Lsh(hi, 64).Add(hi, (&big.Int{}).SetUint64(n.lo))
 }
 
 func (n Num) BigInt() *big.Int {
 	if n.Sign() < 0 {
-		n.lo = ^n.lo + 1
-		n.hi = ^n.hi
-		if n.lo == 0 {
-			n.hi += 1
-		}
-		ret := toBigInt(n)
+		// if we're a negative value, we just negate the hi and lo bytes
+		// via two's complement, then negate the resulting BitInt
+		ret := toBigIntPositive(n.negated())
 		return ret.Neg(ret)
 	}
-	return toBigInt(n)
+	return toBigIntPositive(n)
 }
