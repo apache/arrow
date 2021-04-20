@@ -219,7 +219,6 @@ na.fail.ArrowTabular <- function(object, ...){
     stop("missing values in object")
   }
   object
-  
 }
 
 #' @export
@@ -230,7 +229,6 @@ na.omit.ArrowTabular <- function(object, ...){
   expression <- rlang::parse_expr(filter_expr)
   
   rlang::eval_tidy(expression)
-
 }
 
 #' @export
