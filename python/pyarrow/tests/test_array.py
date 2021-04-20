@@ -694,11 +694,27 @@ def test_dictionary_to_numpy():
         pa.array(['foo', 'bar'])
     )
 
-    expected = ["foo", "bar", np.NaN, "foo"]
     result = a.to_numpy(zero_copy_only=False).tolist()
-    assert result == expected
-
+    assert result == ["foo", "bar", np.NaN, "foo"]
     assert result == a.to_pandas().tolist()
+
+    with pytest.raises(pa.ArrowInvalid):
+        # to_numpy takes for granted that when zero_copy_only=True
+        # there will be no nulls.
+        # If that changes, nulls handling will have to be updated in to_numpy.
+        a.to_numpy(zero_copy_only=True)
+
+    afloat = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, 1, 0]),
+        pa.array([13.7, 11.0])
+    )
+
+    assert afloat.to_numpy(zero_copy_only=True).tolist() == [
+        13.7, 11.0, 11.0, 13.7
+    ]
+    assert afloat.to_numpy(zero_copy_only=False).tolist() == [
+        13.7, 11.0, 11.0, 13.7
+    ]
 
 
 def test_dictionary_from_boxed_arrays():

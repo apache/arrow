@@ -1170,9 +1170,13 @@ cdef class Array(_PandasConvertible):
         array = PyObject_to_object(out)
 
         if isinstance(array, dict):
-            missings = array["indices"] < 0
-            array = np.take(array['dictionary'], array['indices'])
-            array[missings] = np.NaN
+            if zero_copy_only or not self.null_count:
+                # zero_copy doesn't allow for nulls to be in the array
+                array = np.take(array['dictionary'], array['indices'])
+            else:
+                missings = array["indices"] < 0
+                array = np.take(array['dictionary'], array['indices'])
+                array[missings] = np.NaN
 
         if writable and not array.flags.writeable:
             # if the conversion already needed to a copy, writeable is True
