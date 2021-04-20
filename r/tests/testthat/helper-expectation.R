@@ -15,8 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-expect_vector <- function(x, y, ...) {
-  expect_equal(as.vector(x), y, ...)
+expect_vector <- function(x, y, ignore_attr = FALSE, ...) {
+  expect_fun <- ifelse(ignore_attr, expect_equivalent, expect_equal)
+  expect_fun(as.vector(x), y, ...)
 }
 
 expect_data_frame <- function(x, y, ...) {
@@ -155,6 +156,7 @@ expect_vector_equal <- function(expr, # A vectorized R expression containing `in
                                vec,  # A vector as reference, will make Array/ChunkedArray with
                                skip_array = NULL, # Msg, if should skip Array test
                                skip_chunked_array = NULL, # Msg, if should skip ChunkedArray test
+                               ignore_attr = FALSE, # ignore attributes?
                                ...) {
   expr <- rlang::enquo(expr)
   expected <- rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = vec)))
@@ -165,7 +167,7 @@ expect_vector_equal <- function(expr, # A vectorized R expression containing `in
       expr,
       rlang::new_data_mask(rlang::env(input = Array$create(vec)))
     )
-    expect_vector(via_array, expected, ...)
+    expect_vector(via_array, expected, ignore_attr, ...)
   } else {
     skip_msg <- c(skip_msg, skip_array)
   }
@@ -178,49 +180,11 @@ expect_vector_equal <- function(expr, # A vectorized R expression containing `in
       expr,
       rlang::new_data_mask(rlang::env(input = ChunkedArray$create(split_vector[[1]], split_vector[[2]])))
     )
-    expect_vector(via_chunked, expected, ...)
+    expect_vector(via_chunked, expected, ignore_attr, ...)
   } else {
     skip_msg <- c(skip_msg, skip_chunked_array)
   }
 
-  if (!is.null(skip_msg)) {
-    skip(paste(skip_msg, collpase = "\n"))
-  }
-}
-
-expect_vector_equivalent <- function(expr, # A vectorized R expression containing `input` as its input
-                                vec,  # A vector as reference, will make Array/ChunkedArray with
-                                skip_array = NULL, # Msg, if should skip Array test
-                                skip_chunked_array = NULL, # Msg, if should skip ChunkedArray test
-                                ...) {
-  expr <- rlang::enquo(expr)
-  expected <- rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = vec)))
-  skip_msg <- NULL
-
-  if (is.null(skip_array)) {
-    via_array <- rlang::eval_tidy(
-      expr,
-      rlang::new_data_mask(rlang::env(input = Array$create(vec)))
-    )
-    
-    expect_equivalent(as.vector(via_array), expected, ...)
-  } else {
-    skip_msg <- c(skip_msg, skip_array)
-  }
-  
-  if (is.null(skip_chunked_array)) {
-    # split input vector into two to exercise ChunkedArray with >1 chunk
-    split_vector <- split_vector_as_list(vec)
-    
-    via_chunked <- rlang::eval_tidy(
-      expr,
-      rlang::new_data_mask(rlang::env(input = ChunkedArray$create(split_vector[[1]], split_vector[[2]])))
-    )
-    expect_equivalent(as.vector(via_chunked), expected, ...)
-  } else {
-    skip_msg <- c(skip_msg, skip_chunked_array)
-  }
-  
   if (!is.null(skip_msg)) {
     skip(paste(skip_msg, collpase = "\n"))
   }
