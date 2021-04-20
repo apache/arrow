@@ -1,0 +1,19 @@
+
+<a class="navbar-brand" href="{{ pathto(master_doc) }}">
+  <img src="{{ pathto('_static/' + logo, 1) }}" class="logo" alt="logo">
+</a>
+
+<form class="bd-search d-flex align-items-center" action="{{ pathto('search') }}" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="{{ theme_search_bar_text }}" aria-label="{{ theme_search_bar_text }}" autocomplete="off" >
+</form>
+
+<nav class="bd-links" id="bd-docs-nav" aria-label="Main navigation">
+  <div class="bd-toc-item active">
+    {% if "python/api" in pagename or "python/generated" in pagename %}
+    {{ generate_nav_html("sidebar", startdepth=0, maxdepth=3, collapse=False, includehidden=True, titles_only=True) }}
+    {% else %}
+    {{ generate_nav_html("sidebar", startdepth=0, maxdepth=4, collapse=False, includehidden=True, titles_only=True) }}
+    {% endif %}
+  </div>
+</nav>

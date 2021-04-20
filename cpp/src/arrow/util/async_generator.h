@@ -110,7 +110,7 @@ Future<> VisitAsyncGenerator(AsyncGenerator<T> generator,
 /// \brief Waits for an async generator to complete, discarding results.
 template <typename T>
 Future<> DiscardAllFromAsyncGenerator(AsyncGenerator<T> generator) {
-  std::function<Status(T)> visitor = [](...) { return Status::OK(); };
+  std::function<Status(T)> visitor = [](const T&) { return Status::OK(); };
   return VisitAsyncGenerator(generator, visitor);
 }
 
@@ -278,6 +278,23 @@ template <typename T, typename V>
 AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator,
                                       std::function<Future<V>(const T&)> map) {
   return MappingGenerator<T, V>(std::move(source_generator), std::move(map));
+}
+
+template <typename V, typename T, typename MapFunc>
+AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator, MapFunc map) {
+  struct MapCallback {
+    MapFunc map;
+
+    Future<V> operator()(const T& val) { return EnsureFuture(map(val)); }
+
+    Future<V> EnsureFuture(Result<V> val) {
+      return Future<V>::MakeFinished(std::move(val));
+    }
+    Future<V> EnsureFuture(V val) { return Future<V>::MakeFinished(std::move(val)); }
+    Future<V> EnsureFuture(Future<V> val) { return val; }
+  };
+  std::function<Future<V>(const T&)> map_fn = MapCallback{map};
+  return MappingGenerator<T, V>(std::move(source_generator), map_fn);
 }
 
 /// \see MakeSequencingGenerator
@@ -766,23 +783,33 @@ class PushGenerator {
   /// Producer API for PushGenerator
   class Producer {
    public:
-    explicit Producer(std::shared_ptr<State> state) : state_(std::move(state)) {}
+    explicit Producer(const std::shared_ptr<State> state) : weak_state_(state) {}
 
-    /// Push a value on the queue
-    void Push(Result<T> result) {
-      auto lock = state_->mutex.Lock();
-      if (state_->finished) {
-        // Closed early
-        return;
+    /// \brief Push a value on the queue
+    ///
+    /// True is returned if the value was pushed, false if the generator is
+    /// already closed or destroyed.  If the latter, it is recommended to stop
+    /// producing any further values.
+    bool Push(Result<T> result) {
+      auto state = weak_state_.lock();
+      if (!state) {
+        // Generator was destroyed
+        return false;
       }
-      if (state_->consumer_fut.has_value()) {
-        auto fut = std::move(state_->consumer_fut.value());
-        state_->consumer_fut.reset();
+      auto lock = state->mutex.Lock();
+      if (state->finished) {
+        // Closed early
+        return false;
+      }
+      if (state->consumer_fut.has_value()) {
+        auto fut = std::move(state->consumer_fut.value());
+        state->consumer_fut.reset();
         lock.Unlock();  // unlock before potentially invoking a callback
         fut.MarkFinished(std::move(result));
-        return;
+      } else {
+        state->result_q.push_back(std::move(result));
       }
-      state_->result_q.push_back(std::move(result));
+      return true;
     }
 
     /// \brief Tell the consumer we have finished producing
@@ -790,28 +817,43 @@ class PushGenerator {
     /// It is allowed to call this and later call Push() again ("early close").
     /// In this case, calls to Push() after the queue is closed are silently
     /// ignored.  This can help implementing non-trivial cancellation cases.
-    void Close() {
-      auto lock = state_->mutex.Lock();
-      if (state_->finished) {
-        // Already closed
-        return;
+    ///
+    /// True is returned on success, false if the generator is already closed
+    /// or destroyed.
+    bool Close() {
+      auto state = weak_state_.lock();
+      if (!state) {
+        // Generator was destroyed
+        return false;
       }
-      state_->finished = true;
-      if (state_->consumer_fut.has_value()) {
-        auto fut = std::move(state_->consumer_fut.value());
-        state_->consumer_fut.reset();
+      auto lock = state->mutex.Lock();
+      if (state->finished) {
+        // Already closed
+        return false;
+      }
+      state->finished = true;
+      if (state->consumer_fut.has_value()) {
+        auto fut = std::move(state->consumer_fut.value());
+        state->consumer_fut.reset();
         lock.Unlock();  // unlock before potentially invoking a callback
         fut.MarkFinished(IterationTraits<T>::End());
       }
+      return true;
     }
 
+    /// Return whether the generator was closed or destroyed.
     bool is_closed() const {
-      auto lock = state_->mutex.Lock();
-      return state_->finished;
+      auto state = weak_state_.lock();
+      if (!state) {
+        // Generator was destroyed
+        return true;
+      }
+      auto lock = state->mutex.Lock();
+      return state->finished;
     }
 
    private:
-    const std::shared_ptr<State> state_;
+    const std::weak_ptr<State> weak_state_;
   };
 
   PushGenerator() : state_(std::make_shared<State>()) {}

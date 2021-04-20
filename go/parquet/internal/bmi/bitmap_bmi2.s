@@ -25,7 +25,7 @@ TEXT ·_levels_to_bitmap(SB), $0-32
 
 	MOVQ levels+0(FP), DI
 	MOVQ numLevels+8(FP), SI
-	MOVQ rhs+16(FP), DX
+	MOVW rhs+16(FP), DX
 	LEAQ LCDATA1<>(SB), BP
 
 	WORD $0xf685             // test    esi, esi

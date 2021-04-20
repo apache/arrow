@@ -126,6 +126,9 @@ go/arrow/type_string.go
 go/*.tmpldata
 go/*.s
 go/parquet/go.sum
+go/parquet/internal/gen-go/parquet/GoUnusedProtection__.go
+go/parquet/internal/gen-go/parquet/parquet-consts.go
+go/parquet/internal/gen-go/parquet/parquet.go
 js/.npmignore
 js/closure-compiler-scripts/*
 js/src/fb/*.ts
@@ -166,6 +169,7 @@ csharp/src/Apache.Arrow.Flight.AspNetCore/Apache.Arrow.Flight.AspNetCore.csproj
 *.sgml
 *.css
 *.png
+*.ico
 *.svg
 *.devhelp2
 *.scss
@@ -200,3 +204,4 @@ julia/Arrow/docs/src/manual.md
 julia/Arrow/docs/src/reference.md
 rust/ballista/rust/benchmarks/tpch/queries/q*.sql
 rust/ballista/rust/scheduler/testdata/*
+rust/ballista/ui/scheduler/yarn.lock

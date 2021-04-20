@@ -33,10 +33,11 @@ use ballista_core::{
     datasource::DFTableAdapter,
     error::{BallistaError, Result},
     memory_stream::MemoryStream,
+    utils::create_datafusion_context,
 };
 
 use arrow::datatypes::Schema;
-use datafusion::execution::context::ExecutionContext;
+use datafusion::catalog::TableReference;
 use datafusion::logical_plan::{DFSchema, Expr, LogicalPlan, Partitioning};
 use datafusion::physical_plan::csv::CsvReadOptions;
 use datafusion::{dataframe::DataFrame, physical_plan::RecordBatchStream};
@@ -93,7 +94,7 @@ impl BallistaContext {
         let path = fs::canonicalize(&path)?;
 
         // use local DataFusion context for now but later this might call the scheduler
-        let mut ctx = ExecutionContext::new();
+        let mut ctx = create_datafusion_context();
         let df = ctx.read_parquet(path.to_str().unwrap())?;
         Ok(BallistaDataFrame::from(self.state.clone(), df))
     }
@@ -110,7 +111,7 @@ impl BallistaContext {
         let path = fs::canonicalize(&path)?;
 
         // use local DataFusion context for now but later this might call the scheduler
-        let mut ctx = ExecutionContext::new();
+        let mut ctx = create_datafusion_context();
         let df = ctx.read_csv(path.to_str().unwrap(), options)?;
         Ok(BallistaDataFrame::from(self.state.clone(), df))
     }
@@ -142,13 +143,16 @@ impl BallistaContext {
     /// Create a DataFrame from a SQL statement
     pub fn sql(&self, sql: &str) -> Result<BallistaDataFrame> {
         // use local DataFusion context for now but later this might call the scheduler
-        let mut ctx = ExecutionContext::new();
+        let mut ctx = create_datafusion_context();
         // register tables
         let state = self.state.lock().unwrap();
         for (name, plan) in &state.tables {
             let plan = ctx.optimize(plan)?;
             let execution_plan = ctx.create_physical_plan(&plan)?;
-            ctx.register_table(name, Arc::new(DFTableAdapter::new(plan, execution_plan)));
+            ctx.register_table(
+                TableReference::Bare { table: name },
+                Arc::new(DFTableAdapter::new(plan, execution_plan)),
+            )?;
         }
         let df = ctx.sql(sql)?;
         Ok(BallistaDataFrame::from(self.state.clone(), df))
@@ -267,7 +271,7 @@ impl BallistaDataFrame {
         ))
     }
 
-    pub fn select(&self, expr: &[Expr]) -> Result<BallistaDataFrame> {
+    pub fn select(&self, expr: Vec<Expr>) -> Result<BallistaDataFrame> {
         Ok(Self::from(
             self.state.clone(),
             self.df.select(expr).map_err(BallistaError::from)?,
@@ -283,8 +287,8 @@ impl BallistaDataFrame {
 
     pub fn aggregate(
         &self,
-        group_expr: &[Expr],
-        aggr_expr: &[Expr],
+        group_expr: Vec<Expr>,
+        aggr_expr: Vec<Expr>,
     ) -> Result<BallistaDataFrame> {
         Ok(Self::from(
             self.state.clone(),
@@ -301,7 +305,7 @@ impl BallistaDataFrame {
         ))
     }
 
-    pub fn sort(&self, expr: &[Expr]) -> Result<BallistaDataFrame> {
+    pub fn sort(&self, expr: Vec<Expr>) -> Result<BallistaDataFrame> {
         Ok(Self::from(
             self.state.clone(),
             self.df.sort(expr).map_err(BallistaError::from)?,

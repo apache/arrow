@@ -19,10 +19,6 @@
 Dataset
 =======
 
-.. sidebar:: Contents
-
-   .. contents:: :local:
-
 Interface
 =========
 

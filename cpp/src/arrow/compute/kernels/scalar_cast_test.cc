@@ -1782,6 +1782,14 @@ TEST(Cast, FromNull) {
   }
 }
 
+TEST(Cast, FromNullToDictionary) {
+  auto from = std::make_shared<NullArray>(10);
+  auto to_type = dictionary(int8(), boolean());
+
+  ASSERT_OK_AND_ASSIGN(auto expected, MakeArrayOfNull(to_type, 10));
+  CheckCast(from, expected);
+}
+
 // ----------------------------------------------------------------------
 // Test casting from DictionaryType
 

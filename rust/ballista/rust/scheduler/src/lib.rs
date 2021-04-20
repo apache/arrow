@@ -60,26 +60,38 @@ impl parse_arg::ParseArgFromStr for ConfigBackend {
 
 use crate::planner::DistributedPlanner;
 
-use datafusion::execution::context::ExecutionContext;
 use log::{debug, error, info, warn};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use tonic::{Request, Response};
 
 use self::state::{ConfigBackendClient, SchedulerState};
+use ballista_core::utils::create_datafusion_context;
 use datafusion::physical_plan::parquet::ParquetExec;
-use std::time::Instant;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 #[derive(Clone)]
 pub struct SchedulerServer {
-    state: SchedulerState,
-    namespace: String,
+    state: Arc<SchedulerState>,
+    start_time: u128,
+    version: String,
 }
 
 impl SchedulerServer {
     pub fn new(config: Arc<dyn ConfigBackendClient>, namespace: String) -> Self {
+        const VERSION: Option<&'static str> = option_env!("CARGO_PKG_VERSION");
+        let state = Arc::new(SchedulerState::new(config, namespace));
+        let state_clone = state.clone();
+
+        // TODO: we should elect a leader in the scheduler cluster and run this only in the leader
+        tokio::spawn(async move { state_clone.synchronize_job_status_loop().await });
+
         Self {
-            state: SchedulerState::new(config),
-            namespace,
+            state,
+            start_time: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_millis(),
+            version: VERSION.unwrap_or("Unknown").to_string(),
         }
     }
 }
@@ -93,7 +105,7 @@ impl SchedulerGrpc for SchedulerServer {
         info!("Received get_executors_metadata request");
         let result = self
             .state
-            .get_executors_metadata(self.namespace.as_str())
+            .get_executors_metadata()
             .await
             .map_err(|e| {
                 let msg = format!("Error reading executors metadata: {}", e);
@@ -126,17 +138,16 @@ impl SchedulerGrpc for SchedulerServer {
                 tonic::Status::internal(msg)
             })?;
             self.state
-                .save_executor_metadata(&self.namespace, metadata.clone())
+                .save_executor_metadata(metadata.clone())
                 .await
                 .map_err(|e| {
                     let msg = format!("Could not save executor metadata: {}", e);
                     error!("{}", msg);
                     tonic::Status::internal(msg)
                 })?;
-            let task_status_empty = task_status.is_empty();
             for task_status in task_status {
                 self.state
-                    .save_task_status(&self.namespace, &task_status)
+                    .save_task_status(&task_status)
                     .await
                     .map_err(|e| {
                         let msg = format!("Could not save task status: {}", e);
@@ -147,7 +158,7 @@ impl SchedulerGrpc for SchedulerServer {
             let task = if can_accept_task {
                 let plan = self
                     .state
-                    .assign_next_schedulable_task(&self.namespace, &metadata.id)
+                    .assign_next_schedulable_task(&metadata.id)
                     .await
                     .map_err(|e| {
                         let msg = format!("Error finding next assignable task: {}", e);
@@ -171,12 +182,6 @@ impl SchedulerGrpc for SchedulerServer {
             } else {
                 None
             };
-            // TODO: this should probably happen asynchronously with a watch on etc/sled
-            if !task_status_empty {
-                if let Err(e) = self.state.synchronize_job_status(&self.namespace).await {
-                    warn!("Could not synchronize jobs and tasks state: {}", e);
-                }
-            }
             lock.unlock().await;
             Ok(Response::new(PollWorkResult { task }))
         } else {
@@ -201,12 +206,13 @@ impl SchedulerGrpc for SchedulerServer {
 
         match file_type {
             FileType::Parquet => {
-                let parquet_exec = ParquetExec::try_from_path(&path, None, None, 1024, 1)
-                    .map_err(|e| {
-                        let msg = format!("Error opening parquet files: {}", e);
-                        error!("{}", msg);
-                        tonic::Status::internal(msg)
-                    })?;
+                let parquet_exec =
+                    ParquetExec::try_from_path(&path, None, None, 1024, 1, None)
+                        .map_err(|e| {
+                            let msg = format!("Error opening parquet files: {}", e);
+                            error!("{}", msg);
+                            tonic::Status::internal(msg)
+                        })?;
 
                 //TODO include statistics and any other info needed to reconstruct ParquetExec
                 Ok(Response::new(GetFileMetadataResult {
@@ -244,7 +250,7 @@ impl SchedulerGrpc for SchedulerServer {
                 Query::Sql(sql) => {
                     //TODO we can't just create a new context because we need a context that has
                     // tables registered from previous SQL statements that have been executed
-                    let mut ctx = ExecutionContext::new();
+                    let mut ctx = create_datafusion_context();
                     let df = ctx.sql(&sql).map_err(|e| {
                         let msg = format!("Error parsing SQL: {}", e);
                         error!("{}", msg);
@@ -254,15 +260,11 @@ impl SchedulerGrpc for SchedulerServer {
                 }
             };
             debug!("Received plan for execution: {:?}", plan);
-            let executors = self
-                .state
-                .get_executors_metadata(&self.namespace)
-                .await
-                .map_err(|e| {
-                    let msg = format!("Error reading executors metadata: {}", e);
-                    error!("{}", msg);
-                    tonic::Status::internal(msg)
-                })?;
+            let executors = self.state.get_executors_metadata().await.map_err(|e| {
+                let msg = format!("Error reading executors metadata: {}", e);
+                error!("{}", msg);
+                tonic::Status::internal(msg)
+            })?;
             debug!("Found executors: {:?}", executors);
 
             let job_id: String = {
@@ -277,7 +279,6 @@ impl SchedulerGrpc for SchedulerServer {
             // Save placeholder job metadata
             self.state
                 .save_job_metadata(
-                    &self.namespace,
                     &job_id,
                     &JobStatus {
                         status: Some(job_status::Status::Queued(QueuedJob {})),
@@ -288,12 +289,11 @@ impl SchedulerGrpc for SchedulerServer {
                     tonic::Status::internal(format!("Could not save job metadata: {}", e))
                 })?;
 
-            let namespace = self.namespace.to_owned();
             let state = self.state.clone();
             let job_id_spawn = job_id.clone();
             tokio::spawn(async move {
                 // create physical plan using DataFusion
-                let datafusion_ctx = ExecutionContext::new();
+                let datafusion_ctx = create_datafusion_context();
                 macro_rules! fail_job {
                     ($code :expr) => {{
                         match $code {
@@ -301,7 +301,6 @@ impl SchedulerGrpc for SchedulerServer {
                                 warn!("Job {} failed with {}", job_id_spawn, error);
                                 state
                                     .save_job_metadata(
-                                        &namespace,
                                         &job_id_spawn,
                                         &JobStatus {
                                             status: Some(job_status::Status::Failed(
@@ -348,7 +347,6 @@ impl SchedulerGrpc for SchedulerServer {
                 // create distributed physical plan using Ballista
                 if let Err(e) = state
                     .save_job_metadata(
-                        &namespace,
                         &job_id_spawn,
                         &JobStatus {
                             status: Some(job_status::Status::Running(RunningJob {})),
@@ -379,7 +377,6 @@ impl SchedulerGrpc for SchedulerServer {
                 for stage in stages {
                     fail_job!(state
                         .save_stage_plan(
-                            &namespace,
                             &job_id_spawn,
                             stage.stage_id,
                             stage.child.clone()
@@ -400,14 +397,13 @@ impl SchedulerGrpc for SchedulerServer {
                             }),
                             status: None,
                         };
-                        fail_job!(state
-                            .save_task_status(&namespace, &pending_status)
-                            .await
-                            .map_err(|e| {
+                        fail_job!(state.save_task_status(&pending_status).await.map_err(
+                            |e| {
                                 let msg = format!("Could not save task status: {}", e);
                                 error!("{}", msg);
                                 tonic::Status::internal(msg)
-                            }));
+                            }
+                        ));
                     }
                 }
             });
@@ -424,15 +420,11 @@ impl SchedulerGrpc for SchedulerServer {
     ) -> std::result::Result<Response<GetJobStatusResult>, tonic::Status> {
         let job_id = request.into_inner().job_id;
         debug!("Received get_job_status request for job {}", job_id);
-        let job_meta = self
-            .state
-            .get_job_metadata(&self.namespace, &job_id)
-            .await
-            .map_err(|e| {
-                let msg = format!("Error reading job metadata: {}", e);
-                error!("{}", msg);
-                tonic::Status::internal(msg)
-            })?;
+        let job_meta = self.state.get_job_metadata(&job_id).await.map_err(|e| {
+            let msg = format!("Error reading job metadata: {}", e);
+            error!("{}", msg);
+            tonic::Status::internal(msg)
+        })?;
         Ok(Response::new(GetJobStatusResult {
             status: Some(job_meta),
         }))
@@ -458,7 +450,7 @@ mod test {
         let state = Arc::new(StandaloneClient::try_new_temporary()?);
         let namespace = "default";
         let scheduler = SchedulerServer::new(state.clone(), namespace.to_owned());
-        let state = SchedulerState::new(state);
+        let state = SchedulerState::new(state, namespace.to_string());
         let exec_meta = ExecutorMetadata {
             id: "abc".to_owned(),
             host: "".to_owned(),
@@ -477,10 +469,7 @@ mod test {
         // no response task since we told the scheduler we didn't want to accept one
         assert!(response.task.is_none());
         // executor should be registered
-        assert_eq!(
-            state.get_executors_metadata(namespace).await.unwrap().len(),
-            1
-        );
+        assert_eq!(state.get_executors_metadata().await.unwrap().len(), 1);
 
         let request: Request<PollWorkParams> = Request::new(PollWorkParams {
             metadata: Some(exec_meta.clone()),
@@ -495,10 +484,7 @@ mod test {
         // still no response task since there are no tasks in the scheduelr
         assert!(response.task.is_none());
         // executor should be registered
-        assert_eq!(
-            state.get_executors_metadata(namespace).await.unwrap().len(),
-            1
-        );
+        assert_eq!(state.get_executors_metadata().await.unwrap().len(), 1);
         Ok(())
     }
 }

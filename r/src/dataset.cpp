@@ -438,46 +438,8 @@ cpp11::list dataset___Scanner__ScanBatches(const std::shared_ptr<ds::Scanner>& s
 std::shared_ptr<arrow::Table> dataset___Scanner__head(
     const std::shared_ptr<ds::Scanner>& scanner, int n) {
   // TODO: make this a full Slice with offset > 0
-  auto it = ValueOrStop(scanner->ScanBatches());
-  std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
-  while (true) {
-    auto current_batch = ValueOrStop(it.Next());
-    if (arrow::IsIterationEnd(current_batch)) break;
-    batches.push_back(current_batch.record_batch->Slice(0, n));
-    n -= current_batch.record_batch->num_rows();
-    if (n < 0) break;
-  }
-  return ValueOrStop(arrow::Table::FromRecordBatches(std::move(batches)));
+  return ValueOrStop(scanner->Head(n));
 }
-
-// TODO (ARROW-11782) Remove calls to Scan()
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#elif defined(_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable : 4996)
-#endif
-
-// [[dataset::export]]
-cpp11::list dataset___Scanner__Scan(const std::shared_ptr<ds::Scanner>& scanner) {
-  auto it = ValueOrStop(scanner->Scan());
-  std::vector<std::shared_ptr<ds::ScanTask>> out;
-  std::shared_ptr<ds::ScanTask> scan_task;
-  // TODO(npr): can this iteration be parallelized?
-  for (auto st : it) {
-    scan_task = ValueOrStop(st);
-    out.push_back(scan_task);
-  }
-
-  return arrow::r::to_r_list(out);
-}
-
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC diagnostic pop
-#elif defined(_MSC_VER)
-#pragma warning(pop)
-#endif
 
 // [[dataset::export]]
 std::shared_ptr<arrow::Schema> dataset___Scanner__schema(
@@ -514,7 +476,7 @@ void dataset___Dataset__Write(
   StopIfNotOk(ds::FileSystemDataset::Write(opts, scanner));
 }
 
-// [[arrow::export]]
+// [[dataset::export]]
 std::shared_ptr<arrow::Table> dataset___Scanner__TakeRows(
     const std::shared_ptr<ds::Scanner>& scanner,
     const std::shared_ptr<arrow::Array>& indices) {

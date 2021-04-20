@@ -18,9 +18,11 @@
 #include "arrow/dataset/scanner.h"
 
 #include <memory>
+#include <ostream>
 
 #include <gmock/gmock.h>
 
+#include "arrow/compute/api.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
@@ -39,33 +41,56 @@ using testing::IsEmpty;
 namespace arrow {
 namespace dataset {
 
-constexpr int64_t kNumberChildDatasets = 2;
-constexpr int64_t kNumberBatches = 16;
-constexpr int64_t kBatchSize = 1024;
+struct TestScannerParams {
+  bool use_async;
+  bool use_threads;
+  int num_child_datasets;
+  int num_batches;
+  int items_per_batch;
 
-class TestScanner : public DatasetFixtureMixin,
-                    public ::testing::WithParamInterface<bool> {
+  static std::vector<TestScannerParams> Values() {
+    std::vector<TestScannerParams> values;
+    for (int sync = 0; sync < 2; sync++) {
+      for (int use_threads = 0; use_threads < 2; use_threads++) {
+        values.push_back(
+            {static_cast<bool>(sync), static_cast<bool>(use_threads), 1, 1, 1024});
+        values.push_back(
+            {static_cast<bool>(sync), static_cast<bool>(use_threads), 2, 16, 1024});
+      }
+    }
+    return values;
+  }
+};
+
+std::ostream& operator<<(std::ostream& out, const TestScannerParams& params) {
+  out << (params.use_async ? "async-" : "sync-")
+      << (params.use_threads ? "threaded-" : "serial-") << params.num_child_datasets
+      << "d-" << params.num_batches << "b-" << params.items_per_batch << "i";
+  return out;
+}
+
+class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
  protected:
-  bool UseThreads() { return GetParam(); }
-
   std::shared_ptr<Scanner> MakeScanner(std::shared_ptr<RecordBatch> batch) {
-    std::vector<std::shared_ptr<RecordBatch>> batches{static_cast<size_t>(kNumberBatches),
-                                                      batch};
+    std::vector<std::shared_ptr<RecordBatch>> batches{
+        static_cast<size_t>(GetParam().num_batches), batch};
 
-    DatasetVector children{static_cast<size_t>(kNumberChildDatasets),
+    DatasetVector children{static_cast<size_t>(GetParam().num_child_datasets),
                            std::make_shared<InMemoryDataset>(batch->schema(), batches)};
 
     EXPECT_OK_AND_ASSIGN(auto dataset, UnionDataset::Make(batch->schema(), children));
 
     ScannerBuilder builder(dataset, options_);
-    ARROW_EXPECT_OK(builder.UseThreads(UseThreads()));
+    ARROW_EXPECT_OK(builder.UseThreads(GetParam().use_threads));
+    ARROW_EXPECT_OK(builder.UseAsync(GetParam().use_async));
     EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
     return scanner;
   }
 
   void AssertScannerEqualsRepetitionsOf(
       std::shared_ptr<Scanner> scanner, std::shared_ptr<RecordBatch> batch,
-      const int64_t total_batches = kNumberChildDatasets * kNumberBatches) {
+      const int64_t total_batches = GetParam().num_child_datasets *
+                                    GetParam().num_batches) {
     auto expected = ConstantArrayGenerator::Repeat(total_batches, batch);
 
     // Verifies that the unified BatchReader is equivalent to flattening all the
@@ -75,7 +100,8 @@ class TestScanner : public DatasetFixtureMixin,
 
   void AssertScanBatchesEqualRepetitionsOf(
       std::shared_ptr<Scanner> scanner, std::shared_ptr<RecordBatch> batch,
-      const int64_t total_batches = kNumberChildDatasets * kNumberBatches) {
+      const int64_t total_batches = GetParam().num_child_datasets *
+                                    GetParam().num_batches) {
     auto expected = ConstantArrayGenerator::Repeat(total_batches, batch);
 
     AssertScanBatchesEquals(expected.get(), scanner.get());
@@ -83,38 +109,40 @@ class TestScanner : public DatasetFixtureMixin,
 
   void AssertScanBatchesUnorderedEqualRepetitionsOf(
       std::shared_ptr<Scanner> scanner, std::shared_ptr<RecordBatch> batch,
-      const int64_t total_batches = kNumberChildDatasets * kNumberBatches) {
+      const int64_t total_batches = GetParam().num_child_datasets *
+                                    GetParam().num_batches) {
     auto expected = ConstantArrayGenerator::Repeat(total_batches, batch);
 
-    AssertScanBatchesUnorderedEquals(expected.get(), scanner.get());
+    AssertScanBatchesUnorderedEquals(expected.get(), scanner.get(), 1);
   }
 };
 
 TEST_P(TestScanner, Scan) {
   SetSchema({field("i32", int32()), field("f64", float64())});
-  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
-  AssertScannerEqualsRepetitionsOf(MakeScanner(batch), batch);
+  auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+  AssertScanBatchesUnorderedEqualRepetitionsOf(MakeScanner(batch), batch);
 }
 
 TEST_P(TestScanner, ScanBatches) {
   SetSchema({field("i32", int32()), field("f64", float64())});
-  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
   AssertScanBatchesEqualRepetitionsOf(MakeScanner(batch), batch);
 }
 
 TEST_P(TestScanner, ScanBatchesUnordered) {
   SetSchema({field("i32", int32()), field("f64", float64())});
-  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
   AssertScanBatchesUnorderedEqualRepetitionsOf(MakeScanner(batch), batch);
 }
 
 TEST_P(TestScanner, ScanWithCappedBatchSize) {
   SetSchema({field("i32", int32()), field("f64", float64())});
-  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
-  options_->batch_size = kBatchSize / 2;
-  auto expected = batch->Slice(kBatchSize / 2);
-  AssertScannerEqualsRepetitionsOf(MakeScanner(batch), expected,
-                                   kNumberChildDatasets * kNumberBatches * 2);
+  auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+  options_->batch_size = GetParam().items_per_batch / 2;
+  auto expected = batch->Slice(GetParam().items_per_batch / 2);
+  AssertScanBatchesEqualRepetitionsOf(
+      MakeScanner(batch), expected,
+      GetParam().num_child_datasets * GetParam().num_batches * 2);
 }
 
 TEST_P(TestScanner, FilteredScan) {
@@ -122,7 +150,8 @@ TEST_P(TestScanner, FilteredScan) {
 
   double value = 0.5;
   ASSERT_OK_AND_ASSIGN(auto f64,
-                       ArrayFromBuilderVisitor(float64(), kBatchSize, kBatchSize / 2,
+                       ArrayFromBuilderVisitor(float64(), GetParam().items_per_batch,
+                                               GetParam().items_per_batch / 2,
                                                [&](DoubleBuilder* builder) {
                                                  builder->UnsafeAppend(value);
                                                  builder->UnsafeAppend(-value);
@@ -134,47 +163,58 @@ TEST_P(TestScanner, FilteredScan) {
   auto batch = RecordBatch::Make(schema_, f64->length(), {f64});
 
   value = 0.5;
-  ASSERT_OK_AND_ASSIGN(
-      auto f64_filtered,
-      ArrayFromBuilderVisitor(float64(), kBatchSize / 2, [&](DoubleBuilder* builder) {
-        builder->UnsafeAppend(value);
-        value += 1.0;
-      }));
+  ASSERT_OK_AND_ASSIGN(auto f64_filtered,
+                       ArrayFromBuilderVisitor(float64(), GetParam().items_per_batch / 2,
+                                               [&](DoubleBuilder* builder) {
+                                                 builder->UnsafeAppend(value);
+                                                 value += 1.0;
+                                               }));
 
   auto filtered_batch =
       RecordBatch::Make(schema_, f64_filtered->length(), {f64_filtered});
 
-  AssertScannerEqualsRepetitionsOf(MakeScanner(batch), filtered_batch);
+  AssertScanBatchesEqualRepetitionsOf(MakeScanner(batch), filtered_batch);
+}
+
+TEST_P(TestScanner, ProjectedScan) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  SetProjectedColumns({"i32"});
+  auto batch_in = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+  auto batch_out = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch,
+                                                  schema({field("i32", int32())}));
+  AssertScanBatchesUnorderedEqualRepetitionsOf(MakeScanner(batch_in), batch_out);
 }
 
 TEST_P(TestScanner, MaterializeMissingColumn) {
   SetSchema({field("i32", int32()), field("f64", float64())});
-  auto batch_missing_f64 =
-      ConstantArrayGenerator::Zeroes(kBatchSize, schema({field("i32", int32())}));
+  auto batch_missing_f64 = ConstantArrayGenerator::Zeroes(
+      GetParam().items_per_batch, schema({field("i32", int32())}));
 
   auto fragment_missing_f64 = std::make_shared<InMemoryFragment>(
-      RecordBatchVector{static_cast<size_t>(kNumberChildDatasets * kNumberBatches),
-                        batch_missing_f64},
+      RecordBatchVector{
+          static_cast<size_t>(GetParam().num_child_datasets * GetParam().num_batches),
+          batch_missing_f64},
       equal(field_ref("f64"), literal(2.5)));
 
-  ASSERT_OK_AND_ASSIGN(auto f64, ArrayFromBuilderVisitor(float64(), kBatchSize,
-                                                         [&](DoubleBuilder* builder) {
-                                                           builder->UnsafeAppend(2.5);
-                                                         }));
+  ASSERT_OK_AND_ASSIGN(auto f64,
+                       ArrayFromBuilderVisitor(
+                           float64(), GetParam().items_per_batch,
+                           [&](DoubleBuilder* builder) { builder->UnsafeAppend(2.5); }));
   auto batch_with_f64 =
       RecordBatch::Make(schema_, f64->length(), {batch_missing_f64->column(0), f64});
 
   ScannerBuilder builder{schema_, fragment_missing_f64, options_};
   ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
 
-  AssertScannerEqualsRepetitionsOf(scanner, batch_with_f64);
+  AssertScanBatchesEqualRepetitionsOf(scanner, batch_with_f64);
 }
 
 TEST_P(TestScanner, ToTable) {
   SetSchema({field("i32", int32()), field("f64", float64())});
-  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
-  std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches * kNumberChildDatasets,
-                                                    batch};
+  auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+  std::vector<std::shared_ptr<RecordBatch>> batches{
+      static_cast<std::size_t>(GetParam().num_batches * GetParam().num_child_datasets),
+      batch};
 
   ASSERT_OK_AND_ASSIGN(auto expected, Table::FromRecordBatches(batches));
 
@@ -189,7 +229,7 @@ TEST_P(TestScanner, ToTable) {
 
 TEST_P(TestScanner, ScanWithVisitor) {
   SetSchema({field("i32", int32()), field("f64", float64())});
-  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
   auto scanner = MakeScanner(batch);
   ASSERT_OK(scanner->Scan([batch](TaggedRecordBatch scanned_batch) {
     AssertBatchesEqual(*batch, *scanned_batch.record_batch);
@@ -198,21 +238,24 @@ TEST_P(TestScanner, ScanWithVisitor) {
 }
 
 TEST_P(TestScanner, TakeIndices) {
+  auto batch_size = GetParam().items_per_batch;
+  auto num_batches = GetParam().num_batches;
+  auto num_datasets = GetParam().num_child_datasets;
   SetSchema({field("i32", int32()), field("f64", float64())});
   ArrayVector arrays(2);
-  ArrayFromVector<Int32Type>(internal::Iota<int32_t>(kBatchSize), &arrays[0]);
-  ArrayFromVector<DoubleType>(internal::Iota<double>(static_cast<double>(kBatchSize)),
+  ArrayFromVector<Int32Type>(internal::Iota<int32_t>(batch_size), &arrays[0]);
+  ArrayFromVector<DoubleType>(internal::Iota<double>(static_cast<double>(batch_size)),
                               &arrays[1]);
-  auto batch = RecordBatch::Make(schema_, kBatchSize, arrays);
+  auto batch = RecordBatch::Make(schema_, batch_size, arrays);
 
   auto scanner = MakeScanner(batch);
 
   std::shared_ptr<Array> indices;
   {
-    ArrayFromVector<Int64Type>(internal::Iota(kBatchSize), &indices);
+    ArrayFromVector<Int64Type>(internal::Iota(batch_size), &indices);
     ASSERT_OK_AND_ASSIGN(auto taken, scanner->TakeRows(*indices));
     ASSERT_OK_AND_ASSIGN(auto expected, Table::FromRecordBatches({batch}));
-    ASSERT_EQ(expected->num_rows(), kBatchSize);
+    ASSERT_EQ(expected->num_rows(), batch_size);
     AssertTablesEqual(*expected, *taken);
   }
   {
@@ -223,16 +266,16 @@ TEST_P(TestScanner, TakeIndices) {
     ASSERT_EQ(expected.table()->num_rows(), 4);
     AssertTablesEqual(*expected.table(), *taken);
   }
-  {
-    ArrayFromVector<Int64Type>({kBatchSize + 2, kBatchSize + 1}, &indices);
+  if (num_batches > 1) {
+    ArrayFromVector<Int64Type>({batch_size + 2, batch_size + 1}, &indices);
     ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
     ASSERT_OK_AND_ASSIGN(auto taken, scanner->TakeRows(*indices));
     ASSERT_OK_AND_ASSIGN(auto expected, compute::Take(table, *indices));
     ASSERT_EQ(expected.table()->num_rows(), 2);
     AssertTablesEqual(*expected.table(), *taken);
   }
-  {
-    ArrayFromVector<Int64Type>({1, 3, 5, 7, kBatchSize + 1, 2 * kBatchSize + 2},
+  if (num_batches > 1) {
+    ArrayFromVector<Int64Type>({1, 3, 5, 7, batch_size + 1, 2 * batch_size + 2},
                                &indices);
     ASSERT_OK_AND_ASSIGN(auto taken, scanner->TakeRows(*indices));
     ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
@@ -241,19 +284,23 @@ TEST_P(TestScanner, TakeIndices) {
     AssertTablesEqual(*expected.table(), *taken);
   }
   {
-    auto base = kNumberChildDatasets * kNumberBatches * kBatchSize;
+    auto base = num_datasets * num_batches * batch_size;
     ArrayFromVector<Int64Type>({base + 1}, &indices);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        IndexError, ::testing::HasSubstr("Some indices were out of bounds: 32769"),
+        IndexError,
+        ::testing::HasSubstr("Some indices were out of bounds: " +
+                             std::to_string(base + 1)),
         scanner->TakeRows(*indices));
   }
   {
-    auto base = kNumberChildDatasets * kNumberBatches * kBatchSize;
+    auto base = num_datasets * num_batches * batch_size;
     ArrayFromVector<Int64Type>(
         {1, 2, base + 1, base + 2, base + 3, base + 4, base + 5, base + 6}, &indices);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         IndexError,
-        ::testing::HasSubstr("Some indices were out of bounds: 32769, 32770, 32771, ..."),
+        ::testing::HasSubstr(
+            "Some indices were out of bounds: " + std::to_string(base + 1) + ", " +
+            std::to_string(base + 2) + ", " + std::to_string(base + 3) + ", ..."),
         scanner->TakeRows(*indices));
   }
 }
@@ -276,11 +323,11 @@ class FailingFragment : public InMemoryFragment {
 
 TEST_P(TestScanner, ScanBatchesFailure) {
   SetSchema({field("i32", int32()), field("f64", float64())});
-  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
   RecordBatchVector batches = {batch, batch, batch, batch};
 
   ScannerBuilder builder(schema_, std::make_shared<FailingFragment>(batches), options_);
-  ASSERT_OK(builder.UseThreads(UseThreads()));
+  ASSERT_OK(builder.UseThreads(GetParam().use_threads));
   ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
 
   ASSERT_OK_AND_ASSIGN(auto batch_it, scanner->ScanBatches());
@@ -301,7 +348,47 @@ TEST_P(TestScanner, ScanBatchesFailure) {
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(TestScannerThreading, TestScanner, ::testing::Bool());
+TEST_P(TestScanner, Head) {
+  auto batch_size = GetParam().items_per_batch;
+  auto num_batches = GetParam().num_batches;
+  auto num_datasets = GetParam().num_child_datasets;
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(batch_size, schema_);
+
+  auto scanner = MakeScanner(batch);
+  std::shared_ptr<Table> expected, actual;
+
+  ASSERT_OK_AND_ASSIGN(expected, Table::FromRecordBatches(schema_, {}));
+  ASSERT_OK_AND_ASSIGN(actual, scanner->Head(0));
+  AssertTablesEqual(*expected, *actual);
+
+  ASSERT_OK_AND_ASSIGN(expected, Table::FromRecordBatches(schema_, {batch}));
+  ASSERT_OK_AND_ASSIGN(actual, scanner->Head(batch_size));
+  AssertTablesEqual(*expected, *actual);
+
+  ASSERT_OK_AND_ASSIGN(expected, Table::FromRecordBatches(schema_, {batch->Slice(0, 1)}));
+  ASSERT_OK_AND_ASSIGN(actual, scanner->Head(1));
+  AssertTablesEqual(*expected, *actual);
+
+  if (num_batches > 1) {
+    ASSERT_OK_AND_ASSIGN(expected,
+                         Table::FromRecordBatches(schema_, {batch, batch->Slice(0, 1)}));
+    ASSERT_OK_AND_ASSIGN(actual, scanner->Head(batch_size + 1));
+    AssertTablesEqual(*expected, *actual);
+  }
+
+  ASSERT_OK_AND_ASSIGN(expected, scanner->ToTable());
+  ASSERT_OK_AND_ASSIGN(actual, scanner->Head(batch_size * num_batches * num_datasets));
+  AssertTablesEqual(*expected, *actual);
+
+  ASSERT_OK_AND_ASSIGN(expected, scanner->ToTable());
+  ASSERT_OK_AND_ASSIGN(actual,
+                       scanner->Head(batch_size * num_batches * num_datasets + 100));
+  AssertTablesEqual(*expected, *actual);
+}
+
+INSTANTIATE_TEST_SUITE_P(TestScannerThreading, TestScanner,
+                         ::testing::ValuesIn(TestScannerParams::Values()));
 
 class TestScannerBuilder : public ::testing::Test {
   void SetUp() override {

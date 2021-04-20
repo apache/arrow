@@ -457,6 +457,17 @@ cdef class Dataset(_Weakrefable):
         """
         return self._scanner(**kwargs).to_table()
 
+    def head(self, int num_rows, **kwargs):
+        """Load the first N rows of the dataset.
+
+        See scan method parameters documentation.
+
+        Returns
+        -------
+        table : Table instance
+        """
+        return self._scanner(**kwargs).head(num_rows)
+
     @property
     def schema(self):
         """The common schema of the full Dataset"""
@@ -988,6 +999,17 @@ cdef class Fragment(_Weakrefable):
         table : Table
         """
         return self._scanner(schema=schema, **kwargs).to_table()
+
+    def head(self, int num_rows, **kwargs):
+        """Load the first N rows of the fragment.
+
+        See scan method parameters documentation.
+
+        Returns
+        -------
+        table : Table instance
+        """
+        return self._scanner(**kwargs).head(num_rows)
 
 
 cdef class FileFragment(Fragment):
@@ -2881,6 +2903,18 @@ cdef class Scanner(_Weakrefable):
         cdef shared_ptr[CArray] c_indices = pyarrow_unwrap_array(indices)
         with nogil:
             result = self.scanner.TakeRows(deref(c_indices))
+        return pyarrow_wrap_table(GetResultValue(result))
+
+    def head(self, int num_rows):
+        """Load the first N rows of the dataset.
+
+        Returns
+        -------
+        table : Table instance
+        """
+        cdef CResult[shared_ptr[CTable]] result
+        with nogil:
+            result = self.scanner.Head(num_rows)
         return pyarrow_wrap_table(GetResultValue(result))
 
 

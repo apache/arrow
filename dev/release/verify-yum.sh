@@ -21,10 +21,12 @@ set -exu
 
 if [ $# -lt 2 ]; then
   echo "Usage: $0 VERSION rc"
+  echo "       $0 VERSION rc BINTRAY_REPOSITORY"
   echo "       $0 VERSION release"
   echo "       $0 VERSION local"
   echo " e.g.: $0 0.13.0 rc           # Verify 0.13.0 RC"
   echo " e.g.: $0 0.13.0 release      # Verify 0.13.0"
+  echo " e.g.: $0 0.13.0 rc kszucs/arrow # Verify 0.13.0 RC at https://bintray.com/kszucs/arrow"
   echo " e.g.: $0 0.13.0-dev20210203 local # Verify 0.13.0-dev20210203 on local"
   exit 1
 fi
@@ -82,8 +84,13 @@ if [ "${TYPE}" = "local" ]; then
   ${install_command} "${release_path}"
 else
   package_version="${VERSION}"
-  ${install_command} \
-    ${artifactory_base_url}/${distribution_version}/apache-arrow-release-latest.rpm
+  if [ $# -eq 3 ]; then
+    ${install_command} \
+      https://dl.bintray.com/$3/centos-rc/${distribution_version}/apache-arrow-release-latest.rpm
+  else
+    ${install_command} \
+      ${artifactory_base_url}/${distribution_version}/apache-arrow-release-latest.rpm
+  fi
 fi
 
 if [ "${TYPE}" = "local" ]; then
@@ -97,10 +104,17 @@ if [ "${TYPE}" = "local" ]; then
   fi
 else
   if [ "${TYPE}" = "rc" ]; then
-    sed \
-      -i"" \
-      -e "s,/centos/,/centos-rc/,g" \
-      /etc/yum.repos.d/Apache-Arrow.repo
+    if [ $# -eq 3 ]; then
+      sed \
+        -i"" \
+        -e "s,baseurl=https://apache\.jfrog\.io/artifactory/arrow/centos/,baseurl=https://dl.bintray.com/$3/centos-rc/,g" \
+        /etc/yum.repos.d/Apache-Arrow.repo
+    else
+      sed \
+        -i"" \
+        -e "s,/centos/,/centos-rc/,g" \
+        /etc/yum.repos.d/Apache-Arrow.repo
+    fi
   fi
 fi
 

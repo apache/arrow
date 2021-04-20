@@ -68,6 +68,7 @@ env:
     - YUM_TARGETS={{ target }}
 
 before_script:
+  - set -e
   {{ macros.travis_checkout_arrow() }}
   {{ macros.travis_docker_login() }}
 
@@ -144,4 +145,5 @@ script:
   - popd
 
 after_success:
-  {{ macros.travis_upload_releases(upload_extensions) }}
+  {% set patterns = upload_extensions | format_all("arrow/dev/tasks/linux-packages/**/*{}") %}
+  {{ macros.travis_upload_releases(patterns) }}

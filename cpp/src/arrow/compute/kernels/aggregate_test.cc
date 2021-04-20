@@ -1078,7 +1078,7 @@ TEST_F(TestInt32ModeKernel, SmallValueRange) {
 }
 
 TEST_F(TestInt32ModeKernel, LargeValueRange) {
-  // Large value range => should exercise hashmap-based Mode implementation
+  // Large value range => should exercise sorter-based Mode implementation
   CheckModeWithRange<ArrowType>(-10000000, 10000000);
 }
 

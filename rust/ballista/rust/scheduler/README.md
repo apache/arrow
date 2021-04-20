@@ -41,3 +41,11 @@ curl --request GET \
   --url http://localhost:50050/executors \
   --header 'Accept: application/json'
 ```
+
+## Scheduler UI
+A basic ui for the scheduler is in `ui/scheduler` of the ballista repo. 
+It can be started using the following [yarn](https://yarnpkg.com/) command
+
+```bash
+yarn && yarn start
+```

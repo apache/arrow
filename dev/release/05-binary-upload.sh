@@ -23,19 +23,21 @@ set -o pipefail
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if [ "$#" -ne 3 ]; then
-  echo "Usage: $0 <version> <rc-num> <artifact-dir>"
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <version> <rc-num>"
   exit
 fi
 
 version=$1
 rc=$2
-artifact_dir=$3
 
-if [ -z "$artifact_dir" ]; then
-  echo "artifact_dir is empty"
-  exit 1
-fi
+version_with_rc="${version}-rc${rc}"
+crossbow_job_prefix="release-${version_with_rc}"
+crossbow_package_dir="${SOURCE_DIR}/../../packages"
+
+: ${CROSSBOW_JOB_NUMBER:="0"}
+: ${CROSSBOW_JOB_ID:="${crossbow_job_prefix}-${CROSSBOW_JOB_NUMBER}"}
+artifact_dir="${crossbow_package_dir}/${CROSSBOW_JOB_ID}"
 
 if [ ! -e "$artifact_dir" ]; then
   echo "$artifact_dir does not exist"
@@ -46,8 +48,6 @@ if [ ! -d "$artifact_dir" ]; then
   echo "$artifact_dir is not a directory"
   exit 1
 fi
-
-artifact_dir="$(pwd)/${artifact_dir}"
 
 cd "${SOURCE_DIR}"
 
@@ -69,7 +69,7 @@ if [ -n "${SOURCE_BINTRAY_REPOSITORY_CUSTOM}" ]; then
   SOURCE_BINTRAY_REPOSITORY=${SOURCE_BINTRAY_REPOSITORY_CUSTOM}
 fi
 
-. binary-common.sh
+. utils-binary.sh
 
 # By default upload all artifacts.
 # To deactivate one category, deactivate the category and all of its dependents.

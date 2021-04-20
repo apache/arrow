@@ -47,6 +47,7 @@ jobs:
             jq \
             libboost-all-dev \
             libgirepository1.0-dev \
+            ninja-build \
             qemu-user-static \
             wget
 

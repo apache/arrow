@@ -79,7 +79,7 @@ RUN pip install \
         breathe \
         ipython \
         sphinx \
-        sphinx_rtd_theme
+        pydata-sphinx-theme
 
 COPY c_glib/Gemfile /arrow/c_glib/
 RUN gem install --no-document bundler && \

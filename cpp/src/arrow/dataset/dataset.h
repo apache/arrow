@@ -34,6 +34,8 @@
 namespace arrow {
 namespace dataset {
 
+using RecordBatchGenerator = std::function<Future<std::shared_ptr<RecordBatch>>()>;
+
 /// \brief A granular piece of a Dataset, such as an individual file.
 ///
 /// A Fragment can be read/scanned separately from other fragments. It yields a
@@ -63,6 +65,10 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
   ///
   /// To receive a record batch stream which is fully filtered and projected, use Scanner.
   virtual Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) = 0;
+
+  /// An asynchronous version of Scan
+  virtual Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>& options) = 0;
 
   virtual std::string type_name() const = 0;
   virtual std::string ToString() const { return type_name(); }
@@ -113,6 +119,8 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
   explicit InMemoryFragment(RecordBatchVector record_batches, Expression = literal(true));
 
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override;
+  Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>& options) override;
 
   std::string type_name() const override { return "in-memory"; }
 

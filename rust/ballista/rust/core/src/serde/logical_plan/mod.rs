@@ -82,7 +82,7 @@ mod roundtrip_tests {
                 CsvReadOptions::new().schema(&schema).has_header(true),
                 Some(vec![3, 4]),
             )
-            .and_then(|plan| plan.sort(&[col("salary")]))
+            .and_then(|plan| plan.sort(vec![col("salary")]))
             .and_then(|plan| plan.build())
             .map_err(BallistaError::DataFusionError)?,
         );
@@ -212,8 +212,8 @@ mod roundtrip_tests {
             ScalarValue::LargeUtf8(None),
             ScalarValue::List(None, DataType::Boolean),
             ScalarValue::Date32(None),
-            ScalarValue::TimeMicrosecond(None),
-            ScalarValue::TimeNanosecond(None),
+            ScalarValue::TimestampMicrosecond(None),
+            ScalarValue::TimestampNanosecond(None),
             ScalarValue::Boolean(Some(true)),
             ScalarValue::Boolean(Some(false)),
             ScalarValue::Float32(Some(1.0)),
@@ -252,11 +252,11 @@ mod roundtrip_tests {
             ScalarValue::LargeUtf8(Some(String::from("Test Large utf8"))),
             ScalarValue::Date32(Some(0)),
             ScalarValue::Date32(Some(i32::MAX)),
-            ScalarValue::TimeNanosecond(Some(0)),
-            ScalarValue::TimeNanosecond(Some(i64::MAX)),
-            ScalarValue::TimeMicrosecond(Some(0)),
-            ScalarValue::TimeMicrosecond(Some(i64::MAX)),
-            ScalarValue::TimeMicrosecond(None),
+            ScalarValue::TimestampNanosecond(Some(0)),
+            ScalarValue::TimestampNanosecond(Some(i64::MAX)),
+            ScalarValue::TimestampMicrosecond(Some(0)),
+            ScalarValue::TimestampMicrosecond(Some(i64::MAX)),
+            ScalarValue::TimestampMicrosecond(None),
             ScalarValue::List(
                 Some(vec![
                     ScalarValue::Float32(Some(-213.1)),
@@ -610,8 +610,8 @@ mod roundtrip_tests {
             ScalarValue::Utf8(None),
             ScalarValue::LargeUtf8(None),
             ScalarValue::Date32(None),
-            ScalarValue::TimeMicrosecond(None),
-            ScalarValue::TimeNanosecond(None),
+            ScalarValue::TimestampMicrosecond(None),
+            ScalarValue::TimestampNanosecond(None),
             //ScalarValue::List(None, DataType::Boolean)
         ];
 
@@ -679,7 +679,7 @@ mod roundtrip_tests {
             CsvReadOptions::new().schema(&schema).has_header(true),
             Some(vec![3, 4]),
         )
-        .and_then(|plan| plan.sort(&[col("salary")]))
+        .and_then(|plan| plan.sort(vec![col("salary")]))
         .and_then(|plan| plan.explain(true))
         .and_then(|plan| plan.build())
         .map_err(BallistaError::DataFusionError)?;
@@ -689,7 +689,7 @@ mod roundtrip_tests {
             CsvReadOptions::new().schema(&schema).has_header(true),
             Some(vec![3, 4]),
         )
-        .and_then(|plan| plan.sort(&[col("salary")]))
+        .and_then(|plan| plan.sort(vec![col("salary")]))
         .and_then(|plan| plan.explain(false))
         .and_then(|plan| plan.build())
         .map_err(BallistaError::DataFusionError)?;
@@ -742,7 +742,7 @@ mod roundtrip_tests {
             CsvReadOptions::new().schema(&schema).has_header(true),
             Some(vec![3, 4]),
         )
-        .and_then(|plan| plan.sort(&[col("salary")]))
+        .and_then(|plan| plan.sort(vec![col("salary")]))
         .and_then(|plan| plan.build())
         .map_err(BallistaError::DataFusionError)?;
         roundtrip_test!(plan);
@@ -784,7 +784,7 @@ mod roundtrip_tests {
             CsvReadOptions::new().schema(&schema).has_header(true),
             Some(vec![3, 4]),
         )
-        .and_then(|plan| plan.aggregate(&[col("state")], &[max(col("salary"))]))
+        .and_then(|plan| plan.aggregate(vec![col("state")], vec![max(col("salary"))]))
         .and_then(|plan| plan.build())
         .map_err(BallistaError::DataFusionError)?;
 

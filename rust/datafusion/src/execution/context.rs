@@ -642,8 +642,8 @@ impl ExecutionConfig {
                 Arc::new(LimitPushDown::new()),
             ],
             physical_optimizers: vec![
-                Arc::new(Repartition::new()),
                 Arc::new(CoalesceBatches::new()),
+                Arc::new(Repartition::new()),
                 Arc::new(AddMergeExec::new()),
             ],
             query_planner: Arc::new(DefaultQueryPlanner {}),

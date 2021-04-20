@@ -15,15 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::{sync::Arc, time::Duration};
+use std::{sync::Arc, task::Poll, time::Duration};
 
 use crate::state::ConfigBackendClient;
 use ballista_core::error::{ballista_error, BallistaError, Result};
 
+use futures::{FutureExt, Stream};
 use log::warn;
+use sled::{Event, Subscriber};
 use tokio::sync::Mutex;
 
-use super::Lock;
+use super::{Lock, Watch, WatchEvent};
 
 /// A [`ConfigBackendClient`] implementation that uses file-based storage to save cluster configuration.
 #[derive(Clone)]
@@ -106,13 +108,57 @@ impl ConfigBackendClient for StandaloneClient {
     async fn lock(&self) -> Result<Box<dyn Lock>> {
         Ok(Box::new(self.lock.clone().lock_owned().await))
     }
+
+    async fn watch(&self, prefix: String) -> Result<Box<dyn Watch>> {
+        Ok(Box::new(SledWatch {
+            subscriber: self.db.watch_prefix(prefix),
+        }))
+    }
+}
+
+struct SledWatch {
+    subscriber: Subscriber,
+}
+
+#[tonic::async_trait]
+impl Watch for SledWatch {
+    async fn cancel(&mut self) -> Result<()> {
+        Ok(())
+    }
+}
+
+impl Stream for SledWatch {
+    type Item = WatchEvent;
+
+    fn poll_next(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        match self.get_mut().subscriber.poll_unpin(cx) {
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(None) => Poll::Ready(None),
+            Poll::Ready(Some(Event::Insert { key, value })) => {
+                let key = std::str::from_utf8(&key).unwrap().to_owned();
+                Poll::Ready(Some(WatchEvent::Put(key, value.to_vec())))
+            }
+            Poll::Ready(Some(Event::Remove { key })) => {
+                let key = std::str::from_utf8(&key).unwrap().to_owned();
+                Poll::Ready(Some(WatchEvent::Delete(key)))
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.subscriber.size_hint()
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::state::ConfigBackendClient;
+    use crate::state::{ConfigBackendClient, Watch, WatchEvent};
 
     use super::StandaloneClient;
+    use futures::StreamExt;
     use std::result::Result;
 
     fn create_instance() -> Result<StandaloneClient, Box<dyn std::error::Error>> {
@@ -156,6 +202,27 @@ mod tests {
                 ("key/2".to_owned(), value.to_vec())
             ]
         );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn read_watch() -> Result<(), Box<dyn std::error::Error>> {
+        let client = create_instance()?;
+        let key = "key";
+        let value = "value".as_bytes();
+        let mut watch: Box<dyn Watch> = client.watch(key.to_owned()).await?;
+        client.put(key.to_owned(), value.to_vec(), None).await?;
+        assert_eq!(
+            watch.next().await,
+            Some(WatchEvent::Put(key.to_owned(), value.to_owned()))
+        );
+        let value2 = "value2".as_bytes();
+        client.put(key.to_owned(), value2.to_vec(), None).await?;
+        assert_eq!(
+            watch.next().await,
+            Some(WatchEvent::Put(key.to_owned(), value2.to_owned()))
+        );
+        watch.cancel().await?;
         Ok(())
     }
 }

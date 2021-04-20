@@ -17,6 +17,8 @@
 
 #include "arrow/testing/random.h"
 
+#include <gtest/gtest.h>
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -24,8 +26,6 @@
 #include <random>
 #include <type_traits>
 #include <vector>
-
-#include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/array/builder_decimal.h"
@@ -502,6 +502,17 @@ std::shared_ptr<Array> RandomArrayGenerator::List(const Array& values, int64_t s
                          static_cast<int32_t>(values.offset() + values.length()),
                          null_probability, force_empty_nulls);
   return *::arrow::ListArray::FromArrays(*offsets, values);
+}
+
+std::shared_ptr<Array> RandomArrayGenerator::Map(const std::shared_ptr<Array>& keys,
+                                                 const std::shared_ptr<Array>& items,
+                                                 int64_t size, double null_probability,
+                                                 bool force_empty_nulls) {
+  DCHECK_EQ(keys->length(), items->length());
+  auto offsets = Offsets(size + 1, static_cast<int32_t>(keys->offset()),
+                         static_cast<int32_t>(keys->offset() + keys->length()),
+                         null_probability, force_empty_nulls);
+  return *::arrow::MapArray::FromArrays(offsets, keys, items);
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::SparseUnion(const ArrayVector& fields,

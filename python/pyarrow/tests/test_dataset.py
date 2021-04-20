@@ -371,6 +371,28 @@ def test_scanner(dataset):
         scanner.take(pa.array([table.num_rows]))
 
 
+def test_head(dataset):
+    result = dataset.head(0)
+    assert result == pa.Table.from_batches([], schema=dataset.schema)
+
+    result = dataset.head(1, columns=['i64']).to_pydict()
+    assert result == {'i64': [0]}
+
+    result = dataset.head(2, columns=['i64'],
+                          filter=ds.field('i64') > 1).to_pydict()
+    assert result == {'i64': [2, 3]}
+
+    result = dataset.head(1024, columns=['i64']).to_pydict()
+    assert result == {'i64': list(range(5)) * 2}
+
+    fragment = next(dataset.get_fragments())
+    result = fragment.head(1, columns=['i64']).to_pydict()
+    assert result == {'i64': [0]}
+
+    result = fragment.head(1024, columns=['i64']).to_pydict()
+    assert result == {'i64': list(range(5))}
+
+
 def test_abstract_classes():
     classes = [
         ds.FileFormat,
@@ -3134,3 +3156,24 @@ def test_write_dataset_s3(s3_example_simple):
         "mybucket/dataset3", filesystem=fs, format="ipc", partitioning="hive"
     ).to_table()
     assert result.equals(table)
+
+
+@pytest.mark.parquet
+def test_dataset_null_to_dictionary_cast(tempdir):
+    # ARROW-12420
+    import pyarrow.parquet as pq
+
+    table = pa.table({"a": [None, None]})
+    pq.write_table(table, tempdir / "test.parquet")
+
+    schema = pa.schema([
+        pa.field("a", pa.dictionary(pa.int32(), pa.string()))
+    ])
+    fsds = ds.FileSystemDataset.from_paths(
+        paths=[tempdir / "test.parquet"],
+        schema=schema,
+        format=ds.ParquetFileFormat(),
+        filesystem=fs.LocalFileSystem(),
+    )
+    table = fsds.to_table()
+    assert table.schema == schema

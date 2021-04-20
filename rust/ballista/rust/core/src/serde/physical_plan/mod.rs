@@ -40,6 +40,7 @@ mod roundtrip_tests {
 
     use super::super::super::error::Result;
     use super::super::protobuf;
+    use datafusion::physical_plan::hash_join::PartitionMode;
 
     fn roundtrip_test(exec_plan: Arc<dyn ExecutionPlan>) -> Result<()> {
         let proto: protobuf::PhysicalPlanNode = exec_plan.clone().try_into()?;
@@ -84,6 +85,7 @@ mod roundtrip_tests {
             Arc::new(EmptyExec::new(false, Arc::new(schema_right))),
             &[("col".to_string(), "col".to_string())],
             &JoinType::Inner,
+            PartitionMode::CollectLeft,
         )?))
     }
 

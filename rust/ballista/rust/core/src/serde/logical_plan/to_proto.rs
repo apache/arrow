@@ -641,12 +641,12 @@ impl TryFrom<&datafusion::scalar::ScalarValue> for protobuf::ScalarValue {
             datafusion::scalar::ScalarValue::Date32(val) => {
                 create_proto_scalar(val, PrimitiveScalarType::Date32, |s| Value::Date32Value(*s))
             }
-            datafusion::scalar::ScalarValue::TimeMicrosecond(val) => {
+            datafusion::scalar::ScalarValue::TimestampMicrosecond(val) => {
                 create_proto_scalar(val, PrimitiveScalarType::TimeMicrosecond, |s| {
                     Value::TimeMicrosecondValue(*s)
                 })
             }
-            datafusion::scalar::ScalarValue::TimeNanosecond(val) => {
+            datafusion::scalar::ScalarValue::TimestampNanosecond(val) => {
                 create_proto_scalar(val, PrimitiveScalarType::TimeNanosecond, |s| {
                     Value::TimeNanosecondValue(*s)
                 })
@@ -939,10 +939,7 @@ impl TryInto<protobuf::LogicalPlanNode> for &LogicalPlan {
                 })
             }
             LogicalPlan::Extension { .. } => unimplemented!(),
-            // _ => Err(BallistaError::General(format!(
-            //     "logical plan to_proto {:?}",
-            //     self
-            // ))),
+            LogicalPlan::Union { .. } => unimplemented!(),
         }
     }
 }
@@ -1161,10 +1158,7 @@ impl TryInto<protobuf::LogicalExprNode> for &Expr {
             Expr::Wildcard => Ok(protobuf::LogicalExprNode {
                 expr_type: Some(protobuf::logical_expr_node::ExprType::Wildcard(true)),
             }),
-            // _ => Err(BallistaError::General(format!(
-            //     "logical expr to_proto {:?}",
-            //     self
-            // ))),
+            Expr::TryCast { .. } => unimplemented!(),
         }
     }
 }

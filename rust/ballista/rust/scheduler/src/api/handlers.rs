@@ -19,22 +19,37 @@ use ballista_core::serde::scheduler::ExecutorMeta;
 use tonic::{Request, Response};
 use warp::Rejection;
 
-pub(crate) async fn list_executors_data(
+#[derive(Debug, serde::Serialize)]
+struct StateResponse {
+    executors: Vec<ExecutorMeta>,
+    started: u128,
+    version: String,
+}
+
+pub(crate) async fn scheduler_state(
     data_server: SchedulerServer,
 ) -> Result<impl warp::Reply, Rejection> {
     let data: Result<Response<GetExecutorMetadataResult>, tonic::Status> = data_server
         .get_executors_metadata(Request::new(GetExecutorMetadataParams {}))
         .await;
-    let result = data.unwrap();
-    let res: &GetExecutorMetadataResult = result.get_ref();
-    let vec: &Vec<ExecutorMetadata> = &res.metadata;
-    let metadata: Vec<ExecutorMeta> = vec
-        .iter()
-        .map(|v: &ExecutorMetadata| ExecutorMeta {
-            host: v.host.clone(),
-            port: v.port as u16,
-            id: v.id.clone(),
-        })
-        .collect();
-    Ok(warp::reply::json(&metadata))
+    let metadata: Vec<ExecutorMeta> = match data {
+        Ok(result) => {
+            let res: &GetExecutorMetadataResult = result.get_ref();
+            let vec: &Vec<ExecutorMetadata> = &res.metadata;
+            vec.iter()
+                .map(|v: &ExecutorMetadata| ExecutorMeta {
+                    host: v.host.clone(),
+                    port: v.port as u16,
+                    id: v.id.clone(),
+                })
+                .collect()
+        }
+        Err(_) => vec![],
+    };
+    let response = StateResponse {
+        executors: metadata,
+        started: data_server.start_time,
+        version: data_server.version.clone(),
+    };
+    Ok(warp::reply::json(&response))
 }

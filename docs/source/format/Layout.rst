@@ -15,6 +15,8 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+:orphan:
+
 Physical Memory Layout
 ======================
 

@@ -33,7 +33,11 @@ use arrow::datatypes::{DataType, Field};
 use arrow::ipc::reader::FileReader;
 use arrow::ipc::writer::FileWriter;
 use arrow::record_batch::RecordBatch;
+use datafusion::execution::context::{ExecutionConfig, ExecutionContext};
 use datafusion::logical_plan::Operator;
+use datafusion::physical_optimizer::coalesce_batches::CoalesceBatches;
+use datafusion::physical_optimizer::merge_exec::AddMergeExec;
+use datafusion::physical_optimizer::optimizer::PhysicalOptimizerRule;
 use datafusion::physical_plan::coalesce_batches::CoalesceBatchesExec;
 use datafusion::physical_plan::csv::CsvExec;
 use datafusion::physical_plan::expressions::{BinaryExpr, Column, Literal};
@@ -306,4 +310,18 @@ fn build_exec_plan_diagram(
         }
     }
     Ok(node_id)
+}
+
+/// Create a DataFusion context that is compatible with Ballista
+pub fn create_datafusion_context() -> ExecutionContext {
+    // remove Repartition rule because that isn't supported yet
+    let rules: Vec<Arc<dyn PhysicalOptimizerRule + Send + Sync>> = vec![
+        Arc::new(CoalesceBatches::new()),
+        Arc::new(AddMergeExec::new()),
+    ];
+    let config = ExecutionConfig::new()
+        .with_concurrency(1)
+        .with_repartition_joins(false)
+        .with_physical_optimizer_rules(rules);
+    ExecutionContext::with_config(config)
 }

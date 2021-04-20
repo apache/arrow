@@ -30,11 +30,11 @@ pub type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
 pub type HttpBody = dyn http_body::Body<Data = dyn Buf, Error = Error> + 'static;
 
 impl<A, B> http_body::Body for EitherBody<A, B>
-    where
-        A: http_body::Body + Send + Unpin,
-        B: http_body::Body<Data = A::Data> + Send + Unpin,
-        A::Error: Into<Error>,
-        B::Error: Into<Error>,
+where
+    A: http_body::Body + Send + Unpin,
+    B: http_body::Body<Data = A::Data> + Send + Unpin,
+    A::Error: Into<Error>,
+    B::Error: Into<Error>,
 {
     type Data = A::Data;
     type Error = Error;
@@ -67,7 +67,9 @@ impl<A, B> http_body::Body for EitherBody<A, B>
     }
 }
 
-fn map_option_err<T, U: Into<Error>>(err: Option<Result<T, U>>) -> Option<Result<T, Error>> {
+fn map_option_err<T, U: Into<Error>>(
+    err: Option<Result<T, U>>,
+) -> Option<Result<T, Error>> {
     err.map(|e| e.map_err(Into::into))
 }
 
@@ -78,8 +80,8 @@ fn with_data_server(
 }
 
 pub fn get_routes(scheduler_server: SchedulerServer) -> BoxedFilter<(impl Reply,)> {
-    let routes = warp::path("executors")
+    let routes = warp::path("state")
         .and(with_data_server(scheduler_server))
-        .and_then(handlers::list_executors_data);
+        .and_then(handlers::scheduler_state);
     routes.boxed()
 }

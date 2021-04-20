@@ -56,12 +56,7 @@
 Scanner <- R6Class("Scanner", inherit = ArrowObject,
   public = list(
     ToTable = function() dataset___Scanner__ToTable(self),
-    ScanBatches = function() dataset___Scanner__ScanBatches(self),
-    Scan = function() {
-        # Planned for removal in ARROW-11782
-        .Deprecated("ScanBatches")
-        dataset___Scanner__Scan(self)
-    }
+    ScanBatches = function() dataset___Scanner__ScanBatches(self)
   ),
   active = list(
     schema = function() dataset___Scanner__schema(self)
