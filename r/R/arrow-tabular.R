@@ -222,13 +222,9 @@ na.fail.ArrowTabular <- function(object, ...){
 
 #' @export
 na.omit.ArrowTabular <- function(object, ...){
-  filter_text = paste0(
-    ".data$Filter(",
-    paste0("!is.na(.data$", names(object), ")", collapse = " & "),
-    ")"
-  )
-  filter = rlang::parse_expr(filter_text)
-  rlang::eval_tidy(filter,  rlang::new_data_mask(rlang::env(.data = object)))
+  not_na <- purrr::map(object$columns, ~!is.na(.x))
+  not_na_agg <- purrr::reduce(not_na, `&`)
+  object$Filter(not_na_agg)
 }
 
 #' @export
