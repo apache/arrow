@@ -18,4 +18,7 @@
 
 package debug
 
+// use build tags in order to control the existence of this log function vs it getting
+// optimized away as a noop without the debug build tag.
+
 func Log(interface{}) {}

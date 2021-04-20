@@ -22,6 +22,7 @@ import (
 
 	"github.com/apache/arrow/go/parquet"
 	format "github.com/apache/arrow/go/parquet/internal/gen-go/parquet"
+	"golang.org/x/xerrors"
 )
 
 // Column encapsulates the information necessary to interpret primitive
@@ -30,27 +31,11 @@ import (
 // to be able to reassemble the nested structure from the repetition and
 // definition levels.
 type Column struct {
-	pnode     *PrimitiveNode
+	pnode *PrimitiveNode
+	// the maximum definition level in this column
 	maxDefLvl int16
+	// the maximum repetition level in this column
 	maxRepLvl int16
-}
-
-func (c *Column) hasSpacedValues() bool {
-	if c.maxRepLvl > 0 {
-		// repeated + flat case
-		return c.pnode.RepetitionType() != parquet.Repetitions.Required
-	}
-
-	// non-repeated+nested case
-	// find if a node forces nulls in the lowest level along the hierarchy
-	var n Node = c.pnode
-	for n != nil {
-		if n.RepetitionType() == parquet.Repetitions.Optional {
-			return true
-		}
-		n = n.Parent()
-	}
-	return false
 }
 
 // NewColumn returns a new column object for the given node with the provided
@@ -59,7 +44,7 @@ func (c *Column) hasSpacedValues() bool {
 // n MUST be a PrimitiveNode, otherwise this will panic.
 func NewColumn(n Node, maxDefinitionLvl, maxRepetitionLvl int16) *Column {
 	if n.Type() != Primitive {
-		panic("parquet: Column must be a primitive type")
+		panic(xerrors.Errorf("parquet: Column must be a primitive type node, not group: Path: %s, Name: %s", n.Name(), n.Path()))
 	}
 	return &Column{n.(*PrimitiveNode), maxDefinitionLvl, maxRepetitionLvl}
 }
@@ -73,7 +58,7 @@ func (c *Column) ColumnPath() parquet.ColumnPath { return c.pnode.columnPath() }
 // Path is equivalent to ColumnPath().String() returning the dot-string version of the path
 func (c *Column) Path() string { return c.pnode.Path() }
 
-// TypeLength is -1 if not a FixedLenByteArray, otherwise it is the length for the column
+// TypeLength is -1 if not a FixedLenByteArray, otherwise it is the length of elements in the column
 func (c *Column) TypeLength() int { return c.pnode.TypeLength() }
 
 func (c *Column) MaxDefinitionLevel() int16        { return c.maxDefLvl }
