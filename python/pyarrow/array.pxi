@@ -1021,9 +1021,11 @@ cdef class Array(_PandasConvertible):
         try:
             return self.equals(other)
         except TypeError:
+            # This also handles comparing with None
+            # as Array.equals(None) raises a TypeError.
             return NotImplemented
 
-    def equals(Array self, Array other):
+    def equals(Array self, Array other not None):
         return self.ap.Equals(deref(other.ap))
 
     def __len__(self):
