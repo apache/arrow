@@ -18,12 +18,12 @@
 #include <gtest/gtest.h>
 #include <cmath>
 
-#include "arrow.h"
+#include "gandiva/arrow.h"
 #include "arrow/memory_pool.h"
 #include "gandiva/filter.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
-#include "projector.h"
+#include "gandiva/projector.h"
 
 namespace gandiva {
 static const double MAX_ERROR = 0.00005;

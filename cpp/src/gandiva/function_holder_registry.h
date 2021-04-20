@@ -24,7 +24,7 @@
 
 #include "arrow/status.h"
 
-#include "decimal_format_holder.h"
+#include "gandiva/decimal_format_holder.h"
 #include "gandiva/function_holder.h"
 #include "gandiva/like_holder.h"
 #include "gandiva/node.h"

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "decimal_format_holder.h"
+#include "gandiva/decimal_format_holder.h"
 
 namespace gandiva {
 static bool IsArrowStringLiteral(arrow::Type::type type) {
@@ -50,8 +50,8 @@ inline double get_scale_multiplier(int32_t scale) {
 
 inline double round_decimal_digits(double to_round, int32_t scale) {
   double scale_multiplier = get_scale_multiplier(scale);
-  long result = trunc(to_round * scale_multiplier + ((to_round >= 0) ? 0.5 : -0.5));
-  return result / scale_multiplier;
+  return trunc(to_round * scale_multiplier + ((to_round >= 0) ? 0.5 : -0.5))
+  / scale_multiplier;
 }
 
 Status DecimalFormatHolder::Make(const FunctionNode& node,
