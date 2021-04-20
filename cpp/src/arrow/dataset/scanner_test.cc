@@ -321,30 +321,97 @@ class FailingFragment : public InMemoryFragment {
   }
 };
 
+class FailingExecuteScanTask : public InMemoryScanTask {
+ public:
+  using InMemoryScanTask::InMemoryScanTask;
+
+  Result<RecordBatchIterator> Execute() override {
+    return Status::Invalid("Oh no, we failed!");
+  }
+};
+
+class FailingIterationScanTask : public InMemoryScanTask {
+ public:
+  using InMemoryScanTask::InMemoryScanTask;
+
+  Result<RecordBatchIterator> Execute() override {
+    int index = 0;
+    auto batches = record_batches_;
+    return MakeFunctionIterator(
+        [index, batches]() mutable -> Result<std::shared_ptr<RecordBatch>> {
+          if (index < 1) {
+            return batches[index++];
+          }
+          return Status::Invalid("Oh no, we failed!");
+        });
+  }
+};
+
+template <typename T>
+class FailingScanTaskFragment : public InMemoryFragment {
+ public:
+  using InMemoryFragment::InMemoryFragment;
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override {
+    auto self = shared_from_this();
+    ScanTaskVector scan_tasks{std::make_shared<T>(record_batches_, options, self)};
+    return MakeVectorIterator(std::move(scan_tasks));
+  }
+};
+
 TEST_P(TestScanner, ScanBatchesFailure) {
   SetSchema({field("i32", int32()), field("f64", float64())});
   auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
   RecordBatchVector batches = {batch, batch, batch, batch};
+  // Note these tests are only for SyncScanner at the moment
 
-  ScannerBuilder builder(schema_, std::make_shared<FailingFragment>(batches), options_);
-  ASSERT_OK(builder.UseThreads(GetParam().use_threads));
-  ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+  // Case 1: failure when getting next scan task
+  {
+    ScannerBuilder builder(schema_, std::make_shared<FailingFragment>(batches), options_);
+    ASSERT_OK(builder.UseThreads(GetParam().use_threads));
+    ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+    ASSERT_OK_AND_ASSIGN(auto batch_it, scanner->ScanBatches());
 
-  ASSERT_OK_AND_ASSIGN(auto batch_it, scanner->ScanBatches());
-
-  int counter = 0;
-  while (true) {
-    // Make sure we get all batches that were yielded before the failing scan task
-    auto maybe_batch = batch_it.Next();
-    if (counter++ <= 16) {
-      ASSERT_OK_AND_ASSIGN(auto scanned_batch, maybe_batch);
-      AssertBatchesEqual(*batch, *scanned_batch.record_batch);
-      ASSERT_NE(nullptr, scanned_batch.fragment);
-    } else {
-      EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Oh no, we failed!"),
-                                      maybe_batch);
-      break;
+    int counter = 0;
+    while (true) {
+      // Make sure we get all batches that were yielded before the failing scan task
+      auto maybe_batch = batch_it.Next();
+      if (counter++ <= 16) {
+        ASSERT_OK_AND_ASSIGN(auto scanned_batch, maybe_batch);
+        AssertBatchesEqual(*batch, *scanned_batch.record_batch);
+        ASSERT_NE(nullptr, scanned_batch.fragment);
+      } else {
+        EXPECT_RAISES_WITH_MESSAGE_THAT(
+            Invalid, ::testing::HasSubstr("Oh no, we failed!"), maybe_batch);
+        break;
+      }
     }
+  }
+
+  // Case 2: failure when calling ScanTask::Execute
+  {
+    ScannerBuilder builder(
+        schema_,
+        std::make_shared<FailingScanTaskFragment<FailingExecuteScanTask>>(batches),
+        options_);
+    ASSERT_OK(builder.UseThreads(GetParam().use_threads));
+    ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+    ASSERT_OK_AND_ASSIGN(auto batch_it, scanner->ScanBatches());
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Oh no, we failed!"),
+                                    batch_it.Next());
+  }
+
+  // Case 3: failure when calling RecordBatchIterator::Next
+  {
+    ScannerBuilder builder(
+        schema_,
+        std::make_shared<FailingScanTaskFragment<FailingIterationScanTask>>(batches),
+        options_);
+    ASSERT_OK(builder.UseThreads(GetParam().use_threads));
+    ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+    ASSERT_OK_AND_ASSIGN(auto batch_it, scanner->ScanBatches());
+    ASSERT_OK(batch_it.Next());
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Oh no, we failed!"),
+                                    batch_it.Next());
   }
 }
 

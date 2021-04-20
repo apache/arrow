@@ -160,6 +160,19 @@ struct ScanBatchesState : public std::enable_shared_from_this<ScanBatchesState> 
     ready.notify_one();
   }
 
+  template <typename T>
+  Result<T> PushError(Result<T>&& result, size_t task_index) {
+    if (!result.ok()) {
+      {
+        std::lock_guard<std::mutex> lock(mutex);
+        task_drained[task_index] = true;
+        iteration_error = result.status();
+      }
+      ready.notify_one();
+    }
+    return std::move(result);
+  }
+
   Status Finish(size_t task_index) {
     {
       std::lock_guard<std::mutex> lock(mutex);
@@ -190,9 +203,9 @@ struct ScanBatchesState : public std::enable_shared_from_this<ScanBatchesState> 
 
     lock.unlock();
     task_group->Append([state, id, scan_task]() {
-      ARROW_ASSIGN_OR_RAISE(auto batch_it, scan_task->Execute());
+      ARROW_ASSIGN_OR_RAISE(auto batch_it, state->PushError(scan_task->Execute(), id));
       for (auto maybe_batch : batch_it) {
-        ARROW_ASSIGN_OR_RAISE(auto batch, maybe_batch);
+        ARROW_ASSIGN_OR_RAISE(auto batch, state->PushError(std::move(maybe_batch), id));
         state->Push(TaggedRecordBatch{std::move(batch), scan_task->fragment()}, id);
       }
       return state->Finish(id);
