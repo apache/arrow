@@ -1478,16 +1478,17 @@ TEST_F(TestProjector, TestCastNullableIntYearInterval) {
   auto res_int64 = field("res", arrow::int64());
 
   // Build expression
-  auto cast_expr_int32 = TreeExprBuilder::MakeExpression("castNULLABLEINT", {field1}, res_int32);
-  auto cast_expr_int64 = TreeExprBuilder::MakeExpression("castNULLABLEBIGINT", {field1}, res_int64);
+  auto cast_expr_int32 =
+      TreeExprBuilder::MakeExpression("castNULLABLEINT", {field1}, res_int32);
+  auto cast_expr_int64 =
+      TreeExprBuilder::MakeExpression("castNULLABLEBIGINT", {field1}, res_int64);
 
   std::shared_ptr<Projector> projector;
 
   //  {cast_expr_int32, cast_expr_int64, cast_expr_day_interval,
   //  cast_expr_year_interval}
-  auto status = Projector::Make(
-      schema, {cast_expr_int32, cast_expr_int64},
-      TestConfiguration(), &projector);
+  auto status = Projector::Make(schema, {cast_expr_int32, cast_expr_int64},
+                                TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -1495,8 +1496,7 @@ TEST_F(TestProjector, TestCastNullableIntYearInterval) {
 
   // Last validity is false and the cast functions throw error when input is empty. Should
   // not be evaluated due to addition of NativeFunction::kCanReturnErrors
-  auto array0 =
-      MakeArrowArrayInt32({12, -24, -0, 0}, {true, true, true, false});
+  auto array0 = MakeArrowArrayInt32({12, -24, -0, 0}, {true, true, true, false});
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
 
   auto out_int32 = MakeArrowArrayInt32({1, -2, -0, 0}, {true, true, true, false});

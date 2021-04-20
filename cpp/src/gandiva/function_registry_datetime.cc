@@ -107,19 +107,23 @@ std::vector<NativeFunction> GetDateTimeFunctionRegistry() {
       NativeFunction("castNULLABLEBIGINT", {}, DataTypeVector{month_interval()}, int64(),
                      kResultNullIfNull, "castNULLABLEBIGINT_yearinterval"),
 
-      NativeFunction("castNULLABLEINTERVALYEAR", {"castINTERVALYEAR"}, DataTypeVector{int32()}, month_interval(),
-                     kResultNullIfNull, "castNULLABLEINTERVALYEAR_int32",
+      NativeFunction("castNULLABLEINTERVALYEAR", {"castINTERVALYEAR"},
+                     DataTypeVector{int32()}, month_interval(), kResultNullIfNull,
+                     "castNULLABLEINTERVALYEAR_int32",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("castNULLABLEINTERVALYEAR", {"castINTERVALYEAR"}, DataTypeVector{int64()}, month_interval(),
-                     kResultNullIfNull, "castNULLABLEINTERVALYEAR_int64",
+      NativeFunction("castNULLABLEINTERVALYEAR", {"castINTERVALYEAR"},
+                     DataTypeVector{int64()}, month_interval(), kResultNullIfNull,
+                     "castNULLABLEINTERVALYEAR_int64",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
-      NativeFunction("castNULLABLEINTERVALDAY", {"castINTERVALDAY"}, DataTypeVector{int32()}, day_time_interval(),
-                     kResultNullIfNull, "castNULLABLEINTERVALDAY_int32"),
+      NativeFunction("castNULLABLEINTERVALDAY", {"castINTERVALDAY"},
+                     DataTypeVector{int32()}, day_time_interval(), kResultNullIfNull,
+                     "castNULLABLEINTERVALDAY_int32"),
 
-      NativeFunction("castNULLABLEINTERVALDAY", {"castINTERVALDAY"}, DataTypeVector{int64()}, day_time_interval(),
-                     kResultNullIfNull, "castNULLABLEINTERVALDAY_int64"),
+      NativeFunction("castNULLABLEINTERVALDAY", {"castINTERVALDAY"},
+                     DataTypeVector{int64()}, day_time_interval(), kResultNullIfNull,
+                     "castNULLABLEINTERVALDAY_int64"),
 
       NativeFunction("extractDay", {}, DataTypeVector{day_time_interval()}, int64(),
                      kResultNullIfNull, "extractDay_daytimeinterval"),
