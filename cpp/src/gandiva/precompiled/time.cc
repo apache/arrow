@@ -869,6 +869,35 @@ NUMERIC_TYPES(TO_TIME)
 CAST_INT_YEAR_INTERVAL(castBIGINT, int64)
 CAST_INT_YEAR_INTERVAL(castINT, int32)
 
-#undef CAST_INT_YEAR_INTERVAL
+#define CAST_NULLABLE_YEAR_INTERVAL(NAME, OUT_TYPE)                        \
+  FORCE_INLINE                                                             \
+  gdv_##OUT_TYPE castNULLABLE##NAME##_yearinterval(gdv_year_interval in) { \
+    return static_cast<gdv_##OUT_TYPE>(in / 12);                           \
+  }
+
+CAST_NULLABLE_YEAR_INTERVAL(BIGINT, int64)
+CAST_NULLABLE_YEAR_INTERVAL(INT, int32)
+
+#define CAST_NULLABLE_INTERVAL_DAY(TYPE)                                \
+  FORCE_INLINE                                                          \
+  gdv_day_time_interval castNULLABLEINTERVALDAY_##TYPE(gdv_##TYPE in) { \
+    return static_cast<gdv_day_time_interval>(in);                      \
+  }
+
+CAST_NULLABLE_INTERVAL_DAY(int32)
+CAST_NULLABLE_INTERVAL_DAY(int64)
+
+#define CAST_NULLABLE_INTERVAL_YEAR(TYPE)                                             \
+  FORCE_INLINE                                                                        \
+  gdv_year_interval castNULLABLEINTERVALYEAR_##TYPE(int64_t context, gdv_##TYPE in) { \
+    gdv_##TYPE value = static_cast<gdv_year_interval>(in);                            \
+    if (value != in) {                                                                \
+      gdv_fn_context_set_error_msg(context, "Integer overflow");                      \
+    }                                                                                 \
+    return value;                                                                     \
+  }
+
+CAST_NULLABLE_INTERVAL_YEAR(int32)
+CAST_NULLABLE_INTERVAL_YEAR(int64)
 
 }  // extern "C"

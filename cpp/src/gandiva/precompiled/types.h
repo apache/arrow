@@ -557,4 +557,16 @@ int32_t castINT_year_interval(gdv_year_interval in);
 
 int64_t castBIGINT_year_interval(gdv_year_interval in);
 
+gdv_int32 castNULLABLEINT_yearinterval(gdv_year_interval in);
+
+gdv_int64 castNULLABLEBIGINT_yearinterval(gdv_year_interval in);
+
+gdv_day_time_interval castNULLABLEINTERVALDAY_int32(gdv_int32 in);
+
+gdv_day_time_interval castNULLABLEINTERVALDAY_int64(gdv_int64 in);
+
+gdv_year_interval castNULLABLEINTERVALYEAR_int32(int64_t context, gdv_int32 in);
+
+gdv_year_interval castNULLABLEINTERVALYEAR_int64(int64_t context, gdv_int64 in);
+
 }  // extern "C"
