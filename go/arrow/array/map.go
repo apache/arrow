@@ -51,7 +51,7 @@ func (a *Map) validateData(data *Data) {
 	}
 
 	if data.childData[0].NullN() != 0 {
-		panic("arrow/array: map array child array should ahve no nulls")
+		panic("arrow/array: map array child array should have no nulls")
 	}
 
 	if len(data.childData[0].childData) != 2 {
@@ -154,8 +154,7 @@ func (b *MapBuilder) Append(v bool) {
 
 // AppendNull adds a null map entry to the array.
 func (b *MapBuilder) AppendNull() {
-	b.adjustStructBuilderLen()
-	b.listBuilder.AppendNull()
+	b.Append(false)
 }
 
 // Reserve enough space for n maps
