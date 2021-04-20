@@ -1424,13 +1424,13 @@ TEST_F(TestProjector, TestIntCastFunction) {
   auto schema = arrow::schema({field0, field1, field2});
 
   // output fields
-  auto res_int64 = field("res", arrow::int32());
+  auto res_int32 = field("res", arrow::int32());
 
   // Build expression
-  auto cast_expr_float4 = TreeExprBuilder::MakeExpression("castINT", {field0}, res_int64);
-  auto cast_expr_float8 = TreeExprBuilder::MakeExpression("castINT", {field1}, res_int64);
+  auto cast_expr_float4 = TreeExprBuilder::MakeExpression("castINT", {field0}, res_int32);
+  auto cast_expr_float8 = TreeExprBuilder::MakeExpression("castINT", {field1}, res_int32);
   auto cast_expr_year_interval =
-      TreeExprBuilder::MakeExpression("castINT", {field2}, res_int64);
+      TreeExprBuilder::MakeExpression("castINT", {field2}, res_int32);
 
   std::shared_ptr<Projector> projector;
 
@@ -1466,6 +1466,50 @@ TEST_F(TestProjector, TestIntCastFunction) {
   EXPECT_ARROW_ARRAY_EQUALS(out_float4, outputs.at(0));
   EXPECT_ARROW_ARRAY_EQUALS(out_float8, outputs.at(1));
   EXPECT_ARROW_ARRAY_EQUALS(out_year_interval, outputs.at(2));
+}
+
+TEST_F(TestProjector, TestCastNullableIntYearInterval) {
+  // input fields
+  auto field1 = field("f1", arrow::month_interval());
+  auto schema = arrow::schema({field1});
+
+  // output fields
+  auto res_int32 = field("res", arrow::int32());
+  auto res_int64 = field("res", arrow::int64());
+
+  // Build expression
+  auto cast_expr_int32 = TreeExprBuilder::MakeExpression("castNULLABLEINT", {field1}, res_int32);
+  auto cast_expr_int64 = TreeExprBuilder::MakeExpression("castNULLABLEBIGINT", {field1}, res_int64);
+
+  std::shared_ptr<Projector> projector;
+
+  //  {cast_expr_int32, cast_expr_int64, cast_expr_day_interval,
+  //  cast_expr_year_interval}
+  auto status = Projector::Make(
+      schema, {cast_expr_int32, cast_expr_int64},
+      TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Create a row-batch with some sample data
+  int num_records = 4;
+
+  // Last validity is false and the cast functions throw error when input is empty. Should
+  // not be evaluated due to addition of NativeFunction::kCanReturnErrors
+  auto array0 =
+      MakeArrowArrayInt32({12, -24, -0, 0}, {true, true, true, false});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  auto out_int32 = MakeArrowArrayInt32({1, -2, -0, 0}, {true, true, true, false});
+  auto out_int64 = MakeArrowArrayInt64({1, -2, -0, 0}, {true, true, true, false});
+
+  arrow::ArrayVector outputs;
+
+  // Evaluate expression
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+
+  EXPECT_ARROW_ARRAY_EQUALS(out_int32, outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS(out_int64, outputs.at(1));
 }
 
 }  // namespace gandiva
