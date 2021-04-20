@@ -696,7 +696,13 @@ def test_dictionary_to_numpy():
 
     result = a.to_numpy(zero_copy_only=False).tolist()
     assert result == ["foo", "bar", np.NaN, "foo"]
-    assert result == a.to_pandas().tolist()
+
+    try:
+        assert result == a.to_pandas().tolist()
+    except ModuleNotFoundError:
+        # arrow compiled without pandas,
+        # skip this specific assertion.
+        pass
 
     with pytest.raises(pa.ArrowInvalid):
         # to_numpy takes for granted that when zero_copy_only=True
