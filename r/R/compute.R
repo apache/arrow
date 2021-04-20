@@ -186,6 +186,32 @@ unique.ArrowDatum <- function(x, incomparables = FALSE, ...) {
   call_function("unique", x)
 }
 
+#' @export
+any.ArrowDatum <- function(..., na.rm = FALSE){
+  
+  a <- collect_arrays_from_dots(list(...))
+  result <- call_function("any", a)
+
+  if(!na.rm && a$null_count > 0 && !as.vector(result)){
+    Scalar$create(NA)
+  } else {
+    result
+  }
+}
+
+#' @export
+all.ArrowDatum <- function(..., na.rm = FALSE){
+  
+  a <- collect_arrays_from_dots(list(...))
+  result <- call_function("all", a)
+  
+  if(!na.rm &&  a$null_count > 0 && as.vector(result)){
+    Scalar$create(NA)
+  } else {
+    result
+  }
+}
+
 #' `match` and `%in%` for Arrow objects
 #'
 #' `base::match()` is not a generic, so we can't just define Arrow methods for
