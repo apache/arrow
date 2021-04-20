@@ -701,7 +701,7 @@ def test_dictionary_to_numpy():
         assert result == a.to_pandas().tolist()
     except ModuleNotFoundError:
         # arrow compiled without pandas,
-        # skip this specific assertion.
+        # skip this specific assertion.
         pass
 
     with pytest.raises(pa.ArrowInvalid):
