@@ -213,7 +213,6 @@ tail.ArrowTabular <- tail.ArrowDatum
 
 #' @export
 na.fail.ArrowTabular <- function(object, ...){
-  
   na_count <- sum(purrr::map_int(object$columns, ~.x$null_count))
   if(na_count > 0){
     stop("missing values in object")
@@ -223,7 +222,6 @@ na.fail.ArrowTabular <- function(object, ...){
 
 #' @export
 na.omit.ArrowTabular <- function(object, ...){
-  
   na_expr <- paste0("!is.na(", names(object), ")", collapse = ",")
   filter_expr <- paste0("dplyr::filter(object,", na_expr, ")")
   expression <- rlang::parse_expr(filter_expr)
