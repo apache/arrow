@@ -20,7 +20,6 @@
 # [Apache Arrow](https://github.com/apache/arrow) in JS
 
 [![npm version](https://img.shields.io/npm/v/apache-arrow.svg)](https://www.npmjs.com/package/apache-arrow)
-[![Build Status](https://travis-ci.org/apache/arrow.svg?branch=master)](https://travis-ci.org/apache/arrow)
 
 Arrow is a set of technologies that enable big data systems to process and transfer data quickly.
 
