@@ -1420,17 +1420,15 @@ TEST_F(TestProjector, TestIntCastFunction) {
   // input fields
   auto field0 = field("f0", arrow::float32());
   auto field1 = field("f1", arrow::float64());
-  auto field2 = field("f3", arrow::month_interval());
+  auto field2 = field("f2", arrow::month_interval());
   auto schema = arrow::schema({field0, field1, field2});
 
   // output fields
   auto res_int64 = field("res", arrow::int32());
 
   // Build expression
-  auto cast_expr_float4 =
-      TreeExprBuilder::MakeExpression("castINT", {field0}, res_int64);
-  auto cast_expr_float8 =
-      TreeExprBuilder::MakeExpression("castINT", {field1}, res_int64);
+  auto cast_expr_float4 = TreeExprBuilder::MakeExpression("castINT", {field0}, res_int64);
+  auto cast_expr_float8 = TreeExprBuilder::MakeExpression("castINT", {field1}, res_int64);
   auto cast_expr_year_interval =
       TreeExprBuilder::MakeExpression("castINT", {field2}, res_int64);
 
@@ -1438,10 +1436,9 @@ TEST_F(TestProjector, TestIntCastFunction) {
 
   //  {cast_expr_float4, cast_expr_float8, cast_expr_day_interval,
   //  cast_expr_year_interval}
-  auto status = Projector::Make(schema,
-                                {cast_expr_float4, cast_expr_float8,
-                                 cast_expr_year_interval},
-                                TestConfiguration(), &projector);
+  auto status = Projector::Make(
+      schema, {cast_expr_float4, cast_expr_float8, cast_expr_year_interval},
+      TestConfiguration(), &projector);
   EXPECT_TRUE(status.ok());
 
   // Create a row-batch with some sample data
@@ -1454,8 +1451,7 @@ TEST_F(TestProjector, TestIntCastFunction) {
   auto array1 =
       MakeArrowArrayFloat64({6.6, -6.6, 9.99999999999, 0}, {true, true, true, false});
   auto array2 = MakeArrowArrayInt32({25, -25, -0, 0}, {true, true, true, false});
-  auto in_batch =
-      arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2});
 
   auto out_float4 = MakeArrowArrayInt32({7, -7, 10, 0}, {true, true, true, false});
   auto out_float8 = MakeArrowArrayInt32({7, -7, 10, 0}, {true, true, true, false});
