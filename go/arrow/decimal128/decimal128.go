@@ -16,6 +16,11 @@
 
 package decimal128 // import "github.com/apache/arrow/go/arrow/decimal128"
 
+import (
+	"encoding/binary"
+	"math/big"
+)
+
 var (
 	MaxDecimal128 = New(542101086242752217, 687399551400673280-1)
 )
@@ -54,6 +59,28 @@ func FromI64(v int64) Num {
 	}
 }
 
+func fromBigIntPositive(v *big.Int) Num {
+	var buf [16]byte
+	v.FillBytes(buf[:])
+	return Num{
+		lo: binary.BigEndian.Uint64(buf[8:]),
+		hi: int64(binary.BigEndian.Uint64(buf[:8])),
+	}
+}
+
+func FromBigInt(v *big.Int) Num {
+	if v.Sign() < 0 {
+		n := fromBigIntPositive((&big.Int{}).Abs(v))
+		n.lo = ^n.lo + 1
+		n.hi = ^n.hi
+		if n.lo == 0 {
+			n.hi += 1
+		}
+		return n
+	}
+	return fromBigIntPositive(v)
+}
+
 // LowBits returns the low bits of the two's complement representation of the number.
 func (n Num) LowBits() uint64 { return n.lo }
 
@@ -70,4 +97,22 @@ func (n Num) Sign() int {
 		return 0
 	}
 	return int(1 | (n.hi >> 63))
+}
+
+func toBigInt(n Num) *big.Int {
+	hi := big.NewInt(n.hi)
+	return hi.Lsh(hi, 64).Add(hi, (&big.Int{}).SetUint64(n.lo))
+}
+
+func (n Num) BigInt() *big.Int {
+	if n.Sign() < 0 {
+		n.lo = ^n.lo + 1
+		n.hi = ^n.hi
+		if n.lo == 0 {
+			n.hi += 1
+		}
+		ret := toBigInt(n)
+		return ret.Neg(ret)
+	}
+	return toBigInt(n)
 }

@@ -49,9 +49,6 @@ func TestReadWrite(t *testing.T) {
 
 	for name, recs := range arrdata.Records {
 		t.Run(name, func(t *testing.T) {
-			if name == "decimal128" {
-				t.Skip() // FIXME(sbinet): implement full decimal128 support
-			}
 			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 			defer mem.AssertSize(t, 0)
 
@@ -3100,5 +3097,91 @@ func makeDurationsWantJSONs() string {
 }
 
 func makeDecimal128sWantJSONs() string {
-	return `` // FIXME(fredgan): implement full decimal128 JSON support
+	return `{
+  "schema": {
+    "fields": [
+      {
+        "name": "dec128s",
+        "type": {
+          "name": "decimal",
+          "scale": 1,
+          "precision": 10
+        },
+        "nullable": true,
+        "children": []
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "dec128s",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            "571849066284996100127",
+            "590295810358705651744",
+            "608742554432415203361",
+            "627189298506124754978",
+            "645636042579834306595"
+          ]
+        }
+      ]
+    },
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "dec128s",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            "756316507022091616297",
+            "774763251095801167914",
+            "793209995169510719531",
+            "811656739243220271148",
+            "830103483316929822765"
+          ]
+        }
+      ]
+    },
+    {
+      "count": 5,
+      "columns": [
+        {
+          "name": "dec128s",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            "940783947759187132467",
+            "959230691832896684084",
+            "977677435906606235701",
+            "996124179980315787318",
+            "1014570924054025338935"
+          ]
+        }
+      ]
+    }
+  ]
+}`
 }
