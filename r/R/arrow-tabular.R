@@ -222,11 +222,17 @@ na.fail.ArrowTabular <- function(object, ...){
 
 #' @export
 na.omit.ArrowTabular <- function(object, ...){
-  na_expr <- paste0("!is.na(", names(object), ")", collapse = ",")
-  filter_expr <- paste0("dplyr::filter(object,", na_expr, ")")
-  expression <- rlang::parse_expr(filter_expr)
   
-  rlang::eval_tidy(expression)
+  filter_text = paste0(
+    ".data$Filter(",
+    paste0("!is.na(.data$", names(object), ")", collapse = " & "),
+    ")"
+  )
+  
+  filter = rlang::parse_expr(filter_text)
+  
+  rlang::eval_tidy(filter,  rlang::new_data_mask(rlang::env(.data = object)))
+  
 }
 
 #' @export
