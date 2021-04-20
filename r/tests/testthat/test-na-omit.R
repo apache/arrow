@@ -16,7 +16,7 @@
 # under the License.
 
 data_no_na <- c(2:10)
-data_na <- c(NA_real_, data_no_na)
+data_na <- c(data_no_na, NA_real_)
 scalar_na <- Scalar$create(NA)
 scalar_one <- Scalar$create(1)
 tbl <- Table$create(example_data)
