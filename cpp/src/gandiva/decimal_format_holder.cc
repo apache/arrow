@@ -50,8 +50,8 @@ inline double get_scale_multiplier(int32_t scale) {
 
 inline double round_decimal_digits(double to_round, int32_t scale) {
   double scale_multiplier = get_scale_multiplier(scale);
-  return trunc(to_round * scale_multiplier + ((to_round >= 0) ? 0.5 : -0.5))
-  / scale_multiplier;
+  return trunc(to_round * scale_multiplier + ((to_round >= 0) ? 0.5 : -0.5)) /
+         scale_multiplier;
 }
 
 Status DecimalFormatHolder::Make(const FunctionNode& node,
