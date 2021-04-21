@@ -1825,8 +1825,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CExtractRegexOptions \
             "arrow::compute::ExtractRegexOptions"(CFunctionOptions):
-        CExtractRegexOptions(c_string regex)
-        c_string regex
+        CExtractRegexOptions(c_string pattern)
+        c_string pattern
 
     cdef cppclass CCastOptions" arrow::compute::CastOptions"(CFunctionOptions):
         CCastOptions()

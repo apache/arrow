@@ -1511,7 +1511,7 @@ struct ExtractRegexData {
   std::vector<std::string> group_names;
 
   static Result<ExtractRegexData> Make(const ExtractRegexOptions& options) {
-    ExtractRegexData data(options.regex);
+    ExtractRegexData data(options.pattern);
     RETURN_NOT_OK(RegexStatus(*data.regex));
 
     const int group_count = data.regex->NumberOfCapturingGroups();

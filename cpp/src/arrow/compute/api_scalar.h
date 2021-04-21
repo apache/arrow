@@ -84,10 +84,10 @@ struct ARROW_EXPORT ReplaceSubstringOptions : public FunctionOptions {
 };
 
 struct ARROW_EXPORT ExtractRegexOptions : public FunctionOptions {
-  explicit ExtractRegexOptions(std::string regex) : regex(std::move(regex)) {}
+  explicit ExtractRegexOptions(std::string pattern) : pattern(std::move(pattern)) {}
 
   /// Regular expression with named capture fields
-  std::string regex;
+  std::string pattern;
 };
 
 /// Options for IsIn and IndexIn functions

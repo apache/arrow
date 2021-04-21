@@ -600,7 +600,7 @@ def test_replace_regex():
 
 def test_extract_regex():
     ar = pa.array(['a1', 'zb2z'])
-    struct = pc.extract_regex(ar, regex=r'(?P<letter>[ab])(?P<digit>\d)')
+    struct = pc.extract_regex(ar, pattern=r'(?P<letter>[ab])(?P<digit>\d)')
     assert struct.tolist() == [{'letter': 'a', 'digit': '1'}, {
         'letter': 'b', 'digit': '2'}]
 
