@@ -687,8 +687,11 @@ def test_dictionary_from_numpy():
         else:
             assert d2[i].as_py() == dictionary[indices[i]]
 
+
 def test_dictionary_to_numpy():
-    expected = pa.array(["foo", "bar", None, "foo"]).to_numpy(zero_copy_only=False)
+    expected = pa.array(
+        ["foo", "bar", None, "foo"]
+    ).to_numpy(zero_copy_only=False)
     a = pa.DictionaryArray.from_arrays(
         pa.array([0, 1, None, 0]),
         pa.array(['foo', 'bar'])
@@ -713,9 +716,11 @@ def test_dictionary_to_numpy():
         pa.array([0, 1, None, 0]),
         pa.array([13.7, 11.0])
     )
-    expected = pa.array([13.7, 11.0, None, 13.7]).to_numpy(zero_copy_only=False)
+    expected = pa.array(
+        [13.7, 11.0, None, 13.7]
+    ).to_numpy(zero_copy_only=False)
     assert np.array_equal(
-        afloat2.to_numpy(zero_copy_only=False), 
+        afloat2.to_numpy(zero_copy_only=False),
         expected,
         equal_nan=True
     )
