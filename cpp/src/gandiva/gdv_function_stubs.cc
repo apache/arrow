@@ -364,10 +364,10 @@ const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t i
   return ret;
 }
 
-#define CAST_NUMERIC_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME, INNER_TYPE) \
+#define CAST_NUMERIC_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME, INNER_TYPE)             \
   GANDIVA_EXPORT                                                                     \
-  OUT_TYPE gdv_fn_cast##TYPE_NAME##_##INNER_TYPE(int64_t context, const char* data,          \
-                                         int32_t len) {                              \
+  OUT_TYPE gdv_fn_cast##TYPE_NAME##_##INNER_TYPE(int64_t context, const char* data,  \
+                                                 int32_t len) {                      \
     OUT_TYPE val = 0;                                                                \
     /* trim leading and trailing spaces */                                           \
     int32_t trimmed_len;                                                             \
