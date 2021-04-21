@@ -119,6 +119,23 @@ void EnsureRecordBatchReaderDrained(RecordBatchReader* reader) {
   EXPECT_EQ(batch, nullptr);
 }
 
+/// Test dataset that returns one or more fragments.
+class FragmentDataset : public Dataset {
+ public:
+  FragmentDataset(std::shared_ptr<Schema> schema, FragmentVector fragments)
+      : Dataset(schema), fragments_(std::move(fragments)) {}
+  std::string type_name() const override { return "fragment"; }
+  Result<std::shared_ptr<Dataset>> ReplaceSchema(std::shared_ptr<Schema>) const override {
+    return Status::NotImplemented("");
+  }
+  Result<FragmentIterator> GetFragmentsImpl(Expression predicate) {
+    return MakeVectorIterator(fragments_);
+  }
+
+ private:
+  FragmentVector fragments_;
+};
+
 class DatasetFixtureMixin : public ::testing::Test {
  public:
   /// \brief Ensure that record batches found in reader are equals to the

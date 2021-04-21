@@ -71,6 +71,14 @@ std::ostream& operator<<(std::ostream& out, const TestScannerParams& params) {
 
 class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
  protected:
+  std::shared_ptr<Scanner> MakeScanner(std::shared_ptr<Dataset> dataset) {
+    ScannerBuilder builder(dataset, options_);
+    ARROW_EXPECT_OK(builder.UseThreads(GetParam().use_threads));
+    ARROW_EXPECT_OK(builder.UseAsync(GetParam().use_async));
+    EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+    return scanner;
+  }
+
   std::shared_ptr<Scanner> MakeScanner(std::shared_ptr<RecordBatch> batch) {
     std::vector<std::shared_ptr<RecordBatch>> batches{
         static_cast<size_t>(GetParam().num_batches), batch};
@@ -79,12 +87,7 @@ class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
                            std::make_shared<InMemoryDataset>(batch->schema(), batches)};
 
     EXPECT_OK_AND_ASSIGN(auto dataset, UnionDataset::Make(batch->schema(), children));
-
-    ScannerBuilder builder(dataset, options_);
-    ARROW_EXPECT_OK(builder.UseThreads(GetParam().use_threads));
-    ARROW_EXPECT_OK(builder.UseAsync(GetParam().use_async));
-    EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
-    return scanner;
+    return MakeScanner(std::move(dataset));
   }
 
   void AssertScannerEqualsRepetitionsOf(
@@ -203,9 +206,9 @@ TEST_P(TestScanner, MaterializeMissingColumn) {
   auto batch_with_f64 =
       RecordBatch::Make(schema_, f64->length(), {batch_missing_f64->column(0), f64});
 
-  ScannerBuilder builder{schema_, fragment_missing_f64, options_};
-  ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
-
+  FragmentVector fragments{fragment_missing_f64};
+  auto dataset = std::make_shared<FragmentDataset>(schema_, fragments);
+  auto scanner = MakeScanner(std::move(dataset));
   AssertScanBatchesEqualRepetitionsOf(scanner, batch_with_f64);
 }
 
@@ -319,6 +322,23 @@ class FailingFragment : public InMemoryFragment {
       return std::make_shared<InMemoryScanTask>(batches, options, self);
     });
   }
+
+  Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>& options) override {
+    struct {
+      Future<std::shared_ptr<RecordBatch>> operator()() {
+        if (index > 16) {
+          return Status::Invalid("Oh no, we failed!");
+        }
+        auto batch = batches[index++ % batches.size()];
+        return Future<std::shared_ptr<RecordBatch>>::MakeFinished(batch);
+      }
+      RecordBatchVector batches;
+      int index = 0;
+    } Generator;
+    Generator.batches = record_batches_;
+    return Generator;
+  }
 };
 
 class FailingExecuteScanTask : public InMemoryScanTask {
@@ -356,62 +376,82 @@ class FailingScanTaskFragment : public InMemoryFragment {
     ScanTaskVector scan_tasks{std::make_shared<T>(record_batches_, options, self)};
     return MakeVectorIterator(std::move(scan_tasks));
   }
+
+  // Unlike the sync case, there's only two places to fail - during
+  // iteration (covered by FailingFragment) or at the initial scan
+  // (covered here)
+  Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>& options) override {
+    return Status::Invalid("Oh no, we failed!");
+  }
 };
+
+template <typename It, typename GetBatch>
+bool CheckIteratorRaises(const RecordBatch& batch, It batch_it, GetBatch get_batch) {
+  while (true) {
+    auto maybe_batch = batch_it.Next();
+    if (maybe_batch.ok()) {
+      EXPECT_OK_AND_ASSIGN(auto scanned_batch, maybe_batch);
+      if (IsIterationEnd(scanned_batch)) break;
+      AssertBatchesEqual(batch, *get_batch(scanned_batch));
+    } else {
+      EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Oh no, we failed!"),
+                                      maybe_batch);
+      return true;
+    }
+  }
+  return false;
+}
 
 TEST_P(TestScanner, ScanBatchesFailure) {
   SetSchema({field("i32", int32()), field("f64", float64())});
   auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
   RecordBatchVector batches = {batch, batch, batch, batch};
-  // Note these tests are only for SyncScanner at the moment
+
+  auto check_scanner = [](const RecordBatch& batch, Scanner* scanner) {
+    auto maybe_batch_it = scanner->ScanBatchesUnordered();
+    if (!maybe_batch_it.ok()) {
+      // SyncScanner can fail here as it eagerly consumes the first value
+      EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Oh no, we failed!"),
+                                      std::move(maybe_batch_it));
+    } else {
+      ASSERT_OK_AND_ASSIGN(auto batch_it, std::move(maybe_batch_it));
+      EXPECT_TRUE(CheckIteratorRaises(
+          batch, std::move(batch_it),
+          [](const EnumeratedRecordBatch& batch) { return batch.record_batch.value; }))
+          << "ScanBatchesUnordered() did not raise an error";
+    }
+    ASSERT_OK_AND_ASSIGN(auto tagged_batch_it, scanner->ScanBatches());
+    EXPECT_TRUE(CheckIteratorRaises(
+        batch, std::move(tagged_batch_it),
+        [](const TaggedRecordBatch& batch) { return batch.record_batch; }))
+        << "ScanBatches() did not raise an error";
+  };
 
   // Case 1: failure when getting next scan task
   {
-    ScannerBuilder builder(schema_, std::make_shared<FailingFragment>(batches), options_);
-    ASSERT_OK(builder.UseThreads(GetParam().use_threads));
-    ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
-    ASSERT_OK_AND_ASSIGN(auto batch_it, scanner->ScanBatches());
-
-    int counter = 0;
-    while (true) {
-      // Make sure we get all batches that were yielded before the failing scan task
-      auto maybe_batch = batch_it.Next();
-      if (counter++ <= 16) {
-        ASSERT_OK_AND_ASSIGN(auto scanned_batch, maybe_batch);
-        AssertBatchesEqual(*batch, *scanned_batch.record_batch);
-        ASSERT_NE(nullptr, scanned_batch.fragment);
-      } else {
-        EXPECT_RAISES_WITH_MESSAGE_THAT(
-            Invalid, ::testing::HasSubstr("Oh no, we failed!"), maybe_batch);
-        break;
-      }
-    }
+    FragmentVector fragments{std::make_shared<FailingFragment>(batches)};
+    auto dataset = std::make_shared<FragmentDataset>(schema_, fragments);
+    auto scanner = MakeScanner(std::move(dataset));
+    check_scanner(*batch, scanner.get());
   }
 
   // Case 2: failure when calling ScanTask::Execute
   {
-    ScannerBuilder builder(
-        schema_,
-        std::make_shared<FailingScanTaskFragment<FailingExecuteScanTask>>(batches),
-        options_);
-    ASSERT_OK(builder.UseThreads(GetParam().use_threads));
-    ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
-    ASSERT_OK_AND_ASSIGN(auto batch_it, scanner->ScanBatches());
-    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Oh no, we failed!"),
-                                    batch_it.Next());
+    FragmentVector fragments{
+        std::make_shared<FailingScanTaskFragment<FailingExecuteScanTask>>(batches)};
+    auto dataset = std::make_shared<FragmentDataset>(schema_, fragments);
+    auto scanner = MakeScanner(std::move(dataset));
+    check_scanner(*batch, scanner.get());
   }
 
   // Case 3: failure when calling RecordBatchIterator::Next
   {
-    ScannerBuilder builder(
-        schema_,
-        std::make_shared<FailingScanTaskFragment<FailingIterationScanTask>>(batches),
-        options_);
-    ASSERT_OK(builder.UseThreads(GetParam().use_threads));
-    ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
-    ASSERT_OK_AND_ASSIGN(auto batch_it, scanner->ScanBatches());
-    ASSERT_OK(batch_it.Next());
-    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Oh no, we failed!"),
-                                    batch_it.Next());
+    FragmentVector fragments{
+        std::make_shared<FailingScanTaskFragment<FailingIterationScanTask>>(batches)};
+    auto dataset = std::make_shared<FragmentDataset>(schema_, fragments);
+    auto scanner = MakeScanner(std::move(dataset));
+    check_scanner(*batch, scanner.get());
   }
 }
 
