@@ -890,7 +890,7 @@ CAST_NULLABLE_INTERVAL_DAY(int64)
 #define CAST_NULLABLE_INTERVAL_YEAR(TYPE)                                             \
   FORCE_INLINE                                                                        \
   gdv_year_interval castNULLABLEINTERVALYEAR_##TYPE(int64_t context, gdv_##TYPE in) { \
-    gdv_##TYPE value = static_cast<gdv_year_interval>(in);                            \
+    gdv_year_interval value = static_cast<gdv_year_interval>(in);                     \
     if (value != in) {                                                                \
       gdv_fn_context_set_error_msg(context, "Integer overflow");                      \
     }                                                                                 \
