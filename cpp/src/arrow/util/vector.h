@@ -92,7 +92,7 @@ Result<std::vector<To>> MaybeMapVector(Fn&& map, const std::vector<From>& src) {
   out.reserve(src.size());
   ARROW_RETURN_NOT_OK(MaybeTransform(src.begin(), src.end(), std::back_inserter(out),
                                      std::forward<Fn>(map)));
-  return out;
+  return std::move(out);
 }
 
 template <typename Fn, typename From,
@@ -130,7 +130,7 @@ Result<std::vector<T>> UnwrapOrRaise(std::vector<Result<T>>&& results) {
     }
     out.push_back(it->MoveValueUnsafe());
   }
-  return out;
+  return std::move(out);
 }
 
 }  // namespace internal
