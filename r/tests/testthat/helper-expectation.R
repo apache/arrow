@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-expect_vector <- function(x, y, ignore_attr = FALSE, ...) {
+expect_as_vector <- function(x, y, ignore_attr = FALSE, ...) {
   expect_fun <- ifelse(ignore_attr, expect_equivalent, expect_equal)
   expect_fun(as.vector(x), y, ...)
 }
@@ -167,7 +167,7 @@ expect_vector_equal <- function(expr, # A vectorized R expression containing `in
       expr,
       rlang::new_data_mask(rlang::env(input = Array$create(vec)))
     )
-    expect_vector(via_array, expected, ignore_attr, ...)
+    expect_as_vector(via_array, expected, ignore_attr, ...)
   } else {
     skip_msg <- c(skip_msg, skip_array)
   }
@@ -180,7 +180,7 @@ expect_vector_equal <- function(expr, # A vectorized R expression containing `in
       expr,
       rlang::new_data_mask(rlang::env(input = ChunkedArray$create(split_vector[[1]], split_vector[[2]])))
     )
-    expect_vector(via_chunked, expected, ignore_attr, ...)
+    expect_as_vector(via_chunked, expected, ignore_attr, ...)
   } else {
     skip_msg <- c(skip_msg, skip_chunked_array)
   }

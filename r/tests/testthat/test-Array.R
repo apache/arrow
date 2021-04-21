@@ -94,13 +94,13 @@ test_that("Slice() and RangeEquals()", {
   y <- x$Slice(10)
   expect_equal(y$type, int32())
   expect_equal(length(y), 15L)
-  expect_vector(y, c(101:110, 201:205))
+  expect_as_vector(y, c(101:110, 201:205))
   expect_true(x$RangeEquals(y, 10, 24))
   expect_false(x$RangeEquals(y, 9, 23))
   expect_false(x$RangeEquals(y, 11, 24))
 
   z <- x$Slice(10, 5)
-  expect_vector(z, c(101:105))
+  expect_as_vector(z, c(101:105))
   expect_true(x$RangeEquals(z, 10, 15, 0))
 
   # Input validation
@@ -708,12 +708,12 @@ test_that("Array$Take()", {
 test_that("[ method on Array", {
   vec <- 11:20
   a <- Array$create(vec)
-  expect_vector(a[5:9], vec[5:9])
-  expect_vector(a[c(9, 3, 5)], vec[c(9, 3, 5)])
-  expect_vector(a[rep(c(TRUE, FALSE), 5)], vec[c(1, 3, 5, 7, 9)])
-  expect_vector(a[rep(c(TRUE, FALSE, NA, FALSE, TRUE), 2)], c(11, NA, 15, 16, NA, 20))
-  expect_vector(a[-4], vec[-4])
-  expect_vector(a[-1], vec[-1])
+  expect_as_vector(a[5:9], vec[5:9])
+  expect_as_vector(a[c(9, 3, 5)], vec[c(9, 3, 5)])
+  expect_as_vector(a[rep(c(TRUE, FALSE), 5)], vec[c(1, 3, 5, 7, 9)])
+  expect_as_vector(a[rep(c(TRUE, FALSE, NA, FALSE, TRUE), 2)], c(11, NA, 15, 16, NA, 20))
+  expect_as_vector(a[-4], vec[-4])
+  expect_as_vector(a[-1], vec[-1])
 })
 
 test_that("[ accepts Arrays and otherwise handles bad input", {
@@ -724,12 +724,12 @@ test_that("[ accepts Arrays and otherwise handles bad input", {
     a[Array$create(ind)],
     "Cannot extract rows with an Array of type double"
   )
-  expect_vector(a[Array$create(ind - 1, type = int8())], vec[ind])
-  expect_vector(a[Array$create(ind - 1, type = uint8())], vec[ind])
-  expect_vector(a[ChunkedArray$create(8, 2, 4, type = uint8())], vec[ind])
+  expect_as_vector(a[Array$create(ind - 1, type = int8())], vec[ind])
+  expect_as_vector(a[Array$create(ind - 1, type = uint8())], vec[ind])
+  expect_as_vector(a[ChunkedArray$create(8, 2, 4, type = uint8())], vec[ind])
 
   filt <- seq_along(vec) %in% ind
-  expect_vector(a[Array$create(filt)], vec[filt])
+  expect_as_vector(a[Array$create(filt)], vec[filt])
 
   expect_error(
     a["string"],
@@ -754,21 +754,21 @@ test_that("[ accepts Expressions", {
   vec <- 11:20
   a <- Array$create(vec)
   b <- Array$create(1:10)
-  expect_vector(a[b > 4], vec[5:10])
+  expect_as_vector(a[b > 4], vec[5:10])
 })
 
 test_that("Array head/tail", {
   vec <- 11:20
   a <- Array$create(vec)
-  expect_vector(head(a), head(vec))
-  expect_vector(head(a, 4), head(vec, 4))
-  expect_vector(head(a, 40), head(vec, 40))
-  expect_vector(head(a, -4), head(vec, -4))
-  expect_vector(head(a, -40), head(vec, -40))
-  expect_vector(tail(a), tail(vec))
-  expect_vector(tail(a, 4), tail(vec, 4))
-  expect_vector(tail(a, 40), tail(vec, 40))
-  expect_vector(tail(a, -40), tail(vec, -40))
+  expect_as_vector(head(a), head(vec))
+  expect_as_vector(head(a, 4), head(vec, 4))
+  expect_as_vector(head(a, 40), head(vec, 40))
+  expect_as_vector(head(a, -4), head(vec, -4))
+  expect_as_vector(head(a, -40), head(vec, -40))
+  expect_as_vector(tail(a), tail(vec))
+  expect_as_vector(tail(a, 4), tail(vec, 4))
+  expect_as_vector(tail(a, 40), tail(vec, 40))
+  expect_as_vector(tail(a, -40), tail(vec, -40))
 })
 
 test_that("Dictionary array: create from arrays, not factor", {

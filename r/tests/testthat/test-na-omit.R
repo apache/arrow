@@ -23,7 +23,7 @@ tbl <- Table$create(example_data)
 batch <- record_batch(example_data)
 
 test_that("na.fail on Scalar", {
-  expect_vector(na.fail(scalar_one), 1)
+  expect_as_vector(na.fail(scalar_one), 1)
   expect_error(na.fail(scalar_na), "missing values in object")
 })
 
@@ -44,7 +44,7 @@ test_that("na.fail on Array and ChunkedArray", {
 
 test_that("na.fail on Scalar", {
   expect_error(na.fail(scalar_na), regexp = "missing values in object")
-  expect_vector(na.fail(scalar_one), na.fail(1))
+  expect_as_vector(na.fail(scalar_one), na.fail(1))
 })
 
 test_that("na.omit on Table", {
