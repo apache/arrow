@@ -257,8 +257,8 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::SelectColumns(
     const std::vector<int>& indices) const {
   int n = static_cast<int>(indices.size());
 
-  std::vector<std::shared_ptr<Field>> fields(n);
-  std::vector<std::shared_ptr<Array>> columns(n);
+  FieldVector fields(n);
+  ArrayVector columns(n);
 
   for (int i = 0; i < n; i++) {
     int pos = indices[i];
@@ -271,7 +271,7 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::SelectColumns(
 
   auto new_schema =
       std::make_shared<arrow::Schema>(std::move(fields), schema()->metadata());
-  return RecordBatch::Make(new_schema, num_rows(), columns);
+  return RecordBatch::Make(new_schema, num_rows(), std::move(columns));
 }
 
 std::shared_ptr<RecordBatch> RecordBatch::Slice(int64_t offset) const {
