@@ -638,32 +638,32 @@ TEST(TestGdvFnStubs, TestCastVarbinaryINT) {
 
   gdv_fn_castINT_varbinary(ctx_ptr, "2147483648", 10);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the varbinary 2147483648 to int32"));
+              ::testing::HasSubstr("Failed to cast the string 2147483648 to int32"));
   ctx.Reset();
 
   gdv_fn_castINT_varbinary(ctx_ptr, "-2147483649", 11);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the varbinary -2147483649 to int32"));
+              ::testing::HasSubstr("Failed to cast the string -2147483649 to int32"));
   ctx.Reset();
 
   gdv_fn_castINT_varbinary(ctx_ptr, "12.34", 5);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the varbinary 12.34 to int32"));
+              ::testing::HasSubstr("Failed to cast the string 12.34 to int32"));
   ctx.Reset();
 
   gdv_fn_castINT_varbinary(ctx_ptr, "abc", 3);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the varbinary abc to int32"));
+              ::testing::HasSubstr("Failed to cast the string abc to int32"));
   ctx.Reset();
 
   gdv_fn_castINT_varbinary(ctx_ptr, "", 0);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the varbinary  to int32"));
+              ::testing::HasSubstr("Failed to cast the string  to int32"));
   ctx.Reset();
 
   gdv_fn_castINT_varbinary(ctx_ptr, "-", 1);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the varbinary - to int32"));
+              ::testing::HasSubstr("Failed to cast the string - to int32"));
   ctx.Reset();
 }
 
@@ -687,33 +687,33 @@ TEST(TestGdvFnStubs, TestCastVarbinaryBIGINT) {
   gdv_fn_castBIGINT_varbinary(ctx_ptr, "9223372036854775808", 19);
   EXPECT_THAT(
       ctx.get_error(),
-      ::testing::HasSubstr("Failed to cast the varbinary 9223372036854775808 to int64"));
+      ::testing::HasSubstr("Failed to cast the string 9223372036854775808 to int64"));
   ctx.Reset();
 
   gdv_fn_castBIGINT_varbinary(ctx_ptr, "-9223372036854775809", 20);
   EXPECT_THAT(
       ctx.get_error(),
-      ::testing::HasSubstr("Failed to cast the varbinary -9223372036854775809 to int64"));
+      ::testing::HasSubstr("Failed to cast the string -9223372036854775809 to int64"));
   ctx.Reset();
 
   gdv_fn_castBIGINT_varbinary(ctx_ptr, "12.34", 5);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the varbinary 12.34 to int64"));
+              ::testing::HasSubstr("Failed to cast the string 12.34 to int64"));
   ctx.Reset();
 
   gdv_fn_castBIGINT_varbinary(ctx_ptr, "abc", 3);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the varbinary abc to int64"));
+              ::testing::HasSubstr("Failed to cast the string abc to int64"));
   ctx.Reset();
 
   gdv_fn_castBIGINT_varbinary(ctx_ptr, "", 0);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the varbinary  to int64"));
+              ::testing::HasSubstr("Failed to cast the string  to int64"));
   ctx.Reset();
 
   gdv_fn_castBIGINT_varbinary(ctx_ptr, "-", 1);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the varbinary - to int64"));
+              ::testing::HasSubstr("Failed to cast the string - to int64"));
   ctx.Reset();
 }
 
@@ -729,12 +729,12 @@ TEST(TestGdvFnStubs, TestCastVarbinaryFloat4) {
 
   gdv_fn_castFLOAT4_varbinary(ctx_ptr, "", 0);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the varbinary  to float"));
+              ::testing::HasSubstr("Failed to cast the string  to float"));
   ctx.Reset();
 
   gdv_fn_castFLOAT4_varbinary(ctx_ptr, "e", 1);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the varbinary e to float"));
+              ::testing::HasSubstr("Failed to cast the string e to float"));
   ctx.Reset();
 }
 
@@ -750,12 +750,12 @@ TEST(TestGdvFnStubs, TestCastVarbinaryFloat8) {
 
   gdv_fn_castFLOAT8_varbinary(ctx_ptr, "", 0);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the varbinary  to double"));
+              ::testing::HasSubstr("Failed to cast the string  to double"));
   ctx.Reset();
 
   gdv_fn_castFLOAT8_varbinary(ctx_ptr, "e", 1);
   EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Failed to cast the varbinary e to double"));
+              ::testing::HasSubstr("Failed to cast the string e to double"));
   ctx.Reset();
 }
 
