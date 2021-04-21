@@ -884,7 +884,7 @@ Result<ORC_UNIQUE_PTR<liborc::Type>> GetOrcType(const DataType& type) {
         ARROW_ASSIGN_OR_RAISE(auto orc_subtype, GetOrcType(*arrow_child_type));
         out_type->addStructField(field_name, std::move(orc_subtype));
       }
-      return out_type;
+      return std::move(out_type);
     }
     case Type::type::MAP: {
       std::shared_ptr<DataType> key_arrow_type =
@@ -907,7 +907,7 @@ Result<ORC_UNIQUE_PTR<liborc::Type>> GetOrcType(const DataType& type) {
         ARROW_ASSIGN_OR_RAISE(auto orc_subtype, GetOrcType(*arrow_child_type));
         out_type->addUnionChild(std::move(orc_subtype));
       }
-      return out_type;
+      return std::move(out_type);
     }
     default: {
       return Status::NotImplemented("Unknown or unsupported Arrow type: ",

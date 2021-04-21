@@ -578,7 +578,7 @@ Result<std::unique_ptr<ORCFileWriter>> ORCFileWriter::Open(
       std::unique_ptr<ORCFileWriter>(new ORCFileWriter());
   Status status = result->impl_->Open(output_stream);
   RETURN_NOT_OK(status);
-  return result;
+  return std::move(result);
 }
 
 Status ORCFileWriter::Write(const Table& table) { return impl_->Write(table); }
