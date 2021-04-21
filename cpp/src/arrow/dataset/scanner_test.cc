@@ -72,7 +72,7 @@ std::ostream& operator<<(std::ostream& out, const TestScannerParams& params) {
 class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
  protected:
   std::shared_ptr<Scanner> MakeScanner(std::shared_ptr<Dataset> dataset) {
-    ScannerBuilder builder(dataset, options_);
+    ScannerBuilder builder(std::move(dataset), options_);
     ARROW_EXPECT_OK(builder.UseThreads(GetParam().use_threads));
     ARROW_EXPECT_OK(builder.UseAsync(GetParam().use_async));
     EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
