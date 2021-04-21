@@ -223,9 +223,9 @@ na.fail.ArrowTabular <- function(object, ...){
 
 #' @export
 na.omit.ArrowTabular <- function(object, ...){
-  not_na <- purrr::map(object$columns, ~!is.na(.x))
-  not_na_agg <- purrr::reduce(not_na, `&`)
-  object$Filter(not_na_agg)
+  not_na <- map(object$columns, ~build_array_expression("is_valid", .x))
+  not_na_agg <- Reduce("&", not_na)
+  object$Filter(eval_array_expression(not_na_agg))
 }
 
 #' @export
