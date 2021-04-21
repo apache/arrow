@@ -44,12 +44,14 @@ NumPyBuffer::NumPyBuffer(PyObject* ao) : Buffer(nullptr, 0) {
 
   if (PyArray_Check(ao)) {
     PyArrayObject* ndarray = reinterpret_cast<PyArrayObject*>(ao);
-    data_ = reinterpret_cast<const uint8_t*>(PyArray_DATA(ndarray));
+    auto ptr = reinterpret_cast<uint8_t*>(PyArray_DATA(ndarray));
+    data_ = const_cast<const uint8_t*>(ptr);
     size_ = PyArray_SIZE(ndarray) * PyArray_DESCR(ndarray)->elsize;
     capacity_ = size_;
 
     if (PyArray_FLAGS(ndarray) & NPY_ARRAY_WRITEABLE) {
       is_mutable_ = true;
+      mutable_data_ = ptr;
     }
   }
 }
