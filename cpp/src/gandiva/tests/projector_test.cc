@@ -1393,7 +1393,7 @@ TEST_F(TestProjector, TestBigIntCastFunction) {
       MakeArrowArrayFloat32({6.6f, -6.6f, 9.999999f, 0}, {true, true, true, false});
   auto array1 =
       MakeArrowArrayFloat64({6.6, -6.6, 9.99999999999, 0}, {true, true, true, false});
-  auto array2 = MakeArrowArrayInt64({100, -25, -0, 0}, {true, true, true, false});
+  auto array2 = MakeArrowArrayInt64({100, 25, -0, 0}, {true, true, true, false});
   auto array3 = MakeArrowArrayInt32({25, -25, -0, 0}, {true, true, true, false});
   auto in_batch =
       arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2, array3});
@@ -1401,7 +1401,7 @@ TEST_F(TestProjector, TestBigIntCastFunction) {
   auto out_float4 = MakeArrowArrayInt64({7, -7, 10, 0}, {true, true, true, false});
   auto out_float8 = MakeArrowArrayInt64({7, -7, 10, 0}, {true, true, true, false});
   auto out_days_interval =
-      MakeArrowArrayInt64({8640000000, -2160000001, 0, 0}, {true, true, true, false});
+      MakeArrowArrayInt64({8640000000, 2160000000, 0, 0}, {true, true, true, false});
   auto out_year_interval = MakeArrowArrayInt64({2, -2, 0, 0}, {true, true, true, false});
 
   arrow::ArrayVector outputs;
