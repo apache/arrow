@@ -275,9 +275,9 @@ char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
   return ret;
 }
 
-#define CAST_NUMERIC_FROM_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME)                    \
+#define CAST_NUMERIC_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME, INNER_TYPE) \
   GANDIVA_EXPORT                                                                     \
-  OUT_TYPE gdv_fn_cast##TYPE_NAME##_utf8(int64_t context, const char* data,          \
+  OUT_TYPE gdv_fn_cast##TYPE_NAME##_##INNER_TYPE(int64_t context, const char* data,          \
                                          int32_t len) {                              \
     OUT_TYPE val = 0;                                                                \
     /* trim leading and trailing spaces */                                           \
@@ -299,43 +299,17 @@ char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
     return val;                                                                      \
   }
 
-CAST_NUMERIC_FROM_STRING(int32_t, arrow::Int32Type, INT)
-CAST_NUMERIC_FROM_STRING(int64_t, arrow::Int64Type, BIGINT)
-CAST_NUMERIC_FROM_STRING(float, arrow::FloatType, FLOAT4)
-CAST_NUMERIC_FROM_STRING(double, arrow::DoubleType, FLOAT8)
+CAST_NUMERIC_STRING(int32_t, arrow::Int32Type, INT, utf8)
+CAST_NUMERIC_STRING(int64_t, arrow::Int64Type, BIGINT, utf8)
+CAST_NUMERIC_STRING(float, arrow::FloatType, FLOAT4, utf8)
+CAST_NUMERIC_STRING(double, arrow::DoubleType, FLOAT8, utf8)
 
-#undef CAST_NUMERIC_FROM_STRING
+CAST_NUMERIC_STRING(int32_t, arrow::Int32Type, INT, varbinary)
+CAST_NUMERIC_STRING(int64_t, arrow::Int64Type, BIGINT, varbinary)
+CAST_NUMERIC_STRING(float, arrow::FloatType, FLOAT4, varbinary)
+CAST_NUMERIC_STRING(double, arrow::DoubleType, FLOAT8, varbinary)
 
-#define CAST_NUMERIC_FROM_VARBINARY(OUT_TYPE, ARROW_TYPE, TYPE_NAME)                   \
-  GANDIVA_EXPORT                                                                       \
-  OUT_TYPE gdv_fn_cast##TYPE_NAME##_varbinary(int64_t context, const char* data,       \
-                                              int32_t len) {                           \
-    OUT_TYPE val = 0;                                                                  \
-    /* trim leading and trailing spaces */                                             \
-    int32_t trimmed_len;                                                               \
-    int32_t start = 0, end = len - 1;                                                  \
-    while (start <= end && data[start] == ' ') {                                       \
-      ++start;                                                                         \
-    }                                                                                  \
-    while (end >= start && data[end] == ' ') {                                         \
-      --end;                                                                           \
-    }                                                                                  \
-    trimmed_len = end - start + 1;                                                     \
-    const char* trimmed_data = data + start;                                           \
-    if (!arrow::internal::ParseValue<ARROW_TYPE>(trimmed_data, trimmed_len, &val)) {   \
-      std::string err =                                                                \
-          "Failed to cast the varbinary " + std::string(data, len) + " to " #OUT_TYPE; \
-      gdv_fn_context_set_error_msg(context, err.c_str());                              \
-    }                                                                                  \
-    return val;                                                                        \
-  }
-
-CAST_NUMERIC_FROM_VARBINARY(int32_t, arrow::Int32Type, INT)
-CAST_NUMERIC_FROM_VARBINARY(int64_t, arrow::Int64Type, BIGINT)
-CAST_NUMERIC_FROM_VARBINARY(float, arrow::FloatType, FLOAT4)
-CAST_NUMERIC_FROM_VARBINARY(double, arrow::DoubleType, FLOAT8)
-
-#undef CAST_NUMERIC_FROM_VARBINARY
+#undef CAST_NUMERIC_STRING
 
 #define GDV_FN_CAST_VARCHAR_INTEGER(IN_TYPE, ARROW_TYPE)                                 \
   GANDIVA_EXPORT                                                                         \
