@@ -170,13 +170,8 @@ MemoryPoolBackend DefaultBackend() {
   if (backend.has_value()) {
     return backend.value();
   }
-#ifdef ARROW_JEMALLOC
-  return MemoryPoolBackend::Jemalloc;
-#elif defined(ARROW_MIMALLOC)
-  return MemoryPoolBackend::Mimalloc;
-#else
-  return MemoryPoolBackend::System;
-#endif
+  struct SupportedBackend default_backend = SupportedBackends().front();
+  return default_backend.backend;
 }
 
 // A static piece of memory for 0-size allocations, so as to return
