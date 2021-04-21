@@ -170,8 +170,8 @@ MemoryPoolBackend DefaultBackend() {
   if (backend.has_value()) {
     return backend.value();
   }
-struct SupportedBackend default_backend = SupportedBackends().front();
-return default_backend.backend;
+  struct SupportedBackend default_backend = SupportedBackends().front();
+  return default_backend.backend;
 }
 
 // A static piece of memory for 0-size allocations, so as to return
