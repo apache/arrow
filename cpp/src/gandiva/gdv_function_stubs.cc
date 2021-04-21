@@ -275,10 +275,10 @@ char* gdv_fn_dec_to_string(int64_t context, int64_t x_high, uint64_t x_low,
   return ret;
 }
 
-#define CAST_NUMERIC_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME, INNER_TYPE) \
+#define CAST_NUMERIC_STRING(OUT_TYPE, ARROW_TYPE, TYPE_NAME, INNER_TYPE)             \
   GANDIVA_EXPORT                                                                     \
-  OUT_TYPE gdv_fn_cast##TYPE_NAME##_##INNER_TYPE(int64_t context, const char* data,          \
-                                         int32_t len) {                              \
+  OUT_TYPE gdv_fn_cast##TYPE_NAME##_##INNER_TYPE(int64_t context, const char* data,  \
+                                                 int32_t len) {                      \
     OUT_TYPE val = 0;                                                                \
     /* trim leading and trailing spaces */                                           \
     int32_t trimmed_len;                                                             \
