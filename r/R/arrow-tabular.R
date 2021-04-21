@@ -213,9 +213,10 @@ tail.ArrowTabular <- tail.ArrowDatum
 
 #' @export
 na.fail.ArrowTabular <- function(object, ...){
-  na_count <- sum(purrr::map_int(object$columns, ~.x$null_count))
-  if(na_count > 0){
-    stop("missing values in object")
+  for (col in seq_len(object$num_columns)) {
+    if (object$column(col - 1L)$null_count > 0) {
+      stop("missing values in object", call. = FALSE)
+    }
   }
   object
 }
