@@ -189,6 +189,10 @@ TEST(PyBuffer, InvalidInputObject) {
   ASSERT_EQ(old_refcnt, Py_REFCNT(input));
 }
 
+// Because of how it is declared, the Numpy C API instance initialized
+// within libarrow_python.dll may not be visible in this test under Windows
+// ("unresolved external symbol arrow_ARRAY_API referenced").
+#ifndef _WIN32
 TEST(PyBuffer, NumpyArray) {
   const npy_intp dims[1] = {10};
 
@@ -244,6 +248,7 @@ TEST(NumPyBuffer, NumpyArray) {
   buf.reset();
   ASSERT_EQ(old_refcnt, Py_REFCNT(arr));
 }
+#endif
 
 class DecimalTest : public ::testing::Test {
  public:
