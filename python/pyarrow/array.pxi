@@ -1160,6 +1160,7 @@ cdef class Array(_PandasConvertible):
                 "Cannot return a writable array if asking for zero-copy")
 
         c_options.zero_copy_only = zero_copy_only
+        c_options.decode_dictionaries = self.null_count
 
         with nogil:
             check_status(ConvertArrayToPandas(c_options, self.sp_array,
@@ -1170,13 +1171,7 @@ cdef class Array(_PandasConvertible):
         array = PyObject_to_object(out)
 
         if isinstance(array, dict):
-            if zero_copy_only or not self.null_count:
-                # zero_copy doesn't allow for nulls to be in the array
-                array = np.take(array['dictionary'], array['indices'])
-            else:
-                missings = array["indices"] < 0
-                array = np.take(array['dictionary'], array['indices'])
-                array[missings] = np.NaN
+            array = np.take(array['dictionary'], array['indices'])
 
         if writable and not array.flags.writeable:
             # if the conversion already needed to a copy, writeable is True
@@ -2013,6 +2008,16 @@ cdef class DictionaryArray(Array):
             self._indices = pyarrow_wrap_array(darr.indices())
 
         return self._indices
+
+    def to_numpy_CONVERT(self, zero_copy_only=True, writable=False):
+        if not zero_copy_only and self.null_count:
+            # When there are NULLs in the dictionary convert to a plain
+            # Array before doing the conversion to numpy.
+            converted_array = self.dictionary.take(self.indices)
+            return converted_array.to_numpy(zero_copy_only=zero_copy_only,
+                                            writable=writable)
+        return super().to_numpy(zero_copy_only=zero_copy_only,
+                                writable=writable)
 
     @staticmethod
     def from_arrays(indices, dictionary, mask=None, bint ordered=False,

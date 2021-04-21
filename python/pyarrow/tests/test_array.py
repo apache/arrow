@@ -687,22 +687,13 @@ def test_dictionary_from_numpy():
         else:
             assert d2[i].as_py() == dictionary[indices[i]]
 
-
 def test_dictionary_to_numpy():
+    expected = pa.array(["foo", "bar", None, "foo"]).to_numpy(zero_copy_only=False)
     a = pa.DictionaryArray.from_arrays(
         pa.array([0, 1, None, 0]),
         pa.array(['foo', 'bar'])
     )
-
-    result = a.to_numpy(zero_copy_only=False).tolist()
-    assert result == ["foo", "bar", np.NaN, "foo"]
-
-    try:
-        assert result == a.to_pandas().tolist()
-    except ModuleNotFoundError:
-        # arrow compiled without pandas,
-        # skip this specific assertion.
-        pass
+    assert (a.to_numpy(zero_copy_only=False) == expected).all()
 
     with pytest.raises(pa.ArrowInvalid):
         # to_numpy takes for granted that when zero_copy_only=True
@@ -714,13 +705,31 @@ def test_dictionary_to_numpy():
         pa.array([0, 1, 1, 0]),
         pa.array([13.7, 11.0])
     )
+    expected = pa.array([13.7, 11.0, 11.0, 13.7]).to_numpy()
+    assert (afloat.to_numpy(zero_copy_only=True) == expected).all()
+    assert (afloat.to_numpy(zero_copy_only=False) == expected).all()
 
-    assert afloat.to_numpy(zero_copy_only=True).tolist() == [
-        13.7, 11.0, 11.0, 13.7
-    ]
-    assert afloat.to_numpy(zero_copy_only=False).tolist() == [
-        13.7, 11.0, 11.0, 13.7
-    ]
+    afloat2 = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, None, 0]),
+        pa.array([13.7, 11.0])
+    )
+    expected = pa.array([13.7, 11.0, None, 13.7]).to_numpy(zero_copy_only=False)
+    assert np.array_equal(
+        afloat2.to_numpy(zero_copy_only=False), 
+        expected,
+        equal_nan=True
+    )
+
+    aints = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, None, 0]),
+        pa.array([7, 11])
+    )
+    expected = pa.array([7, 11, None, 7]).to_numpy(zero_copy_only=False)
+    assert np.array_equal(
+        aints.to_numpy(zero_copy_only=False),
+        expected,
+        equal_nan=True
+    )
 
 
 def test_dictionary_from_boxed_arrays():
