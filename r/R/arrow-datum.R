@@ -56,8 +56,8 @@ na.exclude.ArrowDatum <- na.omit.ArrowDatum
 
 #' @export
 na.fail.ArrowDatum <- function(object, ...){
-  if(object$null_count > 0){
-    stop("missing values in object")
+  if (object$null_count > 0) {
+    stop("missing values in object", call. = FALSE)
   }
   object
 }
@@ -179,4 +179,3 @@ sort.ArrowDatum <- function(x, decreasing = FALSE, na.last = NA, ...) {
     tbl$x$Take(tbl$SortIndices(names = c("is_na", "x"), descending = c(TRUE, decreasing)))
   }
 }
-
