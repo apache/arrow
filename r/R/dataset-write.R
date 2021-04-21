@@ -70,7 +70,7 @@
 #' # In the two previous examples we would have:
 #' # X = \{4,6,8\}, the number of cylinders.
 #' # Y = \{3,4,5\}, the number of forward gears.
-#' # Z = \{0,1,2\}, the number of saved fragments, starting from 0.
+#' # Z = \{0,1,2\}, the number of saved parts, starting from 0.
 #' 
 #' # And we can check what we just saved.
 #' list.files(one_part_dir, recursive = TRUE)
@@ -84,7 +84,7 @@
 #' if(requireNamespace("dplyr", quietly = TRUE)) {
 #'  d <- mtcars %>% group_by(cyl, gear)
 #'
-#'  # Write a structure X/Y/part-Z.parquet.
+#'  # Write a structure cyl=X/gear=Y/part-Z.parquet.
 #'  two_part_dir_2 <- tempfile()
 #'  d %>% write_dataset(two_part_dir_2)
 #'  list.files(two_part_dir_2, recursive = TRUE)
