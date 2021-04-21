@@ -1061,7 +1061,7 @@ Result<ORC_UNIQUE_PTR<liborc::Type>> GetOrcType(const Schema& schema) {
     ARROW_ASSIGN_OR_RAISE(auto orc_subtype, GetOrcType(*arrow_child_type));
     out_type->addStructField(field_name, std::move(orc_subtype));
   }
-  return out_type;
+  return std::move(out_type);
 }
 
 }  // namespace orc
