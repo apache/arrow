@@ -2009,16 +2009,6 @@ cdef class DictionaryArray(Array):
 
         return self._indices
 
-    def to_numpy_CONVERT(self, zero_copy_only=True, writable=False):
-        if not zero_copy_only and self.null_count:
-            # When there are NULLs in the dictionary convert to a plain
-            # Array before doing the conversion to numpy.
-            converted_array = self.dictionary.take(self.indices)
-            return converted_array.to_numpy(zero_copy_only=zero_copy_only,
-                                            writable=writable)
-        return super().to_numpy(zero_copy_only=zero_copy_only,
-                                writable=writable)
-
     @staticmethod
     def from_arrays(indices, dictionary, mask=None, bint ordered=False,
                     bint from_pandas=False, bint safe=True,
