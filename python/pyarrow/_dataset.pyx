@@ -2721,6 +2721,10 @@ cdef class Scanner(_Weakrefable):
     use_threads : bool, default True
         If enabled, then maximum parallelism will be used determined by
         the number of available CPU cores.
+    use_async : bool, default False
+        If enabled, the an async scanner will be used that should offer
+        better performance with high-latency/highly-parallel filesystems
+        (e.g. S3)
     memory_pool : MemoryPool, default None
         For memory allocations, if required. If not specified, uses the
         default pool.
@@ -2969,6 +2973,8 @@ def _filesystemdataset_write(
     FileSystem filesystem not None,
     Partitioning partitioning not None,
     FileWriteOptions file_options not None,
+    bint use_threads,
+    bint use_async,
     int max_partitions,
 ):
     """
@@ -2986,6 +2992,8 @@ def _filesystemdataset_write(
     c_options.max_partitions = max_partitions
     c_options.basename_template = tobytes(basename_template)
 
-    c_scanner = data.unwrap()
+    scanner = data._scanner(use_threads=use_threads, use_async=use_async)
+
+    c_scanner = (<Scanner> scanner).unwrap()
     with nogil:
         check_status(CFileSystemDataset.Write(c_options, c_scanner))

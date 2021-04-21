@@ -1034,6 +1034,10 @@ test_that("Scanner$ScanBatches", {
   batches <- ds$NewScan()$Finish()$ScanBatches()
   table <- Table$create(!!!batches)
   expect_equivalent(as.data.frame(table), rbind(df1, df2))
+
+  batches <- ds$NewScan()$UseAsync(TRUE)$Finish()$ScanBatches()
+  table <- Table$create(!!!batches)
+  expect_equivalent(as.data.frame(table), rbind(df1, df2))
 })
 
 test_that("Scanner$ToRecordBatchReader()", {
