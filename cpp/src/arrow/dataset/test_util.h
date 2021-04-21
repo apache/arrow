@@ -128,11 +128,11 @@ class FragmentDataset : public Dataset {
   Result<std::shared_ptr<Dataset>> ReplaceSchema(std::shared_ptr<Schema>) const override {
     return Status::NotImplemented("");
   }
-  Result<FragmentIterator> GetFragmentsImpl(Expression predicate) {
+
+ protected:
+  Result<FragmentIterator> GetFragmentsImpl(Expression predicate) override {
     return MakeVectorIterator(fragments_);
   }
-
- private:
   FragmentVector fragments_;
 };
 
