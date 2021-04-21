@@ -118,7 +118,7 @@ void CheckScalar(std::string func_name, const ArrayVector& inputs,
                             expected->Slice(2 * slice_length), options);
   }
 
-  // should also work with an empty slice
+  // Should also work with an empty slice
   CheckScalarNonRecursive(func_name, SliceAll(inputs, 0, 0), expected->Slice(0, 0),
                           options);
 
