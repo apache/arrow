@@ -321,7 +321,7 @@ TEST(TestGdvFnStubs, TestToCharFromInt32) {
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_FALSE(ctx.has_error());
 
-  out_str = gdv_fn_to_char_int32_int64(ctx_ptr, 347, -1, "%1", &out_len);
+  out_str = gdv_fn_to_char_int32_int64(ctx_ptr, 347, -1, "#", &out_len);
   EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer length can not be negative"));
   ctx.Reset();
 }
@@ -332,11 +332,11 @@ TEST(TestGdvFnStubs, TestToCharFromInt64) {
   int32_t out_len = 0;
 
   const char* out_str =
-      gdv_fn_to_char_int64_int64(ctx_ptr, 9223372036854775807LL, 100, "%1", &out_len);
+      gdv_fn_to_char_int64_int64(ctx_ptr, 9223372036854775807LL, 100, "####################", &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "9223372036854775807");
   EXPECT_FALSE(ctx.has_error());
 
-  out_str = gdv_fn_to_char_int64_int64(ctx_ptr, -9223372036854775807LL - 1, 100, "%1",
+  out_str = gdv_fn_to_char_int64_int64(ctx_ptr, -9223372036854775807LL - 1, 100, "####################",
                                        &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "-9223372036854775808");
   EXPECT_FALSE(ctx.has_error());
