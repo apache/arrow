@@ -483,7 +483,7 @@ struct GroupedCountImpl : public GroupedAggregator {
     const auto& input = batch[0].array();
 
     if (!options_.skip_nulls) {
-      if (input->GetNullCount() >= options_.min_count) {
+      if (input->GetNullCount() != 0) {
         for (int64_t i = 0, input_i = input->offset; i < input->length; ++i, ++input_i) {
           auto g = group_ids[i];
           raw_counts[g] += !BitUtil::GetBit(input->buffers[0]->data(), input_i);

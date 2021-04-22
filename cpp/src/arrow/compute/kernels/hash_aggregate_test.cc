@@ -686,13 +686,12 @@ TEST(GroupBy, CountNull) {
     [3.0, "gama"]
   ])");
 
-  CountOptions count_non_null{CountOptions::COUNT_NON_NULL},
-      count_null{CountOptions::COUNT_NULL};
+  ScalarAggregateOptions keepna{false}, skipna{true};
 
   using internal::Aggregate;
   for (auto agg : {
-           Aggregate{"hash_count", &count_non_null},
-           Aggregate{"hash_count", &count_null},
+           Aggregate{"hash_count", &keepna},
+           Aggregate{"hash_count", &skipna},
        }) {
     SCOPED_TRACE(agg.function);
     ValidateGroupBy({agg}, {batch->GetColumnByName("argument")},

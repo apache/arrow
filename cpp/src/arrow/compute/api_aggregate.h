@@ -37,6 +37,9 @@ class ExecContext;
 // ----------------------------------------------------------------------
 // Aggregate functions
 
+/// \addtogroup compute-concrete-options
+/// @{
+
 /// \brief Control general scalar aggregate kernel behavior
 ///
 /// By default, null values are ignored
