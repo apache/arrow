@@ -349,6 +349,274 @@ std::ostream& operator<<(std::ostream& out, const TestScannerParams& params) {
   return out;
 }
 
+class FileFormatWriterMixin {
+  virtual std::shared_ptr<Buffer> Write(RecordBatchReader* reader) = 0;
+  virtual std::shared_ptr<Buffer> Write(const Table& table) = 0;
+};
+
+/// WriterMixin should be a class with these static methods:
+/// std::shared_ptr<Buffer> Write(RecordBatchReader* reader);
+template <typename WriterMixin>
+class FileFormatFixtureMixin : public ::testing::Test {
+ public:
+  constexpr static int64_t kBatchSize = 1UL << 12;
+  constexpr static int64_t kBatchRepetitions = 1 << 5;
+
+  int64_t expected_batches() const { return kBatchRepetitions; }
+  int64_t expected_rows() const { return kBatchSize * kBatchRepetitions; }
+
+  std::shared_ptr<FileSource> GetFileSource(RecordBatchReader* reader) {
+    auto buffer = WriterMixin::Write(reader);
+    return std::make_shared<FileSource>(std::move(buffer));
+  }
+
+  virtual std::shared_ptr<RecordBatchReader> GetRecordBatchReader(
+      std::shared_ptr<Schema> schema) {
+    return MakeGeneratedRecordBatch(schema, kBatchSize, kBatchRepetitions);
+  }
+
+  Result<std::shared_ptr<io::BufferOutputStream>> GetFileSink() {
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ResizableBuffer> buffer,
+                          AllocateResizableBuffer(0));
+    return std::make_shared<io::BufferOutputStream>(buffer);
+  }
+
+  void SetSchema(std::vector<std::shared_ptr<Field>> fields) {
+    opts_ = std::make_shared<ScanOptions>();
+    opts_->dataset_schema = schema(std::move(fields));
+    ASSERT_OK(SetProjection(opts_.get(), opts_->dataset_schema->field_names()));
+  }
+
+  void SetFilter(Expression filter) {
+    EXPECT_NE(nullptr, opts_) << "Must call SetSchema() in test";
+    ASSERT_OK_AND_ASSIGN(opts_->filter, filter.Bind(*opts_->dataset_schema));
+  }
+
+  void Project(std::vector<std::string> names) {
+    EXPECT_NE(nullptr, opts_) << "Must call SetSchema() in test";
+    ASSERT_OK(SetProjection(opts_.get(), std::move(names)));
+  }
+
+  // Shared test cases
+  void TestOpenFailureWithRelevantError(FileFormat* format, StatusCode code) {
+    std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
+    auto result = format->Inspect(FileSource(buf));
+    EXPECT_FALSE(result.ok());
+    EXPECT_EQ(code, result.status().code());
+    EXPECT_THAT(result.status().ToString(), testing::HasSubstr("<Buffer>"));
+
+    constexpr auto file_name = "herp/derp";
+    ASSERT_OK_AND_ASSIGN(
+        auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {fs::File(file_name)}));
+    result = format->Inspect({file_name, fs});
+    EXPECT_FALSE(result.ok());
+    EXPECT_EQ(code, result.status().code());
+    EXPECT_THAT(result.status().ToString(), testing::HasSubstr(file_name));
+  }
+  void TestInspect(FileFormat* format) {
+    auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
+    auto source = GetFileSource(reader.get());
+
+    ASSERT_OK_AND_ASSIGN(auto actual, format->Inspect(*source.get()));
+    AssertSchemaEqual(*actual, *reader->schema(), /*check_metadata=*/false);
+  }
+  void TestIsSupported(FileFormat* format) {
+    auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
+    auto source = GetFileSource(reader.get());
+
+    bool supported = false;
+
+    std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
+    ASSERT_OK_AND_ASSIGN(supported, format->IsSupported(FileSource(buf)));
+    ASSERT_EQ(supported, false);
+
+    buf = std::make_shared<Buffer>(util::string_view("corrupted"));
+    ASSERT_OK_AND_ASSIGN(supported, format->IsSupported(FileSource(buf)));
+    ASSERT_EQ(supported, false);
+
+    ASSERT_OK_AND_ASSIGN(supported, format->IsSupported(*source));
+    EXPECT_EQ(supported, true);
+  }
+  std::shared_ptr<Buffer> TestWrite(FileFormat* format, std::shared_ptr<Schema> schema,
+                                    std::shared_ptr<FileWriteOptions> options = nullptr) {
+    SetSchema(schema->fields());
+    EXPECT_OK_AND_ASSIGN(auto sink, GetFileSink());
+
+    if (!options) options = format->DefaultWriteOptions();
+    EXPECT_OK_AND_ASSIGN(auto writer, format->MakeWriter(sink, schema, options));
+    ARROW_EXPECT_OK(writer->Write(GetRecordBatchReader(schema).get()));
+    ARROW_EXPECT_OK(writer->Finish());
+    EXPECT_OK_AND_ASSIGN(auto written, sink->Finish());
+    return written;
+  }
+
+ protected:
+  std::shared_ptr<ScanOptions> opts_;
+};
+
+template <typename Writer>
+class FileFormatScanMixin : public FileFormatFixtureMixin<Writer>,
+                            public ::testing::WithParamInterface<TestScannerParams> {
+ public:
+  int64_t expected_batches() const { return GetParam().total_batches(); }
+  int64_t expected_rows() const { return GetParam().expected_rows(); }
+
+  std::shared_ptr<RecordBatchReader> GetRecordBatchReader(
+      std::shared_ptr<Schema> schema) override {
+    return MakeGeneratedRecordBatch(schema, GetParam().items_per_batch,
+                                    GetParam().total_batches());
+  }
+
+  // Scan the fragment through the scanner
+  RecordBatchIterator Batches(std::shared_ptr<Fragment> fragment) {
+    EXPECT_OK_AND_ASSIGN(auto schema, fragment->ReadPhysicalSchema());
+    EXPECT_NE(nullptr, opts_) << "Must call SetSchema() in test";
+    auto dataset = std::make_shared<FragmentDataset>(schema, FragmentVector{fragment});
+    ScannerBuilder builder(dataset, opts_);
+    ARROW_EXPECT_OK(builder.UseAsync(GetParam().use_async));
+    ARROW_EXPECT_OK(builder.UseThreads(GetParam().use_threads));
+    EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+    EXPECT_OK_AND_ASSIGN(auto batch_it, scanner->ScanBatches());
+    return MakeMapIterator([](TaggedRecordBatch tagged) { return tagged.record_batch; },
+                           std::move(batch_it));
+  }
+
+  // Scan the fragment directly
+  RecordBatchIterator PhysicalBatches(std::shared_ptr<Fragment> fragment) {
+    EXPECT_NE(nullptr, opts_) << "Must call SetSchema() in test";
+    if (GetParam().use_async) {
+      EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
+      EXPECT_OK_AND_ASSIGN(auto batch_it, MakeGeneratorIterator(std::move(batch_gen)));
+      return batch_it;
+    }
+    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
+    return MakeFlattenIterator(MakeMaybeMapIterator(
+        [](std::shared_ptr<ScanTask> scan_task) { return scan_task->Execute(); },
+        std::move(scan_task_it)));
+  }
+
+  // Shared test cases
+  void TestScan(FileFormat* format) {
+    auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
+    auto source = this->GetFileSource(reader.get());
+
+    this->SetSchema(reader->schema()->fields());
+    ASSERT_OK_AND_ASSIGN(auto fragment, format->MakeFragment(*source));
+
+    int64_t row_count = 0;
+    for (auto maybe_batch : Batches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      row_count += batch->num_rows();
+    }
+    ASSERT_EQ(row_count, GetParam().expected_rows());
+  }
+
+  void TestScanProjected(FileFormat* format) {
+    auto f32 = field("f32", float32());
+    auto f64 = field("f64", float64());
+    auto i32 = field("i32", int32());
+    auto i64 = field("i64", int64());
+    this->SetSchema({f64, i64, f32, i32});
+    this->Project({"f64"});
+    this->SetFilter(equal(field_ref("i32"), literal(0)));
+
+    // NB: projection is applied by the scanner; FileFragment does not evaluate it so
+    // we will not drop "i32" even though it is not projected since we need it for
+    // filtering
+    auto expected_schema = schema({f64, i32});
+
+    auto reader = this->GetRecordBatchReader(opts_->dataset_schema);
+    auto source = this->GetFileSource(reader.get());
+    ASSERT_OK_AND_ASSIGN(auto fragment, format->MakeFragment(*source));
+
+    int64_t row_count = 0;
+
+    for (auto maybe_batch : PhysicalBatches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      row_count += batch->num_rows();
+      AssertSchemaEqual(*batch->schema(), *expected_schema,
+                        /*check_metadata=*/false);
+    }
+
+    ASSERT_EQ(row_count, expected_rows());
+  }
+
+  void TestScanProjectedMissingCols(FileFormat* format) {
+    auto f32 = field("f32", float32());
+    auto f64 = field("f64", float64());
+    auto i32 = field("i32", int32());
+    auto i64 = field("i64", int64());
+    this->SetSchema({f64, i64, f32, i32});
+    this->Project({"f64"});
+    this->SetFilter(equal(field_ref("i32"), literal(0)));
+
+    auto reader_without_i32 = this->GetRecordBatchReader(schema({f64, i64, f32}));
+    auto reader_without_f64 = this->GetRecordBatchReader(schema({i64, f32, i32}));
+    auto reader = this->GetRecordBatchReader(schema({f64, i64, f32, i32}));
+
+    auto readers = {reader.get(), reader_without_i32.get(), reader_without_f64.get()};
+    for (auto reader : readers) {
+      auto source = this->GetFileSource(reader);
+      ASSERT_OK_AND_ASSIGN(auto fragment, format->MakeFragment(*source));
+
+      // NB: projection is applied by the scanner; FileFragment does not evaluate it so
+      // we will not drop "i32" even though it is not projected since we need it for
+      // filtering
+      //
+      // in the case where a file doesn't contain a referenced field, we won't
+      // materialize it as nulls later
+      std::shared_ptr<Schema> expected_schema;
+      if (reader == reader_without_i32.get()) {
+        expected_schema = schema({f64});
+      } else if (reader == reader_without_f64.get()) {
+        expected_schema = schema({i32});
+      } else {
+        expected_schema = schema({f64, i32});
+      }
+
+      int64_t row_count = 0;
+      for (auto maybe_batch : PhysicalBatches(fragment)) {
+        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+        row_count += batch->num_rows();
+        AssertSchemaEqual(*batch->schema(), *expected_schema,
+                          /*check_metadata=*/false);
+      }
+      ASSERT_EQ(row_count, expected_rows());
+    }
+  }
+  void TestScanWithVirtualColumn(FileFormat* format) {
+    auto reader = this->GetRecordBatchReader(schema({field("f64", float64())}));
+    auto source = this->GetFileSource(reader.get());
+    // NB: dataset_schema includes a column not present in the file
+    this->SetSchema({reader->schema()->field(0), field("virtual", int32())});
+    ASSERT_OK_AND_ASSIGN(auto fragment, format->MakeFragment(*source));
+
+    ASSERT_OK_AND_ASSIGN(auto physical_schema, fragment->ReadPhysicalSchema());
+    AssertSchemaEqual(Schema({field("f64", float64())}), *physical_schema);
+    {
+      int64_t row_count = 0;
+      for (auto maybe_batch : Batches(fragment)) {
+        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+        AssertSchemaEqual(*batch->schema(), *opts_->projected_schema);
+        row_count += batch->num_rows();
+      }
+      ASSERT_EQ(row_count, expected_rows());
+    }
+    {
+      int64_t row_count = 0;
+      for (auto maybe_batch : PhysicalBatches(fragment)) {
+        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+        AssertSchemaEqual(*batch->schema(), *physical_schema);
+        row_count += batch->num_rows();
+      }
+      ASSERT_EQ(row_count, expected_rows());
+    }
+  }
+
+ protected:
+  using FileFormatFixtureMixin<Writer>::opts_;
+};
+
 /// \brief A dummy FileFormat implementation
 class DummyFileFormat : public FileFormat {
  public:
