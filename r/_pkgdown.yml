@@ -109,6 +109,7 @@ reference:
       - RecordBatchReader
       - RecordBatchWriter
       - CsvReadOptions
+      - CsvWriteOptions
   - title: Arrow data containers
     contents:
       - array
