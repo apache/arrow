@@ -388,12 +388,10 @@ class FileFormatFixtureMixin : public ::testing::Test {
   }
 
   void SetFilter(Expression filter) {
-    EXPECT_NE(nullptr, opts_) << "Must call SetSchema() in test";
     ASSERT_OK_AND_ASSIGN(opts_->filter, filter.Bind(*opts_->dataset_schema));
   }
 
   void Project(std::vector<std::string> names) {
-    EXPECT_NE(nullptr, opts_) << "Must call SetSchema() in test";
     ASSERT_OK(SetProjection(opts_.get(), std::move(names)));
   }
 
@@ -451,7 +449,7 @@ class FileFormatFixtureMixin : public ::testing::Test {
   }
 
  protected:
-  std::shared_ptr<ScanOptions> opts_;
+  std::shared_ptr<ScanOptions> opts_ = std::make_shared<ScanOptions>();
 };
 
 template <typename Writer>
@@ -470,7 +468,6 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<Writer>,
   // Scan the fragment through the scanner.
   RecordBatchIterator Batches(std::shared_ptr<Fragment> fragment) {
     EXPECT_OK_AND_ASSIGN(auto schema, fragment->ReadPhysicalSchema());
-    EXPECT_NE(nullptr, opts_) << "Must call SetSchema() in test";
     auto dataset = std::make_shared<FragmentDataset>(schema, FragmentVector{fragment});
     ScannerBuilder builder(dataset, opts_);
     ARROW_EXPECT_OK(builder.UseAsync(GetParam().use_async));
@@ -483,7 +480,6 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<Writer>,
 
   // Scan the fragment directly, without using the scanner.
   RecordBatchIterator PhysicalBatches(std::shared_ptr<Fragment> fragment) {
-    EXPECT_NE(nullptr, opts_) << "Must call SetSchema() in test";
     if (GetParam().use_async) {
       EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
       EXPECT_OK_AND_ASSIGN(auto batch_it, MakeGeneratorIterator(std::move(batch_gen)));
@@ -511,6 +507,10 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<Writer>,
     ASSERT_EQ(row_count, GetParam().expected_rows());
   }
 
+  bool FormatSupportsColumnSelection(const FileFormat& format) {
+    return format.type_name() != "csv";
+  }
+
   void TestScanProjected(FileFormat* format) {
     auto f32 = field("f32", float32());
     auto f64 = field("f64", float64());
@@ -523,7 +523,10 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<Writer>,
     // NB: projection is applied by the scanner; FileFragment does not evaluate it so
     // we will not drop "i32" even though it is not projected since we need it for
     // filtering
-    auto expected_schema = schema({f64, i32});
+    // NB: the CSV reader always reads all columns
+    auto expected_schema = FormatSupportsColumnSelection(*format)
+                               ? schema({f64, i32})
+                               : schema({f64, i64, f32, i32});
 
     auto reader = this->GetRecordBatchReader(opts_->dataset_schema);
     auto source = this->GetFileSource(reader.get());
@@ -556,6 +559,7 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<Writer>,
 
     auto readers = {reader.get(), reader_without_i32.get(), reader_without_f64.get()};
     for (auto reader : readers) {
+      SCOPED_TRACE(reader->schema()->ToString());
       auto source = this->GetFileSource(reader);
       ASSERT_OK_AND_ASSIGN(auto fragment, format->MakeFragment(*source));
 
@@ -566,7 +570,9 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<Writer>,
       // in the case where a file doesn't contain a referenced field, we won't
       // materialize it as nulls later
       std::shared_ptr<Schema> expected_schema;
-      if (reader == reader_without_i32.get()) {
+      if (!FormatSupportsColumnSelection(*format)) {
+        expected_schema = reader->schema();
+      } else if (reader == reader_without_i32.get()) {
         expected_schema = schema({f64});
       } else if (reader == reader_without_f64.get()) {
         expected_schema = schema({i32});

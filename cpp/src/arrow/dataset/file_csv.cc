@@ -90,9 +90,9 @@ static inline Result<csv::ConvertOptions> GetConvertOptions(
       GetFragmentScanOptions<CsvFragmentScanOptions>(
           kCsvTypeName, scan_options.get(), format.default_fragment_scan_options));
   auto convert_options = csv_scan_options->convert_options;
-  for (FieldRef ref : scan_options->MaterializedFields()) {
-    ARROW_ASSIGN_OR_RAISE(auto field, ref.GetOne(*scan_options->dataset_schema));
-
+  // Properly set conversion types even for non-materialized fields
+  // (since we're reading all of them anyways)
+  for (auto field : scan_options->dataset_schema->fields()) {
     if (column_names.find(field->name()) == column_names.end()) continue;
     convert_options.column_types[field->name()] = field->type();
   }

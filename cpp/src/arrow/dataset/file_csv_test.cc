@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/csv/writer.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/partition.h"
@@ -36,7 +37,21 @@
 namespace arrow {
 namespace dataset {
 
-class TestCsvFileFormat : public testing::TestWithParam<Compression::type> {
+class ArrowCsvWriterMixin {
+ public:
+  static std::shared_ptr<Buffer> Write(RecordBatchReader* reader) {
+    EXPECT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create());
+    std::shared_ptr<Table> table;
+    ARROW_EXPECT_OK(reader->ReadAll(&table));
+    auto options = csv::WriteOptions::Defaults();
+    ARROW_EXPECT_OK(csv::WriteCSV(*table, options, default_memory_pool(), sink.get()));
+    EXPECT_OK_AND_ASSIGN(auto out, sink->Finish());
+    return out;
+  }
+};
+
+class TestCsvFileFormat : public FileFormatFixtureMixin<ArrowCsvWriterMixin>,
+                          public ::testing::WithParamInterface<Compression::type> {
  public:
   Compression::type GetCompression() { return GetParam(); }
 
@@ -84,15 +99,11 @@ class TestCsvFileFormat : public testing::TestWithParam<Compression::type> {
     return Batches(std::move(scan_task_it));
   }
 
-  void SetSchema(std::vector<std::shared_ptr<Field>> fields) {
-    opts_->dataset_schema = schema(std::move(fields));
-    ASSERT_OK(SetProjection(opts_.get(), opts_->dataset_schema->field_names()));
-  }
-
   std::shared_ptr<CsvFileFormat> format_ = std::make_shared<CsvFileFormat>();
-  std::shared_ptr<ScanOptions> opts_ = std::make_shared<ScanOptions>();
 };
 
+// Basic scanning tests (to exercise compression support); see the parameterized test
+// below for more comprehensive testing of scan behaviors
 TEST_P(TestCsvFileFormat, ScanRecordBatchReader) {
   auto source = GetFileSource(R"(f64
 1.0
@@ -199,18 +210,11 @@ TEST_P(TestCsvFileFormat, OpenFailureWithRelevantError) {
   if (GetCompression() != Compression::type::UNCOMPRESSED) {
     GTEST_SKIP() << "File source name is different with compression";
   }
-  auto source = GetFileSource("");
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("<Buffer>"),
-                                  format_->Inspect(*source).status());
-
-  constexpr auto file_name = "herp/derp";
-  ASSERT_OK_AND_ASSIGN(
-      auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {fs::File(file_name)}));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr(file_name),
-                                  format_->Inspect({file_name, fs}).status());
+  TestOpenFailureWithRelevantError(format_.get(), StatusCode::Invalid);
 }
 
 TEST_P(TestCsvFileFormat, Inspect) {
+  TestInspect(format_.get());
   auto source = GetFileSource(R"(f64
 1.0
 
@@ -221,6 +225,7 @@ N/A
 }
 
 TEST_P(TestCsvFileFormat, IsSupported) {
+  TestIsSupported(format_.get());
   bool supported;
 
   auto source = GetFileSource("");
@@ -277,6 +282,10 @@ N/A,bar
   ASSERT_OK(batch_it.Visit([](TaggedRecordBatch) { return Status::OK(); }));
 }
 
+TEST_P(TestCsvFileFormat, WriteRecordBatchReader) {
+  GTEST_SKIP() << "Write support not implemented for CSV";
+}
+
 INSTANTIATE_TEST_SUITE_P(TestUncompressedCsv, TestCsvFileFormat,
                          ::testing::Values(Compression::UNCOMPRESSED));
 #ifdef ARROW_WITH_BZ2
@@ -296,6 +305,31 @@ INSTANTIATE_TEST_SUITE_P(TestGZipCsv, TestCsvFileFormat,
 INSTANTIATE_TEST_SUITE_P(TestZSTDCsv, TestCsvFileFormat,
                          ::testing::Values(Compression::ZSTD));
 #endif
+
+class TestCsvFileFormatScan : public FileFormatScanMixin<ArrowCsvWriterMixin> {
+ public:
+  TestCsvFileFormatScan() : format_(std::make_shared<CsvFileFormat>()) {
+    format_->parse_options.ignore_empty_lines = false;
+  }
+
+ protected:
+  std::shared_ptr<CsvFileFormat> format_;
+};
+
+TEST_P(TestCsvFileFormatScan, ScanRecordBatchReader) { TestScan(format_.get()); }
+TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
+  TestScanWithVirtualColumn(format_.get());
+}
+TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderProjected) {
+  TestScanProjected(format_.get());
+}
+TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
+  TestScanProjectedMissingCols(format_.get());
+}
+
+INSTANTIATE_TEST_SUITE_P(TestScan, TestCsvFileFormatScan,
+                         ::testing::ValuesIn(TestScannerParams::Values()),
+                         TestScannerParams::ToTestNameString);
 
 }  // namespace dataset
 }  // namespace arrow
