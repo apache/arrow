@@ -1160,7 +1160,7 @@ cdef class Array(_PandasConvertible):
                 "Cannot return a writable array if asking for zero-copy")
 
         c_options.zero_copy_only = zero_copy_only
-        c_options.decode_dictionaries = self.null_count
+        c_options.decode_dictionaries = True
 
         with nogil:
             check_status(ConvertArrayToPandas(c_options, self.sp_array,
