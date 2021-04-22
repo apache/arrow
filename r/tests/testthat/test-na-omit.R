@@ -17,12 +17,10 @@
 
 data_no_na <- c(2:10)
 data_na <- c(data_no_na, NA_real_)
-scalar_na <- Scalar$create(NA)
-scalar_one <- Scalar$create(1)
-tbl <- Table$create(example_data)
-batch <- record_batch(example_data)
 
 test_that("na.fail on Scalar", {
+  scalar_na <- Scalar$create(NA)
+  scalar_one <- Scalar$create(1)
   expect_as_vector(na.fail(scalar_one), 1)
   expect_error(na.fail(scalar_na), "missing values in object")
 })
@@ -43,31 +41,38 @@ test_that("na.fail on Array and ChunkedArray", {
 })
 
 test_that("na.fail on Scalar", {
+  scalar_one <- Scalar$create(1)
   expect_error(na.fail(scalar_na), regexp = "missing values in object")
   expect_as_vector(na.fail(scalar_one), na.fail(1))
 })
 
 test_that("na.omit on Table", {
+  tbl <- Table$create(example_data)
   expect_equivalent(as.data.frame(na.omit(tbl)), na.omit(example_data))
 })
 
 test_that("na.exclude on Table", {
+  tbl <- Table$create(example_data)
   expect_equivalent(as.data.frame(na.exclude(tbl)), na.exclude(example_data))
 })
 
 test_that("na.fail on Table", {
+  tbl <- Table$create(example_data)
   expect_error(na.fail(tbl), "missing values in object")
 })
 
 test_that("na.omit on RecordBatch", {
+  batch <- record_batch(example_data)
   expect_equivalent(as.data.frame(na.omit(batch)), na.omit(example_data))
 })
 
 test_that("na.exclude on RecordBatch", {
+  batch <- record_batch(example_data)
   expect_equivalent(as.data.frame(na.exclude(batch)), na.omit(example_data))
 })
 
 test_that("na.fail on RecordBatch", {
+  batch <- record_batch(example_data)
   expect_error(na.fail(batch), "missing values in object")
 })
 
