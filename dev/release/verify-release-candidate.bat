@@ -36,7 +36,7 @@ curl -k -O %_DIST_URL%/apache-arrow-%1-rc%2/%_TARBALL% || exit /B 1
 
 tar xf %_TARBALL% -C %_VERIFICATION_DIR_UNIX%
 
-set PYTHON=3.6
+set PYTHON=3.8
 
 @rem Using call with conda.bat seems necessary to avoid terminating the batch
 @rem script execution
