@@ -408,6 +408,17 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
   )
 }
 
+#' @export
+CsvWriteOptions <- R6Class("CsvWriteOptions", inherit = ArrowObject)
+CsvWriteOptions$create <- function(include_header = TRUE, batch_size = 1024L){
+  csv___WriteOptions__initialize(
+    list(
+      include_header = include_header,
+      batch_size = batch_size
+    )
+  )
+}
+
 readr_to_csv_read_options <- function(skip, col_names, col_types) {
   if (isTRUE(col_names)) {
     # C++ default to parse is 0-length string array
@@ -584,4 +595,56 @@ readr_to_csv_convert_options <- function(na,
     timestamp_parsers = timestamp_parsers,
     include_columns = include_columns
   )
+}
+
+#' Write CSV file to disk
+#'
+#' @param x `data.frame`, [RecordBatch], or [Table]
+#' @param sink A string file path, URI, or [OutputStream], or path in a file
+#' system (`SubTreeFileSystem`)
+#' @param batch_size Maximum number of rows processed at a time. Default is 1024
+#' @param include_header Whether to write an initial header line with column names
+#'
+#' @return The input `x`, invisibly. Note that if `sink` is an [OutputStream],
+#' the stream will be left open.
+#' @export
+#' @examples
+#' \donttest{
+#' tf <- tempfile()
+#' on.exit(unlink(tf))
+#' write_csv_arrow(mtcars, tf)
+#' }
+#' @include arrow-package.R
+write_csv_arrow <- function(x,
+                          sink,
+                          include_header = TRUE,
+                          batch_size = 1024L,
+                          memory_pool = default_memory_pool(),
+                          ) {
+  # Handle and validate options before touching data
+  batch_size <- as.integer(batch_size)
+  assert_that(batch_size > 0)
+  assert_that(length(include_header) == 1)
+  assert_that(is.logical(include_header))
+  
+  write_options = CsvWriteOptions$create(include_header, batch_size)
+  
+  x_out <- x
+  if (is.data.frame(x)) {
+    x <- Table$create(x)
+  }
+  assert_is(x, c("Table", "RecordBatch"))
+  
+  if (!inherits(sink, "OutputStream")) {
+    sink <- make_output_stream(sink)
+    on.exit(sink$close())
+  }
+  
+  if(inherits(x, "RecordBatch")){
+    csv__WriteCSV___RecordBatch(x, write_options, memory_pool, sink)
+  } else if(inherits(x, "Table")){
+    csv__WriteCSV___Table(x, write_options, memory_pool, sink)
+  }
+  
+  invisible(x_out)
 }
