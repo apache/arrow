@@ -49,7 +49,7 @@ call conda create --no-shortcuts -c conda-forge -f -q -y -p %_VERIFICATION_CONDA
 
 call activate %_VERIFICATION_CONDA_ENV% || exit /B 1
 
-set GENERATOR=Visual Studio 15 2017 Win64
+set GENERATOR=Visual Studio 16 2019
 set CONFIGURATION=release
 
 pushd %ARROW_SOURCE%
@@ -62,13 +62,13 @@ set PATH=%INSTALL_DIR%\bin;%PATH%
 mkdir %ARROW_SOURCE%\cpp\build
 pushd %ARROW_SOURCE%\cpp\build
 
-@rem This is the path for Visual Studio Community 2017
-call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tools\VsDevCmd.bat" -arch=amd64
+@rem This is the path for Visual Studio Community 2019
+call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\Common7\Tools\VsDevCmd.bat" -arch=amd64
 
 @rem NOTE(wesm): not using Ninja for now to be able to more easily control the
 @rem generator used
 
-cmake -G "%GENERATOR%" ^
+cmake -G "%GENERATOR%" -A x64 ^
       -DARROW_BOOST_USE_SHARED=ON ^
       -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BUILD_TESTS=ON ^
