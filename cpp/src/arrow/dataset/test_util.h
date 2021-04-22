@@ -467,7 +467,7 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<Writer>,
                                     GetParam().total_batches());
   }
 
-  // Scan the fragment through the scanner
+  // Scan the fragment through the scanner.
   RecordBatchIterator Batches(std::shared_ptr<Fragment> fragment) {
     EXPECT_OK_AND_ASSIGN(auto schema, fragment->ReadPhysicalSchema());
     EXPECT_NE(nullptr, opts_) << "Must call SetSchema() in test";
@@ -481,7 +481,7 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<Writer>,
                            std::move(batch_it));
   }
 
-  // Scan the fragment directly
+  // Scan the fragment directly, without using the scanner.
   RecordBatchIterator PhysicalBatches(std::shared_ptr<Fragment> fragment) {
     EXPECT_NE(nullptr, opts_) << "Must call SetSchema() in test";
     if (GetParam().use_async) {
