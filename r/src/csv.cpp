@@ -23,6 +23,15 @@
 #include <arrow/util/value_parsing.h>
 
 // [[arrow::export]]
+std::shared_ptr<arrow::csv::WriteOptions> csv___WriteOptions__initialize(
+    cpp11::list options) {
+  auto res = std::make_shared<arrow::csv::WriteOptions>(arrow::csv::WriteOptions::Defaults());
+  res->include_header = cpp11::as_cpp<bool>(options["include_header"]);
+  res->batch_size = cpp11::as_cpp<int>(options["batch_size"]);
+  return res;
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(
     cpp11::list options) {
   auto res =
@@ -173,5 +182,22 @@ std::shared_ptr<arrow::TimestampParser> TimestampParser__MakeStrptime(
 std::shared_ptr<arrow::TimestampParser> TimestampParser__MakeISO8601() {
   return arrow::TimestampParser::MakeISO8601();
 }
+
+// [[arrow::export]]
+void csv__WriteCSV___Table(const std::shared_ptr<arrow::Table>& table,
+                           const std::shared_ptr<arrow::csv::WriteOptions> write_options,
+                           std::shared_ptr<arrow::MemoryPool>& pool,
+                           std::shared_ptr<arrow::io::OutputStream>& stream) {
+  StopIfNotOk(arrow::csv::writer::WriteCSV(*table, write_options, *pool, stream.get()));
+}
+
+// [[arrow::export]]
+void csv__WriteCSV___RecordBatch(const std::shared_ptr<arrow::RecordBatch>& record_batch,
+                           const std::shared_ptr<arrow::csv::WriteOptions> write_options,
+                           std::shared_ptr<arrow::MemoryPool>& pool,
+                           std::shared_ptr<arrow::io::OutputStream>& stream) {
+  StopIfNotOk(arrow::csv::writer::WriteCSV(*record_batch, write_options, *pool, stream.get()));
+}
+
 
 #endif
