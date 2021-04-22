@@ -197,6 +197,7 @@ class build_ext(_build_ext):
         '_cuda',
         '_flight',
         '_dataset',
+        '_feather',
         '_parquet',
         '_orc',
         '_plasma',
