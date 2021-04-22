@@ -702,7 +702,7 @@ def test_dictionary_to_numpy():
         # to_numpy takes for granted that when zero_copy_only=True
         # there will be no nulls.
         # If that changes, nulls handling will have to be updated in to_numpy
-        # as we won't be able to rely anymore on decoding the DictionaryArray
+        # as we won't be able to rely anymore on decoding the DictionaryArray
         # to handle nulls.
         a.to_numpy(zero_copy_only=True)
 
