@@ -39,9 +39,6 @@
 namespace arrow {
 namespace dataset {
 
-constexpr int64_t kBatchSize = 1UL << 12;
-constexpr int64_t kBatchRepetitions = 1 << 5;
-
 using internal::checked_pointer_cast;
 
 class ArrowIpcWriterMixin {
