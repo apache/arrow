@@ -507,10 +507,6 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<Writer>,
     ASSERT_EQ(row_count, GetParam().expected_rows());
   }
 
-  bool FormatSupportsColumnSelection(const FileFormat& format) {
-    return format.type_name() != "csv";
-  }
-
   void TestScanProjected(FileFormat* format) {
     auto f32 = field("f32", float32());
     auto f64 = field("f64", float64());
@@ -523,10 +519,7 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<Writer>,
     // NB: projection is applied by the scanner; FileFragment does not evaluate it so
     // we will not drop "i32" even though it is not projected since we need it for
     // filtering
-    // NB: the CSV reader always reads all columns
-    auto expected_schema = FormatSupportsColumnSelection(*format)
-                               ? schema({f64, i32})
-                               : schema({f64, i64, f32, i32});
+    auto expected_schema = schema({f64, i32});
 
     auto reader = this->GetRecordBatchReader(opts_->dataset_schema);
     auto source = this->GetFileSource(reader.get());
@@ -570,9 +563,7 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<Writer>,
       // in the case where a file doesn't contain a referenced field, we won't
       // materialize it as nulls later
       std::shared_ptr<Schema> expected_schema;
-      if (!FormatSupportsColumnSelection(*format)) {
-        expected_schema = reader->schema();
-      } else if (reader == reader_without_i32.get()) {
+      if (reader == reader_without_i32.get()) {
         expected_schema = schema({f64});
       } else if (reader == reader_without_f64.get()) {
         expected_schema = schema({i32});
