@@ -54,6 +54,7 @@ jobs:
     name: AMD64 Conda Integration Test
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
