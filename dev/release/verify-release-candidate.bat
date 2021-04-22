@@ -32,8 +32,7 @@ set _TARBALL=apache-arrow-%1.tar.gz
 set ARROW_SOURCE=%_VERIFICATION_DIR%\apache-arrow-%1
 set INSTALL_DIR=%_VERIFICATION_DIR%\install
 
-@rem Requires GNU Wget for Windows
-wget --no-check-certificate -O %_TARBALL% %_DIST_URL%/apache-arrow-%1-rc%2/%_TARBALL% || exit /B 1
+curl -k -O %_DIST_URL%/apache-arrow-%1-rc%2/%_TARBALL% || exit /B 1
 
 tar xf %_TARBALL% -C %_VERIFICATION_DIR_UNIX%
 
