@@ -57,7 +57,7 @@ cdef class ReadOptions(_Weakrefable):
     block_size : int, optional
         How much bytes to process at a time from the input stream.
         This will determine multi-threading granularity as well as
-        the size of individual chunks in the Table.
+        the size of individual record batches.
     skip_rows: int, optional (default 0)
         The number of rows to skip before the column names (if any)
         and the CSV data.
@@ -110,7 +110,7 @@ cdef class ReadOptions(_Weakrefable):
         """
         How much bytes to process at a time from the input stream.
         This will determine multi-threading granularity as well as
-        the size of individual chunks in the Table.
+        the size of individual record batches.
         """
         return self.options.block_size
 
