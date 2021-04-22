@@ -18,7 +18,7 @@
 expect_as_vector <- function(x, y, ignore_attr = FALSE, ...) {
   expect_fun <- if(ignore_attr){
     expect_equivalent
-  } else{
+  } else {
     expect_equal
   }
   expect_fun(as.vector(x), y, ...)
