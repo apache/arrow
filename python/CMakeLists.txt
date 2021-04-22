@@ -391,7 +391,8 @@ set(CYTHON_EXTENSIONS
     _compute
     _csv
     _feather
-    _json)
+    _json
+    _hdfsio)
 
 set(LINK_LIBS arrow_shared arrow_python_shared)
 

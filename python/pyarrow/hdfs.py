@@ -23,10 +23,10 @@ import warnings
 
 from pyarrow.util import implements, _DEPR_MSG
 from pyarrow.filesystem import FileSystem
-import pyarrow.lib as lib
+import pyarrow._hdfsio as _hdfsio
 
 
-class HadoopFileSystem(lib.HadoopFileSystem, FileSystem):
+class HadoopFileSystem(_hdfsio.HadoopFileSystem, FileSystem):
     """
     DEPRECATED: FileSystem interface for HDFS cluster.
 

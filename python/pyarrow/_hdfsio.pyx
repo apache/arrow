@@ -18,6 +18,16 @@
 # ----------------------------------------------------------------------
 # HDFS IO implementation
 
+# cython: language_level = 3
+
+import re
+
+from pyarrow.lib cimport check_status, _Weakrefable, NativeFile
+from pyarrow.includes.common cimport *
+from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_fs cimport *
+from pyarrow.lib import frombytes, tobytes, ArrowIOError
+
 from queue import Queue, Empty as QueueEmpty, Full as QueueFull
 
 
