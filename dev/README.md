@@ -129,7 +129,7 @@ Currently this only works on Linux (patches to expand to macOS welcome!). Read
 the script for information about system dependencies.
 
 On Windows, we have a script that verifies C++ and Python (requires Visual
-Studio 2015):
+Studio 2019):
 
 ```
 dev/release/verify-release-candidate.bat apache-arrow-0.7.0.tar.gz
