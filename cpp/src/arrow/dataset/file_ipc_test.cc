@@ -41,33 +41,29 @@ namespace dataset {
 
 using internal::checked_pointer_cast;
 
-class ArrowIpcWriterMixin {
+class IpcFormatHelper {
  public:
-  static std::shared_ptr<Buffer> Write(RecordBatchReader* reader) {
-    EXPECT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create());
-    EXPECT_OK_AND_ASSIGN(auto writer, ipc::MakeFileWriter(sink, reader->schema()));
+  using FormatType = IpcFileFormat;
+  static Result<std::shared_ptr<Buffer>> Write(RecordBatchReader* reader) {
+    ARROW_ASSIGN_OR_RAISE(auto sink, io::BufferOutputStream::Create());
+    ARROW_ASSIGN_OR_RAISE(auto writer, ipc::MakeFileWriter(sink, reader->schema()));
     std::vector<std::shared_ptr<RecordBatch>> batches;
-    ARROW_EXPECT_OK(reader->ReadAll(&batches));
+    RETURN_NOT_OK(reader->ReadAll(&batches));
     for (auto batch : batches) {
-      ARROW_EXPECT_OK(writer->WriteRecordBatch(*batch));
+      RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
     }
-    ARROW_EXPECT_OK(writer->Close());
-    EXPECT_OK_AND_ASSIGN(auto out, sink->Finish());
-    return out;
+    RETURN_NOT_OK(writer->Close());
+    return sink->Finish();
+  }
+
+  static std::shared_ptr<IpcFileFormat> MakeFormat() {
+    return std::make_shared<IpcFileFormat>();
   }
 };
 
-class TestIpcFileFormat : public FileFormatFixtureMixin<ArrowIpcWriterMixin> {
- protected:
-  std::shared_ptr<IpcFileFormat> format_ = std::make_shared<IpcFileFormat>();
-};
+class TestIpcFileFormat : public FileFormatFixtureMixin<IpcFormatHelper> {};
 
-TEST_F(TestIpcFileFormat, WriteRecordBatchReader) {
-  auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
-  auto source = GetFileSource(reader.get());
-  auto written = TestWrite(format_.get(), reader->schema());
-  AssertBufferEqual(*written, *source->buffer());
-}
+TEST_F(TestIpcFileFormat, WriteRecordBatchReader) { TestWrite(); }
 
 TEST_F(TestIpcFileFormat, WriteRecordBatchReaderCustomOptions) {
   auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
@@ -80,7 +76,7 @@ TEST_F(TestIpcFileFormat, WriteRecordBatchReaderCustomOptions) {
   }
   ipc_options->metadata = key_value_metadata({{"hello", "world"}});
 
-  auto written = TestWrite(format_.get(), reader->schema(), ipc_options);
+  auto written = WriteToBuffer(reader->schema(), ipc_options);
 
   EXPECT_OK_AND_ASSIGN(auto ipc_reader, ipc::RecordBatchFileReader::Open(
                                             std::make_shared<io::BufferReader>(written)));
@@ -88,11 +84,11 @@ TEST_F(TestIpcFileFormat, WriteRecordBatchReaderCustomOptions) {
             ipc_options->metadata->sorted_pairs());
 }
 
-TEST_F(TestIpcFileFormat, OpenFailureWithRelevantError) {
-  TestOpenFailureWithRelevantError(format_.get(), StatusCode::Invalid);
+TEST_F(TestIpcFileFormat, InspectFailureWithRelevantError) {
+  TestInspectFailureWithRelevantError(StatusCode::Invalid);
 }
-TEST_F(TestIpcFileFormat, Inspect) { TestInspect(format_.get()); }
-TEST_F(TestIpcFileFormat, IsSupported) { TestIsSupported(format_.get()); }
+TEST_F(TestIpcFileFormat, Inspect) { TestInspect(); }
+TEST_F(TestIpcFileFormat, IsSupported) { TestIsSupported(); }
 
 class TestIpcFileSystemDataset : public testing::Test,
                                  public WriteFileSystemDatasetMixin {
@@ -140,20 +136,15 @@ TEST_F(TestIpcFileSystemDataset, WriteExceedsMaxPartitions) {
                                   FileSystemDataset::Write(write_options_, scanner));
 }
 
-class TestIpcFileFormatScan : public FileFormatScanMixin<ArrowIpcWriterMixin> {
- protected:
-  std::shared_ptr<IpcFileFormat> format_ = std::make_shared<IpcFileFormat>();
-};
+class TestIpcFileFormatScan : public FileFormatScanMixin<IpcFormatHelper> {};
 
-TEST_P(TestIpcFileFormatScan, ScanRecordBatchReader) { TestScan(format_.get()); }
+TEST_P(TestIpcFileFormatScan, ScanRecordBatchReader) { TestScan(); }
 TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
-  TestScanWithVirtualColumn(format_.get());
+  TestScanWithVirtualColumn();
 }
-TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderProjected) {
-  TestScanProjected(format_.get());
-}
+TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
 TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
-  TestScanProjectedMissingCols(format_.get());
+  TestScanProjectedMissingCols();
 }
 TEST_P(TestIpcFileFormatScan, FragmentScanOptions) {
   auto reader = GetRecordBatchReader(
@@ -164,7 +155,7 @@ TEST_P(TestIpcFileFormatScan, FragmentScanOptions) {
   auto source = GetFileSource(reader.get());
 
   SetSchema(reader->schema()->fields());
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+  auto fragment = MakeFragment(*source);
 
   // Set scan options that ensure reading fails
   auto fragment_scan_options = std::make_shared<IpcFragmentScanOptions>();

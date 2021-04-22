@@ -37,20 +37,24 @@
 namespace arrow {
 namespace dataset {
 
-class ArrowCsvWriterMixin {
+class CsvFormatHelper {
  public:
-  static std::shared_ptr<Buffer> Write(RecordBatchReader* reader) {
-    EXPECT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create());
+  using FormatType = CsvFileFormat;
+  static Result<std::shared_ptr<Buffer>> Write(RecordBatchReader* reader) {
+    ARROW_ASSIGN_OR_RAISE(auto sink, io::BufferOutputStream::Create());
     std::shared_ptr<Table> table;
-    ARROW_EXPECT_OK(reader->ReadAll(&table));
+    RETURN_NOT_OK(reader->ReadAll(&table));
     auto options = csv::WriteOptions::Defaults();
-    ARROW_EXPECT_OK(csv::WriteCSV(*table, options, default_memory_pool(), sink.get()));
-    EXPECT_OK_AND_ASSIGN(auto out, sink->Finish());
-    return out;
+    RETURN_NOT_OK(csv::WriteCSV(*table, options, default_memory_pool(), sink.get()));
+    return sink->Finish();
+  }
+
+  static std::shared_ptr<CsvFileFormat> MakeFormat() {
+    return std::make_shared<CsvFileFormat>();
   }
 };
 
-class TestCsvFileFormat : public FileFormatFixtureMixin<ArrowCsvWriterMixin>,
+class TestCsvFileFormat : public FileFormatFixtureMixin<CsvFormatHelper>,
                           public ::testing::WithParamInterface<Compression::type> {
  public:
   Compression::type GetCompression() { return GetParam(); }
@@ -98,8 +102,6 @@ class TestCsvFileFormat : public FileFormatFixtureMixin<ArrowCsvWriterMixin>,
     EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
     return Batches(std::move(scan_task_it));
   }
-
-  std::shared_ptr<CsvFileFormat> format_ = std::make_shared<CsvFileFormat>();
 };
 
 // Basic scanning tests (to exercise compression support); see the parameterized test
@@ -111,7 +113,7 @@ TEST_P(TestCsvFileFormat, ScanRecordBatchReader) {
 N/A
 2)");
   SetSchema({field("f64", float64())});
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+  auto fragment = MakeFragment(*source);
 
   int64_t row_count = 0;
 
@@ -130,7 +132,7 @@ MYNULL
 N/A
 bar)");
   SetSchema({field("str", utf8())});
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+  auto fragment = MakeFragment(*source);
   auto fragment_scan_options = std::make_shared<CsvFragmentScanOptions>();
   fragment_scan_options->convert_options.null_values = {"MYNULL"};
   fragment_scan_options->convert_options.strings_can_be_null = true;
@@ -156,7 +158,7 @@ bar)");
   auto defaults = std::make_shared<CsvFragmentScanOptions>();
   defaults->read_options.skip_rows = 1;
   format_->default_fragment_scan_options = defaults;
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+  auto fragment = MakeFragment(*source);
   ASSERT_OK_AND_ASSIGN(auto physical_schema, fragment->ReadPhysicalSchema());
   AssertSchemaEqual(opts_->dataset_schema, physical_schema);
 
@@ -190,7 +192,7 @@ N/A
 2)");
   // NB: dataset_schema includes a column not present in the file
   SetSchema({field("f64", float64()), field("virtual", int32())});
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+  auto fragment = MakeFragment(*source);
 
   ASSERT_OK_AND_ASSIGN(auto physical_schema, fragment->ReadPhysicalSchema());
   AssertSchemaEqual(Schema({field("f64", float64())}), *physical_schema);
@@ -206,15 +208,12 @@ N/A
   ASSERT_EQ(row_count, 3);
 }
 
-TEST_P(TestCsvFileFormat, OpenFailureWithRelevantError) {
-  if (GetCompression() != Compression::type::UNCOMPRESSED) {
-    GTEST_SKIP() << "File source name is different with compression";
-  }
-  TestOpenFailureWithRelevantError(format_.get(), StatusCode::Invalid);
+TEST_P(TestCsvFileFormat, InspectFailureWithRelevantError) {
+  TestInspectFailureWithRelevantError(StatusCode::Invalid);
 }
 
 TEST_P(TestCsvFileFormat, Inspect) {
-  TestInspect(format_.get());
+  TestInspect();
   auto source = GetFileSource(R"(f64
 1.0
 
@@ -225,7 +224,7 @@ N/A
 }
 
 TEST_P(TestCsvFileFormat, IsSupported) {
-  TestIsSupported(format_.get());
+  TestIsSupported();
   bool supported;
 
   auto source = GetFileSource("");
@@ -252,7 +251,7 @@ TEST_P(TestCsvFileFormat, NonProjectedFieldWithDifferingTypeFromInferred) {
 ,
 N/A,bar
 2,baz)");
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+  auto fragment = MakeFragment(*source);
   ASSERT_OK_AND_ASSIGN(auto physical_schema, fragment->ReadPhysicalSchema());
   AssertSchemaEqual(
       Schema({field("betrayal_not_really_f64", float64()), field("str", utf8())}),
@@ -306,25 +305,24 @@ INSTANTIATE_TEST_SUITE_P(TestZSTDCsv, TestCsvFileFormat,
                          ::testing::Values(Compression::ZSTD));
 #endif
 
-class TestCsvFileFormatScan : public FileFormatScanMixin<ArrowCsvWriterMixin> {
+class CsvWithNullsHelper : public CsvFormatHelper {
  public:
-  TestCsvFileFormatScan() : format_(std::make_shared<CsvFileFormat>()) {
-    format_->parse_options.ignore_empty_lines = false;
+  static std::shared_ptr<CsvFileFormat> MakeFormat() {
+    auto format = std::make_shared<CsvFileFormat>();
+    format->parse_options.ignore_empty_lines = false;
+    return format;
   }
-
- protected:
-  std::shared_ptr<CsvFileFormat> format_;
 };
 
-TEST_P(TestCsvFileFormatScan, ScanRecordBatchReader) { TestScan(format_.get()); }
+class TestCsvFileFormatScan : public FileFormatScanMixin<CsvWithNullsHelper> {};
+
+TEST_P(TestCsvFileFormatScan, ScanRecordBatchReader) { TestScan(); }
 TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
-  TestScanWithVirtualColumn(format_.get());
+  TestScanWithVirtualColumn();
 }
-TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderProjected) {
-  TestScanProjected(format_.get());
-}
+TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
 TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
-  TestScanProjectedMissingCols(format_.get());
+  TestScanProjectedMissingCols();
 }
 
 INSTANTIATE_TEST_SUITE_P(TestScan, TestCsvFileFormatScan,

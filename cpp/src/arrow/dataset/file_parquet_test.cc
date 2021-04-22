@@ -52,20 +52,19 @@ using testing::Pointee;
 
 using internal::checked_pointer_cast;
 
-class ArrowParquetWriterMixin {
+class ParquetFormatHelper {
  public:
-  static std::shared_ptr<Buffer> Write(RecordBatchReader* reader) {
+  using FormatType = ParquetFileFormat;
+
+  static Result<std::shared_ptr<Buffer>> Write(RecordBatchReader* reader) {
     auto pool = ::arrow::default_memory_pool();
-
     std::shared_ptr<Buffer> out;
-
     auto sink = CreateOutputStream(pool);
-
-    ARROW_EXPECT_OK(WriteRecordBatchReader(reader, pool, sink));
-    // XXX the rest of the test may crash if this fails, since out will be nullptr
-    EXPECT_OK_AND_ASSIGN(out, sink->Finish());
-
-    return out;
+    RETURN_NOT_OK(WriteRecordBatchReader(reader, pool, sink));
+    return sink->Finish();
+  }
+  static std::shared_ptr<ParquetFileFormat> MakeFormat() {
+    return std::make_shared<ParquetFileFormat>();
   }
 
  private:
@@ -118,7 +117,7 @@ class ArrowParquetWriterMixin {
   }
 };
 
-class TestParquetFileFormat : public FileFormatFixtureMixin<ArrowParquetWriterMixin> {
+class TestParquetFileFormat : public FileFormatFixtureMixin<ParquetFormatHelper> {
  public:
   RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {
     return MakeFlattenIterator(MakeMaybeMapIterator(
@@ -173,15 +172,12 @@ class TestParquetFileFormat : public FileFormatFixtureMixin<ArrowParquetWriterMi
       EXPECT_EQ(SingleBatch(parquet_fragment.get())->num_rows(), expected + 1);
     }
   }
-
- protected:
-  std::shared_ptr<ParquetFileFormat> format_ = std::make_shared<ParquetFileFormat>();
 };
 
-TEST_F(TestParquetFileFormat, OpenFailureWithRelevantError) {
-  TestOpenFailureWithRelevantError(format_.get(), StatusCode::IOError);
+TEST_F(TestParquetFileFormat, InspectFailureWithRelevantError) {
+  TestInspectFailureWithRelevantError(StatusCode::IOError);
 }
-TEST_F(TestParquetFileFormat, Inspect) { TestInspect(format_.get()); }
+TEST_F(TestParquetFileFormat, Inspect) { TestInspect(); }
 
 TEST_F(TestParquetFileFormat, InspectDictEncoded) {
   auto reader = GetRecordBatchReader(schema({field("utf8", utf8())}));
@@ -194,14 +190,9 @@ TEST_F(TestParquetFileFormat, InspectDictEncoded) {
   AssertSchemaEqual(*actual, expected_schema, /* check_metadata = */ false);
 }
 
-TEST_F(TestParquetFileFormat, IsSupported) { TestIsSupported(format_.get()); }
+TEST_F(TestParquetFileFormat, IsSupported) { TestIsSupported(); }
 
-TEST_F(TestParquetFileFormat, WriteRecordBatchReader) {
-  auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
-  auto source = GetFileSource(reader.get());
-  auto written = TestWrite(format_.get(), reader->schema());
-  AssertBufferEqual(*written, *source->buffer());
-}
+TEST_F(TestParquetFileFormat, WriteRecordBatchReader) { TestWrite(); }
 
 TEST_F(TestParquetFileFormat, WriteRecordBatchReaderCustomOptions) {
   TimeUnit::type coerce_timestamps_to = TimeUnit::MICRO,
@@ -220,7 +211,7 @@ TEST_F(TestParquetFileFormat, WriteRecordBatchReaderCustomOptions) {
                                          ->allow_truncated_timestamps()
                                          ->build();
 
-  auto written = TestWrite(format_.get(), reader->schema(), options);
+  auto written = WriteToBuffer(reader->schema(), options);
 
   EXPECT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(FileSource{written}));
   EXPECT_OK_AND_ASSIGN(auto actual_schema, fragment->ReadPhysicalSchema());
@@ -256,7 +247,7 @@ TEST_F(TestParquetFileSystemDataset, WriteWithEmptyPartitioningSchema) {
   TestWriteWithEmptyPartitioningSchema();
 }
 
-class TestParquetFileFormatScan : public FileFormatScanMixin<ArrowParquetWriterMixin> {
+class TestParquetFileFormatScan : public FileFormatScanMixin<ParquetFormatHelper> {
  public:
   std::shared_ptr<RecordBatch> SingleBatch(std::shared_ptr<Fragment> fragment) {
     auto batches = IteratorToVector(PhysicalBatches(fragment));
@@ -295,17 +286,12 @@ class TestParquetFileFormatScan : public FileFormatScanMixin<ArrowParquetWriterM
       EXPECT_EQ(SingleBatch(parquet_fragment)->num_rows(), expected + 1);
     }
   }
-
- protected:
-  std::shared_ptr<ParquetFileFormat> format_ = std::make_shared<ParquetFileFormat>();
 };
 
-TEST_P(TestParquetFileFormatScan, ScanRecordBatchReader) { TestScan(format_.get()); }
-TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderProjected) {
-  TestScanProjected(format_.get());
-}
+TEST_P(TestParquetFileFormatScan, ScanRecordBatchReader) { TestScan(); }
+TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
-  TestScanProjectedMissingCols(format_.get());
+  TestScanProjectedMissingCols();
 }
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderDictEncoded) {
   auto reader = GetRecordBatchReader(schema({field("utf8", utf8())}));

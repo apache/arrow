@@ -94,12 +94,13 @@ static inline Result<csv::ConvertOptions> GetConvertOptions(
   std::unordered_set<std::string> materialized_fields(materialized.begin(),
                                                       materialized.end());
   for (auto field : scan_options->dataset_schema->fields()) {
-    // Properly set conversion types for all fields
-    if (column_names.find(field->name()) == column_names.end()) continue;
-    convert_options.column_types[field->name()] = field->type();
-    // Only read the requested columns
     if (materialized_fields.find(field->name()) == materialized_fields.end()) continue;
+    // Ignore virtual columns.
+    if (column_names.find(field->name()) == column_names.end()) continue;
+    // Only read the requested columns
     convert_options.include_columns.push_back(field->name());
+    // Properly set conversion types
+    convert_options.column_types[field->name()] = field->type();
   }
   return convert_options;
 }
