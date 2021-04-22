@@ -42,6 +42,7 @@ jobs:
     name: ${{ matrix.title }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -107,6 +108,7 @@ jobs:
     name: AMD64 MacOS 10.15 Python 3
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
     env:
       ARROW_HOME: /usr/local
       ARROW_DATASET: ON

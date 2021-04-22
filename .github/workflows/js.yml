@@ -41,6 +41,7 @@ jobs:
     name: AMD64 Debian 10 NodeJS 14
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 60
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v2
@@ -70,6 +71,7 @@ jobs:
     name: AMD64 MacOS 10.15 NodeJS ${{ matrix.node }}
     runs-on: macos-latest
     if: github.event_name == 'push'
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
