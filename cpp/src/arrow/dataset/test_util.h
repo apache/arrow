@@ -21,6 +21,7 @@
 #include <ciso646>
 #include <functional>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -302,6 +303,51 @@ class DatasetFixtureMixin : public ::testing::Test {
 template <typename P>
 class DatasetFixtureMixinWithParam : public DatasetFixtureMixin,
                                      public ::testing::WithParamInterface<P> {};
+
+struct TestScannerParams {
+  bool use_async;
+  bool use_threads;
+  int num_child_datasets;
+  int num_batches;
+  int items_per_batch;
+
+  int64_t total_batches() const { return num_child_datasets * num_batches; }
+
+  int64_t expected_rows() const { return total_batches() * items_per_batch; }
+
+  std::string ToString() const {
+    // GTest requires this to be alphanumeric
+    std::stringstream ss;
+    ss << (use_async ? "Async" : "Sync") << (use_threads ? "Threaded" : "Serial")
+       << num_child_datasets << "d" << num_batches << "b" << items_per_batch << "r";
+    return ss.str();
+  }
+
+  static std::string ToTestNameString(
+      const ::testing::TestParamInfo<TestScannerParams>& info) {
+    return std::to_string(info.index) + info.param.ToString();
+  }
+
+  static std::vector<TestScannerParams> Values() {
+    std::vector<TestScannerParams> values;
+    for (int sync = 0; sync < 2; sync++) {
+      for (int use_threads = 0; use_threads < 2; use_threads++) {
+        values.push_back(
+            {static_cast<bool>(sync), static_cast<bool>(use_threads), 1, 1, 1024});
+        values.push_back(
+            {static_cast<bool>(sync), static_cast<bool>(use_threads), 2, 16, 1024});
+      }
+    }
+    return values;
+  }
+};
+
+std::ostream& operator<<(std::ostream& out, const TestScannerParams& params) {
+  out << (params.use_async ? "async-" : "sync-")
+      << (params.use_threads ? "threaded-" : "serial-") << params.num_child_datasets
+      << "d-" << params.num_batches << "b-" << params.items_per_batch << "i";
+  return out;
+}
 
 /// \brief A dummy FileFormat implementation
 class DummyFileFormat : public FileFormat {

@@ -41,7 +41,6 @@ namespace dataset {
 
 constexpr int64_t kBatchSize = 1UL << 12;
 constexpr int64_t kBatchRepetitions = 1 << 5;
-constexpr int64_t kNumRows = kBatchSize * kBatchRepetitions;
 
 using internal::checked_pointer_cast;
 
@@ -95,17 +94,6 @@ class TestIpcFileFormat : public ArrowIpcWriterMixin {
     return std::make_shared<io::BufferOutputStream>(buffer);
   }
 
-  RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {
-    return MakeFlattenIterator(MakeMaybeMapIterator(
-        [](std::shared_ptr<ScanTask> scan_task) { return scan_task->Execute(); },
-        std::move(scan_task_it)));
-  }
-
-  RecordBatchIterator Batches(Fragment* fragment) {
-    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
-    return Batches(std::move(scan_task_it));
-  }
-
   void SetSchema(std::vector<std::shared_ptr<Field>> fields) {
     opts_ = std::make_shared<ScanOptions>();
     opts_->dataset_schema = schema(std::move(fields));
@@ -116,67 +104,6 @@ class TestIpcFileFormat : public ArrowIpcWriterMixin {
   std::shared_ptr<IpcFileFormat> format_ = std::make_shared<IpcFileFormat>();
   std::shared_ptr<ScanOptions> opts_;
 };
-
-TEST_F(TestIpcFileFormat, ScanRecordBatchReader) {
-  auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
-  auto source = GetFileSource(reader.get());
-
-  SetSchema(reader->schema()->fields());
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
-
-  int64_t row_count = 0;
-
-  for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-    row_count += batch->num_rows();
-  }
-
-  ASSERT_EQ(row_count, kNumRows);
-}
-
-TEST_F(TestIpcFileFormat, FragmentScanOptions) {
-  auto reader = GetRecordBatchReader(
-      // ARROW-12077: on Windows/mimalloc/release, nullable list column leads to crash
-      schema({field("list", list(float64()), false,
-                    key_value_metadata({{"max_length", "1"}})),
-              field("f64", float64())}));
-  auto source = GetFileSource(reader.get());
-
-  SetSchema(reader->schema()->fields());
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
-
-  // Set scan options that ensure reading fails
-  auto fragment_scan_options = std::make_shared<IpcFragmentScanOptions>();
-  fragment_scan_options->options = std::make_shared<ipc::IpcReadOptions>();
-  fragment_scan_options->options->max_recursion_depth = 0;
-  opts_->fragment_scan_options = fragment_scan_options;
-  ASSERT_OK_AND_ASSIGN(auto scan_tasks, fragment->Scan(opts_));
-  ASSERT_OK_AND_ASSIGN(auto scan_task, scan_tasks.Next());
-  ASSERT_OK_AND_ASSIGN(auto batches, scan_task->Execute());
-  ASSERT_RAISES(Invalid, batches.Next());
-}
-
-TEST_F(TestIpcFileFormat, ScanRecordBatchReaderWithVirtualColumn) {
-  auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
-  auto source = GetFileSource(reader.get());
-
-  // NB: dataset_schema includes a column not present in the file
-  SetSchema({reader->schema()->field(0), field("virtual", int32())});
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
-
-  ASSERT_OK_AND_ASSIGN(auto physical_schema, fragment->ReadPhysicalSchema());
-  AssertSchemaEqual(Schema({field("f64", float64())}), *physical_schema);
-
-  int64_t row_count = 0;
-
-  for (auto maybe_batch : Batches(fragment.get())) {
-    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-    AssertSchemaEqual(*batch->schema(), *physical_schema);
-    row_count += batch->num_rows();
-  }
-
-  ASSERT_EQ(row_count, kNumRows);
-}
 
 TEST_F(TestIpcFileFormat, WriteRecordBatchReader) {
   auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
@@ -225,6 +152,46 @@ TEST_F(TestIpcFileFormat, WriteRecordBatchReaderCustomOptions) {
             ipc_options->metadata->sorted_pairs());
 }
 
+TEST_F(TestIpcFileFormat, OpenFailureWithRelevantError) {
+  std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
+  auto result = format_->Inspect(FileSource(buf));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("<Buffer>"),
+                                  result.status());
+
+  constexpr auto file_name = "herp/derp";
+  ASSERT_OK_AND_ASSIGN(
+      auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {fs::File(file_name)}));
+  result = format_->Inspect({file_name, fs});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr(file_name),
+                                  result.status());
+}
+
+TEST_F(TestIpcFileFormat, Inspect) {
+  auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
+  auto source = GetFileSource(reader.get());
+
+  ASSERT_OK_AND_ASSIGN(auto actual, format_->Inspect(*source.get()));
+  EXPECT_EQ(*actual, *reader->schema());
+}
+
+TEST_F(TestIpcFileFormat, IsSupported) {
+  auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
+  auto source = GetFileSource(reader.get());
+
+  bool supported = false;
+
+  std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
+  ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(FileSource(buf)));
+  ASSERT_EQ(supported, false);
+
+  buf = std::make_shared<Buffer>(util::string_view("corrupted"));
+  ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(FileSource(buf)));
+  ASSERT_EQ(supported, false);
+
+  ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(*source));
+  EXPECT_EQ(supported, true);
+}
+
 class TestIpcFileSystemDataset : public testing::Test,
                                  public WriteFileSystemDatasetMixin {
  public:
@@ -271,18 +238,109 @@ TEST_F(TestIpcFileSystemDataset, WriteExceedsMaxPartitions) {
                                   FileSystemDataset::Write(write_options_, scanner));
 }
 
-TEST_F(TestIpcFileFormat, OpenFailureWithRelevantError) {
-  std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
-  auto result = format_->Inspect(FileSource(buf));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("<Buffer>"),
-                                  result.status());
+class TestIpcFileFormatScan : public TestIpcFileFormat,
+                              public ::testing::WithParamInterface<TestScannerParams> {
+ public:
+  std::unique_ptr<RecordBatchReader> GetRecordBatchReader(
+      std::shared_ptr<Schema> schema) {
+    return MakeGeneratedRecordBatch(schema, GetParam().items_per_batch,
+                                    GetParam().total_batches());
+  }
 
-  constexpr auto file_name = "herp/derp";
-  ASSERT_OK_AND_ASSIGN(
-      auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {fs::File(file_name)}));
-  result = format_->Inspect({file_name, fs});
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr(file_name),
-                                  result.status());
+  // Scan the fragment through the scanner
+  RecordBatchIterator Batches(std::shared_ptr<Fragment> fragment) {
+    EXPECT_OK_AND_ASSIGN(auto schema, fragment->ReadPhysicalSchema());
+    auto dataset = std::make_shared<FragmentDataset>(schema, FragmentVector{fragment});
+    ScannerBuilder builder(dataset, opts_);
+    ARROW_EXPECT_OK(builder.UseAsync(GetParam().use_async));
+    ARROW_EXPECT_OK(builder.UseThreads(GetParam().use_threads));
+    EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+    EXPECT_OK_AND_ASSIGN(auto batch_it, scanner->ScanBatches());
+    return MakeMapIterator([](TaggedRecordBatch tagged) { return tagged.record_batch; },
+                           std::move(batch_it));
+  }
+
+  // Scan the fragment directly
+  RecordBatchIterator PhysicalBatches(std::shared_ptr<Fragment> fragment) {
+    if (GetParam().use_async) {
+      EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
+      EXPECT_OK_AND_ASSIGN(auto batch_it, MakeGeneratorIterator(std::move(batch_gen)));
+      return batch_it;
+    }
+    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
+    return MakeFlattenIterator(MakeMaybeMapIterator(
+        [](std::shared_ptr<ScanTask> scan_task) { return scan_task->Execute(); },
+        std::move(scan_task_it)));
+  }
+};
+
+TEST_P(TestIpcFileFormatScan, ScanRecordBatchReader) {
+  auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
+  auto source = GetFileSource(reader.get());
+
+  SetSchema(reader->schema()->fields());
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+
+  int64_t row_count = 0;
+
+  for (auto maybe_batch : Batches(fragment)) {
+    ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+    row_count += batch->num_rows();
+  }
+
+  ASSERT_EQ(row_count, GetParam().expected_rows());
+}
+
+TEST_P(TestIpcFileFormatScan, FragmentScanOptions) {
+  auto reader = GetRecordBatchReader(
+      // ARROW-12077: on Windows/mimalloc/release, nullable list column leads to crash
+      schema({field("list", list(float64()), false,
+                    key_value_metadata({{"max_length", "1"}})),
+              field("f64", float64())}));
+  auto source = GetFileSource(reader.get());
+
+  SetSchema(reader->schema()->fields());
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+
+  // Set scan options that ensure reading fails
+  auto fragment_scan_options = std::make_shared<IpcFragmentScanOptions>();
+  fragment_scan_options->options = std::make_shared<ipc::IpcReadOptions>();
+  fragment_scan_options->options->max_recursion_depth = 0;
+  opts_->fragment_scan_options = fragment_scan_options;
+  ASSERT_OK_AND_ASSIGN(auto scan_tasks, fragment->Scan(opts_));
+  ASSERT_OK_AND_ASSIGN(auto scan_task, scan_tasks.Next());
+  ASSERT_OK_AND_ASSIGN(auto batches, scan_task->Execute());
+  ASSERT_RAISES(Invalid, batches.Next());
+}
+
+TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
+  auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
+  auto source = GetFileSource(reader.get());
+
+  // NB: dataset_schema includes a column not present in the file
+  SetSchema({reader->schema()->field(0), field("virtual", int32())});
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+
+  ASSERT_OK_AND_ASSIGN(auto physical_schema, fragment->ReadPhysicalSchema());
+  AssertSchemaEqual(Schema({field("f64", float64())}), *physical_schema);
+  {
+    int64_t row_count = 0;
+    for (auto maybe_batch : Batches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      AssertSchemaEqual(*batch->schema(), *opts_->projected_schema);
+      row_count += batch->num_rows();
+    }
+    ASSERT_EQ(row_count, GetParam().expected_rows());
+  }
+  {
+    int64_t row_count = 0;
+    for (auto maybe_batch : PhysicalBatches(fragment)) {
+      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
+      AssertSchemaEqual(*batch->schema(), *physical_schema);
+      row_count += batch->num_rows();
+    }
+    ASSERT_EQ(row_count, GetParam().expected_rows());
+  }
 }
 
 static auto f32 = field("f32", float32());
@@ -290,7 +348,7 @@ static auto f64 = field("f64", float64());
 static auto i32 = field("i32", int32());
 static auto i64 = field("i64", int64());
 
-TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjected) {
+TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderProjected) {
   SetSchema({f64, i64, f32, i32});
   ASSERT_OK(SetProjection(opts_.get(), {"f64"}));
   opts_->filter = equal(field_ref("i32"), literal(0));
@@ -306,17 +364,17 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjected) {
 
   int64_t row_count = 0;
 
-  for (auto maybe_batch : Batches(fragment.get())) {
+  for (auto maybe_batch : PhysicalBatches(fragment)) {
     ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
     row_count += batch->num_rows();
     AssertSchemaEqual(*batch->schema(), *expected_schema,
                       /*check_metadata=*/false);
   }
 
-  ASSERT_EQ(row_count, kNumRows);
+  ASSERT_EQ(row_count, GetParam().expected_rows());
 }
 
-TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
+TEST_P(TestIpcFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
   SetSchema({f64, i64, f32, i32});
   ASSERT_OK(SetProjection(opts_.get(), {"f64"}));
   opts_->filter = equal(field_ref("i32"), literal(0));
@@ -347,42 +405,20 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
 
     int64_t row_count = 0;
 
-    for (auto maybe_batch : Batches(fragment.get())) {
+    for (auto maybe_batch : PhysicalBatches(fragment)) {
       ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
       row_count += batch->num_rows();
       AssertSchemaEqual(*batch->schema(), *expected_schema,
                         /*check_metadata=*/false);
     }
 
-    ASSERT_EQ(row_count, kNumRows);
+    ASSERT_EQ(row_count, GetParam().expected_rows());
   }
 }
 
-TEST_F(TestIpcFileFormat, Inspect) {
-  auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
-  auto source = GetFileSource(reader.get());
-
-  ASSERT_OK_AND_ASSIGN(auto actual, format_->Inspect(*source.get()));
-  EXPECT_EQ(*actual, *reader->schema());
-}
-
-TEST_F(TestIpcFileFormat, IsSupported) {
-  auto reader = GetRecordBatchReader(schema({field("f64", float64())}));
-  auto source = GetFileSource(reader.get());
-
-  bool supported = false;
-
-  std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
-  ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(FileSource(buf)));
-  ASSERT_EQ(supported, false);
-
-  buf = std::make_shared<Buffer>(util::string_view("corrupted"));
-  ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(FileSource(buf)));
-  ASSERT_EQ(supported, false);
-
-  ASSERT_OK_AND_ASSIGN(supported, format_->IsSupported(*source));
-  EXPECT_EQ(supported, true);
-}
+INSTANTIATE_TEST_SUITE_P(TestScan, TestIpcFileFormatScan,
+                         ::testing::ValuesIn(TestScannerParams::Values()),
+                         TestScannerParams::ToTestNameString);
 
 }  // namespace dataset
 }  // namespace arrow

@@ -18,7 +18,6 @@
 #include "arrow/dataset/scanner.h"
 
 #include <memory>
-#include <ostream>
 
 #include <gmock/gmock.h>
 
@@ -40,34 +39,6 @@ using testing::IsEmpty;
 
 namespace arrow {
 namespace dataset {
-
-struct TestScannerParams {
-  bool use_async;
-  bool use_threads;
-  int num_child_datasets;
-  int num_batches;
-  int items_per_batch;
-
-  static std::vector<TestScannerParams> Values() {
-    std::vector<TestScannerParams> values;
-    for (int sync = 0; sync < 2; sync++) {
-      for (int use_threads = 0; use_threads < 2; use_threads++) {
-        values.push_back(
-            {static_cast<bool>(sync), static_cast<bool>(use_threads), 1, 1, 1024});
-        values.push_back(
-            {static_cast<bool>(sync), static_cast<bool>(use_threads), 2, 16, 1024});
-      }
-    }
-    return values;
-  }
-};
-
-std::ostream& operator<<(std::ostream& out, const TestScannerParams& params) {
-  out << (params.use_async ? "async-" : "sync-")
-      << (params.use_threads ? "threaded-" : "serial-") << params.num_child_datasets
-      << "d-" << params.num_batches << "b-" << params.items_per_batch << "i";
-  return out;
-}
 
 class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
  protected:
