@@ -1,3 +1,6 @@
+# VER NOTAS DE IAN EN
+# https://github.com/apache/arrow/pull/9999#discussion_r614340728
+
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
