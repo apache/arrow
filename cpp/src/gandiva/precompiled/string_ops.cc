@@ -1527,5 +1527,4 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
   *out_len = j;
   return ret;
 }
-
 }  // extern "C"
