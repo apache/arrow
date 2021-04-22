@@ -16,7 +16,11 @@
 # under the License.
 
 expect_as_vector <- function(x, y, ignore_attr = FALSE, ...) {
-  expect_fun <- ifelse(ignore_attr, expect_equivalent, expect_equal)
+  expect_fun <- if(ignore_attr){
+    expect_equivalent
+  } else{
+    expect_equal
+  }
   expect_fun(as.vector(x), y, ...)
 }
 
