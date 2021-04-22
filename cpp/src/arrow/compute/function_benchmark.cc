@@ -78,9 +78,10 @@ void BM_CastDispatchBaseline(benchmark::State& state) {
 
   ExecContext exec_context;
   KernelContext kernel_context(&exec_context);
-  auto cast_state =
-      cast_kernel->init(&kernel_context, {cast_kernel, {double_type}, &cast_options})
-          .ValueOrDie();
+  auto cast_state = cast_kernel
+                        ->init(&kernel_context,
+                               KernelInitArgs{cast_kernel, {double_type}, &cast_options})
+                        .ValueOrDie();
   kernel_context.SetState(cast_state.get());
 
   for (auto _ : state) {
