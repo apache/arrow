@@ -701,8 +701,22 @@ def test_dictionary_to_numpy():
     with pytest.raises(pa.ArrowInvalid):
         # to_numpy takes for granted that when zero_copy_only=True
         # there will be no nulls.
-        # If that changes, nulls handling will have to be updated in to_numpy.
+        # If that changes, nulls handling will have to be updated in to_numpy
+        # as we won't be able to rely anymore on decoding the DictionaryArray
+        # to handle nulls.
         a.to_numpy(zero_copy_only=True)
+
+    anonulls = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, 1, 0]),
+        pa.array(['foo', 'bar'])
+    )
+    expected = pa.array(
+        ["foo", "bar", "bar", "foo"]
+    ).to_numpy(zero_copy_only=False)
+    assert (anonulls.to_numpy(zero_copy_only=False) == expected).all()
+
+    with pytest.raises(pa.ArrowInvalid):
+        anonulls.to_numpy(zero_copy_only=True)
 
     afloat = pa.DictionaryArray.from_arrays(
         pa.array([0, 1, 1, 0]),
