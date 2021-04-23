@@ -246,7 +246,7 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      NativeFunction::kNeedsContext),
 
       NativeFunction("byte_substr", {"bytesubstring"},
-                     DataTypeVector{utf8(), int32(), int32()}, utf8(),
+                     DataTypeVector{binary(), int32(), int32()}, binary(),
                      kResultNullIfNull, "byte_substr", NativeFunction::kNeedsContext),
 
       NativeFunction("convert_fromUTF8", {"convert_fromutf8"}, DataTypeVector{binary()},
