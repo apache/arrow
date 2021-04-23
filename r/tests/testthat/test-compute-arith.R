@@ -23,7 +23,7 @@ test_that("Addition", {
   expect_equal(a + 4L, Array$create(c(5:8, NA_integer_)))
   expect_identical(as.vector(a + 4L), c(5:8, NA_integer_))
   expect_equal(a + 4L, Array$create(c(5:8, NA_integer_)))
-  expect_vector(a + 4L, c(5:8, NA_integer_))
+  expect_as_vector(a + 4L, c(5:8, NA_integer_))
   expect_equal(a + NA_integer_, Array$create(rep(NA_integer_, 5)))
 
   a8 <- a$cast(int8())

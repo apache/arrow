@@ -35,6 +35,7 @@ jobs:
   linux-build-lib:
     name: Build Libraries on AMD64 Rust ${{ matrix.rust }}
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     strategy:
       matrix:
         arch: [amd64]
@@ -86,6 +87,7 @@ jobs:
     name: Test Workspace on AMD64 Rust ${{ matrix.rust }}
     needs: [linux-build-lib]
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     strategy:
       matrix:
         arch: [amd64]
@@ -152,6 +154,7 @@ jobs:
   linux-test-simd:
     name: Test SIMD on AMD64 Rust ${{ matrix.rust }}
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     strategy:
       matrix:
         arch: [amd64]
@@ -194,6 +197,7 @@ jobs:
   windows-and-macos:
     name: Test on ${{ matrix.os }} Rust ${{ matrix.rust }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
     strategy:
       matrix:
         os: [windows-latest, macos-latest]
@@ -223,6 +227,7 @@ jobs:
     name: Clippy
     needs: [linux-build-lib]
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     strategy:
       matrix:
         arch: [amd64]
@@ -264,6 +269,7 @@ jobs:
   miri-checks:
     name: MIRI
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     strategy:
       matrix:
         arch: [amd64]
@@ -299,6 +305,7 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     strategy:
       matrix:
         arch: [amd64]
@@ -340,6 +347,7 @@ jobs:
   pyarrow-integration-test:
     name: Test Pyarrow C Data Interface
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     strategy:
       matrix:
         rust: [stable]
@@ -386,6 +394,7 @@ jobs:
   wasm32-build:
     name: Build wasm32 on AMD64 Rust ${{ matrix.rust }}
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     strategy:
       matrix:
         arch: [amd64]
@@ -430,6 +439,7 @@ jobs:
   default-build:
     name: Check No Defaults on AMD64 Rust ${{ matrix.rust }}
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     strategy:
       matrix:
         arch: [amd64]

@@ -30,6 +30,7 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/status.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
 
@@ -80,6 +81,51 @@ TEST(FileSource, BufferBased) {
   FileSource source3;
   source3 = source1;
   ASSERT_EQ(source1.buffer(), source3.buffer());
+}
+
+constexpr int kNumScanTasks = 2;
+constexpr int kBatchesPerScanTask = 2;
+constexpr int kRowsPerBatch = 1024;
+class MockFileFormat : public FileFormat {
+  virtual std::string type_name() const { return "mock"; }
+  virtual bool Equals(const FileFormat& other) const { return false; }
+  virtual Result<bool> IsSupported(const FileSource& source) const { return true; }
+  virtual Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const {
+    return Status::NotImplemented("Not needed for test");
+  }
+  virtual Result<std::shared_ptr<FileWriter>> MakeWriter(
+      std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
+      std::shared_ptr<FileWriteOptions> options) const {
+    return Status::NotImplemented("Not needed for test");
+  }
+  virtual std::shared_ptr<FileWriteOptions> DefaultWriteOptions() { return nullptr; }
+
+  virtual Result<ScanTaskIterator> ScanFile(
+      const std::shared_ptr<ScanOptions>& options,
+      const std::shared_ptr<FileFragment>& file) const {
+    auto sch = schema({field("i32", int32())});
+    ScanTaskVector scan_tasks;
+    for (int i = 0; i < kNumScanTasks; i++) {
+      RecordBatchVector batches;
+      for (int j = 0; j < kBatchesPerScanTask; j++) {
+        batches.push_back(ConstantArrayGenerator::Zeroes(kRowsPerBatch, sch));
+      }
+      scan_tasks.push_back(std::make_shared<InMemoryScanTask>(
+          std::move(batches), std::make_shared<ScanOptions>(), nullptr));
+    }
+    return MakeVectorIterator(std::move(scan_tasks));
+  }
+};
+
+TEST(FileFormat, ScanAsync) {
+  MockFileFormat format;
+  auto scan_options = std::make_shared<ScanOptions>();
+  ASSERT_OK_AND_ASSIGN(auto batch_gen, format.ScanBatchesAsync(scan_options, nullptr));
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto batches, CollectAsyncGenerator(batch_gen));
+  ASSERT_EQ(kNumScanTasks * kBatchesPerScanTask, static_cast<int>(batches.size()));
+  for (int i = 0; i < kNumScanTasks * kBatchesPerScanTask; i++) {
+    ASSERT_EQ(kRowsPerBatch, batches[i]->num_rows());
+  }
 }
 
 TEST_F(TestFileSystemDataset, Basic) {

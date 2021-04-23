@@ -110,7 +110,7 @@ Future<> VisitAsyncGenerator(AsyncGenerator<T> generator,
 /// \brief Waits for an async generator to complete, discarding results.
 template <typename T>
 Future<> DiscardAllFromAsyncGenerator(AsyncGenerator<T> generator) {
-  std::function<Status(T)> visitor = [](...) { return Status::OK(); };
+  std::function<Status(T)> visitor = [](const T&) { return Status::OK(); };
   return VisitAsyncGenerator(generator, visitor);
 }
 
@@ -278,6 +278,23 @@ template <typename T, typename V>
 AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator,
                                       std::function<Future<V>(const T&)> map) {
   return MappingGenerator<T, V>(std::move(source_generator), std::move(map));
+}
+
+template <typename V, typename T, typename MapFunc>
+AsyncGenerator<V> MakeMappedGenerator(AsyncGenerator<T> source_generator, MapFunc map) {
+  struct MapCallback {
+    MapFunc map;
+
+    Future<V> operator()(const T& val) { return EnsureFuture(map(val)); }
+
+    Future<V> EnsureFuture(Result<V> val) {
+      return Future<V>::MakeFinished(std::move(val));
+    }
+    Future<V> EnsureFuture(V val) { return Future<V>::MakeFinished(std::move(val)); }
+    Future<V> EnsureFuture(Future<V> val) { return val; }
+  };
+  std::function<Future<V>(const T&)> map_fn = MapCallback{map};
+  return MappingGenerator<T, V>(std::move(source_generator), map_fn);
 }
 
 /// \see MakeSequencingGenerator

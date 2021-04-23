@@ -119,6 +119,23 @@ void EnsureRecordBatchReaderDrained(RecordBatchReader* reader) {
   EXPECT_EQ(batch, nullptr);
 }
 
+/// Test dataset that returns one or more fragments.
+class FragmentDataset : public Dataset {
+ public:
+  FragmentDataset(std::shared_ptr<Schema> schema, FragmentVector fragments)
+      : Dataset(std::move(schema)), fragments_(std::move(fragments)) {}
+  std::string type_name() const override { return "fragment"; }
+  Result<std::shared_ptr<Dataset>> ReplaceSchema(std::shared_ptr<Schema>) const override {
+    return Status::NotImplemented("");
+  }
+
+ protected:
+  Result<FragmentIterator> GetFragmentsImpl(Expression predicate) override {
+    return MakeVectorIterator(fragments_);
+  }
+  FragmentVector fragments_;
+};
+
 class DatasetFixtureMixin : public ::testing::Test {
  public:
   /// \brief Ensure that record batches found in reader are equals to the
@@ -216,23 +233,32 @@ class DatasetFixtureMixin : public ::testing::Test {
   }
 
   /// \brief Ensure that record batches found in reader are equals to the
-  /// record batches yielded by a scanner.  Each fragment in the scanner is
-  /// expected to have a single batch.
+  /// record batches yielded by a scanner.
   void AssertScanBatchesUnorderedEquals(RecordBatchReader* expected, Scanner* scanner,
+                                        int expected_batches_per_fragment,
                                         bool ensure_drained = true) {
     ASSERT_OK_AND_ASSIGN(auto it, scanner->ScanBatchesUnordered());
 
     int fragment_counter = 0;
     bool saw_last_fragment = false;
-    ARROW_EXPECT_OK(it.Visit([&](EnumeratedRecordBatch batch) -> Status {
-      EXPECT_EQ(0, batch.record_batch.index);
-      EXPECT_EQ(true, batch.record_batch.last);
-      EXPECT_EQ(fragment_counter++, batch.fragment.index);
-      EXPECT_FALSE(saw_last_fragment);
+    int batch_counter = 0;
+    auto visitor = [&](EnumeratedRecordBatch batch) -> Status {
+      if (batch_counter == 0) {
+        EXPECT_FALSE(saw_last_fragment);
+      }
+      EXPECT_EQ(batch_counter++, batch.record_batch.index);
+      auto last_batch = batch_counter == expected_batches_per_fragment;
+      EXPECT_EQ(last_batch, batch.record_batch.last);
+      EXPECT_EQ(fragment_counter, batch.fragment.index);
+      if (last_batch) {
+        fragment_counter++;
+        batch_counter = 0;
+      }
       saw_last_fragment = batch.fragment.last;
       AssertBatchEquals(expected, *batch.record_batch.value);
       return Status::OK();
-    }));
+    };
+    ARROW_EXPECT_OK(it.Visit(visitor));
 
     if (ensure_drained) {
       EnsureRecordBatchReaderDrained(expected);
@@ -265,9 +291,17 @@ class DatasetFixtureMixin : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(options_->filter, filter.Bind(*schema_));
   }
 
+  void SetProjectedColumns(std::vector<std::string> column_names) {
+    ASSERT_OK(SetProjection(options_.get(), std::move(column_names)));
+  }
+
   std::shared_ptr<Schema> schema_;
   std::shared_ptr<ScanOptions> options_;
 };
+
+template <typename P>
+class DatasetFixtureMixinWithParam : public DatasetFixtureMixin,
+                                     public ::testing::WithParamInterface<P> {};
 
 /// \brief A dummy FileFormat implementation
 class DummyFileFormat : public FileFormat {
@@ -290,7 +324,7 @@ class DummyFileFormat : public FileFormat {
 
   /// \brief Open a file for scanning (always returns an empty iterator)
   Result<ScanTaskIterator> ScanFile(
-      std::shared_ptr<ScanOptions> options,
+      const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& fragment) const override {
     return MakeEmptyIterator<std::shared_ptr<ScanTask>>();
   }
@@ -330,7 +364,7 @@ class JSONRecordBatchFileFormat : public FileFormat {
 
   /// \brief Open a file for scanning
   Result<ScanTaskIterator> ScanFile(
-      std::shared_ptr<ScanOptions> options,
+      const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& fragment) const override {
     ARROW_ASSIGN_OR_RAISE(auto file, fragment->source().Open());
     ARROW_ASSIGN_OR_RAISE(int64_t size, file->GetSize());

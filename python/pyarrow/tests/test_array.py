@@ -522,6 +522,9 @@ def test_array_eq():
     assert (arr1 == arr3) is False
     assert (arr1 != arr3) is True
 
+    assert (arr1 == 1) is False
+    assert (arr1 == None) is False  # noqa: E711
+
 
 def test_array_from_buffers():
     values_buf = pa.py_buffer(np.int16([4, 5, 6, 7]))

@@ -580,6 +580,21 @@ when a positive ``max_splits`` is given.
   as separator.
 
 
+String extraction
+~~~~~~~~~~~~~~~~~
+
++--------------------+------------+------------------------------------+---------------+----------------------------------------+
+| Function name      | Arity      | Input types                        | Output type   | Options class                          |
++====================+============+====================================+===============+========================================+
+| extract_regex      | Unary      | String-like                        | Struct (1)    | :struct:`ExtractRegexOptions`          |
++--------------------+------------+------------------------------------+---------------+----------------------------------------+
+
+* \(1) Extract substrings defined by a regular expression using the Google RE2
+  library.  The output struct field names refer to the named capture groups,
+  e.g. 'letter' and 'digit' for the regular expression
+  ``(?P<letter>[ab])(?P<digit>\\d)``.
+
+
 Structural transforms
 ~~~~~~~~~~~~~~~~~~~~~
 

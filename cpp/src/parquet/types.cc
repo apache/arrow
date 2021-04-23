@@ -69,11 +69,6 @@ std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) 
     throw ParquetException(ss.str());
   }
 
-  if (codec == Compression::LZ4) {
-    // For compatibility with existing source code
-    codec = Compression::LZ4_HADOOP;
-  }
-
   PARQUET_ASSIGN_OR_THROW(result, Codec::Create(codec, compression_level));
   return result;
 }
