@@ -32,6 +32,7 @@
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
@@ -65,86 +66,10 @@ struct IterationTraits<Foo> {
   static Foo End() { return Foo(-1); }
 };
 
-// A data type with only move constructors.
-struct MoveOnlyDataType {
-  explicit MoveOnlyDataType(int x) : data(new int(x)) {}
-
-  MoveOnlyDataType(const MoveOnlyDataType& other) = delete;
-  MoveOnlyDataType& operator=(const MoveOnlyDataType& other) = delete;
-
-  MoveOnlyDataType(MoveOnlyDataType&& other) { MoveFrom(&other); }
-  MoveOnlyDataType& operator=(MoveOnlyDataType&& other) {
-    MoveFrom(&other);
-    return *this;
-  }
-
-  ~MoveOnlyDataType() { Destroy(); }
-
-  void Destroy() {
-    if (data != nullptr) {
-      delete data;
-      data = nullptr;
-      moves = -1;
-    }
-  }
-
-  void MoveFrom(MoveOnlyDataType* other) {
-    Destroy();
-    data = other->data;
-    other->data = nullptr;
-    moves = other->moves + 1;
-  }
-
-  int ToInt() const { return data == nullptr ? -42 : *data; }
-
-  bool operator==(int other) const { return data != nullptr && *data == other; }
-  bool operator==(const MoveOnlyDataType& other) const {
-    return data != nullptr && other.data != nullptr && *data == *other.data;
-  }
-  friend bool operator==(int left, const MoveOnlyDataType& right) {
-    return right == left;
-  }
-
-  int* data = nullptr;
-  int moves = 0;
-};
-
 template <>
 struct IterationTraits<MoveOnlyDataType> {
   static MoveOnlyDataType End() { return MoveOnlyDataType(-1); }
 };
-
-template <typename T>
-void AssertNotFinished(const Future<T>& fut) {
-  ASSERT_FALSE(IsFutureFinished(fut.state()));
-}
-
-template <typename T>
-void AssertFinished(const Future<T>& fut) {
-  ASSERT_TRUE(IsFutureFinished(fut.state()));
-}
-
-// Assert the future is successful *now*
-template <typename T>
-void AssertSuccessful(const Future<T>& fut) {
-  if (IsFutureFinished(fut.state())) {
-    ASSERT_EQ(fut.state(), FutureState::SUCCESS);
-    ASSERT_OK(fut.status());
-  } else {
-    FAIL() << "Expected future to be completed successfully but it was still pending";
-  }
-}
-
-// Assert the future is failed *now*
-template <typename T>
-void AssertFailed(const Future<T>& fut) {
-  if (IsFutureFinished(fut.state())) {
-    ASSERT_EQ(fut.state(), FutureState::FAILURE);
-    ASSERT_FALSE(fut.status().ok());
-  } else {
-    FAIL() << "Expected future to have failed but it was still pending";
-  }
-}
 
 template <typename T>
 struct IteratorResults {
@@ -493,7 +418,12 @@ TEST(FutureRefTest, HeadRemoved) {
 }
 
 TEST(FutureStressTest, Callback) {
-  for (unsigned int n = 0; n < 1000; n++) {
+#ifdef ARROW_VALGRIND
+  const int NITERS = 2;
+#else
+  const int NITERS = 1000;
+#endif
+  for (unsigned int n = 0; n < NITERS; n++) {
     auto fut = Future<>::Make();
     std::atomic<unsigned int> count_finished_immediately(0);
     std::atomic<unsigned int> count_finished_deferred(0);
@@ -512,6 +442,11 @@ TEST(FutureStressTest, Callback) {
           }
         });
         callbacks_added++;
+        if (callbacks_added.load() > 10000) {
+          // If we've added many callbacks already and the main thread hasn't noticed yet,
+          // help it a bit (this seems especially useful in Valgrind).
+          SleepABit();
+        }
       }
     });
 
@@ -560,6 +495,11 @@ TEST(FutureStressTest, TryAddCallback) {
         auto callback_added = fut.TryAddCallback(callback_factory);
         if (callback_added) {
           callbacks_added++;
+          if (callbacks_added.load() > 10000) {
+            // If we've added many callbacks already and the main thread hasn't
+            // noticed yet, help it a bit (this seems especially useful in Valgrind).
+            SleepABit();
+          }
         } else {
           break;
         }
@@ -1015,6 +955,13 @@ TEST(FutureCompletionTest, FutureVoid) {
   }
 }
 
+TEST(FutureAllTest, Empty) {
+  auto combined = arrow::All(std::vector<Future<int>>{});
+  auto after_assert = combined.Then(
+      [](std::vector<Result<int>> results) { ASSERT_EQ(0, results.size()); });
+  AssertSuccessful(after_assert);
+}
+
 TEST(FutureAllTest, Simple) {
   auto f1 = Future<int>::Make();
   auto f2 = Future<int>::Make();
@@ -1054,6 +1001,39 @@ TEST(FutureAllTest, Failure) {
   f3.MarkFinished(3);
 
   AssertFinished(after_assert);
+}
+
+TEST(FutureAllCompleteTest, Empty) {
+  Future<> combined = AllComplete(std::vector<Future<>>{});
+  AssertSuccessful(combined);
+}
+
+TEST(FutureAllCompleteTest, Simple) {
+  auto f1 = Future<int>::Make();
+  auto f2 = Future<int>::Make();
+  std::vector<Future<>> futures = {Future<>(f1), Future<>(f2)};
+  auto combined = AllComplete(futures);
+  AssertNotFinished(combined);
+  f2.MarkFinished(2);
+  AssertNotFinished(combined);
+  f1.MarkFinished(1);
+  AssertSuccessful(combined);
+}
+
+TEST(FutureAllCompleteTest, Failure) {
+  auto f1 = Future<int>::Make();
+  auto f2 = Future<int>::Make();
+  auto f3 = Future<int>::Make();
+  std::vector<Future<>> futures = {Future<>(f1), Future<>(f2), Future<>(f3)};
+  auto combined = AllComplete(futures);
+  AssertNotFinished(combined);
+  f1.MarkFinished(1);
+  AssertNotFinished(combined);
+  f2.MarkFinished(Status::IOError("XYZ"));
+  AssertFinished(combined);
+  f3.MarkFinished(3);
+  AssertFinished(combined);
+  ASSERT_EQ(Status::IOError("XYZ"), combined.status());
 }
 
 TEST(FutureLoopTest, Sync) {
@@ -1334,7 +1314,11 @@ class FutureTestBase : public ::testing::Test {
   }
 
   void TestStressWait() {
+#ifdef ARROW_VALGRIND
+    const int N = 20;
+#else
     const int N = 2000;
+#endif
     MakeExecutor(N);
     const auto& futures = executor_->futures();
     const auto spans = RandomSequenceSpans(N);
@@ -1426,7 +1410,11 @@ class FutureTestBase : public ::testing::Test {
   }
 
   void TestStressWaitForAny() {
+#ifdef ARROW_VALGRIND
+    const int N = 5;
+#else
     const int N = 300;
+#endif
     MakeExecutor(N);
     const auto& futures = executor_->futures();
     const auto spans = RandomSequenceSpans(N);
@@ -1451,7 +1439,11 @@ class FutureTestBase : public ::testing::Test {
   }
 
   void TestStressWaitForAll() {
+#ifdef ARROW_VALGRIND
+    const int N = 5;
+#else
     const int N = 300;
+#endif
     MakeExecutor(N);
     const auto& futures = executor_->futures();
     const auto spans = RandomSequenceSpans(N);
@@ -1506,7 +1498,11 @@ class FutureTestBase : public ::testing::Test {
   }
 
   void TestStressAsCompleted() {
+#ifdef ARROW_VALGRIND
+    const int N = 10;
+#else
     const int N = 1000;
+#endif
     MakeExecutor(N);
 
     // Launch a worker thread that will finish random spans of futures,

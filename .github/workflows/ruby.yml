@@ -223,7 +223,7 @@ jobs:
         shell: bash
         run: ci/scripts/util_checkout.sh
       - name: Setup Ruby
-        uses: actions/setup-ruby@v1
+        uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby-version }}
       - name: Upgrade MSYS2

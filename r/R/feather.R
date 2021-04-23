@@ -125,7 +125,7 @@ write_feather <- function(x,
 #'
 #' @inheritParams read_ipc_stream
 #' @inheritParams read_delim_arrow
-#' @param ... additional parameters, passed to [FeatherReader$create()][FeatherReader]
+#' @param ... additional parameters, passed to [make_readable_file()].
 #'
 #' @return A `data.frame` if `as_data_frame` is `TRUE` (the default), or an
 #' Arrow [Table] otherwise
@@ -144,17 +144,20 @@ write_feather <- function(x,
 #' }
 read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
   if (!inherits(file, "RandomAccessFile")) {
-    file <- make_readable_file(file)
+    file <- make_readable_file(file, ...)
     on.exit(file$close())
   }
-  reader <- FeatherReader$create(file, ...)
+  reader <- FeatherReader$create(file)
 
   col_select <- enquo(col_select)
   columns <- if (!quo_is_null(col_select)) {
     vars_select(names(reader), !!col_select)
   }
 
-  out <- reader$Read(columns)
+  out <- tryCatch(
+    reader$Read(columns),
+    error = read_compressed_error
+  )
 
   if (isTRUE(as_data_frame)) {
     out <- as.data.frame(out)
@@ -175,16 +178,16 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
 #' @section Factory:
 #'
 #' The `FeatherReader$create()` factory method instantiates the object and
-#' takes the following arguments:
+#' takes the following argument:
 #'
 #' - `file` an Arrow file connection object inheriting from `RandomAccessFile`.
-#' - `mmap` Logical: whether to memory-map the file (default `TRUE`)
-#' - `...` Additional arguments, currently ignored
 #'
 #' @section Methods:
 #'
 #' - `$Read(columns)`: Returns a `Table` of the selected columns, a vector of
 #'   integer indices
+#' - `$column_names`: Active binding, returns the column names in the Feather file
+#' - `$schema`: Active binding, returns the schema of the Feather file
 #' - `$version`: Active binding, returns `1` or `2`, according to the Feather
 #'   file version
 #'
@@ -194,19 +197,25 @@ FeatherReader <- R6Class("FeatherReader", inherit = ArrowObject,
   public = list(
     Read = function(columns) {
       ipc___feather___Reader__Read(self, columns)
+    },
+    print = function(...) {
+      cat("FeatherReader:\n")
+      print(self$schema)
+      invisible(self)
     }
   ),
   active = list(
     # versions are officially 2 for V1 and 3 for V2 :shrug:
     version = function() ipc___feather___Reader__version(self) - 1L,
-    column_names = function() ipc___feather___Reader__column_names(self)
+    column_names = function() names(self$schema),
+    schema = function() ipc___feather___Reader__schema(self)
   )
 )
 
 #' @export
 names.FeatherReader <- function(x) x$column_names
 
-FeatherReader$create <- function(file, mmap = TRUE, ...) {
+FeatherReader$create <- function(file) {
   assert_is(file, "RandomAccessFile")
   ipc___feather___Reader__Open(file)
 }

@@ -15,35 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# NOTE: must set "Crossbow" as name to have the badge links working in the
-# github comment reports!
-name: Crossbow
+{% import 'macros.jinja' as macros with context %}
 
-on:
-  push:
-    branches:
-      - "*-github-*"
+{{ macros.github_header() }}
 
 jobs:
   build:
     name: "Build sdist"
     runs-on: ubuntu-20.04
     steps:
-      - name: Checkout Arrow
-        run: |
-          git clone --no-checkout {{ arrow.remote }} arrow
-          git -C arrow config core.symlinks true
-          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-          git -C arrow checkout FETCH_HEAD
-          git -C arrow submodule update --init --recursive
-      - name: Fetch Submodules and Tags
-        run: cd arrow && ci/scripts/util_checkout.sh
-      - name: Free Up Disk Space
-        shell: bash
-        run: arrow/ci/scripts/util_cleanup.sh
-      - uses: actions/setup-python@v2
-      - name: Setup Archery
-        run: pip install -e arrow/dev/archery[docker]
+      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_install_archery()|indent }}
+
       - name: Build sdist
         run: |
           archery docker run python-sdist
@@ -52,32 +35,11 @@ jobs:
           {% endif %}
         env:
           PYARROW_VERSION: {{ arrow.no_rc_version }}
+
       - name: Test sdist
         run: archery docker run ubuntu-python-sdist-test
         env:
           PYARROW_VERSION: {{ arrow.no_rc_version }}
-      {% if arrow.branch == 'master' %}
-      - name: Upload to gemfury
-        run: |
-          SDIST_PATH=$(echo arrow/python/dist/*.tar.gz)
-          curl \
-            -F "package=@${SDIST_PATH}" \
-            "https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/"
-        env:
-          CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
-          CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
-      {% endif %}
-      - name: Setup Crossbow
-        run: pip install --requirement arrow/dev/tasks/requirements-crossbow.txt
-      - name: Upload artifacts
-        shell: bash
-        run: |
-          python arrow/dev/tasks/crossbow.py \
-            --queue-path . \
-            --queue-remote {{ queue_remote_url }} \
-            upload-artifacts \
-            --pattern "arrow/python/dist/*.tar.gz" \
-            --sha {{ task.branch }} \
-            --tag {{ task.tag }}
-        env:
-          CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN }}' }}
+
+      {{ macros.github_upload_releases("arrow/python/dist/*.tar.gz")|indent }}
+      {{ macros.github_upload_gemfury("arrow/python/dist/*.tar.gz")|indent }}

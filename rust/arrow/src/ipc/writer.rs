@@ -25,7 +25,7 @@ use std::io::{BufWriter, Write};
 
 use flatbuffers::FlatBufferBuilder;
 
-use crate::array::{ArrayDataRef, ArrayRef};
+use crate::array::{ArrayData, ArrayRef};
 use crate::buffer::{Buffer, MutableBuffer};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
@@ -233,7 +233,7 @@ impl IpcDataGenerator {
     fn dictionary_batch_to_bytes(
         &self,
         dict_id: i64,
-        array_data: &ArrayDataRef,
+        array_data: &ArrayData,
         write_options: &IpcWriteOptions,
     ) -> EncodedData {
         let mut fbb = FlatBufferBuilder::new();
@@ -546,6 +546,53 @@ impl<W: Write> StreamWriter<W> {
 
         Ok(())
     }
+
+    /// Unwraps the BufWriter housed in StreamWriter.writer, returning the underlying
+    /// writer
+    ///
+    /// The buffer is flushed and the StreamWriter is finished before returning the
+    /// writer.
+    ///
+    /// # Errors
+    ///
+    /// An ['Err'] may be returned if an error occurs while finishing the StreamWriter
+    /// or while flushing the buffer.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use arrow::datatypes::Schema;
+    /// # use arrow::ipc::writer::StreamWriter;
+    /// # use arrow::error::ArrowError;
+    /// # fn main() -> Result<(), ArrowError> {
+    /// // The result we expect from an empty schema
+    /// let expected = vec![
+    ///     255, 255, 255, 255,  64,   0,   0,   0,
+    ///      16,   0,   0,   0,   0,   0,  10,   0,
+    ///      14,   0,  12,   0,  11,   0,   4,   0,
+    ///      10,   0,   0,   0,  20,   0,   0,   0,
+    ///       0,   0,   0,   1,   4,   0,  10,   0,
+    ///      12,   0,   0,   0,   8,   0,   4,   0,
+    ///      10,   0,   0,   0,   8,   0,   0,   0,
+    ///       8,   0,   0,   0,   0,   0,   0,   0,
+    ///       0,   0,   0,   0,   0,   0,   0,   0,
+    ///     255, 255, 255, 255,   0,   0,   0,   0
+    /// ];
+    ///
+    /// let schema = Schema::new(vec![]);
+    /// let buffer: Vec<u8> = Vec::new();
+    /// let stream_writer = StreamWriter::try_new(buffer, &schema)?;
+    ///
+    /// assert_eq!(stream_writer.into_inner()?, expected);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn into_inner(mut self) -> Result<W> {
+        if !self.finished {
+            self.finish()?;
+        }
+        self.writer.into_inner().map_err(ArrowError::from)
+    }
 }
 
 /// Stores the encoded data, which is an ipc::Message, and optional Arrow data
@@ -656,7 +703,7 @@ fn write_continuation<W: Write>(
 
 /// Write array data to a vector of bytes
 fn write_array_data(
-    array_data: &ArrayDataRef,
+    array_data: &ArrayData,
     mut buffers: &mut Vec<ipc::Buffer>,
     mut arrow_data: &mut Vec<u8>,
     mut nodes: &mut Vec<ipc::FieldNode>,

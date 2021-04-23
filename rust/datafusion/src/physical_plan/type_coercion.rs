@@ -35,7 +35,7 @@ use arrow::datatypes::{DataType, Schema, TimeUnit};
 
 use super::{functions::Signature, PhysicalExpr};
 use crate::error::{DataFusionError, Result};
-use crate::physical_plan::expressions::cast;
+use crate::physical_plan::expressions::try_cast;
 
 /// Returns `expressions` coerced to types compatible with
 /// `signature`, if possible.
@@ -56,7 +56,7 @@ pub fn coerce(
     expressions
         .iter()
         .enumerate()
-        .map(|(i, expr)| cast(expr.clone(), &schema, new_types[i].clone()))
+        .map(|(i, expr)| try_cast(expr.clone(), &schema, new_types[i].clone()))
         .collect::<Result<Vec<_>>>()
 }
 
@@ -260,7 +260,7 @@ mod tests {
         let expressions = |t: Vec<DataType>, schema| -> Result<Vec<_>> {
             t.iter()
                 .enumerate()
-                .map(|(i, t)| cast(col(&format!("c{}", i)), &schema, t.clone()))
+                .map(|(i, t)| try_cast(col(&format!("c{}", i)), &schema, t.clone()))
                 .collect::<Result<Vec<_>>>()
         };
 

@@ -32,7 +32,14 @@ Scalar <- R6Class("Scalar",
   # TODO: document the methods
   public = list(
     ToString = function() Scalar__ToString(self),
-    as_vector = function() Scalar__as_vector(self)
+    as_vector = function() Scalar__as_vector(self),
+    as_array = function() MakeArrayFromScalar(self),
+    Equals = function(other, ...) {
+      inherits(other, "Scalar") && Scalar__Equals(self, other)
+    },
+    ApproxEquals = function(other, ...) {
+      inherits(other, "Scalar") && Scalar__ApproxEquals(self, other)
+    }
   ),
   active = list(
     is_valid = function() Scalar__is_valid(self),
@@ -67,3 +74,6 @@ length.Scalar <- function(x) 1L
 
 #' @export
 is.na.Scalar <- function(x) !x$is_valid
+
+#' @export
+sort.Scalar <- function(x, decreasing = FALSE, ...) x

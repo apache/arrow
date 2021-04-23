@@ -142,8 +142,17 @@ pub enum Expr {
         /// Optional "else" expression
         else_expr: Option<Box<Expr>>,
     },
-    /// Casts the expression to a given type. This expression is guaranteed to have a fixed type.
+    /// Casts the expression to a given type and will return a runtime error if the expression cannot be cast.
+    /// This expression is guaranteed to have a fixed type.
     Cast {
+        /// The expression being cast
+        expr: Box<Expr>,
+        /// The `DataType` the expression will yield
+        data_type: DataType,
+    },
+    /// Casts the expression to a given type and will return a null value if the expression cannot be cast.
+    /// This expression is guaranteed to have a fixed type.
+    TryCast {
         /// The expression being cast
         expr: Box<Expr>,
         /// The `DataType` the expression will yield
@@ -220,6 +229,7 @@ impl Expr {
             Expr::Literal(l) => Ok(l.get_datatype()),
             Expr::Case { when_then_expr, .. } => when_then_expr[0].1.get_type(schema),
             Expr::Cast { data_type, .. } => Ok(data_type.clone()),
+            Expr::TryCast { data_type, .. } => Ok(data_type.clone()),
             Expr::ScalarUDF { fun, args } => {
                 let data_types = args
                     .iter()
@@ -303,6 +313,7 @@ impl Expr {
                 }
             }
             Expr::Cast { expr, .. } => expr.nullable(input_schema),
+            Expr::TryCast { .. } => Ok(true),
             Expr::ScalarFunction { .. } => Ok(true),
             Expr::ScalarUDF { .. } => Ok(true),
             Expr::AggregateFunction { .. } => Ok(true),
@@ -552,6 +563,7 @@ impl Expr {
                 }
             }
             Expr::Cast { expr, .. } => expr.accept(visitor),
+            Expr::TryCast { expr, .. } => expr.accept(visitor),
             Expr::Sort { expr, .. } => expr.accept(visitor),
             Expr::ScalarFunction { args, .. } => args
                 .iter()
@@ -668,6 +680,10 @@ impl Expr {
                 }
             }
             Expr::Cast { expr, data_type } => Expr::Cast {
+                expr: rewrite_boxed(expr, rewriter)?,
+                data_type,
+            },
+            Expr::TryCast { expr, data_type } => Expr::TryCast {
                 expr: rewrite_boxed(expr, rewriter)?,
                 data_type,
             },
@@ -1090,6 +1106,9 @@ unary_scalar_expr!(Lpad, lpad);
 unary_scalar_expr!(Ltrim, ltrim);
 unary_scalar_expr!(MD5, md5);
 unary_scalar_expr!(OctetLength, octet_length);
+unary_scalar_expr!(RegexpMatch, regexp_match);
+unary_scalar_expr!(RegexpReplace, regexp_replace);
+unary_scalar_expr!(Replace, replace);
 unary_scalar_expr!(Repeat, repeat);
 unary_scalar_expr!(Reverse, reverse);
 unary_scalar_expr!(Right, right);
@@ -1099,8 +1118,12 @@ unary_scalar_expr!(SHA224, sha224);
 unary_scalar_expr!(SHA256, sha256);
 unary_scalar_expr!(SHA384, sha384);
 unary_scalar_expr!(SHA512, sha512);
+unary_scalar_expr!(SplitPart, split_part);
+unary_scalar_expr!(StartsWith, starts_with);
+unary_scalar_expr!(Strpos, strpos);
 unary_scalar_expr!(Substr, substr);
 unary_scalar_expr!(ToHex, to_hex);
+unary_scalar_expr!(Translate, translate);
 unary_scalar_expr!(Trim, trim);
 unary_scalar_expr!(Upper, upper);
 
@@ -1189,6 +1212,9 @@ impl fmt::Debug for Expr {
             }
             Expr::Cast { expr, data_type } => {
                 write!(f, "CAST({:?} AS {:?})", expr, data_type)
+            }
+            Expr::TryCast { expr, data_type } => {
+                write!(f, "TRY_CAST({:?} AS {:?})", expr, data_type)
             }
             Expr::Not(expr) => write!(f, "NOT {:?}", expr),
             Expr::Negative(expr) => write!(f, "(- {:?})", expr),
@@ -1308,6 +1334,10 @@ fn create_name(e: &Expr, input_schema: &DFSchema) -> Result<String> {
             let expr = create_name(expr, input_schema)?;
             Ok(format!("CAST({} AS {:?})", expr, data_type))
         }
+        Expr::TryCast { expr, data_type } => {
+            let expr = create_name(expr, input_schema)?;
+            Ok(format!("TRY_CAST({} AS {:?})", expr, data_type))
+        }
         Expr::Not(expr) => {
             let expr = create_name(expr, input_schema)?;
             Ok(format!("NOT {}", expr))
@@ -1364,11 +1394,11 @@ fn create_name(e: &Expr, input_schema: &DFSchema) -> Result<String> {
 }
 
 /// Create field meta-data from an expression, for use in a result set schema
-pub fn exprlist_to_fields(
-    expr: &[Expr],
+pub fn exprlist_to_fields<'a>(
+    expr: impl IntoIterator<Item = &'a Expr>,
     input_schema: &DFSchema,
 ) -> Result<Vec<DFField>> {
-    expr.iter().map(|e| e.to_field(input_schema)).collect()
+    expr.into_iter().map(|e| e.to_field(input_schema)).collect()
 }
 
 #[cfg(test)]

@@ -54,11 +54,10 @@ export abstract class Visitor {
 function getVisitFn<T extends DataType>(visitor: Visitor, node: any, throwIfNotFound = true) {
     let fn: any = null;
     let dtype: T['TType'] = Type.NONE;
-    // tslint:disable
-    if      (node instanceof Data    ) { dtype = inferDType(node.type as T); }
-    else if (node instanceof Vector  ) { dtype = inferDType(node.type as T); }
-    else if (node instanceof DataType) { dtype = inferDType(node      as T); }
-    else if (typeof (dtype = node) !== 'number') { dtype = Type[node] as any as T['TType']; }
+    if      (node instanceof Data    ) dtype = inferDType(node.type as T);
+    else if (node instanceof Vector  ) dtype = inferDType(node.type as T);
+    else if (node instanceof DataType) dtype = inferDType(node      as T);
+    else if (typeof (dtype = node) !== 'number') dtype = Type[node] as any as T['TType'];
 
     switch (dtype) {
         case Type.Null:                 fn = visitor.visitNull; break;
@@ -114,7 +113,7 @@ function getVisitFn<T extends DataType>(visitor: Visitor, node: any, throwIfNotF
 function inferDType<T extends DataType>(type: T): Type {
     switch (type.typeId) {
         case Type.Null: return Type.Null;
-        case Type.Int:
+        case Type.Int: {
             const { bitWidth, isSigned } = (type as any as Int);
             switch (bitWidth) {
                 case  8: return isSigned ? Type.Int8  : Type.Uint8 ;
@@ -124,6 +123,7 @@ function inferDType<T extends DataType>(type: T): Type {
             }
             // @ts-ignore
             return Type.Int;
+        }
         case Type.Float:
             switch((type as any as Float).precision) {
                 case Precision.HALF: return Type.Float16;

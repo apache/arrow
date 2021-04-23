@@ -25,12 +25,23 @@ use crate::{
 };
 
 use super::ArrayData;
+use crate::datatypes::DataType;
+use crate::ffi::ArrowArray;
 
 impl TryFrom<ffi::ArrowArray> for ArrayData {
     type Error = ArrowError;
 
     fn try_from(value: ffi::ArrowArray) -> Result<Self> {
-        let data_type = value.data_type()?;
+        let child_data = value.children()?;
+
+        let child_type = if !child_data.is_empty() {
+            Some(child_data[0].data_type().clone())
+        } else {
+            None
+        };
+
+        let data_type = value.data_type(child_type)?;
+
         let len = value.len();
         let offset = value.offset();
         let null_count = value.null_count();
@@ -44,9 +55,7 @@ impl TryFrom<ffi::ArrowArray> for ArrayData {
             null_bit_buffer,
             offset,
             buffers,
-            // this is empty because ffi still does not support it.
-            // this is ok because FFI only supports datatypes without childs
-            vec![],
+            child_data,
         ))
     }
 }
@@ -55,11 +64,45 @@ impl TryFrom<ArrayData> for ffi::ArrowArray {
     type Error = ArrowError;
 
     fn try_from(value: ArrayData) -> Result<Self> {
+        // If parent is nullable, then children also must be nullable
+        // so we pass this nullable to the creation of hte child data
+        let nullable = match value.data_type() {
+            DataType::List(field) => field.is_nullable(),
+            DataType::LargeList(field) => field.is_nullable(),
+            _ => false,
+        };
+
         let len = value.len();
         let offset = value.offset() as usize;
         let null_count = value.null_count();
         let buffers = value.buffers().to_vec();
         let null_buffer = value.null_buffer().cloned();
+        let child_data = value
+            .child_data()
+            .iter()
+            .map(|arr| {
+                let len = arr.len();
+                let offset = arr.offset() as usize;
+                let null_count = arr.null_count();
+                let buffers = arr.buffers().to_vec();
+                let null_buffer = arr.null_buffer().cloned();
+
+                // Note: the nullable comes from the parent data.
+                unsafe {
+                    ArrowArray::try_new(
+                        arr.data_type(),
+                        len,
+                        null_count,
+                        null_buffer,
+                        offset,
+                        buffers,
+                        vec![],
+                        nullable,
+                    )
+                    .expect("infallible")
+                }
+            })
+            .collect::<Vec<_>>();
 
         unsafe {
             ffi::ArrowArray::try_new(
@@ -69,9 +112,8 @@ impl TryFrom<ArrayData> for ffi::ArrowArray {
                 null_buffer,
                 offset,
                 buffers,
-                // this is empty because ffi still does not support it.
-                // this is ok because FFI only supports datatypes without childs
-                vec![],
+                child_data,
+                nullable,
             )
         }
     }
@@ -105,19 +147,22 @@ mod tests {
 
     #[test]
     fn test_u32() -> Result<()> {
-        let data = UInt32Array::from(vec![Some(2), None, Some(1), None]).data();
-        test_round_trip(data.as_ref())
+        let array = UInt32Array::from(vec![Some(2), None, Some(1), None]);
+        let data = array.data();
+        test_round_trip(data)
     }
 
     #[test]
     fn test_u64() -> Result<()> {
-        let data = UInt64Array::from(vec![Some(2), None, Some(1), None]).data();
-        test_round_trip(data.as_ref())
+        let array = UInt64Array::from(vec![Some(2), None, Some(1), None]);
+        let data = array.data();
+        test_round_trip(data)
     }
 
     #[test]
     fn test_i64() -> Result<()> {
-        let data = Int64Array::from(vec![Some(2), None, Some(1), None]).data();
-        test_round_trip(data.as_ref())
+        let array = Int64Array::from(vec![Some(2), None, Some(1), None]);
+        let data = array.data();
+        test_round_trip(data)
     }
 }

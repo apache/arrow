@@ -135,6 +135,7 @@ TEST(Metadata, TestBuildAccess) {
     ASSERT_EQ(2, rg1_accessor->num_columns());
     ASSERT_EQ(nrows / 2, rg1_accessor->num_rows());
     ASSERT_EQ(1024, rg1_accessor->total_byte_size());
+    ASSERT_EQ(1024, rg1_accessor->total_compressed_size());
 
     auto rg1_column1 = rg1_accessor->ColumnChunk(0);
     auto rg1_column2 = rg1_accessor->ColumnChunk(1);
@@ -169,6 +170,7 @@ TEST(Metadata, TestBuildAccess) {
     ASSERT_EQ(2, rg2_accessor->num_columns());
     ASSERT_EQ(nrows / 2, rg2_accessor->num_rows());
     ASSERT_EQ(1024, rg2_accessor->total_byte_size());
+    ASSERT_EQ(1024, rg2_accessor->total_compressed_size());
 
     auto rg2_column1 = rg2_accessor->ColumnChunk(0);
     auto rg2_column2 = rg2_accessor->ColumnChunk(1);

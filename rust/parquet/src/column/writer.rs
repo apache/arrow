@@ -78,7 +78,7 @@ macro_rules! gen_stats_section {
 pub fn get_column_writer(
     descr: ColumnDescPtr,
     props: WriterPropertiesPtr,
-    page_writer: Box<PageWriter>,
+    page_writer: Box<dyn PageWriter>,
 ) -> ColumnWriter {
     match descr.physical_type() {
         Type::BOOLEAN => ColumnWriter::BoolColumnWriter(ColumnWriterImpl::new(
@@ -166,12 +166,12 @@ pub struct ColumnWriterImpl<T: DataType> {
     // Column writer properties
     descr: ColumnDescPtr,
     props: WriterPropertiesPtr,
-    page_writer: Box<PageWriter>,
+    page_writer: Box<dyn PageWriter>,
     has_dictionary: bool,
     dict_encoder: Option<DictEncoder<T>>,
-    encoder: Box<Encoder<T>>,
+    encoder: Box<dyn Encoder<T>>,
     codec: Compression,
-    compressor: Option<Box<Codec>>,
+    compressor: Option<Box<dyn Codec>>,
     // Metrics per page
     num_buffered_values: u32,
     num_buffered_encoded_values: u32,
@@ -203,7 +203,7 @@ impl<T: DataType> ColumnWriterImpl<T> {
     pub fn new(
         descr: ColumnDescPtr,
         props: WriterPropertiesPtr,
-        page_writer: Box<PageWriter>,
+        page_writer: Box<dyn PageWriter>,
     ) -> Self {
         let codec = props.compression(descr.path());
         let compressor = create_codec(codec).unwrap();
@@ -879,8 +879,8 @@ impl<T: DataType> ColumnWriterImpl<T> {
 
     /// Returns reference to the underlying page writer.
     /// This method is intended to use in tests only.
-    fn get_page_writer_ref(&self) -> &Box<PageWriter> {
-        &self.page_writer
+    fn get_page_writer_ref(&self) -> &dyn PageWriter {
+        self.page_writer.as_ref()
     }
 
     fn make_column_statistics(&self) -> Statistics {
@@ -1842,7 +1842,7 @@ mod tests {
 
     /// Returns column writer.
     fn get_test_column_writer<T: DataType>(
-        page_writer: Box<PageWriter>,
+        page_writer: Box<dyn PageWriter>,
         max_def_level: i16,
         max_rep_level: i16,
         props: WriterPropertiesPtr,
@@ -1854,7 +1854,7 @@ mod tests {
 
     /// Returns column reader.
     fn get_test_column_reader<T: DataType>(
-        page_reader: Box<PageReader>,
+        page_reader: Box<dyn PageReader>,
         max_def_level: i16,
         max_rep_level: i16,
     ) -> ColumnReaderImpl<T> {
@@ -1879,7 +1879,7 @@ mod tests {
     }
 
     /// Returns page writer that collects pages without serializing them.
-    fn get_test_page_writer() -> Box<PageWriter> {
+    fn get_test_page_writer() -> Box<dyn PageWriter> {
         Box::new(TestPageWriter {})
     }
 

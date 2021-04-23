@@ -28,7 +28,11 @@
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/async_generator.h"
+#include "arrow/util/future.h"
+#include "arrow/util/vector.h"
 
 using ::testing::ElementsAre;
 
@@ -107,6 +111,12 @@ void CreateFile(FileSystem* fs, const std::string& path, const std::string& data
 
 void SortInfos(std::vector<FileInfo>* infos) {
   std::sort(infos->begin(), infos->end(), FileInfo::ByPath{});
+}
+
+void CollectFileInfoGenerator(FileInfoGenerator gen, FileInfoVector* out_infos) {
+  auto fut = CollectAsyncGenerator(gen);
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto nested_infos, fut);
+  *out_infos = ::arrow::internal::FlattenVectors(nested_infos);
 }
 
 void AssertFileInfo(const FileInfo& info, const std::string& path, FileType type) {
@@ -550,6 +560,23 @@ void GenericFileSystemTest::TestGetFileInfo(FileSystem* fs) {
   ASSERT_EQ(info.mtime(), kNoTime);
 }
 
+void GenericFileSystemTest::TestGetFileInfoAsync(FileSystem* fs) {
+  ASSERT_OK(fs->CreateDir("AB/CD"));
+  CreateFile(fs, "AB/CD/ghi", "some data");
+
+  std::vector<FileInfo> infos;
+  auto fut = fs->GetFileInfoAsync({"AB", "AB/CD", "AB/zz", "zz", "XX/zz", "AB/CD/ghi"});
+  ASSERT_FINISHES_OK_AND_ASSIGN(infos, fut);
+
+  ASSERT_EQ(infos.size(), 6);
+  AssertFileInfo(infos[0], "AB", FileType::Directory);
+  AssertFileInfo(infos[1], "AB/CD", FileType::Directory);
+  AssertFileInfo(infos[2], "AB/zz", FileType::NotFound);
+  AssertFileInfo(infos[3], "zz", FileType::NotFound);
+  AssertFileInfo(infos[4], "XX/zz", FileType::NotFound);
+  AssertFileInfo(infos[5], "AB/CD/ghi", FileType::File, 9);
+}
+
 void GenericFileSystemTest::TestGetFileInfoVector(FileSystem* fs) {
   ASSERT_OK(fs->CreateDir("AB/CD"));
   CreateFile(fs, "AB/CD/ghi", "some data");
@@ -660,6 +687,46 @@ void GenericFileSystemTest::TestGetFileInfoSelector(FileSystem* fs) {
   // Not a dir
   s.base_dir = "abc";
   ASSERT_RAISES(IOError, fs->GetFileInfo(s));
+}
+
+void GenericFileSystemTest::TestGetFileInfoGenerator(FileSystem* fs) {
+  ASSERT_OK(fs->CreateDir("AB/CD"));
+  CreateFile(fs, "abc", "data");
+  CreateFile(fs, "AB/def", "some data");
+  CreateFile(fs, "AB/CD/ghi", "some other data");
+  CreateFile(fs, "AB/CD/jkl", "yet other data");
+
+  FileSelector s;
+  s.base_dir = "";
+  std::vector<FileInfo> infos;
+  std::vector<std::vector<FileInfo>> nested_infos;
+
+  // Non-recursive
+  auto gen = fs->GetFileInfoGenerator(s);
+  CollectFileInfoGenerator(std::move(gen), &infos);
+  SortInfos(&infos);
+  ASSERT_EQ(infos.size(), 2);
+  AssertFileInfo(infos[0], "AB", FileType::Directory);
+  AssertFileInfo(infos[1], "abc", FileType::File, 4);
+
+  // Recursive
+  s.base_dir = "AB";
+  s.recursive = true;
+  CollectFileInfoGenerator(fs->GetFileInfoGenerator(s), &infos);
+  SortInfos(&infos);
+  ASSERT_EQ(infos.size(), 4);
+  AssertFileInfo(infos[0], "AB/CD", FileType::Directory);
+  AssertFileInfo(infos[1], "AB/CD/ghi", FileType::File, 15);
+  AssertFileInfo(infos[2], "AB/CD/jkl", FileType::File, 14);
+  AssertFileInfo(infos[3], "AB/def", FileType::File, 9);
+
+  // Doesn't exist
+  s.base_dir = "XX";
+  auto fut = CollectAsyncGenerator(fs->GetFileInfoGenerator(s));
+  ASSERT_FINISHES_AND_RAISES(IOError, fut);
+  s.allow_not_found = true;
+  CollectFileInfoGenerator(fs->GetFileInfoGenerator(s), &infos);
+  ASSERT_EQ(infos.size(), 0);
 }
 
 void GetSortedInfos(FileSystem* fs, FileSelector s, std::vector<FileInfo>& infos) {
@@ -867,6 +934,21 @@ void GenericFileSystemTest::TestOpenInputStreamWithFileInfo(FileSystem* fs) {
   ASSERT_RAISES(IOError, fs->OpenInputStream(info));
 }
 
+void GenericFileSystemTest::TestOpenInputStreamAsync(FileSystem* fs) {
+  ASSERT_OK(fs->CreateDir("AB"));
+  CreateFile(fs, "AB/abc", "some data");
+
+  std::shared_ptr<io::InputStream> stream;
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_FINISHES_OK_AND_ASSIGN(stream, fs->OpenInputStreamAsync("AB/abc"));
+  ASSERT_OK_AND_ASSIGN(buffer, stream->Read(4));
+  AssertBufferEqual(*buffer, "some");
+  ASSERT_OK(stream->Close());
+
+  // File does not exist
+  ASSERT_RAISES(IOError, fs->OpenInputStreamAsync("AB/def").result());
+}
+
 void GenericFileSystemTest::TestOpenInputFile(FileSystem* fs) {
   ASSERT_OK(fs->CreateDir("AB"));
   CreateFile(fs, "AB/abc", "some other data");
@@ -886,6 +968,21 @@ void GenericFileSystemTest::TestOpenInputFile(FileSystem* fs) {
 
   // Cannot open directory
   ASSERT_RAISES(IOError, fs->OpenInputFile("AB"));
+}
+
+void GenericFileSystemTest::TestOpenInputFileAsync(FileSystem* fs) {
+  ASSERT_OK(fs->CreateDir("AB"));
+  CreateFile(fs, "AB/abc", "some other data");
+
+  std::shared_ptr<io::RandomAccessFile> file;
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_FINISHES_OK_AND_ASSIGN(file, fs->OpenInputFileAsync("AB/abc"));
+  ASSERT_OK_AND_ASSIGN(buffer, file->ReadAt(5, 6));
+  AssertBufferEqual(*buffer, "other ");
+  ASSERT_OK(file->Close());
+
+  // File does not exist
+  ASSERT_RAISES(IOError, fs->OpenInputFileAsync("AB/def").result());
 }
 
 void GenericFileSystemTest::TestOpenInputFileWithFileInfo(FileSystem* fs) {
@@ -938,12 +1035,16 @@ GENERIC_FS_TEST_DEFINE(TestGetFileInfo)
 GENERIC_FS_TEST_DEFINE(TestGetFileInfoVector)
 GENERIC_FS_TEST_DEFINE(TestGetFileInfoSelector)
 GENERIC_FS_TEST_DEFINE(TestGetFileInfoSelectorWithRecursion)
+GENERIC_FS_TEST_DEFINE(TestGetFileInfoAsync)
+GENERIC_FS_TEST_DEFINE(TestGetFileInfoGenerator)
 GENERIC_FS_TEST_DEFINE(TestOpenOutputStream)
 GENERIC_FS_TEST_DEFINE(TestOpenAppendStream)
 GENERIC_FS_TEST_DEFINE(TestOpenInputStream)
 GENERIC_FS_TEST_DEFINE(TestOpenInputStreamWithFileInfo)
+GENERIC_FS_TEST_DEFINE(TestOpenInputStreamAsync)
 GENERIC_FS_TEST_DEFINE(TestOpenInputFile)
 GENERIC_FS_TEST_DEFINE(TestOpenInputFileWithFileInfo)
+GENERIC_FS_TEST_DEFINE(TestOpenInputFileAsync)
 
 #undef GENERIC_FS_TEST_DEFINE
 

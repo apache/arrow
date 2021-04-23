@@ -539,6 +539,56 @@ TEST_F(TestUtf8, TestVarlenOutput) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
+TEST_F(TestUtf8, TestConvertUtf8) {
+  // schema for input fields
+  auto field_a = field("a", arrow::binary());
+  auto field_c = field("c", utf8());
+  auto schema = arrow::schema({field_a, field_c});
+
+  // output fields
+  auto res = field("res", boolean());
+
+  // build expressions.
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto node_c = TreeExprBuilder::MakeField(field_c);
+
+  // define char to replace
+  auto node_b = TreeExprBuilder::MakeStringLiteral("z");
+
+  auto convert_replace_utf8 =
+      TreeExprBuilder::MakeFunction("convert_replaceUTF8", {node_a, node_b}, utf8());
+  auto equals =
+      TreeExprBuilder::MakeFunction("equal", {convert_replace_utf8, node_c}, boolean());
+  auto expr = TreeExprBuilder::MakeExpression(equals, res);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 3;
+  auto array_a = MakeArrowArrayUtf8({"ok-\xf8\x28"
+                                     "-a",
+                                     "all-valid", "ok-\xa0\xa1-valid"},
+                                    {true, true, true});
+
+  auto array_b =
+      MakeArrowArrayUtf8({"ok-z(-a", "all-valid", "ok-zz-valid"}, {true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_a, array_b});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  auto exp = MakeArrowArrayBool({true, true, true}, {true, true, true});
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs[0]);
+}
+
 TEST_F(TestUtf8, TestCastVarChar) {
   // schema for input fields
   auto field_a = field("a", utf8());

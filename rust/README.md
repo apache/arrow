@@ -31,6 +31,7 @@ This part of the Arrow project is divided in 4 main components:
 |Parquet      | Parquet support | [(README)](parquet/README.md) |
 |Arrow-flight | Arrow data between processes | [(README)](arrow-flight/README.md) |
 |DataFusion   | In-memory query engine with SQL support | [(README)](datafusion/README.md) |
+|Ballista     | Distributed query execution | [(README)](ballista/README.md) |
 
 Independently, they support a vast array of functionality for in-memory computations.
 
@@ -49,6 +50,20 @@ There are too many features to enumerate here, but some notable mentions:
 * `DataFusion` supports user-defined functions, aggregates, and whole execution nodes
 
 You can find more details about each crate in their respective READMEs.
+
+## Arrow Rust Community
+
+We use the official [ASF Slack](https://s.apache.org/slack-invite) for informal discussions and coordination. This is 
+a great place to meet other contributors and get guidance on where to contribute. Join us in the `arrow-rust` channel.
+
+We use [ASF JIRA](https://issues.apache.org/jira/secure/Dashboard.jspa) as the system of record for new features
+and bug fixes and this plays a critical role in the release process.
+
+For design discussions we generally collaborate on Google documents and file a JIRA linking to the document.
+
+There is also a bi-weekly Rust-specific sync call for the Arrow Rust community. This is hosted on Google Meet
+at https://meet.google.com/ctp-yujs-aee on alternate Wednesday's at 09:00 US/Pacific, 12:00 US/Eastern. During 
+US daylight savings time this corresponds to 16:00 UTC and at other times this is 17:00 UTC.
 
 ## Developer's guide to Arrow Rust
 

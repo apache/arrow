@@ -16,10 +16,10 @@
 // under the License.
 
 use std::borrow::Borrow;
+use std::convert::From;
 use std::iter::{FromIterator, IntoIterator};
 use std::mem;
 use std::{any::Any, fmt};
-use std::{convert::From, sync::Arc};
 
 use super::*;
 use super::{array::print_long_array, raw_pointer::RawPtrBox};
@@ -28,7 +28,7 @@ use crate::util::bit_util;
 
 /// Array of bools
 pub struct BooleanArray {
-    data: ArrayDataRef,
+    data: ArrayData,
     /// Pointer to the value array. The lifetime of this must be <= to the value buffer
     /// stored in `data`, so it's safe to store.
     raw_values: RawPtrBox<u8>,
@@ -69,10 +69,19 @@ impl BooleanArray {
 
     /// Returns the boolean value at index `i`.
     ///
+    /// # Safety
+    /// This doesn't check bounds, the caller must ensure that index < self.len()
+    pub unsafe fn value_unchecked(&self, i: usize) -> bool {
+        let offset = i + self.offset();
+        bit_util::get_bit_raw(self.raw_values.as_ptr(), offset)
+    }
+
+    /// Returns the boolean value at index `i`.
+    ///
     /// Note this doesn't do any bound checking, for performance reason.
     pub fn value(&self, i: usize) -> bool {
-        let offset = i + self.offset();
-        unsafe { bit_util::get_bit_raw(self.raw_values.as_ptr(), offset) }
+        debug_assert!(i < self.len());
+        unsafe { self.value_unchecked(i) }
     }
 }
 
@@ -81,11 +90,7 @@ impl Array for BooleanArray {
         self
     }
 
-    fn data(&self) -> ArrayDataRef {
-        self.data.clone()
-    }
-
-    fn data_ref(&self) -> &ArrayDataRef {
+    fn data(&self) -> &ArrayData {
         &self.data
     }
 
@@ -125,8 +130,8 @@ impl From<Vec<Option<bool>>> for BooleanArray {
     }
 }
 
-impl From<ArrayDataRef> for BooleanArray {
-    fn from(data: ArrayDataRef) -> Self {
+impl From<ArrayData> for BooleanArray {
+    fn from(data: ArrayData) -> Self {
         assert_eq!(
             data.buffers().len(),
             1,
@@ -187,7 +192,7 @@ impl<Ptr: Borrow<Option<bool>>> FromIterator<Ptr> for BooleanArray {
             vec![val_buf.into()],
             vec![],
         );
-        BooleanArray::from(Arc::new(data))
+        BooleanArray::from(data)
     }
 }
 

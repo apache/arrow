@@ -46,6 +46,7 @@ git checkout "${release_tag}"
 archery docker run \
   -v "${ARROW_SITE_DIR}/docs:/build/docs" \
   -e ARROW_DOCS_VERSION="${version}" \
+  -e UBUNTU=20.10 \
   ubuntu-docs
 
 : ${PUSH:=1}

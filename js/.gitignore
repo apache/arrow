@@ -61,7 +61,7 @@ jspm_packages/
 .npm
 
 # JS package manager files
-yarn.lock
+package-lock.json
 
 # Optional eslint cache
 .eslintcache

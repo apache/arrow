@@ -24,6 +24,25 @@
 /// Stub functions that can be accessed from LLVM.
 extern "C" {
 
+using gdv_boolean = bool;
+using gdv_int8 = int8_t;
+using gdv_int16 = int16_t;
+using gdv_int32 = int32_t;
+using gdv_int64 = int64_t;
+using gdv_uint8 = uint8_t;
+using gdv_uint16 = uint16_t;
+using gdv_uint32 = uint32_t;
+using gdv_uint64 = uint64_t;
+using gdv_float32 = float;
+using gdv_float64 = double;
+using gdv_date64 = int64_t;
+using gdv_date32 = int32_t;
+using gdv_time32 = int32_t;
+using gdv_timestamp = int64_t;
+using gdv_utf8 = char*;
+using gdv_binary = char*;
+using gdv_day_time_interval = int64_t;
+
 bool gdv_fn_like_utf8_utf8(int64_t ptr, const char* data, int data_len,
                            const char* pattern, int pattern_len);
 
@@ -48,6 +67,16 @@ bool in_expr_lookup_utf8(int64_t ptr, const char* data, int data_len, bool in_va
 int gdv_fn_time_with_zone(int* time_fields, const char* zone, int zone_len,
                           int64_t* ret_time);
 
+GANDIVA_EXPORT
+const char* gdv_fn_sha256_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
+                                     int32_t x_precision, int32_t x_scale,
+                                     gdv_boolean x_isvalid, int32_t* out_length);
+
+GANDIVA_EXPORT
+const char* gdv_fn_sha1_decimal128(int64_t context, int64_t x_high, uint64_t x_low,
+                                   int32_t x_precision, int32_t x_scale,
+                                   gdv_boolean x_isvalid, int32_t* out_length);
+
 int32_t gdv_fn_dec_from_string(int64_t context, const char* in, int32_t in_length,
                                int32_t* precision_from_str, int32_t* scale_from_str,
                                int64_t* dec_high_from_str, uint64_t* dec_low_from_str);
@@ -66,4 +95,17 @@ float gdv_fn_castFLOAT4_utf8(int64_t context, const char* data, int32_t data_len
 
 GANDIVA_EXPORT
 double gdv_fn_castFLOAT8_utf8(int64_t context, const char* data, int32_t data_len);
+
+GANDIVA_EXPORT
+const char* gdv_fn_castVARCHAR_int32_int64(int64_t context, int32_t value, int64_t len,
+                                           int32_t* out_len);
+GANDIVA_EXPORT
+const char* gdv_fn_castVARCHAR_int64_int64(int64_t context, int64_t value, int64_t len,
+                                           int32_t* out_len);
+GANDIVA_EXPORT
+const char* gdv_fn_castVARCHAR_float32_int64(int64_t context, float value, int64_t len,
+                                             int32_t* out_len);
+GANDIVA_EXPORT
+const char* gdv_fn_castVARCHAR_float64_int64(int64_t context, double value, int64_t len,
+                                             int32_t* out_len);
 }

@@ -118,7 +118,12 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
   auto cast_struct = std::make_shared<CastFunction>("cast_struct", Type::STRUCT);
   AddCommonCasts(Type::STRUCT, kOutputTargetType, cast_struct.get());
 
-  return {cast_list, cast_large_list, cast_fsl, cast_struct};
+  // So is dictionary
+  auto cast_dictionary =
+      std::make_shared<CastFunction>("cast_dictionary", Type::DICTIONARY);
+  AddCommonCasts(Type::DICTIONARY, kOutputTargetType, cast_dictionary.get());
+
+  return {cast_list, cast_large_list, cast_fsl, cast_struct, cast_dictionary};
 }
 
 }  // namespace internal

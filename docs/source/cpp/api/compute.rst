@@ -18,10 +18,6 @@
 Compute Functions
 =================
 
-.. sidebar:: Contents
-
-   .. contents:: :local:
-
 Datum class
 -----------
 

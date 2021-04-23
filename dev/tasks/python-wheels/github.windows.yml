@@ -15,14 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# NOTE: must set "Crossbow" as name to have the badge links working in the
-# github comment reports!
-name: Crossbow
+{% import 'macros.jinja' as macros with context %}
 
-on:
-  push:
-    branches:
-      - "*-github-*"
+{{ macros.github_header() }}
 
 jobs:
   build:
@@ -42,64 +37,17 @@ jobs:
       ARCHERY_USE_DOCKER_CLI: 1
 
     steps:
-      ############################ Checkout ###################################
-      - name: Checkout Arrow
-        shell: bash
-        run: |
-          git clone --no-checkout {{ arrow.remote }} arrow
-          git -C arrow config core.symlinks true
-          git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
-          git -C arrow checkout FETCH_HEAD
-          git -C arrow submodule update --init --recursive
-      - name: Fetch Submodules and Tags
-        shell: bash
-        run: cd arrow && ci/scripts/util_checkout.sh
+      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_login_ghcr()|indent }}
+      {{ macros.github_install_archery()|indent }}
 
-      ############################ Docker Registry ############################
-      - name: Login to GitHub Container Registry
-        shell: bash
-        run: docker login ghcr.io -u {{ '${{ github.repository_owner }}' }} -p {{ '${{ secrets.CROSSBOW_GHCR_TOKEN }}' }}
-
-      ############################ Archery Installation #######################
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.8
-      - name: Install Archery and Crossbow dependencies
-        shell: bash
-        run: pip install -e arrow/dev/archery[all]
-
-      ############################ Build & Test ###############################
       - name: Build wheel
         shell: cmd
         run: archery docker run --no-build -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} python-wheel-windows-vs2017
+
       - name: Test wheel
         shell: cmd
         run: archery docker run python-wheel-windows-test
 
-      ############################ Artifact Uploading #########################
-      - name: Upload artifacts
-        shell: bash
-        run: |
-          python arrow/dev/tasks/crossbow.py \
-            --queue-path . \
-            --queue-remote {{ queue_remote_url }} \
-            upload-artifacts \
-            --pattern "arrow/python/dist/*.whl" \
-            --sha {{ task.branch }} \
-            --tag {{ task.tag }}
-        env:
-          CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN }}' }}
-
-      {% if arrow.branch == 'master' %}
-      - name: Upload to gemfury
-        shell: bash
-        run: |
-          WHEEL_PATH=$(echo arrow/python/dist/*.whl)
-          curl.exe \
-            -F "package=@${WHEEL_PATH}" \
-            "https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/"
-        env:
-          CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
-          CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
-      {% endif %}
+      {{ macros.github_upload_releases("arrow/python/dist/*.whl")|indent }}
+      {{ macros.github_upload_gemfury("arrow/python/dist/*.whl")|indent }}

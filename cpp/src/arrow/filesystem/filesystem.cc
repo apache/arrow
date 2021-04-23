@@ -32,18 +32,24 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/io/slow.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/parallel.h"
 #include "arrow/util/uri.h"
+#include "arrow/util/vector.h"
 #include "arrow/util/windows_fixup.h"
 
 namespace arrow {
 
+using internal::checked_pointer_cast;
+using internal::TaskHints;
 using internal::Uri;
+using io::internal::SubmitIO;
 
 namespace fs {
 
@@ -132,6 +138,36 @@ Result<std::vector<FileInfo>> FileSystem::GetFileInfo(
   return res;
 }
 
+namespace {
+
+template <typename DeferredFunc>
+auto FileSystemDefer(FileSystem* fs, bool synchronous, DeferredFunc&& func)
+    -> decltype(DeferNotOk(
+        fs->io_context().executor()->Submit(func, std::shared_ptr<FileSystem>{}))) {
+  auto self = fs->shared_from_this();
+  if (synchronous) {
+    return std::forward<DeferredFunc>(func)(std::move(self));
+  }
+  return DeferNotOk(io::internal::SubmitIO(
+      fs->io_context(), std::forward<DeferredFunc>(func), std::move(self)));
+}
+
+}  // namespace
+
+Future<std::vector<FileInfo>> FileSystem::GetFileInfoAsync(
+    const std::vector<std::string>& paths) {
+  return FileSystemDefer(
+      this, default_async_is_sync_,
+      [paths](std::shared_ptr<FileSystem> self) { return self->GetFileInfo(paths); });
+}
+
+FileInfoGenerator FileSystem::GetFileInfoGenerator(const FileSelector& select) {
+  auto fut = FileSystemDefer(
+      this, default_async_is_sync_,
+      [select](std::shared_ptr<FileSystem> self) { return self->GetFileInfo(select); });
+  return MakeSingleFutureGenerator(std::move(fut));
+}
+
 Status FileSystem::DeleteFiles(const std::vector<std::string>& paths) {
   Status st = Status::OK();
   for (const auto& path : paths) {
@@ -140,26 +176,60 @@ Status FileSystem::DeleteFiles(const std::vector<std::string>& paths) {
   return st;
 }
 
-Result<std::shared_ptr<io::InputStream>> FileSystem::OpenInputStream(
-    const FileInfo& info) {
+namespace {
+
+Status ValidateInputFileInfo(const FileInfo& info) {
   if (info.type() == FileType::NotFound) {
     return internal::PathNotFound(info.path());
   }
   if (info.type() != FileType::File && info.type() != FileType::Unknown) {
     return internal::NotAFile(info.path());
   }
+  return Status::OK();
+}
+
+}  // namespace
+
+Result<std::shared_ptr<io::InputStream>> FileSystem::OpenInputStream(
+    const FileInfo& info) {
+  RETURN_NOT_OK(ValidateInputFileInfo(info));
   return OpenInputStream(info.path());
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> FileSystem::OpenInputFile(
     const FileInfo& info) {
-  if (info.type() == FileType::NotFound) {
-    return internal::PathNotFound(info.path());
-  }
-  if (info.type() != FileType::File && info.type() != FileType::Unknown) {
-    return internal::NotAFile(info.path());
-  }
+  RETURN_NOT_OK(ValidateInputFileInfo(info));
   return OpenInputFile(info.path());
+}
+
+Future<std::shared_ptr<io::InputStream>> FileSystem::OpenInputStreamAsync(
+    const std::string& path) {
+  return FileSystemDefer(
+      this, default_async_is_sync_,
+      [path](std::shared_ptr<FileSystem> self) { return self->OpenInputStream(path); });
+}
+
+Future<std::shared_ptr<io::InputStream>> FileSystem::OpenInputStreamAsync(
+    const FileInfo& info) {
+  RETURN_NOT_OK(ValidateInputFileInfo(info));
+  return FileSystemDefer(
+      this, default_async_is_sync_,
+      [info](std::shared_ptr<FileSystem> self) { return self->OpenInputStream(info); });
+}
+
+Future<std::shared_ptr<io::RandomAccessFile>> FileSystem::OpenInputFileAsync(
+    const std::string& path) {
+  return FileSystemDefer(
+      this, default_async_is_sync_,
+      [path](std::shared_ptr<FileSystem> self) { return self->OpenInputFile(path); });
+}
+
+Future<std::shared_ptr<io::RandomAccessFile>> FileSystem::OpenInputFileAsync(
+    const FileInfo& info) {
+  RETURN_NOT_OK(ValidateInputFileInfo(info));
+  return FileSystemDefer(
+      this, default_async_is_sync_,
+      [info](std::shared_ptr<FileSystem> self) { return self->OpenInputFile(info); });
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -245,6 +315,23 @@ Result<std::vector<FileInfo>> SubTreeFileSystem::GetFileInfo(const FileSelector&
   return infos;
 }
 
+FileInfoGenerator SubTreeFileSystem::GetFileInfoGenerator(const FileSelector& select) {
+  auto selector = select;
+  selector.base_dir = PrependBase(selector.base_dir);
+  auto gen = base_fs_->GetFileInfoGenerator(selector);
+
+  auto self = checked_pointer_cast<SubTreeFileSystem>(shared_from_this());
+
+  std::function<Result<std::vector<FileInfo>>(const std::vector<FileInfo>& infos)>
+      fix_infos = [self](std::vector<FileInfo> infos) -> Result<std::vector<FileInfo>> {
+    for (auto& info : infos) {
+      RETURN_NOT_OK(self->FixInfo(&info));
+    }
+    return infos;
+  };
+  return MakeMappedGenerator(gen, fix_infos);
+}
+
 Status SubTreeFileSystem::CreateDir(const std::string& path, bool recursive) {
   auto s = path;
   RETURN_NOT_OK(PrependBaseNonEmpty(&s));
@@ -311,6 +398,22 @@ Result<std::shared_ptr<io::InputStream>> SubTreeFileSystem::OpenInputStream(
   return base_fs_->OpenInputStream(new_info);
 }
 
+Future<std::shared_ptr<io::InputStream>> SubTreeFileSystem::OpenInputStreamAsync(
+    const std::string& path) {
+  auto s = path;
+  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  return base_fs_->OpenInputStreamAsync(s);
+}
+
+Future<std::shared_ptr<io::InputStream>> SubTreeFileSystem::OpenInputStreamAsync(
+    const FileInfo& info) {
+  auto s = info.path();
+  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  FileInfo new_info(info);
+  new_info.set_path(std::move(s));
+  return base_fs_->OpenInputStreamAsync(new_info);
+}
+
 Result<std::shared_ptr<io::RandomAccessFile>> SubTreeFileSystem::OpenInputFile(
     const std::string& path) {
   auto s = path;
@@ -325,6 +428,22 @@ Result<std::shared_ptr<io::RandomAccessFile>> SubTreeFileSystem::OpenInputFile(
   FileInfo new_info(info);
   new_info.set_path(std::move(s));
   return base_fs_->OpenInputFile(new_info);
+}
+
+Future<std::shared_ptr<io::RandomAccessFile>> SubTreeFileSystem::OpenInputFileAsync(
+    const std::string& path) {
+  auto s = path;
+  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  return base_fs_->OpenInputFileAsync(s);
+}
+
+Future<std::shared_ptr<io::RandomAccessFile>> SubTreeFileSystem::OpenInputFileAsync(
+    const FileInfo& info) {
+  auto s = info.path();
+  RETURN_NOT_OK(PrependBaseNonEmpty(&s));
+  FileInfo new_info(info);
+  new_info.set_path(std::move(s));
+  return base_fs_->OpenInputFileAsync(new_info);
 }
 
 Result<std::shared_ptr<io::OutputStream>> SubTreeFileSystem::OpenOutputStream(

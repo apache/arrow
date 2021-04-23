@@ -34,7 +34,7 @@ use super::{
 use crate::error::{DataFusionError, Result};
 use crate::physical_plan::distinct_expressions;
 use crate::physical_plan::expressions;
-use arrow::datatypes::{DataType, Schema};
+use arrow::datatypes::{DataType, Schema, TimeUnit};
 use expressions::{avg_return_type, sum_return_type};
 use std::{fmt, str::FromStr, sync::Arc};
 
@@ -72,12 +72,12 @@ impl fmt::Display for AggregateFunction {
 impl FromStr for AggregateFunction {
     type Err = DataFusionError;
     fn from_str(name: &str) -> Result<AggregateFunction> {
-        Ok(match &*name.to_uppercase() {
-            "MIN" => AggregateFunction::Min,
-            "MAX" => AggregateFunction::Max,
-            "COUNT" => AggregateFunction::Count,
-            "AVG" => AggregateFunction::Avg,
-            "SUM" => AggregateFunction::Sum,
+        Ok(match name {
+            "min" => AggregateFunction::Min,
+            "max" => AggregateFunction::Max,
+            "count" => AggregateFunction::Count,
+            "avg" => AggregateFunction::Avg,
+            "sum" => AggregateFunction::Sum,
             _ => {
                 return Err(DataFusionError::Plan(format!(
                     "There is no built-in function named {}",
@@ -160,6 +160,8 @@ pub fn create_aggregate_expr(
     })
 }
 
+static STRINGS: &[DataType] = &[DataType::Utf8, DataType::LargeUtf8];
+
 static NUMERICS: &[DataType] = &[
     DataType::Int8,
     DataType::Int16,
@@ -173,14 +175,25 @@ static NUMERICS: &[DataType] = &[
     DataType::Float64,
 ];
 
+static TIMESTAMPS: &[DataType] = &[
+    DataType::Timestamp(TimeUnit::Second, None),
+    DataType::Timestamp(TimeUnit::Millisecond, None),
+    DataType::Timestamp(TimeUnit::Microsecond, None),
+    DataType::Timestamp(TimeUnit::Nanosecond, None),
+];
+
 /// the signatures supported by the function `fun`.
 fn signature(fun: &AggregateFunction) -> Signature {
     // note: the physical expression must accept the type returned by this function or the execution panics.
     match fun {
         AggregateFunction::Count => Signature::Any(1),
         AggregateFunction::Min | AggregateFunction::Max => {
-            let mut valid = vec![DataType::Utf8, DataType::LargeUtf8];
-            valid.extend_from_slice(NUMERICS);
+            let valid = STRINGS
+                .iter()
+                .chain(NUMERICS.iter())
+                .chain(TIMESTAMPS.iter())
+                .cloned()
+                .collect::<Vec<_>>();
             Signature::Uniform(1, valid)
         }
         AggregateFunction::Avg | AggregateFunction::Sum => {

@@ -156,6 +156,17 @@ void set_error_for_invalid_utf(int64_t execution_context, char val) {
   free(error);
 }
 
+FORCE_INLINE
+bool validate_utf8_following_bytes(const char* data, int32_t data_len,
+                                   int32_t char_index) {
+  for (int j = 1; j < data_len; ++j) {
+    if ((data[char_index + j] & 0xC0) != 0x80) {  // bytes following head-byte of glyph
+      return false;
+    }
+  }
+  return true;
+}
+
 // Count the number of utf8 characters
 // return 0 for invalid/incomplete input byte sequences
 FORCE_INLINE
@@ -1243,6 +1254,59 @@ const char* convert_fromUTF8_binary(gdv_int64 context, const char* bin_in, gdv_i
     return "";
   }
   memcpy(ret, bin_in, *out_len);
+  return ret;
+}
+
+FORCE_INLINE
+const char* convert_replace_invalid_fromUTF8_binary(int64_t context, const char* text_in,
+                                                    int32_t text_len,
+                                                    const char* char_to_replace,
+                                                    int32_t char_to_replace_len,
+                                                    int32_t* out_len) {
+  if (char_to_replace_len == 0) {
+    *out_len = text_len;
+    return text_in;
+  } else if (char_to_replace_len != 1) {
+    gdv_fn_context_set_error_msg(context, "Replacement of multiple bytes not supported");
+    *out_len = 0;
+    return "";
+  }
+  // actually the convert_replace function replaces invalid chars with an ASCII
+  // character so the output length will be the same as the input length
+  *out_len = text_len;
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  int32_t valid_bytes_to_cpy = 0;
+  int32_t out_byte_counter = 0;
+  int32_t char_len;
+  // scan the base text from left to right and increment the start pointer till
+  // looking for invalid chars to substitute
+  for (int text_index = 0; text_index < text_len; text_index += char_len) {
+    char_len = utf8_char_length(text_in[text_index]);
+    // only memory copy the bytes when detect invalid char
+    if (char_len == 0 || text_index + char_len > text_len ||
+        !validate_utf8_following_bytes(text_in, char_len, text_index)) {
+      // define char_len = 1 to increase text_index by 1 (as ASCII char fits in 1 byte)
+      char_len = 1;
+      // first copy the valid bytes until now and then replace the invalid character
+      memcpy(ret + out_byte_counter, text_in + out_byte_counter, valid_bytes_to_cpy);
+      ret[out_byte_counter + valid_bytes_to_cpy] = char_to_replace[0];
+      out_byte_counter += valid_bytes_to_cpy + char_len;
+      valid_bytes_to_cpy = 0;
+      continue;
+    }
+    valid_bytes_to_cpy += char_len;
+  }
+  // if invalid chars were not found, return the original string
+  if (out_byte_counter == 0) return text_in;
+  // if there are still valid bytes to copy, do it
+  if (valid_bytes_to_cpy != 0) {
+    memcpy(ret + out_byte_counter, text_in + out_byte_counter, valid_bytes_to_cpy);
+  }
   return ret;
 }
 

@@ -46,6 +46,8 @@ class Fragment;
 using FragmentIterator = Iterator<std::shared_ptr<Fragment>>;
 using FragmentVector = std::vector<std::shared_ptr<Fragment>>;
 
+class FragmentScanOptions;
+
 class FileSource;
 class FileFormat;
 class FileFragment;
@@ -58,13 +60,16 @@ struct FileSystemDatasetWriteOptions;
 class InMemoryDataset;
 
 class CsvFileFormat;
+struct CsvFragmentScanOptions;
 
 class IpcFileFormat;
 class IpcFileWriter;
 class IpcFileWriteOptions;
+class IpcFragmentScanOptions;
 
 class ParquetFileFormat;
 class ParquetFileFragment;
+class ParquetFragmentScanOptions;
 class ParquetFileWriter;
 class ParquetFileWriteOptions;
 
@@ -76,7 +81,6 @@ class PartitioningOrFactory;
 class DirectoryPartitioning;
 class HivePartitioning;
 
-struct ScanContext;
 struct ScanOptions;
 
 class Scanner;

@@ -61,18 +61,19 @@ async fn join() -> Result<()> {
     let table1 = MemTable::try_new(schema1, vec![vec![batch1]])?;
     let table2 = MemTable::try_new(schema2, vec![vec![batch2]])?;
 
-    ctx.register_table("aa", Arc::new(table1));
+    ctx.register_table("aa", Arc::new(table1))?;
 
     let df1 = ctx.table("aa")?;
 
-    ctx.register_table("aaa", Arc::new(table2));
+    ctx.register_table("aaa", Arc::new(table2))?;
 
     let df2 = ctx.table("aaa")?;
 
     let a = df1.join(df2, JoinType::Inner, &["a"], &["a"])?;
 
     let batches = a.collect().await?;
-    assert_eq!(batches.len(), 1);
+
+    assert_eq!(batches.iter().map(|b| b.num_rows()).sum::<usize>(), 4);
 
     Ok(())
 }

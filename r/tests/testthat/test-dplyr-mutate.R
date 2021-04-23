@@ -26,7 +26,7 @@ tbl$verses <- verses[[1]]
 tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2*(1:10)+1, side = "both")
 
 test_that("mutate() is lazy", {
-  expect_is(
+  expect_s3_class(
     tbl %>% record_batch() %>% mutate(int = int + 6L),
     "arrow_dplyr_query"
   )
@@ -43,6 +43,24 @@ test_that("basic mutate", {
   )
 })
 
+test_that("mutate() with NULL inputs", {
+  expect_dplyr_equal(
+    input %>%
+      mutate(int = NULL) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("empty mutate()", {
+  expect_dplyr_equal(
+    input %>%
+      mutate() %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("transmute", {
   expect_dplyr_equal(
     input %>%
@@ -54,12 +72,30 @@ test_that("transmute", {
   )
 })
 
+test_that("transmute() with NULL inputs", {
+  expect_dplyr_equal(
+    input %>%
+      transmute(int = NULL) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("empty transmute()", {
+  expect_dplyr_equal(
+    input %>%
+      transmute() %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("mutate and refer to previous mutants", {
   expect_dplyr_equal(
     input %>%
-      select(int, padded_strings) %>%
+      select(int, verses) %>%
       mutate(
-        line_lengths = nchar(padded_strings),
+        line_lengths = nchar(verses),
         longer = line_lengths * 10
       ) %>%
       filter(line_lengths > 15) %>%
@@ -68,12 +104,40 @@ test_that("mutate and refer to previous mutants", {
   )
 })
 
+test_that("nchar() arguments", {
+  expect_dplyr_equal(
+    input %>%
+      select(int, verses) %>%
+      mutate(
+        line_lengths = nchar(verses, type = "bytes"),
+        longer = line_lengths * 10
+      ) %>%
+      filter(line_lengths > 15) %>%
+      collect(),
+    tbl
+  )
+  expect_warning(
+    expect_dplyr_equal(
+      input %>%
+        select(int, verses) %>%
+        mutate(
+          line_lengths = nchar(verses, type = "bytes", allowNA = TRUE),
+          longer = line_lengths * 10
+        ) %>%
+        filter(line_lengths > 15) %>%
+        collect(),
+      tbl
+    ),
+    "not supported"
+  )
+})
+
 test_that("mutate with .data pronoun", {
   expect_dplyr_equal(
     input %>%
-      select(int, padded_strings) %>%
+      select(int, verses) %>%
       mutate(
-        line_lengths = nchar(padded_strings),
+        line_lengths = str_length(verses),
         longer = .data$line_lengths * 10
       ) %>%
       filter(line_lengths > 15) %>%
@@ -185,23 +249,17 @@ test_that("dplyr::mutate's examples", {
   #>       x     y     z
   #>   <dbl> <dbl> <dbl>
   #> 1     1     2     3
-  expect_warning(
-    expect_dplyr_equal(
-      input %>% mutate(z = x + y, .before = 1) %>% collect(),
-      df
-    ),
-    "not supported in Arrow"
+  expect_dplyr_equal(
+    input %>% mutate(z = x + y, .before = 1) %>% collect(),
+    df
   )
   #> # A tibble: 1 x 3
   #>       z     x     y
   #>   <dbl> <dbl> <dbl>
   #> 1     3     1     2
-  expect_warning(
-    expect_dplyr_equal(
-      input %>% mutate(z = x + y, .after = x) %>% collect(),
-      df
-    ),
-    "not supported in Arrow"
+  expect_dplyr_equal(
+    input %>% mutate(z = x + y, .after = x) %>% collect(),
+    df
   )
   #> # A tibble: 1 x 3
   #>       x     z     y
@@ -265,11 +323,19 @@ test_that("handle bad expressions", {
   # TODO: search for functions other than mean() (see above test)
   # that need to be forced to fail because they error ambiguously
 
-  skip("Error handling in arrow_eval() needs to be internationalized (ARROW-11700)")
-  expect_error(
-    Table$create(tbl) %>% mutate(newvar = NOTAVAR + 2),
-    "object 'NOTAVAR' not found"
-  )
+  with_language("fr", {
+    # expect_warning(., NA) because the usual behavior when it hits a filter
+    # that it can't evaluate is to raise a warning, collect() to R, and retry
+    # the filter. But we want this to error the first time because it's
+    # a user error, not solvable by retrying in R
+    expect_warning(
+      expect_error(
+        Table$create(tbl) %>% mutate(newvar = NOTAVAR + 2),
+        "objet 'NOTAVAR' introuvable"
+      ),
+      NA
+    )
+  })
 })
 
 test_that("print a mutated table", {

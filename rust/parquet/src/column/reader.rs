@@ -49,7 +49,7 @@ pub enum ColumnReader {
 /// column reader will read from pages in `col_page_reader`.
 pub fn get_column_reader(
     col_descr: ColumnDescPtr,
-    col_page_reader: Box<PageReader>,
+    col_page_reader: Box<dyn PageReader>,
 ) -> ColumnReader {
     match col_descr.physical_type() {
         Type::BOOLEAN => ColumnReader::BoolColumnReader(ColumnReaderImpl::new(
@@ -106,7 +106,7 @@ pub struct ColumnReaderImpl<T: DataType> {
     descr: ColumnDescPtr,
     def_level_decoder: Option<LevelDecoder>,
     rep_level_decoder: Option<LevelDecoder>,
-    page_reader: Box<PageReader>,
+    page_reader: Box<dyn PageReader>,
     current_encoding: Option<Encoding>,
 
     // The total number of values stored in the data page.
@@ -117,12 +117,12 @@ pub struct ColumnReaderImpl<T: DataType> {
     num_decoded_values: u32,
 
     // Cache of decoders for existing encodings
-    decoders: HashMap<Encoding, Box<Decoder<T>>>,
+    decoders: HashMap<Encoding, Box<dyn Decoder<T>>>,
 }
 
 impl<T: DataType> ColumnReaderImpl<T> {
     /// Creates new column reader based on column descriptor and page reader.
-    pub fn new(descr: ColumnDescPtr, page_reader: Box<PageReader>) -> Self {
+    pub fn new(descr: ColumnDescPtr, page_reader: Box<dyn PageReader>) -> Self {
         Self {
             descr,
             def_level_decoder: None,
@@ -1024,7 +1024,7 @@ mod tests {
     fn get_test_int32_type() -> SchemaType {
         SchemaType::primitive_type_builder("a", PhysicalType::INT32)
             .with_repetition(Repetition::REQUIRED)
-            .with_logical_type(LogicalType::INT_32)
+            .with_converted_type(ConvertedType::INT_32)
             .with_length(-1)
             .build()
             .expect("build() should be OK")
@@ -1034,7 +1034,7 @@ mod tests {
     fn get_test_int64_type() -> SchemaType {
         SchemaType::primitive_type_builder("a", PhysicalType::INT64)
             .with_repetition(Repetition::REQUIRED)
-            .with_logical_type(LogicalType::INT_64)
+            .with_converted_type(ConvertedType::INT_64)
             .with_length(-1)
             .build()
             .expect("build() should be OK")

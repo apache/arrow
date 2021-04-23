@@ -31,6 +31,8 @@
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
+#include "arrow/util/async_generator.h"
+#include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/variant.h"
@@ -536,13 +538,13 @@ Result<FileInfo> MockFileSystem::GetFileInfo(const std::string& path) {
   return info;
 }
 
-Result<std::vector<FileInfo>> MockFileSystem::GetFileInfo(const FileSelector& selector) {
+Result<FileInfoVector> MockFileSystem::GetFileInfo(const FileSelector& selector) {
   auto parts = SplitAbstractPath(selector.base_dir);
   RETURN_NOT_OK(ValidateAbstractPathParts(parts));
 
   auto guard = impl_->lock_guard();
 
-  std::vector<FileInfo> results;
+  FileInfoVector results;
 
   Entry* base_dir = impl_->FindEntry(parts);
   if (base_dir == nullptr) {
@@ -744,6 +746,20 @@ Result<std::shared_ptr<FileSystem>> MockFileSystem::Make(
   }
 
   return fs;
+}
+
+FileInfoGenerator MockAsyncFileSystem::GetFileInfoGenerator(const FileSelector& select) {
+  auto maybe_infos = GetFileInfo(select);
+  if (maybe_infos.ok()) {
+    // Return the FileInfo entries one by one
+    const auto& infos = *maybe_infos;
+    std::vector<FileInfoVector> chunks(infos.size());
+    std::transform(infos.begin(), infos.end(), chunks.begin(),
+                   [](const FileInfo& info) { return FileInfoVector{info}; });
+    return MakeVectorGenerator(std::move(chunks));
+  } else {
+    return MakeFailingGenerator(maybe_infos);
+  }
 }
 
 }  // namespace internal

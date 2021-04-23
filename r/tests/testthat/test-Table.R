@@ -299,7 +299,7 @@ test_that("table active bindings", {
   tab <- Table$create(tbl)
 
   expect_identical(dim(tbl), dim(tab))
-  expect_is(tab$columns, "list")
+  expect_type(tab$columns, "list")
   expect_equal(tab$columns[[1]], tab[[1]])
 })
 
@@ -359,9 +359,21 @@ test_that("table() auto splices (ARROW-5718)", {
 })
 
 test_that("Validation when creating table with schema (ARROW-10953)", {
-  tab <- Table$create(data.frame(), schema = schema(a = int32()))
-  skip("This segfaults")
-  expect_identical(dim(as.data.frame(tab)), c(0L, 1L))
+  expect_error(
+    Table$create(data.frame(), schema = schema(a = int32())),
+    "incompatible. schema has 1 fields, and 0 columns are supplied",
+    fixed = TRUE
+  )
+  expect_error(
+    Table$create(data.frame(b = 1), schema = schema(a = int32())),
+    "field at index 1 has name 'a' != 'b'",
+    fixed = TRUE
+  )
+  expect_error(
+    Table$create(data.frame(b = 2, c = 3), schema = schema(a = int32())),
+    "incompatible. schema has 1 fields, and 2 columns are supplied",
+    fixed = TRUE
+  )
 })
 
 test_that("==.Table", {
@@ -388,8 +400,8 @@ test_that("Table$Equals(check_metadata)", {
   tab2 <- Table$create(x = 1:2, y = c("a", "b"),
                        schema = tab1$schema$WithMetadata(list(some="metadata")))
 
-  expect_is(tab1, "Table")
-  expect_is(tab2, "Table")
+  expect_r6_class(tab1, "Table")
+  expect_r6_class(tab2, "Table")
   expect_false(tab1$schema$HasMetadata)
   expect_true(tab2$schema$HasMetadata)
   expect_identical(tab2$schema$metadata, list(some = "metadata"))
@@ -456,4 +468,10 @@ test_that("Table name assignment", {
   expect_error(names(tab) <- character(0))
   expect_error(names(tab) <- NULL)
   expect_error(names(tab) <- c(TRUE, FALSE))
+})
+
+test_that("Table$create() with different length columns", {
+  msg <- "All columns must have the same length"
+  expect_error(Table$create(a=1:5, b = 42), msg)
+  expect_error(Table$create(a=1:5, b = 1:6), msg)
 })

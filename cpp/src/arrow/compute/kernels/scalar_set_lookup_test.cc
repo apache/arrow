@@ -72,6 +72,27 @@ void CheckIsInChunked(const std::shared_ptr<ChunkedArray>& input,
   AssertChunkedEqual(*expected, *actual);
 }
 
+void CheckIsInDictionary(const std::shared_ptr<DataType>& type,
+                         const std::shared_ptr<DataType>& index_type,
+                         const std::string& input_dictionary_json,
+                         const std::string& input_index_json,
+                         const std::string& value_set_json,
+                         const std::string& expected_json, bool skip_nulls = false) {
+  auto dict_type = dictionary(index_type, type);
+  auto indices = ArrayFromJSON(index_type, input_index_json);
+  auto dict = ArrayFromJSON(type, input_dictionary_json);
+
+  ASSERT_OK_AND_ASSIGN(auto input, DictionaryArray::FromArrays(dict_type, indices, dict));
+  auto value_set = ArrayFromJSON(type, value_set_json);
+  auto expected = ArrayFromJSON(boolean(), expected_json);
+
+  ASSERT_OK_AND_ASSIGN(Datum actual_datum,
+                       IsIn(input, SetLookupOptions(value_set, skip_nulls)));
+  std::shared_ptr<Array> actual = actual_datum.make_array();
+  ASSERT_OK(actual->ValidateFull());
+  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+}
+
 class TestIsInKernel : public ::testing::Test {};
 
 TEST_F(TestIsInKernel, CallBinary) {
@@ -231,6 +252,71 @@ TEST_F(TestIsInKernel, Decimal) {
             /*skip_nulls=*/true);
 }
 
+TEST_F(TestIsInKernel, DictionaryArray) {
+  for (auto index_ty : all_dictionary_index_types()) {
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                        /*input_index_json=*/"[1, 2, null, 0]",
+                        /*value_set_json=*/R"(["A", "B", "C"])",
+                        /*expected_json=*/"[true, true, false, true]",
+                        /*skip_nulls=*/false);
+    CheckIsInDictionary(/*type=*/float32(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/"[4.1, -1.0, 42, 9.8]",
+                        /*input_index_json=*/"[1, 2, null, 0]",
+                        /*value_set_json=*/"[4.1, 42, -1.0]",
+                        /*expected_json=*/"[true, true, false, true]",
+                        /*skip_nulls=*/false);
+
+    // With nulls and skip_nulls=false
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A", null])",
+                        /*expected_json=*/"[true, false, true, true, true]",
+                        /*skip_nulls=*/false);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A", null])",
+                        /*expected_json=*/"[true, false, true, true, true]",
+                        /*skip_nulls=*/false);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A"])",
+                        /*expected_json=*/"[false, false, false, true, false]",
+                        /*skip_nulls=*/false);
+
+    // With nulls and skip_nulls=true
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A", null])",
+                        /*expected_json=*/"[true, false, false, true, true]",
+                        /*skip_nulls=*/true);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A", null])",
+                        /*expected_json=*/"[false, false, false, true, false]",
+                        /*skip_nulls=*/true);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A"])",
+                        /*expected_json=*/"[false, false, false, true, false]",
+                        /*skip_nulls=*/true);
+  }
+}
+
 TEST_F(TestIsInKernel, ChunkedArrayInvoke) {
   auto input = ChunkedArrayFromJSON(
       utf8(), {R"(["abc", "def", "", "abc", "jkl"])", R"(["def", null, "abc", "zzz"])"});
@@ -279,6 +365,28 @@ class TestIndexInKernel : public ::testing::Test {
     ASSERT_EQ(Datum::CHUNKED_ARRAY, actual.kind());
     ASSERT_OK(actual.chunked_array()->ValidateFull());
     AssertChunkedEqual(*expected, *actual.chunked_array());
+  }
+
+  void CheckIndexInDictionary(const std::shared_ptr<DataType>& type,
+                              const std::shared_ptr<DataType>& index_type,
+                              const std::string& input_dictionary_json,
+                              const std::string& input_index_json,
+                              const std::string& value_set_json,
+                              const std::string& expected_json, bool skip_nulls = false) {
+    auto dict_type = dictionary(index_type, type);
+    auto indices = ArrayFromJSON(index_type, input_index_json);
+    auto dict = ArrayFromJSON(type, input_dictionary_json);
+
+    ASSERT_OK_AND_ASSIGN(auto input,
+                         DictionaryArray::FromArrays(dict_type, indices, dict));
+    auto value_set = ArrayFromJSON(type, value_set_json);
+    auto expected = ArrayFromJSON(int32(), expected_json);
+
+    SetLookupOptions options(value_set, skip_nulls);
+    ASSERT_OK_AND_ASSIGN(Datum actual_datum, IndexIn(input, options));
+    std::shared_ptr<Array> actual = actual_datum.make_array();
+    ASSERT_OK(actual->ValidateFull());
+    AssertArraysEqual(*expected, *actual, /*verbose=*/true);
   }
 };
 
@@ -581,6 +689,71 @@ TEST_F(TestIndexInKernel, Decimal) {
                /*value_set=*/R"(["11", "12"])",
                /*expected=*/R"([1, null, 0, 1, null])",
                /*skip_nulls=*/true);
+}
+
+TEST_F(TestIndexInKernel, DictionaryArray) {
+  for (auto index_ty : all_dictionary_index_types()) {
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                           /*input_index_json=*/"[1, 2, null, 0]",
+                           /*value_set_json=*/R"(["A", "B", "C"])",
+                           /*expected_json=*/"[1, 2, null, 0]",
+                           /*skip_nulls=*/false);
+    CheckIndexInDictionary(/*type=*/float32(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/"[4.1, -1.0, 42, 9.8]",
+                           /*input_index_json=*/"[1, 2, null, 0]",
+                           /*value_set_json=*/"[4.1, 42, -1.0]",
+                           /*expected_json=*/"[2, 1, null, 0]",
+                           /*skip_nulls=*/false);
+
+    // With nulls and skip_nulls=false
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                           /*input_index_json=*/"[1, 3, null, 0, 1]",
+                           /*value_set_json=*/R"(["C", "B", "A", null])",
+                           /*expected_json=*/"[1, null, 3, 2, 1]",
+                           /*skip_nulls=*/false);
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                           /*input_index_json=*/"[1, 3, null, 0, 1]",
+                           /*value_set_json=*/R"(["C", "B", "A", null])",
+                           /*expected_json=*/"[3, null, 3, 2, 3]",
+                           /*skip_nulls=*/false);
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                           /*input_index_json=*/"[1, 3, null, 0, 1]",
+                           /*value_set_json=*/R"(["C", "B", "A"])",
+                           /*expected_json=*/"[null, null, null, 2, null]",
+                           /*skip_nulls=*/false);
+
+    // With nulls and skip_nulls=true
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                           /*input_index_json=*/"[1, 3, null, 0, 1]",
+                           /*value_set_json=*/R"(["C", "B", "A", null])",
+                           /*expected_json=*/"[1, null, null, 2, 1]",
+                           /*skip_nulls=*/true);
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                           /*input_index_json=*/"[1, 3, null, 0, 1]",
+                           /*value_set_json=*/R"(["C", "B", "A", null])",
+                           /*expected_json=*/"[null, null, null, 2, null]",
+                           /*skip_nulls=*/true);
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                           /*input_index_json=*/"[1, 3, null, 0, 1]",
+                           /*value_set_json=*/R"(["C", "B", "A"])",
+                           /*expected_json=*/"[null, null, null, 2, null]",
+                           /*skip_nulls=*/true);
+  }
 }
 
 TEST_F(TestIndexInKernel, ChunkedArrayInvoke) {

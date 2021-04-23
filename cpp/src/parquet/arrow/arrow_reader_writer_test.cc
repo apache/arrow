@@ -45,6 +45,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
 
@@ -2266,6 +2267,40 @@ TEST(TestArrowReadWrite, CoalescedReads) {
   ArrowReaderProperties arrow_properties = default_arrow_reader_properties();
   arrow_properties.set_pre_buffer(true);
   TestGetRecordBatchReader(arrow_properties);
+}
+
+// Use coalesced reads, and explicitly wait for I/O to complete.
+TEST(TestArrowReadWrite, WaitCoalescedReads) {
+  ArrowReaderProperties properties = default_arrow_reader_properties();
+  const int num_rows = 10;
+  const int num_columns = 5;
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
+
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(
+      WriteTableToBuffer(table, num_rows, default_arrow_writer_properties(), &buffer));
+
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder builder;
+  ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+  ASSERT_OK(builder.properties(properties)->Build(&reader));
+  // Pre-buffer data and wait for I/O to complete.
+  ASSERT_OK(reader->parquet_reader()
+                ->PreBuffer({0}, {0, 1, 2, 3, 4}, ::arrow::io::IOContext(),
+                            ::arrow::io::CacheOptions::Defaults())
+                .status());
+
+  std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
+  ASSERT_OK_NO_THROW(reader->GetRecordBatchReader({0}, {0, 1, 2, 3, 4}, &rb_reader));
+
+  std::shared_ptr<::arrow::RecordBatch> actual_batch;
+  ASSERT_OK(rb_reader->ReadNext(&actual_batch));
+
+  ASSERT_NE(actual_batch, nullptr);
+  ASSERT_EQ(actual_batch->num_columns(), num_columns);
+  ASSERT_EQ(actual_batch->num_rows(), num_rows);
 }
 
 TEST(TestArrowReadWrite, GetRecordBatchReaderNoColumns) {

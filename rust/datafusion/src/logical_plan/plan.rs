@@ -120,18 +120,29 @@ pub enum LogicalPlan {
         /// The partitioning scheme
         partitioning_scheme: Partitioning,
     },
+    /// Union multiple inputs
+    Union {
+        /// Inputs to merge
+        inputs: Vec<LogicalPlan>,
+        /// Union schema. Should be the same for all inputs.
+        schema: DFSchemaRef,
+        /// Union output relation alias
+        alias: Option<String>,
+    },
     /// Produces rows from a table provider by reference or from the context
     TableScan {
         /// The name of the table
         table_name: String,
         /// The source of the table
-        source: Arc<dyn TableProvider + Send + Sync>,
+        source: Arc<dyn TableProvider>,
         /// Optional column indices to use as a projection
         projection: Option<Vec<usize>>,
         /// The schema description of the output
         projected_schema: DFSchemaRef,
         /// Optional expressions to be used as filters by the table provider
         filters: Vec<Expr>,
+        /// Optional limit to skip reading
+        limit: Option<usize>,
     },
     /// Produces no rows: An empty relation with an empty schema
     EmptyRelation {
@@ -197,6 +208,7 @@ impl LogicalPlan {
             LogicalPlan::CreateExternalTable { schema, .. } => &schema,
             LogicalPlan::Explain { schema, .. } => &schema,
             LogicalPlan::Extension { node } => &node.schema(),
+            LogicalPlan::Union { schema, .. } => &schema,
         }
     }
 
@@ -222,6 +234,9 @@ impl LogicalPlan {
                 schemas.extend(right.all_schemas());
                 schemas.insert(0, &schema);
                 schemas
+            }
+            LogicalPlan::Union { schema, .. } => {
+                vec![schema]
             }
             LogicalPlan::Extension { node } => vec![&node.schema()],
             LogicalPlan::Explain { schema, .. }
@@ -276,6 +291,9 @@ impl LogicalPlan {
             | LogicalPlan::Limit { .. }
             | LogicalPlan::CreateExternalTable { .. }
             | LogicalPlan::Explain { .. } => vec![],
+            LogicalPlan::Union { .. } => {
+                vec![]
+            }
         }
     }
 
@@ -291,6 +309,7 @@ impl LogicalPlan {
             LogicalPlan::Join { left, right, .. } => vec![left, right],
             LogicalPlan::Limit { input, .. } => vec![input],
             LogicalPlan::Extension { node } => node.inputs(),
+            LogicalPlan::Union { inputs, .. } => inputs.iter().collect(),
             // plans without inputs
             LogicalPlan::TableScan { .. }
             | LogicalPlan::EmptyRelation { .. }
@@ -379,6 +398,14 @@ impl LogicalPlan {
             LogicalPlan::Sort { input, .. } => input.accept(visitor)?,
             LogicalPlan::Join { left, right, .. } => {
                 left.accept(visitor)? && right.accept(visitor)?
+            }
+            LogicalPlan::Union { inputs, .. } => {
+                for input in inputs {
+                    if !input.accept(visitor)? {
+                        return Ok(false);
+                    }
+                }
+                true
             }
             LogicalPlan::Limit { input, .. } => input.accept(visitor)?,
             LogicalPlan::Extension { node } => {
@@ -584,6 +611,7 @@ impl LogicalPlan {
                         ref table_name,
                         ref projection,
                         ref filters,
+                        ref limit,
                         ..
                     } => {
                         let sep = " ".repeat(min(1, table_name.len()));
@@ -595,6 +623,10 @@ impl LogicalPlan {
 
                         if !filters.is_empty() {
                             write!(f, ", filters={:?}", filters)?;
+                        }
+
+                        if let Some(n) = limit {
+                            write!(f, ", limit={}", n)?;
                         }
 
                         Ok(())
@@ -641,13 +673,11 @@ impl LogicalPlan {
                         partitioning_scheme,
                         ..
                     } => match partitioning_scheme {
-                        Partitioning::RoundRobinBatch(n) => {
-                            write!(
-                                f,
-                                "Repartition: RoundRobinBatch partition_count={}",
-                                n
-                            )
-                        }
+                        Partitioning::RoundRobinBatch(n) => write!(
+                            f,
+                            "Repartition: RoundRobinBatch partition_count={}",
+                            n
+                        ),
                         Partitioning::Hash(expr, n) => {
                             let hash_expr: Vec<String> =
                                 expr.iter().map(|e| format!("{:?}", e)).collect();
@@ -664,6 +694,7 @@ impl LogicalPlan {
                         write!(f, "CreateExternalTable: {:?}", name)
                     }
                     LogicalPlan::Explain { .. } => write!(f, "Explain"),
+                    LogicalPlan::Union { .. } => write!(f, "Union"),
                     LogicalPlan::Extension { ref node } => node.fmt_for_explain(f),
                 }
             }
@@ -755,7 +786,7 @@ mod tests {
         .unwrap()
         .filter(col("state").eq(lit("CO")))
         .unwrap()
-        .project(&[col("id")])
+        .project(vec![col("id")])
         .unwrap()
         .build()
         .unwrap()
@@ -1056,7 +1087,7 @@ mod tests {
             .unwrap()
             .filter(col("state").eq(lit("CO")))
             .unwrap()
-            .project(&[col("id")])
+            .project(vec![col("id")])
             .unwrap()
             .build()
             .unwrap()

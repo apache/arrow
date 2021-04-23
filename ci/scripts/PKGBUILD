@@ -79,8 +79,10 @@ build() {
     export CPPFLAGS="${CPPFLAGS} -I${MINGW_PREFIX}/include"
     export LIBS="-L${MINGW_PREFIX}/libs"
     export ARROW_S3=OFF
+    export ARROW_WITH_RE2=OFF
   else
     export ARROW_S3=ON
+    export ARROW_WITH_RE2=ON
   fi
 
   MSYS2_ARG_CONV_EXCL="-DCMAKE_INSTALL_PREFIX=" \
@@ -105,6 +107,7 @@ build() {
     -DARROW_SNAPPY_USE_SHARED=OFF \
     -DARROW_USE_GLOG=OFF \
     -DARROW_WITH_LZ4=ON \
+    -DARROW_WITH_RE2="${ARROW_WITH_RE2}" \
     -DARROW_WITH_SNAPPY=ON \
     -DARROW_WITH_ZLIB=ON \
     -DARROW_WITH_ZSTD=ON \

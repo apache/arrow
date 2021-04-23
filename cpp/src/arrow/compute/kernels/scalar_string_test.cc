@@ -48,6 +48,14 @@ class BaseTestStringKernels : public ::testing::Test {
     CheckScalarUnary(func_name, type(), json_input, out_ty, json_expected, options);
   }
 
+  void CheckBinaryScalar(std::string func_name, std::string json_left_input,
+                         std::string json_right_scalar, std::shared_ptr<DataType> out_ty,
+                         std::string json_expected,
+                         const FunctionOptions* options = nullptr) {
+    CheckScalarBinaryScalar(func_name, type(), json_left_input, json_right_scalar, out_ty,
+                            json_expected, options);
+  }
+
   std::shared_ptr<DataType> type() { return TypeTraits<TestType>::type_singleton(); }
 
   std::shared_ptr<DataType> offset_type() {
@@ -61,8 +69,8 @@ class TestBinaryKernels : public BaseTestStringKernels<TestType> {};
 TYPED_TEST_SUITE(TestBinaryKernels, BinaryTypes);
 
 TYPED_TEST(TestBinaryKernels, BinaryLength) {
-  this->CheckUnary("binary_length", R"(["aaa", null, "", "b"])", this->offset_type(),
-                   "[3, null, 0, 1]");
+  this->CheckUnary("binary_length", R"(["aaa", null, "áéíóú", "", "b"])",
+                   this->offset_type(), "[3, null, 10, 0, 1]");
 }
 
 template <typename TestType>
@@ -99,6 +107,12 @@ TEST(TestStringKernels, LARGE_MEMORY_TEST(Utf8Upper32bitGrowth)) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(CapacityError,
                                   testing::HasSubstr("Result might not fit"),
                                   CallFunction("utf8_upper", {scalar}, options));
+}
+
+TYPED_TEST(TestStringKernels, Utf8Length) {
+  this->CheckUnary("utf8_length",
+                   R"(["aaa", null, "áéíóú", "ɑɽⱤoW😀", "áéí 0😀", "", "b"])",
+                   this->offset_type(), "[3, null, 5, 6, 6, 0, 1]");
 }
 
 #ifdef ARROW_WITH_UTF8PROC
@@ -334,6 +348,27 @@ TYPED_TEST(TestStringKernels, MatchSubstring) {
                    &options_double_char_2);
 }
 
+#ifdef ARROW_WITH_RE2
+TYPED_TEST(TestStringKernels, MatchSubstringRegex) {
+  MatchSubstringOptions options{"ab"};
+  this->CheckUnary("match_substring_regex", "[]", boolean(), "[]", &options);
+  this->CheckUnary("match_substring_regex", R"(["abc", "acb", "cab", null, "bac"])",
+                   boolean(), "[true, false, true, null, false]", &options);
+  MatchSubstringOptions options_repeated{"(ab){2}"};
+  this->CheckUnary("match_substring_regex", R"(["abab", "ab", "cababc", null, "bac"])",
+                   boolean(), "[true, false, true, null, false]", &options_repeated);
+  MatchSubstringOptions options_digit{"\\d"};
+  this->CheckUnary("match_substring_regex", R"(["aacb", "a2ab", "", "24"])", boolean(),
+                   "[false, true, false, true]", &options_digit);
+  MatchSubstringOptions options_star{"a*b"};
+  this->CheckUnary("match_substring_regex", R"(["aacb", "aab", "dab", "caaab", "b", ""])",
+                   boolean(), "[true, true, true, true, true, false]", &options_star);
+  MatchSubstringOptions options_plus{"a+b"};
+  this->CheckUnary("match_substring_regex", R"(["aacb", "aab", "dab", "caaab", "b", ""])",
+                   boolean(), "[false, true, true, true, false, false]", &options_plus);
+}
+#endif
+
 TYPED_TEST(TestStringKernels, SplitBasics) {
   SplitPatternOptions options{" "};
   // basics
@@ -415,6 +450,52 @@ TYPED_TEST(TestStringKernels, SplitWhitespaceUTF8Reverse) {
                    "[[\"foo\", \"bar\"], [\"foo\xe2\x80\x88  bar\", \"ba\"]]",
                    &options_max);
 }
+
+TYPED_TEST(TestStringKernels, ReplaceSubstring) {
+  ReplaceSubstringOptions options{"foo", "bazz"};
+  this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", null])",
+                   this->type(), R"(["bazz", "this bazz that bazz", null])", &options);
+}
+
+TYPED_TEST(TestStringKernels, ReplaceSubstringLimited) {
+  ReplaceSubstringOptions options{"foo", "bazz", 1};
+  this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", null])",
+                   this->type(), R"(["bazz", "this bazz that foo", null])", &options);
+}
+
+TYPED_TEST(TestStringKernels, ReplaceSubstringNoOptions) {
+  Datum input = ArrayFromJSON(this->type(), "[]");
+  ASSERT_RAISES(Invalid, CallFunction("replace_substring", {input}));
+}
+
+#ifdef ARROW_WITH_RE2
+TYPED_TEST(TestStringKernels, ReplaceSubstringRegex) {
+  ReplaceSubstringOptions options_regex{"(fo+)\\s*", "\\1-bazz"};
+  this->CheckUnary("replace_substring_regex", R"(["foo ", "this foo   that foo", null])",
+                   this->type(), R"(["foo-bazz", "this foo-bazzthat foo-bazz", null])",
+                   &options_regex);
+  // make sure we match non-overlapping
+  ReplaceSubstringOptions options_regex2{"(a.a)", "aba\\1"};
+  this->CheckUnary("replace_substring_regex", R"(["aaaaaa"])", this->type(),
+                   R"(["abaaaaabaaaa"])", &options_regex2);
+}
+
+TYPED_TEST(TestStringKernels, ReplaceSubstringRegexLimited) {
+  // With a finite number of replacements
+  ReplaceSubstringOptions options1{"foo", "bazz", 1};
+  this->CheckUnary("replace_substring", R"(["foo", "this foo that foo", null])",
+                   this->type(), R"(["bazz", "this bazz that foo", null])", &options1);
+  ReplaceSubstringOptions options_regex1{"(fo+)\\s*", "\\1-bazz", 1};
+  this->CheckUnary("replace_substring_regex", R"(["foo ", "this foo   that foo", null])",
+                   this->type(), R"(["foo-bazz", "this foo-bazzthat foo", null])",
+                   &options_regex1);
+}
+
+TYPED_TEST(TestStringKernels, ReplaceSubstringRegexNoOptions) {
+  Datum input = ArrayFromJSON(this->type(), "[]");
+  ASSERT_RAISES(Invalid, CallFunction("replace_substring_regex", {input}));
+}
+#endif
 
 TYPED_TEST(TestStringKernels, Strptime) {
   std::string input1 = R"(["5/1/2020", null, "12/11/1900"])";

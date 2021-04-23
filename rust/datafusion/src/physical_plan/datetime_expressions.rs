@@ -324,8 +324,8 @@ pub fn date_trunc(args: &[ColumnarValue]) -> Result<ColumnarValue> {
 
     Ok(match array {
         ColumnarValue::Scalar(scalar) => {
-            if let ScalarValue::TimeNanosecond(v) = scalar {
-                ColumnarValue::Scalar(ScalarValue::TimeNanosecond((f)(*v)?))
+            if let ScalarValue::TimestampNanosecond(v) = scalar {
+                ColumnarValue::Scalar(ScalarValue::TimestampNanosecond((f)(*v)?))
             } else {
                 return Err(DataFusionError::Execution(
                     "array of `date_trunc` must be non-null scalar Utf8".to_string(),

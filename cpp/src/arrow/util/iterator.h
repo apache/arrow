@@ -44,8 +44,27 @@ struct IterationTraits {
   /// \brief a reserved value which indicates the end of iteration. By
   /// default this is NULLPTR since most iterators yield pointer types.
   /// Specialize IterationTraits if different end semantics are required.
+  ///
+  /// Note: This should not be used to determine if a given value is a
+  /// terminal value.  Use IsIterationEnd (which uses IsEnd) instead.  This
+  /// is only for returning terminal values.
   static T End() { return T(NULLPTR); }
+
+  /// \brief Checks to see if the value is a terminal value.
+  /// A method is used here since T is not neccesarily comparable in many
+  /// cases even though it has a distinct final value
+  static bool IsEnd(const T& val) { return val == End(); }
 };
+
+template <typename T>
+T IterationEnd() {
+  return IterationTraits<T>::End();
+}
+
+template <typename T>
+bool IsIterationEnd(const T& val) {
+  return IterationTraits<T>::IsEnd(val);
+}
 
 template <typename T>
 struct IterationTraits<util::optional<T>> {
@@ -53,6 +72,11 @@ struct IterationTraits<util::optional<T>> {
   /// nullopt indicates the end of iteration.
   /// Specialize IterationTraits if different end semantics are required.
   static util::optional<T> End() { return util::nullopt; }
+
+  /// \brief by default when iterating through a sequence of optional,
+  /// nullopt (!has_value()) indicates the end of iteration.
+  /// Specialize IterationTraits if different end semantics are required.
+  static bool IsEnd(const util::optional<T>& val) { return !val.has_value(); }
 
   // TODO(bkietz) The range-for loop over Iterator<optional<T>> yields
   // Result<optional<T>> which is unnecessary (since only the unyielded end optional
@@ -90,12 +114,10 @@ class Iterator : public util::EqualityComparable<Iterator<T>> {
   /// returned by the visitor, terminating iteration.
   template <typename Visitor>
   Status Visit(Visitor&& visitor) {
-    const auto end = IterationTraits<T>::End();
-
     for (;;) {
       ARROW_ASSIGN_OR_RAISE(auto value, Next());
 
-      if (value == end) break;
+      if (IsIterationEnd(value)) break;
 
       ARROW_RETURN_NOT_OK(visitor(std::move(value)));
     }
@@ -266,7 +288,7 @@ class TransformIterator {
       }
       auto next = *next_res;
       if (next.ReadyForNext()) {
-        if (*last_value_ == IterationTraits<T>::End()) {
+        if (IsIterationEnd(*last_value_)) {
           finished_ = true;
         }
         last_value_.reset();
@@ -314,6 +336,7 @@ struct IterationTraits<Iterator<T>> {
   // The end condition for an Iterator of Iterators is a default constructed (null)
   // Iterator.
   static Iterator<T> End() { return Iterator<T>(); }
+  static bool IsEnd(const Iterator<T>& val) { return !val; }
 };
 
 template <typename Fn, typename T>
@@ -405,7 +428,7 @@ class MapIterator {
   Result<O> Next() {
     ARROW_ASSIGN_OR_RAISE(I i, it_.Next());
 
-    if (i == IterationTraits<I>::End()) {
+    if (IsIterationEnd(i)) {
       return IterationTraits<O>::End();
     }
 
@@ -467,7 +490,7 @@ struct FilterIterator {
       for (;;) {
         ARROW_ASSIGN_OR_RAISE(From i, it_.Next());
 
-        if (i == IterationTraits<From>::End()) {
+        if (IsIterationEnd(i)) {
           return IterationTraits<To>::End();
         }
 
@@ -503,12 +526,12 @@ class FlattenIterator {
   explicit FlattenIterator(Iterator<Iterator<T>> it) : parent_(std::move(it)) {}
 
   Result<T> Next() {
-    if (child_ == IterationTraits<Iterator<T>>::End()) {
+    if (IsIterationEnd(child_)) {
       // Pop from parent's iterator.
       ARROW_ASSIGN_OR_RAISE(child_, parent_.Next());
 
       // Check if final iteration reached.
-      if (child_ == IterationTraits<Iterator<T>>::End()) {
+      if (IsIterationEnd(child_)) {
         return IterationTraits<T>::End();
       }
 
@@ -517,7 +540,7 @@ class FlattenIterator {
 
     // Pop from child_ and check for depletion.
     ARROW_ASSIGN_OR_RAISE(T out, child_.Next());
-    if (out == IterationTraits<T>::End()) {
+    if (IsIterationEnd(out)) {
       // Reset state such that we pop from parent on the recursive call
       child_ = IterationTraits<Iterator<T>>::End();
 

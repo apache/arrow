@@ -165,6 +165,15 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
   NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
                  TYPE(), kResultNullIfNull, ARROW_STRINGIFY(NAME##_##TYPE))
 
+// Last day functions (used with data/time types) that :
+// - NULL handling is of type NULL_IF_NULL
+//
+// The pre-compiled fn name includes the base name & input type name. eg:
+// - last_day_from_date64
+#define LAST_DAY_SAFE_NULL_IF_NULL(NAME, ALIASES, TYPE)                           \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
+                 date64(), kResultNullIfNull, ARROW_STRINGIFY(NAME##_from_##TYPE))
+
 // Hash32 functions that :
 // - NULL handling is of type NULL_NEVER
 //
@@ -198,6 +207,26 @@ typedef std::unordered_map<const FunctionSignature*, const NativeFunction*, KeyH
   NativeFunction(#NAME, std::vector<std::string> ALIASES,                    \
                  DataTypeVector{TYPE(), int64()}, int64(), kResultNullNever, \
                  ARROW_STRINGIFY(NAME##WithSeed_##TYPE))
+
+// HashSHA1 functions that :
+// - NULL handling is of type NULL_NEVER
+// - can return errors
+//
+// The function name includes the base name & input type name. gdv_fn_sha1_float64
+#define HASH_SHA1_NULL_NEVER(NAME, ALIASES, TYPE)                                 \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
+                 utf8(), kResultNullNever, ARROW_STRINGIFY(gdv_fn_sha1_##TYPE),   \
+                 NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
+
+// HashSHA256 functions that :
+// - NULL handling is of type NULL_NEVER
+// - can return errors
+//
+// The function name includes the base name & input type name. gdv_fn_sha256_float64
+#define HASH_SHA256_NULL_NEVER(NAME, ALIASES, TYPE)                               \
+  NativeFunction(#NAME, std::vector<std::string> ALIASES, DataTypeVector{TYPE()}, \
+                 utf8(), kResultNullNever, ARROW_STRINGIFY(gdv_fn_sha256_##TYPE), \
+                 NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)
 
 // Iterate the inner macro over all numeric types
 #define NUMERIC_TYPES(INNER, NAME, ALIASES)                                             \

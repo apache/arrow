@@ -127,6 +127,8 @@ pub struct CsvExec {
     projected_schema: SchemaRef,
     /// Batch size
     batch_size: usize,
+    /// Limit in nr. of rows
+    limit: Option<usize>,
 }
 
 impl CsvExec {
@@ -136,6 +138,7 @@ impl CsvExec {
         options: CsvReadOptions,
         projection: Option<Vec<usize>>,
         batch_size: usize,
+        limit: Option<usize>,
     ) -> Result<Self> {
         let file_extension = String::from(options.file_extension);
 
@@ -169,6 +172,7 @@ impl CsvExec {
             projection,
             projected_schema: Arc::new(projected_schema),
             batch_size,
+            limit,
         })
     }
 
@@ -210,6 +214,11 @@ impl CsvExec {
     /// Batch size
     pub fn batch_size(&self) -> usize {
         self.batch_size
+    }
+
+    /// Limit
+    pub fn limit(&self) -> Option<usize> {
+        self.limit
     }
 
     /// Infer schema for given CSV dataset
@@ -270,6 +279,7 @@ impl ExecutionPlan for CsvExec {
             self.delimiter,
             &self.projection,
             self.batch_size,
+            self.limit,
         )?))
     }
 }
@@ -289,15 +299,19 @@ impl CsvStream {
         delimiter: Option<u8>,
         projection: &Option<Vec<usize>>,
         batch_size: usize,
+        limit: Option<usize>,
     ) -> Result<Self> {
         let file = File::open(filename)?;
+        let start_line = if has_header { 1 } else { 0 };
+        let bounds = limit.map(|x| (0, x + start_line));
+
         let reader = csv::Reader::new(
             file,
             schema,
             has_header,
             delimiter,
             batch_size,
-            None,
+            bounds,
             projection.clone(),
         );
 
@@ -340,6 +354,7 @@ mod tests {
             CsvReadOptions::new().schema(&schema),
             Some(vec![0, 2, 4]),
             1024,
+            None,
         )?;
         assert_eq!(13, csv.schema.fields().len());
         assert_eq!(3, csv.projected_schema.fields().len());
@@ -362,8 +377,13 @@ mod tests {
         let testdata = arrow::util::test_util::arrow_test_data();
         let filename = "aggregate_test_100.csv";
         let path = format!("{}/csv/{}", testdata, filename);
-        let csv =
-            CsvExec::try_new(&path, CsvReadOptions::new().schema(&schema), None, 1024)?;
+        let csv = CsvExec::try_new(
+            &path,
+            CsvReadOptions::new().schema(&schema),
+            None,
+            1024,
+            None,
+        )?;
         assert_eq!(13, csv.schema.fields().len());
         assert_eq!(13, csv.projected_schema.fields().len());
         assert_eq!(13, csv.file_schema().fields().len());

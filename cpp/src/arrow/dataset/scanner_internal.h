@@ -28,11 +28,13 @@
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
 
 using internal::checked_cast;
+using internal::Executor;
 
 namespace dataset {
 
@@ -86,7 +88,7 @@ inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
 class FilterAndProjectScanTask : public ScanTask {
  public:
   explicit FilterAndProjectScanTask(std::shared_ptr<ScanTask> task, Expression partition)
-      : ScanTask(task->options(), task->context(), task->fragment()),
+      : ScanTask(task->options(), task->fragment()),
         task_(std::move(task)),
         partition_(std::move(partition)) {}
 
@@ -100,10 +102,10 @@ class FilterAndProjectScanTask : public ScanTask {
                           SimplifyWithGuarantee(options()->projection, partition_));
 
     RecordBatchIterator filter_it =
-        FilterRecordBatch(std::move(it), simplified_filter, context_->pool);
+        FilterRecordBatch(std::move(it), simplified_filter, options_->pool);
 
     return ProjectRecordBatch(std::move(filter_it), simplified_projection,
-                              context_->pool);
+                              options_->pool);
   }
 
  private:
@@ -114,12 +116,10 @@ class FilterAndProjectScanTask : public ScanTask {
 /// \brief GetScanTaskIterator transforms an Iterator<Fragment> in a
 /// flattened Iterator<ScanTask>.
 inline Result<ScanTaskIterator> GetScanTaskIterator(
-    FragmentIterator fragments, std::shared_ptr<ScanOptions> options,
-    std::shared_ptr<ScanContext> context) {
+    FragmentIterator fragments, std::shared_ptr<ScanOptions> options) {
   // Fragment -> ScanTaskIterator
-  auto fn = [options,
-             context](std::shared_ptr<Fragment> fragment) -> Result<ScanTaskIterator> {
-    ARROW_ASSIGN_OR_RAISE(auto scan_task_it, fragment->Scan(options, context));
+  auto fn = [options](std::shared_ptr<Fragment> fragment) -> Result<ScanTaskIterator> {
+    ARROW_ASSIGN_OR_RAISE(auto scan_task_it, fragment->Scan(options));
 
     auto partition = fragment->partition_expression();
     // Apply the filter and/or projection to incoming RecordBatches by

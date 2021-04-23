@@ -48,7 +48,8 @@ namespace io {
 
 static IOContext g_default_io_context{};
 
-IOContext::IOContext(MemoryPool* pool) : IOContext(pool, internal::GetIOThreadPool()) {}
+IOContext::IOContext(MemoryPool* pool, StopToken stop_token)
+    : IOContext(pool, internal::GetIOThreadPool(), std::move(stop_token)) {}
 
 const IOContext& default_io_context() { return g_default_io_context; }
 
@@ -135,9 +136,8 @@ Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(const IOContext& ctx
   TaskHints hints;
   hints.io_size = nbytes;
   hints.external_id = ctx.external_id();
-  return DeferNotOk(ctx.executor()->Submit(std::move(hints), [self, position, nbytes] {
-    return self->ReadAt(position, nbytes);
-  }));
+  return DeferNotOk(internal::SubmitIO(
+      ctx, [self, position, nbytes] { return self->ReadAt(position, nbytes); }));
 }
 
 Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(int64_t position,

@@ -62,11 +62,7 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
   /// columns may be absent if they were not present in this fragment.
   ///
   /// To receive a record batch stream which is fully filtered and projected, use Scanner.
-  virtual Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options,
-                                        std::shared_ptr<ScanContext> context) = 0;
-
-  /// \brief Return true if the fragment can benefit from parallel scanning.
-  virtual bool splittable() const = 0;
+  virtual Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) = 0;
 
   virtual std::string type_name() const = 0;
   virtual std::string ToString() const { return type_name(); }
@@ -89,6 +85,25 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
   std::shared_ptr<Schema> physical_schema_;
 };
 
+/// \brief Per-scan options for fragment(s) in a dataset.
+///
+/// These options are not intrinsic to the format or fragment itself, but do affect
+/// the results of a scan. These are options which make sense to change between
+/// repeated reads of the same dataset, such as format-specific conversion options
+/// (that do not affect the schema).
+///
+/// \ingroup dataset-scanning
+class ARROW_DS_EXPORT FragmentScanOptions {
+ public:
+  virtual std::string type_name() const = 0;
+  virtual std::string ToString() const { return type_name(); }
+  virtual ~FragmentScanOptions() = default;
+};
+
+/// \defgroup dataset-implementations Concrete implementations
+///
+/// @{
+
 /// \brief A trivial Fragment that yields ScanTask out of a fixed set of
 /// RecordBatch.
 class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
@@ -97,10 +112,7 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
                    Expression = literal(true));
   explicit InMemoryFragment(RecordBatchVector record_batches, Expression = literal(true));
 
-  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options,
-                                std::shared_ptr<ScanContext> context) override;
-
-  bool splittable() const override { return false; }
+  Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override;
 
   std::string type_name() const override { return "in-memory"; }
 
@@ -110,6 +122,8 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
   RecordBatchVector record_batches_;
 };
 
+/// @}
+
 /// \brief A container of zero or more Fragments.
 ///
 /// A Dataset acts as a union of Fragments, e.g. files deeply nested in a
@@ -118,7 +132,7 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
 class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
  public:
   /// \brief Begin to build a new Scan operation against this Dataset
-  Result<std::shared_ptr<ScannerBuilder>> NewScan(std::shared_ptr<ScanContext> context);
+  Result<std::shared_ptr<ScannerBuilder>> NewScan(std::shared_ptr<ScanOptions> options);
   Result<std::shared_ptr<ScannerBuilder>> NewScan();
 
   /// \brief GetFragments returns an iterator of Fragments given a predicate.
@@ -154,6 +168,10 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
   Expression partition_expression_ = literal(true);
 };
 
+/// \addtogroup dataset-implementations
+///
+/// @{
+
 /// \brief A Source which yields fragments wrapping a stream of record batches.
 ///
 /// The record batches must match the schema provided to the source at construction.
@@ -165,14 +183,17 @@ class ARROW_DS_EXPORT InMemoryDataset : public Dataset {
     virtual RecordBatchIterator Get() const = 0;
   };
 
+  /// Construct a dataset from a schema and a factory of record batch iterators.
   InMemoryDataset(std::shared_ptr<Schema> schema,
                   std::shared_ptr<RecordBatchGenerator> get_batches)
       : Dataset(std::move(schema)), get_batches_(std::move(get_batches)) {}
 
-  // Convenience constructor taking a fixed list of batches
+  /// Convenience constructor taking a fixed list of batches
   InMemoryDataset(std::shared_ptr<Schema> schema, RecordBatchVector batches);
 
+  /// Convenience constructor taking a Table
   explicit InMemoryDataset(std::shared_ptr<Table> table);
+  explicit InMemoryDataset(std::shared_ptr<RecordBatchReader> reader);
 
   std::string type_name() const override { return "in-memory"; }
 
@@ -213,6 +234,8 @@ class ARROW_DS_EXPORT UnionDataset : public Dataset {
 
   friend class UnionDatasetFactory;
 };
+
+/// @}
 
 }  // namespace dataset
 }  // namespace arrow

@@ -961,7 +961,7 @@ impl Decoder {
         });
         let valid_len = cur_offset.to_usize().unwrap();
         let array_data = match list_field.data_type() {
-            DataType::Null => NullArray::new(valid_len).data(),
+            DataType::Null => NullArray::new(valid_len).data().clone(),
             DataType::Boolean => {
                 let num_bytes = bit_util::ceil(valid_len, 8);
                 let mut bool_values = MutableBuffer::from_len_zeroed(num_bytes);
@@ -1021,20 +1021,22 @@ impl Decoder {
             DataType::Utf8 => {
                 StringArray::from_iter(flatten_json_string_values(rows).into_iter())
                     .data()
+                    .clone()
             }
             DataType::LargeUtf8 => {
                 LargeStringArray::from_iter(flatten_json_string_values(rows).into_iter())
                     .data()
+                    .clone()
             }
             DataType::List(field) => {
                 let child = self
                     .build_nested_list_array::<i32>(&flatten_json_values(rows), field)?;
-                child.data()
+                child.data().clone()
             }
             DataType::LargeList(field) => {
                 let child = self
                     .build_nested_list_array::<i64>(&flatten_json_values(rows), field)?;
-                child.data()
+                child.data().clone()
             }
             DataType::Struct(fields) => {
                 // extract list values, with non-lists converted to Value::Null
@@ -1073,7 +1075,7 @@ impl Decoder {
                 ArrayDataBuilder::new(data_type)
                     .len(rows.len())
                     .null_bit_buffer(buf)
-                    .child_data(arrays.into_iter().map(|a| a.data()).collect())
+                    .child_data(arrays.into_iter().map(|a| a.data().clone()).collect())
                     .build()
             }
             datatype => {
@@ -1275,7 +1277,9 @@ impl Decoder {
                         let data = ArrayDataBuilder::new(data_type)
                             .len(len)
                             .null_bit_buffer(null_buffer.into())
-                            .child_data(arrays.into_iter().map(|a| a.data()).collect())
+                            .child_data(
+                                arrays.into_iter().map(|a| a.data().clone()).collect(),
+                            )
                             .build();
                         Ok(make_array(data))
                     }
@@ -1316,7 +1320,7 @@ impl Decoder {
     }
 
     /// Read the primitive list's values into ArrayData
-    fn read_primitive_list_values<T>(&self, rows: &[Value]) -> ArrayDataRef
+    fn read_primitive_list_values<T>(&self, rows: &[Value]) -> ArrayData
     where
         T: ArrowPrimitiveType + ArrowNumericType,
         T::Native: num::NumCast,
@@ -1344,7 +1348,7 @@ impl Decoder {
             })
             .collect::<Vec<Option<T::Native>>>();
         let array = PrimitiveArray::<T>::from_iter(values.iter());
-        array.data()
+        array.data().clone()
     }
 }
 
@@ -2031,13 +2035,13 @@ mod tests {
         let d = StringArray::from(vec![Some("text"), None, Some("text"), None]);
         let c = ArrayDataBuilder::new(c_field.data_type().clone())
             .len(4)
-            .add_child_data(d.data())
+            .add_child_data(d.data().clone())
             .null_bit_buffer(Buffer::from(vec![0b00000101]))
             .build();
         let b = BooleanArray::from(vec![Some(true), Some(false), Some(true), None]);
         let a = ArrayDataBuilder::new(a_field.data_type().clone())
             .len(4)
-            .add_child_data(b.data())
+            .add_child_data(b.data().clone())
             .add_child_data(c)
             .null_bit_buffer(Buffer::from(vec![0b00000111]))
             .build();
@@ -2094,7 +2098,7 @@ mod tests {
         ]);
         let c = ArrayDataBuilder::new(c_field.data_type().clone())
             .len(7)
-            .add_child_data(d.data())
+            .add_child_data(d.data().clone())
             .null_bit_buffer(Buffer::from(vec![0b00111011]))
             .build();
         let b = BooleanArray::from(vec![
@@ -2108,7 +2112,7 @@ mod tests {
         ]);
         let a = ArrayDataBuilder::new(a_struct_field.data_type().clone())
             .len(7)
-            .add_child_data(b.data())
+            .add_child_data(b.data().clone())
             .add_child_data(c.clone())
             .null_bit_buffer(Buffer::from(vec![0b00111111]))
             .build();

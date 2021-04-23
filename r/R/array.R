@@ -73,6 +73,8 @@
 #'    (R vector or Array Array) `i`.
 #' - `$Filter(i, keep_na = TRUE)`: return an `Array` with values at positions where logical
 #'    vector (or Arrow boolean Array) `i` is `TRUE`.
+#' - `$SortIndices(descending = FALSE)`: return an `Array` of integer positions that can be
+#'    used to rearrange the `Array` in ascending or descending order
 #' - `$RangeEquals(other, start_idx, end_idx, other_start_idx)` :
 #' - `$cast(target_type, safe = TRUE, options = cast_options(safe))`: Alter the
 #'    data in the array to change its type.
@@ -131,6 +133,12 @@ Array <- R6Class("Array",
       assert_is(i, "Array")
       call_function("filter", self, i, options = list(keep_na = keep_na))
     },
+    SortIndices = function(descending = FALSE) {
+      assert_that(is.logical(descending))
+      assert_that(length(descending) == 1L)
+      assert_that(!is.na(descending))
+      call_function("array_sort_indices", self, options = list(order = descending))
+    },
     RangeEquals = function(other, start_idx, end_idx, other_start_idx = 0L) {
       assert_is(other, "Array")
       Array__RangeEquals(self, other, start_idx, end_idx, other_start_idx)
@@ -149,6 +157,13 @@ Array <- R6Class("Array",
 Array$create <- function(x, type = NULL) {
   if (!is.null(type)) {
     type <- as_type(type)
+  }
+  if (inherits(x, "Scalar")) {
+    out <- x$as_array()
+    if (!is.null(type)) {
+      out <- out$cast(type)
+    }
+    return(out)
   }
   vec_to_arrow(x, type)
 }

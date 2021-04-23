@@ -39,7 +39,9 @@
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow {
 
@@ -369,12 +371,16 @@ std::shared_ptr<Array> RandomArrayGenerator::FixedSizeBinary(int64_t size,
                                                 std::move(null_bitmap), null_count);
 }
 
-std::shared_ptr<Array> RandomArrayGenerator::Offsets(int64_t size, int32_t first_offset,
-                                                     int32_t last_offset,
-                                                     double null_probability,
-                                                     bool force_empty_nulls) {
-  using GenOpt = GenerateOptions<int32_t, std::uniform_int_distribution<int32_t>>;
-  GenOpt options(seed(), first_offset, last_offset, null_probability);
+namespace {
+template <typename OffsetArrayType>
+std::shared_ptr<Array> GenerateOffsets(SeedType seed, int64_t size,
+                                       typename OffsetArrayType::value_type first_offset,
+                                       typename OffsetArrayType::value_type last_offset,
+                                       double null_probability, bool force_empty_nulls) {
+  using GenOpt = GenerateOptions<
+      typename OffsetArrayType::value_type,
+      std::uniform_int_distribution<typename OffsetArrayType::value_type>>;
+  GenOpt options(seed, first_offset, last_offset, null_probability);
 
   BufferVector buffers{2};
 
@@ -391,8 +397,9 @@ std::shared_ptr<Array> RandomArrayGenerator::Offsets(int64_t size, int32_t first
     }
   }
 
-  buffers[1] = *AllocateBuffer(sizeof(int32_t) * size);
-  auto data = reinterpret_cast<int32_t*>(buffers[1]->mutable_data());
+  buffers[1] = *AllocateBuffer(sizeof(typename OffsetArrayType::value_type) * size);
+  auto data =
+      reinterpret_cast<typename OffsetArrayType::value_type*>(buffers[1]->mutable_data());
   options.GenerateTypedData(data, size);
   // Ensure offsets are in increasing order
   std::sort(data, data + size);
@@ -414,8 +421,78 @@ std::shared_ptr<Array> RandomArrayGenerator::Offsets(int64_t size, int32_t first
     }
   }
 
-  auto array_data = ArrayData::Make(int32(), size, buffers, null_count);
-  return std::make_shared<Int32Array>(array_data);
+  auto array_data = ArrayData::Make(
+      std::make_shared<typename OffsetArrayType::TypeClass>(), size, buffers, null_count);
+  return std::make_shared<OffsetArrayType>(array_data);
+}
+
+template <typename OffsetArrayType>
+std::shared_ptr<Array> OffsetsFromLengthsArray(OffsetArrayType* lengths,
+                                               bool force_empty_nulls) {
+  DCHECK(lengths->length() == 0 || !lengths->IsNull(0));
+  DCHECK(lengths->length() == 0 || !lengths->IsNull(lengths->length() - 1));
+  // Need N + 1 offsets for N items
+  int64_t size = lengths->length() + 1;
+  BufferVector buffers{2};
+
+  int64_t null_count = 0;
+
+  buffers[0] = *AllocateEmptyBitmap(size);
+  uint8_t* null_bitmap = buffers[0]->mutable_data();
+  // Make sure the first and last entry are non-null
+  arrow::BitUtil::SetBit(null_bitmap, 0);
+  arrow::BitUtil::SetBit(null_bitmap, size - 1);
+
+  buffers[1] = *AllocateBuffer(sizeof(typename OffsetArrayType::value_type) * size);
+  auto data =
+      reinterpret_cast<typename OffsetArrayType::value_type*>(buffers[1]->mutable_data());
+  data[0] = 0;
+  int index = 1;
+  for (const auto& length : *lengths) {
+    if (length.has_value()) {
+      arrow::BitUtil::SetBit(null_bitmap, index);
+      data[index] = data[index - 1] + *length;
+      DCHECK_GE(*length, 0);
+    } else {
+      data[index] = data[index - 1];
+      null_count++;
+    }
+    index++;
+  }
+
+  if (force_empty_nulls) {
+    arrow::internal::BitmapReader reader(null_bitmap, 0, size);
+    for (int64_t i = 0; i < size; ++i) {
+      if (reader.IsNotSet()) {
+        // Ensure a null entry corresponds to a 0-sized list extent
+        // (note this can be neither the first nor the last list entry, see above)
+        data[i + 1] = data[i];
+      }
+      reader.Next();
+    }
+  }
+
+  auto array_data = ArrayData::Make(
+      std::make_shared<typename OffsetArrayType::TypeClass>(), size, buffers, null_count);
+  return std::make_shared<OffsetArrayType>(array_data);
+}
+}  // namespace
+
+std::shared_ptr<Array> RandomArrayGenerator::Offsets(int64_t size, int32_t first_offset,
+                                                     int32_t last_offset,
+                                                     double null_probability,
+                                                     bool force_empty_nulls) {
+  return GenerateOffsets<NumericArray<Int32Type>>(seed(), size, first_offset, last_offset,
+                                                  null_probability, force_empty_nulls);
+}
+
+std::shared_ptr<Array> RandomArrayGenerator::LargeOffsets(int64_t size,
+                                                          int64_t first_offset,
+                                                          int64_t last_offset,
+                                                          double null_probability,
+                                                          bool force_empty_nulls) {
+  return GenerateOffsets<NumericArray<Int64Type>>(seed(), size, first_offset, last_offset,
+                                                  null_probability, force_empty_nulls);
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::List(const Array& values, int64_t size,
@@ -571,6 +648,281 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(std::shared_ptr<DataType> t
                                                      int64_t size,
                                                      double null_probability) {
   return RandomArrayGeneratorOfImpl{this, type, size, null_probability, nullptr}.Finish();
+}
+
+namespace {
+template <typename T, typename ArrowType = typename CTypeTraits<T>::ArrowType>
+enable_if_parameter_free<ArrowType, T> GetMetadata(const KeyValueMetadata* metadata,
+                                                   const std::string& key,
+                                                   T default_value) {
+  if (!metadata) return default_value;
+  const auto index = metadata->FindKey(key);
+  if (index < 0) return default_value;
+  const auto& value = metadata->value(index);
+  T output{};
+  if (!internal::ParseValue<ArrowType>(value.data(), value.length(), &output)) {
+    ABORT_NOT_OK(Status::Invalid("Could not parse ", key, " = ", value));
+  }
+  return output;
+}
+}  // namespace
+
+std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t length) {
+#define VALIDATE_RANGE(PARAM, MIN, MAX)                                          \
+  if (PARAM < MIN || PARAM > MAX) {                                              \
+    ABORT_NOT_OK(Status::Invalid(field.ToString(), ": ", ARROW_STRINGIFY(PARAM), \
+                                 " must be in [", MIN, ", ", MAX, " ] but got ", \
+                                 null_probability));                             \
+  }
+#define VALIDATE_MIN_MAX(MIN, MAX)                                                  \
+  if (MIN > MAX) {                                                                  \
+    ABORT_NOT_OK(                                                                   \
+        Status::Invalid(field.ToString(), ": min ", MIN, " must be <= max ", MAX)); \
+  }
+#define GENERATE_INTEGRAL_CASE_VIEW(BASE_TYPE, VIEW_TYPE)                              \
+  case VIEW_TYPE::type_id: {                                                           \
+    const BASE_TYPE::c_type min_value = GetMetadata<BASE_TYPE::c_type>(                \
+        field.metadata().get(), "min", std::numeric_limits<BASE_TYPE::c_type>::min()); \
+    const BASE_TYPE::c_type max_value = GetMetadata<BASE_TYPE::c_type>(                \
+        field.metadata().get(), "max", std::numeric_limits<BASE_TYPE::c_type>::max()); \
+    VALIDATE_MIN_MAX(min_value, max_value);                                            \
+    return *Numeric<BASE_TYPE>(length, min_value, max_value, null_probability)         \
+                ->View(field.type());                                                  \
+  }
+#define GENERATE_INTEGRAL_CASE(ARROW_TYPE) \
+  GENERATE_INTEGRAL_CASE_VIEW(ARROW_TYPE, ARROW_TYPE)
+#define GENERATE_FLOATING_CASE(ARROW_TYPE, GENERATOR_FUNC)                              \
+  case ARROW_TYPE::type_id: {                                                           \
+    const ARROW_TYPE::c_type min_value = GetMetadata<ARROW_TYPE::c_type>(               \
+        field.metadata().get(), "min", std::numeric_limits<ARROW_TYPE::c_type>::min()); \
+    const ARROW_TYPE::c_type max_value = GetMetadata<ARROW_TYPE::c_type>(               \
+        field.metadata().get(), "max", std::numeric_limits<ARROW_TYPE::c_type>::max()); \
+    const double nan_probability =                                                      \
+        GetMetadata<double>(field.metadata().get(), "nan_probability", 0);              \
+    VALIDATE_MIN_MAX(min_value, max_value);                                             \
+    VALIDATE_RANGE(nan_probability, 0.0, 1.0);                                          \
+    return GENERATOR_FUNC(length, min_value, max_value, null_probability,               \
+                          nan_probability);                                             \
+  }
+
+  // Don't use compute::Sum since that may not get built
+#define GENERATE_LIST_CASE(ARRAY_TYPE)                                               \
+  case ARRAY_TYPE::TypeClass::type_id: {                                             \
+    const auto min_length = GetMetadata<ARRAY_TYPE::TypeClass::offset_type>(         \
+        field.metadata().get(), "min_length", 0);                                    \
+    const auto max_length = GetMetadata<ARRAY_TYPE::TypeClass::offset_type>(         \
+        field.metadata().get(), "max_length", 1024);                                 \
+    const auto lengths = internal::checked_pointer_cast<                             \
+        CTypeTraits<ARRAY_TYPE::TypeClass::offset_type>::ArrayType>(                 \
+        Numeric<CTypeTraits<ARRAY_TYPE::TypeClass::offset_type>::ArrowType>(         \
+            length, min_length, max_length, null_probability));                      \
+    int64_t values_length = 0;                                                       \
+    for (const auto& length : *lengths) {                                            \
+      if (length.has_value()) values_length += *length;                              \
+    }                                                                                \
+    const auto force_empty_nulls =                                                   \
+        GetMetadata<bool>(field.metadata().get(), "force_empty_nulls", false);       \
+    const auto values =                                                              \
+        ArrayOf(*internal::checked_pointer_cast<ARRAY_TYPE::TypeClass>(field.type()) \
+                     ->value_field(),                                                \
+                values_length);                                                      \
+    const auto offsets = OffsetsFromLengthsArray(lengths.get(), force_empty_nulls);  \
+    return *ARRAY_TYPE::FromArrays(*offsets, *values);                               \
+  }
+
+  const double null_probability =
+      field.nullable()
+          ? GetMetadata<double>(field.metadata().get(), "null_probability", 0.01)
+          : 0.0;
+  VALIDATE_RANGE(null_probability, 0.0, 1.0);
+  switch (field.type()->id()) {
+    case Type::type::NA: {
+      return std::make_shared<NullArray>(length);
+    }
+
+    case Type::type::BOOL: {
+      const double true_probability =
+          GetMetadata<double>(field.metadata().get(), "true_probability", 0.5);
+      return Boolean(length, true_probability, null_probability);
+    }
+
+      GENERATE_INTEGRAL_CASE(UInt8Type);
+      GENERATE_INTEGRAL_CASE(Int8Type);
+      GENERATE_INTEGRAL_CASE(UInt16Type);
+      GENERATE_INTEGRAL_CASE(Int16Type);
+      GENERATE_INTEGRAL_CASE(UInt32Type);
+      GENERATE_INTEGRAL_CASE(Int32Type);
+      GENERATE_INTEGRAL_CASE(UInt64Type);
+      GENERATE_INTEGRAL_CASE(Int64Type);
+      GENERATE_INTEGRAL_CASE_VIEW(Int16Type, HalfFloatType);
+      GENERATE_FLOATING_CASE(FloatType, Float32);
+      GENERATE_FLOATING_CASE(DoubleType, Float64);
+
+    case Type::type::STRING:
+    case Type::type::BINARY: {
+      const auto min_length =
+          GetMetadata<int32_t>(field.metadata().get(), "min_length", 0);
+      const auto max_length =
+          GetMetadata<int32_t>(field.metadata().get(), "max_length", 1024);
+      const auto unique_values =
+          GetMetadata<int32_t>(field.metadata().get(), "unique", -1);
+      if (unique_values > 0) {
+        return *StringWithRepeats(length, unique_values, min_length, max_length,
+                                  null_probability)
+                    ->View(field.type());
+      }
+      return *String(length, min_length, max_length, null_probability)
+                  ->View(field.type());
+    }
+
+    case Type::type::DECIMAL128:
+    case Type::type::DECIMAL256:
+    case Type::type::FIXED_SIZE_BINARY: {
+      auto byte_width =
+          internal::checked_pointer_cast<FixedSizeBinaryType>(field.type())->byte_width();
+      return *FixedSizeBinary(length, byte_width, null_probability)->View(field.type());
+    }
+
+      GENERATE_INTEGRAL_CASE_VIEW(Int32Type, Date32Type);
+      GENERATE_INTEGRAL_CASE_VIEW(Int64Type, Date64Type);
+      GENERATE_INTEGRAL_CASE_VIEW(Int64Type, TimestampType);
+      GENERATE_INTEGRAL_CASE_VIEW(Int32Type, Time32Type);
+      GENERATE_INTEGRAL_CASE_VIEW(Int64Type, Time64Type);
+      GENERATE_INTEGRAL_CASE_VIEW(Int32Type, MonthIntervalType);
+
+      // This isn't as flexible as it could be, but the array-of-structs layout of this
+      // type means it's not a (useful) composition of other generators
+      GENERATE_INTEGRAL_CASE_VIEW(Int64Type, DayTimeIntervalType);
+
+      GENERATE_LIST_CASE(ListArray);
+
+    case Type::type::STRUCT: {
+      ArrayVector child_arrays(field.type()->num_fields());
+      std::vector<std::string> field_names;
+      for (int i = 0; i < field.type()->num_fields(); i++) {
+        const auto& child_field = field.type()->field(i);
+        child_arrays[i] = ArrayOf(*child_field, length);
+        field_names.push_back(child_field->name());
+      }
+      return *StructArray::Make(child_arrays, field_names,
+                                NullBitmap(length, null_probability));
+    }
+
+    case Type::type::SPARSE_UNION:
+    case Type::type::DENSE_UNION: {
+      ArrayVector child_arrays(field.type()->num_fields());
+      for (int i = 0; i < field.type()->num_fields(); i++) {
+        const auto& child_field = field.type()->field(i);
+        child_arrays[i] = ArrayOf(*child_field, length);
+      }
+      auto array = field.type()->id() == Type::type::SPARSE_UNION
+                       ? SparseUnion(child_arrays, length)
+                       : DenseUnion(child_arrays, length);
+      return *array->View(field.type());
+    }
+
+    case Type::type::DICTIONARY: {
+      const auto values_length =
+          GetMetadata<int64_t>(field.metadata().get(), "values", 4);
+      auto dict_type = internal::checked_pointer_cast<DictionaryType>(field.type());
+      // TODO: no way to control generation of dictionary
+      auto values =
+          ArrayOf(*arrow::field("temporary", dict_type->value_type(), /*nullable=*/false),
+                  values_length);
+      auto merged = field.metadata() ? field.metadata() : key_value_metadata({}, {});
+      if (merged->Contains("min"))
+        ABORT_NOT_OK(Status::Invalid(field.ToString(), ": cannot specify min"));
+      if (merged->Contains("max"))
+        ABORT_NOT_OK(Status::Invalid(field.ToString(), ": cannot specify max"));
+      merged = merged->Merge(*key_value_metadata(
+          {{"min", "0"}, {"max", std::to_string(values_length - 1)}}));
+      auto indices = ArrayOf(
+          *arrow::field("temporary", dict_type->index_type(), field.nullable(), merged),
+          length);
+      return *DictionaryArray::FromArrays(field.type(), indices, values);
+    }
+
+    case Type::type::MAP: {
+      const auto values_length = GetMetadata<int32_t>(field.metadata().get(), "values",
+                                                      static_cast<int32_t>(length));
+      const auto force_empty_nulls =
+          GetMetadata<bool>(field.metadata().get(), "force_empty_nulls", false);
+      auto map_type = internal::checked_pointer_cast<MapType>(field.type());
+      auto keys = ArrayOf(*map_type->key_field(), values_length);
+      auto items = ArrayOf(*map_type->item_field(), values_length);
+      // need N + 1 offsets to have N values
+      auto offsets =
+          Offsets(length + 1, 0, values_length, null_probability, force_empty_nulls);
+      return *MapArray::FromArrays(map_type, offsets, keys, items);
+    }
+
+    case Type::type::EXTENSION:
+      // Could be supported by generating the storage type (though any extension
+      // invariants wouldn't be preserved)
+      break;
+
+    case Type::type::FIXED_SIZE_LIST: {
+      auto list_type = internal::checked_pointer_cast<FixedSizeListType>(field.type());
+      const int64_t values_length = list_type->list_size() * length;
+      auto values = ArrayOf(*list_type->value_field(), values_length);
+      auto null_bitmap = NullBitmap(length, null_probability);
+      return std::make_shared<FixedSizeListArray>(list_type, length, values, null_bitmap);
+    }
+
+      GENERATE_INTEGRAL_CASE_VIEW(Int64Type, DurationType);
+
+    case Type::type::LARGE_STRING:
+    case Type::type::LARGE_BINARY: {
+      const auto min_length =
+          GetMetadata<int32_t>(field.metadata().get(), "min_length", 0);
+      const auto max_length =
+          GetMetadata<int32_t>(field.metadata().get(), "max_length", 1024);
+      const auto unique_values =
+          GetMetadata<int32_t>(field.metadata().get(), "unique", -1);
+      if (unique_values > 0) {
+        ABORT_NOT_OK(
+            Status::NotImplemented("Generating random array with repeated values for "
+                                   "large string/large binary types"));
+      }
+      return *LargeString(length, min_length, max_length, null_probability)
+                  ->View(field.type());
+    }
+
+      GENERATE_LIST_CASE(LargeListArray);
+
+    default:
+      break;
+  }
+#undef GENERATE_INTEGRAL_CASE_VIEW
+#undef GENERATE_INTEGRAL_CASE
+#undef GENERATE_FLOATING_CASE
+#undef GENERATE_LIST_CASE
+#undef VALIDATE_RANGE
+#undef VALIDATE_MIN_MAX
+
+  ABORT_NOT_OK(
+      Status::NotImplemented("Generating random array for field ", field.ToString()));
+  return nullptr;
+}
+
+std::shared_ptr<arrow::RecordBatch> RandomArrayGenerator::BatchOf(
+    const FieldVector& fields, int64_t length) {
+  std::vector<std::shared_ptr<Array>> arrays(fields.size());
+  for (size_t i = 0; i < fields.size(); i++) {
+    const auto& field = fields[i];
+    arrays[i] = ArrayOf(*field, length);
+  }
+  return RecordBatch::Make(schema(fields), length, std::move(arrays));
+}
+
+std::shared_ptr<arrow::Array> GenerateArray(const Field& field, int64_t length,
+                                            SeedType seed) {
+  return RandomArrayGenerator(seed).ArrayOf(field, length);
+}
+
+std::shared_ptr<arrow::RecordBatch> GenerateBatch(const FieldVector& fields,
+                                                  int64_t length, SeedType seed) {
+  return RandomArrayGenerator(seed).BatchOf(fields, length);
 }
 
 }  // namespace random

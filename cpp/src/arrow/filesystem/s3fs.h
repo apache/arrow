@@ -40,6 +40,22 @@ class STSClient;
 namespace arrow {
 namespace fs {
 
+/// Options for using a proxy for S3
+struct ARROW_EXPORT S3ProxyOptions {
+  std::string scheme;
+  std::string host;
+  int port = -1;
+  std::string username;
+  std::string password;
+
+  /// Initialize from URI such as http://username:password@host:port
+  /// or http://host:port
+  static Result<S3ProxyOptions> FromUri(const std::string& uri);
+  static Result<S3ProxyOptions> FromUri(const ::arrow::internal::Uri& uri);
+
+  bool Equals(const S3ProxyOptions& other) const;
+};
+
 /// Options for the S3FileSystem implementation.
 struct ARROW_EXPORT S3Options {
   /// AWS region to connect to.
@@ -65,6 +81,9 @@ struct ARROW_EXPORT S3Options {
   std::string external_id;
   /// Frequency (in seconds) to refresh temporary credentials from assumed role
   int load_frequency;
+
+  /// If connection is through a proxy, set options here
+  S3ProxyOptions proxy_options;
 
   /// AWS credentials provider
   std::shared_ptr<Aws::Auth::AWSCredentialsProvider> credentials_provider;
@@ -149,6 +168,8 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   Result<FileInfo> GetFileInfo(const std::string& path) override;
   Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) override;
 
+  FileInfoGenerator GetFileInfoGenerator(const FileSelector& select) override;
+
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
   Status DeleteDir(const std::string& path) override;
@@ -206,7 +227,7 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   explicit S3FileSystem(const S3Options& options, const io::IOContext&);
 
   class Impl;
-  std::unique_ptr<Impl> impl_;
+  std::shared_ptr<Impl> impl_;
 };
 
 enum class S3LogLevel : int8_t { Off, Fatal, Error, Warn, Info, Debug, Trace };

@@ -25,8 +25,11 @@ import itertools
 import os
 import pickle
 import shutil
+import signal
 import string
+import sys
 import tempfile
+import threading
 import time
 import unittest
 
@@ -506,14 +509,19 @@ class BaseTestCSVRead:
 
     def test_simple_timestamps(self):
         # Infer a timestamp column
-        rows = b"a,b\n1970,1970-01-01 00:00:00\n1989,1989-07-14 01:00:00\n"
+        rows = (b"a,b,c\n"
+                b"1970,1970-01-01 00:00:00,1970-01-01 00:00:00.123\n"
+                b"1989,1989-07-14 01:00:00,1989-07-14 01:00:00.123456\n")
         table = self.read_bytes(rows)
         schema = pa.schema([('a', pa.int64()),
-                            ('b', pa.timestamp('s'))])
+                            ('b', pa.timestamp('s')),
+                            ('c', pa.timestamp('ns'))])
         assert table.schema == schema
         assert table.to_pydict() == {
             'a': [1970, 1989],
             'b': [datetime(1970, 1, 1), datetime(1989, 7, 14, 1)],
+            'c': [datetime(1970, 1, 1, 0, 0, 0, 123000),
+                  datetime(1989, 7, 14, 1, 0, 0, 123456)],
         }
 
     def test_timestamp_parsers(self):
@@ -890,6 +898,49 @@ class BaseTestCSVRead:
         assert table.num_columns == num_columns
         assert table.num_rows == 0
         assert table.column_names == col_names
+
+    def test_cancellation(self):
+        if (threading.current_thread().ident !=
+                threading.main_thread().ident):
+            pytest.skip("test only works from main Python thread")
+
+        if sys.version_info >= (3, 8):
+            raise_signal = signal.raise_signal
+        elif os.name == 'nt':
+            # On Windows, os.kill() doesn't actually send a signal,
+            # it just terminates the process with the given exit code.
+            pytest.skip("test requires Python 3.8+ on Windows")
+        else:
+            # On Unix, emulate raise_signal() with os.kill().
+            def raise_signal(signum):
+                os.kill(os.getpid(), signum)
+
+        # Make the interruptible workload large enough to not finish
+        # before the interrupt comes, even in release mode on fast machines
+        large_csv = b"a,b,c\n" + b"1,2,3\n" * 200_000_000
+
+        def signal_from_thread():
+            time.sleep(0.2)
+            raise_signal(signal.SIGINT)
+
+        t1 = time.time()
+        try:
+            try:
+                t = threading.Thread(target=signal_from_thread)
+                with pytest.raises(KeyboardInterrupt) as exc_info:
+                    t.start()
+                    self.read_bytes(large_csv)
+            finally:
+                t.join()
+        except KeyboardInterrupt:
+            # In case KeyboardInterrupt didn't interrupt `self.read_bytes`
+            # above, at least prevent it from stopping the test suite
+            self.fail("KeyboardInterrupt didn't interrupt CSV reading")
+        dt = time.time() - t1
+        assert dt <= 1.0
+        e = exc_info.value.__context__
+        assert isinstance(e, pa.ArrowCancelled)
+        assert e.signum == signal.SIGINT
 
 
 class TestSerialCSVRead(BaseTestCSVRead, unittest.TestCase):

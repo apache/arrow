@@ -18,16 +18,9 @@
 test_that("default_memory_pool and its attributes", {
   pool <- default_memory_pool()
   # Not integer bc can be >2gb, so we cast to double
-  expect_is(pool$bytes_allocated, "numeric")
-  expect_is(pool$max_memory, "numeric")
+  expect_type(pool$bytes_allocated, "double")
+  expect_type(pool$max_memory, "double")
   expect_true(pool$backend_name %in% c("system", "jemalloc", "mimalloc"))
 
   expect_true(all(supported_memory_backends() %in% c("system", "jemalloc", "mimalloc")))
-})
-
-test_that("arrow_info()", {
-  expect_is(arrow_info(), "arrow_info")
-  expect_output(print(arrow_info()), "Arrow package version")
-  options(arrow.foo=FALSE)
-  expect_output(print(arrow_info()), "arrow.foo")
 })

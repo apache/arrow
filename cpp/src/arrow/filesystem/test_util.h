@@ -43,7 +43,10 @@ void CreateFile(FileSystem* fs, const std::string& path, const std::string& data
 
 // Sort a vector of FileInfo by lexicographic path order
 ARROW_TESTING_EXPORT
-void SortInfos(std::vector<FileInfo>* infos);
+void SortInfos(FileInfoVector* infos);
+
+ARROW_TESTING_EXPORT
+void CollectFileInfoGenerator(FileInfoGenerator gen, FileInfoVector* out_infos);
 
 ARROW_TESTING_EXPORT
 void AssertFileInfo(const FileInfo& info, const std::string& path, FileType type);
@@ -108,12 +111,16 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   void TestGetFileInfoVector();
   void TestGetFileInfoSelector();
   void TestGetFileInfoSelectorWithRecursion();
+  void TestGetFileInfoAsync();
+  void TestGetFileInfoGenerator();
   void TestOpenOutputStream();
   void TestOpenAppendStream();
   void TestOpenInputStream();
   void TestOpenInputStreamWithFileInfo();
+  void TestOpenInputStreamAsync();
   void TestOpenInputFile();
   void TestOpenInputFileWithFileInfo();
+  void TestOpenInputFileAsync();
 
  protected:
   // This function should return the filesystem under test.
@@ -149,12 +156,16 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   void TestGetFileInfoVector(FileSystem* fs);
   void TestGetFileInfoSelector(FileSystem* fs);
   void TestGetFileInfoSelectorWithRecursion(FileSystem* fs);
+  void TestGetFileInfoAsync(FileSystem* fs);
+  void TestGetFileInfoGenerator(FileSystem* fs);
   void TestOpenOutputStream(FileSystem* fs);
   void TestOpenAppendStream(FileSystem* fs);
   void TestOpenInputStream(FileSystem* fs);
   void TestOpenInputStreamWithFileInfo(FileSystem* fs);
+  void TestOpenInputStreamAsync(FileSystem* fs);
   void TestOpenInputFile(FileSystem* fs);
   void TestOpenInputFileWithFileInfo(FileSystem* fs);
+  void TestOpenInputFileAsync(FileSystem* fs);
 };
 
 #define GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, NAME) \
@@ -176,12 +187,16 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetFileInfoVector)                \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetFileInfoSelector)              \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetFileInfoSelectorWithRecursion) \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetFileInfoAsync)                 \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, GetFileInfoGenerator)             \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenOutputStream)                 \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenAppendStream)                 \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputStream)                  \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputStreamWithFileInfo)      \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputStreamAsync)             \
   GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputFile)                    \
-  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputFileWithFileInfo)
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputFileWithFileInfo)        \
+  GENERIC_FS_TEST_FUNCTION(TEST_MACRO, TEST_CLASS, OpenInputFileAsync)
 
 #define GENERIC_FS_TEST_FUNCTIONS(TEST_CLASS) \
   GENERIC_FS_TEST_FUNCTIONS_MACROS(TEST_F, TEST_CLASS)

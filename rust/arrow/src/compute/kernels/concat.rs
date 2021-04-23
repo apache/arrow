@@ -30,8 +30,6 @@
 //! assert_eq!(arr.len(), 3);
 //! ```
 
-use std::sync::Arc;
-
 use crate::array::*;
 use crate::error::{ArrowError, Result};
 
@@ -56,10 +54,7 @@ pub fn concat(arrays: &[&Array]) -> Result<ArrayRef> {
     let lengths = arrays.iter().map(|array| array.len()).collect::<Vec<_>>();
     let capacity = lengths.iter().sum();
 
-    let arrays = arrays
-        .iter()
-        .map(|a| a.data_ref().as_ref())
-        .collect::<Vec<_>>();
+    let arrays = arrays.iter().map(|a| a.data()).collect::<Vec<_>>();
 
     let mut mutable = MutableArrayData::new(arrays, false, capacity);
 
@@ -67,7 +62,7 @@ pub fn concat(arrays: &[&Array]) -> Result<ArrayRef> {
         mutable.extend(i, 0, *len)
     }
 
-    Ok(make_array(Arc::new(mutable.freeze())))
+    Ok(make_array(mutable.freeze()))
 }
 
 #[cfg(test)]

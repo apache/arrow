@@ -135,10 +135,10 @@ test_binary() {
 }
 
 test_apt() {
-  for target in "debian:buster" \
+  for target in "debian:bullseye" \
+                "arm64v8/debian:bullseye" \
+                "debian:buster" \
                 "arm64v8/debian:buster" \
-                "ubuntu:xenial" \
-                "arm64v8/ubuntu:xenial" \
                 "ubuntu:bionic" \
                 "arm64v8/ubuntu:bionic" \
                 "ubuntu:focal" \
@@ -146,6 +146,11 @@ test_apt() {
                 "ubuntu:groovy" \
                 "arm64v8/ubuntu:groovy"; do \
     case "${target}" in
+      arm64v8/debian:bullseye)
+        # qemu-user-static in Ubuntu 20.04 has a crash bug:
+        #   https://bugs.launchpad.net/qemu/+bug/1749393
+        continue
+        ;;
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
           : # OK
@@ -168,7 +173,6 @@ test_apt() {
 
 test_yum() {
   for target in "centos:7" \
-                "arm64v8/centos:7" \
                 "centos:8" \
                 "arm64v8/centos:8"; do
     case "${target}" in
@@ -386,19 +390,11 @@ test_python() {
 test_glib() {
   pushd c_glib
 
-  if brew --prefix libffi > /dev/null 2>&1; then
-    PKG_CONFIG_PATH=$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH
-  fi
+  pip install meson
 
-  if [ -f configure ]; then
-    ./configure --prefix=$ARROW_HOME
-    make -j$NPROC
-    make install
-  else
-    meson build --prefix=$ARROW_HOME --libdir=lib
-    ninja -C build
-    ninja -C build install
-  fi
+  meson build --prefix=$ARROW_HOME --libdir=lib
+  ninja -C build
+  ninja -C build install
 
   export GI_TYPELIB_PATH=$ARROW_HOME/lib/girepository-1.0:$GI_TYPELIB_PATH
 
@@ -423,12 +419,12 @@ test_js() {
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
     nvm install --lts
+    npm install -g yarn
   fi
 
-  npm install
-  # clean, lint, and build JS source
-  npx run-s clean:all lint build
-  npm run test
+  yarn --frozen-lockfile
+  yarn run-s clean:all lint build
+  yarn test
   popd
 }
 
@@ -496,9 +492,7 @@ test_rust() {
   # raises on any formatting errors
   rustup component add rustfmt --toolchain stable
   cargo +stable fmt --all -- --check
-
-  # we are targeting Rust nightly for releases
-  rustup default nightly
+  rustup default stable
 
   # use local modules because we don't publish modules to crates.io yet
   sed \
@@ -697,6 +691,7 @@ test_wheels() {
   fi
 
   python $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
+         --package_type python \
          --regex=${filter_regex} \
          --dest=${download_dir}
 

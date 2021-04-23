@@ -62,39 +62,50 @@ install_arrow <- function(nightly = FALSE,
   sysname <- tolower(Sys.info()[["sysname"]])
   conda <- isTRUE(grepl("conda", R.Version()$platform))
 
-  if (sysname %in% c("windows", "darwin", "linux")) {
-    if (conda) {
-      if (nightly) {
-        system("conda install -y -c arrow-nightlies -c conda-forge --strict-channel-priority r-arrow")
-      } else {
-        system("conda install -y -c conda-forge --strict-channel-priority r-arrow")
-      }
+  if (conda) {
+    if (nightly) {
+      system("conda install -y -c arrow-nightlies -c conda-forge --strict-channel-priority r-arrow")
     } else {
-      Sys.setenv(
-        LIBARROW_DOWNLOAD = "true",
-        LIBARROW_BINARY = binary,
-        LIBARROW_MINIMAL = minimal,
-        ARROW_R_DEV = verbose,
-        ARROW_USE_PKG_CONFIG = use_system
-      )
-      if (isTRUE(binary)) {
-        # Unless otherwise directed, don't consider newer source packages when
-        # options(pkgType) == "both" (default on win/mac)
-        opts <- options(
-          install.packages.check.source = "no",
-          install.packages.compile.from.source = "never"
-        )
-        on.exit(options(opts))
-      }
-      install.packages("arrow", repos = arrow_repos(repos, nightly), ...)
-    }
-    if ("arrow" %in% loadedNamespaces()) {
-      # If you've just sourced this file, "arrow" won't be (re)loaded
-      reload_arrow()
+      system("conda install -y -c conda-forge --strict-channel-priority r-arrow")
     }
   } else {
-    # Solaris
-    message(SEE_README)
+    Sys.setenv(
+      LIBARROW_DOWNLOAD = "true",
+      LIBARROW_BINARY = binary,
+      LIBARROW_MINIMAL = minimal,
+      ARROW_R_DEV = verbose,
+      ARROW_USE_PKG_CONFIG = use_system
+    )
+    # On the M1, we can't use the usual autobrew, which pulls Intel dependencies
+    apple_m1 <- grepl("arm-apple|aarch64.*darwin", R.Version()$platform)
+    # On Rosetta, we have to build without JEMALLOC, so we also can't autobrew
+    rosetta <- identical(sysname, "darwin") && identical(system("sysctl -n sysctl.proc_translated", intern = TRUE), "1")
+    if (rosetta) {
+      Sys.setenv(ARROW_JEMALLOC = "OFF")
+    }
+    if (apple_m1 || rosetta) {
+      Sys.setenv(FORCE_BUNDLED_BUILD = "true")
+    }
+
+    opts <- list()
+    if (apple_m1 || rosetta) {
+      # Skip binaries (esp. for rosetta)
+      opts$pkgType <- "source"
+    } else if (isTRUE(binary)) {
+      # Unless otherwise directed, don't consider newer source packages when
+      # options(pkgType) == "both" (default on win/mac)
+      opts$install.packages.check.source <- "no"
+      opts$install.packages.compile.from.source <- "never"
+    }
+    if (length(opts)) {
+      old <- options(opts)
+      on.exit(options(old))
+    }
+    install.packages("arrow", repos = arrow_repos(repos, nightly), ...)
+  }
+  if ("arrow" %in% loadedNamespaces()) {
+    # If you've just sourced this file, "arrow" won't be (re)loaded
+    reload_arrow()
   }
 }
 
@@ -126,10 +137,3 @@ reload_arrow <- function() {
     message("Please restart R to use the 'arrow' package.")
   }
 }
-
-SEE_README <- paste(
-  "Refer to the R package README",
-  "<https://github.com/apache/arrow/blob/master/r/README.md>",
-  "and `vignette('install', package = 'arrow')`",
-  "for installation guidance."
-)

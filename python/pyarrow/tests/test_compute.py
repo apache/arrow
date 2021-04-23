@@ -129,9 +129,14 @@ def test_get_function_vector():
     _check_get_function("unique", pc.VectorFunction, pc.VectorKernel, 8)
 
 
-def test_get_function_aggregate():
+def test_get_function_scalar_aggregate():
     _check_get_function("mean", pc.ScalarAggregateFunction,
                         pc.ScalarAggregateKernel, 8)
+
+
+def test_get_function_hash_aggregate():
+    _check_get_function("hash_sum", pc.HashAggregateFunction,
+                        pc.HashAggregateKernel, 1)
 
 
 def test_call_function_with_memory_pool():
@@ -271,6 +276,13 @@ def test_match_substring():
     arr = pa.array(["ab", "abc", "ba", None])
     result = pc.match_substring(arr, "ab")
     expected = pa.array([True, True, False, None])
+    assert expected.equals(result)
+
+
+def test_match_substring_regex():
+    arr = pa.array(["ab", "abc", "ba", "c", None])
+    result = pc.match_substring_regex(arr, "^a?b")
+    expected = pa.array([True, True, True, False, None])
     assert expected.equals(result)
 
 
@@ -572,6 +584,18 @@ def test_string_py_compat_boolean(function_name, variant):
             ar = pa.array([c])
             arrow_func = getattr(pc, arrow_name)
             assert arrow_func(ar)[0].as_py() == getattr(c, py_name)()
+
+
+def test_replace_plain():
+    ar = pa.array(['foo', 'food', None])
+    ar = pc.replace_substring(ar, pattern='foo', replacement='bar')
+    assert ar.tolist() == ['bar', 'bard', None]
+
+
+def test_replace_regex():
+    ar = pa.array(['foo', 'mood', None])
+    ar = pc.replace_substring_regex(ar, pattern='(.)oo', replacement=r'\100')
+    assert ar.tolist() == ['f00', 'm00d', None]
 
 
 @pytest.mark.parametrize(('ty', 'values'), all_array_types)

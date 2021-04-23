@@ -92,6 +92,20 @@ Status ParseHexValue(const char* data, uint8_t* out) {
 
 namespace internal {
 
+std::vector<util::string_view> SplitString(util::string_view v, char delimiter) {
+  std::vector<util::string_view> parts;
+  size_t start = 0, end;
+  while (true) {
+    end = v.find(delimiter, start);
+    parts.push_back(v.substr(start, end - start));
+    if (end == std::string::npos) {
+      break;
+    }
+    start = end + 1;
+  }
+  return parts;
+}
+
 template <typename StringLike>
 static std::string JoinStringLikes(const std::vector<StringLike>& strings,
                                    util::string_view delimiter) {

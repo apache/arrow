@@ -20,6 +20,7 @@
 #' Using [JsonTableReader]
 #'
 #' @inheritParams read_delim_arrow
+#' @param schema [Schema] that describes the table.
 #' @param ... Additional options passed to `JsonTableReader$create()`
 #'
 #' @return A `data.frame`, or a Table if `as_data_frame = FALSE`.
@@ -38,12 +39,13 @@
 read_json_arrow <- function(file,
                             col_select = NULL,
                             as_data_frame = TRUE,
+                            schema = NULL,
                             ...) {
   if (!inherits(file, "InputStream")) {
     file <- make_readable_file(file)
     on.exit(file$close())
   }
-  tab <- JsonTableReader$create(file, ...)$Read()
+  tab <- JsonTableReader$create(file, schema = schema, ...)$Read()
 
   col_select <- enquo(col_select)
   if (!quo_is_null(col_select)) {
@@ -69,7 +71,8 @@ JsonTableReader <- R6Class("JsonTableReader", inherit = ArrowObject,
 )
 JsonTableReader$create <- function(file,
                                    read_options = JsonReadOptions$create(),
-                                   parse_options = JsonParseOptions$create(),
+                                   parse_options = JsonParseOptions$create(schema = schema),
+                                   schema = NULL,
                                    ...) {
   assert_is(file, "InputStream")
   json___TableReader__Make(file, read_options, parse_options)
@@ -91,6 +94,11 @@ JsonReadOptions$create <- function(use_threads = option_use_threads(), block_siz
 #' @docType class
 #' @export
 JsonParseOptions <- R6Class("JsonParseOptions", inherit = ArrowObject)
-JsonParseOptions$create <- function(newlines_in_values = FALSE) {
-  json___ParseOptions__initialize(newlines_in_values)
+JsonParseOptions$create <- function(newlines_in_values = FALSE, schema = NULL) {
+  if (is.null(schema)) {
+    json___ParseOptions__initialize1(newlines_in_values)
+  } else {
+    json___ParseOptions__initialize2(newlines_in_values, schema)
+  }
+  
 }

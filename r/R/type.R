@@ -156,11 +156,20 @@ NestedType <- R6Class("NestedType", inherit = DataType)
 #' * `float16()` and `halffloat()`
 #' * `float32()` and `float()`
 #' * `bool()` and `boolean()`
-#' * Called from `schema()` or `struct()`, `double()` also is supported as a
-#' way of creating a `float64()`
+#' * When called inside an `arrow` function, such as `schema()` or `cast()`,
+#' `double()` also is supported as a way of creating a `float64()`
 #'
 #' `date32()` creates a datetime type with a "day" unit, like the R `Date`
 #' class. `date64()` has a "ms" unit.
+#'
+#' `uint32` (32 bit unsigned integer), `uint64` (64 bit unsigned integer), and
+#' `int64` (64-bit signed integer) types may contain values that exceed the
+#' range of R's `integer` type (32-bit signed integer). When these arrow objects
+#' are translated to R objects, `uint32` and `uint64` are converted to `double`
+#' ("numeric") and `int64` is converted to `bit64::integer64`. For `int64`
+#' types, this conversion can be disabled (so that `int64` always yields a
+#' `bit64::integer64` object) by setting `options(arrow.int64_downcast =
+#' FALSE)`.
 #'
 #' @param unit For time/timestamp types, the time unit. `time32()` can take
 #' either "s" or "ms", while `time64()` can be "us" or "ns". `timestamp()` can
@@ -404,8 +413,8 @@ FixedSizeListType <- R6Class("FixedSizeListType",
 fixed_size_list_of <- function(type, list_size) fixed_size_list__(type, list_size)
 
 as_type <- function(type, name = "type") {
+  # magic so we don't have to mask base::double()
   if (identical(type, double())) {
-    # Magic so that we don't have to mask this base function
     type <- float64()
   }
   if (!inherits(type, "DataType")) {
@@ -413,7 +422,6 @@ as_type <- function(type, name = "type") {
   }
   type
 }
-
 
 # vctrs support -----------------------------------------------------------
 str_dup <- function(x, times) {

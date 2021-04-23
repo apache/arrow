@@ -31,9 +31,7 @@
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
 namespace adapters {
-
 namespace orc {
 
 /// \class ORCFileReader
@@ -151,18 +149,18 @@ class ARROW_EXPORT ORCFileWriter {
   ~ORCFileWriter();
   /// \brief Creates a new ORC writer.
   ///
-  /// \param[in] output_stream the io::OutputStream to write into
+  /// \param[in] output_stream a pointer to the io::OutputStream to write into
   /// \return the returned writer object
-  static Result<std::unique_ptr<ORCFileWriter>> Open(io::OutputStream& output_stream);
+  static Result<std::unique_ptr<ORCFileWriter>> Open(io::OutputStream* output_stream);
 
   /// \brief Write a table
   ///
   /// \param[in] table the Arrow table from which data is extracted
-  /// \param[in] writer_options options for the ORCWriter, based on orc::WriterOptions
+  /// \param[in] writer_options the ORC writer options for Arrow
   /// \return Status
-  Status Write(const Table& table, const WriterOptions& writer_options = WriterOptions());
+  Status Write(const Table& table, const WriterOptions& writer_options);
 
-  /// \brief Close a file
+  /// \brief Close an ORC writer (orc::Writer)
   ///
   /// \return Status
   Status Close();
@@ -176,7 +174,5 @@ class ARROW_EXPORT ORCFileWriter {
 };
 
 }  // namespace orc
-
 }  // namespace adapters
-
 }  // namespace arrow

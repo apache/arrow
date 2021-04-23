@@ -16,8 +16,10 @@
 // under the License.
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <utility>
+#include <vector>
 
 #include "arrow/buffer.h"
 #include "arrow/io/caching.h"
@@ -191,6 +193,14 @@ Result<std::shared_ptr<Buffer>> ReadRangeCache::Read(ReadRange range) {
     return SliceBuffer(std::move(buf), range.offset - it->range.offset, range.length);
   }
   return Status::Invalid("ReadRangeCache did not find matching cache entry");
+}
+
+Future<> ReadRangeCache::Wait() {
+  std::vector<Future<>> futures;
+  for (const auto& entry : impl_->entries) {
+    futures.emplace_back(entry.future);
+  }
+  return AllComplete(futures);
 }
 
 }  // namespace internal

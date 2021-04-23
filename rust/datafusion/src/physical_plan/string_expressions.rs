@@ -22,8 +22,6 @@
 //! String expressions
 
 use std::any::type_name;
-use std::cmp::Ordering;
-use std::str::from_utf8;
 use std::sync::Arc;
 
 use crate::{
@@ -32,12 +30,11 @@ use crate::{
 };
 use arrow::{
     array::{
-        Array, ArrayRef, GenericStringArray, Int32Array, Int64Array, PrimitiveArray,
-        StringArray, StringOffsetSizeTrait,
+        Array, ArrayRef, BooleanArray, GenericStringArray, Int32Array, Int64Array,
+        PrimitiveArray, StringArray, StringOffsetSizeTrait,
     },
     datatypes::{ArrowNativeType, ArrowPrimitiveType, DataType},
 };
-use unicode_segmentation::UnicodeSegmentation;
 
 use super::ColumnarValue;
 
@@ -241,31 +238,6 @@ pub fn btrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
     }
 }
 
-/// Returns number of characters in the string.
-/// character_length('josé') = 4
-pub fn character_length<T: ArrowPrimitiveType>(args: &[ArrayRef]) -> Result<ArrayRef>
-where
-    T::Native: StringOffsetSizeTrait,
-{
-    let string_array: &GenericStringArray<T::Native> = args[0]
-        .as_any()
-        .downcast_ref::<GenericStringArray<T::Native>>()
-        .ok_or_else(|| {
-            DataFusionError::Internal("could not cast string to StringArray".to_string())
-        })?;
-
-    let result = string_array
-        .iter()
-        .map(|string| {
-            string.map(|string: &str| {
-                T::Native::from_usize(string.graphemes(true).count()).unwrap()
-            })
-        })
-        .collect::<PrimitiveArray<T>>();
-
-    Ok(Arc::new(result) as ArrayRef)
-}
-
 /// Returns the character with the given code. chr(0) is disallowed because text data types cannot store that character.
 /// chr(65) = 'A'
 pub fn chr(args: &[ArrayRef]) -> Result<ArrayRef> {
@@ -426,140 +398,10 @@ pub fn initcap<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> 
     Ok(Arc::new(result) as ArrayRef)
 }
 
-/// Returns first n characters in the string, or when n is negative, returns all but last |n| characters.
-/// left('abcde', 2) = 'ab'
-pub fn left<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
-    let string_array = downcast_string_arg!(args[0], "string", T);
-    let n_array = downcast_arg!(args[1], "n", Int64Array);
-
-    let result = string_array
-        .iter()
-        .zip(n_array.iter())
-        .map(|(string, n)| match (string, n) {
-            (None, _) => None,
-            (_, None) => None,
-            (Some(string), Some(n)) => match n.cmp(&0) {
-                Ordering::Equal => Some(""),
-                Ordering::Greater => Some(
-                    string
-                        .grapheme_indices(true)
-                        .nth(n as usize)
-                        .map_or(string, |(i, _)| {
-                            &from_utf8(&string.as_bytes()[..i]).unwrap()
-                        }),
-                ),
-                Ordering::Less => Some(
-                    string
-                        .grapheme_indices(true)
-                        .rev()
-                        .nth(n.abs() as usize - 1)
-                        .map_or("", |(i, _)| {
-                            &from_utf8(&string.as_bytes()[..i]).unwrap()
-                        }),
-                ),
-            },
-        })
-        .collect::<GenericStringArray<T>>();
-
-    Ok(Arc::new(result) as ArrayRef)
-}
-
 /// Converts the string to all lower case.
 /// lower('TOM') = 'tom'
 pub fn lower(args: &[ColumnarValue]) -> Result<ColumnarValue> {
     handle(args, |string| string.to_ascii_lowercase(), "lower")
-}
-
-/// Extends the string to length length by prepending the characters fill (a space by default). If the string is already longer than length then it is truncated (on the right).
-/// lpad('hi', 5, 'xy') = 'xyxhi'
-pub fn lpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
-    match args.len() {
-        2 => {
-            let string_array = downcast_string_arg!(args[0], "string", T);
-            let length_array = downcast_arg!(args[1], "length", Int64Array);
-
-            let result = string_array
-                .iter()
-                .zip(length_array.iter())
-                .map(|(string, length)| match (string, length) {
-                    (None, _) => None,
-                    (_, None) => None,
-                    (Some(string), Some(length)) => {
-                        let length = length as usize;
-                        if length == 0 {
-                            Some("".to_string())
-                        } else {
-                            let graphemes = string.graphemes(true).collect::<Vec<&str>>();
-                            if length < graphemes.len() {
-                                Some(graphemes[..length].concat())
-                            } else {
-                                let mut s = string.to_string();
-                                s.insert_str(
-                                    0,
-                                    " ".repeat(length - graphemes.len()).as_str(),
-                                );
-                                Some(s)
-                            }
-                        }
-                    }
-                })
-                .collect::<GenericStringArray<T>>();
-
-            Ok(Arc::new(result) as ArrayRef)
-        }
-        3 => {
-            let string_array = downcast_string_arg!(args[0], "string", T);
-            let length_array = downcast_arg!(args[1], "length", Int64Array);
-            let fill_array = downcast_string_arg!(args[2], "fill", T);
-
-            let result = string_array
-                .iter()
-                .zip(length_array.iter())
-                .zip(fill_array.iter())
-                .map(|((string, length), fill)| match (string, length, fill) {
-                    (None, _, _) => None,
-                    (_, None, _) => None,
-                    (_, _, None) => None,
-                    (Some(string), Some(length), Some(fill)) => {
-                        let length = length as usize;
-
-                        if length == 0 {
-                            Some("".to_string())
-                        } else {
-                            let graphemes = string.graphemes(true).collect::<Vec<&str>>();
-                            let fill_chars = fill.chars().collect::<Vec<char>>();
-
-                            if length < graphemes.len() {
-                                Some(graphemes[..length].concat())
-                            } else if fill_chars.is_empty() {
-                                Some(string.to_string())
-                            } else {
-                                let mut s = string.to_string();
-                                let mut char_vector =
-                                    Vec::<char>::with_capacity(length - graphemes.len());
-                                for l in 0..length - graphemes.len() {
-                                    char_vector.push(
-                                        *fill_chars.get(l % fill_chars.len()).unwrap(),
-                                    );
-                                }
-                                s.insert_str(
-                                    0,
-                                    char_vector.iter().collect::<String>().as_str(),
-                                );
-                                Some(s)
-                            }
-                        }
-                    }
-                })
-                .collect::<GenericStringArray<T>>();
-
-            Ok(Arc::new(result) as ArrayRef)
-        }
-        other => Err(DataFusionError::Internal(format!(
-            "lpad was called with {} arguments. It requires at least 2 and at most 3.",
-            other
-        ))),
-    }
 }
 
 /// Removes the longest string containing only characters in characters (a space by default) from the start of string.
@@ -584,12 +426,11 @@ pub fn ltrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
                 .iter()
                 .zip(characters_array.iter())
                 .map(|(string, characters)| match (string, characters) {
-                    (None, _) => None,
-                    (_, None) => None,
                     (Some(string), Some(characters)) => {
                         let chars: Vec<char> = characters.chars().collect();
                         Some(string.trim_start_matches(&chars[..]))
                     }
+                    _ => None,
                 })
                 .collect::<GenericStringArray<T>>();
 
@@ -612,146 +453,32 @@ pub fn repeat<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
         .iter()
         .zip(number_array.iter())
         .map(|(string, number)| match (string, number) {
-            (None, _) => None,
-            (_, None) => None,
             (Some(string), Some(number)) => Some(string.repeat(number as usize)),
+            _ => None,
         })
         .collect::<GenericStringArray<T>>();
 
     Ok(Arc::new(result) as ArrayRef)
 }
 
-/// Reverses the order of the characters in the string.
-/// reverse('abcde') = 'edcba'
-pub fn reverse<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
+/// Replaces all occurrences in string of substring from with substring to.
+/// replace('abcdefabcdef', 'cd', 'XX') = 'abXXefabXXef'
+pub fn replace<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
     let string_array = downcast_string_arg!(args[0], "string", T);
+    let from_array = downcast_string_arg!(args[1], "from", T);
+    let to_array = downcast_string_arg!(args[2], "to", T);
 
     let result = string_array
         .iter()
-        .map(|string| {
-            string.map(|string: &str| string.graphemes(true).rev().collect::<String>())
+        .zip(from_array.iter())
+        .zip(to_array.iter())
+        .map(|((string, from), to)| match (string, from, to) {
+            (Some(string), Some(from), Some(to)) => Some(string.replace(from, to)),
+            _ => None,
         })
         .collect::<GenericStringArray<T>>();
 
     Ok(Arc::new(result) as ArrayRef)
-}
-
-/// Returns last n characters in the string, or when n is negative, returns all but first |n| characters.
-/// right('abcde', 2) = 'de'
-pub fn right<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
-    let string_array = downcast_string_arg!(args[0], "string", T);
-    let n_array = downcast_arg!(args[1], "n", Int64Array);
-
-    let result = string_array
-        .iter()
-        .zip(n_array.iter())
-        .map(|(string, n)| match (string, n) {
-            (None, _) => None,
-            (_, None) => None,
-            (Some(string), Some(n)) => match n.cmp(&0) {
-                Ordering::Equal => Some(""),
-                Ordering::Greater => Some(
-                    string
-                        .grapheme_indices(true)
-                        .rev()
-                        .nth(n as usize - 1)
-                        .map_or(string, |(i, _)| {
-                            &from_utf8(&string.as_bytes()[i..]).unwrap()
-                        }),
-                ),
-                Ordering::Less => Some(
-                    string
-                        .grapheme_indices(true)
-                        .nth(n.abs() as usize)
-                        .map_or("", |(i, _)| {
-                            &from_utf8(&string.as_bytes()[i..]).unwrap()
-                        }),
-                ),
-            },
-        })
-        .collect::<GenericStringArray<T>>();
-
-    Ok(Arc::new(result) as ArrayRef)
-}
-
-/// Extends the string to length length by appending the characters fill (a space by default). If the string is already longer than length then it is truncated.
-/// rpad('hi', 5, 'xy') = 'hixyx'
-pub fn rpad<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
-    match args.len() {
-        2 => {
-            let string_array = downcast_string_arg!(args[0], "string", T);
-            let length_array = downcast_arg!(args[1], "length", Int64Array);
-
-            let result = string_array
-                .iter()
-                .zip(length_array.iter())
-                .map(|(string, length)| match (string, length) {
-                    (None, _) => None,
-                    (_, None) => None,
-                    (Some(string), Some(length)) => {
-                        let length = length as usize;
-                        if length == 0 {
-                            Some("".to_string())
-                        } else {
-                            let graphemes = string.graphemes(true).collect::<Vec<&str>>();
-                            if length < graphemes.len() {
-                                Some(graphemes[..length].concat())
-                            } else {
-                                let mut s = string.to_string();
-                                s.push_str(" ".repeat(length - graphemes.len()).as_str());
-                                Some(s)
-                            }
-                        }
-                    }
-                })
-                .collect::<GenericStringArray<T>>();
-
-            Ok(Arc::new(result) as ArrayRef)
-        }
-        3 => {
-            let string_array = downcast_string_arg!(args[0], "string", T);
-            let length_array = downcast_arg!(args[1], "length", Int64Array);
-            let fill_array = downcast_string_arg!(args[2], "fill", T);
-
-            let result = string_array
-                .iter()
-                .zip(length_array.iter())
-                .zip(fill_array.iter())
-                .map(|((string, length), fill)| match (string, length, fill) {
-                    (None, _, _) => None,
-                    (_, None, _) => None,
-                    (_, _, None) => None,
-                    (Some(string), Some(length), Some(fill)) => {
-                        let length = length as usize;
-                        let graphemes = string.graphemes(true).collect::<Vec<&str>>();
-                        let fill_chars = fill.chars().collect::<Vec<char>>();
-
-                        if length < graphemes.len() {
-                            Some(graphemes[..length].concat())
-                        } else if fill_chars.is_empty() {
-                            Some(string.to_string())
-                        } else {
-                            let mut s = string.to_string();
-                            let mut char_vector =
-                                Vec::<char>::with_capacity(length - graphemes.len());
-                            for l in 0..length - graphemes.len() {
-                                char_vector
-                                    .push(*fill_chars.get(l % fill_chars.len()).unwrap());
-                            }
-                            s.push_str(char_vector.iter().collect::<String>().as_str());
-                            Some(s)
-                        }
-                    }
-                })
-                .collect::<GenericStringArray<T>>();
-
-            Ok(Arc::new(result) as ArrayRef)
-        }
-        other => Err(DataFusionError::Internal(format!(
-            "rpad was called with {} arguments. It requires at least 2 and at most 3.",
-            other
-        ))),
-    }
 }
 
 /// Removes the longest string containing only characters in characters (a space by default) from the end of string.
@@ -776,12 +503,11 @@ pub fn rtrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
                 .iter()
                 .zip(characters_array.iter())
                 .map(|(string, characters)| match (string, characters) {
-                    (None, _) => None,
-                    (_, None) => None,
                     (Some(string), Some(characters)) => {
                         let chars: Vec<char> = characters.chars().collect();
                         Some(string.trim_end_matches(&chars[..]))
                     }
+                    _ => None,
                 })
                 .collect::<GenericStringArray<T>>();
 
@@ -794,85 +520,54 @@ pub fn rtrim<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
     }
 }
 
-/// Extracts the substring of string starting at the start'th character, and extending for count characters if that is specified. (Same as substring(string from start for count).)
-/// substr('alphabet', 3) = 'phabet'
-/// substr('alphabet', 3, 2) = 'ph'
-pub fn substr<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
-    match args.len() {
-        2 => {
-            let string_array = downcast_string_arg!(args[0], "string", T);
-            let start_array = downcast_arg!(args[1], "start", Int64Array);
+/// Splits string at occurrences of delimiter and returns the n'th field (counting from one).
+/// split_part('abc~@~def~@~ghi', '~@~', 2) = 'def'
+pub fn split_part<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
+    let string_array = downcast_string_arg!(args[0], "string", T);
+    let delimiter_array = downcast_string_arg!(args[1], "delimiter", T);
+    let n_array = downcast_arg!(args[2], "n", Int64Array);
 
-            let result = string_array
-                .iter()
-                .zip(start_array.iter())
-                .map(|(string, start)| match (string, start) {
-                    (None, _) => None,
-                    (_, None) => None,
-                    (Some(string), Some(start)) => {
-                        if start <= 0 {
-                            Some(string.to_string())
-                        } else {
-                            let graphemes = string.graphemes(true).collect::<Vec<&str>>();
-                            let start_pos = start as usize - 1;
-                            if graphemes.len() < start_pos {
-                                Some("".to_string())
-                            } else {
-                                Some(graphemes[start_pos..].concat())
-                            }
-                        }
+    let result = string_array
+        .iter()
+        .zip(delimiter_array.iter())
+        .zip(n_array.iter())
+        .map(|((string, delimiter), n)| match (string, delimiter, n) {
+            (Some(string), Some(delimiter), Some(n)) => {
+                if n <= 0 {
+                    Err(DataFusionError::Execution(
+                        "field position must be greater than zero".to_string(),
+                    ))
+                } else {
+                    let split_string: Vec<&str> = string.split(delimiter).collect();
+                    match split_string.get(n as usize - 1) {
+                        Some(s) => Ok(Some(*s)),
+                        None => Ok(Some("")),
                     }
-                })
-                .collect::<GenericStringArray<T>>();
+                }
+            }
+            _ => Ok(None),
+        })
+        .collect::<Result<GenericStringArray<T>>>()?;
 
-            Ok(Arc::new(result) as ArrayRef)
-        }
-        3 => {
-            let string_array = downcast_string_arg!(args[0], "string", T);
-            let start_array = downcast_arg!(args[1], "start", Int64Array);
-            let count_array = downcast_arg!(args[2], "count", Int64Array);
+    Ok(Arc::new(result) as ArrayRef)
+}
 
-            let result = string_array
-                .iter()
-                .zip(start_array.iter())
-                .zip(count_array.iter())
-                .map(|((string, start), count)| match (string, start, count) {
-                    (None, _, _) => Ok(None),
-                    (_, None, _) => Ok(None),
-                    (_, _, None) => Ok(None),
-                    (Some(string), Some(start), Some(count)) => {
-                        if count < 0 {
-                            Err(DataFusionError::Execution(
-                                "negative substring length not allowed".to_string(),
-                            ))
-                        } else if start <= 0 {
-                            Ok(Some(string.to_string()))
-                        } else {
-                            let graphemes = string.graphemes(true).collect::<Vec<&str>>();
-                            let start_pos = start as usize - 1;
-                            let count_usize = count as usize;
-                            if graphemes.len() < start_pos {
-                                Ok(Some("".to_string()))
-                            } else if graphemes.len() < start_pos + count_usize {
-                                Ok(Some(graphemes[start_pos..].concat()))
-                            } else {
-                                Ok(Some(
-                                    graphemes[start_pos..start_pos + count_usize]
-                                        .concat(),
-                                ))
-                            }
-                        }
-                    }
-                })
-                .collect::<Result<GenericStringArray<T>>>()?;
+/// Returns true if string starts with prefix.
+/// starts_with('alphabet', 'alph') = 't'
+pub fn starts_with<T: StringOffsetSizeTrait>(args: &[ArrayRef]) -> Result<ArrayRef> {
+    let string_array = downcast_string_arg!(args[0], "string", T);
+    let prefix_array = downcast_string_arg!(args[1], "prefix", T);
 
-            Ok(Arc::new(result) as ArrayRef)
-        }
-        other => Err(DataFusionError::Internal(format!(
-            "substr was called with {} arguments. It requires 2 or 3.",
-            other
-        ))),
-    }
+    let result = string_array
+        .iter()
+        .zip(prefix_array.iter())
+        .map(|(string, prefix)| match (string, prefix) {
+            (Some(string), Some(prefix)) => Some(string.starts_with(prefix)),
+            _ => None,
+        })
+        .collect::<BooleanArray>();
+
+    Ok(Arc::new(result) as ArrayRef)
 }
 
 /// Converts the number to its equivalent hexadecimal representation.

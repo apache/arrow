@@ -346,6 +346,7 @@ fn optimize(plan: &LogicalPlan, mut state: State) -> Result<LogicalPlan> {
             filters,
             projection,
             table_name,
+            limit,
         } => {
             let mut used_columns = HashSet::new();
             let mut new_filters = filters.clone();
@@ -376,6 +377,7 @@ fn optimize(plan: &LogicalPlan, mut state: State) -> Result<LogicalPlan> {
                     projected_schema: projected_schema.clone(),
                     table_name: table_name.clone(),
                     filters: new_filters,
+                    limit: *limit,
                 },
             )
         }
@@ -449,7 +451,7 @@ mod tests {
     fn filter_before_projection() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(&[col("a"), col("b")])?
+            .project(vec![col("a"), col("b")])?
             .filter(col("a").eq(lit(1i64)))?
             .build()?;
         // filter is before projection
@@ -465,7 +467,7 @@ mod tests {
     fn filter_after_limit() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(&[col("a"), col("b")])?
+            .project(vec![col("a"), col("b")])?
             .limit(10)?
             .filter(col("a").eq(lit(1i64)))?
             .build()?;
@@ -483,8 +485,8 @@ mod tests {
     fn filter_jump_2_plans() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(&[col("a"), col("b"), col("c")])?
-            .project(&[col("c"), col("b")])?
+            .project(vec![col("a"), col("b"), col("c")])?
+            .project(vec![col("c"), col("b")])?
             .filter(col("a").eq(lit(1i64)))?
             .build()?;
         // filter is before double projection
@@ -501,7 +503,7 @@ mod tests {
     fn filter_move_agg() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .aggregate(&[col("a")], &[sum(col("b")).alias("total_salary")])?
+            .aggregate(vec![col("a")], vec![sum(col("b")).alias("total_salary")])?
             .filter(col("a").gt(lit(10i64)))?
             .build()?;
         // filter of key aggregation is commutative
@@ -517,7 +519,7 @@ mod tests {
     fn filter_keep_agg() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .aggregate(&[col("a")], &[sum(col("b")).alias("b")])?
+            .aggregate(vec![col("a")], vec![sum(col("b")).alias("b")])?
             .filter(col("b").gt(lit(10i64)))?
             .build()?;
         // filter of aggregate is after aggregation since they are non-commutative
@@ -534,7 +536,7 @@ mod tests {
     fn alias() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(&[col("a").alias("b"), col("c")])?
+            .project(vec![col("a").alias("b"), col("c")])?
             .filter(col("b").eq(lit(1i64)))?
             .build()?;
         // filter is before projection
@@ -567,7 +569,7 @@ mod tests {
     fn complex_expression() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(&[
+            .project(vec![
                 add(multiply(col("a"), lit(2)), col("c")).alias("b"),
                 col("c"),
             ])?
@@ -597,12 +599,12 @@ mod tests {
     fn complex_plan() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(&[
+            .project(vec![
                 add(multiply(col("a"), lit(2)), col("c")).alias("b"),
                 col("c"),
             ])?
             // second projection where we rename columns, just to make it difficult
-            .project(&[multiply(col("b"), lit(3)).alias("a"), col("c")])?
+            .project(vec![multiply(col("b"), lit(3)).alias("a"), col("c")])?
             .filter(col("a").eq(lit(1i64)))?
             .build()?;
 
@@ -633,8 +635,8 @@ mod tests {
         // the aggregation allows one filter to pass (b), and the other one to not pass (SUM(c))
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(&[col("a").alias("b"), col("c")])?
-            .aggregate(&[col("b")], &[sum(col("c"))])?
+            .project(vec![col("a").alias("b"), col("c")])?
+            .aggregate(vec![col("b")], vec![sum(col("c"))])?
             .filter(col("b").gt(lit(10i64)))?
             .filter(col("SUM(c)").gt(lit(10i64)))?
             .build()?;
@@ -669,8 +671,8 @@ mod tests {
         // the aggregation allows one filter to pass (b), and the other one to not pass (SUM(c))
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(&[col("a").alias("b"), col("c")])?
-            .aggregate(&[col("b")], &[sum(col("c"))])?
+            .project(vec![col("a").alias("b"), col("c")])?
+            .aggregate(vec![col("b")], vec![sum(col("c"))])?
             .filter(and(
                 col("SUM(c)").gt(lit(10i64)),
                 and(col("b").gt(lit(10i64)), col("SUM(c)").lt(lit(20i64))),
@@ -704,10 +706,10 @@ mod tests {
     fn double_limit() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(&[col("a"), col("b")])?
+            .project(vec![col("a"), col("b")])?
             .limit(20)?
             .limit(10)?
-            .project(&[col("a"), col("b")])?
+            .project(vec![col("a"), col("b")])?
             .filter(col("a").eq(lit(1i64)))?
             .build()?;
         // filter does not just any of the limits
@@ -727,10 +729,10 @@ mod tests {
     fn filter_2_breaks_limits() -> Result<()> {
         let table_scan = test_table_scan()?;
         let plan = LogicalPlanBuilder::from(&table_scan)
-            .project(&[col("a")])?
+            .project(vec![col("a")])?
             .filter(col("a").lt_eq(lit(1i64)))?
             .limit(1)?
-            .project(&[col("a")])?
+            .project(vec![col("a")])?
             .filter(col("a").gt_eq(lit(1i64)))?
             .build()?;
         // Should be able to move both filters below the projections
@@ -766,7 +768,7 @@ mod tests {
             .limit(1)?
             .filter(col("a").lt_eq(lit(1i64)))?
             .filter(col("a").gt_eq(lit(1i64)))?
-            .project(&[col("a")])?
+            .project(vec![col("a")])?
             .build()?;
 
         // not part of the test
@@ -818,7 +820,7 @@ mod tests {
         let table_scan = test_table_scan()?;
         let left = LogicalPlanBuilder::from(&table_scan).build()?;
         let right = LogicalPlanBuilder::from(&table_scan)
-            .project(&[col("a")])?
+            .project(vec![col("a")])?
             .build()?;
         let plan = LogicalPlanBuilder::from(&left)
             .join(&right, JoinType::Inner, &["a"], &["a"])?
@@ -853,10 +855,10 @@ mod tests {
     fn filter_join_on_common_dependent() -> Result<()> {
         let table_scan = test_table_scan()?;
         let left = LogicalPlanBuilder::from(&table_scan)
-            .project(&[col("a"), col("c")])?
+            .project(vec![col("a"), col("c")])?
             .build()?;
         let right = LogicalPlanBuilder::from(&table_scan)
-            .project(&[col("a"), col("b")])?
+            .project(vec![col("a"), col("b")])?
             .build()?;
         let plan = LogicalPlanBuilder::from(&left)
             .join(&right, JoinType::Inner, &["a"], &["a"])?
@@ -887,10 +889,10 @@ mod tests {
     fn filter_join_on_one_side() -> Result<()> {
         let table_scan = test_table_scan()?;
         let left = LogicalPlanBuilder::from(&table_scan)
-            .project(&[col("a"), col("b")])?
+            .project(vec![col("a"), col("b")])?
             .build()?;
         let right = LogicalPlanBuilder::from(&table_scan)
-            .project(&[col("a"), col("c")])?
+            .project(vec![col("a"), col("c")])?
             .build()?;
         let plan = LogicalPlanBuilder::from(&left)
             .join(&right, JoinType::Inner, &["a"], &["a"])?
@@ -940,6 +942,7 @@ mod tests {
             _: &Option<Vec<usize>>,
             _: usize,
             _: &[Expr],
+            _: Option<usize>,
         ) -> Result<Arc<dyn ExecutionPlan>> {
             unimplemented!()
         }
@@ -974,6 +977,7 @@ mod tests {
             )?),
             projection: None,
             source: Arc::new(test_provider),
+            limit: None,
         };
 
         LogicalPlanBuilder::from(&table_scan)

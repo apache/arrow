@@ -17,9 +17,17 @@
 // under the License.
 
 #include <algorithm>
+#include <atomic>
 #include <cerrno>
 #include <limits>
+#include <sstream>
 #include <vector>
+
+#include <signal.h>
+
+#ifndef _WIN32
+#include <pthread.h>
+#endif
 
 #include <gtest/gtest.h>
 
@@ -59,6 +67,30 @@ TEST(ErrnoFromStatus, Basics) {
   ASSERT_EQ(ErrnoFromStatus(st), EPERM);
   st = IOErrorFromErrno(6789, "foo");
   ASSERT_EQ(ErrnoFromStatus(st), 6789);
+
+  st = CancelledFromSignal(SIGINT, "foo");
+  ASSERT_EQ(ErrnoFromStatus(st), 0);
+}
+
+TEST(SignalFromStatus, Basics) {
+  Status st;
+  st = Status::OK();
+  ASSERT_EQ(SignalFromStatus(st), 0);
+  st = Status::KeyError("foo");
+  ASSERT_EQ(SignalFromStatus(st), 0);
+  st = Status::Cancelled("foo");
+  ASSERT_EQ(SignalFromStatus(st), 0);
+  st = StatusFromSignal(SIGINT, StatusCode::KeyError, "foo");
+  ASSERT_EQ(SignalFromStatus(st), SIGINT);
+  ASSERT_EQ(st.ToString(),
+            "Key error: foo. Detail: received signal " + std::to_string(SIGINT));
+  st = CancelledFromSignal(SIGINT, "bar");
+  ASSERT_EQ(SignalFromStatus(st), SIGINT);
+  ASSERT_EQ(st.ToString(),
+            "Cancelled: bar. Detail: received signal " + std::to_string(SIGINT));
+
+  st = IOErrorFromErrno(EINVAL, "foo");
+  ASSERT_EQ(SignalFromStatus(st), 0);
 }
 
 TEST(GetPageSize, Basics) {
@@ -622,6 +654,47 @@ TEST(FileUtils, LongPaths) {
   ASSERT_TRUE(deleted);
 }
 #endif
+
+static std::atomic<int> signal_received;
+
+static void handle_signal(int signum) {
+  ReinstateSignalHandler(signum, &handle_signal);
+  signal_received.store(signum);
+}
+
+TEST(SendSignal, Generic) {
+  signal_received.store(0);
+  SignalHandlerGuard guard(SIGINT, &handle_signal);
+
+  ASSERT_EQ(signal_received.load(), 0);
+  ASSERT_OK(SendSignal(SIGINT));
+  BusyWait(1.0, [&]() { return signal_received.load() != 0; });
+  ASSERT_EQ(signal_received.load(), SIGINT);
+
+  // Re-try (exercise ReinstateSignalHandler)
+  signal_received.store(0);
+  ASSERT_OK(SendSignal(SIGINT));
+  BusyWait(1.0, [&]() { return signal_received.load() != 0; });
+  ASSERT_EQ(signal_received.load(), SIGINT);
+}
+
+TEST(SendSignal, ToThread) {
+#ifdef _WIN32
+  uint64_t dummy_thread_id = 42;
+  ASSERT_RAISES(NotImplemented, SendSignalToThread(SIGINT, dummy_thread_id));
+#else
+  // Have to use a C-style cast because pthread_t can be a pointer *or* integer type
+  uint64_t thread_id = (uint64_t)(pthread_self());  // NOLINT readability-casting
+  signal_received.store(0);
+  SignalHandlerGuard guard(SIGINT, &handle_signal);
+
+  ASSERT_EQ(signal_received.load(), 0);
+  ASSERT_OK(SendSignalToThread(SIGINT, thread_id));
+  BusyWait(1.0, [&]() { return signal_received.load() != 0; });
+
+  ASSERT_EQ(signal_received.load(), SIGINT);
+#endif
+}
 
 }  // namespace internal
 }  // namespace arrow

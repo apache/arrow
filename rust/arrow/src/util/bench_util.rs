@@ -17,12 +17,15 @@
 
 //! Utils to make benchmarking easier
 
-use rand::distributions::{Alphanumeric, Distribution, Standard};
-use rand::Rng;
-
 use crate::array::*;
 use crate::datatypes::*;
 use crate::util::test_util::seedable_rng;
+use rand::Rng;
+use rand::SeedableRng;
+use rand::{
+    distributions::{Alphanumeric, Distribution, Standard},
+    prelude::StdRng,
+};
 
 /// Creates an random (but fixed-seeded) array of a given size and null density
 pub fn create_primitive_array<T>(size: usize, null_density: f32) -> PrimitiveArray<T>
@@ -31,6 +34,28 @@ where
     Standard: Distribution<T::Native>,
 {
     let mut rng = seedable_rng();
+
+    (0..size)
+        .map(|_| {
+            if rng.gen::<f32>() < null_density {
+                None
+            } else {
+                Some(rng.gen())
+            }
+        })
+        .collect()
+}
+
+pub fn create_primitive_array_with_seed<T>(
+    size: usize,
+    null_density: f32,
+    seed: u64,
+) -> PrimitiveArray<T>
+where
+    T: ArrowPrimitiveType,
+    Standard: Distribution<T::Native>,
+{
+    let mut rng = StdRng::seed_from_u64(seed);
 
     (0..size)
         .map(|_| {
@@ -66,7 +91,10 @@ where
 }
 
 /// Creates an random (but fixed-seeded) array of a given size and null density
-pub fn create_string_array(size: usize, null_density: f32) -> StringArray {
+pub fn create_string_array<Offset: StringOffsetSizeTrait>(
+    size: usize,
+    null_density: f32,
+) -> GenericStringArray<Offset> {
     let rng = &mut seedable_rng();
 
     (0..size)
@@ -79,4 +107,49 @@ pub fn create_string_array(size: usize, null_density: f32) -> StringArray {
             }
         })
         .collect()
+}
+
+/// Creates an random (but fixed-seeded) binary array of a given size and null density
+pub fn create_binary_array<Offset: BinaryOffsetSizeTrait>(
+    size: usize,
+    null_density: f32,
+) -> GenericBinaryArray<Offset> {
+    let rng = &mut seedable_rng();
+    let range_rng = &mut seedable_rng();
+
+    (0..size)
+        .map(|_| {
+            if rng.gen::<f32>() < null_density {
+                None
+            } else {
+                let value = rng
+                    .sample_iter::<u8, _>(Standard)
+                    .take(range_rng.gen_range(0, 8))
+                    .collect::<Vec<u8>>();
+                Some(value)
+            }
+        })
+        .collect()
+}
+
+/// Creates an random (but fixed-seeded) array of a given size and null density
+pub fn create_fsb_array(
+    size: usize,
+    null_density: f32,
+    value_len: usize,
+) -> FixedSizeBinaryArray {
+    let rng = &mut seedable_rng();
+
+    FixedSizeBinaryArray::try_from_sparse_iter((0..size).map(|_| {
+        if rng.gen::<f32>() < null_density {
+            None
+        } else {
+            let value = rng
+                .sample_iter::<u8, _>(Standard)
+                .take(value_len)
+                .collect::<Vec<u8>>();
+            Some(value)
+        }
+    }))
+    .unwrap()
 }

@@ -17,10 +17,6 @@
  * under the License.
  */
 
-#ifdef HAVE_CONFIG_H
-#  include <config.h>
-#endif
-
 #include <arrow-glib/array.hpp>
 #include <arrow-glib/basic-data-type.hpp>
 #include <arrow-glib/buffer.hpp>
@@ -682,6 +678,42 @@ garrow_array_diff_unified(GArrowArray *array, GArrowArray *other_array)
     return NULL;
   } else {
     return g_strndup(string.data(), string.size());
+  }
+}
+
+/**
+ * garrow_array_concatenate:
+ * @array: A #GArrowArray.
+ * @other_arrays: (element-type GArrowArray): A #GArrowArray to be
+ *   concatenated.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The concatenated array.
+ *
+ * Since: 4.0.0
+ */
+GArrowArray *
+garrow_array_concatenate(GArrowArray *array,
+                         GList *other_arrays,
+                         GError **error)
+{
+  if (!other_arrays) {
+    g_object_ref(array);
+    return array;
+  }
+  arrow::ArrayVector arrow_arrays;
+  arrow_arrays.push_back(garrow_array_get_raw(array));
+  for (auto node = other_arrays; node; node = node->next) {
+    auto other_array = GARROW_ARRAY(node->data);
+    arrow_arrays.push_back(garrow_array_get_raw(other_array));
+  }
+  auto arrow_concatenated_array = arrow::Concatenate(arrow_arrays);
+  if (garrow::check(error,
+                    arrow_concatenated_array,
+                    "[array][concatenate]")) {
+    return garrow_array_new_raw(&(*arrow_concatenated_array));
+  } else {
+    return NULL;
   }
 }
 

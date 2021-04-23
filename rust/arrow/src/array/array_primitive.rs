@@ -21,9 +21,8 @@ use std::convert::From;
 use std::fmt;
 use std::iter::{FromIterator, IntoIterator};
 use std::mem;
-use std::sync::Arc;
 
-use chrono::prelude::*;
+use chrono::{prelude::*, Duration};
 
 use super::array::print_long_array;
 use super::raw_pointer::RawPtrBox;
@@ -49,7 +48,7 @@ pub struct PrimitiveArray<T: ArrowPrimitiveType> {
     /// Underlying ArrayData
     /// # Safety
     /// must have exactly one buffer, aligned to type T
-    data: ArrayDataRef,
+    data: ArrayData,
     /// Pointer to the value array. The lifetime of this must be <= to the value buffer
     /// stored in `data`, so it's safe to store.
     /// # Safety
@@ -91,12 +90,22 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
 
     /// Returns the primitive value at index `i`.
     ///
+    /// # Safety
+    ///
+    /// caller must ensure that the passed in offset is less than the array len()
+    pub unsafe fn value_unchecked(&self, i: usize) -> T::Native {
+        let offset = i + self.offset();
+        *self.raw_values.as_ptr().add(offset)
+    }
+
+    /// Returns the primitive value at index `i`.
+    ///
     /// Note this doesn't do any bound checking, for performance reason.
     /// # Safety
     /// caller must ensure that the passed in offset is less than the array len()
     pub fn value(&self, i: usize) -> T::Native {
-        let offset = i + self.offset();
-        unsafe { *self.raw_values.as_ptr().add(offset) }
+        debug_assert!(i < self.len());
+        unsafe { self.value_unchecked(i) }
     }
 
     /// Creates a PrimitiveArray based on an iterator of values without nulls
@@ -111,7 +120,23 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
             vec![val_buf],
             vec![],
         );
-        PrimitiveArray::from(Arc::new(data))
+        PrimitiveArray::from(data)
+    }
+
+    /// Creates a PrimitiveArray based on a constant value with `count` elements
+    pub fn from_value(value: T::Native, count: usize) -> Self {
+        // # Safety: length is known
+        let val_buf = unsafe { Buffer::from_trusted_len_iter((0..count).map(|_| value)) };
+        let data = ArrayData::new(
+            T::DATA_TYPE,
+            val_buf.len() / mem::size_of::<<T as ArrowPrimitiveType>::Native>(),
+            None,
+            None,
+            0,
+            vec![val_buf],
+            vec![],
+        );
+        PrimitiveArray::from(data)
     }
 }
 
@@ -120,11 +145,7 @@ impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
         self
     }
 
-    fn data(&self) -> ArrayDataRef {
-        self.data.clone()
-    }
-
-    fn data_ref(&self) -> &ArrayDataRef {
+    fn data(&self) -> &ArrayData {
         &self.data
     }
 
@@ -135,7 +156,7 @@ impl<T: ArrowPrimitiveType> Array for PrimitiveArray<T> {
 
     /// Returns the total number of bytes of memory occupied physically by this [PrimitiveArray].
     fn get_array_memory_size(&self) -> usize {
-        self.data.get_array_memory_size() + mem::size_of_val(self)
+        self.data.get_array_memory_size() + mem::size_of::<RawPtrBox<T::Native>>()
     }
 }
 
@@ -191,6 +212,24 @@ fn as_time<T: ArrowPrimitiveType>(v: i64) -> Option<NaiveTime> {
     }
 }
 
+fn as_duration<T: ArrowPrimitiveType>(v: i64) -> Option<Duration> {
+    match T::DATA_TYPE {
+        DataType::Duration(unit) => match unit {
+            TimeUnit::Second => Some(temporal_conversions::duration_s_to_duration(v)),
+            TimeUnit::Millisecond => {
+                Some(temporal_conversions::duration_ms_to_duration(v))
+            }
+            TimeUnit::Microsecond => {
+                Some(temporal_conversions::duration_us_to_duration(v))
+            }
+            TimeUnit::Nanosecond => {
+                Some(temporal_conversions::duration_ns_to_duration(v))
+            }
+        },
+        _ => None,
+    }
+}
+
 impl<T: ArrowTemporalType + ArrowNumericType> PrimitiveArray<T>
 where
     i64: std::convert::From<T::Native>,
@@ -215,6 +254,13 @@ where
     /// `Date32` and `Date64` return UTC midnight as they do not have time resolution
     pub fn value_as_time(&self, i: usize) -> Option<NaiveTime> {
         as_time::<T>(i64::from(self.value(i)))
+    }
+
+    /// Returns a value as a chrono `Duration`
+    ///
+    /// If a data type cannot be converted to `Duration`, a `None` is returned
+    pub fn value_as_duration(&self, i: usize) -> Option<Duration> {
+        as_duration::<T>(i64::from(self.value(i)))
     }
 }
 
@@ -298,7 +344,7 @@ impl<T: ArrowPrimitiveType, Ptr: Borrow<Option<<T as ArrowPrimitiveType>::Native
             vec![buffer],
             vec![],
         );
-        PrimitiveArray::from(Arc::new(data))
+        PrimitiveArray::from(data)
     }
 }
 
@@ -321,7 +367,7 @@ impl<T: ArrowPrimitiveType> PrimitiveArray<T> {
 
         let data =
             ArrayData::new(T::DATA_TYPE, len, None, Some(null), 0, vec![buffer], vec![]);
-        PrimitiveArray::from(Arc::new(data))
+        PrimitiveArray::from(data)
     }
 }
 
@@ -374,8 +420,10 @@ def_numeric_from_vec!(DurationSecondType);
 def_numeric_from_vec!(DurationMillisecondType);
 def_numeric_from_vec!(DurationMicrosecondType);
 def_numeric_from_vec!(DurationNanosecondType);
+def_numeric_from_vec!(TimestampSecondType);
 def_numeric_from_vec!(TimestampMillisecondType);
 def_numeric_from_vec!(TimestampMicrosecondType);
+def_numeric_from_vec!(TimestampNanosecondType);
 
 impl<T: ArrowTimestampType> PrimitiveArray<T> {
     /// Construct a timestamp array from a vec of i64 values and an optional timezone
@@ -420,8 +468,8 @@ impl<T: ArrowTimestampType> PrimitiveArray<T> {
 }
 
 /// Constructs a `PrimitiveArray` from an array data reference.
-impl<T: ArrowPrimitiveType> From<ArrayDataRef> for PrimitiveArray<T> {
-    fn from(data: ArrayDataRef) -> Self {
+impl<T: ArrowPrimitiveType> From<ArrayData> for PrimitiveArray<T> {
+    fn from(data: ArrayData) -> Self {
         assert_eq!(
             data.buffers().len(),
             1,
@@ -458,14 +506,9 @@ mod tests {
             assert!(arr.is_valid(i));
             assert_eq!(i as i32, arr.value(i));
         }
-        assert_eq!(&[0, 1, 2, 3, 4], arr.values());
 
         assert_eq!(64, arr.get_buffer_memory_size());
-        let internals_of_primitive_array = 8 + 72; // RawPtrBox & Arc<ArrayData> combined.
-        assert_eq!(
-            arr.get_buffer_memory_size() + internals_of_primitive_array,
-            arr.get_array_memory_size()
-        );
+        assert_eq!(136, arr.get_array_memory_size());
     }
 
     #[test]
@@ -487,11 +530,7 @@ mod tests {
         }
 
         assert_eq!(128, arr.get_buffer_memory_size());
-        let internals_of_primitive_array = 8 + 72 + 16; // RawPtrBox & Arc<ArrayData> and it's null_bitmap combined.
-        assert_eq!(
-            arr.get_buffer_memory_size() + internals_of_primitive_array,
-            arr.get_array_memory_size()
-        );
+        assert_eq!(216, arr.get_array_memory_size());
     }
 
     #[test]

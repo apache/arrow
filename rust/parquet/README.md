@@ -46,8 +46,22 @@ while let Some(record) = iter.next() {
 ```
 See [crate documentation](https://docs.rs/crate/parquet/4.0.0-SNAPSHOT) on available API.
 
+## Upgrading from versions prior to 4.0
+
+If you are upgrading from version 3.0 or previous of this crate, you
+likely need to change your code to use [`ConvertedType`] rather than
+[`LogicalType`] to preserve existing behaviour in your code.
+
+Version 2.4.0 of the Parquet format introduced a `LogicalType` to replace the existing `ConvertedType`.
+This crate used `parquet::basic::LogicalType` to map to the `ConvertedType`, but this has been renamed to `parquet::basic::ConvertedType` from version 4.0 of this crate.
+
+The `ConvertedType` is deprecated in the format, but is still written
+to preserve backward compatibility.
+It is preferred that `LogicalType` is used, as it supports nanosecond
+precision timestamps without using the deprecated `Int96` Parquet type.
+
 ## Supported Parquet Version
-- Parquet-format 2.4.0
+- Parquet-format 2.6.0
 
 To update Parquet format to a newer version, check if [parquet-format](https://github.com/sunchao/parquet-format-rs)
 version is available. Then simply update version of `parquet-format` crate in Cargo.toml.
@@ -63,9 +77,9 @@ version is available. Then simply update version of `parquet-format` crate in Ca
 - [X] Write support
   - [X] Primitive column value writers
   - [ ] Row record writer
-  - [ ] Arrow record writer
+  - [X] Arrow record writer
 - [ ] Predicate pushdown
-- [ ] Parquet format 2.5 support
+- [X] Parquet format 2.6.0 support
 
 ## Requirements
 
@@ -84,7 +98,7 @@ Run `cargo test` for unit tests. To also run tests related to the binaries, use 
 ## Binaries
 The following binaries are provided (use `cargo install --features cli` to install them):
 - **parquet-schema** for printing Parquet file schema and metadata.
-`Usage: parquet-schema <file-path>`, where `file-path` is the path to a Parquet file. Use `-v/--verbose` flag 
+`Usage: parquet-schema <file-path>`, where `file-path` is the path to a Parquet file. Use `-v/--verbose` flag
 to print full metadata or schema only (when not specified only schema will be printed).
 
 - **parquet-read** for reading records from a Parquet file.
@@ -93,8 +107,8 @@ and `num-records` is the number of records to read from a file (when not specifi
 be printed). Use `-j/--json` to print records in JSON lines format.
 
 - **parquet-rowcount** for reporting the number of records in one or more Parquet files.
-`Usage: parquet-rowcount <file-paths>...`, where `<file-paths>...` is a space separated list of one or more 
-files to read. 
+`Usage: parquet-rowcount <file-paths>...`, where `<file-paths>...` is a space separated list of one or more
+files to read.
 
 If you see `Library not loaded` error, please make sure `LD_LIBRARY_PATH` is set properly:
 ```

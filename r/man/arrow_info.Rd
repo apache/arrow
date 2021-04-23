@@ -8,7 +8,8 @@ arrow_info()
 }
 \value{
 A list including version information, boolean "capabilities", and
-statistics from Arrow's memory allocator.
+statistics from Arrow's memory allocator, and also Arrow's run-time
+information.
 }
 \description{
 This function summarizes a number of build-time configurations and run-time

@@ -71,9 +71,11 @@ Object.assign(DecimalBigNum.prototype,  BigNum.prototype, { 'constructor': Decim
 
 /** @ignore */
 function bignumToNumber<T extends BN<BigNumArray>>(bn: T) {
-    let { buffer, byteOffset, length, 'signed': signed } = bn;
-    let words = new Int32Array(buffer, byteOffset, length);
-    let number = 0, i = 0, n = words.length, hi, lo;
+    const { buffer, byteOffset, length, 'signed': signed } = bn;
+    const words = new Int32Array(buffer, byteOffset, length);
+    let number = 0, i = 0;
+    const n = words.length;
+    let hi, lo;
     while (i < n) {
         lo = words[i++];
         hi = words[i++];
@@ -84,9 +86,9 @@ function bignumToNumber<T extends BN<BigNumArray>>(bn: T) {
 }
 
 /** @ignore */
-export let bignumToString: { <T extends BN<BigNumArray>>(a: T): string; };
+export let bignumToString: { <T extends BN<BigNumArray>>(a: T): string };
 /** @ignore */
-export let bignumToBigInt: { <T extends BN<BigNumArray>>(a: T): bigint; };
+export let bignumToBigInt: { <T extends BN<BigNumArray>>(a: T): bigint };
 
 if (!BigIntAvailable) {
     bignumToString = decimalToString;
@@ -99,10 +101,11 @@ if (!BigIntAvailable) {
 /** @ignore */
 function decimalToString<T extends BN<BigNumArray>>(a: T) {
     let digits = '';
-    let base64 = new Uint32Array(2);
+    const base64 = new Uint32Array(2);
     let base32 = new Uint16Array(a.buffer, a.byteOffset, a.byteLength / 2);
-    let checks = new Uint32Array((base32 = new Uint16Array(base32).reverse()).buffer);
-    let i = -1, n = base32.length - 1;
+    const checks = new Uint32Array((base32 = new Uint16Array(base32).reverse()).buffer);
+    let i = -1;
+    const n = base32.length - 1;
     do {
         for (base64[0] = base32[i = 0]; i < n;) {
             base32[i++] = base64[1] = base64[0] / 10;

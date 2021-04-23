@@ -17,9 +17,11 @@
 
 //! SQL Query Planner (produces logical plan from SQL AST)
 
+use std::convert::TryInto;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use crate::catalog::TableReference;
 use crate::datasource::TableProvider;
 use crate::logical_plan::Expr::Alias;
 use crate::logical_plan::{
@@ -38,30 +40,32 @@ use crate::{
 };
 
 use arrow::datatypes::*;
+use hashbrown::HashMap;
 
 use crate::prelude::JoinType;
 use sqlparser::ast::{
     BinaryOperator, DataType as SQLDataType, DateTimeField, Expr as SQLExpr, FunctionArg,
-    Join, JoinConstraint, JoinOperator, Query, Select, SelectItem, SetExpr, TableFactor,
-    TableWithJoins, UnaryOperator, Value,
+    Ident, Join, JoinConstraint, JoinOperator, ObjectName, Query, Select, SelectItem,
+    SetExpr, SetOperator, ShowStatementFilter, TableFactor, TableWithJoins,
+    UnaryOperator, Value,
 };
 use sqlparser::ast::{ColumnDef as SQLColumnDef, ColumnOption};
 use sqlparser::ast::{OrderByExpr, Statement};
 use sqlparser::parser::ParserError::ParserError;
 
-use super::utils::{
-    can_columns_satisfy_exprs, expand_wildcard, expr_as_column_expr, extract_aliases,
-    find_aggregate_exprs, find_column_exprs, rebase_expr, resolve_aliases_to_exprs,
+use super::{
+    parser::DFParser,
+    utils::{
+        can_columns_satisfy_exprs, expand_wildcard, expr_as_column_expr, extract_aliases,
+        find_aggregate_exprs, find_column_exprs, rebase_expr, resolve_aliases_to_exprs,
+    },
 };
 
 /// The ContextProvider trait allows the query planner to obtain meta-data about tables and
 /// functions referenced in SQL statements
 pub trait ContextProvider {
     /// Getter for a datasource
-    fn get_table_provider(
-        &self,
-        name: &str,
-    ) -> Option<Arc<dyn TableProvider + Send + Sync>>;
+    fn get_table_provider(&self, name: TableReference) -> Option<Arc<dyn TableProvider>>;
     /// Getter for a UDF description
     fn get_function_meta(&self, name: &str) -> Option<Arc<ScalarUDF>>;
     /// Getter for a UDAF description
@@ -96,6 +100,13 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                 analyze: _,
             } => self.explain_statement_to_plan(*verbose, &statement),
             Statement::Query(query) => self.query_to_plan(&query),
+            Statement::ShowVariable { variable } => self.show_variable_to_plan(&variable),
+            Statement::ShowColumns {
+                extended,
+                full,
+                table_name,
+                filter,
+            } => self.show_columns_to_plan(*extended, *full, table_name, filter.as_ref()),
             _ => Err(DataFusionError::NotImplemented(
                 "Only SELECT statements are implemented".to_string(),
             )),
@@ -104,17 +115,88 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
 
     /// Generate a logic plan from an SQL query
     pub fn query_to_plan(&self, query: &Query) -> Result<LogicalPlan> {
-        let plan = match &query.body {
-            SetExpr::Select(s) => self.select_to_plan(s.as_ref()),
-            _ => Err(DataFusionError::NotImplemented(format!(
-                "Query {} not implemented yet",
-                query.body
-            ))),
-        }?;
+        self.query_to_plan_with_alias(query, None, &mut HashMap::new())
+    }
+
+    /// Generate a logic plan from an SQL query with optional alias
+    pub fn query_to_plan_with_alias(
+        &self,
+        query: &Query,
+        alias: Option<String>,
+        ctes: &mut HashMap<String, LogicalPlan>,
+    ) -> Result<LogicalPlan> {
+        let set_expr = &query.body;
+        if let Some(with) = &query.with {
+            // Process CTEs from top to bottom
+            // do not allow self-references
+            for cte in &with.cte_tables {
+                // create logical plan & pass backreferencing CTEs
+                let logical_plan = self.query_to_plan_with_alias(
+                    &cte.query,
+                    Some(cte.alias.name.value.clone()),
+                    &mut ctes.clone(),
+                )?;
+                ctes.insert(cte.alias.name.value.clone(), logical_plan);
+            }
+        }
+        let plan = self.set_expr_to_plan(set_expr, alias, ctes)?;
 
         let plan = self.order_by(&plan, &query.order_by)?;
 
         self.limit(&plan, &query.limit)
+    }
+
+    fn set_expr_to_plan(
+        &self,
+        set_expr: &SetExpr,
+        alias: Option<String>,
+        ctes: &mut HashMap<String, LogicalPlan>,
+    ) -> Result<LogicalPlan> {
+        match set_expr {
+            SetExpr::Select(s) => self.select_to_plan(s.as_ref(), ctes),
+            SetExpr::SetOperation {
+                op,
+                left,
+                right,
+                all,
+            } => match (op, all) {
+                (SetOperator::Union, true) => {
+                    let left_plan = self.set_expr_to_plan(left.as_ref(), None, ctes)?;
+                    let right_plan = self.set_expr_to_plan(right.as_ref(), None, ctes)?;
+                    let inputs = vec![left_plan, right_plan]
+                        .into_iter()
+                        .flat_map(|p| match p {
+                            LogicalPlan::Union { inputs, .. } => inputs,
+                            x => vec![x],
+                        })
+                        .collect::<Vec<_>>();
+                    if inputs.is_empty() {
+                        return Err(DataFusionError::Plan(format!(
+                            "Empty UNION: {}",
+                            set_expr
+                        )));
+                    }
+                    if !inputs.iter().all(|s| s.schema() == inputs[0].schema()) {
+                        return Err(DataFusionError::Plan(
+                            "UNION ALL schemas are expected to be the same".to_string(),
+                        ));
+                    }
+                    Ok(LogicalPlan::Union {
+                        schema: inputs[0].schema().clone(),
+                        inputs,
+                        alias,
+                    })
+                }
+                _ => Err(DataFusionError::NotImplemented(format!(
+                    "Only UNION ALL is supported, found {}",
+                    op
+                ))),
+            },
+            _ => Err(DataFusionError::NotImplemented(format!(
+                "Query {} not implemented yet",
+                set_expr
+            ))),
+        }
     }
 
     /// Generate a logical plan from a CREATE EXTERNAL TABLE statement
@@ -216,7 +298,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             SQLDataType::Boolean => Ok(DataType::Boolean),
             SQLDataType::Date => Ok(DataType::Date32),
             SQLDataType::Time => Ok(DataType::Time64(TimeUnit::Millisecond)),
-            SQLDataType::Timestamp => Ok(DataType::Date64),
+            SQLDataType::Timestamp => Ok(DataType::Timestamp(TimeUnit::Nanosecond, None)),
             _ => Err(DataFusionError::NotImplemented(format!(
                 "The SQL data type {:?} is not implemented",
                 sql_type
@@ -224,24 +306,32 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
         }
     }
 
-    fn plan_from_tables(&self, from: &[TableWithJoins]) -> Result<Vec<LogicalPlan>> {
+    fn plan_from_tables(
+        &self,
+        from: &[TableWithJoins],
+        ctes: &mut HashMap<String, LogicalPlan>,
+    ) -> Result<Vec<LogicalPlan>> {
         match from.len() {
             0 => Ok(vec![LogicalPlanBuilder::empty(true).build()?]),
             _ => from
                 .iter()
-                .map(|t| self.plan_table_with_joins(t))
+                .map(|t| self.plan_table_with_joins(t, ctes))
                 .collect::<Result<Vec<_>>>(),
         }
     }
 
-    fn plan_table_with_joins(&self, t: &TableWithJoins) -> Result<LogicalPlan> {
-        let left = self.create_relation(&t.relation)?;
+    fn plan_table_with_joins(
+        &self,
+        t: &TableWithJoins,
+        ctes: &mut HashMap<String, LogicalPlan>,
+    ) -> Result<LogicalPlan> {
+        let left = self.create_relation(&t.relation, ctes)?;
         match t.joins.len() {
             0 => Ok(left),
             n => {
-                let mut left = self.parse_relation_join(&left, &t.joins[0])?;
+                let mut left = self.parse_relation_join(&left, &t.joins[0], ctes)?;
                 for i in 1..n {
-                    left = self.parse_relation_join(&left, &t.joins[i])?;
+                    left = self.parse_relation_join(&left, &t.joins[i], ctes)?;
                 }
                 Ok(left)
             }
@@ -252,8 +342,9 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
         &self,
         left: &LogicalPlan,
         join: &Join,
+        ctes: &mut HashMap<String, LogicalPlan>,
     ) -> Result<LogicalPlan> {
-        let right = self.create_relation(&join.relation)?;
+        let right = self.create_relation(&join.relation, ctes)?;
         match &join.join_operator {
             JoinOperator::LeftOuter(constraint) => {
                 self.parse_join(left, &right, constraint, JoinType::Left)
@@ -316,23 +407,38 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
         }
     }
 
-    fn create_relation(&self, relation: &TableFactor) -> Result<LogicalPlan> {
+    fn create_relation(
+        &self,
+        relation: &TableFactor,
+        ctes: &mut HashMap<String, LogicalPlan>,
+    ) -> Result<LogicalPlan> {
         match relation {
             TableFactor::Table { name, .. } => {
                 let table_name = name.to_string();
-                match self.schema_provider.get_table_provider(&table_name) {
-                    Some(provider) => {
+                let cte = ctes.get(&table_name);
+                match (
+                    cte,
+                    self.schema_provider.get_table_provider(name.try_into()?),
+                ) {
+                    (Some(cte_plan), _) => Ok(cte_plan.clone()),
+                    (_, Some(provider)) => {
                         LogicalPlanBuilder::scan(&table_name, provider, None)?.build()
                     }
-                    None => Err(DataFusionError::Plan(format!(
-                        "no provider found for table {}",
+                    (_, None) => Err(DataFusionError::Plan(format!(
+                        "Table or CTE with name '{}' not found",
                         name
                     ))),
                 }
             }
-            TableFactor::Derived { subquery, .. } => self.query_to_plan(subquery),
+            TableFactor::Derived {
+                subquery, alias, ..
+            } => self.query_to_plan_with_alias(
+                subquery,
+                alias.as_ref().map(|a| a.name.value.to_string()),
+                ctes,
+            ),
             TableFactor::NestedJoin(table_with_joins) => {
-                self.plan_table_with_joins(table_with_joins)
+                self.plan_table_with_joins(table_with_joins, ctes)
             }
             // @todo Support TableFactory::TableFunction?
             _ => Err(DataFusionError::NotImplemented(format!(
@@ -343,8 +449,12 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     }
 
     /// Generate a logic plan from an SQL select
-    fn select_to_plan(&self, select: &Select) -> Result<LogicalPlan> {
-        let plans = self.plan_from_tables(&select.from)?;
+    fn select_to_plan(
+        &self,
+        select: &Select,
+        ctes: &mut HashMap<String, LogicalPlan>,
+    ) -> Result<LogicalPlan> {
+        let plans = self.plan_from_tables(&select.from, ctes)?;
 
         let plan = match &select.selection {
             Some(predicate_expr) => {
@@ -468,7 +578,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                     &select_exprs,
                     &having_expr_opt,
                     &select.group_by,
-                    &aggr_exprs,
+                    aggr_exprs,
                 )?
             } else {
                 if let Some(having_expr) = &having_expr_opt {
@@ -501,7 +611,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             plan
         };
 
-        self.project(&plan, &select_exprs_post_aggr, false)
+        self.project(&plan, select_exprs_post_aggr, false)
     }
 
     /// Returns the `Expr`'s corresponding to a SQL query's SELECT expressions.
@@ -532,7 +642,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
     fn project(
         &self,
         input: &LogicalPlan,
-        expr: &[Expr],
+        expr: Vec<Expr>,
         force: bool,
     ) -> Result<LogicalPlan> {
         self.validate_schema_satisfies_exprs(&input.schema(), &expr)?;
@@ -557,7 +667,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
         select_exprs: &[Expr],
         having_expr_opt: &Option<Expr>,
         group_by: &[SQLExpr],
-        aggr_exprs: &[Expr],
+        aggr_exprs: Vec<Expr>,
     ) -> Result<(LogicalPlan, Vec<Expr>, Option<Expr>)> {
         let group_by_exprs = group_by
             .iter()
@@ -571,7 +681,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             .collect::<Vec<Expr>>();
 
         let plan = LogicalPlanBuilder::from(&input)
-            .aggregate(&group_by_exprs, aggr_exprs)?
+            .aggregate(group_by_exprs, aggr_exprs)?
             .build()?;
 
         // After aggregation, these are all of the columns that will be
@@ -658,9 +768,7 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             })
             .collect();
 
-        LogicalPlanBuilder::from(&plan)
-            .sort(&order_by_rex?)?
-            .build()
+        LogicalPlanBuilder::from(&plan).sort(order_by_rex?)?.build()
     }
 
     /// Validate the schema provides all of the columns referenced in the expressions.
@@ -818,6 +926,14 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
                 data_type: convert_data_type(data_type)?,
             }),
 
+            SQLExpr::TryCast {
+                ref expr,
+                ref data_type,
+            } => Ok(Expr::TryCast {
+                expr: Box::new(self.sql_expr_to_logical_expr(&expr)?),
+                data_type: convert_data_type(data_type)?,
+            }),
+
             SQLExpr::TypedString {
                 ref data_type,
                 ref value,
@@ -927,7 +1043,19 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
             }
 
             SQLExpr::Function(function) => {
-                let name: String = function.name.to_string();
+                let name = if function.name.0.len() > 1 {
+                    // DF doesn't handle compound identifiers
+                    // (e.g. "foo.bar") for function names yet
+                    function.name.to_string()
+                } else {
+                    // if there is a quote style, then don't normalize
+                    // the name, otherwise normalize to lowercase
+                    let ident = &function.name.0[0];
+                    match ident.quote_style {
+                        Some(_) => ident.value.clone(),
+                        None => ident.value.to_ascii_lowercase(),
+                    }
+                };
 
                 // first, scalar built-in
                 if let Ok(fun) = functions::BuiltinScalarFunction::from_str(&name) {
@@ -1173,6 +1301,96 @@ impl<'a, S: ContextProvider> SqlToRel<'a, S> {
 
         let result: i64 = (result_days << 32) | result_millis;
         Ok(Expr::Literal(ScalarValue::IntervalDayTime(Some(result))))
+    }
+
+    fn show_variable_to_plan(&self, variable: &[Ident]) -> Result<LogicalPlan> {
+        // Special case SHOW TABLES
+        let variable = ObjectName(variable.to_vec()).to_string();
+        if variable.as_str().eq_ignore_ascii_case("tables") {
+            if self.has_table("information_schema", "tables") {
+                let rewrite =
+                    DFParser::parse_sql("SELECT * FROM information_schema.tables;")?;
+                self.statement_to_plan(&rewrite[0])
+            } else {
+                Err(DataFusionError::Plan(
+                    "SHOW TABLES is not supported unless information_schema is enabled"
+                        .to_string(),
+                ))
+            }
+        } else {
+            Err(DataFusionError::NotImplemented(format!(
+                "SHOW {} not implemented. Supported syntax: SHOW <TABLES>",
+                variable
+            )))
+        }
+    }
+
+    fn show_columns_to_plan(
+        &self,
+        extended: bool,
+        full: bool,
+        table_name: &ObjectName,
+        filter: Option<&ShowStatementFilter>,
+    ) -> Result<LogicalPlan> {
+        if filter.is_some() {
+            return Err(DataFusionError::Plan(
+                "SHOW COLUMNS with WHERE or LIKE is not supported".to_string(),
+            ));
+        }
+
+        if !self.has_table("information_schema", "columns") {
+            return Err(DataFusionError::Plan(
+                "SHOW COLUMNS is not supported unless information_schema is enabled"
+                    .to_string(),
+            ));
+        }
+
+        if self
+            .schema_provider
+            .get_table_provider(table_name.try_into()?)
+            .is_none()
+        {
+            return Err(DataFusionError::Plan(format!(
+                "Unknown relation for SHOW COLUMNS: {}",
+                table_name
+            )));
+        }
+
+        // Figure out the where clause
+        let columns = vec!["table_name", "table_schema", "table_catalog"].into_iter();
+        let where_clause = table_name
+            .0
+            .iter()
+            .rev()
+            .zip(columns)
+            .map(|(ident, column_name)| {
+                format!(r#"{} = '{}'"#, column_name, ident.to_string())
+            })
+            .collect::<Vec<_>>()
+            .join(" AND ");
+
+        // treat both FULL and EXTENDED as the same
+        let select_list = if full || extended {
+            "*"
+        } else {
+            "table_catalog, table_schema, table_name, column_name, data_type, is_nullable"
+        };
+
+        let query = format!(
+            "SELECT {} FROM information_schema.columns WHERE {}",
+            select_list, where_clause
+        );
+
+        let rewrite = DFParser::parse_sql(&query)?;
+        self.statement_to_plan(&rewrite[0])
+    }
+
+    /// Return true if there is a table provider available for "schema.table"
+    fn has_table(&self, schema: &str, table: &str) -> bool {
+        let tables_reference = TableReference::Partial { schema, table };
+        self.schema_provider
+            .get_table_provider(tables_reference)
+            .is_some()
     }
 }
 
@@ -2360,6 +2578,55 @@ mod tests {
     }
 
     #[test]
+    fn union() {
+        let sql = "SELECT order_id from orders UNION ALL SELECT order_id FROM orders";
+        let expected = "Union\
+            \n  Projection: #order_id\
+            \n    TableScan: orders projection=None\
+            \n  Projection: #order_id\
+            \n    TableScan: orders projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn union_4_combined_in_one() {
+        let sql = "SELECT order_id from orders
+                    UNION ALL SELECT order_id FROM orders
+                    UNION ALL SELECT order_id FROM orders
+                    UNION ALL SELECT order_id FROM orders";
+        let expected = "Union\
+            \n  Projection: #order_id\
+            \n    TableScan: orders projection=None\
+            \n  Projection: #order_id\
+            \n    TableScan: orders projection=None\
+            \n  Projection: #order_id\
+            \n    TableScan: orders projection=None\
+            \n  Projection: #order_id\
+            \n    TableScan: orders projection=None";
+        quick_test(sql, expected);
+    }
+
+    #[test]
+    fn union_schemas_should_be_same() {
+        let sql = "SELECT order_id from orders UNION ALL SELECT customer_id FROM orders";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "Plan(\"UNION ALL schemas are expected to be the same\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
+    fn only_union_all_supported() {
+        let sql = "SELECT order_id from orders EXCEPT SELECT order_id FROM orders";
+        let err = logical_plan(sql).expect_err("query should have failed");
+        assert_eq!(
+            "NotImplemented(\"Only UNION ALL is supported, found EXCEPT\")",
+            format!("{:?}", err)
+        );
+    }
+
+    #[test]
     fn select_typedstring() {
         let sql = "SELECT date '2020-12-10' AS date FROM person";
         let expected = "Projection: CAST(Utf8(\"2020-12-10\") AS Date32) AS date\
@@ -2385,9 +2652,9 @@ mod tests {
     impl ContextProvider for MockContextProvider {
         fn get_table_provider(
             &self,
-            name: &str,
-        ) -> Option<Arc<dyn TableProvider + Send + Sync>> {
-            let schema = match name {
+            name: TableReference,
+        ) -> Option<Arc<dyn TableProvider>> {
+            let schema = match name.table() {
                 "person" => Some(Schema::new(vec![
                     Field::new("id", DataType::UInt32, false),
                     Field::new("first_name", DataType::Utf8, false),
@@ -2430,7 +2697,7 @@ mod tests {
                 ])),
                 _ => None,
             };
-            schema.map(|s| -> Arc<dyn TableProvider + Send + Sync> {
+            schema.map(|s| -> Arc<dyn TableProvider> {
                 Arc::new(EmptyTable::new(Arc::new(s)))
             })
         }

@@ -64,6 +64,8 @@ Concrete implementations are available for :class:`in-memory writes <BufferOutpu
 
 .. cpp:namespace:: arrow::fs
 
+.. _cpp-filesystems:
+
 Filesystems
 ===========
 

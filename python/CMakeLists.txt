@@ -52,7 +52,11 @@ set(Python3_FIND_FRAMEWORK "LAST")
 set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY true)
 
 set(CMAKE_MACOSX_RPATH 1)
-set(CMAKE_OSX_DEPLOYMENT_TARGET 10.9)
+if(DEFINED ENV{MACOSX_DEPLOYMENT_TARGET})
+  set(CMAKE_OSX_DEPLOYMENT_TARGET $ENV{MACOSX_DEPLOYMENT_TARGET})
+else()
+  set(CMAKE_OSX_DEPLOYMENT_TARGET 10.9)
+endif()
 
 # Generate a Clang compile_commands.json "compilation database" file for use
 # with various development tools, such as Vim's YouCompleteMe plugin.

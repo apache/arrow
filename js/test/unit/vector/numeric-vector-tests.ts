@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+/* eslint-disable jest/no-identical-title */
+
 import {
     util,
     Data, Vector,
@@ -492,8 +494,8 @@ function indexof_returns_expected_values<T extends Int | Float>(vector: Vector<T
         const stride = vector.stride;
         const BPE = vector.ArrayType.BYTES_PER_ELEMENT;
         const isBigInt = typeof values[0] === 'bigint';
-        const isInt64 = vector.type.compareTo(new Int64());
-        const isFloat16 = vector.type.compareTo(new Float16());
+        const isInt64 = util.compareTypes(vector.type, new Int64());
+        const isFloat16 = util.compareTypes(vector.type, new Float16());
 
         // Create a few random values
         let missing: any = new vector.ArrayType(randomBytes(8 * 2 * BPE));

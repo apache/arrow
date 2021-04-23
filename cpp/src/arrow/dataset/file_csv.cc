@@ -30,6 +30,8 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/io/buffered.h"
+#include "arrow/io/compressed.h"
 #include "arrow/result.h"
 #include "arrow/type.h"
 #include "arrow/util/iterator.h"
@@ -40,6 +42,9 @@ namespace dataset {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+using internal::Executor;
+using internal::SerialExecutor;
+using RecordBatchGenerator = std::function<Future<std::shared_ptr<RecordBatch>>()>;
 
 Result<std::unordered_set<std::string>> GetColumnNames(
     const csv::ParseOptions& parse_options, util::string_view first_block,
@@ -76,13 +81,15 @@ Result<std::unordered_set<std::string>> GetColumnNames(
 
 static inline Result<csv::ConvertOptions> GetConvertOptions(
     const CsvFileFormat& format, const std::shared_ptr<ScanOptions>& scan_options,
-    const Buffer& first_block, MemoryPool* pool) {
+    const util::string_view first_block, MemoryPool* pool) {
+  ARROW_ASSIGN_OR_RAISE(auto column_names,
+                        GetColumnNames(format.parse_options, first_block, pool));
+
   ARROW_ASSIGN_OR_RAISE(
-      auto column_names,
-      GetColumnNames(format.parse_options, util::string_view{first_block}, pool));
-
-  auto convert_options = csv::ConvertOptions::Defaults();
-
+      auto csv_scan_options,
+      GetFragmentScanOptions<CsvFragmentScanOptions>(
+          kCsvTypeName, scan_options.get(), format.default_fragment_scan_options));
+  auto convert_options = csv_scan_options->convert_options;
   for (FieldRef ref : scan_options->MaterializedFields()) {
     ARROW_ASSIGN_OR_RAISE(auto field, ref.GetOne(*scan_options->dataset_schema));
 
@@ -92,11 +99,16 @@ static inline Result<csv::ConvertOptions> GetConvertOptions(
   return convert_options;
 }
 
-static inline csv::ReadOptions GetReadOptions(const CsvFileFormat& format) {
-  auto read_options = csv::ReadOptions::Defaults();
+static inline Result<csv::ReadOptions> GetReadOptions(
+    const CsvFileFormat& format, const std::shared_ptr<ScanOptions>& scan_options) {
+  ARROW_ASSIGN_OR_RAISE(
+      auto csv_scan_options,
+      GetFragmentScanOptions<CsvFragmentScanOptions>(
+          kCsvTypeName, scan_options.get(), format.default_fragment_scan_options));
+  auto read_options = csv_scan_options->read_options;
   // Multithreaded conversion of individual files would lead to excessive thread
   // contention when ScanTasks are also executed in multiple threads, so we disable it
-  // here.
+  // here.  Also, this is a no-op since the streaming CSV reader is currently serial
   read_options.use_threads = false;
   return read_options;
 }
@@ -105,43 +117,45 @@ static inline Result<std::shared_ptr<csv::StreamingReader>> OpenReader(
     const FileSource& source, const CsvFileFormat& format,
     const std::shared_ptr<ScanOptions>& scan_options = nullptr,
     MemoryPool* pool = default_memory_pool()) {
-  ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
+  ARROW_ASSIGN_OR_RAISE(auto reader_options, GetReadOptions(format, scan_options));
 
-  auto reader_options = GetReadOptions(format);
-  ARROW_ASSIGN_OR_RAISE(auto first_block, input->ReadAt(0, reader_options.block_size));
-  RETURN_NOT_OK(input->Seek(0));
+  util::string_view first_block;
+  ARROW_ASSIGN_OR_RAISE(auto input, source.OpenCompressed());
+  ARROW_ASSIGN_OR_RAISE(
+      input, io::BufferedInputStream::Create(reader_options.block_size,
+                                             default_memory_pool(), std::move(input)));
+  ARROW_ASSIGN_OR_RAISE(first_block, input->Peek(reader_options.block_size));
 
   const auto& parse_options = format.parse_options;
-
   auto convert_options = csv::ConvertOptions::Defaults();
   if (scan_options != nullptr) {
     ARROW_ASSIGN_OR_RAISE(convert_options,
-                          GetConvertOptions(format, scan_options, *first_block, pool));
+                          GetConvertOptions(format, scan_options, first_block, pool));
   }
 
-  auto maybe_reader = csv::StreamingReader::Make(pool, std::move(input), reader_options,
-                                                 parse_options, convert_options);
+  auto maybe_reader =
+      csv::StreamingReader::Make(io::IOContext(pool), std::move(input), reader_options,
+                                 parse_options, convert_options);
   if (!maybe_reader.ok()) {
     return maybe_reader.status().WithMessage("Could not open CSV input source '",
                                              source.path(), "': ", maybe_reader.status());
   }
-
-  return std::move(maybe_reader).ValueOrDie();
+  return maybe_reader;
 }
 
 /// \brief A ScanTask backed by an Csv file.
 class CsvScanTask : public ScanTask {
  public:
   CsvScanTask(std::shared_ptr<const CsvFileFormat> format,
-              std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
+              std::shared_ptr<ScanOptions> options,
               std::shared_ptr<FileFragment> fragment)
-      : ScanTask(std::move(options), std::move(context), fragment),
+      : ScanTask(std::move(options), fragment),
         format_(std::move(format)),
         source_(fragment->source()) {}
 
   Result<RecordBatchIterator> Execute() override {
     ARROW_ASSIGN_OR_RAISE(auto reader,
-                          OpenReader(source_, *format_, options(), context()->pool));
+                          OpenReader(source_, *format_, options(), options()->pool));
     return IteratorFromReader(std::move(reader));
   }
 
@@ -177,11 +191,11 @@ Result<std::shared_ptr<Schema>> CsvFileFormat::Inspect(const FileSource& source)
 }
 
 Result<ScanTaskIterator> CsvFileFormat::ScanFile(
-    std::shared_ptr<ScanOptions> options, std::shared_ptr<ScanContext> context,
+    std::shared_ptr<ScanOptions> options,
     const std::shared_ptr<FileFragment>& fragment) const {
   auto this_ = checked_pointer_cast<const CsvFileFormat>(shared_from_this());
-  auto task = std::make_shared<CsvScanTask>(std::move(this_), std::move(options),
-                                            std::move(context), std::move(fragment));
+  auto task =
+      std::make_shared<CsvScanTask>(std::move(this_), std::move(options), fragment);
 
   return MakeVectorIterator<std::shared_ptr<ScanTask>>({std::move(task)});
 }

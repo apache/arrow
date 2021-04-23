@@ -20,10 +20,10 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use crate::arrow::datatypes::SchemaRef;
 use crate::error::Result;
 use crate::logical_plan::Expr;
 use crate::physical_plan::ExecutionPlan;
+use crate::{arrow::datatypes::SchemaRef, scalar::ScalarValue};
 
 /// This table statistics are estimates.
 /// It can not be used directly in the precise compute
@@ -41,6 +41,12 @@ pub struct Statistics {
 pub struct ColumnStatistics {
     /// Number of null values on column
     pub null_count: Option<usize>,
+    /// Maximum value of column
+    pub max_value: Option<ScalarValue>,
+    /// Minimum value of column
+    pub min_value: Option<ScalarValue>,
+    /// Number of distinct values
+    pub distinct_count: Option<usize>,
 }
 
 /// Indicates whether and how a filter expression can be handled by a
@@ -61,7 +67,7 @@ pub enum TableProviderFilterPushDown {
 }
 
 /// Source table
-pub trait TableProvider {
+pub trait TableProvider: Sync + Send {
     /// Returns the table provider as [`Any`](std::any::Any) so that it can be
     /// downcast to a specific implementation.
     fn as_any(&self) -> &dyn Any;
@@ -75,6 +81,11 @@ pub trait TableProvider {
         projection: &Option<Vec<usize>>,
         batch_size: usize,
         filters: &[Expr],
+        // limit can be used to reduce the amount scanned
+        // from the datasource as a performance optimization.
+        // If set, it contains the amount of rows needed by the `LogicalPlan`,
+        // The datasource should return *at least* this number of rows if available.
+        limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>>;
 
     /// Returns the table Statistics

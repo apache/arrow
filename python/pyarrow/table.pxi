@@ -207,13 +207,13 @@ cdef class ChunkedArray(_PandasConvertible):
         -------
         are_equal : bool
         """
+        if other is None:
+            return False
+
         cdef:
             CChunkedArray* this_arr = self.chunked_array
             CChunkedArray* other_arr = other.chunked_array
             c_bool result
-
-        if other is None:
-            return False
 
         with nogil:
             result = this_arr.Equals(deref(other_arr))
@@ -1171,6 +1171,18 @@ cdef class Table(_PandasConvertible):
                         "the `Table.from_*` functions instead.")
 
     def to_string(self, show_metadata=False):
+        """
+        Return human-readable string representation of Table.
+
+        Parameters
+        ----------
+        show_metadata : bool, default True
+            Display Field-level and Schema-level KeyValueMetadata.
+
+        Returns
+        -------
+        str
+        """
         # Use less verbose schema output.
         schema_as_string = self.schema.to_string(
             show_field_metadata=show_metadata,
@@ -1219,17 +1231,17 @@ cdef class Table(_PandasConvertible):
 
     def __getitem__(self, key):
         """
-        Slice or return column at given index or column name
+        Slice or return column at given index or column name.
 
         Parameters
         ----------
         key : integer, str, or slice
             Slices with step not equal to 1 (or None) will produce a copy
-            rather than a zero-copy view
+            rather than a zero-copy view.
 
         Returns
         -------
-        value : ChunkedArray (index/column) or Table (slice)
+        ChunkedArray (index/column) or Table (slice)
         """
         if isinstance(key, slice):
             return _normalize_slice(self, key)
@@ -1238,19 +1250,19 @@ cdef class Table(_PandasConvertible):
 
     def slice(self, offset=0, length=None):
         """
-        Compute zero-copy slice of this Table
+        Compute zero-copy slice of this Table.
 
         Parameters
         ----------
         offset : int, default 0
-            Offset from start of table to slice
+            Offset from start of table to slice.
         length : int, default None
             Length of slice (default is until end of table starting from
-            offset)
+            offset).
 
         Returns
         -------
-        sliced : Table
+        Table
         """
         cdef shared_ptr[CTable] result
 
@@ -1267,13 +1279,14 @@ cdef class Table(_PandasConvertible):
 
     def filter(self, mask, object null_selection_behavior="drop"):
         """
-        Select records from a Table. See pyarrow.compute.filter for full usage.
+        Select records from a Table. See :func:`pyarrow.compute.filter` for
+        full usage.
         """
         return _pc().filter(self, mask, null_selection_behavior)
 
     def take(self, object indices):
         """
-        Select records from an Table. See pyarrow.compute.take for full
+        Select records from an Table. See :func:`pyarrow.compute.take` for full
         usage.
         """
         return _pc().take(self, indices)
@@ -1293,7 +1306,6 @@ cdef class Table(_PandasConvertible):
         Returns
         -------
         Table
-
         """
         cdef:
             shared_ptr[CTable] c_table
@@ -1312,8 +1324,8 @@ cdef class Table(_PandasConvertible):
     def replace_schema_metadata(self, metadata=None):
         """
         EXPERIMENTAL: Create shallow copy of table by replacing schema
-        key-value metadata with the indicated new metadata (which may be None,
-        which deletes any existing metadata
+        key-value metadata with the indicated new metadata (which may be None),
+        which deletes any existing metadata.
 
         Parameters
         ----------
@@ -1321,7 +1333,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        shallow_copy : Table
+        Table
         """
         cdef:
             shared_ptr[const CKeyValueMetadata] c_meta
@@ -1336,7 +1348,9 @@ cdef class Table(_PandasConvertible):
 
     def flatten(self, MemoryPool memory_pool=None):
         """
-        Flatten this Table.  Each column with a struct type is flattened
+        Flatten this Table.
+
+        Each column with a struct type is flattened
         into one column per struct field.  Other columns are left unchanged.
 
         Parameters
@@ -1346,7 +1360,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        result : Table
+        Table
         """
         cdef:
             shared_ptr[CTable] flattened
@@ -1367,11 +1381,11 @@ cdef class Table(_PandasConvertible):
         Parameters
         ----------
         memory_pool : MemoryPool, default None
-            For memory allocations, if required, otherwise use default pool
+            For memory allocations, if required, otherwise use default pool.
 
         Returns
         -------
-        result : Table
+        Table
         """
         cdef:
             shared_ptr[CTable] combined
@@ -1399,7 +1413,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        result : Table
+        Table
         """
         cdef:
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
@@ -1430,15 +1444,15 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        are_equal : bool
+        bool
         """
+        if other is None:
+            return False
+
         cdef:
             CTable* this_table = self.table
             CTable* other_table = other.table
             c_bool result
-
-        if other is None:
-            return False
 
         with nogil:
             result = this_table.Equals(deref(other_table), check_metadata)
@@ -1447,18 +1461,18 @@ cdef class Table(_PandasConvertible):
 
     def cast(self, Schema target_schema, bint safe=True):
         """
-        Cast table values to another schema
+        Cast table values to another schema.
 
         Parameters
         ----------
         target_schema : Schema
-            Schema to cast to, the names and order of fields must match
+            Schema to cast to, the names and order of fields must match.
         safe : bool, default True
-            Check for overflows or other unsafe conversions
+            Check for overflows or other unsafe conversions.
 
         Returns
         -------
-        casted : Table
+        Table
         """
         cdef:
             ChunkedArray column, casted
@@ -1513,15 +1527,15 @@ cdef class Table(_PandasConvertible):
             ``preserve_index=True`` to force it to be stored as a column.
         nthreads : int, default None (may use up to system CPU count threads)
             If greater than 1, convert columns to Arrow in parallel using
-            indicated number of threads
+            indicated number of threads.
         columns : list, optional
            List of column to be converted. If None, use all columns.
         safe : bool, default True
-           Check for overflows or other unsafe conversions
+           Check for overflows or other unsafe conversions.
 
         Returns
         -------
-        pyarrow.Table
+        Table
 
         Examples
         --------
@@ -1549,23 +1563,22 @@ cdef class Table(_PandasConvertible):
     @staticmethod
     def from_arrays(arrays, names=None, schema=None, metadata=None):
         """
-        Construct a Table from Arrow arrays
+        Construct a Table from Arrow arrays.
 
         Parameters
         ----------
         arrays : list of pyarrow.Array or pyarrow.ChunkedArray
             Equal-length arrays that should form the table.
         names : list of str, optional
-            Names for the table columns. If not passed, schema must be passed
+            Names for the table columns. If not passed, schema must be passed.
         schema : Schema, default None
-            Schema for the created table. If not passed, names must be passed
+            Schema for the created table. If not passed, names must be passed.
         metadata : dict or Mapping, default None
             Optional metadata for the schema (if inferred).
 
         Returns
         -------
-        pyarrow.Table
-
+        Table
         """
         cdef:
             vector[shared_ptr[CChunkedArray]] columns
@@ -1595,21 +1608,20 @@ cdef class Table(_PandasConvertible):
     @staticmethod
     def from_pydict(mapping, schema=None, metadata=None):
         """
-        Construct a Table from Arrow arrays or columns
+        Construct a Table from Arrow arrays or columns.
 
         Parameters
         ----------
         mapping : dict or Mapping
             A mapping of strings to Arrays or Python lists.
         schema : Schema, default None
-            If not passed, will be inferred from the Mapping values
+            If not passed, will be inferred from the Mapping values.
         metadata : dict or Mapping, default None
             Optional metadata for the schema (if inferred).
 
         Returns
         -------
-        pyarrow.Table
-
+        Table
         """
         arrays = []
         if schema is None:
@@ -1653,7 +1665,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        table : Table
+        Table
         """
         cdef:
             vector[shared_ptr[CRecordBatch]] c_batches
@@ -1690,7 +1702,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        batches : list of RecordBatch
+        list of RecordBatch
         """
         cdef:
             unique_ptr[TableBatchReader] reader
@@ -1758,7 +1770,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.Schema
+        Schema
         """
         return pyarrow_wrap_schema(self.table.schema())
 
@@ -1773,7 +1785,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.Field
+        Field
         """
         return self.schema.field(i)
 
@@ -1808,7 +1820,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.ChunkedArray
+        ChunkedArray
         """
         return self._column(self._ensure_integer_index(i))
 
@@ -1823,7 +1835,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.ChunkedArray
+        ChunkedArray
         """
         cdef int index = <int> _normalize_index(i, self.num_columns)
         cdef ChunkedArray result = pyarrow_wrap_chunked_array(
@@ -1837,7 +1849,7 @@ cdef class Table(_PandasConvertible):
 
         Yields
         ------
-        pyarrow.ChunkedArray
+        ChunkedArray
         """
         for i in range(self.num_columns):
             yield self._column(i)
@@ -1849,7 +1861,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        list of pa.ChunkedArray
+        list of ChunkedArray
         """
         return [self._column(i) for i in range(self.num_columns)]
 
@@ -1897,6 +1909,10 @@ cdef class Table(_PandasConvertible):
     def nbytes(self):
         """
         Total number of bytes consumed by the elements of the table.
+
+        Returns
+        -------
+        int
         """
         size = 0
         for column in self.itercolumns():
@@ -1925,7 +1941,8 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.Table : New table with the passed column added.
+        Table
+            New table with the passed column added.
         """
         cdef:
             shared_ptr[CTable] c_table
@@ -1962,7 +1979,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.Table :
+        Table
             New table with the passed column added.
         """
         return self.add_column(self.num_columns, field_, column)
@@ -1978,7 +1995,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.Table :
+        Table
             New table without the column.
         """
         cdef shared_ptr[CTable] c_table
@@ -2004,7 +2021,7 @@ cdef class Table(_PandasConvertible):
 
         Returns
         -------
-        pyarrow.Table :
+        Table
             New table with the passed column set.
         """
         cdef:
@@ -2031,7 +2048,11 @@ cdef class Table(_PandasConvertible):
     @property
     def column_names(self):
         """
-        Names of the table's columns
+        Names of the table's columns.
+
+        Returns
+        -------
+        list of str
         """
         names = self.table.ColumnNames()
         return [frombytes(name) for name in names]
@@ -2039,6 +2060,15 @@ cdef class Table(_PandasConvertible):
     def rename_columns(self, names):
         """
         Create new table with columns renamed to provided names.
+
+        Parameters
+        ----------
+        names : list of str
+            List of new column names.
+
+        Returns
+        -------
+        Table
         """
         cdef:
             shared_ptr[CTable] c_table
@@ -2063,11 +2093,12 @@ cdef class Table(_PandasConvertible):
 
         Raises
         ------
-        KeyError : if any of the passed columns name are not existing.
+        KeyError
+            If any of the passed columns name are not existing.
 
         Returns
         -------
-        pyarrow.Table :
+        Table
             New table without the columns.
         """
         indices = []

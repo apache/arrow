@@ -60,6 +60,8 @@ DECLARE_WRAP_FUNCTIONS(data_type, DataType)
 DECLARE_WRAP_FUNCTIONS(field, Field)
 DECLARE_WRAP_FUNCTIONS(schema, Schema)
 
+DECLARE_WRAP_FUNCTIONS(scalar, Scalar)
+
 DECLARE_WRAP_FUNCTIONS(array, Array)
 DECLARE_WRAP_FUNCTIONS(chunked_array, ChunkedArray)
 

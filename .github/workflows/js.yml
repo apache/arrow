@@ -113,7 +113,7 @@ jobs:
   #         node-version: ${{ matrix.node }}
   #     - name: Install Platform Dependencies
   #       shell: bash
-  #       run: npm install -g cross-env
+  #       run: yarn add -g cross-env
   #     - name: Build
   #       shell: bash
   #       run: ci/scripts/js_build.sh $(pwd)

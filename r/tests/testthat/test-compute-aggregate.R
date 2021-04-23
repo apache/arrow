@@ -17,10 +17,18 @@
 
 context("compute: aggregation")
 
+test_that("list_compute_functions", {
+  allfuncs <- list_compute_functions()
+  expect_false(all(grepl("min", allfuncs)))
+  justmins <- list_compute_functions("^min")
+  expect_true(length(justmins) > 0)
+  expect_true(all(grepl("min", justmins)))
+})
+
 test_that("sum.Array", {
   ints <- 1:5
   a <- Array$create(ints)
-  expect_is(sum(a), "Scalar")
+  expect_r6_class(sum(a), "Scalar")
   expect_identical(as.integer(sum(a)), sum(ints))
 
   floats <- c(1.3, 2.4, 3)
@@ -30,7 +38,7 @@ test_that("sum.Array", {
   floats <- c(floats, NA)
   na <- Array$create(floats)
   expect_identical(as.numeric(sum(na)), sum(floats))
-  expect_is(sum(na, na.rm = TRUE), "Scalar")
+  expect_r6_class(sum(na, na.rm = TRUE), "Scalar")
   expect_identical(as.numeric(sum(na, na.rm = TRUE)), sum(floats, na.rm = TRUE))
 
   bools <- c(TRUE, NA, TRUE, FALSE)
@@ -41,7 +49,7 @@ test_that("sum.Array", {
 
 test_that("sum.ChunkedArray", {
   a <- ChunkedArray$create(1:4, c(1:4, NA), 1:5)
-  expect_is(sum(a), "Scalar")
+  expect_r6_class(sum(a), "Scalar")
   expect_true(is.na(as.vector(sum(a))))
   expect_identical(as.numeric(sum(a, na.rm = TRUE)), 35)
 })
@@ -61,7 +69,7 @@ test_that("sum.Scalar", {
 test_that("mean.Array", {
   ints <- 1:4
   a <- Array$create(ints)
-  expect_is(mean(a), "Scalar")
+  expect_r6_class(mean(a), "Scalar")
   expect_identical(as.vector(mean(a)), mean(ints))
 
   floats <- c(1.3, 2.4, 3)
@@ -71,7 +79,7 @@ test_that("mean.Array", {
   floats <- c(floats, NA)
   na <- Array$create(floats)
   expect_identical(as.vector(mean(na)), mean(floats))
-  expect_is(mean(na, na.rm = TRUE), "Scalar")
+  expect_r6_class(mean(na, na.rm = TRUE), "Scalar")
   expect_identical(as.vector(mean(na, na.rm = TRUE)), mean(floats, na.rm = TRUE))
 
   bools <- c(TRUE, NA, TRUE, FALSE)
@@ -82,7 +90,7 @@ test_that("mean.Array", {
 
 test_that("mean.ChunkedArray", {
   a <- ChunkedArray$create(1:4, c(1:4, NA), 1:5)
-  expect_is(mean(a), "Scalar")
+  expect_r6_class(mean(a), "Scalar")
   expect_true(is.na(as.vector(mean(a))))
   expect_identical(as.vector(mean(a, na.rm = TRUE)), 35/13)
 })
@@ -103,7 +111,7 @@ test_that("Bad input handling of call_function", {
 test_that("min.Array", {
   ints <- 1:4
   a <- Array$create(ints)
-  expect_is(min(a), "Scalar")
+  expect_r6_class(min(a), "Scalar")
   expect_identical(as.vector(min(a)), min(ints))
 
   floats <- c(1.3, 3, 2.4)
@@ -113,7 +121,7 @@ test_that("min.Array", {
   floats <- c(floats, NA)
   na <- Array$create(floats)
   expect_identical(as.vector(min(na)), min(floats))
-  expect_is(min(na, na.rm = TRUE), "Scalar")
+  expect_r6_class(min(na, na.rm = TRUE), "Scalar")
   expect_identical(as.vector(min(na, na.rm = TRUE)), min(floats, na.rm = TRUE))
 
   bools <- c(TRUE, TRUE, FALSE)
@@ -125,7 +133,7 @@ test_that("min.Array", {
 test_that("max.Array", {
   ints <- 1:4
   a <- Array$create(ints)
-  expect_is(max(a), "Scalar")
+  expect_r6_class(max(a), "Scalar")
   expect_identical(as.vector(max(a)), max(ints))
 
   floats <- c(1.3, 3, 2.4)
@@ -135,7 +143,7 @@ test_that("max.Array", {
   floats <- c(floats, NA)
   na <- Array$create(floats)
   expect_identical(as.vector(max(na)), max(floats))
-  expect_is(max(na, na.rm = TRUE), "Scalar")
+  expect_r6_class(max(na, na.rm = TRUE), "Scalar")
   expect_identical(as.vector(max(na, na.rm = TRUE)), max(floats, na.rm = TRUE))
 
   bools <- c(TRUE, TRUE, FALSE)
@@ -147,7 +155,7 @@ test_that("max.Array", {
 test_that("min.ChunkedArray", {
   ints <- 1:4
   a <- ChunkedArray$create(ints)
-  expect_is(min(a), "Scalar")
+  expect_r6_class(min(a), "Scalar")
   expect_identical(as.vector(min(a)), min(ints))
 
   floats <- c(1.3, 3, 2.4)
@@ -157,7 +165,7 @@ test_that("min.ChunkedArray", {
   floats <- c(floats, NA)
   na <- ChunkedArray$create(floats)
   expect_identical(as.vector(min(na)), min(floats))
-  expect_is(min(na, na.rm = TRUE), "Scalar")
+  expect_r6_class(min(na, na.rm = TRUE), "Scalar")
   expect_identical(as.vector(min(na, na.rm = TRUE)), min(floats, na.rm = TRUE))
 
   bools <- c(TRUE, TRUE, FALSE)
@@ -169,7 +177,7 @@ test_that("min.ChunkedArray", {
 test_that("max.ChunkedArray", {
   ints <- 1:4
   a <- ChunkedArray$create(ints)
-  expect_is(max(a), "Scalar")
+  expect_r6_class(max(a), "Scalar")
   expect_identical(as.vector(max(a)), max(ints))
 
   floats <- c(1.3, 3, 2.4)
@@ -179,7 +187,7 @@ test_that("max.ChunkedArray", {
   floats <- c(floats, NA)
   na <- ChunkedArray$create(floats)
   expect_identical(as.vector(max(na)), max(floats))
-  expect_is(max(na, na.rm = TRUE), "Scalar")
+  expect_r6_class(max(na, na.rm = TRUE), "Scalar")
   expect_identical(as.vector(max(na, na.rm = TRUE)), max(floats, na.rm = TRUE))
 
   bools <- c(TRUE, TRUE, FALSE)
@@ -197,6 +205,120 @@ test_that("Edge cases", {
     expect_equal(as.vector(min(a$cast(type), na.rm = TRUE)), min(NA, na.rm = TRUE))
     expect_equal(as.vector(max(a$cast(type), na.rm = TRUE)), max(NA, na.rm = TRUE))
   }
+})
+
+test_that("quantile.Array and quantile.ChunkedArray", {
+  a <- Array$create(c(0, 1, 2, 3))
+  ca <- ChunkedArray$create(c(0, 1), c(2, 3))
+  probs <- c(0.49, 0.51)
+  for(ad in list(a, ca)) {
+    for (type in c(int32(), uint64(), float64())) {
+      expect_equal(
+        quantile(ad$cast(type), probs = probs, interpolation = "linear"),
+        Array$create(c(1.47, 1.53))
+      )
+      expect_equal(
+        quantile(ad$cast(type), probs = probs, interpolation = "lower"),
+        Array$create(c(1, 1))$cast(type)
+      )
+      expect_equal(
+        quantile(ad$cast(type), probs = probs, interpolation = "higher"),
+        Array$create(c(2, 2))$cast(type)
+      )
+      expect_equal(
+        quantile(ad$cast(type), probs = probs, interpolation = "nearest"),
+        Array$create(c(1, 2))$cast(type)
+      )
+      expect_equal(
+        quantile(ad$cast(type), probs = probs, interpolation = "midpoint"),
+        Array$create(c(1.5, 1.5))
+      )
+    }
+  }
+})
+
+test_that("quantile and median NAs, edge cases, and exceptions", {
+  expect_equal(
+    quantile(Array$create(c(1, 2)), probs = c(0, 1)),
+    Array$create(c(1, 2))
+  )
+  expect_error(
+    quantile(Array$create(c(1, 2, NA))),
+    "Missing values not allowed if 'na.rm' is FALSE"
+  )
+  expect_equal(
+    quantile(Array$create(numeric(0))),
+    Array$create(rep(NA_real_, 5))
+  )
+  expect_equal(
+    quantile(Array$create(rep(NA_integer_, 3)), na.rm = TRUE),
+    Array$create(rep(NA_real_, 5))
+  )
+  expect_equal(
+    quantile(Scalar$create(0L)),
+    Array$create(rep(0, 5))
+  )
+  expect_equal(
+    median(Scalar$create(1L)),
+    Scalar$create(1)
+  )
+  expect_error(
+    quantile(Array$create(1:3), type = 9),
+    "not supported"
+  )
+})
+
+test_that("median passes ... args to quantile", {
+  skip_if(
+    !"..." %in% names(formals(median)),
+    "The median generic lacks dots in R 3.3.0 and earlier"
+  )
+  expect_equal(
+    median(Array$create(c(1, 2)), interpolation = "higher"),
+    Scalar$create(2)
+  )
+  expect_error(
+    median(Array$create(c(1, 2)), probs = c(.25, .75))
+  )
+})
+
+test_that("median.Array and median.ChunkedArray", {
+  expect_vector_equal(
+    median(input),
+    1:4
+  )
+  expect_vector_equal(
+    median(input),
+    1:5
+  )
+  expect_vector_equal(
+    median(input),
+    numeric(0)
+  )
+  expect_vector_equal(
+    median(input, na.rm = FALSE),
+    c(1, 2, NA)
+  )
+  expect_vector_equal(
+    median(input, na.rm = TRUE),
+    c(1, 2, NA)
+  )
+  expect_vector_equal(
+    median(input, na.rm = TRUE),
+    NA_real_
+  )
+  expect_vector_equal(
+    median(input, na.rm = FALSE),
+    c(1, 2, NA)
+  )
+  expect_vector_equal(
+    median(input, na.rm = TRUE),
+    c(1, 2, NA)
+  )
+  expect_vector_equal(
+    median(input, na.rm = TRUE),
+    NA_real_
+  )
 })
 
 test_that("unique.Array", {

@@ -54,7 +54,7 @@ import {
 /** @ignore */ export type FromArg5 = FileHandle | PromiseLike<FileHandle> | PromiseLike<FromArg4>;
 /** @ignore */ export type FromArgs = FromArg0 | FromArg1 | FromArg2 | FromArg3 | FromArg4 | FromArg5;
 
-/** @ignore */ type OpenOptions = { autoDestroy?: boolean; };
+/** @ignore */ type OpenOptions = { autoDestroy?: boolean };
 /** @ignore */ type RecordBatchReaders<T extends { [key: string]: DataType } = any> = RecordBatchFileReader<T> | RecordBatchStreamReader<T>;
 /** @ignore */ type AsyncRecordBatchReaders<T extends { [key: string]: DataType } = any> = AsyncRecordBatchFileReader<T> | AsyncRecordBatchStreamReader<T>;
 /** @ignore */ type RecordBatchFileReaders<T extends { [key: string]: DataType } = any> = RecordBatchFileReader<T> | AsyncRecordBatchFileReader<T>;
@@ -137,7 +137,7 @@ export class RecordBatchReader<T extends { [key: string]: DataType } = any> exte
         writableStrategy?: ByteLengthQueuingStrategy,
         // @ts-ignore
         readableStrategy?: { autoDestroy: boolean }
-    ): { writable: WritableStream<Uint8Array>, readable: ReadableStream<RecordBatch<T>> } {
+    ): { writable: WritableStream<Uint8Array>; readable: ReadableStream<RecordBatch<T>> } {
         throw new Error(`"throughDOM" not available in this environment`);
     }
 
@@ -318,8 +318,7 @@ interface AsyncRecordBatchFileReaderImpl<T extends { [key: string]: DataType } =
 /** @ignore */
 abstract class RecordBatchReaderImpl<T extends { [key: string]: DataType } = any> implements RecordBatchReaderImpl<T> {
 
-    // @ts-ignore
-    public schema: Schema;
+    public schema!: Schema<T>;
     public closed = false;
     public autoDestroy = true;
     public dictionaries: Map<number, Vector>;
@@ -414,7 +413,8 @@ class RecordBatchStreamReaderImpl<T extends { [key: string]: DataType } = any> e
     }
     public next(): IteratorResult<RecordBatch<T>> {
         if (this.closed) { return ITERATOR_DONE; }
-        let message: Message | null, { _reader: reader } = this;
+        let message: Message | null;
+        const { _reader: reader } = this;
         while (message = this._readNextMessageAndValidate()) {
             if (message.isSchema()) {
                 this.reset(message.header());
@@ -488,7 +488,8 @@ class AsyncRecordBatchStreamReaderImpl<T extends { [key: string]: DataType } = a
     }
     public async next() {
         if (this.closed) { return ITERATOR_DONE; }
-        let message: Message | null, { _reader: reader } = this;
+        let message: Message | null;
+        const { _reader: reader } = this;
         while (message = await this._readNextMessageAndValidate()) {
             if (message.isSchema()) {
                 await this.reset(message.header());
@@ -520,10 +521,8 @@ class AsyncRecordBatchStreamReaderImpl<T extends { [key: string]: DataType } = a
 /** @ignore */
 class RecordBatchFileReaderImpl<T extends { [key: string]: DataType } = any> extends RecordBatchStreamReaderImpl<T> {
 
-    // @ts-ignore
     protected _footer?: Footer;
-    // @ts-ignore
-    protected _handle: RandomAccessFile;
+    protected _handle!: RandomAccessFile;
     public get footer() { return this._footer!; }
     public get numDictionaries() { return this._footer ? this._footer.numDictionaries : 0; }
     public get numRecordBatches() { return this._footer ? this._footer.numRecordBatches : 0; }
@@ -593,8 +592,7 @@ class AsyncRecordBatchFileReaderImpl<T extends { [key: string]: DataType } = any
     implements AsyncRecordBatchFileReaderImpl<T> {
 
     protected _footer?: Footer;
-    // @ts-ignore
-    protected _handle: AsyncRandomAccessFile;
+    protected _handle!: AsyncRandomAccessFile;
     public get footer() { return this._footer!; }
     public get numDictionaries() { return this._footer ? this._footer.numDictionaries : 0; }
     public get numRecordBatches() { return this._footer ? this._footer.numRecordBatches : 0; }

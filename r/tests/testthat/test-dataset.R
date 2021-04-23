@@ -90,12 +90,19 @@ test_that("Setup (putting data in the dir)", {
   expect_length(dir(tsv_dir, recursive = TRUE), 2)
 })
 
+if(arrow_with_parquet()) {
+  files <- c(
+    file.path(dataset_dir, 1, "file1.parquet", fsep = "/"),
+    file.path(dataset_dir, 2, "file2.parquet", fsep = "/")
+  )
+}
+
 test_that("Simple interface for datasets", {
   skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-  expect_is(ds$format, "ParquetFileFormat")
-  expect_is(ds$filesystem, "LocalFileSystem")
-  expect_is(ds, "Dataset")
+  expect_r6_class(ds$format, "ParquetFileFormat")
+  expect_r6_class(ds$filesystem, "LocalFileSystem")
+  expect_r6_class(ds, "Dataset")
   expect_equivalent(
     ds %>%
       select(chr, dbl) %>%
@@ -163,11 +170,25 @@ test_that("dim() correctly determine numbers of rows and columns on arrow_dplyr_
   )
 })
 
-test_that("dataset from URI", {
+test_that("dataset from single local file path", {
   skip_on_os("windows")
   skip_if_not_available("parquet")
-  uri <- paste0("file://", dataset_dir)
-  ds <- open_dataset(uri, partitioning = schema(part = uint8()))
+  ds <- open_dataset(files[1])
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7) %>%
+      collect() %>%
+      arrange(dbl),
+    df1[8:10, c("chr", "dbl")]
+  )
+})
+
+test_that("dataset from vector of file paths", {
+  skip_on_os("windows")
+  skip_if_not_available("parquet")
+  ds <- open_dataset(files)
   expect_is(ds, "Dataset")
   expect_equivalent(
     ds %>%
@@ -182,6 +203,69 @@ test_that("dataset from URI", {
   )
 })
 
+test_that("dataset from directory URI", {
+  skip_on_os("windows")
+  skip_if_not_available("parquet")
+  uri <- paste0("file://", dataset_dir)
+  ds <- open_dataset(uri, partitioning = schema(part = uint8()))
+  expect_r6_class(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+})
+
+test_that("dataset from single file URI", {
+  skip_on_os("windows")
+  skip_if_not_available("parquet")
+  uri <- paste0("file://", files[1])
+  ds <- open_dataset(uri)
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7) %>%
+      collect() %>%
+      arrange(dbl),
+    df1[8:10, c("chr", "dbl")]
+  )
+})
+
+test_that("dataset from vector of file URIs", {
+  skip_on_os("windows")
+  skip_if_not_available("parquet")
+  uris <- paste0("file://", files)
+  ds <- open_dataset(uris)
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53L) %>%
+      collect() %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+})
+
+test_that("open_dataset errors on mixed paths and URIs", {
+  skip_on_os("windows")
+  skip_if_not_available("parquet")
+  expect_error(
+    open_dataset(c(files[1], paste0("file://", files[2]))),
+    "Vectors of mixed paths and URIs are not supported"
+  )
+})
+
 test_that("Simple interface for datasets (custom ParquetFileFormat)", {
   skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()),
@@ -192,7 +276,7 @@ test_that("Simple interface for datasets (custom ParquetFileFormat)", {
 test_that("Hive partitioning", {
   skip_if_not_available("parquet")
   ds <- open_dataset(hive_dir, partitioning = hive_partition(other = utf8(), group = uint8()))
-  expect_is(ds, "Dataset")
+  expect_r6_class(ds, "Dataset")
   expect_equivalent(
     ds %>%
       filter(group == 2) %>%
@@ -243,8 +327,8 @@ test_that("Partitioning inference", {
 
 test_that("IPC/Feather format data", {
   ds <- open_dataset(ipc_dir, partitioning = "part", format = "feather")
-  expect_is(ds$format, "IpcFileFormat")
-  expect_is(ds$filesystem, "LocalFileSystem")
+  expect_r6_class(ds$format, "IpcFileFormat")
+  expect_r6_class(ds$filesystem, "LocalFileSystem")
   expect_identical(names(ds), c(names(df1), "part"))
   expect_warning(
     expect_identical(dim(ds), c(NA, 7L))
@@ -271,8 +355,8 @@ test_that("IPC/Feather format data", {
 
 test_that("CSV dataset", {
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
-  expect_is(ds$format, "CsvFileFormat")
-  expect_is(ds$filesystem, "LocalFileSystem")
+  expect_r6_class(ds$format, "CsvFileFormat")
+  expect_r6_class(ds$filesystem, "LocalFileSystem")
   expect_identical(names(ds), c(names(df1), "part"))
   expect_warning(
     expect_identical(dim(ds), c(NA, 7L))
@@ -292,6 +376,95 @@ test_that("CSV dataset", {
   expect_equal(
     collect(ds) %>% pull(part),
     c(rep(5, 10), rep(6, 10))
+  )
+})
+
+test_that("CSV scan options", {
+  options <- FragmentScanOptions$create("text")
+  expect_equal(options$type, "csv")
+  options <- FragmentScanOptions$create("csv",
+                                        null_values = c("mynull"),
+                                        strings_can_be_null = TRUE)
+  expect_equal(options$type, "csv")
+
+  dst_dir <- make_temp_dir()
+  dst_file <- file.path(dst_dir, "data.csv")
+  df <- tibble(chr = c("foo", "mynull"))
+  write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
+
+  ds <- open_dataset(dst_dir, format = "csv")
+  expect_equivalent(ds %>% collect(), df)
+
+  sb <- ds$NewScan()
+  sb$FragmentScanOptions(options)
+
+  tab <- sb$Finish()$ToTable()
+  expect_equivalent(as.data.frame(tab), tibble(chr = c("foo", NA)))
+
+  # Set default convert options in CsvFileFormat
+  csv_format <- CsvFileFormat$create(null_values = c("mynull"),
+                                     strings_can_be_null = TRUE)
+  ds <- open_dataset(dst_dir, format = csv_format)
+  expect_equivalent(ds %>% collect(), tibble(chr = c("foo", NA)))
+
+  # Set both parse and convert options
+  df <- tibble(chr = c("foo", "mynull"), chr2 = c("bar", "baz"))
+  write.table(df, dst_file, row.names = FALSE, quote = FALSE, sep = "\t")
+  ds <- open_dataset(dst_dir, format = "csv",
+                     delimiter="\t",
+                     null_values = c("mynull"),
+                     strings_can_be_null = TRUE)
+  expect_equivalent(ds %>% collect(), tibble(chr = c("foo", NA),
+                                             chr2 = c("bar", "baz")))
+})
+
+test_that("compressed CSV dataset", {
+  skip_if_not_available("gzip")
+  dst_dir <- make_temp_dir()
+  dst_file <- file.path(dst_dir, "data.csv.gz")
+  write.csv(df1, gzfile(dst_file), row.names = FALSE, quote = FALSE)
+  format <- FileFormat$create("csv")
+  ds <- open_dataset(dst_dir, format = format)
+  expect_r6_class(ds$format, "CsvFileFormat")
+  expect_r6_class(ds$filesystem, "LocalFileSystem")
+
+  expect_equivalent(
+    ds %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6 & integer < 11) %>%
+      collect() %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
+})
+
+test_that("CSV dataset options", {
+  dst_dir <- make_temp_dir()
+  dst_file <- file.path(dst_dir, "data.csv")
+  df <- tibble(chr = letters[1:10])
+  write.csv(df, dst_file, row.names = FALSE, quote = FALSE)
+
+  format <- FileFormat$create("csv", skip_rows = 1)
+  ds <- open_dataset(dst_dir, format = format)
+
+  expect_equivalent(
+    ds %>%
+      select(string = a) %>%
+      collect(),
+    df1[-1,] %>%
+      select(string = chr)
+  )
+
+  ds <- open_dataset(dst_dir, format = "csv", column_names = c("foo"))
+
+  expect_equivalent(
+    ds %>%
+      select(string = foo) %>%
+      collect(),
+    tibble(foo = c(c('chr'), letters[1:10]))
   )
 })
 
@@ -416,7 +589,7 @@ test_that("Creating UnionDataset", {
   ds1 <- open_dataset(file.path(dataset_dir, 1))
   ds2 <- open_dataset(file.path(dataset_dir, 2))
   union1 <- open_dataset(list(ds1, ds2))
-  expect_is(union1, "UnionDataset")
+  expect_r6_class(union1, "UnionDataset")
   expect_equivalent(
     union1 %>%
       select(chr, dbl) %>%
@@ -431,7 +604,7 @@ test_that("Creating UnionDataset", {
 
   # Now with the c() method
   union2 <- c(ds1, ds2)
-  expect_is(union2, "UnionDataset")
+  expect_r6_class(union2, "UnionDataset")
   expect_equivalent(
     union2 %>%
       select(chr, dbl) %>%
@@ -445,12 +618,12 @@ test_that("Creating UnionDataset", {
   )
 
   # Confirm c() method error handling
-  expect_error(c(ds1, 42), "string")
+  expect_error(c(ds1, 42), "character")
 })
 
 test_that("InMemoryDataset", {
   ds <- InMemoryDataset$create(rbind(df1, df2))
-  expect_is(ds, "InMemoryDataset")
+  expect_r6_class(ds, "InMemoryDataset")
   expect_equivalent(
     ds %>%
       select(chr, dbl) %>%
@@ -528,6 +701,37 @@ test_that("filter() with %in%", {
   )
 })
 
+test_that("filter() with negative scalar", {
+  skip_if_not_available("parquet")
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_equivalent(
+    ds %>%
+      filter(part == 1) %>%
+      select(chr, int) %>%
+      filter(int > -2) %>%
+      collect(),
+    df1[, c("chr", "int")]
+  )
+
+  expect_equivalent(
+    ds %>%
+      filter(part == 1) %>%
+      select(chr, int) %>%
+      filter(int %in% -2) %>%
+      collect(),
+    df1[FALSE, c("chr", "int")]
+  )
+
+  expect_equivalent(
+    ds %>%
+      filter(part == 1) %>%
+      select(chr, int) %>%
+      filter(-int < -2) %>%
+      collect(),
+    df1[df1$int > 2, c("chr", "int")]
+  )
+})
+
 test_that("filter() with strings", {
   skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
@@ -539,12 +743,28 @@ test_that("filter() with strings", {
     tibble(chr = "b", part = 1)
   )
 
+  skip_if_not_available("utf8proc")
   expect_equivalent(
     ds %>%
       select(chr, part) %>%
       filter(toupper(chr) == "B", part == 1) %>%
       collect(),
     tibble(chr = "b", part = 1)
+  )
+})
+
+test_that("filter() with arrow compute functions by name", {
+  skip_if_not_available("parquet")
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  expect_equivalent(
+    ds %>%
+      select(part, lgl) %>%
+      filter(arrow_is_valid(lgl), arrow_equal(part, 1)) %>%
+      collect(),
+    ds %>%
+       select(part, lgl) %>%
+       filter(!is.na(lgl), part == 1L) %>%
+       collect()
   )
 })
 
@@ -640,9 +860,9 @@ test_that("filter() on date32 columns", {
 test_that("filter() with expressions", {
   skip_if_not_available("parquet")
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-  expect_is(ds$format, "ParquetFileFormat")
-  expect_is(ds$filesystem, "LocalFileSystem")
-  expect_is(ds, "Dataset")
+  expect_r6_class(ds$format, "ParquetFileFormat")
+  expect_r6_class(ds$filesystem, "LocalFileSystem")
+  expect_r6_class(ds, "Dataset")
   expect_equivalent(
     ds %>%
       select(chr, dbl) %>%
@@ -831,6 +1051,38 @@ test_that("mutate() with NULL inputs", {
   )
 })
 
+test_that("empty mutate()", {
+  expect_equal(
+    ds %>%
+      mutate() %>%
+      collect(),
+    ds %>%
+      collect()
+  )
+})
+
+test_that("transmute() with NULL inputs", {
+  expect_equal(
+    ds %>%
+      transmute(int = NULL) %>%
+      collect(),
+    ds %>%
+      select() %>%
+      collect()
+  )
+})
+
+test_that("empty transmute()", {
+  expect_equal(
+    ds %>%
+      transmute() %>%
+      collect(),
+    ds %>%
+      select() %>%
+      collect()
+  )
+})
+
 test_that("filter scalar validation doesn't crash (ARROW-7772)", {
   expect_error(
     ds %>%
@@ -861,6 +1113,95 @@ test_that("count()", {
       filter(int > 6, int < 108) %>%
       count(chr)
   )
+})
+
+test_that("arrange()", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+  arranged <- ds %>%
+    select(chr, dbl, int) %>%
+    filter(dbl * 2 > 14 & dbl - 50 < 3L) %>%
+    mutate(twice = int * 2) %>%
+    arrange(chr, desc(twice), dbl + int)
+  expect_output(
+    print(arranged),
+    "FileSystemDataset (query)
+chr: string
+dbl: double
+int: int32
+twice: expr
+
+* Filter: ((multiply_checked(dbl, 2) > 14) and (subtract_checked(dbl, 50) < 3))
+* Sorted by chr [asc], multiply_checked(int, 2) [desc], add_checked(dbl, int) [asc]
+See $.data for the source Arrow object",
+    fixed = TRUE
+  )
+  expect_equivalent(
+    arranged %>%
+      collect(),
+    rbind(
+      df1[8, c("chr", "dbl", "int")],
+      df2[2, c("chr", "dbl", "int")],
+      df1[9, c("chr", "dbl", "int")],
+      df2[1, c("chr", "dbl", "int")],
+      df1[10, c("chr", "dbl", "int")]
+    ) %>%
+      mutate(
+        twice = int * 2
+      )
+  )
+})
+
+test_that("compute()/collect(as_data_frame=FALSE)", {
+  skip_if_not_available("parquet")
+  ds <- open_dataset(dataset_dir)
+
+  tab1 <- ds %>% compute()
+  expect_is(tab1, "Table")
+
+  tab2 <- ds %>% collect(as_data_frame = FALSE)
+  expect_is(tab2, "Table")
+
+  tab3 <-  ds %>%
+    mutate(negint = -int) %>%
+    filter(negint > - 100) %>%
+    arrange(chr) %>%
+    select(negint) %>%
+    compute()
+
+  expect_is(tab3, "Table")
+
+  expect_equal(
+    tab3 %>% collect(),
+    tibble(negint = -1:-10)
+  )
+
+  tab4 <-  ds %>%
+    mutate(negint = -int) %>%
+    filter(negint > - 100) %>%
+    arrange(chr) %>%
+    select(negint) %>%
+    collect(as_data_frame = FALSE)
+
+  expect_is(tab3, "Table")
+
+  expect_equal(
+    tab4 %>% collect(),
+    tibble(negint = -1:-10)
+  )
+
+  tab5 <- ds %>%
+    mutate(negint = -int) %>%
+    group_by(fct) %>%
+    compute()
+
+  # the group_by() prevents compute() from returning a Table...
+  expect_is(tab5, "arrow_dplyr_query")
+
+  # ... but $.data is a Table...
+  expect_is(tab5$.data, "Table")
+  # ... and the mutate() was evaluated
+  expect_true("negint" %in% names(tab5$.data))
+
 })
 
 test_that("head/tail", {
@@ -950,7 +1291,6 @@ test_that("dplyr method not implemented messages", {
   expect_not_implemented <- function(x) {
     expect_error(x, "is not currently implemented for Arrow Datasets")
   }
-  expect_not_implemented(ds %>% arrange(int))
   expect_not_implemented(ds %>% filter(int == 1) %>% summarize(n()))
 })
 
@@ -973,7 +1313,7 @@ test_that("Dataset and query print methods", {
     ),
     fixed = TRUE
   )
-  expect_is(ds$metadata, "list")
+  expect_type(ds$metadata, "list")
   q <- select(ds, string = chr, lgl, integer = int)
   expect_output(
     print(q),
@@ -1005,29 +1345,29 @@ test_that("Dataset and query print methods", {
   )
 })
 
+test_that("Scanner$ScanBatches", {
+  ds <- open_dataset(ipc_dir, format = "feather")
+  batches <- ds$NewScan()$Finish()$ScanBatches()
+  table <- Table$create(!!!batches)
+  expect_equivalent(as.data.frame(table), rbind(df1, df2))
+})
+
 expect_scan_result <- function(ds, schm) {
   sb <- ds$NewScan()
-  expect_is(sb, "ScannerBuilder")
+  expect_r6_class(sb, "ScannerBuilder")
   expect_equal(sb$schema, schm)
 
   sb$Project(c("chr", "lgl"))
   sb$Filter(Expression$field_ref("dbl") == 8)
   scn <- sb$Finish()
-  expect_is(scn, "Scanner")
+  expect_r6_class(scn, "Scanner")
 
   tab <- scn$ToTable()
-  expect_is(tab, "Table")
+  expect_r6_class(tab, "Table")
 
   expect_equivalent(
     as.data.frame(tab),
     df1[8, c("chr", "lgl")]
-  )
-}
-
-if(arrow_with_parquet()) {
-  files <- c(
-    file.path(dataset_dir, 1, "file1.parquet", fsep = "/"),
-    file.path(dataset_dir, 2, "file2.parquet", fsep = "/")
   )
 }
 
@@ -1038,20 +1378,20 @@ test_that("Assembling a Dataset manually and getting a Table", {
   partitioning <- DirectoryPartitioning$create(schema(part = double()))
 
   fmt <- FileFormat$create("parquet")
-  factory <- FileSystemDatasetFactory$create(fs, selector, fmt, partitioning = partitioning)
-  expect_is(factory, "FileSystemDatasetFactory")
+  factory <- FileSystemDatasetFactory$create(fs, selector, NULL, fmt, partitioning = partitioning)
+  expect_r6_class(factory, "FileSystemDatasetFactory")
 
   schm <- factory$Inspect()
-  expect_is(schm, "Schema")
+  expect_r6_class(schm, "Schema")
 
   phys_schm <- ParquetFileReader$create(files[1])$GetSchema()
   expect_equal(names(phys_schm), names(df1))
   expect_equal(names(schm), c(names(phys_schm), "part"))
 
   child <- factory$Finish(schm)
-  expect_is(child, "FileSystemDataset")
-  expect_is(child$schema, "Schema")
-  expect_is(child$format, "ParquetFileFormat")
+  expect_r6_class(child, "FileSystemDataset")
+  expect_r6_class(child$schema, "Schema")
+  expect_r6_class(child$format, "ParquetFileFormat")
   expect_equal(names(schm), names(child$schema))
   expect_equivalent(child$files, files)
 
@@ -1062,22 +1402,22 @@ test_that("Assembling a Dataset manually and getting a Table", {
 test_that("Assembling multiple DatasetFactories with DatasetFactory", {
   skip_if_not_available("parquet")
   factory1 <- dataset_factory(file.path(dataset_dir, 1), format = "parquet")
-  expect_is(factory1, "FileSystemDatasetFactory")
+  expect_r6_class(factory1, "FileSystemDatasetFactory")
   factory2 <- dataset_factory(file.path(dataset_dir, 2), format = "parquet")
-  expect_is(factory2, "FileSystemDatasetFactory")
+  expect_r6_class(factory2, "FileSystemDatasetFactory")
 
   factory <- DatasetFactory$create(list(factory1, factory2))
-  expect_is(factory, "DatasetFactory")
+  expect_r6_class(factory, "DatasetFactory")
 
   schm <- factory$Inspect()
-  expect_is(schm, "Schema")
+  expect_r6_class(schm, "Schema")
 
   phys_schm <- ParquetFileReader$create(files[1])$GetSchema()
   expect_equal(names(phys_schm), names(df1))
 
   ds <- factory$Finish(schm)
-  expect_is(ds, "UnionDataset")
-  expect_is(ds$schema, "Schema")
+  expect_r6_class(ds, "UnionDataset")
+  expect_r6_class(ds$schema, "Schema")
   expect_equal(names(schm), names(ds$schema))
   expect_equivalent(map(ds$children, ~.$files), files)
 
@@ -1431,5 +1771,16 @@ test_that("Dataset writing: unsupported features/input validation", {
   )
   expect_error(
     write_dataset(ds, tempfile(), basename_template = NULL)
+  )
+})
+
+# see https://issues.apache.org/jira/browse/ARROW-11328
+test_that("Collecting zero columns from a dataset doesn't return entire dataset", {
+  skip_if_not_available("parquet")
+  tmp <- tempfile()
+  write_dataset(mtcars, tmp, format = "parquet")
+  expect_equal(
+    open_dataset(tmp) %>% select() %>% collect() %>% dim(),
+    c(32, 0)
   )
 })

@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
+
 #include "arrow/compute/kernels/common.h"
 #include "arrow/util/int_util_internal.h"
 #include "arrow/util/macros.h"
@@ -233,6 +235,70 @@ struct DivideChecked {
   }
 };
 
+struct Power {
+  ARROW_NOINLINE
+  static uint64_t IntegerPower(uint64_t base, uint64_t exp) {
+    // right to left O(logn) power
+    uint64_t pow = 1;
+    while (exp) {
+      pow *= (exp & 1) ? base : 1;
+      base *= base;
+      exp >>= 1;
+    }
+    return pow;
+  }
+
+  template <typename T>
+  static enable_if_integer<T> Call(KernelContext* ctx, T base, T exp) {
+    if (exp < 0) {
+      ctx->SetStatus(
+          Status::Invalid("integers to negative integer powers are not allowed"));
+      return 0;
+    }
+    return static_cast<T>(IntegerPower(base, exp));
+  }
+
+  template <typename T>
+  static enable_if_floating_point<T> Call(KernelContext* ctx, T base, T exp) {
+    return std::pow(base, exp);
+  }
+};
+
+struct PowerChecked {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer<T> Call(KernelContext* ctx, Arg0 base, Arg1 exp) {
+    if (exp < 0) {
+      ctx->SetStatus(
+          Status::Invalid("integers to negative integer powers are not allowed"));
+      return 0;
+    } else if (exp == 0) {
+      return 1;
+    }
+    // left to right O(logn) power with overflow checks
+    bool overflow = false;
+    uint64_t bitmask =
+        1ULL << (63 - BitUtil::CountLeadingZeros(static_cast<uint64_t>(exp)));
+    T pow = 1;
+    while (bitmask) {
+      overflow |= MultiplyWithOverflow(pow, pow, &pow);
+      if (exp & bitmask) {
+        overflow |= MultiplyWithOverflow(pow, base, &pow);
+      }
+      bitmask >>= 1;
+    }
+    if (overflow) {
+      ctx->SetStatus(Status::Invalid("overflow"));
+    }
+    return pow;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_point<T> Call(KernelContext* ctx, Arg0 base, Arg1 exp) {
+    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
+    return std::pow(base, exp);
+  }
+};
+
 // Generate a kernel given an arithmetic functor
 template <template <typename... Args> class KernelGenerator, typename Op>
 ArrayKernelExec NumericEqualTypesBinary(detail::GetTypeId get_id) {
@@ -359,6 +425,18 @@ const FunctionDoc div_checked_doc{
      "integer overflow is encountered."),
     {"dividend", "divisor"}};
 
+const FunctionDoc pow_doc{
+    "Raise arguments to power element-wise",
+    ("Integer to negative integer power returns an error. However, integer overflow\n"
+     "wraps around. If either base or exponent is null the result will be null."),
+    {"base", "exponent"}};
+
+const FunctionDoc pow_checked_doc{
+    "Raise arguments to power element-wise",
+    ("An error is returned when integer to negative integer power is encountered,\n"
+     "or integer overflow is encountered."),
+    {"base", "exponent"}};
+
 }  // namespace
 
 void RegisterScalarArithmetic(FunctionRegistry* registry) {
@@ -407,6 +485,15 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto divide_checked =
       MakeArithmeticFunctionNotNull<DivideChecked>("divide_checked", &div_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
+
+  // ----------------------------------------------------------------------
+  auto power = MakeArithmeticFunction<Power>("power", &pow_doc);
+  DCHECK_OK(registry->AddFunction(std::move(power)));
+
+  // ----------------------------------------------------------------------
+  auto power_checked =
+      MakeArithmeticFunctionNotNull<PowerChecked>("power_checked", &pow_checked_doc);
+  DCHECK_OK(registry->AddFunction(std::move(power_checked)));
 }
 
 }  // namespace internal

@@ -23,10 +23,6 @@
 Compute Functions
 =================
 
-.. sidebar:: Contents
-
-   .. contents:: :local:
-
 The generic Compute API
 =======================
 
@@ -86,20 +82,20 @@ Many compute functions are also available directly as concrete APIs, here
 Some functions accept or require an options structure that determines the
 exact semantics of the function::
 
-   MinMaxOptions options;
-   options.null_handling = MinMaxOptions::EMIT_NULL;
+   MinMaxOptions min_max_options;
+   min_max_options.null_handling = MinMaxOptions::EMIT_NULL;
 
    std::shared_ptr<arrow::Array> array = ...;
-   arrow::Datum min_max_datum;
+   arrow::Datum min_max;
 
-   ARROW_ASSIGN_OR_RAISE(min_max_datum,
-                         arrow::compute::CallFunction("min_max", {array}, &options));
+   ARROW_ASSIGN_OR_RAISE(min_max,
+                         arrow::compute::CallFunction("min_max", {array},
+                                                      &min_max_options));
 
    // Unpack struct scalar result (a two-field {"min", "max"} scalar)
-   const auto& min_max_scalar = \
-         static_cast<const arrow::StructScalar&>(*min_max_datum.scalar());
-   const auto min_value = min_max_scalar.value[0];
-   const auto max_value = min_max_scalar.value[1];
+   std::shared_ptr<arrow::Scalar> min_value, max_value;
+   min_value = min_max.scalar_as<arrow::StructScalar>().value[0];
+   max_value = min_max.scalar_as<arrow::StructScalar>().value[1];
 
 .. seealso::
    :doc:`Compute API reference <api/compute>`
@@ -272,6 +268,10 @@ an ``Invalid`` :class:`Status` when overflow is detected.
 +--------------------------+------------+--------------------+---------------------+
 | divide_checked           | Binary     | Numeric            | Numeric             |
 +--------------------------+------------+--------------------+---------------------+
+| power                    | Binary     | Numeric            | Numeric             |
++--------------------------+------------+--------------------+---------------------+
+| power_checked            | Binary     | Numeric            | Numeric             |
++--------------------------+------------+--------------------+---------------------+
 | multiply                 | Binary     | Numeric            | Numeric             |
 +--------------------------+------------+--------------------+---------------------+
 | multiply_checked         | Binary     | Numeric            | Numeric             |
@@ -426,19 +426,25 @@ The third set of functions examines string elements on a byte-per-byte basis:
 String transforms
 ~~~~~~~~~~~~~~~~~
 
-+--------------------------+------------+-------------------------+---------------------+---------+
-| Function name            | Arity      | Input types             | Output type         | Notes   |
-+==========================+============+=========================+=====================+=========+
-| ascii_lower              | Unary      | String-like             | String-like         | \(1)    |
-+--------------------------+------------+-------------------------+---------------------+---------+
-| ascii_upper              | Unary      | String-like             | String-like         | \(1)    |
-+--------------------------+------------+-------------------------+---------------------+---------+
-| binary_length            | Unary      | Binary- or String-like  | Int32 or Int64      | \(2)    |
-+--------------------------+------------+-------------------------+---------------------+---------+
-| utf8_lower               | Unary      | String-like             | String-like         | \(3)    |
-+--------------------------+------------+-------------------------+---------------------+---------+
-| utf8_upper               | Unary      | String-like             | String-like         | \(3)    |
-+--------------------------+------------+-------------------------+---------------------+---------+
++--------------------------+------------+-------------------------+---------------------+-------------------------------------------------+
+| Function name            | Arity      | Input types             | Output type         | Notes   | Options class                         |
++==========================+============+=========================+=====================+=========+=======================================+
+| ascii_lower              | Unary      | String-like             | String-like         | \(1)    |                                       |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
+| ascii_upper              | Unary      | String-like             | String-like         | \(1)    |                                       |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
+| binary_length            | Unary      | Binary- or String-like  | Int32 or Int64      | \(2)    |                                       |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
+| replace_substring        | Unary      | String-like             | String-like         | \(3)    | :struct:`ReplaceSubstringOptions`     |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
+| replace_substring_regex  | Unary      | String-like             | String-like         | \(4)    | :struct:`ReplaceSubstringOptions`     |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
+| utf8_length              | Unary      | String-like             | Int32 or Int64      | \(5)    |                                       |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
+| utf8_lower               | Unary      | String-like             | String-like         | \(6)    |                                       |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
+| utf8_upper               | Unary      | String-like             | String-like         | \(6)    |                                       |
++--------------------------+------------+-------------------------+---------------------+---------+---------------------------------------+
 
 
 * \(1) Each ASCII character in the input is converted to lowercase or
@@ -447,7 +453,23 @@ String transforms
 * \(2) Output is the physical length in bytes of each input element.  Output
   type is Int32 for Binary / String, Int64 for LargeBinary / LargeString.
 
-* \(3) Each UTF8-encoded character in the input is converted to lowercase or
+* \(3) Replace non-overlapping substrings that match to
+  :member:`ReplaceSubstringOptions::pattern` by
+  :member:`ReplaceSubstringOptions::replacement`. If
+  :member:`ReplaceSubstringOptions::max_replacements` != -1, it determines the
+  maximum number of replacements made, counting from the left.
+
+* \(4) Replace non-overlapping substrings that match to the regular expression
+  :member:`ReplaceSubstringOptions::pattern` by
+  :member:`ReplaceSubstringOptions::replacement`, using the Google RE2 library. If
+  :member:`ReplaceSubstringOptions::max_replacements` != -1, it determines the
+  maximum number of replacements made, counting from the left. Note that if the
+  pattern contains groups, backreferencing can be used.
+
+* \(5) Output is the number of characters (not bytes) of each input element.
+  Output type is Int32 for String, Int64 for LargeString. 
+
+* \(6) Each UTF8-encoded character in the input is converted to lowercase or
   uppercase.
 
 
@@ -500,26 +522,31 @@ These functions trim off characters on both sides (trim), or the left (ltrim) or
 Containment tests
 ~~~~~~~~~~~~~~~~~
 
-+--------------------+------------+------------------------------------+---------------+----------------------------------------+
-| Function name      | Arity      | Input types                        | Output type   | Options class                          |
-+====================+============+====================================+===============+========================================+
-| match_substring    | Unary      | String-like                        | Boolean (1)   | :struct:`MatchSubstringOptions`        |
-+--------------------+------------+------------------------------------+---------------+----------------------------------------+
-| index_in           | Unary      | Boolean, Null, Numeric, Temporal,  | Int32 (2)     | :struct:`SetLookupOptions`             |
-|                    |            | Binary- and String-like            |               |                                        |
-+--------------------+------------+------------------------------------+---------------+----------------------------------------+
-| is_in              | Unary      | Boolean, Null, Numeric, Temporal,  | Boolean (3)   | :struct:`SetLookupOptions`             |
-|                    |            | Binary- and String-like            |               |                                        |
-+--------------------+------------+------------------------------------+---------------+----------------------------------------+
++---------------------------+------------+------------------------------------+---------------+----------------------------------------+
+| Function name             | Arity      | Input types                        | Output type   | Options class                          |
++===========================+============+====================================+===============+========================================+
+| match_substring           | Unary      | String-like                        | Boolean (1)   | :struct:`MatchSubstringOptions`        |
++---------------------------+------------+------------------------------------+---------------+----------------------------------------+
+| match_substring_regex     | Unary      | String-like                        | Boolean (2)   | :struct:`MatchSubstringOptions`        |
++---------------------------+------------+------------------------------------+---------------+----------------------------------------+
+| index_in                  | Unary      | Boolean, Null, Numeric, Temporal,  | Int32 (3)     | :struct:`SetLookupOptions`             |
+|                           |            | Binary- and String-like            |               |                                        |
++---------------------------+------------+------------------------------------+---------------+----------------------------------------+
+| is_in                     | Unary      | Boolean, Null, Numeric, Temporal,  | Boolean (4)   | :struct:`SetLookupOptions`             |
+|                           |            | Binary- and String-like            |               |                                        |
++---------------------------+------------+------------------------------------+---------------+----------------------------------------+
 
 * \(1) Output is true iff :member:`MatchSubstringOptions::pattern`
   is a substring of the corresponding input element.
 
-* \(2) Output is the index of the corresponding input element in
+* \(2) Output is true iff :member:`MatchSubstringOptions::pattern`
+  matches the corresponding input element at any position.
+
+* \(3) Output is the index of the corresponding input element in
   :member:`SetLookupOptions::value_set`, if found there.  Otherwise,
   output is null.
 
-* \(3) Output is true iff the corresponding input element is equal to one
+* \(4) Output is true iff the corresponding input element is equal to one
   of the elements in :member:`SetLookupOptions::value_set`.
 
 

@@ -35,11 +35,8 @@ import { validateRecordBatchAsyncIterator } from '../validate';
         return test('not testing node streams because process.env.TEST_NODE_STREAMS !== "true"', () => {});
     }
 
-    /* tslint:disable */
     const { Readable, PassThrough } = require('stream');
-    /* tslint:disable */
     const { parse: bignumJSONParse } = require('json-bignum');
-    /* tslint:disable */
     const concatStream = ((multistream) => (...xs: any[]) =>
         new Readable().wrap(multistream(...xs))
     )(require('multistream'));

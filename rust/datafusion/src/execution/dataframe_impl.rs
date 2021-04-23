@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Implementation of DataFrame API
+//! Implementation of DataFrame API.
 
 use std::sync::{Arc, Mutex};
 
@@ -58,11 +58,11 @@ impl DataFrame for DataFrameImpl {
             .map(|name| self.plan.schema().field_with_unqualified_name(name))
             .collect::<Result<Vec<_>>>()?;
         let expr: Vec<Expr> = fields.iter().map(|f| col(f.name())).collect();
-        self.select(&expr)
+        self.select(expr)
     }
 
     /// Create a projection based on arbitrary expressions
-    fn select(&self, expr_list: &[Expr]) -> Result<Arc<dyn DataFrame>> {
+    fn select(&self, expr_list: Vec<Expr>) -> Result<Arc<dyn DataFrame>> {
         let plan = LogicalPlanBuilder::from(&self.plan)
             .project(expr_list)?
             .build()?;
@@ -80,8 +80,8 @@ impl DataFrame for DataFrameImpl {
     /// Perform an aggregate query
     fn aggregate(
         &self,
-        group_expr: &[Expr],
-        aggr_expr: &[Expr],
+        group_expr: Vec<Expr>,
+        aggr_expr: Vec<Expr>,
     ) -> Result<Arc<dyn DataFrame>> {
         let plan = LogicalPlanBuilder::from(&self.plan)
             .aggregate(group_expr, aggr_expr)?
@@ -96,7 +96,7 @@ impl DataFrame for DataFrameImpl {
     }
 
     /// Sort by specified sorting expressions
-    fn sort(&self, expr: &[Expr]) -> Result<Arc<dyn DataFrame>> {
+    fn sort(&self, expr: Vec<Expr>) -> Result<Arc<dyn DataFrame>> {
         let plan = LogicalPlanBuilder::from(&self.plan).sort(expr)?.build()?;
         Ok(Arc::new(DataFrameImpl::new(self.ctx_state.clone(), &plan)))
     }
@@ -166,6 +166,13 @@ impl DataFrame for DataFrameImpl {
         let registry = self.ctx_state.lock().unwrap().clone();
         Arc::new(registry)
     }
+
+    fn union(&self, dataframe: Arc<dyn DataFrame>) -> Result<Arc<dyn DataFrame>> {
+        let plan = LogicalPlanBuilder::from(&self.plan)
+            .union(dataframe.to_logical_plan())?
+            .build()?;
+        Ok(Arc::new(DataFrameImpl::new(self.ctx_state.clone(), &plan)))
+    }
 }
 
 #[cfg(test)]
@@ -197,7 +204,7 @@ mod tests {
     fn select_expr() -> Result<()> {
         // build plan using Table API
         let t = test_table()?;
-        let t2 = t.select(&[col("c1"), col("c2"), col("c11")])?;
+        let t2 = t.select(vec![col("c1"), col("c2"), col("c11")])?;
         let plan = t2.to_logical_plan();
 
         // build query using SQL
@@ -213,8 +220,8 @@ mod tests {
     fn aggregate() -> Result<()> {
         // build plan using DataFrame API
         let df = test_table()?;
-        let group_expr = &[col("c1")];
-        let aggr_expr = &[
+        let group_expr = vec![col("c1")];
+        let aggr_expr = vec![
             min(col("c12")),
             max(col("c12")),
             avg(col("c12")),
@@ -247,12 +254,9 @@ mod tests {
         let right_rows = right.collect().await?;
         let join = left.join(right, JoinType::Inner, &["c1"], &["c1"])?;
         let join_rows = join.collect().await?;
-        assert_eq!(1, left_rows.len());
-        assert_eq!(100, left_rows[0].num_rows());
-        assert_eq!(1, right_rows.len());
-        assert_eq!(100, right_rows[0].num_rows());
-        assert_eq!(1, join_rows.len());
-        assert_eq!(2008, join_rows[0].num_rows());
+        assert_eq!(100, left_rows.iter().map(|x| x.num_rows()).sum::<usize>());
+        assert_eq!(100, right_rows.iter().map(|x| x.num_rows()).sum::<usize>());
+        assert_eq!(2008, join_rows.iter().map(|x| x.num_rows()).sum::<usize>());
         Ok(())
     }
 
@@ -315,7 +319,7 @@ mod tests {
 
         let f = df.registry();
 
-        let df = df.select(&[f.udf("my_fn")?.call(vec![col("c12")])])?;
+        let df = df.select(vec![f.udf("my_fn")?.call(vec![col("c12")])])?;
         let plan = df.to_logical_plan();
 
         // build query using SQL

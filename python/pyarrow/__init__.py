@@ -66,7 +66,8 @@ if _gc_enabled:
 
 from pyarrow.lib import (BuildInfo, RuntimeInfo, VersionInfo,
                          cpp_build_info, cpp_version, cpp_version_info,
-                         runtime_info, cpu_count, set_cpu_count)
+                         runtime_info, cpu_count, set_cpu_count,
+                         enable_signal_handlers)
 
 
 def show_versions():
@@ -177,7 +178,8 @@ from pyarrow.lib import (ChunkedArray, RecordBatch, Table, table,
                          concat_arrays, concat_tables)
 
 # Exceptions
-from pyarrow.lib import (ArrowCapacityError,
+from pyarrow.lib import (ArrowCancelled,
+                         ArrowCapacityError,
                          ArrowException,
                          ArrowKeyError,
                          ArrowIndexError,

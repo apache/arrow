@@ -50,6 +50,7 @@ class BenchmarkCodec:
             "values": b.values,
             "time_unit": b.time_unit,
             "times": b.times,
+            "counters": b.counters,
         }
 
     @staticmethod

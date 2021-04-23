@@ -31,12 +31,10 @@ def generate_batch(batch_len):
         pa.Array.from_pandas(pd.Categorical((random.choice(cities) for i in range(batch_len)), cities))
     ], ['lat', 'lng', 'origin', 'destination'])
 
-def write_record_batches(fd, batch_len, num_batches):
-    writer = pa.ipc.RecordBatchStreamWriter(fd, generate_batch(1).schema)
-    for batch in range(num_batches):
-        writer.write_batch(generate_batch(batch_len))
-
-    writer.close()
+def write_record_batches(filename, batch_len, num_batches):
+    with pa.ipc.RecordBatchStreamWriter(filename, generate_batch(1).schema) as writer:
+        for _ in range(num_batches):
+            writer.write_batch(generate_batch(batch_len))
 
 if __name__ == "__main__":
     import argparse
@@ -48,6 +46,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    print "Writing {} {}-element batches to '{}'".format(args.num_batches, args.batch_size, args.filename)
-    with open(args.filename, 'w') as fd:
-        write_record_batches(fd, args.batch_size, args.num_batches)
+    print("Writing {} {}-element batches to '{}'".format(args.num_batches, args.batch_size, args.filename))
+    write_record_batches(args.filename, args.batch_size, args.num_batches)

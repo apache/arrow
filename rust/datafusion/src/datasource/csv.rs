@@ -121,6 +121,7 @@ impl TableProvider for CsvFile {
         projection: &Option<Vec<usize>>,
         batch_size: usize,
         _filters: &[Expr],
+        limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         Ok(Arc::new(CsvExec::try_new(
             &self.path,
@@ -130,7 +131,10 @@ impl TableProvider for CsvFile {
                 .delimiter(self.delimiter)
                 .file_extension(self.file_extension.as_str()),
             projection.clone(),
-            batch_size,
+            limit
+                .map(|l| std::cmp::min(l, batch_size))
+                .unwrap_or(batch_size),
+            limit,
         )?))
     }
 

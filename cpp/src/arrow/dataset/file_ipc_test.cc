@@ -102,7 +102,7 @@ class TestIpcFileFormat : public ArrowIpcWriterMixin {
   }
 
   RecordBatchIterator Batches(Fragment* fragment) {
-    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_, ctx_));
+    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
     return Batches(std::move(scan_task_it));
   }
 
@@ -115,7 +115,6 @@ class TestIpcFileFormat : public ArrowIpcWriterMixin {
  protected:
   std::shared_ptr<IpcFileFormat> format_ = std::make_shared<IpcFileFormat>();
   std::shared_ptr<ScanOptions> opts_;
-  std::shared_ptr<ScanContext> ctx_ = std::make_shared<ScanContext>();
 };
 
 TEST_F(TestIpcFileFormat, ScanRecordBatchReader) {
@@ -133,6 +132,28 @@ TEST_F(TestIpcFileFormat, ScanRecordBatchReader) {
   }
 
   ASSERT_EQ(row_count, kNumRows);
+}
+
+TEST_F(TestIpcFileFormat, FragmentScanOptions) {
+  auto reader = GetRecordBatchReader(
+      // ARROW-12077: on Windows/mimalloc/release, nullable list column leads to crash
+      schema({field("list", list(float64()), false,
+                    key_value_metadata({{"max_length", "1"}})),
+              field("f64", float64())}));
+  auto source = GetFileSource(reader.get());
+
+  SetSchema(reader->schema()->fields());
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+
+  // Set scan options that ensure reading fails
+  auto fragment_scan_options = std::make_shared<IpcFragmentScanOptions>();
+  fragment_scan_options->options = std::make_shared<ipc::IpcReadOptions>();
+  fragment_scan_options->options->max_recursion_depth = 0;
+  opts_->fragment_scan_options = fragment_scan_options;
+  ASSERT_OK_AND_ASSIGN(auto scan_tasks, fragment->Scan(opts_));
+  ASSERT_OK_AND_ASSIGN(auto scan_task, scan_tasks.Next());
+  ASSERT_OK_AND_ASSIGN(auto batches, scan_task->Execute());
+  ASSERT_RAISES(Invalid, batches.Next());
 }
 
 TEST_F(TestIpcFileFormat, ScanRecordBatchReaderWithVirtualColumn) {
@@ -213,6 +234,13 @@ class TestIpcFileSystemDataset : public testing::Test,
     format_ = ipc_format;
     SetWriteOptions(ipc_format->DefaultWriteOptions());
   }
+
+  std::shared_ptr<Scanner> MakeScanner(const std::shared_ptr<Dataset>& dataset,
+                                       const std::shared_ptr<ScanOptions>& scan_options) {
+    ScannerBuilder builder(dataset, scan_options);
+    EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+    return scanner;
+  }
 };
 
 TEST_F(TestIpcFileSystemDataset, WriteWithIdenticalPartitioningSchema) {
@@ -238,7 +266,7 @@ TEST_F(TestIpcFileSystemDataset, WriteExceedsMaxPartitions) {
   // require that no batch be grouped into more than 2 written batches:
   write_options_.max_partitions = 2;
 
-  auto scanner = std::make_shared<Scanner>(dataset_, scan_options_, scan_context_);
+  auto scanner = MakeScanner(dataset_, scan_options_);
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("This exceeds the maximum"),
                                   FileSystemDataset::Write(write_options_, scanner));
 }

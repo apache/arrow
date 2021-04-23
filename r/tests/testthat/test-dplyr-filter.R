@@ -24,6 +24,7 @@ tbl$verses <- verses[[1]]
 # c(" a ", "  b  ", "   c   ", ...) increasing padding
 # nchar =   3  5  7  9 11 13 15 17 19 21
 tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2*(1:10)+1, side = "both")
+tbl$some_negative <- tbl$int * (-1)^(1:nrow(tbl))
 
 test_that("filter() on is.na()", {
   expect_dplyr_equal(
@@ -114,6 +115,14 @@ test_that("filtering with arithmetic", {
       collect(),
     tbl
   )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl^2 > 3) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl
+  )
 })
 
 test_that("filtering with expression + autocasting", {
@@ -128,6 +137,14 @@ test_that("filtering with expression + autocasting", {
   expect_dplyr_equal(
     input %>%
       filter(int + 1 > 3) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(int^2 > 3) %>%
       select(string = chr, int, dbl) %>%
       collect(),
     tbl
@@ -155,7 +172,78 @@ test_that("filter() with %in%", {
   )
 })
 
+test_that("Negative scalar values", {
+  expect_dplyr_equal(
+    input %>%
+      filter(some_negative > -2) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      filter(some_negative %in% -1) %>%
+      collect(),
+    tbl
+    )
+  expect_dplyr_equal(
+    input %>%
+      filter(int == -some_negative) %>%
+      collect(),
+    tbl
+  )
+})
+
+
+test_that("filter() with between()", {
+  expect_dplyr_equal(
+    input %>%
+      filter(between(dbl, 1, 2)) %>%
+      collect(),
+    tbl
+  )
+
+  expect_dplyr_equal(
+    input %>%
+      filter(between(dbl, 0.5, 2)) %>%
+      collect(),
+    tbl
+  )
+
+  expect_identical(
+    tbl %>%
+      record_batch() %>%
+      filter(between(dbl, int, dbl2)) %>%
+      collect(),
+    tbl %>%
+      filter(dbl >= int, dbl <= dbl2)
+    )
+
+  expect_error(
+    tbl %>%
+      record_batch() %>%
+      filter(between(dbl, 1, "2")) %>%
+      collect()
+  )
+
+  expect_error(
+    tbl %>%
+      record_batch() %>%
+      filter(between(dbl, 1, NA)) %>%
+      collect()
+  )
+
+  expect_error(
+    tbl %>%
+      record_batch() %>%
+      filter(between(chr, 1, 2)) %>%
+      collect()
+  )
+
+})
+
 test_that("filter() with string ops", {
+  skip_if_not_available("utf8proc")
+  skip_if(getRversion() < "3.4.0", "R < 3.4")
   # Extra instrumentation to ensure that we're calling Arrow compute here
   # because many base R string functions implicitly call as.character,
   # which means they still work on Arrays but actually force data into R
@@ -163,7 +251,6 @@ test_that("filter() with string ops", {
   #    the whole test because as.character apparently gets called in other
   #    (presumably legitimate) places
   # 2) Wrap the test in expect_warning(expr, NA) to catch the warning
-
   with_no_as_character <- function(expr) {
     trace(
       "as.character",
@@ -201,7 +288,7 @@ test_that("filter() with string ops", {
 
 test_that("filter environment scope", {
   # "object 'b_var' not found"
-  expect_dplyr_error(input %>% filter(batch, chr == b_var))
+  expect_dplyr_error(input %>% filter(chr == b_var), tbl)
 
   b_var <- "b"
   expect_dplyr_equal(
@@ -212,7 +299,7 @@ test_that("filter environment scope", {
   )
   # Also for functions
   # 'could not find function "isEqualTo"' because we haven't defined it yet
-  expect_dplyr_error(filter(batch, isEqualTo(int, 4)))
+  expect_dplyr_error(input %>% filter(isEqualTo(int, 4)), tbl)
 
   skip("Need to substitute in user defined function too")
   # TODO: fix this: this isEqualTo function is eagerly evaluating; it should
@@ -230,11 +317,28 @@ test_that("filter environment scope", {
 })
 
 test_that("Filtering on a column that doesn't exist errors correctly", {
-  skip("Error handling in arrow_eval() needs to be internationalized (ARROW-11700)")
-  expect_error(
-    batch %>% filter(not_a_col == 42) %>% collect(),
-    "object 'not_a_col' not found"
-  )
+  with_language("fr", {
+    # expect_warning(., NA) because the usual behavior when it hits a filter
+    # that it can't evaluate is to raise a warning, collect() to R, and retry
+    # the filter. But we want this to error the first time because it's
+    # a user error, not solvable by retrying in R
+    expect_warning(
+      expect_error(
+        tbl %>% record_batch() %>% filter(not_a_col == 42) %>% collect(),
+        "objet 'not_a_col' introuvable"
+      ),
+      NA
+    )
+  })
+  with_language("en", {
+    expect_warning(
+      expect_error(
+        tbl %>% record_batch() %>% filter(not_a_col == 42) %>% collect(),
+        "object 'not_a_col' not found"
+      ),
+      NA
+    )
+  })
 })
 
 test_that("Filtering with a function that doesn't have an Array/expr method still works", {
@@ -247,6 +351,30 @@ test_that("Filtering with a function that doesn't have an Array/expr method stil
     ),
     'Filter expression not implemented in Arrow: pnorm(dbl) > 0.99; pulling data into R',
     fixed = TRUE
+  )
+})
+
+test_that("Calling Arrow compute functions 'directly'", {
+  expect_equal(
+    tbl %>%
+      record_batch() %>%
+      filter(arrow_add(dbl, 1) > 3L) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl %>%
+      filter(dbl + 1 > 3L) %>%
+      select(string = chr, int, dbl)
+  )
+
+  expect_dplyr_equal(
+    tbl %>%
+      record_batch() %>%
+      filter(arrow_greater(arrow_add(dbl, 1), 3L)) %>%
+      select(string = chr, int, dbl) %>%
+      collect(),
+    tbl %>%
+      filter(dbl + 1 > 3L) %>%
+      select(string = chr, int, dbl)
   )
 })
 
@@ -277,11 +405,13 @@ test_that("filter() with .data pronoun", {
     tbl
   )
 
+  skip("test now faulty - code no longer gives error & outputs a empty tibble")
   # but there is an error if we don't override the masking with `.env`
   expect_dplyr_error(
-    tbl %>%
+    input %>%
       filter(.data$dbl > chr) %>%
       select(.data$chr, .data$int, .data$lgl) %>%
-      collect()
+      collect(),
+    tbl
   )
 })

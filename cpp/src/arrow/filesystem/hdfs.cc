@@ -397,7 +397,9 @@ Result<HdfsOptions> HdfsOptions::FromUri(const std::string& uri_string) {
 
 HadoopFileSystem::HadoopFileSystem(const HdfsOptions& options,
                                    const io::IOContext& io_context)
-    : FileSystem(io_context), impl_(new Impl{options, io_context_}) {}
+    : FileSystem(io_context), impl_(new Impl{options, io_context_}) {
+  default_async_is_sync_ = false;
+}
 
 HadoopFileSystem::~HadoopFileSystem() {}
 

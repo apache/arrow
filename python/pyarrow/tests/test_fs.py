@@ -16,7 +16,6 @@
 # under the License.
 
 from datetime import datetime, timezone, timedelta
-from distutils.version import LooseVersion
 import gzip
 import os
 import pathlib
@@ -28,6 +27,8 @@ import weakref
 
 import pyarrow as pa
 from pyarrow.tests.test_io import assert_file_not_found
+from pyarrow.vendored.version import Version
+
 from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
                         LocalFileSystem, SubTreeFileSystem, _MockFileSystem,
                         FileSystemHandler, PyFileSystem, FSSpecHandler)
@@ -355,7 +356,8 @@ def py_fsspec_memoryfs(request, tempdir):
 @pytest.fixture
 def py_fsspec_s3fs(request, s3_connection, s3_server):
     s3fs = pytest.importorskip("s3fs")
-    if sys.version_info < (3, 7) and s3fs.__version__ >= LooseVersion("0.5"):
+    if (sys.version_info < (3, 7) and
+            Version(s3fs.__version__) >= Version("0.5")):
         pytest.skip("s3fs>=0.5 version is async and requires Python >= 3.7")
 
     host, port, access_key, secret_key = s3_connection
@@ -1048,6 +1050,147 @@ def test_s3_options(monkeypatch):
         S3FileSystem(
             access_key='access', secret_key='secret', role_arn='arn'
         )
+
+
+@pytest.mark.s3
+def test_s3_proxy_options(monkeypatch):
+    from pyarrow.fs import S3FileSystem
+
+    # The following two are equivalent:
+    proxy_opts_1_dict = {'scheme': 'http', 'host': 'localhost', 'port': 8999}
+    proxy_opts_1_str = 'http://localhost:8999'
+    # The following two are equivalent:
+    proxy_opts_2_dict = {'scheme': 'https', 'host': 'localhost', 'port': 8080}
+    proxy_opts_2_str = 'https://localhost:8080'
+
+    # Check dict case for 'proxy_options'
+    fs = S3FileSystem(proxy_options=proxy_opts_1_dict)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs = S3FileSystem(proxy_options=proxy_opts_2_dict)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    # Check str case for 'proxy_options'
+    fs = S3FileSystem(proxy_options=proxy_opts_1_str)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    fs = S3FileSystem(proxy_options=proxy_opts_2_str)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle.loads(pickle.dumps(fs)) == fs
+
+    # Check that two FSs using the same proxy_options dict are equal
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_dict)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_1_dict)
+    assert fs1 == fs2
+    assert pickle.loads(pickle.dumps(fs1)) == fs2
+    assert pickle.loads(pickle.dumps(fs2)) == fs1
+
+    fs1 = S3FileSystem(proxy_options=proxy_opts_2_dict)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_2_dict)
+    assert fs1 == fs2
+    assert pickle.loads(pickle.dumps(fs1)) == fs2
+    assert pickle.loads(pickle.dumps(fs2)) == fs1
+
+    # Check that two FSs using the same proxy_options str are equal
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_str)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_1_str)
+    assert fs1 == fs2
+    assert pickle.loads(pickle.dumps(fs1)) == fs2
+    assert pickle.loads(pickle.dumps(fs2)) == fs1
+
+    fs1 = S3FileSystem(proxy_options=proxy_opts_2_str)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_2_str)
+    assert fs1 == fs2
+    assert pickle.loads(pickle.dumps(fs1)) == fs2
+    assert pickle.loads(pickle.dumps(fs2)) == fs1
+
+    # Check that two FSs using equivalent proxy_options
+    # (one dict, one str) are equal
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_dict)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_1_str)
+    assert fs1 == fs2
+    assert pickle.loads(pickle.dumps(fs1)) == fs2
+    assert pickle.loads(pickle.dumps(fs2)) == fs1
+
+    fs1 = S3FileSystem(proxy_options=proxy_opts_2_dict)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_2_str)
+    assert fs1 == fs2
+    assert pickle.loads(pickle.dumps(fs1)) == fs2
+    assert pickle.loads(pickle.dumps(fs2)) == fs1
+
+    # Check that two FSs using nonequivalent proxy_options are not equal
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_dict)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_2_dict)
+    assert fs1 != fs2
+    assert pickle.loads(pickle.dumps(fs1)) != fs2
+    assert pickle.loads(pickle.dumps(fs2)) != fs1
+
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_dict)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_2_str)
+    assert fs1 != fs2
+    assert pickle.loads(pickle.dumps(fs1)) != fs2
+    assert pickle.loads(pickle.dumps(fs2)) != fs1
+
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_str)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_2_dict)
+    assert fs1 != fs2
+    assert pickle.loads(pickle.dumps(fs1)) != fs2
+    assert pickle.loads(pickle.dumps(fs2)) != fs1
+
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_str)
+    fs2 = S3FileSystem(proxy_options=proxy_opts_2_str)
+    assert fs1 != fs2
+    assert pickle.loads(pickle.dumps(fs1)) != fs2
+    assert pickle.loads(pickle.dumps(fs2)) != fs1
+
+    # Check that two FSs (one using proxy_options and the other not)
+    # are not equal
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_dict)
+    fs2 = S3FileSystem()
+    assert fs1 != fs2
+    assert pickle.loads(pickle.dumps(fs1)) != fs2
+    assert pickle.loads(pickle.dumps(fs2)) != fs1
+
+    fs1 = S3FileSystem(proxy_options=proxy_opts_1_str)
+    fs2 = S3FileSystem()
+    assert fs1 != fs2
+    assert pickle.loads(pickle.dumps(fs1)) != fs2
+    assert pickle.loads(pickle.dumps(fs2)) != fs1
+
+    fs1 = S3FileSystem(proxy_options=proxy_opts_2_dict)
+    fs2 = S3FileSystem()
+    assert fs1 != fs2
+    assert pickle.loads(pickle.dumps(fs1)) != fs2
+    assert pickle.loads(pickle.dumps(fs2)) != fs1
+
+    fs1 = S3FileSystem(proxy_options=proxy_opts_2_str)
+    fs2 = S3FileSystem()
+    assert fs1 != fs2
+    assert pickle.loads(pickle.dumps(fs1)) != fs2
+    assert pickle.loads(pickle.dumps(fs2)) != fs1
+
+    # Only dict and str are supported
+    with pytest.raises(TypeError):
+        S3FileSystem(proxy_options=('http', 'localhost', 9090))
+    # Missing scheme
+    with pytest.raises(KeyError):
+        S3FileSystem(proxy_options={'host': 'localhost', 'port': 9090})
+    # Missing host
+    with pytest.raises(KeyError):
+        S3FileSystem(proxy_options={'scheme': 'https', 'port': 9090})
+    # Missing port
+    with pytest.raises(KeyError):
+        S3FileSystem(proxy_options={'scheme': 'http', 'host': 'localhost'})
+    # Invalid proxy URI (invalid scheme htttps)
+    with pytest.raises(pa.ArrowInvalid):
+        S3FileSystem(proxy_options='htttps://localhost:9000')
+    # Invalid proxy_options dict (invalid scheme htttps)
+    with pytest.raises(pa.ArrowInvalid):
+        S3FileSystem(proxy_options={'scheme': 'htttp', 'host': 'localhost',
+                                    'port': 8999})
 
 
 @pytest.mark.hdfs

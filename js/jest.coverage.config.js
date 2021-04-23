@@ -17,14 +17,14 @@
 
 module.exports = {
     ...require('./jest.config'),
-    "reporters": undefined,
-    "coverageReporters": [
-        "lcov", "json"
+    reporters: undefined,
+    coverageReporters: [
+        lcov, 'json'
     ],
-    "globals": {
-        "ts-jest": {
-            "diagnostics": false,
-            "tsConfig": "test/tsconfig.coverage.json"
+    globals: {
+        'ts-jest': {
+            diagnostics: false,
+            tsConfig: 'test/tsconfig.coverage.json'
         }
     }
 };

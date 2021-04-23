@@ -134,10 +134,15 @@ class IntegrationRunner(object):
                 skip.add("JS")
                 skip.add("Rust")
             if prefix == '2.0.0-compression':
-                skip.add("Go")
-                skip.add("Java")
                 skip.add("JS")
                 skip.add("Rust")
+
+            # See https://github.com/apache/arrow/pull/9822 for how to
+            # disable specific compression type tests.
+
+            if prefix == '4.0.0-shareddict':
+                skip.add("Go")
+
             yield datagen.File(name, None, None, skip=skip, path=out_path)
 
     def _run_test_cases(self, producer, consumer, case_runner,

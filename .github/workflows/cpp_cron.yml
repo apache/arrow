@@ -46,8 +46,8 @@ jobs:
         name:
           - amd64-debian-10-cpp
           - amd64-fedora-33-cpp
-          - amd64-ubuntu-16.04-cpp
           - amd64-ubuntu-18.04-cpp
+          - amd64-ubuntu-20.04-cpp
         include:
           - name: amd64-debian-10-cpp
             image: debian-cpp
@@ -57,14 +57,14 @@ jobs:
             image: fedora-cpp
             title: AMD64 Fedora 33 C++
             fedora: 33
-          - name: amd64-ubuntu-16.04-cpp
-            image: ubuntu-cpp
-            title: AMD64 Ubuntu 16.04 C++
-            ubuntu: 16.04
           - name: amd64-ubuntu-18.04-cpp
             image: ubuntu-cpp
             title: AMD64 Ubuntu 18.04 C++
             ubuntu: 18.04
+          - name: amd64-ubuntu-20.04-cpp
+            image: ubuntu-cpp
+            title: AMD64 Ubuntu 20.04 C++
+            ubuntu: 20.04
     env:
       # the defaults here should correspond to the values in .env
       ARCH: 'amd64'

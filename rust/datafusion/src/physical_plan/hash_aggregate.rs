@@ -18,7 +18,7 @@
 //! Defines the execution plan for the hash aggregate operation
 
 use std::any::Any;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 
 use ahash::RandomState;
@@ -28,7 +28,7 @@ use futures::{
 };
 
 use crate::error::{DataFusionError, Result};
-use crate::physical_plan::{Accumulator, AggregateExpr};
+use crate::physical_plan::{Accumulator, AggregateExpr, SQLMetric};
 use crate::physical_plan::{Distribution, ExecutionPlan, Partitioning, PhysicalExpr};
 
 use arrow::{
@@ -58,7 +58,9 @@ use hashbrown::HashMap;
 use ordered_float::OrderedFloat;
 use pin_project_lite::pin_project;
 
-use arrow::array::{TimestampMicrosecondArray, TimestampNanosecondArray};
+use arrow::array::{
+    TimestampMicrosecondArray, TimestampMillisecondArray, TimestampNanosecondArray,
+};
 use async_trait::async_trait;
 
 use super::{
@@ -92,6 +94,8 @@ pub struct HashAggregateExec {
     /// same as input.schema() but for the final aggregate it will be the same as the input
     /// to the partial aggregate
     input_schema: SchemaRef,
+    /// Metric to track number of output rows
+    output_rows: Arc<Mutex<SQLMetric>>,
 }
 
 fn create_schema(
@@ -140,6 +144,8 @@ impl HashAggregateExec {
 
         let schema = Arc::new(schema);
 
+        let output_rows = SQLMetric::counter("outputRows");
+
         Ok(HashAggregateExec {
             mode,
             group_expr,
@@ -147,6 +153,7 @@ impl HashAggregateExec {
             input,
             schema,
             input_schema,
+            output_rows,
         })
     }
 
@@ -221,6 +228,7 @@ impl ExecutionPlan for HashAggregateExec {
                 group_expr,
                 self.aggr_expr.clone(),
                 input,
+                self.output_rows.clone(),
             )))
         }
     }
@@ -241,6 +249,15 @@ impl ExecutionPlan for HashAggregateExec {
                 "HashAggregateExec wrong number of children".to_string(),
             )),
         }
+    }
+
+    fn metrics(&self) -> HashMap<String, SQLMetric> {
+        let mut metrics = HashMap::new();
+        metrics.insert(
+            "outputRows".to_owned(),
+            self.output_rows.lock().unwrap().clone(),
+        );
+        metrics
     }
 }
 
@@ -275,6 +292,7 @@ pin_project! {
         #[pin]
         output: futures::channel::oneshot::Receiver<ArrowResult<RecordBatch>>,
         finished: bool,
+        output_rows: Arc<Mutex<SQLMetric>>,
     }
 }
 
@@ -496,6 +514,13 @@ fn create_key_for_col(col: &ArrayRef, row: usize, vec: &mut Vec<u8>) -> Result<(
             let array = col.as_any().downcast_ref::<Int64Array>().unwrap();
             vec.extend_from_slice(&array.value(row).to_le_bytes());
         }
+        DataType::Timestamp(TimeUnit::Millisecond, None) => {
+            let array = col
+                .as_any()
+                .downcast_ref::<TimestampMillisecondArray>()
+                .unwrap();
+            vec.extend_from_slice(&array.value(row).to_le_bytes());
+        }
         DataType::Timestamp(TimeUnit::Microsecond, None) => {
             let array = col
                 .as_any()
@@ -619,6 +644,7 @@ impl GroupedHashAggregateStream {
         group_expr: Vec<Arc<dyn PhysicalExpr>>,
         aggr_expr: Vec<Arc<dyn AggregateExpr>>,
         input: SendableRecordBatchStream,
+        output_rows: Arc<Mutex<SQLMetric>>,
     ) -> Self {
         let (tx, rx) = futures::channel::oneshot::channel();
 
@@ -639,6 +665,7 @@ impl GroupedHashAggregateStream {
             schema,
             output: rx,
             finished: false,
+            output_rows,
         }
     }
 }
@@ -658,6 +685,8 @@ impl Stream for GroupedHashAggregateStream {
             return Poll::Ready(None);
         }
 
+        let output_rows = self.output_rows.clone();
+
         // is the output ready?
         let this = self.project();
         let output_poll = this.output.poll(cx);
@@ -671,6 +700,12 @@ impl Stream for GroupedHashAggregateStream {
                     Err(e) => Err(ArrowError::ExternalError(Box::new(e))), // error receiving
                     Ok(result) => result,
                 };
+
+                if let Ok(batch) = &result {
+                    let mut output_rows = output_rows.lock().unwrap();
+                    output_rows.add(batch.num_rows())
+                }
+
                 Poll::Ready(Some(result))
             }
             Poll::Pending => Poll::Pending,
@@ -923,6 +958,9 @@ fn create_batch_from_map(
                         Arc::new(StringArray::from(vec![&***str]))
                     }
                     GroupByScalar::Boolean(b) => Arc::new(BooleanArray::from(vec![*b])),
+                    GroupByScalar::TimeMillisecond(n) => {
+                        Arc::new(TimestampMillisecondArray::from(vec![*n]))
+                    }
                     GroupByScalar::TimeMicrosecond(n) => {
                         Arc::new(TimestampMicrosecondArray::from(vec![*n]))
                     }
@@ -1072,6 +1110,13 @@ fn create_group_by_value(col: &ArrayRef, row: usize) -> Result<GroupByScalar> {
         DataType::Boolean => {
             let array = col.as_any().downcast_ref::<BooleanArray>().unwrap();
             Ok(GroupByScalar::Boolean(array.value(row)))
+        }
+        DataType::Timestamp(TimeUnit::Millisecond, None) => {
+            let array = col
+                .as_any()
+                .downcast_ref::<TimestampMillisecondArray>()
+                .unwrap();
+            Ok(GroupByScalar::TimeMillisecond(array.value(row)))
         }
         DataType::Timestamp(TimeUnit::Microsecond, None) => {
             let array = col
@@ -1236,6 +1281,11 @@ mod tests {
         ];
 
         assert_batches_sorted_eq!(&expected, &result);
+
+        let metrics = merged_aggregate.metrics();
+        let output_rows = metrics.get("outputRows").unwrap();
+        assert_eq!(3, output_rows.value());
+
         Ok(())
     }
 

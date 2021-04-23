@@ -70,14 +70,10 @@ export class Data<T extends DataType = DataType> {
      */
     public dictionary?: Vector;
 
-    // @ts-ignore
-    public readonly values: Buffers<T>[BufferType.DATA];
-    // @ts-ignore
-    public readonly typeIds: Buffers<T>[BufferType.TYPE];
-    // @ts-ignore
-    public readonly nullBitmap: Buffers<T>[BufferType.VALIDITY];
-    // @ts-ignore
-    public readonly valueOffsets: Buffers<T>[BufferType.OFFSET];
+    public readonly values!: Buffers<T>[BufferType.DATA];
+    public readonly typeIds!: Buffers<T>[BufferType.TYPE];
+    public readonly nullBitmap!: Buffers<T>[BufferType.VALIDITY];
+    public readonly valueOffsets!: Buffers<T>[BufferType.OFFSET];
 
     public get typeId(): T['TType'] { return this.type.typeId; }
     public get ArrayType(): T['ArrayType'] { return this.type.ArrayType; }
@@ -86,7 +82,7 @@ export class Data<T extends DataType = DataType> {
     }
     public get byteLength(): number {
         let byteLength = 0;
-        let { valueOffsets, values, nullBitmap, typeIds } = this;
+        const { valueOffsets, values, nullBitmap, typeIds } = this;
         valueOffsets && (byteLength += valueOffsets.byteLength);
         values       && (byteLength += values.byteLength);
         nullBitmap   && (byteLength += nullBitmap.byteLength);
@@ -166,7 +162,8 @@ export class Data<T extends DataType = DataType> {
     }
 
     protected _sliceBuffers(offset: number, length: number, stride: number, typeId: T['TType']): Buffers<T> {
-        let arr: any, { buffers } = this;
+        let arr: any;
+        const { buffers } = this;
         // If typeIds exist, slice the typeIds buffer
         (arr = buffers[BufferType.TYPE]) && (buffers[BufferType.TYPE] = arr.subarray(offset, offset + length));
         // If offsets exist, only slice the offsets buffer

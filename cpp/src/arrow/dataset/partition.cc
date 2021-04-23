@@ -26,6 +26,7 @@
 #include "arrow/array/array_dict.h"
 #include "arrow/array/array_nested.h"
 #include "arrow/array/builder_dict.h"
+#include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
@@ -70,56 +71,89 @@ std::shared_ptr<Partitioning> Partitioning::Default() {
   return std::make_shared<DefaultPartitioning>();
 }
 
-inline Expression ConjunctionFromGroupingRow(Scalar* row) {
-  ScalarVector* values = &checked_cast<StructScalar*>(row)->value;
-  std::vector<Expression> equality_expressions(values->size());
-  for (size_t i = 0; i < values->size(); ++i) {
-    const std::string& name = row->type->field(static_cast<int>(i))->name();
-    if (values->at(i)->is_valid) {
-      equality_expressions[i] = equal(field_ref(name), literal(std::move(values->at(i))));
-    } else {
-      equality_expressions[i] = is_null(field_ref(name));
-    }
+static Result<RecordBatchVector> ApplyGroupings(
+    const ListArray& groupings, const std::shared_ptr<RecordBatch>& batch) {
+  ARROW_ASSIGN_OR_RAISE(Datum sorted,
+                        compute::Take(batch, groupings.data()->child_data[0]));
+
+  const auto& sorted_batch = *sorted.record_batch();
+
+  RecordBatchVector out(static_cast<size_t>(groupings.length()));
+  for (size_t i = 0; i < out.size(); ++i) {
+    out[i] = sorted_batch.Slice(groupings.value_offset(i), groupings.value_length(i));
   }
-  return and_(std::move(equality_expressions));
+
+  return out;
 }
 
 Result<Partitioning::PartitionedBatches> KeyValuePartitioning::Partition(
     const std::shared_ptr<RecordBatch>& batch) const {
-  FieldVector by_fields;
-  ArrayVector by_columns;
+  std::vector<int> key_indices;
+  int num_keys = 0;
 
-  std::shared_ptr<RecordBatch> rest = batch;
+  // assemble vector of indices of fields in batch on which we'll partition
   for (const auto& partition_field : schema_->fields()) {
     ARROW_ASSIGN_OR_RAISE(
-        auto match, FieldRef(partition_field->name()).FindOneOrNone(*rest->schema()))
-    if (match.empty()) continue;
+        auto match, FieldRef(partition_field->name()).FindOneOrNone(*batch->schema()))
 
-    by_fields.push_back(partition_field);
-    by_columns.push_back(rest->column(match[0]));
-    ARROW_ASSIGN_OR_RAISE(rest, rest->RemoveColumn(match[0]));
+    if (match.empty()) continue;
+    key_indices.push_back(match[0]);
+    ++num_keys;
   }
 
-  if (by_fields.empty()) {
+  if (key_indices.empty()) {
     // no fields to group by; return the whole batch
     return PartitionedBatches{{batch}, {literal(true)}};
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto by,
-                        StructArray::Make(std::move(by_columns), std::move(by_fields)));
-  ARROW_ASSIGN_OR_RAISE(auto groupings_and_values, MakeGroupings(*by));
-  auto groupings =
-      checked_pointer_cast<ListArray>(groupings_and_values->GetFieldByName("groupings"));
-  auto unique_rows = groupings_and_values->GetFieldByName("values");
+  // assemble an ExecBatch of the key columns
+  compute::ExecBatch key_batch({}, batch->num_rows());
+  for (int i : key_indices) {
+    key_batch.values.emplace_back(batch->column_data(i));
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto grouper,
+                        compute::internal::Grouper::Make(key_batch.GetDescriptors()));
+
+  ARROW_ASSIGN_OR_RAISE(Datum id_batch, grouper->Consume(key_batch));
+
+  auto ids = id_batch.array_as<UInt32Array>();
+  ARROW_ASSIGN_OR_RAISE(auto groupings, compute::internal::Grouper::MakeGroupings(
+                                            *ids, grouper->num_groups()));
+
+  ARROW_ASSIGN_OR_RAISE(auto uniques, grouper->GetUniques());
+  ArrayVector unique_arrays(num_keys);
+  for (int i = 0; i < num_keys; ++i) {
+    unique_arrays[i] = uniques.values[i].make_array();
+  }
 
   PartitionedBatches out;
-  ARROW_ASSIGN_OR_RAISE(out.batches, ApplyGroupings(*groupings, rest));
-  out.expressions.resize(out.batches.size());
 
-  for (size_t i = 0; i < out.batches.size(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(auto row, unique_rows->GetScalar(i));
-    out.expressions[i] = ConjunctionFromGroupingRow(row.get());
+  // assemble partition expressions from the unique keys
+  out.expressions.resize(grouper->num_groups());
+  for (uint32_t group = 0; group < grouper->num_groups(); ++group) {
+    std::vector<Expression> exprs(num_keys);
+
+    for (int i = 0; i < num_keys; ++i) {
+      ARROW_ASSIGN_OR_RAISE(auto val, unique_arrays[i]->GetScalar(group));
+      const auto& name = batch->schema()->field(key_indices[i])->name();
+
+      exprs[i] = val->is_valid ? equal(field_ref(name), literal(std::move(val)))
+                               : is_null(field_ref(name));
+    }
+    out.expressions[group] = and_(std::move(exprs));
   }
+
+  // remove key columns from batch to which we'll be applying the groupings
+  auto rest = batch;
+  std::sort(key_indices.begin(), key_indices.end(), std::greater<int>());
+  for (int i : key_indices) {
+    // indices are in descending order; indices larger than i (which would be invalidated
+    // here) have already been handled
+    ARROW_ASSIGN_OR_RAISE(rest, rest->RemoveColumn(i));
+  }
+  ARROW_ASSIGN_OR_RAISE(out.batches, ApplyGroupings(*groupings, rest));
+
   return out;
 }
 
@@ -145,8 +179,8 @@ Result<Expression> KeyValuePartitioning::ConvertKey(const Key& key) const {
     DictionaryScalar::ValueType value;
     value.dictionary = dictionaries_[field_index];
 
-    if (!value.dictionary->type()->Equals(
-            checked_cast<const DictionaryType&>(*field->type()).value_type())) {
+    const auto& dictionary_type = checked_cast<const DictionaryType&>(*field->type());
+    if (!value.dictionary->type()->Equals(dictionary_type.value_type())) {
       return Status::TypeError("Dictionary supplied for field ", field->ToString(),
                                " had incorrect type ",
                                value.dictionary->type()->ToString());
@@ -155,6 +189,8 @@ Result<Expression> KeyValuePartitioning::ConvertKey(const Key& key) const {
     // look up the partition value in the dictionary
     ARROW_ASSIGN_OR_RAISE(converted, Scalar::Parse(value.dictionary->type(), *key.value));
     ARROW_ASSIGN_OR_RAISE(auto index, compute::IndexIn(converted, value.dictionary));
+    auto to_index_type = compute::CastOptions::Safe(dictionary_type.index_type());
+    ARROW_ASSIGN_OR_RAISE(index, compute::Cast(index, to_index_type));
     value.index = index.scalar();
     if (!value.index->is_valid) {
       return Status::Invalid("Dictionary supplied for field ", field->ToString(),
@@ -270,10 +306,11 @@ Result<std::string> DirectoryPartitioning::FormatValues(
   return fs::internal::JoinAbstractPath(std::move(segments));
 }
 
+namespace {
 class KeyValuePartitioningFactory : public PartitioningFactory {
  protected:
   explicit KeyValuePartitioningFactory(PartitioningFactoryOptions options)
-      : options_(options) {}
+      : options_(std::move(options)) {}
 
   int GetOrInsertField(const std::string& name) {
     auto it_inserted =
@@ -300,10 +337,18 @@ class KeyValuePartitioningFactory : public PartitioningFactory {
     return repr_memos_[index]->GetOrInsert<StringType>(repr, &dummy);
   }
 
-  Result<std::shared_ptr<Schema>> DoInpsect() {
+  Result<std::shared_ptr<Schema>> DoInspect() {
     dictionaries_.assign(name_to_index_.size(), nullptr);
 
     std::vector<std::shared_ptr<Field>> fields(name_to_index_.size());
+    if (options_.schema) {
+      const auto requested_size = options_.schema->fields().size();
+      const auto inferred_size = fields.size();
+      if (inferred_size != requested_size) {
+        return Status::Invalid("Requested schema has ", requested_size,
+                               " fields, but only ", inferred_size, " were detected");
+      }
+    }
 
     for (const auto& name_index : name_to_index_) {
       const auto& name = name_index.first;
@@ -317,15 +362,34 @@ class KeyValuePartitioningFactory : public PartitioningFactory {
                                "'; couldn't infer type");
       }
 
-      // try casting to int32, otherwise bail and just use the string reprs
-      auto dict = compute::Cast(reprs, int32()).ValueOr(reprs).make_array();
-      auto type = dict->type();
-      if (options_.infer_dictionary) {
-        // wrap the inferred type in dictionary()
-        type = dictionary(int32(), std::move(type));
+      std::shared_ptr<Field> current_field;
+      std::shared_ptr<Array> dict;
+      if (options_.schema) {
+        // if we have a schema, use the schema type.
+        current_field = options_.schema->field(index);
+        auto cast_target = current_field->type();
+        if (is_dictionary(cast_target->id())) {
+          cast_target = checked_pointer_cast<DictionaryType>(cast_target)->value_type();
+        }
+        auto maybe_dict = compute::Cast(reprs, cast_target);
+        if (!maybe_dict.ok()) {
+          return Status::Invalid("Could not cast segments for partition field ",
+                                 current_field->name(), " to requested type ",
+                                 current_field->type()->ToString(),
+                                 " because: ", maybe_dict.status());
+        }
+        dict = maybe_dict.ValueOrDie().make_array();
+      } else {
+        // try casting to int32, otherwise bail and just use the string reprs
+        dict = compute::Cast(reprs, int32()).ValueOr(reprs).make_array();
+        auto type = dict->type();
+        if (options_.infer_dictionary) {
+          // wrap the inferred type in dictionary()
+          type = dictionary(int32(), std::move(type));
+        }
+        current_field = field(name, std::move(type));
       }
-
-      fields[index] = field(name, std::move(type));
+      fields[index] = std::move(current_field);
       dictionaries_[index] = std::move(dict);
     }
 
@@ -379,7 +443,7 @@ class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
       }
     }
 
-    return DoInpsect();
+    return DoInspect();
   }
 
   Result<std::shared_ptr<Partitioning>> Finish(
@@ -406,6 +470,8 @@ class DirectoryPartitioningFactory : public KeyValuePartitioningFactory {
 
   std::vector<std::string> field_names_;
 };
+
+}  // namespace
 
 std::shared_ptr<PartitioningFactory> DirectoryPartitioning::MakeFactory(
     std::vector<std::string> field_names, PartitioningFactoryOptions options) {
@@ -480,7 +546,7 @@ class HivePartitioningFactory : public KeyValuePartitioningFactory {
     }
 
     field_names_ = FieldNames();
-    return DoInpsect();
+    return DoInspect();
   }
 
   Result<std::shared_ptr<Partitioning>> Finish(
@@ -545,244 +611,6 @@ Result<std::shared_ptr<Schema>> PartitioningOrFactory::GetOrInferSchema(
   }
 
   return factory()->Inspect(paths);
-}
-
-// Transform an array of counts to offsets which will divide a ListArray
-// into an equal number of slices with corresponding lengths.
-inline Result<std::shared_ptr<Buffer>> CountsToOffsets(
-    std::shared_ptr<Int64Array> counts) {
-  TypedBufferBuilder<int32_t> offset_builder;
-  RETURN_NOT_OK(offset_builder.Resize(counts->length() + 1));
-
-  int32_t current_offset = 0;
-  offset_builder.UnsafeAppend(current_offset);
-
-  for (int64_t i = 0; i < counts->length(); ++i) {
-    DCHECK_NE(counts->Value(i), 0);
-    current_offset += static_cast<int32_t>(counts->Value(i));
-    offset_builder.UnsafeAppend(current_offset);
-  }
-
-  std::shared_ptr<Buffer> offsets;
-  RETURN_NOT_OK(offset_builder.Finish(&offsets));
-  return offsets;
-}
-
-// Helper for simultaneous dictionary encoding of multiple arrays.
-//
-// The fused dictionary is the Cartesian product of the individual dictionaries.
-// For example given two arrays A, B where A has unique values ["ex", "why"]
-// and B has unique values [0, 1] the fused dictionary is the set of tuples
-// [["ex", 0], ["ex", 1], ["why", 0], ["ex", 1]].
-//
-// TODO(bkietz) this capability belongs in an Action of the hash kernels, where
-// it can be used to group aggregates without materializing a grouped batch.
-// For the purposes of writing we need the materialized grouped batch anyway
-// since no Writers accept a selection vector.
-class StructDictionary {
- public:
-  struct Encoded {
-    std::shared_ptr<Int32Array> indices;
-    std::shared_ptr<StructDictionary> dictionary;
-  };
-
-  static Result<Encoded> Encode(const ArrayVector& columns) {
-    Encoded out{nullptr, std::make_shared<StructDictionary>()};
-
-    for (const auto& column : columns) {
-      RETURN_NOT_OK(out.dictionary->AddOne(column, &out.indices));
-    }
-
-    return out;
-  }
-
-  Result<std::shared_ptr<StructArray>> Decode(std::shared_ptr<Int32Array> fused_indices,
-                                              FieldVector fields) {
-    std::vector<Int32Builder> builders(dictionaries_.size());
-    for (Int32Builder& b : builders) {
-      RETURN_NOT_OK(b.Resize(fused_indices->length()));
-    }
-
-    std::vector<int32_t> codes(dictionaries_.size());
-    for (int64_t i = 0; i < fused_indices->length(); ++i) {
-      Expand(fused_indices->Value(i), codes.data());
-
-      auto builder_it = builders.begin();
-      for (int32_t index : codes) {
-        builder_it++->UnsafeAppend(index);
-      }
-    }
-
-    ArrayVector columns(dictionaries_.size());
-    for (size_t i = 0; i < dictionaries_.size(); ++i) {
-      std::shared_ptr<ArrayData> indices;
-      RETURN_NOT_OK(builders[i].FinishInternal(&indices));
-
-      ARROW_ASSIGN_OR_RAISE(Datum column, compute::Take(dictionaries_[i], indices));
-
-      if (fields[i]->type()->id() == Type::DICTIONARY) {
-        RETURN_NOT_OK(RestoreDictionaryEncoding(
-            checked_pointer_cast<DictionaryType>(fields[i]->type()), &column));
-      }
-
-      columns[i] = column.make_array();
-    }
-
-    return StructArray::Make(std::move(columns), std::move(fields));
-  }
-
- private:
-  Status AddOne(Datum column, std::shared_ptr<Int32Array>* fused_indices) {
-    if (column.type()->id() == Type::DICTIONARY) {
-      if (column.null_count() != 0) {
-        // TODO(ARROW-11732) Optimize this by allowign DictionaryEncode to transfer a
-        // null-masked dictionary to a null-encoded dictionary.  At the moment we decode
-        // and then encode causing one extra copy, and a potentially expansive decoding
-        // copy at that.
-        ARROW_ASSIGN_OR_RAISE(
-            auto decoded_dictionary,
-            compute::Cast(
-                column,
-                std::static_pointer_cast<DictionaryType>(column.type())->value_type(),
-                compute::CastOptions()));
-        column = decoded_dictionary;
-      }
-    }
-    if (column.type()->id() != Type::DICTIONARY) {
-      compute::DictionaryEncodeOptions options;
-      options.null_encoding_behavior =
-          compute::DictionaryEncodeOptions::NullEncodingBehavior::ENCODE;
-      ARROW_ASSIGN_OR_RAISE(column,
-                            compute::DictionaryEncode(std::move(column), options));
-    }
-
-    auto dict_column = column.array_as<DictionaryArray>();
-    dictionaries_.push_back(dict_column->dictionary());
-    ARROW_ASSIGN_OR_RAISE(auto indices, compute::Cast(*dict_column->indices(), int32()));
-
-    if (*fused_indices == nullptr) {
-      *fused_indices = checked_pointer_cast<Int32Array>(std::move(indices));
-      return IncreaseSize();
-    }
-
-    // It's useful to think about the case where each of dictionaries_ has size 10.
-    // In this case the decimal digit in the ones place is the code in dictionaries_[0],
-    // the tens place corresponds to the code in dictionaries_[1], etc.
-    // The incumbent indices must be shifted to the hundreds place so as not to collide.
-    ARROW_ASSIGN_OR_RAISE(Datum new_fused_indices,
-                          compute::Multiply(indices, MakeScalar(size_)));
-
-    ARROW_ASSIGN_OR_RAISE(new_fused_indices,
-                          compute::Add(new_fused_indices, *fused_indices));
-
-    *fused_indices = checked_pointer_cast<Int32Array>(new_fused_indices.make_array());
-    return IncreaseSize();
-  }
-
-  // expand a fused code into component dict codes, order is in order of addition
-  void Expand(int32_t fused_code, int32_t* codes) {
-    for (size_t i = 0; i < dictionaries_.size(); ++i) {
-      auto dictionary_size = static_cast<int32_t>(dictionaries_[i]->length());
-      codes[i] = fused_code % dictionary_size;
-      fused_code /= dictionary_size;
-    }
-  }
-
-  Status RestoreDictionaryEncoding(std::shared_ptr<DictionaryType> expected_type,
-                                   Datum* column) {
-    DCHECK_NE(column->type()->id(), Type::DICTIONARY);
-    ARROW_ASSIGN_OR_RAISE(*column, compute::DictionaryEncode(std::move(*column)));
-
-    if (expected_type->index_type()->id() == Type::INT32) {
-      // dictionary_encode has already yielded the expected index_type
-      return Status::OK();
-    }
-
-    // cast the indices to the expected index type
-    auto dictionary = std::move(column->mutable_array()->dictionary);
-    column->mutable_array()->type = int32();
-
-    ARROW_ASSIGN_OR_RAISE(*column,
-                          compute::Cast(std::move(*column), expected_type->index_type()));
-
-    column->mutable_array()->dictionary = std::move(dictionary);
-    column->mutable_array()->type = expected_type;
-    return Status::OK();
-  }
-
-  Status IncreaseSize() {
-    auto factor = static_cast<int32_t>(dictionaries_.back()->length());
-
-    if (internal::MultiplyWithOverflow(size_, factor, &size_)) {
-      return Status::CapacityError("Max groups exceeded");
-    }
-    return Status::OK();
-  }
-
-  int32_t size_ = 1;
-  ArrayVector dictionaries_;
-};
-
-Result<std::shared_ptr<StructArray>> MakeGroupings(const StructArray& by) {
-  if (by.num_fields() == 0) {
-    return Status::Invalid("Grouping with no criteria");
-  }
-
-  if (by.null_count() != 0) {
-    return Status::Invalid("Grouping with null criteria");
-  }
-
-  ARROW_ASSIGN_OR_RAISE(auto fused, StructDictionary::Encode(by.fields()));
-
-  ARROW_ASSIGN_OR_RAISE(auto sort_indices, compute::SortIndices(*fused.indices));
-  ARROW_ASSIGN_OR_RAISE(Datum sorted, compute::Take(fused.indices, *sort_indices));
-  fused.indices = checked_pointer_cast<Int32Array>(sorted.make_array());
-
-  ARROW_ASSIGN_OR_RAISE(auto fused_counts_and_values,
-                        compute::ValueCounts(fused.indices));
-  fused.indices.reset();
-
-  auto unique_fused_indices =
-      checked_pointer_cast<Int32Array>(fused_counts_and_values->GetFieldByName("values"));
-  ARROW_ASSIGN_OR_RAISE(
-      auto unique_rows,
-      fused.dictionary->Decode(std::move(unique_fused_indices), by.type()->fields()));
-
-  auto counts =
-      checked_pointer_cast<Int64Array>(fused_counts_and_values->GetFieldByName("counts"));
-  ARROW_ASSIGN_OR_RAISE(auto offsets, CountsToOffsets(std::move(counts)));
-
-  auto grouped_sort_indices =
-      std::make_shared<ListArray>(list(sort_indices->type()), unique_rows->length(),
-                                  std::move(offsets), std::move(sort_indices));
-
-  return StructArray::Make(
-      ArrayVector{std::move(unique_rows), std::move(grouped_sort_indices)},
-      std::vector<std::string>{"values", "groupings"});
-}
-
-Result<std::shared_ptr<ListArray>> ApplyGroupings(const ListArray& groupings,
-                                                  const Array& array) {
-  ARROW_ASSIGN_OR_RAISE(Datum sorted,
-                        compute::Take(array, groupings.data()->child_data[0]));
-
-  return std::make_shared<ListArray>(list(array.type()), groupings.length(),
-                                     groupings.value_offsets(), sorted.make_array());
-}
-
-Result<RecordBatchVector> ApplyGroupings(const ListArray& groupings,
-                                         const std::shared_ptr<RecordBatch>& batch) {
-  ARROW_ASSIGN_OR_RAISE(Datum sorted,
-                        compute::Take(batch, groupings.data()->child_data[0]));
-
-  const auto& sorted_batch = *sorted.record_batch();
-
-  RecordBatchVector out(static_cast<size_t>(groupings.length()));
-  for (size_t i = 0; i < out.size(); ++i) {
-    out[i] = sorted_batch.Slice(groupings.value_offset(i), groupings.value_length(i));
-  }
-
-  return out;
 }
 
 }  // namespace dataset

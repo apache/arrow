@@ -1231,12 +1231,27 @@ class ArrayReader {
     return FinishBuilder(&builder);
   }
 
+  int64_t ParseOffset(const rj::Value& json_offset) {
+    DCHECK(json_offset.IsInt() || json_offset.IsInt64() || json_offset.IsString());
+
+    if (json_offset.IsInt64()) {
+      return json_offset.GetInt64();
+    } else {
+      return UnboxValue<Int64Type>(json_offset);
+    }
+  }
+
   template <typename T>
   enable_if_base_binary<T, Status> Visit(const T& type) {
     typename TypeTraits<T>::BuilderType builder(pool_);
     using offset_type = typename T::offset_type;
 
     ARROW_ASSIGN_OR_RAISE(const auto json_data_arr, GetDataArray(obj_));
+    ARROW_ASSIGN_OR_RAISE(const auto json_offsets, GetMemberArray(obj_, "OFFSET"));
+    if (static_cast<int32_t>(json_offsets.Size()) != (length_ + 1)) {
+      return Status::Invalid(
+          "JSON OFFSET array size differs from advertised array length + 1");
+    }
 
     for (int i = 0; i < length_; ++i) {
       if (!is_valid_[i]) {
@@ -1246,8 +1261,14 @@ class ArrayReader {
       const rj::Value& val = json_data_arr[i];
       DCHECK(val.IsString());
 
+      int64_t offset_start = ParseOffset(json_offsets[i]);
+      int64_t offset_end = ParseOffset(json_offsets[i + 1]);
+      DCHECK(offset_end >= offset_start);
+
       if (T::is_utf8) {
-        RETURN_NOT_OK(builder.Append(val.GetString()));
+        auto str = val.GetString();
+        DCHECK(std::string(str).size() == static_cast<size_t>(offset_end - offset_start));
+        RETURN_NOT_OK(builder.Append(str));
       } else {
         std::string hex_string = val.GetString();
 

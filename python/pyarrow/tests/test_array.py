@@ -854,8 +854,8 @@ def test_union_from_dense():
     int64 = pa.array([1, 2, 3], type='int64')
     types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
     logical_types = pa.array([11, 13, 11, 11, 13, 13, 11], type='int8')
-    value_offsets = pa.array([1, 0, 0, 2, 1, 2, 3], type='int32')
-    py_value = [b'b', 1, b'a', b'c', 2, 3, b'd']
+    value_offsets = pa.array([0, 0, 1, 2, 1, 2, 3], type='int32')
+    py_value = [b'a', 1, b'b', b'c', 2, 3, b'd']
 
     def check_result(result, expected_field_names, expected_type_codes,
                      expected_type_code_values):
@@ -1358,12 +1358,13 @@ def test_cast_from_null():
         pa.struct([pa.field('a', pa.int32()),
                    pa.field('b', pa.list_(pa.int8())),
                    pa.field('c', pa.string())]),
+        pa.dictionary(pa.int32(), pa.string()),
     ]
     for out_type in out_types:
         _check_cast_case((in_data, in_type, in_data, out_type))
 
     out_types = [
-        pa.dictionary(pa.int32(), pa.string()),
+
         pa.union([pa.field('a', pa.binary(10)),
                   pa.field('b', pa.string())], mode=pa.lib.UnionMode_DENSE),
         pa.union([pa.field('a', pa.binary(10)),

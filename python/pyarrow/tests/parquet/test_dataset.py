@@ -17,7 +17,6 @@
 
 import datetime
 import os
-from distutils.version import LooseVersion
 
 import numpy as np
 import pytest
@@ -30,6 +29,7 @@ from pyarrow.tests.parquet.common import (
     parametrize_legacy_dataset, parametrize_legacy_dataset_fixed,
     parametrize_legacy_dataset_not_supported)
 from pyarrow.util import guid
+from pyarrow.vendored.version import Version
 
 try:
     import pyarrow.parquet as pq
@@ -353,6 +353,7 @@ def test_filters_cutoff_exclusive_datetime(tempdir, use_legacy_dataset):
 
 
 @pytest.mark.pandas
+@pytest.mark.dataset
 def test_filters_inclusive_datetime(tempdir):
     # ARROW-11480
     path = tempdir / 'timestamps.parquet'
@@ -632,7 +633,7 @@ def test_read_partitioned_directory_s3fs_wrapper(
 
     from pyarrow.filesystem import S3FSWrapper
 
-    if s3fs.__version__ >= LooseVersion("0.5"):
+    if Version(s3fs.__version__) >= Version("0.5"):
         pytest.skip("S3FSWrapper no longer working for s3fs 0.5+")
 
     fs, path = s3_example_s3fs
@@ -970,6 +971,12 @@ def test_dataset_read_pandas(tempdir, use_legacy_dataset):
     expected = pd.concat([x[columns] for x in frames])
 
     tm.assert_frame_equal(result, expected)
+
+    # also be able to pass the columns as a set (ARROW-12314)
+    result = dataset.read_pandas(columns=set(columns)).to_pandas()
+    assert result.shape == expected.shape
+    # column order can be different because of using a set
+    tm.assert_frame_equal(result.reindex(columns=expected.columns), expected)
 
 
 @pytest.mark.pandas
@@ -1374,6 +1381,17 @@ def test_write_to_dataset_with_partitions_and_custom_filenames(
     output_basenames = [os.path.basename(p.path) for p in dataset.pieces]
 
     assert sorted(expected_basenames) == sorted(output_basenames)
+
+
+@pytest.mark.pandas
+def test_write_to_dataset_filesystem(tempdir):
+    df = pd.DataFrame({'A': [1, 2, 3]})
+    table = pa.Table.from_pandas(df)
+    path = str(tempdir)
+
+    pq.write_to_dataset(table, path, filesystem=fs.LocalFileSystem())
+    result = pq.read_table(path)
+    assert result.equals(table)
 
 
 # TODO(dataset) support pickling

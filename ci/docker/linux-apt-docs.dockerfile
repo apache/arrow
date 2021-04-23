@@ -18,9 +18,10 @@
 ARG base
 FROM ${base}
 
-ARG r=3.6
+ARG r=4.0
 ARG jdk=8
 
+# See R install instructions at https://cloud.r-project.org/bin/linux/ubuntu/
 RUN apt-get update -y && \
     apt-get install -y \
         dirmngr \
@@ -29,8 +30,8 @@ RUN apt-get update -y && \
     apt-key adv \
         --keyserver keyserver.ubuntu.com \
         --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9 && \
-    add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran35/' && \
-    apt-get install -y \
+    add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran40/' && \
+    apt-get install -y --no-install-recommends \
         autoconf-archive \
         automake \
         curl \
@@ -43,6 +44,7 @@ RUN apt-get update -y && \
         libgirepository1.0-dev \
         libglib2.0-doc \
         libharfbuzz-dev \
+        libtiff-dev \
         libtool \
         libxml2-dev \
         ninja-build \
@@ -69,15 +71,15 @@ ARG node=14
 RUN wget -q -O - https://deb.nodesource.com/setup_${node}.x | bash - && \
     apt-get install -y nodejs && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    npm install -g yarn
 
-# Sphinx is pinned because of ARROW-9693
 RUN pip install \
         meson \
         breathe \
         ipython \
-        sphinx==3.1.2 \
-        sphinx_rtd_theme
+        sphinx \
+        pydata-sphinx-theme
 
 COPY c_glib/Gemfile /arrow/c_glib/
 RUN gem install --no-document bundler && \
@@ -95,8 +97,11 @@ COPY r/DESCRIPTION /arrow/r/
 RUN /arrow/ci/scripts/r_deps.sh /arrow && \
     R -e "install.packages('pkgdown')"
 
-ENV ARROW_PYTHON=ON \
+ENV ARROW_FLIGHT=ON \
+    ARROW_PYTHON=ON \
+    ARROW_S3=ON \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
     ARROW_USE_GLOG=OFF \
+    CMAKE_UNITY_BUILD=ON \

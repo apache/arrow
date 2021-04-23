@@ -23,12 +23,15 @@
 #include <string>
 
 #include "arrow/adapters/orc/adapter_util.h"
-#include "arrow/api.h"
 #include "arrow/array.h"
+#include "arrow/buffer.h"
+#include "arrow/buffer_builder.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/cast.h"
-#include "arrow/io/api.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
+#include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
@@ -37,6 +40,8 @@
 namespace liborc = orc;
 
 namespace arrow {
+
+using internal::checked_pointer_cast;
 
 constexpr int kDefaultSmallMemStreamSize = 16384 * 5;  // 80KB
 constexpr int kDefaultMemStreamSize = 10 * 1024 * 1024;
@@ -95,7 +100,7 @@ std::shared_ptr<Buffer> GenerateFixedDifferenceBuffer(int32_t fixed_length,
 
 std::shared_ptr<Array> CastFixedSizeBinaryArrayToBinaryArray(
     std::shared_ptr<Array> array) {
-  auto fixed_size_binary_array = std::static_pointer_cast<FixedSizeBinaryArray>(array);
+  auto fixed_size_binary_array = checked_pointer_cast<FixedSizeBinaryArray>(array);
   std::shared_ptr<Buffer> value_offsets = GenerateFixedDifferenceBuffer(
       fixed_size_binary_array->byte_width(), array->length() + 1);
   return std::make_shared<BinaryArray>(array->length(), value_offsets,
@@ -109,22 +114,6 @@ std::shared_ptr<Array> CastInt64ArrayToTemporalArray(
   std::shared_ptr<ArrayData> new_array_data =
       ArrayData::Make(type, array->length(), array->data()->buffers);
   return std::make_shared<TargetArrayType>(new_array_data);
-}
-
-template <typename T, typename U>
-void randintpartition(int64_t n, T sum, std::vector<U>* out) {
-  const int random_seed = 0;
-  std::default_random_engine gen(random_seed);
-  out->resize(n, static_cast<T>(0));
-  T remaining_sum = sum;
-  std::generate(out->begin(), out->end() - 1, [&gen, &remaining_sum] {
-    std::uniform_int_distribution<T> d(static_cast<T>(0), remaining_sum);
-    auto res = d(gen);
-    remaining_sum -= res;
-    return static_cast<U>(res);
-  });
-  (*out)[n - 1] += remaining_sum;
-  std::random_shuffle(out->begin(), out->end());
 }
 
 Result<std::shared_ptr<Array>> GenerateRandomDate64Array(int64_t size,
@@ -160,9 +149,32 @@ Result<std::shared_ptr<Array>> GenerateRandomTimestampArray(int64_t size,
           rand.Int64(size, kNanoMin, kNanoMax, null_probability));
     }
     default: {
-      return arrow::Status::Invalid("Unknown or unsupported Arrow TimeUnit: ", type);
+      return arrow::Status::TypeError("Unknown or unsupported Arrow TimeUnit: ", type);
     }
   }
+}
+
+/// \brief Construct a random weak composition of a nonnegative integer
+/// i.e. a way of writing it as the sum of a sequence of n non-negative
+/// integers.
+///
+/// \param[in] n the number of integers in the weak composition
+/// \param[in] sum the integer of which a random weak composition is generated
+/// \param[out] out The generated weak composition
+template <typename T, typename U>
+void RandWeakComposition(int64_t n, T sum, std::vector<U>* out) {
+  const int random_seed = 0;
+  std::default_random_engine gen(random_seed);
+  out->resize(n, static_cast<T>(0));
+  T remaining_sum = sum;
+  std::generate(out->begin(), out->end() - 1, [&gen, &remaining_sum] {
+    std::uniform_int_distribution<T> d(static_cast<T>(0), remaining_sum);
+    auto res = d(gen);
+    remaining_sum -= res;
+    return static_cast<U>(res);
+  });
+  (*out)[n - 1] += remaining_sum;
+  std::random_shuffle(out->begin(), out->end());
 }
 
 std::shared_ptr<ChunkedArray> GenerateRandomChunkedArray(
@@ -174,22 +186,22 @@ std::shared_ptr<ChunkedArray> GenerateRandomChunkedArray(
   arrow::randint<int64_t, int64_t>(1, min_num_chunks, max_num_chunks, &num_chunks);
   int64_t current_num_chunks = num_chunks[0];
   ArrayVector arrays(current_num_chunks, nullptr);
-  randintpartition(current_num_chunks, size, &current_size_chunks);
+  arrow::RandWeakComposition(current_num_chunks, size, &current_size_chunks);
   for (int j = 0; j < current_num_chunks; j++) {
     switch (data_type->id()) {
       case arrow::Type::type::DATE64: {
-        arrays[j] = GenerateRandomDate64Array(current_size_chunks[j], null_probability)
-                        .ValueOrDie();
+        EXPECT_OK_AND_ASSIGN(arrays[j], GenerateRandomDate64Array(current_size_chunks[j],
+                                                                  null_probability));
         break;
       }
       case arrow::Type::type::TIMESTAMP: {
-        arrays[j] =
+        EXPECT_OK_AND_ASSIGN(
+            arrays[j],
             GenerateRandomTimestampArray(
                 current_size_chunks[j],
                 arrow::internal::checked_pointer_cast<arrow::TimestampType>(data_type)
                     ->unit(),
-                null_probability)
-                .ValueOrDie();
+                null_probability));
         break;
       }
       default:
@@ -216,13 +228,13 @@ std::shared_ptr<Table> GenerateRandomTable(const std::shared_ptr<Schema>& schema
 void AssertTableWriteReadEqual(const std::shared_ptr<Table>& input_table,
                                const std::shared_ptr<Table>& expected_output_table,
                                const int64_t max_size = kDefaultSmallMemStreamSize) {
-  std::shared_ptr<io::BufferOutputStream> buffer_output_stream =
-      io::BufferOutputStream::Create(max_size).ValueOrDie();
-  std::unique_ptr<adapters::orc::ORCFileWriter> writer =
-      adapters::orc::ORCFileWriter::Open(*buffer_output_stream).ValueOrDie();
+  EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
+                       io::BufferOutputStream::Create(max_size));
+  EXPECT_OK_AND_ASSIGN(auto writer,
+                       adapters::orc::ORCFileWriter::Open(buffer_output_stream.get()));
   ARROW_EXPECT_OK(writer->Write(*input_table));
   ARROW_EXPECT_OK(writer->Close());
-  std::shared_ptr<Buffer> buffer = buffer_output_stream->Finish().ValueOrDie();
+  EXPECT_OK_AND_ASSIGN(auto buffer, buffer_output_stream->Finish());
   std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(buffer));
   std::unique_ptr<adapters::orc::ORCFileReader> reader;
   ARROW_EXPECT_OK(
@@ -266,14 +278,14 @@ std::unique_ptr<liborc::Writer> CreateWriter(uint64_t stripe_size,
   return liborc::createWriter(type, stream, options);
 }
 
-TEST(TestAdapterRead, readIntAndStringFileMultipleStripes) {
+TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
   MemoryOutputStream mem_stream(kDefaultMemStreamSize);
   ORC_UNIQUE_PTR<liborc::Type> type(
       liborc::Type::buildTypeFromString("struct<col1:int,col2:string>"));
 
   constexpr uint64_t stripe_size = 1024;  // 1K
   constexpr uint64_t stripe_count = 10;
-  constexpr uint64_t stripe_row_count = 65535;
+  constexpr uint64_t stripe_row_count = 16384;
   constexpr uint64_t reader_batch_size = 1024;
 
   auto writer = CreateWriter(stripe_size, *type, &mem_stream);
@@ -286,14 +298,14 @@ TEST(TestAdapterRead, readIntAndStringFileMultipleStripes) {
   int64_t accumulated = 0;
 
   for (uint64_t j = 0; j < stripe_count; ++j) {
-    char data_buffer[327675];
+    std::string data_buffer(stripe_row_count * 5, '\0');
     uint64_t offset = 0;
     for (uint64_t i = 0; i < stripe_row_count; ++i) {
       std::string str_data = std::to_string(accumulated % stripe_row_count);
       long_batch->data[i] = static_cast<int64_t>(accumulated % stripe_row_count);
-      str_batch->data[i] = data_buffer + offset;
+      str_batch->data[i] = &data_buffer[offset];
       str_batch->length[i] = static_cast<int64_t>(str_data.size());
-      memcpy(data_buffer + offset, str_data.c_str(), str_data.size());
+      memcpy(&data_buffer[offset], str_data.c_str(), str_data.size());
       accumulated++;
       offset += str_data.size();
     }
@@ -323,8 +335,8 @@ TEST(TestAdapterRead, readIntAndStringFileMultipleStripes) {
     std::shared_ptr<RecordBatch> record_batch;
     EXPECT_TRUE(stripe_reader->ReadNext(&record_batch).ok());
     while (record_batch) {
-      auto int32_array = std::static_pointer_cast<Int32Array>(record_batch->column(0));
-      auto str_array = std::static_pointer_cast<StringArray>(record_batch->column(1));
+      auto int32_array = checked_pointer_cast<Int32Array>(record_batch->column(0));
+      auto str_array = checked_pointer_cast<StringArray>(record_batch->column(1));
       for (int j = 0; j < record_batch->num_rows(); ++j) {
         EXPECT_EQ(accumulated % stripe_row_count, int32_array->Value(j));
         EXPECT_EQ(std::to_string(accumulated % stripe_row_count),
@@ -506,7 +518,7 @@ class TestORCWriterNoConversion : public ::testing::Test {
   std::shared_ptr<Schema> table_schema;
 };
 TEST_F(TestORCWriterNoConversion, writeNoNulls) {
-  SchemaORCWriteReadTest(table_schema, 10030, 5, 10, 0, kDefaultSmallMemStreamSize * 5);
+  SchemaORCWriteReadTest(table_schema, 11203, 5, 10, 0, kDefaultSmallMemStreamSize * 5);
 }
 TEST_F(TestORCWriterNoConversion, writeMixed) {
   SchemaORCWriteReadTest(table_schema, 9405, 1, 20, 0.6, kDefaultSmallMemStreamSize * 5);
@@ -541,9 +553,9 @@ class TestORCWriterWithConversion : public ::testing::Test {
         GenerateRandomTable(input_schema, num_rows, 1, 1, null_possibility);
     ArrayVector av(num_cols);
     for (int i = 0; i < num_cols - 2; i++) {
-      av[i] = arrow::compute::Cast(*(input_table->column(i)->chunk(0)),
-                                   output_schema->field(i)->type())
-                  .ValueOrDie();
+      EXPECT_OK_AND_ASSIGN(av[i],
+                           arrow::compute::Cast(*(input_table->column(i)->chunk(0)),
+                                                output_schema->field(i)->type()));
     }
     for (int i = num_cols - 2; i < num_cols; i++) {
       av[i] = CastFixedSizeBinaryArrayToBinaryArray(input_table->column(i)->chunk(0));
@@ -566,44 +578,22 @@ class TestORCWriterSingleArray : public ::testing::Test {
  protected:
   arrow::random::RandomArrayGenerator rand;
 };
-// Nested types
 
-TEST_F(TestORCWriterSingleArray, WriteList) {
-  int64_t num_rows = 10000;
-  auto value_array = rand.ArrayOf(int32(), 125 * num_rows, 0);
-  std::shared_ptr<Array> array = rand.List(*value_array, num_rows, 1);
-  AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 100);
+// Nested types
+TEST_F(TestORCWriterSingleArray, WriteStruct) {
+  std::vector<std::shared_ptr<Field>> subfields{field("int32", boolean())};
+  const int64_t num_rows = 1234;
+  int num_subcols = subfields.size();
+  ArrayVector av0(num_subcols);
+  for (int i = 0; i < num_subcols; i++) {
+    av0[i] = rand.ArrayOf(subfields[i]->type(), num_rows, 0.4);
+  }
+  std::shared_ptr<Buffer> bitmap = rand.NullBitmap(num_rows, 0.5);
+  std::shared_ptr<Array> array =
+      std::make_shared<StructArray>(struct_(subfields), num_rows, av0, bitmap);
+  AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 10);
 }
-TEST_F(TestORCWriterSingleArray, WriteLargeList) {
-  int64_t num_rows = 10000;
-  auto value_array = rand.ArrayOf(int32(), 5 * num_rows, 0.5);
-  auto output_offsets = rand.Offsets(num_rows + 1, 0, 5 * num_rows, 0.6, false);
-  auto input_offsets = arrow::compute::Cast(*output_offsets, int64()).ValueOrDie();
-  std::shared_ptr<Array>
-      input_array =
-          arrow::LargeListArray::FromArrays(*input_offsets, *value_array).ValueOrDie(),
-      output_array =
-          arrow::ListArray::FromArrays(*output_offsets, *value_array).ValueOrDie();
-  AssertArrayWriteReadEqual(input_array, output_array, kDefaultSmallMemStreamSize * 10);
-}
-TEST_F(TestORCWriterSingleArray, WriteFixedSizeList) {
-  int64_t num_rows = 10000;
-  std::shared_ptr<Array> value_array = rand.ArrayOf(int32(), 3 * num_rows, 0.8);
-  std::shared_ptr<Buffer> bitmap = rand.NullBitmap(num_rows, 1);
-  std::shared_ptr<Buffer> buffer = GenerateFixedDifferenceBuffer(3, num_rows + 1);
-  std::shared_ptr<Array> input_array = std::make_shared<FixedSizeListArray>(
-                             fixed_size_list(int32(), 3), num_rows, value_array, bitmap),
-                         output_array = std::make_shared<ListArray>(
-                             list(int32()), num_rows, buffer, value_array, bitmap);
-  AssertArrayWriteReadEqual(input_array, output_array, kDefaultSmallMemStreamSize * 10);
-}
-TEST_F(TestORCWriterSingleArray, WriteMap) {
-  int64_t num_rows = 10000;
-  auto key_array = rand.ArrayOf(int32(), 20 * num_rows, 0);
-  auto item_array = rand.ArrayOf(int32(), 20 * num_rows, 1);
-  std::shared_ptr<Array> array = rand.Map(key_array, item_array, num_rows, 0.4);
-  AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 25);
-}
+
 TEST_F(TestORCWriterSingleArray, WriteStructOfStruct) {
   std::vector<std::shared_ptr<Field>> subsubfields{
       field("bool", boolean()),
@@ -615,37 +605,124 @@ TEST_F(TestORCWriterSingleArray, WriteStructOfStruct) {
       field("ts3", timestamp(TimeUnit::NANO)),
       field("string", utf8()),
       field("binary", binary())};
-  int64_t num_rows = 10000;
+  const int64_t num_rows = 1234;
   int num_subsubcols = subsubfields.size();
   ArrayVector av00(num_subsubcols), av0(1);
   for (int i = 0; i < num_subsubcols; i++) {
-    av00[i] = rand.ArrayOf(subsubfields[i]->type(), num_rows, 0.9);
+    av00[i] = rand.ArrayOf(subsubfields[i]->type(), num_rows, 0);
   }
-  std::shared_ptr<Buffer> bitmap0 = rand.NullBitmap(num_rows, 0.2);
+  std::shared_ptr<Buffer> bitmap0 = rand.NullBitmap(num_rows, 0);
   av0[0] = std::make_shared<StructArray>(struct_(subsubfields), num_rows, av00, bitmap0);
-  std::shared_ptr<Buffer> bitmap = rand.NullBitmap(num_rows, 0.7);
+  std::shared_ptr<Buffer> bitmap = rand.NullBitmap(num_rows, 0.2);
   std::shared_ptr<Array> array = std::make_shared<StructArray>(
       struct_({field("struct2", struct_(subsubfields))}), num_rows, av0, bitmap);
   AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 10);
 }
+
+TEST_F(TestORCWriterSingleArray, WriteList) {
+  const int64_t num_rows = 1234;
+  auto value_array = rand.ArrayOf(int32(), 125 * num_rows, 0);
+  std::shared_ptr<Array> array = rand.List(*value_array, num_rows, 1);
+  AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 100);
+}
+
+TEST_F(TestORCWriterSingleArray, WriteLargeList) {
+  const int64_t num_rows = 1234;
+  auto value_array = rand.ArrayOf(int32(), 5 * num_rows, 0.5);
+  auto output_offsets = rand.Offsets(num_rows + 1, 0, 5 * num_rows, 0.6, false);
+  EXPECT_OK_AND_ASSIGN(auto input_offsets,
+                       arrow::compute::Cast(*output_offsets, int64()));
+  EXPECT_OK_AND_ASSIGN(auto input_array,
+                       arrow::LargeListArray::FromArrays(*input_offsets, *value_array));
+  EXPECT_OK_AND_ASSIGN(auto output_array,
+                       arrow::ListArray::FromArrays(*output_offsets, *value_array));
+  AssertArrayWriteReadEqual(input_array, output_array, kDefaultSmallMemStreamSize * 10);
+}
+
+TEST_F(TestORCWriterSingleArray, WriteFixedSizeList) {
+  const int64_t num_rows = 1234;
+  std::shared_ptr<Array> value_array = rand.ArrayOf(int32(), 3 * num_rows, 0.8);
+  std::shared_ptr<Buffer> bitmap = rand.NullBitmap(num_rows, 1);
+  std::shared_ptr<Buffer> buffer = GenerateFixedDifferenceBuffer(3, num_rows + 1);
+  std::shared_ptr<Array> input_array = std::make_shared<FixedSizeListArray>(
+                             fixed_size_list(int32(), 3), num_rows, value_array, bitmap),
+                         output_array = std::make_shared<ListArray>(
+                             list(int32()), num_rows, buffer, value_array, bitmap);
+  AssertArrayWriteReadEqual(input_array, output_array, kDefaultSmallMemStreamSize * 10);
+}
+
 TEST_F(TestORCWriterSingleArray, WriteListOfList) {
-  int64_t num_rows = 10000;
+  const int64_t num_rows = 1234;
   auto value_value_array = rand.ArrayOf(utf8(), 4 * num_rows, 0.5);
   std::shared_ptr<Array> value_array = rand.List(*value_value_array, 2 * num_rows, 0.7);
   std::shared_ptr<Array> array = rand.List(*value_array, num_rows, 0.4);
   AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 10);
 }
-TEST_F(TestORCWriterSingleArray, WriteListOfMap) {
-  int64_t num_rows = 10000;
-  auto value_key_array = rand.ArrayOf(utf8(), 4 * num_rows, 0);
-  auto value_item_array = rand.ArrayOf(int32(), 4 * num_rows, 0.5);
-  std::shared_ptr<Array> value_array =
-      rand.Map(value_key_array, value_item_array, 2 * num_rows, 0.2);
-  std::shared_ptr<Array> array = rand.List(*value_array, num_rows, 0.4);
+
+TEST_F(TestORCWriterSingleArray, WriteListOfListOfList) {
+  const int64_t num_rows = 1234;
+  auto value3_array = rand.ArrayOf(int64(), 12 * num_rows, 0.1);
+  std::shared_ptr<Array> value2_array = rand.List(*value3_array, 5 * num_rows, 0);
+  std::shared_ptr<Array> value_array = rand.List(*value2_array, 2 * num_rows, 0.1);
+  std::shared_ptr<Array> array = rand.List(*value_array, num_rows, 0.1);
+  AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 35);
+}
+
+TEST_F(TestORCWriterSingleArray, WriteListOfStruct) {
+  const int64_t num_rows = 1234, num_values = 3 * num_rows;
+  ArrayVector av00(1);
+  av00[0] = rand.ArrayOf(int32(), num_values, 0);
+  std::shared_ptr<Buffer> bitmap = rand.NullBitmap(num_values, 0.2);
+  std::shared_ptr<Array> value_array = std::make_shared<StructArray>(
+      struct_({field("a", int32())}), num_values, av00, bitmap);
+  std::shared_ptr<Array> array = rand.List(*value_array, num_rows, 0);
+  AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 30);
+}
+
+TEST_F(TestORCWriterSingleArray, WriteStructOfList) {
+  const int64_t num_rows = 1234;
+  ArrayVector av0(1);
+  auto value_array = rand.ArrayOf(int32(), 5 * num_rows, 0.2);
+  av0[0] = rand.List(*value_array, num_rows, 0);
+  std::shared_ptr<Buffer> bitmap = rand.NullBitmap(num_rows, 0.2);
+  std::shared_ptr<Array> array = std::make_shared<StructArray>(
+      struct_({field("a", list(int32()))}), num_rows, av0, bitmap);
+  AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 20);
+}
+
+TEST_F(TestORCWriterSingleArray, WriteMap) {
+  const int64_t num_rows = 1234;
+  auto key_array = rand.ArrayOf(int32(), 20 * num_rows, 0);
+  auto item_array = rand.ArrayOf(int32(), 20 * num_rows, 1);
+  std::shared_ptr<Array> array = rand.Map(key_array, item_array, num_rows, 0.1);
+  AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 50);
+}
+
+TEST_F(TestORCWriterSingleArray, WriteStructOfMap) {
+  const int64_t num_rows = 1234, num_values = 5 * num_rows;
+  ArrayVector av0(1);
+  auto key_array = rand.ArrayOf(binary(), num_values, 0);
+  auto item_array = rand.ArrayOf(int32(), num_values, 0.5);
+  av0[0] = rand.Map(key_array, item_array, num_rows, 0.2);
+  std::shared_ptr<Array> array = std::make_shared<StructArray>(
+      struct_({field("a", map(binary(), int32()))}), num_rows, av0);
+  AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 20);
+}
+
+TEST_F(TestORCWriterSingleArray, WriteMapOfStruct) {
+  const int64_t num_rows = 1234, num_values = 10 * num_rows;
+  std::shared_ptr<Array> key_array = rand.ArrayOf(utf8(), num_values, 0);
+  ArrayVector av00(1);
+  av00[0] = rand.ArrayOf(int32(), num_values, 0.1);
+  std::shared_ptr<Buffer> bitmap = rand.NullBitmap(num_values, 0.2);
+  std::shared_ptr<Array> item_array = std::make_shared<StructArray>(
+      struct_({field("a", int32())}), num_values, av00, bitmap);
+  std::shared_ptr<Array> array = rand.Map(key_array, item_array, num_rows, 0.1);
   AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 10);
 }
+
 TEST_F(TestORCWriterSingleArray, WriteMapOfMap) {
-  int64_t num_rows = 10000;
+  const int64_t num_rows = 1234;
   auto key_key_array = rand.ArrayOf(utf8(), 4 * num_rows, 0);
   auto key_item_array = rand.ArrayOf(int32(), 4 * num_rows, 0.5);
   std::shared_ptr<Array> key_array =
@@ -657,53 +734,14 @@ TEST_F(TestORCWriterSingleArray, WriteMapOfMap) {
   std::shared_ptr<Array> array = rand.Map(key_array, item_array, num_rows, 0.4);
   AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 10);
 }
-TEST_F(TestORCWriterSingleArray, WriteListOfListOfList) {
-  int64_t num_rows = 10000;
-  auto value3_array = rand.ArrayOf(int64(), 12 * num_rows, 0.2);
-  std::shared_ptr<Array> value2_array = rand.List(*value3_array, 5 * num_rows, 0.3);
-  std::shared_ptr<Array> value_array = rand.List(*value2_array, 2 * num_rows, 0.1);
-  std::shared_ptr<Array> array = rand.List(*value_array, num_rows, 0.2);
-  AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 35);
-}
-TEST_F(TestORCWriterSingleArray, WriteStructOfList) {
-  int64_t num_rows = 10000;
-  ArrayVector av0(1);
-  auto value_array = rand.ArrayOf(int32(), 5 * num_rows, 0.2);
-  av0[0] = rand.List(*value_array, num_rows, 0);
-  std::shared_ptr<Buffer> bitmap = rand.NullBitmap(num_rows, 0.2);
-  std::shared_ptr<Array> array = std::make_shared<StructArray>(
-      struct_({field("a", list(int32()))}), num_rows, av0, bitmap);
-  AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 20);
-}
-TEST_F(TestORCWriterSingleArray, WriteStructOfMap) {
-  int64_t num_rows = 10000, num_values = 5 * num_rows;
-  ArrayVector av0(1);
-  auto key_array = rand.ArrayOf(binary(), num_values, 0);
-  auto item_array = rand.ArrayOf(int32(), num_values, 0.5);
-  av0[0] = rand.Map(key_array, item_array, num_rows, 0.2);
-  std::shared_ptr<Array> array = std::make_shared<StructArray>(
-      struct_({field("a", map(binary(), int32()))}), num_rows, av0);
-  AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 20);
-}
-TEST_F(TestORCWriterSingleArray, WriteListOfStruct) {
-  int64_t num_rows = 10000, num_values = 3 * num_rows;
-  ArrayVector av00(1);
-  av00[0] = rand.ArrayOf(int32(), num_values, 0);
-  std::shared_ptr<Buffer> bitmap = rand.NullBitmap(num_values, 0.2);
-  std::shared_ptr<Array> value_array = std::make_shared<StructArray>(
-      struct_({field("a", int32())}), num_values, av00, bitmap);
-  std::shared_ptr<Array> array = rand.List(*value_array, num_rows, 0);
-  AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 30);
-}
-TEST_F(TestORCWriterSingleArray, WriteMapOfStruct) {
-  int64_t num_rows = 10000, num_values = 10 * num_rows;
-  std::shared_ptr<Array> key_array = rand.ArrayOf(utf8(), num_values, 0);
-  ArrayVector av00(1);
-  av00[0] = rand.ArrayOf(int32(), num_values, 0.1);
-  std::shared_ptr<Buffer> bitmap = rand.NullBitmap(num_values, 0.2);
-  std::shared_ptr<Array> item_array = std::make_shared<StructArray>(
-      struct_({field("a", int32())}), num_values, av00, bitmap);
-  std::shared_ptr<Array> array = rand.Map(key_array, item_array, num_rows, 0.1);
+
+TEST_F(TestORCWriterSingleArray, WriteListOfMap) {
+  const int64_t num_rows = 1234;
+  auto value_key_array = rand.ArrayOf(utf8(), 4 * num_rows, 0);
+  auto value_item_array = rand.ArrayOf(int32(), 4 * num_rows, 0.5);
+  std::shared_ptr<Array> value_array =
+      rand.Map(value_key_array, value_item_array, 2 * num_rows, 0.2);
+  std::shared_ptr<Array> array = rand.List(*value_array, num_rows, 0.4);
   AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 10);
 }
 

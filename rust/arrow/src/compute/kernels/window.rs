@@ -19,7 +19,6 @@
 
 use crate::compute::concat;
 use num::{abs, clamp};
-use std::sync::Arc;
 
 use crate::{
     array::{make_array, ArrayData, PrimitiveArray},
@@ -74,7 +73,7 @@ where
     );
 
     // Concatenate both arrays, add nulls after if shift > 0 else before
-    let null_arr = make_array(Arc::new(null_data));
+    let null_arr = make_array(null_data);
     if offset > 0 {
         concat(&[null_arr.as_ref(), slice.as_ref()])
     } else {

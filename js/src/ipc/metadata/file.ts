@@ -15,16 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/* tslint:disable:class-name */
+/* eslint-disable @typescript-eslint/naming-convention */
 
-import * as File_ from '../../fb/File';
+import {
+    Block as _Block,
+    Footer as _Footer
+} from '../../fb/File';
+
 import { flatbuffers } from 'flatbuffers';
 
 import Long = flatbuffers.Long;
 import Builder = flatbuffers.Builder;
 import ByteBuffer = flatbuffers.ByteBuffer;
-import _Block = File_.org.apache.arrow.flatbuf.Block;
-import _Footer = File_.org.apache.arrow.flatbuf.Footer;
 
 import { Schema } from '../../schema';
 import { MetadataVersion } from '../../enum';
@@ -67,10 +69,8 @@ class Footer_ {
         return b.asUint8Array();
     }
 
-    // @ts-ignore
-    protected _recordBatches: FileBlock[];
-    // @ts-ignore
-    protected _dictionaryBatches: FileBlock[];
+    protected _recordBatches!: FileBlock[];
+    protected _dictionaryBatches!: FileBlock[];
     public get numRecordBatches() { return this._recordBatches.length; }
     public get numDictionaries() { return this._dictionaryBatches.length; }
 

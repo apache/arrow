@@ -19,15 +19,10 @@ add_custom_target(arrow_flight)
 
 arrow_install_all_headers("arrow/flight")
 
-set(ARROW_FLIGHT_STATIC_LINK_LIBS
-    gRPC::grpc++
-    ${ABSL_LIBRARIES}
-    ${ARROW_PROTOBUF_LIBPROTOBUF}
-    c-ares::cares
-    ZLIB::ZLIB)
+set(ARROW_FLIGHT_LINK_LIBS gRPC::grpc++)
 
 if(WIN32)
-  list(APPEND ARROW_FLIGHT_STATIC_LINK_LIBS ws2_32.lib)
+  list(APPEND ARROW_FLIGHT_LINK_LIBS ws2_32.lib)
 endif()
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
@@ -83,7 +78,7 @@ function(test_grpc_version DST_VAR DETECT_VERSION TEST_FILE)
     try_compile(HAS_GRPC_VERSION ${CMAKE_CURRENT_BINARY_DIR}/try_compile SOURCES
                 "${CMAKE_CURRENT_SOURCE_DIR}/try_compile/${TEST_FILE}"
                 CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${CURRENT_INCLUDE_DIRECTORIES}"
-                LINK_LIBRARIES gRPC::grpc gRPC::grpc++
+                LINK_LIBRARIES gRPC::grpc++
                 OUTPUT_VARIABLE TLS_CREDENTIALS_OPTIONS_CHECK_OUTPUT CXX_STANDARD 11)
     if(HAS_GRPC_VERSION)
       set(${DST_VAR}
@@ -102,19 +97,24 @@ function(test_grpc_version DST_VAR DETECT_VERSION TEST_FILE)
   endif()
 endfunction()
 
-test_grpc_version(GRPC_VERSION "1.36" "check_tls_opts_136.cc")
-test_grpc_version(GRPC_VERSION "1.34" "check_tls_opts_134.cc")
-test_grpc_version(GRPC_VERSION "1.32" "check_tls_opts_132.cc")
-test_grpc_version(GRPC_VERSION "1.27" "check_tls_opts_127.cc")
-message(
-  STATUS
-    "Found approximate gRPC version: ${GRPC_VERSION} (ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS=${ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS})"
-  )
+if(GRPC_VENDORED)
+  # v1.35.0 -> 1.35
+  string(REGEX MATCH "[0-9]+\\.[0-9]+" GRPC_VERSION "${ARROW_GRPC_BUILD_VERSION}")
+else()
+  test_grpc_version(GRPC_VERSION "1.36" "check_tls_opts_136.cc")
+  test_grpc_version(GRPC_VERSION "1.34" "check_tls_opts_134.cc")
+  test_grpc_version(GRPC_VERSION "1.32" "check_tls_opts_132.cc")
+  test_grpc_version(GRPC_VERSION "1.27" "check_tls_opts_127.cc")
+  message(
+    STATUS
+      "Found approximate gRPC version: ${GRPC_VERSION} (ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS=${ARROW_FLIGHT_REQUIRE_TLSCREDENTIALSOPTIONS})"
+    )
+endif()
 if(GRPC_VERSION EQUAL "1.27")
   add_definitions(-DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc_impl::experimental)
 elseif(GRPC_VERSION EQUAL "1.32")
   add_definitions(-DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
-elseif(GRPC_VERSION EQUAL "1.34")
+elseif(GRPC_VERSION EQUAL "1.34" OR GRPC_VERSION EQUAL "1.35")
   add_definitions(-DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS
                   -DGRPC_USE_TLS_CHANNEL_CREDENTIALS_OPTIONS_ROOT_CERTS
                   -DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc::experimental)
@@ -172,10 +172,10 @@ add_arrow_lib(arrow_flight
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
               arrow_shared
-              ${ARROW_FLIGHT_STATIC_LINK_LIBS}
+              ${ARROW_FLIGHT_LINK_LIBS}
               STATIC_LINK_LIBS
               arrow_static
-              ${ARROW_FLIGHT_STATIC_LINK_LIBS})
+              ${ARROW_FLIGHT_LINK_LIBS})
 
 foreach(LIB_TARGET ${ARROW_FLIGHT_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_EXPORTING)

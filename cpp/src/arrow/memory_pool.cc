@@ -24,6 +24,10 @@
 #include <limits>
 #include <memory>
 
+#if defined(sun) || defined(__sun)
+#include <stdlib.h>
+#endif
+
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/io_util.h"
@@ -101,54 +105,68 @@ struct SupportedBackend {
   MemoryPoolBackend backend;
 };
 
-std::vector<SupportedBackend> SupportedBackends() {
-  std::vector<SupportedBackend> backends = {
-#ifdef ARROW_JEMALLOC
-      {"jemalloc", MemoryPoolBackend::Jemalloc},
+// See ARROW-12248 for why we use static in-function singletons rather than
+// global constants below (in SupportedBackends() and UserSelectedBackend()).
+// In some contexts (especially R bindings) `default_memory_pool()` may be
+// called before all globals are initialized, and then the ARROW_DEFAULT_MEMORY_POOL
+// environment variable would be ignored.
+
+const std::vector<SupportedBackend>& SupportedBackends() {
+  static std::vector<SupportedBackend> backends = {
+  // ARROW-12316: Apple => mimalloc first, then jemalloc
+  //              non-Apple => jemalloc first, then mimalloc
+#if defined(ARROW_JEMALLOC) && !defined(__APPLE__)
+    {"jemalloc", MemoryPoolBackend::Jemalloc},
 #endif
 #ifdef ARROW_MIMALLOC
-      {"mimalloc", MemoryPoolBackend::Mimalloc},
+    {"mimalloc", MemoryPoolBackend::Mimalloc},
 #endif
-      {"system", MemoryPoolBackend::System}};
+#if defined(ARROW_JEMALLOC) && defined(__APPLE__)
+    {"jemalloc", MemoryPoolBackend::Jemalloc},
+#endif
+    {"system", MemoryPoolBackend::System}
+  };
   return backends;
 }
 
-const std::vector<SupportedBackend> supported_backends = SupportedBackends();
-
+// Return the MemoryPoolBackend selected by the user through the
+// ARROW_DEFAULT_MEMORY_POOL environment variable, if any.
 util::optional<MemoryPoolBackend> UserSelectedBackend() {
-  auto unsupported_backend = [](const std::string& name) {
-    std::vector<std::string> supported;
-    for (const auto backend : supported_backends) {
-      supported.push_back(std::string("'") + backend.name + "'");
-    }
-    ARROW_LOG(WARNING) << "Unsupported backend '" << name << "' specified in "
-                       << kDefaultBackendEnvVar << " (supported backends are "
-                       << internal::JoinStrings(supported, ", ") << ")";
-  };
+  static auto user_selected_backend = []() -> util::optional<MemoryPoolBackend> {
+    auto unsupported_backend = [](const std::string& name) {
+      std::vector<std::string> supported;
+      for (const auto backend : SupportedBackends()) {
+        supported.push_back(std::string("'") + backend.name + "'");
+      }
+      ARROW_LOG(WARNING) << "Unsupported backend '" << name << "' specified in "
+                         << kDefaultBackendEnvVar << " (supported backends are "
+                         << internal::JoinStrings(supported, ", ") << ")";
+    };
 
-  auto maybe_name = internal::GetEnvVar(kDefaultBackendEnvVar);
-  if (!maybe_name.ok()) {
+    auto maybe_name = internal::GetEnvVar(kDefaultBackendEnvVar);
+    if (!maybe_name.ok()) {
+      return {};
+    }
+    const auto name = *std::move(maybe_name);
+    if (name.empty()) {
+      // An empty environment variable is considered missing
+      return {};
+    }
+    const auto found = std::find_if(
+        SupportedBackends().begin(), SupportedBackends().end(),
+        [&](const SupportedBackend& backend) { return name == backend.name; });
+    if (found != SupportedBackends().end()) {
+      return found->backend;
+    }
+    unsupported_backend(name);
     return {};
-  }
-  const auto name = *std::move(maybe_name);
-  if (name.empty()) {
-    // An empty environment variable is considered missing
-    return {};
-  }
-  const auto found =
-      std::find_if(supported_backends.begin(), supported_backends.end(),
-                   [&](const SupportedBackend& backend) { return name == backend.name; });
-  if (found != supported_backends.end()) {
-    return found->backend;
-  }
-  unsupported_backend(name);
-  return {};
+  }();
+
+  return user_selected_backend;
 }
 
-const util::optional<MemoryPoolBackend> user_selected_backend = UserSelectedBackend();
-
 MemoryPoolBackend DefaultBackend() {
-  auto backend = user_selected_backend;
+  auto backend = UserSelectedBackend();
   if (backend.has_value()) {
     return backend.value();
   }
@@ -179,6 +197,11 @@ class SystemAllocator {
     // Special code path for Windows
     *out = reinterpret_cast<uint8_t*>(
         _aligned_malloc(static_cast<size_t>(size), kAlignment));
+    if (!*out) {
+      return Status::OutOfMemory("malloc of size ", size, " failed");
+    }
+#elif defined(sun) || defined(__sun)
+    *out = reinterpret_cast<uint8_t*>(memalign(kAlignment, static_cast<size_t>(size)));
     if (!*out) {
       return Status::OutOfMemory("malloc of size ", size, " failed");
     }
@@ -625,7 +648,7 @@ std::string ProxyMemoryPool::backend_name() const { return impl_->backend_name()
 
 std::vector<std::string> SupportedMemoryBackendNames() {
   std::vector<std::string> supported;
-  for (const auto backend : supported_backends) {
+  for (const auto backend : SupportedBackends()) {
     supported.push_back(backend.name);
   }
   return supported;

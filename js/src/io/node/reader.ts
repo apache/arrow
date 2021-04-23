@@ -31,8 +31,8 @@ type CB = (error?: Error | null | undefined) => void;
 
 /** @ignore */
 class RecordBatchReaderDuplex<T extends { [key: string]: DataType } = any> extends Duplex {
-    private _pulling: boolean = false;
-    private _autoDestroy: boolean = true;
+    private _pulling = false;
+    private _autoDestroy = true;
     private _reader: RecordBatchReader | null;
     private _asyncQueue: AsyncByteQueue | null;
     constructor(options?: DuplexOptions & { autoDestroy: boolean }) {

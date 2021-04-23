@@ -20,8 +20,7 @@ import { DataType } from '../type';
 
 /** @ignore */
 export class Run<T extends DataType = any, TNull = any> {
-    // @ts-ignore
-    protected _values: ArrayLike<T['TValue'] | TNull>;
+    protected _values!: ArrayLike<T['TValue'] | TNull>;
     public get length() { return this._values.length; }
     public get(index: number) { return this._values[index]; }
     public clear() { this._values = <any> null; return this; }

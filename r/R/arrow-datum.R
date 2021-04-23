@@ -39,7 +39,12 @@ is.na.ArrowDatum <- function(x) call_function("is_null", x)
 is.nan.ArrowDatum <- function(x) call_function("is_nan", x)
 
 #' @export
-as.vector.ArrowDatum <- function(x, mode) x$as_vector()
+as.vector.ArrowDatum <- function(x, mode) {
+  tryCatch(
+    x$as_vector(),
+    error = handle_embedded_nul_error
+  )
+}
 
 filter_rows <- function(x, i, keep_na = TRUE, ...) {
   # General purpose function for [ row subsetting with R semantics
@@ -138,3 +143,23 @@ as.integer.ArrowDatum <- function(x, ...) as.integer(as.vector(x), ...)
 
 #' @export
 as.character.ArrowDatum <- function(x, ...) as.character(as.vector(x), ...)
+
+#' @export
+sort.ArrowDatum <- function(x, decreasing = FALSE, na.last = NA, ...) {
+  # Arrow always sorts nulls at the end of the array. This corresponds to
+  # sort(na.last = TRUE). For the other two cases (na.last = NA and
+  # na.last = FALSE) we need to use workarounds.
+  # TODO: Implement this more cleanly after ARROW-12063
+  if (is.na(na.last)) {
+    # Filter out NAs before sorting
+    x <- x$Filter(!is.na(x))
+    x$Take(x$SortIndices(descending = decreasing))
+  } else if (na.last) {
+    x$Take(x$SortIndices(descending = decreasing))
+  } else {
+    # Create a new array that encodes missing values as 1 and non-missing values
+    # as 0. Sort descending by that array first to get the NAs at the beginning
+    tbl <- Table$create(x = x, `is_na` = as.integer(is.na(x)))
+    tbl$x$Take(tbl$SortIndices(names = c("is_na", "x"), descending = c(TRUE, decreasing)))
+  }
+}

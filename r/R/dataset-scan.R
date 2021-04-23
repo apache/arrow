@@ -56,7 +56,7 @@
 Scanner <- R6Class("Scanner", inherit = ArrowObject,
   public = list(
     ToTable = function() dataset___Scanner__ToTable(self),
-    Scan = function() dataset___Scanner__Scan(self)
+    ScanBatches = function() dataset___Scanner__ScanBatches(self)
   ),
   active = list(
     schema = function() dataset___Scanner__schema(self)
@@ -67,6 +67,7 @@ Scanner$create <- function(dataset,
                            filter = TRUE,
                            use_threads = option_use_threads(),
                            batch_size = NULL,
+                           fragment_scan_options = NULL,
                            ...) {
   if (inherits(dataset, "arrow_dplyr_query")) {
     if (inherits(dataset$.data, "ArrowTabular")) {
@@ -75,9 +76,11 @@ Scanner$create <- function(dataset,
     }
     return(Scanner$create(
       dataset$.data,
-      dataset$selected_columns,
+      c(dataset$selected_columns, dataset$temp_columns),
       dataset$filtered_rows,
       use_threads,
+      batch_size,
+      fragment_scan_options,
       ...
     ))
   }
@@ -98,6 +101,9 @@ Scanner$create <- function(dataset,
   }
   if (is_integerish(batch_size)) {
     scanner_builder$BatchSize(batch_size)
+  }
+  if (!is.null(fragment_scan_options)) {
+    scanner_builder$FragmentScanOptions(fragment_scan_options)
   }
   scanner_builder$Finish()
 }
@@ -136,16 +142,12 @@ map_batches <- function(X, FUN, ..., .data.frame = TRUE) {
   scanner <- Scanner$create(ensure_group_vars(X))
   FUN <- as_mapper(FUN)
   # message("Making ScanTasks")
-  lapply(scanner$Scan(), function(scan_task) {
-    # This outer lapply could be parallelized
-    # message("Making Batches")
-    lapply(scan_task$Execute(), function(batch) {
-      # message("Processing Batch")
-      # This inner lapply cannot be parallelized
-      # TODO: wrap batch in arrow_dplyr_query with X$selected_columns and X$group_by_vars
-      # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
-      FUN(batch, ...)
-    })
+  lapply(scanner$ScanBatches(), function(batch) {
+    # message("Processing Batch")
+    # TODO: wrap batch in arrow_dplyr_query with X$selected_columns,
+    # X$temp_columns, and X$group_by_vars
+    # if X is arrow_dplyr_query, if some other arg (.dplyr?) == TRUE
+    FUN(batch, ...)
   })
 }
 
@@ -183,6 +185,10 @@ ScannerBuilder <- R6Class("ScannerBuilder", inherit = ArrowObject,
     },
     BatchSize = function(batch_size) {
       dataset___ScannerBuilder__BatchSize(self, batch_size)
+      self
+    },
+    FragmentScanOptions = function(options) {
+      dataset___ScannerBuilder__FragmentScanOptions(self, options)
       self
     },
     Finish = function() dataset___ScannerBuilder__Finish(self)

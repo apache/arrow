@@ -40,23 +40,20 @@
 namespace arrow {
 namespace internal {
 
-static void busy_wait(double seconds, std::function<bool()> predicate) {
-  const double period = 0.001;
-  for (int i = 0; !predicate() && i * period < seconds; ++i) {
-    SleepFor(period);
-  }
-}
-
 template <typename T>
 static void task_add(T x, T y, T* out) {
   *out = x + y;
 }
 
 template <typename T>
-static void task_slow_add(double seconds, T x, T y, T* out) {
-  SleepFor(seconds);
-  *out = x + y;
-}
+struct task_slow_add {
+  void operator()(T x, T y, T* out) {
+    SleepFor(seconds_);
+    *out = x + y;
+  }
+
+  const double seconds_;
+};
 
 typedef std::function<void(int, int, int*)> AddTaskFunc;
 
@@ -80,13 +77,14 @@ static T inplace_add(T& x, T y) {
 
 class AddTester {
  public:
-  explicit AddTester(int nadds) : nadds(nadds), xs(nadds), ys(nadds), outs(nadds, -1) {
+  explicit AddTester(int nadds, StopToken stop_token = StopToken::Unstoppable())
+      : nadds_(nadds), stop_token_(stop_token), xs_(nadds), ys_(nadds), outs_(nadds, -1) {
     int x = 0, y = 0;
-    std::generate(xs.begin(), xs.end(), [&] {
+    std::generate(xs_.begin(), xs_.end(), [&] {
       ++x;
       return x;
     });
-    std::generate(ys.begin(), ys.end(), [&] {
+    std::generate(ys_.begin(), ys_.end(), [&] {
       y += 10;
       return y;
     });
@@ -95,20 +93,20 @@ class AddTester {
   AddTester(AddTester&&) = default;
 
   void SpawnTasks(ThreadPool* pool, AddTaskFunc add_func) {
-    for (int i = 0; i < nadds; ++i) {
-      ASSERT_OK(pool->Spawn([=] { add_func(xs[i], ys[i], &outs[i]); }));
+    for (int i = 0; i < nadds_; ++i) {
+      ASSERT_OK(pool->Spawn([=] { add_func(xs_[i], ys_[i], &outs_[i]); }, stop_token_));
     }
   }
 
   void CheckResults() {
-    for (int i = 0; i < nadds; ++i) {
-      ASSERT_EQ(outs[i], (i + 1) * 11);
+    for (int i = 0; i < nadds_; ++i) {
+      ASSERT_EQ(outs_[i], (i + 1) * 11);
     }
   }
 
   void CheckNotAllComputed() {
-    for (int i = 0; i < nadds; ++i) {
-      if (outs[i] == -1) {
+    for (int i = 0; i < nadds_; ++i) {
+      if (outs_[i] == -1) {
         return;
       }
     }
@@ -118,11 +116,149 @@ class AddTester {
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(AddTester);
 
-  int nadds;
-  std::vector<int> xs;
-  std::vector<int> ys;
-  std::vector<int> outs;
+  int nadds_;
+  StopToken stop_token_;
+  std::vector<int> xs_;
+  std::vector<int> ys_;
+  std::vector<int> outs_;
 };
+
+class TestRunSynchronously : public testing::TestWithParam<bool> {
+ public:
+  bool UseThreads() { return GetParam(); }
+
+  template <typename T>
+  Result<T> Run(FnOnce<Future<T>(Executor*)> top_level_task) {
+    return RunSynchronously(std::move(top_level_task), UseThreads());
+  }
+
+  Status RunVoid(FnOnce<Future<>(Executor*)> top_level_task) {
+    return RunSynchronouslyVoid(std::move(top_level_task), UseThreads());
+  }
+
+  void TestContinueAfterExternal(bool transfer_to_main_thread) {
+    bool continuation_ran = false;
+    EXPECT_OK_AND_ASSIGN(auto external_pool, ThreadPool::Make(1));
+    auto top_level_task = [&](Executor* executor) {
+      struct Callback {
+        Status operator()(...) {
+          *continuation_ran = true;
+          return Status::OK();
+        }
+        bool* continuation_ran;
+      };
+      auto fut = DeferNotOk(external_pool->Submit([&] {
+        SleepABit();
+        return Status::OK();
+      }));
+      if (transfer_to_main_thread) {
+        fut = executor->Transfer(fut);
+      }
+      return fut.Then(Callback{&continuation_ran});
+    };
+    ASSERT_OK(RunVoid(std::move(top_level_task)));
+    EXPECT_TRUE(continuation_ran);
+  }
+};
+
+TEST_P(TestRunSynchronously, SimpleRun) {
+  bool task_ran = false;
+  auto task = [&](Executor* executor) {
+    EXPECT_NE(executor, nullptr);
+    task_ran = true;
+    return Future<>::MakeFinished(Status::OK());
+  };
+  ASSERT_OK(RunVoid(std::move(task)));
+  EXPECT_TRUE(task_ran);
+}
+
+TEST_P(TestRunSynchronously, SpawnNested) {
+  bool nested_ran = false;
+  auto top_level_task = [&](Executor* executor) {
+    return DeferNotOk(executor->Submit([&] {
+      nested_ran = true;
+      return Status::OK();
+    }));
+  };
+  ASSERT_OK(RunVoid(std::move(top_level_task)));
+  EXPECT_TRUE(nested_ran);
+}
+
+TEST_P(TestRunSynchronously, SpawnMoreNested) {
+  std::atomic<int> nested_ran{0};
+  auto top_level_task = [&](Executor* executor) -> Future<> {
+    auto fut_a = DeferNotOk(executor->Submit([&] { nested_ran++; }));
+    auto fut_b = DeferNotOk(executor->Submit([&] { nested_ran++; }));
+    return AllComplete({fut_a, fut_b})
+        .Then([&](const Result<arrow::detail::Empty>& result) {
+          nested_ran++;
+          return result;
+        });
+  };
+  ASSERT_OK(RunVoid(std::move(top_level_task)));
+  EXPECT_EQ(nested_ran, 3);
+}
+
+TEST_P(TestRunSynchronously, WithResult) {
+  auto top_level_task = [&](Executor* executor) {
+    return DeferNotOk(executor->Submit([] { return 42; }));
+  };
+  ASSERT_OK_AND_EQ(42, Run<int>(std::move(top_level_task)));
+}
+
+TEST_P(TestRunSynchronously, StopTokenSpawn) {
+  bool nested_ran = false;
+  StopSource stop_source;
+  auto top_level_task = [&](Executor* executor) -> Future<> {
+    stop_source.RequestStop(Status::Invalid("XYZ"));
+    RETURN_NOT_OK(executor->Spawn([&] { nested_ran = true; }, stop_source.token()));
+    return Future<>::MakeFinished();
+  };
+  ASSERT_OK(RunVoid(std::move(top_level_task)));
+  EXPECT_FALSE(nested_ran);
+}
+
+TEST_P(TestRunSynchronously, StopTokenSubmit) {
+  bool nested_ran = false;
+  StopSource stop_source;
+  auto top_level_task = [&](Executor* executor) -> Future<> {
+    stop_source.RequestStop();
+    return DeferNotOk(executor->Submit(stop_source.token(), [&] {
+      nested_ran = true;
+      return Status::OK();
+    }));
+  };
+  ASSERT_RAISES(Cancelled, RunVoid(std::move(top_level_task)));
+  EXPECT_FALSE(nested_ran);
+}
+
+TEST_P(TestRunSynchronously, ContinueAfterExternal) {
+  // The future returned by the top-level task completes on another thread.
+  // This can trigger delicate race conditions in the SerialExecutor code,
+  // especially destruction.
+  this->TestContinueAfterExternal(/*transfer_to_main_thread=*/false);
+}
+
+TEST_P(TestRunSynchronously, ContinueAfterExternalTransferred) {
+  // Like above, but the future is transferred back to the serial executor
+  // after completion on an external thread.
+  this->TestContinueAfterExternal(/*transfer_to_main_thread=*/true);
+}
+
+TEST_P(TestRunSynchronously, SchedulerAbort) {
+  auto top_level_task = [&](Executor* executor) { return Status::Invalid("XYZ"); };
+  ASSERT_RAISES(Invalid, RunVoid(std::move(top_level_task)));
+}
+
+TEST_P(TestRunSynchronously, PropagatedError) {
+  auto top_level_task = [&](Executor* executor) {
+    return DeferNotOk(executor->Submit([] { return Status::Invalid("XYZ"); }));
+  };
+  ASSERT_RAISES(Invalid, RunVoid(std::move(top_level_task)));
+}
+
+INSTANTIATE_TEST_SUITE_P(TestRunSynchronously, TestRunSynchronously,
+                         ::testing::Values(false, true));
 
 class TestThreadPool : public ::testing::Test {
  public:
@@ -137,31 +273,71 @@ class TestThreadPool : public ::testing::Test {
     return *ThreadPool::Make(threads);
   }
 
-  void SpawnAdds(ThreadPool* pool, int nadds, AddTaskFunc add_func) {
-    AddTester add_tester(nadds);
+  void DoSpawnAdds(ThreadPool* pool, int nadds, AddTaskFunc add_func,
+                   StopToken stop_token = StopToken::Unstoppable(),
+                   StopSource* stop_source = nullptr) {
+    AddTester add_tester(nadds, stop_token);
     add_tester.SpawnTasks(pool, add_func);
+    if (stop_source) {
+      stop_source->RequestStop();
+    }
     ASSERT_OK(pool->Shutdown());
-    add_tester.CheckResults();
+    if (stop_source) {
+      add_tester.CheckNotAllComputed();
+    } else {
+      add_tester.CheckResults();
+    }
   }
 
-  void SpawnAddsThreaded(ThreadPool* pool, int nthreads, int nadds,
-                         AddTaskFunc add_func) {
+  void SpawnAdds(ThreadPool* pool, int nadds, AddTaskFunc add_func,
+                 StopToken stop_token = StopToken::Unstoppable()) {
+    DoSpawnAdds(pool, nadds, std::move(add_func), std::move(stop_token));
+  }
+
+  void SpawnAddsAndCancel(ThreadPool* pool, int nadds, AddTaskFunc add_func,
+                          StopSource* stop_source) {
+    DoSpawnAdds(pool, nadds, std::move(add_func), stop_source->token(), stop_source);
+  }
+
+  void DoSpawnAddsThreaded(ThreadPool* pool, int nthreads, int nadds,
+                           AddTaskFunc add_func,
+                           StopToken stop_token = StopToken::Unstoppable(),
+                           StopSource* stop_source = nullptr) {
     // Same as SpawnAdds, but do the task spawning from multiple threads
     std::vector<AddTester> add_testers;
     std::vector<std::thread> threads;
     for (int i = 0; i < nthreads; ++i) {
-      add_testers.emplace_back(nadds);
+      add_testers.emplace_back(nadds, stop_token);
     }
     for (auto& add_tester : add_testers) {
       threads.emplace_back([&] { add_tester.SpawnTasks(pool, add_func); });
+    }
+    if (stop_source) {
+      stop_source->RequestStop();
     }
     for (auto& thread : threads) {
       thread.join();
     }
     ASSERT_OK(pool->Shutdown());
     for (auto& add_tester : add_testers) {
-      add_tester.CheckResults();
+      if (stop_source) {
+        add_tester.CheckNotAllComputed();
+      } else {
+        add_tester.CheckResults();
+      }
     }
+  }
+
+  void SpawnAddsThreaded(ThreadPool* pool, int nthreads, int nadds, AddTaskFunc add_func,
+                         StopToken stop_token = StopToken::Unstoppable()) {
+    DoSpawnAddsThreaded(pool, nthreads, nadds, std::move(add_func),
+                        std::move(stop_token));
+  }
+
+  void SpawnAddsThreadedAndCancel(ThreadPool* pool, int nthreads, int nadds,
+                                  AddTaskFunc add_func, StopSource* stop_source) {
+    DoSpawnAddsThreaded(pool, nthreads, nadds, std::move(add_func), stop_source->token(),
+                        stop_source);
   }
 };
 
@@ -192,32 +368,49 @@ TEST_F(TestThreadPool, StressSpawnThreaded) {
 TEST_F(TestThreadPool, SpawnSlow) {
   // This checks that Shutdown() waits for all tasks to finish
   auto pool = this->MakeThreadPool(2);
-  SpawnAdds(pool.get(), 7, [](int x, int y, int* out) {
-    return task_slow_add(0.02 /* seconds */, x, y, out);
-  });
+  SpawnAdds(pool.get(), 7, task_slow_add<int>{/*seconds=*/0.02});
 }
 
 TEST_F(TestThreadPool, StressSpawnSlow) {
   auto pool = this->MakeThreadPool(30);
-  SpawnAdds(pool.get(), 1000, [](int x, int y, int* out) {
-    return task_slow_add(0.002 /* seconds */, x, y, out);
-  });
+  SpawnAdds(pool.get(), 1000, task_slow_add<int>{/*seconds=*/0.002});
 }
 
 TEST_F(TestThreadPool, StressSpawnSlowThreaded) {
   auto pool = this->MakeThreadPool(30);
-  SpawnAddsThreaded(pool.get(), 20, 100, [](int x, int y, int* out) {
-    return task_slow_add(0.002 /* seconds */, x, y, out);
-  });
+  SpawnAddsThreaded(pool.get(), 20, 100, task_slow_add<int>{/*seconds=*/0.002});
+}
+
+TEST_F(TestThreadPool, SpawnWithStopToken) {
+  StopSource stop_source;
+  auto pool = this->MakeThreadPool(3);
+  SpawnAdds(pool.get(), 7, task_add<int>, stop_source.token());
+}
+
+TEST_F(TestThreadPool, StressSpawnThreadedWithStopToken) {
+  StopSource stop_source;
+  auto pool = this->MakeThreadPool(30);
+  SpawnAddsThreaded(pool.get(), 20, 100, task_add<int>, stop_source.token());
+}
+
+TEST_F(TestThreadPool, SpawnWithStopTokenCancelled) {
+  StopSource stop_source;
+  auto pool = this->MakeThreadPool(3);
+  SpawnAddsAndCancel(pool.get(), 100, task_slow_add<int>{/*seconds=*/0.02}, &stop_source);
+}
+
+TEST_F(TestThreadPool, StressSpawnThreadedWithStopTokenCancelled) {
+  StopSource stop_source;
+  auto pool = this->MakeThreadPool(30);
+  SpawnAddsThreadedAndCancel(pool.get(), 20, 100, task_slow_add<int>{/*seconds=*/0.02},
+                             &stop_source);
 }
 
 TEST_F(TestThreadPool, QuickShutdown) {
   AddTester add_tester(100);
   {
     auto pool = this->MakeThreadPool(3);
-    add_tester.SpawnTasks(pool.get(), [](int x, int y, int* out) {
-      return task_slow_add(0.02 /* seconds */, x, y, out);
-    });
+    add_tester.SpawnTasks(pool.get(), task_slow_add<int>{/*seconds=*/0.02});
     ASSERT_OK(pool->Shutdown(false /* wait */));
     add_tester.CheckNotAllComputed();
   }
@@ -235,13 +428,20 @@ TEST_F(TestThreadPool, SetCapacity) {
   ASSERT_EQ(pool->GetCapacity(), 3);
   ASSERT_EQ(pool->GetActualCapacity(), 0);
 
-  ASSERT_OK(pool->Spawn(std::bind(SleepFor, 0.1 /* seconds */)));
-  ASSERT_EQ(pool->GetActualCapacity(), 1);
+  auto gating_task = GatingTask::Make();
 
+  ASSERT_OK(pool->Spawn(gating_task->Task()));
+  ASSERT_OK(gating_task->WaitForRunning(1));
+  ASSERT_EQ(pool->GetActualCapacity(), 1);
+  ASSERT_OK(gating_task->Unlock());
+
+  gating_task = GatingTask::Make();
   // Spawn more tasks than the pool capacity
   for (int i = 0; i < 6; ++i) {
-    ASSERT_OK(pool->Spawn(std::bind(SleepFor, 0.1 /* seconds */)));
+    ASSERT_OK(pool->Spawn(gating_task->Task()));
   }
+  ASSERT_OK(gating_task->WaitForRunning(3));
+  SleepFor(0.001);  // Sleep a bit just to make sure it isn't making any threads
   ASSERT_EQ(pool->GetActualCapacity(), 3);  // maxxed out
 
   // The tasks have not finished yet, increasing the desired capacity
@@ -253,21 +453,26 @@ TEST_F(TestThreadPool, SetCapacity) {
   // Thread reaping is eager (but asynchronous)
   ASSERT_OK(pool->SetCapacity(2));
   ASSERT_EQ(pool->GetCapacity(), 2);
+
   // Wait for workers to wake up and secede
-  busy_wait(0.5, [&] { return pool->GetActualCapacity() == 2; });
+  ASSERT_OK(gating_task->Unlock());
+  BusyWait(0.5, [&] { return pool->GetActualCapacity() == 2; });
   ASSERT_EQ(pool->GetActualCapacity(), 2);
 
   // Downsize while tasks are pending
   ASSERT_OK(pool->SetCapacity(5));
   ASSERT_EQ(pool->GetCapacity(), 5);
+  gating_task = GatingTask::Make();
   for (int i = 0; i < 10; ++i) {
-    ASSERT_OK(pool->Spawn(std::bind(SleepFor, 0.1 /* seconds */)));
+    ASSERT_OK(pool->Spawn(gating_task->Task()));
   }
+  ASSERT_OK(gating_task->WaitForRunning(5));
   ASSERT_EQ(pool->GetActualCapacity(), 5);
 
   ASSERT_OK(pool->SetCapacity(2));
   ASSERT_EQ(pool->GetCapacity(), 2);
-  busy_wait(0.5, [&] { return pool->GetActualCapacity() == 2; });
+  ASSERT_OK(gating_task->Unlock());
+  BusyWait(0.5, [&] { return pool->GetActualCapacity() == 2; });
   ASSERT_EQ(pool->GetActualCapacity(), 2);
 
   // Ensure nothing got stuck
@@ -289,7 +494,7 @@ TEST_F(TestThreadPool, Submit) {
     ASSERT_OK_AND_EQ("foobar", fut.result());
   }
   {
-    ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(slow_add<int>, 0.01 /* seconds */, 4, 5));
+    ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(slow_add<int>, /*seconds=*/0.01, 4, 5));
     ASSERT_OK_AND_EQ(9, fut.result());
   }
   {
@@ -304,6 +509,48 @@ TEST_F(TestThreadPool, Submit) {
     // `void` return type
     ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(SleepFor, 0.001));
     ASSERT_OK(fut.status());
+  }
+}
+
+TEST_F(TestThreadPool, SubmitWithStopToken) {
+  auto pool = this->MakeThreadPool(3);
+  {
+    StopSource stop_source;
+    ASSERT_OK_AND_ASSIGN(Future<int> fut,
+                         pool->Submit(stop_source.token(), add<int>, 4, 5));
+    Result<int> res = fut.result();
+    ASSERT_OK_AND_EQ(9, res);
+  }
+}
+
+TEST_F(TestThreadPool, SubmitWithStopTokenCancelled) {
+  auto pool = this->MakeThreadPool(3);
+  {
+    const int n_futures = 100;
+    StopSource stop_source;
+    StopToken stop_token = stop_source.token();
+    std::vector<Future<int>> futures;
+    for (int i = 0; i < n_futures; ++i) {
+      ASSERT_OK_AND_ASSIGN(
+          auto fut, pool->Submit(stop_token, slow_add<int>, 0.01 /*seconds*/, i, 1));
+      futures.push_back(std::move(fut));
+    }
+    SleepFor(0.05);  // Let some work finish
+    stop_source.RequestStop();
+    int n_success = 0;
+    int n_cancelled = 0;
+    for (int i = 0; i < n_futures; ++i) {
+      Result<int> res = futures[i].result();
+      if (res.ok()) {
+        ASSERT_EQ(i + 1, *res);
+        ++n_success;
+      } else {
+        ASSERT_RAISES(Cancelled, res);
+        ++n_cancelled;
+      }
+    }
+    ASSERT_GT(n_success, 0);
+    ASSERT_GT(n_cancelled, 0);
   }
 }
 

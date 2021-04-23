@@ -263,6 +263,7 @@ impl MutableBuffer {
     /// buffer.extend_from_slice(&[2u32, 0]);
     /// assert_eq!(buffer.len(), 8) // u32 has 4 bytes
     /// ```
+    #[inline]
     pub fn extend_from_slice<T: ToByteSlice>(&mut self, items: &[T]) {
         let len = items.len();
         let additional = len * std::mem::size_of::<T>();
@@ -391,6 +392,7 @@ impl MutableBuffer {
     // 1. there is no trait `TrustedLen` in stable rust and therefore
     //    we can't specialize `extend` for `TrustedLen` like `Vec` does.
     // 2. `from_trusted_len_iter` is faster.
+    #[inline]
     pub unsafe fn from_trusted_len_iter<T: ArrowNativeType, I: Iterator<Item = T>>(
         iterator: I,
     ) -> Self {
@@ -415,12 +417,69 @@ impl MutableBuffer {
         buffer
     }
 
+    /// Creates a [`MutableBuffer`] from a boolean [`Iterator`] with a trusted (upper) length.
+    /// # use arrow::buffer::MutableBuffer;
+    /// # Example
+    /// ```
+    /// # use arrow::buffer::MutableBuffer;
+    /// let v = vec![false, true, false];
+    /// let iter = v.iter().map(|x| *x || true);
+    /// let buffer = unsafe { MutableBuffer::from_trusted_len_iter_bool(iter) };
+    /// assert_eq!(buffer.len(), 1) // 3 booleans have 1 byte
+    /// ```
+    /// # Safety
+    /// This method assumes that the iterator's size is correct and is undefined behavior
+    /// to use it on an iterator that reports an incorrect length.
+    // This implementation is required for two reasons:
+    // 1. there is no trait `TrustedLen` in stable rust and therefore
+    //    we can't specialize `extend` for `TrustedLen` like `Vec` does.
+    // 2. `from_trusted_len_iter_bool` is faster.
+    #[inline]
+    pub unsafe fn from_trusted_len_iter_bool<I: Iterator<Item = bool>>(
+        mut iterator: I,
+    ) -> Self {
+        let (_, upper) = iterator.size_hint();
+        let upper = upper.expect("from_trusted_len_iter requires an upper limit");
+
+        let mut result = {
+            let byte_capacity: usize = upper.saturating_add(7) / 8;
+            MutableBuffer::new(byte_capacity)
+        };
+
+        'a: loop {
+            let mut byte_accum: u8 = 0;
+            let mut mask: u8 = 1;
+
+            //collect (up to) 8 bits into a byte
+            while mask != 0 {
+                if let Some(value) = iterator.next() {
+                    byte_accum |= match value {
+                        true => mask,
+                        false => 0,
+                    };
+                    mask <<= 1;
+                } else {
+                    if mask != 1 {
+                        // Add last byte
+                        result.push_unchecked(byte_accum);
+                    }
+                    break 'a;
+                }
+            }
+
+            // Soundness: from_trusted_len
+            result.push_unchecked(byte_accum);
+        }
+        result
+    }
+
     /// Creates a [`MutableBuffer`] from an [`Iterator`] with a trusted (upper) length or errors
     /// if any of the items of the iterator is an error.
     /// Prefer this to `collect` whenever possible, as it is faster ~60% faster.
     /// # Safety
     /// This method assumes that the iterator's size is correct and is undefined behavior
     /// to use it on an iterator that reports an incorrect length.
+    #[inline]
     pub unsafe fn try_from_trusted_len_iter<
         E,
         T: ArrowNativeType,

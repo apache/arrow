@@ -19,11 +19,111 @@
 
 # DataFusion
 
-DataFusion is an in-memory query engine that uses Apache Arrow as the memory model. It supports executing SQL queries against CSV and Parquet files as well as querying directly against in-memory data.
+<img src="docs/images/DataFusion-Logo-Dark.svg" width="256"/>
+
+DataFusion is an extensible query execution framework, written in
+Rust, that uses [Apache Arrow](https://arrow.apache.org) as its
+in-memory format.
+
+DataFusion supports both an SQL and a DataFrame API for building
+logical query plans as well as a query optimizer and execution engine
+capable of parallel execution against partitioned data sources (CSV
+and Parquet) using threads.
+
+## Use Cases
+
+DataFusion is used to create modern, fast and efficient data
+pipelines, ETL processes, and database systems, which need the
+performance of Rust and Apache Arrow and want to provide their users
+the convenience of an SQL interface or a DataFrame API.
+
+## Why DataFusion?
+
+* *High Performance*: Leveraging Rust and Arrow's memory model, DataFusion achieves very high performance
+* *Easy to Connect*: Being part of the Apache Arrow ecosystem (Arrow, Parquet and Flight), DataFusion works well with the rest of the big data ecosystem
+* *Easy to Embed*: Allowing extension at almost any point in its design, DataFusion can be tailored for your specific usecase
+* *High Quality*:  Extensively tested, both by itself and with the rest of the Arrow ecosystem, DataFusion can be used as the foundation for production systems.
+
+## Known Uses
+
+Here are some of the projects known to use DataFusion:
+
+* [Ballista](https://github.com/ballista-compute/ballista) Distributed Compute Platform
+* [Cloudfuse Buzz](https://github.com/cloudfuse-io/buzz-rust)
+* [Cube.js](https://github.com/cube-js/cube.js)
+* [datafusion-python](https://pypi.org/project/datafusion)
+* [delta-rs](https://github.com/delta-io/delta-rs)
+* [InfluxDB IOx](https://github.com/influxdata/influxdb_iox) Time Series Database
+* [ROAPI](https://github.com/roapi/roapi)
+
+(if you know of another project, please submit a PR to add a link!)
+
+## Example Usage
+
+Run a SQL query against data stored in a CSV:
+
+```rust
+use datafusion::prelude::*;
+use arrow::util::pretty::print_batches;
+use arrow::record_batch::RecordBatch;
+
+#[tokio::main]
+async fn main() -> datafusion::error::Result<()> {
+  // register the table
+  let mut ctx = ExecutionContext::new();
+  ctx.register_csv("example", "tests/example.csv", CsvReadOptions::new())?;
+
+  // create a plan to run a SQL query
+  let df = ctx.sql("SELECT a, MIN(b) FROM example GROUP BY a LIMIT 100")?;
+
+  // execute and print results
+  let results: Vec<RecordBatch> = df.collect().await?;
+  print_batches(&results)?;
+  Ok(())
+}
+```
+
+Use the DataFrame API to process data stored in a CSV:
+
+```rust
+use datafusion::prelude::*;
+use arrow::util::pretty::print_batches;
+use arrow::record_batch::RecordBatch;
+
+#[tokio::main]
+async fn main() -> datafusion::error::Result<()> {
+  // create the dataframe
+  let mut ctx = ExecutionContext::new();
+  let df = ctx.read_csv("tests/example.csv", CsvReadOptions::new())?;
+
+  let df = df.filter(col("a").lt_eq(col("b")))?
+           .aggregate(vec![col("a")], vec![min(col("b"))])?
+           .limit(100)?;
+
+  // execute and print results
+  let results: Vec<RecordBatch> = df.collect().await?;
+  print_batches(&results)?;
+  Ok(())
+}
+```
+
+Both of these examples will produce
+
+```text
++---+--------+
+| a | MIN(b) |
++---+--------+
+| 1 | 2      |
++---+--------+
+```
+
+
 
 ## Using DataFusion as a library
 
-DataFusion can be used as a library by adding the following to your `Cargo.toml` file.
+DataFusion is [published on crates.io](https://crates.io/crates/datafusion), and is [well documented on docs.rs](https://docs.rs/datafusion/).
+
+To get started, add the following to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
@@ -32,7 +132,7 @@ datafusion = "4.0.0-SNAPSHOT"
 
 ## Using DataFusion as a binary
 
-DataFusion includes a simple command-line interactive SQL utility. See the [CLI reference](docs/cli.md) for more information.
+DataFusion also includes a simple command-line interactive SQL utility. See the [CLI reference](docs/cli.md) for more information.
 
 # Status
 
@@ -41,8 +141,11 @@ DataFusion includes a simple command-line interactive SQL utility. See the [CLI 
 - [x] SQL Parser
 - [x] SQL Query Planner
 - [x] Query Optimizer
-- [x] Projection push down
-- [x] Predicate push down
+ - [x] Constant folding
+ - [x] Join Reordering
+ - [x] Limit Pushdown
+ - [x] Projection push down
+ - [x] Predicate push down
 - [x] Type coercion
 - [x] Parallel query execution
 
@@ -53,12 +156,12 @@ DataFusion includes a simple command-line interactive SQL utility. See the [CLI 
 - [x] Filter post-aggregate (HAVING)
 - [x] Limit
 - [x] Aggregate
-- [x] UDFs (user-defined functions)
-- [x] UDAFs (user-defined aggregate functions)
 - [x] Common math functions
-- String functions
+- [x] cast
+- [x] try_cast
+- Postgres compatible String functions
   - [x] ascii
-  - [x] bit_Length
+  - [x] bit_length
   - [x] btrim
   - [x] char_length
   - [x] character_length
@@ -71,15 +174,20 @@ DataFusion includes a simple command-line interactive SQL utility. See the [CLI 
   - [x] lpad
   - [x] ltrim
   - [x] octet_length
+  - [x] regexp_replace
   - [x] repeat
+  - [x] replace
   - [x] reverse
   - [x] right
   - [x] rpad
   - [x] rtrim
+  - [x] split_part
+  - [x] starts_with
+  - [x] strpos
   - [x] substr
   - [x] to_hex
+  - [x] translate
   - [x] trim
-
 - Miscellaneous/Boolean functions
   - [x] nullif
 - Common date/time functions
@@ -88,11 +196,25 @@ DataFusion includes a simple command-line interactive SQL utility. See the [CLI 
   - [x] Basic timestamp functions
 - nested functions
   - [x] Array of columns
+- [x] Schema Queries
+  - [x] SHOW TABLES
+  - [x] SHOW COLUMNS
+  - [x] information_schema.{tables, columns}
+  - [ ] information_schema other views
 - [x] Sorting
 - [ ] Nested types
 - [ ] Lists
 - [x] Subqueries
-- [ ] Joins
+- [x] Common table expressions
+- [ ] Set Operations
+  - [x] UNION ALL
+  - [ ] UNION
+  - [ ] INTERSECT
+  - [ ] MINUS
+- [x] Joins
+  - [x] INNER JOIN
+  - [ ] CROSS JOIN
+  - [ ] OUTER JOIN
 - [ ] Window
 
 ## Data Sources
@@ -101,9 +223,22 @@ DataFusion includes a simple command-line interactive SQL utility. See the [CLI 
 - [x] Parquet primitive types
 - [ ] Parquet nested types
 
+
+## Extensibility
+
+DataFusion is designed to be extensible at all points. To that end, you can provide your own custom:
+
+- [x] User Defined Functions (UDFs)
+- [x] User Defined Aggregate Functions (UDAFs)
+- [x] User Defined Table Source (`TableProvider`) for tables
+- [x] User Defined `Optimizer` passes (plan rewrites)
+- [x] User Defined `LogicalPlan` nodes
+- [x] User Defined `ExecutionPlan` nodes
+
+
 # Supported SQL
 
-This library currently supports the following SQL constructs:
+This library currently supports many SQL constructs, including
 
 * `CREATE EXTERNAL TABLE X STORED AS PARQUET LOCATION '...';` to register a table's locations
 * `SELECT ... FROM ...` together with any expression
@@ -114,11 +249,63 @@ This library currently supports the following SQL constructs:
 * `GROUP BY` together with one of the following aggregations: `MIN`, `MAX`, `COUNT`, `SUM`, `AVG`
 * `ORDER BY` together with an expression and optional `ASC` or `DESC` and also optional `NULLS FIRST` or `NULLS LAST`
 
+
 ## Supported Functions
 
 DataFusion strives to implement a subset of the [PostgreSQL SQL dialect](https://www.postgresql.org/docs/current/functions.html) where possible. We explicitly choose a single dialect to maximize interoperability with other tools and allow reuse of the PostgreSQL documents and tutorials as much as possible.
 
 Currently, only a subset of the PosgreSQL dialect is implemented, and we will document any deviations.
+
+## Schema Metadata / Information Schema Support
+
+DataFusion supports the showing metadata about the tables available. This information can be accessed using the views of the ISO SQL `information_schema` schema or the DataFusion specific `SHOW TABLES` and `SHOW COLUMNS` commands.
+
+More information can be found in the [Postgres docs](https://www.postgresql.org/docs/13/infoschema-schema.html)).
+
+
+To show tables available for use in DataFusion, use the `SHOW TABLES`  command or the `information_schema.tables` view:
+
+```sql
+> show tables;
++---------------+--------------------+------------+------------+
+| table_catalog | table_schema       | table_name | table_type |
++---------------+--------------------+------------+------------+
+| datafusion    | public             | t          | BASE TABLE |
+| datafusion    | information_schema | tables     | VIEW       |
++---------------+--------------------+------------+------------+
+
+> select * from information_schema.tables;
+
++---------------+--------------------+------------+--------------+
+| table_catalog | table_schema       | table_name | table_type   |
++---------------+--------------------+------------+--------------+
+| datafusion    | public             | t          | BASE TABLE   |
+| datafusion    | information_schema | TABLES     | SYSTEM TABLE |
++---------------+--------------------+------------+--------------+
+```
+
+To show the schema of a table in DataFusion, use the `SHOW COLUMNS`  command or the or `information_schema.columns` view:
+
+```sql
+> show columns from t;
++---------------+--------------+------------+-------------+-----------+-------------+
+| table_catalog | table_schema | table_name | column_name | data_type | is_nullable |
++---------------+--------------+------------+-------------+-----------+-------------+
+| datafusion    | public       | t          | a           | Int32     | NO          |
+| datafusion    | public       | t          | b           | Utf8      | NO          |
+| datafusion    | public       | t          | c           | Float32   | NO          |
++---------------+--------------+------------+-------------+-----------+-------------+
+
+>   select table_name, column_name, ordinal_position, is_nullable, data_type from information_schema.columns;
++------------+-------------+------------------+-------------+-----------+
+| table_name | column_name | ordinal_position | is_nullable | data_type |
++------------+-------------+------------------+-------------+-----------+
+| t          | a           | 0                | NO          | Int32     |
+| t          | b           | 1                | NO          | Utf8      |
+| t          | c           | 2                | NO          | Float32   |
++------------+-------------+------------------+-------------+-----------+
+```
+
 
 
 ## Supported Data Types
@@ -155,76 +342,15 @@ are mapped to Arrow types according to the following table
 | `CUSTOM`        | *Not yet supported*              |
 | `ARRAY`         | *Not yet supported*              |
 
+
+# Architecture Overview
+
+There is no formal document describing DataFusion's architecture yet, but the following presentations offer a good overview of its different components and how they interact together.
+
+* (March 2021): The DataFusion architecture is described in *Query Engine Design and the Rust-Based DataFusion in Apache Arrow*: [recording](https://www.youtube.com/watch?v=K6eCAVEk4kU) (DataFusion content starts ~ 15 minutes in) and [slides](https://www.slideshare.net/influxdata/influxdb-iox-tech-talks-query-engine-design-and-the-rustbased-datafusion-in-apache-arrow-244161934)
+* (Feburary 2021): How DataFusion is used within the Ballista Project is described in *Ballista: Distributed Compute with Rust and Apache Arrow: [recording](https://www.youtube.com/watch?v=ZZHQaOap9pQ)
+
+
 # Developer's guide
 
-This section describes how you can get started at developing DataFusion.
-
-### Bootstrap environment
-
-DataFusion is written in Rust and it uses a standard rust toolkit:
-
-* `cargo build`
-* `cargo fmt` to format the code
-* `cargo test` to test
-* etc.
-
-## How to add a new scalar function
-
-Below is a checklist of what you need to do to add a new scalar function to DataFusion:
-
-* Add the actual implementation of the function:
-  * [here](src/physical_plan/string_expressions.rs) for string functions
-  * [here](src/physical_plan/math_expressions.rs) for math functions
-  * [here](src/physical_plan/datetime_expressions.rs) for datetime functions
-  * create a new module [here](src/physical_plan) for other functions
-* In [src/physical_plan/functions](src/physical_plan/functions.rs), add:
-  * a new variant to `BuiltinScalarFunction`
-  * a new entry to `FromStr` with the name of the function as called by SQL
-  * a new line in `return_type` with the expected return type of the function, given an incoming type
-  * a new line in `signature` with the signature of the function (number and types of its arguments)
-  * a new line in `create_physical_expr` mapping the built-in to the implementation
-  * tests to the function.
-* In [tests/sql.rs](tests/sql.rs), add a new test where the function is called through SQL against well known data and returns the expected result.
-* In [src/logical_plan/expr](src/logical_plan/expr.rs), add:
-  * a new entry of the `unary_scalar_expr!` macro for the new function.
-* In [src/logical_plan/mod](src/logical_plan/mod.rs), add:
-  * a new entry in the `pub use expr::{}` set.
-
-## How to add a new aggregate function
-
-Below is a checklist of what you need to do to add a new aggregate function to DataFusion:
-
-* Add the actual implementation of an `Accumulator` and `AggregateExpr`:
-  * [here](src/physical_plan/string_expressions.rs) for string functions
-  * [here](src/physical_plan/math_expressions.rs) for math functions
-  * [here](src/physical_plan/datetime_expressions.rs) for datetime functions
-  * create a new module [here](src/physical_plan) for other functions
-* In [src/physical_plan/aggregates](src/physical_plan/aggregates.rs), add:
-  * a new variant to `BuiltinAggregateFunction`
-  * a new entry to `FromStr` with the name of the function as called by SQL
-  * a new line in `return_type` with the expected return type of the function, given an incoming type
-  * a new line in `signature` with the signature of the function (number and types of its arguments)
-  * a new line in `create_aggregate_expr` mapping the built-in to the implementation
-  * tests to the function.
-* In [tests/sql.rs](tests/sql.rs), add a new test where the function is called through SQL against well known data and returns the expected result.
-
-## How to display plans graphically
-
-The query plans represented by `LogicalPlan` nodes can be graphically
-rendered using [Graphviz](http://www.graphviz.org/).
-
-To do so, save the output of the `display_graphviz` function to a file.:
-
-```rust
-// Create plan somehow...
-let mut output = File::create("/tmp/plan.dot")?;
-write!(output, "{}", plan.display_graphviz());
-```
-
-Then, use the `dot` command line tool to render it into a file that
-can be displayed. For example, the following command creates a
-`/tmp/plan.pdf` file:
-
-```bash
-dot -Tpdf < /tmp/plan.dot > /tmp/plan.pdf
-```
+Please see [Developers Guide](DEVELOPERS.md) for information about developing DataFusion.

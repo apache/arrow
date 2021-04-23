@@ -30,6 +30,7 @@ RUN \
     boost-devel \
     brotli-devel \
     bzip2-devel \
+    ccache \
     clang \
     cmake \
     curl-devel \

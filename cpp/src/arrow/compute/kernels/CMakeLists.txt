@@ -59,5 +59,9 @@ add_arrow_benchmark(vector_selection_benchmark PREFIX "arrow-compute")
 
 # Aggregates
 
-add_arrow_compute_test(aggregate_test SOURCES aggregate_test.cc test_util.cc)
+add_arrow_compute_test(aggregate_test
+                       SOURCES
+                       aggregate_test.cc
+                       hash_aggregate_test.cc
+                       test_util.cc)
 add_arrow_benchmark(aggregate_benchmark PREFIX "arrow-compute")

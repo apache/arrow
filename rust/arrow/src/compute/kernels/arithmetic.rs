@@ -23,14 +23,15 @@
 //! [here](https://doc.rust-lang.org/stable/core/arch/) for more information.
 
 use std::ops::{Add, Div, Mul, Neg, Sub};
-use std::sync::Arc;
 
 use num::{One, Zero};
 
 use crate::buffer::Buffer;
 #[cfg(simd)]
 use crate::buffer::MutableBuffer;
-use crate::compute::{kernels::arity::unary, util::combine_option_bitmap};
+#[cfg(not(simd))]
+use crate::compute::kernels::arity::unary;
+use crate::compute::util::combine_option_bitmap;
 use crate::datatypes;
 use crate::datatypes::ArrowNumericType;
 use crate::error::{ArrowError, Result};
@@ -87,7 +88,7 @@ where
         vec![result.into()],
         vec![],
     );
-    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
+    Ok(PrimitiveArray::<T>::from(data))
 }
 
 #[cfg(simd)]
@@ -136,7 +137,7 @@ where
         vec![result.into()],
         vec![],
     );
-    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
+    Ok(PrimitiveArray::<T>::from(data))
 }
 
 /// Helper function to perform math lambda function on values from two arrays. If either
@@ -185,7 +186,7 @@ where
         vec![buffer],
         vec![],
     );
-    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
+    Ok(PrimitiveArray::<T>::from(data))
 }
 
 /// Helper function to divide two arrays.
@@ -253,7 +254,7 @@ where
         vec![buffer],
         vec![],
     );
-    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
+    Ok(PrimitiveArray::<T>::from(data))
 }
 
 /// Scalar-divisor version of `math_divide`.
@@ -281,7 +282,7 @@ where
         vec![buffer],
         vec![],
     );
-    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
+    Ok(PrimitiveArray::<T>::from(data))
 }
 
 /// SIMD vectorized version of `math_op` above.
@@ -344,7 +345,7 @@ where
         vec![result.into()],
         vec![],
     );
-    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
+    Ok(PrimitiveArray::<T>::from(data))
 }
 
 /// SIMD vectorized implementation of `left / right`.
@@ -560,7 +561,7 @@ where
         vec![result.into()],
         vec![],
     );
-    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
+    Ok(PrimitiveArray::<T>::from(data))
 }
 
 /// SIMD vectorized version of `divide_scalar`.
@@ -606,7 +607,7 @@ where
         vec![result.into()],
         vec![],
     );
-    Ok(PrimitiveArray::<T>::from(Arc::new(data)))
+    Ok(PrimitiveArray::<T>::from(data))
 }
 
 /// Perform `left + right` operation on two arrays. If either left or right value is null
