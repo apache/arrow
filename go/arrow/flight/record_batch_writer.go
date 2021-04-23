@@ -58,18 +58,11 @@ type Writer struct {
 	pw *flightPayloadWriter
 }
 
-// ClearAppMetadata sets the writers app metadata to nil so that subsequent records
-// will not contain App Metadata until another call is made to WriteWithAppMetadata.
-func (w *Writer) ClearAppMetadata() {
-	w.pw.fd.AppMetadata = nil
-}
-
 // WriteWithAppMetadata will write this record with the supplied application
-// metadata attached in the flightData message. Subsequent records will also
-// be written with the same app metadata until this is called again or ClearAppMetadata
-// is called to set it to nil.
+// metadata attached in the flightData message.
 func (w *Writer) WriteWithAppMetadata(rec array.Record, appMeta []byte) error {
 	w.pw.fd.AppMetadata = appMeta
+	defer func() { w.pw.fd.AppMetadata = nil }()
 	return w.Write(rec)
 }
 
