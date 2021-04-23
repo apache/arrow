@@ -1482,6 +1482,38 @@ const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
 }
 
 FORCE_INLINE
+const char* left(gdv_int64 context, const char* text, gdv_int32 text_len,
+                 gdv_int32 number, gdv_int32* out_len) {
+  // returns the 'number' left most characters of a given text
+  if (text_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  // initially counts the number of utf8 characters in the defined text
+  int32_t charCount = utf8_length(context, text, text_len);
+  // charCount is zero if input has invalid utf8 char
+  if (charCount == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  int32_t endCharPos; // the char result end position (inclusive)
+  if (number > 0) {
+    // case where left('abc', 5) -> 'abc'
+    endCharPos = (charCount < number) ? charCount : number;
+  } else if (number < 0) {
+    // case where left('abc', -5) ==> ''
+    endCharPos =  (charCount + number > 0) ? charCount + number : 0;
+  } else {
+    endCharPos = 0;
+  }
+
+  *out_len = utf8_byte_pos(context, text, text_len, endCharPos);
+  return text;
+}
+
+FORCE_INLINE
 const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_len,
                           gdv_int32* out_len) {
   gdv_binary ret =
