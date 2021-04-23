@@ -89,6 +89,7 @@ jobs:
           endsWith(github.event.comment.body, 'everything')
         run: |
           set -e
+          . .env # To get the clang version we use
           sudo apt update
           sudo apt install -y clang-format-${CLANG_TOOLS}
       - name: Run cmake_format
