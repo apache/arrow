@@ -58,19 +58,9 @@ func FromI64(v int64) Num {
 	}
 }
 
-func fromBigIntPositive(v *big.Int) Num {
-	// v.Bits returns a little-endian Word slice sharing the same
-	// underlying storage as v. As a result, index 0 is the low bits
-	// and index 1 is the high bits.
-	return Num{
-		lo: uint64(v.Bits()[0]),
-		hi: int64(v.Bits()[1]),
-	}
-}
-
 // FromBigInt will convert a big.Int to a Num, if the value in v has a
 // BitLen > 128, this will panic.
-func FromBigInt(v *big.Int) Num {
+func FromBigInt(v *big.Int) (n Num) {
 	if v.BitLen() > 128 {
 		panic("arrow/decimal128: cannot represent value larger than 128bits")
 	}
@@ -80,10 +70,12 @@ func FromBigInt(v *big.Int) Num {
 	// representation of values and big.Int stores the value as a bool for
 	// the sign and the absolute value of the integer. This means that the
 	// raw bytes are *always* the absolute value.
+	n.lo = uint64(v.Bits()[0])
+	n.hi = int64(v.Bits()[1])
 	if v.Sign() < 0 {
-		return fromBigIntPositive(v).negated()
+		return n.negated()
 	}
-	return fromBigIntPositive(v)
+	return
 }
 
 func (n Num) negated() Num {
