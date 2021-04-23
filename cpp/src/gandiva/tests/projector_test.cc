@@ -935,13 +935,13 @@ TEST_F(TestProjector, TestOffset) {
 
 TEST_F(TestProjector, TestByteSubString) {
   // schema for input fields
-  auto field0 = field("f0", arrow::utf8());
+  auto field0 = field("f0", arrow::binary());
   auto field1 = field("f1", arrow::int32());
   auto field2 = field("f2", arrow::int32());
   auto schema = arrow::schema({field0, field1, field2});
 
   // output fields
-  auto field_byte_substr = field("bytesubstring", arrow::utf8());
+  auto field_byte_substr = field("bytesubstring", arrow::binary());
 
   // Build expression
   auto byte_substr_expr =
@@ -955,15 +955,15 @@ TEST_F(TestProjector, TestByteSubString) {
 
   // Create a row-batch with some sample data
   int num_records = 6;
-  auto array0 = MakeArrowArrayUtf8({"ab", "", "ab", "invalid", "valid", "invalid"},
-                                   {true, true, true, true, true, true});
+  auto array0 = MakeArrowArrayBinary({"ab", "", "ab", "invalid", "valid", "invalid"},
+                                     {true, true, true, true, true, true});
   auto array1 = MakeArrowArrayInt32({0, 1, 1, 1, 3, 3},
                                    {true, true, true, true, true, true});
   auto array2 = MakeArrowArrayInt32({0, 1, 1, 2, 3, 3},
                                     {true, true, true, true, true, true});
   // expected output
-  auto exp_byte_substr = MakeArrowArrayUtf8({"", "", "a", "in", "lid", "val"},
-                                            {true, true, true, true, true, true});
+  auto exp_byte_substr = MakeArrowArrayBinary({"", "", "a", "in", "lid", "val"},
+                                              {true, true, true, true, true, true});
 
   // prepare input record batch
   auto in_batch =
