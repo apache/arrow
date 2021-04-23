@@ -116,7 +116,7 @@ export ARROW_HOME=$(pwd)/dist
 mkdir $ARROW_HOME
 ```
 
-_Special instructions on Linux:_ You will need to set `LD_LIBRARY_PATH` to the `lib` directory that will is under where we set `$ARROW_HOME`, before launching R and using Arrow. One way to do this is to add it to your profile (we use `~/.bash_profile` here, but you might need to put this in a different file depending on your setup, e.g. if you use a shell other than `bash`). On macOS we do not need to do this because the macOS shared library paths are hardcoded to their locations during build time.
+_Special instructions on Linux:_ You will need to set `LD_LIBRARY_PATH` to the `lib` directory that is under where we set `$ARROW_HOME`, before launching R and using Arrow. One way to do this is to add it to your profile (we use `~/.bash_profile` here, but you might need to put this in a different file depending on your setup, e.g. if you use a shell other than `bash`). On macOS we do not need to do this because the macOS shared library paths are hardcoded to their locations during build time.
 
 ```{bash, save=run & ubuntu & !sys_install}
 export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
@@ -281,7 +281,7 @@ cmake \
 </p>
 </details>  
 
-## Troublshooting
+## Troubleshooting
 
 Note that after any change to the C++ library, you must reinstall it and
 run `make clean` or `git clean -fdx .` to remove any cached object code
