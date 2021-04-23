@@ -20,6 +20,7 @@ import (
 	"bytes"
 
 	"github.com/apache/arrow/go/arrow"
+	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/ipc"
 	"github.com/apache/arrow/go/arrow/memory"
 )
@@ -46,17 +47,39 @@ func (f *flightPayloadWriter) WritePayload(payload ipc.Payload) error {
 
 	payload.SerializeBody(&f.buf)
 	f.fd.DataBody = f.buf.Bytes()
+
 	return f.w.Send(&f.fd)
 }
 
 func (f *flightPayloadWriter) Close() error { return nil }
 
+type Writer struct {
+	*ipc.Writer
+	pw *flightPayloadWriter
+}
+
+// ClearAppMetadata sets the writers app metadata to nil so that subsequent records
+// will not contain App Metadata until another call is made to WriteWithAppMetadata.
+func (w *Writer) ClearAppMetadata() {
+	w.pw.fd.AppMetadata = nil
+}
+
+// WriteWithAppMetadata will write this record with the supplied application
+// metadata attached in the flightData message. Subsequent records will also
+// be written with the same app metadata until this is called again or ClearAppMetadata
+// is called to set it to nil.
+func (w *Writer) WriteWithAppMetadata(rec array.Record, appMeta []byte) error {
+	w.pw.fd.AppMetadata = appMeta
+	return w.Write(rec)
+}
+
 // NewRecordWriter can be used to construct a writer for arrow flight via
 // the grpc stream handler to write flight data objects and write
 // record batches to the stream. Options passed here will be passed to
 // ipc.NewWriter
-func NewRecordWriter(w DataStreamWriter, opts ...ipc.Option) *ipc.Writer {
-	return ipc.NewWriterWithPayloadWriter(&flightPayloadWriter{w: w}, opts...)
+func NewRecordWriter(w DataStreamWriter, opts ...ipc.Option) *Writer {
+	pw := &flightPayloadWriter{w: w}
+	return &Writer{Writer: ipc.NewWriterWithPayloadWriter(pw, opts...), pw: pw}
 }
 
 // SerializeSchema returns the serialized schema bytes for use in Arrow Flight
