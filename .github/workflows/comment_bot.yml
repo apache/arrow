@@ -55,9 +55,9 @@ jobs:
     name: "Fix all the things"
     # if: startsWith(github.event.comment.body, '@github-actions autotune')
     runs-on: ubuntu-latest
-    steps:
-      - env: 
+    env: 
         CLANG_FORMAT_CPP: true
+    steps:
       - uses: actions/checkout@v2
       # - uses: r-lib/actions/pr-fetch@master
       #   with:
