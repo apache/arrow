@@ -23,7 +23,6 @@ on:
     types:
       - created
       - edited
-  
 
 jobs:
   crossbow:
