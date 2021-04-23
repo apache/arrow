@@ -1,6 +1,3 @@
-# VER NOTAS DE IAN EN
-# https://github.com/apache/arrow/pull/9999#discussion_r614340728
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -50,15 +47,6 @@ test_that("mutate() with NULL inputs", {
   expect_dplyr_equal(
     input %>%
       mutate(int = NULL) %>%
-      collect(),
-    tbl
-  )
-})
-
-test_that("empty mutate()", {
-  expect_dplyr_equal(
-    input %>%
-      mutate() %>%
       collect(),
     tbl
   )
@@ -435,11 +423,11 @@ test_that("empty mutate returns input", {
 })
 
 # similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L12-L6
-# THIS WON'T WORK
-# test_that("rownames preserved", {
-#   df <- data.frame(x = c(1, 2), row.names = c("a", "b"))
-#   expect_dplyr_equal(input %>% mutate(y = 2) %>% collect(), df)
-# })
+test_that("rownames preserved", {
+  skip("Row names are not preserved")
+  df <- data.frame(x = c(1, 2), row.names = c("a", "b"))
+  expect_dplyr_equal(input %>% mutate(y = 2) %>% collect(), df)
+})
 
 # similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L18-L29
 test_that("mutations applied progressively", {
@@ -447,21 +435,21 @@ test_that("mutations applied progressively", {
 
   expect_dplyr_equal(
     input %>% mutate(y = x + 1, z = y + 1) %>% collect(),
-    tibble(x = 1, y = 2, z = 3)
+    df
   )
   expect_dplyr_equal(
     input %>% mutate(x = x + 1, x = x + 1) %>% collect(),
-    tibble(x = 3)
+    df
   )
   expect_dplyr_equal(
-    input %>% mutate(x = 2, y = x) %>% collect(),
-    tibble(x = 2, y = 2)
+    input %>% mutate(y = x + 1, z = y + 1) %>% collect(),
+    df
   )
 
   df <- data.frame(x = 1, y = 2)
   expect_dplyr_equal(
     input %>% mutate(x2 = x, x3 = x2 + 1) %>% collect(),
-    df %>% mutate(x2 = x + 0, x3 = x2 + 1)
+    df
   )
 })
 
