@@ -1485,7 +1485,7 @@ FORCE_INLINE
 const char* left(gdv_int64 context, const char* text, gdv_int32 text_len,
                  gdv_int32 number, gdv_int32* out_len) {
   // returns the 'number' left most characters of a given text
-  if (text_len == 0) {
+  if (text_len == 0 || number == 0) {
     *out_len = 0;
     return "";
   }
@@ -1511,6 +1511,50 @@ const char* left(gdv_int64 context, const char* text, gdv_int32 text_len,
 
   *out_len = utf8_byte_pos(context, text, text_len, endCharPos);
   return text;
+}
+
+FORCE_INLINE
+const char* right(gdv_int64 context, const char* text, gdv_int32 text_len,
+                  gdv_int32 number, gdv_int32* out_len) {
+  // returns the 'number' left most characters of a given text
+  if (text_len == 0 || number == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  // initially counts the number of utf8 characters in the defined text
+  int32_t charCount = utf8_length(context, text, text_len);
+  // charCount is zero if input has invalid utf8 char
+  if (charCount == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  int32_t startCharPos; //the char result start position (inclusive)
+  int32_t endCharLen; // the char result end position (inclusive)
+  if (number > 0) {
+    // case where right('abc', 5) ==> 'abc' startCharPos=1.
+    startCharPos = (charCount - number + 1 > 1) ? charCount - number + 1 : 1;
+    endCharLen = charCount - startCharPos + 1;
+  } else {
+    startCharPos = ((number > 0) ? number : number * -1) + 1;
+    endCharLen = charCount - startCharPos +1;
+  }
+
+  // calculate the start byte position and the output length
+  int32_t startBytePos = utf8_byte_pos(context, text, text_len, startCharPos - 1);
+  *out_len = utf8_byte_pos(context, text, text_len, endCharLen);
+
+  // try to allocate memory for the response
+  char* ret =
+      reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(ret, text + startBytePos, *out_len);
+  return ret;
 }
 
 FORCE_INLINE

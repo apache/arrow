@@ -446,6 +446,9 @@ const char* castVARCHAR_float64_int64(int64_t context, double value, int64_t len
 const char* left(gdv_int64 context, const char* text, gdv_int32 text_len,
                  gdv_int32 number, gdv_int32* out_len);
 
+const char* right(gdv_int64 context, const char* text, gdv_int32 text_len,
+                  gdv_int32 number, gdv_int32* out_len);
+
 const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_len,
                           gdv_int32* out_len);
 
