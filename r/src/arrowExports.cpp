@@ -1312,13 +1312,13 @@ extern "C" SEXP _arrow_TimestampParser__MakeISO8601(){
 
 // csv.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void csv__WriteCSV___Table(const std::shared_ptr<arrow::Table>& table, const std::shared_ptr<arrow::csv::WriteOptions> write_options, std::shared_ptr<arrow::MemoryPool>& pool, std::shared_ptr<arrow::io::OutputStream>& stream);
+void csv__WriteCSV___Table(const std::shared_ptr<arrow::Table>& table, const std::shared_ptr<arrow::csv::WriteOptions>& write_options, arrow::MemoryPool* pool, std::shared_ptr<arrow::io::OutputStream> stream);
 extern "C" SEXP _arrow_csv__WriteCSV___Table(SEXP table_sexp, SEXP write_options_sexp, SEXP pool_sexp, SEXP stream_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	arrow::r::Input<const std::shared_ptr<arrow::csv::WriteOptions>>::type write_options(write_options_sexp);
-	arrow::r::Input<std::shared_ptr<arrow::MemoryPool>&>::type pool(pool_sexp);
-	arrow::r::Input<std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::csv::WriteOptions>&>::type write_options(write_options_sexp);
+	arrow::r::Input<arrow::MemoryPool*>::type pool(pool_sexp);
+	arrow::r::Input<std::shared_ptr<arrow::io::OutputStream>>::type stream(stream_sexp);
 	csv__WriteCSV___Table(table, write_options, pool, stream);
 	return R_NilValue;
 END_CPP11
@@ -1331,13 +1331,13 @@ extern "C" SEXP _arrow_csv__WriteCSV___Table(SEXP table_sexp, SEXP write_options
 
 // csv.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void csv__WriteCSV___RecordBatch(const std::shared_ptr<arrow::RecordBatch>& record_batch, const std::shared_ptr<arrow::csv::WriteOptions> write_options, std::shared_ptr<arrow::MemoryPool>& pool, std::shared_ptr<arrow::io::OutputStream>& stream);
+void csv__WriteCSV___RecordBatch(const std::shared_ptr<arrow::RecordBatch>& record_batch, const std::shared_ptr<arrow::csv::WriteOptions>& write_options, arrow::MemoryPool* pool, std::shared_ptr<arrow::io::OutputStream> stream);
 extern "C" SEXP _arrow_csv__WriteCSV___RecordBatch(SEXP record_batch_sexp, SEXP write_options_sexp, SEXP pool_sexp, SEXP stream_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type record_batch(record_batch_sexp);
-	arrow::r::Input<const std::shared_ptr<arrow::csv::WriteOptions>>::type write_options(write_options_sexp);
-	arrow::r::Input<std::shared_ptr<arrow::MemoryPool>&>::type pool(pool_sexp);
-	arrow::r::Input<std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::csv::WriteOptions>&>::type write_options(write_options_sexp);
+	arrow::r::Input<arrow::MemoryPool*>::type pool(pool_sexp);
+	arrow::r::Input<std::shared_ptr<arrow::io::OutputStream>>::type stream(stream_sexp);
 	csv__WriteCSV___RecordBatch(record_batch, write_options, pool, stream);
 	return R_NilValue;
 END_CPP11

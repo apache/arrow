@@ -20,6 +20,9 @@
 #if defined(ARROW_R_WITH_ARROW)
 
 #include <arrow/csv/reader.h>
+#include <arrow/csv/writer.h>
+#include <arrow/memory_pool.h>
+
 #include <arrow/util/value_parsing.h>
 
 // [[arrow::export]]
@@ -186,17 +189,17 @@ std::shared_ptr<arrow::TimestampParser> TimestampParser__MakeISO8601() {
 // [[arrow::export]]
 void csv__WriteCSV___Table(const std::shared_ptr<arrow::Table>& table,
                            const std::shared_ptr<arrow::csv::WriteOptions>& write_options,
-                           std::shared_ptr<arrow::MemoryPool> pool,
-                           std::shared_ptr<arrow::io::OutputStream>* stream) {
-  StopIfNotOk(arrow::csv::writer::WriteCSV(*table, *write_options, pool, stream.get()));
+                           arrow::MemoryPool* pool,
+                           std::shared_ptr<arrow::io::OutputStream> stream) {
+  StopIfNotOk(arrow::csv::WriteCSV(*table, *write_options, pool, stream.get()));
 }
 
 // [[arrow::export]]
 void csv__WriteCSV___RecordBatch(const std::shared_ptr<arrow::RecordBatch>& record_batch,
                            const std::shared_ptr<arrow::csv::WriteOptions>& write_options,
-                           std::shared_ptr<arrow::MemoryPool> pool, 
-                           std::shared_ptr<arrow::io::OutputStream>* stream) {
-  StopIfNotOk(arrow::csv::writer::WriteCSV(*record_batch, *write_options, pool, stream.get()));
+                           arrow::MemoryPool* pool, 
+                           std::shared_ptr<arrow::io::OutputStream> stream) {
+  StopIfNotOk(arrow::csv::WriteCSV(*record_batch, *write_options, pool, stream.get()));
 }
 
 

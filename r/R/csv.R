@@ -619,7 +619,7 @@ write_csv_arrow <- function(x,
                           sink,
                           include_header = TRUE,
                           batch_size = 1024L,
-                          memory_pool = default_memory_pool(),
+                          memory_pool = default_memory_pool()
                           ) {
   # Handle and validate options before touching data
   batch_size <- as.integer(batch_size)
