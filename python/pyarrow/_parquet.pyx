@@ -97,6 +97,14 @@ cdef class Statistics(_Weakrefable):
         return self.statistics.get().HasMinMax()
 
     @property
+    def has_null_count(self):
+        return self.statistics.get().HasNullCount()
+
+    @property
+    def has_distinct_count(self):
+        return self.statistics.get().HasDistinctCount()
+
+    @property
     def min_raw(self):
         if self.has_min_max:
             return _cast_statistic_raw_min(self.statistics.get())

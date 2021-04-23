@@ -241,6 +241,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int64_t distinct_count() const
         int64_t num_values() const
         bint HasMinMax()
+        bint HasNullCount()
+        bint HasDistinctCount()
         c_bool Equals(const CStatistics&) const
         void Reset()
         c_string EncodeMin()
