@@ -239,6 +239,9 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("left", {}, DataTypeVector{utf8(), int32()}, utf8(),
                      kResultNullIfNull, "left", NativeFunction::kNeedsContext),
 
+      NativeFunction("right", {}, DataTypeVector{utf8(), int32()}, utf8(),
+                     kResultNullIfNull, "right", NativeFunction::kNeedsContext),
+
       NativeFunction("split_part", {}, DataTypeVector{utf8(), utf8(), int32()}, utf8(),
                      kResultNullIfNull, "split_part",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors)};
