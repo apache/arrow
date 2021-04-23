@@ -1934,4 +1934,41 @@ const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_le
   *out_len = j;
   return ret;
 }
+
+FORCE_INLINE
+const char* byte_substr(gdv_int64 context, const char* text, gdv_int32 text_len,
+                        gdv_int32 offset, gdv_int32 length, gdv_int32* out_len) {
+  // the first offset position for a string is 1, so not consider offset == 0
+  // also, the length should be always a positive number
+  if (text_len == 0 || offset == 0 || length <= 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  char* ret =
+      reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, text_len));
+
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  int32_t startPos;
+  if (offset < 0) {
+    startPos = text_len + offset;
+  } else {
+    startPos = offset - 1;
+  }
+  // calculate end position from length and truncate to upper value bounds
+  if (startPos + length > text_len) {
+    *out_len = text_len - startPos;
+  } else {
+    *out_len = length;
+  }
+
+  memcpy(ret, text + startPos, *out_len);
+  return ret;
+}
+
 }  // extern "C"
