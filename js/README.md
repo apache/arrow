@@ -147,37 +147,33 @@ for (let i = -1, n = column.length; ++i < n;) {
 }
 ```
 
-### Usage with MapD Core
+### Usage with OmniSciDB
+
+OmniSciDB is an open source SQL-based, relational, columnar database engine that leverages the full performance and parallelism of modern hardware (both CPUs and GPUs) to enable querying of multi-billion row datasets in milliseconds. 
+
+OmniSciDB's [JavaScript connector](https://www.npmjs.com/package/@mapd/connector) provides support for receiving query results as an Arrow table:
 
 ```js
-import MapD from 'rxjs-mapd';
+import MapdCon from '@mapd/connector';
 import { Table } from 'apache-arrow';
 
-const port = 9091;
-const host = `localhost`;
-const db = `mapd`;
-const user = `mapd`;
-const password = `HyperInteractive`;
+const session = new MapdCon()
+                    .protocol("https")
+                    .host("localhost")
+                    .port("9091")
+                    .dbName("omnisci")
+                    .user("admin")
+                    .password("HyperInteractive")
+                    .connect()
 
-MapD.open(host, port)
-  .connect(db, user, password)
-  .flatMap((session) =>
-    // queryDF returns Arrow buffers
-    session.queryDF(`
+const table = session.queryDF(`
       SELECT origin_city
-      FROM flights
-      WHERE dest_city ILIKE 'dallas'
-      LIMIT 5`
-    ).disconnect()
-  )
-  .map(([schema, records]) =>
-    // Create Arrow Table from results
-    Table.from([schema, records]))
-  .map((table) =>
-    // Stringify the table to CSV with row numbers
-    table.toString({ index: true }))
-  .subscribe((csvStr) =>
-    console.log(csvStr));
+        FROM flights
+        WHERE dest_city ILIKE 'dallas'
+        LIMIT 5
+`)
+
+console.log(table.toString({ index: true }))
 /*
 Index,   origin_city
     0, Oklahoma City
