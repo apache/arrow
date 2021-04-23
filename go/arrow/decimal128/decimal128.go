@@ -70,8 +70,11 @@ func FromBigInt(v *big.Int) (n Num) {
 	// representation of values and big.Int stores the value as a bool for
 	// the sign and the absolute value of the integer. This means that the
 	// raw bytes are *always* the absolute value.
-	n.lo = uint64(v.Bits()[0])
-	n.hi = int64(v.Bits()[1])
+	b := v.Bits()
+	n.lo = uint64(b[0])
+	if len(b) > 1 {
+		n.hi = int64(v.Bits()[1])
+	}
 	if v.Sign() < 0 {
 		return n.negated()
 	}
