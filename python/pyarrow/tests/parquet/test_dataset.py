@@ -1586,3 +1586,21 @@ def test_parquet_dataset_partitions_piece_path_with_fsspec(tempdir):
     # ensure the piece path is also posix-style
     expected = path + "/data.parquet"
     assert dataset.pieces[0].path == expected
+
+
+def test_read_table_with_fspath(tempdir):
+    class FSProtocolClass:
+        def __init__(self, path):
+            self._path = path
+
+        def __fspath__(self):
+            return str(self._path)
+
+    path = tempdir / "test.parquet"
+    table = pa.table({"a": [1, 2, 3]})
+    _write_table(table, path)
+
+    fs_protocol_obj = FSProtocolClass(path)
+
+    result = _read_table(fs_protocol_obj)
+    assert result.equals(table)
