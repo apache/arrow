@@ -96,6 +96,36 @@ func TestFromI64(t *testing.T) {
 
 func u64Cnv(i int64) uint64 { return uint64(i) }
 
+func BenchmarkBigIntToDecimal(b *testing.B) {
+	var (
+		n     decimal128.Num
+		bi, _ = (&big.Int{}).SetString("-340282366920938463463374607431711455", 10)
+	)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		n = decimal128.FromBigInt(bi)
+		if n.Sign() >= 0 {
+			b.FailNow()
+		}
+	}
+}
+
+func BenchmarkDecimalToBigInt(b *testing.B) {
+	var (
+		bi *big.Int
+		n  = decimal128.New(-18446744073709552, 7083549724304524577)
+	)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		bi = n.BigInt()
+		if bi.Sign() >= 0 {
+			b.FailNow()
+		}
+	}
+}
+
 func TestDecimalToBigInt(t *testing.T) {
 	tests := []struct {
 		hi  int64

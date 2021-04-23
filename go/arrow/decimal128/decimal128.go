@@ -17,7 +17,6 @@
 package decimal128 // import "github.com/apache/arrow/go/arrow/decimal128"
 
 import (
-	"encoding/binary"
 	"math/big"
 )
 
@@ -60,22 +59,29 @@ func FromI64(v int64) Num {
 }
 
 func fromBigIntPositive(v *big.Int) Num {
-	var buf [16]byte
-	// bigint will zero pad the bytes and write them as bigendian
-	// which we can then read out the high and low bytes to construct
-	// our 128bit value.
-	v.FillBytes(buf[:])
+	// v.Bits returns a little-endian Word slice sharing the same
+	// underlying storage as v. As a result, index 0 is the low bits
+	// and index 1 is the high bits.
 	return Num{
-		lo: binary.BigEndian.Uint64(buf[8:]),
-		hi: int64(binary.BigEndian.Uint64(buf[:8])),
+		lo: uint64(v.Bits()[0]),
+		hi: int64(v.Bits()[1]),
 	}
 }
 
+// FromBigInt will convert a big.Int to a Num, if the value in v has a
+// BitLen > 128, this will panic.
 func FromBigInt(v *big.Int) Num {
+	if v.BitLen() > 128 {
+		panic("arrow/decimal128: cannot represent value larger than 128bits")
+	}
+
+	// if the value is negative, then get the high and low bytes from
+	// v, and then negate it. this is because Num uses a two's compliment
+	// representation of values and big.Int stores the value as a bool for
+	// the sign and the absolute value of the integer. This means that the
+	// raw bytes are *always* the absolute value.
 	if v.Sign() < 0 {
-		// if the value is negative, then get the high and low bytes from the
-		// absolute value of v, and then negate it.
-		return fromBigIntPositive((&big.Int{}).Abs(v)).negated()
+		return fromBigIntPositive(v).negated()
 	}
 	return fromBigIntPositive(v)
 }
@@ -107,19 +113,17 @@ func (n Num) Sign() int {
 	return int(1 | (n.hi >> 63))
 }
 
-// to construct a bigint from our decimal128, we just need to
-// left shift the high bytes by 64, then add the low bytes.
 func toBigIntPositive(n Num) *big.Int {
-	hi := big.NewInt(n.hi)
-	return hi.Lsh(hi, 64).Add(hi, (&big.Int{}).SetUint64(n.lo))
+	return (&big.Int{}).SetBits([]big.Word{big.Word(n.lo), big.Word(n.hi)})
 }
 
+// while the code would be simpler to just do lsh/rsh and add
+// it turns out from benchmarking that calling SetBits passing
+// in the words and negating ends up being >2x faster
 func (n Num) BigInt() *big.Int {
 	if n.Sign() < 0 {
-		// if we're a negative value, we just negate the hi and lo bytes
-		// via two's complement, then negate the resulting BitInt
-		ret := toBigIntPositive(n.negated())
-		return ret.Neg(ret)
+		b := toBigIntPositive(n.negated())
+		return b.Neg(b)
 	}
 	return toBigIntPositive(n)
 }
