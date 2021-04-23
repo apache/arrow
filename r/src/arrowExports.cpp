@@ -1145,6 +1145,21 @@ extern "C" SEXP _arrow_compute__GetFunctionNames(){
 
 // csv.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::csv::WriteOptions> csv___WriteOptions__initialize(cpp11::list options);
+extern "C" SEXP _arrow_csv___WriteOptions__initialize(SEXP options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<cpp11::list>::type options(options_sexp);
+	return cpp11::as_sexp(csv___WriteOptions__initialize(options));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_csv___WriteOptions__initialize(SEXP options_sexp){
+	Rf_error("Cannot call csv___WriteOptions__initialize(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// csv.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(cpp11::list options);
 extern "C" SEXP _arrow_csv___ReadOptions__initialize(SEXP options_sexp){
 BEGIN_CPP11
@@ -1292,6 +1307,44 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_TimestampParser__MakeISO8601(){
 	Rf_error("Cannot call TimestampParser__MakeISO8601(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// csv.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void csv__WriteCSV___Table(const std::shared_ptr<arrow::Table>& table, const std::shared_ptr<arrow::csv::WriteOptions> write_options, std::shared_ptr<arrow::MemoryPool>& pool, std::shared_ptr<arrow::io::OutputStream>& stream);
+extern "C" SEXP _arrow_csv__WriteCSV___Table(SEXP table_sexp, SEXP write_options_sexp, SEXP pool_sexp, SEXP stream_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::csv::WriteOptions>>::type write_options(write_options_sexp);
+	arrow::r::Input<std::shared_ptr<arrow::MemoryPool>&>::type pool(pool_sexp);
+	arrow::r::Input<std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
+	csv__WriteCSV___Table(table, write_options, pool, stream);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_csv__WriteCSV___Table(SEXP table_sexp, SEXP write_options_sexp, SEXP pool_sexp, SEXP stream_sexp){
+	Rf_error("Cannot call csv__WriteCSV___Table(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// csv.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void csv__WriteCSV___RecordBatch(const std::shared_ptr<arrow::RecordBatch>& record_batch, const std::shared_ptr<arrow::csv::WriteOptions> write_options, std::shared_ptr<arrow::MemoryPool>& pool, std::shared_ptr<arrow::io::OutputStream>& stream);
+extern "C" SEXP _arrow_csv__WriteCSV___RecordBatch(SEXP record_batch_sexp, SEXP write_options_sexp, SEXP pool_sexp, SEXP stream_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatch>&>::type record_batch(record_batch_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::csv::WriteOptions>>::type write_options(write_options_sexp);
+	arrow::r::Input<std::shared_ptr<arrow::MemoryPool>&>::type pool(pool_sexp);
+	arrow::r::Input<std::shared_ptr<arrow::io::OutputStream>&>::type stream(stream_sexp);
+	csv__WriteCSV___RecordBatch(record_batch, write_options, pool, stream);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_csv__WriteCSV___RecordBatch(SEXP record_batch_sexp, SEXP write_options_sexp, SEXP pool_sexp, SEXP stream_sexp){
+	Rf_error("Cannot call csv__WriteCSV___RecordBatch(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -6677,6 +6730,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_compute__CallFunction", (DL_FUNC) &_arrow_compute__CallFunction, 3}, 
 		{ "_arrow_compute__GroupBy", (DL_FUNC) &_arrow_compute__GroupBy, 3}, 
 		{ "_arrow_compute__GetFunctionNames", (DL_FUNC) &_arrow_compute__GetFunctionNames, 0}, 
+		{ "_arrow_csv___WriteOptions__initialize", (DL_FUNC) &_arrow_csv___WriteOptions__initialize, 1}, 
 		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1}, 
 		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1}, 
 		{ "_arrow_csv___ReadOptions__column_names", (DL_FUNC) &_arrow_csv___ReadOptions__column_names, 1}, 
@@ -6687,6 +6741,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_TimestampParser__format", (DL_FUNC) &_arrow_TimestampParser__format, 1}, 
 		{ "_arrow_TimestampParser__MakeStrptime", (DL_FUNC) &_arrow_TimestampParser__MakeStrptime, 1}, 
 		{ "_arrow_TimestampParser__MakeISO8601", (DL_FUNC) &_arrow_TimestampParser__MakeISO8601, 0}, 
+		{ "_arrow_csv__WriteCSV___Table", (DL_FUNC) &_arrow_csv__WriteCSV___Table, 4}, 
+		{ "_arrow_csv__WriteCSV___RecordBatch", (DL_FUNC) &_arrow_csv__WriteCSV___RecordBatch, 4}, 
 		{ "_arrow_dataset___Dataset__NewScan", (DL_FUNC) &_arrow_dataset___Dataset__NewScan, 1}, 
 		{ "_arrow_dataset___Dataset__schema", (DL_FUNC) &_arrow_dataset___Dataset__schema, 1}, 
 		{ "_arrow_dataset___Dataset__type_name", (DL_FUNC) &_arrow_dataset___Dataset__type_name, 1}, 
