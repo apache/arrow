@@ -168,8 +168,8 @@ TEST_P(TestIpcFileFormatScan, FragmentScanOptions) {
   ASSERT_RAISES(Invalid, batches.Next());
 }
 INSTANTIATE_TEST_SUITE_P(TestScan, TestIpcFileFormatScan,
-                         ::testing::ValuesIn(TestScannerParams::Values()),
-                         TestScannerParams::ToTestNameString);
+                         ::testing::ValuesIn(TestFormatParams::Values()),
+                         TestFormatParams::ToTestNameString);
 
 }  // namespace dataset
 }  // namespace arrow

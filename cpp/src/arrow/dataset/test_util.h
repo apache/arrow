@@ -304,48 +304,34 @@ template <typename P>
 class DatasetFixtureMixinWithParam : public DatasetFixtureMixin,
                                      public ::testing::WithParamInterface<P> {};
 
-struct TestScannerParams {
+struct TestFormatParams {
   bool use_async;
-  bool use_threads;
-  int num_child_datasets;
   int num_batches;
   int items_per_batch;
 
-  int64_t total_batches() const { return num_child_datasets * num_batches; }
-
-  int64_t expected_rows() const { return total_batches() * items_per_batch; }
+  int64_t expected_rows() const { return num_batches * items_per_batch; }
 
   std::string ToString() const {
     // GTest requires this to be alphanumeric
     std::stringstream ss;
-    ss << (use_async ? "Async" : "Sync") << (use_threads ? "Threaded" : "Serial")
-       << num_child_datasets << "d" << num_batches << "b" << items_per_batch << "r";
+    ss << (use_async ? "Async" : "Sync") << num_batches << "b" << items_per_batch << "r";
     return ss.str();
   }
 
   static std::string ToTestNameString(
-      const ::testing::TestParamInfo<TestScannerParams>& info) {
+      const ::testing::TestParamInfo<TestFormatParams>& info) {
     return std::to_string(info.index) + info.param.ToString();
   }
 
-  static std::vector<TestScannerParams> Values() {
-    std::vector<TestScannerParams> values;
-    for (int sync = 0; sync < 2; sync++) {
-      for (int use_threads = 0; use_threads < 2; use_threads++) {
-        values.push_back(
-            {static_cast<bool>(sync), static_cast<bool>(use_threads), 1, 1, 1024});
-        values.push_back(
-            {static_cast<bool>(sync), static_cast<bool>(use_threads), 2, 16, 1024});
-      }
-    }
+  static std::vector<TestFormatParams> Values() {
+    std::vector<TestFormatParams> values{{/*async=*/false, 16, 1024},
+                                         {/*async=*/true, 16, 1024}};
     return values;
   }
 };
 
-std::ostream& operator<<(std::ostream& out, const TestScannerParams& params) {
-  out << (params.use_async ? "async-" : "sync-")
-      << (params.use_threads ? "threaded-" : "serial-") << params.num_child_datasets
-      << "d-" << params.num_batches << "b-" << params.items_per_batch << "i";
+std::ostream& operator<<(std::ostream& out, const TestFormatParams& params) {
+  out << params.ToString();
   return out;
 }
 
@@ -469,15 +455,15 @@ class FileFormatFixtureMixin : public ::testing::Test {
 
 template <typename FormatHelper>
 class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
-                            public ::testing::WithParamInterface<TestScannerParams> {
+                            public ::testing::WithParamInterface<TestFormatParams> {
  public:
-  int64_t expected_batches() const { return GetParam().total_batches(); }
+  int64_t expected_batches() const { return GetParam().num_batches; }
   int64_t expected_rows() const { return GetParam().expected_rows(); }
 
   std::shared_ptr<RecordBatchReader> GetRecordBatchReader(
       std::shared_ptr<Schema> schema) override {
     return MakeGeneratedRecordBatch(schema, GetParam().items_per_batch,
-                                    GetParam().total_batches());
+                                    GetParam().num_batches);
   }
 
   // Scan the fragment through the scanner.

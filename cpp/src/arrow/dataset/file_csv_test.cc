@@ -326,8 +326,8 @@ TEST_P(TestCsvFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
 }
 
 INSTANTIATE_TEST_SUITE_P(TestScan, TestCsvFileFormatScan,
-                         ::testing::ValuesIn(TestScannerParams::Values()),
-                         TestScannerParams::ToTestNameString);
+                         ::testing::ValuesIn(TestFormatParams::Values()),
+                         TestFormatParams::ToTestNameString);
 
 }  // namespace dataset
 }  // namespace arrow

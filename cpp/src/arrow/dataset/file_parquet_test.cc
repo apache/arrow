@@ -346,10 +346,6 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdown) {
   // rows and returned row groups is a good enough proxy to check if pushdown
   // predicate is working.
 
-  // Note this test ignores the dataset size params and only respects UseAsync.
-  if (GetParam().num_child_datasets != 1) GTEST_SKIP() << "Skipping redundant case";
-  if (GetParam().use_threads) GTEST_SKIP() << "Skipping redundant case";
-
   constexpr int64_t kNumRowGroups = 16;
   constexpr int64_t kTotalNumRows = kNumRowGroups * (kNumRowGroups + 1) / 2;
 
@@ -392,10 +388,6 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdown) {
 }
 
 TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragments) {
-  // Note this test ignores the dataset size params and only respects UseAsync.
-  if (GetParam().num_child_datasets != 1) GTEST_SKIP() << "Skipping redundant case";
-  if (GetParam().use_threads) GTEST_SKIP() << "Skipping redundant case";
-
   constexpr int64_t kNumRowGroups = 16;
 
   auto reader = ArithmeticDatasetFixture::GetRecordBatchReader(kNumRowGroups);
@@ -447,10 +439,6 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragments) {
 }
 
 TEST_P(TestParquetFileFormatScan, ExplicitRowGroupSelection) {
-  // Note this test ignores the dataset size params and only respects UseAsync.
-  if (GetParam().num_child_datasets != 1) GTEST_SKIP() << "Skipping redundant case";
-  if (GetParam().use_threads) GTEST_SKIP() << "Skipping redundant case";
-
   constexpr int64_t kNumRowGroups = 16;
   constexpr int64_t kTotalNumRows = kNumRowGroups * (kNumRowGroups + 1) / 2;
 
@@ -508,10 +496,6 @@ TEST_P(TestParquetFileFormatScan, ExplicitRowGroupSelection) {
 }
 
 TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsUsingStringColumn) {
-  // Note this test ignores the dataset size params and only respects UseAsync.
-  if (GetParam().num_child_datasets != 1) GTEST_SKIP() << "Skipping redundant case";
-  if (GetParam().use_threads) GTEST_SKIP() << "Skipping redundant case";
-
   auto table = TableFromJSON(schema({field("x", utf8())}),
                              {
                                  R"([{"x": "a"}])",
@@ -529,8 +513,8 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsUsingStringC
 }
 
 INSTANTIATE_TEST_SUITE_P(TestScan, TestParquetFileFormatScan,
-                         ::testing::ValuesIn(TestScannerParams::Values()),
-                         TestScannerParams::ToTestNameString);
+                         ::testing::ValuesIn(TestFormatParams::Values()),
+                         TestFormatParams::ToTestNameString);
 
 }  // namespace dataset
 }  // namespace arrow
