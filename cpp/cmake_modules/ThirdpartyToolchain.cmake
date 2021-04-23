@@ -1495,14 +1495,16 @@ if(ARROW_JEMALLOC)
   set(ARROW_JEMALLOC_USE_SHARED OFF)
   set(JEMALLOC_PREFIX
       "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/jemalloc_ep/dist/")
+  set(JEMALLOC_LIB_DIR "${JEMALLOC_PREFIX}/lib")
   set(JEMALLOC_STATIC_LIB
-      "${JEMALLOC_PREFIX}/lib/libjemalloc_pic${CMAKE_STATIC_LIBRARY_SUFFIX}")
+      "${JEMALLOC_LIB_DIR}/libjemalloc_pic${CMAKE_STATIC_LIBRARY_SUFFIX}")
   set(JEMALLOC_CONFIGURE_COMMAND ./configure "AR=${CMAKE_AR}" "CC=${CMAKE_C_COMPILER}")
   if(CMAKE_OSX_SYSROOT)
     list(APPEND JEMALLOC_CONFIGURE_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")
   endif()
   list(APPEND JEMALLOC_CONFIGURE_COMMAND
               "--prefix=${JEMALLOC_PREFIX}"
+              "--libdir=${JEMALLOC_LIB_DIR}"
               "--with-jemalloc-prefix=je_arrow_"
               "--with-private-namespace=je_arrow_private_"
               "--without-export"
