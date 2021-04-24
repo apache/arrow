@@ -56,6 +56,19 @@ struct ARROW_EXPORT S3ProxyOptions {
   bool Equals(const S3ProxyOptions& other) const;
 };
 
+enum class S3CredentialsKind : int8_t {
+  /// Anonymous access (no credentials used)
+  Anonymous,
+  /// Use default AWS credentials, configured through environment variables
+  Default,
+  /// Use explicitly-provided access key pair
+  Explicit,
+  /// Assume role through a role ARN
+  Role,
+  /// Use web identity token to assume role, configured through environment variables
+  WebIdentity
+};
+
 /// Options for the S3FileSystem implementation.
 struct ARROW_EXPORT S3Options {
   /// AWS region to connect to.
@@ -73,9 +86,6 @@ struct ARROW_EXPORT S3Options {
   /// S3 connection transport, default "https"
   std::string scheme = "https";
 
-  /// Whether S3 access should be anonymous (no credentials used)
-  bool anonymous = false;
-
   /// ARN of role to assume
   std::string role_arn;
   /// Optional identifier for an assumed role session.
@@ -91,14 +101,11 @@ struct ARROW_EXPORT S3Options {
   /// AWS credentials provider
   std::shared_ptr<Aws::Auth::AWSCredentialsProvider> credentials_provider;
 
+  /// Type of credentials being used. Set along with credentials_provider.
+  S3CredentialsKind credentials_kind = S3CredentialsKind::Default;
+
   /// Whether OutputStream writes will be issued in the background, without blocking.
   bool background_writes = true;
-
-  /// True when using SimpleAWSCredentialsProvider, else false.
-  bool creds_provided = false;
-
-  /// True when using web identity token to assume role
-  bool use_web_identity = false;
 
   /// Configure with the default AWS credentials provider chain.
   void ConfigureDefaultCredentials();

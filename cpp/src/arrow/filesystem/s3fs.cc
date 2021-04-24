@@ -205,10 +205,12 @@ bool S3ProxyOptions::Equals(const S3ProxyOptions& other) const {
 void S3Options::ConfigureDefaultCredentials() {
   credentials_provider =
       std::make_shared<Aws::Auth::DefaultAWSCredentialsProviderChain>();
+  credentials_kind = S3CredentialsKind::Default;
 }
 
 void S3Options::ConfigureAnonymousCredentials() {
   credentials_provider = std::make_shared<Aws::Auth::AnonymousAWSCredentialsProvider>();
+  credentials_kind = S3CredentialsKind::Anonymous;
 }
 
 void S3Options::ConfigureAccessKey(const std::string& access_key,
@@ -216,6 +218,7 @@ void S3Options::ConfigureAccessKey(const std::string& access_key,
                                    const std::string& session_token) {
   credentials_provider = std::make_shared<Aws::Auth::SimpleAWSCredentialsProvider>(
       ToAwsString(access_key), ToAwsString(secret_key), ToAwsString(session_token));
+  credentials_kind = S3CredentialsKind::Explicit;
 }
 
 void S3Options::ConfigureAssumeRoleCredentials(
@@ -225,6 +228,7 @@ void S3Options::ConfigureAssumeRoleCredentials(
   credentials_provider = std::make_shared<Aws::Auth::STSAssumeRoleCredentialsProvider>(
       ToAwsString(role_arn), ToAwsString(session_name), ToAwsString(external_id),
       load_frequency, stsClient);
+  credentials_kind = S3CredentialsKind::Role;
 }
 
 void S3Options::ConfigureAssumeRoleWithWebIdentityCredentials() {
@@ -233,6 +237,7 @@ void S3Options::ConfigureAssumeRoleWithWebIdentityCredentials() {
   // to configure the required credentials
   credentials_provider =
       std::make_shared<Aws::Auth::STSAssumeRoleWebIdentityCredentialsProvider>();
+  credentials_kind = S3CredentialsKind::WebIdentity;
 }
 
 std::string S3Options::GetAccessKey() const {
@@ -258,7 +263,6 @@ S3Options S3Options::Defaults() {
 
 S3Options S3Options::Anonymous() {
   S3Options options;
-  options.anonymous = true;
   options.ConfigureAnonymousCredentials();
   return options;
 }
@@ -267,7 +271,6 @@ S3Options S3Options::FromAccessKey(const std::string& access_key,
                                    const std::string& secret_key,
                                    const std::string& session_token) {
   S3Options options;
-  options.creds_provided = true;
   options.ConfigureAccessKey(access_key, secret_key, session_token);
   return options;
 }
@@ -288,7 +291,6 @@ S3Options S3Options::FromAssumeRole(
 
 S3Options S3Options::FromAssumeRoleWithWebIdentity() {
   S3Options options;
-  options.use_web_identity = true;
   options.ConfigureAssumeRoleWithWebIdentityCredentials();
   return options;
 }
@@ -324,7 +326,6 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
 
   const auto username = uri.username();
   if (!username.empty()) {
-    options.creds_provided = true;
     options.ConfigureAccessKey(username, uri.password());
   } else {
     options.ConfigureDefaultCredentials();

@@ -243,11 +243,9 @@ cdef class S3FileSystem(FileSystem):
     def __reduce__(self):
         cdef CS3Options opts = self.s3fs.options()
 
-        creds_provided = opts.creds_provided
-
         # if creds were explicitly provided, then use them
         # else obtain them as they were last time.
-        if creds_provided:
+        if opts.credentials_kind == CS3CredentialsKind_Explicit:
             access_key = frombytes(opts.GetAccessKey())
             secret_key = frombytes(opts.GetSecretKey())
             session_token = frombytes(opts.GetSessionToken())
@@ -261,8 +259,10 @@ cdef class S3FileSystem(FileSystem):
                 access_key=access_key,
                 secret_key=secret_key,
                 session_token=session_token,
-                anonymous=opts.anonymous,
-                use_web_identity=opts.use_web_identity,
+                anonymous=(opts.credentials_kind ==
+                           CS3CredentialsKind_Anonymous),
+                use_web_identity=(opts.credentials_kind ==
+                                  CS3CredentialsKind_WebIdentity),
                 region=frombytes(opts.region),
                 scheme=frombytes(opts.scheme),
                 endpoint_override=frombytes(opts.endpoint_override),
