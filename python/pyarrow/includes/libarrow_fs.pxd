@@ -150,9 +150,6 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_string endpoint_override
         c_string scheme
         c_bool background_writes
-        c_bool creds_provided
-        c_bool anonymous
-        c_bool use_web_identity
         c_string role_arn
         c_string session_name
         c_string external_id
