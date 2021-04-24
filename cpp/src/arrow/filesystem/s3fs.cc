@@ -363,6 +363,7 @@ Result<S3Options> S3Options::FromUri(const std::string& uri_string,
 bool S3Options::Equals(const S3Options& other) const {
   return (region == other.region && endpoint_override == other.endpoint_override &&
           scheme == other.scheme && background_writes == other.background_writes &&
+          credentials_kind == other.credentials_kind &&
           proxy_options.Equals(other.proxy_options) &&
           GetAccessKey() == other.GetAccessKey() &&
           GetSecretKey() == other.GetSecretKey() &&
