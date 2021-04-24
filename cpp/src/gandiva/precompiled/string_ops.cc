@@ -1490,6 +1490,58 @@ const char* lpad(gdv_int64 context, const char* text, gdv_int32 text_len,
 }
 
 FORCE_INLINE
+const char* lpad_no_fill_text(gdv_int64 context, const char* text, gdv_int32 text_len,
+                              gdv_int32 return_length, gdv_int32* out_len) {
+  // if the text length or the defined return length (number of characters to return)
+  // is <=0, then return an empty string.
+  if (text_len == 0 || return_length <= 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  // initially counts the number of utf8 characters in the defined text and fill_text
+  int32_t text_char_count = utf8_length(context, text, text_len);
+  // text_char_count is zero if input has invalid utf8 char
+  // fill_char_count is zero if fill_text_len is > 0 and its value has invalid utf8 char
+  if (text_char_count == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  if (return_length == text_char_count) {
+    // case where the return length is same as the text's length, or if it need to
+    // fill into text but "fill_text" is empty, then return text directly.
+    *out_len = text_len;
+    return text;
+  } else if (return_length < text_char_count) {
+    // case where it truncates the result on return length.
+    *out_len = utf8_byte_pos(context, text, text_len, return_length);
+    return text;
+  } else {
+    // case (return_length > text_char_count)
+    // case where it needs to copy "fill_text" on the string left. The total number
+    // of chars to copy is given by (return_length -  text_char_count)
+    char* ret =
+        reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(
+            context,
+            text_len + (return_length - text_char_count)));
+    if (ret == nullptr) {
+      gdv_fn_context_set_error_msg(context,
+                                   "Could not allocate memory for output string");
+      *out_len = 0;
+      return "";
+    }
+    const char* blank_space = " ";
+    for (int i = 0; i < return_length - text_char_count; ++i) {
+      ret[i] = blank_space[0];
+    }
+    memcpy(ret + return_length - text_char_count, text, text_len);
+    *out_len = text_len + (return_length - text_char_count);
+    return ret;
+  }
+}
+
+FORCE_INLINE
 const char* split_part(gdv_int64 context, const char* text, gdv_int32 text_len,
                        const char* delimiter, gdv_int32 delim_len, gdv_int32 index,
                        gdv_int32* out_len) {

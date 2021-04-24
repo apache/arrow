@@ -702,6 +702,7 @@ TEST(TestStringOps, TestLpadString) {
   gdv_int32 out_len = 0;
   const char* out_str;
 
+  // LPAD function tests - with defined fill pad text
   out_str = lpad(ctx_ptr, "TestString", 10, 4, "fill", 4, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "Test");
 
@@ -737,6 +738,31 @@ TEST(TestStringOps, TestLpadString) {
 
   out_str = lpad(ctx_ptr, "hello", 5, 6, "д", 2, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "дhello");
+
+  // LPAD function tests - with NO pad text
+  out_str = lpad_no_fill_text(ctx_ptr, "TestString", 10, 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Test");
+
+  out_str = lpad_no_fill_text(ctx_ptr, "TestString", 10, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+
+  out_str = lpad_no_fill_text(ctx_ptr, "TestString", 0, 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+
+  out_str = lpad_no_fill_text(ctx_ptr, "TestString", 10, 0,&out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+
+  out_str = lpad_no_fill_text(ctx_ptr, "TestString", 10, -500, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+
+  out_str = lpad_no_fill_text(ctx_ptr, "TestString", 10, 18, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "        TestString");
+
+  out_str = lpad_no_fill_text(ctx_ptr, "TestString", 10, 15, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "     TestString");
+
+  out_str = lpad_no_fill_text(ctx_ptr, "абвгд", 10, 7, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "  абвгд");
 }
 
 TEST(TestStringOps, TestRtrim) {
