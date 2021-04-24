@@ -137,6 +137,9 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("lpad", {}, DataTypeVector{utf8(), int32(), utf8()}, utf8(),
                      kResultNullIfNull, "lpad", NativeFunction::kNeedsContext),
 
+      NativeFunction("lpad", {}, DataTypeVector{utf8(), int32()}, utf8(),
+                     kResultNullIfNull, "lpad_no_fill_text", NativeFunction::kNeedsContext),
+
       NativeFunction("concatOperator", {}, DataTypeVector{utf8(), utf8()}, utf8(),
                      kResultNullIfNull, "concatOperator_utf8_utf8",
                      NativeFunction::kNeedsContext),
