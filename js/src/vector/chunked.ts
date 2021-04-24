@@ -69,7 +69,7 @@ class ChunkedIterator<T extends DataType> implements IterableIterator<T['TValue'
 }
 
 /** @ignore */
-export class Chunked<T extends DataType = any | unknown>
+export class Chunked<T extends DataType = any>
     extends AbstractVector<T>
     implements Clonable<Chunked<T>>,
                Sliceable<Chunked<T>>,
