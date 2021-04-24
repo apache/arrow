@@ -48,7 +48,7 @@ import { BaseVector } from './base';
 import { setBool } from '../util/bit';
 import { isIterable, isAsyncIterable } from '../util/compat';
 import { Builder, IterableBuilderOptions } from '../builder';
-import { VectorType as V, VectorCtorArgs, TypedArray, BigIntArray } from '../interfaces';
+import { VectorType as V, VectorCtorArgs } from '../interfaces';
 import { instance as getVisitor } from '../visitor/get';
 import { instance as setVisitor } from '../visitor/set';
 import { instance as indexOfVisitor } from '../visitor/indexof';
@@ -114,7 +114,7 @@ export function vectorFromValuesWithType<T extends DataType, TNull = any>(newDat
 /** @ignore */
 function vectorFrom<T extends DataType = any, TNull = any>(input: VectorBuilderOptions<T, TNull>): Vector<T>;
 function vectorFrom<T extends DataType = any, TNull = any>(input: VectorBuilderOptionsAsync<T, TNull>): Promise<Vector<T>>;
-function vectorFrom<T extends DataType = any, TNull = any>(input: VectorBuilderOptions<T, TNull> | VectorBuilderOptionsAsync<T, TNull> | TypedArray | BigIntArray) {
+function vectorFrom<T extends DataType = any, TNull = any>(input: VectorBuilderOptions<T, TNull> | VectorBuilderOptionsAsync<T, TNull>) {
     const { 'values': values = [], ...options } = { 'nullValues': [null, undefined], ...input } as VectorBuilderOptions<T, TNull> | VectorBuilderOptionsAsync<T, TNull>;
     if (isIterable<T['TValue'] | TNull>(values)) {
         const chunks = [...Builder.throughIterable(options)(values)];
