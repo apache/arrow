@@ -242,6 +242,22 @@ describe(`Table`, () => {
             expect(i32).toEqualVector(Int32Vector.from(i32s));
             expect(f32).toEqualVector(new Float32Vector(f32Expected));
         });
+
+        test(`creates a new Table from Typed Arrays`, () => {
+            let i32s = Int32Array.from({length: 10}, (_, i) => i);
+            let f32s = Float32Array.from({length: 10}, (_, i) => i);
+            const table = Table.new({ i32Renamed: i32s, f32Renamed: f32s });
+            const i32 = table.getColumn('i32Renamed')!;
+            const f32 = table.getColumn('f32Renamed')!;
+
+            expect(table).toHaveLength(10);
+            expect(i32).toHaveLength(10);
+            expect(f32).toHaveLength(10);
+            expect(i32.toArray()).toBeInstanceOf(Int32Array);
+            expect(f32.toArray()).toBeInstanceOf(Float32Array);
+            expect(i32.toArray()).toEqual(i32s);
+            expect(f32.toArray()).toEqual(f32s);
+        });
     });
 
     test(`Table.serialize() serializes sliced RecordBatches`, () => {

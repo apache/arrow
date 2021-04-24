@@ -28,8 +28,9 @@ import { isPromise, isIterable, isAsyncIterable } from './util/compat';
 import { RecordBatchFileWriter, RecordBatchStreamWriter } from './ipc/writer';
 import { distributeColumnsIntoRecordBatches, distributeVectorsIntoRecordBatches } from './util/recordbatch';
 import { Vector, Chunked, StructVector, VectorBuilderOptions, VectorBuilderOptionsAsync } from './vector/index';
+import { TypedArray, TypedArrayDataType } from './interfaces';
 
-type VectorMap = { [key: string]: Vector };
+type VectorMap = { [key: string]: Vector | TypedArray };
 type Fields<T extends { [key: string]: DataType }> = (keyof T)[] | Field<T[keyof T]>[];
 type ChildData<T extends { [key: string]: DataType }> = Data<T[keyof T]>[] | Vector<T[keyof T]>[];
 type Columns<T extends { [key: string]: DataType }> = Column<T[keyof T]>[] | Column<T[keyof T]>[][];
@@ -165,7 +166,7 @@ export class Table<T extends { [key: string]: DataType } = any>
      * 125,000 bytes (`((1e6 + 63) & ~63) >> 3`), or approx. `0.11MiB`
      */
     public static new<T extends { [key: string]: DataType } = any>(...columns: Columns<T>): Table<T>;
-    public static new<T extends VectorMap = any>(children: T): Table<{ [P in keyof T]: T[P]['type'] }>;
+    public static new<T extends VectorMap = any>(children: T): Table<{ [P in keyof T]: T[P] extends Vector ? T[P]['type'] : T[P] extends TypedArray ? TypedArrayDataType<T[P]> : never}>;
     public static new<T extends { [key: string]: DataType } = any>(children: ChildData<T>, fields?: Fields<T>): Table<T>;
     /** @nocollapse */
     public static new(...cols: any[]) {

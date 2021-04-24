@@ -38,6 +38,8 @@ export { UnionVector, DenseUnionVector, SparseUnionVector } from './union';
 export { Utf8Vector } from './utf8';
 export { MapRow, StructRow } from './row';
 
+import { IntVector, Int8Vector, Int16Vector, Int32Vector, Int64Vector, Uint8Vector, Uint16Vector, Uint32Vector, Uint64Vector } from './int';
+import { FloatVector, Float32Vector, Float64Vector } from './float';
 import * as fn from '../util/fn';
 import { Data } from '../data';
 import { Type } from '../enum';
@@ -48,7 +50,7 @@ import { BaseVector } from './base';
 import { setBool } from '../util/bit';
 import { isIterable, isAsyncIterable } from '../util/compat';
 import { Builder, IterableBuilderOptions } from '../builder';
-import { VectorType as V, VectorCtorArgs } from '../interfaces';
+import { VectorType as V, VectorCtorArgs, TypedArray, BigIntArray } from '../interfaces';
 import { instance as getVisitor } from '../visitor/get';
 import { instance as setVisitor } from '../visitor/set';
 import { instance as indexOfVisitor } from '../visitor/indexof';
@@ -114,7 +116,32 @@ export function vectorFromValuesWithType<T extends DataType, TNull = any>(newDat
 /** @ignore */
 function vectorFrom<T extends DataType = any, TNull = any>(input: VectorBuilderOptions<T, TNull>): Vector<T>;
 function vectorFrom<T extends DataType = any, TNull = any>(input: VectorBuilderOptionsAsync<T, TNull>): Promise<Vector<T>>;
-function vectorFrom<T extends DataType = any, TNull = any>(input: VectorBuilderOptions<T, TNull> | VectorBuilderOptionsAsync<T, TNull>) {
+function vectorFrom(input: Int8Array): Int8Vector;
+function vectorFrom(input: Int16Array): Int16Vector;
+function vectorFrom(input: Int32Array): Int32Vector;
+function vectorFrom(input: BigInt64Array): Int64Vector;
+function vectorFrom(input: Uint8Array): Uint8Vector;
+function vectorFrom(input: Uint16Array): Uint16Vector;
+function vectorFrom(input: Uint32Array): Uint32Vector;
+function vectorFrom(input: BigUint64Array): Uint64Vector;
+function vectorFrom(input: Float32Array): Float32Vector;
+function vectorFrom(input: Float64Array): Float64Vector;
+function vectorFrom<T extends DataType = any>(input: TypedArray): Vector<T>;
+function vectorFrom<T extends DataType = any, TNull = any>(input: VectorBuilderOptions<T, TNull> | VectorBuilderOptionsAsync<T, TNull> | TypedArray | BigIntArray) {
+    if (input instanceof Int8Array ||
+        input instanceof Int16Array ||
+        input instanceof Int32Array ||
+        input instanceof BigInt64Array ||
+        input instanceof Uint8Array ||
+        input instanceof Uint16Array ||
+        input instanceof Uint32Array ||
+        input instanceof BigUint64Array) {
+        return IntVector.from(input);
+    }
+    if (input instanceof Float32Array || input instanceof Float64Array) {
+        return FloatVector.from(input);
+    }
+
     const { 'values': values = [], ...options } = { 'nullValues': [null, undefined], ...input } as VectorBuilderOptions<T, TNull> | VectorBuilderOptionsAsync<T, TNull>;
     if (isIterable<T['TValue'] | TNull>(values)) {
         const chunks = [...Builder.throughIterable(options)(values)];

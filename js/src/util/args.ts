@@ -21,10 +21,16 @@ import { Column } from '../column';
 import { Vector } from '../vector';
 import { DataType } from '../type';
 import { Chunked } from '../vector/chunked';
+import { BigIntArray, TypedArray } from '../interfaces';
 
 type RecordBatchCtor = typeof import('../recordbatch').RecordBatch;
 
 const isArray = Array.isArray;
+
+/** @ignore */
+export function isTypedArray(arr: any): arr is TypedArray | BigIntArray {
+    return ArrayBuffer.isView(arr) && 'BYTES_PER_ELEMENT' in arr;
+}
 
 /** @ignore */
 export const selectArgs = <T>(Ctor: any, vals: any[]) => _selectArgs(Ctor, vals, [], 0) as T[];
@@ -34,6 +40,7 @@ export const selectColumnArgs = <T extends { [key: string]: DataType }>(args: an
     return values.map((x, i) =>
         x instanceof Column ? Column.new(x.field.clone(fields[i]), x) :
         x instanceof Vector ? Column.new(fields[i], x) as Column<T[keyof T]> :
+        isTypedArray(x) ? Column.new(fields[i], Vector.from(x)) as Column<T[keyof T]> :
                               Column.new(fields[i], [] as Vector<T[keyof T]>[]));
 };
 
@@ -108,7 +115,7 @@ function _selectColumnChildrenArgs<T extends Column>(Ctor: RecordBatchCtor, vals
 const toKeysAndValues = (xs: [any[], any[]], [k, v]: [any, any], i: number) => (xs[0][i] = k, xs[1][i] = v, xs);
 
 /** @ignore */
-function _selectFieldArgs<T extends { [key: string]: DataType }>(vals: any[], ret: [Field<T[keyof T]>[], Vector<T[keyof T]>[]]): [Field<T[keyof T]>[], (T[keyof T] | Vector<T[keyof T]>)[]] {
+function _selectFieldArgs<T extends { [key: string]: DataType }>(vals: any[], ret: [Field<T[keyof T]>[], (Vector<T[keyof T]> | TypedArray)[]]): [Field<T[keyof T]>[], (T[keyof T] | Vector<T[keyof T]> | TypedArray)[]] {
     let keys: any[];
     let n: number;
     switch (n = vals.length) {
@@ -117,7 +124,7 @@ function _selectFieldArgs<T extends { [key: string]: DataType }>(vals: any[], re
             keys = ret[0];
             if (!(vals[0])) { return ret; }
             if (isArray(vals[0])) { return _selectFieldArgs(vals[0], ret); }
-            if (!(vals[0] instanceof Data || vals[0] instanceof Vector || vals[0] instanceof DataType)) {
+            if (!(vals[0] instanceof Data || vals[0] instanceof Vector || isTypedArray(vals[0]) || vals[0] instanceof DataType)) {
                 [keys, vals] = Object.entries(vals[0]).reduce(toKeysAndValues, ret);
             }
             break;
