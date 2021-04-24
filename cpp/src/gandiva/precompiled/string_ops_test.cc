@@ -696,6 +696,49 @@ TEST(TestStringOps, TestLtrim) {
   EXPECT_FALSE(ctx.has_error());
 }
 
+TEST(TestStringOps, TestLpadString) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+  const char* out_str;
+
+  out_str = lpad(ctx_ptr, "TestString", 10, 4, "fill", 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Test");
+
+  out_str = lpad(ctx_ptr, "TestString", 10, 10, "fill", 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+
+  out_str = lpad(ctx_ptr, "TestString", 0, 10, "fill", 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+
+  out_str = lpad(ctx_ptr, "TestString", 10, 0, "fill", 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+
+  out_str = lpad(ctx_ptr, "TestString", 10, -500, "fill", 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+
+  out_str = lpad(ctx_ptr, "TestString", 10, 500, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+
+  out_str = lpad(ctx_ptr, "TestString", 10, 18, "Fill", 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "FillFillTestString");
+
+  out_str = lpad(ctx_ptr, "TestString", 10, 15, "Fill", 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "FillFTestString");
+
+  out_str = lpad(ctx_ptr, "TestString", 10, 20, "Fill", 4, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "FillFillFiTestString");
+
+  out_str = lpad(ctx_ptr, "абвгд", 10, 7, "д", 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "ддабвгд");
+
+  out_str = lpad(ctx_ptr, "абвгд", 10, 20, "абвгд", 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "абвгдабвгдабвгдабвгд");
+
+  out_str = lpad(ctx_ptr, "hello", 5, 6, "д", 2, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "дhello");
+}
+
 TEST(TestStringOps, TestRtrim) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
