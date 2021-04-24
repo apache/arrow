@@ -31,6 +31,7 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 
+import datetime
 import os
 import sys
 from unittest import mock
@@ -107,7 +108,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Apache Arrow'
-copyright = u'2016-2019 Apache Software Foundation'
+copyright = f'2016-{datetime.datetime.now().year} Apache Software Foundation'
 author = u'Apache Software Foundation'
 
 # The version info for the project you're documenting, acts as replacement for
