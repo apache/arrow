@@ -22,6 +22,7 @@ import { Vector } from '../vector';
 import { DataType } from '../type';
 import { Chunked } from '../vector/chunked';
 import { BigIntArray, TypedArray } from '../interfaces';
+import { FloatVector, IntVector } from '../vector/index';
 
 type RecordBatchCtor = typeof import('../recordbatch').RecordBatch;
 
@@ -33,6 +34,14 @@ export function isTypedArray(arr: any): arr is TypedArray | BigIntArray {
 }
 
 /** @ignore */
+function vectorFromTypedArray(array: TypedArray): Vector {
+    if (array instanceof Float32Array || array instanceof Float64Array) {
+        return FloatVector.from(array);
+    }
+    return IntVector.from(array);
+}
+
+/** @ignore */
 export const selectArgs = <T>(Ctor: any, vals: any[]) => _selectArgs(Ctor, vals, [], 0) as T[];
 /** @ignore */
 export const selectColumnArgs = <T extends { [key: string]: DataType }>(args: any[]) => {
@@ -40,7 +49,7 @@ export const selectColumnArgs = <T extends { [key: string]: DataType }>(args: an
     return values.map((x, i) =>
         x instanceof Column ? Column.new(x.field.clone(fields[i]), x) :
         x instanceof Vector ? Column.new(fields[i], x) as Column<T[keyof T]> :
-        isTypedArray(x) ? Column.new(fields[i], Vector.from(x)) as Column<T[keyof T]> :
+        isTypedArray(x) ? Column.new(fields[i], vectorFromTypedArray(x)) as Column<T[keyof T]> :
                               Column.new(fields[i], [] as Vector<T[keyof T]>[]));
 };
 
