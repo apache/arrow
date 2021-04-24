@@ -284,7 +284,7 @@ class ARROW_DS_EXPORT SyncScanner : public Scanner {
   Result<ScanTaskIterator> Scan() override;
   Status Scan(std::function<Status(TaggedRecordBatch)> visitor) override;
   Result<std::shared_ptr<Table>> ToTable() override;
-  Result<TaggedRecordBatchGenerator> ScanBatchesAsync();
+  Result<TaggedRecordBatchGenerator> ScanBatchesAsync() override;
   Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync() override;
 
  protected:

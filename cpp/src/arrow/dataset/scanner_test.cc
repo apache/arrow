@@ -131,7 +131,7 @@ class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
 
     AssertScanBatchesUnorderedEquals(expected.get(), scanner.get(), 1);
   }
-};  // namespace dataset
+};
 
 TEST_P(TestScanner, Scan) {
   SetSchema({field("i32", int32()), field("f64", float64())});
@@ -516,7 +516,7 @@ INSTANTIATE_TEST_SUITE_P(TestScannerThreading, TestScanner,
 /// parameter is taken which can be used to differentiate batches.
 class ControlledFragment : public Fragment {
  public:
-  ControlledFragment(std::shared_ptr<Schema> schema)
+  explicit ControlledFragment(std::shared_ptr<Schema> schema)
       : Fragment(literal(true), std::move(schema)) {}
 
   Result<ScanTaskIterator> Scan(std::shared_ptr<ScanOptions> options) override {
@@ -566,7 +566,7 @@ class ControlledDataset : public Dataset {
   void FinishFragment(int fragment_index) { fragments_[fragment_index]->Finish(); }
 
  protected:
-  virtual Result<FragmentIterator> GetFragmentsImpl(Expression predicate) {
+  Result<FragmentIterator> GetFragmentsImpl(Expression predicate) override {
     std::vector<std::shared_ptr<Fragment>> casted_fragments(fragments_.begin(),
                                                             fragments_.end());
     return MakeVectorIterator(std::move(casted_fragments));
@@ -589,10 +589,10 @@ class TestReordering : public ::testing::Test {
   // This allows us to know when to mark a fragment as finished
   std::vector<int> GetLastIndices(const std::vector<int>& order) {
     std::vector<int> last_indices(kNumFragments);
-    for (int i = 0; i < kNumFragments; i++) {
-      auto last_p = std::find(order.rbegin(), order.rend(), i);
+    for (std::size_t i = 0; i < kNumFragments; i++) {
+      auto last_p = std::find(order.rbegin(), order.rend(), static_cast<int>(i));
       EXPECT_NE(last_p, order.rend());
-      last_indices[i] = std::distance(last_p, order.rend()) - 1;
+      last_indices[i] = static_cast<int>(std::distance(last_p, order.rend())) - 1;
     }
     return last_indices;
   }
@@ -643,7 +643,9 @@ class TestReordering : public ::testing::Test {
               EXPECT_FINISHES_OK_AND_ASSIGN(auto next, gen());
               collected.push_back(std::move(next));
               fragment_index++;
-              seen_fragment = batches_seen_for_fragment[fragment_index] > 0;
+              if (fragment_index < num_fragments) {
+                seen_fragment = batches_seen_for_fragment[fragment_index] > 0;
+              }
             }
           }
         }
@@ -695,9 +697,9 @@ class TestReordering : public ::testing::Test {
   std::shared_ptr<Scanner> MakeScanner(int fragment_readahead = 0) {
     ScannerBuilder builder(dataset_);
     // Reordering tests only make sense for async
-    builder.UseAsync(true);
+    ARROW_EXPECT_OK(builder.UseAsync(true));
     if (fragment_readahead != 0) {
-      builder.FragmentReadahead(fragment_readahead);
+      ARROW_EXPECT_OK(builder.FragmentReadahead(fragment_readahead));
     }
     EXPECT_OK_AND_ASSIGN(auto scanner, builder.Finish());
     return scanner;
@@ -771,7 +773,7 @@ struct BatchConsumer {
 };
 
 TEST_F(TestReordering, FileReadahead) {
-  auto scanner = MakeScanner(1);
+  auto scanner = MakeScanner(/*fragment_readahead=*/1);
   ASSERT_OK_AND_ASSIGN(auto batch_gen, scanner->ScanBatchesUnorderedAsync());
   BatchConsumer consumer(std::move(batch_gen));
   dataset_->DeliverBatch(0, 0);
@@ -781,6 +783,8 @@ TEST_F(TestReordering, FileReadahead) {
   dataset_->DeliverBatch(1, 0);
   consumer.AssertCannotConsume();
   dataset_->FinishFragment(1);
+  // Even though fragment 1 is finished we cannot read it because fragment_readahead
+  // is 1 so we should only be reading fragment 0
   consumer.AssertCannotConsume();
   dataset_->FinishFragment(0);
   consumer.AssertCanConsume();
