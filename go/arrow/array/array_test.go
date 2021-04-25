@@ -69,27 +69,27 @@ func TestMakeFromData(t *testing.T) {
 		{name: "decimal", d: &testDataType{arrow.DECIMAL}},
 
 		{name: "list", d: &testDataType{arrow.LIST}, child: []*array.Data{
-			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil, 0, 0),
-			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil, 0, 0),
+			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
+			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
 		}},
 
 		{name: "struct", d: &testDataType{arrow.STRUCT}},
 		{name: "struct", d: &testDataType{arrow.STRUCT}, child: []*array.Data{
-			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil, 0, 0),
-			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil, 0, 0),
+			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
+			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
 		}},
 
 		{name: "fixed_size_list", d: arrow.FixedSizeListOf(4, arrow.PrimitiveTypes.Int64), child: []*array.Data{
-			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil, 0, 0),
-			array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil, 0, 0),
+			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
+			array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
 		}},
 		{name: "duration", d: &testDataType{arrow.DURATION}},
 
 		{name: "map", d: &testDataType{arrow.MAP}, child: []*array.Data{
-			array.NewData(&testDataType{arrow.STRUCT}, 0, make([]*memory.Buffer, 3 /*null bitmap, values, offsets*/), []*array.Data{
-				array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil, 0, 0),
-				array.NewData(&testDataType{arrow.INT64}, 0, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil, 0, 0),
-			}, 0, 0)},
+			array.NewData(&testDataType{arrow.STRUCT}, 0 /* length */, make([]*memory.Buffer, 3 /*null bitmap, values, offsets*/), []*array.Data{
+				array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
+				array.NewData(&testDataType{arrow.INT64}, 0 /* length */, make([]*memory.Buffer, 2 /*null bitmap, values*/), nil /* childData */, 0 /* nulls */, 0 /* offset */),
+			}, 0 /* nulls */, 0 /* offset */)},
 		},
 
 		// unsupported types
