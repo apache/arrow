@@ -839,8 +839,8 @@ TEST_F(TestProjector, TestLeftString) {
   int num_records = 6;
   auto array0 = MakeArrowArrayUtf8({"ab", "", "ab", "invalid", "valid", "invalid"},
                                    {true, true, true, true, true, true});
-  auto array1 = MakeArrowArrayInt32({1, 500, 2, -5, 5, 0},
-                                   {true, true, true, true, true, true});
+  auto array1 =
+      MakeArrowArrayInt32({1, 500, 2, -5, 5, 0}, {true, true, true, true, true, true});
   // expected output
   auto exp_left = MakeArrowArrayUtf8({"a", "", "ab", "in", "valid", ""},
                                      {true, true, true, true, true, true});
@@ -878,8 +878,8 @@ TEST_F(TestProjector, TestRightString) {
   int num_records = 6;
   auto array0 = MakeArrowArrayUtf8({"ab", "", "ab", "invalid", "valid", "invalid"},
                                    {true, true, true, true, true, true});
-  auto array1 = MakeArrowArrayInt32({1, 500, 2, -5, 5, 0},
-                                    {true, true, true, true, true, true});
+  auto array1 =
+      MakeArrowArrayInt32({1, 500, 2, -5, 5, 0}, {true, true, true, true, true, true});
   // expected output
   auto exp_left = MakeArrowArrayUtf8({"b", "", "ab", "id", "valid", ""},
                                      {true, true, true, true, true, true});

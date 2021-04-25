@@ -1498,13 +1498,13 @@ const char* left(gdv_int64 context, const char* text, gdv_int32 text_len,
     return "";
   }
 
-  int32_t endCharPos; // the char result end position (inclusive)
+  int32_t endCharPos;  // the char result end position (inclusive)
   if (number > 0) {
     // case where left('abc', 5) -> 'abc'
     endCharPos = (charCount < number) ? charCount : number;
   } else if (number < 0) {
     // case where left('abc', -5) ==> ''
-    endCharPos =  (charCount + number > 0) ? charCount + number : 0;
+    endCharPos = (charCount + number > 0) ? charCount + number : 0;
   } else {
     endCharPos = 0;
   }
@@ -1530,15 +1530,15 @@ const char* right(gdv_int64 context, const char* text, gdv_int32 text_len,
     return "";
   }
 
-  int32_t startCharPos; //the char result start position (inclusive)
-  int32_t endCharLen; // the char result end position (inclusive)
+  int32_t startCharPos;  //the char result start position (inclusive)
+  int32_t endCharLen;    // the char result end position (inclusive)
   if (number > 0) {
     // case where right('abc', 5) ==> 'abc' startCharPos=1.
     startCharPos = (charCount - number + 1 > 1) ? charCount - number + 1 : 1;
     endCharLen = charCount - startCharPos + 1;
   } else {
     startCharPos = ((number > 0) ? number : number * -1) + 1;
-    endCharLen = charCount - startCharPos +1;
+    endCharLen = charCount - startCharPos + 1;
   }
 
   // calculate the start byte position and the output length
