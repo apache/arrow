@@ -1053,4 +1053,47 @@ TEST_F(TestProjector, TestLpad) {
   EXPECT_ARROW_ARRAY_EQUALS(exp_lpad, outputs.at(0));
 }
 
+TEST_F(TestProjector, TestRpad) {
+  // schema for input fields
+  auto field0 = field("f0", arrow::utf8());
+  auto field1 = field("f1", arrow::int32());
+  auto field2 = field("f2", arrow::utf8());
+  auto schema = arrow::schema({field0, field1, field2});
+
+  // output fields
+  auto field_rpad = field("rpad", arrow::utf8());
+
+  // Build expression
+  auto rpad_expr =
+      TreeExprBuilder::MakeExpression("rpad", {field0, field1, field2}, field_rpad);
+
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {rpad_expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 7;
+  auto array0 = MakeArrowArrayUtf8({"ab", "a", "ab", "invalid", "valid", "invalid", ""},
+                                   {true, true, true, true, true, true, true});
+  auto array1 = MakeArrowArrayInt32({1, 5, 3, 12, 0, 2, 10},
+                                    {true, true, true, true, true, true, true});
+  auto array2 = MakeArrowArrayUtf8({"z", "z", "c", "valid", "invalid", "invalid", ""},
+                                   {true, true, true, true, true, true, true});
+  // expected output
+  auto exp_rpad = MakeArrowArrayUtf8({"a", "azzzz", "abc", "invalidvalid", "", "in", ""},
+                                     {true, true, true, true, true, true, true});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records,
+                                           {array0, array1, array2});
+
+  // Evaluate expression
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp_rpad, outputs.at(0));
+}
+
 }  // namespace gandiva
