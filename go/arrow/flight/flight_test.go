@@ -321,7 +321,7 @@ func (f *flightMetadataWriterServer) DoGet(tkt *flight.Ticket, fs flight.FlightS
 	w := flight.NewRecordWriter(fs, ipc.WithSchema(recs[0].Schema()))
 	defer w.Close()
 	for idx, r := range recs {
-		w.WriteWithAppMetadata(r, []byte(fmt.Sprintf("%d_%s", idx, string(tkt.GetTicket()))))
+		w.WriteWithAppMetadata(r, []byte(fmt.Sprintf("%d_%s", idx, string(tkt.GetTicket()))) /*metadata*/)
 	}
 	return nil
 }

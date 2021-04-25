@@ -53,6 +53,9 @@ func (f *flightPayloadWriter) WritePayload(payload ipc.Payload) error {
 
 func (f *flightPayloadWriter) Close() error { return nil }
 
+// Writer is an ipc.Writer which also adds a WriteWithAppMetadata function
+// in order to allow adding AppMetadata to the FlightData messages which
+// are written.
 type Writer struct {
 	*ipc.Writer
 	pw *flightPayloadWriter

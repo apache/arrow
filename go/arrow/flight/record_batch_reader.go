@@ -73,21 +73,33 @@ func (d *dataMessageReader) Release() {
 	}
 }
 
+// Reader is an ipc.Reader which also keeps track of the metadata from
+// the FlightData messages as they come in, calling LatestAppMetadata
+// will return the metadata bytes from the most recently read message.
 type Reader struct {
 	*ipc.Reader
 	dmr *dataMessageReader
 }
 
+// Retain increases the reference count for the underlying message reader
+// and ipc.Reader which are utilized by this Reader.
 func (r *Reader) Retain() {
 	r.Reader.Retain()
 	r.dmr.Retain()
 }
 
+// Release reduces the reference count for the underlying message reader
+// and ipc.Reader, when the reference counts become zero, the allocated
+// memory is released for the stored record and metadata.
 func (r *Reader) Release() {
 	r.Reader.Release()
 	r.dmr.Release()
 }
 
+// LatestAppMetadata returns the bytes from the AppMetadata field of the
+// most recently read FlightData message that was processed by calling
+// the Next function. The metadata returned would correspond to the record
+// retrieved by calling Record().
 func (r *Reader) LatestAppMetadata() []byte {
 	return r.dmr.lastAppMetadata
 }
