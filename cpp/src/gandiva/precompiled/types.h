@@ -411,7 +411,14 @@ const char* lpad(gdv_int64 context, const char* text, gdv_int32 text_len,
                  gdv_int32 return_length, const char* fill_text, gdv_int32 fill_text_len,
                  gdv_int32* out_len);
 
+const char* rpad(gdv_int64 context, const char* text, gdv_int32 text_len,
+                 gdv_int32 return_length, const char* fill_text, gdv_int32 fill_text_len,
+                 gdv_int32* out_len);
+
 const char* lpad_no_fill_text(gdv_int64 context, const char* text, gdv_int32 text_len,
+                              gdv_int32 return_length, gdv_int32* out_len);
+
+const char* rpad_no_fill_text(gdv_int64 context, const char* text, gdv_int32 text_len,
                               gdv_int32 return_length, gdv_int32* out_len);
 
 const char* replace_with_max_len_utf8_utf8_utf8(gdv_int64 context, const char* text,
