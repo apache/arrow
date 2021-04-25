@@ -80,7 +80,7 @@ cdef class ReadOptions(_Weakrefable):
     def __init__(self, *, use_threads=None, block_size=None, skip_rows=None,
                  column_names=None, autogenerate_column_names=None,
                  encoding='utf8'):
-        self.options = CCSVReadOptions.Defaults()
+        self.options.reset(new CCSVReadOptions(CCSVReadOptions.Defaults()))
         if use_threads is not None:
             self.use_threads = use_threads
         if block_size is not None:
@@ -99,11 +99,11 @@ cdef class ReadOptions(_Weakrefable):
         """
         Whether to use multiple threads to accelerate reading.
         """
-        return self.options.use_threads
+        return deref(self.options).use_threads
 
     @use_threads.setter
     def use_threads(self, value):
-        self.options.use_threads = value
+        deref(self.options).use_threads = value
 
     @property
     def block_size(self):
@@ -112,11 +112,11 @@ cdef class ReadOptions(_Weakrefable):
         This will determine multi-threading granularity as well as
         the size of individual record batches or table chunks.
         """
-        return self.options.block_size
+        return deref(self.options).block_size
 
     @block_size.setter
     def block_size(self, value):
-        self.options.block_size = value
+        deref(self.options).block_size = value
 
     @property
     def skip_rows(self):
@@ -124,11 +124,11 @@ cdef class ReadOptions(_Weakrefable):
         The number of rows to skip before the column names (if any)
         and the CSV data.
         """
-        return self.options.skip_rows
+        return deref(self.options).skip_rows
 
     @skip_rows.setter
     def skip_rows(self, value):
-        self.options.skip_rows = value
+        deref(self.options).skip_rows = value
 
     @property
     def column_names(self):
@@ -136,13 +136,13 @@ cdef class ReadOptions(_Weakrefable):
         The column names of the target table.  If empty, fall back on
         `autogenerate_column_names`.
         """
-        return [frombytes(s) for s in self.options.column_names]
+        return [frombytes(s) for s in deref(self.options).column_names]
 
     @column_names.setter
     def column_names(self, value):
-        self.options.column_names.clear()
+        deref(self.options).column_names.clear()
         for item in value:
-            self.options.column_names.push_back(tobytes(item))
+            deref(self.options).column_names.push_back(tobytes(item))
 
     @property
     def autogenerate_column_names(self):
@@ -152,11 +152,11 @@ cdef class ReadOptions(_Weakrefable):
         If false, column names will be read from the first CSV row
         after `skip_rows`.
         """
-        return self.options.autogenerate_column_names
+        return deref(self.options).autogenerate_column_names
 
     @autogenerate_column_names.setter
     def autogenerate_column_names(self, value):
-        self.options.autogenerate_column_names = value
+        deref(self.options).autogenerate_column_names = value
 
     def equals(self, ReadOptions other):
         return (
@@ -172,7 +172,7 @@ cdef class ReadOptions(_Weakrefable):
     @staticmethod
     cdef ReadOptions wrap(CCSVReadOptions options):
         out = ReadOptions()
-        out.options = options
+        out.options.reset(new CCSVReadOptions(move(options)))
         out.encoding = 'utf8'  # No way to know this
         return out
 
@@ -436,7 +436,8 @@ cdef class ConvertOptions(_Weakrefable):
                  strings_can_be_null=None, include_columns=None,
                  include_missing_columns=None, auto_dict_encode=None,
                  auto_dict_max_cardinality=None, timestamp_parsers=None):
-        self.options = CCSVConvertOptions.Defaults()
+        self.options.reset(
+            new CCSVConvertOptions(CCSVConvertOptions.Defaults()))
         if check_utf8 is not None:
             self.check_utf8 = check_utf8
         if column_types is not None:
@@ -465,22 +466,22 @@ cdef class ConvertOptions(_Weakrefable):
         """
         Whether to check UTF8 validity of string columns.
         """
-        return self.options.check_utf8
+        return deref(self.options).check_utf8
 
     @check_utf8.setter
     def check_utf8(self, value):
-        self.options.check_utf8 = value
+        deref(self.options).check_utf8 = value
 
     @property
     def strings_can_be_null(self):
         """
         Whether string / binary columns can have null values.
         """
-        return self.options.strings_can_be_null
+        return deref(self.options).strings_can_be_null
 
     @strings_can_be_null.setter
     def strings_can_be_null(self, value):
-        self.options.strings_can_be_null = value
+        deref(self.options).strings_can_be_null = value
 
     @property
     def column_types(self):
@@ -488,7 +489,7 @@ cdef class ConvertOptions(_Weakrefable):
         Explicitly map column names to column types.
         """
         d = {frombytes(item.first): pyarrow_wrap_data_type(item.second)
-             for item in self.options.column_types}
+             for item in deref(self.options).column_types}
         return d
 
     @column_types.setter
@@ -499,7 +500,7 @@ cdef class ConvertOptions(_Weakrefable):
         if isinstance(value, Mapping):
             value = value.items()
 
-        self.options.column_types.clear()
+        deref(self.options).column_types.clear()
         for item in value:
             if isinstance(item, Field):
                 k = item.name
@@ -508,51 +509,51 @@ cdef class ConvertOptions(_Weakrefable):
                 k, v = item
             typ = pyarrow_unwrap_data_type(ensure_type(v))
             assert typ != NULL
-            self.options.column_types[tobytes(k)] = typ
+            deref(self.options).column_types[tobytes(k)] = typ
 
     @property
     def null_values(self):
         """
         A sequence of strings that denote nulls in the data.
         """
-        return [frombytes(x) for x in self.options.null_values]
+        return [frombytes(x) for x in deref(self.options).null_values]
 
     @null_values.setter
     def null_values(self, value):
-        self.options.null_values = [tobytes(x) for x in value]
+        deref(self.options).null_values = [tobytes(x) for x in value]
 
     @property
     def true_values(self):
         """
         A sequence of strings that denote true booleans in the data.
         """
-        return [frombytes(x) for x in self.options.true_values]
+        return [frombytes(x) for x in deref(self.options).true_values]
 
     @true_values.setter
     def true_values(self, value):
-        self.options.true_values = [tobytes(x) for x in value]
+        deref(self.options).true_values = [tobytes(x) for x in value]
 
     @property
     def false_values(self):
         """
         A sequence of strings that denote false booleans in the data.
         """
-        return [frombytes(x) for x in self.options.false_values]
+        return [frombytes(x) for x in deref(self.options).false_values]
 
     @false_values.setter
     def false_values(self, value):
-        self.options.false_values = [tobytes(x) for x in value]
+        deref(self.options).false_values = [tobytes(x) for x in value]
 
     @property
     def auto_dict_encode(self):
         """
         Whether to try to automatically dict-encode string / binary data.
         """
-        return self.options.auto_dict_encode
+        return deref(self.options).auto_dict_encode
 
     @auto_dict_encode.setter
     def auto_dict_encode(self, value):
-        self.options.auto_dict_encode = value
+        deref(self.options).auto_dict_encode = value
 
     @property
     def auto_dict_max_cardinality(self):
@@ -561,11 +562,11 @@ cdef class ConvertOptions(_Weakrefable):
 
         This value is per chunk.
         """
-        return self.options.auto_dict_max_cardinality
+        return deref(self.options).auto_dict_max_cardinality
 
     @auto_dict_max_cardinality.setter
     def auto_dict_max_cardinality(self, value):
-        self.options.auto_dict_max_cardinality = value
+        deref(self.options).auto_dict_max_cardinality = value
 
     @property
     def include_columns(self):
@@ -575,13 +576,13 @@ cdef class ConvertOptions(_Weakrefable):
         If empty, the Table will include all columns from the CSV file.
         If not empty, only these columns will be included, in this order.
         """
-        return [frombytes(s) for s in self.options.include_columns]
+        return [frombytes(s) for s in deref(self.options).include_columns]
 
     @include_columns.setter
     def include_columns(self, value):
-        self.options.include_columns.clear()
+        deref(self.options).include_columns.clear()
         for item in value:
-            self.options.include_columns.push_back(tobytes(item))
+            deref(self.options).include_columns.push_back(tobytes(item))
 
     @property
     def include_missing_columns(self):
@@ -593,11 +594,11 @@ cdef class ConvertOptions(_Weakrefable):
         or null by default).
         This option is ignored if `include_columns` is empty.
         """
-        return self.options.include_missing_columns
+        return deref(self.options).include_missing_columns
 
     @include_missing_columns.setter
     def include_missing_columns(self, value):
-        self.options.include_missing_columns = value
+        deref(self.options).include_missing_columns = value
 
     @property
     def timestamp_parsers(self):
@@ -612,7 +613,7 @@ cdef class ConvertOptions(_Weakrefable):
             c_string kind
 
         parsers = []
-        for c_parser in self.options.timestamp_parsers:
+        for c_parser in deref(self.options).timestamp_parsers:
             kind = deref(c_parser).kind()
             if kind == b'strptime':
                 parsers.append(frombytes(deref(c_parser).format()))
@@ -635,12 +636,12 @@ cdef class ConvertOptions(_Weakrefable):
             else:
                 raise TypeError("Expected list of str or ISO8601 objects")
 
-        self.options.timestamp_parsers = move(c_parsers)
+        deref(self.options).timestamp_parsers = move(c_parsers)
 
     @staticmethod
     cdef ConvertOptions wrap(CCSVConvertOptions options):
         out = ConvertOptions()
-        out.options = options
+        out.options.reset(new CCSVConvertOptions(move(options)))
         return out
 
     def equals(self, ConvertOptions other):
@@ -694,7 +695,7 @@ cdef _get_read_options(ReadOptions read_options, CCSVReadOptions* out):
     if read_options is None:
         out[0] = CCSVReadOptions.Defaults()
     else:
-        out[0] = read_options.options
+        out[0] = deref(read_options.options)
 
 
 cdef _get_parse_options(ParseOptions parse_options, CCSVParseOptions* out):
@@ -709,7 +710,7 @@ cdef _get_convert_options(ConvertOptions convert_options,
     if convert_options is None:
         out[0] = CCSVConvertOptions.Defaults()
     else:
-        out[0] = convert_options.options
+        out[0] = deref(convert_options.options)
 
 
 cdef class CSVStreamingReader(RecordBatchReader):
@@ -869,13 +870,13 @@ cdef class WriteOptions(_Weakrefable):
         CSV data
     """
     cdef:
-        CCSVWriteOptions options
+        unique_ptr[CCSVWriteOptions] options
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
     def __init__(self, *, include_header=None, batch_size=None):
-        self.options = CCSVWriteOptions.Defaults()
+        self.options.reset(new CCSVWriteOptions(CCSVWriteOptions.Defaults()))
         if include_header is not None:
             self.include_header = include_header
         if batch_size is not None:
@@ -886,11 +887,11 @@ cdef class WriteOptions(_Weakrefable):
         """
         Whether to write an initial header line with column names.
         """
-        return self.options.include_header
+        return deref(self.options).include_header
 
     @include_header.setter
     def include_header(self, value):
-        self.options.include_header = value
+        deref(self.options).include_header = value
 
     @property
     def batch_size(self):
@@ -898,18 +899,18 @@ cdef class WriteOptions(_Weakrefable):
         How many rows to process together when converting and writing
         CSV data.
         """
-        return self.options.batch_size
+        return deref(self.options).batch_size
 
     @batch_size.setter
     def batch_size(self, value):
-        self.options.batch_size = value
+        deref(self.options).batch_size = value
 
 
 cdef _get_write_options(WriteOptions write_options, CCSVWriteOptions* out):
     if write_options is None:
         out[0] = CCSVWriteOptions.Defaults()
     else:
-        out[0] = write_options.options
+        out[0] = deref(write_options.options)
 
 
 def write_csv(data, output_file, write_options=None,

@@ -1601,6 +1601,9 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         vector[c_string] include_columns
         c_bool include_missing_columns
 
+        CCSVConvertOptions()
+        CCSVConvertOptions(CCSVConvertOptions&&)
+
         @staticmethod
         CCSVConvertOptions Defaults()
 
@@ -1611,12 +1614,18 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         vector[c_string] column_names
         c_bool autogenerate_column_names
 
+        CCSVReadOptions()
+        CCSVReadOptions(CCSVReadOptions&&)
+
         @staticmethod
         CCSVReadOptions Defaults()
 
     cdef cppclass CCSVWriteOptions" arrow::csv::WriteOptions":
         c_bool include_header
         int32_t batch_size
+
+        CCSVWriteOptions()
+        CCSVWriteOptions(CCSVWriteOptions&&)
 
         @staticmethod
         CCSVWriteOptions Defaults()

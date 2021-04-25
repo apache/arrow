@@ -1760,7 +1760,7 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
 
     @convert_options.setter
     def convert_options(self, ConvertOptions convert_options not None):
-        self.csv_options.convert_options = convert_options.options
+        self.csv_options.convert_options = deref(convert_options.options)
 
     @property
     def read_options(self):
@@ -1768,7 +1768,7 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
 
     @read_options.setter
     def read_options(self, ReadOptions read_options not None):
-        self.csv_options.read_options = read_options.options
+        self.csv_options.read_options = deref(read_options.options)
 
     def equals(self, CsvFragmentScanOptions other):
         return (
