@@ -39,6 +39,10 @@ func NewMapData(data *Data) *Map {
 // KeysSorted checks the datatype that was used to construct this array and
 // returns the KeysSorted boolean value used to denote if the key array is
 // sorted for each list element.
+//
+// Important note: Nothing is enforced regarding the KeysSorted value, it is
+// solely a metadata field that should be set if keys within each value are sorted.
+// This value is not used at all in regards to comparisons / equality.
 func (a *Map) KeysSorted() bool { return a.DataType().(*arrow.MapType).KeysSorted }
 
 func (a *Map) validateData(data *Data) {
@@ -79,12 +83,17 @@ func (a *Map) Keys() Interface { return a.keys }
 // the Value field (the second field) of the child struct.
 func (a *Map) Items() Interface { return a.items }
 
+// Retain increases the reference count by 1.
+// Retain may be called simultaneously from multiple goroutines.
 func (a *Map) Retain() {
 	a.List.Retain()
 	a.keys.Retain()
 	a.items.Retain()
 }
 
+// Release decreases the reference count by 1.
+// Release may be called simultaneously from multiple goroutines.
+// When the reference count goes to zero, the memory is freed.
 func (a *Map) Release() {
 	a.List.Release()
 	a.keys.Release()
@@ -108,6 +117,31 @@ type MapBuilder struct {
 // NewMapBuilder returns a builder, using the provided memory allocator.
 // The created Map builder will create a map array whose keys will be a non-nullable
 // array of type `keytype` and whose mapped items will be a nullable array of itemtype.
+//
+// KeysSorted is not enforced at all by the builder, it should only be set to true
+// building using keys in sorted order for each value. The KeysSorted value will just be
+// used when creating the DataType for the map.
+//
+// Example
+//
+// Simple example provided of converting a []map[string]int32 to an array.Map
+// by using a MapBuilder:
+//
+//   /* assume maplist == []map[string]int32 */
+//   bldr := array.NewMapBuilder(memory.DefaultAllocator, arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32, false)
+//   defer bldr.Release()
+//   kb := bldr.KeyBuilder().(*array.StringBuilder)
+//   ib := bldr.ItemBuilder().(*array.Int32Builder)
+//   for _, m := range maplist {
+//       bldr.Append(true)
+//       for k, v := range m {
+//            kb.Append(k)
+//            ib.Append(v)
+//       }
+//   }
+//   maparr := bldr.NewMapArray()
+//   defer maparr.Release()
+//
 func NewMapBuilder(mem memory.Allocator, keytype, itemtype arrow.DataType, keysSorted bool) *MapBuilder {
 	etype := arrow.MapOf(keytype, itemtype)
 	etype.KeysSorted = keysSorted
@@ -127,12 +161,15 @@ func NewMapBuilder(mem memory.Allocator, keytype, itemtype arrow.DataType, keysS
 	}
 }
 
+// Retain increases the reference count by 1 for the sub-builders (list, key, item).
+// Retain may be called simultaneously from multiple goroutines.
 func (b *MapBuilder) Retain() {
 	b.listBuilder.Retain()
 	b.keyBuilder.Retain()
 	b.itemBuilder.Retain()
 }
 
+// Release decreases the reference count by 1 for the sub builders (list, key, item).
 func (b *MapBuilder) Release() {
 	b.listBuilder.Release()
 	b.keyBuilder.Release()
@@ -142,7 +179,11 @@ func (b *MapBuilder) Release() {
 // Len returns the current number of Maps that are in the builder
 func (b *MapBuilder) Len() int { return b.listBuilder.Len() }
 
-func (b *MapBuilder) Cap() int   { return b.listBuilder.Cap() }
+// Cap returns the total number of elements that can be stored
+// without allocating additional memory.
+func (b *MapBuilder) Cap() int { return b.listBuilder.Cap() }
+
+// NullN returns the number of null values in the array builder.
 func (b *MapBuilder) NullN() int { return b.listBuilder.NullN() }
 
 // Append adds a new Map element to the array, calling Append(false) is

@@ -596,6 +596,7 @@ func Example_table() {
 
 // This example demonstrates how to create a Map Array.
 // The resulting array should be:
+//   [{["ab" "cd" "ef" "gh"] [1 2 3 4]} (null) {["ab" "cd" "ef" "gh"] [(null) 2 5 1]}]
 func Example_mapArray() {
 	pool := memory.NewGoAllocator()
 	mb := array.NewMapBuilder(pool, arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int16, false)
