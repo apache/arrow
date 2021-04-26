@@ -27,6 +27,8 @@ pushd java
   # test only gandiva
   mvn test -q -P arrow-jni -pl gandiva -Dgandiva.cpp.build.dir=$CPP_BUILD_DIR
 
-  # copy the jars to distribution folder
-  find gandiva/target/ -name "*.jar" -not -name "*tests*" -exec cp  {} $CPP_BUILD_DIR \;
+  if [[ $COPY_JAR_TO_DISTRIBUTION_FOLDER ]] ; then
+    # copy the jars to distribution folder
+    find gandiva/target/ -name "*.jar" -not -name "*tests*" -exec cp  {} $CPP_BUILD_DIR \;
+  fi
 popd
