@@ -190,6 +190,7 @@ cmake \
 To enable optional features including: S3 support, an alternative memory allocator, and additional compression libraries, add some or all of these flags (the trailing `\` makes them easier to paste into a bash shell on a new line):
 
 ``` shell
+  -DARROW_S3=ON \
   -DARROW_MIMALLOC=ON \
   -DARROW_WITH_BROTLI=ON \
   -DARROW_WITH_BZ2=ON \
@@ -252,7 +253,7 @@ export ARROW_R_CXXFLAGS=-fno-omit-frame-pointer
 With the setups described here, you should not need to rebuild the Arrow library or even the C++ source in the R package as you iterated and work on the R package. The only time those should need to be rebuilt is if you have changed the C++ in the R package (and even then, `R CMD INSTALL .` should only need to recompile the files that have changed) _or_ if the Arrow library C++ has changed and there is a mismatch between the Arrow Library and the R package. If you find yourself rebuilding either or both each time you install the package or run tests, something is probably wrong with your set up.
 
 <details>
-<summary>For a full build: a `cmake` command with all of the R-relevant optional dependencies turned on</summary>
+<summary>For a full build: a `cmake` command with all of the R-relevant optional dependencies turned on.</summary>
 <p>
 
 ``` shell
@@ -270,12 +271,14 @@ cmake \
   -DARROW_WITH_ZLIB=ON \
   -DARROW_INSTALL_NAME_RPATH=OFF \
   -DARROW_EXTRA_ERROR_CONTEXT=ON \
+  -DARROW_S3=ON \
   -DARROW_MIMALLOC=ON \
   -DARROW_WITH_BROTLI=ON \
   -DARROW_WITH_BZ2=ON \
   -DARROW_WITH_LZ4=ON \
   -DARROW_WITH_SNAPPY=ON \
   -DARROW_WITH_ZSTD=ON \
+  -DARROW_HDFS=ON \
   ..
 ```
 </p>
