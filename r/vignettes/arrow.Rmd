@@ -104,7 +104,7 @@ corresponds to a class of the same name in the Arrow C++ library. The `arrow`
 package provides a variety of `R6` and S3 methods for interacting with instances
 of these classes.
 
-For convenience, the `arrow package also defines several synthetic classes that
+For convenience, the `arrow` package also defines several synthetic classes that
 do not exist in the C++ library, including:
 
 * `ArrowDatum`: inherited by `Scalar`, `Array`, and `ChunkedArray`

@@ -116,7 +116,7 @@ export ARROW_HOME=$(pwd)/dist
 mkdir $ARROW_HOME
 ```
 
-_Special instructions on Linux:_ You will need to set `LD_LIBRARY_PATH` to the `lib` directory that will is under where we set `$ARROW_HOME`, before launching R and using Arrow. One way to do this is to add it to your profile (we use `~/.bash_profile` here, but you might need to put this in a different file depending on your setup, e.g. if you use a shell other than `bash`). On macOS we do not need to do this because the macOS shared library paths are hardcoded to their locations during build time.
+_Special instructions on Linux:_ You will need to set `LD_LIBRARY_PATH` to the `lib` directory that is under where we set `$ARROW_HOME`, before launching R and using Arrow. One way to do this is to add it to your profile (we use `~/.bash_profile` here, but you might need to put this in a different file depending on your setup, e.g. if you use a shell other than `bash`). On macOS we do not need to do this because the macOS shared library paths are hardcoded to their locations during build time.
 
 ```{bash, save=run & ubuntu & !sys_install}
 export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
@@ -140,14 +140,14 @@ cmake \
   -DARROW_COMPUTE=ON \
   -DARROW_CSV=ON \
   -DARROW_DATASET=ON \
+  -DARROW_EXTRA_ERROR_CONTEXT=ON \
   -DARROW_FILESYSTEM=ON \
+  -DARROW_INSTALL_NAME_RPATH=OFF \
   -DARROW_JEMALLOC=ON \
   -DARROW_JSON=ON \
   -DARROW_PARQUET=ON \
   -DARROW_WITH_SNAPPY=ON \
   -DARROW_WITH_ZLIB=ON \
-  -DARROW_INSTALL_NAME_RPATH=OFF \
-  -DARROW_EXTRA_ERROR_CONTEXT=ON \
   ..
 ```
 
@@ -172,14 +172,14 @@ cmake \
   -DARROW_COMPUTE=ON \
   -DARROW_CSV=ON \
   -DARROW_DATASET=ON \
+  -DARROW_EXTRA_ERROR_CONTEXT=ON \
   -DARROW_FILESYSTEM=ON \
+  -DARROW_INSTALL_NAME_RPATH=OFF \
   -DARROW_JEMALLOC=ON \
   -DARROW_JSON=ON \
   -DARROW_PARQUET=ON \
   -DARROW_WITH_SNAPPY=ON \
   -DARROW_WITH_ZLIB=ON \
-  -DARROW_INSTALL_NAME_RPATH=OFF \
-  -DARROW_EXTRA_ERROR_CONTEXT=ON \
   ..
 ```
 
@@ -191,6 +191,7 @@ To enable optional features including: S3 support, an alternative memory allocat
 
 ``` shell
   -DARROW_MIMALLOC=ON \
+  -DARROW_S3=ON \
   -DARROW_WITH_BROTLI=ON \
   -DARROW_WITH_BZ2=ON \
   -DARROW_WITH_LZ4=ON \
@@ -252,7 +253,7 @@ export ARROW_R_CXXFLAGS=-fno-omit-frame-pointer
 With the setups described here, you should not need to rebuild the Arrow library or even the C++ source in the R package as you iterated and work on the R package. The only time those should need to be rebuilt is if you have changed the C++ in the R package (and even then, `R CMD INSTALL .` should only need to recompile the files that have changed) _or_ if the Arrow library C++ has changed and there is a mismatch between the Arrow Library and the R package. If you find yourself rebuilding either or both each time you install the package or run tests, something is probably wrong with your set up.
 
 <details>
-<summary>For a full build: a `cmake` command with all of the R-relevant optional dependencies turned on</summary>
+<summary>For a full build: a `cmake` command with all of the R-relevant optional dependencies turned on. Development with other languages might require different flags as well. For example, to develop Python, you would need to also add `-DARROW_PYTHON=ON` (though all of the other flags used for Python are already included here).</summary>
 <p>
 
 ``` shell
@@ -262,26 +263,26 @@ cmake \
   -DARROW_COMPUTE=ON \
   -DARROW_CSV=ON \
   -DARROW_DATASET=ON \
+  -DARROW_EXTRA_ERROR_CONTEXT=ON \
   -DARROW_FILESYSTEM=ON \
+  -DARROW_INSTALL_NAME_RPATH=OFF \
   -DARROW_JEMALLOC=ON \
   -DARROW_JSON=ON \
-  -DARROW_PARQUET=ON \
-  -DARROW_WITH_SNAPPY=ON \
-  -DARROW_WITH_ZLIB=ON \
-  -DARROW_INSTALL_NAME_RPATH=OFF \
-  -DARROW_EXTRA_ERROR_CONTEXT=ON \
   -DARROW_MIMALLOC=ON \
+  -DARROW_PARQUET=ON \
+  -DARROW_S3=ON \
   -DARROW_WITH_BROTLI=ON \
   -DARROW_WITH_BZ2=ON \
   -DARROW_WITH_LZ4=ON \
   -DARROW_WITH_SNAPPY=ON \
+  -DARROW_WITH_ZLIB=ON \
   -DARROW_WITH_ZSTD=ON \
   ..
 ```
 </p>
 </details>  
 
-## Troublshooting
+## Troubleshooting
 
 Note that after any change to the C++ library, you must reinstall it and
 run `make clean` or `git clean -fdx .` to remove any cached object code
