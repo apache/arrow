@@ -15,6 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# because expect_dplyr_equal involves no assertion (wrong initial thought)
+# we need to "translate" dplyr tests as:
+#
+# dplyr:
+# expect_equal(
+#   mutate(data.frame(x = 1, y = 1), z = 1, x = NULL, y = NULL),
+#   data.frame(z = 1)
+# )
+#
+# arrow:
+# expect_dplyr_equal(
+#   input %>% mutate(z = 1, x = NULL, y = NULL) %>% collect(),
+#   data.frame(x = 1, y = 1)
+# )
+
 library(dplyr)
 library(stringr)
 
@@ -489,69 +504,78 @@ test_that("can remove variables with NULL (dplyr #462)", {
 })
 
 # similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L71-L75
+# test_that("assignments don't overwrite variables (dplyr #315)", {
+#   expect_dplyr_equal(
+#     tibble(x = 1, y = 2) %>% mutate(z = {x <- 10; x}) %>% collect(),
+#     tibble(x = 1, y = 2, z = 10)
+#   )
+# })
+# NOT SURE ABOUT THIS!
 test_that("assignments don't overwrite variables (dplyr #315)", {
   expect_dplyr_equal(
-    tibble(x = 1, y = 2) %>% mutate(z = {x <- 10; x}) %>% collect(),
+    input %>% mutate(z = {x <- 10; x}) %>% collect(),
     tibble(x = 1, y = 2, z = 10)
   )
 })
 
 # similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L77-L81
-test_that("can mutate a data frame with zero columns and `NULL` column names", {
-  df <- vctrs::new_data_frame(n = 2L)
-  colnames(df) <- NULL
-  expect_dplyr_equal(
-    df %>% mutate(x = 1) %>% collect(),
-    data.frame(x = c(1, 1))
-  )
-})
+# NOT SURE ABOUT THIS!
+# test_that("can mutate a data frame with zero columns and `NULL` column names", {
+#   df <- vctrs::new_data_frame(n = 2L)
+#   colnames(df) <- NULL
+#   expect_dplyr_equal(
+#     input %>% mutate(x = 1) %>% collect(),
+#     df
+#   )
+# })
 
 # similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L95-L100
 # glue is a dependency of tidyselect
 test_that("glue() is supported", {
   expect_dplyr_equal(
-    tibble(x = 1) %>% mutate(y = glue::glue("")) %>% collect(),
+    input %>% mutate(y = glue::glue("")) %>% collect(),
     tibble(x = 1, y = glue::glue(""))
   )
 })
 
 # similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L102-L106
 test_that("mutate disambiguates NA and NaN (#1448)", {
-  df <- tibble(x = c(1, NA, NaN))
   expect_dplyr_equal(
-    df %>% mutate(y = x * 1) %>% select(y) %>% collect(),
-    df %>% select(x)
+    input %>% mutate(y = x * 1) %>% select(y) %>% collect(),
+    tibble(x = c(1, NA, NaN))
   )
 })
 
 # similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L102-L106
-test_that("mutate handles data frame columns", {
-  df <- data.frame("a" = c(1, 2, 3), "b" = c(2, 3, 4), "base_col" = c(3, 4, 5))
-  expect_dplyr_equal(
-    df %>% mutate(new_col = data.frame(x = 1:3)) %>% select(new_col) %>% collect(),
-    data.frame(x = 1:3)
-  )
-
-  expect_dplyr_equal(
-    df %>%
-      group_by(a) %>%
-      mutate(new_col = data.frame(x = a)) %>%
-      ungroup() %>%
-      select(new_col) %>%
-      collect(),
-    data.frame(x = 1:3)
-  )
-
-  expect_dplyr_equal(
-    df %>%
-      rowwise(a) %>%
-      mutate(new_col = data.frame(x = a)) %>%
-      ungroup() %>%
-      select(new_col) %>%
-      collect(),
-    data.frame(x = 1:3)
-  )
-})
+# this is somewhat "contained" in the previous test
+# test_that("mutate handles data frame columns", {
+#   expect_dplyr_equal(
+#     input %>% mutate(new_col = data.frame(x = 1:3)) %>% select(new_col) %>% collect(),
+#     data.frame(x = 1:3)
+#   )
+#
+#   # mutate() on grouped data not supported in Arrow; this will be pulling data into R
+#   # expect_dplyr_equal(
+#   #   input %>%
+#   #     group_by(x) %>%
+#   #     mutate(new_col = x) %>%
+#   #     ungroup() %>%
+#   #     select(new_col) %>%
+#   #     collect(),
+#   #   data.frame(x = 1:3)
+#   # )
+#
+#   # ROWWISE IS NOT IMPLEMENTED
+#   # expect_dplyr_equal(
+#   #   input %>%
+#   #     rowwise(x) %>%
+#   #     mutate(new_col = x) %>%
+#   #     ungroup() %>%
+#   #     select(new_col) %>%
+#   #     collect(),
+#   #   data.frame(x = 1:3)
+#   # )
+# })
 
 # QUESTIONS SO FAR ----
 
