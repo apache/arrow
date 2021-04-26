@@ -699,11 +699,11 @@ def test_dictionary_to_numpy():
     assert (a.to_numpy(zero_copy_only=False) == expected).all()
 
     with pytest.raises(pa.ArrowInvalid):
-        # to_numpy takes for granted that when zero_copy_only=True
-        # there will be no nulls.
-        # If that changes, nulls handling will have to be updated in to_numpy
-        # as we won't be able to rely anymore on decoding the DictionaryArray
-        # to handle nulls.
+        # If this would be changed to no longer raise in the future,
+        # ensure to test the actual result because, currently, to_numpy takes
+        # for granted that when zero_copy_only=True there will be no nulls
+        # (it's the decoding of the DictionaryArray that handles the nulls and
+        # this is only activated with zero_copy_only=False)
         a.to_numpy(zero_copy_only=True)
 
     anonulls = pa.DictionaryArray.from_arrays(
