@@ -459,20 +459,6 @@ test_that("mutations applied progressively", {
   )
 })
 
-# similar to # similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L31-L35
-# SEE LINE 175 IN THIS SCRIPT!
-# THIS WON'T WORK
-# https://issues.apache.org/jira/browse/ARROW-11705
-#  Error in UseMethod("mutate") :
-# no applicable method for 'mutate' applied to an object of class "c('double', 'numeric')"
-# test_that("length-1 vectors are recycled (#152)", {
-#   df <- tibble(x = 1:4)
-#
-#   expect_dplyr_equal(
-#     collect(mutate(input, y = 1))$y,
-#     rep(1, 4)
-#   )
-# })
 
 # similar to https://github.com/tidyverse/dplyr/blob/master/tests/testthat/test-mutate.r#L37-L54
 test_that("can remove variables with NULL (dplyr #462)", {
