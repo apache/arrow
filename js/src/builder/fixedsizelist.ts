@@ -20,7 +20,7 @@ import { Field } from '../schema';
 import { Builder } from '../builder';
 import { DataType, FixedSizeList } from '../type';
 
-/** @internal */
+/** @ignore */
 export class FixedSizeListBuilder<T extends DataType = any, TNull = any> extends Builder<FixedSizeList<T>, TNull> {
     protected _run = new Run<T, TNull>();
     public setValue(index: number, value: T['TValue']) {

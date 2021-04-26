@@ -21,15 +21,15 @@ import { RecordBatch } from '../../recordbatch';
 import { AsyncByteQueue } from '../../io/stream';
 import { RecordBatchReader } from '../../ipc/reader';
 
-/** @internal */
+/** @ignore */
 export function recordBatchReaderThroughNodeStream<T extends { [key: string]: DataType } = any>(options?: DuplexOptions & { autoDestroy: boolean }) {
     return new RecordBatchReaderDuplex<T>(options);
 }
 
-/** @internal */
+/** @ignore */
 type CB = (error?: Error | null | undefined) => void;
 
-/** @internal */
+/** @ignore */
 class RecordBatchReaderDuplex<T extends { [key: string]: DataType } = any> extends Duplex {
     private _pulling = false;
     private _autoDestroy = true;

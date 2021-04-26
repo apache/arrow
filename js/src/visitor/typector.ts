@@ -23,7 +23,7 @@ import { Visitor } from '../visitor';
 import { VectorType } from '../interfaces';
 import { DataTypeCtor } from '../interfaces';
 
-/** @internal */
+/** @ignore */
 export interface GetDataTypeConstructor extends Visitor {
     visit<T extends Type>(node: T): DataTypeCtor<T>;
     visitMany<T extends Type>(nodes: T[]): DataTypeCtor<T>[];
@@ -31,7 +31,7 @@ export interface GetDataTypeConstructor extends Visitor {
     getVisitFn<T extends DataType>(node: VectorType<T> |  Data<T> | T): () => DataTypeCtor<T>;
 }
 
-/** @internal */
+/** @ignore */
 export class GetDataTypeConstructor extends Visitor {
     public visitNull                 () { return type.Null; }
     public visitBool                 () { return type.Bool; }
@@ -78,5 +78,5 @@ export class GetDataTypeConstructor extends Visitor {
     public visitMap                  () { return type.Map_; }
 }
 
-/** @internal */
+/** @ignore */
 export const instance = new GetDataTypeConstructor();

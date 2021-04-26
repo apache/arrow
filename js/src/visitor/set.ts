@@ -36,7 +36,7 @@ import {
     Union, DenseUnion, SparseUnion,
 } from '../type';
 
-/** @internal */
+/** @ignore */
 export interface SetVisitor extends Visitor {
     visit<T extends VectorType>(node: T, index: number, value: T['TValue']): void;
     visitMany<T extends VectorType>(nodes: T[], indices: number[], values: T['TValue'][]): void[];
@@ -87,28 +87,28 @@ export interface SetVisitor extends Visitor {
     visitMap                  <T extends Map_>                (vector: VectorType<T>, index: number, value: T['TValue']): void;
 }
 
-/** @internal */
+/** @ignore */
 export class SetVisitor extends Visitor {}
 
-/** @internal */
+/** @ignore */
 const setEpochMsToDays = (data: Int32Array, index: number, epochMs: number) => { data[index] = (epochMs / 86400000) | 0; };
-/** @internal */
+/** @ignore */
 const setEpochMsToMillisecondsLong = (data: Int32Array, index: number, epochMs: number) => {
     data[index] = (epochMs % 4294967296) | 0;
     data[index + 1] = (epochMs / 4294967296) | 0;
 };
-/** @internal */
+/** @ignore */
 const setEpochMsToMicrosecondsLong = (data: Int32Array, index: number, epochMs: number) => {
     data[index] = ((epochMs * 1000) % 4294967296) | 0;
     data[index + 1] = ((epochMs * 1000) / 4294967296) | 0;
 };
-/** @internal */
+/** @ignore */
 const setEpochMsToNanosecondsLong = (data: Int32Array, index: number, epochMs: number) => {
     data[index] = ((epochMs * 1000000) % 4294967296) | 0;
     data[index + 1] = ((epochMs * 1000000) / 4294967296) | 0;
 };
 
-/** @internal */
+/** @ignore */
 const setVariableWidthBytes = (values: Uint8Array, valueOffsets: Int32Array, index: number, value: Uint8Array) => {
     const { [index]: x, [index + 1]: y } = valueOffsets;
     if (x != null && y != null) {
@@ -116,7 +116,7 @@ const setVariableWidthBytes = (values: Uint8Array, valueOffsets: Int32Array, ind
     }
 };
 
-/** @internal */
+/** @ignore */
 const setBool = <T extends Bool>({ offset, values }: VectorType<T>, index: number, val: boolean) => {
     const idx = offset + index;
     val ? (values[idx >> 3] |=  (1 << (idx % 8)))  // true
@@ -124,18 +124,18 @@ const setBool = <T extends Bool>({ offset, values }: VectorType<T>, index: numbe
 
 };
 
-/** @internal */ type Numeric1X = Int8 | Int16 | Int32 | Uint8 | Uint16 | Uint32 | Float32 | Float64;
-/** @internal */ type Numeric2X = Int64 | Uint64;
+/** @ignore */ type Numeric1X = Int8 | Int16 | Int32 | Uint8 | Uint16 | Uint32 | Float32 | Float64;
+/** @ignore */ type Numeric2X = Int64 | Uint64;
 
-/** @internal */
+/** @ignore */
 const setDateDay         = <T extends DateDay>        ({ values         }: VectorType<T>, index: number, value: T['TValue']): void => { setEpochMsToDays(values, index, value.valueOf()); };
-/** @internal */
+/** @ignore */
 const setDateMillisecond = <T extends DateMillisecond>({ values         }: VectorType<T>, index: number, value: T['TValue']): void => { setEpochMsToMillisecondsLong(values, index * 2, value.valueOf()); };
-/** @internal */
+/** @ignore */
 const setNumeric         = <T extends Numeric1X>      ({ stride, values }: VectorType<T>, index: number, value: T['TValue']): void => { values[stride * index] = value; };
-/** @internal */
+/** @ignore */
 const setFloat16         = <T extends Float16>        ({ stride, values }: VectorType<T>, index: number, value: T['TValue']): void => { values[stride * index] = float64ToUint16(value); };
-/** @internal */
+/** @ignore */
 const setNumericX2       = <T extends Numeric2X>      (vector: VectorType<T>, index: number, value: T['TValue']): void => {
     switch (typeof value) {
         case 'bigint': vector.values64[index] = value; break;
@@ -148,18 +148,18 @@ const setNumericX2       = <T extends Numeric2X>      (vector: VectorType<T>, in
         }
     }
 };
-/** @internal */
+/** @ignore */
 const setFixedSizeBinary = <T extends FixedSizeBinary>({ stride, values }: VectorType<T>, index: number, value: T['TValue']): void => { values.set(value.subarray(0, stride), stride * index); };
 
-/** @internal */
+/** @ignore */
 const setBinary = <T extends Binary>({ values, valueOffsets }: VectorType<T>, index: number, value: T['TValue']) => setVariableWidthBytes(values, valueOffsets, index, value);
-/** @internal */
+/** @ignore */
 const setUtf8 = <T extends Utf8>({ values, valueOffsets }: VectorType<T>, index: number, value: T['TValue']) => {
     setVariableWidthBytes(values, valueOffsets, index, encodeUtf8(value));
 };
 
 /* istanbul ignore next */
-/** @internal */
+/** @ignore */
 const setInt = <T extends Int>(vector: VectorType<T>, index: number, value: T['TValue']): void => {
     vector.type.bitWidth < 64
         ? setNumeric(vector as VectorType<Numeric1X>, index, value as Numeric1X['TValue'])
@@ -167,7 +167,7 @@ const setInt = <T extends Int>(vector: VectorType<T>, index: number, value: T['T
 };
 
 /* istanbul ignore next */
-/** @internal */
+/** @ignore */
 const setFloat = <T extends Float>(vector: VectorType<T>, index: number, value: T['TValue']): void => {
     vector.type.precision !== Precision.HALF
         ? setNumeric(vector as VectorType<Numeric1X>, index, value)
@@ -181,16 +181,16 @@ const setDate = <T extends Date_> (vector: VectorType<T>, index: number, value: 
         : setDateMillisecond(vector as VectorType<DateMillisecond>, index, value);
 };
 
-/** @internal */
+/** @ignore */
 const setTimestampSecond      = <T extends TimestampSecond>     ({ values }: VectorType<T>, index: number, value: T['TValue']): void => setEpochMsToMillisecondsLong(values, index * 2, value / 1000);
-/** @internal */
+/** @ignore */
 const setTimestampMillisecond = <T extends TimestampMillisecond>({ values }: VectorType<T>, index: number, value: T['TValue']): void => setEpochMsToMillisecondsLong(values, index * 2, value);
-/** @internal */
+/** @ignore */
 const setTimestampMicrosecond = <T extends TimestampMicrosecond>({ values }: VectorType<T>, index: number, value: T['TValue']): void => setEpochMsToMicrosecondsLong(values, index * 2, value);
-/** @internal */
+/** @ignore */
 const setTimestampNanosecond  = <T extends TimestampNanosecond> ({ values }: VectorType<T>, index: number, value: T['TValue']): void => setEpochMsToNanosecondsLong(values, index * 2, value);
 /* istanbul ignore next */
-/** @internal */
+/** @ignore */
 const setTimestamp            = <T extends Timestamp>(vector: VectorType<T>, index: number, value: T['TValue']): void => {
     switch (vector.type.unit) {
         case TimeUnit.SECOND:      return      setTimestampSecond(vector as VectorType<TimestampSecond>, index, value);
@@ -200,16 +200,16 @@ const setTimestamp            = <T extends Timestamp>(vector: VectorType<T>, ind
     }
 };
 
-/** @internal */
+/** @ignore */
 const setTimeSecond      = <T extends TimeSecond>     ({ values, stride }: VectorType<T>, index: number, value: T['TValue']): void => { values[stride * index] = value; };
-/** @internal */
+/** @ignore */
 const setTimeMillisecond = <T extends TimeMillisecond>({ values, stride }: VectorType<T>, index: number, value: T['TValue']): void => { values[stride * index] = value; };
-/** @internal */
+/** @ignore */
 const setTimeMicrosecond = <T extends TimeMicrosecond>({ values         }: VectorType<T>, index: number, value: T['TValue']): void => { values.set(value.subarray(0, 2), 2 * index); };
-/** @internal */
+/** @ignore */
 const setTimeNanosecond  = <T extends TimeNanosecond> ({ values         }: VectorType<T>, index: number, value: T['TValue']): void => { values.set(value.subarray(0, 2), 2 * index); };
 /* istanbul ignore next */
-/** @internal */
+/** @ignore */
 const setTime            = <T extends Time>(vector: VectorType<T>, index: number, value: T['TValue']): void => {
     switch (vector.type.unit) {
         case TimeUnit.SECOND:      return      setTimeSecond(vector as VectorType<TimeSecond>, index, value as TimeSecond['TValue']);
@@ -219,10 +219,10 @@ const setTime            = <T extends Time>(vector: VectorType<T>, index: number
     }
 };
 
-/** @internal */
+/** @ignore */
 const setDecimal = <T extends Decimal>({ values }: VectorType<T>, index: number, value: T['TValue']): void => { values.set(value.subarray(0, 4), 4 * index); };
 
-/** @internal */
+/** @ignore */
 const setList = <T extends List>(vector: VectorType<T>, index: number, value: T['TValue']): void => {
     const values = vector.getChildAt(0)!, valueOffsets = vector.valueOffsets;
     for (let idx = -1, itr = valueOffsets[index], end = valueOffsets[index + 1]; itr < end;) {
@@ -230,7 +230,7 @@ const setList = <T extends List>(vector: VectorType<T>, index: number, value: T[
     }
 };
 
-/** @internal */
+/** @ignore */
 const setMap = <T extends Map_>(vector: VectorType<T>, index: number, value: T['TValue']) => {
     const values = vector.getChildAt(0)!, valueOffsets = vector.valueOffsets;
     const entries = value instanceof Map ? [...value] : Object.entries(value);
@@ -239,11 +239,11 @@ const setMap = <T extends Map_>(vector: VectorType<T>, index: number, value: T['
     }
 };
 
-/** @internal */ const _setStructArrayValue = (o: number, v: any[]) => (c: Vector | null, _: Field, i: number) => c && c.set(o, v[i]);
-/** @internal */ const _setStructVectorValue = (o: number, v: Vector) => (c: Vector | null, _: Field, i: number) => c && c.set(o, v.get(i));
-/** @internal */ const _setStructMapValue = (o: number, v: Map<string, any>) => (c: Vector | null, f: Field, _: number) => c && c.set(o, v.get(f.name));
-/** @internal */ const _setStructObjectValue = (o: number, v: { [key: string]: any }) => (c: Vector | null, f: Field, _: number) => c && c.set(o, v[f.name]);
-/** @internal */
+/** @ignore */ const _setStructArrayValue = (o: number, v: any[]) => (c: Vector | null, _: Field, i: number) => c && c.set(o, v[i]);
+/** @ignore */ const _setStructVectorValue = (o: number, v: Vector) => (c: Vector | null, _: Field, i: number) => c && c.set(o, v.get(i));
+/** @ignore */ const _setStructMapValue = (o: number, v: Map<string, any>) => (c: Vector | null, f: Field, _: number) => c && c.set(o, v.get(f.name));
+/** @ignore */ const _setStructObjectValue = (o: number, v: { [key: string]: any }) => (c: Vector | null, f: Field, _: number) => c && c.set(o, v[f.name]);
+/** @ignore */
 const setStruct = <T extends Struct>(vector: VectorType<T>, index: number, value: T['TValue']) => {
 
     const setValue = value instanceof Map    ? _setStructMapValue(index, value)    :
@@ -255,7 +255,7 @@ const setStruct = <T extends Struct>(vector: VectorType<T>, index: number, value
 };
 
 /* istanbul ignore next */
-/** @internal */
+/** @ignore */
 const setUnion = <
     V extends VectorType<Union> | VectorType<DenseUnion> | VectorType<SparseUnion>
 >(vector: V, index: number, value: V['TValue']) => {
@@ -264,21 +264,21 @@ const setUnion = <
         setSparseUnion(vector as VectorType<SparseUnion>, index, value);
 };
 
-/** @internal */
+/** @ignore */
 const setDenseUnion = <T extends DenseUnion>(vector: VectorType<T>, index: number, value: T['TValue']): void => {
     const childIndex = vector.typeIdToChildIndex[vector.typeIds[index]];
     const child = vector.getChildAt(childIndex);
     child && child.set(vector.valueOffsets[index], value);
 };
 
-/** @internal */
+/** @ignore */
 const setSparseUnion = <T extends SparseUnion>(vector: VectorType<T>, index: number, value: T['TValue']): void => {
     const childIndex = vector.typeIdToChildIndex[vector.typeIds[index]];
     const child = vector.getChildAt(childIndex);
     child && child.set(index, value);
 };
 
-/** @internal */
+/** @ignore */
 const setDictionary = <T extends Dictionary>(vector: VectorType<T>, index: number, value: T['TValue']): void => {
     const key = vector.getKey(index);
     if (key !== null) {
@@ -287,19 +287,19 @@ const setDictionary = <T extends Dictionary>(vector: VectorType<T>, index: numbe
 };
 
 /* istanbul ignore next */
-/** @internal */
+/** @ignore */
 const setIntervalValue = <T extends Interval>(vector: VectorType<T>, index: number, value: T['TValue']): void => {
     (vector.type.unit === IntervalUnit.DAY_TIME)
         ? setIntervalDayTime(vector as VectorType<IntervalDayTime>, index, value)
         : setIntervalYearMonth(vector as VectorType<IntervalYearMonth>, index, value);
 };
 
-/** @internal */
+/** @ignore */
 const setIntervalDayTime = <T extends IntervalDayTime>({ values }: VectorType<T>, index: number, value: T['TValue']): void => { values.set(value.subarray(0, 2), 2 * index); };
-/** @internal */
+/** @ignore */
 const setIntervalYearMonth = <T extends IntervalYearMonth>({ values }: VectorType<T>, index: number, value: T['TValue']): void => { values[index] = (value[0] * 12) + (value[1] % 12); };
 
-/** @internal */
+/** @ignore */
 const setFixedSizeList = <T extends FixedSizeList>(vector: VectorType<T>, index: number, value: T['TValue']): void => {
     const child = vector.getChildAt(0)!, { stride } = vector;
     for (let idx = -1, offset = index * stride; ++idx < stride;) {
@@ -350,5 +350,5 @@ SetVisitor.prototype.visitIntervalYearMonth    =    setIntervalYearMonth;
 SetVisitor.prototype.visitFixedSizeList        =        setFixedSizeList;
 SetVisitor.prototype.visitMap                  =                  setMap;
 
-/** @internal */
+/** @ignore */
 export const instance = new SetVisitor();

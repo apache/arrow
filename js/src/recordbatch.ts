@@ -117,7 +117,7 @@ export class RecordBatch<T extends { [key: string]: DataType } = any>
  * implementations to differentiate between a stream with valid zero-length
  * RecordBatches, and a stream with a Schema message, but no RecordBatches.
  * @see https://github.com/apache/arrow/pull/4373
- * @internal
+ * @ignore
  * @private
  */
 /* eslint-disable @typescript-eslint/naming-convention */
@@ -127,7 +127,7 @@ export class _InternalEmptyPlaceholderRecordBatch<T extends { [key: string]: Dat
     }
 }
 
-/** @internal */
+/** @ignore */
 class DictionaryCollector extends Visitor {
     public dictionaries = new Map<number, Vector>();
     public static collect<T extends RecordBatch>(batch: T) {

@@ -18,9 +18,9 @@
 import { FixedWidthBuilder } from '../builder';
 import { Interval, IntervalDayTime, IntervalYearMonth } from '../type';
 
-/** @internal */
+/** @ignore */
 export class IntervalBuilder<T extends Interval = Interval, TNull = any> extends FixedWidthBuilder<T, TNull> {}
-/** @internal */
+/** @ignore */
 export class IntervalDayTimeBuilder<TNull = any> extends IntervalBuilder<IntervalDayTime, TNull> {}
-/** @internal */
+/** @ignore */
 export class IntervalYearMonthBuilder<TNull = any> extends IntervalBuilder<IntervalYearMonth, TNull> {}

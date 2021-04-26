@@ -15,10 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/** @internal */
+/** @ignore */
 const carryBit16 = 1 << 16;
 
-/** @internal */
+/** @ignore */
 function intAsHex(value: number): string {
     if (value < 0) {
         value = 0xFFFFFFFF + value + 1;
@@ -26,9 +26,9 @@ function intAsHex(value: number): string {
     return `0x${value.toString(16)}`;
 }
 
-/** @internal */
+/** @ignore */
 const kInt32DecimalDigits = 8;
-/** @internal */
+/** @ignore */
 const kPowersOfTen = [1,
                       10,
                       100,
@@ -39,7 +39,7 @@ const kPowersOfTen = [1,
                       10000000,
                       100000000];
 
-/** @internal */
+/** @ignore */
 export class BaseInt64 {
     constructor (protected buffer: Uint32Array) {}
 
@@ -112,7 +112,7 @@ export class BaseInt64 {
     }
 }
 
-/** @internal */
+/** @ignore */
 export class Uint64 extends BaseInt64 {
     public times(other: Uint64): Uint64 {
         this._times(other);
@@ -185,7 +185,7 @@ export class Uint64 extends BaseInt64 {
     }
 }
 
-/** @internal */
+/** @ignore */
 export class Int64 extends BaseInt64 {
     public negate(): Int64 {
         this.buffer[0] = ~this.buffer[0] + 1;
@@ -275,7 +275,7 @@ export class Int64 extends BaseInt64 {
     }
 }
 
-/** @internal */
+/** @ignore */
 export class Int128 {
     constructor (private buffer: Uint32Array) {
         // buffer[3] MSB (high)

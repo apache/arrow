@@ -19,7 +19,7 @@ import { Duplex } from 'stream';
 import { DataType } from '../../type';
 import { Builder, BuilderOptions } from '../../builder/index';
 
-/** @internal */
+/** @ignore */
 export interface BuilderDuplexOptions<T extends DataType = any, TNull = any> extends BuilderOptions<T, TNull> {
     autoDestroy?: boolean;
     highWaterMark?: number;
@@ -28,15 +28,15 @@ export interface BuilderDuplexOptions<T extends DataType = any, TNull = any> ext
     valueToChildTypeId?: (builder: Builder<T, TNull>, value: any, offset: number) => number;
 }
 
-/** @internal */
+/** @ignore */
 export function builderThroughNodeStream<T extends DataType = any, TNull = any>(options: BuilderDuplexOptions<T, TNull>) {
     return new BuilderDuplex(Builder.new(options), options);
 }
 
-/** @internal */
+/** @ignore */
 type CB = (error?: Error | null | undefined) => void;
 
-/** @internal */
+/** @ignore */
 class BuilderDuplex<T extends DataType = any, TNull = any> extends Duplex {
 
     private _finished: boolean;
@@ -94,5 +94,5 @@ class BuilderDuplex<T extends DataType = any, TNull = any> extends Duplex {
     }
 }
 
-/** @internal */ const builderLength = <T extends DataType = any>(builder: Builder<T>) => builder.length;
-/** @internal */ const builderByteLength = <T extends DataType = any>(builder: Builder<T>) => builder.byteLength;
+/** @ignore */ const builderLength = <T extends DataType = any>(builder: Builder<T>) => builder.length;
+/** @ignore */ const builderByteLength = <T extends DataType = any>(builder: Builder<T>) => builder.byteLength;

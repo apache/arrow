@@ -18,5 +18,5 @@
 import { Decimal } from '../type';
 import { FixedWidthBuilder } from '../builder';
 
-/** @internal */
+/** @ignore */
 export class DecimalBuilder<TNull = any> extends FixedWidthBuilder<Decimal, TNull> {}

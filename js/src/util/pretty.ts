@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/** @internal */ const undf = void (0);
+/** @ignore */ const undf = void (0);
 
-/** @internal */
+/** @ignore */
 export function valueToString(x: any) {
     if (x === null) { return 'null'; }
     if (x === undf) { return 'undefined'; }

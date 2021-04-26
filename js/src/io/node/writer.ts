@@ -20,15 +20,15 @@ import { Duplex, DuplexOptions } from 'stream';
 import { AsyncByteStream } from '../../io/stream';
 import { RecordBatchWriter } from '../../ipc/writer';
 
-/** @internal */
+/** @ignore */
 export function recordBatchWriterThroughNodeStream<T extends { [key: string]: DataType } = any>(this: typeof RecordBatchWriter, options?: DuplexOptions & { autoDestroy: boolean }) {
     return new RecordBatchWriterDuplex(new this<T>(options));
 }
 
-/** @internal */
+/** @ignore */
 type CB = (error?: Error | null | undefined) => void;
 
-/** @internal */
+/** @ignore */
 class RecordBatchWriterDuplex<T extends { [key: string]: DataType } = any> extends Duplex {
     private _pulling = false;
     private _reader: AsyncByteStream | null;

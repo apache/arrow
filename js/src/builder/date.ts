@@ -18,9 +18,9 @@
 import { FixedWidthBuilder } from '../builder';
 import { Date_, DateDay, DateMillisecond } from '../type';
 
-/** @internal */
+/** @ignore */
 export class DateBuilder<T extends Date_ = Date_, TNull = any> extends FixedWidthBuilder<T, TNull> {}
-/** @internal */
+/** @ignore */
 export class DateDayBuilder<TNull = any> extends DateBuilder<DateDay, TNull> {}
-/** @internal */
+/** @ignore */
 export class DateMillisecondBuilder<TNull = any> extends DateBuilder<DateMillisecond, TNull> {}

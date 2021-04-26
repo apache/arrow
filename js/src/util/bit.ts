@@ -15,24 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/** @internal */
+/** @ignore */
 export function getBool(_data: any, _index: number, byte: number, bit: number) {
     return (byte & 1 << bit) !== 0;
 }
 
-/** @internal */
+/** @ignore */
 export function getBit(_data: any, _index: number, byte: number, bit: number): 0 | 1 {
     return (byte & 1 << bit) >> bit as (0 | 1);
 }
 
-/** @internal */
+/** @ignore */
 export function setBool(bytes: Uint8Array, index: number, value: any) {
     return value ?
         !!(bytes[index >> 3] |=  (1 << (index % 8))) || true :
         !(bytes[index >> 3] &= ~(1 << (index % 8))) && false ;
 }
 
-/** @internal */
+/** @ignore */
 export function truncateBitmap(offset: number, length: number, bitmap: Uint8Array) {
     const alignedSize = (bitmap.byteLength + 7) & ~7;
     if (offset > 0 || bitmap.byteLength < alignedSize) {
@@ -46,7 +46,7 @@ export function truncateBitmap(offset: number, length: number, bitmap: Uint8Arra
     return bitmap;
 }
 
-/** @internal */
+/** @ignore */
 export function packBools(values: Iterable<any>) {
     const xs: number[] = [];
     let i = 0, bit = 0, byte = 0;
@@ -63,7 +63,7 @@ export function packBools(values: Iterable<any>) {
     return b;
 }
 
-/** @internal */
+/** @ignore */
 export class BitIterator<T> implements IterableIterator<T> {
     bit: number;
     byte: number;
@@ -107,7 +107,7 @@ export class BitIterator<T> implements IterableIterator<T> {
  * @param lhs The range's left-hand side (or start) bit
  * @param rhs The range's right-hand side (or end) bit
  */
-/** @internal */
+/** @ignore */
 export function popcnt_bit_range(data: Uint8Array, lhs: number, rhs: number): number {
     if (rhs - lhs <= 0) { return 0; }
     // If the bit range is less than one byte, sum the 1 bits in the bit range
@@ -132,7 +132,7 @@ export function popcnt_bit_range(data: Uint8Array, lhs: number, rhs: number): nu
     );
 }
 
-/** @internal */
+/** @ignore */
 export function popcnt_array(arr: ArrayBufferView, byteOffset?: number, byteLength?: number) {
     let cnt = 0, pos = byteOffset! | 0;
     const view = new DataView(arr.buffer, arr.byteOffset, arr.byteLength);
@@ -152,7 +152,7 @@ export function popcnt_array(arr: ArrayBufferView, byteOffset?: number, byteLeng
     return cnt;
 }
 
-/** @internal */
+/** @ignore */
 export function popcnt_uint32(uint32: number): number {
     let i = uint32 | 0;
     i = i - ((i >>> 1) & 0x55555555);

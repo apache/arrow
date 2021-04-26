@@ -66,7 +66,7 @@ import {
 } from '../../type';
 
 /**
- * @internal
+ * @ignore
  * @private
  **/
 export class Message<T extends MessageHeader = any> {
@@ -148,7 +148,7 @@ export class Message<T extends MessageHeader = any> {
 }
 
 /**
- * @internal
+ * @ignore
  * @private
  **/
 export class RecordBatch {
@@ -166,7 +166,7 @@ export class RecordBatch {
 }
 
 /**
- * @internal
+ * @ignore
  * @private
  **/
 export class DictionaryBatch {
@@ -189,7 +189,7 @@ export class DictionaryBatch {
 }
 
 /**
- * @internal
+ * @ignore
  * @private
  **/
 export class BufferRegion {
@@ -202,7 +202,7 @@ export class BufferRegion {
 }
 
 /**
- * @internal
+ * @ignore
  * @private
  **/
 export class FieldNode {
@@ -214,7 +214,7 @@ export class FieldNode {
     }
 }
 
-/** @internal */
+/** @ignore */
 function messageHeaderFromJSON(message: any, type: MessageHeader) {
     return (() => {
         switch (type) {
@@ -226,7 +226,7 @@ function messageHeaderFromJSON(message: any, type: MessageHeader) {
     }) as MessageHeaderDecoder;
 }
 
-/** @internal */
+/** @ignore */
 function decodeMessageHeader(message: _Message, type: MessageHeader) {
     return (() => {
         switch (type) {
@@ -261,13 +261,13 @@ BufferRegion['encode'] = encodeBufferRegion;
 BufferRegion['decode'] = decodeBufferRegion;
 
 declare module '../../schema' {
-    /** @internal */
+    /** @ignore */
     namespace Field {
         export { encodeField as encode };
         export { decodeField as decode };
         export { fieldFromJSON as fromJSON };
     }
-    /** @internal */
+    /** @ignore */
     namespace Schema {
         export { encodeSchema as encode };
         export { decodeSchema as decode };
@@ -296,33 +296,33 @@ declare module './message' {
     }
 }
 
-/** @internal */
+/** @ignore */
 function decodeSchema(_schema: _Schema, dictionaries: Map<number, DataType> = new Map()) {
     const fields = decodeSchemaFields(_schema, dictionaries);
     return new Schema(fields, decodeCustomMetadata(_schema), dictionaries);
 }
 
-/** @internal */
+/** @ignore */
 function decodeRecordBatch(batch: _RecordBatch, version = MetadataVersion.V4) {
     return new RecordBatch(batch.length(), decodeFieldNodes(batch), decodeBuffers(batch, version));
 }
 
-/** @internal */
+/** @ignore */
 function decodeDictionaryBatch(batch: _DictionaryBatch, version = MetadataVersion.V4) {
     return new DictionaryBatch(RecordBatch.decode(batch.data()!, version), batch.id(), batch.isDelta());
 }
 
-/** @internal */
+/** @ignore */
 function decodeBufferRegion(b: _Buffer) {
     return new BufferRegion(b.offset(), b.length());
 }
 
-/** @internal */
+/** @ignore */
 function decodeFieldNode(f: _FieldNode) {
     return new FieldNode(f.length(), f.nullCount());
 }
 
-/** @internal */
+/** @ignore */
 function decodeFieldNodes(batch: _RecordBatch) {
     const nodes = [] as FieldNode[];
     for (let f, i = -1, j = -1, n = batch.nodesLength(); ++i < n;) {
@@ -333,7 +333,7 @@ function decodeFieldNodes(batch: _RecordBatch) {
     return nodes;
 }
 
-/** @internal */
+/** @ignore */
 function decodeBuffers(batch: _RecordBatch, version: MetadataVersion) {
     const bufferRegions = [] as BufferRegion[];
     for (let b, i = -1, j = -1, n = batch.buffersLength(); ++i < n;) {
@@ -350,7 +350,7 @@ function decodeBuffers(batch: _RecordBatch, version: MetadataVersion) {
     return bufferRegions;
 }
 
-/** @internal */
+/** @ignore */
 function decodeSchemaFields(schema: _Schema, dictionaries?: Map<number, DataType>) {
     const fields = [] as Field[];
     for (let f, i = -1, j = -1, n = schema.fieldsLength(); ++i < n;) {
@@ -361,7 +361,7 @@ function decodeSchemaFields(schema: _Schema, dictionaries?: Map<number, DataType
     return fields;
 }
 
-/** @internal */
+/** @ignore */
 function decodeFieldChildren(field: _Field, dictionaries?: Map<number, DataType>): Field[] {
     const children = [] as Field[];
     for (let f, i = -1, j = -1, n = field.childrenLength(); ++i < n;) {
@@ -372,7 +372,7 @@ function decodeFieldChildren(field: _Field, dictionaries?: Map<number, DataType>
     return children;
 }
 
-/** @internal */
+/** @ignore */
 function decodeField(f: _Field, dictionaries?: Map<number, DataType>) {
 
     let id: number;
@@ -408,7 +408,7 @@ function decodeField(f: _Field, dictionaries?: Map<number, DataType>) {
     return field || null;
 }
 
-/** @internal */
+/** @ignore */
 function decodeCustomMetadata(parent?: _Schema | _Field | null) {
     const data = new Map<string, string>();
     if (parent) {
@@ -421,12 +421,12 @@ function decodeCustomMetadata(parent?: _Schema | _Field | null) {
     return data;
 }
 
-/** @internal */
+/** @ignore */
 function decodeIndexType(_type: _Int) {
     return new Int(_type.isSigned(), _type.bitWidth() as IntBitWidth);
 }
 
-/** @internal */
+/** @ignore */
 function decodeFieldType(f: _Field, children?: Field[]): DataType<any> {
 
     const typeId = f.typeType();
@@ -490,7 +490,7 @@ function decodeFieldType(f: _Field, children?: Field[]): DataType<any> {
     throw new Error(`Unrecognized type: "${Type[typeId]}" (${typeId})`);
 }
 
-/** @internal */
+/** @ignore */
 function encodeSchema(b: Builder, schema: Schema) {
 
     const fieldOffsets = schema.fields.map((f) => Field.encode(b, f));
@@ -518,7 +518,7 @@ function encodeSchema(b: Builder, schema: Schema) {
     return _Schema.endSchema(b);
 }
 
-/** @internal */
+/** @ignore */
 function encodeField(b: Builder, field: Field) {
 
     let nameOffset = -1;
@@ -566,7 +566,7 @@ function encodeField(b: Builder, field: Field) {
     return _Field.endField(b);
 }
 
-/** @internal */
+/** @ignore */
 function encodeRecordBatch(b: Builder, recordBatch: RecordBatch) {
 
     const nodes = recordBatch.nodes || [];
@@ -589,7 +589,7 @@ function encodeRecordBatch(b: Builder, recordBatch: RecordBatch) {
     return _RecordBatch.endRecordBatch(b);
 }
 
-/** @internal */
+/** @ignore */
 function encodeDictionaryBatch(b: Builder, dictionaryBatch: DictionaryBatch) {
     const dataOffset = RecordBatch.encode(b, dictionaryBatch.data);
     _DictionaryBatch.startDictionaryBatch(b);
@@ -599,17 +599,17 @@ function encodeDictionaryBatch(b: Builder, dictionaryBatch: DictionaryBatch) {
     return _DictionaryBatch.endDictionaryBatch(b);
 }
 
-/** @internal */
+/** @ignore */
 function encodeFieldNode(b: Builder, node: FieldNode) {
     return _FieldNode.createFieldNode(b, new Long(node.length, 0), new Long(node.nullCount, 0));
 }
 
-/** @internal */
+/** @ignore */
 function encodeBufferRegion(b: Builder, node: BufferRegion) {
     return _Buffer.createBuffer(b, new Long(node.offset, 0), new Long(node.length, 0));
 }
 
-/** @internal */
+/** @ignore */
 const platformIsLittleEndian = (function() {
     const buffer = new ArrayBuffer(2);
     new DataView(buffer).setInt16(0, 256, true /* littleEndian */);
@@ -617,7 +617,7 @@ const platformIsLittleEndian = (function() {
     return new Int16Array(buffer)[0] === 256;
 })();
 
-/** @internal */
+/** @ignore */
 type MessageHeaderDecoder = <T extends MessageHeader>() => T extends MessageHeader.Schema ? Schema
                                                          : T extends MessageHeader.RecordBatch ? RecordBatch
                                                          : T extends MessageHeader.DictionaryBatch ? DictionaryBatch : never;

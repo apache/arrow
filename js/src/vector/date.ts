@@ -24,7 +24,7 @@ import { vectorFromValuesWithType } from './index';
 import { VectorBuilderOptionsAsync } from './index';
 import { Date_, DateDay, DateMillisecond  } from '../type';
 
-/** @internal */
+/** @ignore */
 type FromArgs<T extends Date_> = [Iterable<Date>, T['unit']];
 
 /** @category Vector */

@@ -19,12 +19,12 @@ import { toUint8Array } from '../../util/buffer';
 import { ReadableDOMStreamOptions } from '../../io/interfaces';
 import { isIterable, isAsyncIterable } from '../../util/compat';
 
-/** @internal */
+/** @ignore */
 type SourceIterator<T> = Generator<T, void, number | null>;
-/** @internal */
+/** @ignore */
 type AsyncSourceIterator<T> = AsyncGenerator<T, void, number | null>;
 
-/** @internal */
+/** @ignore */
 export function toDOMStream<T>(source: Iterable<T> | AsyncIterable<T>, options?: ReadableDOMStreamOptions): ReadableStream<T> {
     if (isAsyncIterable<T>(source)) { return asyncIterableAsReadableDOMStream(source, options); }
     if (isIterable<T>(source)) { return iterableAsReadableDOMStream(source, options); }
@@ -32,7 +32,7 @@ export function toDOMStream<T>(source: Iterable<T> | AsyncIterable<T>, options?:
     throw new Error(`toDOMStream() must be called with an Iterable or AsyncIterable`);
 }
 
-/** @internal */
+/** @ignore */
 function iterableAsReadableDOMStream<T>(source: Iterable<T>, options?: ReadableDOMStreamOptions) {
 
     let it: SourceIterator<T> | null = null;
@@ -62,7 +62,7 @@ function iterableAsReadableDOMStream<T>(source: Iterable<T>, options?: ReadableD
     }
 }
 
-/** @internal */
+/** @ignore */
 function asyncIterableAsReadableDOMStream<T>(source: AsyncIterable<T>, options?: ReadableDOMStreamOptions) {
 
     let it: AsyncSourceIterator<T> | null = null;

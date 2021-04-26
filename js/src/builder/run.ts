@@ -18,7 +18,7 @@
 import { Vector } from '../vector';
 import { DataType } from '../type';
 
-/** @internal */
+/** @ignore */
 export class Run<T extends DataType = any, TNull = any> {
     protected _values!: ArrayLike<T['TValue'] | TNull>;
     public get length() { return this._values.length; }

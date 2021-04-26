@@ -39,7 +39,7 @@ import { TimeBuilder, TimeSecondBuilder, TimeMillisecondBuilder, TimeMicrosecond
 import { UnionBuilder, DenseUnionBuilder, SparseUnionBuilder } from '../builder/union';
 import { Utf8Builder } from '../builder/utf8';
 
-/** @internal */
+/** @ignore */
 export interface GetBuilderCtor extends Visitor {
     visit<T extends Type>(type: T): BuilderCtor<T>;
     visitMany<T extends Type>(types: T[]): BuilderCtor<T>[];
@@ -47,7 +47,7 @@ export interface GetBuilderCtor extends Visitor {
     getVisitFn<T extends DataType>(node: VectorType<T> | Data<T> | T): () => BuilderCtor<T>;
 }
 
-/** @internal */
+/** @ignore */
 export class GetBuilderCtor extends Visitor {
     public visitNull                 () { return NullBuilder;                 }
     public visitBool                 () { return BoolBuilder;                 }
@@ -94,5 +94,5 @@ export class GetBuilderCtor extends Visitor {
     public visitMap                  () { return MapBuilder;                  }
 }
 
-/** @internal */
+/** @ignore */
 export const instance = new GetBuilderCtor();

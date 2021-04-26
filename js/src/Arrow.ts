@@ -120,7 +120,7 @@ import * as predicate from './compute/predicate';
 import { compareSchemas, compareFields, compareTypes } from './visitor/typecomparator';
 
 export { predicate };
-/** @internal */
+/** @ignore */
 export const util = {
     ...util_bn_,
     ...util_int_,

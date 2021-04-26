@@ -19,7 +19,7 @@ import { StructRow } from './row';
 import { BaseVector } from './base';
 import { DataType, Struct } from '../type';
 
-/** @internal */
+/** @ignore */
 const kRowIndex = Symbol.for('rowIndex');
 
 /** @category Vector */

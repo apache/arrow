@@ -29,10 +29,10 @@ import {
     List, FixedSizeList, Map_, Struct, Union,
 } from '../type';
 
-/** @internal */ const sum = (x: number, y: number) => x + y;
-/** @internal */ const variableWidthColumnErrorMessage = (type: DataType) => `Cannot compute the byte width of variable-width column ${type}`;
+/** @ignore */ const sum = (x: number, y: number) => x + y;
+/** @ignore */ const variableWidthColumnErrorMessage = (type: DataType) => `Cannot compute the byte width of variable-width column ${type}`;
 
-/** @internal */
+/** @ignore */
 export interface ByteWidthVisitor extends Visitor {
     visit<T extends DataType>(node: T): number;
     visitMany<T extends DataType>(nodes: T[]): number[];
@@ -40,7 +40,7 @@ export interface ByteWidthVisitor extends Visitor {
     getVisitFn<T extends DataType>(node: VectorType<T> | Data<T> | T): (type: T) => number;
 }
 
-/** @internal */
+/** @ignore */
 export class ByteWidthVisitor extends Visitor {
     public visitNull            (____: Null            ) { return 0; }
     public visitInt             (type: Int             ) { return type.bitWidth / 8; }
@@ -64,5 +64,5 @@ export class ByteWidthVisitor extends Visitor {
     public visitSchema          (schema: Schema        ) { return this.visitFields(schema.fields).reduce(sum, 0); }
 }
 
-/** @internal */
+/** @ignore */
 export const instance = new ByteWidthVisitor();

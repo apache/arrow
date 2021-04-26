@@ -21,7 +21,7 @@ import { BinaryBuilder } from './binary';
 import { BufferBuilder } from './buffer';
 import { VariableWidthBuilder, BuilderOptions } from '../builder';
 
-/** @internal */
+/** @ignore */
 export class Utf8Builder<TNull = any> extends VariableWidthBuilder<Utf8, TNull> {
     constructor(opts: BuilderOptions<Utf8, TNull>) {
         super(opts);

@@ -28,7 +28,7 @@ const nullBufs = (bitmapLength: number) => <unknown> [
     noopBuf, noopBuf, new Uint8Array(bitmapLength), noopBuf
 ] as Buffers<any>;
 
-/** @internal */
+/** @ignore */
 export function ensureSameLengthData<T extends { [key: string]: DataType } = any>(
     schema: Schema<T>,
     chunks: Data<T[keyof T]>[],
@@ -53,17 +53,17 @@ export function ensureSameLengthData<T extends { [key: string]: DataType } = any
     return [new Schema<T>(fields), batchLength, batchData] as [Schema<T>, number, Data<T[keyof T]>[]];
 }
 
-/** @internal */
+/** @ignore */
 export function distributeColumnsIntoRecordBatches<T extends { [key: string]: DataType } = any>(columns: Column<T[keyof T]>[]): [Schema<T>, RecordBatch<T>[]] {
     return distributeVectorsIntoRecordBatches<T>(new Schema<T>(columns.map(({ field }) => field)), columns);
 }
 
-/** @internal */
+/** @ignore */
 export function distributeVectorsIntoRecordBatches<T extends { [key: string]: DataType } = any>(schema: Schema<T>, vecs: (Vector<T[keyof T]> | Chunked<T[keyof T]>)[]): [Schema<T>, RecordBatch<T>[]] {
     return uniformlyDistributeChunksAcrossRecordBatches<T>(schema, vecs.map((v) => v instanceof Chunked ? v.chunks.map((c) => c.data) : [v.data]));
 }
 
-/** @internal */
+/** @ignore */
 function uniformlyDistributeChunksAcrossRecordBatches<T extends { [key: string]: DataType } = any>(schema: Schema<T>, columns: Data<T[keyof T]>[][]): [Schema<T>, RecordBatch<T>[]] {
 
     const fields = [...schema.fields];
@@ -95,7 +95,7 @@ function uniformlyDistributeChunksAcrossRecordBatches<T extends { [key: string]:
     ];
 }
 
-/** @internal */
+/** @ignore */
 function distributeChildData<T extends { [key: string]: DataType } = any>(fields: Field<T[keyof T]>[], batchLength: number, childData: Data<T[keyof T]>[], columns: Data<T[keyof T]>[][], memo: { numBatches: number }) {
     let data: Data<T[keyof T]>;
     let field: Field<T[keyof T]>;

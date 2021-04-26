@@ -33,7 +33,7 @@ import {
     Union, DenseUnion, SparseUnion,
 } from '../type';
 
-/** @internal */
+/** @ignore */
 export interface IteratorVisitor extends Visitor {
     visit<T extends VectorType>(node: T): IterableIterator<T['TValue'] | null>;
     visitMany <T extends VectorType>(nodes: T[]): IterableIterator<T['TValue'] | null>[];
@@ -84,10 +84,10 @@ export interface IteratorVisitor extends Visitor {
     visitMap                  <T extends Map_>                 (vector: VectorType<T>): IterableIterator<T['TValue'] | null>;
 }
 
-/** @internal */
+/** @ignore */
 export class IteratorVisitor extends Visitor {}
 
-/** @internal */
+/** @ignore */
 function nullableIterator<T extends DataType>(vector: VectorType<T>): IterableIterator<T['TValue'] | null> {
     const getFn = getVisitor.getVisitFn(vector);
     return new BitIterator<T['TValue'] | null>(
@@ -97,7 +97,7 @@ function nullableIterator<T extends DataType>(vector: VectorType<T>): IterableIt
     );
 }
 
-/** @internal */
+/** @ignore */
 class VectorIterator<T extends DataType> implements IterableIterator<T['TValue'] | null> {
     private index = 0;
 
@@ -121,7 +121,7 @@ class VectorIterator<T extends DataType> implements IterableIterator<T['TValue']
     }
 }
 
-/** @internal */
+/** @ignore */
 function vectorIterator<T extends DataType>(vector: VectorType<T>): IterableIterator<T['TValue'] | null> {
 
     // If nullable, iterate manually
@@ -189,5 +189,5 @@ IteratorVisitor.prototype.visitIntervalYearMonth    = vectorIterator;
 IteratorVisitor.prototype.visitFixedSizeList        = vectorIterator;
 IteratorVisitor.prototype.visitMap                  = vectorIterator;
 
-/** @internal */
+/** @ignore */
 export const instance = new IteratorVisitor();

@@ -40,7 +40,7 @@ import { TimeVector, TimeSecondVector, TimeMillisecondVector, TimeMicrosecondVec
 import { UnionVector, DenseUnionVector, SparseUnionVector } from '../vector/union';
 import { Utf8Vector } from '../vector/utf8';
 
-/** @internal */
+/** @ignore */
 export interface GetVectorConstructor extends Visitor {
     visit<T extends Type>(node: T): VectorCtor<T>;
     visitMany <T extends Type>(nodes: T[]): VectorCtor<T>[];
@@ -48,7 +48,7 @@ export interface GetVectorConstructor extends Visitor {
     getVisitFn<T extends DataType>(node: VectorType<T> | Data<T> | T): () => VectorCtor<T>;
 }
 
-/** @internal */
+/** @ignore */
 export class GetVectorConstructor extends Visitor {
     public visitNull                 () { return NullVector; }
     public visitBool                 () { return BoolVector; }
@@ -95,5 +95,5 @@ export class GetVectorConstructor extends Visitor {
     public visitMap                  () { return MapVector; }
 }
 
-/** @internal */
+/** @ignore */
 export const instance = new GetVectorConstructor();

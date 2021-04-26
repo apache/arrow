@@ -31,7 +31,7 @@ import {
     Union, DenseUnion, SparseUnion,
 } from '../type';
 
-/** @internal */
+/** @ignore */
 export interface TypeComparator extends Visitor {
     visit<T extends DataType>(type: T, other?: DataType | null): other is T;
     visitMany<T extends DataType>(nodes: T[], others?: DataType[] | null): boolean[];
@@ -81,7 +81,7 @@ export interface TypeComparator extends Visitor {
     visitMap                  <T extends Map_>                 (type: T, other?: DataType | null): other is T;
 }
 
-/** @internal */
+/** @ignore */
 export class TypeComparator extends Visitor {
     compareSchemas<T extends { [key: string]: DataType }>(schema: Schema<T>, other?: Schema | null): other is Schema<T> {
         return (schema === other) || (
@@ -264,7 +264,7 @@ TypeComparator.prototype.visitIntervalYearMonth    =        compareInterval;
 TypeComparator.prototype.visitFixedSizeList        =   compareFixedSizeList;
 TypeComparator.prototype.visitMap                  =             compareMap;
 
-/** @internal */
+/** @ignore */
 export const instance = new TypeComparator();
 
 export function compareSchemas<T extends { [key: string]: DataType }>(schema: Schema<T>, other?: Schema | null): other is Schema<T> {

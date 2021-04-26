@@ -20,7 +20,7 @@ import { toUint8Array } from '../util/buffer';
 import { BufferBuilder } from './buffer';
 import { VariableWidthBuilder, BuilderOptions } from '../builder';
 
-/** @internal */
+/** @ignore */
 export class BinaryBuilder<TNull = any> extends VariableWidthBuilder<Binary, TNull> {
     constructor(opts: BuilderOptions<Binary, TNull>) {
         super(opts);

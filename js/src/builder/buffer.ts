@@ -22,26 +22,26 @@ import {
     BigIntArray, BigIntArrayConstructor
 } from '../interfaces';
 
-/** @internal */ type DataValue<T> = T extends TypedArray ? number : T extends BigIntArray ? WideValue<T> : T;
-/** @internal */ type WideValue<T extends BigIntArray> = T extends BigIntArray ? bigint | Int32Array | Uint32Array : never;
-/** @internal */ type ArrayCtor<T extends TypedArray | BigIntArray> =
+/** @ignore */ type DataValue<T> = T extends TypedArray ? number : T extends BigIntArray ? WideValue<T> : T;
+/** @ignore */ type WideValue<T extends BigIntArray> = T extends BigIntArray ? bigint | Int32Array | Uint32Array : never;
+/** @ignore */ type ArrayCtor<T extends TypedArray | BigIntArray> =
     T extends TypedArray  ? TypedArrayConstructor<T>  :
     T extends BigIntArray ? BigIntArrayConstructor<T> :
     any;
 
-/** @internal */
+/** @ignore */
 const roundLengthUpToNearest64Bytes = (len: number, BPE: number) => ((((len * BPE) + 63) & ~63) || 64) / BPE;
-/** @internal */
+/** @ignore */
 const sliceOrExtendArray = <T extends TypedArray | BigIntArray>(arr: T, len = 0) => (
     arr.length >= len ? arr.subarray(0, len) : memcpy(new (arr.constructor as any)(len), arr, 0)
 ) as T;
 
-/** @internal */
+/** @ignore */
 export interface BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = DataValue<T>> {
     readonly offset: number;
 }
 
-/** @internal */
+/** @ignore */
 export class BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = DataValue<T>> {
 
     constructor(buffer: T, stride = 1) {
@@ -98,7 +98,7 @@ export class BufferBuilder<T extends TypedArray | BigIntArray = any, TValue = Da
 
 (BufferBuilder.prototype as any).offset = 0;
 
-/** @internal */
+/** @ignore */
 export class DataBufferBuilder<T extends TypedArray> extends BufferBuilder<T, number> {
     public last() { return this.get(this.length - 1); }
     public get(index: number) { return this.buffer[index]; }
@@ -109,7 +109,7 @@ export class DataBufferBuilder<T extends TypedArray> extends BufferBuilder<T, nu
     }
 }
 
-/** @internal */
+/** @ignore */
 export class BitmapBufferBuilder extends DataBufferBuilder<Uint8Array> {
 
     constructor(data = new Uint8Array(0)) { super(data, 1 / 8); }
@@ -132,7 +132,7 @@ export class BitmapBufferBuilder extends DataBufferBuilder<Uint8Array> {
     }
 }
 
-/** @internal */
+/** @ignore */
 export class OffsetsBufferBuilder extends DataBufferBuilder<Int32Array> {
     constructor(data = new Int32Array(1)) { super(data, 1); }
     public append(value: number) {
@@ -155,7 +155,7 @@ export class OffsetsBufferBuilder extends DataBufferBuilder<Int32Array> {
     }
 }
 
-/** @internal */
+/** @ignore */
 export class WideBufferBuilder<T extends TypedArray, R extends BigIntArray> extends BufferBuilder<T, DataValue<T>> {
     public buffer64!: R;
     protected _ArrayType64!: BigIntArrayConstructor<R>;

@@ -58,7 +58,7 @@ import { instance as byteWidthVisitor } from '../visitor/bytewidth';
 import { instance as getVectorConstructor } from '../visitor/vectorctor';
 
 declare module '../vector' {
-    /** @internal */
+    /** @ignore */
     namespace Vector {
         export { newVector as new };
         export { vectorFrom as from };
@@ -66,7 +66,7 @@ declare module '../vector' {
 }
 
 declare module './base' {
-    /** @internal */
+    /** @ignore */
     namespace BaseVector {
         export { vectorFrom as from };
     }
@@ -91,17 +91,17 @@ Vector.new = newVector;
 /** @nocollapse */
 Vector.from = vectorFrom;
 
-/** @internal */
+/** @ignore */
 function newVector<T extends DataType>(data: Data<T>, ...args: VectorCtorArgs<V<T>>): V<T> {
     return new (getVectorConstructor.getVisitFn<T>(data)())(data, ...args) as V<T>;
 }
 
-/** @internal */
+/** @ignore */
 export interface VectorBuilderOptions<T extends DataType, TNull = any> extends IterableBuilderOptions<T, TNull> { values: Iterable<T['TValue'] | TNull> }
-/** @internal */
+/** @ignore */
 export interface VectorBuilderOptionsAsync<T extends DataType, TNull = any> extends IterableBuilderOptions<T, TNull> { values: AsyncIterable<T['TValue'] | TNull> }
 
-/** @internal */
+/** @ignore */
 export function vectorFromValuesWithType<T extends DataType, TNull = any>(newDataType: () => T, input: Iterable<T['TValue'] | TNull> | AsyncIterable<T['TValue'] | TNull> | VectorBuilderOptions<T, TNull> | VectorBuilderOptionsAsync<T, TNull>) {
     if (isIterable(input)) {
         return Vector.from({ 'nullValues': [null, undefined], type: newDataType(), 'values': input }) as V<T>;
@@ -118,7 +118,7 @@ export function vectorFromValuesWithType<T extends DataType, TNull = any>(newDat
         : Vector.from({ nullValues, ...input, type } as VectorBuilderOptionsAsync<T, TNull>);
 }
 
-/** @internal */
+/** @ignore */
 function vectorFrom<T extends DataType = any, TNull = any>(input: VectorBuilderOptions<T, TNull>): Vector<T>;
 function vectorFrom<T extends DataType = any, TNull = any>(input: VectorBuilderOptionsAsync<T, TNull>): Promise<Vector<T>>;
 function vectorFrom<T extends DataType = any, TNull = any>(input: VectorBuilderOptions<T, TNull> | VectorBuilderOptionsAsync<T, TNull>) {
@@ -185,17 +185,17 @@ BaseVector.prototype[Symbol.iterator] = function baseVectorSymbolIterator<T exte
         VectorCtor.prototype[Symbol.iterator] = fn.partial0(iteratorVisitor.getVisitFn(typeId));
     });
 
-/** @internal */
+/** @ignore */
 function partialType0<T extends Vector>(visit: (node: T['type']) => any) {
     return function(this: T) { return visit(this.type); };
 }
 
-/** @internal */
+/** @ignore */
 function wrapNullableGet<T extends DataType, V extends Vector<T>, F extends (i: number) => any>(fn: F): (...args: Parameters<F>) => ReturnType<F> {
     return function(this: V, i: number) { return this.isValid(i) ? fn.call(this, i) : null; };
 }
 
-/** @internal */
+/** @ignore */
 function wrapNullableSet<T extends DataType, V extends BaseVector<T>, F extends (i: number, a: any) => void>(fn: F): (...args: Parameters<F>) => void {
     return function(this: V, i: number, a: any) {
         if (setBool(this.nullBitmap, this.offset + i, !(a === null || a === undefined))) {
@@ -204,7 +204,7 @@ function wrapNullableSet<T extends DataType, V extends BaseVector<T>, F extends 
     };
 }
 
-/** @internal */
+/** @ignore */
 function bindBaseVectorDataAccessors<T extends DataType>(this: BaseVector<T>) {
     const nullBitmap = this.nullBitmap;
     if (nullBitmap && nullBitmap.byteLength > 0) {

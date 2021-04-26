@@ -23,15 +23,15 @@ import * as vecs from './vector/index';
 import * as builders from './builder/index';
 import { BuilderOptions } from './builder/index';
 
-/** @internal */ type FloatArray = Float32Array | Float64Array;
-/** @internal */ type IntArray = Int8Array | Int16Array | Int32Array;
-/** @internal */ type UintArray = Uint8Array | Uint16Array | Uint32Array | Uint8ClampedArray;
-/** @internal */
+/** @ignore */ type FloatArray = Float32Array | Float64Array;
+/** @ignore */ type IntArray = Int8Array | Int16Array | Int32Array;
+/** @ignore */ type UintArray = Uint8Array | Uint16Array | Uint32Array | Uint8ClampedArray;
+/** @ignore */
 export type TypedArray = FloatArray | IntArray | UintArray;
-/** @internal */
+/** @ignore */
 export type BigIntArray = BigInt64Array | BigUint64Array;
 
-/** @internal */
+/** @ignore */
 export interface TypedArrayConstructor<T extends TypedArray> {
     readonly prototype: T;
     new(length?: number): T;
@@ -56,7 +56,7 @@ export interface TypedArrayConstructor<T extends TypedArray> {
     from<U>(arrayLike: ArrayLike<U>, mapfn: (v: U, k: number) => number, thisArg?: any): T;
 }
 
-/** @internal */
+/** @ignore */
 export interface BigIntArrayConstructor<T extends BigIntArray> {
     readonly prototype: T;
     new(length?: number): T;
@@ -81,7 +81,7 @@ export interface BigIntArrayConstructor<T extends BigIntArray> {
     from<U>(arrayLike: ArrayLike<U>, mapfn: (v: U, k: number) => bigint, thisArg?: any): T;
 }
 
-/** @internal */
+/** @ignore */
 export type VectorCtorArgs<
     T extends VectorType<R>,
     R extends DataType = any,
@@ -90,7 +90,7 @@ export type VectorCtorArgs<
                   new (data: Data<R>, ...args: TArgs) => T
 > = TCtor extends new (data: Data<R>, ...args: infer TArgs) => T ? TArgs : never;
 
-/** @internal */
+/** @ignore */
 export type BuilderCtorArgs<
     T extends BuilderType<R, any>,
     R extends DataType = any,
@@ -101,7 +101,7 @@ export type BuilderCtorArgs<
 
 /**
  * Obtain the constructor function of an instance type
- * @internal
+ * @ignore
  */
 export type ConstructorType<
     T,
@@ -109,7 +109,7 @@ export type ConstructorType<
                   new (...args: any[]) => T
 > = TCtor extends new (...args: any[]) => T ? TCtor : never;
 
-/** @internal */
+/** @ignore */
 export type VectorCtorType<
     T extends VectorType<R>,
     R extends DataType = any,
@@ -117,7 +117,7 @@ export type VectorCtorType<
                   new (type: R, data?: Data<R>[], offsets?: Uint32Array) => T
 > = TCtor extends new (type: R, data?: Data<R>[], offsets?: Uint32Array) => T ? TCtor : never;
 
-/** @internal */
+/** @ignore */
 export type BuilderCtorType<
     T extends BuilderType<R, any>,
     R extends DataType = any,
@@ -125,21 +125,21 @@ export type BuilderCtorType<
                   new (options: BuilderOptions<R, any>) => T
 > = TCtor extends new (options: BuilderOptions<R, any>) => T ? TCtor : never;
 
-/** @internal */
+/** @ignore */
 export type VectorType<T extends Type | DataType = any> =
     T extends Type          ? TypeToVector<T>     :
     T extends DataType      ? DataTypeToVector<T> :
                               vecs.BaseVector<any>
     ;
 
-/** @internal */
+/** @ignore */
 export type BuilderType<T extends Type | DataType = any, TNull = any> =
     T extends Type          ? TypeToBuilder<T, TNull>     :
     T extends DataType      ? DataTypeToBuilder<T, TNull> :
                               builders.Builder<any, TNull>
     ;
 
-/** @internal */
+/** @ignore */
 export type VectorCtor<T extends Type | DataType | VectorType> =
     T extends VectorType    ? VectorCtorType<VectorType<T['TType']>> :
     T extends Type          ? VectorCtorType<VectorType<T>>          :
@@ -147,14 +147,14 @@ export type VectorCtor<T extends Type | DataType | VectorType> =
                               VectorCtorType<vecs.BaseVector<any>>
     ;
 
-/** @internal */
+/** @ignore */
 export type BuilderCtor<T extends Type | DataType = any> =
     T extends Type          ? BuilderCtorType<BuilderType<T>> :
     T extends DataType      ? BuilderCtorType<BuilderType<T>> :
                               BuilderCtorType<builders.Builder>
     ;
 
-/** @internal */
+/** @ignore */
 export type DataTypeCtor<T extends Type | DataType | VectorType = any> =
     T extends DataType   ? ConstructorType<T>                 :
     T extends VectorType ? ConstructorType<T['type']>         :
@@ -162,7 +162,7 @@ export type DataTypeCtor<T extends Type | DataType | VectorType = any> =
                            never
     ;
 
-/** @internal */
+/** @ignore */
 type TypeToVector<T extends Type> = {
     [key: number               ]: vecs.Vector<any>                ;
     [Type.Null                 ]: vecs.NullVector                 ;
@@ -210,7 +210,7 @@ type TypeToVector<T extends Type> = {
     [Type.FixedSizeList        ]: vecs.FixedSizeListVector        ;
 }[T];
 
-/** @internal */
+/** @ignore */
 type DataTypeToVector<T extends DataType = any> = {
     [key: number               ]:                                       vecs.Vector<any>                                            ;
     [Type.Null                 ]: T extends type.Null                 ? vecs.NullVector                                     : never ;
@@ -258,7 +258,7 @@ type DataTypeToVector<T extends DataType = any> = {
     [Type.FixedSizeList        ]: T extends type.FixedSizeList        ? vecs.FixedSizeListVector<T['valueType']>            : never ;
 }[T['TType']];
 
-/** @internal */
+/** @ignore */
 export type TypeToDataType<T extends Type> = {
     [key: number               ]: type.DataType             ;
     [Type.Null                 ]: type.Null                 ;
@@ -306,7 +306,7 @@ export type TypeToDataType<T extends Type> = {
     [Type.FixedSizeList        ]: type.FixedSizeList        ;
 }[T];
 
-/** @internal */
+/** @ignore */
 type TypeToBuilder<T extends Type = any, TNull = any> = {
     [key: number               ]: builders.Builder                            ;
     [Type.Null                 ]: builders.NullBuilder<TNull>                 ;
@@ -354,7 +354,7 @@ type TypeToBuilder<T extends Type = any, TNull = any> = {
     [Type.FixedSizeList        ]: builders.FixedSizeListBuilder<any, TNull>   ;
 }[T];
 
-/** @internal */
+/** @ignore */
 type DataTypeToBuilder<T extends DataType = any, TNull = any> = {
     [key: number               ]:                                       builders.Builder<any, TNull>                                     ;
     [Type.Null                 ]: T extends type.Null                 ? builders.NullBuilder<TNull>                              : never ;

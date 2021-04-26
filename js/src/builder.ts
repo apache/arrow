@@ -420,7 +420,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
 (Builder.prototype as any).nullValues = null;
 (Builder.prototype as any)._isValid = () => true;
 
-/** @internal */
+/** @ignore */
 export abstract class FixedWidthBuilder<T extends Int | Float | FixedSizeBinary | Date_ | Timestamp | Time | Decimal | Interval = any, TNull = any> extends Builder<T, TNull> {
     constructor(opts: BuilderOptions<T, TNull>) {
         super(opts);
@@ -433,7 +433,7 @@ export abstract class FixedWidthBuilder<T extends Int | Float | FixedSizeBinary 
     }
 }
 
-/** @internal */
+/** @ignore */
 export abstract class VariableWidthBuilder<T extends Binary | Utf8 | List | Map_, TNull = any> extends Builder<T, TNull> {
     protected _pendingLength = 0;
     protected _offsets: OffsetsBufferBuilder;
@@ -482,10 +482,10 @@ export abstract class VariableWidthBuilder<T extends Binary | Utf8 | List | Map_
     protected abstract _flushPending(pending: Map<number, any>, pendingLength: number): void;
 }
 
-/** @internal */
+/** @ignore */
 type ThroughIterable<T extends DataType = any, TNull = any> = (source: Iterable<T['TValue'] | TNull>) => IterableIterator<V<T>>;
 
-/** @internal */
+/** @ignore */
 function throughIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) {
     const { ['queueingStrategy']: queueingStrategy = 'count' } = options;
     const { ['highWaterMark']: highWaterMark = queueingStrategy !== 'bytes' ? 1000 : 2 ** 14 } = options;
@@ -504,10 +504,10 @@ function throughIterable<T extends DataType = any, TNull = any>(options: Iterabl
     } as ThroughIterable<T, TNull>;
 }
 
-/** @internal */
+/** @ignore */
 type ThroughAsyncIterable<T extends DataType = any, TNull = any> = (source: Iterable<T['TValue'] | TNull> | AsyncIterable<T['TValue'] | TNull>) => AsyncIterableIterator<V<T>>;
 
-/** @internal */
+/** @ignore */
 function throughAsyncIterable<T extends DataType = any, TNull = any>(options: IterableBuilderOptions<T, TNull>) {
     const { ['queueingStrategy']: queueingStrategy = 'count' } = options;
     const { ['highWaterMark']: highWaterMark = queueingStrategy !== 'bytes' ? 1000 : 2 ** 14 } = options;

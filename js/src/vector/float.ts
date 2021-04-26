@@ -25,14 +25,14 @@ import { VectorBuilderOptionsAsync } from './index';
 import { Float, Float16, Float32, Float64, FloatArray } from '../type';
 import { VectorType as V, TypedArrayConstructor } from '../interfaces';
 
-/** @internal */
+/** @ignore */
 type FloatVectorConstructors =
     typeof FloatVector   |
     typeof Float16Vector |
     typeof Float32Vector |
     typeof Float64Vector ;
 
-/** @internal */
+/** @ignore */
 type FromInput<T extends Float, TNull = any> =
     FloatArray                          |
     Iterable<T['TValue'] | TNull>       |
@@ -40,7 +40,7 @@ type FromInput<T extends Float, TNull = any> =
     VectorBuilderOptions<T, TNull>      |
     VectorBuilderOptionsAsync<T, TNull> ;
 
-/** @internal */
+/** @ignore */
 type FloatArrayCtor = TypedArrayConstructor<FloatArray>;
 
 /**
@@ -129,12 +129,12 @@ export class Float32Vector extends FloatVector<Float32> {}
 /** @category Vector */
 export class Float64Vector extends FloatVector<Float64> {}
 
-/** @internal */
+/** @ignore */
 function convertTo16Bit(typeCtor: any, dataCtor: any) {
     return (typeCtor === Float16) && (dataCtor !== Uint16Array);
 }
 
-/** @internal */
+/** @ignore */
 function arrayTypeToDataType(ctor: FloatArrayCtor) {
     switch (ctor) {
         case Uint16Array:    return Float16;
@@ -144,7 +144,7 @@ function arrayTypeToDataType(ctor: FloatArrayCtor) {
     }
 }
 
-/** @internal */
+/** @ignore */
 function vectorTypeToDataType(ctor: FloatVectorConstructors) {
     switch (ctor) {
         case Float16Vector: return Float16;

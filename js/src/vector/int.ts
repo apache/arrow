@@ -27,7 +27,7 @@ import { toBigInt64Array, toBigUint64Array } from '../util/buffer';
 import { Int, Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64, IntArray } from '../type';
 import { VectorType as V, TypedArrayConstructor, BigIntArrayConstructor, BigIntArray } from '../interfaces';
 
-/** @internal */
+/** @ignore */
 type IntVectorConstructors =
     typeof IntVector    |
     typeof Int8Vector   |
@@ -39,7 +39,7 @@ type IntVectorConstructors =
     typeof Int64Vector  |
     typeof Uint64Vector ;
 
-/** @internal */
+/** @ignore */
 type FromInput<T extends Int, TNull = any> =
     IntArray | BigIntArray              |
     Iterable<T['TValue'] | TNull>       |
@@ -47,10 +47,10 @@ type FromInput<T extends Int, TNull = any> =
     VectorBuilderOptions<T, TNull>      |
     VectorBuilderOptionsAsync<T, TNull> ;
 
-/** @internal */
+/** @ignore */
 type FromArgs<T extends Int, TNull = any> = [FromInput<T, TNull>, boolean?];
 
-/** @internal */
+/** @ignore */
 type IntArrayCtor = TypedArrayConstructor<IntArray> | BigIntArrayConstructor<BigIntArray>;
 
 /**
@@ -175,13 +175,13 @@ export class Uint64Vector extends IntVector<Uint64> {
     }
 }
 
-/** @internal */
+/** @ignore */
 function convert32To64Bit(typeCtor: any, dataCtor: any) {
     return (typeCtor === Int64 || typeCtor === Uint64) &&
            (dataCtor === Int32Array || dataCtor === Uint32Array);
 }
 
-/** @internal */
+/** @ignore */
 function arrayTypeToDataType(ctor: IntArrayCtor, is64bit: boolean) {
     switch (ctor) {
         case Int8Array:      return Int8;
@@ -196,7 +196,7 @@ function arrayTypeToDataType(ctor: IntArrayCtor, is64bit: boolean) {
     }
 }
 
-/** @internal */
+/** @ignore */
 function vectorTypeToDataType(ctor: IntVectorConstructors, is64bit: boolean) {
     switch (ctor) {
         case Int8Vector:   return Int8;

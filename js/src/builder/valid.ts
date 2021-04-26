@@ -36,7 +36,7 @@ import { BigIntAvailable } from '../util/compat';
  *     return true;
  * }`
  *
- * @internal
+ * @ignore
  * @param nullValues
  */
 export function createIsValidFunction<T extends DataType = any, TNull = any>(nullValues?: ReadonlyArray<TNull>) {
@@ -66,7 +66,7 @@ export function createIsValidFunction<T extends DataType = any, TNull = any>(nul
     return new Function(`x`, `${fnBody}\nreturn true;`) as (value: T['TValue'] | TNull) => boolean;
 }
 
-/** @internal */
+/** @ignore */
 function valueToCase(x: any) {
     if (typeof x !== 'bigint') {
         return valueToString(x);

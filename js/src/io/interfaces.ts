@@ -17,17 +17,17 @@
 
 import streamAdapters from './adapters';
 
-/** @internal */
+/** @ignore */
 export const ITERATOR_DONE: any = Object.freeze({ done: true, value: void (0) });
 
-/** @internal */
+/** @ignore */
 export type FileHandle = import('fs').promises.FileHandle;
-/** @internal */
+/** @ignore */
 export type ArrowJSONLike = { schema: any; batches?: any[]; dictionaries?: any[] };
-/** @internal */
+/** @ignore */
 export type ReadableDOMStreamOptions = { type: 'bytes' | undefined; autoAllocateChunkSize?: number; highWaterMark?: number };
 
-/** @internal */
+/** @ignore */
 export class ArrowJSON {
     constructor(private _json: ArrowJSONLike) {}
     public get schema(): any { return this._json['schema']; }
@@ -35,7 +35,7 @@ export class ArrowJSON {
     public get dictionaries(): any[] { return (this._json['dictionaries'] || []) as any[]; }
 }
 
-/** @internal */
+/** @ignore */
 export interface Readable<T> {
 
     readonly closed: Promise<void>;
@@ -48,7 +48,7 @@ export interface Readable<T> {
     next(size?: number | null): Promise<IteratorResult<T>>;
 }
 
-/** @internal */
+/** @ignore */
 export interface Writable<T> {
     readonly closed: Promise<void>;
     close(): void;
@@ -56,14 +56,14 @@ export interface Writable<T> {
     abort(reason?: any): void;
 }
 
-/** @internal */
+/** @ignore */
 export interface ReadableWritable<TReadable, TWritable> extends Readable<TReadable>, Writable<TWritable> {
     [Symbol.asyncIterator](): AsyncIterableIterator<TReadable>;
     toDOMStream(options?: ReadableDOMStreamOptions): ReadableStream<TReadable>;
     toNodeStream(options?: import('stream').ReadableOptions): import('stream').Readable;
 }
 
-/** @internal */
+/** @ignore */
 export abstract class ReadableInterop<T> {
 
     public abstract toDOMStream(options?: ReadableDOMStreamOptions): ReadableStream<T>;
@@ -91,10 +91,10 @@ export abstract class ReadableInterop<T> {
     }
 }
 
-/** @internal */
+/** @ignore */
 type Resolution<T> = { resolve: (value?: T | PromiseLike<T>) => void; reject: (reason?: any) => void };
 
-/** @internal */
+/** @ignore */
 export class AsyncQueue<TReadable = Uint8Array, TWritable = TReadable> extends ReadableInterop<TReadable>
     implements AsyncIterableIterator<TReadable>, ReadableWritable<TReadable, TWritable> {
 

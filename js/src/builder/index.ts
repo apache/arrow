@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/** @internal */
+/** @ignore */
 export { Builder, BuilderOptions } from '../builder';
 export { BoolBuilder } from './bool';
 export { NullBuilder } from './null';
