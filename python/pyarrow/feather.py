@@ -23,7 +23,7 @@ from pyarrow.lib import (Codec, Table,  # noqa
                          concat_tables, schema)
 import pyarrow.lib as ext
 from pyarrow import _feather
-from pyarrow._feather import FeatherError
+from pyarrow._feather import FeatherError  # noqa: F401
 from pyarrow.vendored.version import Version
 
 
