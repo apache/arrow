@@ -177,6 +177,74 @@ bool is_NA<int64_t>(int64_t value) {
 }
 
 template <typename T>
+class RVectorIterator {
+ public:
+  using value_type = T;
+  RVectorIterator(SEXP x, int64_t start)
+      : ptr_x_(reinterpret_cast<const T*>(DATAPTR_RO(x)) + start) {}
+
+  RVectorIterator& operator++() {
+    ++ptr_x_;
+    return *this;
+  }
+
+  const T operator*() const { return *ptr_x_; }
+
+ private:
+  const T* ptr_x_;
+};
+
+template <typename T>
+class RVectorIterator_ALTREP {
+ public:
+  using value_type = T;
+  using data_type =
+      typename std::conditional<std::is_same<T, int64_t>::value, double, T>::type;
+  using r_vector_type = cpp11::r_vector<data_type>;
+  using r_vector_iterator = typename r_vector_type::const_iterator;
+
+  RVectorIterator_ALTREP(SEXP x, int64_t start)
+      : vector_(x), it_(vector_.begin() + start) {}
+
+  RVectorIterator_ALTREP& operator++() {
+    ++it_;
+    return *this;
+  }
+
+  const T operator*() const { return GetValue(*it_); }
+
+  static T GetValue(data_type x) { return x; }
+
+ private:
+  r_vector_type vector_;
+  r_vector_iterator it_;
+};
+
+template <>
+int64_t RVectorIterator_ALTREP<int64_t>::GetValue(double x) {
+  int64_t value;
+  memcpy(&value, &x, sizeof(int64_t));
+  return value;
+}
+
+template <typename T, typename Iterator, typename AppendNull, typename AppendValue>
+Status VisitVector(SEXP x, int64_t start, int64_t n, AppendNull&& append_null,
+                   AppendValue&& append_value) {
+  Iterator it(x, start);
+  for (R_xlen_t i = 0; i < n; i++, ++it) {
+    auto value = *it;
+
+    if (is_NA<T>(value)) {
+      RETURN_NOT_OK(append_null());
+    } else {
+      RETURN_NOT_OK(append_value(value));
+    }
+  }
+
+  return Status::OK();
+}
+
+template <typename T>
 struct RVectorVisitor {
   using data_type =
       typename std::conditional<std::is_same<T, int64_t>::value, double, T>::type;
@@ -325,6 +393,7 @@ class RPrimitiveConverter<T, enable_if_null<T>>
   bool Parallel() override { return true; }
 };
 
+// TODO: extend this to BooleanType, but this needs some work in RConvert
 template <typename T>
 class RPrimitiveConverter<
     T, enable_if_t<is_integer_type<T>::value || is_floating_type<T>::value>>
@@ -334,13 +403,13 @@ class RPrimitiveConverter<
     auto rtype = GetVectorType(x);
     switch (rtype) {
       case UINT8:
-        return AppendRangeDispatch<unsigned char>(x, size);
+        return ExtendDispatch<unsigned char>(x, size);
       case INT32:
-        return AppendRangeDispatch<int>(x, size);
+        return ExtendDispatch<int>(x, size);
       case FLOAT64:
-        return AppendRangeDispatch<double>(x, size);
+        return ExtendDispatch<double>(x, size);
       case INT64:
-        return AppendRangeDispatch<int64_t>(x, size);
+        return ExtendDispatch<int64_t>(x, size);
 
       default:
         break;
@@ -353,44 +422,30 @@ class RPrimitiveConverter<
 
  private:
   template <typename r_value_type>
-  Status AppendRangeDispatch(SEXP x, int64_t size) {
-    bool altrep = ALTREP(x);
-
-    if (altrep) {
+  Status ExtendDispatch(SEXP x, int64_t size) {
+    if (ALTREP(x)) {
       // `x` is an ALTREP R vector storing `r_value_type`
       // and that type matches exactly the type of the array this is building
 
       // constructing `vec` needs to protect `x` so we need locking
       std::lock_guard<std::mutex> lock(arrow::r::get_r_mutex());
-
-      typename RVectorVisitor<r_value_type>::r_vector_type vec(x);
-      auto it = vec.begin();
-      auto get_r_value = [](decltype(*it) value) {
-        return RVectorVisitor<r_value_type>::GetValue(value);
-      };
-
-      return AppendRange_Iterate<r_value_type, decltype(it), decltype(get_r_value)>(
-          it, size, get_r_value);
+      return Extend_impl(RVectorIterator_ALTREP<r_value_type>(x, 0), size);
     } else {
       // `x` is not an ALTREP vector so we have direct access to a range of values
-      auto it = reinterpret_cast<const r_value_type*>(DATAPTR_RO(x));
-      auto get_r_value = [](r_value_type value) { return value; };
-      return AppendRange_Iterate<r_value_type, decltype(it), decltype(get_r_value)>(
-          it, size, get_r_value);
+      return Extend_impl(RVectorIterator<r_value_type>(x, 0), size);
     }
   }
 
-  template <typename r_value_type, typename Iterator, typename GetValue>
-  Status AppendRange_Iterate(Iterator it, int64_t size, GetValue get_r_value) {
+  template <typename Iterator>
+  Status Extend_impl(Iterator it, int64_t size) {
+    using r_value_type = typename Iterator::value_type;
     constexpr bool needs_conversion =
         !std::is_same<typename T::c_type, r_value_type>::value;
 
     RETURN_NOT_OK(this->primitive_builder_->Reserve(size));
 
     for (R_xlen_t i = 0; i < size; i++, ++it) {
-      // we need the get_r_value abstraction because of int64 vectors
-      // which don't have their cpp11:: vectors
-      r_value_type value = get_r_value(*it);
+      r_value_type value = *it;
 
       if (is_NA<r_value_type>(value)) {
         this->primitive_builder_->UnsafeAppendNull();
@@ -417,17 +472,33 @@ class RPrimitiveConverter<T, enable_if_t<is_boolean_type<T>::value>>
     if (rtype != BOOLEAN) {
       return Status::Invalid("Expecting a logical vector");
     }
+
+    if (ALTREP(x)) {
+      std::lock_guard<std::mutex> lock(arrow::r::get_r_mutex());
+      return Extend_impl(RVectorIterator_ALTREP<cpp11::r_bool>(x, 0), size);
+    } else {
+      return Extend_impl(RVectorIterator<cpp11::r_bool>(x, 0), size);
+    }
+  }
+
+  bool Parallel() override { return true; }
+
+ private:
+  template <typename Iterator>
+  Status Extend_impl(Iterator it, int64_t size) {
     RETURN_NOT_OK(this->Reserve(size));
 
-    auto append_value = [this](cpp11::r_bool value) {
-      this->primitive_builder_->UnsafeAppend(value == 1);
-      return Status::OK();
-    };
-    auto append_null = [this]() {
-      this->primitive_builder_->UnsafeAppendNull();
-      return Status::OK();
-    };
-    return RVectorVisitor<cpp11::r_bool>::Visit(x, size, append_null, append_value);
+    for (R_xlen_t i = 0; i < size; i++, ++it) {
+      cpp11::r_bool value = *it;
+
+      if (is_NA<cpp11::r_bool>(value)) {
+        this->primitive_builder_->UnsafeAppendNull();
+      } else {
+        this->primitive_builder_->UnsafeAppend(value == 1);
+      }
+    }
+
+    return Status::OK();
   }
 };
 
