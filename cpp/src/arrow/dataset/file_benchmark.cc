@@ -62,7 +62,7 @@ static void GetAllFragments(benchmark::State& state) {
   }
 }
 
-static void GetFilteredFragments(benchmark::State& state, Expression filter) {
+static void GetFilteredFragments(benchmark::State& state, compute::Expression filter) {
   auto dataset = GetDataset();
   ASSERT_OK_AND_ASSIGN(filter, filter.Bind(*dataset->schema()));
   for (auto _ : state) {

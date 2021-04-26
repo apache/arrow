@@ -31,6 +31,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/compute/exec/expression.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
@@ -54,22 +55,22 @@
 namespace arrow {
 namespace dataset {
 
-const std::shared_ptr<Schema> kBoringSchema = schema({
-    field("bool", boolean()),
-    field("i8", int8()),
-    field("i32", int32()),
-    field("i32_req", int32(), /*nullable=*/false),
-    field("u32", uint32()),
-    field("i64", int64()),
-    field("f32", float32()),
-    field("f32_req", float32(), /*nullable=*/false),
-    field("f64", float64()),
-    field("date64", date64()),
-    field("str", utf8()),
-    field("dict_str", dictionary(int32(), utf8())),
-    field("dict_i32", dictionary(int32(), int32())),
-    field("ts_ns", timestamp(TimeUnit::NANO)),
-});
+using compute::call;
+using compute::field_ref;
+using compute::literal;
+
+using compute::and_;
+using compute::equal;
+using compute::greater;
+using compute::greater_equal;
+using compute::is_null;
+using compute::is_valid;
+using compute::less;
+using compute::less_equal;
+using compute::not_;
+using compute::not_equal;
+using compute::or_;
+using compute::project;
 
 using fs::internal::GetAbstractPathExtension;
 using internal::checked_cast;
@@ -125,13 +126,15 @@ class FragmentDataset : public Dataset {
  public:
   FragmentDataset(std::shared_ptr<Schema> schema, FragmentVector fragments)
       : Dataset(std::move(schema)), fragments_(std::move(fragments)) {}
+
   std::string type_name() const override { return "fragment"; }
+
   Result<std::shared_ptr<Dataset>> ReplaceSchema(std::shared_ptr<Schema>) const override {
     return Status::NotImplemented("");
   }
 
  protected:
-  Result<FragmentIterator> GetFragmentsImpl(Expression predicate) override {
+  Result<FragmentIterator> GetFragmentsImpl(compute::Expression predicate) override {
     return MakeVectorIterator(fragments_);
   }
   FragmentVector fragments_;
@@ -288,7 +291,7 @@ class DatasetFixtureMixin : public ::testing::Test {
     SetFilter(literal(true));
   }
 
-  void SetFilter(Expression filter) {
+  void SetFilter(compute::Expression filter) {
     ASSERT_OK_AND_ASSIGN(options_->filter, filter.Bind(*schema_));
   }
 
@@ -381,7 +384,7 @@ class FileFormatFixtureMixin : public ::testing::Test {
     ASSERT_OK(SetProjection(opts_.get(), opts_->dataset_schema->field_names()));
   }
 
-  void SetFilter(Expression filter) {
+  void SetFilter(compute::Expression filter) {
     ASSERT_OK_AND_ASSIGN(opts_->filter, filter.Bind(*opts_->dataset_schema));
   }
 
@@ -740,9 +743,9 @@ struct MakeFileSystemDatasetMixin {
   }
 
   void MakeDataset(const std::vector<fs::FileInfo>& infos,
-                   Expression root_partition = literal(true),
-                   std::vector<Expression> partitions = {},
-                   std::shared_ptr<Schema> s = kBoringSchema) {
+                   compute::Expression root_partition = literal(true),
+                   std::vector<compute::Expression> partitions = {},
+                   std::shared_ptr<Schema> s = schema({})) {
     auto n_fragments = infos.size();
     if (partitions.empty()) {
       partitions.resize(n_fragments, literal(true));
@@ -801,8 +804,9 @@ void AssertFragmentsAreFromPath(FragmentIterator it, std::vector<std::string> ex
               testing::UnorderedElementsAreArray(expected));
 }
 
-static std::vector<Expression> PartitionExpressionsOf(const FragmentVector& fragments) {
-  std::vector<Expression> partition_expressions;
+static std::vector<compute::Expression> PartitionExpressionsOf(
+    const FragmentVector& fragments) {
+  std::vector<compute::Expression> partition_expressions;
   std::transform(fragments.begin(), fragments.end(),
                  std::back_inserter(partition_expressions),
                  [](const std::shared_ptr<Fragment>& fragment) {
@@ -812,7 +816,7 @@ static std::vector<Expression> PartitionExpressionsOf(const FragmentVector& frag
 }
 
 void AssertFragmentsHavePartitionExpressions(std::shared_ptr<Dataset> dataset,
-                                             std::vector<Expression> expected) {
+                                             std::vector<compute::Expression> expected) {
   ASSERT_OK_AND_ASSIGN(auto fragment_it, dataset->GetFragments());
   for (auto& expr : expected) {
     ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*dataset->schema()));

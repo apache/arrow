@@ -38,7 +38,7 @@ namespace dataset {
 /// \brief GetFragmentsFromDatasets transforms a vector<Dataset> into a
 /// flattened FragmentIterator.
 inline Result<FragmentIterator> GetFragmentsFromDatasets(const DatasetVector& datasets,
-                                                         Expression predicate) {
+                                                         compute::Expression predicate) {
   // Iterator<Dataset>
   auto datasets_it = MakeVectorIterator(datasets);
 
@@ -108,12 +108,12 @@ struct SubtreeImpl {
     expression_codes partition_expression;
   };
 
-  std::unordered_map<Expression, expression_code, Expression::Hash> expr_to_code_;
-  std::vector<Expression> code_to_expr_;
+  std::unordered_map<compute::Expression, expression_code, compute::Expression::Hash> expr_to_code_;
+  std::vector<compute::Expression> code_to_expr_;
   std::unordered_set<expression_codes> subtree_exprs_;
 
   // Encode a subexpression (returning the existing code if possible).
-  expression_code GetOrInsert(const Expression& expr) {
+  expression_code GetOrInsert(const compute::Expression& expr) {
     auto next_code = static_cast<int>(expr_to_code_.size());
     auto it_success = expr_to_code_.emplace(expr, next_code);
 
@@ -124,7 +124,7 @@ struct SubtreeImpl {
   }
 
   // Encode an expression (recursively breaking up conjunction members if possible).
-  void EncodeConjunctionMembers(const Expression& expr, expression_codes* codes) {
+  void EncodeConjunctionMembers(const compute::Expression& expr, expression_codes* codes) {
     if (auto call = expr.call()) {
       if (call->function_name == "and_kleene") {
         // expr is a conjunction, encode its arguments
@@ -138,7 +138,7 @@ struct SubtreeImpl {
   }
 
   // Convert an encoded subtree or fragment back into an expression.
-  Expression GetSubtreeExpression(const Encoded& encoded_subtree) {
+  compute::Expression GetSubtreeExpression(const Encoded& encoded_subtree) {
     // Filters will already be simplified by all of a subtree's ancestors, so
     // we only need to simplify the filter by the trailing conjunction member
     // of each subtree.

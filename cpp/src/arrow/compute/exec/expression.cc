@@ -198,7 +198,7 @@ std::string Expression::ToString() const {
 
   if (auto options = GetStrptimeOptions(*call)) {
     return out + "format=" + options->format +
-           ", unit=" + internal::ToString(options->unit) + ")";
+           ", unit=" + arrow::internal::ToString(options->unit) + ")";
   }
 
   return out + "{NON-REPRESENTABLE OPTIONS})";
@@ -304,8 +304,9 @@ size_t Expression::hash() const {
   }
 
   std::shared_ptr<std::atomic<size_t>> expected = nullptr;
-  internal::atomic_compare_exchange_strong(&const_cast<Call*>(call)->hash, &expected,
-                                           std::make_shared<std::atomic<size_t>>(out));
+  ::arrow::internal::atomic_compare_exchange_strong(
+      &const_cast<Call*>(call)->hash, &expected,
+      std::make_shared<std::atomic<size_t>>(out));
   return out;
 }
 

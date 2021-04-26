@@ -45,7 +45,7 @@ using FragmentGenerator = std::function<Future<std::shared_ptr<Fragment>>()>;
 std::vector<std::string> ScanOptions::MaterializedFields() const {
   std::vector<std::string> fields;
 
-  for (const Expression* expr : {&filter, &projection}) {
+  for (const compute::Expression* expr : {&filter, &projection}) {
     for (const FieldRef& ref : FieldsInExpression(*expr)) {
       DCHECK(ref.name());
       fields.push_back(*ref.name());
@@ -406,7 +406,7 @@ namespace {
 
 inline Result<EnumeratedRecordBatch> DoFilterAndProjectRecordBatchAsync(
     const std::shared_ptr<Scanner>& scanner, const EnumeratedRecordBatch& in) {
-  ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
+  ARROW_ASSIGN_OR_RAISE(compute::Expression simplified_filter,
                         SimplifyWithGuarantee(scanner->options()->filter,
                                               in.fragment.value->partition_expression()));
 
@@ -431,7 +431,7 @@ inline Result<EnumeratedRecordBatch> DoFilterAndProjectRecordBatchAsync(
                                   compute::FilterOptions::Defaults(), &exec_context));
   }
 
-  ARROW_ASSIGN_OR_RAISE(Expression simplified_projection,
+  ARROW_ASSIGN_OR_RAISE(compute::Expression simplified_projection,
                         SimplifyWithGuarantee(scanner->options()->projection,
                                               in.fragment.value->partition_expression()));
   ARROW_ASSIGN_OR_RAISE(
@@ -685,12 +685,12 @@ Status ScannerBuilder::Project(std::vector<std::string> columns) {
   return SetProjection(scan_options_.get(), std::move(columns));
 }
 
-Status ScannerBuilder::Project(std::vector<Expression> exprs,
+Status ScannerBuilder::Project(std::vector<compute::Expression> exprs,
                                std::vector<std::string> names) {
   return SetProjection(scan_options_.get(), std::move(exprs), std::move(names));
 }
 
-Status ScannerBuilder::Filter(const Expression& filter) {
+Status ScannerBuilder::Filter(const compute::Expression& filter) {
   return SetFilter(scan_options_.get(), filter);
 }
 

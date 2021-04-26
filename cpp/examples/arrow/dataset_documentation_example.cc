@@ -20,9 +20,9 @@
 
 #include <arrow/api.h>
 #include <arrow/compute/cast.h>
+#include <arrow/compute/exec/expression.h>
 #include <arrow/dataset/dataset.h>
 #include <arrow/dataset/discovery.h>
-#include <arrow/compute/exec/expression.h>
 #include <arrow/dataset/file_base.h>
 #include <arrow/dataset/file_ipc.h>
 #include <arrow/dataset/file_parquet.h>
@@ -37,6 +37,7 @@
 
 namespace ds = arrow::dataset;
 namespace fs = arrow::fs;
+namespace cp = arrow::compute;
 
 #define ABORT_ON_FAILURE(expr)                     \
   do {                                             \
@@ -185,7 +186,7 @@ std::shared_ptr<arrow::Table> FilterAndSelectDataset(
   // Read specified columns with a row filter
   auto scan_builder = dataset->NewScan().ValueOrDie();
   ABORT_ON_FAILURE(scan_builder->Project({"b"}));
-  ABORT_ON_FAILURE(scan_builder->Filter(ds::less(ds::field_ref("b"), ds::literal(4))));
+  ABORT_ON_FAILURE(scan_builder->Filter(cp::less(cp::field_ref("b"), cp::literal(4))));
   auto scanner = scan_builder->Finish().ValueOrDie();
   return scanner->ToTable().ValueOrDie();
 }
@@ -210,12 +211,12 @@ std::shared_ptr<arrow::Table> ProjectDataset(
   ABORT_ON_FAILURE(scan_builder->Project(
       {
           // Leave column "a" as-is.
-          ds::field_ref("a"),
+          cp::field_ref("a"),
           // Cast column "b" to float32.
-          ds::call("cast", {ds::field_ref("b")},
+          cp::call("cast", {cp::field_ref("b")},
                    arrow::compute::CastOptions::Safe(arrow::float32())),
           // Derive a boolean column from "c".
-          ds::equal(ds::field_ref("c"), ds::literal(1)),
+          cp::equal(cp::field_ref("c"), cp::literal(1)),
       },
       {"a_renamed", "b_as_float32", "c_1"}));
   auto scanner = scan_builder->Finish().ValueOrDie();
@@ -239,15 +240,15 @@ std::shared_ptr<arrow::Table> SelectAndProjectDataset(
   // Read specified columns with a row filter
   auto scan_builder = dataset->NewScan().ValueOrDie();
   std::vector<std::string> names;
-  std::vector<ds::Expression> exprs;
+  std::vector<cp::Expression> exprs;
   // Read all the original columns.
   for (const auto& field : dataset->schema()->fields()) {
     names.push_back(field->name());
-    exprs.push_back(ds::field_ref(field->name()));
+    exprs.push_back(cp::field_ref(field->name()));
   }
   // Also derive a new column.
-  names.push_back("b_large");
-  exprs.push_back(ds::greater(ds::field_ref("b"), ds::literal(1)));
+  names.emplace_back("b_large");
+  exprs.push_back(cp::greater(cp::field_ref("b"), cp::literal(1)));
   ABORT_ON_FAILURE(scan_builder->Project(exprs, names));
   auto scanner = scan_builder->Finish().ValueOrDie();
   return scanner->ToTable().ValueOrDie();
@@ -295,7 +296,7 @@ std::shared_ptr<arrow::Table> FilterPartitionedDataset(
   // Filter based on the partition values. This will mean that we won't even read the
   // files whose partition expressions don't match the filter.
   ABORT_ON_FAILURE(
-      scan_builder->Filter(ds::equal(ds::field_ref("part"), ds::literal("b"))));
+      scan_builder->Filter(cp::equal(cp::field_ref("part"), cp::literal("b"))));
   auto scanner = scan_builder->Finish().ValueOrDie();
   return scanner->ToTable().ValueOrDie();
 }

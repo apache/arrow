@@ -130,6 +130,10 @@ class TestParquetFileFormat : public FileFormatFixtureMixin<ParquetFormatHelper>
     return Batches(std::move(scan_task_it));
   }
 
+  void SetFilter(compute::Expression filter) {
+    ASSERT_OK_AND_ASSIGN(opts_->filter, filter.Bind(*opts_->dataset_schema));
+  }
+
   std::shared_ptr<RecordBatch> SingleBatch(Fragment* fragment) {
     auto batches = IteratorToVector(Batches(fragment));
     EXPECT_EQ(batches.size(), 1);
@@ -157,7 +161,8 @@ class TestParquetFileFormat : public FileFormatFixtureMixin<ParquetFormatHelper>
   }
 
   void CountRowGroupsInFragment(const std::shared_ptr<Fragment>& fragment,
-                                std::vector<int> expected_row_groups, Expression filter) {
+                                std::vector<int> expected_row_groups,
+                                compute::Expression filter) {
     SetFilter(filter);
 
     auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
@@ -271,7 +276,8 @@ class TestParquetFileFormatScan : public FileFormatScanMixin<ParquetFormatHelper
   }
 
   void CountRowGroupsInFragment(const std::shared_ptr<Fragment>& fragment,
-                                std::vector<int> expected_row_groups, Expression filter) {
+                                std::vector<int> expected_row_groups,
+                                compute::Expression filter) {
     SetFilter(filter);
 
     auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
