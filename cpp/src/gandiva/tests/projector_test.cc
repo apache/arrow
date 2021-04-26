@@ -944,9 +944,8 @@ TEST_F(TestProjector, TestByteSubString) {
   auto field_byte_substr = field("bytesubstring", arrow::binary());
 
   // Build expression
-  auto byte_substr_expr =
-      TreeExprBuilder::MakeExpression("bytesubstring",
-                                      {field0, field1, field2}, field_byte_substr);
+  auto byte_substr_expr = TreeExprBuilder::MakeExpression(
+      "bytesubstring", {field0, field1, field2}, field_byte_substr);
 
   std::shared_ptr<Projector> projector;
   auto status =
@@ -957,21 +956,20 @@ TEST_F(TestProjector, TestByteSubString) {
   int num_records = 6;
   auto array0 = MakeArrowArrayBinary({"ab", "", "ab", "invalid", "valid", "invalid"},
                                      {true, true, true, true, true, true});
-  auto array1 = MakeArrowArrayInt32({0, 1, 1, 1, 3, 3},
-                                   {true, true, true, true, true, true});
-  auto array2 = MakeArrowArrayInt32({0, 1, 1, 2, 3, 3},
-                                    {true, true, true, true, true, true});
+  auto array1 =
+      MakeArrowArrayInt32({0, 1, 1, 1, 3, 3}, {true, true, true, true, true, true});
+  auto array2 =
+      MakeArrowArrayInt32({0, 1, 1, 2, 3, 3}, {true, true, true, true, true, true});
   // expected output
   auto exp_byte_substr = MakeArrowArrayBinary({"", "", "a", "in", "lid", "val"},
                                               {true, true, true, true, true, true});
 
   // prepare input record batch
-  auto in_batch =
-      arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2});
+  auto in = arrow::RecordBatch::Make(schema, num_records, {array0, array1, array2});
 
   // Evaluate expression
   arrow::ArrayVector outputs;
-  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  status = projector->Evaluate(*in, pool_, &outputs);
   EXPECT_TRUE(status.ok()) << status.message();
 
   // Validate results
