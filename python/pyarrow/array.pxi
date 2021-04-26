@@ -2180,7 +2180,7 @@ cdef class StructArray(Array):
         for arr in arrays:
             c_array = pyarrow_unwrap_array(arr)
             if c_array == nullptr:
-                raise TypeError(f"Unsupported array type {arr.__class__}")
+                raise TypeError(f"Expected Array, got {arr.__class__}")
             c_arrays.push_back(c_array)
         if names is not None:
             for name in names:

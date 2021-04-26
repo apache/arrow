@@ -667,9 +667,12 @@ def test_struct_from_arrays():
 
 
 def test_struct_array_from_chunked():
+    # ARROW-11780
+    # Check that we don't segfault when trying to build
+    # a StructArray from a chunked array.
     chunked_arr = pa.chunked_array([[1, 2, 3], [4, 5, 6]])
 
-    with pytest.raises(TypeError, match="Unsupported array type"):
+    with pytest.raises(TypeError, match="Expected Array"):
         pa.StructArray.from_arrays([chunked_arr], ["foo"])
 
 
